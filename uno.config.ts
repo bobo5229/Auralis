@@ -44,5 +44,7 @@ export default defineConfig({
       'rounded px-3 py-2 text-xs font-medium text-ink/64 transition hover:bg-black/6 hover:text-ink',
     'player-control-primary':
       'rounded bg-ink px-4 py-2 text-xs font-medium text-paper transition hover:bg-ink/88',
+    'theme-toggle-button':
+      'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink/58 transition hover:bg-black/6 hover:text-ink',
   },
 })

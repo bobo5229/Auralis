@@ -113,6 +113,7 @@ Settings UI → Typed IPC → LibraryScanService → Worker thread → Repositor
 SQLite via `better-sqlite3`. Schema migrations are defined in `src/main/database/schema.ts` as an ordered array of `{ id, name, sql }` objects. The migration runner tracks applied migrations in a `schema_migrations` table.
 
 Current tables:
+
 - **tracks** — audio files with metadata (file_path is unique, indexed with file_size + file_mtime_ms for scan dedup)
 - **albums** — album titles with artist (unique on title + artist)
 - **library_roots** — user-selected music directories
@@ -142,6 +143,7 @@ Routes registered in `src/renderer/app/router/index.ts` using Vue Router with ha
 ### Documentation
 
 Design docs in `docs/` (written in Chinese):
+
 - `Auralis 曲库加载 PRD.md` — library scanning product requirements
 - `Auralis 曲库加载技术设计.md` — library scanning technical design
 - `Auralis 悬浮 Playbar PRD.md` — floating playbar product requirements (P0 not yet implemented)
