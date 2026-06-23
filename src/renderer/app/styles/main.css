@@ -37,6 +37,15 @@ body {
   margin: 0;
 }
 
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+*:focus {
+  outline: none;
+}
+
 button,
 input {
   font: inherit;
