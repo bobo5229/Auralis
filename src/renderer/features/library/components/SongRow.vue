@@ -1,18 +1,29 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { formatArtist } from '../utils/formatArtist'
 import { formatDuration } from '../utils/formatDuration'
 
-defineProps<{
+const props = defineProps<{
   track: TrackListItem
   selected: boolean
   index: number
+  artworkUrl: string | null
 }>()
 
 defineEmits<{
   select: [trackId: number]
   play: [trackId: number]
 }>()
+
+const imgError = ref(false)
+
+watch(
+  () => props.artworkUrl,
+  () => {
+    imgError.value = false
+  },
+)
 </script>
 
 <template>
@@ -25,8 +36,14 @@ defineEmits<{
     @click="$emit('select', track.id)"
     @dblclick="$emit('play', track.id)"
   >
-    <div class="song-cover">
-      <span class="i-lucide-music text-ink/20 text-sm"></span>
+    <div class="song-cover overflow-hidden">
+      <img
+        v-if="artworkUrl && !imgError"
+        :src="artworkUrl"
+        class="h-full w-full object-cover"
+        @error="imgError = true"
+      />
+      <span v-else class="i-lucide-music text-ink/20 text-sm"></span>
     </div>
     <div class="song-title" :class="{ 'text-[var(--auralis-song-row-selected-text)]': selected }">
       {{ track.title }}

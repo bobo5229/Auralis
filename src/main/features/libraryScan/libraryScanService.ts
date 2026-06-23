@@ -21,14 +21,16 @@ export class LibraryScanService {
   private readonly scanJobRepository: ScanJobRepository
   private readonly scanFailureRepository: ScanFailureRepository
   private readonly trackRepository: TrackRepository
+  private readonly artworkCacheDir: string
   private activeWorker: Worker | null = null
   private activeJobId: number | null = null
 
-  constructor(db: Database.Database) {
+  constructor(db: Database.Database, artworkCacheDir: string) {
     this.libraryRootRepository = new LibraryRootRepository(db)
     this.scanJobRepository = new ScanJobRepository(db)
     this.scanFailureRepository = new ScanFailureRepository(db)
     this.trackRepository = new TrackRepository(db)
+    this.artworkCacheDir = artworkCacheDir
     this.scanJobRepository.markInterruptedJobs()
   }
 
@@ -107,6 +109,7 @@ export class LibraryScanService {
       jobId,
       rootPath,
       knownFiles: this.trackRepository.getKnownFiles(),
+      artworkCacheDir: this.artworkCacheDir,
     }
     const workerPath = join(__dirname, 'features/libraryScan/libraryScanWorker.js')
     const worker = new Worker(workerPath, {
@@ -150,6 +153,11 @@ export class LibraryScanService {
 
     if (message.type === 'tracks') {
       this.trackRepository.upsertMany(message.payload)
+      return
+    }
+
+    if (message.type === 'albumArtwork') {
+      this.trackRepository.patchAlbumArtwork(message.payload)
       return
     }
 

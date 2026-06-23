@@ -4,6 +4,7 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import SongRow from '../components/SongRow.vue'
+import { getArtworkUrl } from '../utils/getArtworkUrl'
 
 const tracks = ref<TrackListItem[]>([])
 const selectedId = ref<number | null>(null)
@@ -50,6 +51,7 @@ onMounted(async () => {
           :track="tracks[virtualRow.index]"
           :index="virtualRow.index"
           :selected="selectedId === tracks[virtualRow.index].id"
+          :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
           :style="{
             height: `${virtualRow.size}px`,
             transform: `translateY(${virtualRow.start}px)`,

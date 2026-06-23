@@ -1,18 +1,25 @@
-import type { ScannedTrack, TrackListItem } from '@shared/types/libraryScan'
+import type { AlbumArtworkPatch, ScannedTrack, TrackListItem } from '@shared/types/libraryScan'
 import { BaseRepository } from './baseRepository'
 
 export interface KnownTrackFile {
   filePath: string
   fileSize: number | null
   fileMtimeMs: number | null
+  album: string | null
+  albumArtist: string | null
+  artworkCacheKey: string | null
 }
 
 export class TrackRepository extends BaseRepository {
   getAll(): TrackListItem[] {
     return this.db
       .prepare(
-        `SELECT id, title, artist, album, duration_seconds AS durationSeconds
-         FROM tracks ORDER BY id ASC`,
+        `SELECT t.id, t.title, t.artist, t.album,
+                t.duration_seconds AS durationSeconds,
+                a.artwork_cache_key AS artworkCacheKey
+         FROM tracks t
+         LEFT JOIN albums a ON t.album = a.title AND t.album_artist = a.artist
+         ORDER BY t.id ASC`,
       )
       .all() as TrackListItem[]
   }
@@ -20,12 +27,14 @@ export class TrackRepository extends BaseRepository {
   getKnownFiles(): KnownTrackFile[] {
     return this.db
       .prepare(
-        `
-          SELECT file_path AS filePath,
-                 file_size AS fileSize,
-                 file_mtime_ms AS fileMtimeMs
-          FROM tracks
-        `,
+        `SELECT t.file_path AS filePath,
+                t.file_size AS fileSize,
+                t.file_mtime_ms AS fileMtimeMs,
+                t.album AS album,
+                t.album_artist AS albumArtist,
+                a.artwork_cache_key AS artworkCacheKey
+         FROM tracks t
+         LEFT JOIN albums a ON t.album = a.title AND t.album_artist = a.artist`,
       )
       .all() as KnownTrackFile[]
   }
@@ -69,10 +78,13 @@ export class TrackRepository extends BaseRepository {
         updated_at = CURRENT_TIMESTAMP
     `)
 
-    const insertAlbum = this.db.prepare(`
-      INSERT INTO albums (title, artist)
-      VALUES (?, ?)
-      ON CONFLICT(title, artist) DO NOTHING
+    const upsertAlbum = this.db.prepare(`
+      INSERT INTO albums (title, artist, artwork_cache_key)
+      VALUES (?, ?, ?)
+      ON CONFLICT(title, artist) DO UPDATE SET
+        artwork_cache_key = excluded.artwork_cache_key
+        WHERE albums.artwork_cache_key IS NULL
+          AND excluded.artwork_cache_key IS NOT NULL
     `)
 
     const upsertBatch = this.db.transaction((items: ScannedTrack[]) => {
@@ -92,12 +104,37 @@ export class TrackRepository extends BaseRepository {
           track.releaseDate,
           track.genre,
         )
-        insertAlbum.run(track.album, track.albumArtist || track.artist)
+        upsertAlbum.run(track.album, track.albumArtist || track.artist, track.artworkCacheKey)
       }
     })
 
     for (let index = 0; index < tracks.length; index += 300) {
       upsertBatch(tracks.slice(index, index + 300))
+    }
+  }
+
+  patchAlbumArtwork(items: AlbumArtworkPatch[]): void {
+    if (items.length === 0) {
+      return
+    }
+
+    const upsert = this.db.prepare(`
+      INSERT INTO albums (title, artist, artwork_cache_key)
+      VALUES (?, ?, ?)
+      ON CONFLICT(title, artist) DO UPDATE SET
+        artwork_cache_key = excluded.artwork_cache_key
+        WHERE albums.artwork_cache_key IS NULL
+          AND excluded.artwork_cache_key IS NOT NULL
+    `)
+
+    const batch = this.db.transaction((patches: AlbumArtworkPatch[]) => {
+      for (const patch of patches) {
+        upsert.run(patch.album, patch.artist, patch.artworkCacheKey)
+      }
+    })
+
+    for (let index = 0; index < items.length; index += 300) {
+      batch(items.slice(index, index + 300))
     }
   }
 }

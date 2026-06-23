@@ -4,6 +4,8 @@ import { join } from 'node:path'
 import { createWindow } from './app/createWindow'
 import { closeDatabase, initializeDatabase } from './database/connection'
 import { registerIpcHandlers } from './ipc/registerIpcHandlers'
+import { ensureArtworkCacheDir } from './features/artwork/artworkCache'
+import { registerArtworkProtocol } from './features/artwork/artworkProtocol'
 import { logger } from './logging/logger'
 
 if (!app.isPackaged) {
@@ -26,8 +28,10 @@ if (!app.isPackaged) {
 }
 
 app.whenReady().then(() => {
+  const artworkCacheDir = ensureArtworkCacheDir(app.getPath('userData'))
+  registerArtworkProtocol(artworkCacheDir)
   const db = initializeDatabase()
-  registerIpcHandlers(db)
+  registerIpcHandlers(db, artworkCacheDir)
   createWindow()
 
   app.on('activate', () => {

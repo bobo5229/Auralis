@@ -8,9 +8,9 @@ import { LibraryService } from '@main/services/libraryService'
 import type { IpcResponse } from '@shared/ipc/contracts'
 import type Database from 'better-sqlite3'
 
-export function registerIpcHandlers(db: Database.Database): void {
+export function registerIpcHandlers(db: Database.Database, artworkCacheDir: string): void {
   const libraryService = new LibraryService(new LibraryRepository(db), new TrackRepository(db))
-  const libraryScanService = new LibraryScanService(db)
+  const libraryScanService = new LibraryScanService(db, artworkCacheDir)
 
   ipcMain.handle(
     ipcChannels.app.getInfo,

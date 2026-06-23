@@ -4,6 +4,7 @@ export interface TrackListItem {
   artist: string | null
   album: string | null
   durationSeconds: number | null
+  artworkCacheKey: string | null
 }
 
 export type LibraryScanStatusValue = 'idle' | 'scanning' | 'completed' | 'canceled' | 'failed'
@@ -51,12 +52,19 @@ export interface ScannedTrack {
   year: number | null
   releaseDate: string | null
   genre: string | null
+  artworkCacheKey: string | null
 }
 
 export interface ScanFailure {
   jobId: number
   filePath: string
   reason: string
+}
+
+export interface AlbumArtworkPatch {
+  album: string
+  artist: string
+  artworkCacheKey: string
 }
 
 export interface SelectLibraryRootResult {
