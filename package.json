@@ -1,0 +1,50 @@
+{
+  "name": "auralis",
+  "version": "0.1.0",
+  "description": "A quiet local music archive built with Electron, Vue, TypeScript, and SQLite.",
+  "private": true,
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "vue-tsc --noEmit && electron-vite build",
+    "preview": "electron-vite preview",
+    "rebuild:native": "set USERPROFILE=%CD%\\.electron-home&& set HOME=%CD%\\.electron-home&& electron-rebuild -f -w better-sqlite3",
+    "typecheck": "vue-tsc --noEmit",
+    "lint": "eslint src electron.vite.config.ts eslint.config.js uno.config.ts",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@motionone/dom": "^10.18.0",
+    "@tanstack/vue-virtual": "^3.13.12",
+    "@vueuse/core": "^12.8.2",
+    "better-sqlite3": "^11.9.1",
+    "music-metadata": "^11.13.0",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/tsconfig": "^1.0.1",
+    "@electron/rebuild": "^4.0.4",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.13.10",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/eslint-config-prettier": "^10.2.0",
+    "@vue/eslint-config-typescript": "^14.4.0",
+    "electron": "^38.0.0",
+    "electron-vite": "^3.0.0",
+    "eslint": "^9.22.0",
+    "eslint-plugin-vue": "^9.32.0",
+    "prettier": "^3.5.3",
+    "typescript": "~5.7.3",
+    "unocss": "^0.65.4",
+    "vite": "^6.2.2",
+    "vue-tsc": "^2.2.8"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

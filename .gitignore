@@ -1,0 +1,15 @@
+dist/
+out/
+node_modules/
+.npm-cache/
+.electron-gyp/
+.electron-home/
+AppData/
+*.log
+*.local
+.DS_Store
+Thumbs.db
+data/
+.env
+.env.*
+!.env.example
