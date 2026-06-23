@@ -1,15 +1,37 @@
+# Dependencies
+node_modules/
+
+# Build output
 dist/
 out/
-node_modules/
+
+# Electron native modules cache
 .npm-cache/
 .electron-gyp/
 .electron-home/
-AppData/
-*.log
-*.local
-.DS_Store
-Thumbs.db
+
+# App data (local database, cache)
 data/
+AppData/
+
+# Environment
 .env
 .env.*
 !.env.example
+
+# Claude Code
+.claude/
+.agents/
+
+# Coverage
+coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local overrides
+*.local
