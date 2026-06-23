@@ -1,3 +1,11 @@
+export interface TrackListItem {
+  id: number
+  title: string | null
+  artist: string | null
+  album: string | null
+  durationSeconds: number | null
+}
+
 export type LibraryScanStatusValue = 'idle' | 'scanning' | 'completed' | 'canceled' | 'failed'
 
 export interface LibraryRoot {

@@ -17,7 +17,7 @@ export default defineConfig({
       'grid h-screen grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-[var(--auralis-bg)] text-ink xl:grid-cols-[260px_minmax(0,1fr)_292px]',
     'app-sidebar':
       'flex w-[232px] h-[calc(100vh-24px)] min-h-0 flex-col m-[12px_0_12px_12px] rounded-[20px] border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
-    'app-main': 'min-h-0 overflow-y-auto pb-28 bg-[var(--auralis-main-bg)]',
+    'app-main': 'min-h-0 overflow-y-auto bg-[var(--auralis-main-bg)]',
     'now-playing-panel':
       'hidden min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-24 xl:flex',
     'player-bar':
@@ -46,5 +46,13 @@ export default defineConfig({
       'rounded bg-ink px-4 py-2 text-xs font-medium text-paper transition hover:bg-ink/88',
     'theme-toggle-button':
       'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink/58 transition hover:bg-black/6 hover:text-ink',
+    'song-row':
+      'grid h-11 grid-cols-[44px_minmax(0,1fr)_140px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer transition-colors',
+    'song-cover':
+      'h-11 w-11 shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
+    'song-title': 'text-sm font-bold truncate',
+    'song-artist': 'text-sm font-medium text-ink/58 truncate',
+    'song-album': 'text-sm font-medium text-ink/46 truncate',
+    'song-duration': 'text-sm text-ink/42 text-right tabular-nums',
   },
 })

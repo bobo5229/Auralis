@@ -3,6 +3,7 @@ import type {
   LibraryRoot,
   LibraryScanStatus,
   SelectLibraryRootResult,
+  TrackListItem,
 } from '@shared/types/libraryScan'
 
 export interface IpcInvokeContract {
@@ -33,6 +34,10 @@ export interface IpcInvokeContract {
   'library:get-scan-status': {
     request: { jobId?: number } | void
     response: LibraryScanStatus | null
+  }
+  'library:get-tracks': {
+    request: void
+    response: TrackListItem[]
   }
 }
 

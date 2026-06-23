@@ -4,6 +4,7 @@ import type {
   LibraryScanProgress,
   LibraryScanStatus,
   SelectLibraryRootResult,
+  TrackListItem,
 } from '@shared/types/libraryScan'
 
 export interface AuralisApi {
@@ -17,6 +18,7 @@ export interface AuralisApi {
     startScan: (rootId: number) => Promise<{ jobId: number }>
     cancelScan: (jobId: number) => Promise<{ ok: boolean }>
     getScanStatus: (jobId?: number) => Promise<LibraryScanStatus | null>
+    getTracks: () => Promise<TrackListItem[]>
     onScanProgress: (callback: (progress: LibraryScanProgress) => void) => () => void
   }
 }

@@ -9,6 +9,7 @@ export const ipcChannels = {
     startScan: 'library:start-scan',
     cancelScan: 'library:cancel-scan',
     getScanStatus: 'library:get-scan-status',
+    getTracks: 'library:get-tracks',
     scanProgress: 'library:scan-progress',
   },
 } as const

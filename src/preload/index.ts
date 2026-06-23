@@ -23,6 +23,7 @@ export const auralisApi: AuralisApi = {
     cancelScan: (jobId) => invoke(ipcChannels.library.cancelScan, { jobId }),
     getScanStatus: (jobId) =>
       invoke(ipcChannels.library.getScanStatus, jobId ? { jobId } : undefined),
+    getTracks: () => invoke(ipcChannels.library.getTracks),
     onScanProgress: (callback) => {
       const listener = (_event: Electron.IpcRendererEvent, progress: LibraryScanProgress) => {
         callback(progress)

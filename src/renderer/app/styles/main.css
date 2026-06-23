@@ -21,6 +21,16 @@
   --auralis-sidebar-bg: #fafafb;
   --auralis-now-playing-bg: #fafafb;
   --auralis-border-subtle: rgba(31, 35, 40, 0.08);
+
+  /* Playbar safe area */
+  --auralis-playbar-safe-area: 96px;
+
+  /* Song list tokens */
+  --auralis-song-row-bg: transparent;
+  --auralis-song-row-alt-bg: rgba(31, 35, 40, 0.025);
+  --auralis-song-row-hover-bg: rgba(31, 35, 40, 0.045);
+  --auralis-song-row-selected-bg: rgba(93, 103, 115, 0.1);
+  --auralis-song-row-selected-text: #3d5a80;
 }
 
 [data-theme='dark'] {
@@ -29,6 +39,16 @@
   --auralis-sidebar-bg: #232324;
   --auralis-now-playing-bg: #232324;
   --auralis-border-subtle: rgba(255, 255, 255, 0.08);
+
+  /* Playbar safe area */
+  --auralis-playbar-safe-area: 96px;
+
+  /* Song list tokens */
+  --auralis-song-row-bg: rgba(255, 255, 255, 0.015);
+  --auralis-song-row-alt-bg: rgba(255, 255, 255, 0.04);
+  --auralis-song-row-hover-bg: rgba(255, 255, 255, 0.07);
+  --auralis-song-row-selected-bg: rgba(93, 103, 115, 0.2);
+  --auralis-song-row-selected-text: #8aaccc;
 }
 
 body {

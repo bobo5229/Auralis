@@ -1,4 +1,4 @@
-import type { ScannedTrack } from '@shared/types/libraryScan'
+import type { ScannedTrack, TrackListItem } from '@shared/types/libraryScan'
 import { BaseRepository } from './baseRepository'
 
 export interface KnownTrackFile {
@@ -8,8 +8,17 @@ export interface KnownTrackFile {
 }
 
 export class TrackRepository extends BaseRepository {
+  getAll(): TrackListItem[] {
+    return this.db
+      .prepare(
+        `SELECT id, title, artist, album, duration_seconds AS durationSeconds
+         FROM tracks ORDER BY id ASC`,
+      )
+      .all() as TrackListItem[]
+  }
+
   getKnownFiles(): KnownTrackFile[] {
-    const rows = this.db
+    return this.db
       .prepare(
         `
           SELECT file_path AS filePath,
@@ -19,8 +28,6 @@ export class TrackRepository extends BaseRepository {
         `,
       )
       .all() as KnownTrackFile[]
-
-    return rows
   }
 
   upsertMany(tracks: ScannedTrack[]): void {

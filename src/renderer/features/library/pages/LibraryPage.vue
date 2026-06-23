@@ -1,41 +1,68 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import type { LibraryStats } from '@shared/types/app'
+import { computed, onMounted, ref } from 'vue'
+import { useVirtualizer } from '@tanstack/vue-virtual'
+import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
-import { fadeIn } from '@renderer/shared/animation/motion'
+import SongRow from '../components/SongRow.vue'
 
-const stats = ref<LibraryStats | null>(null)
-const page = ref<HTMLElement | null>(null)
+const tracks = ref<TrackListItem[]>([])
+const selectedId = ref<number | null>(null)
+const scrollRef = ref<HTMLElement | null>(null)
+
+const rowVirtualizer = useVirtualizer(
+  computed(() => ({
+    count: tracks.value.length,
+    getScrollElement: () => scrollRef.value,
+    estimateSize: () => 44,
+    overscan: 12,
+  })),
+)
+
+const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
+const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
+
+function onSelect(trackId: number) {
+  selectedId.value = trackId
+}
+
+function onPlay(trackId: number) {
+  // TODO: trigger playback when implemented
+  selectedId.value = trackId
+}
 
 onMounted(async () => {
-  stats.value = await auralis.library.getStats()
-
-  if (page.value) {
-    fadeIn(page.value)
-  }
+  tracks.value = await auralis.library.getTracks()
+  rowVirtualizer.value.scrollToIndex(0)
 })
 </script>
 
 <template>
-  <section ref="page" class="content-frame opacity-0">
-    <div class="mb-8">
-      <h1 class="text-3xl font-semibold tracking-0">Library</h1>
-      <p class="mt-2 max-w-2xl text-sm leading-6 text-ink/64">
-        A calm foundation for a local collection. The database is ready, but no music has been
-        scanned.
-      </p>
+  <section class="flex h-full flex-col">
+    <div
+      v-if="tracks.length > 0"
+      ref="scrollRef"
+      class="flex-1 overflow-auto pb-[var(--auralis-playbar-safe-area)]"
+    >
+      <div :style="{ height: `${totalSize}px`, width: '100%', position: 'relative' }">
+        <SongRow
+          v-for="virtualRow in virtualRows"
+          :key="virtualRow.key"
+          :track="tracks[virtualRow.index]"
+          :index="virtualRow.index"
+          :selected="selectedId === tracks[virtualRow.index].id"
+          :style="{
+            height: `${virtualRow.size}px`,
+            transform: `translateY(${virtualRow.start}px)`,
+          }"
+          class="absolute left-0 top-0 w-full"
+          @select="onSelect"
+          @play="onPlay"
+        />
+      </div>
     </div>
 
-    <div class="grid gap-4 md:grid-cols-2">
-      <article class="quiet-panel rounded p-5">
-        <div class="text-sm text-ink/58">Tracks</div>
-        <div class="mt-3 text-4xl font-semibold">{{ stats?.trackCount ?? 0 }}</div>
-      </article>
-
-      <article class="quiet-panel rounded p-5">
-        <div class="text-sm text-ink/58">Albums</div>
-        <div class="mt-3 text-4xl font-semibold">{{ stats?.albumCount ?? 0 }}</div>
-      </article>
+    <div v-else class="flex flex-1 items-center justify-center">
+      <p class="text-sm text-ink/42">No tracks found. Add music folders in Settings.</p>
     </div>
   </section>
 </template>

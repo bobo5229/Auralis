@@ -2,13 +2,14 @@ import { app, ipcMain } from 'electron'
 import { ipcChannels } from '@shared/ipc/channels'
 import { getDatabasePath } from '@main/database/connection'
 import { LibraryRepository } from '@main/repositories/libraryRepository'
+import { TrackRepository } from '@main/repositories/trackRepository'
 import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
 import { LibraryService } from '@main/services/libraryService'
 import type { IpcResponse } from '@shared/ipc/contracts'
 import type Database from 'better-sqlite3'
 
 export function registerIpcHandlers(db: Database.Database): void {
-  const libraryService = new LibraryService(new LibraryRepository(db))
+  const libraryService = new LibraryService(new LibraryRepository(db), new TrackRepository(db))
   const libraryScanService = new LibraryScanService(db)
 
   ipcMain.handle(
@@ -51,5 +52,10 @@ export function registerIpcHandlers(db: Database.Database): void {
     ipcChannels.library.getScanStatus,
     (_event, payload?: { jobId?: number }): IpcResponse<'library:get-scan-status'> =>
       libraryScanService.getScanStatus(payload?.jobId),
+  )
+
+  ipcMain.handle(
+    ipcChannels.library.getTracks,
+    (): IpcResponse<'library:get-tracks'> => libraryService.getTracks(),
   )
 }
