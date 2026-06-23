@@ -1,6 +1,6 @@
 <template>
   <aside class="now-playing-panel">
-    <div class="border-b border-black/8 px-5 py-4">
+    <div class="border-b border-[var(--auralis-border-subtle)] px-5 py-4">
       <div class="text-sm font-semibold">Now Playing</div>
     </div>
 

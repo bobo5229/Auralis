@@ -14,13 +14,25 @@ export default defineConfig({
   },
   shortcuts: {
     'app-shell':
-      'grid h-screen grid-cols-[232px_minmax(0,1fr)] overflow-hidden bg-paper text-ink xl:grid-cols-[232px_minmax(0,1fr)_292px]',
-    'app-sidebar': 'flex min-h-0 flex-col border-r border-black/8 bg-linen/68 pb-24',
-    'app-main': 'min-h-0 overflow-y-auto pb-28',
+      'grid h-screen grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-[var(--auralis-bg)] text-ink xl:grid-cols-[260px_minmax(0,1fr)_292px]',
+    'app-sidebar':
+      'flex w-[232px] h-[calc(100vh-24px)] min-h-0 flex-col m-[12px_0_12px_12px] rounded-[20px] border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
+    'app-main': 'min-h-0 overflow-y-auto pb-28 bg-[var(--auralis-main-bg)]',
     'now-playing-panel':
-      'hidden min-h-0 flex-col border-l border-black/8 bg-white/40 pb-24 xl:flex',
+      'hidden min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-24 xl:flex',
     'player-bar':
-      'fixed bottom-0 left-0 right-0 z-20 grid h-20 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4 border-t border-black/10 bg-paper/94 px-5 shadow-[0_-8px_28px_rgba(31,37,40,0.08)] backdrop-blur',
+      'fixed left-1/2 bottom-6 z-50 flex h-18 w-[min(960px,calc(100vw-320px))] min-w-[720px] -translate-x-1/2 items-center gap-5 rounded-full border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)]/95 px-6 shadow-[0_18px_48px_rgba(31,35,40,0.12)] backdrop-blur-sm',
+    'transport-controls': 'flex items-center gap-2 shrink-0',
+    'playback-actions': 'flex items-center gap-3 shrink-0',
+    'track-info-card': 'flex-1 min-w-0',
+    'track-info-row': 'flex items-center gap-3',
+    'track-cover':
+      'w-11 h-11 rounded-lg shrink-0 bg-[var(--auralis-border-subtle)] overflow-hidden',
+    'track-text': 'flex flex-col justify-center min-w-0 h-11',
+    'track-title': 'text-[13px] leading-[18px] font-semibold truncate',
+    'track-subtitle': 'text-xs leading-4 text-ink/58 truncate',
+    'track-progress': 'w-full h-[3px] rounded-full bg-black/8 overflow-hidden mt-1.5',
+    'track-progress-fill': 'h-full bg-dusk/70',
     'content-frame': 'mx-auto w-full max-w-7xl px-7 py-7',
     'quiet-panel': 'border border-black/8 bg-white/55 shadow-sm',
     'sidebar-section-label':
