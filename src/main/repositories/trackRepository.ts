@@ -41,10 +41,11 @@ export class TrackRepository extends BaseRepository {
         disc_no,
         duration_seconds,
         year,
+        release_date,
         genre,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(file_path) DO UPDATE SET
         file_size = excluded.file_size,
         file_mtime_ms = excluded.file_mtime_ms,
@@ -56,6 +57,7 @@ export class TrackRepository extends BaseRepository {
         disc_no = excluded.disc_no,
         duration_seconds = excluded.duration_seconds,
         year = excluded.year,
+        release_date = excluded.release_date,
         genre = excluded.genre,
         updated_at = CURRENT_TIMESTAMP
     `)
@@ -80,6 +82,7 @@ export class TrackRepository extends BaseRepository {
           track.discNo,
           track.durationSeconds,
           track.year,
+          track.releaseDate,
           track.genre,
         )
         insertAlbum.run(track.album, track.albumArtist || track.artist)

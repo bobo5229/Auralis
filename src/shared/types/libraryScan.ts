@@ -41,6 +41,7 @@ export interface ScannedTrack {
   discNo: number | null
   durationSeconds: number | null
   year: number | null
+  releaseDate: string | null
   genre: string | null
 }
 

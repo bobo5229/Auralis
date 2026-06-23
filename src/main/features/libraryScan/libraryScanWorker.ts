@@ -70,6 +70,17 @@ async function collectAudioFiles(directoryPath: string): Promise<string[]> {
   return files
 }
 
+function getYear(commonYear: number | undefined, date: string | undefined): number | null {
+  if (typeof commonYear === 'number') return commonYear
+
+  if (date) {
+    const parsedYear = Number.parseInt(date.slice(0, 4), 10)
+    return Number.isNaN(parsedYear) ? null : parsedYear
+  }
+
+  return null
+}
+
 function flushTrackBatch(): void {
   if (trackBatch.length === 0) {
     return
@@ -99,6 +110,7 @@ async function readTrack(filePath: string): Promise<ScannedTrack> {
       discNo: null,
       durationSeconds: null,
       year: null,
+      releaseDate: null,
       genre: null,
     }
   }
@@ -120,7 +132,8 @@ async function readTrack(filePath: string): Promise<ScannedTrack> {
       trackNo: common.track.no ?? null,
       discNo: common.disk.no ?? null,
       durationSeconds: metadata.format.duration ?? null,
-      year: common.year ?? null,
+      year: getYear(common.year, common.date),
+      releaseDate: common.date ?? null,
       genre: common.genre?.join(', ') ?? null,
     }
   } catch (error) {
@@ -146,6 +159,7 @@ async function readTrack(filePath: string): Promise<ScannedTrack> {
       discNo: null,
       durationSeconds: null,
       year: null,
+      releaseDate: null,
       genre: null,
     }
   }

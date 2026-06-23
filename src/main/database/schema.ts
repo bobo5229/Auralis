@@ -77,6 +77,13 @@ const migrations = [
       CREATE INDEX IF NOT EXISTS idx_scan_failures_job_id ON scan_failures(job_id);
     `,
   },
+  {
+    id: 3,
+    name: 'add_release_date_to_tracks',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN release_date TEXT;
+    `,
+  },
 ] as const
 
 export function migrateDatabase(db: Database.Database): void {
