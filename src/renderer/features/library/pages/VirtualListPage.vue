@@ -25,25 +25,36 @@ const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
     <div class="mb-6 flex items-end justify-between gap-4">
       <div>
         <h1 class="text-3xl font-semibold tracking-0">Virtual List</h1>
-        <p class="mt-2 text-sm text-ink/62">30,000 rows rendered through TanStack Virtual.</p>
+        <p class="mt-2 text-sm text-[var(--auralis-text-muted)]">
+          30,000 rows rendered through TanStack Virtual.
+        </p>
       </div>
-      <div class="rounded bg-dusk px-3 py-2 text-sm text-paper">{{ rows.length }} rows</div>
+      <div
+        class="rounded bg-[var(--auralis-control-primary-bg)] px-3 py-2 text-sm text-[var(--auralis-control-primary-text)]"
+      >
+        {{ rows.length }} rows
+      </div>
     </div>
 
-    <div ref="parentRef" class="h-126 overflow-auto rounded border border-black/10 bg-white/62">
+    <div
+      ref="parentRef"
+      class="h-126 overflow-auto rounded border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)]/70"
+    >
       <div :style="{ height: `${totalSize}px`, width: '100%', position: 'relative' }">
         <div
           v-for="virtualRow in virtualRows"
           :key="virtualRow.key"
-          class="absolute left-0 top-0 grid w-full grid-cols-[96px_1fr_1fr] items-center border-b border-black/6 px-4 text-sm"
+          class="absolute left-0 top-0 grid w-full grid-cols-[96px_1fr_1fr] items-center border-b border-[var(--auralis-border-subtle)] px-4 text-sm"
           :style="{
             height: `${virtualRow.size}px`,
             transform: `translateY(${virtualRow.start}px)`,
           }"
         >
-          <span class="text-ink/48">#{{ rows[virtualRow.index].id }}</span>
+          <span class="text-[var(--auralis-text-subtle)]">#{{ rows[virtualRow.index].id }}</span>
           <span class="font-medium">{{ rows[virtualRow.index].title }}</span>
-          <span class="truncate text-ink/58">{{ rows[virtualRow.index].album }}</span>
+          <span class="truncate text-[var(--auralis-text-muted)]">
+            {{ rows[virtualRow.index].album }}
+          </span>
         </div>
       </div>
     </div>

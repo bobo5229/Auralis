@@ -105,18 +105,20 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="mt-6 rounded border border-black/10 bg-white/56 p-5">
+  <section
+    class="mt-6 rounded border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)]/70 p-5"
+  >
     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div>
         <h2 class="text-base font-semibold">Music Library</h2>
-        <p class="mt-1 max-w-2xl text-sm leading-6 text-ink/58">
+        <p class="mt-1 max-w-2xl text-sm leading-6 text-[var(--auralis-text-muted)]">
           Choose a local music folder and let Auralis build its private archive in the background.
         </p>
       </div>
 
       <div class="flex shrink-0 gap-2">
         <button
-          class="rounded bg-white px-3 py-2 text-sm font-medium text-ink shadow-sm transition hover:bg-linen disabled:opacity-45"
+          class="rounded bg-[var(--auralis-control-active-bg)] px-3 py-2 text-sm font-medium text-[var(--auralis-text)] shadow-sm transition hover:bg-[var(--auralis-control-hover-bg)] disabled:opacity-45"
           type="button"
           :disabled="isLoading || isScanning"
           @click="chooseFolder"
@@ -125,7 +127,7 @@ onBeforeUnmount(() => {
         </button>
         <button
           v-if="!isScanning"
-          class="rounded bg-ink px-3 py-2 text-sm font-medium text-paper transition hover:bg-ink/88 disabled:opacity-45"
+          class="rounded bg-[var(--auralis-control-primary-bg)] px-3 py-2 text-sm font-medium text-[var(--auralis-control-primary-text)] transition opacity-92 hover:opacity-100 disabled:opacity-45"
           type="button"
           :disabled="isLoading || !activeRoot"
           @click="startScan"
@@ -145,24 +147,27 @@ onBeforeUnmount(() => {
 
     <div class="mt-5 grid gap-3 text-sm">
       <div class="grid gap-1 md:grid-cols-[140px_1fr]">
-        <div class="text-ink/52">Folder</div>
+        <div class="text-[var(--auralis-text-subtle)]">Folder</div>
         <div class="break-all">{{ activeRoot?.path ?? 'No folder selected' }}</div>
       </div>
       <div class="grid gap-1 md:grid-cols-[140px_1fr]">
-        <div class="text-ink/52">Status</div>
+        <div class="text-[var(--auralis-text-subtle)]">Status</div>
         <div>{{ statusLabel }}</div>
       </div>
       <div class="grid gap-1 md:grid-cols-[140px_1fr]">
-        <div class="text-ink/52">Last scanned</div>
+        <div class="text-[var(--auralis-text-subtle)]">Last scanned</div>
         <div>{{ activeRoot?.lastScannedAt ?? 'Never' }}</div>
       </div>
     </div>
 
     <div class="mt-5">
-      <div class="h-2 overflow-hidden rounded bg-black/8">
-        <div class="h-full bg-dusk transition-all" :style="{ width: `${progressPercent}%` }"></div>
+      <div class="h-2 overflow-hidden rounded bg-[var(--auralis-progress-track)]">
+        <div
+          class="h-full bg-[var(--auralis-progress-fill)] transition-all"
+          :style="{ width: `${progressPercent}%` }"
+        ></div>
       </div>
-      <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-ink/54">
+      <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-[var(--auralis-text-subtle)]">
         <span>{{ scannedFiles }} / {{ totalFiles }} scanned</span>
         <span>{{ failedFiles }} failed</span>
         <span>{{ progressPercent }}%</span>

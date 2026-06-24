@@ -58,4 +58,10 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     ipcChannels.library.getTracks,
     (): IpcResponse<'library:get-tracks'> => libraryService.getTracks(),
   )
+
+  ipcMain.handle(
+    ipcChannels.lyrics.getByTrackId,
+    (_event, payload: { trackId: number }): IpcResponse<'lyrics:get-by-track-id'> =>
+      libraryService.getLyrics(payload.trackId),
+  )
 }

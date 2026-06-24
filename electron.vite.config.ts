@@ -31,6 +31,7 @@ export default defineConfig({
     },
   },
   renderer: {
+    root: resolve('src/renderer'),
     resolve: {
       alias: {
         '@renderer': resolve('src/renderer'),
@@ -39,7 +40,9 @@ export default defineConfig({
     },
     build: {
       rollupOptions: {
-        input: resolve('src/renderer/index.html'),
+        input: {
+          index: resolve('src/renderer/index.html'),
+        },
       },
     },
     plugins: [vue(), UnoCSS()],

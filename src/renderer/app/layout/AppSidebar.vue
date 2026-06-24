@@ -33,7 +33,7 @@ const utilityNav = [
           <span class="h-4 w-4" :class="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"></span>
         </button>
       </div>
-      <div class="mt-1 text-xs text-ink/52">Local Music Archive</div>
+      <div class="mt-1 text-xs text-[var(--auralis-text-subtle)]">Local Music Archive</div>
     </div>
 
     <nav class="flex flex-1 flex-col gap-6 px-3">

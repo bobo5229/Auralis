@@ -84,6 +84,28 @@ const migrations = [
       ALTER TABLE tracks ADD COLUMN release_date TEXT;
     `,
   },
+  {
+    id: 4,
+    name: 'add_lyrics_to_tracks',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN lyrics_text TEXT;
+      ALTER TABLE tracks ADD COLUMN lyrics_format TEXT;
+    `,
+  },
+  {
+    id: 5,
+    name: 'add_lyrics_checked_mtime_to_tracks',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN lyrics_checked_mtime_ms INTEGER;
+    `,
+  },
+  {
+    id: 6,
+    name: 'add_metadata_checked_mtime_to_tracks',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN metadata_checked_mtime_ms INTEGER;
+    `,
+  },
 ] as const
 
 export function migrateDatabase(db: Database.Database): void {

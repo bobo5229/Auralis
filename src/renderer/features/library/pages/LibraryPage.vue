@@ -5,9 +5,12 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import SongRow from '../components/SongRow.vue'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
+import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+
+const playback = usePlayback()
 
 const tracks = ref<TrackListItem[]>([])
-const selectedId = ref<number | null>(null)
+const isLoading = ref(true)
 const scrollRef = ref<HTMLElement | null>(null)
 
 const rowVirtualizer = useVirtualizer(
@@ -23,24 +26,31 @@ const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
 
 function onSelect(trackId: number) {
-  selectedId.value = trackId
+  playback.selectTrack(trackId)
 }
 
 function onPlay(trackId: number) {
-  // TODO: trigger playback when implemented
-  selectedId.value = trackId
+  playback.playTrackFromQueue(tracks.value, trackId)
 }
 
 onMounted(async () => {
-  tracks.value = await auralis.library.getTracks()
-  rowVirtualizer.value.scrollToIndex(0)
+  try {
+    tracks.value = await auralis.library.getTracks()
+    rowVirtualizer.value.scrollToIndex(0)
+  } finally {
+    isLoading.value = false
+  }
 })
 </script>
 
 <template>
   <section class="flex h-full flex-col">
+    <div v-if="isLoading" class="flex flex-1 items-center justify-center">
+      <p class="text-sm text-[var(--auralis-text-faint)]">Loading library...</p>
+    </div>
+
     <div
-      v-if="tracks.length > 0"
+      v-else-if="tracks.length > 0"
       ref="scrollRef"
       class="flex-1 overflow-auto pb-[var(--auralis-playbar-safe-area)]"
     >
@@ -50,7 +60,7 @@ onMounted(async () => {
           :key="virtualRow.key"
           :track="tracks[virtualRow.index]"
           :index="virtualRow.index"
-          :selected="selectedId === tracks[virtualRow.index].id"
+          :selected="playback.state.selectedTrackId === tracks[virtualRow.index].id"
           :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
           :style="{
             height: `${virtualRow.size}px`,
@@ -64,7 +74,9 @@ onMounted(async () => {
     </div>
 
     <div v-else class="flex flex-1 items-center justify-center">
-      <p class="text-sm text-ink/42">No tracks found. Add music folders in Settings.</p>
+      <p class="text-sm text-[var(--auralis-text-faint)]">
+        No tracks found. Add music folders in Settings.
+      </p>
     </div>
   </section>
 </template>

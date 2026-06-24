@@ -14,6 +14,7 @@ async function invoke<TChannel extends IpcInvokeChannel>(
 export const auralisApi: AuralisApi = {
   app: {
     getInfo: () => invoke(ipcChannels.app.getInfo),
+    rendererReady: () => ipcRenderer.send(ipcChannels.app.rendererReady),
   },
   library: {
     getStats: () => invoke(ipcChannels.library.getStats),
@@ -35,6 +36,9 @@ export const auralisApi: AuralisApi = {
         ipcRenderer.removeListener(ipcChannels.library.scanProgress, listener)
       }
     },
+  },
+  lyrics: {
+    getByTrackId: (trackId) => invoke(ipcChannels.lyrics.getByTrackId, { trackId }),
   },
 }
 

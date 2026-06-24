@@ -1,6 +1,7 @@
 export const ipcChannels = {
   app: {
     getInfo: 'app:get-info',
+    rendererReady: 'app:renderer-ready',
   },
   library: {
     getStats: 'library:get-stats',
@@ -11,5 +12,8 @@ export const ipcChannels = {
     getScanStatus: 'library:get-scan-status',
     getTracks: 'library:get-tracks',
     scanProgress: 'library:scan-progress',
+  },
+  lyrics: {
+    getByTrackId: 'lyrics:get-by-track-id',
   },
 } as const

@@ -43,7 +43,7 @@ watch(
         class="h-full w-full object-cover"
         @error="imgError = true"
       />
-      <span v-else class="i-lucide-music text-ink/20 text-sm"></span>
+      <span v-else class="i-lucide-music text-[var(--auralis-text-disabled)] text-sm"></span>
     </div>
     <div class="song-title" :class="{ 'text-[var(--auralis-song-row-selected-text)]': selected }">
       {{ track.title }}

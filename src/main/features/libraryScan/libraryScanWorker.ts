@@ -10,12 +10,14 @@ import type {
   AlbumArtworkPatch,
   LibraryScanProgress,
   ScannedTrack,
+  TrackLyricsPatch,
 } from '@shared/types/libraryScan'
 
 const input = workerData as LibraryScanWorkerInput
 const knownFiles = new Map(input.knownFiles.map((file) => [file.filePath, file]))
 const trackBatch: ScannedTrack[] = []
 const artworkBatch: AlbumArtworkPatch[] = []
+const lyricsBatch: TrackLyricsPatch[] = []
 
 // In-memory caches scoped to this scan run (see §4–7 of TechDoc)
 const albumArtworkCache = new Map<string, string | null>()
@@ -97,6 +99,51 @@ function getYear(commonYear: number | undefined, date: string | undefined): numb
   return null
 }
 
+const LRC_TIMESTAMP = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/
+
+const NATIVE_LYRICS_KEYS = new Set(['USLT', 'SYLT', 'LYRICS', 'UNSYNCEDLYRICS'])
+
+function getTextFromUnknown(value: unknown): string | null {
+  if (typeof value === 'string') {
+    return value.trim() ? value : null
+  }
+
+  if (value && typeof value === 'object' && 'text' in value) {
+    const text = (value as { text: unknown }).text
+    return typeof text === 'string' && text.trim() ? text : null
+  }
+
+  return null
+}
+
+function resolveLyrics(
+  metadata: Awaited<ReturnType<typeof parseFile>>,
+): { text: string; format: 'lrc' | 'plain' } | null {
+  // 1. Prefer common.lyrics (already normalized by music-metadata)
+  let raw = getTextFromUnknown(metadata.common.lyrics?.[0])
+
+  // 2. Fallback: search native tags for lyrics fields
+  if (!raw) {
+    for (const tags of metadata.native.values()) {
+      for (const tag of tags) {
+        if (!NATIVE_LYRICS_KEYS.has(tag.id)) continue
+
+        const text = getTextFromUnknown(tag.value)
+
+        if (text) {
+          raw = text
+          break
+        }
+      }
+      if (raw) break
+    }
+  }
+
+  if (!raw) return null
+
+  return LRC_TIMESTAMP.test(raw) ? { text: raw, format: 'lrc' } : { text: raw, format: 'plain' }
+}
+
 async function extractEmbeddedArtwork(
   metadata: Awaited<ReturnType<typeof parseFile>>,
 ): Promise<ArtworkSource | null> {
@@ -174,9 +221,60 @@ function flushArtworkBatch(): void {
   postMessage({ type: 'albumArtwork', payload: artworkBatch.splice(0, artworkBatch.length) })
 }
 
+function flushLyricsBatch(): void {
+  if (lyricsBatch.length === 0) {
+    return
+  }
+
+  postMessage({ type: 'trackLyrics', payload: lyricsBatch.splice(0, lyricsBatch.length) })
+}
+
+async function createScannedTrack(
+  filePath: string,
+  fileStat: Awaited<ReturnType<typeof stat>>,
+  metadata: Awaited<ReturnType<typeof parseFile>>,
+): Promise<ScannedTrack> {
+  const fallbackTitle = parse(filePath).name || basename(filePath)
+  const common = metadata.common
+  const artworkCacheKey = await resolveArtwork(filePath, metadata)
+  const lyrics = resolveLyrics(metadata)
+  const album = common.album || 'Unknown Album'
+  const albumArtist =
+    common.albumartists?.join('; ') || common.albumartist || common.artist || 'Unknown Artist'
+  const albumKey = getAlbumKey(album, albumArtist)
+
+  if (albumKey && artworkCacheKey) {
+    albumArtworkCache.set(albumKey, artworkCacheKey)
+  }
+
+  return {
+    filePath,
+    fileSize: fileStat.size,
+    fileMtimeMs: fileStat.mtimeMs,
+    title: common.title || fallbackTitle,
+    artist: common.artists?.join('; ') || common.artist || 'Unknown Artist',
+    album,
+    albumArtist,
+    trackNo: common.track.no ?? null,
+    discNo: common.disk.no ?? null,
+    durationSeconds: metadata.format.duration ?? null,
+    year: getYear(common.year, common.date),
+    releaseDate: common.date ?? null,
+    genre: common.genre?.join(', ') ?? null,
+    artworkCacheKey,
+    lyricsText: lyrics?.text ?? null,
+    lyricsFormat: lyrics?.format ?? null,
+  }
+}
+
 type ReadTrackResult =
   | { kind: 'track'; track: ScannedTrack }
   | { kind: 'artwork'; patch: AlbumArtworkPatch }
+  | {
+      kind: 'patches'
+      artworkPatch: AlbumArtworkPatch | null
+      lyricsPatch: TrackLyricsPatch | null
+    }
   | { kind: 'skip' }
 
 async function readTrack(filePath: string): Promise<ReadTrackResult> {
@@ -184,19 +282,41 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
   const knownFile = knownFiles.get(filePath)
   const fileUnchanged =
     knownFile && knownFile.fileSize === fileStat.size && knownFile.fileMtimeMs === fileStat.mtimeMs
+  const lyricsChecked =
+    knownFile?.lyricsCheckedMtimeMs !== null && knownFile?.lyricsCheckedMtimeMs === fileStat.mtimeMs
+  const needsLyricsBackfill = Boolean(fileUnchanged && knownFile && !lyricsChecked)
+  const metadataChecked =
+    knownFile?.metadataCheckedMtimeMs !== null &&
+    knownFile?.metadataCheckedMtimeMs === fileStat.mtimeMs
+  const needsMetadataBackfill = Boolean(fileUnchanged && knownFile && !metadataChecked)
 
-  // Skip completely: file unchanged AND album already has artwork
-  if (fileUnchanged && knownFile.artworkCacheKey) {
+  // Skip completely: file unchanged, album already has artwork, and lyrics were checked for this mtime
+  if (
+    fileUnchanged &&
+    knownFile.artworkCacheKey &&
+    !needsLyricsBackfill &&
+    !needsMetadataBackfill
+  ) {
     return { kind: 'skip' }
   }
 
   try {
-    // Lightweight backfill: file unchanged but album missing artwork
+    if (!fileUnchanged || needsMetadataBackfill) {
+      const metadata = await parseFile(filePath, { duration: true })
+      return {
+        kind: 'track',
+        track: await createScannedTrack(filePath, fileStat, metadata),
+      }
+    }
+
+    // Lightweight backfill: file unchanged but album missing artwork and/or lyrics not checked yet
     if (fileUnchanged) {
       const albumKey = getAlbumKey(knownFile?.album ?? null, knownFile?.albumArtist ?? null)
+      let artworkPatch: AlbumArtworkPatch | null = null
+      let lyricsPatch: TrackLyricsPatch | null = null
 
-      // Album-level cache hit: skip parseFile entirely
-      if (albumKey) {
+      // Album-level cache hit: skip artwork work entirely when lyrics do not need backfill.
+      if (albumKey && !needsLyricsBackfill) {
         const cached = albumArtworkCache.get(albumKey)
 
         if (cached !== undefined) {
@@ -215,9 +335,21 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
         }
       }
 
-      // Cache miss: parse file and resolve artwork
+      // Cache miss or lyrics backfill: parse file once and reuse metadata for both tasks.
       const metadata = await parseFile(filePath, { duration: false, skipCovers: false })
-      const artworkCacheKey = await resolveArtwork(filePath, metadata)
+
+      if (needsLyricsBackfill) {
+        const lyrics = resolveLyrics(metadata)
+        lyricsPatch = {
+          filePath,
+          lyricsText: lyrics?.text ?? null,
+          lyricsFormat: lyrics?.format ?? null,
+          lyricsCheckedMtimeMs: fileStat.mtimeMs,
+        }
+      }
+
+      const artworkCacheKey =
+        knownFile?.artworkCacheKey ?? (await resolveArtwork(filePath, metadata))
 
       // Cache both success and failure to avoid repeated parseFile for albums without artwork
       if (albumKey) {
@@ -225,53 +357,22 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
       }
 
       if (artworkCacheKey && knownFile?.album && knownFile.albumArtist) {
+        artworkPatch = {
+          album: knownFile.album,
+          artist: knownFile.albumArtist,
+          artworkCacheKey,
+        }
+      }
+
+      if (artworkPatch || lyricsPatch) {
         return {
-          kind: 'artwork',
-          patch: {
-            album: knownFile.album,
-            artist: knownFile.albumArtist,
-            artworkCacheKey,
-          },
+          kind: 'patches',
+          artworkPatch,
+          lyricsPatch,
         }
       }
 
       return { kind: 'skip' }
-    }
-
-    // Full parse: file changed
-    const fallbackTitle = parse(filePath).name || basename(filePath)
-    const metadata = await parseFile(filePath, { duration: true })
-    const common = metadata.common
-    const artworkCacheKey = await resolveArtwork(filePath, metadata)
-
-    // Populate album cache from full parse results
-    const album = common.album || 'Unknown Album'
-    const albumArtist =
-      common.albumartists?.join('; ') || common.albumartist || common.artist || 'Unknown Artist'
-    const albumKey = getAlbumKey(album, albumArtist)
-
-    if (albumKey && artworkCacheKey) {
-      albumArtworkCache.set(albumKey, artworkCacheKey)
-    }
-
-    return {
-      kind: 'track',
-      track: {
-        filePath,
-        fileSize: fileStat.size,
-        fileMtimeMs: fileStat.mtimeMs,
-        title: common.title || fallbackTitle,
-        artist: common.artists?.join('; ') || common.artist || 'Unknown Artist',
-        album,
-        albumArtist,
-        trackNo: common.track.no ?? null,
-        discNo: common.disk.no ?? null,
-        durationSeconds: metadata.format.duration ?? null,
-        year: getYear(common.year, common.date),
-        releaseDate: common.date ?? null,
-        genre: common.genre?.join(', ') ?? null,
-        artworkCacheKey,
-      },
     }
   } catch (error) {
     failedFiles += 1
@@ -283,6 +384,10 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
         reason: error instanceof Error ? error.message : 'Unable to parse metadata',
       },
     })
+
+    if (fileUnchanged) {
+      return { kind: 'skip' }
+    }
 
     const fallbackTitle = parse(filePath).name || basename(filePath)
 
@@ -303,6 +408,8 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
         releaseDate: null,
         genre: null,
         artworkCacheKey: null,
+        lyricsText: null,
+        lyricsFormat: null,
       },
     }
   }
@@ -330,6 +437,22 @@ async function run(): Promise<void> {
       if (artworkBatch.length >= 300) {
         flushArtworkBatch()
       }
+    } else if (result.kind === 'patches') {
+      if (result.artworkPatch) {
+        artworkBatch.push(result.artworkPatch)
+      }
+
+      if (result.lyricsPatch) {
+        lyricsBatch.push(result.lyricsPatch)
+      }
+
+      if (artworkBatch.length >= 300) {
+        flushArtworkBatch()
+      }
+
+      if (lyricsBatch.length >= 300) {
+        flushLyricsBatch()
+      }
     }
 
     postProgress(filePath, null)
@@ -337,6 +460,7 @@ async function run(): Promise<void> {
 
   flushTrackBatch()
   flushArtworkBatch()
+  flushLyricsBatch()
   postProgress(null, 'Scan complete', true)
   postMessage({ type: 'complete' })
 }

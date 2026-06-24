@@ -15,13 +15,15 @@ onMounted(async () => {
   <section class="content-frame">
     <h1 class="text-3xl font-semibold tracking-0">Settings</h1>
 
-    <dl class="mt-6 grid gap-3 rounded border border-black/10 bg-white/56 p-5 text-sm">
+    <dl
+      class="mt-6 grid gap-3 rounded border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)]/70 p-5 text-sm"
+    >
       <div class="grid gap-1 sm:grid-cols-[150px_1fr]">
-        <dt class="text-ink/55">Version</dt>
+        <dt class="text-[var(--auralis-text-subtle)]">Version</dt>
         <dd>{{ appInfo?.version ?? '0.1.0' }}</dd>
       </div>
       <div class="grid gap-1 sm:grid-cols-[150px_1fr]">
-        <dt class="text-ink/55">Database</dt>
+        <dt class="text-[var(--auralis-text-subtle)]">Database</dt>
         <dd class="break-all">{{ appInfo?.databasePath ?? '' }}</dd>
       </div>
     </dl>

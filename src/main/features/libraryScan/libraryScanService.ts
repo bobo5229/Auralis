@@ -161,6 +161,11 @@ export class LibraryScanService {
       return
     }
 
+    if (message.type === 'trackLyrics') {
+      this.trackRepository.patchLyrics(message.payload)
+      return
+    }
+
     if (message.type === 'failure') {
       this.scanFailureRepository.insertMany([message.payload])
       return

@@ -1,9 +1,24 @@
+@font-face {
+  font-family: 'Auralis Sans SC';
+  src: url('../../assets/fonts/OPPO_Sans/OPPO_Sans_4.0.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+4E00-9FFF, U+3400-4DBF, U+2F00-2FDF, U+3000-303F, U+FF00-FFEF,
+    U+2E80-2EFF, U+3100-312F, U+31A0-31BF, U+31F0-31FF, U+3200-32FF,
+    U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+F900-FAFF, U+FE30-FE4F,
+    U+20000-2A6DF, U+2A700-2B73F, U+2B740-2B81F, U+2B820-2CEAF,
+    U+2CEB0-2EBEF, U+30000-3134F;
+}
+
 :root,
 [data-theme='light'] {
   color: #1f2528;
   background: var(--auralis-bg);
   font-family:
     Inter,
+    'Auralis Sans SC',
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -21,6 +36,18 @@
   --auralis-sidebar-bg: #fafafb;
   --auralis-now-playing-bg: #fafafb;
   --auralis-border-subtle: rgba(31, 35, 40, 0.08);
+  --auralis-text: #1f2528;
+  --auralis-text-muted: rgba(31, 35, 40, 0.7);
+  --auralis-text-subtle: rgba(31, 35, 40, 0.52);
+  --auralis-text-faint: rgba(31, 35, 40, 0.42);
+  --auralis-text-disabled: rgba(31, 35, 40, 0.24);
+  --auralis-control-hover-bg: rgba(31, 35, 40, 0.06);
+  --auralis-control-active-bg: rgba(255, 255, 255, 0.72);
+  --auralis-control-primary-bg: #1f2528;
+  --auralis-control-primary-text: #f6f2ea;
+  --auralis-progress-track: rgba(31, 35, 40, 0.08);
+  --auralis-progress-fill: rgba(93, 103, 115, 0.7);
+  --auralis-artwork-placeholder-bg: #ebe3d3;
 
   /* Playbar safe area */
   --auralis-playbar-safe-area: 96px;
@@ -31,14 +58,33 @@
   --auralis-song-row-hover-bg: rgba(31, 35, 40, 0.045);
   --auralis-song-row-selected-bg: rgba(93, 103, 115, 0.1);
   --auralis-song-row-selected-text: #3d5a80;
+
+  /* Lyrics tokens */
+  --auralis-lyrics-active: #5b5b5c;
+  --auralis-lyrics-inactive: #c3c3c4;
 }
 
 [data-theme='dark'] {
+  color: var(--auralis-text);
+  background: var(--auralis-bg);
+
   --auralis-bg: #1f1f1f;
   --auralis-main-bg: #1f1f1f;
   --auralis-sidebar-bg: #232324;
   --auralis-now-playing-bg: #232324;
   --auralis-border-subtle: rgba(255, 255, 255, 0.08);
+  --auralis-text: rgba(246, 242, 234, 0.9);
+  --auralis-text-muted: rgba(246, 242, 234, 0.68);
+  --auralis-text-subtle: rgba(246, 242, 234, 0.5);
+  --auralis-text-faint: rgba(246, 242, 234, 0.36);
+  --auralis-text-disabled: rgba(246, 242, 234, 0.22);
+  --auralis-control-hover-bg: rgba(255, 255, 255, 0.07);
+  --auralis-control-active-bg: rgba(255, 255, 255, 0.14);
+  --auralis-control-primary-bg: #e8e1d2;
+  --auralis-control-primary-text: #1f1f1f;
+  --auralis-progress-track: rgba(255, 255, 255, 0.08);
+  --auralis-progress-fill: rgba(232, 225, 210, 0.72);
+  --auralis-artwork-placeholder-bg: rgba(246, 242, 234, 0.12);
 
   /* Playbar safe area */
   --auralis-playbar-safe-area: 96px;
@@ -49,12 +95,18 @@
   --auralis-song-row-hover-bg: rgba(255, 255, 255, 0.07);
   --auralis-song-row-selected-bg: rgba(93, 103, 115, 0.2);
   --auralis-song-row-selected-text: #8aaccc;
+
+  /* Lyrics tokens */
+  --auralis-lyrics-active: #afafb0;
+  --auralis-lyrics-inactive: #515152;
 }
 
 body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  color: var(--auralis-text);
+  background: var(--auralis-bg);
 }
 
 * {
@@ -74,4 +126,48 @@ input {
 ::selection {
   color: #f6f2ea;
   background: #5d6773;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--auralis-main-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--auralis-text-disabled);
+  border: 3px solid var(--auralis-main-bg);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--auralis-text-faint);
+}
+
+/* Lyrics dot animation */
+.lyric-dot {
+  color: var(--auralis-lyrics-inactive);
+  animation: dot-blink 1.5s infinite;
+}
+
+.lyric-dot:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+.lyric-dot:nth-child(3) {
+  animation-delay: 0.6s;
+}
+
+@keyframes dot-blink {
+  0%,
+  20% {
+    opacity: 0.2;
+  }
+  40%,
+  100% {
+    opacity: 1;
+  }
 }

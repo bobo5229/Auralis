@@ -4,6 +4,7 @@ import type {
   LibraryScanStatus,
   SelectLibraryRootResult,
   TrackListItem,
+  TrackLyrics,
 } from '@shared/types/libraryScan'
 
 export interface IpcInvokeContract {
@@ -38,6 +39,10 @@ export interface IpcInvokeContract {
   'library:get-tracks': {
     request: void
     response: TrackListItem[]
+  }
+  'lyrics:get-by-track-id': {
+    request: { trackId: number }
+    response: TrackLyrics | null
   }
 }
 

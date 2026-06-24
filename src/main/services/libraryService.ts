@@ -1,5 +1,5 @@
 import type { LibraryStats } from '@shared/types/app'
-import type { TrackListItem } from '@shared/types/libraryScan'
+import type { TrackLyrics, TrackListItem } from '@shared/types/libraryScan'
 import { LibraryRepository } from '@main/repositories/libraryRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
 
@@ -15,5 +15,9 @@ export class LibraryService {
 
   getTracks(): TrackListItem[] {
     return this.trackRepository.getAll()
+  }
+
+  getLyrics(trackId: number): TrackLyrics | null {
+    return this.trackRepository.getLyricsByTrackId(trackId)
   }
 }

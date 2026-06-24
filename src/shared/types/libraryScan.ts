@@ -3,6 +3,7 @@ export interface TrackListItem {
   title: string | null
   artist: string | null
   album: string | null
+  albumArtist: string | null
   durationSeconds: number | null
   artworkCacheKey: string | null
 }
@@ -53,6 +54,8 @@ export interface ScannedTrack {
   releaseDate: string | null
   genre: string | null
   artworkCacheKey: string | null
+  lyricsText: string | null
+  lyricsFormat: LyricsFormat | null
 }
 
 export interface ScanFailure {
@@ -67,7 +70,22 @@ export interface AlbumArtworkPatch {
   artworkCacheKey: string
 }
 
+export interface TrackLyricsPatch {
+  filePath: string
+  lyricsText: string | null
+  lyricsFormat: LyricsFormat | null
+  lyricsCheckedMtimeMs: number
+}
+
 export interface SelectLibraryRootResult {
   canceled: boolean
   root?: LibraryRoot
+}
+
+export type LyricsFormat = 'lrc' | 'plain'
+
+export interface TrackLyrics {
+  trackId: number
+  lyricsText: string | null
+  lyricsFormat: LyricsFormat | null
 }
