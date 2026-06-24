@@ -65,7 +65,7 @@ onBeforeUnmount(() => {
 <template>
   <div
     ref="scrollRef"
-    class="h-full overflow-auto px-4 py-3"
+    class="h-full overflow-auto scrollbar-none px-4 py-3"
     tabindex="0"
     @wheel="pauseAutoFollow"
     @pointerdown="pauseAutoFollow"

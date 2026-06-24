@@ -8,7 +8,13 @@ const { status, rawLyrics, parsedLines, activeIndex, isPrelude } = useTrackLyric
 </script>
 
 <template>
-  <div class="flex h-full flex-col">
+  <div
+    class="flex h-full flex-col"
+    :style="{
+      maskImage:
+        'linear-gradient(to bottom, transparent 0, black 120px, black calc(100% - 120px), transparent 100%)',
+    }"
+  >
     <div class="flex-1 overflow-hidden">
       <div v-if="status === 'no-track'" class="flex h-full items-center justify-center">
         <p class="text-sm text-[var(--auralis-text-faint)]">No track selected</p>

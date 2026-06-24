@@ -79,18 +79,24 @@ export function useTrackLyrics() {
     { immediate: true },
   )
 
-  const unsubscribeMetadataChanged = auralis.metadata.onChanged((event) => {
+  const unsubscribeChanged = auralis.library.onChanged((event) => {
     const trackId = playback.state.currentTrackId
 
-    if (!trackId || !event.trackIds.includes(trackId)) {
-      return
-    }
+    if (!trackId) return
 
-    fetchLyrics(trackId)
+    if (event.reason === 'metadata-refresh' || event.reason === 'file-change') {
+      if (event.trackIds.includes(trackId)) {
+        fetchLyrics(trackId)
+      }
+    } else if (event.reason === 'track-relocated') {
+      if (event.trackIds.includes(trackId)) {
+        fetchLyrics(trackId)
+      }
+    }
   })
 
   onBeforeUnmount(() => {
-    unsubscribeMetadataChanged()
+    unsubscribeChanged()
   })
 
   return {

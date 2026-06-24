@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import type { EditableTrackMetadata, TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -79,6 +79,24 @@ async function reloadTracks(): Promise<void> {
   tracks.value = await auralis.library.getTracks()
 }
 
+async function scrollToPlaybackTrack(): Promise<void> {
+  const targetTrackId = playback.state.currentTrackId ?? playback.state.selectedTrackId
+
+  if (!targetTrackId) {
+    return
+  }
+
+  const targetIndex = tracks.value.findIndex((track) => track.id === targetTrackId)
+
+  if (targetIndex < 0) {
+    return
+  }
+
+  await nextTick()
+  await new Promise((resolve) => window.requestAnimationFrame(resolve))
+  rowVirtualizer.value.scrollToIndex(targetIndex, { align: 'center' })
+}
+
 async function waitForRefreshJob(jobId: number): Promise<void> {
   for (;;) {
     const status = await auralis.metadata.getRefreshStatus(jobId)
@@ -143,10 +161,11 @@ async function saveMetadata(metadata: EditableTrackMetadata): Promise<void> {
 onMounted(async () => {
   try {
     await reloadTracks()
-    rowVirtualizer.value.scrollToIndex(0)
   } finally {
     isLoading.value = false
   }
+
+  await scrollToPlaybackTrack()
 
   unsubscribeChanged = auralis.library.onChanged(async () => {
     await reloadTracks()
@@ -175,9 +194,8 @@ onBeforeUnmount(() => {
           :key="virtualRow.key"
           :track="tracks[virtualRow.index]"
           :index="virtualRow.index"
-          :selected="playback.state.selectedTrackId === tracks[virtualRow.index].id"
+          :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
           :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
-          :refreshing="isRefreshingTrack(tracks[virtualRow.index].id)"
           :style="{
             height: `${virtualRow.size}px`,
             transform: `translateY(${virtualRow.start}px)`,
@@ -186,7 +204,6 @@ onBeforeUnmount(() => {
           @select="onSelect"
           @play="onPlay"
           @open-context-menu="onOpenContextMenu"
-          @refresh-metadata="onRefreshMetadata"
         />
       </div>
     </div>

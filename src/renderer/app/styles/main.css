@@ -53,11 +53,12 @@
   --auralis-playbar-safe-area: 96px;
 
   /* Song list tokens */
-  --auralis-song-row-bg: transparent;
-  --auralis-song-row-alt-bg: rgba(31, 35, 40, 0.025);
-  --auralis-song-row-hover-bg: rgba(31, 35, 40, 0.045);
-  --auralis-song-row-selected-bg: rgba(93, 103, 115, 0.1);
-  --auralis-song-row-selected-text: #3d5a80;
+  --auralis-song-row-bg: #FFFFFF;
+  --auralis-song-row-alt-bg: #FAFAFA;
+  --auralis-song-row-now-playing-bg: rgba(61, 90, 128, 0.1);
+  --auralis-song-row-now-playing-title: #2c4a6e;
+  --auralis-song-row-now-playing-artist: #4a6d94;
+  --auralis-song-row-now-playing-duration: #7a9ec4;
 
   /* Lyrics tokens */
   --auralis-lyrics-active: #5b5b5c;
@@ -90,11 +91,12 @@
   --auralis-playbar-safe-area: 96px;
 
   /* Song list tokens */
-  --auralis-song-row-bg: rgba(255, 255, 255, 0.015);
-  --auralis-song-row-alt-bg: rgba(255, 255, 255, 0.04);
-  --auralis-song-row-hover-bg: rgba(255, 255, 255, 0.07);
-  --auralis-song-row-selected-bg: rgba(93, 103, 115, 0.2);
-  --auralis-song-row-selected-text: #8aaccc;
+  --auralis-song-row-bg: #1f1f1f;
+  --auralis-song-row-alt-bg: #232324;
+  --auralis-song-row-now-playing-bg: rgba(138, 172, 204, 0.12);
+  --auralis-song-row-now-playing-title: #a0c4e4;
+  --auralis-song-row-now-playing-artist: #7aaccf;
+  --auralis-song-row-now-playing-duration: #5a8ab0;
 
   /* Lyrics tokens */
   --auralis-lyrics-active: #afafb0;

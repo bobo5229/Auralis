@@ -6,7 +6,7 @@ defineProps<{
 
 <template>
   <div
-    class="overflow-auto whitespace-pre-wrap px-4 py-3 text-sm leading-relaxed text-[var(--auralis-lyrics-inactive)]"
+    class="overflow-auto scrollbar-none whitespace-pre-wrap px-4 py-3 text-sm leading-relaxed text-[var(--auralis-lyrics-inactive)]"
   >
     {{ text }}
   </div>
