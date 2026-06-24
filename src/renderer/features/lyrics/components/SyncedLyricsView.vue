@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { LyricLine } from '../types'
 
 const props = defineProps<{
@@ -11,21 +11,15 @@ const props = defineProps<{
 const scrollRef = ref<HTMLElement | null>(null)
 const isUserScrolling = ref(false)
 let scrollTimeout: ReturnType<typeof setTimeout> | null = null
-let programmaticScrollTimer: ReturnType<typeof setTimeout> | null = null
 
-function scrollToActive() {
+function scrollToActive(behavior: ScrollBehavior = 'smooth') {
   if (isUserScrolling.value) return
 
   const container = scrollRef.value
   if (!container) return
 
-  // Mark as programmatic so handleScroll ignores this scroll
-  programmaticScrollTimer = setTimeout(() => {
-    programmaticScrollTimer = null
-  }, 500)
-
   if (props.isPrelude) {
-    container.scrollTo({ top: 0, behavior: 'smooth' })
+    container.scrollTo({ top: 0, behavior })
     return
   }
 
@@ -37,25 +31,47 @@ function scrollToActive() {
   const containerHeight = container.clientHeight
   const targetScrollTop = activeEl.offsetTop - containerHeight * 0.3 + activeEl.clientHeight / 2
   const maxScroll = container.scrollHeight - container.clientHeight
-  container.scrollTo({ top: Math.max(0, Math.min(targetScrollTop, maxScroll)), behavior: 'smooth' })
+  container.scrollTo({ top: Math.max(0, Math.min(targetScrollTop, maxScroll)), behavior })
 }
 
-function handleScroll() {
-  // Ignore scroll events triggered by programmatic scrollTo
-  if (programmaticScrollTimer) return
-
+function pauseAutoFollow() {
   isUserScrolling.value = true
+
   if (scrollTimeout) clearTimeout(scrollTimeout)
+
   scrollTimeout = setTimeout(() => {
     isUserScrolling.value = false
+    scrollToActive()
   }, 3000)
 }
 
-watch(() => props.activeIndex, scrollToActive)
+watch(
+  () => [props.activeIndex, props.isPrelude, props.lines.length],
+  () => {
+    nextTick(() => scrollToActive())
+  },
+  { flush: 'post' },
+)
+
+onMounted(() => {
+  nextTick(() => scrollToActive('auto'))
+})
+
+onBeforeUnmount(() => {
+  if (scrollTimeout) clearTimeout(scrollTimeout)
+})
 </script>
 
 <template>
-  <div ref="scrollRef" class="h-full overflow-auto px-4 py-3" @scroll="handleScroll">
+  <div
+    ref="scrollRef"
+    class="h-full overflow-auto px-4 py-3"
+    tabindex="0"
+    @wheel="pauseAutoFollow"
+    @pointerdown="pauseAutoFollow"
+    @touchstart="pauseAutoFollow"
+    @keydown="pauseAutoFollow"
+  >
     <div
       v-for="(line, index) in lines"
       :key="line.id"

@@ -14,7 +14,7 @@ export default defineConfig({
   },
   shortcuts: {
     'app-shell':
-      'grid h-screen grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-[var(--auralis-bg)] text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_292px]',
+      'grid h-screen grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-[var(--auralis-bg)] text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_20%]',
     'app-sidebar':
       'flex w-[232px] h-[calc(100vh-24px)] min-h-0 flex-col m-[12px_0_12px_12px] rounded-[20px] border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
     'app-main': 'min-h-0 overflow-y-auto bg-[var(--auralis-main-bg)]',
@@ -50,18 +50,24 @@ export default defineConfig({
     'theme-toggle-button':
       'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
     'song-row':
-      'grid h-11 grid-cols-[44px_minmax(0,1fr)_140px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer transition-colors',
+      'grid h-11 grid-cols-[44px_minmax(0,1fr)_140px_minmax(0,1fr)_56px_32px_32px] items-center gap-2.5 px-4 cursor-pointer transition-colors',
     'song-cover':
       'h-11 w-11 shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
     'song-title': 'text-sm font-bold truncate',
     'song-artist': 'text-sm font-medium text-[var(--auralis-text-muted)] truncate',
     'song-album': 'text-sm font-medium text-[var(--auralis-text-subtle)] truncate',
     'song-duration': 'text-sm text-[var(--auralis-text-faint)] text-right tabular-nums',
+    'song-action':
+      'inline-flex h-7 w-7 items-center justify-center rounded text-[var(--auralis-text-faint)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)] disabled:pointer-events-none disabled:opacity-60',
+    'metadata-input':
+      'h-9 w-full min-w-0 rounded border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] px-3 text-sm text-[var(--auralis-text)] transition focus:border-[var(--auralis-text-faint)]',
     'volume-slider':
       'w-20 h-1 accent-[var(--auralis-progress-fill)] cursor-pointer appearance-none rounded-full bg-[var(--auralis-progress-track)]',
-    'lyric-active': 'text-[var(--auralis-lyrics-active)] font-semibold text-base py-1.5',
-    'lyric-inactive': 'text-[var(--auralis-lyrics-inactive)] text-sm py-1.5',
-    'lyric-prelude': 'text-[var(--auralis-lyrics-inactive)] text-sm py-1.5',
+    'lyric-active': 'text-[var(--auralis-lyrics-active)] font-bold text-[24px] leading-10 py-1.5',
+    'lyric-inactive':
+      'text-[var(--auralis-lyrics-inactive)] font-bold text-[24px] leading-10 py-1.5',
+    'lyric-prelude':
+      'text-[var(--auralis-lyrics-inactive)] font-bold text-[24px] leading-10 py-1.5',
     'lyric-empty': 'h-3 py-0',
   },
 })

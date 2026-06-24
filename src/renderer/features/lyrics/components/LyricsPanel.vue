@@ -9,11 +9,7 @@ const { status, rawLyrics, parsedLines, activeIndex, isPrelude } = useTrackLyric
 
 <template>
   <div class="flex h-full flex-col">
-    <div class="px-4 py-3">
-      <h2 class="text-sm font-semibold tracking-wide text-[var(--auralis-text-muted)]">Lyrics</h2>
-    </div>
-
-    <div class="flex-1 overflow-hidden">
+    <div class="flex-1 overflow-hidden pt-4">
       <div v-if="status === 'no-track'" class="flex h-full items-center justify-center">
         <p class="text-sm text-[var(--auralis-text-faint)]">No track selected</p>
       </div>
