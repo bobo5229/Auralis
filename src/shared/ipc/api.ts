@@ -6,6 +6,8 @@ import type {
   SelectLibraryRootResult,
   TrackListItem,
   TrackLyrics,
+  MetadataRefreshFailure,
+  EditableTrackMetadata,
 } from '@shared/types/libraryScan'
 
 export interface AuralisApi {
@@ -25,5 +27,34 @@ export interface AuralisApi {
   }
   lyrics: {
     getByTrackId: (trackId: number) => Promise<TrackLyrics | null>
+  }
+  metadata: {
+    refreshTrack: (trackId: number) => Promise<{ jobId: number }>
+    refreshTracks: (trackIds: number[]) => Promise<{ jobId: number }>
+    refreshMissing: (limit?: number) => Promise<{ jobId: number }>
+    refreshLyricsMissing: (limit?: number) => Promise<{ jobId: number }>
+    getRefreshStatus: (jobId: number) => Promise<{
+      id: number
+      scope: string
+      status: string
+      totalTracks: number
+      processedTracks: number
+      failedTracks: number
+      startedAt: string
+      finishedAt: string | null
+      errorMessage: string | null
+    } | null>
+    listRefreshFailures: (limit?: number) => Promise<MetadataRefreshFailure[]>
+    getTrackMetadata: (trackId: number) => Promise<EditableTrackMetadata | null>
+    updateTrackMetadata: (metadata: EditableTrackMetadata) => Promise<{ ok: boolean }>
+    onRefreshProgress: (
+      callback: (progress: {
+        jobId: number
+        status: string
+        totalTracks: number
+        processedTracks: number
+        failedTracks: number
+      }) => void,
+    ) => () => void
   }
 }

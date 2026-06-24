@@ -42,13 +42,12 @@ export class TrackRepository extends BaseRepository {
   getAll(): TrackListItem[] {
     return this.db
       .prepare(
-        `SELECT t.id, t.title, t.artist, t.album,
-                t.album_artist AS albumArtist,
-                t.duration_seconds AS durationSeconds,
-                a.artwork_cache_key AS artworkCacheKey
-         FROM tracks t
-         LEFT JOIN albums a ON t.album = a.title AND t.album_artist = a.artist
-         ORDER BY t.id ASC`,
+        `SELECT id, title, artist, album,
+                album_artist AS albumArtist,
+                duration_seconds AS durationSeconds,
+                artwork_cache_key AS artworkCacheKey
+         FROM library_track_display
+         ORDER BY id ASC`,
       )
       .all() as TrackListItem[]
   }

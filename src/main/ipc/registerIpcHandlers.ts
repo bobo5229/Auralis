@@ -1,16 +1,28 @@
-import { app, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { ipcChannels } from '@shared/ipc/channels'
 import { getDatabasePath } from '@main/database/connection'
 import { LibraryRepository } from '@main/repositories/libraryRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
+import { MetadataRefreshRepository } from '@main/repositories/metadataRefreshRepository'
 import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
 import { LibraryService } from '@main/services/libraryService'
+import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
 import type { IpcResponse } from '@shared/ipc/contracts'
+import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type Database from 'better-sqlite3'
 
 export function registerIpcHandlers(db: Database.Database, artworkCacheDir: string): void {
   const libraryService = new LibraryService(new LibraryRepository(db), new TrackRepository(db))
   const libraryScanService = new LibraryScanService(db, artworkCacheDir)
+  const metadataRefreshService = new MetadataRefreshService(
+    new MetadataRefreshRepository(db),
+    artworkCacheDir,
+    (channel, data) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send(channel, data)
+      }
+    },
+  )
 
   ipcMain.handle(
     ipcChannels.app.getInfo,
@@ -63,5 +75,53 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     ipcChannels.lyrics.getByTrackId,
     (_event, payload: { trackId: number }): IpcResponse<'lyrics:get-by-track-id'> =>
       libraryService.getLyrics(payload.trackId),
+  )
+
+  ipcMain.handle(
+    ipcChannels.metadata.refreshTrack,
+    (_event, payload: { trackId: number }): IpcResponse<'metadata:refresh-track'> =>
+      metadataRefreshService.refreshTrack(payload.trackId),
+  )
+
+  ipcMain.handle(
+    ipcChannels.metadata.refreshTracks,
+    (_event, payload: { trackIds: number[] }): IpcResponse<'metadata:refresh-tracks'> =>
+      metadataRefreshService.refreshTracks(payload.trackIds),
+  )
+
+  ipcMain.handle(
+    ipcChannels.metadata.refreshMissing,
+    (_event, payload?: { limit?: number }): IpcResponse<'metadata:refresh-missing'> =>
+      metadataRefreshService.refreshMissingMetadata(payload?.limit),
+  )
+
+  ipcMain.handle(
+    ipcChannels.metadata.refreshLyricsMissing,
+    (_event, payload?: { limit?: number }): IpcResponse<'metadata:refresh-lyrics-missing'> =>
+      metadataRefreshService.refreshLyricsForMissing(payload?.limit),
+  )
+
+  ipcMain.handle(
+    ipcChannels.metadata.getRefreshStatus,
+    (_event, payload: { jobId: number }): IpcResponse<'metadata:get-refresh-status'> =>
+      metadataRefreshService.getJobStatus(payload.jobId),
+  )
+
+  ipcMain.handle(
+    ipcChannels.metadata.listRefreshFailures,
+    (_event, payload?: { limit?: number }): IpcResponse<'metadata:list-refresh-failures'> =>
+      metadataRefreshService.listFailures(payload?.limit),
+  )
+
+  ipcMain.handle(
+    ipcChannels.metadata.getTrackMetadata,
+    (_event, payload: { trackId: number }): IpcResponse<'metadata:get-track-metadata'> =>
+      metadataRefreshService.getTrackMetadata(payload.trackId),
+  )
+
+  ipcMain.handle(
+    ipcChannels.metadata.updateTrackMetadata,
+    (_event, payload: EditableTrackMetadata): IpcResponse<'metadata:update-track-metadata'> =>
+      metadataRefreshService.updateTrackMetadata(payload),
   )
 }

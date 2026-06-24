@@ -12,6 +12,9 @@ export default defineConfig({
           'features/libraryScan/libraryScanWorker': resolve(
             'src/main/features/libraryScan/libraryScanWorker.ts',
           ),
+          'features/metadata/metadataRefreshWorker': resolve(
+            'src/main/features/metadata/metadataRefreshWorker.ts',
+          ),
         },
         external: ['better-sqlite3', 'bindings'],
       },

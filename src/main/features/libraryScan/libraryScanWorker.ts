@@ -5,6 +5,13 @@ import { parseFile } from 'music-metadata'
 import { isSupportedAudioFile } from './audioFileFilter'
 import { writeArtworkToCache } from '../artwork/artworkCache'
 import type { ArtworkSource } from '../artwork/artworkTypes'
+import {
+  normalizeArtist,
+  normalizeAlbumArtist,
+  resolveLyrics,
+  resolveGenres,
+  getYear,
+} from '../metadata/metadataNormalizer'
 import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './libraryScanTypes'
 import type {
   AlbumArtworkPatch,
@@ -86,62 +93,6 @@ async function collectAudioFiles(directoryPath: string): Promise<string[]> {
   }
 
   return files
-}
-
-function getYear(commonYear: number | undefined, date: string | undefined): number | null {
-  if (typeof commonYear === 'number') return commonYear
-
-  if (date) {
-    const parsedYear = Number.parseInt(date.slice(0, 4), 10)
-    return Number.isNaN(parsedYear) ? null : parsedYear
-  }
-
-  return null
-}
-
-const LRC_TIMESTAMP = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/
-
-const NATIVE_LYRICS_KEYS = new Set(['USLT', 'SYLT', 'LYRICS', 'UNSYNCEDLYRICS'])
-
-function getTextFromUnknown(value: unknown): string | null {
-  if (typeof value === 'string') {
-    return value.trim() ? value : null
-  }
-
-  if (value && typeof value === 'object' && 'text' in value) {
-    const text = (value as { text: unknown }).text
-    return typeof text === 'string' && text.trim() ? text : null
-  }
-
-  return null
-}
-
-function resolveLyrics(
-  metadata: Awaited<ReturnType<typeof parseFile>>,
-): { text: string; format: 'lrc' | 'plain' } | null {
-  // 1. Prefer common.lyrics (already normalized by music-metadata)
-  let raw = getTextFromUnknown(metadata.common.lyrics?.[0])
-
-  // 2. Fallback: search native tags for lyrics fields
-  if (!raw) {
-    for (const tags of metadata.native.values()) {
-      for (const tag of tags) {
-        if (!NATIVE_LYRICS_KEYS.has(tag.id)) continue
-
-        const text = getTextFromUnknown(tag.value)
-
-        if (text) {
-          raw = text
-          break
-        }
-      }
-      if (raw) break
-    }
-  }
-
-  if (!raw) return null
-
-  return LRC_TIMESTAMP.test(raw) ? { text: raw, format: 'lrc' } : { text: raw, format: 'plain' }
 }
 
 async function extractEmbeddedArtwork(
@@ -235,12 +186,15 @@ async function createScannedTrack(
   metadata: Awaited<ReturnType<typeof parseFile>>,
 ): Promise<ScannedTrack> {
   const fallbackTitle = parse(filePath).name || basename(filePath)
-  const common = metadata.common
   const artworkCacheKey = await resolveArtwork(filePath, metadata)
   const lyrics = resolveLyrics(metadata)
-  const album = common.album || 'Unknown Album'
-  const albumArtist =
-    common.albumartists?.join('; ') || common.albumartist || common.artist || 'Unknown Artist'
+  const genres = resolveGenres(metadata)
+  const album = metadata.common.album || 'Unknown Album'
+  const albumArtist = normalizeAlbumArtist(
+    metadata.common.albumartists,
+    metadata.common.albumartist,
+    metadata.common.artist,
+  )
   const albumKey = getAlbumKey(album, albumArtist)
 
   if (albumKey && artworkCacheKey) {
@@ -251,16 +205,16 @@ async function createScannedTrack(
     filePath,
     fileSize: fileStat.size,
     fileMtimeMs: fileStat.mtimeMs,
-    title: common.title || fallbackTitle,
-    artist: common.artists?.join('; ') || common.artist || 'Unknown Artist',
+    title: metadata.common.title || fallbackTitle,
+    artist: normalizeArtist(metadata.common.artists, metadata.common.artist),
     album,
     albumArtist,
-    trackNo: common.track.no ?? null,
-    discNo: common.disk.no ?? null,
+    trackNo: metadata.common.track.no ?? null,
+    discNo: metadata.common.disk.no ?? null,
     durationSeconds: metadata.format.duration ?? null,
-    year: getYear(common.year, common.date),
-    releaseDate: common.date ?? null,
-    genre: common.genre?.join(', ') ?? null,
+    year: getYear(metadata.common.year, metadata.common.date),
+    releaseDate: metadata.common.date ?? null,
+    genre: genres.join(', ') || null,
     artworkCacheKey,
     lyricsText: lyrics?.text ?? null,
     lyricsFormat: lyrics?.format ?? null,

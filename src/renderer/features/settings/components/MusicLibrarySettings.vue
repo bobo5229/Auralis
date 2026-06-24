@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import type { LibraryRoot, LibraryScanProgress, LibraryScanStatus } from '@shared/types/libraryScan'
+import type {
+  LibraryRoot,
+  LibraryScanProgress,
+  LibraryScanStatus,
+  MetadataRefreshFailure,
+} from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 
 const roots = ref<LibraryRoot[]>([])
@@ -8,6 +13,20 @@ const scanStatus = ref<LibraryScanStatus | null>(null)
 const currentProgress = ref<LibraryScanProgress | null>(null)
 const isLoading = ref(false)
 const unsubscribe = ref<(() => void) | null>(null)
+
+// Metadata refresh state
+const refreshJobId = ref<number | null>(null)
+const refreshStatus = ref<{
+  status: string
+  totalTracks: number
+  processedTracks: number
+  failedTracks: number
+} | null>(null)
+const refreshFailures = ref<MetadataRefreshFailure[]>([])
+const refreshErrorMessage = ref<string | null>(null)
+const isRefreshing = ref(false)
+const isMounted = ref(false)
+const unsubscribeRefresh = ref<(() => void) | null>(null)
 
 const activeRoot = computed(() => roots.value[0] ?? null)
 const isScanning = computed(() => scanStatus.value?.status === 'scanning')
@@ -39,9 +58,47 @@ const statusLabel = computed(() => {
   return scanStatus.value.status
 })
 
+const refreshProgressPercent = computed(() => {
+  if (!refreshStatus.value || refreshStatus.value.totalTracks === 0) {
+    return 0
+  }
+
+  return Math.min(
+    100,
+    Math.round((refreshStatus.value.processedTracks / refreshStatus.value.totalTracks) * 100),
+  )
+})
+
+const refreshStatusLabel = computed(() => {
+  if (refreshStatus.value?.status === 'completed') {
+    return `Completed - ${refreshStatus.value.processedTracks} updated, ${refreshStatus.value.failedTracks} failed`
+  }
+
+  if (!refreshStatus.value) {
+    return ''
+  }
+
+  if (refreshStatus.value.status === 'completed') {
+    return `Completed — ${refreshStatus.value.processedTracks} updated, ${refreshStatus.value.failedTracks} failed`
+  }
+
+  return `Refreshing... ${refreshStatus.value.processedTracks} / ${refreshStatus.value.totalTracks}`
+})
+
 async function loadLibraryState(): Promise<void> {
-  roots.value = await auralis.library.getRoots()
-  scanStatus.value = await auralis.library.getScanStatus()
+  const [nextRoots, nextScanStatus, nextFailures] = await Promise.all([
+    auralis.library.getRoots(),
+    auralis.library.getScanStatus(),
+    auralis.metadata.listRefreshFailures(),
+  ])
+
+  if (!isMounted.value) {
+    return
+  }
+
+  roots.value = nextRoots
+  scanStatus.value = nextScanStatus
+  refreshFailures.value = nextFailures
 }
 
 async function chooseFolder(): Promise<void> {
@@ -84,15 +141,73 @@ async function cancelScan(): Promise<void> {
   scanStatus.value = await auralis.library.getScanStatus(scanStatus.value.jobId)
 }
 
+async function refreshMissingMetadata(): Promise<void> {
+  if (isRefreshing.value) {
+    return
+  }
+
+  isRefreshing.value = true
+  refreshStatus.value = null
+  refreshErrorMessage.value = null
+
+  try {
+    const result = await auralis.metadata.refreshMissing()
+
+    if (!isMounted.value) {
+      return
+    }
+
+    refreshJobId.value = result.jobId
+  } catch (error) {
+    if (!isMounted.value) {
+      return
+    }
+
+    refreshErrorMessage.value =
+      error instanceof Error ? error.message : 'Unable to refresh missing metadata'
+    isRefreshing.value = false
+  }
+}
+
 onMounted(async () => {
+  isMounted.value = true
+
   unsubscribe.value = auralis.library.onScanProgress(async (progress) => {
     if (!scanStatus.value || scanStatus.value.jobId === progress.jobId) {
       currentProgress.value = progress
-      scanStatus.value = await auralis.library.getScanStatus(progress.jobId)
+      const nextScanStatus = await auralis.library.getScanStatus(progress.jobId)
+
+      if (!isMounted.value) {
+        return
+      }
+
+      scanStatus.value = nextScanStatus
     }
 
     if (progress.status === 'completed') {
-      roots.value = await auralis.library.getRoots()
+      const nextRoots = await auralis.library.getRoots()
+
+      if (isMounted.value) {
+        roots.value = nextRoots
+      }
+    }
+  })
+
+  unsubscribeRefresh.value = auralis.metadata.onRefreshProgress(async (progress) => {
+    refreshStatus.value = {
+      status: progress.status,
+      totalTracks: progress.totalTracks,
+      processedTracks: progress.processedTracks,
+      failedTracks: progress.failedTracks,
+    }
+
+    if (progress.status === 'completed' || progress.status === 'failed') {
+      isRefreshing.value = false
+      const failures = await auralis.metadata.listRefreshFailures()
+
+      if (isMounted.value) {
+        refreshFailures.value = failures
+      }
     }
   })
 
@@ -100,7 +215,9 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  isMounted.value = false
   unsubscribe.value?.()
+  unsubscribeRefresh.value?.()
 })
 </script>
 
@@ -171,6 +288,62 @@ onBeforeUnmount(() => {
         <span>{{ scannedFiles }} / {{ totalFiles }} scanned</span>
         <span>{{ failedFiles }} failed</span>
         <span>{{ progressPercent }}%</span>
+      </div>
+    </div>
+
+    <div class="mt-6 border-t border-[var(--auralis-border-subtle)] pt-5">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-medium">Metadata Refresh</h3>
+          <p class="mt-1 text-xs text-[var(--auralis-text-muted)]">
+            Re-parse audio files to fill in missing title, artist, album, lyrics, and artwork.
+          </p>
+        </div>
+        <button
+          class="rounded bg-[var(--auralis-control-active-bg)] px-3 py-2 text-sm font-medium text-[var(--auralis-text)] shadow-sm transition hover:bg-[var(--auralis-control-hover-bg)] disabled:opacity-45"
+          type="button"
+          :disabled="isRefreshing || isScanning"
+          @click="refreshMissingMetadata"
+        >
+          {{ isRefreshing ? 'Refreshing...' : 'Refresh Missing Metadata' }}
+        </button>
+      </div>
+
+      <div v-if="refreshStatus" class="mt-3">
+        <div class="h-1.5 overflow-hidden rounded bg-[var(--auralis-progress-track)]">
+          <div
+            class="h-full bg-[var(--auralis-progress-fill)] transition-all"
+            :style="{ width: `${refreshProgressPercent}%` }"
+          ></div>
+        </div>
+        <div class="mt-1.5 text-xs text-[var(--auralis-text-subtle)]">
+          {{ refreshStatusLabel }}
+        </div>
+      </div>
+
+      <div v-if="refreshErrorMessage" class="mt-3 text-xs text-[var(--auralis-text-muted)]">
+        {{ refreshErrorMessage }}
+      </div>
+
+      <div v-if="refreshFailures.length > 0" class="mt-5">
+        <div class="mb-2 text-xs font-medium text-[var(--auralis-text-muted)]">
+          Recent refresh failures
+        </div>
+        <div class="grid max-h-52 gap-2 overflow-auto text-xs">
+          <div
+            v-for="failure in refreshFailures"
+            :key="failure.id"
+            class="rounded border border-[var(--auralis-border-subtle)] bg-[var(--auralis-main-bg)]/70 p-2"
+          >
+            <div class="truncate text-[var(--auralis-text-muted)]">
+              {{ failure.filePath ?? `Track ${failure.trackId ?? 'unknown'}` }}
+            </div>
+            <div class="mt-1 text-[var(--auralis-text)]">{{ failure.reason }}</div>
+            <div class="mt-1 text-[var(--auralis-text-faint)]">
+              Job {{ failure.jobId }} - {{ failure.createdAt }}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </section>

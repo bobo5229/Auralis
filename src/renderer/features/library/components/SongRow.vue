@@ -9,11 +9,14 @@ const props = defineProps<{
   selected: boolean
   index: number
   artworkUrl: string | null
+  refreshing: boolean
 }>()
 
 defineEmits<{
   select: [trackId: number]
   play: [trackId: number]
+  editMetadata: [trackId: number]
+  refreshMetadata: [trackId: number]
 }>()
 
 const imgError = ref(false)
@@ -51,5 +54,26 @@ watch(
     <div class="song-artist">{{ formatArtist(track.artist) }}</div>
     <div class="song-album">{{ track.album }}</div>
     <div class="song-duration">{{ formatDuration(track.durationSeconds) }}</div>
+    <button
+      class="song-action"
+      type="button"
+      title="Edit Metadata"
+      aria-label="Edit Metadata"
+      @click.stop="$emit('editMetadata', track.id)"
+      @dblclick.stop
+    >
+      <span class="i-lucide-pencil text-sm"></span>
+    </button>
+    <button
+      class="song-action"
+      type="button"
+      title="Refresh Metadata"
+      aria-label="Refresh Metadata"
+      :disabled="refreshing"
+      @click.stop="$emit('refreshMetadata', track.id)"
+      @dblclick.stop
+    >
+      <span class="i-lucide-refresh-cw text-sm" :class="{ 'animate-spin': refreshing }"></span>
+    </button>
   </div>
 </template>

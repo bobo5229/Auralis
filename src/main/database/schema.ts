@@ -106,6 +106,146 @@ const migrations = [
       ALTER TABLE tracks ADD COLUMN metadata_checked_mtime_ms INTEGER;
     `,
   },
+  {
+    id: 7,
+    name: 'metadata_refresh_tables',
+    sql: `
+      CREATE TABLE IF NOT EXISTS metadata_refresh_jobs (
+        id INTEGER PRIMARY KEY,
+        scope TEXT NOT NULL,
+        status TEXT NOT NULL,
+        total_tracks INTEGER NOT NULL DEFAULT 0,
+        processed_tracks INTEGER NOT NULL DEFAULT 0,
+        failed_tracks INTEGER NOT NULL DEFAULT 0,
+        started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        finished_at TEXT,
+        error_message TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS metadata_refresh_failures (
+        id INTEGER PRIMARY KEY,
+        job_id INTEGER NOT NULL,
+        track_id INTEGER,
+        file_path TEXT,
+        reason TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(job_id) REFERENCES metadata_refresh_jobs(id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_metadata_refresh_jobs_status ON metadata_refresh_jobs(status);
+      CREATE INDEX IF NOT EXISTS idx_metadata_refresh_failures_job_id ON metadata_refresh_failures(job_id);
+    `,
+  },
+  {
+    id: 8,
+    name: 'metadata_system_tables',
+    sql: `
+      CREATE TABLE IF NOT EXISTS track_metadata (
+        track_id INTEGER PRIMARY KEY,
+        title TEXT,
+        artist_display TEXT,
+        album_title TEXT,
+        album_artist_display TEXT,
+        genre_display TEXT,
+        year INTEGER,
+        release_date TEXT,
+        lyrics_text TEXT,
+        lyrics_format TEXT,
+        artwork_cache_key TEXT,
+        source TEXT NOT NULL DEFAULT 'file_tag',
+        refreshed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS artists (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        sort_name TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS track_artists (
+        track_id INTEGER NOT NULL,
+        artist_id INTEGER NOT NULL,
+        position INTEGER NOT NULL,
+        role TEXT NOT NULL DEFAULT 'primary',
+        PRIMARY KEY(track_id, artist_id, role),
+        FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+        FOREIGN KEY(artist_id) REFERENCES artists(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS file_tag_snapshots (
+        id INTEGER PRIMARY KEY,
+        track_id INTEGER NOT NULL,
+        file_size INTEGER,
+        file_mtime_ms INTEGER,
+        parser_name TEXT NOT NULL,
+        raw_common_json TEXT NOT NULL,
+        raw_native_json TEXT,
+        captured_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_track_metadata_track_id ON track_metadata(track_id);
+      CREATE INDEX IF NOT EXISTS idx_artists_name ON artists(name);
+      CREATE INDEX IF NOT EXISTS idx_track_artists_track_role_position
+        ON track_artists(track_id, role, position);
+      CREATE INDEX IF NOT EXISTS idx_file_tag_snapshots_track_captured
+        ON file_tag_snapshots(track_id, captured_at);
+
+      CREATE VIEW IF NOT EXISTS library_track_display AS
+      SELECT
+        t.id,
+        t.file_path,
+        t.file_size,
+        t.file_mtime_ms,
+        COALESCE(tm.title, t.title) AS title,
+        COALESCE(tm.artist_display, t.artist) AS artist,
+        COALESCE(tm.album_title, t.album) AS album,
+        COALESCE(tm.album_artist_display, t.album_artist) AS album_artist,
+        t.track_no,
+        t.disc_no,
+        COALESCE(tm.year, t.year) AS year,
+        COALESCE(tm.release_date, t.release_date) AS release_date,
+        COALESCE(tm.genre_display, t.genre) AS genre,
+        t.duration_seconds,
+        COALESCE(tm.lyrics_text, t.lyrics_text) AS lyrics_text,
+        COALESCE(tm.lyrics_format, t.lyrics_format) AS lyrics_format,
+        COALESCE(tm.artwork_cache_key, a.artwork_cache_key) AS artwork_cache_key,
+        tm.source AS metadata_source,
+        tm.refreshed_at AS metadata_refreshed_at,
+        t.created_at,
+        t.updated_at
+      FROM tracks t
+      LEFT JOIN track_metadata tm ON tm.track_id = t.id
+      LEFT JOIN albums a ON COALESCE(tm.album_title, t.album) = a.title
+        AND COALESCE(tm.album_artist_display, t.album_artist) = a.artist;
+    `,
+  },
+  {
+    id: 9,
+    name: 'reset_plain_lyrics_after_lrc_detection_fix',
+    sql: `
+      UPDATE tracks
+      SET lyrics_checked_mtime_ms = NULL
+      WHERE lyrics_format = 'plain';
+    `,
+  },
+  {
+    id: 10,
+    name: 'reset_mpeg4_metadata_after_tag_compatibility_fix',
+    sql: `
+      UPDATE tracks
+      SET metadata_checked_mtime_ms = NULL
+      WHERE genre IS NULL
+        AND (
+          lower(file_path) LIKE '%.m4a'
+          OR lower(file_path) LIKE '%.mp4'
+          OR lower(file_path) LIKE '%.aac'
+        );
+    `,
+  },
 ] as const
 
 export function migrateDatabase(db: Database.Database): void {

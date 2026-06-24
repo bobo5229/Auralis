@@ -40,6 +40,37 @@ export const auralisApi: AuralisApi = {
   lyrics: {
     getByTrackId: (trackId) => invoke(ipcChannels.lyrics.getByTrackId, { trackId }),
   },
+  metadata: {
+    refreshTrack: (trackId) => invoke(ipcChannels.metadata.refreshTrack, { trackId }),
+    refreshTracks: (trackIds) => invoke(ipcChannels.metadata.refreshTracks, { trackIds }),
+    refreshMissing: (limit) => invoke(ipcChannels.metadata.refreshMissing, { limit }),
+    refreshLyricsMissing: (limit) => invoke(ipcChannels.metadata.refreshLyricsMissing, { limit }),
+    getRefreshStatus: (jobId) => invoke(ipcChannels.metadata.getRefreshStatus, { jobId }),
+    listRefreshFailures: (limit) =>
+      invoke(ipcChannels.metadata.listRefreshFailures, limit ? { limit } : undefined),
+    getTrackMetadata: (trackId) => invoke(ipcChannels.metadata.getTrackMetadata, { trackId }),
+    updateTrackMetadata: (metadata) => invoke(ipcChannels.metadata.updateTrackMetadata, metadata),
+    onRefreshProgress: (callback) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        progress: {
+          jobId: number
+          status: string
+          totalTracks: number
+          processedTracks: number
+          failedTracks: number
+        },
+      ) => {
+        callback(progress)
+      }
+
+      ipcRenderer.on(ipcChannels.metadata.refreshProgress, listener)
+
+      return () => {
+        ipcRenderer.removeListener(ipcChannels.metadata.refreshProgress, listener)
+      }
+    },
+  },
 }
 
 contextBridge.exposeInMainWorld('auralis', auralisApi)

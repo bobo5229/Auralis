@@ -5,6 +5,8 @@ import type {
   SelectLibraryRootResult,
   TrackListItem,
   TrackLyrics,
+  MetadataRefreshFailure,
+  EditableTrackMetadata,
 } from '@shared/types/libraryScan'
 
 export interface IpcInvokeContract {
@@ -43,6 +45,48 @@ export interface IpcInvokeContract {
   'lyrics:get-by-track-id': {
     request: { trackId: number }
     response: TrackLyrics | null
+  }
+  'metadata:refresh-track': {
+    request: { trackId: number }
+    response: { jobId: number }
+  }
+  'metadata:refresh-tracks': {
+    request: { trackIds: number[] }
+    response: { jobId: number }
+  }
+  'metadata:refresh-missing': {
+    request: { limit?: number }
+    response: { jobId: number }
+  }
+  'metadata:refresh-lyrics-missing': {
+    request: { limit?: number }
+    response: { jobId: number }
+  }
+  'metadata:get-refresh-status': {
+    request: { jobId: number }
+    response: {
+      id: number
+      scope: string
+      status: string
+      totalTracks: number
+      processedTracks: number
+      failedTracks: number
+      startedAt: string
+      finishedAt: string | null
+      errorMessage: string | null
+    } | null
+  }
+  'metadata:list-refresh-failures': {
+    request: { limit?: number } | void
+    response: MetadataRefreshFailure[]
+  }
+  'metadata:get-track-metadata': {
+    request: { trackId: number }
+    response: EditableTrackMetadata | null
+  }
+  'metadata:update-track-metadata': {
+    request: EditableTrackMetadata
+    response: { ok: boolean }
   }
 }
 

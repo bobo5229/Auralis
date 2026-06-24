@@ -64,6 +64,26 @@ export interface ScanFailure {
   reason: string
 }
 
+export interface MetadataRefreshFailure {
+  id: number
+  jobId: number
+  trackId: number | null
+  filePath: string | null
+  reason: string
+  createdAt: string
+}
+
+export interface EditableTrackMetadata {
+  trackId: number
+  title: string | null
+  artistDisplay: string | null
+  albumTitle: string | null
+  albumArtistDisplay: string | null
+  genreDisplay: string | null
+  year: number | null
+  releaseDate: string | null
+}
+
 export interface AlbumArtworkPatch {
   album: string
   artist: string
