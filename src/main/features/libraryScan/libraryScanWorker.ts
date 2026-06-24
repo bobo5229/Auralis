@@ -219,8 +219,8 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
       const metadata = await parseFile(filePath, { duration: false, skipCovers: false })
       const artworkCacheKey = await resolveArtwork(filePath, metadata)
 
-      // Write to album cache (only positive results — see §8 of TechDoc)
-      if (albumKey && artworkCacheKey) {
+      // Cache both success and failure to avoid repeated parseFile for albums without artwork
+      if (albumKey) {
         albumArtworkCache.set(albumKey, artworkCacheKey)
       }
 
