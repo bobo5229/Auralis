@@ -26,7 +26,13 @@ export interface AuralisApi {
     onScanProgress: (callback: (progress: LibraryScanProgress) => void) => () => void
     onChanged: (
       callback: (event: {
-        reason: 'track-added' | 'metadata-refresh' | 'file-change'
+        reason:
+          | 'track-added'
+          | 'track-missing'
+          | 'track-restored'
+          | 'track-relocated'
+          | 'metadata-refresh'
+          | 'file-change'
         trackIds: number[]
         filePaths: string[]
       }) => void,

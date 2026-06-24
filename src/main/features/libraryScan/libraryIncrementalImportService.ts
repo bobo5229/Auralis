@@ -1,7 +1,13 @@
 import { parseFile } from 'music-metadata'
-import { normalizeMetadata } from '../metadata/metadataNormalizer'
+import {
+  normalizeMetadata,
+  normalizeIdentityText,
+  buildMetadataSignature,
+} from '../metadata/metadataNormalizer'
+import type { NormalizedIdentity } from '../metadata/metadataNormalizer'
 import { resolveArtworkForFile } from '../artwork/resolveArtworkForFile'
 import { checkFileStability } from './fileStabilityChecker'
+import { tryRelocateMissingCandidate } from './trackRelocationMatcher'
 import { logger } from '../../logging/logger'
 import type { TrackRepository } from '../../repositories/trackRepository'
 import type { ScannedTrack } from '@shared/types/libraryScan'
@@ -38,15 +44,28 @@ export class LibraryIncrementalImportService {
       }
 
       try {
-        const track = await this.parseAndNormalize(filePath)
-        this.trackRepository.upsertMany([track])
-        result.imported.push(filePath)
+        const { track } = await this.parseAndNormalize(filePath)
+        const match = tryRelocateMissingCandidate(this.trackRepository, track)
 
-        this.sendToRenderer('library:changed', {
-          reason: 'track-added',
-          trackIds: [],
-          filePaths: [filePath],
-        })
+        if (match) {
+          this.trackRepository.relocateTrack(match.candidate.trackId, track)
+          result.imported.push(filePath)
+
+          this.sendToRenderer('library:changed', {
+            reason: 'track-relocated',
+            trackIds: [match.candidate.trackId],
+            filePaths: [filePath],
+          })
+        } else {
+          this.trackRepository.upsertMany([track])
+          result.imported.push(filePath)
+
+          this.sendToRenderer('library:changed', {
+            reason: 'track-added',
+            trackIds: [],
+            filePaths: [filePath],
+          })
+        }
       } catch (error) {
         const reason = error instanceof Error ? error.message : 'Unable to parse audio file'
         result.failed.push({ filePath, reason })
@@ -73,30 +92,43 @@ export class LibraryIncrementalImportService {
     return false
   }
 
-  private async parseAndNormalize(filePath: string): Promise<ScannedTrack> {
+  private async parseAndNormalize(
+    filePath: string,
+  ): Promise<{ track: ScannedTrack; identity: NormalizedIdentity }> {
     const { stat } = await import('node:fs/promises')
     const fileStat = await stat(filePath)
     const metadata = await parseFile(filePath, { duration: true })
     const normalized = normalizeMetadata(metadata)
     const artworkCacheKey = await resolveArtworkForFile(filePath, metadata, this.artworkCacheDir)
+    const identity = normalizeIdentityText(metadata)
+    const metadataSignature = buildMetadataSignature(
+      identity,
+      normalized.durationSeconds,
+      fileStat.size,
+    )
 
     return {
-      filePath,
-      fileSize: fileStat.size,
-      fileMtimeMs: fileStat.mtimeMs,
-      title: normalized.title,
-      artist: normalized.artist,
-      album: normalized.album,
-      albumArtist: normalized.albumArtist,
-      trackNo: normalized.trackNo,
-      discNo: normalized.discNo,
-      durationSeconds: normalized.durationSeconds,
-      year: normalized.year,
-      releaseDate: normalized.releaseDate,
-      genre: normalized.genre,
-      artworkCacheKey,
-      lyricsText: normalized.lyricsText,
-      lyricsFormat: normalized.lyricsFormat,
+      track: {
+        filePath,
+        fileSize: fileStat.size,
+        fileMtimeMs: fileStat.mtimeMs,
+        title: normalized.title,
+        artist: normalized.artist,
+        album: normalized.album,
+        albumArtist: normalized.albumArtist,
+        trackNo: normalized.trackNo,
+        discNo: normalized.discNo,
+        durationSeconds: normalized.durationSeconds,
+        year: normalized.year,
+        releaseDate: normalized.releaseDate,
+        genre: normalized.genre,
+        artworkCacheKey,
+        lyricsText: normalized.lyricsText,
+        lyricsFormat: normalized.lyricsFormat,
+        isrc: identity.isrc,
+        metadataSignature,
+      },
+      identity,
     }
   }
 }

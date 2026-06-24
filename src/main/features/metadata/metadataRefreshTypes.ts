@@ -26,6 +26,8 @@ export interface MetadataRefreshWorkerResult {
   lyricsText: string | null
   lyricsFormat: string | null
   artworkCacheKey: string | null
+  isrc: string | null
+  metadataSignature: string
   rawCommonJson: string
   rawNativeJson: string | null
 }

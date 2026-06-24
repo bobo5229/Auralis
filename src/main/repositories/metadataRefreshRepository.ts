@@ -40,6 +40,8 @@ export interface RefreshedTrackMetadata {
   lyricsText: string | null
   lyricsFormat: string | null
   artworkCacheKey: string | null
+  isrc: string | null
+  metadataSignature: string
   rawCommonJson: string
   rawNativeJson: string | null
 }
@@ -496,6 +498,8 @@ export class MetadataRefreshRepository extends BaseRepository {
           genre = ?,
           lyrics_text = ?,
           lyrics_format = ?,
+          isrc = ?,
+          metadata_signature = ?,
           lyrics_checked_mtime_ms = file_mtime_ms,
           metadata_checked_mtime_ms = file_mtime_ms,
           updated_at = CURRENT_TIMESTAMP
@@ -585,6 +589,8 @@ export class MetadataRefreshRepository extends BaseRepository {
         genreDisplay,
         metadata.lyricsText,
         metadata.lyricsFormat,
+        metadata.isrc,
+        metadata.metadataSignature,
         metadata.trackId,
       )
 

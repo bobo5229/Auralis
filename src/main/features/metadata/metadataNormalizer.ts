@@ -19,6 +19,14 @@ export interface NormalizedMetadata {
   genre: string | null
   lyricsText: string | null
   lyricsFormat: 'lrc' | 'plain' | null
+  isrc: string | null
+}
+
+export interface NormalizedIdentity {
+  title: string
+  artist: string
+  album: string
+  isrc: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -189,6 +197,69 @@ export function resolveGenres(metadata: IAudioMetadata): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// ISRC extraction
+// ---------------------------------------------------------------------------
+
+const NATIVE_ISRC_KEYS = new Set(['ISRC'])
+
+function isNativeIsrcTag(id: string): boolean {
+  const normalized = id.replace(/[^a-zA-Z]/g, '').toUpperCase()
+
+  return NATIVE_ISRC_KEYS.has(normalized) || normalized.endsWith('ISRC')
+}
+
+function resolveIsrc(metadata: IAudioMetadata): string | null {
+  const commonIsrc = metadata.common.isrc?.[0]
+
+  if (commonIsrc) {
+    return commonIsrc
+  }
+
+  for (const tags of getNativeTagGroups(metadata)) {
+    for (const tag of tags) {
+      if (!isNativeIsrcTag(tag.id)) continue
+
+      const values = getTextValuesFromUnknown(tag.value)
+
+      if (values[0]) {
+        return values[0]
+      }
+    }
+  }
+
+  return null
+}
+
+// ---------------------------------------------------------------------------
+// Identity & signature
+// ---------------------------------------------------------------------------
+
+export function normalizeIdentityText(metadata: IAudioMetadata): NormalizedIdentity {
+  const common = metadata.common
+  const artists = normalizeArtists(common.artists, common.artist)
+  const artist = artists.join('; ') || 'Unknown Artist'
+  const album = common.album || 'Unknown Album'
+
+  return {
+    title: common.title || 'Unknown Title',
+    artist,
+    album,
+    isrc: resolveIsrc(metadata),
+  }
+}
+
+export function buildMetadataSignature(
+  identity: NormalizedIdentity,
+  durationSeconds: number | null,
+  fileSize: number,
+): string {
+  const roundedDuration = durationSeconds != null ? Math.round(durationSeconds) : 0
+  const fileSizeBucket = Math.round(fileSize / 102400)
+
+  return `${identity.title} | ${identity.artist} | ${identity.album} | ${roundedDuration} | ${fileSizeBucket}`
+}
+
+// ---------------------------------------------------------------------------
 // Main normalizer
 // ---------------------------------------------------------------------------
 
@@ -221,5 +292,6 @@ export function normalizeMetadata(metadata: IAudioMetadata): NormalizedMetadata 
     genre: genres.join(', ') || null,
     lyricsText: lyrics?.text ?? null,
     lyricsFormat: lyrics?.format ?? null,
+    isrc: resolveIsrc(metadata),
   }
 }

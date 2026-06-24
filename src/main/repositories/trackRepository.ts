@@ -1,3 +1,4 @@
+import { normalize } from 'node:path'
 import type {
   AlbumArtworkPatch,
   ScannedTrack,
@@ -5,6 +6,7 @@ import type {
   TrackLyricsPatch,
   TrackLyrics,
 } from '@shared/types/libraryScan'
+import type { NormalizedIdentity } from '@main/features/metadata/metadataNormalizer'
 import { BaseRepository } from './baseRepository'
 
 export interface KnownTrackFile {
@@ -17,6 +19,43 @@ export interface KnownTrackFile {
   lyricsFormat: string | null
   lyricsCheckedMtimeMs: number | null
   metadataCheckedMtimeMs: number | null
+}
+
+export interface MissingTrackCandidate {
+  trackId: number
+  filePath: string
+  title: string | null
+  artist: string | null
+  album: string | null
+  durationSeconds: number | null
+  fileSize: number | null
+  isrc: string | null
+  metadataSignature: string | null
+  missingSince: string | null
+}
+
+function toPathVariants(filePath: string): string[] {
+  const normalizedPath = normalize(filePath)
+  const slashPath = normalizedPath.replace(/\\/g, '/')
+  const backslashPath = normalizedPath.replace(/\//g, '\\')
+
+  return [...new Set([normalizedPath, slashPath, backslashPath])]
+}
+
+function toRootPrefixes(rootPath: string): string[] {
+  return toPathVariants(rootPath).map((pathVariant) => {
+    if (pathVariant.endsWith('/') || pathVariant.endsWith('\\')) {
+      return pathVariant
+    }
+
+    return pathVariant.includes('/') && !pathVariant.includes('\\')
+      ? `${pathVariant}/`
+      : `${pathVariant}\\`
+  })
+}
+
+function escapeLikePattern(value: string): string {
+  return value.replace(/~/g, '~~').replace(/%/g, '~%').replace(/_/g, '~_')
 }
 
 export class TrackRepository extends BaseRepository {
@@ -91,8 +130,10 @@ export class TrackRepository extends BaseRepository {
         `SELECT id, title, artist, album,
                 album_artist AS albumArtist,
                 duration_seconds AS durationSeconds,
-                artwork_cache_key AS artworkCacheKey
+                artwork_cache_key AS artworkCacheKey,
+                availability
          FROM library_track_display
+         WHERE availability = 'available'
          ORDER BY id ASC`,
       )
       .all() as TrackListItem[]
@@ -140,9 +181,13 @@ export class TrackRepository extends BaseRepository {
         lyrics_format,
         lyrics_checked_mtime_ms,
         metadata_checked_mtime_ms,
+        isrc,
+        metadata_signature,
+        availability,
+        missing_since,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
       ON CONFLICT(file_path) DO UPDATE SET
         file_size = excluded.file_size,
         file_mtime_ms = excluded.file_mtime_ms,
@@ -160,6 +205,10 @@ export class TrackRepository extends BaseRepository {
         lyrics_format = excluded.lyrics_format,
         lyrics_checked_mtime_ms = excluded.lyrics_checked_mtime_ms,
         metadata_checked_mtime_ms = excluded.metadata_checked_mtime_ms,
+        isrc = excluded.isrc,
+        metadata_signature = excluded.metadata_signature,
+        availability = 'available',
+        missing_since = NULL,
         updated_at = CURRENT_TIMESTAMP
     `)
 
@@ -192,6 +241,8 @@ export class TrackRepository extends BaseRepository {
           track.lyricsFormat,
           track.fileMtimeMs,
           track.fileMtimeMs,
+          track.isrc,
+          track.metadataSignature,
         )
         upsertAlbum.run(track.album, track.albumArtist || track.artist, track.artworkCacheKey)
       }
@@ -250,5 +301,234 @@ export class TrackRepository extends BaseRepository {
     for (let index = 0; index < items.length; index += 300) {
       batch(items.slice(index, index + 300))
     }
+  }
+
+  markMissingByFilePaths(filePaths: string[]): number[] {
+    if (filePaths.length === 0) return []
+
+    const markedIds: number[] = []
+
+    for (let index = 0; index < filePaths.length; index += 400) {
+      const batch = filePaths.slice(index, index + 400)
+      const placeholders = batch.map(() => '?').join(', ')
+      const rows = this.db
+        .prepare(
+          `UPDATE tracks
+           SET availability = 'missing',
+               missing_since = CURRENT_TIMESTAMP,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE file_path IN (${placeholders})
+             AND availability = 'available'
+           RETURNING id`,
+        )
+        .all(...batch) as Array<{ id: number }>
+
+      markedIds.push(...rows.map((row) => row.id))
+    }
+
+    return markedIds
+  }
+
+  markAvailableByFilePaths(filePaths: string[]): number[] {
+    if (filePaths.length === 0) return []
+
+    const restoredIds: number[] = []
+
+    for (let index = 0; index < filePaths.length; index += 400) {
+      const batch = filePaths.slice(index, index + 400)
+      const placeholders = batch.map(() => '?').join(', ')
+      const rows = this.db
+        .prepare(
+          `UPDATE tracks
+           SET availability = 'available',
+               missing_since = NULL,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE file_path IN (${placeholders})
+             AND availability = 'missing'
+           RETURNING id`,
+        )
+        .all(...batch) as Array<{ id: number }>
+
+      restoredIds.push(...rows.map((row) => row.id))
+    }
+
+    return restoredIds
+  }
+
+  getMissingCandidates(): MissingTrackCandidate[] {
+    return this.db
+      .prepare(
+        `SELECT id AS trackId,
+                file_path AS filePath,
+                title,
+                artist,
+                album,
+                duration_seconds AS durationSeconds,
+                file_size AS fileSize,
+                isrc,
+                metadata_signature AS metadataSignature,
+                missing_since AS missingSince
+         FROM tracks
+         WHERE availability = 'missing'
+         ORDER BY missing_since ASC`,
+      )
+      .all() as MissingTrackCandidate[]
+  }
+
+  findMissingCandidatesByIdentity(identity: NormalizedIdentity): MissingTrackCandidate[] {
+    if (identity.isrc) {
+      return this.db
+        .prepare(
+          `SELECT id AS trackId,
+                  file_path AS filePath,
+                  title,
+                  artist,
+                  album,
+                  duration_seconds AS durationSeconds,
+                  file_size AS fileSize,
+                  isrc,
+                  metadata_signature AS metadataSignature,
+                  missing_since AS missingSince
+           FROM tracks
+           WHERE availability = 'missing'
+             AND isrc = ?`,
+        )
+        .all(identity.isrc) as MissingTrackCandidate[]
+    }
+
+    return this.db
+      .prepare(
+        `SELECT id AS trackId,
+                file_path AS filePath,
+                title,
+                artist,
+                album,
+                duration_seconds AS durationSeconds,
+                file_size AS fileSize,
+                isrc,
+                metadata_signature AS metadataSignature,
+                missing_since AS missingSince
+         FROM tracks
+         WHERE availability = 'missing'
+           AND isrc IS NULL
+           AND title = ?
+           AND artist = ?`,
+      )
+      .all(identity.title, identity.artist) as MissingTrackCandidate[]
+  }
+
+  markMissingUnderRootExcept(rootPath: string, foundFilePaths: string[]): number[] {
+    const rootPrefixes = toRootPrefixes(rootPath)
+    const rootPredicates = rootPrefixes.map(() => `file_path LIKE ? ESCAPE '~'`).join(' OR ')
+    const rootPatternArgs = rootPrefixes.map((prefix) => `${escapeLikePattern(prefix)}%`)
+
+    if (foundFilePaths.length === 0) {
+      const rows = this.db
+        .prepare(
+          `UPDATE tracks
+           SET availability = 'missing',
+               missing_since = CURRENT_TIMESTAMP,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE (${rootPredicates})
+             AND availability = 'available'
+           RETURNING id`,
+        )
+        .all(...rootPatternArgs) as Array<{ id: number }>
+
+      return rows.map((row) => row.id)
+    }
+
+    try {
+      this.db.exec(
+        `CREATE TEMP TABLE IF NOT EXISTS _temp_found_paths (
+          file_path TEXT PRIMARY KEY
+        )`,
+      )
+      this.db.exec('DELETE FROM _temp_found_paths')
+
+      const insertTemp = this.db.prepare(
+        'INSERT OR IGNORE INTO _temp_found_paths (file_path) VALUES (?)',
+      )
+      const insertBatch = this.db.transaction((paths: string[]) => {
+        for (const path of paths) {
+          for (const pathVariant of toPathVariants(path)) {
+            insertTemp.run(pathVariant)
+          }
+        }
+      })
+
+      for (let index = 0; index < foundFilePaths.length; index += 300) {
+        insertBatch(foundFilePaths.slice(index, index + 300))
+      }
+
+      const rows = this.db
+        .prepare(
+          `UPDATE tracks
+           SET availability = 'missing',
+               missing_since = CURRENT_TIMESTAMP,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE (${rootPredicates})
+             AND availability = 'available'
+             AND file_path NOT IN (SELECT file_path FROM _temp_found_paths)
+           RETURNING id`,
+        )
+        .all(...rootPatternArgs) as Array<{ id: number }>
+
+      return rows.map((row) => row.id)
+    } finally {
+      this.db.exec('DROP TABLE IF EXISTS _temp_found_paths')
+    }
+  }
+
+  relocateTrack(trackId: number, scannedTrack: ScannedTrack): void {
+    this.db
+      .prepare(
+        `UPDATE tracks
+         SET file_path = ?,
+             file_size = ?,
+             file_mtime_ms = ?,
+             title = ?,
+             artist = ?,
+             album = ?,
+             album_artist = ?,
+             track_no = ?,
+             disc_no = ?,
+             duration_seconds = ?,
+             year = ?,
+             release_date = ?,
+             genre = ?,
+             lyrics_text = ?,
+             lyrics_format = ?,
+             isrc = ?,
+             metadata_signature = ?,
+             availability = 'available',
+             missing_since = NULL,
+             lyrics_checked_mtime_ms = ?,
+             metadata_checked_mtime_ms = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+      )
+      .run(
+        scannedTrack.filePath,
+        scannedTrack.fileSize,
+        scannedTrack.fileMtimeMs,
+        scannedTrack.title,
+        scannedTrack.artist,
+        scannedTrack.album,
+        scannedTrack.albumArtist,
+        scannedTrack.trackNo,
+        scannedTrack.discNo,
+        scannedTrack.durationSeconds,
+        scannedTrack.year,
+        scannedTrack.releaseDate,
+        scannedTrack.genre,
+        scannedTrack.lyricsText,
+        scannedTrack.lyricsFormat,
+        scannedTrack.isrc,
+        scannedTrack.metadataSignature,
+        scannedTrack.fileMtimeMs,
+        scannedTrack.fileMtimeMs,
+        trackId,
+      )
   }
 }

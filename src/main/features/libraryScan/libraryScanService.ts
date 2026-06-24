@@ -7,6 +7,7 @@ import type {
   LibraryRoot,
   LibraryScanProgress,
   LibraryScanStatus,
+  ScannedTrack,
   SelectLibraryRootResult,
 } from '@shared/types/libraryScan'
 import { logger } from '@main/logging/logger'
@@ -15,6 +16,7 @@ import { ScanFailureRepository } from '@main/repositories/scanFailureRepository'
 import { ScanJobRepository } from '@main/repositories/scanJobRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
 import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './libraryScanTypes'
+import { tryRelocateMissingCandidate } from './trackRelocationMatcher'
 
 export class LibraryScanService {
   private readonly libraryRootRepository: LibraryRootRepository
@@ -152,7 +154,7 @@ export class LibraryScanService {
     }
 
     if (message.type === 'tracks') {
-      this.trackRepository.upsertMany(message.payload)
+      this.upsertOrRelocateTracks(message.payload)
       return
     }
 
@@ -199,6 +201,28 @@ export class LibraryScanService {
       if (status) {
         this.libraryRootRepository.markScanned(status.rootId)
         this.scanJobRepository.finish(jobId, 'completed')
+
+        // Mark tracks as missing if they were not found during scan
+        const root = this.libraryRootRepository.getById(status.rootId)
+
+        if (root) {
+          const restoredIds = this.trackRepository.markAvailableByFilePaths(
+            message.payload.foundFilePaths,
+          )
+          const missingIds = this.trackRepository.markMissingUnderRootExcept(
+            root.path,
+            message.payload.foundFilePaths,
+          )
+
+          if (restoredIds.length > 0) {
+            this.publishChanged('track-restored', restoredIds, message.payload.foundFilePaths)
+          }
+
+          if (missingIds.length > 0) {
+            this.publishChanged('track-missing', missingIds)
+          }
+        }
+
         this.publishProgress({
           jobId,
           status: 'completed',
@@ -215,9 +239,56 @@ export class LibraryScanService {
     }
   }
 
+  private upsertOrRelocateTracks(tracks: ScannedTrack[]): void {
+    const newTracks: ScannedTrack[] = []
+    const relocatedIds: number[] = []
+
+    for (const track of tracks) {
+      const match = tryRelocateMissingCandidate(this.trackRepository, track)
+
+      if (match) {
+        this.trackRepository.relocateTrack(match.candidate.trackId, track)
+        relocatedIds.push(match.candidate.trackId)
+      } else {
+        newTracks.push(track)
+      }
+    }
+
+    if (newTracks.length > 0) {
+      const newTrackPaths = newTracks.map((track) => track.filePath)
+      const existingPaths = this.trackRepository.getExistingFilePaths(newTrackPaths)
+      const addedPaths = newTrackPaths.filter((filePath) => !existingPaths.has(filePath))
+
+      this.trackRepository.upsertMany(newTracks)
+
+      if (addedPaths.length > 0) {
+        const addedIds = this.trackRepository.getTrackIdsByFilePaths(addedPaths)
+        this.publishChanged('track-added', addedIds, addedPaths)
+      }
+    }
+
+    if (relocatedIds.length > 0) {
+      this.publishChanged('track-relocated', relocatedIds)
+    }
+  }
+
   private publishProgress(progress: LibraryScanProgress): void {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(ipcChannels.library.scanProgress, progress)
+    }
+  }
+
+  private publishChanged(
+    reason: 'track-added' | 'track-missing' | 'track-restored' | 'track-relocated',
+    trackIds: number[],
+    filePaths: string[] = [],
+  ): void {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(ipcChannels.library.changed, {
+        reason,
+        trackIds,
+        filePaths,
+      })
     }
   }
 }

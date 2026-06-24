@@ -21,4 +21,4 @@ export type LibraryScanWorkerMessage =
   | { type: 'trackLyrics'; payload: TrackLyricsPatch[] }
   | { type: 'failure'; payload: ScanFailure }
   | { type: 'fatal'; payload: { jobId: number; reason: string } }
-  | { type: 'complete' }
+  | { type: 'complete'; payload: { foundFilePaths: string[] } }

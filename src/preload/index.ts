@@ -40,7 +40,13 @@ export const auralisApi: AuralisApi = {
       const listener = (
         _event: Electron.IpcRendererEvent,
         event: {
-          reason: 'track-added' | 'metadata-refresh' | 'file-change'
+          reason:
+            | 'track-added'
+            | 'track-missing'
+            | 'track-restored'
+            | 'track-relocated'
+            | 'metadata-refresh'
+            | 'file-change'
           trackIds: number[]
           filePaths: string[]
         },

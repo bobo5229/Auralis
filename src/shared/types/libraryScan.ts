@@ -1,3 +1,5 @@
+export type TrackAvailability = 'available' | 'missing'
+
 export interface TrackListItem {
   id: number
   title: string | null
@@ -6,6 +8,7 @@ export interface TrackListItem {
   albumArtist: string | null
   durationSeconds: number | null
   artworkCacheKey: string | null
+  availability: TrackAvailability
 }
 
 export type LibraryScanStatusValue = 'idle' | 'scanning' | 'completed' | 'canceled' | 'failed'
@@ -56,6 +59,8 @@ export interface ScannedTrack {
   artworkCacheKey: string | null
   lyricsText: string | null
   lyricsFormat: LyricsFormat | null
+  isrc: string | null
+  metadataSignature: string
 }
 
 export interface ScanFailure {

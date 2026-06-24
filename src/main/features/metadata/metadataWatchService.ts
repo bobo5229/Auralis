@@ -1,9 +1,17 @@
 import { watch } from 'node:fs'
 import type { FSWatcher } from 'node:fs'
+import { stat } from 'node:fs/promises'
 import { join, normalize } from 'node:path'
+import { parseFile } from 'music-metadata'
 import { isSupportedAudioFile } from '@main/features/libraryScan/audioFileFilter'
+import {
+  normalizeIdentityText,
+  normalizeMetadata,
+  buildMetadataSignature,
+} from '@main/features/metadata/metadataNormalizer'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
+import type { MissingTrackCandidate } from '@main/repositories/trackRepository'
 import { logger } from '@main/logging/logger'
 import type { MetadataRefreshService } from './metadataRefreshService'
 import type { LibraryIncrementalImportService } from '../libraryScan/libraryIncrementalImportService'
@@ -12,6 +20,8 @@ const WATCH_DEBOUNCE_MS = 1200
 const RETRY_AFTER_ACTIVE_JOB_MS = 5000
 const UNSTABLE_RETRY_DELAY_MS = 3000
 const MAX_UNSTABLE_RETRIES = 40 // ~2 min total (40 * 3s)
+const MISSING_CONFIRM_DELAY_MS = 5000
+const RELOCATION_WINDOW_MS = 60000
 
 export class MetadataWatchService {
   private readonly watchers = new Map<string, FSWatcher>()
@@ -19,6 +29,8 @@ export class MetadataWatchService {
   private readonly unstableRetries = new Map<string, number>()
   private readonly inFlightFilePaths = new Set<string>()
   private readonly deferredFilePaths = new Set<string>()
+  private readonly pendingMissingFilePaths = new Map<string, number>()
+  private readonly recentMissingCandidates = new Map<number, MissingTrackCandidate>()
   private flushTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(
@@ -26,6 +38,7 @@ export class MetadataWatchService {
     private readonly trackRepository: TrackRepository,
     private readonly metadataRefreshService: MetadataRefreshService,
     private readonly incrementalImportService: LibraryIncrementalImportService,
+    private readonly sendToRenderer: (channel: string, data: unknown) => void,
   ) {}
 
   start(): void {
@@ -106,7 +119,7 @@ export class MetadataWatchService {
     }, delay)
   }
 
-  private flushPending(): void {
+  private async flushPending(): Promise<void> {
     const filePaths = [...this.pendingFilePaths.keys()]
     this.pendingFilePaths.clear()
 
@@ -114,7 +127,7 @@ export class MetadataWatchService {
       return
     }
 
-    // Separate in-flight paths into deferred set, don't put back into pending
+    // Separate in-flight paths into deferred set
     const incoming: string[] = []
 
     for (const filePath of filePaths) {
@@ -129,36 +142,236 @@ export class MetadataWatchService {
       return
     }
 
-    const existingPaths = this.trackRepository.getExistingFilePaths(incoming)
-    const existingFilePaths = incoming.filter((p) => existingPaths.has(p))
-    const newFilePaths = incoming.filter((p) => !existingPaths.has(p))
+    // Stat all files to determine existence
+    const statResults = await Promise.allSettled(incoming.map((p) => stat(p)))
+    const existingPaths: string[] = []
+    const missingPaths: string[] = []
 
-    // Route existing tracks to metadata refresh
-    if (existingFilePaths.length > 0) {
-      const trackIds = this.trackRepository.getTrackIdsByFilePaths(existingFilePaths)
+    for (let i = 0; i < incoming.length; i++) {
+      const result = statResults[i]
 
-      if (trackIds.length > 0) {
-        try {
-          this.metadataRefreshService.refreshTracksFromFileChanges(trackIds)
-        } catch (error) {
-          this.requeuePaths(existingFilePaths)
-          logger.info(
-            { error, count: trackIds.length },
-            'Deferring metadata refresh for file changes',
-          )
-          this.scheduleFlush(RETRY_AFTER_ACTIVE_JOB_MS)
+      if (result.status === 'fulfilled') {
+        existingPaths.push(incoming[i])
+      } else {
+        missingPaths.push(incoming[i])
+      }
+    }
+
+    // Route existing tracks
+    if (existingPaths.length > 0) {
+      const knownPaths = this.trackRepository.getExistingFilePaths(existingPaths)
+      const knownFilePaths = existingPaths.filter((p) => knownPaths.has(p))
+      const newFilePaths = existingPaths.filter((p) => !knownPaths.has(p))
+
+      // Known tracks: metadata refresh
+      if (knownFilePaths.length > 0) {
+        const trackIds = this.trackRepository.getTrackIdsByFilePaths(knownFilePaths)
+
+        if (trackIds.length > 0) {
+          try {
+            this.metadataRefreshService.refreshTracksFromFileChanges(trackIds)
+          } catch (error) {
+            this.requeuePaths(knownFilePaths)
+            logger.info(
+              { error, count: trackIds.length },
+              'Deferring metadata refresh for file changes',
+            )
+            this.scheduleFlush(RETRY_AFTER_ACTIVE_JOB_MS)
+          }
+        }
+      }
+
+      // New tracks: import with relocation matching
+      if (newFilePaths.length > 0) {
+        this.importWithRelocationMatch(newFilePaths)
+      }
+    }
+
+    // Route missing tracks to confirmation queue
+    if (missingPaths.length > 0) {
+      for (const filePath of missingPaths) {
+        this.pendingMissingFilePaths.set(filePath, Date.now())
+      }
+      this.scheduleMissingConfirmation()
+    }
+  }
+
+  private scheduleMissingConfirmation(): void {
+    setTimeout(() => {
+      this.confirmMissing()
+    }, MISSING_CONFIRM_DELAY_MS)
+  }
+
+  private async confirmMissing(): Promise<void> {
+    const entries = [...this.pendingMissingFilePaths.entries()]
+    this.pendingMissingFilePaths.clear()
+
+    if (entries.length === 0) {
+      return
+    }
+
+    // Stat again to confirm files are still missing
+    const filePaths = entries.map(([p]) => p)
+    const statResults = await Promise.allSettled(filePaths.map((p) => stat(p)))
+    const confirmedMissing: string[] = []
+    const restoredPaths: string[] = []
+
+    for (let i = 0; i < filePaths.length; i++) {
+      if (statResults[i].status === 'fulfilled') {
+        restoredPaths.push(filePaths[i])
+      } else {
+        confirmedMissing.push(filePaths[i])
+      }
+    }
+
+    // Handle restored files
+    if (restoredPaths.length > 0) {
+      const restoredIds = this.trackRepository.markAvailableByFilePaths(restoredPaths)
+
+      if (restoredIds.length > 0) {
+        this.sendChanged('track-restored', restoredIds, restoredPaths)
+
+        for (const trackId of restoredIds) {
+          this.recentMissingCandidates.delete(trackId)
         }
       }
     }
 
-    // Route new tracks to incremental import
-    if (newFilePaths.length > 0) {
-      for (const filePath of newFilePaths) {
-        this.inFlightFilePaths.add(filePath)
+    // Handle confirmed missing files
+    if (confirmedMissing.length > 0) {
+      const missingIds = this.trackRepository.markMissingByFilePaths(confirmedMissing)
+
+      if (missingIds.length > 0) {
+        // Store recent candidates for relocation matching
+        const candidates = this.trackRepository.getMissingCandidates()
+
+        for (const candidate of candidates) {
+          if (missingIds.includes(candidate.trackId)) {
+            this.recentMissingCandidates.set(candidate.trackId, candidate)
+            this.scheduleRelocationExpiry(candidate.trackId)
+          }
+        }
+
+        this.sendChanged('track-missing', missingIds, confirmedMissing)
+      }
+    }
+  }
+
+  private scheduleRelocationExpiry(trackId: number): void {
+    setTimeout(() => {
+      this.recentMissingCandidates.delete(trackId)
+    }, RELOCATION_WINDOW_MS)
+  }
+
+  private async importWithRelocationMatch(filePaths: string[]): Promise<void> {
+    for (const filePath of filePaths) {
+      this.inFlightFilePaths.add(filePath)
+    }
+
+    const relocatedTrackIds: number[] = []
+    const relocatedFilePaths: string[] = []
+    const unmatchedPaths: string[] = []
+
+    for (const filePath of filePaths) {
+      try {
+        const matched = await this.matchRecentCandidate(filePath)
+
+        if (matched) {
+          this.recentMissingCandidates.delete(matched.trackId)
+          relocatedTrackIds.push(matched.trackId)
+          relocatedFilePaths.push(filePath)
+          this.releaseInFlight(filePath)
+        } else {
+          unmatchedPaths.push(filePath)
+        }
+      } catch {
+        unmatchedPaths.push(filePath)
+      }
+    }
+
+    // Send relocated event
+    if (relocatedTrackIds.length > 0) {
+      this.sendChanged('track-relocated', relocatedTrackIds, relocatedFilePaths)
+    }
+
+    // Import unmatched files via normal import (includes DB matching)
+    if (unmatchedPaths.length > 0) {
+      this.importWithRetry(unmatchedPaths)
+    } else {
+      // All relocated, release in-flight for relocated paths
+      for (const filePath of relocatedFilePaths) {
+        this.releaseInFlight(filePath)
+      }
+    }
+  }
+
+  private async matchRecentCandidate(filePath: string): Promise<MissingTrackCandidate | null> {
+    if (this.recentMissingCandidates.size === 0) return null
+
+    try {
+      const metadata = await parseFile(filePath, { duration: true })
+      const identity = normalizeIdentityText(metadata)
+      const fileStat = await stat(filePath)
+      const normalized = normalizeMetadata(metadata)
+      const signature = buildMetadataSignature(identity, normalized.durationSeconds, fileStat.size)
+
+      const scannedTrack = {
+        filePath,
+        fileSize: fileStat.size,
+        fileMtimeMs: fileStat.mtimeMs,
+        title: normalized.title,
+        artist: normalized.artist,
+        album: normalized.album,
+        albumArtist: normalized.albumArtist,
+        trackNo: normalized.trackNo,
+        discNo: normalized.discNo,
+        durationSeconds: normalized.durationSeconds,
+        year: normalized.year,
+        releaseDate: normalized.releaseDate,
+        genre: normalized.genre,
+        artworkCacheKey: null,
+        lyricsText: normalized.lyricsText,
+        lyricsFormat: normalized.lyricsFormat,
+        isrc: identity.isrc,
+        metadataSignature: signature,
       }
 
-      this.importWithRetry(newFilePaths)
+      if (identity.isrc) {
+        for (const candidate of this.recentMissingCandidates.values()) {
+          if (candidate.isrc === identity.isrc) {
+            this.trackRepository.relocateTrack(candidate.trackId, scannedTrack)
+            return candidate
+          }
+        }
+      }
+
+      for (const candidate of this.recentMissingCandidates.values()) {
+        if (candidate.isrc) continue
+        if (candidate.title !== identity.title) continue
+        if (candidate.artist !== identity.artist) continue
+
+        if (!candidate.durationSeconds || !normalized.durationSeconds) continue
+        if (Math.abs(candidate.durationSeconds - normalized.durationSeconds) > 1) continue
+        if (!candidate.fileSize) continue
+        if (Math.abs(candidate.fileSize - fileStat.size) / candidate.fileSize > 0.02) continue
+
+        const albumMatch =
+          candidate.album === normalized.album ||
+          !candidate.album ||
+          !normalized.album ||
+          candidate.album === 'Unknown Album' ||
+          normalized.album === 'Unknown Album'
+
+        if (!albumMatch) continue
+
+        this.trackRepository.relocateTrack(candidate.trackId, scannedTrack)
+        return candidate
+      }
+    } catch (error) {
+      logger.debug({ error, filePath }, 'Failed to match recent candidate')
     }
+
+    return null
   }
 
   private async importWithRetry(filePaths: string[]): Promise<void> {
@@ -228,5 +441,17 @@ export class MetadataWatchService {
     for (const filePath of filePaths) {
       this.pendingFilePaths.set(filePath, Date.now())
     }
+  }
+
+  private sendChanged(
+    reason: 'track-missing' | 'track-restored' | 'track-relocated',
+    trackIds: number[],
+    filePaths: string[],
+  ): void {
+    this.sendToRenderer('library:changed', {
+      reason,
+      trackIds,
+      filePaths,
+    })
   }
 }

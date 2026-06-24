@@ -36,11 +36,17 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
       }
     },
   )
+  const sendToRenderer = (channel: string, data: unknown) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send(channel, data)
+    }
+  }
   const metadataWatchService = new MetadataWatchService(
     new LibraryRootRepository(db),
     trackRepository,
     metadataRefreshService,
     incrementalImportService,
+    sendToRenderer,
   )
 
   metadataWatchService.start()

@@ -11,6 +11,8 @@ import {
   resolveLyrics,
   resolveGenres,
   getYear,
+  normalizeIdentityText,
+  buildMetadataSignature,
 } from '../metadata/metadataNormalizer'
 import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './libraryScanTypes'
 import type {
@@ -25,6 +27,7 @@ const knownFiles = new Map(input.knownFiles.map((file) => [file.filePath, file])
 const trackBatch: ScannedTrack[] = []
 const artworkBatch: AlbumArtworkPatch[] = []
 const lyricsBatch: TrackLyricsPatch[] = []
+const foundFilePaths: string[] = []
 
 // In-memory caches scoped to this scan run (see §4–7 of TechDoc)
 const albumArtworkCache = new Map<string, string | null>()
@@ -170,6 +173,12 @@ async function createScannedTrack(
     metadata.common.artist,
   )
   const albumKey = getAlbumKey(album, albumArtist)
+  const identity = normalizeIdentityText(metadata)
+  const metadataSignature = buildMetadataSignature(
+    identity,
+    metadata.format.duration ?? null,
+    fileStat.size,
+  )
 
   if (albumKey && artworkCacheKey) {
     albumArtworkCache.set(albumKey, artworkCacheKey)
@@ -192,6 +201,8 @@ async function createScannedTrack(
     artworkCacheKey,
     lyricsText: lyrics?.text ?? null,
     lyricsFormat: lyrics?.format ?? null,
+    isrc: identity.isrc,
+    metadataSignature,
   }
 }
 
@@ -338,6 +349,12 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
         artworkCacheKey: null,
         lyricsText: null,
         lyricsFormat: null,
+        isrc: null,
+        metadataSignature: buildMetadataSignature(
+          { title: fallbackTitle, artist: 'Unknown Artist', album: 'Unknown Album', isrc: null },
+          null,
+          fileStat.size,
+        ),
       },
     }
   }
@@ -352,6 +369,7 @@ async function run(): Promise<void> {
   for (const filePath of audioFiles) {
     const result = await readTrack(filePath)
     scannedFiles += 1
+    foundFilePaths.push(filePath)
 
     if (result.kind === 'track') {
       trackBatch.push(result.track)
@@ -390,7 +408,7 @@ async function run(): Promise<void> {
   flushArtworkBatch()
   flushLyricsBatch()
   postProgress(null, 'Scan complete', true)
-  postMessage({ type: 'complete' })
+  postMessage({ type: 'complete', payload: { foundFilePaths } })
 }
 
 run().catch((error: unknown) => {

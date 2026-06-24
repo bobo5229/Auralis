@@ -1,6 +1,11 @@
 import { parentPort, workerData } from 'node:worker_threads'
+import { stat } from 'node:fs/promises'
 import { parseFile } from 'music-metadata'
-import { normalizeMetadata } from './metadataNormalizer'
+import {
+  normalizeMetadata,
+  normalizeIdentityText,
+  buildMetadataSignature,
+} from './metadataNormalizer'
 import { writeArtworkToCache } from '../artwork/artworkCache'
 import type {
   MetadataRefreshWorkerInput,
@@ -72,6 +77,13 @@ async function processTrack(trackId: number, filePath: string): Promise<void> {
     const metadata = await parseFile(filePath, { duration: true })
     const normalized = normalizeMetadata(metadata)
     const artworkCacheKey = await resolveArtwork(filePath, metadata)
+    const identity = normalizeIdentityText(metadata)
+    const fileStat = await stat(filePath)
+    const metadataSignature = buildMetadataSignature(
+      identity,
+      normalized.durationSeconds,
+      fileStat.size,
+    )
 
     postMessage({
       type: 'result',
@@ -96,6 +108,8 @@ async function processTrack(trackId: number, filePath: string): Promise<void> {
         lyricsText: normalized.lyricsText,
         lyricsFormat: normalized.lyricsFormat,
         artworkCacheKey,
+        isrc: identity.isrc,
+        metadataSignature,
         rawCommonJson: stringifySnapshot(metadata.common) ?? '{}',
         rawNativeJson: stringifySnapshot(metadata.native),
       },
