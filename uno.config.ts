@@ -19,7 +19,7 @@ export default defineConfig({
       'flex w-[232px] h-[calc(100vh-24px)] min-h-0 flex-col m-[12px_0_12px_12px] rounded-[20px] border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
     'app-main': 'min-h-0 overflow-y-auto bg-[var(--auralis-main-bg)]',
     'now-playing-panel':
-      'hidden h-full min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-24 xl:flex',
+      'hidden h-full min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-4 xl:flex',
     'player-bar':
       'fixed left-1/2 bottom-6 z-50 flex h-18 w-[min(960px,calc(100vw-320px))] min-w-[720px] -translate-x-1/2 items-center gap-5 rounded-full border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)]/95 px-6 shadow-[0_18px_48px_rgba(31,35,40,0.12)] backdrop-blur-sm',
     'transport-controls': 'flex items-center gap-2 shrink-0',
@@ -50,7 +50,7 @@ export default defineConfig({
     'theme-toggle-button':
       'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
     'song-row':
-      'grid h-11 grid-cols-[44px_minmax(0,1fr)_140px_minmax(0,1fr)_56px_32px_32px] items-center gap-2.5 px-4 cursor-pointer transition-colors',
+      'grid h-11 grid-cols-[44px_minmax(0,1fr)_140px_minmax(0,1fr)_56px_32px] items-center gap-2.5 px-4 cursor-pointer transition-colors',
     'song-cover':
       'h-11 w-11 shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
     'song-title': 'text-sm font-bold truncate',

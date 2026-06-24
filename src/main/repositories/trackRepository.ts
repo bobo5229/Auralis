@@ -28,6 +28,52 @@ export class TrackRepository extends BaseRepository {
     return row?.filePath ?? null
   }
 
+  getTrackIdsByFilePaths(filePaths: string[]): number[] {
+    const uniquePaths = [...new Set(filePaths)].filter(Boolean)
+
+    if (uniquePaths.length === 0) {
+      return []
+    }
+
+    const trackIds: number[] = []
+
+    for (let index = 0; index < uniquePaths.length; index += 400) {
+      const batch = uniquePaths.slice(index, index + 400)
+      const placeholders = batch.map(() => '?').join(', ')
+      const rows = this.db
+        .prepare(`SELECT id FROM tracks WHERE file_path IN (${placeholders})`)
+        .all(...batch) as Array<{ id: number }>
+
+      trackIds.push(...rows.map((row) => row.id))
+    }
+
+    return trackIds
+  }
+
+  getExistingFilePaths(filePaths: string[]): Set<string> {
+    const uniquePaths = [...new Set(filePaths)].filter(Boolean)
+
+    if (uniquePaths.length === 0) {
+      return new Set()
+    }
+
+    const existing = new Set<string>()
+
+    for (let index = 0; index < uniquePaths.length; index += 400) {
+      const batch = uniquePaths.slice(index, index + 400)
+      const placeholders = batch.map(() => '?').join(', ')
+      const rows = this.db
+        .prepare(`SELECT file_path AS filePath FROM tracks WHERE file_path IN (${placeholders})`)
+        .all(...batch) as Array<{ filePath: string }>
+
+      for (const row of rows) {
+        existing.add(row.filePath)
+      }
+    }
+
+    return existing
+  }
+
   getLyricsByTrackId(trackId: number): TrackLyrics | null {
     const row = this.db
       .prepare(

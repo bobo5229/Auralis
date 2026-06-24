@@ -12,6 +12,7 @@ export const ipcChannels = {
     getScanStatus: 'library:get-scan-status',
     getTracks: 'library:get-tracks',
     scanProgress: 'library:scan-progress',
+    changed: 'library:changed',
   },
   lyrics: {
     getByTrackId: 'lyrics:get-by-track-id',

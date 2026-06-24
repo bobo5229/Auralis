@@ -15,8 +15,8 @@ const props = defineProps<{
 defineEmits<{
   select: [trackId: number]
   play: [trackId: number]
-  editMetadata: [trackId: number]
   refreshMetadata: [trackId: number]
+  openContextMenu: [trackId: number, event: MouseEvent]
 }>()
 
 const imgError = ref(false)
@@ -38,6 +38,7 @@ watch(
     }"
     @click="$emit('select', track.id)"
     @dblclick="$emit('play', track.id)"
+    @contextmenu.prevent="$emit('openContextMenu', track.id, $event)"
   >
     <div class="song-cover overflow-hidden">
       <img
@@ -54,16 +55,6 @@ watch(
     <div class="song-artist">{{ formatArtist(track.artist) }}</div>
     <div class="song-album">{{ track.album }}</div>
     <div class="song-duration">{{ formatDuration(track.durationSeconds) }}</div>
-    <button
-      class="song-action"
-      type="button"
-      title="Edit Metadata"
-      aria-label="Edit Metadata"
-      @click.stop="$emit('editMetadata', track.id)"
-      @dblclick.stop
-    >
-      <span class="i-lucide-pencil text-sm"></span>
-    </button>
     <button
       class="song-action"
       type="button"

@@ -63,6 +63,14 @@ export class MetadataRefreshService {
   }
 
   refreshTracks(trackIds: number[]): { jobId: number } {
+    return this.refreshTracksForScope(trackIds, 'tracks')
+  }
+
+  refreshTracksFromFileChanges(trackIds: number[]): { jobId: number } {
+    return this.refreshTracksForScope(trackIds, 'file-change')
+  }
+
+  private refreshTracksForScope(trackIds: number[], scope: string): { jobId: number } {
     const activeJob = this.repository.getActiveJob()
     if (activeJob) {
       throw new Error(`A refresh job is already running (job ${activeJob.id})`)
@@ -74,7 +82,7 @@ export class MetadataRefreshService {
       throw new Error('No matching tracks found')
     }
 
-    const jobId = this.repository.createJob('tracks', tracks.length)
+    const jobId = this.repository.createJob(scope, tracks.length)
     this.activeJobId = jobId
 
     const workerInput: MetadataRefreshWorkerInput = {
@@ -152,6 +160,10 @@ export class MetadataRefreshService {
         case 'complete': {
           this.repository.completeJob(input.jobId)
           this.pushProgress(input.jobId, input.tracks.length, input.tracks.length, failed)
+          this.pushChanged(
+            input.tracks.map((track) => track.trackId),
+            this.getChangedReason(input.jobId),
+          )
           this.activeWorker = null
           this.activeJobId = null
           break
@@ -192,6 +204,20 @@ export class MetadataRefreshService {
     }
 
     this.sendToRenderer('metadata:refresh-progress', progress)
+  }
+
+  private getChangedReason(jobId: number): 'metadata-refresh' | 'file-change' {
+    const job = this.repository.getJobById(jobId)
+
+    return job?.scope === 'file-change' ? 'file-change' : 'metadata-refresh'
+  }
+
+  private pushChanged(trackIds: number[], reason: 'metadata-refresh' | 'file-change'): void {
+    this.sendToRenderer('library:changed', {
+      trackIds: [...new Set(trackIds)],
+      filePaths: [],
+      reason,
+    })
   }
 
   getJobStatus(jobId: number) {

@@ -4,7 +4,7 @@ import { readFile, readdir, stat } from 'node:fs/promises'
 import { parseFile } from 'music-metadata'
 import { isSupportedAudioFile } from './audioFileFilter'
 import { writeArtworkToCache } from '../artwork/artworkCache'
-import type { ArtworkSource } from '../artwork/artworkTypes'
+import { resolveArtworkForFile } from '../artwork/resolveArtworkForFile'
 import {
   normalizeArtist,
   normalizeAlbumArtist,
@@ -95,65 +95,39 @@ async function collectAudioFiles(directoryPath: string): Promise<string[]> {
   return files
 }
 
-async function extractEmbeddedArtwork(
-  metadata: Awaited<ReturnType<typeof parseFile>>,
-): Promise<ArtworkSource | null> {
-  const picture = metadata.common.picture?.[0]
-
-  if (!picture) {
-    return null
+async function resolveArtwork(
+  filePath: string,
+  metadata: Awaited<ReturnType<typeof parseFile>> | null,
+): Promise<string | null> {
+  if (!metadata) {
+    return resolveDirectoryCover(filePath)
   }
 
-  return { data: Buffer.from(picture.data), mimeType: picture.format }
-}
-
-async function readCoverJpgSource(audioFilePath: string): Promise<ArtworkSource | null> {
-  const coverPath = join(dirname(audioFilePath), 'cover.jpg')
-
-  try {
-    const data = await readFile(coverPath)
-    return { data, mimeType: 'image/jpeg' }
-  } catch {
-    return null
-  }
+  return resolveArtworkForFile(filePath, metadata, input.artworkCacheDir)
 }
 
 async function resolveDirectoryCover(filePath: string): Promise<string | null> {
   const dir = dirname(filePath)
   const cached = directoryCoverCache.get(dir)
 
-  // Cache hit: string = artwork key, null = no cover in this directory
   if (cached !== undefined) {
     return cached
   }
 
-  const source = await readCoverJpgSource(filePath)
+  const coverPath = join(dir, 'cover.jpg')
 
-  if (!source) {
+  try {
+    const data = await readFile(coverPath)
+    const key = await writeArtworkToCache(input.artworkCacheDir, {
+      data,
+      mimeType: 'image/jpeg',
+    })
+    directoryCoverCache.set(dir, key)
+    return key
+  } catch {
     directoryCoverCache.set(dir, null)
     return null
   }
-
-  const key = await writeArtworkToCache(input.artworkCacheDir, source)
-  directoryCoverCache.set(dir, key)
-  return key
-}
-
-async function resolveArtwork(
-  filePath: string,
-  metadata: Awaited<ReturnType<typeof parseFile>> | null,
-): Promise<string | null> {
-  // 1. Try embedded artwork from audio file
-  if (metadata) {
-    const source = await extractEmbeddedArtwork(metadata)
-
-    if (source) {
-      return writeArtworkToCache(input.artworkCacheDir, source)
-    }
-  }
-
-  // 2. Fall back to directory cover.jpg (cached per directory)
-  return resolveDirectoryCover(filePath)
 }
 
 function flushTrackBatch(): void {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import type { EditableTrackMetadata, TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -17,6 +17,8 @@ const refreshingTrackIds = ref<Set<number>>(new Set())
 const editingMetadata = ref<EditableTrackMetadata | null>(null)
 const isSavingMetadata = ref(false)
 const metadataEditError = ref<string | null>(null)
+const contextMenu = ref<{ trackId: number; x: number; y: number } | null>(null)
+let unsubscribeChanged: (() => void) | null = null
 
 const rowVirtualizer = useVirtualizer(
   computed(() => ({
@@ -36,6 +38,25 @@ function onSelect(trackId: number) {
 
 function onPlay(trackId: number) {
   playback.playTrackFromQueue(tracks.value, trackId)
+}
+
+function closeContextMenu(): void {
+  contextMenu.value = null
+}
+
+function onOpenContextMenu(trackId: number, event: MouseEvent): void {
+  playback.selectTrack(trackId)
+
+  const menuWidth = 180
+  const menuHeight = 92
+  const x = Math.min(event.clientX, window.innerWidth - menuWidth - 8)
+  const y = Math.min(event.clientY, window.innerHeight - menuHeight - 8)
+
+  contextMenu.value = {
+    trackId,
+    x: Math.max(8, x),
+    y: Math.max(8, y),
+  }
 }
 
 function isRefreshingTrack(trackId: number): boolean {
@@ -71,6 +92,8 @@ async function waitForRefreshJob(jobId: number): Promise<void> {
 }
 
 async function onRefreshMetadata(trackId: number): Promise<void> {
+  closeContextMenu()
+
   if (isRefreshingTrack(trackId)) {
     return
   }
@@ -87,6 +110,7 @@ async function onRefreshMetadata(trackId: number): Promise<void> {
 }
 
 async function onEditMetadata(trackId: number): Promise<void> {
+  closeContextMenu()
   metadataEditError.value = null
   editingMetadata.value = await auralis.metadata.getTrackMetadata(trackId)
 }
@@ -123,6 +147,14 @@ onMounted(async () => {
   } finally {
     isLoading.value = false
   }
+
+  unsubscribeChanged = auralis.library.onChanged(async () => {
+    await reloadTracks()
+  })
+})
+
+onBeforeUnmount(() => {
+  unsubscribeChanged?.()
 })
 </script>
 
@@ -153,7 +185,7 @@ onMounted(async () => {
           class="absolute left-0 top-0 w-full"
           @select="onSelect"
           @play="onPlay"
-          @edit-metadata="onEditMetadata"
+          @open-context-menu="onOpenContextMenu"
           @refresh-metadata="onRefreshMetadata"
         />
       </div>
@@ -172,5 +204,36 @@ onMounted(async () => {
       @close="closeMetadataEditor"
       @save="saveMetadata"
     />
+
+    <Teleport to="body">
+      <div v-if="contextMenu" class="fixed inset-0 z-[60]" @click="closeContextMenu">
+        <div
+          class="fixed w-45 rounded border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] py-1 shadow-lg"
+          :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
+          @click.stop
+        >
+          <button
+            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]"
+            type="button"
+            @click="onEditMetadata(contextMenu.trackId)"
+          >
+            <span class="i-lucide-pencil text-sm"></span>
+            <span>Edit Metadata</span>
+          </button>
+          <button
+            class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)] disabled:opacity-50"
+            type="button"
+            :disabled="isRefreshingTrack(contextMenu.trackId)"
+            @click="onRefreshMetadata(contextMenu.trackId)"
+          >
+            <span
+              class="i-lucide-refresh-cw text-sm"
+              :class="{ 'animate-spin': isRefreshingTrack(contextMenu.trackId) }"
+            ></span>
+            <span>Refresh Metadata</span>
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </section>
 </template>

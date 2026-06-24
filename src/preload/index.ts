@@ -36,6 +36,24 @@ export const auralisApi: AuralisApi = {
         ipcRenderer.removeListener(ipcChannels.library.scanProgress, listener)
       }
     },
+    onChanged: (callback) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        event: {
+          reason: 'track-added' | 'metadata-refresh' | 'file-change'
+          trackIds: number[]
+          filePaths: string[]
+        },
+      ) => {
+        callback(event)
+      }
+
+      ipcRenderer.on(ipcChannels.library.changed, listener)
+
+      return () => {
+        ipcRenderer.removeListener(ipcChannels.library.changed, listener)
+      }
+    },
   },
   lyrics: {
     getByTrackId: (trackId) => invoke(ipcChannels.lyrics.getByTrackId, { trackId }),

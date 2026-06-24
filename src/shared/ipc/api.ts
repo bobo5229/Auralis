@@ -24,6 +24,13 @@ export interface AuralisApi {
     getScanStatus: (jobId?: number) => Promise<LibraryScanStatus | null>
     getTracks: () => Promise<TrackListItem[]>
     onScanProgress: (callback: (progress: LibraryScanProgress) => void) => () => void
+    onChanged: (
+      callback: (event: {
+        reason: 'track-added' | 'metadata-refresh' | 'file-change'
+        trackIds: number[]
+        filePaths: string[]
+      }) => void,
+    ) => () => void
   }
   lyrics: {
     getByTrackId: (trackId: number) => Promise<TrackLyrics | null>

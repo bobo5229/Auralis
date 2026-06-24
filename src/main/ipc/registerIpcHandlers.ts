@@ -4,9 +4,12 @@ import { getDatabasePath } from '@main/database/connection'
 import { LibraryRepository } from '@main/repositories/libraryRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
 import { MetadataRefreshRepository } from '@main/repositories/metadataRefreshRepository'
+import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
 import { LibraryService } from '@main/services/libraryService'
 import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
+import { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
+import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
 import type { IpcResponse } from '@shared/ipc/contracts'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type Database from 'better-sqlite3'
@@ -14,6 +17,7 @@ import type Database from 'better-sqlite3'
 export function registerIpcHandlers(db: Database.Database, artworkCacheDir: string): void {
   const libraryService = new LibraryService(new LibraryRepository(db), new TrackRepository(db))
   const libraryScanService = new LibraryScanService(db, artworkCacheDir)
+  const trackRepository = new TrackRepository(db)
   const metadataRefreshService = new MetadataRefreshService(
     new MetadataRefreshRepository(db),
     artworkCacheDir,
@@ -23,6 +27,26 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
       }
     },
   )
+  const incrementalImportService = new LibraryIncrementalImportService(
+    trackRepository,
+    artworkCacheDir,
+    (channel, data) => {
+      for (const win of BrowserWindow.getAllWindows()) {
+        win.webContents.send(channel, data)
+      }
+    },
+  )
+  const metadataWatchService = new MetadataWatchService(
+    new LibraryRootRepository(db),
+    trackRepository,
+    metadataRefreshService,
+    incrementalImportService,
+  )
+
+  metadataWatchService.start()
+  app.on('before-quit', () => {
+    metadataWatchService.stop()
+  })
 
   ipcMain.handle(
     ipcChannels.app.getInfo,
@@ -40,7 +64,11 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
 
   ipcMain.handle(
     ipcChannels.library.selectRoot,
-    (): Promise<IpcResponse<'library:select-root'>> => libraryScanService.selectRoot(),
+    async (): Promise<IpcResponse<'library:select-root'>> => {
+      const result = await libraryScanService.selectRoot()
+      metadataWatchService.syncRoots()
+      return result
+    },
   )
 
   ipcMain.handle(

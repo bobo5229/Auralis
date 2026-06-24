@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { auralis } from '@renderer/shared/ipc/client'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import type { LyricLine } from '../types'
@@ -78,6 +78,20 @@ export function useTrackLyrics() {
     },
     { immediate: true },
   )
+
+  const unsubscribeMetadataChanged = auralis.metadata.onChanged((event) => {
+    const trackId = playback.state.currentTrackId
+
+    if (!trackId || !event.trackIds.includes(trackId)) {
+      return
+    }
+
+    fetchLyrics(trackId)
+  })
+
+  onBeforeUnmount(() => {
+    unsubscribeMetadataChanged()
+  })
 
   return {
     status,
