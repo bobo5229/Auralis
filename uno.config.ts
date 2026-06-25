@@ -50,12 +50,12 @@ export default defineConfig({
     'theme-toggle-button':
       'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
     'song-row':
-      'grid h-11 grid-cols-[44px_minmax(0,1fr)_140px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer',
+      'grid h-11 grid-cols-[44px_minmax(0,1fr)_300px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer',
     'song-cover':
       'h-11 w-11 shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
     'song-title': 'text-sm font-bold truncate',
-    'song-artist': 'text-sm font-medium text-[var(--auralis-text-muted)] truncate',
-    'song-album': 'text-sm font-medium text-[var(--auralis-text-subtle)] truncate',
+    'song-artist': 'text-xs font-semibold text-[var(--auralis-text-muted)] truncate',
+    'song-album': 'text-xs font-semibold text-[var(--auralis-text-subtle)] truncate text-right',
     'song-duration': 'text-sm text-[var(--auralis-text-faint)] text-right tabular-nums',
     'metadata-input':
       'h-9 w-full min-w-0 rounded border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] px-3 text-sm text-[var(--auralis-text)] transition focus:border-[var(--auralis-text-faint)]',
