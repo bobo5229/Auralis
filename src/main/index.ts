@@ -12,19 +12,44 @@ import { logger } from './logging/logger'
 if (!app.isPackaged) {
   const devUserDataPath = join(app.getAppPath(), 'data', 'user-data')
   const devCachePath = join(devUserDataPath, 'cache')
+  const useSoftwareRendering = process.env.AURALIS_SOFTWARE_RENDERING === '1'
+  const useHardwareVideoProcessing = process.env.AURALIS_HARDWARE_VIDEO_PROCESSING === '1'
+  const disableDirectComposition = process.env.AURALIS_DISABLE_DIRECT_COMPOSITION === '1'
+  const quietGpuLogs = process.env.AURALIS_QUIET_GPU_LOGS === '1'
+  const disabledFeatures: string[] = []
   mkdirSync(devUserDataPath, { recursive: true })
   mkdirSync(devCachePath, { recursive: true })
   app.setPath('userData', devUserDataPath)
   app.setPath('cache', devCachePath)
-  app.disableHardwareAcceleration()
-  app.commandLine.appendSwitch('disable-gpu')
-  app.commandLine.appendSwitch('disable-gpu-sandbox')
-  app.commandLine.appendSwitch('disable-gpu-compositing')
-  app.commandLine.appendSwitch('disable-accelerated-2d-canvas')
-  app.commandLine.appendSwitch('disable-accelerated-video-decode')
-  app.commandLine.appendSwitch('disable-features', 'UseSkiaRenderer,Vulkan,CanvasOopRasterization')
+
+  if (!useHardwareVideoProcessing) {
+    app.commandLine.appendSwitch('disable-accelerated-video-decode')
+    disabledFeatures.push('DirectCompositionVideoOverlays')
+  }
+
+  if (disableDirectComposition) {
+    app.commandLine.appendSwitch('disable-direct-composition')
+  }
+
+  if (quietGpuLogs) {
+    app.commandLine.appendSwitch('log-level', '3')
+  }
+
+  if (useSoftwareRendering) {
+    app.disableHardwareAcceleration()
+    app.commandLine.appendSwitch('disable-gpu')
+    app.commandLine.appendSwitch('disable-gpu-sandbox')
+    app.commandLine.appendSwitch('disable-gpu-compositing')
+    app.commandLine.appendSwitch('disable-accelerated-2d-canvas')
+    disabledFeatures.push('UseSkiaRenderer', 'Vulkan', 'CanvasOopRasterization')
+    app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
+  }
+
+  if (disabledFeatures.length > 0) {
+    app.commandLine.appendSwitch('disable-features', disabledFeatures.join(','))
+  }
+
   app.commandLine.appendSwitch('disk-cache-dir', devCachePath)
-  app.commandLine.appendSwitch('disable-gpu-shader-disk-cache')
   app.commandLine.appendSwitch('no-sandbox')
 }
 

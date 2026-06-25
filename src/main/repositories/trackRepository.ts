@@ -129,12 +129,21 @@ export class TrackRepository extends BaseRepository {
       .prepare(
         `SELECT id, title, artist, album,
                 album_artist AS albumArtist,
+                track_no AS trackNo,
+                disc_no AS discNo,
+                release_date AS releaseDate,
                 duration_seconds AS durationSeconds,
                 artwork_cache_key AS artworkCacheKey,
                 availability
          FROM library_track_display
          WHERE availability = 'available'
-         ORDER BY id ASC`,
+         ORDER BY
+           CASE WHEN album_artist IS NULL THEN 1 ELSE 0 END,
+           album_artist COLLATE NOCASE ASC,
+           CASE WHEN release_date IS NULL THEN 1 ELSE 0 END,
+           release_date ASC,
+           disc_no ASC,
+           track_no ASC`,
       )
       .all() as TrackListItem[]
   }

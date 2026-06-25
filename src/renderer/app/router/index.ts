@@ -5,17 +5,15 @@ import PlaybackPage from '@renderer/features/playback/pages/PlaybackPage.vue'
 import ArchivePage from '@renderer/features/archive/pages/ArchivePage.vue'
 import SearchPage from '@renderer/features/search/pages/SearchPage.vue'
 import SettingsPage from '@renderer/features/settings/pages/SettingsPage.vue'
-import VirtualListPage from '@renderer/features/library/pages/VirtualListPage.vue'
 
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    { path: '/', name: 'library', component: LibraryPage },
-    { path: '/albums', name: 'albums', component: AlbumsPage },
-    { path: '/playback', name: 'playback', component: PlaybackPage },
-    { path: '/archive', name: 'archive', component: ArchivePage },
-    { path: '/search', name: 'search', component: SearchPage },
-    { path: '/virtual-list', name: 'virtual-list', component: VirtualListPage },
-    { path: '/settings', name: 'settings', component: SettingsPage },
+    { path: '/', name: 'library', component: LibraryPage, meta: { title: 'Library' } },
+    { path: '/albums', name: 'albums', component: AlbumsPage, meta: { title: 'Albums' } },
+    { path: '/playback', name: 'playback', component: PlaybackPage, meta: { title: 'Playback' } },
+    { path: '/archive', name: 'archive', component: ArchivePage, meta: { title: 'Archive' } },
+    { path: '/search', name: 'search', component: SearchPage, meta: { title: 'Search' } },
+    { path: '/settings', name: 'settings', component: SettingsPage, meta: { title: 'Settings' } },
   ],
 })

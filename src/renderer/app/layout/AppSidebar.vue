@@ -5,17 +5,14 @@ import { useTheme } from '@renderer/composables/useTheme'
 const { isDark, nextThemeLabel, toggleTheme } = useTheme()
 
 const primaryNav = [
-  { to: '/', label: 'Library' },
-  { to: '/albums', label: 'Albums' },
-  { to: '/playback', label: 'Playback' },
-  { to: '/archive', label: 'Archive' },
-  { to: '/search', label: 'Search' },
+  { to: '/', label: 'Library', icon: 'i-lucide-music' },
+  { to: '/albums', label: 'Albums', icon: 'i-lucide-disc-3' },
+  { to: '/playback', label: 'Playback', icon: 'i-lucide-headphones' },
+  { to: '/archive', label: 'Archive', icon: 'i-lucide-archive' },
+  { to: '/search', label: 'Search', icon: 'i-lucide-search' },
 ]
 
-const utilityNav = [
-  { to: '/virtual-list', label: 'Virtual List' },
-  { to: '/settings', label: 'Settings' },
-]
+const utilityNav = [{ to: '/settings', label: 'Settings', icon: 'i-lucide-settings' }]
 </script>
 
 <template>
@@ -46,7 +43,8 @@ const utilityNav = [
           class="sidebar-link"
           active-class="sidebar-link-active"
         >
-          {{ item.label }}
+          <span class="inline-block h-4 w-4" :class="item.icon"></span>
+          <span>{{ item.label }}</span>
         </RouterLink>
       </section>
 
@@ -59,7 +57,8 @@ const utilityNav = [
           class="sidebar-link"
           active-class="sidebar-link-active"
         >
-          {{ item.label }}
+          <span class="inline-block h-4 w-4" :class="item.icon"></span>
+          <span>{{ item.label }}</span>
         </RouterLink>
       </section>
     </nav>

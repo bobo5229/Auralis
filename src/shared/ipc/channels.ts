@@ -28,4 +28,10 @@ export const ipcChannels = {
     updateTrackMetadata: 'metadata:update-track-metadata',
     refreshProgress: 'metadata:refresh-progress',
   },
+  window: {
+    minimize: 'window:minimize',
+    toggleMaximize: 'window:toggle-maximize',
+    close: 'window:close',
+    isMaximized: 'window:is-maximized',
+  },
 } as const

@@ -95,6 +95,12 @@ export const auralisApi: AuralisApi = {
       }
     },
   },
+  window: {
+    minimize: () => invoke(ipcChannels.window.minimize),
+    toggleMaximize: () => invoke(ipcChannels.window.toggleMaximize),
+    close: () => invoke(ipcChannels.window.close),
+    isMaximized: () => invoke(ipcChannels.window.isMaximized),
+  },
 }
 
 contextBridge.exposeInMainWorld('auralis', auralisApi)

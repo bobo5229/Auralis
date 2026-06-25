@@ -63,6 +63,11 @@
   /* Lyrics tokens */
   --auralis-lyrics-active: #5b5b5c;
   --auralis-lyrics-inactive: #c3c3c4;
+
+  /* Titlebar tokens */
+  --auralis-titlebar-bg: var(--auralis-bg);
+  --auralis-titlebar-border: var(--auralis-border-subtle);
+  --auralis-titlebar-title: var(--auralis-text-muted);
 }
 
 [data-theme='dark'] {
@@ -101,6 +106,11 @@
   /* Lyrics tokens */
   --auralis-lyrics-active: #afafb0;
   --auralis-lyrics-inactive: #515152;
+
+  /* Titlebar tokens */
+  --auralis-titlebar-bg: var(--auralis-bg);
+  --auralis-titlebar-border: var(--auralis-border-subtle);
+  --auralis-titlebar-title: var(--auralis-text-muted);
 }
 
 body {
@@ -172,4 +182,14 @@ input {
   100% {
     opacity: 1;
   }
+}
+
+/* Titlebar drag region */
+.app-titlebar {
+  -webkit-app-region: drag;
+}
+
+.app-titlebar button,
+.app-titlebar-controls {
+  -webkit-app-region: no-drag;
 }

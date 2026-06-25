@@ -13,11 +13,23 @@ export default defineConfig({
     },
   },
   shortcuts: {
+    'app-window':
+      'grid h-screen grid-rows-[44px_minmax(0,1fr)] overflow-hidden bg-[var(--auralis-bg)] text-[var(--auralis-text)]',
     'app-shell':
-      'grid h-screen grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-[var(--auralis-bg)] text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_20%]',
+      'grid min-h-0 grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-[var(--auralis-bg)] text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_20%]',
     'app-sidebar':
-      'flex w-[232px] h-[calc(100vh-24px)] min-h-0 flex-col m-[12px_0_12px_12px] rounded-[20px] border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
+      'flex w-[232px] h-full min-h-0 flex-col m-[12px_0_12px_12px] rounded-[20px] border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
     'app-main': 'min-h-0 overflow-y-auto bg-[var(--auralis-main-bg)]',
+    'app-titlebar':
+      'relative z-[80] flex h-11 shrink-0 items-center border-b border-[var(--auralis-titlebar-border)] bg-[var(--auralis-titlebar-bg)] px-4',
+    'app-titlebar-brand':
+      'flex min-w-0 items-center gap-2 text-sm font-semibold text-[var(--auralis-text)]',
+    'app-titlebar-logo': 'h-4 w-4 text-[var(--auralis-text)]',
+    'app-titlebar-title':
+      'pointer-events-none absolute left-1/2 top-1/2 max-w-[45vw] -translate-x-1/2 -translate-y-1/2 truncate text-xs font-semibold text-[var(--auralis-titlebar-title)]',
+    'app-titlebar-controls': 'ml-auto flex items-center gap-2',
+    'window-dot':
+      'h-3 w-3 rounded-full border border-black/10 transition opacity-90 hover:opacity-100',
     'now-playing-panel':
       'hidden h-full min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-4 xl:flex',
     'player-bar':
@@ -40,7 +52,7 @@ export default defineConfig({
     'sidebar-section-label':
       'px-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--auralis-text-faint)]',
     'sidebar-link':
-      'mb-1 block rounded px-3 py-2 text-sm text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
+      'mb-1 flex items-center gap-2.5 rounded px-3 py-2 text-sm text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
     'sidebar-link-active':
       'bg-[var(--auralis-control-active-bg)] text-[var(--auralis-text)] shadow-sm',
     'player-control':
@@ -53,7 +65,7 @@ export default defineConfig({
       'grid h-11 grid-cols-[44px_minmax(0,1fr)_300px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer',
     'song-cover':
       'h-11 w-11 shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
-    'song-title': 'text-sm font-bold truncate',
+    'song-title': 'text-sm font-bold truncate pl-1.5',
     'song-artist': 'text-xs font-semibold text-[var(--auralis-text-muted)] truncate',
     'song-album': 'text-xs font-semibold text-[var(--auralis-text-subtle)] truncate text-right',
     'song-duration': 'text-sm text-[var(--auralis-text-faint)] text-right tabular-nums',

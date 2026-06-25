@@ -6,7 +6,10 @@
   "type": "module",
   "main": "out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "set AURALIS_QUIET_GPU_LOGS=1&& electron-vite dev",
+    "dev:no-direct-composition": "set AURALIS_DISABLE_DIRECT_COMPOSITION=1&& electron-vite dev",
+    "dev:verbose-gpu": "electron-vite dev",
+    "dev:software-rendering": "set AURALIS_SOFTWARE_RENDERING=1&& electron-vite dev",
     "build": "vue-tsc --noEmit && electron-vite build",
     "preview": "electron-vite preview",
     "rebuild:native": "set USERPROFILE=%CD%\\.electron-home&& set HOME=%CD%\\.electron-home&& electron-rebuild -f -w better-sqlite3",

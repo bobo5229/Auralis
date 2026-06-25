@@ -6,6 +6,9 @@ export interface TrackListItem {
   artist: string | null
   album: string | null
   albumArtist: string | null
+  trackNo: number | null
+  discNo: number | null
+  releaseDate: string | null
   durationSeconds: number | null
   artworkCacheKey: string | null
   availability: TrackAvailability

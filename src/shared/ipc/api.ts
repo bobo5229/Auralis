@@ -70,4 +70,10 @@ export interface AuralisApi {
       }) => void,
     ) => () => void
   }
+  window: {
+    minimize: () => Promise<{ ok: boolean }>
+    toggleMaximize: () => Promise<{ ok: boolean }>
+    close: () => Promise<{ ok: boolean }>
+    isMaximized: () => Promise<{ maximized: boolean }>
+  }
 }

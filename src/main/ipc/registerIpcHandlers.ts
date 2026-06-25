@@ -158,4 +158,30 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     (_event, payload: EditableTrackMetadata): IpcResponse<'metadata:update-track-metadata'> =>
       metadataRefreshService.updateTrackMetadata(payload),
   )
+
+  // Window control handlers
+  ipcMain.handle(ipcChannels.window.minimize, (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize()
+    return { ok: true }
+  })
+
+  ipcMain.handle(ipcChannels.window.toggleMaximize, (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return { ok: false }
+    if (win.isMaximized()) {
+      win.unmaximize()
+    } else {
+      win.maximize()
+    }
+    return { ok: true }
+  })
+
+  ipcMain.handle(ipcChannels.window.close, (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.close()
+    return { ok: true }
+  })
+
+  ipcMain.handle(ipcChannels.window.isMaximized, (event) => {
+    return { maximized: BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false }
+  })
 }

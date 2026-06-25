@@ -70,16 +70,12 @@ const refreshProgressPercent = computed(() => {
 })
 
 const refreshStatusLabel = computed(() => {
-  if (refreshStatus.value?.status === 'completed') {
-    return `Completed - ${refreshStatus.value.processedTracks} updated, ${refreshStatus.value.failedTracks} failed`
-  }
-
   if (!refreshStatus.value) {
     return ''
   }
 
   if (refreshStatus.value.status === 'completed') {
-    return `Completed — ${refreshStatus.value.processedTracks} updated, ${refreshStatus.value.failedTracks} failed`
+    return `Completed - ${refreshStatus.value.processedTracks} updated, ${refreshStatus.value.failedTracks} failed`
   }
 
   return `Refreshing... ${refreshStatus.value.processedTracks} / ${refreshStatus.value.totalTracks}`

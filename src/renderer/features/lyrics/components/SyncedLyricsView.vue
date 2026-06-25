@@ -40,6 +40,7 @@ function computeTarget(): number | null {
   if (props.activeIndex < 0) return null
 
   // children[0] is the top spacer, lyric lines start at index 1
+  // (prelude row is conditionally rendered before v-for, but isPrelude returns early above)
   const activeEl = container.children[props.activeIndex + 1] as HTMLElement | undefined
   if (!activeEl) return null
 
@@ -150,29 +151,24 @@ onBeforeUnmount(() => {
     @keydown="pauseAutoFollow"
   >
     <div :style="{ height: `${topPadding}px` }"></div>
+    <div v-if="isPrelude" class="lyric-line lyric-prelude">
+      <span class="lyric-dot">.</span><span class="lyric-dot">.</span
+      ><span class="lyric-dot">.</span>
+    </div>
     <div
       v-for="(line, index) in lines"
       :key="line.id"
-      class="lyric-line transition-all duration-300"
-      :class="{
-        'lyric-active': activeIndex === index && line.text,
-        'lyric-inactive': (activeIndex !== index || !line.text) && !(isPrelude && index === 0),
-        'lyric-prelude': isPrelude && index === 0,
-        'lyric-empty': !line.text && !(isPrelude && index === 0),
-      }"
+      class="lyric-line"
+      :class="activeIndex === index ? 'lyric-active' : line.text ? 'lyric-inactive' : 'lyric-empty'"
       :style="
-        activeIndex === index && line.text
+        activeIndex === index
           ? { filter: 'blur(0)', opacity: '1', willChange: 'opacity, filter' }
-          : !(isPrelude && index === 0) && line.text
+          : line.text
             ? { filter: 'blur(3px)', opacity: '0.8' }
             : undefined
       "
     >
-      <template v-if="isPrelude && index === 0">
-        <span class="lyric-dot">.</span><span class="lyric-dot">.</span
-        ><span class="lyric-dot">.</span>
-      </template>
-      <template v-else>{{ line.text || ' ' }}</template>
+      {{ line.text || ' ' }}
     </div>
     <div :style="{ height: `${bottomPadding}px` }"></div>
   </div>

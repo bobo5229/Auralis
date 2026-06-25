@@ -11,13 +11,19 @@ export function createWindow(): BrowserWindow {
     title: 'Auralis',
     backgroundColor: '#f6f2ea',
     show: false,
+    titleBarStyle: 'hidden',
+    frame: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
+      backgroundThrottling: false,
     },
   })
+
+  window.setMenuBarVisibility(false)
 
   let didShow = false
 
