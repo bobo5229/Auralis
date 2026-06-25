@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import type { EditableTrackMetadata, TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -10,7 +10,7 @@ import { usePlayback } from '@renderer/features/playback/composables/usePlayback
 
 const playback = usePlayback()
 
-const tracks = ref<TrackListItem[]>([])
+const tracks = shallowRef<TrackListItem[]>([])
 const isLoading = ref(true)
 const scrollRef = ref<HTMLElement | null>(null)
 const refreshingTrackIds = ref<Set<number>>(new Set())
@@ -20,9 +20,13 @@ const metadataEditError = ref<string | null>(null)
 const contextMenu = ref<{ trackId: number; x: number; y: number } | null>(null)
 let unsubscribeChanged: (() => void) | null = null
 
+const NATIVE_LIST_LIMIT = 6000
+const shouldUseNativeList = computed(() => tracks.value.length <= NATIVE_LIST_LIMIT)
+
 const rowVirtualizer = useVirtualizer(
   computed(() => ({
     count: tracks.value.length,
+    enabled: !shouldUseNativeList.value,
     getScrollElement: () => scrollRef.value,
     estimateSize: () => 44,
     overscan: 12,
@@ -86,14 +90,23 @@ async function scrollToPlaybackTrack(): Promise<void> {
     return
   }
 
+  await nextTick()
+  await new Promise((resolve) => window.requestAnimationFrame(resolve))
+
+  if (shouldUseNativeList.value) {
+    const targetRow = scrollRef.value?.querySelector<HTMLElement>(
+      `[data-track-id="${targetTrackId}"]`,
+    )
+    targetRow?.scrollIntoView({ block: 'center' })
+    return
+  }
+
   const targetIndex = tracks.value.findIndex((track) => track.id === targetTrackId)
 
   if (targetIndex < 0) {
     return
   }
 
-  await nextTick()
-  await new Promise((resolve) => window.requestAnimationFrame(resolve))
   rowVirtualizer.value.scrollToIndex(targetIndex, { align: 'center' })
 }
 
@@ -188,7 +201,32 @@ onBeforeUnmount(() => {
       ref="scrollRef"
       class="flex-1 overflow-auto pb-[var(--auralis-playbar-safe-area)]"
     >
-      <div :style="{ height: `${totalSize}px`, width: '100%', position: 'relative' }">
+      <div v-if="shouldUseNativeList">
+        <SongRow
+          v-for="(track, index) in tracks"
+          :key="track.id"
+          v-memo="[
+            track.id,
+            track.title,
+            track.artist,
+            track.album,
+            track.durationSeconds,
+            track.artworkCacheKey,
+            index,
+            playback.state.currentTrackId === track.id,
+          ]"
+          :data-track-id="track.id"
+          :track="track"
+          :index="index"
+          :now-playing="playback.state.currentTrackId === track.id"
+          :artwork-url="getArtworkUrl(track.artworkCacheKey)"
+          @select="onSelect"
+          @play="onPlay"
+          @open-context-menu="onOpenContextMenu"
+        />
+      </div>
+
+      <div v-else :style="{ height: `${totalSize}px`, width: '100%', position: 'relative' }">
         <SongRow
           v-for="virtualRow in virtualRows"
           :key="String(virtualRow.key)"
