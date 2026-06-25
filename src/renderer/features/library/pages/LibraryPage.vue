@@ -191,7 +191,7 @@ onBeforeUnmount(() => {
       <div :style="{ height: `${totalSize}px`, width: '100%', position: 'relative' }">
         <SongRow
           v-for="virtualRow in virtualRows"
-          :key="virtualRow.key"
+          :key="String(virtualRow.key)"
           :track="tracks[virtualRow.index]"
           :index="virtualRow.index"
           :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
@@ -199,6 +199,7 @@ onBeforeUnmount(() => {
           :style="{
             height: `${virtualRow.size}px`,
             transform: `translateY(${virtualRow.start}px)`,
+            willChange: 'transform',
           }"
           class="absolute left-0 top-0 w-full"
           @select="onSelect"

@@ -45,6 +45,7 @@ watch(
       <img
         v-if="artworkUrl && !imgError"
         :src="artworkUrl"
+        loading="lazy"
         class="h-full w-full object-cover"
         @error="imgError = true"
       />

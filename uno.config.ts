@@ -50,7 +50,7 @@ export default defineConfig({
     'theme-toggle-button':
       'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
     'song-row':
-      'grid h-11 grid-cols-[44px_minmax(0,1fr)_140px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer transition-colors',
+      'grid h-11 grid-cols-[44px_minmax(0,1fr)_140px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer',
     'song-cover':
       'h-11 w-11 shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
     'song-title': 'text-sm font-bold truncate',

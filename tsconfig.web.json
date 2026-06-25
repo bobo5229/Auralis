@@ -8,10 +8,10 @@
   ],
   "compilerOptions": {
     "composite": true,
-    "baseUrl": ".",
+    "moduleResolution": "bundler",
     "paths": {
-      "@renderer/*": ["src/renderer/*"],
-      "@shared/*": ["src/shared/*"]
+      "@renderer/*": ["./src/renderer/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   }
 }
