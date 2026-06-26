@@ -6,6 +6,7 @@ import type {
   TrackLyricsPatch,
   TrackLyrics,
 } from '@shared/types/libraryScan'
+import type { PlaybackTrackDto } from '@shared/types/playback'
 import type { NormalizedIdentity } from '@main/features/metadata/metadataNormalizer'
 import { BaseRepository } from './baseRepository'
 
@@ -539,5 +540,86 @@ export class TrackRepository extends BaseRepository {
         scannedTrack.fileMtimeMs,
         trackId,
       )
+  }
+
+  getRandomPlayableTrack(excludeTrackId?: number): PlaybackTrackDto | null {
+    const baseQuery = `
+      SELECT id, title, artist, album,
+             album_artist AS albumArtist,
+             duration_seconds AS durationSeconds,
+             artwork_cache_key AS artworkCacheKey
+      FROM library_track_display
+      WHERE availability = 'available'`
+
+    if (excludeTrackId !== undefined) {
+      const row = this.db
+        .prepare(`${baseQuery} AND id != ? ORDER BY RANDOM() LIMIT 1`)
+        .get(excludeTrackId) as PlaybackTrackDto | undefined
+
+      if (row) return row
+    }
+
+    const row = this.db.prepare(`${baseQuery} ORDER BY RANDOM() LIMIT 1`).get() as
+      | PlaybackTrackDto
+      | undefined
+
+    return row ?? null
+  }
+
+  getRandomAlbumIdentity(excludeAlbumKey?: {
+    albumArtist: string
+    album: string
+  }): { albumArtist: string; album: string } | null {
+    const albumArtistExpr = `COALESCE(NULLIF(album_artist, ''), artist)`
+
+    const baseQuery = `
+      SELECT ${albumArtistExpr} AS albumArtist, album
+      FROM library_track_display
+      WHERE availability = 'available'
+        AND album IS NOT NULL
+        AND album != ''
+      GROUP BY ${albumArtistExpr}, album`
+
+    if (excludeAlbumKey) {
+      const row = this.db
+        .prepare(
+          `${baseQuery} HAVING NOT (${albumArtistExpr} = ? AND album = ?) ORDER BY RANDOM() LIMIT 1`,
+        )
+        .get(excludeAlbumKey.albumArtist, excludeAlbumKey.album) as
+        | { albumArtist: string; album: string }
+        | undefined
+
+      if (row) return row
+    }
+
+    const row = this.db.prepare(`${baseQuery} ORDER BY RANDOM() LIMIT 1`).get() as
+      | { albumArtist: string; album: string }
+      | undefined
+
+    return row ?? null
+  }
+
+  getAlbumTracks(albumArtist: string, album: string): PlaybackTrackDto[] {
+    const albumArtistExpr = `COALESCE(NULLIF(album_artist, ''), artist)`
+
+    return this.db
+      .prepare(
+        `SELECT id, title, artist, album,
+                ${albumArtistExpr} AS albumArtist,
+                duration_seconds AS durationSeconds,
+                artwork_cache_key AS artworkCacheKey
+         FROM library_track_display
+         WHERE availability = 'available'
+           AND ${albumArtistExpr} = ?
+           AND album = ?
+         ORDER BY
+           CASE WHEN disc_no IS NULL THEN 1 ELSE 0 END,
+           disc_no ASC,
+           CASE WHEN track_no IS NULL THEN 1 ELSE 0 END,
+           track_no ASC,
+           title COLLATE NOCASE ASC,
+           id ASC`,
+      )
+      .all(albumArtist, album) as PlaybackTrackDto[]
   }
 }

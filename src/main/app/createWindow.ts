@@ -20,6 +20,7 @@ export function createWindow(): BrowserWindow {
       nodeIntegration: false,
       sandbox: false,
       backgroundThrottling: false,
+      webSecurity: false,
     },
   })
 

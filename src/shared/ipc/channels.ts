@@ -17,6 +17,12 @@ export const ipcChannels = {
   lyrics: {
     getByTrackId: 'lyrics:get-by-track-id',
   },
+  playback: {
+    getAudioUrl: 'playback:get-audio-url',
+    getRandomTrack: 'playback:get-random-track',
+    getRandomAlbumTracks: 'playback:get-random-album-tracks',
+    getAlbumTracks: 'playback:get-album-tracks',
+  },
   metadata: {
     refreshTrack: 'metadata:refresh-track',
     refreshTracks: 'metadata:refresh-tracks',

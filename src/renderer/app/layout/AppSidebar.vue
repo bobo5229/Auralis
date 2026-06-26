@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
+import { ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useTheme } from '@renderer/composables/useTheme'
 
+const route = useRoute()
 const { isDark, nextThemeLabel, toggleTheme } = useTheme()
+const activePath = ref(route.path)
 
 const primaryNav = [
   { to: '/', label: 'Library', icon: 'i-lucide-music' },
@@ -13,6 +17,25 @@ const primaryNav = [
 ]
 
 const utilityNav = [{ to: '/settings', label: 'Settings', icon: 'i-lucide-settings' }]
+
+watch(
+  () => route.path,
+  (path) => {
+    activePath.value = path
+  },
+)
+
+function setPendingActive(path: string): void {
+  activePath.value = path
+}
+
+function setPendingActiveFromPointer(event: PointerEvent, path: string): void {
+  if (event.button !== 0) {
+    return
+  }
+
+  setPendingActive(path)
+}
 </script>
 
 <template>
@@ -41,7 +64,10 @@ const utilityNav = [{ to: '/settings', label: 'Settings', icon: 'i-lucide-settin
           :key="item.to"
           :to="item.to"
           class="sidebar-link"
-          active-class="sidebar-link-active"
+          :class="{ 'sidebar-link-active': activePath === item.to }"
+          @pointerdown="setPendingActiveFromPointer($event, item.to)"
+          @keydown.enter="setPendingActive(item.to)"
+          @keydown.space="setPendingActive(item.to)"
         >
           <span class="inline-block h-4 w-4" :class="item.icon"></span>
           <span>{{ item.label }}</span>
@@ -55,7 +81,10 @@ const utilityNav = [{ to: '/settings', label: 'Settings', icon: 'i-lucide-settin
           :key="item.to"
           :to="item.to"
           class="sidebar-link"
-          active-class="sidebar-link-active"
+          :class="{ 'sidebar-link-active': activePath === item.to }"
+          @pointerdown="setPendingActiveFromPointer($event, item.to)"
+          @keydown.enter="setPendingActive(item.to)"
+          @keydown.space="setPendingActive(item.to)"
         >
           <span class="inline-block h-4 w-4" :class="item.icon"></span>
           <span>{{ item.label }}</span>

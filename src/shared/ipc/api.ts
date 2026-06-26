@@ -9,6 +9,7 @@ import type {
   MetadataRefreshFailure,
   EditableTrackMetadata,
 } from '@shared/types/libraryScan'
+import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
 
 export interface AuralisApi {
   app: {
@@ -40,6 +41,18 @@ export interface AuralisApi {
   }
   lyrics: {
     getByTrackId: (trackId: number) => Promise<TrackLyrics | null>
+  }
+  playback: {
+    getAudioUrl: (trackId: number) => Promise<{ url: string } | null>
+    getRandomTrack: (excludeTrackId?: number) => Promise<PlaybackTrackDto | null>
+    getRandomAlbumTracks: (excludeAlbumKey?: {
+      albumArtist: string
+      album: string
+    }) => Promise<RandomAlbumTracksResult | null>
+    getAlbumTracks: (albumKey: {
+      albumArtist: string
+      album: string
+    }) => Promise<RandomAlbumTracksResult | null>
   }
   metadata: {
     refreshTrack: (trackId: number) => Promise<{ jobId: number }>

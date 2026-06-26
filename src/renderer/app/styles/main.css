@@ -5,11 +5,10 @@
   font-style: normal;
   font-display: swap;
   unicode-range:
-    U+4E00-9FFF, U+3400-4DBF, U+2F00-2FDF, U+3000-303F, U+FF00-FFEF,
-    U+2E80-2EFF, U+3100-312F, U+31A0-31BF, U+31F0-31FF, U+3200-32FF,
-    U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+F900-FAFF, U+FE30-FE4F,
-    U+20000-2A6DF, U+2A700-2B73F, U+2B740-2B81F, U+2B820-2CEAF,
-    U+2CEB0-2EBEF, U+30000-3134F;
+    U+4E00-9FFF, U+3400-4DBF, U+2F00-2FDF, U+3000-303F, U+FF00-FFEF, U+2E80-2EFF, U+3100-312F,
+    U+31A0-31BF, U+31F0-31FF, U+3200-32FF, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+F900-FAFF,
+    U+FE30-FE4F, U+20000-2A6DF, U+2A700-2B73F, U+2B740-2B81F, U+2B820-2CEAF, U+2CEB0-2EBEF,
+    U+30000-3134F;
 }
 
 :root,
@@ -46,15 +45,18 @@
   --auralis-control-primary-bg: #1f2528;
   --auralis-control-primary-text: #f6f2ea;
   --auralis-progress-track: rgba(31, 35, 40, 0.08);
-  --auralis-progress-fill: rgba(93, 103, 115, 0.7);
+  --auralis-progress-fill: #2C4A6E;
   --auralis-artwork-placeholder-bg: #ebe3d3;
 
   /* Playbar safe area */
   --auralis-playbar-safe-area: 96px;
+  --auralis-shell-edge-gap: 12px;
+  --auralis-shell-vertical-gap: 24px;
+  --auralis-player-bottom-gap: 34px;
 
   /* Song list tokens */
-  --auralis-song-row-bg: #FFFFFF;
-  --auralis-song-row-alt-bg: #FAFAFA;
+  --auralis-song-row-bg: #ffffff;
+  --auralis-song-row-alt-bg: #fafafa;
   --auralis-song-row-now-playing-bg: rgba(61, 90, 128, 0.1);
   --auralis-song-row-now-playing-title: #2c4a6e;
   --auralis-song-row-now-playing-artist: #4a6d94;
@@ -68,6 +70,12 @@
   --auralis-titlebar-bg: var(--auralis-bg);
   --auralis-titlebar-border: var(--auralis-border-subtle);
   --auralis-titlebar-title: var(--auralis-text-muted);
+
+  /* Sidebar active state */
+  --auralis-sidebar-active-bg: #eef4fa;
+  --auralis-sidebar-active-indicator: #4a6fa5;
+  --auralis-sidebar-active-icon: #4a6fa5;
+  --auralis-sidebar-active-text: #345887;
 }
 
 [data-theme='dark'] {
@@ -89,11 +97,14 @@
   --auralis-control-primary-bg: #e8e1d2;
   --auralis-control-primary-text: #1f1f1f;
   --auralis-progress-track: rgba(255, 255, 255, 0.08);
-  --auralis-progress-fill: rgba(232, 225, 210, 0.72);
+  --auralis-progress-fill: #2C4A6E;
   --auralis-artwork-placeholder-bg: rgba(246, 242, 234, 0.12);
 
   /* Playbar safe area */
   --auralis-playbar-safe-area: 96px;
+  --auralis-shell-edge-gap: 12px;
+  --auralis-shell-vertical-gap: 24px;
+  --auralis-player-bottom-gap: 34px;
 
   /* Song list tokens */
   --auralis-song-row-bg: #1f1f1f;
@@ -111,6 +122,12 @@
   --auralis-titlebar-bg: var(--auralis-bg);
   --auralis-titlebar-border: var(--auralis-border-subtle);
   --auralis-titlebar-title: var(--auralis-text-muted);
+
+  /* Sidebar active state */
+  --auralis-sidebar-active-bg: #263244;
+  --auralis-sidebar-active-indicator: #7ea6d9;
+  --auralis-sidebar-active-icon: #91b7e8;
+  --auralis-sidebar-active-text: #a6c8f2;
 }
 
 body {
@@ -133,6 +150,56 @@ body {
 button,
 input {
   font: inherit;
+}
+
+.player-bar .player-control,
+.player-bar .player-control:hover,
+.player-bar .player-control:focus,
+.player-bar .player-control:active,
+.player-bar .player-control *,
+.player-bar .player-control:hover *,
+.player-bar .player-control:focus *,
+.player-bar .player-control:active * {
+  box-shadow: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+}
+
+input[type='range'].volume-slider {
+  width: 100px;
+}
+
+input[type='range'].volume-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+input[type='range'].volume-slider::-webkit-slider-thumb {
+  width: 1px;
+  height: 12px;
+  margin-top: -4px;
+  -webkit-appearance: none;
+  appearance: none;
+  opacity: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+input[type='range'].volume-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: transparent;
+}
+
+input[type='range'].volume-slider::-moz-range-thumb {
+  width: 1px;
+  height: 12px;
+  opacity: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 ::selection {
@@ -192,4 +259,31 @@ input {
 .app-titlebar button,
 .app-titlebar-controls {
   -webkit-app-region: no-drag;
+}
+
+/* Sidebar active state */
+.sidebar-link {
+  position: relative;
+}
+
+.sidebar-link-active {
+  background: var(--auralis-sidebar-active-bg) !important;
+  color: var(--auralis-sidebar-active-text) !important;
+}
+
+.sidebar-link-active [class*='i-lucide'] {
+  color: var(--auralis-sidebar-active-icon) !important;
+}
+
+.sidebar-link-active::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 50%;
+  border-radius: 999px;
+  background: var(--auralis-sidebar-active-indicator);
+  pointer-events: none;
 }

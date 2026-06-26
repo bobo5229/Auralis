@@ -64,6 +64,17 @@ export const auralisApi: AuralisApi = {
   lyrics: {
     getByTrackId: (trackId) => invoke(ipcChannels.lyrics.getByTrackId, { trackId }),
   },
+  playback: {
+    getAudioUrl: (trackId) => invoke(ipcChannels.playback.getAudioUrl, { trackId }),
+    getRandomTrack: (excludeTrackId) =>
+      invoke(ipcChannels.playback.getRandomTrack, excludeTrackId ? { excludeTrackId } : undefined),
+    getRandomAlbumTracks: (excludeAlbumKey) =>
+      invoke(
+        ipcChannels.playback.getRandomAlbumTracks,
+        excludeAlbumKey ? { excludeAlbumKey } : undefined,
+      ),
+    getAlbumTracks: (albumKey) => invoke(ipcChannels.playback.getAlbumTracks, { albumKey }),
+  },
   metadata: {
     refreshTrack: (trackId) => invoke(ipcChannels.metadata.refreshTrack, { trackId }),
     refreshTracks: (trackIds) => invoke(ipcChannels.metadata.refreshTracks, { trackIds }),

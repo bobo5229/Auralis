@@ -1,8 +1,9 @@
 import { reactive } from 'vue'
-import type { PlaybackState, PlaybackTrack } from '../types'
-import { getAudioUrl } from '../utils/audioUrl'
+import type { PlaybackMode, PlaybackState, PlaybackTrack } from '../types'
+import { auralis } from '@renderer/shared/ipc/client'
 
 const VOLUME_KEY = 'auralis-volume'
+const HISTORY_LIMIT = 100
 
 function readPersistedVolume(): number {
   const raw = localStorage.getItem(VOLUME_KEY)
@@ -17,20 +18,115 @@ function clampVolume(value: number): number {
 
 const audio = new Audio()
 
+function describeMediaError(code: number): string {
+  switch (code) {
+    case MediaError.MEDIA_ERR_ABORTED:
+      return 'fetch aborted'
+    case MediaError.MEDIA_ERR_NETWORK:
+      return 'network or protocol error'
+    case MediaError.MEDIA_ERR_DECODE:
+      return 'decode failed or unsupported/corrupt media'
+    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+      return 'source not supported'
+    default:
+      return 'unknown media error'
+  }
+}
+
 const state = reactive<PlaybackState>({
   queue: [],
   currentIndex: -1,
   currentTrack: null,
   selectedTrackId: null,
   currentTrackId: null,
+  playbackMode: 'sequential',
   isPlaying: false,
+  isMuted: false,
   currentTime: 0,
   duration: 0,
   volume: readPersistedVolume(),
   error: null,
 })
 
+let lastAudibleVolume = state.volume > 0 ? state.volume : 0.8
+let playbackRequestId = 0
+
+// Album shuffle context
+type AlbumShuffleContext = {
+  albumArtist: string
+  album: string
+  tracks: PlaybackTrack[]
+} | null
+
+// History entry stores full context for correct restoration
+type HistoryEntry = {
+  track: PlaybackTrack
+  queue: PlaybackTrack[]
+  albumShuffleContext: AlbumShuffleContext
+}
+
+let playbackHistory: HistoryEntry[] = []
+let albumShuffleContext: AlbumShuffleContext = null
+
 audio.volume = state.volume
+audio.muted = state.isMuted
+
+// --- History helpers ---
+
+function pushHistory(previousTrack: PlaybackTrack | null, nextTrackId: number): void {
+  if (!previousTrack) return
+  if (previousTrack.id === nextTrackId) return
+  playbackHistory.push({
+    track: previousTrack,
+    queue: state.queue,
+    albumShuffleContext,
+  })
+  if (playbackHistory.length > HISTORY_LIMIT) {
+    playbackHistory = playbackHistory.slice(-HISTORY_LIMIT)
+  }
+}
+
+function popHistory(): HistoryEntry | null {
+  return playbackHistory.pop() ?? null
+}
+
+// --- Internal track switch ---
+
+async function playTrackFromResolvedQueue(
+  queue: PlaybackTrack[],
+  trackId: number,
+  options?: { recordHistory?: boolean },
+): Promise<void> {
+  const index = queue.findIndex((t) => t.id === trackId)
+  if (index === -1) return
+  const requestId = ++playbackRequestId
+
+  if (options?.recordHistory !== false) {
+    pushHistory(state.currentTrack, trackId)
+  }
+
+  state.queue = queue
+  state.currentIndex = index
+  state.currentTrack = queue[index]
+  state.currentTrackId = trackId
+  state.selectedTrackId = trackId
+  state.error = null
+
+  try {
+    const audioUrl = await resolveAudioUrl(trackId)
+
+    if (requestId !== playbackRequestId) {
+      return
+    }
+
+    audio.src = audioUrl
+    audio.currentTime = 0
+    await audio.play()
+  } catch (err) {
+    state.isPlaying = false
+    state.error = err instanceof Error ? err.message : String(err)
+  }
+}
 
 // --- Audio events ---
 
@@ -55,19 +151,179 @@ audio.addEventListener('pause', () => {
 })
 
 audio.addEventListener('ended', () => {
-  if (state.currentIndex < state.queue.length - 1) {
-    playNext()
-  } else {
-    state.isPlaying = false
-    state.currentTime = 0
-  }
+  handleTrackEnded()
 })
 
 audio.addEventListener('error', () => {
   state.isPlaying = false
   const mediaError = audio.error
-  state.error = mediaError ? `Audio error: ${mediaError.code}` : 'Unknown audio error'
+  const detail = mediaError
+    ? `${describeMediaError(mediaError.code)} (${mediaError.code})`
+    : 'unknown media error'
+  state.error = `Audio error: ${detail}`
+  console.error('[Auralis playback] Audio failed', {
+    trackId: state.currentTrackId,
+    title: state.currentTrack?.title,
+    artist: state.currentTrack?.artist,
+    src: audio.currentSrc || audio.src,
+    errorCode: mediaError?.code ?? null,
+    errorMessage: mediaError?.message ?? null,
+    networkState: audio.networkState,
+    readyState: audio.readyState,
+  })
 })
+
+// --- Mode-aware ended handler ---
+
+async function handleTrackEnded(): Promise<void> {
+  switch (state.playbackMode) {
+    case 'repeat-one':
+      audio.currentTime = 0
+      state.currentTime = 0
+      await audio.play()
+      return
+    case 'repeat-all':
+      await playNextInQueue({ wrap: true })
+      return
+    case 'shuffle':
+      await playRandomTrack()
+      return
+    case 'album-shuffle':
+      await playNextAlbumShuffleTrack()
+      return
+    case 'sequential':
+    default:
+      await playNextInQueue({ wrap: false, stopAtEnd: true })
+      return
+  }
+}
+
+// --- Queue navigation helpers ---
+
+async function playNextInQueue(options?: { wrap?: boolean; stopAtEnd?: boolean }): Promise<void> {
+  if (state.queue.length === 0) return
+
+  const nextIndex = state.currentIndex + 1
+
+  if (nextIndex >= state.queue.length) {
+    if (options?.wrap) {
+      const track = state.queue[0]
+      await playTrackFromResolvedQueue(state.queue, track.id)
+      return
+    }
+    if (options?.stopAtEnd) {
+      audio.pause()
+      state.isPlaying = false
+      state.currentTime = 0
+      return
+    }
+    return
+  }
+
+  const track = state.queue[nextIndex]
+  await playTrackFromResolvedQueue(state.queue, track.id)
+}
+
+async function playPreviousInQueue(options?: { wrap?: boolean }): Promise<void> {
+  if (state.queue.length === 0) return
+
+  const prevIndex = state.currentIndex - 1
+
+  if (prevIndex < 0) {
+    if (options?.wrap) {
+      const track = state.queue[state.queue.length - 1]
+      await playTrackFromResolvedQueue(state.queue, track.id, { recordHistory: false })
+      return
+    }
+    audio.currentTime = 0
+    state.currentTime = 0
+    return
+  }
+
+  const track = state.queue[prevIndex]
+  await playTrackFromResolvedQueue(state.queue, track.id, { recordHistory: false })
+}
+
+// --- Random track ---
+
+async function playRandomTrack(): Promise<void> {
+  const track = await auralis.playback.getRandomTrack(state.currentTrackId ?? undefined)
+  if (!track) return
+  await playTrackFromResolvedQueue([track as PlaybackTrack], (track as PlaybackTrack).id, {
+    recordHistory: true,
+  })
+}
+
+// --- Album shuffle ---
+
+async function playNextFromAlbumShuffleContext(): Promise<boolean> {
+  if (!albumShuffleContext) return false
+
+  const index = albumShuffleContext.tracks.findIndex((track) => track.id === state.currentTrackId)
+  if (index === -1) {
+    albumShuffleContext = null
+    return false
+  }
+
+  const next = albumShuffleContext.tracks[index + 1]
+  if (!next) {
+    albumShuffleContext = null
+    return false
+  }
+
+  await playTrackFromResolvedQueue(albumShuffleContext.tracks, next.id, {
+    recordHistory: true,
+  })
+  return true
+}
+
+async function adoptCurrentAlbumShuffleContext(): Promise<boolean> {
+  const currentAlbumKey = getCurrentAlbumKey()
+  if (!currentAlbumKey || !state.currentTrackId) return false
+
+  const currentAlbum = await auralis.playback.getAlbumTracks(currentAlbumKey)
+  if (!currentAlbum || currentAlbum.tracks.length === 0) return false
+
+  const context = currentAlbum as { albumArtist: string; album: string; tracks: PlaybackTrack[] }
+  const currentIndex = context.tracks.findIndex((track) => track.id === state.currentTrackId)
+  if (currentIndex === -1) return false
+
+  albumShuffleContext = context
+  return true
+}
+
+async function playNextAlbumShuffleTrack(): Promise<void> {
+  if (await playNextFromAlbumShuffleContext()) {
+    return
+  }
+
+  if (await adoptCurrentAlbumShuffleContext()) {
+    if (await playNextFromAlbumShuffleContext()) {
+      return
+    }
+  }
+
+  const excludeAlbumKey = getCurrentAlbumKey()
+  const nextAlbum = await auralis.playback.getRandomAlbumTracks(excludeAlbumKey)
+  if (!nextAlbum) return
+
+  const context = nextAlbum as { albumArtist: string; album: string; tracks: PlaybackTrack[] }
+  if (context.tracks.length === 0) return
+
+  albumShuffleContext = context
+  await playTrackFromResolvedQueue(context.tracks, context.tracks[0].id, {
+    recordHistory: true,
+  })
+}
+
+function getCurrentAlbumKey(): { albumArtist: string; album: string } | undefined {
+  const track = state.currentTrack
+  if (!track?.album) return undefined
+  return {
+    albumArtist: track.albumArtist || track.artist || '',
+    album: track.album,
+  }
+}
 
 // --- Actions ---
 
@@ -75,26 +331,28 @@ function selectTrack(trackId: number): void {
   state.selectedTrackId = trackId
 }
 
-async function playTrackFromQueue(queue: PlaybackTrack[], trackId: number): Promise<void> {
-  const index = queue.findIndex((t) => t.id === trackId)
-  if (index === -1) return
+async function resolveAudioUrl(trackId: number): Promise<string> {
+  const result = await auralis.playback.getAudioUrl(trackId)
 
-  state.queue = queue
-  state.currentIndex = index
-  state.currentTrack = queue[index]
-  state.currentTrackId = trackId
-  state.selectedTrackId = trackId
-  state.error = null
-
-  audio.src = getAudioUrl(trackId)
-  audio.currentTime = 0
-
-  try {
-    await audio.play()
-  } catch (err) {
-    state.isPlaying = false
-    state.error = err instanceof Error ? err.message : String(err)
+  if (!result) {
+    throw new Error('Audio file is unavailable')
   }
+
+  return result.url
+}
+
+function setPlaybackMode(mode: PlaybackMode): void {
+  state.playbackMode = mode
+  if (mode !== 'album-shuffle') {
+    albumShuffleContext = null
+  }
+  if (mode !== 'shuffle' && mode !== 'album-shuffle') {
+    playbackHistory = []
+  }
+}
+
+async function playTrackFromQueue(queue: PlaybackTrack[], trackId: number): Promise<void> {
+  await playTrackFromResolvedQueue(queue, trackId, { recordHistory: true })
 }
 
 async function togglePlayPause(): Promise<void> {
@@ -128,47 +386,35 @@ function pause(): void {
 }
 
 async function playPrevious(): Promise<void> {
-  if (state.currentIndex <= 0) {
-    audio.currentTime = 0
-    state.currentTime = 0
-    return
+  if (state.playbackMode === 'shuffle' || state.playbackMode === 'album-shuffle') {
+    const entry = popHistory()
+    if (entry) {
+      albumShuffleContext = entry.albumShuffleContext
+      await playTrackFromResolvedQueue(entry.queue, entry.track.id, { recordHistory: false })
+      return
+    }
   }
-  const prevTrack = state.queue[state.currentIndex - 1]
-  state.currentIndex -= 1
-  state.currentTrack = prevTrack
-  state.currentTrackId = prevTrack.id
-  state.selectedTrackId = prevTrack.id
-  state.error = null
-  audio.src = getAudioUrl(prevTrack.id)
-  audio.currentTime = 0
-  try {
-    await audio.play()
-  } catch (err) {
-    state.isPlaying = false
-    state.error = err instanceof Error ? err.message : String(err)
-  }
+
+  const shouldWrap = state.playbackMode === 'repeat-all'
+  await playPreviousInQueue({ wrap: shouldWrap })
 }
 
 async function playNext(): Promise<void> {
-  if (state.currentIndex >= state.queue.length - 1) {
-    audio.pause()
-    state.isPlaying = false
-    state.currentTime = 0
-    return
-  }
-  const nextTrack = state.queue[state.currentIndex + 1]
-  state.currentIndex += 1
-  state.currentTrack = nextTrack
-  state.currentTrackId = nextTrack.id
-  state.selectedTrackId = nextTrack.id
-  state.error = null
-  audio.src = getAudioUrl(nextTrack.id)
-  audio.currentTime = 0
-  try {
-    await audio.play()
-  } catch (err) {
-    state.isPlaying = false
-    state.error = err instanceof Error ? err.message : String(err)
+  switch (state.playbackMode) {
+    case 'repeat-all':
+      await playNextInQueue({ wrap: true })
+      return
+    case 'shuffle':
+      await playRandomTrack()
+      return
+    case 'album-shuffle':
+      await playNextAlbumShuffleTrack()
+      return
+    case 'repeat-one':
+    case 'sequential':
+    default:
+      await playNextInQueue({ wrap: false })
+      return
   }
 }
 
@@ -201,7 +447,34 @@ function setVolume(volume: number): void {
   const clamped = clampVolume(volume)
   state.volume = clamped
   audio.volume = clamped
+  if (clamped > 0) {
+    lastAudibleVolume = clamped
+  }
+  if (state.isMuted) {
+    state.isMuted = false
+    audio.muted = false
+  }
   localStorage.setItem(VOLUME_KEY, String(clamped))
+}
+
+function toggleMute(): void {
+  if (state.isMuted) {
+    state.isMuted = false
+    audio.muted = false
+
+    if (state.volume <= 0) {
+      setVolume(lastAudibleVolume)
+    }
+
+    return
+  }
+
+  if (state.volume > 0) {
+    lastAudibleVolume = state.volume
+  }
+
+  state.isMuted = true
+  audio.muted = true
 }
 
 export function usePlayback() {
@@ -209,6 +482,7 @@ export function usePlayback() {
     state,
     selectTrack,
     playTrackFromQueue,
+    setPlaybackMode,
     togglePlayPause,
     play,
     pause,
@@ -217,5 +491,6 @@ export function usePlayback() {
     seekByRatio,
     seekTo,
     setVolume,
+    toggleMute,
   }
 }

@@ -8,13 +8,17 @@ export interface PlaybackTrack {
   artworkCacheKey: string | null
 }
 
+export type PlaybackMode = 'sequential' | 'repeat-all' | 'repeat-one' | 'shuffle' | 'album-shuffle'
+
 export interface PlaybackState {
   queue: PlaybackTrack[]
   currentIndex: number
   currentTrack: PlaybackTrack | null
   selectedTrackId: number | null
   currentTrackId: number | null
+  playbackMode: PlaybackMode
   isPlaying: boolean
+  isMuted: boolean
   currentTime: number
   duration: number
   volume: number

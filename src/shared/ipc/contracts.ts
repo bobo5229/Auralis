@@ -8,6 +8,7 @@ import type {
   MetadataRefreshFailure,
   EditableTrackMetadata,
 } from '@shared/types/libraryScan'
+import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
 
 export interface IpcInvokeContract {
   'app:get-info': {
@@ -45,6 +46,22 @@ export interface IpcInvokeContract {
   'lyrics:get-by-track-id': {
     request: { trackId: number }
     response: TrackLyrics | null
+  }
+  'playback:get-audio-url': {
+    request: { trackId: number }
+    response: { url: string } | null
+  }
+  'playback:get-random-track': {
+    request: { excludeTrackId?: number } | void
+    response: PlaybackTrackDto | null
+  }
+  'playback:get-random-album-tracks': {
+    request: { excludeAlbumKey?: { albumArtist: string; album: string } } | void
+    response: RandomAlbumTracksResult | null
+  }
+  'playback:get-album-tracks': {
+    request: { albumKey: { albumArtist: string; album: string } }
+    response: RandomAlbumTracksResult | null
   }
   'metadata:refresh-track': {
     request: { trackId: number }

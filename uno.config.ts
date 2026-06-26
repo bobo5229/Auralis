@@ -18,7 +18,7 @@ export default defineConfig({
     'app-shell':
       'grid min-h-0 grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-[var(--auralis-bg)] text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_20%]',
     'app-sidebar':
-      'flex w-[232px] h-full min-h-0 flex-col m-[12px_0_12px_12px] rounded-[20px] border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
+      'flex w-[232px] h-[calc(100%_-_var(--auralis-shell-vertical-gap))] min-h-0 flex-col m-[var(--auralis-shell-edge-gap)_0_var(--auralis-shell-edge-gap)_var(--auralis-shell-edge-gap)] rounded-[20px] border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
     'app-main': 'min-h-0 overflow-y-auto bg-[var(--auralis-main-bg)]',
     'app-titlebar':
       'relative z-[80] flex h-11 shrink-0 items-center border-b border-[var(--auralis-titlebar-border)] bg-[var(--auralis-titlebar-bg)] px-4',
@@ -33,9 +33,14 @@ export default defineConfig({
     'now-playing-panel':
       'hidden h-full min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-4 xl:flex',
     'player-bar':
-      'fixed left-1/2 bottom-6 z-50 flex h-18 w-[min(960px,calc(100vw-320px))] min-w-[720px] -translate-x-1/2 items-center gap-5 rounded-full border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)]/95 px-6 shadow-[0_18px_48px_rgba(31,35,40,0.12)] backdrop-blur-sm',
+      'fixed left-1/2 bottom-[var(--auralis-player-bottom-gap)] z-50 flex h-18 w-[min(960px,calc(100vw-320px))] min-w-[720px] -translate-x-1/2 items-center gap-5 rounded-full border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)]/95 px-6 shadow-[0_18px_48px_rgba(31,35,40,0.12)] backdrop-blur-sm',
     'transport-controls': 'flex items-center gap-2 shrink-0',
-    'playback-actions': 'flex items-center gap-3 shrink-0',
+    'transport-control':
+      'inline-flex items-center justify-center rounded p-2 text-[var(--auralis-text-muted)] transition hover:text-[var(--auralis-text)] shadow-none hover:shadow-none',
+    'transport-control-primary':
+      'inline-flex items-center justify-center rounded-full p-3 text-[var(--auralis-text)] transition hover:text-[var(--auralis-text)] shadow-none hover:shadow-none',
+    'playback-actions': 'relative flex items-center gap-3 shrink-0',
+    'volume-control-group': 'flex items-center gap-1.5 shrink-0',
     'track-info-card': 'flex-1 min-w-0',
     'track-info-row': 'flex items-center gap-3',
     'track-cover':
@@ -44,7 +49,7 @@ export default defineConfig({
     'track-title': 'text-[13px] leading-[18px] font-semibold truncate',
     'track-subtitle': 'text-xs leading-4 text-[var(--auralis-text-muted)] truncate',
     'track-progress':
-      'w-full h-[3px] rounded-full bg-[var(--auralis-progress-track)] overflow-hidden mt-1.5',
+      'w-full h-[3px] rounded-full bg-[var(--auralis-progress-track)] overflow-hidden mt-1.5 cursor-pointer touch-none',
     'track-progress-fill': 'h-full bg-[var(--auralis-progress-fill)]',
     'content-frame': 'mx-auto w-full max-w-7xl px-7 py-7',
     'quiet-panel':
@@ -53,12 +58,12 @@ export default defineConfig({
       'px-3 pb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--auralis-text-faint)]',
     'sidebar-link':
       'mb-1 flex items-center gap-2.5 rounded px-3 py-2 text-sm text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
-    'sidebar-link-active':
-      'bg-[var(--auralis-control-active-bg)] text-[var(--auralis-text)] shadow-sm',
+    'sidebar-link-active': '',
     'player-control':
-      'rounded px-3 py-2 text-xs font-medium text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
+      'inline-flex items-center justify-center rounded p-2 text-[var(--auralis-text-muted)] transition shadow-none hover:text-[var(--auralis-text)] hover:shadow-none',
     'player-control-primary':
-      'rounded bg-[var(--auralis-control-primary-bg)] px-4 py-2 text-xs font-medium text-[var(--auralis-control-primary-text)] transition opacity-92 hover:opacity-100',
+      'inline-flex items-center justify-center rounded-full p-3 text-[var(--auralis-text)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
+    'player-control-active': 'text-[var(--auralis-sidebar-active-text)]',
     'theme-toggle-button':
       'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
     'song-row':
@@ -66,18 +71,41 @@ export default defineConfig({
     'song-cover':
       'h-11 w-11 shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
     'song-title': 'text-sm font-bold truncate pl-1.5',
-    'song-artist': 'text-xs font-semibold text-[var(--auralis-text-muted)] truncate',
+    'song-artist': 'text-xs font-semibold text-[var(--auralis-text-muted)] truncate pl-2',
     'song-album': 'text-xs font-semibold text-[var(--auralis-text-subtle)] truncate text-right',
     'song-duration': 'text-sm text-[var(--auralis-text-faint)] text-right tabular-nums',
     'metadata-input':
       'h-9 w-full min-w-0 rounded border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] px-3 text-sm text-[var(--auralis-text)] transition focus:border-[var(--auralis-text-faint)]',
     'volume-slider':
       'w-20 h-1 accent-[var(--auralis-progress-fill)] cursor-pointer appearance-none rounded-full bg-[var(--auralis-progress-track)]',
-    'lyric-active': 'text-[var(--auralis-lyrics-active)] font-bold text-[24px] leading-10 py-1.5',
+    'queue-popover':
+      'absolute bottom-[calc(100%+16px)] right-[calc(100%-40px)] z-[70] w-[360px] max-w-[min(380px,calc(100vw-32px))] rounded-[18px] border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] p-3 shadow-[0_18px_44px_rgba(31,35,40,0.16)]',
+    'queue-popover-header': 'flex items-baseline justify-between px-1 pb-2',
+    'queue-popover-title': 'text-sm font-semibold text-[var(--auralis-text)]',
+    'queue-popover-count': 'text-xs text-[var(--auralis-text-faint)]',
+    'queue-popover-section-label':
+      'px-1 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--auralis-text-faint)]',
+    'queue-popover-scroll': 'max-h-[336px] overflow-y-auto overscroll-contain',
+    'queue-item':
+      'flex h-14 w-full items-center gap-3 rounded-xl px-2 text-left transition hover:bg-[var(--auralis-control-hover-bg)]',
+    'queue-item-active':
+      'bg-[var(--auralis-song-row-now-playing-bg)] hover:bg-[var(--auralis-song-row-now-playing-bg)]',
+    'queue-item-cover':
+      'h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-[var(--auralis-border-subtle)]',
+    'queue-item-title': 'truncate text-sm font-semibold text-[var(--auralis-text)]',
+    'queue-item-subtitle': 'truncate text-xs text-[var(--auralis-text-muted)]',
+    'queue-empty': 'flex h-28 items-center justify-center text-sm text-[var(--auralis-text-faint)]',
+    'playback-mode-menu':
+      'absolute bottom-[calc(100%+14px)] right-[calc(100%-84px)] z-[70] w-52 rounded-2xl border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] p-2 shadow-[0_16px_36px_rgba(31,35,40,0.14)]',
+    'playback-mode-item':
+      'flex h-9 w-full items-center gap-2 rounded-xl px-2 text-left text-sm text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
+    'playback-mode-item-active': '',
+    'playback-mode-check': 'ml-auto h-4 w-4',
+    'lyric-active': 'text-[var(--auralis-lyrics-active)] font-bold text-[28px] leading-12 py-1.5',
     'lyric-inactive':
-      'text-[var(--auralis-lyrics-inactive)] font-bold text-[24px] leading-10 py-1.5',
+      'text-[var(--auralis-lyrics-inactive)] font-bold text-[28px] leading-12 py-1.5',
     'lyric-prelude':
-      'text-[var(--auralis-lyrics-inactive)] font-bold text-[24px] leading-10 py-1.5',
+      'text-[var(--auralis-lyrics-inactive)] font-bold text-[28px] leading-12 py-1.5',
     'lyric-empty': 'h-3 py-0',
   },
 })

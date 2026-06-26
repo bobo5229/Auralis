@@ -93,11 +93,14 @@ async function scrollToPlaybackTrack(): Promise<void> {
   await nextTick()
   await new Promise((resolve) => window.requestAnimationFrame(resolve))
 
+  const SCROLL_POSITION_RATIO = 0.35
+
   if (shouldUseNativeList.value) {
-    const targetRow = scrollRef.value?.querySelector<HTMLElement>(
-      `[data-track-id="${targetTrackId}"]`,
-    )
-    targetRow?.scrollIntoView({ block: 'center' })
+    const container = scrollRef.value
+    const targetRow = container?.querySelector<HTMLElement>(`[data-track-id="${targetTrackId}"]`)
+    if (container && targetRow) {
+      container.scrollTop = targetRow.offsetTop - container.clientHeight * SCROLL_POSITION_RATIO
+    }
     return
   }
 
@@ -107,7 +110,12 @@ async function scrollToPlaybackTrack(): Promise<void> {
     return
   }
 
-  rowVirtualizer.value.scrollToIndex(targetIndex, { align: 'center' })
+  const container = scrollRef.value
+  if (container) {
+    const estimatedRowSize = 44
+    const offset = targetIndex * estimatedRowSize - container.clientHeight * SCROLL_POSITION_RATIO
+    container.scrollTop = Math.max(0, offset)
+  }
 }
 
 async function waitForRefreshJob(jobId: number): Promise<void> {

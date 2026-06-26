@@ -1,4 +1,4 @@
-import { app, protocol } from 'electron'
+import { app } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { createWindow } from './app/createWindow'
@@ -6,10 +6,10 @@ import { closeDatabase, initializeDatabase } from './database/connection'
 import { registerIpcHandlers } from './ipc/registerIpcHandlers'
 import { ensureArtworkCacheDir } from './features/artwork/artworkCache'
 import { registerArtworkProtocol } from './features/artwork/artworkProtocol'
-import { registerAudioProtocol } from './features/audio/audioProtocol'
 import { logger } from './logging/logger'
 
 if (!app.isPackaged) {
+  process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = '1'
   const devUserDataPath = join(app.getAppPath(), 'data', 'user-data')
   const devCachePath = join(devUserDataPath, 'cache')
   const useSoftwareRendering = process.env.AURALIS_SOFTWARE_RENDERING === '1'
@@ -53,18 +53,10 @@ if (!app.isPackaged) {
   app.commandLine.appendSwitch('no-sandbox')
 }
 
-protocol.registerSchemesAsPrivileged([
-  {
-    scheme: 'auralis-audio',
-    privileges: { bypassCSP: true, stream: true, secure: true, supportFetchAPI: true },
-  },
-])
-
 app.whenReady().then(() => {
   const artworkCacheDir = ensureArtworkCacheDir(app.getPath('userData'))
   registerArtworkProtocol(artworkCacheDir)
   const db = initializeDatabase()
-  registerAudioProtocol(db)
   registerIpcHandlers(db, artworkCacheDir)
   createWindow()
 

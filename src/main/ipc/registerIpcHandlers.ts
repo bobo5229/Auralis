@@ -1,4 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
+import { stat } from 'node:fs/promises'
+import { extname } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { ipcChannels } from '@shared/ipc/channels'
 import { getDatabasePath } from '@main/database/connection'
 import { LibraryRepository } from '@main/repositories/libraryRepository'
@@ -13,6 +16,16 @@ import { LibraryIncrementalImportService } from '@main/features/libraryScan/libr
 import type { IpcResponse } from '@shared/ipc/contracts'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type Database from 'better-sqlite3'
+
+const PLAYABLE_AUDIO_EXTENSIONS = new Set([
+  '.mp3',
+  '.flac',
+  '.m4a',
+  '.aac',
+  '.wav',
+  '.ogg',
+  '.opus',
+])
 
 export function registerIpcHandlers(db: Database.Database, artworkCacheDir: string): void {
   const libraryService = new LibraryService(new LibraryRepository(db), new TrackRepository(db))
@@ -109,6 +122,57 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     ipcChannels.lyrics.getByTrackId,
     (_event, payload: { trackId: number }): IpcResponse<'lyrics:get-by-track-id'> =>
       libraryService.getLyrics(payload.trackId),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playback.getAudioUrl,
+    async (
+      _event,
+      payload: { trackId: number },
+    ): Promise<IpcResponse<'playback:get-audio-url'>> => {
+      const filePath = trackRepository.getFilePathById(payload.trackId)
+
+      if (!filePath) {
+        return null
+      }
+
+      const ext = extname(filePath).toLowerCase()
+
+      if (!PLAYABLE_AUDIO_EXTENSIONS.has(ext)) {
+        return null
+      }
+
+      const fileStats = await stat(filePath)
+
+      if (!fileStats.isFile()) {
+        return null
+      }
+
+      return { url: pathToFileURL(filePath).toString() }
+    },
+  )
+
+  ipcMain.handle(
+    ipcChannels.playback.getRandomTrack,
+    (_event, payload?: { excludeTrackId?: number }): IpcResponse<'playback:get-random-track'> =>
+      libraryService.getRandomTrack(payload?.excludeTrackId),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playback.getRandomAlbumTracks,
+    (
+      _event,
+      payload?: { excludeAlbumKey?: { albumArtist: string; album: string } },
+    ): IpcResponse<'playback:get-random-album-tracks'> =>
+      libraryService.getRandomAlbumTracks(payload?.excludeAlbumKey),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playback.getAlbumTracks,
+    (
+      _event,
+      payload: { albumKey: { albumArtist: string; album: string } },
+    ): IpcResponse<'playback:get-album-tracks'> => libraryService.getAlbumTracks(payload.albumKey),
   )
 
   ipcMain.handle(
