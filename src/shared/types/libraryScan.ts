@@ -12,6 +12,8 @@ export interface TrackListItem {
   durationSeconds: number | null
   artworkCacheKey: string | null
   availability: TrackAvailability
+  playCount: number
+  lastPlayedAt: string | null
 }
 
 export type LibraryScanStatusValue = 'idle' | 'scanning' | 'completed' | 'canceled' | 'failed'

@@ -5,6 +5,48 @@ import { auralis } from '@renderer/shared/ipc/client'
 const VOLUME_KEY = 'auralis-volume'
 const HISTORY_LIMIT = 100
 
+// Play count tracking
+const PLAY_COUNT_THRESHOLD_RATIO = 0.55
+const PLAY_COUNT_TICK_MS = 1000
+const MAX_REALTIME_DELTA_SECONDS = 2.5
+const MIN_COUNTABLE_DURATION_SECONDS = 5
+const MAX_COUNTABLE_DURATION_SECONDS = 24 * 60 * 60
+
+type PlayCountSession = {
+  sessionId: string
+  trackId: number
+  startedAt: number
+  lastSampleAt: number
+  realPlayedSeconds: number
+  counted: boolean
+  countInFlight: boolean
+}
+
+let playCountSession: PlayCountSession | null = null
+let playCountTimer: ReturnType<typeof setInterval> | null = null
+let isPlayCountBuffering = false
+let isPlayCountSeeking = false
+let seekFallbackTimer: ReturnType<typeof setTimeout> | null = null
+
+const SEEK_FALLBACK_MS = 300
+
+function setSeekingWithFallback(): void {
+  isPlayCountSeeking = true
+  if (seekFallbackTimer) clearTimeout(seekFallbackTimer)
+  seekFallbackTimer = setTimeout(() => {
+    isPlayCountSeeking = false
+    resetPlayCountSample()
+    seekFallbackTimer = null
+  }, SEEK_FALLBACK_MS)
+}
+
+function clearSeekFallback(): void {
+  if (seekFallbackTimer) {
+    clearTimeout(seekFallbackTimer)
+    seekFallbackTimer = null
+  }
+}
+
 function readPersistedVolume(): number {
   const raw = localStorage.getItem(VOLUME_KEY)
   if (!raw) return 0.8
@@ -72,6 +114,119 @@ let albumShuffleContext: AlbumShuffleContext = null
 audio.volume = state.volume
 audio.muted = state.isMuted
 
+// --- Play count helpers ---
+
+function isAudioCountable(): boolean {
+  if (!playCountSession) return false
+  if (playCountSession.counted) return false
+  if (playCountSession.trackId !== state.currentTrackId) return false
+  if (audio.paused) return false
+  if (audio.ended) return false
+  if (isPlayCountBuffering) return false
+  if (isPlayCountSeeking) return false
+  if (audio.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return false
+  return true
+}
+
+function getEffectiveDuration(): number | null {
+  const audioDuration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0
+  const trackDuration =
+    state.currentTrack?.durationSeconds &&
+    Number.isFinite(state.currentTrack.durationSeconds) &&
+    state.currentTrack.durationSeconds > 0
+      ? state.currentTrack.durationSeconds
+      : 0
+
+  const duration = audioDuration || trackDuration
+  if (duration < MIN_COUNTABLE_DURATION_SECONDS || duration > MAX_COUNTABLE_DURATION_SECONDS) {
+    return null
+  }
+
+  return duration
+}
+
+function startPlayCountSession(trackId: number): void {
+  if (playCountTimer) {
+    clearInterval(playCountTimer)
+    playCountTimer = null
+  }
+
+  isPlayCountBuffering = false
+  isPlayCountSeeking = false
+
+  const now = performance.now()
+  playCountSession = {
+    sessionId: `${trackId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    trackId,
+    startedAt: now,
+    lastSampleAt: now,
+    realPlayedSeconds: 0,
+    counted: false,
+    countInFlight: false,
+  }
+
+  playCountTimer = setInterval(tickPlayCountSession, PLAY_COUNT_TICK_MS)
+}
+
+function endPlayCountSession(): void {
+  if (playCountTimer) {
+    clearInterval(playCountTimer)
+    playCountTimer = null
+  }
+  clearSeekFallback()
+  isPlayCountSeeking = false
+  isPlayCountBuffering = false
+  playCountSession = null
+}
+
+function resetPlayCountSample(): void {
+  if (playCountSession) {
+    playCountSession.lastSampleAt = performance.now()
+  }
+}
+
+function tickPlayCountSession(): void {
+  const session = playCountSession
+  if (!session || session.counted || session.countInFlight) return
+
+  const now = performance.now()
+
+  if (isAudioCountable()) {
+    const deltaSeconds = Math.min((now - session.lastSampleAt) / 1000, MAX_REALTIME_DELTA_SECONDS)
+    session.realPlayedSeconds += deltaSeconds
+  }
+
+  session.lastSampleAt = now
+
+  const effectiveDuration = getEffectiveDuration()
+  if (!effectiveDuration) return
+
+  if (session.realPlayedSeconds >= effectiveDuration * PLAY_COUNT_THRESHOLD_RATIO) {
+    tryRecordEffectivePlay(session)
+  }
+}
+
+function tryRecordEffectivePlay(session: PlayCountSession): void {
+  if (session.counted || session.countInFlight) return
+  session.counted = true
+  session.countInFlight = true
+
+  const payload = {
+    trackId: session.trackId,
+    sessionId: session.sessionId,
+    playedAtIso: new Date().toISOString(),
+  }
+
+  auralis.playback
+    .recordEffectivePlay(payload)
+    .catch((err) => {
+      console.warn('[Auralis playback] Failed to record play count', err)
+    })
+    .finally(() => {
+      session.countInFlight = false
+    })
+}
+
 // --- History helpers ---
 
 function pushHistory(previousTrack: PlaybackTrack | null, nextTrackId: number): void {
@@ -106,6 +261,8 @@ async function playTrackFromResolvedQueue(
     pushHistory(state.currentTrack, trackId)
   }
 
+  endPlayCountSession()
+
   state.queue = queue
   state.currentIndex = index
   state.currentTrack = queue[index]
@@ -125,6 +282,12 @@ async function playTrackFromResolvedQueue(
     audio.src = audioUrl
     audio.currentTime = 0
     await audio.play()
+
+    if (requestId !== playbackRequestId) {
+      return
+    }
+
+    startPlayCountSession(trackId)
   } catch (err) {
     if (requestId !== playbackRequestId) {
       return
@@ -162,11 +325,42 @@ audio.addEventListener('pause', () => {
   state.isPlaying = false
 })
 
+audio.addEventListener('seeking', () => {
+  setSeekingWithFallback()
+  resetPlayCountSample()
+})
+
+audio.addEventListener('seeked', () => {
+  clearSeekFallback()
+  isPlayCountSeeking = false
+  resetPlayCountSample()
+})
+
+audio.addEventListener('waiting', () => {
+  isPlayCountBuffering = true
+  resetPlayCountSample()
+})
+
+audio.addEventListener('stalled', () => {
+  isPlayCountBuffering = true
+  resetPlayCountSample()
+})
+
+audio.addEventListener('playing', () => {
+  isPlayCountBuffering = false
+  resetPlayCountSample()
+})
+
+audio.addEventListener('canplay', () => {
+  isPlayCountBuffering = false
+})
+
 audio.addEventListener('ended', () => {
   void handleTrackEnded().catch(setPlaybackError)
 })
 
 audio.addEventListener('error', () => {
+  endPlayCountSession()
   state.isPlaying = false
   const mediaError = audio.error
   const detail = mediaError
@@ -194,6 +388,7 @@ async function handleTrackEnded(): Promise<void> {
 
   switch (state.playbackMode) {
     case 'repeat-one':
+      startPlayCountSession(state.currentTrackId!)
       audio.currentTime = 0
       state.currentTime = 0
       await audio.play()
@@ -228,6 +423,7 @@ async function playNextInQueue(options?: { wrap?: boolean; stopAtEnd?: boolean }
       return
     }
     if (options?.stopAtEnd) {
+      endPlayCountSession()
       audio.pause()
       state.isPlaying = false
       state.currentTime = 0
@@ -485,6 +681,8 @@ function seekByRatio(ratio: number): void {
 
   const clampedRatio = Math.min(1, Math.max(0, ratio))
   const nextTime = duration * clampedRatio
+  setSeekingWithFallback()
+  resetPlayCountSample()
   audio.currentTime = nextTime
   state.currentTime = nextTime
 }
@@ -497,6 +695,8 @@ function seekTo(time: number): void {
   if (!duration) return
 
   const nextTime = Math.min(duration, Math.max(0, time))
+  setSeekingWithFallback()
+  resetPlayCountSample()
   audio.currentTime = nextTime
   state.currentTime = nextTime
 }

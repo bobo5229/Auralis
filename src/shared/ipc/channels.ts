@@ -22,6 +22,7 @@ export const ipcChannels = {
     getRandomTrack: 'playback:get-random-track',
     getRandomAlbumTracks: 'playback:get-random-album-tracks',
     getAlbumTracks: 'playback:get-album-tracks',
+    recordEffectivePlay: 'playback:record-effective-play',
   },
   metadata: {
     refreshTrack: 'metadata:refresh-track',

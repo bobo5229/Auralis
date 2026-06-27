@@ -135,7 +135,9 @@ export class TrackRepository extends BaseRepository {
                 release_date AS releaseDate,
                 duration_seconds AS durationSeconds,
                 artwork_cache_key AS artworkCacheKey,
-                availability
+                availability,
+                play_count AS playCount,
+                last_played_at AS lastPlayedAt
          FROM library_track_display
          WHERE availability = 'available'
          ORDER BY

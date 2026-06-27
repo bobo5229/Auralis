@@ -53,6 +53,11 @@ export interface AuralisApi {
       albumArtist: string
       album: string
     }) => Promise<RandomAlbumTracksResult | null>
+    recordEffectivePlay: (payload: {
+      trackId: number
+      sessionId: string
+      playedAtIso: string
+    }) => Promise<{ ok: boolean }>
   }
   metadata: {
     refreshTrack: (trackId: number) => Promise<{ jobId: number }>

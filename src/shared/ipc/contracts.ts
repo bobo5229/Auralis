@@ -63,6 +63,10 @@ export interface IpcInvokeContract {
     request: { albumKey: { albumArtist: string; album: string } }
     response: RandomAlbumTracksResult | null
   }
+  'playback:record-effective-play': {
+    request: { trackId: number; sessionId: string; playedAtIso: string }
+    response: { ok: boolean }
+  }
   'metadata:refresh-track': {
     request: { trackId: number }
     response: { jobId: number }

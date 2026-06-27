@@ -1,0 +1,43 @@
+import type { PlayStatsRepository } from '../repositories/playStatsRepository'
+
+const MAX_SESSION_CACHE = 1000
+
+export class PlayStatsService {
+  private readonly recordedSessions = new Set<string>()
+
+  constructor(private readonly playStatsRepo: PlayStatsRepository) {}
+
+  recordEffectivePlay(payload: { trackId: number; sessionId: string; playedAtIso: string }): {
+    ok: boolean
+  } {
+    const { trackId, sessionId, playedAtIso } = payload
+
+    if (!Number.isInteger(trackId) || trackId <= 0) {
+      return { ok: false }
+    }
+
+    if (!sessionId?.trim()) {
+      return { ok: false }
+    }
+
+    if (!playedAtIso || Number.isNaN(Date.parse(playedAtIso))) {
+      return { ok: false }
+    }
+
+    if (this.recordedSessions.has(sessionId)) {
+      return { ok: true }
+    }
+
+    if (this.recordedSessions.size >= MAX_SESSION_CACHE) {
+      const first = this.recordedSessions.values().next().value
+      if (first !== undefined) {
+        this.recordedSessions.delete(first)
+      }
+    }
+
+    this.playStatsRepo.incrementPlayCount(trackId, playedAtIso)
+    this.recordedSessions.add(sessionId)
+
+    return { ok: true }
+  }
+}

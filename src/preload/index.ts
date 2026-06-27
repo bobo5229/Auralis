@@ -74,6 +74,7 @@ export const auralisApi: AuralisApi = {
         excludeAlbumKey ? { excludeAlbumKey } : undefined,
       ),
     getAlbumTracks: (albumKey) => invoke(ipcChannels.playback.getAlbumTracks, { albumKey }),
+    recordEffectivePlay: (payload) => invoke(ipcChannels.playback.recordEffectivePlay, payload),
   },
   metadata: {
     refreshTrack: (trackId) => invoke(ipcChannels.metadata.refreshTrack, { trackId }),

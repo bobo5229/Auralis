@@ -13,6 +13,8 @@ import { LibraryService } from '@main/services/libraryService'
 import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
 import { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
 import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
+import { PlayStatsRepository } from '@main/repositories/playStatsRepository'
+import { PlayStatsService } from '@main/services/playStatsService'
 import type { IpcResponse } from '@shared/ipc/contracts'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type Database from 'better-sqlite3'
@@ -61,6 +63,8 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     incrementalImportService,
     sendToRenderer,
   )
+
+  const playStatsService = new PlayStatsService(new PlayStatsRepository(db))
 
   metadataWatchService.start()
   app.on('before-quit', () => {
@@ -173,6 +177,15 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
       _event,
       payload: { albumKey: { albumArtist: string; album: string } },
     ): IpcResponse<'playback:get-album-tracks'> => libraryService.getAlbumTracks(payload.albumKey),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playback.recordEffectivePlay,
+    (
+      _event,
+      payload: { trackId: number; sessionId: string; playedAtIso: string },
+    ): IpcResponse<'playback:record-effective-play'> =>
+      playStatsService.recordEffectivePlay(payload),
   )
 
   ipcMain.handle(
