@@ -14,12 +14,12 @@ export default defineConfig({
   },
   shortcuts: {
     'app-window':
-      'grid h-screen grid-rows-[44px_minmax(0,1fr)] overflow-hidden bg-[var(--auralis-bg)] text-[var(--auralis-text)]',
+      'grid h-screen grid-rows-[44px_minmax(0,1fr)] overflow-hidden bg-[var(--auralis-app-background)] text-[var(--auralis-text)]',
     'app-shell':
-      'grid min-h-0 grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-[var(--auralis-bg)] text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_20%]',
+      'grid min-h-0 grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-transparent text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_20%]',
     'app-sidebar':
       'flex w-[232px] h-[calc(100%_-_var(--auralis-shell-vertical-gap))] min-h-0 flex-col m-[var(--auralis-shell-edge-gap)_0_var(--auralis-shell-edge-gap)_var(--auralis-shell-edge-gap)] rounded-[20px] border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
-    'app-main': 'min-h-0 overflow-y-auto bg-[var(--auralis-main-bg)]',
+    'app-main': 'min-h-0 overflow-y-auto bg-transparent',
     'app-titlebar':
       'relative z-[80] flex h-11 shrink-0 items-center border-b border-[var(--auralis-titlebar-border)] bg-[var(--auralis-titlebar-bg)] px-4',
     'app-titlebar-brand':
@@ -33,7 +33,7 @@ export default defineConfig({
     'now-playing-panel':
       'hidden h-full min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-4 xl:flex',
     'player-bar':
-      'fixed left-1/2 bottom-[var(--auralis-player-bottom-gap)] z-50 flex h-18 w-[min(960px,calc(100vw-320px))] min-w-[720px] -translate-x-1/2 items-center gap-5 rounded-full border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)]/95 px-6 shadow-[0_18px_48px_rgba(31,35,40,0.12)] backdrop-blur-sm',
+      'fixed left-1/2 bottom-[var(--auralis-player-bottom-gap)] z-50 flex h-18 w-[min(960px,calc(100vw-320px))] min-w-[720px] -translate-x-1/2 items-center gap-5 rounded-full border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] px-6 shadow-[var(--auralis-playbar-shadow)]',
     'transport-controls': 'flex items-center gap-2 shrink-0',
     'transport-control':
       'inline-flex items-center justify-center rounded p-2 text-[var(--auralis-text-muted)] transition hover:text-[var(--auralis-text)] shadow-none hover:shadow-none',

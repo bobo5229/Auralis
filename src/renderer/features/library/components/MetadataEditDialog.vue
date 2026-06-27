@@ -28,6 +28,7 @@ const form = reactive({
 watch(
   () => props.metadata,
   (metadata) => {
+    localError.value = null
     form.title = metadata?.title ?? ''
     form.artistDisplay = metadata?.artistDisplay ?? ''
     form.albumTitle = metadata?.albumTitle ?? ''
@@ -114,7 +115,7 @@ function onSave(): void {
         class="w-full max-w-xl rounded-lg border border-[var(--auralis-border-subtle)] bg-[var(--auralis-main-bg)] p-5 shadow-xl"
       >
         <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-base font-semibold">Edit Metadata</h2>
+          <h2 class="text-base font-semibold">编辑元数据</h2>
           <button
             class="theme-toggle-button"
             type="button"
@@ -163,9 +164,14 @@ function onSave(): void {
         </p>
 
         <div class="mt-5 flex justify-end gap-2">
-          <button class="player-control" type="button" @click="$emit('close')">Cancel</button>
-          <button class="player-control-primary" type="button" :disabled="saving" @click="onSave">
-            {{ saving ? 'Saving...' : 'Save' }}
+          <button class="player-control" type="button" @click="$emit('close')">取消</button>
+          <button
+            class="player-control-primary hover:bg-transparent"
+            type="button"
+            :disabled="saving"
+            @click="onSave"
+          >
+            {{ saving ? '保存中...' : '保存' }}
           </button>
         </div>
       </section>

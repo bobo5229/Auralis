@@ -41,7 +41,8 @@ function handleSelectMode(mode: PlaybackMode): void {
 
 // --- Outside click ---
 function handleDocumentPointerDown(event: PointerEvent): void {
-  const target = event.target as Node
+  const target = event.target
+  if (!(target instanceof Node)) return
 
   if (isQueueOpen.value) {
     if (queueButtonRef.value?.contains(target)) return
@@ -108,7 +109,7 @@ const volumeSliderStyle = computed(() => {
   const percentage = `${Math.round(playback.state.volume * 100)}%`
 
   return {
-    background: `linear-gradient(to right, #2C4A6E 0%, #2C4A6E ${percentage}, var(--auralis-progress-track) ${percentage}, var(--auralis-progress-track) 100%)`,
+    background: `linear-gradient(to right, var(--auralis-volume-fill) 0%, var(--auralis-volume-fill) ${percentage}, var(--auralis-progress-track) ${percentage}, var(--auralis-progress-track) 100%)`,
   }
 })
 
@@ -169,7 +170,7 @@ function handleToggleMute(): void {
         :aria-expanded="isQueueOpen"
         @click="toggleQueue"
       >
-        <span class="h-4 w-4 i-lucide-list-music" />
+        <span class="playbar-action-icon h-4 w-4 i-lucide-list-music" />
       </button>
 
       <div ref="queuePopoverRef" class="contents">
@@ -185,7 +186,7 @@ function handleToggleMute(): void {
         :aria-expanded="isModeMenuOpen"
         @click="toggleModeMenu"
       >
-        <span class="h-4 w-4" :class="playbackModeIconClass" />
+        <span class="playbar-action-icon h-4 w-4" :class="playbackModeIconClass" />
       </button>
 
       <div ref="modeMenuRef" class="contents">
@@ -204,7 +205,7 @@ function handleToggleMute(): void {
           :aria-label="playback.state.isMuted ? 'Unmute' : 'Mute'"
           @click="handleToggleMute"
         >
-          <span class="h-4 w-4 text-[var(--auralis-text-muted)]" :class="volumeIconClass" />
+          <span class="playbar-action-icon h-4 w-4" :class="volumeIconClass" />
         </button>
         <input
           type="range"

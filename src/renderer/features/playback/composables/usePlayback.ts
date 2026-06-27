@@ -50,6 +50,7 @@ const state = reactive<PlaybackState>({
 
 let lastAudibleVolume = state.volume > 0 ? state.volume : 0.8
 let playbackRequestId = 0
+let queuedNextTrackId: number | null = null
 
 // Album shuffle context
 type AlbumShuffleContext = {
@@ -110,6 +111,8 @@ async function playTrackFromResolvedQueue(
   state.currentTrack = queue[index]
   state.currentTrackId = trackId
   state.selectedTrackId = trackId
+  state.currentTime = 0
+  state.duration = 0
   state.error = null
 
   try {
@@ -123,9 +126,18 @@ async function playTrackFromResolvedQueue(
     audio.currentTime = 0
     await audio.play()
   } catch (err) {
+    if (requestId !== playbackRequestId) {
+      return
+    }
+
     state.isPlaying = false
     state.error = err instanceof Error ? err.message : String(err)
   }
+}
+
+function setPlaybackError(err: unknown): void {
+  state.isPlaying = false
+  state.error = err instanceof Error ? err.message : String(err)
 }
 
 // --- Audio events ---
@@ -151,7 +163,7 @@ audio.addEventListener('pause', () => {
 })
 
 audio.addEventListener('ended', () => {
-  handleTrackEnded()
+  void handleTrackEnded().catch(setPlaybackError)
 })
 
 audio.addEventListener('error', () => {
@@ -176,6 +188,10 @@ audio.addEventListener('error', () => {
 // --- Mode-aware ended handler ---
 
 async function handleTrackEnded(): Promise<void> {
+  if (state.playbackMode !== 'repeat-one' && (await playQueuedNextTrack())) {
+    return
+  }
+
   switch (state.playbackMode) {
     case 'repeat-one':
       audio.currentTime = 0
@@ -222,6 +238,21 @@ async function playNextInQueue(options?: { wrap?: boolean; stopAtEnd?: boolean }
 
   const track = state.queue[nextIndex]
   await playTrackFromResolvedQueue(state.queue, track.id)
+}
+
+async function playQueuedNextTrack(): Promise<boolean> {
+  if (queuedNextTrackId === null) return false
+
+  const trackId = queuedNextTrackId
+  const nextTrack = state.queue[state.currentIndex + 1]
+  queuedNextTrackId = null
+
+  if (!nextTrack || nextTrack.id !== trackId) {
+    return false
+  }
+
+  await playTrackFromResolvedQueue(state.queue, trackId, { recordHistory: true })
+  return true
 }
 
 async function playPreviousInQueue(options?: { wrap?: boolean }): Promise<void> {
@@ -352,7 +383,28 @@ function setPlaybackMode(mode: PlaybackMode): void {
 }
 
 async function playTrackFromQueue(queue: PlaybackTrack[], trackId: number): Promise<void> {
+  queuedNextTrackId = null
   await playTrackFromResolvedQueue(queue, trackId, { recordHistory: true })
+}
+
+function insertTrackAfterCurrent(track: PlaybackTrack): void {
+  if (!state.currentTrack || state.currentIndex < 0) return
+  if (track.id === state.currentTrackId) return
+
+  const currentQueue = state.queue.length > 0 ? state.queue : [state.currentTrack]
+  const withoutInsertedTrack = currentQueue.filter((queueTrack) => queueTrack.id !== track.id)
+  const currentIndex = withoutInsertedTrack.findIndex(
+    (queueTrack) => queueTrack.id === state.currentTrackId,
+  )
+
+  if (currentIndex < 0) return
+
+  const nextQueue = [...withoutInsertedTrack]
+  nextQueue.splice(currentIndex + 1, 0, track)
+
+  state.queue = nextQueue
+  state.currentIndex = currentIndex
+  queuedNextTrackId = track.id
 }
 
 async function togglePlayPause(): Promise<void> {
@@ -386,6 +438,8 @@ function pause(): void {
 }
 
 async function playPrevious(): Promise<void> {
+  queuedNextTrackId = null
+
   if (state.playbackMode === 'shuffle' || state.playbackMode === 'album-shuffle') {
     const entry = popHistory()
     if (entry) {
@@ -400,6 +454,10 @@ async function playPrevious(): Promise<void> {
 }
 
 async function playNext(): Promise<void> {
+  if (await playQueuedNextTrack()) {
+    return
+  }
+
   switch (state.playbackMode) {
     case 'repeat-all':
       await playNextInQueue({ wrap: true })
@@ -482,6 +540,7 @@ export function usePlayback() {
     state,
     selectTrack,
     playTrackFromQueue,
+    insertTrackAfterCurrent,
     setPlaybackMode,
     togglePlayPause,
     play,
