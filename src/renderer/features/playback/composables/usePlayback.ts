@@ -603,6 +603,29 @@ function insertTrackAfterCurrent(track: PlaybackTrack): void {
   queuedNextTrackId = track.id
 }
 
+function insertTracksAfterCurrent(tracks: PlaybackTrack[]): void {
+  if (!state.currentTrack || state.currentIndex < 0) return
+
+  const insertIds = new Set(tracks.map((t) => t.id))
+  insertIds.delete(state.currentTrackId)
+
+  const filtered = tracks.filter((t) => insertIds.has(t.id))
+  if (filtered.length === 0) return
+
+  const currentQueue = state.queue.length > 0 ? state.queue : [state.currentTrack]
+  const withoutInserted = currentQueue.filter((t) => !insertIds.has(t.id))
+  const currentIndex = withoutInserted.findIndex((t) => t.id === state.currentTrackId)
+
+  if (currentIndex < 0) return
+
+  const nextQueue = [...withoutInserted]
+  nextQueue.splice(currentIndex + 1, 0, ...filtered)
+
+  state.queue = nextQueue
+  state.currentIndex = currentIndex
+  queuedNextTrackId = filtered[0].id
+}
+
 async function togglePlayPause(): Promise<void> {
   if (!state.currentTrack) return
 
@@ -741,6 +764,7 @@ export function usePlayback() {
     selectTrack,
     playTrackFromQueue,
     insertTrackAfterCurrent,
+    insertTracksAfterCurrent,
     setPlaybackMode,
     togglePlayPause,
     play,

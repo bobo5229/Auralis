@@ -12,7 +12,8 @@
 }
 
 :root,
-[data-theme='light'] {
+[data-theme='light'],
+.theme-wallpaper-overlay[data-theme='light'] {
   color: #1f2528;
   background: var(--auralis-bg);
   font-family:
@@ -54,9 +55,17 @@
   --auralis-shell-edge-gap: 12px;
   --auralis-shell-vertical-gap: 24px;
   --auralis-player-bottom-gap: 44px;
-  --auralis-playbar-bg: rgba(255, 255, 255, 0.001);
-  --auralis-playbar-border: rgba(31, 35, 40, 0.08);
-  --auralis-playbar-shadow: none;
+  --auralis-playbar-bg: rgba(255, 255, 255, 0.07);
+  --auralis-playbar-border: rgba(255, 255, 255, 0.46);
+  --auralis-playbar-highlight: rgba(255, 255, 255, 0.5);
+  --auralis-playbar-highlight-soft: rgba(255, 255, 255, 0.16);
+  --auralis-playbar-lowlight: rgba(31, 35, 40, 0.1);
+  --auralis-playbar-album-alpha: 0.28;
+  --auralis-playbar-album-saturate: 1.45;
+  --auralis-playbar-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.56),
+    inset 0 -1px 0 rgba(31, 35, 40, 0.08),
+    0 18px 42px rgba(31, 35, 40, 0.1);
 
   /* Song list tokens */
   --auralis-song-row-bg: #ffffff;
@@ -89,14 +98,22 @@
   --auralis-context-menu-border: rgba(44, 74, 110, 0.1);
   --auralis-context-menu-shadow: 0 1px 4px rgba(31, 35, 40, 0.05);
 
+  /* Cover view */
+  --auralis-cover-track-bg: #ffffff;
+  --auralis-cover-track-hover-bg: rgba(31, 37, 40, 0.06);
+  --auralis-cover-divider: rgba(31, 37, 40, 0.08);
+  --auralis-cover-track-divider: rgba(31, 37, 40, 0.06);
+
   /* App environment glow */
   --auralis-app-bg: #ffffff;
   --auralis-app-glow-a: transparent;
   --auralis-app-glow-b: transparent;
   --auralis-app-background: var(--auralis-app-bg);
+
 }
 
-[data-theme='dark'] {
+[data-theme='dark'],
+.theme-wallpaper-overlay[data-theme='dark'] {
   color: var(--auralis-text);
   background: var(--auralis-bg);
 
@@ -124,9 +141,17 @@
   --auralis-shell-edge-gap: 12px;
   --auralis-shell-vertical-gap: 24px;
   --auralis-player-bottom-gap: 44px;
-  --auralis-playbar-bg: rgba(30, 32, 35, 0.58);
-  --auralis-playbar-border: rgba(225, 221, 214, 0.12);
-  --auralis-playbar-shadow: none;
+  --auralis-playbar-bg: rgba(30, 32, 35, 0.16);
+  --auralis-playbar-border: rgba(225, 221, 214, 0.18);
+  --auralis-playbar-highlight: rgba(255, 255, 255, 0.16);
+  --auralis-playbar-highlight-soft: rgba(255, 255, 255, 0.06);
+  --auralis-playbar-lowlight: rgba(0, 0, 0, 0.24);
+  --auralis-playbar-album-alpha: 0.28;
+  --auralis-playbar-album-saturate: 1.08;
+  --auralis-playbar-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 20px 48px rgba(0, 0, 0, 0.22);
 
   /* Song list tokens */
   --auralis-song-row-bg: transparent;
@@ -160,6 +185,12 @@
   --auralis-context-menu-border: rgba(246, 242, 234, 0.1);
   --auralis-context-menu-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 
+  /* Cover view */
+  --auralis-cover-track-bg: #1e2023;
+  --auralis-cover-track-hover-bg: rgba(225, 221, 214, 0.08);
+  --auralis-cover-divider: rgba(225, 221, 214, 0.10);
+  --auralis-cover-track-divider: rgba(225, 221, 214, 0.07);
+
   /* App environment glow */
   --auralis-app-bg: #1e2023;
   --auralis-app-glow-a: transparent;
@@ -184,14 +215,85 @@ body {
   outline: none;
 }
 
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
 button,
 input {
   font: inherit;
 }
 
 .player-bar {
-  -webkit-backdrop-filter: blur(34px) saturate(1.45);
-  backdrop-filter: blur(34px) saturate(1.45);
+  left: calc(50vw + 122px);
+  position: fixed;
+  background: var(--auralis-playbar-bg);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
+  backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
+  box-shadow: var(--auralis-playbar-shadow);
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.player-bar::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 1;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      180deg,
+      var(--auralis-playbar-highlight) 0%,
+      var(--auralis-playbar-highlight-soft) 18%,
+      transparent 48%,
+      var(--auralis-playbar-lowlight) 100%
+    ),
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.player-bar > :not(.player-bar-album-tint) {
+  position: relative;
+  z-index: 2;
+}
+
+.player-bar-album-tint {
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  border-radius: inherit;
+  background-repeat: repeat-x;
+  background-size: 560px 100%;
+  background-position: var(--playbar-album-flow-x, 0%) 50%;
+  opacity: 1;
+  filter: saturate(var(--auralis-playbar-album-saturate));
+  pointer-events: none;
+}
+
+.player-bar-album-tint-previous {
+  animation: playbar-album-gradient-fade-out 420ms ease forwards;
+}
+
+@keyframes playbar-album-gradient-fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@media (min-width: 1280px) {
+  .player-bar {
+    left: calc(40vw + 122px);
+  }
 }
 
 .playbar-action-icon {
@@ -199,6 +301,14 @@ input {
 }
 
 [data-theme='dark'] .playbar-action-icon {
+  color: #e1ddd6;
+}
+
+.theme-wallpaper-overlay[data-theme='light'] .playbar-action-icon {
+  color: #1f2528;
+}
+
+.theme-wallpaper-overlay[data-theme='dark'] .playbar-action-icon {
   color: #e1ddd6;
 }
 
@@ -462,4 +572,66 @@ input[type='range'].volume-slider::-moz-range-thumb {
   height: 1px;
   margin: 4px -6px;
   background: var(--auralis-border-subtle);
+}
+
+/* Library view switch fade */
+.library-view-fade-enter-active,
+.library-view-fade-leave-active {
+  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.library-view-fade-enter-from,
+.library-view-fade-leave-to {
+  opacity: 0;
+}
+
+.library-view-fade-enter-to,
+.library-view-fade-leave-from {
+  opacity: 1;
+}
+
+.theme-wallpaper-overlay {
+  position: fixed;
+  inset: 0;
+  right: auto;
+  width: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  overflow: hidden;
+  contain: layout paint style;
+  will-change: width;
+}
+
+.theme-wallpaper-surface {
+  width: 100vw;
+  height: 100vh;
+}
+
+.theme-wallpaper-overlay--running {
+  animation: theme-wallpaper-cover 1800ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes theme-wallpaper-cover {
+  from {
+    width: 0;
+  }
+
+  to {
+    width: calc(100vw + 8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-view-fade-enter-active,
+  .library-view-fade-leave-active {
+    transition-duration: 0ms !important;
+  }
+
+  .theme-wallpaper-overlay--running {
+    animation-duration: 0ms !important;
+  }
+
+  .player-bar-album-tint-previous {
+    animation: none !important;
+  }
 }

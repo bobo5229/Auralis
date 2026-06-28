@@ -101,6 +101,18 @@ export default defineConfig({
       'flex h-9 w-full items-center gap-2 rounded-xl px-2 text-left text-sm text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
     'playback-mode-item-active': '',
     'playback-mode-check': 'ml-auto h-4 w-4',
+    'album-cover-group':
+      'grid grid-cols-[250px_minmax(0,1fr)] gap-x-12 border-b border-[var(--auralis-cover-divider)] py-7',
+    'album-cover-aside': 'w-[250px]',
+    'album-cover-artwork':
+      'w-[250px] h-[250px] rounded-lg overflow-hidden bg-[var(--auralis-artwork-placeholder-bg)]',
+    'album-cover-meta': 'mt-3',
+    'album-cover-meta-line': 'text-xs text-[var(--auralis-text-muted)] leading-5',
+    'album-cover-tracks': 'min-w-0',
+    'cover-track-row':
+      'grid grid-cols-[40px_minmax(0,1fr)_minmax(120px,220px)_48px] gap-x-3 items-center px-3 min-h-10 rounded-md cursor-pointer bg-[var(--auralis-cover-track-bg)] transition hover:bg-[var(--auralis-cover-track-hover-bg)] not-last:border-b border-[var(--auralis-cover-track-divider)]',
+    'cover-track-row--playing':
+      'bg-[var(--auralis-song-row-now-playing-bg)] hover:bg-[var(--auralis-song-row-now-playing-bg)]',
     'lyric-active': 'text-[var(--auralis-lyrics-active)] font-bold text-[28px] leading-12 py-1.5',
     'lyric-inactive':
       'text-[var(--auralis-lyrics-inactive)] font-bold text-[28px] leading-12 py-1.5',

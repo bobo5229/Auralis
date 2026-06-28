@@ -11,6 +11,7 @@ export interface TrackListItem {
   releaseDate: string | null
   durationSeconds: number | null
   artworkCacheKey: string | null
+  genre: string | null
   availability: TrackAvailability
   playCount: number
   lastPlayedAt: string | null
