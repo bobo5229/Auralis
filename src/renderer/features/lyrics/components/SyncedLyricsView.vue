@@ -21,6 +21,10 @@ const SNAP_THRESHOLD = 0.5
 const DEFAULT_LERP = 0.14
 const FAST_LERP = 0.3
 const LARGE_JUMP_PX = 120
+const MAX_ANIMATION_FPS = 120
+const MIN_ANIMATION_FRAME_MS = 1000 / MAX_ANIMATION_FPS
+const REFERENCE_FRAME_MS = 1000 / 60
+let lastAnimationAt = 0
 
 const topPadding = computed(() => Math.round(containerHeight.value * 0.3))
 const bottomPadding = computed(() => Math.round(containerHeight.value * 0.7))
@@ -53,10 +57,18 @@ function computeTarget(): number | null {
 function startTracking() {
   if (rafId !== null) return
 
-  function tick() {
+  lastAnimationAt = 0
+
+  function tick(now: number) {
     const container = scrollRef.value
     if (!container || targetScrollTop === null) {
       rafId = null
+      lastAnimationAt = 0
+      return
+    }
+
+    if (lastAnimationAt > 0 && now - lastAnimationAt < MIN_ANIMATION_FRAME_MS) {
+      rafId = requestAnimationFrame(tick)
       return
     }
 
@@ -68,12 +80,17 @@ function startTracking() {
       container.scrollTop = targetScrollTop
       targetScrollTop = null
       rafId = null
+      lastAnimationAt = 0
       return
     }
 
     // Adaptive lerp: fast for large jumps, smooth for small ones
+    const elapsedMs = lastAnimationAt > 0 ? now - lastAnimationAt : REFERENCE_FRAME_MS
+    lastAnimationAt = now
     const lerp = Math.abs(diff) > LARGE_JUMP_PX ? FAST_LERP : DEFAULT_LERP
-    container.scrollTop = current + diff * lerp
+    const frameScale = Math.max(0.25, Math.min(2, elapsedMs / REFERENCE_FRAME_MS))
+    const adjustedLerp = 1 - Math.pow(1 - lerp, frameScale)
+    container.scrollTop = current + diff * adjustedLerp
 
     rafId = requestAnimationFrame(tick)
   }
@@ -102,6 +119,12 @@ function updateTarget(behavior: ScrollBehavior = 'smooth') {
 function pauseAutoFollow() {
   isUserScrolling.value = true
   targetScrollTop = null
+  lastAnimationAt = 0
+
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId)
+    rafId = null
+  }
 
   if (scrollTimeout) clearTimeout(scrollTimeout)
 
@@ -143,7 +166,7 @@ onBeforeUnmount(() => {
 <template>
   <div
     ref="scrollRef"
-    class="h-full overflow-auto scrollbar-none px-4"
+    class="synced-lyrics-scroll h-full overflow-auto scrollbar-none px-4"
     tabindex="0"
     @wheel="pauseAutoFollow"
     @pointerdown="pauseAutoFollow"
@@ -158,14 +181,14 @@ onBeforeUnmount(() => {
     <div
       v-for="(line, index) in lines"
       :key="line.id"
+      v-memo="[activeIndex === index, line.text]"
       class="lyric-line"
-      :class="activeIndex === index ? 'lyric-active' : line.text ? 'lyric-inactive' : 'lyric-empty'"
-      :style="
+      :class="
         activeIndex === index
-          ? { filter: 'blur(0)', opacity: '1', willChange: 'opacity, filter' }
+          ? 'lyric-active lyric-line-active-filter'
           : line.text
-            ? { filter: 'blur(3px)', opacity: '0.8' }
-            : undefined
+            ? 'lyric-inactive lyric-line-blur-filter'
+            : 'lyric-empty'
       "
     >
       {{ line.text || ' ' }}
@@ -173,3 +196,22 @@ onBeforeUnmount(() => {
     <div :style="{ height: `${bottomPadding}px` }"></div>
   </div>
 </template>
+
+<style scoped>
+.synced-lyrics-scroll {
+  contain: layout paint style;
+  overscroll-behavior: contain;
+  will-change: scroll-position;
+}
+
+.lyric-line-active-filter {
+  filter: blur(0);
+  opacity: 1;
+  will-change: opacity, filter;
+}
+
+.lyric-line-blur-filter {
+  filter: blur(3px);
+  opacity: 0.8;
+}
+</style>

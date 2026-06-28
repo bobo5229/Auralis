@@ -5,7 +5,7 @@ import { useRoute } from 'vue-router'
 import { useTheme } from '@renderer/composables/useTheme'
 
 const route = useRoute()
-const { isDark, nextThemeLabel, toggleTheme } = useTheme()
+const { isDark, nextThemeLabel, toggleTheme, isThemeSwitching } = useTheme()
 const activePath = ref(route.path)
 
 const primaryNav = [
@@ -46,11 +46,15 @@ function setPendingActiveFromPointer(event: PointerEvent, path: string): void {
         <button
           class="theme-toggle-button"
           type="button"
+          :disabled="isThemeSwitching"
           :aria-label="nextThemeLabel"
           :title="nextThemeLabel"
           @click="toggleTheme"
         >
-          <span class="h-4 w-4" :class="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"></span>
+          <span
+            class="theme-toggle-icon h-4 w-4"
+            :class="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"
+          ></span>
         </button>
       </div>
       <div class="mt-1 text-xs text-[var(--auralis-text-subtle)]">Local Music Archive</div>

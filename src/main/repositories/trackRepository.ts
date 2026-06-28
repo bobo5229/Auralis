@@ -135,6 +135,7 @@ export class TrackRepository extends BaseRepository {
                 release_date AS releaseDate,
                 duration_seconds AS durationSeconds,
                 artwork_cache_key AS artworkCacheKey,
+                genre,
                 availability,
                 play_count AS playCount,
                 last_played_at AS lastPlayedAt

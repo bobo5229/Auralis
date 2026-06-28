@@ -1,13 +1,13 @@
-export function formatArtist(artist: string | null): string {
-  if (!artist) return ''
+import { splitDelimitedValues, isMultiValue, formatDelimitedValues } from './formatDelimitedValues'
 
-  const parts = artist
-    .split(';')
-    .map((p) => p.trim())
-    .filter(Boolean)
+export function splitArtistValues(value: string | null | undefined): string[] {
+  return splitDelimitedValues(value)
+}
 
-  if (parts.length <= 1) return parts[0] ?? ''
+export function isMultiValueArtist(value: string | null | undefined): boolean {
+  return isMultiValue(value)
+}
 
-  const last = parts.pop()!
-  return `${parts.join(', ')} & ${last}`
+export function formatArtist(value: string | null | undefined): string {
+  return formatDelimitedValues(value)
 }

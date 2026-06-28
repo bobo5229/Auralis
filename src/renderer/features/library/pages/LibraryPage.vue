@@ -4,6 +4,8 @@ import { useVirtualizer } from '@tanstack/vue-virtual'
 import type { EditableTrackMetadata, TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import SongRow from '../components/SongRow.vue'
+import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
+import type { LibraryAlbumGroup } from '../components/AlbumCoverGroup.vue'
 import MetadataEditDialog from '../components/MetadataEditDialog.vue'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -16,7 +18,26 @@ const scrollRef = ref<HTMLElement | null>(null)
 const editingMetadata = ref<EditableTrackMetadata | null>(null)
 const isSavingMetadata = ref(false)
 const metadataEditError = ref<string | null>(null)
-const contextMenu = ref<{ trackId: number; x: number; y: number } | null>(null)
+type LibraryViewMode = 'flat' | 'cover'
+type LibraryContextMenuSource = 'track' | 'album-artwork'
+
+interface LibraryContextMenuState {
+  trackId: number
+  x: number
+  y: number
+  source: LibraryContextMenuSource
+}
+
+const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
+
+function readPersistedViewMode(): LibraryViewMode {
+  const stored = localStorage.getItem(LIBRARY_VIEW_MODE_KEY)
+  return stored === 'cover' ? 'cover' : 'flat'
+}
+
+const libraryViewMode = ref<LibraryViewMode>(readPersistedViewMode())
+const isCoverView = computed(() => libraryViewMode.value === 'cover')
+const contextMenu = ref<LibraryContextMenuState | null>(null)
 let unsubscribeChanged: (() => void) | null = null
 
 // Search state
@@ -27,6 +48,8 @@ const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchRootRef = ref<HTMLElement | null>(null)
 let lastSearchQuery = ''
 let lastMatchedTrackIndex = -1
+let pendingViewSwitchTrackId: number | null = null
+let pendingViewSwitchScrollFrame: number | null = null
 
 const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
 const shouldRenderSearchBar = computed(
@@ -42,7 +65,7 @@ const shouldUseNativeList = computed(() => tracks.value.length <= NATIVE_LIST_LI
 const rowVirtualizer = useVirtualizer(
   computed(() => ({
     count: tracks.value.length,
-    enabled: !shouldUseNativeList.value,
+    enabled: !isCoverView.value && !shouldUseNativeList.value,
     getScrollElement: () => scrollRef.value,
     estimateSize: () => 44,
     overscan: 12,
@@ -51,6 +74,41 @@ const rowVirtualizer = useVirtualizer(
 
 const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
+
+const albumGroups = computed<LibraryAlbumGroup[]>(() => {
+  const groups: LibraryAlbumGroup[] = []
+  const indexByKey = new Map<string, number>()
+
+  for (let i = 0; i < tracks.value.length; i++) {
+    const track = tracks.value[i]
+    const artist = track.albumArtist || track.artist || ''
+    const album = track.album || ''
+    const key = `${artist}\u0000${album}`
+
+    const existingIndex = indexByKey.get(key)
+    if (existingIndex !== undefined) {
+      const g = groups[existingIndex]
+      g.albumArtist ??= track.albumArtist || track.artist
+      g.album ??= track.album
+      g.releaseDate ??= track.releaseDate
+      g.artworkCacheKey ??= track.artworkCacheKey
+      g.tracks.push(track)
+    } else {
+      indexByKey.set(key, groups.length)
+      groups.push({
+        key,
+        album: track.album,
+        albumArtist: track.albumArtist || track.artist,
+        releaseDate: track.releaseDate,
+        artworkCacheKey: track.artworkCacheKey,
+        tracks: [track],
+        firstTrackIndex: i,
+      })
+    }
+  }
+
+  return groups
+})
 
 function onSelect(trackId: number) {
   playback.selectTrack(trackId)
@@ -64,11 +122,15 @@ function closeContextMenu(): void {
   contextMenu.value = null
 }
 
-function onOpenContextMenu(trackId: number, event: MouseEvent): void {
+function onOpenContextMenu(
+  trackId: number,
+  event: MouseEvent,
+  source: LibraryContextMenuSource = 'track',
+): void {
   playback.selectTrack(trackId)
 
   const menuWidth = 220
-  const menuHeight = 260
+  const menuHeight = 300
   const x = Math.min(event.clientX, window.innerWidth - menuWidth - 8)
   const y = Math.min(event.clientY, window.innerHeight - menuHeight - 8)
 
@@ -76,7 +138,12 @@ function onOpenContextMenu(trackId: number, event: MouseEvent): void {
     trackId,
     x: Math.max(8, x),
     y: Math.max(8, y),
+    source,
   }
+}
+
+function onOpenAlbumArtworkContextMenu(anchorTrackId: number, event: MouseEvent): void {
+  onOpenContextMenu(anchorTrackId, event, 'album-artwork')
 }
 
 function getTrackById(trackId: number): TrackListItem | null {
@@ -88,36 +155,82 @@ async function reloadTracks(): Promise<void> {
   lastMatchedTrackIndex = -1
 }
 
-async function scrollToTrackById(targetTrackId: number): Promise<void> {
-  await nextTick()
-  await new Promise((resolve) => window.requestAnimationFrame(resolve))
+const SCROLL_POSITION_RATIO = 0.33
 
-  const SCROLL_POSITION_RATIO = 0.35
+function scrollRenderedTrackToRatio(targetTrackId: number): boolean {
+  const container = scrollRef.value
+  if (!container) return false
+
+  const scrollElementToRatio = (targetRow: HTMLElement): void => {
+    const containerRect = container.getBoundingClientRect()
+    const targetRect = targetRow.getBoundingClientRect()
+    const targetTopInScrollContent = targetRect.top - containerRect.top + container.scrollTop
+    container.scrollTop = Math.max(
+      0,
+      targetTopInScrollContent - container.clientHeight * SCROLL_POSITION_RATIO,
+    )
+  }
+
+  if (isCoverView.value) {
+    const targetRow = container.querySelector<HTMLElement>(`[data-track-id="${targetTrackId}"]`)
+    if (targetRow) {
+      scrollElementToRatio(targetRow)
+      return true
+    }
+    return false
+  }
 
   if (shouldUseNativeList.value) {
-    const container = scrollRef.value
-    const targetRow = container?.querySelector<HTMLElement>(`[data-track-id="${targetTrackId}"]`)
-    if (container && targetRow) {
-      container.scrollTop = Math.max(
-        0,
-        targetRow.offsetTop - container.clientHeight * SCROLL_POSITION_RATIO,
-      )
+    const targetRow = container.querySelector<HTMLElement>(`[data-track-id="${targetTrackId}"]`)
+    if (targetRow) {
+      scrollElementToRatio(targetRow)
+      return true
     }
-    return
+    return false
   }
 
   const targetIndex = tracks.value.findIndex((track) => track.id === targetTrackId)
+  if (targetIndex < 0) return false
 
-  if (targetIndex < 0) {
+  const estimatedRowSize = 44
+  const offset = targetIndex * estimatedRowSize - container.clientHeight * SCROLL_POSITION_RATIO
+  container.scrollTop = Math.max(0, offset)
+  return true
+}
+
+async function scrollToTrackById(targetTrackId: number): Promise<void> {
+  await nextTick()
+  await new Promise((resolve) => window.requestAnimationFrame(resolve))
+  scrollRenderedTrackToRatio(targetTrackId)
+}
+
+function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId: number): void {
+  pendingViewSwitchTrackId = anchorTrackId
+  if (pendingViewSwitchScrollFrame !== null) {
+    window.cancelAnimationFrame(pendingViewSwitchScrollFrame)
+    pendingViewSwitchScrollFrame = null
+  }
+
+  libraryViewMode.value = nextMode
+  localStorage.setItem(LIBRARY_VIEW_MODE_KEY, nextMode)
+  closeContextMenu()
+}
+
+function onLibraryViewEnter(): void {
+  if (pendingViewSwitchTrackId === null) return
+
+  const targetTrackId = pendingViewSwitchTrackId
+
+  if (scrollRenderedTrackToRatio(targetTrackId)) {
+    pendingViewSwitchTrackId = null
     return
   }
 
-  const container = scrollRef.value
-  if (container) {
-    const estimatedRowSize = 44
-    const offset = targetIndex * estimatedRowSize - container.clientHeight * SCROLL_POSITION_RATIO
-    container.scrollTop = Math.max(0, offset)
-  }
+  pendingViewSwitchScrollFrame = window.requestAnimationFrame(() => {
+    pendingViewSwitchScrollFrame = null
+    scrollRenderedTrackToRatio(targetTrackId)
+    pendingViewSwitchTrackId = null
+  })
 }
 
 async function scrollToPlaybackTrack(): Promise<void> {
@@ -154,29 +267,7 @@ function findNextMatchIndex(query: string, fromIndex: number, upTo?: number): nu
 async function scrollToTrackIndex(index: number): Promise<void> {
   const track = tracks.value[index]
   if (!track) return
-
-  const SCROLL_POSITION_RATIO = 0.33
-  await nextTick()
-  await new Promise((resolve) => window.requestAnimationFrame(resolve))
-
-  if (shouldUseNativeList.value) {
-    const container = scrollRef.value
-    const targetRow = container?.querySelector<HTMLElement>(`[data-track-id="${track.id}"]`)
-    if (container && targetRow) {
-      container.scrollTop = Math.max(
-        0,
-        targetRow.offsetTop - container.clientHeight * SCROLL_POSITION_RATIO,
-      )
-    }
-    return
-  }
-
-  const container = scrollRef.value
-  if (container) {
-    const estimatedRowSize = 44
-    const offset = index * estimatedRowSize - container.clientHeight * SCROLL_POSITION_RATIO
-    container.scrollTop = Math.max(0, offset)
-  }
+  await scrollToTrackById(track.id)
 }
 
 async function jumpToNextSearchMatch(): Promise<void> {
@@ -200,8 +291,24 @@ async function jumpToNextSearchMatch(): Promise<void> {
 
 // Search event handlers
 function onLibraryListMouseMove(event: MouseEvent): void {
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  isSearchZoneHovered.value = event.clientY - rect.top <= 48
+  const containerRect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  if (event.clientY - containerRect.top > 48) {
+    isSearchZoneHovered.value = false
+    return
+  }
+
+  const bar = searchRootRef.value
+  if (!bar) {
+    isSearchZoneHovered.value = true
+    return
+  }
+
+  const barRect = bar.getBoundingClientRect()
+  isSearchZoneHovered.value =
+    event.clientX >= barRect.left &&
+    event.clientX <= barRect.right &&
+    event.clientY >= barRect.top &&
+    event.clientY <= barRect.bottom
 }
 
 function onLibraryListMouseLeave(): void {
@@ -270,6 +377,29 @@ function onInsertAfterCurrent(trackId: number): void {
   playback.insertTrackAfterCurrent(track)
 }
 
+function onInsertAlbumAfterCurrent(trackId: number): void {
+  closeContextMenu()
+
+  const group = albumGroups.value.find((g) => g.tracks.some((t) => t.id === trackId))
+  if (!group) return
+
+  playback.insertTracksAfterCurrent(group.tracks)
+}
+
+function onPlayAlbum(trackId: number): void {
+  closeContextMenu()
+
+  const group = albumGroups.value.find((g) => g.tracks.some((t) => t.id === trackId))
+  if (!group || group.tracks.length === 0) return
+
+  playback.playTrackFromQueue(group.tracks, group.tracks[0].id)
+}
+
+function getAlbumNameForTrack(trackId: number): string {
+  const group = albumGroups.value.find((g) => g.tracks.some((t) => t.id === trackId))
+  return group?.album || 'Unknown Album'
+}
+
 function closeMetadataEditor(): void {
   if (isSavingMetadata.value) {
     return
@@ -313,6 +443,10 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown)
+  if (pendingViewSwitchScrollFrame !== null) {
+    window.cancelAnimationFrame(pendingViewSwitchScrollFrame)
+    pendingViewSwitchScrollFrame = null
+  }
   unsubscribeChanged?.()
 })
 </script>
@@ -358,50 +492,74 @@ onBeforeUnmount(() => {
         ref="scrollRef"
         class="library-list-scroll flex-1 overflow-auto pb-[var(--auralis-playbar-safe-area)]"
       >
-        <div v-if="shouldUseNativeList">
-          <SongRow
-            v-for="(track, index) in tracks"
-            :key="track.id"
-            v-memo="[
-              track.id,
-              track.title,
-              track.artist,
-              track.album,
-              track.durationSeconds,
-              track.artworkCacheKey,
-              index,
-              playback.state.currentTrackId === track.id,
-            ]"
-            :data-track-id="track.id"
-            :track="track"
-            :index="index"
-            :now-playing="playback.state.currentTrackId === track.id"
-            :artwork-url="getArtworkUrl(track.artworkCacheKey)"
-            @select="onSelect"
-            @play="onPlay"
-            @open-context-menu="onOpenContextMenu"
-          />
-        </div>
+        <Transition name="library-view-fade" mode="out-in" @enter="onLibraryViewEnter">
+          <div :key="libraryViewMode" class="min-h-full">
+            <template v-if="!isCoverView">
+              <div v-if="shouldUseNativeList">
+                <SongRow
+                  v-for="(track, index) in tracks"
+                  :key="track.id"
+                  v-memo="[
+                    track.id,
+                    track.title,
+                    track.artist,
+                    track.album,
+                    track.durationSeconds,
+                    track.artworkCacheKey,
+                    index,
+                    playback.state.currentTrackId === track.id,
+                  ]"
+                  :data-track-id="track.id"
+                  :track="track"
+                  :index="index"
+                  :now-playing="playback.state.currentTrackId === track.id"
+                  :artwork-url="getArtworkUrl(track.artworkCacheKey)"
+                  @select="onSelect"
+                  @play="onPlay"
+                  @open-context-menu="onOpenContextMenu"
+                />
+              </div>
 
-        <div v-else :style="{ height: `${totalSize}px`, width: '100%', position: 'relative' }">
-          <SongRow
-            v-for="virtualRow in virtualRows"
-            :key="String(virtualRow.key)"
-            :track="tracks[virtualRow.index]"
-            :index="virtualRow.index"
-            :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
-            :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
-            :style="{
-              height: `${virtualRow.size}px`,
-              transform: `translateY(${virtualRow.start}px)`,
-              willChange: 'transform',
-            }"
-            class="absolute left-0 top-0 w-full"
-            @select="onSelect"
-            @play="onPlay"
-            @open-context-menu="onOpenContextMenu"
-          />
-        </div>
+              <div
+                v-else
+                :style="{ height: `${totalSize}px`, width: '100%', position: 'relative' }"
+              >
+                <SongRow
+                  v-for="virtualRow in virtualRows"
+                  :key="String(virtualRow.key)"
+                  :track="tracks[virtualRow.index]"
+                  :index="virtualRow.index"
+                  :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
+                  :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
+                  :style="{
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                    willChange: 'transform',
+                  }"
+                  class="absolute left-0 top-0 w-full"
+                  @select="onSelect"
+                  @play="onPlay"
+                  @open-context-menu="onOpenContextMenu"
+                />
+              </div>
+            </template>
+
+            <template v-else>
+              <AlbumCoverGroup
+                v-for="group in albumGroups"
+                :key="group.key"
+                :data-album-key="group.key"
+                :data-first-track-id="group.tracks[0]?.id"
+                :group="group"
+                :now-playing-track-id="playback.state.currentTrackId"
+                @select="onSelect"
+                @play="onPlay"
+                @open-track-context-menu="(trackId, event) => onOpenContextMenu(trackId, event)"
+                @open-album-artwork-context-menu="onOpenAlbumArtworkContextMenu"
+              />
+            </template>
+          </div>
+        </Transition>
       </div>
     </div>
 
@@ -437,15 +595,36 @@ onBeforeUnmount(() => {
           </button>
           <div class="library-context-menu-separator"></div>
           <button
+            v-if="contextMenu.source === 'album-artwork'"
+            class="library-context-menu-item"
+            type="button"
+            @click="onPlayAlbum(contextMenu.trackId)"
+          >
+            <span class="i-lucide-play"></span>
+            <span>播放「{{ getAlbumNameForTrack(contextMenu.trackId) }}」</span>
+          </button>
+          <button
+            v-else
             class="library-context-menu-item"
             type="button"
             @click="onPlayContextTrack(contextMenu.trackId)"
           >
             <span class="i-lucide-play"></span>
-            <span>播放"{{ contextMenuTrack?.title || 'Unknown Title' }}"</span>
+            <span>播放「{{ contextMenuTrack?.title || 'Unknown Title' }}」</span>
           </button>
           <div class="library-context-menu-separator"></div>
           <button
+            v-if="contextMenu.source === 'album-artwork'"
+            class="library-context-menu-item"
+            type="button"
+            :disabled="!playback.state.currentTrackId"
+            @click="onInsertAlbumAfterCurrent(contextMenu.trackId)"
+          >
+            <span class="i-lucide-list-plus"></span>
+            <span>插播「{{ getAlbumNameForTrack(contextMenu.trackId) }}」</span>
+          </button>
+          <button
+            v-else
             class="library-context-menu-item"
             type="button"
             :disabled="
@@ -465,6 +644,25 @@ onBeforeUnmount(() => {
           >
             <span class="i-lucide-pencil"></span>
             <span>编辑元数据</span>
+          </button>
+          <div class="library-context-menu-separator"></div>
+          <button
+            v-if="!isCoverView"
+            class="library-context-menu-item"
+            type="button"
+            @click="switchLibraryViewMode('cover', contextMenu.trackId)"
+          >
+            <span class="i-lucide-layout-grid"></span>
+            <span>切换到封面视图</span>
+          </button>
+          <button
+            v-else
+            class="library-context-menu-item"
+            type="button"
+            @click="switchLibraryViewMode('flat', contextMenu.trackId)"
+          >
+            <span class="i-lucide-list-music"></span>
+            <span>切换到平铺视图</span>
           </button>
         </div>
       </div>

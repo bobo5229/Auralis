@@ -7,7 +7,7 @@ import PlayerBar from './app/layout/PlayerBar.vue'
 </script>
 
 <template>
-  <div class="app-window">
+  <div class="app-window" data-app-shell-root>
     <AppTitleBar />
     <div class="app-shell">
       <AppSidebar />
