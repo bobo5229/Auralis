@@ -45,12 +45,15 @@ function suppressThemeTransitionForNextPaint(): void {
   document.documentElement.classList.add(THEME_SWITCHING_CLASS)
 }
 
-function releaseThemeTransitionSuppression(): void {
-  void document.documentElement.offsetWidth
+function releaseThemeTransitionSuppression(): Promise<void> {
+  return new Promise((resolve) => {
+    void document.documentElement.offsetWidth
 
-  themeSwitchFrame = window.requestAnimationFrame(() => {
-    document.documentElement.classList.remove(THEME_SWITCHING_CLASS)
-    themeSwitchFrame = null
+    themeSwitchFrame = window.requestAnimationFrame(() => {
+      document.documentElement.classList.remove(THEME_SWITCHING_CLASS)
+      themeSwitchFrame = null
+      resolve()
+    })
   })
 }
 
@@ -159,7 +162,7 @@ function runWallpaperThemeTransition(nextTheme: ThemeMode): Promise<void> {
     const done = () => {
       if (isResolved) return
       isResolved = true
-      overlay.style.width = 'calc(100vw + 8px)'
+      overlay.style.clipPath = 'inset(0 0 0 0)'
       overlay.removeEventListener('animationend', onAnimationEnd)
       resolve()
     }
@@ -181,8 +184,9 @@ function runWallpaperThemeTransition(nextTheme: ThemeMode): Promise<void> {
     }, THEME_WALLPAPER_DURATION_MS + 100)
 
     requestAnimationFrame(() => {
-      syncCloneScrollPositions(scrollPairs)
-      overlay.classList.add('theme-wallpaper-overlay--running')
+      requestAnimationFrame(() => {
+        overlay.classList.add('theme-wallpaper-overlay--running')
+      })
     })
   })
 }
@@ -205,9 +209,9 @@ async function setTheme(nextTheme: ThemeMode, options?: { animate?: boolean }): 
     await runWallpaperThemeTransition(nextTheme)
     suppressThemeTransitionForNextPaint()
     commitTheme(nextTheme)
-    releaseThemeTransitionSuppression()
-  } finally {
+    await releaseThemeTransitionSuppression()
     cleanupWallpaperOverlay()
+  } finally {
     unlockThemeSwitchScroll()
     isThemeSwitching.value = false
   }
