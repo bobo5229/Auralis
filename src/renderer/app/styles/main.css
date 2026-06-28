@@ -594,17 +594,34 @@ input[type='range'].volume-slider::-moz-range-thumb {
   position: fixed;
   inset: 0;
   right: auto;
-  width: 0;
+  width: 100vw;
   z-index: 2147483647;
   pointer-events: none;
   overflow: hidden;
-  contain: layout paint style;
-  will-change: width;
+  contain: strict;
+  clip-path: inset(0 100% 0 0);
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  isolation: isolate;
+  will-change: clip-path;
 }
 
 .theme-wallpaper-surface {
   width: 100vw;
   height: 100vh;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+}
+
+.theme-wallpaper-overlay *,
+.theme-wallpaper-overlay *::before,
+.theme-wallpaper-overlay *::after {
+  transition: none !important;
+}
+
+.theme-wallpaper-overlay .lyric-dot,
+.theme-wallpaper-overlay .player-bar-album-tint-previous {
+  animation: none !important;
 }
 
 .theme-wallpaper-overlay--running {
@@ -613,11 +630,11 @@ input[type='range'].volume-slider::-moz-range-thumb {
 
 @keyframes theme-wallpaper-cover {
   from {
-    width: 0;
+    clip-path: inset(0 100% 0 0);
   }
 
   to {
-    width: calc(100vw + 8px);
+    clip-path: inset(0 0 0 0);
   }
 }
 
