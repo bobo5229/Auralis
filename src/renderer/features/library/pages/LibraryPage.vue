@@ -6,9 +6,11 @@ import { auralis } from '@renderer/shared/ipc/client'
 import SongRow from '../components/SongRow.vue'
 import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
 import type { LibraryAlbumGroup } from '../components/AlbumCoverGroup.vue'
+import LiquidGlassPanel from '../components/LiquidGlassPanel.vue'
 import MetadataEditDialog from '../components/MetadataEditDialog.vue'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { normalizeSearchText } from '../utils/normalizeSearchText'
 
 const playback = usePlayback()
 
@@ -241,11 +243,6 @@ async function scrollToPlaybackTrack(): Promise<void> {
   }
 
   await scrollToTrackById(targetTrackId)
-}
-
-// Search matching
-function normalizeSearchText(value: string | null | undefined): string {
-  return (value ?? '').trim().toLocaleLowerCase()
 }
 
 function doesTrackMatchSearch(track: TrackListItem, query: string): boolean {
@@ -579,7 +576,7 @@ onBeforeUnmount(() => {
 
     <Teleport to="body">
       <div v-if="contextMenu" class="fixed inset-0 z-[60]" @click="closeContextMenu">
-        <div
+        <LiquidGlassPanel
           class="library-context-menu fixed w-55"
           :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
           @click.stop
@@ -664,7 +661,7 @@ onBeforeUnmount(() => {
             <span class="i-lucide-list-music"></span>
             <span>切换到平铺视图</span>
           </button>
-        </div>
+        </LiquidGlassPanel>
       </div>
     </Teleport>
   </section>

@@ -6,6 +6,7 @@ import type {
   MetadataRefreshWorkerInput,
   MetadataRefreshWorkerMessage,
 } from './metadataRefreshTypes'
+import { writeAudioTags } from './audioTagWriteService'
 
 function getWorkerPath(): string {
   return join(__dirname, 'features/metadata/metadataRefreshWorker.js')
@@ -232,7 +233,14 @@ export class MetadataRefreshService {
     return this.repository.getEditableTrackMetadata(trackId)
   }
 
-  updateTrackMetadata(metadata: EditableTrackMetadata) {
+  async updateTrackMetadata(metadata: EditableTrackMetadata) {
+    const filePath = this.repository.getTrackFilePath(metadata.trackId)
+
+    if (!filePath) {
+      throw new Error(`Audio file not found for track ${metadata.trackId}`)
+    }
+
+    await writeAudioTags(filePath, metadata)
     this.repository.updateUserEditedMetadata(metadata)
     return { ok: true }
   }

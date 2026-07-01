@@ -112,12 +112,12 @@ function onSave(): void {
       @click.self="$emit('close')"
     >
       <section
-        class="w-full max-w-xl rounded-lg border border-[var(--auralis-border-subtle)] bg-[var(--auralis-main-bg)] p-5 shadow-xl"
+        class="w-full max-w-xl rounded-lg border border-[var(--auralis-border-subtle)] bg-[var(--auralis-dialog-bg)] p-5 shadow-xl"
       >
         <div class="mb-4 flex items-center justify-between">
           <h2 class="text-base font-semibold">编辑元数据</h2>
           <button
-            class="theme-toggle-button"
+            class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]"
             type="button"
             aria-label="Close"
             @click="$emit('close')"

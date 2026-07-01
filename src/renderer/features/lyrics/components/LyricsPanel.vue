@@ -4,7 +4,8 @@ import SyncedLyricsView from './SyncedLyricsView.vue'
 import PlainLyricsView from './PlainLyricsView.vue'
 import LyricsEmptyState from './LyricsEmptyState.vue'
 
-const { status, rawLyrics, parsedLines, activeIndex, isPrelude } = useTrackLyrics()
+const { status, rawLyrics, parsedLines, activeIndex, isPrelude, showPrelude, preludeLitDotCount } =
+  useTrackLyrics()
 </script>
 
 <template>
@@ -33,6 +34,8 @@ const { status, rawLyrics, parsedLines, activeIndex, isPrelude } = useTrackLyric
         :lines="parsedLines"
         :active-index="activeIndex"
         :is-prelude="isPrelude"
+        :show-prelude="showPrelude"
+        :prelude-lit-dot-count="preludeLitDotCount"
       />
     </div>
   </div>

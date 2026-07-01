@@ -12,8 +12,7 @@
 }
 
 :root,
-[data-theme='light'],
-.theme-wallpaper-overlay[data-theme='light'] {
+[data-theme='light'] {
   color: #1f2528;
   background: var(--auralis-bg);
   font-family:
@@ -33,6 +32,7 @@
   /* Theme tokens */
   --auralis-bg: #ffffff;
   --auralis-main-bg: #ffffff;
+  --auralis-dialog-bg: #ffffff;
   --auralis-sidebar-bg: #fafafb;
   --auralis-now-playing-bg: #fafafb;
   --auralis-border-subtle: rgba(31, 35, 40, 0.08);
@@ -63,8 +63,7 @@
   --auralis-playbar-album-alpha: 0.28;
   --auralis-playbar-album-saturate: 1.45;
   --auralis-playbar-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.56),
-    inset 0 -1px 0 rgba(31, 35, 40, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.56), inset 0 -1px 0 rgba(31, 35, 40, 0.08),
     0 18px 42px rgba(31, 35, 40, 0.1);
 
   /* Song list tokens */
@@ -109,16 +108,15 @@
   --auralis-app-glow-a: transparent;
   --auralis-app-glow-b: transparent;
   --auralis-app-background: var(--auralis-app-bg);
-
 }
 
-[data-theme='dark'],
-.theme-wallpaper-overlay[data-theme='dark'] {
+[data-theme='dark'] {
   color: var(--auralis-text);
   background: var(--auralis-bg);
 
   --auralis-bg: #1e2023;
   --auralis-main-bg: transparent;
+  --auralis-dialog-bg: #25272a;
   --auralis-sidebar-bg: rgba(31, 33, 36, 0.74);
   --auralis-now-playing-bg: rgba(20, 21, 23, 0.72);
   --auralis-border-subtle: rgba(225, 221, 214, 0.08);
@@ -149,8 +147,7 @@
   --auralis-playbar-album-alpha: 0.28;
   --auralis-playbar-album-saturate: 1.08;
   --auralis-playbar-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -1px 0 rgba(0, 0, 0, 0.3),
     0 20px 48px rgba(0, 0, 0, 0.22);
 
   /* Song list tokens */
@@ -188,7 +185,7 @@
   /* Cover view */
   --auralis-cover-track-bg: #1e2023;
   --auralis-cover-track-hover-bg: rgba(225, 221, 214, 0.08);
-  --auralis-cover-divider: rgba(225, 221, 214, 0.10);
+  --auralis-cover-divider: rgba(225, 221, 214, 0.1);
   --auralis-cover-track-divider: rgba(225, 221, 214, 0.07);
 
   /* App environment glow */
@@ -213,14 +210,6 @@ body {
 
 *:focus {
   outline: none;
-}
-
-.theme-switching,
-.theme-switching *,
-.theme-switching *::before,
-.theme-switching *::after {
-  transition: none !important;
-  animation: none !important;
 }
 
 button,
@@ -264,25 +253,23 @@ input {
 }
 
 .player-bar-album-tint {
+  --playbar-album-layer-opacity: 1;
   position: absolute;
   inset: 1px;
   z-index: 0;
   border-radius: inherit;
-  background-repeat: repeat-x;
-  background-size: 560px 100%;
-  background-position: var(--playbar-album-flow-x, 0%) 50%;
-  opacity: 1;
+  opacity: var(--playbar-album-layer-opacity);
   filter: saturate(var(--auralis-playbar-album-saturate));
   pointer-events: none;
 }
 
 .player-bar-album-tint-previous {
-  animation: playbar-album-gradient-fade-out 420ms ease forwards;
+  animation: playbar-album-tint-fade-out 420ms ease forwards;
 }
 
-@keyframes playbar-album-gradient-fade-out {
+@keyframes playbar-album-tint-fade-out {
   from {
-    opacity: 1;
+    opacity: var(--playbar-album-layer-opacity, 1);
   }
 
   to {
@@ -301,14 +288,6 @@ input {
 }
 
 [data-theme='dark'] .playbar-action-icon {
-  color: #e1ddd6;
-}
-
-.theme-wallpaper-overlay[data-theme='light'] .playbar-action-icon {
-  color: #1f2528;
-}
-
-.theme-wallpaper-overlay[data-theme='dark'] .playbar-action-icon {
   color: #e1ddd6;
 }
 
@@ -389,24 +368,24 @@ input[type='range'].volume-slider::-moz-range-thumb {
 /* Lyrics dot animation */
 .lyric-dot {
   color: var(--auralis-lyrics-inactive);
-  animation: dot-blink 1.5s infinite;
+  opacity: 0.15;
+  animation: dot-fill 1s ease forwards;
 }
 
 .lyric-dot:nth-child(2) {
-  animation-delay: 0.3s;
+  animation-delay: 1s;
 }
 
 .lyric-dot:nth-child(3) {
-  animation-delay: 0.6s;
+  animation-delay: 2s;
 }
 
-@keyframes dot-blink {
-  0%,
-  20% {
-    opacity: 0.2;
+@keyframes dot-fill {
+  from {
+    opacity: 0.15;
   }
-  40%,
-  100% {
+
+  to {
     opacity: 1;
   }
 }
@@ -518,14 +497,7 @@ input[type='range'].volume-slider::-moz-range-thumb {
 }
 
 .library-context-menu {
-  border-radius: 20px;
-  border: 1px solid var(--auralis-context-menu-border);
-  background: var(--auralis-context-menu-bg);
-  box-shadow: var(--auralis-context-menu-shadow);
-  backdrop-filter: blur(14px) saturate(1.08);
-  -webkit-backdrop-filter: blur(14px) saturate(1.08);
   padding: 6px;
-  overflow: hidden;
 }
 
 .library-context-menu-item {
@@ -554,9 +526,9 @@ input[type='range'].volume-slider::-moz-range-thumb {
 }
 
 .library-context-menu-item span:first-child {
-  width: 20px;
-  height: 20px;
-  flex: 0 0 20px;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 1em;
   color: currentColor;
 }
 
@@ -590,52 +562,19 @@ input[type='range'].volume-slider::-moz-range-thumb {
   opacity: 1;
 }
 
-.theme-wallpaper-overlay {
-  position: fixed;
-  inset: 0;
-  right: auto;
-  width: 100vw;
-  z-index: 2147483647;
-  pointer-events: none;
-  overflow: hidden;
-  contain: strict;
-  clip-path: inset(0 100% 0 0);
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
-  isolation: isolate;
-  will-change: clip-path;
+/* View Transition — disable default crossfade for radial theme reveal */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
 }
 
-.theme-wallpaper-surface {
-  width: 100vw;
-  height: 100vh;
-  transform: translate3d(0, 0, 0);
-  backface-visibility: hidden;
+::view-transition-old(root) {
+  z-index: 1;
 }
 
-.theme-wallpaper-overlay *,
-.theme-wallpaper-overlay *::before,
-.theme-wallpaper-overlay *::after {
-  transition: none !important;
-}
-
-.theme-wallpaper-overlay .lyric-dot,
-.theme-wallpaper-overlay .player-bar-album-tint-previous {
-  animation: none !important;
-}
-
-.theme-wallpaper-overlay--running {
-  animation: theme-wallpaper-cover 1800ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
-}
-
-@keyframes theme-wallpaper-cover {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-
-  to {
-    clip-path: inset(0 0 0 0);
-  }
+::view-transition-new(root) {
+  z-index: 2;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -644,11 +583,12 @@ input[type='range'].volume-slider::-moz-range-thumb {
     transition-duration: 0ms !important;
   }
 
-  .theme-wallpaper-overlay--running {
-    animation-duration: 0ms !important;
-  }
-
   .player-bar-album-tint-previous {
     animation: none !important;
+  }
+
+  .lyric-dot {
+    animation: none !important;
+    opacity: 1 !important;
   }
 }

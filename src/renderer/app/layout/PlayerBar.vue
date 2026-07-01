@@ -9,112 +9,34 @@ import PlaybackModeMenu from './PlaybackModeMenu.vue'
 
 const playback = usePlayback()
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
-const { colors: albumPaletteColors } = useArtworkPalette(currentArtworkCacheKey)
+const { palette: albumPalette } = useArtworkPalette(currentArtworkCacheKey)
 
-const activeAlbumGradient = ref<string | null>(null)
-const previousAlbumGradient = ref<string | null>(null)
-const isAlbumGradientCrossfading = ref(false)
-const playerBarRef = ref<HTMLElement | null>(null)
-let albumGradientTimer: ReturnType<typeof setTimeout> | null = null
-const ALBUM_GRADIENT_FLOW_PX_PER_MS = 0.018
-let albumGradientFlowElapsedMs = 0
-let albumGradientFlowStartedAt = performance.now()
-let albumGradientFlowFrame: number | null = null
-let reducedMotionQuery: MediaQueryList | null = null
+const activeAlbumTint = ref<string | null>(null)
+const previousAlbumTint = ref<string | null>(null)
+let albumTintTimer: ReturnType<typeof setTimeout> | null = null
 
 function formatAlbumColor(color: { r: number; g: number; b: number }): string {
   return `rgb(${color.r} ${color.g} ${color.b} / var(--auralis-playbar-album-alpha))`
 }
 
-const albumGradient = computed(() => {
-  const colors = albumPaletteColors.value
-  if (!colors || colors.length === 0 || !playback.state.currentTrack) {
+const albumTint = computed(() => {
+  const primaryColor = albumPalette.value?.accents[0]?.rgb
+  if (!primaryColor || !playback.state.currentTrack) {
     return null
   }
 
-  if (colors.length === 1) {
-    const color = formatAlbumColor(colors[0])
-    return `linear-gradient(90deg, ${color} 0%, ${color} 100%)`
-  }
-
-  if (colors.length === 2) {
-    const first = formatAlbumColor(colors[0])
-    const second = formatAlbumColor(colors[1])
-    return `linear-gradient(90deg, ${first} 0%, ${second} 50%, ${first} 100%)`
-  }
-
-  return `linear-gradient(90deg, ${formatAlbumColor(colors[0])} 0%, ${formatAlbumColor(colors[1])} 25%, ${formatAlbumColor(colors[2])} 50%, ${formatAlbumColor(colors[1])} 75%, ${formatAlbumColor(colors[0])} 100%)`
+  return formatAlbumColor(primaryColor)
 })
 
-function updateAlbumGradientFlowPosition(): void {
-  if (!playback.state.isPlaying) {
-    return
-  }
-
-  albumGradientFlowElapsedMs = performance.now() - albumGradientFlowStartedAt
-}
-
-function writeAlbumGradientFlowPosition(): void {
-  const offsetPx = Math.round(albumGradientFlowElapsedMs * ALBUM_GRADIENT_FLOW_PX_PER_MS)
-  playerBarRef.value?.style.setProperty('--playbar-album-flow-x', `${offsetPx}px`)
-}
-
-function stopAlbumGradientFlow(): void {
-  if (albumGradientFlowFrame !== null) {
-    cancelAnimationFrame(albumGradientFlowFrame)
-    albumGradientFlowFrame = null
-  }
-}
-
-function shouldRunAlbumGradientFlow(): boolean {
-  return (
-    playback.state.isPlaying &&
-    activeAlbumGradient.value !== null &&
-    reducedMotionQuery?.matches !== true
-  )
-}
-
-function runAlbumGradientFlow(): void {
-  updateAlbumGradientFlowPosition()
-  writeAlbumGradientFlowPosition()
-
-  if (!shouldRunAlbumGradientFlow()) {
-    albumGradientFlowFrame = null
-    return
-  }
-
-  albumGradientFlowFrame = requestAnimationFrame(runAlbumGradientFlow)
-}
-
-function startAlbumGradientFlow(): void {
-  if (!shouldRunAlbumGradientFlow() || albumGradientFlowFrame !== null) {
-    return
-  }
-
-  albumGradientFlowStartedAt = performance.now() - albumGradientFlowElapsedMs
-  albumGradientFlowFrame = requestAnimationFrame(runAlbumGradientFlow)
-}
-
-function syncAlbumGradientFlow(): void {
-  if (shouldRunAlbumGradientFlow()) {
-    startAlbumGradientFlow()
-    return
-  }
-
-  updateAlbumGradientFlowPosition()
-  writeAlbumGradientFlowPosition()
-  stopAlbumGradientFlow()
-}
-
-const activeAlbumGradientStyle = computed<CSSProperties>(() => ({
-  backgroundImage: activeAlbumGradient.value ?? 'none',
+const activeAlbumTintStyle = computed<CSSProperties>(() => ({
+  backgroundColor: activeAlbumTint.value ?? 'transparent',
 }))
 
-const previousAlbumGradientStyle = computed<CSSProperties>(() => ({
-  backgroundImage: previousAlbumGradient.value ?? 'none',
+const previousAlbumTintStyle = computed<CSSProperties>(() => ({
+  backgroundColor: previousAlbumTint.value ?? 'transparent',
 }))
 
-const hasActiveAlbumGradient = computed(() => activeAlbumGradient.value !== null)
+const hasActiveAlbumTint = computed(() => activeAlbumTint.value !== null)
 
 // --- Queue popover ---
 const isQueueOpen = ref(false)
@@ -167,64 +89,37 @@ function handleDocumentPointerDown(event: PointerEvent): void {
 
 onMounted(() => {
   document.addEventListener('pointerdown', handleDocumentPointerDown)
-  reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-  reducedMotionQuery.addEventListener('change', syncAlbumGradientFlow)
-  writeAlbumGradientFlowPosition()
-  syncAlbumGradientFlow()
 })
 
 onUnmounted(() => {
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
-  reducedMotionQuery?.removeEventListener('change', syncAlbumGradientFlow)
-  reducedMotionQuery = null
-  stopAlbumGradientFlow()
-  if (albumGradientTimer) {
-    clearTimeout(albumGradientTimer)
-    albumGradientTimer = null
+  if (albumTintTimer) {
+    clearTimeout(albumTintTimer)
+    albumTintTimer = null
   }
 })
 
 watch(
-  albumGradient,
-  (nextGradient) => {
-    if (nextGradient === activeAlbumGradient.value) {
+  albumTint,
+  (nextTint) => {
+    if (nextTint === activeAlbumTint.value) {
       return
     }
 
-    updateAlbumGradientFlowPosition()
-
-    if (albumGradientTimer) {
-      clearTimeout(albumGradientTimer)
-      albumGradientTimer = null
+    if (albumTintTimer) {
+      clearTimeout(albumTintTimer)
+      albumTintTimer = null
     }
 
-    previousAlbumGradient.value = activeAlbumGradient.value
-    activeAlbumGradient.value = nextGradient
-    isAlbumGradientCrossfading.value = true
-    writeAlbumGradientFlowPosition()
-    syncAlbumGradientFlow()
+    previousAlbumTint.value = activeAlbumTint.value
+    activeAlbumTint.value = nextTint
 
-    albumGradientTimer = setTimeout(() => {
-      previousAlbumGradient.value = null
-      isAlbumGradientCrossfading.value = false
-      albumGradientTimer = null
+    albumTintTimer = setTimeout(() => {
+      previousAlbumTint.value = null
+      albumTintTimer = null
     }, 420)
   },
   { immediate: true },
-)
-
-watch(
-  () => playback.state.isPlaying,
-  (isPlaying) => {
-    if (isPlaying) {
-      albumGradientFlowStartedAt = performance.now() - albumGradientFlowElapsedMs
-      syncAlbumGradientFlow()
-      return
-    }
-
-    albumGradientFlowElapsedMs = performance.now() - albumGradientFlowStartedAt
-    syncAlbumGradientFlow()
-  },
 )
 
 // --- Mode icon ---
@@ -294,26 +189,18 @@ function handleToggleMute(): void {
 </script>
 
 <template>
-  <footer
-    ref="playerBarRef"
-    class="player-bar"
-    :class="{
-      'player-bar--album-tinted': hasActiveAlbumGradient,
-      'player-bar--album-playing': playback.state.isPlaying,
-      'player-bar--album-crossfading': isAlbumGradientCrossfading,
-    }"
-  >
+  <footer class="player-bar" :class="{ 'player-bar--album-tinted': hasActiveAlbumTint }">
     <div
-      v-if="previousAlbumGradient"
+      v-if="previousAlbumTint"
       class="player-bar-album-tint player-bar-album-tint-previous"
       aria-hidden="true"
-      :style="previousAlbumGradientStyle"
+      :style="previousAlbumTintStyle"
     ></div>
     <div
-      v-if="activeAlbumGradient"
+      v-if="activeAlbumTint"
       class="player-bar-album-tint player-bar-album-tint-current"
       aria-hidden="true"
-      :style="activeAlbumGradientStyle"
+      :style="activeAlbumTintStyle"
     ></div>
 
     <div class="transport-controls">

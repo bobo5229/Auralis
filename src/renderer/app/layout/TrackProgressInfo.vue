@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { useFullscreenPlayer } from '@renderer/features/playback/composables/useFullscreenPlayer'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatPlaybackSubtitle } from '@renderer/features/playback/utils/formatPlaybackSubtitle'
+import { subscribeVisualFrame } from '@renderer/features/playback/utils/visualFrameScheduler'
 
 const playback = usePlayback()
+const { openFullscreenPlayer } = useFullscreenPlayer()
 const imgError = ref(false)
 const isDraggingProgress = ref(false)
 const draggingProgressRatio = ref<number | null>(null)
+const progressFillRef = ref<HTMLElement | null>(null)
+let progressFrameUnsubscribe: (() => void) | null = null
+let progressAnchorTime = 0
+let progressAnchorAt = 0
 
 const progressRatio = computed(() => {
   if (!playback.state.duration) {
@@ -21,18 +28,73 @@ const progressRatio = computed(() => {
   return Math.min(1, Math.max(0, playback.state.currentTime / playback.state.duration))
 })
 
-const progressPercent = computed(() => `${progressRatio.value * 100}%`)
 const progressValueNow = computed(() => Math.round(progressRatio.value * 100))
+
+function renderVisualProgress(now: number): void {
+  const fill = progressFillRef.value
+  if (!fill) return
+
+  let ratio = draggingProgressRatio.value
+  if (ratio === null) {
+    const elapsed = playback.state.isPlaying ? Math.max(0, now - progressAnchorAt) / 1000 : 0
+    const visualTime = Math.min(playback.state.duration, progressAnchorTime + elapsed)
+    ratio =
+      playback.state.duration > 0
+        ? Math.min(1, Math.max(0, visualTime / playback.state.duration))
+        : 0
+  }
+  fill.style.transform = `scaleX(${ratio})`
+}
+
+function syncProgressAnchor(): void {
+  progressAnchorTime = playback.state.currentTime
+  progressAnchorAt = performance.now()
+  renderVisualProgress(progressAnchorAt)
+}
+
+function syncProgressFrameSubscription(): void {
+  const shouldAnimate = Boolean(playback.state.currentTrack && playback.state.isPlaying)
+  if (shouldAnimate) {
+    if (!progressFrameUnsubscribe) {
+      progressFrameUnsubscribe = subscribeVisualFrame(renderVisualProgress)
+    }
+  } else {
+    progressFrameUnsubscribe?.()
+    progressFrameUnsubscribe = null
+  }
+  syncProgressAnchor()
+}
 
 watch(
   () => playback.state.currentTrackId,
   () => {
     imgError.value = false
+    nextTick(() => syncProgressFrameSubscription())
   },
 )
 
+watch(
+  () => [playback.state.currentTime, playback.state.duration, playback.state.isPlaying],
+  () => syncProgressFrameSubscription(),
+)
+
+onMounted(() => {
+  syncProgressFrameSubscription()
+})
+
+onBeforeUnmount(() => {
+  progressFrameUnsubscribe?.()
+  progressFrameUnsubscribe = null
+})
+
 function handleCoverClick(): void {
-  // Reserved for future full-screen player navigation
+  openFullscreenPlayer()
+}
+
+function handleCoverKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  openFullscreenPlayer()
 }
 
 function getProgressRatioFromPointer(event: PointerEvent, target: HTMLElement): number {
@@ -127,7 +189,9 @@ function handleProgressKeydown(event: KeyboardEvent): void {
           class="track-cover cursor-pointer"
           role="button"
           tabindex="0"
+          aria-label="Open full-screen player"
           @click="handleCoverClick"
+          @keydown="handleCoverKeydown"
         >
           <img
             v-if="getArtworkUrl(playback.state.currentTrack.artworkCacheKey) && !imgError"
@@ -161,13 +225,17 @@ function handleProgressKeydown(event: KeyboardEvent): void {
         @pointercancel="handleProgressPointerCancel"
         @keydown="handleProgressKeydown"
       >
-        <div
-          class="track-progress-fill"
-          :style="{
-            width: progressPercent,
-          }"
-        ></div>
+        <div ref="progressFillRef" class="track-progress-fill"></div>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.track-progress-fill {
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
+}
+</style>

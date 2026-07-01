@@ -37,8 +37,14 @@ export function createWindow(): BrowserWindow {
     window.show()
   }
 
+  const READY_TIMEOUT_MS = 5_000
+  const readyTimeout = setTimeout(() => {
+    showWindow()
+  }, READY_TIMEOUT_MS)
+
   const handleRendererReady = (event: Electron.IpcMainEvent): void => {
     if (event.sender === window.webContents) {
+      clearTimeout(readyTimeout)
       showWindow()
     }
   }
@@ -46,6 +52,7 @@ export function createWindow(): BrowserWindow {
   ipcMain.on(ipcChannels.app.rendererReady, handleRendererReady)
 
   window.once('closed', () => {
+    clearTimeout(readyTimeout)
     ipcMain.removeListener(ipcChannels.app.rendererReady, handleRendererReady)
   })
 
