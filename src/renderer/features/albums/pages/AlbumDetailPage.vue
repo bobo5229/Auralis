@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, shallowRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -11,7 +11,13 @@ const route = useRoute()
 const router = useRouter()
 const playback = usePlayback()
 const tracks = shallowRef<TrackListItem[]>([])
+const detailRootRef = ref<HTMLElement | null>(null)
+const coverStageRef = ref<HTMLElement | null>(null)
 let unsubscribeChanged: (() => void) | null = null
+let trackingFrame: number | null = null
+let pointerPosition: { x: number; y: number } | null = null
+const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+const MAX_COVER_TILT_DEGREES = 12
 
 const albumArtist = computed(() => String(route.query.artist ?? ''))
 const albumTitle = computed(() => String(route.query.title ?? ''))
@@ -44,7 +50,14 @@ const artworkUrl = computed(() => {
 const releaseDate = computed(
   () => albumTracks.value.find((track) => track.releaseDate)?.releaseDate ?? null,
 )
-const releaseYear = computed(() => releaseDate.value?.slice(0, 4) ?? '')
+const totalDurationSeconds = computed(() =>
+  albumTracks.value.reduce((total, track) => total + (track.durationSeconds ?? 0), 0),
+)
+const albumMetaItems = computed(() => [
+  formatReleaseDate(releaseDate.value),
+  formatTrackCount(albumTracks.value.length),
+  formatAlbumDuration(totalDurationSeconds.value),
+])
 
 async function reloadTracks(): Promise<void> {
   tracks.value = await auralis.library.getTracks()
@@ -62,6 +75,35 @@ function formatArtists(artist: string | null): string {
   return `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}`
 }
 
+function formatReleaseDate(date: string | null): string {
+  return date?.trim() || 'Unknown date'
+}
+
+function formatTrackCount(count: number): string {
+  return `${count} ${count === 1 ? 'Track' : 'Tracks'}`
+}
+
+function formatAlbumDuration(seconds: number): string {
+  if (seconds <= 0) return '0分0秒'
+
+  if (seconds < 3600) {
+    const minutes = Math.floor(seconds / 60)
+    const remainingSeconds = Math.floor(seconds % 60)
+    return `${minutes}分${remainingSeconds}秒`
+  }
+
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.round((seconds % 3600) / 60)
+  const normalizedHours = hours + Math.floor(minutes / 60)
+  const normalizedMinutes = minutes % 60
+
+  if (normalizedMinutes === 0) {
+    return `${normalizedHours}小时`
+  }
+
+  return `${normalizedHours}小时${normalizedMinutes}分`
+}
+
 function playAlbum(): void {
   const firstTrack = albumTracks.value[0]
   if (!firstTrack) return
@@ -76,18 +118,93 @@ function selectTrack(trackId: number): void {
   playback.selectTrack(trackId)
 }
 
+function resetCoverTracking(): void {
+  pointerPosition = null
+  if (trackingFrame !== null) {
+    window.cancelAnimationFrame(trackingFrame)
+    trackingFrame = null
+  }
+
+  const stage = coverStageRef.value
+  if (!stage) return
+  stage.style.removeProperty('--detail-cover-rotate-x')
+  stage.style.removeProperty('--detail-cover-rotate-y')
+  stage.style.removeProperty('--detail-cover-shift-x')
+  stage.style.removeProperty('--detail-cover-shift-y')
+  stage.style.removeProperty('--detail-cover-shadow-x')
+  stage.style.removeProperty('--detail-cover-shadow-y')
+}
+
+function renderCoverTracking(): void {
+  trackingFrame = null
+  const stage = coverStageRef.value
+  const pointer = pointerPosition
+  if (!stage || !pointer || reducedMotionQuery.matches) return
+
+  const rect = stage.getBoundingClientRect()
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+  const horizontalRange = Math.max(centerX, window.innerWidth - centerX, 1)
+  const verticalRange = Math.max(centerY, window.innerHeight - centerY, 1)
+  const xRatio = Math.min(1, Math.max(-1, (pointer.x - centerX) / horizontalRange))
+  const yRatio = Math.min(1, Math.max(-1, (pointer.y - centerY) / verticalRange))
+
+  stage.style.setProperty('--detail-cover-rotate-x', `${-yRatio * MAX_COVER_TILT_DEGREES}deg`)
+  stage.style.setProperty('--detail-cover-rotate-y', `${xRatio * MAX_COVER_TILT_DEGREES}deg`)
+  stage.style.setProperty('--detail-cover-shift-x', `${xRatio * 5}px`)
+  stage.style.setProperty('--detail-cover-shift-y', `${yRatio * 5}px`)
+  stage.style.setProperty('--detail-cover-shadow-x', `${-xRatio * 12}px`)
+  stage.style.setProperty('--detail-cover-shadow-y', `${18 - yRatio * 10}px`)
+}
+
+function scheduleCoverTracking(): void {
+  if (trackingFrame === null) {
+    trackingFrame = window.requestAnimationFrame(renderCoverTracking)
+  }
+}
+
+function onDocumentPointerMove(event: PointerEvent): void {
+  if (event.pointerType === 'touch' || reducedMotionQuery.matches) return
+  pointerPosition = { x: event.clientX, y: event.clientY }
+  scheduleCoverTracking()
+}
+
+function onDocumentPointerOut(event: PointerEvent): void {
+  if (event.relatedTarget === null) {
+    resetCoverTracking()
+  }
+}
+
+function onReducedMotionChange(): void {
+  if (reducedMotionQuery.matches) {
+    resetCoverTracking()
+  }
+}
+
 onMounted(async () => {
   await reloadTracks()
+  await nextTick()
   unsubscribeChanged = auralis.library.onChanged(reloadTracks)
+  document.addEventListener('pointermove', onDocumentPointerMove, { passive: true })
+  document.addEventListener('pointerout', onDocumentPointerOut)
+  window.addEventListener('blur', resetCoverTracking)
+  detailRootRef.value?.addEventListener('scroll', scheduleCoverTracking, { passive: true })
+  reducedMotionQuery.addEventListener('change', onReducedMotionChange)
 })
 
 onBeforeUnmount(() => {
+  resetCoverTracking()
   unsubscribeChanged?.()
+  document.removeEventListener('pointermove', onDocumentPointerMove)
+  document.removeEventListener('pointerout', onDocumentPointerOut)
+  window.removeEventListener('blur', resetCoverTracking)
+  detailRootRef.value?.removeEventListener('scroll', scheduleCoverTracking)
+  reducedMotionQuery.removeEventListener('change', onReducedMotionChange)
 })
 </script>
 
 <template>
-  <section class="album-detail h-full overflow-y-auto">
+  <section ref="detailRootRef" class="album-detail h-full overflow-y-auto">
     <button class="album-detail-back" type="button" aria-label="Back to albums" @click="goBack">
       <span class="i-lucide-chevron-left h-5 w-5"></span>
       <span>Albums</span>
@@ -95,18 +212,20 @@ onBeforeUnmount(() => {
 
     <div v-if="albumTracks.length > 0">
       <header class="album-detail-hero">
-        <div class="album-detail-cover">
-          <img
-            v-if="artworkUrl"
-            :src="artworkUrl"
-            :alt="`${albumTitle} cover`"
-            class="h-full w-full object-cover"
-          />
-          <div
-            v-else
-            class="flex h-full w-full items-center justify-center bg-[var(--auralis-artwork-placeholder-bg)]"
-          >
-            <span class="i-lucide-disc-3 h-16 w-16 text-[var(--auralis-text-disabled)]"></span>
+        <div ref="coverStageRef" class="album-detail-cover-stage">
+          <div class="album-detail-cover">
+            <img
+              v-if="artworkUrl"
+              :src="artworkUrl"
+              :alt="`${albumTitle} cover`"
+              class="h-full w-full object-cover"
+            />
+            <div
+              v-else
+              class="flex h-full w-full items-center justify-center bg-[var(--auralis-artwork-placeholder-bg)]"
+            >
+              <span class="i-lucide-disc-3 h-16 w-16 text-[var(--auralis-text-disabled)]"></span>
+            </div>
           </div>
         </div>
 
@@ -115,8 +234,9 @@ onBeforeUnmount(() => {
             <h1>{{ albumTitle }}</h1>
             <p class="album-detail-artist">{{ albumArtist }}</p>
             <p class="album-detail-meta">
-              Album<span v-if="releaseYear"> · {{ releaseYear }}</span>
-              <span> · {{ albumTracks.length }} tracks</span>
+              <span v-for="(item, index) in albumMetaItems" :key="item">
+                <span v-if="index > 0"> · </span>{{ item }}
+              </span>
             </p>
           </div>
 
@@ -197,12 +317,42 @@ onBeforeUnmount(() => {
   padding-bottom: 34px;
 }
 
-.album-detail-cover {
+.album-detail-cover-stage {
+  --detail-cover-rotate-x: 0deg;
+  --detail-cover-rotate-y: 0deg;
+  --detail-cover-shift-x: 0px;
+  --detail-cover-shift-y: 0px;
+  --detail-cover-shadow-x: 0px;
+  --detail-cover-shadow-y: 18px;
+  position: relative;
   aspect-ratio: 1;
+  perspective: 900px;
+}
+
+.album-detail-cover-stage::before {
+  position: absolute;
+  inset: 7%;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.32);
+  content: '';
+  filter: blur(18px);
+  pointer-events: none;
+  transform: translate3d(var(--detail-cover-shadow-x), var(--detail-cover-shadow-y), -20px);
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.album-detail-cover {
+  position: absolute;
+  inset: 0;
   overflow: hidden;
   border-radius: 14px;
   background: var(--auralis-artwork-placeholder-bg);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.16);
+  transform: translate3d(var(--detail-cover-shift-x), var(--detail-cover-shift-y), 0)
+    rotateX(var(--detail-cover-rotate-x)) rotateY(var(--detail-cover-rotate-y));
+  transform-style: preserve-3d;
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
 .album-detail-summary {
@@ -358,6 +508,14 @@ onBeforeUnmount(() => {
   .album-detail-hero {
     grid-template-columns: minmax(170px, 220px) minmax(0, 1fr);
     gap: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .album-detail-cover,
+  .album-detail-cover-stage::before {
+    transform: none;
+    transition: none;
   }
 }
 </style>
