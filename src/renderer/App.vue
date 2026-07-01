@@ -4,6 +4,7 @@ import AppTitleBar from './app/layout/AppTitleBar.vue'
 import AppSidebar from './app/layout/AppSidebar.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
+import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
 </script>
 
 <template>
@@ -21,5 +22,6 @@ import PlayerBar from './app/layout/PlayerBar.vue'
       <NowPlayingPanel />
       <PlayerBar />
     </div>
+    <FullscreenPlayerOverlay />
   </div>
 </template>

@@ -19,13 +19,32 @@ export function useTrackLyrics() {
     return getActiveLyricIndex(parsedLines.value, playback.state.currentTime)
   })
 
+  const canShowPrelude = computed(
+    () =>
+      status.value === 'lrc' &&
+      parsedLines.value.length > 0 &&
+      parsedLines.value[0].timeSeconds >= 3,
+  )
+
   const isPrelude = computed(() => {
-    if (status.value !== 'lrc' || parsedLines.value.length === 0) return false
+    if (!canShowPrelude.value) return false
     const first = parsedLines.value[0]
     return (
       playback.state.currentTime < first.timeSeconds &&
       playback.state.currentTime >= first.timeSeconds - 3
     )
+  })
+
+  const showPrelude = computed(() => {
+    if (!canShowPrelude.value) return false
+    return playback.state.currentTime >= parsedLines.value[0].timeSeconds - 3
+  })
+
+  const preludeLitDotCount = computed(() => {
+    if (!showPrelude.value) return 0
+    const secondsUntilFirstLine = parsedLines.value[0].timeSeconds - playback.state.currentTime
+    if (secondsUntilFirstLine <= 0) return 3
+    return Math.min(3, Math.max(1, Math.floor(3 - secondsUntilFirstLine) + 1))
   })
 
   function reset() {
@@ -105,5 +124,7 @@ export function useTrackLyrics() {
     parsedLines,
     activeIndex,
     isPrelude,
+    showPrelude,
+    preludeLitDotCount,
   }
 }

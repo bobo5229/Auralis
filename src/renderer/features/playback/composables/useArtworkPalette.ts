@@ -1,35 +1,33 @@
 import { readonly, ref, type Ref, watch } from 'vue'
+import type { ArtworkPalette } from '../types'
+import { FALLBACK_PALETTE } from '../utils/extractArtworkPalette'
+import { extractArtworkPaletteInWorker } from '../utils/artworkPaletteWorkerClient'
 
-interface RgbColor {
-  r: number
-  g: number
-  b: number
-}
+type PaletteCacheEntry =
+  | { state: 'pending'; promise: Promise<ArtworkPalette> }
+  | { state: 'resolved'; value: ArtworkPalette }
+  | { state: 'failed'; retryAfter: number }
 
-interface WeightedColor extends RgbColor {
-  weight: number
-}
-
-const paletteCache = new Map<string, RgbColor[] | null>()
-const SAMPLE_SIZE = 56
-const COLOR_BUCKET_SIZE = 24
-const CLOSE_COLOR_DISTANCE = 42
-const DISTINCT_COLOR_DISTANCE = 58
-const THIRD_COLOR_DISTANCE = 72
-const MIN_THIRD_WEIGHT_RATIO = 0.08
+const SAMPLE_SIZE = 48
+const CACHE_LIMIT = 100
+const FAILURE_RETRY_MS = 30_000
+const paletteCache = new Map<string, PaletteCacheEntry>()
 
 function getArtworkUrl(key: string): string {
   return `auralis-artwork://${key}`
 }
 
-function getColorDistance(a: RgbColor, b: RgbColor): number {
-  const dr = a.r - b.r
-  const dg = a.g - b.g
-  const db = a.b - b.b
-  return Math.sqrt(dr * dr + dg * dg + db * db)
+function touchCacheEntry(key: string, entry: PaletteCacheEntry): void {
+  paletteCache.delete(key)
+  paletteCache.set(key, entry)
+  while (paletteCache.size > CACHE_LIMIT) {
+    const oldestKey = paletteCache.keys().next().value
+    if (!oldestKey) break
+    paletteCache.delete(oldestKey)
+  }
 }
 
-function createImage(url: string): Promise<HTMLImageElement> {
+function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image()
     image.decoding = 'async'
@@ -39,167 +37,72 @@ function createImage(url: string): Promise<HTMLImageElement> {
   })
 }
 
-function quantizeChannel(value: number): number {
-  return Math.round(value / COLOR_BUCKET_SIZE) * COLOR_BUCKET_SIZE
-}
+async function calculateArtworkPalette(key: string): Promise<ArtworkPalette> {
+  const image = await loadImage(getArtworkUrl(key))
+  const canvas = document.createElement('canvas')
+  canvas.width = SAMPLE_SIZE
+  canvas.height = SAMPLE_SIZE
 
-function getBucketKey(r: number, g: number, b: number): string {
-  return `${quantizeChannel(r)},${quantizeChannel(g)},${quantizeChannel(b)}`
-}
-
-function mergeCloseColors(colors: WeightedColor[]): WeightedColor[] {
-  const merged: WeightedColor[] = []
-
-  for (const color of colors) {
-    const existing = merged.find((item) => getColorDistance(item, color) < CLOSE_COLOR_DISTANCE)
-
-    if (!existing) {
-      merged.push({ ...color })
-      continue
-    }
-
-    const nextWeight = existing.weight + color.weight
-    existing.r = Math.round((existing.r * existing.weight + color.r * color.weight) / nextWeight)
-    existing.g = Math.round((existing.g * existing.weight + color.g * color.weight) / nextWeight)
-    existing.b = Math.round((existing.b * existing.weight + color.b * color.weight) / nextWeight)
-    existing.weight = nextWeight
-  }
-
-  return merged.sort((a, b) => b.weight - a.weight)
-}
-
-function selectRepresentativeColors(colors: WeightedColor[]): RgbColor[] {
-  if (colors.length === 0) return []
-
-  const selected: WeightedColor[] = [colors[0]]
-
-  for (const color of colors.slice(1)) {
-    if (selected.length >= 2) break
-    if (selected.every((item) => getColorDistance(item, color) >= DISTINCT_COLOR_DISTANCE)) {
-      selected.push(color)
-    }
-  }
-
-  if (selected.length < 2) {
-    const fallback = colors
-      .slice(1)
-      .find((color) =>
-        selected.every((item) => getColorDistance(item, color) >= CLOSE_COLOR_DISTANCE),
-      )
-
-    if (fallback) {
-      selected.push(fallback)
-    }
-  }
-
-  const totalWeight = colors.reduce((sum, color) => sum + color.weight, 0)
-  const third = colors.find((color) => {
-    if (selected.includes(color)) return false
-    if (color.weight / totalWeight < MIN_THIRD_WEIGHT_RATIO) return false
-    return selected.every((item) => getColorDistance(item, color) >= THIRD_COLOR_DISTANCE)
+  const context = canvas.getContext('2d', {
+    alpha: true,
+    willReadFrequently: true,
   })
+  if (!context) throw new Error('Unable to create palette extraction canvas')
 
-  if (third) {
-    selected.push(third)
-  }
-
-  return selected.slice(0, 3).map(({ r, g, b }) => ({ r, g, b }))
+  context.drawImage(image, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE)
+  const pixels = context.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data
+  return extractArtworkPaletteInWorker(key, pixels)
 }
 
-async function extractArtworkPalette(artworkCacheKey: string): Promise<RgbColor[] | null> {
-  if (paletteCache.has(artworkCacheKey)) {
-    return paletteCache.get(artworkCacheKey) ?? null
+function getArtworkPalette(key: string): Promise<ArtworkPalette> {
+  const cached = paletteCache.get(key)
+  if (cached?.state === 'resolved') {
+    touchCacheEntry(key, cached)
+    return Promise.resolve(cached.value)
+  }
+  if (cached?.state === 'pending') return cached.promise
+  if (cached?.state === 'failed' && cached.retryAfter > Date.now()) {
+    return Promise.resolve({ ...FALLBACK_PALETTE, key })
   }
 
-  try {
-    const image = await createImage(getArtworkUrl(artworkCacheKey))
-    const canvas = document.createElement('canvas')
-    canvas.width = SAMPLE_SIZE
-    canvas.height = SAMPLE_SIZE
-
-    const context = canvas.getContext('2d', {
-      willReadFrequently: true,
+  const promise = calculateArtworkPalette(key)
+    .then((value) => {
+      touchCacheEntry(key, { state: 'resolved', value })
+      return value
+    })
+    .catch((error: unknown) => {
+      console.warn('[Auralis fluid background] Artwork palette extraction failed', {
+        key: key.slice(0, 8),
+        error,
+      })
+      touchCacheEntry(key, { state: 'failed', retryAfter: Date.now() + FAILURE_RETRY_MS })
+      return { ...FALLBACK_PALETTE, key }
     })
 
-    if (!context) {
-      paletteCache.set(artworkCacheKey, null)
-      return null
-    }
-
-    context.drawImage(image, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE)
-
-    const pixels = context.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE).data
-    const buckets = new Map<string, WeightedColor>()
-
-    for (let i = 0; i < pixels.length; i += 4) {
-      const alpha = pixels[i + 3]
-      if (alpha < 128) continue
-
-      const r = pixels[i]
-      const g = pixels[i + 1]
-      const b = pixels[i + 2]
-      const key = getBucketKey(r, g, b)
-      const existing = buckets.get(key)
-
-      if (existing) {
-        existing.r += r
-        existing.g += g
-        existing.b += b
-        existing.weight += 1
-      } else {
-        buckets.set(key, {
-          r,
-          g,
-          b,
-          weight: 1,
-        })
-      }
-    }
-
-    const bucketColors = Array.from(buckets.values())
-      .map((color) => ({
-        r: Math.round(color.r / color.weight),
-        g: Math.round(color.g / color.weight),
-        b: Math.round(color.b / color.weight),
-        weight: color.weight,
-      }))
-      .sort((a, b) => b.weight - a.weight)
-
-    const palette = selectRepresentativeColors(mergeCloseColors(bucketColors))
-    const result = palette.length > 0 ? palette : null
-    paletteCache.set(artworkCacheKey, result)
-    return result
-  } catch {
-    paletteCache.set(artworkCacheKey, null)
-    return null
-  }
+  touchCacheEntry(key, { state: 'pending', promise })
+  return promise
 }
 
 export function useArtworkPalette(artworkCacheKey: Ref<string | null>) {
-  const colors = ref<RgbColor[] | null>(null)
+  const palette = ref<ArtworkPalette>(FALLBACK_PALETTE)
+  let requestToken = 0
 
   watch(
     artworkCacheKey,
-    async (key, _previousKey, onCleanup) => {
-      let isStale = false
-      onCleanup(() => {
-        isStale = true
-      })
-
+    async (key) => {
+      const token = ++requestToken
       if (!key) {
-        colors.value = null
+        palette.value = FALLBACK_PALETTE
         return
       }
 
-      const nextColors = await extractArtworkPalette(key)
-      if (!isStale) {
-        colors.value = nextColors
-      }
+      const nextPalette = await getArtworkPalette(key)
+      if (token === requestToken) palette.value = nextPalette
     },
     { immediate: true },
   )
 
   return {
-    colors: readonly(colors),
+    palette: readonly(palette),
   }
 }

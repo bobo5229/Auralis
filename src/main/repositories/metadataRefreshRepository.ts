@@ -199,6 +199,19 @@ export class MetadataRefreshRepository extends BaseRepository {
     return row ?? null
   }
 
+  getTrackFilePath(trackId: number): string | null {
+    const row = this.db
+      .prepare(
+        `SELECT file_path AS filePath
+         FROM tracks
+         WHERE id = ?
+           AND is_missing = 0`,
+      )
+      .get(trackId) as { filePath: string } | undefined
+
+    return row?.filePath ?? null
+  }
+
   updateUserEditedMetadata(metadata: EditableTrackMetadata): void {
     const update = this.db.transaction((item: EditableTrackMetadata) => {
       const existing = this.getEditableTrackMetadata(item.trackId)

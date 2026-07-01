@@ -24,3 +24,30 @@ export interface PlaybackState {
   volume: number
   error: string | null
 }
+
+export interface RgbColor {
+  r: number
+  g: number
+  b: number
+}
+
+export interface OklabColor {
+  l: number
+  a: number
+  b: number
+}
+
+export interface PaletteColor {
+  rgb: RgbColor
+  oklab: OklabColor
+  weight: number
+  chroma: number
+}
+
+export interface ArtworkPalette {
+  key: string
+  background: RgbColor
+  accents: PaletteColor[]
+  textTone: 'light' | 'dark'
+  quality: 'full' | 'reduced' | 'fallback'
+}
