@@ -9,6 +9,10 @@ export type ThemeTransitionOrigin = {
 
 const THEME_STORAGE_KEY = 'auralis-theme'
 const DEFAULT_THEME: ThemeMode = 'light'
+const THEME_REVEAL_CLASS = 'theme-reveal-active'
+const THEME_REVEAL_ORIGIN_X = '--theme-reveal-x'
+const THEME_REVEAL_ORIGIN_Y = '--theme-reveal-y'
+const THEME_REVEAL_RADIUS = '--theme-reveal-radius'
 
 const theme = ref<ThemeMode>(DEFAULT_THEME)
 const isThemeTransitioning = ref(false)
@@ -44,10 +48,13 @@ async function runThemeReveal(nextTheme: ThemeMode, origin: ThemeTransitionOrigi
   }
 
   const radius = getRevealRadius(origin)
-  const clipFrom = `circle(0px at ${origin.x}px ${origin.y}px)`
-  const clipTo = `circle(${radius}px at ${origin.x}px ${origin.y}px)`
+  const root = document.documentElement
 
   isThemeTransitioning.value = true
+  root.style.setProperty(THEME_REVEAL_ORIGIN_X, `${origin.x}px`)
+  root.style.setProperty(THEME_REVEAL_ORIGIN_Y, `${origin.y}px`)
+  root.style.setProperty(THEME_REVEAL_RADIUS, `${radius}px`)
+  root.classList.add(THEME_REVEAL_CLASS)
 
   let transition: ViewTransition | undefined
 
@@ -56,20 +63,7 @@ async function runThemeReveal(nextTheme: ThemeMode, origin: ThemeTransitionOrigi
       commitTheme(nextTheme)
     })
 
-    await transition.ready
-
-    const animation = document.documentElement.animate(
-      {
-        clipPath: [clipFrom, clipTo],
-      },
-      {
-        duration: 850,
-        easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-        pseudoElement: '::view-transition-new(root)',
-      },
-    )
-
-    await Promise.all([animation.finished, transition.finished])
+    await transition.finished
   } catch (error) {
     console.warn('[ThemeTransition] Animation failed:', error)
     transition?.skipTransition()
@@ -78,6 +72,10 @@ async function runThemeReveal(nextTheme: ThemeMode, origin: ThemeTransitionOrigi
       commitTheme(nextTheme)
     }
   } finally {
+    root.classList.remove(THEME_REVEAL_CLASS)
+    root.style.removeProperty(THEME_REVEAL_ORIGIN_X)
+    root.style.removeProperty(THEME_REVEAL_ORIGIN_Y)
+    root.style.removeProperty(THEME_REVEAL_RADIUS)
     isThemeTransitioning.value = false
   }
 }
