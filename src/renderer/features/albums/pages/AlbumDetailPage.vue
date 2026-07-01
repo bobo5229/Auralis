@@ -54,6 +54,14 @@ function goBack(): void {
   void router.push({ name: 'albums' })
 }
 
+function formatArtists(artist: string | null): string {
+  if (!artist) return ''
+  const parts = artist.split('; ').filter(Boolean)
+  if (parts.length <= 1) return artist
+  if (parts.length === 2) return `${parts[0]} & ${parts[1]}`
+  return `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}`
+}
+
 function playAlbum(): void {
   const firstTrack = albumTracks.value[0]
   if (!firstTrack) return
@@ -79,7 +87,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="album-detail h-full overflow-y-auto pb-[var(--auralis-playbar-safe-area)]">
+  <section class="album-detail h-full overflow-y-auto">
     <button class="album-detail-back" type="button" aria-label="Back to albums" @click="goBack">
       <span class="i-lucide-chevron-left h-5 w-5"></span>
       <span>Albums</span>
@@ -138,7 +146,7 @@ onBeforeUnmount(() => {
             <span
               v-if="track.artist && track.artist !== albumArtist"
               class="album-detail-track-artist"
-              >{{ track.artist }}</span
+              >{{ formatArtists(track.artist) }}</span
             >
           </span>
           <span class="album-detail-track-duration">{{
@@ -165,7 +173,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .album-detail {
-  padding: 24px 32px 0;
+  padding: 24px 32px calc(var(--auralis-playbar-safe-area) + 40px);
 }
 
 .album-detail-back {
@@ -247,6 +255,7 @@ onBeforeUnmount(() => {
 }
 
 .album-detail-track {
+  position: relative;
   display: grid;
   width: 100%;
   min-height: 50px;
@@ -254,48 +263,65 @@ onBeforeUnmount(() => {
   align-items: center;
   padding: 5px 12px 5px 4px;
   color: var(--auralis-text);
-  background-image: linear-gradient(var(--auralis-border-subtle), var(--auralis-border-subtle));
-  background-position: left 12px top;
-  background-repeat: no-repeat;
-  background-size: calc(100% - 24px) 1px;
   border-radius: 12px;
 }
 
-.album-detail-track:last-child {
-  background-image:
-    linear-gradient(var(--auralis-border-subtle), var(--auralis-border-subtle)),
-    linear-gradient(var(--auralis-border-subtle), var(--auralis-border-subtle));
-  background-position:
-    left 12px top,
-    left 12px bottom;
-  background-size:
-    calc(100% - 24px) 1px,
-    calc(100% - 24px) 1px;
+/* Top separator on every track */
+.album-detail-track::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: var(--auralis-border-subtle);
+  pointer-events: none;
 }
 
-.album-detail-track:hover {
-  background-color: var(--auralis-control-hover-bg);
-  background-image: none;
+/* Bottom separator on last track only */
+.album-detail-track:last-child::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: var(--auralis-border-subtle);
+  pointer-events: none;
 }
 
+/* Hover/selected cover the separator within the card */
+.album-detail-track:hover,
 .album-detail-track--selected,
 .album-detail-track--playing {
+  background-color: var(--auralis-control-hover-bg);
+}
+
+/* Selected/playing should beat :hover specificity (0,1,1) */
+.album-detail-track.album-detail-track--selected,
+.album-detail-track.album-detail-track--playing {
   background-color: var(--auralis-song-row-now-playing-bg);
-  background-image: none;
 }
 
-.album-detail-track:hover + .album-detail-track,
-.album-detail-track--selected + .album-detail-track,
-.album-detail-track--playing + .album-detail-track {
-  background-image: none;
+/* Hide hovered/selected track's own top separator */
+.album-detail-track:hover::before,
+.album-detail-track--selected::before,
+.album-detail-track--playing::before {
+  display: none;
 }
 
-.album-detail-track:hover + .album-detail-track:last-child,
-.album-detail-track--selected + .album-detail-track:last-child,
-.album-detail-track--playing + .album-detail-track:last-child {
-  background-image: linear-gradient(var(--auralis-border-subtle), var(--auralis-border-subtle));
-  background-position: left 12px bottom;
-  background-size: calc(100% - 24px) 1px;
+/* Hide last track's bottom separator when it's hovered/selected */
+.album-detail-track:last-child:hover::after,
+.album-detail-track:last-child.album-detail-track--selected::after,
+.album-detail-track:last-child.album-detail-track--playing::after {
+  display: none;
+}
+
+/* Hide the next sibling's top separator to avoid double line */
+.album-detail-track:hover + .album-detail-track::before,
+.album-detail-track--selected + .album-detail-track::before,
+.album-detail-track--playing + .album-detail-track::before {
+  display: none;
 }
 
 .album-detail-track-number,

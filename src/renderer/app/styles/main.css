@@ -51,7 +51,7 @@
   --auralis-artwork-placeholder-bg: #ebe3d3;
 
   /* Playbar safe area */
-  --auralis-playbar-safe-area: 96px;
+  --auralis-playbar-safe-area: 116px; /* h-18 (72px) + player-bottom-gap (44px) */
   --auralis-shell-edge-gap: 12px;
   --auralis-shell-vertical-gap: 24px;
   --auralis-player-bottom-gap: 44px;
@@ -135,7 +135,7 @@
   --auralis-artwork-placeholder-bg: rgba(246, 242, 234, 0.12);
 
   /* Playbar safe area */
-  --auralis-playbar-safe-area: 96px;
+  --auralis-playbar-safe-area: 116px; /* h-18 (72px) + player-bottom-gap (44px) */
   --auralis-shell-edge-gap: 12px;
   --auralis-shell-vertical-gap: 24px;
   --auralis-player-bottom-gap: 44px;
