@@ -72,7 +72,11 @@ function setPendingActiveFromPointer(event: PointerEvent, path: string): void {
           :key="item.to"
           :to="item.to"
           class="sidebar-link"
-          :class="{ 'sidebar-link-active': activePath === item.to }"
+          :class="{
+            'sidebar-link-active':
+              activePath === item.to ||
+              (item.to === '/albums' && activePath.startsWith('/albums/')),
+          }"
           @pointerdown="setPendingActiveFromPointer($event, item.to)"
           @keydown.enter="setPendingActive(item.to)"
           @keydown.space="setPendingActive(item.to)"

@@ -61,13 +61,10 @@ const contextMenuTrack = computed(() =>
   contextMenu.value ? getTrackById(contextMenu.value.trackId) : null,
 )
 
-const NATIVE_LIST_LIMIT = 6000
-const shouldUseNativeList = computed(() => tracks.value.length <= NATIVE_LIST_LIMIT)
-
 const rowVirtualizer = useVirtualizer(
   computed(() => ({
     count: tracks.value.length,
-    enabled: !isCoverView.value && !shouldUseNativeList.value,
+    enabled: !isCoverView.value,
     getScrollElement: () => scrollRef.value,
     estimateSize: () => 44,
     overscan: 12,
@@ -111,6 +108,25 @@ const albumGroups = computed<LibraryAlbumGroup[]>(() => {
 
   return groups
 })
+
+function getAlbumGroupSize(group: LibraryAlbumGroup): number {
+  const metadataHeight = group.releaseDate ? 322 : 302
+  const tracksHeight = group.tracks.length * 40
+  return Math.max(metadataHeight, tracksHeight) + 56
+}
+
+const albumVirtualizer = useVirtualizer(
+  computed(() => ({
+    count: albumGroups.value.length,
+    enabled: isCoverView.value,
+    getScrollElement: () => scrollRef.value,
+    estimateSize: (index) => getAlbumGroupSize(albumGroups.value[index]),
+    overscan: 2,
+  })),
+)
+
+const virtualAlbumGroups = computed(() => albumVirtualizer.value.getVirtualItems())
+const albumGroupsTotalSize = computed(() => albumVirtualizer.value.getTotalSize())
 
 function onSelect(trackId: number) {
   playback.selectTrack(trackId)
@@ -163,32 +179,19 @@ function scrollRenderedTrackToRatio(targetTrackId: number): boolean {
   const container = scrollRef.value
   if (!container) return false
 
-  const scrollElementToRatio = (targetRow: HTMLElement): void => {
-    const containerRect = container.getBoundingClientRect()
-    const targetRect = targetRow.getBoundingClientRect()
-    const targetTopInScrollContent = targetRect.top - containerRect.top + container.scrollTop
-    container.scrollTop = Math.max(
-      0,
-      targetTopInScrollContent - container.clientHeight * SCROLL_POSITION_RATIO,
-    )
-  }
-
   if (isCoverView.value) {
-    const targetRow = container.querySelector<HTMLElement>(`[data-track-id="${targetTrackId}"]`)
-    if (targetRow) {
-      scrollElementToRatio(targetRow)
-      return true
-    }
-    return false
-  }
+    const targetGroupIndex = albumGroups.value.findIndex((group) =>
+      group.tracks.some((track) => track.id === targetTrackId),
+    )
+    if (targetGroupIndex < 0) return false
 
-  if (shouldUseNativeList.value) {
-    const targetRow = container.querySelector<HTMLElement>(`[data-track-id="${targetTrackId}"]`)
-    if (targetRow) {
-      scrollElementToRatio(targetRow)
-      return true
+    let targetOffset = 0
+    for (let index = 0; index < targetGroupIndex; index += 1) {
+      targetOffset += getAlbumGroupSize(albumGroups.value[index])
     }
-    return false
+
+    container.scrollTop = Math.max(0, targetOffset - container.clientHeight * SCROLL_POSITION_RATIO)
+    return true
   }
 
   const targetIndex = tracks.value.findIndex((track) => track.id === targetTrackId)
@@ -492,35 +495,7 @@ onBeforeUnmount(() => {
         <Transition name="library-view-fade" mode="out-in" @enter="onLibraryViewEnter">
           <div :key="libraryViewMode" class="min-h-full">
             <template v-if="!isCoverView">
-              <div v-if="shouldUseNativeList">
-                <SongRow
-                  v-for="(track, index) in tracks"
-                  :key="track.id"
-                  v-memo="[
-                    track.id,
-                    track.title,
-                    track.artist,
-                    track.album,
-                    track.durationSeconds,
-                    track.artworkCacheKey,
-                    index,
-                    playback.state.currentTrackId === track.id,
-                  ]"
-                  :data-track-id="track.id"
-                  :track="track"
-                  :index="index"
-                  :now-playing="playback.state.currentTrackId === track.id"
-                  :artwork-url="getArtworkUrl(track.artworkCacheKey)"
-                  @select="onSelect"
-                  @play="onPlay"
-                  @open-context-menu="onOpenContextMenu"
-                />
-              </div>
-
-              <div
-                v-else
-                :style="{ height: `${totalSize}px`, width: '100%', position: 'relative' }"
-              >
+              <div :style="{ height: `${totalSize}px`, width: '100%', position: 'relative' }">
                 <SongRow
                   v-for="virtualRow in virtualRows"
                   :key="String(virtualRow.key)"
@@ -542,18 +517,31 @@ onBeforeUnmount(() => {
             </template>
 
             <template v-else>
-              <AlbumCoverGroup
-                v-for="group in albumGroups"
-                :key="group.key"
-                :data-album-key="group.key"
-                :data-first-track-id="group.tracks[0]?.id"
-                :group="group"
-                :now-playing-track-id="playback.state.currentTrackId"
-                @select="onSelect"
-                @play="onPlay"
-                @open-track-context-menu="(trackId, event) => onOpenContextMenu(trackId, event)"
-                @open-album-artwork-context-menu="onOpenAlbumArtworkContextMenu"
-              />
+              <div
+                :style="{
+                  height: `${albumGroupsTotalSize}px`,
+                  width: '100%',
+                  position: 'relative',
+                }"
+              >
+                <AlbumCoverGroup
+                  v-for="virtualGroup in virtualAlbumGroups"
+                  :key="String(virtualGroup.key)"
+                  :data-album-key="albumGroups[virtualGroup.index].key"
+                  :data-first-track-id="albumGroups[virtualGroup.index].tracks[0]?.id"
+                  :group="albumGroups[virtualGroup.index]"
+                  :now-playing-track-id="playback.state.currentTrackId"
+                  :style="{
+                    height: `${virtualGroup.size}px`,
+                    transform: `translateY(${virtualGroup.start}px)`,
+                  }"
+                  class="absolute left-0 top-0 w-full"
+                  @select="onSelect"
+                  @play="onPlay"
+                  @open-track-context-menu="(trackId, event) => onOpenContextMenu(trackId, event)"
+                  @open-album-artwork-context-menu="onOpenAlbumArtworkContextMenu"
+                />
+              </div>
             </template>
           </div>
         </Transition>

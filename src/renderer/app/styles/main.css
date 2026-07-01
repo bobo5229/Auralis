@@ -577,6 +577,30 @@ input[type='range'].volume-slider::-moz-range-thumb {
   z-index: 2;
 }
 
+/*
+ * Keep the reveal in CSS so Chromium can schedule the snapshot animation as
+ * one continuous compositor operation. A linear radius avoids the large
+ * first-frame visual jump caused by the strongly front-loaded theme easing.
+ */
+.theme-reveal-active::view-transition-new(root) {
+  animation: theme-radial-reveal 900ms linear both;
+  will-change: clip-path;
+}
+
+@keyframes theme-radial-reveal {
+  from {
+    clip-path: circle(
+      0 at var(--theme-reveal-x) var(--theme-reveal-y)
+    );
+  }
+
+  to {
+    clip-path: circle(
+      var(--theme-reveal-radius) at var(--theme-reveal-x) var(--theme-reveal-y)
+    );
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .library-view-fade-enter-active,
   .library-view-fade-leave-active {
