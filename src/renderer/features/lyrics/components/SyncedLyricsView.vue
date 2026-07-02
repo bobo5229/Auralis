@@ -314,6 +314,10 @@ onBeforeUnmount(() => {
   overscroll-behavior: contain;
 }
 
+.synced-lyrics-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 .synced-lyrics-track {
   min-height: 100%;
   will-change: transform;
@@ -326,9 +330,9 @@ onBeforeUnmount(() => {
 }
 
 .lyric-line-active-filter {
-  filter: blur(0);
+  filter: none;
   opacity: 1;
-  will-change: opacity, filter;
+  will-change: auto;
 }
 
 .lyric-line-blur-filter {
@@ -341,6 +345,10 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.3em;
   min-height: 1.2em;
+}
+
+.lyric-prelude.lyric-active {
+  filter: none;
 }
 
 .lyric-dot {

@@ -35,6 +35,7 @@ export interface RefreshedTrackMetadata {
   durationSeconds: number | null
   year: number | null
   releaseDate: string | null
+  copyright: string | null
   genres: string[]
   genre: string | null
   lyricsText: string | null
@@ -508,6 +509,7 @@ export class MetadataRefreshRepository extends BaseRepository {
           duration_seconds = ?,
           year = ?,
           release_date = ?,
+          copyright = ?,
           genre = ?,
           lyrics_text = ?,
           lyrics_format = ?,
@@ -599,6 +601,7 @@ export class MetadataRefreshRepository extends BaseRepository {
         metadata.durationSeconds,
         metadata.year,
         metadata.releaseDate,
+        metadata.copyright,
         genreDisplay,
         metadata.lyricsText,
         metadata.lyricsFormat,

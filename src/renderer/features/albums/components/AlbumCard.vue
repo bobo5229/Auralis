@@ -10,6 +10,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   open: [album: AlbumSummary]
+  openContextMenu: [album: AlbumSummary, event: MouseEvent]
 }>()
 
 const imageFailed = ref(false)
@@ -93,6 +94,7 @@ onBeforeUnmount(() => {
       tabindex="0"
       :aria-label="`Open ${album.title}`"
       @click="emit('open', album)"
+      @contextmenu.prevent="emit('openContextMenu', album, $event)"
       @keydown.enter="emit('open', album)"
       @keydown.space.prevent="emit('open', album)"
       @pointermove="onArtworkPointerMove"

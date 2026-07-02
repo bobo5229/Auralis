@@ -21,6 +21,7 @@ export interface MetadataRefreshWorkerResult {
   durationSeconds: number | null
   year: number | null
   releaseDate: string | null
+  copyright: string | null
   genres: string[]
   genre: string | null
   lyricsText: string | null

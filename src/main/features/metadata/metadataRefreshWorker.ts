@@ -103,6 +103,7 @@ async function processTrack(trackId: number, filePath: string): Promise<void> {
         durationSeconds: normalized.durationSeconds,
         year: normalized.year,
         releaseDate: normalized.releaseDate,
+        copyright: normalized.copyright,
         genres: normalized.genres,
         genre: normalized.genre,
         lyricsText: normalized.lyricsText,

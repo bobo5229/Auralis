@@ -121,6 +121,7 @@ export class LibraryIncrementalImportService {
         durationSeconds: normalized.durationSeconds,
         year: normalized.year,
         releaseDate: normalized.releaseDate,
+        copyright: normalized.copyright,
         genre: normalized.genre,
         artworkCacheKey,
         lyricsText: normalized.lyricsText,
