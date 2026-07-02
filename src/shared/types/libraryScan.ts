@@ -9,6 +9,7 @@ export interface TrackListItem {
   trackNo: number | null
   discNo: number | null
   releaseDate: string | null
+  copyright: string | null
   durationSeconds: number | null
   artworkCacheKey: string | null
   genre: string | null
@@ -61,6 +62,7 @@ export interface ScannedTrack {
   durationSeconds: number | null
   year: number | null
   releaseDate: string | null
+  copyright: string | null
   genre: string | null
   artworkCacheKey: string | null
   lyricsText: string | null

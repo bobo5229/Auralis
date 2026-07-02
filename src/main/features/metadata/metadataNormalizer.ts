@@ -15,6 +15,7 @@ export interface NormalizedMetadata {
   durationSeconds: number | null
   year: number | null
   releaseDate: string | null
+  copyright: string | null
   genres: string[]
   genre: string | null
   lyricsText: string | null
@@ -288,6 +289,7 @@ export function normalizeMetadata(metadata: IAudioMetadata): NormalizedMetadata 
     durationSeconds: metadata.format.duration ?? null,
     year: getYear(common.year, common.date),
     releaseDate: common.date ?? null,
+    copyright: common.copyright?.trim() || null,
     genres,
     genre: genres.join(', ') || null,
     lyricsText: lyrics?.text ?? null,

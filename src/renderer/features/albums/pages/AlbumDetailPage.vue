@@ -13,8 +13,10 @@ const playback = usePlayback()
 const tracks = shallowRef<TrackListItem[]>([])
 const detailRootRef = ref<HTMLElement | null>(null)
 const coverStageRef = ref<HTMLElement | null>(null)
+const highlightedTrackId = ref<number | null>(null)
 let unsubscribeChanged: (() => void) | null = null
 let trackingFrame: number | null = null
+let highlightTimeout: ReturnType<typeof setTimeout> | null = null
 let pointerPosition: { x: number; y: number } | null = null
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 const MAX_COVER_TILT_DEGREES = 12
@@ -50,11 +52,43 @@ const artworkUrl = computed(() => {
 const releaseDate = computed(
   () => albumTracks.value.find((track) => track.releaseDate)?.releaseDate ?? null,
 )
+const copyright = computed(
+  () => albumTracks.value.find((track) => track.copyright)?.copyright ?? null,
+)
 const totalDurationSeconds = computed(() =>
   albumTracks.value.reduce((total, track) => total + (track.durationSeconds ?? 0), 0),
 )
+const dominantGenres = computed(() => {
+  const genreCounts = new Map<string, { label: string; count: number; firstSeen: number }>()
+  let firstSeen = 0
+
+  for (const track of albumTracks.value) {
+    const trackGenres = new Map<string, string>()
+
+    for (const rawGenre of (track.genre ?? '').split(/[,;]/)) {
+      const genre = rawGenre.trim()
+      if (genre) trackGenres.set(genre.toLocaleLowerCase(), genre)
+    }
+
+    for (const [key, genre] of trackGenres) {
+      const existing = genreCounts.get(key)
+
+      if (existing) {
+        existing.count += 1
+      } else {
+        genreCounts.set(key, { label: genre, count: 1, firstSeen })
+        firstSeen += 1
+      }
+    }
+  }
+
+  return [...genreCounts.values()]
+    .sort((left, right) => right.count - left.count || left.firstSeen - right.firstSeen)
+    .slice(0, 2)
+    .map((genre) => genre.label)
+})
 const albumMetaItems = computed(() => [
-  formatReleaseDate(releaseDate.value),
+  dominantGenres.value.join(', ') || 'Unknown genre',
   formatTrackCount(albumTracks.value.length),
   formatAlbumDuration(totalDurationSeconds.value),
 ])
@@ -67,6 +101,22 @@ function goBack(): void {
   void router.push({ name: 'albums' })
 }
 
+function showSearchResultHighlight(): void {
+  const trackId = Number(route.query.highlight)
+  if (!Number.isInteger(trackId) || !albumTracks.value.some((track) => track.id === trackId)) return
+
+  highlightedTrackId.value = trackId
+  requestAnimationFrame(() => {
+    detailRootRef.value
+      ?.querySelector<HTMLElement>(`[data-track-id="${trackId}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+  highlightTimeout = setTimeout(() => {
+    highlightedTrackId.value = null
+    highlightTimeout = null
+  }, 1800)
+}
+
 function formatArtists(artist: string | null): string {
   if (!artist) return ''
   const parts = artist.split('; ').filter(Boolean)
@@ -75,21 +125,17 @@ function formatArtists(artist: string | null): string {
   return `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}`
 }
 
-function formatReleaseDate(date: string | null): string {
-  return date?.trim() || 'Unknown date'
-}
-
 function formatTrackCount(count: number): string {
   return `${count} ${count === 1 ? 'Track' : 'Tracks'}`
 }
 
 function formatAlbumDuration(seconds: number): string {
-  if (seconds <= 0) return '0分0秒'
+  if (seconds <= 0) return '00分00秒'
 
   if (seconds < 3600) {
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = Math.floor(seconds % 60)
-    return `${minutes}分${remainingSeconds}秒`
+    const minutes = String(Math.floor(seconds / 60)).padStart(2, '0')
+    const remainingSeconds = String(Math.floor(seconds % 60)).padStart(2, '0')
+    return `${minutes} 分 ${remainingSeconds} 秒`
   }
 
   const hours = Math.floor(seconds / 3600)
@@ -97,11 +143,14 @@ function formatAlbumDuration(seconds: number): string {
   const normalizedHours = hours + Math.floor(minutes / 60)
   const normalizedMinutes = minutes % 60
 
+  const hh = String(normalizedHours).padStart(2, '0')
+
   if (normalizedMinutes === 0) {
-    return `${normalizedHours}小时`
+    return `${hh} 小时`
   }
 
-  return `${normalizedHours}小时${normalizedMinutes}分`
+  const mm = String(normalizedMinutes).padStart(2, '0')
+  return `${hh} 小时 ${mm} 分`
 }
 
 function playAlbum(): void {
@@ -184,6 +233,7 @@ function onReducedMotionChange(): void {
 onMounted(async () => {
   await reloadTracks()
   await nextTick()
+  showSearchResultHighlight()
   unsubscribeChanged = auralis.library.onChanged(reloadTracks)
   document.addEventListener('pointermove', onDocumentPointerMove, { passive: true })
   document.addEventListener('pointerout', onDocumentPointerOut)
@@ -194,6 +244,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   resetCoverTracking()
+  if (highlightTimeout) clearTimeout(highlightTimeout)
   unsubscribeChanged?.()
   document.removeEventListener('pointermove', onDocumentPointerMove)
   document.removeEventListener('pointerout', onDocumentPointerOut)
@@ -255,7 +306,9 @@ onBeforeUnmount(() => {
           :class="{
             'album-detail-track--selected': playback.state.selectedTrackId === track.id,
             'album-detail-track--playing': playback.state.currentTrackId === track.id,
+            'album-detail-track--search-highlight': highlightedTrackId === track.id,
           }"
+          :data-track-id="track.id"
           type="button"
           @click="selectTrack(track.id)"
           @dblclick="playTrack(track.id)"
@@ -274,6 +327,10 @@ onBeforeUnmount(() => {
           }}</span>
         </button>
       </div>
+      <footer class="album-detail-legal">
+        <p>{{ copyright || '版权信息未知' }}</p>
+        <p>{{ releaseDate }}</p>
+      </footer>
     </div>
 
     <div v-else class="flex min-h-[60vh] items-center justify-center">
@@ -404,6 +461,14 @@ onBeforeUnmount(() => {
   /* no border — separators are drawn per-track */
 }
 
+.album-detail-legal {
+  padding: 14px 12px 28px;
+  color: var(--auralis-text-faint);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: right;
+}
+
 .album-detail-track {
   position: relative;
   display: grid;
@@ -443,8 +508,24 @@ onBeforeUnmount(() => {
 /* Hover/selected cover the separator within the card */
 .album-detail-track:hover,
 .album-detail-track--selected,
-.album-detail-track--playing {
+.album-detail-track--playing,
+.album-detail-track--search-highlight {
   background-color: var(--auralis-control-hover-bg);
+}
+
+.album-detail-track--search-highlight {
+  animation: album-track-search-highlight 1.8s ease-out;
+}
+
+@keyframes album-track-search-highlight {
+  0%,
+  35% {
+    background-color: var(--auralis-song-row-now-playing-bg);
+  }
+
+  100% {
+    background-color: var(--auralis-control-hover-bg);
+  }
 }
 
 /* Selected/playing should beat :hover specificity (0,1,1) */
@@ -456,21 +537,24 @@ onBeforeUnmount(() => {
 /* Hide hovered/selected track's own top separator */
 .album-detail-track:hover::before,
 .album-detail-track--selected::before,
-.album-detail-track--playing::before {
+.album-detail-track--playing::before,
+.album-detail-track--search-highlight::before {
   display: none;
 }
 
 /* Hide last track's bottom separator when it's hovered/selected */
 .album-detail-track:last-child:hover::after,
 .album-detail-track:last-child.album-detail-track--selected::after,
-.album-detail-track:last-child.album-detail-track--playing::after {
+.album-detail-track:last-child.album-detail-track--playing::after,
+.album-detail-track:last-child.album-detail-track--search-highlight::after {
   display: none;
 }
 
 /* Hide the next sibling's top separator to avoid double line */
 .album-detail-track:hover + .album-detail-track::before,
 .album-detail-track--selected + .album-detail-track::before,
-.album-detail-track--playing + .album-detail-track::before {
+.album-detail-track--playing + .album-detail-track::before,
+.album-detail-track--search-highlight + .album-detail-track::before {
   display: none;
 }
 

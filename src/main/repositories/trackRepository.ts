@@ -133,6 +133,7 @@ export class TrackRepository extends BaseRepository {
                 track_no AS trackNo,
                 disc_no AS discNo,
                 release_date AS releaseDate,
+                copyright,
                 duration_seconds AS durationSeconds,
                 artwork_cache_key AS artworkCacheKey,
                 genre,
@@ -189,6 +190,7 @@ export class TrackRepository extends BaseRepository {
         duration_seconds,
         year,
         release_date,
+        copyright,
         genre,
         lyrics_text,
         lyrics_format,
@@ -200,7 +202,7 @@ export class TrackRepository extends BaseRepository {
         missing_since,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
       ON CONFLICT(file_path) DO UPDATE SET
         file_size = excluded.file_size,
         file_mtime_ms = excluded.file_mtime_ms,
@@ -213,6 +215,7 @@ export class TrackRepository extends BaseRepository {
         duration_seconds = excluded.duration_seconds,
         year = excluded.year,
         release_date = excluded.release_date,
+        copyright = excluded.copyright,
         genre = excluded.genre,
         lyrics_text = excluded.lyrics_text,
         lyrics_format = excluded.lyrics_format,
@@ -249,6 +252,7 @@ export class TrackRepository extends BaseRepository {
           track.durationSeconds,
           track.year,
           track.releaseDate,
+          track.copyright,
           track.genre,
           track.lyricsText,
           track.lyricsFormat,
@@ -509,6 +513,7 @@ export class TrackRepository extends BaseRepository {
              duration_seconds = ?,
              year = ?,
              release_date = ?,
+             copyright = ?,
              genre = ?,
              lyrics_text = ?,
              lyrics_format = ?,
@@ -534,6 +539,7 @@ export class TrackRepository extends BaseRepository {
         scannedTrack.durationSeconds,
         scannedTrack.year,
         scannedTrack.releaseDate,
+        scannedTrack.copyright,
         scannedTrack.genre,
         scannedTrack.lyricsText,
         scannedTrack.lyricsFormat,

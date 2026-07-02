@@ -345,6 +345,51 @@ const migrations = [
       LEFT JOIN track_play_stats ps ON ps.track_id = t.id;
     `,
   },
+  {
+    id: 13,
+    name: 'add_copyright_to_tracks',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN copyright TEXT;
+      UPDATE tracks SET metadata_checked_mtime_ms = NULL;
+
+      DROP VIEW IF EXISTS library_track_display;
+      CREATE VIEW library_track_display AS
+      SELECT
+        t.id,
+        t.file_path,
+        t.file_size,
+        t.file_mtime_ms,
+        COALESCE(tm.title, t.title) AS title,
+        COALESCE(tm.artist_display, t.artist) AS artist,
+        COALESCE(tm.album_title, t.album) AS album,
+        COALESCE(tm.album_artist_display, t.album_artist) AS album_artist,
+        t.track_no,
+        t.disc_no,
+        COALESCE(tm.year, t.year) AS year,
+        COALESCE(tm.release_date, t.release_date) AS release_date,
+        t.copyright,
+        COALESCE(tm.genre_display, t.genre) AS genre,
+        t.duration_seconds,
+        COALESCE(tm.lyrics_text, t.lyrics_text) AS lyrics_text,
+        COALESCE(tm.lyrics_format, t.lyrics_format) AS lyrics_format,
+        COALESCE(tm.artwork_cache_key, a.artwork_cache_key) AS artwork_cache_key,
+        tm.source AS metadata_source,
+        tm.refreshed_at AS metadata_refreshed_at,
+        t.availability,
+        t.missing_since,
+        t.isrc,
+        t.metadata_signature,
+        COALESCE(ps.play_count, 0) AS play_count,
+        ps.last_played_at,
+        t.created_at,
+        t.updated_at
+      FROM tracks t
+      LEFT JOIN track_metadata tm ON tm.track_id = t.id
+      LEFT JOIN albums a ON COALESCE(tm.album_title, t.album) = a.title
+        AND COALESCE(tm.album_artist_display, t.album_artist) = a.artist
+      LEFT JOIN track_play_stats ps ON ps.track_id = t.id;
+    `,
+  },
 ] as const
 
 export function migrateDatabase(db: Database.Database): void {
