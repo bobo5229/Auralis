@@ -457,10 +457,6 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
-.album-detail-track-list {
-  /* no border — separators are drawn per-track */
-}
-
 .album-detail-legal {
   padding: 14px 12px 28px;
   color: var(--auralis-text-faint);
