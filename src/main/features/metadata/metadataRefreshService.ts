@@ -229,6 +229,10 @@ export class MetadataRefreshService {
     return this.repository.listFailures(limit)
   }
 
+  clearFailures(): { deletedCount: number } {
+    return { deletedCount: this.repository.clearFailures() }
+  }
+
   getTrackMetadata(trackId: number) {
     return this.repository.getEditableTrackMetadata(trackId)
   }

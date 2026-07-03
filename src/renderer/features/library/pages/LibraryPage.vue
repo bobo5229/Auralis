@@ -252,7 +252,7 @@ function doesTrackMatchSearch(track: TrackListItem, query: string): boolean {
   const normalizedQuery = normalizeSearchText(query)
   if (!normalizedQuery) return false
   return [track.title, track.artist, track.albumArtist, track.album].some((v) =>
-    normalizeSearchText(v).includes(normalizedQuery),
+    normalizeSearchText(v).startsWith(normalizedQuery),
   )
 }
 

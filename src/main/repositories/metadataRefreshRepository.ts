@@ -181,6 +181,10 @@ export class MetadataRefreshRepository extends BaseRepository {
       .all(Math.min(Math.max(limit, 1), 100)) as MetadataRefreshFailure[]
   }
 
+  clearFailures(): number {
+    return this.db.prepare('DELETE FROM metadata_refresh_failures').run().changes
+  }
+
   getEditableTrackMetadata(trackId: number): EditableTrackMetadata | null {
     const row = this.db
       .prepare(

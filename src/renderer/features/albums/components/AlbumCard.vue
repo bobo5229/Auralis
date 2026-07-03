@@ -6,6 +6,7 @@ import type { AlbumSummary } from '../types'
 const props = defineProps<{
   album: AlbumSummary
   displayMode: 'grid' | 'perspective'
+  highlighted?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -87,7 +88,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <article class="album-card min-w-0" :class="`album-card--${displayMode}`">
+  <article
+    class="album-card min-w-0"
+    :class="[`album-card--${displayMode}`, { 'album-card--highlighted': highlighted }]"
+  >
     <div
       class="album-card-artwork aspect-square overflow-hidden bg-[var(--auralis-artwork-placeholder-bg)]"
       role="button"
@@ -136,6 +140,23 @@ onBeforeUnmount(() => {
 <style scoped>
 .album-card {
   perspective: 900px;
+}
+
+.album-card--highlighted .album-card-artwork {
+  animation: album-card-search-highlight 1.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes album-card-search-highlight {
+  0%,
+  35% {
+    box-shadow:
+      0 0 0 3px var(--auralis-sidebar-active-indicator),
+      0 12px 28px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 28%, transparent);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 
 .album-card-artwork {

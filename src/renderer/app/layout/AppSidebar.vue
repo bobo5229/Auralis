@@ -15,11 +15,9 @@ function handleThemeToggle(): void {
 const activePath = ref(route.path)
 
 const primaryNav = [
-  { to: '/', label: 'Library', icon: 'i-lucide-music' },
-  { to: '/albums', label: 'Albums', icon: 'i-lucide-disc-3' },
-  { to: '/playback', label: 'Playback', icon: 'i-lucide-headphones' },
+  { to: '/', label: '歌曲', icon: 'i-lucide-music' },
+  { to: '/albums', label: '专辑', icon: 'i-lucide-disc-3' },
   { to: '/archive', label: 'Archive', icon: 'i-lucide-archive' },
-  { to: '/search', label: 'Search', icon: 'i-lucide-search' },
 ]
 
 const utilityNav = [{ to: '/settings', label: 'Settings', icon: 'i-lucide-settings' }]

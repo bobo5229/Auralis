@@ -10,6 +10,7 @@ import type {
   EditableTrackMetadata,
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
+import type { ListeningHeatmap } from '@shared/types/archive'
 
 export interface AuralisApi {
   app: {
@@ -59,6 +60,9 @@ export interface AuralisApi {
       playedAtIso: string
     }) => Promise<{ ok: boolean }>
   }
+  archive: {
+    getListeningHeatmap: (year: number) => Promise<ListeningHeatmap>
+  }
   metadata: {
     refreshTrack: (trackId: number) => Promise<{ jobId: number }>
     refreshTracks: (trackIds: number[]) => Promise<{ jobId: number }>
@@ -76,6 +80,7 @@ export interface AuralisApi {
       errorMessage: string | null
     } | null>
     listRefreshFailures: (limit?: number) => Promise<MetadataRefreshFailure[]>
+    clearRefreshFailures: () => Promise<{ deletedCount: number }>
     getTrackMetadata: (trackId: number) => Promise<EditableTrackMetadata | null>
     updateTrackMetadata: (metadata: EditableTrackMetadata) => Promise<{ ok: boolean }>
     onRefreshProgress: (

@@ -390,6 +390,19 @@ const migrations = [
       LEFT JOIN track_play_stats ps ON ps.track_id = t.id;
     `,
   },
+  {
+    id: 14,
+    name: 'add_daily_play_stats',
+    sql: `
+      CREATE TABLE daily_play_stats (
+        play_date TEXT PRIMARY KEY,
+        play_count INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX idx_daily_play_stats_date ON daily_play_stats(play_date);
+    `,
+  },
 ] as const
 
 export function migrateDatabase(db: Database.Database): void {
