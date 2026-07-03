@@ -37,6 +37,12 @@ const previousAlbumTintStyle = computed<CSSProperties>(() => ({
 }))
 
 const hasActiveAlbumTint = computed(() => activeAlbumTint.value !== null)
+const playerBarStyle = computed(
+  () =>
+    ({
+      '--auralis-active-album-tint': activeAlbumTint.value ?? 'transparent',
+    }) as CSSProperties,
+)
 
 // --- Queue popover ---
 const isQueueOpen = ref(false)
@@ -189,7 +195,11 @@ function handleToggleMute(): void {
 </script>
 
 <template>
-  <footer class="player-bar" :class="{ 'player-bar--album-tinted': hasActiveAlbumTint }">
+  <footer
+    class="player-bar"
+    :class="{ 'player-bar--album-tinted': hasActiveAlbumTint }"
+    :style="playerBarStyle"
+  >
     <div
       v-if="previousAlbumTint"
       class="player-bar-album-tint player-bar-album-tint-previous"

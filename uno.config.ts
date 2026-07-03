@@ -79,7 +79,7 @@ export default defineConfig({
     'volume-slider':
       'w-20 h-1 accent-[var(--auralis-progress-fill)] cursor-pointer appearance-none rounded-full bg-[var(--auralis-progress-track)]',
     'queue-popover':
-      'absolute bottom-[calc(100%+16px)] right-[calc(100%-40px)] z-[70] w-[360px] max-w-[min(380px,calc(100vw-32px))] rounded-[18px] border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] p-3 shadow-[0_18px_44px_rgba(31,35,40,0.16)]',
+      'absolute bottom-[calc(100%+32px)] right-[calc(100%-40px)] z-[70] w-[360px] max-w-[min(380px,calc(100vw-32px))] overflow-hidden rounded-[24px] border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] p-3 shadow-[var(--auralis-playbar-shadow)]',
     'queue-popover-header': 'flex items-baseline justify-between px-1 pb-2',
     'queue-popover-title': 'text-sm font-semibold text-[var(--auralis-text)]',
     'queue-popover-count': 'text-xs text-[var(--auralis-text-faint)]',
@@ -96,7 +96,7 @@ export default defineConfig({
     'queue-item-subtitle': 'truncate text-xs text-[var(--auralis-text-muted)]',
     'queue-empty': 'flex h-28 items-center justify-center text-sm text-[var(--auralis-text-faint)]',
     'playback-mode-menu':
-      'absolute bottom-[calc(100%+14px)] right-[calc(100%-84px)] z-[70] w-52 rounded-2xl border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] p-2 shadow-[0_16px_36px_rgba(31,35,40,0.14)]',
+      'absolute bottom-[calc(100%+30px)] right-[calc(100%-84px)] z-[70] w-52 overflow-hidden rounded-[24px] border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] p-2 shadow-[var(--auralis-playbar-shadow)]',
     'playback-mode-item':
       'flex h-9 w-full items-center gap-2 rounded-xl px-2 text-left text-sm text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
     'playback-mode-item-active': '',
