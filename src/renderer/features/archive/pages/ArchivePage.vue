@@ -85,6 +85,39 @@ const monthMarkers = computed(() => {
 const firstAvailableYear = computed(() => heatmap.value?.firstRecordedYear ?? currentYear)
 const canGoPrevious = computed(() => selectedYear.value > firstAvailableYear.value)
 const canGoNext = computed(() => selectedYear.value < currentYear)
+const annualSummary = computed(() => {
+  const elapsedDays = calendarDays.value.filter((day) => !day.isFuture)
+  const listeningDays = elapsedDays.filter((day) => day.playCount > 0).length
+  const totalPlays = elapsedDays.reduce((total, day) => total + day.playCount, 0)
+  let longestStreak = 0
+  let currentStreak = 0
+
+  for (const day of elapsedDays) {
+    if (day.playCount > 0) {
+      currentStreak += 1
+      longestStreak = Math.max(longestStreak, currentStreak)
+    } else {
+      currentStreak = 0
+    }
+  }
+
+  const peakDay = elapsedDays.reduce<CalendarDay | null>((peak, day) => {
+    if (day.playCount <= 0) return peak
+    if (!peak || day.playCount > peak.playCount) return day
+    return peak
+  }, null)
+
+  return [
+    { label: '听歌天数', value: `${listeningDays}`, unit: '天' },
+    { label: '播放次数', value: `${totalPlays}`, unit: '次' },
+    { label: '最长连续聆听', value: `${longestStreak}`, unit: '天' },
+    {
+      label: '最活跃的一天',
+      value: peakDay?.label ?? '暂无记录',
+      unit: peakDay ? `${peakDay.playCount} 次` : '',
+    },
+  ]
+})
 
 async function loadHeatmap(): Promise<void> {
   isLoading.value = true
@@ -212,6 +245,19 @@ onMounted(loadHeatmap)
       </div>
     </div>
 
+    <section v-if="!isLoading && !errorMessage" class="archive-summary">
+      <h2>年度摘要</h2>
+      <div class="archive-summary-grid">
+        <div v-for="item in annualSummary" :key="item.label" class="archive-summary-item">
+          <span class="archive-summary-label">{{ item.label }}</span>
+          <div class="archive-summary-value">
+            <strong>{{ item.value }}</strong>
+            <span v-if="item.unit">{{ item.unit }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <Teleport to="body">
       <div
         v-if="tooltip"
@@ -284,10 +330,7 @@ onMounted(loadHeatmap)
 
 .archive-heatmap-card {
   margin-top: 28px;
-  padding: 22px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 72%, transparent);
+  padding: 0;
 }
 
 .archive-card-heading h2 {
@@ -425,6 +468,63 @@ onMounted(loadHeatmap)
   opacity: 0.38;
 }
 
+.archive-summary {
+  margin-top: 42px;
+}
+
+.archive-summary h2 {
+  color: var(--auralis-text);
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.archive-summary-grid {
+  display: grid;
+  margin-top: 16px;
+  border-top: 1px solid var(--auralis-border-subtle);
+  border-bottom: 1px solid var(--auralis-border-subtle);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.archive-summary-item {
+  min-width: 0;
+  padding: 22px 20px;
+}
+
+.archive-summary-item + .archive-summary-item {
+  border-left: 1px solid var(--auralis-border-subtle);
+}
+
+.archive-summary-label {
+  display: block;
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+}
+
+.archive-summary-value {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 7px;
+  margin-top: 9px;
+  color: var(--auralis-text);
+}
+
+.archive-summary-value strong {
+  overflow: hidden;
+  font-size: 24px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-summary-value span {
+  flex-shrink: 0;
+  color: var(--auralis-text-faint);
+  font-size: 12px;
+}
+
 .archive-tooltip {
   position: fixed;
   z-index: 90;
@@ -438,5 +538,20 @@ onMounted(loadHeatmap)
   pointer-events: none;
   transform: translate(-50%, calc(-100% - 10px));
   white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .archive-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .archive-summary-item:nth-child(3) {
+    border-top: 1px solid var(--auralis-border-subtle);
+    border-left: 0;
+  }
+
+  .archive-summary-item:nth-child(4) {
+    border-top: 1px solid var(--auralis-border-subtle);
+  }
 }
 </style>
