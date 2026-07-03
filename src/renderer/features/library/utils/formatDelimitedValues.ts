@@ -10,7 +10,7 @@
 export function splitDelimitedValues(value: string | null | undefined): string[] {
   if (!value) return []
   return value
-    .split(';')
+    .split(/[;,]/)
     .map((p) => p.trim())
     .filter(Boolean)
 }
