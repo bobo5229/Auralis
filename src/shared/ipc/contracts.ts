@@ -9,6 +9,7 @@ import type {
   EditableTrackMetadata,
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
+import type { ListeningHeatmap } from '@shared/types/archive'
 
 export interface IpcInvokeContract {
   'app:get-info': {
@@ -67,6 +68,10 @@ export interface IpcInvokeContract {
     request: { trackId: number; sessionId: string; playedAtIso: string }
     response: { ok: boolean }
   }
+  'archive:get-listening-heatmap': {
+    request: { year: number }
+    response: ListeningHeatmap
+  }
   'metadata:refresh-track': {
     request: { trackId: number }
     response: { jobId: number }
@@ -100,6 +105,10 @@ export interface IpcInvokeContract {
   'metadata:list-refresh-failures': {
     request: { limit?: number } | void
     response: MetadataRefreshFailure[]
+  }
+  'metadata:clear-refresh-failures': {
+    request: void
+    response: { deletedCount: number }
   }
   'metadata:get-track-metadata': {
     request: { trackId: number }

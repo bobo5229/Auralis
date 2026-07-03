@@ -24,6 +24,9 @@ export const ipcChannels = {
     getAlbumTracks: 'playback:get-album-tracks',
     recordEffectivePlay: 'playback:record-effective-play',
   },
+  archive: {
+    getListeningHeatmap: 'archive:get-listening-heatmap',
+  },
   metadata: {
     refreshTrack: 'metadata:refresh-track',
     refreshTracks: 'metadata:refresh-tracks',
@@ -31,6 +34,7 @@ export const ipcChannels = {
     refreshLyricsMissing: 'metadata:refresh-lyrics-missing',
     getRefreshStatus: 'metadata:get-refresh-status',
     listRefreshFailures: 'metadata:list-refresh-failures',
+    clearRefreshFailures: 'metadata:clear-refresh-failures',
     getTrackMetadata: 'metadata:get-track-metadata',
     updateTrackMetadata: 'metadata:update-track-metadata',
     refreshProgress: 'metadata:refresh-progress',

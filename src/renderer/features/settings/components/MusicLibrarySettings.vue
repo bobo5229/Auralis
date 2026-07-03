@@ -25,6 +25,7 @@ const refreshStatus = ref<{
 const refreshFailures = ref<MetadataRefreshFailure[]>([])
 const refreshErrorMessage = ref<string | null>(null)
 const isRefreshing = ref(false)
+const isClearingRefreshFailures = ref(false)
 const isMounted = ref(false)
 const unsubscribeRefresh = ref<(() => void) | null>(null)
 
@@ -95,6 +96,22 @@ async function loadLibraryState(): Promise<void> {
   roots.value = nextRoots
   scanStatus.value = nextScanStatus
   refreshFailures.value = nextFailures
+}
+
+async function clearRefreshFailures(): Promise<void> {
+  if (isClearingRefreshFailures.value) return
+
+  isClearingRefreshFailures.value = true
+  refreshErrorMessage.value = null
+  try {
+    await auralis.metadata.clearRefreshFailures()
+    refreshFailures.value = []
+  } catch (error) {
+    refreshErrorMessage.value =
+      error instanceof Error ? error.message : 'Unable to clear refresh failure logs'
+  } finally {
+    isClearingRefreshFailures.value = false
+  }
 }
 
 async function chooseFolder(): Promise<void> {
@@ -322,8 +339,18 @@ onBeforeUnmount(() => {
       </div>
 
       <div v-if="refreshFailures.length > 0" class="mt-5">
-        <div class="mb-2 text-xs font-medium text-[var(--auralis-text-muted)]">
-          Recent refresh failures
+        <div class="mb-2 flex items-center justify-between">
+          <div class="text-xs font-medium text-[var(--auralis-text-muted)]">
+            Recent refresh failures
+          </div>
+          <button
+            type="button"
+            class="text-xs text-[var(--auralis-text-muted)] transition hover:text-[var(--auralis-text)] disabled:cursor-default disabled:opacity-50"
+            :disabled="isClearingRefreshFailures"
+            @click="clearRefreshFailures"
+          >
+            {{ isClearingRefreshFailures ? '清除中…' : '清除日志' }}
+          </button>
         </div>
         <div class="grid max-h-52 gap-2 overflow-auto text-xs">
           <div

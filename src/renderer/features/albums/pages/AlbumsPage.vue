@@ -44,8 +44,10 @@ const isSearchFocused = ref(false)
 const isSearchZoneHovered = ref(false)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchRootRef = ref<HTMLElement | null>(null)
+const highlightedAlbumKey = ref<string | null>(null)
 let lastSearchQuery = ''
-let lastMatchedTrackIndex = -1
+let lastMatchedAlbumIndex = -1
+let searchHighlightTimeout: ReturnType<typeof setTimeout> | null = null
 let resizeObserver: ResizeObserver | null = null
 let unsubscribeChanged: (() => void) | null = null
 let restoreScrollFrame: number | null = null
@@ -134,38 +136,37 @@ function setDisplayMode(mode: AlbumDisplayMode): void {
   localStorage.setItem(ALBUM_DISPLAY_MODE_KEY, mode)
 }
 
-function doesTrackMatchSearch(track: TrackListItem, query: string): boolean {
+function doesAlbumMatchSearch(album: AlbumSummary, query: string): boolean {
   const normalizedQuery = normalizeSearchText(query)
   if (!normalizedQuery) return false
 
-  return [track.title, track.artist, track.albumArtist, track.album].some((value) =>
-    normalizeSearchText(value).includes(normalizedQuery),
+  return [album.title, album.albumArtist].some((value) =>
+    normalizeSearchText(value).startsWith(normalizedQuery),
   )
 }
 
-function openNextSearchResult(): void {
+function locateNextSearchResult(): void {
   const query = searchQuery.value.trim()
   if (!query) return
 
   if (query !== lastSearchQuery) {
     lastSearchQuery = query
-    lastMatchedTrackIndex = -1
+    lastMatchedAlbumIndex = -1
   }
 
-  for (let offset = 1; offset <= tracks.value.length; offset += 1) {
-    const index = (lastMatchedTrackIndex + offset) % tracks.value.length
-    const track = tracks.value[index]
-    if (!doesTrackMatchSearch(track, query)) continue
+  for (let offset = 1; offset <= albums.value.length; offset += 1) {
+    const index = (lastMatchedAlbumIndex + offset) % albums.value.length
+    const album = albums.value[index]
+    if (!doesAlbumMatchSearch(album, query)) continue
 
-    lastMatchedTrackIndex = index
-    void router.push({
-      name: 'album-detail',
-      query: {
-        artist: track.albumArtist || track.artist || 'Unknown Artist',
-        title: track.album || 'Unknown Album',
-        highlight: String(track.id),
-      },
-    })
+    lastMatchedAlbumIndex = index
+    rowVirtualizer.value.scrollToIndex(Math.floor(index / COLUMN_COUNT), { align: 'center' })
+    highlightedAlbumKey.value = album.key
+    if (searchHighlightTimeout) clearTimeout(searchHighlightTimeout)
+    searchHighlightTimeout = setTimeout(() => {
+      highlightedAlbumKey.value = null
+      searchHighlightTimeout = null
+    }, 1800)
     return
   }
 }
@@ -173,7 +174,7 @@ function openNextSearchResult(): void {
 function onSearchKeydown(event: KeyboardEvent): void {
   if (event.key !== 'Enter') return
   event.preventDefault()
-  openNextSearchResult()
+  locateNextSearchResult()
 }
 
 function onAlbumsMouseMove(event: MouseEvent): void {
@@ -298,6 +299,9 @@ onBeforeUnmount(() => {
   if (restoreScrollFrame !== null) {
     cancelAnimationFrame(restoreScrollFrame)
   }
+  if (searchHighlightTimeout) {
+    clearTimeout(searchHighlightTimeout)
+  }
   resizeObserver?.disconnect()
   unsubscribeChanged?.()
 })
@@ -323,8 +327,8 @@ onBeforeUnmount(() => {
             v-model="searchQuery"
             type="text"
             class="library-search-input"
-            placeholder="搜索歌曲、艺术家、专辑"
-            aria-label="Search album songs"
+            placeholder="搜索专辑、专辑艺术家"
+            aria-label="Search albums and album artists"
             spellcheck="false"
             @focus="isSearchFocused = true"
             @blur="isSearchFocused = false"
@@ -391,6 +395,7 @@ onBeforeUnmount(() => {
             :key="album.key"
             :album="album"
             :display-mode="displayMode"
+            :highlighted="highlightedAlbumKey === album.key"
             @open="openAlbum"
             @open-context-menu="openContextMenu"
           />

@@ -76,6 +76,9 @@ export const auralisApi: AuralisApi = {
     getAlbumTracks: (albumKey) => invoke(ipcChannels.playback.getAlbumTracks, { albumKey }),
     recordEffectivePlay: (payload) => invoke(ipcChannels.playback.recordEffectivePlay, payload),
   },
+  archive: {
+    getListeningHeatmap: (year) => invoke(ipcChannels.archive.getListeningHeatmap, { year }),
+  },
   metadata: {
     refreshTrack: (trackId) => invoke(ipcChannels.metadata.refreshTrack, { trackId }),
     refreshTracks: (trackIds) => invoke(ipcChannels.metadata.refreshTracks, { trackIds }),
@@ -84,6 +87,7 @@ export const auralisApi: AuralisApi = {
     getRefreshStatus: (jobId) => invoke(ipcChannels.metadata.getRefreshStatus, { jobId }),
     listRefreshFailures: (limit) =>
       invoke(ipcChannels.metadata.listRefreshFailures, limit ? { limit } : undefined),
+    clearRefreshFailures: () => invoke(ipcChannels.metadata.clearRefreshFailures),
     getTrackMetadata: (trackId) => invoke(ipcChannels.metadata.getTrackMetadata, { trackId }),
     updateTrackMetadata: (metadata) => invoke(ipcChannels.metadata.updateTrackMetadata, metadata),
     onRefreshProgress: (callback) => {

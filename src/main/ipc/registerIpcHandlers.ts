@@ -189,6 +189,12 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   )
 
   ipcMain.handle(
+    ipcChannels.archive.getListeningHeatmap,
+    (_event, payload: { year: number }): IpcResponse<'archive:get-listening-heatmap'> =>
+      playStatsService.getListeningHeatmap(payload.year),
+  )
+
+  ipcMain.handle(
     ipcChannels.metadata.refreshTrack,
     (_event, payload: { trackId: number }): IpcResponse<'metadata:refresh-track'> =>
       metadataRefreshService.refreshTrack(payload.trackId),
@@ -222,6 +228,11 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     ipcChannels.metadata.listRefreshFailures,
     (_event, payload?: { limit?: number }): IpcResponse<'metadata:list-refresh-failures'> =>
       metadataRefreshService.listFailures(payload?.limit),
+  )
+
+  ipcMain.handle(
+    ipcChannels.metadata.clearRefreshFailures,
+    (): IpcResponse<'metadata:clear-refresh-failures'> => metadataRefreshService.clearFailures(),
   )
 
   ipcMain.handle(

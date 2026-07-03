@@ -18,6 +18,11 @@
   font-family:
     Inter,
     'Auralis Sans SC',
+    'Arial Unicode MS',
+    'Nirmala UI',
+    'Microsoft Himalaya',
+    'Leelawadee UI',
+    'Segoe UI Symbol',
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -217,14 +222,18 @@ input {
   font: inherit;
 }
 
+.track-title,
+.queue-item-title,
+.fullscreen-player-meta h1 {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
 .player-bar {
   left: calc(50vw + 122px);
   position: fixed;
   background: var(--auralis-playbar-bg);
-  -webkit-backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
-  backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
   box-shadow: var(--auralis-playbar-shadow);
-  isolation: isolate;
   overflow: visible;
 }
 
@@ -244,6 +253,8 @@ input {
     ),
     linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
   opacity: 0.72;
+  -webkit-backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
+  backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
   pointer-events: none;
 }
 
@@ -256,7 +267,6 @@ input {
 .playback-mode-menu {
   -webkit-backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
   backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
-  isolation: isolate;
 }
 
 .queue-popover::before,
