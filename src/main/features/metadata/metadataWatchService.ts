@@ -1,9 +1,12 @@
 import { watch } from 'node:fs'
 import type { FSWatcher } from 'node:fs'
 import { stat } from 'node:fs/promises'
-import { join, normalize } from 'node:path'
+import { extname, join, normalize } from 'node:path'
 import { parseFile } from 'music-metadata'
-import { isSupportedAudioFile } from '@main/features/libraryScan/audioFileFilter'
+import {
+  isSupportedAudioFile,
+  supportedAudioExtensions,
+} from '@main/features/libraryScan/audioFileFilter'
 import {
   normalizeIdentityText,
   normalizeMetadata,
@@ -15,6 +18,7 @@ import type { MissingTrackCandidate } from '@main/repositories/trackRepository'
 import { logger } from '@main/logging/logger'
 import type { MetadataRefreshService } from './metadataRefreshService'
 import type { LibraryIncrementalImportService } from '../libraryScan/libraryIncrementalImportService'
+import { resolveLyricsForFile } from './resolveLyricsForFile'
 
 const WATCH_DEBOUNCE_MS = 1200
 const RETRY_AFTER_ACTIVE_JOB_MS = 5000
@@ -86,6 +90,24 @@ export class MetadataWatchService {
         }
 
         const filePath = normalize(join(rootPath, filename.toString()))
+
+        if (extname(filePath).toLowerCase() === '.lrc') {
+          const basePath = filePath.slice(0, -extname(filePath).length)
+          const audioCandidates = supportedAudioExtensions.flatMap((extension) => [
+            `${basePath}${extension}`,
+            `${basePath}${extension.toUpperCase()}`,
+          ])
+          const knownAudioPaths = this.trackRepository.getExistingFilePaths(audioCandidates)
+
+          for (const audioPath of knownAudioPaths) {
+            this.pendingFilePaths.set(audioPath, Date.now())
+          }
+
+          if (knownAudioPaths.size > 0) {
+            this.scheduleFlush()
+          }
+          return
+        }
 
         if (!isSupportedAudioFile(filePath)) {
           return
@@ -313,6 +335,7 @@ export class MetadataWatchService {
       const identity = normalizeIdentityText(metadata)
       const fileStat = await stat(filePath)
       const normalized = normalizeMetadata(metadata)
+      const lyrics = await resolveLyricsForFile(filePath, metadata)
       const signature = buildMetadataSignature(identity, normalized.durationSeconds, fileStat.size)
 
       const scannedTrack = {
@@ -330,8 +353,8 @@ export class MetadataWatchService {
         releaseDate: normalized.releaseDate,
         genre: normalized.genre,
         artworkCacheKey: null,
-        lyricsText: normalized.lyricsText,
-        lyricsFormat: normalized.lyricsFormat,
+        lyricsText: lyrics?.text ?? null,
+        lyricsFormat: lyrics?.format ?? null,
         isrc: identity.isrc,
         metadataSignature: signature,
       }

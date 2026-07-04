@@ -8,12 +8,12 @@ import { resolveArtworkForFile } from '../artwork/resolveArtworkForFile'
 import {
   normalizeArtist,
   normalizeAlbumArtist,
-  resolveLyrics,
   resolveGenres,
   getYear,
   normalizeIdentityText,
   buildMetadataSignature,
 } from '../metadata/metadataNormalizer'
+import { resolveLyricsForFile } from '../metadata/resolveLyricsForFile'
 import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './libraryScanTypes'
 import type {
   AlbumArtworkPatch,
@@ -164,7 +164,7 @@ async function createScannedTrack(
 ): Promise<ScannedTrack> {
   const fallbackTitle = parse(filePath).name || basename(filePath)
   const artworkCacheKey = await resolveArtwork(filePath, metadata)
-  const lyrics = resolveLyrics(metadata)
+  const lyrics = await resolveLyricsForFile(filePath, metadata)
   const genres = resolveGenres(metadata)
   const album = metadata.common.album || 'Unknown Album'
   const albumArtist = normalizeAlbumArtist(
@@ -279,7 +279,7 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
       const metadata = await parseFile(filePath, { duration: false, skipCovers: false })
 
       if (needsLyricsBackfill) {
-        const lyrics = resolveLyrics(metadata)
+        const lyrics = await resolveLyricsForFile(filePath, metadata)
         lyricsPatch = {
           filePath,
           lyricsText: lyrics?.text ?? null,

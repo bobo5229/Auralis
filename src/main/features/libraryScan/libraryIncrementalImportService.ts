@@ -5,6 +5,7 @@ import {
   buildMetadataSignature,
 } from '../metadata/metadataNormalizer'
 import type { NormalizedIdentity } from '../metadata/metadataNormalizer'
+import { resolveLyricsForFile } from '../metadata/resolveLyricsForFile'
 import { resolveArtworkForFile } from '../artwork/resolveArtworkForFile'
 import { checkFileStability } from './fileStabilityChecker'
 import { tryRelocateMissingCandidate } from './trackRelocationMatcher'
@@ -99,6 +100,7 @@ export class LibraryIncrementalImportService {
     const fileStat = await stat(filePath)
     const metadata = await parseFile(filePath, { duration: true })
     const normalized = normalizeMetadata(metadata)
+    const lyrics = await resolveLyricsForFile(filePath, metadata)
     const artworkCacheKey = await resolveArtworkForFile(filePath, metadata, this.artworkCacheDir)
     const identity = normalizeIdentityText(metadata)
     const metadataSignature = buildMetadataSignature(
@@ -124,8 +126,8 @@ export class LibraryIncrementalImportService {
         copyright: normalized.copyright,
         genre: normalized.genre,
         artworkCacheKey,
-        lyricsText: normalized.lyricsText,
-        lyricsFormat: normalized.lyricsFormat,
+        lyricsText: lyrics?.text ?? null,
+        lyricsFormat: lyrics?.format ?? null,
         isrc: identity.isrc,
         metadataSignature,
       },

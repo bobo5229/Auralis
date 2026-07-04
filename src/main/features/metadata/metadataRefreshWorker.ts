@@ -7,6 +7,7 @@ import {
   buildMetadataSignature,
 } from './metadataNormalizer'
 import { writeArtworkToCache } from '../artwork/artworkCache'
+import { resolveLyricsForFile } from './resolveLyricsForFile'
 import type {
   MetadataRefreshWorkerInput,
   MetadataRefreshWorkerMessage,
@@ -76,6 +77,7 @@ async function processTrack(trackId: number, filePath: string): Promise<void> {
   try {
     const metadata = await parseFile(filePath, { duration: true })
     const normalized = normalizeMetadata(metadata)
+    const lyrics = await resolveLyricsForFile(filePath, metadata)
     const artworkCacheKey = await resolveArtwork(filePath, metadata)
     const identity = normalizeIdentityText(metadata)
     const fileStat = await stat(filePath)
@@ -106,8 +108,8 @@ async function processTrack(trackId: number, filePath: string): Promise<void> {
         copyright: normalized.copyright,
         genres: normalized.genres,
         genre: normalized.genre,
-        lyricsText: normalized.lyricsText,
-        lyricsFormat: normalized.lyricsFormat,
+        lyricsText: lyrics?.text ?? null,
+        lyricsFormat: lyrics?.format ?? null,
         artworkCacheKey,
         isrc: identity.isrc,
         metadataSignature,

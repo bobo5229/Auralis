@@ -109,7 +109,6 @@ function onSave(): void {
     <div
       v-if="metadata"
       class="fixed inset-0 z-[70] flex items-center justify-center bg-black/35 px-4"
-      @click.self="$emit('close')"
     >
       <section
         class="w-full max-w-xl rounded-lg border border-[var(--auralis-border-subtle)] bg-[var(--auralis-dialog-bg)] p-5 shadow-xl"

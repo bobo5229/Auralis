@@ -210,7 +210,7 @@ export class MetadataRefreshRepository extends BaseRepository {
         `SELECT file_path AS filePath
          FROM tracks
          WHERE id = ?
-           AND is_missing = 0`,
+           AND availability = 'available'`,
       )
       .get(trackId) as { filePath: string } | undefined
 

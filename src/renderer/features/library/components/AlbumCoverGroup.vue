@@ -65,9 +65,7 @@ function onArtworkContextMenu(event: MouseEvent): void {
       </div>
 
       <div class="album-cover-meta">
-        <p class="truncate text-sm font-bold text-[var(--auralis-text)] leading-5">
-          {{ group.album ?? '' }}
-        </p>
+        <p class="album-cover-meta-title">{{ group.album ?? '' }}</p>
         <p class="album-cover-meta-line truncate">{{ group.albumArtist ?? '' }}</p>
         <p v-if="group.releaseDate" class="album-cover-meta-line truncate">
           {{ group.releaseDate }}
