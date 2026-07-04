@@ -235,8 +235,13 @@ onBeforeUnmount(() => {
 
 .fluid-artwork-background-vignette {
   background:
-    radial-gradient(circle at 31% 44%, transparent 0 24%, rgba(0, 0, 0, 0.05) 58%),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.06), rgba(0, 0, 0, 0.3));
+    radial-gradient(
+      ellipse at 34% 43%,
+      transparent 0 23%,
+      rgba(0, 0, 0, 0.14) 62%,
+      rgba(0, 0, 0, 0.4) 100%
+    ),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.34));
 }
 
 .fluid-artwork-background-noise {

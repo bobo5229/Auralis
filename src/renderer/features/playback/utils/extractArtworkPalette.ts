@@ -205,7 +205,7 @@ function selectAccents(colors: PaletteColor[]): PaletteColor[] {
     const getScore = (color: PaletteColor): number => {
       const extremePenalty =
         color.oklab.l < 0.08 || (color.oklab.l > 0.94 && color.chroma < 0.03) ? 0.35 : 1
-      return color.weight * (0.35 + color.chroma) * extremePenalty
+      return color.weight * (0.08 + color.chroma * 3.2) * extremePenalty
     }
     return getScore(b) - getScore(a)
   })
@@ -227,8 +227,8 @@ function selectAccents(colors: PaletteColor[]): PaletteColor[] {
   return selected.map((color) => {
     const displayOklab = fitDisplayColor(
       color.oklab,
-      Math.min(0.76, Math.max(0.36, color.oklab.l)),
-      1.15,
+      Math.min(0.64, Math.max(0.3, color.oklab.l)),
+      1.35,
     )
     return {
       ...color,
@@ -259,7 +259,7 @@ export function extractArtworkPalette(key: string, pixels: Uint8ClampedArray): A
   const dominant = [...merged].sort((a, b) => b.weight - a.weight)[0]
   const backgroundOklab = fitDisplayColor(
     dominant.oklab,
-    Math.min(0.24, Math.max(0.12, dominant.oklab.l * 0.35)),
+    Math.min(0.18, Math.max(0.08, dominant.oklab.l * 0.26)),
   )
 
   return {

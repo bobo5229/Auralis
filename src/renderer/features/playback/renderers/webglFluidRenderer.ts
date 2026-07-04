@@ -77,23 +77,23 @@ void main() {
     float fi = float(i);
     vec2 delta = warped - uCenters[i];
     float distanceSquared = dot(delta, delta);
-    float radius = 0.15 + mod(fi, 3.0) * 0.025;
-    float influence = (radius + uWeights[i] * 0.11) / (distanceSquared + 0.09);
-    influence = pow(influence, 1.16);
+    float radius = 0.13 + mod(fi, 3.0) * 0.035;
+    float influence = exp(-distanceSquared / radius);
+    influence *= 0.72 + sqrt(max(uWeights[i], 0.0)) * 0.72;
     accumulated += uColors[i] * influence;
     field += influence;
   }
 
   vec3 fluidColor = accumulated / max(field, 0.001);
-  float presence = smoothstep(0.15, 1.85, field);
-  vec3 color = mix(uBackground, fluidColor, presence * 0.82);
+  float presence = smoothstep(0.035, 0.72, field);
+  vec3 color = mix(uBackground * 0.72, fluidColor, presence * 0.94);
 
   float centerDistance = length((uv - 0.5) * vec2(0.82, 1.0));
-  float vignette = 1.0 - smoothstep(0.26, 0.74, centerDistance) * 0.24;
+  float vignette = 1.0 - smoothstep(0.24, 0.76, centerDistance) * 0.28;
   color *= vignette;
   float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
-  color = mix(vec3(luminance), color, 1.28);
-  color = pow(max(color * 1.16, vec3(0.0)), vec3(0.92));
+  color = mix(vec3(luminance), color, 1.58);
+  color = pow(max(color * 0.92, vec3(0.0)), vec3(1.03));
 
   outColor = vec4(clamp(color, 0.0, 1.0), 1.0);
 }

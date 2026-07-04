@@ -28,7 +28,7 @@ const MIN_DURATION_MS = 420
 const MAX_DURATION_MS = 650
 const DURATION_BASE_MS = 380
 const DURATION_PER_PIXEL = 0.65
-const EASING = 'cubic-bezier(0.22, 0.72, 0.18, 1)'
+const EASING = 'cubic-bezier(0.4, 0, 0.2, 1)'
 
 const topPadding = computed(() => Math.round(containerHeight.value * 0.3))
 const bottomPadding = computed(() => Math.round(containerHeight.value * 0.7))
