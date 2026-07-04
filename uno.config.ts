@@ -107,7 +107,8 @@ export default defineConfig({
     'album-cover-artwork':
       'w-[250px] h-[250px] rounded-lg overflow-hidden bg-[var(--auralis-artwork-placeholder-bg)]',
     'album-cover-meta': 'mt-3',
-    'album-cover-meta-line': 'text-xs text-[var(--auralis-text-muted)] leading-5',
+    'album-cover-meta-title': 'truncate text-[16px] font-bold leading-5 text-[var(--auralis-text)]',
+    'album-cover-meta-line': 'font-semibold text-xs text-[var(--auralis-text-muted)] leading-5',
     'album-cover-tracks': 'min-w-0',
     'cover-track-row':
       'grid grid-cols-[40px_minmax(0,1fr)_minmax(120px,220px)_48px] gap-x-3 items-center px-3 min-h-10 rounded-md cursor-pointer bg-[var(--auralis-cover-track-bg)] transition hover:bg-[var(--auralis-cover-track-hover-bg)] not-last:border-b border-[var(--auralis-cover-track-divider)]',

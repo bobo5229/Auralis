@@ -171,7 +171,7 @@ onMounted(loadHeatmap)
   <section class="archive-page content-frame">
     <div class="archive-heading">
       <div>
-        <h1>Archive</h1>
+        <h1>声迹</h1>
         <p>回望每一天留下的聆听痕迹。</p>
       </div>
       <div class="archive-year-switcher" aria-label="选择年份">

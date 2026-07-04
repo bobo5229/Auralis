@@ -17,7 +17,7 @@ const activePath = ref(route.path)
 const primaryNav = [
   { to: '/', label: '歌曲', icon: 'i-lucide-music' },
   { to: '/albums', label: '专辑', icon: 'i-lucide-disc-3' },
-  { to: '/archive', label: 'Archive', icon: 'i-lucide-archive' },
+  { to: '/archive', label: '声迹', icon: 'i-lucide-archive' },
 ]
 
 const utilityNav = [{ to: '/settings', label: 'Settings', icon: 'i-lucide-settings' }]
