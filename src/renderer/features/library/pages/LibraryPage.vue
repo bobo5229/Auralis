@@ -609,19 +609,22 @@ onBeforeUnmount(() => {
             <span>插播「{{ getAlbumNameForTrack(contextMenu.trackId) }}」</span>
           </button>
           <button
-            v-else
+            v-else-if="playback.state.currentTrackId !== contextMenu.trackId"
             class="library-context-menu-item"
             type="button"
-            :disabled="
-              !playback.state.currentTrackId ||
-              playback.state.currentTrackId === contextMenu.trackId
-            "
+            :disabled="!playback.state.currentTrackId"
             @click="onInsertAfterCurrent(contextMenu.trackId)"
           >
             <span class="i-lucide-list-plus"></span>
             <span>插播</span>
           </button>
-          <div class="library-context-menu-separator"></div>
+          <div
+            v-if="
+              contextMenu.source === 'album-artwork' ||
+              playback.state.currentTrackId !== contextMenu.trackId
+            "
+            class="library-context-menu-separator"
+          ></div>
           <button
             class="library-context-menu-item"
             type="button"
