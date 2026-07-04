@@ -6,7 +6,6 @@ import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatPlaybackSubtitle } from '@renderer/features/playback/utils/formatPlaybackSubtitle'
 import { useTrackLyrics } from '@renderer/features/lyrics/composables/useTrackLyrics'
 import type { LyricLine } from '@renderer/features/lyrics/types'
-import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import FluidArtworkBackground from '@renderer/features/playback/components/FluidArtworkBackground.vue'
 import { subscribeVisualFrame } from '@renderer/features/playback/utils/visualFrameScheduler'
 
@@ -57,7 +56,6 @@ const progressRatio = computed(() => {
 
 const artworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
-const { palette: artworkPalette } = useArtworkPalette(artworkCacheKey)
 const title = computed(() => playback.state.currentTrack?.title || 'Unknown Title')
 const subtitle = computed(() =>
   playback.state.currentTrack ? formatPlaybackSubtitle(playback.state.currentTrack) : 'No track',
@@ -510,7 +508,7 @@ onBeforeUnmount(() => {
         aria-label="Full-screen player"
       >
         <FluidArtworkBackground
-          :palette="artworkPalette"
+          :artwork-url="artworkUrl"
           :active="isFullscreenPlayerOpen"
           :playing="playback.state.isPlaying"
         />
