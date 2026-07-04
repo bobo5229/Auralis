@@ -126,18 +126,19 @@ export class CanvasFluidRenderer implements FluidRenderer {
     context.globalCompositeOperation = 'source-over'
     context.fillStyle = colorToCss(palette.background)
     context.fillRect(0, 0, width, height)
-    context.globalCompositeOperation = 'screen'
+    context.globalCompositeOperation = 'source-over'
 
     const phase = this.motionTime * 0.000055
     this.blobs.forEach((blob, index) => {
       const color = palette.accents[blob.colorIndex % palette.accents.length]
       const angle = phase * blob.speed + blob.phaseX
-      const x = width * (0.5 + Math.cos(angle) * (0.2 + (index % 3) * 0.04))
-      const y = height * (0.47 + Math.sin(angle * 1.17 + blob.phaseY) * (0.22 + (index % 2) * 0.05))
+      const x = width * (0.5 + Math.cos(angle) * (0.28 + (index % 3) * 0.035))
+      const y =
+        height * (0.47 + Math.sin(angle * 1.17 + blob.phaseY) * (0.27 + (index % 2) * 0.045))
       const radius = Math.max(width, height) * blob.radius
       const gradient = context.createRadialGradient(x, y, 0, x, y, radius)
       gradient.addColorStop(0, colorToCss(color, blob.opacity))
-      gradient.addColorStop(0.43, colorToCss(color, blob.opacity * 0.38))
+      gradient.addColorStop(0.46, colorToCss(color, blob.opacity * 0.42))
       gradient.addColorStop(1, colorToCss(color, 0))
       context.fillStyle = gradient
       context.fillRect(0, 0, width, height)
@@ -182,8 +183,8 @@ export class CanvasFluidRenderer implements FluidRenderer {
       phaseX: index * 2.17 + 0.4,
       phaseY: index * 1.31 + 0.7,
       speed: (index % 2 === 0 ? 1 : -1.3) * (0.86 + index * 0.05),
-      radius: 0.5 + (index % 3) * 0.08,
-      opacity: index === 0 ? 0.78 : 0.68,
+      radius: 0.34 + (index % 3) * 0.055,
+      opacity: index === 0 ? 0.88 : 0.78,
     }))
   }
 }

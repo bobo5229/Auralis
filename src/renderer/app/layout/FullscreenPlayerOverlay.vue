@@ -47,7 +47,7 @@ const LYRIC_MIN_DURATION_MS = 420
 const LYRIC_MAX_DURATION_MS = 650
 const LYRIC_DURATION_BASE_MS = 380
 const LYRIC_DURATION_PER_PIXEL = 0.65
-const LYRIC_EASING = 'cubic-bezier(0.22, 0.72, 0.18, 1)'
+const LYRIC_EASING = 'cubic-bezier(0.4, 0, 0.2, 1)'
 
 const progressRatio = computed(() => {
   if (!playback.state.duration) return 0
