@@ -562,7 +562,7 @@ input[type='range'].volume-slider::-moz-range-thumb {
   align-items: center;
   gap: 8px;
   border-radius: 14px;
-  padding: 8px 12px;
+  padding: 4px 12px;
   color: var(--auralis-text);
   font-size: 14px;
   line-height: 20px;
