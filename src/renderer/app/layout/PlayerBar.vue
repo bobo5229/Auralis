@@ -307,14 +307,6 @@ function handleToggleMute(): void {
       </defs>
     </svg>
     <div class="player-bar-liquid-optics" aria-hidden="true"></div>
-    <div
-      class="player-bar-liquid-dispersion player-bar-liquid-dispersion-red"
-      aria-hidden="true"
-    ></div>
-    <div
-      class="player-bar-liquid-dispersion player-bar-liquid-dispersion-blue"
-      aria-hidden="true"
-    ></div>
 
     <div
       v-if="previousAlbumTint"
