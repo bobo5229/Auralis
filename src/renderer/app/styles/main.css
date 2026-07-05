@@ -245,8 +245,7 @@ input {
   pointer-events: none;
 }
 
-.player-bar-liquid-optics,
-.player-bar-liquid-dispersion {
+.player-bar-liquid-optics {
   position: absolute;
   inset: 0;
   border-radius: inherit;
@@ -260,27 +259,6 @@ input {
   -webkit-backdrop-filter: url('#auralis-player-liquid-refraction') blur(12px) saturate(1.24)
     contrast(1.04);
   backdrop-filter: url('#auralis-player-liquid-refraction') blur(12px) saturate(1.24) contrast(1.04);
-}
-
-.player-bar-liquid-dispersion {
-  z-index: 1;
-  overflow: hidden;
-  opacity: 0.42;
-  mix-blend-mode: screen;
-  -webkit-backdrop-filter: url('#auralis-player-liquid-refraction');
-  backdrop-filter: url('#auralis-player-liquid-refraction');
-  mask-image: linear-gradient(90deg, #000, transparent 8% 92%, #000);
-  -webkit-mask-image: linear-gradient(90deg, #000, transparent 8% 92%, #000);
-}
-
-.player-bar-liquid-dispersion-red {
-  transform: translateX(-1.5px);
-  background: rgb(255 82 91 / 3.5%);
-}
-
-.player-bar-liquid-dispersion-blue {
-  transform: translateX(1.5px);
-  background: rgb(65 143 255 / 4.5%);
 }
 
 .player-bar::before {
@@ -297,18 +275,13 @@ input {
       transparent 48%,
       var(--auralis-playbar-lowlight) 100%
     ),
+    linear-gradient(90deg, rgb(255 92 106 / 5%), transparent 8% 92%, rgb(82 146 255 / 6%)),
     linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
   opacity: 0.72;
   pointer-events: none;
 }
 
-.player-bar
-  > :not(
-    .player-bar-album-tint,
-    .player-bar-liquid-filter,
-    .player-bar-liquid-optics,
-    .player-bar-liquid-dispersion
-  ) {
+.player-bar > :not(.player-bar-album-tint, .player-bar-liquid-filter, .player-bar-liquid-optics) {
   position: relative;
   z-index: 4;
 }
@@ -389,21 +362,11 @@ input {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .player-bar-liquid-dispersion {
-    display: none;
-  }
-}
-
 @media (prefers-contrast: more) {
   .player-bar-liquid-optics {
     background: var(--auralis-now-playing-bg);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-  }
-
-  .player-bar-liquid-dispersion {
-    display: none;
   }
 }
 
