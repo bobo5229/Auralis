@@ -10,7 +10,13 @@ import type {
   EditableTrackMetadata,
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
-import type { ListeningHeatmap } from '@shared/types/archive'
+import type {
+  AnnualListeningInsights,
+  DailyListeningDetail,
+  ListeningHeatmap,
+  ListeningRanking,
+  ListeningRankingParams,
+} from '@shared/types/archive'
 
 export interface AuralisApi {
   app: {
@@ -35,6 +41,8 @@ export interface AuralisApi {
           | 'track-relocated'
           | 'metadata-refresh'
           | 'file-change'
+          | 'play-stats-updated'
+          | 'play-stats-reset'
         trackIds: number[]
         filePaths: string[]
       }) => void,
@@ -62,6 +70,10 @@ export interface AuralisApi {
   }
   archive: {
     getListeningHeatmap: (year: number) => Promise<ListeningHeatmap>
+    getDailyListeningDetail: (date: string) => Promise<DailyListeningDetail>
+    getAnnualListeningInsights: (year: number) => Promise<AnnualListeningInsights>
+    getListeningRanking: (params: ListeningRankingParams) => Promise<ListeningRanking>
+    resetPlayStats: () => Promise<{ ok: true }>
   }
   metadata: {
     refreshTrack: (trackId: number) => Promise<{ jobId: number }>

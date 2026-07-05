@@ -403,6 +403,74 @@ const migrations = [
       CREATE INDEX idx_daily_play_stats_date ON daily_play_stats(play_date);
     `,
   },
+  {
+    id: 15,
+    name: 'add_daily_track_play_stats',
+    sql: `
+      CREATE TABLE daily_track_play_stats (
+        play_date TEXT NOT NULL,
+        track_id INTEGER NOT NULL,
+        play_count INTEGER NOT NULL DEFAULT 0,
+        duration_seconds REAL NOT NULL DEFAULT 0,
+        last_played_at TEXT,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(play_date, track_id),
+        FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX idx_daily_track_play_stats_date_count
+        ON daily_track_play_stats(play_date, play_count DESC);
+
+      ALTER TABLE daily_play_stats
+        ADD COLUMN duration_seconds REAL NOT NULL DEFAULT 0;
+    `,
+  },
+  {
+    id: 16,
+    name: 'backfill_daily_play_duration',
+    sql: `
+      UPDATE daily_track_play_stats
+      SET duration_seconds = play_count * COALESCE(
+        (
+          SELECT duration_seconds
+          FROM tracks
+          WHERE tracks.id = daily_track_play_stats.track_id
+        ),
+        0
+      )
+      WHERE duration_seconds = 0
+        AND play_count > 0;
+
+      UPDATE daily_play_stats
+      SET duration_seconds = COALESCE(
+        (
+          SELECT SUM(duration_seconds)
+          FROM daily_track_play_stats
+          WHERE daily_track_play_stats.play_date = daily_play_stats.play_date
+        ),
+        0
+      )
+      WHERE duration_seconds = 0
+        AND EXISTS (
+          SELECT 1
+          FROM daily_track_play_stats
+          WHERE daily_track_play_stats.play_date = daily_play_stats.play_date
+        );
+
+      UPDATE daily_play_stats
+      SET duration_seconds = play_count * COALESCE(
+        (
+          SELECT AVG(duration_seconds)
+          FROM tracks
+          WHERE duration_seconds IS NOT NULL
+            AND duration_seconds > 0
+        ),
+        0
+      )
+      WHERE duration_seconds = 0
+        AND play_count > 0;
+    `,
+  },
 ] as const
 
 export function migrateDatabase(db: Database.Database): void {

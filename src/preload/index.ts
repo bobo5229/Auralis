@@ -47,6 +47,8 @@ export const auralisApi: AuralisApi = {
             | 'track-relocated'
             | 'metadata-refresh'
             | 'file-change'
+            | 'play-stats-updated'
+            | 'play-stats-reset'
           trackIds: number[]
           filePaths: string[]
         },
@@ -78,6 +80,12 @@ export const auralisApi: AuralisApi = {
   },
   archive: {
     getListeningHeatmap: (year) => invoke(ipcChannels.archive.getListeningHeatmap, { year }),
+    getDailyListeningDetail: (date) =>
+      invoke(ipcChannels.archive.getDailyListeningDetail, { date }),
+    getAnnualListeningInsights: (year) =>
+      invoke(ipcChannels.archive.getAnnualListeningInsights, { year }),
+    getListeningRanking: (params) => invoke(ipcChannels.archive.getListeningRanking, params),
+    resetPlayStats: () => invoke(ipcChannels.archive.resetPlayStats),
   },
   metadata: {
     refreshTrack: (trackId) => invoke(ipcChannels.metadata.refreshTrack, { trackId }),
