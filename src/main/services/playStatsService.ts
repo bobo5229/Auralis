@@ -1,7 +1,21 @@
 import type { PlayStatsRepository } from '../repositories/playStatsRepository'
-import type { ListeningHeatmap } from '@shared/types/archive'
+import type {
+  AnnualListeningInsights,
+  DailyListeningDetail,
+  ListeningHeatmap,
+  ListeningRanking,
+  ListeningRankingParams,
+} from '@shared/types/archive'
 
 const MAX_SESSION_CACHE = 1000
+
+function formatDateKey(date: Date): string {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-')
+}
 
 export class PlayStatsService {
   private readonly recordedSessions = new Set<string>()
@@ -57,5 +71,87 @@ export class PlayStatsService {
 
     const result = this.playStatsRepo.getListeningHeatmap(year)
     return { year, ...result }
+  }
+
+  getDailyListeningDetail(date: string): DailyListeningDetail {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00`))) {
+      throw new Error('Date must use the YYYY-MM-DD format')
+    }
+
+    return this.playStatsRepo.getDailyListeningDetail(date)
+  }
+
+  getAnnualListeningInsights(year: number): AnnualListeningInsights {
+    const currentYear = new Date().getFullYear()
+    if (!Number.isInteger(year) || year < 1970 || year > currentYear) {
+      throw new Error(`Year must be between 1970 and ${currentYear}`)
+    }
+
+    return this.playStatsRepo.getAnnualListeningInsights(year)
+  }
+
+  getListeningRanking(params: ListeningRankingParams): ListeningRanking {
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    let startDate: string
+    let endDate: string
+
+    if (params.target !== 'track' && params.target !== 'album') {
+      throw new Error('Ranking target must be track or album')
+    }
+
+    if (params.range === 'day') {
+      startDate = formatDateKey(now)
+      endDate = startDate
+    } else if (params.range === 'week') {
+      const day = now.getDay()
+      const mondayOffset = day === 0 ? -6 : 1 - day
+      const monday = new Date(now)
+      monday.setDate(now.getDate() + mondayOffset)
+      const sunday = new Date(monday)
+      sunday.setDate(monday.getDate() + 6)
+      startDate = formatDateKey(monday)
+      endDate = formatDateKey(sunday)
+    } else if (params.range === 'month') {
+      const year = params.year ?? currentYear
+      const month = params.month ?? now.getMonth() + 1
+      if (!Number.isInteger(year) || year < 1970 || year > currentYear) {
+        throw new Error(`Year must be between 1970 and ${currentYear}`)
+      }
+      if (!Number.isInteger(month) || month < 1 || month > 12) {
+        throw new Error('Month must be between 1 and 12')
+      }
+      startDate = `${year}-${String(month).padStart(2, '0')}-01`
+      endDate = formatDateKey(new Date(year, month, 0))
+    } else if (params.range === 'quarter') {
+      const year = params.year ?? currentYear
+      const quarter = params.quarter ?? Math.floor(now.getMonth() / 3) + 1
+      if (!Number.isInteger(year) || year < 1970 || year > currentYear) {
+        throw new Error(`Year must be between 1970 and ${currentYear}`)
+      }
+      if (!Number.isInteger(quarter) || quarter < 1 || quarter > 4) {
+        throw new Error('Quarter must be between 1 and 4')
+      }
+      const startMonth = (quarter - 1) * 3 + 1
+      const endMonth = startMonth + 2
+      startDate = `${year}-${String(startMonth).padStart(2, '0')}-01`
+      endDate = formatDateKey(new Date(year, endMonth, 0))
+    } else {
+      throw new Error('Ranking range must be day, week, month, or quarter')
+    }
+
+    return {
+      range: params.range,
+      target: params.target,
+      startDate,
+      endDate,
+      items: this.playStatsRepo.getListeningRanking(startDate, endDate, params.target),
+    }
+  }
+
+  resetAll(): { ok: true } {
+    this.playStatsRepo.resetAll()
+    this.recordedSessions.clear()
+    return { ok: true }
   }
 }

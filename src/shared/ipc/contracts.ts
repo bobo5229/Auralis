@@ -9,7 +9,13 @@ import type {
   EditableTrackMetadata,
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
-import type { ListeningHeatmap } from '@shared/types/archive'
+import type {
+  AnnualListeningInsights,
+  DailyListeningDetail,
+  ListeningRanking,
+  ListeningRankingParams,
+  ListeningHeatmap,
+} from '@shared/types/archive'
 
 export interface IpcInvokeContract {
   'app:get-info': {
@@ -71,6 +77,22 @@ export interface IpcInvokeContract {
   'archive:get-listening-heatmap': {
     request: { year: number }
     response: ListeningHeatmap
+  }
+  'archive:get-daily-listening-detail': {
+    request: { date: string }
+    response: DailyListeningDetail
+  }
+  'archive:get-annual-listening-insights': {
+    request: { year: number }
+    response: AnnualListeningInsights
+  }
+  'archive:get-listening-ranking': {
+    request: ListeningRankingParams
+    response: ListeningRanking
+  }
+  'archive:reset-play-stats': {
+    request: void
+    response: { ok: true }
   }
   'metadata:refresh-track': {
     request: { trackId: number }

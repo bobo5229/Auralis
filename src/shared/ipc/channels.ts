@@ -26,6 +26,10 @@ export const ipcChannels = {
   },
   archive: {
     getListeningHeatmap: 'archive:get-listening-heatmap',
+    getDailyListeningDetail: 'archive:get-daily-listening-detail',
+    getAnnualListeningInsights: 'archive:get-annual-listening-insights',
+    getListeningRanking: 'archive:get-listening-ranking',
+    resetPlayStats: 'archive:reset-play-stats',
   },
   metadata: {
     refreshTrack: 'metadata:refresh-track',

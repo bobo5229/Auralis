@@ -184,14 +184,57 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     (
       _event,
       payload: { trackId: number; sessionId: string; playedAtIso: string },
-    ): IpcResponse<'playback:record-effective-play'> =>
-      playStatsService.recordEffectivePlay(payload),
+    ): IpcResponse<'playback:record-effective-play'> => {
+      const result = playStatsService.recordEffectivePlay(payload)
+      if (result.ok) {
+        sendToRenderer(ipcChannels.library.changed, {
+          reason: 'play-stats-updated',
+          trackIds: [payload.trackId],
+          filePaths: [],
+        })
+      }
+      return result
+    },
   )
 
   ipcMain.handle(
     ipcChannels.archive.getListeningHeatmap,
     (_event, payload: { year: number }): IpcResponse<'archive:get-listening-heatmap'> =>
       playStatsService.getListeningHeatmap(payload.year),
+  )
+
+  ipcMain.handle(
+    ipcChannels.archive.getDailyListeningDetail,
+    (_event, payload: { date: string }): IpcResponse<'archive:get-daily-listening-detail'> =>
+      playStatsService.getDailyListeningDetail(payload.date),
+  )
+
+  ipcMain.handle(
+    ipcChannels.archive.getAnnualListeningInsights,
+    (_event, payload: { year: number }): IpcResponse<'archive:get-annual-listening-insights'> =>
+      playStatsService.getAnnualListeningInsights(payload.year),
+  )
+
+  ipcMain.handle(
+    ipcChannels.archive.getListeningRanking,
+    (
+      _event,
+      payload: Parameters<typeof playStatsService.getListeningRanking>[0],
+    ): IpcResponse<'archive:get-listening-ranking'> =>
+      playStatsService.getListeningRanking(payload),
+  )
+
+  ipcMain.handle(
+    ipcChannels.archive.resetPlayStats,
+    (): IpcResponse<'archive:reset-play-stats'> => {
+      const result = playStatsService.resetAll()
+      sendToRenderer(ipcChannels.library.changed, {
+        reason: 'play-stats-reset',
+        trackIds: [],
+        filePaths: [],
+      })
+      return result
+    },
   )
 
   ipcMain.handle(
