@@ -478,7 +478,7 @@ onBeforeUnmount(() => {
 }
 
 /* Top separator on every track */
-.album-detail-track::before {
+.album-detail-track:not(:first-child)::before {
   content: '';
   position: absolute;
   top: 0;
@@ -489,19 +489,7 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-/* Bottom separator on last track only */
-.album-detail-track:last-child::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 12px;
-  right: 12px;
-  height: 1px;
-  background: var(--auralis-border-subtle);
-  pointer-events: none;
-}
-
-/* Hover/selected cover the separator within the card */
+/* Hover/active states cover the separator within the card */
 .album-detail-track:hover,
 .album-detail-track--selected,
 .album-detail-track--playing,
@@ -524,30 +512,23 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Selected/playing should beat :hover specificity (0,1,1) */
-.album-detail-track.album-detail-track--selected,
+/* Selected/playing should beat :hover specificity (0,1,1); playing wins when both apply. */
+.album-detail-track.album-detail-track--selected {
+  background-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+}
+
 .album-detail-track.album-detail-track--playing {
-  background-color: var(--auralis-song-row-now-playing-bg);
+  background-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 22%, transparent);
 }
 
 /* Hide hovered/selected track's own top separator */
-.album-detail-track:hover::before,
 .album-detail-track--selected::before,
 .album-detail-track--playing::before,
 .album-detail-track--search-highlight::before {
   display: none;
 }
 
-/* Hide last track's bottom separator when it's hovered/selected */
-.album-detail-track:last-child:hover::after,
-.album-detail-track:last-child.album-detail-track--selected::after,
-.album-detail-track:last-child.album-detail-track--playing::after,
-.album-detail-track:last-child.album-detail-track--search-highlight::after {
-  display: none;
-}
-
-/* Hide the next sibling's top separator to avoid double line */
-.album-detail-track:hover + .album-detail-track::before,
+/* Keep active row groups visually clean without changing divider thickness elsewhere. */
 .album-detail-track--selected + .album-detail-track::before,
 .album-detail-track--playing + .album-detail-track::before,
 .album-detail-track--search-highlight + .album-detail-track::before {
@@ -559,6 +540,11 @@ onBeforeUnmount(() => {
   color: var(--auralis-text-faint);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+.album-detail-track-number {
+  font-size: 13px;
+  font-weight: 650;
 }
 
 .album-detail-track-title,
