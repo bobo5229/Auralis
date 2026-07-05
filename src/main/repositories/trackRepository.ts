@@ -59,6 +59,39 @@ function escapeLikePattern(value: string): string {
   return value.replace(/~/g, '~~').replace(/%/g, '~%').replace(/_/g, '~_')
 }
 
+const libraryArtistCollator = new Intl.Collator('zh-Hans-u-co-pinyin', {
+  sensitivity: 'base',
+  numeric: true,
+})
+
+function compareNullableText(
+  left: string | null,
+  right: string | null,
+  collator = libraryArtistCollator,
+): number {
+  if (left === right) return 0
+  if (left === null) return 1
+  if (right === null) return -1
+  return collator.compare(left, right)
+}
+
+function compareNullableNumber(left: number | null, right: number | null): number {
+  if (left === right) return 0
+  if (left === null) return -1
+  if (right === null) return 1
+  return left - right
+}
+
+function compareLibraryTracks(left: TrackListItem, right: TrackListItem): number {
+  return (
+    compareNullableText(left.albumArtist, right.albumArtist) ||
+    compareNullableText(left.releaseDate, right.releaseDate) ||
+    compareNullableNumber(left.discNo, right.discNo) ||
+    compareNullableNumber(left.trackNo, right.trackNo) ||
+    left.id - right.id
+  )
+}
+
 export class TrackRepository extends BaseRepository {
   getFilePathById(trackId: number): string | null {
     const row = this.db
@@ -126,7 +159,7 @@ export class TrackRepository extends BaseRepository {
   }
 
   getAll(): TrackListItem[] {
-    return this.db
+    const tracks = this.db
       .prepare(
         `SELECT id, title, artist, album,
                 album_artist AS albumArtist,
@@ -142,15 +175,11 @@ export class TrackRepository extends BaseRepository {
                 last_played_at AS lastPlayedAt
          FROM library_track_display
          WHERE availability = 'available'
-         ORDER BY
-           CASE WHEN album_artist IS NULL THEN 1 ELSE 0 END,
-           album_artist COLLATE NOCASE ASC,
-           CASE WHEN release_date IS NULL THEN 1 ELSE 0 END,
-           release_date ASC,
-           disc_no ASC,
-           track_no ASC`,
+         ORDER BY id ASC`,
       )
       .all() as TrackListItem[]
+
+    return tracks.sort(compareLibraryTracks)
   }
 
   getKnownFiles(): KnownTrackFile[] {
