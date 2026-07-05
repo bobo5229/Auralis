@@ -136,6 +136,11 @@ function setDisplayMode(mode: AlbumDisplayMode): void {
   localStorage.setItem(ALBUM_DISPLAY_MODE_KEY, mode)
 }
 
+function toggleDisplayModeFromContextMenu(): void {
+  setDisplayMode(displayMode.value === 'grid' ? 'perspective' : 'grid')
+  closeContextMenu()
+}
+
 function doesAlbumMatchSearch(album: AlbumSummary, query: string): boolean {
   const normalizedQuery = normalizeSearchText(query)
   if (!normalizedQuery) return false
@@ -218,7 +223,7 @@ function closeContextMenu(): void {
 
 function openContextMenu(album: AlbumSummary, event: MouseEvent): void {
   const menuWidth = 220
-  const menuHeight = 150
+  const menuHeight = 190
   const x = Math.min(event.clientX, window.innerWidth - menuWidth - 8)
   const y = Math.min(event.clientY, window.innerHeight - menuHeight - 8)
 
@@ -338,35 +343,6 @@ onBeforeUnmount(() => {
       </Transition>
     </div>
 
-    <div
-      class="absolute right-10 top-7 z-10 flex items-center gap-1 rounded-lg bg-[var(--auralis-control-hover-bg)] p-1"
-      role="group"
-      aria-label="Album display style"
-    >
-      <button
-        type="button"
-        class="album-display-button"
-        :class="{ 'album-display-button--active': displayMode === 'grid' }"
-        :aria-pressed="displayMode === 'grid'"
-        aria-label="Regular album covers"
-        title="Regular album covers"
-        @click="setDisplayMode('grid')"
-      >
-        <span class="i-lucide-grid-2x2 h-4 w-4"></span>
-      </button>
-      <button
-        type="button"
-        class="album-display-button"
-        :class="{ 'album-display-button--active': displayMode === 'perspective' }"
-        :aria-pressed="displayMode === 'perspective'"
-        aria-label="Perspective album covers"
-        title="Perspective album covers"
-        @click="setDisplayMode('perspective')"
-      >
-        <span class="i-lucide-panels-top-left h-4 w-4"></span>
-      </button>
-    </div>
-
     <div v-if="isLoading" class="flex flex-1 items-center justify-center">
       <p class="text-sm text-[var(--auralis-text-faint)]">Loading albums...</p>
     </div>
@@ -440,29 +416,19 @@ onBeforeUnmount(() => {
             <span class="i-lucide-list-plus"></span>
             <span>插播「{{ contextMenu.album.title }}」</span>
           </button>
+          <div class="library-context-menu-separator"></div>
+          <button
+            class="library-context-menu-item"
+            type="button"
+            @click="toggleDisplayModeFromContextMenu"
+          >
+            <span
+              :class="displayMode === 'grid' ? 'i-lucide-panels-top-left' : 'i-lucide-grid-2x2'"
+            ></span>
+            <span>{{ displayMode === 'grid' ? '切换到透视封面视图' : '切换到常规封面视图' }}</span>
+          </button>
         </LiquidGlassPanel>
       </div>
     </Teleport>
   </section>
 </template>
-
-<style scoped>
-.album-display-button {
-  display: inline-flex;
-  width: 30px;
-  height: 30px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  color: var(--auralis-text-muted);
-}
-
-.album-display-button:hover {
-  color: var(--auralis-text);
-}
-
-.album-display-button--active {
-  background: var(--auralis-control-active-bg);
-  color: var(--auralis-text);
-}
-</style>
