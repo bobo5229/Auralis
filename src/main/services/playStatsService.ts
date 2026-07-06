@@ -17,6 +17,16 @@ function formatDateKey(date: Date): string {
   ].join('-')
 }
 
+function isValidDateKey(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false
+  const d = new Date(`${s}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return false
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}` === s
+}
+
 export class PlayStatsService {
   private readonly recordedSessions = new Set<string>()
 
@@ -101,17 +111,40 @@ export class PlayStatsService {
     }
 
     if (params.range === 'day') {
-      startDate = formatDateKey(now)
+      if (params.date) {
+        if (!isValidDateKey(params.date)) {
+          throw new Error('date must be in YYYY-MM-DD format')
+        }
+        startDate = params.date
+      } else {
+        startDate = formatDateKey(now)
+      }
       endDate = startDate
     } else if (params.range === 'week') {
-      const day = now.getDay()
-      const mondayOffset = day === 0 ? -6 : 1 - day
-      const monday = new Date(now)
-      monday.setDate(now.getDate() + mondayOffset)
-      const sunday = new Date(monday)
-      sunday.setDate(monday.getDate() + 6)
-      startDate = formatDateKey(monday)
-      endDate = formatDateKey(sunday)
+      if (params.weekStartDate) {
+        if (!isValidDateKey(params.weekStartDate)) {
+          throw new Error('weekStartDate must be in YYYY-MM-DD format')
+        }
+        const rawDate = new Date(`${params.weekStartDate}T00:00:00`)
+        const rawDay = rawDate.getDay()
+        const mondayOffset = rawDay === 0 ? -6 : 1 - rawDay
+        if (mondayOffset !== 0) {
+          rawDate.setDate(rawDate.getDate() + mondayOffset)
+        }
+        startDate = formatDateKey(rawDate)
+        const ed = new Date(rawDate)
+        ed.setDate(rawDate.getDate() + 6)
+        endDate = formatDateKey(ed)
+      } else {
+        const day = now.getDay()
+        const mondayOffset = day === 0 ? -6 : 1 - day
+        const monday = new Date(now)
+        monday.setDate(now.getDate() + mondayOffset)
+        const sunday = new Date(monday)
+        sunday.setDate(monday.getDate() + 6)
+        startDate = formatDateKey(monday)
+        endDate = formatDateKey(sunday)
+      }
     } else if (params.range === 'month') {
       const year = params.year ?? currentYear
       const month = params.month ?? now.getMonth() + 1
@@ -138,6 +171,11 @@ export class PlayStatsService {
       endDate = formatDateKey(new Date(year, endMonth, 0))
     } else {
       throw new Error('Ranking range must be day, week, month, or quarter')
+    }
+
+    const todayKey = formatDateKey(now)
+    if (startDate > todayKey) {
+      throw new Error('Ranking period must not be in the future')
     }
 
     return {
