@@ -44,6 +44,8 @@ export type ListeningRankingTarget = 'track' | 'album'
 export interface ListeningRankingParams {
   range: ListeningRankingRange
   target: ListeningRankingTarget
+  date?: string
+  weekStartDate?: string
   year?: number
   month?: number
   quarter?: number

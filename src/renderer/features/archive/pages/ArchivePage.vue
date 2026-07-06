@@ -6,6 +6,7 @@ import type {
   DailyListeningDetail,
   ListeningHeatmap,
   ListeningRanking,
+  ListeningRankingParams,
   ListeningRankingRange,
   ListeningRankingTarget,
 } from '@shared/types/archive'
@@ -36,9 +37,14 @@ const rankingRange = ref<ListeningRankingRange>('day')
 const rankingTarget = ref<ListeningRankingTarget>('track')
 const rankingMonth = ref(new Date().getMonth() + 1)
 const rankingQuarter = ref(Math.floor(new Date().getMonth() / 3) + 1)
+const rankingDate = ref(formatDateKey(new Date()))
+const rankingWeekStartDate = ref(getWeekMonday(new Date()))
+const rankingYear = ref(currentYear)
+const rankingPickerYear = ref(currentYear)
+const rankingPickerMonth = ref(new Date().getMonth() + 1)
 const isRankingLoading = ref(false)
 const rankingError = ref<string | null>(null)
-const showRankingPeriodMenu = ref(false)
+const showRankingPicker = ref(false)
 const isLoading = ref(true)
 const errorMessage = ref<string | null>(null)
 const tooltip = ref<HeatmapTooltip | null>(null)
@@ -94,6 +100,26 @@ function getIntensityLevel(playCount: number): CalendarDay['level'] {
   return 0
 }
 
+function getWeekMonday(date: Date): string {
+  const d = new Date(date)
+  const day = d.getDay()
+  const offset = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + offset)
+  return formatDateKey(d)
+}
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00`)
+  d.setDate(d.getDate() + days)
+  return formatDateKey(d)
+}
+
+function formatMonthDay(dateStr: string): string {
+  const m = Number(dateStr.slice(5, 7))
+  const d = Number(dateStr.slice(8, 10))
+  return `${m}月${d}日`
+}
+
 const weekdayOrder = computed(() => {
   const firstWeekday = new Date(selectedYear.value, 0, 1).getDay()
   return Array.from({ length: 7 }, (_, index) => weekdayNames[(firstWeekday + index) % 7])
@@ -138,7 +164,7 @@ const firstAvailableYear = computed(() => heatmap.value?.firstRecordedYear ?? cu
 const canGoPrevious = computed(() => selectedYear.value > firstAvailableYear.value)
 const canGoNext = computed(() => selectedYear.value < currentYear)
 const maxRankingMonth = computed(() =>
-  selectedYear.value === currentYear ? new Date().getMonth() + 1 : 12,
+  rankingYear.value === currentYear ? new Date().getMonth() + 1 : 12,
 )
 const maxRankingQuarter = computed(() => Math.ceil(maxRankingMonth.value / 3))
 const rankingMonthOptions = computed(() =>
@@ -148,14 +174,94 @@ const rankingQuarterOptions = computed(() =>
   Array.from({ length: maxRankingQuarter.value }, (_, index) => index + 1),
 )
 const rankingPeriodLabel = computed(() => {
-  if (rankingRange.value === 'day') return '今天'
-  if (rankingRange.value === 'week') return '本周'
-  if (rankingRange.value === 'month') return `${selectedYear.value}年${rankingMonth.value}月`
-  return `${selectedYear.value}年 Q${rankingQuarter.value}`
+  if (rankingRange.value === 'day') {
+    const todayKey = formatDateKey(new Date())
+    return rankingDate.value === todayKey ? '今天' : formatMonthDay(rankingDate.value)
+  }
+  if (rankingRange.value === 'week') {
+    const currentMonday = getWeekMonday(new Date())
+    if (rankingWeekStartDate.value === currentMonday) return '本周'
+    const endDate = addDays(rankingWeekStartDate.value, 6)
+    return `${formatMonthDay(rankingWeekStartDate.value)} - ${formatMonthDay(endDate)}`
+  }
+  if (rankingRange.value === 'month') return `${rankingYear.value}年${rankingMonth.value}月`
+  return `${rankingYear.value}年 Q${rankingQuarter.value}`
 })
-const canSelectRankingPeriod = computed(
-  () => rankingRange.value === 'month' || rankingRange.value === 'quarter',
-)
+
+interface PickerDayCell {
+  dateStr: string | null
+  isToday: boolean
+  isFuture: boolean
+  isSelected: boolean
+}
+
+const pickerCalendarDays = computed<PickerDayCell[]>(() => {
+  const year = rankingPickerYear.value
+  const month = rankingPickerMonth.value
+  const firstDay = new Date(year, month - 1, 1)
+  const lastDay = new Date(year, month, 0)
+  const daysInMonth = lastDay.getDate()
+  const startWeekday = (firstDay.getDay() + 6) % 7
+  const todayKey = formatDateKey(new Date())
+  const selectedKey = rankingDate.value
+  const cells: PickerDayCell[] = []
+
+  for (let i = 0; i < startWeekday; i++) {
+    cells.push({ dateStr: null, isToday: false, isFuture: false, isSelected: false })
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    cells.push({
+      dateStr,
+      isToday: dateStr === todayKey,
+      isFuture: dateStr > todayKey,
+      isSelected: dateStr === selectedKey,
+    })
+  }
+
+  return cells
+})
+
+const weekOptions = computed(() => {
+  const year = rankingPickerYear.value
+  const todayKey = formatDateKey(new Date())
+  const currentMonday = getWeekMonday(new Date())
+  const weeks: Array<{
+    startDate: string
+    endDate: string
+    dateRangeLabel: string
+    isCurrentWeek: boolean
+    isFuture: boolean
+    isSelected: boolean
+  }> = []
+  let cursor = getWeekMonday(new Date(year, 0, 1))
+  const endOfYear = formatDateKey(new Date(year, 11, 31))
+
+  while (cursor <= endOfYear) {
+    const endDate = addDays(cursor, 6)
+    const weekEnd = endDate > endOfYear ? endOfYear : endDate
+    const startYear = Number(cursor.slice(0, 4))
+    const endYear = Number(weekEnd.slice(0, 4))
+    const showYear = startYear !== endYear
+    const dateRangeLabel = showYear
+      ? `${startYear}年${formatMonthDay(cursor)} - ${endYear}年${formatMonthDay(weekEnd)}`
+      : `${formatMonthDay(cursor)} - ${formatMonthDay(weekEnd)}`
+    weeks.push({
+      startDate: cursor,
+      endDate: weekEnd,
+      dateRangeLabel,
+      isCurrentWeek: cursor === currentMonday,
+      isFuture: cursor > todayKey,
+      isSelected: cursor === rankingWeekStartDate.value,
+    })
+    cursor = addDays(cursor, 7)
+    const cursorDate = new Date(`${cursor}T00:00:00`)
+    if (cursorDate.getFullYear() > year) break
+  }
+
+  return weeks
+})
 const peakDay = computed(() =>
   calendarDays.value
     .filter((day) => !day.isFuture)
@@ -305,13 +411,22 @@ async function loadListeningRanking(): Promise<void> {
   rankingError.value = null
 
   try {
-    const result = await auralis.archive.getListeningRanking({
+    const params: ListeningRankingParams = {
       range: rankingRange.value,
       target: rankingTarget.value,
-      year: selectedYear.value,
-      month: rankingMonth.value,
-      quarter: rankingQuarter.value,
-    })
+    }
+    if (rankingRange.value === 'day') {
+      params.date = rankingDate.value
+    } else if (rankingRange.value === 'week') {
+      params.weekStartDate = rankingWeekStartDate.value
+    } else if (rankingRange.value === 'month') {
+      params.year = rankingYear.value
+      params.month = rankingMonth.value
+    } else if (rankingRange.value === 'quarter') {
+      params.year = rankingYear.value
+      params.quarter = rankingQuarter.value
+    }
+    const result = await auralis.archive.getListeningRanking(params)
     if (requestId === rankingRequestId) {
       listeningRanking.value = result
     }
@@ -330,7 +445,10 @@ async function loadListeningRanking(): Promise<void> {
 function setRankingRange(range: ListeningRankingRange): void {
   if (rankingRange.value === range) return
   rankingRange.value = range
-  showRankingPeriodMenu.value = false
+  showRankingPicker.value = false
+  if (range === 'month' || range === 'quarter') {
+    rankingYear.value = selectedYear.value
+  }
   void loadListeningRanking()
 }
 
@@ -342,19 +460,78 @@ function setRankingTarget(target: ListeningRankingTarget): void {
 
 function selectRankingMonth(month: number): void {
   rankingMonth.value = month
-  showRankingPeriodMenu.value = false
+  showRankingPicker.value = false
   void loadListeningRanking()
 }
 
 function selectRankingQuarter(quarter: number): void {
   rankingQuarter.value = quarter
-  showRankingPeriodMenu.value = false
+  showRankingPicker.value = false
   void loadListeningRanking()
 }
 
-function toggleRankingPeriodMenu(): void {
-  if (!canSelectRankingPeriod.value) return
-  showRankingPeriodMenu.value = !showRankingPeriodMenu.value
+function selectRankingWeek(mondayStr: string): void {
+  rankingWeekStartDate.value = mondayStr
+  showRankingPicker.value = false
+  void loadListeningRanking()
+}
+
+function handleCalendarCellClick(cell: PickerDayCell): void {
+  if (!cell.dateStr || cell.isFuture) return
+  rankingDate.value = cell.dateStr
+  showRankingPicker.value = false
+  void loadListeningRanking()
+}
+
+function goToToday(): void {
+  rankingDate.value = formatDateKey(new Date())
+  rankingPickerMonth.value = new Date().getMonth() + 1
+  rankingPickerYear.value = currentYear
+  showRankingPicker.value = false
+  void loadListeningRanking()
+}
+
+function goToCurrentWeek(): void {
+  rankingWeekStartDate.value = getWeekMonday(new Date())
+  rankingPickerYear.value = currentYear
+  showRankingPicker.value = false
+  void loadListeningRanking()
+}
+
+function navigatePickerMonth(delta: -1 | 1): void {
+  let month = rankingPickerMonth.value + delta
+  let year = rankingPickerYear.value
+  if (month < 1) {
+    month = 12
+    year--
+  } else if (month > 12) {
+    month = 1
+    year++
+  }
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentMonth = now.getMonth() + 1
+  if (year > currentYear || (year === currentYear && month > currentMonth)) return
+  rankingPickerMonth.value = month
+  rankingPickerYear.value = year
+}
+
+function navigatePickerYear(delta: -1 | 1): void {
+  const nextYear = rankingPickerYear.value + delta
+  if (nextYear < 1970 || nextYear > currentYear) return
+  rankingPickerYear.value = nextYear
+}
+
+function changePickerYearBy(delta: -1 | 1): void {
+  const nextYear = rankingYear.value + delta
+  if (nextYear < 1970 || nextYear > currentYear) return
+  rankingYear.value = nextYear
+  normalizeRankingPeriod()
+  void loadListeningRanking()
+}
+
+function toggleRankingPicker(): void {
+  showRankingPicker.value = !showRankingPicker.value
 }
 
 async function changeYear(offset: -1 | 1): Promise<void> {
@@ -493,7 +670,7 @@ function handleDocumentPointerDown(event: PointerEvent): void {
     showResetAction.value = false
   }
   if (!target.closest('[data-ranking-period-control]')) {
-    showRankingPeriodMenu.value = false
+    showRankingPicker.value = false
   }
 }
 
@@ -756,34 +933,141 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
-        <div
-          v-if="canSelectRankingPeriod"
-          class="archive-ranking-period"
-          data-ranking-period-control
-        >
-          <button type="button" @click="toggleRankingPeriodMenu">
+        <div class="archive-ranking-period" data-ranking-period-control>
+          <button type="button" @click="toggleRankingPicker">
             <span>{{ rankingPeriodLabel }}</span>
             <span class="i-lucide-chevron-down h-3.5 w-3.5"></span>
           </button>
-          <div v-if="showRankingPeriodMenu" class="archive-ranking-period-menu">
-            <button
-              v-for="month in rankingRange === 'month' ? rankingMonthOptions : []"
-              :key="`month-${month}`"
-              type="button"
-              :class="{ 'is-active': rankingMonth === month }"
-              @click="selectRankingMonth(month)"
-            >
-              {{ month }}月
-            </button>
-            <button
-              v-for="quarter in rankingRange === 'quarter' ? rankingQuarterOptions : []"
-              :key="`quarter-${quarter}`"
-              type="button"
-              :class="{ 'is-active': rankingQuarter === quarter }"
-              @click="selectRankingQuarter(quarter)"
-            >
-              Q{{ quarter }}
-            </button>
+
+          <div v-if="showRankingPicker" class="archive-ranking-picker">
+            <!-- Day: Mini calendar -->
+            <template v-if="rankingRange === 'day'">
+              <div class="picker-header">
+                <button
+                  type="button"
+                  :disabled="
+                    rankingPickerYear <= 1970 ||
+                    (rankingPickerYear === currentYear && rankingPickerMonth === 1)
+                  "
+                  @click="navigatePickerMonth(-1)"
+                >
+                  <span class="i-lucide-chevron-left h-3.5 w-3.5"></span>
+                </button>
+                <span>{{ rankingPickerYear }}年{{ rankingPickerMonth }}月</span>
+                <button
+                  type="button"
+                  :disabled="
+                    rankingPickerYear >= currentYear &&
+                    rankingPickerMonth >= new Date().getMonth() + 1
+                  "
+                  @click="navigatePickerMonth(1)"
+                >
+                  <span class="i-lucide-chevron-right h-3.5 w-3.5"></span>
+                </button>
+              </div>
+              <div class="picker-calendar">
+                <div class="calendar-weekdays">
+                  <span v-for="wd in ['一', '二', '三', '四', '五', '六', '日']" :key="wd">{{
+                    wd
+                  }}</span>
+                </div>
+                <div class="calendar-grid">
+                  <button
+                    v-for="(cell, idx) in pickerCalendarDays"
+                    :key="idx"
+                    type="button"
+                    :disabled="!cell.dateStr || cell.isFuture"
+                    :class="{
+                      'is-today': cell.isToday,
+                      'is-selected': cell.isSelected,
+                      'is-empty': !cell.dateStr,
+                    }"
+                    @click="handleCalendarCellClick(cell)"
+                  >
+                    {{ cell.dateStr ? Number(cell.dateStr.slice(8, 10)) : '' }}
+                  </button>
+                </div>
+              </div>
+              <button type="button" class="picker-today-btn" @click="goToToday">回到今天</button>
+            </template>
+
+            <!-- Week: Week list -->
+            <template v-else-if="rankingRange === 'week'">
+              <div class="picker-header">
+                <button
+                  type="button"
+                  :disabled="rankingPickerYear <= 1970"
+                  @click="navigatePickerYear(-1)"
+                >
+                  <span class="i-lucide-chevron-left h-3.5 w-3.5"></span>
+                </button>
+                <span>{{ rankingPickerYear }}年</span>
+                <button
+                  type="button"
+                  :disabled="rankingPickerYear >= currentYear"
+                  @click="navigatePickerYear(1)"
+                >
+                  <span class="i-lucide-chevron-right h-3.5 w-3.5"></span>
+                </button>
+              </div>
+              <div class="picker-week-list">
+                <button
+                  v-for="week in weekOptions"
+                  :key="week.startDate"
+                  type="button"
+                  :disabled="week.isFuture"
+                  :class="{ 'is-active': week.isSelected, 'is-current': week.isCurrentWeek }"
+                  @click="!week.isFuture ? selectRankingWeek(week.startDate) : undefined"
+                >
+                  <span v-if="week.isCurrentWeek" class="week-current-label">本周</span>
+                  <span v-else class="week-date-range">{{ week.dateRangeLabel }}</span>
+                </button>
+              </div>
+              <button type="button" class="picker-today-btn" @click="goToCurrentWeek">
+                回到本周
+              </button>
+            </template>
+
+            <!-- Month / Quarter: lightweight list -->
+            <template v-else>
+              <div class="picker-header">
+                <button
+                  type="button"
+                  :disabled="rankingYear <= 1970"
+                  @click="changePickerYearBy(-1)"
+                >
+                  <span class="i-lucide-chevron-left h-3.5 w-3.5"></span>
+                </button>
+                <span>{{ rankingYear }}年</span>
+                <button
+                  type="button"
+                  :disabled="rankingYear >= currentYear"
+                  @click="changePickerYearBy(1)"
+                >
+                  <span class="i-lucide-chevron-right h-3.5 w-3.5"></span>
+                </button>
+              </div>
+              <div class="picker-list">
+                <button
+                  v-for="month in rankingRange === 'month' ? rankingMonthOptions : []"
+                  :key="`month-${month}`"
+                  type="button"
+                  :class="{ 'is-active': rankingMonth === month }"
+                  @click="selectRankingMonth(month)"
+                >
+                  {{ month }}月
+                </button>
+                <button
+                  v-for="quarter in rankingRange === 'quarter' ? rankingQuarterOptions : []"
+                  :key="`quarter-${quarter}`"
+                  type="button"
+                  :class="{ 'is-active': rankingQuarter === quarter }"
+                  @click="selectRankingQuarter(quarter)"
+                >
+                  Q{{ quarter }}
+                </button>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -1521,27 +1805,226 @@ onBeforeUnmount(() => {
   padding: 0 10px;
 }
 
-.archive-ranking-period-menu {
+.archive-ranking-picker {
   position: absolute;
   z-index: 40;
   top: calc(100% + 8px);
   right: 0;
-  display: grid;
-  min-width: 132px;
-  padding: 6px;
+  min-width: 220px;
+  padding: 10px;
   border: 1px solid var(--auralis-playbar-border);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--auralis-playbar-bg);
   box-shadow: 0 18px 42px rgba(20, 24, 28, 0.18);
   -webkit-backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
   backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
+}
+
+.picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 8px;
+  color: var(--auralis-text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.picker-header button {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  color: var(--auralis-text-muted);
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.picker-header button:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
+.picker-header button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* Mini calendar */
+.picker-calendar {
+  padding: 2px 0;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
+  color: var(--auralis-text-faint);
+  font-size: 10px;
+  text-align: center;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
   gap: 2px;
 }
 
-.archive-ranking-period-menu button {
+.calendar-grid button {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  color: var(--auralis-text);
+  font-size: 12px;
+  font-weight: 550;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.calendar-grid button:not(.is-empty):not(:disabled):hover {
+  background: var(--auralis-control-hover-bg);
+}
+
+.calendar-grid button.is-empty {
+  cursor: default;
+}
+
+.calendar-grid button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.calendar-grid button.is-today {
+  color: var(--auralis-sidebar-active-indicator);
+  font-weight: 680;
+}
+
+.calendar-grid button.is-selected {
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent);
+  color: var(--auralis-sidebar-active-indicator);
+  font-weight: 680;
+}
+
+/* Week list */
+.picker-week-list {
+  display: grid;
+  max-height: 240px;
+  gap: 2px;
+  overflow-y: auto;
+  padding: 2px 0;
+  scrollbar-color: color-mix(in srgb, var(--auralis-text) 20%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.picker-week-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.picker-week-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.picker-week-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auralis-text) 20%, transparent);
+}
+
+.picker-week-list::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--auralis-text) 30%, transparent);
+}
+
+.picker-week-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 8px;
+  color: var(--auralis-text);
+  font-size: 12px;
+  font-weight: 550;
+  text-align: left;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.picker-week-list button:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+}
+
+.picker-week-list button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.picker-week-list button.is-active,
+.picker-week-list button.is-current {
+  color: var(--auralis-sidebar-active-indicator);
+}
+
+.picker-week-list .week-date-range {
+  margin-left: auto;
+  color: var(--auralis-text-faint);
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Month / Quarter list */
+.picker-list {
+  display: grid;
+  min-width: 160px;
+  gap: 2px;
+  padding: 2px 0;
+}
+
+.picker-list button {
   height: 30px;
   padding: 0 10px;
+  border-radius: 8px;
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+  font-weight: 600;
   text-align: left;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+
+.picker-list button:hover {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
+.picker-list button.is-active {
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 14%, transparent);
+  color: var(--auralis-sidebar-active-indicator);
+}
+
+/* "回到今天" / "回到本周" button */
+.picker-today-btn {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 0;
+  border-radius: 8px;
+  color: var(--auralis-sidebar-active-indicator);
+  font-size: 11px;
+  font-weight: 650;
+  text-align: center;
+  transition: background-color 150ms ease;
+}
+
+.picker-today-btn:hover {
+  background: var(--auralis-control-hover-bg);
 }
 
 .archive-ranking-state {
