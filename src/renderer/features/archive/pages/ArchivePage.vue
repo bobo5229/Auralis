@@ -239,8 +239,7 @@ const weekOptions = computed(() => {
   const endOfYear = formatDateKey(new Date(year, 11, 31))
 
   while (cursor <= endOfYear) {
-    const endDate = addDays(cursor, 6)
-    const weekEnd = endDate > endOfYear ? endOfYear : endDate
+    const weekEnd = addDays(cursor, 6)
     const startYear = Number(cursor.slice(0, 4))
     const endYear = Number(weekEnd.slice(0, 4))
     const showYear = startYear !== endYear
@@ -945,10 +944,7 @@ onBeforeUnmount(() => {
               <div class="picker-header">
                 <button
                   type="button"
-                  :disabled="
-                    rankingPickerYear <= 1970 ||
-                    (rankingPickerYear === currentYear && rankingPickerMonth === 1)
-                  "
+                  :disabled="rankingPickerYear <= 1970 && rankingPickerMonth === 1"
                   @click="navigatePickerMonth(-1)"
                 >
                   <span class="i-lucide-chevron-left h-3.5 w-3.5"></span>
