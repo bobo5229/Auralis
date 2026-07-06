@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import type { AlbumSummary } from '../types'
 
@@ -15,12 +15,6 @@ const emit = defineEmits<{
 }>()
 
 const imageFailed = ref(false)
-let disturbanceFrame: number | null = null
-let pendingDisturbance: {
-  target: HTMLElement
-  clientX: number
-  clientY: number
-} | null = null
 
 watch(
   () => props.album.artworkCacheKey,
@@ -29,62 +23,38 @@ watch(
   },
 )
 
-function renderDisturbance(): void {
-  disturbanceFrame = null
-  const disturbance = pendingDisturbance
-  pendingDisturbance = null
-  if (!disturbance) return
+// ── 3D tilt effect (perspective mode only) ──────────────
+const tiltX = ref(0)
+const tiltY = ref(0)
+const isTracking = ref(false)
 
-  const { target, clientX, clientY } = disturbance
-  const rect = target.getBoundingClientRect()
-  if (rect.width <= 0 || rect.height <= 0) return
+const artworkStyle = computed(() => {
+  if (props.displayMode !== 'perspective') return {}
+  return {
+    transform: `rotateY(${4 + tiltY.value}deg) rotateX(${tiltX.value}deg)`,
+  }
+})
 
-  const xRatio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
-  const yRatio = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height))
-  const xOffset = xRatio - 0.5
-  const yOffset = yRatio - 0.5
-
-  target.style.setProperty('--album-tilt-x', `${-yOffset * 7}deg`)
-  target.style.setProperty('--album-tilt-y', `${4 + xOffset * 9}deg`)
-  target.style.setProperty('--album-shift-x', `${xOffset * 4}px`)
-  target.style.setProperty('--album-shift-y', `${yOffset * 4}px`)
-  target.style.setProperty('--album-glint-x', `${xRatio * 100}%`)
-  target.style.setProperty('--album-glint-y', `${yRatio * 100}%`)
+function onArtworkPointerEnter(): void {
+  if (props.displayMode !== 'perspective') return
+  isTracking.value = true
 }
 
 function onArtworkPointerMove(event: PointerEvent): void {
   if (props.displayMode !== 'perspective') return
-  pendingDisturbance = {
-    target: event.currentTarget as HTMLElement,
-    clientX: event.clientX,
-    clientY: event.clientY,
-  }
-  if (disturbanceFrame === null) {
-    disturbanceFrame = window.requestAnimationFrame(renderDisturbance)
-  }
+  const el = event.currentTarget as HTMLElement
+  const rect = el.getBoundingClientRect()
+  const nx = ((event.clientX - rect.left) / rect.width - 0.5) * 2 // [-1, 1]
+  const ny = ((event.clientY - rect.top) / rect.height - 0.5) * 2 // [-1, 1]
+  tiltX.value = -ny * 10
+  tiltY.value = nx * 8
 }
 
-function onArtworkPointerLeave(event: PointerEvent): void {
-  pendingDisturbance = null
-  if (disturbanceFrame !== null) {
-    window.cancelAnimationFrame(disturbanceFrame)
-    disturbanceFrame = null
-  }
-
-  const target = event.currentTarget as HTMLElement
-  target.style.removeProperty('--album-tilt-x')
-  target.style.removeProperty('--album-tilt-y')
-  target.style.removeProperty('--album-shift-x')
-  target.style.removeProperty('--album-shift-y')
-  target.style.removeProperty('--album-glint-x')
-  target.style.removeProperty('--album-glint-y')
+function onArtworkPointerLeave(): void {
+  tiltX.value = 0
+  tiltY.value = 0
+  isTracking.value = false
 }
-
-onBeforeUnmount(() => {
-  if (disturbanceFrame !== null) {
-    window.cancelAnimationFrame(disturbanceFrame)
-  }
-})
 </script>
 
 <template>
@@ -94,6 +64,8 @@ onBeforeUnmount(() => {
   >
     <div
       class="album-card-artwork aspect-square overflow-hidden bg-[var(--auralis-artwork-placeholder-bg)]"
+      :class="{ 'album-card-artwork--tracking': isTracking && displayMode === 'perspective' }"
+      :style="artworkStyle"
       role="button"
       tabindex="0"
       :aria-label="`Open ${album.title}`"
@@ -101,6 +73,7 @@ onBeforeUnmount(() => {
       @contextmenu.prevent="emit('openContextMenu', album, $event)"
       @keydown.enter="emit('open', album)"
       @keydown.space.prevent="emit('open', album)"
+      @pointerenter="onArtworkPointerEnter"
       @pointermove="onArtworkPointerMove"
       @pointerleave="onArtworkPointerLeave"
     >
@@ -171,53 +144,20 @@ onBeforeUnmount(() => {
 }
 
 .album-card--perspective .album-card-artwork {
-  --album-tilt-x: 0deg;
-  --album-tilt-y: 4deg;
-  --album-shift-x: 0px;
-  --album-shift-y: 0px;
-  --album-glint-x: 50%;
-  --album-glint-y: 50%;
   position: relative;
   border-radius: 0;
   clip-path: polygon(0 0, 94% 4%, 94% 96%, 0 100%);
-  transform: translate3d(var(--album-shift-x), var(--album-shift-y), 0) rotateX(var(--album-tilt-x))
-    rotateY(var(--album-tilt-y));
   transform-origin: left center;
   box-shadow: 10px 12px 24px rgba(0, 0, 0, 0.18);
-  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
+  transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.album-card--perspective .album-card-artwork:hover {
-  transition-duration: 60ms;
+.album-card-artwork--tracking {
+  transition: none !important;
 }
 
 .album-card--perspective .album-card-artwork img {
   transform: scale(1.015);
-  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.album-card--perspective .album-card-artwork:hover img {
-  transform: scale(1.04);
-}
-
-.album-card--perspective .album-card-artwork::before {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  background: radial-gradient(
-    circle at var(--album-glint-x) var(--album-glint-y),
-    rgba(255, 255, 255, 0.2),
-    transparent 42%
-  );
-  content: '';
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 180ms ease;
-}
-
-.album-card--perspective .album-card-artwork:hover::before {
-  opacity: 1;
 }
 
 .album-card--perspective .album-card-artwork::after {

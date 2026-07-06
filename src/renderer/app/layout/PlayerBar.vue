@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import type { PlaybackMode } from '@renderer/features/playback/types'
@@ -13,82 +13,7 @@ const { palette: albumPalette } = useArtworkPalette(currentArtworkCacheKey)
 
 const activeAlbumTint = ref<string | null>(null)
 const previousAlbumTint = ref<string | null>(null)
-const playerBarRef = ref<HTMLElement | null>(null)
-const displacementImageRef = ref<SVGFEImageElement | null>(null)
-let playerBarResizeObserver: ResizeObserver | null = null
 let albumTintTimer: ReturnType<typeof setTimeout> | null = null
-
-function clamp(value: number, minimum: number, maximum: number): number {
-  return Math.max(minimum, Math.min(maximum, value))
-}
-
-function smoothstep(edge0: number, edge1: number, value: number): number {
-  const progress = clamp((value - edge0) / (edge1 - edge0), 0, 1)
-  return progress * progress * (3 - 2 * progress)
-}
-
-function roundedRectDistance(
-  x: number,
-  y: number,
-  halfWidth: number,
-  halfHeight: number,
-  radius: number,
-): number {
-  const qx = Math.abs(x) - halfWidth + radius
-  const qy = Math.abs(y) - halfHeight + radius
-
-  return Math.min(Math.max(qx, qy), 0) + Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) - radius
-}
-
-function updateLiquidGlassMap(): void {
-  const playerBar = playerBarRef.value
-  const displacementImage = displacementImageRef.value
-  if (!playerBar || !displacementImage) return
-
-  const bounds = playerBar.getBoundingClientRect()
-  const renderScale = 0.5
-  const width = Math.max(1, Math.round(bounds.width * renderScale))
-  const height = Math.max(1, Math.round(bounds.height * renderScale))
-  const canvas = document.createElement('canvas')
-  const context = canvas.getContext('2d')
-  if (!context) return
-
-  canvas.width = width
-  canvas.height = height
-
-  const pixels = context.createImageData(width, height)
-  const halfWidth = width / 2
-  const halfHeight = height / 2
-  const radius = Math.min(halfHeight * 0.72, 18)
-  const rimWidth = Math.max(5, height * 0.16)
-
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const localX = x - halfWidth
-      const localY = y - halfHeight
-      const distance = roundedRectDistance(localX, localY, halfWidth - 1, halfHeight - 1, radius)
-      const inwardDistance = Math.max(0, -distance)
-      const rim = 1 - smoothstep(0, rimWidth, inwardDistance)
-      const centerPull = rim * rim
-      const normalizedX = localX / Math.max(1, halfWidth)
-      const normalizedY = localY / Math.max(1, halfHeight)
-      const vectorLength = Math.max(0.001, Math.hypot(normalizedX, normalizedY))
-      const pixelIndex = (y * width + x) * 4
-
-      pixels.data[pixelIndex] = clamp(128 + (normalizedX / vectorLength) * centerPull * 118, 0, 255)
-      pixels.data[pixelIndex + 1] = clamp(
-        128 + (normalizedY / vectorLength) * centerPull * 118,
-        0,
-        255,
-      )
-      pixels.data[pixelIndex + 2] = 128
-      pixels.data[pixelIndex + 3] = 255
-    }
-  }
-
-  context.putImageData(pixels, 0, 0)
-  displacementImage.setAttribute('href', canvas.toDataURL('image/png'))
-}
 
 function formatAlbumColor(color: { r: number; g: number; b: number }): string {
   return `rgb(${color.r} ${color.g} ${color.b} / var(--auralis-playbar-album-alpha))`
@@ -170,19 +95,10 @@ function handleDocumentPointerDown(event: PointerEvent): void {
 
 onMounted(() => {
   document.addEventListener('pointerdown', handleDocumentPointerDown)
-  void nextTick(() => {
-    updateLiquidGlassMap()
-    if (playerBarRef.value) {
-      playerBarResizeObserver = new ResizeObserver(updateLiquidGlassMap)
-      playerBarResizeObserver.observe(playerBarRef.value)
-    }
-  })
 })
 
 onUnmounted(() => {
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
-  playerBarResizeObserver?.disconnect()
-  playerBarResizeObserver = null
   if (albumTintTimer) {
     clearTimeout(albumTintTimer)
     albumTintTimer = null
@@ -280,33 +196,11 @@ function handleToggleMute(): void {
 
 <template>
   <footer
-    ref="playerBarRef"
     class="player-bar"
     :class="{ 'player-bar--album-tinted': hasActiveAlbumTint }"
     :style="playerBarStyle"
   >
-    <svg class="player-bar-liquid-filter" aria-hidden="true">
-      <defs>
-        <filter
-          id="auralis-player-liquid-refraction"
-          x="0"
-          y="0"
-          width="100%"
-          height="100%"
-          color-interpolation-filters="sRGB"
-        >
-          <feImage ref="displacementImageRef" width="100%" height="100%" result="displacement" />
-          <feDisplacementMap
-            in="SourceGraphic"
-            in2="displacement"
-            scale="24"
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-        </filter>
-      </defs>
-    </svg>
-    <div class="player-bar-liquid-optics" aria-hidden="true"></div>
+    <div class="player-bar-glass" aria-hidden="true"></div>
 
     <div
       v-if="previousAlbumTint"
