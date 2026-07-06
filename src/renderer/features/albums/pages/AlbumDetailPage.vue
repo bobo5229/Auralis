@@ -43,6 +43,25 @@ const albumTracks = computed(() =>
     }),
 )
 
+const albumGroups = computed(() => {
+  const groupedAlbums = new Map<string, TrackListItem[]>()
+
+  for (const track of tracks.value) {
+    const artist = track.albumArtist || track.artist || 'Unknown Artist'
+    const title = track.album || 'Unknown Album'
+    const key = `${artist}\u0000${title}`
+    const existing = groupedAlbums.get(key)
+
+    if (existing) {
+      existing.push(track)
+    } else {
+      groupedAlbums.set(key, [track])
+    }
+  }
+
+  return [...groupedAlbums.entries()].map(([key, groupTracks]) => ({ key, tracks: groupTracks }))
+})
+
 const artworkUrl = computed(() => {
   const artworkKey =
     albumTracks.value.find((track) => track.artworkCacheKey)?.artworkCacheKey ?? null
@@ -153,14 +172,30 @@ function formatAlbumDuration(seconds: number): string {
   return `${hh} 小时 ${mm} 分`
 }
 
+function buildAlbumPlaybackQueue(): TrackListItem[] {
+  if (playback.state.playbackMode !== 'sequential') {
+    return albumTracks.value
+  }
+
+  const currentAlbumKey = `${albumArtist.value}\u0000${albumTitle.value}`
+  const albumIndex = albumGroups.value.findIndex((album) => album.key === currentAlbumKey)
+  if (albumIndex < 0) return albumTracks.value
+
+  const followingAlbumTracks = albumGroups.value
+    .slice(albumIndex + 1)
+    .flatMap((album) => album.tracks)
+
+  return [...albumTracks.value, ...followingAlbumTracks]
+}
+
 function playAlbum(): void {
   const firstTrack = albumTracks.value[0]
   if (!firstTrack) return
-  void playback.playTrackFromQueue(albumTracks.value, firstTrack.id)
+  void playback.playTrackFromQueue(buildAlbumPlaybackQueue(), firstTrack.id)
 }
 
 function playTrack(trackId: number): void {
-  void playback.playTrackFromQueue(albumTracks.value, trackId)
+  void playback.playTrackFromQueue(buildAlbumPlaybackQueue(), trackId)
 }
 
 function selectTrack(trackId: number): void {

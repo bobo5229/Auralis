@@ -238,27 +238,14 @@ input {
   overflow: visible;
 }
 
-.player-bar-liquid-filter {
-  position: absolute;
-  width: 0;
-  height: 0;
-  pointer-events: none;
-}
-
-.player-bar-liquid-optics {
+.player-bar-glass {
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-}
-
-.player-bar-liquid-optics {
   z-index: 0;
   overflow: hidden;
+  border-radius: inherit;
   background: var(--auralis-playbar-bg);
-  -webkit-backdrop-filter: url('#auralis-player-liquid-refraction') blur(12px) saturate(1.24)
-    contrast(1.04);
-  backdrop-filter: url('#auralis-player-liquid-refraction') blur(12px) saturate(1.24) contrast(1.04);
+  pointer-events: none;
 }
 
 .player-bar::before {
@@ -281,11 +268,12 @@ input {
   pointer-events: none;
 }
 
-.player-bar > :not(.player-bar-album-tint, .player-bar-liquid-filter, .player-bar-liquid-optics) {
+.player-bar > :not(.player-bar-album-tint, .player-bar-glass) {
   position: relative;
   z-index: 4;
 }
 
+.player-bar-glass,
 .queue-popover,
 .playback-mode-menu {
   -webkit-backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
@@ -363,7 +351,7 @@ input {
 }
 
 @media (prefers-contrast: more) {
-  .player-bar-liquid-optics {
+  .player-bar-glass {
     background: var(--auralis-now-playing-bg);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;

@@ -250,12 +250,23 @@ function locateCurrentAlbum(): void {
   })
 }
 
+function buildAlbumPlaybackQueue(album: AlbumSummary): TrackListItem[] {
+  if (playback.state.playbackMode !== 'sequential') {
+    return album.tracks
+  }
+
+  const albumIndex = albums.value.findIndex((candidate) => candidate.key === album.key)
+  if (albumIndex < 0) return album.tracks
+
+  return albums.value.slice(albumIndex).flatMap((candidate) => candidate.tracks)
+}
+
 function playContextAlbum(): void {
   const album = contextMenu.value?.album
   closeContextMenu()
   if (!album || album.tracks.length === 0) return
 
-  void playback.playTrackFromQueue(album.tracks, album.tracks[0].id)
+  void playback.playTrackFromQueue(buildAlbumPlaybackQueue(album), album.tracks[0].id)
 }
 
 function insertContextAlbum(): void {
