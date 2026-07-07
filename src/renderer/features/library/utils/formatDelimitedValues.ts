@@ -5,6 +5,7 @@
  * Format rules:
  *   A; B       → A & B
  *   A; B; C    → A, B & C
+ *   A; B; C; D → A, B, C & D
  */
 
 export function splitDelimitedValues(value: string | null | undefined): string[] {

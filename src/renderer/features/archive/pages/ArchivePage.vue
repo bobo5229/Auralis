@@ -11,6 +11,7 @@ import type {
   ListeningRankingTarget,
 } from '@shared/types/archive'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
+import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 
 interface CalendarDay {
   date: string
@@ -73,9 +74,9 @@ const rankingRanges: Array<{ value: ListeningRankingRange; label: string }> = [
   { value: 'month', label: '月' },
   { value: 'quarter', label: '季' },
 ]
-const rankingTargets: Array<{ value: ListeningRankingTarget; label: string }> = [
-  { value: 'track', label: '单曲' },
-  { value: 'album', label: '专辑' },
+const rankingTargets: Array<{ value: ListeningRankingTarget; label: string; icon: string }> = [
+  { value: 'track', label: '单曲', icon: 'i-lucide-music-2' },
+  { value: 'album', label: '专辑', icon: 'i-lucide-disc-3' },
 ]
 let longPressTimer: ReturnType<typeof window.setTimeout> | null = null
 let resetHoldTimer: ReturnType<typeof window.setTimeout> | null = null
@@ -571,6 +572,10 @@ function formatMinutes(durationSeconds: number): string {
   return `${Math.round(durationSeconds / 60)} 分钟`
 }
 
+function formatRankingArtist(artist: string | null): string {
+  return formatArtist(artist) || '未知艺术家'
+}
+
 function formatHoursAndMinutes(durationSeconds: number): string {
   if (durationSeconds > 0 && durationSeconds < 60) return '不到 1 分钟'
   const totalMinutes = Math.round(durationSeconds / 60)
@@ -926,9 +931,11 @@ onBeforeUnmount(() => {
             :key="target.value"
             type="button"
             :class="{ 'is-active': rankingTarget === target.value }"
+            :aria-label="`切换到${target.label}榜`"
+            :title="target.label"
             @click="setRankingTarget(target.value)"
           >
-            {{ target.label }}
+            <span :class="`${target.icon} h-4 w-4`"></span>
           </button>
         </div>
 
@@ -1090,7 +1097,7 @@ onBeforeUnmount(() => {
             <strong>
               {{ item.title || (rankingTarget === 'track' ? '未知歌曲' : '未知专辑') }}
             </strong>
-            <span>{{ item.artist || '未知艺术家' }}</span>
+            <span>{{ formatRankingArtist(item.artist) }}</span>
           </div>
           <div class="archive-ranking-meta">
             <strong>{{ item.playCount }} 次</strong>
@@ -1768,6 +1775,15 @@ onBeforeUnmount(() => {
 .archive-ranking-targets button {
   height: 30px;
   padding: 0 10px;
+}
+
+.archive-ranking-targets button {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 .archive-ranking-ranges button:hover,

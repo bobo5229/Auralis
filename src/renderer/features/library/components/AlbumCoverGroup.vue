@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
+import { formatArtist } from '../utils/formatArtist'
 import AlbumCoverTrackRow from './AlbumCoverTrackRow.vue'
 
 export type LibraryAlbumGroup = {
@@ -66,7 +67,7 @@ function onArtworkContextMenu(event: MouseEvent): void {
 
       <div class="album-cover-meta">
         <p class="album-cover-meta-title">{{ group.album ?? '' }}</p>
-        <p class="album-cover-meta-line truncate">{{ group.albumArtist ?? '' }}</p>
+        <p class="album-cover-meta-line truncate">{{ formatArtist(group.albumArtist) }}</p>
         <p v-if="group.releaseDate" class="album-cover-meta-line truncate">
           {{ group.releaseDate }}
         </p>
