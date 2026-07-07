@@ -6,6 +6,7 @@ import { auralis } from '@renderer/shared/ipc/client'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatDuration } from '@renderer/features/library/utils/formatDuration'
+import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,6 +23,7 @@ const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 const MAX_COVER_TILT_DEGREES = 12
 
 const albumArtist = computed(() => String(route.query.artist ?? ''))
+const displayAlbumArtist = computed(() => formatArtist(albumArtist.value))
 const albumTitle = computed(() => String(route.query.title ?? ''))
 
 const albumTracks = computed(() =>
@@ -134,14 +136,6 @@ function showSearchResultHighlight(): void {
     highlightedTrackId.value = null
     highlightTimeout = null
   }, 1800)
-}
-
-function formatArtists(artist: string | null): string {
-  if (!artist) return ''
-  const parts = artist.split('; ').filter(Boolean)
-  if (parts.length <= 1) return artist
-  if (parts.length === 2) return `${parts[0]} & ${parts[1]}`
-  return `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}`
 }
 
 function formatTrackCount(count: number): string {
@@ -318,7 +312,7 @@ onBeforeUnmount(() => {
         <div class="album-detail-summary">
           <div>
             <h1>{{ albumTitle }}</h1>
-            <p class="album-detail-artist">{{ albumArtist }}</p>
+            <p class="album-detail-artist">{{ displayAlbumArtist }}</p>
             <p class="album-detail-meta">
               <span v-for="(item, index) in albumMetaItems" :key="item">
                 <span v-if="index > 0"> · </span>{{ item }}
@@ -354,7 +348,7 @@ onBeforeUnmount(() => {
             <span
               v-if="track.artist && track.artist !== albumArtist"
               class="album-detail-track-artist"
-              >{{ formatArtists(track.artist) }}</span
+              >{{ formatArtist(track.artist) }}</span
             >
           </span>
           <span class="album-detail-track-duration">{{

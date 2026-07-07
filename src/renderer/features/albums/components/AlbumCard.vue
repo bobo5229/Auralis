@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
+import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import type { AlbumSummary } from '../types'
 
 const props = defineProps<{
@@ -101,7 +102,7 @@ function onArtworkPointerLeave(): void {
         {{ album.title }}
       </h2>
       <p class="mt-1 truncate text-xs text-[var(--auralis-text-muted)]">
-        {{ album.albumArtist }}
+        {{ formatArtist(album.albumArtist) }}
       </p>
       <p v-if="album.releaseDate" class="mt-1 truncate text-xs text-[var(--auralis-text-faint)]">
         {{ album.releaseDate.slice(0, 4) }}年

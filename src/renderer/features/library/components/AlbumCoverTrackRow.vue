@@ -42,7 +42,7 @@ function onRowContextMenu(trackId: number, event: MouseEvent): void {
     @dblclick="onRowDoubleClick(track.id)"
     @contextmenu.prevent="onRowContextMenu(track.id, $event)"
   >
-    <span class="text-right text-xs text-[var(--auralis-text-muted)] tabular-nums">
+    <span class="text-right text-xs font-bold text-[var(--auralis-text-muted)] tabular-nums">
       {{ formatTrackNo(track.trackNo) }}
     </span>
     <div class="min-w-0 flex flex-col justify-center">
@@ -51,18 +51,18 @@ function onRowContextMenu(trackId: number, event: MouseEvent): void {
       }}</span>
       <span
         v-if="isMultiValueArtist(track.artist)"
-        class="truncate text-xs text-[var(--auralis-text-faint)] leading-tight mt-0.5"
+        class="truncate text-xs font-bold text-[var(--auralis-text-faint)] leading-tight mt-0.5"
       >
         {{ formatArtist(track.artist) }}
       </span>
     </div>
     <span
-      class="overflow-hidden text-ellipsis whitespace-nowrap text-right text-xs text-[var(--auralis-text-muted)]"
+      class="overflow-hidden text-ellipsis whitespace-nowrap text-right font-bold text-xs text-[var(--auralis-text-muted)]"
       style="direction: rtl"
     >
       {{ formatGenre(track.genre) }}
     </span>
-    <span class="text-right text-xs text-[var(--auralis-text-muted)] tabular-nums">
+    <span class="text-right text-xs font-bold text-[var(--auralis-text-muted)] tabular-nums">
       {{ formatDuration(track.durationSeconds) }}
     </span>
   </div>
