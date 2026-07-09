@@ -676,8 +676,10 @@ export class TrackRepository extends BaseRepository {
   }
 
   markMissingByPathPrefix(rootPath: string): number {
-    const normalized = normalize(rootPath)
-    const prefix = escapeLikePattern(normalized.endsWith('/') ? normalized : normalized + '/')
+    const rootPrefixes = toRootPrefixes(rootPath)
+    const predicates = rootPrefixes.map(() => `file_path LIKE ? ESCAPE '~'`).join(' OR ')
+    const patternArgs = rootPrefixes.map((prefix) => `${escapeLikePattern(prefix)}%`)
+
     return this.db
       .prepare(
         `UPDATE tracks
@@ -685,8 +687,8 @@ export class TrackRepository extends BaseRepository {
              missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
              updated_at = CURRENT_TIMESTAMP
          WHERE availability = 'available'
-           AND file_path LIKE ? ESCAPE '~'`,
+           AND (${predicates})`,
       )
-      .run(`${prefix}%`).changes
+      .run(...patternArgs).changes
   }
 }
