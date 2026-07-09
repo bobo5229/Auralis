@@ -37,7 +37,7 @@ export interface AnnualListeningInsights {
   } | null
 }
 
-export type ListeningRankingRange = 'day' | 'week' | 'month' | 'quarter'
+export type ListeningRankingRange = 'day' | 'week' | 'month' | 'year'
 
 export type ListeningRankingTarget = 'track' | 'album'
 
@@ -48,7 +48,6 @@ export interface ListeningRankingParams {
   weekStartDate?: string
   year?: number
   month?: number
-  quarter?: number
 }
 
 export interface ListeningRankingItem {

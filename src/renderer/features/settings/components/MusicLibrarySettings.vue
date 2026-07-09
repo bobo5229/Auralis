@@ -255,7 +255,7 @@ onBeforeUnmount(() => {
     <section class="library-card">
       <div class="library-card-header">
         <div class="folder-mark">
-          <span class="i-lucide-folder-music"></span>
+          <span class="i-lucide-folder"></span>
         </div>
         <div class="folder-copy">
           <span>当前音乐文件夹</span>
@@ -324,90 +324,90 @@ onBeforeUnmount(() => {
           <strong>{{ progressPercent }}%</strong>
         </div>
       </div>
-    </section>
 
-    <p v-if="operationError" class="inline-error">
-      <span class="i-lucide-circle-alert"></span>
-      {{ operationError }}
-    </p>
-
-    <section class="maintenance-section">
-      <div class="maintenance-heading">
-        <div>
-          <span class="i-lucide-wand-sparkles"></span>
-          <div>
-            <h3>元数据维护</h3>
-            <p>重新读取音频文件，补全缺失的标题、艺术家、歌词和封面。</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          class="secondary-button"
-          :disabled="isRefreshing || isScanning || !activeRoot"
-          @click="refreshMissingMetadata"
-        >
-          <span
-            :class="isRefreshing ? 'i-lucide-loader-circle scan-spinner' : 'i-lucide-refresh-cw'"
-          ></span>
-          {{ isRefreshing ? '正在维护…' : '补全缺失信息' }}
-        </button>
-      </div>
-
-      <div v-if="refreshStatus" class="refresh-progress">
-        <div class="progress-track">
-          <span :style="{ width: `${refreshProgressPercent}%` }"></span>
-        </div>
-        <div>
-          <span>{{ refreshStatusLabel }}</span>
-          <strong>{{ refreshProgressPercent }}%</strong>
-        </div>
-      </div>
-
-      <p v-if="refreshErrorMessage" class="inline-error">
+      <p v-if="operationError" class="inline-error library-operation-error">
         <span class="i-lucide-circle-alert"></span>
-        {{ refreshErrorMessage }}
+        {{ operationError }}
       </p>
 
-      <div v-if="refreshFailures.length > 0" class="failure-section">
-        <button
-          type="button"
-          class="failure-toggle"
-          :aria-expanded="showRefreshFailures"
-          @click="showRefreshFailures = !showRefreshFailures"
-        >
-          <span class="failure-badge">
-            <span class="i-lucide-triangle-alert"></span>
-            {{ refreshFailures.length }}
-          </span>
-          <span>最近有文件未能完成元数据维护</span>
-          <span
-            class="failure-chevron"
-            :class="showRefreshFailures ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
-          ></span>
-        </button>
-
-        <div v-if="showRefreshFailures" class="failure-content">
-          <div class="failure-toolbar">
-            <span>失败记录</span>
-            <button
-              type="button"
-              :disabled="isClearingRefreshFailures"
-              @click="clearRefreshFailures"
-            >
-              {{ isClearingRefreshFailures ? '正在清除…' : '清除记录' }}
-            </button>
+      <section class="maintenance-section">
+        <div class="maintenance-heading">
+          <div>
+            <span class="i-lucide-wand-sparkles"></span>
+            <div>
+              <h3>元数据维护</h3>
+              <p>重新读取音频文件，补全缺失的标题、艺术家、歌词和封面。</p>
+            </div>
           </div>
-          <div class="failure-list">
-            <div v-for="failure in refreshFailures" :key="failure.id" class="failure-item">
-              <span class="failure-path">
-                {{ failure.filePath ?? `曲目 ${failure.trackId ?? '未知'}` }}
-              </span>
-              <strong>{{ failure.reason }}</strong>
-              <small>任务 {{ failure.jobId }} · {{ failure.createdAt }}</small>
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="isRefreshing || isScanning || !activeRoot"
+            @click="refreshMissingMetadata"
+          >
+            <span
+              :class="isRefreshing ? 'i-lucide-loader-circle scan-spinner' : 'i-lucide-refresh-cw'"
+            ></span>
+            {{ isRefreshing ? '正在维护…' : '补全缺失信息' }}
+          </button>
+        </div>
+
+        <div v-if="refreshStatus" class="refresh-progress">
+          <div class="progress-track">
+            <span :style="{ width: `${refreshProgressPercent}%` }"></span>
+          </div>
+          <div>
+            <span>{{ refreshStatusLabel }}</span>
+            <strong>{{ refreshProgressPercent }}%</strong>
+          </div>
+        </div>
+
+        <p v-if="refreshErrorMessage" class="inline-error">
+          <span class="i-lucide-circle-alert"></span>
+          {{ refreshErrorMessage }}
+        </p>
+
+        <div v-if="refreshFailures.length > 0" class="failure-section">
+          <button
+            type="button"
+            class="failure-toggle"
+            :aria-expanded="showRefreshFailures"
+            @click="showRefreshFailures = !showRefreshFailures"
+          >
+            <span class="failure-badge">
+              <span class="i-lucide-triangle-alert"></span>
+              {{ refreshFailures.length }}
+            </span>
+            <span>最近有文件未能完成元数据维护</span>
+            <span
+              class="failure-chevron"
+              :class="showRefreshFailures ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+            ></span>
+          </button>
+
+          <div v-if="showRefreshFailures" class="failure-content">
+            <div class="failure-toolbar">
+              <span>失败记录</span>
+              <button
+                type="button"
+                :disabled="isClearingRefreshFailures"
+                @click="clearRefreshFailures"
+              >
+                {{ isClearingRefreshFailures ? '正在清除…' : '清除记录' }}
+              </button>
+            </div>
+            <div class="failure-list">
+              <div v-for="failure in refreshFailures" :key="failure.id" class="failure-item">
+                <span class="failure-path">
+                  {{ failure.filePath ?? `曲目 ${failure.trackId ?? '未知'}` }}
+                </span>
+                <strong>{{ failure.reason }}</strong>
+                <small>任务 {{ failure.jobId }} · {{ failure.createdAt }}</small>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </section>
   </section>
 </template>
@@ -448,8 +448,7 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
-.library-card,
-.maintenance-section {
+.library-card {
   overflow: hidden;
   border: 1px solid var(--auralis-border-subtle);
   border-radius: 16px;
@@ -469,14 +468,12 @@ onBeforeUnmount(() => {
   width: 44px;
   height: 44px;
   place-items: center;
-  border-radius: 13px;
   color: var(--auralis-sidebar-active-icon);
-  background: var(--auralis-sidebar-active-bg);
 }
 
 .folder-mark span {
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
 }
 
 .folder-copy {
@@ -678,7 +675,7 @@ onBeforeUnmount(() => {
 }
 
 .maintenance-section {
-  margin-top: 18px;
+  border-top: 1px solid var(--auralis-border-subtle);
 }
 
 .maintenance-heading {
@@ -731,6 +728,12 @@ onBeforeUnmount(() => {
   margin: 10px 2px 0;
   color: #c2675b;
   font-size: 10px;
+}
+
+.library-operation-error {
+  margin: 0;
+  padding: 10px 18px;
+  border-top: 1px solid var(--auralis-border-subtle);
 }
 
 .inline-error span {

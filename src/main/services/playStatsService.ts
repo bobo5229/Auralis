@@ -156,21 +156,15 @@ export class PlayStatsService {
       }
       startDate = `${year}-${String(month).padStart(2, '0')}-01`
       endDate = formatDateKey(new Date(year, month, 0))
-    } else if (params.range === 'quarter') {
+    } else if (params.range === 'year') {
       const year = params.year ?? currentYear
-      const quarter = params.quarter ?? Math.floor(now.getMonth() / 3) + 1
       if (!Number.isInteger(year) || year < 1970 || year > currentYear) {
         throw new Error(`Year must be between 1970 and ${currentYear}`)
       }
-      if (!Number.isInteger(quarter) || quarter < 1 || quarter > 4) {
-        throw new Error('Quarter must be between 1 and 4')
-      }
-      const startMonth = (quarter - 1) * 3 + 1
-      const endMonth = startMonth + 2
-      startDate = `${year}-${String(startMonth).padStart(2, '0')}-01`
-      endDate = formatDateKey(new Date(year, endMonth, 0))
+      startDate = `${year}-01-01`
+      endDate = `${year}-12-31`
     } else {
-      throw new Error('Ranking range must be day, week, month, or quarter')
+      throw new Error('Ranking range must be day, week, month, or year')
     }
 
     const todayKey = formatDateKey(now)
