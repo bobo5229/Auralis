@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import type { EditableTrackMetadata, TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -13,6 +14,8 @@ import { usePlayback } from '@renderer/features/playback/composables/usePlayback
 import { normalizeSearchText } from '../utils/normalizeSearchText'
 
 const playback = usePlayback()
+const route = useRoute()
+const router = useRouter()
 
 const tracks = shallowRef<TrackListItem[]>([])
 const isLoading = ref(true)
@@ -31,6 +34,12 @@ interface LibraryContextMenuState {
 }
 
 const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
+const smartPlaylistId = computed(() => {
+  if (route.name !== 'smart-playlist') return null
+  const parsed = Number(route.params.id)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+})
+const isSmartPlaylist = computed(() => smartPlaylistId.value !== null)
 
 function readPersistedViewMode(): LibraryViewMode {
   const stored = localStorage.getItem(LIBRARY_VIEW_MODE_KEY)
@@ -40,7 +49,9 @@ function readPersistedViewMode(): LibraryViewMode {
 const libraryViewMode = ref<LibraryViewMode>(readPersistedViewMode())
 const isCoverView = computed(() => libraryViewMode.value === 'cover')
 const contextMenu = ref<LibraryContextMenuState | null>(null)
+const isStartingLibraryRefresh = ref(false)
 let unsubscribeChanged: (() => void) | null = null
+let unsubscribeScanProgress: (() => void) | null = null
 
 // Search state
 const searchQuery = ref('')
@@ -148,7 +159,7 @@ function onOpenContextMenu(
   playback.selectTrack(trackId)
 
   const menuWidth = 220
-  const menuHeight = 300
+  const menuHeight = 344
   const x = Math.min(event.clientX, window.innerWidth - menuWidth - 8)
   const y = Math.min(event.clientY, window.innerHeight - menuHeight - 8)
 
@@ -169,7 +180,18 @@ function getTrackById(trackId: number): TrackListItem | null {
 }
 
 async function reloadTracks(): Promise<void> {
-  tracks.value = await auralis.library.getTracks()
+  if (smartPlaylistId.value !== null) {
+    const detail = await auralis.smartPlaylists.getDetail(smartPlaylistId.value)
+    if (!detail) {
+      await router.replace('/')
+      return
+    }
+    tracks.value = detail.tracks
+    libraryViewMode.value = detail.playlist.viewMode
+  } else {
+    tracks.value = await auralis.library.getTracks()
+    libraryViewMode.value = readPersistedViewMode()
+  }
   lastMatchedTrackIndex = -1
 }
 
@@ -217,7 +239,11 @@ function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId: number)
   }
 
   libraryViewMode.value = nextMode
-  localStorage.setItem(LIBRARY_VIEW_MODE_KEY, nextMode)
+  if (smartPlaylistId.value !== null) {
+    void auralis.smartPlaylists.updateViewMode(smartPlaylistId.value, nextMode)
+  } else {
+    localStorage.setItem(LIBRARY_VIEW_MODE_KEY, nextMode)
+  }
   closeContextMenu()
 }
 
@@ -400,6 +426,25 @@ function getAlbumNameForTrack(trackId: number): string {
   return group?.album || 'Unknown Album'
 }
 
+async function onRefreshLibrary(): Promise<void> {
+  if (isStartingLibraryRefresh.value) {
+    return
+  }
+
+  closeContextMenu()
+  isStartingLibraryRefresh.value = true
+
+  try {
+    const roots = await auralis.library.getRoots()
+    const activeRoot = roots[0]
+    if (!activeRoot) return
+
+    await auralis.library.startScan(activeRoot.id)
+  } finally {
+    isStartingLibraryRefresh.value = false
+  }
+}
+
 function closeMetadataEditor(): void {
   if (isSavingMetadata.value) {
     return
@@ -439,7 +484,28 @@ onMounted(async () => {
   unsubscribeChanged = auralis.library.onChanged(async () => {
     await reloadTracks()
   })
+
+  unsubscribeScanProgress = auralis.library.onScanProgress(async (progress) => {
+    if (progress.status === 'completed') {
+      await reloadTracks()
+    }
+  })
 })
+
+watch(
+  () => route.fullPath,
+  async () => {
+    isLoading.value = true
+    searchQuery.value = ''
+    closeContextMenu()
+    try {
+      await reloadTracks()
+      await scrollToPlaybackTrack()
+    } finally {
+      isLoading.value = false
+    }
+  },
+)
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown)
@@ -448,6 +514,7 @@ onBeforeUnmount(() => {
     pendingViewSwitchScrollFrame = null
   }
   unsubscribeChanged?.()
+  unsubscribeScanProgress?.()
 })
 </script>
 
@@ -460,10 +527,10 @@ onBeforeUnmount(() => {
     <div
       v-else-if="tracks.length > 0"
       class="library-list-shell relative flex flex-1 flex-col overflow-hidden"
-      @mousemove="onLibraryListMouseMove"
-      @mouseleave="onLibraryListMouseLeave"
+      @mousemove="!isSmartPlaylist && onLibraryListMouseMove($event)"
+      @mouseleave="!isSmartPlaylist && onLibraryListMouseLeave()"
     >
-      <div class="library-search-zone">
+      <div v-if="!isSmartPlaylist" class="library-search-zone">
         <Transition name="search-bar">
           <div
             v-if="shouldRenderSearchBar"
@@ -550,7 +617,11 @@ onBeforeUnmount(() => {
 
     <div v-else class="flex flex-1 items-center justify-center">
       <p class="text-sm text-[var(--auralis-text-faint)]">
-        No tracks found. Add music folders in Settings.
+        {{
+          isSmartPlaylist
+            ? '此智能歌单中暂无歌曲。'
+            : 'No tracks found. Add music folders in Settings.'
+        }}
       </p>
     </div>
 
@@ -651,6 +722,16 @@ onBeforeUnmount(() => {
           >
             <span class="i-lucide-list-music"></span>
             <span>切换到平铺视图</span>
+          </button>
+          <div class="library-context-menu-separator"></div>
+          <button
+            class="library-context-menu-item"
+            type="button"
+            :disabled="isStartingLibraryRefresh"
+            @click="onRefreshLibrary"
+          >
+            <span class="i-lucide-refresh-cw"></span>
+            <span>刷新</span>
           </button>
         </LiquidGlassPanel>
       </div>

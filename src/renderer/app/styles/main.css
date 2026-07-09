@@ -502,6 +502,43 @@ input[type='range'].volume-slider::-moz-range-thumb {
   pointer-events: none;
 }
 
+.sidebar-link[data-smart-playlist-id] {
+  cursor: grab;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.smart-playlist-link-pressed {
+  background: var(--auralis-control-hover-bg);
+}
+
+.smart-playlist-link-dragging {
+  z-index: 1;
+  cursor: grabbing !important;
+  opacity: 0.5;
+}
+
+.smart-playlist-drop-before::after,
+.smart-playlist-drop-after::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  right: 8px;
+  left: 8px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--auralis-sidebar-active-indicator);
+  pointer-events: none;
+}
+
+.smart-playlist-drop-before::after {
+  top: -3px;
+}
+
+.smart-playlist-drop-after::after {
+  bottom: -3px;
+}
+
 .song-row {
   box-sizing: border-box;
   border-bottom: 1px solid var(--auralis-song-row-border, transparent);
@@ -619,6 +656,84 @@ input[type='range'].volume-slider::-moz-range-thumb {
   height: 1px;
   margin: 4px -6px;
   background: var(--auralis-border-subtle);
+}
+
+.smart-playlist-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+.smart-playlist-dialog {
+  width: min(360px, calc(100vw - 48px));
+  padding: 18px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 8px;
+  background: var(--auralis-dialog-bg);
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
+}
+
+.smart-playlist-dialog h2 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.smart-playlist-dialog input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 6px;
+  outline: none;
+  color: var(--auralis-text);
+  background: var(--auralis-control-bg);
+  font-size: 14px;
+}
+
+.smart-playlist-dialog input:focus {
+  border-color: var(--auralis-sidebar-active-indicator);
+}
+
+.smart-playlist-dialog-error {
+  margin: 6px 0 0;
+  color: #d75454;
+  font-size: 12px;
+}
+
+.smart-playlist-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.smart-playlist-dialog-actions button {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--auralis-text-muted);
+  background: transparent;
+  font-size: 13px;
+}
+
+.smart-playlist-dialog-actions button:hover {
+  color: var(--auralis-text);
+  background: var(--auralis-control-hover-bg);
+}
+
+.smart-playlist-dialog-actions .smart-playlist-dialog-primary {
+  color: var(--auralis-sidebar-active-text);
+  background: var(--auralis-sidebar-active-bg);
+}
+
+.smart-playlist-dialog-actions .smart-playlist-dialog-danger {
+  color: #d75454;
 }
 
 /* Library view switch fade */

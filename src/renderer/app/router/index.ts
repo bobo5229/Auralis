@@ -9,6 +9,12 @@ export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     { path: '/', name: 'library', component: LibraryPage, meta: { title: 'Library' } },
+    {
+      path: '/smart-playlists/:id',
+      name: 'smart-playlist',
+      component: LibraryPage,
+      meta: { title: 'Smart Playlist' },
+    },
     { path: '/albums', name: 'albums', component: AlbumsPage, meta: { title: 'Albums' } },
     {
       path: '/albums/detail',

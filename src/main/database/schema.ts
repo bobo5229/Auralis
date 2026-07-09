@@ -471,6 +471,38 @@ const migrations = [
         AND play_count > 0;
     `,
   },
+  {
+    id: 17,
+    name: 'add_smart_playlists',
+    sql: `
+      CREATE TABLE smart_playlists (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        rule_json TEXT NOT NULL,
+        view_mode TEXT NOT NULL DEFAULT 'flat'
+          CHECK(view_mode IN ('flat', 'cover')),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX idx_smart_playlists_created_at
+        ON smart_playlists(created_at, id);
+    `,
+  },
+  {
+    id: 18,
+    name: 'add_smart_playlist_sort_order',
+    sql: `
+      ALTER TABLE smart_playlists
+        ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+
+      UPDATE smart_playlists
+      SET sort_order = id;
+
+      CREATE INDEX idx_smart_playlists_sort_order
+        ON smart_playlists(sort_order, id);
+    `,
+  },
 ] as const
 
 export function migrateDatabase(db: Database.Database): void {

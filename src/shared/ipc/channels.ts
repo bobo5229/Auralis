@@ -14,6 +14,15 @@ export const ipcChannels = {
     scanProgress: 'library:scan-progress',
     changed: 'library:changed',
   },
+  smartPlaylists: {
+    list: 'smart-playlists:list',
+    getDetail: 'smart-playlists:get-detail',
+    create: 'smart-playlists:create',
+    rename: 'smart-playlists:rename',
+    updateViewMode: 'smart-playlists:update-view-mode',
+    delete: 'smart-playlists:delete',
+    reorder: 'smart-playlists:reorder',
+  },
   lyrics: {
     getByTrackId: 'lyrics:get-by-track-id',
   },

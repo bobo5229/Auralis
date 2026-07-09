@@ -17,6 +17,13 @@ import type {
   ListeningRanking,
   ListeningRankingParams,
 } from '@shared/types/archive'
+import type {
+  CreateSmartPlaylistResult,
+  SmartPlaylist,
+  SmartPlaylistDetail,
+  SmartPlaylistRule,
+  SmartPlaylistViewMode,
+} from '@shared/types/smartPlaylist'
 
 export interface AuralisApi {
   app: {
@@ -47,6 +54,15 @@ export interface AuralisApi {
         filePaths: string[]
       }) => void,
     ) => () => void
+  }
+  smartPlaylists: {
+    list: () => Promise<SmartPlaylist[]>
+    getDetail: (id: number) => Promise<SmartPlaylistDetail | null>
+    create: (name: string, rule: SmartPlaylistRule) => Promise<CreateSmartPlaylistResult>
+    rename: (id: number, name: string) => Promise<SmartPlaylist | null>
+    updateViewMode: (id: number, viewMode: SmartPlaylistViewMode) => Promise<SmartPlaylist | null>
+    delete: (id: number) => Promise<{ deleted: boolean }>
+    reorder: (ids: number[]) => Promise<SmartPlaylist[]>
   }
   lyrics: {
     getByTrackId: (trackId: number) => Promise<TrackLyrics | null>
