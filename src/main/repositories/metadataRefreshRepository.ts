@@ -48,7 +48,7 @@ export interface RefreshedTrackMetadata {
 }
 
 function clampLimit(limit: number | undefined, fallback = 5000, max = 10000): number {
-  if (!Number.isFinite(limit) || !Number.isInteger(limit)) {
+  if (limit === undefined || !Number.isFinite(limit) || !Number.isInteger(limit)) {
     return fallback
   }
 
@@ -76,6 +76,15 @@ function normalizeEditableYear(value: number | null): number | null {
   return value
 }
 
+function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0
+}
+
+function daysInMonth(year: number, month: number): number {
+  if (month === 2) return isLeapYear(year) ? 29 : 28
+  return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]
+}
+
 function normalizeEditableReleaseDate(value: string | null): string | null {
   const normalized = normalizeEditableText(value)
 
@@ -98,6 +107,15 @@ function normalizeEditableReleaseDate(value: string | null): string | null {
 
   if (day !== null && (day < 1 || day > 31)) {
     throw new Error('Release Date day must be between 01 and 31')
+  }
+
+  // Validate that the date actually exists (e.g. reject 2025-02-31, 2025-04-31).
+  // Manual days-in-month check avoids JS Date year 0–99 → 1900–1999 coercion.
+  if (month !== null && day !== null) {
+    const year = Number.parseInt(match[1], 10)
+    if (day > daysInMonth(year, month)) {
+      throw new Error('Release Date does not exist on the calendar')
+    }
   }
 
   return normalized
@@ -581,7 +599,7 @@ export class MetadataRefreshRepository extends BaseRepository {
       ON CONFLICT(name) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
     `)
 
-    const getArtistId = this.db.prepare(`
+    const getArtistId = this.db.prepare<[string], { id: number } | undefined>(`
       SELECT id
       FROM artists
       WHERE name = ?
@@ -596,20 +614,6 @@ export class MetadataRefreshRepository extends BaseRepository {
     const insertTrackArtist = this.db.prepare(`
       INSERT OR IGNORE INTO track_artists (track_id, artist_id, position, role)
       VALUES (?, ?, ?, ?)
-    `)
-
-    const insertSnapshot = this.db.prepare(`
-      INSERT INTO file_tag_snapshots (
-        track_id,
-        file_size,
-        file_mtime_ms,
-        parser_name,
-        raw_common_json,
-        raw_native_json
-      )
-      SELECT id, file_size, file_mtime_ms, 'music-metadata', ?, ?
-      FROM tracks
-      WHERE id = ?
     `)
 
     const write = this.db.transaction((metadata: RefreshedTrackMetadata) => {
@@ -671,7 +675,6 @@ export class MetadataRefreshRepository extends BaseRepository {
         deleteTrackArtists,
         insertTrackArtist,
       )
-      insertSnapshot.run(metadata.rawCommonJson, metadata.rawNativeJson, metadata.trackId)
     })
 
     write(result)

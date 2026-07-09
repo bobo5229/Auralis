@@ -65,4 +65,21 @@ export class LibraryRootRepository extends BaseRepository {
       .prepare('UPDATE library_roots SET last_scanned_at = CURRENT_TIMESTAMP WHERE id = ?')
       .run(rootId)
   }
+
+  deleteById(id: number): boolean {
+    const deleteFailures = this.db.prepare(`
+      DELETE FROM scan_failures
+      WHERE job_id IN (SELECT id FROM scan_jobs WHERE root_id = ?)
+    `)
+    const deleteJobs = this.db.prepare('DELETE FROM scan_jobs WHERE root_id = ?')
+    const deleteRoot = this.db.prepare('DELETE FROM library_roots WHERE id = ?')
+
+    const remove = this.db.transaction(() => {
+      deleteFailures.run(id)
+      deleteJobs.run(id)
+      return deleteRoot.run(id).changes > 0
+    })
+
+    return remove()
+  }
 }

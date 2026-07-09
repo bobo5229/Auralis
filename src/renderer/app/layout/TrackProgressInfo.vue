@@ -195,7 +195,7 @@ function handleProgressKeydown(event: KeyboardEvent): void {
         >
           <img
             v-if="getArtworkUrl(playback.state.currentTrack.artworkCacheKey) && !imgError"
-            :src="getArtworkUrl(playback.state.currentTrack.artworkCacheKey)"
+            :src="getArtworkUrl(playback.state.currentTrack.artworkCacheKey) ?? undefined"
             class="h-full w-full rounded-[inherit] object-cover"
             @error="imgError = true"
           />

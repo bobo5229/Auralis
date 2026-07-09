@@ -28,7 +28,7 @@ const isCreatingFromQuery = ref(false)
 const pressedPlaylistId = ref<number | null>(null)
 const draggingPlaylistId = ref<number | null>(null)
 const dropTarget = ref<{ id: number; position: 'before' | 'after' } | null>(null)
-let longPressTimer: ReturnType<typeof setTimeout> | null = null
+let longPressTimer: number | null = null
 let pendingDrag: {
   playlistId: number
   pointerId: number
@@ -329,50 +329,55 @@ onBeforeUnmount(() => {
 
 <template>
   <aside class="app-sidebar">
-    <div class="px-5 py-5">
-      <div class="flex items-center justify-between">
-        <div class="min-w-0 text-xl font-semibold tracking-0">Auralis</div>
-        <div class="flex items-center gap-2">
-          <button
-            class="theme-toggle-button"
-            type="button"
-            aria-label="Facets"
-            title="Facets"
-            @click="isFacetsDialogOpen = true"
-          >
-            <span class="i-lucide-columns-3 h-4 w-4"></span>
-          </button>
-          <RouterLink
-            to="/settings"
-            class="theme-toggle-button"
-            :class="{ 'sidebar-utility-button-active': activePath === '/settings' }"
-            aria-label="Settings"
-            title="Settings"
-            @pointerdown="setPendingActiveFromPointer($event, '/settings')"
-            @keydown.enter="setPendingActive('/settings')"
-            @keydown.space="setPendingActive('/settings')"
-          >
-            <span class="i-lucide-settings h-4 w-4"></span>
-          </RouterLink>
-          <button
-            ref="themeButton"
-            class="theme-toggle-button"
-            type="button"
-            :aria-label="nextThemeLabel"
-            :title="nextThemeLabel"
-            :aria-disabled="isThemeTransitioning"
-            @click="handleThemeToggle"
-          >
-            <span class="h-4 w-4" :class="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"></span>
-          </button>
+    <header class="sidebar-header">
+      <div class="sidebar-brand">
+        <span class="sidebar-brand-mark" aria-hidden="true">
+          <span class="i-lucide-audio-waveform"></span>
+        </span>
+        <div class="sidebar-brand-copy">
+          <div class="sidebar-brand-name">Auralis</div>
+          <div class="sidebar-brand-caption">本地音乐档案</div>
         </div>
       </div>
-      <div class="mt-1 text-xs text-[var(--auralis-text-subtle)]">Local Music Archive</div>
-    </div>
+      <div class="sidebar-tool-strip">
+        <button
+          class="sidebar-tool-button"
+          type="button"
+          aria-label="筛选面板"
+          title="筛选面板"
+          @click="isFacetsDialogOpen = true"
+        >
+          <span class="i-lucide-columns-3"></span>
+        </button>
+        <RouterLink
+          to="/settings"
+          class="sidebar-tool-button"
+          :class="{ 'sidebar-tool-button-active': activePath === '/settings' }"
+          aria-label="设置"
+          title="设置"
+          @pointerdown="setPendingActiveFromPointer($event, '/settings')"
+          @keydown.enter="setPendingActive('/settings')"
+          @keydown.space="setPendingActive('/settings')"
+        >
+          <span class="i-lucide-settings"></span>
+        </RouterLink>
+        <button
+          ref="themeButton"
+          class="sidebar-tool-button"
+          type="button"
+          :aria-label="nextThemeLabel"
+          :title="nextThemeLabel"
+          :aria-disabled="isThemeTransitioning"
+          @click="handleThemeToggle"
+        >
+          <span :class="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"></span>
+        </button>
+      </div>
+    </header>
 
-    <nav class="flex flex-1 flex-col gap-6 px-3">
-      <section>
-        <div class="sidebar-section-label">Library</div>
+    <nav class="sidebar-navigation">
+      <section class="sidebar-primary-section">
+        <div class="sidebar-section-label">资料库</div>
         <RouterLink
           v-for="item in primaryNav"
           :key="item.to"
@@ -387,14 +392,19 @@ onBeforeUnmount(() => {
           @keydown.enter="setPendingActive(item.to)"
           @keydown.space="setPendingActive(item.to)"
         >
-          <span class="inline-block h-4 w-4" :class="item.icon"></span>
-          <span>{{ item.label }}</span>
+          <span class="sidebar-link-icon">
+            <span :class="item.icon"></span>
+          </span>
+          <span class="sidebar-link-label">{{ item.label }}</span>
         </RouterLink>
       </section>
 
-      <section>
+      <section class="sidebar-playlist-section">
         <div class="smart-playlist-section-header">
-          <div class="sidebar-section-label">智能歌单</div>
+          <div class="sidebar-section-title">
+            <div class="sidebar-section-label">智能歌单</div>
+            <div class="sidebar-section-meta">{{ smartPlaylists.length }}</div>
+          </div>
           <button
             class="smart-playlist-add-button"
             type="button"
@@ -428,9 +438,15 @@ onBeforeUnmount(() => {
           @keydown.space="setPendingActive(`/smart-playlists/${playlist.id}`)"
           @contextmenu.prevent="openPlaylistContextMenu(playlist, $event)"
         >
-          <span class="i-lucide-list-music inline-block h-4 w-4"></span>
-          <span>{{ playlist.name }}</span>
+          <span class="sidebar-link-icon">
+            <span class="i-lucide-list-music"></span>
+          </span>
+          <span class="sidebar-link-label">{{ playlist.name }}</span>
         </RouterLink>
+        <div v-if="smartPlaylists.length === 0" class="smart-playlist-empty">
+          <span class="i-lucide-sparkles"></span>
+          <span>用查询语法生成一张自动更新的歌单</span>
+        </div>
       </section>
     </nav>
     <FacetsDialog

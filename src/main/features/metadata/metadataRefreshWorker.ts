@@ -60,7 +60,6 @@ function stringifySnapshot(value: unknown): string | null {
 }
 
 async function resolveArtwork(
-  filePath: string,
   metadata: Awaited<ReturnType<typeof parseFile>>,
 ): Promise<string | null> {
   const picture = metadata.common.picture?.[0]
@@ -76,9 +75,9 @@ async function resolveArtwork(
 async function processTrack(trackId: number, filePath: string): Promise<void> {
   try {
     const metadata = await parseFile(filePath, { duration: true })
-    const normalized = normalizeMetadata(metadata)
+    const normalized = normalizeMetadata(metadata, filePath)
     const lyrics = await resolveLyricsForFile(filePath, metadata)
-    const artworkCacheKey = await resolveArtwork(filePath, metadata)
+    const artworkCacheKey = await resolveArtwork(metadata)
     const identity = normalizeIdentityText(metadata)
     const fileStat = await stat(filePath)
     const metadataSignature = buildMetadataSignature(

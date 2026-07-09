@@ -1,4 +1,5 @@
 import type { IAudioMetadata } from 'music-metadata'
+import { basename, parse } from 'node:path'
 
 export interface NormalizedMetadata {
   title: string
@@ -249,6 +250,14 @@ export function normalizeIdentityText(metadata: IAudioMetadata): NormalizedIdent
   }
 }
 
+/**
+ * Build a content-based fingerprint for scan deduplication.
+ *
+ * Reserved for future use — the signature is stored on every track but not yet
+ * used in matching (the current scan dedup compares file_size + file_mtime_ms).
+ * Once the matching path is switched to signature-based comparison, duplicate
+ * detection will survive file moves and timestamp-only changes.
+ */
 export function buildMetadataSignature(
   identity: NormalizedIdentity,
   durationSeconds: number | null,
@@ -264,7 +273,7 @@ export function buildMetadataSignature(
 // Main normalizer
 // ---------------------------------------------------------------------------
 
-export function normalizeMetadata(metadata: IAudioMetadata): NormalizedMetadata {
+export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): NormalizedMetadata {
   const common = metadata.common
   const lyrics = resolveLyrics(metadata)
   const artists = normalizeArtists(common.artists, common.artist)
@@ -275,7 +284,8 @@ export function normalizeMetadata(metadata: IAudioMetadata): NormalizedMetadata 
   const genres = resolveGenres(metadata)
 
   return {
-    title: common.title || 'Unknown Title',
+    title:
+      common.title || (filePath ? parse(filePath).name || basename(filePath) : 'Unknown Title'),
     artistDisplay,
     artists,
     artist: artistDisplay,

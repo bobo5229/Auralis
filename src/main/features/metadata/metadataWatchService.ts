@@ -19,6 +19,10 @@ import { logger } from '@main/logging/logger'
 import type { MetadataRefreshService } from './metadataRefreshService'
 import type { LibraryIncrementalImportService } from '../libraryScan/libraryIncrementalImportService'
 import { resolveLyricsForFile } from './resolveLyricsForFile'
+import {
+  findUniqueRelocationCandidate,
+  type FileIdentity,
+} from '@main/features/libraryScan/trackRelocationMatcher'
 
 const WATCH_DEBOUNCE_MS = 1200
 const RETRY_AFTER_ACTIVE_JOB_MS = 5000
@@ -26,6 +30,31 @@ const UNSTABLE_RETRY_DELAY_MS = 3000
 const MAX_UNSTABLE_RETRIES = 40 // ~2 min total (40 * 3s)
 const MISSING_CONFIRM_DELAY_MS = 5000
 const RELOCATION_WINDOW_MS = 60000
+const MAX_STAT_RETRIES = 10
+
+/**
+ * Error codes that indicate a file is temporarily inaccessible rather than deleted.
+ * These should trigger a retry instead of marking the track as missing.
+ */
+const TRANSIENT_STAT_ERROR_CODES = new Set([
+  'EACCES',
+  'EPERM',
+  'EBUSY',
+  'ETIMEDOUT',
+  'ENETDOWN',
+  'ENETUNREACH',
+  'EHOSTUNREACH',
+  'EHOSTDOWN',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'EAGAIN',
+])
+
+function isTransientStatError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const code = (error as NodeJS.ErrnoException).code
+  return typeof code === 'string' && TRANSIENT_STAT_ERROR_CODES.has(code)
+}
 
 export class MetadataWatchService {
   private readonly watchers = new Map<string, FSWatcher>()
@@ -35,7 +64,9 @@ export class MetadataWatchService {
   private readonly deferredFilePaths = new Set<string>()
   private readonly pendingMissingFilePaths = new Map<string, number>()
   private readonly recentMissingCandidates = new Map<number, MissingTrackCandidate>()
+  private readonly statRetries = new Map<string, number>()
   private flushTimer: ReturnType<typeof setTimeout> | null = null
+  private missingConfirmationTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(
     private readonly libraryRootRepository: LibraryRootRepository,
@@ -55,10 +86,16 @@ export class MetadataWatchService {
     }
 
     this.watchers.clear()
+    this.statRetries.clear()
 
     if (this.flushTimer) {
       clearTimeout(this.flushTimer)
       this.flushTimer = null
+    }
+
+    if (this.missingConfirmationTimer) {
+      clearTimeout(this.missingConfirmationTimer)
+      this.missingConfirmationTimer = null
     }
   }
 
@@ -168,15 +205,34 @@ export class MetadataWatchService {
     const statResults = await Promise.allSettled(incoming.map((p) => stat(p)))
     const existingPaths: string[] = []
     const missingPaths: string[] = []
+    const transientErrorPaths: string[] = []
 
     for (let i = 0; i < incoming.length; i++) {
       const result = statResults[i]
 
       if (result.status === 'fulfilled') {
         existingPaths.push(incoming[i])
+        this.statRetries.delete(incoming[i])
+      } else if (isTransientStatError(result.reason)) {
+        transientErrorPaths.push(incoming[i])
       } else {
         missingPaths.push(incoming[i])
       }
+    }
+
+    // Requeue transient errors for retry (with limit)
+    if (transientErrorPaths.length > 0) {
+      for (const filePath of transientErrorPaths) {
+        const retries = (this.statRetries.get(filePath) ?? 0) + 1
+        if (retries >= MAX_STAT_RETRIES) {
+          this.statRetries.delete(filePath)
+          logger.warn({ filePath, retries }, 'Dropping file after max stat retries')
+        } else {
+          this.statRetries.set(filePath, retries)
+          this.pendingFilePaths.set(filePath, Date.now())
+        }
+      }
+      this.scheduleFlush(UNSTABLE_RETRY_DELAY_MS)
     }
 
     // Route existing tracks
@@ -212,15 +268,23 @@ export class MetadataWatchService {
     // Route missing tracks to confirmation queue
     if (missingPaths.length > 0) {
       for (const filePath of missingPaths) {
-        this.pendingMissingFilePaths.set(filePath, Date.now())
+        this.enqueueMissingFile(filePath)
       }
-      this.scheduleMissingConfirmation()
     }
   }
 
+  private enqueueMissingFile(filePath: string): void {
+    this.pendingMissingFilePaths.set(filePath, Date.now())
+    this.scheduleMissingConfirmation()
+  }
+
   private scheduleMissingConfirmation(): void {
-    setTimeout(() => {
-      this.confirmMissing()
+    if (this.missingConfirmationTimer) {
+      clearTimeout(this.missingConfirmationTimer)
+    }
+    this.missingConfirmationTimer = setTimeout(() => {
+      this.missingConfirmationTimer = null
+      void this.confirmMissing()
     }, MISSING_CONFIRM_DELAY_MS)
   }
 
@@ -237,12 +301,31 @@ export class MetadataWatchService {
     const statResults = await Promise.allSettled(filePaths.map((p) => stat(p)))
     const confirmedMissing: string[] = []
     const restoredPaths: string[] = []
+    const transientErrorPaths: string[] = []
 
     for (let i = 0; i < filePaths.length; i++) {
-      if (statResults[i].status === 'fulfilled') {
+      const result = statResults[i]
+      if (result.status === 'fulfilled') {
         restoredPaths.push(filePaths[i])
+        this.statRetries.delete(filePaths[i])
+      } else if (isTransientStatError(result.reason)) {
+        transientErrorPaths.push(filePaths[i])
       } else {
         confirmedMissing.push(filePaths[i])
+      }
+    }
+
+    // Requeue transient errors for retry
+    if (transientErrorPaths.length > 0) {
+      for (const filePath of transientErrorPaths) {
+        const retries = (this.statRetries.get(filePath) ?? 0) + 1
+        if (retries >= MAX_STAT_RETRIES) {
+          this.statRetries.delete(filePath)
+          logger.warn({ filePath, retries }, 'Dropping file after max stat retries (confirm phase)')
+        } else {
+          this.statRetries.set(filePath, retries)
+          this.enqueueMissingFile(filePath)
+        }
       }
     }
 
@@ -334,7 +417,7 @@ export class MetadataWatchService {
       const metadata = await parseFile(filePath, { duration: true })
       const identity = normalizeIdentityText(metadata)
       const fileStat = await stat(filePath)
-      const normalized = normalizeMetadata(metadata)
+      const normalized = normalizeMetadata(metadata, filePath)
       const lyrics = await resolveLyricsForFile(filePath, metadata)
       const signature = buildMetadataSignature(identity, normalized.durationSeconds, fileStat.size)
 
@@ -351,6 +434,7 @@ export class MetadataWatchService {
         durationSeconds: normalized.durationSeconds,
         year: normalized.year,
         releaseDate: normalized.releaseDate,
+        copyright: normalized.copyright,
         genre: normalized.genre,
         artworkCacheKey: null,
         lyricsText: lyrics?.text ?? null,
@@ -359,36 +443,20 @@ export class MetadataWatchService {
         metadataSignature: signature,
       }
 
-      if (identity.isrc) {
-        for (const candidate of this.recentMissingCandidates.values()) {
-          if (candidate.isrc === identity.isrc) {
-            this.trackRepository.relocateTrack(candidate.trackId, scannedTrack)
-            return candidate
-          }
-        }
+      const fileIdentity: FileIdentity = {
+        title: normalized.title,
+        artist: normalized.artist,
+        album: normalized.album,
+        isrc: identity.isrc,
+        durationSeconds: normalized.durationSeconds,
+        fileSize: fileStat.size,
       }
 
-      for (const candidate of this.recentMissingCandidates.values()) {
-        if (candidate.isrc) continue
-        if (candidate.title !== identity.title) continue
-        if (candidate.artist !== identity.artist) continue
-
-        if (!candidate.durationSeconds || !normalized.durationSeconds) continue
-        if (Math.abs(candidate.durationSeconds - normalized.durationSeconds) > 1) continue
-        if (!candidate.fileSize) continue
-        if (Math.abs(candidate.fileSize - fileStat.size) / candidate.fileSize > 0.02) continue
-
-        const albumMatch =
-          candidate.album === normalized.album ||
-          !candidate.album ||
-          !normalized.album ||
-          candidate.album === 'Unknown Album' ||
-          normalized.album === 'Unknown Album'
-
-        if (!albumMatch) continue
-
-        this.trackRepository.relocateTrack(candidate.trackId, scannedTrack)
-        return candidate
+      const candidates = [...this.recentMissingCandidates.values()]
+      const match = findUniqueRelocationCandidate(candidates, fileIdentity)
+      if (match) {
+        this.trackRepository.relocateTrack(match.trackId, scannedTrack)
+        return match
       }
     } catch (error) {
       logger.debug({ error, filePath }, 'Failed to match recent candidate')

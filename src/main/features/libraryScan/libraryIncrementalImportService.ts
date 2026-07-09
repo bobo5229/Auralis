@@ -99,7 +99,7 @@ export class LibraryIncrementalImportService {
     const { stat } = await import('node:fs/promises')
     const fileStat = await stat(filePath)
     const metadata = await parseFile(filePath, { duration: true })
-    const normalized = normalizeMetadata(metadata)
+    const normalized = normalizeMetadata(metadata, filePath)
     const lyrics = await resolveLyricsForFile(filePath, metadata)
     const artworkCacheKey = await resolveArtworkForFile(filePath, metadata, this.artworkCacheDir)
     const identity = normalizeIdentityText(metadata)
