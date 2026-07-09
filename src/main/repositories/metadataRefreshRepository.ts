@@ -166,6 +166,19 @@ export class MetadataRefreshRepository extends BaseRepository {
   }
 
   listFailures(limit = 20): MetadataRefreshFailure[] {
+    this.db
+      .prepare(
+        `DELETE FROM metadata_refresh_failures
+         WHERE track_id IS NOT NULL
+           AND NOT EXISTS (
+             SELECT 1
+             FROM tracks
+             WHERE tracks.id = metadata_refresh_failures.track_id
+               AND tracks.availability = 'available'
+           )`,
+      )
+      .run()
+
     return this.db
       .prepare(
         `SELECT id,
@@ -183,6 +196,26 @@ export class MetadataRefreshRepository extends BaseRepository {
 
   clearFailures(): number {
     return this.db.prepare('DELETE FROM metadata_refresh_failures').run().changes
+  }
+
+  markTrackMissing(trackId: number): void {
+    this.db
+      .prepare(
+        `UPDATE tracks
+         SET availability = 'missing',
+             missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?
+           AND availability = 'available'`,
+      )
+      .run(trackId)
+
+    this.db
+      .prepare(
+        `DELETE FROM metadata_refresh_failures
+         WHERE track_id = ?`,
+      )
+      .run(trackId)
   }
 
   getEditableTrackMetadata(trackId: number): EditableTrackMetadata | null {
@@ -390,35 +423,38 @@ export class MetadataRefreshRepository extends BaseRepository {
       .prepare(
         `SELECT id AS trackId, file_path AS filePath
          FROM tracks
-         WHERE metadata_checked_mtime_ms IS NULL
-            OR lyrics_checked_mtime_ms IS NULL
-            OR title IS NULL
-            OR title = ''
-            OR title = 'Unknown Title'
-            OR artist IS NULL
-            OR artist = ''
-            OR artist = 'Unknown Artist'
-            OR album IS NULL
-            OR album = ''
-            OR album = 'Unknown Album'
-            OR album_artist IS NULL
-            OR album_artist = ''
-            OR album_artist = 'Unknown Artist'
-            OR (
-              lyrics_format = 'plain'
-              AND lyrics_text IS NOT NULL
-              AND (
-                lower(file_path) LIKE '%.m4a'
-                OR lower(file_path) LIKE '%.mp4'
-                OR lower(file_path) LIKE '%.aac'
+         WHERE availability = 'available'
+           AND (
+             metadata_checked_mtime_ms IS NULL
+             OR lyrics_checked_mtime_ms IS NULL
+              OR title IS NULL
+              OR title = ''
+              OR title = 'Unknown Title'
+              OR artist IS NULL
+              OR artist = ''
+              OR artist = 'Unknown Artist'
+              OR album IS NULL
+              OR album = ''
+              OR album = 'Unknown Album'
+              OR album_artist IS NULL
+              OR album_artist = ''
+              OR album_artist = 'Unknown Artist'
+              OR (
+                lyrics_format = 'plain'
+                AND lyrics_text IS NOT NULL
+                AND (
+                  lower(file_path) LIKE '%.m4a'
+                  OR lower(file_path) LIKE '%.mp4'
+                  OR lower(file_path) LIKE '%.aac'
+                )
               )
-            )
-            OR (
-              genre IS NULL
-              AND (
-                lower(file_path) LIKE '%.m4a'
-                OR lower(file_path) LIKE '%.mp4'
-                OR lower(file_path) LIKE '%.aac'
+              OR (
+                genre IS NULL
+                AND (
+                  lower(file_path) LIKE '%.m4a'
+                  OR lower(file_path) LIKE '%.mp4'
+                  OR lower(file_path) LIKE '%.aac'
+                )
               )
             )
          ORDER BY id ASC
@@ -432,7 +468,8 @@ export class MetadataRefreshRepository extends BaseRepository {
       .prepare(
         `SELECT id AS trackId, file_path AS filePath
          FROM tracks
-         WHERE lyrics_checked_mtime_ms IS NULL
+         WHERE availability = 'available'
+           AND lyrics_checked_mtime_ms IS NULL
          ORDER BY id ASC
          LIMIT ?`,
       )
@@ -460,6 +497,7 @@ export class MetadataRefreshRepository extends BaseRepository {
             `SELECT id AS trackId, file_path AS filePath
              FROM tracks
              WHERE id IN (${placeholders})
+               AND availability = 'available'
              ORDER BY id ASC`,
           )
           .all(...batch) as TrackForMetadataRefresh[]),

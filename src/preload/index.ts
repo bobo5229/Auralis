@@ -63,6 +63,16 @@ export const auralisApi: AuralisApi = {
       }
     },
   },
+  smartPlaylists: {
+    list: () => invoke(ipcChannels.smartPlaylists.list),
+    getDetail: (id) => invoke(ipcChannels.smartPlaylists.getDetail, { id }),
+    create: (name, rule) => invoke(ipcChannels.smartPlaylists.create, { name, rule }),
+    rename: (id, name) => invoke(ipcChannels.smartPlaylists.rename, { id, name }),
+    updateViewMode: (id, viewMode) =>
+      invoke(ipcChannels.smartPlaylists.updateViewMode, { id, viewMode }),
+    delete: (id) => invoke(ipcChannels.smartPlaylists.delete, { id }),
+    reorder: (ids) => invoke(ipcChannels.smartPlaylists.reorder, { ids }),
+  },
   lyrics: {
     getByTrackId: (trackId) => invoke(ipcChannels.lyrics.getByTrackId, { trackId }),
   },

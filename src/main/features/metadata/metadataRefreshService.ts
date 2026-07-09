@@ -146,7 +146,13 @@ export class MetadataRefreshService {
 
         case 'failure': {
           const f = message.payload
-          this.repository.addFailure(f.jobId, f.trackId, f.filePath, f.reason)
+
+          if (f.trackId !== null && this.isMissingFileFailure(f.reason)) {
+            this.repository.markTrackMissing(f.trackId)
+          } else {
+            this.repository.addFailure(f.jobId, f.trackId, f.filePath, f.reason)
+          }
+
           failed += 1
           break
         }
@@ -205,6 +211,10 @@ export class MetadataRefreshService {
     }
 
     this.sendToRenderer('metadata:refresh-progress', progress)
+  }
+
+  private isMissingFileFailure(reason: string): boolean {
+    return /\bENOENT\b|no such file or directory/i.test(reason)
   }
 
   private getChangedReason(jobId: number): 'metadata-refresh' | 'file-change' {

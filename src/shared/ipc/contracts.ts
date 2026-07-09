@@ -16,6 +16,13 @@ import type {
   ListeningRankingParams,
   ListeningHeatmap,
 } from '@shared/types/archive'
+import type {
+  CreateSmartPlaylistResult,
+  SmartPlaylist,
+  SmartPlaylistDetail,
+  SmartPlaylistRule,
+  SmartPlaylistViewMode,
+} from '@shared/types/smartPlaylist'
 
 export interface IpcInvokeContract {
   'app:get-info': {
@@ -49,6 +56,34 @@ export interface IpcInvokeContract {
   'library:get-tracks': {
     request: void
     response: TrackListItem[]
+  }
+  'smart-playlists:list': {
+    request: void
+    response: SmartPlaylist[]
+  }
+  'smart-playlists:get-detail': {
+    request: { id: number }
+    response: SmartPlaylistDetail | null
+  }
+  'smart-playlists:create': {
+    request: { name: string; rule: SmartPlaylistRule }
+    response: CreateSmartPlaylistResult
+  }
+  'smart-playlists:rename': {
+    request: { id: number; name: string }
+    response: SmartPlaylist | null
+  }
+  'smart-playlists:update-view-mode': {
+    request: { id: number; viewMode: SmartPlaylistViewMode }
+    response: SmartPlaylist | null
+  }
+  'smart-playlists:delete': {
+    request: { id: number }
+    response: { deleted: boolean }
+  }
+  'smart-playlists:reorder': {
+    request: { ids: number[] }
+    response: SmartPlaylist[]
   }
   'lyrics:get-by-track-id': {
     request: { trackId: number }

@@ -8,13 +8,9 @@
  *   A; B; C; D → A, B, C & D
  */
 
-export function splitDelimitedValues(value: string | null | undefined): string[] {
-  if (!value) return []
-  return value
-    .split(/[;,]/)
-    .map((p) => p.trim())
-    .filter(Boolean)
-}
+import { splitDelimitedValues } from '@shared/utils/delimitedValues'
+
+export { splitDelimitedValues }
 
 export function isMultiValue(value: string | null | undefined): boolean {
   return splitDelimitedValues(value).length >= 2

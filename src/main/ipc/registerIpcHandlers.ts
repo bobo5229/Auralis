@@ -15,8 +15,11 @@ import { MetadataWatchService } from '@main/features/metadata/metadataWatchServi
 import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
 import { PlayStatsRepository } from '@main/repositories/playStatsRepository'
 import { PlayStatsService } from '@main/services/playStatsService'
+import { SmartPlaylistRepository } from '@main/repositories/smartPlaylistRepository'
+import { SmartPlaylistService } from '@main/services/smartPlaylistService'
 import type { IpcResponse } from '@shared/ipc/contracts'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { SmartPlaylistRule, SmartPlaylistViewMode } from '@shared/types/smartPlaylist'
 import type Database from 'better-sqlite3'
 
 const PLAYABLE_AUDIO_EXTENSIONS = new Set([
@@ -65,6 +68,10 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   )
 
   const playStatsService = new PlayStatsService(new PlayStatsRepository(db))
+  const smartPlaylistService = new SmartPlaylistService(
+    new SmartPlaylistRepository(db),
+    trackRepository,
+  )
 
   metadataWatchService.start()
   app.on('before-quit', () => {
@@ -120,6 +127,54 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   ipcMain.handle(
     ipcChannels.library.getTracks,
     (): IpcResponse<'library:get-tracks'> => libraryService.getTracks(),
+  )
+
+  ipcMain.handle(
+    ipcChannels.smartPlaylists.list,
+    (): IpcResponse<'smart-playlists:list'> => smartPlaylistService.list(),
+  )
+
+  ipcMain.handle(
+    ipcChannels.smartPlaylists.getDetail,
+    (_event, payload: { id: number }): IpcResponse<'smart-playlists:get-detail'> =>
+      smartPlaylistService.getDetail(payload.id),
+  )
+
+  ipcMain.handle(
+    ipcChannels.smartPlaylists.create,
+    (
+      _event,
+      payload: { name: string; rule: SmartPlaylistRule },
+    ): IpcResponse<'smart-playlists:create'> =>
+      smartPlaylistService.create(payload.name, payload.rule),
+  )
+
+  ipcMain.handle(
+    ipcChannels.smartPlaylists.rename,
+    (_event, payload: { id: number; name: string }): IpcResponse<'smart-playlists:rename'> =>
+      smartPlaylistService.rename(payload.id, payload.name),
+  )
+
+  ipcMain.handle(
+    ipcChannels.smartPlaylists.updateViewMode,
+    (
+      _event,
+      payload: { id: number; viewMode: SmartPlaylistViewMode },
+    ): IpcResponse<'smart-playlists:update-view-mode'> =>
+      smartPlaylistService.updateViewMode(payload.id, payload.viewMode),
+  )
+
+  ipcMain.handle(
+    ipcChannels.smartPlaylists.delete,
+    (_event, payload: { id: number }): IpcResponse<'smart-playlists:delete'> => ({
+      deleted: smartPlaylistService.delete(payload.id),
+    }),
+  )
+
+  ipcMain.handle(
+    ipcChannels.smartPlaylists.reorder,
+    (_event, payload: { ids: number[] }): IpcResponse<'smart-playlists:reorder'> =>
+      smartPlaylistService.reorder(payload.ids),
   )
 
   ipcMain.handle(
