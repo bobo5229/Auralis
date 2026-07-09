@@ -144,7 +144,9 @@ function onSelect(trackId: number) {
 }
 
 function onPlay(trackId: number) {
-  playback.playTrackFromQueue(tracks.value, trackId)
+  playback.playTrackFromQueue(tracks.value, trackId, {
+    shufflePool: isSmartPlaylist.value ? tracks.value : undefined,
+  })
 }
 
 function closeContextMenu(): void {
@@ -391,7 +393,9 @@ async function onLocateCurrentTrack(): Promise<void> {
 
 async function onPlayContextTrack(trackId: number): Promise<void> {
   closeContextMenu()
-  await playback.playTrackFromQueue(tracks.value, trackId)
+  await playback.playTrackFromQueue(tracks.value, trackId, {
+    shufflePool: isSmartPlaylist.value ? tracks.value : undefined,
+  })
 }
 
 function onInsertAfterCurrent(trackId: number): void {
@@ -418,7 +422,9 @@ function onPlayAlbum(trackId: number): void {
   const group = albumGroups.value.find((g) => g.tracks.some((t) => t.id === trackId))
   if (!group || group.tracks.length === 0) return
 
-  playback.playTrackFromQueue(group.tracks, group.tracks[0].id)
+  playback.playTrackFromQueue(group.tracks, group.tracks[0].id, {
+    shufflePool: isSmartPlaylist.value ? tracks.value : undefined,
+  })
 }
 
 function getAlbumNameForTrack(trackId: number): string {

@@ -150,6 +150,12 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   )
 
   ipcMain.handle(
+    ipcChannels.smartPlaylists.createFromQuery,
+    (_event, payload: { query: string }): IpcResponse<'smart-playlists:create-from-query'> =>
+      smartPlaylistService.createFromQuery(payload.query),
+  )
+
+  ipcMain.handle(
     ipcChannels.smartPlaylists.rename,
     (_event, payload: { id: number; name: string }): IpcResponse<'smart-playlists:rename'> =>
       smartPlaylistService.rename(payload.id, payload.name),

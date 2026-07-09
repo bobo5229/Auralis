@@ -69,6 +69,10 @@ export interface IpcInvokeContract {
     request: { name: string; rule: SmartPlaylistRule }
     response: CreateSmartPlaylistResult
   }
+  'smart-playlists:create-from-query': {
+    request: { query: string }
+    response: CreateSmartPlaylistResult
+  }
   'smart-playlists:rename': {
     request: { id: number; name: string }
     response: SmartPlaylist | null
