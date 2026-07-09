@@ -37,7 +37,6 @@ const listeningRanking = ref<ListeningRanking | null>(null)
 const rankingRange = ref<ListeningRankingRange>('day')
 const rankingTarget = ref<ListeningRankingTarget>('track')
 const rankingMonth = ref(new Date().getMonth() + 1)
-const rankingQuarter = ref(Math.floor(new Date().getMonth() / 3) + 1)
 const rankingDate = ref(formatDateKey(new Date()))
 const rankingWeekStartDate = ref(getWeekMonday(new Date()))
 const rankingYear = ref(currentYear)
@@ -72,7 +71,7 @@ const rankingRanges: Array<{ value: ListeningRankingRange; label: string }> = [
   { value: 'day', label: '日' },
   { value: 'week', label: '周' },
   { value: 'month', label: '月' },
-  { value: 'quarter', label: '季' },
+  { value: 'year', label: '年' },
 ]
 const rankingTargets: Array<{ value: ListeningRankingTarget; label: string; icon: string }> = [
   { value: 'track', label: '单曲', icon: 'i-lucide-music-2' },
@@ -167,12 +166,8 @@ const canGoNext = computed(() => selectedYear.value < currentYear)
 const maxRankingMonth = computed(() =>
   rankingYear.value === currentYear ? new Date().getMonth() + 1 : 12,
 )
-const maxRankingQuarter = computed(() => Math.ceil(maxRankingMonth.value / 3))
 const rankingMonthOptions = computed(() =>
   Array.from({ length: maxRankingMonth.value }, (_, index) => index + 1),
-)
-const rankingQuarterOptions = computed(() =>
-  Array.from({ length: maxRankingQuarter.value }, (_, index) => index + 1),
 )
 const rankingPeriodLabel = computed(() => {
   if (rankingRange.value === 'day') {
@@ -186,7 +181,7 @@ const rankingPeriodLabel = computed(() => {
     return `${formatMonthDay(rankingWeekStartDate.value)} - ${formatMonthDay(endDate)}`
   }
   if (rankingRange.value === 'month') return `${rankingYear.value}年${rankingMonth.value}月`
-  return `${rankingYear.value}年 Q${rankingQuarter.value}`
+  return `${rankingYear.value}年`
 })
 
 interface PickerDayCell {
@@ -332,7 +327,7 @@ const annualSummary = computed(() => {
         `平均每个听歌日 · ${averagePlays} 次`,
         `单日最高 · ${peakDay.value?.playCount ?? 0} 次`,
         topTrack
-          ? `年度最常听 · ${topTrack.title || '未知歌曲'} · ${topTrack.playCount} 次`
+          ? `年度最常听 · ${topTrack.title || '未知歌曲'} · ${topTrack.playCount}\u00a0次`
           : insightFallback,
       ],
     },
@@ -399,9 +394,6 @@ function normalizeRankingPeriod(): void {
   if (rankingMonth.value > maxRankingMonth.value) {
     rankingMonth.value = maxRankingMonth.value
   }
-  if (rankingQuarter.value > maxRankingQuarter.value) {
-    rankingQuarter.value = maxRankingQuarter.value
-  }
 }
 
 async function loadListeningRanking(): Promise<void> {
@@ -422,9 +414,8 @@ async function loadListeningRanking(): Promise<void> {
     } else if (rankingRange.value === 'month') {
       params.year = rankingYear.value
       params.month = rankingMonth.value
-    } else if (rankingRange.value === 'quarter') {
+    } else if (rankingRange.value === 'year') {
       params.year = rankingYear.value
-      params.quarter = rankingQuarter.value
     }
     const result = await auralis.archive.getListeningRanking(params)
     if (requestId === rankingRequestId) {
@@ -446,7 +437,7 @@ function setRankingRange(range: ListeningRankingRange): void {
   if (rankingRange.value === range) return
   rankingRange.value = range
   showRankingPicker.value = false
-  if (range === 'month' || range === 'quarter') {
+  if (range === 'month' || range === 'year') {
     rankingYear.value = selectedYear.value
   }
   void loadListeningRanking()
@@ -460,12 +451,6 @@ function setRankingTarget(target: ListeningRankingTarget): void {
 
 function selectRankingMonth(month: number): void {
   rankingMonth.value = month
-  showRankingPicker.value = false
-  void loadListeningRanking()
-}
-
-function selectRankingQuarter(quarter: number): void {
-  rankingQuarter.value = quarter
   showRankingPicker.value = false
   void loadListeningRanking()
 }
@@ -574,6 +559,14 @@ function formatMinutes(durationSeconds: number): string {
 
 function formatRankingArtist(artist: string | null): string {
   return formatArtist(artist) || '未知艺术家'
+}
+
+function formatAnnualTopTrack(detail: string): string {
+  return detail.replace(/^年度最常听 · /, '')
+}
+
+function formatDailyTopTracks(detail: string): string {
+  return detail.replace(/^Top 3 · /, '')
 }
 
 function formatHoursAndMinutes(durationSeconds: number): string {
@@ -897,7 +890,31 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <div class="archive-summary-details">
-              <span v-for="detail in item.details" :key="detail">{{ detail }}</span>
+              <template v-for="(detail, detailIndex) in item.details" :key="detail">
+                <div
+                  v-if="
+                    item.key === 'plays' && detailIndex === 2 && detail.startsWith('年度最常听 · ')
+                  "
+                  class="archive-summary-top-track"
+                >
+                  <span class="archive-summary-top-track-label">年度最常听</span>
+                  <span class="archive-summary-top-track-value">
+                    {{ formatAnnualTopTrack(detail) }}
+                  </span>
+                </div>
+                <div
+                  v-else-if="
+                    item.key === 'peakDay' && detailIndex === 2 && detail.startsWith('Top 3 · ')
+                  "
+                  class="archive-summary-top-tracks"
+                >
+                  <span class="archive-summary-top-tracks-label">Top 3</span>
+                  <span class="archive-summary-top-tracks-value">
+                    {{ formatDailyTopTracks(detail) }}
+                  </span>
+                </div>
+                <span v-else>{{ detail }}</span>
+              </template>
               <small v-if="item.clickable">点击查看完整 Top 10</small>
             </div>
           </div>
@@ -1031,7 +1048,7 @@ onBeforeUnmount(() => {
               </button>
             </template>
 
-            <!-- Month / Quarter: lightweight list -->
+            <!-- Month / Year: lightweight period picker -->
             <template v-else>
               <div class="picker-header">
                 <button
@@ -1050,24 +1067,15 @@ onBeforeUnmount(() => {
                   <span class="i-lucide-chevron-right h-3.5 w-3.5"></span>
                 </button>
               </div>
-              <div class="picker-list">
+              <div v-if="rankingRange === 'month'" class="picker-list">
                 <button
-                  v-for="month in rankingRange === 'month' ? rankingMonthOptions : []"
+                  v-for="month in rankingMonthOptions"
                   :key="`month-${month}`"
                   type="button"
                   :class="{ 'is-active': rankingMonth === month }"
                   @click="selectRankingMonth(month)"
                 >
                   {{ month }}月
-                </button>
-                <button
-                  v-for="quarter in rankingRange === 'quarter' ? rankingQuarterOptions : []"
-                  :key="`quarter-${quarter}`"
-                  type="button"
-                  :class="{ 'is-active': rankingQuarter === quarter }"
-                  @click="selectRankingQuarter(quarter)"
-                >
-                  Q{{ quarter }}
                 </button>
               </div>
             </template>
@@ -1685,6 +1693,45 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.archive-summary-top-track {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.archive-summary-top-tracks {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.archive-summary-details .archive-summary-top-track-label,
+.archive-summary-details .archive-summary-top-tracks-label {
+  color: color-mix(in srgb, var(--auralis-text) 52%, transparent);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.archive-summary-details .archive-summary-top-track-value,
+.archive-summary-details .archive-summary-top-tracks-value {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--auralis-text) 86%, transparent);
+  font-size: 13px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-summary-details .archive-summary-top-tracks-value {
+  display: -webkit-box;
+  line-height: 1.4;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .archive-summary-details small {
   align-self: flex-start;
   margin-top: 2px;
@@ -1704,6 +1751,15 @@ onBeforeUnmount(() => {
 .archive-summary-item--peak-day .archive-summary-expanded-main {
   justify-content: flex-start;
   padding-top: 10px;
+}
+
+.archive-summary-item--peak-day .archive-summary-expanded-main .archive-summary-value {
+  gap: 5px;
+}
+
+.archive-summary-item--peak-day .archive-summary-expanded-main .archive-summary-value strong {
+  font-size: 25px;
+  letter-spacing: -0.05em;
 }
 
 .archive-summary-item--peak-day .archive-summary-details {
@@ -1990,7 +2046,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-/* Month / Quarter list */
+/* Month list */
 .picker-list {
   display: grid;
   min-width: 160px;
