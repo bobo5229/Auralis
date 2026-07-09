@@ -33,9 +33,8 @@ export class MetadataRefreshService {
   }
 
   refreshMissingMetadata(limit = 5000): { jobId: number } {
-    const activeJob = this.repository.getActiveJob()
-    if (activeJob) {
-      throw new Error(`A refresh job is already running (job ${activeJob.id})`)
+    if (this.activeJobId !== null && this.repository.getActiveJob()) {
+      throw new Error(`A refresh job is already running (job ${this.activeJobId})`)
     }
 
     const tracks = this.repository.getTracksWithMissingMetadata(limit)
@@ -45,8 +44,6 @@ export class MetadataRefreshService {
     }
 
     const jobId = this.repository.createJob('missing-metadata', tracks.length)
-    this.activeJobId = jobId
-
     const workerInput: MetadataRefreshWorkerInput = {
       jobId,
       tracks,
@@ -72,9 +69,8 @@ export class MetadataRefreshService {
   }
 
   private refreshTracksForScope(trackIds: number[], scope: string): { jobId: number } {
-    const activeJob = this.repository.getActiveJob()
-    if (activeJob) {
-      throw new Error(`A refresh job is already running (job ${activeJob.id})`)
+    if (this.activeJobId !== null && this.repository.getActiveJob()) {
+      throw new Error(`A refresh job is already running (job ${this.activeJobId})`)
     }
 
     const tracks = this.repository.getTracksByIds(trackIds)
@@ -84,8 +80,6 @@ export class MetadataRefreshService {
     }
 
     const jobId = this.repository.createJob(scope, tracks.length)
-    this.activeJobId = jobId
-
     const workerInput: MetadataRefreshWorkerInput = {
       jobId,
       tracks,
@@ -99,9 +93,8 @@ export class MetadataRefreshService {
   }
 
   refreshLyricsForMissing(limit = 5000): { jobId: number } {
-    const activeJob = this.repository.getActiveJob()
-    if (activeJob) {
-      throw new Error(`A refresh job is already running (job ${activeJob.id})`)
+    if (this.activeJobId !== null && this.repository.getActiveJob()) {
+      throw new Error(`A refresh job is already running (job ${this.activeJobId})`)
     }
 
     const tracks = this.repository.getTracksWithMissingLyrics(limit)
@@ -111,8 +104,6 @@ export class MetadataRefreshService {
     }
 
     const jobId = this.repository.createJob('missing-lyrics', tracks.length)
-    this.activeJobId = jobId
-
     this.startWorker({
       jobId,
       tracks,
@@ -129,8 +120,16 @@ export class MetadataRefreshService {
     })
 
     this.activeWorker = worker
+    this.activeJobId = input.jobId
 
     let failed = 0
+
+    const cleanup = (): void => {
+      if (this.activeWorker === worker) {
+        this.activeWorker = null
+        this.activeJobId = null
+      }
+    }
 
     worker.on('message', (message: MetadataRefreshWorkerMessage) => {
       switch (message.type) {
@@ -165,32 +164,39 @@ export class MetadataRefreshService {
         }
 
         case 'complete': {
+          cleanup()
           this.repository.completeJob(input.jobId)
           this.pushProgress(input.jobId, input.tracks.length, input.tracks.length, failed)
           this.pushChanged(
             input.tracks.map((track) => track.trackId),
             this.getChangedReason(input.jobId),
           )
-          this.activeWorker = null
-          this.activeJobId = null
           break
         }
 
         case 'fatal': {
+          cleanup()
           this.repository.completeJob(input.jobId, message.payload.reason)
           this.pushProgress(input.jobId, 0, input.tracks.length, input.tracks.length, 'failed')
-          this.activeWorker = null
-          this.activeJobId = null
           break
         }
       }
     })
 
     worker.on('error', (error) => {
+      cleanup()
       this.repository.completeJob(input.jobId, error.message)
       this.pushProgress(input.jobId, 0, input.tracks.length, input.tracks.length, 'failed')
-      this.activeWorker = null
-      this.activeJobId = null
+    })
+
+    worker.on('exit', (code) => {
+      // Only handle unexpected exit — normal completion is handled by the
+      // 'complete' or 'fatal' message handlers which call cleanup() first.
+      if (this.activeJobId === input.jobId && code !== 0) {
+        cleanup()
+        this.repository.completeJob(input.jobId, `Worker exited unexpectedly (code ${code})`)
+        this.pushProgress(input.jobId, 0, input.tracks.length, input.tracks.length, 'failed')
+      }
     })
   }
 

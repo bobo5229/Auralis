@@ -51,6 +51,8 @@ const tooltip = ref<HeatmapTooltip | null>(null)
 const dailyDetail = ref<DailyListeningDetail | null>(null)
 const isDetailLoading = ref(false)
 const detailError = ref<string | null>(null)
+let detailRequestId = 0
+let detailDialogId = 0
 const detailDialog = ref<{
   date: string
   label: string
@@ -77,8 +79,8 @@ const rankingTargets: Array<{ value: ListeningRankingTarget; label: string; icon
   { value: 'track', label: '单曲', icon: 'i-lucide-music-2' },
   { value: 'album', label: '专辑', icon: 'i-lucide-disc-3' },
 ]
-let longPressTimer: ReturnType<typeof window.setTimeout> | null = null
-let resetHoldTimer: ReturnType<typeof window.setTimeout> | null = null
+let longPressTimer: number | null = null
+let resetHoldTimer: number | null = null
 let rankingRequestId = 0
 let unsubscribeLibraryChanged: (() => void) | null = null
 
@@ -582,13 +584,20 @@ function formatHoursAndMinutes(durationSeconds: number): string {
 async function openDailyDetail(event: MouseEvent | KeyboardEvent, day: CalendarDay): Promise<void> {
   if (day.isFuture) return
 
+  // Increment request ID so any in-flight request for a previous day is discarded
+  const requestId = ++detailRequestId
+  // Bump dialog instance counter so any close timer from a previous instance
+  // (even for the same date) won't clear this newly opened dialog
+  ++detailDialogId
+  const dateKey = day.date
+
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   tooltip.value = null
   dailyDetail.value = null
   detailError.value = null
   isDetailLoading.value = true
   detailDialog.value = {
-    date: day.date,
+    date: dateKey,
     label: day.label,
     x: rect.left + rect.width / 2,
     y: rect.top,
@@ -597,17 +606,25 @@ async function openDailyDetail(event: MouseEvent | KeyboardEvent, day: CalendarD
 
   await nextTick()
   requestAnimationFrame(() => {
-    if (detailDialog.value?.date === day.date) {
+    if (detailDialog.value?.date === dateKey) {
       detailDialog.value.expanded = true
     }
   })
 
   try {
-    dailyDetail.value = await auralis.archive.getDailyListeningDetail(day.date)
+    const detail = await auralis.archive.getDailyListeningDetail(dateKey)
+    // Discard stale responses — only apply if this is still the latest request
+    if (requestId !== detailRequestId) return
+    if (detailDialog.value?.date !== dateKey) return
+    dailyDetail.value = detail
   } catch (error) {
+    if (requestId !== detailRequestId) return
+    if (detailDialog.value?.date !== dateKey) return
     detailError.value = error instanceof Error ? error.message : '无法读取当日播放记录'
   } finally {
-    isDetailLoading.value = false
+    if (requestId === detailRequestId) {
+      isDetailLoading.value = false
+    }
   }
 }
 
@@ -627,11 +644,18 @@ function dismissSummaryPopover(event: KeyboardEvent): void {
 
 function closeDailyDetail(): void {
   if (!detailDialog.value) return
+  const closeToken = detailDialogId
   detailDialog.value.expanded = false
   window.setTimeout(() => {
-    detailDialog.value = null
-    dailyDetail.value = null
-    detailError.value = null
+    // Guard: only null if the dialog instance has not been replaced.
+    // Using an instance counter avoids the same-date race: closing day X
+    // and reopening day X within the 240ms animation window would pass a
+    // date-based guard but must not clear the new instance.
+    if (detailDialogId === closeToken) {
+      detailDialog.value = null
+      dailyDetail.value = null
+      detailError.value = null
+    }
   }, 240)
 }
 

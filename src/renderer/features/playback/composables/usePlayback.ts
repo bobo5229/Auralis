@@ -15,7 +15,6 @@ const MAX_COUNTABLE_DURATION_SECONDS = 24 * 60 * 60
 type PlayCountSession = {
   sessionId: string
   trackId: number
-  startedAt: number
   lastSampleAt: number
   realPlayedSeconds: number
   counted: boolean
@@ -160,7 +159,6 @@ function startPlayCountSession(trackId: number): void {
   playCountSession = {
     sessionId: `${trackId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     trackId,
-    startedAt: now,
     lastSampleAt: now,
     realPlayedSeconds: 0,
     counted: false,
@@ -210,7 +208,6 @@ function tickPlayCountSession(): void {
 
 function tryRecordEffectivePlay(session: PlayCountSession): void {
   if (session.counted || session.countInFlight) return
-  session.counted = true
   session.countInFlight = true
 
   const payload = {
@@ -221,8 +218,13 @@ function tryRecordEffectivePlay(session: PlayCountSession): void {
 
   auralis.playback
     .recordEffectivePlay(payload)
+    .then(() => {
+      // Only mark counted after successful persistence
+      session.counted = true
+    })
     .catch((err) => {
       console.warn('[Auralis playback] Failed to record play count', err)
+      // counted stays false — the next tick will retry
     })
     .finally(() => {
       session.countInFlight = false
@@ -628,7 +630,7 @@ function insertTracksAfterCurrent(tracks: PlaybackTrack[]): void {
   if (!state.currentTrack || state.currentIndex < 0) return
 
   const insertIds = new Set(tracks.map((t) => t.id))
-  insertIds.delete(state.currentTrackId)
+  insertIds.delete(state.currentTrackId!)
 
   const filtered = tracks.filter((t) => insertIds.has(t.id))
   if (filtered.length === 0) return

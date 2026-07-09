@@ -475,36 +475,312 @@ input[type='range'].volume-slider::-moz-range-thumb {
   -webkit-app-region: no-drag;
 }
 
-/* Sidebar active state */
+/* Sidebar */
+.app-sidebar {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--auralis-sidebar-bg) 96%, white), transparent),
+    var(--auralis-sidebar-bg);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 52%, transparent),
+    0 16px 42px color-mix(in srgb, var(--auralis-text) 7%, transparent);
+}
+
+.app-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(
+      120deg,
+      transparent 0 54%,
+      color-mix(in srgb, var(--auralis-sidebar-active-bg) 34%, transparent) 100%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--auralis-sidebar-active-icon) 7%, transparent),
+      transparent 42%
+    );
+  opacity: 0.82;
+  pointer-events: none;
+}
+
+[data-theme='dark'] .app-sidebar {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--auralis-sidebar-bg) 90%, white), transparent),
+    var(--auralis-sidebar-bg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 46px rgba(0, 0, 0, 0.18);
+}
+
+.sidebar-header {
+  padding: 16px 14px 13px;
+  border-bottom: 1px solid var(--auralis-border-subtle);
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 82%, transparent);
+}
+
+.sidebar-brand {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+}
+
+.sidebar-brand-mark {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-icon) 20%, transparent);
+  border-radius: 8px;
+  color: var(--auralis-sidebar-active-icon);
+  background:
+    linear-gradient(145deg, color-mix(in srgb, white 32%, transparent), transparent 54%),
+    color-mix(in srgb, var(--auralis-sidebar-active-bg) 78%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 44%, transparent);
+}
+
+.sidebar-brand-mark span {
+  width: 18px;
+  height: 18px;
+}
+
+.sidebar-brand-copy {
+  min-width: 0;
+}
+
+.sidebar-brand-name {
+  overflow: hidden;
+  color: var(--auralis-text);
+  font-size: 17px;
+  font-weight: 760;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-brand-caption {
+  margin-top: 1px;
+  color: var(--auralis-text-faint);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 14px;
+}
+
+.sidebar-tool-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin-top: 15px;
+  padding: 4px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--auralis-control-hover-bg) 54%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 34%, transparent);
+}
+
+.sidebar-tool-button {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--auralis-text-faint);
+  transition:
+    color 140ms ease,
+    background-color 140ms ease,
+    transform 100ms ease;
+}
+
+.sidebar-tool-button:hover {
+  color: var(--auralis-text);
+  background: color-mix(in srgb, var(--auralis-control-hover-bg) 86%, transparent);
+}
+
+.sidebar-tool-button:active {
+  transform: scale(0.96);
+}
+
+.sidebar-tool-button:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 1px;
+}
+
+.sidebar-tool-button > span {
+  width: 16px;
+  height: 16px;
+}
+
+.sidebar-tool-button-active {
+  color: var(--auralis-sidebar-active-icon);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-bg) 86%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--auralis-sidebar-active-icon) 10%, transparent);
+}
+
+.sidebar-navigation {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px 11px 0;
+}
+
+.sidebar-primary-section {
+  flex: 0 0 auto;
+}
+
+.sidebar-playlist-section {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 10px;
+}
+
+.sidebar-playlist-section::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-playlist-section::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.sidebar-section-label {
+  padding: 0 8px 9px;
+  color: var(--auralis-text-faint);
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 14px;
+}
+
+.sidebar-section-title {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-section-title .sidebar-section-label {
+  min-width: 0;
+  padding-right: 6px;
+}
+
+.sidebar-section-meta {
+  min-width: 20px;
+  height: 18px;
+  margin: 0 7px 8px 0;
+  padding: 0 6px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 999px;
+  color: var(--auralis-text-faint);
+  background: color-mix(in srgb, var(--auralis-control-hover-bg) 44%, transparent);
+  font-size: 10px;
+  font-weight: 760;
+  line-height: 17px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .sidebar-link {
   position: relative;
+  display: grid;
+  min-width: 0;
+  height: 40px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 4px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--auralis-text-muted);
+  font-size: 13px;
+  font-weight: 680;
+  transition:
+    border-color 140ms ease,
+    color 140ms ease,
+    background-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 100ms ease;
+}
+
+.sidebar-link:hover {
+  color: var(--auralis-text);
+  background: color-mix(in srgb, var(--auralis-control-hover-bg) 84%, transparent);
+}
+
+.sidebar-link:active {
+  transform: scale(0.985);
+}
+
+.sidebar-link:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: -2px;
+}
+
+.sidebar-link-icon {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--auralis-text-faint);
+  transition:
+    color 140ms ease,
+    background-color 140ms ease;
+}
+
+.sidebar-link-icon > span {
+  width: 16px;
+  height: 16px;
+}
+
+.sidebar-link-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-link-active {
-  background: var(--auralis-sidebar-active-bg) !important;
-  color: var(--auralis-sidebar-active-text) !important;
+  color: var(--auralis-sidebar-active-text);
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-icon) 13%, transparent);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--auralis-sidebar-active-bg) 92%, transparent),
+      transparent 145%
+    ),
+    color-mix(in srgb, var(--auralis-sidebar-active-bg) 72%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 36%, transparent),
+    0 8px 18px color-mix(in srgb, var(--auralis-sidebar-active-icon) 8%, transparent);
 }
 
-.sidebar-link-active [class*='i-lucide'] {
-  color: var(--auralis-sidebar-active-icon) !important;
+.sidebar-link-active .sidebar-link-icon {
+  color: var(--auralis-sidebar-active-icon);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-icon) 12%, transparent);
 }
 
 .sidebar-link-active::before {
   content: '';
   position: absolute;
-  left: 4px;
+  left: 3px;
   top: 50%;
   transform: translateY(-50%);
   width: 3px;
-  height: 50%;
+  height: 20px;
   border-radius: 999px;
   background: var(--auralis-sidebar-active-indicator);
   pointer-events: none;
-}
-
-.sidebar-utility-button-active {
-  background: var(--auralis-sidebar-active-bg);
-  color: var(--auralis-sidebar-active-icon);
 }
 
 .sidebar-link[data-smart-playlist-id] {
@@ -517,40 +793,71 @@ input[type='range'].volume-slider::-moz-range-thumb {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-right: 8px;
+  gap: 6px;
+  padding-right: 3px;
 }
 
 .smart-playlist-add-button {
   display: inline-flex;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   align-items: center;
   justify-content: center;
   margin-bottom: 8px;
   border: 0;
+  border-radius: 6px;
   color: var(--auralis-text-faint);
   background: transparent;
-  opacity: 0;
-  pointer-events: none;
+  opacity: 0.72;
   transition:
     color 140ms ease,
-    opacity 140ms ease;
+    background-color 140ms ease,
+    opacity 140ms ease,
+    transform 100ms ease;
 }
 
-.smart-playlist-section-header:hover .smart-playlist-add-button,
-.smart-playlist-section-header:focus-within .smart-playlist-add-button,
 .smart-playlist-add-button:focus-visible {
   opacity: 1;
-  pointer-events: auto;
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 1px;
 }
 
 .smart-playlist-add-button:hover {
   color: var(--auralis-text);
+  background: var(--auralis-control-hover-bg);
+  opacity: 1;
+}
+
+.smart-playlist-add-button:active {
+  transform: scale(0.94);
 }
 
 .smart-playlist-add-button span {
   width: 14px;
   height: 14px;
+}
+
+.smart-playlist-empty {
+  display: grid;
+  min-height: 92px;
+  place-items: center;
+  gap: 8px;
+  margin: 2px 2px 0;
+  padding: 14px 12px;
+  border: 1px dashed color-mix(in srgb, var(--auralis-text-faint) 24%, transparent);
+  border-radius: 8px;
+  color: var(--auralis-text-faint);
+  background: color-mix(in srgb, var(--auralis-control-hover-bg) 28%, transparent);
+  font-size: 12px;
+  font-weight: 620;
+  line-height: 18px;
+  text-align: center;
+}
+
+.smart-playlist-empty span:first-child {
+  width: 18px;
+  height: 18px;
+  color: var(--auralis-sidebar-active-icon);
 }
 
 .smart-playlist-link-pressed {

@@ -19,6 +19,7 @@ import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './library
 import { tryRelocateMissingCandidate } from './trackRelocationMatcher'
 
 export class LibraryScanService {
+  private readonly db: Database.Database
   private readonly libraryRootRepository: LibraryRootRepository
   private readonly scanJobRepository: ScanJobRepository
   private readonly scanFailureRepository: ScanFailureRepository
@@ -28,6 +29,7 @@ export class LibraryScanService {
   private activeJobId: number | null = null
 
   constructor(db: Database.Database, artworkCacheDir: string) {
+    this.db = db
     this.libraryRootRepository = new LibraryRootRepository(db)
     this.scanJobRepository = new ScanJobRepository(db)
     this.scanFailureRepository = new ScanFailureRepository(db)
@@ -47,7 +49,17 @@ export class LibraryScanService {
       return { canceled: true }
     }
 
-    const root = this.libraryRootRepository.upsertByPath(result.filePaths[0])
+    // The app manages a single library root. Atomically replace any
+    // existing roots so old directories are no longer watched and their
+    // tracks are marked missing (preserving play history, reversible).
+    const root = this.db.transaction(() => {
+      const existingRoots = this.libraryRootRepository.list()
+      for (const oldRoot of existingRoots) {
+        this.trackRepository.markMissingByPathPrefix(oldRoot.path)
+        this.libraryRootRepository.deleteById(oldRoot.id)
+      }
+      return this.libraryRootRepository.upsertByPath(result.filePaths[0])
+    })()
 
     return { canceled: false, root }
   }
@@ -85,9 +97,12 @@ export class LibraryScanService {
       return { ok: false }
     }
 
-    await this.activeWorker.terminate()
+    // Clear state BEFORE terminate to prevent the exit handler from racing
+    // and writing a 'failed' status that we would later overwrite to 'canceled'.
+    const worker = this.activeWorker
     this.activeWorker = null
     this.activeJobId = null
+    await worker.terminate()
     this.scanJobRepository.finish(jobId, 'canceled')
     const status = this.scanJobRepository.getById(jobId)
 
@@ -212,6 +227,7 @@ export class LibraryScanService {
           const missingIds = this.trackRepository.markMissingUnderRootExcept(
             root.path,
             message.payload.foundFilePaths,
+            message.payload.unreadableDirectoryPaths,
           )
 
           if (restoredIds.length > 0) {

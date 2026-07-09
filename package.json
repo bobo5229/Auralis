@@ -10,10 +10,10 @@
     "dev:no-direct-composition": "set AURALIS_DISABLE_DIRECT_COMPOSITION=1&& electron-vite dev",
     "dev:verbose-gpu": "electron-vite dev",
     "dev:software-rendering": "set AURALIS_SOFTWARE_RENDERING=1&& electron-vite dev",
-    "build": "vue-tsc --noEmit && electron-vite build",
+    "build": "npm run typecheck && electron-vite build",
     "preview": "electron-vite preview",
     "rebuild:native": "set USERPROFILE=%CD%\\.electron-home&& set HOME=%CD%\\.electron-home&& electron-rebuild -f -w better-sqlite3",
-    "typecheck": "vue-tsc --noEmit",
+    "typecheck": "vue-tsc -p tsconfig.web.json --noEmit --tsBuildInfoFile .electron-home/tsconfig.web.tsbuildinfo && tsc -p tsconfig.node.json --noEmit --tsBuildInfoFile .electron-home/tsconfig.node.tsbuildinfo",
     "lint": "eslint src electron.vite.config.ts eslint.config.js uno.config.ts",
     "format": "prettier --write ."
   },

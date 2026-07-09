@@ -18,7 +18,7 @@ export default defineConfig({
     'app-shell':
       'grid min-h-0 grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-transparent text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_20%]',
     'app-sidebar':
-      'flex w-[232px] h-[calc(100%_-_var(--auralis-shell-vertical-gap))] min-h-0 flex-col m-[var(--auralis-shell-edge-gap)_0_var(--auralis-shell-edge-gap)_var(--auralis-shell-edge-gap)] rounded-[20px] border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
+      'flex w-[232px] h-[calc(100%_-_var(--auralis-shell-vertical-gap))] min-h-0 flex-col m-[var(--auralis-shell-edge-gap)_0_var(--auralis-shell-edge-gap)_var(--auralis-shell-edge-gap)] rounded-lg border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
     'app-main': 'min-h-0 overflow-y-auto bg-transparent',
     'app-titlebar':
       'relative z-[80] flex h-11 shrink-0 items-center border-b border-[var(--auralis-titlebar-border)] bg-[var(--auralis-titlebar-bg)] px-4',

@@ -51,7 +51,7 @@ const statusLabel = computed(() => {
 
   const labels: Record<string, string> = {
     completed: '扫描完成',
-    cancelled: '扫描已取消',
+    canceled: '扫描已取消',
     failed: '扫描失败',
     queued: '等待扫描',
   }

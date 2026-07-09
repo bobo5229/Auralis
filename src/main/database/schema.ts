@@ -165,6 +165,8 @@ const migrations = [
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
 
+      -- Reserved for future search / faceted-browse normalization model.
+      -- Currently written by metadata refresh (INSERT / DELETE), not yet queried.
       CREATE TABLE IF NOT EXISTS track_artists (
         track_id INTEGER NOT NULL,
         artist_id INTEGER NOT NULL,
@@ -253,6 +255,8 @@ const migrations = [
       ALTER TABLE tracks ADD COLUMN availability TEXT NOT NULL DEFAULT 'available';
       ALTER TABLE tracks ADD COLUMN missing_since TEXT;
       ALTER TABLE tracks ADD COLUMN isrc TEXT;
+      -- Reserved for future signature-based dedup (currently file_size + file_mtime_ms).
+      -- Computed and stored on every upsert, not yet used in matching logic.
       ALTER TABLE tracks ADD COLUMN metadata_signature TEXT;
 
       CREATE INDEX IF NOT EXISTS idx_tracks_availability ON tracks(availability);
@@ -502,6 +506,11 @@ const migrations = [
       CREATE INDEX idx_smart_playlists_sort_order
         ON smart_playlists(sort_order, id);
     `,
+  },
+  {
+    id: 19,
+    name: 'drop_file_tag_snapshots',
+    sql: `DROP TABLE IF EXISTS file_tag_snapshots`,
   },
 ] as const
 

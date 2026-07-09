@@ -6,10 +6,7 @@ import { isSupportedAudioFile } from './audioFileFilter'
 import { writeArtworkToCache } from '../artwork/artworkCache'
 import { resolveArtworkForFile } from '../artwork/resolveArtworkForFile'
 import {
-  normalizeArtist,
-  normalizeAlbumArtist,
-  resolveGenres,
-  getYear,
+  normalizeMetadata,
   normalizeIdentityText,
   buildMetadataSignature,
 } from '../metadata/metadataNormalizer'
@@ -28,6 +25,7 @@ const trackBatch: ScannedTrack[] = []
 const artworkBatch: AlbumArtworkPatch[] = []
 const lyricsBatch: TrackLyricsPatch[] = []
 const foundFilePaths: string[] = []
+const unreadableDirectoryPaths: string[] = []
 
 // In-memory caches scoped to this scan run (see §4–7 of TechDoc)
 const albumArtworkCache = new Map<string, string | null>()
@@ -80,6 +78,7 @@ async function collectAudioFiles(directoryPath: string): Promise<string[]> {
       try {
         files.push(...(await collectAudioFiles(entryPath)))
       } catch {
+        unreadableDirectoryPaths.push(entryPath)
         postMessage({
           type: 'failure',
           payload: {
@@ -162,48 +161,40 @@ async function createScannedTrack(
   fileStat: Awaited<ReturnType<typeof stat>>,
   metadata: Awaited<ReturnType<typeof parseFile>>,
 ): Promise<ScannedTrack> {
-  const fallbackTitle = parse(filePath).name || basename(filePath)
+  const normalized = normalizeMetadata(metadata, filePath)
   const artworkCacheKey = await resolveArtwork(filePath, metadata)
   const lyrics = await resolveLyricsForFile(filePath, metadata)
-  const genres = resolveGenres(metadata)
-  const album = metadata.common.album || 'Unknown Album'
-  const albumArtist = normalizeAlbumArtist(
-    metadata.common.albumartists,
-    metadata.common.albumartist,
-    metadata.common.artist,
-  )
-  const albumKey = getAlbumKey(album, albumArtist)
   const identity = normalizeIdentityText(metadata)
-  const metadataSignature = buildMetadataSignature(
-    identity,
-    metadata.format.duration ?? null,
-    fileStat.size,
-  )
 
+  const albumKey = getAlbumKey(normalized.album, normalized.albumArtist)
   if (albumKey && artworkCacheKey) {
     albumArtworkCache.set(albumKey, artworkCacheKey)
   }
 
   return {
     filePath,
-    fileSize: fileStat.size,
-    fileMtimeMs: fileStat.mtimeMs,
-    title: metadata.common.title || fallbackTitle,
-    artist: normalizeArtist(metadata.common.artists, metadata.common.artist),
-    album,
-    albumArtist,
-    trackNo: metadata.common.track.no ?? null,
-    discNo: metadata.common.disk.no ?? null,
-    durationSeconds: metadata.format.duration ?? null,
-    year: getYear(metadata.common.year, metadata.common.date),
-    releaseDate: metadata.common.date ?? null,
-    copyright: metadata.common.copyright?.trim() || null,
-    genre: genres.join(', ') || null,
+    fileSize: Number(fileStat.size),
+    fileMtimeMs: Number(fileStat.mtimeMs),
+    title: normalized.title,
+    artist: normalized.artist,
+    album: normalized.album,
+    albumArtist: normalized.albumArtist,
+    trackNo: normalized.trackNo,
+    discNo: normalized.discNo,
+    durationSeconds: normalized.durationSeconds,
+    year: normalized.year,
+    releaseDate: normalized.releaseDate,
+    copyright: normalized.copyright,
+    genre: normalized.genre,
     artworkCacheKey,
     lyricsText: lyrics?.text ?? null,
     lyricsFormat: lyrics?.format ?? null,
     isrc: identity.isrc,
-    metadataSignature,
+    metadataSignature: buildMetadataSignature(
+      identity,
+      normalized.durationSeconds,
+      Number(fileStat.size),
+    ),
   }
 }
 
@@ -218,16 +209,36 @@ type ReadTrackResult =
   | { kind: 'skip' }
 
 async function readTrack(filePath: string): Promise<ReadTrackResult> {
-  const fileStat = await stat(filePath)
+  let fileSize: number
+  let fileMtimeMs: number
+  let fileStat: Awaited<ReturnType<typeof stat>>
+
+  try {
+    fileStat = await stat(filePath)
+    fileSize = Number(fileStat.size)
+    fileMtimeMs = Number(fileStat.mtimeMs)
+  } catch (statError) {
+    // File disappeared between readdir and stat — single-file failure, not fatal
+    failedFiles += 1
+    postMessage({
+      type: 'failure',
+      payload: {
+        jobId: input.jobId,
+        filePath,
+        reason: statError instanceof Error ? statError.message : 'Unable to stat file',
+      },
+    })
+    return { kind: 'skip' }
+  }
+
   const knownFile = knownFiles.get(filePath)
   const fileUnchanged =
-    knownFile && knownFile.fileSize === fileStat.size && knownFile.fileMtimeMs === fileStat.mtimeMs
+    knownFile && knownFile.fileSize === fileSize && knownFile.fileMtimeMs === fileMtimeMs
   const lyricsChecked =
-    knownFile?.lyricsCheckedMtimeMs !== null && knownFile?.lyricsCheckedMtimeMs === fileStat.mtimeMs
+    knownFile?.lyricsCheckedMtimeMs !== null && knownFile?.lyricsCheckedMtimeMs === fileMtimeMs
   const needsLyricsBackfill = Boolean(fileUnchanged && knownFile && !lyricsChecked)
   const metadataChecked =
-    knownFile?.metadataCheckedMtimeMs !== null &&
-    knownFile?.metadataCheckedMtimeMs === fileStat.mtimeMs
+    knownFile?.metadataCheckedMtimeMs !== null && knownFile?.metadataCheckedMtimeMs === fileMtimeMs
   const needsMetadataBackfill = Boolean(fileUnchanged && knownFile && !metadataChecked)
 
   // Skip completely: file unchanged, album already has artwork, and lyrics were checked for this mtime
@@ -284,7 +295,7 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
           filePath,
           lyricsText: lyrics?.text ?? null,
           lyricsFormat: lyrics?.format ?? null,
-          lyricsCheckedMtimeMs: fileStat.mtimeMs,
+          lyricsCheckedMtimeMs: fileMtimeMs,
         }
       }
 
@@ -335,8 +346,8 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
       kind: 'track',
       track: {
         filePath,
-        fileSize: fileStat.size,
-        fileMtimeMs: fileStat.mtimeMs,
+        fileSize,
+        fileMtimeMs,
         title: fallbackTitle,
         artist: 'Unknown Artist',
         album: 'Unknown Album',
@@ -355,11 +366,13 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
         metadataSignature: buildMetadataSignature(
           { title: fallbackTitle, artist: 'Unknown Artist', album: 'Unknown Album', isrc: null },
           null,
-          fileStat.size,
+          fileSize,
         ),
       },
     }
   }
+
+  return { kind: 'skip' }
 }
 
 async function run(): Promise<void> {
@@ -410,7 +423,10 @@ async function run(): Promise<void> {
   flushArtworkBatch()
   flushLyricsBatch()
   postProgress(null, 'Scan complete', true)
-  postMessage({ type: 'complete', payload: { foundFilePaths } })
+  postMessage({
+    type: 'complete',
+    payload: { foundFilePaths, unreadableDirectoryPaths },
+  })
 }
 
 run().catch((error: unknown) => {

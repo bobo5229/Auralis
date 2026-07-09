@@ -75,7 +75,7 @@ function canonicalRule(rule: SmartPlaylistRule): string {
   }
 
   return JSON.stringify({
-    conditions: normalizeRule(rule).conditions.map((condition) => ({
+    conditions: rule.conditions.map((condition) => ({
       field: condition.field,
       value: condition.value === null ? null : normalizeDelimitedValue(condition.value),
     })),
@@ -99,11 +99,10 @@ function matchesCondition(track: TrackListItem, condition: SmartPlaylistRuleCond
 }
 
 function matchesExpression(track: TrackListItem, expression: SmartPlaylistExpression): boolean {
-  if (expression.type === 'and') {
-    return expression.operands.every((operand) => matchesExpression(track, operand))
-  }
-  if (expression.type === 'or') {
-    return expression.operands.some((operand) => matchesExpression(track, operand))
+  if (expression.type !== 'predicate') {
+    return expression.type === 'and'
+      ? expression.operands.every((operand) => matchesExpression(track, operand))
+      : expression.operands.some((operand) => matchesExpression(track, operand))
   }
 
   const rawValue =

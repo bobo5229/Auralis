@@ -463,10 +463,22 @@ export class TrackRepository extends BaseRepository {
       .all(identity.title, identity.artist) as MissingTrackCandidate[]
   }
 
-  markMissingUnderRootExcept(rootPath: string, foundFilePaths: string[]): number[] {
+  markMissingUnderRootExcept(
+    rootPath: string,
+    foundFilePaths: string[],
+    unreadableDirectoryPaths: string[] = [],
+  ): number[] {
     const rootPrefixes = toRootPrefixes(rootPath)
     const rootPredicates = rootPrefixes.map(() => `file_path LIKE ? ESCAPE '~'`).join(' OR ')
     const rootPatternArgs = rootPrefixes.map((prefix) => `${escapeLikePattern(prefix)}%`)
+    const unreadablePrefixes = unreadableDirectoryPaths.flatMap(toRootPrefixes)
+    const unreadablePredicate =
+      unreadablePrefixes.length > 0
+        ? `AND NOT (${unreadablePrefixes.map(() => `file_path LIKE ? ESCAPE '~'`).join(' OR ')})`
+        : ''
+    const unreadablePatternArgs = unreadablePrefixes.map(
+      (prefix) => `${escapeLikePattern(prefix)}%`,
+    )
 
     if (foundFilePaths.length === 0) {
       const rows = this.db
@@ -475,11 +487,12 @@ export class TrackRepository extends BaseRepository {
            SET availability = 'missing',
                missing_since = CURRENT_TIMESTAMP,
                updated_at = CURRENT_TIMESTAMP
-           WHERE (${rootPredicates})
-             AND availability = 'available'
-           RETURNING id`,
+            WHERE (${rootPredicates})
+              AND availability = 'available'
+              ${unreadablePredicate}
+            RETURNING id`,
         )
-        .all(...rootPatternArgs) as Array<{ id: number }>
+        .all(...rootPatternArgs, ...unreadablePatternArgs) as Array<{ id: number }>
 
       return rows.map((row) => row.id)
     }
@@ -513,12 +526,13 @@ export class TrackRepository extends BaseRepository {
            SET availability = 'missing',
                missing_since = CURRENT_TIMESTAMP,
                updated_at = CURRENT_TIMESTAMP
-           WHERE (${rootPredicates})
-             AND availability = 'available'
-             AND file_path NOT IN (SELECT file_path FROM _temp_found_paths)
-           RETURNING id`,
+            WHERE (${rootPredicates})
+              AND availability = 'available'
+              AND file_path NOT IN (SELECT file_path FROM _temp_found_paths)
+              ${unreadablePredicate}
+            RETURNING id`,
         )
-        .all(...rootPatternArgs) as Array<{ id: number }>
+        .all(...rootPatternArgs, ...unreadablePatternArgs) as Array<{ id: number }>
 
       return rows.map((row) => row.id)
     } finally {
@@ -659,5 +673,20 @@ export class TrackRepository extends BaseRepository {
            id ASC`,
       )
       .all(albumArtist, album) as PlaybackTrackDto[]
+  }
+
+  markMissingByPathPrefix(rootPath: string): number {
+    const normalized = normalize(rootPath)
+    const prefix = escapeLikePattern(normalized.endsWith('/') ? normalized : normalized + '/')
+    return this.db
+      .prepare(
+        `UPDATE tracks
+         SET availability = 'missing',
+             missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE availability = 'available'
+           AND file_path LIKE ? ESCAPE '~'`,
+      )
+      .run(`${prefix}%`).changes
   }
 }

@@ -347,7 +347,10 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
 
   ipcMain.handle(
     ipcChannels.metadata.updateTrackMetadata,
-    (_event, payload: EditableTrackMetadata): IpcResponse<'metadata:update-track-metadata'> =>
+    (
+      _event,
+      payload: EditableTrackMetadata,
+    ): Promise<IpcResponse<'metadata:update-track-metadata'>> =>
       metadataRefreshService.updateTrackMetadata(payload),
   )
 

@@ -60,16 +60,6 @@ export class PlayStatsRepository extends BaseRepository {
     })()
   }
 
-  getStats(trackId: number): { playCount: number; lastPlayedAt: string | null } | null {
-    const stmt = this.db.prepare(`
-      SELECT play_count AS playCount, last_played_at AS lastPlayedAt
-      FROM track_play_stats
-      WHERE track_id = ?
-    `)
-
-    return stmt.get(trackId) as { playCount: number; lastPlayedAt: string | null } | null
-  }
-
   getListeningHeatmap(year: number): {
     firstRecordedYear: number | null
     days: ListeningHeatmapDay[]
