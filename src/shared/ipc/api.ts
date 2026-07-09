@@ -59,6 +59,7 @@ export interface AuralisApi {
     list: () => Promise<SmartPlaylist[]>
     getDetail: (id: number) => Promise<SmartPlaylistDetail | null>
     create: (name: string, rule: SmartPlaylistRule) => Promise<CreateSmartPlaylistResult>
+    createFromQuery: (query: string) => Promise<CreateSmartPlaylistResult>
     rename: (id: number, name: string) => Promise<SmartPlaylist | null>
     updateViewMode: (id: number, viewMode: SmartPlaylistViewMode) => Promise<SmartPlaylist | null>
     delete: (id: number) => Promise<{ deleted: boolean }>

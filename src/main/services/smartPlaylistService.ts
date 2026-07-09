@@ -3,10 +3,13 @@ import type {
   CreateSmartPlaylistResult,
   SmartPlaylist,
   SmartPlaylistDetail,
+  SmartPlaylistExpression,
+  SmartPlaylistExpressionRule,
   SmartPlaylistRule,
   SmartPlaylistRuleCondition,
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
+import { parseSmartPlaylistQuery } from '@shared/smartPlaylists/queryParser'
 import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'
 import { SmartPlaylistRepository } from '@main/repositories/smartPlaylistRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
@@ -18,7 +21,29 @@ function normalizeCondition(condition: SmartPlaylistRuleCondition): SmartPlaylis
   }
 }
 
+function isExpressionRule(rule: SmartPlaylistRule): rule is SmartPlaylistExpressionRule {
+  return 'expression' in rule
+}
+
+function normalizeExpression(expression: SmartPlaylistExpression): SmartPlaylistExpression {
+  if (expression.type === 'predicate') {
+    return {
+      ...expression,
+      value: expression.value?.trim(),
+    }
+  }
+
+  return {
+    type: expression.type,
+    operands: expression.operands.map(normalizeExpression),
+  }
+}
+
 function normalizeRule(rule: SmartPlaylistRule): SmartPlaylistRule {
+  if (isExpressionRule(rule)) {
+    return { expression: normalizeExpression(rule.expression) }
+  }
+
   const fieldOrder = { genre: 0, albumArtist: 1 } as const
   return {
     conditions: rule.conditions
@@ -28,6 +53,27 @@ function normalizeRule(rule: SmartPlaylistRule): SmartPlaylistRule {
 }
 
 function canonicalRule(rule: SmartPlaylistRule): string {
+  if (isExpressionRule(rule)) {
+    const canonicalizeExpression = (expression: SmartPlaylistExpression): unknown => {
+      if (expression.type === 'predicate') {
+        return {
+          type: expression.type,
+          field: expression.field,
+          operator: expression.operator,
+          value:
+            expression.value === undefined ? undefined : normalizeDelimitedValue(expression.value),
+        }
+      }
+
+      const operands = expression.operands
+        .map(canonicalizeExpression)
+        .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)))
+      return { type: expression.type, operands }
+    }
+
+    return JSON.stringify(canonicalizeExpression(normalizeExpression(rule.expression)))
+  }
+
   return JSON.stringify({
     conditions: normalizeRule(rule).conditions.map((condition) => ({
       field: condition.field,
@@ -52,6 +98,33 @@ function matchesCondition(track: TrackListItem, condition: SmartPlaylistRuleCond
   return matchesValue(track.albumArtist || track.artist, condition.value)
 }
 
+function matchesExpression(track: TrackListItem, expression: SmartPlaylistExpression): boolean {
+  if (expression.type === 'and') {
+    return expression.operands.every((operand) => matchesExpression(track, operand))
+  }
+  if (expression.type === 'or') {
+    return expression.operands.some((operand) => matchesExpression(track, operand))
+  }
+
+  const rawValue =
+    expression.field === 'genre'
+      ? track.genre
+      : expression.field === 'artist'
+        ? track.artist
+        : track.albumArtist
+
+  if (expression.operator === 'isEmpty') {
+    return splitDelimitedValues(rawValue).length === 0
+  }
+  return matchesValue(rawValue, expression.value!)
+}
+
+function matchesRule(track: TrackListItem, rule: SmartPlaylistRule): boolean {
+  if (isExpressionRule(rule)) return matchesExpression(track, rule.expression)
+
+  return rule.conditions.every((condition) => matchesCondition(track, condition))
+}
+
 export class SmartPlaylistService {
   constructor(
     private readonly smartPlaylistRepository: SmartPlaylistRepository,
@@ -68,11 +141,7 @@ export class SmartPlaylistService {
 
     return {
       playlist,
-      tracks: this.trackRepository
-        .getAll()
-        .filter((track) =>
-          playlist.rule.conditions.every((condition) => matchesCondition(track, condition)),
-        ),
+      tracks: this.trackRepository.getAll().filter((track) => matchesRule(track, playlist.rule)),
     }
   }
 
@@ -91,6 +160,12 @@ export class SmartPlaylistService {
       ),
       created: true,
     }
+  }
+
+  createFromQuery(query: string): CreateSmartPlaylistResult {
+    const expression = parseSmartPlaylistQuery(query)
+    const playlists = this.smartPlaylistRepository.list()
+    return this.create(this.getAvailableManualName(playlists), { expression })
   }
 
   rename(id: number, name: string): SmartPlaylist | null {
@@ -133,5 +208,12 @@ export class SmartPlaylistService {
     let suffix = 2
     while (names.has(`${baseName} (${suffix})`.toLocaleLowerCase())) suffix += 1
     return `${baseName} (${suffix})`
+  }
+
+  private getAvailableManualName(playlists: SmartPlaylist[]): string {
+    const names = new Set(playlists.map((playlist) => playlist.name.trim().toLocaleLowerCase()))
+    let suffix = 1
+    while (names.has(`智能歌单${suffix}`.toLocaleLowerCase())) suffix += 1
+    return `智能歌单${suffix}`
   }
 }

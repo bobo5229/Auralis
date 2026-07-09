@@ -67,6 +67,7 @@ export const auralisApi: AuralisApi = {
     list: () => invoke(ipcChannels.smartPlaylists.list),
     getDetail: (id) => invoke(ipcChannels.smartPlaylists.getDetail, { id }),
     create: (name, rule) => invoke(ipcChannels.smartPlaylists.create, { name, rule }),
+    createFromQuery: (query) => invoke(ipcChannels.smartPlaylists.createFromQuery, { query }),
     rename: (id, name) => invoke(ipcChannels.smartPlaylists.rename, { id, name }),
     updateViewMode: (id, viewMode) =>
       invoke(ipcChannels.smartPlaylists.updateViewMode, { id, viewMode }),

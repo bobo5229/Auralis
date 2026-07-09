@@ -106,10 +106,12 @@ type HistoryEntry = {
   track: PlaybackTrack
   queue: PlaybackTrack[]
   albumShuffleContext: AlbumShuffleContext
+  shuffleTrackPool: PlaybackTrack[] | null
 }
 
 let playbackHistory: HistoryEntry[] = []
 let albumShuffleContext: AlbumShuffleContext = null
+let shuffleTrackPool: PlaybackTrack[] | null = null
 
 audio.volume = state.volume
 audio.muted = state.isMuted
@@ -236,6 +238,7 @@ function pushHistory(previousTrack: PlaybackTrack | null, nextTrackId: number): 
     track: previousTrack,
     queue: state.queue,
     albumShuffleContext,
+    shuffleTrackPool,
   })
   if (playbackHistory.length > HISTORY_LIMIT) {
     playbackHistory = playbackHistory.slice(-HISTORY_LIMIT)
@@ -474,6 +477,17 @@ async function playPreviousInQueue(options?: { wrap?: boolean }): Promise<void> 
 // --- Random track ---
 
 async function playRandomTrack(): Promise<void> {
+  if (shuffleTrackPool && shuffleTrackPool.length > 0) {
+    const candidates = shuffleTrackPool.filter((track) => track.id !== state.currentTrackId)
+    if (candidates.length === 0) return
+
+    const track = candidates[Math.floor(Math.random() * candidates.length)]
+    await playTrackFromResolvedQueue(shuffleTrackPool, track.id, {
+      recordHistory: true,
+    })
+    return
+  }
+
   const track = await auralis.playback.getRandomTrack(state.currentTrackId ?? undefined)
   if (!track) return
   await playTrackFromResolvedQueue([track as PlaybackTrack], (track as PlaybackTrack).id, {
@@ -578,9 +592,16 @@ function setPlaybackMode(mode: PlaybackMode): void {
   }
 }
 
-async function playTrackFromQueue(queue: PlaybackTrack[], trackId: number): Promise<void> {
+async function playTrackFromQueue(
+  queue: PlaybackTrack[],
+  trackId: number,
+  options?: { shufflePool?: PlaybackTrack[] },
+): Promise<void> {
   queuedNextTrackId = null
-  await playTrackFromResolvedQueue(queue, trackId, { recordHistory: true })
+  const nextShuffleTrackPool = options?.shufflePool ?? null
+  const playRequest = playTrackFromResolvedQueue(queue, trackId, { recordHistory: true })
+  shuffleTrackPool = nextShuffleTrackPool
+  await playRequest
 }
 
 function insertTrackAfterCurrent(track: PlaybackTrack): void {
@@ -663,6 +684,7 @@ async function playPrevious(): Promise<void> {
     const entry = popHistory()
     if (entry) {
       albumShuffleContext = entry.albumShuffleContext
+      shuffleTrackPool = entry.shuffleTrackPool
       await playTrackFromResolvedQueue(entry.queue, entry.track.id, { recordHistory: false })
       return
     }

@@ -18,6 +18,7 @@ export const ipcChannels = {
     list: 'smart-playlists:list',
     getDetail: 'smart-playlists:get-detail',
     create: 'smart-playlists:create',
+    createFromQuery: 'smart-playlists:create-from-query',
     rename: 'smart-playlists:rename',
     updateViewMode: 'smart-playlists:update-view-mode',
     delete: 'smart-playlists:delete',

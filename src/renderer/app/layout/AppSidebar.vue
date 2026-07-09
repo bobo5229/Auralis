@@ -20,6 +20,11 @@ const deletingPlaylist = ref<SmartPlaylist | null>(null)
 const renameValue = ref('')
 const renameError = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
+const isQueryDialogOpen = ref(false)
+const smartPlaylistQuery = ref('')
+const smartPlaylistQueryError = ref('')
+const queryInput = ref<HTMLTextAreaElement | null>(null)
+const isCreatingFromQuery = ref(false)
 const pressedPlaylistId = ref<number | null>(null)
 const draggingPlaylistId = ref<number | null>(null)
 const dropTarget = ref<{ id: number; position: 'before' | 'after' } | null>(null)
@@ -46,8 +51,6 @@ const primaryNav = [
   { to: '/albums', label: '专辑', icon: 'i-lucide-disc-3' },
   { to: '/archive', label: '声迹', icon: 'i-lucide-archive' },
 ]
-
-const utilityNav = [{ to: '/settings', label: 'Settings', icon: 'i-lucide-settings' }]
 
 watch(
   () => route.path,
@@ -207,6 +210,39 @@ function onSmartPlaylistCreated(playlist: SmartPlaylist): void {
   void router.push(`/smart-playlists/${playlist.id}`)
 }
 
+async function openQueryDialog(): Promise<void> {
+  smartPlaylistQuery.value = ''
+  smartPlaylistQueryError.value = ''
+  isQueryDialogOpen.value = true
+  await nextTick()
+  queryInput.value?.focus()
+}
+
+function closeQueryDialog(): void {
+  if (isCreatingFromQuery.value) return
+  isQueryDialogOpen.value = false
+  smartPlaylistQueryError.value = ''
+}
+
+async function createFromQuery(): Promise<void> {
+  if (!smartPlaylistQuery.value.trim()) {
+    smartPlaylistQueryError.value = '请输入查询语法'
+    return
+  }
+
+  isCreatingFromQuery.value = true
+  smartPlaylistQueryError.value = ''
+  try {
+    const result = await auralis.smartPlaylists.createFromQuery(smartPlaylistQuery.value)
+    isQueryDialogOpen.value = false
+    onSmartPlaylistCreated(result.playlist)
+  } catch (error) {
+    smartPlaylistQueryError.value = error instanceof Error ? error.message : '无法解析查询语法'
+  } finally {
+    isCreatingFromQuery.value = false
+  }
+}
+
 function openPlaylistContextMenu(playlist: SmartPlaylist, event: MouseEvent): void {
   const menuWidth = 160
   const menuHeight = 82
@@ -306,6 +342,18 @@ onBeforeUnmount(() => {
           >
             <span class="i-lucide-columns-3 h-4 w-4"></span>
           </button>
+          <RouterLink
+            to="/settings"
+            class="theme-toggle-button"
+            :class="{ 'sidebar-utility-button-active': activePath === '/settings' }"
+            aria-label="Settings"
+            title="Settings"
+            @pointerdown="setPendingActiveFromPointer($event, '/settings')"
+            @keydown.enter="setPendingActive('/settings')"
+            @keydown.space="setPendingActive('/settings')"
+          >
+            <span class="i-lucide-settings h-4 w-4"></span>
+          </RouterLink>
           <button
             ref="themeButton"
             class="theme-toggle-button"
@@ -344,13 +392,25 @@ onBeforeUnmount(() => {
         </RouterLink>
       </section>
 
-      <section v-if="smartPlaylists.length > 0">
-        <div class="sidebar-section-label">智能歌单</div>
+      <section>
+        <div class="smart-playlist-section-header">
+          <div class="sidebar-section-label">智能歌单</div>
+          <button
+            class="smart-playlist-add-button"
+            type="button"
+            title="创建智能歌单"
+            aria-label="创建智能歌单"
+            @click="openQueryDialog"
+          >
+            <span class="i-lucide-plus"></span>
+          </button>
+        </div>
         <RouterLink
           v-for="playlist in smartPlaylists"
           :key="playlist.id"
           :to="`/smart-playlists/${playlist.id}`"
           :data-smart-playlist-id="playlist.id"
+          :draggable="false"
           class="sidebar-link"
           :class="{
             'sidebar-link-active': activePath === `/smart-playlists/${playlist.id}`,
@@ -363,29 +423,13 @@ onBeforeUnmount(() => {
           }"
           @pointerdown="onPlaylistPointerDown(playlist.id, $event)"
           @click="onPlaylistClick($event, `/smart-playlists/${playlist.id}`)"
+          @dragstart.prevent
           @keydown.enter="setPendingActive(`/smart-playlists/${playlist.id}`)"
           @keydown.space="setPendingActive(`/smart-playlists/${playlist.id}`)"
           @contextmenu.prevent="openPlaylistContextMenu(playlist, $event)"
         >
           <span class="i-lucide-list-music inline-block h-4 w-4"></span>
           <span>{{ playlist.name }}</span>
-        </RouterLink>
-      </section>
-
-      <section>
-        <div class="sidebar-section-label">Tools</div>
-        <RouterLink
-          v-for="item in utilityNav"
-          :key="item.to"
-          :to="item.to"
-          class="sidebar-link"
-          :class="{ 'sidebar-link-active': activePath === item.to }"
-          @pointerdown="setPendingActiveFromPointer($event, item.to)"
-          @keydown.enter="setPendingActive(item.to)"
-          @keydown.space="setPendingActive(item.to)"
-        >
-          <span class="inline-block h-4 w-4" :class="item.icon"></span>
-          <span>{{ item.label }}</span>
         </RouterLink>
       </section>
     </nav>
@@ -413,7 +457,11 @@ onBeforeUnmount(() => {
             <span class="i-lucide-pencil"></span>
             <span>重命名</span>
           </button>
-          <button class="library-context-menu-item" type="button" @click="openDeleteDialog">
+          <button
+            class="library-context-menu-item smart-playlist-context-danger"
+            type="button"
+            @click="openDeleteDialog"
+          >
             <span class="i-lucide-trash-2"></span>
             <span>删除</span>
           </button>
@@ -434,6 +482,39 @@ onBeforeUnmount(() => {
           <div class="smart-playlist-dialog-actions">
             <button type="button" @click="closeRenameDialog">取消</button>
             <button type="submit" class="smart-playlist-dialog-primary">保存</button>
+          </div>
+        </form>
+      </div>
+
+      <div v-if="isQueryDialogOpen" class="smart-playlist-dialog-backdrop">
+        <form
+          class="smart-playlist-dialog smart-playlist-query-dialog"
+          @submit.prevent="createFromQuery"
+        >
+          <h2>创建智能歌单</h2>
+          <textarea
+            ref="queryInput"
+            v-model="smartPlaylistQuery"
+            rows="4"
+            aria-label="智能歌单查询语法"
+            placeholder='GENRE HAS "K-Pop" AND ARTIST HAS "aespa" OR "NMIXX"'
+            spellcheck="false"
+            @input="smartPlaylistQueryError = ''"
+          ></textarea>
+          <p v-if="smartPlaylistQueryError" class="smart-playlist-dialog-error">
+            {{ smartPlaylistQueryError }}
+          </p>
+          <div class="smart-playlist-dialog-actions">
+            <button type="button" :disabled="isCreatingFromQuery" @click="closeQueryDialog">
+              取消
+            </button>
+            <button
+              type="submit"
+              class="smart-playlist-dialog-primary"
+              :disabled="isCreatingFromQuery"
+            >
+              创建
+            </button>
           </div>
         </form>
       </div>
