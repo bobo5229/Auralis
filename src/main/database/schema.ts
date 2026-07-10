@@ -512,6 +512,42 @@ const migrations = [
     name: 'drop_file_tag_snapshots',
     sql: `DROP TABLE IF EXISTS file_tag_snapshots`,
   },
+  {
+    id: 20,
+    name: 'add_regular_playlists',
+    sql: `
+      CREATE TABLE playlists (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        view_mode TEXT NOT NULL DEFAULT 'flat'
+          CHECK(view_mode IN ('flat', 'cover')),
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE playlist_tracks (
+        playlist_id INTEGER NOT NULL,
+        track_id INTEGER NOT NULL,
+        position INTEGER NOT NULL,
+        added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(playlist_id, track_id),
+        FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
+        FOREIGN KEY(track_id) REFERENCES tracks(id) ON DELETE CASCADE
+      );
+
+      UPDATE smart_playlists
+      SET sort_order = sort_order
+      WHERE sort_order IS NOT NULL;
+
+      CREATE INDEX idx_playlists_sort_order
+        ON playlists(sort_order, id);
+      CREATE INDEX idx_playlist_tracks_playlist_position
+        ON playlist_tracks(playlist_id, position);
+      CREATE INDEX idx_playlist_tracks_track_id
+        ON playlist_tracks(track_id);
+    `,
+  },
 ] as const
 
 export function migrateDatabase(db: Database.Database): void {

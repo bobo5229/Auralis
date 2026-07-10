@@ -108,4 +108,14 @@ export class SmartPlaylistRepository extends BaseRepository {
     reorderAll(ids)
     return this.list()
   }
+
+  setSortOrder(id: number, sortOrder: number): void {
+    this.db
+      .prepare(
+        `UPDATE smart_playlists
+         SET sort_order = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+      )
+      .run(sortOrder, id)
+  }
 }

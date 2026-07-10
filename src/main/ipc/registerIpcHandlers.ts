@@ -15,10 +15,13 @@ import { MetadataWatchService } from '@main/features/metadata/metadataWatchServi
 import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
 import { PlayStatsRepository } from '@main/repositories/playStatsRepository'
 import { PlayStatsService } from '@main/services/playStatsService'
+import { PlaylistRepository } from '@main/repositories/playlistRepository'
+import { PlaylistService } from '@main/services/playlistService'
 import { SmartPlaylistRepository } from '@main/repositories/smartPlaylistRepository'
 import { SmartPlaylistService } from '@main/services/smartPlaylistService'
 import type { IpcResponse } from '@shared/ipc/contracts'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { PlaylistViewMode, SidebarPlaylistKind } from '@shared/types/playlist'
 import type { SmartPlaylistRule, SmartPlaylistViewMode } from '@shared/types/smartPlaylist'
 import type Database from 'better-sqlite3'
 
@@ -68,10 +71,21 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   )
 
   const playStatsService = new PlayStatsService(new PlayStatsRepository(db))
-  const smartPlaylistService = new SmartPlaylistService(
-    new SmartPlaylistRepository(db),
+  const playlistRepository = new PlaylistRepository(db)
+  const smartPlaylistRepository = new SmartPlaylistRepository(db)
+  const smartPlaylistService = new SmartPlaylistService(smartPlaylistRepository, trackRepository)
+  const playlistService = new PlaylistService(
+    playlistRepository,
+    smartPlaylistRepository,
     trackRepository,
   )
+
+  const getSmartTrackCounts = () =>
+    new Map(
+      smartPlaylistService
+        .listTrackCounts()
+        .map((item) => [item.playlistId, item.trackCount] as const),
+    )
 
   metadataWatchService.start()
   app.on('before-quit', () => {
@@ -135,6 +149,11 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   )
 
   ipcMain.handle(
+    ipcChannels.smartPlaylists.listTrackCounts,
+    (): IpcResponse<'smart-playlists:list-track-counts'> => smartPlaylistService.listTrackCounts(),
+  )
+
+  ipcMain.handle(
     ipcChannels.smartPlaylists.getDetail,
     (_event, payload: { id: number }): IpcResponse<'smart-playlists:get-detail'> =>
       smartPlaylistService.getDetail(payload.id),
@@ -181,6 +200,72 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     ipcChannels.smartPlaylists.reorder,
     (_event, payload: { ids: number[] }): IpcResponse<'smart-playlists:reorder'> =>
       smartPlaylistService.reorder(payload.ids),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playlists.list,
+    (): IpcResponse<'playlists:list'> => playlistService.list(),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playlists.listTrackCounts,
+    (): IpcResponse<'playlists:list-track-counts'> => playlistService.listTrackCounts(),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playlists.listSidebarItems,
+    (): IpcResponse<'playlists:list-sidebar-items'> =>
+      playlistService.listSidebarItems(getSmartTrackCounts()),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playlists.getDetail,
+    (_event, payload: { id: number }): IpcResponse<'playlists:get-detail'> =>
+      playlistService.getDetail(payload.id),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playlists.create,
+    (): IpcResponse<'playlists:create'> => playlistService.create(),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playlists.rename,
+    (_event, payload: { id: number; name: string }): IpcResponse<'playlists:rename'> =>
+      playlistService.rename(payload.id, payload.name),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playlists.updateViewMode,
+    (
+      _event,
+      payload: { id: number; viewMode: PlaylistViewMode },
+    ): IpcResponse<'playlists:update-view-mode'> =>
+      playlistService.updateViewMode(payload.id, payload.viewMode),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playlists.delete,
+    (_event, payload: { id: number }): IpcResponse<'playlists:delete'> => ({
+      deleted: playlistService.delete(payload.id),
+    }),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playlists.addTracks,
+    (_event, payload: { id: number; trackIds: number[] }): IpcResponse<'playlists:add-tracks'> =>
+      playlistService.addTracks(payload.id, payload.trackIds),
+  )
+
+  ipcMain.handle(
+    ipcChannels.playlists.reorderSidebarItems,
+    (
+      _event,
+      payload: { items: Array<{ kind: SidebarPlaylistKind; id: number }> },
+    ): IpcResponse<'playlists:reorder-sidebar-items'> => {
+      playlistService.reorderSidebarItems(payload.items)
+      return playlistService.listSidebarItems(getSmartTrackCounts())
+    },
   )
 
   ipcMain.handle(

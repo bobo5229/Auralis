@@ -10,6 +10,15 @@ import type {
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
 import type {
+  AddPlaylistTracksResult,
+  Playlist,
+  PlaylistDetail,
+  PlaylistTrackCount,
+  PlaylistViewMode,
+  SidebarPlaylistItem,
+  SidebarPlaylistKind,
+} from '@shared/types/playlist'
+import type {
   AnnualListeningInsights,
   DailyListeningDetail,
   ListeningRanking,
@@ -21,6 +30,7 @@ import type {
   SmartPlaylist,
   SmartPlaylistDetail,
   SmartPlaylistRule,
+  SmartPlaylistTrackCount,
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
 
@@ -61,6 +71,10 @@ export interface IpcInvokeContract {
     request: void
     response: SmartPlaylist[]
   }
+  'smart-playlists:list-track-counts': {
+    request: void
+    response: SmartPlaylistTrackCount[]
+  }
   'smart-playlists:get-detail': {
     request: { id: number }
     response: SmartPlaylistDetail | null
@@ -88,6 +102,46 @@ export interface IpcInvokeContract {
   'smart-playlists:reorder': {
     request: { ids: number[] }
     response: SmartPlaylist[]
+  }
+  'playlists:list': {
+    request: void
+    response: Playlist[]
+  }
+  'playlists:list-track-counts': {
+    request: void
+    response: PlaylistTrackCount[]
+  }
+  'playlists:list-sidebar-items': {
+    request: void
+    response: SidebarPlaylistItem[]
+  }
+  'playlists:get-detail': {
+    request: { id: number }
+    response: PlaylistDetail | null
+  }
+  'playlists:create': {
+    request: void
+    response: Playlist
+  }
+  'playlists:rename': {
+    request: { id: number; name: string }
+    response: Playlist | null
+  }
+  'playlists:update-view-mode': {
+    request: { id: number; viewMode: PlaylistViewMode }
+    response: Playlist | null
+  }
+  'playlists:delete': {
+    request: { id: number }
+    response: { deleted: boolean }
+  }
+  'playlists:add-tracks': {
+    request: { id: number; trackIds: number[] }
+    response: AddPlaylistTracksResult
+  }
+  'playlists:reorder-sidebar-items': {
+    request: { items: Array<{ kind: SidebarPlaylistKind; id: number }> }
+    response: SidebarPlaylistItem[]
   }
   'lyrics:get-by-track-id': {
     request: { trackId: number }

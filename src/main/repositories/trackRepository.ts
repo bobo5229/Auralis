@@ -172,7 +172,8 @@ export class TrackRepository extends BaseRepository {
                 genre,
                 availability,
                 play_count AS playCount,
-                last_played_at AS lastPlayedAt
+                last_played_at AS lastPlayedAt,
+                created_at AS createdAt
          FROM library_track_display
          WHERE availability = 'available'
          ORDER BY id ASC`,
