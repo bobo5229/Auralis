@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch 
 import { useRoute, useRouter } from 'vue-router'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import type { EditableTrackMetadata, TrackListItem } from '@shared/types/libraryScan'
+import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import { auralis } from '@renderer/shared/ipc/client'
 import SongRow from '../components/SongRow.vue'
 import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
@@ -39,7 +40,14 @@ const smartPlaylistId = computed(() => {
   const parsed = Number(route.params.id)
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null
 })
+const playlistId = computed(() => {
+  if (route.name !== 'playlist') return null
+  const parsed = Number(route.params.id)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null
+})
 const isSmartPlaylist = computed(() => smartPlaylistId.value !== null)
+const isPlaylist = computed(() => playlistId.value !== null)
+const isScopedPlaylist = computed(() => isSmartPlaylist.value || isPlaylist.value)
 
 function readPersistedViewMode(): LibraryViewMode {
   const stored = localStorage.getItem(LIBRARY_VIEW_MODE_KEY)
@@ -50,8 +58,12 @@ const libraryViewMode = ref<LibraryViewMode>(readPersistedViewMode())
 const isCoverView = computed(() => libraryViewMode.value === 'cover')
 const contextMenu = ref<LibraryContextMenuState | null>(null)
 const isStartingLibraryRefresh = ref(false)
+const regularPlaylistItems = ref<SidebarPlaylistItem[]>([])
+const addToPlaylistFeedback = ref<{ playlistId: number; message: string } | null>(null)
+const isCreatingPlaylistFromMenu = ref(false)
 let unsubscribeChanged: (() => void) | null = null
 let unsubscribeScanProgress: (() => void) | null = null
+let addToPlaylistFeedbackTimer: number | null = null
 
 // Search state
 const searchQuery = ref('')
@@ -68,6 +80,11 @@ const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
 const shouldRenderSearchBar = computed(
   () => isSearchZoneHovered.value || isSearchFocused.value || hasSearchQuery.value,
 )
+const emptyMessage = computed(() => {
+  if (isSmartPlaylist.value) return '此智能歌单中暂无歌曲。'
+  if (isPlaylist.value) return '暂无歌曲'
+  return 'No tracks found. Add music folders in Settings.'
+})
 const contextMenuTrack = computed(() =>
   contextMenu.value ? getTrackById(contextMenu.value.trackId) : null,
 )
@@ -145,12 +162,13 @@ function onSelect(trackId: number) {
 
 function onPlay(trackId: number) {
   playback.playTrackFromQueue(tracks.value, trackId, {
-    shufflePool: isSmartPlaylist.value ? tracks.value : undefined,
+    shufflePool: isScopedPlaylist.value ? tracks.value : undefined,
   })
 }
 
 function closeContextMenu(): void {
   contextMenu.value = null
+  clearAddToPlaylistFeedback()
 }
 
 function onOpenContextMenu(
@@ -160,8 +178,8 @@ function onOpenContextMenu(
 ): void {
   playback.selectTrack(trackId)
 
-  const menuWidth = 220
-  const menuHeight = 344
+  const menuWidth = 448
+  const menuHeight = 392
   const x = Math.min(event.clientX, window.innerWidth - menuWidth - 8)
   const y = Math.min(event.clientY, window.innerHeight - menuHeight - 8)
 
@@ -171,6 +189,7 @@ function onOpenContextMenu(
     y: Math.max(8, y),
     source,
   }
+  void loadRegularPlaylistItems()
 }
 
 function onOpenAlbumArtworkContextMenu(anchorTrackId: number, event: MouseEvent): void {
@@ -181,9 +200,22 @@ function getTrackById(trackId: number): TrackListItem | null {
   return tracks.value.find((track) => track.id === trackId) ?? null
 }
 
+async function loadRegularPlaylistItems(): Promise<void> {
+  const items = await auralis.playlists.listSidebarItems()
+  regularPlaylistItems.value = items.filter((item) => item.kind === 'playlist')
+}
+
 async function reloadTracks(): Promise<void> {
   if (smartPlaylistId.value !== null) {
     const detail = await auralis.smartPlaylists.getDetail(smartPlaylistId.value)
+    if (!detail) {
+      await router.replace('/')
+      return
+    }
+    tracks.value = detail.tracks
+    libraryViewMode.value = detail.playlist.viewMode
+  } else if (playlistId.value !== null) {
+    const detail = await auralis.playlists.getDetail(playlistId.value)
     if (!detail) {
       await router.replace('/')
       return
@@ -243,6 +275,8 @@ function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId: number)
   libraryViewMode.value = nextMode
   if (smartPlaylistId.value !== null) {
     void auralis.smartPlaylists.updateViewMode(smartPlaylistId.value, nextMode)
+  } else if (playlistId.value !== null) {
+    void auralis.playlists.updateViewMode(playlistId.value, nextMode)
   } else {
     localStorage.setItem(LIBRARY_VIEW_MODE_KEY, nextMode)
   }
@@ -394,7 +428,7 @@ async function onLocateCurrentTrack(): Promise<void> {
 async function onPlayContextTrack(trackId: number): Promise<void> {
   closeContextMenu()
   await playback.playTrackFromQueue(tracks.value, trackId, {
-    shufflePool: isSmartPlaylist.value ? tracks.value : undefined,
+    shufflePool: isScopedPlaylist.value ? tracks.value : undefined,
   })
 }
 
@@ -423,13 +457,78 @@ function onPlayAlbum(trackId: number): void {
   if (!group || group.tracks.length === 0) return
 
   playback.playTrackFromQueue(group.tracks, group.tracks[0].id, {
-    shufflePool: isSmartPlaylist.value ? tracks.value : undefined,
+    shufflePool: isScopedPlaylist.value ? tracks.value : undefined,
   })
 }
 
 function getAlbumNameForTrack(trackId: number): string {
   const group = albumGroups.value.find((g) => g.tracks.some((t) => t.id === trackId))
   return group?.album || 'Unknown Album'
+}
+
+function getContextMenuTrackIds(): number[] {
+  if (!contextMenu.value) return []
+
+  if (contextMenu.value.source === 'album-artwork') {
+    const group = albumGroups.value.find((g) =>
+      g.tracks.some((track) => track.id === contextMenu.value?.trackId),
+    )
+    return group?.tracks.map((track) => track.id) ?? []
+  }
+
+  return [contextMenu.value.trackId]
+}
+
+function clearAddToPlaylistFeedback(): void {
+  if (addToPlaylistFeedbackTimer !== null) {
+    window.clearTimeout(addToPlaylistFeedbackTimer)
+    addToPlaylistFeedbackTimer = null
+  }
+  addToPlaylistFeedback.value = null
+}
+
+async function onAddContextTracksToPlaylist(playlist: SidebarPlaylistItem): Promise<void> {
+  const trackIds = getContextMenuTrackIds()
+  if (trackIds.length === 0) return
+
+  await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds)
+}
+
+async function onCreatePlaylistAndAddContextTracks(): Promise<void> {
+  if (isCreatingPlaylistFromMenu.value) return
+
+  const trackIds = getContextMenuTrackIds()
+  if (trackIds.length === 0) return
+
+  isCreatingPlaylistFromMenu.value = true
+  try {
+    const playlist = await auralis.playlists.create()
+    await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds)
+    await loadRegularPlaylistItems()
+  } finally {
+    isCreatingPlaylistFromMenu.value = false
+  }
+}
+
+async function addContextTracksToPlaylist(
+  playlistId: number,
+  playlistName: string,
+  trackIds: number[],
+): Promise<void> {
+  await auralis.playlists.addTracks(playlistId, trackIds)
+  window.dispatchEvent(new CustomEvent('auralis-playlists-changed'))
+  addToPlaylistFeedback.value = {
+    playlistId,
+    message: `已添加到「${playlistName}」`,
+  }
+
+  if (addToPlaylistFeedbackTimer !== null) {
+    window.clearTimeout(addToPlaylistFeedbackTimer)
+  }
+  addToPlaylistFeedbackTimer = window.setTimeout(() => {
+    addToPlaylistFeedbackTimer = null
+    closeContextMenu()
+  }, 1200)
 }
 
 async function onRefreshLibrary(): Promise<void> {
@@ -478,6 +577,7 @@ async function saveMetadata(metadata: EditableTrackMetadata): Promise<void> {
 
 onMounted(async () => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
+  void loadRegularPlaylistItems()
 
   try {
     await reloadTracks()
@@ -521,6 +621,7 @@ onBeforeUnmount(() => {
   }
   unsubscribeChanged?.()
   unsubscribeScanProgress?.()
+  clearAddToPlaylistFeedback()
 })
 </script>
 
@@ -533,10 +634,10 @@ onBeforeUnmount(() => {
     <div
       v-else-if="tracks.length > 0"
       class="library-list-shell relative flex flex-1 flex-col overflow-hidden"
-      @mousemove="!isSmartPlaylist && onLibraryListMouseMove($event)"
-      @mouseleave="!isSmartPlaylist && onLibraryListMouseLeave()"
+      @mousemove="!isScopedPlaylist && onLibraryListMouseMove($event)"
+      @mouseleave="!isScopedPlaylist && onLibraryListMouseLeave()"
     >
-      <div v-if="!isSmartPlaylist" class="library-search-zone">
+      <div v-if="!isScopedPlaylist" class="library-search-zone">
         <Transition name="search-bar">
           <div
             v-if="shouldRenderSearchBar"
@@ -622,13 +723,7 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-else class="flex flex-1 items-center justify-center">
-      <p class="text-sm text-[var(--auralis-text-faint)]">
-        {{
-          isSmartPlaylist
-            ? '此智能歌单中暂无歌曲。'
-            : 'No tracks found. Add music folders in Settings.'
-        }}
-      </p>
+      <p class="text-sm text-[var(--auralis-text-faint)]">{{ emptyMessage }}</p>
     </div>
 
     <MetadataEditDialog
@@ -642,7 +737,7 @@ onBeforeUnmount(() => {
     <Teleport to="body">
       <div v-if="contextMenu" class="fixed inset-0 z-[60]" @click="closeContextMenu">
         <LiquidGlassPanel
-          class="library-context-menu fixed w-55"
+          class="library-context-menu library-context-menu-root fixed w-55"
           :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
           @click.stop
         >
@@ -702,6 +797,47 @@ onBeforeUnmount(() => {
             "
             class="library-context-menu-separator"
           ></div>
+          <div class="library-context-menu-submenu-root">
+            <button class="library-context-menu-item" type="button">
+              <span class="i-lucide-list-plus"></span>
+              <span class="library-context-menu-text">添加到歌单</span>
+              <span class="i-lucide-chevron-right library-context-menu-chevron"></span>
+            </button>
+            <div class="playlist-add-submenu">
+              <LiquidGlassPanel class="library-context-menu playlist-add-submenu-panel">
+                <button
+                  v-for="playlist in regularPlaylistItems"
+                  :key="playlist.id"
+                  class="library-context-menu-item"
+                  type="button"
+                  @click="onAddContextTracksToPlaylist(playlist)"
+                >
+                  <span class="i-lucide-list-music"></span>
+                  <span>
+                    {{
+                      addToPlaylistFeedback?.playlistId === playlist.id
+                        ? addToPlaylistFeedback.message
+                        : playlist.name
+                    }}
+                  </span>
+                </button>
+                <div
+                  v-if="regularPlaylistItems.length > 0"
+                  class="library-context-menu-separator"
+                ></div>
+                <button
+                  class="library-context-menu-item"
+                  type="button"
+                  :disabled="isCreatingPlaylistFromMenu"
+                  @click="onCreatePlaylistAndAddContextTracks"
+                >
+                  <span class="i-lucide-plus"></span>
+                  <span>新建歌单</span>
+                </button>
+              </LiquidGlassPanel>
+            </div>
+          </div>
+          <div class="library-context-menu-separator"></div>
           <button
             class="library-context-menu-item"
             type="button"

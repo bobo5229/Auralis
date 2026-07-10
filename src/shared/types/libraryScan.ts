@@ -16,6 +16,7 @@ export interface TrackListItem {
   availability: TrackAvailability
   playCount: number
   lastPlayedAt: string | null
+  createdAt: string
 }
 
 export type LibraryScanStatusValue = 'idle' | 'scanning' | 'completed' | 'canceled' | 'failed'

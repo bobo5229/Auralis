@@ -7,6 +7,8 @@ import type {
 type TokenType =
   | 'field'
   | 'has'
+  | 'before'
+  | 'within'
   | 'is'
   | 'empty'
   | 'and'
@@ -97,6 +99,9 @@ function tokenize(query: string): Token[] {
       { text: 'ALBUM ARTIST', type: 'field', field: 'albumArtist' },
       { text: 'ARTIST', type: 'field', field: 'artist' },
       { text: 'GENRE', type: 'field', field: 'genre' },
+      { text: 'ADDED', type: 'field', field: 'added' },
+      { text: 'BEFORE', type: 'before' },
+      { text: 'WITHIN', type: 'within' },
       { text: 'EMPTY', type: 'empty' },
       { text: 'HAS', type: 'has' },
       { text: 'AND', type: 'and' },
@@ -179,6 +184,22 @@ class Parser {
   private parsePredicate(): SmartPlaylistExpression {
     const fieldToken = this.consume('field', '此处需要 GENRE、ARTIST 或 ALBUM ARTIST')
     const field = fieldToken.field!
+
+    if (field === 'added') {
+      if (this.peek().type === 'before') {
+        this.consume('before')
+        const value = this.consume('value', 'ADDED BEFORE 后需要使用英文双引号包裹时间')
+        return { type: 'predicate', field, operator: 'addedBefore', value: value.value! }
+      }
+
+      if (this.peek().type === 'within') {
+        this.consume('within')
+        const value = this.consume('value', 'ADDED WITHIN 后需要使用英文双引号包裹时间')
+        return { type: 'predicate', field, operator: 'addedWithin', value: value.value! }
+      }
+
+      throw new SmartPlaylistQueryError('ADDED 后只能使用 BEFORE 或 WITHIN', this.peek().position)
+    }
 
     if (this.peek().type === 'is') {
       this.consume('is')

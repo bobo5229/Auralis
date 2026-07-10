@@ -65,6 +65,7 @@ export const auralisApi: AuralisApi = {
   },
   smartPlaylists: {
     list: () => invoke(ipcChannels.smartPlaylists.list),
+    listTrackCounts: () => invoke(ipcChannels.smartPlaylists.listTrackCounts),
     getDetail: (id) => invoke(ipcChannels.smartPlaylists.getDetail, { id }),
     create: (name, rule) => invoke(ipcChannels.smartPlaylists.create, { name, rule }),
     createFromQuery: (query) => invoke(ipcChannels.smartPlaylists.createFromQuery, { query }),
@@ -73,6 +74,19 @@ export const auralisApi: AuralisApi = {
       invoke(ipcChannels.smartPlaylists.updateViewMode, { id, viewMode }),
     delete: (id) => invoke(ipcChannels.smartPlaylists.delete, { id }),
     reorder: (ids) => invoke(ipcChannels.smartPlaylists.reorder, { ids }),
+  },
+  playlists: {
+    list: () => invoke(ipcChannels.playlists.list),
+    listTrackCounts: () => invoke(ipcChannels.playlists.listTrackCounts),
+    listSidebarItems: () => invoke(ipcChannels.playlists.listSidebarItems),
+    getDetail: (id) => invoke(ipcChannels.playlists.getDetail, { id }),
+    create: () => invoke(ipcChannels.playlists.create),
+    rename: (id, name) => invoke(ipcChannels.playlists.rename, { id, name }),
+    updateViewMode: (id, viewMode) =>
+      invoke(ipcChannels.playlists.updateViewMode, { id, viewMode }),
+    delete: (id) => invoke(ipcChannels.playlists.delete, { id }),
+    addTracks: (id, trackIds) => invoke(ipcChannels.playlists.addTracks, { id, trackIds }),
+    reorderSidebarItems: (items) => invoke(ipcChannels.playlists.reorderSidebarItems, { items }),
   },
   lyrics: {
     getByTrackId: (trackId) => invoke(ipcChannels.lyrics.getByTrackId, { trackId }),

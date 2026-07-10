@@ -11,6 +11,15 @@ import type {
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
 import type {
+  AddPlaylistTracksResult,
+  Playlist,
+  PlaylistDetail,
+  PlaylistTrackCount,
+  PlaylistViewMode,
+  SidebarPlaylistItem,
+  SidebarPlaylistKind,
+} from '@shared/types/playlist'
+import type {
   AnnualListeningInsights,
   DailyListeningDetail,
   ListeningHeatmap,
@@ -22,6 +31,7 @@ import type {
   SmartPlaylist,
   SmartPlaylistDetail,
   SmartPlaylistRule,
+  SmartPlaylistTrackCount,
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
 
@@ -57,6 +67,7 @@ export interface AuralisApi {
   }
   smartPlaylists: {
     list: () => Promise<SmartPlaylist[]>
+    listTrackCounts: () => Promise<SmartPlaylistTrackCount[]>
     getDetail: (id: number) => Promise<SmartPlaylistDetail | null>
     create: (name: string, rule: SmartPlaylistRule) => Promise<CreateSmartPlaylistResult>
     createFromQuery: (query: string) => Promise<CreateSmartPlaylistResult>
@@ -64,6 +75,20 @@ export interface AuralisApi {
     updateViewMode: (id: number, viewMode: SmartPlaylistViewMode) => Promise<SmartPlaylist | null>
     delete: (id: number) => Promise<{ deleted: boolean }>
     reorder: (ids: number[]) => Promise<SmartPlaylist[]>
+  }
+  playlists: {
+    list: () => Promise<Playlist[]>
+    listTrackCounts: () => Promise<PlaylistTrackCount[]>
+    listSidebarItems: () => Promise<SidebarPlaylistItem[]>
+    getDetail: (id: number) => Promise<PlaylistDetail | null>
+    create: () => Promise<Playlist>
+    rename: (id: number, name: string) => Promise<Playlist | null>
+    updateViewMode: (id: number, viewMode: PlaylistViewMode) => Promise<Playlist | null>
+    delete: (id: number) => Promise<{ deleted: boolean }>
+    addTracks: (id: number, trackIds: number[]) => Promise<AddPlaylistTracksResult>
+    reorderSidebarItems: (
+      items: Array<{ kind: SidebarPlaylistKind; id: number }>,
+    ) => Promise<SidebarPlaylistItem[]>
   }
   lyrics: {
     getByTrackId: (trackId: number) => Promise<TrackLyrics | null>

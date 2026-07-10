@@ -16,6 +16,7 @@ export const ipcChannels = {
   },
   smartPlaylists: {
     list: 'smart-playlists:list',
+    listTrackCounts: 'smart-playlists:list-track-counts',
     getDetail: 'smart-playlists:get-detail',
     create: 'smart-playlists:create',
     createFromQuery: 'smart-playlists:create-from-query',
@@ -23,6 +24,18 @@ export const ipcChannels = {
     updateViewMode: 'smart-playlists:update-view-mode',
     delete: 'smart-playlists:delete',
     reorder: 'smart-playlists:reorder',
+  },
+  playlists: {
+    list: 'playlists:list',
+    listTrackCounts: 'playlists:list-track-counts',
+    listSidebarItems: 'playlists:list-sidebar-items',
+    getDetail: 'playlists:get-detail',
+    create: 'playlists:create',
+    rename: 'playlists:rename',
+    updateViewMode: 'playlists:update-view-mode',
+    delete: 'playlists:delete',
+    addTracks: 'playlists:add-tracks',
+    reorderSidebarItems: 'playlists:reorder-sidebar-items',
   },
   lyrics: {
     getByTrackId: 'lyrics:get-by-track-id',

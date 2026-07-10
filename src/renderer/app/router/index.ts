@@ -15,6 +15,12 @@ export const router = createRouter({
       component: LibraryPage,
       meta: { title: 'Smart Playlist' },
     },
+    {
+      path: '/playlists/:id',
+      name: 'playlist',
+      component: LibraryPage,
+      meta: { title: 'Playlist' },
+    },
     { path: '/albums', name: 'albums', component: AlbumsPage, meta: { title: 'Albums' } },
     {
       path: '/albums/detail',

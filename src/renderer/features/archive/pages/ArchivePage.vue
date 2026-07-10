@@ -65,6 +65,12 @@ const showResetConfirmation = ref(false)
 const isResetting = ref(false)
 const isHoldingReset = ref(false)
 const resetError = ref<string | null>(null)
+const showAnnualRecap = ref(false)
+const isAnnualRecapLoading = ref(false)
+const annualRecapError = ref<string | null>(null)
+const annualRecapTrackRanking = ref<ListeningRanking | null>(null)
+const annualRecapAlbumRanking = ref<ListeningRanking | null>(null)
+const annualRecapPage = ref(0)
 
 const LONG_PRESS_MS = 1000
 const RESET_HOLD_MS = 3000
@@ -82,9 +88,13 @@ const rankingTargets: Array<{ value: ListeningRankingTarget; label: string; icon
 let longPressTimer: number | null = null
 let resetHoldTimer: number | null = null
 let rankingRequestId = 0
+let annualRecapRequestId = 0
 let unsubscribeLibraryChanged: (() => void) | null = null
 
 const weekdayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+
+const annualRecapWeekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+const ANNUAL_RECAP_PAGE_COUNT = 5
 
 function formatDateKey(date: Date): string {
   return [
@@ -363,6 +373,75 @@ const annualSummary = computed(() => {
   ]
 })
 
+const annualRecapTrackTop10 = computed(
+  () => annualRecapTrackRanking.value?.items.slice(0, 10) ?? [],
+)
+
+const annualRecapAlbumTop10 = computed(
+  () => annualRecapAlbumRanking.value?.items.slice(0, 10) ?? [],
+)
+
+const annualRecapMetrics = computed(() => {
+  const elapsedDays = calendarDays.value.filter((day) => !day.isFuture)
+  const listeningDays = elapsedDays.filter((day) => day.playCount > 0).length
+  const totalPlays = elapsedDays.reduce((total, day) => total + day.playCount, 0)
+  const totalDurationSeconds = elapsedDays.reduce((total, day) => total + day.durationSeconds, 0)
+  const totalMinutes = Math.round(totalDurationSeconds / 60)
+  const monthPlayCounts = Array.from({ length: 12 }, () => 0)
+  const weekdayPlayCounts = Array.from({ length: 7 }, () => 0)
+  let longestStreak = 0
+  let currentStreak = 0
+
+  for (const day of elapsedDays) {
+    const monthIndex = Number(day.date.slice(5, 7)) - 1
+    const weekdayIndex = new Date(`${day.date}T00:00:00`).getDay()
+    monthPlayCounts[monthIndex] += day.playCount
+    weekdayPlayCounts[weekdayIndex] += day.playCount
+
+    if (day.playCount > 0) {
+      currentStreak += 1
+      longestStreak = Math.max(longestStreak, currentStreak)
+    } else {
+      currentStreak = 0
+    }
+  }
+
+  const maxMonthPlayCount = Math.max(...monthPlayCounts, 0)
+  const mostActiveMonthIndex = monthPlayCounts.reduce(
+    (bestIndex, count, index, counts) => (count > counts[bestIndex] ? index : bestIndex),
+    0,
+  )
+  const mostActiveWeekdayIndex = weekdayPlayCounts.reduce(
+    (bestIndex, count, index, counts) => (count > counts[bestIndex] ? index : bestIndex),
+    0,
+  )
+  const activePeakDay = peakDay.value
+
+  return {
+    totalPlays,
+    totalDurationSeconds,
+    totalMinutes,
+    listeningDays,
+    longestStreak,
+    peakDayLabel: activePeakDay?.label ?? '暂无记录',
+    peakDayPlayCount: activePeakDay?.playCount ?? 0,
+    mostActiveMonthLabel:
+      totalPlays > 0
+        ? `${mostActiveMonthIndex + 1}月 · ${monthPlayCounts[mostActiveMonthIndex]} 次`
+        : '暂无记录',
+    mostActiveWeekdayLabel:
+      totalPlays > 0
+        ? `${annualRecapWeekdays[mostActiveWeekdayIndex]} · ${weekdayPlayCounts[mostActiveWeekdayIndex]} 次`
+        : '暂无记录',
+    monthBars: monthPlayCounts.map((playCount, index) => ({
+      month: index + 1,
+      playCount,
+      height:
+        maxMonthPlayCount > 0 ? Math.max(8, Math.round((playCount / maxMonthPlayCount) * 100)) : 0,
+    })),
+  }
+})
+
 async function loadHeatmap(): Promise<void> {
   isLoading.value = true
   errorMessage.value = null
@@ -433,6 +512,60 @@ async function loadListeningRanking(): Promise<void> {
       isRankingLoading.value = false
     }
   }
+}
+
+function clearAnnualRecapRankings(): void {
+  annualRecapTrackRanking.value = null
+  annualRecapAlbumRanking.value = null
+  annualRecapError.value = null
+}
+
+async function loadAnnualRecapRankings(): Promise<void> {
+  const requestId = ++annualRecapRequestId
+  isAnnualRecapLoading.value = true
+  annualRecapError.value = null
+
+  try {
+    const year = selectedYear.value
+    const [trackRanking, albumRanking] = await Promise.all([
+      auralis.archive.getListeningRanking({ range: 'year', target: 'track', year }),
+      auralis.archive.getListeningRanking({ range: 'year', target: 'album', year }),
+    ])
+    if (requestId !== annualRecapRequestId) return
+    annualRecapTrackRanking.value = trackRanking
+    annualRecapAlbumRanking.value = albumRanking
+  } catch {
+    if (requestId !== annualRecapRequestId) return
+    annualRecapTrackRanking.value = null
+    annualRecapAlbumRanking.value = null
+    annualRecapError.value = '年度排行读取失败'
+  } finally {
+    if (requestId === annualRecapRequestId) {
+      isAnnualRecapLoading.value = false
+    }
+  }
+}
+
+function openAnnualRecap(): void {
+  annualRecapPage.value = 0
+  showAnnualRecap.value = true
+  void loadAnnualRecapRankings()
+}
+
+function closeAnnualRecap(): void {
+  showAnnualRecap.value = false
+}
+
+function setAnnualRecapPage(page: number): void {
+  annualRecapPage.value = Math.min(Math.max(page, 0), ANNUAL_RECAP_PAGE_COUNT - 1)
+}
+
+function goToPreviousAnnualRecapPage(): void {
+  setAnnualRecapPage(annualRecapPage.value - 1)
+}
+
+function goToNextAnnualRecapPage(): void {
+  setAnnualRecapPage(annualRecapPage.value + 1)
 }
 
 function setRankingRange(range: ListeningRankingRange): void {
@@ -526,6 +659,9 @@ async function changeYear(offset: -1 | 1): Promise<void> {
   if (nextYear < firstAvailableYear.value || nextYear > currentYear) return
 
   selectedYear.value = nextYear
+  showAnnualRecap.value = false
+  annualRecapPage.value = 0
+  clearAnnualRecapRankings()
   normalizeRankingPeriod()
   await loadHeatmap()
   await loadListeningRanking()
@@ -613,7 +749,7 @@ async function openDailyDetail(event: MouseEvent | KeyboardEvent, day: CalendarD
 
   try {
     const detail = await auralis.archive.getDailyListeningDetail(dateKey)
-    // Discard stale responses — only apply if this is still the latest request
+    // Discard stale responses and only apply the latest request.
     if (requestId !== detailRequestId) return
     if (detailDialog.value?.date !== dateKey) return
     dailyDetail.value = detail
@@ -695,6 +831,19 @@ function handleDocumentPointerDown(event: PointerEvent): void {
   }
 }
 
+function handleDocumentKeyDown(event: KeyboardEvent): void {
+  if (!showAnnualRecap.value) return
+  if (event.key === 'Escape') {
+    closeAnnualRecap()
+  } else if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    goToPreviousAnnualRecapPage()
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    goToNextAnnualRecapPage()
+  }
+}
+
 function openResetConfirmation(): void {
   showResetAction.value = false
   resetError.value = null
@@ -748,8 +897,12 @@ async function resetAllPlayStats(): Promise<void> {
     dailyDetail.value = null
     selectedYear.value = currentYear
     showResetConfirmation.value = false
+    clearAnnualRecapRankings()
     await loadHeatmap()
     await loadListeningRanking()
+    if (showAnnualRecap.value) {
+      await loadAnnualRecapRankings()
+    }
   } catch (error) {
     resetError.value = error instanceof Error ? error.message : '无法重置播放数据'
   } finally {
@@ -760,12 +913,16 @@ async function resetAllPlayStats(): Promise<void> {
 onMounted(() => {
   document.body.classList.add(ARCHIVE_SCROLLBAR_HIDDEN_CLASS)
   document.addEventListener('pointerdown', handleDocumentPointerDown)
+  document.addEventListener('keydown', handleDocumentKeyDown)
   void loadHeatmap()
   void loadListeningRanking()
   unsubscribeLibraryChanged = auralis.library.onChanged((event) => {
     if (event.reason !== 'play-stats-updated' && event.reason !== 'play-stats-reset') return
     void loadHeatmap()
     void loadListeningRanking()
+    if (showAnnualRecap.value) {
+      void loadAnnualRecapRankings()
+    }
   })
 })
 
@@ -775,13 +932,15 @@ onBeforeUnmount(() => {
   unsubscribeLibraryChanged?.()
   document.body.classList.remove(ARCHIVE_SCROLLBAR_HIDDEN_CLASS)
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
+  document.removeEventListener('keydown', handleDocumentKeyDown)
 })
 </script>
 
 <template>
   <section class="archive-page content-frame">
-    <div class="archive-heading">
-      <div>
+    <header class="archive-heading">
+      <div class="archive-heading-copy">
+        <span class="archive-kicker">Listening Chronicle</span>
         <div class="archive-title-row" data-reset-control>
           <h1
             role="button"
@@ -810,32 +969,44 @@ onBeforeUnmount(() => {
           </Transition>
         </div>
         <p>回望每一天留下的聆听痕迹。</p>
+        <div v-if="!isLoading && !errorMessage" class="archive-hero-stats">
+          <div v-for="item in annualSummary.slice(0, 3)" :key="`hero-${item.key}`">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.unit }}</small>
+          </div>
+        </div>
       </div>
-      <div class="archive-year-switcher" aria-label="选择年份">
-        <button
-          type="button"
-          :disabled="!canGoPrevious || isLoading"
-          aria-label="上一年"
-          @click="changeYear(-1)"
-        >
-          <span class="i-lucide-chevron-left h-4 w-4"></span>
-        </button>
-        <span>{{ selectedYear }}年</span>
-        <button
-          type="button"
-          :disabled="!canGoNext || isLoading"
-          aria-label="下一年"
-          @click="changeYear(1)"
-        >
-          <span class="i-lucide-chevron-right h-4 w-4"></span>
-        </button>
+      <div class="archive-heading-panel">
+        <div class="archive-year-switcher" aria-label="选择年份">
+          <button
+            type="button"
+            :disabled="!canGoPrevious || isLoading"
+            aria-label="上一年"
+            @click="changeYear(-1)"
+          >
+            <span class="i-lucide-chevron-left h-4 w-4"></span>
+          </button>
+          <span>{{ selectedYear }}年</span>
+          <button
+            type="button"
+            :disabled="!canGoNext || isLoading"
+            aria-label="下一年"
+            @click="changeYear(1)"
+          >
+            <span class="i-lucide-chevron-right h-4 w-4"></span>
+          </button>
+        </div>
+        <p>按年份整理播放次数、收听时长和每日高峰。</p>
       </div>
-    </div>
+    </header>
 
     <div class="archive-heatmap-card">
       <div class="archive-card-heading">
         <div>
+          <span class="archive-section-kicker">Calendar</span>
           <h2>音乐日历</h2>
+          <p>颜色越深，代表那一天留下的播放时间越多。</p>
         </div>
         <div class="archive-legend" aria-label="播放次数颜色图例">
           <span>少</span>
@@ -884,7 +1055,17 @@ onBeforeUnmount(() => {
     </div>
 
     <section v-if="!isLoading && !errorMessage" class="archive-summary">
-      <h2>年度摘要</h2>
+      <div class="archive-section-heading">
+        <div>
+          <span class="archive-section-kicker">Annual Notes</span>
+          <h2>年度摘要</h2>
+          <p>把这一年的活跃天数、播放次数、时长和峰值浓缩成四条线索。</p>
+        </div>
+        <button type="button" class="archive-annual-recap-entry" @click="openAnnualRecap">
+          <span class="i-lucide-sparkles h-4 w-4"></span>
+          <span>年度总结</span>
+        </button>
+      </div>
       <div class="archive-summary-grid">
         <div
           v-for="item in annualSummary"
@@ -949,6 +1130,7 @@ onBeforeUnmount(() => {
     <section v-if="!isLoading && !errorMessage" class="archive-ranking">
       <div class="archive-ranking-heading">
         <div>
+          <span class="archive-section-kicker">Replay Index</span>
           <h2>听歌排行</h2>
           <p>{{ rankingPeriodLabel }} · {{ rankingTarget === 'track' ? '单曲榜' : '专辑榜' }}</p>
         </div>
@@ -1207,6 +1389,213 @@ onBeforeUnmount(() => {
       </div>
 
       <div
+        v-if="showAnnualRecap"
+        class="archive-annual-recap-backdrop"
+        @click.self="closeAnnualRecap"
+      >
+        <section
+          class="archive-annual-recap-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="archive-annual-recap-title"
+        >
+          <header class="archive-annual-recap-header">
+            <div>
+              <span class="archive-section-kicker">Year in Review</span>
+              <h2 id="archive-annual-recap-title">{{ selectedYear }} 年度总结</h2>
+              <p>这一年留下的播放、收听时长和年度 Top 10。</p>
+            </div>
+            <button type="button" aria-label="关闭年度总结" @click="closeAnnualRecap">
+              <span class="i-lucide-x h-4 w-4"></span>
+            </button>
+          </header>
+
+          <div class="archive-annual-recap-content">
+            <Transition name="archive-annual-recap-page" mode="out-in">
+              <section
+                v-if="annualRecapPage === 0"
+                key="cover"
+                class="archive-annual-recap-page archive-annual-recap-page--cover"
+              >
+                <span class="archive-section-kicker">Year in Review</span>
+                <h3>{{ selectedYear }} 年度总结</h3>
+                <p>这一年留下的声音轨迹，先从总时长开始。</p>
+                <strong>
+                  {{ formatHoursAndMinutes(annualRecapMetrics.totalDurationSeconds) }}
+                </strong>
+                <small>{{ annualRecapMetrics.totalPlays }} 次播放</small>
+              </section>
+
+              <section
+                v-else-if="annualRecapPage === 1"
+                key="overview"
+                class="archive-annual-recap-page"
+              >
+                <div class="archive-annual-recap-section-heading">
+                  <span>年度总览</span>
+                  <small>{{ selectedYear }} 年</small>
+                </div>
+                <div class="archive-annual-recap-stats archive-annual-recap-stats--paged">
+                  <div>
+                    <span>听歌天数</span>
+                    <strong>{{ annualRecapMetrics.listeningDays }}</strong>
+                    <small>天</small>
+                  </div>
+                  <div>
+                    <span>播放次数</span>
+                    <strong>{{ annualRecapMetrics.totalPlays }}</strong>
+                    <small>次</small>
+                  </div>
+                  <div>
+                    <span>已收听</span>
+                    <strong>{{ annualRecapMetrics.totalMinutes }}</strong>
+                    <small>分钟</small>
+                  </div>
+                  <div>
+                    <span>最活跃的一天</span>
+                    <strong>{{ annualRecapMetrics.peakDayLabel }}</strong>
+                    <small>{{ annualRecapMetrics.peakDayPlayCount }} 次</small>
+                  </div>
+                </div>
+              </section>
+
+              <section
+                v-else-if="annualRecapPage === 2"
+                key="tracks"
+                class="archive-annual-recap-page"
+              >
+                <div class="archive-annual-recap-section-heading">
+                  <span>年度 Top 10 单曲</span>
+                  <small v-if="isAnnualRecapLoading">正在整理年度排行…</small>
+                  <small v-else-if="annualRecapError">{{ annualRecapError }}</small>
+                </div>
+                <div v-if="isAnnualRecapLoading" class="archive-annual-recap-loading">
+                  正在整理年度 Top 10…
+                </div>
+                <div v-else-if="annualRecapError" class="archive-annual-recap-loading">
+                  {{ annualRecapError }}
+                </div>
+                <ol v-else-if="annualRecapTrackTop10.length" class="archive-annual-recap-list">
+                  <li v-for="(item, index) in annualRecapTrackTop10" :key="item.key">
+                    <span class="archive-annual-recap-rank">{{ index + 1 }}</span>
+                    <div class="archive-annual-recap-artwork">
+                      <img
+                        v-if="getArtworkUrl(item.artworkCacheKey)"
+                        :src="getArtworkUrl(item.artworkCacheKey) ?? undefined"
+                        alt=""
+                      />
+                      <span v-else class="i-lucide-music-2 h-4 w-4"></span>
+                    </div>
+                    <strong>{{ item.title || '未知歌曲' }}</strong>
+                    <div>
+                      <span>{{ item.playCount }} 次</span>
+                      <small>{{ formatMinutes(item.durationSeconds) }}</small>
+                    </div>
+                  </li>
+                </ol>
+                <p v-else class="archive-annual-recap-empty">暂无年度单曲数据</p>
+              </section>
+
+              <section
+                v-else-if="annualRecapPage === 3"
+                key="albums"
+                class="archive-annual-recap-page"
+              >
+                <div class="archive-annual-recap-section-heading">
+                  <span>年度 Top 10 专辑</span>
+                  <small v-if="isAnnualRecapLoading">正在整理年度排行…</small>
+                  <small v-else-if="annualRecapError">{{ annualRecapError }}</small>
+                </div>
+                <div v-if="isAnnualRecapLoading" class="archive-annual-recap-loading">
+                  正在整理年度 Top 10…
+                </div>
+                <div v-else-if="annualRecapError" class="archive-annual-recap-loading">
+                  {{ annualRecapError }}
+                </div>
+                <ol v-else-if="annualRecapAlbumTop10.length" class="archive-annual-recap-list">
+                  <li v-for="(item, index) in annualRecapAlbumTop10" :key="item.key">
+                    <span class="archive-annual-recap-rank">{{ index + 1 }}</span>
+                    <div class="archive-annual-recap-artwork">
+                      <img
+                        v-if="getArtworkUrl(item.artworkCacheKey)"
+                        :src="getArtworkUrl(item.artworkCacheKey) ?? undefined"
+                        alt=""
+                      />
+                      <span v-else class="i-lucide-disc-3 h-4 w-4"></span>
+                    </div>
+                    <strong>{{ item.title || '未知专辑' }}</strong>
+                    <div>
+                      <span>{{ item.playCount }} 次</span>
+                      <small>{{ formatMinutes(item.durationSeconds) }}</small>
+                    </div>
+                  </li>
+                </ol>
+                <p v-else class="archive-annual-recap-empty">暂无年度专辑数据</p>
+              </section>
+
+              <section v-else key="timeline" class="archive-annual-recap-page">
+                <div class="archive-annual-recap-section-heading">
+                  <span>时间轨迹</span>
+                  <small>按当前年份统计</small>
+                </div>
+                <div class="archive-annual-recap-timeline">
+                  <div>
+                    <span>最常听的月份</span>
+                    <strong>{{ annualRecapMetrics.mostActiveMonthLabel }}</strong>
+                  </div>
+                  <div>
+                    <span>最常听的星期</span>
+                    <strong>{{ annualRecapMetrics.mostActiveWeekdayLabel }}</strong>
+                  </div>
+                  <div>
+                    <span>最长连续聆听</span>
+                    <strong>{{ annualRecapMetrics.longestStreak }} 天</strong>
+                  </div>
+                </div>
+                <div class="archive-annual-recap-bars" aria-label="12 个月播放热度">
+                  <div
+                    v-for="bar in annualRecapMetrics.monthBars"
+                    :key="bar.month"
+                    :title="`${bar.month}月 · ${bar.playCount} 次`"
+                  >
+                    <span :style="{ height: `${bar.height}%` }"></span>
+                    <small>{{ bar.month }}月</small>
+                  </div>
+                </div>
+              </section>
+            </Transition>
+          </div>
+
+          <footer class="archive-annual-recap-footer">
+            <button
+              type="button"
+              :disabled="annualRecapPage === 0"
+              @click="goToPreviousAnnualRecapPage"
+            >
+              上一页
+            </button>
+            <div class="archive-annual-recap-dots" aria-label="年度总结分页">
+              <button
+                v-for="page in ANNUAL_RECAP_PAGE_COUNT"
+                :key="page"
+                type="button"
+                :class="{ 'is-active': annualRecapPage === page - 1 }"
+                :aria-label="`跳转到第 ${page} 页`"
+                @click="setAnnualRecapPage(page - 1)"
+              ></button>
+            </div>
+            <button
+              type="button"
+              :disabled="annualRecapPage === ANNUAL_RECAP_PAGE_COUNT - 1"
+              @click="goToNextAnnualRecapPage"
+            >
+              下一页
+            </button>
+          </footer>
+        </section>
+      </div>
+
+      <div
         v-if="showResetConfirmation"
         class="archive-reset-backdrop"
         @click.self="closeResetConfirmation"
@@ -1257,8 +1646,16 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .archive-page {
+  --archive-panel-bg: color-mix(in srgb, var(--auralis-sidebar-bg) 74%, transparent);
+  --archive-panel-border: color-mix(in srgb, var(--auralis-text) 9%, transparent);
+  --archive-panel-shadow: 0 18px 48px color-mix(in srgb, var(--auralis-text) 7%, transparent);
+  --archive-accent-soft: color-mix(
+    in srgb,
+    var(--auralis-sidebar-active-indicator) 12%,
+    transparent
+  );
   min-height: 100%;
-  padding-bottom: var(--auralis-playbar-safe-area);
+  padding-bottom: calc(var(--auralis-playbar-safe-area) + 40px);
 }
 
 :global(body.archive-page-scrollbar-hidden .app-main) {
@@ -1269,19 +1666,92 @@ onBeforeUnmount(() => {
   display: none;
 }
 
-.archive-heading,
-.archive-card-heading {
+.archive-heading {
+  position: relative;
   display: flex;
-  align-items: center;
+  overflow: hidden;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 28px;
+  min-height: 214px;
+  padding: 28px;
+  border: 1px solid var(--archive-panel-border);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, var(--archive-accent-soft), transparent 58%),
+    linear-gradient(180deg, color-mix(in srgb, white 28%, transparent), transparent),
+    var(--archive-panel-bg);
+  box-shadow: var(--archive-panel-shadow);
+  isolation: isolate;
+}
+
+.archive-heading::before {
+  position: absolute;
+  right: -80px;
+  bottom: -120px;
+  z-index: -1;
+  width: 320px;
+  height: 320px;
+  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 16%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 6%, transparent);
+  content: '';
+}
+
+.archive-heading::after {
+  position: absolute;
+  right: 56px;
+  bottom: 30px;
+  z-index: -1;
+  width: 132px;
+  height: 132px;
+  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent);
+  border-radius: 50%;
+  content: '';
+}
+
+.archive-heading-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
   justify-content: space-between;
   gap: 24px;
 }
 
+.archive-kicker,
+.archive-section-kicker {
+  display: block;
+  color: var(--auralis-sidebar-active-indicator);
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 1;
+}
+
+.archive-kicker {
+  margin-bottom: 14px;
+}
+
+.archive-section-kicker {
+  margin-bottom: 8px;
+}
+
+.archive-card-heading,
+.archive-section-heading,
+.archive-ranking-heading,
+.archive-ranking-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
 .archive-heading h1 {
   color: var(--auralis-text);
-  font-size: 30px;
-  font-weight: 650;
-  line-height: 1.2;
+  font-size: 44px;
+  font-weight: 780;
+  line-height: 0.98;
+  letter-spacing: 0;
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
@@ -1296,22 +1766,29 @@ onBeforeUnmount(() => {
 
 .archive-title-row {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  gap: 14px;
 }
 
 .archive-reset-action {
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, #d94a4a 24%, transparent);
+  border-radius: 8px;
   color: #d94a4a;
-  font-size: 13px;
-  font-weight: 600;
+  background: color-mix(in srgb, #d94a4a 8%, transparent);
+  font-size: 12px;
+  font-weight: 680;
   white-space: nowrap;
   transition:
+    background-color 150ms ease,
     color 150ms ease,
     opacity 150ms ease;
 }
 
 .archive-reset-action:hover {
   color: #bf3030;
+  background: color-mix(in srgb, #d94a4a 12%, transparent);
 }
 
 .archive-reset-action-enter-active,
@@ -1328,35 +1805,104 @@ onBeforeUnmount(() => {
 }
 
 .archive-heading p,
-.archive-card-heading p {
-  margin-top: 6px;
+.archive-card-heading p,
+.archive-section-heading p,
+.archive-heading-panel p {
+  margin: 0;
   color: var(--auralis-text-muted);
   font-size: 13px;
+  line-height: 1.65;
+}
+
+.archive-heading-copy > p {
+  max-width: 28rem;
+  font-size: 14px;
+}
+
+.archive-hero-stats {
+  display: grid;
+  width: min(520px, 100%);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.archive-hero-stats div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--archive-panel-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--auralis-main-bg) 52%, transparent);
+}
+
+.archive-hero-stats span,
+.archive-hero-stats small {
+  display: block;
+  overflow: hidden;
+  color: var(--auralis-text-faint);
+  font-size: 11px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-hero-stats strong {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  margin-top: 8px;
+  color: var(--auralis-text);
+  font-size: 24px;
+  font-weight: 780;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-hero-stats small {
+  margin-top: 4px;
+}
+
+.archive-heading-panel {
+  display: flex;
+  width: 240px;
+  flex: 0 0 auto;
+  flex-direction: column;
+  justify-content: space-between;
+  align-self: stretch;
+  padding: 16px;
+  border: 1px solid var(--archive-panel-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--auralis-main-bg) 42%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 24%, transparent);
 }
 
 .archive-year-switcher {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 8px;
   color: var(--auralis-text);
-  font-size: 14px;
-  font-weight: 650;
+  font-size: 15px;
+  font-weight: 760;
 }
 
 .archive-year-switcher button {
   display: inline-flex;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   color: var(--auralis-text-muted);
   transition:
+    border-color 160ms ease,
     color 160ms ease,
     background-color 160ms ease;
 }
 
 .archive-year-switcher button:hover:not(:disabled) {
+  border-color: var(--archive-panel-border);
   color: var(--auralis-text);
   background: var(--auralis-control-hover-bg);
 }
@@ -1366,14 +1912,26 @@ onBeforeUnmount(() => {
 }
 
 .archive-heatmap-card {
-  margin-top: 28px;
-  padding: 0;
+  margin-top: 18px;
+  padding: 22px;
+  border: 1px solid var(--archive-panel-border);
+  border-radius: 8px;
+  background: var(--archive-panel-bg);
+  box-shadow: var(--archive-panel-shadow);
 }
 
-.archive-card-heading h2 {
+.archive-card-heading h2,
+.archive-section-heading h2,
+.archive-ranking-heading h2 {
   color: var(--auralis-text);
-  font-size: 17px;
-  font-weight: 650;
+  font-size: 19px;
+  font-weight: 760;
+  line-height: 1.2;
+}
+
+.archive-card-heading p,
+.archive-section-heading p {
+  margin-top: 6px;
 }
 
 .archive-legend {
@@ -1382,11 +1940,12 @@ onBeforeUnmount(() => {
   gap: 5px;
   color: var(--auralis-text-faint);
   font-size: 11px;
+  white-space: nowrap;
 }
 
 .archive-legend i {
-  width: 11px;
-  height: 11px;
+  width: 12px;
+  height: 12px;
   border-radius: 3px;
 }
 
@@ -1404,9 +1963,12 @@ onBeforeUnmount(() => {
 }
 
 .archive-heatmap-scroll {
-  margin-top: 24px;
+  margin-top: 22px;
   overflow-x: auto;
-  padding: 0 2px 8px;
+  padding: 18px 18px 16px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 6%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--auralis-main-bg) 50%, transparent);
 }
 
 .archive-heatmap-layout {
@@ -1477,7 +2039,9 @@ onBeforeUnmount(() => {
 .archive-day:hover,
 .archive-day:focus-visible {
   z-index: 1;
-  box-shadow: 0 0 0 2px var(--auralis-main-bg);
+  box-shadow:
+    0 0 0 2px var(--auralis-main-bg),
+    0 4px 12px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 22%, transparent);
   transform: scale(1.22);
 }
 
@@ -1506,34 +2070,43 @@ onBeforeUnmount(() => {
 }
 
 .archive-summary {
-  margin-top: 42px;
-}
-
-.archive-summary h2 {
-  color: var(--auralis-text);
-  font-size: 17px;
-  font-weight: 650;
+  margin-top: 24px;
 }
 
 .archive-summary-grid {
   display: grid;
-  margin-top: 16px;
-  border-top: 1px solid var(--auralis-border-subtle);
-  border-bottom: 1px solid var(--auralis-border-subtle);
+  margin-top: 14px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .archive-summary-item {
   position: relative;
   z-index: 0;
   min-width: 0;
-  padding: 22px 20px;
+  min-height: 130px;
+  padding: 18px;
+  border: 1px solid var(--archive-panel-border);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 18%, transparent), transparent),
+    var(--archive-panel-bg);
   outline: none;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 20%, transparent);
+  transition:
+    border-color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
 }
 
 .archive-summary-item:hover,
 .archive-summary-item:focus-within {
   z-index: 20;
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 24%, transparent),
+    0 14px 34px color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  transform: translateY(-1px);
 }
 
 .archive-summary-item:focus-visible {
@@ -1543,10 +2116,6 @@ onBeforeUnmount(() => {
 
 .archive-summary-item--clickable {
   cursor: pointer;
-}
-
-.archive-summary-item + .archive-summary-item {
-  border-left: 1px solid var(--auralis-border-subtle);
 }
 
 .archive-summary-item > .archive-summary-label,
@@ -1568,6 +2137,7 @@ onBeforeUnmount(() => {
   display: block;
   color: var(--auralis-text-muted);
   font-size: 12px;
+  font-weight: 650;
 }
 
 .archive-summary-value {
@@ -1575,15 +2145,15 @@ onBeforeUnmount(() => {
   min-width: 0;
   align-items: baseline;
   gap: 7px;
-  margin-top: 9px;
+  margin-top: 16px;
   color: var(--auralis-text);
 }
 
 .archive-summary-value strong {
   overflow: hidden;
-  font-size: 24px;
-  font-weight: 680;
-  letter-spacing: -0.02em;
+  font-size: 30px;
+  font-weight: 780;
+  letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1606,7 +2176,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   padding: 20px 22px;
   border: 1px solid var(--auralis-playbar-border);
-  border-radius: 18px;
+  border-radius: 8px;
   background: var(--auralis-playbar-bg);
   box-shadow: 0 20px 50px rgba(20, 24, 28, 0.2);
   -webkit-backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
@@ -1806,23 +2376,431 @@ onBeforeUnmount(() => {
   font-size: 11px;
 }
 
-.archive-ranking {
-  margin-top: 42px;
-  padding-bottom: 12px;
+.archive-annual-recap-entry {
+  display: inline-flex;
+  height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid var(--archive-panel-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--auralis-main-bg) 46%, transparent);
+  color: var(--auralis-sidebar-active-indicator);
+  font-size: 12px;
+  font-weight: 720;
+  white-space: nowrap;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    transform 150ms ease;
 }
 
-.archive-ranking-heading,
-.archive-ranking-toolbar {
+.archive-annual-recap-entry:hover {
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+  transform: translateY(-1px);
+}
+
+.archive-annual-recap-backdrop {
+  position: fixed;
+  z-index: 115;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inset: 0;
+  padding: 28px;
+  background: rgba(12, 16, 20, 0.56);
+  animation: archive-reset-backdrop-in 180ms ease both;
+}
+
+.archive-annual-recap-dialog {
+  display: flex;
+  width: min(980px, calc(100vw - 56px));
+  max-height: min(760px, calc(100vh - 72px));
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid var(--auralis-playbar-border);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 8%, transparent), transparent 42%),
+    color-mix(in srgb, var(--auralis-sidebar-bg) 96%, var(--auralis-main-bg));
+  box-shadow: 0 30px 90px rgba(10, 14, 18, 0.32);
+  color: var(--auralis-text);
+  -webkit-backdrop-filter: blur(12px) saturate(1.08) contrast(1.02);
+  backdrop-filter: blur(12px) saturate(1.08) contrast(1.02);
+  animation: archive-reset-dialog-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.archive-annual-recap-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 26px 28px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
+}
+
+.archive-annual-recap-header h2 {
+  color: var(--auralis-text);
+  font-size: 28px;
+  font-weight: 780;
+  line-height: 1.12;
+}
+
+.archive-annual-recap-header p {
+  margin-top: 8px;
+  color: var(--auralis-text-muted);
+  font-size: 13px;
+}
+
+.archive-annual-recap-header button {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  color: var(--auralis-text-muted);
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.archive-annual-recap-header button:hover {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
+.archive-annual-recap-content {
+  position: relative;
+  overflow: hidden;
+  padding: 22px 28px 18px;
+}
+
+.archive-annual-recap-page {
+  display: flex;
+  min-height: 468px;
+  flex-direction: column;
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 20%, transparent), transparent),
+    color-mix(in srgb, var(--auralis-main-bg) 88%, var(--auralis-sidebar-bg));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 18%, transparent);
+}
+
+.archive-annual-recap-page--cover {
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 82% 18%,
+      color-mix(in srgb, var(--auralis-sidebar-active-indicator) 22%, transparent),
+      transparent 30%
+    ),
+    linear-gradient(180deg, color-mix(in srgb, white 26%, transparent), transparent),
+    color-mix(in srgb, var(--auralis-main-bg) 88%, var(--auralis-sidebar-bg));
+}
+
+.archive-annual-recap-page--cover h3 {
+  margin-top: 12px;
+  color: var(--auralis-text);
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.archive-annual-recap-page--cover p {
+  max-width: 360px;
+  margin-top: 14px;
+  color: var(--auralis-text-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.archive-annual-recap-page--cover strong {
+  margin-top: 42px;
+  color: var(--auralis-text);
+  font-size: 54px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.archive-annual-recap-page--cover small {
+  margin-top: 12px;
+  color: var(--auralis-text-faint);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.archive-annual-recap-stats span,
+.archive-annual-recap-timeline span {
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+  font-weight: 640;
+}
+
+.archive-annual-recap-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.archive-annual-recap-stats--paged {
+  flex: 1;
+  align-content: center;
+}
+
+.archive-annual-recap-stats > div {
+  min-width: 0;
+  padding: 18px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 92%, var(--auralis-main-bg));
+}
+
+.archive-annual-recap-stats strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 10px;
+  color: var(--auralis-text);
+  font-size: 30px;
+  font-weight: 760;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-annual-recap-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.archive-annual-recap-section-heading > span {
+  color: var(--auralis-text);
+  font-size: 15px;
+  font-weight: 760;
+}
+
+.archive-annual-recap-section-heading small {
+  color: var(--auralis-text-faint);
+  font-size: 11px;
+}
+
+.archive-annual-recap-list {
+  display: grid;
+  gap: 5px;
+  list-style: none;
+}
+
+.archive-annual-recap-list li {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  gap: 11px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  grid-template-columns: 28px 38px minmax(0, 1fr) auto;
+}
+
+.archive-annual-recap-list li:hover {
+  background: color-mix(in srgb, var(--auralis-control-hover-bg) 74%, transparent);
+}
+
+.archive-annual-recap-rank,
+.archive-annual-recap-list li small {
+  color: var(--auralis-text-faint);
+  font-size: 10px;
+}
+
+.archive-annual-recap-artwork {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text-faint);
+}
+
+.archive-annual-recap-artwork img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.archive-annual-recap-list li strong {
+  overflow: hidden;
+  color: var(--auralis-text);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-annual-recap-list li > div:last-child {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--auralis-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.archive-annual-recap-empty,
+.archive-annual-recap-loading {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  color: var(--auralis-text-muted);
+  font-size: 13px;
+}
+
+.archive-annual-recap-timeline {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.archive-annual-recap-timeline div {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 48%, transparent);
+}
+
+.archive-annual-recap-timeline strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 8px;
+  color: var(--auralis-text);
+  font-size: 16px;
+  font-weight: 740;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-annual-recap-bars {
+  display: grid;
+  height: 128px;
+  align-items: end;
+  gap: 8px;
+  margin-top: 16px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.archive-annual-recap-bars div {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  align-items: center;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.archive-annual-recap-bars div > span {
+  display: block;
+  width: 100%;
+  border-radius: 999px 999px 4px 4px;
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 68%, transparent);
+}
+
+.archive-annual-recap-bars small {
+  color: var(--auralis-text-faint);
+  font-size: 10px;
+}
+
+.archive-annual-recap-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
+  padding: 0 28px 22px;
 }
 
-.archive-ranking-heading h2 {
+.archive-annual-recap-footer > button {
+  height: 34px;
+  min-width: 74px;
+  padding: 0 12px;
+  border-radius: 9px;
+  background: var(--auralis-control-hover-bg);
   color: var(--auralis-text);
-  font-size: 17px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 680;
+  transition:
+    opacity 150ms ease,
+    background-color 150ms ease,
+    transform 150ms ease;
+}
+
+.archive-annual-recap-footer > button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--auralis-text) 11%, transparent);
+  transform: translateY(-1px);
+}
+
+.archive-annual-recap-footer > button:disabled {
+  cursor: default;
+  opacity: 0.34;
+}
+
+.archive-annual-recap-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.archive-annual-recap-dots button {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auralis-text) 20%, transparent);
+  transition:
+    width 180ms ease,
+    background-color 180ms ease;
+}
+
+.archive-annual-recap-dots button.is-active {
+  width: 22px;
+  background: var(--auralis-sidebar-active-indicator);
+}
+
+.archive-annual-recap-page-enter-active,
+.archive-annual-recap-page-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.archive-annual-recap-page-enter-from {
+  opacity: 0;
+  transform: translateX(18px);
+}
+
+.archive-annual-recap-page-leave-to {
+  opacity: 0;
+  transform: translateX(-18px);
+}
+
+.archive-ranking {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  padding: 22px;
+  border: 1px solid var(--archive-panel-border);
+  border-radius: 8px;
+  background: var(--archive-panel-bg);
+  box-shadow: var(--archive-panel-shadow);
 }
 
 .archive-ranking-heading p {
@@ -1835,7 +2813,11 @@ onBeforeUnmount(() => {
 .archive-ranking-targets {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
+  padding: 4px;
+  border: 1px solid var(--archive-panel-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--auralis-main-bg) 44%, transparent);
 }
 
 .archive-ranking-ranges button,
@@ -1845,22 +2827,23 @@ onBeforeUnmount(() => {
   border-radius: 9px;
   color: var(--auralis-text-muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 680;
   transition:
+    border-color 150ms ease,
     color 150ms ease,
     background-color 150ms ease;
 }
 
 .archive-ranking-ranges button,
 .archive-ranking-targets button {
-  height: 30px;
+  height: 28px;
   padding: 0 10px;
 }
 
 .archive-ranking-targets button {
   display: inline-flex;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -1877,12 +2860,14 @@ onBeforeUnmount(() => {
 .archive-ranking-ranges button.is-active,
 .archive-ranking-targets button.is-active,
 .archive-ranking-period-menu button.is-active {
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 14%, transparent);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 16%, transparent);
   color: var(--auralis-sidebar-active-indicator);
 }
 
 .archive-ranking-toolbar {
-  margin-top: 16px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--auralis-text) 7%, transparent);
 }
 
 .archive-ranking-period {
@@ -1891,10 +2876,12 @@ onBeforeUnmount(() => {
 
 .archive-ranking-period > button {
   display: inline-flex;
-  height: 30px;
+  height: 38px;
   align-items: center;
-  gap: 5px;
-  padding: 0 10px;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid var(--archive-panel-border);
+  background: color-mix(in srgb, var(--auralis-main-bg) 44%, transparent);
 }
 
 .archive-ranking-picker {
@@ -2124,22 +3111,24 @@ onBeforeUnmount(() => {
   min-height: 180px;
   align-items: center;
   justify-content: center;
-  border-top: 1px solid var(--auralis-border-subtle);
-  border-bottom: 1px solid var(--auralis-border-subtle);
   margin-top: 14px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 7%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--auralis-main-bg) 38%, transparent);
   color: var(--auralis-text-muted);
   font-size: 13px;
 }
 
 .archive-ranking-list {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   margin-top: 14px;
   max-height: 588px;
   overflow-y: auto;
-  padding: 8px 0;
-  border-top: 1px solid var(--auralis-border-subtle);
-  border-bottom: 1px solid var(--auralis-border-subtle);
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 7%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--auralis-main-bg) 38%, transparent);
   scrollbar-color: color-mix(in srgb, var(--auralis-text) 20%, transparent) transparent;
   scrollbar-width: thin;
   list-style: none;
@@ -2166,14 +3155,21 @@ onBeforeUnmount(() => {
   display: grid;
   min-width: 0;
   align-items: center;
-  padding: 8px 10px;
-  border-radius: 11px;
-  grid-template-columns: 30px 42px minmax(0, 1fr) auto;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  grid-template-columns: 32px 44px minmax(0, 1fr) auto;
   gap: 12px;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease;
 }
 
 .archive-ranking-list li:hover {
-  background: var(--auralis-control-hover-bg);
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 16%, transparent);
+  background: color-mix(in srgb, var(--auralis-control-hover-bg) 78%, transparent);
+  transform: translateX(1px);
 }
 
 .archive-ranking-rank {
@@ -2184,12 +3180,12 @@ onBeforeUnmount(() => {
 
 .archive-ranking-artwork {
   display: flex;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 9px;
+  border-radius: 8px;
   background: var(--auralis-control-hover-bg);
   color: var(--auralis-text-faint);
 }
@@ -2220,8 +3216,8 @@ onBeforeUnmount(() => {
 
 .archive-ranking-copy strong {
   color: var(--auralis-text);
-  font-size: 13px;
-  font-weight: 650;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .archive-ranking-copy span,
@@ -2633,17 +3629,53 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 900px) {
+  .archive-heading,
+  .archive-card-heading,
+  .archive-section-heading,
+  .archive-ranking-heading,
+  .archive-ranking-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .archive-heading {
+    min-height: 0;
+    padding: 22px;
+  }
+
+  .archive-heading h1 {
+    font-size: 36px;
+  }
+
+  .archive-heading-panel {
+    width: auto;
+    gap: 18px;
+  }
+
+  .archive-hero-stats {
+    grid-template-columns: 1fr;
+  }
+
   .archive-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .archive-summary-item:nth-child(3) {
-    border-top: 1px solid var(--auralis-border-subtle);
-    border-left: 0;
+  .archive-ranking-ranges {
+    width: 100%;
+    justify-content: space-between;
   }
 
-  .archive-summary-item:nth-child(4) {
-    border-top: 1px solid var(--auralis-border-subtle);
+  .archive-annual-recap-dialog {
+    width: calc(100vw - 36px);
+    max-height: calc(100vh - 52px);
+  }
+
+  .archive-annual-recap-timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .archive-annual-recap-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .archive-summary-item:nth-child(odd) .archive-summary-expanded {
@@ -2663,6 +3695,78 @@ onBeforeUnmount(() => {
   .archive-summary-item:nth-child(n):hover .archive-summary-expanded,
   .archive-summary-item:nth-child(n):focus-within .archive-summary-expanded {
     transform: translate(0, -50%) scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .archive-heatmap-card,
+  .archive-ranking {
+    padding: 16px;
+  }
+
+  .archive-annual-recap-backdrop {
+    padding: 14px;
+  }
+
+  .archive-annual-recap-header,
+  .archive-annual-recap-content {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .archive-annual-recap-page {
+    min-height: 430px;
+    padding: 18px;
+  }
+
+  .archive-annual-recap-page--cover h3 {
+    font-size: 34px;
+  }
+
+  .archive-annual-recap-page--cover strong {
+    font-size: 40px;
+  }
+
+  .archive-annual-recap-footer {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .archive-annual-recap-stats,
+  .archive-annual-recap-bars {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .archive-annual-recap-bars {
+    height: auto;
+  }
+
+  .archive-annual-recap-bars div {
+    height: 84px;
+  }
+
+  .archive-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .archive-summary-expanded {
+    display: none;
+  }
+
+  .archive-summary-item:hover > .archive-summary-label,
+  .archive-summary-item:hover > .archive-summary-value,
+  .archive-summary-item:focus-within > .archive-summary-label,
+  .archive-summary-item:focus-within > .archive-summary-value {
+    opacity: 1;
+    transform: none;
+  }
+
+  .archive-ranking-list li {
+    grid-template-columns: 26px 40px minmax(0, 1fr);
+  }
+
+  .archive-ranking-meta {
+    display: none;
   }
 }
 </style>

@@ -7,6 +7,7 @@ import type {
   SmartPlaylistExpressionRule,
   SmartPlaylistRule,
   SmartPlaylistRuleCondition,
+  SmartPlaylistTrackCount,
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
 import { parseSmartPlaylistQuery } from '@shared/smartPlaylists/queryParser'
@@ -25,8 +26,40 @@ function isExpressionRule(rule: SmartPlaylistRule): rule is SmartPlaylistExpress
   return 'expression' in rule
 }
 
+function normalizeRelativeDuration(value: string, operator: 'addedBefore' | 'addedWithin'): string {
+  const normalized = value.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+  const match = normalized.match(
+    /^([1-9]\d*) (day|days|week|weeks|month|months|year|years)( ago)?$/,
+  )
+
+  if (!match) {
+    throw new Error(
+      operator === 'addedBefore'
+        ? 'ADDED BEFORE 需要类似 "30 days ago"、"2 weeks ago" 的时间'
+        : 'ADDED WITHIN 需要类似 "30 days"、"2 weeks" 的时间',
+    )
+  }
+
+  const [, amount, unit, ago] = match
+  if (operator === 'addedBefore' && !ago) {
+    throw new Error('ADDED BEFORE 的时间需要以 ago 结尾，例如 "30 days ago"')
+  }
+
+  const normalizedUnit = unit.endsWith('s') ? unit : `${unit}s`
+  return operator === 'addedBefore'
+    ? `${amount} ${normalizedUnit} ago`
+    : `${amount} ${normalizedUnit}`
+}
+
 function normalizeExpression(expression: SmartPlaylistExpression): SmartPlaylistExpression {
   if (expression.type === 'predicate') {
+    if (expression.operator === 'addedBefore' || expression.operator === 'addedWithin') {
+      return {
+        ...expression,
+        value: normalizeRelativeDuration(expression.value ?? '', expression.operator),
+      }
+    }
+
     return {
       ...expression,
       value: expression.value?.trim(),
@@ -90,6 +123,43 @@ function matchesValue(rawValue: string | null | undefined, expected: string | nu
   return values.some((value) => normalizeDelimitedValue(value) === normalizedExpected)
 }
 
+function parseRelativeDurationMs(value: string): number {
+  const match = value
+    .trim()
+    .toLocaleLowerCase()
+    .match(/^([1-9]\d*) (days|weeks|months|years)(?: ago)?$/)
+
+  if (!match) return Number.NaN
+
+  const amount = Number(match[1])
+  const unit = match[2]
+  const dayMs = 24 * 60 * 60 * 1000
+
+  if (unit === 'days') return amount * dayMs
+  if (unit === 'weeks') return amount * 7 * dayMs
+  if (unit === 'months') return amount * 30 * dayMs
+  return amount * 365 * dayMs
+}
+
+function parseTrackCreatedAt(value: string): number {
+  const normalized = value.includes('T') ? value : `${value.replace(' ', 'T')}Z`
+  return new Date(normalized).getTime()
+}
+
+function matchesAddedAt(
+  track: TrackListItem,
+  operator: 'addedBefore' | 'addedWithin',
+  value: string,
+): boolean {
+  const createdAtMs = parseTrackCreatedAt(track.createdAt)
+  const durationMs = parseRelativeDurationMs(value)
+
+  if (!Number.isFinite(createdAtMs) || !Number.isFinite(durationMs)) return false
+
+  const threshold = Date.now() - durationMs
+  return operator === 'addedBefore' ? createdAtMs <= threshold : createdAtMs >= threshold
+}
+
 function matchesCondition(track: TrackListItem, condition: SmartPlaylistRuleCondition): boolean {
   if (condition.field === 'genre') {
     return matchesValue(track.genre, condition.value)
@@ -103,6 +173,10 @@ function matchesExpression(track: TrackListItem, expression: SmartPlaylistExpres
     return expression.type === 'and'
       ? expression.operands.every((operand) => matchesExpression(track, operand))
       : expression.operands.some((operand) => matchesExpression(track, operand))
+  }
+
+  if (expression.operator === 'addedBefore' || expression.operator === 'addedWithin') {
+    return matchesAddedAt(track, expression.operator, expression.value!)
   }
 
   const rawValue =
@@ -132,6 +206,14 @@ export class SmartPlaylistService {
 
   list(): SmartPlaylist[] {
     return this.smartPlaylistRepository.list()
+  }
+
+  listTrackCounts(): SmartPlaylistTrackCount[] {
+    const tracks = this.trackRepository.getAll()
+    return this.smartPlaylistRepository.list().map((playlist) => ({
+      playlistId: playlist.id,
+      trackCount: tracks.filter((track) => matchesRule(track, playlist.rule)).length,
+    }))
   }
 
   getDetail(id: number): SmartPlaylistDetail | null {
