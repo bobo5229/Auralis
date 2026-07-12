@@ -1,19 +1,36 @@
 import { app } from 'electron'
 import Database from 'better-sqlite3'
 import { join } from 'node:path'
-import { mkdirSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
 import { migrateDatabase } from './schema'
 import { logger } from '@main/logging/logger'
 
 let database: Database.Database | undefined
 let databasePath = ''
 
+function copyLegacyDevDatabaseIfNeeded(targetPath: string): void {
+  if (app.isPackaged || existsSync(targetPath)) return
+
+  const legacyPath = join(app.getAppPath(), 'data', 'auralis.sqlite')
+  if (!existsSync(legacyPath)) return
+
+  const files = ['', '-shm', '-wal']
+  for (const suffix of files) {
+    const source = `${legacyPath}${suffix}`
+    if (existsSync(source)) {
+      copyFileSync(source, `${targetPath}${suffix}`)
+    }
+  }
+
+  logger.info({ legacyPath, databasePath: targetPath }, 'Copied legacy dev SQLite database')
+}
+
 export function getDatabasePath(): string {
   if (!databasePath) {
-    const dataRoot = app.isPackaged ? app.getPath('userData') : app.getAppPath()
-    const dataDirectory = join(dataRoot, 'data')
+    const dataDirectory = join(app.getPath('userData'), 'data')
     mkdirSync(dataDirectory, { recursive: true })
     databasePath = join(dataDirectory, 'auralis.sqlite')
+    copyLegacyDevDatabaseIfNeeded(databasePath)
   }
 
   return databasePath
