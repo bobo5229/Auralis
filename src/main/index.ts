@@ -8,6 +8,8 @@ import { ensureArtworkCacheDir } from './features/artwork/artworkCache'
 import { registerArtworkProtocol } from './features/artwork/artworkProtocol'
 import { logger } from './logging/logger'
 
+app.setName('Auralis')
+
 if (!app.isPackaged) {
   process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = '1'
   const devUserDataPath = join(app.getAppPath(), 'data', 'user-data')
