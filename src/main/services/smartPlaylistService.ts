@@ -146,6 +146,18 @@ function parseTrackCreatedAt(value: string): number {
   return new Date(normalized).getTime()
 }
 
+function compareTracksByCreatedAtDesc(left: TrackListItem, right: TrackListItem): number {
+  const leftCreatedAt = parseTrackCreatedAt(left.createdAt)
+  const rightCreatedAt = parseTrackCreatedAt(right.createdAt)
+
+  if (Number.isFinite(leftCreatedAt) && Number.isFinite(rightCreatedAt)) {
+    return rightCreatedAt - leftCreatedAt || right.id - left.id
+  }
+  if (Number.isFinite(leftCreatedAt)) return -1
+  if (Number.isFinite(rightCreatedAt)) return 1
+  return right.id - left.id
+}
+
 function matchesAddedAt(
   track: TrackListItem,
   operator: 'addedBefore' | 'addedWithin',
@@ -198,6 +210,22 @@ function matchesRule(track: TrackListItem, rule: SmartPlaylistRule): boolean {
   return rule.conditions.every((condition) => matchesCondition(track, condition))
 }
 
+function hasAddedWithinPredicate(expression: SmartPlaylistExpression): boolean {
+  if (expression.type === 'predicate') {
+    return expression.field === 'added' && expression.operator === 'addedWithin'
+  }
+
+  return expression.operands.some(hasAddedWithinPredicate)
+}
+
+function isRecentAddedSmartPlaylist(playlist: SmartPlaylist): boolean {
+  return (
+    playlist.name.trim() === '最近添加' &&
+    isExpressionRule(playlist.rule) &&
+    hasAddedWithinPredicate(playlist.rule.expression)
+  )
+}
+
 export class SmartPlaylistService {
   constructor(
     private readonly smartPlaylistRepository: SmartPlaylistRepository,
@@ -219,10 +247,15 @@ export class SmartPlaylistService {
   getDetail(id: number): SmartPlaylistDetail | null {
     const playlist = this.smartPlaylistRepository.getById(id)
     if (!playlist) return null
+    const tracks = this.trackRepository
+      .getAll()
+      .filter((track) => matchesRule(track, playlist.rule))
 
     return {
       playlist,
-      tracks: this.trackRepository.getAll().filter((track) => matchesRule(track, playlist.rule)),
+      tracks: isRecentAddedSmartPlaylist(playlist)
+        ? [...tracks].sort(compareTracksByCreatedAtDesc)
+        : tracks,
     }
   }
 
