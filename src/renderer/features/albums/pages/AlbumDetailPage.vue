@@ -452,7 +452,7 @@ onBeforeUnmount(() => {
 .album-detail-summary h1 {
   max-width: 920px;
   color: var(--auralis-text);
-  font-size: clamp(26px, 3.2vw, 46px);
+  font-size: clamp(25px, 2.75vw, 39px);
   font-weight: 750;
   line-height: 1.08;
   letter-spacing: -0.035em;

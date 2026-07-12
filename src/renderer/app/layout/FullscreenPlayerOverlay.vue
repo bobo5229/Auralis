@@ -925,22 +925,22 @@ onBeforeUnmount(() => {
 
 .fullscreen-player-filled-previous::before {
   left: 2px;
-  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 18 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M15.8 2.7C15.8 .7 13.4-.4 11.9 .9L2.4 13.9C1.1 15.1 1.1 16.9 2.4 18.1L11.9 31.1C13.4 32.4 15.8 31.3 15.8 29.3V2.7Z' fill='black'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 18 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M15 5.2C15 1.7 10.9 .2 8.5 2.6L2 12.9C.5 14.7 .5 17.3 2 19.1L8.5 29.4C10.9 31.8 15 30.3 15 26.8V5.2Z' fill='black'/%3E%3C/svg%3E");
 }
 
 .fullscreen-player-filled-previous::after {
   right: 3px;
-  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 18 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M15.8 2.7C15.8 .7 13.4-.4 11.9 .9L2.4 13.9C1.1 15.1 1.1 16.9 2.4 18.1L11.9 31.1C13.4 32.4 15.8 31.3 15.8 29.3V2.7Z' fill='black'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 18 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M15 5.2C15 1.7 10.9 .2 8.5 2.6L2 12.9C.5 14.7 .5 17.3 2 19.1L8.5 29.4C10.9 31.8 15 30.3 15 26.8V5.2Z' fill='black'/%3E%3C/svg%3E");
 }
 
 .fullscreen-player-filled-next::before {
   left: 3px;
-  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 18 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2.2 2.7C2.2 .7 4.6-.4 6.1 .9L15.6 13.9C16.9 15.1 16.9 16.9 15.6 18.1L6.1 31.1C4.6 32.4 2.2 31.3 2.2 29.3V2.7Z' fill='black'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 18 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 5.2C3 1.7 7.1 .2 9.5 2.6L16 12.9C17.5 14.7 17.5 17.3 16 19.1L9.5 29.4C7.1 31.8 3 30.3 3 26.8V5.2Z' fill='black'/%3E%3C/svg%3E");
 }
 
 .fullscreen-player-filled-next::after {
   right: 2px;
-  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 18 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2.2 2.7C2.2 .7 4.6-.4 6.1 .9L15.6 13.9C16.9 15.1 16.9 16.9 15.6 18.1L6.1 31.1C4.6 32.4 2.2 31.3 2.2 29.3V2.7Z' fill='black'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 18 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 5.2C3 1.7 7.1 .2 9.5 2.6L16 12.9C17.5 14.7 17.5 17.3 16 19.1L9.5 29.4C7.1 31.8 3 30.3 3 26.8V5.2Z' fill='black'/%3E%3C/svg%3E");
 }
 
 .fullscreen-player-volume {
