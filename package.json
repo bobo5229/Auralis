@@ -11,6 +11,8 @@
     "dev:verbose-gpu": "electron-vite dev",
     "dev:software-rendering": "set AURALIS_SOFTWARE_RENDERING=1&& electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
     "preview": "electron-vite preview",
     "rebuild:native": "set USERPROFILE=%CD%\\.electron-home&& set HOME=%CD%\\.electron-home&& electron-rebuild -f -w better-sqlite3",
     "typecheck": "vue-tsc -p tsconfig.web.json --noEmit --tsBuildInfoFile .electron-home/tsconfig.web.tsbuildinfo && tsc -p tsconfig.node.json --noEmit --tsBuildInfoFile .electron-home/tsconfig.node.tsbuildinfo",
@@ -47,6 +49,7 @@
     "@vue/eslint-config-prettier": "^10.2.0",
     "@vue/eslint-config-typescript": "^14.4.0",
     "electron": "^38.0.0",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^3.0.0",
     "eslint": "^9.22.0",
     "eslint-plugin-vue": "^9.32.0",
@@ -58,5 +61,45 @@
   },
   "engines": {
     "node": ">=20.19.0"
+  },
+  "build": {
+    "appId": "com.bobo.auralis",
+    "productName": "Auralis",
+    "copyright": "Copyright © 2026 BoBo",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    }
   }
 }
