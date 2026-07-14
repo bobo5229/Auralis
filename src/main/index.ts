@@ -2,6 +2,10 @@ import { app } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { createWindow } from './app/createWindow'
+import {
+  bindDesktopLyricsHostWindow,
+  registerDesktopLyricsIpcHandlers,
+} from './app/desktopLyricsWindow'
 import { closeDatabase, initializeDatabase } from './database/connection'
 import { registerIpcHandlers } from './ipc/registerIpcHandlers'
 import { ensureArtworkCacheDir } from './features/artwork/artworkCache'
@@ -9,6 +13,7 @@ import { registerArtworkProtocol } from './features/artwork/artworkProtocol'
 import { logger } from './logging/logger'
 
 app.setName('Auralis')
+registerDesktopLyricsIpcHandlers()
 
 if (!app.isPackaged) {
   process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = '1'
@@ -60,10 +65,10 @@ app.whenReady().then(() => {
   registerArtworkProtocol(artworkCacheDir)
   const db = initializeDatabase()
   registerIpcHandlers(db, artworkCacheDir)
-  createWindow()
+  bindDesktopLyricsHostWindow(createWindow())
 
   app.on('activate', () => {
-    createWindow()
+    bindDesktopLyricsHostWindow(createWindow())
   })
 })
 

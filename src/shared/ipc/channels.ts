@@ -47,6 +47,16 @@ export const ipcChannels = {
     getAlbumTracks: 'playback:get-album-tracks',
     recordEffectivePlay: 'playback:record-effective-play',
   },
+  desktopLyrics: {
+    toggle: 'desktop-lyrics:toggle',
+    isVisible: 'desktop-lyrics:is-visible',
+    toggleMousePassthrough: 'desktop-lyrics:toggle-mouse-passthrough',
+    isMousePassthroughEnabled: 'desktop-lyrics:is-mouse-passthrough-enabled',
+    update: 'desktop-lyrics:update',
+    changed: 'desktop-lyrics:changed',
+    visibilityChanged: 'desktop-lyrics:visibility-changed',
+    mousePassthroughChanged: 'desktop-lyrics:mouse-passthrough-changed',
+  },
   archive: {
     getListeningHeatmap: 'archive:get-listening-heatmap',
     getDailyListeningDetail: 'archive:get-daily-listening-detail',

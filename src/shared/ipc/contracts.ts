@@ -33,6 +33,7 @@ import type {
   SmartPlaylistTrackCount,
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
+import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
 
 export interface IpcInvokeContract {
   'app:get-info': {
@@ -165,6 +166,26 @@ export interface IpcInvokeContract {
   }
   'playback:record-effective-play': {
     request: { trackId: number; sessionId: string; playedAtIso: string }
+    response: { ok: boolean }
+  }
+  'desktop-lyrics:toggle': {
+    request: void
+    response: { visible: boolean }
+  }
+  'desktop-lyrics:is-visible': {
+    request: void
+    response: { visible: boolean }
+  }
+  'desktop-lyrics:toggle-mouse-passthrough': {
+    request: void
+    response: { enabled: boolean }
+  }
+  'desktop-lyrics:is-mouse-passthrough-enabled': {
+    request: void
+    response: { enabled: boolean }
+  }
+  'desktop-lyrics:update': {
+    request: DesktopLyricsPayload
     response: { ok: boolean }
   }
   'archive:get-listening-heatmap': {

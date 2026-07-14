@@ -788,7 +788,7 @@ onBeforeUnmount(() => {
             @click="onInsertAfterCurrent(contextMenu.trackId)"
           >
             <span class="i-lucide-list-plus"></span>
-            <span>插播</span>
+            <span>插播「{{ contextMenuTrack?.title || 'Unknown Title' }}」</span>
           </button>
           <div
             v-if="

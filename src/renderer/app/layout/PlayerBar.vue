@@ -6,8 +6,16 @@ import type { PlaybackMode } from '@renderer/features/playback/types'
 import TrackProgressInfo from './TrackProgressInfo.vue'
 import PlaybackQueuePopover from './PlaybackQueuePopover.vue'
 import PlaybackModeMenu from './PlaybackModeMenu.vue'
+import { useTrackLyrics } from '@renderer/features/lyrics/composables/useTrackLyrics'
+import {
+  ensureDesktopLyricsFontReady,
+  formatDesktopLyricsText,
+} from '@renderer/features/lyrics/utils/formatDesktopLyricsText'
+import { auralis } from '@renderer/shared/ipc/client'
+import type { DesktopLyricsPayload, DesktopLyricsStatus } from '@shared/types/desktopLyrics'
 
 const playback = usePlayback()
+const lyrics = useTrackLyrics()
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 const { palette: albumPalette } = useArtworkPalette(currentArtworkCacheKey)
 
@@ -48,6 +56,12 @@ const playerBarStyle = computed(
 const isQueueOpen = ref(false)
 const queueButtonRef = ref<HTMLElement | null>(null)
 const queuePopoverRef = ref<HTMLElement | null>(null)
+const isDesktopLyricsVisible = ref(false)
+const isDesktopLyricsMousePassthroughEnabled = ref(true)
+const desktopLyricsToast = ref<string | null>(null)
+let unsubscribeDesktopLyricsVisibility: (() => void) | null = null
+let unsubscribeDesktopLyricsMousePassthrough: (() => void) | null = null
+let desktopLyricsToastTimer: ReturnType<typeof setTimeout> | null = null
 
 function toggleQueue(): void {
   isQueueOpen.value = !isQueueOpen.value
@@ -55,6 +69,98 @@ function toggleQueue(): void {
 
 function closeQueue(): void {
   isQueueOpen.value = false
+}
+
+function getPlainLyricLines(rawLyrics: string | null): string[] {
+  return (rawLyrics ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function buildDesktopLyricsPayload(): DesktopLyricsPayload {
+  const track = playback.state.currentTrack
+  const status: DesktopLyricsStatus =
+    lyrics.status.value === 'no-track' ? 'idle' : lyrics.status.value
+
+  if (!track) {
+    return {
+      trackId: null,
+      title: null,
+      artist: null,
+      currentLine: '',
+      nextLine: '',
+      status: 'idle',
+      isPlaying: false,
+    }
+  }
+
+  let currentLine = ''
+  let nextLine = ''
+
+  if (lyrics.status.value === 'loading') {
+    currentLine = '歌词加载中'
+  } else if (lyrics.status.value === 'empty') {
+    currentLine = '暂无歌词'
+  } else if (lyrics.status.value === 'plain') {
+    const lines = getPlainLyricLines(lyrics.rawLyrics.value)
+    currentLine = lines[0] ?? '暂无歌词'
+    nextLine = lines[1] ?? ''
+  } else if (lyrics.status.value === 'lrc') {
+    const lines = lyrics.parsedLines.value.filter((line) => line.text.length > 0)
+    const activeIndex = lines.findIndex(
+      (line) => line.id === lyrics.parsedLines.value[lyrics.activeIndex.value]?.id,
+    )
+
+    if (activeIndex >= 0) {
+      currentLine = lines[activeIndex]?.text ?? ''
+      nextLine = lines[activeIndex + 1]?.text ?? ''
+    } else {
+      currentLine = lyrics.showPrelude.value ? '.'.repeat(lyrics.preludeLitDotCount.value) : ''
+      nextLine = lines[0]?.text ?? ''
+    }
+  }
+
+  return {
+    trackId: track.id,
+    title: track.title,
+    artist: track.artist,
+    currentLine: formatDesktopLyricsText(currentLine),
+    nextLine: formatDesktopLyricsText(nextLine),
+    status,
+    isPlaying: playback.state.isPlaying,
+  }
+}
+
+function syncDesktopLyrics(): void {
+  void auralis.desktopLyrics.update(buildDesktopLyricsPayload())
+}
+
+async function toggleDesktopLyrics(): Promise<void> {
+  const result = await auralis.desktopLyrics.toggle()
+  isDesktopLyricsVisible.value = result.visible
+  showDesktopLyricsToast(result.visible ? '桌面歌词已开启' : '桌面歌词已关闭')
+  syncDesktopLyrics()
+}
+
+async function toggleDesktopLyricsMousePassthrough(event: MouseEvent): Promise<void> {
+  event.preventDefault()
+  const result = await auralis.desktopLyrics.toggleMousePassthrough()
+  isDesktopLyricsMousePassthroughEnabled.value = result.enabled
+  showDesktopLyricsToast(result.enabled ? '鼠标穿透已开启' : '鼠标穿透已关闭')
+}
+
+function showDesktopLyricsToast(message: string): void {
+  desktopLyricsToast.value = message
+
+  if (desktopLyricsToastTimer) {
+    clearTimeout(desktopLyricsToastTimer)
+  }
+
+  desktopLyricsToastTimer = setTimeout(() => {
+    desktopLyricsToast.value = null
+    desktopLyricsToastTimer = null
+  }, 1200)
 }
 
 // --- Mode menu ---
@@ -95,10 +201,33 @@ function handleDocumentPointerDown(event: PointerEvent): void {
 
 onMounted(() => {
   document.addEventListener('pointerdown', handleDocumentPointerDown)
+  void ensureDesktopLyricsFontReady().then(syncDesktopLyrics)
+  void auralis.desktopLyrics.isVisible().then((result) => {
+    isDesktopLyricsVisible.value = result.visible
+  })
+  void auralis.desktopLyrics.isMousePassthroughEnabled().then((result) => {
+    isDesktopLyricsMousePassthroughEnabled.value = result.enabled
+  })
+  unsubscribeDesktopLyricsVisibility = auralis.desktopLyrics.onVisibilityChanged((visible) => {
+    isDesktopLyricsVisible.value = visible
+  })
+  unsubscribeDesktopLyricsMousePassthrough = auralis.desktopLyrics.onMousePassthroughChanged(
+    (enabled) => {
+      isDesktopLyricsMousePassthroughEnabled.value = enabled
+    },
+  )
 })
 
 onUnmounted(() => {
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
+  unsubscribeDesktopLyricsVisibility?.()
+  unsubscribeDesktopLyricsVisibility = null
+  unsubscribeDesktopLyricsMousePassthrough?.()
+  unsubscribeDesktopLyricsMousePassthrough = null
+  if (desktopLyricsToastTimer) {
+    clearTimeout(desktopLyricsToastTimer)
+    desktopLyricsToastTimer = null
+  }
   if (albumTintTimer) {
     clearTimeout(albumTintTimer)
     albumTintTimer = null
@@ -125,6 +254,24 @@ watch(
       albumTintTimer = null
     }, 420)
   },
+  { immediate: true },
+)
+
+watch(
+  () => [
+    playback.state.currentTrackId,
+    playback.state.currentTrack?.title,
+    playback.state.currentTrack?.artist,
+    playback.state.isPlaying,
+    playback.state.currentTime,
+    lyrics.status.value,
+    lyrics.rawLyrics.value,
+    lyrics.activeIndex.value,
+    lyrics.showPrelude.value,
+    lyrics.preludeLitDotCount.value,
+    lyrics.parsedLines.value.length,
+  ],
+  syncDesktopLyrics,
   { immediate: true },
 )
 
@@ -243,6 +390,32 @@ function handleToggleMute(): void {
     <TrackProgressInfo />
 
     <div class="playback-actions">
+      <div class="desktop-lyrics-control-wrap">
+        <button
+          class="player-control"
+          :class="{ 'player-control-active': isDesktopLyricsVisible }"
+          type="button"
+          :aria-label="
+            isDesktopLyricsMousePassthroughEnabled
+              ? 'Desktop lyrics, mouse passthrough enabled'
+              : 'Desktop lyrics, mouse passthrough disabled'
+          "
+          :aria-pressed="isDesktopLyricsVisible"
+          :title="
+            isDesktopLyricsMousePassthroughEnabled
+              ? 'Right-click to disable mouse passthrough'
+              : 'Right-click to enable mouse passthrough'
+          "
+          @click="toggleDesktopLyrics"
+          @contextmenu="toggleDesktopLyricsMousePassthrough"
+        >
+          <span class="playbar-action-icon h-4 w-4 i-lucide-captions" />
+        </button>
+        <div v-if="desktopLyricsToast" class="desktop-lyrics-toast">
+          {{ desktopLyricsToast }}
+        </div>
+      </div>
+
       <button
         ref="queueButtonRef"
         class="player-control"
