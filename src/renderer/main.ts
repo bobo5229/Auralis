@@ -3,6 +3,7 @@ import '@unocss/reset/tailwind.css'
 import 'virtual:uno.css'
 import './app/styles/main.css'
 import App from './App.vue'
+import DesktopLyricsApp from './DesktopLyricsApp.vue'
 import { router } from './app/router'
 import { useTheme } from './composables/useTheme'
 
@@ -10,14 +11,19 @@ const { initTheme } = useTheme()
 initTheme()
 
 async function bootstrap(): Promise<void> {
-  const app = createApp(App)
+  const isDesktopLyricsWindow = new URLSearchParams(window.location.search).has('desktopLyrics')
+  const app = createApp(isDesktopLyricsWindow ? DesktopLyricsApp : App)
 
-  app.use(router)
-  await router.isReady()
+  if (!isDesktopLyricsWindow) {
+    app.use(router)
+    await router.isReady()
+  }
   app.mount('#app')
   await nextTick()
 
-  window.auralis.app.rendererReady()
+  if (!isDesktopLyricsWindow) {
+    window.auralis.app.rendererReady()
+  }
 }
 
 void bootstrap()

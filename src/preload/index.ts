@@ -103,6 +103,49 @@ export const auralisApi: AuralisApi = {
     getAlbumTracks: (albumKey) => invoke(ipcChannels.playback.getAlbumTracks, { albumKey }),
     recordEffectivePlay: (payload) => invoke(ipcChannels.playback.recordEffectivePlay, payload),
   },
+  desktopLyrics: {
+    toggle: () => invoke(ipcChannels.desktopLyrics.toggle),
+    isVisible: () => invoke(ipcChannels.desktopLyrics.isVisible),
+    toggleMousePassthrough: () => invoke(ipcChannels.desktopLyrics.toggleMousePassthrough),
+    isMousePassthroughEnabled: () => invoke(ipcChannels.desktopLyrics.isMousePassthroughEnabled),
+    update: (payload) => invoke(ipcChannels.desktopLyrics.update, payload),
+    onUpdate: (callback) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        payload: Parameters<typeof callback>[0],
+      ) => {
+        callback(payload)
+      }
+
+      ipcRenderer.on(ipcChannels.desktopLyrics.changed, listener)
+
+      return () => {
+        ipcRenderer.removeListener(ipcChannels.desktopLyrics.changed, listener)
+      }
+    },
+    onVisibilityChanged: (callback) => {
+      const listener = (_event: Electron.IpcRendererEvent, visible: boolean) => {
+        callback(visible)
+      }
+
+      ipcRenderer.on(ipcChannels.desktopLyrics.visibilityChanged, listener)
+
+      return () => {
+        ipcRenderer.removeListener(ipcChannels.desktopLyrics.visibilityChanged, listener)
+      }
+    },
+    onMousePassthroughChanged: (callback) => {
+      const listener = (_event: Electron.IpcRendererEvent, enabled: boolean) => {
+        callback(enabled)
+      }
+
+      ipcRenderer.on(ipcChannels.desktopLyrics.mousePassthroughChanged, listener)
+
+      return () => {
+        ipcRenderer.removeListener(ipcChannels.desktopLyrics.mousePassthroughChanged, listener)
+      }
+    },
+  },
   archive: {
     getListeningHeatmap: (year) => invoke(ipcChannels.archive.getListeningHeatmap, { year }),
     getDailyListeningDetail: (date) =>

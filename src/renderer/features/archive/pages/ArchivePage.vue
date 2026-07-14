@@ -172,9 +172,6 @@ const monthMarkers = computed(() => {
   })
 })
 
-const firstAvailableYear = computed(() => heatmap.value?.firstRecordedYear ?? currentYear)
-const canGoPrevious = computed(() => selectedYear.value > firstAvailableYear.value)
-const canGoNext = computed(() => selectedYear.value < currentYear)
 const maxRankingMonth = computed(() =>
   rankingYear.value === currentYear ? new Date().getMonth() + 1 : 12,
 )
@@ -654,19 +651,6 @@ function toggleRankingPicker(): void {
   showRankingPicker.value = !showRankingPicker.value
 }
 
-async function changeYear(offset: -1 | 1): Promise<void> {
-  const nextYear = selectedYear.value + offset
-  if (nextYear < firstAvailableYear.value || nextYear > currentYear) return
-
-  selectedYear.value = nextYear
-  showAnnualRecap.value = false
-  annualRecapPage.value = 0
-  clearAnnualRecapRankings()
-  normalizeRankingPeriod()
-  await loadHeatmap()
-  await loadListeningRanking()
-}
-
 function updateTooltipPosition(event: MouseEvent): void {
   if (!tooltip.value) return
   tooltip.value = {
@@ -938,69 +922,6 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="archive-page content-frame">
-    <header class="archive-heading">
-      <div class="archive-heading-copy">
-        <span class="archive-kicker">Listening Chronicle</span>
-        <div class="archive-title-row" data-reset-control>
-          <h1
-            role="button"
-            tabindex="0"
-            aria-label="声迹，长按一秒显示播放数据重置操作"
-            @pointerdown="startLongPress"
-            @pointerup="cancelLongPress"
-            @pointerleave="cancelLongPress"
-            @pointercancel="cancelLongPress"
-            @keydown="handleTitleKeyDown"
-            @keyup="handleTitleKeyUp"
-            @blur="cancelLongPress"
-            @contextmenu.prevent
-          >
-            声迹
-          </h1>
-          <Transition name="archive-reset-action">
-            <button
-              v-if="showResetAction"
-              type="button"
-              class="archive-reset-action"
-              @click="openResetConfirmation"
-            >
-              重置播放数据
-            </button>
-          </Transition>
-        </div>
-        <p>回望每一天留下的聆听痕迹。</p>
-        <div v-if="!isLoading && !errorMessage" class="archive-hero-stats">
-          <div v-for="item in annualSummary.slice(0, 3)" :key="`hero-${item.key}`">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <small>{{ item.unit }}</small>
-          </div>
-        </div>
-      </div>
-      <div class="archive-heading-panel">
-        <div class="archive-year-switcher" aria-label="选择年份">
-          <button
-            type="button"
-            :disabled="!canGoPrevious || isLoading"
-            aria-label="上一年"
-            @click="changeYear(-1)"
-          >
-            <span class="i-lucide-chevron-left h-4 w-4"></span>
-          </button>
-          <span>{{ selectedYear }}年</span>
-          <button
-            type="button"
-            :disabled="!canGoNext || isLoading"
-            aria-label="下一年"
-            @click="changeYear(1)"
-          >
-            <span class="i-lucide-chevron-right h-4 w-4"></span>
-          </button>
-        </div>
-        <p>按年份整理播放次数、收听时长和每日高峰。</p>
-      </div>
-    </header>
-
     <div class="archive-heatmap-card">
       <div class="archive-card-heading">
         <div>
@@ -1056,10 +977,36 @@ onBeforeUnmount(() => {
 
     <section v-if="!isLoading && !errorMessage" class="archive-summary">
       <div class="archive-section-heading">
-        <div>
-          <span class="archive-section-kicker">Annual Notes</span>
-          <h2>年度摘要</h2>
-          <p>把这一年的活跃天数、播放次数、时长和峰值浓缩成四条线索。</p>
+        <div class="archive-title-row" data-reset-control>
+          <div>
+            <span class="archive-section-kicker">Annual Notes</span>
+            <h2
+              role="button"
+              tabindex="0"
+              aria-label="年度摘要，长按一秒显示播放数据重置操作"
+              @pointerdown="startLongPress"
+              @pointerup="cancelLongPress"
+              @pointerleave="cancelLongPress"
+              @pointercancel="cancelLongPress"
+              @keydown="handleTitleKeyDown"
+              @keyup="handleTitleKeyUp"
+              @blur="cancelLongPress"
+              @contextmenu.prevent
+            >
+              年度摘要
+            </h2>
+            <p>把这一年的活跃天数、播放次数、时长和峰值浓缩成四条线索。</p>
+          </div>
+          <Transition name="archive-reset-action">
+            <button
+              v-if="showResetAction"
+              type="button"
+              class="archive-reset-action"
+              @click="openResetConfirmation"
+            >
+              重置播放数据
+            </button>
+          </Transition>
         </div>
         <button type="button" class="archive-annual-recap-entry" @click="openAnnualRecap">
           <span class="i-lucide-sparkles h-4 w-4"></span>
@@ -1666,70 +1613,12 @@ onBeforeUnmount(() => {
   display: none;
 }
 
-.archive-heading {
-  position: relative;
-  display: flex;
-  overflow: hidden;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 28px;
-  min-height: 214px;
-  padding: 28px;
-  border: 1px solid var(--archive-panel-border);
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, var(--archive-accent-soft), transparent 58%),
-    linear-gradient(180deg, color-mix(in srgb, white 28%, transparent), transparent),
-    var(--archive-panel-bg);
-  box-shadow: var(--archive-panel-shadow);
-  isolation: isolate;
-}
-
-.archive-heading::before {
-  position: absolute;
-  right: -80px;
-  bottom: -120px;
-  z-index: -1;
-  width: 320px;
-  height: 320px;
-  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 16%, transparent);
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 6%, transparent);
-  content: '';
-}
-
-.archive-heading::after {
-  position: absolute;
-  right: 56px;
-  bottom: 30px;
-  z-index: -1;
-  width: 132px;
-  height: 132px;
-  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent);
-  border-radius: 50%;
-  content: '';
-}
-
-.archive-heading-copy {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 24px;
-}
-
-.archive-kicker,
 .archive-section-kicker {
   display: block;
   color: var(--auralis-sidebar-active-indicator);
   font-size: 11px;
   font-weight: 760;
   line-height: 1;
-}
-
-.archive-kicker {
-  margin-bottom: 14px;
 }
 
 .archive-section-kicker {
@@ -1746,28 +1635,23 @@ onBeforeUnmount(() => {
   gap: 20px;
 }
 
-.archive-heading h1 {
-  color: var(--auralis-text);
-  font-size: 44px;
-  font-weight: 780;
-  line-height: 0.98;
-  letter-spacing: 0;
+.archive-title-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.archive-title-row h2 {
   cursor: default;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
 
-.archive-heading h1:focus-visible {
+.archive-title-row h2:focus-visible {
   border-radius: 5px;
   outline: 2px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 58%, transparent);
   outline-offset: 4px;
-}
-
-.archive-title-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
 }
 
 .archive-reset-action {
@@ -1804,115 +1688,15 @@ onBeforeUnmount(() => {
   transform: translateX(-6px);
 }
 
-.archive-heading p,
 .archive-card-heading p,
-.archive-section-heading p,
-.archive-heading-panel p {
+.archive-section-heading p {
   margin: 0;
   color: var(--auralis-text-muted);
   font-size: 13px;
   line-height: 1.65;
 }
 
-.archive-heading-copy > p {
-  max-width: 28rem;
-  font-size: 14px;
-}
-
-.archive-hero-stats {
-  display: grid;
-  width: min(520px, 100%);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.archive-hero-stats div {
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid var(--archive-panel-border);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--auralis-main-bg) 52%, transparent);
-}
-
-.archive-hero-stats span,
-.archive-hero-stats small {
-  display: block;
-  overflow: hidden;
-  color: var(--auralis-text-faint);
-  font-size: 11px;
-  font-weight: 650;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.archive-hero-stats strong {
-  display: inline-block;
-  max-width: 100%;
-  overflow: hidden;
-  margin-top: 8px;
-  color: var(--auralis-text);
-  font-size: 24px;
-  font-weight: 780;
-  line-height: 1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.archive-hero-stats small {
-  margin-top: 4px;
-}
-
-.archive-heading-panel {
-  display: flex;
-  width: 240px;
-  flex: 0 0 auto;
-  flex-direction: column;
-  justify-content: space-between;
-  align-self: stretch;
-  padding: 16px;
-  border: 1px solid var(--archive-panel-border);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--auralis-main-bg) 42%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 24%, transparent);
-}
-
-.archive-year-switcher {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  color: var(--auralis-text);
-  font-size: 15px;
-  font-weight: 760;
-}
-
-.archive-year-switcher button {
-  display: inline-flex;
-  width: 32px;
-  height: 32px;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  color: var(--auralis-text-muted);
-  transition:
-    border-color 160ms ease,
-    color 160ms ease,
-    background-color 160ms ease;
-}
-
-.archive-year-switcher button:hover:not(:disabled) {
-  border-color: var(--archive-panel-border);
-  color: var(--auralis-text);
-  background: var(--auralis-control-hover-bg);
-}
-
-.archive-year-switcher button:disabled {
-  opacity: 0.35;
-}
-
 .archive-heatmap-card {
-  margin-top: 18px;
   padding: 22px;
   border: 1px solid var(--archive-panel-border);
   border-radius: 8px;
@@ -3531,6 +3315,8 @@ onBeforeUnmount(() => {
 .archive-top-tracks {
   display: grid;
   flex: 1;
+  align-content: start;
+  grid-auto-rows: 52px;
   gap: 2px;
   margin-top: 18px;
   overflow-y: auto;
@@ -3560,6 +3346,7 @@ onBeforeUnmount(() => {
 .archive-top-tracks li {
   display: grid;
   min-width: 0;
+  height: 52px;
   align-items: center;
   padding: 7px 8px;
   border-radius: 10px;
@@ -3629,31 +3416,12 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 900px) {
-  .archive-heading,
   .archive-card-heading,
   .archive-section-heading,
   .archive-ranking-heading,
   .archive-ranking-toolbar {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .archive-heading {
-    min-height: 0;
-    padding: 22px;
-  }
-
-  .archive-heading h1 {
-    font-size: 36px;
-  }
-
-  .archive-heading-panel {
-    width: auto;
-    gap: 18px;
-  }
-
-  .archive-hero-stats {
-    grid-template-columns: 1fr;
   }
 
   .archive-summary-grid {

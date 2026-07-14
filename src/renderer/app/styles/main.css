@@ -11,6 +11,70 @@
     U+30000-3134F;
 }
 
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-EL.otf') format('opentype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-L.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-R.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-M.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-SB.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-B.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-H.otf') format('opentype');
+  font-weight: 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics HuaKang';
+  src: url('../../assets/fonts/华康新特明体.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root,
 [data-theme='light'] {
   color: #1f2528;
@@ -319,6 +383,37 @@ input {
   z-index: 2;
 }
 
+.queue-popover-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+
+.queue-popover-scroll::-webkit-scrollbar-track,
+.queue-popover-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.queue-popover-scroll::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgb(32 38 42 / 0.28);
+  background-clip: padding-box;
+}
+
+.queue-popover-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(32 38 42 / 0.42);
+  background-clip: padding-box;
+}
+
+[data-theme='dark'] .queue-popover-scroll::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.26);
+  background-clip: padding-box;
+}
+
+[data-theme='dark'] .queue-popover-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(255 255 255 / 0.38);
+  background-clip: padding-box;
+}
+
 .player-bar-album-tint {
   --playbar-album-layer-opacity: 1;
   position: absolute;
@@ -364,6 +459,43 @@ input {
 
 [data-theme='dark'] .playbar-action-icon {
   color: #e1ddd6;
+}
+
+.desktop-lyrics-control-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.desktop-lyrics-toast {
+  position: absolute;
+  right: 50%;
+  bottom: calc(100% + 10px);
+  z-index: 30;
+  width: max-content;
+  max-width: 180px;
+  transform: translateX(50%);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: 8px;
+  padding: 7px 10px;
+  background: rgb(28 28 28 / 0.78);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  color: rgb(245 245 245 / 0.92);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: desktop-lyrics-toast-in 140ms ease-out;
+}
+
+[data-theme='light'] .desktop-lyrics-toast {
+  border-color: rgb(40 40 40 / 0.1);
+  background: rgb(255 255 255 / 0.82);
+  color: rgb(30 32 34 / 0.82);
 }
 
 .player-bar .player-control,
@@ -1263,6 +1395,79 @@ input[type='range'].volume-slider::-moz-range-thumb {
   }
 }
 
+.desktop-lyrics-window {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+}
+
+.desktop-lyrics-root,
+.desktop-lyrics-root body,
+.desktop-lyrics-root #app {
+  overflow: hidden;
+  background: transparent !important;
+}
+
+.desktop-lyrics-drag-region {
+  position: fixed;
+  inset: 0;
+  -webkit-app-region: drag;
+}
+
+.desktop-lyrics-lines {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 12px 34px;
+  font-family:
+    'Auralis Desktop Lyrics SC',
+    'Times New Roman',
+    serif;
+  text-align: center;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+.desktop-lyrics-line {
+  width: 100%;
+  overflow: hidden;
+  font-size: 38px;
+  font-weight: 500;
+  line-height: 1.22;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-lyrics-line-current {
+  color: #0728ec;
+  -webkit-text-stroke: 1.1px #ffffff;
+  paint-order: stroke fill;
+}
+
+.desktop-lyrics-line-next {
+  color: #ffffff;
+  -webkit-text-stroke: 1.1px #000000;
+  paint-order: stroke fill;
+}
+
+@keyframes desktop-lyrics-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(50%) translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(50%) translateY(0);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .library-view-fade-enter-active,
   .library-view-fade-leave-active {
@@ -1276,5 +1481,9 @@ input[type='range'].volume-slider::-moz-range-thumb {
   .lyric-dot {
     animation: none !important;
     opacity: 1 !important;
+  }
+
+  .desktop-lyrics-toast {
+    animation: none !important;
   }
 }

@@ -4,6 +4,7 @@ node_modules/
 # Build output
 dist/
 out/
+release/
 
 # Electron native modules cache
 .npm-cache/
@@ -35,6 +36,9 @@ Thumbs.db
 
 # Local overrides
 *.local
+
+# Downloaded source archives
+genryu-font-master.zip
 
 # PRD & Tech Docs
 docs/

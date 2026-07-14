@@ -34,6 +34,7 @@ import type {
   SmartPlaylistTrackCount,
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
+import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
 
 export interface AuralisApi {
   app: {
@@ -109,6 +110,16 @@ export interface AuralisApi {
       sessionId: string
       playedAtIso: string
     }) => Promise<{ ok: boolean }>
+  }
+  desktopLyrics: {
+    toggle: () => Promise<{ visible: boolean }>
+    isVisible: () => Promise<{ visible: boolean }>
+    toggleMousePassthrough: () => Promise<{ enabled: boolean }>
+    isMousePassthroughEnabled: () => Promise<{ enabled: boolean }>
+    update: (payload: DesktopLyricsPayload) => Promise<{ ok: boolean }>
+    onUpdate: (callback: (payload: DesktopLyricsPayload) => void) => () => void
+    onVisibilityChanged: (callback: (visible: boolean) => void) => () => void
+    onMousePassthroughChanged: (callback: (enabled: boolean) => void) => () => void
   }
   archive: {
     getListeningHeatmap: (year: number) => Promise<ListeningHeatmap>
