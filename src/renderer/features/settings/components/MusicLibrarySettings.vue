@@ -414,7 +414,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .library-settings {
-  animation: settings-enter 220ms ease both;
+  animation: settings-enter 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .settings-section-heading {
@@ -432,13 +432,15 @@ onBeforeUnmount(() => {
   padding: 10px;
   border-radius: 12px;
   color: var(--auralis-sidebar-active-icon);
-  background: var(--auralis-sidebar-active-bg);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-bg) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 20%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent);
 }
 
 .settings-section-heading h2 {
   margin: 0;
   font-size: 20px;
-  font-weight: 650;
+  font-weight: 800;
   letter-spacing: -0.02em;
 }
 
@@ -448,11 +450,17 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
+/* Library card Glassmorphism redesign */
 .library-card {
   overflow: hidden;
   border: 1px solid var(--auralis-border-subtle);
-  border-radius: 16px;
+  border-radius: 20px;
   background: color-mix(in srgb, var(--auralis-sidebar-bg) 54%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
 }
 
 .library-card-header {
@@ -460,7 +468,7 @@ onBeforeUnmount(() => {
   grid-template-columns: 44px minmax(0, 1fr) auto;
   gap: 14px;
   align-items: center;
-  padding: 18px;
+  padding: 20px;
 }
 
 .folder-mark {
@@ -469,67 +477,97 @@ onBeforeUnmount(() => {
   height: 44px;
   place-items: center;
   color: var(--auralis-sidebar-active-icon);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 15%, transparent);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent);
+  transition: transform 0.2s ease;
 }
 
 .folder-mark span {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
+}
+
+.library-card-header:hover .folder-mark {
+  transform: scale(1.05) rotate(-5deg);
 }
 
 .folder-copy {
   display: grid;
   min-width: 0;
-  gap: 3px;
+  gap: 4px;
 }
 
 .folder-copy > span {
   color: var(--auralis-text-subtle);
   font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .folder-copy strong {
   overflow: hidden;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
   direction: ltr;
+  font-family: monospace;
+  background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  padding: 4px 8px;
+  border-radius: 8px;
+  color: var(--auralis-sidebar-active-text);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  align-self: flex-start;
 }
 
 .folder-copy small {
   color: var(--auralis-text-subtle);
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .library-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
+/* Primary & Secondary Buttons Capsule style */
 .primary-button,
 .secondary-button {
   display: inline-flex;
   gap: 7px;
   align-items: center;
   justify-content: center;
-  padding: 8px 11px;
+  padding: 9px 14px;
   border: 1px solid transparent;
-  border-radius: 9px;
+  border-radius: 12px;
   font-size: 11px;
-  font-weight: 550;
+  font-weight: 700;
   cursor: pointer;
-  transition:
-    opacity 150ms ease,
-    background 150ms ease;
+  transition: all 200ms ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .primary-button {
   color: var(--auralis-control-primary-text);
-  background: var(--auralis-control-primary-bg);
+  background: linear-gradient(
+    135deg,
+    var(--auralis-sidebar-active-indicator) 20%,
+    var(--auralis-sidebar-active-text)
+  );
+  box-shadow:
+    0 4px 12px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 25%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 .primary-button:hover:not(:disabled) {
-  opacity: 0.86;
+  transform: translateY(-1.5px);
+  box-shadow:
+    0 6px 16px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 35%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .secondary-button {
@@ -540,11 +578,18 @@ onBeforeUnmount(() => {
 
 .secondary-button:hover:not(:disabled) {
   background: var(--auralis-control-hover-bg);
+  transform: translateY(-1.5px);
+  border-color: color-mix(in srgb, var(--auralis-text) 16%, transparent);
+}
+
+.primary-button:active:not(:disabled),
+.secondary-button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .primary-button:disabled,
 .secondary-button:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
   cursor: default;
 }
 
@@ -557,10 +602,12 @@ onBeforeUnmount(() => {
 .library-status-strip {
   display: flex;
   gap: 26px;
-  padding: 11px 18px;
+  padding: 12px 20px;
   border-top: 1px solid var(--auralis-border-subtle);
   color: var(--auralis-text-subtle);
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 550;
+  background: color-mix(in srgb, var(--auralis-text) 1.5%, transparent);
 }
 
 .library-status-strip > div {
@@ -571,40 +618,44 @@ onBeforeUnmount(() => {
 
 .library-status-strip strong {
   color: var(--auralis-text-muted);
-  font-weight: 550;
+  font-weight: 700;
 }
 
 .library-status-strip div > span:first-child:not(.status-dot) {
   width: 12px;
   height: 12px;
+  color: var(--auralis-sidebar-active-icon);
 }
 
 .status-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--auralis-text-disabled);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
 }
 
 .status-dot.is-ready {
   background: var(--auralis-sidebar-active-indicator);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 60%, transparent);
 }
 
 .status-dot.is-active {
   background: #d59a43;
-  box-shadow: 0 0 0 4px color-mix(in srgb, #d59a43 16%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, #d59a43 60%, transparent);
 }
 
+/* Scan progress panel redesign */
 .scan-task {
-  padding: 16px 18px;
+  padding: 18px 20px;
   border-top: 1px solid var(--auralis-border-subtle);
-  background: color-mix(in srgb, var(--auralis-sidebar-active-bg) 45%, transparent);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-bg) 35%, transparent);
 }
 
 .scan-task-heading,
 .scan-task-heading > div {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
   justify-content: space-between;
 }
@@ -615,47 +666,82 @@ onBeforeUnmount(() => {
 }
 
 .scan-task-heading strong {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .scan-task-heading span:not(.scan-spinner) {
   color: var(--auralis-text-subtle);
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 550;
 }
 
 .scan-spinner {
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   animation: spin 900ms linear infinite;
+  color: var(--auralis-sidebar-active-indicator);
 }
 
 .scan-task-heading button {
   border: 0;
   color: var(--auralis-text-muted);
   background: transparent;
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
+  transition: color 0.2s ease;
 }
 
 .scan-task-heading button:hover {
-  color: var(--auralis-text);
+  color: #d94a4a;
 }
 
+/* Shimmer Pulsing Progress track */
 .progress-track {
-  height: 5px;
+  height: 6px;
   overflow: hidden;
-  margin-top: 13px;
+  margin-top: 14px;
   border-radius: 99px;
   background: var(--auralis-progress-track);
+  position: relative;
 }
 
 .progress-track span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: var(--auralis-progress-fill);
-  transition: width 240ms ease;
+  /* 亮天蓝到 Auralis 深蓝的双色流体渐变 */
+  background: linear-gradient(
+    90deg,
+    var(--auralis-sidebar-active-indicator),
+    var(--auralis-sidebar-active-text)
+  );
+  transition: width 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 40%, transparent);
+}
+
+/* Pulse pulse animation on the bar */
+.progress-track span::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: progress-shimmer 2s infinite linear;
+}
+
+@keyframes progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .scan-metrics,
@@ -665,17 +751,20 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   margin-top: 8px;
   color: var(--auralis-text-subtle);
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 550;
 }
 
 .scan-metrics strong,
 .refresh-progress strong {
   margin-left: auto;
   color: var(--auralis-text-muted);
+  font-weight: 700;
 }
 
 .maintenance-section {
   border-top: 1px solid var(--auralis-border-subtle);
+  background: color-mix(in srgb, var(--auralis-text) 0.5%, transparent);
 }
 
 .maintenance-heading {
@@ -683,7 +772,7 @@ onBeforeUnmount(() => {
   gap: 20px;
   align-items: center;
   justify-content: space-between;
-  padding: 18px;
+  padding: 20px;
 }
 
 .maintenance-heading > div {
@@ -694,16 +783,16 @@ onBeforeUnmount(() => {
 }
 
 .maintenance-heading > div > span {
-  flex: 0 0 17px;
-  width: 17px;
-  height: 17px;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
   color: var(--auralis-sidebar-active-icon);
 }
 
 .maintenance-heading h3 {
   margin: 0;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .maintenance-heading p {
@@ -711,10 +800,11 @@ onBeforeUnmount(() => {
   color: var(--auralis-text-subtle);
   font-size: 10px;
   line-height: 1.5;
+  font-weight: 500;
 }
 
 .refresh-progress {
-  padding: 0 18px 16px;
+  padding: 0 20px 18px;
 }
 
 .refresh-progress .progress-track {
@@ -728,11 +818,12 @@ onBeforeUnmount(() => {
   margin: 10px 2px 0;
   color: #c2675b;
   font-size: 10px;
+  font-weight: 600;
 }
 
 .library-operation-error {
   margin: 0;
-  padding: 10px 18px;
+  padding: 10px 20px;
   border-top: 1px solid var(--auralis-border-subtle);
 }
 
@@ -751,13 +842,15 @@ onBeforeUnmount(() => {
   gap: 9px;
   align-items: center;
   width: 100%;
-  padding: 12px 18px;
+  padding: 12px 20px;
   border: 0;
   color: var(--auralis-text-muted);
   background: transparent;
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 600;
   text-align: left;
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
 .failure-toggle:hover {
@@ -768,11 +861,12 @@ onBeforeUnmount(() => {
   display: inline-flex;
   gap: 4px;
   align-items: center;
-  padding: 3px 6px;
-  border-radius: 6px;
+  padding: 3px 8px;
+  border-radius: 8px;
   color: #b76659;
   background: color-mix(in srgb, #c76d5f 12%, transparent);
-  font-weight: 650;
+  font-weight: 700;
+  font-size: 10px;
 }
 
 .failure-badge span {
@@ -784,71 +878,95 @@ onBeforeUnmount(() => {
   width: 12px;
   height: 12px;
   margin-left: auto;
+  color: var(--auralis-text-faint);
 }
 
 .failure-content {
-  padding: 0 18px 16px;
+  padding: 0 20px 18px;
+  animation: settings-enter 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .failure-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   color: var(--auralis-text-subtle);
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 .failure-toolbar button {
   border: 0;
   color: var(--auralis-text-muted);
   background: transparent;
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 700;
   cursor: pointer;
+  transition: color 0.15s ease;
 }
 
-.failure-toolbar button:hover:not(:disabled) {
+.failure-toolbar button:hover {
   color: var(--auralis-text);
 }
 
 .failure-list {
   display: grid;
-  max-height: 210px;
-  gap: 7px;
-  overflow: auto;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--auralis-text) 12%, transparent) transparent;
 }
 
+.failure-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.failure-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auralis-text) 12%, transparent);
+}
+
+/* Error Item Cards */
 .failure-item {
   display: grid;
   gap: 3px;
-  padding: 9px 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--auralis-main-bg) 70%, transparent);
-  font-size: 9px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--auralis-text) 2%, transparent);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 4%, transparent);
+  transition: all 0.2s ease;
+}
+
+.failure-item:hover {
+  background: color-mix(in srgb, var(--auralis-text) 3.5%, transparent);
+  border-color: color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  transform: translateX(2px);
 }
 
 .failure-path {
   overflow: hidden;
   color: var(--auralis-text-muted);
+  font-size: 11px;
+  font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
   direction: ltr;
 }
 
 .failure-item strong {
-  font-weight: 500;
+  color: #c76d5f;
+  font-size: 10px;
+  font-weight: 700;
 }
 
 .failure-item small {
   color: var(--auralis-text-faint);
-  font-size: 8px;
-}
-
-@keyframes settings-enter {
-  from {
-    opacity: 0;
-    transform: translateY(5px);
-  }
+  font-size: 9px;
+  font-weight: 550;
 }
 
 @keyframes spin {
@@ -857,22 +975,10 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 680px) {
-  .library-card-header {
-    grid-template-columns: 44px minmax(0, 1fr);
-  }
-
-  .library-actions {
-    grid-column: 1 / -1;
-  }
-
-  .library-actions button {
-    flex: 1;
-  }
-
-  .maintenance-heading {
-    align-items: stretch;
-    flex-direction: column;
+@keyframes settings-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }
 </style>
