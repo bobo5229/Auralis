@@ -1593,9 +1593,9 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .archive-page {
-  --archive-panel-bg: color-mix(in srgb, var(--auralis-sidebar-bg) 74%, transparent);
-  --archive-panel-border: color-mix(in srgb, var(--auralis-text) 9%, transparent);
-  --archive-panel-shadow: 0 18px 48px color-mix(in srgb, var(--auralis-text) 7%, transparent);
+  --archive-panel-bg: color-mix(in srgb, var(--auralis-sidebar-bg) 65%, transparent);
+  --archive-panel-border: color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  --archive-panel-shadow: 0 16px 36px color-mix(in srgb, var(--auralis-text) 5%, transparent);
   --archive-accent-soft: color-mix(
     in srgb,
     var(--auralis-sidebar-active-indicator) 12%,
@@ -1617,11 +1617,10 @@ onBeforeUnmount(() => {
   display: block;
   color: var(--auralis-sidebar-active-indicator);
   font-size: 11px;
-  font-weight: 760;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   line-height: 1;
-}
-
-.archive-section-kicker {
   margin-bottom: 8px;
 }
 
@@ -1656,30 +1655,29 @@ onBeforeUnmount(() => {
 
 .archive-reset-action {
   height: 30px;
-  padding: 0 10px;
+  padding: 0 12px;
   border: 1px solid color-mix(in srgb, #d94a4a 24%, transparent);
-  border-radius: 8px;
+  border-radius: 15px;
   color: #d94a4a;
   background: color-mix(in srgb, #d94a4a 8%, transparent);
   font-size: 12px;
-  font-weight: 680;
+  font-weight: 600;
   white-space: nowrap;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease,
-    opacity 150ms ease;
+  transition: all 200ms ease;
 }
 
 .archive-reset-action:hover {
-  color: #bf3030;
-  background: color-mix(in srgb, #d94a4a 12%, transparent);
+  color: #fff;
+  background: #d94a4a;
+  border-color: #d94a4a;
+  box-shadow: 0 4px 12px rgba(217, 74, 74, 0.3);
 }
 
 .archive-reset-action-enter-active,
 .archive-reset-action-leave-active {
   transition:
-    opacity 180ms ease,
-    transform 180ms ease;
+    opacity 200ms ease,
+    transform 200ms ease;
 }
 
 .archive-reset-action-enter-from,
@@ -1696,20 +1694,35 @@ onBeforeUnmount(() => {
   line-height: 1.65;
 }
 
+/* Glassmorphism Panel styles */
 .archive-heatmap-card {
-  padding: 22px;
+  padding: 24px;
   border: 1px solid var(--archive-panel-border);
-  border-radius: 8px;
+  border-radius: 16px;
   background: var(--archive-panel-bg);
-  box-shadow: var(--archive-panel-shadow);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow:
+    var(--archive-panel-shadow),
+    inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.archive-heatmap-card:hover {
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
+  box-shadow:
+    0 20px 48px color-mix(in srgb, var(--auralis-text) 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 20%, transparent);
 }
 
 .archive-card-heading h2,
 .archive-section-heading h2,
 .archive-ranking-heading h2 {
   color: var(--auralis-text);
-  font-size: 19px;
-  font-weight: 760;
+  font-size: 20px;
+  font-weight: 800;
   line-height: 1.2;
 }
 
@@ -1721,10 +1734,13 @@ onBeforeUnmount(() => {
 .archive-legend {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   color: var(--auralis-text-faint);
   font-size: 11px;
   white-space: nowrap;
+  background: color-mix(in srgb, var(--auralis-text) 4%, transparent);
+  padding: 4px 10px;
+  border-radius: 12px;
 }
 
 .archive-legend i {
@@ -1749,10 +1765,10 @@ onBeforeUnmount(() => {
 .archive-heatmap-scroll {
   margin-top: 22px;
   overflow-x: auto;
-  padding: 18px 18px 16px;
+  padding: 18px;
   border: 1px solid color-mix(in srgb, var(--auralis-text) 6%, transparent);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--auralis-main-bg) 50%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--auralis-main-bg) 40%, transparent);
 }
 
 .archive-heatmap-layout {
@@ -1816,17 +1832,18 @@ onBeforeUnmount(() => {
   padding: 0;
   border-radius: 3px;
   transition:
-    transform 120ms ease,
-    box-shadow 120ms ease;
+    transform 150ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 150ms ease,
+    background-color 150ms ease;
 }
 
 .archive-day:hover,
 .archive-day:focus-visible {
-  z-index: 1;
+  z-index: 2;
   box-shadow:
     0 0 0 2px var(--auralis-main-bg),
-    0 4px 12px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 22%, transparent);
-  transform: scale(1.22);
+    0 0 8px var(--auralis-sidebar-active-indicator);
+  transform: scale(1.35);
 }
 
 .heat-level-0 {
@@ -1834,68 +1851,107 @@ onBeforeUnmount(() => {
 }
 
 .heat-level-1 {
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 32%, transparent);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 28%, transparent);
 }
 
 .heat-level-2 {
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 52%, transparent);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 48%, transparent);
 }
 
 .heat-level-3 {
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 74%, transparent);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 72%, transparent);
 }
 
 .heat-level-4 {
   background: var(--auralis-sidebar-active-indicator);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 50%, transparent);
 }
 
 .archive-day--future {
-  opacity: 0.38;
+  opacity: 0.25;
 }
 
 .archive-summary {
-  margin-top: 24px;
+  margin-top: 28px;
 }
 
 .archive-summary-grid {
   display: grid;
-  margin-top: 14px;
+  margin-top: 16px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 16px;
 }
 
+/* Summary Cards (Stereo & Glassmorphism) */
 .archive-summary-item {
   position: relative;
-  z-index: 0;
+  z-index: 1;
   min-width: 0;
-  min-height: 130px;
-  padding: 18px;
+  min-height: 140px;
+  padding: 20px;
   border: 1px solid var(--archive-panel-border);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, white 18%, transparent), transparent),
-    var(--archive-panel-bg);
+  border-radius: 16px;
+  background: var(--archive-panel-bg);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
   outline: none;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 20%, transparent);
+  box-shadow:
+    0 8px 24px color-mix(in srgb, var(--auralis-text) 3%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  overflow: visible;
+}
+
+/* Subtle glow background for each card based on its child index */
+.archive-summary-item:nth-child(1) {
+  --glow-color: rgba(111, 125, 99, 0.35);
+} /* Moss 绿 */
+.archive-summary-item:nth-child(2) {
+  --glow-color: rgba(164, 124, 72, 0.35);
+} /* Brass 金 */
+.archive-summary-item:nth-child(3) {
+  --glow-color: rgba(93, 103, 115, 0.35);
+} /* Dusk 蓝 */
+.archive-summary-item:nth-child(4) {
+  --glow-color: rgba(74, 111, 165, 0.35);
+} /* Auralis 蓝 */
+
+.archive-summary-item::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    circle at 85% 15%,
+    var(--glow-color, transparent) 0%,
+    transparent 60%
+  );
+  content: '';
+  opacity: 0.4;
+  z-index: -1;
   transition:
-    border-color 150ms ease,
-    transform 150ms ease,
-    box-shadow 150ms ease;
+    opacity 0.3s ease,
+    transform 0.3s ease;
+  pointer-events: none;
 }
 
 .archive-summary-item:hover,
 .archive-summary-item:focus-within {
   z-index: 20;
-  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 35%, transparent);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 24%, transparent),
-    0 14px 34px color-mix(in srgb, var(--auralis-text) 8%, transparent);
-  transform: translateY(-1px);
+    0 16px 36px color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  transform: translateY(-4px);
+}
+
+.archive-summary-item:hover::before {
+  opacity: 0.7;
 }
 
 .archive-summary-item:focus-visible {
-  box-shadow: inset 0 0 0 2px
-    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 42%, transparent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 50%, transparent),
+    0 8px 24px color-mix(in srgb, var(--auralis-text) 5%, transparent);
 }
 
 .archive-summary-item--clickable {
@@ -1905,8 +1961,8 @@ onBeforeUnmount(() => {
 .archive-summary-item > .archive-summary-label,
 .archive-summary-item > .archive-summary-value {
   transition:
-    opacity 120ms ease,
-    transform 160ms ease;
+    opacity 150ms ease,
+    transform 200ms ease;
 }
 
 .archive-summary-item:hover > .archive-summary-label,
@@ -1914,14 +1970,16 @@ onBeforeUnmount(() => {
 .archive-summary-item:focus-within > .archive-summary-label,
 .archive-summary-item:focus-within > .archive-summary-value {
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(-6px);
 }
 
 .archive-summary-label {
   display: block;
   color: var(--auralis-text-muted);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .archive-summary-value {
@@ -1929,15 +1987,16 @@ onBeforeUnmount(() => {
   min-width: 0;
   align-items: baseline;
   gap: 7px;
-  margin-top: 16px;
+  margin-top: 20px;
   color: var(--auralis-text);
 }
 
 .archive-summary-value strong {
   overflow: hidden;
-  font-size: 30px;
-  font-weight: 780;
-  letter-spacing: 0;
+  font-size: 34px;
+  font-weight: 800;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  letter-spacing: -0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1946,8 +2005,10 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   color: var(--auralis-text-faint);
   font-size: 12px;
+  font-weight: 600;
 }
 
+/* Expanded Card content in Summary grid */
 .archive-summary-expanded {
   position: absolute;
   z-index: 30;
@@ -1960,20 +2021,20 @@ onBeforeUnmount(() => {
   overflow: hidden;
   padding: 20px 22px;
   border: 1px solid var(--auralis-playbar-border);
-  border-radius: 8px;
-  background: var(--auralis-playbar-bg);
-  box-shadow: 0 20px 50px rgba(20, 24, 28, 0.2);
-  -webkit-backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
-  backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 80%, transparent);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+  -webkit-backdrop-filter: blur(25px) saturate(150%);
+  backdrop-filter: blur(25px) saturate(150%);
   grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.2fr);
   column-gap: 20px;
   isolation: isolate;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, -50%) scale(0.72);
+  transform: translate(-50%, -50%) scale(0.85);
   transition:
-    opacity 150ms ease,
-    transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    opacity 200ms ease,
+    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .archive-summary-expanded::before {
@@ -1983,28 +2044,28 @@ onBeforeUnmount(() => {
   background:
     linear-gradient(
       180deg,
-      var(--auralis-playbar-highlight) 0%,
-      var(--auralis-playbar-highlight-soft) 18%,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.04) 18%,
       transparent 48%,
-      var(--auralis-playbar-lowlight) 100%
+      rgba(0, 0, 0, 0.15) 100%
     ),
-    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.1) 50%, transparent 100%);
+    radial-gradient(circle at 15% 15%, var(--glow-color, transparent) 0%, transparent 60%);
   content: '';
-  inset: 1px;
-  opacity: 0.72;
+  inset: 0;
+  opacity: 0.8;
   pointer-events: none;
 }
 
 .archive-summary-item:first-child .archive-summary-expanded {
   left: 0;
-  transform: translate(0, -50%) scale(0.72);
+  transform: translate(0, -50%) scale(0.85);
   transform-origin: left center;
 }
 
 .archive-summary-item:last-child .archive-summary-expanded {
   right: 0;
   left: auto;
-  transform: translate(0, -50%) scale(0.72);
+  transform: translate(0, -50%) scale(0.85);
   transform-origin: right center;
 }
 
@@ -2041,8 +2102,10 @@ onBeforeUnmount(() => {
 }
 
 .archive-summary-expanded-main .archive-summary-value strong {
-  font-size: 30px;
+  font-size: 32px;
   letter-spacing: -0.04em;
+  background: none;
+  -webkit-text-fill-color: initial;
 }
 
 .archive-summary-expanded-main .archive-summary-value span {
@@ -2058,11 +2121,11 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 9px;
   padding-left: 20px;
-  border-left: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
-  color: color-mix(in srgb, var(--auralis-text) 76%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
+  color: color-mix(in srgb, var(--auralis-text) 80%, transparent);
   font-size: 13px;
   font-weight: 560;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 
 .archive-summary-details span {
@@ -2071,13 +2134,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.archive-summary-top-track {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 3px;
-}
-
+.archive-summary-top-track,
 .archive-summary-top-tracks {
   display: flex;
   min-width: 0;
@@ -2087,17 +2144,18 @@ onBeforeUnmount(() => {
 
 .archive-summary-details .archive-summary-top-track-label,
 .archive-summary-details .archive-summary-top-tracks-label {
-  color: color-mix(in srgb, var(--auralis-text) 52%, transparent);
+  color: color-mix(in srgb, var(--auralis-text) 50%, transparent);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .archive-summary-details .archive-summary-top-track-value,
 .archive-summary-details .archive-summary-top-tracks-value {
   overflow: hidden;
-  color: color-mix(in srgb, var(--auralis-text) 86%, transparent);
+  color: var(--auralis-text);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2112,11 +2170,10 @@ onBeforeUnmount(() => {
 
 .archive-summary-details small {
   align-self: flex-start;
-  margin-top: 2px;
-  padding-top: 2px;
+  margin-top: 4px;
   color: var(--auralis-sidebar-active-indicator);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .archive-summary-item--peak-day .archive-summary-expanded {
@@ -2132,12 +2189,20 @@ onBeforeUnmount(() => {
 }
 
 .archive-summary-item--peak-day .archive-summary-expanded-main .archive-summary-value {
-  gap: 5px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
 }
 
 .archive-summary-item--peak-day .archive-summary-expanded-main .archive-summary-value strong {
-  font-size: 25px;
+  font-size: 24px;
   letter-spacing: -0.05em;
+  line-height: 1.2;
+}
+
+.archive-summary-item--peak-day .archive-summary-expanded-main .archive-summary-value span {
+  margin-top: 2px;
+  font-size: 11px;
 }
 
 .archive-summary-item--peak-day .archive-summary-details {
@@ -2165,25 +2230,24 @@ onBeforeUnmount(() => {
   height: 36px;
   flex: 0 0 auto;
   align-items: center;
-  gap: 7px;
-  padding: 0 12px;
+  gap: 8px;
+  padding: 0 14px;
   border: 1px solid var(--archive-panel-border);
-  border-radius: 8px;
+  border-radius: 18px;
   background: color-mix(in srgb, var(--auralis-main-bg) 46%, transparent);
   color: var(--auralis-sidebar-active-indicator);
   font-size: 12px;
-  font-weight: 720;
+  font-weight: 700;
   white-space: nowrap;
-  transition:
-    border-color 150ms ease,
-    background-color 150ms ease,
-    transform 150ms ease;
+  transition: all 200ms ease;
 }
 
 .archive-annual-recap-entry:hover {
-  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
+  border-color: var(--auralis-sidebar-active-indicator);
   background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 20%, transparent);
 }
 
 .archive-annual-recap-backdrop {
@@ -2194,26 +2258,26 @@ onBeforeUnmount(() => {
   justify-content: center;
   inset: 0;
   padding: 28px;
-  background: rgba(12, 16, 20, 0.56);
-  animation: archive-reset-backdrop-in 180ms ease both;
+  background: rgba(12, 16, 20, 0.65);
+  backdrop-filter: blur(8px);
+  animation: archive-reset-backdrop-in 240ms ease both;
 }
 
+/* Recap Dialog Glassmorphism */
 .archive-annual-recap-dialog {
   display: flex;
   width: min(980px, calc(100vw - 56px));
   max-height: min(760px, calc(100vh - 72px));
   overflow: hidden;
   flex-direction: column;
-  border: 1px solid var(--auralis-playbar-border);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, white 8%, transparent), transparent 42%),
-    color-mix(in srgb, var(--auralis-sidebar-bg) 96%, var(--auralis-main-bg));
-  box-shadow: 0 30px 90px rgba(10, 14, 18, 0.32);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 80%, transparent);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.35);
   color: var(--auralis-text);
-  -webkit-backdrop-filter: blur(12px) saturate(1.08) contrast(1.02);
-  backdrop-filter: blur(12px) saturate(1.08) contrast(1.02);
-  animation: archive-reset-dialog-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  -webkit-backdrop-filter: blur(30px) saturate(160%);
+  backdrop-filter: blur(30px) saturate(160%);
+  animation: archive-reset-dialog-in 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
 .archive-annual-recap-header {
@@ -2228,7 +2292,7 @@ onBeforeUnmount(() => {
 .archive-annual-recap-header h2 {
   color: var(--auralis-text);
   font-size: 28px;
-  font-weight: 780;
+  font-weight: 800;
   line-height: 1.12;
 }
 
@@ -2245,16 +2309,15 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
+  border-radius: 99px;
   color: var(--auralis-text-muted);
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
+  transition: all 150ms ease;
 }
 
 .archive-annual-recap-header button:hover {
   background: var(--auralis-control-hover-bg);
   color: var(--auralis-text);
+  transform: rotate(90deg);
 }
 
 .archive-annual-recap-content {
@@ -2267,13 +2330,11 @@ onBeforeUnmount(() => {
   display: flex;
   min-height: 468px;
   flex-direction: column;
-  padding: 22px;
+  padding: 24px;
   border: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, white 20%, transparent), transparent),
-    color-mix(in srgb, var(--auralis-main-bg) 88%, var(--auralis-sidebar-bg));
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 18%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 60%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
 }
 
 .archive-annual-recap-page--cover {
@@ -2282,17 +2343,16 @@ onBeforeUnmount(() => {
   background:
     radial-gradient(
       circle at 82% 18%,
-      color-mix(in srgb, var(--auralis-sidebar-active-indicator) 22%, transparent),
-      transparent 30%
+      color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent),
+      transparent 35%
     ),
-    linear-gradient(180deg, color-mix(in srgb, white 26%, transparent), transparent),
-    color-mix(in srgb, var(--auralis-main-bg) 88%, var(--auralis-sidebar-bg));
+    color-mix(in srgb, var(--auralis-sidebar-bg) 60%, transparent);
 }
 
 .archive-annual-recap-page--cover h3 {
   margin-top: 12px;
   color: var(--auralis-text);
-  font-size: 46px;
+  font-size: 48px;
   font-weight: 800;
   line-height: 1.05;
   letter-spacing: -0.04em;
@@ -2309,30 +2369,39 @@ onBeforeUnmount(() => {
 .archive-annual-recap-page--cover strong {
   margin-top: 42px;
   color: var(--auralis-text);
-  font-size: 54px;
+  font-size: 56px;
   font-weight: 800;
   line-height: 1;
   letter-spacing: -0.05em;
+  background: linear-gradient(
+    135deg,
+    var(--auralis-text) 40%,
+    var(--auralis-sidebar-active-indicator)
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .archive-annual-recap-page--cover small {
   margin-top: 12px;
   color: var(--auralis-text-faint);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .archive-annual-recap-stats span,
 .archive-annual-recap-timeline span {
   color: var(--auralis-text-muted);
   font-size: 12px;
-  font-weight: 640;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .archive-annual-recap-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 16px;
 }
 
 .archive-annual-recap-stats--paged {
@@ -2342,18 +2411,21 @@ onBeforeUnmount(() => {
 
 .archive-annual-recap-stats > div {
   min-width: 0;
-  padding: 18px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 92%, var(--auralis-main-bg));
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 40%, transparent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .archive-annual-recap-stats strong {
   display: block;
   overflow: hidden;
-  margin-top: 10px;
+  margin-top: 12px;
   color: var(--auralis-text);
-  font-size: 30px;
-  font-weight: 760;
+  font-size: 32px;
+  font-weight: 800;
+  font-family: 'Outfit', 'Inter', sans-serif;
   line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2369,8 +2441,8 @@ onBeforeUnmount(() => {
 
 .archive-annual-recap-section-heading > span {
   color: var(--auralis-text);
-  font-size: 15px;
-  font-weight: 760;
+  font-size: 16px;
+  font-weight: 800;
 }
 
 .archive-annual-recap-section-heading small {
@@ -2380,7 +2452,7 @@ onBeforeUnmount(() => {
 
 .archive-annual-recap-list {
   display: grid;
-  gap: 5px;
+  gap: 6px;
   list-style: none;
 }
 
@@ -2388,14 +2460,17 @@ onBeforeUnmount(() => {
   display: grid;
   min-width: 0;
   align-items: center;
-  gap: 11px;
-  padding: 8px 10px;
-  border-radius: 9px;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
   grid-template-columns: 28px 38px minmax(0, 1fr) auto;
+  transition: all 150ms ease;
 }
 
 .archive-annual-recap-list li:hover {
   background: color-mix(in srgb, var(--auralis-control-hover-bg) 74%, transparent);
+  border-color: color-mix(in srgb, var(--auralis-text) 5%, transparent);
 }
 
 .archive-annual-recap-rank,
@@ -2406,14 +2481,16 @@ onBeforeUnmount(() => {
 
 .archive-annual-recap-artwork {
   display: flex;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   border-radius: 8px;
   background: var(--auralis-control-hover-bg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--auralis-text-faint);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
 .archive-annual-recap-artwork img {
@@ -2453,15 +2530,16 @@ onBeforeUnmount(() => {
 
 .archive-annual-recap-timeline {
   display: grid;
-  gap: 10px;
+  gap: 14px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .archive-annual-recap-timeline div {
   min-width: 0;
-  padding: 12px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 48%, transparent);
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 40%, transparent);
 }
 
 .archive-annual-recap-timeline strong {
@@ -2469,8 +2547,8 @@ onBeforeUnmount(() => {
   overflow: hidden;
   margin-top: 8px;
   color: var(--auralis-text);
-  font-size: 16px;
-  font-weight: 740;
+  font-size: 17px;
+  font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2480,7 +2558,7 @@ onBeforeUnmount(() => {
   height: 128px;
   align-items: end;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 20px;
   grid-template-columns: repeat(12, minmax(0, 1fr));
 }
 
@@ -2498,7 +2576,12 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   border-radius: 999px 999px 4px 4px;
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 68%, transparent);
+  background: linear-gradient(
+    0deg,
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 48%, transparent),
+    var(--auralis-sidebar-active-indicator)
+  );
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 30%, transparent);
 }
 
 .archive-annual-recap-bars small {
@@ -2517,16 +2600,14 @@ onBeforeUnmount(() => {
 .archive-annual-recap-footer > button {
   height: 34px;
   min-width: 74px;
-  padding: 0 12px;
-  border-radius: 9px;
+  padding: 0 14px;
+  border-radius: 17px;
   background: var(--auralis-control-hover-bg);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 5%, transparent);
   color: var(--auralis-text);
   font-size: 12px;
-  font-weight: 680;
-  transition:
-    opacity 150ms ease,
-    background-color 150ms ease,
-    transform 150ms ease;
+  font-weight: 700;
+  transition: all 150ms ease;
 }
 
 .archive-annual-recap-footer > button:hover:not(:disabled) {
@@ -2577,14 +2658,29 @@ onBeforeUnmount(() => {
   transform: translateX(-18px);
 }
 
+/* Ranking Card Glassmorphism */
 .archive-ranking {
   margin-top: 24px;
   margin-bottom: 16px;
-  padding: 22px;
+  padding: 24px;
   border: 1px solid var(--archive-panel-border);
-  border-radius: 8px;
+  border-radius: 16px;
   background: var(--archive-panel-bg);
-  box-shadow: var(--archive-panel-shadow);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow:
+    var(--archive-panel-shadow),
+    inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.archive-ranking:hover {
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
+  box-shadow:
+    0 20px 48px color-mix(in srgb, var(--auralis-text) 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 20%, transparent);
 }
 
 .archive-ranking-heading p {
@@ -2600,7 +2696,7 @@ onBeforeUnmount(() => {
   gap: 5px;
   padding: 4px;
   border: 1px solid var(--archive-panel-border);
-  border-radius: 8px;
+  border-radius: 12px;
   background: color-mix(in srgb, var(--auralis-main-bg) 44%, transparent);
 }
 
@@ -2608,20 +2704,17 @@ onBeforeUnmount(() => {
 .archive-ranking-targets button,
 .archive-ranking-period > button,
 .archive-ranking-period-menu button {
-  border-radius: 9px;
+  border-radius: 8px;
   color: var(--auralis-text-muted);
   font-size: 12px;
-  font-weight: 680;
-  transition:
-    border-color 150ms ease,
-    color 150ms ease,
-    background-color 150ms ease;
+  font-weight: 700;
+  transition: all 150ms ease;
 }
 
 .archive-ranking-ranges button,
 .archive-ranking-targets button {
   height: 28px;
-  padding: 0 10px;
+  padding: 0 12px;
 }
 
 .archive-ranking-targets button {
@@ -2644,8 +2737,9 @@ onBeforeUnmount(() => {
 .archive-ranking-ranges button.is-active,
 .archive-ranking-targets button.is-active,
 .archive-ranking-period-menu button.is-active {
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 16%, transparent);
-  color: var(--auralis-sidebar-active-indicator);
+  background: var(--auralis-sidebar-active-indicator);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .archive-ranking-toolbar {
@@ -2663,7 +2757,8 @@ onBeforeUnmount(() => {
   height: 38px;
   align-items: center;
   gap: 7px;
-  padding: 0 12px;
+  padding: 0 14px;
+  border-radius: 12px;
   border: 1px solid var(--archive-panel-border);
   background: color-mix(in srgb, var(--auralis-main-bg) 44%, transparent);
 }
@@ -2673,14 +2768,14 @@ onBeforeUnmount(() => {
   z-index: 40;
   top: calc(100% + 8px);
   right: 0;
-  min-width: 220px;
-  padding: 10px;
+  min-width: 230px;
+  padding: 12px;
   border: 1px solid var(--auralis-playbar-border);
-  border-radius: 14px;
-  background: var(--auralis-playbar-bg);
-  box-shadow: 0 18px 42px rgba(20, 24, 28, 0.18);
-  -webkit-backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
-  backdrop-filter: blur(12px) saturate(1.2) contrast(1.04);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 85%, transparent);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.22);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  backdrop-filter: blur(20px) saturate(150%);
 }
 
 .picker-header {
@@ -2690,7 +2785,7 @@ onBeforeUnmount(() => {
   padding: 0 4px 8px;
   color: var(--auralis-text);
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .picker-header button {
@@ -2699,11 +2794,9 @@ onBeforeUnmount(() => {
   height: 26px;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
+  border-radius: 8px;
   color: var(--auralis-text-muted);
-  transition:
-    color 150ms ease,
-    background-color 150ms ease;
+  transition: all 150ms ease;
 }
 
 .picker-header button:hover:not(:disabled) {
@@ -2724,16 +2817,17 @@ onBeforeUnmount(() => {
 .calendar-weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   color: var(--auralis-text-faint);
   font-size: 10px;
   text-align: center;
+  font-weight: 700;
 }
 
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
+  gap: 3px;
 }
 
 .calendar-grid button {
@@ -2742,13 +2836,11 @@ onBeforeUnmount(() => {
   height: 28px;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
+  border-radius: 8px;
   color: var(--auralis-text);
   font-size: 12px;
-  font-weight: 550;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
+  font-weight: 600;
+  transition: all 120ms ease;
 }
 
 .calendar-grid button:not(.is-empty):not(:disabled):hover {
@@ -2766,20 +2858,24 @@ onBeforeUnmount(() => {
 
 .calendar-grid button.is-today {
   color: var(--auralis-sidebar-active-indicator);
-  font-weight: 680;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 35%, transparent);
 }
 
 .calendar-grid button.is-selected {
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent);
-  color: var(--auralis-sidebar-active-indicator);
-  font-weight: 680;
+  background: var(--auralis-sidebar-active-indicator);
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 0 4px 10px
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 30%, transparent);
 }
 
 /* Week list */
 .picker-week-list {
   display: grid;
   max-height: 240px;
-  gap: 2px;
+  gap: 3px;
   overflow-y: auto;
   padding: 2px 0;
   scrollbar-color: color-mix(in srgb, var(--auralis-text) 20%, transparent) transparent;
@@ -2799,24 +2895,18 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--auralis-text) 20%, transparent);
 }
 
-.picker-week-list::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--auralis-text) 30%, transparent);
-}
-
 .picker-week-list button {
   display: flex;
   align-items: center;
   gap: 8px;
   height: 32px;
-  padding: 0 8px;
+  padding: 0 10px;
   border-radius: 8px;
   color: var(--auralis-text);
   font-size: 12px;
-  font-weight: 550;
+  font-weight: 600;
   text-align: left;
-  transition:
-    background-color 120ms ease,
-    color 120ms ease;
+  transition: all 120ms ease;
 }
 
 .picker-week-list button:hover:not(:disabled) {
@@ -2831,13 +2921,14 @@ onBeforeUnmount(() => {
 .picker-week-list button.is-active,
 .picker-week-list button.is-current {
   color: var(--auralis-sidebar-active-indicator);
+  font-weight: 700;
 }
 
 .picker-week-list .week-date-range {
   margin-left: auto;
   color: var(--auralis-text-faint);
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -2845,21 +2936,19 @@ onBeforeUnmount(() => {
 .picker-list {
   display: grid;
   min-width: 160px;
-  gap: 2px;
+  gap: 3px;
   padding: 2px 0;
 }
 
 .picker-list button {
-  height: 30px;
-  padding: 0 10px;
+  height: 32px;
+  padding: 0 12px;
   border-radius: 8px;
   color: var(--auralis-text-muted);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   text-align: left;
-  transition:
-    color 150ms ease,
-    background-color 150ms ease;
+  transition: all 150ms ease;
 }
 
 .picker-list button:hover {
@@ -2868,20 +2957,20 @@ onBeforeUnmount(() => {
 }
 
 .picker-list button.is-active {
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 14%, transparent);
-  color: var(--auralis-sidebar-active-indicator);
+  background: var(--auralis-sidebar-active-indicator);
+  color: #fff;
 }
 
 /* "回到今天" / "回到本周" button */
 .picker-today-btn {
   display: block;
   width: 100%;
-  margin-top: 6px;
-  padding: 6px 0;
+  margin-top: 8px;
+  padding: 7px 0;
   border-radius: 8px;
   color: var(--auralis-sidebar-active-indicator);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 700;
   text-align: center;
   transition: background-color 150ms ease;
 }
@@ -2897,7 +2986,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   margin-top: 14px;
   border: 1px solid color-mix(in srgb, var(--auralis-text) 7%, transparent);
-  border-radius: 8px;
+  border-radius: 12px;
   background: color-mix(in srgb, var(--auralis-main-bg) 38%, transparent);
   color: var(--auralis-text-muted);
   font-size: 13px;
@@ -2905,13 +2994,13 @@ onBeforeUnmount(() => {
 
 .archive-ranking-list {
   display: grid;
-  gap: 4px;
+  gap: 6px;
   margin-top: 14px;
-  max-height: 588px;
+  max-height: 620px;
   overflow-y: auto;
-  padding: 8px;
+  padding: 10px;
   border: 1px solid color-mix(in srgb, var(--auralis-text) 7%, transparent);
-  border-radius: 8px;
+  border-radius: 12px;
   background: color-mix(in srgb, var(--auralis-main-bg) 38%, transparent);
   scrollbar-color: color-mix(in srgb, var(--auralis-text) 20%, transparent) transparent;
   scrollbar-width: thin;
@@ -2931,46 +3020,73 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--auralis-text) 20%, transparent);
 }
 
-.archive-ranking-list::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--auralis-text) 30%, transparent);
-}
-
 .archive-ranking-list li {
   display: grid;
   min-width: 0;
   align-items: center;
-  padding: 9px 10px;
+  padding: 10px 14px;
   border: 1px solid transparent;
-  border-radius: 8px;
-  grid-template-columns: 32px 44px minmax(0, 1fr) auto;
-  gap: 12px;
-  transition:
-    border-color 140ms ease,
-    background-color 140ms ease,
-    transform 140ms ease;
+  border-radius: 12px;
+  grid-template-columns: 36px 48px minmax(0, 1fr) auto;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.015);
+  transition: all 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
 }
 
 .archive-ranking-list li:hover {
-  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 16%, transparent);
-  background: color-mix(in srgb, var(--auralis-control-hover-bg) 78%, transparent);
-  transform: translateX(1px);
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--auralis-text) 4%, transparent);
+  transform: translateX(4px) scale(1.005);
 }
 
+/* Redesigned Rankings with metallic shades for Top 3 */
 .archive-ranking-rank {
+  font-family: 'Outfit', 'Inter', sans-serif;
   color: var(--auralis-text-faint);
-  font-size: 11px;
+  font-size: 15px;
+  font-weight: 700;
   text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.archive-ranking-list li:nth-child(1) .archive-ranking-rank {
+  color: #ffd700;
+  font-size: 20px;
+  font-weight: 800;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.45);
+}
+
+.archive-ranking-list li:nth-child(2) .archive-ranking-rank {
+  color: #c0c0c0;
+  font-size: 20px;
+  font-weight: 800;
+  text-shadow: 0 0 10px rgba(192, 192, 192, 0.45);
+}
+
+.archive-ranking-list li:nth-child(3) .archive-ranking-rank {
+  color: #cd7f32;
+  font-size: 20px;
+  font-weight: 800;
+  text-shadow: 0 0 10px rgba(205, 127, 50, 0.45);
+}
+
+.archive-ranking-list li:hover .archive-ranking-rank {
+  transform: scale(1.15);
 }
 
 .archive-ranking-artwork {
   display: flex;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   border-radius: 8px;
   background: var(--auralis-control-hover-bg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
   color: var(--auralis-text-faint);
 }
 
@@ -3008,6 +3124,7 @@ onBeforeUnmount(() => {
 .archive-ranking-meta span {
   color: var(--auralis-text-muted);
   font-size: 11px;
+  font-weight: 600;
 }
 
 .archive-ranking-meta {
@@ -3018,18 +3135,20 @@ onBeforeUnmount(() => {
 
 .archive-ranking-meta strong {
   color: var(--auralis-text);
-  font-size: 12px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Outfit', 'Inter', sans-serif;
 }
 
 .archive-tooltip {
   position: fixed;
   z-index: 90;
-  padding: 6px 9px;
+  padding: 6px 10px;
   border: 1px solid var(--auralis-border-subtle);
   border-radius: 8px;
-  background: var(--auralis-sidebar-bg);
-  box-shadow: 0 8px 24px rgba(20, 24, 28, 0.16);
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 85%, transparent);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   color: var(--auralis-text);
   font-size: 11px;
   pointer-events: none;
@@ -3044,10 +3163,12 @@ onBeforeUnmount(() => {
   background: rgba(12, 16, 20, 0);
   pointer-events: none;
   transition: background-color 240ms ease;
+  backdrop-filter: blur(0px);
 }
 
 .archive-detail-backdrop.is-visible {
-  background: rgba(12, 16, 20, 0.38);
+  background: rgba(12, 16, 20, 0.5);
+  backdrop-filter: blur(6px);
   pointer-events: auto;
 }
 
@@ -3059,24 +3180,27 @@ onBeforeUnmount(() => {
   justify-content: center;
   inset: 0;
   padding: 20px;
-  background: rgba(12, 16, 20, 0.42);
+  background: rgba(12, 16, 20, 0.5);
+  backdrop-filter: blur(6px);
   animation: archive-reset-backdrop-in 180ms ease both;
 }
 
+/* Reset dialog Glassmorphism */
 .archive-reset-dialog {
   width: min(430px, calc(100vw - 40px));
   padding: 28px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 18px;
-  background: var(--auralis-sidebar-bg);
-  box-shadow: 0 28px 80px rgba(10, 14, 18, 0.3);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 80%, transparent);
+  backdrop-filter: blur(25px);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32);
   color: var(--auralis-text);
   animation: archive-reset-dialog-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .archive-reset-dialog h2 {
   font-size: 20px;
-  font-weight: 680;
+  font-weight: 800;
   line-height: 1.35;
 }
 
@@ -3094,24 +3218,22 @@ onBeforeUnmount(() => {
 .archive-reset-buttons {
   display: flex;
   justify-content: flex-end;
-  gap: 9px;
+  gap: 10px;
   margin-top: 26px;
-  padding-bottom: 14px;
 }
 
 .archive-reset-buttons button {
-  width: 78px;
-  min-width: 78px;
+  width: 82px;
+  min-width: 82px;
   height: 34px;
   padding: 0 14px;
-  border-radius: 9px;
+  border-radius: 17px;
   background: var(--auralis-control-hover-bg);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 5%, transparent);
   color: var(--auralis-text);
   font-size: 12px;
-  font-weight: 600;
-  transition:
-    opacity 150ms ease,
-    background-color 150ms ease;
+  font-weight: 700;
+  transition: all 150ms ease;
 }
 
 .archive-reset-buttons button:hover:not(:disabled) {
@@ -3128,6 +3250,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   background: #d94a4a;
   color: #fff;
+  border: none;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -3153,7 +3276,7 @@ onBeforeUnmount(() => {
 
 .archive-reset-confirm-wrap {
   position: relative;
-  width: 78px;
+  width: 82px;
 }
 
 .archive-reset-hint {
@@ -3201,6 +3324,7 @@ onBeforeUnmount(() => {
   }
 }
 
+/* Daily Details Dialog Glassmorphism */
 .archive-detail-dialog {
   position: fixed;
   top: var(--dialog-origin-y);
@@ -3211,21 +3335,21 @@ onBeforeUnmount(() => {
   padding: 0;
   border: 1px solid var(--auralis-border-subtle);
   border-radius: 8px;
-  background: var(--auralis-sidebar-bg);
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 85%, transparent);
   box-shadow: 0 8px 24px rgba(20, 24, 28, 0.16);
   color: var(--auralis-text);
   opacity: 0;
   transform: translate(-50%, calc(-100% - 10px));
   transform-origin: top left;
   transition:
-    top 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    left 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    width 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    height 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    padding 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    top 280ms cubic-bezier(0.25, 1, 0.5, 1),
+    left 280ms cubic-bezier(0.25, 1, 0.5, 1),
+    width 280ms cubic-bezier(0.25, 1, 0.5, 1),
+    height 280ms cubic-bezier(0.25, 1, 0.5, 1),
+    padding 280ms cubic-bezier(0.25, 1, 0.5, 1),
     border-radius 280ms ease,
     opacity 80ms ease,
-    transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    transform 280ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .archive-detail-dialog.is-expanded {
@@ -3236,8 +3360,12 @@ onBeforeUnmount(() => {
   width: min(520px, calc(100vw - 40px));
   height: min(650px, calc(100vh - 80px));
   padding: 24px;
-  border-radius: 18px;
-  box-shadow: 0 28px 80px rgba(10, 14, 18, 0.28);
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 75%, transparent);
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
   opacity: 1;
   transform: translate(-50%, -50%);
 }
@@ -3270,18 +3398,22 @@ onBeforeUnmount(() => {
 .archive-detail-header > div > span {
   color: var(--auralis-text-muted);
   font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .archive-detail-header h2 {
   margin-top: 4px;
-  font-size: 21px;
-  font-weight: 680;
+  font-size: 22px;
+  font-weight: 800;
 }
 
 .archive-detail-header p {
   margin-top: 5px;
   color: var(--auralis-text-faint);
   font-size: 12px;
+  font-weight: 600;
 }
 
 .archive-detail-header button {
@@ -3291,13 +3423,15 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
+  border-radius: 99px;
   color: var(--auralis-text-muted);
+  transition: all 150ms ease;
 }
 
 .archive-detail-header button:hover {
   background: var(--auralis-control-hover-bg);
   color: var(--auralis-text);
+  transform: rotate(90deg);
 }
 
 .archive-detail-state {
@@ -3316,8 +3450,8 @@ onBeforeUnmount(() => {
   display: grid;
   flex: 1;
   align-content: start;
-  grid-auto-rows: 52px;
-  gap: 2px;
+  grid-auto-rows: 54px;
+  gap: 4px;
   margin-top: 18px;
   overflow-y: auto;
   padding: 0 4px 16px 0;
@@ -3339,23 +3473,22 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--auralis-text) 24%, transparent);
 }
 
-.archive-top-tracks::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--auralis-text) 34%, transparent);
-}
-
 .archive-top-tracks li {
   display: grid;
   min-width: 0;
-  height: 52px;
+  height: 54px;
   align-items: center;
-  padding: 7px 8px;
-  border-radius: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
   grid-template-columns: 22px 38px minmax(0, 1fr) auto;
-  gap: 10px;
+  gap: 12px;
+  border: 1px solid transparent;
+  transition: all 150ms ease;
 }
 
 .archive-top-tracks li:hover {
   background: var(--auralis-control-hover-bg);
+  border-color: color-mix(in srgb, var(--auralis-text) 5%, transparent);
 }
 
 .archive-track-rank,
@@ -3366,6 +3499,7 @@ onBeforeUnmount(() => {
 
 .archive-track-rank {
   text-align: center;
+  font-weight: 700;
 }
 
 .archive-track-artwork {
@@ -3375,8 +3509,9 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--auralis-control-hover-bg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--auralis-text-faint);
 }
 
@@ -3402,17 +3537,19 @@ onBeforeUnmount(() => {
 
 .archive-track-copy strong {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .archive-track-copy span {
   color: var(--auralis-text-muted);
   font-size: 11px;
+  font-weight: 600;
 }
 
 .archive-track-count {
   padding-left: 8px;
   white-space: nowrap;
+  font-weight: 700;
 }
 
 @media (max-width: 900px) {
@@ -3449,14 +3586,14 @@ onBeforeUnmount(() => {
   .archive-summary-item:nth-child(odd) .archive-summary-expanded {
     right: auto;
     left: 0;
-    transform: translate(0, -50%) scale(0.72);
+    transform: translate(0, -50%) scale(0.85);
     transform-origin: left center;
   }
 
   .archive-summary-item:nth-child(even) .archive-summary-expanded {
     right: 0;
     left: auto;
-    transform: translate(0, -50%) scale(0.72);
+    transform: translate(0, -50%) scale(0.85);
     transform-origin: right center;
   }
 
@@ -3469,7 +3606,7 @@ onBeforeUnmount(() => {
 @media (max-width: 640px) {
   .archive-heatmap-card,
   .archive-ranking {
-    padding: 16px;
+    padding: 18px;
   }
 
   .archive-annual-recap-backdrop {
