@@ -41,7 +41,8 @@ Thumbs.db
 genryu-font-master.zip
 
 # PRD & Tech Docs
-docs/
+docs/*
+!docs/ARCHITECTURE.md
 
 # Performance traces
 artifacts/

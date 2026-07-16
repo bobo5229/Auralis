@@ -68,7 +68,7 @@ function onArtworkContextMenu(event: MouseEvent): void {
       <div class="album-cover-meta">
         <p class="album-cover-meta-title">{{ group.album ?? '' }}</p>
         <p class="album-cover-meta-line truncate">{{ formatArtist(group.albumArtist) }}</p>
-        <p v-if="group.releaseDate" class="album-cover-meta-line truncate">
+        <p v-if="group.releaseDate" class="album-cover-meta-line album-cover-meta-date truncate">
           {{ group.releaseDate }}
         </p>
       </div>
@@ -87,3 +87,9 @@ function onArtworkContextMenu(event: MouseEvent): void {
     </div>
   </div>
 </template>
+
+<style scoped>
+.album-cover-meta-date {
+  font-weight: 500;
+}
+</style>
