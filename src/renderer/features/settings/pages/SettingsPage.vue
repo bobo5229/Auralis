@@ -251,17 +251,19 @@ onMounted(async () => {
   min-height: 100%;
   margin: 0 auto;
   padding: 38px 36px var(--auralis-playbar-safe-area);
+  animation: settings-enter 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .settings-header {
   margin-bottom: 30px;
+  position: relative;
 }
 
 .settings-eyebrow {
   margin: 0 0 7px;
   color: var(--auralis-sidebar-active-text);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.13em;
   text-transform: uppercase;
 }
@@ -269,8 +271,15 @@ onMounted(async () => {
 .settings-header h1 {
   margin: 0;
   font-size: clamp(28px, 3vw, 36px);
-  font-weight: 650;
+  font-weight: 800;
   letter-spacing: -0.035em;
+  background: linear-gradient(
+    135deg,
+    var(--auralis-text) 60%,
+    var(--auralis-sidebar-active-indicator)
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .settings-header > p:last-child {
@@ -281,50 +290,111 @@ onMounted(async () => {
 
 .settings-layout {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 230px minmax(0, 1fr);
   gap: 42px;
   align-items: start;
 }
 
 .settings-nav {
   display: grid;
-  gap: 5px;
+  gap: 6px;
   position: sticky;
   top: 24px;
 }
 
+/* Nav Item card redesign */
 .settings-nav button {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) 14px;
   gap: 10px;
   align-items: center;
   width: 100%;
-  padding: 11px 10px;
-  border: 0;
-  border-radius: 12px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 14px;
   color: var(--auralis-text-muted);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.015);
   text-align: left;
   cursor: pointer;
-  transition:
-    color 160ms ease,
-    background 160ms ease;
+  position: relative;
+  overflow: hidden;
+  transition: all 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .settings-nav button:hover {
   color: var(--auralis-text);
-  background: var(--auralis-control-hover-bg);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent);
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+  transform: translateX(3px);
 }
 
 .settings-nav button.is-active {
-  color: var(--auralis-sidebar-active-text);
-  background: var(--auralis-sidebar-active-bg);
+  background: linear-gradient(
+    95deg,
+    color-mix(in srgb, var(--auralis-sidebar-active-bg) 85%, transparent),
+    color-mix(in srgb, var(--auralis-sidebar-active-bg) 60%, transparent)
+  ) !important;
+  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 35%, transparent) !important;
+  color: var(--auralis-sidebar-active-text) !important;
+  box-shadow:
+    0 4px 14px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  font-weight: 700;
+}
+
+/* Active indicator vertical line */
+.settings-nav button.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 25%;
+  height: 50%;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--auralis-sidebar-active-indicator);
+  box-shadow: 0 0 8px var(--auralis-sidebar-active-indicator);
+}
+
+/* Shimmer Sweep Effect */
+.settings-nav button.is-active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 15%, transparent),
+    transparent
+  );
+  transform: skewX(-20deg);
+  pointer-events: none;
+  animation: settings-nav-shimmer 5s infinite linear;
+}
+
+@keyframes settings-nav-shimmer {
+  0% {
+    left: -150%;
+  }
+  25% {
+    left: 150%;
+  }
+  100% {
+    left: 150%;
+  }
 }
 
 .settings-nav-icon {
   width: 17px;
   height: 17px;
   margin: auto;
+  transition: transform 0.2s ease;
+}
+
+.settings-nav button:hover .settings-nav-icon {
+  transform: scale(1.1);
 }
 
 .settings-nav-copy {
@@ -335,14 +405,14 @@ onMounted(async () => {
 
 .settings-nav-copy strong {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .settings-nav-copy small {
   overflow: hidden;
   color: var(--auralis-text-subtle);
   font-size: 10px;
-  font-weight: 400;
+  font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -351,11 +421,13 @@ onMounted(async () => {
   width: 13px;
   height: 13px;
   opacity: 0;
-  transition: opacity 160ms ease;
+  transform: translateX(-4px);
+  transition: all 200ms ease;
 }
 
 .settings-nav button.is-active .settings-nav-chevron {
   opacity: 0.65;
+  transform: translateX(0);
 }
 
 .settings-content {
@@ -363,9 +435,10 @@ onMounted(async () => {
 }
 
 .settings-section {
-  animation: settings-enter 220ms ease both;
+  animation: settings-enter 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
+/* Section Header Redesign */
 .settings-section-heading {
   display: flex;
   gap: 14px;
@@ -381,13 +454,15 @@ onMounted(async () => {
   padding: 10px;
   border-radius: 12px;
   color: var(--auralis-sidebar-active-icon);
-  background: var(--auralis-sidebar-active-bg);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-bg) 85%, transparent);
+  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 20%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent);
 }
 
 .settings-section-heading h2 {
   margin: 0;
   font-size: 20px;
-  font-weight: 650;
+  font-weight: 800;
   letter-spacing: -0.02em;
 }
 
@@ -400,57 +475,69 @@ onMounted(async () => {
 .theme-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 20px;
 }
 
+/* Theme Option Cards Redesign (Stereo Glassmorphism) */
 .theme-option {
-  padding: 7px;
+  position: relative;
+  padding: 8px;
   border: 1px solid var(--auralis-border-subtle);
-  border-radius: 16px;
+  border-radius: 20px;
   color: var(--auralis-text);
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 68%, transparent);
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 65%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   text-align: left;
   cursor: pointer;
-  transition:
-    transform 160ms ease,
-    border-color 160ms ease,
-    box-shadow 160ms ease;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .theme-option:hover {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 38%, transparent);
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 40%, transparent);
+  box-shadow:
+    0 16px 36px color-mix(in srgb, var(--auralis-text) 8%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 25%, transparent);
 }
 
 .theme-option.is-selected {
   border-color: var(--auralis-sidebar-active-indicator);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 13%, transparent);
+  box-shadow:
+    0 0 0 1px var(--auralis-sidebar-active-indicator),
+    0 16px 36px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .theme-option:disabled {
   cursor: default;
 }
 
+/* Micro Mockup inside Theme preview */
 .theme-preview {
   position: relative;
   display: grid;
   grid-template-columns: 27% 1fr;
   height: 154px;
   overflow: hidden;
-  border: 1px solid rgba(120, 120, 120, 0.14);
-  border-radius: 11px;
+  border: 1px solid rgba(120, 120, 120, 0.12);
+  border-radius: 14px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .theme-preview--light {
-  background: #fff;
+  background: #ffffff;
 }
 
 .theme-preview--dark {
-  background: #1f1f1f;
+  background: #191919;
 }
 
 .theme-preview-sidebar {
-  border-right: 1px solid rgba(120, 120, 120, 0.12);
+  border-right: 1px solid rgba(120, 120, 120, 0.08);
 }
 
 .theme-preview--light .theme-preview-sidebar {
@@ -458,7 +545,7 @@ onMounted(async () => {
 }
 
 .theme-preview--dark .theme-preview-sidebar {
-  background: #272728;
+  background: #232324;
 }
 
 .theme-preview-main {
@@ -479,7 +566,7 @@ onMounted(async () => {
 }
 
 .theme-preview--dark .theme-preview-main i {
-  background: #2d2f32;
+  background: #2a2c2f;
 }
 
 .theme-preview-main i:first-child {
@@ -494,17 +581,17 @@ onMounted(async () => {
   bottom: 9px;
   left: 34%;
   height: 23px;
-  border: 1px solid rgba(120, 120, 120, 0.12);
+  border: 1px solid rgba(120, 120, 120, 0.08);
   border-radius: 8px;
-  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .theme-preview--light .theme-preview-player {
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .theme-preview--dark .theme-preview-player {
-  background: rgba(45, 47, 50, 0.9);
+  background: rgba(35, 35, 36, 0.95);
 }
 
 .theme-option-footer {
@@ -522,12 +609,13 @@ onMounted(async () => {
 
 .theme-option-footer strong {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .theme-option-footer small {
   color: var(--auralis-text-subtle);
   font-size: 10px;
+  font-weight: 500;
 }
 
 .theme-check {
@@ -538,12 +626,18 @@ onMounted(async () => {
   place-items: center;
   border: 1px solid var(--auralis-border-subtle);
   border-radius: 50%;
+  transition: all 0.2s ease;
 }
 
 .is-selected .theme-check {
   border-color: var(--auralis-sidebar-active-indicator);
   color: white;
-  background: var(--auralis-sidebar-active-indicator);
+  background: linear-gradient(
+    135deg,
+    var(--auralis-sidebar-active-indicator) 40%,
+    var(--auralis-sidebar-active-text)
+  );
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 30%, transparent);
 }
 
 .theme-check span {
@@ -555,7 +649,7 @@ onMounted(async () => {
   display: flex;
   gap: 7px;
   align-items: center;
-  margin: 18px 2px 0;
+  margin: 20px 2px 0;
   color: var(--auralis-text-subtle);
   font-size: 11px;
 }
@@ -564,8 +658,10 @@ onMounted(async () => {
   flex: 0 0 14px;
   width: 14px;
   height: 14px;
+  color: var(--auralis-sidebar-active-indicator);
 }
 
+/* About and Metadata section redesign */
 .about-mark {
   display: flex;
   gap: 14px;
@@ -573,23 +669,39 @@ onMounted(async () => {
   margin-bottom: 22px;
   padding: 20px;
   border: 1px solid var(--auralis-border-subtle);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 68%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 65%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.03),
+    inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
 }
 
 .about-logo {
   display: grid;
-  width: 46px;
-  height: 46px;
+  width: 48px;
+  height: 48px;
   place-items: center;
   border-radius: 14px;
   color: var(--auralis-control-primary-text);
-  background: var(--auralis-control-primary-bg);
+  background: linear-gradient(
+    135deg,
+    var(--auralis-sidebar-active-indicator) 20%,
+    var(--auralis-sidebar-active-text)
+  );
+  box-shadow: 0 4px 14px
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 35%, transparent);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .about-logo span {
   width: 22px;
   height: 22px;
+}
+
+.about-mark:hover .about-logo {
+  transform: rotate(15deg) scale(1.08);
 }
 
 .about-mark > div {
@@ -598,20 +710,26 @@ onMounted(async () => {
 }
 
 .about-mark strong {
-  font-size: 18px;
+  font-size: 19px;
+  font-weight: 800;
   letter-spacing: -0.02em;
+  color: var(--auralis-text);
 }
 
 .about-mark div span {
   color: var(--auralis-text-subtle);
   font-size: 11px;
+  font-weight: 600;
 }
 
 .settings-list {
   overflow: hidden;
   border: 1px solid var(--auralis-border-subtle);
-  border-radius: 16px;
+  border-radius: 20px;
   background: color-mix(in srgb, var(--auralis-sidebar-bg) 48%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.02);
 }
 
 .settings-row {
@@ -619,8 +737,13 @@ onMounted(async () => {
   gap: 24px;
   align-items: center;
   justify-content: space-between;
-  min-height: 68px;
-  padding: 0 18px;
+  min-height: 72px;
+  padding: 0 20px;
+  transition: background-color 0.2s ease;
+}
+
+.settings-row:hover {
+  background: color-mix(in srgb, var(--auralis-text) 1.5%, transparent);
 }
 
 .settings-row + .settings-row {
@@ -635,17 +758,22 @@ onMounted(async () => {
 
 .settings-row strong {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .settings-row div span {
   color: var(--auralis-text-subtle);
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 500;
 }
 
 .settings-value {
   color: var(--auralis-text-muted);
   font-size: 12px;
+  font-weight: 600;
+  background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  padding: 4px 10px;
+  border-radius: 8px;
 }
 
 .database-path {
@@ -654,26 +782,43 @@ onMounted(async () => {
   text-overflow: ellipsis;
   white-space: nowrap;
   direction: ltr;
+  font-family: monospace;
+  background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--auralis-sidebar-active-text) !important;
+  font-size: 11px !important;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 5%, transparent);
 }
 
+/* Success & Secondary Button Redesign */
 .settings-secondary-button {
   display: inline-flex;
   flex: 0 0 auto;
   gap: 7px;
   align-items: center;
-  min-width: 86px;
+  min-width: 92px;
   justify-content: center;
-  padding: 8px 11px;
+  padding: 8px 14px;
   border: 1px solid var(--auralis-border-subtle);
-  border-radius: 9px;
+  border-radius: 12px;
   color: var(--auralis-text);
   background: var(--auralis-control-active-bg);
   font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 200ms ease;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 20%, transparent);
 }
 
 .settings-secondary-button:hover:not(:disabled) {
   background: var(--auralis-control-hover-bg);
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--auralis-text) 16%, transparent);
+}
+
+.settings-secondary-button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 .settings-secondary-button:disabled {
@@ -689,7 +834,7 @@ onMounted(async () => {
 @keyframes settings-enter {
   from {
     opacity: 0;
-    transform: translateY(5px);
+    transform: translateY(8px);
   }
 }
 
@@ -708,14 +853,14 @@ onMounted(async () => {
     position: static;
     gap: 7px;
     overflow-x: auto;
-    padding-bottom: 2px;
+    padding-bottom: 4px;
   }
 
   .settings-nav button {
     display: flex;
     flex: 1 0 auto;
     width: auto;
-    padding: 9px 13px;
+    padding: 10px 14px;
   }
 
   .settings-nav-copy small,
@@ -745,6 +890,7 @@ onMounted(async () => {
     align-items: flex-start;
     flex-direction: column;
     padding-block: 16px;
+    gap: 12px;
   }
 
   .database-path {
