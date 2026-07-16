@@ -1388,17 +1388,99 @@ input[type='range'].volume-slider::-moz-range-thumb {
  * first-frame visual jump caused by the strongly front-loaded theme easing.
  */
 .theme-reveal-active::view-transition-new(root) {
-  animation: theme-radial-reveal 900ms linear both;
+  animation: theme-waveform-reveal 950ms cubic-bezier(0.19, 1, 0.22, 1) both;
   will-change: clip-path;
 }
 
-@keyframes theme-radial-reveal {
-  from {
-    clip-path: circle(0 at var(--theme-reveal-x) var(--theme-reveal-y));
+@keyframes theme-waveform-reveal {
+  0% {
+    clip-path: polygon(
+      0% 0%,
+      0% 0%,
+      0% 10%,
+      0% 20%,
+      0% 30%,
+      0% 40%,
+      0% 50%,
+      0% 60%,
+      0% 70%,
+      0% 80%,
+      0% 90%,
+      0% 100%,
+      0% 100%
+    );
   }
 
-  to {
-    clip-path: circle(var(--theme-reveal-radius) at var(--theme-reveal-x) var(--theme-reveal-y));
+  35% {
+    clip-path: polygon(
+      0% 0%,
+      25% 0%,
+      35% 10%,
+      20% 20%,
+      40% 30%,
+      24% 40%,
+      45% 50%,
+      30% 60%,
+      38% 70%,
+      22% 80%,
+      32% 90%,
+      25% 100%,
+      0% 100%
+    );
+  }
+
+  65% {
+    clip-path: polygon(
+      0% 0%,
+      65% 0%,
+      55% 10%,
+      75% 20%,
+      60% 30%,
+      80% 40%,
+      64% 50%,
+      72% 60%,
+      56% 70%,
+      66% 80%,
+      60% 90%,
+      70% 100%,
+      0% 100%
+    );
+  }
+
+  88% {
+    clip-path: polygon(
+      0% 0%,
+      92% 0%,
+      96% 10%,
+      89% 20%,
+      98% 30%,
+      93% 40%,
+      99% 50%,
+      91% 60%,
+      97% 70%,
+      90% 80%,
+      96% 90%,
+      92% 100%,
+      0% 100%
+    );
+  }
+
+  100% {
+    clip-path: polygon(
+      0% 0%,
+      100% 0%,
+      100% 10%,
+      100% 20%,
+      100% 30%,
+      100% 40%,
+      100% 50%,
+      100% 60%,
+      100% 70%,
+      100% 80%,
+      100% 90%,
+      100% 100%,
+      0% 100%
+    );
   }
 }
 
