@@ -179,6 +179,21 @@
   --auralis-app-background: var(--auralis-app-bg);
   /* Album detail "more works" band — soft off-white vs page white */
   --auralis-album-detail-more-bg: #f4f4f5;
+
+  /* Album Detail 浅色自适应磨砂参数 */
+  --auralis-overlay-bg: color-mix(in srgb, var(--auralis-bg) 85%, transparent);
+  --auralis-overlay-blur: blur(80px) saturate(1.5) contrast(1.02);
+  --auralis-btn-back-bg: rgba(0, 0, 0, 0.05);
+  --auralis-btn-back-border: rgba(0, 0, 0, 0.08);
+  --auralis-btn-back-hover: rgba(0, 0, 0, 0.08);
+  --auralis-stats-panel-bg: rgba(0, 0, 0, 0.03);
+  --auralis-stats-panel-border: rgba(0, 0, 0, 0.06);
+  --auralis-stats-divider: rgba(0, 0, 0, 0.1);
+  --auralis-track-list-bg: rgba(255, 255, 255, 0.45);
+  --auralis-track-list-border: rgba(0, 0, 0, 0.06);
+  --auralis-heat-bar-wrap: rgba(0, 0, 0, 0.06);
+  --auralis-more-card-bg: rgba(255, 255, 255, 0.5);
+  --auralis-more-card-border: rgba(0, 0, 0, 0.05);
 }
 
 [data-theme='dark'] {
@@ -266,6 +281,21 @@
   --auralis-app-background: var(--auralis-app-bg);
   /* Album detail "more works" band — lifted charcoal vs page black */
   --auralis-album-detail-more-bg: #2a2a2b;
+
+  /* Album Detail 深色自适应磨砂参数 */
+  --auralis-overlay-bg: color-mix(in srgb, var(--auralis-bg) 65%, transparent);
+  --auralis-overlay-blur: blur(80px) saturate(1.4) contrast(0.95);
+  --auralis-btn-back-bg: rgba(255, 255, 255, 0.04);
+  --auralis-btn-back-border: rgba(255, 255, 255, 0.08);
+  --auralis-btn-back-hover: rgba(255, 255, 255, 0.08);
+  --auralis-stats-panel-bg: rgba(255, 255, 255, 0.03);
+  --auralis-stats-panel-border: rgba(255, 255, 255, 0.06);
+  --auralis-stats-divider: rgba(255, 255, 255, 0.1);
+  --auralis-track-list-bg: rgba(255, 255, 255, 0.025);
+  --auralis-track-list-border: rgba(255, 255, 255, 0.05);
+  --auralis-heat-bar-wrap: rgba(255, 255, 255, 0.06);
+  --auralis-more-card-bg: rgba(255, 255, 255, 0.02);
+  --auralis-more-card-border: rgba(255, 255, 255, 0.04);
 }
 
 body {

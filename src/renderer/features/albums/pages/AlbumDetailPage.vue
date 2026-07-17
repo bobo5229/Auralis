@@ -7,6 +7,7 @@ import { usePlayback } from '@renderer/features/playback/composables/usePlayback
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatDuration } from '@renderer/features/library/utils/formatDuration'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+
 import type { AlbumSummary } from '../types'
 
 const route = useRoute()
@@ -26,6 +27,36 @@ const MAX_COVER_TILT_DEGREES = 12
 const albumArtist = computed(() => String(route.query.artist ?? ''))
 const displayAlbumArtist = computed(() => formatArtist(albumArtist.value))
 const albumTitle = computed(() => String(route.query.title ?? ''))
+
+const totalPlays = computed(() => {
+  return albumTracks.value.reduce((sum, track) => sum + (track.playCount || 0), 0)
+})
+
+const maxPlayCount = computed(() => {
+  return Math.max(...albumTracks.value.map((t) => t.playCount || 0), 0)
+})
+
+const lastPlayedLabel = computed(() => {
+  const dates = albumTracks.value
+    .map((t) => t.lastPlayedAt)
+    .filter((d): d is string => !!d)
+    .map((d) => new Date(d).getTime())
+  if (dates.length === 0) return '尚未播放'
+  const maxTime = Math.max(...dates)
+  const diffMs = Date.now() - maxTime
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  if (diffDays === 0) {
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    if (diffHours === 0) return '刚刚'
+    return `${diffHours} 小时前`
+  }
+  if (diffDays < 7) return `${diffDays} 天前`
+  return new Date(maxTime).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+})
 
 /** Native scrollbar has no :hover-on-bar; detect pointer in bottom strip instead. */
 const MORE_SCROLLBAR_HIT_PX = 14
@@ -415,13 +446,17 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section ref="detailRootRef" class="album-detail h-full overflow-y-auto">
-    <button class="album-detail-back" type="button" aria-label="Back to albums" @click="goBack">
-      <span class="i-lucide-chevron-left h-5 w-5"></span>
-      <span>Albums</span>
-    </button>
+  <div class="album-detail-container h-full w-full relative overflow-hidden bg-transparent">
+    <section
+      v-if="albumTracks.length"
+      ref="detailRootRef"
+      class="album-detail-scroll-wrapper h-full w-full overflow-y-auto relative z-10"
+    >
+      <button class="album-detail-back" type="button" aria-label="Back to albums" @click="goBack">
+        <span class="i-lucide-arrow-left h-4 w-4" />
+        <span>返回专辑</span>
+      </button>
 
-    <div v-if="albumTracks.length > 0">
       <header class="album-detail-hero">
         <div ref="coverStageRef" class="album-detail-cover-stage">
           <div class="album-detail-cover">
@@ -430,30 +465,45 @@ onBeforeUnmount(() => {
               :src="artworkUrl"
               :alt="`${albumTitle} cover`"
               class="h-full w-full object-cover"
+              draggable="false"
             />
-            <div
-              v-else
-              class="flex h-full w-full items-center justify-center bg-[var(--auralis-artwork-placeholder-bg)]"
-            >
-              <span class="i-lucide-disc-3 h-16 w-16 text-[var(--auralis-text-disabled)]"></span>
+            <div v-else class="flex h-full w-full items-center justify-center" aria-hidden="true">
+              <span class="i-lucide-disc-3 h-20 w-20 text-[var(--auralis-text-disabled)]"></span>
             </div>
           </div>
         </div>
 
         <div class="album-detail-summary">
           <div>
-            <h1>{{ albumTitle }}</h1>
-            <p class="album-detail-artist">{{ displayAlbumArtist }}</p>
-            <p class="album-detail-meta">
-              <span v-for="(item, index) in albumMetaItems" :key="item">
-                <span v-if="index > 0"> · </span>{{ item }}
+            <h1 class="select-text">{{ albumTitle }}</h1>
+            <p class="album-detail-artist select-text">{{ displayAlbumArtist }}</p>
+            <p class="album-detail-meta select-text">
+              <span v-for="(meta, index) in albumMetaItems" :key="index">
+                <span v-if="index > 0" class="mx-1.5 opacity-60">·</span>
+                <span>{{ meta }}</span>
               </span>
             </p>
+            <!-- 专辑累计播放数据面板 -->
+            <div v-if="totalPlays > 0" class="album-detail-stats-panel select-text">
+              <div class="album-detail-stats-item">
+                <span class="i-lucide-bar-chart-2 h-4 w-4 stats-icon-plays"></span>
+                <span
+                  >累计播放: <strong class="stats-value">{{ totalPlays }}次</strong></span
+                >
+              </div>
+              <div class="album-detail-stats-divider"></div>
+              <div class="album-detail-stats-item">
+                <span class="i-lucide-calendar h-4 w-4 stats-icon-time"></span>
+                <span
+                  >上次播放: <strong class="stats-value">{{ lastPlayedLabel }}</strong></span
+                >
+              </div>
+            </div>
           </div>
 
           <button class="album-detail-play" type="button" @click="playAlbum">
             <span class="i-lucide-play h-5 w-5 fill-current"></span>
-            <span>Play</span>
+            <span>播放</span>
           </button>
         </div>
       </header>
@@ -481,6 +531,21 @@ onBeforeUnmount(() => {
               class="album-detail-track-artist"
               >{{ formatArtist(track.artist) }}</span
             >
+          </span>
+          <!-- 单曲播放次数与热度图表 -->
+          <span class="album-detail-track-stats">
+            <span v-if="track.playCount > 0" class="album-detail-track-playcount">
+              <span class="i-lucide-play-circle h-3.5 w-3.5 inline-block mr-1 opacity-70"></span>
+              {{ track.playCount }} 次
+            </span>
+            <span v-else class="album-detail-track-playcount-empty">-</span>
+
+            <span v-if="maxPlayCount > 0" class="album-detail-track-heat-bar-wrap">
+              <span
+                class="album-detail-track-heat-bar"
+                :style="{ width: `${(track.playCount / maxPlayCount) * 100}%` }"
+              ></span>
+            </span>
           </span>
           <span class="album-detail-track-duration">{{
             formatDuration(track.durationSeconds)
@@ -536,9 +601,9 @@ onBeforeUnmount(() => {
           </article>
         </div>
       </section>
-    </div>
+    </section>
 
-    <div v-else class="flex min-h-[60vh] items-center justify-center">
+    <div v-else class="flex min-h-[60vh] items-center justify-center relative z-10">
       <div class="text-center">
         <p class="text-base font-semibold text-[var(--auralis-text)]">Album not found</p>
         <button
@@ -550,24 +615,43 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </div>
-  </section>
+  </div>
 </template>
 
 <style scoped>
-.album-detail {
+.album-detail-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.album-detail-scroll-wrapper {
   padding: 24px 32px calc(var(--auralis-playbar-safe-area) + 40px);
 }
 
 .album-detail-back {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   color: var(--auralis-text-muted);
   font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  background: var(--auralis-btn-back-bg);
+  border: 1px solid var(--auralis-btn-back-border);
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: all 0.25s ease;
+  margin-bottom: 12px;
 }
 
 .album-detail-back:hover {
   color: var(--auralis-text);
+  background: var(--auralis-btn-back-hover);
+  border-color: var(--auralis-btn-back-border);
+  transform: translateY(-1px);
 }
 
 .album-detail-hero {
@@ -601,6 +685,31 @@ onBeforeUnmount(() => {
   pointer-events: none;
   transform: translate3d(var(--detail-cover-shadow-x), var(--detail-cover-shadow-y), -20px);
   transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+/* 3D 霓虹彩色背光投影 */
+.album-detail-cover-stage::after {
+  position: absolute;
+  inset: 8%;
+  border-radius: 20px;
+  background: v-bind("artworkUrl ? 'url(' + artworkUrl + ')' : 'none'");
+  background-size: cover;
+  background-position: center;
+  content: '';
+  filter: blur(28px) saturate(1.8);
+  opacity: 0.65;
+  pointer-events: none;
+  z-index: -1;
+  transform: translate3d(
+      calc(var(--detail-cover-shadow-x) * 1.2),
+      calc(var(--detail-cover-shadow-y) * 1.2),
+      -30px
+    )
+    scale(0.95);
+  transition:
+    transform 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.3s;
   will-change: transform;
 }
 
@@ -647,6 +756,47 @@ onBeforeUnmount(() => {
   font-size: 13px;
 }
 
+/* 专辑统计卡片样式 */
+.album-detail-stats-panel {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--auralis-stats-panel-bg);
+  border: 1px solid var(--auralis-stats-panel-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  width: fit-content;
+}
+
+.album-detail-stats-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--auralis-text-muted);
+}
+
+.stats-value {
+  color: var(--auralis-text);
+  font-weight: 650;
+}
+
+.stats-icon-plays {
+  color: #a78bfa;
+}
+.stats-icon-time {
+  color: #f472b6;
+}
+
+.album-detail-stats-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--auralis-stats-divider);
+}
+
 .album-detail-play {
   display: inline-flex;
   width: fit-content;
@@ -656,10 +806,69 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 9px;
   border-radius: 999px;
-  background: var(--auralis-control-primary-bg);
-  color: var(--auralis-control-primary-text);
+  background: var(
+    --auralis-active-album-accent,
+    var(--auralis-sidebar-active-indicator)
+  ) !important;
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator)) 30%,
+      transparent
+    ) !important;
+  box-shadow:
+    0 6px 20px
+      color-mix(
+        in srgb,
+        var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator)) 28%,
+        transparent
+      ),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  color: white !important;
   font-size: 15px;
   font-weight: 700;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  overflow: hidden;
+  position: relative;
+}
+
+.album-detail-play::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -50%;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  transform: skewX(-25deg);
+  transition: 0.75s;
+  pointer-events: none;
+}
+
+.album-detail-play:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow:
+    0 10px 28px
+      color-mix(
+        in srgb,
+        var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator)) 38%,
+        transparent
+      ),
+    0 0 14px 2px rgba(255, 255, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  background: var(
+    --auralis-active-album-accent,
+    var(--auralis-sidebar-active-indicator)
+  ) !important;
+  filter: brightness(1.06);
+}
+
+.album-detail-play:hover::before {
+  left: 125%;
+}
+
+.album-detail-play:active {
+  transform: translateY(1px) scale(0.98);
 }
 
 .album-detail-legal {
@@ -671,18 +880,15 @@ onBeforeUnmount(() => {
 }
 
 .album-detail-more {
-  /* Full-bleed band: cancel page horizontal padding, re-apply inside. */
   margin-top: 20px;
   margin-right: -32px;
   margin-bottom: -12px;
   margin-left: -32px;
-  padding: 22px 32px 28px;
-  /*
-   * Theme via CSS variable (defined in main.css under [data-theme=…]).
-   * Do not use :global([data-theme]) in scoped SFC — Vue can drop the
-   * descendant selector and only leave [data-theme], so dark never applies.
-   */
-  background: var(--auralis-album-detail-more-bg);
+  padding: 32px 32px 36px;
+  background: rgba(255, 255, 255, 0.01);
+  border-top: 1px solid var(--auralis-border-subtle);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .album-detail-more-title {
@@ -694,8 +900,6 @@ onBeforeUnmount(() => {
 }
 
 .album-detail-more-scroller {
-  /* Fully own scrollbar styling so global ::-webkit-scrollbar (12px + border)
-     cannot make light/dark themes look different thickness. */
   --more-scrollbar-size: 6px;
   --more-scrollbar-thumb: color-mix(in srgb, var(--auralis-text) 28%, transparent);
   --more-scrollbar-thumb-hover: color-mix(in srgb, var(--auralis-text) 42%, transparent);
@@ -704,13 +908,10 @@ onBeforeUnmount(() => {
   gap: 16px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 2px 2px 0;
+  padding: 10px 4px 10px;
+  margin-top: -8px;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
-  /*
-   * Always keep the same scrollbar metrics; only toggle thumb color when the
-   * pointer is in the bottom scrollbar hit zone (not when hovering cards).
-   */
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
 }
@@ -719,14 +920,12 @@ onBeforeUnmount(() => {
   scrollbar-color: var(--more-scrollbar-thumb) transparent;
 }
 
-/* WebKit: fixed height always; do not change geometry on hover */
 .album-detail-more-scroller::-webkit-scrollbar {
   width: var(--more-scrollbar-size);
   height: var(--more-scrollbar-size);
   background: transparent;
 }
 
-/* Hide left/right arrow buttons on the horizontal scrollbar */
 .album-detail-more-scroller::-webkit-scrollbar-button {
   display: none;
   width: 0;
@@ -776,6 +975,20 @@ onBeforeUnmount(() => {
   min-width: 148px;
   scroll-snap-align: start;
   user-select: none;
+  background: var(--auralis-more-card-bg);
+  border: 1px solid var(--auralis-more-card-border);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.album-detail-more-card:hover {
+  transform: translateY(-6px);
+  background: var(--auralis-more-card-bg);
+  filter: brightness(1.03);
+  border-color: var(--auralis-btn-back-border);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.12);
 }
 
 .album-detail-more-cover {
@@ -806,19 +1019,32 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
+.album-detail-track-list {
+  background: var(--auralis-track-list-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--auralis-track-list-border);
+  border-radius: 20px;
+  padding: 10px;
+  box-shadow:
+    0 12px 36px 0 rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  margin-top: 22px;
+}
+
 .album-detail-track {
   position: relative;
   display: grid;
   width: 100%;
   min-height: 50px;
-  grid-template-columns: 42px minmax(0, 1fr) 58px;
+  grid-template-columns: 42px minmax(0, 1fr) 120px 58px;
   align-items: center;
-  padding: 5px 12px 5px 4px;
+  padding: 6px 16px 6px 8px;
   color: var(--auralis-text);
   border-radius: 12px;
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-/* Top separator on every track */
 .album-detail-track:not(:first-child)::before {
   content: '';
   position: absolute;
@@ -830,12 +1056,13 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-/* Hover/active states cover the separator within the card */
 .album-detail-track:hover,
 .album-detail-track--selected,
 .album-detail-track--playing,
 .album-detail-track--search-highlight {
   background-color: var(--auralis-control-hover-bg);
+  transform: translateX(3px);
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.15);
 }
 
 .album-detail-track--search-highlight {
@@ -847,29 +1074,33 @@ onBeforeUnmount(() => {
   35% {
     background-color: var(--auralis-song-row-now-playing-bg);
   }
-
   100% {
     background-color: var(--auralis-control-hover-bg);
   }
 }
 
-/* Selected/playing should beat :hover specificity (0,1,1); playing wins when both apply. */
 .album-detail-track.album-detail-track--selected {
   background-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+  box-shadow:
+    inset 2px 0 0 var(--auralis-sidebar-active-indicator),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transform: translateX(3px);
 }
 
 .album-detail-track.album-detail-track--playing {
   background-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 22%, transparent);
+  box-shadow:
+    inset 3px 0 0 var(--auralis-sidebar-active-indicator),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform: translateX(4px);
 }
 
-/* Hide hovered/selected track's own top separator */
 .album-detail-track--selected::before,
 .album-detail-track--playing::before,
 .album-detail-track--search-highlight::before {
   display: none;
 }
 
-/* Keep active row groups visually clean without changing divider thickness elsewhere. */
 .album-detail-track--selected + .album-detail-track::before,
 .album-detail-track--playing + .album-detail-track::before,
 .album-detail-track--search-highlight + .album-detail-track::before {
@@ -911,6 +1142,43 @@ onBeforeUnmount(() => {
   text-align: right;
 }
 
+.album-detail-track-stats {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-right: 14px;
+}
+
+.album-detail-track-playcount {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--auralis-text-muted);
+  font-weight: 550;
+}
+
+.album-detail-track-playcount-empty {
+  font-size: 12px;
+  color: var(--auralis-text-faint);
+  opacity: 0.4;
+}
+
+.album-detail-track-heat-bar-wrap {
+  width: 32px;
+  height: 4px;
+  background: var(--auralis-heat-bar-wrap);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.album-detail-track-heat-bar {
+  display: block;
+  height: 100%;
+  background: linear-gradient(to right, #ec4899, #8b5cf6);
+  border-radius: 99px;
+}
+
 @media (max-width: 900px) {
   .album-detail-hero {
     grid-template-columns: minmax(170px, 220px) minmax(0, 1fr);
@@ -920,7 +1188,8 @@ onBeforeUnmount(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .album-detail-cover,
-  .album-detail-cover-stage::before {
+  .album-detail-cover-stage::before,
+  .album-detail-cover-stage::after {
     transform: none;
     transition: none;
   }
