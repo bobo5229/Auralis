@@ -1787,3 +1787,25 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
     animation: none !important;
   }
 }
+
+/* 歌词面板在专辑详情页下的磨砂玻璃流光化适配 */
+.is-album-detail .now-playing-panel {
+  background: color-mix(in srgb, var(--auralis-now-playing-bg) 35%, transparent) !important;
+  backdrop-filter: blur(20px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.2) !important;
+  border-left: 1px solid var(--auralis-border-subtle) !important;
+}
+
+/* 专辑页下所有垂直滚动条自适应透明融入背景，消灭任何顽固白色轨道 */
+.is-album-detail ::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.is-album-detail ::-webkit-scrollbar-thumb {
+  border-color: transparent !important;
+  background: color-mix(in srgb, var(--auralis-text) 22%, transparent) !important;
+}
+
+.is-album-detail ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--auralis-text) 36%, transparent) !important;
+}

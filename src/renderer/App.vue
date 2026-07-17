@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { computed, watch } from 'vue'
+import { RouterView } from 'vue-router'
+import { router } from './app/router'
 import AppTitleBar from './app/layout/AppTitleBar.vue'
 import AppSidebar from './app/layout/AppSidebar.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
@@ -11,20 +12,32 @@ import { usePlayback } from '@renderer/features/playback/composables/usePlayback
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 
 const playback = usePlayback()
-const route = useRoute()
 
 const artworkUrl = computed(() => {
   const artworkKey = playback.state.currentTrack?.artworkCacheKey ?? null
   return getArtworkUrl(artworkKey)
 })
 
-const isAlbumDetail = computed(() => route.name === 'album-detail')
+const isAlbumDetail = computed(() => {
+  const name = router.currentRoute.value.name
+  console.log('[Auralis App.vue] Route Check name:', name)
+  return name === 'album-detail'
+})
+
+// Debug trace to help verify state reactive rendering
+watch(
+  [isAlbumDetail, artworkUrl],
+  ([newIsDetail, newUrl]) => {
+    console.log('[Auralis App.vue] State changed - isAlbumDetail:', newIsDetail, 'ArtworkURL:', newUrl)
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
   <div class="app-window" data-app-shell-root>
     <AppTitleBar />
-    <div class="app-shell relative">
+    <div class="app-shell relative" :class="{ 'is-album-detail': isAlbumDetail }">
       <!-- 只有在专辑详情页且有封面时才渲染在 app-shell 顶层网格之下的背景 -->
       <FluidArtworkBackground
         v-if="isAlbumDetail && artworkUrl"
