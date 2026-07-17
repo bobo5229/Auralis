@@ -2,7 +2,6 @@
 import { computed, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import { router } from './app/router'
-import AppTitleBar from './app/layout/AppTitleBar.vue'
 import AppSidebar from './app/layout/AppSidebar.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
@@ -36,17 +35,16 @@ watch(
 
 <template>
   <div class="app-window" data-app-shell-root>
-    <AppTitleBar />
-    <div class="app-shell relative" :class="{ 'is-album-detail': isAlbumDetail }">
-      <!-- 只有在专辑详情页且有封面时才渲染在 app-shell 顶层网格之下的背景 -->
+    <div class="app-shell relative" :class="{ 'is-album-detail': isAlbumDetail, 'has-artwork': !!artworkUrl }">
+      <!-- 只有在且有封面时才渲染在 app-shell 顶层网格之下的背景 -->
       <FluidArtworkBackground
-        v-if="isAlbumDetail && artworkUrl"
+        v-if="artworkUrl"
         :artwork-url="artworkUrl"
         :active="true"
         :playing="playback.state.isPlaying"
         class="app-shell-bg-fluid"
       />
-      <div v-if="isAlbumDetail && artworkUrl" class="app-shell-bg-overlay" aria-hidden="true"></div>
+      <div v-if="artworkUrl" class="app-shell-bg-overlay" aria-hidden="true"></div>
 
       <AppSidebar class="relative z-10" />
 

@@ -167,7 +167,7 @@
   --auralis-context-menu-shadow: 0 1px 4px rgba(31, 35, 40, 0.05);
 
   /* Cover view */
-  --auralis-cover-track-bg: #ffffff;
+  --auralis-cover-track-bg: rgba(255, 255, 255, 0.32);
   --auralis-cover-track-hover-bg: rgba(31, 37, 40, 0.06);
   --auralis-cover-divider: rgba(31, 37, 40, 0.08);
   --auralis-cover-track-divider: rgba(31, 37, 40, 0.06);
@@ -269,8 +269,8 @@
   --auralis-context-menu-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 
   /* Cover view */
-  --auralis-cover-track-bg: #1f1f1f;
-  --auralis-cover-track-hover-bg: rgba(225, 221, 214, 0.08);
+  --auralis-cover-track-bg: rgba(30, 30, 30, 0.22);
+  --auralis-cover-track-hover-bg: rgba(255, 255, 255, 0.08);
   --auralis-cover-divider: rgba(225, 221, 214, 0.1);
   --auralis-cover-track-divider: rgba(225, 221, 214, 0.07);
 
@@ -1788,8 +1788,8 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   }
 }
 
-/* 歌词面板在专辑详情页下的磨砂玻璃流光化适配 */
-.is-album-detail .now-playing-panel {
+/* 歌词面板在播放状态下的磨砂玻璃流光化适配 */
+.has-artwork .now-playing-panel {
   background: color-mix(in srgb, var(--auralis-now-playing-bg) 35%, transparent) !important;
   backdrop-filter: blur(20px) saturate(1.2) !important;
   -webkit-backdrop-filter: blur(20px) saturate(1.2) !important;
@@ -1808,4 +1808,17 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 
 .is-album-detail ::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--auralis-text) 36%, transparent) !important;
+}
+
+/* 侧边栏顶部窗口控制按钮区 */
+.sidebar-window-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 20px 8px;
+  -webkit-app-region: drag;
+}
+
+.sidebar-window-controls .window-dot {
+  -webkit-app-region: no-drag;
 }

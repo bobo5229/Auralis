@@ -419,10 +419,46 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerup', onPlaylistPointerUp)
   window.removeEventListener('pointercancel', onPlaylistPointerCancel)
 })
+
+function minimize(): void {
+  auralis.window.minimize()
+}
+
+function toggleMaximize(): void {
+  auralis.window.toggleMaximize()
+}
+
+function close(): void {
+  auralis.window.close()
+}
 </script>
 
 <template>
   <aside class="app-sidebar">
+    <!-- macOS 风格窗口按钮 -->
+    <div class="sidebar-window-controls">
+      <button
+        class="window-dot bg-[#e9494b]"
+        type="button"
+        title="Close"
+        aria-label="Close window"
+        @click="close"
+      ></button>
+      <button
+        class="window-dot bg-[#f5c542]"
+        type="button"
+        title="Minimize"
+        aria-label="Minimize window"
+        @click="minimize"
+      ></button>
+      <button
+        class="window-dot bg-[#44c74e]"
+        type="button"
+        title="Maximize"
+        aria-label="Maximize / Restore window"
+        @click="toggleMaximize"
+      ></button>
+    </div>
     <header class="sidebar-header">
       <div class="sidebar-brand">
         <span class="sidebar-brand-mark" aria-hidden="true">

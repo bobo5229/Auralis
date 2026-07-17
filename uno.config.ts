@@ -14,9 +14,9 @@ export default defineConfig({
   },
   shortcuts: {
     'app-window':
-      'grid h-screen grid-rows-[44px_minmax(0,1fr)] overflow-hidden bg-[var(--auralis-app-background)] text-[var(--auralis-text)]',
+      'h-screen overflow-hidden bg-[var(--auralis-app-background)] text-[var(--auralis-text)]',
     'app-shell':
-      'grid min-h-0 grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-transparent text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_20%]',
+      'grid h-full min-h-0 grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-transparent text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_20%]',
     'app-sidebar':
       'flex w-[232px] h-[calc(100%_-_var(--auralis-shell-vertical-gap))] min-h-0 flex-col m-[var(--auralis-shell-edge-gap)_0_var(--auralis-shell-edge-gap)_var(--auralis-shell-edge-gap)] rounded-lg border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
     'app-main': 'min-h-0 overflow-y-auto bg-transparent',
