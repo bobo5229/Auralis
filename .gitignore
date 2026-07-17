@@ -23,6 +23,7 @@ AppData/
 # Claude Code
 .claude/
 .agents/
+.mimocode/
 
 # Coverage
 coverage/
