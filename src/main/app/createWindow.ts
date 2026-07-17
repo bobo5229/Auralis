@@ -18,9 +18,10 @@ export function createWindow(): BrowserWindow {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      // sandbox stays false: preload uses ESM contextBridge bridge without sandbox-compatible bundling.
       sandbox: false,
       backgroundThrottling: false,
-      webSecurity: false,
+      webSecurity: true,
     },
   })
 

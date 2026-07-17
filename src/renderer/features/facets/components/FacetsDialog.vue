@@ -273,7 +273,9 @@ watch(albumOptions, (options) => {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
-  unsubscribeChanged = auralis.library.onChanged(() => {
+  unsubscribeChanged = auralis.library.onChanged((event) => {
+    // Play-count ticks must not full-reload facet track lists
+    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
     if (props.open) {
       void reloadTracks()
     }

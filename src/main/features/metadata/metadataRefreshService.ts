@@ -23,6 +23,7 @@ export interface MetadataRefreshProgress {
 export class MetadataRefreshService {
   private activeWorker: Worker | null = null
   private activeJobId: number | null = null
+  private onTagWriteSuccess: ((filePath: string) => void) | null = null
 
   constructor(
     private readonly repository: MetadataRefreshRepository,
@@ -30,6 +31,13 @@ export class MetadataRefreshService {
     private readonly sendToRenderer: (channel: string, data: unknown) => void,
   ) {
     this.repository.markInterruptedJobs()
+  }
+
+  /**
+   * Wire a callback after successful audio tag writes (e.g. suppress watch refresh).
+   */
+  setTagWriteSuccessHandler(handler: (filePath: string) => void): void {
+    this.onTagWriteSuccess = handler
   }
 
   refreshMissingMetadata(limit = 5000): { jobId: number } {
@@ -261,6 +269,8 @@ export class MetadataRefreshService {
     }
 
     await writeAudioTags(filePath, metadata)
+    // Suppress watch refresh BEFORE DB write so a concurrent flush cannot race.
+    this.onTagWriteSuccess?.(filePath)
     this.repository.updateUserEditedMetadata(metadata)
     return { ok: true }
   }

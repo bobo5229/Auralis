@@ -26,6 +26,7 @@ export interface FileIdentity {
  * Matching rules (shared across full scan and watcher):
  * 1. ISRC match — both must have the same non-null ISRC,
  *    and there must be exactly one matching candidate.
+ *    Zero ISRC matches fall through to Rule 2; only >1 aborts.
  * 2. Title+artist match — title and artist must match exactly,
  *    duration diff ≤ 1s, file size diff ≤ 2%, album matches or
  *    either side is empty / Unknown Album.
@@ -43,7 +44,8 @@ export function findUniqueRelocationCandidate(
   if (identity.isrc) {
     const isrcMatches = candidates.filter((c) => c.isrc === identity.isrc)
     if (isrcMatches.length === 1) return isrcMatches[0]
-    return null
+    if (isrcMatches.length > 1) return null
+    // 0 ISRC matches → fall through to Rule 2
   }
 
   // Rule 2 — title + artist + duration + size + album

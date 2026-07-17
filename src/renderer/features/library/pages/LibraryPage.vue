@@ -587,7 +587,9 @@ onMounted(async () => {
 
   await scrollToPlaybackTrack()
 
-  unsubscribeChanged = auralis.library.onChanged(async () => {
+  unsubscribeChanged = auralis.library.onChanged(async (event) => {
+    // Play-count ticks must not full-reload the library list
+    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
     await reloadTracks()
   })
 

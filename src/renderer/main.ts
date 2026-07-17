@@ -6,6 +6,7 @@ import App from './App.vue'
 import DesktopLyricsApp from './DesktopLyricsApp.vue'
 import { router } from './app/router'
 import { useTheme } from './composables/useTheme'
+import { auralis } from './shared/ipc/client'
 
 const { initTheme } = useTheme()
 initTheme()
@@ -22,7 +23,7 @@ async function bootstrap(): Promise<void> {
   await nextTick()
 
   if (!isDesktopLyricsWindow) {
-    window.auralis.app.rendererReady()
+    auralis.app.rendererReady()
   }
 }
 

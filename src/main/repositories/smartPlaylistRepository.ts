@@ -57,10 +57,25 @@ export class SmartPlaylistRepository extends BaseRepository {
   }
 
   create(name: string, rule: SmartPlaylistRule): SmartPlaylist {
+    // Cross-table max so smart + regular playlists share one sidebar sort space
     const result = this.db
       .prepare(
         `INSERT INTO smart_playlists (name, rule_json, sort_order)
-         VALUES (?, ?, COALESCE((SELECT MAX(sort_order) + 1 FROM smart_playlists), 0))`,
+         VALUES (
+           ?,
+           ?,
+           COALESCE(
+             (
+               SELECT MAX(sort_order) + 1
+               FROM (
+                 SELECT sort_order FROM smart_playlists
+                 UNION ALL
+                 SELECT sort_order FROM playlists
+               ) AS sidebar_orders
+             ),
+             0
+           )
+         )`,
       )
       .run(name, JSON.stringify(rule))
 

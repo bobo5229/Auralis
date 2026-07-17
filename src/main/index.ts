@@ -10,7 +10,16 @@ import { closeDatabase, initializeDatabase } from './database/connection'
 import { registerIpcHandlers } from './ipc/registerIpcHandlers'
 import { ensureArtworkCacheDir } from './features/artwork/artworkCache'
 import { registerArtworkProtocol } from './features/artwork/artworkProtocol'
+import {
+  registerAudioProtocol,
+  registerAudioSchemeAsPrivileged,
+} from './features/audio/audioProtocol'
+import { LibraryRootRepository } from './repositories/libraryRootRepository'
+import { TrackRepository } from './repositories/trackRepository'
 import { logger } from './logging/logger'
+
+// Custom media scheme privileges must be registered before app.ready.
+registerAudioSchemeAsPrivileged()
 
 app.setName('Auralis')
 registerDesktopLyricsIpcHandlers()
@@ -64,6 +73,14 @@ app.whenReady().then(() => {
   const artworkCacheDir = ensureArtworkCacheDir(app.getPath('userData'))
   registerArtworkProtocol(artworkCacheDir)
   const db = initializeDatabase()
+  const trackRepository = new TrackRepository(db)
+  const libraryRootRepository = new LibraryRootRepository(db)
+
+  registerAudioProtocol({
+    getFilePathByTrackId: (trackId) => trackRepository.getFilePathById(trackId),
+    getLibraryRootPaths: () => libraryRootRepository.list().map((root) => root.path),
+  })
+
   registerIpcHandlers(db, artworkCacheDir)
   bindDesktopLyricsHostWindow(createWindow())
 

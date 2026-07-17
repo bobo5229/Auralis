@@ -62,6 +62,8 @@ const desktopLyricsToast = ref<string | null>(null)
 let unsubscribeDesktopLyricsVisibility: (() => void) | null = null
 let unsubscribeDesktopLyricsMousePassthrough: (() => void) | null = null
 let desktopLyricsToastTimer: ReturnType<typeof setTimeout> | null = null
+/** Last IPC payload fingerprint — skip identical line-level updates. */
+let lastDesktopLyricsPayloadKey: string | null = null
 
 function toggleQueue(): void {
   isQueueOpen.value = !isQueueOpen.value
@@ -132,15 +134,41 @@ function buildDesktopLyricsPayload(): DesktopLyricsPayload {
   }
 }
 
-function syncDesktopLyrics(): void {
-  void auralis.desktopLyrics.update(buildDesktopLyricsPayload())
+function getDesktopLyricsPayloadKey(payload: DesktopLyricsPayload): string {
+  return [
+    payload.trackId ?? '',
+    payload.title ?? '',
+    payload.artist ?? '',
+    payload.currentLine,
+    payload.nextLine,
+    payload.status,
+    payload.isPlaying ? '1' : '0',
+  ].join('\0')
+}
+
+/**
+ * Push desktop lyrics state to the secondary window.
+ * Skips when the window is hidden (unless force) and when the line-level payload is unchanged.
+ * Intentionally does not depend on currentTime ticks — activeIndex / prelude drive line changes.
+ */
+function syncDesktopLyrics(force = false): void {
+  if (!force && !isDesktopLyricsVisible.value) return
+
+  const payload = buildDesktopLyricsPayload()
+  const key = getDesktopLyricsPayloadKey(payload)
+  if (!force && key === lastDesktopLyricsPayloadKey) return
+
+  lastDesktopLyricsPayloadKey = key
+  void auralis.desktopLyrics.update(payload)
 }
 
 async function toggleDesktopLyrics(): Promise<void> {
   const result = await auralis.desktopLyrics.toggle()
   isDesktopLyricsVisible.value = result.visible
   showDesktopLyricsToast(result.visible ? '桌面歌词已开启' : '桌面歌词已关闭')
-  syncDesktopLyrics()
+  if (result.visible) {
+    syncDesktopLyrics(true)
+  }
 }
 
 async function toggleDesktopLyricsMousePassthrough(event: MouseEvent): Promise<void> {
@@ -201,15 +229,25 @@ function handleDocumentPointerDown(event: PointerEvent): void {
 
 onMounted(() => {
   document.addEventListener('pointerdown', handleDocumentPointerDown)
-  void ensureDesktopLyricsFontReady().then(syncDesktopLyrics)
+  void ensureDesktopLyricsFontReady().then(() => {
+    if (isDesktopLyricsVisible.value) {
+      syncDesktopLyrics(true)
+    }
+  })
   void auralis.desktopLyrics.isVisible().then((result) => {
     isDesktopLyricsVisible.value = result.visible
+    if (result.visible) {
+      syncDesktopLyrics(true)
+    }
   })
   void auralis.desktopLyrics.isMousePassthroughEnabled().then((result) => {
     isDesktopLyricsMousePassthroughEnabled.value = result.enabled
   })
   unsubscribeDesktopLyricsVisibility = auralis.desktopLyrics.onVisibilityChanged((visible) => {
     isDesktopLyricsVisible.value = visible
+    if (visible) {
+      syncDesktopLyrics(true)
+    }
   })
   unsubscribeDesktopLyricsMousePassthrough = auralis.desktopLyrics.onMousePassthroughChanged(
     (enabled) => {
@@ -257,13 +295,14 @@ watch(
   { immediate: true },
 )
 
+// Do not watch currentTime — it fires every media tick. Line changes already
+// surface via activeIndex / preludeLitDotCount; track/play/status cover the rest.
 watch(
   () => [
     playback.state.currentTrackId,
     playback.state.currentTrack?.title,
     playback.state.currentTrack?.artist,
     playback.state.isPlaying,
-    playback.state.currentTime,
     lyrics.status.value,
     lyrics.rawLyrics.value,
     lyrics.activeIndex.value,
@@ -271,7 +310,9 @@ watch(
     lyrics.preludeLitDotCount.value,
     lyrics.parsedLines.value.length,
   ],
-  syncDesktopLyrics,
+  () => {
+    syncDesktopLyrics()
+  },
   { immediate: true },
 )
 

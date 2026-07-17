@@ -27,6 +27,10 @@ export class LibraryScanService {
   private readonly artworkCacheDir: string
   private activeWorker: Worker | null = null
   private activeJobId: number | null = null
+  private onScanLifecycle: {
+    onStart?: () => void | Promise<void>
+    onEnd?: () => void | Promise<void>
+  } = {}
 
   constructor(db: Database.Database, artworkCacheDir: string) {
     this.db = db
@@ -36,6 +40,17 @@ export class LibraryScanService {
     this.trackRepository = new TrackRepository(db)
     this.artworkCacheDir = artworkCacheDir
     this.scanJobRepository.markInterruptedJobs()
+  }
+
+  /**
+   * Optional hooks so watch flush can pause during a full scan
+   * (prevents watch-imported tracks from being markMissing'd on complete).
+   */
+  setScanLifecycleHooks(hooks: {
+    onStart?: () => void | Promise<void>
+    onEnd?: () => void | Promise<void>
+  }): void {
+    this.onScanLifecycle = hooks
   }
 
   async selectRoot(): Promise<SelectLibraryRootResult> {
@@ -72,11 +87,28 @@ export class LibraryScanService {
     return jobId ? this.scanJobRepository.getById(jobId) : this.scanJobRepository.getLatest()
   }
 
-  startScan(rootId: number): { jobId: number } {
+  async startScan(rootId: number): Promise<{ jobId: number }> {
     const activeJob = this.scanJobRepository.getActive()
 
     if (activeJob) {
-      return { jobId: activeJob.jobId }
+      // This service still owns the job (it may be waiting for the async
+      // lifecycle start hook before the worker is created) — return existing.
+      if (this.activeJobId === activeJob.jobId) {
+        return { jobId: activeJob.jobId }
+      }
+
+      // Orphan scanning row without a live worker — heal then start fresh.
+      logger.warn(
+        { jobId: activeJob.jobId },
+        'Healing orphan scanning job without an active worker',
+      )
+      this.scanJobRepository.fail(
+        activeJob.jobId,
+        'Scan job recovered after unexpected interruption',
+      )
+      this.activeWorker = null
+      this.activeJobId = null
+      await this.onScanLifecycle.onEnd?.()
     }
 
     const root = this.libraryRootRepository.getById(rootId)
@@ -87,7 +119,21 @@ export class LibraryScanService {
 
     const job = this.scanJobRepository.create(root.id)
     this.activeJobId = job.jobId
-    this.startWorker(job.jobId, root.path)
+
+    try {
+      await this.onScanLifecycle.onStart?.()
+      this.startWorker(job.jobId, root.path)
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'Failed to prepare library scan'
+      this.scanJobRepository.fail(job.jobId, reason)
+      this.activeJobId = null
+      try {
+        await this.onScanLifecycle.onEnd?.()
+      } catch (lifecycleError) {
+        logger.error({ error: lifecycleError, jobId: job.jobId }, 'Failed to end scan lifecycle')
+      }
+      throw error
+    }
 
     return { jobId: job.jobId }
   }
@@ -104,6 +150,11 @@ export class LibraryScanService {
     this.activeJobId = null
     await worker.terminate()
     this.scanJobRepository.finish(jobId, 'canceled')
+    try {
+      await this.onScanLifecycle.onEnd?.()
+    } catch (error) {
+      logger.error({ error, jobId }, 'Failed to end canceled scan lifecycle')
+    }
     const status = this.scanJobRepository.getById(jobId)
 
     if (status) {
@@ -134,28 +185,101 @@ export class LibraryScanService {
     })
 
     this.activeWorker = worker
+    // Terminal settlement and lifecycle cleanup are scoped to this worker so a
+    // late event can neither settle twice nor clear a newer scan.
+    let terminalSettled = false
+    let lifecycleEndPromise: Promise<void> | null = null
+
+    const endLifecycle = (): Promise<void> => {
+      if (!lifecycleEndPromise) {
+        lifecycleEndPromise = Promise.resolve()
+          .then(() => this.onScanLifecycle.onEnd?.())
+          .catch((error) => {
+            logger.error({ error, jobId }, 'Failed to end library scan lifecycle')
+          })
+      }
+
+      return lifecycleEndPromise
+    }
+
+    const clearWorkerState = (): void => {
+      if (this.activeWorker === worker) {
+        this.activeWorker = null
+      }
+      if (this.activeJobId === jobId) {
+        this.activeJobId = null
+        void endLifecycle()
+      }
+    }
+
+    const settleFailed = (reason: string, error?: unknown): void => {
+      if (terminalSettled) {
+        return
+      }
+
+      terminalSettled = true
+      logger.error({ error, jobId }, reason)
+
+      try {
+        this.scanJobRepository.fail(jobId, reason)
+        const status = this.scanJobRepository.getById(jobId)
+        this.publishProgress({
+          jobId,
+          status: 'failed',
+          totalFiles: status?.totalFiles ?? 0,
+          scannedFiles: status?.scannedFiles ?? 0,
+          failedFiles: status?.failedFiles ?? 0,
+          currentFile: null,
+          message: reason,
+        })
+      } catch (settlementError) {
+        logger.error({ error: settlementError, jobId }, 'Failed to persist scan failure status')
+      } finally {
+        clearWorkerState()
+      }
+    }
 
     worker.on('message', (message: LibraryScanWorkerMessage) => {
-      this.handleWorkerMessage(message)
+      if (terminalSettled || this.activeWorker !== worker || this.activeJobId !== jobId) {
+        return
+      }
+
+      const isTerminal = message.type === 'complete' || message.type === 'fatal'
+
+      try {
+        this.handleWorkerMessage(message, jobId)
+        if (isTerminal) {
+          terminalSettled = true
+          clearWorkerState()
+        }
+      } catch (error) {
+        const reason =
+          error instanceof Error ? error.message : 'Unknown error while processing worker message'
+        settleFailed(`Failed to finalize library scan: ${reason}`, error)
+      }
     })
 
     worker.on('error', (error) => {
-      logger.error({ error, jobId }, 'Library scan worker failed')
-      this.scanJobRepository.fail(jobId, error.message)
-      this.activeWorker = null
-      this.activeJobId = null
+      settleFailed(error.message, error)
     })
 
     worker.on('exit', (code) => {
-      if (code !== 0 && this.activeJobId === jobId) {
-        this.scanJobRepository.fail(jobId, `Worker exited with code ${code}`)
-        this.activeWorker = null
-        this.activeJobId = null
-      }
+      // Defer so any already-queued terminal message handlers run first.
+      setImmediate(() => {
+        if (terminalSettled || this.activeJobId !== jobId) {
+          return
+        }
+
+        const reason =
+          code === 0
+            ? 'Worker exited without completing the scan'
+            : `Worker exited with code ${code}`
+        settleFailed(reason)
+      })
     })
   }
 
-  private handleWorkerMessage(message: LibraryScanWorkerMessage): void {
+  private handleWorkerMessage(message: LibraryScanWorkerMessage, workerJobId: number): void {
     if (message.type === 'progress') {
       const progress = message.payload
       this.scanJobRepository.updateProgress(
@@ -189,69 +313,71 @@ export class LibraryScanService {
     }
 
     if (message.type === 'fatal') {
-      this.scanJobRepository.fail(message.payload.jobId, message.payload.reason)
+      this.scanJobRepository.fail(workerJobId, message.payload.reason)
+      const status = this.scanJobRepository.getById(workerJobId)
       this.publishProgress({
-        jobId: message.payload.jobId,
+        jobId: workerJobId,
         status: 'failed',
-        totalFiles: 0,
-        scannedFiles: 0,
-        failedFiles: 1,
+        totalFiles: status?.totalFiles ?? 0,
+        scannedFiles: status?.scannedFiles ?? 0,
+        failedFiles: status?.failedFiles ?? 1,
         currentFile: null,
         message: message.payload.reason,
       })
-      this.activeWorker = null
-      this.activeJobId = null
       return
     }
 
     if (message.type === 'complete') {
-      const jobId = this.activeJobId
+      const result = this.db.transaction(() => {
+        const status = this.scanJobRepository.getById(workerJobId)
 
-      if (!jobId) {
+        if (!status || status.status !== 'scanning') {
+          return null
+        }
+
+        const root = this.libraryRootRepository.getById(status.rootId)
+        if (!root) {
+          throw new Error(`Library root not found while completing scan: ${status.rootId}`)
+        }
+
+        this.libraryRootRepository.markScanned(status.rootId)
+        const restoredIds = this.trackRepository.markAvailableByFilePaths(
+          message.payload.foundFilePaths,
+        )
+        const missingIds = this.trackRepository.markMissingUnderRootExcept(
+          root.path,
+          message.payload.foundFilePaths,
+          message.payload.unreadableDirectoryPaths,
+        )
+
+        if (!this.scanJobRepository.finish(workerJobId, 'completed')) {
+          throw new Error(`Scan job was no longer active while completing: ${workerJobId}`)
+        }
+
+        return { status, restoredIds, missingIds }
+      })()
+
+      if (!result) {
         return
       }
 
-      const status = this.scanJobRepository.getById(jobId)
-
-      if (status) {
-        this.libraryRootRepository.markScanned(status.rootId)
-        this.scanJobRepository.finish(jobId, 'completed')
-
-        // Mark tracks as missing if they were not found during scan
-        const root = this.libraryRootRepository.getById(status.rootId)
-
-        if (root) {
-          const restoredIds = this.trackRepository.markAvailableByFilePaths(
-            message.payload.foundFilePaths,
-          )
-          const missingIds = this.trackRepository.markMissingUnderRootExcept(
-            root.path,
-            message.payload.foundFilePaths,
-            message.payload.unreadableDirectoryPaths,
-          )
-
-          if (restoredIds.length > 0) {
-            this.publishChanged('track-restored', restoredIds, message.payload.foundFilePaths)
-          }
-
-          if (missingIds.length > 0) {
-            this.publishChanged('track-missing', missingIds)
-          }
-        }
-
-        this.publishProgress({
-          jobId,
-          status: 'completed',
-          totalFiles: status.totalFiles,
-          scannedFiles: status.scannedFiles,
-          failedFiles: status.failedFiles,
-          currentFile: null,
-          message: 'Scan completed',
-        })
+      if (result.restoredIds.length > 0) {
+        this.publishChanged('track-restored', result.restoredIds, message.payload.foundFilePaths)
       }
 
-      this.activeWorker = null
-      this.activeJobId = null
+      if (result.missingIds.length > 0) {
+        this.publishChanged('track-missing', result.missingIds)
+      }
+
+      this.publishProgress({
+        jobId: workerJobId,
+        status: 'completed',
+        totalFiles: result.status.totalFiles,
+        scannedFiles: result.status.scannedFiles,
+        failedFiles: result.status.failedFiles,
+        currentFile: null,
+        message: 'Scan completed',
+      })
     }
   }
 
@@ -260,12 +386,26 @@ export class LibraryScanService {
     const relocatedIds: number[] = []
 
     for (const track of tracks) {
-      const match = tryRelocateMissingCandidate(this.trackRepository, track)
+      try {
+        const match = tryRelocateMissingCandidate(this.trackRepository, track)
 
-      if (match) {
-        this.trackRepository.relocateTrack(match.candidate.trackId, track)
-        relocatedIds.push(match.candidate.trackId)
-      } else {
+        if (match) {
+          const relocated = this.trackRepository.relocateTrack(match.candidate.trackId, track)
+
+          if (relocated) {
+            relocatedIds.push(match.candidate.trackId)
+          } else {
+            // Path occupied or constraint race — fall back to path upsert.
+            newTracks.push(track)
+          }
+        } else {
+          newTracks.push(track)
+        }
+      } catch (error) {
+        logger.warn(
+          { error, filePath: track.filePath },
+          'Failed to relocate/upsert scanned track; trying upsert fallback',
+        )
         newTracks.push(track)
       }
     }
@@ -275,7 +415,22 @@ export class LibraryScanService {
       const existingPaths = this.trackRepository.getExistingFilePaths(newTrackPaths)
       const addedPaths = newTrackPaths.filter((filePath) => !existingPaths.has(filePath))
 
-      this.trackRepository.upsertMany(newTracks)
+      try {
+        this.trackRepository.upsertMany(newTracks)
+      } catch (error) {
+        // One bad row must not drop the whole batch — retry per track.
+        logger.warn({ error, count: newTracks.length }, 'Batch upsert failed; retrying per track')
+        for (const track of newTracks) {
+          try {
+            this.trackRepository.upsertMany([track])
+          } catch (trackError) {
+            logger.warn(
+              { error: trackError, filePath: track.filePath },
+              'Skipping track after upsert failure',
+            )
+          }
+        }
+      }
 
       if (addedPaths.length > 0) {
         const addedIds = this.trackRepository.getTrackIdsByFilePaths(addedPaths)
@@ -290,7 +445,13 @@ export class LibraryScanService {
 
   private publishProgress(progress: LibraryScanProgress): void {
     for (const window of BrowserWindow.getAllWindows()) {
-      window.webContents.send(ipcChannels.library.scanProgress, progress)
+      try {
+        if (!window.webContents.isDestroyed()) {
+          window.webContents.send(ipcChannels.library.scanProgress, progress)
+        }
+      } catch (error) {
+        logger.warn({ error, jobId: progress.jobId }, 'Failed to publish scan progress')
+      }
     }
   }
 
@@ -300,11 +461,17 @@ export class LibraryScanService {
     filePaths: string[] = [],
   ): void {
     for (const window of BrowserWindow.getAllWindows()) {
-      window.webContents.send(ipcChannels.library.changed, {
-        reason,
-        trackIds,
-        filePaths,
-      })
+      try {
+        if (!window.webContents.isDestroyed()) {
+          window.webContents.send(ipcChannels.library.changed, {
+            reason,
+            trackIds,
+            filePaths,
+          })
+        }
+      } catch (error) {
+        logger.warn({ error, reason }, 'Failed to publish library change')
+      }
     }
   }
 }

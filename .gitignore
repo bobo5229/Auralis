@@ -43,6 +43,7 @@ genryu-font-master.zip
 # PRD & Tech Docs
 docs/*
 !docs/ARCHITECTURE.md
+!docs/2026-07-17-architecture-review-fixes.md
 
 # Performance traces
 artifacts/

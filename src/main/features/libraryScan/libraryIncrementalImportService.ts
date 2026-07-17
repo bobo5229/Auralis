@@ -49,14 +49,27 @@ export class LibraryIncrementalImportService {
         const match = tryRelocateMissingCandidate(this.trackRepository, track)
 
         if (match) {
-          this.trackRepository.relocateTrack(match.candidate.trackId, track)
-          result.imported.push(filePath)
+          const relocated = this.trackRepository.relocateTrack(match.candidate.trackId, track)
 
-          this.sendToRenderer('library:changed', {
-            reason: 'track-relocated',
-            trackIds: [match.candidate.trackId],
-            filePaths: [filePath],
-          })
+          if (relocated) {
+            result.imported.push(filePath)
+
+            this.sendToRenderer('library:changed', {
+              reason: 'track-relocated',
+              trackIds: [match.candidate.trackId],
+              filePaths: [filePath],
+            })
+          } else {
+            // Path occupied / UNIQUE race — fall back to path upsert.
+            this.trackRepository.upsertMany([track])
+            result.imported.push(filePath)
+
+            this.sendToRenderer('library:changed', {
+              reason: 'track-added',
+              trackIds: [],
+              filePaths: [filePath],
+            })
+          }
         } else {
           this.trackRepository.upsertMany([track])
           result.imported.push(filePath)

@@ -1,3 +1,4 @@
+import type { TrackListItem } from '@shared/types/libraryScan'
 import type { Playlist, PlaylistViewMode } from '@shared/types/playlist'
 import { BaseRepository } from './baseRepository'
 
@@ -61,6 +62,32 @@ export class PlaylistRepository extends BaseRepository {
       .all(id) as Array<{ trackId: number }>
 
     return rows.map((row) => row.trackId)
+  }
+
+  /** Available playlist tracks with library display fields, ordered by position. */
+  getTracks(id: number): TrackListItem[] {
+    return this.db
+      .prepare(
+        `SELECT d.id, d.title, d.artist, d.album,
+                d.album_artist AS albumArtist,
+                d.track_no AS trackNo,
+                d.disc_no AS discNo,
+                d.release_date AS releaseDate,
+                d.copyright,
+                d.duration_seconds AS durationSeconds,
+                d.artwork_cache_key AS artworkCacheKey,
+                d.genre,
+                d.availability,
+                d.play_count AS playCount,
+                d.last_played_at AS lastPlayedAt,
+                d.created_at AS createdAt
+         FROM playlist_tracks pt
+         INNER JOIN library_track_display d ON d.id = pt.track_id
+         WHERE pt.playlist_id = ?
+           AND d.availability = 'available'
+         ORDER BY pt.position ASC, pt.track_id ASC`,
+      )
+      .all(id) as TrackListItem[]
   }
 
   getTrackCounts(): PlaylistTrackCountRow[] {

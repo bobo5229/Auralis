@@ -423,40 +423,36 @@ export class TrackRepository extends BaseRepository {
   }
 
   findMissingCandidatesByIdentity(identity: NormalizedIdentity): MissingTrackCandidate[] {
+    const selectCandidates = `
+      SELECT id AS trackId,
+             file_path AS filePath,
+             title,
+             artist,
+             album,
+             duration_seconds AS durationSeconds,
+             file_size AS fileSize,
+             isrc,
+             metadata_signature AS metadataSignature,
+             missing_since AS missingSince
+      FROM tracks
+      WHERE availability = 'missing'
+    `
+
     if (identity.isrc) {
-      return this.db
-        .prepare(
-          `SELECT id AS trackId,
-                  file_path AS filePath,
-                  title,
-                  artist,
-                  album,
-                  duration_seconds AS durationSeconds,
-                  file_size AS fileSize,
-                  isrc,
-                  metadata_signature AS metadataSignature,
-                  missing_since AS missingSince
-           FROM tracks
-           WHERE availability = 'missing'
-             AND isrc = ?`,
-        )
+      const byIsrc = this.db
+        .prepare(`${selectCandidates} AND isrc = ?`)
         .all(identity.isrc) as MissingTrackCandidate[]
+
+      // Unique/ambiguous ISRC handling is done by the matcher.
+      // Only fall through to title+artist when ISRC yields zero hits.
+      if (byIsrc.length > 0) {
+        return byIsrc
+      }
     }
 
     return this.db
       .prepare(
-        `SELECT id AS trackId,
-                file_path AS filePath,
-                title,
-                artist,
-                album,
-                duration_seconds AS durationSeconds,
-                file_size AS fileSize,
-                isrc,
-                metadata_signature AS metadataSignature,
-                missing_since AS missingSince
-         FROM tracks
-         WHERE availability = 'missing'
+        `${selectCandidates}
            AND isrc IS NULL
            AND title = ?
            AND artist = ?`,
@@ -541,58 +537,86 @@ export class TrackRepository extends BaseRepository {
     }
   }
 
-  relocateTrack(trackId: number, scannedTrack: ScannedTrack): void {
-    this.db
-      .prepare(
-        `UPDATE tracks
-         SET file_path = ?,
-             file_size = ?,
-             file_mtime_ms = ?,
-             title = ?,
-             artist = ?,
-             album = ?,
-             album_artist = ?,
-             track_no = ?,
-             disc_no = ?,
-             duration_seconds = ?,
-             year = ?,
-             release_date = ?,
-             copyright = ?,
-             genre = ?,
-             lyrics_text = ?,
-             lyrics_format = ?,
-             isrc = ?,
-             metadata_signature = ?,
-             availability = 'available',
-             missing_since = NULL,
-             lyrics_checked_mtime_ms = ?,
-             metadata_checked_mtime_ms = ?,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-      )
-      .run(
-        scannedTrack.filePath,
-        scannedTrack.fileSize,
-        scannedTrack.fileMtimeMs,
-        scannedTrack.title,
-        scannedTrack.artist,
-        scannedTrack.album,
-        scannedTrack.albumArtist,
-        scannedTrack.trackNo,
-        scannedTrack.discNo,
-        scannedTrack.durationSeconds,
-        scannedTrack.year,
-        scannedTrack.releaseDate,
-        scannedTrack.copyright,
-        scannedTrack.genre,
-        scannedTrack.lyricsText,
-        scannedTrack.lyricsFormat,
-        scannedTrack.isrc,
-        scannedTrack.metadataSignature,
-        scannedTrack.fileMtimeMs,
-        scannedTrack.fileMtimeMs,
-        trackId,
-      )
+  /**
+   * Relocate a missing track onto a new path.
+   * Returns false when the target path is already occupied by another track
+   * (or a UNIQUE constraint race loses), so callers can fall back to upsert.
+   */
+  relocateTrack(trackId: number, scannedTrack: ScannedTrack): boolean {
+    const occupant = this.db
+      .prepare(`SELECT id FROM tracks WHERE file_path = ? AND id != ?`)
+      .get(scannedTrack.filePath, trackId) as { id: number } | undefined
+
+    if (occupant) {
+      return false
+    }
+
+    try {
+      const result = this.db
+        .prepare(
+          `UPDATE tracks
+           SET file_path = ?,
+               file_size = ?,
+               file_mtime_ms = ?,
+               title = ?,
+               artist = ?,
+               album = ?,
+               album_artist = ?,
+               track_no = ?,
+               disc_no = ?,
+               duration_seconds = ?,
+               year = ?,
+               release_date = ?,
+               copyright = ?,
+               genre = ?,
+               lyrics_text = ?,
+               lyrics_format = ?,
+               isrc = ?,
+               metadata_signature = ?,
+               availability = 'available',
+               missing_since = NULL,
+               lyrics_checked_mtime_ms = ?,
+               metadata_checked_mtime_ms = ?,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`,
+        )
+        .run(
+          scannedTrack.filePath,
+          scannedTrack.fileSize,
+          scannedTrack.fileMtimeMs,
+          scannedTrack.title,
+          scannedTrack.artist,
+          scannedTrack.album,
+          scannedTrack.albumArtist,
+          scannedTrack.trackNo,
+          scannedTrack.discNo,
+          scannedTrack.durationSeconds,
+          scannedTrack.year,
+          scannedTrack.releaseDate,
+          scannedTrack.copyright,
+          scannedTrack.genre,
+          scannedTrack.lyricsText,
+          scannedTrack.lyricsFormat,
+          scannedTrack.isrc,
+          scannedTrack.metadataSignature,
+          scannedTrack.fileMtimeMs,
+          scannedTrack.fileMtimeMs,
+          trackId,
+        )
+
+      return result.changes > 0
+    } catch (error) {
+      // SQLITE_CONSTRAINT (UNIQUE file_path) or other write races.
+      const code =
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code?: unknown }).code)
+          : ''
+      if (code.startsWith('SQLITE_CONSTRAINT')) {
+        return false
+      }
+
+      throw error
+    }
   }
 
   getRandomPlayableTrack(excludeTrackId?: number): PlaybackTrackDto | null {

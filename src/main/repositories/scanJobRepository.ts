@@ -79,8 +79,8 @@ export class ScanJobRepository extends BaseRepository {
     totalFiles: number,
     scannedFiles: number,
     failedFiles: number,
-  ): void {
-    this.db
+  ): boolean {
+    const result = this.db
       .prepare(
         `
           UPDATE scan_jobs
@@ -88,26 +88,32 @@ export class ScanJobRepository extends BaseRepository {
               scanned_files = ?,
               failed_files = ?
           WHERE id = ?
+            AND status = 'scanning'
         `,
       )
       .run(totalFiles, scannedFiles, failedFiles, jobId)
+
+    return result.changes > 0
   }
 
-  finish(jobId: number, status: Exclude<LibraryScanStatusValue, 'idle' | 'scanning'>): void {
-    this.db
+  finish(jobId: number, status: Exclude<LibraryScanStatusValue, 'idle' | 'scanning'>): boolean {
+    const result = this.db
       .prepare(
         `
           UPDATE scan_jobs
           SET status = ?,
               finished_at = CURRENT_TIMESTAMP
           WHERE id = ?
+            AND status = 'scanning'
         `,
       )
       .run(status, jobId)
+
+    return result.changes > 0
   }
 
-  fail(jobId: number, message: string): void {
-    this.db
+  fail(jobId: number, message: string): boolean {
+    const result = this.db
       .prepare(
         `
           UPDATE scan_jobs
@@ -115,8 +121,11 @@ export class ScanJobRepository extends BaseRepository {
               finished_at = CURRENT_TIMESTAMP,
               error_message = ?
           WHERE id = ?
+            AND status = 'scanning'
         `,
       )
       .run(message, jobId)
+
+    return result.changes > 0
   }
 }
