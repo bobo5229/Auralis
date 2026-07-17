@@ -10,13 +10,11 @@ import type {
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import { PlaylistRepository } from '@main/repositories/playlistRepository'
 import { SmartPlaylistRepository } from '@main/repositories/smartPlaylistRepository'
-import { TrackRepository } from '@main/repositories/trackRepository'
 
 export class PlaylistService {
   constructor(
     private readonly playlistRepository: PlaylistRepository,
     private readonly smartPlaylistRepository: SmartPlaylistRepository,
-    private readonly trackRepository: TrackRepository,
   ) {}
 
   list(): Playlist[] {
@@ -63,10 +61,9 @@ export class PlaylistService {
     const playlist = this.playlistRepository.getById(id)
     if (!playlist) return null
 
-    const trackIds = new Set(this.playlistRepository.getTrackIds(id))
     return {
       playlist,
-      tracks: this.trackRepository.getAll().filter((track) => trackIds.has(track.id)),
+      tracks: this.playlistRepository.getTracks(id),
     }
   }
 

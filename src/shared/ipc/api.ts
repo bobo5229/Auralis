@@ -109,7 +109,7 @@ export interface AuralisApi {
       trackId: number
       sessionId: string
       playedAtIso: string
-    }) => Promise<{ ok: boolean }>
+    }) => Promise<{ ok: boolean; recorded: boolean }>
   }
   desktopLyrics: {
     toggle: () => Promise<{ visible: boolean }>
@@ -165,3 +165,10 @@ export interface AuralisApi {
     isMaximized: () => Promise<{ maximized: boolean }>
   }
 }
+
+/** Minimal API exposed only to the desktop lyrics renderer. */
+export interface DesktopLyricsApi {
+  desktopLyrics: Pick<AuralisApi['desktopLyrics'], 'onUpdate'>
+}
+
+export type RendererApi = AuralisApi | DesktopLyricsApi

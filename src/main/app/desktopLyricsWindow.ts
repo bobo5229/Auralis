@@ -108,12 +108,14 @@ function createDesktopLyricsWindow(): BrowserWindow {
     alwaysOnTop: true,
     autoHideMenuBar: true,
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
+      // Minimal preload: only desktop lyrics push subscription (no full AuralisApi).
+      preload: join(__dirname, '../preload/desktopLyrics.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      // sandbox stays false: preload uses ESM contextBridge bridge without sandbox-compatible bundling.
       sandbox: false,
       backgroundThrottling: false,
-      webSecurity: false,
+      webSecurity: true,
     },
   })
 

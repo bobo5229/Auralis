@@ -166,7 +166,7 @@ export interface IpcInvokeContract {
   }
   'playback:record-effective-play': {
     request: { trackId: number; sessionId: string; playedAtIso: string }
-    response: { ok: boolean }
+    response: { ok: boolean; recorded: boolean }
   }
   'desktop-lyrics:toggle': {
     request: void

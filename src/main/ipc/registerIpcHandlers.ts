@@ -1,7 +1,5 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { stat } from 'node:fs/promises'
-import { extname } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { ipcChannels } from '@shared/ipc/channels'
 import { getDatabasePath } from '@main/database/connection'
 import { LibraryRepository } from '@main/repositories/libraryRepository'
@@ -13,6 +11,8 @@ import { LibraryService } from '@main/services/libraryService'
 import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
 import { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
 import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
+import { buildAudioTrackUrl, isPlayableAudioExtension } from '@main/features/audio/audioProtocol'
+import { isPathUnderAnyRoot } from '@main/features/audio/audioPathGuard'
 import { PlayStatsRepository } from '@main/repositories/playStatsRepository'
 import { PlayStatsService } from '@main/services/playStatsService'
 import { PlaylistRepository } from '@main/repositories/playlistRepository'
@@ -25,20 +25,11 @@ import type { PlaylistViewMode, SidebarPlaylistKind } from '@shared/types/playli
 import type { SmartPlaylistRule, SmartPlaylistViewMode } from '@shared/types/smartPlaylist'
 import type Database from 'better-sqlite3'
 
-const PLAYABLE_AUDIO_EXTENSIONS = new Set([
-  '.mp3',
-  '.flac',
-  '.m4a',
-  '.aac',
-  '.wav',
-  '.ogg',
-  '.opus',
-])
-
 export function registerIpcHandlers(db: Database.Database, artworkCacheDir: string): void {
   const libraryService = new LibraryService(new LibraryRepository(db), new TrackRepository(db))
   const libraryScanService = new LibraryScanService(db, artworkCacheDir)
   const trackRepository = new TrackRepository(db)
+  const libraryRootRepository = new LibraryRootRepository(db)
   const metadataRefreshService = new MetadataRefreshService(
     new MetadataRefreshRepository(db),
     artworkCacheDir,
@@ -63,22 +54,30 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     }
   }
   const metadataWatchService = new MetadataWatchService(
-    new LibraryRootRepository(db),
+    libraryRootRepository,
     trackRepository,
     metadataRefreshService,
     incrementalImportService,
     sendToRenderer,
   )
 
+  // After user tag writes, suppress watch-driven refresh so mtime churn cannot
+  // immediately re-parse and clobber user_edit metadata.
+  metadataRefreshService.setTagWriteSuccessHandler((filePath) => {
+    metadataWatchService.suppressRefreshForPath(filePath)
+  })
+
+  // Pause watch flush during full scan so concurrent imports are not marked missing.
+  libraryScanService.setScanLifecycleHooks({
+    onStart: () => metadataWatchService.pauseFlush(),
+    onEnd: () => metadataWatchService.resumeFlush(),
+  })
+
   const playStatsService = new PlayStatsService(new PlayStatsRepository(db))
   const playlistRepository = new PlaylistRepository(db)
   const smartPlaylistRepository = new SmartPlaylistRepository(db)
   const smartPlaylistService = new SmartPlaylistService(smartPlaylistRepository, trackRepository)
-  const playlistService = new PlaylistService(
-    playlistRepository,
-    smartPlaylistRepository,
-    trackRepository,
-  )
+  const playlistService = new PlaylistService(playlistRepository, smartPlaylistRepository)
 
   const getSmartTrackCounts = () =>
     new Map(
@@ -122,7 +121,7 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
 
   ipcMain.handle(
     ipcChannels.library.startScan,
-    (_event, payload: { rootId: number }): IpcResponse<'library:start-scan'> =>
+    (_event, payload: { rootId: number }): Promise<IpcResponse<'library:start-scan'>> =>
       libraryScanService.startScan(payload.rootId),
   )
 
@@ -286,19 +285,27 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
         return null
       }
 
-      const ext = extname(filePath).toLowerCase()
-
-      if (!PLAYABLE_AUDIO_EXTENSIONS.has(ext)) {
+      if (!isPlayableAudioExtension(filePath)) {
         return null
       }
 
-      const fileStats = await stat(filePath)
+      const rootPaths = libraryRootRepository.list().map((root) => root.path)
 
-      if (!fileStats.isFile()) {
+      if (!isPathUnderAnyRoot(filePath, rootPaths)) {
         return null
       }
 
-      return { url: pathToFileURL(filePath).toString() }
+      try {
+        const fileStats = await stat(filePath)
+
+        if (!fileStats.isFile()) {
+          return null
+        }
+      } catch {
+        return null
+      }
+
+      return { url: buildAudioTrackUrl(payload.trackId) }
     },
   )
 
@@ -332,7 +339,7 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
       payload: { trackId: number; sessionId: string; playedAtIso: string },
     ): IpcResponse<'playback:record-effective-play'> => {
       const result = playStatsService.recordEffectivePlay(payload)
-      if (result.ok) {
+      if (result.ok && result.recorded) {
         sendToRenderer(ipcChannels.library.changed, {
           reason: 'play-stats-updated',
           trackIds: [payload.trackId],

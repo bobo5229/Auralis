@@ -13,6 +13,13 @@ export class PlayStatsRepository extends BaseRepository {
     super(db)
   }
 
+  trackExists(trackId: number): boolean {
+    const row = this.db.prepare('SELECT 1 AS ok FROM tracks WHERE id = ?').get(trackId) as
+      | { ok: number }
+      | undefined
+    return row !== undefined
+  }
+
   incrementPlayCount(trackId: number, playedAtIso: string, localPlayDate: string): void {
     const incrementTrack = this.db.prepare(`
       INSERT INTO track_play_stats (track_id, play_count, last_played_at, updated_at)

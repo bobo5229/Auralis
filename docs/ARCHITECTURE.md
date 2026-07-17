@@ -65,7 +65,7 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 - Electron 主进程入口：`src/main/index.ts`
 - 主窗口创建：`src/main/app/createWindow.ts`
 - 桌面歌词窗口：`src/main/app/desktopLyricsWindow.ts`
-- preload 入口：`src/preload/index.ts`
+- 主窗口/桌面歌词 preload：`src/preload/index.ts`、`src/preload/desktopLyrics.ts`
 - renderer HTML 入口：`src/renderer/index.html`
 - Vue 启动入口：`src/renderer/main.ts`
 - 主 Vue 应用：`src/renderer/App.vue`
@@ -76,7 +76,7 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 - 元数据刷新 worker：`src/main/features/metadata/metadataRefreshWorker.ts`
 
 启动时，`src/main/index.ts` 设置开发数据目录和 GPU 开关，注册桌面歌词 IPC，
-等待 Electron ready，随后注册封面协议、初始化并迁移数据库、注册业务 IPC，
+等待 Electron ready，随后注册封面/音频协议、初始化并迁移数据库、注册业务 IPC，
 最后创建窗口。退出前会关闭 SQLite。
 
 ## 5. 核心模块与依赖方向
@@ -95,7 +95,7 @@ Vue UI -> preload typed API -> Electron IPC handler -> Service -> Repository -> 
 - IPC channel 常量：`src/shared/ipc/channels.ts`
 - 请求和响应映射：`src/shared/ipc/contracts.ts`
 - renderer 可见 API：`src/shared/ipc/api.ts`
-- preload 实现：`src/preload/index.ts`
+- preload 实现：`src/preload/index.ts`、`src/preload/desktopLyrics.ts`
 - renderer 端调用辅助：`src/renderer/shared/ipc/client.ts`
 
 新增或修改 IPC 时，必须同步维护 channels、contracts、api、preload 和 handler。
@@ -115,6 +115,7 @@ renderer 不得绕过 `window.auralis` 直接使用 Electron 能力。
 - 元数据标准化：`src/main/features/metadata/metadataNormalizer.ts`
 - 歌词解析：`src/main/features/metadata/resolveLyricsForFile.ts`
 - 封面解析与缓存：`src/main/features/artwork/`
+- 音频协议与路径校验：`src/main/features/audio/`
 
 ### 5.3 数据访问层
 
@@ -203,7 +204,7 @@ renderer 可以持有 UI 状态、播放用的 HTML media element、动画和派
 - Electron 操作系统接口，如窗口、目录选择器和文件监听。
 - renderer 与主进程之间的 typed IPC API。
 - 只读封面自定义协议 `auralis-artwork://`。
-- 播放文件 URL，由主进程校验曲目和扩展名后返回给 renderer。
+- 音频协议 `auralis-audio://`；主进程校验曲目、扩展名和 library root 后流式响应。
 
 若未来增加网络服务，调用必须位于主进程 service 层，并通过 typed IPC 暴露；
 renderer 不应直接持有密钥或实现持久化业务逻辑。
@@ -271,9 +272,9 @@ npm.cmd run build
 ## 12. 已知历史包袱与危险区域
 
 - `README.md` 的“初始化阶段/尚未实现扫描和播放”等描述已经过时。
-- `.gitignore` 忽略 `docs/` 中除本文外的文件；新增正式文档时需明确决定是否跟踪。
-- `src/main/app/createWindow.ts` 目前设置 `sandbox: false` 和 `webSecurity: false`，
-  开发分支还追加 `no-sandbox`。这是明确的安全债务，不能假设 renderer 内容可信。
+- `.gitignore` 默认忽略 `docs/`，但放行本文和 2026-07-17 修复记录；新增正式文档时需明确决定是否跟踪。
+- 主窗和桌面歌词窗已启用 `webSecurity`，但仍设置 `sandbox: false`，开发分支还追加
+  `no-sandbox`。sandbox 仍是安全债务，不能假设 renderer 内容可信。
 - 自定义窗口无系统 frame，并依赖 renderer ready 信号与 5 秒 fallback；
   改动启动流程时要验证白屏、崩溃和加载失败路径。
 - `src/main/ipc/registerIpcHandlers.ts` 同时负责依赖组装和大量 handler，体积与耦合较高。

@@ -400,7 +400,8 @@ async function confirmDelete(): Promise<void> {
 onMounted(() => {
   void loadSidebarPlaylists()
   void loadSidebarStats()
-  unsubscribeLibraryChanged = auralis.library.onChanged(() => {
+  unsubscribeLibraryChanged = auralis.library.onChanged((event) => {
+    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
     void loadSidebarStats()
   })
   window.addEventListener('auralis-playlists-changed', onPlaylistsChanged)

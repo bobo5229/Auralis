@@ -304,7 +304,11 @@ onMounted(async () => {
   }
 
   restoreScrollFrame = requestAnimationFrame(restoreScrollPosition)
-  unsubscribeChanged = auralis.library.onChanged(reloadAlbums)
+  unsubscribeChanged = auralis.library.onChanged((event) => {
+    // Play-count ticks must not full-reload album summaries
+    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
+    void reloadAlbums()
+  })
 })
 
 onBeforeUnmount(() => {

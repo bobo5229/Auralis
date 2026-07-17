@@ -218,9 +218,11 @@ function tryRecordEffectivePlay(session: PlayCountSession): void {
 
   auralis.playback
     .recordEffectivePlay(payload)
-    .then(() => {
+    .then((result) => {
       // Only mark counted after successful persistence
-      session.counted = true
+      if (result.ok) {
+        session.counted = true
+      }
     })
     .catch((err) => {
       console.warn('[Auralis playback] Failed to record play count', err)

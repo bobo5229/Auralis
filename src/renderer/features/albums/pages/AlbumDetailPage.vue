@@ -263,7 +263,11 @@ onMounted(async () => {
   await reloadTracks()
   await nextTick()
   showSearchResultHighlight()
-  unsubscribeChanged = auralis.library.onChanged(reloadTracks)
+  unsubscribeChanged = auralis.library.onChanged((event) => {
+    // Play-count ticks must not full-reload album tracks
+    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
+    void reloadTracks()
+  })
   document.addEventListener('pointermove', onDocumentPointerMove, { passive: true })
   document.addEventListener('pointerout', onDocumentPointerOut)
   window.addEventListener('blur', resetCoverTracking)

@@ -30,6 +30,8 @@ function touchCacheEntry(key: string, entry: PaletteCacheEntry): void {
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image()
+    // Required when webSecurity is on and artwork is served via auralis-artwork://
+    image.crossOrigin = 'anonymous'
     image.decoding = 'async'
     image.onload = () => resolve(image)
     image.onerror = () => reject(new Error('Unable to load artwork for palette extraction'))

@@ -140,26 +140,32 @@ export class MetadataRefreshRepository extends BaseRepository {
     return Number(result.lastInsertRowid)
   }
 
-  updateJobProgress(jobId: number, processed: number, failed: number): void {
-    this.db
+  updateJobProgress(jobId: number, processed: number, failed: number): boolean {
+    const result = this.db
       .prepare(
         `UPDATE metadata_refresh_jobs
          SET processed_tracks = ?, failed_tracks = ?
-         WHERE id = ?`,
+         WHERE id = ?
+           AND status = 'running'`,
       )
       .run(processed, failed, jobId)
+
+    return result.changes > 0
   }
 
-  completeJob(jobId: number, errorMessage?: string): void {
-    this.db
+  completeJob(jobId: number, errorMessage?: string): boolean {
+    const result = this.db
       .prepare(
         `UPDATE metadata_refresh_jobs
          SET status = CASE WHEN ? IS NULL THEN 'completed' ELSE 'failed' END,
              finished_at = CURRENT_TIMESTAMP,
              error_message = ?
-         WHERE id = ?`,
+         WHERE id = ?
+           AND status = 'running'`,
       )
       .run(errorMessage ?? null, errorMessage ?? null, jobId)
+
+    return result.changes > 0
   }
 
   markInterruptedJobs(): void {
@@ -526,6 +532,12 @@ export class MetadataRefreshRepository extends BaseRepository {
   }
 
   updateTrackMetadata(result: RefreshedTrackMetadata): void {
+    const existingSource = this.db
+      .prepare(`SELECT source FROM track_metadata WHERE track_id = ?`)
+      .get(result.trackId) as { source: string } | undefined
+    const preserveUserEdit = existingSource?.source === 'user_edit'
+
+    // Full file_tag write — skipped when user_edit must be preserved.
     const upsertTrackMetadata = this.db.prepare(`
       INSERT INTO track_metadata (
         track_id,
@@ -556,9 +568,27 @@ export class MetadataRefreshRepository extends BaseRepository {
         artwork_cache_key = excluded.artwork_cache_key,
         source = excluded.source,
         refreshed_at = CURRENT_TIMESTAMP
+      WHERE track_metadata.source IS NOT 'user_edit'
     `)
 
-    const updateTrack = this.db.prepare(`
+    // Technical + non-display fields only (keeps user-edited display columns).
+    const updateTrackTechnical = this.db.prepare(`
+      UPDATE tracks
+      SET track_no = ?,
+          disc_no = ?,
+          duration_seconds = ?,
+          copyright = ?,
+          lyrics_text = ?,
+          lyrics_format = ?,
+          isrc = ?,
+          metadata_signature = ?,
+          lyrics_checked_mtime_ms = file_mtime_ms,
+          metadata_checked_mtime_ms = file_mtime_ms,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `)
+
+    const updateTrackFull = this.db.prepare(`
       UPDATE tracks
       SET title = ?,
           artist = ?,
@@ -579,6 +609,17 @@ export class MetadataRefreshRepository extends BaseRepository {
           metadata_checked_mtime_ms = file_mtime_ms,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
+    `)
+
+    // When preserving user_edit, still refresh lyrics/artwork side-data on track_metadata.
+    const patchUserEditSideData = this.db.prepare(`
+      UPDATE track_metadata
+      SET lyrics_text = ?,
+          lyrics_format = ?,
+          artwork_cache_key = COALESCE(?, artwork_cache_key),
+          refreshed_at = CURRENT_TIMESTAMP
+      WHERE track_id = ?
+        AND source = 'user_edit'
     `)
 
     const upsertAlbum = this.db.prepare(`
@@ -623,6 +664,28 @@ export class MetadataRefreshRepository extends BaseRepository {
         metadata.albumArtistDisplay || metadata.albumArtist || artistDisplay
       const genreDisplay = metadata.genres.length > 0 ? metadata.genres.join(', ') : metadata.genre
 
+      if (preserveUserEdit) {
+        // Keep user_edit display fields / source; still refresh technical + lyrics data.
+        patchUserEditSideData.run(
+          metadata.lyricsText,
+          metadata.lyricsFormat,
+          metadata.artworkCacheKey,
+          metadata.trackId,
+        )
+        updateTrackTechnical.run(
+          metadata.trackNo,
+          metadata.discNo,
+          metadata.durationSeconds,
+          metadata.copyright,
+          metadata.lyricsText,
+          metadata.lyricsFormat,
+          metadata.isrc,
+          metadata.metadataSignature,
+          metadata.trackId,
+        )
+        return
+      }
+
       upsertTrackMetadata.run(
         metadata.trackId,
         metadata.title,
@@ -637,7 +700,7 @@ export class MetadataRefreshRepository extends BaseRepository {
         metadata.artworkCacheKey,
       )
 
-      updateTrack.run(
+      updateTrackFull.run(
         metadata.title,
         artistDisplay,
         albumTitle,

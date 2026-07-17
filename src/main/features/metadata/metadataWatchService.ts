@@ -31,6 +31,8 @@ const MAX_UNSTABLE_RETRIES = 40 // ~2 min total (40 * 3s)
 const MISSING_CONFIRM_DELAY_MS = 5000
 const RELOCATION_WINDOW_MS = 60000
 const MAX_STAT_RETRIES = 10
+/** Suppress watch-triggered metadata refresh after a successful user tag write. */
+const TAG_WRITE_REFRESH_SUPPRESS_MS = 8000
 
 /**
  * Error codes that indicate a file is temporarily inaccessible rather than deleted.
@@ -65,8 +67,13 @@ export class MetadataWatchService {
   private readonly pendingMissingFilePaths = new Map<string, number>()
   private readonly recentMissingCandidates = new Map<number, MissingTrackCandidate>()
   private readonly statRetries = new Map<string, number>()
+  /** filePath → suppress refresh until epoch ms */
+  private readonly suppressRefreshUntil = new Map<string, number>()
+  /** Watch work that may eventually write to the library database. */
+  private readonly activeOperations = new Set<Promise<void>>()
   private flushTimer: ReturnType<typeof setTimeout> | null = null
   private missingConfirmationTimer: ReturnType<typeof setTimeout> | null = null
+  private flushPaused = false
 
   constructor(
     private readonly libraryRootRepository: LibraryRootRepository,
@@ -87,6 +94,8 @@ export class MetadataWatchService {
 
     this.watchers.clear()
     this.statRetries.clear()
+    this.suppressRefreshUntil.clear()
+    this.flushPaused = false
 
     if (this.flushTimer) {
       clearTimeout(this.flushTimer)
@@ -97,6 +106,64 @@ export class MetadataWatchService {
       clearTimeout(this.missingConfirmationTimer)
       this.missingConfirmationTimer = null
     }
+  }
+
+  /**
+   * Pause pending-file flush while a full library scan runs so watch imports
+   * cannot race markMissingUnderRootExcept on scan complete.
+   */
+  async pauseFlush(): Promise<void> {
+    this.flushPaused = true
+    if (this.flushTimer) {
+      clearTimeout(this.flushTimer)
+      this.flushTimer = null
+    }
+
+    if (this.missingConfirmationTimer) {
+      clearTimeout(this.missingConfirmationTimer)
+      this.missingConfirmationTimer = null
+    }
+
+    // A flush may already be past its initial pause check and waiting on file
+    // I/O. Full scans must not start until all such work (including imports
+    // spawned by that flush) has completed.
+    while (this.activeOperations.size > 0) {
+      await Promise.allSettled([...this.activeOperations])
+    }
+  }
+
+  resumeFlush(): void {
+    this.flushPaused = false
+    if (this.pendingFilePaths.size > 0) {
+      this.scheduleFlush()
+    }
+    if (this.pendingMissingFilePaths.size > 0) {
+      this.scheduleMissingConfirmation()
+    }
+  }
+
+  /**
+   * After a successful tag write, ignore watch-driven metadata refresh for this
+   * path briefly so the write mtime change cannot clobber user_edit via refresh.
+   */
+  suppressRefreshForPath(filePath: string, durationMs = TAG_WRITE_REFRESH_SUPPRESS_MS): void {
+    const normalizedPath = normalize(filePath)
+    this.suppressRefreshUntil.set(normalizedPath, Date.now() + durationMs)
+    // Drop any already-queued refresh for this path.
+    this.pendingFilePaths.delete(normalizedPath)
+    this.deferredFilePaths.delete(normalizedPath)
+  }
+
+  private isRefreshSuppressed(filePath: string): boolean {
+    const until = this.suppressRefreshUntil.get(normalize(filePath))
+    if (until === undefined) {
+      return false
+    }
+    if (Date.now() >= until) {
+      this.suppressRefreshUntil.delete(normalize(filePath))
+      return false
+    }
+    return true
   }
 
   syncRoots(): void {
@@ -168,17 +235,33 @@ export class MetadataWatchService {
   }
 
   private scheduleFlush(delay = WATCH_DEBOUNCE_MS): void {
+    if (this.flushPaused) {
+      return
+    }
+
     if (this.flushTimer) {
       clearTimeout(this.flushTimer)
     }
 
     this.flushTimer = setTimeout(() => {
       this.flushTimer = null
-      this.flushPending()
+      this.runOperation(() => this.flushPending())
     }, delay)
   }
 
+  private runOperation(operation: () => Promise<void>): void {
+    const promise = operation().catch((error) => {
+      logger.warn({ error }, 'Metadata watch operation failed')
+    })
+    this.activeOperations.add(promise)
+    void promise.finally(() => this.activeOperations.delete(promise))
+  }
+
   private async flushPending(): Promise<void> {
+    if (this.flushPaused) {
+      return
+    }
+
     const filePaths = [...this.pendingFilePaths.keys()]
     this.pendingFilePaths.clear()
 
@@ -241,15 +324,16 @@ export class MetadataWatchService {
       const knownFilePaths = existingPaths.filter((p) => knownPaths.has(p))
       const newFilePaths = existingPaths.filter((p) => !knownPaths.has(p))
 
-      // Known tracks: metadata refresh
-      if (knownFilePaths.length > 0) {
-        const trackIds = this.trackRepository.getTrackIdsByFilePaths(knownFilePaths)
+      // Known tracks: metadata refresh (skip paths suppressed after tag write)
+      const refreshablePaths = knownFilePaths.filter((p) => !this.isRefreshSuppressed(p))
+      if (refreshablePaths.length > 0) {
+        const trackIds = this.trackRepository.getTrackIdsByFilePaths(refreshablePaths)
 
         if (trackIds.length > 0) {
           try {
             this.metadataRefreshService.refreshTracksFromFileChanges(trackIds)
           } catch (error) {
-            this.requeuePaths(knownFilePaths)
+            this.requeuePaths(refreshablePaths)
             logger.info(
               { error, count: trackIds.length },
               'Deferring metadata refresh for file changes',
@@ -261,7 +345,7 @@ export class MetadataWatchService {
 
       // New tracks: import with relocation matching
       if (newFilePaths.length > 0) {
-        this.importWithRelocationMatch(newFilePaths)
+        await this.importWithRelocationMatch(newFilePaths)
       }
     }
 
@@ -279,12 +363,16 @@ export class MetadataWatchService {
   }
 
   private scheduleMissingConfirmation(): void {
+    if (this.flushPaused) {
+      return
+    }
+
     if (this.missingConfirmationTimer) {
       clearTimeout(this.missingConfirmationTimer)
     }
     this.missingConfirmationTimer = setTimeout(() => {
       this.missingConfirmationTimer = null
-      void this.confirmMissing()
+      this.runOperation(() => this.confirmMissing())
     }, MISSING_CONFIRM_DELAY_MS)
   }
 
@@ -401,7 +489,7 @@ export class MetadataWatchService {
 
     // Import unmatched files via normal import (includes DB matching)
     if (unmatchedPaths.length > 0) {
-      this.importWithRetry(unmatchedPaths)
+      await this.importWithRetry(unmatchedPaths)
     } else {
       // All relocated, release in-flight for relocated paths
       for (const filePath of relocatedFilePaths) {
@@ -455,7 +543,14 @@ export class MetadataWatchService {
       const candidates = [...this.recentMissingCandidates.values()]
       const match = findUniqueRelocationCandidate(candidates, fileIdentity)
       if (match) {
-        this.trackRepository.relocateTrack(match.trackId, scannedTrack)
+        const relocated = this.trackRepository.relocateTrack(match.trackId, scannedTrack)
+        if (!relocated) {
+          logger.warn(
+            { filePath, trackId: match.trackId },
+            'Relocation skipped due to path occupancy or UNIQUE conflict',
+          )
+          return null
+        }
         return match
       }
     } catch (error) {

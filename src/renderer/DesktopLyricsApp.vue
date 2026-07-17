@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
+import { desktopLyricsApi } from './shared/ipc/desktopLyricsClient'
 
 const fallbackPayload: DesktopLyricsPayload = {
   trackId: null,
@@ -14,7 +15,7 @@ const fallbackPayload: DesktopLyricsPayload = {
 
 const payload = ref<DesktopLyricsPayload>(fallbackPayload)
 
-const unsubscribeUpdate = window.auralis.desktopLyrics.onUpdate((nextPayload) => {
+const unsubscribeUpdate = desktopLyricsApi.desktopLyrics.onUpdate((nextPayload) => {
   payload.value = nextPayload
 })
 

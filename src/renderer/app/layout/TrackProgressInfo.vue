@@ -103,13 +103,17 @@ function getProgressRatioFromPointer(event: PointerEvent, target: HTMLElement): 
   return Math.min(1, Math.max(0, ratio))
 }
 
-function seekProgressFromPointer(event: PointerEvent): void {
+function updateDraggingProgressFromPointer(event: PointerEvent): void {
   if (!playback.state.duration) return
 
   const target = event.currentTarget as HTMLElement
   const ratio = getProgressRatioFromPointer(event, target)
   draggingProgressRatio.value = ratio
-  playback.seekByRatio(ratio)
+}
+
+function commitDraggingProgress(): void {
+  if (draggingProgressRatio.value === null) return
+  playback.seekByRatio(draggingProgressRatio.value)
 }
 
 function handleProgressPointerDown(event: PointerEvent): void {
@@ -119,19 +123,20 @@ function handleProgressPointerDown(event: PointerEvent): void {
   isDraggingProgress.value = true
   target.setPointerCapture(event.pointerId)
   event.preventDefault()
-  seekProgressFromPointer(event)
+  updateDraggingProgressFromPointer(event)
 }
 
 function handleProgressPointerMove(event: PointerEvent): void {
   if (!isDraggingProgress.value) return
 
-  seekProgressFromPointer(event)
+  updateDraggingProgressFromPointer(event)
 }
 
 function handleProgressPointerUp(event: PointerEvent): void {
   if (!isDraggingProgress.value) return
 
-  seekProgressFromPointer(event)
+  updateDraggingProgressFromPointer(event)
+  commitDraggingProgress()
   const target = event.currentTarget as HTMLElement
 
   if (target.hasPointerCapture(event.pointerId)) {
