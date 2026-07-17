@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import type { AppInfo } from '@shared/types/app'
-import type { ThemeMode } from '@renderer/composables/useTheme'
-import { useTheme } from '@renderer/composables/useTheme'
 import { auralis } from '@renderer/shared/ipc/client'
 import MusicLibrarySettings from '../components/MusicLibrarySettings.vue'
 
@@ -17,7 +15,7 @@ const sections: Array<{
   {
     id: 'appearance',
     label: '外观',
-    description: '选择 Auralis 的显示方式',
+    description: '当前显示主题',
     icon: 'i-lucide-palette',
   },
   {
@@ -34,23 +32,11 @@ const sections: Array<{
   },
 ]
 
-const selectedSection = ref<SettingsSection>('appearance')
+const selectedSection = ref<SettingsSection>('library')
 const appInfo = ref<AppInfo | null>(null)
 const appInfoError = ref(false)
 const copyState = ref<'idle' | 'copied' | 'failed'>('idle')
 let copyStateTimer: number | undefined
-
-const { theme, isThemeTransitioning, setTheme } = useTheme()
-
-async function selectTheme(nextTheme: ThemeMode, event: MouseEvent): Promise<void> {
-  await setTheme(nextTheme, {
-    animate: true,
-    origin: {
-      x: event.clientX,
-      y: event.clientY,
-    },
-  })
-}
 
 async function copyDatabasePath(): Promise<void> {
   if (!appInfo.value?.databasePath) return
@@ -83,7 +69,7 @@ onMounted(async () => {
     <header class="settings-header">
       <p class="settings-eyebrow">偏好设置</p>
       <h1>设置</h1>
-      <p>调整 Auralis 的外观，管理你的本地音乐资料库。</p>
+      <p>管理你的本地音乐资料库，查看应用信息。</p>
     </header>
 
     <div class="settings-layout">
@@ -110,73 +96,29 @@ onMounted(async () => {
             <span class="settings-section-icon i-lucide-palette"></span>
             <div>
               <h2>外观</h2>
-              <p>选择最适合当下环境的显示主题。</p>
+              <p>当前固定为深色主题，便于封面流光与夜间聆听。</p>
             </div>
           </div>
 
-          <div class="theme-options" role="radiogroup" aria-label="显示主题">
-            <button
-              type="button"
-              class="theme-option"
-              :class="{ 'is-selected': theme === 'light' }"
-              role="radio"
-              :aria-checked="theme === 'light'"
-              :disabled="isThemeTransitioning"
-              @click="selectTheme('light', $event)"
-            >
-              <span class="theme-preview theme-preview--light">
-                <span class="theme-preview-sidebar"></span>
-                <span class="theme-preview-main">
-                  <i></i>
-                  <i></i>
-                  <i></i>
-                </span>
-                <span class="theme-preview-player"></span>
+          <div class="theme-status" aria-label="显示主题">
+            <span class="theme-preview theme-preview--dark" aria-hidden="true">
+              <span class="theme-preview-sidebar"></span>
+              <span class="theme-preview-main">
+                <i></i>
+                <i></i>
+                <i></i>
               </span>
-              <span class="theme-option-footer">
-                <span>
-                  <strong>浅色</strong>
-                  <small>明亮、干净的纸张质感</small>
-                </span>
-                <span class="theme-check">
-                  <span v-if="theme === 'light'" class="i-lucide-check"></span>
-                </span>
-              </span>
-            </button>
-
-            <button
-              type="button"
-              class="theme-option"
-              :class="{ 'is-selected': theme === 'dark' }"
-              role="radio"
-              :aria-checked="theme === 'dark'"
-              :disabled="isThemeTransitioning"
-              @click="selectTheme('dark', $event)"
-            >
-              <span class="theme-preview theme-preview--dark">
-                <span class="theme-preview-sidebar"></span>
-                <span class="theme-preview-main">
-                  <i></i>
-                  <i></i>
-                  <i></i>
-                </span>
-                <span class="theme-preview-player"></span>
-              </span>
-              <span class="theme-option-footer">
-                <span>
-                  <strong>深色</strong>
-                  <small>安静、专注的夜间体验</small>
-                </span>
-                <span class="theme-check">
-                  <span v-if="theme === 'dark'" class="i-lucide-check"></span>
-                </span>
-              </span>
-            </button>
+              <span class="theme-preview-player"></span>
+            </span>
+            <div class="theme-status-copy">
+              <strong>深色</strong>
+              <small>浅色主题已暂时下线；主题 API 仍保留，便于日后恢复多主题。</small>
+            </div>
           </div>
 
           <p class="settings-note">
             <span class="i-lucide-info"></span>
-            主题选择会自动保存在这台设备上。
+            应用始终使用深色界面。
           </p>
         </section>
 
@@ -472,64 +414,27 @@ onMounted(async () => {
   font-size: 12px;
 }
 
-.theme-options {
+.theme-status {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr);
   gap: 20px;
-}
-
-/* Theme Option Cards Redesign (Stereo Glassmorphism) */
-.theme-option {
-  position: relative;
-  padding: 8px;
+  align-items: center;
+  padding: 12px;
   border: 1px solid var(--auralis-border-subtle);
   border-radius: 20px;
-  color: var(--auralis-text);
   background: color-mix(in srgb, var(--auralis-sidebar-bg) 65%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  text-align: left;
-  cursor: pointer;
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.03),
-    inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 12%, transparent);
 }
 
-.theme-option:hover {
-  transform: translateY(-4px);
-  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 40%, transparent);
-  box-shadow:
-    0 16px 36px color-mix(in srgb, var(--auralis-text) 8%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 25%, transparent);
-}
-
-.theme-option.is-selected {
-  border-color: var(--auralis-sidebar-active-indicator);
-  box-shadow:
-    0 0 0 1px var(--auralis-sidebar-active-indicator),
-    0 16px 36px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-.theme-option:disabled {
-  cursor: default;
-}
-
-/* Micro Mockup inside Theme preview */
 .theme-preview {
   position: relative;
   display: grid;
   grid-template-columns: 27% 1fr;
-  height: 154px;
+  height: 132px;
   overflow: hidden;
   border: 1px solid rgba(120, 120, 120, 0.12);
   border-radius: 14px;
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.theme-preview--light {
-  background: #ffffff;
 }
 
 .theme-preview--dark {
@@ -538,13 +443,6 @@ onMounted(async () => {
 
 .theme-preview-sidebar {
   border-right: 1px solid rgba(120, 120, 120, 0.08);
-}
-
-.theme-preview--light .theme-preview-sidebar {
-  background: #f6f6f7;
-}
-
-.theme-preview--dark .theme-preview-sidebar {
   background: #232324;
 }
 
@@ -552,20 +450,13 @@ onMounted(async () => {
   display: grid;
   align-content: start;
   gap: 9px;
-  padding: 28px 16px;
+  padding: 24px 14px;
 }
 
 .theme-preview-main i {
   display: block;
-  height: 19px;
+  height: 16px;
   border-radius: 5px;
-}
-
-.theme-preview--light .theme-preview-main i {
-  background: #eff1f3;
-}
-
-.theme-preview--dark .theme-preview-main i {
   background: #2a2c2f;
 }
 
@@ -580,69 +471,28 @@ onMounted(async () => {
   right: 12%;
   bottom: 9px;
   left: 34%;
-  height: 23px;
+  height: 20px;
   border: 1px solid rgba(120, 120, 120, 0.08);
   border-radius: 8px;
+  background: rgba(35, 35, 36, 0.95);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
-.theme-preview--light .theme-preview-player {
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.theme-preview--dark .theme-preview-player {
-  background: rgba(35, 35, 36, 0.95);
-}
-
-.theme-option-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 8px 8px;
-}
-
-.theme-option-footer > span:first-child {
+.theme-status-copy {
   display: grid;
-  gap: 3px;
+  gap: 6px;
+  min-width: 0;
 }
 
-.theme-option-footer strong {
-  font-size: 13px;
+.theme-status-copy strong {
+  font-size: 15px;
   font-weight: 700;
 }
 
-.theme-option-footer small {
+.theme-status-copy small {
   color: var(--auralis-text-subtle);
-  font-size: 10px;
-  font-weight: 500;
-}
-
-.theme-check {
-  display: grid;
-  flex: 0 0 19px;
-  width: 19px;
-  height: 19px;
-  place-items: center;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 50%;
-  transition: all 0.2s ease;
-}
-
-.is-selected .theme-check {
-  border-color: var(--auralis-sidebar-active-indicator);
-  color: white;
-  background: linear-gradient(
-    135deg,
-    var(--auralis-sidebar-active-indicator) 40%,
-    var(--auralis-sidebar-active-text)
-  );
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 30%, transparent);
-}
-
-.theme-check span {
-  width: 12px;
-  height: 12px;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .settings-note {
@@ -878,7 +728,7 @@ onMounted(async () => {
     margin-bottom: 22px;
   }
 
-  .theme-options {
+  .theme-status {
     grid-template-columns: 1fr;
   }
 

@@ -5,15 +5,12 @@ import type { LibraryStats } from '@shared/types/app'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import { useRoute } from 'vue-router'
-import { useTheme } from '@renderer/composables/useTheme'
 import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
 import { auralis } from '@renderer/shared/ipc/client'
 
 const route = useRoute()
 const router = useRouter()
-const { isDark, nextThemeLabel, isThemeTransitioning, toggleThemeFromElement } = useTheme()
-const themeButton = ref<HTMLButtonElement>()
 const isFacetsDialogOpen = ref(false)
 const playlistItems = ref<SidebarPlaylistItem[]>([])
 const libraryStats = ref<LibraryStats>({ trackCount: 0, albumCount: 0 })
@@ -45,10 +42,6 @@ let unsubscribeLibraryChanged: (() => void) | null = null
 const LONG_PRESS_DELAY_MS = 280
 const POINTER_MOVE_TOLERANCE = 6
 
-function handleThemeToggle(): void {
-  if (!themeButton.value) return
-  toggleThemeFromElement(themeButton.value)
-}
 const activePath = ref(route.path)
 
 const primaryNav = [
@@ -460,48 +453,39 @@ function close(): void {
       ></button>
     </div>
     <header class="sidebar-header">
-      <div class="sidebar-brand">
-        <span class="sidebar-brand-mark" aria-hidden="true">
-          <span class="i-lucide-audio-waveform"></span>
-        </span>
-        <div class="sidebar-brand-copy">
-          <div class="sidebar-brand-name">Auralis</div>
-          <div class="sidebar-brand-caption">本地音乐档案</div>
+      <div class="sidebar-header-main">
+        <div class="sidebar-brand">
+          <span class="sidebar-brand-mark" aria-hidden="true">
+            <span class="i-lucide-audio-waveform"></span>
+          </span>
+          <div class="sidebar-brand-copy">
+            <div class="sidebar-brand-name">Auralis</div>
+            <div class="sidebar-brand-caption">本地音乐档案</div>
+          </div>
         </div>
-      </div>
-      <div class="sidebar-tool-strip">
-        <button
-          class="sidebar-tool-button"
-          type="button"
-          aria-label="筛选面板"
-          title="筛选面板"
-          @click="isFacetsDialogOpen = true"
-        >
-          <span class="i-lucide-columns-3"></span>
-        </button>
-        <RouterLink
-          to="/settings"
-          class="sidebar-tool-button"
-          :class="{ 'sidebar-tool-button-active': activePath === '/settings' }"
-          aria-label="设置"
-          title="设置"
-          @pointerdown="setPendingActiveFromPointer($event, '/settings')"
-          @keydown.enter="setPendingActive('/settings')"
-          @keydown.space="setPendingActive('/settings')"
-        >
-          <span class="i-lucide-settings"></span>
-        </RouterLink>
-        <button
-          ref="themeButton"
-          class="sidebar-tool-button"
-          type="button"
-          :aria-label="nextThemeLabel"
-          :title="nextThemeLabel"
-          :aria-disabled="isThemeTransitioning"
-          @click="handleThemeToggle"
-        >
-          <span :class="isDark ? 'i-lucide-sun' : 'i-lucide-moon'"></span>
-        </button>
+        <div class="sidebar-tool-cluster" role="toolbar" aria-label="侧栏工具">
+          <button
+            class="sidebar-tool-button"
+            type="button"
+            aria-label="筛选面板"
+            title="筛选"
+            @click="isFacetsDialogOpen = true"
+          >
+            <span class="i-lucide-list-filter"></span>
+          </button>
+          <RouterLink
+            to="/settings"
+            class="sidebar-tool-button"
+            :class="{ 'sidebar-tool-button-active': activePath === '/settings' }"
+            aria-label="设置"
+            title="设置"
+            @pointerdown="setPendingActiveFromPointer($event, '/settings')"
+            @keydown.enter="setPendingActive('/settings')"
+            @keydown.space="setPendingActive('/settings')"
+          >
+            <span class="i-lucide-settings"></span>
+          </RouterLink>
+        </div>
       </div>
     </header>
 

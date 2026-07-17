@@ -75,10 +75,13 @@
   font-display: swap;
 }
 
+/* Dark-only tokens on :root. data-theme="dark" kept as an alias for any
+   residual [data-theme='dark'] selectors and future multi-theme work. */
 :root,
-[data-theme='light'] {
-  color: #1f2528;
+[data-theme='dark'] {
+  color: var(--auralis-text);
   background: var(--auralis-bg);
+  color-scheme: dark;
   font-family:
     Inter,
     'Auralis Sans SC',
@@ -99,107 +102,6 @@
   -moz-osx-font-smoothing: grayscale;
 
   /* Theme tokens */
-  --auralis-bg: #ffffff;
-  --auralis-main-bg: #ffffff;
-  --auralis-dialog-bg: #ffffff;
-  --auralis-sidebar-bg: #fafafb;
-  --auralis-now-playing-bg: #fafafb;
-  --auralis-border-subtle: rgba(31, 35, 40, 0.08);
-  --auralis-text: #1f2528;
-  --auralis-text-muted: rgba(31, 35, 40, 0.7);
-  --auralis-text-subtle: rgba(31, 35, 40, 0.52);
-  --auralis-text-faint: rgba(31, 35, 40, 0.42);
-  --auralis-text-disabled: rgba(31, 35, 40, 0.24);
-  --auralis-control-hover-bg: rgba(31, 35, 40, 0.06);
-  --auralis-control-active-bg: rgba(255, 255, 255, 0.72);
-  --auralis-control-primary-bg: #1f2528;
-  --auralis-control-primary-text: #f6f2ea;
-  --auralis-progress-track: rgba(31, 35, 40, 0.08);
-  --auralis-progress-fill: #1f2528;
-  --auralis-volume-fill: #1f2528;
-  --auralis-artwork-placeholder-bg: #ebe3d3;
-
-  /* Playbar safe area */
-  --auralis-playbar-safe-area: 116px; /* h-18 (72px) + player-bottom-gap (44px) */
-  --auralis-shell-edge-gap: 12px;
-  --auralis-shell-vertical-gap: 24px;
-  --auralis-player-bottom-gap: 44px;
-  --auralis-playbar-bg: rgba(255, 255, 255, 0.07);
-  --auralis-playbar-border: rgba(255, 255, 255, 0.46);
-  --auralis-playbar-highlight: rgba(255, 255, 255, 0.5);
-  --auralis-playbar-highlight-soft: rgba(255, 255, 255, 0.16);
-  --auralis-playbar-lowlight: rgba(31, 35, 40, 0.1);
-  --auralis-playbar-album-alpha: 0.28;
-  --auralis-playbar-album-saturate: 1.45;
-  --auralis-playbar-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.56), inset 0 -1px 0 rgba(31, 35, 40, 0.08),
-    0 18px 42px rgba(31, 35, 40, 0.1);
-
-  /* Song list tokens */
-  --auralis-song-row-bg: #ffffff;
-  --auralis-song-row-alt-bg: #fafafa;
-  --auralis-song-row-now-playing-bg: rgba(61, 90, 128, 0.1);
-  --auralis-song-row-now-playing-title: #2c4a6e;
-  --auralis-song-row-now-playing-artist: #4a6d94;
-  --auralis-song-row-now-playing-duration: #7a9ec4;
-
-  /* Lyrics tokens */
-  --auralis-lyrics-active: #5b5b5c;
-  --auralis-lyrics-inactive: #c3c3c4;
-
-  /* Titlebar tokens */
-  --auralis-titlebar-bg: var(--auralis-bg);
-  --auralis-titlebar-border: var(--auralis-border-subtle);
-  --auralis-titlebar-title: var(--auralis-text-muted);
-
-  /* Sidebar active state */
-  --auralis-sidebar-active-bg: #eef4fa;
-  --auralis-sidebar-active-indicator: #4a6fa5;
-  --auralis-sidebar-active-icon: #4a6fa5;
-  --auralis-sidebar-active-text: #345887;
-
-  /* Search bar */
-  --auralis-search-bg: rgba(255, 255, 255, 0.52);
-  --auralis-search-border: rgba(44, 74, 110, 0.1);
-  --auralis-search-shadow: 0 1px 4px rgba(31, 35, 40, 0.04);
-  --auralis-context-menu-bg: rgba(255, 255, 255, 0.56);
-  --auralis-context-menu-border: rgba(44, 74, 110, 0.1);
-  --auralis-context-menu-shadow: 0 1px 4px rgba(31, 35, 40, 0.05);
-
-  /* Cover view */
-  --auralis-cover-track-bg: rgba(255, 255, 255, 0.32);
-  --auralis-cover-track-hover-bg: rgba(31, 37, 40, 0.06);
-  --auralis-cover-divider: rgba(31, 37, 40, 0.08);
-  --auralis-cover-track-divider: rgba(31, 37, 40, 0.06);
-
-  /* App environment glow */
-  --auralis-app-bg: #ffffff;
-  --auralis-app-glow-a: transparent;
-  --auralis-app-glow-b: transparent;
-  --auralis-app-background: var(--auralis-app-bg);
-  /* Album detail "more works" band — soft off-white vs page white */
-  --auralis-album-detail-more-bg: #f4f4f5;
-
-  /* Album Detail 浅色自适应磨砂参数 */
-  --auralis-overlay-bg: color-mix(in srgb, var(--auralis-bg) 85%, transparent);
-  --auralis-overlay-blur: blur(80px) saturate(1.5) contrast(1.02);
-  --auralis-btn-back-bg: rgba(0, 0, 0, 0.05);
-  --auralis-btn-back-border: rgba(0, 0, 0, 0.08);
-  --auralis-btn-back-hover: rgba(0, 0, 0, 0.08);
-  --auralis-stats-panel-bg: rgba(0, 0, 0, 0.03);
-  --auralis-stats-panel-border: rgba(0, 0, 0, 0.06);
-  --auralis-stats-divider: rgba(0, 0, 0, 0.1);
-  --auralis-track-list-bg: rgba(255, 255, 255, 0.45);
-  --auralis-track-list-border: rgba(0, 0, 0, 0.06);
-  --auralis-heat-bar-wrap: rgba(0, 0, 0, 0.06);
-  --auralis-more-card-bg: rgba(255, 255, 255, 0.5);
-  --auralis-more-card-border: rgba(0, 0, 0, 0.05);
-}
-
-[data-theme='dark'] {
-  color: var(--auralis-text);
-  background: var(--auralis-bg);
-
   --auralis-bg: #1f1f1f;
   --auralis-main-bg: transparent;
   --auralis-dialog-bg: #25272a;
@@ -282,7 +184,7 @@
   /* Album detail "more works" band — lifted charcoal vs page black */
   --auralis-album-detail-more-bg: #2a2a2b;
 
-  /* Album Detail 深色自适应磨砂参数 */
+  /* Album Detail frosted surfaces */
   --auralis-overlay-bg: color-mix(in srgb, var(--auralis-bg) 65%, transparent);
   --auralis-overlay-blur: blur(80px) saturate(1.4) contrast(0.95);
   --auralis-btn-back-bg: rgba(255, 255, 255, 0.04);
@@ -345,17 +247,11 @@ input {
   z-index: 0;
   overflow: hidden;
   border-radius: inherit;
-  background: color-mix(in srgb, var(--auralis-playbar-bg) 68%, rgba(74, 111, 165, 0.04));
-  pointer-events: none;
-  border: 1px solid color-mix(in srgb, var(--auralis-playbar-border) 40%, transparent);
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.15);
-  transition: all 0.3s ease;
-}
-
-[data-theme='dark'] .player-bar-glass {
   background: color-mix(in srgb, var(--auralis-playbar-bg) 50%, rgba(126, 166, 217, 0.02));
-  border-color: color-mix(in srgb, var(--auralis-playbar-border) 35%, transparent);
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--auralis-playbar-border) 35%, transparent);
   box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
 }
 
 .player-bar::before {
@@ -821,24 +717,17 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   position: relative;
   isolation: isolate;
   /* 沉浸式玻璃质感背景 */
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 64%, transparent) !important;
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 46%, transparent) !important;
   backdrop-filter: blur(28px) saturate(180%);
   -webkit-backdrop-filter: blur(28px) saturate(180%);
   border-right: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
   box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.08),
-    inset 1px 1px 0 color-mix(in srgb, white 15%, transparent);
+    0 24px 60px rgba(0, 0, 0, 0.28),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.06);
   transition:
     border-color 0.3s ease,
     box-shadow 0.3s ease,
     background 0.3s ease;
-}
-
-[data-theme='dark'] .app-sidebar {
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 46%, transparent) !important;
-  box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.28),
-    inset 1px 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .app-sidebar::before {
@@ -863,22 +752,32 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-header {
-  padding: 18px 16px 15px;
+  padding: 14px 12px 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 6%, transparent);
   background: transparent;
+}
+
+/* Brand left, two utility actions as a compact trailing cluster. */
+.sidebar-header-main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .sidebar-brand {
   display: flex;
   min-width: 0;
+  flex: 1 1 auto;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .sidebar-brand-mark {
   display: inline-flex;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
@@ -895,8 +794,8 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-brand-mark span {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
 }
 
 .sidebar-brand:hover .sidebar-brand-mark {
@@ -921,7 +820,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
   line-height: 20px;
   text-overflow: ellipsis;
@@ -929,34 +828,47 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-brand-caption {
-  margin-top: 2px;
+  margin-top: 1px;
+  overflow: hidden;
   color: var(--auralis-text-faint);
   font-size: 10px;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  line-height: 14px;
+  letter-spacing: 0.04em;
+  line-height: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.sidebar-tool-strip {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-  margin-top: 15px;
+.sidebar-tool-cluster {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
   padding: 3px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 7%, transparent);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--auralis-control-hover-bg) 54%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 5%, transparent), transparent 70%),
+    color-mix(in srgb, var(--auralis-control-hover-bg) 70%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
 .sidebar-tool-button {
   display: inline-flex;
-  height: 30px;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 9px;
   color: var(--auralis-text-faint);
-  transition: all 200ms ease;
+  transition:
+    color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .sidebar-tool-button:hover {
@@ -970,7 +882,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-tool-button:active {
-  transform: scale(0.95);
+  transform: scale(0.94);
 }
 
 .sidebar-tool-button:focus-visible {
@@ -979,14 +891,20 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-tool-button > span {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .sidebar-tool-button-active {
-  background: var(--auralis-sidebar-active-bg) !important;
+  background: color-mix(
+    in srgb,
+    var(--auralis-sidebar-active-bg) 88%,
+    transparent
+  ) !important;
   color: var(--auralis-sidebar-active-indicator) !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 2px 8px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-navigation {
@@ -1579,123 +1497,6 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 .library-view-fade-enter-to,
 .library-view-fade-leave-from {
   opacity: 1;
-}
-
-/* View Transition — disable default crossfade for radial theme reveal */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-::view-transition-old(root) {
-  z-index: 1;
-}
-
-::view-transition-new(root) {
-  z-index: 2;
-}
-
-/*
- * Keep the reveal in CSS so Chromium can schedule the snapshot animation as
- * one continuous compositor operation. A linear radius avoids the large
- * first-frame visual jump caused by the strongly front-loaded theme easing.
- */
-.theme-reveal-active::view-transition-new(root) {
-  animation: theme-waveform-reveal 950ms cubic-bezier(0.19, 1, 0.22, 1) both;
-  will-change: clip-path;
-}
-
-@keyframes theme-waveform-reveal {
-  0% {
-    clip-path: polygon(
-      0% 0%,
-      0% 0%,
-      0% 10%,
-      0% 20%,
-      0% 30%,
-      0% 40%,
-      0% 50%,
-      0% 60%,
-      0% 70%,
-      0% 80%,
-      0% 90%,
-      0% 100%,
-      0% 100%
-    );
-  }
-
-  35% {
-    clip-path: polygon(
-      0% 0%,
-      25% 0%,
-      35% 10%,
-      20% 20%,
-      40% 30%,
-      24% 40%,
-      45% 50%,
-      30% 60%,
-      38% 70%,
-      22% 80%,
-      32% 90%,
-      25% 100%,
-      0% 100%
-    );
-  }
-
-  65% {
-    clip-path: polygon(
-      0% 0%,
-      65% 0%,
-      55% 10%,
-      75% 20%,
-      60% 30%,
-      80% 40%,
-      64% 50%,
-      72% 60%,
-      56% 70%,
-      66% 80%,
-      60% 90%,
-      70% 100%,
-      0% 100%
-    );
-  }
-
-  88% {
-    clip-path: polygon(
-      0% 0%,
-      92% 0%,
-      96% 10%,
-      89% 20%,
-      98% 30%,
-      93% 40%,
-      99% 50%,
-      91% 60%,
-      97% 70%,
-      90% 80%,
-      96% 90%,
-      92% 100%,
-      0% 100%
-    );
-  }
-
-  100% {
-    clip-path: polygon(
-      0% 0%,
-      100% 0%,
-      100% 10%,
-      100% 20%,
-      100% 30%,
-      100% 40%,
-      100% 50%,
-      100% 60%,
-      100% 70%,
-      100% 80%,
-      100% 90%,
-      100% 100%,
-      0% 100%
-    );
-  }
 }
 
 .desktop-lyrics-window {
