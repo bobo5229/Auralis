@@ -1,19 +1,33 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow, app, ipcMain } from 'electron'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
 
+function resolveAppIconPath(): string | undefined {
+  const candidates = [
+    join(process.resourcesPath, 'icons', 'icon.png'),
+    join(app.getAppPath(), 'resources', 'icons', 'icon.png'),
+    join(__dirname, '../../resources/icons/icon.png'),
+  ]
+
+  return candidates.find((candidate) => existsSync(candidate))
+}
+
 export function createWindow(): BrowserWindow {
+  const icon = resolveAppIconPath()
+
   const window = new BrowserWindow({
     width: 1180,
     height: 760,
     minWidth: 900,
     minHeight: 620,
     title: 'Auralis',
-    backgroundColor: '#f6f2ea',
+    backgroundColor: '#1f1f1f',
     show: false,
     titleBarStyle: 'hidden',
     frame: false,
     autoHideMenuBar: true,
+    ...(icon ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,

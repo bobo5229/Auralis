@@ -64,8 +64,6 @@ export default defineConfig({
     'player-control-primary':
       'inline-flex items-center justify-center rounded-full p-3 text-[var(--auralis-text)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
     'player-control-active': 'text-[var(--auralis-sidebar-active-text)]',
-    'theme-toggle-button':
-      'inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
     'song-row':
       'grid h-11 grid-cols-[44px_minmax(0,1fr)_300px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer',
     'song-cover':

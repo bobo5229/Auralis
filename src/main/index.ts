@@ -22,6 +22,8 @@ import { logger } from './logging/logger'
 registerAudioSchemeAsPrivileged()
 
 app.setName('Auralis')
+// Keep Windows taskbar / jump-list identity stable so shell uses the app icon, not Electron's.
+app.setAppUserModelId('com.bobo.auralis')
 registerDesktopLyricsIpcHandlers()
 
 if (!app.isPackaged) {

@@ -1,5 +1,10 @@
 import { computed, ref } from 'vue'
 
+/**
+ * Theme API is kept as a shell so additional modes can return later.
+ * Product currently ships dark-only: light is accepted by the type system
+ * but always coerced to dark.
+ */
 export type ThemeMode = 'light' | 'dark'
 
 export type ThemeTransitionOrigin = {
@@ -8,11 +13,9 @@ export type ThemeTransitionOrigin = {
 }
 
 const THEME_STORAGE_KEY = 'auralis-theme'
-const DEFAULT_THEME: ThemeMode = 'light'
-const THEME_REVEAL_CLASS = 'theme-reveal-active'
-const THEME_REVEAL_ORIGIN_X = '--theme-reveal-x'
-const THEME_REVEAL_ORIGIN_Y = '--theme-reveal-y'
-const THEME_REVEAL_RADIUS = '--theme-reveal-radius'
+/** Only mode applied while the app is dark-only. */
+const FORCED_THEME: ThemeMode = 'dark'
+const DEFAULT_THEME: ThemeMode = FORCED_THEME
 
 const theme = ref<ThemeMode>(DEFAULT_THEME)
 const isThemeTransitioning = ref(false)
@@ -21,111 +24,63 @@ function isThemeMode(value: string | null): value is ThemeMode {
   return value === 'light' || value === 'dark'
 }
 
+function resolveTheme(_requested?: ThemeMode | null): ThemeMode {
+  // Dark-only: ignore stored/requested light until multi-theme returns.
+  return FORCED_THEME
+}
+
 function commitTheme(nextTheme: ThemeMode): void {
-  theme.value = nextTheme
-  document.documentElement.dataset.theme = nextTheme
-  localStorage.setItem(THEME_STORAGE_KEY, nextTheme)
+  const resolved = resolveTheme(nextTheme)
+  theme.value = resolved
+  document.documentElement.dataset.theme = resolved
+  document.documentElement.style.colorScheme = 'dark'
+  localStorage.setItem(THEME_STORAGE_KEY, resolved)
 }
 
-function getRevealRadius(origin: ThemeTransitionOrigin): number {
-  const horizontal = Math.max(origin.x, window.innerWidth - origin.x)
-  const vertical = Math.max(origin.y, window.innerHeight - origin.y)
-  return Math.ceil(Math.hypot(horizontal, vertical)) + 2
-}
-
-function shouldAnimate(origin?: ThemeTransitionOrigin): boolean {
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
-  if (typeof document.startViewTransition !== 'function') return false
-  if (!origin || origin.x < 0 || origin.y < 0) return false
-  if (window.innerWidth <= 0 || window.innerHeight <= 0) return false
-  return true
-}
-
-async function runThemeReveal(nextTheme: ThemeMode, origin: ThemeTransitionOrigin): Promise<void> {
-  if (typeof document.startViewTransition !== 'function') {
-    commitTheme(nextTheme)
-    return
-  }
-
-  const radius = getRevealRadius(origin)
-  const root = document.documentElement
-
-  isThemeTransitioning.value = true
-  root.style.setProperty(THEME_REVEAL_ORIGIN_X, `${origin.x}px`)
-  root.style.setProperty(THEME_REVEAL_ORIGIN_Y, `${origin.y}px`)
-  root.style.setProperty(THEME_REVEAL_RADIUS, `${radius}px`)
-  root.classList.add(THEME_REVEAL_CLASS)
-
-  let transition: ViewTransition | undefined
-
-  try {
-    transition = document.startViewTransition(() => {
-      commitTheme(nextTheme)
-    })
-
-    await transition.finished
-  } catch (error) {
-    console.warn('[ThemeTransition] Animation failed:', error)
-    transition?.skipTransition()
-    // Ensure theme is committed even if the animation fails
-    if (theme.value !== nextTheme) {
-      commitTheme(nextTheme)
-    }
-  } finally {
-    root.classList.remove(THEME_REVEAL_CLASS)
-    root.style.removeProperty(THEME_REVEAL_ORIGIN_X)
-    root.style.removeProperty(THEME_REVEAL_ORIGIN_Y)
-    root.style.removeProperty(THEME_REVEAL_RADIUS)
-    isThemeTransitioning.value = false
-  }
-}
-
+/**
+ * Apply theme. While dark-only, non-dark values are coerced to dark and
+ * animations are skipped (no visual mode change).
+ */
 async function setTheme(
   nextTheme: ThemeMode,
-  options?: {
+  _options?: {
     animate?: boolean
     origin?: ThemeTransitionOrigin
   },
 ): Promise<void> {
-  if (theme.value === nextTheme) return
   if (isThemeTransitioning.value) return
 
-  if (options?.animate && shouldAnimate(options.origin)) {
-    await runThemeReveal(nextTheme, options.origin!)
-  } else {
-    commitTheme(nextTheme)
+  const resolved = resolveTheme(nextTheme)
+  if (theme.value === resolved && document.documentElement.dataset.theme === resolved) {
+    return
   }
+
+  commitTheme(resolved)
 }
 
-function toggleThemeFromElement(trigger: HTMLElement): void {
-  if (isThemeTransitioning.value) return
-
-  const rect = trigger.getBoundingClientRect()
-  const origin: ThemeTransitionOrigin = {
-    x: rect.left + rect.width / 2,
-    y: rect.top + rect.height / 2,
-  }
-
-  const nextTheme: ThemeMode = theme.value === 'dark' ? 'light' : 'dark'
-  setTheme(nextTheme, { animate: true, origin })
+/** Kept for API compatibility; dark-only so this is a no-op. */
+function toggleThemeFromElement(_trigger: HTMLElement): void {
+  void setTheme(FORCED_THEME)
 }
 
 function initTheme(): void {
+  // Drop stale light preference so storage cannot reintroduce light later.
   const storedTheme = localStorage.getItem(THEME_STORAGE_KEY)
-  commitTheme(isThemeMode(storedTheme) ? storedTheme : DEFAULT_THEME)
+  if (storedTheme !== null && isThemeMode(storedTheme) && storedTheme !== FORCED_THEME) {
+    localStorage.removeItem(THEME_STORAGE_KEY)
+  }
+  commitTheme(DEFAULT_THEME)
 }
 
 export function useTheme() {
   return {
     theme,
     isDark: computed(() => theme.value === 'dark'),
-    nextThemeLabel: computed(() =>
-      theme.value === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
-    ),
+    nextThemeLabel: computed(() => 'Dark theme'),
     isThemeTransitioning,
     initTheme,
     setTheme,
     toggleThemeFromElement,
-    toggleTheme: () => setTheme(theme.value === 'dark' ? 'light' : 'dark'),
+    toggleTheme: () => setTheme(FORCED_THEME),
   }
 }

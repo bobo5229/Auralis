@@ -70,16 +70,25 @@
     "directories": {
       "output": "release"
     },
+    "icon": "resources/icons/icon.ico",
     "files": [
       "out/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/icons/icon.png",
+        "to": "icons/icon.png"
+      }
     ],
     "asar": true,
     "asarUnpack": [
       "node_modules/better-sqlite3/**/*"
     ],
     "win": {
-      "signAndEditExecutable": false,
+      "icon": "resources/icons/icon.ico",
+      "signAndEditExecutable": true,
+      "signExecutable": false,
       "target": [
         {
           "target": "nsis",

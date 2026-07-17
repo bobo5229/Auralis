@@ -5,6 +5,8 @@ node_modules/
 dist/
 out/
 release/
+build/
+resources/
 
 # Electron native modules cache
 .npm-cache/
