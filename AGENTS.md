@@ -55,7 +55,22 @@ When tests are introduced, place them near the module they cover and prefer name
 
 ## Commit & Pull Request Guidelines
 
-No commit convention is currently inferable from local Git history. Use concise imperative commits, for example `Fix renderer entry config` or `Add typed library IPC`.
+Use Chinese commit messages with conventional format:
+
+- `feat：新功能描述`
+- `fix：修复描述`
+- `chore：维护性工作描述`
+- `refactor：重构描述`
+- `docs：文档更新描述`
+
+示例：`feat：专辑详情页新增流体封面背景`、`chore：将 issues/ 添加到忽略文件`
+
+### Git 分支工作流
+
+1. 在 `dev` 分支开发并提交
+2. 推送到 `origin/dev`
+3. 合并到 `master`：`git checkout master && git merge dev --no-edit`
+4. 推送到 `origin/master`
 
 Pull requests should include a short summary, verification commands, screenshots for UI changes, and notes for native-module or database changes.
 
