@@ -901,31 +901,36 @@ input[type='range'].volume-slider::-moz-range-thumb {
 
 /* Counts inside active links */
 .sidebar-link-count {
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
   color: var(--auralis-text-faint);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 2px 7px;
-  border: 1px solid transparent;
-  transition: all 200ms ease;
   font-family: 'Outfit', 'Inter', sans-serif;
+  opacity: 0;
+  transform: translateX(12px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.2s ease;
+  will-change: transform, opacity;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
 }
 
-.sidebar-link:hover .sidebar-link-count,
+.sidebar-link:hover .sidebar-link-count {
+  opacity: 1;
+  transform: translateX(0);
+  color: var(--auralis-text-faint) !important;
+}
+
 .sidebar-link-active .sidebar-link-count {
-  background: color-mix(
-    in srgb,
-    var(--auralis-sidebar-active-indicator) 16%,
-    transparent
-  ) !important;
-  border-color: color-mix(
-    in srgb,
-    var(--auralis-sidebar-active-indicator) 14%,
-    transparent
-  ) !important;
+  opacity: 0;
+  transform: translateX(12px);
+}
+
+.sidebar-link-active:hover .sidebar-link-count {
   color: var(--auralis-sidebar-active-text) !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 /* Active Sidebar Link (Glow Glassmorphism + Shimmer) */
