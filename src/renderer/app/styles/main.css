@@ -177,6 +177,8 @@
   --auralis-app-glow-a: transparent;
   --auralis-app-glow-b: transparent;
   --auralis-app-background: var(--auralis-app-bg);
+  /* Album detail "more works" band — soft off-white vs page white */
+  --auralis-album-detail-more-bg: #f4f4f5;
 }
 
 [data-theme='dark'] {
@@ -262,6 +264,8 @@
   --auralis-app-glow-a: transparent;
   --auralis-app-glow-b: transparent;
   --auralis-app-background: var(--auralis-app-bg);
+  /* Album detail "more works" band — lifted charcoal vs page black */
+  --auralis-album-detail-more-bg: #2a2a2b;
 }
 
 body {
@@ -678,7 +682,7 @@ input[type='range'].volume-slider::-webkit-slider-thumb {
   height: 10px;
   border-radius: 50%;
   background: white;
-  border: 2px solid var(--auralis-sidebar-active-indicator);
+  border: 2px solid var(--auralis-active-album-accent);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   -webkit-appearance: none;
@@ -707,7 +711,7 @@ input[type='range'].volume-slider::-moz-range-thumb {
   height: 10px;
   border-radius: 50%;
   background: white;
-  border: 2px solid var(--auralis-sidebar-active-indicator);
+  border: 2px solid var(--auralis-active-album-accent);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   border: none;

@@ -7,6 +7,7 @@ import { usePlayback } from '@renderer/features/playback/composables/usePlayback
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatDuration } from '@renderer/features/library/utils/formatDuration'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+import type { AlbumSummary } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,6 +26,50 @@ const MAX_COVER_TILT_DEGREES = 12
 const albumArtist = computed(() => String(route.query.artist ?? ''))
 const displayAlbumArtist = computed(() => formatArtist(albumArtist.value))
 const albumTitle = computed(() => String(route.query.title ?? ''))
+
+/** Native scrollbar has no :hover-on-bar; detect pointer in bottom strip instead. */
+const MORE_SCROLLBAR_HIT_PX = 14
+const isMoreScrollbarActive = ref(false)
+let isMoreScrollbarDragging = false
+
+function isPointerInMoreScrollbarZone(scroller: HTMLElement, clientY: number): boolean {
+  const rect = scroller.getBoundingClientRect()
+  const fromBottom = rect.bottom - clientY
+  return fromBottom >= 0 && fromBottom <= MORE_SCROLLBAR_HIT_PX
+}
+
+function setMoreScrollbarActive(active: boolean): void {
+  if (isMoreScrollbarActive.value === active) return
+  isMoreScrollbarActive.value = active
+}
+
+function onMoreAlbumsPointerMove(event: PointerEvent): void {
+  if (isMoreScrollbarDragging) return
+  const scroller = event.currentTarget as HTMLElement
+  setMoreScrollbarActive(isPointerInMoreScrollbarZone(scroller, event.clientY))
+}
+
+function onMoreAlbumsPointerLeave(): void {
+  if (isMoreScrollbarDragging) return
+  setMoreScrollbarActive(false)
+}
+
+function onMoreScrollbarDragEnd(): void {
+  if (!isMoreScrollbarDragging) return
+  isMoreScrollbarDragging = false
+  window.removeEventListener('pointerup', onMoreScrollbarDragEnd)
+  window.removeEventListener('pointercancel', onMoreScrollbarDragEnd)
+  setMoreScrollbarActive(false)
+}
+
+function onMoreAlbumsPointerDown(event: PointerEvent): void {
+  const scroller = event.currentTarget as HTMLElement
+  if (!isPointerInMoreScrollbarZone(scroller, event.clientY)) return
+  isMoreScrollbarDragging = true
+  setMoreScrollbarActive(true)
+  window.addEventListener('pointerup', onMoreScrollbarDragEnd)
+  window.addEventListener('pointercancel', onMoreScrollbarDragEnd)
+}
 
 const albumTracks = computed(() =>
   tracks.value
@@ -114,6 +159,67 @@ const albumMetaItems = computed(() => [
   formatAlbumDuration(totalDurationSeconds.value),
 ])
 
+/** Year for sort: missing/invalid → +∞ so unknown years sort after dated albums (ascending). */
+function albumYearSortKey(releaseDate: string | null): number {
+  if (!releaseDate) return Number.POSITIVE_INFINITY
+  const year = Number(releaseDate.slice(0, 4))
+  return Number.isFinite(year) ? year : Number.POSITIVE_INFINITY
+}
+
+function formatAlbumYearLabel(releaseDate: string | null): string {
+  if (!releaseDate) return '未知'
+  const year = releaseDate.slice(0, 4)
+  return /^\d{4}$/.test(year) ? `${year}年` : '未知'
+}
+
+/**
+ * Other albums by the same album-artist key as the current detail page.
+ * MVP: display-only horizontal strip; no navigation.
+ */
+const moreAlbumsByArtist = computed<AlbumSummary[]>(() => {
+  const artistKey = albumArtist.value
+  if (!artistKey || artistKey === 'Unknown Artist') return []
+
+  const currentKey = `${artistKey}\u0000${albumTitle.value}`
+  const grouped = new Map<string, AlbumSummary>()
+
+  for (const track of tracks.value) {
+    const albumArtistName = track.albumArtist || track.artist || 'Unknown Artist'
+    if (albumArtistName !== artistKey) continue
+
+    const title = track.album || 'Unknown Album'
+    const key = `${albumArtistName}\u0000${title}`
+    if (key === currentKey) continue
+
+    const existing = grouped.get(key)
+    if (existing) {
+      existing.releaseDate ??= track.releaseDate
+      existing.artworkCacheKey ??= track.artworkCacheKey
+      existing.tracks.push(track)
+      continue
+    }
+
+    grouped.set(key, {
+      key,
+      title,
+      albumArtist: albumArtistName,
+      releaseDate: track.releaseDate,
+      artworkCacheKey: track.artworkCacheKey,
+      tracks: [track],
+    })
+  }
+
+  return [...grouped.values()].sort((left, right) => {
+    const yearOrder = albumYearSortKey(left.releaseDate) - albumYearSortKey(right.releaseDate)
+    if (yearOrder !== 0) return yearOrder
+    return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
+  })
+})
+
+const showMoreAlbumsSection = computed(
+  () => albumTracks.value.length > 0 && moreAlbumsByArtist.value.length > 0,
+)
+
 async function reloadTracks(): Promise<void> {
   tracks.value = await auralis.library.getTracks()
 }
@@ -190,6 +296,26 @@ function playAlbum(): void {
 
 function playTrack(trackId: number): void {
   void playback.playTrackFromQueue(buildAlbumPlaybackQueue(), trackId)
+}
+
+/** Only when pointer is on the scrollbar strip, map wheel to horizontal scroll. */
+function onMoreAlbumsWheel(event: WheelEvent): void {
+  const scroller = event.currentTarget as HTMLElement
+  if (!isMoreScrollbarActive.value && !isPointerInMoreScrollbarZone(scroller, event.clientY)) {
+    return
+  }
+  if (scroller.scrollWidth <= scroller.clientWidth + 1) return
+
+  // Prefer converting vertical wheel; also honor shift+wheel / trackpad deltaX.
+  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
+  if (delta === 0) return
+
+  const maxScrollLeft = scroller.scrollWidth - scroller.clientWidth
+  const nextLeft = Math.min(maxScrollLeft, Math.max(0, scroller.scrollLeft + delta))
+  if (nextLeft === scroller.scrollLeft) return
+
+  event.preventDefault()
+  scroller.scrollLeft = nextLeft
 }
 
 function selectTrack(trackId: number): void {
@@ -278,6 +404,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   resetCoverTracking()
   if (highlightTimeout) clearTimeout(highlightTimeout)
+  onMoreScrollbarDragEnd()
   unsubscribeChanged?.()
   document.removeEventListener('pointermove', onDocumentPointerMove)
   document.removeEventListener('pointerout', onDocumentPointerOut)
@@ -364,6 +491,51 @@ onBeforeUnmount(() => {
         <p>{{ copyright || '版权信息未知' }}</p>
         <p>{{ releaseDate }}</p>
       </footer>
+
+      <section
+        v-if="showMoreAlbumsSection"
+        class="album-detail-more"
+        aria-label="More albums by artist"
+      >
+        <h2 class="album-detail-more-title">{{ displayAlbumArtist }} 的更多作品</h2>
+        <div
+          class="album-detail-more-scroller"
+          :class="{ 'album-detail-more-scroller--bar-active': isMoreScrollbarActive }"
+          @pointermove="onMoreAlbumsPointerMove"
+          @pointerleave="onMoreAlbumsPointerLeave"
+          @pointerdown="onMoreAlbumsPointerDown"
+          @wheel="onMoreAlbumsWheel"
+        >
+          <article
+            v-for="album in moreAlbumsByArtist"
+            :key="album.key"
+            class="album-detail-more-card"
+          >
+            <div class="album-detail-more-cover">
+              <img
+                v-if="getArtworkUrl(album.artworkCacheKey)"
+                :src="getArtworkUrl(album.artworkCacheKey)!"
+                :alt="`${album.title} cover`"
+                class="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+                draggable="false"
+              />
+              <div
+                v-else
+                class="flex h-full w-full items-center justify-center bg-[var(--auralis-artwork-placeholder-bg)]"
+                aria-hidden="true"
+              >
+                <span class="i-lucide-disc-3 h-10 w-10 text-[var(--auralis-text-disabled)]"></span>
+              </div>
+            </div>
+            <div class="album-detail-more-meta">
+              <p class="album-detail-more-album-title">{{ album.title }}</p>
+              <p class="album-detail-more-year">{{ formatAlbumYearLabel(album.releaseDate) }}</p>
+            </div>
+          </article>
+        </div>
+      </section>
     </div>
 
     <div v-else class="flex min-h-[60vh] items-center justify-center">
@@ -496,6 +668,142 @@ onBeforeUnmount(() => {
   font-size: 12px;
   line-height: 1.6;
   text-align: right;
+}
+
+.album-detail-more {
+  /* Full-bleed band: cancel page horizontal padding, re-apply inside. */
+  margin-top: 20px;
+  margin-right: -32px;
+  margin-bottom: -12px;
+  margin-left: -32px;
+  padding: 22px 32px 28px;
+  /*
+   * Theme via CSS variable (defined in main.css under [data-theme=…]).
+   * Do not use :global([data-theme]) in scoped SFC — Vue can drop the
+   * descendant selector and only leave [data-theme], so dark never applies.
+   */
+  background: var(--auralis-album-detail-more-bg);
+}
+
+.album-detail-more-title {
+  margin: 0 0 16px;
+  color: var(--auralis-text);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.album-detail-more-scroller {
+  /* Fully own scrollbar styling so global ::-webkit-scrollbar (12px + border)
+     cannot make light/dark themes look different thickness. */
+  --more-scrollbar-size: 6px;
+  --more-scrollbar-thumb: color-mix(in srgb, var(--auralis-text) 28%, transparent);
+  --more-scrollbar-thumb-hover: color-mix(in srgb, var(--auralis-text) 42%, transparent);
+
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 0;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  /*
+   * Always keep the same scrollbar metrics; only toggle thumb color when the
+   * pointer is in the bottom scrollbar hit zone (not when hovering cards).
+   */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.album-detail-more-scroller--bar-active {
+  scrollbar-color: var(--more-scrollbar-thumb) transparent;
+}
+
+/* WebKit: fixed height always; do not change geometry on hover */
+.album-detail-more-scroller::-webkit-scrollbar {
+  width: var(--more-scrollbar-size);
+  height: var(--more-scrollbar-size);
+  background: transparent;
+}
+
+/* Hide left/right arrow buttons on the horizontal scrollbar */
+.album-detail-more-scroller::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.album-detail-more-scroller::-webkit-scrollbar-button:single-button,
+.album-detail-more-scroller::-webkit-scrollbar-button:double-button,
+.album-detail-more-scroller::-webkit-scrollbar-button:start,
+.album-detail-more-scroller::-webkit-scrollbar-button:end,
+.album-detail-more-scroller::-webkit-scrollbar-button:horizontal:decrement,
+.album-detail-more-scroller::-webkit-scrollbar-button:horizontal:increment {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+.album-detail-more-scroller::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.album-detail-more-scroller::-webkit-scrollbar-track {
+  background: transparent;
+  border: none;
+  margin: 0;
+}
+
+.album-detail-more-scroller::-webkit-scrollbar-thumb {
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  box-shadow: none;
+  min-width: 24px;
+}
+
+.album-detail-more-scroller--bar-active::-webkit-scrollbar-thumb {
+  background: var(--more-scrollbar-thumb);
+}
+
+.album-detail-more-scroller--bar-active::-webkit-scrollbar-thumb:hover {
+  background: var(--more-scrollbar-thumb-hover);
+}
+
+.album-detail-more-card {
+  flex: 0 0 auto;
+  width: 148px;
+  min-width: 148px;
+  scroll-snap-align: start;
+  user-select: none;
+}
+
+.album-detail-more-cover {
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--auralis-artwork-placeholder-bg);
+}
+
+.album-detail-more-meta {
+  margin-top: 10px;
+  min-width: 0;
+}
+
+.album-detail-more-album-title {
+  overflow: hidden;
+  color: var(--auralis-text);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.album-detail-more-year {
+  margin-top: 4px;
+  color: var(--auralis-text-faint);
+  font-size: 12px;
 }
 
 .album-detail-track {

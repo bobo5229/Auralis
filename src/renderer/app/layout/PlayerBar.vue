@@ -370,7 +370,7 @@ const volumeSliderStyle = computed(() => {
   const percentage = `${Math.round(playback.state.volume * 100)}%`
 
   return {
-    background: `linear-gradient(to right, var(--auralis-sidebar-active-indicator) 0%, var(--auralis-sidebar-active-indicator) ${percentage}, var(--auralis-progress-track) ${percentage}, var(--auralis-progress-track) 100%)`,
+    background: `linear-gradient(to right, var(--auralis-active-album-accent) 0%, var(--auralis-active-album-accent) ${percentage}, var(--auralis-progress-track) ${percentage}, var(--auralis-progress-track) 100%)`,
   }
 })
 
