@@ -11,26 +11,26 @@
 
 Review 后的优先落地清单（跨模块）：
 
-| 顺序 | 主题 | 原优先级 |
-|------|------|----------|
-| 1 | 修复普通歌单详情曲目顺序 | P0 正确性 |
-| 2 | 音频自定义协议 + 收紧 `webSecurity` | P0 安全 |
-| 3 | 桌面歌词独立最小 preload | P0 安全 |
-| 4 | `library.onChanged` 按 reason 分流 | P0 性能 |
-| 5 | 保护 `user_edit` + 写标签后 suppress watch | P1 正确性 |
-| 6 | 全量扫描期间 pause watch flush | P1 正确性 |
-| 7 | Job 状态 CAS + scan exit 自愈 | P1 正确性 |
-| 8 | 智能歌单校验/缓存 + 播放 session 幂等增强 | P1 性能/正确性 |
+| 顺序 | 主题                                       | 原优先级       |
+| ---- | ------------------------------------------ | -------------- |
+| 1    | 修复普通歌单详情曲目顺序                   | P0 正确性      |
+| 2    | 音频自定义协议 + 收紧 `webSecurity`        | P0 安全        |
+| 3    | 桌面歌词独立最小 preload                   | P0 安全        |
+| 4    | `library.onChanged` 按 reason 分流         | P0 性能        |
+| 5    | 保护 `user_edit` + 写标签后 suppress watch | P1 正确性      |
+| 6    | 全量扫描期间 pause watch flush             | P1 正确性      |
+| 7    | Job 状态 CAS + scan exit 自愈              | P1 正确性      |
+| 8    | 智能歌单校验/缓存 + 播放 session 幂等增强  | P1 性能/正确性 |
 
 并行拆分时按**文件所有权**分成 5 路，避免互相覆盖：
 
-| 子智能体 | 任务代号 | 职责 |
-|----------|----------|------|
-| A | Playlist order | 歌单详情顺序 |
-| B | Security shell | 音频协议 / webSecurity / 桌面歌词 preload |
-| C | Scan-metadata pipeline | user_edit / CAS / watch / ISRC / relocate |
-| D | Renderer events | onChanged 分流 / 歌词单例 / 桌面歌词 IPC |
-| E | Domain services | 智能歌单校验缓存 / 播放幂等 |
+| 子智能体 | 任务代号               | 职责                                      |
+| -------- | ---------------------- | ----------------------------------------- |
+| A        | Playlist order         | 歌单详情顺序                              |
+| B        | Security shell         | 音频协议 / webSecurity / 桌面歌词 preload |
+| C        | Scan-metadata pipeline | user_edit / CAS / watch / ISRC / relocate |
+| D        | Renderer events        | onChanged 分流 / 歌词单例 / 桌面歌词 IPC  |
+| E        | Domain services        | 智能歌单校验缓存 / 播放幂等               |
 
 主线程在合并后做了冲突收敛、无关样式回滚、artwork CORS 补丁，以及 typecheck / lint / build 验证。
 
@@ -58,11 +58,11 @@ Review 后的优先落地清单（跨模块）：
 
 **状态：完成**
 
-| 项 | 内容 |
-|----|------|
-| 问题 | `getDetail` 用 `Set` + `getAll().filter`，丢失 `playlist_tracks.position` |
+| 项   | 内容                                                                                |
+| ---- | ----------------------------------------------------------------------------------- |
+| 问题 | `getDetail` 用 `Set` + `getAll().filter`，丢失 `playlist_tracks.position`           |
 | 修复 | `PlaylistRepository.getTracks(id)`：`JOIN library_track_display`，按 `position ASC` |
-| 服务 | `PlaylistService.getDetail` 改为调用上述方法；移除无用的 `TrackRepository` 依赖 |
+| 服务 | `PlaylistService.getDetail` 改为调用上述方法；移除无用的 `TrackRepository` 依赖     |
 
 **修改文件**
 
@@ -72,10 +72,10 @@ Review 后的优先落地清单（跨模块）：
 
 **行为前后**
 
-| | 行为 |
-|--|------|
-| 前 | 曲库排序覆盖歌单顺序 |
-| 后 | 按添加/position 顺序返回 |
+|     | 行为                     |
+| --- | ------------------------ |
+| 前  | 曲库排序覆盖歌单顺序     |
+| 后  | 按添加/position 顺序返回 |
 
 **残留风险**
 
@@ -88,15 +88,15 @@ Review 后的优先落地清单（跨模块）：
 
 **状态：完成**
 
-| 项 | 内容 |
-|----|------|
-| 音频 | 新增 `auralis-audio://track/<id>` 协议；`getAudioUrl` 不再返回 `file://` |
-| 校验 | 扩展名 + 文件存在 + **路径必须落在已登记 library root**（`path.relative`，Windows 大小写不敏感） |
-| Seeking | 协议转发 `Range` 头 |
-| webSecurity | 主窗与桌面歌词窗均为 **`true`** |
-| CSP | `media-src` 改为 `auralis-audio:` |
-| 桌面歌词 | 独立 `src/preload/desktopLyrics.ts`，仅暴露 `desktopLyrics.onUpdate` |
-| Artwork | 路径校验改 `relative`；增加 CORS 头供 canvas 采样 |
+| 项          | 内容                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------ |
+| 音频        | 新增 `auralis-audio://track/<id>` 协议；`getAudioUrl` 不再返回 `file://`                         |
+| 校验        | 扩展名 + 文件存在 + **路径必须落在已登记 library root**（`path.relative`，Windows 大小写不敏感） |
+| Seeking     | 协议转发 `Range` 头                                                                              |
+| webSecurity | 主窗与桌面歌词窗均为 **`true`**                                                                  |
+| CSP         | `media-src` 改为 `auralis-audio:`                                                                |
+| 桌面歌词    | 独立 `src/preload/desktopLyrics.ts`，仅暴露 `desktopLyrics.onUpdate`                             |
+| Artwork     | 路径校验改 `relative`；增加 CORS 头供 canvas 采样                                                |
 
 **新增/关键文件**
 
@@ -135,15 +135,15 @@ UI getAudioUrl(trackId)
 
 **状态：全部 7 项目标完成**
 
-| # | 目标 | 结果 |
-|---|------|------|
-| 1 | 保护 `user_edit` 不被 file_tag 覆盖展示字段 | Done |
-| 2 | 写标签成功后 suppress watch 刷新（8s） | Done |
-| 3 | scan / refresh job CAS | Done |
-| 4 | scan worker exit / orphan job 自愈 | Done |
-| 5 | 全量扫描 pause watch flush | Done |
-| 6 | ISRC 0 命中回落 Rule 2 | Done |
-| 7 | relocate UNIQUE / 占用失败隔离 | Done |
+| #   | 目标                                        | 结果 |
+| --- | ------------------------------------------- | ---- |
+| 1   | 保护 `user_edit` 不被 file_tag 覆盖展示字段 | Done |
+| 2   | 写标签成功后 suppress watch 刷新（8s）      | Done |
+| 3   | scan / refresh job CAS                      | Done |
+| 4   | scan worker exit / orphan job 自愈          | Done |
+| 5   | 全量扫描 pause watch flush                  | Done |
+| 6   | ISRC 0 命中回落 Rule 2                      | Done |
+| 7   | relocate UNIQUE / 占用失败隔离              | Done |
 
 **行为要点**
 
@@ -175,11 +175,11 @@ UI getAudioUrl(trackId)
 
 **状态：完成**
 
-| 目标 | 结果 |
-|------|------|
+| 目标                  | 结果                                                                                                       |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
 | onChanged reason 过滤 | Library / Albums / AlbumDetail / Facets 在 `play-stats-updated` / `play-stats-reset` 时**不再全量 reload** |
-| `useTrackLyrics` 单例 | 模块级状态 + 单次订阅 + request token 防竞态 |
-| 桌面歌词 IPC 节流 | 不可见不推；去掉 currentTime 绑定；payload 指纹去重；打开时 force sync |
+| `useTrackLyrics` 单例 | 模块级状态 + 单次订阅 + request token 防竞态                                                               |
+| 桌面歌词 IPC 节流     | 不可见不推；去掉 currentTime 绑定；payload 指纹去重；打开时 force sync                                     |
 
 **修改文件**
 
@@ -198,12 +198,12 @@ UI getAudioUrl(trackId)
 
 **状态：完成（session 表未引入，采用内存增强）**
 
-| 目标 | 结果 |
-|------|------|
-| 拒绝空规则匹配全库 | `assertValidSmartPlaylistRule`：空 conditions / 空 AND·OR / 非法 field·operator 拒绝 |
-| 减少重复 `getAll()` | 服务内 **3s TTL** 缓存；`listTrackCounts` 一次加载复用 |
-| 播放 session 幂等 | 内存 cap 1000→5000；写前 `trackExists`；renderer 仅 `result.ok` 时 `counted = true` |
-| smart `sort_order` | 创建时跨 `playlists ∪ smart_playlists` 取 `MAX(sort_order)` |
+| 目标                | 结果                                                                                 |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| 拒绝空规则匹配全库  | `assertValidSmartPlaylistRule`：空 conditions / 空 AND·OR / 非法 field·operator 拒绝 |
+| 减少重复 `getAll()` | 服务内 **3s TTL** 缓存；`listTrackCounts` 一次加载复用                               |
+| 播放 session 幂等   | 内存 cap 1000→5000；写前 `trackExists`；renderer 仅 `result.ok` 时 `counted = true`  |
+| smart `sort_order`  | 创建时跨 `playlists ∪ smart_playlists` 取 `MAX(sort_order)`                          |
 
 **修改文件**
 
@@ -227,13 +227,13 @@ UI getAudioUrl(trackId)
 
 ### 4.1 合并处理
 
-| 动作 | 说明 |
-|------|------|
-| 接线一致性 | 确认 `registerIpcHandlers` 同时包含音频协议、watch suppress、scan lifecycle |
-| 回滚无关改动 | 还原误触的 `main.css` / `TrackProgressInfo.vue` 样式实验 |
-| Preload 配置 | 去掉无效的 `isolatedEntries`；桌面歌词 preload 避免共享 runtime chunk |
-| CORS 补丁 | `useArtworkPalette` `crossOrigin = 'anonymous'` |
-| Lint | 移除 `PlaylistService` 未使用构造参数 |
+| 动作         | 说明                                                                        |
+| ------------ | --------------------------------------------------------------------------- |
+| 接线一致性   | 确认 `registerIpcHandlers` 同时包含音频协议、watch suppress、scan lifecycle |
+| 回滚无关改动 | 还原误触的 `main.css` / `TrackProgressInfo.vue` 样式实验                    |
+| Preload 配置 | 去掉无效的 `isolatedEntries`；桌面歌词 preload 避免共享 runtime chunk       |
+| CORS 补丁    | `useArtworkPalette` `crossOrigin = 'anonymous'`                             |
+| Lint         | 移除 `PlaylistService` 未使用构造参数                                       |
 
 ### 4.2 验证命令（均已通过）
 
@@ -251,12 +251,12 @@ npm.cmd run build
 
 ### 4.3 建议手测清单
 
-1. 普通歌单添加多首后打开详情，顺序与添加/position 一致。  
-2. 播放控制台/网络侧确认 `audio.src` 为 `auralis-audio://track/...`，可 seek。  
-3. 桌面歌词开窗仍能同步；该窗不应能调扫描/改元数据 API。  
-4. 有效播放后 Library 列表不整库闪烁/重载。  
-5. 编辑元数据写回后展示不被立刻冲掉。  
-6. 扫描进行中复制新文件入目录，扫描结束后新文件仍为 available。  
+1. 普通歌单添加多首后打开详情，顺序与添加/position 一致。
+2. 播放控制台/网络侧确认 `audio.src` 为 `auralis-audio://track/...`，可 seek。
+3. 桌面歌词开窗仍能同步；该窗不应能调扫描/改元数据 API。
+4. 有效播放后 Library 列表不整库闪烁/重载。
+5. 编辑元数据写回后展示不被立刻冲掉。
+6. 扫描进行中复制新文件入目录，扫描结束后新文件仍为 available。
 7. 智能歌单空规则 / 非法规则创建失败；侧边栏计数正常。
 
 ---
@@ -272,17 +272,17 @@ npm.cmd run build
 
 ### 修改（核心）
 
-| 区域 | 文件 |
-|------|------|
-| 构建 | `electron.vite.config.ts` |
-| 窗口/启动 | `src/main/index.ts`、`createWindow.ts`、`desktopLyricsWindow.ts` |
-| IPC 装配 | `src/main/ipc/registerIpcHandlers.ts` |
-| 协议 | `artworkProtocol.ts`、audio/* |
-| 扫描 | `libraryScanService.ts`、`libraryIncrementalImportService.ts`、`trackRelocationMatcher.ts` |
-| 元数据 | `metadataWatchService.ts`、`metadataRefreshService.ts` |
-| 仓库 | `playlistRepository`、`scanJobRepository`、`metadataRefreshRepository`、`trackRepository`、`smartPlaylistRepository`、`playStatsRepository` |
-| 服务 | `playlistService`、`smartPlaylistService`、`playStatsService` |
-| Renderer | Library/Albums/Facets pages、`useTrackLyrics`、`PlayerBar`、`usePlayback`、`useArtworkPalette`、`index.html` |
+| 区域      | 文件                                                                                                                                        |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 构建      | `electron.vite.config.ts`                                                                                                                   |
+| 窗口/启动 | `src/main/index.ts`、`createWindow.ts`、`desktopLyricsWindow.ts`                                                                            |
+| IPC 装配  | `src/main/ipc/registerIpcHandlers.ts`                                                                                                       |
+| 协议      | `artworkProtocol.ts`、audio/\*                                                                                                              |
+| 扫描      | `libraryScanService.ts`、`libraryIncrementalImportService.ts`、`trackRelocationMatcher.ts`                                                  |
+| 元数据    | `metadataWatchService.ts`、`metadataRefreshService.ts`                                                                                      |
+| 仓库      | `playlistRepository`、`scanJobRepository`、`metadataRefreshRepository`、`trackRepository`、`smartPlaylistRepository`、`playStatsRepository` |
+| 服务      | `playlistService`、`smartPlaylistService`、`playStatsService`                                                                               |
+| Renderer  | Library/Albums/Facets pages、`useTrackLyrics`、`PlayerBar`、`usePlayback`、`useArtworkPalette`、`index.html`                                |
 
 ---
 
@@ -290,17 +290,17 @@ npm.cmd run build
 
 以下来自 review，**有意未做或仅部分覆盖**，供后续排期：
 
-| 项 | 说明 |
-|----|------|
-| `sandbox: true` | 仍 false；需系统验证 preload 兼容 |
-| Push channel 类型化（`IpcPushContract`） | 裸字符串 push 仍在 |
-| 主窗 / 歌词窗 navigation 护栏 | 未加 `setWindowOpenHandler` 等 |
-| 增量 import 移出主线程 parse | watch 热路径仍可能主线程解析 |
-| `getAll` 真分页 / SQL 排序下沉 | 仅智能歌单侧 TTL 缓存缓解 |
-| 持久化 `play_sessions` | 未加表 |
-| albums 视图 join 键一致性 | 封面丢失类问题未本轮修 |
-| macOS `activate` 多窗 | 未改（当前主目标 Windows） |
-| 自动化测试框架 | 仍无 |
+| 项                                       | 说明                              |
+| ---------------------------------------- | --------------------------------- |
+| `sandbox: true`                          | 仍 false；需系统验证 preload 兼容 |
+| Push channel 类型化（`IpcPushContract`） | 裸字符串 push 仍在                |
+| 主窗 / 歌词窗 navigation 护栏            | 未加 `setWindowOpenHandler` 等    |
+| 增量 import 移出主线程 parse             | watch 热路径仍可能主线程解析      |
+| `getAll` 真分页 / SQL 排序下沉           | 仅智能歌单侧 TTL 缓存缓解         |
+| 持久化 `play_sessions`                   | 未加表                            |
+| albums 视图 join 键一致性                | 封面丢失类问题未本轮修            |
+| macOS `activate` 多窗                    | 未改（当前主目标 Windows）        |
+| 自动化测试框架                           | 仍无                              |
 
 ---
 
