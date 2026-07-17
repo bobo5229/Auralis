@@ -44,11 +44,21 @@ const previousAlbumTintStyle = computed<CSSProperties>(() => ({
   backgroundColor: previousAlbumTint.value ?? 'transparent',
 }))
 
+const albumAccentColor = computed(() => {
+  const primaryColor = albumPalette.value?.accents[0]?.rgb
+  if (!primaryColor || !playback.state.currentTrack) {
+    return null
+  }
+  return `rgb(${primaryColor.r} ${primaryColor.g} ${primaryColor.b})`
+})
+
 const hasActiveAlbumTint = computed(() => activeAlbumTint.value !== null)
 const playerBarStyle = computed(
   () =>
     ({
       '--auralis-active-album-tint': activeAlbumTint.value ?? 'transparent',
+      '--auralis-active-album-accent':
+        albumAccentColor.value ?? 'var(--auralis-sidebar-active-indicator)',
     }) as CSSProperties,
 )
 
@@ -360,7 +370,7 @@ const volumeSliderStyle = computed(() => {
   const percentage = `${Math.round(playback.state.volume * 100)}%`
 
   return {
-    background: `linear-gradient(to right, var(--auralis-volume-fill) 0%, var(--auralis-volume-fill) ${percentage}, var(--auralis-progress-track) ${percentage}, var(--auralis-progress-track) 100%)`,
+    background: `linear-gradient(to right, var(--auralis-sidebar-active-indicator) 0%, var(--auralis-sidebar-active-indicator) ${percentage}, var(--auralis-progress-track) ${percentage}, var(--auralis-progress-track) 100%)`,
   }
 })
 
