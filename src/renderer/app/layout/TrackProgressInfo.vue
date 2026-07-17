@@ -44,6 +44,7 @@ function renderVisualProgress(now: number): void {
         : 0
   }
   fill.style.transform = `scaleX(${ratio})`
+  fill.parentElement?.style.setProperty('--auralis-progress-value', ratio.toString())
 }
 
 function syncProgressAnchor(): void {
