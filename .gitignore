@@ -48,3 +48,6 @@ docs/*
 
 # Performance traces
 artifacts/
+
+# Issues
+issues/
