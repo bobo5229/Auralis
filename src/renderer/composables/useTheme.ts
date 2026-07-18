@@ -24,7 +24,8 @@ function isThemeMode(value: string | null): value is ThemeMode {
   return value === 'light' || value === 'dark'
 }
 
-function resolveTheme(_requested?: ThemeMode | null): ThemeMode {
+function resolveTheme(requested?: ThemeMode | null): ThemeMode {
+  void requested
   // Dark-only: ignore stored/requested light until multi-theme returns.
   return FORCED_THEME
 }
@@ -43,11 +44,12 @@ function commitTheme(nextTheme: ThemeMode): void {
  */
 async function setTheme(
   nextTheme: ThemeMode,
-  _options?: {
+  options?: {
     animate?: boolean
     origin?: ThemeTransitionOrigin
   },
 ): Promise<void> {
+  void options
   if (isThemeTransitioning.value) return
 
   const resolved = resolveTheme(nextTheme)
@@ -59,7 +61,8 @@ async function setTheme(
 }
 
 /** Kept for API compatibility; dark-only so this is a no-op. */
-function toggleThemeFromElement(_trigger: HTMLElement): void {
+function toggleThemeFromElement(trigger: HTMLElement): void {
+  void trigger
   void setTheme(FORCED_THEME)
 }
 

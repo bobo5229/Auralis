@@ -27,15 +27,23 @@ const isAlbumDetail = computed(() => {
 watch(
   [isAlbumDetail, artworkUrl],
   ([newIsDetail, newUrl]) => {
-    console.log('[Auralis App.vue] State changed - isAlbumDetail:', newIsDetail, 'ArtworkURL:', newUrl)
+    console.log(
+      '[Auralis App.vue] State changed - isAlbumDetail:',
+      newIsDetail,
+      'ArtworkURL:',
+      newUrl,
+    )
   },
-  { immediate: true }
+  { immediate: true },
 )
 </script>
 
 <template>
   <div class="app-window" data-app-shell-root>
-    <div class="app-shell relative" :class="{ 'is-album-detail': isAlbumDetail, 'has-artwork': !!artworkUrl }">
+    <div
+      class="app-shell relative"
+      :class="{ 'is-album-detail': isAlbumDetail, 'has-artwork': !!artworkUrl }"
+    >
       <!-- 只有在且有封面时才渲染在 app-shell 顶层网格之下的背景 -->
       <FluidArtworkBackground
         v-if="artworkUrl"

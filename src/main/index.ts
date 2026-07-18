@@ -2,10 +2,7 @@ import { app } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { createWindow } from './app/createWindow'
-import {
-  bindDesktopLyricsHostWindow,
-  registerDesktopLyricsIpcHandlers,
-} from './app/desktopLyricsWindow'
+import { registerDesktopLyricsIpcHandlers } from './app/desktopLyricsWindow'
 import { closeDatabase, initializeDatabase } from './database/connection'
 import { registerIpcHandlers } from './ipc/registerIpcHandlers'
 import { ensureArtworkCacheDir } from './features/artwork/artworkCache'
@@ -84,10 +81,10 @@ app.whenReady().then(() => {
   })
 
   registerIpcHandlers(db, artworkCacheDir)
-  bindDesktopLyricsHostWindow(createWindow())
+  createWindow()
 
   app.on('activate', () => {
-    bindDesktopLyricsHostWindow(createWindow())
+    createWindow()
   })
 })
 
