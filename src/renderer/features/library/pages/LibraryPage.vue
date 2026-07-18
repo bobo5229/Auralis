@@ -36,6 +36,7 @@ interface LibraryContextMenuState {
 
 const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
 const LIBRARY_TOP_INSET = 16
+const LIBRARY_FLAT_BOTTOM_INSET = 28
 const smartPlaylistId = computed(() => {
   if (route.name !== 'smart-playlist') return null
   const parsed = Number(route.params.id)
@@ -680,7 +681,7 @@ onBeforeUnmount(() => {
             <template v-if="!isCoverView">
               <div
                 :style="{
-                  height: `${totalSize + LIBRARY_TOP_INSET}px`,
+                  height: `${totalSize + LIBRARY_TOP_INSET + LIBRARY_FLAT_BOTTOM_INSET}px`,
                   width: '100%',
                   position: 'relative',
                 }"
