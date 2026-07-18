@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -27,36 +27,6 @@ const MAX_COVER_TILT_DEGREES = 12
 const albumArtist = computed(() => String(route.query.artist ?? ''))
 const displayAlbumArtist = computed(() => formatArtist(albumArtist.value))
 const albumTitle = computed(() => String(route.query.title ?? ''))
-
-const totalPlays = computed(() => {
-  return albumTracks.value.reduce((sum, track) => sum + (track.playCount || 0), 0)
-})
-
-const maxPlayCount = computed(() => {
-  return Math.max(...albumTracks.value.map((t) => t.playCount || 0), 0)
-})
-
-const lastPlayedLabel = computed(() => {
-  const dates = albumTracks.value
-    .map((t) => t.lastPlayedAt)
-    .filter((d): d is string => !!d)
-    .map((d) => new Date(d).getTime())
-  if (dates.length === 0) return '尚未播放'
-  const maxTime = Math.max(...dates)
-  const diffMs = Date.now() - maxTime
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  if (diffDays === 0) {
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-    if (diffHours === 0) return '刚刚'
-    return `${diffHours} 小时前`
-  }
-  if (diffDays < 7) return `${diffDays} 天前`
-  return new Date(maxTime).toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
-})
 
 /** Native scrollbar has no :hover-on-bar; detect pointer in bottom strip instead. */
 const MORE_SCROLLBAR_HIT_PX = 14
@@ -205,7 +175,7 @@ function formatAlbumYearLabel(releaseDate: string | null): string {
 
 /**
  * Other albums by the same album-artist key as the current detail page.
- * MVP: display-only horizontal strip; no navigation.
+ * Cards navigate to that album's detail page via openAlbum.
  */
 const moreAlbumsByArtist = computed<AlbumSummary[]>(() => {
   const artistKey = albumArtist.value
@@ -257,6 +227,18 @@ async function reloadTracks(): Promise<void> {
 
 function goBack(): void {
   void router.push({ name: 'albums' })
+}
+
+function openAlbum(album: AlbumSummary): void {
+  if (album.albumArtist === albumArtist.value && album.title === albumTitle.value) return
+
+  void router.push({
+    name: 'album-detail',
+    query: {
+      artist: album.albumArtist,
+      title: album.title,
+    },
+  })
 }
 
 function showSearchResultHighlight(): void {
@@ -416,6 +398,14 @@ function onReducedMotionChange(): void {
   }
 }
 
+watch(
+  () => [albumArtist.value, albumTitle.value] as const,
+  async () => {
+    await nextTick()
+    detailRootRef.value?.scrollTo({ top: 0 })
+  },
+)
+
 onMounted(async () => {
   await reloadTracks()
   await nextTick()
@@ -483,22 +473,7 @@ onBeforeUnmount(() => {
                 <span>{{ meta }}</span>
               </span>
             </p>
-            <!-- 专辑累计播放数据面板 -->
-            <div v-if="totalPlays > 0" class="album-detail-stats-panel select-text">
-              <div class="album-detail-stats-item">
-                <span class="i-lucide-bar-chart-2 h-4 w-4 stats-icon-plays"></span>
-                <span
-                  >累计播放: <strong class="stats-value">{{ totalPlays }}次</strong></span
-                >
-              </div>
-              <div class="album-detail-stats-divider"></div>
-              <div class="album-detail-stats-item">
-                <span class="i-lucide-calendar h-4 w-4 stats-icon-time"></span>
-                <span
-                  >上次播放: <strong class="stats-value">{{ lastPlayedLabel }}</strong></span
-                >
-              </div>
-            </div>
+            <!-- 专辑累计播放数据面板被移除 -->
           </div>
 
           <button class="album-detail-play" type="button" @click="playAlbum">
@@ -532,21 +507,7 @@ onBeforeUnmount(() => {
               >{{ formatArtist(track.artist) }}</span
             >
           </span>
-          <!-- 单曲播放次数与热度图表 -->
-          <span class="album-detail-track-stats">
-            <span v-if="track.playCount > 0" class="album-detail-track-playcount">
-              <span class="i-lucide-play-circle h-3.5 w-3.5 inline-block mr-1 opacity-70"></span>
-              {{ track.playCount }} 次
-            </span>
-            <span v-else class="album-detail-track-playcount-empty">-</span>
-
-            <span v-if="maxPlayCount > 0" class="album-detail-track-heat-bar-wrap">
-              <span
-                class="album-detail-track-heat-bar"
-                :style="{ width: `${(track.playCount / maxPlayCount) * 100}%` }"
-              ></span>
-            </span>
-          </span>
+          <!-- 单曲播放次数与热度图表被移除 -->
           <span class="album-detail-track-duration">{{
             formatDuration(track.durationSeconds)
           }}</span>
@@ -571,10 +532,13 @@ onBeforeUnmount(() => {
           @pointerdown="onMoreAlbumsPointerDown"
           @wheel="onMoreAlbumsWheel"
         >
-          <article
+          <button
             v-for="album in moreAlbumsByArtist"
             :key="album.key"
+            type="button"
             class="album-detail-more-card"
+            :aria-label="`打开专辑 ${album.title}`"
+            @click="openAlbum(album)"
           >
             <div class="album-detail-more-cover">
               <img
@@ -598,7 +562,7 @@ onBeforeUnmount(() => {
               <p class="album-detail-more-album-title">{{ album.title }}</p>
               <p class="album-detail-more-year">{{ formatAlbumYearLabel(album.releaseDate) }}</p>
             </div>
-          </article>
+          </button>
         </div>
       </section>
     </section>
@@ -658,7 +622,7 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: minmax(190px, 260px) minmax(0, 1fr);
   gap: 36px;
-  align-items: stretch;
+  align-items: center;
   margin-top: 22px;
   padding-bottom: 34px;
 }
@@ -730,8 +694,8 @@ onBeforeUnmount(() => {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 22px 0 4px;
+  justify-content: flex-start;
+  padding: 8px 0;
 }
 
 .album-detail-summary h1 {
@@ -798,6 +762,7 @@ onBeforeUnmount(() => {
 }
 
 .album-detail-play {
+  margin-top: 28px;
   display: inline-flex;
   width: fit-content;
   min-width: 128px;
@@ -974,11 +939,16 @@ onBeforeUnmount(() => {
   width: 148px;
   min-width: 148px;
   scroll-snap-align: start;
+  appearance: none;
+  cursor: pointer;
   user-select: none;
   background: var(--auralis-more-card-bg);
   border: 1px solid var(--auralis-more-card-border);
   border-radius: 16px;
   padding: 12px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
   transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
@@ -1037,7 +1007,7 @@ onBeforeUnmount(() => {
   display: grid;
   width: 100%;
   min-height: 50px;
-  grid-template-columns: 42px minmax(0, 1fr) 120px 58px;
+  grid-template-columns: 42px minmax(0, 1fr) 58px;
   align-items: center;
   padding: 6px 16px 6px 8px;
   color: var(--auralis-text);

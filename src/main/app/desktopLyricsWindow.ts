@@ -5,7 +5,6 @@ import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
 import type { IpcResponse } from '@shared/ipc/contracts'
 
 let desktopLyricsWindow: BrowserWindow | null = null
-let desktopLyricsHostWindow: BrowserWindow | null = null
 let desktopLyricsEnabled = false
 let desktopLyricsMousePassthroughEnabled = true
 let latestPayload: DesktopLyricsPayload | null = null
@@ -56,10 +55,6 @@ function loadDesktopLyricsRenderer(window: BrowserWindow): void {
   })
 }
 
-function shouldShowDesktopLyrics(): boolean {
-  return desktopLyricsEnabled && !(desktopLyricsHostWindow?.isFocused() ?? false)
-}
-
 function syncDesktopLyricsWindowVisibility(): void {
   if (!desktopLyricsEnabled) {
     desktopLyricsWindow?.hide()
@@ -67,11 +62,6 @@ function syncDesktopLyricsWindowVisibility(): void {
   }
 
   const window = createDesktopLyricsWindow()
-
-  if (!shouldShowDesktopLyrics()) {
-    window.hide()
-    return
-  }
 
   window.showInactive()
   keepDesktopLyricsAbove(window)
@@ -141,21 +131,6 @@ function createDesktopLyricsWindow(): BrowserWindow {
   loadDesktopLyricsRenderer(desktopLyricsWindow)
 
   return desktopLyricsWindow
-}
-
-export function bindDesktopLyricsHostWindow(window: BrowserWindow): void {
-  desktopLyricsHostWindow = window
-
-  window.on('focus', syncDesktopLyricsWindowVisibility)
-  window.on('blur', syncDesktopLyricsWindowVisibility)
-  window.on('show', syncDesktopLyricsWindowVisibility)
-  window.on('restore', syncDesktopLyricsWindowVisibility)
-  window.on('minimize', syncDesktopLyricsWindowVisibility)
-  window.on('closed', () => {
-    if (desktopLyricsHostWindow === window) {
-      desktopLyricsHostWindow = null
-    }
-  })
 }
 
 export function registerDesktopLyricsIpcHandlers(): void {
