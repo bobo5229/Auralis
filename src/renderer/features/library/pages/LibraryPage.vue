@@ -35,6 +35,7 @@ interface LibraryContextMenuState {
 }
 
 const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
+const LIBRARY_TOP_INSET = 16
 const smartPlaylistId = computed(() => {
   if (route.name !== 'smart-playlist') return null
   const parsed = Number(route.params.id)
@@ -246,7 +247,10 @@ function scrollRenderedTrackToRatio(targetTrackId: number): boolean {
       targetOffset += getAlbumGroupSize(albumGroups.value[index])
     }
 
-    container.scrollTop = Math.max(0, targetOffset - container.clientHeight * SCROLL_POSITION_RATIO)
+    container.scrollTop = Math.max(
+      0,
+      targetOffset + LIBRARY_TOP_INSET - container.clientHeight * SCROLL_POSITION_RATIO,
+    )
     return true
   }
 
@@ -254,7 +258,10 @@ function scrollRenderedTrackToRatio(targetTrackId: number): boolean {
   if (targetIndex < 0) return false
 
   const estimatedRowSize = 44
-  const offset = targetIndex * estimatedRowSize - container.clientHeight * SCROLL_POSITION_RATIO
+  const offset =
+    targetIndex * estimatedRowSize +
+    LIBRARY_TOP_INSET -
+    container.clientHeight * SCROLL_POSITION_RATIO
   container.scrollTop = Math.max(0, offset)
   return true
 }
@@ -671,7 +678,13 @@ onBeforeUnmount(() => {
         <Transition name="library-view-fade" mode="out-in" @enter="onLibraryViewEnter">
           <div :key="libraryViewMode" class="min-h-full">
             <template v-if="!isCoverView">
-              <div :style="{ height: `${totalSize}px`, width: '100%', position: 'relative' }">
+              <div
+                :style="{
+                  height: `${totalSize + LIBRARY_TOP_INSET}px`,
+                  width: '100%',
+                  position: 'relative',
+                }"
+              >
                 <SongRow
                   v-for="virtualRow in virtualRows"
                   :key="String(virtualRow.key)"
@@ -681,7 +694,7 @@ onBeforeUnmount(() => {
                   :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
                   :style="{
                     height: `${virtualRow.size}px`,
-                    transform: `translateY(${virtualRow.start}px)`,
+                    transform: `translateY(${virtualRow.start + LIBRARY_TOP_INSET}px)`,
                     willChange: 'transform',
                   }"
                   class="absolute left-0 top-0 w-full"
@@ -695,7 +708,7 @@ onBeforeUnmount(() => {
             <template v-else>
               <div
                 :style="{
-                  height: `${albumGroupsTotalSize}px`,
+                  height: `${albumGroupsTotalSize + LIBRARY_TOP_INSET}px`,
                   width: '100%',
                   position: 'relative',
                 }"
@@ -709,7 +722,7 @@ onBeforeUnmount(() => {
                   :now-playing-track-id="playback.state.currentTrackId"
                   :style="{
                     height: `${virtualGroup.size}px`,
-                    transform: `translateY(${virtualGroup.start}px)`,
+                    transform: `translateY(${virtualGroup.start + LIBRARY_TOP_INSET}px)`,
                   }"
                   class="absolute left-0 top-0 w-full"
                   @select="onSelect"
