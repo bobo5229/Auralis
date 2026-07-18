@@ -18,13 +18,18 @@ interface PointerSample {
   y: number
 }
 
+interface UseRoamPanOptions {
+  onCameraChange?: (x: number, y: number) => void
+  onMotionChange?: (moving: boolean) => void
+}
+
 /**
  * Map-like pan + inertia for the infinite roam wall.
  *
  * `cameraX` / `cameraY` are the world-space coordinates of the viewport top-left.
  * Dragging grabs the wall (camera moves opposite the pointer). Wheel is ignored.
  */
-export function useRoamPan() {
+export function useRoamPan(options: UseRoamPanOptions = {}) {
   const cameraX = shallowRef(0)
   const cameraY = shallowRef(0)
 
@@ -37,7 +42,10 @@ export function useRoamPan() {
   let velocityX = 0
   let velocityY = 0
   let rafId = 0
+  let dragRafId = 0
   let lastFrameTime = 0
+  let pendingDragX = 0
+  let pendingDragY = 0
   let panTarget: HTMLElement | null = null
 
   function cancelInertia(): void {
@@ -49,9 +57,41 @@ export function useRoamPan() {
     velocityY = 0
   }
 
+  function cancelPendingDrag(): void {
+    if (dragRafId !== 0) {
+      cancelAnimationFrame(dragRafId)
+      dragRafId = 0
+    }
+    pendingDragX = 0
+    pendingDragY = 0
+  }
+
   function setCamera(x: number, y: number): void {
     cameraX.value = x
     cameraY.value = y
+    options.onCameraChange?.(x, y)
+  }
+
+  function flushPendingDrag(): void {
+    if (dragRafId !== 0) {
+      cancelAnimationFrame(dragRafId)
+      dragRafId = 0
+    }
+    if (pendingDragX === 0 && pendingDragY === 0) return
+
+    const dx = pendingDragX
+    const dy = pendingDragY
+    pendingDragX = 0
+    pendingDragY = 0
+    setCamera(cameraX.value - dx, cameraY.value - dy)
+  }
+
+  function scheduleDragFrame(): void {
+    if (dragRafId !== 0) return
+    dragRafId = requestAnimationFrame(() => {
+      dragRafId = 0
+      flushPendingDrag()
+    })
   }
 
   /** Place world origin at the viewport center. */
@@ -82,6 +122,7 @@ export function useRoamPan() {
     if (Math.hypot(velocityX, velocityY) < STOP_SPEED) {
       velocityX = 0
       velocityY = 0
+      options.onMotionChange?.(false)
       return
     }
 
@@ -94,8 +135,7 @@ export function useRoamPan() {
     lastFrameTime = now
     const dt = Math.min(Math.max(rawDt, 0), MAX_DT_MS)
 
-    cameraX.value += velocityX * dt
-    cameraY.value += velocityY * dt
+    setCamera(cameraX.value + velocityX * dt, cameraY.value + velocityY * dt)
 
     // v *= e^(-k·dt) ≈ map-style soft decay (or ~0.95/frame at 60fps with tuned k)
     const decay = Math.exp(-FRICTION_PER_MS * dt)
@@ -106,6 +146,7 @@ export function useRoamPan() {
       velocityX = 0
       velocityY = 0
       rafId = 0
+      options.onMotionChange?.(false)
       return
     }
 
@@ -116,6 +157,7 @@ export function useRoamPan() {
     if (event.button !== 0) return
 
     cancelInertia()
+    cancelPendingDrag()
 
     const el = event.currentTarget as HTMLElement | null
     if (el) {
@@ -123,6 +165,7 @@ export function useRoamPan() {
     }
 
     dragging = true
+    options.onMotionChange?.(true)
     activePointerId = event.pointerId
     lastClientX = event.clientX
     lastClientY = event.clientY
@@ -136,8 +179,9 @@ export function useRoamPan() {
     const dx = event.clientX - lastClientX
     const dy = event.clientY - lastClientY
     // Grab the wall: content follows the pointer.
-    cameraX.value -= dx
-    cameraY.value -= dy
+    pendingDragX += dx
+    pendingDragY += dy
+    scheduleDragFrame()
     lastClientX = event.clientX
     lastClientY = event.clientY
 
@@ -151,6 +195,7 @@ export function useRoamPan() {
 
     dragging = false
     activePointerId = null
+    flushPendingDrag()
 
     const el = event.currentTarget as HTMLElement | null
     if (el?.hasPointerCapture(event.pointerId)) {
@@ -188,6 +233,7 @@ export function useRoamPan() {
 
   function dispose(): void {
     cancelInertia()
+    cancelPendingDrag()
     dragging = false
     activePointerId = null
     samples = []
