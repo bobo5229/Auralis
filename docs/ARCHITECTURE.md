@@ -15,7 +15,6 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 
 隐私与耐久性是产品方向：音乐文件和数据库留在本机，当前没有账号系统、
 遥测、在线推荐或云同步。
-
 ## 2. 技术栈和运行环境
 
 - 桌面容器：Electron 38，主进程运行于 Node.js，界面运行于 Chromium。
@@ -32,7 +31,6 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 
 `better-sqlite3` 必须与 Electron ABI 匹配；安装依赖或改变 Electron 版本后，
 必须运行 `npm.cmd run rebuild:native`。
-
 ## 3. 顶层目录职责
 
 - `src/`：所有应用源代码。
@@ -59,7 +57,6 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 - lint 规则：`eslint.config.js`
 - 格式化规则：`.prettierrc.json`
 - UnoCSS 设计配置：`uno.config.ts`
-
 ## 4. 程序入口
 
 - Electron 主进程入口：`src/main/index.ts`
@@ -78,7 +75,6 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 启动时，`src/main/index.ts` 设置开发数据目录和 GPU 开关，注册桌面歌词 IPC，
 等待 Electron ready，随后注册封面/音频协议、初始化并迁移数据库、注册业务 IPC，
 最后创建窗口。退出前会关闭 SQLite。
-
 ## 5. 核心模块与依赖方向
 
 强制依赖方向是：
@@ -89,7 +85,6 @@ Vue UI -> preload typed API -> Electron IPC handler -> Service -> Repository -> 
                                            |             +-> worker thread
                                            +-> Electron / filesystem
 ```
-
 ### 5.1 跨进程合约
 
 - IPC channel 常量：`src/shared/ipc/channels.ts`
@@ -100,7 +95,6 @@ Vue UI -> preload typed API -> Electron IPC handler -> Service -> Repository -> 
 
 新增或修改 IPC 时，必须同步维护 channels、contracts、api、preload 和 handler。
 renderer 不得绕过 `window.auralis` 直接使用 Electron 能力。
-
 ### 5.2 主进程业务层
 
 - 媒体库查询：`src/main/services/libraryService.ts`
@@ -116,7 +110,6 @@ renderer 不得绕过 `window.auralis` 直接使用 Electron 能力。
 - 歌词解析：`src/main/features/metadata/resolveLyricsForFile.ts`
 - 封面解析与缓存：`src/main/features/artwork/`
 - 音频协议与路径校验：`src/main/features/audio/`
-
 ### 5.3 数据访问层
 
 所有 SQL 数据访问应集中在 `src/main/repositories/`。
@@ -128,7 +121,8 @@ service 和 watcher，并把它们绑定到 typed IPC。业务规则不应继续
 
 ### 5.4 renderer
 
-- 应用外壳与全局播放控件：`src/renderer/app/`
+- 应用外壳：`src/renderer/App.vue`；持有侧边栏、路由页、歌词面板、悬浮播放栏和全屏播放层。
+- 全局布局与播放控件：`src/renderer/app/layout/`
 - 专辑：`src/renderer/features/albums/`
 - Archive：`src/renderer/features/archive/`
 - 媒体库和标签编辑：`src/renderer/features/library/`
@@ -137,9 +131,23 @@ service 和 watcher，并把它们绑定到 typed IPC。业务规则不应继续
 - 设置：`src/renderer/features/settings/`
 - 跨 feature 的 UI 工具：`src/renderer/shared/`
 
+主窗口使用无系统 frame 的自绘布局。窗口关闭、最小化、最大化按钮位于
+`src/renderer/app/layout/AppSidebar.vue`，经 typed IPC 调用 Electron；拖拽区与按钮的
+`-webkit-app-region` 必须分离。`src/renderer/app/layout/AppTitleBar.vue` 已不在主外壳挂载。
+
+播放视觉链路以 `src/renderer/features/playback/composables/usePlayback.ts` 为唯一状态源：
+当前曲目封面 key 经 `getArtworkUrl` 转成 `auralis-artwork://` URL；`src/renderer/App.vue`
+将 `FluidArtworkBackground.vue` 放在整个网格底层，歌词面板和页面共享其磨砂背景。
+`PlayerBar.vue` 再通过 `useArtworkPalette.ts` 和 `artworkPalette.worker.ts` 提取主色，写入
+CSS 变量，驱动玻璃染色、按钮、进度和音量反馈。全局 token/跨组件效果集中在
+`src/renderer/app/styles/main.css`，稳定布局 shortcut 位于 `uno.config.ts`。
+
+`src/renderer/features/albums/pages/AlbumDetailPage.vue` 负责专辑统计、曲目热度、艺术家
+更多作品横滑区和指针驱动的 3D 封面投影。高频指针更新必须经 `requestAnimationFrame`
+合并；流体背景和 3D 动效都必须尊重 `prefers-reduced-motion` 并在卸载时清理资源。
+
 renderer 可以持有 UI 状态、播放用的 HTML media element、动画和派生展示数据，
 但不能读取数据库、扫描目录或解析音频标签。
-
 ## 6. 一次典型请求与数据流
 
 以“用户选择音乐目录并扫描”为例：
@@ -158,7 +166,6 @@ renderer 可以持有 UI 状态、播放用的 HTML media element、动画和派
 应用启动后，`src/main/features/metadata/metadataWatchService.ts` 还会监听已登记目录。
 它对事件去抖、检查文件稳定性，区分新增、修改、暂时不可访问、删除和移动，
 然后触发增量导入、元数据刷新或可用性更新。
-
 ## 7. 数据库、缓存与消息队列
 
 ### 7.1 SQLite
@@ -194,7 +201,6 @@ renderer 可以持有 UI 状态、播放用的 HTML media element、动画和派
 - Node worker thread：扫描和元数据刷新任务向主线程发送进度、结果和失败批次。
 
 扫描/刷新 job 也会持久化到 SQLite，但它们不是独立队列服务。
-
 ## 8. 外部服务和接口
 
 当前没有 HTTP server、REST/GraphQL API、云数据库、认证提供商、遥测、
@@ -208,7 +214,6 @@ renderer 可以持有 UI 状态、播放用的 HTML media element、动画和派
 
 若未来增加网络服务，调用必须位于主进程 service 层，并通过 typed IPC 暴露；
 renderer 不应直接持有密钥或实现持久化业务逻辑。
-
 ## 9. 配置文件与环境变量
 
 仓库没有必需的 `.env` 文件，也没有 `.env.example`。当前使用的变量有：
@@ -223,7 +228,6 @@ renderer 不应直接持有密钥或实现持久化业务逻辑。
 
 开发环境会把 Electron userData 重定向到 `data/user-data`，避免污染系统目录。
 GPU 变量是故障诊断开关，不应在不理解性能与兼容性影响时改变默认值。
-
 ## 10. 构建、测试与格式化命令
 
 PowerShell 中使用 `npm.cmd`：
@@ -251,7 +255,6 @@ npm.cmd run build
 ```
 
 `format` 会写入整个仓库，应在运行后检查变更范围。
-
 ## 11. 不能破坏的架构约束
 
 - renderer 只负责渲染、动画、用户交互和界面状态。
@@ -266,34 +269,31 @@ npm.cmd run build
 - 本地文件路径、协议 key 和可播放扩展名必须在主进程校验。
 - 封面缓存 key 必须保持内容寻址，避免把任意文件路径暴露给 renderer。
 - Vue 组件继续使用 Vue 3 Composition API 与 `<script setup lang="ts">`。
+- 播放视觉状态必须派生自共享 `usePlayback`，不能建立第二套播放器状态源。
+- 封面取色、流体渲染等重计算不得进入 Vue 同步渲染或无节流的事件回调。
+- 动效必须支持 reduced-motion，并在组件卸载时清理 worker、RAF、timer 和全局监听。
 - 不随意升级 Electron 或 `better-sqlite3`；升级后二者 ABI 必须重新验证。
 - 不提交 `data/`、缓存、构建产物、数据库、日志或用户媒体文件。
-
 ## 12. 已知历史包袱与危险区域
 
-- `README.md` 的“初始化阶段/尚未实现扫描和播放”等描述已经过时。
-- `.gitignore` 默认忽略 `docs/`，但放行本文和 2026-07-17 修复记录；新增正式文档时需明确决定是否跟踪。
+- `README.md` 的“初始化阶段/尚未实现扫描和播放”等描述已经过时；`docs/` 还有可能落后于实现的历史演示文档。
+- `.gitignore` 默认忽略 `docs/`，仅放行本文和 2026-07-17 修复记录；新增正式文档需明确决定是否跟踪。
 - 主窗和桌面歌词窗已启用 `webSecurity`，但仍设置 `sandbox: false`，开发分支还追加
   `no-sandbox`。sandbox 仍是安全债务，不能假设 renderer 内容可信。
-- 自定义窗口无系统 frame，并依赖 renderer ready 信号与 5 秒 fallback；
-  改动启动流程时要验证白屏、崩溃和加载失败路径。
+- 自定义窗口无系统 frame，窗口按钮已迁入侧边栏，但旧 `AppTitleBar.vue` 尚未删除；
+  启动仍依赖 renderer ready 与 5 秒 fallback，需验证拖拽区、白屏、崩溃和加载失败路径。
+- 全局流体背景、播放器玻璃层、歌词磨砂层和页面局部样式共同叠加；改动 z-index、
+  backdrop-filter、透明度或网格尺寸时，必须同时检查明暗主题、GPU 占用和低动态模式。
+- `src/renderer/App.vue` 仍有路由/封面状态调试日志，发布前应清理或接入受控日志。
 - `src/main/ipc/registerIpcHandlers.ts` 同时负责依赖组装和大量 handler，体积与耦合较高。
-- `src/main/database/schema.ts` 是长期累积的顺序迁移文件，并多次重建同一 view；
-  更改早期 migration 会破坏新旧数据库行为一致性。
+- `src/main/database/schema.ts` 是长期顺序迁移文件且多次重建同一 view；不能改写早期 migration。
 - 数据库是同步 `better-sqlite3`；大查询或大事务放在主线程会造成界面卡顿。
 - 文件监听包含去抖、稳定性重试、暂时错误、缺失确认和移动匹配；
   网络盘、批量重命名和编辑器原子写入很容易触发竞态。
 - 移动匹配依赖时间窗口和元数据/文件特征，存在误匹配与漏匹配风险。
-- 扫描递归遍历目录；超大曲库、权限错误、符号链接和网络路径需要谨慎验证。
-- 封面、歌词和标签来自不可信媒体文件；解析器异常不能越过 worker/service 边界。
+- 扫描递归与媒体解析面对超大曲库、权限/网络路径及不可信封面、歌词、标签时需谨慎验证。
 - 元数据编辑会写回用户音频文件，属于不可轻易撤销的操作，必须防止部分写入。
 - 开发环境数据路径经历过迁移，`copyLegacyDevDatabaseIfNeeded` 是兼容逻辑；
   删除前必须确认旧 `data/auralis.sqlite` 用户已完成迁移。
-- `track_artists` 等规范化结构带有“为未来查询保留”的性质，写入与读取并不完全对称。
+- `track_artists` 等预留规范化结构的写入与读取并不完全对称。
 - 没有自动化测试，数据库迁移、文件系统竞态、IPC 合约和播放统计回归主要靠人工验证。
-- `docs/` 中存在演示 HTML 和历史技术文档；它们不是运行时依赖，也可能落后于实现。
-
-## 13. 维护本文
-
-以下变更应同时更新本文：入口或目录移动、IPC 链路变化、数据库迁移策略变化、
-新增外部服务或环境变量、修改构建命令，以及放宽或收紧任何架构约束。
