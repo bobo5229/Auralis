@@ -41,6 +41,28 @@ Repository -> Service -> Typed IPC -> UI
 
 Add IPC calls through `src/shared/ipc/contracts.ts`, `channels.ts`, `api.ts`, the preload bridge, then `src/main/ipc/registerIpcHandlers.ts`.
 
+## Renderer Visual Architecture
+
+The main window is frameless. `src/renderer/App.vue` owns the persistent shell and renders
+the current track's `FluidArtworkBackground` beneath the sidebar, routed page, lyrics panel,
+and floating player bar. Native-style close/minimize/maximize controls live in
+`src/renderer/app/layout/AppSidebar.vue`; interactive controls must remain in
+`-webkit-app-region: no-drag` regions.
+
+- `src/renderer/app/layout/PlayerBar.vue`: playback controls, progress, volume, queue/mode
+  popovers, desktop-lyrics sync, and artwork-palette CSS variables.
+- `src/renderer/features/playback/`: shared playback state, artwork palette worker, fluid
+  background, fullscreen player, and animation scheduling.
+- `src/renderer/features/albums/pages/AlbumDetailPage.vue`: album hero, play statistics,
+  track heat indicators, related-album scroller, and pointer-driven cover projection.
+- `src/renderer/app/styles/main.css`: global theme tokens and cross-component shell/player
+  effects; `uno.config.ts`: stable layout shortcuts. Keep page-only styles scoped locally.
+
+Derive visual state from the existing playback composable instead of introducing a second
+player store. Expensive image/color work belongs in the existing worker/canvas pipeline, not
+in render loops. New motion must honor `prefers-reduced-motion`, clean up animation frames and
+listeners on unmount, and preserve both light and dark themes.
+
 ## Testing Guidelines
 
 No testing framework is configured yet. Until one is added, every change should at least pass:
