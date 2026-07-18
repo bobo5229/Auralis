@@ -11,7 +11,7 @@ export const STRIDE = COVER_SIZE + GAP
 export const ODD_ROW_OFFSET = STRIDE / 2
 
 /** Extra cells rendered beyond the viewport edges. */
-export const OVERSCAN_CELLS = 1
+export const OVERSCAN_CELLS = 2
 
 /** Album summary for roam tiles (no track list needed for MVP). */
 export interface RoamAlbum {
