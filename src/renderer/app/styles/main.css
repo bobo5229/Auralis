@@ -896,11 +896,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-tool-button-active {
-  background: color-mix(
-    in srgb,
-    var(--auralis-sidebar-active-bg) 88%,
-    transparent
-  ) !important;
+  background: color-mix(in srgb, var(--auralis-sidebar-active-bg) 88%, transparent) !important;
   color: var(--auralis-sidebar-active-indicator) !important;
   box-shadow:
     0 2px 8px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent),

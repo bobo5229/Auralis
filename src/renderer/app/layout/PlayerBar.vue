@@ -13,11 +13,9 @@ import {
 } from '@renderer/features/lyrics/utils/formatDesktopLyricsText'
 import { auralis } from '@renderer/shared/ipc/client'
 import type { DesktopLyricsPayload, DesktopLyricsStatus } from '@shared/types/desktopLyrics'
-import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 
 const playback = usePlayback()
 const lyrics = useTrackLyrics()
-const { enterMiniPlayer } = usePlayerDisplayMode()
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 const { palette: albumPalette } = useArtworkPalette(currentArtworkCacheKey)
 
@@ -392,10 +390,6 @@ function handleNext(): void {
 function handleToggleMute(): void {
   playback.toggleMute()
 }
-
-async function handleEnterMiniPlayer(): Promise<void> {
-  await enterMiniPlayer()
-}
 </script>
 
 <template>
@@ -472,16 +466,6 @@ async function handleEnterMiniPlayer(): Promise<void> {
           {{ desktopLyricsToast }}
         </div>
       </div>
-
-      <button
-        class="player-control"
-        type="button"
-        aria-label="Switch to mini player"
-        title="Mini player"
-        @click="handleEnterMiniPlayer"
-      >
-        <span class="playbar-action-icon h-4 w-4 i-lucide-panel-top-close" />
-      </button>
 
       <button
         ref="queueButtonRef"
