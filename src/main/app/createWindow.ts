@@ -2,6 +2,8 @@ import { BrowserWindow, app, ipcMain } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
+import { MiniPlayerWindowController } from './miniPlayerWindowController'
+import { createWindowsThumbarController } from './windowsThumbarController'
 
 function resolveAppIconPath(): string | undefined {
   const candidates = [
@@ -22,7 +24,8 @@ export function createWindow(): BrowserWindow {
     minWidth: 900,
     minHeight: 620,
     title: 'Auralis',
-    backgroundColor: '#1f1f1f',
+    backgroundColor: '#00000000',
+    transparent: true,
     show: false,
     titleBarStyle: 'hidden',
     frame: false,
@@ -40,6 +43,8 @@ export function createWindow(): BrowserWindow {
   })
 
   window.setMenuBarVisibility(false)
+  new MiniPlayerWindowController(window)
+  const disposeThumbarController = createWindowsThumbarController(window)
 
   let didShow = false
 
@@ -69,6 +74,7 @@ export function createWindow(): BrowserWindow {
   window.once('closed', () => {
     clearTimeout(readyTimeout)
     ipcMain.removeListener(ipcChannels.app.rendererReady, handleRendererReady)
+    disposeThumbarController()
   })
 
   window.webContents.once('render-process-gone', showWindow)

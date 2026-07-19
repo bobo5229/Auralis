@@ -1,16 +1,33 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import { router } from './app/router'
 import AppSidebar from './app/layout/AppSidebar.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
+import MiniPlayer from './app/layout/MiniPlayer.vue'
 import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
+import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 
 const playback = usePlayback()
+useSystemMediaIntegration()
+const { displayMode, onMiniPlayerWindowStateChanged, syncMiniPlayerWindowState } =
+  usePlayerDisplayMode()
+let unsubscribeMiniPlayerWindowState: (() => void) | null = null
+
+onMounted(() => {
+  void syncMiniPlayerWindowState()
+  unsubscribeMiniPlayerWindowState = onMiniPlayerWindowStateChanged()
+})
+
+onBeforeUnmount(() => {
+  unsubscribeMiniPlayerWindowState?.()
+  unsubscribeMiniPlayerWindowState = null
+})
 
 const artworkUrl = computed(() => {
   const artworkKey = playback.state.currentTrack?.artworkCacheKey ?? null
@@ -39,7 +56,9 @@ watch(
 </script>
 
 <template>
-  <div class="app-window" data-app-shell-root>
+  <MiniPlayer v-if="displayMode === 'mini'" />
+
+  <div v-else class="app-window" data-app-shell-root>
     <div
       class="app-shell relative"
       :class="{ 'is-album-detail': isAlbumDetail, 'has-artwork': !!artworkUrl }"

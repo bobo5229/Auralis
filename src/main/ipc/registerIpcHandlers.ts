@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { stat } from 'node:fs/promises'
 import { ipcChannels } from '@shared/ipc/channels'
+import { getMiniPlayerWindowController } from '@main/app/miniPlayerWindowController'
 import { getDatabasePath } from '@main/database/connection'
 import { LibraryRepository } from '@main/repositories/libraryRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
@@ -24,6 +25,15 @@ import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { PlaylistViewMode, SidebarPlaylistKind } from '@shared/types/playlist'
 import type { SmartPlaylistRule, SmartPlaylistViewMode } from '@shared/types/smartPlaylist'
 import type Database from 'better-sqlite3'
+
+function getInvokingMiniPlayerController(event: Electron.IpcMainInvokeEvent) {
+  const window = BrowserWindow.fromWebContents(event.sender)
+  const controller = window ? getMiniPlayerWindowController(window) : undefined
+  if (!controller) {
+    throw new Error('Mini player controls are only available in the main window.')
+  }
+  return controller
+}
 
 export function registerIpcHandlers(db: Database.Database, artworkCacheDir: string): void {
   const libraryService = new LibraryService(new LibraryRepository(db), new TrackRepository(db))
@@ -471,4 +481,26 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   ipcMain.handle(ipcChannels.window.isMaximized, (event) => {
     return { maximized: BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false }
   })
+
+  ipcMain.handle(ipcChannels.window.enterMiniPlayer, (event) => {
+    return getInvokingMiniPlayerController(event).enter()
+  })
+
+  ipcMain.handle(ipcChannels.window.restoreFromMiniPlayer, (event) => {
+    return getInvokingMiniPlayerController(event).restore()
+  })
+
+  ipcMain.handle(ipcChannels.window.getMiniPlayerState, (event) => {
+    return getInvokingMiniPlayerController(event).getState()
+  })
+
+  ipcMain.handle(
+    ipcChannels.window.setMiniPlayerPopover,
+    (event, payload: { open: boolean; direction: 'above' | 'below'; height: number }) =>
+      getInvokingMiniPlayerController(event).setPopover(
+        payload.open,
+        payload.direction,
+        payload.height,
+      ),
+  )
 }

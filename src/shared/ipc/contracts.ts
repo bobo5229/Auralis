@@ -35,6 +35,35 @@ import type {
 } from '@shared/types/smartPlaylist'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
 
+export interface SystemMediaPlaybackState {
+  hasTrack: boolean
+  isPlaying: boolean
+}
+
+export type SystemMediaCommand = 'previous' | 'toggle-play-pause' | 'next'
+
+export type MiniPlayerWindowMode = 'normal' | 'mini'
+export type MiniPlayerPopoverDirection = 'above' | 'below'
+
+export interface MiniPlayerWindowState {
+  mode: MiniPlayerWindowMode
+  popover: {
+    open: boolean
+    direction: MiniPlayerPopoverDirection
+    height: number
+  }
+  suggestedPopoverDirection: MiniPlayerPopoverDirection
+}
+
+export interface IpcSendContract {
+  'system-media:update-thumbar-state': SystemMediaPlaybackState
+}
+
+export interface IpcEventContract {
+  'system-media:command': SystemMediaCommand
+  'window:mini-player-state-changed': MiniPlayerWindowState
+}
+
 export interface IpcInvokeContract {
   'app:get-info': {
     request: void
@@ -269,6 +298,22 @@ export interface IpcInvokeContract {
   'window:is-maximized': {
     request: void
     response: { maximized: boolean }
+  }
+  'window:enter-mini-player': {
+    request: void
+    response: MiniPlayerWindowState
+  }
+  'window:restore-from-mini-player': {
+    request: void
+    response: MiniPlayerWindowState
+  }
+  'window:get-mini-player-state': {
+    request: void
+    response: MiniPlayerWindowState
+  }
+  'window:set-mini-player-popover': {
+    request: { open: boolean; direction: MiniPlayerPopoverDirection; height: number }
+    response: MiniPlayerWindowState
   }
 }
 
