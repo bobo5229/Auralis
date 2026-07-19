@@ -1,22 +1,26 @@
 /**
  * Mini-player layout is cover-first: the square sleeve size is chosen first,
- * then the native window is sized so the cover is never a small inset.
+ * then the native window is sized so the cover stays readable without crowding
+ * the plaque. Side padding and chrome height intentionally leave air around
+ * the sleeve (cover ≈ 80% of body width at ideal).
  *
  * Vertical chrome budget must stay in sync with MiniPlayer.vue stack
- * (padding + window chrome + meta + progress + transport + actions + gaps).
+ * (padding + meta + progress + transport + actions + gaps).
+ * No title-bar / window-control row.
  */
-export const MINI_COVER_MIN = 248
-export const MINI_COVER_MAX = 320
-export const MINI_COVER_IDEAL = 288
+export const MINI_COVER_MIN = 220
+export const MINI_COVER_MAX = 280
+export const MINI_COVER_IDEAL = 248
 
 /** Horizontal padding each side (matches .mini-body padding-x). */
-export const MINI_PAD_X = 16
+export const MINI_PAD_X = 28
 
 /**
  * Everything below/above the square cover in the body column (px).
  * Tuned to MiniPlayer.vue vertical stack — adjust if that layout changes.
+ * Zero window-control header; top padding is pure breathing room above the sleeve.
  */
-export const MINI_CHROME_HEIGHT = 268
+export const MINI_CHROME_HEIGHT = 264
 
 export interface MiniPlayerBodySize {
   /** Square album sleeve edge length. */
@@ -41,7 +45,7 @@ function sizeFromCover(coverSize: number): MiniPlayerBodySize {
 
 /**
  * Pick cover + window size for a display work area so the sleeve stays large
- * (ideal when possible) while the plaque still fits on screen.
+ * enough to read while the plaque keeps breathing room and still fits on screen.
  */
 export function computeMiniPlayerBodySize(
   workAreaWidth: number,
@@ -60,7 +64,7 @@ export function computeMiniPlayerBodySize(
     cover = Math.max(MINI_COVER_MIN, cover)
   } else {
     // Very short displays: still keep a square, even if below the comfort floor.
-    cover = Math.max(180, maxCover)
+    cover = Math.max(168, maxCover)
   }
 
   return sizeFromCover(cover)

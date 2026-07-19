@@ -15,6 +15,8 @@ interface WindowPreferences {
   resizable: boolean
   maximizable: boolean
   alwaysOnTop: boolean
+  /** OS window shadow (rectangular); disabled in mini so CSS radius can stand alone. */
+  hasShadow: boolean
 }
 
 interface MiniPlayerPopover {
@@ -53,6 +55,7 @@ export class MiniPlayerWindowController {
       resizable: this.window.isResizable(),
       maximizable: this.window.isMaximizable(),
       alwaysOnTop: this.window.isAlwaysOnTop(),
+      hasShadow: this.window.hasShadow(),
     }
     this.preferences = preferences
 
@@ -64,6 +67,8 @@ export class MiniPlayerWindowController {
     this.popover = { open: false, direction: this.getSuggestedPopoverDirection(), height: 0 }
     this.window.setResizable(false)
     this.window.setMaximizable(false)
+    // Transparent rounded plaque: OS shadow is rectangular and reads as a second "container".
+    this.window.setHasShadow(false)
     this.setFixedMiniPlayerSize(this.body.height)
     this.window.setBounds(this.getClampedBodyBounds(preferences.bounds))
     this.window.setAlwaysOnTop(true, 'floating')
@@ -86,6 +91,7 @@ export class MiniPlayerWindowController {
     this.window.setMaximumSize(...preferences.maximumSize)
     this.window.setResizable(preferences.resizable)
     this.window.setMaximizable(preferences.maximizable)
+    this.window.setHasShadow(preferences.hasShadow)
     this.window.setBounds(preferences.bounds)
     this.window.setAlwaysOnTop(preferences.alwaysOnTop)
 
