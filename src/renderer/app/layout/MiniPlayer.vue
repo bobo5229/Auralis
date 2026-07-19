@@ -9,6 +9,7 @@ import { subscribeVisualFrame } from '@renderer/features/playback/utils/visualFr
 import { formatDuration } from '@renderer/features/library/utils/formatDuration'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { auralis } from '@renderer/shared/ipc/client'
+import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
 import { getDefaultMiniPlayerBodySize } from '@shared/constants/miniPlayer'
 import type { MiniPlayerBodySize, MiniPlayerPopoverDirection } from '@shared/ipc/contracts'
 
@@ -272,6 +273,29 @@ function restoreMainWindow(): void {
   void miniWindow.restoreFromMiniPlayer()
 }
 
+/** Pointer-driven specular sheen for the liquid-glass plaque (no RGB refraction). */
+function updateGlassLight(event: PointerEvent): void {
+  const el = event.currentTarget
+  if (!(el instanceof HTMLElement)) return
+  const bounds = el.getBoundingClientRect()
+  el.style.setProperty('--glass-pointer-x', `${event.clientX - bounds.left}px`)
+  el.style.setProperty('--glass-pointer-y', `${event.clientY - bounds.top}px`)
+}
+
+/** Direction A: no window chrome — double-click sleeve / plaque to return. */
+function handleRestoreGesture(event: MouseEvent): void {
+  const target = event.target
+  if (!(target instanceof Element)) return
+  if (
+    target.closest(
+      'button, input, [role="slider"], a, .mini-actions-dock, .mini-transport, .mini-progress-block, .mini-popover',
+    )
+  ) {
+    return
+  }
+  restoreMainWindow()
+}
+
 function handleKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') closePopover()
 }
@@ -307,7 +331,14 @@ onUnmounted(() => {
     :class="`mini-player-canvas--${popoverDirection}`"
     :style="canvasStyle"
   >
-    <section v-if="activePopover" class="mini-popover" data-mini-interactive :style="popoverStyle">
+    <section
+      v-if="activePopover"
+      class="mini-popover"
+      data-mini-interactive
+      :style="popoverStyle"
+      @pointermove="updateGlassLight"
+    >
+      <div class="mini-glass-sheen" aria-hidden="true" />
       <div
         v-if="activePopover === 'queue'"
         class="mini-queue-panel"
@@ -406,11 +437,13 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <!-- Vertical listening plaque: cover stage → meta → progress → transport → utilities -->
+    <!-- Vertical liquid-glass plaque (zero chrome, no edge dispersion) -->
     <section
       class="mini-player"
       :class="{ 'mini-player--playing': playback.state.isPlaying }"
       :style="miniPlayerStyle"
+      @dblclick="handleRestoreGesture"
+      @pointermove="updateGlassLight"
     >
       <FluidArtworkBackground
         v-if="artworkUrl"
@@ -420,46 +453,20 @@ onUnmounted(() => {
         class="mini-player-background"
       />
       <div class="mini-player-scrim" aria-hidden="true" />
+      <div class="mini-glass-sheen" aria-hidden="true" />
       <div class="mini-drag-region" aria-hidden="true" />
 
       <div class="mini-body">
-        <header class="mini-chrome" data-mini-interactive>
-          <div class="mini-window-actions">
-            <button
-              class="mini-chrome-button"
-              type="button"
-              aria-label="最小化"
-              data-tooltip="最小化"
-              @click="auralis.window.minimize()"
-            >
-              <span class="h-3.5 w-3.5 i-lucide-minus" />
-            </button>
-            <button
-              class="mini-chrome-button"
-              type="button"
-              aria-label="恢复主界面"
-              data-tooltip="恢复主界面"
-              @click="restoreMainWindow"
-            >
-              <span class="h-3.5 w-3.5 i-lucide-panel-top-open" />
-            </button>
-            <button
-              class="mini-chrome-button mini-chrome-button--close"
-              type="button"
-              aria-label="关闭 Auralis"
-              data-tooltip="关闭 Auralis"
-              @click="auralis.window.close()"
-            >
-              <span class="h-3.5 w-3.5 i-lucide-x" />
-            </button>
-          </div>
-        </header>
-
-        <div class="mini-cover-stage">
+        <div class="mini-cover-stage" title="双击返回主界面" data-mini-interactive>
           <div
             class="mini-cover"
             :class="{ 'mini-cover--playing': playback.state.isPlaying && currentTrack }"
+            role="button"
+            tabindex="0"
+            aria-label="双击封面返回主界面"
             data-mini-interactive
+            @dblclick.stop="restoreMainWindow"
+            @keydown.enter.prevent="restoreMainWindow"
           >
             <img
               v-if="
@@ -476,7 +483,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="mini-meta" data-mini-interactive>
+        <div class="mini-meta" data-mini-interactive title="双击返回主界面">
           <strong class="mini-title">{{ currentTrack?.title || 'Auralis' }}</strong>
           <span class="mini-subtitle">
             {{ currentTrack ? formatPlaybackSubtitle(currentTrack) : '尚未播放' }}
@@ -540,40 +547,47 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <div class="mini-actions" data-mini-interactive>
-          <button
-            class="mini-icon-button"
-            :class="{ 'mini-icon-button--active': activePopover === 'queue' }"
-            type="button"
-            aria-label="播放队列"
-            data-tooltip="播放队列"
-            data-mini-popover-trigger="queue"
-            @click="togglePopover('queue')"
-          >
-            <span class="h-4 w-4 i-lucide-list-music" />
-          </button>
-          <button
-            class="mini-icon-button"
-            :class="{ 'mini-icon-button--active': activePopover === 'mode' }"
-            type="button"
-            aria-label="播放模式"
-            data-tooltip="播放模式"
-            data-mini-popover-trigger="mode"
-            @click="togglePopover('mode')"
-          >
-            <span class="h-4 w-4" :class="modeIcon" />
-          </button>
-          <button
-            class="mini-icon-button"
-            :class="{ 'mini-icon-button--active': activePopover === 'volume' }"
-            type="button"
-            aria-label="音量"
-            data-tooltip="音量"
-            data-mini-popover-trigger="volume"
-            @click="togglePopover('volume')"
-          >
-            <span class="h-4 w-4" :class="volumeIcon" />
-          </button>
+        <!-- Liquid Glass floating island: queue / mode / volume -->
+        <div class="mini-actions-dock" data-mini-interactive>
+          <LiquidGlassPanel class="mini-actions-glass" :radius="999">
+            <div class="mini-actions" role="toolbar" aria-label="迷你播放工具">
+              <button
+                class="mini-icon-button mini-actions-button"
+                :class="{ 'mini-icon-button--active': activePopover === 'queue' }"
+                type="button"
+                aria-label="播放队列"
+                data-tooltip="播放队列"
+                data-mini-popover-trigger="queue"
+                @click="togglePopover('queue')"
+              >
+                <span class="h-4 w-4 i-lucide-list-music" />
+              </button>
+              <span class="mini-actions-sep" aria-hidden="true" />
+              <button
+                class="mini-icon-button mini-actions-button"
+                :class="{ 'mini-icon-button--active': activePopover === 'mode' }"
+                type="button"
+                aria-label="播放模式"
+                data-tooltip="播放模式"
+                data-mini-popover-trigger="mode"
+                @click="togglePopover('mode')"
+              >
+                <span class="h-4 w-4" :class="modeIcon" />
+              </button>
+              <span class="mini-actions-sep" aria-hidden="true" />
+              <button
+                class="mini-icon-button mini-actions-button"
+                :class="{ 'mini-icon-button--active': activePopover === 'volume' }"
+                type="button"
+                aria-label="音量"
+                data-tooltip="音量"
+                data-mini-popover-trigger="volume"
+                @click="togglePopover('volume')"
+              >
+                <span class="h-4 w-4" :class="volumeIcon" />
+              </button>
+            </div>
+          </LiquidGlassPanel>
         </div>
       </div>
     </section>
@@ -588,7 +602,10 @@ onUnmounted(() => {
   width: 100%;
   min-height: 100%;
   overflow: hidden;
+  /* Must stay fully clear so rounded corners don't reveal a rectangular plate */
   background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
 }
 
 .mini-player-canvas {
@@ -607,33 +624,81 @@ onUnmounted(() => {
   justify-content: flex-end;
 }
 
+/*
+ * Liquid Glass shell (plaque + popover)
+ * Volumetric cool frost: multi-stop elevation, inset bevel, rim thickness.
+ * No RGB chromatic refraction on edges.
+ */
 .mini-player,
 .mini-popover {
+  --glass-pointer-x: 28%;
+  --glass-pointer-y: 14%;
   pointer-events: auto;
-  border: 1px solid
-    color-mix(in srgb, var(--auralis-border-subtle, rgb(127 127 127 / 0.28)) 80%, transparent);
-  background: color-mix(in srgb, var(--auralis-surface-floating, #1c1e22) 94%, black);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: var(--auralis-text-primary, #f5f5f5);
+  /* Cool frost: blue-slate glass */
+  border: 1px solid rgb(190 210 255 / 0.18);
+  background: color-mix(in srgb, rgb(8 14 28) 52%, rgb(40 72 120 / 0.12));
+  backdrop-filter: blur(30px) saturate(1.18) contrast(1.05);
+  -webkit-backdrop-filter: blur(30px) saturate(1.18) contrast(1.05);
+  /*
+   * No outer (drop) box-shadow on the shell: the BrowserWindow is sized to this
+   * element, so outer shadows only paint into the square corner wedges and read
+   * as a second rectangular "container" behind the rounded plaque. Depth comes
+   * from inset bevel only; OS window shadow is disabled in mini mode.
+   */
   box-shadow:
-    0 1px 0 rgb(255 255 255 / 0.06) inset,
-    0 22px 56px rgb(0 0 0 / 0.36);
+    /* Inner bevel: top catch-light + floor AO (glass thickness) */
+    inset 0 1px 0 rgb(230 240 255 / 0.32),
+    inset 0 2px 0 rgb(190 215 255 / 0.1),
+    inset 0 -1px 0 rgb(0 8 24 / 0.45),
+    inset 0 -3px 10px rgb(0 8 24 / 0.22),
+    inset 0 18px 36px rgb(170 200 255 / 0.05),
+    inset 0 -28px 40px rgb(0 6 20 / 0.28),
+    /* Side wall soft bevel */ inset 1.5px 0 0 rgb(200 220 255 / 0.1),
+    inset -1.5px 0 0 rgb(0 10 28 / 0.22);
+}
+
+/* Inner rim / lip — second surface for thickness without RGB fringe */
+.mini-player::before,
+.mini-popover::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 4;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgb(210 225 255 / 0.08),
+    inset 0 0 0 2px rgb(0 8 24 / 0.14);
+  background:
+    linear-gradient(
+      180deg,
+      rgb(220 235 255 / 0.12) 0%,
+      transparent 16%,
+      transparent 78%,
+      rgb(0 8 24 / 0.18) 100%
+    ),
+    radial-gradient(ellipse 90% 42% at 50% -4%, rgb(200 220 255 / 0.14), transparent 55%);
+  opacity: 0.95;
 }
 
 /* ── Vertical plaque shell ─────────────────────────────── */
 .mini-player {
-  position: relative;
-  isolation: isolate;
-  border-radius: 24px;
-  overflow: hidden;
-  color: var(--auralis-text-primary, #f5f5f5);
+  border-radius: 26px;
 }
 
 .mini-player-background {
   position: absolute;
   inset: 0;
   z-index: 0;
+  /* Solid fluid wash — album mesh reads clearly under cool glass */
+  opacity: 0.88;
 }
 
-/* Cover-forward scrim: light over art, denser toward controls */
+/* Cool glass wash: stronger top→bottom volume for depth */
 .mini-player-scrim {
   position: absolute;
   inset: 0;
@@ -642,11 +707,32 @@ onUnmounted(() => {
   background:
     linear-gradient(
       180deg,
-      rgb(8 10 14 / 0.18) 0%,
-      rgb(8 10 14 / 0.08) 38%,
-      rgb(8 10 14 / 0.72) 100%
+      rgb(190 215 255 / 0.11) 0%,
+      rgb(6 12 26 / 0.14) 32%,
+      rgb(4 10 22 / 0.38) 72%,
+      rgb(2 8 18 / 0.55) 100%
     ),
-    radial-gradient(ellipse 90% 55% at 50% 18%, rgb(0 0 0 / 0.05), transparent 70%);
+    radial-gradient(ellipse 110% 55% at 50% -8%, rgb(180 210 255 / 0.12), transparent 58%),
+    radial-gradient(ellipse 90% 50% at 50% 108%, rgb(0 6 18 / 0.35), transparent 55%);
+}
+
+/* Specular follow-light — cool white only (no RGB fringe) */
+.mini-glass-sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.72;
+  mix-blend-mode: soft-light;
+  background:
+    radial-gradient(
+      200px circle at var(--glass-pointer-x) var(--glass-pointer-y),
+      rgb(230 240 255 / 0.28),
+      transparent 62%
+    ),
+    linear-gradient(145deg, rgb(200 225 255 / 0.14), transparent 40%),
+    linear-gradient(215deg, transparent 55%, rgb(0 10 28 / 0.12) 100%);
+  transition: opacity 180ms ease;
 }
 
 .mini-drag-region {
@@ -657,9 +743,8 @@ onUnmounted(() => {
 }
 
 /*
- * Stack:
- *  chrome (overlay)
- *  cover stage (flex)
+ * Stack (zero window chrome):
+ *  cover stage
  *  meta
  *  progress + times
  *  transport
@@ -671,102 +756,75 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 10px 16px 16px;
+  /* Horizontal pad must match MINI_PAD_X in shared/constants/miniPlayer.ts */
+  /* Extra top pad replaces the old title-bar row — keeps sleeve from kissing the edge */
+  padding: 22px 28px 20px;
   box-sizing: border-box;
 }
 
-.mini-chrome,
+.mini-popover > :not(.mini-glass-sheen) {
+  position: relative;
+  z-index: 1;
+}
+
 .mini-cover,
+.mini-cover-stage,
 .mini-meta,
 .mini-progress-block,
 .mini-transport,
-.mini-actions,
+.mini-actions-dock,
 .mini-popover {
   -webkit-app-region: no-drag;
 }
 
-/* ── Chrome ────────────────────────────────────────────── */
-.mini-chrome {
-  display: flex;
-  justify-content: flex-end;
-  flex: none;
-  margin: 0 -4px 6px 0;
-}
-
-.mini-window-actions {
-  display: flex;
-  gap: 1px;
-  padding: 2px;
-  border-radius: 10px;
-  background: rgb(0 0 0 / 0.22);
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.05) inset;
-}
-
-.mini-chrome-button {
-  position: relative;
-  display: grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border: 0;
-  border-radius: 8px;
-  color: var(--auralis-text-faint, #9a9aa0);
-  background: transparent;
-  cursor: pointer;
-  transition:
-    color 0.14s ease,
-    background 0.14s ease;
-}
-
-.mini-chrome-button:hover {
-  color: var(--auralis-text-primary, #fff);
-  background: rgb(255 255 255 / 0.12);
-}
-
-.mini-chrome-button--close:hover {
-  color: #fff;
-  background: #c94343;
-}
-
-.mini-chrome-button:active {
-  transform: scale(0.96);
-}
-
 /* ── Cover stage (signature) ─────────────────────────────
  * Cover size is fixed by native window metrics (--mini-cover-size).
- * The window grows/shrinks with the cover so the sleeve never looks tiny.
+ * Side padding + stage gap keep the sleeve from filling the plaque edge-to-edge.
+ * Double-click sleeve / meta returns to the main window (no title-bar controls).
  */
 .mini-cover-stage {
   flex: none;
   display: grid;
   place-items: center;
   width: 100%;
-  height: var(--mini-cover-size, 288px);
-  margin-bottom: 12px;
+  height: var(--mini-cover-size, 248px);
+  margin-bottom: 18px;
 }
 
 .mini-cover {
-  width: var(--mini-cover-size, 288px);
-  height: var(--mini-cover-size, 288px);
+  width: var(--mini-cover-size, 248px);
+  height: var(--mini-cover-size, 248px);
   aspect-ratio: 1 / 1;
   flex: none;
   display: grid;
   place-items: center;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: 18px;
   background: color-mix(in srgb, var(--auralis-surface-raised, #34363a) 80%, black);
   color: var(--auralis-text-faint, #a0a0a5);
+  cursor: pointer;
+  /* Float the sleeve above the glass floor */
   box-shadow:
-    0 0 0 1px rgb(255 255 255 / 0.1) inset,
-    0 16px 36px rgb(0 0 0 / 0.35);
+    0 0 0 1px rgb(220 235 255 / 0.2) inset,
+    0 1px 0 rgb(255 255 255 / 0.14) inset,
+    0 2px 4px rgb(0 6 18 / 0.35),
+    0 10px 22px rgb(0 8 24 / 0.32),
+    0 22px 48px rgb(0 8 24 / 0.4);
   transition: box-shadow 0.3s ease;
+}
+
+.mini-cover:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--auralis-active-album-accent) 70%, white);
+  outline-offset: 3px;
 }
 
 .mini-cover--playing {
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--auralis-active-album-accent) 78%, white),
     0 0 0 7px color-mix(in srgb, var(--auralis-active-album-accent) 16%, transparent),
-    0 18px 40px rgb(0 0 0 / 0.38);
+    0 2px 4px rgb(0 6 18 / 0.3),
+    0 12px 28px rgb(0 8 24 / 0.34),
+    0 24px 52px rgb(0 8 24 / 0.42);
 }
 
 .mini-cover img {
@@ -786,10 +844,10 @@ onUnmounted(() => {
 .mini-meta {
   flex: none;
   display: grid;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
   text-align: center;
-  padding: 0 4px 10px;
+  padding: 0 2px 12px;
 }
 
 .mini-title {
@@ -815,8 +873,8 @@ onUnmounted(() => {
 .mini-progress-block {
   flex: none;
   display: grid;
-  gap: 7px;
-  padding: 0 2px 12px;
+  gap: 8px;
+  padding: 0 2px 14px;
 }
 
 .mini-progress {
@@ -846,21 +904,85 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 16px;
   padding-bottom: 12px;
 }
 
-.mini-actions {
+/* ── Liquid Glass floating island (queue / mode / volume) ─ */
+.mini-actions-dock {
   flex: none;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 0 10px 2px;
+  -webkit-app-region: no-drag;
+}
+
+.mini-actions-glass {
+  flex: none;
+  width: auto;
+  max-width: 72%;
+  /* Cool dock glass — raised pill with thickness, no RGB edge dispersion */
+  background: color-mix(in srgb, rgb(8 14 28) 50%, rgb(48 80 128 / 0.1)) !important;
+  border: 1px solid rgb(190 210 255 / 0.18);
+  box-shadow:
+    0 1px 1px rgb(0 6 18 / 0.35),
+    0 6px 14px rgb(0 10 28 / 0.28),
+    0 14px 32px rgb(0 8 24 / 0.36),
+    inset 0 1px 0 rgb(230 240 255 / 0.28),
+    inset 0 2px 0 rgb(190 215 255 / 0.08),
+    inset 0 -1px 0 rgb(0 8 24 / 0.4),
+    inset 0 -6px 12px rgb(0 8 24 / 0.18) !important;
+}
+
+/* Kill LiquidGlassPanel's chromatic refraction rim (red/blue fringe) on this island only */
+.mini-actions-glass :deep(.liquid-glass-panel__refraction) {
+  display: none;
+}
+
+.mini-actions {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  margin: 0 auto;
-  padding: 3px;
-  border-radius: 12px;
-  background: rgb(0 0 0 / 0.22);
-  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.06) inset;
+  gap: 0;
+  margin: 0;
+  padding: 5px 7px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.mini-actions-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+}
+
+.mini-actions-sep {
+  flex: none;
+  width: 1px;
+  height: 14px;
+  margin: 0 2px;
+  border-radius: 1px;
+  background: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 0),
+    rgb(255 255 255 / 0.22) 35%,
+    rgb(255 255 255 / 0.22) 65%,
+    rgb(255 255 255 / 0)
+  );
+  opacity: 0.7;
+}
+
+.mini-actions-button.mini-icon-button:hover,
+.mini-actions-button.mini-icon-button--active {
+  background: rgb(255 255 255 / 0.14);
+  box-shadow: none;
+}
+
+.mini-actions-button.mini-icon-button--active {
+  color: var(--auralis-active-album-accent);
+  box-shadow: none;
 }
 
 .mini-icon-button,
@@ -940,15 +1062,20 @@ onUnmounted(() => {
   border-radius: 50%;
   color: #121214;
   background: var(--auralis-text-primary, #f4f4f5);
-  box-shadow: 0 8px 22px rgb(0 0 0 / 0.28);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.35) inset,
+    0 2px 4px rgb(0 6 18 / 0.25),
+    0 10px 24px rgb(0 8 24 / 0.35);
 }
 
 .mini-player--playing .mini-play-button {
   background: var(--auralis-active-album-accent);
   color: #121214;
   box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.28) inset,
     0 0 0 4px color-mix(in srgb, var(--auralis-active-album-accent) 20%, transparent),
-    0 10px 24px rgb(0 0 0 / 0.32);
+    0 2px 4px rgb(0 6 18 / 0.22),
+    0 12px 28px rgb(0 8 24 / 0.38);
 }
 
 .mini-play-button:hover {
@@ -957,8 +1084,7 @@ onUnmounted(() => {
 
 /* Tooltips — prefer above on lower controls to stay in window */
 .mini-icon-button[data-tooltip]::after,
-.mini-play-button[data-tooltip]::after,
-.mini-chrome-button[data-tooltip]::after {
+.mini-play-button[data-tooltip]::after {
   position: absolute;
   z-index: 20;
   bottom: calc(100% + 8px);
@@ -981,38 +1107,15 @@ onUnmounted(() => {
 }
 
 .mini-icon-button[data-tooltip]:hover::after,
-.mini-play-button[data-tooltip]:hover::after,
-.mini-chrome-button[data-tooltip]:hover::after {
+.mini-play-button[data-tooltip]:hover::after {
   opacity: 1;
   transform: translateX(-50%);
 }
 
-.mini-chrome-button[data-tooltip]::after {
-  bottom: auto;
-  top: calc(100% + 7px);
-  transform: translateX(-50%) translateY(-2px);
-}
-
-.mini-chrome-button[data-tooltip]:hover::after {
-  transform: translateX(-50%);
-}
-
-.mini-window-actions .mini-chrome-button:last-child[data-tooltip]::after {
-  right: 0;
-  left: auto;
-  transform: translateY(-2px);
-}
-
-.mini-window-actions .mini-chrome-button:last-child[data-tooltip]:hover::after {
-  transform: translateY(0);
-}
-
-/* ── Popovers ──────────────────────────────────────────── */
+/* ── Popovers (same liquid glass family as plaque) ─────── */
 .mini-popover {
   max-height: 300px;
-  border-radius: 18px;
-  overflow: hidden;
-  backdrop-filter: blur(18px);
+  border-radius: 20px;
 }
 
 .mini-panel-heading {
@@ -1161,16 +1264,40 @@ onUnmounted(() => {
 @media (prefers-reduced-motion: reduce) {
   .mini-icon-button,
   .mini-play-button,
-  .mini-chrome-button,
   .mini-cover,
   .mini-icon-button::after,
-  .mini-play-button::after,
-  .mini-chrome-button::after {
+  .mini-play-button::after {
     transition: none;
+  }
+
+  .mini-glass-sheen {
+    display: none;
   }
 
   .mini-progress .track-progress-fill::after {
     animation: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .mini-player,
+  .mini-popover {
+    background: rgb(8 12 22 / 0.96);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .mini-player-background {
+    opacity: 0.55;
+  }
+
+  .mini-glass-sheen {
+    display: none;
+  }
+
+  .mini-actions-glass {
+    background: rgb(10 16 28 / 0.94) !important;
+    border-color: rgb(190 210 255 / 0.28);
   }
 }
 </style>
