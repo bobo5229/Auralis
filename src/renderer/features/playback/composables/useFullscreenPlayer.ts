@@ -1,18 +1,22 @@
-import { readonly, ref } from 'vue'
-
-const isFullscreenPlayerOpen = ref(false)
+import { computed } from 'vue'
+import { usePlayerDisplayMode } from './usePlayerDisplayMode'
 
 export function useFullscreenPlayer() {
+  const { displayMode, showFullscreenPlayer, showNormalPlayer } = usePlayerDisplayMode()
+  const isFullscreenPlayerOpen = computed(() => displayMode.value === 'fullscreen')
+
   function openFullscreenPlayer(): void {
-    isFullscreenPlayerOpen.value = true
+    showFullscreenPlayer()
   }
 
   function closeFullscreenPlayer(): void {
-    isFullscreenPlayerOpen.value = false
+    if (displayMode.value === 'fullscreen') {
+      showNormalPlayer()
+    }
   }
 
   return {
-    isFullscreenPlayerOpen: readonly(isFullscreenPlayerOpen),
+    isFullscreenPlayerOpen,
     openFullscreenPlayer,
     closeFullscreenPlayer,
   }

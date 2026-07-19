@@ -47,6 +47,10 @@ export const ipcChannels = {
     getAlbumTracks: 'playback:get-album-tracks',
     recordEffectivePlay: 'playback:record-effective-play',
   },
+  systemMedia: {
+    updateThumbarState: 'system-media:update-thumbar-state',
+    command: 'system-media:command',
+  },
   desktopLyrics: {
     toggle: 'desktop-lyrics:toggle',
     isVisible: 'desktop-lyrics:is-visible',
@@ -81,5 +85,10 @@ export const ipcChannels = {
     toggleMaximize: 'window:toggle-maximize',
     close: 'window:close',
     isMaximized: 'window:is-maximized',
+    enterMiniPlayer: 'window:enter-mini-player',
+    restoreFromMiniPlayer: 'window:restore-from-mini-player',
+    getMiniPlayerState: 'window:get-mini-player-state',
+    setMiniPlayerPopover: 'window:set-mini-player-popover',
+    miniPlayerStateChanged: 'window:mini-player-state-changed',
   },
 } as const

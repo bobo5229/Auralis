@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AuralisApi } from '@shared/ipc/api'
 import type { IpcInvokeChannel, IpcRequest, IpcResponse } from '@shared/ipc/contracts'
+import type { SystemMediaCommand } from '@shared/ipc/contracts'
 import { ipcChannels } from '@shared/ipc/channels'
 import type { LibraryScanProgress } from '@shared/types/libraryScan'
 
@@ -103,6 +104,21 @@ export const auralisApi: AuralisApi = {
     getAlbumTracks: (albumKey) => invoke(ipcChannels.playback.getAlbumTracks, { albumKey }),
     recordEffectivePlay: (payload) => invoke(ipcChannels.playback.recordEffectivePlay, payload),
   },
+  systemMedia: {
+    updateThumbarState: (state) =>
+      ipcRenderer.send(ipcChannels.systemMedia.updateThumbarState, state),
+    onCommand: (callback) => {
+      const listener = (_event: Electron.IpcRendererEvent, command: SystemMediaCommand) => {
+        callback(command)
+      }
+
+      ipcRenderer.on(ipcChannels.systemMedia.command, listener)
+
+      return () => {
+        ipcRenderer.removeListener(ipcChannels.systemMedia.command, listener)
+      }
+    },
+  },
   desktopLyrics: {
     toggle: () => invoke(ipcChannels.desktopLyrics.toggle),
     isVisible: () => invoke(ipcChannels.desktopLyrics.isVisible),
@@ -192,6 +208,21 @@ export const auralisApi: AuralisApi = {
     toggleMaximize: () => invoke(ipcChannels.window.toggleMaximize),
     close: () => invoke(ipcChannels.window.close),
     isMaximized: () => invoke(ipcChannels.window.isMaximized),
+    enterMiniPlayer: () => invoke(ipcChannels.window.enterMiniPlayer),
+    restoreFromMiniPlayer: () => invoke(ipcChannels.window.restoreFromMiniPlayer),
+    getMiniPlayerState: () => invoke(ipcChannels.window.getMiniPlayerState),
+    setMiniPlayerPopover: (payload) => invoke(ipcChannels.window.setMiniPlayerPopover, payload),
+    onMiniPlayerStateChanged: (callback) => {
+      const listener = (
+        _event: Electron.IpcRendererEvent,
+        state: Parameters<typeof callback>[0],
+      ) => {
+        callback(state)
+      }
+
+      ipcRenderer.on(ipcChannels.window.miniPlayerStateChanged, listener)
+      return () => ipcRenderer.removeListener(ipcChannels.window.miniPlayerStateChanged, listener)
+    },
   },
 }
 

@@ -35,6 +35,12 @@ import type {
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
+import type {
+  MiniPlayerPopoverDirection,
+  MiniPlayerWindowState,
+  SystemMediaCommand,
+  SystemMediaPlaybackState,
+} from './contracts'
 
 export interface AuralisApi {
   app: {
@@ -111,6 +117,10 @@ export interface AuralisApi {
       playedAtIso: string
     }) => Promise<{ ok: boolean; recorded: boolean }>
   }
+  systemMedia: {
+    updateThumbarState: (state: SystemMediaPlaybackState) => void
+    onCommand: (callback: (command: SystemMediaCommand) => void) => () => void
+  }
   desktopLyrics: {
     toggle: () => Promise<{ visible: boolean }>
     isVisible: () => Promise<{ visible: boolean }>
@@ -163,6 +173,15 @@ export interface AuralisApi {
     toggleMaximize: () => Promise<{ ok: boolean }>
     close: () => Promise<{ ok: boolean }>
     isMaximized: () => Promise<{ maximized: boolean }>
+    enterMiniPlayer: () => Promise<MiniPlayerWindowState>
+    restoreFromMiniPlayer: () => Promise<MiniPlayerWindowState>
+    getMiniPlayerState: () => Promise<MiniPlayerWindowState>
+    setMiniPlayerPopover: (payload: {
+      open: boolean
+      direction: MiniPlayerPopoverDirection
+      height: number
+    }) => Promise<MiniPlayerWindowState>
+    onMiniPlayerStateChanged: (callback: (state: MiniPlayerWindowState) => void) => () => void
   }
 }
 
