@@ -65,7 +65,7 @@ and floating player bar. Native-style close/minimize/maximize controls live in
 > [!IMPORTANT]
 > **术语与概念澄清 (Terminology Clarification)**
 > *   **Playbar (或 PlayerBar)**：特指**主页面底部常驻的播放控制栏组件**（即 `src/renderer/app/layout/PlayerBar.vue` 及其核心子组件 `TrackProgressInfo.vue`）。
-> *   **Miniplayer (迷你播放器)**：特指由 `MiniPlayer.vue` 和主进程 `miniPlayerWindowController.ts` 控制的**独立小窗口（440px * 146px 悬浮窗）**。
+> *   **Miniplayer (迷你播放器)**：特指由 `MiniPlayer.vue` 和主进程 `miniPlayerWindowController.ts` 控制的**独立小窗口**。尺寸按封面优先自适应（见 `src/shared/constants/miniPlayer.ts`）：先定正方形封面边长，再推导窗口宽高。
 > *   这两者在架构、DOM流及物理窗口层面上完全独立隔离。在后续迭代或执行 UI/UX 优化指令时，**切勿混淆二者**，修改 Playbar 时不得误触或改动 Miniplayer 的文件，反之亦然。
 
 Derive visual state from the existing playback composable instead of introducing a second

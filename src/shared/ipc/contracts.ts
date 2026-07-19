@@ -45,8 +45,17 @@ export type SystemMediaCommand = 'previous' | 'toggle-play-pause' | 'next'
 export type MiniPlayerWindowMode = 'normal' | 'mini'
 export type MiniPlayerPopoverDirection = 'above' | 'below'
 
+/** Cover-first body metrics for the mini-player plaque (no popover). */
+export interface MiniPlayerBodySize {
+  coverSize: number
+  width: number
+  height: number
+}
+
 export interface MiniPlayerWindowState {
   mode: MiniPlayerWindowMode
+  /** Active body size (cover-driven). Always present for layout sync. */
+  body: MiniPlayerBodySize
   popover: {
     open: boolean
     direction: MiniPlayerPopoverDirection
