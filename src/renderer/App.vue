@@ -23,8 +23,6 @@ const isAlbumDetail = computed(() => {
   return name === 'album-detail'
 })
 
-const isRoam = computed(() => router.currentRoute.value.name === 'roam')
-
 // Debug trace to help verify state reactive rendering
 watch(
   [isAlbumDetail, artworkUrl],
@@ -50,7 +48,7 @@ watch(
       <FluidArtworkBackground
         v-if="artworkUrl"
         :artwork-url="artworkUrl"
-        :active="!isRoam"
+        :active="true"
         :playing="playback.state.isPlaying"
         class="app-shell-bg-fluid"
       />
