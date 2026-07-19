@@ -1,5 +1,9 @@
 # Repository Guidelines
 
+## 语言规范
+
+用户可能使用中文或英文发送指令，AI 必须始终用中文回复。
+
 ## Project Structure & Module Organization
 
 Auralis is an Electron + Vue + TypeScript local music archive. Source lives in `src/`:
