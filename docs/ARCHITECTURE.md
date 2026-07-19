@@ -15,6 +15,7 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 
 隐私与耐久性是产品方向：音乐文件和数据库留在本机，当前没有账号系统、
 遥测、在线推荐或云同步。
+
 ## 2. 技术栈和运行环境
 
 - 桌面容器：Electron 38，主进程运行于 Node.js，界面运行于 Chromium。
@@ -31,6 +32,7 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 
 `better-sqlite3` 必须与 Electron ABI 匹配；安装依赖或改变 Electron 版本后，
 必须运行 `npm.cmd run rebuild:native`。
+
 ## 3. 顶层目录职责
 
 - `src/`：所有应用源代码。
@@ -57,6 +59,7 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 - lint 规则：`eslint.config.js`
 - 格式化规则：`.prettierrc.json`
 - UnoCSS 设计配置：`uno.config.ts`
+
 ## 4. 程序入口
 
 - Electron 主进程入口：`src/main/index.ts`
@@ -75,6 +78,7 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 启动时，`src/main/index.ts` 设置开发数据目录和 GPU 开关，注册桌面歌词 IPC，
 等待 Electron ready，随后注册封面/音频协议、初始化并迁移数据库、注册业务 IPC，
 最后创建窗口。退出前会关闭 SQLite。
+
 ## 5. 核心模块与依赖方向
 
 强制依赖方向是：
@@ -85,6 +89,7 @@ Vue UI -> preload typed API -> Electron IPC handler -> Service -> Repository -> 
                                            |             +-> worker thread
                                            +-> Electron / filesystem
 ```
+
 ### 5.1 跨进程合约
 
 - IPC channel 常量：`src/shared/ipc/channels.ts`
@@ -95,6 +100,7 @@ Vue UI -> preload typed API -> Electron IPC handler -> Service -> Repository -> 
 
 新增或修改 IPC 时，必须同步维护 channels、contracts、api、preload 和 handler。
 renderer 不得绕过 `window.auralis` 直接使用 Electron 能力。
+
 ### 5.2 主进程业务层
 
 - 媒体库查询：`src/main/services/libraryService.ts`
@@ -110,6 +116,7 @@ renderer 不得绕过 `window.auralis` 直接使用 Electron 能力。
 - 歌词解析：`src/main/features/metadata/resolveLyricsForFile.ts`
 - 封面解析与缓存：`src/main/features/artwork/`
 - 音频协议与路径校验：`src/main/features/audio/`
+
 ### 5.3 数据访问层
 
 所有 SQL 数据访问应集中在 `src/main/repositories/`。
@@ -148,6 +155,7 @@ CSS 变量，驱动玻璃染色、按钮、进度和音量反馈。全局 token/
 
 renderer 可以持有 UI 状态、播放用的 HTML media element、动画和派生展示数据，
 但不能读取数据库、扫描目录或解析音频标签。
+
 ## 6. 一次典型请求与数据流
 
 以“用户选择音乐目录并扫描”为例：
@@ -166,6 +174,7 @@ renderer 可以持有 UI 状态、播放用的 HTML media element、动画和派
 应用启动后，`src/main/features/metadata/metadataWatchService.ts` 还会监听已登记目录。
 它对事件去抖、检查文件稳定性，区分新增、修改、暂时不可访问、删除和移动，
 然后触发增量导入、元数据刷新或可用性更新。
+
 ## 7. 数据库、缓存与消息队列
 
 ### 7.1 SQLite
@@ -201,6 +210,7 @@ renderer 可以持有 UI 状态、播放用的 HTML media element、动画和派
 - Node worker thread：扫描和元数据刷新任务向主线程发送进度、结果和失败批次。
 
 扫描/刷新 job 也会持久化到 SQLite，但它们不是独立队列服务。
+
 ## 8. 外部服务和接口
 
 当前没有 HTTP server、REST/GraphQL API、云数据库、认证提供商、遥测、
@@ -214,6 +224,7 @@ renderer 可以持有 UI 状态、播放用的 HTML media element、动画和派
 
 若未来增加网络服务，调用必须位于主进程 service 层，并通过 typed IPC 暴露；
 renderer 不应直接持有密钥或实现持久化业务逻辑。
+
 ## 9. 配置文件与环境变量
 
 仓库没有必需的 `.env` 文件，也没有 `.env.example`。当前使用的变量有：
@@ -228,6 +239,7 @@ renderer 不应直接持有密钥或实现持久化业务逻辑。
 
 开发环境会把 Electron userData 重定向到 `data/user-data`，避免污染系统目录。
 GPU 变量是故障诊断开关，不应在不理解性能与兼容性影响时改变默认值。
+
 ## 10. 构建、测试与格式化命令
 
 PowerShell 中使用 `npm.cmd`：
@@ -255,6 +267,7 @@ npm.cmd run build
 ```
 
 `format` 会写入整个仓库，应在运行后检查变更范围。
+
 ## 11. 不能破坏的架构约束
 
 - renderer 只负责渲染、动画、用户交互和界面状态。
@@ -274,6 +287,7 @@ npm.cmd run build
 - 动效必须支持 reduced-motion，并在组件卸载时清理 worker、RAF、timer 和全局监听。
 - 不随意升级 Electron 或 `better-sqlite3`；升级后二者 ABI 必须重新验证。
 - 不提交 `data/`、缓存、构建产物、数据库、日志或用户媒体文件。
+
 ## 12. 已知历史包袱与危险区域
 
 - `README.md` 的“初始化阶段/尚未实现扫描和播放”等描述已经过时；`docs/` 还有可能落后于实现的历史演示文档。

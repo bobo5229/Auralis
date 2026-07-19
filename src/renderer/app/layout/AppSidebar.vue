@@ -7,10 +7,12 @@ import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import { useRoute } from 'vue-router'
 import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
+import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { auralis } from '@renderer/shared/ipc/client'
 
 const route = useRoute()
 const router = useRouter()
+const { enterMiniPlayer } = usePlayerDisplayMode()
 const isFacetsDialogOpen = ref(false)
 const playlistItems = ref<SidebarPlaylistItem[]>([])
 const libraryStats = ref<LibraryStats>({ trackCount: 0, albumCount: 0 })
@@ -472,6 +474,15 @@ function close(): void {
             @click="isFacetsDialogOpen = true"
           >
             <span class="i-lucide-list-filter"></span>
+          </button>
+          <button
+            class="sidebar-tool-button"
+            type="button"
+            aria-label="切换到迷你播放器"
+            title="迷你播放器"
+            @click="enterMiniPlayer"
+          >
+            <span class="i-lucide-panel-top-close"></span>
           </button>
           <RouterLink
             to="/settings"
