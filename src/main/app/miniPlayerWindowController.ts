@@ -1,9 +1,11 @@
 import { BrowserWindow, screen } from 'electron'
+import {
+  computeMiniPlayerBodySize,
+  getDefaultMiniPlayerBodySize,
+  type MiniPlayerBodySize,
+} from '@shared/constants/miniPlayer'
 import { ipcChannels } from '@shared/ipc/channels'
 import type { MiniPlayerPopoverDirection, MiniPlayerWindowState } from '@shared/ipc/contracts'
-
-const MINI_PLAYER_WIDTH = 440
-const MINI_PLAYER_HEIGHT = 146
 
 interface WindowPreferences {
   bounds: Electron.Rectangle
@@ -30,6 +32,7 @@ function toSizeTuple(size: number[]): [number, number] {
 export class MiniPlayerWindowController {
   private preferences: WindowPreferences | null = null
   private popover: MiniPlayerPopover = { open: false, direction: 'below', height: 0 }
+  private body: MiniPlayerBodySize = getDefaultMiniPlayerBodySize()
 
   constructor(private readonly window: BrowserWindow) {
     controllers.set(window, this)
@@ -57,10 +60,11 @@ export class MiniPlayerWindowController {
       this.window.unmaximize()
     }
 
+    this.body = this.resolveBodySize(preferences.bounds)
     this.popover = { open: false, direction: this.getSuggestedPopoverDirection(), height: 0 }
     this.window.setResizable(false)
     this.window.setMaximizable(false)
-    this.setFixedMiniPlayerSize(MINI_PLAYER_HEIGHT)
+    this.setFixedMiniPlayerSize(this.body.height)
     this.window.setBounds(this.getClampedBodyBounds(preferences.bounds))
     this.window.setAlwaysOnTop(true, 'floating')
     this.window.moveTop()
@@ -76,6 +80,7 @@ export class MiniPlayerWindowController {
     const preferences = this.preferences
     this.preferences = null
     this.popover = { open: false, direction: 'below', height: 0 }
+    this.body = getDefaultMiniPlayerBodySize()
 
     this.window.setMinimumSize(...preferences.minimumSize)
     this.window.setMaximumSize(...preferences.maximumSize)
@@ -100,7 +105,7 @@ export class MiniPlayerWindowController {
       const bodyBounds = this.preferences ? this.getBodyBounds() : null
       this.popover = { open: false, direction, height: 0 }
       if (bodyBounds) {
-        this.setFixedMiniPlayerSize(MINI_PLAYER_HEIGHT)
+        this.setFixedMiniPlayerSize(this.body.height)
         this.window.setBounds(this.getClampedBodyBounds(bodyBounds))
       }
       return this.emitState()
@@ -113,7 +118,7 @@ export class MiniPlayerWindowController {
     const availableAbove = Math.max(0, bodyBounds.y - workArea.y)
     const availableBelow = Math.max(
       0,
-      workArea.y + workArea.height - (bodyBounds.y + MINI_PLAYER_HEIGHT),
+      workArea.y + workArea.height - (bodyBounds.y + this.body.height),
     )
     const resolvedDirection = this.resolveDirection(direction, availableAbove, availableBelow)
     const availableHeight = resolvedDirection === 'above' ? availableAbove : availableBelow
@@ -121,12 +126,12 @@ export class MiniPlayerWindowController {
 
     this.popover = { open: height > 0, direction: resolvedDirection, height }
     const y = resolvedDirection === 'above' ? bodyBounds.y - height : bodyBounds.y
-    this.setFixedMiniPlayerSize(MINI_PLAYER_HEIGHT + height)
+    this.setFixedMiniPlayerSize(this.body.height + height)
     this.window.setBounds({
       x: bodyBounds.x,
       y,
-      width: MINI_PLAYER_WIDTH,
-      height: MINI_PLAYER_HEIGHT + height,
+      width: this.body.width,
+      height: this.body.height + height,
     })
 
     return this.emitState()
@@ -136,6 +141,7 @@ export class MiniPlayerWindowController {
     const suggestedPopoverDirection = this.getSuggestedPopoverDirection()
     return {
       mode: this.preferences ? 'mini' : 'normal',
+      body: { ...this.body },
       popover: { ...this.popover },
       suggestedPopoverDirection,
     }
@@ -149,30 +155,35 @@ export class MiniPlayerWindowController {
     return state
   }
 
+  private resolveBodySize(source: Electron.Rectangle): MiniPlayerBodySize {
+    const workArea = screen.getDisplayMatching(source).workArea
+    return computeMiniPlayerBodySize(workArea.width, workArea.height)
+  }
+
   private getBodyBounds(): Electron.Rectangle {
     const bounds = this.window.getBounds()
     if (this.popover.open && this.popover.direction === 'above') {
-      return { ...bounds, y: bounds.y + this.popover.height, height: MINI_PLAYER_HEIGHT }
+      return { ...bounds, y: bounds.y + this.popover.height, height: this.body.height }
     }
 
-    return { ...bounds, height: MINI_PLAYER_HEIGHT }
+    return { ...bounds, height: this.body.height, width: this.body.width }
   }
 
   private setFixedMiniPlayerSize(height: number): void {
-    this.window.setMinimumSize(MINI_PLAYER_WIDTH, height)
-    this.window.setMaximumSize(MINI_PLAYER_WIDTH, height)
+    this.window.setMinimumSize(this.body.width, height)
+    this.window.setMaximumSize(this.body.width, height)
   }
 
   private getClampedBodyBounds(source: Electron.Rectangle): Electron.Rectangle {
     const display = screen.getDisplayMatching(source)
     const workArea = display.workArea
-    const maxX = workArea.x + Math.max(0, workArea.width - MINI_PLAYER_WIDTH)
-    const maxY = workArea.y + Math.max(0, workArea.height - MINI_PLAYER_HEIGHT)
+    const maxX = workArea.x + Math.max(0, workArea.width - this.body.width)
+    const maxY = workArea.y + Math.max(0, workArea.height - this.body.height)
     return {
       x: Math.min(Math.max(source.x, workArea.x), maxX),
       y: Math.min(Math.max(source.y, workArea.y), maxY),
-      width: MINI_PLAYER_WIDTH,
-      height: MINI_PLAYER_HEIGHT,
+      width: this.body.width,
+      height: this.body.height,
     }
   }
 
@@ -184,7 +195,7 @@ export class MiniPlayerWindowController {
     const bodyBounds = this.getBodyBounds()
     const workArea = screen.getDisplayMatching(bodyBounds).workArea
     const availableAbove = bodyBounds.y - workArea.y
-    const availableBelow = workArea.y + workArea.height - (bodyBounds.y + MINI_PLAYER_HEIGHT)
+    const availableBelow = workArea.y + workArea.height - (bodyBounds.y + this.body.height)
     return availableAbove > availableBelow ? 'above' : 'below'
   }
 
