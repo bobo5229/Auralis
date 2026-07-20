@@ -35,6 +35,11 @@ function getInvokingMiniPlayerController(event: Electron.IpcMainInvokeEvent) {
   return controller
 }
 
+function isMissingFileError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code
+  return code === 'ENOENT' || code === 'ENOTDIR'
+}
+
 export function registerIpcHandlers(db: Database.Database, artworkCacheDir: string): void {
   const libraryService = new LibraryService(new LibraryRepository(db), new TrackRepository(db))
   const libraryScanService = new LibraryScanService(db, artworkCacheDir)
@@ -61,6 +66,16 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   const sendToRenderer = (channel: string, data: unknown) => {
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(channel, data)
+    }
+  }
+  const markTrackFileMissing = (filePath: string) => {
+    const trackIds = trackRepository.markMissingByFilePaths([filePath])
+    if (trackIds.length > 0) {
+      sendToRenderer(ipcChannels.library.changed, {
+        reason: 'track-missing',
+        trackIds,
+        filePaths: [filePath],
+      })
     }
   }
   const metadataWatchService = new MetadataWatchService(
@@ -309,9 +324,11 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
         const fileStats = await stat(filePath)
 
         if (!fileStats.isFile()) {
+          markTrackFileMissing(filePath)
           return null
         }
-      } catch {
+      } catch (error) {
+        if (isMissingFileError(error)) markTrackFileMissing(filePath)
         return null
       }
 

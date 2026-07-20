@@ -376,6 +376,16 @@ function invalidateGaplessTransition(): void {
   gaplessEngine.cancelScheduledNext()
 }
 
+function isSameAlbumBoundary(current: PlaybackTrack | null, next: PlaybackTrack): boolean {
+  if (!current?.album || !next.album) return false
+  const currentAlbumArtist = current.albumArtist || current.artist || ''
+  const nextAlbumArtist = next.albumArtist || next.artist || ''
+  return (
+    current.album.trim().toLocaleLowerCase() === next.album.trim().toLocaleLowerCase() &&
+    currentAlbumArtist.trim().toLocaleLowerCase() === nextAlbumArtist.trim().toLocaleLowerCase()
+  )
+}
+
 async function refreshGaplessNext(fromTrackId: number): Promise<void> {
   const generation = ++transitionGeneration
   const requestId = playbackRequestId
@@ -401,7 +411,9 @@ async function refreshGaplessNext(fromTrackId: number): Promise<void> {
     )
       return
 
-    const scheduled = await gaplessEngine.scheduleNext(plan.track.id, url)
+    const scheduled = await gaplessEngine.scheduleNext(plan.track.id, url, {
+      trimBoundarySilence: isSameAlbumBoundary(state.currentTrack, plan.track),
+    })
     if (
       generation !== transitionGeneration ||
       requestId !== playbackRequestId ||
@@ -1025,6 +1037,65 @@ function toggleMute(): void {
   gaplessEngine.setVolume(state.volume, true)
 }
 
+function removeMissingTracksFromPlayback(trackIds: number[]): void {
+  const missingIds = new Set(trackIds)
+  if (missingIds.size === 0) return
+
+  const currentTrackMissing = state.currentTrackId !== null && missingIds.has(state.currentTrackId)
+  state.queue = state.queue.filter((track) => !missingIds.has(track.id))
+  shuffleTrackPool = shuffleTrackPool?.filter((track) => !missingIds.has(track.id)) ?? null
+  if (albumShuffleContext) {
+    const tracks = albumShuffleContext.tracks.filter((track) => !missingIds.has(track.id))
+    albumShuffleContext = tracks.length > 0 ? { ...albumShuffleContext, tracks } : null
+  }
+  playbackHistory = playbackHistory
+    .filter((entry) => !missingIds.has(entry.track.id))
+    .map((entry) => ({
+      ...entry,
+      queue: entry.queue.filter((track) => !missingIds.has(track.id)),
+      shuffleTrackPool:
+        entry.shuffleTrackPool?.filter((track) => !missingIds.has(track.id)) ?? null,
+      albumShuffleContext: entry.albumShuffleContext
+        ? {
+            ...entry.albumShuffleContext,
+            tracks: entry.albumShuffleContext.tracks.filter((track) => !missingIds.has(track.id)),
+          }
+        : null,
+    }))
+
+  if (queuedNextTrackId !== null && missingIds.has(queuedNextTrackId)) {
+    queuedNextTrackId = null
+  }
+
+  if (currentTrackMissing) {
+    playbackRequestId += 1
+    invalidateGaplessTransition()
+    gaplessEngine.cancel()
+    audio.pause()
+    endPlayCountSession()
+    state.currentIndex = -1
+    state.currentTrack = null
+    state.currentTrackId = null
+    state.selectedTrackId = null
+    state.currentTime = 0
+    state.duration = 0
+    state.isPlaying = false
+    state.error = 'Audio file is unavailable. Please rescan the music library.'
+    return
+  }
+
+  state.currentIndex = state.currentTrackId
+    ? state.queue.findIndex((track) => track.id === state.currentTrackId)
+    : -1
+  if (gaplessEngine.isActive && state.currentTrackId && state.isPlaying) {
+    void refreshGaplessNext(state.currentTrackId)
+  }
+}
+
+const unsubscribeLibraryChanged = auralis.library.onChanged((event) => {
+  if (event.reason === 'track-missing') removeMissingTracksFromPlayback(event.trackIds)
+})
+
 function disposePlayback(): void {
   playbackRequestId += 1
   invalidateGaplessTransition()
@@ -1037,6 +1108,7 @@ function disposePlayback(): void {
   audio.removeAttribute('src')
   audio.load()
   gaplessEngine.destroy()
+  unsubscribeLibraryChanged()
 }
 
 window.addEventListener('beforeunload', disposePlayback, { once: true })

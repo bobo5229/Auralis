@@ -25,6 +25,12 @@ const playableExtensions = new Set<string>(supportedAudioExtensions)
 export type AudioProtocolResolver = {
   getFilePathByTrackId: (trackId: number) => string | null
   getLibraryRootPaths: () => string[]
+  onFileMissing?: (trackId: number, filePath: string) => void
+}
+
+function isMissingFileError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code
+  return code === 'ENOENT' || code === 'ENOTDIR'
 }
 
 export function buildAudioTrackUrl(trackId: number): string {
@@ -179,11 +185,13 @@ export function registerAudioProtocol(resolver: AudioProtocolResolver): void {
 
       try {
         fileStats = await stat(resolvedPath)
-      } catch {
+      } catch (error) {
+        if (isMissingFileError(error)) resolver.onFileMissing?.(trackId, filePath)
         return new Response(null, { status: 404 })
       }
 
       if (!fileStats.isFile()) {
+        resolver.onFileMissing?.(trackId, filePath)
         return new Response(null, { status: 404 })
       }
 
