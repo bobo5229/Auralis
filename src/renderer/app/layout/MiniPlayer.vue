@@ -15,6 +15,26 @@ import type { MiniPlayerBodySize, MiniPlayerPopoverDirection } from '@shared/ipc
 
 type MiniPopover = 'queue' | 'mode' | 'volume' | null
 
+/** Accent-metal light pose — reshuffled after each play-button hover ends. */
+interface MetalLightPose {
+  hiX: number
+  hiY: number
+  hiW: number
+  hiH: number
+  loX: number
+  loY: number
+  loW: number
+  loH: number
+  bodyAngle: number
+  hoverHiX: number
+  hoverHiY: number
+  hoverLoX: number
+  hoverLoY: number
+  sweepAngle: number
+  sweepFrom: number
+  sweepTo: number
+}
+
 const playback = usePlayback()
 const activePopover = ref<MiniPopover>(null)
 const popoverDirection = ref<MiniPlayerPopoverDirection>('below')
@@ -22,10 +42,64 @@ const imageErrorIds = ref<Set<number>>(new Set())
 const isDraggingProgress = ref(false)
 const draggingProgressRatio = ref<number | null>(null)
 const progressFillRef = ref<HTMLElement | null>(null)
+const metalLight = ref<MetalLightPose>(createMetalLightPose())
 let unsubscribeMiniPlayerState: (() => void) | undefined
 let progressFrameUnsubscribe: (() => void) | null = null
 let progressAnchorTime = 0
 let progressAnchorAt = 0
+
+function randomRange(min: number, max: number): number {
+  return min + Math.random() * (max - min)
+}
+
+function createMetalLightPose(previous?: MetalLightPose | null): MetalLightPose {
+  // Highlight stays in the upper half; dark sits roughly opposite for volume.
+  let hiX = randomRange(14, 70)
+  let hiY = randomRange(8, 40)
+  let loX = randomRange(40, 90)
+  let loY = randomRange(52, 90)
+
+  if (previous) {
+    // Nudge away from last pose so the change is noticeable.
+    if (Math.abs(hiX - previous.hiX) < 12) hiX = ((previous.hiX + randomRange(28, 48)) % 70) + 12
+    if (Math.abs(hiY - previous.hiY) < 10) hiY = ((previous.hiY + randomRange(14, 28)) % 32) + 8
+    if (Math.abs(loX - previous.loX) < 12) loX = ((previous.loX + randomRange(24, 42)) % 50) + 40
+    if (Math.abs(loY - previous.loY) < 10) loY = ((previous.loY + randomRange(12, 24)) % 38) + 52
+  }
+
+  if (Math.abs(loX - hiX) < 18) loX = Math.min(90, Math.max(40, hiX + (hiX < 50 ? 28 : -28)))
+  if (Math.abs(loY - hiY) < 22) loY = Math.min(90, hiY + randomRange(36, 52))
+
+  const bodyAngle = randomRange(118, 208)
+  const hoverHiX = Math.min(78, Math.max(10, hiX + randomRange(-8, 12)))
+  const hoverHiY = Math.min(48, Math.max(6, hiY + randomRange(-10, 6)))
+  const hoverLoX = Math.min(94, Math.max(36, loX + randomRange(-8, 8)))
+  const hoverLoY = Math.min(94, Math.max(48, loY + randomRange(-6, 10)))
+
+  return {
+    hiX,
+    hiY,
+    hiW: randomRange(105, 140),
+    hiH: randomRange(78, 105),
+    loX,
+    loY,
+    loW: randomRange(78, 110),
+    loH: randomRange(68, 95),
+    bodyAngle,
+    hoverHiX,
+    hoverHiY,
+    hoverLoX,
+    hoverLoY,
+    sweepAngle: randomRange(98, 148),
+    sweepFrom: randomRange(115, 145),
+    sweepTo: randomRange(-40, -10),
+  }
+}
+
+/** After hover ends: new highlight / dark / body angles for the next rest + hover. */
+function reshuffleMetalLight(): void {
+  metalLight.value = createMetalLightPose(metalLight.value)
+}
 
 const miniWindow = auralis.window
 const bodySize = ref<MiniPlayerBodySize>(getDefaultMiniPlayerBodySize())
@@ -77,6 +151,28 @@ const popoverStyle = computed(
     }) as CSSProperties,
 )
 
+const playButtonMetalStyle = computed(
+  () =>
+    ({
+      '--metal-hi-x': `${metalLight.value.hiX}%`,
+      '--metal-hi-y': `${metalLight.value.hiY}%`,
+      '--metal-hi-w': `${metalLight.value.hiW}%`,
+      '--metal-hi-h': `${metalLight.value.hiH}%`,
+      '--metal-lo-x': `${metalLight.value.loX}%`,
+      '--metal-lo-y': `${metalLight.value.loY}%`,
+      '--metal-lo-w': `${metalLight.value.loW}%`,
+      '--metal-lo-h': `${metalLight.value.loH}%`,
+      '--metal-body-angle': `${metalLight.value.bodyAngle}deg`,
+      '--metal-hi-hover-x': `${metalLight.value.hoverHiX}%`,
+      '--metal-hi-hover-y': `${metalLight.value.hoverHiY}%`,
+      '--metal-lo-hover-x': `${metalLight.value.hoverLoX}%`,
+      '--metal-lo-hover-y': `${metalLight.value.hoverLoY}%`,
+      '--metal-sweep-angle': `${metalLight.value.sweepAngle}deg`,
+      '--metal-sweep-from': `${metalLight.value.sweepFrom}%`,
+      '--metal-sweep-to': `${metalLight.value.sweepTo}%`,
+    }) as CSSProperties,
+)
+
 function applyBodyFromState(body: MiniPlayerBodySize | undefined): void {
   if (!body?.coverSize || !body.width || !body.height) return
   bodySize.value = {
@@ -86,30 +182,35 @@ function applyBodyFromState(body: MiniPlayerBodySize | undefined): void {
   }
 }
 
+/**
+ * Control Center–style bar icons (IonIcons filled / regular solid).
+ * Iconify prefix `ion` — verified: list, repeat, shuffle, disc, volume-*, etc.
+ */
 const modeIcon = computed(() => {
   const icons: Record<PlaybackMode, string> = {
-    sequential: 'i-lucide-list-end',
-    'repeat-all': 'i-lucide-repeat',
-    'repeat-one': 'i-lucide-repeat-1',
-    shuffle: 'i-lucide-shuffle',
-    'album-shuffle': 'i-lucide-disc-3',
+    sequential: 'i-ion-play-skip-forward',
+    'repeat-all': 'i-ion-repeat',
+    // Ion has no repeat-once; sync reads as single-cycle loop.
+    'repeat-one': 'i-ion-sync',
+    shuffle: 'i-ion-shuffle',
+    'album-shuffle': 'i-ion-disc',
   }
   return icons[playback.state.playbackMode]
 })
 
 const volumeIcon = computed(() => {
-  if (playback.state.isMuted) return 'i-lucide-volume-x'
-  if (playback.state.volume <= 0.33) return 'i-lucide-volume'
-  if (playback.state.volume <= 0.66) return 'i-lucide-volume-1'
-  return 'i-lucide-volume-2'
+  if (playback.state.isMuted) return 'i-ion-volume-mute'
+  if (playback.state.volume <= 0.33) return 'i-ion-volume-low'
+  if (playback.state.volume <= 0.66) return 'i-ion-volume-medium'
+  return 'i-ion-volume-high'
 })
 
 const modes: Array<{ id: PlaybackMode; label: string; icon: string }> = [
-  { id: 'sequential', label: '顺序播放', icon: 'i-lucide-list-end' },
-  { id: 'repeat-all', label: '列表循环', icon: 'i-lucide-repeat' },
-  { id: 'repeat-one', label: '单曲循环', icon: 'i-lucide-repeat-1' },
-  { id: 'shuffle', label: '随机播放', icon: 'i-lucide-shuffle' },
-  { id: 'album-shuffle', label: '专辑随机', icon: 'i-lucide-disc-3' },
+  { id: 'sequential', label: '顺序播放', icon: 'i-ion-play-skip-forward' },
+  { id: 'repeat-all', label: '列表循环', icon: 'i-ion-repeat' },
+  { id: 'repeat-one', label: '单曲循环', icon: 'i-ion-sync' },
+  { id: 'shuffle', label: '随机播放', icon: 'i-ion-shuffle' },
+  { id: 'album-shuffle', label: '专辑随机', icon: 'i-ion-disc' },
 ]
 
 function artworkFailed(trackId: number): boolean {
@@ -273,15 +374,6 @@ function restoreMainWindow(): void {
   void miniWindow.restoreFromMiniPlayer()
 }
 
-/** Pointer-driven specular sheen for the liquid-glass plaque (no RGB refraction). */
-function updateGlassLight(event: PointerEvent): void {
-  const el = event.currentTarget
-  if (!(el instanceof HTMLElement)) return
-  const bounds = el.getBoundingClientRect()
-  el.style.setProperty('--glass-pointer-x', `${event.clientX - bounds.left}px`)
-  el.style.setProperty('--glass-pointer-y', `${event.clientY - bounds.top}px`)
-}
-
 /** Direction A: no window chrome — double-click sleeve / plaque to return. */
 function handleRestoreGesture(event: MouseEvent): void {
   const target = event.target
@@ -331,14 +423,7 @@ onUnmounted(() => {
     :class="`mini-player-canvas--${popoverDirection}`"
     :style="canvasStyle"
   >
-    <section
-      v-if="activePopover"
-      class="mini-popover"
-      data-mini-interactive
-      :style="popoverStyle"
-      @pointermove="updateGlassLight"
-    >
-      <div class="mini-glass-sheen" aria-hidden="true" />
+    <section v-if="activePopover" class="mini-popover" data-mini-interactive :style="popoverStyle">
       <div
         v-if="activePopover === 'queue'"
         class="mini-queue-panel"
@@ -402,7 +487,7 @@ onUnmounted(() => {
           <span>{{ mode.label }}</span>
           <span
             v-if="mode.id === playback.state.playbackMode"
-            class="ml-auto h-4 w-4 i-lucide-check"
+            class="ml-auto h-4 w-4 i-ion-checkmark"
           />
         </button>
       </div>
@@ -437,13 +522,12 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <!-- Vertical liquid-glass plaque (zero chrome, no edge dispersion) -->
+    <!-- Vertical listening plaque (zero chrome): solid surface + fluid art scrim -->
     <section
       class="mini-player"
       :class="{ 'mini-player--playing': playback.state.isPlaying }"
       :style="miniPlayerStyle"
       @dblclick="handleRestoreGesture"
-      @pointermove="updateGlassLight"
     >
       <FluidArtworkBackground
         v-if="artworkUrl"
@@ -453,7 +537,6 @@ onUnmounted(() => {
         class="mini-player-background"
       />
       <div class="mini-player-scrim" aria-hidden="true" />
-      <div class="mini-glass-sheen" aria-hidden="true" />
       <div class="mini-drag-region" aria-hidden="true" />
 
       <div class="mini-body">
@@ -527,9 +610,11 @@ onUnmounted(() => {
           <button
             class="mini-play-button"
             type="button"
+            :style="playButtonMetalStyle"
             :aria-label="playback.state.isPlaying ? '暂停' : '播放'"
             :data-tooltip="playback.state.isPlaying ? '暂停' : '播放'"
             @click="playback.togglePlayPause()"
+            @mouseleave="reshuffleMetalLight"
           >
             <span
               class="h-6 w-6"
@@ -547,9 +632,9 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <!-- Liquid Glass floating island: queue / mode / volume -->
+        <!-- Control Center–style media bar: full content width, three equal cells -->
         <div class="mini-actions-dock" data-mini-interactive>
-          <LiquidGlassPanel class="mini-actions-glass" :radius="999">
+          <LiquidGlassPanel class="mini-actions-glass" :radius="18">
             <div class="mini-actions" role="toolbar" aria-label="迷你播放工具">
               <button
                 class="mini-icon-button mini-actions-button"
@@ -560,9 +645,8 @@ onUnmounted(() => {
                 data-mini-popover-trigger="queue"
                 @click="togglePopover('queue')"
               >
-                <span class="h-4 w-4 i-lucide-list-music" />
+                <span class="mini-actions-glyph i-ion-list" />
               </button>
-              <span class="mini-actions-sep" aria-hidden="true" />
               <button
                 class="mini-icon-button mini-actions-button"
                 :class="{ 'mini-icon-button--active': activePopover === 'mode' }"
@@ -572,9 +656,8 @@ onUnmounted(() => {
                 data-mini-popover-trigger="mode"
                 @click="togglePopover('mode')"
               >
-                <span class="h-4 w-4" :class="modeIcon" />
+                <span class="mini-actions-glyph" :class="modeIcon" />
               </button>
-              <span class="mini-actions-sep" aria-hidden="true" />
               <button
                 class="mini-icon-button mini-actions-button"
                 :class="{ 'mini-icon-button--active': activePopover === 'volume' }"
@@ -584,7 +667,7 @@ onUnmounted(() => {
                 data-mini-popover-trigger="volume"
                 @click="togglePopover('volume')"
               >
-                <span class="h-4 w-4" :class="volumeIcon" />
+                <span class="mini-actions-glyph" :class="volumeIcon" />
               </button>
             </div>
           </LiquidGlassPanel>
@@ -625,80 +708,37 @@ onUnmounted(() => {
 }
 
 /*
- * Liquid Glass shell (plaque + popover)
- * Volumetric cool frost: multi-stop elevation, inset bevel, rim thickness.
- * No RGB chromatic refraction on edges.
+ * Plaque + popover shell (pre–liquid-glass surface)
+ * Solid floating surface + fluid artwork scrim. Dock island keeps its own glass.
+ * Outer drop shadow omitted: window size == plaque size, so outer shadow only
+ * fills square corner wedges (reads as a second rectangular container).
+ * OS window shadow is disabled in mini mode.
  */
 .mini-player,
 .mini-popover {
-  --glass-pointer-x: 28%;
-  --glass-pointer-y: 14%;
   pointer-events: auto;
   position: relative;
   isolation: isolate;
   overflow: hidden;
   color: var(--auralis-text-primary, #f5f5f5);
-  /* Cool frost: blue-slate glass */
-  border: 1px solid rgb(190 210 255 / 0.18);
-  background: color-mix(in srgb, rgb(8 14 28) 52%, rgb(40 72 120 / 0.12));
-  backdrop-filter: blur(30px) saturate(1.18) contrast(1.05);
-  -webkit-backdrop-filter: blur(30px) saturate(1.18) contrast(1.05);
-  /*
-   * No outer (drop) box-shadow on the shell: the BrowserWindow is sized to this
-   * element, so outer shadows only paint into the square corner wedges and read
-   * as a second rectangular "container" behind the rounded plaque. Depth comes
-   * from inset bevel only; OS window shadow is disabled in mini mode.
-   */
-  box-shadow:
-    /* Inner bevel: top catch-light + floor AO (glass thickness) */
-    inset 0 1px 0 rgb(230 240 255 / 0.32),
-    inset 0 2px 0 rgb(190 215 255 / 0.1),
-    inset 0 -1px 0 rgb(0 8 24 / 0.45),
-    inset 0 -3px 10px rgb(0 8 24 / 0.22),
-    inset 0 18px 36px rgb(170 200 255 / 0.05),
-    inset 0 -28px 40px rgb(0 6 20 / 0.28),
-    /* Side wall soft bevel */ inset 1.5px 0 0 rgb(200 220 255 / 0.1),
-    inset -1.5px 0 0 rgb(0 10 28 / 0.22);
-}
-
-/* Inner rim / lip — second surface for thickness without RGB fringe */
-.mini-player::before,
-.mini-popover::before {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  z-index: 4;
-  border-radius: inherit;
-  pointer-events: none;
-  box-shadow:
-    inset 0 0 0 1px rgb(210 225 255 / 0.08),
-    inset 0 0 0 2px rgb(0 8 24 / 0.14);
-  background:
-    linear-gradient(
-      180deg,
-      rgb(220 235 255 / 0.12) 0%,
-      transparent 16%,
-      transparent 78%,
-      rgb(0 8 24 / 0.18) 100%
-    ),
-    radial-gradient(ellipse 90% 42% at 50% -4%, rgb(200 220 255 / 0.14), transparent 55%);
-  opacity: 0.95;
+  border: 1px solid
+    color-mix(in srgb, var(--auralis-border-subtle, rgb(127 127 127 / 0.28)) 80%, transparent);
+  background: color-mix(in srgb, var(--auralis-surface-floating, #1c1e22) 94%, black);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset;
 }
 
 /* ── Vertical plaque shell ─────────────────────────────── */
 .mini-player {
-  border-radius: 26px;
+  border-radius: 24px;
 }
 
 .mini-player-background {
   position: absolute;
   inset: 0;
   z-index: 0;
-  /* Solid fluid wash — album mesh reads clearly under cool glass */
-  opacity: 0.88;
 }
 
-/* Cool glass wash: stronger top→bottom volume for depth */
+/* Cover-forward scrim: light over art, denser toward controls */
 .mini-player-scrim {
   position: absolute;
   inset: 0;
@@ -707,32 +747,11 @@ onUnmounted(() => {
   background:
     linear-gradient(
       180deg,
-      rgb(190 215 255 / 0.11) 0%,
-      rgb(6 12 26 / 0.14) 32%,
-      rgb(4 10 22 / 0.38) 72%,
-      rgb(2 8 18 / 0.55) 100%
+      rgb(8 10 14 / 0.18) 0%,
+      rgb(8 10 14 / 0.08) 38%,
+      rgb(8 10 14 / 0.72) 100%
     ),
-    radial-gradient(ellipse 110% 55% at 50% -8%, rgb(180 210 255 / 0.12), transparent 58%),
-    radial-gradient(ellipse 90% 50% at 50% 108%, rgb(0 6 18 / 0.35), transparent 55%);
-}
-
-/* Specular follow-light — cool white only (no RGB fringe) */
-.mini-glass-sheen {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  opacity: 0.72;
-  mix-blend-mode: soft-light;
-  background:
-    radial-gradient(
-      200px circle at var(--glass-pointer-x) var(--glass-pointer-y),
-      rgb(230 240 255 / 0.28),
-      transparent 62%
-    ),
-    linear-gradient(145deg, rgb(200 225 255 / 0.14), transparent 40%),
-    linear-gradient(215deg, transparent 55%, rgb(0 10 28 / 0.12) 100%);
-  transition: opacity 180ms ease;
+    radial-gradient(ellipse 90% 55% at 50% 18%, rgb(0 0 0 / 0.05), transparent 70%);
 }
 
 .mini-drag-region {
@@ -760,11 +779,6 @@ onUnmounted(() => {
   /* Extra top pad replaces the old title-bar row — keeps sleeve from kissing the edge */
   padding: 22px 28px 20px;
   box-sizing: border-box;
-}
-
-.mini-popover > :not(.mini-glass-sheen) {
-  position: relative;
-  z-index: 1;
 }
 
 .mini-cover,
@@ -803,13 +817,9 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--auralis-surface-raised, #34363a) 80%, black);
   color: var(--auralis-text-faint, #a0a0a5);
   cursor: pointer;
-  /* Float the sleeve above the glass floor */
   box-shadow:
-    0 0 0 1px rgb(220 235 255 / 0.2) inset,
-    0 1px 0 rgb(255 255 255 / 0.14) inset,
-    0 2px 4px rgb(0 6 18 / 0.35),
-    0 10px 22px rgb(0 8 24 / 0.32),
-    0 22px 48px rgb(0 8 24 / 0.4);
+    0 0 0 1px rgb(255 255 255 / 0.1) inset,
+    0 14px 32px rgb(0 0 0 / 0.32);
   transition: box-shadow 0.3s ease;
 }
 
@@ -822,9 +832,7 @@ onUnmounted(() => {
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--auralis-active-album-accent) 78%, white),
     0 0 0 7px color-mix(in srgb, var(--auralis-active-album-accent) 16%, transparent),
-    0 2px 4px rgb(0 6 18 / 0.3),
-    0 12px 28px rgb(0 8 24 / 0.34),
-    0 24px 52px rgb(0 8 24 / 0.42);
+    0 18px 40px rgb(0 0 0 / 0.38);
 }
 
 .mini-cover img {
@@ -908,31 +916,44 @@ onUnmounted(() => {
   padding-bottom: 12px;
 }
 
-/* ── Liquid Glass floating island (queue / mode / volume) ─ */
+/*
+ * Control Center–style media bar (scheme A):
+ * full content width, rounded module, three equal cells.
+ */
 .mini-actions-dock {
   flex: none;
   display: flex;
-  justify-content: center;
   width: 100%;
-  padding: 0 10px 2px;
+  padding: 0 0 2px;
   -webkit-app-region: no-drag;
 }
 
 .mini-actions-glass {
   flex: none;
-  width: auto;
-  max-width: 72%;
-  /* Cool dock glass — raised pill with thickness, no RGB edge dispersion */
-  background: color-mix(in srgb, rgb(8 14 28) 50%, rgb(48 80 128 / 0.1)) !important;
-  border: 1px solid rgb(190 210 255 / 0.18);
+  display: block;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  /* Fully clear fill — shape from rim + blur only, no RGB edge dispersion */
+  background: transparent !important;
+  border: 1px solid rgb(190 210 255 / 0.14);
   box-shadow:
-    0 1px 1px rgb(0 6 18 / 0.35),
-    0 6px 14px rgb(0 10 28 / 0.28),
-    0 14px 32px rgb(0 8 24 / 0.36),
-    inset 0 1px 0 rgb(230 240 255 / 0.28),
-    inset 0 2px 0 rgb(190 215 255 / 0.08),
-    inset 0 -1px 0 rgb(0 8 24 / 0.4),
-    inset 0 -6px 12px rgb(0 8 24 / 0.18) !important;
+    0 1px 1px rgb(0 6 18 / 0.22),
+    0 4px 12px rgb(0 10 28 / 0.16),
+    inset 0 1px 0 rgb(230 240 255 / 0.16),
+    inset 0 -1px 0 rgb(0 8 24 / 0.22) !important;
+}
+
+/* Panel content must span the bar or the toolbar shrink-wraps to icon width */
+.mini-actions-glass :deep(.liquid-glass-panel__content) {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Soften LiquidGlassPanel default frosted plate so fill stays clear */
+.mini-actions-glass :deep(.liquid-glass-panel__highlight) {
+  opacity: 0.35;
 }
 
 /* Kill LiquidGlassPanel's chromatic refraction rim (red/blue fringe) on this island only */
@@ -941,48 +962,60 @@ onUnmounted(() => {
 }
 
 .mini-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
-  justify-content: center;
-  gap: 0;
+  justify-items: stretch;
+  width: 100%;
+  box-sizing: border-box;
   margin: 0;
-  padding: 5px 7px;
+  padding: 3px 4px;
   background: transparent;
   border-radius: 0;
   box-shadow: none;
 }
 
-.mini-actions-button {
-  width: 36px;
-  height: 36px;
-  border-radius: 999px;
+/*
+ * Beat .mini-icon-button { width: 34px } so each cell is equal and the glyph
+ * centers inside — otherwise all three icons hug the left of the bar.
+ */
+.mini-actions-button.mini-icon-button {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  margin: 0;
+  border-radius: 14px;
+  justify-self: stretch;
+  place-items: center;
 }
 
-.mini-actions-sep {
+/* Ion solid glyphs read better slightly larger on the wide CC-style bar */
+.mini-actions-glyph {
+  display: block;
+  width: 1.05rem;
+  height: 1.05rem;
   flex: none;
-  width: 1px;
-  height: 14px;
-  margin: 0 2px;
-  border-radius: 1px;
-  background: linear-gradient(
-    180deg,
-    rgb(255 255 255 / 0),
-    rgb(255 255 255 / 0.22) 35%,
-    rgb(255 255 255 / 0.22) 65%,
-    rgb(255 255 255 / 0)
-  );
-  opacity: 0.7;
 }
 
-.mini-actions-button.mini-icon-button:hover,
-.mini-actions-button.mini-icon-button--active {
-  background: rgb(255 255 255 / 0.14);
+/* Island hover: no circular fill (reads as a soft shadow blob). Icon color only. */
+.mini-actions-button.mini-icon-button:hover {
+  background: transparent;
+  color: var(--auralis-text-primary, #fff);
   box-shadow: none;
 }
 
 .mini-actions-button.mini-icon-button--active {
+  background: transparent;
   color: var(--auralis-active-album-accent);
-  box-shadow: none;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--auralis-active-album-accent) 35%, transparent),
+    0 0 12px color-mix(in srgb, var(--auralis-active-album-accent) 22%, transparent);
+}
+
+/* Active + hover: keep accent, still no fill blob */
+.mini-actions-button.mini-icon-button--active:hover {
+  background: transparent;
+  color: var(--auralis-active-album-accent);
 }
 
 .mini-icon-button,
@@ -1057,29 +1090,130 @@ onUnmounted(() => {
 }
 
 .mini-play-button {
+  isolation: isolate;
   width: 54px;
   height: 54px;
   border-radius: 50%;
   color: #121214;
   background: var(--auralis-text-primary, #f4f4f5);
-  box-shadow:
-    0 1px 0 rgb(255 255 255 / 0.35) inset,
-    0 2px 4px rgb(0 6 18 / 0.25),
-    0 10px 24px rgb(0 8 24 / 0.35);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 0.28);
+  overflow: visible;
+  transition:
+    color 0.14s ease,
+    background 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.12s ease;
 }
 
+.mini-play-button > span {
+  position: relative;
+  z-index: 1;
+}
+
+/* Specular sweep layer (metallic reflection on hover when playing) */
+.mini-play-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    var(--metal-sweep-angle, 118deg),
+    transparent 28%,
+    rgb(255 255 255 / 0.06) 40%,
+    rgb(255 255 255 / 0.62) 50%,
+    rgb(255 255 255 / 0.1) 60%,
+    transparent 72%
+  );
+  background-size: 240% 240%;
+  background-position: var(--metal-sweep-from, 130%) 45%;
+  mix-blend-mode: soft-light;
+  transition:
+    opacity 0.2s ease,
+    background-position 0.5s cubic-bezier(0.25, 0.8, 0.35, 1);
+}
+
+/*
+ * Playing: accent-tinted metal (A).
+ * Highlight / dark / body angle come from CSS vars, reshuffled on mouseleave.
+ */
 .mini-player--playing .mini-play-button {
-  background: var(--auralis-active-album-accent);
   color: #121214;
+  background:
+    radial-gradient(
+      ellipse var(--metal-hi-w, 125%) var(--metal-hi-h, 90%) at var(--metal-hi-x, 28%)
+        var(--metal-hi-y, 16%),
+      rgb(255 255 255 / 0.58),
+      transparent 40%
+    ),
+    radial-gradient(
+      ellipse var(--metal-lo-w, 95%) var(--metal-lo-h, 80%) at var(--metal-lo-x, 78%)
+        var(--metal-lo-y, 78%),
+      rgb(0 0 0 / 0.28),
+      transparent 52%
+    ),
+    linear-gradient(
+      var(--metal-body-angle, 155deg),
+      color-mix(in srgb, var(--auralis-active-album-accent) 42%, white) 0%,
+      var(--auralis-active-album-accent) 46%,
+      color-mix(in srgb, var(--auralis-active-album-accent) 48%, black) 100%
+    );
   box-shadow:
-    0 1px 0 rgb(255 255 255 / 0.28) inset,
-    0 0 0 4px color-mix(in srgb, var(--auralis-active-album-accent) 20%, transparent),
-    0 2px 4px rgb(0 6 18 / 0.22),
-    0 12px 28px rgb(0 8 24 / 0.38);
+    0 1.5px 0 rgb(255 255 255 / 0.5) inset,
+    0 -1.5px 0 rgb(0 0 0 / 0.28) inset,
+    0 0 0 1px color-mix(in srgb, var(--auralis-active-album-accent) 35%, black) inset,
+    0 0 0 4px color-mix(in srgb, var(--auralis-active-album-accent) 22%, transparent),
+    0 10px 24px color-mix(in srgb, var(--auralis-active-album-accent) 28%, rgb(0 0 0 / 0.4));
+  transition:
+    color 0.14s ease,
+    background 0.35s ease,
+    box-shadow 0.22s ease,
+    transform 0.12s ease;
 }
 
+.mini-player--playing .mini-play-button:hover {
+  background:
+    radial-gradient(
+      ellipse calc(var(--metal-hi-w, 125%) + 8%) calc(var(--metal-hi-h, 90%) + 6%) at
+        var(--metal-hi-hover-x, 32%) var(--metal-hi-hover-y, 12%),
+      rgb(255 255 255 / 0.72),
+      transparent 42%
+    ),
+    radial-gradient(
+      ellipse var(--metal-lo-w, 95%) var(--metal-lo-h, 80%) at var(--metal-lo-hover-x, 80%)
+        var(--metal-lo-hover-y, 80%),
+      rgb(0 0 0 / 0.22),
+      transparent 52%
+    ),
+    linear-gradient(
+      var(--metal-body-angle, 155deg),
+      color-mix(in srgb, var(--auralis-active-album-accent) 38%, white) 0%,
+      color-mix(in srgb, var(--auralis-active-album-accent) 88%, white) 38%,
+      var(--auralis-active-album-accent) 55%,
+      color-mix(in srgb, var(--auralis-active-album-accent) 52%, black) 100%
+    );
+  box-shadow:
+    0 2px 0 rgb(255 255 255 / 0.58) inset,
+    0 -1px 0 rgb(0 0 0 / 0.22) inset,
+    0 0 0 1px color-mix(in srgb, var(--auralis-active-album-accent) 30%, black) inset,
+    0 0 0 5px color-mix(in srgb, var(--auralis-active-album-accent) 28%, transparent),
+    0 12px 28px color-mix(in srgb, var(--auralis-active-album-accent) 32%, rgb(0 0 0 / 0.42));
+}
+
+.mini-player--playing .mini-play-button:hover::before {
+  opacity: 1;
+  background-position: var(--metal-sweep-to, -25%) 45%;
+}
+
+/* Idle (paused): mild lift only, keep solid face */
 .mini-play-button:hover {
-  filter: brightness(1.05);
+  filter: brightness(1.04);
+}
+
+.mini-player--playing .mini-play-button:hover {
+  filter: none;
 }
 
 /* Tooltips — prefer above on lower controls to stay in window */
@@ -1112,10 +1246,10 @@ onUnmounted(() => {
   transform: translateX(-50%);
 }
 
-/* ── Popovers (same liquid glass family as plaque) ─────── */
+/* ── Popovers ──────────────────────────────────────────── */
 .mini-popover {
   max-height: 300px;
-  border-radius: 20px;
+  border-radius: 18px;
 }
 
 .mini-panel-heading {
@@ -1270,8 +1404,13 @@ onUnmounted(() => {
     transition: none;
   }
 
-  .mini-glass-sheen {
-    display: none;
+  .mini-play-button::before {
+    transition: opacity 0.15s ease;
+  }
+
+  .mini-player--playing .mini-play-button:hover::before {
+    /* Static sheen — no sweep */
+    background-position: 50% 45%;
   }
 
   .mini-progress .track-progress-fill::after {
@@ -1280,24 +1419,10 @@ onUnmounted(() => {
 }
 
 @media (prefers-contrast: more) {
-  .mini-player,
-  .mini-popover {
-    background: rgb(8 12 22 / 0.96);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  .mini-player-background {
-    opacity: 0.55;
-  }
-
-  .mini-glass-sheen {
-    display: none;
-  }
-
+  /* High contrast: need a plate so icons stay legible */
   .mini-actions-glass {
-    background: rgb(10 16 28 / 0.94) !important;
-    border-color: rgb(190 210 255 / 0.28);
+    background: rgb(22 24 28 / 0.88) !important;
+    border-color: rgb(255 255 255 / 0.28);
   }
 }
 </style>

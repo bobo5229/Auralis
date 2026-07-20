@@ -5,6 +5,7 @@ node_modules/
 dist/
 out/
 release/
+release-gapless-v2/
 build/
 resources/
 
