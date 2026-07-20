@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { createWindow } from './app/createWindow'
@@ -14,6 +14,7 @@ import {
 import { LibraryRootRepository } from './repositories/libraryRootRepository'
 import { TrackRepository } from './repositories/trackRepository'
 import { logger } from './logging/logger'
+import { ipcChannels } from '@shared/ipc/channels'
 
 // Custom media scheme privileges must be registered before app.ready.
 registerAudioSchemeAsPrivileged()
@@ -78,6 +79,19 @@ app.whenReady().then(() => {
   registerAudioProtocol({
     getFilePathByTrackId: (trackId) => trackRepository.getFilePathById(trackId),
     getLibraryRootPaths: () => libraryRootRepository.list().map((root) => root.path),
+    onFileMissing: (_trackId, filePath) => {
+      const trackIds = trackRepository.markMissingByFilePaths([filePath])
+      if (trackIds.length === 0) return
+      for (const window of BrowserWindow.getAllWindows()) {
+        if (!window.webContents.isDestroyed()) {
+          window.webContents.send(ipcChannels.library.changed, {
+            reason: 'track-missing',
+            trackIds,
+            filePaths: [filePath],
+          })
+        }
+      }
+    },
   })
 
   registerIpcHandlers(db, artworkCacheDir)
