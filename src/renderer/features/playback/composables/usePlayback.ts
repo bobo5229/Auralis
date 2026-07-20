@@ -1,6 +1,7 @@
 import { reactive } from 'vue'
 import type { PlaybackMode, PlaybackState, PlaybackTrack } from '../types'
 import { auralis } from '@renderer/shared/ipc/client'
+import { GaplessAudioEngine } from '../audio/gaplessAudioEngine'
 
 const VOLUME_KEY = 'auralis-volume'
 const HISTORY_LIMIT = 100
@@ -92,6 +93,7 @@ const state = reactive<PlaybackState>({
 let lastAudibleVolume = state.volume > 0 ? state.volume : 0.8
 let playbackRequestId = 0
 let queuedNextTrackId: number | null = null
+let transitionGeneration = 0
 
 // Album shuffle context
 type AlbumShuffleContext = {
@@ -99,6 +101,16 @@ type AlbumShuffleContext = {
   album: string
   tracks: PlaybackTrack[]
 } | null
+
+type TransitionPlan = {
+  queue: PlaybackTrack[]
+  track: PlaybackTrack
+  recordHistory: boolean
+  consumeQueued: boolean
+  nextAlbumShuffleContext?: AlbumShuffleContext
+}
+
+let scheduledPlan: TransitionPlan | null = null
 
 // History entry stores full context for correct restoration
 type HistoryEntry = {
@@ -115,14 +127,28 @@ let shuffleTrackPool: PlaybackTrack[] | null = null
 audio.volume = state.volume
 audio.muted = state.isMuted
 
+const gaplessEngine = new GaplessAudioEngine({
+  onCurrentEnded: (nextTrackId) => {
+    void commitGaplessBoundary(nextTrackId).catch(setPlaybackError)
+  },
+  onPlaybackStateChange: (isPlaying) => {
+    state.isPlaying = isPlaying
+  },
+  onTimeUpdate: ({ currentTime, duration }) => {
+    state.currentTime = currentTime
+    state.duration = duration
+  },
+})
+gaplessEngine.setVolume(state.volume, state.isMuted)
+
 // --- Play count helpers ---
 
 function isAudioCountable(): boolean {
   if (!playCountSession) return false
   if (playCountSession.counted) return false
   if (playCountSession.trackId !== state.currentTrackId) return false
-  if (audio.paused) return false
-  if (audio.ended) return false
+  if (gaplessEngine.isActive) return gaplessEngine.getSnapshot().isPlaying
+  if (audio.paused || audio.ended) return false
   if (isPlayCountBuffering) return false
   if (isPlayCountSeeking) return false
   if (audio.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return false
@@ -130,7 +156,12 @@ function isAudioCountable(): boolean {
 }
 
 function getEffectiveDuration(): number | null {
-  const audioDuration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0
+  const snapshot = gaplessEngine.isActive ? gaplessEngine.getSnapshot() : null
+  const audioDuration = snapshot
+    ? snapshot.duration
+    : Number.isFinite(audio.duration) && audio.duration > 0
+      ? audio.duration
+      : 0
   const trackDuration =
     state.currentTrack?.durationSeconds &&
     Number.isFinite(state.currentTrack.durationSeconds) &&
@@ -253,6 +284,152 @@ function popHistory(): HistoryEntry | null {
   return playbackHistory.pop() ?? null
 }
 
+function applyTransitionPlan(plan: TransitionPlan): void {
+  if (plan.recordHistory) pushHistory(state.currentTrack, plan.track.id)
+  if (plan.consumeQueued) queuedNextTrackId = null
+  if (plan.nextAlbumShuffleContext !== undefined) {
+    albumShuffleContext = plan.nextAlbumShuffleContext
+  }
+  endPlayCountSession()
+  state.queue = plan.queue
+  state.currentIndex = plan.queue.findIndex((track) => track.id === plan.track.id)
+  state.currentTrack = plan.track
+  state.currentTrackId = plan.track.id
+  state.selectedTrackId = plan.track.id
+  state.currentTime = 0
+  state.duration = gaplessEngine.getSnapshot().duration
+  state.error = null
+  startPlayCountSession(plan.track.id)
+}
+
+async function resolveTransitionPlan(fromTrackId: number): Promise<TransitionPlan | null> {
+  if (state.currentTrackId !== fromTrackId) return null
+  const queue = state.queue
+  const index = state.currentIndex
+  const queued = queuedNextTrackId
+  if (state.playbackMode !== 'repeat-one' && queued !== null) {
+    const next = queue[index + 1]
+    if (next?.id === queued) return { queue, track: next, recordHistory: true, consumeQueued: true }
+  }
+  if (state.playbackMode === 'repeat-one' && state.currentTrack) {
+    return { queue, track: state.currentTrack, recordHistory: false, consumeQueued: false }
+  }
+  if (state.playbackMode === 'sequential' || state.playbackMode === 'repeat-all') {
+    const next = queue[index + 1] ?? (state.playbackMode === 'repeat-all' ? queue[0] : undefined)
+    return next ? { queue, track: next, recordHistory: true, consumeQueued: false } : null
+  }
+  if (state.playbackMode === 'shuffle') {
+    if (shuffleTrackPool?.length) {
+      const candidates = shuffleTrackPool.filter((track) => track.id !== fromTrackId)
+      const track = candidates[Math.floor(Math.random() * candidates.length)]
+      return track
+        ? { queue: shuffleTrackPool, track, recordHistory: true, consumeQueued: false }
+        : null
+    }
+    const track = (await auralis.playback.getRandomTrack(fromTrackId)) as PlaybackTrack | null
+    return track ? { queue: [track], track, recordHistory: true, consumeQueued: false } : null
+  }
+  if (state.playbackMode === 'album-shuffle') {
+    let context = albumShuffleContext
+    if (!context) {
+      const currentAlbumKey = getCurrentAlbumKey()
+      if (currentAlbumKey) {
+        const currentAlbum = await auralis.playback.getAlbumTracks(currentAlbumKey)
+        const candidate = currentAlbum as AlbumShuffleContext
+        if (candidate?.tracks.some((track) => track.id === fromTrackId)) context = candidate
+      }
+    }
+
+    if (context) {
+      const albumIndex = context.tracks.findIndex((track) => track.id === fromTrackId)
+      const track = context.tracks[albumIndex + 1]
+      if (track) {
+        return {
+          queue: context.tracks,
+          track,
+          recordHistory: true,
+          consumeQueued: false,
+          nextAlbumShuffleContext: context,
+        }
+      }
+    }
+
+    const nextAlbum = await auralis.playback.getRandomAlbumTracks(getCurrentAlbumKey())
+    const nextContext = nextAlbum as AlbumShuffleContext
+    const track = nextContext?.tracks[0]
+    return track
+      ? {
+          queue: nextContext!.tracks,
+          track,
+          recordHistory: true,
+          consumeQueued: false,
+          nextAlbumShuffleContext: nextContext,
+        }
+      : null
+  }
+  return null
+}
+
+function invalidateGaplessTransition(): void {
+  transitionGeneration += 1
+  scheduledPlan = null
+  gaplessEngine.cancelScheduledNext()
+}
+
+async function refreshGaplessNext(fromTrackId: number): Promise<void> {
+  const generation = ++transitionGeneration
+  const requestId = playbackRequestId
+  scheduledPlan = null
+  gaplessEngine.cancelScheduledNext()
+
+  try {
+    if (!gaplessEngine.getSnapshot().isPlaying) return
+    const plan = await resolveTransitionPlan(fromTrackId)
+    if (
+      !plan ||
+      generation !== transitionGeneration ||
+      requestId !== playbackRequestId ||
+      state.currentTrackId !== fromTrackId
+    )
+      return
+
+    const url = await resolveAudioUrl(plan.track.id)
+    if (
+      generation !== transitionGeneration ||
+      requestId !== playbackRequestId ||
+      state.currentTrackId !== fromTrackId
+    )
+      return
+
+    const scheduled = await gaplessEngine.scheduleNext(plan.track.id, url)
+    if (
+      generation !== transitionGeneration ||
+      requestId !== playbackRequestId ||
+      state.currentTrackId !== fromTrackId
+    ) {
+      if (scheduled) gaplessEngine.cancelScheduledNext()
+      return
+    }
+    if (scheduled) scheduledPlan = plan
+  } catch {
+    // Prefetch failure only disables the seamless hand-off. The existing ended path
+    // remains responsible for starting the next track and surfacing real playback errors.
+  }
+}
+
+async function commitGaplessBoundary(nextTrackId: number | null): Promise<void> {
+  const plan = scheduledPlan
+  scheduledPlan = null
+  if (plan && nextTrackId === plan.track.id) {
+    applyTransitionPlan(plan)
+    void refreshGaplessNext(plan.track.id)
+    return
+  }
+  // The audio clock has stopped.  Existing mode navigation will start the HTML fallback
+  // or a fresh Web Audio source and preserves all legacy end-of-queue semantics.
+  await handleTrackEnded()
+}
+
 // --- Internal track switch ---
 
 async function playTrackFromResolvedQueue(
@@ -263,6 +440,9 @@ async function playTrackFromResolvedQueue(
   const index = queue.findIndex((t) => t.id === trackId)
   if (index === -1) return
   const requestId = ++playbackRequestId
+  invalidateGaplessTransition()
+  gaplessEngine.cancel()
+  audio.pause()
 
   if (options?.recordHistory !== false) {
     pushHistory(state.currentTrack, trackId)
@@ -283,6 +463,19 @@ async function playTrackFromResolvedQueue(
     const audioUrl = await resolveAudioUrl(trackId)
 
     if (requestId !== playbackRequestId) {
+      return
+    }
+
+    const startedGapless = await gaplessEngine.start(trackId, audioUrl)
+
+    if (requestId !== playbackRequestId) return
+
+    if (startedGapless) {
+      const snapshot = gaplessEngine.getSnapshot()
+      state.duration = snapshot.duration
+      state.currentTime = snapshot.currentTime
+      startPlayCountSession(trackId)
+      void refreshGaplessNext(trackId)
       return
     }
 
@@ -395,6 +588,12 @@ async function handleTrackEnded(): Promise<void> {
 
   switch (state.playbackMode) {
     case 'repeat-one':
+      if (gaplessEngine.isActive && state.currentTrack) {
+        await playTrackFromResolvedQueue(state.queue, state.currentTrack.id, {
+          recordHistory: false,
+        })
+        return
+      }
       startPlayCountSession(state.currentTrackId!)
       audio.currentTime = 0
       state.currentTime = 0
@@ -431,7 +630,8 @@ async function playNextInQueue(options?: { wrap?: boolean; stopAtEnd?: boolean }
     }
     if (options?.stopAtEnd) {
       endPlayCountSession()
-      audio.pause()
+      if (gaplessEngine.isActive) gaplessEngine.pause()
+      else audio.pause()
       state.isPlaying = false
       state.currentTime = 0
       return
@@ -587,12 +787,16 @@ async function resolveAudioUrl(trackId: number): Promise<string> {
 }
 
 function setPlaybackMode(mode: PlaybackMode): void {
+  invalidateGaplessTransition()
   state.playbackMode = mode
   if (mode !== 'album-shuffle') {
     albumShuffleContext = null
   }
   if (mode !== 'shuffle' && mode !== 'album-shuffle') {
     playbackHistory = []
+  }
+  if (gaplessEngine.isActive && state.currentTrackId && state.isPlaying) {
+    void refreshGaplessNext(state.currentTrackId)
   }
 }
 
@@ -626,6 +830,9 @@ function insertTrackAfterCurrent(track: PlaybackTrack): void {
   state.queue = nextQueue
   state.currentIndex = currentIndex
   queuedNextTrackId = track.id
+  if (gaplessEngine.isActive && state.currentTrackId) {
+    void refreshGaplessNext(state.currentTrackId)
+  }
 }
 
 function insertTracksAfterCurrent(tracks: PlaybackTrack[]): void {
@@ -649,6 +856,9 @@ function insertTracksAfterCurrent(tracks: PlaybackTrack[]): void {
   state.queue = nextQueue
   state.currentIndex = currentIndex
   queuedNextTrackId = filtered[0].id
+  if (gaplessEngine.isActive && state.currentTrackId) {
+    void refreshGaplessNext(state.currentTrackId)
+  }
 }
 
 async function togglePlayPause(): Promise<void> {
@@ -656,9 +866,15 @@ async function togglePlayPause(): Promise<void> {
 
   try {
     if (state.isPlaying) {
-      audio.pause()
+      if (gaplessEngine.isActive) {
+        invalidateGaplessTransition()
+        gaplessEngine.pause()
+      } else audio.pause()
     } else {
-      await audio.play()
+      if (gaplessEngine.isActive) {
+        await gaplessEngine.play()
+        if (state.currentTrackId) void refreshGaplessNext(state.currentTrackId)
+      } else await audio.play()
     }
   } catch (err) {
     state.isPlaying = false
@@ -670,7 +886,10 @@ async function play(): Promise<void> {
   if (!state.currentTrack) return
 
   try {
-    await audio.play()
+    if (gaplessEngine.isActive) {
+      await gaplessEngine.play()
+      if (state.currentTrackId) void refreshGaplessNext(state.currentTrackId)
+    } else await audio.play()
   } catch (err) {
     state.isPlaying = false
     state.error = err instanceof Error ? err.message : String(err)
@@ -678,7 +897,10 @@ async function play(): Promise<void> {
 }
 
 function pause(): void {
-  audio.pause()
+  if (gaplessEngine.isActive) {
+    invalidateGaplessTransition()
+    gaplessEngine.pause()
+  } else audio.pause()
 }
 
 async function playPrevious(): Promise<void> {
@@ -724,7 +946,10 @@ async function playNext(): Promise<void> {
 function seekByRatio(ratio: number): void {
   if (!state.currentTrack || !Number.isFinite(ratio)) return
 
-  const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0
+  const snapshot = gaplessEngine.isActive ? gaplessEngine.getSnapshot() : null
+  const duration =
+    snapshot?.duration ??
+    (Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0)
 
   if (!duration) return
 
@@ -732,21 +957,34 @@ function seekByRatio(ratio: number): void {
   const nextTime = duration * clampedRatio
   setSeekingWithFallback()
   resetPlayCountSample()
-  audio.currentTime = nextTime
+  if (gaplessEngine.isActive) {
+    invalidateGaplessTransition()
+    void gaplessEngine.seek(nextTime).then(() => {
+      if (state.currentTrackId) void refreshGaplessNext(state.currentTrackId)
+    })
+  } else audio.currentTime = nextTime
   state.currentTime = nextTime
 }
 
 function seekTo(time: number): void {
   if (!state.currentTrack || !Number.isFinite(time)) return
 
-  const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0
+  const snapshot = gaplessEngine.isActive ? gaplessEngine.getSnapshot() : null
+  const duration =
+    snapshot?.duration ??
+    (Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0)
 
   if (!duration) return
 
   const nextTime = Math.min(duration, Math.max(0, time))
   setSeekingWithFallback()
   resetPlayCountSample()
-  audio.currentTime = nextTime
+  if (gaplessEngine.isActive) {
+    invalidateGaplessTransition()
+    void gaplessEngine.seek(nextTime).then(() => {
+      if (state.currentTrackId) void refreshGaplessNext(state.currentTrackId)
+    })
+  } else audio.currentTime = nextTime
   state.currentTime = nextTime
 }
 
@@ -754,12 +992,14 @@ function setVolume(volume: number): void {
   const clamped = clampVolume(volume)
   state.volume = clamped
   audio.volume = clamped
+  gaplessEngine.setVolume(clamped, state.isMuted)
   if (clamped > 0) {
     lastAudibleVolume = clamped
   }
   if (state.isMuted) {
     state.isMuted = false
     audio.muted = false
+    gaplessEngine.setVolume(state.volume, false)
   }
   localStorage.setItem(VOLUME_KEY, String(clamped))
 }
@@ -782,7 +1022,24 @@ function toggleMute(): void {
 
   state.isMuted = true
   audio.muted = true
+  gaplessEngine.setVolume(state.volume, true)
 }
+
+function disposePlayback(): void {
+  playbackRequestId += 1
+  invalidateGaplessTransition()
+  endPlayCountSession()
+  if (seekFallbackTimer) {
+    clearTimeout(seekFallbackTimer)
+    seekFallbackTimer = null
+  }
+  audio.pause()
+  audio.removeAttribute('src')
+  audio.load()
+  gaplessEngine.destroy()
+}
+
+window.addEventListener('beforeunload', disposePlayback, { once: true })
 
 export function usePlayback() {
   return {
