@@ -1267,11 +1267,13 @@ onBeforeUnmount(() => {
     </section>
 
     <Teleport to="body">
-      <div
-        v-if="showRankingPicker"
-        class="archive-picker-backdrop"
-        @click="showRankingPicker = false"
-      ></div>
+      <Transition name="archive-picker-fade">
+        <div
+          v-if="showRankingPicker"
+          class="archive-picker-backdrop"
+          @click="showRankingPicker = false"
+        ></div>
+      </Transition>
 
       <div
         v-if="tooltip"
@@ -2777,25 +2779,33 @@ onBeforeUnmount(() => {
 .archive-picker-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 39;
-  background: transparent;
+  z-index: 90;
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  transition: opacity 220ms ease;
+}
+
+.archive-picker-fade-enter-from,
+.archive-picker-fade-leave-to {
+  opacity: 0;
 }
 
 .archive-ranking-picker {
   position: absolute;
-  z-index: 40;
+  z-index: 95;
   bottom: calc(100% + 8px);
   right: 0;
   min-width: 240px;
   padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
   border-radius: 18px;
-  background: #181a1d;
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 88%, #000);
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.75),
+    0 28px 70px rgba(0, 0, 0, 0.6),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  -webkit-backdrop-filter: blur(35px) contrast(105%);
+  backdrop-filter: blur(35px) contrast(105%);
 }
 
 .picker-header {
