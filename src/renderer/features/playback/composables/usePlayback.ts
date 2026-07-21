@@ -1,9 +1,10 @@
-import { reactive } from 'vue'
+import { reactive, ref } from 'vue'
 import type { PlaybackMode, PlaybackState, PlaybackTrack } from '../types'
 import { auralis } from '@renderer/shared/ipc/client'
 import { GaplessAudioEngine } from '../audio/gaplessAudioEngine'
 
 const VOLUME_KEY = 'auralis-volume'
+const GAPLESS_PLAYBACK_KEY = 'auralis-gapless-playback-enabled'
 const HISTORY_LIMIT = 100
 
 // Play count tracking
@@ -54,11 +55,16 @@ function readPersistedVolume(): number {
   return Number.isFinite(num) && num >= 0 && num <= 1 ? num : 0.8
 }
 
+function readPersistedGaplessPlayback(): boolean {
+  return localStorage.getItem(GAPLESS_PLAYBACK_KEY) !== 'false'
+}
+
 function clampVolume(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
 
 const audio = new Audio()
+const gaplessPlaybackEnabled = ref(readPersistedGaplessPlayback())
 
 function describeMediaError(code: number): string {
   switch (code) {
@@ -332,8 +338,11 @@ async function resolveTransitionPlan(fromTrackId: number): Promise<TransitionPla
   if (state.playbackMode === 'album-shuffle') {
     let context = albumShuffleContext
     if (!context) {
-      const currentAlbumKey = getCurrentAlbumKey()
-      if (currentAlbumKey) {
+      if (shuffleTrackPool?.length) {
+        context = getScopedCurrentAlbumShuffleContext()
+      } else {
+        const currentAlbumKey = getCurrentAlbumKey()
+        if (!currentAlbumKey) return null
         const currentAlbum = await auralis.playback.getAlbumTracks(currentAlbumKey)
         const candidate = currentAlbum as AlbumShuffleContext
         if (candidate?.tracks.some((track) => track.id === fromTrackId)) context = candidate
@@ -354,8 +363,9 @@ async function resolveTransitionPlan(fromTrackId: number): Promise<TransitionPla
       }
     }
 
-    const nextAlbum = await auralis.playback.getRandomAlbumTracks(getCurrentAlbumKey())
-    const nextContext = nextAlbum as AlbumShuffleContext
+    const nextContext = shuffleTrackPool?.length
+      ? getRandomScopedAlbumShuffleContext()
+      : ((await auralis.playback.getRandomAlbumTracks(getCurrentAlbumKey())) as AlbumShuffleContext)
     const track = nextContext?.tracks[0]
     return track
       ? {
@@ -387,6 +397,13 @@ function isSameAlbumBoundary(current: PlaybackTrack | null, next: PlaybackTrack)
 }
 
 async function refreshGaplessNext(fromTrackId: number): Promise<void> {
+  if (!gaplessPlaybackEnabled.value) {
+    transitionGeneration += 1
+    scheduledPlan = null
+    gaplessEngine.cancelScheduledNext()
+    return
+  }
+
   const generation = ++transitionGeneration
   const requestId = playbackRequestId
   scheduledPlan = null
@@ -478,7 +495,8 @@ async function playTrackFromResolvedQueue(
       return
     }
 
-    const startedGapless = await gaplessEngine.start(trackId, audioUrl)
+    const startedGapless =
+      gaplessPlaybackEnabled.value && (await gaplessEngine.start(trackId, audioUrl))
 
     if (requestId !== playbackRequestId) return
 
@@ -734,7 +752,67 @@ async function playNextFromAlbumShuffleContext(): Promise<boolean> {
   return true
 }
 
+function getAlbumIdentity(track: PlaybackTrack): string | null {
+  const album = track.album?.trim()
+  if (!album) return null
+
+  const albumArtist = (track.albumArtist || track.artist || '').trim()
+  return `${albumArtist.toLocaleLowerCase()}\u0000${album.toLocaleLowerCase()}`
+}
+
+function buildScopedAlbumShuffleContexts(): NonNullable<AlbumShuffleContext>[] {
+  if (!shuffleTrackPool?.length) return []
+
+  const contexts = new Map<string, NonNullable<AlbumShuffleContext>>()
+  for (const track of shuffleTrackPool) {
+    const identity = getAlbumIdentity(track)
+    if (!identity) continue
+
+    const context = contexts.get(identity)
+    if (context) {
+      context.tracks.push(track)
+      continue
+    }
+
+    contexts.set(identity, {
+      albumArtist: track.albumArtist || track.artist || '',
+      album: track.album!.trim(),
+      tracks: [track],
+    })
+  }
+
+  return [...contexts.values()]
+}
+
+function getScopedCurrentAlbumShuffleContext(): NonNullable<AlbumShuffleContext> | null {
+  if (!state.currentTrackId) return null
+
+  return (
+    buildScopedAlbumShuffleContexts().find((context) =>
+      context.tracks.some((track) => track.id === state.currentTrackId),
+    ) ?? null
+  )
+}
+
+function getRandomScopedAlbumShuffleContext(): NonNullable<AlbumShuffleContext> | null {
+  const currentIdentity = state.currentTrack ? getAlbumIdentity(state.currentTrack) : null
+  const candidates = buildScopedAlbumShuffleContexts().filter(
+    (context) => getAlbumIdentity(context.tracks[0]) !== currentIdentity,
+  )
+  if (candidates.length === 0) return null
+
+  return candidates[Math.floor(Math.random() * candidates.length)]
+}
+
 async function adoptCurrentAlbumShuffleContext(): Promise<boolean> {
+  if (shuffleTrackPool?.length) {
+    const context = getScopedCurrentAlbumShuffleContext()
+    if (!context) return false
+
+    albumShuffleContext = context
+    return true
+  }
+
   const currentAlbumKey = getCurrentAlbumKey()
   if (!currentAlbumKey || !state.currentTrackId) return false
 
@@ -760,11 +838,13 @@ async function playNextAlbumShuffleTrack(): Promise<void> {
     }
   }
 
-  const excludeAlbumKey = getCurrentAlbumKey()
-  const nextAlbum = await auralis.playback.getRandomAlbumTracks(excludeAlbumKey)
-  if (!nextAlbum) return
-
-  const context = nextAlbum as { albumArtist: string; album: string; tracks: PlaybackTrack[] }
+  const context = shuffleTrackPool?.length
+    ? getRandomScopedAlbumShuffleContext()
+    : ((await auralis.playback.getRandomAlbumTracks(getCurrentAlbumKey())) as Exclude<
+        AlbumShuffleContext,
+        null
+      > | null)
+  if (!context) return
   if (context.tracks.length === 0) return
 
   albumShuffleContext = context
@@ -812,6 +892,24 @@ function setPlaybackMode(mode: PlaybackMode): void {
   }
 }
 
+function setGaplessPlaybackEnabled(enabled: boolean): void {
+  if (gaplessPlaybackEnabled.value === enabled) return
+
+  gaplessPlaybackEnabled.value = enabled
+  localStorage.setItem(GAPLESS_PLAYBACK_KEY, String(enabled))
+
+  if (!enabled) {
+    // Keep the current Web Audio source playing, but remove its prepared hand-off.
+    // The following track will start through HTMLAudio without interrupting this one.
+    invalidateGaplessTransition()
+    return
+  }
+
+  if (gaplessEngine.isActive && state.currentTrackId && state.isPlaying) {
+    void refreshGaplessNext(state.currentTrackId)
+  }
+}
+
 async function playTrackFromQueue(
   queue: PlaybackTrack[],
   trackId: number,
@@ -820,6 +918,7 @@ async function playTrackFromQueue(
   queuedNextTrackId = null
   const nextShuffleTrackPool = options?.shufflePool ?? null
   const playRequest = playTrackFromResolvedQueue(queue, trackId, { recordHistory: true })
+  albumShuffleContext = null
   shuffleTrackPool = nextShuffleTrackPool
   await playRequest
 }
@@ -1116,11 +1215,13 @@ window.addEventListener('beforeunload', disposePlayback, { once: true })
 export function usePlayback() {
   return {
     state,
+    gaplessPlaybackEnabled,
     selectTrack,
     playTrackFromQueue,
     insertTrackAfterCurrent,
     insertTracksAfterCurrent,
     setPlaybackMode,
+    setGaplessPlaybackEnabled,
     togglePlayPause,
     play,
     pause,

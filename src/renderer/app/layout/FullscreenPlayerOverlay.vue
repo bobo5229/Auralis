@@ -9,6 +9,16 @@ import type { LyricLine } from '@renderer/features/lyrics/types'
 import FluidArtworkBackground from '@renderer/features/playback/components/FluidArtworkBackground.vue'
 import { subscribeVisualFrame } from '@renderer/features/playback/utils/visualFrameScheduler'
 
+const skipPreviousIconUrl = new URL(
+  '../../features/playback/assets/skip-previous-rounded.svg',
+  import.meta.url,
+).href
+const skipNextIconUrl = new URL(
+  '../../features/playback/assets/skip-next-rounded.svg',
+  import.meta.url,
+).href
+const playIconUrl = new URL('../../features/playback/assets/play.svg', import.meta.url).href
+
 const playback = usePlayback()
 const { isFullscreenPlayerOpen, closeFullscreenPlayer } = useFullscreenPlayer()
 const {
@@ -580,7 +590,12 @@ onBeforeUnmount(() => {
                 aria-label="Previous track"
                 @click="playback.playPrevious"
               >
-                <span class="fullscreen-player-filled-icon fullscreen-player-filled-previous" />
+                <img
+                  class="fullscreen-player-filled-icon fullscreen-player-filled-skip-icon"
+                  :src="skipPreviousIconUrl"
+                  alt=""
+                  aria-hidden="true"
+                />
               </button>
               <button
                 class="fullscreen-player-play"
@@ -589,12 +604,16 @@ onBeforeUnmount(() => {
                 @click="playback.togglePlayPause"
               >
                 <span
+                  v-if="playback.state.isPlaying"
                   class="fullscreen-player-filled-icon"
-                  :class="
-                    playback.state.isPlaying
-                      ? 'fullscreen-player-filled-pause'
-                      : 'fullscreen-player-filled-play'
-                  "
+                  :class="{ 'fullscreen-player-filled-pause': playback.state.isPlaying }"
+                />
+                <img
+                  v-else
+                  class="fullscreen-player-filled-icon fullscreen-player-filled-play"
+                  :src="playIconUrl"
+                  alt=""
+                  aria-hidden="true"
                 />
               </button>
               <button
@@ -603,7 +622,12 @@ onBeforeUnmount(() => {
                 aria-label="Next track"
                 @click="playback.playNext"
               >
-                <span class="fullscreen-player-filled-icon fullscreen-player-filled-next" />
+                <img
+                  class="fullscreen-player-filled-icon fullscreen-player-filled-skip-icon"
+                  :src="skipNextIconUrl"
+                  alt=""
+                  aria-hidden="true"
+                />
               </button>
               <button
                 type="button"
@@ -872,19 +896,21 @@ onBeforeUnmount(() => {
 }
 
 .fullscreen-player-filled-play {
-  width: 28px;
-  height: 36px;
-  background: currentColor;
-  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 28 36' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 4.2C3 1.5 6.1-.1 8.3 1.6L24.6 14.4C26.8 16.2 26.8 19.8 24.6 21.6L8.3 34.4C6.1 36.1 3 34.5 3 31.8V4.2Z' fill='black'/%3E%3C/svg%3E");
-  mask-position: center;
-  mask-repeat: no-repeat;
-  mask-size: contain;
+  display: block;
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
   transform: translateX(3px);
 }
 
 .fullscreen-player-filled-pause {
   width: 30px;
   height: 34px;
+  color: var(--auralis-text);
+}
+
+.fullscreen-player-play:hover .fullscreen-player-filled-pause {
+  color: var(--auralis-text-muted);
 }
 
 .fullscreen-player-filled-pause::before,
@@ -906,46 +932,11 @@ onBeforeUnmount(() => {
   right: 2px;
 }
 
-.fullscreen-player-filled-previous,
-.fullscreen-player-filled-next {
+.fullscreen-player-filled-skip-icon {
+  display: block;
   width: 38px;
   height: 32px;
-}
-
-.fullscreen-player-filled-previous::before,
-.fullscreen-player-filled-previous::after,
-.fullscreen-player-filled-next::before,
-.fullscreen-player-filled-next::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: 18px;
-  height: 32px;
-  background: currentColor;
-  mask-repeat: no-repeat;
-  mask-position: center;
-  mask-size: contain;
-  transform: translateY(-50%);
-}
-
-.fullscreen-player-filled-previous::before {
-  left: 2px;
-  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 18 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M15 5.2C15 1.7 10.9 .2 8.5 2.6L2 12.9C.5 14.7 .5 17.3 2 19.1L8.5 29.4C10.9 31.8 15 30.3 15 26.8V5.2Z' fill='black'/%3E%3C/svg%3E");
-}
-
-.fullscreen-player-filled-previous::after {
-  right: 3px;
-  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 18 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M15 5.2C15 1.7 10.9 .2 8.5 2.6L2 12.9C.5 14.7 .5 17.3 2 19.1L8.5 29.4C10.9 31.8 15 30.3 15 26.8V5.2Z' fill='black'/%3E%3C/svg%3E");
-}
-
-.fullscreen-player-filled-next::before {
-  left: 3px;
-  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 18 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 5.2C3 1.7 7.1 .2 9.5 2.6L16 12.9C17.5 14.7 17.5 17.3 16 19.1L9.5 29.4C7.1 31.8 3 30.3 3 26.8V5.2Z' fill='black'/%3E%3C/svg%3E");
-}
-
-.fullscreen-player-filled-next::after {
-  right: 2px;
-  mask-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 18 32' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 5.2C3 1.7 7.1 .2 9.5 2.6L16 12.9C17.5 14.7 17.5 17.3 16 19.1L9.5 29.4C7.1 31.8 3 30.3 3 26.8V5.2Z' fill='black'/%3E%3C/svg%3E");
+  object-fit: contain;
 }
 
 .fullscreen-player-volume {

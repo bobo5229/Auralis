@@ -156,12 +156,6 @@ export class GaplessAudioEngine {
     this.nextSource.start(startAt, leadingSilence)
     if (appliedTrailingSilence > 0 || leadingSilence > 0) {
       this.scheduleTrimmedBoundary(startAt)
-      console.debug('[Auralis gapless] Trimmed same-album digital silence', {
-        fromTrackId: this.current.trackId,
-        toTrackId: trackId,
-        trailingSeconds: appliedTrailingSilence,
-        leadingSeconds: leadingSilence,
-      })
     }
     return true
   }
