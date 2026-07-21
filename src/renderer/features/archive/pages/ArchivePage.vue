@@ -720,16 +720,14 @@ async function openDailyDetail(event: MouseEvent | KeyboardEvent, day: CalendarD
     date: dateKey,
     label: day.label,
     x: rect.left + rect.width / 2,
-    y: rect.top,
+    y: rect.top + rect.height / 2,
     expanded: false,
   }
 
   await nextTick()
-  requestAnimationFrame(() => {
-    if (detailDialog.value?.date === dateKey) {
-      detailDialog.value.expanded = true
-    }
-  })
+  if (detailDialog.value?.date === dateKey) {
+    detailDialog.value.expanded = true
+  }
 
   try {
     const detail = await auralis.archive.getDailyListeningDetail(dateKey)
@@ -3339,32 +3337,6 @@ onBeforeUnmount(() => {
 /* Daily Details Dialog Glassmorphism */
 .archive-detail-dialog {
   position: fixed;
-  top: var(--dialog-origin-y);
-  left: var(--dialog-origin-x);
-  width: 176px;
-  height: 32px;
-  overflow: hidden;
-  padding: 0;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 85%, transparent);
-  box-shadow: 0 8px 24px rgba(20, 24, 28, 0.16);
-  color: var(--auralis-text);
-  opacity: 0;
-  transform: translate(-50%, calc(-100% - 10px));
-  transform-origin: top left;
-  transition:
-    top 280ms cubic-bezier(0.25, 1, 0.5, 1),
-    left 280ms cubic-bezier(0.25, 1, 0.5, 1),
-    width 280ms cubic-bezier(0.25, 1, 0.5, 1),
-    height 280ms cubic-bezier(0.25, 1, 0.5, 1),
-    padding 280ms cubic-bezier(0.25, 1, 0.5, 1),
-    border-radius 280ms ease,
-    opacity 80ms ease,
-    transform 280ms cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.archive-detail-dialog.is-expanded {
   top: 50%;
   left: 50%;
   display: flex;
@@ -3378,8 +3350,22 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(25px) saturate(180%);
   -webkit-backdrop-filter: blur(25px) saturate(180%);
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  color: var(--auralis-text);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(calc(var(--dialog-origin-x) - 50vw), calc(var(--dialog-origin-y) - 50vh))
+    scale(0.18);
+  transform-origin: center;
+  will-change: transform, opacity;
+  transition:
+    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 180ms ease;
+}
+
+.archive-detail-dialog.is-expanded {
   opacity: 1;
-  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .archive-detail-header,
