@@ -1268,6 +1268,12 @@ onBeforeUnmount(() => {
 
     <Teleport to="body">
       <div
+        v-if="showRankingPicker"
+        class="archive-picker-backdrop"
+        @click="showRankingPicker = false"
+      ></div>
+
+      <div
         v-if="tooltip"
         class="archive-tooltip"
         :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }"
@@ -2766,6 +2772,25 @@ onBeforeUnmount(() => {
   border-radius: 12px;
   border: 1px solid var(--archive-panel-border);
   background: color-mix(in srgb, var(--auralis-main-bg) 44%, transparent);
+}
+
+.archive-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  background: color-mix(in srgb, var(--auralis-bg) 20%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: archive-picker-backdrop-in 180ms ease;
+}
+
+@keyframes archive-picker-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .archive-ranking-picker {
