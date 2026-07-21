@@ -2778,19 +2778,7 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: 39;
-  background: color-mix(in srgb, var(--auralis-bg) 20%, transparent);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  animation: archive-picker-backdrop-in 180ms ease;
-}
-
-@keyframes archive-picker-backdrop-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  background: transparent;
 }
 
 .archive-ranking-picker {
@@ -2800,14 +2788,14 @@ onBeforeUnmount(() => {
   right: 0;
   min-width: 240px;
   padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 14%, transparent);
   border-radius: 18px;
-  background: color-mix(in srgb, var(--auralis-dialog-bg) 88%, #000);
+  background: #181a1d;
   box-shadow:
-    0 28px 70px rgba(0, 0, 0, 0.6),
+    0 20px 60px rgba(0, 0, 0, 0.75),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  -webkit-backdrop-filter: blur(35px) contrast(105%);
-  backdrop-filter: blur(35px) contrast(105%);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .picker-header {
