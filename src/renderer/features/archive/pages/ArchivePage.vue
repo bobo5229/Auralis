@@ -1274,19 +1274,13 @@ onBeforeUnmount(() => {
             </span>
           </div>
           <div class="album-hero-info">
-            <span class="album-hero-type">ALBUM REPLAY</span>
             <h3 class="album-hero-title">{{ selectedAlbumItem.title || '未知专辑' }}</h3>
             <p class="album-hero-artist">{{ formatRankingArtist(selectedAlbumItem.artist) }}</p>
-            <div class="album-hero-stats">
-              <div class="stat-pill">
-                <span class="stat-num">{{ selectedAlbumItem.playCount }}</span>
-                <span class="stat-lbl">次累计播放</span>
-              </div>
-              <div class="stat-pill">
-                <span class="stat-num">{{ formatMinutes(selectedAlbumItem.durationSeconds) }}</span>
-                <span class="stat-lbl">沉浸时长</span>
-              </div>
-            </div>
+            <p class="album-hero-summary-text">
+              {{ selectedAlbumItem.title || '未知专辑' }} 你听了
+              {{ selectedAlbumItem.playCount }} 次
+              {{ formatMinutes(selectedAlbumItem.durationSeconds) }}
+            </p>
           </div>
         </div>
 
@@ -3950,7 +3944,7 @@ onBeforeUnmount(() => {
 .album-hero-stage {
   position: sticky;
   top: 12px;
-  height: 380px;
+  height: 350px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4030,14 +4024,6 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-.album-hero-type {
-  font-size: 10px;
-  letter-spacing: 1.5px;
-  font-weight: 800;
-  color: var(--auralis-text-faint);
-  text-transform: uppercase;
-}
-
 .album-hero-title {
   margin: 4px 0 2px;
   height: 40px;
@@ -4056,36 +4042,26 @@ onBeforeUnmount(() => {
 .album-hero-artist {
   font-size: 12px;
   color: var(--auralis-text-muted);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
 }
 
-.album-hero-stats {
-  display: flex;
-  justify-content: space-around;
+.album-hero-summary-text {
+  margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
-}
-
-.stat-pill {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.stat-num {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--auralis-text);
-}
-
-.stat-lbl {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--auralis-text-faint);
-  margin-top: 2px;
+  line-height: 1.4;
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .archive-album-magazine-list {
