@@ -1311,8 +1311,20 @@ onBeforeUnmount(() => {
           <div v-if="isDetailLoading" class="archive-detail-state">正在整理这一天的声迹…</div>
           <div v-else-if="detailError" class="archive-detail-state">{{ detailError }}</div>
           <ol v-else-if="dailyDetail?.tracks.length" class="archive-top-tracks">
-            <li v-for="(track, index) in dailyDetail.tracks" :key="track.trackId">
-              <span class="archive-track-rank">{{ index + 1 }}</span>
+            <li
+              v-for="(track, index) in dailyDetail.tracks"
+              :key="track.trackId"
+              :style="{ '--item-index': index }"
+            >
+              <span
+                class="archive-track-rank"
+                :class="{
+                  'rank-gold': index === 0,
+                  'rank-silver': index === 1,
+                  'rank-bronze': index === 2,
+                }"
+                >{{ index + 1 }}</span
+              >
               <div class="archive-track-artwork">
                 <img
                   v-if="getArtworkUrl(track.artworkCacheKey)"
@@ -3387,6 +3399,22 @@ onBeforeUnmount(() => {
   transform: translateY(0);
 }
 
+.archive-detail-dialog.is-expanded .archive-top-tracks li {
+  animation: archive-item-slide-in 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--item-index) * 35ms + 120ms);
+}
+
+@keyframes archive-item-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .archive-detail-header {
   display: flex;
   flex: 0 0 auto;
@@ -3500,6 +3528,33 @@ onBeforeUnmount(() => {
 .archive-track-rank {
   text-align: center;
   font-weight: 700;
+}
+
+.archive-track-rank.rank-gold {
+  background: linear-gradient(135deg, #ffe57f 0%, #ffb300 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  filter: drop-shadow(0 2px 4px rgba(255, 179, 0, 0.4));
+}
+
+.archive-track-rank.rank-silver {
+  background: linear-gradient(135deg, #ffffff 0%, #b0bec5 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  filter: drop-shadow(0 2px 4px rgba(255, 255, 255, 0.4));
+}
+
+.archive-track-rank.rank-bronze {
+  background: linear-gradient(135deg, #ffcc80 0%, #d84315 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  filter: drop-shadow(0 2px 4px rgba(216, 67, 21, 0.4));
 }
 
 .archive-track-artwork {
