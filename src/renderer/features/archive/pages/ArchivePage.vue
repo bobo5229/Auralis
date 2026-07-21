@@ -2778,21 +2778,25 @@ onBeforeUnmount(() => {
   z-index: 40;
   bottom: calc(100% + 8px);
   right: 0;
-  min-width: 230px;
-  padding: 12px;
-  border: 1px solid var(--auralis-playbar-border);
+  min-width: 240px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
   border-radius: 18px;
-  background: color-mix(in srgb, var(--auralis-dialog-bg) 85%, transparent);
-  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.22);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  backdrop-filter: blur(20px) saturate(150%);
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 88%, #000);
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(35px) contrast(105%);
+  backdrop-filter: blur(35px) contrast(105%);
 }
 
 .picker-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 4px 8px;
+  padding: 0 4px 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
   color: var(--auralis-text);
   font-size: 13px;
   font-weight: 700;
@@ -2810,7 +2814,7 @@ onBeforeUnmount(() => {
 }
 
 .picker-header button:hover:not(:disabled) {
-  background: var(--auralis-control-hover-bg);
+  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
   color: var(--auralis-text);
 }
 
@@ -2854,7 +2858,7 @@ onBeforeUnmount(() => {
 }
 
 .calendar-grid button:not(.is-empty):not(:disabled):hover {
-  background: var(--auralis-control-hover-bg);
+  background: color-mix(in srgb, var(--auralis-text) 7%, transparent);
 }
 
 .calendar-grid button.is-empty {
@@ -2867,18 +2871,22 @@ onBeforeUnmount(() => {
 }
 
 .calendar-grid button.is-today {
-  color: var(--auralis-sidebar-active-indicator);
+  color: var(--auralis-active-album-accent, #ffe57f);
   font-weight: 800;
   box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 35%, transparent);
+    color-mix(in srgb, var(--auralis-active-album-accent, #ffe57f) 40%, transparent);
 }
 
 .calendar-grid button.is-selected {
-  background: var(--auralis-sidebar-active-indicator);
-  color: #fff;
+  background: linear-gradient(
+    135deg,
+    var(--auralis-active-album-accent, #4f46e5) 0%,
+    color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 80%, #000) 100%
+  );
+  color: #ffffff;
   font-weight: 800;
-  box-shadow: 0 4px 10px
-    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 30%, transparent);
+  box-shadow: 0 4px 14px
+    color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 45%, transparent);
 }
 
 /* Week list */
@@ -2920,7 +2928,7 @@ onBeforeUnmount(() => {
 }
 
 .picker-week-list button:hover:not(:disabled) {
-  background: var(--auralis-control-hover-bg);
+  background: color-mix(in srgb, var(--auralis-text) 7%, transparent);
 }
 
 .picker-week-list button:disabled {
@@ -2930,8 +2938,15 @@ onBeforeUnmount(() => {
 
 .picker-week-list button.is-active,
 .picker-week-list button.is-current {
-  color: var(--auralis-sidebar-active-indicator);
+  background: linear-gradient(
+    135deg,
+    var(--auralis-active-album-accent, #4f46e5) 0%,
+    color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 80%, #000) 100%
+  );
+  color: #ffffff;
   font-weight: 700;
+  box-shadow: 0 4px 12px
+    color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 40%, transparent);
 }
 
 .picker-week-list .week-date-range {
