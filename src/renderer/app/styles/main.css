@@ -185,8 +185,8 @@
   --auralis-album-detail-more-bg: #2a2a2b;
 
   /* Album Detail frosted surfaces */
-  --auralis-overlay-bg: color-mix(in srgb, var(--auralis-bg) 65%, transparent);
-  --auralis-overlay-blur: blur(80px) saturate(1.4) contrast(0.95);
+  --auralis-overlay-bg: color-mix(in srgb, var(--auralis-bg) 70%, transparent);
+  --auralis-overlay-blur: blur(20px) saturate(1.45) contrast(1.02);
   --auralis-btn-back-bg: rgba(255, 255, 255, 0.04);
   --auralis-btn-back-border: rgba(255, 255, 255, 0.08);
   --auralis-btn-back-hover: rgba(255, 255, 255, 0.08);
