@@ -3345,11 +3345,13 @@ onBeforeUnmount(() => {
   height: min(650px, calc(100vh - 80px));
   padding: 24px;
   border-radius: 20px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
-  background: color-mix(in srgb, var(--auralis-dialog-bg) 75%, transparent);
-  backdrop-filter: blur(25px) saturate(180%);
-  -webkit-backdrop-filter: blur(25px) saturate(180%);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 88%, #000);
+  backdrop-filter: blur(35px) contrast(105%);
+  -webkit-backdrop-filter: blur(35px) contrast(105%);
+  box-shadow:
+    0 32px 90px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   color: var(--auralis-text);
   opacity: 0;
   pointer-events: none;
@@ -3407,6 +3409,8 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
 }
 
 .archive-detail-header > div > span {
@@ -3465,10 +3469,14 @@ onBeforeUnmount(() => {
   flex: 1;
   align-content: start;
   grid-auto-rows: 54px;
-  gap: 4px;
-  margin-top: 18px;
+  gap: 6px;
+  margin-top: 16px;
   overflow-y: auto;
-  padding: 0 4px 16px 0;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
   scrollbar-color: color-mix(in srgb, var(--auralis-text) 24%, transparent) transparent;
   scrollbar-width: thin;
   list-style: none;
@@ -3493,16 +3501,18 @@ onBeforeUnmount(() => {
   height: 54px;
   align-items: center;
   padding: 8px 12px;
-  border-radius: 12px;
+  border-radius: 10px;
   grid-template-columns: 22px 38px minmax(0, 1fr) auto;
   gap: 12px;
   border: 1px solid transparent;
-  transition: all 150ms ease;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
 }
 
 .archive-top-tracks li:hover {
-  background: var(--auralis-control-hover-bg);
-  border-color: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  background: color-mix(in srgb, var(--auralis-text) 7%, transparent);
+  border-color: rgba(255, 255, 255, 0.06);
 }
 
 .archive-track-rank,
