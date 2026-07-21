@@ -332,40 +332,36 @@ watch(
 const playbackModeIconClass = computed(() => {
   switch (playback.state.playbackMode) {
     case 'repeat-all':
-      return 'i-lucide-repeat'
+      return 'i-ri-repeat-fill'
     case 'repeat-one':
-      return 'i-lucide-repeat-1'
+      return 'i-ri-repeat-one-fill'
     case 'shuffle':
-      return 'i-lucide-shuffle'
+      return 'i-ri-shuffle-fill'
     case 'album-shuffle':
-      return 'i-lucide-disc-3'
+      return 'i-ri-disc-fill'
     case 'sequential':
     default:
-      return 'i-lucide-list-end'
+      return 'i-ri-play-list-fill'
   }
 })
 
 // --- Volume ---
 const volumeIconClass = computed(() => {
   if (playback.state.isMuted) {
-    return 'i-lucide-volume-x'
+    return 'i-ri-volume-mute-fill'
   }
 
   const volume = playback.state.volume
 
   if (volume <= 0) {
-    return 'i-lucide-volume'
+    return 'i-ri-volume-mute-fill'
   }
 
-  if (volume <= 0.33) {
-    return 'i-lucide-volume'
+  if (volume <= 0.4) {
+    return 'i-ri-volume-down-fill'
   }
 
-  if (volume <= 0.66) {
-    return 'i-lucide-volume-1'
-  }
-
-  return 'i-lucide-volume-2'
+  return 'i-ri-volume-up-fill'
 })
 
 const volumeSliderStyle = computed(() => {
@@ -481,7 +477,7 @@ function handleToggleMute(): void {
         :aria-expanded="isQueueOpen"
         @click="toggleQueue"
       >
-        <span class="playbar-action-icon h-4 w-4 i-lucide-list-music" />
+        <span class="playbar-action-icon h-4 w-4 i-ri-play-list-2-fill" />
       </button>
 
       <div ref="queuePopoverRef" class="contents">
