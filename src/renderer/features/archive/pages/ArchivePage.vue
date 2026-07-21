@@ -647,7 +647,16 @@ function changePickerYearBy(delta: -1 | 1): void {
   void loadListeningRanking()
 }
 
-function toggleRankingPicker(): void {
+const pickerPos = ref<{ top: number; left: number }>({ top: 0, left: 0 })
+
+function toggleRankingPicker(event?: MouseEvent | KeyboardEvent): void {
+  if (!showRankingPicker.value && event?.currentTarget) {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    pickerPos.value = {
+      top: rect.top - 8,
+      left: rect.right,
+    }
+  }
   showRankingPicker.value = !showRankingPicker.value
 }
 
@@ -1108,12 +1117,60 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="archive-ranking-period" data-ranking-period-control>
-          <button type="button" @click="toggleRankingPicker">
+          <button type="button" @click="toggleRankingPicker($event)">
             <span>{{ rankingPeriodLabel }}</span>
             <span class="i-lucide-chevron-down h-3.5 w-3.5"></span>
           </button>
+        </div>
+      </div>
 
-          <div v-if="showRankingPicker" class="archive-ranking-picker">
+      <div v-if="isRankingLoading" class="archive-ranking-state">正在整理排行…</div>
+      <div v-else-if="rankingError" class="archive-ranking-state archive-state--error">
+        {{ rankingError }}
+      </div>
+      <div v-else-if="!listeningRanking?.items.length" class="archive-ranking-state">
+        暂无排行数据
+      </div>
+      <ol v-else class="archive-ranking-list">
+        <li v-for="(item, index) in listeningRanking.items" :key="item.key">
+          <span class="archive-ranking-rank">{{ index + 1 }}</span>
+          <div class="archive-ranking-artwork">
+            <img
+              v-if="getArtworkUrl(item.artworkCacheKey)"
+              :src="getArtworkUrl(item.artworkCacheKey) ?? undefined"
+              alt=""
+            />
+            <span v-else class="i-lucide-music-2 h-4 w-4"></span>
+          </div>
+          <div class="archive-ranking-copy">
+            <strong>
+              {{ item.title || (rankingTarget === 'track' ? '未知歌曲' : '未知专辑') }}
+            </strong>
+            <span>{{ formatRankingArtist(item.artist) }}</span>
+          </div>
+          <div class="archive-ranking-meta">
+            <strong>{{ item.playCount }} 次</strong>
+            <span>{{ formatMinutes(item.durationSeconds) }}</span>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <Teleport to="body">
+      <Transition name="archive-picker-fade">
+        <div
+          v-if="showRankingPicker"
+          class="archive-picker-backdrop"
+          @click="showRankingPicker = false"
+        >
+          <div
+            class="archive-ranking-picker"
+            :style="{
+              top: `${pickerPos.top}px`,
+              left: `${pickerPos.left}px`,
+            }"
+            @click.stop
+          >
             <!-- Day: Mini calendar -->
             <template v-if="rankingRange === 'day'">
               <div class="picker-header">
@@ -1232,47 +1289,6 @@ onBeforeUnmount(() => {
             </template>
           </div>
         </div>
-      </div>
-
-      <div v-if="isRankingLoading" class="archive-ranking-state">正在整理排行…</div>
-      <div v-else-if="rankingError" class="archive-ranking-state archive-state--error">
-        {{ rankingError }}
-      </div>
-      <div v-else-if="!listeningRanking?.items.length" class="archive-ranking-state">
-        暂无排行数据
-      </div>
-      <ol v-else class="archive-ranking-list">
-        <li v-for="(item, index) in listeningRanking.items" :key="item.key">
-          <span class="archive-ranking-rank">{{ index + 1 }}</span>
-          <div class="archive-ranking-artwork">
-            <img
-              v-if="getArtworkUrl(item.artworkCacheKey)"
-              :src="getArtworkUrl(item.artworkCacheKey) ?? undefined"
-              alt=""
-            />
-            <span v-else class="i-lucide-music-2 h-4 w-4"></span>
-          </div>
-          <div class="archive-ranking-copy">
-            <strong>
-              {{ item.title || (rankingTarget === 'track' ? '未知歌曲' : '未知专辑') }}
-            </strong>
-            <span>{{ formatRankingArtist(item.artist) }}</span>
-          </div>
-          <div class="archive-ranking-meta">
-            <strong>{{ item.playCount }} 次</strong>
-            <span>{{ formatMinutes(item.durationSeconds) }}</span>
-          </div>
-        </li>
-      </ol>
-    </section>
-
-    <Teleport to="body">
-      <Transition name="archive-picker-fade">
-        <div
-          v-if="showRankingPicker"
-          class="archive-picker-backdrop"
-          @click="showRankingPicker = false"
-        ></div>
       </Transition>
 
       <div
@@ -2779,10 +2795,10 @@ onBeforeUnmount(() => {
 .archive-picker-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 90;
-  background: rgba(0, 0, 0, 0.32);
-  backdrop-filter: blur(10px) saturate(120%);
-  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  z-index: 9990;
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(12px) saturate(130%);
+  -webkit-backdrop-filter: blur(12px) saturate(130%);
   transition: opacity 220ms ease;
 }
 
@@ -2792,20 +2808,19 @@ onBeforeUnmount(() => {
 }
 
 .archive-ranking-picker {
-  position: absolute;
-  z-index: 95;
-  bottom: calc(100% + 8px);
-  right: 0;
+  position: fixed;
+  z-index: 10000;
+  transform: translate(-100%, -100%);
   min-width: 240px;
   padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 16%, transparent);
   border-radius: 18px;
-  background: color-mix(in srgb, var(--auralis-dialog-bg) 88%, #000);
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 96%, #000);
   box-shadow:
-    0 28px 70px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  -webkit-backdrop-filter: blur(35px) contrast(105%);
-  backdrop-filter: blur(35px) contrast(105%);
+    0 32px 80px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .picker-header {
