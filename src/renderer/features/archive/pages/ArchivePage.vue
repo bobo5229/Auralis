@@ -2776,7 +2776,7 @@ onBeforeUnmount(() => {
 .archive-ranking-picker {
   position: absolute;
   z-index: 40;
-  top: calc(100% + 8px);
+  bottom: calc(100% + 8px);
   right: 0;
   min-width: 230px;
   padding: 12px;
