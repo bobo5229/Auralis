@@ -3950,9 +3950,11 @@ onBeforeUnmount(() => {
 .album-hero-stage {
   position: sticky;
   top: 12px;
+  height: 380px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: space-between;
   text-align: center;
   padding: 18px 16px;
   border-radius: 18px;
@@ -3963,6 +3965,7 @@ onBeforeUnmount(() => {
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(20px);
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .album-hero-static-canvas {
@@ -4037,21 +4040,27 @@ onBeforeUnmount(() => {
 
 .album-hero-title {
   margin: 4px 0 2px;
+  height: 40px;
   font-size: 15px;
   font-weight: 800;
   color: var(--auralis-text);
-  line-height: 1.3;
+  line-height: 1.33;
   word-break: break-all;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .album-hero-artist {
   font-size: 12px;
   color: var(--auralis-text-muted);
-  margin-bottom: 14px;
+  margin-bottom: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .album-hero-stats {
