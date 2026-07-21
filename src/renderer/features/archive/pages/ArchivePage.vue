@@ -1892,22 +1892,20 @@ onBeforeUnmount(() => {
   gap: 16px;
 }
 
-/* Summary Cards (Stereo & Glassmorphism) */
+/* Summary Cards (Borderless Streamline Layout) */
 .archive-summary-item {
   position: relative;
   z-index: 1;
   min-width: 0;
   min-height: 140px;
   padding: 20px;
-  border: 1px solid var(--archive-panel-border);
+  border: 1px solid transparent;
   border-radius: 16px;
-  background: var(--archive-panel-bg);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   outline: none;
-  box-shadow:
-    0 8px 24px color-mix(in srgb, var(--auralis-text) 3%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
+  box-shadow: none;
   transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   overflow: visible;
 }
@@ -1936,7 +1934,7 @@ onBeforeUnmount(() => {
     transparent 60%
   );
   content: '';
-  opacity: 0.4;
+  opacity: 0.35;
   z-index: -1;
   transition:
     opacity 0.3s ease,
@@ -1947,21 +1945,18 @@ onBeforeUnmount(() => {
 .archive-summary-item:hover,
 .archive-summary-item:focus-within {
   z-index: 20;
-  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 35%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, white 24%, transparent),
-    0 16px 36px color-mix(in srgb, var(--auralis-text) 8%, transparent);
-  transform: translateY(-4px);
+  border-color: transparent;
+  background: color-mix(in srgb, var(--auralis-text) 3.5%, transparent);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--auralis-text) 4%, transparent);
+  transform: translateY(-2px);
 }
 
 .archive-summary-item:hover::before {
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
 .archive-summary-item:focus-visible {
-  box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 50%, transparent),
-    0 8px 24px color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 50%, transparent);
 }
 
 .archive-summary-item--clickable {
