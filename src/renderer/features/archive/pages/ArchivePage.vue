@@ -654,6 +654,74 @@ const selectedAlbumItem = computed(() => {
   return listeningRanking.value.items[selectedAlbumIndex.value] || listeningRanking.value.items[0]
 })
 
+const heroCanvasRef = ref<HTMLCanvasElement | null>(null)
+
+function updateHeroStaticFluid(): void {
+  const item = selectedAlbumItem.value
+  const canvas = heroCanvasRef.value
+  if (!item || !canvas) return
+
+  const url = getArtworkUrl(item.artworkCacheKey)
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+
+  const width = (canvas.width = 240)
+  const height = (canvas.height = 340)
+
+  if (!url) {
+    ctx.clearRect(0, 0, width, height)
+    ctx.fillStyle = '#141518'
+    ctx.fillRect(0, 0, width, height)
+    return
+  }
+
+  const img = new Image()
+  img.crossOrigin = 'anonymous'
+  img.onload = () => {
+    const sampleCanvas = document.createElement('canvas')
+    sampleCanvas.width = 16
+    sampleCanvas.height = 16
+    const sCtx = sampleCanvas.getContext('2d')
+    if (!sCtx) return
+    sCtx.drawImage(img, 0, 0, 16, 16)
+    const imgData = sCtx.getImageData(0, 0, 16, 16).data
+
+    const c1 = `rgb(${imgData[0]}, ${imgData[1]}, ${imgData[2]})`
+    const c2 = `rgb(${imgData[15 * 4]}, ${imgData[15 * 4 + 1]}, ${imgData[15 * 4 + 2]})`
+    const c3 = `rgb(${imgData[16 * 15 * 4]}, ${imgData[16 * 15 * 4 + 1]}, ${imgData[16 * 15 * 4 + 2]})`
+    const c4 = `rgb(${imgData[(16 * 16 - 1) * 4]}, ${imgData[(16 * 16 - 1) * 4 + 1]}, ${imgData[(16 * 16 - 1) * 4 + 2]})`
+
+    ctx.fillStyle = '#0e0f12'
+    ctx.fillRect(0, 0, width, height)
+
+    const drawBlob = (x: number, y: number, r: number, color: string) => {
+      const grad = ctx.createRadialGradient(x, y, 0, x, y, r)
+      grad.addColorStop(0, color)
+      grad.addColorStop(1, 'transparent')
+      ctx.fillStyle = grad
+      ctx.beginPath()
+      ctx.arc(x, y, r, 0, Math.PI * 2)
+      ctx.fill()
+    }
+
+    ctx.save()
+    ctx.globalCompositeOperation = 'screen'
+    ctx.globalAlpha = 0.7
+    drawBlob(40, 50, 160, c1)
+    drawBlob(200, 60, 150, c2)
+    drawBlob(50, 280, 170, c3)
+    drawBlob(190, 290, 160, c4)
+    ctx.restore()
+  }
+  img.src = url
+}
+
+watch(selectedAlbumItem, () => {
+  void nextTick(() => {
+    updateHeroStaticFluid()
+  })
+})
+
 watch(rankingTarget, () => {
   selectedAlbumIndex.value = 0
 })
@@ -1183,6 +1251,7 @@ onBeforeUnmount(() => {
       <div v-else class="archive-album-magazine-layout">
         <!-- Left: Hero Stage -->
         <div v-if="selectedAlbumItem" class="album-hero-stage">
+          <canvas ref="heroCanvasRef" class="album-hero-static-canvas"></canvas>
           <div class="album-hero-cover-wrapper">
             <img
               v-if="getArtworkUrl(selectedAlbumItem.artworkCacheKey)"
@@ -3893,6 +3962,25 @@ onBeforeUnmount(() => {
     0 20px 50px rgba(0, 0, 0, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(20px);
+  overflow: hidden;
+}
+
+.album-hero-static-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  filter: blur(32px) saturate(150%);
+  opacity: 0.85;
+  transition: opacity 300ms ease;
+  pointer-events: none;
+}
+
+.album-hero-cover-wrapper,
+.album-hero-info {
+  position: relative;
+  z-index: 1;
 }
 
 .album-hero-cover-wrapper {
