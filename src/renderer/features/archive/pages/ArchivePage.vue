@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { auralis } from '@renderer/shared/ipc/client'
 import type {
   AnnualListeningInsights,
@@ -647,6 +647,21 @@ function changePickerYearBy(delta: -1 | 1): void {
   void loadListeningRanking()
 }
 
+const selectedAlbumIndex = ref<number>(0)
+
+const selectedAlbumItem = computed(() => {
+  if (rankingTarget.value !== 'album' || !listeningRanking.value?.items.length) return null
+  return listeningRanking.value.items[selectedAlbumIndex.value] || listeningRanking.value.items[0]
+})
+
+watch(rankingTarget, () => {
+  selectedAlbumIndex.value = 0
+})
+
+watch(listeningRanking, () => {
+  selectedAlbumIndex.value = 0
+})
+
 const pickerPos = ref<{ top: number; left: number }>({ top: 0, left: 0 })
 
 function toggleRankingPicker(event?: MouseEvent | KeyboardEvent): void {
@@ -1131,9 +1146,18 @@ onBeforeUnmount(() => {
       <div v-else-if="!listeningRanking?.items.length" class="archive-ranking-state">
         暂无排行数据
       </div>
-      <ol v-else class="archive-ranking-list">
+      <!-- Track Ranking (Single column list) -->
+      <ol v-else-if="rankingTarget === 'track'" class="archive-ranking-list">
         <li v-for="(item, index) in listeningRanking.items" :key="item.key">
-          <span class="archive-ranking-rank">{{ index + 1 }}</span>
+          <span
+            class="archive-ranking-rank"
+            :class="{
+              'rank-gold': index === 0,
+              'rank-silver': index === 1,
+              'rank-bronze': index === 2,
+            }"
+            >{{ index + 1 }}</span
+          >
           <div class="archive-ranking-artwork">
             <img
               v-if="getArtworkUrl(item.artworkCacheKey)"
@@ -1144,7 +1168,7 @@ onBeforeUnmount(() => {
           </div>
           <div class="archive-ranking-copy">
             <strong>
-              {{ item.title || (rankingTarget === 'track' ? '未知歌曲' : '未知专辑') }}
+              {{ item.title || '未知歌曲' }}
             </strong>
             <span>{{ formatRankingArtist(item.artist) }}</span>
           </div>
@@ -1154,6 +1178,87 @@ onBeforeUnmount(() => {
           </div>
         </li>
       </ol>
+
+      <!-- Album Ranking (Editorial Magazine Split Layout) -->
+      <div v-else class="archive-album-magazine-layout">
+        <!-- Left: Hero Stage -->
+        <div v-if="selectedAlbumItem" class="album-hero-stage">
+          <div class="album-hero-cover-wrapper">
+            <img
+              v-if="getArtworkUrl(selectedAlbumItem.artworkCacheKey)"
+              :src="getArtworkUrl(selectedAlbumItem.artworkCacheKey) ?? undefined"
+              alt=""
+              class="album-hero-cover"
+            />
+            <div v-else class="album-hero-cover-placeholder">
+              <span class="i-lucide-disc-3 h-12 w-12 opacity-40"></span>
+            </div>
+            <span
+              class="album-hero-badge"
+              :class="{
+                'rank-gold': selectedAlbumIndex === 0,
+                'rank-silver': selectedAlbumIndex === 1,
+                'rank-bronze': selectedAlbumIndex === 2,
+              }"
+            >
+              TOP {{ selectedAlbumIndex + 1 }}
+            </span>
+          </div>
+          <div class="album-hero-info">
+            <span class="album-hero-type">ALBUM REPLAY</span>
+            <h3 class="album-hero-title">{{ selectedAlbumItem.title || '未知专辑' }}</h3>
+            <p class="album-hero-artist">{{ formatRankingArtist(selectedAlbumItem.artist) }}</p>
+            <div class="album-hero-stats">
+              <div class="stat-pill">
+                <span class="stat-num">{{ selectedAlbumItem.playCount }}</span>
+                <span class="stat-lbl">次累计播放</span>
+              </div>
+              <div class="stat-pill">
+                <span class="stat-num">{{ formatMinutes(selectedAlbumItem.durationSeconds) }}</span>
+                <span class="stat-lbl">沉浸时长</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Album Scroll List -->
+        <ol class="archive-album-magazine-list">
+          <li
+            v-for="(item, index) in listeningRanking.items"
+            :key="item.key"
+            class="archive-album-magazine-item"
+            :class="{ 'is-selected': index === selectedAlbumIndex }"
+            @mouseenter="selectedAlbumIndex = index"
+          >
+            <span
+              class="archive-ranking-rank"
+              :class="{
+                'rank-gold': index === 0,
+                'rank-silver': index === 1,
+                'rank-bronze': index === 2,
+              }"
+            >
+              {{ index + 1 }}
+            </span>
+            <div class="archive-ranking-artwork">
+              <img
+                v-if="getArtworkUrl(item.artworkCacheKey)"
+                :src="getArtworkUrl(item.artworkCacheKey) ?? undefined"
+                alt=""
+              />
+              <span v-else class="i-lucide-disc h-4 w-4"></span>
+            </div>
+            <div class="archive-ranking-copy">
+              <strong>{{ item.title || '未知专辑' }}</strong>
+              <span>{{ formatRankingArtist(item.artist) }}</span>
+            </div>
+            <div class="archive-ranking-meta">
+              <strong>{{ item.playCount }} 次</strong>
+              <span>{{ formatMinutes(item.durationSeconds) }}</span>
+            </div>
+          </li>
+        </ol>
+      </div>
     </section>
 
     <Teleport to="body">
@@ -3759,18 +3864,163 @@ onBeforeUnmount(() => {
 
   .archive-summary-item:hover > .archive-summary-label,
   .archive-summary-item:hover > .archive-summary-value,
-  .archive-summary-item:focus-within > .archive-summary-label,
-  .archive-summary-item:focus-within > .archive-summary-value {
-    opacity: 1;
-    transform: none;
-  }
-
-  .archive-ranking-list li {
-    grid-template-columns: 26px 40px minmax(0, 1fr);
-  }
-
   .archive-ranking-meta {
     display: none;
   }
+}
+
+/* Editorial Magazine Layout for Album Ranking */
+.archive-album-magazine-layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 20px;
+  align-items: start;
+  padding: 4px 0;
+}
+
+.album-hero-stage {
+  position: sticky;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 18px 16px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 88%, #000);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+}
+
+.album-hero-cover-wrapper {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.album-hero-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.album-hero-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
+}
+
+.album-hero-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(12px);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--auralis-text);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.album-hero-info {
+  width: 100%;
+}
+
+.album-hero-type {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  font-weight: 800;
+  color: var(--auralis-text-faint);
+  text-transform: uppercase;
+}
+
+.album-hero-title {
+  margin: 4px 0 2px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--auralis-text);
+  line-height: 1.3;
+  word-break: break-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.album-hero-artist {
+  font-size: 12px;
+  color: var(--auralis-text-muted);
+  margin-bottom: 14px;
+}
+
+.album-hero-stats {
+  display: flex;
+  justify-content: space-around;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
+}
+
+.stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-num {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--auralis-text);
+}
+
+.stat-lbl {
+  font-size: 10px;
+  color: var(--auralis-text-faint);
+  margin-top: 2px;
+}
+
+.archive-album-magazine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.archive-album-magazine-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--auralis-text) 3%, transparent);
+  transition: all 180ms ease;
+  cursor: pointer;
+}
+
+.archive-album-magazine-item:hover,
+.archive-album-magazine-item.is-selected {
+  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  border-color: color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 30%, transparent);
+  transform: translateX(4px);
+}
+
+.archive-album-magazine-item.is-selected {
+  box-shadow: 0 4px 16px
+    color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 20%, transparent);
 }
 </style>
