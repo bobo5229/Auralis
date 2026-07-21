@@ -19,7 +19,7 @@ let disposed = false
 
 const FALLBACK_ALBUM =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%230e1117'/%3E%3C/svg%3E"
-const BACKGROUND_FEATHER_PX = 32
+const BACKGROUND_FEATHER_PX = 12
 
 function loadArtworkImage(source: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -35,7 +35,7 @@ function syncRendererState(): void {
   if (!background) return
 
   background.setStaticMode(reducedMotionQuery?.matches === true)
-  background.setFlowSpeed(props.playing ? 1 : 0.35)
+  background.setFlowSpeed(props.playing ? 2.2 : 0.6)
 
   if (props.active && document.visibilityState === 'visible') {
     background.resume()
@@ -92,7 +92,7 @@ async function initializeBackground(): Promise<void> {
     canvas.style.transformOrigin = 'center'
     container.prepend(canvas)
     background.setRenderScale(0.5)
-    background.setFPS(30)
+    background.setFPS(60)
     background.setLowFreqVolume(0)
     syncRendererState()
     await syncAlbum()
