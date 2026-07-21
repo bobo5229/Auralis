@@ -1,27 +1,23 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { usePlaybackQueue } from '@renderer/features/playback/composables/usePlaybackQueue'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import type { PlaybackTrack } from '@renderer/features/playback/types'
 
 const emit = defineEmits<{ close: [] }>()
-
-const playback = usePlayback()
 const element = ref<HTMLElement | null>(null)
 
 defineExpose({ element })
 
-const currentTrack = computed(() => playback.state.currentTrack)
-const queue = computed(() => playback.state.queue)
-const currentIndex = computed(() => playback.state.currentIndex)
-
-const upcomingTracks = computed(() => {
-  if (currentIndex.value < 0) return []
-  return queue.value.slice(currentIndex.value + 1, currentIndex.value + 101)
-})
-
-const isQueueEmpty = computed(() => !currentTrack.value || queue.value.length === 0)
-const totalCount = computed(() => queue.value.length)
+const {
+  currentTrack,
+  currentIndex,
+  upcomingTracks,
+  isQueueEmpty,
+  totalCount,
+  playTrack,
+  isActive,
+} = usePlaybackQueue()
 
 const scrollRef = ref<HTMLElement | null>(null)
 const artworkErrorIds = ref<Set<number>>(new Set())
@@ -45,22 +41,11 @@ function formatSubtitle(track: PlaybackTrack): string {
   return parts.length > 0 ? parts.join(' - ') : 'Unknown Artist'
 }
 
-async function playTrack(trackId: number): Promise<void> {
-  await playback.playTrackFromQueue(playback.state.queue, trackId)
-}
-
-function isActive(trackId: number): boolean {
-  return trackId === playback.state.currentTrackId
-}
-
-watch(
-  () => playback.state.currentIndex,
-  () => {
-    nextTick(() => {
-      scrollRef.value?.scrollTo({ top: 0 })
-    })
-  },
-)
+watch(currentIndex, () => {
+  nextTick(() => {
+    scrollRef.value?.scrollTo({ top: 0 })
+  })
+})
 
 function handleKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
@@ -167,3 +152,10 @@ onUnmounted(() => {
     </template>
   </div>
 </template>
+
+<style scoped>
+.queue-item:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator, #8ab4f8) 72%, white);
+  outline-offset: -2px;
+}
+</style>

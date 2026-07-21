@@ -20,7 +20,7 @@ export const MINI_PAD_X = 28
  * Tuned to MiniPlayer.vue vertical stack — adjust if that layout changes.
  * Zero window-control header; top padding is pure breathing room above the sleeve.
  */
-export const MINI_CHROME_HEIGHT = 252
+export const MINI_CHROME_HEIGHT = 264
 
 export interface MiniPlayerBodySize {
   /** Square album sleeve edge length. */

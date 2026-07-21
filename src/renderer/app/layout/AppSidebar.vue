@@ -7,11 +7,13 @@ import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import { useRoute } from 'vue-router'
 import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
+import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { auralis } from '@renderer/shared/ipc/client'
 
 const route = useRoute()
 const router = useRouter()
+const playback = usePlayback()
 const { enterMiniPlayer } = usePlayerDisplayMode()
 const isFacetsDialogOpen = ref(false)
 const playlistItems = ref<SidebarPlaylistItem[]>([])
@@ -224,6 +226,29 @@ function onPlaylistClick(event: MouseEvent, path: string): void {
   }
 
   setPendingActive(path)
+}
+
+async function playRandomPlaylistTrack(item: SidebarPlaylistItem): Promise<void> {
+  try {
+    const detail =
+      item.kind === 'playlist'
+        ? await auralis.playlists.getDetail(item.id)
+        : await auralis.smartPlaylists.getDetail(item.id)
+    const tracks = detail?.tracks ?? []
+    if (tracks.length === 0) return
+
+    const track = tracks[Math.floor(Math.random() * tracks.length)]
+    await playback.playTrackFromQueue(tracks, track.id, { shufflePool: tracks })
+  } catch (error) {
+    playback.state.error = error instanceof Error ? error.message : String(error)
+  }
+}
+
+function onPlaylistDoubleClick(item: SidebarPlaylistItem, event: MouseEvent): void {
+  event.preventDefault()
+  event.stopPropagation()
+  if (suppressPlaylistClick || draggingPlaylistKey.value !== null) return
+  void playRandomPlaylistTrack(item)
 }
 
 async function loadSidebarPlaylists(): Promise<void> {
@@ -561,6 +586,7 @@ function close(): void {
           }"
           @pointerdown="onPlaylistPointerDown(playlist, $event)"
           @click="onPlaylistClick($event, getPlaylistPath(playlist))"
+          @dblclick="onPlaylistDoubleClick(playlist, $event)"
           @dragstart.prevent
           @keydown.enter="setPendingActive(getPlaylistPath(playlist))"
           @keydown.space="setPendingActive(getPlaylistPath(playlist))"

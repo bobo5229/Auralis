@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 import type { AppInfo } from '@shared/types/app'
 import { auralis } from '@renderer/shared/ipc/client'
+import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { type PlayerBarMaterial, usePlayerBarMaterial } from '../composables/usePlayerBarMaterial'
 import MusicLibrarySettings from '../components/MusicLibrarySettings.vue'
 
-type SettingsSection = 'appearance' | 'library' | 'about'
+type SettingsSection = 'appearance' | 'playback' | 'library' | 'about'
 
 const sections: Array<{
   id: SettingsSection
@@ -17,6 +19,12 @@ const sections: Array<{
     label: '外观',
     description: '当前显示主题',
     icon: 'i-lucide-palette',
+  },
+  {
+    id: 'playback',
+    label: '播放',
+    description: '控制音频衔接方式',
+    icon: 'i-lucide-audio-lines',
   },
   {
     id: 'library',
@@ -33,10 +41,62 @@ const sections: Array<{
 ]
 
 const selectedSection = ref<SettingsSection>('library')
+const { gaplessPlaybackEnabled, setGaplessPlaybackEnabled } = usePlayback()
+const { playerBarMaterial, setPlayerBarMaterial } = usePlayerBarMaterial()
+const playerBarMaterialOptions: Array<{ value: PlayerBarMaterial; label: string }> = [
+  { value: 'cover-tint', label: '封面取色' },
+  { value: 'liquid-glass', label: 'Liquid Glass' },
+]
+const coverTintButtonRef = ref<HTMLButtonElement | null>(null)
+const liquidGlassButtonRef = ref<HTMLButtonElement | null>(null)
 const appInfo = ref<AppInfo | null>(null)
 const appInfoError = ref(false)
 const copyState = ref<'idle' | 'copied' | 'failed'>('idle')
 let copyStateTimer: number | undefined
+
+function getPlayerBarMaterialButton(value: PlayerBarMaterial): HTMLButtonElement | null {
+  return value === 'cover-tint' ? coverTintButtonRef.value : liquidGlassButtonRef.value
+}
+
+function selectPlayerBarMaterial(value: PlayerBarMaterial, focusSelectedOption = false): void {
+  setPlayerBarMaterial(value)
+
+  if (focusSelectedOption) {
+    void nextTick(() => getPlayerBarMaterialButton(value)?.focus())
+  }
+}
+
+function handlePlayerBarMaterialKeydown(event: KeyboardEvent, value: PlayerBarMaterial): void {
+  const currentIndex = playerBarMaterialOptions.findIndex((option) => option.value === value)
+  if (currentIndex < 0) return
+
+  let nextIndex: number | null = null
+  switch (event.key) {
+    case 'ArrowLeft':
+    case 'ArrowUp':
+      nextIndex =
+        (currentIndex - 1 + playerBarMaterialOptions.length) % playerBarMaterialOptions.length
+      break
+    case 'ArrowRight':
+    case 'ArrowDown':
+      nextIndex = (currentIndex + 1) % playerBarMaterialOptions.length
+      break
+    case 'Home':
+      nextIndex = 0
+      break
+    case 'End':
+      nextIndex = playerBarMaterialOptions.length - 1
+      break
+    default:
+      return
+  }
+
+  event.preventDefault()
+  const nextOption = playerBarMaterialOptions[nextIndex]
+  if (nextOption) {
+    selectPlayerBarMaterial(nextOption.value, true)
+  }
+}
 
 async function copyDatabasePath(): Promise<void> {
   if (!appInfo.value?.databasePath) return
@@ -116,9 +176,91 @@ onMounted(async () => {
             </div>
           </div>
 
+          <div class="settings-list settings-list--appearance">
+            <div class="settings-row">
+              <div>
+                <strong id="player-bar-material-label">播放栏材质</strong>
+                <span id="player-bar-material-description">
+                  选择播放栏跟随专辑封面取色，或使用更通透的 Liquid Glass 效果。
+                </span>
+              </div>
+              <div
+                class="settings-segmented-control"
+                role="radiogroup"
+                aria-labelledby="player-bar-material-label"
+                aria-describedby="player-bar-material-description"
+              >
+                <button
+                  ref="coverTintButtonRef"
+                  type="button"
+                  role="radio"
+                  class="settings-segmented-option"
+                  :class="{ 'is-selected': playerBarMaterial === 'cover-tint' }"
+                  :aria-checked="playerBarMaterial === 'cover-tint'"
+                  :tabindex="playerBarMaterial === 'cover-tint' ? 0 : -1"
+                  @click="selectPlayerBarMaterial('cover-tint')"
+                  @keydown="handlePlayerBarMaterialKeydown($event, 'cover-tint')"
+                >
+                  封面取色
+                </button>
+                <button
+                  ref="liquidGlassButtonRef"
+                  type="button"
+                  role="radio"
+                  class="settings-segmented-option"
+                  :class="{ 'is-selected': playerBarMaterial === 'liquid-glass' }"
+                  :aria-checked="playerBarMaterial === 'liquid-glass'"
+                  :tabindex="playerBarMaterial === 'liquid-glass' ? 0 : -1"
+                  @click="selectPlayerBarMaterial('liquid-glass')"
+                  @keydown="handlePlayerBarMaterialKeydown($event, 'liquid-glass')"
+                >
+                  Liquid Glass
+                </button>
+              </div>
+            </div>
+          </div>
+
           <p class="settings-note">
             <span class="i-lucide-info"></span>
             应用始终使用深色界面。
+          </p>
+        </section>
+
+        <section v-else-if="selectedSection === 'playback'" class="settings-section">
+          <div class="settings-section-heading">
+            <span class="settings-section-icon i-lucide-audio-lines"></span>
+            <div>
+              <h2>播放</h2>
+              <p>控制曲目之间的衔接与音频预加载行为。</p>
+            </div>
+          </div>
+
+          <div class="settings-list">
+            <div class="settings-row">
+              <div>
+                <strong>无缝播放</strong>
+                <span id="gapless-playback-description">
+                  提前解码下一首，并在同专辑曲目交界处跳过可识别的数字静音
+                </span>
+              </div>
+              <button
+                type="button"
+                class="settings-switch"
+                role="switch"
+                :aria-checked="gaplessPlaybackEnabled"
+                aria-describedby="gapless-playback-description"
+                :aria-label="`无缝播放，当前已${gaplessPlaybackEnabled ? '开启' : '关闭'}`"
+                :class="{ 'is-enabled': gaplessPlaybackEnabled }"
+                @click="setGaplessPlaybackEnabled(!gaplessPlaybackEnabled)"
+              >
+                <span class="settings-switch-thumb" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
+
+          <p class="settings-note">
+            <span class="i-lucide-info"></span>
+            关闭后不会中断当前曲目，将从下一次切歌起使用普通播放。
           </p>
         </section>
 
@@ -582,6 +724,10 @@ onMounted(async () => {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.02);
 }
 
+.settings-list--appearance {
+  margin-top: 16px;
+}
+
 .settings-row {
   display: flex;
   gap: 24px;
@@ -617,6 +763,49 @@ onMounted(async () => {
   font-weight: 500;
 }
 
+.settings-row > .settings-segmented-control {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--auralis-text) 6%, transparent);
+}
+
+.settings-segmented-option {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--auralis-text-subtle);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.settings-segmented-option:hover {
+  color: var(--auralis-text);
+}
+
+.settings-segmented-option:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
+}
+
+.settings-segmented-option.is-selected {
+  color: var(--auralis-text);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 30%, transparent),
+    0 2px 8px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 14%, transparent);
+}
+
 .settings-value {
   color: var(--auralis-text-muted);
   font-size: 12px;
@@ -624,6 +813,54 @@ onMounted(async () => {
   background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
   padding: 4px 10px;
   border-radius: 8px;
+}
+
+.settings-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 14%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.settings-switch:hover {
+  border-color: color-mix(in srgb, var(--auralis-text) 25%, transparent);
+}
+
+.settings-switch:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 3px;
+}
+
+.settings-switch.is-enabled {
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 70%, transparent);
+  background: var(--auralis-sidebar-active-indicator);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
+}
+
+.settings-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--auralis-text);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28);
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.settings-switch.is-enabled .settings-switch-thumb {
+  transform: translateX(20px);
+  background: var(--auralis-control-primary-text);
 }
 
 .database-path {
@@ -745,6 +982,14 @@ onMounted(async () => {
 
   .database-path {
     max-width: calc(100vw - 72px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-switch,
+  .settings-switch-thumb,
+  .settings-segmented-option {
+    transition: none;
   }
 }
 </style>

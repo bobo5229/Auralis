@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { router } from './app/router'
 import AppSidebar from './app/layout/AppSidebar.vue'
@@ -36,23 +36,8 @@ const artworkUrl = computed(() => {
 
 const isAlbumDetail = computed(() => {
   const name = router.currentRoute.value.name
-  console.log('[Auralis App.vue] Route Check name:', name)
   return name === 'album-detail'
 })
-
-// Debug trace to help verify state reactive rendering
-watch(
-  [isAlbumDetail, artworkUrl],
-  ([newIsDetail, newUrl]) => {
-    console.log(
-      '[Auralis App.vue] State changed - isAlbumDetail:',
-      newIsDetail,
-      'ArtworkURL:',
-      newUrl,
-    )
-  },
-  { immediate: true },
-)
 </script>
 
 <template>

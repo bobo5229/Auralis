@@ -3,7 +3,8 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch, type CSSPropert
 import FluidArtworkBackground from '@renderer/features/playback/components/FluidArtworkBackground.vue'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import type { PlaybackMode, PlaybackTrack } from '@renderer/features/playback/types'
+import { usePlaybackQueue } from '@renderer/features/playback/composables/usePlaybackQueue'
+import type { PlaybackMode } from '@renderer/features/playback/types'
 import { formatPlaybackSubtitle } from '@renderer/features/playback/utils/formatPlaybackSubtitle'
 import { subscribeVisualFrame } from '@renderer/features/playback/utils/visualFrameScheduler'
 import { formatDuration } from '@renderer/features/library/utils/formatDuration'
@@ -14,6 +15,14 @@ import { getDefaultMiniPlayerBodySize } from '@shared/constants/miniPlayer'
 import type { MiniPlayerBodySize, MiniPlayerPopoverDirection } from '@shared/ipc/contracts'
 
 type MiniPopover = 'queue' | 'mode' | 'volume' | null
+
+const MINI_POPOVER_GAP = 10
+const MINI_POPOVER_SURFACE_HEIGHTS: Record<Exclude<MiniPopover, null>, number> = {
+  queue: 300,
+  mode: 220,
+  volume: 220,
+}
+const MINI_VOLUME_POPOVER_WIDTH = 92
 
 /** Accent-metal light pose — reshuffled after each play-button hover ends. */
 interface MetalLightPose {
@@ -36,9 +45,20 @@ interface MetalLightPose {
 }
 
 const playback = usePlayback()
+const {
+  currentTrack: queueCurrentTrack,
+  currentIndex: queueCurrentIndex,
+  upcomingTracks,
+  isQueueEmpty,
+  totalCount: queueTotalCount,
+  playTrack: playQueueTrack,
+  isActive: isQueueTrackActive,
+} = usePlaybackQueue()
 const activePopover = ref<MiniPopover>(null)
 const popoverDirection = ref<MiniPlayerPopoverDirection>('below')
+const popoverRegionHeight = ref(0)
 const imageErrorIds = ref<Set<number>>(new Set())
+const queueScrollRef = ref<HTMLElement | null>(null)
 const isDraggingProgress = ref(false)
 const draggingProgressRatio = ref<number | null>(null)
 const progressFillRef = ref<HTMLElement | null>(null)
@@ -132,6 +152,9 @@ const canvasStyle = computed(
     ({
       width: `${bodySize.value.width}px`,
       minHeight: `${bodySize.value.height}px`,
+      '--mini-popover-gap': `${MINI_POPOVER_GAP}px`,
+      '--auralis-active-album-accent':
+        albumAccentColor.value ?? 'var(--auralis-sidebar-active-indicator)',
     }) as CSSProperties,
 )
 const miniPlayerStyle = computed(
@@ -144,12 +167,24 @@ const miniPlayerStyle = computed(
         albumAccentColor.value ?? 'var(--auralis-sidebar-active-indicator)',
     }) as CSSProperties,
 )
-const popoverStyle = computed(
-  () =>
-    ({
-      width: `${bodySize.value.width}px`,
-    }) as CSSProperties,
-)
+const popoverStyle = computed(() => {
+  const surfaceHeight = Math.max(0, popoverRegionHeight.value - MINI_POPOVER_GAP)
+  const isModePopover = activePopover.value === 'mode'
+  const isVolumePopover = activePopover.value === 'volume'
+  return {
+    width: `${
+      isModePopover
+        ? bodySize.value.width / 2
+        : isVolumePopover
+          ? MINI_VOLUME_POPOVER_WIDTH
+          : bodySize.value.width
+    }px`,
+    maxHeight: `${surfaceHeight}px`,
+    ...(isModePopover ? { alignSelf: 'center' } : {}),
+    ...(isVolumePopover ? { alignSelf: 'flex-end' } : {}),
+    ...(activePopover.value === 'queue' || isVolumePopover ? { height: `${surfaceHeight}px` } : {}),
+  } as CSSProperties
+})
 
 const playButtonMetalStyle = computed(
   () =>
@@ -182,22 +217,21 @@ function applyBodyFromState(body: MiniPlayerBodySize | undefined): void {
   }
 }
 
-/**
- * Control Center–style bar icons (IonIcons filled / regular solid).
- * Iconify prefix `ion` — verified: list, repeat, shuffle, disc, volume-*, etc.
- */
-const modeIcon = computed(() => {
-  const icons: Record<PlaybackMode, string> = {
-    sequential: 'i-ion-play-skip-forward',
-    'repeat-all': 'i-ion-repeat',
-    // Ion has no repeat-once; sync reads as single-cycle loop.
-    'repeat-one': 'i-ion-sync',
-    shuffle: 'i-ion-shuffle',
-    'album-shuffle': 'i-ion-disc',
+/** Dock bar short labels (serif text buttons). Full names live in the mode popover. */
+const modeDockLabel = computed(() => {
+  const labels: Record<PlaybackMode, string> = {
+    sequential: '顺序',
+    'repeat-all': '循环',
+    'repeat-one': '单曲',
+    shuffle: '随机',
+    'album-shuffle': '专辑',
   }
-  return icons[playback.state.playbackMode]
+  return labels[playback.state.playbackMode]
 })
 
+const volumeDockLabel = computed(() => (playback.state.isMuted ? '静音' : '音量'))
+
+/** Volume panel still uses ion glyphs for mute / level affordance. */
 const volumeIcon = computed(() => {
   if (playback.state.isMuted) return 'i-ion-volume-mute'
   if (playback.state.volume <= 0.33) return 'i-ion-volume-low'
@@ -223,13 +257,18 @@ function handleArtworkError(trackId: number): void {
 
 async function setPopover(next: MiniPopover): Promise<void> {
   activePopover.value = next
-  const height = next === 'queue' ? 300 : next === 'mode' ? 220 : next === 'volume' ? 92 : 0
+  const surfaceHeight = next ? MINI_POPOVER_SURFACE_HEIGHTS[next] : 0
+  const regionHeight = next ? surfaceHeight + MINI_POPOVER_GAP : 0
+  popoverRegionHeight.value = regionHeight
   const result = await miniWindow.setMiniPlayerPopover({
     open: next !== null,
     direction: popoverDirection.value,
-    height,
+    height: regionHeight,
   })
-  if (result?.popover.direction) popoverDirection.value = result.popover.direction
+  if (result?.popover.direction) {
+    popoverDirection.value = result.popover.direction
+    popoverRegionHeight.value = result.popover.height
+  }
 }
 
 function togglePopover(popover: Exclude<MiniPopover, null>): void {
@@ -366,10 +405,6 @@ function handleProgressKeydown(event: KeyboardEvent): void {
   }
 }
 
-async function playQueueTrack(track: PlaybackTrack): Promise<void> {
-  await playback.playTrackFromQueue(playback.state.queue, track.id)
-}
-
 function restoreMainWindow(): void {
   void miniWindow.restoreFromMiniPlayer()
 }
@@ -398,13 +433,21 @@ onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
   void miniWindow.getMiniPlayerState().then((state) => {
     popoverDirection.value = state.popover.direction
+    popoverRegionHeight.value = state.popover.height
     applyBodyFromState(state.body)
   })
   unsubscribeMiniPlayerState = miniWindow.onMiniPlayerStateChanged((state) => {
     popoverDirection.value = state.popover.direction
+    popoverRegionHeight.value = state.popover.height
     applyBodyFromState(state.body)
   })
   syncProgressFrameSubscription()
+})
+
+watch(queueCurrentIndex, () => {
+  nextTick(() => {
+    queueScrollRef.value?.scrollTo({ top: 0 })
+  })
 })
 
 onUnmounted(() => {
@@ -424,48 +467,82 @@ onUnmounted(() => {
     :style="canvasStyle"
   >
     <section v-if="activePopover" class="mini-popover" data-mini-interactive :style="popoverStyle">
-      <div
-        v-if="activePopover === 'queue'"
-        class="mini-queue-panel"
-        role="dialog"
-        aria-label="播放队列"
-      >
-        <div class="mini-panel-heading">
-          <span>播放队列</span>
-          <span>{{ playback.state.queue.length }} 首</span>
-        </div>
-        <div v-if="playback.state.queue.length === 0" class="mini-empty">暂无播放队列</div>
-        <div v-else class="mini-queue-list scrollbar-none">
-          <button
-            v-for="track in playback.state.queue"
-            :key="track.id"
-            class="mini-queue-item"
-            :class="{ 'mini-queue-item--active': track.id === playback.state.currentTrackId }"
-            type="button"
-            :aria-label="`播放 ${track.title || '未知歌曲'}`"
-            @click="playQueueTrack(track)"
-          >
-            <div class="mini-queue-cover">
-              <img
-                v-if="getArtworkUrl(track.artworkCacheKey) && !artworkFailed(track.id)"
-                :src="getArtworkUrl(track.artworkCacheKey)!"
-                alt=""
-                draggable="false"
-                @error="handleArtworkError(track.id)"
-              />
-              <span v-else class="h-4 w-4 i-lucide-music" />
+      <FluidArtworkBackground
+        v-if="artworkUrl"
+        :artwork-url="artworkUrl"
+        :active="true"
+        :playing="playback.state.isPlaying"
+        class="mini-popover-background"
+      />
+      <div class="mini-popover-scrim" aria-hidden="true" />
+
+      <template v-if="activePopover === 'queue'">
+        <div class="mini-queue-panel" role="dialog" aria-label="播放队列">
+          <div class="mini-panel-heading">
+            <span>播放队列</span>
+            <span>{{ queueTotalCount }} 首</span>
+          </div>
+          <div v-if="isQueueEmpty" class="mini-empty">暂无播放队列</div>
+          <template v-else>
+            <div class="mini-queue-section-label">正在播放</div>
+            <div
+              v-if="queueCurrentTrack"
+              class="mini-queue-item mini-queue-item--active mini-queue-item--current"
+            >
+              <div class="mini-queue-cover">
+                <img
+                  v-if="
+                    getArtworkUrl(queueCurrentTrack.artworkCacheKey) &&
+                    !artworkFailed(queueCurrentTrack.id)
+                  "
+                  :src="getArtworkUrl(queueCurrentTrack.artworkCacheKey)!"
+                  alt=""
+                  draggable="false"
+                  @error="handleArtworkError(queueCurrentTrack.id)"
+                />
+                <span v-else class="h-4 w-4 i-lucide-music" />
+              </div>
+              <span class="mini-queue-copy">
+                <b>{{ queueCurrentTrack.title || '未知歌曲' }}</b>
+                <small>{{ formatPlaybackSubtitle(queueCurrentTrack) }}</small>
+              </span>
+              <span class="h-4 w-4 i-lucide-volume-2 mini-queue-now" />
             </div>
-            <span class="mini-queue-copy">
-              <b>{{ track.title || '未知歌曲' }}</b>
-              <small>{{ formatPlaybackSubtitle(track) }}</small>
-            </span>
-            <span
-              v-if="track.id === playback.state.currentTrackId"
-              class="h-4 w-4 i-lucide-volume-2 mini-queue-now"
-            />
-          </button>
+
+            <div v-if="upcomingTracks.length > 0" class="mini-queue-section-label">接下来</div>
+            <div
+              v-if="upcomingTracks.length > 0"
+              ref="queueScrollRef"
+              class="mini-queue-list scrollbar-none"
+            >
+              <button
+                v-for="track in upcomingTracks"
+                :key="track.id"
+                class="mini-queue-item"
+                :class="{ 'mini-queue-item--active': isQueueTrackActive(track.id) }"
+                type="button"
+                :aria-label="`播放 ${track.title || '未知歌曲'}`"
+                @click="playQueueTrack(track.id)"
+              >
+                <div class="mini-queue-cover">
+                  <img
+                    v-if="getArtworkUrl(track.artworkCacheKey) && !artworkFailed(track.id)"
+                    :src="getArtworkUrl(track.artworkCacheKey)!"
+                    alt=""
+                    draggable="false"
+                    @error="handleArtworkError(track.id)"
+                  />
+                  <span v-else class="h-4 w-4 i-lucide-music" />
+                </div>
+                <span class="mini-queue-copy">
+                  <b>{{ track.title || '未知歌曲' }}</b>
+                  <small>{{ formatPlaybackSubtitle(track) }}</small>
+                </span>
+              </button>
+            </div>
+          </template>
         </div>
-      </div>
+      </template>
 
       <div
         v-else-if="activePopover === 'mode'"
@@ -493,32 +570,27 @@ onUnmounted(() => {
       </div>
 
       <div v-else class="mini-volume-panel" role="dialog" aria-label="音量">
-        <div class="mini-panel-heading">
-          <span>音量</span>
-          <span>{{ Math.round(playback.state.volume * 100) }}%</span>
-        </div>
-        <div class="mini-volume-control">
-          <button
-            class="mini-icon-button"
-            type="button"
-            aria-label="静音"
-            data-tooltip="静音"
-            @click="playback.toggleMute()"
-          >
-            <span class="h-4 w-4" :class="volumeIcon" />
-          </button>
-          <input
-            :value="playback.state.volume"
-            class="mini-volume-slider"
-            :style="volumeStyle"
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            aria-label="音量"
-            @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
-          />
-        </div>
+        <output class="mini-volume-value"> {{ Math.round(playback.state.volume * 100) }}% </output>
+        <input
+          :value="playback.state.volume"
+          class="mini-volume-slider"
+          :style="volumeStyle"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          aria-label="音量"
+          @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
+        />
+        <button
+          class="mini-icon-button mini-volume-button"
+          type="button"
+          :aria-label="playback.state.isMuted ? '取消静音' : '静音'"
+          :data-tooltip="playback.state.isMuted ? '取消静音' : '静音'"
+          @click="playback.toggleMute()"
+        >
+          <span class="h-4 w-4" :class="volumeIcon" />
+        </button>
       </div>
     </section>
 
@@ -632,42 +704,42 @@ onUnmounted(() => {
           </button>
         </div>
 
-        <!-- Control Center–style media bar: full content width, three equal cells -->
+        <!-- Control Center–style media bar: full content width, three equal text cells -->
         <div class="mini-actions-dock" data-mini-interactive>
           <LiquidGlassPanel class="mini-actions-glass" :radius="18">
             <div class="mini-actions" role="toolbar" aria-label="迷你播放工具">
               <button
-                class="mini-icon-button mini-actions-button"
-                :class="{ 'mini-icon-button--active': activePopover === 'queue' }"
+                class="mini-actions-button"
+                :class="{ 'mini-actions-button--active': activePopover === 'queue' }"
                 type="button"
                 aria-label="播放队列"
                 data-tooltip="播放队列"
                 data-mini-popover-trigger="queue"
                 @click="togglePopover('queue')"
               >
-                <span class="mini-actions-glyph i-ion-list" />
+                <span class="mini-actions-label">队列</span>
               </button>
               <button
-                class="mini-icon-button mini-actions-button"
-                :class="{ 'mini-icon-button--active': activePopover === 'mode' }"
+                class="mini-actions-button"
+                :class="{ 'mini-actions-button--active': activePopover === 'mode' }"
                 type="button"
-                aria-label="播放模式"
+                :aria-label="`播放模式：${modeDockLabel}`"
                 data-tooltip="播放模式"
                 data-mini-popover-trigger="mode"
                 @click="togglePopover('mode')"
               >
-                <span class="mini-actions-glyph" :class="modeIcon" />
+                <span class="mini-actions-label">{{ modeDockLabel }}</span>
               </button>
               <button
-                class="mini-icon-button mini-actions-button"
-                :class="{ 'mini-icon-button--active': activePopover === 'volume' }"
+                class="mini-actions-button"
+                :class="{ 'mini-actions-button--active': activePopover === 'volume' }"
                 type="button"
-                aria-label="音量"
+                :aria-label="volumeDockLabel"
                 data-tooltip="音量"
                 data-mini-popover-trigger="volume"
                 @click="togglePopover('volume')"
               >
-                <span class="mini-actions-glyph" :class="volumeIcon" />
+                <span class="mini-actions-label">{{ volumeDockLabel }}</span>
               </button>
             </div>
           </LiquidGlassPanel>
@@ -693,7 +765,7 @@ onUnmounted(() => {
 
 .mini-player-canvas {
   display: flex;
-  gap: 10px;
+  gap: var(--mini-popover-gap, 10px);
   pointer-events: none;
 }
 
@@ -732,14 +804,17 @@ onUnmounted(() => {
   border-radius: 24px;
 }
 
-.mini-player-background {
+.mini-player-background,
+.mini-popover-background {
   position: absolute;
   inset: 0;
   z-index: 0;
+  pointer-events: none;
 }
 
 /* Cover-forward scrim: light over art, denser toward controls */
-.mini-player-scrim {
+.mini-player-scrim,
+.mini-popover-scrim {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -759,6 +834,7 @@ onUnmounted(() => {
   inset: 0;
   z-index: 2;
   -webkit-app-region: drag;
+  cursor: pointer;
 }
 
 /*
@@ -777,7 +853,8 @@ onUnmounted(() => {
   height: 100%;
   /* Horizontal pad must match MINI_PAD_X in shared/constants/miniPlayer.ts */
   /* Extra top pad replaces the old title-bar row — keeps sleeve from kissing the edge */
-  padding: 22px 28px 20px;
+  /* Bottom pad: air under Control Center dock (sync MINI_CHROME_HEIGHT if changed) */
+  padding: 22px 28px 32px;
   box-sizing: border-box;
 }
 
@@ -858,6 +935,14 @@ onUnmounted(() => {
   padding: 0 2px 12px;
 }
 
+.mini-title,
+.mini-subtitle,
+.mini-mode-option,
+.mini-volume-value {
+  font-family:
+    'Auralis Desktop Lyrics SC', 'Songti SC', 'STSong', 'Noto Serif SC', 'Times New Roman', serif;
+}
+
 .mini-title {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -924,7 +1009,7 @@ onUnmounted(() => {
   flex: none;
   display: flex;
   width: 100%;
-  padding: 0 0 2px;
+  padding: 0;
   -webkit-app-region: no-drag;
 }
 
@@ -969,53 +1054,61 @@ onUnmounted(() => {
   width: 100%;
   box-sizing: border-box;
   margin: 0;
-  padding: 3px 4px;
+  padding: 4px 6px;
   background: transparent;
   border-radius: 0;
   box-shadow: none;
 }
 
-/*
- * Beat .mini-icon-button { width: 34px } so each cell is equal and the glyph
- * centers inside — otherwise all three icons hug the left of the bar.
- */
-.mini-actions-button.mini-icon-button {
+/* Serif text cells — equal thirds, no icon chrome */
+.mini-actions-button {
+  position: relative;
+  display: grid;
   width: 100%;
   min-width: 0;
-  height: 32px;
+  height: 34px;
   margin: 0;
+  place-items: center;
+  border: 0;
   border-radius: 14px;
   justify-self: stretch;
-  place-items: center;
+  color: var(--auralis-text-secondary, #cacace);
+  background: transparent;
+  cursor: pointer;
+  transition:
+    color 0.14s ease,
+    box-shadow 0.18s ease;
 }
 
-/* Ion solid glyphs read better slightly larger on the wide CC-style bar */
-.mini-actions-glyph {
+.mini-actions-label {
   display: block;
-  width: 1.05rem;
-  height: 1.05rem;
-  flex: none;
+  overflow: hidden;
+  max-width: 100%;
+  padding: 0 2px;
+  font-family:
+    'Auralis Desktop Lyrics SC', 'Songti SC', 'STSong', 'Noto Serif SC', 'Times New Roman', serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Island hover: no circular fill (reads as a soft shadow blob). Icon color only. */
-.mini-actions-button.mini-icon-button:hover {
+/* Island hover: color only — no circular fill blob */
+.mini-actions-button:hover {
   background: transparent;
   color: var(--auralis-text-primary, #fff);
   box-shadow: none;
 }
 
-.mini-actions-button.mini-icon-button--active {
+.mini-actions-button--active,
+.mini-actions-button--active:hover {
   background: transparent;
   color: var(--auralis-active-album-accent);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--auralis-active-album-accent) 35%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--auralis-active-album-accent) 35%, transparent),
     0 0 12px color-mix(in srgb, var(--auralis-active-album-accent) 22%, transparent);
-}
-
-/* Active + hover: keep accent, still no fill blob */
-.mini-actions-button.mini-icon-button--active:hover {
-  background: transparent;
-  color: var(--auralis-active-album-accent);
 }
 
 .mini-icon-button,
@@ -1248,8 +1341,23 @@ onUnmounted(() => {
 
 /* ── Popovers ──────────────────────────────────────────── */
 .mini-popover {
+  box-sizing: border-box;
   max-height: 300px;
-  border-radius: 18px;
+  border-radius: 24px;
+}
+
+.mini-queue-panel,
+.mini-mode-panel,
+.mini-volume-panel {
+  position: relative;
+  z-index: 2;
+}
+
+.mini-queue-panel {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
 }
 
 .mini-panel-heading {
@@ -1276,9 +1384,19 @@ onUnmounted(() => {
 }
 
 .mini-queue-list {
-  max-height: 240px;
+  min-height: 0;
+  flex: 1;
   overflow: auto;
   padding: 0 8px 8px;
+}
+
+.mini-queue-section-label {
+  flex: none;
+  padding: 4px 15px 5px;
+  color: var(--auralis-text-faint, #949499);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .mini-queue-item,
@@ -1305,6 +1423,18 @@ onUnmounted(() => {
 .mini-mode-option--active {
   color: var(--auralis-text-primary, #fff);
   background: rgb(255 255 255 / 0.08);
+}
+
+.mini-queue-item:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--auralis-active-album-accent) 72%, white);
+  outline-offset: -2px;
+}
+
+.mini-queue-item--current {
+  width: calc(100% - 16px);
+  margin: 0 8px;
+  flex: none;
+  cursor: default;
 }
 
 .mini-queue-cover {
@@ -1363,27 +1493,42 @@ onUnmounted(() => {
 }
 
 .mini-volume-panel {
-  padding: 4px 14px 15px;
+  display: flex;
+  box-sizing: border-box;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px 12px;
 }
 
-.mini-volume-control {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+.mini-volume-value {
+  flex: none;
+  color: var(--auralis-text-secondary, rgb(255 255 255 / 0.72));
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .mini-volume-slider {
   flex: 1;
-  height: 4px;
+  width: 4px;
+  min-height: 0;
   appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
   border-radius: 999px;
   background: linear-gradient(
-    to right,
+    to top,
     var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator, #8ab4f8)) 0
       var(--mini-volume),
     var(--auralis-progress-track, rgb(255 255 255 / 0.18)) var(--mini-volume) 100%
   );
   outline: none;
+}
+
+.mini-volume-slider:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auralis-active-album-accent) 42%, transparent);
 }
 
 .mini-volume-slider::-webkit-slider-thumb {
@@ -1393,6 +1538,10 @@ onUnmounted(() => {
   border-radius: 50%;
   background: var(--auralis-text-primary, #fff);
   cursor: pointer;
+}
+
+.mini-volume-button {
+  flex: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

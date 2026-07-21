@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
+import { usePlayerBarMaterial } from '@renderer/features/settings/composables/usePlayerBarMaterial'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import TrackProgressInfo from './TrackProgressInfo.vue'
 import PlaybackQueuePopover from './PlaybackQueuePopover.vue'
@@ -16,6 +17,7 @@ import type { DesktopLyricsPayload, DesktopLyricsStatus } from '@shared/types/de
 
 const playback = usePlayback()
 const lyrics = useTrackLyrics()
+const { playerBarMaterial } = usePlayerBarMaterial()
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 const { palette: albumPalette } = useArtworkPalette(currentArtworkCacheKey)
 
@@ -395,19 +397,22 @@ function handleToggleMute(): void {
 <template>
   <footer
     class="player-bar"
-    :class="{ 'player-bar--album-tinted': hasActiveAlbumTint }"
+    :class="{
+      'player-bar--album-tinted': hasActiveAlbumTint,
+      'player-bar--liquid-glass': playerBarMaterial === 'liquid-glass',
+    }"
     :style="playerBarStyle"
   >
     <div class="player-bar-glass" aria-hidden="true"></div>
 
     <div
-      v-if="previousAlbumTint"
+      v-if="playerBarMaterial === 'cover-tint' && previousAlbumTint"
       class="player-bar-album-tint player-bar-album-tint-previous"
       aria-hidden="true"
       :style="previousAlbumTintStyle"
     ></div>
     <div
-      v-if="activeAlbumTint"
+      v-if="playerBarMaterial === 'cover-tint' && activeAlbumTint"
       class="player-bar-album-tint player-bar-album-tint-current"
       aria-hidden="true"
       :style="activeAlbumTintStyle"
