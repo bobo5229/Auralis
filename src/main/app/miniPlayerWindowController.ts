@@ -6,6 +6,12 @@ import {
 } from '@shared/constants/miniPlayer'
 import { ipcChannels } from '@shared/ipc/channels'
 import type { MiniPlayerPopoverDirection, MiniPlayerWindowState } from '@shared/ipc/contracts'
+import {
+  captureWindowRestoreSnapshot,
+  clearMaximizeSession,
+  leaveMaximizedState,
+  markPseudoMaximized,
+} from './windowMaximize'
 
 interface WindowPreferences {
   bounds: Electron.Rectangle
@@ -46,10 +52,10 @@ export class MiniPlayerWindowController {
       return this.getState()
     }
 
-    const wasMaximized = this.window.isMaximized()
+    const snapshot = captureWindowRestoreSnapshot(this.window)
     const preferences: WindowPreferences = {
-      bounds: wasMaximized ? this.window.getNormalBounds() : this.window.getBounds(),
-      wasMaximized,
+      bounds: snapshot.bounds,
+      wasMaximized: snapshot.wasMaximized,
       minimumSize: toSizeTuple(this.window.getMinimumSize()),
       maximumSize: toSizeTuple(this.window.getMaximumSize()),
       resizable: this.window.isResizable(),
@@ -59,9 +65,7 @@ export class MiniPlayerWindowController {
     }
     this.preferences = preferences
 
-    if (wasMaximized) {
-      this.window.unmaximize()
-    }
+    leaveMaximizedState(this.window)
 
     this.body = this.resolveBodySize(preferences.bounds)
     this.popover = { open: false, direction: this.getSuggestedPopoverDirection(), height: 0 }
@@ -96,7 +100,17 @@ export class MiniPlayerWindowController {
     this.window.setAlwaysOnTop(preferences.alwaysOnTop)
 
     if (preferences.wasMaximized) {
+      // Prefer native maximize; transparent fallback keeps green-dot toggle working.
       this.window.maximize()
+      if (!this.window.isMaximized()) {
+        const work = screen.getDisplayMatching(preferences.bounds).workArea
+        this.window.setBounds(work)
+        markPseudoMaximized(this.window, preferences.bounds)
+      } else {
+        clearMaximizeSession(this.window)
+      }
+    } else {
+      clearMaximizeSession(this.window)
     }
 
     return this.emitState()

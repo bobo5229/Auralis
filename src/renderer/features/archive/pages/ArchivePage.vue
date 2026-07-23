@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
 import { auralis } from '@renderer/shared/ipc/client'
 import type {
   AnnualListeningInsights,
@@ -12,6 +12,7 @@ import type {
 } from '@shared/types/archive'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 
 interface CalendarDay {
   date: string
@@ -654,6 +655,21 @@ const selectedAlbumItem = computed(() => {
   return listeningRanking.value.items[selectedAlbumIndex.value] || listeningRanking.value.items[0]
 })
 
+/** Hero glow follows selected ranking album (not the now-playing track). */
+const selectedAlbumArtworkKey = computed(() => selectedAlbumItem.value?.artworkCacheKey ?? null)
+const { palette: selectedAlbumPalette } = useArtworkPalette(selectedAlbumArtworkKey)
+
+const albumHeroStageStyle = computed((): CSSProperties => {
+  const accent = selectedAlbumPalette.value.accents[0]?.rgb
+  // FALLBACK_PALETTE accent is already a cool slate-blue when extraction fails / no art.
+  const glow = accent
+    ? `rgb(${accent.r} ${accent.g} ${accent.b})`
+    : 'rgb(64 92 128)'
+  return {
+    '--album-hero-glow': glow,
+  } as CSSProperties
+})
+
 const heroCanvasRef = ref<HTMLCanvasElement | null>(null)
 
 function updateHeroStaticFluid(): void {
@@ -1250,7 +1266,7 @@ onBeforeUnmount(() => {
       <!-- Album Ranking (Editorial Magazine Split Layout) -->
       <div v-else class="archive-album-magazine-layout">
         <!-- Left: Hero Stage -->
-        <div v-if="selectedAlbumItem" class="album-hero-stage">
+        <div v-if="selectedAlbumItem" class="album-hero-stage" :style="albumHeroStageStyle">
           <canvas ref="heroCanvasRef" class="album-hero-static-canvas"></canvas>
           <div class="album-hero-cover-wrapper">
             <img
@@ -1276,11 +1292,6 @@ onBeforeUnmount(() => {
           <div class="album-hero-info">
             <h3 class="album-hero-title">{{ selectedAlbumItem.title || '未知专辑' }}</h3>
             <p class="album-hero-artist">{{ formatRankingArtist(selectedAlbumItem.artist) }}</p>
-            <p class="album-hero-summary-text">
-              {{ selectedAlbumItem.title || '未知专辑' }} 你听了
-              {{ selectedAlbumItem.playCount }} 次
-              {{ formatMinutes(selectedAlbumItem.durationSeconds) }}
-            </p>
           </div>
         </div>
 
@@ -3944,19 +3955,23 @@ onBeforeUnmount(() => {
 .album-hero-stage {
   position: sticky;
   top: 12px;
-  height: 350px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 16px;
   text-align: center;
-  padding: 18px 16px;
+  padding: 22px 18px 20px;
   border-radius: 18px;
   background: color-mix(in srgb, var(--auralis-dialog-bg) 88%, #000);
   border: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  /* Depth first; soft palette glow rings outside (no color transition — instant on switch) */
   box-shadow:
     0 20px 50px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px color-mix(in srgb, var(--album-hero-glow, rgb(64 92 128)) 22%, transparent),
+    0 0 22px color-mix(in srgb, var(--album-hero-glow, rgb(64 92 128)) 38%, transparent),
+    0 0 48px color-mix(in srgb, var(--album-hero-glow, rgb(64 92 128)) 18%, transparent);
   backdrop-filter: blur(20px);
   overflow: hidden;
   box-sizing: border-box;
@@ -3982,9 +3997,9 @@ onBeforeUnmount(() => {
 
 .album-hero-cover-wrapper {
   position: relative;
-  width: 160px;
-  height: 160px;
-  margin-bottom: 14px;
+  flex: none;
+  width: 168px;
+  height: 168px;
   border-radius: 14px;
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
   overflow: hidden;
@@ -4022,16 +4037,21 @@ onBeforeUnmount(() => {
 
 .album-hero-info {
   width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
 }
 
 .album-hero-title {
-  margin: 4px 0 2px;
-  height: 40px;
+  margin: 0;
+  max-width: 100%;
   font-size: 15px;
   font-weight: 800;
   color: var(--auralis-text);
-  line-height: 1.33;
-  word-break: break-all;
+  line-height: 1.35;
+  word-break: break-word;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -4040,26 +4060,12 @@ onBeforeUnmount(() => {
 }
 
 .album-hero-artist {
-  font-size: 12px;
-  color: var(--auralis-text-muted);
-  margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  margin: 0;
   max-width: 100%;
-}
-
-.album-hero-summary-text {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
   font-size: 12px;
-  color: var(--auralis-text-faint);
-  line-height: 1.4;
-  word-break: break-all;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  font-weight: 600;
+  color: var(--auralis-text-muted);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -4074,7 +4080,9 @@ onBeforeUnmount(() => {
 }
 
 .archive-album-magazine-item {
-  display: flex;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 36px 48px minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
   padding: 8px 12px;
@@ -4083,6 +4091,17 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--auralis-text) 3%, transparent);
   transition: all 180ms ease;
   cursor: pointer;
+}
+
+/* Pin stats column: right-edge align across rows (count + duration) */
+.archive-album-magazine-item .archive-ranking-meta {
+  flex-shrink: 0;
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.archive-album-magazine-item .archive-ranking-meta strong {
+  font-variant-numeric: tabular-nums;
 }
 
 .archive-album-magazine-item:hover,

@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { stat } from 'node:fs/promises'
 import { ipcChannels } from '@shared/ipc/channels'
 import { getMiniPlayerWindowController } from '@main/app/miniPlayerWindowController'
+import { isWindowMaximizedLike, toggleWindowMaximize } from '@main/app/windowMaximize'
 import { getDatabasePath } from '@main/database/connection'
 import { LibraryRepository } from '@main/repositories/libraryRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
@@ -482,12 +483,7 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   ipcMain.handle(ipcChannels.window.toggleMaximize, (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return { ok: false }
-    if (win.isMaximized()) {
-      win.unmaximize()
-    } else {
-      win.maximize()
-    }
-    return { ok: true }
+    return toggleWindowMaximize(win)
   })
 
   ipcMain.handle(ipcChannels.window.close, (event) => {
@@ -496,7 +492,8 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   })
 
   ipcMain.handle(ipcChannels.window.isMaximized, (event) => {
-    return { maximized: BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false }
+    const win = BrowserWindow.fromWebContents(event.sender)
+    return { maximized: win ? isWindowMaximizedLike(win) : false }
   })
 
   ipcMain.handle(ipcChannels.window.enterMiniPlayer, (event) => {
