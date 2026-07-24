@@ -1709,11 +1709,12 @@ onBeforeUnmount(() => {
   }
 }
 
-.album-detail-track:hover .album-detail-track-index {
+/* 非播放态 hover：序号 → 播放三角；播放中始终只显示 EQ，避免与三角叠层 */
+.album-detail-track:hover:not(.album-detail-track--playing) .album-detail-track-index {
   opacity: 0;
 }
 
-.album-detail-track:hover .album-detail-track-play-icon {
+.album-detail-track:hover:not(.album-detail-track--playing) .album-detail-track-play-icon {
   opacity: 1;
 }
 

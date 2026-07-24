@@ -1584,6 +1584,40 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   color: #d75454;
 }
 
+/* 专辑详情页退出 ➔ 专辑列表页：黑胶沉降与景深聚拢归位 */
+.album-detail-exit-matrix-leave-active {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity, filter;
+  z-index: 20;
+}
+
+.album-detail-exit-matrix-leave-to {
+  opacity: 0;
+  transform: scale(0.92) translateY(16px);
+  filter: blur(8px);
+}
+
+.album-detail-exit-matrix-enter-active {
+  transition:
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+  z-index: 10;
+}
+
+.album-detail-exit-matrix-enter-from {
+  opacity: 0;
+  transform: scale(1.04);
+}
+
 /* Library view switch fade */
 .library-view-fade-enter-active,
 .library-view-fade-leave-active {
@@ -1674,6 +1708,18 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   .library-view-fade-enter-active,
   .library-view-fade-leave-active {
     transition-duration: 0ms !important;
+  }
+
+  .album-detail-exit-matrix-leave-active,
+  .album-detail-exit-matrix-enter-active {
+    transition: opacity 300ms ease;
+    will-change: opacity;
+  }
+
+  .album-detail-exit-matrix-leave-to,
+  .album-detail-exit-matrix-enter-from {
+    transform: none !important;
+    filter: none !important;
   }
 
   .player-bar-album-tint-previous {
