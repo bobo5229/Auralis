@@ -168,13 +168,6 @@ const dominantGenres = computed(() =>
     .map((genre) => genre.label),
 )
 
-/** 档案卡流派胶囊墙：最多 8 个 */
-const genreWall = computed(() =>
-  collectGenreCounts()
-    .slice(0, 8)
-    .map((genre) => genre.label),
-)
-
 /** Meta 行年份：仅合法四位数字；无效/缺失返回 null（meta 中省略，不写「未知」）。 */
 function formatAlbumYearForMeta(value: string | null): string | null {
   if (!value) return null
@@ -200,6 +193,19 @@ const heroSubItems = computed(() =>
     formatAlbumDuration(totalDurationSeconds.value),
   ].filter((item) => item !== ''),
 )
+
+/**
+ * Hero 法律附录：版权 + 完整发行日（有则拼接）。
+ * 无真实数据时不渲染，绝不写「未知」占位。
+ */
+const heroLegalLine = computed(() => {
+  const parts: string[] = []
+  const copyrightText = copyright.value?.trim()
+  const dateText = releaseDate.value?.trim()
+  if (copyrightText) parts.push(copyrightText)
+  if (dateText) parts.push(dateText)
+  return parts.length > 0 ? parts.join(' · ') : null
+})
 
 /** Year for sort: missing/invalid → +∞ so unknown years sort after dated albums (ascending). */
 function albumYearSortKey(value: string | null): number {
@@ -285,8 +291,6 @@ const maxAlbumPlayCount = computed(() =>
   albumTracks.value.reduce((max, track) => Math.max(max, track.playCount ?? 0), 0),
 )
 
-const showTrackHeatBars = computed(() => maxAlbumPlayCount.value > 0)
-
 /** Top 3 热门单曲（按 playCount 降序；平手按碟序/曲序）。 */
 const topTracksByPlayCount = computed(() => {
   if (albumTracks.value.length === 0) return [] as TrackListItem[]
@@ -305,6 +309,29 @@ const topTracksByPlayCount = computed(() => {
 const showTopTracks = computed(
   () => topTracksByPlayCount.value.length > 0 && maxAlbumPlayCount.value > 0,
 )
+
+/** 控制热门单曲展开/收起（PRD：默认隐去，Hero 入口按需展开） */
+const isTopTracksExpanded = ref(false)
+
+function toggleTopTracksExpanded(): void {
+  isTopTracksExpanded.value = !isTopTracksExpanded.value
+}
+
+function closeTopTracksExpanded(): void {
+  if (isTopTracksExpanded.value) {
+    isTopTracksExpanded.value = false
+  }
+}
+
+/** 点击外部空白收起；入口按钮与展开卡片内点击不收起 */
+function onDocumentPointerDownCloseTopTracks(event: PointerEvent): void {
+  if (!isTopTracksExpanded.value) return
+  const target = event.target
+  if (!(target instanceof Element)) return
+  if (target.closest('.album-hero-top-tracks-trigger')) return
+  if (target.closest('.album-top-tracks-expanded-card')) return
+  closeTopTracksExpanded()
+}
 
 /**
  * 多碟分组：至少两个不同有效 discNo（null 视为 1）时才分组并显示 Disc 头。
@@ -348,18 +375,6 @@ function formatListenSummaryLabel(totalPlays: number, listenedSeconds: number): 
       ? String(Math.round(hoursTenths))
       : hoursTenths.toFixed(1)
   return `听过 ${totalPlays} 次 · 约 ${hoursLabel} 小时`
-}
-
-function trackHeatRatio(playCount: number): number {
-  const max = maxAlbumPlayCount.value
-  if (max <= 0) return 0
-  return Math.min(1, Math.max(0, playCount / max))
-}
-
-function trackHeatWidthPercent(playCount: number): number {
-  const ratio = trackHeatRatio(playCount)
-  if (playCount <= 0) return 0
-  return Math.max(8, Math.round(ratio * 100))
 }
 
 function topTrackMedalClass(rank: number): string {
@@ -668,10 +683,15 @@ function bindHeroResizeObserver(): void {
 watch(
   () => [albumArtist.value, albumTitle.value] as const,
   async () => {
+    closeTopTracksExpanded()
     await nextTick()
     detailRootRef.value?.scrollTo({ top: 0 })
   },
 )
+
+watch(showTopTracks, (visible) => {
+  if (!visible) closeTopTracksExpanded()
+})
 
 watch(artworkUrl, async () => {
   await nextTick()
@@ -703,6 +723,7 @@ onMounted(async () => {
   })
   document.addEventListener('pointermove', onDocumentPointerMove, { passive: true })
   document.addEventListener('pointerout', onDocumentPointerOut)
+  document.addEventListener('pointerdown', onDocumentPointerDownCloseTopTracks, true)
   window.addEventListener('blur', resetCoverTracking)
   detailRootRef.value?.addEventListener('scroll', scheduleCoverTracking, { passive: true })
   reducedMotionQuery.addEventListener('change', onReducedMotionChange)
@@ -722,6 +743,7 @@ onBeforeUnmount(() => {
   unsubscribeChanged?.()
   document.removeEventListener('pointermove', onDocumentPointerMove)
   document.removeEventListener('pointerout', onDocumentPointerOut)
+  document.removeEventListener('pointerdown', onDocumentPointerDownCloseTopTracks, true)
   window.removeEventListener('blur', resetCoverTracking)
   detailRootRef.value?.removeEventListener('scroll', scheduleCoverTracking)
   reducedMotionQuery.removeEventListener('change', onReducedMotionChange)
@@ -782,16 +804,55 @@ onBeforeUnmount(() => {
                 <span>随机播放</span>
               </button>
             </div>
+            <!-- 法律附录：操作流下方 muted 一行；无数据不渲染 -->
+            <p v-if="heroLegalLine" class="album-hero-legal select-text" :title="heroLegalLine">
+              {{ heroLegalLine }}
+            </p>
           </div>
+
+          <button
+            v-if="showTopTracks"
+            type="button"
+            class="album-hero-top-tracks-trigger"
+            :class="{ 'is-active': isTopTracksExpanded }"
+            :aria-expanded="isTopTracksExpanded"
+            aria-controls="album-top-tracks-panel"
+            @click="toggleTopTracksExpanded"
+          >
+            <span
+              class="i-lucide-flame h-4 w-4 text-[var(--auralis-active-album-accent,#4f46e5)]"
+              aria-hidden="true"
+            />
+            <span>热门单曲</span>
+            <span
+              class="i-lucide-chevron-up h-3.5 w-3.5 album-hero-top-tracks-chevron"
+              :class="{ 'rotate-180': isTopTracksExpanded }"
+              aria-hidden="true"
+            />
+          </button>
         </section>
 
-        <!-- Phase 2: 中部双栏 32% / 68% -->
-        <div class="album-body-grid">
-          <aside class="album-archive-card" aria-label="专辑档案">
-            <div v-if="showTopTracks" class="album-archive-block">
-              <h2 class="album-archive-heading">热门单曲</h2>
+        <!-- 中部：通栏曲目 + 按需热门单曲物理推移 -->
+        <div
+          class="album-body-grid"
+          :class="{ 'album-body-grid--top-tracks-open': isTopTracksExpanded && showTopTracks }"
+        >
+          <Transition name="album-top-tracks-slide">
+            <div
+              v-if="isTopTracksExpanded && showTopTracks"
+              id="album-top-tracks-panel"
+              class="album-top-tracks-expanded-card"
+              role="region"
+              aria-label="热门单曲 Top 3"
+            >
+              <h2 class="album-top-tracks-heading">热门单曲 Top 3</h2>
               <ul class="album-top-track-list">
-                <li v-for="(track, rank) in topTracksByPlayCount" :key="track.id">
+                <li
+                  v-for="(track, rank) in topTracksByPlayCount"
+                  :key="track.id"
+                  class="album-top-track-stagger"
+                  :style="{ '--top-track-stagger': `${rank * 35}ms` }"
+                >
                   <button
                     type="button"
                     class="album-top-track-row"
@@ -817,38 +878,13 @@ onBeforeUnmount(() => {
                 </li>
               </ul>
             </div>
-
-            <div class="album-archive-block">
-              <h2 class="album-archive-heading">发行档案</h2>
-              <dl class="album-dossier">
-                <div class="album-dossier-row">
-                  <dt>版权</dt>
-                  <dd class="select-text">{{ copyright || '版权信息未知' }}</dd>
-                </div>
-                <div class="album-dossier-row">
-                  <dt>发行日</dt>
-                  <dd class="select-text">{{ releaseDate || '未知' }}</dd>
-                </div>
-                <div v-if="albumListenSummary" class="album-dossier-row">
-                  <dt>收听</dt>
-                  <dd class="select-text">{{ albumListenSummary.label }}</dd>
-                </div>
-              </dl>
-            </div>
-
-            <div v-if="genreWall.length" class="album-archive-block">
-              <h2 class="album-archive-heading">流派</h2>
-              <div class="album-genre-wall">
-                <span v-for="genre in genreWall" :key="genre" class="album-genre-chip">{{
-                  genre
-                }}</span>
-              </div>
-            </div>
-          </aside>
+          </Transition>
 
           <div
             class="album-tracklist-panel"
-            :class="{ 'album-tracklist-panel--with-heat': showTrackHeatBars }"
+            :class="{
+              'is-pushed-right': isTopTracksExpanded && showTopTracks,
+            }"
           >
             <h2 class="album-tracklist-heading">曲目</h2>
             <div class="album-detail-track-list">
@@ -890,14 +926,6 @@ onBeforeUnmount(() => {
                       class="album-detail-track-artist"
                       >{{ formatArtist(track.artist) }}</span
                     >
-                  </span>
-                  <span v-if="showTrackHeatBars" class="album-detail-track-heat" aria-hidden="true">
-                    <span class="album-detail-track-heat-bar-wrap">
-                      <span
-                        class="album-detail-track-heat-bar"
-                        :style="{ width: `${trackHeatWidthPercent(track.playCount ?? 0)}%` }"
-                      ></span>
-                    </span>
                   </span>
                   <span class="album-detail-track-duration">{{
                     formatDuration(track.durationSeconds)
@@ -1130,6 +1158,8 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   justify-content: center;
   color: #f4f1ea;
+  /* 为右下角「热门单曲」胶囊留出横向空间，避免法律行与按钮叠压 */
+  padding-right: min(168px, 28%);
 }
 
 .album-hero-eyebrow {
@@ -1150,7 +1180,6 @@ onBeforeUnmount(() => {
   font-weight: 750;
   line-height: 1.12;
   letter-spacing: -0.02em;
-  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.35);
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -1176,6 +1205,20 @@ onBeforeUnmount(() => {
   color: rgba(196, 165, 116, 0.9);
   font-size: 12px;
   letter-spacing: 0.02em;
+}
+
+/* 法律附录：按钮下 muted 一行，不抢 CTA */
+.album-hero-legal {
+  margin: 14px 0 0;
+  max-width: min(100%, 42rem);
+  padding-right: 8px;
+  color: rgba(244, 241, 234, 0.42);
+  font-size: 11px;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .album-hero-actions {
@@ -1253,42 +1296,134 @@ onBeforeUnmount(() => {
   transform: translateY(0);
 }
 
-/* —— Phase 2: Body grid —— */
-.album-body-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 32%) minmax(0, 68%);
-  gap: 28px;
-  align-items: start;
-  min-width: 0;
-}
-
-.album-archive-card {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 18px 16px;
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--auralis-dialog-bg, #25272a) 55%, transparent);
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
+/* Hero 右下角 · 热门单曲入口（黑曜石胶囊） */
+.album-hero-top-tracks-trigger {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--auralis-dialog-bg, #1a1c20) 72%, #000);
+  color: rgba(244, 241, 234, 0.9);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
   box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
-.album-archive-block {
+.album-hero-top-tracks-trigger:hover {
+  background: color-mix(in srgb, var(--auralis-dialog-bg, #1a1c20) 55%, #000);
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.album-hero-top-tracks-trigger.is-active {
+  border-color: color-mix(
+    in srgb,
+    var(--auralis-active-album-accent, #4f46e5) 45%,
+    rgba(255, 255, 255, 0.2)
+  );
+  box-shadow:
+    0 8px 24px color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 28%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.album-hero-top-tracks-chevron {
+  opacity: 0.7;
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* —— 中部：通栏曲目 + 热门推移 —— */
+.album-body-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  align-items: start;
   min-width: 0;
+  position: relative;
+  transition: padding-right 360ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.album-archive-heading {
+.album-body-grid--top-tracks-open {
+  padding-right: 110px;
+}
+
+/* 展开热门卡：通栏曲目左侧绝对定位，列表 translateX 腾位 */
+.album-top-tracks-expanded-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 4;
+  width: min(220px, 28vw);
+  min-width: 168px;
+  padding: 16px 14px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--auralis-dialog-bg, #25272a) 88%, #000);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.album-top-tracks-heading {
   margin: 0 0 12px;
   color: var(--auralis-text-muted);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.album-top-tracks-slide-enter-active {
+  transition: all 340ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.album-top-tracks-slide-leave-active {
+  transition: all 220ms ease-in;
+}
+
+.album-top-tracks-slide-enter-from,
+.album-top-tracks-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-16px) scale(0.95);
+}
+
+/* Top 1~3 错时 35ms 瀑布入场 */
+.album-top-track-stagger {
+  animation: album-top-track-row-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--top-track-stagger, 0ms);
+}
+
+@keyframes album-top-track-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .album-top-track-list {
@@ -1374,56 +1509,16 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
 }
 
-.album-dossier {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.album-dossier-row {
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr);
-  gap: 8px;
-  align-items: start;
-}
-
-.album-dossier-row dt {
-  margin: 0;
-  color: var(--auralis-text-faint);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.04em;
-}
-
-.album-dossier-row dd {
-  margin: 0;
-  color: var(--auralis-text-muted);
-  font-size: 12px;
-  line-height: 1.45;
-  word-break: break-word;
-}
-
-.album-genre-wall {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.album-genre-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
-  background: color-mix(in srgb, var(--auralis-text) 6%, transparent);
-  color: var(--auralis-text-muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-
 .album-tracklist-panel {
   min-width: 0;
+  will-change: transform;
+  transition: transform 360ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(0);
+}
+
+/* 展开时右移 110px，为热门单曲腾出物理空间（GPU 合成层） */
+.album-tracklist-panel.is-pushed-right {
+  transform: translateX(110px);
 }
 
 .album-tracklist-heading {
@@ -1657,37 +1752,6 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
-.album-detail-track-heat {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  pointer-events: none;
-}
-
-.album-detail-track-heat-bar-wrap {
-  width: 48px;
-  max-width: 64px;
-  height: 3px;
-  background: var(--auralis-heat-bar-wrap);
-  border-radius: 99px;
-  overflow: hidden;
-}
-
-.album-detail-track-heat-bar {
-  display: block;
-  height: 100%;
-  max-width: 100%;
-  background: linear-gradient(
-    to right,
-    color-mix(in srgb, var(--auralis-active-album-accent, #ec4899) 85%, #fff),
-    color-mix(in srgb, var(--auralis-active-album-accent, #8b5cf6) 70%, transparent)
-  );
-  border-radius: 99px;
-  box-shadow: 0 0 8px
-    color-mix(in srgb, var(--auralis-active-album-accent, #ec4899) 45%, transparent);
-  opacity: 0.92;
-}
-
 /* —— Phase 3: More gallery —— */
 .album-more-gallery {
   margin-top: 4px;
@@ -1839,7 +1903,36 @@ onBeforeUnmount(() => {
 
   .album-body-grid {
     grid-template-columns: minmax(0, 1fr);
-    gap: 20px;
+  }
+
+  .album-body-grid--top-tracks-open {
+    padding-right: 0;
+  }
+
+  .album-top-tracks-expanded-card {
+    position: relative;
+    left: auto;
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 16px;
+  }
+
+  .album-tracklist-panel.is-pushed-right {
+    transform: none;
+  }
+
+  .album-hero-top-tracks-trigger {
+    right: 14px;
+    bottom: 12px;
+  }
+
+  .album-hero-content-stage {
+    padding-right: 0;
+    padding-bottom: 40px;
+  }
+
+  .album-hero-legal {
+    max-width: 100%;
   }
 }
 
@@ -1863,6 +1956,7 @@ onBeforeUnmount(() => {
 
   .album-hero-play-btn:hover,
   .album-hero-shuffle-btn:hover,
+  .album-hero-top-tracks-trigger:hover,
   .album-detail-back:hover {
     transform: none;
   }
@@ -1874,6 +1968,30 @@ onBeforeUnmount(() => {
 
   .album-detail-track--search-highlight {
     animation: none;
+  }
+
+  /* PRD：减弱动效时禁用推移，改为瞬间切换 */
+  .album-tracklist-panel {
+    transition: none !important;
+  }
+
+  .album-top-tracks-slide-enter-active,
+  .album-top-tracks-slide-leave-active {
+    transition: none !important;
+  }
+
+  .album-top-tracks-slide-enter-from,
+  .album-top-tracks-slide-leave-to {
+    opacity: 1;
+    transform: none;
+  }
+
+  .album-top-track-stagger {
+    animation: none !important;
+  }
+
+  .album-hero-top-tracks-chevron {
+    transition: none !important;
   }
 }
 </style>
