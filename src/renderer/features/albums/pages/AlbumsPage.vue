@@ -10,8 +10,11 @@ import { normalizeSearchText } from '@renderer/features/library/utils/normalizeS
 import AlbumCard from '../components/AlbumCard.vue'
 import type { AlbumSummary } from '../types'
 
-/** 水平内边距已上移到 .albums-page-body，scroll 内不再重复扣 padding */
-const GRID_PADDING_X = 0
+/**
+ * 网格行左右阴影缓冲带：须覆盖默认侧倾 -12px 阴影与 hover 转正后的模糊外溢。
+ * 须与 .albums-grid-row 的 padding-left/right 之和一致。
+ */
+const GRID_PADDING_X = 40
 const COLUMN_GAP = 20
 const ROW_GAP = 28
 /** 封面下方固定元信息区：12px margin + 58px 文本块 */
@@ -400,12 +403,12 @@ onBeforeUnmount(() => {
     <template v-else>
       <!-- 统一水平内边距容器：Header 与网格物理像素对齐 -->
       <div class="albums-page-body">
-        <!-- 顶部黑曜石发烧 Header 展架 -->
+        <!-- 独立动态液态极光内凹 Header（与 FluidArtworkBackground 物理隔离） -->
         <header class="albums-header-shelf">
           <div class="shelf-title-group">
             <h1 class="shelf-title">唱片馆 ALBUMS</h1>
             <!-- 无胶囊双行工业仪器面板 (Two-Row Industrial Meter) -->
-            <div class="stats-tworow-group">
+            <div class="stats-tworow-group" aria-label="馆藏统计">
               <div class="tworow-item">
                 <span class="tworow-num">{{ albums.length }}</span>
                 <span class="tworow-label">ALBUMS</span>
@@ -551,70 +554,149 @@ onBeforeUnmount(() => {
   min-height: 0;
   flex: 1;
   overflow: auto;
+  /* 首行与 Header 之间的呼吸区；避免元信息/3D 上沿贴死 */
+  padding-top: 12px;
   padding-bottom: var(--auralis-playbar-safe-area);
   /* 预留滚动条槽，避免出现滚动条时内容相对 Header 横向偏移 */
   scrollbar-gutter: stable;
 }
 
-/* 3D 模式给首行投影留出顶部安全区，避免被 overflow 裁成「平面」 */
+/* 3D 模式额外顶缓冲，避免首行侧倾投影被 Header 下沿裁切 */
 .albums-scroll--perspective {
-  padding-top: 8px;
+  padding-top: 12px;
 }
 
 .albums-grid-row {
+  box-sizing: border-box;
+  /* 左右 20px 阴影缓冲：默认侧倾 + hover 转正放大后的投影都不再被 overflow:auto 切硬边 */
+  padding-left: 20px;
+  padding-right: 20px;
   /* 行内允许 3D 阴影轻微溢出，避免相邻行互相裁切观感 */
   overflow: visible;
 }
 
+/* ── 独立动态液态极光内凹槽（与全局 FluidArtworkBackground 隔离） ─ */
 .albums-header-shelf {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 16px;
   flex-shrink: 0;
-  padding: 18px 24px;
-  margin: 16px 0 12px;
+  padding: 18px 26px;
+  margin: 16px 0 16px;
   border-radius: 18px;
-  background: color-mix(in srgb, var(--auralis-dialog-bg, #1a1c20) 85%, #000);
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
+  background: rgba(12, 14, 18, 0.75);
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--auralis-sidebar-active-indicator, #4f46e5) 40%,
+      rgba(255, 255, 255, 0.16)
+    );
   box-shadow:
-    0 16px 40px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+    inset 0 3px 12px rgba(0, 0, 0, 0.8),
+    0 12px 36px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
 }
 
+/* 独立极光漂移层 1 (6s 周期) — 纯 GPU transform */
+.albums-header-shelf::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: -60%;
+  left: -30%;
+  width: 160%;
+  height: 220%;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(79, 70, 229, 0.38) 0%, transparent 50%),
+    radial-gradient(circle at 75% 60%, rgba(236, 72, 153, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(6, 182, 212, 0.25) 0%, transparent 50%);
+  filter: blur(28px);
+  pointer-events: none;
+  animation: shelf-aurora-drift 6s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+  will-change: transform;
+}
+
+/* 独立极光漂移层 2 (4.5s 脉冲) */
+.albums-header-shelf::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: -40%;
+  right: -20%;
+  width: 140%;
+  height: 180%;
+  background: radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.22) 0%, transparent 60%);
+  filter: blur(20px);
+  pointer-events: none;
+  animation: shelf-aurora-pulse 4.5s ease-in-out infinite alternate-reverse;
+  will-change: transform, opacity;
+}
+
+@keyframes shelf-aurora-drift {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+
+  50% {
+    transform: translate3d(8%, 12%, 0) rotate(10deg) scale(1.12);
+  }
+
+  100% {
+    transform: translate3d(-8%, -7%, 0) rotate(-6deg) scale(0.92);
+  }
+}
+
+@keyframes shelf-aurora-pulse {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: translate3d(-12%, 8%, 0) scale(1.22);
+    opacity: 0.95;
+  }
+}
+
+/* 文字 / 仪表 / 控件悬浮在极光层之上 */
 .shelf-title-group {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 20px;
   min-width: 0;
 }
 
 .shelf-title {
   margin: 0;
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 850;
   letter-spacing: -0.02em;
   line-height: 1.2;
   background: linear-gradient(
     135deg,
-    var(--auralis-text) 0%,
-    color-mix(in srgb, var(--auralis-text) 72%, transparent) 100%
+    #ffffff 0%,
+    color-mix(in srgb, var(--auralis-text) 78%, transparent) 100%
   );
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-/* ── 无胶囊双行工业仪器面板 (Two-Row Industrial Meter) ─ */
+/* ── 无子弹双行工业仪器面板 (Two-Row Industrial Meter) ─ */
 .stats-tworow-group {
   display: flex;
   align-items: center;
   gap: 20px;
-  margin-left: 8px;
+  min-width: 0;
 }
 
 .tworow-item {
@@ -622,6 +704,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
+  min-width: 0;
 }
 
 .tworow-num {
@@ -631,6 +714,7 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
   letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
 .tworow-label {
@@ -643,18 +727,22 @@ onBeforeUnmount(() => {
 }
 
 .shelf-controls {
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
+/* 极光槽上的黑曜石分段开关 */
 .view-mode-switch {
   display: inline-flex;
   align-items: center;
   padding: 3px;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 
 .switch-btn {
@@ -692,6 +780,12 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .albums-header-shelf::before,
+  .albums-header-shelf::after {
+    animation: none !important;
+    transform: none !important;
+  }
+
   .switch-btn {
     transition: none;
   }

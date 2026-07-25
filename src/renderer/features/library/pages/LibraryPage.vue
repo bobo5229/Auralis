@@ -139,10 +139,16 @@ const albumGroups = computed<LibraryAlbumGroup[]>(() => {
   return groups
 })
 
+/** 封面列：250 封面 + meta；曲目列：行高 40 × N + 面板上下 padding 20（与 DOM 对齐） */
+const COVER_VIEW_ROW_HEIGHT = 40
+const COVER_VIEW_PANEL_PAD_Y = 20
+const COVER_VIEW_GROUP_PAD_Y = 56 // py-7 × 2
+
 function getAlbumGroupSize(group: LibraryAlbumGroup): number {
   const metadataHeight = group.releaseDate ? 322 : 302
-  const tracksHeight = group.tracks.length * 40
-  return Math.max(metadataHeight, tracksHeight) + 56
+  const tracksHeight = group.tracks.length * COVER_VIEW_ROW_HEIGHT + COVER_VIEW_PANEL_PAD_Y
+  // 组高取左右列 max，保证虚拟滚动间距；面板本身 height:fit-content 不拉伸填空
+  return Math.max(metadataHeight, tracksHeight) + COVER_VIEW_GROUP_PAD_Y
 }
 
 const albumVirtualizer = useVirtualizer(

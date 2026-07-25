@@ -92,4 +92,26 @@ function onArtworkContextMenu(event: MouseEvent): void {
 .album-cover-meta-date {
   font-weight: 500;
 }
+
+/* 左右列顶对齐：组高仍由虚拟列表按 max(封面, 曲目) 分配，面板不随组高 stretch */
+.album-cover-group {
+  align-items: start;
+}
+
+/* 复用专辑详情曲目列表面板壳；高度随内容收缩，少曲目时不留空壳 */
+.album-cover-tracks {
+  align-self: start;
+  width: 100%;
+  height: fit-content;
+  min-width: 0;
+  background: var(--auralis-track-list-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--auralis-track-list-border);
+  border-radius: 20px;
+  padding: 10px;
+  box-shadow:
+    0 12px 36px 0 rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
 </style>

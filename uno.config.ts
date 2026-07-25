@@ -107,9 +107,10 @@ export default defineConfig({
     'album-cover-meta': 'mt-3',
     'album-cover-meta-title': 'truncate text-[16px] font-bold leading-5 text-[var(--auralis-text)]',
     'album-cover-meta-line': 'font-semibold text-xs text-[var(--auralis-text-muted)] leading-5',
+    /* 布局骨架；整块面板壳与内部分割线见 AlbumCoverGroup / AlbumCoverTrackRow scoped */
     'album-cover-tracks': 'min-w-0',
     'cover-track-row':
-      'grid grid-cols-[40px_minmax(0,1fr)_minmax(120px,220px)_48px] gap-x-3 items-center px-3 min-h-10 rounded-md cursor-pointer bg-[var(--auralis-cover-track-bg)] transition hover:bg-[var(--auralis-cover-track-hover-bg)] not-last:border-b border-[var(--auralis-cover-track-divider)]',
+      'relative grid grid-cols-[40px_minmax(0,1fr)_minmax(120px,220px)_48px] gap-x-3 items-center px-3 min-h-10 rounded-xl cursor-pointer transition-colors hover:bg-[var(--auralis-control-hover-bg)]',
     'cover-track-row--playing':
       'bg-[var(--auralis-song-row-now-playing-bg)] hover:bg-[var(--auralis-song-row-now-playing-bg)]',
     'lyric-active': 'text-[var(--auralis-lyrics-active)] font-bold text-[28px] leading-12 py-1.5',
