@@ -67,3 +67,22 @@ function onRowContextMenu(trackId: number, event: MouseEvent): void {
     </span>
   </div>
 </template>
+
+<style scoped>
+/* 面板内部分割线（对齐 album-detail-track），不改字段与交互 */
+.cover-track-row:not(:first-child)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: var(--auralis-border-subtle);
+  pointer-events: none;
+}
+
+.cover-track-row--playing::before,
+.cover-track-row--playing + .cover-track-row::before {
+  display: none;
+}
+</style>

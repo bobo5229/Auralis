@@ -71,6 +71,37 @@ function handleReducedMotionChange(): void {
   syncRendererState()
 }
 
+/**
+ * AMLL MeshGradientRenderer 在不支持部分 WebGL 扩展时会 console.warn 探测结果。
+ * 库内无配置开关，仅在构造窗口内过滤这些已知、无害的能力探测噪声。
+ */
+function createMeshGradientBackground(
+  BackgroundRender: typeof import('@applemusic-like-lyrics/core').BackgroundRender,
+  MeshGradientRenderer: typeof import('@applemusic-like-lyrics/core').MeshGradientRenderer,
+): AmllBackgroundRender<AmllMeshGradientRenderer> {
+  const originalWarn = console.warn.bind(console)
+  const isWebGlCapabilityProbe = (args: unknown[]): boolean => {
+    const message = typeof args[0] === 'string' ? args[0] : String(args[0] ?? '')
+    return (
+      message.includes('EXT_color_buffer_float not supported') ||
+      message.includes('EXT_float_blend not supported') ||
+      message.includes('OES_texture_float_linear not supported') ||
+      message.includes('OES_texture_float not supported')
+    )
+  }
+
+  console.warn = (...args: unknown[]) => {
+    if (isWebGlCapabilityProbe(args)) return
+    originalWarn(...args)
+  }
+
+  try {
+    return BackgroundRender.new(MeshGradientRenderer)
+  } finally {
+    console.warn = originalWarn
+  }
+}
+
 async function initializeBackground(): Promise<void> {
   const container = containerRef.value
   if (!container) return
@@ -79,7 +110,7 @@ async function initializeBackground(): Promise<void> {
     const { BackgroundRender, MeshGradientRenderer } = await import('@applemusic-like-lyrics/core')
     if (disposed || !container.isConnected) return
 
-    background = BackgroundRender.new(MeshGradientRenderer)
+    background = createMeshGradientBackground(BackgroundRender, MeshGradientRenderer)
     const canvas = background.getElement()
     canvas.className = 'fluid-artwork-background-canvas'
     canvas.style.position = 'absolute'

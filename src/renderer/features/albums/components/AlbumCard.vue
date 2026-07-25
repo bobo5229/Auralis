@@ -173,15 +173,21 @@ function onContextMenu(event: MouseEvent): void {
   transform: rotateY(-18deg) rotateX(8deg) scale(0.92);
   transform-style: preserve-3d;
   box-shadow:
-    -12px 16px 30px rgba(0, 0, 0, 0.6),
+    -10px 14px 24px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: transform;
 }
 
 .album-card--perspective:hover .cover-frame,
 .album-card--perspective:focus-within .cover-frame {
+  /* 转正并放大：阴影改为居中下投，避免 -x 偏移 + blur 再次顶穿左侧裁切线 */
   transform: rotateY(0deg) rotateX(0deg) scale(1);
+  box-shadow:
+    0 16px 28px rgba(0, 0, 0, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* ── 元信息：固定高度 + 单行省略，全场卡片物理高度一致 ─ */
