@@ -10,11 +10,20 @@ import { normalizeSearchText } from '@renderer/features/library/utils/normalizeS
 import AlbumCard from '../components/AlbumCard.vue'
 import type { AlbumSummary } from '../types'
 
-const COLUMN_COUNT = 4
-const GRID_PADDING_X = 64
+/**
+ * 网格行左右阴影缓冲带：须覆盖默认侧倾 -12px 阴影与 hover 转正后的模糊外溢。
+ * 须与 .albums-grid-row 的 padding-left/right 之和一致。
+ */
+const GRID_PADDING_X = 40
 const COLUMN_GAP = 20
 const ROW_GAP = 28
+/** 封面下方固定元信息区：12px margin + 58px 文本块 */
 const CARD_METADATA_HEIGHT = 70
+/** 目标封面边长黄金区间 ~180–200px，用于加密列数 */
+const TARGET_CARD_WIDTH = 190
+const MAX_CARD_WIDTH = 210
+const MIN_COLS = 3
+const MAX_COLS = 6
 const DEFAULT_ROW_HEIGHT = 240
 const ALBUM_DISPLAY_MODE_KEY = 'auralis-albums-display-mode'
 const ALBUMS_SCROLL_TOP_KEY = 'auralis-albums-scroll-top'
@@ -36,6 +45,7 @@ const router = useRouter()
 const playback = usePlayback()
 const isLoading = ref(true)
 const scrollRef = ref<HTMLElement | null>(null)
+const columnCount = ref(4)
 const rowHeight = ref(DEFAULT_ROW_HEIGHT)
 const displayMode = ref<AlbumDisplayMode>(readDisplayMode())
 const contextMenu = ref<AlbumContextMenuState | null>(null)
@@ -86,10 +96,27 @@ const albums = computed<AlbumSummary[]>(() => {
   return [...groupedAlbums.values()]
 })
 
+const uniqueArtistCount = computed(() => {
+  return new Set(albums.value.map((a) => a.albumArtist)).size
+})
+
+const releaseYearSpan = computed(() => {
+  const years = albums.value
+    .map((a) => a.releaseDate?.slice(0, 4))
+    .filter((y): y is string => !!y && /^\d{4}$/.test(y))
+    .map((y) => Number(y))
+
+  if (years.length === 0) return '——'
+  const min = Math.min(...years)
+  const max = Math.max(...years)
+  return min === max ? `${min}` : `${min} - ${max}`
+})
+
 const albumRows = computed(() => {
+  const cols = columnCount.value
   const rows: AlbumSummary[][] = []
-  for (let index = 0; index < albums.value.length; index += COLUMN_COUNT) {
-    rows.push(albums.value.slice(index, index + COLUMN_COUNT))
+  for (let index = 0; index < albums.value.length; index += cols) {
+    rows.push(albums.value.slice(index, index + cols))
   }
   return rows
 })
@@ -106,12 +133,23 @@ const rowVirtualizer = useVirtualizer(
 const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalHeight = computed(() => rowVirtualizer.value.getTotalSize())
 
-function updateRowHeight(): void {
+function updateAdaptiveGrid(): void {
   const container = scrollRef.value
   if (!container) return
 
   const availableWidth = Math.max(0, container.clientWidth - GRID_PADDING_X)
-  const cardWidth = Math.max(1, (availableWidth - COLUMN_GAP * (COLUMN_COUNT - 1)) / COLUMN_COUNT)
+
+  // 按目标封面宽度 (~190px) 推算列数，并限制在 3~6；卡片过宽时优先加密列
+  let cols = Math.floor((availableWidth + COLUMN_GAP) / (TARGET_CARD_WIDTH + COLUMN_GAP))
+  cols = Math.min(MAX_COLS, Math.max(MIN_COLS, cols))
+
+  let cardWidth = Math.max(1, (availableWidth - COLUMN_GAP * (cols - 1)) / cols)
+  while (cols < MAX_COLS && cardWidth > MAX_CARD_WIDTH) {
+    cols += 1
+    cardWidth = Math.max(1, (availableWidth - COLUMN_GAP * (cols - 1)) / cols)
+  }
+
+  columnCount.value = cols
   rowHeight.value = cardWidth + CARD_METADATA_HEIGHT + ROW_GAP
   rowVirtualizer.value.measure()
 }
@@ -165,7 +203,7 @@ function locateNextSearchResult(): void {
     if (!doesAlbumMatchSearch(album, query)) continue
 
     lastMatchedAlbumIndex = index
-    rowVirtualizer.value.scrollToIndex(Math.floor(index / COLUMN_COUNT), { align: 'center' })
+    rowVirtualizer.value.scrollToIndex(Math.floor(index / columnCount.value), { align: 'center' })
     highlightedAlbumKey.value = album.key
     if (searchHighlightTimeout) clearTimeout(searchHighlightTimeout)
     searchHighlightTimeout = setTimeout(() => {
@@ -297,9 +335,9 @@ onMounted(async () => {
   }
 
   await nextTick()
-  updateRowHeight()
+  updateAdaptiveGrid()
   if (scrollRef.value) {
-    resizeObserver = new ResizeObserver(updateRowHeight)
+    resizeObserver = new ResizeObserver(updateAdaptiveGrid)
     resizeObserver.observe(scrollRef.value)
   }
 
@@ -362,43 +400,97 @@ onBeforeUnmount(() => {
       <p class="text-sm text-[var(--auralis-text-faint)]">Loading albums...</p>
     </div>
 
-    <div
-      v-else-if="albums.length > 0"
-      ref="scrollRef"
-      class="min-h-0 flex-1 overflow-auto px-8 pb-[var(--auralis-playbar-safe-area)] pt-18"
-    >
-      <div
-        class="relative w-full"
-        :style="{ height: `${totalHeight}px` }"
-        :aria-label="`${albums.length} albums`"
-      >
+    <template v-else>
+      <!-- 统一水平内边距容器：Header 与网格物理像素对齐 -->
+      <div class="albums-page-body">
+        <!-- 独立动态液态极光内凹 Header（与 FluidArtworkBackground 物理隔离） -->
+        <header class="albums-header-shelf">
+          <div class="shelf-title-group">
+            <h1 class="shelf-title">唱片馆 ALBUMS</h1>
+            <!-- 无胶囊双行工业仪器面板 (Two-Row Industrial Meter) -->
+            <div class="stats-tworow-group" aria-label="馆藏统计">
+              <div class="tworow-item">
+                <span class="tworow-num">{{ albums.length }}</span>
+                <span class="tworow-label">ALBUMS</span>
+              </div>
+              <div class="tworow-item">
+                <span class="tworow-num">{{ uniqueArtistCount }}</span>
+                <span class="tworow-label">ARTISTS</span>
+              </div>
+              <div class="tworow-item">
+                <span class="tworow-num">{{ releaseYearSpan }}</span>
+                <span class="tworow-label">ERA SPAN</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="shelf-controls">
+            <div class="view-mode-switch" role="group" aria-label="专辑视图模式">
+              <button
+                type="button"
+                class="switch-btn"
+                :class="{ 'is-active': displayMode === 'grid' }"
+                :aria-pressed="displayMode === 'grid'"
+                @click="setDisplayMode('grid')"
+              >
+                <span class="i-lucide-grid-2x2 h-3.5 w-3.5"></span>
+                <span>常规网格</span>
+              </button>
+              <button
+                type="button"
+                class="switch-btn"
+                :class="{ 'is-active': displayMode === 'perspective' }"
+                :aria-pressed="displayMode === 'perspective'"
+                @click="setDisplayMode('perspective')"
+              >
+                <span class="i-lucide-panels-top-left h-3.5 w-3.5"></span>
+                <span>3D 透视展台</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
         <div
-          v-for="virtualRow in virtualRows"
-          :key="String(virtualRow.key)"
-          class="absolute left-0 top-0 grid w-full grid-cols-4 gap-x-5"
-          :style="{
-            height: `${virtualRow.size}px`,
-            transform: `translateY(${virtualRow.start}px)`,
-          }"
+          v-if="albums.length > 0"
+          ref="scrollRef"
+          class="albums-scroll"
+          :class="{ 'albums-scroll--perspective': displayMode === 'perspective' }"
         >
-          <AlbumCard
-            v-for="album in albumRows[virtualRow.index]"
-            :key="album.key"
-            :album="album"
-            :display-mode="displayMode"
-            :highlighted="highlightedAlbumKey === album.key"
-            @open="openAlbum"
-            @open-context-menu="openContextMenu"
-          />
+          <div
+            class="relative w-full"
+            :style="{ height: `${totalHeight}px` }"
+            :aria-label="`${albums.length} albums`"
+          >
+            <div
+              v-for="virtualRow in virtualRows"
+              :key="String(virtualRow.key)"
+              class="albums-grid-row absolute left-0 top-0 grid w-full gap-x-5"
+              :style="{
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+                gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+              }"
+            >
+              <AlbumCard
+                v-for="album in albumRows[virtualRow.index]"
+                :key="album.key"
+                :album="album"
+                :display-mode="displayMode"
+                :highlighted="highlightedAlbumKey === album.key"
+                @open="openAlbum"
+                @open-context-menu="openContextMenu"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="flex flex-1 items-center justify-center">
+          <p class="text-sm text-[var(--auralis-text-faint)]">
+            No albums found. Add music folders in Settings.
+          </p>
         </div>
       </div>
-    </div>
-
-    <div v-else class="flex flex-1 items-center justify-center">
-      <p class="text-sm text-[var(--auralis-text-faint)]">
-        No albums found. Add music folders in Settings.
-      </p>
-    </div>
+    </template>
 
     <Teleport to="body">
       <div v-if="contextMenu" class="fixed inset-0 z-[60]" @click="closeContextMenu">
@@ -447,3 +539,255 @@ onBeforeUnmount(() => {
     </Teleport>
   </section>
 </template>
+
+<style scoped>
+/* 与网格共用同一水平内边距，消除 Header / 卡片列左右不对齐 */
+.albums-page-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0 32px;
+}
+
+.albums-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  /* 首行与 Header 之间的呼吸区；避免元信息/3D 上沿贴死 */
+  padding-top: 12px;
+  padding-bottom: var(--auralis-playbar-safe-area);
+  /* 预留滚动条槽，避免出现滚动条时内容相对 Header 横向偏移 */
+  scrollbar-gutter: stable;
+}
+
+/* 3D 模式额外顶缓冲，避免首行侧倾投影被 Header 下沿裁切 */
+.albums-scroll--perspective {
+  padding-top: 12px;
+}
+
+.albums-grid-row {
+  box-sizing: border-box;
+  /* 左右 20px 阴影缓冲：默认侧倾 + hover 转正放大后的投影都不再被 overflow:auto 切硬边 */
+  padding-left: 20px;
+  padding-right: 20px;
+  /* 行内允许 3D 阴影轻微溢出，避免相邻行互相裁切观感 */
+  overflow: visible;
+}
+
+/* ── 独立动态液态极光内凹槽（与全局 FluidArtworkBackground 隔离） ─ */
+.albums-header-shelf {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  flex-shrink: 0;
+  padding: 18px 26px;
+  margin: 16px 0 16px;
+  border-radius: 18px;
+  background: rgba(12, 14, 18, 0.75);
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--auralis-sidebar-active-indicator, #4f46e5) 40%,
+      rgba(255, 255, 255, 0.16)
+    );
+  box-shadow:
+    inset 0 3px 12px rgba(0, 0, 0, 0.8),
+    0 12px 36px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+}
+
+/* 独立极光漂移层 1 (6s 周期) — 纯 GPU transform */
+.albums-header-shelf::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: -60%;
+  left: -30%;
+  width: 160%;
+  height: 220%;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(79, 70, 229, 0.38) 0%, transparent 50%),
+    radial-gradient(circle at 75% 60%, rgba(236, 72, 153, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 50% 80%, rgba(6, 182, 212, 0.25) 0%, transparent 50%);
+  filter: blur(28px);
+  pointer-events: none;
+  animation: shelf-aurora-drift 6s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+  will-change: transform;
+}
+
+/* 独立极光漂移层 2 (4.5s 脉冲) */
+.albums-header-shelf::after {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: -40%;
+  right: -20%;
+  width: 140%;
+  height: 180%;
+  background: radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.22) 0%, transparent 60%);
+  filter: blur(20px);
+  pointer-events: none;
+  animation: shelf-aurora-pulse 4.5s ease-in-out infinite alternate-reverse;
+  will-change: transform, opacity;
+}
+
+@keyframes shelf-aurora-drift {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+
+  50% {
+    transform: translate3d(8%, 12%, 0) rotate(10deg) scale(1.12);
+  }
+
+  100% {
+    transform: translate3d(-8%, -7%, 0) rotate(-6deg) scale(0.92);
+  }
+}
+
+@keyframes shelf-aurora-pulse {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: translate3d(-12%, 8%, 0) scale(1.22);
+    opacity: 0.95;
+  }
+}
+
+/* 文字 / 仪表 / 控件悬浮在极光层之上 */
+.shelf-title-group {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  min-width: 0;
+}
+
+.shelf-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  background: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    color-mix(in srgb, var(--auralis-text) 78%, transparent) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── 无子弹双行工业仪器面板 (Two-Row Industrial Meter) ─ */
+.stats-tworow-group {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+
+.tworow-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+}
+
+.tworow-num {
+  font-size: 17px;
+  font-weight: 850;
+  color: var(--auralis-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+.tworow-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--auralis-text-faint);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.shelf-controls {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 极光槽上的黑曜石分段开关 */
+.view-mode-switch {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+.switch-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--auralis-text-muted);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.switch-btn:hover {
+  color: var(--auralis-text);
+}
+
+.switch-btn.is-active {
+  background: color-mix(
+    in srgb,
+    var(--auralis-sidebar-active-indicator) 40%,
+    rgba(255, 255, 255, 0.14)
+  );
+  color: #ffffff;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .albums-header-shelf::before,
+  .albums-header-shelf::after {
+    animation: none !important;
+    transform: none !important;
+  }
+
+  .switch-btn {
+    transition: none;
+  }
+}
+</style>

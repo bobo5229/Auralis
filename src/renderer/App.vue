@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue'
-import { RouterView } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { RouterView, useRoute } from 'vue-router'
 import { router } from './app/router'
 import AppSidebar from './app/layout/AppSidebar.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
@@ -13,11 +13,19 @@ import { useSystemMediaIntegration } from '@renderer/features/playback/composabl
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 
+const route = useRoute()
 const playback = usePlayback()
 useSystemMediaIntegration()
 const { displayMode, onMiniPlayerWindowStateChanged, syncMiniPlayerWindowState } =
   usePlayerDisplayMode()
 let unsubscribeMiniPlayerWindowState: (() => void) | null = null
+
+/** 上一导航来源路由名；在 beforeEach 中更新，供 Transition 在目标路由已切换时仍能判断方向 */
+const previousRouteName = ref(route.name)
+
+const removeBeforeEach = router.beforeEach((_to, from) => {
+  previousRouteName.value = from.name
+})
 
 onMounted(() => {
   void syncMiniPlayerWindowState()
@@ -25,6 +33,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  removeBeforeEach()
   unsubscribeMiniPlayerWindowState?.()
   unsubscribeMiniPlayerWindowState = null
 })
@@ -35,8 +44,15 @@ const artworkUrl = computed(() => {
 })
 
 const isAlbumDetail = computed(() => {
-  const name = router.currentRoute.value.name
-  return name === 'album-detail'
+  return route.name === 'album-detail'
+})
+
+/** 专辑详情 ➔ 专辑列表：黑胶沉降与景深聚拢归位；其余路由使用默认 fade */
+const transitionName = computed(() => {
+  if (route.name === 'albums' && previousRouteName.value === 'album-detail') {
+    return 'album-detail-exit-matrix'
+  }
+  return 'fade'
 })
 </script>
 
@@ -61,8 +77,10 @@ const isAlbumDetail = computed(() => {
       <AppSidebar class="relative z-10" />
 
       <main class="app-main relative z-10">
-        <RouterView v-slot="{ Component }">
-          <component :is="Component" />
+        <RouterView v-slot="{ Component, route: viewRoute }">
+          <Transition :name="transitionName">
+            <component :is="Component" :key="String(viewRoute.name)" />
+          </Transition>
         </RouterView>
       </main>
 

@@ -5,6 +5,74 @@ import { usePlayback } from './usePlayback'
 
 let isInitialized = false
 
+/** Chromium MediaImage 仅允许 http/https/data/blob，不能用 auralis-artwork:// */
+const MEDIA_SESSION_ARTWORK_SCHEMES = /^(https?:|data:|blob:)/i
+
+interface ResolvedMediaArtwork {
+  src: string
+  /** true 表示本函数 createObjectURL，调用方负责 revoke */
+  owned: boolean
+  type?: string
+}
+
+/**
+ * 将应用内封面协议转为 Media Session 可用的 http/https/data/blob URL。
+ * 失败时返回 null（元数据仍可无封面写入）。
+ */
+async function resolveMediaSessionArtworkSrc(
+  source: string | null,
+): Promise<ResolvedMediaArtwork | null> {
+  if (!source) return null
+  if (MEDIA_SESSION_ARTWORK_SCHEMES.test(source)) {
+    return { src: source, owned: false }
+  }
+
+  try {
+    const response = await fetch(source)
+    if (!response.ok) return null
+    const blob = await response.blob()
+    if (blob.size === 0) return null
+    return {
+      src: URL.createObjectURL(blob),
+      owned: true,
+      type: blob.type || 'image/jpeg',
+    }
+  } catch {
+    // 回退：Image + canvas（避免个别环境下自定义协议 fetch 失败）
+    try {
+      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image()
+        img.crossOrigin = 'anonymous'
+        img.decoding = 'async'
+        img.onload = () => resolve(img)
+        img.onerror = () => reject(new Error('artwork image load failed'))
+        img.src = source
+      })
+
+      const width = image.naturalWidth || 512
+      const height = image.naturalHeight || 512
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return null
+      ctx.drawImage(image, 0, 0, width, height)
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, 'image/jpeg', 0.9)
+      })
+      if (!blob) return null
+      return {
+        src: URL.createObjectURL(blob),
+        owned: true,
+        type: blob.type || 'image/jpeg',
+      }
+    } catch {
+      return null
+    }
+  }
+}
+
 export function useSystemMediaIntegration(): void {
   if (isInitialized) return
   isInitialized = true
@@ -12,6 +80,32 @@ export function useSystemMediaIntegration(): void {
   const playback = usePlayback()
   const mediaSession = 'mediaSession' in navigator ? navigator.mediaSession : null
   const registeredActions: MediaSessionAction[] = []
+
+  let metadataGeneration = 0
+  let activeArtworkBlobUrl: string | null = null
+
+  const revokeActiveArtworkBlob = (): void => {
+    if (!activeArtworkBlobUrl) return
+    URL.revokeObjectURL(activeArtworkBlobUrl)
+    activeArtworkBlobUrl = null
+  }
+
+  const applyMetadata = (init: MediaMetadataInit): void => {
+    if (!mediaSession) return
+    try {
+      mediaSession.metadata = new MediaMetadata(init)
+    } catch {
+      try {
+        mediaSession.metadata = new MediaMetadata({
+          title: init.title,
+          artist: init.artist,
+          album: init.album,
+        })
+      } catch {
+        mediaSession.metadata = null
+      }
+    }
+  }
 
   const registerAction = (action: MediaSessionAction, handler: MediaSessionActionHandler): void => {
     if (!mediaSession) return
@@ -52,33 +146,51 @@ export function useSystemMediaIntegration(): void {
     ([trackId, title, artist, album, artworkCacheKey]) => {
       if (!mediaSession) return
 
+      const generation = ++metadataGeneration
+
       if (trackId === null) {
+        revokeActiveArtworkBlob()
         mediaSession.metadata = null
         return
       }
 
-      const artworkUrl = getArtworkUrl(artworkCacheKey)
-      const metadata: MediaMetadataInit = {
+      const base: MediaMetadataInit = {
         title: title?.trim() || '未知标题',
         artist: artist?.trim() || '',
         album: album?.trim() || '',
-        ...(artworkUrl ? { artwork: [{ src: artworkUrl }] } : {}),
       }
 
-      try {
-        mediaSession.metadata = new MediaMetadata(metadata)
-      } catch {
-        // Keep transport controls available even if this Chromium build rejects a custom artwork URL.
-        try {
-          mediaSession.metadata = new MediaMetadata({
-            title: metadata.title,
-            artist: metadata.artist,
-            album: metadata.album,
-          })
-        } catch {
-          mediaSession.metadata = null
+      // 先写无封面元数据，避免等待封面时控制信息空白；封面异步补上
+      applyMetadata(base)
+
+      const artworkUrl = getArtworkUrl(artworkCacheKey)
+      void (async () => {
+        const resolved = await resolveMediaSessionArtworkSrc(artworkUrl)
+        if (generation !== metadataGeneration) {
+          if (resolved?.owned) URL.revokeObjectURL(resolved.src)
+          return
         }
-      }
+
+        revokeActiveArtworkBlob()
+        if (resolved?.owned) {
+          activeArtworkBlobUrl = resolved.src
+        }
+
+        applyMetadata({
+          ...base,
+          ...(resolved
+            ? {
+                artwork: [
+                  {
+                    src: resolved.src,
+                    sizes: '512x512',
+                    type: resolved.type,
+                  },
+                ],
+              }
+            : {}),
+        })
+      })()
     },
     { immediate: true },
   )
@@ -135,10 +247,12 @@ export function useSystemMediaIntegration(): void {
   })
 
   onScopeDispose(() => {
+    metadataGeneration += 1
     stopMetadataWatch()
     stopPlaybackStateWatch()
     stopPositionWatch()
     unsubscribeThumbarCommands()
+    revokeActiveArtworkBlob()
     auralis.systemMedia.updateThumbarState({ hasTrack: false, isPlaying: false })
 
     if (mediaSession) {
