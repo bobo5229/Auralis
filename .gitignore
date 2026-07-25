@@ -57,3 +57,6 @@ issues/
 
 # Release media session
 release-media-session/
+
+# UI prototypes / design exploration
+test/
