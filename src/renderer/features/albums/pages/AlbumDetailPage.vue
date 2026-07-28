@@ -724,8 +724,8 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="album-hero-content-stage">
-            <p v-if="heroEyebrow" class="album-hero-eyebrow select-text">{{ heroEyebrow }}</p>
             <h1 class="album-hero-title select-text">{{ albumTitle }}</h1>
+            <p v-if="heroEyebrow" class="album-hero-eyebrow select-text">{{ heroEyebrow }}</p>
             <p class="album-hero-sub select-text">
               <span v-for="(item, index) in heroSubItems" :key="index">
                 <span v-if="index > 0" class="album-hero-sub-dot">·</span>
@@ -1033,16 +1033,6 @@ onBeforeUnmount(() => {
   color: #f4f1ea;
 }
 
-.album-hero-eyebrow {
-  margin: 0 0 8px;
-  font-family: 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
-  font-size: 13px;
-  font-weight: 650;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(244, 241, 234, 0.68);
-}
-
 .album-hero-title {
   margin: 0;
   max-width: 100%;
@@ -1059,8 +1049,18 @@ onBeforeUnmount(() => {
   -webkit-box-orient: vertical;
 }
 
+.album-hero-eyebrow {
+  margin: 6px 0 0;
+  font-family: 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(244, 241, 234, 0.68);
+}
+
 .album-hero-sub {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
   color: rgba(244, 241, 234, 0.78);
   font-size: 14px;
   font-weight: 500;
