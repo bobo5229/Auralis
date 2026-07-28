@@ -809,9 +809,13 @@ onBeforeUnmount(() => {
         <section
           v-if="showMoreAlbumsSection"
           class="album-more-gallery"
-          aria-label="同艺人馆藏中的其他唱片"
+          :aria-label="
+            displayAlbumArtist ? `${displayAlbumArtist} 的其他唱片` : '同艺人馆藏中的其他唱片'
+          "
         >
-          <h2 class="album-more-gallery-title">馆藏中的其他唱片</h2>
+          <h2 class="album-more-gallery-title">
+            {{ displayAlbumArtist ? `${displayAlbumArtist} 的其他唱片` : '其他唱片' }}
+          </h2>
           <div
             class="album-more-gallery-scroller"
             :class="{ 'album-more-gallery-scroller--bar-active': isMoreScrollbarActive }"
