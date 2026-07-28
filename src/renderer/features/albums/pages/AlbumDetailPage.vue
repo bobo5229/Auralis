@@ -1031,17 +1031,16 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   justify-content: center;
   color: #f4f1ea;
-  /* 为右下角「热门单曲」胶囊留出横向空间，避免法律行与按钮叠压 */
-  padding-right: min(168px, 28%);
 }
 
 .album-hero-eyebrow {
   margin: 0 0 8px;
-  font-size: 12px;
+  font-family: 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
+  font-size: 13px;
   font-weight: 650;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(244, 241, 234, 0.58);
+  color: rgba(244, 241, 234, 0.68);
 }
 
 .album-hero-title {
@@ -1049,7 +1048,7 @@ onBeforeUnmount(() => {
   max-width: 100%;
   color: #faf7f0;
   font-family: 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
-  font-size: 32px;
+  font-size: 38px;
   font-weight: 750;
   line-height: 1.12;
   letter-spacing: -0.02em;
