@@ -21,6 +21,7 @@ import type {
 import type {
   AnnualListeningInsights,
   DailyListeningDetail,
+  ListeningGenreSpectrum,
   ListeningRanking,
   ListeningRankingParams,
   ListeningHeatmap,
@@ -241,6 +242,10 @@ export interface IpcInvokeContract {
   'archive:get-listening-ranking': {
     request: ListeningRankingParams
     response: ListeningRanking
+  }
+  'archive:get-listening-genre-spectrum': {
+    request: { year: number }
+    response: ListeningGenreSpectrum
   }
   'archive:reset-play-stats': {
     request: void

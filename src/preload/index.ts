@@ -169,6 +169,8 @@ export const auralisApi: AuralisApi = {
     getAnnualListeningInsights: (year) =>
       invoke(ipcChannels.archive.getAnnualListeningInsights, { year }),
     getListeningRanking: (params) => invoke(ipcChannels.archive.getListeningRanking, params),
+    getListeningGenreSpectrum: (year) =>
+      invoke(ipcChannels.archive.getListeningGenreSpectrum, { year }),
     resetPlayStats: () => invoke(ipcChannels.archive.resetPlayStats),
   },
   metadata: {

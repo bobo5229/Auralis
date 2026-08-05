@@ -301,7 +301,8 @@ export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): 
     releaseDate: common.date ?? null,
     copyright: common.copyright?.trim() || null,
     genres,
-    genre: genres.join(', ') || null,
+    // Storage prefers "; "; UI display always goes through formatDelimitedValues → A & B
+    genre: genres.join('; ') || null,
     lyricsText: lyrics?.text ?? null,
     lyricsFormat: lyrics?.format ?? null,
     isrc: resolveIsrc(metadata),

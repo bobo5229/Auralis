@@ -96,22 +96,6 @@ const albums = computed<AlbumSummary[]>(() => {
   return [...groupedAlbums.values()]
 })
 
-const uniqueArtistCount = computed(() => {
-  return new Set(albums.value.map((a) => a.albumArtist)).size
-})
-
-const releaseYearSpan = computed(() => {
-  const years = albums.value
-    .map((a) => a.releaseDate?.slice(0, 4))
-    .filter((y): y is string => !!y && /^\d{4}$/.test(y))
-    .map((y) => Number(y))
-
-  if (years.length === 0) return '——'
-  const min = Math.min(...years)
-  const max = Math.max(...years)
-  return min === max ? `${min}` : `${min} - ${max}`
-})
-
 const albumRows = computed(() => {
   const cols = columnCount.value
   const rows: AlbumSummary[][] = []
@@ -403,54 +387,40 @@ onBeforeUnmount(() => {
     <template v-else>
       <!-- 统一水平内边距容器：Header 与网格物理像素对齐 -->
       <div class="albums-page-body">
-        <!-- 独立动态液态极光内凹 Header（与 FluidArtworkBackground 物理隔离） -->
-        <header class="albums-header-shelf">
-          <div class="shelf-title-group">
-            <h1 class="shelf-title">唱片馆 ALBUMS</h1>
-            <!-- 无胶囊双行工业仪器面板 (Two-Row Industrial Meter) -->
-            <div class="stats-tworow-group" aria-label="馆藏统计">
-              <div class="tworow-item">
-                <span class="tworow-num">{{ albums.length }}</span>
-                <span class="tworow-label">ALBUMS</span>
-              </div>
-              <div class="tworow-item">
-                <span class="tworow-num">{{ uniqueArtistCount }}</span>
-                <span class="tworow-label">ARTISTS</span>
-              </div>
-              <div class="tworow-item">
-                <span class="tworow-num">{{ releaseYearSpan }}</span>
-                <span class="tworow-label">ERA SPAN</span>
-              </div>
-            </div>
+        <div class="albums-page-toolbar">
+          <div class="view-mode-switch" role="group" aria-label="专辑视图模式">
+            <div
+              class="view-mode-slider-thumb"
+              :class="`is-${displayMode}`"
+              aria-hidden="true"
+            ></div>
+            <button
+              type="button"
+              class="switch-btn"
+              :class="{ 'is-active': displayMode === 'grid' }"
+              :aria-pressed="displayMode === 'grid'"
+              aria-label="常规网格"
+              title="常规网格"
+              @click="setDisplayMode('grid')"
+            >
+              <span class="i-lucide-grid-2x2 h-4 w-4 relative z-10" aria-hidden="true"></span>
+            </button>
+            <button
+              type="button"
+              class="switch-btn"
+              :class="{ 'is-active': displayMode === 'perspective' }"
+              :aria-pressed="displayMode === 'perspective'"
+              aria-label="3D 透视展台"
+              title="3D 透视展台"
+              @click="setDisplayMode('perspective')"
+            >
+              <span
+                class="i-lucide-panels-top-left h-4 w-4 relative z-10"
+                aria-hidden="true"
+              ></span>
+            </button>
           </div>
-
-          <div class="shelf-controls">
-            <div class="view-mode-switch" role="group" aria-label="专辑视图模式">
-              <button
-                type="button"
-                class="switch-btn"
-                :class="{ 'is-active': displayMode === 'grid' }"
-                :aria-pressed="displayMode === 'grid'"
-                aria-label="常规网格"
-                title="常规网格"
-                @click="setDisplayMode('grid')"
-              >
-                <span class="i-lucide-grid-2x2 h-4 w-4" aria-hidden="true"></span>
-              </button>
-              <button
-                type="button"
-                class="switch-btn"
-                :class="{ 'is-active': displayMode === 'perspective' }"
-                :aria-pressed="displayMode === 'perspective'"
-                aria-label="3D 透视展台"
-                title="3D 透视展台"
-                @click="setDisplayMode('perspective')"
-              >
-                <span class="i-lucide-panels-top-left h-4 w-4" aria-hidden="true"></span>
-              </button>
-            </div>
-          </div>
-        </header>
+        </div>
 
         <div
           v-if="albums.length > 0"
@@ -471,6 +441,7 @@ onBeforeUnmount(() => {
                 height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
                 gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
+                '--row-delay': `${(virtualRow.index % 6) * 40}ms`,
               }"
             >
               <AlbumCard
@@ -575,217 +546,100 @@ onBeforeUnmount(() => {
   padding-right: 20px;
   /* 行内允许 3D 阴影轻微溢出，避免相邻行互相裁切观感 */
   overflow: visible;
+  transition:
+    transform 0.4s cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 0.3s ease;
+  transition-delay: var(--row-delay, 0ms);
 }
 
-/* ── 独立动态液态极光内凹槽（与全局 FluidArtworkBackground 隔离） ─ */
-.albums-header-shelf {
-  position: relative;
-  z-index: 1;
+.albums-page-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
-  flex-shrink: 0;
-  padding: 18px 26px;
-  margin: 16px 0 16px;
-  border-radius: 18px;
-  background: rgba(12, 14, 18, 0.75);
-  border: 1px solid
-    color-mix(
-      in srgb,
-      var(--auralis-sidebar-active-indicator, #4f46e5) 40%,
-      rgba(255, 255, 255, 0.16)
-    );
-  box-shadow:
-    inset 0 3px 12px rgba(0, 0, 0, 0.8),
-    0 12px 36px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
+  justify-content: flex-start;
+  padding: 8px 20px;
+  margin-bottom: 8px;
 }
 
-/* 独立极光漂移层 1 (6s 周期) — 纯 GPU transform */
-.albums-header-shelf::before {
-  content: '';
-  position: absolute;
-  z-index: 0;
-  top: -60%;
-  left: -30%;
-  width: 160%;
-  height: 220%;
-  background:
-    radial-gradient(circle at 20% 30%, rgba(79, 70, 229, 0.38) 0%, transparent 50%),
-    radial-gradient(circle at 75% 60%, rgba(236, 72, 153, 0.3) 0%, transparent 50%),
-    radial-gradient(circle at 50% 80%, rgba(6, 182, 212, 0.25) 0%, transparent 50%);
-  filter: blur(28px);
-  pointer-events: none;
-  animation: shelf-aurora-drift 6s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
-  will-change: transform;
-}
-
-/* 独立极光漂移层 2 (4.5s 脉冲) */
-.albums-header-shelf::after {
-  content: '';
-  position: absolute;
-  z-index: 0;
-  top: -40%;
-  right: -20%;
-  width: 140%;
-  height: 180%;
-  background: radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.22) 0%, transparent 60%);
-  filter: blur(20px);
-  pointer-events: none;
-  animation: shelf-aurora-pulse 4.5s ease-in-out infinite alternate-reverse;
-  will-change: transform, opacity;
-}
-
-@keyframes shelf-aurora-drift {
-  0% {
-    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
-  }
-
-  50% {
-    transform: translate3d(8%, 12%, 0) rotate(10deg) scale(1.12);
-  }
-
-  100% {
-    transform: translate3d(-8%, -7%, 0) rotate(-6deg) scale(0.92);
-  }
-}
-
-@keyframes shelf-aurora-pulse {
-  0% {
-    transform: translate3d(0, 0, 0) scale(1);
-    opacity: 0.5;
-  }
-
-  100% {
-    transform: translate3d(-12%, 8%, 0) scale(1.22);
-    opacity: 0.95;
-  }
-}
-
-/* 文字 / 仪表 / 控件悬浮在极光层之上 */
-.shelf-title-group {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 20px;
-  min-width: 0;
-}
-
-.shelf-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 850;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-  background: linear-gradient(
-    135deg,
-    #ffffff 0%,
-    color-mix(in srgb, var(--auralis-text) 78%, transparent) 100%
-  );
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-/* ── 无子弹双行工业仪器面板 (Two-Row Industrial Meter) ─ */
-.stats-tworow-group {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  min-width: 0;
-}
-
-.tworow-item {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  min-width: 0;
-}
-
-.tworow-num {
-  font-size: 17px;
-  font-weight: 850;
-  color: var(--auralis-text);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  white-space: nowrap;
-}
-
-.tworow-label {
-  font-size: 10px;
-  font-weight: 800;
-  color: var(--auralis-text-faint);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  line-height: 1;
-}
-
-.shelf-controls {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-/* 极光槽上的黑曜石分段开关 */
+/* 悬浮微光磨砂胶囊 (Floating Glass Pill Control) */
 .view-mode-switch {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  padding: 3px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.55);
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(18, 20, 26, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.1),
+    0 8px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* 物理流体弹簧滑块 (Fluid Spring Thumb) */
+.view-mode-slider-thumb {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 32px;
+  height: 28px;
+  border-radius: 10px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator, #6366f1) 75%, #ffffff 25%) 0%,
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator, #6366f1) 90%, #000000 10%) 100%
+  );
+  box-shadow:
+    0 4px 14px color-mix(in srgb, var(--auralis-sidebar-active-indicator, #6366f1) 50%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition:
+    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+    width 0.25s ease-out;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.view-mode-slider-thumb.is-grid {
+  transform: translateX(0);
+}
+
+.view-mode-slider-thumb.is-perspective {
+  transform: translateX(32px);
 }
 
 .switch-btn {
+  position: relative;
+  z-index: 2;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 28px;
   padding: 0;
-  border-radius: 9px;
+  border-radius: 10px;
   border: none;
   background: transparent;
   color: var(--auralis-text-muted);
   cursor: pointer;
-  transition:
-    color 0.2s ease,
-    background 0.2s ease,
-    box-shadow 0.2s ease;
+  transition: color 0.25s ease;
 }
 
 .switch-btn:hover {
-  color: var(--auralis-text);
+  color: #ffffff;
 }
 
 .switch-btn.is-active {
-  background: color-mix(
-    in srgb,
-    var(--auralis-sidebar-active-indicator) 40%,
-    rgba(255, 255, 255, 0.14)
-  );
   color: #ffffff;
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .albums-header-shelf::before,
-  .albums-header-shelf::after {
-    animation: none !important;
-    transform: none !important;
+  .view-mode-slider-thumb {
+    transition: none !important;
+  }
+
+  .albums-grid-row {
+    transition: none !important;
+    transition-delay: 0ms !important;
   }
 
   .switch-btn {
