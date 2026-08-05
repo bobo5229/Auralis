@@ -431,20 +431,22 @@ onBeforeUnmount(() => {
                 class="switch-btn"
                 :class="{ 'is-active': displayMode === 'grid' }"
                 :aria-pressed="displayMode === 'grid'"
+                aria-label="常规网格"
+                title="常规网格"
                 @click="setDisplayMode('grid')"
               >
-                <span class="i-lucide-grid-2x2 h-3.5 w-3.5"></span>
-                <span>常规网格</span>
+                <span class="i-lucide-grid-2x2 h-4 w-4" aria-hidden="true"></span>
               </button>
               <button
                 type="button"
                 class="switch-btn"
                 :class="{ 'is-active': displayMode === 'perspective' }"
                 :aria-pressed="displayMode === 'perspective'"
+                aria-label="3D 透视展台"
+                title="3D 透视展台"
                 @click="setDisplayMode('perspective')"
               >
-                <span class="i-lucide-panels-top-left h-3.5 w-3.5"></span>
-                <span>3D 透视展台</span>
+                <span class="i-lucide-panels-top-left h-4 w-4" aria-hidden="true"></span>
               </button>
             </div>
           </div>
@@ -748,14 +750,14 @@ onBeforeUnmount(() => {
 .switch-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  padding: 0;
   border-radius: 9px;
   border: none;
   background: transparent;
   color: var(--auralis-text-muted);
-  font-size: 13px;
-  font-weight: 600;
   cursor: pointer;
   transition:
     color 0.2s ease,

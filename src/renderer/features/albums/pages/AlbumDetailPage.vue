@@ -928,10 +928,10 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   width: 100%;
-  min-height: 250px;
+  min-height: 256px;
   align-items: center;
   gap: 28px;
-  padding: 24px 28px;
+  padding: 28px;
   border-radius: 22px;
   background: color-mix(in srgb, var(--auralis-dialog-bg) 88%, #000);
   border: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
