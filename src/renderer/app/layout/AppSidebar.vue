@@ -42,6 +42,8 @@ let pendingDrag: {
 } | null = null
 let suppressPlaylistClick = false
 let unsubscribeLibraryChanged: (() => void) | null = null
+/** Cleans up optimistic nav highlight listeners when a new press starts or the component unmounts. */
+let pendingNavCleanup: (() => void) | null = null
 
 const LONG_PRESS_DELAY_MS = 280
 const POINTER_MOVE_TOLERANCE = 6
@@ -93,12 +95,80 @@ function setPendingActive(path: string): void {
   activePath.value = path
 }
 
+function syncActivePathToRoute(): void {
+  activePath.value = route.path
+}
+
+/**
+ * Optimistic sidebar highlight on press. Must revert when the press does not
+ * complete as a navigation (drag, cancel, release outside) so the active tab
+ * never desyncs from the actual route.
+ */
 function setPendingActiveFromPointer(event: PointerEvent, path: string): void {
   if (event.button !== 0) {
     return
   }
 
+  pendingNavCleanup?.()
   setPendingActive(path)
+
+  const pointerId = event.pointerId
+  const startX = event.clientX
+  const startY = event.clientY
+  let settled = false
+
+  const cleanupListeners = () => {
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onCancel)
+    if (pendingNavCleanup === settle) {
+      pendingNavCleanup = null
+    }
+  }
+
+  const revertIfStale = () => {
+    if (activePath.value === path && route.path !== path) {
+      syncActivePathToRoute()
+    }
+  }
+
+  const settle = (shouldRevert: boolean) => {
+    if (settled) return
+    settled = true
+    cleanupListeners()
+    if (shouldRevert) {
+      revertIfStale()
+    }
+  }
+
+  const onMove = (moveEvent: PointerEvent) => {
+    if (moveEvent.pointerId !== pointerId) return
+    const distance = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY)
+    if (distance > POINTER_MOVE_TOLERANCE) {
+      // Drag / long-press move: cancel optimistic highlight; click usually will not navigate.
+      settle(true)
+    }
+  }
+
+  const onUp = (upEvent: PointerEvent) => {
+    if (upEvent.pointerId !== pointerId) return
+    cleanupListeners()
+    // Defer past click + router navigation microtasks; revert if route never matched.
+    window.setTimeout(() => {
+      settled = true
+      revertIfStale()
+    }, 0)
+  }
+
+  const onCancel = (cancelEvent: PointerEvent) => {
+    if (cancelEvent.pointerId !== pointerId) return
+    settle(true)
+  }
+
+  pendingNavCleanup = () => settle(true)
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
 }
 
 function clearLongPressTimer(): void {
@@ -431,6 +501,8 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  pendingNavCleanup?.()
+  pendingNavCleanup = null
   resetPlaylistDrag()
   unsubscribeLibraryChanged?.()
   unsubscribeLibraryChanged = null
@@ -515,6 +587,8 @@ function close(): void {
             :class="{ 'sidebar-tool-button-active': activePath === '/settings' }"
             aria-label="设置"
             title="设置"
+            :draggable="false"
+            @dragstart.prevent
             @pointerdown="setPendingActiveFromPointer($event, '/settings')"
             @keydown.enter="setPendingActive('/settings')"
             @keydown.space="setPendingActive('/settings')"
@@ -533,12 +607,14 @@ function close(): void {
           :key="item.to"
           :to="item.to"
           class="sidebar-link"
+          :draggable="false"
           :class="{
             'sidebar-link-with-count': item.count !== null,
             'sidebar-link-active':
               activePath === item.to ||
               (item.to === '/albums' && activePath.startsWith('/albums/')),
           }"
+          @dragstart.prevent
           @pointerdown="setPendingActiveFromPointer($event, item.to)"
           @keydown.enter="setPendingActive(item.to)"
           @keydown.space="setPendingActive(item.to)"

@@ -22,6 +22,7 @@ import type {
 import type {
   AnnualListeningInsights,
   DailyListeningDetail,
+  ListeningGenreSpectrum,
   ListeningHeatmap,
   ListeningRanking,
   ListeningRankingParams,
@@ -136,6 +137,7 @@ export interface AuralisApi {
     getDailyListeningDetail: (date: string) => Promise<DailyListeningDetail>
     getAnnualListeningInsights: (year: number) => Promise<AnnualListeningInsights>
     getListeningRanking: (params: ListeningRankingParams) => Promise<ListeningRanking>
+    getListeningGenreSpectrum: (year: number) => Promise<ListeningGenreSpectrum>
     resetPlayStats: () => Promise<{ ok: true }>
   }
   metadata: {

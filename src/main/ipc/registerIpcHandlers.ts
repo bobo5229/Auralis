@@ -405,6 +405,12 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   )
 
   ipcMain.handle(
+    ipcChannels.archive.getListeningGenreSpectrum,
+    (_event, payload: { year: number }): IpcResponse<'archive:get-listening-genre-spectrum'> =>
+      playStatsService.getListeningGenreSpectrum(payload.year),
+  )
+
+  ipcMain.handle(
     ipcChannels.archive.resetPlayStats,
     (): IpcResponse<'archive:reset-play-stats'> => {
       const result = playStatsService.resetAll()

@@ -108,11 +108,11 @@ function onContextMenu(event: MouseEvent): void {
   aspect-ratio: 1 / 1;
   flex-shrink: 0;
   border-radius: 12px;
-  overflow: hidden;
-  background: var(--auralis-artwork-placeholder-bg);
+  overflow: visible;
+  background: transparent;
   cursor: pointer;
   outline: none;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  perspective: 800px;
 }
 
 .cover-stage:focus-visible {
@@ -127,6 +127,14 @@ function onContextMenu(event: MouseEvent): void {
   overflow: hidden;
   border-radius: inherit;
   background: var(--auralis-artwork-placeholder-bg);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  transform: rotateY(0deg) rotateX(0deg) scale(1);
+  transform-style: preserve-3d;
+  transition:
+    transform 0.45s cubic-bezier(0.34, 1.25, 0.64, 1),
+    box-shadow 0.45s cubic-bezier(0.34, 1.25, 0.64, 1),
+    inset 0.45s cubic-bezier(0.34, 1.25, 0.64, 1);
+  will-change: transform;
 }
 
 .cover-img {
@@ -175,10 +183,6 @@ function onContextMenu(event: MouseEvent): void {
   box-shadow:
     -10px 14px 24px rgba(0, 0, 0, 0.55),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition:
-    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform;
 }
 
 .album-card--perspective:hover .cover-frame,

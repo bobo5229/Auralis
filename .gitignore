@@ -58,6 +58,9 @@ artifacts/
 # Issues
 issues/
 
+# Local audit / review handbooks (findings live under docs/reviews, already ignored)
+*作战手册.md
+
 # Release media session
 release-media-session/
 

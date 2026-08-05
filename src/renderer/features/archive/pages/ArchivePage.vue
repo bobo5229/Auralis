@@ -4,6 +4,7 @@ import { auralis } from '@renderer/shared/ipc/client'
 import type {
   AnnualListeningInsights,
   DailyListeningDetail,
+  ListeningGenreSpectrum,
   ListeningHeatmap,
   ListeningRanking,
   ListeningRankingParams,
@@ -12,6 +13,7 @@ import type {
 } from '@shared/types/archive'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+import MusicDnaCard from '@renderer/features/archive/components/MusicDnaCard.vue'
 
 interface CalendarDay {
   date: string
@@ -71,6 +73,8 @@ const annualRecapError = ref<string | null>(null)
 const annualRecapTrackRanking = ref<ListeningRanking | null>(null)
 const annualRecapAlbumRanking = ref<ListeningRanking | null>(null)
 const annualRecapPage = ref(0)
+const genreSpectrum = ref<ListeningGenreSpectrum | null>(null)
+const isGenreLoading = ref(false)
 
 const LONG_PRESS_MS = 1000
 const RESET_HOLD_MS = 3000
@@ -441,15 +445,18 @@ const annualRecapMetrics = computed(() => {
 
 async function loadHeatmap(): Promise<void> {
   isLoading.value = true
+  isGenreLoading.value = true
   errorMessage.value = null
   annualInsights.value = null
   annualInsightsError.value = false
+  genreSpectrum.value = null
   tooltip.value = null
 
   const year = selectedYear.value
-  const [heatmapResult, insightsResult] = await Promise.allSettled([
+  const [heatmapResult, insightsResult, genreResult] = await Promise.allSettled([
     auralis.archive.getListeningHeatmap(year),
     auralis.archive.getAnnualListeningInsights(year),
+    auralis.archive.getListeningGenreSpectrum(year),
   ])
 
   if (heatmapResult.status === 'fulfilled') {
@@ -465,6 +472,13 @@ async function loadHeatmap(): Promise<void> {
     annualInsightsError.value = true
   }
 
+  if (genreResult.status === 'fulfilled') {
+    genreSpectrum.value = genreResult.value
+  } else {
+    genreSpectrum.value = null
+  }
+
+  isGenreLoading.value = false
   isLoading.value = false
 }
 
@@ -1065,6 +1079,12 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
+
+    <MusicDnaCard
+      v-if="!errorMessage"
+      :data="genreSpectrum"
+      :loading="isLoading || isGenreLoading"
+    />
 
     <section v-if="!isLoading && !errorMessage" class="archive-summary">
       <div class="archive-section-heading">

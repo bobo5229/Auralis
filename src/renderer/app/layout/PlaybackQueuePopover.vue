@@ -2,6 +2,7 @@
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { usePlaybackQueue } from '@renderer/features/playback/composables/usePlaybackQueue'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
+import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import type { PlaybackTrack } from '@renderer/features/playback/types'
 
 const emit = defineEmits<{ close: [] }>()
@@ -28,15 +29,8 @@ function onArtworkError(trackId: number): void {
   artworkErrorIds.value = next
 }
 
-function formatMultiArtist(artist: string): string {
-  const parts = artist.split(/\s*;\s*/).filter(Boolean)
-  if (parts.length <= 1) return artist
-  if (parts.length === 2) return `${parts[0]} & ${parts[1]}`
-  return `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}`
-}
-
 function formatSubtitle(track: PlaybackTrack): string {
-  const artist = track.artist ? formatMultiArtist(track.artist) : null
+  const artist = track.artist ? formatArtist(track.artist) : null
   const parts = [artist, track.album].filter(Boolean)
   return parts.length > 0 ? parts.join(' - ') : 'Unknown Artist'
 }

@@ -66,6 +66,7 @@ export const ipcChannels = {
     getDailyListeningDetail: 'archive:get-daily-listening-detail',
     getAnnualListeningInsights: 'archive:get-annual-listening-insights',
     getListeningRanking: 'archive:get-listening-ranking',
+    getListeningGenreSpectrum: 'archive:get-listening-genre-spectrum',
     resetPlayStats: 'archive:reset-play-stats',
   },
   metadata: {

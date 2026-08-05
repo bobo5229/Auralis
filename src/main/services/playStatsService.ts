@@ -2,10 +2,22 @@ import type { PlayStatsRepository } from '../repositories/playStatsRepository'
 import type {
   AnnualListeningInsights,
   DailyListeningDetail,
+  GenreSpectrumItem,
+  ListeningGenreSpectrum,
   ListeningHeatmap,
   ListeningRanking,
   ListeningRankingParams,
 } from '@shared/types/archive'
+
+/** High-saturation palette for genre spectrum visualization. */
+const GENRE_SPECTRUM_PALETTE = [
+  '#6366f1',
+  '#ec4899',
+  '#10b981',
+  '#f59e0b',
+  '#8b5cf6',
+  '#14b8a6',
+] as const
 
 /** In-memory idempotency window for sessionIds (insertion-order FIFO eviction). */
 const MAX_SESSION_CACHE = 5000
@@ -111,6 +123,33 @@ export class PlayStatsService {
     }
 
     return this.playStatsRepo.getAnnualListeningInsights(year)
+  }
+
+  getListeningGenreSpectrum(year: number): ListeningGenreSpectrum {
+    const currentYear = new Date().getFullYear()
+    if (!Number.isInteger(year) || year < 1970 || year > currentYear) {
+      throw new Error(`Year must be between 1970 and ${currentYear}`)
+    }
+
+    // One scan: multi-genre tracks attribute full play stats to each atomic label.
+    // Item ratios may sum above 1.0; the ring re-normalizes by sum(ratios).
+    const result = this.playStatsRepo.getListeningGenreSpectrumWithTopTracks(year, 3)
+    const totalDuration = result.totalDurationSeconds
+    const items: GenreSpectrumItem[] = result.rows.map((row, index) => ({
+      genre: row.genre,
+      count: row.count,
+      durationSeconds: row.durationSeconds,
+      ratio: totalDuration > 0 ? row.durationSeconds / totalDuration : 0,
+      colorHex: GENRE_SPECTRUM_PALETTE[index % GENRE_SPECTRUM_PALETTE.length],
+      topTracks: row.topTracks,
+    }))
+
+    return {
+      year,
+      totalPlayedTracks: result.totalPlayedTracks,
+      totalDurationSeconds: result.totalDurationSeconds,
+      items,
+    }
   }
 
   getListeningRanking(params: ListeningRankingParams): ListeningRanking {

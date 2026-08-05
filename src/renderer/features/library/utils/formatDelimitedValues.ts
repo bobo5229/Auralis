@@ -1,26 +1,23 @@
 /**
- * Generic utilities for splitting and formatting semicolon-delimited
- * multi-value metadata fields (artists, genres, etc.).
+ * Renderer wrappers for multi-value metadata (artists, genres, …).
  *
- * Format rules:
- *   A; B       → A & B
- *   A; B; C    → A, B & C
- *   A; B; C; D → A, B, C & D
+ * Rules (see `@shared/utils/delimitedValues`):
+ * - Parse: split on `"; "` / `", "` / full-width / `/`
+ * - Display (read-only UI only): `A & B` / `A, B & C` — never raw separators
  */
 
-import { splitDelimitedValues } from '@shared/utils/delimitedValues'
+import {
+  formatDelimitedParts,
+  formatDelimitedValues,
+  splitDelimitedValues,
+} from '@shared/utils/delimitedValues'
 
-export { splitDelimitedValues }
+export {
+  formatDelimitedParts,
+  formatDelimitedValues,
+  splitDelimitedValues,
+}
 
 export function isMultiValue(value: string | null | undefined): boolean {
   return splitDelimitedValues(value).length >= 2
-}
-
-export function formatDelimitedValues(value: string | null | undefined): string {
-  const parts = splitDelimitedValues(value)
-
-  if (parts.length <= 1) return parts[0] ?? ''
-
-  const last = parts.pop()!
-  return `${parts.join(', ')} & ${last}`
 }
