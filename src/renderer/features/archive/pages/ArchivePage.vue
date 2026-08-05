@@ -990,6 +990,7 @@ onMounted(() => {
   document.addEventListener('keydown', handleDocumentKeyDown)
   void loadHeatmap()
   void loadListeningRanking()
+  void loadAnnualRecapRankings()
   unsubscribeLibraryChanged = auralis.library.onChanged((event) => {
     if (event.reason !== 'play-stats-updated' && event.reason !== 'play-stats-reset') return
     void loadHeatmap()

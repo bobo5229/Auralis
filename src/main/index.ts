@@ -24,11 +24,16 @@ app.setName('Auralis')
 app.setAppUserModelId('com.bobo.auralis')
 registerDesktopLyricsIpcHandlers()
 
+const useSoftwareRendering = !app.isPackaged && process.env.AURALIS_SOFTWARE_RENDERING === '1'
+
+if (process.platform === 'win32' && !useSoftwareRendering) {
+  app.commandLine.appendSwitch('force_high_performance_gpu')
+}
+
 if (!app.isPackaged) {
   process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = '1'
   const devUserDataPath = join(app.getAppPath(), 'data', 'user-data')
   const devCachePath = join(devUserDataPath, 'cache')
-  const useSoftwareRendering = process.env.AURALIS_SOFTWARE_RENDERING === '1'
   const useHardwareVideoProcessing = process.env.AURALIS_HARDWARE_VIDEO_PROCESSING === '1'
   const disableDirectComposition = process.env.AURALIS_DISABLE_DIRECT_COMPOSITION === '1'
   const quietGpuLogs = process.env.AURALIS_QUIET_GPU_LOGS === '1'
@@ -67,6 +72,24 @@ if (!app.isPackaged) {
 
   app.commandLine.appendSwitch('disk-cache-dir', devCachePath)
   app.commandLine.appendSwitch('no-sandbox')
+
+  app.once('gpu-info-update', () => {
+    void app
+      .getGPUInfo('basic')
+      .then((gpuInfo) => {
+        logger.info(
+          {
+            hardwareAcceleration: app.isHardwareAccelerationEnabled(),
+            featureStatus: app.getGPUFeatureStatus(),
+            gpuInfo,
+          },
+          'GPU diagnostics',
+        )
+      })
+      .catch((error: unknown) => {
+        logger.warn({ error }, 'Failed to collect GPU diagnostics')
+      })
+  })
 }
 
 app.whenReady().then(() => {

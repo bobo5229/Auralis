@@ -28,6 +28,9 @@ AppData/
 .agents/
 .mimocode/
 
+# TypeScript incremental build info
+*.tsbuildinfo
+
 # Coverage
 coverage/
 
