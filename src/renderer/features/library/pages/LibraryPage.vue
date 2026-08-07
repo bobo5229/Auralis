@@ -10,6 +10,8 @@ import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
 import type { LibraryAlbumGroup } from '../components/AlbumCoverGroup.vue'
 import LiquidGlassPanel from '../components/LiquidGlassPanel.vue'
 import MetadataEditDialog from '../components/MetadataEditDialog.vue'
+import VisualStyleSwitch from '../components/VisualStyleSwitch.vue'
+import { useVisualStyle } from '../composables/useVisualStyle'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { normalizeSearchText } from '../utils/normalizeSearchText'
@@ -17,6 +19,12 @@ import { normalizeSearchText } from '../utils/normalizeSearchText'
 const playback = usePlayback()
 const route = useRoute()
 const router = useRouter()
+
+const { visualStyle } = useVisualStyle()
+const isLibraryRoute = computed(() => route.name === 'library')
+const isManuscriptLibrary = computed(
+  () => route.name === 'library' && visualStyle.value === 'manuscript',
+)
 
 const tracks = shallowRef<TrackListItem[]>([])
 const isLoading = ref(true)
@@ -642,7 +650,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="flex h-full flex-col">
+  <section
+    class="library-page flex h-full flex-col"
+    :data-visual-style="isManuscriptLibrary ? 'manuscript' : 'modern'"
+  >
     <div v-if="isLoading" class="flex flex-1 items-center justify-center">
       <p class="text-sm text-[var(--auralis-text-faint)]">Loading library...</p>
     </div>
@@ -654,6 +665,7 @@ onBeforeUnmount(() => {
       @mouseleave="!isScopedPlaylist && onLibraryListMouseLeave()"
     >
       <div v-if="!isScopedPlaylist" class="library-search-zone">
+        <VisualStyleSwitch v-if="isLibraryRoute" />
         <Transition name="search-bar">
           <div
             v-if="shouldRenderSearchBar"

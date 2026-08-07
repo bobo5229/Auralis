@@ -229,5 +229,12 @@
     "nothingPlaying": "尚未播放",
     "queueShort": "隊列",
     "modeAria": "播放模式：{mode}"
+  },
+  "library": {
+    "visualStyle": {
+      "label": "視覺風格",
+      "modern": "流光",
+      "manuscript": "手稿"
+    }
   }
 }
