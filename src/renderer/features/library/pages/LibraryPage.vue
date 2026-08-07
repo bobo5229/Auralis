@@ -651,9 +651,11 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    class="library-page flex h-full flex-col"
+    class="library-page relative flex h-full flex-col"
     :data-visual-style="isManuscriptLibrary ? 'manuscript' : 'modern'"
   >
+    <VisualStyleSwitch v-if="isLibraryRoute" />
+
     <div v-if="isLoading" class="flex flex-1 items-center justify-center">
       <p class="text-sm text-[var(--auralis-text-faint)]">Loading library...</p>
     </div>
@@ -665,7 +667,6 @@ onBeforeUnmount(() => {
       @mouseleave="!isScopedPlaylist && onLibraryListMouseLeave()"
     >
       <div v-if="!isScopedPlaylist" class="library-search-zone">
-        <VisualStyleSwitch v-if="isLibraryRoute" />
         <Transition name="search-bar">
           <div
             v-if="shouldRenderSearchBar"
