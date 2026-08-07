@@ -151,11 +151,6 @@
   --auralis-lyrics-active: #afafb0;
   --auralis-lyrics-inactive: #515152;
 
-  /* Titlebar tokens */
-  --auralis-titlebar-bg: transparent;
-  --auralis-titlebar-border: var(--auralis-border-subtle);
-  --auralis-titlebar-title: var(--auralis-text-muted);
-
   /* Sidebar active state */
   --auralis-sidebar-active-bg: #263244;
   --auralis-sidebar-active-indicator: #7ea6d9;
@@ -807,14 +802,66 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   }
 }
 
-/* Titlebar drag region */
-.app-titlebar {
+/* 无框窗口壳层：底色 / 内描边跟随专辑色板（见 techdoc-auralis-native-window-chrome） */
+.app-window {
+  background: var(--auralis-window-chrome-bg, var(--auralis-app-background));
+  box-shadow: inset 0 0 0 1px var(--auralis-window-chrome-border, transparent);
+  transition:
+    background-color 280ms ease,
+    box-shadow 280ms ease;
+}
+
+/* 主区顶部拖拽 strip：无框窗口移动（避开右上角控件区，左侧从侧栏右缘开始） */
+.app-shell-drag-strip {
+  position: absolute;
+  top: 0;
+  left: 260px;
+  right: 0;
+  height: 14px;
+  z-index: 5;
   -webkit-app-region: drag;
 }
 
-.app-titlebar button,
-.app-titlebar-controls {
+/* 右上角窗口控制（Windows 顺序：最小化 / 最大化 / 关闭） */
+.window-chrome-controls {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  height: 36px;
+  align-items: stretch;
   -webkit-app-region: no-drag;
+}
+
+.window-chrome-button {
+  display: inline-flex;
+  width: 44px;
+  align-items: center;
+  justify-content: center;
+  color: var(--auralis-text-muted);
+  transition:
+    color 160ms ease,
+    background 160ms ease;
+}
+
+.window-chrome-button > span {
+  width: 14px;
+  height: 14px;
+}
+
+.window-chrome-button:hover {
+  color: var(--auralis-text);
+  background: color-mix(
+    in srgb,
+    var(--auralis-window-chrome-accent, var(--auralis-sidebar-active-indicator)) 18%,
+    transparent
+  );
+}
+
+.window-chrome-button-close:hover {
+  color: #ffffff;
+  background: rgb(232 17 35 / 0.85);
 }
 
 /* Sidebar */
@@ -857,26 +904,33 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-header {
-  padding: 14px 12px 12px;
+  padding: 20px 16px 14px;
   border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 6%, transparent);
   background: transparent;
+  /* 无框窗口：侧栏顶空白带可拖窗 */
+  -webkit-app-region: drag;
 }
 
-/* Brand left, two utility actions as a compact trailing cluster. */
+/* Left-aligned Brand on first row; 3-column equal tools on second row. */
 .sidebar-header-main {
   display: flex;
+  width: 100%;
   min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
 }
 
-.sidebar-brand {
+.sidebar-brand-left {
   display: flex;
+  width: 100%;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   align-items: center;
+  justify-content: flex-start;
   gap: 10px;
+  /* 品牌区需要 hover 交互（logo / 文字动效），不能被 header 的 drag 区吞掉事件 */
+  -webkit-app-region: no-drag;
 }
 
 .sidebar-brand-mark {
@@ -903,7 +957,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   height: 17px;
 }
 
-.sidebar-brand:hover .sidebar-brand-mark {
+.sidebar-brand-left:hover .sidebar-brand-mark {
   transform: scale(1.06) rotate(6deg);
   border-color: var(--auralis-sidebar-active-indicator);
   box-shadow:
@@ -913,81 +967,69 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 
 .sidebar-brand-copy {
   min-width: 0;
+  flex: 0 0 auto;
 }
 
 .sidebar-brand-name {
-  overflow: hidden;
-  /* 品牌名字加入金属渐变光感，锁定项目蓝色调 */
+  /* 渐变流光：hover 时白→主题蓝→白 高光带沿字面扫过（克制微动 ~250ms） */
   background: linear-gradient(
-    135deg,
-    var(--auralis-text) 50%,
-    var(--auralis-sidebar-active-indicator)
+    110deg,
+    #ffffff 42%,
+    var(--auralis-sidebar-active-indicator) 50%,
+    #ffffff 58%
   );
+  background-size: 250% 100%;
+  background-position: 100% 0;
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
-  font-size: 17px;
+  color: #ffffff; /* fallback：不支持 background-clip: text 时仍为白色 */
+  font-size: 18px;
   font-weight: 800;
-  line-height: 20px;
-  text-overflow: ellipsis;
+  line-height: 22px;
   white-space: nowrap;
+  flex-shrink: 0;
+  /* 750ms 足够看清高光带扫过（原 250ms 太快） */
+  transition: background-position 750ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.sidebar-brand-caption {
-  margin-top: 1px;
-  overflow: hidden;
-  color: var(--auralis-text-faint);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.sidebar-brand-left:hover .sidebar-brand-name {
+  background-position: 0 0;
 }
 
-.sidebar-tool-cluster {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 7%, transparent);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, white 5%, transparent), transparent 70%),
-    color-mix(in srgb, var(--auralis-control-hover-bg) 70%, transparent);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 6px 16px rgba(0, 0, 0, 0.12);
+/* 3-column equal grid tool row */
+.sidebar-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: 100%;
+  /* 工具按钮必须可点击（header 为 drag 区） */
+  -webkit-app-region: no-drag;
 }
 
 .sidebar-tool-button {
   display: inline-flex;
-  width: 32px;
+  width: 100%;
   height: 32px;
-  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
+  border-radius: 8px;
   color: var(--auralis-text-faint);
+  background: transparent;
   transition:
     color 180ms ease,
     background 180ms ease,
-    transform 180ms ease,
-    box-shadow 180ms ease;
+    transform 180ms ease;
 }
 
 .sidebar-tool-button:hover {
-  color: var(--auralis-sidebar-active-indicator) !important;
-  background: color-mix(
-    in srgb,
-    var(--auralis-sidebar-active-indicator) 14%,
-    transparent
-  ) !important;
-  transform: translateY(-1px);
+  color: var(--auralis-sidebar-active-indicator);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 14%, transparent);
+  transform: translateY(-0.5px);
 }
 
 .sidebar-tool-button:active {
-  transform: scale(0.94);
+  transform: scale(0.96);
 }
 
 .sidebar-tool-button:focus-visible {
@@ -1001,11 +1043,9 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-tool-button-active {
-  background: color-mix(in srgb, var(--auralis-sidebar-active-bg) 88%, transparent) !important;
-  color: var(--auralis-sidebar-active-indicator) !important;
-  box-shadow:
-    0 2px 8px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  /* 与 hover 一致的极轻 Hover Glow，避免亮块从无壳行里爆出来 */
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+  color: var(--auralis-sidebar-active-indicator);
 }
 
 .sidebar-navigation {
@@ -1705,6 +1745,14 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .app-window {
+    transition: none;
+  }
+
+  .sidebar-brand-name {
+    transition: none;
+  }
+
   .library-view-fade-enter-active,
   .library-view-fade-leave-active {
     transition-duration: 0ms !important;
@@ -1756,17 +1804,4 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 
 .is-album-detail ::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--auralis-text) 36%, transparent) !important;
-}
-
-/* 侧边栏顶部窗口控制按钮区 */
-.sidebar-window-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 20px 8px;
-  -webkit-app-region: drag;
-}
-
-.sidebar-window-controls .window-dot {
-  -webkit-app-region: no-drag;
 }

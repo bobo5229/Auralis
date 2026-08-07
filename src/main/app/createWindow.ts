@@ -26,9 +26,8 @@ export function createWindow(): BrowserWindow {
     title: 'Auralis',
     backgroundColor: '#00000000',
     transparent: true,
-    show: false,
-    titleBarStyle: 'hidden',
     frame: false,
+    show: false,
     autoHideMenuBar: true,
     ...(icon ? { icon } : {}),
     webPreferences: {

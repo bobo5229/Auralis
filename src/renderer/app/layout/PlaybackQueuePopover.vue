@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { usePlaybackQueue } from '@renderer/features/playback/composables/usePlaybackQueue'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
@@ -7,6 +8,8 @@ import type { PlaybackTrack } from '@renderer/features/playback/types'
 
 const emit = defineEmits<{ close: [] }>()
 const element = ref<HTMLElement | null>(null)
+
+const { t } = useI18n()
 
 defineExpose({ element })
 
@@ -32,7 +35,7 @@ function onArtworkError(trackId: number): void {
 function formatSubtitle(track: PlaybackTrack): string {
   const artist = track.artist ? formatArtist(track.artist) : null
   const parts = [artist, track.album].filter(Boolean)
-  return parts.length > 0 ? parts.join(' - ') : 'Unknown Artist'
+  return parts.length > 0 ? parts.join(' - ') : t('player.unknownArtist')
 }
 
 watch(currentIndex, () => {
@@ -57,17 +60,19 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="element" class="queue-popover" role="dialog" aria-label="Playback queue">
+  <div ref="element" class="queue-popover" role="dialog" :aria-label="t('player.queue')">
     <div class="queue-popover-header">
-      <span class="queue-popover-title">播放队列</span>
-      <span v-if="!isQueueEmpty" class="queue-popover-count">{{ totalCount }} 首</span>
+      <span class="queue-popover-title">{{ t('player.queue') }}</span>
+      <span v-if="!isQueueEmpty" class="queue-popover-count">{{
+        t('player.queueCount', { count: totalCount })
+      }}</span>
     </div>
 
-    <div v-if="isQueueEmpty" class="queue-empty">暂无播放队列</div>
+    <div v-if="isQueueEmpty" class="queue-empty">{{ t('player.queueEmpty') }}</div>
 
     <template v-else>
       <!-- Now playing -->
-      <div class="queue-popover-section-label">正在播放</div>
+      <div class="queue-popover-section-label">{{ t('player.nowPlaying') }}</div>
       <div
         v-if="currentTrack"
         class="queue-item queue-item-active"
@@ -106,8 +111,9 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Upcoming -->
-      <div v-if="upcomingTracks.length > 0" class="queue-popover-section-label">接下来</div>
+      <div v-if="upcomingTracks.length > 0" class="queue-popover-section-label">
+        {{ t('player.upNext') }}
+      </div>
       <div
         v-if="upcomingTracks.length > 0"
         ref="scrollRef"
@@ -119,7 +125,7 @@ onUnmounted(() => {
           class="queue-item"
           :class="{ 'queue-item-active': isActive(track.id) }"
           type="button"
-          :aria-label="`Play ${track.title || 'Unknown Title'}`"
+          :aria-label="t('player.playTrack', { title: track.title || t('player.unknownTrack') })"
           @click="playTrack(track.id)"
         >
           <div class="queue-item-cover">

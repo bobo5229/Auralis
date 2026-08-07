@@ -13,23 +13,12 @@ export default defineConfig({
     },
   },
   shortcuts: {
-    'app-window':
-      'h-screen overflow-hidden bg-[var(--auralis-app-background)] text-[var(--auralis-text)]',
+    'app-window': 'h-screen overflow-hidden text-[var(--auralis-text)]',
     'app-shell':
       'grid h-full min-h-0 grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-transparent text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_20%]',
     'app-sidebar':
       'flex w-[232px] h-[calc(100%_-_var(--auralis-shell-vertical-gap))] min-h-0 flex-col m-[var(--auralis-shell-edge-gap)_0_var(--auralis-shell-edge-gap)_var(--auralis-shell-edge-gap)] rounded-lg border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
     'app-main': 'min-h-0 overflow-y-auto bg-transparent',
-    'app-titlebar':
-      'relative z-[80] flex h-11 shrink-0 items-center border-b border-[var(--auralis-titlebar-border)] bg-[var(--auralis-titlebar-bg)] px-4',
-    'app-titlebar-brand':
-      'flex min-w-0 items-center gap-2 text-sm font-semibold text-[var(--auralis-text)]',
-    'app-titlebar-logo': 'h-4 w-4 text-[var(--auralis-text)]',
-    'app-titlebar-title':
-      'pointer-events-none absolute left-1/2 top-1/2 max-w-[45vw] -translate-x-1/2 -translate-y-1/2 truncate text-xs font-semibold text-[var(--auralis-titlebar-title)]',
-    'app-titlebar-controls': 'ml-auto flex items-center gap-2',
-    'window-dot':
-      'h-3 w-3 rounded-full border border-black/10 transition opacity-90 hover:opacity-100',
     'now-playing-panel':
       'hidden h-full min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-4 xl:flex',
     'player-bar':

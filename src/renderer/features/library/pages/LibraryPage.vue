@@ -582,8 +582,8 @@ async function saveMetadata(metadata: EditableTrackMetadata): Promise<void> {
     await reloadTracks()
     editingMetadata.value = null
   } catch (error) {
-    metadataEditError.value =
-      error instanceof Error ? error.message : 'Unable to save metadata edits'
+    console.error('[Auralis] failed to save metadata edits:', error)
+    metadataEditError.value = 'Unable to save metadata edits'
   } finally {
     isSavingMetadata.value = false
   }

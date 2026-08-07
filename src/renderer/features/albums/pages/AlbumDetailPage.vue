@@ -141,7 +141,11 @@ function collectGenreCounts(): { label: string; count: number; firstSeen: number
 
 /** Top album genres as display string: single label, or `A & B` when two dominate. */
 const dominantGenreLabel = computed(() =>
-  formatGenreParts(collectGenreCounts().slice(0, 2).map((genre) => genre.label)),
+  formatGenreParts(
+    collectGenreCounts()
+      .slice(0, 2)
+      .map((genre) => genre.label),
+  ),
 )
 
 /** Meta 行年份：仅合法四位数字；无效/缺失返回 null（meta 中省略，不写「未知」）。 */

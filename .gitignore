@@ -66,3 +66,7 @@ release-media-session/
 
 # UI prototypes / design exploration
 test/
+
+# Reasonix tool runtime data & config
+.reasonix/
+reasonix.toml

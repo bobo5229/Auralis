@@ -1,17 +1,20 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 
 defineProps<{ currentMode: PlaybackMode }>()
 const emit = defineEmits<{ select: [mode: PlaybackMode]; close: [] }>()
 
-const modes: Array<{ id: PlaybackMode; label: string; icon: string }> = [
-  { id: 'sequential', label: '顺序播放', icon: 'i-lucide-list-end' },
-  { id: 'repeat-all', label: '列表循环', icon: 'i-lucide-repeat' },
-  { id: 'repeat-one', label: '单曲循环', icon: 'i-lucide-repeat-1' },
-  { id: 'shuffle', label: '随机播放', icon: 'i-lucide-shuffle' },
-  { id: 'album-shuffle', label: '专辑随机', icon: 'i-lucide-disc-3' },
-]
+const { t } = useI18n()
+
+const modes = computed<Array<{ id: PlaybackMode; label: string; icon: string }>>(() => [
+  { id: 'sequential', label: t('player.modeOption.sequential'), icon: 'i-lucide-list-end' },
+  { id: 'repeat-all', label: t('player.modeOption.repeat-all'), icon: 'i-lucide-repeat' },
+  { id: 'repeat-one', label: t('player.modeOption.repeat-one'), icon: 'i-lucide-repeat-1' },
+  { id: 'shuffle', label: t('player.modeOption.shuffle'), icon: 'i-lucide-shuffle' },
+  { id: 'album-shuffle', label: t('player.modeOption.album-shuffle'), icon: 'i-lucide-disc-3' },
+])
 
 function handleSelect(mode: PlaybackMode): void {
   emit('select', mode)
@@ -33,7 +36,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="playback-mode-menu" role="menu" aria-label="Playback mode">
+  <div class="playback-mode-menu" role="menu" :aria-label="t('player.mode')">
     <button
       v-for="mode in modes"
       :key="mode.id"

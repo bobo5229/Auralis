@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useFullscreenPlayer } from '@renderer/features/playback/composables/useFullscreenPlayer'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
@@ -7,6 +8,7 @@ import { formatPlaybackSubtitle } from '@renderer/features/playback/utils/format
 import { subscribeVisualFrame } from '@renderer/features/playback/utils/visualFrameScheduler'
 
 const playback = usePlayback()
+const { t } = useI18n()
 const { openFullscreenPlayer } = useFullscreenPlayer()
 const imgError = ref(false)
 const isDraggingProgress = ref(false)
@@ -195,7 +197,7 @@ function handleProgressKeydown(event: KeyboardEvent): void {
           class="track-cover cursor-pointer"
           role="button"
           tabindex="0"
-          aria-label="Open full-screen player"
+          :aria-label="t('player.fullscreen')"
           @click="handleCoverClick"
           @keydown="handleCoverKeydown"
         >
@@ -220,7 +222,7 @@ function handleProgressKeydown(event: KeyboardEvent): void {
         class="track-progress"
         role="slider"
         tabindex="0"
-        aria-label="Playback progress"
+        :aria-label="t('player.progress')"
         aria-valuemin="0"
         :aria-valuemax="Math.round(playback.state.duration)"
         :aria-valuenow="Math.round(playback.state.currentTime)"

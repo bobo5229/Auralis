@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import type { LyricLine } from '../types'
 
 const props = defineProps<{
@@ -9,6 +10,8 @@ const props = defineProps<{
   showPrelude: boolean
   preludeLitDotCount: number
 }>()
+
+const { seekTo } = usePlayback()
 
 const scrollRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLElement | null>(null)
@@ -176,12 +179,57 @@ function pauseAutoFollow(): void {
 
   if (scrollTimeout) clearTimeout(scrollTimeout)
   scrollTimeout = setTimeout(() => {
-    const scrollTop = container?.scrollTop ?? 0
-    if (container) container.scrollTop = 0
-    setTrackOffset(-scrollTop)
-    isUserScrolling.value = false
-    updateTarget()
+    resumeAutoFollowFromUserScroll()
   }, 3000)
+}
+
+/** Commit native scrollTop back to transform tracking and re-enable auto-follow. */
+function resumeAutoFollowFromUserScroll(): void {
+  const container = scrollRef.value
+  const scrollTop = container?.scrollTop ?? 0
+  if (container) container.scrollTop = 0
+  setTrackOffset(-scrollTop)
+  isUserScrolling.value = false
+  if (scrollTimeout) {
+    clearTimeout(scrollTimeout)
+    scrollTimeout = null
+  }
+  updateTarget()
+}
+
+/**
+ * Click / keyboard on a timed LRC line: seek playback, then immediately follow
+ * the new active line (cancel the 3s user-scroll pause from pointerdown).
+ */
+function onLyricLineActivate(index: number): void {
+  const line = props.lines[index]
+  if (!line || !Number.isFinite(line.timeSeconds)) return
+
+  seekTo(line.timeSeconds)
+
+  if (scrollTimeout) {
+    clearTimeout(scrollTimeout)
+    scrollTimeout = null
+  }
+
+  const container = scrollRef.value
+  if (isUserScrolling.value && container) {
+    const scrollTop = container.scrollTop
+    container.scrollTop = 0
+    setTrackOffset(-scrollTop)
+  }
+  isUserScrolling.value = false
+
+  void nextTick(() => {
+    rebuildMetrics()
+    updateTarget('smooth')
+  })
+}
+
+function onLyricLineKeydown(event: KeyboardEvent, index: number): void {
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  onLyricLineActivate(index)
 }
 
 function resetScrollPosition(): void {
@@ -291,7 +339,7 @@ onBeforeUnmount(() => {
         v-for="(line, index) in lines"
         :key="line.id"
         v-memo="[activeIndex === index, line.text]"
-        class="lyric-line"
+        class="lyric-line lyric-line-seekable"
         :class="
           activeIndex === index
             ? 'lyric-active lyric-line-active-filter'
@@ -299,7 +347,14 @@ onBeforeUnmount(() => {
               ? 'lyric-inactive lyric-line-blur-filter'
               : 'lyric-empty'
         "
+        role="button"
+        tabindex="0"
         :data-lyric-index="index"
+        :aria-label="
+          line.text ? `跳转到：${line.text}` : `跳转到 ${Math.floor(line.timeSeconds)} 秒`
+        "
+        @click.stop="onLyricLineActivate(index)"
+        @keydown="onLyricLineKeydown($event, index)"
       >
         {{ line.text || ' ' }}
       </div>
@@ -327,6 +382,21 @@ onBeforeUnmount(() => {
   transition:
     opacity 300ms ease,
     filter 300ms ease;
+}
+
+.lyric-line-seekable {
+  cursor: pointer;
+  border-radius: 6px;
+  outline: none;
+}
+
+.lyric-line-seekable:hover {
+  opacity: 1;
+  filter: none;
+}
+
+.lyric-line-seekable:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auralis-text) 35%, transparent);
 }
 
 .lyric-line-active-filter {
@@ -364,6 +434,8 @@ onBeforeUnmount(() => {
 }
 
 .lyric-dot-lit {
+  /* 与高亮歌词行颜色统一（高亮行继承 --auralis-text） */
+  color: var(--auralis-text);
   box-shadow:
     0 0 0.18em currentColor,
     0 0 0.42em currentColor,

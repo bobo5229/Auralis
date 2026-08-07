@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink, useRouter } from 'vue-router'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { LibraryStats } from '@shared/types/app'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
@@ -48,16 +49,18 @@ let pendingNavCleanup: (() => void) | null = null
 const LONG_PRESS_DELAY_MS = 280
 const POINTER_MOVE_TOLERANCE = 6
 
+const { t } = useI18n()
+
 const activePath = ref(route.path)
 
-const primaryNav = [
-  { to: '/', label: '歌曲', icon: 'i-lucide-music' },
-  { to: '/albums', label: '专辑', icon: 'i-lucide-disc-3' },
-  { to: '/archive', label: '声迹', icon: 'i-lucide-archive' },
-]
+const primaryNav = computed(() => [
+  { to: '/', label: t('nav.songs'), icon: 'i-lucide-music' },
+  { to: '/albums', label: t('nav.albums'), icon: 'i-lucide-disc-3' },
+  { to: '/archive', label: t('nav.archive'), icon: 'i-lucide-archive' },
+])
 
 const primaryNavItems = computed(() =>
-  primaryNav.map((item) => ({
+  primaryNav.value.map((item) => ({
     ...item,
     count:
       item.to === '/'
@@ -81,7 +84,9 @@ function getPlaylistIcon(item: SidebarPlaylistItem): string {
 }
 
 const deletingPlaylistTitle = computed(() =>
-  deletingPlaylist.value?.kind === 'playlist' ? '删除歌单？' : '删除智能歌单？',
+  deletingPlaylist.value?.kind === 'playlist'
+    ? t('sidebar.deletePlaylistTitle')
+    : t('sidebar.deleteSmartPlaylistTitle'),
 )
 
 watch(
@@ -310,7 +315,9 @@ async function playRandomPlaylistTrack(item: SidebarPlaylistItem): Promise<void>
     const track = tracks[Math.floor(Math.random() * tracks.length)]
     await playback.playTrackFromQueue(tracks, track.id, { shufflePool: tracks })
   } catch (error) {
-    playback.state.error = error instanceof Error ? error.message : String(error)
+    // 播放错误无 UI 消费方，仅打日志（原始 message 不直出，避免英文混排）。
+    console.error('[Auralis] random playlist track failed:', error)
+    playback.state.error = null
   }
 }
 
@@ -376,7 +383,7 @@ function closeQueryDialog(): void {
 
 async function createFromQuery(): Promise<void> {
   if (!smartPlaylistQuery.value.trim()) {
-    smartPlaylistQueryError.value = '请输入查询语法'
+    smartPlaylistQueryError.value = t('sidebar.queryRequired')
     return
   }
 
@@ -387,7 +394,8 @@ async function createFromQuery(): Promise<void> {
     isQueryDialogOpen.value = false
     onSmartPlaylistCreated(result.playlist)
   } catch (error) {
-    smartPlaylistQueryError.value = error instanceof Error ? error.message : '无法解析查询语法'
+    console.error('[Auralis] smart playlist query failed:', error)
+    smartPlaylistQueryError.value = t('sidebar.queryParseFailed')
   } finally {
     isCreatingFromQuery.value = false
   }
@@ -425,7 +433,7 @@ function closeRenameDialog(): void {
 async function submitRename(): Promise<void> {
   if (!renamingPlaylist.value) return
   if (!renameValue.value.trim()) {
-    renameError.value = '名称不能为空'
+    renameError.value = t('sidebar.playlistNameRequired')
     return
   }
 
@@ -511,63 +519,26 @@ onBeforeUnmount(() => {
   window.removeEventListener('pointerup', onPlaylistPointerUp)
   window.removeEventListener('pointercancel', onPlaylistPointerCancel)
 })
-
-function minimize(): void {
-  auralis.window.minimize()
-}
-
-function toggleMaximize(): void {
-  auralis.window.toggleMaximize()
-}
-
-function close(): void {
-  auralis.window.close()
-}
 </script>
 
 <template>
   <aside class="app-sidebar">
-    <!-- macOS 风格窗口按钮 -->
-    <div class="sidebar-window-controls">
-      <button
-        class="window-dot bg-[#e9494b]"
-        type="button"
-        title="Close"
-        aria-label="Close window"
-        @click="close"
-      ></button>
-      <button
-        class="window-dot bg-[#f5c542]"
-        type="button"
-        title="Minimize"
-        aria-label="Minimize window"
-        @click="minimize"
-      ></button>
-      <button
-        class="window-dot bg-[#44c74e]"
-        type="button"
-        title="Maximize"
-        aria-label="Maximize / Restore window"
-        @click="toggleMaximize"
-      ></button>
-    </div>
     <header class="sidebar-header">
       <div class="sidebar-header-main">
-        <div class="sidebar-brand">
+        <div class="sidebar-brand-left">
           <span class="sidebar-brand-mark" aria-hidden="true">
             <span class="i-lucide-audio-waveform"></span>
           </span>
           <div class="sidebar-brand-copy">
-            <div class="sidebar-brand-name">Auralis</div>
-            <div class="sidebar-brand-caption">本地音乐档案</div>
+            <div class="sidebar-brand-name">AuralisMusic</div>
           </div>
         </div>
-        <div class="sidebar-tool-cluster" role="toolbar" aria-label="侧栏工具">
+        <div class="sidebar-tools-grid" role="toolbar" :aria-label="t('sidebar.toolbarAria')">
           <button
             class="sidebar-tool-button"
             type="button"
-            aria-label="筛选面板"
-            title="筛选"
+            :aria-label="t('sidebar.tool.facetsPanel')"
+            :title="t('sidebar.tool.facets')"
             @click="isFacetsDialogOpen = true"
           >
             <span class="i-lucide-list-filter"></span>
@@ -575,8 +546,8 @@ function close(): void {
           <button
             class="sidebar-tool-button"
             type="button"
-            aria-label="切换到迷你播放器"
-            title="迷你播放器"
+            :aria-label="t('sidebar.tool.miniPlayerAction')"
+            :title="t('sidebar.tool.miniPlayer')"
             @click="enterMiniPlayer"
           >
             <span class="i-lucide-panel-top-close"></span>
@@ -585,8 +556,8 @@ function close(): void {
             to="/settings"
             class="sidebar-tool-button"
             :class="{ 'sidebar-tool-button-active': activePath === '/settings' }"
-            aria-label="设置"
-            title="设置"
+            :aria-label="t('sidebar.tool.settings')"
+            :title="t('sidebar.tool.settings')"
             :draggable="false"
             @dragstart.prevent
             @pointerdown="setPendingActiveFromPointer($event, '/settings')"
@@ -601,7 +572,7 @@ function close(): void {
 
     <nav class="sidebar-navigation">
       <section class="sidebar-primary-section">
-        <div class="sidebar-section-label">资料库</div>
+        <div class="sidebar-section-label">{{ t('sidebar.library') }}</div>
         <RouterLink
           v-for="item in primaryNavItems"
           :key="item.to"
@@ -630,14 +601,14 @@ function close(): void {
       <section class="sidebar-playlist-section">
         <div class="smart-playlist-section-header">
           <div class="sidebar-section-title">
-            <div class="sidebar-section-label">歌单</div>
+            <div class="sidebar-section-label">{{ t('sidebar.playlists') }}</div>
             <div class="sidebar-section-meta">{{ playlistItems.length }}</div>
           </div>
           <button
             class="smart-playlist-add-button"
             type="button"
-            title="新建歌单"
-            aria-label="新建歌单"
+            :title="t('sidebar.newPlaylist')"
+            :aria-label="t('sidebar.newPlaylist')"
             @click="openCreateMenu"
           >
             <span class="i-lucide-plus"></span>
@@ -676,7 +647,7 @@ function close(): void {
         </RouterLink>
         <div v-if="playlistItems.length === 0" class="smart-playlist-empty">
           <span class="i-lucide-sparkles"></span>
-          <span>暂无歌单</span>
+          <span>{{ t('sidebar.playlistsEmpty') }}</span>
         </div>
       </section>
     </nav>
@@ -698,11 +669,11 @@ function close(): void {
         >
           <button class="library-context-menu-item" type="button" @click="createRegularPlaylist">
             <span class="i-lucide-list-music"></span>
-            <span>新建歌单</span>
+            <span>{{ t('sidebar.newPlaylist') }}</span>
           </button>
           <button class="library-context-menu-item" type="button" @click="openQueryDialog">
             <span class="i-lucide-sparkles"></span>
-            <span>新建智能歌单</span>
+            <span>{{ t('sidebar.newSmartPlaylist') }}</span>
           </button>
         </LiquidGlassPanel>
       </div>
@@ -722,7 +693,7 @@ function close(): void {
         >
           <button class="library-context-menu-item" type="button" @click="openRenameDialog">
             <span class="i-lucide-pencil"></span>
-            <span>重命名</span>
+            <span>{{ t('sidebar.rename') }}</span>
           </button>
           <button
             class="library-context-menu-item smart-playlist-context-danger"
@@ -730,25 +701,27 @@ function close(): void {
             @click="openDeleteDialog"
           >
             <span class="i-lucide-trash-2"></span>
-            <span>删除</span>
+            <span>{{ t('sidebar.delete') }}</span>
           </button>
         </LiquidGlassPanel>
       </div>
 
       <div v-if="renamingPlaylist" class="smart-playlist-dialog-backdrop">
         <form class="smart-playlist-dialog" @submit.prevent="submitRename">
-          <h2>重命名歌单</h2>
+          <h2>{{ t('sidebar.renameDialogTitle') }}</h2>
           <input
             ref="renameInput"
             v-model="renameValue"
             type="text"
-            aria-label="歌单名称"
+            :aria-label="t('sidebar.playlistName')"
             @input="renameError = ''"
           />
           <p v-if="renameError" class="smart-playlist-dialog-error">{{ renameError }}</p>
           <div class="smart-playlist-dialog-actions">
-            <button type="button" @click="closeRenameDialog">取消</button>
-            <button type="submit" class="smart-playlist-dialog-primary">保存</button>
+            <button type="button" @click="closeRenameDialog">{{ t('sidebar.cancel') }}</button>
+            <button type="submit" class="smart-playlist-dialog-primary">
+              {{ t('sidebar.save') }}
+            </button>
           </div>
         </form>
       </div>
@@ -758,12 +731,12 @@ function close(): void {
           class="smart-playlist-dialog smart-playlist-query-dialog"
           @submit.prevent="createFromQuery"
         >
-          <h2>创建智能歌单</h2>
+          <h2>{{ t('sidebar.queryDialogTitle') }}</h2>
           <textarea
             ref="queryInput"
             v-model="smartPlaylistQuery"
             rows="4"
-            aria-label="智能歌单查询语法"
+            :aria-label="t('sidebar.queryAria')"
             placeholder='GENRE HAS "K-Pop" AND ARTIST HAS "aespa" OR "NMIXX"'
             spellcheck="false"
             @input="smartPlaylistQueryError = ''"
@@ -773,14 +746,14 @@ function close(): void {
           </p>
           <div class="smart-playlist-dialog-actions">
             <button type="button" :disabled="isCreatingFromQuery" @click="closeQueryDialog">
-              取消
+              {{ t('sidebar.cancel') }}
             </button>
             <button
               type="submit"
               class="smart-playlist-dialog-primary"
               :disabled="isCreatingFromQuery"
             >
-              创建
+              {{ t('sidebar.create') }}
             </button>
           </div>
         </form>
@@ -790,9 +763,9 @@ function close(): void {
         <section class="smart-playlist-dialog" role="alertdialog" aria-modal="true">
           <h2>{{ deletingPlaylistTitle }}</h2>
           <div class="smart-playlist-dialog-actions">
-            <button type="button" @click="closeDeleteDialog">取消</button>
+            <button type="button" @click="closeDeleteDialog">{{ t('sidebar.cancel') }}</button>
             <button type="button" class="smart-playlist-dialog-danger" @click="confirmDelete">
-              删除
+              {{ t('sidebar.delete') }}
             </button>
           </div>
         </section>

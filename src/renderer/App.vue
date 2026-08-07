@@ -6,12 +6,15 @@ import AppSidebar from './app/layout/AppSidebar.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
+import WindowChromeControls from './app/layout/WindowChromeControls.vue'
 import MiniPlayer from './app/layout/MiniPlayer.vue'
 import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
+import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
+import type { CSSProperties } from 'vue'
 
 const route = useRoute()
 const playback = usePlayback()
@@ -47,6 +50,29 @@ const isAlbumDetail = computed(() => {
   return route.name === 'album-detail'
 })
 
+/** 当前曲封面 key；无曲 / 无封面时为 null（色板回退主题） */
+const artworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
+const { palette: chromePalette } = useArtworkPalette(artworkCacheKey)
+
+/** 壳层 chrome 变量：壳底 / accent / 内描边，跟当前曲专辑色板（见 techdoc-auralis-native-window-chrome） */
+const windowChromeStyle = computed<CSSProperties>(() => {
+  const hasTrack = !!playback.state.currentTrack
+  const pal = chromePalette.value
+  const accent = pal?.accents[0]?.rgb
+  const accentCss = accent ? `rgb(${accent.r} ${accent.g} ${accent.b})` : null
+
+  return {
+    '--auralis-window-chrome-bg':
+      hasTrack && pal
+        ? `rgb(${pal.background.r} ${pal.background.g} ${pal.background.b})`
+        : 'var(--auralis-app-background)',
+    '--auralis-window-chrome-accent': accentCss ?? 'var(--auralis-sidebar-active-indicator)',
+    '--auralis-window-chrome-border': accentCss
+      ? `color-mix(in srgb, ${accentCss} 35%, transparent)`
+      : 'var(--auralis-border-subtle)',
+  } as CSSProperties
+})
+
 /** 专辑详情 ➔ 专辑列表：黑胶沉降与景深聚拢归位；其余路由使用默认 fade */
 const transitionName = computed(() => {
   if (route.name === 'albums' && previousRouteName.value === 'album-detail') {
@@ -59,11 +85,13 @@ const transitionName = computed(() => {
 <template>
   <MiniPlayer v-if="displayMode === 'mini'" />
 
-  <div v-else class="app-window" data-app-shell-root>
+  <div v-else class="app-window" data-app-shell-root :style="windowChromeStyle">
     <div
       class="app-shell relative"
       :class="{ 'is-album-detail': isAlbumDetail, 'has-artwork': !!artworkUrl }"
     >
+      <!-- 无框窗口拖拽区：侧栏顶（AppSidebar header）与主区顶空白带 -->
+      <div class="app-shell-drag-strip" aria-hidden="true"></div>
       <!-- 只有在且有封面时才渲染在 app-shell 顶层网格之下的背景 -->
       <FluidArtworkBackground
         v-if="artworkUrl"
@@ -87,6 +115,7 @@ const transitionName = computed(() => {
       <NowPlayingPanel class="relative z-10" />
       <PlayerBar class="relative z-10" />
     </div>
+    <WindowChromeControls />
     <FullscreenPlayerOverlay />
   </div>
 </template>
