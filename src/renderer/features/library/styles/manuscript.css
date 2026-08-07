@@ -40,10 +40,10 @@
 
   /* 主要文本启用 GenRyuMin 衬线字体 */
   font-family: var(--manuscript-font-serif);
-}
 
-/* —— 纸张画布：约 12px 外围间隙的独立暖白纸页 —— */
-.library-page[data-visual-style='manuscript'] .library-list-shell {
+  /* —— 纸张画布：挂载在三种状态共享的页面层 ——
+   * 约 12px 外围间隙的独立暖白纸页；loading / 空曲库 / 列表
+   * 三个分支均落于其上，避免深石墨文字落在深色流光背景上。 */
   margin: 12px;
   border: 1px solid var(--manuscript-rule-strong);
   border-radius: 2px; /* 方正边缘，非大圆角 */
