@@ -57,7 +57,12 @@
     0 6px 18px rgba(41, 39, 35, 0.1); /* 克制阴影 */
 }
 
-/* 数字与小控件保留无衬线（时长列） */
-.library-page[data-visual-style='manuscript'] .song-duration {
+/* 数字与小控件保留无衬线：平铺/封面时长、曲序号、切换按钮、搜索输入框 */
+.library-page[data-visual-style='manuscript'] :is(
+    .song-duration,
+    .tabular-nums,
+    .visual-style-switch-button,
+    .library-search-input
+  ) {
   font-family: 'Auralis Sans SC', system-ui, -apple-system, sans-serif;
 }
