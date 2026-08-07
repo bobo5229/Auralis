@@ -229,5 +229,12 @@
     "nothingPlaying": "Nothing playing",
     "queueShort": "Queue",
     "modeAria": "Playback mode: {mode}"
+  },
+  "library": {
+    "visualStyle": {
+      "label": "Visual style",
+      "modern": "Modern",
+      "manuscript": "Manuscript"
+    }
   }
 }
