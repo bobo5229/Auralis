@@ -59,9 +59,6 @@ const STYLE_OPTIONS: readonly { value: VisualStyle; labelKey: string }[] = [
   font-size: 12px;
   line-height: 1;
   cursor: pointer;
-  transition:
-    background 140ms ease,
-    color 140ms ease;
 }
 
 .visual-style-switch-button:hover {
