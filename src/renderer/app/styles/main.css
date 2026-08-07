@@ -1399,6 +1399,19 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   color: var(--auralis-text-faint);
 }
 
+/*
+ * 窄视口（< xl，最小窗口 900px）下主内容约 640px 宽，英文
+ * Modern/Manuscript 切换控件（约 150px，固定右缘）会侵入居中的
+ * 360px 搜索条右侧。将搜索条中心左移 44px 让位，不触碰 transform
+ * 以免与 search-bar 进出场动画冲突。阈值取 960：覆盖 941-943px
+ * 视口下无偏移时约 1-2px 的临界擦碰。
+ */
+@media (max-width: 960px) {
+  .library-search-bar {
+    left: calc(50% - 44px);
+  }
+}
+
 .search-bar-enter-active,
 .search-bar-leave-active {
   transition:
