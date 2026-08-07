@@ -5,8 +5,13 @@
  * Split on separators (optional surrounding spaces):
  * - `"; "` / `";"`  — primary separator in this library
  * - `", "` / `","`  — also a multi-value separator (e.g. tags stored as `A, B`)
- * - `"/"`           — occasional tagger style
  * - full-width `，` `；` and enumeration `、`
+ *
+ * **`/` is NOT a multi-value separator.** Slash compounds stay atomic, e.g.:
+ * - Genre: `R&B/SOUL`, `Hip-hop/Rap`
+ * - Artist: `AC/DC`
+ * True multi-value tags must use `;` or `,` (e.g. `Rock; Pop`, not `Rock/Pop`).
+ * See `docs/plan-genre-delimiter-atomic-compounds.md`.
  *
  * ## Display (list → UI string) — mandatory for all multi-value UI
  * Never show raw separators (`; ` / `, `) in read-only UI.
@@ -26,12 +31,13 @@ export const DELIMITED_VALUE_JOIN = '; '
 /**
  * Split multi-value metadata into atomic labels (order preserved, no empty parts).
  * Example: `"Jazz; Soul"` and `"Jazz, Soul"` → `["Jazz", "Soul"]`.
+ * Slash compounds stay one label: `"R&B/SOUL"` → `["R&B/SOUL"]`.
  */
 export function splitDelimitedValues(value: string | null | undefined): string[] {
   if (!value) return []
 
   return value
-    .split(/[,，;；、/]+/)
+    .split(/[,，;；、]+/)
     .map((part) => part.trim())
     .filter(Boolean)
 }

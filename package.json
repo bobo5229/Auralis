@@ -11,6 +11,9 @@
     "dev:verbose-gpu": "electron-vite dev",
     "dev:software-rendering": "set AURALIS_SOFTWARE_RENDERING=1&& electron-vite dev",
     "build": "npm run typecheck && electron-vite build",
+    "locales:zh-hant": "node scripts/generate-zh-hant.mjs",
+    "locales:check": "node scripts/check-locale-keys.mjs",
+    "prebuild": "npm run locales:zh-hant && npm run locales:check",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && npm run dist:installer && npm run dist:portable",
     "dist:installer": "electron-builder --win nsis --x64 -c.directories.output=release/installer",
@@ -19,6 +22,7 @@
     "rebuild:native": "set USERPROFILE=%CD%\\.electron-home&& set HOME=%CD%\\.electron-home&& electron-rebuild -f -w better-sqlite3",
     "typecheck": "vue-tsc -p tsconfig.web.json --noEmit --tsBuildInfoFile .electron-home/tsconfig.web.tsbuildinfo && tsc -p tsconfig.node.json --noEmit --tsBuildInfoFile .electron-home/tsconfig.node.tsbuildinfo",
     "lint": "eslint src electron.vite.config.ts eslint.config.js uno.config.ts",
+    "prelint": "npm run locales:check",
     "format": "prettier --write ."
   },
   "dependencies": {
@@ -35,10 +39,10 @@
     "@vueuse/core": "^12.8.2",
     "better-sqlite3": "^11.9.1",
     "music-metadata": "^11.13.0",
-    "opencc-js": "^1.4.1",
     "pino": "^9.6.0",
     "pino-pretty": "^13.0.0",
     "vue": "^3.5.13",
+    "vue-i18n": "^11.4.8",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {
@@ -58,6 +62,7 @@
     "electron-vite": "^3.0.0",
     "eslint": "^9.22.0",
     "eslint-plugin-vue": "^9.32.0",
+    "opencc-js": "^1.4.1",
     "prettier": "^3.5.3",
     "typescript": "~5.7.3",
     "unocss": "^0.65.4",

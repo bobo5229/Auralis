@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { usePlayerBarMaterial } from '@renderer/features/settings/composables/usePlayerBarMaterial'
@@ -16,6 +17,7 @@ import { auralis } from '@renderer/shared/ipc/client'
 import type { DesktopLyricsPayload, DesktopLyricsStatus } from '@shared/types/desktopLyrics'
 
 const playback = usePlayback()
+const { t } = useI18n()
 const lyrics = useTrackLyrics()
 const { playerBarMaterial } = usePlayerBarMaterial()
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
@@ -113,12 +115,12 @@ function buildDesktopLyricsPayload(): DesktopLyricsPayload {
   let nextLine = ''
 
   if (lyrics.status.value === 'loading') {
-    currentLine = '歌词加载中'
+    currentLine = t('player.lyricsLoading')
   } else if (lyrics.status.value === 'empty') {
-    currentLine = '暂无歌词'
+    currentLine = t('player.lyricsEmpty')
   } else if (lyrics.status.value === 'plain') {
     const lines = getPlainLyricLines(lyrics.rawLyrics.value)
-    currentLine = lines[0] ?? '暂无歌词'
+    currentLine = lines[0] ?? t('player.lyricsEmpty')
     nextLine = lines[1] ?? ''
   } else if (lyrics.status.value === 'lrc') {
     const lines = lyrics.parsedLines.value.filter((line) => line.text.length > 0)
@@ -177,7 +179,9 @@ function syncDesktopLyrics(force = false): void {
 async function toggleDesktopLyrics(): Promise<void> {
   const result = await auralis.desktopLyrics.toggle()
   isDesktopLyricsVisible.value = result.visible
-  showDesktopLyricsToast(result.visible ? '桌面歌词已开启' : '桌面歌词已关闭')
+  showDesktopLyricsToast(
+    result.visible ? 'player.desktopLyrics.toastOn' : 'player.desktopLyrics.toastOff',
+  )
   if (result.visible) {
     syncDesktopLyrics(true)
   }
@@ -187,11 +191,13 @@ async function toggleDesktopLyricsMousePassthrough(event: MouseEvent): Promise<v
   event.preventDefault()
   const result = await auralis.desktopLyrics.toggleMousePassthrough()
   isDesktopLyricsMousePassthroughEnabled.value = result.enabled
-  showDesktopLyricsToast(result.enabled ? '鼠标穿透已开启' : '鼠标穿透已关闭')
+  showDesktopLyricsToast(
+    result.enabled ? 'player.desktopLyrics.passthroughOn' : 'player.desktopLyrics.passthroughOff',
+  )
 }
 
-function showDesktopLyricsToast(message: string): void {
-  desktopLyricsToast.value = message
+function showDesktopLyricsToast(key: string): void {
+  desktopLyricsToast.value = key
 
   if (desktopLyricsToastTimer) {
     clearTimeout(desktopLyricsToastTimer)
@@ -418,7 +424,7 @@ function handleToggleMute(): void {
       <button
         class="transport-control"
         type="button"
-        aria-label="Previous track"
+        :aria-label="t('player.previous')"
         @click="handlePrev"
       >
         <span class="h-4 w-4 i-lucide-skip-back" />
@@ -426,7 +432,7 @@ function handleToggleMute(): void {
       <button
         class="transport-control-primary"
         type="button"
-        :aria-label="playback.state.isPlaying ? 'Pause' : 'Play'"
+        :aria-label="playback.state.isPlaying ? t('player.pause') : t('player.play')"
         @click="handlePlayPause"
       >
         <span
@@ -434,7 +440,12 @@ function handleToggleMute(): void {
           :class="playback.state.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
         />
       </button>
-      <button class="transport-control" type="button" aria-label="Next track" @click="handleNext">
+      <button
+        class="transport-control"
+        type="button"
+        :aria-label="t('player.next')"
+        @click="handleNext"
+      >
         <span class="h-4 w-4 i-lucide-skip-forward" />
       </button>
     </div>
@@ -449,14 +460,14 @@ function handleToggleMute(): void {
           type="button"
           :aria-label="
             isDesktopLyricsMousePassthroughEnabled
-              ? 'Desktop lyrics, mouse passthrough enabled'
-              : 'Desktop lyrics, mouse passthrough disabled'
+              ? t('player.desktopLyrics.ariaPassthroughOn')
+              : t('player.desktopLyrics.ariaPassthroughOff')
           "
           :aria-pressed="isDesktopLyricsVisible"
           :title="
             isDesktopLyricsMousePassthroughEnabled
-              ? 'Right-click to disable mouse passthrough'
-              : 'Right-click to enable mouse passthrough'
+              ? t('player.desktopLyrics.titlePassthroughOn')
+              : t('player.desktopLyrics.titlePassthroughOff')
           "
           @click="toggleDesktopLyrics"
           @contextmenu="toggleDesktopLyricsMousePassthrough"
@@ -464,7 +475,7 @@ function handleToggleMute(): void {
           <span class="playbar-action-icon h-4 w-4 i-lucide-captions" />
         </button>
         <div v-if="desktopLyricsToast" class="desktop-lyrics-toast">
-          {{ desktopLyricsToast }}
+          {{ t(desktopLyricsToast) }}
         </div>
       </div>
 
@@ -473,7 +484,7 @@ function handleToggleMute(): void {
         class="player-control"
         :class="{ 'player-control-active': isQueueOpen }"
         type="button"
-        aria-label="Playback queue"
+        :aria-label="t('player.queue')"
         :aria-expanded="isQueueOpen"
         @click="toggleQueue"
       >
@@ -489,7 +500,7 @@ function handleToggleMute(): void {
         class="player-control"
         :class="{ 'player-control-active': isModeMenuOpen }"
         type="button"
-        aria-label="Playback mode"
+        :aria-label="t('player.mode')"
         :aria-expanded="isModeMenuOpen"
         @click="toggleModeMenu"
       >
@@ -509,7 +520,7 @@ function handleToggleMute(): void {
         <button
           class="player-control"
           type="button"
-          :aria-label="playback.state.isMuted ? 'Unmute' : 'Mute'"
+          :aria-label="playback.state.isMuted ? t('player.unmute') : t('player.mute')"
           @click="handleToggleMute"
         >
           <span class="playbar-action-icon h-4 w-4" :class="volumeIconClass" />
@@ -522,7 +533,7 @@ function handleToggleMute(): void {
           step="0.01"
           :value="playback.state.volume"
           :style="volumeSliderStyle"
-          aria-label="Volume"
+          :aria-label="t('player.volume')"
           @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
         />
       </div>

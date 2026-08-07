@@ -4,11 +4,17 @@
 
 用户可能使用中文或英文发送指令，AI 必须始终用中文回复。
 
+## Project Overview
+
+Auralis 是一个面向个人大型音乐收藏的本地优先（local-first）音乐播放器——不是流媒体平台，无社交功能、推荐或在线内容。技术栈：Electron 38、Vue 3、TypeScript、SQLite。
+
+已实现：曲库扫描（基于 Worker 的后台扫描与元数据解析）、设置 UI（文件夹选择与扫描管理）、应用外壳布局（侧边栏 + 主内容 + 正在播放面板 + 播放栏）。播放、专辑浏览、搜索、归档功能尚未实现。
+
 ## Project Structure & Module Organization
 
 Auralis is an Electron + Vue + TypeScript local music archive. Source lives in `src/`:
 
-- `src/main/`: Electron main process, database, services, repositories, IPC handlers, logging.
+- `src/main/`: Electron main process (Node.js), database, services, repositories, IPC handlers, logging, Worker threads.
 - `src/preload/`: context bridge exposing the typed `window.auralis` API.
 - `src/renderer/`: Vue UI only. Feature pages live under `src/renderer/features/`.
 - `src/shared/`: shared IPC contracts and cross-process types.
@@ -17,7 +23,7 @@ Generated folders such as `out/`, `data/`, `.electron-gyp/`, `.electron-home/`, 
 
 ## Build, Test, and Development Commands
 
-Use `npm.cmd` on Windows PowerShell if `npm.ps1` is blocked.
+Use `npm.cmd` on Windows PowerShell if `npm.ps1` is blocked. Node >= 20.19.0 required.
 
 - `npm.cmd install --cache .npm-cache`: install dependencies with project-local cache.
 - `npm.cmd run rebuild:native`: rebuild `better-sqlite3` for Electron 38 after install or Electron changes.
@@ -25,13 +31,20 @@ Use `npm.cmd` on Windows PowerShell if `npm.ps1` is blocked.
 - `npm.cmd run typecheck`: run `vue-tsc --noEmit`.
 - `npm.cmd run lint`: lint source and config files.
 - `npm.cmd run format`: format files with Prettier.
-- `npm.cmd run build`: typecheck and build with `electron-vite`.
+- `npm.cmd run build`: typecheck and build with `electron-vite` (`vue-tsc --noEmit && electron-vite build`).
+- `npm.cmd run preview`: preview the electron-vite build.
 
 ## Coding Style & Naming Conventions
 
 Use TypeScript throughout. Vue components must use Vue 3 Composition API with `<script setup lang="ts">`. Prefer feature-first organization over broad `components/` or `utils/` buckets.
 
 Prettier handles formatting: no semicolons, single quotes, 100-character print width. ESLint uses Vue, TypeScript, and Prettier rules. Avoid `any`; it is allowed only with a warning and should be justified.
+
+- UnoCSS for styling — custom theme colors (ink, paper, linen, moss, brass, dusk) and shortcuts defined in `uno.config.ts`
+- Path aliases: `@main`, `@renderer`, `@shared` (configured in `electron.vite.config.ts`)
+- Animation through Motion One via `src/renderer/shared/animation/motion.ts` wrapper (currently only `fadeIn`)
+- Pino for logging in main process only (`src/main/logging/logger.ts`)
+- Database connections are managed as module-level singletons in `src/main/database/connection.ts`
 
 ## Architecture Overview
 
@@ -43,15 +56,116 @@ Data flow is strict:
 Repository -> Service -> Typed IPC -> UI
 ```
 
-Add IPC calls through `src/shared/ipc/contracts.ts`, `channels.ts`, `api.ts`, the preload bridge, then `src/main/ipc/registerIpcHandlers.ts`.
+### App shell layout
+
+CSS grid layout defined in `uno.config.ts` shortcuts:
+
+```text
+┌──────────┬─────────────────────┬──────────────┐
+│ Sidebar  │     Main Content    │ Now Playing  │
+│ (232px)  │                     │  (292px, xl) │
+│          │                     │              │
+└──────────┴─────────────────────┴──────────────┘
+│              Player Bar (fixed bottom)         │
+└────────────────────────────────────────────────┘
+```
+
+- `AppSidebar.vue` — left nav with primary + utility links
+- `NowPlayingPanel.vue` — right panel (hidden below xl breakpoint)
+- `PlayerBar.vue` — fixed bottom transport controls
+
+### Typed IPC system
+
+All IPC is defined in `src/shared/ipc/`:
+
+- **contracts.ts** — `IpcInvokeContract` maps channel names to `{ request, response }` types. Every new IPC call starts here.
+- **channels.ts** — Runtime channel string constants derived from contract keys.
+- **api.ts** — `AuralisApi` interface matching the shape exposed on `window.auralis`.
+
+Two IPC patterns are in use:
+
+1. **Invoke** (request/response) — standard `ipcMain.handle` / `ipcRenderer.invoke` for most calls.
+2. **Push** (main → renderer) — `window.webContents.send` + `ipcRenderer.on` for streaming events like `library:scan-progress`. Preload wraps these with `onScanProgress(callback)` that returns an unsubscribe function.
+
+Preload (`src/preload/index.ts`) exposes `window.auralis` via `contextBridge.exposeInMainWorld`. Renderer accesses IPC through `src/renderer/shared/ipc/client.ts` which re-exports `window.auralis`.
+
+Adding a new IPC call:
+
+1. Add the channel type to `IpcInvokeContract` in `src/shared/ipc/contracts.ts`
+2. Add the channel string to `ipcChannels` in `src/shared/ipc/channels.ts`
+3. Add the method to `AuralisApi` in `src/shared/ipc/api.ts`
+4. Add the handler in `src/main/ipc/registerIpcHandlers.ts`
+5. Add the preload bridge method in `src/preload/index.ts`
+
+### Repository pattern
+
+- `BaseRepository` (`src/main/repositories/baseRepository.ts`) — abstract class holding a `Database.Database` reference
+- Concrete repositories extend it: `LibraryRepository`, `LibraryRootRepository`, `ScanJobRepository`, `TrackRepository`, `ScanFailureRepository`
+- Services wrap repositories and are instantiated in `registerIpcHandlers.ts`
+
+### Library scanning architecture
+
+Scanning runs in a background Worker thread to avoid blocking the main process:
+
+```text
+Settings UI → Typed IPC → LibraryScanService → Worker thread → Repository → SQLite
+```
+
+- `src/main/features/libraryScan/libraryScanService.ts` — lifecycle manager (start, cancel, progress publishing)
+- `src/main/features/libraryScan/libraryScanWorker.ts` — runs in `node:worker_threads`, traverses directories, parses metadata via `music-metadata`
+- Worker is built as a separate Rollup entry point in `electron.vite.config.ts`
+- Progress is pushed to renderer via `webContents.send('library:scan-progress')`
+- Supported formats: mp3, flac, m4a, aac, wav, ogg, opus
+- Scan deduplication: compares `file_size` + `file_mtime_ms` to skip unchanged files
+- Batch writes: tracks are upserted in batches of 300 within SQLite transactions
+
+### Database
+
+SQLite via `better-sqlite3`. Schema migrations are defined in `src/main/database/schema.ts` as an ordered array of `{ id, name, sql }` objects. The migration runner tracks applied migrations in a `schema_migrations` table.
+
+Current tables:
+
+- **tracks** — audio files with metadata (file_path is unique, indexed with file_size + file_mtime_ms for scan dedup)
+- **albums** — album titles with artist (unique on title + artist)
+- **library_roots** — user-selected music directories
+- **scan_jobs** — scan task lifecycle (status: idle → scanning → completed/canceled/failed)
+- **scan_failures** — individual file parse errors per job
+
+Database lives at `data/auralis.sqlite` relative to the app root (dev) or `userData` (packaged). WAL mode and foreign keys are enabled by default.
+
+### Renderer structure
+
+Feature-first organization under `src/renderer/features/`:
+
+```text
+features/
+  albums/
+  archive/
+  library/       # LibraryPage + VirtualListPage
+  playback/
+  search/
+  settings/      # SettingsPage + components/MusicLibrarySettings.vue
+```
+
+App layout components in `src/renderer/app/layout/`: `AppSidebar.vue`, `NowPlayingPanel.vue`, `PlayerBar.vue`. Routes registered in `src/renderer/app/router/index.ts` using Vue Router with hash history.
+
+### Documentation
+
+Design docs in `docs/` (written in Chinese):
+
+- `Auralis 曲库加载 PRD.md` — library scanning product requirements
+- `Auralis 曲库加载技术设计.md` — library scanning technical design
+- `Auralis 悬浮 Playbar PRD.md` — floating playbar product requirements (P0 not yet implemented)
 
 ## Renderer Visual Architecture
 
-The main window is frameless. `src/renderer/App.vue` owns the persistent shell and renders
-the current track's `FluidArtworkBackground` beneath the sidebar, routed page, lyrics panel,
-and floating player bar. Native-style close/minimize/maximize controls live in
-`src/renderer/app/layout/AppSidebar.vue`; interactive controls must remain in
-`-webkit-app-region: no-drag` regions.
+The main window is a custom frameless transparent shell (`frame: false`, `transparent: true`,
+`backgroundColor: '#00000000'`). Window chrome (background / inset border / control hover) is
+driven by the current track's artwork palette via `--auralis-window-chrome-*` CSS variables on
+`.app-window`, falling back to theme tokens without a track. Custom Windows-style min/max/close
+controls live in `src/renderer/app/layout/WindowChromeControls.vue` (top-right, `no-drag`).
+Drag regions exist in the sidebar header, the main-area top strip, Miniplayer, and desktop
+lyrics windows.
 
 - `src/renderer/app/layout/PlayerBar.vue`: playback controls, progress, volume, queue/mode
   popovers, desktop-lyrics sync, and artwork-palette CSS variables.
@@ -109,4 +223,4 @@ Pull requests should include a short summary, verification commands, screenshots
 
 ## Security & Configuration Tips
 
-Keep native Electron dependencies stable. Do not upgrade Electron or `better-sqlite3` casually. After reinstalling dependencies, run `npm.cmd run rebuild:native` before starting the app.
+Keep native Electron dependencies stable. Do not upgrade Electron or `better-sqlite3` casually. After reinstalling dependencies, run `npm.cmd run rebuild:native` before starting the app to ensure native modules are compiled against the correct Electron ABI.

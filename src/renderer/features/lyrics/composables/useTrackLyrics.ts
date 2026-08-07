@@ -39,7 +39,12 @@ const isPrelude = computed(() => {
 
 const showPrelude = computed(() => {
   if (!canShowPrelude.value) return false
-  return playback.state.currentTime >= parsedLines.value[0].timeSeconds - 3
+  const first = parsedLines.value[0]
+  // 仅在进入首行歌词前的 3 秒窗口内显示；倒计时一结束（首行开始）即消失
+  return (
+    playback.state.currentTime >= first.timeSeconds - 3 &&
+    playback.state.currentTime < first.timeSeconds
+  )
 })
 
 const preludeLitDotCount = computed(() => {

@@ -662,8 +662,7 @@ export class MetadataRefreshRepository extends BaseRepository {
       const albumTitle = metadata.albumTitle || metadata.album
       const albumArtistDisplay =
         metadata.albumArtistDisplay || metadata.albumArtist || artistDisplay
-      const genreDisplay =
-        metadata.genres.length > 0 ? metadata.genres.join('; ') : metadata.genre
+      const genreDisplay = metadata.genres.length > 0 ? metadata.genres.join('; ') : metadata.genre
 
       if (preserveUserEdit) {
         // Keep user_edit display fields / source; still refresh technical + lyrics data.

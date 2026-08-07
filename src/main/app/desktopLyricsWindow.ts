@@ -33,7 +33,8 @@ function broadcastMousePassthrough(enabled: boolean): void {
 function applyDesktopLyricsMousePassthrough(window = desktopLyricsWindow): void {
   if (!window || window.isDestroyed()) return
 
-  window.setFocusable(!desktopLyricsMousePassthroughEnabled)
+  // 始终保持不可聚焦（Alt+Tab 收录主要来自可聚焦窗口）；仅切换鼠标穿透
+  window.setFocusable(false)
   window.setIgnoreMouseEvents(desktopLyricsMousePassthroughEnabled, { forward: true })
 }
 
@@ -64,6 +65,7 @@ function syncDesktopLyricsWindowVisibility(): void {
   const window = createDesktopLyricsWindow()
 
   window.showInactive()
+  window.setSkipTaskbar(true) // show 后再设一次，防止被系统重置进任务栏 / Alt+Tab
   keepDesktopLyricsAbove(window)
   setTimeout(() => keepDesktopLyricsAbove(window), 80)
 }
@@ -85,7 +87,8 @@ function createDesktopLyricsWindow(): BrowserWindow {
     minWidth: 640,
     minHeight: 120,
     maxHeight: 220,
-    title: 'Auralis Desktop Lyrics',
+    title: 'Auralis',
+    type: 'toolbar', // Windows: WS_EX_TOOLWINDOW 风格，不进入 Alt+Tab 切换列表
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
@@ -94,7 +97,8 @@ function createDesktopLyricsWindow(): BrowserWindow {
     movable: true,
     show: false,
     skipTaskbar: true,
-    focusable: !desktopLyricsMousePassthroughEnabled,
+    // 始终不可聚焦：tool window 不聚焦就不会被 Alt+Tab 收录
+    focusable: false,
     alwaysOnTop: true,
     autoHideMenuBar: true,
     webPreferences: {
@@ -121,6 +125,7 @@ function createDesktopLyricsWindow(): BrowserWindow {
     event.preventDefault()
   })
   desktopLyricsWindow.on('show', () => {
+    desktopLyricsWindow?.setSkipTaskbar(true)
     keepDesktopLyricsAbove(desktopLyricsWindow!)
     sendLatestPayload()
   })

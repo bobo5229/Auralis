@@ -462,8 +462,8 @@ async function loadHeatmap(): Promise<void> {
   if (heatmapResult.status === 'fulfilled') {
     heatmap.value = heatmapResult.value
   } else {
-    errorMessage.value =
-      heatmapResult.reason instanceof Error ? heatmapResult.reason.message : '无法读取听歌记录'
+    console.error('[Auralis] failed to load listening heatmap:', heatmapResult.reason)
+    errorMessage.value = '无法读取听歌记录'
   }
 
   if (insightsResult.status === 'fulfilled') {
@@ -515,7 +515,8 @@ async function loadListeningRanking(): Promise<void> {
     }
   } catch (error) {
     if (requestId === rankingRequestId) {
-      rankingError.value = error instanceof Error ? error.message : '无法读取听歌排行'
+      console.error('[Auralis] failed to load listening ranking:', error)
+      rankingError.value = '无法读取听歌排行'
       listeningRanking.value = null
     }
   } finally {
@@ -844,7 +845,8 @@ async function openDailyDetail(event: MouseEvent | KeyboardEvent, day: CalendarD
   } catch (error) {
     if (requestId !== detailRequestId) return
     if (detailDialog.value?.date !== dateKey) return
-    detailError.value = error instanceof Error ? error.message : '无法读取当日播放记录'
+    console.error('[Auralis] failed to load daily listening detail:', error)
+    detailError.value = '无法读取当日播放记录'
   } finally {
     if (requestId === detailRequestId) {
       isDetailLoading.value = false
@@ -992,7 +994,8 @@ async function resetAllPlayStats(): Promise<void> {
       await loadAnnualRecapRankings()
     }
   } catch (error) {
-    resetError.value = error instanceof Error ? error.message : '无法重置播放数据'
+    console.error('[Auralis] failed to reset playback data:', error)
+    resetError.value = '无法重置播放数据'
   } finally {
     isResetting.value = false
   }

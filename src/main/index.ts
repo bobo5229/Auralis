@@ -9,15 +9,15 @@ import { ensureArtworkCacheDir } from './features/artwork/artworkCache'
 import { registerArtworkProtocol } from './features/artwork/artworkProtocol'
 import {
   registerAudioProtocol,
-  registerAudioSchemeAsPrivileged,
+  registerPrivilegedMediaSchemes,
 } from './features/audio/audioProtocol'
 import { LibraryRootRepository } from './repositories/libraryRootRepository'
 import { TrackRepository } from './repositories/trackRepository'
 import { logger } from './logging/logger'
 import { ipcChannels } from '@shared/ipc/channels'
 
-// Custom media scheme privileges must be registered before app.ready.
-registerAudioSchemeAsPrivileged()
+// Custom media scheme privileges must be registered before app.ready (single call).
+registerPrivilegedMediaSchemes()
 
 app.setName('Auralis')
 // Keep Windows taskbar / jump-list identity stable so shell uses the app icon, not Electron's.

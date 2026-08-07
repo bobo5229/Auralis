@@ -11,8 +11,9 @@ import { splitDelimitedValues } from '@shared/utils/delimitedValues'
 
 /**
  * Atomic genre labels for spectrum / TopN.
- * Uses shared multi-value split so both `"; "` and `", "` (and full-width variants)
- * count as separators. Empty →「未分类」. Dedupes while preserving order.
+ * Uses shared multi-value split (`"; "` / `", "` / full-width / `、`).
+ * Slash compounds stay single labels (`R&B/SOUL`, `Hip-hop/Rap`).
+ * Empty →「未分类」. Dedupes while preserving order.
  * Full play stats are attributed to every returned label.
  */
 export function splitGenreLabels(raw: string | null | undefined): string[] {
