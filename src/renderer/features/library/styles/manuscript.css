@@ -80,9 +80,21 @@
  * 行高 44px、列宽与 grid 布局不变（由 uno.config.ts shortcuts 提供）。
  * ========================================================================== */
 
-/* 悬停：极淡石墨底纹 */
-.library-page[data-visual-style='manuscript'] .song-row:hover {
+/* 悬停：极淡石墨底纹（仅限非状态行，避免覆盖 playing/paused/selected） */
+.library-page[data-visual-style='manuscript']
+  .song-row:not(.song-row--playing):not(.song-row--paused):not(.song-row--selected):hover {
   background: var(--manuscript-hover);
+}
+
+/* 状态行悬停：保持暗红语义，仅做极轻微强化
+   （!important 压过 selected 基础规则的 :not 特异性） */
+.library-page[data-visual-style='manuscript']
+  :is(.song-row--playing, .song-row--paused, .song-row--selected):hover {
+  background: color-mix(
+    in srgb,
+    var(--manuscript-accent-soft),
+    var(--manuscript-graphite) 4%
+  ) !important;
 }
 
 /* 现有选中行：淡暗红底纹；播放/暂停状态优先（:not 排除） */
