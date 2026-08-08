@@ -713,6 +713,7 @@ onBeforeUnmount(() => {
                   :index="virtualRow.index"
                   :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
                   :is-playing="playback.state.isPlaying"
+                  :selected="playback.state.selectedTrackId === tracks[virtualRow.index].id"
                   :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
                   :style="{
                     height: `${virtualRow.size}px`,

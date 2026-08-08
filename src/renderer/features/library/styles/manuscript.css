@@ -85,6 +85,12 @@
   background: var(--manuscript-hover);
 }
 
+/* 现有选中行：淡暗红底纹；播放/暂停状态优先（:not 排除） */
+.library-page[data-visual-style='manuscript']
+  .song-row--selected:not(.song-row--playing):not(.song-row--paused) {
+  background: var(--manuscript-accent-soft);
+}
+
 /* 正在播放行左侧 2px 竖条：绝对定位，不挤压 44px 行高或列宽 */
 .library-page[data-visual-style='manuscript'] :is(.song-row--playing, .song-row--paused) {
   position: relative;
