@@ -37,6 +37,10 @@
   --auralis-search-border: rgba(48, 43, 37, 0.35);
   --auralis-search-shadow: 0 1px 3px rgba(41, 39, 35, 0.12);
   --auralis-artwork-placeholder-bg: rgba(41, 39, 35, 0.1);
+  /* 常驻控件（焦点环/hover/激活态）适配纸面，焦点环 3:1 达标 */
+  --auralis-progress-fill: var(--manuscript-accent);
+  --auralis-control-hover-bg: var(--manuscript-hover);
+  --auralis-control-active-bg: var(--manuscript-accent-soft);
 
   /* 主要文本启用 GenRyuMin 衬线字体 */
   font-family: var(--manuscript-font-serif);
