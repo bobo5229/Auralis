@@ -8,6 +8,7 @@ const props = defineProps<{
   track: TrackListItem
   nowPlaying: boolean
   isPlaying: boolean
+  selected: boolean
   index: number
   artworkUrl: string | null
 }>()
@@ -40,6 +41,7 @@ watch(
       {
         'song-row--playing': nowPlaying && isPlaying,
         'song-row--paused': nowPlaying && !isPlaying,
+        'song-row--selected': selected,
       },
     ]"
     @click="$emit('select', track.id)"
