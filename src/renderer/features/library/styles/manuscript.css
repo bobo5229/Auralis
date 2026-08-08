@@ -66,3 +66,62 @@
   ) {
   font-family: 'Auralis Sans SC', system-ui, -apple-system, sans-serif;
 }
+
+/* ==========================================================================
+ * Phase 3：平铺歌曲列表手稿化
+ * 规则全部位于手稿命名空间内，可单独删除而不影响 Phase 2 纸张画布。
+ * 行高 44px、列宽与 grid 布局不变（由 uno.config.ts shortcuts 提供）。
+ * ========================================================================== */
+
+/* 悬停：极淡石墨底纹 */
+.library-page[data-visual-style='manuscript'] .song-row:hover {
+  background: var(--manuscript-hover);
+}
+
+/* 正在播放行左侧 2px 竖条：绝对定位，不挤压 44px 行高或列宽 */
+.library-page[data-visual-style='manuscript'] :is(.song-row--playing, .song-row--paused) {
+  position: relative;
+}
+
+.library-page[data-visual-style='manuscript'] :is(.song-row--playing, .song-row--paused)::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.library-page[data-visual-style='manuscript'] .song-row--playing::before {
+  background: var(--manuscript-accent);
+}
+
+.library-page[data-visual-style='manuscript'] .song-row--paused::before {
+  background: var(--manuscript-rule-strong);
+}
+
+/* 暂停行文字回到石墨纸色（播放行保留暗红）；仅手稿命名空间，modern 行为不变 */
+.library-page[data-visual-style='manuscript'] .song-row--paused .song-title {
+  color: var(--auralis-text) !important;
+}
+
+.library-page[data-visual-style='manuscript'] .song-row--paused .song-artist {
+  color: var(--auralis-text-muted) !important;
+}
+
+.library-page[data-visual-style='manuscript'] .song-row--paused .song-album {
+  color: var(--auralis-text-subtle) !important;
+}
+
+.library-page[data-visual-style='manuscript'] .song-row--paused .song-duration {
+  color: var(--auralis-text-faint) !important;
+}
+
+/* 专辑封面：接近直角 + 1px 石墨描边；占位底用略深纸色（保留 44×44 全彩内容） */
+.library-page[data-visual-style='manuscript'] .song-cover {
+  border-radius: 2px;
+  border: 1px solid var(--manuscript-rule-strong);
+  background: var(--manuscript-paper-deep);
+}

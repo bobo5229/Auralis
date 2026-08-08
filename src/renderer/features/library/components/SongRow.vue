@@ -7,6 +7,7 @@ import { formatDuration } from '../utils/formatDuration'
 const props = defineProps<{
   track: TrackListItem
   nowPlaying: boolean
+  isPlaying: boolean
   index: number
   artworkUrl: string | null
 }>()
@@ -30,13 +31,17 @@ watch(
 <template>
   <div
     class="song-row"
-    :class="
+    :class="[
       nowPlaying
         ? 'bg-[var(--auralis-song-row-now-playing-bg)]'
         : index % 2 === 1
           ? 'bg-[var(--auralis-song-row-alt-bg)]'
-          : 'bg-[var(--auralis-song-row-bg)]'
-    "
+          : 'bg-[var(--auralis-song-row-bg)]',
+      {
+        'song-row--playing': nowPlaying && isPlaying,
+        'song-row--paused': nowPlaying && !isPlaying,
+      },
+    ]"
     @click="$emit('select', track.id)"
     @dblclick="$emit('play', track.id)"
     @contextmenu.prevent="$emit('openContextMenu', track.id, $event)"
