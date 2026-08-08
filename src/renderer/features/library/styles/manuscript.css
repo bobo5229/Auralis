@@ -43,8 +43,11 @@
 
   /* —— 纸张画布：挂载在三种状态共享的页面层 ——
    * 约 12px 外围间隙的独立暖白纸页；loading / 空曲库 / 列表
-   * 三个分支均落于其上，避免深石墨文字落在深色流光背景上。 */
+   * 三个分支均落于其上，避免深石墨文字落在深色流光背景上。
+   * 高度补偿上下 margin，防止在父级 .app-main(overflow-y-auto)
+   * 中产生第二层纵向滚动。 */
   margin: 12px;
+  height: calc(100% - 24px);
   border: 1px solid var(--manuscript-rule-strong);
   border-radius: 2px; /* 方正边缘，非大圆角 */
   background:
