@@ -98,8 +98,11 @@ function onArtworkContextMenu(event: MouseEvent): void {
   align-items: start;
 }
 
-/* 复用专辑详情曲目列表面板壳；高度随内容收缩，少曲目时不留空壳 */
+/* 复用专辑详情曲目列表面板壳；高度随内容收缩，少曲目时不留空壳。
+ * padding / border-width 消费 libraryLayoutMetrics 注入的 --library-*，
+ * 与 getAlbumGroupEstimatedHeight 同一事实源（Phase 6 REVIEW Finding 1）。 */
 .album-cover-tracks {
+  box-sizing: border-box;
   align-self: start;
   width: 100%;
   height: fit-content;
@@ -107,9 +110,9 @@ function onArtworkContextMenu(event: MouseEvent): void {
   background: var(--auralis-track-list-bg);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid var(--auralis-track-list-border);
+  border: var(--library-cover-panel-border-width) solid var(--auralis-track-list-border);
   border-radius: 20px;
-  padding: 10px;
+  padding: var(--library-cover-panel-padding-block-side);
   box-shadow:
     0 12px 36px 0 rgba(0, 0, 0, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
