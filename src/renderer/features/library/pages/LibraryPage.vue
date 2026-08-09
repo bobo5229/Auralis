@@ -12,6 +12,12 @@ import LiquidGlassPanel from '../components/LiquidGlassPanel.vue'
 import MetadataEditDialog from '../components/MetadataEditDialog.vue'
 import VisualStyleSwitch from '../components/VisualStyleSwitch.vue'
 import { useVisualStyle } from '../composables/useVisualStyle'
+import {
+  getAlbumGroupEstimatedHeight,
+  LIBRARY_LAYOUT_CSS_VARS,
+  LIBRARY_LAYOUT_METRICS,
+} from '../constants/libraryLayoutMetrics'
+import '../styles/manuscript.tokens.css'
 import '../styles/manuscript.css'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -105,7 +111,7 @@ const rowVirtualizer = useVirtualizer(
     count: tracks.value.length,
     enabled: !isCoverView.value,
     getScrollElement: () => scrollRef.value,
-    estimateSize: () => 44,
+    estimateSize: () => LIBRARY_LAYOUT_METRICS.flatRowHeight,
     overscan: 12,
   })),
 )
@@ -148,16 +154,8 @@ const albumGroups = computed<LibraryAlbumGroup[]>(() => {
   return groups
 })
 
-/** 封面列：250 封面 + meta；曲目列：行高 40 × N + 面板上下 padding 20（与 DOM 对齐） */
-const COVER_VIEW_ROW_HEIGHT = 40
-const COVER_VIEW_PANEL_PAD_Y = 20
-const COVER_VIEW_GROUP_PAD_Y = 56 // py-7 × 2
-
 function getAlbumGroupSize(group: LibraryAlbumGroup): number {
-  const metadataHeight = group.releaseDate ? 322 : 302
-  const tracksHeight = group.tracks.length * COVER_VIEW_ROW_HEIGHT + COVER_VIEW_PANEL_PAD_Y
-  // 组高取左右列 max，保证虚拟滚动间距；面板本身 height:fit-content 不拉伸填空
-  return Math.max(metadataHeight, tracksHeight) + COVER_VIEW_GROUP_PAD_Y
+  return getAlbumGroupEstimatedHeight(group.tracks.length, Boolean(group.releaseDate))
 }
 
 const albumVirtualizer = useVirtualizer(
@@ -273,9 +271,8 @@ function scrollRenderedTrackToRatio(targetTrackId: number): boolean {
   const targetIndex = tracks.value.findIndex((track) => track.id === targetTrackId)
   if (targetIndex < 0) return false
 
-  const estimatedRowSize = 44
   const offset =
-    targetIndex * estimatedRowSize +
+    targetIndex * LIBRARY_LAYOUT_METRICS.flatRowHeight +
     LIBRARY_TOP_INSET -
     container.clientHeight * SCROLL_POSITION_RATIO
   container.scrollTop = Math.max(0, offset)
@@ -654,10 +651,11 @@ onBeforeUnmount(() => {
   <section
     class="library-page relative flex h-full flex-col"
     :data-visual-style="isManuscriptLibrary ? 'manuscript' : 'modern'"
+    :style="LIBRARY_LAYOUT_CSS_VARS"
   >
     <VisualStyleSwitch v-if="isLibraryRoute" />
 
-    <div v-if="isLoading" class="flex flex-1 items-center justify-center">
+    <div v-if="isLoading" class="library-status-state flex flex-1 items-center justify-center">
       <p class="text-sm text-[var(--auralis-text-faint)]">Loading library...</p>
     </div>
 
@@ -760,7 +758,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-else class="flex flex-1 items-center justify-center">
+    <div v-else class="library-status-state flex flex-1 items-center justify-center">
       <p class="text-sm text-[var(--auralis-text-faint)]">{{ emptyMessage }}</p>
     </div>
 

@@ -54,9 +54,9 @@ export default defineConfig({
       'inline-flex items-center justify-center rounded-full p-3 text-[var(--auralis-text)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
     'player-control-active': 'text-[var(--auralis-sidebar-active-text)]',
     'song-row':
-      'grid h-11 grid-cols-[44px_minmax(0,1fr)_300px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer',
+      'grid h-[var(--library-flat-row-height)] grid-cols-[var(--library-flat-artwork-size)_minmax(0,1fr)_300px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer',
     'song-cover':
-      'h-11 w-11 shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
+      'h-[var(--library-flat-artwork-size)] w-[var(--library-flat-artwork-size)] shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
     'song-title': 'text-sm font-bold truncate pl-1.5',
     'song-artist': 'text-xs font-semibold text-[var(--auralis-text-muted)] truncate pl-2',
     'song-album': 'text-xs font-semibold text-[var(--auralis-text-subtle)] truncate text-right',
@@ -89,17 +89,19 @@ export default defineConfig({
     'playback-mode-item-active': '',
     'playback-mode-check': 'ml-auto h-4 w-4',
     'album-cover-group':
-      'grid grid-cols-[250px_minmax(0,1fr)] gap-x-12 border-b border-[var(--auralis-cover-divider)] py-7',
-    'album-cover-aside': 'w-[250px]',
+      'grid grid-cols-[var(--library-cover-artwork-size)_minmax(0,1fr)] gap-x-12 border-b border-[var(--auralis-cover-divider)] py-[calc(var(--library-cover-group-padding-block)/2)]',
+    'album-cover-aside': 'w-[var(--library-cover-artwork-size)]',
     'album-cover-artwork':
-      'w-[250px] h-[250px] rounded-lg overflow-hidden bg-[var(--auralis-artwork-placeholder-bg)]',
-    'album-cover-meta': 'mt-3',
-    'album-cover-meta-title': 'truncate text-[16px] font-bold leading-5 text-[var(--auralis-text)]',
-    'album-cover-meta-line': 'font-semibold text-xs text-[var(--auralis-text-muted)] leading-5',
+      'w-[var(--library-cover-artwork-size)] h-[var(--library-cover-artwork-size)] rounded-lg overflow-hidden bg-[var(--auralis-artwork-placeholder-bg)]',
+    'album-cover-meta': 'mt-[var(--library-cover-meta-gap)]',
+    'album-cover-meta-title':
+      'truncate text-[16px] font-bold leading-[var(--library-cover-meta-line-height)] text-[var(--auralis-text)]',
+    'album-cover-meta-line':
+      'font-semibold text-xs text-[var(--auralis-text-muted)] leading-[var(--library-cover-meta-line-height)]',
     /* 布局骨架；整块面板壳与内部分割线见 AlbumCoverGroup / AlbumCoverTrackRow scoped */
     'album-cover-tracks': 'min-w-0',
     'cover-track-row':
-      'relative grid grid-cols-[40px_minmax(0,1fr)_minmax(120px,220px)_48px] gap-x-3 items-center px-3 min-h-10 rounded-xl cursor-pointer transition-colors hover:bg-[var(--auralis-control-hover-bg)]',
+      'relative grid grid-cols-[40px_minmax(0,1fr)_minmax(120px,220px)_48px] gap-x-3 items-center px-3 min-h-[var(--library-cover-track-row-height)] rounded-xl cursor-pointer transition-colors hover:bg-[var(--auralis-control-hover-bg)]',
     'cover-track-row--playing':
       'bg-[var(--auralis-song-row-now-playing-bg)] hover:bg-[var(--auralis-song-row-now-playing-bg)]',
     'lyric-active': 'text-[var(--auralis-lyrics-active)] font-bold text-[28px] leading-12 py-1.5',
