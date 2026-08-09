@@ -150,8 +150,10 @@
   color: var(--auralis-text-faint) !important;
 }
 
-/* 专辑封面：接近直角 + 1px 石墨描边；占位底用略深纸色（保留 44×44 全彩内容） */
+/* 专辑封面：接近直角 + 1px 石墨描边；占位底用略深纸色（保留 44×44 全彩内容）
+ * border-box 保证描边计入 h-11/w-11，不把封面撑成 46×46。 */
 .library-page[data-visual-style='manuscript'] .song-cover {
+  box-sizing: border-box;
   border-radius: 2px;
   border: 1px solid var(--manuscript-rule-strong);
   background: var(--manuscript-paper-deep);
@@ -161,23 +163,26 @@
  * Phase 4：封面分组与常驻控件
  * 保持 AlbumCoverGroup 的 250px 封面、20px panel padding、40px 行高和
  * 56px 组间距；此处只替换表面视觉，所有线条使用伪元素或现有边框。
+ *
+ * 选择器经 .album-cover-group 加长，特异性高于 AlbumCoverGroup.vue /
+ * AlbumCoverTrackRow.vue 的 scoped 规则（同权时组件样式可能后注入并盖过）。
  * ======================================================================== */
 
 /* 封面：保持 250×250 和原图色彩，只把圆角收至近直角并补石墨描边。 */
-.library-page[data-visual-style='manuscript'] .album-cover-artwork {
+.library-page[data-visual-style='manuscript'] .album-cover-group .album-cover-artwork {
   box-sizing: border-box;
   border: 1px solid var(--manuscript-rule-strong);
   border-radius: 2px;
   background: var(--manuscript-paper-deep);
 }
 
-.library-page[data-visual-style='manuscript'] .album-cover-artwork img {
+.library-page[data-visual-style='manuscript'] .album-cover-group .album-cover-artwork img {
   filter: none;
   opacity: 1;
 }
 
 /* 封面曲目 panel：暖白纸面 + 细边，移除玻璃模糊、高光和大阴影。 */
-.library-page[data-visual-style='manuscript'] .album-cover-tracks {
+.library-page[data-visual-style='manuscript'] .album-cover-group .album-cover-tracks {
   box-sizing: border-box;
   background: var(--manuscript-paper);
   border: 1px solid var(--manuscript-rule-strong);
@@ -188,7 +193,7 @@
 }
 
 /* 曲目行仍为 40px；细横线不占布局空间，playing 状态优先于 hover。 */
-.library-page[data-visual-style='manuscript'] .cover-track-row {
+.library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row {
   box-sizing: border-box;
   height: 40px;
   min-height: 40px;
@@ -198,24 +203,29 @@
 }
 
 .library-page[data-visual-style='manuscript']
+  .album-cover-group
   .cover-track-row:hover:not(.cover-track-row--playing) {
   background: var(--manuscript-hover);
 }
 
-.library-page[data-visual-style='manuscript'] .cover-track-row--playing,
-.library-page[data-visual-style='manuscript'] .cover-track-row--playing:hover {
+.library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row--playing,
+.library-page[data-visual-style='manuscript']
+  .album-cover-group
+  .cover-track-row--playing:hover {
   background: var(--manuscript-accent-soft) !important;
 }
 
-.library-page[data-visual-style='manuscript'] .cover-track-row:not(:first-child)::before {
+.library-page[data-visual-style='manuscript']
+  .album-cover-group
+  .cover-track-row:not(:first-child)::before {
   background: var(--manuscript-rule);
 }
 
-.library-page[data-visual-style='manuscript'] .cover-track-row--playing {
+.library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row--playing {
   position: relative;
 }
 
-.library-page[data-visual-style='manuscript'] .cover-track-row--playing::after {
+.library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row--playing::after {
   content: '';
   position: absolute;
   top: 8px;
@@ -227,16 +237,24 @@
   pointer-events: none;
 }
 
-.library-page[data-visual-style='manuscript'] .cover-track-row--playing > span,
-.library-page[data-visual-style='manuscript'] .cover-track-row--playing > div > span:first-child {
+.library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row--playing > span,
+.library-page[data-visual-style='manuscript']
+  .album-cover-group
+  .cover-track-row--playing
+  > div
+  > span:first-child {
   color: var(--manuscript-accent) !important;
 }
 
 .library-page[data-visual-style='manuscript']
+  .album-cover-group
   .cover-track-row--playing
   > div
   > span:not(:first-child),
-.library-page[data-visual-style='manuscript'] .cover-track-row--playing > span:not(:first-child) {
+.library-page[data-visual-style='manuscript']
+  .album-cover-group
+  .cover-track-row--playing
+  > span:not(:first-child) {
   color: #7c3f3e !important;
 }
 

@@ -51,6 +51,10 @@ genryu-font-master.zip
 docs/*
 !docs/ARCHITECTURE.md
 !docs/2026-07-17-architecture-review-fixes.md
+# 手稿皮肤 MVP：TECHDOC + Phase 5 受跟踪验收目录（含截图）
+!docs/techdoc-library-manuscript-skin-mvp.md
+!docs/library-manuscript-skin-mvp/
+!docs/library-manuscript-skin-mvp/**
 
 # Performance traces
 artifacts/
