@@ -256,7 +256,7 @@
 
 .library-page[data-visual-style='manuscript'] .library-search-bar:focus-within {
   border-color: var(--manuscript-accent);
-  box-shadow: 0 0 0 2px var(--manuscript-accent-soft);
+  box-shadow: 0 0 0 2px var(--manuscript-accent);
 }
 
 .library-page[data-visual-style='manuscript'] .library-search-bar:active {
