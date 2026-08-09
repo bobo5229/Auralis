@@ -23,7 +23,7 @@
 | REVIEW F4 | `efc3ed5` | `refactor：收紧手稿 Token 分层与 Compatibility 映射` |
 | REVIEW F5 | `e833628` | `fix：搜索框过渡遵守 prefers-reduced-motion` |
 | REVIEW F2+F6 | `385e30e` | `docs：落实 Phase 6 审查结论与人工门禁状态` |
-| REVIEW F7 | （提交后写入本行哈希） | `docs：同步 Phase 6 TECHDOC 布局字段与 DELIVERY 哈希` |
+| REVIEW F7 | `f7215c9` | `docs：同步 Phase 6 TECHDOC 布局字段与 DELIVERY 哈希` |
 
 **验收范围（固定哈希，无 tip 占位）**：
 
@@ -33,7 +33,7 @@
 | 含 6.5 交付文档 | `de8b430..536fb82` | 上表至 6.5 |
 | REVIEW 代码修复 | `de8b430..e833628` | 含 F1/F3/F4/F5 源码终点 |
 | REVIEW 含状态文档 | `de8b430..385e30e` | 含 F2/F6 文档 |
-| 含 F7 文档同步 | 见 F7 提交行 | TECHDOC/DELIVERY 字段与哈希对齐 |
+| 含 F7 文档同步 | `de8b430..f7215c9` | TECHDOC §4.1/4.2 与 F7 正文（哈希表补全为后续 docs 提交，不占用 tip） |
 
 ---
 
