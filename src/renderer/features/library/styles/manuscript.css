@@ -1,115 +1,62 @@
 /* ==========================================================================
- * 手稿皮肤（manuscript）— feature-scoped 样式（TECHDOC §4.3）
+ * 手稿皮肤组件规则（Phase 6 §4.4）
  *
- * 所有规则必须以 `.library-page[data-visual-style='manuscript']` 为前缀，
- * 禁止无命名空间的 :root / body / .song-row 覆盖。仅 `/` 全部歌曲页且
- * visual style 为 manuscript 时生效；歌单页、Sidebar、Now Playing、
- * Playbar 与 Teleport 浮层不继承任何手稿 token。
+ * 仅 feature-scoped 组件选择器 + 语义 Token；颜色/字体字面量只允许出现在
+ * manuscript.tokens.css。布局敏感尺寸引用 --library-*（由 libraryLayoutMetrics 注入）。
  * ========================================================================== */
 
+/* --------------------------------------------------------------------------
+ * Canvas — 纸张画布
+ * -------------------------------------------------------------------------- */
 .library-page[data-visual-style='manuscript'] {
-  /* —— 手稿 feature token（取值允许视觉验收时小幅微调）—— */
-  --manuscript-paper: #f3eedf;
-  --manuscript-paper-deep: #e9e1cf;
-  --manuscript-graphite: #292723;
-  --manuscript-graphite-muted: #6d675e;
-  --manuscript-rule: rgba(62, 57, 50, 0.24);
-  --manuscript-rule-strong: rgba(48, 43, 37, 0.46);
-  --manuscript-accent: #8b302f;
-  --manuscript-accent-soft: rgba(139, 48, 47, 0.1);
-  --manuscript-hover: rgba(42, 39, 34, 0.055);
-  --manuscript-font-serif: 'Auralis Desktop Lyrics SC', serif;
+  font-family: var(--manuscript-font-body);
 
-  /* —— 局部映射现有 --auralis-* 语义 token，供已有子组件消费 —— */
-  --auralis-text: var(--manuscript-graphite);
-  --auralis-text-muted: rgba(41, 39, 35, 0.72);
-  --auralis-text-subtle: rgba(41, 39, 35, 0.7);
-  --auralis-text-faint: rgba(41, 39, 35, 0.68);
-  --auralis-text-disabled: rgba(41, 39, 35, 0.3);
-  --auralis-border-subtle: var(--manuscript-rule);
-  --auralis-song-row-bg: transparent;
-  --auralis-song-row-alt-bg: transparent; /* 取消奇偶交替底色 */
-  --auralis-song-row-border: rgba(62, 57, 50, 0.18);
-  --auralis-song-row-now-playing-bg: var(--manuscript-accent-soft);
-  --auralis-song-row-now-playing-title: var(--manuscript-accent);
-  --auralis-song-row-now-playing-artist: #7c3f3e;
-  --auralis-song-row-now-playing-duration: #8b554f;
-  --auralis-search-bg: rgba(243, 238, 223, 0.92);
-  --auralis-search-border: rgba(48, 43, 37, 0.35);
-  --auralis-search-shadow: none;
-  --auralis-artwork-placeholder-bg: var(--manuscript-paper-deep);
-  --auralis-track-list-bg: var(--manuscript-paper);
-  --auralis-track-list-border: var(--manuscript-rule-strong);
-  --auralis-cover-track-bg: var(--manuscript-paper);
-  --auralis-cover-track-hover-bg: var(--manuscript-hover);
-  --auralis-cover-divider: var(--manuscript-rule-strong);
-  --auralis-cover-track-divider: var(--manuscript-rule);
-  /* 常驻控件（焦点环/hover/激活态）适配纸面，焦点环 3:1 达标 */
-  --auralis-progress-fill: var(--manuscript-accent);
-  --auralis-control-hover-bg: var(--manuscript-hover);
-  --auralis-control-active-bg: var(--manuscript-accent-soft);
-
-  /* 主要文本启用 GenRyuMin 衬线字体 */
-  font-family: var(--manuscript-font-serif);
-
-  /* —— 纸张画布：挂载在三种状态共享的页面层 ——
-   * 约 12px 外围间隙的独立暖白纸页；loading / 空曲库 / 列表
-   * 三个分支均落于其上，避免深石墨文字落在深色流光背景上。
-   * 高度补偿上下 margin，防止在父级 .app-main(overflow-y-auto)
-   * 中产生第二层纵向滚动。 */
+  /* 约 12px 外围间隙；高度补偿上下 margin，避免 app-main 双滚动 */
   margin: 12px;
   height: calc(100% - 24px);
-  border: 1px solid var(--manuscript-rule-strong);
-  border-radius: 2px; /* 方正边缘，非大圆角 */
-  background:
-    /* 低对比度静态纸纹：大尺度柔和渐变，无重复图案，避免摩尔纹 */
-    radial-gradient(ellipse 140% 90% at 15% 0%, rgba(255, 255, 255, 0.55), transparent 55%),
-    linear-gradient(165deg, rgba(41, 39, 35, 0.02), transparent 45%), var(--manuscript-paper);
-  box-shadow:
-    0 1px 2px rgba(41, 39, 35, 0.16),
-    0 6px 18px rgba(41, 39, 35, 0.1); /* 克制阴影 */
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  border-radius: var(--manuscript-radius-page);
+  background: var(--manuscript-effect-paper-background);
+  box-shadow: var(--manuscript-effect-page-shadow);
 }
 
-/* 数字与小控件保留无衬线：平铺/封面时长、曲序号、切换按钮、搜索输入框 */
+/* --------------------------------------------------------------------------
+ * Typography — 数字与小控件无衬线
+ * -------------------------------------------------------------------------- */
 .library-page[data-visual-style='manuscript']
   :is(.song-duration, .tabular-nums, .visual-style-switch-button, .library-search-input) {
-  font-family:
-    'Auralis Sans SC',
-    system-ui,
-    -apple-system,
-    sans-serif;
+  font-family: var(--manuscript-font-numeric);
 }
 
-/* ==========================================================================
- * Phase 3：平铺歌曲列表手稿化
- * 规则全部位于手稿命名空间内，可单独删除而不影响 Phase 2 纸张画布。
- * 行高 44px、列宽与 grid 布局不变（由 uno.config.ts shortcuts 提供）。
- * ========================================================================== */
+/* --------------------------------------------------------------------------
+ * Flat list — 平铺歌曲列表
+ * 行高由 --library-flat-row-height / Uno song-row 提供；播放竖条绝对定位。
+ * -------------------------------------------------------------------------- */
 
-/* 悬停：极淡石墨底纹（仅限非状态行，避免覆盖 playing/paused/selected） */
+/* hover：仅默认行；不覆盖 playing / paused / selected */
 .library-page[data-visual-style='manuscript']
   .song-row:not(.song-row--playing):not(.song-row--paused):not(.song-row--selected):hover {
-  background: var(--manuscript-hover);
+  background: var(--manuscript-state-hover);
 }
 
-/* 状态行悬停：保持暗红语义，仅做极轻微强化
-   （!important 压过 selected 基础规则的 :not 特异性） */
+/* 状态行 hover：极轻微强化
+ * !important：压过 SongRow 行内 Uno 背景与 selected 特异性（scoped 无关，见 Phase 5） */
 .library-page[data-visual-style='manuscript']
   :is(.song-row--playing, .song-row--paused, .song-row--selected):hover {
   background: color-mix(
     in srgb,
-    var(--manuscript-accent-soft),
-    var(--manuscript-graphite) 4%
+    var(--manuscript-state-accent-soft),
+    var(--manuscript-content-primary) 4%
   ) !important;
 }
 
-/* 现有选中行：淡暗红底纹；播放/暂停状态优先（:not 排除） */
+/* selected 低于 playing / paused */
 .library-page[data-visual-style='manuscript']
   .song-row--selected:not(.song-row--playing):not(.song-row--paused) {
-  background: var(--manuscript-accent-soft);
+  background: var(--manuscript-state-selected);
 }
 
-/* 正在播放行左侧 2px 竖条：绝对定位，不挤压 44px 行高或列宽 */
+/* 播放 / 暂停身份指示：绝对定位竖条，不占盒模型 */
 .library-page[data-visual-style='manuscript'] :is(.song-row--playing, .song-row--paused) {
   position: relative;
 }
@@ -120,20 +67,21 @@
   left: 0;
   top: 8px;
   bottom: 8px;
-  width: 2px;
-  border-radius: 1px;
+  width: var(--manuscript-indicator-width);
+  border-radius: var(--manuscript-radius-indicator);
   pointer-events: none;
 }
 
 .library-page[data-visual-style='manuscript'] .song-row--playing::before {
-  background: var(--manuscript-accent);
+  background: var(--manuscript-accent-primary);
 }
 
 .library-page[data-visual-style='manuscript'] .song-row--paused::before {
-  background: var(--manuscript-rule-strong);
+  background: var(--manuscript-border-strong);
 }
 
-/* 暂停行文字回到石墨纸色（播放行保留暗红）；仅手稿命名空间，modern 行为不变 */
+/* paused：中性墨色；playing 保留 auralis 暗红映射
+ * !important：压过 SongRow 模板上 nowPlaying 文字色 class */
 .library-page[data-visual-style='manuscript'] .song-row--paused .song-title {
   color: var(--auralis-text) !important;
 }
@@ -150,30 +98,23 @@
   color: var(--auralis-text-faint) !important;
 }
 
-/* 专辑封面：接近直角 + 1px 石墨描边；占位底用略深纸色（保留 44×44 全彩内容）
- * border-box 保证描边计入 h-11/w-11，不把封面撑成 46×46。 */
 .library-page[data-visual-style='manuscript'] .song-cover {
   box-sizing: border-box;
-  border-radius: 2px;
-  border: 1px solid var(--manuscript-rule-strong);
-  background: var(--manuscript-paper-deep);
+  border-radius: var(--manuscript-radius-artwork);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  background: var(--manuscript-surface-recessed);
 }
 
-/* ========================================================================
- * Phase 4：封面分组与常驻控件
- * 保持 AlbumCoverGroup 的 250px 封面、20px panel padding、40px 行高和
- * 56px 组间距；此处只替换表面视觉，所有线条使用伪元素或现有边框。
- *
- * 选择器经 .album-cover-group 加长，特异性高于 AlbumCoverGroup.vue /
- * AlbumCoverTrackRow.vue 的 scoped 规则（同权时组件样式可能后注入并盖过）。
- * ======================================================================== */
+/* --------------------------------------------------------------------------
+ * Cover list — 封面分组
+ * 选择器经 .album-cover-group 加长，特异性高于组件 scoped（Phase 5 回归）。
+ * -------------------------------------------------------------------------- */
 
-/* 封面：保持 250×250 和原图色彩，只把圆角收至近直角并补石墨描边。 */
 .library-page[data-visual-style='manuscript'] .album-cover-group .album-cover-artwork {
   box-sizing: border-box;
-  border: 1px solid var(--manuscript-rule-strong);
-  border-radius: 2px;
-  background: var(--manuscript-paper-deep);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  border-radius: var(--manuscript-radius-artwork);
+  background: var(--manuscript-surface-recessed);
 }
 
 .library-page[data-visual-style='manuscript'] .album-cover-group .album-cover-artwork img {
@@ -181,44 +122,43 @@
   opacity: 1;
 }
 
-/* 封面曲目 panel：暖白纸面 + 细边，移除玻璃模糊、高光和大阴影。 */
 .library-page[data-visual-style='manuscript'] .album-cover-group .album-cover-tracks {
   box-sizing: border-box;
-  background: var(--manuscript-paper);
-  border: 1px solid var(--manuscript-rule-strong);
-  border-radius: 2px;
+  background: var(--manuscript-surface-page);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  border-radius: var(--manuscript-radius-page);
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
-/* 曲目行仍为 40px；细横线不占布局空间，playing 状态优先于 hover。 */
 .library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row {
   box-sizing: border-box;
-  height: 40px;
-  min-height: 40px;
-  border-radius: 1px;
+  height: var(--library-cover-track-row-height);
+  min-height: var(--library-cover-track-row-height);
+  border-radius: var(--manuscript-radius-control-inner);
   background: transparent;
-  color: var(--manuscript-graphite);
+  color: var(--manuscript-content-primary);
 }
 
 .library-page[data-visual-style='manuscript']
   .album-cover-group
   .cover-track-row:hover:not(.cover-track-row--playing) {
-  background: var(--manuscript-hover);
+  background: var(--manuscript-state-hover);
 }
 
+/* !important：压过 Uno cover-track-row--playing 背景 */
 .library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row--playing,
 .library-page[data-visual-style='manuscript']
   .album-cover-group
   .cover-track-row--playing:hover {
-  background: var(--manuscript-accent-soft) !important;
+  background: var(--manuscript-state-accent-soft) !important;
 }
 
 .library-page[data-visual-style='manuscript']
   .album-cover-group
   .cover-track-row:not(:first-child)::before {
-  background: var(--manuscript-rule);
+  background: var(--manuscript-border-subtle);
 }
 
 .library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row--playing {
@@ -231,19 +171,20 @@
   top: 8px;
   bottom: 8px;
   left: 0;
-  width: 2px;
-  border-radius: 1px;
-  background: var(--manuscript-accent);
+  width: var(--manuscript-indicator-width);
+  border-radius: var(--manuscript-radius-indicator);
+  background: var(--manuscript-accent-primary);
   pointer-events: none;
 }
 
+/* !important：压过行内 text-* utility 颜色 */
 .library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row--playing > span,
 .library-page[data-visual-style='manuscript']
   .album-cover-group
   .cover-track-row--playing
   > div
   > span:first-child {
-  color: var(--manuscript-accent) !important;
+  color: var(--manuscript-accent-primary) !important;
 }
 
 .library-page[data-visual-style='manuscript']
@@ -255,106 +196,107 @@
   .album-cover-group
   .cover-track-row--playing
   > span:not(:first-child) {
-  color: #7c3f3e !important;
+  color: var(--manuscript-accent-secondary) !important;
 }
 
-/* 搜索框：保留原宽高和 Enter 语义，改为暖白纸面与细墨线。 */
+/* --------------------------------------------------------------------------
+ * Controls — 搜索框与视觉风格切换
+ * -------------------------------------------------------------------------- */
+
 .library-page[data-visual-style='manuscript'] .library-search-bar {
-  border-radius: 2px;
-  border-color: var(--manuscript-rule-strong);
-  background: var(--manuscript-paper);
+  border-radius: var(--manuscript-radius-control);
+  border-color: var(--manuscript-border-strong);
+  background: var(--manuscript-surface-control);
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
 .library-page[data-visual-style='manuscript'] .library-search-bar:hover {
-  border-color: var(--manuscript-graphite);
+  border-color: var(--manuscript-content-primary);
 }
 
 .library-page[data-visual-style='manuscript'] .library-search-bar:focus-within {
-  border-color: var(--manuscript-accent);
-  box-shadow: 0 0 0 2px var(--manuscript-accent);
+  border-color: var(--manuscript-border-focus);
+  box-shadow: 0 0 0 var(--manuscript-focus-ring-width) var(--manuscript-state-focus-ring);
 }
 
 .library-page[data-visual-style='manuscript'] .library-search-bar:active {
-  border-color: var(--manuscript-accent);
+  border-color: var(--manuscript-accent-primary);
 }
 
 .library-page[data-visual-style='manuscript'] .library-search-input::placeholder {
-  color: var(--manuscript-graphite-muted);
+  color: var(--manuscript-content-muted);
 }
 
-/* 页面常驻的视觉风格切换：暖白底、细墨线、暗红激活态。 */
 .library-page[data-visual-style='manuscript'] .visual-style-switch {
-  border-radius: 2px;
-  border-color: var(--manuscript-rule-strong);
-  background: var(--manuscript-paper);
+  border-radius: var(--manuscript-radius-control);
+  border-color: var(--manuscript-border-strong);
+  background: var(--manuscript-surface-control);
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
 .library-page[data-visual-style='manuscript'] .visual-style-switch-button {
-  border-radius: 1px;
-  color: var(--manuscript-graphite-muted);
+  border-radius: var(--manuscript-radius-control-inner);
+  color: var(--manuscript-content-muted);
 }
 
 .library-page[data-visual-style='manuscript'] .visual-style-switch-button:hover {
-  background: var(--manuscript-hover);
-  color: var(--manuscript-graphite);
+  background: var(--manuscript-state-hover);
+  color: var(--manuscript-content-primary);
 }
 
 .library-page[data-visual-style='manuscript'] .visual-style-switch-button:active {
-  background: var(--manuscript-accent-soft);
-  color: var(--manuscript-accent);
+  background: var(--manuscript-state-pressed);
+  color: var(--manuscript-accent-primary);
 }
 
 .library-page[data-visual-style='manuscript'] .visual-style-switch-button.is-active,
 .library-page[data-visual-style='manuscript'] .visual-style-switch-button.is-active:hover {
-  background: var(--manuscript-accent);
-  color: var(--manuscript-paper);
+  background: var(--manuscript-accent-primary);
+  color: var(--manuscript-content-on-accent);
 }
 
 .library-page[data-visual-style='manuscript'] .visual-style-switch-button:focus-visible {
-  outline: 2px solid var(--manuscript-accent);
+  outline: var(--manuscript-focus-ring-width) solid var(--manuscript-state-focus-ring);
   outline-offset: 2px;
 }
 
-/* 加载/空状态只保留衬线档案文字、细线与简洁编号，不引入插画。 */
-.library-page[data-visual-style='manuscript'] > .flex.items-center.justify-center {
+/* --------------------------------------------------------------------------
+ * Empty / loading — 稳定类名 .library-status-state（不依赖 utility 组合）
+ * -------------------------------------------------------------------------- */
+
+.library-page[data-visual-style='manuscript'] > .library-status-state {
   position: relative;
   flex-direction: column;
   gap: 10px;
-  color: var(--manuscript-graphite-muted);
+  color: var(--manuscript-content-muted);
 }
 
-.library-page[data-visual-style='manuscript'] > .flex.items-center.justify-center::before,
-.library-page[data-visual-style='manuscript'] > .flex.items-center.justify-center::after {
+.library-page[data-visual-style='manuscript'] > .library-status-state::before,
+.library-page[data-visual-style='manuscript'] > .library-status-state::after {
   content: '';
   width: min(220px, 58%);
-  height: 1px;
-  background: var(--manuscript-rule);
+  height: var(--manuscript-hairline-width);
+  background: var(--manuscript-border-subtle);
 }
 
-.library-page[data-visual-style='manuscript'] > .flex.items-center.justify-center > p {
+.library-page[data-visual-style='manuscript'] > .library-status-state > p {
   margin: 0;
-  color: var(--manuscript-graphite-muted);
-  font-family: var(--manuscript-font-serif);
+  color: var(--manuscript-content-muted);
+  font-family: var(--manuscript-font-body);
   letter-spacing: 0.02em;
   text-align: center;
 }
 
-.library-page[data-visual-style='manuscript'] > .flex.items-center.justify-center > p::before {
+.library-page[data-visual-style='manuscript'] > .library-status-state > p::before {
   content: 'ARCHIVE / 001';
   display: block;
   margin-bottom: 4px;
-  color: var(--manuscript-graphite);
-  font-family:
-    'Auralis Sans SC',
-    system-ui,
-    -apple-system,
-    sans-serif;
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-ui);
   font-size: 10px;
   letter-spacing: 0.16em;
 }
