@@ -1771,6 +1771,19 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
     transition-duration: 0ms !important;
   }
 
+  /* Library 搜索框：去掉纵向位移，仅瞬时切换（Phase 6 REVIEW Finding 5） */
+  .search-bar-enter-active,
+  .search-bar-leave-active {
+    transition-duration: 0ms !important;
+  }
+
+  .search-bar-enter-from,
+  .search-bar-leave-to,
+  .search-bar-enter-to,
+  .search-bar-leave-from {
+    transform: translateX(-50%);
+  }
+
   .album-detail-exit-matrix-leave-active,
   .album-detail-exit-matrix-enter-active {
     transition: opacity 300ms ease;
