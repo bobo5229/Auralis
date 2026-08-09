@@ -410,11 +410,13 @@ npm.cmd run build
 - 三条自动校验命令结果（见 DELIVERY）；
 - 已知限制说明（见 DELIVERY）：其他页面及全局浮层仍为现代视觉。
 
-### Phase 5 执行记录（2026-08-07）
+### Phase 5 执行记录（2026-08-09）
 
 完整正文见 [`docs/library-manuscript-skin-mvp/phase5/DELIVERY.md`](./library-manuscript-skin-mvp/phase5/DELIVERY.md)。摘要：
 
-- **自动校验**：`typecheck` / `lint` / `build` 均通过。
+- **执行日期**：2026-08-09（非 2026-08-07；后者仅为 Phase 1–2 时段）。
+- **验收提交范围**：`06f0a0f`（Phase 4 终点）..`7eefb70`（Phase 5 交付提交）。
+- **自动校验**：`typecheck` / `lint` / `build` 均通过（对应即将合入 `7eefb70` 的工作树）。
 - **代码层矩阵**：路由隔离、持久化、虚拟列表几何、命名空间、无重管线、交互契约均通过代码核对。
 - **回归修复**：`song-cover` border-box；封面分组选择器特异性高于 scoped。
 - **已知限制**：壳层与 Teleport 浮层保持现代；歌单页不应用手稿；部分历史硬编码文案不在 MVP 范围。

@@ -1,13 +1,26 @@
 # 手稿皮肤 MVP — Phase 5 交付记录
 
-**日期**：2026-08-07  
+**执行日期**：2026-08-09  
 **分支**：`script-skin-dev`  
 **TECHDOC**：[`docs/techdoc-library-manuscript-skin-mvp.md`](../../techdoc-library-manuscript-skin-mvp.md)  
 **截图目录**：[`screenshots/`](./screenshots/)
 
+### 验收提交范围
+
+| 角色 | 提交 | 说明 |
+|---|---|---|
+| Phase 4 终点（验收起点） | `06f0a0f` | `fix：提升手稿搜索框焦点环对比度`（2026-08-09） |
+| Phase 5 交付提交 | `7eefb70` | `chore：纳入手稿皮肤 Phase 5 交付物并修正 docs 忽略规则`（2026-08-09） |
+
+- **范围写法**：`06f0a0f..7eefb70`（Phase 5 门禁与交付相对 Phase 4 末的 diff）
+- **源码对应**：自动校验与代码层矩阵针对即将合入 `7eefb70` 的工作树（含 `manuscript.css` 回归修复）；`7eefb70` 即为该树的 Phase 5 交付快照。
+- **说明**：`2026-08-07` 仅覆盖 Phase 1–2 及部分 Phase 2 修复提交，**不是** Phase 5 执行日。
+
 ---
 
 ## 1. 自动校验
+
+在上述工作树（`06f0a0f` + Phase 5 CSS 修复）上执行，结果随 `7eefb70` 固化：
 
 | 命令 | 结果 |
 |---|---|
