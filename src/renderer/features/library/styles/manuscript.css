@@ -26,6 +26,7 @@
   --auralis-text-subtle: rgba(41, 39, 35, 0.7);
   --auralis-text-faint: rgba(41, 39, 35, 0.68);
   --auralis-text-disabled: rgba(41, 39, 35, 0.3);
+  --auralis-border-subtle: var(--manuscript-rule);
   --auralis-song-row-bg: transparent;
   --auralis-song-row-alt-bg: transparent; /* 取消奇偶交替底色 */
   --auralis-song-row-border: rgba(62, 57, 50, 0.18);
@@ -35,8 +36,14 @@
   --auralis-song-row-now-playing-duration: #8b554f;
   --auralis-search-bg: rgba(243, 238, 223, 0.92);
   --auralis-search-border: rgba(48, 43, 37, 0.35);
-  --auralis-search-shadow: 0 1px 3px rgba(41, 39, 35, 0.12);
-  --auralis-artwork-placeholder-bg: rgba(41, 39, 35, 0.1);
+  --auralis-search-shadow: none;
+  --auralis-artwork-placeholder-bg: var(--manuscript-paper-deep);
+  --auralis-track-list-bg: var(--manuscript-paper);
+  --auralis-track-list-border: var(--manuscript-rule-strong);
+  --auralis-cover-track-bg: var(--manuscript-paper);
+  --auralis-cover-track-hover-bg: var(--manuscript-hover);
+  --auralis-cover-divider: var(--manuscript-rule-strong);
+  --auralis-cover-track-divider: var(--manuscript-rule);
   /* 常驻控件（焦点环/hover/激活态）适配纸面，焦点环 3:1 达标 */
   --auralis-progress-fill: var(--manuscript-accent);
   --auralis-control-hover-bg: var(--manuscript-hover);
@@ -57,21 +64,20 @@
   background:
     /* 低对比度静态纸纹：大尺度柔和渐变，无重复图案，避免摩尔纹 */
     radial-gradient(ellipse 140% 90% at 15% 0%, rgba(255, 255, 255, 0.55), transparent 55%),
-    linear-gradient(165deg, rgba(41, 39, 35, 0.02), transparent 45%),
-    var(--manuscript-paper);
+    linear-gradient(165deg, rgba(41, 39, 35, 0.02), transparent 45%), var(--manuscript-paper);
   box-shadow:
     0 1px 2px rgba(41, 39, 35, 0.16),
     0 6px 18px rgba(41, 39, 35, 0.1); /* 克制阴影 */
 }
 
 /* 数字与小控件保留无衬线：平铺/封面时长、曲序号、切换按钮、搜索输入框 */
-.library-page[data-visual-style='manuscript'] :is(
-    .song-duration,
-    .tabular-nums,
-    .visual-style-switch-button,
-    .library-search-input
-  ) {
-  font-family: 'Auralis Sans SC', system-ui, -apple-system, sans-serif;
+.library-page[data-visual-style='manuscript']
+  :is(.song-duration, .tabular-nums, .visual-style-switch-button, .library-search-input) {
+  font-family:
+    'Auralis Sans SC',
+    system-ui,
+    -apple-system,
+    sans-serif;
 }
 
 /* ==========================================================================
@@ -149,4 +155,188 @@
   border-radius: 2px;
   border: 1px solid var(--manuscript-rule-strong);
   background: var(--manuscript-paper-deep);
+}
+
+/* ========================================================================
+ * Phase 4：封面分组与常驻控件
+ * 保持 AlbumCoverGroup 的 250px 封面、20px panel padding、40px 行高和
+ * 56px 组间距；此处只替换表面视觉，所有线条使用伪元素或现有边框。
+ * ======================================================================== */
+
+/* 封面：保持 250×250 和原图色彩，只把圆角收至近直角并补石墨描边。 */
+.library-page[data-visual-style='manuscript'] .album-cover-artwork {
+  box-sizing: border-box;
+  border: 1px solid var(--manuscript-rule-strong);
+  border-radius: 2px;
+  background: var(--manuscript-paper-deep);
+}
+
+.library-page[data-visual-style='manuscript'] .album-cover-artwork img {
+  filter: none;
+  opacity: 1;
+}
+
+/* 封面曲目 panel：暖白纸面 + 细边，移除玻璃模糊、高光和大阴影。 */
+.library-page[data-visual-style='manuscript'] .album-cover-tracks {
+  box-sizing: border-box;
+  background: var(--manuscript-paper);
+  border: 1px solid var(--manuscript-rule-strong);
+  border-radius: 2px;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* 曲目行仍为 40px；细横线不占布局空间，playing 状态优先于 hover。 */
+.library-page[data-visual-style='manuscript'] .cover-track-row {
+  box-sizing: border-box;
+  height: 40px;
+  min-height: 40px;
+  border-radius: 1px;
+  background: transparent;
+  color: var(--manuscript-graphite);
+}
+
+.library-page[data-visual-style='manuscript']
+  .cover-track-row:hover:not(.cover-track-row--playing) {
+  background: var(--manuscript-hover);
+}
+
+.library-page[data-visual-style='manuscript'] .cover-track-row--playing,
+.library-page[data-visual-style='manuscript'] .cover-track-row--playing:hover {
+  background: var(--manuscript-accent-soft) !important;
+}
+
+.library-page[data-visual-style='manuscript'] .cover-track-row:not(:first-child)::before {
+  background: var(--manuscript-rule);
+}
+
+.library-page[data-visual-style='manuscript'] .cover-track-row--playing {
+  position: relative;
+}
+
+.library-page[data-visual-style='manuscript'] .cover-track-row--playing::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--manuscript-accent);
+  pointer-events: none;
+}
+
+.library-page[data-visual-style='manuscript'] .cover-track-row--playing > span,
+.library-page[data-visual-style='manuscript'] .cover-track-row--playing > div > span:first-child {
+  color: var(--manuscript-accent) !important;
+}
+
+.library-page[data-visual-style='manuscript']
+  .cover-track-row--playing
+  > div
+  > span:not(:first-child),
+.library-page[data-visual-style='manuscript'] .cover-track-row--playing > span:not(:first-child) {
+  color: #7c3f3e !important;
+}
+
+/* 搜索框：保留原宽高和 Enter 语义，改为暖白纸面与细墨线。 */
+.library-page[data-visual-style='manuscript'] .library-search-bar {
+  border-radius: 2px;
+  border-color: var(--manuscript-rule-strong);
+  background: var(--manuscript-paper);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.library-page[data-visual-style='manuscript'] .library-search-bar:hover {
+  border-color: var(--manuscript-graphite);
+}
+
+.library-page[data-visual-style='manuscript'] .library-search-bar:focus-within {
+  border-color: var(--manuscript-accent);
+  box-shadow: 0 0 0 2px var(--manuscript-accent-soft);
+}
+
+.library-page[data-visual-style='manuscript'] .library-search-bar:active {
+  border-color: var(--manuscript-accent);
+}
+
+.library-page[data-visual-style='manuscript'] .library-search-input::placeholder {
+  color: var(--manuscript-graphite-muted);
+}
+
+/* 页面常驻的视觉风格切换：暖白底、细墨线、暗红激活态。 */
+.library-page[data-visual-style='manuscript'] .visual-style-switch {
+  border-radius: 2px;
+  border-color: var(--manuscript-rule-strong);
+  background: var(--manuscript-paper);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.library-page[data-visual-style='manuscript'] .visual-style-switch-button {
+  border-radius: 1px;
+  color: var(--manuscript-graphite-muted);
+}
+
+.library-page[data-visual-style='manuscript'] .visual-style-switch-button:hover {
+  background: var(--manuscript-hover);
+  color: var(--manuscript-graphite);
+}
+
+.library-page[data-visual-style='manuscript'] .visual-style-switch-button:active {
+  background: var(--manuscript-accent-soft);
+  color: var(--manuscript-accent);
+}
+
+.library-page[data-visual-style='manuscript'] .visual-style-switch-button.is-active,
+.library-page[data-visual-style='manuscript'] .visual-style-switch-button.is-active:hover {
+  background: var(--manuscript-accent);
+  color: var(--manuscript-paper);
+}
+
+.library-page[data-visual-style='manuscript'] .visual-style-switch-button:focus-visible {
+  outline: 2px solid var(--manuscript-accent);
+  outline-offset: 2px;
+}
+
+/* 加载/空状态只保留衬线档案文字、细线与简洁编号，不引入插画。 */
+.library-page[data-visual-style='manuscript'] > .flex.items-center.justify-center {
+  position: relative;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--manuscript-graphite-muted);
+}
+
+.library-page[data-visual-style='manuscript'] > .flex.items-center.justify-center::before,
+.library-page[data-visual-style='manuscript'] > .flex.items-center.justify-center::after {
+  content: '';
+  width: min(220px, 58%);
+  height: 1px;
+  background: var(--manuscript-rule);
+}
+
+.library-page[data-visual-style='manuscript'] > .flex.items-center.justify-center > p {
+  margin: 0;
+  color: var(--manuscript-graphite-muted);
+  font-family: var(--manuscript-font-serif);
+  letter-spacing: 0.02em;
+  text-align: center;
+}
+
+.library-page[data-visual-style='manuscript'] > .flex.items-center.justify-center > p::before {
+  content: 'ARCHIVE / 001';
+  display: block;
+  margin-bottom: 4px;
+  color: var(--manuscript-graphite);
+  font-family:
+    'Auralis Sans SC',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: 10px;
+  letter-spacing: 0.16em;
 }
