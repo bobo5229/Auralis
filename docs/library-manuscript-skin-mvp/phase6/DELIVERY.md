@@ -6,7 +6,7 @@
 **基线**：[`BASELINE.md`](./BASELINE.md)
 **审查**：[`REVIEW.md`](./REVIEW.md)
 
-**当前状态**：**代码实现完成（含 REVIEW Finding 1–6 修复）；人工验收待完成**
+**当前状态**：**代码实现完成（含 REVIEW Finding 1–7 修复）；人工验收待完成**
 
 ---
 
@@ -19,10 +19,21 @@
 | 6.1 | `0987749` | `refactor：集中曲库虚拟列表布局指标`（含 border 高度校正，见 §6） |
 | 6.2–6.4 | `d47f9ec` | `refactor：拆分手稿 Token 并统一组件语义样式` |
 | 6.5 | `536fb82` | `chore：完成手稿视觉系统 Phase 6 回归` |
-| REVIEW 修复 | （本轮提交，见 git log） | Finding 1–6：布局事实源连接、行盒、Token、reduced-motion、文档状态 |
+| REVIEW F1+F3 | `35c2fff` | `fix：连接曲库布局指标与封面面板 DOM 事实源` |
+| REVIEW F4 | `efc3ed5` | `refactor：收紧手稿 Token 分层与 Compatibility 映射` |
+| REVIEW F5 | `e833628` | `fix：搜索框过渡遵守 prefers-reduced-motion` |
+| REVIEW F2+F6 | `385e30e` | `docs：落实 Phase 6 审查结论与人工门禁状态` |
+| REVIEW F7 | （提交后写入本行哈希） | `docs：同步 Phase 6 TECHDOC 布局字段与 DELIVERY 哈希` |
 
-**验收源码范围（初版）**：`de8b430..d47f9ec`
-**含 REVIEW 修复后**：以本轮修复合并提交为终点（`de8b430..<tip>`）
+**验收范围（固定哈希，无 tip 占位）**：
+
+| 范围 | 写法 | 含义 |
+|---|---|---|
+| 初版实现源码 | `de8b430..d47f9ec` | 布局指标 + Token + 组件语义样式 |
+| 含 6.5 交付文档 | `de8b430..536fb82` | 上表至 6.5 |
+| REVIEW 代码修复 | `de8b430..e833628` | 含 F1/F3/F4/F5 源码终点 |
+| REVIEW 含状态文档 | `de8b430..385e30e` | 含 F2/F6 文档 |
+| 含 F7 文档同步 | 见 F7 提交行 | TECHDOC/DELIVERY 字段与哈希对齐 |
 
 ---
 
@@ -126,10 +137,12 @@ DevTools 实测行 / 组高仍待人工矩阵勾选（Finding 2 未关闭）。
 
 | 文件 | 动作 |
 |---|---|
-| `constants/libraryLayoutMetrics.ts` | 每侧尺寸 + 全量 CSS 变量 |
-| `components/AlbumCoverGroup.vue` | panel padding/border 消费 `--library-*` |
-| `uno.config.ts` | group pad/border + cover-track-row 固定 height |
+| `constants/libraryLayoutMetrics.ts` | 每侧字段：`coverPanelPaddingBlockSide` 等 + 对应 CSS 变量 |
+| `components/AlbumCoverGroup.vue` | panel 消费 `--library-cover-panel-padding-block-side` / `--library-cover-panel-border-width` |
+| `uno.config.ts` | group pad/border 变量 + cover-track-row `height`+`min-height` |
 | `styles/manuscript.tokens.css` | F4 分层收紧 |
 | `styles/manuscript.css` | panel border 用 layout 变量；行高交给 Uno |
 | `app/styles/main.css` | search-bar reduced-motion |
+| `phase6/TECHDOC.md` | §4.1/§4.2/Step 6.1 与实现字段一致（F7） |
+| `phase6/DELIVERY.md` | 固定提交哈希与范围（F7） |
 | `phase6/*` | 基线、交付、审查、状态 |
