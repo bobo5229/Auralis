@@ -1,0 +1,113 @@
+/* ==========================================================================
+ * 手稿皮肤 Token（Phase 6 §4.3）
+ * 作用域：仅 .library-page[data-visual-style='manuscript']
+ * 禁止 :root / html / body / #app / shell 选择器。
+ *
+ * 分层：
+ *   1. Primitive — 原始色、字体族
+ *   2. Semantic  — 表面、正文、边框、状态、字体角色、形状、效果
+ *   3. Compatibility — 映射到现有 --auralis-*，供 SongRow 等无感消费
+ * ========================================================================== */
+
+.library-page[data-visual-style='manuscript'] {
+  /* ---------- 1. Primitive ---------- */
+  --manuscript-color-paper-100: #f3eedf;
+  --manuscript-color-paper-200: #e9e1cf;
+  --manuscript-color-ink-900: #292723;
+  --manuscript-color-ink-600: #6d675e;
+  --manuscript-color-ink-900-rgb: 41, 39, 35;
+  --manuscript-color-rule-rgb: 62, 57, 50;
+  --manuscript-color-rule-strong-rgb: 48, 43, 37;
+  --manuscript-color-accent-700: #8b302f;
+  --manuscript-color-accent-600: #7c3f3e;
+  --manuscript-color-accent-500: #8b554f;
+  --manuscript-font-family-serif: 'Auralis Desktop Lyrics SC', serif;
+  --manuscript-font-family-sans: 'Auralis Sans SC', system-ui, -apple-system, sans-serif;
+
+  /* ---------- 2. Semantic ---------- */
+  /* Surface */
+  --manuscript-surface-page: var(--manuscript-color-paper-100);
+  --manuscript-surface-recessed: var(--manuscript-color-paper-200);
+  --manuscript-surface-control: var(--manuscript-color-paper-100);
+  --manuscript-surface-selected: rgba(139, 48, 47, 0.1);
+
+  /* Content */
+  --manuscript-content-primary: var(--manuscript-color-ink-900);
+  --manuscript-content-muted: var(--manuscript-color-ink-600);
+  --manuscript-content-subtle: rgba(var(--manuscript-color-ink-900-rgb), 0.7);
+  --manuscript-content-faint: rgba(var(--manuscript-color-ink-900-rgb), 0.68);
+  --manuscript-content-disabled: rgba(var(--manuscript-color-ink-900-rgb), 0.3);
+  --manuscript-content-on-accent: var(--manuscript-color-paper-100);
+
+  /* Border */
+  --manuscript-border-subtle: rgba(var(--manuscript-color-rule-rgb), 0.24);
+  --manuscript-border-strong: rgba(var(--manuscript-color-rule-strong-rgb), 0.46);
+  --manuscript-border-row: rgba(var(--manuscript-color-rule-rgb), 0.18);
+  --manuscript-border-search: rgba(var(--manuscript-color-rule-strong-rgb), 0.35);
+  --manuscript-border-focus: var(--manuscript-color-accent-700);
+
+  /* Accent */
+  --manuscript-accent-primary: var(--manuscript-color-accent-700);
+  --manuscript-accent-secondary: var(--manuscript-color-accent-600);
+  --manuscript-accent-tertiary: var(--manuscript-color-accent-500);
+  --manuscript-state-accent-soft: rgba(139, 48, 47, 0.1);
+
+  /* Interaction */
+  --manuscript-state-hover: rgba(42, 39, 34, 0.055);
+  --manuscript-state-pressed: var(--manuscript-state-accent-soft);
+  --manuscript-state-selected: var(--manuscript-state-accent-soft);
+  --manuscript-state-focus-ring: var(--manuscript-color-accent-700);
+
+  /* Typography roles */
+  --manuscript-font-body: var(--manuscript-font-family-serif);
+  --manuscript-font-ui: var(--manuscript-font-family-sans);
+  --manuscript-font-numeric: var(--manuscript-font-family-sans);
+
+  /* Shape */
+  --manuscript-radius-page: 2px;
+  --manuscript-radius-artwork: 2px;
+  --manuscript-radius-control: 2px;
+  --manuscript-radius-control-inner: 1px;
+  --manuscript-radius-indicator: 1px;
+  --manuscript-hairline-width: 1px;
+  --manuscript-indicator-width: 2px;
+  --manuscript-focus-ring-width: 2px;
+
+  /* Effect */
+  --manuscript-effect-paper-background:
+    radial-gradient(ellipse 140% 90% at 15% 0%, rgba(255, 255, 255, 0.55), transparent 55%),
+    linear-gradient(165deg, rgba(var(--manuscript-color-ink-900-rgb), 0.02), transparent 45%),
+    var(--manuscript-surface-page);
+  --manuscript-effect-page-shadow:
+    0 1px 2px rgba(var(--manuscript-color-ink-900-rgb), 0.16),
+    0 6px 18px rgba(var(--manuscript-color-ink-900-rgb), 0.1);
+  --manuscript-effect-search-surface: rgba(243, 238, 223, 0.92);
+
+  /* ---------- 3. Compatibility → --auralis-* ---------- */
+  --auralis-text: var(--manuscript-content-primary);
+  --auralis-text-muted: rgba(var(--manuscript-color-ink-900-rgb), 0.72);
+  --auralis-text-subtle: var(--manuscript-content-subtle);
+  --auralis-text-faint: var(--manuscript-content-faint);
+  --auralis-text-disabled: var(--manuscript-content-disabled);
+  --auralis-border-subtle: var(--manuscript-border-subtle);
+  --auralis-song-row-bg: transparent;
+  --auralis-song-row-alt-bg: transparent;
+  --auralis-song-row-border: var(--manuscript-border-row);
+  --auralis-song-row-now-playing-bg: var(--manuscript-state-accent-soft);
+  --auralis-song-row-now-playing-title: var(--manuscript-accent-primary);
+  --auralis-song-row-now-playing-artist: var(--manuscript-accent-secondary);
+  --auralis-song-row-now-playing-duration: var(--manuscript-accent-tertiary);
+  --auralis-search-bg: var(--manuscript-effect-search-surface);
+  --auralis-search-border: var(--manuscript-border-search);
+  --auralis-search-shadow: none;
+  --auralis-artwork-placeholder-bg: var(--manuscript-surface-recessed);
+  --auralis-track-list-bg: var(--manuscript-surface-page);
+  --auralis-track-list-border: var(--manuscript-border-strong);
+  --auralis-cover-track-bg: var(--manuscript-surface-page);
+  --auralis-cover-track-hover-bg: var(--manuscript-state-hover);
+  --auralis-cover-divider: var(--manuscript-border-strong);
+  --auralis-cover-track-divider: var(--manuscript-border-subtle);
+  --auralis-progress-fill: var(--manuscript-accent-primary);
+  --auralis-control-hover-bg: var(--manuscript-state-hover);
+  --auralis-control-active-bg: var(--manuscript-state-accent-soft);
+}
