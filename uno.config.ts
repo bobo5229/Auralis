@@ -89,7 +89,7 @@ export default defineConfig({
     'playback-mode-item-active': '',
     'playback-mode-check': 'ml-auto h-4 w-4',
     'album-cover-group':
-      'grid grid-cols-[var(--library-cover-artwork-size)_minmax(0,1fr)] gap-x-12 border-b border-[var(--auralis-cover-divider)] py-[calc(var(--library-cover-group-padding-block)/2)]',
+      'grid grid-cols-[var(--library-cover-artwork-size)_minmax(0,1fr)] gap-x-12 border-b-[length:var(--library-cover-group-border-width)] border-[var(--auralis-cover-divider)] py-[var(--library-cover-group-padding-block-side)]',
     'album-cover-aside': 'w-[var(--library-cover-artwork-size)]',
     'album-cover-artwork':
       'w-[var(--library-cover-artwork-size)] h-[var(--library-cover-artwork-size)] rounded-lg overflow-hidden bg-[var(--auralis-artwork-placeholder-bg)]',
@@ -100,8 +100,9 @@ export default defineConfig({
       'font-semibold text-xs text-[var(--auralis-text-muted)] leading-[var(--library-cover-meta-line-height)]',
     /* 布局骨架；整块面板壳与内部分割线见 AlbumCoverGroup / AlbumCoverTrackRow scoped */
     'album-cover-tracks': 'min-w-0',
+    /* height+min-height 固定行盒，与 getAlbumGroupEstimatedHeight 的 40px 契约一致（REVIEW F3） */
     'cover-track-row':
-      'relative grid grid-cols-[40px_minmax(0,1fr)_minmax(120px,220px)_48px] gap-x-3 items-center px-3 min-h-[var(--library-cover-track-row-height)] rounded-xl cursor-pointer transition-colors hover:bg-[var(--auralis-control-hover-bg)]',
+      'relative grid grid-cols-[40px_minmax(0,1fr)_minmax(120px,220px)_48px] gap-x-3 items-center px-3 h-[var(--library-cover-track-row-height)] min-h-[var(--library-cover-track-row-height)] rounded-xl cursor-pointer transition-colors hover:bg-[var(--auralis-control-hover-bg)]',
     'cover-track-row--playing':
       'bg-[var(--auralis-song-row-now-playing-bg)] hover:bg-[var(--auralis-song-row-now-playing-bg)]',
     'lyric-active': 'text-[var(--auralis-lyrics-active)] font-bold text-[28px] leading-12 py-1.5',

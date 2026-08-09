@@ -125,17 +125,17 @@
 .library-page[data-visual-style='manuscript'] .album-cover-group .album-cover-tracks {
   box-sizing: border-box;
   background: var(--manuscript-surface-page);
-  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  /* 参与 virtualizer 的 border 宽度用 layout 变量，不用装饰 hairline（REVIEW F1） */
+  border: var(--library-cover-panel-border-width) solid var(--manuscript-border-strong);
   border-radius: var(--manuscript-radius-page);
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
+/* 行高由 Uno cover-track-row 的 height/min-height 统一固定（REVIEW F3） */
 .library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row {
   box-sizing: border-box;
-  height: var(--library-cover-track-row-height);
-  min-height: var(--library-cover-track-row-height);
   border-radius: var(--manuscript-radius-control-inner);
   background: transparent;
   color: var(--manuscript-content-primary);
