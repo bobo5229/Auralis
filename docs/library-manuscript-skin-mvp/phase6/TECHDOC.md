@@ -1,6 +1,6 @@
 # TECHDOC：手稿视觉系统固化（Phase 6）
 
-**文档状态**：已实现（Step 6.0–6.5）；交付见 [`DELIVERY.md`](./DELIVERY.md)<br>
+**文档状态**：代码实现完成（含 REVIEW 修复）；**人工验收待完成** — 见 [`DELIVERY.md`](./DELIVERY.md) / [`REVIEW.md`](./REVIEW.md)<br>
 **前置版本**：手稿皮肤 MVP Phase 1–5 已实现并通过人工验收<br>
 **目标路由**：`/`（`name: 'library'`）<br>
 **主要模块**：`src/renderer/features/library/`<br>

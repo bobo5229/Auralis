@@ -45,7 +45,9 @@
 
 当封面列更高时，差值为 group border **`1px`**（panel 不在 max 路径上仍可能有 1px 组底边）。
 
-Phase 6 Step 6.1 先做数值等价迁移；随后以独立 `fix` 提交将 `coverPanelBorderBlock` / `coverGroupBorderBlock` 纳入 `getAlbumGroupEstimatedHeight`。
+Phase 6 Step 6.1 原计划：先做数值等价迁移，再以独立 `fix` 提交纳入 panel/group border。
+
+**实施偏差（REVIEW Finding 6）**：实际提交 `0987749` 将布局常量与 border 高度校正合并，未拆分。原因是实现时公式已按 §4.2 目标形态编写，避免中间态与文档公式不一致。风险：无法单独回退高度变化而保留常量重构。缓解：DELIVERY 记录 before/after 差值；REVIEW 修复轮将「事实源连接」与「新的高度行为」分开提交。后续 Phase 严格执行「结构等价 → 行为校正 → 视觉调整」。
 
 ---
 
