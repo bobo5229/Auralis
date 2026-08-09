@@ -119,7 +119,8 @@ Phase 6 必须先用 DevTools 对比以下数值：
 
 `src/renderer/features/library/constants/libraryLayoutMetrics.ts`
 
-建议导出不可变对象：
+导出不可变对象（与 `libraryLayoutMetrics.ts` 一致；padding/border 以**每侧/单边**存储，
+高度公式内部再 `×2` 派生纵向总量）：
 
 ```ts
 export const LIBRARY_LAYOUT_METRICS = {
@@ -129,10 +130,10 @@ export const LIBRARY_LAYOUT_METRICS = {
   coverTrackRowHeight: 40,
   coverMetaGap: 12,
   coverMetaLineHeight: 20,
-  coverPanelPaddingBlock: 20,
-  coverPanelBorderBlock: 2,
-  coverGroupPaddingBlock: 56,
-  coverGroupBorderBlock: 1,
+  coverPanelPaddingBlockSide: 10,
+  coverPanelBorderWidth: 1,
+  coverGroupPaddingBlockSide: 28,
+  coverGroupBorderWidth: 1,
 } as const
 ```
 
@@ -145,7 +146,8 @@ export const LIBRARY_LAYOUT_METRICS = {
 2. `LIBRARY_LAYOUT_CSS_VARS`：将数值转换为带 `px` 的 CSS 自定义属性，挂载到
    `LibraryPage` 根节点。
 
-建议的 CSS 变量：
+CSS 变量（与代码一一对应；禁止再导出任何「上下合计」总量型 padding 变量，
+仅允许下列每侧 / 单边宽度变量）：
 
 ```css
 --library-flat-row-height
@@ -154,10 +156,14 @@ export const LIBRARY_LAYOUT_METRICS = {
 --library-cover-track-row-height
 --library-cover-meta-gap
 --library-cover-meta-line-height
---library-cover-panel-padding-block
---library-cover-group-padding-block
+--library-cover-panel-padding-block-side
+--library-cover-panel-border-width
+--library-cover-group-padding-block-side
+--library-cover-group-border-width
 ```
 
+`AlbumCoverGroup` 的 panel `padding` / `border-width`、Uno `album-cover-group` 的
+`py` / `border-b` 宽度、以及 manuscript panel 的盒模型 border，均必须消费上表变量。
 所有数值仍由 TypeScript 常量产生；CSS 变量只是传递通道，不是第二份配置。
 
 ### 4.2 高度公式
@@ -174,19 +180,21 @@ coverArtworkSize
 
 ```text
 coverTrackRowHeight × trackCount
-+ coverPanelPaddingBlock
-+ coverPanelBorderBlock
++ coverPanelPaddingBlockSide × 2
++ coverPanelBorderWidth × 2
 ```
 
 虚拟专辑组高度：
 
 ```text
 max(封面列高度, 曲目面板高度)
-+ coverGroupPaddingBlock
-+ coverGroupBorderBlock
++ coverGroupPaddingBlockSide × 2
++ coverGroupBorderWidth
 ```
 
 平铺搜索定位必须使用 `flatRowHeight`，不得保留局部 `estimatedRowSize = 44`。
+封面曲目行在 modern / manuscript 下均须固定 `height` 与 `min-height` 为
+`--library-cover-track-row-height`（不得仅设 `min-height`）。
 
 ### 4.3 手稿 Token 分层
 
@@ -309,21 +317,27 @@ import '../styles/manuscript.css'
 
 #### 实施步骤
 
-1. 建立 `LIBRARY_LAYOUT_METRICS`，先录入当前已验收数值。
-2. 将 `estimateSize: () => 44`、平铺搜索定位的局部 `44` 和封面高度公式迁移到常量或纯函数。
+1. 建立 `LIBRARY_LAYOUT_METRICS`（每侧/单边字段，见 §4.1），先录入当前已验收数值。
+2. 将 `estimateSize`、平铺搜索定位与封面高度公式迁移到常量或 `getAlbumGroupEstimatedHeight`。
 3. 在 `LibraryPage` 根节点绑定 `LIBRARY_LAYOUT_CSS_VARS`；modern、manuscript 和歌单路由均绑定，
    避免 CSS shortcut 在非手稿路由失去变量。
-4. 将 UnoCSS 中平铺行高、平铺封面尺寸、封面尺寸、元数据间距与行高、封面曲目行高、组 padding
-   改为消费 `--library-*` 变量。
-5. 将 `manuscript.css` 的 `height: 40px` / `min-height: 40px` 改为同一 CSS 变量。
+4. 将 UnoCSS 中平铺行高、封面尺寸、元数据间距与行高、封面曲目行高（`height`+`min-height`）、
+   组 `py`（`--library-cover-group-padding-block-side`）与底边宽度
+   （`--library-cover-group-border-width`）改为消费 `--library-*` 变量。
+5. `AlbumCoverGroup` 的 panel `padding` / `border-width` 消费
+   `--library-cover-panel-padding-block-side` / `--library-cover-panel-border-width`；
+   manuscript 参与盒模型的 panel border 使用同一 layout 变量，不用装饰 hairline。
 6. 构建后检查 UnoCSS 是否正确生成包含 `var(--library-*)` 的规则；不得依赖未经验证的 fallback
    语法。
-7. 若 Step 6.0 已确认 border 差值，在独立小提交中将 panel 和 group border 纳入纯高度函数。
+7. 若 Step 6.0 已确认 border 差值，在独立小提交中将 panel/group border 纳入纯高度函数
+   （实施偏差见 BASELINE / DELIVERY Finding 6）。
 
 #### 验收门槛
 
 - `LibraryPage.vue` 不再存在虚拟列表敏感的裸 `44`、`40`、`250`、`20`、`56`。
-- `uno.config.ts` 和 `manuscript.css` 不再拥有这些指标的独立数值副本。
+- `uno.config.ts`、`AlbumCoverGroup.vue` 和 `manuscript.css` 不再拥有 panel/group
+  padding、border 的独立数值副本。
+- 仓库内不出现已废弃的「上下合计」总量字段名；metrics / CSS 变量与 §4.1 清单逐字段一致。
 - 平铺行与封面曲目行 computed height 分别为 44px、40px。
 - 搜索定位、flat/cover 切换锚点和快速滚动无漂移。
 - 若进行了 border 校正，差异必须有 before/after 记录，且不能混入视觉 Token 提交。

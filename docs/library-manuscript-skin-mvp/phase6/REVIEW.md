@@ -4,7 +4,7 @@
 **审查范围**：`de8b430..77f1e73`<br>
 **对应设计**：[`TECHDOC.md`](./TECHDOC.md)<br>
 **审查结论（初审）**：需要修复后再满足 Phase 6 Definition of Done<br>
-**修复状态（2026-08-09）**：Finding 1 / 3 / 4 / 5 / 6 代码与文档已处理；Finding 2 人工门禁仍开放（TECHDOC 已改为「代码实现完成，人工验收待完成」）
+**修复状态（2026-08-09）**：Finding 1 / 3 / 4 / 5 / 6 / 7 已处理；Finding 2 人工门禁仍开放（TECHDOC 为「代码实现完成，人工验收待完成」）
 
 ---
 
@@ -303,3 +303,101 @@ Finding 1 连接完整布局事实源
 | 4 Token 分层漂移 | P2 | accent/paper RGB 派生；删除无用 surface-selected；Compatibility 仅 semantic 映射 |
 | 5 reduced-motion | P2 | `main.css` 覆盖 search-bar 过渡与 transform |
 | 6 合并提交偏差 | P3 | BASELINE / DELIVERY 记录原因与风险；不重写 git 历史 |
+| 7 TECHDOC/DELIVERY 滞后 | P2 | TECHDOC §4.1/4.2/6.1 改为每侧字段；DELIVERY 写死 REVIEW 提交哈希 |
+
+---
+
+## 6. 复查记录（2026-08-09）
+
+### 6.1 复查结论
+
+**代码层结论**：Finding 1、3、4、5 的修复通过复查，未发现新的运行时阻断问题。<br>
+**文档层结论**：Finding 6 已记录，但新增 1 个 P2 文档一致性 Finding。<br>
+**人工门禁**：Finding 2 仍开放；用户明确说明尚未执行人工验收，因此 Phase 6 仍不能标记为最终完成。
+
+| Finding | 复查状态 | 证据 |
+|---|---|---|
+| 1 曲目面板多事实源 | 代码已关闭 | metrics 改为每侧值；AlbumCoverGroup / Uno / manuscript panel 直接消费对应 CSS 变量 |
+| 2 人工门禁未完成 | **保持开放** | 截图目录仍只有 README；DevTools、缩放、真实曲库矩阵尚未执行 |
+| 3 modern 行盒仅 min-height | 代码已关闭 | Uno 同时生成 `height` 与 `min-height` |
+| 4 Token 分层漂移 | 代码已关闭 | soft accent 单点派生；Compatibility 映射到 semantic；死 Token 已删除 |
+| 5 reduced-motion | 代码已关闭 | search enter/leave 在 reduce 模式下变为 0ms 且取消纵向位移 |
+| 6 合并提交偏差 | 文档已关闭 | BASELINE / DELIVERY 已记录原因、风险和不重写历史的决定 |
+| 7 TECHDOC/DELIVERY 滞后 | 文档已关闭 | §4.1/4.2 每侧字段与 CSS 变量已对齐实现；DELIVERY 列出固定哈希，无 `<tip>` |
+
+### 6.2 自动复查结果
+
+| 项目 | 结果 |
+|---|---|
+| `npm.cmd run typecheck` | 通过 |
+| `npm.cmd run lint` | 通过 |
+| `npm.cmd run build` | 通过 |
+| Uno 构建产物 | 已确认生成 group border width、group block padding、track height/min-height 变量规则 |
+
+本轮没有执行或代替人工验收，也没有将截图、DevTools computed geometry、Windows 缩放或真实曲库
+滚动标记为通过。
+
+---
+
+### Finding 7 — P2：TECHDOC 架构示例和 DELIVERY 提交范围仍停留在修复前
+
+#### 证据
+
+- `TECHDOC.md:132-135` 仍使用 `coverPanelPaddingBlock`、`coverPanelBorderBlock`、
+  `coverGroupPaddingBlock`、`coverGroupBorderBlock` 总量字段。
+- `TECHDOC.md:157-158` 仍列出旧 CSS 变量
+  `--library-cover-panel-padding-block` / `--library-cover-group-padding-block`。
+- 实际代码已改为 `coverPanelPaddingBlockSide`、`coverPanelBorderWidth`、
+  `coverGroupPaddingBlockSide`、`coverGroupBorderWidth` 及对应 CSS 变量。
+- `DELIVERY.md:22` 将 REVIEW 修复提交写成“本轮提交，见 git log”，没有列出
+  `35c2fff`、`efc3ed5`、`e833628`、`385e30e`。
+- `DELIVERY.md:26` 的修复后范围仍是 `de8b430..<tip>` 占位符。
+
+#### 影响
+
+代码的单一事实源已经修好，但作为长期契约的 TECHDOC 仍指导后续开发者使用已删除的字段和变量；
+DELIVERY 也无法仅凭文档还原复查所覆盖的准确提交范围。这会让下一阶段重新引入旧命名或错误判断
+验收对象。
+
+#### 解决方案
+
+1. 更新 TECHDOC §4.1 示例为四个“每侧/单边”字段，与当前
+   `libraryLayoutMetrics.ts` 完全一致。
+2. 更新 §4.1 CSS 变量清单和 §4.2 公式，明确 panel padding/border `×2`、group padding
+   `×2`、group border `×1`。
+3. 更新 Step 6.1 的验收措辞，删除旧总量变量名。
+4. 在 DELIVERY 起止提交表中分别列出：
+   - `35c2fff`：布局事实源与固定行盒；
+   - `efc3ed5`：Token 分层；
+   - `e833628`：reduced-motion；
+   - `385e30e`：审查与人工门禁状态文档。
+5. 将源码复查范围固定为 `de8b430..e833628`；文档范围列出实际提交，不保留 `<tip>`。
+6. 如果后续用新提交修正文档，增加该提交的新行，不要用动态 tip 占位符。
+
+#### 修复后验证
+
+- TECHDOC 中搜索旧字段和旧 CSS 变量结果为零。
+- TECHDOC 示例可直接与 `libraryLayoutMetrics.ts` 逐字段对应。
+- DELIVERY 不包含 `<tip>`、“本轮提交”或“见 git log”等不可复现范围。
+
+#### 落地（Finding 7）
+
+- 已更新 `TECHDOC.md` §4.1 metrics 示例、CSS 变量清单、§4.2 公式（`×2` / 单边 border）与
+  Step 6.1 验收措辞。
+- 已更新 `DELIVERY.md` 起止提交表：`35c2fff` / `efc3ed5` / `e833628` / `385e30e` 分行列出；
+  源码复查范围 `de8b430..e833628`；无 `<tip>`。
+- F7 文档同步提交哈希在合入后写入 DELIVERY 对应行（不用动态 tip）。
+
+---
+
+### 6.3 当前最终判定
+
+```text
+代码 Findings 1 / 3 / 4 / 5：关闭
+流程 Finding 6：关闭
+文档 Finding 7：开放
+人工 Finding 2：开放（等待用户执行）
+```
+
+在 Finding 7 修正后，可将状态表述为“代码与文档复查通过，人工验收待完成”；只有用户完成
+Finding 2 的矩阵后，Phase 6 才能标记为最终完成。
