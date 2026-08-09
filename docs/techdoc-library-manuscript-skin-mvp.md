@@ -1,9 +1,10 @@
 # TECHDOC：全部歌曲页手稿皮肤 MVP
 
-**文档状态**：Phase 1–5 已实现；Phase 5 回归门禁已通过（自动校验 + 代码层矩阵）  
+**文档状态**：Phase 1–5 已实现；Phase 6 视觉系统固化已实现（见 phase6/DELIVERY）<br>
 **目标路由**：`/`（`name: 'library'`）  
 **目标模块**：`src/renderer/features/library/pages/LibraryPage.vue`  
 **视觉风格**：现代流光（`modern`）/ 手稿（`manuscript`）  
+**后续技术设计**：[Phase 6：手稿视觉系统固化](./library-manuscript-skin-mvp/phase6/TECHDOC.md)<br>
 **影响范围**：Renderer UI；不涉及数据库、IPC、扫描、播放内核或主进程
 
 ---
@@ -418,6 +419,7 @@ npm.cmd run build
 - **验收提交范围**：`06f0a0f`（Phase 4 终点）..`7eefb70`（Phase 5 交付提交）。
 - **自动校验**：`typecheck` / `lint` / `build` 均通过（对应即将合入 `7eefb70` 的工作树）。
 - **代码层矩阵**：路由隔离、持久化、虚拟列表几何、命名空间、无重管线、交互契约均通过代码核对。
+- **人工验收**：2026-08-09 已由用户在本地完成，未发现问题。
 - **回归修复**：`song-cover` border-box；封面分组选择器特异性高于 scoped。
 - **已知限制**：壳层与 Teleport 浮层保持现代；歌单页不应用手稿；部分历史硬编码文案不在 MVP 范围。
 
