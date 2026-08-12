@@ -21,8 +21,11 @@
     "preview": "electron-vite preview",
     "rebuild:native": "set USERPROFILE=%CD%\\.electron-home&& set HOME=%CD%\\.electron-home&& electron-rebuild -f -w better-sqlite3",
     "typecheck": "vue-tsc -p tsconfig.web.json --noEmit --tsBuildInfoFile .electron-home/tsconfig.web.tsbuildinfo && tsc -p tsconfig.node.json --noEmit --tsBuildInfoFile .electron-home/tsconfig.node.tsbuildinfo",
-    "lint": "eslint src electron.vite.config.ts eslint.config.js uno.config.ts",
+    "lint": "eslint src scripts/check-library-visual-scope.mjs electron.vite.config.ts eslint.config.js uno.config.ts vitest.config.ts",
     "prelint": "npm run locales:check",
+    "test": "vitest run && npm run test:library-scope",
+    "test:watch": "vitest",
+    "test:library-scope": "node scripts/check-library-visual-scope.mjs",
     "format": "prettier --write ."
   },
   "dependencies": {
@@ -67,6 +70,7 @@
     "typescript": "~5.7.3",
     "unocss": "^0.65.4",
     "vite": "^6.2.2",
+    "vitest": "^3.2.4",
     "vue-tsc": "^2.2.8"
   },
   "engines": {

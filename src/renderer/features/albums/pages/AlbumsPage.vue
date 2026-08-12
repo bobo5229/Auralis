@@ -1,14 +1,23 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
+import VisualStyleSwitch from '@renderer/features/appearance/components/VisualStyleSwitch.vue'
+import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
+import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
 import { normalizeSearchText } from '@renderer/features/library/utils/normalizeSearchText'
 import AlbumCard from '../components/AlbumCard.vue'
+import AlbumCatalogHeader from '../components/AlbumCatalogHeader.vue'
 import type { AlbumSummary } from '../types'
+import { resolveAlbumPresentation } from '../utils/albumPresentation'
+import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
+import '../styles/manuscript.css'
+import '../styles/manuscript.overlays.css'
 
 /**
  * 网格行左右阴影缓冲带：须覆盖默认侧倾 -12px 阴影与 hover 转正后的模糊外溢。
@@ -41,9 +50,13 @@ function readDisplayMode(): AlbumDisplayMode {
 }
 
 const tracks = shallowRef<TrackListItem[]>([])
+const route = useRoute()
 const router = useRouter()
+const { t } = useI18n()
+const { visualStyle } = useVisualStyle()
 const playback = usePlayback()
 const isLoading = ref(true)
+const loadError = ref<string | null>(null)
 const scrollRef = ref<HTMLElement | null>(null)
 const columnCount = ref(4)
 const rowHeight = ref(DEFAULT_ROW_HEIGHT)
@@ -55,17 +68,47 @@ const isSearchZoneHovered = ref(false)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchRootRef = ref<HTMLElement | null>(null)
 const highlightedAlbumKey = ref<string | null>(null)
+const searchOutcome = ref<'idle' | 'matched' | 'wrapped' | 'not-found'>('idle')
+const searchMatchPosition = ref(0)
+const searchMatchTotal = ref(0)
 let lastSearchQuery = ''
 let lastMatchedAlbumIndex = -1
 let searchHighlightTimeout: ReturnType<typeof setTimeout> | null = null
 let resizeObserver: ResizeObserver | null = null
 let unsubscribeChanged: (() => void) | null = null
 let restoreScrollFrame: number | null = null
+let isPageUnmounted = false
 
 const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
 const shouldRenderSearchBar = computed(
   () => isSearchZoneHovered.value || isSearchFocused.value || hasSearchQuery.value,
 )
+const albumPresentation = computed(() => resolveAlbumPresentation(route.name, visualStyle.value))
+const isManuscriptAlbums = computed(() => albumPresentation.value === 'manuscript')
+const searchFeedback = computed(() => {
+  if (searchOutcome.value === 'not-found') return t('albums.search.notFound')
+  if (searchOutcome.value === 'wrapped') {
+    return t('albums.search.wrapped', {
+      index: searchMatchPosition.value,
+      total: searchMatchTotal.value,
+    })
+  }
+  if (searchOutcome.value === 'matched') {
+    return t('albums.search.matched', {
+      index: searchMatchPosition.value,
+      total: searchMatchTotal.value,
+    })
+  }
+  return ''
+})
+
+watch(searchQuery, (query) => {
+  if (!query.trim()) {
+    searchOutcome.value = 'idle'
+    lastSearchQuery = ''
+    lastMatchedAlbumIndex = -1
+  }
+})
 
 const albums = computed<AlbumSummary[]>(() => {
   const groupedAlbums = new Map<string, AlbumSummary>()
@@ -150,7 +193,34 @@ function restoreScrollPosition(): void {
 }
 
 async function reloadAlbums(): Promise<void> {
-  tracks.value = await auralis.library.getTracks()
+  const nextTracks = await auralis.library.getTracks()
+  if (!isPageUnmounted) tracks.value = nextTracks
+}
+
+async function loadAlbums(): Promise<void> {
+  isLoading.value = true
+  loadError.value = null
+  try {
+    await reloadAlbums()
+  } catch (error) {
+    if (!isPageUnmounted) {
+      console.error('[Auralis] failed to load albums:', error)
+      loadError.value = t('albums.status.loadError')
+    }
+  } finally {
+    if (!isPageUnmounted) isLoading.value = false
+  }
+
+  if (isPageUnmounted || loadError.value) return
+  await nextTick()
+  updateAdaptiveGrid()
+  resizeObserver?.disconnect()
+  if (scrollRef.value) {
+    resizeObserver = new ResizeObserver(updateAdaptiveGrid)
+    resizeObserver.observe(scrollRef.value)
+  }
+  if (restoreScrollFrame !== null) cancelAnimationFrame(restoreScrollFrame)
+  restoreScrollFrame = requestAnimationFrame(restoreScrollPosition)
 }
 
 function setDisplayMode(mode: AlbumDisplayMode): void {
@@ -163,8 +233,7 @@ function toggleDisplayModeFromContextMenu(): void {
   closeContextMenu()
 }
 
-function doesAlbumMatchSearch(album: AlbumSummary, query: string): boolean {
-  const normalizedQuery = normalizeSearchText(query)
+function doesAlbumMatchSearch(album: AlbumSummary, normalizedQuery: string): boolean {
   if (!normalizedQuery) return false
 
   return [album.title, album.albumArtist].some((value) =>
@@ -174,28 +243,40 @@ function doesAlbumMatchSearch(album: AlbumSummary, query: string): boolean {
 
 function locateNextSearchResult(): void {
   const query = searchQuery.value.trim()
-  if (!query) return
+  if (!query) {
+    searchOutcome.value = 'idle'
+    return
+  }
 
-  if (query !== lastSearchQuery) {
+  const isNewQuery = query !== lastSearchQuery
+  if (isNewQuery) {
     lastSearchQuery = query
     lastMatchedAlbumIndex = -1
   }
 
-  for (let offset = 1; offset <= albums.value.length; offset += 1) {
-    const index = (lastMatchedAlbumIndex + offset) % albums.value.length
-    const album = albums.value[index]
-    if (!doesAlbumMatchSearch(album, query)) continue
-
-    lastMatchedAlbumIndex = index
-    rowVirtualizer.value.scrollToIndex(Math.floor(index / columnCount.value), { align: 'center' })
-    highlightedAlbumKey.value = album.key
-    if (searchHighlightTimeout) clearTimeout(searchHighlightTimeout)
-    searchHighlightTimeout = setTimeout(() => {
-      highlightedAlbumKey.value = null
-      searchHighlightTimeout = null
-    }, 1800)
+  const normalizedQuery = normalizeSearchText(query)
+  const matchingIndices = albums.value.flatMap((album, index) =>
+    doesAlbumMatchSearch(album, normalizedQuery) ? [index] : [],
+  )
+  const match = resolveNextAlbumSearchMatch(matchingIndices, lastMatchedAlbumIndex, isNewQuery)
+  searchMatchTotal.value = match.totalMatches
+  if (match.targetIndex === null || match.matchPosition === null) {
+    searchOutcome.value = 'not-found'
     return
   }
+
+  const index = match.targetIndex
+  const album = albums.value[index]
+  lastMatchedAlbumIndex = index
+  searchMatchPosition.value = match.matchPosition
+  searchOutcome.value = match.wrapped ? 'wrapped' : 'matched'
+  rowVirtualizer.value.scrollToIndex(Math.floor(index / columnCount.value), { align: 'center' })
+  highlightedAlbumKey.value = album.key
+  if (searchHighlightTimeout) clearTimeout(searchHighlightTimeout)
+  searchHighlightTimeout = setTimeout(() => {
+    highlightedAlbumKey.value = null
+    searchHighlightTimeout = null
+  }, 1800)
 }
 
 function onSearchKeydown(event: KeyboardEvent): void {
@@ -312,28 +393,20 @@ function openAlbum(album: AlbumSummary): void {
 
 onMounted(async () => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
-  try {
-    await reloadAlbums()
-  } finally {
-    isLoading.value = false
-  }
+  await loadAlbums()
+  if (isPageUnmounted) return
 
-  await nextTick()
-  updateAdaptiveGrid()
-  if (scrollRef.value) {
-    resizeObserver = new ResizeObserver(updateAdaptiveGrid)
-    resizeObserver.observe(scrollRef.value)
-  }
-
-  restoreScrollFrame = requestAnimationFrame(restoreScrollPosition)
   unsubscribeChanged = auralis.library.onChanged((event) => {
     // Play-count ticks must not full-reload album summaries
     if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
-    void reloadAlbums()
+    void reloadAlbums().catch((error) => {
+      console.error('[Auralis] failed to refresh albums:', error)
+    })
   })
 })
 
 onBeforeUnmount(() => {
+  isPageUnmounted = true
   document.removeEventListener('pointerdown', onDocumentPointerDown)
   if (scrollRef.value) {
     sessionStorage.setItem(ALBUMS_SCROLL_TOP_KEY, String(scrollRef.value.scrollTop))
@@ -351,10 +424,12 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    class="relative flex h-full min-h-0 flex-col"
+    class="albums-page relative flex h-full min-h-0 flex-col"
+    :data-visual-style="albumPresentation"
     @mousemove="onAlbumsMouseMove"
     @mouseleave="onAlbumsMouseLeave"
   >
+    <VisualStyleSwitch />
     <div class="library-search-zone">
       <Transition name="search-bar">
         <div
@@ -369,8 +444,8 @@ onBeforeUnmount(() => {
             v-model="searchQuery"
             type="text"
             class="library-search-input"
-            placeholder="搜索专辑、专辑艺术家"
-            aria-label="Search albums and album artists"
+            :placeholder="t('albums.search.placeholder')"
+            :aria-label="t('albums.search.ariaLabel')"
             spellcheck="false"
             @focus="isSearchFocused = true"
             @blur="isSearchFocused = false"
@@ -378,17 +453,35 @@ onBeforeUnmount(() => {
           />
         </div>
       </Transition>
+      <p v-if="isManuscriptAlbums" class="albums-search-feedback" aria-live="polite">
+        {{ searchFeedback }}
+      </p>
     </div>
 
-    <div v-if="isLoading" class="flex flex-1 items-center justify-center">
-      <p class="text-sm text-[var(--auralis-text-faint)]">Loading albums...</p>
+    <div v-if="isLoading" class="albums-status-state flex flex-1 items-center justify-center">
+      <p>{{ t('albums.status.loading') }}</p>
+    </div>
+
+    <div v-else-if="loadError" class="albums-status-state flex flex-1 items-center justify-center">
+      <div class="albums-status-content">
+        <p>{{ loadError }}</p>
+        <button type="button" @click="loadAlbums">{{ t('albums.status.retry') }}</button>
+      </div>
     </div>
 
     <template v-else>
       <!-- 统一水平内边距容器：Header 与网格物理像素对齐 -->
       <div class="albums-page-body">
+        <AlbumCatalogHeader
+          v-if="isManuscriptAlbums"
+          :album-count="albums.length"
+          :track-count="tracks.length"
+        />
         <div class="albums-page-toolbar">
-          <div class="view-mode-switch" role="group" aria-label="专辑视图模式">
+          <span v-if="isManuscriptAlbums" class="albums-toolbar-label">
+            {{ t('albums.manuscript.viewLabel') }}
+          </span>
+          <div class="view-mode-switch" role="group" :aria-label="t('albums.view.ariaLabel')">
             <div
               class="view-mode-slider-thumb"
               :class="`is-${displayMode}`"
@@ -399,8 +492,8 @@ onBeforeUnmount(() => {
               class="switch-btn"
               :class="{ 'is-active': displayMode === 'grid' }"
               :aria-pressed="displayMode === 'grid'"
-              aria-label="常规网格"
-              title="常规网格"
+              :aria-label="t('albums.view.grid')"
+              :title="t('albums.view.grid')"
               @click="setDisplayMode('grid')"
             >
               <span class="i-lucide-grid-2x2 h-4 w-4 relative z-10" aria-hidden="true"></span>
@@ -410,8 +503,8 @@ onBeforeUnmount(() => {
               class="switch-btn"
               :class="{ 'is-active': displayMode === 'perspective' }"
               :aria-pressed="displayMode === 'perspective'"
-              aria-label="3D 透视展台"
-              title="3D 透视展台"
+              :aria-label="t('albums.view.perspective')"
+              :title="t('albums.view.perspective')"
               @click="setDisplayMode('perspective')"
             >
               <span
@@ -445,11 +538,13 @@ onBeforeUnmount(() => {
               }"
             >
               <AlbumCard
-                v-for="album in albumRows[virtualRow.index]"
+                v-for="(album, columnIndex) in albumRows[virtualRow.index]"
                 :key="album.key"
                 :album="album"
                 :display-mode="displayMode"
                 :highlighted="highlightedAlbumKey === album.key"
+                :presentation="albumPresentation"
+                :catalog-number="virtualRow.index * columnCount + columnIndex + 1"
                 @open="openAlbum"
                 @open-context-menu="openContextMenu"
               />
@@ -457,18 +552,22 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-else class="flex flex-1 items-center justify-center">
-          <p class="text-sm text-[var(--auralis-text-faint)]">
-            No albums found. Add music folders in Settings.
-          </p>
+        <div v-else class="albums-status-state flex flex-1 items-center justify-center">
+          <p>{{ t('albums.status.empty') }}</p>
         </div>
       </div>
     </template>
 
     <Teleport to="body">
-      <div v-if="contextMenu" class="fixed inset-0 z-[60]" @click="closeContextMenu">
+      <div
+        v-if="contextMenu"
+        class="albums-overlay fixed inset-0 z-[60]"
+        :data-visual-style="albumPresentation"
+        @click="closeContextMenu"
+      >
         <LiquidGlassPanel
           class="library-context-menu fixed w-55"
+          :presentation="albumPresentation"
           :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
           @click.stop
         >
@@ -479,12 +578,12 @@ onBeforeUnmount(() => {
             @click="locateCurrentAlbum"
           >
             <span class="i-lucide-locate-fixed"></span>
-            <span>定位到当前专辑</span>
+            <span>{{ t('albums.contextMenu.locateCurrent') }}</span>
           </button>
           <div class="library-context-menu-separator"></div>
           <button class="library-context-menu-item" type="button" @click="playContextAlbum">
             <span class="i-lucide-play"></span>
-            <span>播放「{{ contextMenu.album.title }}」</span>
+            <span>{{ t('albums.contextMenu.play', { title: contextMenu.album.title }) }}</span>
           </button>
           <div class="library-context-menu-separator"></div>
           <button
@@ -494,7 +593,7 @@ onBeforeUnmount(() => {
             @click="insertContextAlbum"
           >
             <span class="i-lucide-list-plus"></span>
-            <span>插播「{{ contextMenu.album.title }}」</span>
+            <span>{{ t('albums.contextMenu.insert', { title: contextMenu.album.title }) }}</span>
           </button>
           <div class="library-context-menu-separator"></div>
           <button
@@ -505,7 +604,13 @@ onBeforeUnmount(() => {
             <span
               :class="displayMode === 'grid' ? 'i-lucide-panels-top-left' : 'i-lucide-grid-2x2'"
             ></span>
-            <span>{{ displayMode === 'grid' ? '切换到透视封面视图' : '切换到常规封面视图' }}</span>
+            <span>
+              {{
+                displayMode === 'grid'
+                  ? t('albums.contextMenu.switchToPerspective')
+                  : t('albums.contextMenu.switchToGrid')
+              }}
+            </span>
           </button>
         </LiquidGlassPanel>
       </div>
@@ -521,6 +626,37 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   padding: 0 32px;
+}
+
+.albums-status-state {
+  color: var(--auralis-text-faint);
+  font-size: 14px;
+}
+
+.albums-status-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.albums-status-content p {
+  margin: 0;
+}
+
+.albums-status-content button {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 10px;
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+  cursor: pointer;
+}
+
+.albums-status-content button:focus-visible {
+  outline: 2px solid var(--auralis-progress-fill);
+  outline-offset: 2px;
 }
 
 .albums-scroll {

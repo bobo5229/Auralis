@@ -24,6 +24,7 @@ import type { IpcResponse } from '@shared/ipc/contracts'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { PlaylistViewMode, SidebarPlaylistKind } from '@shared/types/playlist'
 import type { SmartPlaylistRule, SmartPlaylistViewMode } from '@shared/types/smartPlaylist'
+import type { LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import type Database from 'better-sqlite3'
 
 function getInvokingMiniPlayerController(event: Electron.IpcMainInvokeEvent) {
@@ -165,6 +166,12 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   ipcMain.handle(
     ipcChannels.library.getTracks,
     (): IpcResponse<'library:get-tracks'> => libraryService.getTracks(),
+  )
+
+  ipcMain.handle(
+    ipcChannels.library.getTrackPage,
+    (_event, payload: LibraryTrackPageRequest): IpcResponse<'library:get-track-page'> =>
+      libraryService.getTrackPage(payload),
   )
 
   ipcMain.handle(

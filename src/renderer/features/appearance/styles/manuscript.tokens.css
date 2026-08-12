@@ -1,6 +1,6 @@
 /* ==========================================================================
- * 手稿皮肤 Token（Phase 6 §4.3 / REVIEW Finding 4）
- * 作用域：仅 .library-page[data-visual-style='manuscript']
+ * 手稿皮肤共享 Token
+ * 作用域：仅已明确覆盖的页面与其自有 Teleport 浮层。
  * 禁止 :root / html / body / #app / shell 选择器。
  *
  * 分层：
@@ -11,7 +11,10 @@
 
 :where(
   .library-page[data-visual-style='manuscript'],
-  .library-overlay[data-visual-style='manuscript']
+  .library-overlay[data-visual-style='manuscript'],
+  .albums-page[data-visual-style='manuscript'],
+  .albums-overlay[data-visual-style='manuscript'],
+  .album-detail-page[data-visual-style='manuscript']
 ) {
   /* ---------- 1. Primitive ---------- */
   --manuscript-color-paper-100: #f3eedf;

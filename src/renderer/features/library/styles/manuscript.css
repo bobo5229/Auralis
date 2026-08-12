@@ -46,6 +46,61 @@
     --library-manuscript-flat-grid,
     40px 44px minmax(0, 1.3fr) minmax(110px, 0.75fr) minmax(120px, 0.9fr) 56px
   );
+  /*
+   * Uno 的 song-title/song-artist 等 shortcut 使用的是全局 --auralis-* 颜色。
+   * 仅替换兼容 token 不足以阻止这些 utility 或父级颜色在不同 CSS 注入顺序下
+   * 洗白正文，因此平铺行在手稿作用域内显式声明各列颜色。封面视图使用
+   * .cover-track-row，不会匹配这些规则。
+   */
+  color: var(--manuscript-content-primary);
+}
+
+/* Flat row typography — 明确覆盖全局/Uno 的浅色行文字，同时保留账册层级。 */
+.library-page[data-visual-style='manuscript'] .song-row .song-index {
+  color: var(--manuscript-content-ledger-label) !important;
+}
+
+.library-page[data-visual-style='manuscript'] .song-row :is(.song-title, .song-title-main) {
+  color: var(--manuscript-content-primary) !important;
+}
+
+.library-page[data-visual-style='manuscript'] .song-row .song-title-sub-album {
+  color: var(--manuscript-content-ledger-label) !important;
+}
+
+.library-page[data-visual-style='manuscript'] .song-row :is(.song-artist, .song-artist > span) {
+  color: var(--manuscript-content-secondary) !important;
+}
+
+.library-page[data-visual-style='manuscript'] .song-row :is(.song-album, .song-album > span) {
+  color: var(--manuscript-content-muted) !important;
+}
+
+.library-page[data-visual-style='manuscript'] .song-row .song-duration {
+  color: var(--manuscript-content-muted) !important;
+}
+
+/* playing：状态色只作用于全部歌曲页的当前行，且压过模板的浅色 utility。 */
+.library-page[data-visual-style='manuscript']
+  .song-row--playing
+  :is(.song-title, .song-title-main) {
+  color: var(--auralis-song-row-now-playing-title) !important;
+}
+
+.library-page[data-visual-style='manuscript']
+  .song-row--playing
+  :is(.song-artist, .song-artist > span) {
+  color: var(--auralis-song-row-now-playing-artist) !important;
+}
+
+.library-page[data-visual-style='manuscript']
+  .song-row--playing
+  :is(.song-album, .song-album > span, .song-title-sub-album) {
+  color: var(--auralis-song-row-now-playing-artist) !important;
+}
+
+.library-page[data-visual-style='manuscript'] .song-row--playing .song-duration {
+  color: var(--auralis-song-row-now-playing-duration) !important;
 }
 
 /* hover：仅默认行；不覆盖 playing / paused / selected */
@@ -97,20 +152,28 @@
 
 /* paused：中性墨色；playing 保留 auralis 暗红映射
  * !important：压过 SongRow 模板上 nowPlaying 文字色 class */
-.library-page[data-visual-style='manuscript'] .song-row--paused .song-title {
-  color: var(--auralis-text) !important;
+.library-page[data-visual-style='manuscript'] .song-row--paused :is(.song-title, .song-title-main) {
+  color: var(--manuscript-content-primary) !important;
 }
 
-.library-page[data-visual-style='manuscript'] .song-row--paused .song-artist {
-  color: var(--auralis-text-muted) !important;
+.library-page[data-visual-style='manuscript']
+  .song-row--paused
+  :is(.song-artist, .song-artist > span) {
+  color: var(--manuscript-content-secondary) !important;
 }
 
-.library-page[data-visual-style='manuscript'] .song-row--paused .song-album {
-  color: var(--auralis-text-subtle) !important;
+.library-page[data-visual-style='manuscript']
+  .song-row--paused
+  :is(.song-album, .song-album > span) {
+  color: var(--manuscript-content-muted) !important;
 }
 
 .library-page[data-visual-style='manuscript'] .song-row--paused .song-duration {
-  color: var(--auralis-text-faint) !important;
+  color: var(--manuscript-content-muted) !important;
+}
+
+.library-page[data-visual-style='manuscript'] .song-row--paused .song-title-sub-album {
+  color: var(--manuscript-content-ledger-label) !important;
 }
 
 .library-page[data-visual-style='manuscript'] .song-cover {

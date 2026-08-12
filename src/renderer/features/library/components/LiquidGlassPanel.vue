@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { LibraryPresentation } from '../types/libraryPresentation'
+import type { VisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 
 withDefaults(
   defineProps<{
     radius?: number
-    presentation?: LibraryPresentation
+    presentation?: VisualStyle
   }>(),
   {
     radius: 20,
