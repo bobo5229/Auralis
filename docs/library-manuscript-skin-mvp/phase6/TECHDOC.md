@@ -82,16 +82,16 @@ Phase 6 的成功标准是“设计语言和布局契约有单一事实源”，
 
 ### 3.3 重复的布局值
 
-| 布局事实 | 当前值 | 当前消费位置 |
-|---|---:|---|
-| 平铺曲目行高 | 44px | `LibraryPage.vue`、`uno.config.ts`、注释与验收文档 |
-| 平铺封面尺寸 | 44px | `uno.config.ts`、`manuscript.css` 约束 |
-| 封面分组封面尺寸 | 250px | `uno.config.ts`、`LibraryPage.vue` 高度公式 |
-| 封面曲目行高 | 40px | `LibraryPage.vue`、`uno.config.ts`、`manuscript.css` |
-| 封面元数据上间距 | 12px | `uno.config.ts`、`LibraryPage.vue` 高度公式 |
-| 封面元数据行高 | 20px | `uno.config.ts`、`LibraryPage.vue` 高度公式 |
-| 曲目面板纵向 padding | 20px | `AlbumCoverGroup.vue`、`LibraryPage.vue` |
-| 专辑组纵向 padding | 56px | `uno.config.ts`、`LibraryPage.vue` |
+| 布局事实             | 当前值 | 当前消费位置                                         |
+| -------------------- | -----: | ---------------------------------------------------- |
+| 平铺曲目行高         |   44px | `LibraryPage.vue`、`uno.config.ts`、注释与验收文档   |
+| 平铺封面尺寸         |   44px | `uno.config.ts`、`manuscript.css` 约束               |
+| 封面分组封面尺寸     |  250px | `uno.config.ts`、`LibraryPage.vue` 高度公式          |
+| 封面曲目行高         |   40px | `LibraryPage.vue`、`uno.config.ts`、`manuscript.css` |
+| 封面元数据上间距     |   12px | `uno.config.ts`、`LibraryPage.vue` 高度公式          |
+| 封面元数据行高       |   20px | `uno.config.ts`、`LibraryPage.vue` 高度公式          |
+| 曲目面板纵向 padding |   20px | `AlbumCoverGroup.vue`、`LibraryPage.vue`             |
+| 专辑组纵向 padding   |   56px | `uno.config.ts`、`LibraryPage.vue`                   |
 
 任一处单独修改都会造成虚拟列表空洞、重叠或搜索定位偏移。
 
@@ -214,11 +214,11 @@ max(封面列高度, 曲目面板高度)
 
 Token 分为三层：
 
-| 层级 | 责任 | 示例 |
-|---|---|---|
-| Primitive | 原始纸色、墨色、暗红与字体族 | `--manuscript-color-paper-100` |
-| Semantic | 表面、正文、边框、状态、焦点、字体角色 | `--manuscript-content-primary` |
-| Compatibility mapping | 让现有组件继续消费 `--auralis-*` | `--auralis-text` |
+| 层级                  | 责任                                   | 示例                           |
+| --------------------- | -------------------------------------- | ------------------------------ |
+| Primitive             | 原始纸色、墨色、暗红与字体族           | `--manuscript-color-paper-100` |
+| Semantic              | 表面、正文、边框、状态、焦点、字体角色 | `--manuscript-content-primary` |
+| Compatibility mapping | 让现有组件继续消费 `--auralis-*`       | `--auralis-text`               |
 
 建议的语义分组：
 
@@ -233,18 +233,18 @@ Token 分为三层：
 
 现有名称的迁移关系如下：
 
-| 当前 Token | Phase 6 语义 Token |
-|---|---|
-| `--manuscript-paper` | `--manuscript-surface-page` |
-| `--manuscript-paper-deep` | `--manuscript-surface-recessed` |
-| `--manuscript-graphite` | `--manuscript-content-primary` |
-| `--manuscript-graphite-muted` | `--manuscript-content-muted` |
-| `--manuscript-rule` | `--manuscript-border-subtle` |
-| `--manuscript-rule-strong` | `--manuscript-border-strong` |
-| `--manuscript-accent` | `--manuscript-accent-primary` |
-| `--manuscript-accent-soft` | `--manuscript-state-accent-soft` |
-| `--manuscript-hover` | `--manuscript-state-hover` |
-| `--manuscript-font-serif` | `--manuscript-font-body` |
+| 当前 Token                    | Phase 6 语义 Token               |
+| ----------------------------- | -------------------------------- |
+| `--manuscript-paper`          | `--manuscript-surface-page`      |
+| `--manuscript-paper-deep`     | `--manuscript-surface-recessed`  |
+| `--manuscript-graphite`       | `--manuscript-content-primary`   |
+| `--manuscript-graphite-muted` | `--manuscript-content-muted`     |
+| `--manuscript-rule`           | `--manuscript-border-subtle`     |
+| `--manuscript-rule-strong`    | `--manuscript-border-strong`     |
+| `--manuscript-accent`         | `--manuscript-accent-primary`    |
+| `--manuscript-accent-soft`    | `--manuscript-state-accent-soft` |
+| `--manuscript-hover`          | `--manuscript-state-hover`       |
+| `--manuscript-font-serif`     | `--manuscript-font-body`         |
 
 不要求为了命名而保留旧 Token 别名。迁移必须在同一提交内完成，并通过全仓搜索确认旧名称无消费方。
 
@@ -459,15 +459,15 @@ git diff --check
 
 #### 手工矩阵
 
-| 维度 | 必验组合 |
-|---|---|
-| 视觉风格 | modern / manuscript |
-| 曲库视图 | flat / cover |
-| 路由 | 全部歌曲 / 智能歌单 / 普通歌单 |
-| 宽度 | `< xl` / `>= xl` |
-| 数据 | 大型曲库 / 缺封面 / 缺字段 / 长标题 / 中英混排 |
-| 状态 | 默认 / hover / selected / playing / paused / focus-visible |
-| 缩放 | Windows 100% / 125% / 150% |
+| 维度     | 必验组合                                                   |
+| -------- | ---------------------------------------------------------- |
+| 视觉风格 | modern / manuscript                                        |
+| 曲库视图 | flat / cover                                               |
+| 路由     | 全部歌曲 / 智能歌单 / 普通歌单                             |
+| 宽度     | `< xl` / `>= xl`                                           |
+| 数据     | 大型曲库 / 缺封面 / 缺字段 / 长标题 / 中英混排             |
+| 状态     | 默认 / hover / selected / playing / paused / focus-visible |
+| 缩放     | Windows 100% / 125% / 150%                                 |
 
 #### 结构检查
 
@@ -497,17 +497,17 @@ rg -n "estimateSize|estimatedRowSize|height: 40px|min-height: 40px" src/renderer
 
 ## 6. 文件级变更清单
 
-| 文件 | 动作 | 责任 |
-|---|---|---|
-| `features/library/constants/libraryLayoutMetrics.ts` | 新增 | 布局数值和高度公式唯一事实源 |
-| `features/library/pages/LibraryPage.vue` | 修改 | 消费布局常量、绑定 CSS 变量，不改行为 |
-| `features/library/styles/manuscript.tokens.css` | 新增 | scoped 手稿 primitive / semantic / mapping Token |
-| `features/library/styles/manuscript.css` | 重构 | 仅保留组件规则并消费 Token |
-| `uno.config.ts` | 修改 | 布局 shortcuts 消费 `--library-*` 变量 |
-| `SongRow.vue` | 原则上不改 | 保持行状态与事件契约 |
-| `AlbumCoverGroup.vue` | 仅必要时改 class | 保持图片加载、panel 与事件契约 |
-| `AlbumCoverTrackRow.vue` | 仅必要时改 class | 保持曲目字段和事件契约 |
-| `VisualStyleSwitch.vue` | 原则上不改 | 保持状态来源和无障碍语义 |
+| 文件                                                 | 动作             | 责任                                             |
+| ---------------------------------------------------- | ---------------- | ------------------------------------------------ |
+| `features/library/constants/libraryLayoutMetrics.ts` | 新增             | 布局数值和高度公式唯一事实源                     |
+| `features/library/pages/LibraryPage.vue`             | 修改             | 消费布局常量、绑定 CSS 变量，不改行为            |
+| `features/library/styles/manuscript.tokens.css`      | 新增             | scoped 手稿 primitive / semantic / mapping Token |
+| `features/library/styles/manuscript.css`             | 重构             | 仅保留组件规则并消费 Token                       |
+| `uno.config.ts`                                      | 修改             | 布局 shortcuts 消费 `--library-*` 变量           |
+| `SongRow.vue`                                        | 原则上不改       | 保持行状态与事件契约                             |
+| `AlbumCoverGroup.vue`                                | 仅必要时改 class | 保持图片加载、panel 与事件契约                   |
+| `AlbumCoverTrackRow.vue`                             | 仅必要时改 class | 保持曲目字段和事件契约                           |
+| `VisualStyleSwitch.vue`                              | 原则上不改       | 保持状态来源和无障碍语义                         |
 
 路径表中省略的 renderer 文件均以 `src/renderer/` 为根。
 

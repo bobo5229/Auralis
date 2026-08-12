@@ -1441,6 +1441,11 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   overflow: visible !important;
 }
 
+.liquid-glass-panel.library-context-menu-sub-panel {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
 .liquid-glass-panel.library-context-menu-root > .liquid-glass-panel__refraction,
 .liquid-glass-panel.library-context-menu-root > .liquid-glass-panel__highlight {
   overflow: hidden;

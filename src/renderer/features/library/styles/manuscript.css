@@ -10,6 +10,8 @@
  * -------------------------------------------------------------------------- */
 .library-page[data-visual-style='manuscript'] {
   font-family: var(--manuscript-font-body);
+  container-name: manuscript-library;
+  container-type: inline-size;
 
   /* 约 12px 外围间隙；高度补偿上下 margin，避免 app-main 双滚动 */
   margin: 12px;
@@ -18,6 +20,10 @@
   border-radius: var(--manuscript-radius-page);
   background: var(--manuscript-effect-paper-background);
   box-shadow: var(--manuscript-effect-page-shadow);
+}
+
+.library-page[data-visual-style='manuscript'] .library-list-scroll {
+  overflow-anchor: none;
 }
 
 /* --------------------------------------------------------------------------
@@ -32,6 +38,13 @@
  * Flat list — 平铺歌曲列表
  * 行高由 --library-flat-row-height / Uno song-row 提供；播放竖条绝对定位。
  * -------------------------------------------------------------------------- */
+
+.library-page[data-visual-style='manuscript'] .song-row {
+  grid-template-columns: var(
+    --library-manuscript-flat-grid,
+    40px 44px minmax(0, 1.3fr) minmax(110px, 0.75fr) minmax(120px, 0.9fr) 56px
+  );
+}
 
 /* hover：仅默认行；不覆盖 playing / paused / selected */
 .library-page[data-visual-style='manuscript']
@@ -110,6 +123,12 @@
  * 选择器经 .album-cover-group 加长，特异性高于组件 scoped（Phase 5 回归）。
  * -------------------------------------------------------------------------- */
 
+.library-page[data-visual-style='manuscript']
+  :is(.song-row, .cover-track-row, .album-cover-artwork):focus-visible {
+  outline: 2px solid var(--manuscript-border-focus);
+  outline-offset: -2px;
+}
+
 .library-page[data-visual-style='manuscript'] .album-cover-group .album-cover-artwork {
   box-sizing: border-box;
   border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
@@ -136,9 +155,11 @@
 /* 行高由 Uno cover-track-row 的 height/min-height 统一固定（REVIEW F3） */
 .library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row {
   box-sizing: border-box;
+  border: 0;
   border-radius: var(--manuscript-radius-control-inner);
   background: transparent;
   color: var(--manuscript-content-primary);
+  overflow: hidden;
 }
 
 .library-page[data-visual-style='manuscript']
@@ -149,16 +170,24 @@
 
 /* !important：压过 Uno cover-track-row--playing 背景 */
 .library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row--playing,
-.library-page[data-visual-style='manuscript']
-  .album-cover-group
-  .cover-track-row--playing:hover {
+.library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row--playing:hover {
   background: var(--manuscript-state-accent-soft) !important;
 }
 
 .library-page[data-visual-style='manuscript']
   .album-cover-group
-  .cover-track-row:not(:first-child)::before {
-  background: var(--manuscript-border-subtle);
+  .cover-track-row:not(:first-child) {
+  box-shadow: inset 0 1px 0 var(--manuscript-border-subtle);
+}
+
+.library-page[data-visual-style='manuscript']
+  .album-cover-group
+  .cover-track-row:is(.cover-track-row--playing, .cover-track-row--paused),
+.library-page[data-visual-style='manuscript']
+  .album-cover-group
+  .cover-track-row:is(.cover-track-row--playing, .cover-track-row--paused)
+  + .cover-track-row {
+  box-shadow: none;
 }
 
 .library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row--playing {
@@ -199,9 +228,50 @@
   color: var(--manuscript-accent-secondary) !important;
 }
 
+/* paused 状态：中性竖线与墨色文字 */
+.library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row--paused {
+  position: relative;
+}
+
+.library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row--paused::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: var(--manuscript-indicator-width);
+  border-radius: var(--manuscript-radius-indicator);
+  background: var(--manuscript-border-strong);
+  pointer-events: none;
+}
+
+.library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row--paused > span,
+.library-page[data-visual-style='manuscript']
+  .album-cover-group
+  .cover-track-row--paused
+  > div
+  > span:first-child {
+  color: var(--manuscript-content-primary) !important;
+}
+
 /* --------------------------------------------------------------------------
  * Controls — 搜索框与视觉风格切换
  * -------------------------------------------------------------------------- */
+
+.library-page[data-visual-style='manuscript'] .library-search-zone {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-inline: 32px;
+  border-bottom: var(--manuscript-hairline-width) solid var(--manuscript-border-subtle);
+  pointer-events: auto;
+  z-index: 10;
+}
 
 .library-page[data-visual-style='manuscript'] .library-search-bar {
   border-radius: var(--manuscript-radius-control);
@@ -299,4 +369,105 @@
   font-family: var(--manuscript-font-ui);
   font-size: 10px;
   letter-spacing: 0.16em;
+}
+
+/* --------------------------------------------------------------------------
+ * Responsive Densities — 容器查询 (Compact / Standard / Spacious)
+ * -------------------------------------------------------------------------- */
+
+.library-page[data-visual-style='manuscript'] .album-cover-group {
+  gap: 0 var(--library-cover-group-gap, 3rem);
+  contain: layout paint style;
+}
+
+/* Compact (<= 760px) */
+@container manuscript-library (max-width: 760px) {
+  .library-page[data-visual-style='manuscript'] {
+    --library-manuscript-flat-grid: 40px 44px minmax(0, 1.3fr) minmax(100px, 0.8fr) 56px;
+    --library-cover-group-gap: 1.25rem;
+  }
+
+  .library-page[data-visual-style='manuscript'] :is(.song-album, .ledger-header-album) {
+    display: none !important;
+  }
+
+  .library-page[data-visual-style='manuscript'] .song-title-sub-album {
+    display: block !important;
+  }
+
+  .library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row,
+  .library-page[data-visual-style='manuscript'] .catalog-header-tracks {
+    grid-template-columns: 40px minmax(0, 1fr) 48px !important;
+  }
+
+  .library-page[data-visual-style='manuscript'] :is(.cover-track-genre, .catalog-field-genre) {
+    display: none !important;
+  }
+
+  .library-page[data-visual-style='manuscript'] .cover-track-artist-line {
+    display: none !important;
+  }
+
+  .library-page[data-visual-style='manuscript'] .cover-track-sub-info {
+    display: block !important;
+  }
+}
+
+/* Standard (761px - 1099px) */
+@container manuscript-library (min-width: 761px) and (max-width: 1099px) {
+  .library-page[data-visual-style='manuscript'] {
+    --library-manuscript-flat-grid: 40px 44px minmax(0, 1.3fr) minmax(110px, 0.75fr)
+      minmax(120px, 0.9fr) 56px;
+    --library-cover-group-gap: 2rem;
+  }
+
+  .library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row,
+  .library-page[data-visual-style='manuscript'] .catalog-header-tracks {
+    grid-template-columns: 40px minmax(0, 1fr) minmax(120px, 180px) 48px !important;
+  }
+}
+
+/* Spacious (>= 1100px) */
+@container manuscript-library (min-width: 1100px) {
+  .library-page[data-visual-style='manuscript'] {
+    --library-manuscript-flat-grid: 44px 44px minmax(0, 1.5fr) minmax(140px, 0.8fr)
+      minmax(160px, 1fr) 64px;
+    --library-cover-group-gap: 3rem;
+  }
+
+  .library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row,
+  .library-page[data-visual-style='manuscript'] .catalog-header-tracks {
+    grid-template-columns: 40px minmax(0, 1fr) minmax(140px, 220px) 48px !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Status State (Empty / Scanning / No Search Match)
+ * -------------------------------------------------------------------------- */
+.library-status-state[data-visual-style='manuscript'] {
+  background: var(--manuscript-surface-page);
+  color: var(--manuscript-content-primary);
+}
+
+.library-status-state[data-visual-style='manuscript'] .status-title {
+  font-family: var(--manuscript-font-body);
+  color: var(--manuscript-content-primary);
+}
+
+.library-status-state[data-visual-style='manuscript'] .status-subtitle {
+  font-family: var(--manuscript-font-body);
+  color: var(--manuscript-content-muted);
+}
+
+.library-status-state[data-visual-style='manuscript'] .status-action-btn {
+  font-family: var(--manuscript-font-ui);
+  background: var(--manuscript-surface-control);
+  color: var(--manuscript-content-primary);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  border-radius: var(--manuscript-radius-control);
+  box-shadow: var(--manuscript-effect-shadow-control);
+}
+
+.library-status-state[data-visual-style='manuscript'] .status-action-btn:hover {
+  background: var(--manuscript-state-hover);
 }

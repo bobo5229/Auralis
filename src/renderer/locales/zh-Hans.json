@@ -235,6 +235,111 @@
       "label": "视觉风格",
       "modern": "流光",
       "manuscript": "手稿"
+    },
+    "manuscript": {
+      "header": {
+        "title": "全部歌曲",
+        "subtitle": "私人音乐收藏总账",
+        "trackCount": "曲目 {count}",
+        "folio": "FOLIO {current} / {total}"
+      },
+      "ledger": {
+        "index": "序号",
+        "artwork": "封面",
+        "title": "曲目",
+        "artist": "艺人",
+        "album": "专辑",
+        "duration": "时长"
+      },
+      "catalog": {
+        "number": "CAT {number} / {count} TRACKS",
+        "trackCount": "{count} TRACKS",
+        "fields": "NO. / TITLE / GENRE / TIME"
+      },
+      "status": {
+        "playing": "播放",
+        "paused": "暂停"
+      },
+      "missing": {
+        "title": "未命名曲目",
+        "artist": "未知艺人",
+        "album": "未知专辑",
+        "date": "日期未知",
+        "genre": "未分类",
+        "artwork": "无封面"
+      }
+    },
+    "search": {
+      "ariaLabel": "搜索资料库",
+      "placeholder": "搜索标题、艺人、专辑…",
+      "matched": "定位到 {index} / {total}",
+      "wrapped": "已回到开头（{index} / {total}）",
+      "notFound": "未找到匹配项",
+      "clearSearch": "清空搜索"
+    },
+    "contextMenu": {
+      "ariaLabel": "曲库操作菜单",
+      "locateCurrent": "定位到当前歌曲",
+      "playTrack": "播放「{title}」",
+      "playAlbum": "播放专辑「{album}」",
+      "insertTrack": "插播「{title}」",
+      "insertAlbum": "插播专辑「{album}」",
+      "addToPlaylist": "添加到歌单",
+      "createPlaylist": "新建歌单",
+      "editMetadata": "编辑元数据",
+      "switchToCover": "切换到封面视图",
+      "switchToFlat": "切换到平铺视图",
+      "refresh": "刷新曲库",
+      "noPlaylists": "暂无可添加的歌单",
+      "playlistLoading": "正在加载歌单…",
+      "playlistLoadError": "加载歌单失败",
+      "addedSuccess": "已添加到「{name}」"
+    },
+    "metadataEditor": {
+      "title": "编辑元数据",
+      "ariaLabel": "编辑曲目元数据",
+      "fields": {
+        "title": "标题",
+        "artist": "艺人",
+        "album": "专辑",
+        "albumArtist": "专辑艺人",
+        "genre": "流派",
+        "year": "年份",
+        "releaseDate": "发行日期"
+      },
+      "placeholders": {
+        "title": "输入曲目标题",
+        "artist": "输入艺人名称",
+        "album": "输入专辑名称",
+        "albumArtist": "输入专辑艺人名称",
+        "genre": "输入流派",
+        "year": "例如：2024",
+        "releaseDate": "例如：2024-05-20"
+      },
+      "actions": {
+        "cancel": "取消",
+        "save": "保存",
+        "saving": "正在保存…"
+      },
+      "validation": {
+        "yearInvalid": "年份必须为四位数字",
+        "dateInvalid": "日期格式必须为 YYYY-MM-DD"
+      },
+      "errors": {
+        "saveFailed": "保存元数据失败"
+      }
+    },
+    "status": {
+      "loading": "正在读取音乐资料库…",
+      "emptyAll": "尚未收录曲目",
+      "emptyPlaylist": "歌单内暂无曲目",
+      "emptySmartPlaylist": "智能歌单无匹配曲目",
+      "loadError": "读取音乐资料库失败",
+      "retry": "重试"
+    },
+    "a11y": {
+      "songRow": "曲目 {index}：{title} - {artist}",
+      "albumArtwork": "专辑 {album}，按 Enter 打开专辑操作菜单"
     }
   }
 }

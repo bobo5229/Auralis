@@ -125,7 +125,7 @@ const VISUAL_STYLE_STORAGE_KEY = 'auralis-visual-style'
 
 ```ts
 const isManuscriptLibrary = computed(
-  () => route.name === 'library' && visualStyle.value === 'manuscript'
+  () => route.name === 'library' && visualStyle.value === 'manuscript',
 )
 ```
 
@@ -135,7 +135,7 @@ const isManuscriptLibrary = computed(
 <section
   class="library-page"
   :data-visual-style="isManuscriptLibrary ? 'manuscript' : 'modern'"
->
+></section>
 ```
 
 普通歌单和智能歌单必须始终得到 `modern`，但不能清除用户已保存的手稿偏好。
@@ -378,14 +378,14 @@ npm.cmd run build
 
 至少覆盖以下组合：
 
-| 维度 | 组合 |
-|---|---|
-| 视觉风格 | modern / manuscript |
-| 歌曲视图 | flat / cover |
-| 路由 | 全部歌曲 / 智能歌单 / 普通歌单 |
-| 窗口宽度 | `< xl` / `>= xl`（显示 Now Playing） |
-| 数据 | 大型真实曲库 / 缺封面 / 缺艺人或专辑 / 长标题 / 中英混排 |
-| 播放状态 | 未选择 / 已选择 / 正在播放 / 暂停 |
+| 维度     | 组合                                                     |
+| -------- | -------------------------------------------------------- |
+| 视觉风格 | modern / manuscript                                      |
+| 歌曲视图 | flat / cover                                             |
+| 路由     | 全部歌曲 / 智能歌单 / 普通歌单                           |
+| 窗口宽度 | `< xl` / `>= xl`（显示 Now Playing）                     |
+| 数据     | 大型真实曲库 / 缺封面 / 缺艺人或专辑 / 长标题 / 中英混排 |
+| 播放状态 | 未选择 / 已选择 / 正在播放 / 暂停                        |
 
 ### 必验行为
 

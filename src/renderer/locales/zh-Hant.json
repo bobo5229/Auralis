@@ -235,6 +235,111 @@
       "label": "視覺風格",
       "modern": "流光",
       "manuscript": "手稿"
+    },
+    "manuscript": {
+      "header": {
+        "title": "全部歌曲",
+        "subtitle": "私人音樂收藏總賬",
+        "trackCount": "曲目 {count}",
+        "folio": "FOLIO {current} / {total}"
+      },
+      "ledger": {
+        "index": "序號",
+        "artwork": "封面",
+        "title": "曲目",
+        "artist": "藝人",
+        "album": "專輯",
+        "duration": "時長"
+      },
+      "catalog": {
+        "number": "CAT {number} / {count} TRACKS",
+        "trackCount": "{count} TRACKS",
+        "fields": "NO. / TITLE / GENRE / TIME"
+      },
+      "status": {
+        "playing": "播放",
+        "paused": "暫停"
+      },
+      "missing": {
+        "title": "未命名曲目",
+        "artist": "未知藝人",
+        "album": "未知專輯",
+        "date": "日期未知",
+        "genre": "未分類",
+        "artwork": "無封面"
+      }
+    },
+    "search": {
+      "ariaLabel": "搜索資料庫",
+      "placeholder": "搜索標題、藝人、專輯…",
+      "matched": "定位到 {index} / {total}",
+      "wrapped": "已回到開頭（{index} / {total}）",
+      "notFound": "未找到匹配項",
+      "clearSearch": "清空搜索"
+    },
+    "contextMenu": {
+      "ariaLabel": "曲庫操作菜單",
+      "locateCurrent": "定位到當前歌曲",
+      "playTrack": "播放「{title}」",
+      "playAlbum": "播放專輯「{album}」",
+      "insertTrack": "插播「{title}」",
+      "insertAlbum": "插播專輯「{album}」",
+      "addToPlaylist": "添加到歌單",
+      "createPlaylist": "新建歌單",
+      "editMetadata": "編輯元數據",
+      "switchToCover": "切換到封面視圖",
+      "switchToFlat": "切換到平鋪視圖",
+      "refresh": "刷新曲庫",
+      "noPlaylists": "暫無可添加的歌單",
+      "playlistLoading": "正在加載歌單…",
+      "playlistLoadError": "加載歌單失敗",
+      "addedSuccess": "已添加到「{name}」"
+    },
+    "metadataEditor": {
+      "title": "編輯元數據",
+      "ariaLabel": "編輯曲目元數據",
+      "fields": {
+        "title": "標題",
+        "artist": "藝人",
+        "album": "專輯",
+        "albumArtist": "專輯藝人",
+        "genre": "流派",
+        "year": "年份",
+        "releaseDate": "發行日期"
+      },
+      "placeholders": {
+        "title": "輸入曲目標題",
+        "artist": "輸入藝人名稱",
+        "album": "輸入專輯名稱",
+        "albumArtist": "輸入專輯藝人名稱",
+        "genre": "輸入流派",
+        "year": "例如：2024",
+        "releaseDate": "例如：2024-05-20"
+      },
+      "actions": {
+        "cancel": "取消",
+        "save": "保存",
+        "saving": "正在保存…"
+      },
+      "validation": {
+        "yearInvalid": "年份必須為四位數字",
+        "dateInvalid": "日期格式必須為 YYYY-MM-DD"
+      },
+      "errors": {
+        "saveFailed": "保存元數據失敗"
+      }
+    },
+    "status": {
+      "loading": "正在讀取音樂資料庫…",
+      "emptyAll": "尚未收錄曲目",
+      "emptyPlaylist": "歌單內暫無曲目",
+      "emptySmartPlaylist": "智能歌單無匹配曲目",
+      "loadError": "讀取音樂資料庫失敗",
+      "retry": "重試"
+    },
+    "a11y": {
+      "songRow": "曲目 {index}：{title} - {artist}",
+      "albumArtwork": "專輯 {album}，按 Enter 打開專輯操作菜單"
     }
   }
 }

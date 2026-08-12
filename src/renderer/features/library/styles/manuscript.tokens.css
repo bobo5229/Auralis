@@ -9,7 +9,10 @@
  *   3. Compatibility — 仅 var(--manuscript-<semantic>) / transparent / none
  * ========================================================================== */
 
-.library-page[data-visual-style='manuscript'] {
+:where(
+  .library-page[data-visual-style='manuscript'],
+  .library-overlay[data-visual-style='manuscript']
+) {
   /* ---------- 1. Primitive ---------- */
   --manuscript-color-paper-100: #f3eedf;
   --manuscript-color-paper-100-rgb: 243, 238, 223;
@@ -32,6 +35,9 @@
   --manuscript-surface-page: var(--manuscript-color-paper-100);
   --manuscript-surface-recessed: var(--manuscript-color-paper-200);
   --manuscript-surface-control: var(--manuscript-color-paper-100);
+  --manuscript-surface-overlay: var(--manuscript-surface-page);
+  --manuscript-surface-overlay-recessed: var(--manuscript-surface-recessed);
+  --manuscript-surface-scrim: rgba(var(--manuscript-color-ink-900-rgb), 0.28);
 
   /* Content */
   --manuscript-content-primary: var(--manuscript-color-ink-900);
@@ -41,6 +47,7 @@
   --manuscript-content-faint: rgba(var(--manuscript-color-ink-900-rgb), 0.68);
   --manuscript-content-disabled: rgba(var(--manuscript-color-ink-900-rgb), 0.3);
   --manuscript-content-on-accent: var(--manuscript-color-paper-100);
+  --manuscript-content-danger: var(--manuscript-accent-primary);
 
   /* Border */
   --manuscript-border-subtle: rgba(var(--manuscript-color-rule-rgb), 0.24);
@@ -48,6 +55,7 @@
   --manuscript-border-row: rgba(var(--manuscript-color-rule-rgb), 0.18);
   --manuscript-border-search: rgba(var(--manuscript-color-rule-strong-rgb), 0.35);
   --manuscript-border-focus: var(--manuscript-color-accent-700);
+  --manuscript-border-overlay: var(--manuscript-border-strong);
 
   /* Accent */
   --manuscript-accent-primary: var(--manuscript-color-accent-700);
@@ -60,6 +68,14 @@
   --manuscript-state-pressed: var(--manuscript-state-accent-soft);
   --manuscript-state-selected: var(--manuscript-state-accent-soft);
   --manuscript-state-focus-ring: var(--manuscript-color-accent-700);
+  --manuscript-state-missing: var(--manuscript-content-disabled);
+
+  /* Ledger & Stamp Phase 7 Semantics */
+  --manuscript-border-ledger: var(--manuscript-border-subtle);
+  --manuscript-border-ledger-strong: var(--manuscript-border-strong);
+  --manuscript-content-ledger-label: var(--manuscript-content-muted);
+  --manuscript-surface-stamp: var(--manuscript-state-accent-soft);
+  --manuscript-content-stamp: var(--manuscript-accent-primary);
 
   /* Typography roles */
   --manuscript-font-body: var(--manuscript-font-family-serif);
@@ -84,6 +100,10 @@
   --manuscript-effect-page-shadow:
     0 1px 2px rgba(var(--manuscript-color-ink-900-rgb), 0.16),
     0 6px 18px rgba(var(--manuscript-color-ink-900-rgb), 0.1);
+  --manuscript-effect-overlay-shadow:
+    0 8px 24px rgba(var(--manuscript-color-ink-900-rgb), 0.16),
+    0 2px 6px rgba(var(--manuscript-color-ink-900-rgb), 0.08);
+  --manuscript-effect-shadow-control: 0 1px 2px rgba(var(--manuscript-color-ink-900-rgb), 0.08);
   --manuscript-effect-search-surface: rgba(var(--manuscript-color-paper-100-rgb), 0.92);
 
   /* ---------- 3. Compatibility → --auralis-*（仅 semantic / transparent / none） ---------- */

@@ -20,11 +20,11 @@ Phase 6 的主要架构方向已经落地：
 
 但当前仍不能把 Phase 6 判定为完全完成，原因如下：
 
-| 级别 | 数量 | 含义 |
-|---|---:|---|
-| P1 | 2 | 会使 Phase 6 的核心目标或交付结论不成立，应在进入 Phase 7 前修复 |
-| P2 | 3 | 当前可能不立即失败，但会留下明确的漂移或无障碍风险 |
-| P3 | 1 | 不影响运行，但降低提交可回退性与审计一致性 |
+| 级别 | 数量 | 含义                                                             |
+| ---- | ---: | ---------------------------------------------------------------- |
+| P1   |    2 | 会使 Phase 6 的核心目标或交付结论不成立，应在进入 Phase 7 前修复 |
+| P2   |    3 | 当前可能不立即失败，但会留下明确的漂移或无障碍风险               |
+| P3   |    1 | 不影响运行，但降低提交可回退性与审计一致性                       |
 
 ---
 
@@ -295,15 +295,15 @@ Finding 1 连接完整布局事实源
 
 ## 5. 修复落地摘要
 
-| Finding | 级别 | 处理 |
-|---|---|---|
-| 1 曲目面板多事实源 | P1 | metrics 改为每侧尺寸；AlbumCoverGroup / Uno / manuscript panel 消费 `--library-*`；panel 盒模型 border 不用 hairline |
-| 2 人工门禁未完成 | P1 | TECHDOC / DELIVERY 状态改为「人工验收待完成」；§5 列出未关闭清单（不伪称 DoD 完成） |
-| 3 modern 曲目行仅 min-height | P2 | Uno `cover-track-row` 同时 `height` + `min-height` |
-| 4 Token 分层漂移 | P2 | accent/paper RGB 派生；删除无用 surface-selected；Compatibility 仅 semantic 映射 |
-| 5 reduced-motion | P2 | `main.css` 覆盖 search-bar 过渡与 transform |
-| 6 合并提交偏差 | P3 | BASELINE / DELIVERY 记录原因与风险；不重写 git 历史 |
-| 7 TECHDOC/DELIVERY 滞后 | P2 | TECHDOC §4.1/4.2/6.1 改为每侧字段；DELIVERY 写死 REVIEW 提交哈希 |
+| Finding                      | 级别 | 处理                                                                                                                 |
+| ---------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------- |
+| 1 曲目面板多事实源           | P1   | metrics 改为每侧尺寸；AlbumCoverGroup / Uno / manuscript panel 消费 `--library-*`；panel 盒模型 border 不用 hairline |
+| 2 人工门禁未完成             | P1   | TECHDOC / DELIVERY 状态改为「人工验收待完成」；§5 列出未关闭清单（不伪称 DoD 完成）                                  |
+| 3 modern 曲目行仅 min-height | P2   | Uno `cover-track-row` 同时 `height` + `min-height`                                                                   |
+| 4 Token 分层漂移             | P2   | accent/paper RGB 派生；删除无用 surface-selected；Compatibility 仅 semantic 映射                                     |
+| 5 reduced-motion             | P2   | `main.css` 覆盖 search-bar 过渡与 transform                                                                          |
+| 6 合并提交偏差               | P3   | BASELINE / DELIVERY 记录原因与风险；不重写 git 历史                                                                  |
+| 7 TECHDOC/DELIVERY 滞后      | P2   | TECHDOC §4.1/4.2/6.1 改为每侧字段；DELIVERY 写死 REVIEW 提交哈希                                                     |
 
 ---
 
@@ -315,24 +315,24 @@ Finding 1 连接完整布局事实源
 **文档层结论**：Finding 6 已记录，但新增 1 个 P2 文档一致性 Finding。<br>
 **人工门禁**：Finding 2 仍开放；用户明确说明尚未执行人工验收，因此 Phase 6 仍不能标记为最终完成。
 
-| Finding | 复查状态 | 证据 |
-|---|---|---|
-| 1 曲目面板多事实源 | 代码已关闭 | metrics 改为每侧值；AlbumCoverGroup / Uno / manuscript panel 直接消费对应 CSS 变量 |
-| 2 人工门禁未完成 | **保持开放** | 截图目录仍只有 README；DevTools、缩放、真实曲库矩阵尚未执行 |
-| 3 modern 行盒仅 min-height | 代码已关闭 | Uno 同时生成 `height` 与 `min-height` |
-| 4 Token 分层漂移 | 代码已关闭 | soft accent 单点派生；Compatibility 映射到 semantic；死 Token 已删除 |
-| 5 reduced-motion | 代码已关闭 | search enter/leave 在 reduce 模式下变为 0ms 且取消纵向位移 |
-| 6 合并提交偏差 | 文档已关闭 | BASELINE / DELIVERY 已记录原因、风险和不重写历史的决定 |
-| 7 TECHDOC/DELIVERY 滞后 | 文档已关闭 | §4.1/4.2 每侧字段与 CSS 变量已对齐实现；DELIVERY 列出固定哈希，无 `<tip>` |
+| Finding                    | 复查状态     | 证据                                                                               |
+| -------------------------- | ------------ | ---------------------------------------------------------------------------------- |
+| 1 曲目面板多事实源         | 代码已关闭   | metrics 改为每侧值；AlbumCoverGroup / Uno / manuscript panel 直接消费对应 CSS 变量 |
+| 2 人工门禁未完成           | **保持开放** | 截图目录仍只有 README；DevTools、缩放、真实曲库矩阵尚未执行                        |
+| 3 modern 行盒仅 min-height | 代码已关闭   | Uno 同时生成 `height` 与 `min-height`                                              |
+| 4 Token 分层漂移           | 代码已关闭   | soft accent 单点派生；Compatibility 映射到 semantic；死 Token 已删除               |
+| 5 reduced-motion           | 代码已关闭   | search enter/leave 在 reduce 模式下变为 0ms 且取消纵向位移                         |
+| 6 合并提交偏差             | 文档已关闭   | BASELINE / DELIVERY 已记录原因、风险和不重写历史的决定                             |
+| 7 TECHDOC/DELIVERY 滞后    | 文档已关闭   | §4.1/4.2 每侧字段与 CSS 变量已对齐实现；DELIVERY 列出固定哈希，无 `<tip>`          |
 
 ### 6.2 自动复查结果
 
-| 项目 | 结果 |
-|---|---|
-| `npm.cmd run typecheck` | 通过 |
-| `npm.cmd run lint` | 通过 |
-| `npm.cmd run build` | 通过 |
-| Uno 构建产物 | 已确认生成 group border width、group block padding、track height/min-height 变量规则 |
+| 项目                    | 结果                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| `npm.cmd run typecheck` | 通过                                                                                 |
+| `npm.cmd run lint`      | 通过                                                                                 |
+| `npm.cmd run build`     | 通过                                                                                 |
+| Uno 构建产物            | 已确认生成 group border width、group block padding、track height/min-height 变量规则 |
 
 本轮没有执行或代替人工验收，也没有将截图、DevTools computed geometry、Windows 缩放或真实曲库
 滚动标记为通过。
