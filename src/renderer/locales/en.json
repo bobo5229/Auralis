@@ -235,6 +235,111 @@
       "label": "Visual style",
       "modern": "Modern",
       "manuscript": "Manuscript"
+    },
+    "manuscript": {
+      "header": {
+        "title": "All Songs",
+        "subtitle": "Private Music Collection Ledger",
+        "trackCount": "{count} tracks",
+        "folio": "FOLIO {current} / {total}"
+      },
+      "ledger": {
+        "index": "NO.",
+        "artwork": "ART",
+        "title": "TITLE",
+        "artist": "ARTIST",
+        "album": "ALBUM",
+        "duration": "TIME"
+      },
+      "catalog": {
+        "number": "CAT {number} / {count} TRACKS",
+        "trackCount": "{count} TRACKS",
+        "fields": "NO. / TITLE / GENRE / TIME"
+      },
+      "status": {
+        "playing": "PLAY",
+        "paused": "PAUSE"
+      },
+      "missing": {
+        "title": "Untitled track",
+        "artist": "Unknown artist",
+        "album": "Unknown album",
+        "date": "Unknown date",
+        "genre": "Unclassified",
+        "artwork": "No artwork"
+      }
+    },
+    "search": {
+      "ariaLabel": "Search library",
+      "placeholder": "Search title, artist, album…",
+      "matched": "Jumped to {index} of {total}",
+      "wrapped": "Wrapped to top ({index} of {total})",
+      "notFound": "No matches found",
+      "clearSearch": "Clear search"
+    },
+    "contextMenu": {
+      "ariaLabel": "Library context menu",
+      "locateCurrent": "Locate current track",
+      "playTrack": "Play \"{title}\"",
+      "playAlbum": "Play album \"{album}\"",
+      "insertTrack": "Play next \"{title}\"",
+      "insertAlbum": "Play album next \"{album}\"",
+      "addToPlaylist": "Add to playlist",
+      "createPlaylist": "New playlist",
+      "editMetadata": "Edit metadata",
+      "switchToCover": "Switch to cover view",
+      "switchToFlat": "Switch to flat view",
+      "refresh": "Refresh library",
+      "noPlaylists": "No playlists available",
+      "playlistLoading": "Loading playlists…",
+      "playlistLoadError": "Failed to load playlists",
+      "addedSuccess": "Added to \"{name}\""
+    },
+    "metadataEditor": {
+      "title": "Edit Metadata",
+      "ariaLabel": "Edit track metadata",
+      "fields": {
+        "title": "Title",
+        "artist": "Artist",
+        "album": "Album",
+        "albumArtist": "Album Artist",
+        "genre": "Genre",
+        "year": "Year",
+        "releaseDate": "Release Date"
+      },
+      "placeholders": {
+        "title": "Enter track title",
+        "artist": "Enter artist name",
+        "album": "Enter album title",
+        "albumArtist": "Enter album artist name",
+        "genre": "Enter genre",
+        "year": "e.g. 2024",
+        "releaseDate": "e.g. 2024-05-20"
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving…"
+      },
+      "validation": {
+        "yearInvalid": "Year must be a 4-digit number",
+        "dateInvalid": "Release date must be in YYYY-MM-DD format"
+      },
+      "errors": {
+        "saveFailed": "Failed to save metadata"
+      }
+    },
+    "status": {
+      "loading": "Loading music library…",
+      "emptyAll": "No tracks in library",
+      "emptyPlaylist": "No tracks in playlist",
+      "emptySmartPlaylist": "No tracks match smart playlist criteria",
+      "loadError": "Failed to load music library",
+      "retry": "Retry"
+    },
+    "a11y": {
+      "songRow": "Track {index}: {title} - {artist}",
+      "albumArtwork": "Album {album}, press Enter for album context menu"
     }
   }
 }

@@ -176,6 +176,26 @@ lyrics windows.
 - `src/renderer/app/styles/main.css`: global theme tokens and cross-component shell/player
   effects; `uno.config.ts`: stable layout shortcuts. Keep page-only styles scoped locally.
 
+### Library visual styles
+
+The library's `modern | manuscript` visual style is a feature-scoped preference. It is
+independent of the global light/dark theme and the PlayerBar material preference. Keep its
+state and persistence in `src/renderer/features/library/composables/useVisualStyle.ts`; do not
+fold it into `ThemeMode` or introduce another source of truth.
+
+- The manuscript style currently applies only to the `/` All Songs route, whose route name is
+  `library`. Smart and regular playlists reuse `LibraryPage.vue` but must render as `modern`
+  without clearing the saved manuscript preference.
+- Keep manuscript rules in `src/renderer/features/library/styles/manuscript.css`, scoped under
+  `.library-page[data-visual-style='manuscript']`. Do not add unscoped `html`, `body`, `#app`, or
+  shell-level manuscript selectors.
+- Sidebar, Now Playing, Playbar, Miniplayer, desktop lyrics, and fullscreen playback remain outside this MVP. Teleport overlays owned by the All Songs library page (`LibraryContextMenu` and `MetadataEditDialog`) are scoped under `.library-overlay[data-visual-style='manuscript']` in `src/renderer/features/library/styles/manuscript.overlays.css`; other Teleport overlays remain outside.
+- Preserve virtualization geometry unless the CSS and virtualizer estimates are updated
+  together: flat rows are 44px, cover tracks are 40px, cover artwork is 250px, track-panel
+  vertical padding totals 20px, and album-group vertical padding totals 56px.
+- A visual-style change must preserve existing selection, playback queue, search, context-menu,
+  metadata, lazy artwork loading, and `decoding='async'` behavior.
+
 > [!IMPORTANT]
 > **术语与概念澄清 (Terminology Clarification)**
 >
@@ -199,6 +219,10 @@ npm.cmd run build
 ```
 
 When tests are introduced, place them near the module they cover and prefer names such as `libraryRepository.test.ts`.
+
+For library visual-style changes, also manually verify both `modern` and `manuscript` in the
+`flat` and `cover` views, confirm playlist routes remain modern, and check both sides of the
+`xl` layout breakpoint.
 
 ## Commit & Pull Request Guidelines
 
