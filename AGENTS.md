@@ -30,6 +30,8 @@ Use `npm.cmd` on Windows PowerShell if `npm.ps1` is blocked. Node >= 20.19.0 req
 - `npm.cmd run dev`: start the Electron development app.
 - `npm.cmd run typecheck`: run `vue-tsc --noEmit`.
 - `npm.cmd run lint`: lint source and config files.
+- `npm.cmd test`: run Vitest unit tests and library visual-scope static checks.
+- `npm.cmd run test:watch`: run Vitest in watch mode during development.
 - `npm.cmd run format`: format files with Prettier.
 - `npm.cmd run build`: typecheck and build with `electron-vite` (`vue-tsc --noEmit && electron-vite build`).
 - `npm.cmd run preview`: preview the electron-vite build.
@@ -86,6 +88,14 @@ Two IPC patterns are in use:
 
 1. **Invoke** (request/response) — standard `ipcMain.handle` / `ipcRenderer.invoke` for most calls.
 2. **Push** (main → renderer) — `window.webContents.send` + `ipcRenderer.on` for streaming events like `library:scan-progress`. Preload wraps these with `onScanProgress(callback)` that returns an unsubscribe function.
+
+The All Songs catalog uses `library:get-track-page` instead of a single full-array IPC. Main owns
+one immutable, pinyin-sorted snapshot in
+`src/main/features/libraryCatalog/libraryCatalogSnapshotStore.ts`; renderer cursors are opaque and
+must remain bound to that snapshot. The current renderer still validates and aggregates every page
+before committing because cover grouping, global search, and playback queues require a complete
+ordered snapshot. Do not replace this with SQLite `OFFSET`, silently reuse expired cursors, or expose
+partial arrays without redesigning those consumers together.
 
 Preload (`src/preload/index.ts`) exposes `window.auralis` via `contextBridge.exposeInMainWorld`. Renderer accesses IPC through `src/renderer/shared/ipc/client.ts` which re-exports `window.auralis`.
 
@@ -176,25 +186,43 @@ lyrics windows.
 - `src/renderer/app/styles/main.css`: global theme tokens and cross-component shell/player
   effects; `uno.config.ts`: stable layout shortcuts. Keep page-only styles scoped locally.
 
-### Library visual styles
+### Renderer visual styles
 
-The library's `modern | manuscript` visual style is a feature-scoped preference. It is
-independent of the global light/dark theme and the PlayerBar material preference. Keep its
-state and persistence in `src/renderer/features/library/composables/useVisualStyle.ts`; do not
-fold it into `ThemeMode` or introduce another source of truth.
+The `modern | manuscript` visual style is a Renderer preference shared by the explicitly covered
+catalog pages. It is independent of the global light/dark theme and the PlayerBar material
+preference. Keep its only state and persistence source in
+`src/renderer/features/appearance/composables/useVisualStyle.ts`; do not fold it into `ThemeMode`
+or introduce page-local visual-style refs.
 
 - The manuscript style currently applies only to the `/` All Songs route, whose route name is
   `library`. Smart and regular playlists reuse `LibraryPage.vue` but must render as `modern`
   without clearing the saved manuscript preference.
+- Phase 12 covers the `/albums` catalog route. Phase 13 covers only the `album-detail` route.
+  Resolve both surfaces by their explicit Vue Router names; do not infer detail-page presentation
+  from the `/albums` path prefix.
+- Shared manuscript tokens live in
+  `src/renderer/features/appearance/styles/manuscript.tokens.css`. Page composition remains
+  feature-owned: library rules under `.library-page`, album catalog rules under `.albums-page`.
 - Keep manuscript rules in `src/renderer/features/library/styles/manuscript.css`, scoped under
   `.library-page[data-visual-style='manuscript']`. Do not add unscoped `html`, `body`, `#app`, or
   shell-level manuscript selectors.
-- Sidebar, Now Playing, Playbar, Miniplayer, desktop lyrics, and fullscreen playback remain outside this MVP. Teleport overlays owned by the All Songs library page (`LibraryContextMenu` and `MetadataEditDialog`) are scoped under `.library-overlay[data-visual-style='manuscript']` in `src/renderer/features/library/styles/manuscript.overlays.css`; other Teleport overlays remain outside.
+- Sidebar, Now Playing, Playbar, Miniplayer, desktop lyrics, and fullscreen playback remain outside
+  the current manuscript coverage. Teleport overlays must carry an owner-specific scope:
+  `.library-overlay` for All Songs and `.albums-overlay` for the album catalog. Other Teleport
+  overlays remain outside.
+- Album detail manuscript rules live in
+  `src/renderer/features/albums/styles/manuscript.detail.css` and must remain scoped under
+  `.album-detail-page[data-visual-style='manuscript']`. Its artwork-derived canvas and pointer tilt
+  are modern-only effects: manuscript must stop and clean them up, while switching back to modern
+  must restore them without duplicate listeners.
 - Preserve virtualization geometry unless the CSS and virtualizer estimates are updated
   together: flat rows are 44px, cover tracks are 40px, cover artwork is 250px, track-panel
   vertical padding totals 20px, and album-group vertical padding totals 56px.
 - A visual-style change must preserve existing selection, playback queue, search, context-menu,
   metadata, lazy artwork loading, and `decoding='async'` behavior.
+- Library catalog refreshes are generation-controlled and coalesce active background work. Preserve
+  foreground → metadata-save → background priority and do not reintroduce concurrent full snapshot
+  builds.
 
 > [!IMPORTANT]
 > **术语与概念澄清 (Terminology Clarification)**
@@ -210,19 +238,35 @@ listeners on unmount, and preserve both light and dark themes.
 
 ## Testing Guidelines
 
-No testing framework is configured yet. Until one is added, every change should at least pass:
+Vitest is configured for colocated `*.test.ts` unit tests. Keep pure state, indexing, search,
+and geometry logic outside Vue components when practical so it can be tested directly. The
+library manuscript scope also has a source-level guard in
+`scripts/check-library-visual-scope.mjs`.
+
+Every change should at least pass:
 
 ```bash
+npm.cmd test
 npm.cmd run typecheck
 npm.cmd run lint
 npm.cmd run build
 ```
 
-When tests are introduced, place them near the module they cover and prefer names such as `libraryRepository.test.ts`.
+Place tests near the module they cover and prefer names such as `libraryRepository.test.ts`.
 
 For library visual-style changes, also manually verify both `modern` and `manuscript` in the
 `flat` and `cover` views, confirm playlist routes remain modern, and check both sides of the
 `xl` layout breakpoint.
+
+For album catalog visual-style changes, verify `modern` and `manuscript` in both `grid` and
+`perspective` views, including search wrap/not-found feedback, context-menu actions, missing
+artwork/metadata, and the responsive grid.
+
+For album detail visual-style changes, verify `modern` and `manuscript`, loading/error/not-found
+states, long mixed-language titles, missing artwork/metadata, single- and multi-disc albums,
+playback/search state, related-album navigation, and repeated style switching. Confirm modern keeps
+the artwork canvas and pointer tilt, manuscript stops them, and excluded player/shell surfaces do
+not change.
 
 ## Commit & Pull Request Guidelines
 

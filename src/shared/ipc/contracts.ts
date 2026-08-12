@@ -35,6 +35,7 @@ import type {
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
+import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 
 export interface SystemMediaPlaybackState {
   hasTrack: boolean
@@ -106,6 +107,10 @@ export interface IpcInvokeContract {
   'library:get-tracks': {
     request: void
     response: TrackListItem[]
+  }
+  'library:get-track-page': {
+    request: LibraryTrackPageRequest
+    response: LibraryTrackPage
   }
   'smart-playlists:list': {
     request: void

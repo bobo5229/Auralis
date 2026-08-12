@@ -11,6 +11,7 @@ export const ipcChannels = {
     cancelScan: 'library:cancel-scan',
     getScanStatus: 'library:get-scan-status',
     getTracks: 'library:get-tracks',
+    getTrackPage: 'library:get-track-page',
     scanProgress: 'library:scan-progress',
     changed: 'library:changed',
   },

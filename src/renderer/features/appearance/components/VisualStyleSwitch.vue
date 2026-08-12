@@ -38,8 +38,8 @@ const STYLE_OPTIONS: readonly { value: VisualStyle; labelKey: string }[] = [
   gap: 2px;
   height: 38px;
   padding: 3px;
-  border-radius: 999px;
   border: 1px solid var(--auralis-search-border);
+  border-radius: 999px;
   background: var(--auralis-search-bg);
   box-shadow: var(--auralis-search-shadow);
   backdrop-filter: blur(14px) saturate(1.08);

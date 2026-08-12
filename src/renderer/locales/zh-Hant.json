@@ -230,6 +230,78 @@
     "queueShort": "隊列",
     "modeAria": "播放模式：{mode}"
   },
+  "albums": {
+    "detail": {
+      "back": "返回專輯",
+      "play": "播放",
+      "shuffle": "隨機播放",
+      "tracks": "曲目",
+      "disc": "磟片 {number}",
+      "trackCount": {
+        "one": "{count} 首曲目",
+        "other": "{count} 首曲目"
+      },
+      "duration": {
+        "zero": "00 分 00 秒",
+        "minutes": "{minutes} 分 {seconds} 秒",
+        "hours": "{hours} 小時 {minutes} 分"
+      },
+      "listenSummary": {
+        "plays": "聽過 {count} 次",
+        "minutes": "聽過 {count} 次 · 約 {minutes} 分鐘",
+        "hours": "聽過 {count} 次 · 約 {hours} 小時"
+      },
+      "unknownYear": "年份未知",
+      "unknownTitle": "未命名曲目",
+      "moreAlbumsTitle": "{artist} 的更多專輯",
+      "moreAlbumsAria": "{artist} 的更多專輯",
+      "openAlbumAria": "打開專輯 {title}",
+      "coverAlt": "{title} 的封面",
+      "heroAria": "{title} 的專輯封面與詳情",
+      "loading": "正在讀取專輯…",
+      "loadError": "讀取專輯失敗",
+      "notFound": "未找到專輯",
+      "retry": "重試",
+      "returnToAlbums": "返回專輯目錄"
+    },
+    "manuscript": {
+      "title": "唱片目錄",
+      "subtitle": "私人音樂收藏索引",
+      "albumCount": "專輯 {count}",
+      "trackCount": "曲目 {count}",
+      "catalogNumber": "CAT {number}",
+      "viewLabel": "陳列方式"
+    },
+    "search": {
+      "ariaLabel": "搜索專輯和專輯藝術家",
+      "placeholder": "搜索專輯、專輯藝術家",
+      "matched": "定位到 {index} / {total}",
+      "wrapped": "已回到開頭（{index} / {total}）",
+      "notFound": "未找到匹配專輯"
+    },
+    "view": {
+      "ariaLabel": "專輯視圖模式",
+      "grid": "常規網格",
+      "perspective": "透視封面"
+    },
+    "contextMenu": {
+      "locateCurrent": "定位到當前專輯",
+      "play": "播放「{title}」",
+      "insert": "插播「{title}」",
+      "switchToPerspective": "切換到透視封面視圖",
+      "switchToGrid": "切換到常規封面視圖"
+    },
+    "status": {
+      "loading": "正在讀取專輯目錄…",
+      "empty": "尚未收錄專輯，請先在設置中添加音樂文件夾。",
+      "loadError": "讀取專輯目錄失敗",
+      "retry": "重試"
+    },
+    "a11y": {
+      "openAlbum": "打開專輯 {title}",
+      "coverAlt": "{title} 的封面"
+    }
+  },
   "library": {
     "visualStyle": {
       "label": "視覺風格",

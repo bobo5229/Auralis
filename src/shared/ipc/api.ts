@@ -36,6 +36,7 @@ import type {
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
+import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import type {
   MiniPlayerPopoverDirection,
   MiniPlayerWindowState,
@@ -56,6 +57,7 @@ export interface AuralisApi {
     cancelScan: (jobId: number) => Promise<{ ok: boolean }>
     getScanStatus: (jobId?: number) => Promise<LibraryScanStatus | null>
     getTracks: () => Promise<TrackListItem[]>
+    getTrackPage: (request: LibraryTrackPageRequest) => Promise<LibraryTrackPage>
     onScanProgress: (callback: (progress: LibraryScanProgress) => void) => () => void
     onChanged: (
       callback: (event: {

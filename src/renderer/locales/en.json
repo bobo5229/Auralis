@@ -230,6 +230,78 @@
     "queueShort": "Queue",
     "modeAria": "Playback mode: {mode}"
   },
+  "albums": {
+    "detail": {
+      "back": "Back to Albums",
+      "play": "Play",
+      "shuffle": "Shuffle",
+      "tracks": "Tracks",
+      "disc": "Disc {number}",
+      "trackCount": {
+        "one": "{count} track",
+        "other": "{count} tracks"
+      },
+      "duration": {
+        "zero": "00 min 00 sec",
+        "minutes": "{minutes} min {seconds} sec",
+        "hours": "{hours} hr {minutes} min"
+      },
+      "listenSummary": {
+        "plays": "Played {count} times",
+        "minutes": "Played {count} times · about {minutes} min",
+        "hours": "Played {count} times · about {hours} hr"
+      },
+      "unknownYear": "Unknown year",
+      "unknownTitle": "Untitled track",
+      "moreAlbumsTitle": "More albums by {artist}",
+      "moreAlbumsAria": "More albums by {artist}",
+      "openAlbumAria": "Open album {title}",
+      "coverAlt": "Cover for {title}",
+      "heroAria": "Album cover and details for {title}",
+      "loading": "Loading album…",
+      "loadError": "Failed to load album",
+      "notFound": "Album not found",
+      "retry": "Retry",
+      "returnToAlbums": "Return to Albums"
+    },
+    "manuscript": {
+      "title": "Record Catalog",
+      "subtitle": "Private Music Collection Index",
+      "albumCount": "{count} albums",
+      "trackCount": "{count} tracks",
+      "catalogNumber": "CAT {number}",
+      "viewLabel": "Display"
+    },
+    "search": {
+      "ariaLabel": "Search albums and album artists",
+      "placeholder": "Search albums and album artists",
+      "matched": "Jumped to {index} of {total}",
+      "wrapped": "Wrapped to top ({index} of {total})",
+      "notFound": "No matching albums"
+    },
+    "view": {
+      "ariaLabel": "Album view mode",
+      "grid": "Regular grid",
+      "perspective": "Perspective covers"
+    },
+    "contextMenu": {
+      "locateCurrent": "Locate current album",
+      "play": "Play \"{title}\"",
+      "insert": "Play next \"{title}\"",
+      "switchToPerspective": "Switch to perspective cover view",
+      "switchToGrid": "Switch to regular cover view"
+    },
+    "status": {
+      "loading": "Loading album catalog…",
+      "empty": "No albums yet. Add a music folder in Settings.",
+      "loadError": "Failed to load album catalog",
+      "retry": "Retry"
+    },
+    "a11y": {
+      "openAlbum": "Open album {title}",
+      "coverAlt": "Cover for {title}"
+    }
+  },
   "library": {
     "visualStyle": {
       "label": "Visual style",

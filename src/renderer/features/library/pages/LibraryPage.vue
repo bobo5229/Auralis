@@ -11,11 +11,11 @@ import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
 import type { LibraryAlbumGroup } from '../components/AlbumCoverGroup.vue'
 import MetadataEditDialog from '../components/MetadataEditDialog.vue'
 import LibraryContextMenu from '../components/LibraryContextMenu.vue'
-import VisualStyleSwitch from '../components/VisualStyleSwitch.vue'
+import VisualStyleSwitch from '@renderer/features/appearance/components/VisualStyleSwitch.vue'
 import LibraryArchiveHeader from '../components/LibraryArchiveHeader.vue'
 import LibraryLedgerHeader from '../components/LibraryLedgerHeader.vue'
 import LibraryStatusState from '../components/LibraryStatusState.vue'
-import { useVisualStyle } from '../composables/useVisualStyle'
+import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import { calculateFolioInfo } from '../constants/libraryArchivePresentation'
 import {
   getAlbumGroupEstimatedHeight,
@@ -30,10 +30,17 @@ import type {
   LibrarySearchOutcome,
   LibraryViewMode,
 } from '../types/libraryInteraction'
-import '../styles/manuscript.tokens.css'
+import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import '../styles/manuscript.css'
 import '../styles/manuscript.overlays.css'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
+import { createLibraryDerivedIndex } from '../utils/libraryDerivedIndex'
+import { createLibrarySearchIndex } from '../utils/librarySearchIndex'
+import { scanLibrarySearchIndex } from '../utils/librarySearchScan'
+import { resolveLibraryPresentation } from '../utils/libraryPresentation'
+import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
+import { isSameLibraryRouteScope, type LibraryRouteScope } from '../utils/libraryRouteScope'
+import { loadLibraryCatalogSnapshot } from '../utils/loadLibraryCatalogSnapshot'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { normalizeSearchText } from '../utils/normalizeSearchText'
 
@@ -49,10 +56,11 @@ const isManuscriptLibrary = computed(
   () => route.name === 'library' && visualStyle.value === 'manuscript',
 )
 const libraryPresentation = computed<LibraryPresentation>(() =>
-  isManuscriptLibrary.value ? 'manuscript' : 'modern',
+  resolveLibraryPresentation(route.name, visualStyle.value),
 )
 
 const tracks = shallowRef<TrackListItem[]>([])
+const librarySearchIndex = computed(() => createLibrarySearchIndex(tracks.value))
 const isLoading = ref(true)
 const scrollRef = ref<HTMLElement | null>(null)
 const firstVisibleTrackIndex = ref(0)
@@ -80,6 +88,16 @@ const isSmartPlaylist = computed(() => smartPlaylistId.value !== null)
 const isPlaylist = computed(() => playlistId.value !== null)
 const isScopedPlaylist = computed(() => isSmartPlaylist.value || isPlaylist.value)
 
+function captureLibraryRouteScope(): LibraryRouteScope {
+  if (smartPlaylistId.value !== null) {
+    return { kind: 'smart-playlist', id: smartPlaylistId.value }
+  }
+  if (playlistId.value !== null) {
+    return { kind: 'playlist', id: playlistId.value }
+  }
+  return { kind: 'library' }
+}
+
 function readPersistedViewMode(): LibraryViewMode {
   const stored = localStorage.getItem(LIBRARY_VIEW_MODE_KEY)
   return stored === 'cover' ? 'cover' : 'flat'
@@ -95,6 +113,7 @@ const isCreatingPlaylistFromMenu = ref(false)
 let unsubscribeChanged: (() => void) | null = null
 let unsubscribeScanProgress: (() => void) | null = null
 let addToPlaylistFeedbackTimer: number | null = null
+const libraryRequestCoordinator = new LibraryRequestCoordinator()
 
 // Search state
 const searchQuery = ref('')
@@ -107,6 +126,19 @@ let lastSearchQuery = ''
 let lastMatchedTrackIndex = -1
 let pendingViewSwitchTrackId: number | null = null
 let pendingViewSwitchScrollFrame: number | null = null
+let pendingFirstVisibleTrackFrame: number | null = null
+let isPageUnmounted = false
+
+interface LibraryDataSnapshot {
+  tracks: TrackListItem[]
+  viewMode: LibraryViewMode
+}
+
+interface LibraryRefreshAnchor {
+  trackId: number | null
+}
+
+type LibraryLoadResult = 'committed' | 'stale' | 'redirected' | 'failed' | 'queued'
 
 watch(searchQuery, (q) => {
   if (!q.trim()) {
@@ -173,6 +205,15 @@ function getAlbumGroupSize(group: LibraryAlbumGroup): number {
   return getAlbumGroupEstimatedHeight(group.tracks.length, Boolean(group.releaseDate))
 }
 
+const libraryDerivedIndex = computed(() =>
+  createLibraryDerivedIndex(tracks.value, albumGroups.value, getAlbumGroupSize),
+)
+
+function getAlbumGroupByTrackId(trackId: number): LibraryAlbumGroup | null {
+  const groupIndex = libraryDerivedIndex.value.albumGroupIndexByTrackId.get(trackId)
+  return groupIndex === undefined ? null : (albumGroups.value[groupIndex] ?? null)
+}
+
 const albumVirtualizer = useVirtualizer(
   computed(() => ({
     count: albumGroups.value.length,
@@ -216,7 +257,7 @@ async function restoreLibraryFocus(target: FocusRestoreTarget | null): Promise<v
   if (!target || !isManuscriptLibrary.value) return
 
   let activeTrackId = target.trackId
-  const trackExists = tracks.value.some((tr) => tr.id === activeTrackId)
+  const trackExists = libraryDerivedIndex.value.trackById.has(activeTrackId)
 
   if (!trackExists) {
     if (tracks.value.length === 0) {
@@ -226,10 +267,10 @@ async function restoreLibraryFocus(target: FocusRestoreTarget | null): Promise<v
 
     const selectedExists =
       playback.state.selectedTrackId != null &&
-      tracks.value.some((tr) => tr.id === playback.state.selectedTrackId)
+      libraryDerivedIndex.value.trackById.has(playback.state.selectedTrackId)
     const currentExists =
       playback.state.currentTrackId != null &&
-      tracks.value.some((tr) => tr.id === playback.state.currentTrackId)
+      libraryDerivedIndex.value.trackById.has(playback.state.currentTrackId)
 
     if (selectedExists) {
       activeTrackId = playback.state.selectedTrackId!
@@ -253,7 +294,7 @@ async function restoreLibraryFocus(target: FocusRestoreTarget | null): Promise<v
       `[data-first-track-id="${activeTrackId}"] .album-cover-artwork`,
     )
     if (!targetEl) {
-      const group = albumGroups.value.find((g) => g.tracks.some((t) => t.id === activeTrackId))
+      const group = getAlbumGroupByTrackId(activeTrackId)
       if (group) {
         targetEl = document.querySelector<HTMLElement>(
           `[data-album-key="${group.key}"] .album-cover-artwork`,
@@ -366,7 +407,7 @@ function onEditMetadataFromContextMenu(): void {
 }
 
 function getTrackById(trackId: number): TrackListItem | null {
-  return tracks.value.find((track) => track.id === trackId) ?? null
+  return libraryDerivedIndex.value.trackById.get(trackId) ?? null
 }
 
 const playlistLoading = ref(false)
@@ -387,29 +428,75 @@ async function loadRegularPlaylistItems(): Promise<void> {
   }
 }
 
-async function reloadTracks(): Promise<void> {
-  if (smartPlaylistId.value !== null) {
-    const detail = await auralis.smartPlaylists.getDetail(smartPlaylistId.value)
-    if (!detail) {
-      await router.replace('/')
-      return
+function isCurrentLibraryRequest(generation: number, scope: LibraryRouteScope): boolean {
+  return (
+    !isPageUnmounted &&
+    libraryRequestCoordinator.isLatest(generation) &&
+    isSameLibraryRouteScope(scope, captureLibraryRouteScope())
+  )
+}
+
+async function fetchLibrarySnapshot(
+  scope: LibraryRouteScope,
+  isRequestCurrent: () => boolean,
+): Promise<LibraryDataSnapshot | null> {
+  if (scope.kind === 'smart-playlist') {
+    const detail = await auralis.smartPlaylists.getDetail(scope.id)
+    if (!detail) return null
+    return {
+      tracks: detail.tracks,
+      viewMode: detail.playlist.viewMode,
     }
-    tracks.value = detail.tracks
-    libraryViewMode.value = detail.playlist.viewMode
-  } else if (playlistId.value !== null) {
-    const detail = await auralis.playlists.getDetail(playlistId.value)
-    if (!detail) {
-      await router.replace('/')
-      return
-    }
-    tracks.value = detail.tracks
-    libraryViewMode.value = detail.playlist.viewMode
-  } else {
-    tracks.value = await auralis.library.getTracks()
-    libraryViewMode.value = readPersistedViewMode()
   }
+
+  if (scope.kind === 'playlist') {
+    const detail = await auralis.playlists.getDetail(scope.id)
+    if (!detail) return null
+    return {
+      tracks: detail.tracks,
+      viewMode: detail.playlist.viewMode,
+    }
+  }
+
+  const catalog = await loadLibraryCatalogSnapshot(
+    (request) => auralis.library.getTrackPage(request),
+    isRequestCurrent,
+  )
+  if (import.meta.env.DEV) {
+    console.info('[Auralis] Library catalog snapshot loaded:', {
+      totalTracks: catalog.tracks.length,
+      totalPages: catalog.totalPages,
+      snapshotBuildMs: catalog.snapshotBuildMs,
+      pageSliceMs: catalog.pageSliceMs,
+      rendererLoadMs: catalog.rendererLoadMs,
+    })
+  }
+  return {
+    tracks: catalog.tracks,
+    viewMode: readPersistedViewMode(),
+  }
+}
+
+function commitLibrarySnapshot(snapshot: LibraryDataSnapshot): void {
+  tracks.value = snapshot.tracks
+  libraryViewMode.value = snapshot.viewMode
   lastMatchedTrackIndex = -1
   ensureKeyboardFocusTrackId()
+}
+
+function captureLibraryRefreshAnchor(): LibraryRefreshAnchor {
+  const trackIndex = libraryDerivedIndex.value.trackById
+  const firstVisibleTrackId = tracks.value[firstVisibleTrackIndex.value]?.id ?? null
+  const candidates = [
+    keyboardFocusTrackId.value,
+    playback.state.selectedTrackId,
+    playback.state.currentTrackId,
+    firstVisibleTrackId,
+  ]
+  const trackId = candidates.find(
+    (candidate): candidate is number => candidate !== null && trackIndex.has(candidate),
+  )
+  return { trackId: trackId ?? null }
 }
 
 const SCROLL_POSITION_RATIO = 0.33
@@ -419,37 +506,40 @@ function scrollRenderedTrackToRatio(targetTrackId: number): boolean {
   if (!container) return false
 
   if (isCoverView.value) {
-    const targetGroupIndex = albumGroups.value.findIndex((group) =>
-      group.tracks.some((track) => track.id === targetTrackId),
-    )
-    if (targetGroupIndex < 0) return false
+    const targetGroupIndex = libraryDerivedIndex.value.albumGroupIndexByTrackId.get(targetTrackId)
+    if (targetGroupIndex === undefined) return false
 
-    let targetOffset = 0
-    for (let index = 0; index < targetGroupIndex; index += 1) {
-      targetOffset += getAlbumGroupSize(albumGroups.value[index])
-    }
+    const targetOffset = libraryDerivedIndex.value.albumGroupStartOffsets[targetGroupIndex]
+    if (targetOffset === undefined) return false
 
     container.scrollTop = Math.max(
       0,
       targetOffset + LIBRARY_TOP_INSET - container.clientHeight * SCROLL_POSITION_RATIO,
     )
+    scheduleFirstVisibleTrackIndexUpdate()
     return true
   }
 
-  const targetIndex = tracks.value.findIndex((track) => track.id === targetTrackId)
-  if (targetIndex < 0) return false
+  const targetIndex = libraryDerivedIndex.value.trackIndexById.get(targetTrackId)
+  if (targetIndex === undefined) return false
 
   const offset =
     targetIndex * LIBRARY_LAYOUT_METRICS.flatRowHeight +
     LIBRARY_TOP_INSET -
     container.clientHeight * SCROLL_POSITION_RATIO
   container.scrollTop = Math.max(0, offset)
+  scheduleFirstVisibleTrackIndexUpdate()
   return true
 }
 
-async function scrollToTrackById(targetTrackId: number): Promise<void> {
+async function scrollToTrackById(
+  targetTrackId: number,
+  isRequestCurrent?: () => boolean,
+): Promise<void> {
   await nextTick()
+  if (isRequestCurrent && !isRequestCurrent()) return
   await new Promise((resolve) => window.requestAnimationFrame(resolve))
+  if (isRequestCurrent && !isRequestCurrent()) return
   scrollRenderedTrackToRatio(targetTrackId)
 }
 
@@ -498,30 +588,14 @@ function onLibraryViewEnter(): void {
   })
 }
 
-async function scrollToPlaybackTrack(): Promise<void> {
+async function scrollToPlaybackTrack(isRequestCurrent?: () => boolean): Promise<void> {
   const targetTrackId = playback.state.currentTrackId ?? playback.state.selectedTrackId
 
   if (!targetTrackId) {
     return
   }
 
-  await scrollToTrackById(targetTrackId)
-}
-
-function doesTrackMatchSearch(track: TrackListItem, query: string): boolean {
-  const normalizedQuery = normalizeSearchText(query)
-  if (!normalizedQuery) return false
-  return [track.title, track.artist, track.albumArtist, track.album].some((v) =>
-    normalizeSearchText(v).startsWith(normalizedQuery),
-  )
-}
-
-function findNextMatchIndex(query: string, fromIndex: number, upTo?: number): number | null {
-  const end = upTo ?? tracks.value.length
-  for (let i = fromIndex; i < end; i++) {
-    if (doesTrackMatchSearch(tracks.value[i], query)) return i
-  }
-  return null
+  await scrollToTrackById(targetTrackId, isRequestCurrent)
 }
 
 async function scrollToTrackIndex(index: number): Promise<void> {
@@ -536,49 +610,32 @@ async function jumpToNextSearchMatch(): Promise<void> {
     searchOutcome.value = { kind: 'idle' }
     return
   }
+  const normalizedQuery = normalizeSearchText(query)
 
-  const matchingIndices: number[] = []
-  for (let i = 0; i < tracks.value.length; i++) {
-    if (doesTrackMatchSearch(tracks.value[i], query)) {
-      matchingIndices.push(i)
-    }
-  }
+  const isNewQuery = query !== lastSearchQuery
+  const startIndex = isNewQuery ? 0 : lastMatchedTrackIndex + 1
+  const scanResult = scanLibrarySearchIndex(librarySearchIndex.value, normalizedQuery, startIndex)
 
-  if (matchingIndices.length === 0) {
+  if (scanResult.targetIndex === null || scanResult.matchPosition === null) {
     searchOutcome.value = { kind: 'not-found' }
     return
   }
 
-  if (query !== lastSearchQuery) {
+  if (isNewQuery) {
     lastSearchQuery = query
     lastMatchedTrackIndex = -1
   }
 
-  const startIndex = lastMatchedTrackIndex + 1
-  let nextIndex = findNextMatchIndex(query, startIndex)
-  let wrapped = false
-
-  if (nextIndex == null) {
-    nextIndex = findNextMatchIndex(query, 0, startIndex)
-    wrapped = true
-  }
-
-  if (nextIndex == null) {
-    searchOutcome.value = { kind: 'not-found' }
-    return
-  }
-
-  lastMatchedTrackIndex = nextIndex
-  const matchPosition = matchingIndices.indexOf(nextIndex) + 1
+  lastMatchedTrackIndex = scanResult.targetIndex
 
   searchOutcome.value = {
     kind: 'matched',
-    index: matchPosition,
-    total: matchingIndices.length,
-    wrapped,
+    index: scanResult.matchPosition,
+    total: scanResult.totalMatches,
+    wrapped: scanResult.wrapped,
   }
 
-  await scrollToTrackIndex(nextIndex)
+  await scrollToTrackIndex(scanResult.targetIndex)
 }
 
 // Search event handlers
@@ -654,15 +711,18 @@ function ensureKeyboardFocusTrackId(): number | null {
   }
 
   const currentId = keyboardFocusTrackId.value
-  const isValidCurrent = currentId !== null && tracks.value.some((t) => t.id === currentId)
+  const isValidCurrent =
+    currentId !== null && libraryDerivedIndex.value.trackIndexById.has(currentId)
 
   if (!isValidCurrent) {
     const selectedId = playback.state.selectedTrackId
     const currentTrackId = playback.state.currentTrackId
 
     const candidateId =
-      (selectedId && tracks.value.some((t) => t.id === selectedId) ? selectedId : null) ??
-      (currentTrackId && tracks.value.some((t) => t.id === currentTrackId)
+      (selectedId && libraryDerivedIndex.value.trackIndexById.has(selectedId)
+        ? selectedId
+        : null) ??
+      (currentTrackId && libraryDerivedIndex.value.trackIndexById.has(currentTrackId)
         ? currentTrackId
         : null) ??
       tracks.value[0]?.id ??
@@ -679,7 +739,8 @@ async function moveKeyboardFocus(direction: 'next' | 'prev' | 'first' | 'last'):
   if (tracks.value.length === 0) return
 
   const currentId = ensureKeyboardFocusTrackId()
-  const currentIndex = tracks.value.findIndex((t) => t.id === currentId)
+  const currentIndex =
+    currentId === null ? -1 : (libraryDerivedIndex.value.trackIndexById.get(currentId) ?? -1)
   let targetIndex = 0
 
   if (direction === 'first') {
@@ -783,7 +844,7 @@ function onInsertAfterCurrent(trackId: number): void {
 function onInsertAlbumAfterCurrent(trackId: number): void {
   closeContextMenu()
 
-  const group = albumGroups.value.find((g) => g.tracks.some((t) => t.id === trackId))
+  const group = getAlbumGroupByTrackId(trackId)
   if (!group) return
 
   playback.insertTracksAfterCurrent(group.tracks)
@@ -792,7 +853,7 @@ function onInsertAlbumAfterCurrent(trackId: number): void {
 function onPlayAlbum(trackId: number): void {
   closeContextMenu()
 
-  const group = albumGroups.value.find((g) => g.tracks.some((t) => t.id === trackId))
+  const group = getAlbumGroupByTrackId(trackId)
   if (!group || group.tracks.length === 0) return
 
   playback.playTrackFromQueue(group.tracks, group.tracks[0].id, {
@@ -804,9 +865,7 @@ function getContextMenuTrackIds(): number[] {
   if (!contextMenu.value) return []
 
   if (contextMenu.value.source === 'album-artwork') {
-    const group = albumGroups.value.find((g) =>
-      g.tracks.some((track) => track.id === contextMenu.value?.trackId),
-    )
+    const group = getAlbumGroupByTrackId(contextMenu.value.trackId)
     return group?.tracks.map((track) => track.id) ?? []
   }
 
@@ -904,68 +963,151 @@ function closeMetadataEditor(): void {
 async function saveMetadata(metadata: EditableTrackMetadata): Promise<void> {
   isSavingMetadata.value = true
   metadataEditError.value = null
+  const saveScope = captureLibraryRouteScope()
 
   try {
     await auralis.metadata.updateTrackMetadata(metadata)
+    if (isPageUnmounted) return
+
     const returnTarget = pendingMetadataDialogReturnTarget ?? {
       trackId: metadata.trackId,
       source: 'track' as const,
     }
-    await reloadTracks()
+    const loadResult = await loadLibraryData('metadata-save')
+    const isStillInSaveScope = isSameLibraryRouteScope(saveScope, captureLibraryRouteScope())
+
+    if (loadResult === 'failed' || loadResult === 'queued') {
+      throw new Error('Metadata refresh after save failed')
+    }
+    if (loadResult === 'stale' && isStillInSaveScope) {
+      throw new Error('Metadata refresh after save became stale')
+    }
+    if (isPageUnmounted) return
+
     editingMetadata.value = null
     pendingMetadataDialogReturnTarget = null
 
-    await restoreLibraryFocus(returnTarget)
+    if (isStillInSaveScope) {
+      await restoreLibraryFocus(returnTarget)
+    }
   } catch (error) {
     console.error('[Auralis] failed to save metadata edits:', error)
-    metadataEditError.value = t('library.metadataEditor.errors.saveFailed')
+    if (!isPageUnmounted) {
+      metadataEditError.value = t('library.metadataEditor.errors.saveFailed')
+    }
   } finally {
-    isSavingMetadata.value = false
+    if (!isPageUnmounted) {
+      isSavingMetadata.value = false
+    }
   }
 }
 
 const initialLoadError = ref<string | null>(null)
 
-async function loadLibraryData(): Promise<void> {
-  isLoading.value = true
-  initialLoadError.value = null
+async function restoreLibraryRefreshAnchor(
+  anchor: LibraryRefreshAnchor,
+  isRequestCurrent: () => boolean,
+): Promise<void> {
+  const trackId = anchor.trackId
+  if (trackId === null || !libraryDerivedIndex.value.trackById.has(trackId)) {
+    ensureKeyboardFocusTrackId()
+    scheduleFirstVisibleTrackIndexUpdate()
+    return
+  }
+
+  await scrollToTrackById(trackId, isRequestCurrent)
+  if (isRequestCurrent()) {
+    scheduleFirstVisibleTrackIndexUpdate()
+  }
+}
+
+async function loadLibraryData(mode: LibraryLoadMode = 'foreground'): Promise<LibraryLoadResult> {
+  if (mode === 'metadata-save') {
+    while (libraryRequestCoordinator.hasActiveForeground && !isPageUnmounted) {
+      await libraryRequestCoordinator.waitForForegroundIdle()
+    }
+
+    if (isPageUnmounted) return 'stale'
+  }
+
+  const scope = captureLibraryRouteScope()
+  const generation = libraryRequestCoordinator.begin(mode)
+  if (generation === null) {
+    return mode === 'background' ? 'queued' : 'stale'
+  }
+  const isRequestCurrent = () => isCurrentLibraryRequest(generation, scope)
+  const isForeground = mode === 'foreground'
+  const refreshAnchor = isForeground ? null : captureLibraryRefreshAnchor()
+
+  if (isForeground && isRequestCurrent()) {
+    isLoading.value = true
+    initialLoadError.value = null
+  }
+
   try {
-    await reloadTracks()
-    await scrollToPlaybackTrack()
+    const snapshot = await fetchLibrarySnapshot(scope, isRequestCurrent)
+    if (!isRequestCurrent()) return 'stale'
+
+    if (snapshot === null) {
+      await router.replace('/')
+      return 'redirected'
+    }
+
+    commitLibrarySnapshot(snapshot)
+    initialLoadError.value = null
+
+    if (refreshAnchor) {
+      await restoreLibraryRefreshAnchor(refreshAnchor, isRequestCurrent)
+    } else {
+      await scrollToPlaybackTrack(isRequestCurrent)
+    }
+
+    return isRequestCurrent() ? 'committed' : 'stale'
   } catch (error) {
-    console.error('[Auralis] Initial library load failed:', error)
-    initialLoadError.value = t('library.status.loadError')
+    if (!isRequestCurrent()) return 'stale'
+
+    if (isForeground) {
+      console.error('[Auralis] Initial library load failed:', error)
+      initialLoadError.value = t('library.status.loadError')
+    } else {
+      console.error('[Auralis] Background library refresh failed:', error)
+    }
+
+    return 'failed'
   } finally {
-    isLoading.value = false
+    const completion = libraryRequestCoordinator.finish(generation)
+
+    if (completion.ownedForeground) {
+      if (!isPageUnmounted && isRequestCurrent()) {
+        isLoading.value = false
+      }
+    }
+
+    if (completion.shouldFlushBackground) {
+      void loadLibraryData('background')
+    }
   }
 }
 
 async function retryInitialLoad(): Promise<void> {
-  await loadLibraryData()
+  await loadLibraryData('foreground')
 }
 
 onMounted(async () => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
   void loadRegularPlaylistItems()
-  await loadLibraryData()
+  await loadLibraryData('foreground')
+  if (isPageUnmounted) return
 
   unsubscribeChanged = auralis.library.onChanged(async (event) => {
     // Play-count ticks must not full-reload the library list
     if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
-    try {
-      await reloadTracks()
-    } catch (error) {
-      console.error('[Auralis] Background tracks refresh failed:', error)
-    }
+    await loadLibraryData('background')
   })
 
   unsubscribeScanProgress = auralis.library.onScanProgress(async (progress) => {
     if (progress.status === 'completed') {
-      try {
-        await reloadTracks()
-      } catch (error) {
-        console.error('[Auralis] Background scan tracks refresh failed:', error)
-      }
+      await loadLibraryData('background')
     }
   })
 })
@@ -975,7 +1117,9 @@ watch(
   async () => {
     searchQuery.value = ''
     closeContextMenu()
-    await loadLibraryData()
+    await loadLibraryData('foreground')
+    await nextTick()
+    scheduleFirstVisibleTrackIndexUpdate()
   },
 )
 
@@ -1005,8 +1149,18 @@ function updateFirstVisibleTrackIndex(): void {
   }
 }
 
+function scheduleFirstVisibleTrackIndexUpdate(): void {
+  if (isPageUnmounted || pendingFirstVisibleTrackFrame !== null) return
+
+  pendingFirstVisibleTrackFrame = window.requestAnimationFrame(() => {
+    pendingFirstVisibleTrackFrame = null
+    if (isPageUnmounted) return
+    updateFirstVisibleTrackIndex()
+  })
+}
+
 function onScroll(): void {
-  updateFirstVisibleTrackIndex()
+  scheduleFirstVisibleTrackIndexUpdate()
 }
 
 watch(
@@ -1015,7 +1169,7 @@ watch(
     oldEl?.removeEventListener('scroll', onScroll)
     el?.addEventListener('scroll', onScroll, { passive: true })
     if (el) {
-      void nextTick(() => updateFirstVisibleTrackIndex())
+      void nextTick(() => scheduleFirstVisibleTrackIndexUpdate())
     }
   },
   { immediate: true },
@@ -1023,10 +1177,9 @@ watch(
 
 watch(
   [isManuscriptLibrary, libraryViewMode, tracks, albumGroups],
-  async () => {
+  () => {
     if (isManuscriptLibrary.value) {
-      await nextTick()
-      updateFirstVisibleTrackIndex()
+      void nextTick(() => scheduleFirstVisibleTrackIndexUpdate())
     }
   },
   { immediate: true },
@@ -1056,9 +1209,15 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  isPageUnmounted = true
+  libraryRequestCoordinator.invalidate()
   window.removeEventListener('keydown', onWindowKeyDown)
   scrollRef.value?.removeEventListener('scroll', onScroll)
   document.removeEventListener('pointerdown', onDocumentPointerDown)
+  if (pendingFirstVisibleTrackFrame !== null) {
+    window.cancelAnimationFrame(pendingFirstVisibleTrackFrame)
+    pendingFirstVisibleTrackFrame = null
+  }
   if (pendingViewSwitchScrollFrame !== null) {
     window.cancelAnimationFrame(pendingViewSwitchScrollFrame)
     pendingViewSwitchScrollFrame = null
