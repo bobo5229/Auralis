@@ -85,7 +85,7 @@ function onKeyDown(event: KeyboardEvent): void {
 <template>
   <div
     :class="[
-      'song-row flex w-full items-center select-none cursor-pointer',
+      'song-row w-full items-center select-none cursor-pointer',
       {
         'song-row--playing': nowPlaying && (presentation === 'modern' || isPlaying),
         'song-row--paused': presentation === 'manuscript' && nowPlaying && !isPlaying,

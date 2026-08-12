@@ -40,6 +40,8 @@
  * -------------------------------------------------------------------------- */
 
 .library-page[data-visual-style='manuscript'] .song-row {
+  /* 防回归保护：列布局必须由 song-row shortcut 的 grid 负责 */
+  display: grid;
   grid-template-columns: var(
     --library-manuscript-flat-grid,
     40px 44px minmax(0, 1.3fr) minmax(110px, 0.75fr) minmax(120px, 0.9fr) 56px
