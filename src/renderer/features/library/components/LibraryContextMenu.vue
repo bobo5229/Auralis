@@ -310,11 +310,11 @@ function focusActiveItem(): void {
   const subMenuEl = getPanelElement(subMenuRef.value)
 
   if (isSubMenuFocused.value && subMenuEl) {
-    const items = subMenuEl.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')
+    const items = subMenuEl.querySelectorAll<HTMLButtonElement>('[data-context-sub-item]')
     const target = items[subActiveIndex.value]
     target?.focus()
   } else if (menuEl) {
-    const items = menuEl.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')
+    const items = menuEl.querySelectorAll<HTMLButtonElement>('[data-context-main-item]')
     const target = items[activeIndex.value]
     target?.focus()
   }
@@ -403,6 +403,7 @@ function handleSubMenuKeyDown(e: KeyboardEvent): void {
   if (enabled.length === 0) {
     if (e.key === 'ArrowLeft' || e.key === 'Escape') {
       e.preventDefault()
+      showSubMenu.value = false
       isSubMenuFocused.value = false
       nextTick(() => focusActiveItem())
     }
@@ -432,6 +433,7 @@ function handleSubMenuKeyDown(e: KeyboardEvent): void {
     nextTick(() => focusActiveItem())
   } else if (e.key === 'ArrowLeft') {
     e.preventDefault()
+    showSubMenu.value = false
     isSubMenuFocused.value = false
     nextTick(() => focusActiveItem())
   } else if (e.key === 'Enter' || e.key === ' ') {
@@ -510,6 +512,7 @@ onBeforeUnmount(() => {
             class="library-context-menu-item"
             type="button"
             role="menuitem"
+            data-context-main-item
             :disabled="!canLocateCurrent"
             :tabindex="activeIndex === 0 ? 0 : -1"
             @click="onLocateCurrentClick"
@@ -528,6 +531,7 @@ onBeforeUnmount(() => {
             class="library-context-menu-item"
             type="button"
             role="menuitem"
+            data-context-main-item
             :tabindex="activeIndex === 1 ? 0 : -1"
             @click="onPlayClick"
             @mouseenter="activeIndex = 1"
@@ -547,6 +551,7 @@ onBeforeUnmount(() => {
             class="library-context-menu-item"
             type="button"
             role="menuitem"
+            data-context-main-item
             :disabled="!canInsert"
             :tabindex="activeIndex === 2 ? 0 : -1"
             @click="onInsertClick"
@@ -572,6 +577,7 @@ onBeforeUnmount(() => {
               class="library-context-menu-item"
               type="button"
               role="menuitem"
+              data-context-main-item
               aria-haspopup="true"
               :aria-expanded="showSubMenu"
               :tabindex="activeIndex === 3 ? 0 : -1"
@@ -608,6 +614,7 @@ onBeforeUnmount(() => {
                 class="library-context-menu-item"
                 type="button"
                 role="menuitem"
+                data-context-sub-item
                 :disabled="creatingPlaylist"
                 :tabindex="isSubMenuFocused && subActiveIndex === 0 ? 0 : -1"
                 @click="onCreatePlaylistClick"
@@ -638,6 +645,7 @@ onBeforeUnmount(() => {
                   class="library-context-menu-item"
                   type="button"
                   role="menuitem"
+                  data-context-sub-item
                   :tabindex="isSubMenuFocused && subActiveIndex === idx + 1 ? 0 : -1"
                   @click="onAddToPlaylistClick(pl)"
                   @mouseenter="onPlaylistMouseEnter(idx)"
@@ -665,6 +673,7 @@ onBeforeUnmount(() => {
             class="library-context-menu-item"
             type="button"
             role="menuitem"
+            data-context-main-item
             :tabindex="activeIndex === 4 ? 0 : -1"
             @click="onEditMetadataClick"
             @mouseenter="activeIndex = 4"
@@ -682,6 +691,7 @@ onBeforeUnmount(() => {
             class="library-context-menu-item"
             type="button"
             role="menuitem"
+            data-context-main-item
             :tabindex="activeIndex === 5 ? 0 : -1"
             @click="onSwitchViewClick"
             @mouseenter="activeIndex = 5"
@@ -705,6 +715,7 @@ onBeforeUnmount(() => {
             class="library-context-menu-item"
             type="button"
             role="menuitem"
+            data-context-main-item
             :disabled="refreshing"
             :tabindex="activeIndex === 6 ? 0 : -1"
             @click="onRefreshClick"
