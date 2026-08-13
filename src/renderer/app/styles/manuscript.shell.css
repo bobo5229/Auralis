@@ -4,6 +4,10 @@
   background: var(--manuscript-surface-page);
   box-shadow: inset 0 0 0 1px var(--manuscript-border-strong);
   transition: none;
+  /* Phase 23 dual safe-area: the manuscript dock footer is 72px + 16px
+     breathing space. Consumers resolve this var inside the shell scope;
+     the global modern value (116px = 72 + 44 floating gap) stays untouched. */
+  --auralis-playbar-safe-area: 88px;
 }
 
 .app-window[data-shell-presentation='manuscript'] .app-shell {
