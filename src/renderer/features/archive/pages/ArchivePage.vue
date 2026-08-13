@@ -14,7 +14,6 @@ import type {
 } from '@shared/types/archive'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
-import VisualStyleSwitch from '@renderer/features/appearance/components/VisualStyleSwitch.vue'
 import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import MusicDnaCard from '@renderer/features/archive/components/MusicDnaCard.vue'
@@ -1057,7 +1056,6 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="archive-page content-frame" :data-visual-style="archivePresentation">
-    <VisualStyleSwitch />
     <div class="archive-heatmap-card">
       <div class="archive-card-heading">
         <div>

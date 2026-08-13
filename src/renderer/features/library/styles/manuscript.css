@@ -30,7 +30,7 @@
  * Typography — 数字与小控件无衬线
  * -------------------------------------------------------------------------- */
 .library-page[data-visual-style='manuscript']
-  :is(.song-duration, .tabular-nums, .visual-style-switch-button, .library-search-input) {
+  :is(.song-duration, .tabular-nums, .library-search-input) {
   font-family: var(--manuscript-font-numeric);
 }
 
@@ -362,41 +362,6 @@
 
 .library-page[data-visual-style='manuscript'] .library-search-input::placeholder {
   color: var(--manuscript-content-muted);
-}
-
-.library-page[data-visual-style='manuscript'] .visual-style-switch {
-  border-radius: var(--manuscript-radius-control);
-  border-color: var(--manuscript-border-strong);
-  background: var(--manuscript-surface-control);
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-.library-page[data-visual-style='manuscript'] .visual-style-switch-button {
-  border-radius: var(--manuscript-radius-control-inner);
-  color: var(--manuscript-content-muted);
-}
-
-.library-page[data-visual-style='manuscript'] .visual-style-switch-button:hover {
-  background: var(--manuscript-state-hover);
-  color: var(--manuscript-content-primary);
-}
-
-.library-page[data-visual-style='manuscript'] .visual-style-switch-button:active {
-  background: var(--manuscript-state-pressed);
-  color: var(--manuscript-accent-primary);
-}
-
-.library-page[data-visual-style='manuscript'] .visual-style-switch-button.is-active,
-.library-page[data-visual-style='manuscript'] .visual-style-switch-button.is-active:hover {
-  background: var(--manuscript-accent-primary);
-  color: var(--manuscript-content-on-accent);
-}
-
-.library-page[data-visual-style='manuscript'] .visual-style-switch-button:focus-visible {
-  outline: var(--manuscript-focus-ring-width) solid var(--manuscript-state-focus-ring);
-  outline-offset: 2px;
 }
 
 /* --------------------------------------------------------------------------

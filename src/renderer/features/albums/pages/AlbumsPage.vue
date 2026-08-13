@@ -5,7 +5,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
-import VisualStyleSwitch from '@renderer/features/appearance/components/VisualStyleSwitch.vue'
 import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -429,7 +428,6 @@ onBeforeUnmount(() => {
     @mousemove="onAlbumsMouseMove"
     @mouseleave="onAlbumsMouseLeave"
   >
-    <VisualStyleSwitch />
     <div class="library-search-zone">
       <Transition name="search-bar">
         <div

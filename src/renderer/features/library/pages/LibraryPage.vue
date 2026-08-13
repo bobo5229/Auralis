@@ -11,7 +11,6 @@ import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
 import type { LibraryAlbumGroup } from '../components/AlbumCoverGroup.vue'
 import MetadataEditDialog from '../components/MetadataEditDialog.vue'
 import LibraryContextMenu from '../components/LibraryContextMenu.vue'
-import VisualStyleSwitch from '@renderer/features/appearance/components/VisualStyleSwitch.vue'
 import LibraryArchiveHeader from '../components/LibraryArchiveHeader.vue'
 import LibraryLedgerHeader from '../components/LibraryLedgerHeader.vue'
 import LibraryStatusState from '../components/LibraryStatusState.vue'
@@ -1304,8 +1303,6 @@ onBeforeUnmount(() => {
     :data-library-surface="librarySurfaceKind ?? undefined"
     :style="LIBRARY_LAYOUT_CSS_VARS"
   >
-    <VisualStyleSwitch v-if="isLibrarySurface" />
-
     <LibraryArchiveHeader
       v-if="isManuscriptLibrary"
       :identity="pageIdentity"

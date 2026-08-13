@@ -310,11 +310,6 @@
     }
   },
   "library": {
-    "visualStyle": {
-      "label": "視覺風格",
-      "modern": "流光",
-      "manuscript": "手稿"
-    },
     "manuscript": {
       "header": {
         "title": "全部歌曲",

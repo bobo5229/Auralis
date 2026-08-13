@@ -23,36 +23,6 @@
   --auralis-sidebar-active-indicator: var(--manuscript-accent-primary);
 }
 
-.archive-page[data-visual-style='manuscript'] .visual-style-switch {
-  top: 14px;
-  right: 28px;
-  height: 36px;
-  border-color: var(--manuscript-border-search);
-  border-radius: var(--manuscript-radius-control);
-  background: var(--manuscript-effect-search-surface);
-  box-shadow: var(--manuscript-effect-shadow-control);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-.archive-page[data-visual-style='manuscript'] .visual-style-switch-button {
-  height: 28px;
-  border-radius: var(--manuscript-radius-control-inner);
-  color: var(--manuscript-content-secondary);
-  font-family: var(--manuscript-font-ui);
-}
-
-.archive-page[data-visual-style='manuscript'] .visual-style-switch-button:hover {
-  background: var(--manuscript-state-hover);
-  color: var(--manuscript-content-primary);
-}
-
-.archive-page[data-visual-style='manuscript'] .visual-style-switch-button.is-active {
-  background: var(--manuscript-accent-primary);
-  color: var(--manuscript-content-on-accent);
-}
-
-.archive-page[data-visual-style='manuscript'] .visual-style-switch-button:focus-visible,
 .archive-page[data-visual-style='manuscript'] button:focus-visible,
 .archive-page[data-visual-style='manuscript'] [role='button']:focus-visible {
   outline: var(--manuscript-focus-ring-width) solid var(--manuscript-state-focus-ring);
@@ -543,10 +513,6 @@
     padding: 64px 16px calc(var(--auralis-playbar-safe-area) + 32px);
   }
 
-  .archive-page[data-visual-style='manuscript'] .visual-style-switch {
-    right: 16px;
-  }
-
   .archive-page[data-visual-style='manuscript'] .archive-card-heading,
   .archive-page[data-visual-style='manuscript'] .archive-section-heading,
   .archive-page[data-visual-style='manuscript'] .archive-ranking-heading,
@@ -603,8 +569,7 @@
   .archive-page[data-visual-style='manuscript'] .spectrum-row,
   .archive-page[data-visual-style='manuscript'] .archive-summary-item,
   .archive-page[data-visual-style='manuscript'] .archive-ranking-list li,
-  .archive-page[data-visual-style='manuscript'] .archive-album-magazine-item,
-  .archive-page[data-visual-style='manuscript'] .visual-style-switch-button {
+  .archive-page[data-visual-style='manuscript'] .archive-album-magazine-item {
     animation: none;
     transition: none;
   }

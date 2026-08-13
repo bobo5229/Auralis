@@ -310,11 +310,6 @@
     }
   },
   "library": {
-    "visualStyle": {
-      "label": "Visual style",
-      "modern": "Modern",
-      "manuscript": "Manuscript"
-    },
     "manuscript": {
       "header": {
         "title": "All Songs",
