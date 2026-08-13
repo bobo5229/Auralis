@@ -11,6 +11,13 @@ import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassP
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { auralis } from '@renderer/shared/ipc/client'
+import type { ShellPresentation } from '../utils/shellPresentation'
+import '../styles/manuscript.sidebar.css'
+import '../styles/manuscript.sidebar-overlays.css'
+
+defineProps<{
+  presentation: ShellPresentation
+}>()
 
 const route = useRoute()
 const router = useRouter()
@@ -522,7 +529,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside class="app-sidebar">
+  <aside class="app-sidebar" :data-shell-presentation="presentation">
     <header class="sidebar-header">
       <div class="sidebar-header-main">
         <div class="sidebar-brand-left">
@@ -653,14 +660,21 @@ onBeforeUnmount(() => {
     </nav>
     <FacetsDialog
       :open="isFacetsDialogOpen"
+      :presentation="presentation"
       @close="isFacetsDialogOpen = false"
       @created="onSmartPlaylistCreated"
     />
 
     <Teleport to="body">
-      <div v-if="createMenu" class="fixed inset-0 z-[88]" @click="closeCreateMenu">
+      <div
+        v-if="createMenu"
+        class="sidebar-overlay fixed inset-0 z-[88]"
+        :data-shell-presentation="presentation"
+        @click="closeCreateMenu"
+      >
         <LiquidGlassPanel
           class="library-context-menu create-playlist-menu fixed w-48"
+          :presentation="presentation"
           :style="{
             left: `${createMenu.x}px`,
             top: `${createMenu.y}px`,
@@ -680,11 +694,13 @@ onBeforeUnmount(() => {
 
       <div
         v-if="playlistContextMenu"
-        class="fixed inset-0 z-[90]"
+        class="sidebar-overlay fixed inset-0 z-[90]"
+        :data-shell-presentation="presentation"
         @click="closePlaylistContextMenu"
       >
         <LiquidGlassPanel
           class="library-context-menu fixed w-40"
+          :presentation="presentation"
           :style="{
             left: `${playlistContextMenu.x}px`,
             top: `${playlistContextMenu.y}px`,
@@ -706,8 +722,18 @@ onBeforeUnmount(() => {
         </LiquidGlassPanel>
       </div>
 
-      <div v-if="renamingPlaylist" class="smart-playlist-dialog-backdrop">
-        <form class="smart-playlist-dialog" @submit.prevent="submitRename">
+      <div
+        v-if="renamingPlaylist"
+        class="sidebar-overlay smart-playlist-dialog-backdrop"
+        :data-shell-presentation="presentation"
+      >
+        <form
+          class="smart-playlist-dialog"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="t('sidebar.renameDialogTitle')"
+          @submit.prevent="submitRename"
+        >
           <h2>{{ t('sidebar.renameDialogTitle') }}</h2>
           <input
             ref="renameInput"
@@ -726,9 +752,16 @@ onBeforeUnmount(() => {
         </form>
       </div>
 
-      <div v-if="isQueryDialogOpen" class="smart-playlist-dialog-backdrop">
+      <div
+        v-if="isQueryDialogOpen"
+        class="sidebar-overlay smart-playlist-dialog-backdrop"
+        :data-shell-presentation="presentation"
+      >
         <form
           class="smart-playlist-dialog smart-playlist-query-dialog"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="t('sidebar.queryDialogTitle')"
           @submit.prevent="createFromQuery"
         >
           <h2>{{ t('sidebar.queryDialogTitle') }}</h2>
@@ -759,8 +792,17 @@ onBeforeUnmount(() => {
         </form>
       </div>
 
-      <div v-if="deletingPlaylist" class="smart-playlist-dialog-backdrop">
-        <section class="smart-playlist-dialog" role="alertdialog" aria-modal="true">
+      <div
+        v-if="deletingPlaylist"
+        class="sidebar-overlay smart-playlist-dialog-backdrop"
+        :data-shell-presentation="presentation"
+      >
+        <section
+          class="smart-playlist-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          :aria-label="deletingPlaylistTitle"
+        >
           <h2>{{ deletingPlaylistTitle }}</h2>
           <div class="smart-playlist-dialog-actions">
             <button type="button" @click="closeDeleteDialog">{{ t('sidebar.cancel') }}</button>
