@@ -2,8 +2,9 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  getPlayerOverlayFocusables,
-  resolvePlayerOverlayKeyAction,
+  getPlayerModeMenuItems,
+  resolveModeMenuItemTabIndex,
+  resolveModeMenuKeydown,
 } from '@renderer/app/utils/playerOverlayFocus'
 import type { PlayerSurfacePresentation } from '@renderer/app/utils/playerSurfacePresentation'
 import type { PlaybackMode } from '@renderer/features/playback/types'
@@ -29,52 +30,57 @@ function handleSelect(mode: PlaybackMode): void {
   emit('select', mode)
 }
 
-function getActiveFocusIndex(focusables: HTMLElement[]): number {
-  const active = document.activeElement
-  return focusables.findIndex((item) => item === active)
+// Roving tabindex: only the focused item is tabbable, so Tab exits the menu
+// as a unit and Arrow / Home / End move within it (P2).
+const focusedIndex = ref(-1)
+
+function getMenuItems(): HTMLElement[] {
+  const root = element.value
+  return root ? getPlayerModeMenuItems(root) : []
+}
+
+function moveFocus(nextIndex: number): void {
+  focusedIndex.value = nextIndex
+  getMenuItems()[nextIndex]?.focus()
 }
 
 function handleKeydown(event: KeyboardEvent): void {
-  const root = element.value
-  if (!root) return
-
-  const focusables = getPlayerOverlayFocusables(root)
-  const action = resolvePlayerOverlayKeyAction({
+  const result = resolveModeMenuKeydown({
     key: event.key,
     shiftKey: event.shiftKey,
-    kind: 'mode-menu',
-    focusableCount: focusables.length,
-    activeIndex: getActiveFocusIndex(focusables),
+    focusedIndex: focusedIndex.value,
+    modeCount: modes.value.length,
   })
 
-  if (action.type === 'dismiss') {
+  if (result.type === 'dismiss') {
     event.preventDefault()
     emit('close')
     return
   }
 
-  if (action.type === 'roving') {
+  if (result.type === 'roving') {
     event.preventDefault()
-    focusables[action.nextIndex]?.focus()
+    moveFocus(result.nextIndex)
     return
   }
 
-  if (action.type === 'select') {
+  if (result.type === 'select') {
     event.preventDefault()
-    focusables[getActiveFocusIndex(focusables)]?.click()
+    const mode = modes.value[result.modeIndex]
+    if (mode) {
+      // Close through the same path as Escape so the trigger regains focus.
+      emit('select', mode.id)
+    }
   }
 }
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
-  // 打开后聚焦当前模式；若不存在（不应发生）则聚焦首项（TECHDOC §8.2）。
-  const root = element.value
-  if (root) {
-    const focusables = getPlayerOverlayFocusables(root)
-    const currentIndex = modes.value.findIndex((mode) => mode.id === props.currentMode)
-    const target = currentIndex >= 0 ? focusables[currentIndex] : focusables[0]
-    target?.focus()
-  }
+  // 打开后聚焦当前模式并使其成为唯一 tab 停靠点（TECHDOC §8.2）。
+  const currentIndex = modes.value.findIndex((mode) => mode.id === props.currentMode)
+  const initialIndex = currentIndex >= 0 ? currentIndex : 0
+  focusedIndex.value = initialIndex
+  getMenuItems()[initialIndex]?.focus()
 })
 
 onUnmounted(() => {
@@ -91,12 +97,13 @@ onUnmounted(() => {
     :aria-label="t('player.mode')"
   >
     <button
-      v-for="mode in modes"
+      v-for="(mode, index) in modes"
       :key="mode.id"
       class="playback-mode-item"
       :class="{ 'playback-mode-item-active': currentMode === mode.id }"
       type="button"
       role="menuitem"
+      :tabindex="resolveModeMenuItemTabIndex(focusedIndex, index)"
       @click="handleSelect(mode.id)"
     >
       <span class="h-4 w-4" :class="mode.icon" />
