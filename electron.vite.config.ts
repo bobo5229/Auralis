@@ -16,7 +16,7 @@ export default defineConfig({
             'src/main/features/metadata/metadataRefreshWorker.ts',
           ),
         },
-        external: ['better-sqlite3', 'bindings'],
+        external: ['better-sqlite3', 'bindings', 'sharp'],
       },
     },
     resolve: {
