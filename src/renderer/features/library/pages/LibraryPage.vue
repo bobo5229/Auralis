@@ -22,7 +22,7 @@ import {
   LIBRARY_LAYOUT_CSS_VARS,
   LIBRARY_LAYOUT_METRICS,
 } from '../constants/libraryLayoutMetrics'
-import type { LibraryPresentation } from '../types/libraryPresentation'
+import type { LibraryPageIdentity, LibraryPresentation } from '../types/libraryPresentation'
 import type {
   LibraryContextMenuAnchor,
   LibraryContextMenuSource,
@@ -40,6 +40,12 @@ import { scanLibrarySearchIndex } from '../utils/librarySearchScan'
 import { resolveLibraryPresentation } from '../utils/libraryPresentation'
 import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
 import { isSameLibraryRouteScope, type LibraryRouteScope } from '../utils/libraryRouteScope'
+import {
+  createAllSongsLibrarySnapshot,
+  createPlaylistLibrarySnapshot,
+  createSmartPlaylistLibrarySnapshot,
+  type LibraryDataSnapshot,
+} from '../utils/libraryDataSnapshot'
 import { loadLibraryCatalogSnapshot } from '../utils/loadLibraryCatalogSnapshot'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { normalizeSearchText } from '../utils/normalizeSearchText'
@@ -59,6 +65,7 @@ const libraryPresentation = computed<LibraryPresentation>(() =>
   resolveLibraryPresentation(route.name, visualStyle.value),
 )
 
+const pageIdentity = ref<LibraryPageIdentity | null>(null)
 const tracks = shallowRef<TrackListItem[]>([])
 const librarySearchIndex = computed(() => createLibrarySearchIndex(tracks.value))
 const isLoading = ref(true)
@@ -128,11 +135,6 @@ let pendingViewSwitchTrackId: number | null = null
 let pendingViewSwitchScrollFrame: number | null = null
 let pendingFirstVisibleTrackFrame: number | null = null
 let isPageUnmounted = false
-
-interface LibraryDataSnapshot {
-  tracks: TrackListItem[]
-  viewMode: LibraryViewMode
-}
 
 interface LibraryRefreshAnchor {
   trackId: number | null
@@ -443,19 +445,13 @@ async function fetchLibrarySnapshot(
   if (scope.kind === 'smart-playlist') {
     const detail = await auralis.smartPlaylists.getDetail(scope.id)
     if (!detail) return null
-    return {
-      tracks: detail.tracks,
-      viewMode: detail.playlist.viewMode,
-    }
+    return createSmartPlaylistLibrarySnapshot(detail)
   }
 
   if (scope.kind === 'playlist') {
     const detail = await auralis.playlists.getDetail(scope.id)
     if (!detail) return null
-    return {
-      tracks: detail.tracks,
-      viewMode: detail.playlist.viewMode,
-    }
+    return createPlaylistLibrarySnapshot(detail)
   }
 
   const catalog = await loadLibraryCatalogSnapshot(
@@ -471,13 +467,11 @@ async function fetchLibrarySnapshot(
       rendererLoadMs: catalog.rendererLoadMs,
     })
   }
-  return {
-    tracks: catalog.tracks,
-    viewMode: readPersistedViewMode(),
-  }
+  return createAllSongsLibrarySnapshot(catalog.tracks, readPersistedViewMode())
 }
 
 function commitLibrarySnapshot(snapshot: LibraryDataSnapshot): void {
+  pageIdentity.value = snapshot.identity
   tracks.value = snapshot.tracks
   libraryViewMode.value = snapshot.viewMode
   lastMatchedTrackIndex = -1
@@ -1042,6 +1036,7 @@ async function loadLibraryData(mode: LibraryLoadMode = 'foreground'): Promise<Li
   if (isForeground && isRequestCurrent()) {
     isLoading.value = true
     initialLoadError.value = null
+    pageIdentity.value = null
   }
 
   try {
@@ -1232,6 +1227,7 @@ onBeforeUnmount(() => {
   <section
     class="library-page relative flex h-full flex-col"
     :data-visual-style="isManuscriptLibrary ? 'manuscript' : 'modern'"
+    :data-library-surface="pageIdentity?.kind"
     :style="LIBRARY_LAYOUT_CSS_VARS"
   >
     <VisualStyleSwitch v-if="isLibraryRoute" />
