@@ -199,7 +199,11 @@ const [
   readProjectFile('uno.config.ts'),
 ])
 
-assertIncludes(page, "route.name === 'library' && visualStyle.value === 'manuscript'", 'route gate')
+assertIncludes(
+  page,
+  "libraryPresentation.value === 'manuscript'",
+  'presentation-derived manuscript gate',
+)
 assertIncludes(page, ':data-visual-style="isManuscriptLibrary', 'page style marker')
 assertIncludes(
   manuscriptCss,

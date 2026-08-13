@@ -312,6 +312,16 @@
       "header": {
         "title": "All Songs",
         "subtitle": "Private Music Collection Ledger",
+        "libraryMembership": "Main library catalog",
+        "playlistSubtitle": "Private anthology",
+        "playlistKind": "Hand-curated",
+        "playlistMembership": "A collection you maintain",
+        "smartPlaylistSubtitle": "Dynamic index",
+        "smartPlaylistKind": "Rule-generated",
+        "smartPlaylistMembership": "Read-only members that update automatically",
+        "untitled": "Untitled playlist",
+        "loadingTitle": "Binding the folio…",
+        "loadingSubtitle": "Retrieving catalog identity",
         "trackCount": "{count} tracks",
         "folio": "FOLIO {current} / {total}"
       },
