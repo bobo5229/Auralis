@@ -35,6 +35,7 @@ import '../styles/manuscript.css'
 import '../styles/manuscript.overlays.css'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { createLibraryDerivedIndex } from '../utils/libraryDerivedIndex'
+import { resolveLibraryRefreshAnchorTrackId } from '../utils/libraryRefreshAnchor'
 import { createLibrarySearchIndex } from '../utils/librarySearchIndex'
 import { scanLibrarySearchIndex } from '../utils/librarySearchScan'
 import { resolveLibraryPresentation, resolveLibrarySurfaceKind } from '../utils/libraryPresentation'
@@ -140,6 +141,23 @@ let pendingViewSwitchTrackId: number | null = null
 let pendingViewSwitchScrollFrame: number | null = null
 let pendingFirstVisibleTrackFrame: number | null = null
 let isPageUnmounted = false
+
+// Deferred positioning (scrollToTrackById hops, view-switch frames, focus
+// restore) aborts when the user starts scrolling: wheel / touch input bumps
+// the generation, and pending tasks check it before touching scrollTop.
+let userScrollGeneration = 0
+
+function captureScrollGeneration(): number {
+  return userScrollGeneration
+}
+
+function isScrollInputCancelled(startGeneration: number): boolean {
+  return userScrollGeneration !== startGeneration
+}
+
+function onUserScrollInput(): void {
+  userScrollGeneration++
+}
 
 interface LibraryRefreshAnchor {
   trackId: number | null
@@ -260,7 +278,10 @@ interface FocusRestoreTarget {
 let pendingMetadataDialogReturnTarget: FocusRestoreTarget | null = null
 let pendingViewSwitchReturnTarget: FocusRestoreTarget | null = null
 
-async function restoreLibraryFocus(target: FocusRestoreTarget | null): Promise<void> {
+async function restoreLibraryFocus(
+  target: FocusRestoreTarget | null,
+  scroll = true,
+): Promise<void> {
   if (!target) return
 
   let activeTrackId = target.trackId
@@ -290,9 +311,13 @@ async function restoreLibraryFocus(target: FocusRestoreTarget | null): Promise<v
 
   keyboardFocusTrackId.value = activeTrackId
 
-  await scrollToTrackById(activeTrackId)
-  await nextTick()
-  await new Promise((resolve) => window.requestAnimationFrame(resolve))
+  const startGeneration = captureScrollGeneration()
+  if (scroll) {
+    await scrollToTrackById(activeTrackId, undefined, startGeneration)
+    await nextTick()
+    await new Promise((resolve) => window.requestAnimationFrame(resolve))
+    if (isScrollInputCancelled(startGeneration)) return
+  }
 
   let targetEl: HTMLElement | null = null
 
@@ -318,7 +343,7 @@ async function restoreLibraryFocus(target: FocusRestoreTarget | null): Promise<v
     targetEl = scrollRef.value
   }
 
-  targetEl?.focus()
+  targetEl?.focus(scroll ? undefined : { preventScroll: true })
 }
 
 function closeContextMenu(handoffTarget?: 'metadata-dialog' | 'view-switch'): void {
@@ -338,7 +363,9 @@ function closeContextMenu(handoffTarget?: 'metadata-dialog' | 'view-switch'): vo
   } else if (handoffTarget === 'view-switch') {
     pendingViewSwitchReturnTarget = target
   } else {
-    void restoreLibraryFocus(target)
+    // Pointer-opened menus only restore focus without yanking the viewport;
+    // keyboard-opened menus run the full scroll-and-focus restore.
+    void restoreLibraryFocus(target, target.openReason !== 'pointer')
   }
 }
 
@@ -484,18 +511,18 @@ function commitLibrarySnapshot(snapshot: LibraryDataSnapshot): void {
 }
 
 function captureLibraryRefreshAnchor(): LibraryRefreshAnchor {
-  const trackIndex = libraryDerivedIndex.value.trackById
   const firstVisibleTrackId = tracks.value[firstVisibleTrackIndex.value]?.id ?? null
-  const candidates = [
-    keyboardFocusTrackId.value,
-    playback.state.selectedTrackId,
-    playback.state.currentTrackId,
-    firstVisibleTrackId,
-  ]
-  const trackId = candidates.find(
-    (candidate): candidate is number => candidate !== null && trackIndex.has(candidate),
-  )
-  return { trackId: trackId ?? null }
+  return {
+    trackId: resolveLibraryRefreshAnchorTrackId({
+      candidates: [
+        firstVisibleTrackId,
+        keyboardFocusTrackId.value,
+        playback.state.selectedTrackId,
+        playback.state.currentTrackId,
+      ],
+      hasTrack: (id) => libraryDerivedIndex.value.trackById.has(id),
+    }),
+  }
 }
 
 const SCROLL_POSITION_RATIO = 0.33
@@ -534,11 +561,14 @@ function scrollRenderedTrackToRatio(targetTrackId: number): boolean {
 async function scrollToTrackById(
   targetTrackId: number,
   isRequestCurrent?: () => boolean,
+  startGeneration: number = captureScrollGeneration(),
 ): Promise<void> {
   await nextTick()
   if (isRequestCurrent && !isRequestCurrent()) return
+  if (isScrollInputCancelled(startGeneration)) return
   await new Promise((resolve) => window.requestAnimationFrame(resolve))
   if (isRequestCurrent && !isRequestCurrent()) return
+  if (isScrollInputCancelled(startGeneration)) return
   scrollRenderedTrackToRatio(targetTrackId)
 }
 
@@ -580,8 +610,13 @@ function onLibraryViewEnter(): void {
     return
   }
 
+  const viewSwitchGeneration = captureScrollGeneration()
   pendingViewSwitchScrollFrame = window.requestAnimationFrame(() => {
     pendingViewSwitchScrollFrame = null
+    if (isScrollInputCancelled(viewSwitchGeneration)) {
+      finishViewSwitch()
+      return
+    }
     scrollRenderedTrackToRatio(targetTrackId)
     finishViewSwitch()
   })
@@ -1140,7 +1175,10 @@ watch(
 )
 
 function updateFirstVisibleTrackIndex(): void {
-  if (!isManuscriptLibrary.value || !scrollRef.value || tracks.value.length === 0) return
+  // Both visual styles share the same virtualizer geometry, and the modern
+  // viewport anchor is needed for background-refresh restore, so the first
+  // visible track is tracked in modern and manuscript alike.
+  if (!scrollRef.value || tracks.value.length === 0) return
 
   let newIndex = 0
   const offset = Math.max(0, scrollRef.value.scrollTop - LIBRARY_TOP_INSET)
@@ -1183,7 +1221,11 @@ watch(
   scrollRef,
   (el, oldEl) => {
     oldEl?.removeEventListener('scroll', onScroll)
+    oldEl?.removeEventListener('wheel', onUserScrollInput)
+    oldEl?.removeEventListener('touchstart', onUserScrollInput)
     el?.addEventListener('scroll', onScroll, { passive: true })
+    el?.addEventListener('wheel', onUserScrollInput, { passive: true })
+    el?.addEventListener('touchstart', onUserScrollInput, { passive: true })
     if (el) {
       void nextTick(() => scheduleFirstVisibleTrackIndexUpdate())
     }
