@@ -35,29 +35,31 @@ describe('resolvePlayerVisualEffectsActive', () => {
 
 describe('resolvePlayerPaletteEnabled', () => {
   it('starts palette only for the active modern player', () => {
-    expect(resolvePlayerPaletteEnabled({ presentation: 'modern', displayMode: 'normal' })).toBe(true)
-    expect(
-      resolvePlayerPaletteEnabled({ presentation: 'modern', displayMode: 'fullscreen' }),
-    ).toBe(false)
+    expect(resolvePlayerPaletteEnabled({ presentation: 'modern', displayMode: 'normal' })).toBe(
+      true,
+    )
+    expect(resolvePlayerPaletteEnabled({ presentation: 'modern', displayMode: 'fullscreen' })).toBe(
+      false,
+    )
     expect(resolvePlayerPaletteEnabled({ presentation: 'modern', displayMode: 'mini' })).toBe(false)
-    expect(
-      resolvePlayerPaletteEnabled({ presentation: 'manuscript', displayMode: 'normal' }),
-    ).toBe(false)
+    expect(resolvePlayerPaletteEnabled({ presentation: 'manuscript', displayMode: 'normal' })).toBe(
+      false,
+    )
   })
 
   it('round-trips manuscript -> fullscreen -> normal without palette work on the hidden bar', () => {
     // manuscript normal: presentation is manuscript, no palette work
-    expect(
-      resolvePlayerPaletteEnabled({ presentation: 'manuscript', displayMode: 'normal' }),
-    ).toBe(false)
+    expect(resolvePlayerPaletteEnabled({ presentation: 'manuscript', displayMode: 'normal' })).toBe(
+      false,
+    )
     // opening fullscreen flips presentation to modern while the bar is hidden:
     // the gate must stay off so no palette worker starts underneath
-    expect(
-      resolvePlayerPaletteEnabled({ presentation: 'modern', displayMode: 'fullscreen' }),
-    ).toBe(false)
+    expect(resolvePlayerPaletteEnabled({ presentation: 'modern', displayMode: 'fullscreen' })).toBe(
+      false,
+    )
     // returning to normal restores the manuscript presentation
-    expect(
-      resolvePlayerPaletteEnabled({ presentation: 'manuscript', displayMode: 'normal' }),
-    ).toBe(false)
+    expect(resolvePlayerPaletteEnabled({ presentation: 'manuscript', displayMode: 'normal' })).toBe(
+      false,
+    )
   })
 })
