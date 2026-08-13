@@ -215,6 +215,31 @@ function assertShellCssScope(cssSource, label, scopePattern) {
   }
 }
 
+/**
+ * Phase 18 player surfaces: every selector must start with one of the three
+ * player owner scopes and must never reach Fullscreen, Miniplayer, the
+ * desktop-lyrics window, the sidebar or page owners.
+ */
+function assertPlayerCssScope(cssSource, label) {
+  assertManuscriptCssScope(
+    cssSource,
+    label,
+    /\.(?:now-playing-panel|player-bar|player-overlay)\s*\[\s*data-player-presentation\s*=\s*(['"])manuscript\1\s*\]/,
+  )
+
+  const excludedFromPlayer =
+    /\.(?:fullscreen|mini-player|desktop-lyrics-window|desktop-lyrics-root|app-window|app-shell|app-sidebar|sidebar-overlay)(?:\b|[-_])|\.(?:library|albums|album-detail|archive|settings)-(?:\b|[-_])/i
+
+  for (const selector of collectCssSelectors(cssSource.replace(/\/\*[\s\S]*?\*\//g, ''))) {
+    if (excludedFromPlayer.test(selector)) {
+      throw new Error(`${label}: selector crosses into excluded surface: ${selector}`)
+    }
+    if (/^(?:html|body|#app)\b/i.test(selector)) {
+      throw new Error(`${label}: global manuscript selector ${selector}`)
+    }
+  }
+}
+
 function assertStrictUtf8Text(relativePath, text) {
   if (text.includes('\uFFFD')) {
     throw new Error(`${relativePath}: UTF-8 replacement character`)
@@ -306,6 +331,15 @@ const [
   localeZhHant,
   mainCss,
   unoConfig,
+  playerSurfacePresentation,
+  playerManuscriptCss,
+  playerOverlayManuscriptCss,
+  playerBar,
+  nowPlayingPanel,
+  playbackQueuePopover,
+  playbackModeMenu,
+  albumTint,
+  playerBarMaterial,
 ] = await Promise.all([
   readProjectFile('src/renderer/features/library/pages/LibraryPage.vue'),
   readProjectFile('src/renderer/features/library/components/AlbumCoverGroup.vue'),
@@ -344,6 +378,15 @@ const [
   readProjectFile('src/renderer/locales/zh-Hant.json'),
   readProjectFile('src/renderer/app/styles/main.css'),
   readProjectFile('uno.config.ts'),
+  readProjectFile('src/renderer/app/utils/playerSurfacePresentation.ts'),
+  readProjectFile('src/renderer/app/styles/manuscript.player.css'),
+  readProjectFile('src/renderer/app/styles/manuscript.player-overlays.css'),
+  readProjectFile('src/renderer/app/layout/PlayerBar.vue'),
+  readProjectFile('src/renderer/app/layout/NowPlayingPanel.vue'),
+  readProjectFile('src/renderer/app/layout/PlaybackQueuePopover.vue'),
+  readProjectFile('src/renderer/app/layout/PlaybackModeMenu.vue'),
+  readProjectFile('src/renderer/features/playback/composables/useAlbumTint.ts'),
+  readProjectFile('src/renderer/features/settings/composables/usePlayerBarMaterial.ts'),
 ])
 
 assertIncludes(
@@ -624,6 +667,70 @@ assertIncludes(
   'shared tokens do not remap auralis variables on the app window',
 )
 
+// --- Phase 18: player surfaces (Now Playing + PlayerBar) ---
+assertIncludes(
+  playerSurfacePresentation,
+  "displayMode === 'normal' && visualStyle === 'manuscript'",
+  'player presentation normal+manuscript gate',
+)
+assertIncludes(
+  appShell,
+  'resolvePlayerSurfacePresentation(displayMode.value, visualStyle.value)',
+  'player presentation resolver in App',
+)
+assertIncludes(
+  appShell,
+  ':presentation="playerPresentation"',
+  'player presentation propagated by prop',
+)
+assertExcludes(appShell, /:key\s*=\s*['"]playerPresentation['"]/, 'player presentation remount key')
+assertIncludes(playerBar, 'props.presentation', 'player bar presentation prop')
+assertIncludes(
+  playerBar,
+  ':data-player-presentation="props.presentation"',
+  'player bar owner marker',
+)
+assertIncludes(playerBar, 'enabled: isModernPlayer', 'player bar palette enabled gate')
+assertIncludes(
+  nowPlayingPanel,
+  ':data-player-presentation="presentation"',
+  'now playing owner marker',
+)
+assertIncludes(
+  playbackQueuePopover,
+  'class="player-overlay queue-popover"',
+  'queue overlay owner class',
+)
+assertIncludes(
+  playbackQueuePopover,
+  ':data-player-presentation="props.presentation"',
+  'queue overlay presentation marker',
+)
+assertIncludes(
+  playbackModeMenu,
+  'class="player-overlay playback-mode-menu"',
+  'mode menu overlay owner class',
+)
+assertIncludes(
+  playbackModeMenu,
+  ':data-player-presentation="props.presentation"',
+  'mode menu overlay presentation marker',
+)
+assertIncludes(albumTint, 'TINT_CROSSFADE_MS', 'album tint composable timer')
+assertPlayerCssScope(playerManuscriptCss, 'player manuscript CSS')
+assertPlayerCssScope(playerOverlayManuscriptCss, 'player overlay manuscript CSS')
+assertMatches(
+  playerManuscriptCss,
+  /\.player-bar\s*\[\s*data-player-presentation\s*=\s*(['"])manuscript\1\s*\]\s*,/,
+  'reduced-motion hits the player-bar root itself',
+)
+assertExcludes(playerBarMaterial, /['"]manuscript['"]/, 'no manuscript material store value')
+assertIncludes(
+  playerBarMaterial,
+  'auralis-player-bar-material',
+  'single player material storage key',
+)
+
 for (const [label, source] of [
   ['manuscript.css', manuscriptCss],
   ['manuscript.overlays.css', overlayCss],
@@ -636,6 +743,8 @@ for (const [label, source] of [
   ['shell manuscript.css', shellManuscriptCss],
   ['sidebar manuscript.css', sidebarManuscriptCss],
   ['sidebar overlay manuscript.css', sidebarOverlayManuscriptCss],
+  ['player manuscript.css', playerManuscriptCss],
+  ['player overlay manuscript.css', playerOverlayManuscriptCss],
   ['shared manuscript tokens.css', sharedTokens],
   ['main.css', mainCss],
   ['uno.config.ts', unoConfig],
@@ -675,5 +784,5 @@ for (const cssVariable of [
 }
 
 console.log(
-  'Library, album catalog, album detail, archive, settings, and shell visual scope checks passed.',
+  'Library, album catalog, album detail, archive, settings, shell, and player visual scope checks passed.',
 )
