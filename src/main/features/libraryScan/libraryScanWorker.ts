@@ -4,6 +4,7 @@ import { readFile, readdir, stat } from 'node:fs/promises'
 import { parseFile } from 'music-metadata'
 import { isSupportedAudioFile } from './audioFileFilter'
 import { writeArtworkToCache } from '../artwork/artworkCache'
+import { isCurrentArtworkCacheKey } from '../artwork/artworkCachePolicy'
 import { resolveArtworkForFile } from '../artwork/resolveArtworkForFile'
 import {
   normalizeMetadata,
@@ -241,10 +242,12 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
     knownFile?.metadataCheckedMtimeMs !== null && knownFile?.metadataCheckedMtimeMs === fileMtimeMs
   const needsMetadataBackfill = Boolean(fileUnchanged && knownFile && !metadataChecked)
 
-  // Skip completely: file unchanged, album already has artwork, and lyrics were checked for this mtime
+  // Skip completely: file unchanged, album already has a CURRENT (v2) artwork
+  // key, and lyrics were checked for this mtime. A legacy key still requires
+  // the lightweight upgrade path below (TechDoc §7.1).
   if (
     fileUnchanged &&
-    knownFile.artworkCacheKey &&
+    isCurrentArtworkCacheKey(knownFile.artworkCacheKey) &&
     !needsLyricsBackfill &&
     !needsMetadataBackfill
   ) {
@@ -271,7 +274,10 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
         const cached = albumArtworkCache.get(albumKey)
 
         if (cached !== undefined) {
-          if (cached && knownFile?.album && knownFile.albumArtist) {
+          // Only a CURRENT v2 key can be committed by the album upsert; a null
+          // value means "no artwork" and skips, a legacy value falls through to
+          // re-resolution so the upgrade is not lost.
+          if (isCurrentArtworkCacheKey(cached) && knownFile?.album && knownFile.albumArtist) {
             return {
               kind: 'artwork',
               patch: {
@@ -282,7 +288,9 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
             }
           }
 
-          return { kind: 'skip' }
+          if (cached === null) {
+            return { kind: 'skip' }
+          }
         }
       }
 
@@ -299,8 +307,12 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
         }
       }
 
-      const artworkCacheKey =
-        knownFile?.artworkCacheKey ?? (await resolveArtwork(filePath, metadata))
+      // Reuse only a CURRENT v2 key; legacy keys must be re-resolved so the
+      // artwork cache is upgraded even when the audio file itself is unchanged.
+      const knownKey = knownFile?.artworkCacheKey ?? null
+      const artworkCacheKey = isCurrentArtworkCacheKey(knownKey)
+        ? knownKey
+        : await resolveArtwork(filePath, metadata)
 
       // Cache both success and failure to avoid repeated parseFile for albums without artwork
       if (albumKey) {

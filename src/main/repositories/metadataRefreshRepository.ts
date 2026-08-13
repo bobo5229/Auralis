@@ -565,7 +565,15 @@ export class MetadataRefreshRepository extends BaseRepository {
         release_date = excluded.release_date,
         lyrics_text = excluded.lyrics_text,
         lyrics_format = excluded.lyrics_format,
-        artwork_cache_key = excluded.artwork_cache_key,
+        artwork_cache_key = CASE
+          WHEN excluded.artwork_cache_key LIKE 'v2-%.webp'
+            AND (
+              track_metadata.artwork_cache_key IS NULL
+              OR track_metadata.artwork_cache_key NOT LIKE 'v2-%.webp'
+            )
+          THEN excluded.artwork_cache_key
+          ELSE track_metadata.artwork_cache_key
+        END,
         source = excluded.source,
         refreshed_at = CURRENT_TIMESTAMP
       WHERE track_metadata.source IS NOT 'user_edit'
@@ -616,7 +624,15 @@ export class MetadataRefreshRepository extends BaseRepository {
       UPDATE track_metadata
       SET lyrics_text = ?,
           lyrics_format = ?,
-          artwork_cache_key = COALESCE(?, artwork_cache_key),
+          artwork_cache_key = CASE
+            WHEN ? LIKE 'v2-%.webp'
+              AND (
+                artwork_cache_key IS NULL
+                OR artwork_cache_key NOT LIKE 'v2-%.webp'
+              )
+            THEN ?
+            ELSE artwork_cache_key
+          END,
           refreshed_at = CURRENT_TIMESTAMP
       WHERE track_id = ?
         AND source = 'user_edit'
@@ -627,7 +643,11 @@ export class MetadataRefreshRepository extends BaseRepository {
       VALUES (?, ?, ?)
       ON CONFLICT(title, artist) DO UPDATE SET
         artwork_cache_key = CASE
-          WHEN albums.artwork_cache_key IS NULL AND excluded.artwork_cache_key IS NOT NULL
+          WHEN excluded.artwork_cache_key LIKE 'v2-%.webp'
+            AND (
+              albums.artwork_cache_key IS NULL
+              OR albums.artwork_cache_key NOT LIKE 'v2-%.webp'
+            )
           THEN excluded.artwork_cache_key
           ELSE albums.artwork_cache_key
         END,
@@ -669,6 +689,7 @@ export class MetadataRefreshRepository extends BaseRepository {
         patchUserEditSideData.run(
           metadata.lyricsText,
           metadata.lyricsFormat,
+          metadata.artworkCacheKey,
           metadata.artworkCacheKey,
           metadata.trackId,
         )

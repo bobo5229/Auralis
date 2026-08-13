@@ -31,7 +31,7 @@ export function computeArtworkCacheKey(sourceData: Buffer): string {
   return `${ARTWORK_CACHE_VERSION}-${hash.digest('hex')}.webp`
 }
 
-export function isCurrentArtworkCacheKey(key: string | null): boolean {
+export function isCurrentArtworkCacheKey(key: string | null): key is string {
   return key !== null && V2_KEY_PATTERN.test(key)
 }
 
