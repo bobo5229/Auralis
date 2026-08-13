@@ -200,11 +200,16 @@ or introduce page-local visual-style refs.
   stays `modern` and must not inherit the Phase 17 marker. They share the single
   `auralis-visual-style` preference; do not force those routes back to `modern`, and do not clear
   the saved preference on navigation.
+- The ordinary main-window Now Playing and PlayerBar derive `data-player-presentation` from the
+  same preference via `resolvePlayerSurfacePresentation` (Phase 18); Fullscreen and Miniplayer always
+  resolve to `modern`. The shell marker only decides the shell, the player marker only decides the
+  player — never reuse one as the other's skin switch.
 - Phase 12 covers the `/albums` catalog route. Phase 13 covers only the `album-detail` route.
   Phase 14 covers only the `/archive` route. Phase 16 covers only the `settings` route. Phase 17
   covers the ordinary `.app-window` / `AppSidebar` / `.sidebar-overlay` owner surfaces, not Vue
-  Router names. Resolve page surfaces by their explicit Vue Router names; do not infer presentation
-  from path prefixes.
+  Router names. Phase 18 covers the ordinary-window Now Playing / PlayerBar player surfaces via
+  `resolvePlayerSurfacePresentation`. Resolve page surfaces by their explicit Vue Router names; do
+  not infer presentation from path prefixes.
 - Shared manuscript tokens live in
   `src/renderer/features/appearance/styles/manuscript.tokens.css`. Page composition remains
   feature-owned: library rules under `.library-page`, album catalog rules under `.albums-page`.
@@ -218,11 +223,23 @@ or introduce page-local visual-style refs.
   `manuscript.shell.css` under `.app-window[data-shell-presentation='manuscript']`. Do not let those
   selectors paint `.now-playing-*`, `.player-bar*`, `.fullscreen-*`, `.mini-player*`, or
   `.desktop-lyrics-*`.
-- Now Playing, Playbar, Miniplayer, desktop lyrics, and fullscreen playback remain outside
-  the current manuscript coverage. Teleport overlays must carry an owner-specific scope:
+- Player surface rules live in `src/renderer/app/styles/manuscript.player.css` and
+  `manuscript.player-overlays.css`, scoped under
+  `.now-playing-panel[data-player-presentation='manuscript']`,
+  `.player-bar[data-player-presentation='manuscript']` and
+  `.player-overlay[data-player-presentation='manuscript']`. Do not let those selectors paint
+  `.fullscreen-*`, `.mini-player*`, the desktop-lyrics window (`.desktop-lyrics-window`,
+  `.desktop-lyrics-root`), `.app-sidebar`, `.sidebar-overlay`, or the page owners
+  (`.library-*`, `.albums-*`, `.album-detail-*`, `.archive-*`, `.settings-*`). The PlayerBar album
+  tint and artwork palette run only for the modern player presentation
+  (`useArtworkPalette(..., { enabled: isModernPlayer })` + `useAlbumTint`), and the material
+  preference stays `cover-tint | liquid-glass` regardless of visual style.
+- Now Playing, PlayerBar, Miniplayer, desktop lyrics, and fullscreen playback are player surfaces
+  with independent owners. Teleport overlays must carry an owner-specific scope:
   `.library-overlay` for the Library family (All Songs, regular playlists, smart playlists),
-  `.albums-overlay` for the album catalog, `.archive-overlay` for Archive, and `.sidebar-overlay`
-  for Sidebar / Facets. Other Teleport overlays remain outside.
+  `.albums-overlay` for the album catalog, `.archive-overlay` for Archive, `.sidebar-overlay`
+  for Sidebar / Facets, and `.player-overlay` for PlayerBar-owned queue / playback-mode-menu /
+  desktop-lyrics-toast overlays. Other Teleport overlays remain outside.
 - Album detail manuscript rules live in
   `src/renderer/features/albums/styles/manuscript.detail.css` and must remain scoped under
   `.album-detail-page[data-visual-style='manuscript']`. Its artwork-derived canvas and pointer tilt
@@ -302,13 +319,23 @@ change.
 For settings visual-style changes, verify `modern` and `manuscript` in appearance, playback,
 library, and about; confirm visual-style, language, and PlayerBar material stay independent;
 switch styles during an active scan or metadata refresh without remounting the library section;
-and keep Now Playing, PlayerBar, Miniplayer, and the native Windows title bar unchanged.
+and keep Miniplayer and the native Windows title bar unchanged.
 
 For shell / Sidebar visual-style changes, verify `modern` and `manuscript` on the ordinary main
 window, including brand, tools, primary nav, playlist tree, drag-and-drop, create / rename /
 delete / query dialogs, and Facets. Confirm manuscript stops the shell fluid background and chrome
 palette work, switching back to modern restores them once, Miniplayer does not inherit the shell
-marker, and PlayerBar / Now Playing / Fullscreen stay on the modern baseline.
+marker, and Fullscreen stays on the modern baseline.
+
+For Now Playing / PlayerBar visual-style changes, verify `modern` and `manuscript` × light / dark:
+transport controls, track info, cover, progress, volume, queue and playback-mode overlays, and
+desktop-lyrics toast. Confirm the manuscript presentation stops the PlayerBar palette worker and
+album tint (no image decode / canvas work on track change), switching back to modern restores the
+current cover once without a stale tint or duplicate timer, the material preference
+(`cover-tint | liquid-glass`) survives modern ↔ manuscript round-trips, queue / mode-menu keyboard
+(Escape focus return, roving focus, Tab containment) stays intact, lyrics auto-follow / scroll /
+seek are not reset by style switching, and Fullscreen / Miniplayer / the desktop-lyrics window do
+not inherit the player marker.
 
 ## Commit & Pull Request Guidelines
 
