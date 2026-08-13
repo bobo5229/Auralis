@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   canRestorePlayerFocus,
   resolvePlayerOverlayKeyAction,
+  resolveQueueInitialFocusTarget,
   resolveRestorablePlayerTrigger,
 } from './playerOverlayFocus'
 
@@ -36,6 +37,23 @@ describe('resolvePlayerOverlayKeyAction — queue dialog', () => {
   it('leaves in-range Tab to the browser', () => {
     expect(resolvePlayerOverlayKeyAction({ ...base, key: 'Tab', activeIndex: 1 })).toEqual({
       type: 'none',
+    })
+  })
+
+  it('swallows Tab when the queue has no interactive items', () => {
+    expect(resolvePlayerOverlayKeyAction({ ...base, focusableCount: 0, key: 'Tab' })).toEqual({
+      type: 'keep-root',
+    })
+    expect(
+      resolvePlayerOverlayKeyAction({ ...base, focusableCount: 0, key: 'Tab', shiftKey: true }),
+    ).toEqual({
+      type: 'keep-root',
+    })
+  })
+
+  it('still dismisses an empty queue on Escape', () => {
+    expect(resolvePlayerOverlayKeyAction({ ...base, focusableCount: 0, key: 'Escape' })).toEqual({
+      type: 'dismiss',
     })
   })
 
@@ -88,6 +106,49 @@ describe('resolvePlayerOverlayKeyAction — mode menu', () => {
 
   it('returns none for unrelated keys', () => {
     expect(resolvePlayerOverlayKeyAction({ ...base, key: 'x' })).toEqual({ type: 'none' })
+  })
+})
+
+describe('resolveQueueInitialFocusTarget', () => {
+  // Minimal DOM stubs: the resolver only touches querySelector and the
+  // precomputed focusables array, so a node environment can exercise it.
+  function stubItem(id: string, buttonInside: unknown = null): HTMLElement {
+    return {
+      id,
+      querySelector: (selector: string) => (selector === 'button' ? buttonInside : null),
+    } as unknown as HTMLElement
+  }
+
+  function stubRoot(activeItem: unknown = null): HTMLElement {
+    return {
+      querySelector: (selector: string) => (selector === '.queue-item-active' ? activeItem : null),
+    } as unknown as HTMLElement
+  }
+
+  it('prefers the active track play button when interactive', () => {
+    const button = stubItem('play')
+    const active = stubItem('active', button)
+    const root = stubRoot(active)
+    expect(resolveQueueInitialFocusTarget({ root, focusables: [] })).toBe(button)
+  })
+
+  it('falls back to the first focusable item', () => {
+    const first = stubItem('first')
+    const root = stubRoot(null)
+    expect(resolveQueueInitialFocusTarget({ root, focusables: [first] })).toBe(first)
+  })
+
+  it('falls back to the dialog root for an empty queue', () => {
+    const root = stubRoot(null)
+    expect(resolveQueueInitialFocusTarget({ root, focusables: [] })).toBe(root)
+  })
+
+  it('falls back to the dialog root for a single-track queue', () => {
+    // The now-playing section is a non-interactive div: no button inside and
+    // no upcoming items, so the root must hold focus.
+    const active = stubItem('active', null)
+    const root = stubRoot(active)
+    expect(resolveQueueInitialFocusTarget({ root, focusables: [] })).toBe(root)
   })
 })
 

@@ -7,6 +7,7 @@ export type PlayerOverlayKeyAction =
   | { type: 'cycle-focus'; nextIndex: number }
   | { type: 'roving'; nextIndex: number }
   | { type: 'select' }
+  | { type: 'keep-root' }
   | { type: 'none' }
 
 export const PLAYER_OVERLAY_FOCUSABLE_SELECTOR = [
@@ -49,8 +50,15 @@ export function resolvePlayerOverlayKeyAction(input: {
   }
 
   // Queue dialog: keep Tab inside the dialog.
-  if (input.key !== 'Tab' || input.focusableCount === 0) {
+  if (input.key !== 'Tab') {
     return { type: 'none' }
+  }
+
+  // An empty or single-track queue has no interactive items; the dialog root
+  // holds focus instead, so swallow Tab rather than letting it escape behind
+  // the overlay.
+  if (input.focusableCount === 0) {
+    return { type: 'keep-root' }
   }
 
   if (input.activeIndex < 0) {
@@ -95,4 +103,21 @@ export function getPlayerOverlayFocusables(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(PLAYER_OVERLAY_FOCUSABLE_SELECTOR)).filter(
     (element) => element.tabIndex >= 0 && element.getClientRects().length > 0,
   )
+}
+
+/**
+ * Pick the queue dialog's initial focus target: the active track's play
+ * button when interactive, otherwise the first focusable item, otherwise the
+ * dialog root itself. The root fallback covers empty and single-track queues,
+ * which have no interactive items and must not let Tab land behind the dialog.
+ */
+export function resolveQueueInitialFocusTarget(input: {
+  root: HTMLElement
+  focusables: HTMLElement[]
+}): HTMLElement {
+  const activeItemButton = input.root
+    .querySelector<HTMLElement>('.queue-item-active')
+    ?.querySelector<HTMLElement>('button')
+  if (activeItemButton) return activeItemButton
+  return input.focusables[0] ?? input.root
 }
