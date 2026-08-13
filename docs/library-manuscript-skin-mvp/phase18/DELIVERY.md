@@ -21,8 +21,9 @@
 | 18.8  | `804ef3f` | `docs：交付 Phase 18 播放表面手稿化`        |
 | P2 修复 | `8256115` | `fix：空队列播放浮层焦点兜底到弹窗根节点`   |
 | P2 修复 | `6325c56` | `fix：模式菜单改为 roving tabindex 并回传选择后焦点` |
+| P2 修复 | `db25276` | `fix：歌词自动跟随遵守 reduced-motion 且不创建 WAAPI 动画` |
 
-**源码范围**：`a1bd7fb..6325c56`
+**源码范围**：`a1bd7fb..db25276`
 **含交付文档**：`a1bd7fb..804ef3f`
 
 ## 2. 已实现
@@ -63,6 +64,18 @@
 - 键盘选择直接以 `focusedIndex` 定位模式并 emit；PlayerBar 的 `handleSelectMode` 改走与 Escape 相同的 `handleModeMenuClose` 关闭路径，键盘与鼠标选择后都回传模式按钮焦点；
 - 新增 Tab 整组进出、键盘选择、菜单项枚举保留 `-1` 项与 tabindex 绑定测试。DOM 层点击/焦点回传行为纳入 Electron 人工矩阵验证。
 
+### Finding P2：歌词自动跟随未遵守 reduced-motion
+
+`SyncedLyricsView` 默认使用 420-650ms Web Animations API 平滑移动歌词轨道，现有 reduced-motion CSS 只关闭 PlayerBar 和浮层动画，无法停止脚本创建的 `track.animate()`。
+
+**解决**（`db25276`）：
+
+- 新增 `useReducedMotion`（matchMedia factory 可注入）与 `lyricsMotion` 纯函数层：`resolveLyricsFollowBehavior` 使 reduced-motion 下默认跟随行为解析为 `auto`，`shouldAnimateLyricsFollow` 作为 WAAPI 创建门（`auto` 恒不创建动画）；
+- 偏好中途切到 reduce 时 `watch` 立即取消在途动画并提交目标位置（`updateTarget('auto')`）；
+- `onLyricLineActivate` 改用默认行为，不再强制 `smooth`；
+- `manuscript.player.css` 的 reduced-motion 块补上 `.now-playing-panel[...]` 及其后代，关闭歌词行 opacity/filter transition；
+- 新增低动效下不创建动画、行为解析与偏好变更跟踪测试。
+
 （工程阶段其余未产生审查 Findings；Electron 人工矩阵完成后按需补充。）
 
 ## 4. 自动验证
@@ -73,7 +86,7 @@
 | `npm.cmd run typecheck` | 通过                                                                     |
 | `npm.cmd run lint`      | 通过                                                                     |
 | `npm.cmd run build`     | 通过                                                                     |
-| `git diff --check`      | 通过；范围 `a1bd7fb..6325c56`                                            |
+| `git diff --check`      | 通过；范围 `a1bd7fb..db25276`                                            |
 
 新增 locale key（`player.lyricsNoTrack` / `lyricsSeekToLine` / `lyricsSeekToTime` / `lyricsStartingSoon`，`lyricsLoading` 复用）；`zh-Hant.json` 由 `locales:zh-hant` 生成，三语 key parity 校验通过。
 
