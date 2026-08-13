@@ -7,19 +7,21 @@
 
 /* --------------------------------------------------------------------------
  * Canvas — 纸张画布
+ * Phase 22：页根是摊开在 .app-main 里的那一页纸，不是浮在窗口纸上的第四张卡。
+ * 无外距、描边、圆角与页阴影；背景透明以露出窗口 --manuscript-surface-page；
+ * 高度等于主栏 100%（与 Uno h-full 一致），不再用 calc(100% - 24px) 补偿 margin。
  * -------------------------------------------------------------------------- */
 .library-page[data-visual-style='manuscript'] {
   font-family: var(--manuscript-font-body);
   container-name: manuscript-library;
   container-type: inline-size;
 
-  /* 约 12px 外围间隙；高度补偿上下 margin，避免 app-main 双滚动 */
-  margin: 12px;
-  height: calc(100% - 24px);
-  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
-  border-radius: var(--manuscript-radius-page);
-  background: var(--manuscript-effect-paper-background);
-  box-shadow: var(--manuscript-effect-page-shadow);
+  margin: 0;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .library-page[data-visual-style='manuscript'] .library-list-scroll {
@@ -320,7 +322,7 @@
 }
 
 /* --------------------------------------------------------------------------
- * Controls — 搜索框与视觉风格切换
+ * Controls — 搜索框
  * -------------------------------------------------------------------------- */
 
 .library-page[data-visual-style='manuscript'] .library-search-zone {
