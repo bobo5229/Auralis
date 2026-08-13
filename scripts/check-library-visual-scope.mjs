@@ -199,6 +199,22 @@ function assertExcludedSurfacesUntouched(label, cssSource) {
   }
 }
 
+function assertShellCssScope(cssSource, label, scopePattern) {
+  assertManuscriptCssScope(cssSource, label, scopePattern)
+
+  const excludedFromShell =
+    /\.(?:now-playing|player-bar|player-control|queue-|playback-mode-|mini-player|desktop-lyrics|fullscreen)(?:\b|[-_])/i
+
+  for (const selector of collectCssSelectors(cssSource.replace(/\/\*[\s\S]*?\*\//g, ''))) {
+    if (excludedFromShell.test(selector)) {
+      throw new Error(`${label}: selector crosses into Phase 18-21 surface: ${selector}`)
+    }
+    if (/^(?:html|body|#app)\b/i.test(selector)) {
+      throw new Error(`${label}: global manuscript selector ${selector}`)
+    }
+  }
+}
+
 function assertStrictUtf8Text(relativePath, text) {
   if (text.includes('\uFFFD')) {
     throw new Error(`${relativePath}: UTF-8 replacement character`)
@@ -277,6 +293,14 @@ const [
   settingsPresentation,
   settingsManuscriptCss,
   visualStylePreference,
+  appShell,
+  appSidebar,
+  facetsDialog,
+  shellPresentation,
+  artworkPalette,
+  shellManuscriptCss,
+  sidebarManuscriptCss,
+  sidebarOverlayManuscriptCss,
   localeEn,
   localeZhHans,
   localeZhHant,
@@ -307,6 +331,14 @@ const [
   readProjectFile('src/renderer/features/settings/utils/settingsPresentation.ts'),
   readProjectFile('src/renderer/features/settings/styles/manuscript.css'),
   readProjectFile('src/renderer/features/appearance/components/VisualStylePreference.vue'),
+  readProjectFile('src/renderer/App.vue'),
+  readProjectFile('src/renderer/app/layout/AppSidebar.vue'),
+  readProjectFile('src/renderer/features/facets/components/FacetsDialog.vue'),
+  readProjectFile('src/renderer/app/utils/shellPresentation.ts'),
+  readProjectFile('src/renderer/features/playback/composables/useArtworkPalette.ts'),
+  readProjectFile('src/renderer/app/styles/manuscript.shell.css'),
+  readProjectFile('src/renderer/app/styles/manuscript.sidebar.css'),
+  readProjectFile('src/renderer/app/styles/manuscript.sidebar-overlays.css'),
   readProjectFile('src/renderer/locales/en.json'),
   readProjectFile('src/renderer/locales/zh-Hans.json'),
   readProjectFile('src/renderer/locales/zh-Hant.json'),
@@ -503,6 +535,90 @@ assertManuscriptCssScope(
 )
 assertIncludes(localeEn, '"modernLabel"', 'settings visual style locale keys')
 
+assertIncludes(shellPresentation, "displayMode !== 'mini'", 'shell presentation mini exclusion')
+assertIncludes(appShell, 'useVisualStyle()', 'shell unique visual style source')
+assertIncludes(
+  appShell,
+  'resolveShellPresentation(displayMode.value, visualStyle.value)',
+  'shell presentation resolver',
+)
+assertIncludes(
+  appShell,
+  ':data-shell-presentation="shellPresentation"',
+  'ordinary window shell marker',
+)
+assertIncludes(appShell, ':presentation="shellPresentation"', 'sidebar presentation prop')
+assertIncludes(appShell, 'v-if="shouldRenderShellArtwork"', 'shell artwork mount gate')
+assertIncludes(
+  appShell,
+  'useArtworkPalette(artworkCacheKey, {\n  enabled: isModernShell,\n})',
+  'shell palette enabled gate',
+)
+assertExcludes(appShell, /:key\s*=\s*['"]shellPresentation['"]/, 'shell presentation remount key')
+assertIncludes(
+  appShell,
+  'v-if="displayMode === \'mini\'"',
+  'miniplayer independent renderer branch',
+)
+assertExcludes(
+  appShell,
+  /<MiniPlayer\b[^>]*data-shell-presentation/,
+  'Miniplayer Phase 17 shell marker',
+)
+assertIncludes(appSidebar, 'presentation: ShellPresentation', 'sidebar presentation contract')
+assertIncludes(appSidebar, ':data-shell-presentation="presentation"', 'sidebar owner marker')
+assertIncludes(appSidebar, 'class="sidebar-overlay', 'sidebar overlay owner class')
+assertExcludes(appSidebar, /:key\s*=\s*['"]presentation['"]/, 'sidebar presentation remount key')
+assertIncludes(facetsDialog, 'presentation?: ShellPresentation', 'facets presentation prop')
+assertIncludes(
+  facetsDialog,
+  'class="sidebar-overlay facets-dialog-backdrop"',
+  'facets overlay owner class',
+)
+assertIncludes(
+  facetsDialog,
+  ':data-shell-presentation="presentation"',
+  'facets overlay presentation marker',
+)
+assertIncludes(artworkPalette, 'enabled?: MaybeRefOrGetter<boolean>', 'palette enabled option')
+assertIncludes(artworkPalette, 'toValue(options.enabled) ?? true', 'palette default enabled')
+assertIncludes(artworkPalette, 'if (!enabled) return', 'palette disabled short-circuit')
+assertShellCssScope(
+  shellManuscriptCss,
+  'shell manuscript CSS',
+  /\.app-window\s*\[\s*data-shell-presentation\s*=\s*(['"])manuscript\1\s*\]/,
+)
+assertShellCssScope(
+  sidebarManuscriptCss,
+  'sidebar manuscript CSS',
+  /\.app-sidebar\s*\[\s*data-shell-presentation\s*=\s*(['"])manuscript\1\s*\]/,
+)
+assertShellCssScope(
+  sidebarOverlayManuscriptCss,
+  'sidebar overlay manuscript CSS',
+  /\.sidebar-overlay\s*\[\s*data-shell-presentation\s*=\s*(['"])manuscript\1\s*\]/,
+)
+assertMatches(
+  sharedTokens,
+  /\.app-window\s*\[\s*data-shell-presentation\s*=\s*(['"])manuscript\1\s*\]/,
+  'shared manuscript tokens shell scope',
+)
+assertMatches(
+  sharedTokens,
+  /\.app-sidebar\s*\[\s*data-shell-presentation\s*=\s*(['"])manuscript\1\s*\]/,
+  'shared manuscript tokens sidebar scope',
+)
+assertMatches(
+  sharedTokens,
+  /\.sidebar-overlay\s*\[\s*data-shell-presentation\s*=\s*(['"])manuscript\1\s*\]/,
+  'shared manuscript tokens sidebar overlay scope',
+)
+assertMatches(
+  sharedTokens,
+  /\.settings-page\s*\[\s*data-visual-style\s*=\s*(['"])manuscript\1\s*\]/,
+  'shared manuscript tokens settings scope',
+)
+
 for (const [label, source] of [
   ['manuscript.css', manuscriptCss],
   ['manuscript.overlays.css', overlayCss],
@@ -512,11 +628,18 @@ for (const [label, source] of [
   ['archive manuscript.css', archiveManuscriptCss],
   ['archive manuscript.overlays.css', archiveOverlayCss],
   ['settings manuscript.css', settingsManuscriptCss],
+  ['shell manuscript.css', shellManuscriptCss],
+  ['sidebar manuscript.css', sidebarManuscriptCss],
+  ['sidebar overlay manuscript.css', sidebarOverlayManuscriptCss],
   ['shared manuscript tokens.css', sharedTokens],
   ['main.css', mainCss],
   ['uno.config.ts', unoConfig],
 ]) {
-  assertExcludes(source, /(?:html|body|#app|\.app-shell)[^{\n]*data-visual-style[^\n{]*/i, label)
+  assertExcludes(
+    source,
+    /(?:html|body|#app)[^{\n]*(?:data-visual-style|data-shell-presentation)[^\n{]*/i,
+    label,
+  )
 }
 
 for (const [label, source] of [
@@ -528,7 +651,6 @@ for (const [label, source] of [
   ['archive manuscript.css', archiveManuscriptCss],
   ['archive manuscript.overlays.css', archiveOverlayCss],
   ['settings manuscript.css', settingsManuscriptCss],
-  ['shared manuscript tokens.css', sharedTokens],
 ]) {
   assertExcludedSurfacesUntouched(label, source)
 }
@@ -548,5 +670,5 @@ for (const cssVariable of [
 }
 
 console.log(
-  'Library, album catalog, album detail, archive, and settings visual scope checks passed.',
+  'Library, album catalog, album detail, archive, settings, and shell visual scope checks passed.',
 )
