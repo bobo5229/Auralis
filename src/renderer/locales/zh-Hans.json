@@ -188,6 +188,10 @@
     "unknownArtist": "未知艺人",
     "lyricsLoading": "歌词加载中",
     "lyricsEmpty": "暂无歌词",
+    "lyricsNoTrack": "未选择曲目",
+    "lyricsSeekToLine": "跳转到：{text}",
+    "lyricsSeekToTime": "跳转到 {seconds} 秒",
+    "lyricsStartingSoon": "歌词即将开始",
     "modeOption": {
       "sequential": "顺序播放",
       "repeat-all": "列表循环",

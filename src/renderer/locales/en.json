@@ -188,6 +188,10 @@
     "unknownArtist": "Unknown Artist",
     "lyricsLoading": "Loading lyrics",
     "lyricsEmpty": "No lyrics",
+    "lyricsNoTrack": "No track selected",
+    "lyricsSeekToLine": "Jump to: {text}",
+    "lyricsSeekToTime": "Jump to {seconds} seconds",
+    "lyricsStartingSoon": "Lyrics starting soon",
     "modeOption": {
       "sequential": "Sequential",
       "repeat-all": "Repeat all",
