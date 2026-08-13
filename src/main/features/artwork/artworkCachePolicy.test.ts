@@ -12,7 +12,9 @@ import {
 describe('computeArtworkCacheKey', () => {
   it('produces the same key for the same source bytes', () => {
     const data = Buffer.from('same artwork bytes')
-    expect(computeArtworkCacheKey(data)).toBe(computeArtworkCacheKey(Buffer.from('same artwork bytes')))
+    expect(computeArtworkCacheKey(data)).toBe(
+      computeArtworkCacheKey(Buffer.from('same artwork bytes')),
+    )
   })
 
   it('produces a different key for different source bytes', () => {
@@ -75,9 +77,7 @@ describe('isCacheFileName / isArtworkTempFileName', () => {
     expect(isCacheFileName(`${'c'.repeat(64)}.jpg`)).toBe(true)
     expect(isCacheFileName(`${'c'.repeat(64)}.png`)).toBe(true)
     expect(isCacheFileName(`v2-${'c'.repeat(64)}.webp`)).toBe(true)
-    expect(
-      isCacheFileName(`v2-${'c'.repeat(64)}.webp.1234.5678.tmp`),
-    ).toBe(true)
+    expect(isCacheFileName(`v2-${'c'.repeat(64)}.webp.1234.5678.tmp`)).toBe(true)
     expect(isArtworkTempFileName(`v2-${'c'.repeat(64)}.webp.1234.5678.tmp`)).toBe(true)
   })
 

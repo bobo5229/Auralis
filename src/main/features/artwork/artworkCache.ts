@@ -30,7 +30,9 @@ export interface ConvertedArtwork {
  * Returns null on any failure and logs a structured warning — never falls back
  * to saving the original bytes.
  */
-export async function convertArtworkToWebp(source: ArtworkSource): Promise<ConvertedArtwork | null> {
+export async function convertArtworkToWebp(
+  source: ArtworkSource,
+): Promise<ConvertedArtwork | null> {
   try {
     const image = sharp(source.data, {
       failOn: 'error',
@@ -76,7 +78,9 @@ export async function convertArtworkToWebp(source: ArtworkSource): Promise<Conve
  * Write one artifact only after computing input dimensions (for debug stats).
  * The conversion itself does not need them, so metadata is read lazily.
  */
-async function readSourceDimensions(source: ArtworkSource): Promise<{ width: number; height: number }> {
+async function readSourceDimensions(
+  source: ArtworkSource,
+): Promise<{ width: number; height: number }> {
   try {
     const metadata = await sharp(source.data).metadata()
     return { width: metadata.width ?? 0, height: metadata.height ?? 0 }
