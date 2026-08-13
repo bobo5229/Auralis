@@ -1,365 +1,267 @@
-# Repository Guidelines
+# Auralis 仓库协作指南
 
-## 语言规范
+## 语言与工作环境
 
-用户可能使用中文或英文发送指令，AI 必须始终用中文回复。
+- 用户可能使用中文或英文发送指令，AI 必须始终用中文回复。
+- 当前环境为 Windows 11 / PowerShell 7（`pwsh`），默认禁止使用 Bash 语法。
+- 优先使用 PowerShell 原生命令处理文件：`Get-ChildItem`、`Get-Content`、`Copy-Item`、
+  `Move-Item`、`Remove-Item`、`New-Item` 和 `Test-Path`。
+- 不要在一次文件操作中混用 PowerShell、`cmd /c`、Bash 或其他 shell。
+- 手工编辑优先使用 `apply_patch`；搜索优先使用 `rg`。如果 `rg` 失败，立即改用
+  `Get-ChildItem`、`Select-String` 等原生 PowerShell 命令。
+- 命令应保持短小、可检查。非简单任务按“发现、检查、编辑、验证”拆分执行。
+- 禁止使用 `rm -rf` 或等价命令。递归删除或移动前必须解析并检查目标绝对路径，确认它位于
+  工作区或用户明确指定的目录内。
+- PowerShell 中复杂正则优先使用单引号。含通配符的目录必须先通过
+  `Get-ChildItem -Filter` 展开，不能直接将带 `*` 的路径交给 `rg`。
+- 多行 Python 使用 PowerShell here-string 并通过管道传给 `python -`，禁止使用 Bash
+  heredoc。
+- 如果命令因解析、权限、编码或 executable shim 失败，不要反复尝试同一种写法；改用更简单的
+  原生命令、直接可执行文件路径或小型脚本。
 
-## Project Overview
+### UTF-8 与中文安全
 
-Auralis 是一个面向个人大型音乐收藏的本地优先（local-first）音乐播放器——不是流媒体平台，无社交功能、推荐或在线内容。技术栈：Electron 38、Vue 3、TypeScript、SQLite。
+- Python、Node 等脚本读写文件时必须显式指定 UTF-8 编码，不能依赖系统默认编码。
+- 通过命令行参数、stdin 或 API 传输中文时，使用 `ensure_ascii=True` 的 JSON 或 Unicode
+  转义，避免传输裸中文字符串。
+- 编辑包含中文的文件时优先使用 `apply_patch`。修改后应直接读取文件字节并执行 UTF-8
+  解码校验，不以终端显示结果作为唯一依据。
 
-已实现：曲库扫描（基于 Worker 的后台扫描与元数据解析）、设置 UI（文件夹选择与扫描管理）、应用外壳布局（侧边栏 + 主内容 + 正在播放面板 + 播放栏）。播放、专辑浏览、搜索、归档功能尚未实现。
+## 项目定位与源码结构
 
-## Project Structure & Module Organization
+Auralis 是面向个人大型音乐收藏的本地优先音乐播放器，不提供流媒体、社交、推荐或在线内容。
+技术栈为 Electron 38、Vue 3、TypeScript 和 SQLite。功能状态以当前源码、路由和测试为准，
+不要依赖文档中的历史完成度描述。
 
-Auralis is an Electron + Vue + TypeScript local music archive. Source lives in `src/`:
+源码位于 `src/`：
 
-- `src/main/`: Electron main process (Node.js), database, services, repositories, IPC handlers, logging, Worker threads.
-- `src/preload/`: context bridge exposing the typed `window.auralis` API.
-- `src/renderer/`: Vue UI only. Feature pages live under `src/renderer/features/`.
-- `src/shared/`: shared IPC contracts and cross-process types.
+- `src/main/`：Electron 主进程、数据库、服务、仓储、IPC、日志和 Worker。
+- `src/preload/`：通过 context bridge 暴露类型化的 `window.auralis` API。
+- `src/renderer/`：仅负责 Vue UI；功能页面位于 `src/renderer/features/`。
+- `src/shared/`：跨进程类型、IPC contract 和共享常量。
 
-Generated folders such as `out/`, `data/`, `.electron-gyp/`, `.electron-home/`, `.npm-cache/`, and `node_modules/` are not source. There is no test suite yet.
+`out/`、`data/`、`.electron-gyp/`、`.electron-home/`、`.npm-cache/` 和
+`node_modules/` 是生成目录，不是源码。
 
-## Build, Test, and Development Commands
+## 常用命令
 
-Use `npm.cmd` on Windows PowerShell if `npm.ps1` is blocked. Node >= 20.19.0 required.
+Windows PowerShell 中优先使用 `npm.cmd`。Node.js 版本必须不低于 20.19.0。
 
-- `npm.cmd install --cache .npm-cache`: install dependencies with project-local cache.
-- `npm.cmd run rebuild:native`: rebuild `better-sqlite3` for Electron 38 after install or Electron changes.
-- `npm.cmd run dev`: start the Electron development app.
-- `npm.cmd run typecheck`: run `vue-tsc --noEmit`.
-- `npm.cmd run lint`: lint source and config files.
-- `npm.cmd test`: run Vitest unit tests and library visual-scope static checks.
-- `npm.cmd run test:watch`: run Vitest in watch mode during development.
-- `npm.cmd run format`: format files with Prettier.
-- `npm.cmd run build`: typecheck and build with `electron-vite` (`vue-tsc --noEmit && electron-vite build`).
-- `npm.cmd run preview`: preview the electron-vite build.
+- `npm.cmd install --cache .npm-cache`：安装依赖。
+- `npm.cmd run rebuild:native`：为 Electron 38 重建 `better-sqlite3`。
+- `npm.cmd run dev`：启动开发环境。
+- `npm.cmd test`：运行 Vitest 和静态视觉作用域检查。
+- `npm.cmd run test:watch`：运行 Vitest watch 模式。
+- `npm.cmd run typecheck`：运行 `vue-tsc --noEmit`。
+- `npm.cmd run lint`：运行 ESLint。
+- `npm.cmd run format`：运行 Prettier。
+- `npm.cmd run build`：类型检查并通过 `electron-vite` 构建。
+- `npm.cmd run preview`：预览构建产物。
 
-## Coding Style & Naming Conventions
+不要随意升级 Electron 或 `better-sqlite3`。重新安装依赖或变更 Electron 后，启动应用前必须
+执行 `npm.cmd run rebuild:native`。
 
-Use TypeScript throughout. Vue components must use Vue 3 Composition API with `<script setup lang="ts">`. Prefer feature-first organization over broad `components/` or `utils/` buckets.
+## 编码规范
 
-Prettier handles formatting: no semicolons, single quotes, 100-character print width. ESLint uses Vue, TypeScript, and Prettier rules. Avoid `any`; it is allowed only with a warning and should be justified.
+- 全部使用 TypeScript；Vue 组件使用 Vue 3 Composition API 和
+  `<script setup lang="ts">`。
+- Prettier 规则：无分号、单引号、每行 100 字符。
+- 避免 `any`；确有必要时说明原因。
+- 使用 feature-first 目录组织，避免建立宽泛的 `components/` 或 `utils/` 杂物目录。
+- 样式优先使用 UnoCSS；主题颜色和稳定布局 shortcut 位于 `uno.config.ts`。
+- 动画通过 `src/renderer/shared/animation/motion.ts` 封装使用。
+- 主进程日志使用 `src/main/logging/logger.ts` 中的 Pino；Renderer 不使用 Pino。
+- 数据库连接由 `src/main/database/connection.ts` 中的模块级单例管理。
+- 路径别名为 `@main`、`@renderer` 和 `@shared`。
 
-- UnoCSS for styling — custom theme colors (ink, paper, linen, moss, brass, dusk) and shortcuts defined in `uno.config.ts`
-- Path aliases: `@main`, `@renderer`, `@shared` (configured in `electron.vite.config.ts`)
-- Animation through Motion One via `src/renderer/shared/animation/motion.ts` wrapper (currently only `fadeIn`)
-- Pino for logging in main process only (`src/main/logging/logger.ts`)
-- Database connections are managed as module-level singletons in `src/main/database/connection.ts`
+## 核心架构边界
 
-## Architecture Overview
-
-Renderer only renders. It must not access SQLite, filesystem APIs, metadata parsing, artwork generation, scanning, or search indexing directly.
-
-Data flow is strict:
+Renderer 只负责渲染，数据流必须遵循：
 
 ```text
 Repository -> Service -> Typed IPC -> UI
 ```
 
-### App shell layout
+Renderer 不得直接访问 SQLite、文件系统、元数据解析、封面生成、扫描或搜索索引。昂贵的图片和
+颜色计算应放入现有 Worker/canvas 流程，不能放进渲染循环。
 
-CSS grid layout defined in `uno.config.ts` shortcuts:
+### Typed IPC
 
-```text
-┌──────────┬─────────────────────┬──────────────┐
-│ Sidebar  │     Main Content    │ Now Playing  │
-│ (232px)  │                     │  (292px, xl) │
-│          │                     │              │
-└──────────┴─────────────────────┴──────────────┘
-│              Player Bar (fixed bottom)         │
-└────────────────────────────────────────────────┘
-```
+新增 IPC invoke 时必须同步维护：
 
-- `AppSidebar.vue` — left nav with primary + utility links
-- `NowPlayingPanel.vue` — right panel (hidden below xl breakpoint)
-- `PlayerBar.vue` — fixed bottom transport controls
+1. `src/shared/ipc/contracts.ts`
+2. `src/shared/ipc/channels.ts`
+3. `src/shared/ipc/api.ts`
+4. `src/main/ipc/registerIpcHandlers.ts`
+5. `src/preload/index.ts`
 
-### Typed IPC system
+Renderer 通过 `src/renderer/shared/ipc/client.ts` 使用 preload API。主进程推送事件由 preload
+包装监听器并返回 unsubscribe 函数。
 
-All IPC is defined in `src/shared/ipc/`:
+### 曲库目录快照
 
-- **contracts.ts** — `IpcInvokeContract` maps channel names to `{ request, response }` types. Every new IPC call starts here.
-- **channels.ts** — Runtime channel string constants derived from contract keys.
-- **api.ts** — `AuralisApi` interface matching the shape exposed on `window.auralis`.
+All Songs 使用 `library:get-track-page`。主进程在
+`src/main/features/libraryCatalog/libraryCatalogSnapshotStore.ts` 维护不可变、按拼音排序的
+快照；游标不透明且必须绑定原快照。
 
-Two IPC patterns are in use:
+当前 Renderer 会验证并聚合全部分页后再提交，因为封面分组、全局搜索和播放队列依赖完整的有序
+快照。除非同时重构这些消费者，否则禁止：
 
-1. **Invoke** (request/response) — standard `ipcMain.handle` / `ipcRenderer.invoke` for most calls.
-2. **Push** (main → renderer) — `window.webContents.send` + `ipcRenderer.on` for streaming events like `library:scan-progress`. Preload wraps these with `onScanProgress(callback)` that returns an unsubscribe function.
+- 改用 SQLite `OFFSET`；
+- 静默复用过期游标；
+- 向现有消费者暴露部分数组。
 
-The All Songs catalog uses `library:get-track-page` instead of a single full-array IPC. Main owns
-one immutable, pinyin-sorted snapshot in
-`src/main/features/libraryCatalog/libraryCatalogSnapshotStore.ts`; renderer cursors are opaque and
-must remain bound to that snapshot. The current renderer still validates and aggregates every page
-before committing because cover grouping, global search, and playback queues require a complete
-ordered snapshot. Do not replace this with SQLite `OFFSET`, silently reuse expired cursors, or expose
-partial arrays without redesigning those consumers together.
-
-Preload (`src/preload/index.ts`) exposes `window.auralis` via `contextBridge.exposeInMainWorld`. Renderer accesses IPC through `src/renderer/shared/ipc/client.ts` which re-exports `window.auralis`.
-
-Adding a new IPC call:
-
-1. Add the channel type to `IpcInvokeContract` in `src/shared/ipc/contracts.ts`
-2. Add the channel string to `ipcChannels` in `src/shared/ipc/channels.ts`
-3. Add the method to `AuralisApi` in `src/shared/ipc/api.ts`
-4. Add the handler in `src/main/ipc/registerIpcHandlers.ts`
-5. Add the preload bridge method in `src/preload/index.ts`
-
-### Repository pattern
-
-- `BaseRepository` (`src/main/repositories/baseRepository.ts`) — abstract class holding a `Database.Database` reference
-- Concrete repositories extend it: `LibraryRepository`, `LibraryRootRepository`, `ScanJobRepository`, `TrackRepository`, `ScanFailureRepository`
-- Services wrap repositories and are instantiated in `registerIpcHandlers.ts`
-
-### Library scanning architecture
-
-Scanning runs in a background Worker thread to avoid blocking the main process:
+目录刷新必须保持 generation 控制并合并活跃的后台任务，优先级为：
 
 ```text
-Settings UI → Typed IPC → LibraryScanService → Worker thread → Repository → SQLite
+前台刷新 -> 元数据保存 -> 后台刷新
 ```
 
-- `src/main/features/libraryScan/libraryScanService.ts` — lifecycle manager (start, cancel, progress publishing)
-- `src/main/features/libraryScan/libraryScanWorker.ts` — runs in `node:worker_threads`, traverses directories, parses metadata via `music-metadata`
-- Worker is built as a separate Rollup entry point in `electron.vite.config.ts`
-- Progress is pushed to renderer via `webContents.send('library:scan-progress')`
-- Supported formats: mp3, flac, m4a, aac, wav, ogg, opus
-- Scan deduplication: compares `file_size` + `file_mtime_ms` to skip unchanged files
-- Batch writes: tracks are upserted in batches of 300 within SQLite transactions
+不得重新引入并发的完整快照构建。
 
-### Database
+### 数据库与扫描
 
-SQLite via `better-sqlite3`. Schema migrations are defined in `src/main/database/schema.ts` as an ordered array of `{ id, name, sql }` objects. The migration runner tracks applied migrations in a `schema_migrations` table.
+- 数据库迁移位于 `src/main/database/schema.ts`，通过 `schema_migrations` 顺序执行。
+- 数据库启用 WAL 和外键。
+- 扫描必须在 Worker thread 中执行，不能阻塞 Electron 主进程。
+- 保持基于 `file_size` 和 `file_mtime_ms` 的去重以及批量事务写入。
 
-Current tables:
+详细产品和技术背景见：
 
-- **tracks** — audio files with metadata (file_path is unique, indexed with file_size + file_mtime_ms for scan dedup)
-- **albums** — album titles with artist (unique on title + artist)
-- **library_roots** — user-selected music directories
-- **scan_jobs** — scan task lifecycle (status: idle → scanning → completed/canceled/failed)
-- **scan_failures** — individual file parse errors per job
+- `docs/2026-06-24/01-曲库加载/Auralis 曲库加载 PRD.md`
+- `docs/2026-06-24/01-曲库加载/Auralis 曲库加载技术设计.md`
+- `docs/2026-06-24/01-曲库加载/Auralis 悬浮 Playbar PRD.md`
 
-Database lives at `data/auralis.sqlite` relative to the app root (dev) or `userData` (packaged). WAL mode and foreign keys are enabled by default.
+## Renderer 视觉架构
 
-### Renderer structure
+### 窗口与术语
 
-Feature-first organization under `src/renderer/features/`:
+- 主窗口使用操作系统原生边框和标题栏：`frame: true`、`transparent: false`。
+- 禁止重新引入 Renderer 自绘的主窗口控制按钮或主 shell 拖拽区域。
+- **Playbar / PlayerBar**：主页面底部常驻播放栏，核心文件为
+  `src/renderer/app/layout/PlayerBar.vue` 和 `TrackProgressInfo.vue`。
+- **Miniplayer**：由 `MiniPlayer.vue` 和 `miniPlayerWindowController.ts` 控制的迷你窗口模式。
+  它复用主 `BrowserWindow`，但 UI 和行为与 Playbar 完全隔离。
+- 修改 Playbar 时不得误改 Miniplayer，反之亦然；主 `BrowserWindow` 配置会自然影响两种模式。
+- 桌面歌词是独立的 frameless window，保留自身的 drag/no-drag 区域。
 
-```text
-features/
-  albums/
-  archive/
-  library/       # LibraryPage + VirtualListPage
-  playback/
-  search/
-  settings/      # SettingsPage + components/MusicLibrarySettings.vue
-```
+### 状态来源
 
-App layout components in `src/renderer/app/layout/`: `AppSidebar.vue`, `NowPlayingPanel.vue`, `PlayerBar.vue`. Routes registered in `src/renderer/app/router/index.ts` using Vue Router with hash history.
+- 播放视觉状态必须来自现有 playback composable，不得创建第二套 player store。
+- `modern | manuscript` 视觉风格唯一来源是
+  `src/renderer/features/appearance/composables/useVisualStyle.ts`。
+- 视觉风格、全局 light/dark theme 和 PlayerBar material（`cover-tint | liquid-glass`）是三个
+  相互独立的偏好，不能合并状态或互相重置。
+- 页面 presentation 必须根据显式 Vue Router route name 解析，不能根据路径前缀推断。
+- 普通主窗口可以使用 manuscript；Fullscreen 和 Miniplayer 始终保持 modern。
+- 切换视觉风格不得 remount `AppSidebar`、`RouterView` 或设置页曲库区域，也不得清除已保存偏好。
 
-### Documentation
+### 样式所有权与隔离
 
-Design docs in `docs/` (written in Chinese):
+manuscript 规则必须限定在对应 owner 下：
 
-- `Auralis 曲库加载 PRD.md` — library scanning product requirements
-- `Auralis 曲库加载技术设计.md` — library scanning technical design
-- `Auralis 悬浮 Playbar PRD.md` — floating playbar product requirements (P0 not yet implemented)
+- Library：`.library-page[data-visual-style='manuscript']`
+- Albums：`.albums-page[data-visual-style='manuscript']`
+- Album detail：`.album-detail-page[data-visual-style='manuscript']`
+- Archive：`.archive-page[data-visual-style='manuscript']`
+- Settings：`.settings-page[data-visual-style='manuscript']`
+- Sidebar：`.app-sidebar[data-shell-presentation='manuscript']`
+- Shell：`.app-window[data-shell-presentation='manuscript']`
+- Player：`.now-playing-panel[data-player-presentation='manuscript']`、
+  `.player-bar[data-player-presentation='manuscript']`
 
-## Renderer Visual Architecture
+Teleport overlay 必须携带所有者作用域：`.library-overlay`、`.albums-overlay`、
+`.archive-overlay`、`.sidebar-overlay` 或 `.player-overlay`。不同 owner 的样式不得交叉污染。
 
-The main window uses the operating system's native frame and title bar (`frame: true`,
-`transparent: false`). Windows supplies the native minimize, maximize/restore, and close controls;
-do not reintroduce renderer-owned main-window controls or main-shell drag regions. The renderer
-customer area can still use the current track's artwork palette through
-`--auralis-window-chrome-*` variables on `.app-window`. The current Miniplayer renderer mode reuses
-that same `BrowserWindow`, so it inherits the native frame; its UI and behavior remain separate from
-Playbar. Desktop lyrics remains a separate frameless window with its own drag/no-drag regions.
+共享 manuscript token 位于
+`src/renderer/features/appearance/styles/manuscript.tokens.css`；页面组合样式继续由各 feature
+拥有。禁止新增未限定作用域的 `html`、`body` 或 `#app` manuscript selector。
 
-- `src/renderer/app/layout/PlayerBar.vue`: playback controls, progress, volume, queue/mode
-  popovers, desktop-lyrics sync, and artwork-palette CSS variables.
-- `src/renderer/features/playback/`: shared playback state, artwork palette worker, fluid
-  background, fullscreen player, and animation scheduling.
-- `src/renderer/features/albums/pages/AlbumDetailPage.vue`: album hero, play statistics,
-  track heat indicators, related-album scroller, and pointer-driven cover projection.
-- `src/renderer/app/styles/main.css`: global theme tokens and cross-component shell/player
-  effects; `uno.config.ts`: stable layout shortcuts. Keep page-only styles scoped locally.
+Shell manuscript 样式不得影响 Player、Fullscreen、Miniplayer 或桌面歌词。Player manuscript
+样式不得影响 Sidebar、页面 owner、Fullscreen、Miniplayer 或桌面歌词窗口。
 
-### Renderer visual styles
+### Modern-only 效果
 
-The `modern | manuscript` visual style is a Renderer preference shared by the explicitly covered
-catalog pages. It is independent of the global light/dark theme and the PlayerBar material
-preference. Keep its only state and persistence source in
-`src/renderer/features/appearance/composables/useVisualStyle.ts`; do not fold it into `ThemeMode`
-or introduce page-local visual-style refs.
+- 普通窗口的 shell chrome palette 和 `FluidArtworkBackground` 只在 modern shell 下运行。
+- PlayerBar 的 artwork palette 和 album tint 只在 modern player presentation 下运行。
+- Album detail 的 artwork canvas 和 pointer tilt 只在 modern 下运行。
+- Archive 的 album-ranking artwork canvas 只在 modern 下运行。
+- 切换到 manuscript 或卸载时必须停止并清理相关监听器、动画帧和进行中的图片工作；切回
+  modern 时恢复一次，不能产生重复监听器、过期 tint 或重复定时器。
 
-- The manuscript style applies to the explicit Library family routes `library`, `playlist`, and
-  `smart-playlist`, plus the Settings route `settings`. The ordinary main-window shell and Sidebar
-  derive `data-shell-presentation` from the same preference via `resolveShellPresentation`; Miniplayer
-  stays `modern` and must not inherit the Phase 17 marker. They share the single
-  `auralis-visual-style` preference; do not force those routes back to `modern`, and do not clear
-  the saved preference on navigation.
-- The ordinary main-window Now Playing and PlayerBar derive `data-player-presentation` from the
-  same preference via `resolvePlayerSurfacePresentation` (Phase 18); Fullscreen and Miniplayer always
-  resolve to `modern`. The shell marker only decides the shell, the player marker only decides the
-  player — never reuse one as the other's skin switch.
-- Phase 12 covers the `/albums` catalog route. Phase 13 covers only the `album-detail` route.
-  Phase 14 covers only the `/archive` route. Phase 16 covers only the `settings` route. Phase 17
-  covers the ordinary `.app-window` / `AppSidebar` / `.sidebar-overlay` owner surfaces, not Vue
-  Router names. Phase 18 covers the ordinary-window Now Playing / PlayerBar player surfaces via
-  `resolvePlayerSurfacePresentation`. Phase 22 makes the manuscript Library page root the unframed
-  main-column paper: `.library-page[data-visual-style='manuscript']` must stay without outer margin,
-  border, radius, page shadow, or paper highlight — do not restore a fourth desk card there. Resolve
-  page surfaces by their explicit Vue Router names; do not infer presentation from path prefixes.
-- Shared manuscript tokens live in
-  `src/renderer/features/appearance/styles/manuscript.tokens.css`. Page composition remains
-  feature-owned: library rules under `.library-page`, album catalog rules under `.albums-page`.
-- Keep manuscript rules in `src/renderer/features/library/styles/manuscript.css`, scoped under
-  `.library-page[data-visual-style='manuscript']`. Do not add unscoped `html`, `body`, or `#app`
-  manuscript selectors.
-- Sidebar manuscript rules live in `src/renderer/app/styles/manuscript.sidebar.css` and
-  `manuscript.sidebar-overlays.css`, scoped under
-  `.app-sidebar[data-shell-presentation='manuscript']` and
-  `.sidebar-overlay[data-shell-presentation='manuscript']`. Shell canvas rules live in
-  `manuscript.shell.css` under `.app-window[data-shell-presentation='manuscript']`. Do not let those
-  selectors paint `.now-playing-*`, `.player-bar*`, `.fullscreen-*`, `.mini-player*`, or
-  `.desktop-lyrics-*`.
-- Player surface rules live in `src/renderer/app/styles/manuscript.player.css` and
-  `manuscript.player-overlays.css`, scoped under
-  `.now-playing-panel[data-player-presentation='manuscript']`,
-  `.player-bar[data-player-presentation='manuscript']` and
-  `.player-overlay[data-player-presentation='manuscript']`. Do not let those selectors paint
-  `.fullscreen-*`, `.mini-player*`, the desktop-lyrics window (`.desktop-lyrics-window`,
-  `.desktop-lyrics-root`), `.app-sidebar`, `.sidebar-overlay`, or the page owners
-  (`.library-*`, `.albums-*`, `.album-detail-*`, `.archive-*`, `.settings-*`). The PlayerBar album
-  tint and artwork palette run only for the modern player presentation
-  (`useArtworkPalette(..., { enabled: isModernPlayer })` + `useAlbumTint`), and the material
-  preference stays `cover-tint | liquid-glass` regardless of visual style.
-- Now Playing, PlayerBar, Miniplayer, desktop lyrics, and fullscreen playback are player surfaces
-  with independent owners. Teleport overlays must carry an owner-specific scope:
-  `.library-overlay` for the Library family (All Songs, regular playlists, smart playlists),
-  `.albums-overlay` for the album catalog, `.archive-overlay` for Archive, `.sidebar-overlay`
-  for Sidebar / Facets, and `.player-overlay` for PlayerBar-owned queue / playback-mode-menu /
-  desktop-lyrics-toast overlays. Other Teleport overlays remain outside.
-- Album detail manuscript rules live in
-  `src/renderer/features/albums/styles/manuscript.detail.css` and must remain scoped under
-  `.album-detail-page[data-visual-style='manuscript']`. Its artwork-derived canvas and pointer tilt
-  are modern-only effects: manuscript must stop and clean them up, while switching back to modern
-  must restore them without duplicate listeners.
-- Archive manuscript rules live in `src/renderer/features/archive/styles/manuscript.css` and its
-  Teleport rules live in `manuscript.overlays.css`. Keep them scoped under
-  `.archive-page[data-visual-style='manuscript']` and
-  `.archive-overlay[data-visual-style='manuscript']`. The album-ranking artwork canvas is
-  modern-only; switching styles or unmounting must invalidate in-flight image work.
-- Settings manuscript rules live in `src/renderer/features/settings/styles/manuscript.css` and must
-  remain scoped under `.settings-page[data-visual-style='manuscript']`. The concentrated visual-style
-  control is `VisualStylePreference.vue`; it must write only `useVisualStyle()`. Do not rebuild
-  `MusicLibrarySettings.vue` on a style change.
-- Ordinary-window shell chrome palette and `FluidArtworkBackground` run only when
-  `resolveShellPresentation` is `modern`. Pass `{ enabled: isModernShell }` into `useArtworkPalette`;
-  do not remount `AppSidebar` or `RouterView` with a presentation key.
-- Preserve virtualization geometry unless the CSS and virtualizer estimates are updated
-  together: flat rows are 44px, cover tracks are 40px, cover artwork is 250px, track-panel
-  vertical padding totals 20px, and album-group vertical padding totals 56px.
-- A visual-style change must preserve existing selection, playback queue, search, context-menu,
-  metadata, lazy artwork loading, and `decoding='async'` behavior.
-- Library catalog refreshes are generation-controlled and coalesce active background work. Preserve
-  foreground → metadata-save → background priority and do not reintroduce concurrent full snapshot
-  builds.
+### 交互与几何不变量
 
-> [!IMPORTANT]
-> **术语与概念澄清 (Terminology Clarification)**
->
-> - **Playbar (或 PlayerBar)**：特指**主页面底部常驻的播放控制栏组件**（即 `src/renderer/app/layout/PlayerBar.vue` 及其核心子组件 `TrackProgressInfo.vue`）。
-> - **Miniplayer (迷你播放器)**：特指由 `MiniPlayer.vue` 和主进程 `miniPlayerWindowController.ts` 控制的**迷你窗口模式**。尺寸按封面优先自适应（见 `src/shared/constants/miniPlayer.ts`）：先定正方形封面边长，再推导窗口宽高。当前实现复用主 `BrowserWindow` 并切换 Renderer 根视图，不是第二个物理窗口。
-> - 两者的组件、DOM 流和交互职责完全隔离。在后续迭代或执行 UI/UX 优化指令时，**切勿混淆二者**，修改 Playbar 时不得误触或改动 Miniplayer 的文件，反之亦然；但主 `BrowserWindow` 级配置会自然同时影响普通与迷你两种模式。
+- 新动画必须尊重 `prefers-reduced-motion`，并在卸载时清理 animation frame 和监听器。
+- 视觉风格切换必须保留选择、播放队列、搜索、右键菜单、元数据、歌词状态和懒加载行为；图片
+  保持 `decoding='async'`。
+- 保持虚拟列表几何，除非同时修改 CSS 和 virtualizer estimate：平铺行 44px、封面轨道
+  40px、封面 250px、轨道面板垂直 padding 合计 20px、专辑组垂直 padding 合计 56px。
+- manuscript Library 根节点是无外框的主列纸面，不能恢复外 margin、border、radius、page
+  shadow 或 paper highlight。
+- 手稿 PlayerBar 是 260px 起、右/底贴边的连续页脚（Phase 23）：`left: 260px`、72px 高、仅
+  顶角 16px 圆角、无悬浮外投影；modern 悬浮几何不变。manuscript safe area 为 88px（72 + 16，
+  由 shell 作用域派生），全局 116px 不变；窄窗音量滑杆经 `manuscript-player-bar` 容器查询
+  折叠并以向上 overlay 展开。
 
-Derive visual state from the existing playback composable instead of introducing a second
-player store. Expensive image/color work belongs in the existing worker/canvas pipeline, not
-in render loops. New motion must honor `prefers-reduced-motion`, clean up animation frames and
-listeners on unmount, and preserve both light and dark themes.
+## 验证策略
 
-## Testing Guidelines
+验证应与改动风险匹配，并在交付时明确说明实际执行了哪些命令。
 
-Vitest is configured for colocated `*.test.ts` unit tests. Keep pure state, indexing, search,
-and geometry logic outside Vue components when practical so it can be tested directly. The
-library manuscript scope also has a source-level guard in
-`scripts/check-library-visual-scope.mjs`.
+### 常规代码修改
 
-Every change should at least pass:
+至少运行：
 
-```bash
+```powershell
 npm.cmd test
 npm.cmd run typecheck
 npm.cmd run lint
+```
+
+### 完整构建
+
+修改构建配置、入口、IPC、主进程、原生依赖或准备发布时，再运行：
+
+```powershell
 npm.cmd run build
 ```
 
-Place tests near the module they cover and prefer names such as `libraryRepository.test.ts`.
+`build` 已包含类型检查；如果刚刚成功执行了完整构建，不必仅为重复验证再次运行
+`typecheck`。
 
-For library visual-style changes, also manually verify both `modern` and `manuscript` in the
-`flat` and `cover` views on `library`, `playlist`, and `smart-playlist`, and check both sides of
-the `xl` layout breakpoint.
+### 文档修改
 
-For album catalog visual-style changes, verify `modern` and `manuscript` in both `grid` and
-`perspective` views, including search wrap/not-found feedback, context-menu actions, missing
-artwork/metadata, and the responsive grid.
+纯文档或注释修改不强制执行完整应用构建，只需检查格式、链接和受影响内容。
 
-For album detail visual-style changes, verify `modern` and `manuscript`, loading/error/not-found
-states, long mixed-language titles, missing artwork/metadata, single- and multi-disc albums,
-playback/search state, related-album navigation, and repeated style switching. Confirm modern keeps
-the artwork canvas and pointer tilt, manuscript stops them, and excluded player/shell surfaces do
-not change.
+### 视觉修改
 
-For archive visual-style changes, verify `modern` and `manuscript`, heatmap years and daily detail,
-Music DNA selection, all ranking ranges and targets, annual recap pagination, reset hold behavior,
-missing artwork, repeated style switching, and the owner-scoped picker/tooltip/dialog overlays.
-Confirm the album-ranking canvas runs only in modern and excluded player/shell surfaces do not
-change.
+除自动检查外，人工验证受影响页面的 `modern` / `manuscript`、light / dark、主要视图模式和
+相关响应式断点。只检查本次改动涉及的 owner，同时确认被明确排除的 Shell、Player、
+Fullscreen、Miniplayer 和桌面歌词没有被污染。
 
-For settings visual-style changes, verify `modern` and `manuscript` in appearance, playback,
-library, and about; confirm visual-style, language, and PlayerBar material stay independent;
-switch styles during an active scan or metadata refresh without remounting the library section;
-and keep Miniplayer and the native Windows title bar unchanged.
+视觉检查必须覆盖本次改动相关的：
 
-For shell / Sidebar visual-style changes, verify `modern` and `manuscript` on the ordinary main
-window, including brand, tools, primary nav, playlist tree, drag-and-drop, create / rename /
-delete / query dialogs, and Facets. Confirm manuscript stops the shell fluid background and chrome
-palette work, switching back to modern restores them once, Miniplayer does not inherit the shell
-marker, and Fullscreen stays on the modern baseline.
+- 加载、错误、空状态、缺失封面和长混合语言文本；
+- 搜索、选择、播放队列、菜单、overlay 和键盘焦点；
+- 重复风格切换及 modern-only 工作的停止、清理和恢复；
+- Library 的 flat / cover 和虚拟滚动几何；
+- Albums 的 grid / perspective；
+- `xl` 布局断点两侧（涉及主窗口布局时）。
 
-For Now Playing / PlayerBar visual-style changes, verify `modern` and `manuscript` × light / dark:
-transport controls, track info, cover, progress, volume, queue and playback-mode overlays, and
-desktop-lyrics toast. Confirm the manuscript presentation stops the PlayerBar palette worker and
-album tint (no image decode / canvas work on track change), switching back to modern restores the
-current cover once without a stale tint or duplicate timer, the material preference
-(`cover-tint | liquid-glass`) survives modern ↔ manuscript round-trips, queue / mode-menu keyboard
-(Escape focus return, roving focus, Tab containment) stays intact, lyrics auto-follow / scroll /
-seek are not reset by style switching, and Fullscreen / Miniplayer / the desktop-lyrics window do
-not inherit the player marker.
+测试文件与被测模块相邻，命名为 `*.test.ts`。纯状态、索引、搜索和几何逻辑应尽量从 Vue
+组件中提取，以便直接测试。
 
-## Commit & Pull Request Guidelines
+## Git 与交付
 
-Use Chinese commit messages with conventional format:
+- 默认在当前分支完成修改和验证。
+- 只有用户明确要求时，才执行提交、推送、切换分支、合并或创建 Pull Request。
+- 需要提交时使用中文 conventional commit，例如：
+  - `feat：专辑详情页新增流体封面背景`
+  - `fix：修复播放队列焦点循环`
+  - `chore：更新检查脚本`
+  - `refactor：重构曲库快照刷新流程`
+  - `docs：更新视觉架构说明`
+- 用户要求执行完整分支发布流程时，顺序为：在 `dev` 提交并推送，合并到 `master`，再推送
+  `master`。
+- Pull Request 应包含简短摘要、验证命令、UI 改动截图，以及原生模块或数据库变更说明。
 
-- `feat：新功能描述`
-- `fix：修复描述`
-- `chore：维护性工作描述`
-- `refactor：重构描述`
-- `docs：文档更新描述`
-
-示例：`feat：专辑详情页新增流体封面背景`、`chore：将 issues/ 添加到忽略文件`
-
-### Git 分支工作流
-
-1. 在 `dev` 分支开发并提交
-2. 推送到 `origin/dev`
-3. 合并到 `master`：`git checkout master && git merge dev --no-edit`
-4. 推送到 `origin/master`
-
-Pull requests should include a short summary, verification commands, screenshots for UI changes, and notes for native-module or database changes.
-
-## Security & Configuration Tips
-
-Keep native Electron dependencies stable. Do not upgrade Electron or `better-sqlite3` casually. After reinstalling dependencies, run `npm.cmd run rebuild:native` before starting the app to ensure native modules are compiled against the correct Electron ABI.
+修改过程中应保留用户已有的未提交改动，不得擅自覆盖、回退或清理无关文件。
