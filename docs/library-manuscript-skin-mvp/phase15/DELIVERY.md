@@ -36,7 +36,29 @@
 
 未新增 IPC、数据库迁移、visual-style store 或 localStorage key。未实现歌单内移除、重排或规则编辑 UI。
 
-## 3. 自动验证
+## 3. 审查 Findings 与解决方案
+
+### Finding 1：页眉为长名称预留两行，抬高全部歌曲滚动区
+
+**风险**：全部歌曲标题只有一行，却固定 `min-height: 3.5rem`，成员语义再换行时页眉继续长高，压缩列表可视高度。  
+**解决方案**：标题改回单行省略并保留 `title`；副标题行 `nowrap`，仅成员文案可截断。虚拟项高度仍不计入页眉。
+
+### Finding 2：加载失败后页眉仍显示“装订中”
+
+**风险**：foreground 失败会留下 `identity = null` 且 `isLoading = false`，页眉继续使用 loading 文案，与 `LibraryStatusState` 的错误态冲突。  
+**解决方案**：标题由纯函数 `resolveLibraryHeaderTitleSource` 根据 identity / route surface / loading 解析；失败或空名称回退到“普通歌单 / 智能歌单”，不再假装仍在装订。
+
+### Finding 3：`data-library-surface` 绑在已提交 identity 上，加载和失败时丢失
+
+**风险**：foreground 清空 identity 后根节点没有 surface marker，语义 CSS 和静态辨认在切换歌单时会出现空窗。  
+**解决方案**：根节点改为绑定 `resolveLibrarySurfaceKind(route.name)`；标题身份仍只来自快照。
+
+### Finding 4：仓库契约仍要求歌单保持 modern
+
+**风险**：`AGENTS.md` 仍写 playlist / smart-playlist 必须 modern，后续改动手稿时会被错误回退。  
+**解决方案**：将 Library 家族三路由写入共享偏好契约，测试说明改为核验三种 route 的两种风格，并明确 `.library-overlay` 覆盖歌单浮层。
+
+## 4. 自动验证
 
 在起始工作树（含 Phase 14 与原生标题栏未提交改动）上执行：
 
@@ -52,17 +74,19 @@
 
 `npm.cmd run build` 会用 s2tw 重写 `zh-Hant.json`。已把繁中手稿页眉恢复为 15.3 提交用词，不把生成器结果与 windowChrome 删除混进本阶段。
 
-## 4. 与既有未提交改动的边界
+## 5. 与既有未提交改动的边界
 
 Phase 15 提交不包含：
 
 - Phase 14 归档手稿源码与 `phase14/` 文档；
 - 原生窗口控制 / IPC / `WindowChromeControls` 删除；
-- `AGENTS.md`、`docs/ARCHITECTURE.md` 等非本阶段文档。
+- `AGENTS.md` 中的窗口框架与归档段落；`docs/ARCHITECTURE.md` 等非本阶段文档。
+
+Finding 4 只修订 `AGENTS.md` 的 Library 三路由契约与测试说明，不把窗口 / 归档改动带进本阶段提交。
 
 工作树中上述改动所有权不变。自动门禁在混合工作树上通过，不表示这些无关改动已交付。
 
-## 5. 人工验收门
+## 6. 人工验收门
 
 自动检查通过不代替 Electron 内 TECHDOC §5.7 矩阵。完成前本阶段不得从「工程完成」更新为「完全交付」。
 

@@ -2,10 +2,12 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { formatFolioNumber } from '../constants/libraryArchivePresentation'
-import type { LibraryPageIdentity } from '../types/libraryPresentation'
+import type { LibraryPageIdentity, LibrarySurfaceKind } from '../types/libraryPresentation'
+import { resolveLibraryHeaderTitleSource } from '../utils/libraryHeaderTitle'
 
 const props = defineProps<{
   identity: LibraryPageIdentity | null
+  surfaceKind: LibrarySurfaceKind | null
   trackCount: number
   currentFolio: number
   totalFolios: number
@@ -17,10 +19,10 @@ const { t } = useI18n()
 const isIdentityPending = computed(() => props.identity === null)
 
 const titleText = computed(() => {
-  if (!props.identity) return t('library.manuscript.header.loadingTitle')
-  if (props.identity.kind === 'library') return t('library.manuscript.header.title')
-  const name = props.identity.name.trim()
-  return name || t('library.manuscript.header.untitled')
+  const source = resolveLibraryHeaderTitleSource(props.identity, props.surfaceKind, props.isLoading)
+  if (source.kind === 'raw') return source.value
+  if (source.kind === 'loading') return t('library.manuscript.header.loadingTitle')
+  return t(source.key)
 })
 
 const subtitleText = computed(() => {
@@ -79,15 +81,18 @@ const formattedTotalFolios = computed(() => {
         <p
           class="library-archive-header__meta font-[var(--manuscript-font-body)] text-xs tracking-wider text-[var(--manuscript-content-ledger-label)]"
         >
-          <span>{{ subtitleText }}</span>
+          <span class="min-w-0 shrink-0">{{ subtitleText }}</span>
           <span
             v-if="kindLabel"
-            class="library-archive-header__kind"
+            class="library-archive-header__kind shrink-0"
             :data-membership="props.identity?.kind ?? undefined"
           >
             {{ kindLabel }}
           </span>
-          <span v-if="!isIdentityPending" class="library-archive-header__membership">
+          <span
+            v-if="!isIdentityPending"
+            class="library-archive-header__membership min-w-0 truncate"
+          >
             {{ membershipLabel }}
           </span>
         </p>
@@ -120,23 +125,18 @@ const formattedTotalFolios = computed(() => {
 }
 
 .library-archive-header__title {
-  display: -webkit-box;
-  min-height: 3.5rem;
-  max-height: 3.5rem;
   overflow: hidden;
-  line-height: 1.75rem;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  word-break: break-word;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .library-archive-header__meta {
   display: flex;
-  min-height: 1.25rem;
-  flex-wrap: wrap;
+  min-width: 0;
   align-items: center;
   gap: 0.5rem 0.75rem;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .library-archive-header__kind,

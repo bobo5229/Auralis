@@ -206,6 +206,8 @@ function assertLibraryHeaderLocaleParity(locales) {
     'smartPlaylistKind',
     'smartPlaylistMembership',
     'untitled',
+    'playlistFallback',
+    'smartPlaylistFallback',
     'loadingTitle',
     'loadingSubtitle',
     'trackCount',
@@ -286,7 +288,11 @@ assertIncludes(
   'presentation-derived manuscript gate',
 )
 assertIncludes(page, ':data-visual-style="libraryPresentation"', 'page style marker')
-assertIncludes(page, ':data-library-surface="pageIdentity?.kind"', 'library surface marker')
+assertIncludes(
+  page,
+  ':data-library-surface="librarySurfaceKind ?? undefined"',
+  'library surface marker',
+)
 assertIncludes(page, 'resolveLibraryPresentation(route.name, visualStyle.value)', 'page resolver')
 assertIncludes(page, 'resolveLibrarySurfaceKind(route.name)', 'library surface kind')
 assertIncludes(page, 'v-if="isLibrarySurface"', 'shared visual style switch')

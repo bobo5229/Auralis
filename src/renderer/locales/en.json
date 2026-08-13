@@ -320,6 +320,8 @@
         "smartPlaylistKind": "Rule-generated",
         "smartPlaylistMembership": "Read-only members that update automatically",
         "untitled": "Untitled playlist",
+        "playlistFallback": "Playlist",
+        "smartPlaylistFallback": "Smart playlist",
         "loadingTitle": "Binding the folio…",
         "loadingSubtitle": "Retrieving catalog identity",
         "trackCount": "{count} tracks",
