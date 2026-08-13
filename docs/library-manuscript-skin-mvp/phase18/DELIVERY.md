@@ -19,8 +19,9 @@
 | 18.6  | `177151c` | `fix：补齐播放表面键盘与低动效契约`         |
 | 18.7  | `976fff1` | `test：固化播放表面手稿作用域门禁`          |
 | 18.8  | `804ef3f` | `docs：交付 Phase 18 播放表面手稿化`        |
+| P2 修复 | `8256115` | `fix：空队列播放浮层焦点兜底到弹窗根节点` |
 
-**源码范围**：`a1bd7fb..976fff1`
+**源码范围**：`a1bd7fb..8256115`
 **含交付文档**：`a1bd7fb..804ef3f`
 
 ## 2. 已实现
@@ -40,7 +41,17 @@
 
 ## 3. 审查 Findings 与解决方案
 
-（工程阶段未产生审查 Findings；Electron 人工矩阵完成后按需补充。）
+### Finding P2：空队列无法建立焦点约束
+
+`PlaybackQueuePopover` 的初始聚焦只聚焦可交互的队列项。空队列或只有当前曲（无 upcoming）时，弹窗内没有 focusable：根节点虽有 `tabindex="-1"` 却不会获得焦点，且 `focusableCount === 0` 时 Tab 未被拦截，焦点会逃逸到弹窗背后的 PlayerBar。
+
+**解决**（`8256115`）：
+
+- 初始聚焦目标抽为 `resolveQueueInitialFocusTarget` 纯函数：优先活动曲播放按钮，其次首个可聚焦项，两者皆无时落到弹窗根节点；
+- `resolvePlayerOverlayKeyAction` 在 `focusableCount === 0` 时对 Tab（含 Shift+Tab）返回 `keep-root`，组件 `preventDefault` 并重新聚焦根节点，Escape 仍关闭弹窗；
+- 新增空队列、单曲队列、活动曲按钮优先与首项兜底的焦点测试。
+
+（工程阶段其余未产生审查 Findings；Electron 人工矩阵完成后按需补充。）
 
 ## 4. 自动验证
 
@@ -50,7 +61,7 @@
 | `npm.cmd run typecheck` | 通过                                                                     |
 | `npm.cmd run lint`      | 通过                                                                     |
 | `npm.cmd run build`     | 通过                                                                     |
-| `git diff --check`      | 通过；范围 `a1bd7fb..976fff1`                                            |
+| `git diff --check`      | 通过；范围 `a1bd7fb..8256115`                                            |
 
 新增 locale key（`player.lyricsNoTrack` / `lyricsSeekToLine` / `lyricsSeekToTime` / `lyricsStartingSoon`，`lyricsLoading` 复用）；`zh-Hant.json` 由 `locales:zh-hant` 生成，三语 key parity 校验通过。
 
