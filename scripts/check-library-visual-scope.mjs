@@ -174,6 +174,19 @@ function assertDetailCssScope(cssSource) {
   }
 }
 
+/**
+ * Extract the first bare `.library-page[data-visual-style='manuscript']` rule
+ * block (the page root). Phase 22 assertions target this rule only: cover
+ * groups and other pages may still legitimately use the shared paper tokens.
+ */
+function extractLibraryPageRootRule(cssSource) {
+  const match = cssSource.match(
+    /\.library-page\s*\[\s*data-visual-style\s*=\s*(['"])manuscript\1\s*\]\s*\{([\s\S]*?)\}/,
+  )
+  if (!match) throw new Error('library manuscript page-root rule not found')
+  return match[2]
+}
+
 function assertEveryImageHasLoadingContract(source, label) {
   const images = source.match(/<img\b[\s\S]*?>/g) ?? []
   if (images.length === 0) throw new Error(`${label}: no image tags found`)
@@ -451,6 +464,46 @@ assertIncludes(
   ".library-page[data-visual-style='manuscript']",
   'page manuscript scope',
 )
+
+// --- Phase 22: the manuscript library page root is the unframed main-column
+// paper, not a fourth desk card. These negatives target the page-root rule
+// only — cover groups and other pages still use the shared paper tokens. ---
+const libraryPageRootRule = extractLibraryPageRootRule(manuscriptCss)
+assertIncludes(libraryPageRootRule, 'margin: 0', 'page root margin reset')
+assertExcludes(libraryPageRootRule, /margin\s*:\s*12px/, 'page root has no 12px card margin')
+assertExcludes(
+  libraryPageRootRule,
+  /height\s*:\s*calc\(100%\s*-\s*24px\)/,
+  'page root height fills the main column',
+)
+assertExcludes(
+  libraryPageRootRule,
+  /--manuscript-effect-paper-background/,
+  'page root no paper highlight',
+)
+assertExcludes(libraryPageRootRule, /--manuscript-effect-page-shadow/, 'page root no page shadow')
+assertIncludes(libraryPageRootRule, 'background: transparent', 'page root exposes window paper')
+
+// Other manuscript pages keep their framed page-card identity.
+for (const [label, source] of [
+  ['albums manuscript CSS', albumsManuscriptCss],
+  ['album detail manuscript CSS', albumDetailManuscriptCss],
+  ['archive manuscript CSS', archiveManuscriptCss],
+  ['settings manuscript CSS', settingsManuscriptCss],
+]) {
+  assertIncludes(
+    source,
+    '--manuscript-effect-paper-background',
+    `${label} keeps the framed page card`,
+  )
+}
+for (const [label, source] of [
+  ['albums manuscript CSS', albumsManuscriptCss],
+  ['archive manuscript CSS', archiveManuscriptCss],
+  ['settings manuscript CSS', settingsManuscriptCss],
+]) {
+  assertIncludes(source, '--manuscript-effect-page-shadow', `${label} keeps the page shadow`)
+}
 assertIncludes(
   overlayCss,
   ".library-overlay[data-visual-style='manuscript']",
