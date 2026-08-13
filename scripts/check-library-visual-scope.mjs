@@ -174,6 +174,20 @@ function assertDetailCssScope(cssSource) {
   }
 }
 
+function assertEveryImageHasLoadingContract(source, label) {
+  const images = source.match(/<img\b[\s\S]*?>/g) ?? []
+  if (images.length === 0) throw new Error(`${label}: no image tags found`)
+
+  for (const image of images) {
+    if (!/\bloading\s*=\s*(['"])lazy\1/.test(image)) {
+      throw new Error(`${label}: image missing lazy loading`)
+    }
+    if (!/\bdecoding\s*=\s*(['"])async\1/.test(image)) {
+      throw new Error(`${label}: image missing asynchronous decoding`)
+    }
+  }
+}
+
 function assertExcludedSurfacesUntouched(label, cssSource) {
   const excludedSurface =
     /\.(?:app-(?:window|shell|sidebar)|now-playing|player-bar|mini-player|desktop-lyrics|fullscreen-player)(?:\b|[-_])/i
@@ -254,6 +268,11 @@ const [
   sharedTokens,
   albumDetailPage,
   albumDetailManuscriptCss,
+  archivePage,
+  archiveDna,
+  archivePresentation,
+  archiveManuscriptCss,
+  archiveOverlayCss,
   settingsPage,
   settingsPresentation,
   settingsManuscriptCss,
@@ -279,6 +298,11 @@ const [
   readProjectFile('src/renderer/features/appearance/styles/manuscript.tokens.css'),
   readProjectFile('src/renderer/features/albums/pages/AlbumDetailPage.vue'),
   readProjectFile('src/renderer/features/albums/styles/manuscript.detail.css'),
+  readProjectFile('src/renderer/features/archive/pages/ArchivePage.vue'),
+  readProjectFile('src/renderer/features/archive/components/MusicDnaCard.vue'),
+  readProjectFile('src/renderer/features/archive/utils/archivePresentation.ts'),
+  readProjectFile('src/renderer/features/archive/styles/manuscript.css'),
+  readProjectFile('src/renderer/features/archive/styles/manuscript.overlays.css'),
   readProjectFile('src/renderer/features/settings/pages/SettingsPage.vue'),
   readProjectFile('src/renderer/features/settings/utils/settingsPresentation.ts'),
   readProjectFile('src/renderer/features/settings/styles/manuscript.css'),
@@ -407,6 +431,57 @@ assertMatches(
 
 assertDetailCssScope(albumDetailManuscriptCss)
 
+assertIncludes(archivePage, 'class="archive-page content-frame"', 'archive page root class')
+assertIncludes(
+  archivePage,
+  ':data-visual-style="archivePresentation"',
+  'archive page presentation marker',
+)
+assertIncludes(archivePage, '<VisualStyleSwitch />', 'archive visual style switch')
+assertIncludes(
+  archivePage,
+  'resolveArchivePresentation(route.name, visualStyle.value)',
+  'archive route presentation gate',
+)
+assertIncludes(
+  archivePresentation,
+  "routeName === 'archive'",
+  'archive presentation route contract',
+)
+assertMatches(
+  archivePage,
+  /class\s*=\s*['"]archive-overlay['"][^>]*:data-visual-style\s*=\s*['"]archivePresentation['"]|:data-visual-style\s*=\s*['"]archivePresentation['"][^>]*class\s*=\s*['"]archive-overlay['"]/,
+  'archive overlay owner scope',
+)
+assertIncludes(archivePage, 'v-if="isModernArchive"', 'archive modern canvas gate')
+assertIncludes(
+  archivePage,
+  'generation !== heroFluidGeneration || !isModernArchive.value',
+  'archive stale canvas work guard',
+)
+assertMatches(
+  sharedTokens,
+  /\.archive-page\s*\[\s*data-visual-style\s*=\s*(['"])manuscript\1\s*\]/,
+  'shared manuscript tokens archive scope',
+)
+assertMatches(
+  sharedTokens,
+  /\.archive-overlay\s*\[\s*data-visual-style\s*=\s*(['"])manuscript\1\s*\]/,
+  'shared manuscript tokens archive overlay scope',
+)
+assertEveryImageHasLoadingContract(archivePage, 'archive page artwork')
+assertEveryImageHasLoadingContract(archiveDna, 'archive DNA artwork')
+assertManuscriptCssScope(
+  archiveManuscriptCss,
+  'archive manuscript CSS',
+  /\.archive-page\s*\[\s*data-visual-style\s*=\s*(['"])manuscript\1\s*\]/,
+)
+assertManuscriptCssScope(
+  archiveOverlayCss,
+  'archive manuscript overlay CSS',
+  /\.archive-overlay\s*\[\s*data-visual-style\s*=\s*(['"])manuscript\1\s*\]/,
+)
+
 assertIncludes(
   settingsPage,
   'resolveSettingsPresentation(route.name, visualStyle.value)',
@@ -434,6 +509,8 @@ for (const [label, source] of [
   ['albums manuscript.css', albumsManuscriptCss],
   ['albums manuscript.overlays.css', albumsOverlayCss],
   ['album detail manuscript.css', albumDetailManuscriptCss],
+  ['archive manuscript.css', archiveManuscriptCss],
+  ['archive manuscript.overlays.css', archiveOverlayCss],
   ['settings manuscript.css', settingsManuscriptCss],
   ['shared manuscript tokens.css', sharedTokens],
   ['main.css', mainCss],
@@ -448,6 +525,8 @@ for (const [label, source] of [
   ['albums manuscript.css', albumsManuscriptCss],
   ['albums manuscript.overlays.css', albumsOverlayCss],
   ['album detail manuscript.css', albumDetailManuscriptCss],
+  ['archive manuscript.css', archiveManuscriptCss],
+  ['archive manuscript.overlays.css', archiveOverlayCss],
   ['settings manuscript.css', settingsManuscriptCss],
   ['shared manuscript tokens.css', sharedTokens],
 ]) {
@@ -469,5 +548,5 @@ for (const cssVariable of [
 }
 
 console.log(
-  'Library, album catalog, album detail, and settings visual scope checks passed.',
+  'Library, album catalog, album detail, archive, and settings visual scope checks passed.',
 )

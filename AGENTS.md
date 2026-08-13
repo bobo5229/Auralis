@@ -169,13 +169,13 @@ Design docs in `docs/` (written in Chinese):
 
 ## Renderer Visual Architecture
 
-The main window is a custom frameless transparent shell (`frame: false`, `transparent: true`,
-`backgroundColor: '#00000000'`). Window chrome (background / inset border / control hover) is
-driven by the current track's artwork palette via `--auralis-window-chrome-*` CSS variables on
-`.app-window`, falling back to theme tokens without a track. Custom Windows-style min/max/close
-controls live in `src/renderer/app/layout/WindowChromeControls.vue` (top-right, `no-drag`).
-Drag regions exist in the sidebar header, the main-area top strip, Miniplayer, and desktop
-lyrics windows.
+The main window uses the operating system's native frame and title bar (`frame: true`,
+`transparent: false`). Windows supplies the native minimize, maximize/restore, and close controls;
+do not reintroduce renderer-owned main-window controls or main-shell drag regions. The renderer
+customer area can still use the current track's artwork palette through
+`--auralis-window-chrome-*` variables on `.app-window`. The current Miniplayer renderer mode reuses
+that same `BrowserWindow`, so it inherits the native frame; its UI and behavior remain separate from
+Playbar. Desktop lyrics remains a separate frameless window with its own drag/no-drag regions.
 
 - `src/renderer/app/layout/PlayerBar.vue`: playback controls, progress, volume, queue/mode
   popovers, desktop-lyrics sync, and artwork-palette CSS variables.
@@ -199,8 +199,8 @@ or introduce page-local visual-style refs.
   `auralis-visual-style` preference; do not force those routes back to `modern`, and do not clear
   the saved preference on navigation.
 - Phase 12 covers the `/albums` catalog route. Phase 13 covers only the `album-detail` route.
-  Phase 16 covers only the `settings` route. Resolve all surfaces by their explicit Vue Router
-  names; do not infer presentation from path prefixes.
+  Phase 14 covers only the `/archive` route. Phase 16 covers only the `settings` route. Resolve all
+  surfaces by their explicit Vue Router names; do not infer presentation from path prefixes.
 - Shared manuscript tokens live in
   `src/renderer/features/appearance/styles/manuscript.tokens.css`. Page composition remains
   feature-owned: library rules under `.library-page`, album catalog rules under `.albums-page`.
@@ -216,6 +216,11 @@ or introduce page-local visual-style refs.
   `.album-detail-page[data-visual-style='manuscript']`. Its artwork-derived canvas and pointer tilt
   are modern-only effects: manuscript must stop and clean them up, while switching back to modern
   must restore them without duplicate listeners.
+- Archive manuscript rules live in `src/renderer/features/archive/styles/manuscript.css` and its
+  Teleport rules live in `manuscript.overlays.css`. Keep them scoped under
+  `.archive-page[data-visual-style='manuscript']` and
+  `.archive-overlay[data-visual-style='manuscript']`. The album-ranking artwork canvas is
+  modern-only; switching styles or unmounting must invalidate in-flight image work.
 - Settings manuscript rules live in `src/renderer/features/settings/styles/manuscript.css` and must
   remain scoped under `.settings-page[data-visual-style='manuscript']`. The concentrated visual-style
   control is `VisualStylePreference.vue`; it must write only `useVisualStyle()`. Do not rebuild
@@ -233,8 +238,8 @@ or introduce page-local visual-style refs.
 > **术语与概念澄清 (Terminology Clarification)**
 >
 > - **Playbar (或 PlayerBar)**：特指**主页面底部常驻的播放控制栏组件**（即 `src/renderer/app/layout/PlayerBar.vue` 及其核心子组件 `TrackProgressInfo.vue`）。
-> - **Miniplayer (迷你播放器)**：特指由 `MiniPlayer.vue` 和主进程 `miniPlayerWindowController.ts` 控制的**独立小窗口**。尺寸按封面优先自适应（见 `src/shared/constants/miniPlayer.ts`）：先定正方形封面边长，再推导窗口宽高。
-> - 这两者在架构、DOM流及物理窗口层面上完全独立隔离。在后续迭代或执行 UI/UX 优化指令时，**切勿混淆二者**，修改 Playbar 时不得误触或改动 Miniplayer 的文件，反之亦然。
+> - **Miniplayer (迷你播放器)**：特指由 `MiniPlayer.vue` 和主进程 `miniPlayerWindowController.ts` 控制的**迷你窗口模式**。尺寸按封面优先自适应（见 `src/shared/constants/miniPlayer.ts`）：先定正方形封面边长，再推导窗口宽高。当前实现复用主 `BrowserWindow` 并切换 Renderer 根视图，不是第二个物理窗口。
+> - 两者的组件、DOM 流和交互职责完全隔离。在后续迭代或执行 UI/UX 优化指令时，**切勿混淆二者**，修改 Playbar 时不得误触或改动 Miniplayer 的文件，反之亦然；但主 `BrowserWindow` 级配置会自然同时影响普通与迷你两种模式。
 
 Derive visual state from the existing playback composable instead of introducing a second
 player store. Expensive image/color work belongs in the existing worker/canvas pipeline, not
@@ -272,6 +277,12 @@ states, long mixed-language titles, missing artwork/metadata, single- and multi-
 playback/search state, related-album navigation, and repeated style switching. Confirm modern keeps
 the artwork canvas and pointer tilt, manuscript stops them, and excluded player/shell surfaces do
 not change.
+
+For archive visual-style changes, verify `modern` and `manuscript`, heatmap years and daily detail,
+Music DNA selection, all ranking ranges and targets, annual recap pagination, reset hold behavior,
+missing artwork, repeated style switching, and the owner-scoped picker/tooltip/dialog overlays.
+Confirm the album-ranking canvas runs only in modern and excluded player/shell surfaces do not
+change.
 
 For settings visual-style changes, verify `modern` and `manuscript` in appearance, playback,
 library, and about; confirm visual-style, language, and PlayerBar material stay independent;

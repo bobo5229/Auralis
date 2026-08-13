@@ -1,0 +1,252 @@
+.archive-overlay[data-visual-style='manuscript'] {
+  display: contents;
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-ui);
+
+  --auralis-text: var(--manuscript-content-primary);
+  --auralis-text-muted: var(--manuscript-content-secondary);
+  --auralis-text-faint: var(--manuscript-content-faint);
+  --auralis-control-hover-bg: var(--manuscript-state-hover);
+  --auralis-sidebar-active-indicator: var(--manuscript-accent-primary);
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-picker-backdrop,
+.archive-overlay[data-visual-style='manuscript'] .archive-detail-backdrop,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-backdrop,
+.archive-overlay[data-visual-style='manuscript'] .archive-reset-backdrop {
+  background: var(--manuscript-surface-scrim);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-detail-backdrop:not(.is-visible) {
+  background: transparent;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-ranking-picker,
+.archive-overlay[data-visual-style='manuscript'] .archive-detail-dialog,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-dialog,
+.archive-overlay[data-visual-style='manuscript'] .archive-reset-dialog,
+.archive-overlay[data-visual-style='manuscript'] .archive-tooltip {
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-overlay);
+  border-radius: var(--manuscript-radius-page);
+  background: var(--manuscript-surface-overlay);
+  box-shadow: var(--manuscript-effect-overlay-shadow);
+  color: var(--manuscript-content-primary);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-ranking-picker::before,
+.archive-overlay[data-visual-style='manuscript'] .archive-detail-dialog::before,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-dialog::before,
+.archive-overlay[data-visual-style='manuscript'] .archive-reset-dialog::before {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 7px;
+  width: var(--manuscript-indicator-width);
+  background: var(--manuscript-accent-primary);
+  content: '';
+  pointer-events: none;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-dialog,
+.archive-overlay[data-visual-style='manuscript'] .archive-reset-dialog {
+  position: relative;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-tooltip {
+  padding: 6px 10px;
+  font-family: var(--manuscript-font-ui);
+}
+
+.archive-overlay[data-visual-style='manuscript'] .picker-header,
+.archive-overlay[data-visual-style='manuscript'] .archive-detail-header,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-header {
+  border-color: var(--manuscript-border-ledger);
+  color: var(--manuscript-content-primary);
+}
+
+.archive-overlay[data-visual-style='manuscript'] .picker-header button,
+.archive-overlay[data-visual-style='manuscript'] .calendar-grid button,
+.archive-overlay[data-visual-style='manuscript'] .picker-week-list button,
+.archive-overlay[data-visual-style='manuscript'] .picker-list button,
+.archive-overlay[data-visual-style='manuscript'] .picker-today-btn,
+.archive-overlay[data-visual-style='manuscript'] .archive-detail-header button,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-footer > button,
+.archive-overlay[data-visual-style='manuscript'] .archive-reset-buttons button {
+  border-radius: var(--manuscript-radius-control-inner);
+  color: var(--manuscript-content-secondary);
+  font-family: var(--manuscript-font-ui);
+  box-shadow: none;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .picker-header button:hover:not(:disabled),
+.archive-overlay[data-visual-style='manuscript']
+  .calendar-grid
+  button:not(.is-empty):not(:disabled):hover,
+.archive-overlay[data-visual-style='manuscript'] .picker-week-list button:hover:not(:disabled),
+.archive-overlay[data-visual-style='manuscript'] .picker-list button:hover,
+.archive-overlay[data-visual-style='manuscript'] .picker-today-btn:hover,
+.archive-overlay[data-visual-style='manuscript'] .archive-detail-header button:hover,
+.archive-overlay[data-visual-style='manuscript']
+  .archive-annual-recap-footer
+  > button:hover:not(:disabled),
+.archive-overlay[data-visual-style='manuscript']
+  .archive-reset-buttons
+  button:hover:not(:disabled) {
+  background: var(--manuscript-state-hover);
+  color: var(--manuscript-content-primary);
+  box-shadow: none;
+  transform: none;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .calendar-grid button.is-today {
+  color: var(--manuscript-accent-primary);
+  box-shadow: inset 0 0 0 var(--manuscript-hairline-width) var(--manuscript-accent-primary);
+}
+
+.archive-overlay[data-visual-style='manuscript'] .calendar-grid button.is-selected,
+.archive-overlay[data-visual-style='manuscript'] .picker-week-list button.is-active,
+.archive-overlay[data-visual-style='manuscript'] .picker-week-list button.is-current,
+.archive-overlay[data-visual-style='manuscript'] .picker-list button.is-active {
+  background: var(--manuscript-accent-primary);
+  box-shadow: none;
+  color: var(--manuscript-content-on-accent);
+}
+
+.archive-overlay[data-visual-style='manuscript'] button:focus-visible {
+  outline: var(--manuscript-focus-ring-width) solid var(--manuscript-state-focus-ring);
+  outline-offset: 2px;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .picker-week-list::-webkit-scrollbar-thumb,
+.archive-overlay[data-visual-style='manuscript'] .archive-top-tracks::-webkit-scrollbar-thumb {
+  border-radius: var(--manuscript-radius-indicator);
+  background: var(--manuscript-border-strong);
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-detail-dialog,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-dialog,
+.archive-overlay[data-visual-style='manuscript'] .archive-reset-dialog {
+  font-family: var(--manuscript-font-body);
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-detail-header h2,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-header h2,
+.archive-overlay[data-visual-style='manuscript'] .archive-reset-dialog h2,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-page h3 {
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-body);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-detail-header p,
+.archive-overlay[data-visual-style='manuscript'] .archive-reset-dialog > p,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-page p,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-section-heading small {
+  color: var(--manuscript-content-secondary);
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-top-tracks,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-list,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-stats > div,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-timeline div {
+  border-color: var(--manuscript-border-ledger);
+  border-radius: var(--manuscript-radius-control-inner);
+  background: var(--manuscript-surface-overlay-recessed);
+  box-shadow: none;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-top-tracks {
+  gap: 0;
+  padding: 0;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-top-tracks li,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-list li {
+  border-bottom: var(--manuscript-hairline-width) solid var(--manuscript-border-row);
+  border-radius: 0;
+  transition: background-color 120ms ease;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-top-tracks li:hover,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-list li:hover {
+  border-color: var(--manuscript-border-row);
+  background: var(--manuscript-state-hover);
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-track-rank,
+.archive-overlay[data-visual-style='manuscript'] .archive-track-rank.rank-gold,
+.archive-overlay[data-visual-style='manuscript'] .archive-track-rank.rank-silver,
+.archive-overlay[data-visual-style='manuscript'] .archive-track-rank.rank-bronze,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-rank {
+  background: none;
+  color: var(--manuscript-content-muted);
+  font-family: var(--manuscript-font-numeric);
+  -webkit-text-fill-color: currentColor;
+  filter: none;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-track-artwork,
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-artwork {
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-ledger-strong);
+  border-radius: var(--manuscript-radius-artwork);
+  background: var(--manuscript-surface-recessed);
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-dots button {
+  width: 12px;
+  height: 3px;
+  border-radius: var(--manuscript-radius-indicator);
+  background: var(--manuscript-border-strong);
+  transition: none;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-dots button.is-active {
+  width: 24px;
+  background: var(--manuscript-accent-primary);
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-bars div > span {
+  border-radius: var(--manuscript-radius-indicator);
+  background: var(--manuscript-accent-primary);
+  box-shadow: none;
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-reset-error {
+  color: var(--manuscript-content-danger);
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-reset-buttons .archive-reset-confirm {
+  border: var(--manuscript-hairline-width) solid var(--manuscript-accent-primary);
+  background: transparent;
+  color: var(--manuscript-accent-primary);
+}
+
+.archive-overlay[data-visual-style='manuscript']
+  .archive-reset-buttons
+  .archive-reset-confirm::before {
+  background: var(--manuscript-accent-primary);
+}
+
+.archive-overlay[data-visual-style='manuscript'] .archive-reset-hint {
+  border-radius: var(--manuscript-radius-control-inner);
+  background: var(--manuscript-surface-overlay);
+  box-shadow: var(--manuscript-effect-overlay-shadow);
+  color: var(--manuscript-content-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .archive-overlay[data-visual-style='manuscript'] .archive-picker-fade-enter-active,
+  .archive-overlay[data-visual-style='manuscript'] .archive-picker-fade-leave-active,
+  .archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-page-enter-active,
+  .archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-page-leave-active,
+  .archive-overlay[data-visual-style='manuscript'] .archive-top-tracks li,
+  .archive-overlay[data-visual-style='manuscript'] .archive-annual-recap-list li {
+    animation: none;
+    transition: none;
+  }
+}
