@@ -4,8 +4,14 @@ import { useI18n } from 'vue-i18n'
 import { usePlaybackQueue } from '@renderer/features/playback/composables/usePlaybackQueue'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+import {
+  getPlayerOverlayFocusables,
+  resolvePlayerOverlayKeyAction,
+} from '@renderer/app/utils/playerOverlayFocus'
+import type { PlayerSurfacePresentation } from '@renderer/app/utils/playerSurfacePresentation'
 import type { PlaybackTrack } from '@renderer/features/playback/types'
 
+const props = defineProps<{ presentation: PlayerSurfacePresentation }>()
 const emit = defineEmits<{ close: [] }>()
 const element = ref<HTMLElement | null>(null)
 
@@ -44,14 +50,47 @@ watch(currentIndex, () => {
   })
 })
 
+function getActiveFocusIndex(focusables: HTMLElement[]): number {
+  const active = document.activeElement
+  return focusables.findIndex((item) => item === active)
+}
+
 function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') {
+  const root = element.value
+  if (!root) return
+
+  const focusables = getPlayerOverlayFocusables(root)
+  const action = resolvePlayerOverlayKeyAction({
+    key: event.key,
+    shiftKey: event.shiftKey,
+    kind: 'queue',
+    focusableCount: focusables.length,
+    activeIndex: getActiveFocusIndex(focusables),
+  })
+
+  if (action.type === 'dismiss') {
+    event.preventDefault()
     emit('close')
+    return
+  }
+
+  if (action.type === 'cycle-focus') {
+    event.preventDefault()
+    focusables[action.nextIndex]?.focus()
   }
 }
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
+  // Initial focus enters a reasonable first item so Tab never lands behind the
+  // dialog (TECHDOC §8.1).
+  const root = element.value
+  if (root) {
+    const focusables = getPlayerOverlayFocusables(root)
+    const preferred = root.querySelector<HTMLElement>('.queue-item-active')
+    const target = preferred?.querySelector<HTMLElement>('button') ?? focusables[0]
+    target?.focus()
+  }
 })
 
 onUnmounted(() => {
@@ -60,7 +99,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="element" class="queue-popover" role="dialog" :aria-label="t('player.queue')">
+  <div
+    ref="element"
+    class="player-overlay queue-popover"
+    :data-player-presentation="props.presentation"
+    role="dialog"
+    tabindex="-1"
+    :aria-label="t('player.queue')"
+  >
     <div class="queue-popover-header">
       <span class="queue-popover-title">{{ t('player.queue') }}</span>
       <span v-if="!isQueueEmpty" class="queue-popover-count">{{

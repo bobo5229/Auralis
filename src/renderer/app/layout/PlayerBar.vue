@@ -17,6 +17,7 @@ import {
 import { auralis } from '@renderer/shared/ipc/client'
 import type { DesktopLyricsPayload, DesktopLyricsStatus } from '@shared/types/desktopLyrics'
 import type { PlayerSurfacePresentation } from '@renderer/app/utils/playerSurfacePresentation'
+import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverlayFocus'
 
 const props = defineProps<{ presentation: PlayerSurfacePresentation }>()
 
@@ -96,11 +97,19 @@ let desktopLyricsToastTimer: ReturnType<typeof setTimeout> | null = null
 let lastDesktopLyricsPayloadKey: string | null = null
 
 function toggleQueue(): void {
+  // Queue and mode menu are mutually exclusive — only one document keydown
+  // listener stays active at a time (§8.4).
+  isModeMenuOpen.value = false
   isQueueOpen.value = !isQueueOpen.value
 }
 
 function closeQueue(): void {
   isQueueOpen.value = false
+}
+
+function handleQueueClose(): void {
+  isQueueOpen.value = false
+  resolveRestorablePlayerTrigger(queueButtonRef.value)?.focus()
 }
 
 function getPlainLyricLines(rawLyrics: string | null): string[] {
@@ -231,11 +240,17 @@ const modeButtonRef = ref<HTMLElement | null>(null)
 const modeMenuRef = ref<HTMLElement | null>(null)
 
 function toggleModeMenu(): void {
+  isQueueOpen.value = false
   isModeMenuOpen.value = !isModeMenuOpen.value
 }
 
 function closeModeMenu(): void {
   isModeMenuOpen.value = false
+}
+
+function handleModeMenuClose(): void {
+  isModeMenuOpen.value = false
+  resolveRestorablePlayerTrigger(modeButtonRef.value)?.focus()
 }
 
 function handleSelectMode(mode: PlaybackMode): void {
@@ -465,7 +480,11 @@ function handleToggleMute(): void {
         >
           <span class="playbar-action-icon h-4 w-4 i-lucide-captions" />
         </button>
-        <div v-if="desktopLyricsToast" class="desktop-lyrics-toast">
+        <div
+          v-if="desktopLyricsToast"
+          class="player-overlay desktop-lyrics-toast"
+          :data-player-presentation="props.presentation"
+        >
           {{ t(desktopLyricsToast) }}
         </div>
       </div>
@@ -483,7 +502,11 @@ function handleToggleMute(): void {
       </button>
 
       <div ref="queuePopoverRef" class="contents">
-        <PlaybackQueuePopover v-if="isQueueOpen" :anchor-ref="queueButtonRef" @close="closeQueue" />
+        <PlaybackQueuePopover
+          v-if="isQueueOpen"
+          :presentation="props.presentation"
+          @close="handleQueueClose"
+        />
       </div>
 
       <button
@@ -502,8 +525,9 @@ function handleToggleMute(): void {
         <PlaybackModeMenu
           v-if="isModeMenuOpen"
           :current-mode="playback.state.playbackMode"
+          :presentation="props.presentation"
           @select="handleSelectMode"
-          @close="closeModeMenu"
+          @close="handleModeMenuClose"
         />
       </div>
 

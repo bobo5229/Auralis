@@ -1,12 +1,21 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import {
+  getPlayerOverlayFocusables,
+  resolvePlayerOverlayKeyAction,
+} from '@renderer/app/utils/playerOverlayFocus'
+import type { PlayerSurfacePresentation } from '@renderer/app/utils/playerSurfacePresentation'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 
-defineProps<{ currentMode: PlaybackMode }>()
+const props = defineProps<{
+  currentMode: PlaybackMode
+  presentation: PlayerSurfacePresentation
+}>()
 const emit = defineEmits<{ select: [mode: PlaybackMode]; close: [] }>()
 
 const { t } = useI18n()
+const element = ref<HTMLElement | null>(null)
 
 const modes = computed<Array<{ id: PlaybackMode; label: string; icon: string }>>(() => [
   { id: 'sequential', label: t('player.modeOption.sequential'), icon: 'i-lucide-list-end' },
@@ -20,14 +29,52 @@ function handleSelect(mode: PlaybackMode): void {
   emit('select', mode)
 }
 
+function getActiveFocusIndex(focusables: HTMLElement[]): number {
+  const active = document.activeElement
+  return focusables.findIndex((item) => item === active)
+}
+
 function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') {
+  const root = element.value
+  if (!root) return
+
+  const focusables = getPlayerOverlayFocusables(root)
+  const action = resolvePlayerOverlayKeyAction({
+    key: event.key,
+    shiftKey: event.shiftKey,
+    kind: 'mode-menu',
+    focusableCount: focusables.length,
+    activeIndex: getActiveFocusIndex(focusables),
+  })
+
+  if (action.type === 'dismiss') {
+    event.preventDefault()
     emit('close')
+    return
+  }
+
+  if (action.type === 'roving') {
+    event.preventDefault()
+    focusables[action.nextIndex]?.focus()
+    return
+  }
+
+  if (action.type === 'select') {
+    event.preventDefault()
+    focusables[getActiveFocusIndex(focusables)]?.click()
   }
 }
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
+  // 打开后聚焦当前模式；若不存在（不应发生）则聚焦首项（TECHDOC §8.2）。
+  const root = element.value
+  if (root) {
+    const focusables = getPlayerOverlayFocusables(root)
+    const currentIndex = modes.value.findIndex((mode) => mode.id === props.currentMode)
+    const target = currentIndex >= 0 ? focusables[currentIndex] : focusables[0]
+    target?.focus()
+  }
 })
 
 onUnmounted(() => {
@@ -36,7 +83,13 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="playback-mode-menu" role="menu" :aria-label="t('player.mode')">
+  <div
+    ref="element"
+    class="player-overlay playback-mode-menu"
+    :data-player-presentation="props.presentation"
+    role="menu"
+    :aria-label="t('player.mode')"
+  >
     <button
       v-for="mode in modes"
       :key="mode.id"
