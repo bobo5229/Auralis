@@ -83,4 +83,6 @@
 
 ## 7. 人工性能验收
 
-自动测试只验证完整性，不替代真实性能记录。请在开发模式打开 DevTools，分别使用约 10k 和 50k 曲库记录 `[Auralis] Library catalog snapshot loaded` 输出，并验证首次双击播放没有新增等待感。
+自动测试只验证完整性，不替代真实性能记录。约 10k 和 50k 曲库下的
+`[Auralis] Library catalog snapshot loaded` 耗时、以及首次双击播放体感 **仍未实测，保持延期**。
+不填写虚构数字，也不因 Phase 15 视觉工作将其标为完成。

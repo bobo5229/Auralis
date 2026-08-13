@@ -6,7 +6,7 @@
 **基线**：[`BASELINE.md`](./BASELINE.md)
 **审查**：[`REVIEW.md`](./REVIEW.md)
 
-**当前状态**：**代码实现完成（含 REVIEW Finding 1–7 修复）；人工验收待完成**
+**当前状态**：**代码实现完成（含 REVIEW Finding 1–7 修复）；用户已确认视觉与功能人工验收（2026-08-13 回填）**
 
 ---
 
@@ -47,7 +47,7 @@
 | 6.2      | Token 分层                   | 完成；REVIEW F4 后 Compatibility 仅 semantic 映射      |
 | 6.3      | 组件语义样式                 | 完成                                                   |
 | 6.4      | 无障碍                       | Token 级 + **F5 reduced-motion 搜索过渡**              |
-| 6.5      | 自动校验                     | 通过；**人工矩阵 / 截图仍开放**（Finding 2）           |
+| 6.5      | 自动校验                     | 通过；人工视觉与功能项已于 2026-08-13 回填关闭           |
 
 ---
 
@@ -78,7 +78,7 @@
 | `--library-cover-group-border-width`       |                                            1px |
 | `--library-cover-track-row-height`         | 40px（modern/manuscript 均 height+min-height） |
 
-DevTools 实测行 / 组高仍待人工矩阵勾选（Finding 2 未关闭）。
+DevTools 行 / 组高由用户在既有人工验收中确认与常量一致；仓库内未补拍 PNG，亦未记录 10k / 50k 性能数。
 
 ---
 
@@ -100,19 +100,19 @@ DevTools 实测行 / 组高仍待人工矩阵勾选（Finding 2 未关闭）。
 
 ---
 
-## 5. 人工门禁（Finding 2 — 未关闭）
+## 5. 人工门禁（Finding 2 — 已回填关闭）
 
-下列项 **未** 作为「已完成」宣称；TECHDOC 状态为「人工验收待完成」：
+Phase 15 前置门禁要求按真实结果回填。用户已确认既有人工验收通过；本节只归档该结论，
+**不补造截图文件，不填写未实测的 10k / 50k 或 DPI 像素数据**。
 
-| 项                                                   | 状态   |
-| ---------------------------------------------------- | ------ |
-| baseline / final PNG（`screenshots/README.md`）      | 待补拍 |
-| DevTools 实测 44/40/250 与 virtual item size         | 待勾选 |
-| Windows 100% / 125% / 150%                           | 待勾选 |
-| 真实大曲库滚动 / 搜索定位 / 视图切换                 | 待勾选 |
-| modern / manuscript × flat / cover × 全部歌曲 / 歌单 | 待勾选 |
-
-验收完成后应：补齐截图、在本节写明日期与执行人、将 TECHDOC 状态改为「已完成」。
+| 项                                                   | 状态                                                         |
+| ---------------------------------------------------- | ------------------------------------------------------------ |
+| 用户确认视觉与功能验收                               | 2026-08-13 回填关闭                                          |
+| baseline / final PNG（`screenshots/README.md`）      | 未入库；不伪造资源                                           |
+| DevTools 44/40/250 与 virtual item size              | 用户确认与常量一致；无独立测量表                             |
+| Windows 100% / 125% / 150%                           | 用户确认当前环境下无行高漂移；无分档像素记录                 |
+| 真实大曲库滚动 / 搜索定位 / 视图切换                 | 当前曲库规模下已确认；10k / 50k 容量门禁见 Phase 9–11，仍延期 |
+| modern / manuscript × flat / cover × 全部歌曲 / 歌单 | 用户确认；歌单当时仍为 modern，属当时范围                    |
 
 ---
 
