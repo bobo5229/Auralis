@@ -12,6 +12,8 @@ import { usePlayback } from '@renderer/features/playback/composables/usePlayback
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { auralis } from '@renderer/shared/ipc/client'
 import type { ShellPresentation } from '../utils/shellPresentation'
+import { resolveRestorableFocusTarget } from '../utils/sidebarModalFocus'
+import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
 import '../styles/manuscript.sidebar.css'
 import '../styles/manuscript.sidebar-overlays.css'
 
@@ -33,10 +35,14 @@ const deletingPlaylist = ref<SidebarPlaylistItem | null>(null)
 const renameValue = ref('')
 const renameError = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
+const renameDialogRef = ref<HTMLElement | null>(null)
 const isQueryDialogOpen = ref(false)
 const smartPlaylistQuery = ref('')
 const smartPlaylistQueryError = ref('')
 const queryInput = ref<HTMLTextAreaElement | null>(null)
+const queryDialogRef = ref<HTMLElement | null>(null)
+const deleteDialogRef = ref<HTMLElement | null>(null)
+const sidebarModalTrigger = ref<HTMLElement | null>(null)
 const isCreatingFromQuery = ref(false)
 const pressedPlaylistKey = ref<string | null>(null)
 const draggingPlaylistKey = ref<string | null>(null)
@@ -95,6 +101,20 @@ const deletingPlaylistTitle = computed(() =>
     ? t('sidebar.deletePlaylistTitle')
     : t('sidebar.deleteSmartPlaylistTitle'),
 )
+
+function rememberSidebarModalTrigger(preferred?: HTMLElement | null): void {
+  sidebarModalTrigger.value =
+    resolveRestorableFocusTarget(preferred ?? null) ??
+    resolveRestorableFocusTarget(
+      document.activeElement instanceof HTMLElement ? document.activeElement : null,
+    )
+}
+
+function playlistRowElement(item: SidebarPlaylistItem): HTMLElement | null {
+  return document.querySelector<HTMLElement>(
+    `[data-sidebar-playlist-key="${CSS.escape(getPlaylistKey(item))}"]`,
+  )
+}
 
 watch(
   () => route.path,
@@ -374,6 +394,9 @@ function onSmartPlaylistCreated(playlist: SmartPlaylist): void {
 }
 
 async function openQueryDialog(): Promise<void> {
+  rememberSidebarModalTrigger(
+    document.querySelector<HTMLElement>('.app-sidebar .smart-playlist-add-button'),
+  )
   closeCreateMenu()
   smartPlaylistQuery.value = ''
   smartPlaylistQueryError.value = ''
@@ -424,8 +447,10 @@ function closePlaylistContextMenu(): void {
 
 async function openRenameDialog(): Promise<void> {
   if (!playlistContextMenu.value) return
-  renamingPlaylist.value = playlistContextMenu.value.item
-  renameValue.value = playlistContextMenu.value.item.name
+  const item = playlistContextMenu.value.item
+  rememberSidebarModalTrigger(playlistRowElement(item))
+  renamingPlaylist.value = item
+  renameValue.value = item.name
   renameError.value = ''
   closePlaylistContextMenu()
   await nextTick()
@@ -463,13 +488,38 @@ async function submitRename(): Promise<void> {
 
 function openDeleteDialog(): void {
   if (!playlistContextMenu.value) return
-  deletingPlaylist.value = playlistContextMenu.value.item
+  const item = playlistContextMenu.value.item
+  rememberSidebarModalTrigger(playlistRowElement(item))
+  deletingPlaylist.value = item
   closePlaylistContextMenu()
+  void nextTick(() => {
+    deleteDialogRef.value?.querySelector<HTMLElement>('button')?.focus()
+  })
 }
 
 function closeDeleteDialog(): void {
   deletingPlaylist.value = null
 }
+
+useSidebarOwnedModal({
+  isOpen: () => renamingPlaylist.value !== null,
+  container: renameDialogRef,
+  trigger: sidebarModalTrigger,
+  onEscape: closeRenameDialog,
+})
+useSidebarOwnedModal({
+  isOpen: () => isQueryDialogOpen.value,
+  container: queryDialogRef,
+  trigger: sidebarModalTrigger,
+  canDismiss: () => !isCreatingFromQuery.value,
+  onEscape: closeQueryDialog,
+})
+useSidebarOwnedModal({
+  isOpen: () => deletingPlaylist.value !== null,
+  container: deleteDialogRef,
+  trigger: sidebarModalTrigger,
+  onEscape: closeDeleteDialog,
+})
 
 function onPlaylistsChanged(): void {
   void loadSidebarStats()
@@ -728,6 +778,7 @@ onBeforeUnmount(() => {
         :data-shell-presentation="presentation"
       >
         <form
+          ref="renameDialogRef"
           class="smart-playlist-dialog"
           role="dialog"
           aria-modal="true"
@@ -758,6 +809,7 @@ onBeforeUnmount(() => {
         :data-shell-presentation="presentation"
       >
         <form
+          ref="queryDialogRef"
           class="smart-playlist-dialog smart-playlist-query-dialog"
           role="dialog"
           aria-modal="true"
@@ -798,6 +850,7 @@ onBeforeUnmount(() => {
         :data-shell-presentation="presentation"
       >
         <section
+          ref="deleteDialogRef"
           class="smart-playlist-dialog"
           role="alertdialog"
           aria-modal="true"
