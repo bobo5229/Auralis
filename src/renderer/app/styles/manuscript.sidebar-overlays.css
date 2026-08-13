@@ -176,8 +176,8 @@
   color: var(--manuscript-accent-primary);
 }
 
-.sidebar-overlay[data-shell-presentation='manuscript'] .facets-dialog-fade-enter-active,
-.sidebar-overlay[data-shell-presentation='manuscript'] .facets-dialog-fade-leave-active {
+.sidebar-overlay[data-shell-presentation='manuscript'].facets-dialog-fade-enter-active,
+.sidebar-overlay[data-shell-presentation='manuscript'].facets-dialog-fade-leave-active {
   transition: opacity 140ms ease;
 }
 
@@ -191,8 +191,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .sidebar-overlay[data-shell-presentation='manuscript'] .library-context-menu-item,
-  .sidebar-overlay[data-shell-presentation='manuscript'] .facets-dialog-fade-enter-active,
-  .sidebar-overlay[data-shell-presentation='manuscript'] .facets-dialog-fade-leave-active {
+  .sidebar-overlay[data-shell-presentation='manuscript'].facets-dialog-fade-enter-active,
+  .sidebar-overlay[data-shell-presentation='manuscript'].facets-dialog-fade-leave-active {
     animation: none !important;
     transition: none !important;
   }

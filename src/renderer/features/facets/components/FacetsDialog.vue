@@ -557,6 +557,13 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .facets-dialog-fade-enter-active,
+  .facets-dialog-fade-leave-active {
+    transition: none;
+  }
+}
+
 .facets-context-layer {
   position: fixed;
   inset: 0;
