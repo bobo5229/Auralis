@@ -236,6 +236,15 @@ input {
   transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
 }
 
+/* Phase 23 dock layout wrappers — transparent on the modern baseline so the
+   floating PlayerBar flex keeps its historical three-zone order; the
+   manuscript presentation turns them into the dock footer grid. */
+.player-bar-dock-main,
+.player-bar-dock-actions,
+.player-bar-dock-rule {
+  display: contents;
+}
+
 .player-bar-glass {
   position: absolute;
   inset: 0;

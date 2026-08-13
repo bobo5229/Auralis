@@ -52,6 +52,74 @@
   display: none !important;
 }
 
+/* ---------- Dock three-zone layout (Phase 23) ----------
+ * The footer grid spans the whole dock width (260px → viewport edge) so its
+ * columns line up with the AppShell tracks; content insets live on the zones,
+ * not on the bar, keeping the xl Now Playing column at 20vw aligned with the
+ * shell's 20% third track. */
+.player-bar[data-player-presentation='manuscript'] {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'main actions';
+  align-items: center;
+  gap: 0;
+  padding: 0;
+}
+
+.player-bar[data-player-presentation='manuscript'] .player-bar-dock-main {
+  grid-area: main;
+  display: grid;
+  /* track | transport | balance — the two equal 1fr columns centre transport
+     on the main column, independent of the actions zone width. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: 'track transport balance';
+  gap: 16px;
+  min-width: 0;
+  align-items: center;
+  padding-left: 20px;
+}
+
+.player-bar[data-player-presentation='manuscript'] .player-bar-dock-main .transport-controls {
+  grid-area: transport;
+}
+
+.player-bar[data-player-presentation='manuscript'] .player-bar-dock-main .track-info-card {
+  grid-area: track;
+  min-width: 0;
+}
+
+.player-bar[data-player-presentation='manuscript'] .player-bar-dock-actions {
+  grid-area: actions;
+  min-width: 0;
+  padding-right: 20px;
+}
+
+.player-bar[data-player-presentation='manuscript'] .player-bar-dock-rule {
+  display: none;
+}
+
+/* xl: the secondary actions move into the Now Playing column, separated from
+   the main column by a low-contrast hairline rule on the shell boundary. */
+@media (min-width: 1280px) {
+  .player-bar[data-player-presentation='manuscript'] {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 20vw);
+    grid-template-areas: 'main rule now-playing';
+  }
+
+  .player-bar[data-player-presentation='manuscript'] .player-bar-dock-actions {
+    grid-area: now-playing;
+    padding: 0 20px 0 16px;
+  }
+
+  .player-bar[data-player-presentation='manuscript'] .player-bar-dock-rule {
+    display: block;
+    grid-area: rule;
+    width: 1px;
+    height: 100%;
+    background: var(--manuscript-border-subtle);
+  }
+}
+
 /* ---------- Transport controls ---------- */
 .player-bar[data-player-presentation='manuscript'] .transport-control,
 .player-bar[data-player-presentation='manuscript'] .player-control {
