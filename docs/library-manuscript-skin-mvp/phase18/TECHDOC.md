@@ -1,6 +1,6 @@
 # TECHDOC：Now Playing 与 PlayerBar 手稿化（Phase 18）
 
-- **文档状态**：待实施
+- **文档状态**：工程完成；Electron 人工矩阵待确认
 - **日期**：2026-08-13
 - **目标分支**：`script-skin-dev`
 - **前置状态**：Phase 1-17 工程实现与 Electron 人工验收均已通过
