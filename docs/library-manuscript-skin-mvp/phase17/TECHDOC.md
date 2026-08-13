@@ -1,10 +1,10 @@
 # TECHDOC：应用外壳与 Sidebar 手稿化（Phase 17）
 
-- **文档状态**：工程完成；人工验收待 Electron 矩阵
+- **文档状态**：完全交付；Electron 人工验收通过（2026-08-13）
 - **设计日期**：2026-08-13
 - **目标表面**：普通主窗口应用外壳、主内容边界、`AppSidebar` 与 Sidebar 自有浮层
 - **唯一视觉状态源**：`src/renderer/features/appearance/composables/useVisualStyle.ts`
-- **前置状态**：Phase 16 工程完成，Electron 人工矩阵仍须按真实结果关闭
+- **前置状态**：Phase 16 已完全交付，Electron 人工矩阵通过
 
 ## 1. 结论
 
