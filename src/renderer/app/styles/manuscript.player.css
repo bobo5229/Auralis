@@ -155,6 +155,38 @@
   -webkit-backdrop-filter: none;
 }
 
+/* ---------- Now Playing lyrics margin note ---------- */
+.now-playing-panel[data-player-presentation='manuscript'] {
+  /* Kill the modern artwork blur / transparency even against
+     .has-artwork .now-playing-panel (!important in main.css). */
+  background: var(--manuscript-surface-page) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-left: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  /* Lyric tokens remapped inside the panel owner only. */
+  --auralis-border-subtle: var(--manuscript-border-strong);
+  --auralis-text: var(--manuscript-content-primary);
+  --auralis-text-faint: var(--manuscript-content-faint);
+  --auralis-lyrics-active: var(--manuscript-accent-primary);
+  --auralis-lyrics-inactive: var(--manuscript-content-muted);
+}
+
+/* Inactive lines use ink contrast instead of blur to express depth (§7.6). */
+.now-playing-panel[data-player-presentation='manuscript'] .lyric-line-blur-filter {
+  filter: none;
+  opacity: 1;
+}
+
+.now-playing-panel[data-player-presentation='manuscript'] .lyric-line-seekable:hover {
+  opacity: 1;
+  filter: none;
+}
+
+/* Prelude dots express real waiting state without the glow halo. */
+.now-playing-panel[data-player-presentation='manuscript'] .lyric-dot-lit {
+  box-shadow: none;
+}
+
 /* ---------- Motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   .player-bar[data-player-presentation='manuscript'],
