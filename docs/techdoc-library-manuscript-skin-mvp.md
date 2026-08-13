@@ -1,6 +1,7 @@
 # TECHDOC：全部歌曲页手稿皮肤 MVP
 
-**文档状态**：Phase 1–5 已实现；Phase 6 代码已实现（REVIEW 修复后），人工验收待完成（见 phase6/DELIVERY）<br>
+**文档状态**：本文保留 Phase 1–5 MVP 设计基线；当前实现与验收状态以总体交付路线图为准<br>
+**总体交付与后续路线**：[手稿皮肤交付状态与后续路线图](./library-manuscript-skin-mvp/DELIVERY-ROADMAP.md)<br>
 **目标路由**：`/`（`name: 'library'`）  
 **目标模块**：`src/renderer/features/library/pages/LibraryPage.vue`  
 **视觉风格**：现代流光（`modern`）/ 手稿（`manuscript`）  
