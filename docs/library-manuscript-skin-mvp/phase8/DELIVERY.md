@@ -41,3 +41,13 @@ npm.cmd run build      # 打包构建成功 (vite production build 0 错误)
 - **Cover artwork size**: `250px` (无变化)
 - **Cover panel side padding**: `10px` (无变化)
 - **Cover group top/bottom padding**: `28px` (无变化)
+
+---
+
+## 4. 人工验收（2026-08-13 回填）
+
+**状态**：用户已确认既有人工验收通过。
+
+Phase 8 未形成独立截图目录入库。本次只回填用户确认结论，不补造 PNG。键盘巡检、右键与子菜单、
+元数据弹窗、搜索 `/` 与 Escape、状态页和焦点恢复均视为已通过。容量与系统化多 DPI 测量不属于
+本阶段独立门禁。

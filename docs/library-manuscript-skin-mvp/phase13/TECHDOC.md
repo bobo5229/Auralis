@@ -1,6 +1,6 @@
 # TECHDOC：手稿皮肤覆盖专辑详情页（Phase 13）
 
-**文档状态**：工程审查通过，待人工验收
+**文档状态**：工程审查通过；用户已确认人工验收（2026-08-13 回填）
 **编写日期**：2026-08-13
 **目标路由**：仅 `name: 'album-detail'`
 **视觉偏好**：沿用 `modern | manuscript` 与 `auralis-visual-style` 唯一状态源
@@ -84,5 +84,5 @@ Miniplayer、desktop lyrics 和 fullscreen playback。Phase 13 不改变这些�
 
 ## 8. 完成定义
 
-代码整合、locale parity、静态守卫、测试、类型检查、lint 和构建均已完成。人工验收矩阵完成后，
-Phase 13 才可标记完全完成。
+代码整合、locale parity、静态守卫、测试、类型检查、lint 和构建均已完成。用户已于 2026-08-13
+确认既有人工验收通过；不补造截图或未实测 DPI / 容量数据。

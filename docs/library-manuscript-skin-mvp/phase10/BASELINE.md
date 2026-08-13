@@ -6,7 +6,7 @@
 ## 1. 开始状态
 
 - Phase 9 源码和文档尚未提交，工作树包含用户已确认的曲目文字对比度修复。
-- Phase 9 自动检查已通过，但真实窗口、DPI 和 10k/50k 曲库人工矩阵尚未执行。
+- Phase 9 自动检查已通过。当前曲库规模下的视觉与功能人工项已于 2026-08-13 回填；10k/50k 容量门禁仍延期。
 - 仓库没有测试运行器，也没有 `npm test` 脚本。
 - 搜索扫描仅有生产模块内的手写 assertion examples。
 - 请求 generation、活跃 lane、pending refresh 和 Promise waiters 全部位于 `LibraryPage.vue`。
