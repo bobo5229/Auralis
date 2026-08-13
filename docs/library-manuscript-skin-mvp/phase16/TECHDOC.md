@@ -1,6 +1,6 @@
 # TECHDOC：设置页手稿化与集中外观入口（Phase 16）
 
-- **文档状态**：Step 16.0 已完成；待实施 16.1 起
+- **文档状态**：工程完成；人工验收待 Electron 矩阵
 - **编写日期**：2026-08-13
 - **目标路由**：`settings` / `/settings`
 - **唯一视觉偏好源**：`useVisualStyle()` / `auralis-visual-style`
