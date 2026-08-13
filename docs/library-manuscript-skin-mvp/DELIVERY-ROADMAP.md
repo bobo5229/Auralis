@@ -16,7 +16,7 @@ Auralis 手稿皮肤已经完成从单页 MVP 到多页面视觉系统的第一�
 - 共享 token、路由呈现解析器、Teleport owner scope、虚拟滚动几何和静态作用域检查已经成为后续扩展的基础设施；
 - 现代流光界面仍是完整、独立的视觉分支，切换手稿皮肤不会改写播放状态、曲库数据或数据库行为。
 
-当前可以把产品状态概括为：**Phase 1–18 工程与人工验收均已完成；Phase 9–11 的 10k / 50k 容量门禁仍延期且不阻塞视觉扩展。核心浏览链路、设置页、普通主窗口外壳与常驻播放表面（Now Playing、PlayerBar）已经交付；全屏播放器、Miniplayer 与桌面歌词独立窗口尚未纳入手稿覆盖。**
+当前可以把产品状态概括为：**Phase 1–17 工程与人工验收均已完成；Phase 18 工程完成、Electron 人工矩阵待确认；Phase 9–11 的 10k / 50k 容量门禁仍延期且不阻塞视觉扩展。核心浏览链路、设置页与普通主窗口外壳已经交付；常驻播放表面（Now Playing、PlayerBar）工程完成、待人工确认；全屏播放器、Miniplayer 与桌面歌词独立窗口尚未纳入手稿覆盖。**
 
 ## 2. 当前覆盖范围
 
@@ -30,7 +30,7 @@ Auralis 手稿皮肤已经完成从单页 MVP 到多页面视觉系统的第一�
 | 普通歌单                | `playlist`                        | 已交付                    | 复用 `LibraryPage.vue`，与全部歌曲共享手稿偏好       |
 | 设置                    | `settings` / `/settings`          | 已交付                    | 集中视觉风格入口与页面手稿作用域已落地               |
 | Sidebar / 应用内容外壳  | 全局                              | 已交付                    | 普通主窗口与 Sidebar owner 浮层已覆盖                |
-| Now Playing / PlayerBar | 全局播放表面                      | 已交付                    | PlayerBar 档案控制台与歌词旁注栏已覆盖；浮层键盘契约完整 |
+| Now Playing / PlayerBar | 全局播放表面                      | 工程完成；Electron 人工矩阵待确认 | PlayerBar 档案控制台与歌词旁注栏已覆盖；浮层键盘契约完整 |
 | 全屏播放器              | 播放浮层                          | 未覆盖                    | 仍是独立的深色 artwork 视觉域（Phase 19）               |
 | Miniplayer              | 主窗口迷你模式                    | 未覆盖                    | 与 PlayerBar 概念、组件和行为保持隔离（Phase 20）       |
 | 桌面歌词                | 独立窗口                          | 未覆盖                    | 继续保持独立无框窗口与现有字体系统（Phase 21）          |
@@ -57,7 +57,7 @@ Auralis 手稿皮肤已经完成从单页 MVP 到多页面视觉系统的第一�
 |    15 | 覆盖普通歌单与智能歌单                       | 完成                      | 用户确认通过（2026-08-13 回填）；容量门禁仍见 Phase 9–11 |
 |    16 | 设置页手稿化与集中外观入口                   | 完成                      | 用户确认通过（2026-08-13 回填）                          |
 |    17 | 连接应用外壳与 Sidebar                       | 完成                      | 用户确认通过（2026-08-13 回填）                          |
-|    18 | 覆盖 Now Playing 与 PlayerBar                 | 完成                      | 用户确认通过（2026-08-13）                              |
+|    18 | 覆盖 Now Playing 与 PlayerBar                 | 完成                      | Electron 人工矩阵待确认（2026-08-13 工程完成）          |
 
 ### 3.1 已关闭的核心能力
 
@@ -128,7 +128,7 @@ Auralis 手稿皮肤已经完成从单页 MVP 到多页面视觉系统的第一�
 
 ### Phase 18：覆盖 Now Playing 与 PlayerBar
 
-**状态**：已完成（2026-08-13）。PlayerBar 档案控制台、Now Playing 歌词旁注栏与队列 / 模式浮层键盘契约已交付；独立 `data-player-presentation` owner scope 建立，封面色板与 album tint 仅在现代呈现下运行。
+**状态**：工程完成；Electron 人工矩阵待确认（2026-08-13）。PlayerBar 档案控制台、Now Playing 歌词旁注栏与队列 / 模式浮层键盘契约已交付；独立 `data-player-presentation` owner scope 建立，封面色板与 album tint 仅在现代呈现且表面活跃时运行。
 
 **为什么独立成阶段**：它们是持续驻留、强交互、封面调色驱动的播放表面，风险高于普通页面；同时 PlayerBar 与 Miniplayer 必须继续严格隔离。
 

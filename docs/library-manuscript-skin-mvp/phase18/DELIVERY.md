@@ -1,6 +1,6 @@
 # Phase 18 交付记录：Now Playing 与 PlayerBar 手稿化
 
-**状态**：工程完成；Electron 人工矩阵待用户确认
+**状态**：工程完成；Electron 人工矩阵待确认
 **日期**：2026-08-13
 **分支**：`script-skin-dev`
 **TECHDOC**：[`TECHDOC.md`](./TECHDOC.md)
