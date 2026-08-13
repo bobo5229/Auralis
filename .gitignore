@@ -28,6 +28,9 @@ AppData/
 .agents/
 .mimocode/
 
+# ZCode
+.zcode/
+
 # TypeScript incremental build info
 *.tsbuildinfo
 
