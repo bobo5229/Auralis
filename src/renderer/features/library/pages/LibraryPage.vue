@@ -11,11 +11,9 @@ import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
 import type { LibraryAlbumGroup } from '../components/AlbumCoverGroup.vue'
 import MetadataEditDialog from '../components/MetadataEditDialog.vue'
 import LibraryContextMenu from '../components/LibraryContextMenu.vue'
-import LibraryArchiveHeader from '../components/LibraryArchiveHeader.vue'
 import LibraryLedgerHeader from '../components/LibraryLedgerHeader.vue'
 import LibraryStatusState from '../components/LibraryStatusState.vue'
 import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
-import { calculateFolioInfo } from '../constants/libraryArchivePresentation'
 import {
   getAlbumGroupEstimatedHeight,
   LIBRARY_LAYOUT_CSS_VARS,
@@ -34,7 +32,10 @@ import '../styles/manuscript.css'
 import '../styles/manuscript.overlays.css'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { createLibraryDerivedIndex } from '../utils/libraryDerivedIndex'
-import { resolveLibraryRefreshAnchorTrackId } from '../utils/libraryRefreshAnchor'
+import {
+  resolveLibraryViewportRestoreAction,
+  type LibraryViewportRestore,
+} from '../utils/libraryViewportRestore'
 import { createLibrarySearchIndex } from '../utils/librarySearchIndex'
 import { scanLibrarySearchIndex } from '../utils/librarySearchScan'
 import { resolveLibraryPresentation, resolveLibrarySurfaceKind } from '../utils/libraryPresentation'
@@ -76,9 +77,6 @@ const librarySearchIndex = computed(() => createLibrarySearchIndex(tracks.value)
 const isLoading = ref(true)
 const scrollRef = ref<HTMLElement | null>(null)
 const firstVisibleTrackIndex = ref(0)
-const folioInfo = computed(() =>
-  calculateFolioInfo(tracks.value.length, firstVisibleTrackIndex.value),
-)
 const editingMetadata = ref<EditableTrackMetadata | null>(null)
 const isSavingMetadata = ref(false)
 const metadataEditError = ref<string | null>(null)
@@ -158,8 +156,9 @@ function onUserScrollInput(): void {
   userScrollGeneration++
 }
 
-interface LibraryRefreshAnchor {
-  trackId: number | null
+interface LibraryViewportCapture {
+  restore: LibraryViewportRestore
+  previousTrackIds: number[]
 }
 
 type LibraryLoadResult = 'committed' | 'stale' | 'redirected' | 'failed' | 'queued'
@@ -509,18 +508,14 @@ function commitLibrarySnapshot(snapshot: LibraryDataSnapshot): void {
   ensureKeyboardFocusTrackId()
 }
 
-function captureLibraryRefreshAnchor(): LibraryRefreshAnchor {
-  const firstVisibleTrackId = tracks.value[firstVisibleTrackIndex.value]?.id ?? null
+function captureLibraryViewportRestore(): LibraryViewportCapture {
   return {
-    trackId: resolveLibraryRefreshAnchorTrackId({
-      candidates: [
-        firstVisibleTrackId,
-        keyboardFocusTrackId.value,
-        playback.state.selectedTrackId,
-        playback.state.currentTrackId,
-      ],
-      hasTrack: (id) => libraryDerivedIndex.value.trackById.has(id),
-    }),
+    restore: {
+      scrollTop: scrollRef.value?.scrollTop ?? 0,
+      firstVisibleTrackId: tracks.value[firstVisibleTrackIndex.value]?.id ?? null,
+      scrollGeneration: userScrollGeneration,
+    },
+    previousTrackIds: tracks.value.map((track) => track.id),
   }
 }
 
@@ -553,6 +548,31 @@ function scrollRenderedTrackToRatio(targetTrackId: number): boolean {
     LIBRARY_TOP_INSET -
     container.clientHeight * SCROLL_POSITION_RATIO
   container.scrollTop = Math.max(0, offset)
+  scheduleFirstVisibleTrackIndexUpdate()
+  return true
+}
+
+/** Top-aligned viewport restore (no 33% playback centering). */
+function scrollRenderedTrackToTop(targetTrackId: number): boolean {
+  const container = scrollRef.value
+  if (!container) return false
+
+  if (isCoverView.value) {
+    const targetGroupIndex = libraryDerivedIndex.value.albumGroupIndexByTrackId.get(targetTrackId)
+    if (targetGroupIndex === undefined) return false
+
+    const targetOffset = libraryDerivedIndex.value.albumGroupStartOffsets[targetGroupIndex]
+    if (targetOffset === undefined) return false
+
+    container.scrollTop = Math.max(0, targetOffset + LIBRARY_TOP_INSET)
+    scheduleFirstVisibleTrackIndexUpdate()
+    return true
+  }
+
+  const targetIndex = libraryDerivedIndex.value.trackIndexById.get(targetTrackId)
+  if (targetIndex === undefined) return false
+
+  container.scrollTop = Math.max(0, targetIndex * LIBRARY_LAYOUT_METRICS.flatRowHeight + LIBRARY_TOP_INSET)
   scheduleFirstVisibleTrackIndexUpdate()
   return true
 }
@@ -1037,19 +1057,35 @@ async function saveMetadata(metadata: EditableTrackMetadata): Promise<void> {
 
 const initialLoadError = ref<string | null>(null)
 
-async function restoreLibraryRefreshAnchor(
-  anchor: LibraryRefreshAnchor,
+/**
+ * Viewport-first restore after a background refresh. Never drags the list
+ * back to the playing / selected / keyboard-focused track; if the user
+ * scrolled during the snapshot round-trip the restore is abandoned.
+ */
+async function restoreLibraryViewportRestore(
+  capture: LibraryViewportCapture,
   isRequestCurrent: () => boolean,
 ): Promise<void> {
-  const trackId = anchor.trackId
-  if (trackId === null || !libraryDerivedIndex.value.trackById.has(trackId)) {
-    ensureKeyboardFocusTrackId()
+  if (!isRequestCurrent()) return
+
+  const action = resolveLibraryViewportRestoreAction({
+    captured: capture.restore,
+    currentScrollGeneration: userScrollGeneration,
+    previousTrackIds: capture.previousTrackIds,
+    nextTrackIds: tracks.value.map((track) => track.id),
+    hasTrack: (id) => libraryDerivedIndex.value.trackById.has(id),
+  })
+
+  if (action.type === 'keep-scroll-top') {
+    const container = scrollRef.value
+    if (!container) return
+    container.scrollTop = action.scrollTop
     scheduleFirstVisibleTrackIndexUpdate()
     return
   }
 
-  await scrollToTrackById(trackId, isRequestCurrent)
-  if (isRequestCurrent()) {
+  if (action.type === 'scroll-to-track') {
+    scrollRenderedTrackToTop(action.trackId)
     scheduleFirstVisibleTrackIndexUpdate()
   }
 }
@@ -1070,7 +1106,7 @@ async function loadLibraryData(mode: LibraryLoadMode = 'foreground'): Promise<Li
   }
   const isRequestCurrent = () => isCurrentLibraryRequest(generation, scope)
   const isForeground = mode === 'foreground'
-  const refreshAnchor = isForeground ? null : captureLibraryRefreshAnchor()
+  const viewportCapture = isForeground ? null : captureLibraryViewportRestore()
 
   if (isForeground && isRequestCurrent()) {
     isLoading.value = true
@@ -1090,8 +1126,8 @@ async function loadLibraryData(mode: LibraryLoadMode = 'foreground'): Promise<Li
     commitLibrarySnapshot(snapshot)
     initialLoadError.value = null
 
-    if (refreshAnchor) {
-      await restoreLibraryRefreshAnchor(refreshAnchor, isRequestCurrent)
+    if (viewportCapture) {
+      await restoreLibraryViewportRestore(viewportCapture, isRequestCurrent)
     } else {
       await scrollToPlaybackTrack(isRequestCurrent)
     }
@@ -1298,21 +1334,11 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    class="library-page relative flex h-full flex-col"
+    class="library-page relative flex h-full min-h-0 flex-col"
     :data-visual-style="libraryPresentation"
     :data-library-surface="librarySurfaceKind ?? undefined"
     :style="LIBRARY_LAYOUT_CSS_VARS"
   >
-    <LibraryArchiveHeader
-      v-if="isManuscriptLibrary"
-      :identity="pageIdentity"
-      :surface-kind="librarySurfaceKind"
-      :track-count="tracks.length"
-      :current-folio="folioInfo.currentFolio"
-      :total-folios="folioInfo.totalFolios"
-      :is-loading="isLoading"
-    />
-
     <LibraryStatusState v-if="isLoading" kind="loading" :presentation="libraryPresentation" />
 
     <LibraryStatusState
@@ -1334,7 +1360,7 @@ onBeforeUnmount(() => {
 
     <div
       v-else
-      class="library-list-shell relative flex flex-1 flex-col overflow-hidden"
+      class="library-list-shell relative flex min-h-0 flex-1 flex-col overflow-hidden"
       @mousemove="onLibraryListMouseMove($event)"
       @mouseleave="onLibraryListMouseLeave()"
       @keydown="onListShellKeyDown"
