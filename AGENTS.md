@@ -195,22 +195,34 @@ preference. Keep its only state and persistence source in
 or introduce page-local visual-style refs.
 
 - The manuscript style applies to the explicit Library family routes `library`, `playlist`, and
-  `smart-playlist`, plus the Settings route `settings`. They share the single
+  `smart-playlist`, plus the Settings route `settings`. The ordinary main-window shell and Sidebar
+  derive `data-shell-presentation` from the same preference via `resolveShellPresentation`; Miniplayer
+  stays `modern` and must not inherit the Phase 17 marker. They share the single
   `auralis-visual-style` preference; do not force those routes back to `modern`, and do not clear
   the saved preference on navigation.
 - Phase 12 covers the `/albums` catalog route. Phase 13 covers only the `album-detail` route.
-  Phase 14 covers only the `/archive` route. Phase 16 covers only the `settings` route. Resolve all
-  surfaces by their explicit Vue Router names; do not infer presentation from path prefixes.
+  Phase 14 covers only the `/archive` route. Phase 16 covers only the `settings` route. Phase 17
+  covers the ordinary `.app-window` / `AppSidebar` / `.sidebar-overlay` owner surfaces, not Vue
+  Router names. Resolve page surfaces by their explicit Vue Router names; do not infer presentation
+  from path prefixes.
 - Shared manuscript tokens live in
   `src/renderer/features/appearance/styles/manuscript.tokens.css`. Page composition remains
   feature-owned: library rules under `.library-page`, album catalog rules under `.albums-page`.
 - Keep manuscript rules in `src/renderer/features/library/styles/manuscript.css`, scoped under
-  `.library-page[data-visual-style='manuscript']`. Do not add unscoped `html`, `body`, `#app`, or
-  shell-level manuscript selectors.
-- Sidebar, Now Playing, Playbar, Miniplayer, desktop lyrics, and fullscreen playback remain outside
+  `.library-page[data-visual-style='manuscript']`. Do not add unscoped `html`, `body`, or `#app`
+  manuscript selectors.
+- Sidebar manuscript rules live in `src/renderer/app/styles/manuscript.sidebar.css` and
+  `manuscript.sidebar-overlays.css`, scoped under
+  `.app-sidebar[data-shell-presentation='manuscript']` and
+  `.sidebar-overlay[data-shell-presentation='manuscript']`. Shell canvas rules live in
+  `manuscript.shell.css` under `.app-window[data-shell-presentation='manuscript']`. Do not let those
+  selectors paint `.now-playing-*`, `.player-bar*`, `.fullscreen-*`, `.mini-player*`, or
+  `.desktop-lyrics-*`.
+- Now Playing, Playbar, Miniplayer, desktop lyrics, and fullscreen playback remain outside
   the current manuscript coverage. Teleport overlays must carry an owner-specific scope:
-  `.library-overlay` for the Library family (All Songs, regular playlists, smart playlists) and
-  `.albums-overlay` for the album catalog. Other Teleport overlays remain outside.
+  `.library-overlay` for the Library family (All Songs, regular playlists, smart playlists),
+  `.albums-overlay` for the album catalog, `.archive-overlay` for Archive, and `.sidebar-overlay`
+  for Sidebar / Facets. Other Teleport overlays remain outside.
 - Album detail manuscript rules live in
   `src/renderer/features/albums/styles/manuscript.detail.css` and must remain scoped under
   `.album-detail-page[data-visual-style='manuscript']`. Its artwork-derived canvas and pointer tilt
@@ -225,6 +237,9 @@ or introduce page-local visual-style refs.
   remain scoped under `.settings-page[data-visual-style='manuscript']`. The concentrated visual-style
   control is `VisualStylePreference.vue`; it must write only `useVisualStyle()`. Do not rebuild
   `MusicLibrarySettings.vue` on a style change.
+- Ordinary-window shell chrome palette and `FluidArtworkBackground` run only when
+  `resolveShellPresentation` is `modern`. Pass `{ enabled: isModernShell }` into `useArtworkPalette`;
+  do not remount `AppSidebar` or `RouterView` with a presentation key.
 - Preserve virtualization geometry unless the CSS and virtualizer estimates are updated
   together: flat rows are 44px, cover tracks are 40px, cover artwork is 250px, track-panel
   vertical padding totals 20px, and album-group vertical padding totals 56px.
@@ -287,7 +302,13 @@ change.
 For settings visual-style changes, verify `modern` and `manuscript` in appearance, playback,
 library, and about; confirm visual-style, language, and PlayerBar material stay independent;
 switch styles during an active scan or metadata refresh without remounting the library section;
-and keep Sidebar, Now Playing, PlayerBar, Miniplayer, and the native Windows title bar unchanged.
+and keep Now Playing, PlayerBar, Miniplayer, and the native Windows title bar unchanged.
+
+For shell / Sidebar visual-style changes, verify `modern` and `manuscript` on the ordinary main
+window, including brand, tools, primary nav, playlist tree, drag-and-drop, create / rename /
+delete / query dialogs, and Facets. Confirm manuscript stops the shell fluid background and chrome
+palette work, switching back to modern restores them once, Miniplayer does not inherit the shell
+marker, and PlayerBar / Now Playing / Fullscreen stay on the modern baseline.
 
 ## Commit & Pull Request Guidelines
 
