@@ -356,6 +356,8 @@ function toggleSpectrumExpanded(): void {
                     v-if="getArtworkUrl(track.artworkCacheKey)"
                     :src="getArtworkUrl(track.artworkCacheKey) ?? undefined"
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                     draggable="false"
                   />
                   <span v-else class="i-lucide-disc-3 dna-detail-art-fallback"></span>

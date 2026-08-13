@@ -802,66 +802,13 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   }
 }
 
-/* 无框窗口壳层：底色 / 内描边跟随专辑色板（见 techdoc-auralis-native-window-chrome） */
+/* 主窗口客户区：底色 / 内描边跟随专辑色板 */
 .app-window {
   background: var(--auralis-window-chrome-bg, var(--auralis-app-background));
   box-shadow: inset 0 0 0 1px var(--auralis-window-chrome-border, transparent);
   transition:
     background-color 280ms ease,
     box-shadow 280ms ease;
-}
-
-/* 主区顶部拖拽 strip：无框窗口移动（避开右上角控件区，左侧从侧栏右缘开始） */
-.app-shell-drag-strip {
-  position: absolute;
-  top: 0;
-  left: 260px;
-  right: 0;
-  height: 14px;
-  z-index: 5;
-  -webkit-app-region: drag;
-}
-
-/* 右上角窗口控制（Windows 顺序：最小化 / 最大化 / 关闭） */
-.window-chrome-controls {
-  position: fixed;
-  top: 0;
-  right: 0;
-  z-index: 60;
-  display: flex;
-  height: 36px;
-  align-items: stretch;
-  -webkit-app-region: no-drag;
-}
-
-.window-chrome-button {
-  display: inline-flex;
-  width: 44px;
-  align-items: center;
-  justify-content: center;
-  color: var(--auralis-text-muted);
-  transition:
-    color 160ms ease,
-    background 160ms ease;
-}
-
-.window-chrome-button > span {
-  width: 14px;
-  height: 14px;
-}
-
-.window-chrome-button:hover {
-  color: var(--auralis-text);
-  background: color-mix(
-    in srgb,
-    var(--auralis-window-chrome-accent, var(--auralis-sidebar-active-indicator)) 18%,
-    transparent
-  );
-}
-
-.window-chrome-button-close:hover {
-  color: #ffffff;
-  background: rgb(232 17 35 / 0.85);
 }
 
 /* Sidebar */
@@ -907,8 +854,6 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   padding: 20px 16px 14px;
   border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 6%, transparent);
   background: transparent;
-  /* 无框窗口：侧栏顶空白带可拖窗 */
-  -webkit-app-region: drag;
 }
 
 /* Left-aligned Brand on first row; 3-column equal tools on second row. */
@@ -929,8 +874,6 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
-  /* 品牌区需要 hover 交互（logo / 文字动效），不能被 header 的 drag 区吞掉事件 */
-  -webkit-app-region: no-drag;
 }
 
 .sidebar-brand-mark {
@@ -1003,8 +946,6 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   width: 100%;
-  /* 工具按钮必须可点击（header 为 drag 区） */
-  -webkit-app-region: no-drag;
 }
 
 .sidebar-tool-button {

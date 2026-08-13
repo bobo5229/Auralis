@@ -14,7 +14,9 @@
   .library-overlay[data-visual-style='manuscript'],
   .albums-page[data-visual-style='manuscript'],
   .albums-overlay[data-visual-style='manuscript'],
-  .album-detail-page[data-visual-style='manuscript']
+  .album-detail-page[data-visual-style='manuscript'],
+  .archive-page[data-visual-style='manuscript'],
+  .archive-overlay[data-visual-style='manuscript']
 ) {
   /* ---------- 1. Primitive ---------- */
   --manuscript-color-paper-100: #f3eedf;
