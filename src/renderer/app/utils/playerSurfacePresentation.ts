@@ -17,3 +17,25 @@ export function resolvePlayerSurfacePresentation(
 ): PlayerSurfacePresentation {
   return displayMode === 'normal' && visualStyle === 'manuscript' ? 'manuscript' : 'modern'
 }
+
+/**
+ * Whether the persistent player surface is the visible one that should drive
+ * visual effects (palette extraction, album tint). Fullscreen and mini own
+ * their own pipelines; the underlying PlayerBar must not restart colour work
+ * while hidden, even though the presentation resolver reports it as modern
+ * (TECHDOC §6.1 risk: opening fullscreen must not keep the hidden bar
+ * computing).
+ */
+export function resolvePlayerVisualEffectsActive(displayMode: PlayerDisplayMode): boolean {
+  return displayMode === 'normal'
+}
+
+/** Palette / tint gate for the ordinary-window surfaces: the manuscript
+ * presentation never extracts palette, and a hidden surface (fullscreen or
+ * mini) must not start the palette worker either. */
+export function resolvePlayerPaletteEnabled(input: {
+  presentation: PlayerSurfacePresentation
+  displayMode: PlayerDisplayMode
+}): boolean {
+  return input.presentation === 'modern' && resolvePlayerVisualEffectsActive(input.displayMode)
+}

@@ -690,7 +690,21 @@ assertIncludes(
   ':data-player-presentation="props.presentation"',
   'player bar owner marker',
 )
-assertIncludes(playerBar, 'enabled: isModernPlayer', 'player bar palette enabled gate')
+assertIncludes(
+  playerSurfacePresentation,
+  'resolvePlayerPaletteEnabled',
+  'player palette enabled resolver',
+)
+assertIncludes(
+  playerBar,
+  'enabled: paletteEnabled',
+  'player bar palette enabled gate',
+)
+assertIncludes(
+  playerBar,
+  'resolvePlayerPaletteEnabled',
+  'player bar palette gate combines presentation and active display mode',
+)
 assertIncludes(
   nowPlayingPanel,
   ':data-player-presentation="presentation"',
