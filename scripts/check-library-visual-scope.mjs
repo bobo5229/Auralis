@@ -402,7 +402,10 @@ assertIncludes(
 )
 assertIncludes(page, 'resolveLibraryPresentation(route.name, visualStyle.value)', 'page resolver')
 assertIncludes(page, 'resolveLibrarySurfaceKind(route.name)', 'library surface kind')
-assertIncludes(page, 'v-if="isLibrarySurface"', 'shared visual style switch')
+assertExcludes(page, /VisualStyleSwitch/, 'library page visual style switch')
+assertExcludes(albumsPage, /VisualStyleSwitch/, 'albums page visual style switch')
+assertExcludes(albumDetailPage, /VisualStyleSwitch/, 'album detail visual style switch')
+assertExcludes(archivePage, /VisualStyleSwitch/, 'archive page visual style switch')
 assertIncludes(page, ':identity="pageIdentity"', 'identity header binding')
 assertIncludes(page, ':presentation="libraryPresentation"', 'child presentation binding')
 assertIncludes(page, 'LIBRARY_PLAYLISTS_CHANGED_EVENT', 'regular playlist refresh event')
@@ -512,7 +515,6 @@ assertIncludes(
   ':data-visual-style="archivePresentation"',
   'archive page presentation marker',
 )
-assertIncludes(archivePage, '<VisualStyleSwitch />', 'archive visual style switch')
 assertIncludes(
   archivePage,
   'resolveArchivePresentation(route.name, visualStyle.value)',

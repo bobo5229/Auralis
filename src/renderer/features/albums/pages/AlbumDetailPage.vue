@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
-import VisualStyleSwitch from '@renderer/features/appearance/components/VisualStyleSwitch.vue'
 import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -879,7 +878,6 @@ onBeforeUnmount(() => {
     class="album-detail-container album-detail-page h-full w-full relative bg-transparent"
     :data-visual-style="albumPresentation"
   >
-    <VisualStyleSwitch />
     <section
       v-if="loadState === 'ready'"
       ref="detailRootRef"
