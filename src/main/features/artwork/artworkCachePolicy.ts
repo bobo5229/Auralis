@@ -41,7 +41,11 @@ export function isLegacyArtworkCacheKey(key: string | null): boolean {
 
 /** True when the file name is a legacy, v2 or migration temp cache file. */
 export function isCacheFileName(fileName: string): boolean {
-  return V2_KEY_PATTERN.test(fileName) || LEGACY_KEY_PATTERN.test(fileName) || TEMP_FILE_PATTERN.test(fileName)
+  return (
+    V2_KEY_PATTERN.test(fileName) ||
+    LEGACY_KEY_PATTERN.test(fileName) ||
+    TEMP_FILE_PATTERN.test(fileName)
+  )
 }
 
 /** Matches the temp name layout produced by writeArtworkToCache (§6.3). */
