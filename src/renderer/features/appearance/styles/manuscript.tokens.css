@@ -1,7 +1,8 @@
 /* ==========================================================================
  * 手稿皮肤共享 Token
- * 作用域：仅已明确覆盖的页面与其自有 Teleport 浮层。
- * 禁止 :root / html / body / #app / shell 选择器。
+ * 作用域：仅已明确覆盖的页面、自有 Teleport 浮层，以及 Phase 17 普通主窗口
+ * shell / Sidebar / sidebar-overlay owner。
+ * 禁止 :root / html / body / #app 选择器。
  *
  * 分层：
  *   1. Primitive — 原始色、RGB 分量、字体族
@@ -16,7 +17,11 @@
   .albums-overlay[data-visual-style='manuscript'],
   .album-detail-page[data-visual-style='manuscript'],
   .archive-page[data-visual-style='manuscript'],
-  .archive-overlay[data-visual-style='manuscript']
+  .archive-overlay[data-visual-style='manuscript'],
+  .settings-page[data-visual-style='manuscript'],
+  .app-window[data-shell-presentation='manuscript'],
+  .app-sidebar[data-shell-presentation='manuscript'],
+  .sidebar-overlay[data-shell-presentation='manuscript']
 ) {
   /* ---------- 1. Primitive ---------- */
   --manuscript-color-paper-100: #f3eedf;

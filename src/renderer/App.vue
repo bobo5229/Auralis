@@ -8,18 +8,27 @@ import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
 import MiniPlayer from './app/layout/MiniPlayer.vue'
 import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
+import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
+import { resolveShellPresentation } from './app/utils/shellPresentation'
 import type { CSSProperties } from 'vue'
+import '@renderer/features/appearance/styles/manuscript.tokens.css'
+import './app/styles/manuscript.shell.css'
 
 const route = useRoute()
 const playback = usePlayback()
+const { visualStyle } = useVisualStyle()
 useSystemMediaIntegration()
 const { displayMode, onMiniPlayerWindowStateChanged, syncMiniPlayerWindowState } =
   usePlayerDisplayMode()
+const shellPresentation = computed(() =>
+  resolveShellPresentation(displayMode.value, visualStyle.value),
+)
+const isModernShell = computed(() => shellPresentation.value === 'modern')
 let unsubscribeMiniPlayerWindowState: (() => void) | null = null
 
 /** 上一导航来源路由名；在 beforeEach 中更新，供 Transition 在目标路由已切换时仍能判断方向 */
@@ -51,10 +60,21 @@ const isAlbumDetail = computed(() => {
 
 /** 当前曲封面 key；无曲 / 无封面时为 null（色板回退主题） */
 const artworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
-const { palette: chromePalette } = useArtworkPalette(artworkCacheKey)
+const { palette: chromePalette } = useArtworkPalette(artworkCacheKey, {
+  enabled: isModernShell,
+})
+const shouldRenderShellArtwork = computed(() => isModernShell.value && !!artworkUrl.value)
 
-/** 壳层 chrome 变量：壳底 / accent / 内描边，跟当前曲专辑色板（见 techdoc-auralis-native-window-chrome） */
+/** 壳层 chrome 变量：modern 跟当前曲色板；manuscript 使用共享纸面 token */
 const windowChromeStyle = computed<CSSProperties>(() => {
+  if (shellPresentation.value === 'manuscript') {
+    return {
+      '--auralis-window-chrome-bg': 'var(--manuscript-surface-page)',
+      '--auralis-window-chrome-accent': 'var(--manuscript-accent-primary)',
+      '--auralis-window-chrome-border': 'var(--manuscript-border-strong)',
+    } as CSSProperties
+  }
+
   const hasTrack = !!playback.state.currentTrack
   const pal = chromePalette.value
   const accent = pal?.accents[0]?.rgb
@@ -84,22 +104,28 @@ const transitionName = computed(() => {
 <template>
   <MiniPlayer v-if="displayMode === 'mini'" />
 
-  <div v-else class="app-window" data-app-shell-root :style="windowChromeStyle">
+  <div
+    v-else
+    class="app-window"
+    data-app-shell-root
+    :data-shell-presentation="shellPresentation"
+    :style="windowChromeStyle"
+  >
     <div
       class="app-shell relative"
-      :class="{ 'is-album-detail': isAlbumDetail, 'has-artwork': !!artworkUrl }"
+      :class="{ 'is-album-detail': isAlbumDetail, 'has-artwork': shouldRenderShellArtwork }"
     >
-      <!-- 只有在且有封面时才渲染在 app-shell 顶层网格之下的背景 -->
+      <!-- 仅 modern 且有封面时挂载流体背景，避免手稿模式继续跑 canvas / RAF -->
       <FluidArtworkBackground
-        v-if="artworkUrl"
+        v-if="shouldRenderShellArtwork"
         :artwork-url="artworkUrl"
         :active="true"
         :playing="playback.state.isPlaying"
         class="app-shell-bg-fluid"
       />
-      <div v-if="artworkUrl" class="app-shell-bg-overlay" aria-hidden="true"></div>
+      <div v-if="shouldRenderShellArtwork" class="app-shell-bg-overlay" aria-hidden="true"></div>
 
-      <AppSidebar class="relative z-10" />
+      <AppSidebar class="relative z-10" :presentation="shellPresentation" />
 
       <main class="app-main relative z-10">
         <RouterView v-slot="{ Component, route: viewRoute }">
