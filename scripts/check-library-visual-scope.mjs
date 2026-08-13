@@ -695,11 +695,7 @@ assertIncludes(
   'resolvePlayerPaletteEnabled',
   'player palette enabled resolver',
 )
-assertIncludes(
-  playerBar,
-  'enabled: paletteEnabled',
-  'player bar palette enabled gate',
-)
+assertIncludes(playerBar, 'enabled: paletteEnabled', 'player bar palette enabled gate')
 assertIncludes(
   playerBar,
   'resolvePlayerPaletteEnabled',
