@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import type { LyricLine } from '../types'
 
@@ -11,6 +12,7 @@ const props = defineProps<{
   preludeLitDotCount: number
 }>()
 
+const { t } = useI18n()
 const { seekTo } = usePlayback()
 
 const scrollRef = ref<HTMLElement | null>(null)
@@ -325,7 +327,7 @@ onBeforeUnmount(() => {
             ? 'lyric-active lyric-line-active-filter'
             : 'lyric-inactive lyric-line-blur-filter'
         "
-        aria-label="Lyrics starting soon"
+        :aria-label="t('player.lyricsStartingSoon')"
         data-lyric-prelude
       >
         <span
@@ -351,7 +353,9 @@ onBeforeUnmount(() => {
         tabindex="0"
         :data-lyric-index="index"
         :aria-label="
-          line.text ? `跳转到：${line.text}` : `跳转到 ${Math.floor(line.timeSeconds)} 秒`
+          line.text
+            ? t('player.lyricsSeekToLine', { text: line.text })
+            : t('player.lyricsSeekToTime', { seconds: Math.floor(line.timeSeconds) })
         "
         @click.stop="onLyricLineActivate(index)"
         @keydown="onLyricLineKeydown($event, index)"

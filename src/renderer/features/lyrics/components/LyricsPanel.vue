@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { useTrackLyrics } from '../composables/useTrackLyrics'
 import SyncedLyricsView from './SyncedLyricsView.vue'
 import PlainLyricsView from './PlainLyricsView.vue'
 import LyricsEmptyState from './LyricsEmptyState.vue'
 
+const { t } = useI18n()
 const { status, rawLyrics, parsedLines, activeIndex, isPrelude, showPrelude, preludeLitDotCount } =
   useTrackLyrics()
 </script>
@@ -18,11 +20,11 @@ const { status, rawLyrics, parsedLines, activeIndex, isPrelude, showPrelude, pre
   >
     <div class="flex-1 overflow-hidden">
       <div v-if="status === 'no-track'" class="flex h-full items-center justify-center">
-        <p class="text-sm text-[var(--auralis-text-faint)]">No track selected</p>
+        <p class="text-sm text-[var(--auralis-text-faint)]">{{ t('player.lyricsNoTrack') }}</p>
       </div>
 
       <div v-else-if="status === 'loading'" class="flex h-full items-center justify-center">
-        <p class="text-sm text-[var(--auralis-text-faint)]">Loading lyrics...</p>
+        <p class="text-sm text-[var(--auralis-text-faint)]">{{ t('player.lyricsLoading') }}</p>
       </div>
 
       <LyricsEmptyState v-else-if="status === 'empty'" />
