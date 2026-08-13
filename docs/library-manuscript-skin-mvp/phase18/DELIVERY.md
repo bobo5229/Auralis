@@ -22,8 +22,9 @@
 | P2 修复 | `8256115` | `fix：空队列播放浮层焦点兜底到弹窗根节点`   |
 | P2 修复 | `6325c56` | `fix：模式菜单改为 roving tabindex 并回传选择后焦点` |
 | P2 修复 | `db25276` | `fix：歌词自动跟随遵守 reduced-motion 且不创建 WAAPI 动画` |
+| P2 修复 | `73c83f6` | `fix：全屏时隐藏 PlayerBar 不再启动 palette worker` |
 
-**源码范围**：`a1bd7fb..db25276`
+**源码范围**：`a1bd7fb..73c83f6`
 **含交付文档**：`a1bd7fb..804ef3f`
 
 ## 2. 已实现
@@ -76,6 +77,17 @@
 - `manuscript.player.css` 的 reduced-motion 块补上 `.now-playing-panel[...]` 及其后代，关闭歌词行 opacity/filter transition；
 - 新增低动效下不创建动画、行为解析与偏好变更跟踪测试。
 
+### Finding P2：打开 Fullscreen 会启动隐藏 PlayerBar 的 palette worker
+
+`resolvePlayerSurfacePresentation` 将 fullscreen 解析为 modern，而 PlayerBar 直接用 `presentation === 'modern'` 开启色板提取：从 manuscript 进入全屏时，底层不可见 PlayerBar 会重新加载封面并启动 palette worker，与 TECHDOC「打开全屏时底层 PlayerBar 不继续计算」的风险描述冲突。
+
+**解决**（`73c83f6`）：
+
+- 将「视觉 presentation」与「表面当前是否活跃」拆分：新增 `resolvePlayerVisualEffectsActive(displayMode)`（仅 `normal` 活跃）与 `resolvePlayerPaletteEnabled({ presentation, displayMode })`（`modern && normal`）；
+- PlayerBar 改用 `paletteEnabled` 作为 palette 与 album tint 门，tint 层 `v-if` 同步切换；`isModernPlayer` 仅保留给 presentation 语义（album accent 与 owner marker）；
+- Fullscreen 继续使用自己的 owner 与视觉管线；
+- 新增 manuscript → fullscreen → normal 往返测试（隐藏 PlayerBar 不启动 palette）、活跃门与 palette 门测试；静态守卫同步更新 palette gate 断言。
+
 （工程阶段其余未产生审查 Findings；Electron 人工矩阵完成后按需补充。）
 
 ## 4. 自动验证
@@ -86,7 +98,7 @@
 | `npm.cmd run typecheck` | 通过                                                                     |
 | `npm.cmd run lint`      | 通过                                                                     |
 | `npm.cmd run build`     | 通过                                                                     |
-| `git diff --check`      | 通过；范围 `a1bd7fb..db25276`                                            |
+| `git diff --check`      | 通过；范围 `a1bd7fb..73c83f6`                                            |
 
 新增 locale key（`player.lyricsNoTrack` / `lyricsSeekToLine` / `lyricsSeekToTime` / `lyricsStartingSoon`，`lyricsLoading` 复用）；`zh-Hant.json` 由 `locales:zh-hant` 生成，三语 key parity 校验通过。
 
