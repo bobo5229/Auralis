@@ -312,6 +312,16 @@
       "header": {
         "title": "全部歌曲",
         "subtitle": "私人音樂收藏總賬",
+        "libraryMembership": "曲庫主目錄",
+        "playlistSubtitle": "私人選輯",
+        "playlistKind": "手動編排",
+        "playlistMembership": "使用者維護的成員集合",
+        "smartPlaylistSubtitle": "動態索引",
+        "smartPlaylistKind": "規則生成",
+        "smartPlaylistMembership": "自動更新的唯讀成員集合",
+        "untitled": "未命名歌單",
+        "loadingTitle": "檔案裝訂中…",
+        "loadingSubtitle": "正在核對編目身分",
         "trackCount": "曲目 {count}",
         "folio": "FOLIO {current} / {total}"
       },

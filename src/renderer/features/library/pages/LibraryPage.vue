@@ -58,12 +58,10 @@ const router = useRouter()
 
 const { visualStyle } = useVisualStyle()
 const isLibraryRoute = computed(() => route.name === 'library')
-const isManuscriptLibrary = computed(
-  () => route.name === 'library' && visualStyle.value === 'manuscript',
-)
 const libraryPresentation = computed<LibraryPresentation>(() =>
   resolveLibraryPresentation(route.name, visualStyle.value),
 )
+const isManuscriptLibrary = computed(() => libraryPresentation.value === 'manuscript')
 
 const pageIdentity = ref<LibraryPageIdentity | null>(null)
 const tracks = shallowRef<TrackListItem[]>([])
@@ -1234,6 +1232,7 @@ onBeforeUnmount(() => {
 
     <LibraryArchiveHeader
       v-if="isManuscriptLibrary"
+      :identity="pageIdentity"
       :track-count="tracks.length"
       :current-folio="folioInfo.currentFolio"
       :total-folios="folioInfo.totalFolios"

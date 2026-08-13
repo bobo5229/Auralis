@@ -536,3 +536,20 @@
 .library-status-state[data-visual-style='manuscript'] .status-action-btn:hover {
   background: var(--manuscript-state-hover);
 }
+
+/* --------------------------------------------------------------------------
+ * Archive header identity — playlist anthology vs smart-rule index
+ * -------------------------------------------------------------------------- */
+.library-page[data-visual-style='manuscript'] .library-archive-header__kind {
+  letter-spacing: 0.08em;
+}
+
+.library-page[data-visual-style='manuscript'][data-library-surface='playlist']
+  .library-archive-header__kind {
+  color: var(--manuscript-content-secondary);
+}
+
+.library-page[data-visual-style='manuscript'][data-library-surface='smart-playlist']
+  .library-archive-header__kind {
+  color: var(--manuscript-accent-primary);
+}
