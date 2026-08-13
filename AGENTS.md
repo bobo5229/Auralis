@@ -208,8 +208,10 @@ or introduce page-local visual-style refs.
   Phase 14 covers only the `/archive` route. Phase 16 covers only the `settings` route. Phase 17
   covers the ordinary `.app-window` / `AppSidebar` / `.sidebar-overlay` owner surfaces, not Vue
   Router names. Phase 18 covers the ordinary-window Now Playing / PlayerBar player surfaces via
-  `resolvePlayerSurfacePresentation`. Resolve page surfaces by their explicit Vue Router names; do
-  not infer presentation from path prefixes.
+  `resolvePlayerSurfacePresentation`. Phase 22 makes the manuscript Library page root the unframed
+  main-column paper: `.library-page[data-visual-style='manuscript']` must stay without outer margin,
+  border, radius, page shadow, or paper highlight — do not restore a fourth desk card there. Resolve
+  page surfaces by their explicit Vue Router names; do not infer presentation from path prefixes.
 - Shared manuscript tokens live in
   `src/renderer/features/appearance/styles/manuscript.tokens.css`. Page composition remains
   feature-owned: library rules under `.library-page`, album catalog rules under `.albums-page`.
