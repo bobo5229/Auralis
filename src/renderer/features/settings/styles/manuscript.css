@@ -1,0 +1,312 @@
+/* Settings manuscript — owner scope only */
+
+.settings-page[data-visual-style='manuscript'] {
+  font-family: var(--manuscript-font-body);
+  color: var(--manuscript-content-primary);
+  background: var(--manuscript-effect-paper-background);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  border-radius: var(--manuscript-radius-page);
+  box-shadow: var(--manuscript-effect-page-shadow);
+  margin: 12px auto;
+  width: min(1096px, calc(100% - 24px));
+  animation: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-eyebrow {
+  color: var(--manuscript-accent-primary);
+  font-family: var(--manuscript-font-ui);
+  letter-spacing: 0.16em;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-header h1 {
+  background: none;
+  -webkit-background-clip: unset;
+  -webkit-text-fill-color: unset;
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-body);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-header > p:last-child,
+.settings-page[data-visual-style='manuscript'] .settings-section-heading p,
+.settings-page[data-visual-style='manuscript'] .settings-note,
+.settings-page[data-visual-style='manuscript'] .theme-status-copy small,
+.settings-page[data-visual-style='manuscript'] .about-mark div span {
+  color: var(--manuscript-content-secondary);
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-nav button {
+  border: var(--manuscript-hairline-width) solid transparent;
+  border-radius: var(--manuscript-radius-control);
+  background: transparent;
+  color: var(--manuscript-content-secondary);
+  overflow: visible;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-nav button:hover {
+  transform: none;
+  background: var(--manuscript-state-hover);
+  border-color: var(--manuscript-border-subtle);
+  color: var(--manuscript-content-primary);
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-nav button:hover .settings-nav-icon {
+  transform: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-nav button.is-active {
+  background: var(--manuscript-surface-control) !important;
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong) !important;
+  color: var(--manuscript-content-primary) !important;
+  box-shadow: none;
+  font-weight: 700;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-nav button.is-active::before {
+  width: 2px;
+  border-radius: 0;
+  background: var(--manuscript-accent-primary);
+  box-shadow: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-nav button.is-active::after {
+  content: none;
+  animation: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-nav button:focus-visible {
+  outline: var(--manuscript-focus-ring-width) solid var(--manuscript-state-focus-ring);
+  outline-offset: 2px;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-section {
+  animation: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-section-icon,
+.settings-page[data-visual-style='manuscript'] .folder-mark,
+.settings-page[data-visual-style='manuscript'] .about-logo {
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  border-radius: var(--manuscript-radius-control);
+  background: var(--manuscript-surface-stamp);
+  color: var(--manuscript-content-stamp);
+  box-shadow: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-section-heading h2,
+.settings-page[data-visual-style='manuscript'] .about-mark strong,
+.settings-page[data-visual-style='manuscript'] .theme-status-copy strong,
+.settings-page[data-visual-style='manuscript'] .folder-copy strong {
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-body);
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-list,
+.settings-page[data-visual-style='manuscript'] .theme-status,
+.settings-page[data-visual-style='manuscript'] .about-mark,
+.settings-page[data-visual-style='manuscript'] .library-card,
+.settings-page[data-visual-style='manuscript'] .maintenance-section {
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-subtle);
+  border-radius: var(--manuscript-radius-control);
+  background: var(--manuscript-surface-page);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-row,
+.settings-page[data-visual-style='manuscript'] .library-card-header,
+.settings-page[data-visual-style='manuscript'] .library-status-strip,
+.settings-page[data-visual-style='manuscript'] .maintenance-heading {
+  border-color: var(--manuscript-border-row);
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-row strong,
+.settings-page[data-visual-style='manuscript'] .settings-value,
+.settings-page[data-visual-style='manuscript'] .folder-copy span,
+.settings-page[data-visual-style='manuscript'] .status-copy {
+  color: var(--manuscript-content-primary);
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-row span,
+.settings-page[data-visual-style='manuscript'] .database-path,
+.settings-page[data-visual-style='manuscript'] .scan-metrics,
+.settings-page[data-visual-style='manuscript'] .refresh-progress {
+  color: var(--manuscript-content-secondary);
+}
+
+.settings-page[data-visual-style='manuscript'] .database-path {
+  font-family: var(--manuscript-font-numeric);
+  direction: ltr;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-segmented-control,
+.settings-page[data-visual-style='manuscript'] .visual-style-option {
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-subtle);
+  border-radius: var(--manuscript-radius-control);
+  background: var(--manuscript-surface-control);
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-segmented-option,
+.settings-page[data-visual-style='manuscript'] .visual-style-option {
+  color: var(--manuscript-content-secondary);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-segmented-option.is-selected,
+.settings-page[data-visual-style='manuscript'] .visual-style-option.is-selected {
+  background: var(--manuscript-state-selected);
+  border-color: var(--manuscript-border-strong);
+  color: var(--manuscript-content-primary);
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-segmented-option:focus-visible,
+.settings-page[data-visual-style='manuscript'] .visual-style-option:focus-visible,
+.settings-page[data-visual-style='manuscript'] .settings-switch:focus-visible,
+.settings-page[data-visual-style='manuscript'] .settings-secondary-button:focus-visible,
+.settings-page[data-visual-style='manuscript'] .primary-button:focus-visible,
+.settings-page[data-visual-style='manuscript'] .secondary-button:focus-visible,
+.settings-page[data-visual-style='manuscript'] .failure-toggle:focus-visible {
+  outline: var(--manuscript-focus-ring-width) solid var(--manuscript-state-focus-ring);
+  outline-offset: 2px;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-switch {
+  background: var(--manuscript-surface-control);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  box-shadow: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-switch.is-enabled {
+  background: var(--manuscript-accent-primary);
+  border-color: var(--manuscript-accent-primary);
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-switch-thumb {
+  background: var(--manuscript-surface-page);
+  box-shadow: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-secondary-button,
+.settings-page[data-visual-style='manuscript'] .secondary-button,
+.settings-page[data-visual-style='manuscript'] .primary-button,
+.settings-page[data-visual-style='manuscript'] .failure-toggle {
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  border-radius: var(--manuscript-radius-control);
+  background: var(--manuscript-surface-control);
+  color: var(--manuscript-content-primary);
+  box-shadow: none;
+  font-family: var(--manuscript-font-ui);
+}
+
+.settings-page[data-visual-style='manuscript'] .primary-button {
+  background: var(--manuscript-accent-primary);
+  color: var(--manuscript-content-on-accent);
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-secondary-button:hover:not(:disabled),
+.settings-page[data-visual-style='manuscript'] .secondary-button:hover:not(:disabled),
+.settings-page[data-visual-style='manuscript'] .primary-button:hover:not(:disabled) {
+  transform: none;
+  background: var(--manuscript-state-hover);
+}
+
+.settings-page[data-visual-style='manuscript'] .primary-button:hover:not(:disabled) {
+  background: var(--manuscript-accent-secondary);
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-secondary-button:disabled,
+.settings-page[data-visual-style='manuscript'] .secondary-button:disabled,
+.settings-page[data-visual-style='manuscript'] .primary-button:disabled {
+  opacity: 1;
+  color: var(--manuscript-content-disabled);
+  border-color: var(--manuscript-border-subtle);
+  background: var(--manuscript-surface-control);
+}
+
+.settings-page[data-visual-style='manuscript'] .about-mark:hover .about-logo {
+  transform: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .status-dot {
+  box-shadow: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .progress-track {
+  background: var(--manuscript-border-row);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.settings-page[data-visual-style='manuscript'] .progress-track > span {
+  background: var(--manuscript-accent-primary);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .progress-track > span::after {
+  content: none;
+  animation: none;
+}
+
+.settings-page[data-visual-style='manuscript'] .scan-spinner {
+  color: var(--manuscript-accent-primary);
+}
+
+.settings-page[data-visual-style='manuscript'] .scan-task-heading button {
+  color: var(--manuscript-accent-primary);
+  font-family: var(--manuscript-font-ui);
+}
+
+.settings-page[data-visual-style='manuscript'] .inline-error,
+.settings-page[data-visual-style='manuscript'] .library-operation-error,
+.settings-page[data-visual-style='manuscript'] .failure-item strong {
+  color: var(--manuscript-content-danger);
+}
+
+.settings-page[data-visual-style='manuscript'] .failure-item,
+.settings-page[data-visual-style='manuscript'] .failure-path {
+  color: var(--manuscript-content-secondary);
+  font-family: var(--manuscript-font-numeric);
+}
+
+.settings-page[data-visual-style='manuscript'] .settings-note span {
+  color: var(--manuscript-accent-primary);
+}
+
+.settings-page[data-visual-style='manuscript'] .visual-style-preference__copy strong,
+.settings-page[data-visual-style='manuscript'] .visual-style-option__text strong {
+  color: var(--manuscript-content-primary);
+}
+
+.settings-page[data-visual-style='manuscript'] .visual-style-preference__copy span,
+.settings-page[data-visual-style='manuscript'] .visual-style-preference__coverage,
+.settings-page[data-visual-style='manuscript'] .visual-style-option__text small {
+  color: var(--manuscript-content-ledger-label);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-page[data-visual-style='manuscript'],
+  .settings-page[data-visual-style='manuscript'] .settings-nav button,
+  .settings-page[data-visual-style='manuscript'] .settings-section,
+  .settings-page[data-visual-style='manuscript'] .settings-switch,
+  .settings-page[data-visual-style='manuscript'] .settings-switch-thumb,
+  .settings-page[data-visual-style='manuscript'] .settings-segmented-option,
+  .settings-page[data-visual-style='manuscript'] .visual-style-option,
+  .settings-page[data-visual-style='manuscript'] .scan-spinner,
+  .settings-page[data-visual-style='manuscript'] .progress-track > span {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

@@ -254,6 +254,10 @@ const [
   sharedTokens,
   albumDetailPage,
   albumDetailManuscriptCss,
+  settingsPage,
+  settingsPresentation,
+  settingsManuscriptCss,
+  visualStylePreference,
   localeEn,
   localeZhHans,
   localeZhHant,
@@ -275,6 +279,10 @@ const [
   readProjectFile('src/renderer/features/appearance/styles/manuscript.tokens.css'),
   readProjectFile('src/renderer/features/albums/pages/AlbumDetailPage.vue'),
   readProjectFile('src/renderer/features/albums/styles/manuscript.detail.css'),
+  readProjectFile('src/renderer/features/settings/pages/SettingsPage.vue'),
+  readProjectFile('src/renderer/features/settings/utils/settingsPresentation.ts'),
+  readProjectFile('src/renderer/features/settings/styles/manuscript.css'),
+  readProjectFile('src/renderer/features/appearance/components/VisualStylePreference.vue'),
   readProjectFile('src/renderer/locales/en.json'),
   readProjectFile('src/renderer/locales/zh-Hans.json'),
   readProjectFile('src/renderer/locales/zh-Hant.json'),
@@ -399,12 +407,34 @@ assertMatches(
 
 assertDetailCssScope(albumDetailManuscriptCss)
 
+assertIncludes(
+  settingsPage,
+  'resolveSettingsPresentation(route.name, visualStyle.value)',
+  'settings presentation resolver',
+)
+assertIncludes(
+  settingsPage,
+  ':data-visual-style="settingsPresentation"',
+  'settings page style marker',
+)
+assertIncludes(settingsPresentation, "routeName === 'settings'", 'settings route contract')
+assertIncludes(settingsPage, 'VisualStylePreference', 'settings visual style entry')
+assertIncludes(visualStylePreference, 'useVisualStyle()', 'shared visual style state')
+assertExcludes(visualStylePreference, /auralis-visual-style/, 'second visual style storage key')
+assertManuscriptCssScope(
+  settingsManuscriptCss,
+  'settings manuscript CSS',
+  /\.settings-page\s*\[\s*data-visual-style\s*=\s*(['"])manuscript\1\s*\]|\.settings-overlay\s*\[\s*data-visual-style\s*=\s*(['"])manuscript\1\s*\]/,
+)
+assertIncludes(localeEn, '"modernLabel"', 'settings visual style locale keys')
+
 for (const [label, source] of [
   ['manuscript.css', manuscriptCss],
   ['manuscript.overlays.css', overlayCss],
   ['albums manuscript.css', albumsManuscriptCss],
   ['albums manuscript.overlays.css', albumsOverlayCss],
   ['album detail manuscript.css', albumDetailManuscriptCss],
+  ['settings manuscript.css', settingsManuscriptCss],
   ['shared manuscript tokens.css', sharedTokens],
   ['main.css', mainCss],
   ['uno.config.ts', unoConfig],
@@ -418,6 +448,7 @@ for (const [label, source] of [
   ['albums manuscript.css', albumsManuscriptCss],
   ['albums manuscript.overlays.css', albumsOverlayCss],
   ['album detail manuscript.css', albumDetailManuscriptCss],
+  ['settings manuscript.css', settingsManuscriptCss],
   ['shared manuscript tokens.css', sharedTokens],
 ]) {
   assertExcludedSurfacesUntouched(label, source)
@@ -437,4 +468,6 @@ for (const cssVariable of [
   )
 }
 
-console.log('Library, album catalog, and album detail visual scope checks passed.')
+console.log(
+  'Library, album catalog, album detail, and settings visual scope checks passed.',
+)

@@ -65,7 +65,17 @@
     },
     "appearance": {
       "headingTitle": "Appearance",
-      "headingDescription": "Currently fixed to the dark theme for artwork glow and nighttime listening.",
+      "headingDescription": "Page visual style, interface language, and player bar material are independent settings.",
+      "visualStyle": {
+        "label": "Page visual style",
+        "description": "Choose how covered catalog pages look. This is not the app theme and does not restyle the player or sidebar yet.",
+        "modernLabel": "Modern",
+        "modernDescription": "Dark, compact surfaces with soft corners and material depth.",
+        "manuscriptLabel": "Manuscript",
+        "manuscriptDescription": "Paper pages, ink type, hairline rules, and a restrained archival accent.",
+        "coverage": "Manuscript currently covers All Songs, playlists, albums, album detail, archive, and Settings. Sidebar, Now Playing, and PlayerBar stay on their existing surfaces.",
+        "ariaCurrent": "Current page visual style: {style}"
+      },
       "themeAria": "Display theme",
       "themeValue": "Dark",
       "themeDescription": "Light theme is temporarily offline; the theme API remains for future multi-theme support.",

@@ -65,7 +65,17 @@
     },
     "appearance": {
       "headingTitle": "外观",
-      "headingDescription": "当前固定为深色主题，便于封面流光与夜间聆听。",
+      "headingDescription": "页面视觉风格、界面语言和播放栏材质是彼此独立的设置。",
+      "visualStyle": {
+        "label": "页面视觉风格",
+        "description": "选择已覆盖目录页的呈现方式。这不是应用主题，也不会立刻改写播放器或侧栏。",
+        "modernLabel": "流光",
+        "modernDescription": "深色紧凑表面，柔和圆角与材质层次。",
+        "manuscriptLabel": "手稿",
+        "manuscriptDescription": "纸页、墨色文字、细线分隔和克制的档案强调色。",
+        "coverage": "手稿目前覆盖全部歌曲、歌单、专辑目录、专辑详情、归档和设置。侧栏、正在播放和播放栏仍使用既有表面。",
+        "ariaCurrent": "当前页面视觉风格：{style}"
+      },
       "themeAria": "显示主题",
       "themeValue": "深色",
       "themeDescription": "浅色主题已暂时下线；主题 API 仍保留，便于日后恢复多主题。",

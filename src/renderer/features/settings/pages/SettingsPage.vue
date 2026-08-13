@@ -1,16 +1,28 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { AppInfo } from '@shared/types/app'
 import { auralis } from '@renderer/shared/ipc/client'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
+import VisualStylePreference from '@renderer/features/appearance/components/VisualStylePreference.vue'
 import { type PlayerBarMaterial, usePlayerBarMaterial } from '../composables/usePlayerBarMaterial'
 import { type AppLocale, useLocale } from '@renderer/composables/useLocale'
 import MusicLibrarySettings from '../components/MusicLibrarySettings.vue'
+import { resolveSettingsPresentation } from '../utils/settingsPresentation'
+import type { SettingsPresentation } from '../types/settingsPresentation'
+import '@renderer/features/appearance/styles/manuscript.tokens.css'
+import '../styles/manuscript.css'
 
 type SettingsSection = 'appearance' | 'playback' | 'library' | 'about'
 
 const { t } = useI18n()
+const route = useRoute()
+const { visualStyle } = useVisualStyle()
+const settingsPresentation = computed<SettingsPresentation>(() =>
+  resolveSettingsPresentation(route.name, visualStyle.value),
+)
 const { locale, setLocale, localeOptions } = useLocale()
 
 const sections = computed<
@@ -189,7 +201,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="settings-page">
+  <section class="settings-page" :data-visual-style="settingsPresentation">
     <header class="settings-header">
       <p class="settings-eyebrow">{{ t('settings.eyebrow') }}</p>
       <h1>{{ t('settings.title') }}</h1>
@@ -224,23 +236,11 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div class="theme-status" :aria-label="t('settings.appearance.themeAria')">
-            <span class="theme-preview theme-preview--dark" aria-hidden="true">
-              <span class="theme-preview-sidebar"></span>
-              <span class="theme-preview-main">
-                <i></i>
-                <i></i>
-                <i></i>
-              </span>
-              <span class="theme-preview-player"></span>
-            </span>
-            <div class="theme-status-copy">
-              <strong>{{ t('settings.appearance.themeValue') }}</strong>
-              <small>{{ t('settings.appearance.themeDescription') }}</small>
-            </div>
-          </div>
-
           <div class="settings-list settings-list--appearance">
+            <div class="settings-row settings-row--visual-style">
+              <VisualStylePreference />
+            </div>
+
             <div class="settings-row">
               <div>
                 <strong id="locale-label">{{ t('settings.appearance.language') }}</strong>
@@ -314,6 +314,22 @@ onMounted(async () => {
                   {{ t('settings.appearance.playerBarMaterialOption.liquidGlass') }}
                 </button>
               </div>
+            </div>
+          </div>
+
+          <div class="theme-status" :aria-label="t('settings.appearance.themeAria')">
+            <span class="theme-preview theme-preview--dark" aria-hidden="true">
+              <span class="theme-preview-sidebar"></span>
+              <span class="theme-preview-main">
+                <i></i>
+                <i></i>
+                <i></i>
+              </span>
+              <span class="theme-preview-player"></span>
+            </span>
+            <div class="theme-status-copy">
+              <strong>{{ t('settings.appearance.themeValue') }}</strong>
+              <small>{{ t('settings.appearance.themeDescription') }}</small>
             </div>
           </div>
 
@@ -820,6 +836,11 @@ onMounted(async () => {
   font-weight: 600;
 }
 
+.settings-row--visual-style {
+  display: block;
+  padding: 16px;
+}
+
 .settings-list {
   overflow: hidden;
   border: 1px solid var(--auralis-border-subtle);
@@ -1092,10 +1113,31 @@ onMounted(async () => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .settings-page,
+  .settings-section {
+    animation: none;
+  }
+
+  .settings-nav button,
+  .settings-nav button:hover,
+  .settings-nav-icon,
+  .settings-nav-chevron,
   .settings-switch,
   .settings-switch-thumb,
-  .settings-segmented-option {
+  .settings-segmented-option,
+  .settings-secondary-button,
+  .about-logo {
     transition: none;
+    transform: none;
+  }
+
+  .settings-nav button.is-active::after {
+    animation: none;
+    content: none;
+  }
+
+  .about-mark:hover .about-logo {
+    transform: none;
   }
 }
 </style>
