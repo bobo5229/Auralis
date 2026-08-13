@@ -201,7 +201,9 @@
 /* ---------- Motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   .player-bar[data-player-presentation='manuscript'],
-  .player-bar[data-player-presentation='manuscript'] * {
+  .player-bar[data-player-presentation='manuscript'] *,
+  .now-playing-panel[data-player-presentation='manuscript'],
+  .now-playing-panel[data-player-presentation='manuscript'] * {
     transition: none !important;
     animation: none !important;
   }
