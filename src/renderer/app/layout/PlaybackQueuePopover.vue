@@ -7,6 +7,7 @@ import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import {
   getPlayerOverlayFocusables,
   resolvePlayerOverlayKeyAction,
+  resolveQueueInitialFocusTarget,
 } from '@renderer/app/utils/playerOverlayFocus'
 import type { PlayerSurfacePresentation } from '@renderer/app/utils/playerSurfacePresentation'
 import type { PlaybackTrack } from '@renderer/features/playback/types'
@@ -74,6 +75,12 @@ function handleKeydown(event: KeyboardEvent): void {
     return
   }
 
+  if (action.type === 'keep-root') {
+    event.preventDefault()
+    root.focus()
+    return
+  }
+
   if (action.type === 'cycle-focus') {
     event.preventDefault()
     focusables[action.nextIndex]?.focus()
@@ -82,14 +89,13 @@ function handleKeydown(event: KeyboardEvent): void {
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown)
-  // Initial focus enters a reasonable first item so Tab never lands behind the
-  // dialog (TECHDOC §8.1).
+  // Initial focus enters the active track's play button, else the first
+  // focusable item, else the dialog root itself so Tab never lands behind
+  // the dialog (TECHDOC §8.1; empty / single-track queue fallback).
   const root = element.value
   if (root) {
     const focusables = getPlayerOverlayFocusables(root)
-    const preferred = root.querySelector<HTMLElement>('.queue-item-active')
-    const target = preferred?.querySelector<HTMLElement>('button') ?? focusables[0]
-    target?.focus()
+    resolveQueueInitialFocusTarget({ root, focusables }).focus()
   }
 })
 
