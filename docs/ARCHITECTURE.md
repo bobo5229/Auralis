@@ -139,11 +139,11 @@ service 和 watcher，并把它们绑定到 typed IPC。业务规则不应继续
 - 跨 feature 的 UI 工具：`src/renderer/shared/`
 - UI 语言（简/繁/英）：`src/renderer/i18n/`（vue-i18n 实例）+ `src/renderer/locales/`（`zh-Hans` 唯一手写源、`en` 人工、`zh-Hant` 由 `scripts/generate-zh-hant.mjs` s2tw 生成）+ `src/renderer/composables/useLocale.ts`（localStorage 持久化与热切换，键 `auralis-locale`）
 
-主窗口为 Auralis 自绘无框透明壳（`frame: false` + `transparent: true`），客户区直达窗口
-物理边缘；右上角为自绘 Windows 细图标窗口控件（`WindowChromeControls.vue`，最小化 /
-最大化 / 关闭），壳底与内描边跟随当前曲专辑色板（`--auralis-window-chrome-*`），无曲时
-回退主题 token。拖拽区仅主壳侧栏顶与主区顶 strip；Miniplayer 与桌面歌词窗口仍为无框透明，
-保留各自 drag / no-drag 区域。
+主窗口使用操作系统原生窗口框架（`frame: true` + `transparent: false`），Windows 原生提供
+标题栏及最小化、最大化 / 还原、关闭按钮，Renderer 不再绘制主窗口控制按钮或主壳拖拽区。
+客户区壳底与内描边仍可跟随当前曲专辑色板（`--auralis-window-chrome-*`），无曲时回退主题
+token。Miniplayer 当前复用同一主 `BrowserWindow`，因此也继承原生窗口框架；桌面歌词仍是
+独立无框透明窗口，保留自身 drag / no-drag 区域。
 
 播放视觉链路以 `src/renderer/features/playback/composables/usePlayback.ts` 为唯一状态源：
 当前曲目封面 key 经 `getArtworkUrl` 转成 `auralis-artwork://` URL；`src/renderer/App.vue`
