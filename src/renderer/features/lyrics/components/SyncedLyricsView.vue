@@ -2,6 +2,12 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { useReducedMotion } from '../composables/useReducedMotion'
+import {
+  resolveLyricsFollowBehavior,
+  shouldAnimateLyricsFollow,
+  type LyricsFollowBehavior,
+} from '../utils/lyricsMotion'
 import type { LyricLine } from '../types'
 
 const props = defineProps<{
@@ -14,6 +20,7 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const { seekTo } = usePlayback()
+const reducedMotion = useReducedMotion()
 
 const scrollRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLElement | null>(null)
@@ -119,7 +126,9 @@ function computeTarget(): number | null {
   return clampScroll(target, scrollMax)
 }
 
-function updateTarget(behavior: ScrollBehavior = 'smooth'): void {
+function updateTarget(
+  behavior: LyricsFollowBehavior = resolveLyricsFollowBehavior(reducedMotion.matches.value),
+): void {
   if (isUserScrolling.value) return
   const container = scrollRef.value
   const track = trackRef.value
@@ -136,7 +145,7 @@ function updateTarget(behavior: ScrollBehavior = 'smooth'): void {
 
   const currentOffset = cancelTrackAnimation(true)
   const distance = Math.abs(targetOffset - currentOffset)
-  if (distance < 0.5) {
+  if (!shouldAnimateLyricsFollow({ behavior, distance })) {
     setTrackOffset(targetOffset)
     return
   }
@@ -224,7 +233,7 @@ function onLyricLineActivate(index: number): void {
 
   void nextTick(() => {
     rebuildMetrics()
-    updateTarget('smooth')
+    updateTarget()
   })
 }
 
@@ -285,6 +294,14 @@ watch(
   { flush: 'post' },
 )
 
+// A preference flip to reduce mid-movement must cancel the in-flight WAAPI
+// animation and land the track on the target instantly (P2).
+watch(reducedMotion.matches, (nowReduced) => {
+  if (nowReduced) {
+    updateTarget('auto')
+  }
+})
+
 onMounted(() => {
   syncContainer()
   nextTick(() => {
@@ -301,6 +318,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  reducedMotion.dispose()
   if (scrollTimeout) clearTimeout(scrollTimeout)
   cancelTrackAnimation(false)
   resizeObserver?.disconnect()
