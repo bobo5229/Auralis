@@ -1027,4 +1027,18 @@ onBeforeUnmount(() => {
     transform: translateY(8px);
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .library-settings,
+  .scan-spinner,
+  .progress-track span,
+  .progress-track span::after {
+    animation: none;
+    transition: none;
+  }
+
+  .folder-mark {
+    transform: none;
+  }
+}
 </style>
