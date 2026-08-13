@@ -312,7 +312,6 @@ const [
   manuscriptCss,
   overlayCss,
   libraryPresentation,
-  libraryHeader,
   libraryContextMenu,
   metadataDialog,
   albumsPage,
@@ -359,7 +358,6 @@ const [
   readProjectFile('src/renderer/features/library/styles/manuscript.css'),
   readProjectFile('src/renderer/features/library/styles/manuscript.overlays.css'),
   readProjectFile('src/renderer/features/library/utils/libraryPresentation.ts'),
-  readProjectFile('src/renderer/features/library/components/LibraryArchiveHeader.vue'),
   readProjectFile('src/renderer/features/library/components/LibraryContextMenu.vue'),
   readProjectFile('src/renderer/features/library/components/MetadataEditDialog.vue'),
   readProjectFile('src/renderer/features/albums/pages/AlbumsPage.vue'),
@@ -419,7 +417,8 @@ assertExcludes(page, /VisualStyleSwitch/, 'library page visual style switch')
 assertExcludes(albumsPage, /VisualStyleSwitch/, 'albums page visual style switch')
 assertExcludes(albumDetailPage, /VisualStyleSwitch/, 'album detail visual style switch')
 assertExcludes(archivePage, /VisualStyleSwitch/, 'archive page visual style switch')
-assertIncludes(page, ':identity="pageIdentity"', 'identity header binding')
+assertExcludes(page, /LibraryArchiveHeader/, 'library archive letterhead')
+assertIncludes(page, 'pageIdentity.value = snapshot.identity', 'library snapshot identity')
 assertIncludes(page, ':presentation="libraryPresentation"', 'child presentation binding')
 assertIncludes(page, 'LIBRARY_PLAYLISTS_CHANGED_EVENT', 'regular playlist refresh event')
 assertIncludes(page, 'LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT', 'smart playlist refresh event')
@@ -432,7 +431,6 @@ assertIncludes(libraryPresentation, "'library'", 'library route contract')
 assertIncludes(libraryPresentation, "'playlist'", 'playlist route contract')
 assertIncludes(libraryPresentation, "'smart-playlist'", 'smart-playlist route contract')
 assertIncludes(libraryPresentation, 'resolveLibrarySurfaceKind', 'surface kind helper')
-assertIncludes(libraryHeader, 'identity: LibraryPageIdentity | null', 'header identity contract')
 assertIncludes(libraryContextMenu, 'class="library-overlay"', 'context menu overlay owner')
 assertIncludes(libraryContextMenu, ':data-visual-style="presentation"', 'context menu style marker')
 assertIncludes(metadataDialog, 'class="library-overlay"', 'metadata overlay owner')
@@ -455,7 +453,6 @@ assertLibraryHeaderLocaleParity([
 for (const [relativePath, source] of [
   ['src/renderer/locales/zh-Hans.json', localeZhHans],
   ['src/renderer/locales/zh-Hant.json', localeZhHant],
-  ['src/renderer/features/library/components/LibraryArchiveHeader.vue', libraryHeader],
 ]) {
   assertStrictUtf8Text(relativePath, source)
 }
@@ -483,6 +480,16 @@ assertExcludes(
 )
 assertExcludes(libraryPageRootRule, /--manuscript-effect-page-shadow/, 'page root no page shadow')
 assertIncludes(libraryPageRootRule, 'background: transparent', 'page root exposes window paper')
+assertExcludes(
+  manuscriptCss,
+  /library-archive-header/,
+  'library manuscript CSS has no archive letterhead',
+)
+assertExcludes(
+  manuscriptCss,
+  /\.library-search-zone/,
+  'library manuscript CSS does not restyle search zone into a banner',
+)
 
 // Other manuscript pages keep their framed page-card identity.
 for (const [label, source] of [
@@ -794,6 +801,43 @@ assertIncludes(
   playerBarMaterial,
   'auralis-player-bar-material',
   'single player material storage key',
+)
+
+// --- Phase 23: manuscript PlayerBar dock footer geometry (owner-scoped) ---
+for (const [declaration, label] of [
+  ['left: 260px', 'dock left edge on the sidebar track'],
+  ['right: 0', 'dock right edge flush'],
+  ['bottom: 0', 'dock bottom edge flush'],
+  ['min-width: 0', 'dock min-width reset'],
+  ['border-radius: 16px 16px 0 0', 'dock top-only corners'],
+  ['transform: none', 'dock transform reset'],
+]) {
+  assertIncludes(playerManuscriptCss, declaration, `player manuscript ${label}`)
+}
+assertExcludes(
+  mainCss,
+  /\.player-bar\s*\{\s*left:\s*260px/,
+  'modern player bar keeps its floating left position',
+)
+assertIncludes(shellManuscriptCss, '--auralis-playbar-safe-area: 88px', 'manuscript dock safe area')
+assertIncludes(
+  mainCss,
+  '--auralis-playbar-safe-area: 116px',
+  'modern safe area stays 116px',
+)
+assertIncludes(playerBar, 'player-bar-dock-main', 'player bar dock main wrapper')
+assertIncludes(playerBar, 'player-bar-dock-actions', 'player bar dock actions wrapper')
+assertIncludes(playerBar, 'player-bar-dock-rule', 'player bar dock rule wrapper')
+assertIncludes(playerBar, 'volume-overlay', 'player bar volume overlay markup')
+assertIncludes(
+  playerManuscriptCss,
+  '@container manuscript-player-bar',
+  'volume collapse container query',
+)
+assertIncludes(
+  playerOverlayManuscriptCss,
+  'volume-overlay',
+  'volume overlay manuscript styling',
 )
 
 for (const [label, source] of [
