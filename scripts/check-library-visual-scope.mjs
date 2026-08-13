@@ -618,6 +618,11 @@ assertMatches(
   /\.settings-page\s*\[\s*data-visual-style\s*=\s*(['"])manuscript\1\s*\]/,
   'shared manuscript tokens settings scope',
 )
+assertIncludes(
+  sharedTokens,
+  'Compatibility remaps stay off `.app-window`',
+  'shared tokens do not remap auralis variables on the app window',
+)
 
 for (const [label, source] of [
   ['manuscript.css', manuscriptCss],

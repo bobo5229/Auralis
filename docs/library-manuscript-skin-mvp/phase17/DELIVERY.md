@@ -54,7 +54,7 @@ Phase 17 提交不包含：
 - 内容页 manuscript composition，除共享 token 增加 shell / Sidebar / settings owner；
 - 主进程、preload、typed IPC 与数据库。
 
-共享 token 的 `:where()` 同时补上 `.settings-page[data-visual-style='manuscript']`，使设置页不再依赖偶然继承。
+共享 token 的 `:where()` 同时补上 `.settings-page[data-visual-style='manuscript']`，使设置页不再依赖偶然继承。`.app-window` 只接收 primitive / semantic manuscript 变量，不重映射 `--auralis-*`，避免 PlayerBar 与 Now Playing 被纸面色板污染。
 
 ## 5. 人工验收门
 
