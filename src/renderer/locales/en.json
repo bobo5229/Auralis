@@ -220,13 +220,6 @@
     "repeatEnableAll": "Enable repeat all",
     "lyricsStartingSoon": "Lyrics starting soon"
   },
-  "windowChrome": {
-    "toolbarAria": "Window controls",
-    "minimize": "Minimize",
-    "maximize": "Maximize",
-    "restore": "Restore down",
-    "close": "Close"
-  },
   "miniPlayer": {
     "open": "Open mini player",
     "close": "Close mini player",

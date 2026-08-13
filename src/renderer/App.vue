@@ -6,7 +6,6 @@ import AppSidebar from './app/layout/AppSidebar.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
-import WindowChromeControls from './app/layout/WindowChromeControls.vue'
 import MiniPlayer from './app/layout/MiniPlayer.vue'
 import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -90,8 +89,6 @@ const transitionName = computed(() => {
       class="app-shell relative"
       :class="{ 'is-album-detail': isAlbumDetail, 'has-artwork': !!artworkUrl }"
     >
-      <!-- 无框窗口拖拽区：侧栏顶（AppSidebar header）与主区顶空白带 -->
-      <div class="app-shell-drag-strip" aria-hidden="true"></div>
       <!-- 只有在且有封面时才渲染在 app-shell 顶层网格之下的背景 -->
       <FluidArtworkBackground
         v-if="artworkUrl"
@@ -115,7 +112,6 @@ const transitionName = computed(() => {
       <NowPlayingPanel class="relative z-10" />
       <PlayerBar class="relative z-10" />
     </div>
-    <WindowChromeControls />
     <FullscreenPlayerOverlay />
   </div>
 </template>

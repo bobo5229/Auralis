@@ -83,10 +83,6 @@ export const ipcChannels = {
     refreshProgress: 'metadata:refresh-progress',
   },
   window: {
-    minimize: 'window:minimize',
-    toggleMaximize: 'window:toggle-maximize',
-    close: 'window:close',
-    isMaximized: 'window:is-maximized',
     enterMiniPlayer: 'window:enter-mini-player',
     restoreFromMiniPlayer: 'window:restore-from-mini-player',
     getMiniPlayerState: 'window:get-mini-player-state',

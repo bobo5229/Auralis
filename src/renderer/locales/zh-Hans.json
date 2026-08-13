@@ -220,13 +220,6 @@
     "repeatEnableAll": "开启列表循环",
     "lyricsStartingSoon": "歌词即将开始"
   },
-  "windowChrome": {
-    "toolbarAria": "窗口控制",
-    "minimize": "最小化",
-    "maximize": "最大化",
-    "restore": "向下还原",
-    "close": "关闭"
-  },
   "miniPlayer": {
     "open": "打开迷你播放器",
     "close": "关闭迷你播放器",

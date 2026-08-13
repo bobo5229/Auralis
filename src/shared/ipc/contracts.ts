@@ -302,22 +302,6 @@ export interface IpcInvokeContract {
     request: EditableTrackMetadata
     response: { ok: boolean }
   }
-  'window:minimize': {
-    request: void
-    response: { ok: boolean }
-  }
-  'window:toggle-maximize': {
-    request: void
-    response: { ok: boolean }
-  }
-  'window:close': {
-    request: void
-    response: { ok: boolean }
-  }
-  'window:is-maximized': {
-    request: void
-    response: { maximized: boolean }
-  }
   'window:enter-mini-player': {
     request: void
     response: MiniPlayerWindowState
