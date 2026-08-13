@@ -142,6 +142,22 @@ function collectCssSelectors(cssSource, start = 0, end = cssSource.length, selec
   return selectors
 }
 
+function assertManuscriptCssScope(cssSource, label, scopePattern) {
+  const withoutComments = cssSource.replace(/\/\*[\s\S]*?\*\//g, '')
+  const selectors = collectCssSelectors(withoutComments)
+
+  if (selectors.length === 0) {
+    throw new Error(`${label}: no style rules found`)
+  }
+
+  for (const selector of selectors) {
+    scopePattern.lastIndex = 0
+    if (!scopePattern.test(selector)) {
+      throw new Error(`${label}: unscoped selector ${selector}`)
+    }
+  }
+}
+
 function assertDetailCssScope(cssSource) {
   const withoutComments = cssSource.replace(/\/\*[\s\S]*?\*\//g, '')
   const selectors = collectCssSelectors(withoutComments)
@@ -169,11 +185,66 @@ function assertExcludedSurfacesUntouched(label, cssSource) {
   }
 }
 
+function assertStrictUtf8Text(relativePath, text) {
+  if (text.includes('\uFFFD')) {
+    throw new Error(`${relativePath}: UTF-8 replacement character`)
+  }
+  if (/\?{3,}/.test(text)) {
+    throw new Error(`${relativePath}: consecutive question-mark placeholders`)
+  }
+}
+
+function assertLibraryHeaderLocaleParity(locales) {
+  const requiredKeys = [
+    'title',
+    'subtitle',
+    'libraryMembership',
+    'playlistSubtitle',
+    'playlistKind',
+    'playlistMembership',
+    'smartPlaylistSubtitle',
+    'smartPlaylistKind',
+    'smartPlaylistMembership',
+    'untitled',
+    'loadingTitle',
+    'loadingSubtitle',
+    'trackCount',
+    'folio',
+  ]
+
+  const keySets = locales.map(([label, source]) => {
+    const header = JSON.parse(source).library?.manuscript?.header
+    if (!header || typeof header !== 'object') {
+      throw new Error(`${label}: missing library.manuscript.header`)
+    }
+    const keys = Object.keys(header).sort()
+    for (const key of requiredKeys) {
+      if (typeof header[key] !== 'string' || header[key].trim() === '') {
+        throw new Error(`${label}: missing library.manuscript.header.${key}`)
+      }
+    }
+    return { label, keys }
+  })
+
+  const [first, ...rest] = keySets
+  for (const current of rest) {
+    if (current.keys.join('\0') !== first.keys.join('\0')) {
+      throw new Error(
+        `locale header key mismatch: ${first.label} vs ${current.label} (${first.keys.join(', ')} / ${current.keys.join(', ')})`,
+      )
+    }
+  }
+}
+
 const [
   page,
   albumCoverGroup,
   manuscriptCss,
   overlayCss,
+  libraryPresentation,
+  libraryHeader,
+  libraryContextMenu,
+  metadataDialog,
   albumsPage,
   albumCard,
   albumsManuscriptCss,
@@ -181,6 +252,9 @@ const [
   sharedTokens,
   albumDetailPage,
   albumDetailManuscriptCss,
+  localeEn,
+  localeZhHans,
+  localeZhHant,
   mainCss,
   unoConfig,
 ] = await Promise.all([
@@ -188,6 +262,10 @@ const [
   readProjectFile('src/renderer/features/library/components/AlbumCoverGroup.vue'),
   readProjectFile('src/renderer/features/library/styles/manuscript.css'),
   readProjectFile('src/renderer/features/library/styles/manuscript.overlays.css'),
+  readProjectFile('src/renderer/features/library/utils/libraryPresentation.ts'),
+  readProjectFile('src/renderer/features/library/components/LibraryArchiveHeader.vue'),
+  readProjectFile('src/renderer/features/library/components/LibraryContextMenu.vue'),
+  readProjectFile('src/renderer/features/library/components/MetadataEditDialog.vue'),
   readProjectFile('src/renderer/features/albums/pages/AlbumsPage.vue'),
   readProjectFile('src/renderer/features/albums/components/AlbumCard.vue'),
   readProjectFile('src/renderer/features/albums/styles/manuscript.css'),
@@ -195,6 +273,9 @@ const [
   readProjectFile('src/renderer/features/appearance/styles/manuscript.tokens.css'),
   readProjectFile('src/renderer/features/albums/pages/AlbumDetailPage.vue'),
   readProjectFile('src/renderer/features/albums/styles/manuscript.detail.css'),
+  readProjectFile('src/renderer/locales/en.json'),
+  readProjectFile('src/renderer/locales/zh-Hans.json'),
+  readProjectFile('src/renderer/locales/zh-Hant.json'),
   readProjectFile('src/renderer/app/styles/main.css'),
   readProjectFile('uno.config.ts'),
 ])
@@ -205,6 +286,50 @@ assertIncludes(
   'presentation-derived manuscript gate',
 )
 assertIncludes(page, ':data-visual-style="libraryPresentation"', 'page style marker')
+assertIncludes(page, ':data-library-surface="pageIdentity?.kind"', 'library surface marker')
+assertIncludes(page, 'resolveLibraryPresentation(route.name, visualStyle.value)', 'page resolver')
+assertIncludes(page, 'resolveLibrarySurfaceKind(route.name)', 'library surface kind')
+assertIncludes(page, 'v-if="isLibrarySurface"', 'shared visual style switch')
+assertIncludes(page, ':identity="pageIdentity"', 'identity header binding')
+assertIncludes(page, ':presentation="libraryPresentation"', 'child presentation binding')
+assertIncludes(page, 'LIBRARY_PLAYLISTS_CHANGED_EVENT', 'regular playlist refresh event')
+assertIncludes(page, 'LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT', 'smart playlist refresh event')
+assertExcludes(
+  page,
+  /route\.name\s*===\s*(['"])library\1\s*&&\s*visualStyle/,
+  'second library route + style gate',
+)
+assertIncludes(libraryPresentation, "'library'", 'library route contract')
+assertIncludes(libraryPresentation, "'playlist'", 'playlist route contract')
+assertIncludes(libraryPresentation, "'smart-playlist'", 'smart-playlist route contract')
+assertIncludes(libraryPresentation, 'resolveLibrarySurfaceKind', 'surface kind helper')
+assertIncludes(libraryHeader, 'identity: LibraryPageIdentity | null', 'header identity contract')
+assertIncludes(libraryContextMenu, 'class="library-overlay"', 'context menu overlay owner')
+assertIncludes(libraryContextMenu, ':data-visual-style="presentation"', 'context menu style marker')
+assertIncludes(metadataDialog, 'class="library-overlay"', 'metadata overlay owner')
+assertIncludes(metadataDialog, ':data-visual-style="presentation"', 'metadata style marker')
+assertManuscriptCssScope(
+  manuscriptCss,
+  'library manuscript CSS',
+  /(?:\.library-page|\.library-status-state)\s*\[\s*data-visual-style\s*=\s*(['"])manuscript\1\s*\]/,
+)
+assertManuscriptCssScope(
+  overlayCss,
+  'library manuscript overlay CSS',
+  /\.library-overlay\s*\[\s*data-visual-style\s*=\s*(['"])manuscript\1\s*\]/,
+)
+assertLibraryHeaderLocaleParity([
+  ['en.json', localeEn],
+  ['zh-Hans.json', localeZhHans],
+  ['zh-Hant.json', localeZhHant],
+])
+for (const [relativePath, source] of [
+  ['src/renderer/locales/zh-Hans.json', localeZhHans],
+  ['src/renderer/locales/zh-Hant.json', localeZhHant],
+  ['src/renderer/features/library/components/LibraryArchiveHeader.vue', libraryHeader],
+]) {
+  assertStrictUtf8Text(relativePath, source)
+}
 assertIncludes(
   manuscriptCss,
   ".library-page[data-visual-style='manuscript']",
