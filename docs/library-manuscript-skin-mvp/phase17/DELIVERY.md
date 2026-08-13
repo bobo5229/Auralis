@@ -8,16 +8,22 @@
 
 ## 1. 起止提交
 
-| Step      | 提交      | 说明                                 |
-| --------- | --------- | ------------------------------------ |
-| 17.0      | `f7ae036` | `docs：冻结 Phase 17 应用外壳基线`   |
-| 17.1–17.6 | `7b467b3` | `feat：应用外壳与侧栏接入手稿呈现`   |
-| 17.7      | `20becab` | `test：固化应用外壳手稿作用域门禁`   |
-| 17.8      | `455baae` | `docs：交付 Phase 17 应用外壳手稿化` |
-| 审查 F1   | `ac497bc` | `fix：侧栏弹窗补齐 Escape 与焦点约束` |
+| Step        | 提交      | 说明                                       |
+| ----------- | --------- | ------------------------------------------ |
+| 17.0        | `f7ae036` | `docs：冻结 Phase 17 应用外壳基线`         |
+| 17.1–17.6   | `7b467b3` | `feat：应用外壳与侧栏接入手稿呈现`         |
+| 17.7        | `20becab` | `test：固化应用外壳手稿作用域门禁`         |
+| 17.8        | `455baae` | `docs：交付 Phase 17 应用外壳手稿化`       |
+| 17.8 补记   | `b77c453` | `docs：补全 Phase 17 交付记录中的逐步提交哈希` |
+| 17.8 空白   | `83b98d0` | `docs：去除 Phase 17 交付记录尾随空白`     |
+| 审查 token  | `95781a8` | `fix：阻止外壳手稿 token 重映射泄漏到播放表面` |
+| 审查 F1     | `ac497bc` | `fix：侧栏弹窗补齐 Escape 与焦点约束`     |
+| 审查 F1 补记 | `badb5a9` | `docs：记录 Phase 17 审查 Finding 1 提交哈希` |
+| 审查 F2     | `3f75d79` | `fix：手稿侧栏浮层 reduced-motion 命中 Transition 根节点` |
+| 审查 F3     | 待填      | `docs：补全 Phase 17 交付范围与审查 Findings` |
 
-**源码范围**：`0c6d868..7b467b3`
-**含交付文档**：`0c6d868..HEAD`
+**源码范围**：`0c6d868..3f75d79`
+**含交付文档**：待填
 
 ## 2. 已实现
 
@@ -31,7 +37,8 @@
 - 手稿覆盖 `.app-shell`、`.app-main`、Sidebar 品牌 / 工具 / 主导航 / 歌单树 / 拖排，以及创建、右键、重命名、删除、query 与 Facets 浮层；
 - 风格切换不给 `AppSidebar` 或 `RouterView` 增加 `key` / `v-if`；
 - 静态守卫检查唯一状态源、shell marker、Miniplayer 隔离、owner scope、排除表面与昂贵计算执行门；
-- 重命名 / Query / 删除弹窗具备 Escape、Tab 循环、背景 inert 与关闭后焦点恢复。
+- 重命名 / Query / 删除弹窗具备 Escape、Tab 循环、背景 inert 与关闭后焦点恢复；
+- Facets 打开/关闭过渡在 `prefers-reduced-motion: reduce` 下停止。
 
 未新增 visual-style 存储键、IPC、数据库迁移或窗口架构改动。未修改 Now Playing、PlayerBar、Fullscreen、Miniplayer 与桌面歌词。
 
@@ -43,6 +50,18 @@
 
 **解决**：在 Sidebar owner 内抽取 `sidebarModalFocus` / `useSidebarOwnedModal`。打开时保存菜单外的有效触发元素（歌单行或新建按钮），打开期间把 `[data-app-shell-root]` 设为 `inert`，捕获阶段处理 Escape 与循环 Tab，关闭后恢复到仍挂载的触发元素，否则回退到新建歌单按钮。Query 提交中不允许 Escape。不引入全局 Dialog 框架，也不改 Facets 既有键盘路径。
 
+### Finding 2：reduced-motion 选择器无法命中 Transition 根节点
+
+`facets-dialog-fade-*` 与 `.sidebar-overlay` 在同一根节点上，后代选择器匹配不到；Facets 自身 scoped 的 160ms opacity 仍会执行。
+
+**解决**：手稿 overlay 规则改为同元素选择器；`FacetsDialog` 在 `prefers-reduced-motion: reduce` 下关闭该过渡，modern 与 manuscript 均生效。
+
+### Finding 3：交付源码范围遗漏后续修复提交
+
+交付记录曾将源码范围截止到 `7b467b3`，遗漏 `95781a8` 等后续修复，并用动态 `HEAD` 作为文档边界。
+
+**解决**：步骤表列入全部后续修复与文档补记；源码范围固定为 `0c6d868..3f75d79`，文档范围在本轮交付文档提交后写入明确哈希。
+
 ## 4. 自动验证
 
 | 命令                    | 结果                                                                     |
@@ -51,7 +70,7 @@
 | `npm.cmd run typecheck` | 通过                                                                     |
 | `npm.cmd run lint`      | 通过                                                                     |
 | `npm.cmd run build`     | 通过                                                                     |
-| `git diff --check`      | 通过；范围 `0c6d868..HEAD`                                               |
+| `git diff --check`      | 通过；范围 `0c6d868..3f75d79`                                            |
 
 未新增 locale key。`zh-Hant.json` 随 build 生成链运行，无手工回写。
 
