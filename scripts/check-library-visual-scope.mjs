@@ -204,7 +204,7 @@ assertIncludes(
   "libraryPresentation.value === 'manuscript'",
   'presentation-derived manuscript gate',
 )
-assertIncludes(page, ':data-visual-style="isManuscriptLibrary', 'page style marker')
+assertIncludes(page, ':data-visual-style="libraryPresentation"', 'page style marker')
 assertIncludes(
   manuscriptCss,
   ".library-page[data-visual-style='manuscript']",

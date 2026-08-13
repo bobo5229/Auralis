@@ -39,7 +39,13 @@ import { createLibrarySearchIndex } from '../utils/librarySearchIndex'
 import { scanLibrarySearchIndex } from '../utils/librarySearchScan'
 import { resolveLibraryPresentation, resolveLibrarySurfaceKind } from '../utils/libraryPresentation'
 import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
-import { isSameLibraryRouteScope, type LibraryRouteScope } from '../utils/libraryRouteScope'
+import {
+  LIBRARY_PLAYLISTS_CHANGED_EVENT,
+  LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT,
+  isSameLibraryRouteScope,
+  shouldRefreshLibraryForExternalPlaylistEvent,
+  type LibraryRouteScope,
+} from '../utils/libraryRouteScope'
 import {
   createAllSongsLibrarySnapshot,
   createPlaylistLibrarySnapshot,
@@ -254,7 +260,7 @@ let pendingMetadataDialogReturnTarget: FocusRestoreTarget | null = null
 let pendingViewSwitchReturnTarget: FocusRestoreTarget | null = null
 
 async function restoreLibraryFocus(target: FocusRestoreTarget | null): Promise<void> {
-  if (!target || !isManuscriptLibrary.value) return
+  if (!target) return
 
   let activeTrackId = target.trackId
   const trackExists = libraryDerivedIndex.value.trackById.has(activeTrackId)
@@ -901,7 +907,7 @@ async function addContextTracksToPlaylist(
   trackIds: number[],
 ): Promise<void> {
   await auralis.playlists.addTracks(playlistId, trackIds)
-  window.dispatchEvent(new CustomEvent('auralis-playlists-changed'))
+  window.dispatchEvent(new CustomEvent(LIBRARY_PLAYLISTS_CHANGED_EVENT))
   addToPlaylistFeedback.value = {
     playlistId,
     message: t('library.contextMenu.addedSuccess', { name: playlistName }),
@@ -1086,8 +1092,24 @@ async function retryInitialLoad(): Promise<void> {
   await loadLibraryData('foreground')
 }
 
+function onExternalPlaylistCollectionChanged(eventName: string): void {
+  if (isPageUnmounted) return
+  if (!shouldRefreshLibraryForExternalPlaylistEvent(captureLibraryRouteScope(), eventName)) return
+  void loadLibraryData('background')
+}
+
+function onPlaylistsChanged(): void {
+  onExternalPlaylistCollectionChanged(LIBRARY_PLAYLISTS_CHANGED_EVENT)
+}
+
+function onSmartPlaylistsChanged(): void {
+  onExternalPlaylistCollectionChanged(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT)
+}
+
 onMounted(async () => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
+  window.addEventListener(LIBRARY_PLAYLISTS_CHANGED_EVENT, onPlaylistsChanged)
+  window.addEventListener(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT, onSmartPlaylistsChanged)
   void loadRegularPlaylistItems()
   await loadLibraryData('foreground')
   if (isPageUnmounted) return
@@ -1226,6 +1248,8 @@ onBeforeUnmount(() => {
   }
   unsubscribeChanged?.()
   unsubscribeScanProgress?.()
+  window.removeEventListener(LIBRARY_PLAYLISTS_CHANGED_EVENT, onPlaylistsChanged)
+  window.removeEventListener(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT, onSmartPlaylistsChanged)
   clearAddToPlaylistFeedback()
 })
 </script>
@@ -1233,7 +1257,7 @@ onBeforeUnmount(() => {
 <template>
   <section
     class="library-page relative flex h-full flex-col"
-    :data-visual-style="isManuscriptLibrary ? 'manuscript' : 'modern'"
+    :data-visual-style="libraryPresentation"
     :data-library-surface="pageIdentity?.kind"
     :style="LIBRARY_LAYOUT_CSS_VARS"
   >
@@ -1347,7 +1371,7 @@ onBeforeUnmount(() => {
                   :track="tracks[virtualRow.index]"
                   :index="virtualRow.index"
                   :total-tracks="tracks.length"
-                  :presentation="isManuscriptLibrary ? 'manuscript' : 'modern'"
+                  :presentation="libraryPresentation"
                   :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
                   :is-playing="playback.state.isPlaying"
                   :selected="playback.state.selectedTrackId === tracks[virtualRow.index].id"
@@ -1395,7 +1419,7 @@ onBeforeUnmount(() => {
                     :is-playing="playback.state.isPlaying"
                     :selected-track-id="playback.state.selectedTrackId"
                     :focused-track-id="keyboardFocusTrackId"
-                    :presentation="isManuscriptLibrary ? 'manuscript' : 'modern'"
+                    :presentation="libraryPresentation"
                     :style="{
                       height: `${virtualGroup.size}px`,
                     }"
