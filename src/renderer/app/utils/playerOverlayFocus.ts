@@ -121,3 +121,58 @@ export function resolveQueueInitialFocusTarget(input: {
   if (activeItemButton) return activeItemButton
   return input.focusables[0] ?? input.root
 }
+
+/** Mode menu items use roving tabindex: only the currently focused one is
+ * tabbable (tabindex 0) and the rest are -1, so the generic focusable
+ * selector — which drops tabindex="-1" — cannot enumerate them. */
+export const PLAYER_MODE_MENU_ITEM_SELECTOR = '.playback-mode-item:not([disabled])'
+
+export function getPlayerModeMenuItems(root: HTMLElement): HTMLElement[] {
+  return Array.from(root.querySelectorAll<HTMLElement>(PLAYER_MODE_MENU_ITEM_SELECTOR)).filter(
+    (element) => element.getClientRects().length > 0,
+  )
+}
+
+/** Roving tabindex binding: only the focused item stays in the tab order, so
+ * Tab steps out of the menu as a unit instead of through every item. */
+export function resolveModeMenuItemTabIndex(focusedIndex: number, itemIndex: number): 0 | -1 {
+  return itemIndex === focusedIndex ? 0 : -1
+}
+
+export type ModeMenuKeydownResult =
+  | { type: 'dismiss' }
+  | { type: 'roving'; nextIndex: number }
+  | { type: 'select'; modeIndex: number }
+  | { type: 'none' }
+
+/**
+ * Decision layer for the mode menu keydown: turns a key into the menu state
+ * transition (roving move, selection of the focused mode, or Escape dismiss)
+ * so the component only applies focus and emits. Tab resolves to `none`:
+ * with roving tabindex the browser exits the menu as a unit.
+ */
+export function resolveModeMenuKeydown(input: {
+  key: string
+  shiftKey: boolean
+  focusedIndex: number
+  modeCount: number
+}): ModeMenuKeydownResult {
+  const action = resolvePlayerOverlayKeyAction({
+    key: input.key,
+    shiftKey: input.shiftKey,
+    kind: 'mode-menu',
+    focusableCount: input.modeCount,
+    activeIndex: input.focusedIndex,
+  })
+
+  if (action.type === 'roving') {
+    return { type: 'roving', nextIndex: action.nextIndex }
+  }
+  if (action.type === 'select') {
+    return { type: 'select', modeIndex: input.focusedIndex }
+  }
+  if (action.type === 'dismiss') {
+    return { type: 'dismiss' }
+  }
+  return { type: 'none' }
+}

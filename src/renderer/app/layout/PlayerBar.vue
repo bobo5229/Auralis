@@ -255,7 +255,9 @@ function handleModeMenuClose(): void {
 
 function handleSelectMode(mode: PlaybackMode): void {
   playback.setPlaybackMode(mode)
-  closeModeMenu()
+  // Close through the same path as Escape so the mode button regains focus
+  // after keyboard or mouse selection (P2).
+  handleModeMenuClose()
 }
 
 // --- Outside click ---
