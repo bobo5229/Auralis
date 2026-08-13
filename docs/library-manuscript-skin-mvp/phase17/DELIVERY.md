@@ -20,10 +20,10 @@
 | 审查 F1     | `ac497bc` | `fix：侧栏弹窗补齐 Escape 与焦点约束`     |
 | 审查 F1 补记 | `badb5a9` | `docs：记录 Phase 17 审查 Finding 1 提交哈希` |
 | 审查 F2     | `3f75d79` | `fix：手稿侧栏浮层 reduced-motion 命中 Transition 根节点` |
-| 审查 F3     | 待填      | `docs：补全 Phase 17 交付范围与审查 Findings` |
+| 审查 F3     | `eb9c1b6` | `docs：补全 Phase 17 交付范围与审查 Findings` |
 
 **源码范围**：`0c6d868..3f75d79`
-**含交付文档**：待填
+**含交付文档**：`0c6d868..eb9c1b6`
 
 ## 2. 已实现
 
