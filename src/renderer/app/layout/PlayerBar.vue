@@ -16,7 +16,11 @@ import {
 } from '@renderer/features/lyrics/utils/formatDesktopLyricsText'
 import { auralis } from '@renderer/shared/ipc/client'
 import type { DesktopLyricsPayload, DesktopLyricsStatus } from '@shared/types/desktopLyrics'
-import type { PlayerSurfacePresentation } from '@renderer/app/utils/playerSurfacePresentation'
+import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
+import {
+  resolvePlayerPaletteEnabled,
+  type PlayerSurfacePresentation,
+} from '@renderer/app/utils/playerSurfacePresentation'
 import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverlayFocus'
 
 const props = defineProps<{ presentation: PlayerSurfacePresentation }>()
@@ -25,13 +29,21 @@ const playback = usePlayback()
 const { t } = useI18n()
 const lyrics = useTrackLyrics()
 const { playerBarMaterial } = usePlayerBarMaterial()
+const { displayMode } = usePlayerDisplayMode()
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 // Phase 18: palette extraction and album tint only run for the modern player
-// presentation; manuscript must not decode images, paint canvases or start
-// worker colour work (TECHDOC §6.1).
+// presentation while the surface is the visible one; the hidden PlayerBar
+// under fullscreen must not decode images, paint canvases or start worker
+// colour work (TECHDOC §6.1 risk).
 const isModernPlayer = computed(() => props.presentation === 'modern')
+const paletteEnabled = computed(() =>
+  resolvePlayerPaletteEnabled({
+    presentation: props.presentation,
+    displayMode: displayMode.value,
+  }),
+)
 const { palette: albumPalette } = useArtworkPalette(currentArtworkCacheKey, {
-  enabled: isModernPlayer,
+  enabled: paletteEnabled,
 })
 
 function formatAlbumColor(color: { r: number; g: number; b: number }): string {
@@ -52,7 +64,7 @@ const {
   previousAlbumTint,
   hasActiveAlbumTint,
   stop: stopAlbumTint,
-} = useAlbumTint(albumTint, isModernPlayer)
+} = useAlbumTint(albumTint, paletteEnabled)
 
 const activeAlbumTintStyle = computed<CSSProperties>(() => ({
   backgroundColor: activeAlbumTint.value ?? 'transparent',
@@ -416,13 +428,13 @@ function handleToggleMute(): void {
     <div class="player-bar-glass" aria-hidden="true"></div>
 
     <div
-      v-if="isModernPlayer && playerBarMaterial === 'cover-tint' && previousAlbumTint"
+      v-if="paletteEnabled && playerBarMaterial === 'cover-tint' && previousAlbumTint"
       class="player-bar-album-tint player-bar-album-tint-previous"
       aria-hidden="true"
       :style="previousAlbumTintStyle"
     ></div>
     <div
-      v-if="isModernPlayer && playerBarMaterial === 'cover-tint' && activeAlbumTint"
+      v-if="paletteEnabled && playerBarMaterial === 'cover-tint' && activeAlbumTint"
       class="player-bar-album-tint player-bar-album-tint-current"
       aria-hidden="true"
       :style="activeAlbumTintStyle"
