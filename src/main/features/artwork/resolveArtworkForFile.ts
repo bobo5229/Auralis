@@ -34,14 +34,14 @@ export async function resolveArtworkForFile(
   const embedded = extractEmbeddedArtwork(metadata)
 
   if (embedded) {
-    return writeArtworkToCache(artworkCacheDir, embedded)
+    return writeArtworkToCache(artworkCacheDir, embedded, filePath)
   }
 
   // 2. Fall back to directory cover.jpg
   const coverJpg = await readCoverJpgSource(filePath)
 
   if (coverJpg) {
-    return writeArtworkToCache(artworkCacheDir, coverJpg)
+    return writeArtworkToCache(artworkCacheDir, coverJpg, filePath)
   }
 
   return null

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { logger } from '@main/logging/logger'
 
-const VALID_KEY = /^[a-f0-9]{64}\.(jpg|png|webp)$/
+const VALID_KEY = /^(?:[a-f0-9]{64}\.(jpg|png|webp)|v2-[a-f0-9]{64}\.webp)$/
 
 const EXT_TO_MIME: Record<string, string> = {
   jpg: 'image/jpeg',
