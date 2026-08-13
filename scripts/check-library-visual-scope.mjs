@@ -820,11 +820,7 @@ assertExcludes(
   'modern player bar keeps its floating left position',
 )
 assertIncludes(shellManuscriptCss, '--auralis-playbar-safe-area: 88px', 'manuscript dock safe area')
-assertIncludes(
-  mainCss,
-  '--auralis-playbar-safe-area: 116px',
-  'modern safe area stays 116px',
-)
+assertIncludes(mainCss, '--auralis-playbar-safe-area: 116px', 'modern safe area stays 116px')
 assertIncludes(playerBar, 'player-bar-dock-main', 'player bar dock main wrapper')
 assertIncludes(playerBar, 'player-bar-dock-actions', 'player bar dock actions wrapper')
 assertIncludes(playerBar, 'player-bar-dock-rule', 'player bar dock rule wrapper')
@@ -834,11 +830,7 @@ assertIncludes(
   '@container manuscript-player-bar',
   'volume collapse container query',
 )
-assertIncludes(
-  playerOverlayManuscriptCss,
-  'volume-overlay',
-  'volume overlay manuscript styling',
-)
+assertIncludes(playerOverlayManuscriptCss, 'volume-overlay', 'volume overlay manuscript styling')
 
 for (const [label, source] of [
   ['manuscript.css', manuscriptCss],
