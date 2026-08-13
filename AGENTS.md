@@ -195,11 +195,12 @@ preference. Keep its only state and persistence source in
 or introduce page-local visual-style refs.
 
 - The manuscript style applies to the explicit Library family routes `library`, `playlist`, and
-  `smart-playlist`. They share `LibraryPage.vue` and the single `auralis-visual-style` preference;
-  do not force playlist routes back to `modern`, and do not clear the saved preference on navigation.
+  `smart-playlist`, plus the Settings route `settings`. They share the single
+  `auralis-visual-style` preference; do not force those routes back to `modern`, and do not clear
+  the saved preference on navigation.
 - Phase 12 covers the `/albums` catalog route. Phase 13 covers only the `album-detail` route.
-  Resolve both surfaces by their explicit Vue Router names; do not infer detail-page presentation
-  from the `/albums` path prefix.
+  Phase 16 covers only the `settings` route. Resolve all surfaces by their explicit Vue Router
+  names; do not infer presentation from path prefixes.
 - Shared manuscript tokens live in
   `src/renderer/features/appearance/styles/manuscript.tokens.css`. Page composition remains
   feature-owned: library rules under `.library-page`, album catalog rules under `.albums-page`.
@@ -215,6 +216,10 @@ or introduce page-local visual-style refs.
   `.album-detail-page[data-visual-style='manuscript']`. Its artwork-derived canvas and pointer tilt
   are modern-only effects: manuscript must stop and clean them up, while switching back to modern
   must restore them without duplicate listeners.
+- Settings manuscript rules live in `src/renderer/features/settings/styles/manuscript.css` and must
+  remain scoped under `.settings-page[data-visual-style='manuscript']`. The concentrated visual-style
+  control is `VisualStylePreference.vue`; it must write only `useVisualStyle()`. Do not rebuild
+  `MusicLibrarySettings.vue` on a style change.
 - Preserve virtualization geometry unless the CSS and virtualizer estimates are updated
   together: flat rows are 44px, cover tracks are 40px, cover artwork is 250px, track-panel
   vertical padding totals 20px, and album-group vertical padding totals 56px.
@@ -267,6 +272,11 @@ states, long mixed-language titles, missing artwork/metadata, single- and multi-
 playback/search state, related-album navigation, and repeated style switching. Confirm modern keeps
 the artwork canvas and pointer tilt, manuscript stops them, and excluded player/shell surfaces do
 not change.
+
+For settings visual-style changes, verify `modern` and `manuscript` in appearance, playback,
+library, and about; confirm visual-style, language, and PlayerBar material stay independent;
+switch styles during an active scan or metadata refresh without remounting the library section;
+and keep Sidebar, Now Playing, PlayerBar, Miniplayer, and the native Windows title bar unchanged.
 
 ## Commit & Pull Request Guidelines
 
