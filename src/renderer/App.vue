@@ -15,6 +15,7 @@ import { useArtworkPalette } from '@renderer/features/playback/composables/useAr
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { resolveShellPresentation } from './app/utils/shellPresentation'
+import { resolvePlayerSurfacePresentation } from './app/utils/playerSurfacePresentation'
 import type { CSSProperties } from 'vue'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import './app/styles/manuscript.shell.css'
@@ -29,6 +30,12 @@ const shellPresentation = computed(() =>
   resolveShellPresentation(displayMode.value, visualStyle.value),
 )
 const isModernShell = computed(() => shellPresentation.value === 'modern')
+// Phase 18: persistent player surfaces (Now Playing + PlayerBar) get their own
+// presentation — fullscreen and mini always resolve to modern (Phase 19/20 own
+// those surfaces). Never used as a component key or v-if gate.
+const playerPresentation = computed(() =>
+  resolvePlayerSurfacePresentation(displayMode.value, visualStyle.value),
+)
 let unsubscribeMiniPlayerWindowState: (() => void) | null = null
 
 /** 上一导航来源路由名；在 beforeEach 中更新，供 Transition 在目标路由已切换时仍能判断方向 */
@@ -135,8 +142,8 @@ const transitionName = computed(() => {
         </RouterView>
       </main>
 
-      <NowPlayingPanel class="relative z-10" />
-      <PlayerBar class="relative z-10" />
+      <NowPlayingPanel class="relative z-10" :presentation="playerPresentation" />
+      <PlayerBar class="relative z-10" :presentation="playerPresentation" />
     </div>
     <FullscreenPlayerOverlay />
   </div>

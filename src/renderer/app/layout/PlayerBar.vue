@@ -15,6 +15,9 @@ import {
 } from '@renderer/features/lyrics/utils/formatDesktopLyricsText'
 import { auralis } from '@renderer/shared/ipc/client'
 import type { DesktopLyricsPayload, DesktopLyricsStatus } from '@shared/types/desktopLyrics'
+import type { PlayerSurfacePresentation } from '@renderer/app/utils/playerSurfacePresentation'
+
+const props = defineProps<{ presentation: PlayerSurfacePresentation }>()
 
 const playback = usePlayback()
 const { t } = useI18n()
@@ -399,6 +402,7 @@ function handleToggleMute(): void {
 <template>
   <footer
     class="player-bar"
+    :data-player-presentation="props.presentation"
     :class="{
       'player-bar--album-tinted': hasActiveAlbumTint,
       'player-bar--liquid-glass': playerBarMaterial === 'liquid-glass',
