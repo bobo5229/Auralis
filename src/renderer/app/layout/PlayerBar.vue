@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { useAlbumTint } from '@renderer/features/playback/composables/useAlbumTint'
+import { useVolumeOverlay } from '@renderer/features/playback/composables/useVolumeOverlay'
 import { usePlayerBarMaterial } from '@renderer/features/settings/composables/usePlayerBarMaterial'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import TrackProgressInfo from './TrackProgressInfo.vue'
@@ -288,6 +289,11 @@ function handleDocumentPointerDown(event: PointerEvent): void {
     if (modeMenuRef.value?.contains(target)) return
     closeModeMenu()
   }
+
+  if (volumeOverlay.open.value) {
+    if (volumeGroupRef.value?.contains(target)) return
+    volumeOverlay.dismiss()
+  }
 }
 
 onMounted(() => {
@@ -396,6 +402,19 @@ const volumeSliderStyle = computed(() => {
     background: `linear-gradient(to right, var(--auralis-active-album-accent) 0%, var(--auralis-active-album-accent) ${percentage}, var(--auralis-progress-track) ${percentage}, var(--auralis-progress-track) 100%)`,
   }
 })
+
+// Narrow-window volume collapse (Phase 23 §7.2): the inline slider is hidden
+// by the container query; the overlay slider expands upward on hover or
+// keyboard focus and stays while dragging.
+const volumeGroupRef = ref<HTMLElement | null>(null)
+const volumeMuteButtonRef = ref<HTMLButtonElement | null>(null)
+const volumeOverlay = useVolumeOverlay(() => volumeGroupRef.value)
+
+function handleVolumeOverlayEscape(): void {
+  if (!volumeOverlay.open.value) return
+  volumeOverlay.dismiss()
+  volumeMuteButtonRef.value?.focus()
+}
 
 // --- Transport ---
 function handlePlayPause(): void {
@@ -551,8 +570,18 @@ function handleToggleMute(): void {
           />
         </div>
 
-        <div class="volume-control-group">
+        <div
+          ref="volumeGroupRef"
+          class="volume-control-group"
+          :data-volume-open="volumeOverlay.open.value ? 'true' : 'false'"
+          @pointerenter="volumeOverlay.onPointerEnter"
+          @pointerleave="volumeOverlay.onPointerLeave"
+          @focusin="volumeOverlay.onFocusIn"
+          @focusout="volumeOverlay.onFocusOut"
+          @keydown.esc="handleVolumeOverlayEscape"
+        >
           <button
+            ref="volumeMuteButtonRef"
             class="player-control"
             type="button"
             :aria-label="playback.state.isMuted ? t('player.unmute') : t('player.mute')"
@@ -571,6 +600,27 @@ function handleToggleMute(): void {
             :aria-label="t('player.volume')"
             @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
           />
+          <div
+            class="player-overlay volume-overlay"
+            :data-player-presentation="props.presentation"
+            role="group"
+            :aria-label="t('player.volume')"
+          >
+            <input
+              type="range"
+              class="volume-slider volume-overlay-slider"
+              min="0"
+              max="1"
+              step="0.01"
+              :value="playback.state.volume"
+              :style="volumeSliderStyle"
+              :aria-label="t('player.volume')"
+              @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
+              @pointerdown="volumeOverlay.onSliderPointerDown"
+              @pointerup="volumeOverlay.onSliderPointerUp"
+              @pointercancel="volumeOverlay.onSliderPointerUp"
+            />
+          </div>
         </div>
       </div>
     </div>
