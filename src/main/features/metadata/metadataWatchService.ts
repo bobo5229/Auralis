@@ -338,7 +338,9 @@ export class MetadataWatchService {
       // broadcast library:changed and drag the song-list viewport back to the
       // playing track. Missing fingerprints / unusable mtimes stay conservative
       // and go through refresh.
-      const refreshCandidates = knownEntries.filter((entry) => !this.isRefreshSuppressed(entry.filePath))
+      const refreshCandidates = knownEntries.filter(
+        (entry) => !this.isRefreshSuppressed(entry.filePath),
+      )
       const fingerprints = this.trackRepository.getFileFingerprintsByFilePaths(
         refreshCandidates.map((entry) => entry.filePath),
       )

@@ -32,9 +32,7 @@ describe('resolveChangedFilePaths', () => {
 
   it('keeps files whose mtime changed even at identical size', () => {
     const stats = [{ filePath: 'a.mp3', size: 100, mtimeMs: 1690000002000 }]
-    const fingerprints = toFingerprints([
-      ['a.mp3', { fileSize: 100, fileMtimeMs: 1690000000000 }],
-    ])
+    const fingerprints = toFingerprints([['a.mp3', { fileSize: 100, fileMtimeMs: 1690000000000 }]])
 
     expect(resolveChangedFilePaths({ stats, fingerprints })).toEqual(['a.mp3'])
   })
@@ -47,9 +45,7 @@ describe('resolveChangedFilePaths', () => {
 
   it('keeps files whose stat mtime is not usable (conservative)', () => {
     const stats = [{ filePath: 'a.mp3', size: 100, mtimeMs: Number.NaN }]
-    const fingerprints = toFingerprints([
-      ['a.mp3', { fileSize: 100, fileMtimeMs: 1690000000000 }],
-    ])
+    const fingerprints = toFingerprints([['a.mp3', { fileSize: 100, fileMtimeMs: 1690000000000 }]])
 
     expect(resolveChangedFilePaths({ stats, fingerprints })).toEqual(['a.mp3'])
   })

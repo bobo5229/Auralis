@@ -572,7 +572,10 @@ function scrollRenderedTrackToTop(targetTrackId: number): boolean {
   const targetIndex = libraryDerivedIndex.value.trackIndexById.get(targetTrackId)
   if (targetIndex === undefined) return false
 
-  container.scrollTop = Math.max(0, targetIndex * LIBRARY_LAYOUT_METRICS.flatRowHeight + LIBRARY_TOP_INSET)
+  container.scrollTop = Math.max(
+    0,
+    targetIndex * LIBRARY_LAYOUT_METRICS.flatRowHeight + LIBRARY_TOP_INSET,
+  )
   scheduleFirstVisibleTrackIndexUpdate()
   return true
 }
