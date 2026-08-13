@@ -19,6 +19,7 @@ import { resolvePlayerSurfacePresentation } from './app/utils/playerSurfacePrese
 import type { CSSProperties } from 'vue'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import './app/styles/manuscript.shell.css'
+import './app/styles/manuscript.player.css'
 
 const route = useRoute()
 const playback = usePlayback()
