@@ -263,8 +263,11 @@ export class TrackRepository extends BaseRepository {
       VALUES (?, ?, ?)
       ON CONFLICT(title, artist) DO UPDATE SET
         artwork_cache_key = excluded.artwork_cache_key
-        WHERE albums.artwork_cache_key IS NULL
-          AND excluded.artwork_cache_key IS NOT NULL
+        WHERE excluded.artwork_cache_key LIKE 'v2-%.webp'
+          AND (
+            albums.artwork_cache_key IS NULL
+            OR albums.artwork_cache_key NOT LIKE 'v2-%.webp'
+          )
     `)
 
     const upsertBatch = this.db.transaction((items: ScannedTrack[]) => {
@@ -310,8 +313,11 @@ export class TrackRepository extends BaseRepository {
       VALUES (?, ?, ?)
       ON CONFLICT(title, artist) DO UPDATE SET
         artwork_cache_key = excluded.artwork_cache_key
-        WHERE albums.artwork_cache_key IS NULL
-          AND excluded.artwork_cache_key IS NOT NULL
+        WHERE excluded.artwork_cache_key LIKE 'v2-%.webp'
+          AND (
+            albums.artwork_cache_key IS NULL
+            OR albums.artwork_cache_key NOT LIKE 'v2-%.webp'
+          )
     `)
 
     const batch = this.db.transaction((patches: AlbumArtworkPatch[]) => {
