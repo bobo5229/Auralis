@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch, type CSSProperties } from
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
+import { useAlbumTint } from '@renderer/features/playback/composables/useAlbumTint'
 import { usePlayerBarMaterial } from '@renderer/features/settings/composables/usePlayerBarMaterial'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import TrackProgressInfo from './TrackProgressInfo.vue'
@@ -24,11 +25,13 @@ const { t } = useI18n()
 const lyrics = useTrackLyrics()
 const { playerBarMaterial } = usePlayerBarMaterial()
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
-const { palette: albumPalette } = useArtworkPalette(currentArtworkCacheKey)
-
-const activeAlbumTint = ref<string | null>(null)
-const previousAlbumTint = ref<string | null>(null)
-let albumTintTimer: ReturnType<typeof setTimeout> | null = null
+// Phase 18: palette extraction and album tint only run for the modern player
+// presentation; manuscript must not decode images, paint canvases or start
+// worker colour work (TECHDOC §6.1).
+const isModernPlayer = computed(() => props.presentation === 'modern')
+const { palette: albumPalette } = useArtworkPalette(currentArtworkCacheKey, {
+  enabled: isModernPlayer,
+})
 
 function formatAlbumColor(color: { r: number; g: number; b: number }): string {
   return `rgb(${color.r} ${color.g} ${color.b} / var(--auralis-playbar-album-alpha))`
@@ -43,6 +46,13 @@ const albumTint = computed(() => {
   return formatAlbumColor(primaryColor)
 })
 
+const {
+  activeAlbumTint,
+  previousAlbumTint,
+  hasActiveAlbumTint,
+  stop: stopAlbumTint,
+} = useAlbumTint(albumTint, isModernPlayer)
+
 const activeAlbumTintStyle = computed<CSSProperties>(() => ({
   backgroundColor: activeAlbumTint.value ?? 'transparent',
 }))
@@ -52,14 +62,17 @@ const previousAlbumTintStyle = computed<CSSProperties>(() => ({
 }))
 
 const albumAccentColor = computed(() => {
+  // manuscript 使用稳定档案 accent，不从旧封面保留颜色（TECHDOC §6.2）
+  if (!isModernPlayer.value) {
+    return 'var(--manuscript-accent-primary)'
+  }
+
   const primaryColor = albumPalette.value?.accents[0]?.rgb
   if (!primaryColor || !playback.state.currentTrack) {
     return null
   }
   return `rgb(${primaryColor.r} ${primaryColor.g} ${primaryColor.b})`
 })
-
-const hasActiveAlbumTint = computed(() => activeAlbumTint.value !== null)
 const playerBarStyle = computed(
   () =>
     ({
@@ -287,34 +300,8 @@ onUnmounted(() => {
     clearTimeout(desktopLyricsToastTimer)
     desktopLyricsToastTimer = null
   }
-  if (albumTintTimer) {
-    clearTimeout(albumTintTimer)
-    albumTintTimer = null
-  }
+  stopAlbumTint()
 })
-
-watch(
-  albumTint,
-  (nextTint) => {
-    if (nextTint === activeAlbumTint.value) {
-      return
-    }
-
-    if (albumTintTimer) {
-      clearTimeout(albumTintTimer)
-      albumTintTimer = null
-    }
-
-    previousAlbumTint.value = activeAlbumTint.value
-    activeAlbumTint.value = nextTint
-
-    albumTintTimer = setTimeout(() => {
-      previousAlbumTint.value = null
-      albumTintTimer = null
-    }, 420)
-  },
-  { immediate: true },
-)
 
 // Do not watch currentTime — it fires every media tick. Line changes already
 // surface via activeIndex / preludeLitDotCount; track/play/status cover the rest.
@@ -412,13 +399,13 @@ function handleToggleMute(): void {
     <div class="player-bar-glass" aria-hidden="true"></div>
 
     <div
-      v-if="playerBarMaterial === 'cover-tint' && previousAlbumTint"
+      v-if="isModernPlayer && playerBarMaterial === 'cover-tint' && previousAlbumTint"
       class="player-bar-album-tint player-bar-album-tint-previous"
       aria-hidden="true"
       :style="previousAlbumTintStyle"
     ></div>
     <div
-      v-if="playerBarMaterial === 'cover-tint' && activeAlbumTint"
+      v-if="isModernPlayer && playerBarMaterial === 'cover-tint' && activeAlbumTint"
       class="player-bar-album-tint player-bar-album-tint-current"
       aria-hidden="true"
       :style="activeAlbumTintStyle"
