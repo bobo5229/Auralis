@@ -29,7 +29,7 @@ describe('isVolumeOverlayOpen', () => {
 
 describe('useVolumeOverlay', () => {
   function setup() {
-    const contains = vi.fn((_node: Node | null) => false)
+    const contains = vi.fn(() => false)
     const group = { contains } as unknown as HTMLElement
     const overlay = useVolumeOverlay(() => group)
     return { overlay, contains }
