@@ -19,9 +19,10 @@
 | 18.6  | `177151c` | `fix：补齐播放表面键盘与低动效契约`         |
 | 18.7  | `976fff1` | `test：固化播放表面手稿作用域门禁`          |
 | 18.8  | `804ef3f` | `docs：交付 Phase 18 播放表面手稿化`        |
-| P2 修复 | `8256115` | `fix：空队列播放浮层焦点兜底到弹窗根节点` |
+| P2 修复 | `8256115` | `fix：空队列播放浮层焦点兜底到弹窗根节点`   |
+| P2 修复 | `6325c56` | `fix：模式菜单改为 roving tabindex 并回传选择后焦点` |
 
-**源码范围**：`a1bd7fb..8256115`
+**源码范围**：`a1bd7fb..6325c56`
 **含交付文档**：`a1bd7fb..804ef3f`
 
 ## 2. 已实现
@@ -51,6 +52,17 @@
 - `resolvePlayerOverlayKeyAction` 在 `focusableCount === 0` 时对 Tab（含 Shift+Tab）返回 `keep-root`，组件 `preventDefault` 并重新聚焦根节点，Escape 仍关闭弹窗；
 - 新增空队列、单曲队列、活动曲按钮优先与首项兜底的焦点测试。
 
+### Finding P2：播放模式菜单缺少真 roving tabindex，选择后焦点丢失
+
+五个菜单项全部保持默认 `tabindex="0"`：方向键虽能移动焦点，但 Tab 仍逐项穿过菜单，不是标准 roving focus；且 PlayerBar 选择模式后调用 `closeModeMenu()` 不恢复模式按钮焦点，键盘 Enter/Space 选择后被聚焦的菜单项直接卸载，焦点可能落到 body。
+
+**解决**（`6325c56`）：
+
+- `focusedIndex` 成为唯一状态源：模板经 `resolveModeMenuItemTabIndex` 仅把当前项设为 `tabindex="0"`，其余 `-1`，Tab 以菜单为整体进出；方向键经 `resolveModeMenuKeydown` 更新 index 并聚焦对应项；
+- 菜单项枚举改用专用 `getPlayerModeMenuItems`（`PLAYER_MODE_MENU_ITEM_SELECTOR`），不复用会排除 `tabindex="-1"` 的通用 focusable selector；
+- 键盘选择直接以 `focusedIndex` 定位模式并 emit；PlayerBar 的 `handleSelectMode` 改走与 Escape 相同的 `handleModeMenuClose` 关闭路径，键盘与鼠标选择后都回传模式按钮焦点；
+- 新增 Tab 整组进出、键盘选择、菜单项枚举保留 `-1` 项与 tabindex 绑定测试。DOM 层点击/焦点回传行为纳入 Electron 人工矩阵验证。
+
 （工程阶段其余未产生审查 Findings；Electron 人工矩阵完成后按需补充。）
 
 ## 4. 自动验证
@@ -61,7 +73,7 @@
 | `npm.cmd run typecheck` | 通过                                                                     |
 | `npm.cmd run lint`      | 通过                                                                     |
 | `npm.cmd run build`     | 通过                                                                     |
-| `git diff --check`      | 通过；范围 `a1bd7fb..8256115`                                            |
+| `git diff --check`      | 通过；范围 `a1bd7fb..6325c56`                                            |
 
 新增 locale key（`player.lyricsNoTrack` / `lyricsSeekToLine` / `lyricsSeekToTime` / `lyricsStartingSoon`，`lyricsLoading` 复用）；`zh-Hant.json` 由 `locales:zh-hant` 生成，三语 key parity 校验通过。
 
