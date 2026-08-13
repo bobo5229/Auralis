@@ -352,7 +352,7 @@
       }
     },
     "search": {
-      "ariaLabel": "Search library",
+      "ariaLabel": "Search the current list",
       "placeholder": "Search title, artist, album…",
       "matched": "Jumped to {index} of {total}",
       "wrapped": "Wrapped to top ({index} of {total})",

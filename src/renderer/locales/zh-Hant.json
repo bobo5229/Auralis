@@ -352,7 +352,7 @@
       }
     },
     "search": {
-      "ariaLabel": "搜索資料庫",
+      "ariaLabel": "搜索當前列表",
       "placeholder": "搜索標題、藝人、專輯…",
       "matched": "定位到 {index} / {total}",
       "wrapped": "已回到開頭（{index} / {total}）",
