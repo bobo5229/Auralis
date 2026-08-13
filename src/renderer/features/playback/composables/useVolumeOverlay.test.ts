@@ -75,9 +75,9 @@ describe('useVolumeOverlay', () => {
     expect(overlay.open.value).toBe(false)
 
     // Focus moving within the group (Escape focus-return to the trigger) must
-    // not clear the latch.
+    // not clear the latch: the group contains the related target.
     const slider = {} as Node
-    contains.mockImplementation((node: Node | null) => node === slider)
+    contains.mockImplementation(() => true)
     overlay.onFocusIn({ relatedTarget: slider } as unknown as FocusEvent)
     expect(overlay.open.value).toBe(false)
 
