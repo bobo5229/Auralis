@@ -120,6 +120,26 @@
   }
 }
 
+/* ---------- Narrow-window volume collapse (Phase 23 §7.2) ----------
+ * The inline slider hides when the dock cannot stably fit three zones; the
+ * compact slider then expands upward from the volume button on hover or
+ * keyboard focus and stays while dragging. Container-based, so it follows
+ * the dock's real available width, not a viewport constant. */
+@container manuscript-player-bar (max-width: 760px) {
+  .player-bar[data-player-presentation='manuscript']
+    .volume-control-group
+    > .volume-slider {
+    display: none;
+  }
+
+  .player-bar[data-player-presentation='manuscript']
+    .volume-control-group[data-volume-open='true']
+    .volume-overlay {
+    display: flex;
+    align-items: center;
+  }
+}
+
 /* ---------- Transport controls ---------- */
 .player-bar[data-player-presentation='manuscript'] .transport-control,
 .player-bar[data-player-presentation='manuscript'] .player-control {
