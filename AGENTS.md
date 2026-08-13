@@ -194,9 +194,9 @@ preference. Keep its only state and persistence source in
 `src/renderer/features/appearance/composables/useVisualStyle.ts`; do not fold it into `ThemeMode`
 or introduce page-local visual-style refs.
 
-- The manuscript style currently applies only to the `/` All Songs route, whose route name is
-  `library`. Smart and regular playlists reuse `LibraryPage.vue` but must render as `modern`
-  without clearing the saved manuscript preference.
+- The manuscript style applies to the explicit Library family routes `library`, `playlist`, and
+  `smart-playlist`. They share `LibraryPage.vue` and the single `auralis-visual-style` preference;
+  do not force playlist routes back to `modern`, and do not clear the saved preference on navigation.
 - Phase 12 covers the `/albums` catalog route. Phase 13 covers only the `album-detail` route.
   Resolve both surfaces by their explicit Vue Router names; do not infer detail-page presentation
   from the `/albums` path prefix.
@@ -208,8 +208,8 @@ or introduce page-local visual-style refs.
   shell-level manuscript selectors.
 - Sidebar, Now Playing, Playbar, Miniplayer, desktop lyrics, and fullscreen playback remain outside
   the current manuscript coverage. Teleport overlays must carry an owner-specific scope:
-  `.library-overlay` for All Songs and `.albums-overlay` for the album catalog. Other Teleport
-  overlays remain outside.
+  `.library-overlay` for the Library family (All Songs, regular playlists, smart playlists) and
+  `.albums-overlay` for the album catalog. Other Teleport overlays remain outside.
 - Album detail manuscript rules live in
   `src/renderer/features/albums/styles/manuscript.detail.css` and must remain scoped under
   `.album-detail-page[data-visual-style='manuscript']`. Its artwork-derived canvas and pointer tilt
@@ -255,8 +255,8 @@ npm.cmd run build
 Place tests near the module they cover and prefer names such as `libraryRepository.test.ts`.
 
 For library visual-style changes, also manually verify both `modern` and `manuscript` in the
-`flat` and `cover` views, confirm playlist routes remain modern, and check both sides of the
-`xl` layout breakpoint.
+`flat` and `cover` views on `library`, `playlist`, and `smart-playlist`, and check both sides of
+the `xl` layout breakpoint.
 
 For album catalog visual-style changes, verify `modern` and `manuscript` in both `grid` and
 `perspective` views, including search wrap/not-found feedback, context-menu actions, missing

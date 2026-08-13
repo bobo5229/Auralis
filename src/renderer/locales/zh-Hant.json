@@ -320,6 +320,8 @@
         "smartPlaylistKind": "規則生成",
         "smartPlaylistMembership": "自動更新的唯讀成員集合",
         "untitled": "未命名歌單",
+        "playlistFallback": "普通歌單",
+        "smartPlaylistFallback": "智能歌單",
         "loadingTitle": "檔案裝訂中…",
         "loadingSubtitle": "正在核對編目身分",
         "trackCount": "曲目 {count}",

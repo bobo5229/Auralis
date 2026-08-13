@@ -67,7 +67,8 @@ const libraryPresentation = computed<LibraryPresentation>(() =>
   resolveLibraryPresentation(route.name, visualStyle.value),
 )
 const isManuscriptLibrary = computed(() => libraryPresentation.value === 'manuscript')
-const isLibrarySurface = computed(() => resolveLibrarySurfaceKind(route.name) !== null)
+const librarySurfaceKind = computed(() => resolveLibrarySurfaceKind(route.name))
+const isLibrarySurface = computed(() => librarySurfaceKind.value !== null)
 
 const pageIdentity = ref<LibraryPageIdentity | null>(null)
 const tracks = shallowRef<TrackListItem[]>([])
@@ -1258,7 +1259,7 @@ onBeforeUnmount(() => {
   <section
     class="library-page relative flex h-full flex-col"
     :data-visual-style="libraryPresentation"
-    :data-library-surface="pageIdentity?.kind"
+    :data-library-surface="librarySurfaceKind ?? undefined"
     :style="LIBRARY_LAYOUT_CSS_VARS"
   >
     <VisualStyleSwitch v-if="isLibrarySurface" />
@@ -1266,6 +1267,7 @@ onBeforeUnmount(() => {
     <LibraryArchiveHeader
       v-if="isManuscriptLibrary"
       :identity="pageIdentity"
+      :surface-kind="librarySurfaceKind"
       :track-count="tracks.length"
       :current-folio="folioInfo.currentFolio"
       :total-folios="folioInfo.totalFolios"
