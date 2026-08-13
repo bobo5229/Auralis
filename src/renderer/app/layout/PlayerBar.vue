@@ -440,132 +440,141 @@ function handleToggleMute(): void {
       :style="activeAlbumTintStyle"
     ></div>
 
-    <div class="transport-controls">
-      <button
-        class="transport-control"
-        type="button"
-        :aria-label="t('player.previous')"
-        @click="handlePrev"
-      >
-        <span class="h-4 w-4 i-lucide-skip-back" />
-      </button>
-      <button
-        class="transport-control-primary"
-        type="button"
-        :aria-label="playback.state.isPlaying ? t('player.pause') : t('player.play')"
-        @click="handlePlayPause"
-      >
-        <span
-          class="h-5 w-5"
-          :class="playback.state.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
-        />
-      </button>
-      <button
-        class="transport-control"
-        type="button"
-        :aria-label="t('player.next')"
-        @click="handleNext"
-      >
-        <span class="h-4 w-4 i-lucide-skip-forward" />
-      </button>
+    <!-- Phase 23 dock layout wrappers: `display: contents` on the modern
+         baseline keeps the historical three-zone flex order; manuscript
+         turns them into the dock footer grid (track | transport | actions). -->
+    <div class="player-bar-dock-main">
+      <div class="transport-controls">
+        <button
+          class="transport-control"
+          type="button"
+          :aria-label="t('player.previous')"
+          @click="handlePrev"
+        >
+          <span class="h-4 w-4 i-lucide-skip-back" />
+        </button>
+        <button
+          class="transport-control-primary"
+          type="button"
+          :aria-label="playback.state.isPlaying ? t('player.pause') : t('player.play')"
+          @click="handlePlayPause"
+        >
+          <span
+            class="h-5 w-5"
+            :class="playback.state.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
+          />
+        </button>
+        <button
+          class="transport-control"
+          type="button"
+          :aria-label="t('player.next')"
+          @click="handleNext"
+        >
+          <span class="h-4 w-4 i-lucide-skip-forward" />
+        </button>
+      </div>
+
+      <TrackProgressInfo />
     </div>
 
-    <TrackProgressInfo />
+    <div class="player-bar-dock-actions">
+      <div class="playback-actions">
+        <div class="desktop-lyrics-control-wrap">
+          <button
+            class="player-control"
+            :class="{ 'player-control-active': isDesktopLyricsVisible }"
+            type="button"
+            :aria-label="
+              isDesktopLyricsMousePassthroughEnabled
+                ? t('player.desktopLyrics.ariaPassthroughOn')
+                : t('player.desktopLyrics.ariaPassthroughOff')
+            "
+            :aria-pressed="isDesktopLyricsVisible"
+            :title="
+              isDesktopLyricsMousePassthroughEnabled
+                ? t('player.desktopLyrics.titlePassthroughOn')
+                : t('player.desktopLyrics.titlePassthroughOff')
+            "
+            @click="toggleDesktopLyrics"
+            @contextmenu="toggleDesktopLyricsMousePassthrough"
+          >
+            <span class="playbar-action-icon h-4 w-4 i-lucide-captions" />
+          </button>
+          <div
+            v-if="desktopLyricsToast"
+            class="player-overlay desktop-lyrics-toast"
+            :data-player-presentation="props.presentation"
+          >
+            {{ t(desktopLyricsToast) }}
+          </div>
+        </div>
 
-    <div class="playback-actions">
-      <div class="desktop-lyrics-control-wrap">
         <button
+          ref="queueButtonRef"
           class="player-control"
-          :class="{ 'player-control-active': isDesktopLyricsVisible }"
+          :class="{ 'player-control-active': isQueueOpen }"
           type="button"
-          :aria-label="
-            isDesktopLyricsMousePassthroughEnabled
-              ? t('player.desktopLyrics.ariaPassthroughOn')
-              : t('player.desktopLyrics.ariaPassthroughOff')
-          "
-          :aria-pressed="isDesktopLyricsVisible"
-          :title="
-            isDesktopLyricsMousePassthroughEnabled
-              ? t('player.desktopLyrics.titlePassthroughOn')
-              : t('player.desktopLyrics.titlePassthroughOff')
-          "
-          @click="toggleDesktopLyrics"
-          @contextmenu="toggleDesktopLyricsMousePassthrough"
+          :aria-label="t('player.queue')"
+          :aria-expanded="isQueueOpen"
+          @click="toggleQueue"
         >
-          <span class="playbar-action-icon h-4 w-4 i-lucide-captions" />
+          <span class="playbar-action-icon h-4 w-4 i-ri-play-list-2-fill" />
         </button>
-        <div
-          v-if="desktopLyricsToast"
-          class="player-overlay desktop-lyrics-toast"
-          :data-player-presentation="props.presentation"
+
+        <div ref="queuePopoverRef" class="contents">
+          <PlaybackQueuePopover
+            v-if="isQueueOpen"
+            :presentation="props.presentation"
+            @close="handleQueueClose"
+          />
+        </div>
+
+        <button
+          ref="modeButtonRef"
+          class="player-control"
+          :class="{ 'player-control-active': isModeMenuOpen }"
+          type="button"
+          :aria-label="t('player.mode')"
+          :aria-expanded="isModeMenuOpen"
+          @click="toggleModeMenu"
         >
-          {{ t(desktopLyricsToast) }}
+          <span class="playbar-action-icon h-4 w-4" :class="playbackModeIconClass" />
+        </button>
+
+        <div ref="modeMenuRef" class="contents">
+          <PlaybackModeMenu
+            v-if="isModeMenuOpen"
+            :current-mode="playback.state.playbackMode"
+            :presentation="props.presentation"
+            @select="handleSelectMode"
+            @close="handleModeMenuClose"
+          />
+        </div>
+
+        <div class="volume-control-group">
+          <button
+            class="player-control"
+            type="button"
+            :aria-label="playback.state.isMuted ? t('player.unmute') : t('player.mute')"
+            @click="handleToggleMute"
+          >
+            <span class="playbar-action-icon h-4 w-4" :class="volumeIconClass" />
+          </button>
+          <input
+            type="range"
+            class="volume-slider"
+            min="0"
+            max="1"
+            step="0.01"
+            :value="playback.state.volume"
+            :style="volumeSliderStyle"
+            :aria-label="t('player.volume')"
+            @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
+          />
         </div>
       </div>
-
-      <button
-        ref="queueButtonRef"
-        class="player-control"
-        :class="{ 'player-control-active': isQueueOpen }"
-        type="button"
-        :aria-label="t('player.queue')"
-        :aria-expanded="isQueueOpen"
-        @click="toggleQueue"
-      >
-        <span class="playbar-action-icon h-4 w-4 i-ri-play-list-2-fill" />
-      </button>
-
-      <div ref="queuePopoverRef" class="contents">
-        <PlaybackQueuePopover
-          v-if="isQueueOpen"
-          :presentation="props.presentation"
-          @close="handleQueueClose"
-        />
-      </div>
-
-      <button
-        ref="modeButtonRef"
-        class="player-control"
-        :class="{ 'player-control-active': isModeMenuOpen }"
-        type="button"
-        :aria-label="t('player.mode')"
-        :aria-expanded="isModeMenuOpen"
-        @click="toggleModeMenu"
-      >
-        <span class="playbar-action-icon h-4 w-4" :class="playbackModeIconClass" />
-      </button>
-
-      <div ref="modeMenuRef" class="contents">
-        <PlaybackModeMenu
-          v-if="isModeMenuOpen"
-          :current-mode="playback.state.playbackMode"
-          :presentation="props.presentation"
-          @select="handleSelectMode"
-          @close="handleModeMenuClose"
-        />
-      </div>
-
-      <div class="volume-control-group">
-        <button
-          class="player-control"
-          type="button"
-          :aria-label="playback.state.isMuted ? t('player.unmute') : t('player.mute')"
-          @click="handleToggleMute"
-        >
-          <span class="playbar-action-icon h-4 w-4" :class="volumeIconClass" />
-        </button>
-        <input
-          type="range"
-          class="volume-slider"
-          min="0"
-          max="1"
-          step="0.01"
-          :value="playback.state.volume"
-          :style="volumeSliderStyle"
-          :aria-label="t('player.volume')"
-          @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
-        />
-      </div>
     </div>
+
+    <div class="player-bar-dock-rule" aria-hidden="true"></div>
   </footer>
 </template>
