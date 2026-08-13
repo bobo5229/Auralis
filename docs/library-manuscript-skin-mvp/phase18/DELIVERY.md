@@ -23,6 +23,7 @@
 | P2 修复 | `6325c56` | `fix：模式菜单改为 roving tabindex 并回传选择后焦点` |
 | P2 修复 | `db25276` | `fix：歌词自动跟随遵守 reduced-motion 且不创建 WAAPI 动画` |
 | P2 修复 | `73c83f6` | `fix：全屏时隐藏 PlayerBar 不再启动 palette worker` |
+| P3 修复 | `ef3dd69` | `docs：统一 Phase 18 文档状态为工程完成待人工确认` |
 
 **源码范围**：`a1bd7fb..73c83f6`
 **含交付文档**：`a1bd7fb..804ef3f`
@@ -87,6 +88,12 @@
 - PlayerBar 改用 `paletteEnabled` 作为 palette 与 album tint 门，tint 层 `v-if` 同步切换；`isModernPlayer` 仅保留给 presentation 语义（album accent 与 owner marker）；
 - Fullscreen 继续使用自己的 owner 与视觉管线；
 - 新增 manuscript → fullscreen → normal 往返测试（隐藏 PlayerBar 不启动 palette）、活跃门与 palette 门测试；静态守卫同步更新 palette gate 断言。
+
+### Finding P3：Phase 18 文档状态相互矛盾
+
+TECHDOC 仍标「待实施」、DELIVERY 标「工程完成，人工待确认」、ROADMAP 覆盖表与阶段清单却已写「已交付」/「已完成」（含人工验收通过字样），三处状态互斥。
+
+**解决**（`ef3dd69`）：统一为「工程完成；Electron 人工矩阵待确认」——TECHDOC 文档状态行、DELIVERY 状态行、ROADMAP 产品状态概括、覆盖表 Now Playing/PlayerBar 行、Phase 18 进度表人工验收列与阶段清单状态全部对齐；并约定人工验收通过后再同步更新为「完全交付」。
 
 （工程阶段其余未产生审查 Findings；Electron 人工矩阵完成后按需补充。）
 
