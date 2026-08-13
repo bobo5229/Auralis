@@ -37,7 +37,7 @@ import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { createLibraryDerivedIndex } from '../utils/libraryDerivedIndex'
 import { createLibrarySearchIndex } from '../utils/librarySearchIndex'
 import { scanLibrarySearchIndex } from '../utils/librarySearchScan'
-import { resolveLibraryPresentation } from '../utils/libraryPresentation'
+import { resolveLibraryPresentation, resolveLibrarySurfaceKind } from '../utils/libraryPresentation'
 import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
 import { isSameLibraryRouteScope, type LibraryRouteScope } from '../utils/libraryRouteScope'
 import {
@@ -57,11 +57,11 @@ const route = useRoute()
 const router = useRouter()
 
 const { visualStyle } = useVisualStyle()
-const isLibraryRoute = computed(() => route.name === 'library')
 const libraryPresentation = computed<LibraryPresentation>(() =>
   resolveLibraryPresentation(route.name, visualStyle.value),
 )
 const isManuscriptLibrary = computed(() => libraryPresentation.value === 'manuscript')
+const isLibrarySurface = computed(() => resolveLibrarySurfaceKind(route.name) !== null)
 
 const pageIdentity = ref<LibraryPageIdentity | null>(null)
 const tracks = shallowRef<TrackListItem[]>([])
@@ -1178,6 +1178,15 @@ watch(
   { immediate: true },
 )
 
+watch(libraryPresentation, async () => {
+  if (!isSearchFocused.value && !hasSearchQuery.value) return
+  await nextTick()
+  if (isPageUnmounted) return
+  if (isSearchFocused.value) {
+    searchInputRef.value?.focus()
+  }
+})
+
 function isInteractiveTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   const tagName = target.tagName.toLowerCase()
@@ -1188,7 +1197,7 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
 }
 
 function onWindowKeyDown(e: KeyboardEvent): void {
-  if (isLibraryRoute.value && e.key === '/' && !isInteractiveTarget(e.target)) {
+  if (isLibrarySurface.value && e.key === '/' && !isInteractiveTarget(e.target)) {
     e.preventDefault()
     isSearchFocused.value = true
     void nextTick(() => {
@@ -1228,7 +1237,7 @@ onBeforeUnmount(() => {
     :data-library-surface="pageIdentity?.kind"
     :style="LIBRARY_LAYOUT_CSS_VARS"
   >
-    <VisualStyleSwitch v-if="isLibraryRoute" />
+    <VisualStyleSwitch v-if="isLibrarySurface" />
 
     <LibraryArchiveHeader
       v-if="isManuscriptLibrary"
@@ -1261,11 +1270,11 @@ onBeforeUnmount(() => {
     <div
       v-else
       class="library-list-shell relative flex flex-1 flex-col overflow-hidden"
-      @mousemove="!isScopedPlaylist && onLibraryListMouseMove($event)"
-      @mouseleave="!isScopedPlaylist && onLibraryListMouseLeave()"
+      @mousemove="onLibraryListMouseMove($event)"
+      @mouseleave="onLibraryListMouseLeave()"
       @keydown="onListShellKeyDown"
     >
-      <div v-if="!isScopedPlaylist" class="library-search-zone">
+      <div class="library-search-zone">
         <Transition name="search-bar">
           <div
             v-if="shouldRenderSearchBar"
