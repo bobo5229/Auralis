@@ -21,13 +21,15 @@ export default defineConfig({
     'app-main': 'min-h-0 overflow-y-auto bg-transparent',
     'now-playing-panel':
       'hidden h-full min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-4 xl:flex',
+    // Geometry is owned by presentation-scoped CSS (modern dual-rail dock /
+    // manuscript footer). Keep only shared stacking + material shell here.
     'player-bar':
-      'fixed left-1/2 bottom-[var(--auralis-player-bottom-gap)] z-50 flex h-18 w-[min(960px,calc(100vw-320px))] min-w-[720px] -translate-x-1/2 items-center gap-5 rounded-full border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] px-6 shadow-[var(--auralis-playbar-shadow)]',
+      'fixed z-50 h-18 border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] shadow-[var(--auralis-playbar-shadow)]',
     'transport-controls': 'flex items-center gap-2 shrink-0',
     'transport-control':
       'inline-flex items-center justify-center rounded p-2 text-[var(--auralis-text-muted)] transition hover:text-[var(--auralis-text)] shadow-none hover:shadow-none',
     'transport-control-primary':
-      'inline-flex items-center justify-center rounded-full p-3 text-[var(--auralis-text)] transition hover:text-[var(--auralis-text)] shadow-none hover:shadow-none',
+      'inline-flex items-center justify-center rounded-full p-3 text-[#1f1f1f] bg-[#e8e1d2] transition shadow-none hover:shadow-none',
     'playback-actions': 'relative flex items-center gap-3 shrink-0',
     'volume-control-group': 'flex items-center gap-1.5 shrink-0',
     'track-info-card': 'flex-1 min-w-0',
@@ -102,7 +104,7 @@ export default defineConfig({
     'album-cover-tracks': 'min-w-0',
     /* height+min-height 固定行盒，与 getAlbumGroupEstimatedHeight 的 40px 契约一致（REVIEW F3） */
     'cover-track-row':
-      'relative grid grid-cols-[40px_minmax(0,1fr)_minmax(120px,220px)_48px] gap-x-3 items-center px-3 h-[var(--library-cover-track-row-height)] min-h-[var(--library-cover-track-row-height)] rounded-xl cursor-pointer transition-colors hover:bg-[var(--auralis-control-hover-bg)]',
+      'relative grid grid-cols-[40px_minmax(0,1.4fr)_minmax(110px,1fr)_48px] gap-x-3 items-center px-3 h-[var(--library-cover-track-row-height)] min-h-[var(--library-cover-track-row-height)] rounded-xl cursor-pointer transition-colors hover:bg-[var(--auralis-control-hover-bg)]',
     'cover-track-row--playing':
       'bg-[var(--auralis-song-row-now-playing-bg)] hover:bg-[var(--auralis-song-row-now-playing-bg)]',
     'lyric-active': 'text-[var(--auralis-lyrics-active)] font-bold text-[28px] leading-12 py-1.5',

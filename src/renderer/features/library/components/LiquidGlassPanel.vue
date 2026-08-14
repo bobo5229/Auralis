@@ -64,7 +64,6 @@ defineExpose({
 .liquid-glass-panel {
   --glass-pointer-x: 24%;
   --glass-pointer-y: 12%;
-  position: relative;
   isolation: isolate;
   border-radius: var(--glass-radius);
   background: color-mix(in srgb, var(--auralis-context-menu-bg) 78%, transparent);
@@ -75,6 +74,20 @@ defineExpose({
   backdrop-filter: blur(18px) saturate(1.18) contrast(1.04);
   -webkit-backdrop-filter: blur(18px) saturate(1.18) contrast(1.04);
   overflow: hidden;
+}
+
+/*
+ * Default positioning only: the panel must stay a containing block for its
+ * absolute glass layers, but callers that pin the panel with their own
+ * position utilities (context menus pass `fixed` / `absolute`) must win.
+ * Layered author rules lose to un-layered ones, so a caller's `.fixed` or
+ * `.absolute` always overrides this default `relative`; callers that pass no
+ * position keep the in-flow relative default.
+ */
+@layer liquid-glass-panel {
+  .liquid-glass-panel {
+    position: relative;
+  }
 }
 
 .liquid-glass-panel--manuscript {

@@ -1,16 +1,18 @@
-# TECHDOC：手稿 PlayerBar 吸底页脚（Phase 23）
+# TECHDOC：手稿 PlayerBar 主栏页脚（Phase 23 方案 A）
+
+用户否决跨 Now Playing 的通栏页脚与悬浮卡片后，改为主栏页脚。
 
 - **日期**：2026-08-13
-- **状态**：设计冻结，未实现
+- **状态**：方案 A 已冻结并工程落地；Electron 人工矩阵待确认
 - **前置状态**：Phase 18 工程完成、Electron 人工矩阵待确认；Phase 22 工程完成、人工待确认
 - **覆盖对象**：普通主窗口、`data-player-presentation='manuscript'` 的 PlayerBar
 - **明确排除**：modern PlayerBar、Now Playing 内容设计、Fullscreen、Miniplayer、桌面歌词独立窗口
 
 ## 1. 结论
 
-Phase 23 将普通主窗口手稿皮肤下的 PlayerBar 从居中悬浮胶囊改为吸附窗口底部的连续手稿页脚。
-它从 Sidebar 所在 grid track 的右边界开始，横跨主内容与可见的 Now Playing 列，右侧与底部贴紧
-客户区边缘。
+Phase 23 将普通主窗口手稿皮肤下的 PlayerBar 从居中悬浮胶囊改为主栏这张纸的下边。
+它从 Sidebar 所在 grid track 的右边界（260px）开始，贴主栏纸面底边，不跨进 Now Playing：
+`<xl` 时 `right: 0`；`xl` 时 `right: 20%`，与壳层 `xl:grid-cols-[260px_minmax(0,1fr)_20%]` 第三列对齐。
 
 本阶段不是新建第二套播放器。独立的是手稿 presentation 的布局和视觉表达；播放状态、队列、
 歌词同步、进度、音量和模式控制继续复用现有 PlayerBar 与 playback composable。
@@ -36,28 +38,28 @@ gate、material 正交性、overlay 键盘模型与生命周期约束继续有�
 
 ## 3. 已冻结产品决策
 
-| 决策项 | 冻结结论 |
-| ------ | -------- |
-| 皮肤范围 | 只改普通主窗口的 manuscript PlayerBar |
-| modern | 保持现有流光悬浮 PlayerBar，不改变几何、材质或行为 |
-| 窗口范围 | Fullscreen、Miniplayer、桌面歌词独立窗口不变 |
-| 定位模型 | 继续使用 `position: fixed`，不进入 AppShell grid flow |
-| 高度 | 固定 72px |
-| 左边界 | 260px，与主内容 grid track 起点严格对齐 |
-| 右边界 | `right: 0` |
-| 底边界 | `bottom: 0` |
-| 圆角 | 仅左上、右上 16px；底部两个角为直角 |
-| 空状态 | 无当前曲时仍显示完整底栏，几何不跳动 |
-| 内容避让 | manuscript 下主内容与 Now Playing 均预留 88px |
-| 视觉 | 连续手稿纸面、顶部细线、轻微内阴影、无悬浮外投影 |
-| 内部布局 | 左曲目信息与进度、中传输控制、右操作与音量 |
-| 中心基准 | 传输控制相对主内容列居中，不相对整条底栏居中 |
-| `xl` | 右侧操作区归入 Now Playing 列，并显示低对比竖向分隔线 |
-| 窄窗 | 依据 PlayerBar 容器宽度折叠常驻音量滑杆 |
-| 折叠音量 | hover 或 `focus-within` 时向上展开紧凑滑杆；点击按钮仍静音 |
-| Player overlay | 队列、模式菜单和歌词提示继续向上展开 |
-| 风格切换 | 立即切换，不做位置、宽度或圆角的几何动画 |
-| 实现边界 | 复用现有 PlayerBar、playback composable 与子组件，不复制播放器 |
+| 决策项         | 冻结结论                                                       |
+| -------------- | -------------------------------------------------------------- |
+| 皮肤范围       | 只改普通主窗口的 manuscript PlayerBar                          |
+| modern         | 保持现有流光悬浮 PlayerBar，不改变几何、材质或行为             |
+| 窗口范围       | Fullscreen、Miniplayer、桌面歌词独立窗口不变                   |
+| 定位模型       | 继续使用 `position: fixed`，不进入 AppShell grid flow          |
+| 高度           | 固定 72px                                                      |
+| 左边界         | 260px，与主内容 grid track 起点严格对齐                        |
+| 右边界         | `<xl`：`right: 0`；`xl`：`right: 20%`（禁止 `20vw`）           |
+| 底边界         | `bottom: 0`                                                    |
+| 圆角           | 四角直角 `border-radius: 0`（覆盖 Uno `rounded-full`）         |
+| 空状态         | 无当前曲时仍显示完整底栏；左对齐短进度线；右缘 `--:-- / --:--` |
+| 内容避让       | manuscript 主内容 88px；Now Playing `h-full` 落地，不再叠 88px |
+| 视觉           | 主栏纸面、仅顶边、dock 内阴影、无悬浮外投影、无 hover 抬升     |
+| 内部布局       | 左曲目信息与进度、中传输控制、四钮贴传输右侧 24px；右缘只读时间题署 `m:ss / m:ss` |
+| 中心基准       | 传输控制相对整条主栏页脚居中（dock-main 为 `display: contents`）；四钮不钉页脚右缘 |
+| `xl`           | 右缘停在 Now Playing 左边线；不把 actions 放进 Now Playing 列；不画 dock-rule |
+| 窄窗           | 依据 PlayerBar 容器宽度折叠常驻音量滑杆                        |
+| 折叠音量       | hover 或 `focus-within` 时向上展开紧凑滑杆；点击按钮仍静音     |
+| Player overlay | 队列、模式菜单和歌词提示继续向上展开                           |
+| 风格切换       | 立即切换，不做位置、宽度或圆角的几何动画                       |
+| 实现边界       | 复用现有 PlayerBar、playback composable 与子组件，不复制播放器 |
 
 ## 4. 当前实现基线
 
@@ -98,7 +100,7 @@ manuscript 目前没有独立几何，因此上述规则也作用于手稿 Playe
 └────────────────────────────┴───────────────────────────────┘
 
 viewport >= xl
-┌────────── 260px ──────────┬──────── main ────────┬─ 20vw ─┐
+┌────────── 260px ──────────┬──────── main ────────┬─ 20% ──┐
 │ Sidebar                    │                      │ Now     │
 │                            │                      │ Playing │
 └────────────────────────────┴──────────────────────┴─────────┘
@@ -149,14 +151,15 @@ manuscript PlayerBar 的目标盒模型为：
 ```text
 position: fixed
 left: 260px
-right: 0
 bottom: 0
 height: 72px
 width: auto
 min-width: 0
 transform: none
-border-radius: 16px 16px 0 0
 overflow: visible
+<xl  right: 0
+xl   right: 20%
+border-radius: 0
 ```
 
 这组规则只允许在 `.player-bar[data-player-presentation='manuscript']` 或等价 player owner
@@ -165,9 +168,10 @@ overflow: visible
 ### 5.2 层级与边缘
 
 - PlayerBar 继续位于内容之上，保持现有固定播放控制的 z-index 语义。
-- 右侧和底部不得保留 desk gap、safe area 或透明缝。
+- 底部不得保留 desk gap 或透明缝；`<xl` 右侧贴客户区，`xl` 右侧贴 Now Playing 左边线。
 - Sidebar 保持全高直达客户区底部；PlayerBar 从其右侧与主内容列接合。
-- 不把底栏扩展到 Sidebar 下方，不在 Sidebar 内放置播放信息或装饰副本。
+- 不把底栏扩展到 Sidebar 下方，也不跨进 Now Playing；Now Playing 自有 `border-left` 形成 T 接缝。
+- 不画 `.player-bar-dock-rule` 竖线。
 - 不引入会裁剪向上 overlay 的 dock wrapper。
 
 ### 5.3 视觉表面
@@ -199,29 +203,26 @@ track + progress | transport | secondary actions + volume
 
 无当前曲时左区继续占据同一几何，不重新分配中区或右区，也不隐藏整条底栏。
 
-### 6.2 主内容中心线
+### 6.2 主栏页脚中心线
 
-传输控制必须相对 `.app-main` 的可用宽度居中，而不是相对从 260px 到 viewport 右边缘的整个
-PlayerBar 居中。`xl` 出现 Now Playing 后，这条约束尤其重要，否则传输控制会向右漂移。
+传输控制必须相对整条主栏页脚居中，而不是把 actions 排除在居中之外、再在 dock-main 内做
+第二套 `1fr / auto / 1fr`。`display: contents` 让 track / transport / actions 成为 PlayerBar
+自身 grid 的三个 area。右区在右侧 `minmax(0, 1fr)` 内 `justify-content: flex-start`，与传输
+固定 24px 缝，不按页脚右缘对齐；actions 是传输的随从，不是窗口右下工具条。
 
-实现时应使用明确的嵌套 grid 或等价布局契约，不以左右区的实际内容宽度“碰巧抵消”来模拟
-居中。
-
-### 6.3 `xl` 两列对齐
+### 6.3 `xl` 与 Now Playing 的 T 接缝
 
 在 `xl` 以下：
 
 - PlayerBar 的全部三区共享从 260px 到 viewport 右边缘的空间；
-- 左右区按各自边缘对齐，中区保持主内容中心。
+- `right: 0`，四角直角 `border-radius: 0`。
 
 在 `xl` 及以上：
 
-- PlayerBar 外层与 AppShell 对齐为 main + 20vw Now Playing 两区；
-- 左区和传输控制位于 main 区；
-- 右侧操作与音量位于 Now Playing 区；
-- main 与 Now Playing 的边界显示一条低对比竖线；
-- 竖线使用与顶部细线相同的 manuscript rule token；
-- 低于 `xl` 时不存在这条分隔线，不保留空占位。
+- `right: 20%`，与壳层第三列同宽，不使用 `20vw` 或 `20vw + 16px`；
+- 三区仍全部留在主栏页脚内，actions 不迁入 Now Playing 列；
+- 四角保持直角，与 Now Playing `border-left` 做 T 接缝；
+- `.player-bar-dock-rule` 在所有宽度下 `display: none`。
 
 ## 7. 响应式与音量降级
 
@@ -282,7 +283,7 @@ manuscript dock safe area       = 88px（72px 栏高 + 16px 呼吸空间）
 - Album detail；
 - Archive；
 - Settings；
-- Now Playing 内部可滚动或可到达的末端内容。
+- Now Playing 保持 `h-full` 自己落地，不再额外叠一层 88px 底栏避让。
 
 各页面已有的额外 bottom inset 若承担页面自身节奏，可继续保留；不得因为 Phase 23 重复叠加
 44px 旧悬浮间距。Library flat 的既有虚拟列表 bottom inset、Archive 的额外页尾间距必须在实机中
@@ -414,7 +415,7 @@ Phase 23 不得改变：
 
 ### Step 23.1：建立 presentation-safe 几何
 
-1. 只为 manuscript PlayerBar 增加 260px / 0 / 0 / 72px 吸底几何；
+1. 只为 manuscript PlayerBar 增加主栏页脚几何（左 260px、底 0、`<xl` 右 0、`xl` 右 20%）；
 2. 清除 manuscript 下共享悬浮宽度、min-width、translate 和 bottom gap；
 3. 保留 modern 原几何；
 4. 补充纯 resolver 或静态作用域守卫，证明排除表面不受影响。
@@ -422,10 +423,10 @@ Phase 23 不得改变：
 ### Step 23.2：重排经典三区
 
 1. 左区放置 `TrackProgressInfo`；
-2. 中区放置 transport，并以 main 列中心为基准；
-3. 右区放置 actions 与 volume；
-4. `xl` 时接入 Now Playing 20vw 列和竖线；
-5. 无当前曲时验证三段几何不跳动。
+2. 中区放置 transport，并以整条主栏页脚中心为基准；
+3. 右区放置 actions 与 volume，始终留在主栏内；
+4. `xl` 时右缘 20%，不把 actions 放进 Now Playing，不画竖线；
+5. 无当前曲时验证三段几何不跳动；空态左对齐、进度线限宽。
 
 ### Step 23.3：接入双 safe area
 
@@ -447,7 +448,7 @@ Phase 23 不得改变：
 
 1. 校准 queue、mode、lyrics toast 和 volume overlay 的向上锚点；
 2. 保持 overflow、z-index 和 owner marker；
-3. 应用连续纸面、顶部细线、16px 顶角和轻内阴影；
+3. 应用连续纸面、顶部细线、四角直角和轻内阴影；
 4. 验证 album tint、glass 与外投影未在 manuscript 重新出现。
 
 ### Step 23.6：门禁与交付
@@ -466,7 +467,7 @@ Phase 23 不得改变：
 2. modern、Fullscreen、Miniplayer 始终保持原几何或 modern presentation；
 3. player owner CSS 不跨越到 shell、页面或独立播放器表面；
 4. 900px 下 PlayerBar 不侵入 Sidebar、不超出 viewport；
-5. `xl` 两侧的布局分支正确，传输控制以 main 列居中；
+5. `xl` 两侧的布局分支正确，传输控制相对整条主栏页脚居中；
 6. manuscript safe area 为 88px，modern 仍为 116px；
 7. style 切换不使用 key remount；
 8. queue / mode / lyrics overlay owner 和焦点模型不变；
@@ -487,26 +488,26 @@ npm.cmd run build
 
 ### 15.1 必测组合
 
-| 维度 | 场景 |
-| ---- | ---- |
-| presentation | modern / manuscript 往返至少 5 次 |
-| theme | light / dark |
-| 宽度 | 900px、container query 两侧、1279px、1280px、宽屏 |
-| 播放 | 无曲、暂停、播放、换曲、上一首、下一首、队列末端 |
-| 页面 | Library、playlist、smart-playlist、Albums、Album detail、Archive、Settings |
-| Now Playing | `xl` 隐藏与显示两侧、歌词滚到底 |
-| overlay | queue、mode、lyrics toast、窄窗 volume |
-| 排除表面 | Fullscreen、Miniplayer、桌面歌词窗口 |
+| 维度         | 场景                                                                       |
+| ------------ | -------------------------------------------------------------------------- |
+| presentation | modern / manuscript 往返至少 5 次                                          |
+| theme        | light / dark                                                               |
+| 宽度         | 900px、container query 两侧、1279px、1280px、宽屏                          |
+| 播放         | 无曲、暂停、播放、换曲、上一首、下一首、队列末端                           |
+| 页面         | Library、playlist、smart-playlist、Albums、Album detail、Archive、Settings |
+| Now Playing  | `xl` 隐藏与显示两侧、歌词滚到底                                            |
+| overlay      | queue、mode、lyrics toast、窄窗 volume                                     |
+| 排除表面     | Fullscreen、Miniplayer、桌面歌词窗口                                       |
 
 ### 15.2 几何验收
 
 - manuscript 栏高稳定为 72px；
 - 左边界始终为 260px，Sidebar 保持全高；
-- 右侧、底部无缝贴边；
-- 仅两个顶部角为 16px；
+- `<xl` 右侧、底部无缝贴边；`xl` 右缘停在 Now Playing 左边线；
+- 四角直角 `border-radius: 0`；`xl` 右缘与 Now Playing `border-left` 做 T 接缝；
 - 900px 下不越界、不横向滚动；
-- `xl` 时右区进入 Now Playing 列，竖线与上方列边界一致；
-- 传输控制在主内容列中心，不随右区宽度漂移；
+- `xl` 时 actions 仍在主栏页脚，无 dock-rule 竖线；
+- 传输控制相对整条主栏页脚居中；
 - 所有页面末项可滚至栏顶上方至少 16px，页面自有额外 inset 除外。
 
 ### 15.3 行为验收
@@ -522,20 +523,21 @@ npm.cmd run build
 
 ## 16. 风险与对策
 
-| 风险 | 对策 |
-| ---- | ---- |
-| 共享 shortcut 被修改后 modern 也吸底 | manuscript owner 内覆盖；增加静态与视觉守卫 |
-| fixed 元素改进 grid flow 导致隐式行 | 保持 fixed，不让 PlayerBar 成为 grid auto-placement item |
-| 260px 与 Sidebar 可见宽度混淆 | 以 grid track 为唯一左边界来源 |
-| safe area 全局改为 88px 遮住 modern 内容 | 建立 presentation-safe 双值契约 |
-| 页面已有 inset 叠加出大块空白 | 逐消费者审计，不机械删除页面自有节奏 |
-| `xl` 后控制以整栏居中而右漂 | 使用明确 main / Now Playing 列和 main 内中心线 |
-| 900px 下三区挤压 | 取消 720px min-width；container query 先折叠 volume slider |
-| 音量展开只支持 hover | 同时实现 `focus-within`、键盘与拖动保持 |
-| dock wrapper 裁切 overlay | 保持必要 containing block `overflow: visible` |
-| 重新排列 DOM 破坏焦点顺序 | DOM 顺序与视觉顺序保持一致，避免只依靠 CSS `order` 伪装 |
-| style 切换重排时误触 | 不做几何动画，不 remount，切换为原子 presentation 更新 |
-| manuscript material selector 被共享样式反压 | 保持 owner specificity 与样式加载顺序，增加静态检查 |
+| 风险                                        | 对策                                                       |
+| ------------------------------------------- | ---------------------------------------------------------- |
+| 共享 shortcut 被修改后 modern 也吸底        | manuscript owner 内覆盖；增加静态与视觉守卫                |
+| fixed 元素改进 grid flow 导致隐式行         | 保持 fixed，不让 PlayerBar 成为 grid auto-placement item   |
+| 260px 与 Sidebar 可见宽度混淆               | 以 grid track 为唯一左边界来源                             |
+| safe area 全局改为 88px 遮住 modern 内容    | 建立 presentation-safe 双值契约                            |
+| 页面已有 inset 叠加出大块空白               | 逐消费者审计，不机械删除页面自有节奏                       |
+| `xl` 后控制因内层 grid 被 actions 挤向左     | dock-main 用 `display: contents`，三区挂在页脚自身 grid    |
+| `xl` 右缘用 20vw 与壳层 20% 错位             | 固定写 `right: 20%`，禁止 `20vw`                           |
+| 900px 下三区挤压                            | 取消 720px min-width；container query 先折叠 volume slider |
+| 音量展开只支持 hover                        | 同时实现 `focus-within`、键盘与拖动保持                    |
+| dock wrapper 裁切 overlay                   | 保持必要 containing block `overflow: visible`              |
+| 重新排列 DOM 破坏焦点顺序                   | DOM 顺序与视觉顺序保持一致，避免只依靠 CSS `order` 伪装    |
+| style 切换重排时误触                        | 不做几何动画，不 remount，切换为原子 presentation 更新     |
+| manuscript material selector 被共享样式反压 | 保持 owner specificity 与样式加载顺序，增加静态检查        |
 
 ## 17. 回滚策略
 
@@ -551,17 +553,18 @@ Phase 23 应能按层回滚：
 
 Phase 23 只有满足以下全部条件后才能标记为“工程完成”：
 
-- manuscript PlayerBar 使用 260px 左边界、0 右边界、0 底边界和 72px 高度；
+- manuscript PlayerBar 使用 260px 左边界、`<xl` 右 0 / `xl` 右 20%、0 底边界和 72px 高度；
+- 不跨进 Now Playing，不把 actions 放进 Now Playing 列；
 - modern PlayerBar 的流光悬浮几何完全不变；
-- 经典三区、主内容中心线和 `xl` Now Playing 对齐正确；
-- manuscript / modern 双 safe area 生效且所有消费者末项可达；
+- 经典三区与相对整条主栏页脚的中心线正确；
+- manuscript / modern 双 safe area 生效（88 / 116），Now Playing 不再叠一层 88px；
 - 窄窗音量 slider 的鼠标、键盘和拖动行为完整；
 - 所有 player overlay 向上展开且不被裁切；
 - 无当前曲、切歌与风格往返不产生布局跳动或状态重置；
 - palette、tint、material、焦点、歌词和队列不变量全部保持；
 - 自动门禁全部通过；
-- Electron 人工矩阵已执行并记录在 `DELIVERY.md`；
-- `AGENTS.md` 与路线图已同步最终实现事实。
+- Electron 人工矩阵已执行并记录在 `DELIVERY.md` 后，才可将本阶段标为完全交付；
+- 路线图已同步方案 A 事实。
 
-当前只完成设计冻结，尚未创建 BASELINE、尚未修改代码、尚未执行工程或 Electron 验收，因此不得将
-Phase 23 标记为工程完成或完全交付。
+方案 A 已工程落地，但 Electron 人工矩阵仍待用户确认，因此不得将 Phase 23 标记为人工验收完成
+或已交付签收。

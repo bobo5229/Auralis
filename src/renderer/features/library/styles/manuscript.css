@@ -322,23 +322,8 @@
 }
 
 /* --------------------------------------------------------------------------
- * Controls — 搜索框
+ * Controls — 搜索框（浮在列表上，不占 48px 顶栏）
  * -------------------------------------------------------------------------- */
-
-.library-page[data-visual-style='manuscript'] .library-search-zone {
-  position: relative;
-  top: auto;
-  left: auto;
-  transform: none;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding-inline: 32px;
-  border-bottom: var(--manuscript-hairline-width) solid var(--manuscript-border-subtle);
-  pointer-events: auto;
-  z-index: 10;
-}
 
 .library-page[data-visual-style='manuscript'] .library-search-bar {
   border-radius: var(--manuscript-radius-control);
@@ -455,7 +440,7 @@
 
   .library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row,
   .library-page[data-visual-style='manuscript'] .catalog-header-tracks {
-    grid-template-columns: 40px minmax(0, 1fr) minmax(120px, 180px) 48px !important;
+    grid-template-columns: 40px minmax(0, 1.3fr) minmax(110px, 0.75fr) 48px !important;
   }
 }
 
@@ -469,7 +454,7 @@
 
   .library-page[data-visual-style='manuscript'] .album-cover-group .cover-track-row,
   .library-page[data-visual-style='manuscript'] .catalog-header-tracks {
-    grid-template-columns: 40px minmax(0, 1fr) minmax(140px, 220px) 48px !important;
+    grid-template-columns: 40px minmax(0, 1.4fr) minmax(120px, 1fr) 48px !important;
   }
 }
 
@@ -502,21 +487,4 @@
 
 .library-status-state[data-visual-style='manuscript'] .status-action-btn:hover {
   background: var(--manuscript-state-hover);
-}
-
-/* --------------------------------------------------------------------------
- * Archive header identity — playlist anthology vs smart-rule index
- * -------------------------------------------------------------------------- */
-.library-page[data-visual-style='manuscript'] .library-archive-header__kind {
-  letter-spacing: 0.08em;
-}
-
-.library-page[data-visual-style='manuscript'][data-library-surface='playlist']
-  .library-archive-header__kind {
-  color: var(--manuscript-content-secondary);
-}
-
-.library-page[data-visual-style='manuscript'][data-library-surface='smart-playlist']
-  .library-archive-header__kind {
-  color: var(--manuscript-accent-primary);
 }

@@ -20,7 +20,8 @@ Phase 17 把 Sidebar 做成桌上的卡片之后，歌曲列表页根节点仍�
 - 纸面贴齐 `.app-main` 四边，和窗口使用同一块 `--manuscript-surface-page`；
 - Playbar 浮在这张连续纸上，不再压着一条卡片下沿；
 - 空态、加载、错误与有列表时落在同一张纸上；
-- 页内封面组、曲目表、搜索条、页眉底线仍是账册内部结构，不是整页外壳。
+- 档案页眉整块拆除（「全部歌曲 / 私人音乐收藏总账 / 曲库主目录」、曲目总数、FOLIO）；
+- 页内封面组、曲目表、搜索条、平铺账册列头仍是账册内部结构，不是整页外壳。
 
 本阶段明确不覆盖：
 
@@ -36,26 +37,28 @@ Phase 17 把 Sidebar 做成桌上的卡片之后，歌曲列表页根节点仍�
 
 以下条目来自 2026-08-13 需求澄清，实施时不得重新解释：
 
-| 决策 | 结论 |
-| ---- | ---- |
-| 范围 | 歌曲列表页三种路由，平铺与封面同等处理 |
-| 皮肤 | 只改手稿 |
-| 拆什么 | 整页外壳整套拆掉：空隙、描边、圆角、页阴影 |
-| 纸面 | 与窗口合成同一张平纸，不再单独铺页底 |
-| 右栏 | Now Playing 仍是一张卡；歌词是其内容，不拆第二张卡 |
-| 保留 | Playbar 继续浮着；页内封面组 / 曲目表外框保留 |
-| 歌单 | 普通歌单与智能歌单和全部歌曲同一刀，避免切页跳回第四张卡 |
-| 内边距 | 不把 12px 外距改成页面 padding 偷回来 |
-| 状态页 | 空态 / 加载 / 错误同样铺在无框纸上 |
-| 四边 | 上下左右都贴齐主栏；顶底桌面缝一起消失 |
-| 页底特效 | 去掉页根 `--manuscript-effect-paper-background` |
-| 壳层 | 不动侧栏列宽、edge-gap、右栏左边线 |
+| 决策     | 结论                                                         |
+| -------- | ------------------------------------------------------------ |
+| 范围     | 歌曲列表页三种路由，平铺与封面同等处理                       |
+| 皮肤     | 只改手稿                                                     |
+| 拆什么   | 整页外壳整套拆掉：空隙、描边、圆角、页阴影                   |
+| 纸面     | 与窗口合成同一张平纸，不再单独铺页底                         |
+| 右栏     | Now Playing 仍是一张卡；歌词是其内容，不拆第二张卡           |
+| 保留     | Playbar 继续浮着；页内封面组 / 曲目表外框保留                |
+| 歌单     | 普通歌单与智能歌单和全部歌曲同一刀，避免切页跳回第四张卡     |
+| 内边距   | 不把 12px 外距改成页面 padding 偷回来                        |
+| 状态页   | 空态 / 加载 / 错误同样铺在无框纸上                           |
+| 四边     | 上下左右都贴齐主栏；顶底桌面缝一起消失                       |
+| 页底特效 | 去掉页根 `--manuscript-effect-paper-background`              |
+| 壳层     | 不动侧栏列宽、edge-gap、右栏左边线                           |
+| 档案页眉 | 歌曲列表三种路由都去掉整块 letterhead；不留空页眉条          |
+| 搜索顶栏 | 去掉 48px 占位横幅与顶部分隔线；搜索改为浮在列表上，能力保留 |
 
 ## 3. 设计判断
 
 这是已覆盖 Library 表面的保留式修正，不是新皮肤，也不是桌面重排。
 
-- `DESIGN_VARIANCE = 2`：信息架构、列、页眉、封面组均不变，只改页根身份。
+- `DESIGN_VARIANCE = 2`：信息架构、列、封面组均不变；去掉整页卡片与档案 letterhead。
 - `MOTION_INTENSITY = 1`：不新增动效；去掉页阴影后也不得补装饰过渡。
 - `VISUAL_DENSITY = 7`：列表密度与虚拟几何保持 Phase 6 契约。
 
@@ -98,17 +101,17 @@ Phase 17 把 Sidebar 做成桌上的卡片之后，歌曲列表页根节点仍�
 
 ### 4.2 已经正确的壳层与页内结构（不得误拆）
 
-| 表面 | 现状 | 本阶段 |
-| ---- | ---- | ------ |
-| `.app-window` / `.app-main` | 手稿下已是 `--manuscript-surface-page`，主栏背景透明 | 不动 |
-| Sidebar | 独立卡片：描边、圆角、列内 edge-gap | 不动 |
-| Now Playing | `xl` 列内旁注栏，歌词是唯一子节点 | 不动 |
-| PlayerBar | 底部浮卡，列表已有 `--auralis-playbar-safe-area` | 不动 |
-| `LibraryArchiveHeader` | `px-8 pt-6 pb-4` + 底部分隔线 | 保留内边距与底线 |
-| `.library-search-zone` | `padding-inline: 32px` + 底部分隔线 | 保留 |
-| `.album-cover-group` / 曲目面板 | 自有 border、padding，几何在 `libraryLayoutMetrics.ts` | 保留 |
-| `LibraryStatusState` | 作为 `.library-page` 子节点居中 | 随页根铺开，不另套卡 |
-| 专辑 / 归档 / 设置页根 | 仍使用 paper-background / page-shadow / 居中限宽卡 | 故意保留 |
+| 表面                            | 现状                                                   | 本阶段                                                                |
+| ------------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------- |
+| `.app-window` / `.app-main`     | 手稿下已是 `--manuscript-surface-page`，主栏背景透明   | 不动                                                                  |
+| Sidebar                         | 独立卡片：描边、圆角、列内 edge-gap                    | 不动                                                                  |
+| Now Playing                     | `xl` 列内旁注栏，歌词是唯一子节点                      | 不动                                                                  |
+| PlayerBar                       | 底部浮卡，列表已有 `--auralis-playbar-safe-area`       | 不动                                                                  |
+| `LibraryArchiveHeader`          | 标题、副标题、成员语义、曲目数、FOLIO                  | 整块拆除，不留空条                                                    |
+| `.library-search-zone`          | 手稿曾改成 48px 文档流顶栏 + 底线                      | 改回浮层：不占高度、不画顶部分隔线；`/` / 顶部悬停 / 已有查询仍可唤出 |
+| `.album-cover-group` / 曲目面板 | 自有 border、padding，几何在 `libraryLayoutMetrics.ts` | 保留                                                                  |
+| `LibraryStatusState`            | 作为 `.library-page` 子节点居中                        | 随页根铺开，不另套卡                                                  |
+| 专辑 / 归档 / 设置页根          | 仍使用 paper-background / page-shadow / 居中限宽卡     | 故意保留                                                              |
 
 ### 4.3 Token 边界
 
@@ -136,7 +139,7 @@ Phase 17 把 Sidebar 做成桌上的卡片之后，歌曲列表页根节点仍�
 
 ### 5.2 非目标
 
-- 不重排页眉、账册列、封面组或搜索交互。
+- 不重排账册列、封面组或搜索交互。
 - 不把 12px 外距改写成页面 padding / gap「看起来差不多」。
 - 不改壳层 grid、Sidebar 外边距、Now Playing 左边线或 Playbar 几何。
 - 不把手稿规则提升到 `html`、`body`、`#app`。
@@ -218,9 +221,15 @@ Phase 17 把 Sidebar 做成桌上的卡片之后，歌曲列表页根节点仍�
 禁止：
 
 ```css
-.app-main { /* 为本阶段改主栏通用皮肤 */ }
-.app-window[data-shell-presentation='manuscript'] .library-page { /* 用 shell marker 驱动页面 */ }
-.albums-page[data-visual-style='manuscript'] { /* 顺手拆专辑外框 */ }
+.app-main {
+  /* 为本阶段改主栏通用皮肤 */
+}
+.app-window[data-shell-presentation='manuscript'] .library-page {
+  /* 用 shell marker 驱动页面 */
+}
+.albums-page[data-visual-style='manuscript'] {
+  /* 顺手拆专辑外框 */
+}
 ```
 
 ### 8.2 静态守卫
@@ -248,7 +257,7 @@ Step 22.5 再更新：
 - 不新增可见文案，不改 locale key。
 - 不改变键盘 `/`、roving focus、右键与 Dialog 焦点契约。
 - 不新增 transition。若误伤现有 `prefers-reduced-motion` 规则，只删除已无目标的 `.visual-style-switch*` 残留，不得改写列表动效。
-- 对比度继续走共享 semantic token；去掉描边后，页眉底线与封面组边框承担结构分隔。
+- 对比度继续走共享 semantic token；去掉描边、档案页眉与搜索占位顶栏后，平铺列头与封面组边框承担结构分隔。
 
 ## 10. 分步实施计划
 
@@ -306,9 +315,9 @@ git diff --check
 
 在真实窗口核验，不入库伪造 PNG：
 
-1. 手稿 × 全部歌曲 × 平铺：无整页描边 / 圆角 / 阴影 / 外缝；页眉与搜索内边距仍在。
+1. 手稿 × 全部歌曲 × 平铺：无整页描边 / 圆角 / 阴影 / 外缝；无档案 letterhead / 曲目总数 / FOLIO；无 48px 搜索占位顶栏。列表顶即内容。`/` 与顶部悬停仍可唤出搜索。
 2. 手稿 × 全部歌曲 × 封面：封面组与曲目表面仍是页内卡片；页根不是。
-3. 手稿 × 普通歌单、智能歌单 × 两种视图：与全部歌曲同一张纸，切页不跳回整页卡。
+3. 手稿 × 普通歌单、智能歌单 × 两种视图：与全部歌曲同一张纸，无档案 letterhead，切页不跳回整页卡。
 4. 空曲库 / 加载 / 错误：同样无框。
 5. 有当前曲与无当前曲：Playbar 浮在连续纸上，列表不被挡住（安全区仍有效）。
 6. `xl` 显示右栏与隐藏右栏：主栏贴齐自己的格子，不改壳层缝。

@@ -8,22 +8,22 @@
 
 ## 1. 起止提交
 
-| Step  | 提交      | 说明                                        |
-| ----- | --------- | ------------------------------------------- |
-| 18.0  | `a1bd7fb` | `docs：冻结 Phase 18 播放表面基线`          |
-| 18.1  | `5f428ec` | `refactor：建立播放表面手稿呈现契约`        |
-| 18.2  | `fcdc7b8` | `refactor：为手稿 PlayerBar 关闭封面材质计算` |
-| 18.3  | `37578d5` | `feat：PlayerBar 接入手稿档案控制台`        |
-| 18.4  | `32dd417` | `feat：Now Playing 接入手稿歌词旁注栏`      |
-| 18.5  | `8609e96` | `feat：手稿化 PlayerBar 队列与模式浮层`     |
-| 18.6  | `177151c` | `fix：补齐播放表面键盘与低动效契约`         |
-| 18.7  | `976fff1` | `test：固化播放表面手稿作用域门禁`          |
-| 18.8  | `804ef3f` | `docs：交付 Phase 18 播放表面手稿化`        |
-| P2 修复 | `8256115` | `fix：空队列播放浮层焦点兜底到弹窗根节点`   |
-| P2 修复 | `6325c56` | `fix：模式菜单改为 roving tabindex 并回传选择后焦点` |
+| Step    | 提交      | 说明                                                       |
+| ------- | --------- | ---------------------------------------------------------- |
+| 18.0    | `a1bd7fb` | `docs：冻结 Phase 18 播放表面基线`                         |
+| 18.1    | `5f428ec` | `refactor：建立播放表面手稿呈现契约`                       |
+| 18.2    | `fcdc7b8` | `refactor：为手稿 PlayerBar 关闭封面材质计算`              |
+| 18.3    | `37578d5` | `feat：PlayerBar 接入手稿档案控制台`                       |
+| 18.4    | `32dd417` | `feat：Now Playing 接入手稿歌词旁注栏`                     |
+| 18.5    | `8609e96` | `feat：手稿化 PlayerBar 队列与模式浮层`                    |
+| 18.6    | `177151c` | `fix：补齐播放表面键盘与低动效契约`                        |
+| 18.7    | `976fff1` | `test：固化播放表面手稿作用域门禁`                         |
+| 18.8    | `804ef3f` | `docs：交付 Phase 18 播放表面手稿化`                       |
+| P2 修复 | `8256115` | `fix：空队列播放浮层焦点兜底到弹窗根节点`                  |
+| P2 修复 | `6325c56` | `fix：模式菜单改为 roving tabindex 并回传选择后焦点`       |
 | P2 修复 | `db25276` | `fix：歌词自动跟随遵守 reduced-motion 且不创建 WAAPI 动画` |
-| P2 修复 | `73c83f6` | `fix：全屏时隐藏 PlayerBar 不再启动 palette worker` |
-| P3 修复 | `ef3dd69` | `docs：统一 Phase 18 文档状态为工程完成待人工确认` |
+| P2 修复 | `73c83f6` | `fix：全屏时隐藏 PlayerBar 不再启动 palette worker`        |
+| P3 修复 | `ef3dd69` | `docs：统一 Phase 18 文档状态为工程完成待人工确认`         |
 
 **源码范围**：`a1bd7fb..73c83f6`
 **含交付文档**：`a1bd7fb..804ef3f`
@@ -99,13 +99,13 @@ TECHDOC 仍标「待实施」、DELIVERY 标「工程完成，人工待确认」
 
 ## 4. 自动验证
 
-| 命令                    | 结果                                                                     |
-| ----------------------- | ------------------------------------------------------------------------ |
+| 命令                    | 结果                                                                         |
+| ----------------------- | ---------------------------------------------------------------------------- |
 | `npm.cmd test`          | 通过；包含 player presentation / album tint / overlay focus 单测与视觉作用域 |
-| `npm.cmd run typecheck` | 通过                                                                     |
-| `npm.cmd run lint`      | 通过                                                                     |
-| `npm.cmd run build`     | 通过                                                                     |
-| `git diff --check`      | 通过；范围 `a1bd7fb..73c83f6`                                            |
+| `npm.cmd run typecheck` | 通过                                                                         |
+| `npm.cmd run lint`      | 通过                                                                         |
+| `npm.cmd run build`     | 通过                                                                         |
+| `git diff --check`      | 通过；范围 `a1bd7fb..73c83f6`                                                |
 
 新增 locale key（`player.lyricsNoTrack` / `lyricsSeekToLine` / `lyricsSeekToTime` / `lyricsStartingSoon`，`lyricsLoading` 复用）；`zh-Hant.json` 由 `locales:zh-hant` 生成，三语 key parity 校验通过。
 

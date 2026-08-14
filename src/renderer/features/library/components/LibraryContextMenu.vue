@@ -457,18 +457,13 @@ function onPlaylistMouseEnter(idx: number): void {
   subActiveIndex.value = idx + 1
 }
 
-function onEditMetadataClick(): void {
-  emit('editMetadata')
-  emit('close')
+function activateMainItem(index: number): void {
+  const item = menuItems.value[index]
+  if (!item || item.disabled) return
+  item.action?.()
 }
 
-function onSwitchViewClick(): void {
-  emit('switchView', props.currentViewMode === 'flat' ? 'cover' : 'flat')
-  emit('close')
-}
-
-function onRefreshClick(): void {
-  emit('refresh')
+function onBackdropClick(): void {
   emit('close')
 }
 
@@ -515,7 +510,7 @@ onBeforeUnmount(() => {
             data-context-main-item
             :disabled="!canLocateCurrent"
             :tabindex="activeIndex === 0 ? 0 : -1"
-            @click="onLocateCurrentClick"
+            @click="activateMainItem(0)"
             @mouseenter="activeIndex = 0"
           >
             <span class="i-lucide-locate-fixed"></span>
@@ -533,7 +528,7 @@ onBeforeUnmount(() => {
             role="menuitem"
             data-context-main-item
             :tabindex="activeIndex === 1 ? 0 : -1"
-            @click="onPlayClick"
+            @click="activateMainItem(1)"
             @mouseenter="activeIndex = 1"
           >
             <span class="i-lucide-play"></span>
@@ -554,7 +549,7 @@ onBeforeUnmount(() => {
             data-context-main-item
             :disabled="!canInsert"
             :tabindex="activeIndex === 2 ? 0 : -1"
-            @click="onInsertClick"
+            @click="activateMainItem(2)"
             @mouseenter="activeIndex = 2"
           >
             <span class="i-lucide-corner-down-right"></span>
@@ -675,7 +670,7 @@ onBeforeUnmount(() => {
             role="menuitem"
             data-context-main-item
             :tabindex="activeIndex === 4 ? 0 : -1"
-            @click="onEditMetadataClick"
+            @click="activateMainItem(4)"
             @mouseenter="activeIndex = 4"
           >
             <span class="i-lucide-pencil"></span>
@@ -693,7 +688,7 @@ onBeforeUnmount(() => {
             role="menuitem"
             data-context-main-item
             :tabindex="activeIndex === 5 ? 0 : -1"
-            @click="onSwitchViewClick"
+            @click="activateMainItem(5)"
             @mouseenter="activeIndex = 5"
           >
             <span
@@ -718,7 +713,7 @@ onBeforeUnmount(() => {
             data-context-main-item
             :disabled="refreshing"
             :tabindex="activeIndex === 6 ? 0 : -1"
-            @click="onRefreshClick"
+            @click="activateMainItem(6)"
             @mouseenter="activeIndex = 6"
           >
             <span class="i-lucide-refresh-cw" :class="{ 'animate-spin': refreshing }"></span>

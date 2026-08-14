@@ -5,7 +5,8 @@
   overflow: visible;
   border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong) !important;
   border-radius: var(--manuscript-radius-page) !important;
-  background: var(--manuscript-surface-page) !important;
+  /* 外轨纸张：比中间主内容列深一档（--manuscript-surface-aside）。 */
+  background: var(--manuscript-surface-aside) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;

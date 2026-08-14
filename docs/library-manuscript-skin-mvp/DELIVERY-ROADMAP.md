@@ -16,25 +16,25 @@ Auralis 手稿皮肤已经完成从单页 MVP 到多页面视觉系统的第一�
 - 共享 token、路由呈现解析器、Teleport owner scope、虚拟滚动几何和静态作用域检查已经成为后续扩展的基础设施；
 - 现代流光界面仍是完整、独立的视觉分支，切换手稿皮肤不会改写播放状态、曲库数据或数据库行为。
 
-当前可以把产品状态概括为：**Phase 1–17 工程与人工验收均已完成；Phase 18 工程完成、Electron 人工矩阵待确认；Phase 22 工程完成、人工待确认（歌曲列表页根已改为无框主栏纸面，与 19–21 并行）；Phase 23 工程完成、人工待确认（手稿 PlayerBar 改为 260px 起吸底页脚，与 19–21 并行）；Phase 9–11 的 10k / 50k 容量门禁仍延期且不阻塞视觉扩展。核心浏览链路、设置页与普通主窗口外壳已经交付；常驻播放表面（Now Playing、PlayerBar）工程完成、待人工确认；全屏播放器、Miniplayer 与桌面歌词独立窗口尚未纳入手稿覆盖。**
+当前可以把产品状态概括为：**Phase 1–17 工程与人工验收均已完成；Phase 18 工程完成、Electron 人工矩阵待确认；Phase 22 工程完成、人工待确认（歌曲列表页根已改为无框主栏纸面，与 19–21 并行）；Phase 23 工程完成、人工待确认（手稿 PlayerBar 为主栏页脚，xl 右缘 20%，不进 Now Playing，与 19–21 并行）；Phase 9–11 的 10k / 50k 容量门禁仍延期且不阻塞视觉扩展。核心浏览链路、设置页与普通主窗口外壳已经交付；常驻播放表面（Now Playing、PlayerBar）工程完成、待人工确认；全屏播放器、Miniplayer 与桌面歌词独立窗口尚未纳入手稿覆盖。**
 
 ## 2. 当前覆盖范围
 
-| 产品表面                | 路由 / 入口                       | 当前状态                          | 说明                                                                             |
-| ----------------------- | --------------------------------- | --------------------------------- | -------------------------------------------------------------------------------- |
-| 全部歌曲                | `library` / `/`                   | 已交付                            | 平铺与封面视图、检索、状态、浮层和无障碍均已覆盖；页根为无框主栏纸面（Phase 22） |
-| 专辑目录                | `albums` / `/albums`              | 已交付（2026-08-13 回填）         | grid、perspective、搜索、状态与专辑右键浮层已覆盖                                |
-| 专辑详情                | `album-detail` / `/albums/detail` | 已交付（2026-08-13 回填）         | Hero、曲目账册、相关专辑和页面状态已覆盖                                         |
-| 归档                    | `archive` / `/archive`            | 已交付                            | 页面、自有 Teleport 浮层和现代 canvas 生命周期已覆盖                             |
-| 智能歌单                | `smart-playlist`                  | 已交付                            | 复用 `LibraryPage.vue`，与全部歌曲共享手稿偏好                                   |
-| 普通歌单                | `playlist`                        | 已交付                            | 复用 `LibraryPage.vue`，与全部歌曲共享手稿偏好                                   |
-| 设置                    | `settings` / `/settings`          | 已交付                            | 集中视觉风格入口与页面手稿作用域已落地                                           |
-| Sidebar / 应用内容外壳  | 全局                              | 已交付                            | 普通主窗口与 Sidebar owner 浮层已覆盖                                            |
-| Now Playing / PlayerBar | 全局播放表面                      | 工程完成；Electron 人工矩阵待确认 | PlayerBar 档案控制台与歌词旁注栏已覆盖；浮层键盘契约完整；手稿 PlayerBar 为吸底页脚（Phase 23）                         |
-| 全屏播放器              | 播放浮层                          | 未覆盖                            | 仍是独立的深色 artwork 视觉域（Phase 19）                                        |
-| Miniplayer              | 主窗口迷你模式                    | 未覆盖                            | 与 PlayerBar 概念、组件和行为保持隔离（Phase 20）                                |
-| 桌面歌词                | 独立窗口                          | 未覆盖                            | 继续保持独立无框窗口与现有字体系统（Phase 21）                                   |
-| Windows 标题栏          | 操作系统窗口框架                  | 不纳入皮肤                        | 最小化、最大化和关闭由 Windows 原生标题栏提供                                    |
+| 产品表面                | 路由 / 入口                       | 当前状态                          | 说明                                                                                            |
+| ----------------------- | --------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------- |
+| 全部歌曲                | `library` / `/`                   | 已交付                            | 平铺与封面视图、检索、状态、浮层和无障碍均已覆盖；页根为无框主栏纸面（Phase 22）                |
+| 专辑目录                | `albums` / `/albums`              | 已交付（2026-08-13 回填）         | grid、perspective、搜索、状态与专辑右键浮层已覆盖                                               |
+| 专辑详情                | `album-detail` / `/albums/detail` | 已交付（2026-08-13 回填）         | Hero、曲目账册、相关专辑和页面状态已覆盖                                                        |
+| 归档                    | `archive` / `/archive`            | 已交付                            | 页面、自有 Teleport 浮层和现代 canvas 生命周期已覆盖                                            |
+| 智能歌单                | `smart-playlist`                  | 已交付                            | 复用 `LibraryPage.vue`，与全部歌曲共享手稿偏好                                                  |
+| 普通歌单                | `playlist`                        | 已交付                            | 复用 `LibraryPage.vue`，与全部歌曲共享手稿偏好                                                  |
+| 设置                    | `settings` / `/settings`          | 已交付                            | 集中视觉风格入口与页面手稿作用域已落地                                                          |
+| Sidebar / 应用内容外壳  | 全局                              | 已交付                            | 普通主窗口与 Sidebar owner 浮层已覆盖                                                           |
+| Now Playing / PlayerBar | 全局播放表面                      | 工程完成；Electron 人工矩阵待确认 | PlayerBar 档案控制台与歌词旁注栏已覆盖；浮层键盘契约完整；手稿 PlayerBar 为主栏页脚（Phase 23 方案 A） |
+| 全屏播放器              | 播放浮层                          | 未覆盖                            | 仍是独立的深色 artwork 视觉域（Phase 19）                                                       |
+| Miniplayer              | 主窗口迷你模式                    | 未覆盖                            | 与 PlayerBar 概念、组件和行为保持隔离（Phase 20）                                               |
+| 桌面歌词                | 独立窗口                          | 未覆盖                            | 继续保持独立无框窗口与现有字体系统（Phase 21）                                                  |
+| Windows 标题栏          | 操作系统窗口框架                  | 不纳入皮肤                        | 最小化、最大化和关闭由 Windows 原生标题栏提供                                                   |
 
 ## 3. Phase 1–18、22–23 开发进度
 
@@ -59,7 +59,7 @@ Auralis 手稿皮肤已经完成从单页 MVP 到多页面视觉系统的第一�
 |    17 | 连接应用外壳与 Sidebar                       | 完成                      | 用户确认通过（2026-08-13 回填）                          |
 |    18 | 覆盖 Now Playing 与 PlayerBar                | 完成                      | Electron 人工矩阵待确认（2026-08-13 工程完成）           |
 |    22 | 歌曲列表页取消整页卡片（与 19–21 并行）      | 完成                      | Electron 人工矩阵待确认（2026-08-13 工程完成）           |
-|    23 | 手稿 PlayerBar 改为吸底页脚                  | 完成                      | Electron 人工矩阵待确认（2026-08-13 工程完成）           |
+|    23 | 手稿 PlayerBar 主栏页脚（方案 A）            | 完成                      | Electron 人工矩阵待确认（2026-08-13 工程完成）           |
 
 ### 3.1 已关闭的核心能力
 
@@ -176,25 +176,27 @@ Auralis 手稿皮肤已经完成从单页 MVP 到多页面视觉系统的第一�
 
 最终统一交付应补齐跨页面截图、视觉回归基线、所有 owner scope 检查、键盘巡检、Windows 100% / 125% / 150% 缩放，以及 modern 与 manuscript 连续往返压力测试。
 
-### Phase 23：手稿 PlayerBar 吸底页脚
+### Phase 23：手稿 PlayerBar 主栏页脚
 
-**状态**：设计冻结，未实现。详见 `phase23/TECHDOC.md`。
+**状态**：方案 A 工程完成，Electron 人工矩阵待确认。详见 `phase23/TECHDOC.md`。
 
 **为什么作为 Phase 18 的后续阶段**：Phase 18 已建立 player presentation、手稿视觉、昂贵工作
 gate 与 overlay 键盘契约；Phase 23 只重构普通主窗口 manuscript PlayerBar 的几何与内部编排，
 并定向覆盖 Phase 18 / 22 中“手稿 PlayerBar 继续悬浮”的旧约束。
 
-**冻结方向**：
+**冻结方向（方案 A）**：
 
-- fixed 72px 吸底页脚，左边界对齐 260px 主内容 grid track，右侧与底部贴边；
+- 主栏页脚：fixed 72px，`left: 260px`，`bottom: 0`；不跨进 Now Playing；
+- `<xl` `right: 0`；`xl` `right: 20%`，与壳层第三列对齐，禁止 `20vw`；
 - modern 流光悬浮 PlayerBar、Fullscreen、Miniplayer 和桌面歌词窗口不变；
-- 左曲目信息与进度、中传输控制、右操作与音量；传输控制以主内容列居中；
-- `xl` 时右区对齐 Now Playing 列，窄窗以 container query 折叠常驻音量滑杆；
-- manuscript 内容避让为 88px，modern 继续为 116px；
+- 左曲目信息与进度、中传输控制、右操作与音量；传输相对整条主栏页脚居中；
+- `xl` 右上角直角 T 接缝，不画 dock-rule，不把 actions 放进 Now Playing 列；
+- 窄窗以 container query 折叠常驻音量滑杆；
+- manuscript 内容避让为 88px，modern 继续为 116px；Now Playing 不再叠一层 88px；
 - 复用现有 PlayerBar 和 playback 状态，不复制播放器或引入第二个 store。
 
 **完成标准**：以 Phase 23 TECHDOC 的自动门禁、Electron 人工矩阵和 Definition of Done 为准。
-在用户明确要求实施前，本阶段不进入 BASELINE 或编码步骤。
+工程可写完成；人工仍待确认，不标为用户签收。
 
 ## 5. 推荐的近期执行队列
 
@@ -205,7 +207,7 @@ gate 与 overlay 键盘契约；Phase 23 只重构普通主窗口 manuscript Pla
 3. **完成 Miniplayer 架构决策后实施 Phase 20**。
 4. **按产品选择决定是否实施 Phase 21 桌面歌词**。
 
-Phase 23 已完成设计冻结，但尚未获得实施授权，因此不插入上述执行队列。
+Phase 23 方案 A 已工程落地，人工矩阵仍待确认，因此不插入上述执行队列。
 
 ## 6. 后续阶段统一交付门禁
 
