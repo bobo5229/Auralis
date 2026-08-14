@@ -327,6 +327,7 @@ const [
   archiveManuscriptCss,
   archiveOverlayCss,
   settingsPage,
+  appearanceSettings,
   settingsPresentation,
   settingsManuscriptCss,
   visualStylePreference,
@@ -374,6 +375,7 @@ const [
   readProjectFile('src/renderer/features/archive/styles/manuscript.css'),
   readProjectFile('src/renderer/features/archive/styles/manuscript.overlays.css'),
   readProjectFile('src/renderer/features/settings/pages/SettingsPage.vue'),
+  readProjectFile('src/renderer/features/settings/components/AppearanceSettings.vue'),
   readProjectFile('src/renderer/features/settings/utils/settingsPresentation.ts'),
   readProjectFile('src/renderer/features/settings/styles/manuscript.css'),
   readProjectFile('src/renderer/features/appearance/components/VisualStylePreference.vue'),
@@ -632,7 +634,13 @@ assertIncludes(
   'settings page style marker',
 )
 assertIncludes(settingsPresentation, "routeName === 'settings'", 'settings route contract')
-assertIncludes(settingsPage, 'VisualStylePreference', 'settings visual style entry')
+assertIncludes(appearanceSettings, 'VisualStylePreference', 'settings visual style entry')
+assertIncludes(settingsPage, 'AppearanceSettings', 'settings appearance section')
+assertIncludes(settingsPage, 'AboutSettings', 'settings about section')
+assertIncludes(settingsPage, 'DEFAULT_SETTINGS_SECTION', 'settings default section')
+assertExcludes(settingsPage, /settings\.nav\.playback/, 'playback is not a nav section')
+assertExcludes(settingsPage, /theme-status/, 'fake theme preview is gone')
+assertExcludes(settingsPage, /settings-eyebrow/, 'compact header has no eyebrow')
 assertIncludes(visualStylePreference, 'useVisualStyle()', 'shared visual style state')
 assertExcludes(visualStylePreference, /auralis-visual-style/, 'second visual style storage key')
 assertManuscriptCssScope(
