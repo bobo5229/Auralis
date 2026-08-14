@@ -14,6 +14,7 @@ import { resolveSettingsPresentation } from '../utils/settingsPresentation'
 import type { SettingsPresentation } from '../types/settingsPresentation'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import '../styles/manuscript.css'
+import '../styles/settings.chrome.css'
 
 type SettingsSection = 'appearance' | 'playback' | 'library' | 'about'
 
@@ -775,276 +776,6 @@ onMounted(async () => {
   color: var(--auralis-sidebar-active-indicator);
 }
 
-/* About and Metadata section redesign */
-.about-mark {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  margin-bottom: 22px;
-  padding: 20px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 65%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.03),
-    inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
-}
-
-.about-logo {
-  display: grid;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  border-radius: 14px;
-  color: var(--auralis-control-primary-text);
-  background: linear-gradient(
-    135deg,
-    var(--auralis-sidebar-active-indicator) 20%,
-    var(--auralis-sidebar-active-text)
-  );
-  box-shadow: 0 4px 14px
-    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 35%, transparent);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.about-logo span {
-  width: 22px;
-  height: 22px;
-}
-
-.about-mark:hover .about-logo {
-  transform: rotate(15deg) scale(1.08);
-}
-
-.about-mark > div {
-  display: grid;
-  gap: 3px;
-}
-
-.about-mark strong {
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--auralis-text);
-}
-
-.about-mark div span {
-  color: var(--auralis-text-subtle);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.settings-row--visual-style {
-  display: block;
-  padding: 16px;
-}
-
-.settings-list {
-  overflow: hidden;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 48%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.02);
-}
-
-.settings-list--appearance {
-  margin-top: 16px;
-}
-
-.settings-row {
-  display: flex;
-  gap: 24px;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 72px;
-  padding: 0 20px;
-  transition: background-color 0.2s ease;
-}
-
-.settings-row:hover {
-  background: color-mix(in srgb, var(--auralis-text) 1.5%, transparent);
-}
-
-.settings-row + .settings-row {
-  border-top: 1px solid var(--auralis-border-subtle);
-}
-
-.settings-row > div {
-  display: grid;
-  min-width: 0;
-  gap: 4px;
-}
-
-.settings-row strong {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.settings-row div span {
-  color: var(--auralis-text-subtle);
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.settings-row > .settings-segmented-control {
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 3px;
-  padding: 3px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--auralis-text) 6%, transparent);
-}
-
-.settings-segmented-option {
-  min-height: 30px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 8px;
-  color: var(--auralis-text-subtle);
-  background: transparent;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    color 180ms ease,
-    background-color 180ms ease,
-    box-shadow 180ms ease;
-}
-
-.settings-segmented-option:hover {
-  color: var(--auralis-text);
-}
-
-.settings-segmented-option:focus-visible {
-  outline: 2px solid var(--auralis-sidebar-active-indicator);
-  outline-offset: 2px;
-}
-
-.settings-segmented-option.is-selected {
-  color: var(--auralis-text);
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 30%, transparent),
-    0 2px 8px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 14%, transparent);
-}
-
-.settings-value {
-  color: var(--auralis-text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
-  padding: 4px 10px;
-  border-radius: 8px;
-}
-
-.settings-switch {
-  position: relative;
-  flex: 0 0 auto;
-  width: 44px;
-  height: 24px;
-  padding: 0;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 14%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--auralis-text) 10%, transparent);
-  cursor: pointer;
-  transition:
-    border-color 180ms ease,
-    background-color 180ms ease,
-    box-shadow 180ms ease;
-}
-
-.settings-switch:hover {
-  border-color: color-mix(in srgb, var(--auralis-text) 25%, transparent);
-}
-
-.settings-switch:focus-visible {
-  outline: 2px solid var(--auralis-sidebar-active-indicator);
-  outline-offset: 3px;
-}
-
-.settings-switch.is-enabled {
-  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 70%, transparent);
-  background: var(--auralis-sidebar-active-indicator);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
-}
-
-.settings-switch-thumb {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--auralis-text);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28);
-  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.settings-switch.is-enabled .settings-switch-thumb {
-  transform: translateX(20px);
-  background: var(--auralis-control-primary-text);
-}
-
-.database-path {
-  overflow: hidden;
-  max-width: 480px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  direction: ltr;
-  font-family: monospace;
-  background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
-  padding: 4px 8px;
-  border-radius: 6px;
-  color: var(--auralis-sidebar-active-text) !important;
-  font-size: 11px !important;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 5%, transparent);
-}
-
-/* Success & Secondary Button Redesign */
-.settings-secondary-button {
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 7px;
-  align-items: center;
-  min-width: 92px;
-  justify-content: center;
-  padding: 8px 14px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 12px;
-  color: var(--auralis-text);
-  background: var(--auralis-control-active-bg);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 200ms ease;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 20%, transparent);
-}
-
-.settings-secondary-button:hover:not(:disabled) {
-  background: var(--auralis-control-hover-bg);
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--auralis-text) 16%, transparent);
-}
-
-.settings-secondary-button:active:not(:disabled) {
-  transform: scale(0.97);
-}
-
-.settings-secondary-button:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.settings-secondary-button span {
-  width: 13px;
-  height: 13px;
-}
-
 @keyframes settings-enter {
   from {
     opacity: 0;
@@ -1099,17 +830,6 @@ onMounted(async () => {
   .settings-nav-icon {
     display: none;
   }
-
-  .settings-row--path {
-    align-items: flex-start;
-    flex-direction: column;
-    padding-block: 16px;
-    gap: 12px;
-  }
-
-  .database-path {
-    max-width: calc(100vw - 72px);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1121,12 +841,7 @@ onMounted(async () => {
   .settings-nav button,
   .settings-nav button:hover,
   .settings-nav-icon,
-  .settings-nav-chevron,
-  .settings-switch,
-  .settings-switch-thumb,
-  .settings-segmented-option,
-  .settings-secondary-button,
-  .about-logo {
+  .settings-nav-chevron {
     transition: none;
     transform: none;
   }
@@ -1134,10 +849,6 @@ onMounted(async () => {
   .settings-nav button.is-active::after {
     animation: none;
     content: none;
-  }
-
-  .about-mark:hover .about-logo {
-    transform: none;
   }
 }
 </style>
