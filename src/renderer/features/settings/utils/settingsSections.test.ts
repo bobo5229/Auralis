@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  DEFAULT_SETTINGS_SECTION,
-  SETTINGS_SECTIONS,
-  isSettingsSection,
-} from './settingsSections'
+import { DEFAULT_SETTINGS_SECTION, SETTINGS_SECTIONS, isSettingsSection } from './settingsSections'
 
 describe('settingsSections', () => {
   it('defaults to appearance', () => {
