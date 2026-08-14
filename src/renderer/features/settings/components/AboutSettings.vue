@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AppInfo } from '@shared/types/app'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -33,6 +33,10 @@ onMounted(async () => {
   } catch {
     appInfoError.value = true
   }
+})
+
+onBeforeUnmount(() => {
+  window.clearTimeout(copyStateTimer)
 })
 </script>
 

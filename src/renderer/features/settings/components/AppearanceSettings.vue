@@ -114,7 +114,7 @@ function handleLocaleKeydown(event: KeyboardEvent, value: AppLocale): void {
 
 <template>
   <section class="settings-section">
-    <div class="settings-list settings-list--appearance">
+    <div class="settings-list">
       <div class="settings-row settings-row--visual-style">
         <VisualStylePreference />
       </div>
