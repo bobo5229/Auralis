@@ -168,7 +168,9 @@ function onRowKeyDown(event: KeyboardEvent): void {
     <span
       class="cover-track-genre truncate text-right font-bold text-xs text-[var(--auralis-text-muted)] min-w-0"
       :class="{ 'italic opacity-60': presentation === 'manuscript' && genreDisplay.missing }"
-      :title="presentation === 'manuscript' ? genreDisplay.text : (track.genre ?? undefined)"
+      :title="
+        presentation === 'manuscript' ? genreDisplay.text : formatGenre(track.genre) || undefined
+      "
     >
       {{ presentation === 'manuscript' ? genreDisplay.text : formatGenre(track.genre) }}
     </span>

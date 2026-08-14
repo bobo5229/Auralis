@@ -177,6 +177,7 @@
     "mute": "静音",
     "unmute": "取消静音",
     "mode": "播放模式",
+    "more": "更多播放控件",
     "progress": "播放进度",
     "fullscreen": "打开全屏播放器",
     "queueCount": "{count} 首",
@@ -207,6 +208,7 @@
       "album-shuffle": "专辑"
     },
     "desktopLyrics": {
+      "menu": "桌面歌词",
       "ariaPassthroughOn": "桌面歌词，鼠标穿透已开启",
       "ariaPassthroughOff": "桌面歌词，鼠标穿透已关闭",
       "titlePassthroughOn": "右键单击关闭鼠标穿透",

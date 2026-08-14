@@ -47,6 +47,9 @@
   --manuscript-surface-control: var(--manuscript-color-paper-100);
   --manuscript-surface-overlay: var(--manuscript-surface-page);
   --manuscript-surface-overlay-recessed: var(--manuscript-surface-recessed);
+  /* 外轨表面（Sidebar 与 Now Playing）：仅比主内容列 page 深一档的
+     recessed 纸色，形成轻微的层级对比；浮层与 PlayerBar 仍用 page。 */
+  --manuscript-surface-aside: var(--manuscript-surface-recessed);
   --manuscript-surface-scrim: rgba(var(--manuscript-color-ink-900-rgb), 0.28);
 
   /* Content */
@@ -112,8 +115,7 @@
     0 6px 18px rgba(var(--manuscript-color-ink-900-rgb), 0.1);
   /* Phase 23: manuscript PlayerBar dock footer — light inner shadow to press
      the footer onto the paper, never a floating outer projection. */
-  --manuscript-effect-dock-shadow:
-    inset 0 2px 8px rgba(var(--manuscript-color-ink-900-rgb), 0.08);
+  --manuscript-effect-dock-shadow: inset 0 2px 8px rgba(var(--manuscript-color-ink-900-rgb), 0.08);
   --manuscript-effect-overlay-shadow:
     0 8px 24px rgba(var(--manuscript-color-ink-900-rgb), 0.16),
     0 2px 6px rgba(var(--manuscript-color-ink-900-rgb), 0.08);

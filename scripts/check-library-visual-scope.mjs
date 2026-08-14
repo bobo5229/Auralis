@@ -347,6 +347,7 @@ const [
   playerManuscriptCss,
   playerOverlayManuscriptCss,
   playerBar,
+  trackProgressInfo,
   nowPlayingPanel,
   playbackQueuePopover,
   playbackModeMenu,
@@ -393,6 +394,7 @@ const [
   readProjectFile('src/renderer/app/styles/manuscript.player.css'),
   readProjectFile('src/renderer/app/styles/manuscript.player-overlays.css'),
   readProjectFile('src/renderer/app/layout/PlayerBar.vue'),
+  readProjectFile('src/renderer/app/layout/TrackProgressInfo.vue'),
   readProjectFile('src/renderer/app/layout/NowPlayingPanel.vue'),
   readProjectFile('src/renderer/app/layout/PlaybackQueuePopover.vue'),
   readProjectFile('src/renderer/app/layout/PlaybackModeMenu.vue'),
@@ -703,6 +705,19 @@ assertShellCssScope(
   'sidebar overlay manuscript CSS',
   /\.sidebar-overlay\s*\[\s*data-shell-presentation\s*=\s*(['"])manuscript\1\s*\]/,
 )
+// --- 外轨纸张层级（2026-08-14）：Sidebar 与 Now Playing 使用比主内容列更深的
+// aside 纸面，主列/PlayerBar/浮层仍用 page。 ---
+assertIncludes(sharedTokens, '--manuscript-surface-aside', 'shared tokens define the aside surface')
+assertIncludes(
+  sidebarManuscriptCss,
+  'var(--manuscript-surface-aside)',
+  'sidebar uses the deeper aside paper surface',
+)
+assertIncludes(
+  playerManuscriptCss,
+  'var(--manuscript-surface-aside)',
+  'now playing uses the deeper aside paper surface',
+)
 assertMatches(
   sharedTokens,
   /\.app-window\s*\[\s*data-shell-presentation\s*=\s*(['"])manuscript\1\s*\]/,
@@ -751,6 +766,106 @@ assertIncludes(
   playerBar,
   ':data-player-presentation="props.presentation"',
   'player bar owner marker',
+)
+assertIncludes(
+  mainCss,
+  ".player-bar[data-player-presentation='modern'] .transport-control-primary",
+  'modern play button is scoped to modern player presentation',
+)
+assertIncludes(
+  mainCss,
+  'var(--auralis-control-primary-bg)',
+  'modern play button uses the stable primary fill',
+)
+assertIncludes(
+  mainCss,
+  'var(--auralis-control-primary-text)',
+  'modern play button uses the stable primary icon color',
+)
+assertExcludes(
+  mainCss,
+  /^\.transport-control-primary(?:\s|:)/m,
+  'play button fill is not an unscoped album-accent disc',
+)
+assertIncludes(
+  playerManuscriptCss,
+  'background: var(--manuscript-surface-stamp)',
+  'manuscript play button keeps the stamp fill',
+)
+assertIncludes(mainCss, '.player-bar-island', 'modern player bar owns a centered island surface')
+assertIncludes(
+  mainCss,
+  'min(920px, calc(100% - 48px))',
+  'modern island is capped at 920px with 24px side gaps',
+)
+assertIncludes(mainCss, 'pointer-events: none', 'modern host is a click-through positioning slot')
+assertIncludes(mainCss, 'bottom: 24px', 'modern host sits 24px off the window bottom')
+assertIncludes(
+  mainCss,
+  ".player-bar[data-player-presentation='modern'] .track-info-card",
+  'modern track info stays on the island identity slot',
+)
+assertIncludes(
+  mainCss,
+  ".player-bar[data-player-presentation='modern'] .player-bar-progress-row .track-progress",
+  'modern progress lives in the track-card progress row',
+)
+assertIncludes(mainCss, 'left: 260px', 'modern host aligns to the main column left edge')
+assertIncludes(
+  mainCss,
+  '@container modern-player-bar (max-width: 800px)',
+  'modern island collapses the volume slider at 800px',
+)
+assertIncludes(
+  mainCss,
+  '@container modern-player-bar (max-width: 720px)',
+  'modern island hides the subtitle at 720px',
+)
+assertIncludes(
+  mainCss,
+  '@container modern-player-bar (max-width: 640px)',
+  'modern island overflow threshold is 640px',
+)
+assertExcludes(
+  playerBar,
+  /player-bar-progress-rail/,
+  'modern dual-rail progress rail markup is gone',
+)
+assertExcludes(playerBar, /player-bar-content-row/, 'modern dual-rail content row markup is gone')
+assertExcludes(mainCss, /player-bar-progress-rail/, 'modern CSS no longer owns a top progress rail')
+assertExcludes(
+  mainCss,
+  /player-bar-content-row/,
+  'modern CSS no longer owns a dual-rail content row',
+)
+assertExcludes(
+  mainCss,
+  /^\.player-bar\s*\{[^}]*left:\s*260px[^}]*right:\s*0[^}]*bottom:\s*0/m,
+  'bare .player-bar is not a flush dock',
+)
+assertIncludes(playerBar, 'player-bar-island', 'modern island surface markup')
+assertIncludes(playerBar, 'player-bar-overflow', 'modern overflow exists for the 640px retreat')
+assertIncludes(playerBar, 'isUtilitiesOverflow', 'overflow is gated on the 640px helper')
+assertIncludes(
+  playerBar,
+  'togglePlayerBarExclusiveOverlay',
+  'player bar toggles go through exclusive overlay helper',
+)
+assertIncludes(
+  playerBar,
+  'resolveVolumeHoverOverlayFlags',
+  'volume hover exclusivity is gated on overlay retreat',
+)
+assertIncludes(
+  playerBar,
+  'isPlayerBarVolumeOverlayRetreatActive',
+  'volume overlay retreat uses presentation-scoped collapse',
+)
+assertIncludes(playerBar, 'show-split-clocks', 'modern identity card shows in-card split clocks')
+assertIncludes(
+  trackProgressInfo,
+  'formatPlaybackClock',
+  'track card formats the split progress clocks',
 )
 assertIncludes(
   playerSurfacePresentation,
@@ -803,26 +918,86 @@ assertIncludes(
   'single player material storage key',
 )
 
-// --- Phase 23: manuscript PlayerBar dock footer geometry (owner-scoped) ---
+// --- Phase 23 方案 A: manuscript PlayerBar main-column footer (owner-scoped) ---
 for (const [declaration, label] of [
-  ['left: 260px', 'dock left edge on the sidebar track'],
-  ['right: 0', 'dock right edge flush'],
-  ['bottom: 0', 'dock bottom edge flush'],
+  ['left: 260px', 'main-column left edge on the sidebar track'],
+  ['right: 0', 'sub-xl flush right when Now Playing is hidden'],
+  ['right: 20%', 'xl right edge aligned to the shell 20% Now Playing track'],
+  ['bottom: 0', 'flush bottom edge'],
   ['min-width: 0', 'dock min-width reset'],
-  ['border-radius: 16px 16px 0 0', 'dock top-only corners'],
+  ['border-radius: 0', 'all four corners square against adjacent columns'],
   ['transform: none', 'dock transform reset'],
+  ['box-shadow: var(--manuscript-effect-dock-shadow)', 'inner dock shadow token'],
 ]) {
   assertIncludes(playerManuscriptCss, declaration, `player manuscript ${label}`)
 }
 assertExcludes(
+  playerManuscriptCss,
+  /left:\s*calc\(\s*260px\s*\+\s*16px\s*\)/,
+  'no floating left inset on manuscript player bar',
+)
+assertExcludes(playerManuscriptCss, /20vw/, 'manuscript player bar must use 20% not 20vw')
+assertExcludes(
+  playerManuscriptCss,
+  /border-radius:\s*16px/,
+  'no 16px corner radius on manuscript player bar',
+)
+assertExcludes(
+  playerManuscriptCss,
+  /bottom:\s*16px/,
+  'no floating bottom inset on manuscript player bar',
+)
+assertExcludes(
+  playerManuscriptCss,
+  /\.player-bar\s*\[\s*data-player-presentation\s*=\s*(['"])manuscript\1\s*\]\s*:hover/,
+  'no manuscript player-bar hover lift shadow',
+)
+assertExcludes(
+  playerManuscriptCss,
+  /0\s+12px\s+32px/,
+  'no large outer hover projection on manuscript player bar',
+)
+assertIncludes(
   mainCss,
-  /\.player-bar\s*\{\s*left:\s*260px/,
-  'modern player bar keeps its floating left position',
+  ".player-bar[data-player-presentation='modern']",
+  'modern player bar owns host geometry under presentation scope',
 )
 assertIncludes(shellManuscriptCss, '--auralis-playbar-safe-area: 88px', 'manuscript dock safe area')
-assertIncludes(mainCss, '--auralis-playbar-safe-area: 116px', 'modern safe area stays 116px')
+assertIncludes(mainCss, '--auralis-playbar-safe-area: 96px', 'modern island safe area is 96px')
 assertIncludes(playerBar, 'player-bar-dock-main', 'player bar dock main wrapper')
 assertIncludes(playerBar, 'player-bar-dock-actions', 'player bar dock actions wrapper')
+assertIncludes(
+  playerManuscriptCss,
+  'justify-content: flex-end',
+  'player manuscript dock-actions end-align on the footer right edge',
+)
+assertIncludes(playerManuscriptCss, 'gap: 16px', 'player manuscript dock-actions fixed group gap')
+assertIncludes(playerBar, 'PlayerBarTimeColophon', 'manuscript time colophon mount')
+assertIncludes(playerManuscriptCss, '.player-bar-time', 'manuscript time colophon owner style')
+
+// --- 2026-08-14 Playbar layout optimization: full-width bottom timeline +
+// end-aligned right tool group (owner-scoped, per design doc §4.2/§4.3) ---
+assertMatches(
+  playerManuscriptCss,
+  /\.player-bar\s*\[\s*data-player-presentation\s*=\s*(['"])manuscript\1\s*\]\s*\.track-progress\s*\{[^}]*position\s*:\s*absolute[^}]*left\s*:\s*20px[^}]*right\s*:\s*20px[^}]*bottom\s*:\s*0/,
+  'manuscript progress is the full-width bottom rail',
+)
+assertIncludes(playerManuscriptCss, 'height: 72px', 'player manuscript dock height stays 72px')
+assertExcludes(
+  playerManuscriptCss,
+  /max-width\s*:\s*160px/,
+  'empty-state progress shares the full-width rail geometry',
+)
+assertMatches(
+  playerManuscriptCss,
+  /\.player-bar\s*\[\s*data-player-presentation\s*=\s*(['"])manuscript\1\s*\]\s*\.volume-control-group\s*\{[^}]*margin-left\s*:\s*8px[^}]*border-left\s*:\s*var\(--manuscript-hairline-width\)\s+solid\s+var\(--manuscript-border-subtle\)/,
+  'volume group hairline separator from behavior buttons',
+)
+assertExcludes(
+  playerManuscriptCss,
+  /\.player-bar-time[^{]*\{[^}]*margin-left\s*:\s*auto/,
+  'time colophon uses fixed group spacing, not margin-left auto',
+)
 assertIncludes(playerBar, 'player-bar-dock-rule', 'player bar dock rule wrapper')
 assertIncludes(playerBar, 'volume-overlay', 'player bar volume overlay markup')
 assertIncludes(

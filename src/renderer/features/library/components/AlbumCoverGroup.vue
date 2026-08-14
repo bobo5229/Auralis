@@ -132,7 +132,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
       </div>
 
       <div
-        class="catalog-header-tracks ml-[var(--library-cover-group-gap,3rem)] grid flex-1 grid-cols-[40px_minmax(0,1fr)_minmax(120px,220px)_48px] gap-x-3 px-3 font-[var(--manuscript-font-numeric)] text-[11px] tracking-wider text-[var(--manuscript-content-ledger-label)]"
+        class="catalog-header-tracks ml-[var(--library-cover-group-gap,3rem)] grid flex-1 grid-cols-[40px_minmax(0,1.4fr)_minmax(110px,1fr)_48px] gap-x-3 px-3 font-[var(--manuscript-font-numeric)] text-[11px] tracking-wider text-[var(--manuscript-content-ledger-label)]"
       >
         <span class="block w-full text-right font-mono">NO.</span>
         <span class="pl-1">TITLE</span>
@@ -143,9 +143,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 
     <div class="album-cover-aside">
       <div
-        class="album-cover-artwork select-none cursor-pointer"
-        role="button"
-        :tabindex="presentation === 'manuscript' ? 0 : undefined"
+        class="album-cover-artwork select-none"
         :aria-label="
           t('library.a11y.albumArtwork', {
             album: group.album || t('library.manuscript.missing.album'),

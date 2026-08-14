@@ -8,17 +8,17 @@
 
 ## 1. 起止提交
 
-| Step   | 提交          | 说明                                          |
-| ------ | ------------- | --------------------------------------------- |
-| 23.0   | `ed323e2`     | `docs：冻结 Phase 23 吸底页脚基线`            |
-| 23.1   | `d3c3f39`     | `feat：手稿 PlayerBar 改为 260px 起吸底页脚`  |
-| 23.2   | `3d4f737`     | `feat：手稿 PlayerBar 重排三区并主栏居中`     |
-| 23.3   | `8cf7645`     | `feat：手稿吸底页脚双 safe-area 契约`         |
-| 23.4   | `806675a`     | `feat：手稿窄窗音量滑杆折叠与向上展开`        |
-| 23.5   | 并入 23.1–23.4 | overlay 与视觉校准验证完成，无独立 diff       |
-| 23.6   | `904e7f4`     | `test：固化手稿 PlayerBar 吸底页脚作用域门禁` |
-| 收尾   | `c48f2d1` / `c254a55` | `chore：格式化…` / `chore：修正音量测试 mock` |
-| 23.6c  | `f5ac49e` | `docs：交付 Phase 23 手稿 PlayerBar 吸底页脚` |
+| Step  | 提交                  | 说明                                          |
+| ----- | --------------------- | --------------------------------------------- |
+| 23.0  | `ed323e2`             | `docs：冻结 Phase 23 吸底页脚基线`            |
+| 23.1  | `d3c3f39`             | `feat：手稿 PlayerBar 改为 260px 起吸底页脚`  |
+| 23.2  | `3d4f737`             | `feat：手稿 PlayerBar 重排三区并主栏居中`     |
+| 23.3  | `8cf7645`             | `feat：手稿吸底页脚双 safe-area 契约`         |
+| 23.4  | `806675a`             | `feat：手稿窄窗音量滑杆折叠与向上展开`        |
+| 23.5  | 并入 23.1–23.4        | overlay 与视觉校准验证完成，无独立 diff       |
+| 23.6  | `904e7f4`             | `test：固化手稿 PlayerBar 吸底页脚作用域门禁` |
+| 收尾  | `c48f2d1` / `c254a55` | `chore：格式化…` / `chore：修正音量测试 mock` |
+| 23.6c | `f5ac49e`             | `docs：交付 Phase 23 手稿 PlayerBar 吸底页脚` |
 
 **源码范围**：`d3c3f39..c254a55`
 **含交付文档**：`ed323e2..f5ac49e`
@@ -26,8 +26,8 @@
 ## 2. 已实现
 
 - 吸底几何（23.1）：manuscript PlayerBar 改为 `position: fixed; left: 260px; right: 0;
-  bottom: 0; height: 72px; width: auto; min-width: 0; transform: none;
-  border-radius: 16px 16px 0 0; overflow: visible`；顶部 hairline 细线 + 轻内阴影
+bottom: 0; height: 72px; width: auto; min-width: 0; transform: none;
+border-radius: 0; overflow: visible`；顶部 hairline 细线 + 轻内阴影
   （新增 `--manuscript-effect-dock-shadow` token），取消外投影与全边框；建立
   `container-type/container-name: manuscript-player-bar`；
 - 经典三区（23.2）：新增 `display: contents` 基线 wrapper（dock-main / dock-actions /
@@ -55,13 +55,13 @@
 
 ## 4. 自动验证
 
-| 命令                    | 结果                                                          |
-| ----------------------- | ------------------------------------------------------------- |
+| 命令                    | 结果                                                           |
+| ----------------------- | -------------------------------------------------------------- |
 | `npm.cmd test`          | 通过；30 files / 161 tests passed / 18 skipped；视觉作用域通过 |
-| `npm.cmd run typecheck` | 通过                                                          |
-| `npm.cmd run lint`      | 通过（Prettier 与 mock 修正已收尾）                           |
-| `npm.cmd run build`     | 通过                                                          |
-| `git diff --check`      | 通过；范围 `d3c3f39..c254a55`                                 |
+| `npm.cmd run typecheck` | 通过                                                           |
+| `npm.cmd run lint`      | 通过（Prettier 与 mock 修正已收尾）                            |
+| `npm.cmd run build`     | 通过                                                           |
+| `git diff --check`      | 通过；范围 `d3c3f39..c254a55`                                  |
 
 ## 5. 所有权边界
 
@@ -92,3 +92,25 @@ TECHDOC §15 Electron 人工矩阵**待用户执行确认**：modern/manuscript 
 Phase 23 依赖 Phase 18 的 player presentation / owner / palette gate / overlay 焦点模型与
 Phase 22 的页根纸面；覆盖 Phase 18「手稿与 modern 共用悬浮几何」与 Phase 22「手稿 Playbar
 继续浮在连续主栏纸面上」两处描述。19–21 未实施期间不依赖它们。
+
+## 8. 方案 A 校正
+
+用户否决「跨 Now Playing 的通栏页脚」以及事后手改的「悬浮卡片」后，将手稿 PlayerBar 收回主栏
+页脚：
+
+- 几何：`left: 260px`、`bottom: 0`、`<xl` `right: 0`；`xl` `right: 20%`（对齐壳层第三列，
+  禁止 `20vw`）；四角直角 `border-radius: 0`（覆盖 Uno `rounded-full`）。用户确认左右上角
+  必须对称为直角。
+- 不再跨进 Now Playing，不再把 actions 放进 20% 列，`.player-bar-dock-rule` 全宽隐藏；
+- 传输相对整条主栏页脚居中：`.player-bar-dock-main { display: contents }`；
+- 用户确认四个按钮收向播放键：`.player-bar-dock-actions` 改为
+  `justify-content: flex-start` + `padding-left: 24px`，不再钉页脚右缘；
+- 用户确认右缘时间题署填空：`PlayerBarTimeColophon` 仅 manuscript 挂载，
+  `margin-left: auto` 停在 actions 列右缘，显示 `m:ss / m:ss`（空态 `--:-- / --:--`）；
+  独立子组件避免 `currentTime` 重绘整条 PlayerBar；`aria-hidden`，不另做 live region；
+- 删除根节点 `:hover` 外投影，纸面 + 顶边 + `--manuscript-effect-dock-shadow` 内阴影；
+- 空态增加 `track-info-empty`：modern 仍居中，manuscript 左对齐且进度线 max-width 160px；
+- 右区图标补 `--auralis-text-muted` 与 `.playbar-action-icon` 二次色；音量线改为 2px 且隐藏
+  thumb，不改 `volumeSliderStyle` JS。
+
+工程可写完成；Electron 人工矩阵仍待用户确认，本阶段不标为已交付签收。

@@ -444,6 +444,16 @@
   font-weight: 600;
 }
 
+/* Ranking titles: the serif body font's normal line-height is tall (≈1.5em)
+ * and its glyph ink can reach close to the ellipsis clip edge (overflow:
+ * hidden). Fix an explicit line-height and reserve 2px below the line box so
+ * descenders are never shaved, even under font-fallback or scale variance.
+ * The row height stays artwork-driven (48px), so list geometry is unchanged. */
+.archive-page[data-visual-style='manuscript'] .archive-ranking-copy strong {
+  line-height: 1.25;
+  padding-bottom: 2px;
+}
+
 .archive-page[data-visual-style='manuscript'] .archive-ranking-copy span,
 .archive-page[data-visual-style='manuscript'] .archive-ranking-meta span,
 .archive-page[data-visual-style='manuscript'] .album-hero-artist,

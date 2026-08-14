@@ -119,8 +119,7 @@
   box-shadow: var(--manuscript-effect-overlay-shadow);
 }
 
-.player-overlay[data-player-presentation='manuscript'].volume-overlay
-  .volume-overlay-slider {
+.player-overlay[data-player-presentation='manuscript'].volume-overlay .volume-overlay-slider {
   width: 90px;
 }
 

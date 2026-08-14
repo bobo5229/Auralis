@@ -177,6 +177,7 @@
     "mute": "Mute",
     "unmute": "Unmute",
     "mode": "Playback mode",
+    "more": "More player controls",
     "progress": "Playback progress",
     "fullscreen": "Open full-screen player",
     "queueCount": "{count} tracks",
@@ -207,6 +208,7 @@
       "album-shuffle": "Album"
     },
     "desktopLyrics": {
+      "menu": "Desktop lyrics",
       "ariaPassthroughOn": "Desktop lyrics, mouse passthrough enabled",
       "ariaPassthroughOff": "Desktop lyrics, mouse passthrough disabled",
       "titlePassthroughOn": "Right-click to disable mouse passthrough",
