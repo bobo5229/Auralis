@@ -1,4 +1,4 @@
-import { readonly, ref, type Ref, watch } from 'vue'
+import { readonly, ref, toValue, watch, type MaybeRefOrGetter, type Ref } from 'vue'
 import type { ArtworkPalette } from '../types'
 import { FALLBACK_PALETTE } from '../utils/extractArtworkPalette'
 import { extractArtworkPaletteInWorker } from '../utils/artworkPaletteWorkerClient'
@@ -85,20 +85,30 @@ function getArtworkPalette(key: string): Promise<ArtworkPalette> {
   return promise
 }
 
-export function useArtworkPalette(artworkCacheKey: Ref<string | null>) {
+export type UseArtworkPaletteOptions = {
+  enabled?: MaybeRefOrGetter<boolean>
+  loadPalette?: (key: string) => Promise<ArtworkPalette>
+}
+
+export function useArtworkPalette(
+  artworkCacheKey: Ref<string | null>,
+  options: UseArtworkPaletteOptions = {},
+) {
   const palette = ref<ArtworkPalette>(FALLBACK_PALETTE)
   let requestToken = 0
+  const loadPalette = options.loadPalette ?? getArtworkPalette
 
   watch(
-    artworkCacheKey,
-    async (key) => {
+    [artworkCacheKey, () => toValue(options.enabled) ?? true],
+    async ([key, enabled]) => {
       const token = ++requestToken
+      if (!enabled) return
       if (!key) {
         palette.value = FALLBACK_PALETTE
         return
       }
 
-      const nextPalette = await getArtworkPalette(key)
+      const nextPalette = await loadPalette(key)
       if (token === requestToken) palette.value = nextPalette
     },
     { immediate: true },

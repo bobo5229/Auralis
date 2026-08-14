@@ -26,6 +26,7 @@ export const auralisApi: AuralisApi = {
     getScanStatus: (jobId) =>
       invoke(ipcChannels.library.getScanStatus, jobId ? { jobId } : undefined),
     getTracks: () => invoke(ipcChannels.library.getTracks),
+    getTrackPage: (request) => invoke(ipcChannels.library.getTrackPage, request),
     onScanProgress: (callback) => {
       const listener = (_event: Electron.IpcRendererEvent, progress: LibraryScanProgress) => {
         callback(progress)
@@ -169,6 +170,8 @@ export const auralisApi: AuralisApi = {
     getAnnualListeningInsights: (year) =>
       invoke(ipcChannels.archive.getAnnualListeningInsights, { year }),
     getListeningRanking: (params) => invoke(ipcChannels.archive.getListeningRanking, params),
+    getListeningGenreSpectrum: (year) =>
+      invoke(ipcChannels.archive.getListeningGenreSpectrum, { year }),
     resetPlayStats: () => invoke(ipcChannels.archive.resetPlayStats),
   },
   metadata: {
@@ -204,10 +207,6 @@ export const auralisApi: AuralisApi = {
     },
   },
   window: {
-    minimize: () => invoke(ipcChannels.window.minimize),
-    toggleMaximize: () => invoke(ipcChannels.window.toggleMaximize),
-    close: () => invoke(ipcChannels.window.close),
-    isMaximized: () => invoke(ipcChannels.window.isMaximized),
     enterMiniPlayer: () => invoke(ipcChannels.window.enterMiniPlayer),
     restoreFromMiniPlayer: () => invoke(ipcChannels.window.restoreFromMiniPlayer),
     getMiniPlayerState: () => invoke(ipcChannels.window.getMiniPlayerState),

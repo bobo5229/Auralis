@@ -1,54 +1,82 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import type { AppInfo } from '@shared/types/app'
 import { auralis } from '@renderer/shared/ipc/client'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
+import VisualStylePreference from '@renderer/features/appearance/components/VisualStylePreference.vue'
 import { type PlayerBarMaterial, usePlayerBarMaterial } from '../composables/usePlayerBarMaterial'
+import { type AppLocale, useLocale } from '@renderer/composables/useLocale'
 import MusicLibrarySettings from '../components/MusicLibrarySettings.vue'
+import { resolveSettingsPresentation } from '../utils/settingsPresentation'
+import type { SettingsPresentation } from '../types/settingsPresentation'
+import '@renderer/features/appearance/styles/manuscript.tokens.css'
+import '../styles/manuscript.css'
 
 type SettingsSection = 'appearance' | 'playback' | 'library' | 'about'
 
-const sections: Array<{
-  id: SettingsSection
-  label: string
-  description: string
-  icon: string
-}> = [
+const { t } = useI18n()
+const route = useRoute()
+const { visualStyle } = useVisualStyle()
+const settingsPresentation = computed<SettingsPresentation>(() =>
+  resolveSettingsPresentation(route.name, visualStyle.value),
+)
+const { locale, setLocale, localeOptions } = useLocale()
+
+const sections = computed<
+  Array<{
+    id: SettingsSection
+    label: string
+    description: string
+    icon: string
+  }>
+>(() => [
   {
     id: 'appearance',
-    label: '外观',
-    description: '当前显示主题',
+    label: t('settings.nav.appearance'),
+    description: t('settings.nav.appearanceDescription'),
     icon: 'i-lucide-palette',
   },
   {
     id: 'playback',
-    label: '播放',
-    description: '控制音频衔接方式',
+    label: t('settings.nav.playback'),
+    description: t('settings.nav.playbackDescription'),
     icon: 'i-lucide-audio-lines',
   },
   {
     id: 'library',
-    label: '音乐资料库',
-    description: '管理音乐文件与元数据',
+    label: t('settings.nav.library'),
+    description: t('settings.nav.libraryDescription'),
     icon: 'i-lucide-library',
   },
   {
     id: 'about',
-    label: '关于',
-    description: '版本与本地数据位置',
+    label: t('settings.nav.about'),
+    description: t('settings.nav.aboutDescription'),
     icon: 'i-lucide-info',
   },
-]
+])
 
 const selectedSection = ref<SettingsSection>('library')
 const { gaplessPlaybackEnabled, setGaplessPlaybackEnabled } = usePlayback()
 const { playerBarMaterial, setPlayerBarMaterial } = usePlayerBarMaterial()
-const playerBarMaterialOptions: Array<{ value: PlayerBarMaterial; label: string }> = [
-  { value: 'cover-tint', label: '封面取色' },
-  { value: 'liquid-glass', label: 'Liquid Glass' },
-]
+const playerBarMaterialOptions = computed<Array<{ value: PlayerBarMaterial; label: string }>>(
+  () => [
+    {
+      value: 'cover-tint',
+      label: t('settings.appearance.playerBarMaterialOption.coverTint'),
+    },
+    {
+      value: 'liquid-glass',
+      label: t('settings.appearance.playerBarMaterialOption.liquidGlass'),
+    },
+  ],
+)
 const coverTintButtonRef = ref<HTMLButtonElement | null>(null)
 const liquidGlassButtonRef = ref<HTMLButtonElement | null>(null)
+const localeButtonRefs = new Map<AppLocale, HTMLButtonElement>()
 const appInfo = ref<AppInfo | null>(null)
 const appInfoError = ref(false)
 const copyState = ref<'idle' | 'copied' | 'failed'>('idle')
@@ -67,7 +95,7 @@ function selectPlayerBarMaterial(value: PlayerBarMaterial, focusSelectedOption =
 }
 
 function handlePlayerBarMaterialKeydown(event: KeyboardEvent, value: PlayerBarMaterial): void {
-  const currentIndex = playerBarMaterialOptions.findIndex((option) => option.value === value)
+  const currentIndex = playerBarMaterialOptions.value.findIndex((option) => option.value === value)
   if (currentIndex < 0) return
 
   let nextIndex: number | null = null
@@ -75,26 +103,74 @@ function handlePlayerBarMaterialKeydown(event: KeyboardEvent, value: PlayerBarMa
     case 'ArrowLeft':
     case 'ArrowUp':
       nextIndex =
-        (currentIndex - 1 + playerBarMaterialOptions.length) % playerBarMaterialOptions.length
+        (currentIndex - 1 + playerBarMaterialOptions.value.length) %
+        playerBarMaterialOptions.value.length
       break
     case 'ArrowRight':
     case 'ArrowDown':
-      nextIndex = (currentIndex + 1) % playerBarMaterialOptions.length
+      nextIndex = (currentIndex + 1) % playerBarMaterialOptions.value.length
       break
     case 'Home':
       nextIndex = 0
       break
     case 'End':
-      nextIndex = playerBarMaterialOptions.length - 1
+      nextIndex = playerBarMaterialOptions.value.length - 1
       break
     default:
       return
   }
 
   event.preventDefault()
-  const nextOption = playerBarMaterialOptions[nextIndex]
+  const nextOption = playerBarMaterialOptions.value[nextIndex]
   if (nextOption) {
     selectPlayerBarMaterial(nextOption.value, true)
+  }
+}
+
+function setLocaleButtonRef(value: AppLocale, el: unknown): void {
+  if (el instanceof HTMLButtonElement) {
+    localeButtonRefs.set(value, el)
+  } else {
+    localeButtonRefs.delete(value)
+  }
+}
+
+function selectLocale(value: AppLocale, focusSelectedOption = false): void {
+  setLocale(value)
+
+  if (focusSelectedOption) {
+    void nextTick(() => localeButtonRefs.get(value)?.focus())
+  }
+}
+
+function handleLocaleKeydown(event: KeyboardEvent, value: AppLocale): void {
+  const currentIndex = localeOptions.value.findIndex((option) => option.value === value)
+  if (currentIndex < 0) return
+
+  let nextIndex: number | null = null
+  switch (event.key) {
+    case 'ArrowLeft':
+    case 'ArrowUp':
+      nextIndex = (currentIndex - 1 + localeOptions.value.length) % localeOptions.value.length
+      break
+    case 'ArrowRight':
+    case 'ArrowDown':
+      nextIndex = (currentIndex + 1) % localeOptions.value.length
+      break
+    case 'Home':
+      nextIndex = 0
+      break
+    case 'End':
+      nextIndex = localeOptions.value.length - 1
+      break
+    default:
+      return
+  }
+
+  event.preventDefault()
+  const nextOption = localeOptions.value[nextIndex]
+  if (nextOption) {
+    selectLocale(nextOption.value, true)
   }
 }
 
@@ -125,15 +201,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="settings-page">
+  <section class="settings-page" :data-visual-style="settingsPresentation">
     <header class="settings-header">
-      <p class="settings-eyebrow">偏好设置</p>
-      <h1>设置</h1>
-      <p>管理你的本地音乐资料库，查看应用信息。</p>
+      <p class="settings-eyebrow">{{ t('settings.eyebrow') }}</p>
+      <h1>{{ t('settings.title') }}</h1>
+      <p>{{ t('settings.headerDescription') }}</p>
     </header>
 
     <div class="settings-layout">
-      <nav class="settings-nav" aria-label="设置分类">
+      <nav class="settings-nav" :aria-label="t('settings.navAriaLabel')">
         <button
           v-for="section in sections"
           :key="section.id"
@@ -155,34 +231,55 @@ onMounted(async () => {
           <div class="settings-section-heading">
             <span class="settings-section-icon i-lucide-palette"></span>
             <div>
-              <h2>外观</h2>
-              <p>当前固定为深色主题，便于封面流光与夜间聆听。</p>
-            </div>
-          </div>
-
-          <div class="theme-status" aria-label="显示主题">
-            <span class="theme-preview theme-preview--dark" aria-hidden="true">
-              <span class="theme-preview-sidebar"></span>
-              <span class="theme-preview-main">
-                <i></i>
-                <i></i>
-                <i></i>
-              </span>
-              <span class="theme-preview-player"></span>
-            </span>
-            <div class="theme-status-copy">
-              <strong>深色</strong>
-              <small>浅色主题已暂时下线；主题 API 仍保留，便于日后恢复多主题。</small>
+              <h2>{{ t('settings.appearance.headingTitle') }}</h2>
+              <p>{{ t('settings.appearance.headingDescription') }}</p>
             </div>
           </div>
 
           <div class="settings-list settings-list--appearance">
+            <div class="settings-row settings-row--visual-style">
+              <VisualStylePreference />
+            </div>
+
             <div class="settings-row">
               <div>
-                <strong id="player-bar-material-label">播放栏材质</strong>
-                <span id="player-bar-material-description">
-                  选择播放栏跟随专辑封面取色，或使用更通透的 Liquid Glass 效果。
-                </span>
+                <strong id="locale-label">{{ t('settings.appearance.language') }}</strong>
+                <span id="locale-description">{{
+                  t('settings.appearance.languageDescription')
+                }}</span>
+              </div>
+              <div
+                class="settings-segmented-control"
+                role="radiogroup"
+                aria-labelledby="locale-label"
+                aria-describedby="locale-description"
+              >
+                <button
+                  v-for="option in localeOptions"
+                  :key="option.value"
+                  :ref="(el) => setLocaleButtonRef(option.value, el)"
+                  type="button"
+                  role="radio"
+                  class="settings-segmented-option"
+                  :class="{ 'is-selected': locale === option.value }"
+                  :aria-checked="locale === option.value"
+                  :tabindex="locale === option.value ? 0 : -1"
+                  @click="selectLocale(option.value)"
+                  @keydown="handleLocaleKeydown($event, option.value)"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div>
+                <strong id="player-bar-material-label">{{
+                  t('settings.appearance.playerBarMaterial')
+                }}</strong>
+                <span id="player-bar-material-description">{{
+                  t('settings.appearance.playerBarMaterialDescription')
+                }}</span>
               </div>
               <div
                 class="settings-segmented-control"
@@ -201,7 +298,7 @@ onMounted(async () => {
                   @click="selectPlayerBarMaterial('cover-tint')"
                   @keydown="handlePlayerBarMaterialKeydown($event, 'cover-tint')"
                 >
-                  封面取色
+                  {{ t('settings.appearance.playerBarMaterialOption.coverTint') }}
                 </button>
                 <button
                   ref="liquidGlassButtonRef"
@@ -214,15 +311,31 @@ onMounted(async () => {
                   @click="selectPlayerBarMaterial('liquid-glass')"
                   @keydown="handlePlayerBarMaterialKeydown($event, 'liquid-glass')"
                 >
-                  Liquid Glass
+                  {{ t('settings.appearance.playerBarMaterialOption.liquidGlass') }}
                 </button>
               </div>
             </div>
           </div>
 
+          <div class="theme-status" :aria-label="t('settings.appearance.themeAria')">
+            <span class="theme-preview theme-preview--dark" aria-hidden="true">
+              <span class="theme-preview-sidebar"></span>
+              <span class="theme-preview-main">
+                <i></i>
+                <i></i>
+                <i></i>
+              </span>
+              <span class="theme-preview-player"></span>
+            </span>
+            <div class="theme-status-copy">
+              <strong>{{ t('settings.appearance.themeValue') }}</strong>
+              <small>{{ t('settings.appearance.themeDescription') }}</small>
+            </div>
+          </div>
+
           <p class="settings-note">
             <span class="i-lucide-info"></span>
-            应用始终使用深色界面。
+            {{ t('settings.appearance.note') }}
           </p>
         </section>
 
@@ -230,18 +343,18 @@ onMounted(async () => {
           <div class="settings-section-heading">
             <span class="settings-section-icon i-lucide-audio-lines"></span>
             <div>
-              <h2>播放</h2>
-              <p>控制曲目之间的衔接与音频预加载行为。</p>
+              <h2>{{ t('settings.playback.headingTitle') }}</h2>
+              <p>{{ t('settings.playback.headingDescription') }}</p>
             </div>
           </div>
 
           <div class="settings-list">
             <div class="settings-row">
               <div>
-                <strong>无缝播放</strong>
-                <span id="gapless-playback-description">
-                  提前解码下一首，并在同专辑曲目交界处跳过可识别的数字静音
-                </span>
+                <strong>{{ t('settings.playback.gapless') }}</strong>
+                <span id="gapless-playback-description">{{
+                  t('settings.playback.gaplessDescription')
+                }}</span>
               </div>
               <button
                 type="button"
@@ -249,7 +362,11 @@ onMounted(async () => {
                 role="switch"
                 :aria-checked="gaplessPlaybackEnabled"
                 aria-describedby="gapless-playback-description"
-                :aria-label="`无缝播放，当前已${gaplessPlaybackEnabled ? '开启' : '关闭'}`"
+                :aria-label="
+                  gaplessPlaybackEnabled
+                    ? t('settings.playback.gaplessAriaOn')
+                    : t('settings.playback.gaplessAriaOff')
+                "
                 :class="{ 'is-enabled': gaplessPlaybackEnabled }"
                 @click="setGaplessPlaybackEnabled(!gaplessPlaybackEnabled)"
               >
@@ -260,7 +377,7 @@ onMounted(async () => {
 
           <p class="settings-note">
             <span class="i-lucide-info"></span>
-            关闭后不会中断当前曲目，将从下一次切歌起使用普通播放。
+            {{ t('settings.playback.note') }}
           </p>
         </section>
 
@@ -270,8 +387,8 @@ onMounted(async () => {
           <div class="settings-section-heading">
             <span class="settings-section-icon i-lucide-info"></span>
             <div>
-              <h2>关于 Auralis</h2>
-              <p>一个安静、私密的本地音乐归档工具。</p>
+              <h2>{{ t('settings.about.headingTitle') }}</h2>
+              <p>{{ t('settings.about.headingDescription') }}</p>
             </div>
           </div>
 
@@ -279,26 +396,31 @@ onMounted(async () => {
             <span class="about-logo"><span class="i-lucide-audio-lines"></span></span>
             <div>
               <strong>Auralis</strong>
-              <span>Local Music Archive</span>
+              <span>{{ t('settings.about.tagline') }}</span>
             </div>
           </div>
 
           <div class="settings-list">
             <div class="settings-row">
               <div>
-                <strong>版本</strong>
-                <span>当前安装的应用版本</span>
+                <strong>{{ t('settings.about.version') }}</strong>
+                <span>{{ t('settings.about.versionDescription') }}</span>
               </div>
               <span class="settings-value">{{
-                appInfo?.version ?? (appInfoError ? '无法读取' : '…')
+                appInfo?.version ?? (appInfoError ? t('settings.about.versionUnavailable') : '…')
               }}</span>
             </div>
 
             <div class="settings-row settings-row--path">
               <div>
-                <strong>数据库位置</strong>
+                <strong>{{ t('settings.about.databaseLocation') }}</strong>
                 <span class="database-path">
-                  {{ appInfo?.databasePath ?? (appInfoError ? '无法读取应用信息' : '正在读取…') }}
+                  {{
+                    appInfo?.databasePath ??
+                    (appInfoError
+                      ? t('settings.about.databaseReadFailed')
+                      : t('settings.about.databaseLoading'))
+                  }}
                 </span>
               </div>
               <button
@@ -310,10 +432,10 @@ onMounted(async () => {
                 <span :class="copyState === 'copied' ? 'i-lucide-check' : 'i-lucide-copy'"></span>
                 {{
                   copyState === 'copied'
-                    ? '已复制'
+                    ? t('settings.about.copySuccess')
                     : copyState === 'failed'
-                      ? '复制失败'
-                      : '复制路径'
+                      ? t('settings.about.copyFailed')
+                      : t('settings.about.copyPath')
                 }}
               </button>
             </div>
@@ -321,7 +443,7 @@ onMounted(async () => {
 
           <p class="settings-note">
             <span class="i-lucide-shield-check"></span>
-            音乐文件和资料库数据均保存在本机。
+            {{ t('settings.about.note') }}
           </p>
         </section>
       </main>
@@ -714,6 +836,11 @@ onMounted(async () => {
   font-weight: 600;
 }
 
+.settings-row--visual-style {
+  display: block;
+  padding: 16px;
+}
+
 .settings-list {
   overflow: hidden;
   border: 1px solid var(--auralis-border-subtle);
@@ -986,10 +1113,31 @@ onMounted(async () => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .settings-page,
+  .settings-section {
+    animation: none;
+  }
+
+  .settings-nav button,
+  .settings-nav button:hover,
+  .settings-nav-icon,
+  .settings-nav-chevron,
   .settings-switch,
   .settings-switch-thumb,
-  .settings-segmented-option {
+  .settings-segmented-option,
+  .settings-secondary-button,
+  .about-logo {
     transition: none;
+    transform: none;
+  }
+
+  .settings-nav button.is-active::after {
+    animation: none;
+    content: none;
+  }
+
+  .about-mark:hover .about-logo {
+    transform: none;
   }
 }
 </style>

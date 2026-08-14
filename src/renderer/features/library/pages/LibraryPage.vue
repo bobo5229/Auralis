@@ -2,37 +2,84 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useVirtualizer } from '@tanstack/vue-virtual'
+import { useI18n } from 'vue-i18n'
 import type { EditableTrackMetadata, TrackListItem } from '@shared/types/libraryScan'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import { auralis } from '@renderer/shared/ipc/client'
 import SongRow from '../components/SongRow.vue'
 import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
 import type { LibraryAlbumGroup } from '../components/AlbumCoverGroup.vue'
-import LiquidGlassPanel from '../components/LiquidGlassPanel.vue'
 import MetadataEditDialog from '../components/MetadataEditDialog.vue'
+import LibraryContextMenu from '../components/LibraryContextMenu.vue'
+import LibraryLedgerHeader from '../components/LibraryLedgerHeader.vue'
+import LibraryStatusState from '../components/LibraryStatusState.vue'
+import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
+import {
+  getAlbumGroupEstimatedHeight,
+  LIBRARY_LAYOUT_CSS_VARS,
+  LIBRARY_LAYOUT_METRICS,
+} from '../constants/libraryLayoutMetrics'
+import type { LibraryPageIdentity, LibraryPresentation } from '../types/libraryPresentation'
+import type {
+  LibraryContextMenuAnchor,
+  LibraryContextMenuSource,
+  LibraryContextMenuState,
+  LibrarySearchOutcome,
+  LibraryViewMode,
+} from '../types/libraryInteraction'
+import '@renderer/features/appearance/styles/manuscript.tokens.css'
+import '../styles/manuscript.css'
+import '../styles/manuscript.overlays.css'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
+import { createLibraryDerivedIndex } from '../utils/libraryDerivedIndex'
+import {
+  resolveLibraryViewportRestoreAction,
+  type LibraryViewportRestore,
+} from '../utils/libraryViewportRestore'
+import { createLibrarySearchIndex } from '../utils/librarySearchIndex'
+import { scanLibrarySearchIndex } from '../utils/librarySearchScan'
+import { resolveLibraryPresentation, resolveLibrarySurfaceKind } from '../utils/libraryPresentation'
+import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
+import {
+  LIBRARY_PLAYLISTS_CHANGED_EVENT,
+  LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT,
+  isSameLibraryRouteScope,
+  shouldRefreshLibraryForExternalPlaylistEvent,
+  type LibraryRouteScope,
+} from '../utils/libraryRouteScope'
+import {
+  createAllSongsLibrarySnapshot,
+  createPlaylistLibrarySnapshot,
+  createSmartPlaylistLibrarySnapshot,
+  type LibraryDataSnapshot,
+} from '../utils/libraryDataSnapshot'
+import { loadLibraryCatalogSnapshot } from '../utils/loadLibraryCatalogSnapshot'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { normalizeSearchText } from '../utils/normalizeSearchText'
+
+const { t } = useI18n()
 
 const playback = usePlayback()
 const route = useRoute()
 const router = useRouter()
 
+const { visualStyle } = useVisualStyle()
+const libraryPresentation = computed<LibraryPresentation>(() =>
+  resolveLibraryPresentation(route.name, visualStyle.value),
+)
+const isManuscriptLibrary = computed(() => libraryPresentation.value === 'manuscript')
+const librarySurfaceKind = computed(() => resolveLibrarySurfaceKind(route.name))
+const isLibrarySurface = computed(() => librarySurfaceKind.value !== null)
+
+const pageIdentity = ref<LibraryPageIdentity | null>(null)
 const tracks = shallowRef<TrackListItem[]>([])
+const librarySearchIndex = computed(() => createLibrarySearchIndex(tracks.value))
 const isLoading = ref(true)
 const scrollRef = ref<HTMLElement | null>(null)
+const firstVisibleTrackIndex = ref(0)
 const editingMetadata = ref<EditableTrackMetadata | null>(null)
 const isSavingMetadata = ref(false)
 const metadataEditError = ref<string | null>(null)
-type LibraryViewMode = 'flat' | 'cover'
-type LibraryContextMenuSource = 'track' | 'album-artwork'
-
-interface LibraryContextMenuState {
-  trackId: number
-  x: number
-  y: number
-  source: LibraryContextMenuSource
-}
 
 const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
 const LIBRARY_TOP_INSET = 16
@@ -51,6 +98,16 @@ const isSmartPlaylist = computed(() => smartPlaylistId.value !== null)
 const isPlaylist = computed(() => playlistId.value !== null)
 const isScopedPlaylist = computed(() => isSmartPlaylist.value || isPlaylist.value)
 
+function captureLibraryRouteScope(): LibraryRouteScope {
+  if (smartPlaylistId.value !== null) {
+    return { kind: 'smart-playlist', id: smartPlaylistId.value }
+  }
+  if (playlistId.value !== null) {
+    return { kind: 'playlist', id: playlistId.value }
+  }
+  return { kind: 'library' }
+}
+
 function readPersistedViewMode(): LibraryViewMode {
   const stored = localStorage.getItem(LIBRARY_VIEW_MODE_KEY)
   return stored === 'cover' ? 'cover' : 'flat'
@@ -66,6 +123,7 @@ const isCreatingPlaylistFromMenu = ref(false)
 let unsubscribeChanged: (() => void) | null = null
 let unsubscribeScanProgress: (() => void) | null = null
 let addToPlaylistFeedbackTimer: number | null = null
+const libraryRequestCoordinator = new LibraryRequestCoordinator()
 
 // Search state
 const searchQuery = ref('')
@@ -73,22 +131,49 @@ const isSearchFocused = ref(false)
 const isSearchZoneHovered = ref(false)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchRootRef = ref<HTMLElement | null>(null)
+const searchOutcome = ref<LibrarySearchOutcome>({ kind: 'idle' })
 let lastSearchQuery = ''
 let lastMatchedTrackIndex = -1
 let pendingViewSwitchTrackId: number | null = null
 let pendingViewSwitchScrollFrame: number | null = null
+let pendingFirstVisibleTrackFrame: number | null = null
+let isPageUnmounted = false
+
+// Deferred positioning (scrollToTrackById hops, view-switch frames, focus
+// restore) aborts when the user starts scrolling: wheel / touch input bumps
+// the generation, and pending tasks check it before touching scrollTop.
+let userScrollGeneration = 0
+
+function captureScrollGeneration(): number {
+  return userScrollGeneration
+}
+
+function isScrollInputCancelled(startGeneration: number): boolean {
+  return userScrollGeneration !== startGeneration
+}
+
+function onUserScrollInput(): void {
+  userScrollGeneration++
+}
+
+interface LibraryViewportCapture {
+  restore: LibraryViewportRestore
+  previousTrackIds: number[]
+}
+
+type LibraryLoadResult = 'committed' | 'stale' | 'redirected' | 'failed' | 'queued'
+
+watch(searchQuery, (q) => {
+  if (!q.trim()) {
+    searchOutcome.value = { kind: 'idle' }
+    lastSearchQuery = ''
+    lastMatchedTrackIndex = -1
+  }
+})
 
 const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
 const shouldRenderSearchBar = computed(
   () => isSearchZoneHovered.value || isSearchFocused.value || hasSearchQuery.value,
-)
-const emptyMessage = computed(() => {
-  if (isSmartPlaylist.value) return '此智能歌单中暂无歌曲。'
-  if (isPlaylist.value) return '暂无歌曲'
-  return 'No tracks found. Add music folders in Settings.'
-})
-const contextMenuTrack = computed(() =>
-  contextMenu.value ? getTrackById(contextMenu.value.trackId) : null,
 )
 
 const rowVirtualizer = useVirtualizer(
@@ -96,7 +181,7 @@ const rowVirtualizer = useVirtualizer(
     count: tracks.value.length,
     enabled: !isCoverView.value,
     getScrollElement: () => scrollRef.value,
-    estimateSize: () => 44,
+    estimateSize: () => LIBRARY_LAYOUT_METRICS.flatRowHeight,
     overscan: 12,
   })),
 )
@@ -139,16 +224,17 @@ const albumGroups = computed<LibraryAlbumGroup[]>(() => {
   return groups
 })
 
-/** 封面列：250 封面 + meta；曲目列：行高 40 × N + 面板上下 padding 20（与 DOM 对齐） */
-const COVER_VIEW_ROW_HEIGHT = 40
-const COVER_VIEW_PANEL_PAD_Y = 20
-const COVER_VIEW_GROUP_PAD_Y = 56 // py-7 × 2
-
 function getAlbumGroupSize(group: LibraryAlbumGroup): number {
-  const metadataHeight = group.releaseDate ? 322 : 302
-  const tracksHeight = group.tracks.length * COVER_VIEW_ROW_HEIGHT + COVER_VIEW_PANEL_PAD_Y
-  // 组高取左右列 max，保证虚拟滚动间距；面板本身 height:fit-content 不拉伸填空
-  return Math.max(metadataHeight, tracksHeight) + COVER_VIEW_GROUP_PAD_Y
+  return getAlbumGroupEstimatedHeight(group.tracks.length, Boolean(group.releaseDate))
+}
+
+const libraryDerivedIndex = computed(() =>
+  createLibraryDerivedIndex(tracks.value, albumGroups.value, getAlbumGroupSize),
+)
+
+function getAlbumGroupByTrackId(trackId: number): LibraryAlbumGroup | null {
+  const groupIndex = libraryDerivedIndex.value.albumGroupIndexByTrackId.get(trackId)
+  return groupIndex === undefined ? null : (albumGroups.value[groupIndex] ?? null)
 }
 
 const albumVirtualizer = useVirtualizer(
@@ -163,78 +249,274 @@ const albumVirtualizer = useVirtualizer(
 
 const virtualAlbumGroups = computed(() => albumVirtualizer.value.getVirtualItems())
 const albumGroupsTotalSize = computed(() => albumVirtualizer.value.getTotalSize())
+const albumVirtualWindowStart = computed(() => virtualAlbumGroups.value[0]?.start ?? 0)
+
+function onRowFocus(trackId: number): void {
+  keyboardFocusTrackId.value = trackId
+}
 
 function onSelect(trackId: number) {
+  keyboardFocusTrackId.value = trackId
   playback.selectTrack(trackId)
 }
 
 function onPlay(trackId: number) {
+  keyboardFocusTrackId.value = trackId
   playback.playTrackFromQueue(tracks.value, trackId, {
     shufflePool: isScopedPlaylist.value ? tracks.value : undefined,
   })
 }
 
-function closeContextMenu(): void {
+interface FocusRestoreTarget {
+  trackId: number
+  source: LibraryContextMenuSource
+  openReason?: 'pointer' | 'keyboard'
+}
+
+let pendingMetadataDialogReturnTarget: FocusRestoreTarget | null = null
+let pendingViewSwitchReturnTarget: FocusRestoreTarget | null = null
+
+async function restoreLibraryFocus(
+  target: FocusRestoreTarget | null,
+  scroll = true,
+): Promise<void> {
+  if (!target) return
+
+  let activeTrackId = target.trackId
+  const trackExists = libraryDerivedIndex.value.trackById.has(activeTrackId)
+
+  if (!trackExists) {
+    if (tracks.value.length === 0) {
+      scrollRef.value?.focus()
+      return
+    }
+
+    const selectedExists =
+      playback.state.selectedTrackId != null &&
+      libraryDerivedIndex.value.trackById.has(playback.state.selectedTrackId)
+    const currentExists =
+      playback.state.currentTrackId != null &&
+      libraryDerivedIndex.value.trackById.has(playback.state.currentTrackId)
+
+    if (selectedExists) {
+      activeTrackId = playback.state.selectedTrackId!
+    } else if (currentExists) {
+      activeTrackId = playback.state.currentTrackId!
+    } else {
+      activeTrackId = tracks.value[0].id
+    }
+  }
+
+  keyboardFocusTrackId.value = activeTrackId
+
+  const startGeneration = captureScrollGeneration()
+  if (scroll) {
+    await scrollToTrackById(activeTrackId, undefined, startGeneration)
+    await nextTick()
+    await new Promise((resolve) => window.requestAnimationFrame(resolve))
+    if (isScrollInputCancelled(startGeneration)) return
+  }
+
+  let targetEl: HTMLElement | null = null
+
+  if (target.source === 'album-artwork' && trackExists) {
+    targetEl = document.querySelector<HTMLElement>(
+      `[data-first-track-id="${activeTrackId}"] .album-cover-artwork`,
+    )
+    if (!targetEl) {
+      const group = getAlbumGroupByTrackId(activeTrackId)
+      if (group) {
+        targetEl = document.querySelector<HTMLElement>(
+          `[data-album-key="${group.key}"] .album-cover-artwork`,
+        )
+      }
+    }
+  }
+
+  if (!targetEl) {
+    targetEl = document.querySelector<HTMLElement>(`[data-track-id="${activeTrackId}"]`)
+  }
+
+  if (!targetEl) {
+    targetEl = scrollRef.value
+  }
+
+  targetEl?.focus(scroll ? undefined : { preventScroll: true })
+}
+
+function closeContextMenu(handoffTarget?: 'metadata-dialog' | 'view-switch'): void {
+  if (!contextMenu.value) return
+
+  const target: FocusRestoreTarget = {
+    trackId: contextMenu.value.trackId,
+    source: contextMenu.value.source,
+    openReason: contextMenu.value.anchor.openReason,
+  }
+
   contextMenu.value = null
   clearAddToPlaylistFeedback()
+
+  if (handoffTarget === 'metadata-dialog') {
+    pendingMetadataDialogReturnTarget = target
+  } else if (handoffTarget === 'view-switch') {
+    pendingViewSwitchReturnTarget = target
+  } else {
+    // Pointer-opened menus only restore focus without yanking the viewport;
+    // keyboard-opened menus run the full scroll-and-focus restore.
+    void restoreLibraryFocus(target, target.openReason !== 'pointer')
+  }
 }
 
 function onOpenContextMenu(
   trackId: number,
   event: MouseEvent,
   source: LibraryContextMenuSource = 'track',
+  openReason: 'pointer' | 'keyboard' = 'pointer',
 ): void {
+  keyboardFocusTrackId.value = trackId
   playback.selectTrack(trackId)
-
-  const menuWidth = 448
-  const menuHeight = 392
-  const x = Math.min(event.clientX, window.innerWidth - menuWidth - 8)
-  const y = Math.min(event.clientY, window.innerHeight - menuHeight - 8)
-
   contextMenu.value = {
     trackId,
-    x: Math.max(8, x),
-    y: Math.max(8, y),
     source,
+    anchor: {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      returnFocusTrackId: trackId,
+      openReason,
+    },
   }
   void loadRegularPlaylistItems()
 }
 
-function onOpenAlbumArtworkContextMenu(anchorTrackId: number, event: MouseEvent): void {
-  onOpenContextMenu(anchorTrackId, event, 'album-artwork')
+function onOpenAlbumArtworkContextMenu(
+  anchorTrackId: number,
+  event: MouseEvent,
+  openReason: 'pointer' | 'keyboard' = 'pointer',
+): void {
+  onOpenContextMenu(anchorTrackId, event, 'album-artwork', openReason)
+}
+
+const contextMenuAnchor = computed<LibraryContextMenuAnchor>(() => ({
+  clientX: contextMenu.value?.anchor.clientX ?? 0,
+  clientY: contextMenu.value?.anchor.clientY ?? 0,
+  returnFocusTrackId: contextMenu.value?.anchor.returnFocusTrackId ?? null,
+  openReason: contextMenu.value?.anchor.openReason ?? 'pointer',
+}))
+
+const contextMenuTrackTitle = computed(() => {
+  if (!contextMenu.value) return ''
+  const track = getTrackById(contextMenu.value.trackId)
+  return track?.title || t('library.manuscript.missing.title')
+})
+
+const contextMenuAlbumTitle = computed(() => {
+  if (!contextMenu.value) return ''
+  const track = getTrackById(contextMenu.value.trackId)
+  return track?.album || t('library.manuscript.missing.album')
+})
+
+function onContextMenuPlay(): void {
+  if (!contextMenu.value) return
+  if (contextMenu.value.source === 'album-artwork') {
+    onPlayAlbum(contextMenu.value.trackId)
+  } else {
+    onPlayContextTrack(contextMenu.value.trackId)
+  }
+}
+
+function onContextMenuInsert(): void {
+  if (!contextMenu.value) return
+  if (contextMenu.value.source === 'album-artwork') {
+    onInsertAlbumAfterCurrent(contextMenu.value.trackId)
+  } else {
+    onInsertAfterCurrent(contextMenu.value.trackId)
+  }
+}
+
+function onEditMetadataFromContextMenu(): void {
+  if (!contextMenu.value) return
+  onEditMetadata(contextMenu.value.trackId)
 }
 
 function getTrackById(trackId: number): TrackListItem | null {
-  return tracks.value.find((track) => track.id === trackId) ?? null
+  return libraryDerivedIndex.value.trackById.get(trackId) ?? null
 }
+
+const playlistLoading = ref(false)
+const playlistLoadError = ref<string | null>(null)
 
 async function loadRegularPlaylistItems(): Promise<void> {
-  const items = await auralis.playlists.listSidebarItems()
-  regularPlaylistItems.value = items.filter((item) => item.kind === 'playlist')
+  playlistLoading.value = true
+  playlistLoadError.value = null
+  try {
+    const items = await auralis.playlists.listSidebarItems()
+    regularPlaylistItems.value = items.filter((item) => item.kind === 'playlist')
+  } catch (error) {
+    console.error('[Auralis] Failed to load playlists for context menu:', error)
+    playlistLoadError.value =
+      error instanceof Error ? error.message : t('library.contextMenu.playlistLoadError')
+  } finally {
+    playlistLoading.value = false
+  }
 }
 
-async function reloadTracks(): Promise<void> {
-  if (smartPlaylistId.value !== null) {
-    const detail = await auralis.smartPlaylists.getDetail(smartPlaylistId.value)
-    if (!detail) {
-      await router.replace('/')
-      return
-    }
-    tracks.value = detail.tracks
-    libraryViewMode.value = detail.playlist.viewMode
-  } else if (playlistId.value !== null) {
-    const detail = await auralis.playlists.getDetail(playlistId.value)
-    if (!detail) {
-      await router.replace('/')
-      return
-    }
-    tracks.value = detail.tracks
-    libraryViewMode.value = detail.playlist.viewMode
-  } else {
-    tracks.value = await auralis.library.getTracks()
-    libraryViewMode.value = readPersistedViewMode()
+function isCurrentLibraryRequest(generation: number, scope: LibraryRouteScope): boolean {
+  return (
+    !isPageUnmounted &&
+    libraryRequestCoordinator.isLatest(generation) &&
+    isSameLibraryRouteScope(scope, captureLibraryRouteScope())
+  )
+}
+
+async function fetchLibrarySnapshot(
+  scope: LibraryRouteScope,
+  isRequestCurrent: () => boolean,
+): Promise<LibraryDataSnapshot | null> {
+  if (scope.kind === 'smart-playlist') {
+    const detail = await auralis.smartPlaylists.getDetail(scope.id)
+    if (!detail) return null
+    return createSmartPlaylistLibrarySnapshot(detail)
   }
+
+  if (scope.kind === 'playlist') {
+    const detail = await auralis.playlists.getDetail(scope.id)
+    if (!detail) return null
+    return createPlaylistLibrarySnapshot(detail)
+  }
+
+  const catalog = await loadLibraryCatalogSnapshot(
+    (request) => auralis.library.getTrackPage(request),
+    isRequestCurrent,
+  )
+  if (import.meta.env.DEV) {
+    console.info('[Auralis] Library catalog snapshot loaded:', {
+      totalTracks: catalog.tracks.length,
+      totalPages: catalog.totalPages,
+      snapshotBuildMs: catalog.snapshotBuildMs,
+      pageSliceMs: catalog.pageSliceMs,
+      rendererLoadMs: catalog.rendererLoadMs,
+    })
+  }
+  return createAllSongsLibrarySnapshot(catalog.tracks, readPersistedViewMode())
+}
+
+function commitLibrarySnapshot(snapshot: LibraryDataSnapshot): void {
+  pageIdentity.value = snapshot.identity
+  tracks.value = snapshot.tracks
+  libraryViewMode.value = snapshot.viewMode
   lastMatchedTrackIndex = -1
+  ensureKeyboardFocusTrackId()
+}
+
+function captureLibraryViewportRestore(): LibraryViewportCapture {
+  return {
+    restore: {
+      scrollTop: scrollRef.value?.scrollTop ?? 0,
+      firstVisibleTrackId: tracks.value[firstVisibleTrackIndex.value]?.id ?? null,
+      scrollGeneration: userScrollGeneration,
+    },
+    previousTrackIds: tracks.value.map((track) => track.id),
+  }
 }
 
 const SCROLL_POSITION_RATIO = 0.33
@@ -244,43 +526,76 @@ function scrollRenderedTrackToRatio(targetTrackId: number): boolean {
   if (!container) return false
 
   if (isCoverView.value) {
-    const targetGroupIndex = albumGroups.value.findIndex((group) =>
-      group.tracks.some((track) => track.id === targetTrackId),
-    )
-    if (targetGroupIndex < 0) return false
+    const targetGroupIndex = libraryDerivedIndex.value.albumGroupIndexByTrackId.get(targetTrackId)
+    if (targetGroupIndex === undefined) return false
 
-    let targetOffset = 0
-    for (let index = 0; index < targetGroupIndex; index += 1) {
-      targetOffset += getAlbumGroupSize(albumGroups.value[index])
-    }
+    const targetOffset = libraryDerivedIndex.value.albumGroupStartOffsets[targetGroupIndex]
+    if (targetOffset === undefined) return false
 
     container.scrollTop = Math.max(
       0,
       targetOffset + LIBRARY_TOP_INSET - container.clientHeight * SCROLL_POSITION_RATIO,
     )
+    scheduleFirstVisibleTrackIndexUpdate()
     return true
   }
 
-  const targetIndex = tracks.value.findIndex((track) => track.id === targetTrackId)
-  if (targetIndex < 0) return false
+  const targetIndex = libraryDerivedIndex.value.trackIndexById.get(targetTrackId)
+  if (targetIndex === undefined) return false
 
-  const estimatedRowSize = 44
   const offset =
-    targetIndex * estimatedRowSize +
+    targetIndex * LIBRARY_LAYOUT_METRICS.flatRowHeight +
     LIBRARY_TOP_INSET -
     container.clientHeight * SCROLL_POSITION_RATIO
   container.scrollTop = Math.max(0, offset)
+  scheduleFirstVisibleTrackIndexUpdate()
   return true
 }
 
-async function scrollToTrackById(targetTrackId: number): Promise<void> {
+/** Top-aligned viewport restore (no 33% playback centering). */
+function scrollRenderedTrackToTop(targetTrackId: number): boolean {
+  const container = scrollRef.value
+  if (!container) return false
+
+  if (isCoverView.value) {
+    const targetGroupIndex = libraryDerivedIndex.value.albumGroupIndexByTrackId.get(targetTrackId)
+    if (targetGroupIndex === undefined) return false
+
+    const targetOffset = libraryDerivedIndex.value.albumGroupStartOffsets[targetGroupIndex]
+    if (targetOffset === undefined) return false
+
+    container.scrollTop = Math.max(0, targetOffset + LIBRARY_TOP_INSET)
+    scheduleFirstVisibleTrackIndexUpdate()
+    return true
+  }
+
+  const targetIndex = libraryDerivedIndex.value.trackIndexById.get(targetTrackId)
+  if (targetIndex === undefined) return false
+
+  container.scrollTop = Math.max(
+    0,
+    targetIndex * LIBRARY_LAYOUT_METRICS.flatRowHeight + LIBRARY_TOP_INSET,
+  )
+  scheduleFirstVisibleTrackIndexUpdate()
+  return true
+}
+
+async function scrollToTrackById(
+  targetTrackId: number,
+  isRequestCurrent?: () => boolean,
+  startGeneration: number = captureScrollGeneration(),
+): Promise<void> {
   await nextTick()
+  if (isRequestCurrent && !isRequestCurrent()) return
+  if (isScrollInputCancelled(startGeneration)) return
   await new Promise((resolve) => window.requestAnimationFrame(resolve))
+  if (isRequestCurrent && !isRequestCurrent()) return
+  if (isScrollInputCancelled(startGeneration)) return
   scrollRenderedTrackToRatio(targetTrackId)
 }
 
-function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId: number): void {
-  pendingViewSwitchTrackId = anchorTrackId
+function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId?: number | null): void {
+  pendingViewSwitchTrackId = anchorTrackId ?? null
   if (pendingViewSwitchScrollFrame !== null) {
     window.cancelAnimationFrame(pendingViewSwitchScrollFrame)
     pendingViewSwitchScrollFrame = null
@@ -294,7 +609,7 @@ function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId: number)
   } else {
     localStorage.setItem(LIBRARY_VIEW_MODE_KEY, nextMode)
   }
-  closeContextMenu()
+  closeContextMenu('view-switch')
 }
 
 function onLibraryViewEnter(): void {
@@ -302,42 +617,41 @@ function onLibraryViewEnter(): void {
 
   const targetTrackId = pendingViewSwitchTrackId
 
-  if (scrollRenderedTrackToRatio(targetTrackId)) {
+  const finishViewSwitch = () => {
+    if (pendingViewSwitchReturnTarget) {
+      restoreLibraryFocus(pendingViewSwitchReturnTarget)
+      pendingViewSwitchReturnTarget = null
+    } else {
+      restoreLibraryFocus({ trackId: targetTrackId, source: 'track' })
+    }
     pendingViewSwitchTrackId = null
+  }
+
+  if (scrollRenderedTrackToRatio(targetTrackId)) {
+    finishViewSwitch()
     return
   }
 
+  const viewSwitchGeneration = captureScrollGeneration()
   pendingViewSwitchScrollFrame = window.requestAnimationFrame(() => {
     pendingViewSwitchScrollFrame = null
+    if (isScrollInputCancelled(viewSwitchGeneration)) {
+      finishViewSwitch()
+      return
+    }
     scrollRenderedTrackToRatio(targetTrackId)
-    pendingViewSwitchTrackId = null
+    finishViewSwitch()
   })
 }
 
-async function scrollToPlaybackTrack(): Promise<void> {
+async function scrollToPlaybackTrack(isRequestCurrent?: () => boolean): Promise<void> {
   const targetTrackId = playback.state.currentTrackId ?? playback.state.selectedTrackId
 
   if (!targetTrackId) {
     return
   }
 
-  await scrollToTrackById(targetTrackId)
-}
-
-function doesTrackMatchSearch(track: TrackListItem, query: string): boolean {
-  const normalizedQuery = normalizeSearchText(query)
-  if (!normalizedQuery) return false
-  return [track.title, track.artist, track.albumArtist, track.album].some((v) =>
-    normalizeSearchText(v).startsWith(normalizedQuery),
-  )
-}
-
-function findNextMatchIndex(query: string, fromIndex: number, upTo?: number): number | null {
-  const end = upTo ?? tracks.value.length
-  for (let i = fromIndex; i < end; i++) {
-    if (doesTrackMatchSearch(tracks.value[i], query)) return i
-  }
-  return null
+  await scrollToTrackById(targetTrackId, isRequestCurrent)
 }
 
 async function scrollToTrackIndex(index: number): Promise<void> {
@@ -348,21 +662,36 @@ async function scrollToTrackIndex(index: number): Promise<void> {
 
 async function jumpToNextSearchMatch(): Promise<void> {
   const query = searchQuery.value.trim()
-  if (!query) return
+  if (!query) {
+    searchOutcome.value = { kind: 'idle' }
+    return
+  }
+  const normalizedQuery = normalizeSearchText(query)
 
-  if (query !== lastSearchQuery) {
+  const isNewQuery = query !== lastSearchQuery
+  const startIndex = isNewQuery ? 0 : lastMatchedTrackIndex + 1
+  const scanResult = scanLibrarySearchIndex(librarySearchIndex.value, normalizedQuery, startIndex)
+
+  if (scanResult.targetIndex === null || scanResult.matchPosition === null) {
+    searchOutcome.value = { kind: 'not-found' }
+    return
+  }
+
+  if (isNewQuery) {
     lastSearchQuery = query
     lastMatchedTrackIndex = -1
   }
 
-  const startIndex = lastMatchedTrackIndex + 1
-  const nextIndex =
-    findNextMatchIndex(query, startIndex) ?? findNextMatchIndex(query, 0, startIndex)
+  lastMatchedTrackIndex = scanResult.targetIndex
 
-  if (nextIndex == null) return
+  searchOutcome.value = {
+    kind: 'matched',
+    index: scanResult.matchPosition,
+    total: scanResult.totalMatches,
+    wrapped: scanResult.wrapped,
+  }
 
-  lastMatchedTrackIndex = nextIndex
-  await scrollToTrackIndex(nextIndex)
+  await scrollToTrackIndex(scanResult.targetIndex)
 }
 
 // Search event handlers
@@ -408,7 +737,120 @@ function onSearchInputBlur(): void {
 function onSearchKeydown(event: KeyboardEvent): void {
   if (event.key === 'Enter') {
     event.preventDefault()
-    jumpToNextSearchMatch()
+    void jumpToNextSearchMatch()
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    if (searchQuery.value !== '') {
+      clearSearch()
+    } else {
+      searchInputRef.value?.blur()
+      isSearchFocused.value = false
+    }
+  }
+}
+
+function openSettings(): void {
+  void router.push('/settings')
+}
+
+function clearSearch(): void {
+  searchQuery.value = ''
+  searchOutcome.value = { kind: 'idle' }
+}
+
+const keyboardFocusTrackId = ref<number | null>(null)
+
+function ensureKeyboardFocusTrackId(): number | null {
+  if (tracks.value.length === 0) {
+    keyboardFocusTrackId.value = null
+    return null
+  }
+
+  const currentId = keyboardFocusTrackId.value
+  const isValidCurrent =
+    currentId !== null && libraryDerivedIndex.value.trackIndexById.has(currentId)
+
+  if (!isValidCurrent) {
+    const selectedId = playback.state.selectedTrackId
+    const currentTrackId = playback.state.currentTrackId
+
+    const candidateId =
+      (selectedId && libraryDerivedIndex.value.trackIndexById.has(selectedId)
+        ? selectedId
+        : null) ??
+      (currentTrackId && libraryDerivedIndex.value.trackIndexById.has(currentTrackId)
+        ? currentTrackId
+        : null) ??
+      tracks.value[0]?.id ??
+      null
+
+    keyboardFocusTrackId.value = candidateId
+    return candidateId
+  }
+
+  return currentId
+}
+
+async function moveKeyboardFocus(direction: 'next' | 'prev' | 'first' | 'last'): Promise<void> {
+  if (tracks.value.length === 0) return
+
+  const currentId = ensureKeyboardFocusTrackId()
+  const currentIndex =
+    currentId === null ? -1 : (libraryDerivedIndex.value.trackIndexById.get(currentId) ?? -1)
+  let targetIndex = 0
+
+  if (direction === 'first') {
+    targetIndex = 0
+  } else if (direction === 'last') {
+    targetIndex = tracks.value.length - 1
+  } else if (direction === 'next') {
+    targetIndex = currentIndex >= 0 ? Math.min(tracks.value.length - 1, currentIndex + 1) : 0
+  } else if (direction === 'prev') {
+    targetIndex = currentIndex >= 0 ? Math.max(0, currentIndex - 1) : 0
+  }
+
+  const targetTrack = tracks.value[targetIndex]
+  if (!targetTrack) return
+
+  keyboardFocusTrackId.value = targetTrack.id
+  await scrollToTrackById(targetTrack.id)
+
+  void nextTick(() => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(`[data-track-id="${targetTrack.id}"]`)
+      el?.focus()
+    })
+  })
+}
+
+function onListShellKeyDown(event: KeyboardEvent): void {
+  if (!isManuscriptLibrary.value || isInteractiveTarget(event.target)) return
+  if (contextMenu.value !== null || editingMetadata.value !== null) return
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    void moveKeyboardFocus('next')
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault()
+    void moveKeyboardFocus('prev')
+  } else if (event.key === 'Home') {
+    event.preventDefault()
+    void moveKeyboardFocus('first')
+  } else if (event.key === 'End') {
+    event.preventDefault()
+    void moveKeyboardFocus('last')
+  } else if (event.key === ' ') {
+    const focusId = ensureKeyboardFocusTrackId()
+    if (focusId) {
+      event.preventDefault()
+      playback.selectTrack(focusId)
+    }
+  } else if (event.key === 'Enter') {
+    const focusId = ensureKeyboardFocusTrackId()
+    if (focusId) {
+      event.preventDefault()
+      onPlay(focusId)
+    }
   }
 }
 
@@ -424,7 +866,7 @@ function onDocumentPointerDown(event: PointerEvent): void {
 }
 
 async function onEditMetadata(trackId: number): Promise<void> {
-  closeContextMenu()
+  closeContextMenu('metadata-dialog')
   metadataEditError.value = null
   editingMetadata.value = await auralis.metadata.getTrackMetadata(trackId)
 }
@@ -458,7 +900,7 @@ function onInsertAfterCurrent(trackId: number): void {
 function onInsertAlbumAfterCurrent(trackId: number): void {
   closeContextMenu()
 
-  const group = albumGroups.value.find((g) => g.tracks.some((t) => t.id === trackId))
+  const group = getAlbumGroupByTrackId(trackId)
   if (!group) return
 
   playback.insertTracksAfterCurrent(group.tracks)
@@ -467,7 +909,7 @@ function onInsertAlbumAfterCurrent(trackId: number): void {
 function onPlayAlbum(trackId: number): void {
   closeContextMenu()
 
-  const group = albumGroups.value.find((g) => g.tracks.some((t) => t.id === trackId))
+  const group = getAlbumGroupByTrackId(trackId)
   if (!group || group.tracks.length === 0) return
 
   playback.playTrackFromQueue(group.tracks, group.tracks[0].id, {
@@ -475,18 +917,11 @@ function onPlayAlbum(trackId: number): void {
   })
 }
 
-function getAlbumNameForTrack(trackId: number): string {
-  const group = albumGroups.value.find((g) => g.tracks.some((t) => t.id === trackId))
-  return group?.album || 'Unknown Album'
-}
-
 function getContextMenuTrackIds(): number[] {
   if (!contextMenu.value) return []
 
   if (contextMenu.value.source === 'album-artwork') {
-    const group = albumGroups.value.find((g) =>
-      g.tracks.some((track) => track.id === contextMenu.value?.trackId),
-    )
+    const group = getAlbumGroupByTrackId(contextMenu.value.trackId)
     return group?.tracks.map((track) => track.id) ?? []
   }
 
@@ -530,10 +965,10 @@ async function addContextTracksToPlaylist(
   trackIds: number[],
 ): Promise<void> {
   await auralis.playlists.addTracks(playlistId, trackIds)
-  window.dispatchEvent(new CustomEvent('auralis-playlists-changed'))
+  window.dispatchEvent(new CustomEvent(LIBRARY_PLAYLISTS_CHANGED_EVENT))
   addToPlaylistFeedback.value = {
     playlistId,
-    message: `已添加到「${playlistName}」`,
+    message: t('library.contextMenu.addedSuccess', { name: playlistName }),
   }
 
   if (addToPlaylistFeedbackTimer !== null) {
@@ -569,47 +1004,199 @@ function closeMetadataEditor(): void {
     return
   }
 
+  const returnTarget =
+    pendingMetadataDialogReturnTarget ??
+    (editingMetadata.value
+      ? { trackId: editingMetadata.value.trackId, source: 'track' as const }
+      : null)
   editingMetadata.value = null
   metadataEditError.value = null
+  pendingMetadataDialogReturnTarget = null
+
+  void restoreLibraryFocus(returnTarget)
 }
 
 async function saveMetadata(metadata: EditableTrackMetadata): Promise<void> {
   isSavingMetadata.value = true
   metadataEditError.value = null
+  const saveScope = captureLibraryRouteScope()
 
   try {
     await auralis.metadata.updateTrackMetadata(metadata)
-    await reloadTracks()
+    if (isPageUnmounted) return
+
+    const returnTarget = pendingMetadataDialogReturnTarget ?? {
+      trackId: metadata.trackId,
+      source: 'track' as const,
+    }
+    const loadResult = await loadLibraryData('metadata-save')
+    const isStillInSaveScope = isSameLibraryRouteScope(saveScope, captureLibraryRouteScope())
+
+    if (loadResult === 'failed' || loadResult === 'queued') {
+      throw new Error('Metadata refresh after save failed')
+    }
+    if (loadResult === 'stale' && isStillInSaveScope) {
+      throw new Error('Metadata refresh after save became stale')
+    }
+    if (isPageUnmounted) return
+
     editingMetadata.value = null
+    pendingMetadataDialogReturnTarget = null
+
+    if (isStillInSaveScope) {
+      await restoreLibraryFocus(returnTarget)
+    }
   } catch (error) {
-    metadataEditError.value =
-      error instanceof Error ? error.message : 'Unable to save metadata edits'
+    console.error('[Auralis] failed to save metadata edits:', error)
+    if (!isPageUnmounted) {
+      metadataEditError.value = t('library.metadataEditor.errors.saveFailed')
+    }
   } finally {
-    isSavingMetadata.value = false
+    if (!isPageUnmounted) {
+      isSavingMetadata.value = false
+    }
   }
+}
+
+const initialLoadError = ref<string | null>(null)
+
+/**
+ * Viewport-first restore after a background refresh. Never drags the list
+ * back to the playing / selected / keyboard-focused track; if the user
+ * scrolled during the snapshot round-trip the restore is abandoned.
+ */
+async function restoreLibraryViewportRestore(
+  capture: LibraryViewportCapture,
+  isRequestCurrent: () => boolean,
+): Promise<void> {
+  if (!isRequestCurrent()) return
+
+  const action = resolveLibraryViewportRestoreAction({
+    captured: capture.restore,
+    currentScrollGeneration: userScrollGeneration,
+    previousTrackIds: capture.previousTrackIds,
+    nextTrackIds: tracks.value.map((track) => track.id),
+    hasTrack: (id) => libraryDerivedIndex.value.trackById.has(id),
+  })
+
+  if (action.type === 'keep-scroll-top') {
+    const container = scrollRef.value
+    if (!container) return
+    container.scrollTop = action.scrollTop
+    scheduleFirstVisibleTrackIndexUpdate()
+    return
+  }
+
+  if (action.type === 'scroll-to-track') {
+    scrollRenderedTrackToTop(action.trackId)
+    scheduleFirstVisibleTrackIndexUpdate()
+  }
+}
+
+async function loadLibraryData(mode: LibraryLoadMode = 'foreground'): Promise<LibraryLoadResult> {
+  if (mode === 'metadata-save') {
+    while (libraryRequestCoordinator.hasActiveForeground && !isPageUnmounted) {
+      await libraryRequestCoordinator.waitForForegroundIdle()
+    }
+
+    if (isPageUnmounted) return 'stale'
+  }
+
+  const scope = captureLibraryRouteScope()
+  const generation = libraryRequestCoordinator.begin(mode)
+  if (generation === null) {
+    return mode === 'background' ? 'queued' : 'stale'
+  }
+  const isRequestCurrent = () => isCurrentLibraryRequest(generation, scope)
+  const isForeground = mode === 'foreground'
+  const viewportCapture = isForeground ? null : captureLibraryViewportRestore()
+
+  if (isForeground && isRequestCurrent()) {
+    isLoading.value = true
+    initialLoadError.value = null
+    pageIdentity.value = null
+  }
+
+  try {
+    const snapshot = await fetchLibrarySnapshot(scope, isRequestCurrent)
+    if (!isRequestCurrent()) return 'stale'
+
+    if (snapshot === null) {
+      await router.replace('/')
+      return 'redirected'
+    }
+
+    commitLibrarySnapshot(snapshot)
+    initialLoadError.value = null
+
+    if (viewportCapture) {
+      await restoreLibraryViewportRestore(viewportCapture, isRequestCurrent)
+    } else {
+      await scrollToPlaybackTrack(isRequestCurrent)
+    }
+
+    return isRequestCurrent() ? 'committed' : 'stale'
+  } catch (error) {
+    if (!isRequestCurrent()) return 'stale'
+
+    if (isForeground) {
+      console.error('[Auralis] Initial library load failed:', error)
+      initialLoadError.value = t('library.status.loadError')
+    } else {
+      console.error('[Auralis] Background library refresh failed:', error)
+    }
+
+    return 'failed'
+  } finally {
+    const completion = libraryRequestCoordinator.finish(generation)
+
+    if (completion.ownedForeground) {
+      if (!isPageUnmounted && isRequestCurrent()) {
+        isLoading.value = false
+      }
+    }
+
+    if (completion.shouldFlushBackground) {
+      void loadLibraryData('background')
+    }
+  }
+}
+
+async function retryInitialLoad(): Promise<void> {
+  await loadLibraryData('foreground')
+}
+
+function onExternalPlaylistCollectionChanged(eventName: string): void {
+  if (isPageUnmounted) return
+  if (!shouldRefreshLibraryForExternalPlaylistEvent(captureLibraryRouteScope(), eventName)) return
+  void loadLibraryData('background')
+}
+
+function onPlaylistsChanged(): void {
+  onExternalPlaylistCollectionChanged(LIBRARY_PLAYLISTS_CHANGED_EVENT)
+}
+
+function onSmartPlaylistsChanged(): void {
+  onExternalPlaylistCollectionChanged(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT)
 }
 
 onMounted(async () => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
+  window.addEventListener(LIBRARY_PLAYLISTS_CHANGED_EVENT, onPlaylistsChanged)
+  window.addEventListener(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT, onSmartPlaylistsChanged)
   void loadRegularPlaylistItems()
-
-  try {
-    await reloadTracks()
-  } finally {
-    isLoading.value = false
-  }
-
-  await scrollToPlaybackTrack()
+  await loadLibraryData('foreground')
+  if (isPageUnmounted) return
 
   unsubscribeChanged = auralis.library.onChanged(async (event) => {
     // Play-count ticks must not full-reload the library list
     if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
-    await reloadTracks()
+    await loadLibraryData('background')
   })
 
   unsubscribeScanProgress = auralis.library.onScanProgress(async (progress) => {
     if (progress.status === 'completed') {
-      await reloadTracks()
+      await loadLibraryData('background')
     }
   })
 })
@@ -617,43 +1204,171 @@ onMounted(async () => {
 watch(
   () => route.fullPath,
   async () => {
-    isLoading.value = true
     searchQuery.value = ''
     closeContextMenu()
-    try {
-      await reloadTracks()
-      await scrollToPlaybackTrack()
-    } finally {
-      isLoading.value = false
-    }
+    await loadLibraryData('foreground')
+    await nextTick()
+    scheduleFirstVisibleTrackIndexUpdate()
   },
 )
 
+function updateFirstVisibleTrackIndex(): void {
+  // Both visual styles share the same virtualizer geometry, and the modern
+  // viewport anchor is needed for background-refresh restore, so the first
+  // visible track is tracked in modern and manuscript alike.
+  if (!scrollRef.value || tracks.value.length === 0) return
+
+  let newIndex = 0
+  const offset = Math.max(0, scrollRef.value.scrollTop - LIBRARY_TOP_INSET)
+
+  if (!isCoverView.value) {
+    newIndex = Math.floor(offset / LIBRARY_LAYOUT_METRICS.flatRowHeight)
+  } else {
+    const virtualItems = virtualAlbumGroups.value
+    if (virtualItems.length > 0) {
+      const firstVisibleVirtualItem =
+        virtualItems.find((item) => item.end > offset) ?? virtualItems[0]
+      const group = albumGroups.value[firstVisibleVirtualItem.index]
+      if (group) {
+        newIndex = group.firstTrackIndex
+      }
+    }
+  }
+
+  const clamped = Math.max(0, Math.min(newIndex, tracks.value.length - 1))
+  if (clamped !== firstVisibleTrackIndex.value) {
+    firstVisibleTrackIndex.value = clamped
+  }
+}
+
+function scheduleFirstVisibleTrackIndexUpdate(): void {
+  if (isPageUnmounted || pendingFirstVisibleTrackFrame !== null) return
+
+  pendingFirstVisibleTrackFrame = window.requestAnimationFrame(() => {
+    pendingFirstVisibleTrackFrame = null
+    if (isPageUnmounted) return
+    updateFirstVisibleTrackIndex()
+  })
+}
+
+function onScroll(): void {
+  scheduleFirstVisibleTrackIndexUpdate()
+}
+
+watch(
+  scrollRef,
+  (el, oldEl) => {
+    oldEl?.removeEventListener('scroll', onScroll)
+    oldEl?.removeEventListener('wheel', onUserScrollInput)
+    oldEl?.removeEventListener('touchstart', onUserScrollInput)
+    el?.addEventListener('scroll', onScroll, { passive: true })
+    el?.addEventListener('wheel', onUserScrollInput, { passive: true })
+    el?.addEventListener('touchstart', onUserScrollInput, { passive: true })
+    if (el) {
+      void nextTick(() => scheduleFirstVisibleTrackIndexUpdate())
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  [isManuscriptLibrary, libraryViewMode, tracks, albumGroups],
+  () => {
+    if (isManuscriptLibrary.value) {
+      void nextTick(() => scheduleFirstVisibleTrackIndexUpdate())
+    }
+  },
+  { immediate: true },
+)
+
+watch(libraryPresentation, async () => {
+  if (!isSearchFocused.value && !hasSearchQuery.value) return
+  await nextTick()
+  if (isPageUnmounted) return
+  if (isSearchFocused.value) {
+    searchInputRef.value?.focus()
+  }
+})
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  const tagName = target.tagName.toLowerCase()
+  if (['input', 'textarea', 'select', 'button'].includes(tagName)) return true
+  if (target.isContentEditable) return true
+  if (target.closest('[role="dialog"]') || target.closest('[role="menu"]')) return true
+  return false
+}
+
+function onWindowKeyDown(e: KeyboardEvent): void {
+  if (isLibrarySurface.value && e.key === '/' && !isInteractiveTarget(e.target)) {
+    e.preventDefault()
+    isSearchFocused.value = true
+    void nextTick(() => {
+      searchInputRef.value?.focus()
+    })
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onWindowKeyDown)
+})
+
 onBeforeUnmount(() => {
+  isPageUnmounted = true
+  libraryRequestCoordinator.invalidate()
+  window.removeEventListener('keydown', onWindowKeyDown)
+  scrollRef.value?.removeEventListener('scroll', onScroll)
   document.removeEventListener('pointerdown', onDocumentPointerDown)
+  if (pendingFirstVisibleTrackFrame !== null) {
+    window.cancelAnimationFrame(pendingFirstVisibleTrackFrame)
+    pendingFirstVisibleTrackFrame = null
+  }
   if (pendingViewSwitchScrollFrame !== null) {
     window.cancelAnimationFrame(pendingViewSwitchScrollFrame)
     pendingViewSwitchScrollFrame = null
   }
   unsubscribeChanged?.()
   unsubscribeScanProgress?.()
+  window.removeEventListener(LIBRARY_PLAYLISTS_CHANGED_EVENT, onPlaylistsChanged)
+  window.removeEventListener(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT, onSmartPlaylistsChanged)
   clearAddToPlaylistFeedback()
 })
 </script>
 
 <template>
-  <section class="flex h-full flex-col">
-    <div v-if="isLoading" class="flex flex-1 items-center justify-center">
-      <p class="text-sm text-[var(--auralis-text-faint)]">Loading library...</p>
-    </div>
+  <section
+    class="library-page relative flex h-full min-h-0 flex-col"
+    :data-visual-style="libraryPresentation"
+    :data-library-surface="librarySurfaceKind ?? undefined"
+    :style="LIBRARY_LAYOUT_CSS_VARS"
+  >
+    <LibraryStatusState v-if="isLoading" kind="loading" :presentation="libraryPresentation" />
+
+    <LibraryStatusState
+      v-else-if="initialLoadError"
+      kind="error"
+      :presentation="libraryPresentation"
+      :error-message="initialLoadError"
+      @retry="retryInitialLoad"
+    />
+
+    <LibraryStatusState
+      v-else-if="tracks.length === 0"
+      kind="empty"
+      :presentation="libraryPresentation"
+      :is-playlist="playlistId !== null"
+      :is-smart-playlist="smartPlaylistId !== null"
+      @open-settings="openSettings"
+    />
 
     <div
-      v-else-if="tracks.length > 0"
-      class="library-list-shell relative flex flex-1 flex-col overflow-hidden"
-      @mousemove="!isScopedPlaylist && onLibraryListMouseMove($event)"
-      @mouseleave="!isScopedPlaylist && onLibraryListMouseLeave()"
+      v-else
+      class="library-list-shell relative flex min-h-0 flex-1 flex-col overflow-hidden"
+      @mousemove="onLibraryListMouseMove($event)"
+      @mouseleave="onLibraryListMouseLeave()"
+      @keydown="onListShellKeyDown"
     >
-      <div v-if="!isScopedPlaylist" class="library-search-zone">
+      <div class="library-search-zone">
         <Transition name="search-bar">
           <div
             v-if="shouldRenderSearchBar"
@@ -667,20 +1382,48 @@ onBeforeUnmount(() => {
               v-model="searchQuery"
               type="text"
               class="library-search-input"
-              placeholder="搜索歌曲、艺术家、专辑"
-              aria-label="Search library songs"
+              :placeholder="t('library.search.placeholder')"
+              :aria-label="t('library.search.ariaLabel')"
               spellcheck="false"
               @focus="onSearchInputFocus"
               @blur="onSearchInputBlur"
               @keydown="onSearchKeydown"
             />
+            <span
+              v-if="searchOutcome.kind !== 'idle'"
+              class="library-search-outcome ml-auto text-xs tabular-nums text-[var(--auralis-text-muted)] select-none shrink-0"
+              role="status"
+              aria-live="polite"
+            >
+              <template v-if="searchOutcome.kind === 'matched'">
+                {{
+                  searchOutcome.wrapped
+                    ? t('library.search.wrapped', {
+                        index: searchOutcome.index,
+                        total: searchOutcome.total,
+                      })
+                    : t('library.search.matched', {
+                        index: searchOutcome.index,
+                        total: searchOutcome.total,
+                      })
+                }}
+              </template>
+              <template v-else-if="searchOutcome.kind === 'not-found'">
+                <span class="text-red-500 font-medium">
+                  {{ t('library.search.notFound') }}
+                </span>
+              </template>
+            </span>
           </div>
         </Transition>
       </div>
 
+      <LibraryLedgerHeader v-if="isManuscriptLibrary && !isCoverView" />
+
       <div
         ref="scrollRef"
-        class="library-list-scroll flex-1 overflow-auto pb-[var(--auralis-playbar-safe-area)]"
+        tabindex="-1"
+        class="library-list-scroll flex-1 overflow-auto pb-[var(--auralis-playbar-safe-area)] outline-none"
       >
         <Transition name="library-view-fade" mode="out-in" @enter="onLibraryViewEnter">
           <div :key="libraryViewMode" class="min-h-full">
@@ -697,17 +1440,25 @@ onBeforeUnmount(() => {
                   :key="String(virtualRow.key)"
                   :track="tracks[virtualRow.index]"
                   :index="virtualRow.index"
+                  :total-tracks="tracks.length"
+                  :presentation="libraryPresentation"
                   :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
+                  :is-playing="playback.state.isPlaying"
+                  :selected="playback.state.selectedTrackId === tracks[virtualRow.index].id"
+                  :focused="keyboardFocusTrackId === tracks[virtualRow.index].id"
                   :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
                   :style="{
                     height: `${virtualRow.size}px`,
-                    transform: `translateY(${virtualRow.start + LIBRARY_TOP_INSET}px)`,
-                    willChange: 'transform',
+                    top: `${virtualRow.start + LIBRARY_TOP_INSET}px`,
                   }"
-                  class="absolute left-0 top-0 w-full"
+                  class="absolute left-0 w-full"
                   @select="onSelect"
                   @play="onPlay"
-                  @open-context-menu="onOpenContextMenu"
+                  @focus="onRowFocus"
+                  @open-context-menu="
+                    (trackId, event, openReason) =>
+                      onOpenContextMenu(trackId, event, 'track', openReason)
+                  "
                 />
               </div>
             </template>
@@ -720,23 +1471,42 @@ onBeforeUnmount(() => {
                   position: 'relative',
                 }"
               >
-                <AlbumCoverGroup
-                  v-for="virtualGroup in virtualAlbumGroups"
-                  :key="String(virtualGroup.key)"
-                  :data-album-key="albumGroups[virtualGroup.index].key"
-                  :data-first-track-id="albumGroups[virtualGroup.index].tracks[0]?.id"
-                  :group="albumGroups[virtualGroup.index]"
-                  :now-playing-track-id="playback.state.currentTrackId"
+                <div
+                  class="library-cover-virtual-window"
                   :style="{
-                    height: `${virtualGroup.size}px`,
-                    transform: `translateY(${virtualGroup.start + LIBRARY_TOP_INSET}px)`,
+                    paddingTop: `${albumVirtualWindowStart + LIBRARY_TOP_INSET}px`,
                   }"
-                  class="absolute left-0 top-0 w-full"
-                  @select="onSelect"
-                  @play="onPlay"
-                  @open-track-context-menu="(trackId, event) => onOpenContextMenu(trackId, event)"
-                  @open-album-artwork-context-menu="onOpenAlbumArtworkContextMenu"
-                />
+                >
+                  <AlbumCoverGroup
+                    v-for="virtualGroup in virtualAlbumGroups"
+                    :key="String(virtualGroup.key)"
+                    :data-album-key="albumGroups[virtualGroup.index].key"
+                    :data-first-track-id="albumGroups[virtualGroup.index].tracks[0]?.id"
+                    :group="albumGroups[virtualGroup.index]"
+                    :group-index="virtualGroup.index"
+                    :total-groups="albumGroups.length"
+                    :now-playing-track-id="playback.state.currentTrackId"
+                    :is-playing="playback.state.isPlaying"
+                    :selected-track-id="playback.state.selectedTrackId"
+                    :focused-track-id="keyboardFocusTrackId"
+                    :presentation="libraryPresentation"
+                    :style="{
+                      height: `${virtualGroup.size}px`,
+                    }"
+                    class="w-full"
+                    @select="onSelect"
+                    @play="onPlay"
+                    @focus-track="onRowFocus"
+                    @open-track-context-menu="
+                      (trackId, event, openReason) =>
+                        onOpenContextMenu(trackId, event, 'track', openReason)
+                    "
+                    @open-album-artwork-context-menu="
+                      (anchorTrackId, event, openReason) =>
+                        onOpenAlbumArtworkContextMenu(anchorTrackId, event, openReason)
+                    "
+                  />
+                </div>
               </div>
             </template>
           </div>
@@ -744,11 +1514,8 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-else class="flex flex-1 items-center justify-center">
-      <p class="text-sm text-[var(--auralis-text-faint)]">{{ emptyMessage }}</p>
-    </div>
-
     <MetadataEditDialog
+      :presentation="libraryPresentation"
       :metadata="editingMetadata"
       :saving="isSavingMetadata"
       :error-message="metadataEditError"
@@ -756,149 +1523,37 @@ onBeforeUnmount(() => {
       @save="saveMetadata"
     />
 
-    <Teleport to="body">
-      <div v-if="contextMenu" class="fixed inset-0 z-[60]" @click="closeContextMenu">
-        <LiquidGlassPanel
-          class="library-context-menu library-context-menu-root fixed w-55"
-          :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
-          @click.stop
-        >
-          <button
-            class="library-context-menu-item"
-            type="button"
-            :disabled="!playback.state.currentTrackId"
-            @click="onLocateCurrentTrack"
-          >
-            <span class="i-lucide-locate-fixed"></span>
-            <span>定位到当前歌曲</span>
-          </button>
-          <div class="library-context-menu-separator"></div>
-          <button
-            v-if="contextMenu.source === 'album-artwork'"
-            class="library-context-menu-item"
-            type="button"
-            @click="onPlayAlbum(contextMenu.trackId)"
-          >
-            <span class="i-lucide-play"></span>
-            <span>播放「{{ getAlbumNameForTrack(contextMenu.trackId) }}」</span>
-          </button>
-          <button
-            v-else
-            class="library-context-menu-item"
-            type="button"
-            @click="onPlayContextTrack(contextMenu.trackId)"
-          >
-            <span class="i-lucide-play"></span>
-            <span>播放「{{ contextMenuTrack?.title || 'Unknown Title' }}」</span>
-          </button>
-          <div class="library-context-menu-separator"></div>
-          <button
-            v-if="contextMenu.source === 'album-artwork'"
-            class="library-context-menu-item"
-            type="button"
-            :disabled="!playback.state.currentTrackId"
-            @click="onInsertAlbumAfterCurrent(contextMenu.trackId)"
-          >
-            <span class="i-lucide-list-plus"></span>
-            <span>插播「{{ getAlbumNameForTrack(contextMenu.trackId) }}」</span>
-          </button>
-          <button
-            v-else-if="playback.state.currentTrackId !== contextMenu.trackId"
-            class="library-context-menu-item"
-            type="button"
-            :disabled="!playback.state.currentTrackId"
-            @click="onInsertAfterCurrent(contextMenu.trackId)"
-          >
-            <span class="i-lucide-list-plus"></span>
-            <span>插播「{{ contextMenuTrack?.title || 'Unknown Title' }}」</span>
-          </button>
-          <div
-            v-if="
-              contextMenu.source === 'album-artwork' ||
-              playback.state.currentTrackId !== contextMenu.trackId
-            "
-            class="library-context-menu-separator"
-          ></div>
-          <div class="library-context-menu-submenu-root">
-            <button class="library-context-menu-item" type="button">
-              <span class="i-lucide-list-plus"></span>
-              <span class="library-context-menu-text">添加到歌单</span>
-              <span class="i-lucide-chevron-right library-context-menu-chevron"></span>
-            </button>
-            <div class="playlist-add-submenu">
-              <LiquidGlassPanel class="library-context-menu playlist-add-submenu-panel">
-                <button
-                  v-for="playlist in regularPlaylistItems"
-                  :key="playlist.id"
-                  class="library-context-menu-item"
-                  type="button"
-                  @click="onAddContextTracksToPlaylist(playlist)"
-                >
-                  <span class="i-lucide-list-music"></span>
-                  <span>
-                    {{
-                      addToPlaylistFeedback?.playlistId === playlist.id
-                        ? addToPlaylistFeedback.message
-                        : playlist.name
-                    }}
-                  </span>
-                </button>
-                <div
-                  v-if="regularPlaylistItems.length > 0"
-                  class="library-context-menu-separator"
-                ></div>
-                <button
-                  class="library-context-menu-item"
-                  type="button"
-                  :disabled="isCreatingPlaylistFromMenu"
-                  @click="onCreatePlaylistAndAddContextTracks"
-                >
-                  <span class="i-lucide-plus"></span>
-                  <span>新建歌单</span>
-                </button>
-              </LiquidGlassPanel>
-            </div>
-          </div>
-          <div class="library-context-menu-separator"></div>
-          <button
-            class="library-context-menu-item"
-            type="button"
-            @click="onEditMetadata(contextMenu.trackId)"
-          >
-            <span class="i-lucide-pencil"></span>
-            <span>编辑元数据</span>
-          </button>
-          <div class="library-context-menu-separator"></div>
-          <button
-            v-if="!isCoverView"
-            class="library-context-menu-item"
-            type="button"
-            @click="switchLibraryViewMode('cover', contextMenu.trackId)"
-          >
-            <span class="i-lucide-layout-grid"></span>
-            <span>切换到封面视图</span>
-          </button>
-          <button
-            v-else
-            class="library-context-menu-item"
-            type="button"
-            @click="switchLibraryViewMode('flat', contextMenu.trackId)"
-          >
-            <span class="i-lucide-list-music"></span>
-            <span>切换到平铺视图</span>
-          </button>
-          <div class="library-context-menu-separator"></div>
-          <button
-            class="library-context-menu-item"
-            type="button"
-            :disabled="isStartingLibraryRefresh"
-            @click="onRefreshLibrary"
-          >
-            <span class="i-lucide-refresh-cw"></span>
-            <span>刷新</span>
-          </button>
-        </LiquidGlassPanel>
-      </div>
-    </Teleport>
+    <LibraryContextMenu
+      :open="contextMenu !== null"
+      :presentation="libraryPresentation"
+      :source="contextMenu?.source ?? 'track'"
+      :anchor="contextMenuAnchor"
+      :track-title="contextMenuTrackTitle"
+      :album-title="contextMenuAlbumTitle"
+      :can-locate-current="Boolean(playback.state.currentTrackId)"
+      :can-insert="
+        Boolean(
+          playback.state.currentTrackId &&
+          (contextMenu?.source === 'album-artwork' ||
+            playback.state.currentTrackId !== contextMenu?.trackId),
+        )
+      "
+      :current-view-mode="libraryViewMode"
+      :playlists="regularPlaylistItems"
+      :playlist-feedback="addToPlaylistFeedback"
+      :playlist-loading="playlistLoading"
+      :playlist-load-error="playlistLoadError"
+      :creating-playlist="isCreatingPlaylistFromMenu"
+      :refreshing="isStartingLibraryRefresh"
+      @close="closeContextMenu"
+      @locate-current="onLocateCurrentTrack"
+      @play="onContextMenuPlay"
+      @insert-after-current="onContextMenuInsert"
+      @add-to-playlist="onAddContextTracksToPlaylist"
+      @create-playlist="onCreatePlaylistAndAddContextTracks"
+      @edit-metadata="onEditMetadataFromContextMenu"
+      @switch-view="(mode) => switchLibraryViewMode(mode, contextMenu?.trackId ?? null)"
+      @refresh="onRefreshLibrary"
+    />
   </section>
 </template>

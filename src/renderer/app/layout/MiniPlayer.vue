@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
+import { useI18n } from 'vue-i18n'
 import FluidArtworkBackground from '@renderer/features/playback/components/FluidArtworkBackground.vue'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -45,6 +46,7 @@ interface MetalLightPose {
 }
 
 const playback = usePlayback()
+const { t } = useI18n()
 const {
   currentTrack: queueCurrentTrack,
   currentIndex: queueCurrentIndex,
@@ -220,16 +222,18 @@ function applyBodyFromState(body: MiniPlayerBodySize | undefined): void {
 /** Dock bar short labels (serif text buttons). Full names live in the mode popover. */
 const modeDockLabel = computed(() => {
   const labels: Record<PlaybackMode, string> = {
-    sequential: '顺序',
-    'repeat-all': '循环',
-    'repeat-one': '单曲',
-    shuffle: '随机',
-    'album-shuffle': '专辑',
+    sequential: t('player.modeDock.sequential'),
+    'repeat-all': t('player.modeDock.repeat-all'),
+    'repeat-one': t('player.modeDock.repeat-one'),
+    shuffle: t('player.modeDock.shuffle'),
+    'album-shuffle': t('player.modeDock.album-shuffle'),
   }
   return labels[playback.state.playbackMode]
 })
 
-const volumeDockLabel = computed(() => (playback.state.isMuted ? '静音' : '音量'))
+const volumeDockLabel = computed(() =>
+  playback.state.isMuted ? t('player.mute') : t('player.volume'),
+)
 
 /** Volume panel still uses ion glyphs for mute / level affordance. */
 const volumeIcon = computed(() => {
@@ -239,13 +243,13 @@ const volumeIcon = computed(() => {
   return 'i-ion-volume-high'
 })
 
-const modes: Array<{ id: PlaybackMode; label: string; icon: string }> = [
-  { id: 'sequential', label: '顺序播放', icon: 'i-ion-play-skip-forward' },
-  { id: 'repeat-all', label: '列表循环', icon: 'i-ion-repeat' },
-  { id: 'repeat-one', label: '单曲循环', icon: 'i-ion-sync' },
-  { id: 'shuffle', label: '随机播放', icon: 'i-ion-shuffle' },
-  { id: 'album-shuffle', label: '专辑随机', icon: 'i-ion-disc' },
-]
+const modes = computed<Array<{ id: PlaybackMode; label: string; icon: string }>>(() => [
+  { id: 'sequential', label: t('player.modeOption.sequential'), icon: 'i-ion-play-skip-forward' },
+  { id: 'repeat-all', label: t('player.modeOption.repeat-all'), icon: 'i-ion-repeat' },
+  { id: 'repeat-one', label: t('player.modeOption.repeat-one'), icon: 'i-ion-sync' },
+  { id: 'shuffle', label: t('player.modeOption.shuffle'), icon: 'i-ion-shuffle' },
+  { id: 'album-shuffle', label: t('player.modeOption.album-shuffle'), icon: 'i-ion-disc' },
+])
 
 function artworkFailed(trackId: number): boolean {
   return imageErrorIds.value.has(trackId)
@@ -477,14 +481,14 @@ onUnmounted(() => {
       <div class="mini-popover-scrim" aria-hidden="true" />
 
       <template v-if="activePopover === 'queue'">
-        <div class="mini-queue-panel" role="dialog" aria-label="播放队列">
+        <div class="mini-queue-panel" role="dialog" :aria-label="t('player.queue')">
           <div class="mini-panel-heading">
-            <span>播放队列</span>
-            <span>{{ queueTotalCount }} 首</span>
+            <span>{{ t('player.queue') }}</span>
+            <span>{{ t('player.queueCount', { count: queueTotalCount }) }}</span>
           </div>
-          <div v-if="isQueueEmpty" class="mini-empty">暂无播放队列</div>
+          <div v-if="isQueueEmpty" class="mini-empty">{{ t('player.queueEmpty') }}</div>
           <template v-else>
-            <div class="mini-queue-section-label">正在播放</div>
+            <div class="mini-queue-section-label">{{ t('player.nowPlaying') }}</div>
             <div
               v-if="queueCurrentTrack"
               class="mini-queue-item mini-queue-item--active mini-queue-item--current"
@@ -503,13 +507,15 @@ onUnmounted(() => {
                 <span v-else class="h-4 w-4 i-lucide-music" />
               </div>
               <span class="mini-queue-copy">
-                <b>{{ queueCurrentTrack.title || '未知歌曲' }}</b>
+                <b>{{ queueCurrentTrack.title || t('player.unknownTrack') }}</b>
                 <small>{{ formatPlaybackSubtitle(queueCurrentTrack) }}</small>
               </span>
               <span class="h-4 w-4 i-lucide-volume-2 mini-queue-now" />
             </div>
 
-            <div v-if="upcomingTracks.length > 0" class="mini-queue-section-label">接下来</div>
+            <div v-if="upcomingTracks.length > 0" class="mini-queue-section-label">
+              {{ t('player.upNext') }}
+            </div>
             <div
               v-if="upcomingTracks.length > 0"
               ref="queueScrollRef"
@@ -521,7 +527,9 @@ onUnmounted(() => {
                 class="mini-queue-item"
                 :class="{ 'mini-queue-item--active': isQueueTrackActive(track.id) }"
                 type="button"
-                :aria-label="`播放 ${track.title || '未知歌曲'}`"
+                :aria-label="
+                  t('player.playTrack', { title: track.title || t('player.unknownTrack') })
+                "
                 @click="playQueueTrack(track.id)"
               >
                 <div class="mini-queue-cover">
@@ -535,7 +543,7 @@ onUnmounted(() => {
                   <span v-else class="h-4 w-4 i-lucide-music" />
                 </div>
                 <span class="mini-queue-copy">
-                  <b>{{ track.title || '未知歌曲' }}</b>
+                  <b>{{ track.title || t('player.unknownTrack') }}</b>
                   <small>{{ formatPlaybackSubtitle(track) }}</small>
                 </span>
               </button>
@@ -548,7 +556,7 @@ onUnmounted(() => {
         v-else-if="activePopover === 'mode'"
         class="mini-mode-panel"
         role="menu"
-        aria-label="播放模式"
+        :aria-label="t('player.mode')"
       >
         <button
           v-for="mode in modes"
@@ -569,7 +577,7 @@ onUnmounted(() => {
         </button>
       </div>
 
-      <div v-else class="mini-volume-panel" role="dialog" aria-label="音量">
+      <div v-else class="mini-volume-panel" role="dialog" :aria-label="t('player.volume')">
         <output class="mini-volume-value"> {{ Math.round(playback.state.volume * 100) }}% </output>
         <input
           :value="playback.state.volume"
@@ -579,14 +587,14 @@ onUnmounted(() => {
           min="0"
           max="1"
           step="0.01"
-          aria-label="音量"
+          :aria-label="t('player.volume')"
           @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
         />
         <button
           class="mini-icon-button mini-volume-button"
           type="button"
-          :aria-label="playback.state.isMuted ? '取消静音' : '静音'"
-          :data-tooltip="playback.state.isMuted ? '取消静音' : '静音'"
+          :aria-label="playback.state.isMuted ? t('player.unmute') : t('player.mute')"
+          :data-tooltip="playback.state.isMuted ? t('player.unmute') : t('player.mute')"
           @click="playback.toggleMute()"
         >
           <span class="h-4 w-4" :class="volumeIcon" />
@@ -612,13 +620,17 @@ onUnmounted(() => {
       <div class="mini-drag-region" aria-hidden="true" />
 
       <div class="mini-body">
-        <div class="mini-cover-stage" title="双击返回主界面" data-mini-interactive>
+        <div
+          class="mini-cover-stage"
+          :title="t('miniPlayer.doubleClickRestore')"
+          data-mini-interactive
+        >
           <div
             class="mini-cover"
             :class="{ 'mini-cover--playing': playback.state.isPlaying && currentTrack }"
             role="button"
             tabindex="0"
-            aria-label="双击封面返回主界面"
+            :aria-label="t('miniPlayer.doubleClickRestore')"
             data-mini-interactive
             @dblclick.stop="restoreMainWindow"
             @keydown.enter.prevent="restoreMainWindow"
@@ -638,10 +650,12 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="mini-meta" data-mini-interactive title="双击返回主界面">
+        <div class="mini-meta" data-mini-interactive :title="t('miniPlayer.doubleClickRestore')">
           <strong class="mini-title">{{ currentTrack?.title || 'Auralis' }}</strong>
           <span class="mini-subtitle">
-            {{ currentTrack ? formatPlaybackSubtitle(currentTrack) : '尚未播放' }}
+            {{
+              currentTrack ? formatPlaybackSubtitle(currentTrack) : t('miniPlayer.nothingPlaying')
+            }}
           </span>
         </div>
 
@@ -650,7 +664,7 @@ onUnmounted(() => {
             class="mini-progress track-progress"
             role="slider"
             tabindex="0"
-            aria-label="播放进度"
+            :aria-label="t('player.progress')"
             aria-valuemin="0"
             :aria-valuemax="Math.round(playback.state.duration)"
             :aria-valuenow="Math.round(playback.state.currentTime)"
@@ -673,8 +687,8 @@ onUnmounted(() => {
           <button
             class="mini-icon-button mini-icon-button--lg"
             type="button"
-            aria-label="上一首"
-            data-tooltip="上一首"
+            :aria-label="t('player.previous')"
+            :data-tooltip="t('player.previous')"
             @click="playback.playPrevious()"
           >
             <span class="mini-skip-glyph mini-skip-glyph--previous" aria-hidden="true" />
@@ -683,8 +697,8 @@ onUnmounted(() => {
             class="mini-play-button"
             type="button"
             :style="playButtonMetalStyle"
-            :aria-label="playback.state.isPlaying ? '暂停' : '播放'"
-            :data-tooltip="playback.state.isPlaying ? '暂停' : '播放'"
+            :aria-label="playback.state.isPlaying ? t('player.pause') : t('player.play')"
+            :data-tooltip="playback.state.isPlaying ? t('player.pause') : t('player.play')"
             @click="playback.togglePlayPause()"
             @mouseleave="reshuffleMetalLight"
           >
@@ -696,8 +710,8 @@ onUnmounted(() => {
           <button
             class="mini-icon-button mini-icon-button--lg"
             type="button"
-            aria-label="下一首"
-            data-tooltip="下一首"
+            :aria-label="t('player.next')"
+            :data-tooltip="t('player.next')"
             @click="playback.playNext()"
           >
             <span class="mini-skip-glyph" aria-hidden="true" />
@@ -707,24 +721,24 @@ onUnmounted(() => {
         <!-- Control Center–style media bar: full content width, three equal text cells -->
         <div class="mini-actions-dock" data-mini-interactive>
           <LiquidGlassPanel class="mini-actions-glass" :radius="18">
-            <div class="mini-actions" role="toolbar" aria-label="迷你播放工具">
+            <div class="mini-actions" role="toolbar" :aria-label="t('miniPlayer.toolbarAria')">
               <button
                 class="mini-actions-button"
                 :class="{ 'mini-actions-button--active': activePopover === 'queue' }"
                 type="button"
-                aria-label="播放队列"
-                data-tooltip="播放队列"
+                :aria-label="t('player.queue')"
+                :data-tooltip="t('player.queue')"
                 data-mini-popover-trigger="queue"
                 @click="togglePopover('queue')"
               >
-                <span class="mini-actions-label">队列</span>
+                <span class="mini-actions-label">{{ t('miniPlayer.queueShort') }}</span>
               </button>
               <button
                 class="mini-actions-button"
                 :class="{ 'mini-actions-button--active': activePopover === 'mode' }"
                 type="button"
-                :aria-label="`播放模式：${modeDockLabel}`"
-                data-tooltip="播放模式"
+                :aria-label="t('miniPlayer.modeAria', { mode: modeDockLabel })"
+                :data-tooltip="t('player.mode')"
                 data-mini-popover-trigger="mode"
                 @click="togglePopover('mode')"
               >
@@ -735,7 +749,7 @@ onUnmounted(() => {
                 :class="{ 'mini-actions-button--active': activePopover === 'volume' }"
                 type="button"
                 :aria-label="volumeDockLabel"
-                data-tooltip="音量"
+                :data-tooltip="t('player.volume')"
                 data-mini-popover-trigger="volume"
                 @click="togglePopover('volume')"
               >

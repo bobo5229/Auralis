@@ -1,5 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { useReducedMotion } from '../composables/useReducedMotion'
+import {
+  resolveLyricsFollowBehavior,
+  shouldAnimateLyricsFollow,
+  type LyricsFollowBehavior,
+} from '../utils/lyricsMotion'
 import type { LyricLine } from '../types'
 
 const props = defineProps<{
@@ -9,6 +17,10 @@ const props = defineProps<{
   showPrelude: boolean
   preludeLitDotCount: number
 }>()
+
+const { t } = useI18n()
+const { seekTo } = usePlayback()
+const reducedMotion = useReducedMotion()
 
 const scrollRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLElement | null>(null)
@@ -114,7 +126,9 @@ function computeTarget(): number | null {
   return clampScroll(target, scrollMax)
 }
 
-function updateTarget(behavior: ScrollBehavior = 'smooth'): void {
+function updateTarget(
+  behavior: LyricsFollowBehavior = resolveLyricsFollowBehavior(reducedMotion.matches.value),
+): void {
   if (isUserScrolling.value) return
   const container = scrollRef.value
   const track = trackRef.value
@@ -131,7 +145,7 @@ function updateTarget(behavior: ScrollBehavior = 'smooth'): void {
 
   const currentOffset = cancelTrackAnimation(true)
   const distance = Math.abs(targetOffset - currentOffset)
-  if (distance < 0.5) {
+  if (!shouldAnimateLyricsFollow({ behavior, distance })) {
     setTrackOffset(targetOffset)
     return
   }
@@ -176,12 +190,57 @@ function pauseAutoFollow(): void {
 
   if (scrollTimeout) clearTimeout(scrollTimeout)
   scrollTimeout = setTimeout(() => {
-    const scrollTop = container?.scrollTop ?? 0
-    if (container) container.scrollTop = 0
-    setTrackOffset(-scrollTop)
-    isUserScrolling.value = false
-    updateTarget()
+    resumeAutoFollowFromUserScroll()
   }, 3000)
+}
+
+/** Commit native scrollTop back to transform tracking and re-enable auto-follow. */
+function resumeAutoFollowFromUserScroll(): void {
+  const container = scrollRef.value
+  const scrollTop = container?.scrollTop ?? 0
+  if (container) container.scrollTop = 0
+  setTrackOffset(-scrollTop)
+  isUserScrolling.value = false
+  if (scrollTimeout) {
+    clearTimeout(scrollTimeout)
+    scrollTimeout = null
+  }
+  updateTarget()
+}
+
+/**
+ * Click / keyboard on a timed LRC line: seek playback, then immediately follow
+ * the new active line (cancel the 3s user-scroll pause from pointerdown).
+ */
+function onLyricLineActivate(index: number): void {
+  const line = props.lines[index]
+  if (!line || !Number.isFinite(line.timeSeconds)) return
+
+  seekTo(line.timeSeconds)
+
+  if (scrollTimeout) {
+    clearTimeout(scrollTimeout)
+    scrollTimeout = null
+  }
+
+  const container = scrollRef.value
+  if (isUserScrolling.value && container) {
+    const scrollTop = container.scrollTop
+    container.scrollTop = 0
+    setTrackOffset(-scrollTop)
+  }
+  isUserScrolling.value = false
+
+  void nextTick(() => {
+    rebuildMetrics()
+    updateTarget()
+  })
+}
+
+function onLyricLineKeydown(event: KeyboardEvent, index: number): void {
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  onLyricLineActivate(index)
 }
 
 function resetScrollPosition(): void {
@@ -235,6 +294,14 @@ watch(
   { flush: 'post' },
 )
 
+// A preference flip to reduce mid-movement must cancel the in-flight WAAPI
+// animation and land the track on the target instantly (P2).
+watch(reducedMotion.matches, (nowReduced) => {
+  if (nowReduced) {
+    updateTarget('auto')
+  }
+})
+
 onMounted(() => {
   syncContainer()
   nextTick(() => {
@@ -251,6 +318,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  reducedMotion.dispose()
   if (scrollTimeout) clearTimeout(scrollTimeout)
   cancelTrackAnimation(false)
   resizeObserver?.disconnect()
@@ -277,7 +345,7 @@ onBeforeUnmount(() => {
             ? 'lyric-active lyric-line-active-filter'
             : 'lyric-inactive lyric-line-blur-filter'
         "
-        aria-label="Lyrics starting soon"
+        :aria-label="t('player.lyricsStartingSoon')"
         data-lyric-prelude
       >
         <span
@@ -291,7 +359,7 @@ onBeforeUnmount(() => {
         v-for="(line, index) in lines"
         :key="line.id"
         v-memo="[activeIndex === index, line.text]"
-        class="lyric-line"
+        class="lyric-line lyric-line-seekable"
         :class="
           activeIndex === index
             ? 'lyric-active lyric-line-active-filter'
@@ -299,7 +367,16 @@ onBeforeUnmount(() => {
               ? 'lyric-inactive lyric-line-blur-filter'
               : 'lyric-empty'
         "
+        role="button"
+        tabindex="0"
         :data-lyric-index="index"
+        :aria-label="
+          line.text
+            ? t('player.lyricsSeekToLine', { text: line.text })
+            : t('player.lyricsSeekToTime', { seconds: Math.floor(line.timeSeconds) })
+        "
+        @click.stop="onLyricLineActivate(index)"
+        @keydown="onLyricLineKeydown($event, index)"
       >
         {{ line.text || ' ' }}
       </div>
@@ -327,6 +404,21 @@ onBeforeUnmount(() => {
   transition:
     opacity 300ms ease,
     filter 300ms ease;
+}
+
+.lyric-line-seekable {
+  cursor: pointer;
+  border-radius: 6px;
+  outline: none;
+}
+
+.lyric-line-seekable:hover {
+  opacity: 1;
+  filter: none;
+}
+
+.lyric-line-seekable:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auralis-text) 35%, transparent);
 }
 
 .lyric-line-active-filter {
@@ -364,6 +456,8 @@ onBeforeUnmount(() => {
 }
 
 .lyric-dot-lit {
+  /* 与高亮歌词行颜色统一（高亮行继承 --auralis-text） */
+  color: var(--auralis-text);
   box-shadow:
     0 0 0.18em currentColor,
     0 0 0.42em currentColor,

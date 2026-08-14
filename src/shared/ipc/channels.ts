@@ -11,6 +11,7 @@ export const ipcChannels = {
     cancelScan: 'library:cancel-scan',
     getScanStatus: 'library:get-scan-status',
     getTracks: 'library:get-tracks',
+    getTrackPage: 'library:get-track-page',
     scanProgress: 'library:scan-progress',
     changed: 'library:changed',
   },
@@ -66,6 +67,7 @@ export const ipcChannels = {
     getDailyListeningDetail: 'archive:get-daily-listening-detail',
     getAnnualListeningInsights: 'archive:get-annual-listening-insights',
     getListeningRanking: 'archive:get-listening-ranking',
+    getListeningGenreSpectrum: 'archive:get-listening-genre-spectrum',
     resetPlayStats: 'archive:reset-play-stats',
   },
   metadata: {
@@ -81,10 +83,6 @@ export const ipcChannels = {
     refreshProgress: 'metadata:refresh-progress',
   },
   window: {
-    minimize: 'window:minimize',
-    toggleMaximize: 'window:toggle-maximize',
-    close: 'window:close',
-    isMaximized: 'window:is-maximized',
     enterMiniPlayer: 'window:enter-mini-player',
     restoreFromMiniPlayer: 'window:restore-from-mini-player',
     getMiniPlayerState: 'window:get-mini-player-state',

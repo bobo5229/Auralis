@@ -43,9 +43,11 @@ export function isPlayableAudioExtension(filePath: string): boolean {
 
 /**
  * Must be called before app.whenReady().
- * Privileges enable media streaming + CORS so <audio> works with webSecurity: true.
+ * Privileges enable media streaming + CORS so <audio>/fetch work with webSecurity: true.
+ * NOTE: protocol.registerSchemesAsPrivileged can be called ONLY ONCE — all custom
+ * schemes (audio + artwork) must be registered in this single call.
  */
-export function registerAudioSchemeAsPrivileged(): void {
+export function registerPrivilegedMediaSchemes(): void {
   protocol.registerSchemesAsPrivileged([
     {
       scheme: 'auralis-audio',
@@ -54,6 +56,15 @@ export function registerAudioSchemeAsPrivileged(): void {
         secure: true,
         supportFetchAPI: true,
         stream: true,
+        corsEnabled: true,
+      },
+    },
+    {
+      scheme: 'auralis-artwork',
+      privileges: {
+        standard: true,
+        secure: true,
+        supportFetchAPI: true,
         corsEnabled: true,
       },
     },

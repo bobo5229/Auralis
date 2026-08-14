@@ -13,32 +13,23 @@ export default defineConfig({
     },
   },
   shortcuts: {
-    'app-window':
-      'h-screen overflow-hidden bg-[var(--auralis-app-background)] text-[var(--auralis-text)]',
+    'app-window': 'h-screen overflow-hidden text-[var(--auralis-text)]',
     'app-shell':
       'grid h-full min-h-0 grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-transparent text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_20%]',
     'app-sidebar':
       'flex w-[232px] h-[calc(100%_-_var(--auralis-shell-vertical-gap))] min-h-0 flex-col m-[var(--auralis-shell-edge-gap)_0_var(--auralis-shell-edge-gap)_var(--auralis-shell-edge-gap)] rounded-lg border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
     'app-main': 'min-h-0 overflow-y-auto bg-transparent',
-    'app-titlebar':
-      'relative z-[80] flex h-11 shrink-0 items-center border-b border-[var(--auralis-titlebar-border)] bg-[var(--auralis-titlebar-bg)] px-4',
-    'app-titlebar-brand':
-      'flex min-w-0 items-center gap-2 text-sm font-semibold text-[var(--auralis-text)]',
-    'app-titlebar-logo': 'h-4 w-4 text-[var(--auralis-text)]',
-    'app-titlebar-title':
-      'pointer-events-none absolute left-1/2 top-1/2 max-w-[45vw] -translate-x-1/2 -translate-y-1/2 truncate text-xs font-semibold text-[var(--auralis-titlebar-title)]',
-    'app-titlebar-controls': 'ml-auto flex items-center gap-2',
-    'window-dot':
-      'h-3 w-3 rounded-full border border-black/10 transition opacity-90 hover:opacity-100',
     'now-playing-panel':
       'hidden h-full min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-4 xl:flex',
+    // Geometry is owned by presentation-scoped CSS (modern dual-rail dock /
+    // manuscript footer). Keep only shared stacking + material shell here.
     'player-bar':
-      'fixed left-1/2 bottom-[var(--auralis-player-bottom-gap)] z-50 flex h-18 w-[min(960px,calc(100vw-320px))] min-w-[720px] -translate-x-1/2 items-center gap-5 rounded-full border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] px-6 shadow-[var(--auralis-playbar-shadow)]',
+      'fixed z-50 h-18 border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] shadow-[var(--auralis-playbar-shadow)]',
     'transport-controls': 'flex items-center gap-2 shrink-0',
     'transport-control':
       'inline-flex items-center justify-center rounded p-2 text-[var(--auralis-text-muted)] transition hover:text-[var(--auralis-text)] shadow-none hover:shadow-none',
     'transport-control-primary':
-      'inline-flex items-center justify-center rounded-full p-3 text-[var(--auralis-text)] transition hover:text-[var(--auralis-text)] shadow-none hover:shadow-none',
+      'inline-flex items-center justify-center rounded-full p-3 text-[#1f1f1f] bg-[#e8e1d2] transition shadow-none hover:shadow-none',
     'playback-actions': 'relative flex items-center gap-3 shrink-0',
     'volume-control-group': 'flex items-center gap-1.5 shrink-0',
     'track-info-card': 'flex-1 min-w-0',
@@ -65,9 +56,9 @@ export default defineConfig({
       'inline-flex items-center justify-center rounded-full p-3 text-[var(--auralis-text)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
     'player-control-active': 'text-[var(--auralis-sidebar-active-text)]',
     'song-row':
-      'grid h-11 grid-cols-[44px_minmax(0,1fr)_300px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer',
+      'grid h-[var(--library-flat-row-height)] grid-cols-[var(--library-flat-artwork-size)_minmax(0,1fr)_300px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer',
     'song-cover':
-      'h-11 w-11 shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
+      'h-[var(--library-flat-artwork-size)] w-[var(--library-flat-artwork-size)] shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
     'song-title': 'text-sm font-bold truncate pl-1.5',
     'song-artist': 'text-xs font-semibold text-[var(--auralis-text-muted)] truncate pl-2',
     'song-album': 'text-xs font-semibold text-[var(--auralis-text-subtle)] truncate text-right',
@@ -100,17 +91,20 @@ export default defineConfig({
     'playback-mode-item-active': '',
     'playback-mode-check': 'ml-auto h-4 w-4',
     'album-cover-group':
-      'grid grid-cols-[250px_minmax(0,1fr)] gap-x-12 border-b border-[var(--auralis-cover-divider)] py-7',
-    'album-cover-aside': 'w-[250px]',
+      'grid grid-cols-[var(--library-cover-artwork-size)_minmax(0,1fr)] gap-x-12 border-b-[length:var(--library-cover-group-border-width)] border-[var(--auralis-cover-divider)] py-[var(--library-cover-group-padding-block-side)]',
+    'album-cover-aside': 'w-[var(--library-cover-artwork-size)]',
     'album-cover-artwork':
-      'w-[250px] h-[250px] rounded-lg overflow-hidden bg-[var(--auralis-artwork-placeholder-bg)]',
-    'album-cover-meta': 'mt-3',
-    'album-cover-meta-title': 'truncate text-[16px] font-bold leading-5 text-[var(--auralis-text)]',
-    'album-cover-meta-line': 'font-semibold text-xs text-[var(--auralis-text-muted)] leading-5',
+      'w-[var(--library-cover-artwork-size)] h-[var(--library-cover-artwork-size)] rounded-lg overflow-hidden bg-[var(--auralis-artwork-placeholder-bg)]',
+    'album-cover-meta': 'mt-[var(--library-cover-meta-gap)]',
+    'album-cover-meta-title':
+      'truncate text-[16px] font-bold leading-[var(--library-cover-meta-line-height)] text-[var(--auralis-text)]',
+    'album-cover-meta-line':
+      'font-semibold text-xs text-[var(--auralis-text-muted)] leading-[var(--library-cover-meta-line-height)]',
     /* 布局骨架；整块面板壳与内部分割线见 AlbumCoverGroup / AlbumCoverTrackRow scoped */
     'album-cover-tracks': 'min-w-0',
+    /* height+min-height 固定行盒，与 getAlbumGroupEstimatedHeight 的 40px 契约一致（REVIEW F3） */
     'cover-track-row':
-      'relative grid grid-cols-[40px_minmax(0,1fr)_minmax(120px,220px)_48px] gap-x-3 items-center px-3 min-h-10 rounded-xl cursor-pointer transition-colors hover:bg-[var(--auralis-control-hover-bg)]',
+      'relative grid grid-cols-[40px_minmax(0,1.4fr)_minmax(110px,1fr)_48px] gap-x-3 items-center px-3 h-[var(--library-cover-track-row-height)] min-h-[var(--library-cover-track-row-height)] rounded-xl cursor-pointer transition-colors hover:bg-[var(--auralis-control-hover-bg)]',
     'cover-track-row--playing':
       'bg-[var(--auralis-song-row-now-playing-bg)] hover:bg-[var(--auralis-song-row-now-playing-bg)]',
     'lyric-active': 'text-[var(--auralis-lyrics-active)] font-bold text-[28px] leading-12 py-1.5',

@@ -1,0 +1,199 @@
+/* Phase 17 Sidebar Teleport overlays — owner scope only */
+
+.sidebar-overlay[data-shell-presentation='manuscript'] {
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-ui);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'].smart-playlist-dialog-backdrop,
+.sidebar-overlay[data-shell-presentation='manuscript'].facets-dialog-backdrop {
+  background: var(--manuscript-surface-scrim);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .library-context-menu,
+.sidebar-overlay[data-shell-presentation='manuscript'] .liquid-glass-panel {
+  background: var(--manuscript-surface-overlay) !important;
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-overlay) !important;
+  border-radius: var(--manuscript-radius-control) !important;
+  box-shadow: var(--manuscript-effect-overlay-shadow) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .library-context-menu-item {
+  min-height: 32px;
+  border-radius: var(--manuscript-radius-control-inner);
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-ui);
+  font-size: 12px;
+  transition: background-color 100ms ease;
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript']
+  .library-context-menu-item:hover:not(:disabled) {
+  background-color: var(--manuscript-state-hover);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript']
+  .library-context-menu-item:focus-visible:not(:disabled) {
+  outline: var(--manuscript-focus-ring-width) solid var(--manuscript-state-focus-ring);
+  outline-offset: -2px;
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .smart-playlist-context-danger {
+  color: var(--manuscript-content-danger);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .smart-playlist-dialog {
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-overlay);
+  border-radius: var(--manuscript-radius-page);
+  background: var(--manuscript-surface-overlay);
+  box-shadow: var(--manuscript-effect-overlay-shadow);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .smart-playlist-dialog h2 {
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-body);
+  font-weight: 650;
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .smart-playlist-dialog input,
+.sidebar-overlay[data-shell-presentation='manuscript'] .smart-playlist-dialog textarea {
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-search);
+  border-radius: var(--manuscript-radius-control);
+  color: var(--manuscript-content-primary);
+  background: var(--manuscript-surface-control);
+  font-family: var(--manuscript-font-ui);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .smart-playlist-dialog input:focus,
+.sidebar-overlay[data-shell-presentation='manuscript'] .smart-playlist-dialog textarea:focus {
+  border-color: var(--manuscript-border-focus);
+  outline: var(--manuscript-focus-ring-width) solid var(--manuscript-state-focus-ring);
+  outline-offset: 1px;
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .smart-playlist-dialog-error {
+  color: var(--manuscript-content-danger);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .smart-playlist-dialog-actions button {
+  border: var(--manuscript-hairline-width) solid transparent;
+  border-radius: var(--manuscript-radius-control);
+  color: var(--manuscript-content-secondary);
+  background: transparent;
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .smart-playlist-dialog-actions button:hover {
+  color: var(--manuscript-content-primary);
+  background: var(--manuscript-state-hover);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript']
+  .smart-playlist-dialog-actions
+  button:disabled {
+  color: var(--manuscript-content-disabled);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript']
+  .smart-playlist-dialog-actions
+  .smart-playlist-dialog-primary {
+  border-color: var(--manuscript-border-strong);
+  color: var(--manuscript-content-primary);
+  background: var(--manuscript-surface-stamp);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript']
+  .smart-playlist-dialog-actions
+  .smart-playlist-dialog-danger {
+  color: var(--manuscript-content-on-accent);
+  background: var(--manuscript-accent-primary);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .facets-dialog-panel {
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-overlay);
+  border-radius: var(--manuscript-radius-page);
+  background: var(--manuscript-surface-overlay);
+  box-shadow: var(--manuscript-effect-overlay-shadow);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .facets-dialog-header {
+  border-bottom-color: var(--manuscript-border-subtle);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .facets-dialog-header h2 {
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-body);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .facets-dialog-header p,
+.sidebar-overlay[data-shell-presentation='manuscript'] .facets-dialog-loading,
+.sidebar-overlay[data-shell-presentation='manuscript'] .facet-column-title {
+  color: var(--manuscript-content-secondary);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .facets-dialog-actions button {
+  border: var(--manuscript-hairline-width) solid transparent;
+  border-radius: var(--manuscript-radius-control);
+  color: var(--manuscript-content-muted);
+  background: transparent;
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .facets-dialog-actions button:hover {
+  color: var(--manuscript-content-primary);
+  background: var(--manuscript-state-hover);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .facet-column,
+.sidebar-overlay[data-shell-presentation='manuscript'] .facet-column-title {
+  background: var(--manuscript-surface-page);
+  border-color: var(--manuscript-border-subtle);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .facet-option {
+  border-bottom-color: var(--manuscript-border-row);
+  color: var(--manuscript-content-secondary);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .facet-option span:last-child {
+  color: var(--manuscript-content-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .facet-option:hover {
+  background: var(--manuscript-state-hover);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .facet-option-active {
+  color: var(--manuscript-content-primary);
+  background: var(--manuscript-state-selected);
+  font-weight: 700;
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'] .facet-option-active span:last-child {
+  color: var(--manuscript-accent-primary);
+}
+
+.sidebar-overlay[data-shell-presentation='manuscript'].facets-dialog-fade-enter-active,
+.sidebar-overlay[data-shell-presentation='manuscript'].facets-dialog-fade-leave-active {
+  transition: opacity 140ms ease;
+}
+
+@media (prefers-contrast: more) {
+  .sidebar-overlay[data-shell-presentation='manuscript'] .smart-playlist-dialog,
+  .sidebar-overlay[data-shell-presentation='manuscript'] .facets-dialog-panel,
+  .sidebar-overlay[data-shell-presentation='manuscript'] .library-context-menu {
+    border-color: var(--manuscript-content-primary) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-overlay[data-shell-presentation='manuscript'] .library-context-menu-item,
+  .sidebar-overlay[data-shell-presentation='manuscript'].facets-dialog-fade-enter-active,
+  .sidebar-overlay[data-shell-presentation='manuscript'].facets-dialog-fade-leave-active {
+    animation: none !important;
+    transition: none !important;
+  }
+}

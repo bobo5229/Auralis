@@ -1,0 +1,374 @@
+/* ==========================================================================
+ * Phase 18 — manuscript player surfaces (Now Playing + PlayerBar)
+ * Owner scope only: selectors MUST start with one of
+ *   .now-playing-panel[data-player-presentation='manuscript']
+ *   .player-bar[data-player-presentation='manuscript']
+ *   .player-overlay[data-player-presentation='manuscript']
+ * Never hit Fullscreen, Miniplayer, the desktop-lyrics window, the sidebar or
+ * page owners. shell marker (data-shell-presentation) only decides the shell.
+ * ========================================================================== */
+
+/* ---------- PlayerBar canvas (Phase 23 方案 A: 主栏页脚) ----------
+ * Footer of the main paper column only — not a floating card, not a span
+ * into Now Playing. xl right: 20% matches the shell third track. */
+.player-bar[data-player-presentation='manuscript'] {
+  position: fixed;
+  left: 260px;
+  right: 0;
+  bottom: 0;
+  height: 72px;
+  width: auto;
+  min-width: 0;
+  transform: none;
+  border-radius: 0;
+  overflow: visible;
+  /* Container query owner for the narrow-window volume collapse (§7.2). */
+  container-type: inline-size;
+  container-name: manuscript-player-bar;
+
+  background: var(--manuscript-surface-page);
+  border: 0;
+  border-top: 1px solid var(--manuscript-border-subtle);
+  box-shadow: var(--manuscript-effect-dock-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: none;
+
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: 'track transport actions';
+  align-items: center;
+  gap: 0;
+  padding: 0;
+
+  /* PlayerBar-internal remaps only — modern --auralis-* tokens stay untouched
+     outside the player surfaces. */
+  --auralis-text: var(--manuscript-content-primary);
+  --auralis-text-muted: var(--manuscript-content-secondary);
+  --auralis-text-faint: var(--manuscript-content-faint);
+  --auralis-text-disabled: var(--manuscript-content-disabled);
+  --auralis-progress-track: var(--manuscript-border-strong);
+  --auralis-progress-fill: var(--manuscript-accent-primary);
+  --auralis-control-hover-bg: var(--manuscript-state-hover);
+  --auralis-control-active-bg: var(--manuscript-state-accent-soft);
+}
+
+/* Glass, album tint and gradient highlight layers are modern-only decorations. */
+.player-bar[data-player-presentation='manuscript']::before,
+.player-bar[data-player-presentation='manuscript'] .player-bar-glass,
+.player-bar[data-player-presentation='manuscript'] .player-bar-album-tint {
+  display: none !important;
+}
+
+/* ---------- Dock three-zone layout (Phase 23 方案 A) ----------
+ * Transport is centered on the whole main-column footer. dock-main must be
+ * contents so it does not become an inner 1fr/auto/1fr that shifts transport
+ * left of the actions column. */
+.player-bar[data-player-presentation='manuscript'] .player-bar-dock-main {
+  display: contents;
+}
+
+.player-bar[data-player-presentation='manuscript'] .transport-controls {
+  grid-area: transport;
+}
+
+.player-bar[data-player-presentation='manuscript'] .track-info-card {
+  grid-area: track;
+  min-width: 0;
+  padding-left: 20px;
+}
+
+/* 2026-08-14 layout optimization: the right tool group is end-aligned on
+ * the footer trailing edge (lyrics → queue → mode → volume → time). The
+ * fixed `gap` separates the behavior buttons from the time colophon — no
+ * `margin-left: auto` whitespace; 20px end padding is the page margin. */
+.player-bar[data-player-presentation='manuscript'] .player-bar-dock-actions {
+  grid-area: actions;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  padding-left: 24px;
+  padding-right: 20px;
+}
+
+/* Right-edge folio: elapsed / duration after the volume group. Tabular
+ * numerals keep the width stable while digits change. */
+.player-bar[data-player-presentation='manuscript'] .player-bar-time {
+  flex-shrink: 0;
+  font-family: var(--manuscript-font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--manuscript-content-muted);
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Volume group seam: hairline + fixed gap separate it from the behavior
+ * buttons without adding per-icon wrappers. If the divider reads too heavy
+ * in a real light/dark pass, drop the border and keep the spacing. */
+.player-bar[data-player-presentation='manuscript'] .volume-control-group {
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: var(--manuscript-hairline-width) solid var(--manuscript-border-subtle);
+}
+
+.player-bar[data-player-presentation='manuscript'] .player-bar-dock-rule {
+  display: none;
+}
+
+/* xl: stop at the Now Playing left edge (shell 20% track). */
+@media (min-width: 1280px) {
+  .player-bar[data-player-presentation='manuscript'] {
+    right: 20%;
+  }
+}
+
+/* ---------- Narrow-window volume collapse (Phase 23 §7.2) ----------
+ * The inline slider hides when the dock cannot stably fit three zones; the
+ * compact slider then expands upward from the volume button on hover or
+ * keyboard focus and stays while dragging. Container-based, so it follows
+ * the dock's real available width, not a viewport constant. */
+@container manuscript-player-bar (max-width: 760px) {
+  .player-bar[data-player-presentation='manuscript'] .volume-control-group > .volume-slider {
+    display: none;
+  }
+
+  .player-bar[data-player-presentation='manuscript']
+    .volume-control-group[data-volume-open='true']
+    .volume-overlay {
+    display: flex;
+    align-items: center;
+  }
+}
+
+/* ---------- Action icons (must stay readable on paper) ---------- */
+.player-bar[data-player-presentation='manuscript'] .playbar-action-icon {
+  color: var(--manuscript-content-secondary);
+}
+
+.player-bar[data-player-presentation='manuscript'] .player-control:hover .playbar-action-icon,
+.player-bar[data-player-presentation='manuscript'] .player-control:active .playbar-action-icon {
+  color: var(--manuscript-content-primary);
+}
+
+/* ---------- Volume line ---------- */
+.player-bar[data-player-presentation='manuscript'] input[type='range'].volume-slider {
+  height: var(--manuscript-indicator-width);
+  transition: none;
+}
+
+.player-bar[data-player-presentation='manuscript'] input[type='range'].volume-slider:hover {
+  height: var(--manuscript-indicator-width);
+}
+
+.player-bar[data-player-presentation='manuscript'] input[type='range'].volume-slider::-webkit-slider-thumb,
+.player-bar[data-player-presentation='manuscript']
+  input[type='range'].volume-slider:hover::-webkit-slider-thumb {
+  opacity: 0;
+  transform: none;
+}
+
+.player-bar[data-player-presentation='manuscript'] input[type='range'].volume-slider::-moz-range-thumb,
+.player-bar[data-player-presentation='manuscript']
+  input[type='range'].volume-slider:hover::-moz-range-thumb {
+  opacity: 0;
+  transform: none;
+}
+
+/* ---------- Empty track slot ----------
+ * The empty-state rail shares the full-width bottom timeline via the owner
+ * .track-progress rule above — no separate 160px cap. */
+.player-bar[data-player-presentation='manuscript'] .track-info-empty {
+  align-items: flex-start;
+}
+
+/* ---------- Transport controls ---------- */
+.player-bar[data-player-presentation='manuscript'] .transport-control,
+.player-bar[data-player-presentation='manuscript'] .player-control {
+  border-radius: var(--manuscript-radius-control);
+  color: var(--manuscript-content-secondary);
+  box-shadow: none !important;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.player-bar[data-player-presentation='manuscript'] .transport-control:hover,
+.player-bar[data-player-presentation='manuscript'] .player-control:hover {
+  background: var(--manuscript-state-hover);
+  color: var(--manuscript-content-primary);
+  transform: none;
+}
+
+.player-bar[data-player-presentation='manuscript'] .transport-control:active,
+.player-bar[data-player-presentation='manuscript'] .player-control:active {
+  background: var(--manuscript-state-pressed);
+  transform: translateY(1px);
+}
+
+.player-bar[data-player-presentation='manuscript'] .transport-control:focus-visible,
+.player-bar[data-player-presentation='manuscript'] .player-control:focus-visible,
+.player-bar[data-player-presentation='manuscript'] .transport-control-primary:focus-visible,
+.player-bar[data-player-presentation='manuscript'] .track-cover:focus-visible,
+.player-bar[data-player-presentation='manuscript'] .track-progress:focus-visible,
+.player-bar[data-player-presentation='manuscript'] .volume-slider:focus-visible {
+  outline: var(--manuscript-focus-ring-width) solid var(--manuscript-state-focus-ring);
+  outline-offset: 2px;
+}
+
+.player-bar[data-player-presentation='manuscript'] .player-control-active {
+  background: var(--manuscript-state-selected);
+  color: var(--manuscript-content-stamp);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+}
+
+/* Play / pause stamp button */
+.player-bar[data-player-presentation='manuscript'] .transport-control-primary {
+  border-radius: var(--manuscript-radius-control) !important;
+  background: var(--manuscript-surface-stamp) !important;
+  border: var(--manuscript-hairline-width) solid var(--manuscript-accent-primary) !important;
+  color: var(--manuscript-content-stamp) !important;
+  box-shadow: none !important;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.player-bar[data-player-presentation='manuscript'] .transport-control-primary:hover {
+  background: var(--manuscript-accent-primary) !important;
+  color: var(--manuscript-content-on-accent) !important;
+  transform: none !important;
+}
+
+.player-bar[data-player-presentation='manuscript'] .transport-control-primary:active {
+  transform: translateY(1px);
+}
+
+/* ---------- Track info + cover ---------- */
+.player-bar[data-player-presentation='manuscript'] .track-cover {
+  border-radius: var(--manuscript-radius-artwork);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  background: var(--manuscript-surface-recessed);
+  box-shadow: none;
+  transition: none;
+}
+
+.player-bar[data-player-presentation='manuscript'] .track-cover:hover {
+  border-color: var(--manuscript-accent-primary);
+  transform: none;
+  box-shadow: none;
+}
+
+.player-bar[data-player-presentation='manuscript'] .track-title {
+  color: var(--manuscript-content-primary);
+}
+
+.player-bar[data-player-presentation='manuscript'] .track-subtitle {
+  color: var(--manuscript-content-muted);
+}
+
+/* ---------- Progress ----------
+ * 2026-08-14 layout optimization: in manuscript the rail becomes the full-
+ * width footer timeline (20px page insets), absolutely positioned against
+ * .player-bar (fixed) so it no longer visually binds to the left track
+ * card. The hit height stays the 2px indicator — it never covers the
+ * controls above; the scaleX fill / transform-origin contract is untouched. */
+.player-bar[data-player-presentation='manuscript'] .track-progress {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 0;
+  width: auto;
+  margin: 0;
+  z-index: 5;
+  height: var(--manuscript-indicator-width);
+  border-radius: var(--manuscript-radius-indicator);
+  background: var(--manuscript-border-row);
+  transition: none;
+}
+
+/* Hover must not change the visual height — keep the hit geometry stable. */
+.player-bar[data-player-presentation='manuscript'] .track-progress:hover {
+  height: var(--manuscript-indicator-width);
+}
+
+.player-bar[data-player-presentation='manuscript'] .track-progress-fill {
+  background: var(--manuscript-accent-primary);
+  box-shadow: none;
+}
+
+/* Remove the shimmer sweep and the hover thumb dot. */
+.player-bar[data-player-presentation='manuscript'] .track-progress-fill::after,
+.player-bar[data-player-presentation='manuscript'] .track-progress::after {
+  display: none;
+}
+
+/* ---------- Desktop lyrics toast (owner surface inside PlayerBar) ---------- */
+.player-bar[data-player-presentation='manuscript'] .desktop-lyrics-toast {
+  background: var(--manuscript-surface-overlay);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  border-radius: var(--manuscript-radius-control);
+  box-shadow: var(--manuscript-effect-shadow-control);
+  color: var(--manuscript-content-primary);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ---------- Now Playing lyrics margin note ---------- */
+.now-playing-panel[data-player-presentation='manuscript'] {
+  /* Kill the modern artwork blur / transparency even against
+     .has-artwork .now-playing-panel (!important in main.css). */
+  /* 外轨纸张：与 Sidebar 同级的更深纸色（--manuscript-surface-aside）。 */
+  background: var(--manuscript-surface-aside) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-left: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  /* Lyric tokens remapped inside the panel owner only. */
+  --auralis-border-subtle: var(--manuscript-border-strong);
+  --auralis-text: var(--manuscript-content-primary);
+  --auralis-text-faint: var(--manuscript-content-faint);
+  --auralis-lyrics-active: var(--manuscript-accent-primary);
+  --auralis-lyrics-inactive: var(--manuscript-content-muted);
+}
+
+/* Inactive lines use ink contrast instead of blur to express depth (§7.6). */
+.now-playing-panel[data-player-presentation='manuscript'] .lyric-line-blur-filter {
+  filter: none;
+  opacity: 1;
+}
+
+.now-playing-panel[data-player-presentation='manuscript'] .lyric-line-seekable:hover {
+  opacity: 1;
+  filter: none;
+}
+
+/* Prelude dots express real waiting state without the glow halo. */
+.now-playing-panel[data-player-presentation='manuscript'] .lyric-dot-lit {
+  box-shadow: none;
+}
+
+/* ---------- High contrast ---------- */
+@media (prefers-contrast: more) {
+  .player-bar[data-player-presentation='manuscript'] {
+    border-top-width: 2px;
+  }
+
+  .now-playing-panel[data-player-presentation='manuscript'] {
+    border-left-width: 2px;
+  }
+}
+
+/* ---------- Motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .player-bar[data-player-presentation='manuscript'],
+  .player-bar[data-player-presentation='manuscript'] *,
+  .now-playing-panel[data-player-presentation='manuscript'],
+  .now-playing-panel[data-player-presentation='manuscript'] * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

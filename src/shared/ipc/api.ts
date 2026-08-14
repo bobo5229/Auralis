@@ -22,6 +22,7 @@ import type {
 import type {
   AnnualListeningInsights,
   DailyListeningDetail,
+  ListeningGenreSpectrum,
   ListeningHeatmap,
   ListeningRanking,
   ListeningRankingParams,
@@ -35,6 +36,7 @@ import type {
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
+import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import type {
   MiniPlayerPopoverDirection,
   MiniPlayerWindowState,
@@ -55,6 +57,7 @@ export interface AuralisApi {
     cancelScan: (jobId: number) => Promise<{ ok: boolean }>
     getScanStatus: (jobId?: number) => Promise<LibraryScanStatus | null>
     getTracks: () => Promise<TrackListItem[]>
+    getTrackPage: (request: LibraryTrackPageRequest) => Promise<LibraryTrackPage>
     onScanProgress: (callback: (progress: LibraryScanProgress) => void) => () => void
     onChanged: (
       callback: (event: {
@@ -136,6 +139,7 @@ export interface AuralisApi {
     getDailyListeningDetail: (date: string) => Promise<DailyListeningDetail>
     getAnnualListeningInsights: (year: number) => Promise<AnnualListeningInsights>
     getListeningRanking: (params: ListeningRankingParams) => Promise<ListeningRanking>
+    getListeningGenreSpectrum: (year: number) => Promise<ListeningGenreSpectrum>
     resetPlayStats: () => Promise<{ ok: true }>
   }
   metadata: {
@@ -169,10 +173,6 @@ export interface AuralisApi {
     ) => () => void
   }
   window: {
-    minimize: () => Promise<{ ok: boolean }>
-    toggleMaximize: () => Promise<{ ok: boolean }>
-    close: () => Promise<{ ok: boolean }>
-    isMaximized: () => Promise<{ maximized: boolean }>
     enterMiniPlayer: () => Promise<MiniPlayerWindowState>
     restoreFromMiniPlayer: () => Promise<MiniPlayerWindowState>
     getMiniPlayerState: () => Promise<MiniPlayerWindowState>

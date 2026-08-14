@@ -3,12 +3,18 @@ import type { TrackLyrics, TrackListItem } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
 import { LibraryRepository } from '@main/repositories/libraryRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
+import { LibraryCatalogSnapshotStore } from '@main/features/libraryCatalog/libraryCatalogSnapshotStore'
+import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 
 export class LibraryService {
+  private readonly catalogSnapshotStore: LibraryCatalogSnapshotStore
+
   constructor(
     private readonly libraryRepository: LibraryRepository,
     private readonly trackRepository: TrackRepository,
-  ) {}
+  ) {
+    this.catalogSnapshotStore = new LibraryCatalogSnapshotStore(() => this.trackRepository.getAll())
+  }
 
   getStats(): LibraryStats {
     return this.libraryRepository.getStats()
@@ -16,6 +22,10 @@ export class LibraryService {
 
   getTracks(): TrackListItem[] {
     return this.trackRepository.getAll()
+  }
+
+  getTrackPage(request: LibraryTrackPageRequest): LibraryTrackPage {
+    return this.catalogSnapshotStore.getPage(request)
   }
 
   getLyrics(trackId: number): TrackLyrics | null {

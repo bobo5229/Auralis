@@ -1,0 +1,294 @@
+/* Phase 17 Sidebar — owner scope only */
+
+.app-sidebar[data-shell-presentation='manuscript'] {
+  isolation: isolate;
+  overflow: visible;
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong) !important;
+  border-radius: var(--manuscript-radius-page) !important;
+  /* 外轨纸张：比中间主内容列深一档（--manuscript-surface-aside）。 */
+  background: var(--manuscript-surface-aside) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-ui);
+  transition: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript']::before {
+  content: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-header {
+  border-bottom: var(--manuscript-hairline-width) solid var(--manuscript-border-subtle);
+  background: transparent;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-brand-mark {
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  border-radius: var(--manuscript-radius-control);
+  color: var(--manuscript-accent-primary);
+  background: var(--manuscript-surface-stamp);
+  box-shadow: none;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-brand-left:hover .sidebar-brand-mark {
+  transform: none;
+  border-color: var(--manuscript-border-strong);
+  background: var(--manuscript-state-hover);
+  box-shadow: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-brand-name {
+  background: none;
+  background-size: auto;
+  -webkit-background-clip: unset;
+  background-clip: unset;
+  -webkit-text-fill-color: unset;
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-body);
+  font-weight: 700;
+  transition: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-brand-left:hover .sidebar-brand-name {
+  background-position: unset;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-tool-button {
+  border: var(--manuscript-hairline-width) solid transparent;
+  border-radius: var(--manuscript-radius-control);
+  color: var(--manuscript-content-muted);
+  background: transparent;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    border-color 120ms ease;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-tool-button:hover {
+  color: var(--manuscript-content-primary);
+  background: var(--manuscript-state-hover);
+  transform: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-tool-button:active {
+  transform: none;
+  background: var(--manuscript-state-pressed);
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-tool-button:focus-visible,
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link:focus-visible,
+.app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-add-button:focus-visible {
+  outline: var(--manuscript-focus-ring-width) solid var(--manuscript-state-focus-ring);
+  outline-offset: 2px;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-tool-button-active {
+  background: var(--manuscript-state-selected);
+  border-color: var(--manuscript-border-strong);
+  color: var(--manuscript-content-primary);
+  font-weight: 700;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-navigation {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-primary-section {
+  flex: 0 0 auto;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-playlist-section {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.app-sidebar[data-shell-presentation='manuscript']
+  .sidebar-playlist-section::-webkit-scrollbar-thumb {
+  border-radius: 0;
+  background: var(--manuscript-border-strong);
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-section-label {
+  color: var(--manuscript-content-ledger-label);
+  font-family: var(--manuscript-font-ui);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-section-meta {
+  border-radius: var(--manuscript-radius-control-inner);
+  color: var(--manuscript-content-muted);
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link {
+  height: 38px;
+  margin: 2px 8px;
+  border: var(--manuscript-hairline-width) solid transparent;
+  border-radius: var(--manuscript-radius-control);
+  color: var(--manuscript-content-secondary);
+  overflow: visible;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link:hover {
+  background: var(--manuscript-state-hover);
+  border-color: var(--manuscript-border-subtle);
+  color: var(--manuscript-content-primary);
+  transform: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link:active {
+  transform: none;
+  background: var(--manuscript-state-pressed);
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link-icon {
+  color: inherit;
+  transition: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link-label {
+  font-weight: 600;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link-count,
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link:hover .sidebar-link-count,
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link-active .sidebar-link-count,
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link-active:hover .sidebar-link-count {
+  opacity: 1 !important;
+  transform: none !important;
+  color: var(--manuscript-content-muted) !important;
+  font-family: var(--manuscript-font-numeric);
+  font-variant-numeric: tabular-nums;
+  background: transparent !important;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link-active {
+  background: var(--manuscript-state-selected) !important;
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong) !important;
+  color: var(--manuscript-content-primary) !important;
+  box-shadow: none;
+  font-weight: 700;
+  overflow: visible;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link-active .sidebar-link-icon {
+  color: var(--manuscript-accent-primary) !important;
+  transform: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link-active:hover {
+  background: var(--manuscript-state-selected) !important;
+  transform: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link-active::before {
+  top: 8px;
+  height: calc(100% - 16px);
+  width: var(--manuscript-indicator-width) !important;
+  border-radius: 0;
+  background: var(--manuscript-accent-primary) !important;
+  box-shadow: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-link-active::after {
+  content: none;
+  animation: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-add-button {
+  border: var(--manuscript-hairline-width) solid transparent;
+  border-radius: var(--manuscript-radius-control);
+  color: var(--manuscript-content-muted);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-add-button:hover {
+  background: var(--manuscript-state-hover);
+  color: var(--manuscript-content-primary);
+  transform: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-add-button:active {
+  transform: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-empty {
+  color: var(--manuscript-content-muted);
+  font-family: var(--manuscript-font-body);
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-link-pressed {
+  background: var(--manuscript-state-pressed);
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-link-dragging {
+  opacity: 0.56;
+  cursor: grab;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-drop-before,
+.app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-drop-after {
+  box-shadow: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-drop-before::after,
+.app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-drop-after::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  height: 2px;
+  background: var(--manuscript-accent-primary);
+  pointer-events: none;
+  animation: none;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-drop-before::after {
+  top: 0;
+}
+
+.app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-drop-after::after {
+  bottom: 0;
+}
+
+@media (prefers-contrast: more) {
+  .app-sidebar[data-shell-presentation='manuscript'] {
+    border-color: var(--manuscript-content-primary) !important;
+  }
+
+  .app-sidebar[data-shell-presentation='manuscript'] .sidebar-link-active {
+    border-color: var(--manuscript-content-primary) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar[data-shell-presentation='manuscript'],
+  .app-sidebar[data-shell-presentation='manuscript'] .sidebar-brand-mark,
+  .app-sidebar[data-shell-presentation='manuscript'] .sidebar-brand-name,
+  .app-sidebar[data-shell-presentation='manuscript'] .sidebar-tool-button,
+  .app-sidebar[data-shell-presentation='manuscript'] .sidebar-link,
+  .app-sidebar[data-shell-presentation='manuscript'] .sidebar-link-count,
+  .app-sidebar[data-shell-presentation='manuscript'] .smart-playlist-add-button {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

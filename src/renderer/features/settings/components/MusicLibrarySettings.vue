@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type {
   LibraryRoot,
   LibraryScanProgress,
@@ -7,6 +8,17 @@ import type {
   MetadataRefreshFailure,
 } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
+import { useLocale, type AppLocale } from '@renderer/composables/useLocale'
+
+const { t } = useI18n()
+const { locale } = useLocale()
+
+/** 日期区域随 UI 语言映射（TECHDOC 非目标外的轻量收尾）。 */
+const DATE_LOCALES: Record<AppLocale, string> = {
+  'zh-Hans': 'zh-CN',
+  'zh-Hant': 'zh-TW',
+  en: 'en-US',
+}
 
 const roots = ref<LibraryRoot[]>([])
 const scanStatus = ref<LibraryScanStatus | null>(null)
@@ -46,25 +58,29 @@ const progressPercent = computed(() => {
   return Math.min(100, Math.round((scannedFiles.value / totalFiles.value) * 100))
 })
 const statusLabel = computed(() => {
-  if (isScanning.value) return '正在扫描'
-  if (!scanStatus.value) return activeRoot.value ? '等待首次扫描' : '尚未设置'
-
-  const labels: Record<string, string> = {
-    completed: '扫描完成',
-    canceled: '扫描已取消',
-    failed: '扫描失败',
-    queued: '等待扫描',
+  if (isScanning.value) return t('settings.library.scanStatus.scanning')
+  if (!scanStatus.value) {
+    return activeRoot.value
+      ? t('settings.library.scanStatus.waitingFirst')
+      : t('settings.library.scanStatus.notConfigured')
   }
 
-  return labels[scanStatus.value.status] ?? scanStatus.value.status
+  const labels: Record<string, string> = {
+    completed: t('settings.library.scanStatus.completed'),
+    canceled: t('settings.library.scanStatus.canceled'),
+    failed: t('settings.library.scanStatus.failed'),
+    queued: t('settings.library.scanStatus.queued'),
+  }
+
+  return labels[scanStatus.value.status] ?? t('settings.library.scanStatus.unknown')
 })
 const lastScannedLabel = computed(() => {
-  if (!activeRoot.value?.lastScannedAt) return '从未扫描'
+  if (!activeRoot.value?.lastScannedAt) return t('settings.library.neverScanned')
 
   const date = new Date(activeRoot.value.lastScannedAt)
   if (Number.isNaN(date.getTime())) return activeRoot.value.lastScannedAt
 
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(DATE_LOCALES[locale.value], {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -84,18 +100,26 @@ const refreshStatusLabel = computed(() => {
   if (!refreshStatus.value) return ''
 
   if (refreshStatus.value.status === 'completed') {
-    return `已完成 · 更新 ${refreshStatus.value.processedTracks} 首，失败 ${refreshStatus.value.failedTracks} 首`
+    return t('settings.library.refreshCompleted', {
+      updated: refreshStatus.value.processedTracks,
+      failed: refreshStatus.value.failedTracks,
+    })
   }
 
   if (refreshStatus.value.status === 'failed') {
-    return '元数据维护失败'
+    return t('settings.library.refreshFailed')
   }
 
-  return `正在处理 ${refreshStatus.value.processedTracks} / ${refreshStatus.value.totalTracks}`
+  return t('settings.library.refreshProcessing', {
+    processed: refreshStatus.value.processedTracks,
+    total: refreshStatus.value.totalTracks,
+  })
 })
 
 function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error ? error.message : fallback
+  // 用户可见错误统一走 i18n fallback；原始 error.message 仅打日志，避免英文直出混排。
+  console.error('[Auralis] library operation failed:', error)
+  return fallback
 }
 
 async function loadLibraryState(): Promise<void> {
@@ -113,7 +137,7 @@ async function loadLibraryState(): Promise<void> {
     refreshFailures.value = nextFailures
   } catch (error) {
     if (isMounted.value) {
-      operationError.value = getErrorMessage(error, '无法读取音乐资料库状态')
+      operationError.value = getErrorMessage(error, t('settings.library.errors.loadState'))
     }
   }
 }
@@ -128,7 +152,7 @@ async function clearRefreshFailures(): Promise<void> {
     refreshFailures.value = []
     showRefreshFailures.value = false
   } catch (error) {
-    refreshErrorMessage.value = getErrorMessage(error, '无法清除失败记录')
+    refreshErrorMessage.value = getErrorMessage(error, t('settings.library.errors.clearFailures'))
   } finally {
     isClearingRefreshFailures.value = false
   }
@@ -147,7 +171,7 @@ async function chooseFolder(): Promise<void> {
       currentProgress.value = null
     }
   } catch (error) {
-    operationError.value = getErrorMessage(error, '无法选择音乐文件夹')
+    operationError.value = getErrorMessage(error, t('settings.library.errors.selectFolder'))
   } finally {
     isLoading.value = false
   }
@@ -164,7 +188,7 @@ async function startScan(): Promise<void> {
     scanStatus.value = await auralis.library.getScanStatus(result.jobId)
     currentProgress.value = null
   } catch (error) {
-    operationError.value = getErrorMessage(error, '无法开始扫描')
+    operationError.value = getErrorMessage(error, t('settings.library.errors.startScan'))
   } finally {
     isLoading.value = false
   }
@@ -178,7 +202,7 @@ async function cancelScan(): Promise<void> {
     await auralis.library.cancelScan(scanStatus.value.jobId)
     scanStatus.value = await auralis.library.getScanStatus(scanStatus.value.jobId)
   } catch (error) {
-    operationError.value = getErrorMessage(error, '无法取消扫描')
+    operationError.value = getErrorMessage(error, t('settings.library.errors.cancelScan'))
   }
 }
 
@@ -195,7 +219,7 @@ async function refreshMissingMetadata(): Promise<void> {
     refreshJobId.value = result.jobId
   } catch (error) {
     if (!isMounted.value) return
-    refreshErrorMessage.value = getErrorMessage(error, '无法开始元数据维护')
+    refreshErrorMessage.value = getErrorMessage(error, t('settings.library.errors.startRefresh'))
     isRefreshing.value = false
   }
 }
@@ -247,8 +271,8 @@ onBeforeUnmount(() => {
     <div class="settings-section-heading">
       <span class="settings-section-icon i-lucide-library"></span>
       <div>
-        <h2>音乐资料库</h2>
-        <p>管理 Auralis 读取和整理音乐的方式。</p>
+        <h2>{{ t('settings.library.headingTitle') }}</h2>
+        <p>{{ t('settings.library.headingDescription') }}</p>
       </div>
     </div>
 
@@ -258,10 +282,14 @@ onBeforeUnmount(() => {
           <span class="i-lucide-folder"></span>
         </div>
         <div class="folder-copy">
-          <span>当前音乐文件夹</span>
-          <strong :title="activeRoot?.path">{{ activeRoot?.path ?? '尚未选择音乐文件夹' }}</strong>
+          <span>{{ t('settings.library.currentFolder') }}</span>
+          <strong :title="activeRoot?.path">{{
+            activeRoot?.path ?? t('settings.library.noFolderSelected')
+          }}</strong>
           <small>{{
-            activeRoot ? `上次扫描：${lastScannedLabel}` : '选择一个文件夹以建立本地资料库'
+            activeRoot
+              ? t('settings.library.lastScanned', { time: lastScannedLabel })
+              : t('settings.library.chooseFolderHint')
           }}</small>
         </div>
         <div class="library-actions">
@@ -272,7 +300,9 @@ onBeforeUnmount(() => {
             @click="chooseFolder"
           >
             <span class="i-lucide-folder-open"></span>
-            {{ activeRoot ? '更换文件夹' : '选择文件夹' }}
+            {{
+              activeRoot ? t('settings.library.changeFolder') : t('settings.library.selectFolder')
+            }}
           </button>
           <button
             v-if="!isScanning"
@@ -282,7 +312,7 @@ onBeforeUnmount(() => {
             @click="startScan"
           >
             <span class="i-lucide-scan-search"></span>
-            {{ scanStatus ? '重新扫描' : '扫描资料库' }}
+            {{ scanStatus ? t('settings.library.rescan') : t('settings.library.scanLibrary') }}
           </button>
         </div>
       </div>
@@ -293,13 +323,13 @@ onBeforeUnmount(() => {
             class="status-dot"
             :class="{ 'is-active': isScanning, 'is-ready': activeRoot && !isScanning }"
           ></span>
-          <span>状态</span>
+          <span>{{ t('settings.library.status') }}</span>
           <strong>{{ statusLabel }}</strong>
         </div>
         <div v-if="totalFiles > 0 && !isScanning">
           <span class="i-lucide-file-audio"></span>
-          <span>已发现</span>
-          <strong>{{ totalFiles }} 个文件</strong>
+          <span>{{ t('settings.library.discovered') }}</span>
+          <strong>{{ t('settings.library.fileCount', { count: totalFiles }) }}</strong>
         </div>
       </div>
 
@@ -308,19 +338,21 @@ onBeforeUnmount(() => {
           <div>
             <span class="scan-spinner i-lucide-loader-circle"></span>
             <div>
-              <strong>正在整理音乐资料库</strong>
-              <span>{{ currentProgress?.message || '正在读取音乐文件…' }}</span>
+              <strong>{{ t('settings.library.scanningTitle') }}</strong>
+              <span>{{ t('settings.library.scanningMessage') }}</span>
             </div>
           </div>
-          <button type="button" @click="cancelScan">取消</button>
+          <button type="button" @click="cancelScan">{{ t('settings.library.cancel') }}</button>
         </div>
 
         <div class="progress-track">
           <span :style="{ width: `${progressPercent}%` }"></span>
         </div>
         <div class="scan-metrics">
-          <span>{{ scannedFiles }} / {{ totalFiles }} 个文件</span>
-          <span>{{ failedFiles }} 个失败</span>
+          <span>{{
+            t('settings.library.fileProgress', { scanned: scannedFiles, total: totalFiles })
+          }}</span>
+          <span>{{ t('settings.library.failedCount', { count: failedFiles }) }}</span>
           <strong>{{ progressPercent }}%</strong>
         </div>
       </div>
@@ -335,8 +367,8 @@ onBeforeUnmount(() => {
           <div>
             <span class="i-lucide-wand-sparkles"></span>
             <div>
-              <h3>元数据维护</h3>
-              <p>重新读取音频文件，补全缺失的标题、艺术家、歌词和封面。</p>
+              <h3>{{ t('settings.library.maintenanceTitle') }}</h3>
+              <p>{{ t('settings.library.maintenanceDescription') }}</p>
             </div>
           </div>
           <button
@@ -348,7 +380,9 @@ onBeforeUnmount(() => {
             <span
               :class="isRefreshing ? 'i-lucide-loader-circle scan-spinner' : 'i-lucide-refresh-cw'"
             ></span>
-            {{ isRefreshing ? '正在维护…' : '补全缺失信息' }}
+            {{
+              isRefreshing ? t('settings.library.maintaining') : t('settings.library.fillMissing')
+            }}
           </button>
         </div>
 
@@ -378,7 +412,7 @@ onBeforeUnmount(() => {
               <span class="i-lucide-triangle-alert"></span>
               {{ refreshFailures.length }}
             </span>
-            <span>最近有文件未能完成元数据维护</span>
+            <span>{{ t('settings.library.failuresHeading') }}</span>
             <span
               class="failure-chevron"
               :class="showRefreshFailures ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
@@ -387,22 +421,34 @@ onBeforeUnmount(() => {
 
           <div v-if="showRefreshFailures" class="failure-content">
             <div class="failure-toolbar">
-              <span>失败记录</span>
+              <span>{{ t('settings.library.failureRecords') }}</span>
               <button
                 type="button"
                 :disabled="isClearingRefreshFailures"
                 @click="clearRefreshFailures"
               >
-                {{ isClearingRefreshFailures ? '正在清除…' : '清除记录' }}
+                {{
+                  isClearingRefreshFailures
+                    ? t('settings.library.clearing')
+                    : t('settings.library.clearRecords')
+                }}
               </button>
             </div>
             <div class="failure-list">
               <div v-for="failure in refreshFailures" :key="failure.id" class="failure-item">
                 <span class="failure-path">
-                  {{ failure.filePath ?? `曲目 ${failure.trackId ?? '未知'}` }}
+                  {{
+                    failure.filePath ??
+                    t('settings.library.trackFallback', {
+                      id: failure.trackId ?? t('settings.library.unknown'),
+                    })
+                  }}
                 </span>
                 <strong>{{ failure.reason }}</strong>
-                <small>任务 {{ failure.jobId }} · {{ failure.createdAt }}</small>
+                <small>
+                  {{ t('settings.library.jobPrefix', { id: failure.jobId }) }} ·
+                  {{ failure.createdAt }}
+                </small>
               </div>
             </div>
           </div>
@@ -979,6 +1025,20 @@ onBeforeUnmount(() => {
   from {
     opacity: 0;
     transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .library-settings,
+  .scan-spinner,
+  .progress-track span,
+  .progress-track span::after {
+    animation: none;
+    transition: none;
+  }
+
+  .folder-mark {
+    transform: none;
   }
 }
 </style>

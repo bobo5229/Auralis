@@ -12,6 +12,9 @@ import { LibraryService } from '@main/services/libraryService'
 import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
 import { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
 import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
+import { ArtworkCacheGarbageCollector } from '@main/features/artwork/artworkCacheGarbageCollector'
+import { ArtworkCacheMaintenanceService } from '@main/features/artwork/artworkCacheMaintenanceService'
+import { ArtworkCacheMigrationService } from '@main/features/artwork/artworkCacheMigrationService'
 import { buildAudioTrackUrl, isPlayableAudioExtension } from '@main/features/audio/audioProtocol'
 import { isPathUnderAnyRoot } from '@main/features/audio/audioPathGuard'
 import { PlayStatsRepository } from '@main/repositories/playStatsRepository'
@@ -24,6 +27,8 @@ import type { IpcResponse } from '@shared/ipc/contracts'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { PlaylistViewMode, SidebarPlaylistKind } from '@shared/types/playlist'
 import type { SmartPlaylistRule, SmartPlaylistViewMode } from '@shared/types/smartPlaylist'
+import type { LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
+import { logger } from '@main/logging/logger'
 import type Database from 'better-sqlite3'
 
 function getInvokingMiniPlayerController(event: Electron.IpcMainInvokeEvent) {
@@ -92,10 +97,29 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     metadataWatchService.suppressRefreshForPath(filePath)
   })
 
+  const artworkMaintenanceService = new ArtworkCacheMaintenanceService(
+    new ArtworkCacheMigrationService(db, artworkCacheDir),
+    new ArtworkCacheGarbageCollector(db, artworkCacheDir),
+    {
+      isScanActive: () => libraryScanService.isScanActive(),
+      isRefreshActive: () => metadataRefreshService.hasActiveJob(),
+      isImportActive: () => incrementalImportService.isImportActive(),
+    },
+  )
+  // Migrate legacy artwork caches in the background without blocking the window.
+  artworkMaintenanceService.scheduleStartupMaintenance()
+
   // Pause watch flush during full scan so concurrent imports are not marked missing.
   libraryScanService.setScanLifecycleHooks({
     onStart: () => metadataWatchService.pauseFlush(),
-    onEnd: () => metadataWatchService.resumeFlush(),
+    onEnd: () => {
+      metadataWatchService.resumeFlush()
+      // A full scan re-derives all artwork keys — sweep the cache afterwards
+      // (gated internally against any writer still being active).
+      void artworkMaintenanceService.runAfterScanGarbageCollection().catch((error) => {
+        logger.warn({ error }, 'Failed to run after-scan artwork garbage collection')
+      })
+    },
   })
 
   const playStatsService = new PlayStatsService(new PlayStatsRepository(db))
@@ -165,6 +189,12 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   ipcMain.handle(
     ipcChannels.library.getTracks,
     (): IpcResponse<'library:get-tracks'> => libraryService.getTracks(),
+  )
+
+  ipcMain.handle(
+    ipcChannels.library.getTrackPage,
+    (_event, payload: LibraryTrackPageRequest): IpcResponse<'library:get-track-page'> =>
+      libraryService.getTrackPage(payload),
   )
 
   ipcMain.handle(
@@ -405,6 +435,12 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   )
 
   ipcMain.handle(
+    ipcChannels.archive.getListeningGenreSpectrum,
+    (_event, payload: { year: number }): IpcResponse<'archive:get-listening-genre-spectrum'> =>
+      playStatsService.getListeningGenreSpectrum(payload.year),
+  )
+
+  ipcMain.handle(
     ipcChannels.archive.resetPlayStats,
     (): IpcResponse<'archive:reset-play-stats'> => {
       const result = playStatsService.resetAll()
@@ -472,32 +508,6 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     ): Promise<IpcResponse<'metadata:update-track-metadata'>> =>
       metadataRefreshService.updateTrackMetadata(payload),
   )
-
-  // Window control handlers
-  ipcMain.handle(ipcChannels.window.minimize, (event) => {
-    BrowserWindow.fromWebContents(event.sender)?.minimize()
-    return { ok: true }
-  })
-
-  ipcMain.handle(ipcChannels.window.toggleMaximize, (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win) return { ok: false }
-    if (win.isMaximized()) {
-      win.unmaximize()
-    } else {
-      win.maximize()
-    }
-    return { ok: true }
-  })
-
-  ipcMain.handle(ipcChannels.window.close, (event) => {
-    BrowserWindow.fromWebContents(event.sender)?.close()
-    return { ok: true }
-  })
-
-  ipcMain.handle(ipcChannels.window.isMaximized, (event) => {
-    return { maximized: BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false }
-  })
 
   ipcMain.handle(ipcChannels.window.enterMiniPlayer, (event) => {
     return getInvokingMiniPlayerController(event).enter()

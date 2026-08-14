@@ -17,6 +17,7 @@ import { TrackRepository } from '@main/repositories/trackRepository'
 import type { MissingTrackCandidate } from '@main/repositories/trackRepository'
 import { logger } from '@main/logging/logger'
 import type { MetadataRefreshService } from './metadataRefreshService'
+import { resolveChangedFilePaths } from './metadataFileChangeFilter'
 import type { LibraryIncrementalImportService } from '../libraryScan/libraryIncrementalImportService'
 import { resolveLyricsForFile } from './resolveLyricsForFile'
 import {
@@ -286,7 +287,7 @@ export class MetadataWatchService {
 
     // Stat all files to determine existence
     const statResults = await Promise.allSettled(incoming.map((p) => stat(p)))
-    const existingPaths: string[] = []
+    const existingEntries: Array<{ filePath: string; size: number; mtimeMs: number }> = []
     const missingPaths: string[] = []
     const transientErrorPaths: string[] = []
 
@@ -294,7 +295,11 @@ export class MetadataWatchService {
       const result = statResults[i]
 
       if (result.status === 'fulfilled') {
-        existingPaths.push(incoming[i])
+        existingEntries.push({
+          filePath: incoming[i],
+          size: result.value.size,
+          mtimeMs: result.value.mtimeMs,
+        })
         this.statRetries.delete(incoming[i])
       } else if (isTransientStatError(result.reason)) {
         transientErrorPaths.push(incoming[i])
@@ -319,21 +324,39 @@ export class MetadataWatchService {
     }
 
     // Route existing tracks
-    if (existingPaths.length > 0) {
+    if (existingEntries.length > 0) {
+      const existingPaths = existingEntries.map((entry) => entry.filePath)
       const knownPaths = this.trackRepository.getExistingFilePaths(existingPaths)
-      const knownFilePaths = existingPaths.filter((p) => knownPaths.has(p))
-      const newFilePaths = existingPaths.filter((p) => !knownPaths.has(p))
+      const knownEntries = existingEntries.filter((entry) => knownPaths.has(entry.filePath))
+      const newFilePaths = existingEntries
+        .filter((entry) => !knownPaths.has(entry.filePath))
+        .map((entry) => entry.filePath)
 
-      // Known tracks: metadata refresh (skip paths suppressed after tag write)
-      const refreshablePaths = knownFilePaths.filter((p) => !this.isRefreshSuppressed(p))
-      if (refreshablePaths.length > 0) {
-        const trackIds = this.trackRepository.getTrackIdsByFilePaths(refreshablePaths)
+      // Known tracks: metadata refresh only for files whose on-disk fingerprint
+      // differs from the last scan. Opening a file for playback leaves size +
+      // mtime untouched, so it must not create a refresh job — the job would
+      // broadcast library:changed and drag the song-list viewport back to the
+      // playing track. Missing fingerprints / unusable mtimes stay conservative
+      // and go through refresh.
+      const refreshCandidates = knownEntries.filter(
+        (entry) => !this.isRefreshSuppressed(entry.filePath),
+      )
+      const fingerprints = this.trackRepository.getFileFingerprintsByFilePaths(
+        refreshCandidates.map((entry) => entry.filePath),
+      )
+      const changedPaths = resolveChangedFilePaths({
+        stats: refreshCandidates,
+        fingerprints,
+      })
+
+      if (changedPaths.length > 0) {
+        const trackIds = this.trackRepository.getTrackIdsByFilePaths(changedPaths)
 
         if (trackIds.length > 0) {
           try {
             this.metadataRefreshService.refreshTracksFromFileChanges(trackIds)
           } catch (error) {
-            this.requeuePaths(refreshablePaths)
+            this.requeuePaths(changedPaths)
             logger.info(
               { error, count: trackIds.length },
               'Deferring metadata refresh for file changes',
@@ -341,6 +364,11 @@ export class MetadataWatchService {
             this.scheduleFlush(RETRY_AFTER_ACTIVE_JOB_MS)
           }
         }
+      } else if (refreshCandidates.length > 0) {
+        logger.debug(
+          { count: refreshCandidates.length },
+          'Metadata watcher: files unchanged since last scan, skipping refresh',
+        )
       }
 
       // New tracks: import with relocation matching

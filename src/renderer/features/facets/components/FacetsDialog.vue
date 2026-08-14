@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { SmartPlaylist, SmartPlaylistRuleCondition } from '@shared/types/smartPlaylist'
 import { auralis } from '@renderer/shared/ipc/client'
 import { splitGenreValues } from '@renderer/features/library/utils/formatGenre'
 import { splitArtistValues } from '@renderer/features/library/utils/formatArtist'
 import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
+import type { ShellPresentation } from '@renderer/app/utils/shellPresentation'
+
+const { t } = useI18n()
 
 type FacetKind = 'genre' | 'albumArtist' | 'album'
 
@@ -23,18 +27,20 @@ interface FacetContextMenuState {
   y: number
 }
 
-const props = defineProps<{
-  open: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    presentation?: ShellPresentation
+  }>(),
+  {
+    presentation: 'modern',
+  },
+)
 
 const emit = defineEmits<{
   close: []
   created: [playlist: SmartPlaylist]
 }>()
-
-const UNKNOWN_GENRE = 'Unknown Genre'
-const UNKNOWN_ARTIST = 'Unknown Artist'
-const UNKNOWN_ALBUM = 'Unknown Album'
 
 const collator = new Intl.Collator('zh-Hans-u-co-pinyin', {
   numeric: true,
@@ -61,7 +67,7 @@ function getAlbumArtists(track: TrackListItem): Array<string | null> {
 }
 
 function getAlbumTitle(track: TrackListItem): string {
-  return track.album?.trim() || UNKNOWN_ALBUM
+  return track.album?.trim() || t('facets.unknownAlbum')
 }
 
 function getAlbumKey(albumArtist: string | null, album: string): string {
@@ -74,7 +80,7 @@ function getFacetKey(value: string | null): string {
 
 function getFacetLabel(kind: Exclude<FacetKind, 'album'>, value: string | null): string {
   if (value !== null) return value
-  return kind === 'genre' ? UNKNOWN_GENRE : UNKNOWN_ARTIST
+  return kind === 'genre' ? t('facets.unknownGenre') : t('facets.unknownArtist')
 }
 
 function countOptions(
@@ -291,29 +297,39 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <Transition name="facets-dialog-fade">
-      <div v-if="open" class="facets-dialog-backdrop" @click.self="emit('close')">
-        <section class="facets-dialog-panel" role="dialog" aria-modal="true" aria-label="Facets">
+      <div
+        v-if="open"
+        class="sidebar-overlay facets-dialog-backdrop"
+        :data-shell-presentation="presentation"
+        @click.self="emit('close')"
+      >
+        <section
+          class="facets-dialog-panel"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="t('facets.title')"
+        >
           <header class="facets-dialog-header">
             <div>
-              <h2>Facets</h2>
-              <p>{{ tracks.length }} tracks</p>
+              <h2>{{ t('facets.title') }}</h2>
+              <p>{{ t('facets.trackCount', { count: tracks.length }) }}</p>
             </div>
 
             <div class="facets-dialog-actions">
-              <button type="button" title="Reset" @click="clearSelection">
+              <button type="button" :title="t('facets.reset')" @click="clearSelection">
                 <span class="i-lucide-rotate-ccw h-4 w-4"></span>
               </button>
-              <button type="button" title="Close" @click="emit('close')">
+              <button type="button" :title="t('facets.close')" @click="emit('close')">
                 <span class="i-lucide-x h-4 w-4"></span>
               </button>
             </div>
           </header>
 
-          <div v-if="isLoading" class="facets-dialog-loading">Loading facets...</div>
+          <div v-if="isLoading" class="facets-dialog-loading">{{ t('facets.loading') }}</div>
 
           <div v-else class="facets-dialog-grid">
             <div class="facet-column">
-              <div class="facet-column-title">流派</div>
+              <div class="facet-column-title">{{ t('facets.genre') }}</div>
               <button
                 v-for="option in genreOptions"
                 :key="option.key"
@@ -329,7 +345,7 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="facet-column">
-              <div class="facet-column-title">专辑艺术家</div>
+              <div class="facet-column-title">{{ t('facets.albumArtist') }}</div>
               <button
                 v-for="option in albumArtistOptions"
                 :key="option.key"
@@ -345,7 +361,7 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="facet-column">
-              <div class="facet-column-title">专辑</div>
+              <div class="facet-column-title">{{ t('facets.album') }}</div>
               <button
                 v-for="option in albumOptions"
                 :key="option.key"
@@ -364,12 +380,13 @@ onBeforeUnmount(() => {
         <div v-if="contextMenu" class="facets-context-layer" @click="closeContextMenu">
           <LiquidGlassPanel
             class="library-context-menu facets-context-menu"
+            :presentation="presentation"
             :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
             @click.stop
           >
             <button class="library-context-menu-item" type="button" @click="createSmartPlaylist">
               <span class="i-lucide-list-plus"></span>
-              <span>创建智能歌单</span>
+              <span>{{ t('facets.createSmartPlaylist') }}</span>
             </button>
           </LiquidGlassPanel>
         </div>
@@ -538,6 +555,13 @@ onBeforeUnmount(() => {
 .facets-dialog-fade-enter-from,
 .facets-dialog-fade-leave-to {
   opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .facets-dialog-fade-enter-active,
+  .facets-dialog-fade-leave-active {
+    transition: none;
+  }
 }
 
 .facets-context-layer {

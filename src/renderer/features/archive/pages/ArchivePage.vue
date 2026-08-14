@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
 import type {
   AnnualListeningInsights,
   DailyListeningDetail,
+  ListeningGenreSpectrum,
   ListeningHeatmap,
   ListeningRanking,
   ListeningRankingParams,
@@ -12,6 +14,12 @@ import type {
 } from '@shared/types/archive'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
+import '@renderer/features/appearance/styles/manuscript.tokens.css'
+import MusicDnaCard from '@renderer/features/archive/components/MusicDnaCard.vue'
+import { resolveArchivePresentation } from '../utils/archivePresentation'
+import '../styles/manuscript.css'
+import '../styles/manuscript.overlays.css'
 
 interface CalendarDay {
   date: string
@@ -29,6 +37,12 @@ interface HeatmapTooltip {
 }
 
 const currentYear = new Date().getFullYear()
+const route = useRoute()
+const { visualStyle } = useVisualStyle()
+const archivePresentation = computed(() =>
+  resolveArchivePresentation(route.name, visualStyle.value),
+)
+const isModernArchive = computed(() => archivePresentation.value === 'modern')
 const selectedYear = ref(currentYear)
 const heatmap = ref<ListeningHeatmap | null>(null)
 const annualInsights = ref<AnnualListeningInsights | null>(null)
@@ -71,6 +85,8 @@ const annualRecapError = ref<string | null>(null)
 const annualRecapTrackRanking = ref<ListeningRanking | null>(null)
 const annualRecapAlbumRanking = ref<ListeningRanking | null>(null)
 const annualRecapPage = ref(0)
+const genreSpectrum = ref<ListeningGenreSpectrum | null>(null)
+const isGenreLoading = ref(false)
 
 const LONG_PRESS_MS = 1000
 const RESET_HOLD_MS = 3000
@@ -441,22 +457,25 @@ const annualRecapMetrics = computed(() => {
 
 async function loadHeatmap(): Promise<void> {
   isLoading.value = true
+  isGenreLoading.value = true
   errorMessage.value = null
   annualInsights.value = null
   annualInsightsError.value = false
+  genreSpectrum.value = null
   tooltip.value = null
 
   const year = selectedYear.value
-  const [heatmapResult, insightsResult] = await Promise.allSettled([
+  const [heatmapResult, insightsResult, genreResult] = await Promise.allSettled([
     auralis.archive.getListeningHeatmap(year),
     auralis.archive.getAnnualListeningInsights(year),
+    auralis.archive.getListeningGenreSpectrum(year),
   ])
 
   if (heatmapResult.status === 'fulfilled') {
     heatmap.value = heatmapResult.value
   } else {
-    errorMessage.value =
-      heatmapResult.reason instanceof Error ? heatmapResult.reason.message : '无法读取听歌记录'
+    console.error('[Auralis] failed to load listening heatmap:', heatmapResult.reason)
+    errorMessage.value = '无法读取听歌记录'
   }
 
   if (insightsResult.status === 'fulfilled') {
@@ -465,6 +484,13 @@ async function loadHeatmap(): Promise<void> {
     annualInsightsError.value = true
   }
 
+  if (genreResult.status === 'fulfilled') {
+    genreSpectrum.value = genreResult.value
+  } else {
+    genreSpectrum.value = null
+  }
+
+  isGenreLoading.value = false
   isLoading.value = false
 }
 
@@ -501,7 +527,8 @@ async function loadListeningRanking(): Promise<void> {
     }
   } catch (error) {
     if (requestId === rankingRequestId) {
-      rankingError.value = error instanceof Error ? error.message : '无法读取听歌排行'
+      console.error('[Auralis] failed to load listening ranking:', error)
+      rankingError.value = '无法读取听歌排行'
       listeningRanking.value = null
     }
   } finally {
@@ -655,8 +682,12 @@ const selectedAlbumItem = computed(() => {
 })
 
 const heroCanvasRef = ref<HTMLCanvasElement | null>(null)
+let heroFluidGeneration = 0
 
 function updateHeroStaticFluid(): void {
+  const generation = ++heroFluidGeneration
+  if (!isModernArchive.value) return
+
   const item = selectedAlbumItem.value
   const canvas = heroCanvasRef.value
   if (!item || !canvas) return
@@ -678,6 +709,8 @@ function updateHeroStaticFluid(): void {
   const img = new Image()
   img.crossOrigin = 'anonymous'
   img.onload = () => {
+    if (generation !== heroFluidGeneration || !isModernArchive.value) return
+
     const sampleCanvas = document.createElement('canvas')
     sampleCanvas.width = 16
     sampleCanvas.height = 16
@@ -720,6 +753,13 @@ watch(selectedAlbumItem, () => {
   void nextTick(() => {
     updateHeroStaticFluid()
   })
+})
+
+watch(archivePresentation, async (presentation) => {
+  heroFluidGeneration += 1
+  if (presentation !== 'modern') return
+  await nextTick()
+  updateHeroStaticFluid()
 })
 
 watch(rankingTarget, () => {
@@ -830,7 +870,8 @@ async function openDailyDetail(event: MouseEvent | KeyboardEvent, day: CalendarD
   } catch (error) {
     if (requestId !== detailRequestId) return
     if (detailDialog.value?.date !== dateKey) return
-    detailError.value = error instanceof Error ? error.message : '无法读取当日播放记录'
+    console.error('[Auralis] failed to load daily listening detail:', error)
+    detailError.value = '无法读取当日播放记录'
   } finally {
     if (requestId === detailRequestId) {
       isDetailLoading.value = false
@@ -978,7 +1019,8 @@ async function resetAllPlayStats(): Promise<void> {
       await loadAnnualRecapRankings()
     }
   } catch (error) {
-    resetError.value = error instanceof Error ? error.message : '无法重置播放数据'
+    console.error('[Auralis] failed to reset playback data:', error)
+    resetError.value = '无法重置播放数据'
   } finally {
     isResetting.value = false
   }
@@ -990,6 +1032,7 @@ onMounted(() => {
   document.addEventListener('keydown', handleDocumentKeyDown)
   void loadHeatmap()
   void loadListeningRanking()
+  void loadAnnualRecapRankings()
   unsubscribeLibraryChanged = auralis.library.onChanged((event) => {
     if (event.reason !== 'play-stats-updated' && event.reason !== 'play-stats-reset') return
     void loadHeatmap()
@@ -1001,6 +1044,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  heroFluidGeneration += 1
   cancelLongPress()
   cancelResetHold()
   unsubscribeLibraryChanged?.()
@@ -1011,7 +1055,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="archive-page content-frame">
+  <section class="archive-page content-frame" :data-visual-style="archivePresentation">
     <div class="archive-heatmap-card">
       <div class="archive-card-heading">
         <div>
@@ -1064,6 +1108,12 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
+
+    <MusicDnaCard
+      v-if="!errorMessage"
+      :data="genreSpectrum"
+      :loading="isLoading || isGenreLoading"
+    />
 
     <section v-if="!isLoading && !errorMessage" class="archive-summary">
       <div class="archive-section-heading">
@@ -1231,6 +1281,8 @@ onBeforeUnmount(() => {
               v-if="getArtworkUrl(item.artworkCacheKey)"
               :src="getArtworkUrl(item.artworkCacheKey) ?? undefined"
               alt=""
+              loading="lazy"
+              decoding="async"
             />
             <span v-else class="i-lucide-music-2 h-4 w-4"></span>
           </div>
@@ -1251,13 +1303,19 @@ onBeforeUnmount(() => {
       <div v-else class="archive-album-magazine-layout">
         <!-- Left: Hero Stage -->
         <div v-if="selectedAlbumItem" class="album-hero-stage">
-          <canvas ref="heroCanvasRef" class="album-hero-static-canvas"></canvas>
+          <canvas
+            v-if="isModernArchive"
+            ref="heroCanvasRef"
+            class="album-hero-static-canvas"
+          ></canvas>
           <div class="album-hero-cover-wrapper">
             <img
               v-if="getArtworkUrl(selectedAlbumItem.artworkCacheKey)"
               :src="getArtworkUrl(selectedAlbumItem.artworkCacheKey) ?? undefined"
               alt=""
               class="album-hero-cover"
+              loading="lazy"
+              decoding="async"
             />
             <div v-else class="album-hero-cover-placeholder">
               <span class="i-lucide-disc-3 h-12 w-12 opacity-40"></span>
@@ -1308,6 +1366,8 @@ onBeforeUnmount(() => {
                 v-if="getArtworkUrl(item.artworkCacheKey)"
                 :src="getArtworkUrl(item.artworkCacheKey) ?? undefined"
                 alt=""
+                loading="lazy"
+                decoding="async"
               />
               <span v-else class="i-lucide-disc h-4 w-4"></span>
             </div>
@@ -1325,469 +1385,477 @@ onBeforeUnmount(() => {
     </section>
 
     <Teleport to="body">
-      <Transition name="archive-picker-fade">
-        <div
-          v-if="showRankingPicker"
-          class="archive-picker-backdrop"
-          @click="showRankingPicker = false"
-        >
+      <div class="archive-overlay" :data-visual-style="archivePresentation">
+        <Transition name="archive-picker-fade">
           <div
-            class="archive-ranking-picker"
-            :style="{
-              top: `${pickerPos.top}px`,
-              left: `${pickerPos.left}px`,
-            }"
-            @click.stop
+            v-if="showRankingPicker"
+            class="archive-picker-backdrop"
+            @click="showRankingPicker = false"
           >
-            <!-- Day: Mini calendar -->
-            <template v-if="rankingRange === 'day'">
-              <div class="picker-header">
-                <button
-                  type="button"
-                  :disabled="rankingPickerYear <= 1970 && rankingPickerMonth === 1"
-                  @click="navigatePickerMonth(-1)"
-                >
-                  <span class="i-lucide-chevron-left h-3.5 w-3.5"></span>
-                </button>
-                <span>{{ rankingPickerYear }}年{{ rankingPickerMonth }}月</span>
-                <button
-                  type="button"
-                  :disabled="
-                    rankingPickerYear >= currentYear &&
-                    rankingPickerMonth >= new Date().getMonth() + 1
-                  "
-                  @click="navigatePickerMonth(1)"
-                >
-                  <span class="i-lucide-chevron-right h-3.5 w-3.5"></span>
-                </button>
-              </div>
-              <div class="picker-calendar">
-                <div class="calendar-weekdays">
-                  <span v-for="wd in ['一', '二', '三', '四', '五', '六', '日']" :key="wd">{{
-                    wd
-                  }}</span>
-                </div>
-                <div class="calendar-grid">
+            <div
+              class="archive-ranking-picker"
+              :style="{
+                top: `${pickerPos.top}px`,
+                left: `${pickerPos.left}px`,
+              }"
+              @click.stop
+            >
+              <!-- Day: Mini calendar -->
+              <template v-if="rankingRange === 'day'">
+                <div class="picker-header">
                   <button
-                    v-for="(cell, idx) in pickerCalendarDays"
-                    :key="idx"
                     type="button"
-                    :disabled="!cell.dateStr || cell.isFuture"
-                    :class="{
-                      'is-today': cell.isToday,
-                      'is-selected': cell.isSelected,
-                      'is-empty': !cell.dateStr,
-                    }"
-                    @click="handleCalendarCellClick(cell)"
+                    :disabled="rankingPickerYear <= 1970 && rankingPickerMonth === 1"
+                    @click="navigatePickerMonth(-1)"
                   >
-                    {{ cell.dateStr ? Number(cell.dateStr.slice(8, 10)) : '' }}
+                    <span class="i-lucide-chevron-left h-3.5 w-3.5"></span>
+                  </button>
+                  <span>{{ rankingPickerYear }}年{{ rankingPickerMonth }}月</span>
+                  <button
+                    type="button"
+                    :disabled="
+                      rankingPickerYear >= currentYear &&
+                      rankingPickerMonth >= new Date().getMonth() + 1
+                    "
+                    @click="navigatePickerMonth(1)"
+                  >
+                    <span class="i-lucide-chevron-right h-3.5 w-3.5"></span>
                   </button>
                 </div>
-              </div>
-              <button type="button" class="picker-today-btn" @click="goToToday">回到今天</button>
-            </template>
-
-            <!-- Week: Week list -->
-            <template v-else-if="rankingRange === 'week'">
-              <div class="picker-header">
-                <button
-                  type="button"
-                  :disabled="rankingPickerYear <= 1970"
-                  @click="navigatePickerYear(-1)"
-                >
-                  <span class="i-lucide-chevron-left h-3.5 w-3.5"></span>
-                </button>
-                <span>{{ rankingPickerYear }}年</span>
-                <button
-                  type="button"
-                  :disabled="rankingPickerYear >= currentYear"
-                  @click="navigatePickerYear(1)"
-                >
-                  <span class="i-lucide-chevron-right h-3.5 w-3.5"></span>
-                </button>
-              </div>
-              <div class="picker-week-list">
-                <button
-                  v-for="week in weekOptions"
-                  :key="week.startDate"
-                  type="button"
-                  :disabled="week.isFuture"
-                  :class="{ 'is-active': week.isSelected, 'is-current': week.isCurrentWeek }"
-                  @click="!week.isFuture ? selectRankingWeek(week.startDate) : undefined"
-                >
-                  <span v-if="week.isCurrentWeek" class="week-current-label">本周</span>
-                  <span v-else class="week-date-range">{{ week.dateRangeLabel }}</span>
-                </button>
-              </div>
-              <button type="button" class="picker-today-btn" @click="goToCurrentWeek">
-                回到本周
-              </button>
-            </template>
-
-            <!-- Month / Year: lightweight period picker -->
-            <template v-else>
-              <div class="picker-header">
-                <button
-                  type="button"
-                  :disabled="rankingYear <= 1970"
-                  @click="changePickerYearBy(-1)"
-                >
-                  <span class="i-lucide-chevron-left h-3.5 w-3.5"></span>
-                </button>
-                <span>{{ rankingYear }}年</span>
-                <button
-                  type="button"
-                  :disabled="rankingYear >= currentYear"
-                  @click="changePickerYearBy(1)"
-                >
-                  <span class="i-lucide-chevron-right h-3.5 w-3.5"></span>
-                </button>
-              </div>
-              <div v-if="rankingRange === 'month'" class="picker-list">
-                <button
-                  v-for="month in rankingMonthOptions"
-                  :key="`month-${month}`"
-                  type="button"
-                  :class="{ 'is-active': rankingMonth === month }"
-                  @click="selectRankingMonth(month)"
-                >
-                  {{ month }}月
-                </button>
-              </div>
-            </template>
-          </div>
-        </div>
-      </Transition>
-
-      <div
-        v-if="tooltip"
-        class="archive-tooltip"
-        :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }"
-      >
-        {{ tooltip.text }}
-      </div>
-
-      <div
-        v-if="detailDialog"
-        class="archive-detail-backdrop"
-        :class="{ 'is-visible': detailDialog.expanded }"
-        @click.self="closeDailyDetail"
-      >
-        <section
-          class="archive-detail-dialog"
-          :class="{ 'is-expanded': detailDialog.expanded }"
-          :style="{
-            '--dialog-origin-x': `${detailDialog.x}px`,
-            '--dialog-origin-y': `${detailDialog.y}px`,
-          }"
-          role="dialog"
-          aria-modal="true"
-          :aria-label="`${detailDialog.label}播放排行`"
-        >
-          <header class="archive-detail-header">
-            <div>
-              <span>{{ detailDialog.label }}</span>
-              <h2>当日播放 Top 10</h2>
-              <p v-if="dailyDetail">
-                {{ dailyDetail.totalPlayCount }} 次播放 ·
-                {{ formatMinutes(dailyDetail.totalDurationSeconds) }}
-              </p>
-            </div>
-            <button type="button" aria-label="关闭" @click="closeDailyDetail">
-              <span class="i-lucide-x h-4 w-4"></span>
-            </button>
-          </header>
-
-          <div v-if="isDetailLoading" class="archive-detail-state">正在整理这一天的声迹…</div>
-          <div v-else-if="detailError" class="archive-detail-state">{{ detailError }}</div>
-          <ol v-else-if="dailyDetail?.tracks.length" class="archive-top-tracks">
-            <li
-              v-for="(track, index) in dailyDetail.tracks"
-              :key="track.trackId"
-              :style="{ '--item-index': index }"
-            >
-              <span
-                class="archive-track-rank"
-                :class="{
-                  'rank-gold': index === 0,
-                  'rank-silver': index === 1,
-                  'rank-bronze': index === 2,
-                }"
-                >{{ index + 1 }}</span
-              >
-              <div class="archive-track-artwork">
-                <img
-                  v-if="getArtworkUrl(track.artworkCacheKey)"
-                  :src="getArtworkUrl(track.artworkCacheKey) ?? undefined"
-                  alt=""
-                />
-                <span v-else class="i-lucide-music-2 h-4 w-4"></span>
-              </div>
-              <div class="archive-track-copy">
-                <strong>{{ track.title || '未知歌曲' }}</strong>
-                <span>{{ track.artist || '未知艺人' }}</span>
-              </div>
-              <span class="archive-track-count">{{ track.playCount }} 次</span>
-            </li>
-          </ol>
-          <div v-else class="archive-detail-state">
-            <span class="i-lucide-calendar-clock h-6 w-6"></span>
-            <p>这一天还没有可用的歌曲明细</p>
-          </div>
-        </section>
-      </div>
-
-      <div
-        v-if="showAnnualRecap"
-        class="archive-annual-recap-backdrop"
-        @click.self="closeAnnualRecap"
-      >
-        <section
-          class="archive-annual-recap-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="archive-annual-recap-title"
-        >
-          <header class="archive-annual-recap-header">
-            <div>
-              <span class="archive-section-kicker">Year in Review</span>
-              <h2 id="archive-annual-recap-title">{{ selectedYear }} 年度总结</h2>
-              <p>这一年留下的播放、收听时长和年度 Top 10。</p>
-            </div>
-            <button type="button" aria-label="关闭年度总结" @click="closeAnnualRecap">
-              <span class="i-lucide-x h-4 w-4"></span>
-            </button>
-          </header>
-
-          <div class="archive-annual-recap-content">
-            <Transition name="archive-annual-recap-page" mode="out-in">
-              <section
-                v-if="annualRecapPage === 0"
-                key="cover"
-                class="archive-annual-recap-page archive-annual-recap-page--cover"
-              >
-                <span class="archive-section-kicker">Year in Review</span>
-                <h3>{{ selectedYear }} 年度总结</h3>
-                <p>这一年留下的声音轨迹，先从总时长开始。</p>
-                <strong>
-                  {{ formatHoursAndMinutes(annualRecapMetrics.totalDurationSeconds) }}
-                </strong>
-                <small>{{ annualRecapMetrics.totalPlays }} 次播放</small>
-              </section>
-
-              <section
-                v-else-if="annualRecapPage === 1"
-                key="overview"
-                class="archive-annual-recap-page"
-              >
-                <div class="archive-annual-recap-section-heading">
-                  <span>年度总览</span>
-                  <small>{{ selectedYear }} 年</small>
-                </div>
-                <div class="archive-annual-recap-stats archive-annual-recap-stats--paged">
-                  <div>
-                    <span>听歌天数</span>
-                    <strong>{{ annualRecapMetrics.listeningDays }}</strong>
-                    <small>天</small>
+                <div class="picker-calendar">
+                  <div class="calendar-weekdays">
+                    <span v-for="wd in ['一', '二', '三', '四', '五', '六', '日']" :key="wd">{{
+                      wd
+                    }}</span>
                   </div>
-                  <div>
-                    <span>播放次数</span>
-                    <strong>{{ annualRecapMetrics.totalPlays }}</strong>
-                    <small>次</small>
-                  </div>
-                  <div>
-                    <span>已收听</span>
-                    <strong>{{ annualRecapMetrics.totalMinutes }}</strong>
-                    <small>分钟</small>
-                  </div>
-                  <div>
-                    <span>最活跃的一天</span>
-                    <strong>{{ annualRecapMetrics.peakDayLabel }}</strong>
-                    <small>{{ annualRecapMetrics.peakDayPlayCount }} 次</small>
+                  <div class="calendar-grid">
+                    <button
+                      v-for="(cell, idx) in pickerCalendarDays"
+                      :key="idx"
+                      type="button"
+                      :disabled="!cell.dateStr || cell.isFuture"
+                      :class="{
+                        'is-today': cell.isToday,
+                        'is-selected': cell.isSelected,
+                        'is-empty': !cell.dateStr,
+                      }"
+                      @click="handleCalendarCellClick(cell)"
+                    >
+                      {{ cell.dateStr ? Number(cell.dateStr.slice(8, 10)) : '' }}
+                    </button>
                   </div>
                 </div>
-              </section>
+                <button type="button" class="picker-today-btn" @click="goToToday">回到今天</button>
+              </template>
 
-              <section
-                v-else-if="annualRecapPage === 2"
-                key="tracks"
-                class="archive-annual-recap-page"
-              >
-                <div class="archive-annual-recap-section-heading">
-                  <span>年度 Top 10 单曲</span>
-                  <small v-if="isAnnualRecapLoading">正在整理年度排行…</small>
-                  <small v-else-if="annualRecapError">{{ annualRecapError }}</small>
-                </div>
-                <div v-if="isAnnualRecapLoading" class="archive-annual-recap-loading">
-                  正在整理年度 Top 10…
-                </div>
-                <div v-else-if="annualRecapError" class="archive-annual-recap-loading">
-                  {{ annualRecapError }}
-                </div>
-                <ol v-else-if="annualRecapTrackTop10.length" class="archive-annual-recap-list">
-                  <li v-for="(item, index) in annualRecapTrackTop10" :key="item.key">
-                    <span class="archive-annual-recap-rank">{{ index + 1 }}</span>
-                    <div class="archive-annual-recap-artwork">
-                      <img
-                        v-if="getArtworkUrl(item.artworkCacheKey)"
-                        :src="getArtworkUrl(item.artworkCacheKey) ?? undefined"
-                        alt=""
-                      />
-                      <span v-else class="i-lucide-music-2 h-4 w-4"></span>
-                    </div>
-                    <strong>{{ item.title || '未知歌曲' }}</strong>
-                    <div>
-                      <span>{{ item.playCount }} 次</span>
-                      <small>{{ formatMinutes(item.durationSeconds) }}</small>
-                    </div>
-                  </li>
-                </ol>
-                <p v-else class="archive-annual-recap-empty">暂无年度单曲数据</p>
-              </section>
-
-              <section
-                v-else-if="annualRecapPage === 3"
-                key="albums"
-                class="archive-annual-recap-page"
-              >
-                <div class="archive-annual-recap-section-heading">
-                  <span>年度 Top 10 专辑</span>
-                  <small v-if="isAnnualRecapLoading">正在整理年度排行…</small>
-                  <small v-else-if="annualRecapError">{{ annualRecapError }}</small>
-                </div>
-                <div v-if="isAnnualRecapLoading" class="archive-annual-recap-loading">
-                  正在整理年度 Top 10…
-                </div>
-                <div v-else-if="annualRecapError" class="archive-annual-recap-loading">
-                  {{ annualRecapError }}
-                </div>
-                <ol v-else-if="annualRecapAlbumTop10.length" class="archive-annual-recap-list">
-                  <li v-for="(item, index) in annualRecapAlbumTop10" :key="item.key">
-                    <span class="archive-annual-recap-rank">{{ index + 1 }}</span>
-                    <div class="archive-annual-recap-artwork">
-                      <img
-                        v-if="getArtworkUrl(item.artworkCacheKey)"
-                        :src="getArtworkUrl(item.artworkCacheKey) ?? undefined"
-                        alt=""
-                      />
-                      <span v-else class="i-lucide-disc-3 h-4 w-4"></span>
-                    </div>
-                    <strong>{{ item.title || '未知专辑' }}</strong>
-                    <div>
-                      <span>{{ item.playCount }} 次</span>
-                      <small>{{ formatMinutes(item.durationSeconds) }}</small>
-                    </div>
-                  </li>
-                </ol>
-                <p v-else class="archive-annual-recap-empty">暂无年度专辑数据</p>
-              </section>
-
-              <section v-else key="timeline" class="archive-annual-recap-page">
-                <div class="archive-annual-recap-section-heading">
-                  <span>时间轨迹</span>
-                  <small>按当前年份统计</small>
-                </div>
-                <div class="archive-annual-recap-timeline">
-                  <div>
-                    <span>最常听的月份</span>
-                    <strong>{{ annualRecapMetrics.mostActiveMonthLabel }}</strong>
-                  </div>
-                  <div>
-                    <span>最常听的星期</span>
-                    <strong>{{ annualRecapMetrics.mostActiveWeekdayLabel }}</strong>
-                  </div>
-                  <div>
-                    <span>最长连续聆听</span>
-                    <strong>{{ annualRecapMetrics.longestStreak }} 天</strong>
-                  </div>
-                </div>
-                <div class="archive-annual-recap-bars" aria-label="12 个月播放热度">
-                  <div
-                    v-for="bar in annualRecapMetrics.monthBars"
-                    :key="bar.month"
-                    :title="`${bar.month}月 · ${bar.playCount} 次`"
+              <!-- Week: Week list -->
+              <template v-else-if="rankingRange === 'week'">
+                <div class="picker-header">
+                  <button
+                    type="button"
+                    :disabled="rankingPickerYear <= 1970"
+                    @click="navigatePickerYear(-1)"
                   >
-                    <span :style="{ height: `${bar.height}%` }"></span>
-                    <small>{{ bar.month }}月</small>
-                  </div>
+                    <span class="i-lucide-chevron-left h-3.5 w-3.5"></span>
+                  </button>
+                  <span>{{ rankingPickerYear }}年</span>
+                  <button
+                    type="button"
+                    :disabled="rankingPickerYear >= currentYear"
+                    @click="navigatePickerYear(1)"
+                  >
+                    <span class="i-lucide-chevron-right h-3.5 w-3.5"></span>
+                  </button>
                 </div>
-              </section>
-            </Transition>
-          </div>
+                <div class="picker-week-list">
+                  <button
+                    v-for="week in weekOptions"
+                    :key="week.startDate"
+                    type="button"
+                    :disabled="week.isFuture"
+                    :class="{ 'is-active': week.isSelected, 'is-current': week.isCurrentWeek }"
+                    @click="!week.isFuture ? selectRankingWeek(week.startDate) : undefined"
+                  >
+                    <span v-if="week.isCurrentWeek" class="week-current-label">本周</span>
+                    <span v-else class="week-date-range">{{ week.dateRangeLabel }}</span>
+                  </button>
+                </div>
+                <button type="button" class="picker-today-btn" @click="goToCurrentWeek">
+                  回到本周
+                </button>
+              </template>
 
-          <footer class="archive-annual-recap-footer">
-            <button
-              type="button"
-              :disabled="annualRecapPage === 0"
-              @click="goToPreviousAnnualRecapPage"
-            >
-              上一页
-            </button>
-            <div class="archive-annual-recap-dots" aria-label="年度总结分页">
-              <button
-                v-for="page in ANNUAL_RECAP_PAGE_COUNT"
-                :key="page"
-                type="button"
-                :class="{ 'is-active': annualRecapPage === page - 1 }"
-                :aria-label="`跳转到第 ${page} 页`"
-                @click="setAnnualRecapPage(page - 1)"
-              ></button>
+              <!-- Month / Year: lightweight period picker -->
+              <template v-else>
+                <div class="picker-header">
+                  <button
+                    type="button"
+                    :disabled="rankingYear <= 1970"
+                    @click="changePickerYearBy(-1)"
+                  >
+                    <span class="i-lucide-chevron-left h-3.5 w-3.5"></span>
+                  </button>
+                  <span>{{ rankingYear }}年</span>
+                  <button
+                    type="button"
+                    :disabled="rankingYear >= currentYear"
+                    @click="changePickerYearBy(1)"
+                  >
+                    <span class="i-lucide-chevron-right h-3.5 w-3.5"></span>
+                  </button>
+                </div>
+                <div v-if="rankingRange === 'month'" class="picker-list">
+                  <button
+                    v-for="month in rankingMonthOptions"
+                    :key="`month-${month}`"
+                    type="button"
+                    :class="{ 'is-active': rankingMonth === month }"
+                    @click="selectRankingMonth(month)"
+                  >
+                    {{ month }}月
+                  </button>
+                </div>
+              </template>
             </div>
-            <button
-              type="button"
-              :disabled="annualRecapPage === ANNUAL_RECAP_PAGE_COUNT - 1"
-              @click="goToNextAnnualRecapPage"
-            >
-              下一页
-            </button>
-          </footer>
-        </section>
-      </div>
+          </div>
+        </Transition>
 
-      <div
-        v-if="showResetConfirmation"
-        class="archive-reset-backdrop"
-        @click.self="closeResetConfirmation"
-      >
-        <section
-          class="archive-reset-dialog"
-          role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="archive-reset-title"
-          aria-describedby="archive-reset-description"
+        <div
+          v-if="tooltip"
+          class="archive-tooltip"
+          :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }"
         >
-          <h2 id="archive-reset-title">确认重置播放数据？</h2>
-          <p id="archive-reset-description">
-            此操作会永久删除所有累计播放次数、每日分钟数、音乐日历和 Top
-            10，且无法恢复。音乐文件、标签、封面和歌词不会受到影响。
-          </p>
-          <p v-if="resetError" class="archive-reset-error">{{ resetError }}</p>
-          <div class="archive-reset-buttons">
-            <button type="button" :disabled="isResetting" @click="closeResetConfirmation">
-              取消
-            </button>
-            <div class="archive-reset-confirm-wrap">
+          {{ tooltip.text }}
+        </div>
+
+        <div
+          v-if="detailDialog"
+          class="archive-detail-backdrop"
+          :class="{ 'is-visible': detailDialog.expanded }"
+          @click.self="closeDailyDetail"
+        >
+          <section
+            class="archive-detail-dialog"
+            :class="{ 'is-expanded': detailDialog.expanded }"
+            :style="{
+              '--dialog-origin-x': `${detailDialog.x}px`,
+              '--dialog-origin-y': `${detailDialog.y}px`,
+            }"
+            role="dialog"
+            aria-modal="true"
+            :aria-label="`${detailDialog.label}播放排行`"
+          >
+            <header class="archive-detail-header">
+              <div>
+                <span>{{ detailDialog.label }}</span>
+                <h2>当日播放 Top 10</h2>
+                <p v-if="dailyDetail">
+                  {{ dailyDetail.totalPlayCount }} 次播放 ·
+                  {{ formatMinutes(dailyDetail.totalDurationSeconds) }}
+                </p>
+              </div>
+              <button type="button" aria-label="关闭" @click="closeDailyDetail">
+                <span class="i-lucide-x h-4 w-4"></span>
+              </button>
+            </header>
+
+            <div v-if="isDetailLoading" class="archive-detail-state">正在整理这一天的声迹…</div>
+            <div v-else-if="detailError" class="archive-detail-state">{{ detailError }}</div>
+            <ol v-else-if="dailyDetail?.tracks.length" class="archive-top-tracks">
+              <li
+                v-for="(track, index) in dailyDetail.tracks"
+                :key="track.trackId"
+                :style="{ '--item-index': index }"
+              >
+                <span
+                  class="archive-track-rank"
+                  :class="{
+                    'rank-gold': index === 0,
+                    'rank-silver': index === 1,
+                    'rank-bronze': index === 2,
+                  }"
+                  >{{ index + 1 }}</span
+                >
+                <div class="archive-track-artwork">
+                  <img
+                    v-if="getArtworkUrl(track.artworkCacheKey)"
+                    :src="getArtworkUrl(track.artworkCacheKey) ?? undefined"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <span v-else class="i-lucide-music-2 h-4 w-4"></span>
+                </div>
+                <div class="archive-track-copy">
+                  <strong>{{ track.title || '未知歌曲' }}</strong>
+                  <span>{{ track.artist || '未知艺人' }}</span>
+                </div>
+                <span class="archive-track-count">{{ track.playCount }} 次</span>
+              </li>
+            </ol>
+            <div v-else class="archive-detail-state">
+              <span class="i-lucide-calendar-clock h-6 w-6"></span>
+              <p>这一天还没有可用的歌曲明细</p>
+            </div>
+          </section>
+        </div>
+
+        <div
+          v-if="showAnnualRecap"
+          class="archive-annual-recap-backdrop"
+          @click.self="closeAnnualRecap"
+        >
+          <section
+            class="archive-annual-recap-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="archive-annual-recap-title"
+          >
+            <header class="archive-annual-recap-header">
+              <div>
+                <span class="archive-section-kicker">Year in Review</span>
+                <h2 id="archive-annual-recap-title">{{ selectedYear }} 年度总结</h2>
+                <p>这一年留下的播放、收听时长和年度 Top 10。</p>
+              </div>
+              <button type="button" aria-label="关闭年度总结" @click="closeAnnualRecap">
+                <span class="i-lucide-x h-4 w-4"></span>
+              </button>
+            </header>
+
+            <div class="archive-annual-recap-content">
+              <Transition name="archive-annual-recap-page" mode="out-in">
+                <section
+                  v-if="annualRecapPage === 0"
+                  key="cover"
+                  class="archive-annual-recap-page archive-annual-recap-page--cover"
+                >
+                  <span class="archive-section-kicker">Year in Review</span>
+                  <h3>{{ selectedYear }} 年度总结</h3>
+                  <p>这一年留下的声音轨迹，先从总时长开始。</p>
+                  <strong>
+                    {{ formatHoursAndMinutes(annualRecapMetrics.totalDurationSeconds) }}
+                  </strong>
+                  <small>{{ annualRecapMetrics.totalPlays }} 次播放</small>
+                </section>
+
+                <section
+                  v-else-if="annualRecapPage === 1"
+                  key="overview"
+                  class="archive-annual-recap-page"
+                >
+                  <div class="archive-annual-recap-section-heading">
+                    <span>年度总览</span>
+                    <small>{{ selectedYear }} 年</small>
+                  </div>
+                  <div class="archive-annual-recap-stats archive-annual-recap-stats--paged">
+                    <div>
+                      <span>听歌天数</span>
+                      <strong>{{ annualRecapMetrics.listeningDays }}</strong>
+                      <small>天</small>
+                    </div>
+                    <div>
+                      <span>播放次数</span>
+                      <strong>{{ annualRecapMetrics.totalPlays }}</strong>
+                      <small>次</small>
+                    </div>
+                    <div>
+                      <span>已收听</span>
+                      <strong>{{ annualRecapMetrics.totalMinutes }}</strong>
+                      <small>分钟</small>
+                    </div>
+                    <div>
+                      <span>最活跃的一天</span>
+                      <strong>{{ annualRecapMetrics.peakDayLabel }}</strong>
+                      <small>{{ annualRecapMetrics.peakDayPlayCount }} 次</small>
+                    </div>
+                  </div>
+                </section>
+
+                <section
+                  v-else-if="annualRecapPage === 2"
+                  key="tracks"
+                  class="archive-annual-recap-page"
+                >
+                  <div class="archive-annual-recap-section-heading">
+                    <span>年度 Top 10 单曲</span>
+                    <small v-if="isAnnualRecapLoading">正在整理年度排行…</small>
+                    <small v-else-if="annualRecapError">{{ annualRecapError }}</small>
+                  </div>
+                  <div v-if="isAnnualRecapLoading" class="archive-annual-recap-loading">
+                    正在整理年度 Top 10…
+                  </div>
+                  <div v-else-if="annualRecapError" class="archive-annual-recap-loading">
+                    {{ annualRecapError }}
+                  </div>
+                  <ol v-else-if="annualRecapTrackTop10.length" class="archive-annual-recap-list">
+                    <li v-for="(item, index) in annualRecapTrackTop10" :key="item.key">
+                      <span class="archive-annual-recap-rank">{{ index + 1 }}</span>
+                      <div class="archive-annual-recap-artwork">
+                        <img
+                          v-if="getArtworkUrl(item.artworkCacheKey)"
+                          :src="getArtworkUrl(item.artworkCacheKey) ?? undefined"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        <span v-else class="i-lucide-music-2 h-4 w-4"></span>
+                      </div>
+                      <strong>{{ item.title || '未知歌曲' }}</strong>
+                      <div>
+                        <span>{{ item.playCount }} 次</span>
+                        <small>{{ formatMinutes(item.durationSeconds) }}</small>
+                      </div>
+                    </li>
+                  </ol>
+                  <p v-else class="archive-annual-recap-empty">暂无年度单曲数据</p>
+                </section>
+
+                <section
+                  v-else-if="annualRecapPage === 3"
+                  key="albums"
+                  class="archive-annual-recap-page"
+                >
+                  <div class="archive-annual-recap-section-heading">
+                    <span>年度 Top 10 专辑</span>
+                    <small v-if="isAnnualRecapLoading">正在整理年度排行…</small>
+                    <small v-else-if="annualRecapError">{{ annualRecapError }}</small>
+                  </div>
+                  <div v-if="isAnnualRecapLoading" class="archive-annual-recap-loading">
+                    正在整理年度 Top 10…
+                  </div>
+                  <div v-else-if="annualRecapError" class="archive-annual-recap-loading">
+                    {{ annualRecapError }}
+                  </div>
+                  <ol v-else-if="annualRecapAlbumTop10.length" class="archive-annual-recap-list">
+                    <li v-for="(item, index) in annualRecapAlbumTop10" :key="item.key">
+                      <span class="archive-annual-recap-rank">{{ index + 1 }}</span>
+                      <div class="archive-annual-recap-artwork">
+                        <img
+                          v-if="getArtworkUrl(item.artworkCacheKey)"
+                          :src="getArtworkUrl(item.artworkCacheKey) ?? undefined"
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        <span v-else class="i-lucide-disc-3 h-4 w-4"></span>
+                      </div>
+                      <strong>{{ item.title || '未知专辑' }}</strong>
+                      <div>
+                        <span>{{ item.playCount }} 次</span>
+                        <small>{{ formatMinutes(item.durationSeconds) }}</small>
+                      </div>
+                    </li>
+                  </ol>
+                  <p v-else class="archive-annual-recap-empty">暂无年度专辑数据</p>
+                </section>
+
+                <section v-else key="timeline" class="archive-annual-recap-page">
+                  <div class="archive-annual-recap-section-heading">
+                    <span>时间轨迹</span>
+                    <small>按当前年份统计</small>
+                  </div>
+                  <div class="archive-annual-recap-timeline">
+                    <div>
+                      <span>最常听的月份</span>
+                      <strong>{{ annualRecapMetrics.mostActiveMonthLabel }}</strong>
+                    </div>
+                    <div>
+                      <span>最常听的星期</span>
+                      <strong>{{ annualRecapMetrics.mostActiveWeekdayLabel }}</strong>
+                    </div>
+                    <div>
+                      <span>最长连续聆听</span>
+                      <strong>{{ annualRecapMetrics.longestStreak }} 天</strong>
+                    </div>
+                  </div>
+                  <div class="archive-annual-recap-bars" aria-label="12 个月播放热度">
+                    <div
+                      v-for="bar in annualRecapMetrics.monthBars"
+                      :key="bar.month"
+                      :title="`${bar.month}月 · ${bar.playCount} 次`"
+                    >
+                      <span :style="{ height: `${bar.height}%` }"></span>
+                      <small>{{ bar.month }}月</small>
+                    </div>
+                  </div>
+                </section>
+              </Transition>
+            </div>
+
+            <footer class="archive-annual-recap-footer">
               <button
                 type="button"
-                class="archive-reset-confirm"
-                :class="{ 'is-holding': isHoldingReset }"
-                :disabled="isResetting"
-                @pointerdown.prevent="startResetHold"
-                @pointerup="cancelResetHold"
-                @pointerleave="cancelResetHold"
-                @pointercancel="cancelResetHold"
-                @keydown="handleResetKeyDown"
-                @keyup="handleResetKeyUp"
-                @blur="cancelResetHold"
-                @click.prevent
-                @contextmenu.prevent
+                :disabled="annualRecapPage === 0"
+                @click="goToPreviousAnnualRecapPage"
               >
-                <span>{{ isResetting ? '重置中…' : '重置' }}</span>
+                上一页
               </button>
-              <span v-if="!isResetting" class="archive-reset-hint">按住 3 秒重置</span>
+              <div class="archive-annual-recap-dots" aria-label="年度总结分页">
+                <button
+                  v-for="page in ANNUAL_RECAP_PAGE_COUNT"
+                  :key="page"
+                  type="button"
+                  :class="{ 'is-active': annualRecapPage === page - 1 }"
+                  :aria-label="`跳转到第 ${page} 页`"
+                  @click="setAnnualRecapPage(page - 1)"
+                ></button>
+              </div>
+              <button
+                type="button"
+                :disabled="annualRecapPage === ANNUAL_RECAP_PAGE_COUNT - 1"
+                @click="goToNextAnnualRecapPage"
+              >
+                下一页
+              </button>
+            </footer>
+          </section>
+        </div>
+
+        <div
+          v-if="showResetConfirmation"
+          class="archive-reset-backdrop"
+          @click.self="closeResetConfirmation"
+        >
+          <section
+            class="archive-reset-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="archive-reset-title"
+            aria-describedby="archive-reset-description"
+          >
+            <h2 id="archive-reset-title">确认重置播放数据？</h2>
+            <p id="archive-reset-description">
+              此操作会永久删除所有累计播放次数、每日分钟数、音乐日历和 Top
+              10，且无法恢复。音乐文件、标签、封面和歌词不会受到影响。
+            </p>
+            <p v-if="resetError" class="archive-reset-error">{{ resetError }}</p>
+            <div class="archive-reset-buttons">
+              <button type="button" :disabled="isResetting" @click="closeResetConfirmation">
+                取消
+              </button>
+              <div class="archive-reset-confirm-wrap">
+                <button
+                  type="button"
+                  class="archive-reset-confirm"
+                  :class="{ 'is-holding': isHoldingReset }"
+                  :disabled="isResetting"
+                  @pointerdown.prevent="startResetHold"
+                  @pointerup="cancelResetHold"
+                  @pointerleave="cancelResetHold"
+                  @pointercancel="cancelResetHold"
+                  @keydown="handleResetKeyDown"
+                  @keyup="handleResetKeyUp"
+                  @blur="cancelResetHold"
+                  @click.prevent
+                  @contextmenu.prevent
+                >
+                  <span>{{ isResetting ? '重置中…' : '重置' }}</span>
+                </button>
+                <span v-if="!isResetting" class="archive-reset-hint">按住 3 秒重置</span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
     </Teleport>
   </section>

@@ -137,10 +137,13 @@ service 和 watcher，并把它们绑定到 typed IPC。业务规则不应继续
 - 播放状态与视觉效果：`src/renderer/features/playback/`
 - 设置：`src/renderer/features/settings/`
 - 跨 feature 的 UI 工具：`src/renderer/shared/`
+- UI 语言（简/繁/英）：`src/renderer/i18n/`（vue-i18n 实例）+ `src/renderer/locales/`（`zh-Hans` 唯一手写源、`en` 人工、`zh-Hant` 由 `scripts/generate-zh-hant.mjs` s2tw 生成）+ `src/renderer/composables/useLocale.ts`（localStorage 持久化与热切换，键 `auralis-locale`）
 
-主窗口使用无系统 frame 的自绘布局。窗口关闭、最小化、最大化按钮位于
-`src/renderer/app/layout/AppSidebar.vue`，经 typed IPC 调用 Electron；拖拽区与按钮的
-`-webkit-app-region` 必须分离。`src/renderer/app/layout/AppTitleBar.vue` 已不在主外壳挂载。
+主窗口使用操作系统原生窗口框架（`frame: true` + `transparent: false`），Windows 原生提供
+标题栏及最小化、最大化 / 还原、关闭按钮，Renderer 不再绘制主窗口控制按钮或主壳拖拽区。
+客户区壳底与内描边仍可跟随当前曲专辑色板（`--auralis-window-chrome-*`），无曲时回退主题
+token。Miniplayer 当前复用同一主 `BrowserWindow`，因此也继承原生窗口框架；桌面歌词仍是
+独立无框透明窗口，保留自身 drag / no-drag 区域。
 
 播放视觉链路以 `src/renderer/features/playback/composables/usePlayback.ts` 为唯一状态源：
 当前曲目封面 key 经 `getArtworkUrl` 转成 `auralis-artwork://` URL；`src/renderer/App.vue`
@@ -294,8 +297,9 @@ npm.cmd run build
 - `.gitignore` 默认忽略 `docs/`，仅放行本文和 2026-07-17 修复记录；新增正式文档需明确决定是否跟踪。
 - 主窗和桌面歌词窗已启用 `webSecurity`，但仍设置 `sandbox: false`，开发分支还追加
   `no-sandbox`。sandbox 仍是安全债务，不能假设 renderer 内容可信。
-- 自定义窗口无系统 frame，窗口按钮已迁入侧边栏，但旧 `AppTitleBar.vue` 尚未删除；
-  启动仍依赖 renderer ready 与 5 秒 fallback，需验证拖拽区、白屏、崩溃和加载失败路径。
+- 主窗为 Auralis 自绘无框透明壳（见 `docs/techdoc-auralis-native-window-chrome.md`），
+  右上角自绘窗口控件；启动仍依赖 renderer ready 与 5 秒 fallback，需验证白屏、
+  崩溃和加载失败路径。
 - 全局流体背景、播放器玻璃层、歌词磨砂层和页面局部样式共同叠加；改动 z-index、
   backdrop-filter、透明度或网格尺寸时，必须同时检查明暗主题、GPU 占用和低动态模式。
 - `src/renderer/App.vue` 仍有路由/封面状态调试日志，发布前应清理或接入受控日志。

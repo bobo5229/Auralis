@@ -27,13 +27,30 @@ export interface ImportResult {
 }
 
 export class LibraryIncrementalImportService {
+  private activeImports = 0
+
   constructor(
     private readonly trackRepository: TrackRepository,
     private readonly artworkCacheDir: string,
     private readonly sendToRenderer: (channel: string, data: unknown) => void,
   ) {}
 
+  /** True while an import pass is in flight (used to gate cache GC). */
+  isImportActive(): boolean {
+    return this.activeImports > 0
+  }
+
   async importFiles(filePaths: string[]): Promise<ImportResult> {
+    this.activeImports += 1
+
+    try {
+      return await this.doImport(filePaths)
+    } finally {
+      this.activeImports -= 1
+    }
+  }
+
+  private async doImport(filePaths: string[]): Promise<ImportResult> {
     const result: ImportResult = { imported: [], unstable: [], failed: [] }
 
     for (const filePath of filePaths) {

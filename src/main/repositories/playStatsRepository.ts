@@ -7,6 +7,28 @@ import type {
   ListeningRankingItem,
   ListeningHeatmapDay,
 } from '@shared/types/archive'
+import { splitDelimitedValues } from '@shared/utils/delimitedValues'
+
+/**
+ * Atomic genre labels for spectrum / TopN.
+ * Uses shared multi-value split (`"; "` / `", "` / full-width / `、`).
+ * Slash compounds stay single labels (`R&B/SOUL`, `Hip-hop/Rap`).
+ * Empty →「未分类」. Dedupes while preserving order.
+ * Full play stats are attributed to every returned label.
+ */
+export function splitGenreLabels(raw: string | null | undefined): string[] {
+  const parts = splitDelimitedValues(raw)
+  if (parts.length === 0) return ['未分类']
+
+  const seen = new Set<string>()
+  const labels: string[] = []
+  for (const part of parts) {
+    if (seen.has(part)) continue
+    seen.add(part)
+    labels.push(part)
+  }
+  return labels
+}
 
 export class PlayStatsRepository extends BaseRepository {
   constructor(db: Database.Database) {
@@ -200,6 +222,253 @@ export class PlayStatsRepository extends BaseRepository {
         uniqueTrackCount: uniqueTrackCount.count,
         topTracks,
       },
+    }
+  }
+
+  /**
+   * Genre label expression shared by spectrum aggregation and top-track queries.
+   * Multi-genre tracks store comma-joined labels (see metadataNormalizer); split in JS.
+   */
+  private static readonly GENRE_LABEL_SQL = `COALESCE(NULLIF(TRIM(display.genre), ''), '未分类')`
+
+  /**
+   * Per-track yearly play totals with display metadata (one scan for spectrum + TopN).
+   */
+  private listYearTrackGenreStats(year: number): Array<{
+    trackId: number
+    title: string | null
+    artist: string | null
+    album: string | null
+    artworkCacheKey: string | null
+    genreRaw: string
+    labels: string[]
+    playCount: number
+    durationSeconds: number
+    lastPlayedAt: string | null
+  }> {
+    const startDate = `${year}-01-01`
+    const endDate = `${year}-12-31`
+    const genreExpr = PlayStatsRepository.GENRE_LABEL_SQL
+
+    const rows = this.db
+      .prepare(
+        `SELECT
+           stats.track_id AS trackId,
+           display.title,
+           display.artist,
+           display.album,
+           display.artwork_cache_key AS artworkCacheKey,
+           ${genreExpr} AS genreRaw,
+           SUM(stats.play_count) AS playCount,
+           SUM(stats.duration_seconds) AS durationSeconds,
+           MAX(stats.last_played_at) AS lastPlayedAt
+         FROM daily_track_play_stats stats
+         JOIN library_track_display display ON display.id = stats.track_id
+         WHERE stats.play_date BETWEEN ? AND ?
+         GROUP BY stats.track_id`,
+      )
+      .all(startDate, endDate) as Array<{
+      trackId: number
+      title: string | null
+      artist: string | null
+      album: string | null
+      artworkCacheKey: string | null
+      genreRaw: string
+      playCount: number
+      durationSeconds: number
+      lastPlayedAt: string | null
+    }>
+
+    return rows.map((row) => ({
+      trackId: Number(row.trackId),
+      title: row.title,
+      artist: row.artist,
+      album: row.album,
+      artworkCacheKey: row.artworkCacheKey,
+      genreRaw: row.genreRaw,
+      labels: splitGenreLabels(row.genreRaw),
+      playCount: Number(row.playCount) || 0,
+      durationSeconds: Number(row.durationSeconds) || 0,
+      lastPlayedAt: row.lastPlayedAt,
+    }))
+  }
+
+  /**
+   * Aggregate genre spectrum for a calendar year from daily play stats.
+   * Multi-genre tracks (e.g. "Jazz, Soul") contribute their full play_count and
+   * duration_seconds to **each** atomic genre label.
+   * Uses library_track_display.genre (COALESCE of track_metadata.genre_display and tracks.genre).
+   */
+  getListeningGenreSpectrum(year: number): {
+    totalPlayedTracks: number
+    totalDurationSeconds: number
+    rows: Array<{ genre: string; count: number; durationSeconds: number }>
+  } {
+    const trackRows = this.listYearTrackGenreStats(year)
+
+    const byGenre = new Map<string, { count: number; durationSeconds: number }>()
+    let totalPlayedTracks = 0
+    let totalDurationSeconds = 0
+
+    for (const row of trackRows) {
+      totalPlayedTracks += row.playCount
+      totalDurationSeconds += row.durationSeconds
+      for (const label of row.labels) {
+        const prev = byGenre.get(label)
+        if (prev) {
+          prev.count += row.playCount
+          prev.durationSeconds += row.durationSeconds
+        } else {
+          byGenre.set(label, { count: row.playCount, durationSeconds: row.durationSeconds })
+        }
+      }
+    }
+
+    const rows = [...byGenre.entries()]
+      .map(([genre, stats]) => ({
+        genre,
+        count: stats.count,
+        durationSeconds: stats.durationSeconds,
+      }))
+      .sort(
+        (a, b) =>
+          b.durationSeconds - a.durationSeconds ||
+          b.count - a.count ||
+          a.genre.localeCompare(b.genre, 'zh-CN'),
+      )
+      .slice(0, 10)
+
+    return {
+      // Real listening totals (not multi-genre expanded).
+      totalPlayedTracks,
+      totalDurationSeconds,
+      rows,
+    }
+  }
+
+  /**
+   * Top tracks for one atomic genre in a calendar year (by play count).
+   * A track matches if any split label equals `genre` (multi-genre full contribution).
+   * Prefer {@link getGenreTopTracksForLabels} when building a full spectrum to avoid N scans.
+   */
+  getGenreTopTracks(year: number, genre: string, limit = 3): DailyTopTrack[] {
+    return (
+      this.getGenreTopTracksForLabels(this.listYearTrackGenreStats(year), [genre], limit).get(
+        genre,
+      ) ?? []
+    )
+  }
+
+  /**
+   * Batch Top-N tracks for multiple atomic genres from a single track-year scan.
+   */
+  getGenreTopTracksForLabels(
+    trackRows: ReturnType<PlayStatsRepository['listYearTrackGenreStats']> | null,
+    genres: string[],
+    limit = 3,
+    year?: number,
+  ): Map<string, DailyTopTrack[]> {
+    const tracks = trackRows ?? (year !== undefined ? this.listYearTrackGenreStats(year) : [])
+    const wanted = new Set(genres)
+    const buckets = new Map<string, Array<(typeof tracks)[number]>>()
+    for (const genre of genres) {
+      buckets.set(genre, [])
+    }
+
+    for (const row of tracks) {
+      for (const label of row.labels) {
+        if (!wanted.has(label)) continue
+        buckets.get(label)!.push(row)
+      }
+    }
+
+    const result = new Map<string, DailyTopTrack[]>()
+    for (const genre of genres) {
+      const list = buckets.get(genre) ?? []
+      list.sort(
+        (a, b) =>
+          b.playCount - a.playCount ||
+          String(b.lastPlayedAt ?? '').localeCompare(String(a.lastPlayedAt ?? '')),
+      )
+      result.set(
+        genre,
+        list.slice(0, limit).map((row) => ({
+          trackId: row.trackId,
+          title: row.title,
+          artist: row.artist,
+          album: row.album,
+          artworkCacheKey: row.artworkCacheKey,
+          playCount: row.playCount,
+          durationSeconds: row.durationSeconds,
+        })),
+      )
+    }
+    return result
+  }
+
+  /**
+   * Spectrum + nested Top3 in one track-year scan (multi-genre full contribution per label).
+   */
+  getListeningGenreSpectrumWithTopTracks(
+    year: number,
+    topTrackLimit = 3,
+  ): {
+    totalPlayedTracks: number
+    totalDurationSeconds: number
+    rows: Array<{
+      genre: string
+      count: number
+      durationSeconds: number
+      topTracks: DailyTopTrack[]
+    }>
+  } {
+    const trackRows = this.listYearTrackGenreStats(year)
+
+    const byGenre = new Map<string, { count: number; durationSeconds: number }>()
+    let totalPlayedTracks = 0
+    let totalDurationSeconds = 0
+
+    for (const row of trackRows) {
+      totalPlayedTracks += row.playCount
+      totalDurationSeconds += row.durationSeconds
+      for (const label of row.labels) {
+        const prev = byGenre.get(label)
+        if (prev) {
+          prev.count += row.playCount
+          prev.durationSeconds += row.durationSeconds
+        } else {
+          byGenre.set(label, { count: row.playCount, durationSeconds: row.durationSeconds })
+        }
+      }
+    }
+
+    const spectrumRows = [...byGenre.entries()]
+      .map(([genre, stats]) => ({
+        genre,
+        count: stats.count,
+        durationSeconds: stats.durationSeconds,
+      }))
+      .sort(
+        (a, b) =>
+          b.durationSeconds - a.durationSeconds ||
+          b.count - a.count ||
+          a.genre.localeCompare(b.genre, 'zh-CN'),
+      )
+      .slice(0, 10)
+
+    const topByGenre = this.getGenreTopTracksForLabels(
+      trackRows,
+      spectrumRows.map((row) => row.genre),
+      topTrackLimit,
+    )
+
+    return {
+      totalPlayedTracks,
+      totalDurationSeconds,
+      rows: spectrumRows.map((row) => ({
+        ...row,
+        topTracks: topByGenre.get(row.genre) ?? [],
+      })),
     }
   }
 
