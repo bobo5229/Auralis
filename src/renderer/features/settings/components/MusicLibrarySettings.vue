@@ -268,14 +268,6 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="library-settings">
-    <div class="settings-section-heading">
-      <span class="settings-section-icon i-lucide-library"></span>
-      <div>
-        <h2>{{ t('settings.library.headingTitle') }}</h2>
-        <p>{{ t('settings.library.headingDescription') }}</p>
-      </div>
-    </div>
-
     <section class="library-card">
       <div class="library-card-header">
         <div class="folder-mark">
@@ -461,39 +453,6 @@ onBeforeUnmount(() => {
 <style scoped>
 .library-settings {
   animation: settings-enter 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-.settings-section-heading {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.settings-section-icon {
-  display: grid;
-  flex: 0 0 40px;
-  width: 20px;
-  height: 20px;
-  padding: 10px;
-  border-radius: 12px;
-  color: var(--auralis-sidebar-active-icon);
-  background: color-mix(in srgb, var(--auralis-sidebar-active-bg) 85%, transparent);
-  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 20%, transparent);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent);
-}
-
-.settings-section-heading h2 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.settings-section-heading p {
-  margin: 4px 0 0;
-  color: var(--auralis-text-muted);
-  font-size: 12px;
 }
 
 /* Library card Glassmorphism redesign */

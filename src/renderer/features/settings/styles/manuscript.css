@@ -12,12 +12,6 @@
   animation: none;
 }
 
-.settings-page[data-visual-style='manuscript'] .settings-eyebrow {
-  color: var(--manuscript-accent-primary);
-  font-family: var(--manuscript-font-ui);
-  letter-spacing: 0.16em;
-}
-
 .settings-page[data-visual-style='manuscript'] .settings-header h1 {
   background: none;
   -webkit-background-clip: unset;
@@ -28,10 +22,6 @@
   letter-spacing: 0.02em;
 }
 
-.settings-page[data-visual-style='manuscript'] .settings-header > p:last-child,
-.settings-page[data-visual-style='manuscript'] .settings-section-heading p,
-.settings-page[data-visual-style='manuscript'] .settings-note,
-.settings-page[data-visual-style='manuscript'] .theme-status-copy small,
 .settings-page[data-visual-style='manuscript'] .about-mark div span {
   color: var(--manuscript-content-secondary);
 }
@@ -88,7 +78,6 @@
   animation: none;
 }
 
-.settings-page[data-visual-style='manuscript'] .settings-section-icon,
 .settings-page[data-visual-style='manuscript'] .folder-mark,
 .settings-page[data-visual-style='manuscript'] .about-logo {
   border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
@@ -98,16 +87,13 @@
   box-shadow: none;
 }
 
-.settings-page[data-visual-style='manuscript'] .settings-section-heading h2,
 .settings-page[data-visual-style='manuscript'] .about-mark strong,
-.settings-page[data-visual-style='manuscript'] .theme-status-copy strong,
 .settings-page[data-visual-style='manuscript'] .folder-copy strong {
   color: var(--manuscript-content-primary);
   font-family: var(--manuscript-font-body);
 }
 
 .settings-page[data-visual-style='manuscript'] .settings-list,
-.settings-page[data-visual-style='manuscript'] .theme-status,
 .settings-page[data-visual-style='manuscript'] .about-mark,
 .settings-page[data-visual-style='manuscript'] .library-card,
 .settings-page[data-visual-style='manuscript'] .maintenance-section {
@@ -278,10 +264,6 @@
 .settings-page[data-visual-style='manuscript'] .failure-path {
   color: var(--manuscript-content-secondary);
   font-family: var(--manuscript-font-numeric);
-}
-
-.settings-page[data-visual-style='manuscript'] .settings-note span {
-  color: var(--manuscript-accent-primary);
 }
 
 .settings-page[data-visual-style='manuscript'] .visual-style-preference__copy strong,
