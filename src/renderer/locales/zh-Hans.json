@@ -50,22 +50,16 @@
   },
   "settings": {
     "title": "设置",
-    "eyebrow": "偏好设置",
-    "headerDescription": "管理你的本地音乐资料库，查看应用信息。",
     "navAriaLabel": "设置分类",
     "nav": {
       "appearance": "外观",
-      "playback": "播放",
       "library": "音乐资料库",
       "about": "关于",
-      "appearanceDescription": "当前显示主题",
-      "playbackDescription": "控制音频衔接方式",
+      "appearanceDescription": "页面风格、语言、播放栏材质和无缝播放",
       "libraryDescription": "管理音乐文件与元数据",
       "aboutDescription": "版本与本地数据位置"
     },
     "appearance": {
-      "headingTitle": "外观",
-      "headingDescription": "页面视觉风格、界面语言和播放栏材质是彼此独立的设置。",
       "visualStyle": {
         "label": "页面视觉风格",
         "description": "选择已覆盖目录页的呈现方式。这不是应用主题，也不会立刻改写播放器或侧栏。",
@@ -76,9 +70,6 @@
         "coverage": "手稿目前覆盖全部歌曲、歌单、专辑目录、专辑详情、归档和设置。侧栏、正在播放和播放栏仍使用既有表面。",
         "ariaCurrent": "当前页面视觉风格：{style}"
       },
-      "themeAria": "显示主题",
-      "themeValue": "深色",
-      "themeDescription": "浅色主题已暂时下线；主题 API 仍保留，便于日后恢复多主题。",
       "language": "界面语言",
       "languageDescription": "选择应用界面显示的语言。",
       "playerBarMaterial": "播放栏材质",
@@ -86,21 +77,15 @@
       "playerBarMaterialOption": {
         "coverTint": "封面取色",
         "liquidGlass": "Liquid Glass"
-      },
-      "note": "应用始终使用深色界面。"
+      }
     },
     "playback": {
-      "headingTitle": "播放",
-      "headingDescription": "控制曲目之间的衔接与音频预加载行为。",
       "gapless": "无缝播放",
       "gaplessDescription": "提前解码下一首，并在同专辑曲目交界处跳过可识别的数字静音",
       "gaplessAriaOn": "无缝播放，当前已开启",
-      "gaplessAriaOff": "无缝播放，当前已关闭",
-      "note": "关闭后不会中断当前曲目，将从下一次切歌起使用普通播放。"
+      "gaplessAriaOff": "无缝播放，当前已关闭"
     },
     "library": {
-      "headingTitle": "音乐资料库",
-      "headingDescription": "管理 Auralis 读取和整理音乐的方式。",
       "currentFolder": "当前音乐文件夹",
       "noFolderSelected": "尚未选择音乐文件夹",
       "lastScanned": "上次扫描：{time}",
@@ -152,8 +137,6 @@
       }
     },
     "about": {
-      "headingTitle": "关于 Auralis",
-      "headingDescription": "一个安静、私密的本地音乐归档工具。",
       "tagline": "Local Music Archive",
       "version": "版本",
       "versionDescription": "当前安装的应用版本",
@@ -163,8 +146,7 @@
       "databaseLoading": "正在读取…",
       "copyPath": "复制路径",
       "copySuccess": "已复制",
-      "copyFailed": "复制失败",
-      "note": "音乐文件和资料库数据均保存在本机。"
+      "copyFailed": "复制失败"
     }
   },
   "player": {

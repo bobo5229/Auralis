@@ -50,22 +50,16 @@
   },
   "settings": {
     "title": "設置",
-    "eyebrow": "偏好設置",
-    "headerDescription": "管理你的本地音樂資料庫，查看應用信息。",
     "navAriaLabel": "設置分類",
     "nav": {
       "appearance": "外觀",
-      "playback": "播放",
       "library": "音樂資料庫",
       "about": "關於",
-      "appearanceDescription": "當前顯示主題",
-      "playbackDescription": "控制音頻銜接方式",
+      "appearanceDescription": "頁面風格、語言、播放欄材質和無縫播放",
       "libraryDescription": "管理音樂文件與元數據",
       "aboutDescription": "版本與本地數據位置"
     },
     "appearance": {
-      "headingTitle": "外觀",
-      "headingDescription": "頁面視覺風格、界面語言和播放欄材質是彼此獨立的設置。",
       "visualStyle": {
         "label": "頁面視覺風格",
         "description": "選擇已覆蓋目錄頁的呈現方式。這不是應用主題，也不會立刻改寫播放器或側欄。",
@@ -76,9 +70,6 @@
         "coverage": "手稿目前覆蓋全部歌曲、歌單、專輯目錄、專輯詳情、歸檔和設置。側欄、正在播放和播放欄仍使用既有表面。",
         "ariaCurrent": "當前頁面視覺風格：{style}"
       },
-      "themeAria": "顯示主題",
-      "themeValue": "深色",
-      "themeDescription": "淺色主題已暫時下線；主題 API 仍保留，便於日後恢復多主題。",
       "language": "界面語言",
       "languageDescription": "選擇應用界面顯示的語言。",
       "playerBarMaterial": "播放欄材質",
@@ -86,21 +77,15 @@
       "playerBarMaterialOption": {
         "coverTint": "封面取色",
         "liquidGlass": "Liquid Glass"
-      },
-      "note": "應用始終使用深色界面。"
+      }
     },
     "playback": {
-      "headingTitle": "播放",
-      "headingDescription": "控制曲目之間的銜接與音頻預加載行為。",
       "gapless": "無縫播放",
       "gaplessDescription": "提前解碼下一首，並在同專輯曲目交界處跳過可識別的數字靜音",
       "gaplessAriaOn": "無縫播放，當前已開啟",
-      "gaplessAriaOff": "無縫播放，當前已關閉",
-      "note": "關閉後不會中斷當前曲目，將從下一次切歌起使用普通播放。"
+      "gaplessAriaOff": "無縫播放，當前已關閉"
     },
     "library": {
-      "headingTitle": "音樂資料庫",
-      "headingDescription": "管理 Auralis 讀取和整理音樂的方式。",
       "currentFolder": "當前音樂文件夾",
       "noFolderSelected": "尚未選擇音樂文件夾",
       "lastScanned": "上次掃描：{time}",
@@ -152,8 +137,6 @@
       }
     },
     "about": {
-      "headingTitle": "關於 Auralis",
-      "headingDescription": "一個安靜、私密的本地音樂歸檔工具。",
       "tagline": "Local Music Archive",
       "version": "版本",
       "versionDescription": "當前安裝的應用版本",
@@ -163,8 +146,7 @@
       "databaseLoading": "正在讀取…",
       "copyPath": "複製路徑",
       "copySuccess": "已複製",
-      "copyFailed": "複製失敗",
-      "note": "音樂文件和資料庫數據均保存在本機。"
+      "copyFailed": "複製失敗"
     }
   },
   "player": {
