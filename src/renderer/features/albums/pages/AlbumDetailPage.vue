@@ -1,23 +1,35 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
+import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
+import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatDuration } from '@renderer/features/library/utils/formatDuration'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+import { formatGenreParts, splitGenreValues } from '@renderer/features/library/utils/formatGenre'
 
 import type { AlbumSummary } from '../types'
+import { resolveAlbumPresentation } from '../utils/albumPresentation'
+import '../styles/manuscript.detail.css'
+
+type AlbumDetailLoadState = 'loading' | 'ready' | 'not-found' | 'error'
 
 const route = useRoute()
 const router = useRouter()
+const { t, locale } = useI18n()
+const { visualStyle } = useVisualStyle()
 const playback = usePlayback()
 const tracks = shallowRef<TrackListItem[]>([])
+const loadState = ref<AlbumDetailLoadState>('loading')
 const detailRootRef = ref<HTMLElement | null>(null)
 const coverStageRef = ref<HTMLElement | null>(null)
 const heroBillboardRef = ref<HTMLElement | null>(null)
 const heroCanvasRef = ref<HTMLCanvasElement | null>(null)
+const moreAlbumsScrollerRef = ref<HTMLElement | null>(null)
 const highlightedTrackId = ref<number | null>(null)
 let unsubscribeChanged: (() => void) | null = null
 let trackingFrame: number | null = null
@@ -26,57 +38,54 @@ let playStatsReloadTimer: ReturnType<typeof setTimeout> | null = null
 let heroFluidGeneration = 0
 let heroResizeObserver: ResizeObserver | null = null
 let pointerPosition: { x: number; y: number } | null = null
+let detailScrollTarget: HTMLElement | null = null
+let modernEffectsBound = false
+let modernEffectsActivationGeneration = 0
+let isPageUnmounted = false
+let loadGeneration = 0
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 const MAX_COVER_TILT_DEGREES = 12
 const PLAY_STATS_RELOAD_DEBOUNCE_MS = 400
 const HERO_CANVAS_HEIGHT = 250
 
 const albumArtist = computed(() => String(route.query.artist ?? ''))
-const displayAlbumArtist = computed(() => formatArtist(albumArtist.value))
 const albumTitle = computed(() => String(route.query.title ?? ''))
+const albumPresentation = computed(() => resolveAlbumPresentation(route.name, visualStyle.value))
+const isModernAlbumDetail = computed(() => albumPresentation.value === 'modern')
+const displayAlbumArtist = computed(() =>
+  albumArtist.value === 'Unknown Artist'
+    ? t('library.unknownArtist')
+    : formatArtist(albumArtist.value),
+)
+const displayAlbumTitle = computed(() =>
+  albumTitle.value === 'Unknown Album' ? t('library.unknownAlbum') : albumTitle.value,
+)
 
-/** Native scrollbar has no :hover-on-bar; detect pointer in bottom strip instead. */
-const MORE_SCROLLBAR_HIT_PX = 14
-const isMoreScrollbarActive = ref(false)
-let isMoreScrollbarDragging = false
+const isMoreScrolledToStart = ref(true)
+const isMoreScrolledToEnd = ref(false)
+const isMoreScrollable = ref(false)
 
-function isPointerInMoreScrollbarZone(scroller: HTMLElement, clientY: number): boolean {
-  const rect = scroller.getBoundingClientRect()
-  const fromBottom = rect.bottom - clientY
-  return fromBottom >= 0 && fromBottom <= MORE_SCROLLBAR_HIT_PX
+function resetMoreAlbumsScrollState(): void {
+  isMoreScrolledToStart.value = true
+  isMoreScrolledToEnd.value = false
+  isMoreScrollable.value = false
 }
 
-function setMoreScrollbarActive(active: boolean): void {
-  if (isMoreScrollbarActive.value === active) return
-  isMoreScrollbarActive.value = active
+function updateMoreAlbumsScrollState(scroller: HTMLElement | null): void {
+  if (!scroller) return
+  const maxScroll = scroller.scrollWidth - scroller.clientWidth
+  isMoreScrollable.value = maxScroll > 1
+  if (!isMoreScrollable.value) {
+    isMoreScrolledToStart.value = true
+    isMoreScrolledToEnd.value = true
+    return
+  }
+  isMoreScrolledToStart.value = scroller.scrollLeft <= 2
+  isMoreScrolledToEnd.value = scroller.scrollLeft >= maxScroll - 2
 }
 
-function onMoreAlbumsPointerMove(event: PointerEvent): void {
-  if (isMoreScrollbarDragging) return
-  const scroller = event.currentTarget as HTMLElement
-  setMoreScrollbarActive(isPointerInMoreScrollbarZone(scroller, event.clientY))
-}
-
-function onMoreAlbumsPointerLeave(): void {
-  if (isMoreScrollbarDragging) return
-  setMoreScrollbarActive(false)
-}
-
-function onMoreScrollbarDragEnd(): void {
-  if (!isMoreScrollbarDragging) return
-  isMoreScrollbarDragging = false
-  window.removeEventListener('pointerup', onMoreScrollbarDragEnd)
-  window.removeEventListener('pointercancel', onMoreScrollbarDragEnd)
-  setMoreScrollbarActive(false)
-}
-
-function onMoreAlbumsPointerDown(event: PointerEvent): void {
-  const scroller = event.currentTarget as HTMLElement
-  if (!isPointerInMoreScrollbarZone(scroller, event.clientY)) return
-  isMoreScrollbarDragging = true
-  setMoreScrollbarActive(true)
-  window.addEventListener('pointerup', onMoreScrollbarDragEnd)
-  window.addEventListener('pointercancel', onMoreScrollbarDragEnd)
+function onMoreAlbumsScroll(event: Event): void {
+  updateMoreAlbumsScrollState(event.currentTarget as HTMLElement)
 }
 
 const albumTracks = computed(() =>
@@ -97,6 +106,19 @@ const albumTracks = computed(() =>
       return (left.title ?? '').localeCompare(right.title ?? '')
     }),
 )
+
+function syncLoadStateFromTracks(): void {
+  loadState.value = albumTracks.value.length > 0 ? 'ready' : 'not-found'
+}
+
+function formatDisplayAlbumTitle(title: string): string {
+  return title === 'Unknown Album' ? t('library.unknownAlbum') : title
+}
+
+function formatDisplayArtist(artist: string | null | undefined): string {
+  if (artist === 'Unknown Artist') return t('library.unknownArtist')
+  return formatArtist(artist)
+}
 
 const albumGroups = computed(() => {
   const groupedAlbums = new Map<string, TrackListItem[]>()
@@ -122,6 +144,9 @@ const artworkUrl = computed(() => {
     albumTracks.value.find((track) => track.artworkCacheKey)?.artworkCacheKey ?? null
   return getArtworkUrl(artworkKey)
 })
+const artworkGlowBackground = computed(() =>
+  artworkUrl.value ? `url("${artworkUrl.value}")` : 'none',
+)
 
 const releaseDate = computed(
   () => albumTracks.value.find((track) => track.releaseDate)?.releaseDate ?? null,
@@ -140,9 +165,8 @@ function collectGenreCounts(): { label: string; count: number; firstSeen: number
   for (const track of albumTracks.value) {
     const trackGenres = new Map<string, string>()
 
-    for (const rawGenre of (track.genre ?? '').split(/[,;]/)) {
-      const genre = rawGenre.trim()
-      if (genre) trackGenres.set(genre.toLocaleLowerCase(), genre)
+    for (const genre of splitGenreValues(track.genre)) {
+      trackGenres.set(genre.toLocaleLowerCase(), genre)
     }
 
     for (const [key, genre] of trackGenres) {
@@ -162,10 +186,13 @@ function collectGenreCounts(): { label: string; count: number; firstSeen: number
   )
 }
 
-const dominantGenres = computed(() =>
-  collectGenreCounts()
-    .slice(0, 2)
-    .map((genre) => genre.label),
+/** Top album genres as display string: single label, or `A & B` when two dominate. */
+const dominantGenreLabel = computed(() =>
+  formatGenreParts(
+    collectGenreCounts()
+      .slice(0, 2)
+      .map((genre) => genre.label),
+  ),
 )
 
 /** Meta 行年份：仅合法四位数字；无效/缺失返回 null（meta 中省略，不写「未知」）。 */
@@ -177,9 +204,9 @@ function formatAlbumYearForMeta(value: string | null): string | null {
 
 const albumYearLabel = computed(() => formatAlbumYearForMeta(releaseDate.value))
 
-/** Hero eyebrow：Year · Genre */
+/** Hero eyebrow：Year · Genre (multi-value uses A & B form) */
 const heroEyebrow = computed(() => {
-  const parts = [albumYearLabel.value, dominantGenres.value[0] ?? null].filter(
+  const parts = [albumYearLabel.value, dominantGenreLabel.value || null].filter(
     (item): item is string => item != null && item !== '',
   )
   return parts.join(' · ')
@@ -215,9 +242,13 @@ function albumYearSortKey(value: string | null): number {
 }
 
 function formatAlbumYearLabel(value: string | null): string {
-  if (!value) return '未知'
-  const year = value.slice(0, 4)
-  return /^\d{4}$/.test(year) ? `${year}年` : '未知'
+  if (!value) return t('albums.detail.unknownYear')
+  const yearText = value.slice(0, 4)
+  if (!/^\d{4}$/.test(yearText)) return t('albums.detail.unknownYear')
+  const year = Number(yearText)
+  return new Intl.DateTimeFormat(locale.value, { year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(year, 0, 1)),
+  )
 }
 
 /**
@@ -268,6 +299,23 @@ const showMoreAlbumsSection = computed(
   () => albumTracks.value.length > 0 && moreAlbumsByArtist.value.length > 0,
 )
 
+async function refreshMoreAlbumsScrollState(): Promise<void> {
+  if (loadState.value !== 'ready' || !showMoreAlbumsSection.value) {
+    resetMoreAlbumsScrollState()
+    return
+  }
+
+  await nextTick()
+  if (isPageUnmounted || loadState.value !== 'ready' || !showMoreAlbumsSection.value) return
+
+  const scroller = moreAlbumsScrollerRef.value
+  if (scroller) {
+    updateMoreAlbumsScrollState(scroller)
+  } else {
+    resetMoreAlbumsScrollState()
+  }
+}
+
 /** 估算收听：playCount 之和与 playCount * duration 之和（非精确会话时长）。 */
 const albumListenSummary = computed(() => {
   let totalPlays = 0
@@ -315,12 +363,12 @@ const albumDiscGroups = computed(() => {
 
 function formatListenSummaryLabel(totalPlays: number, listenedSeconds: number): string {
   if (listenedSeconds <= 0) {
-    return `听过 ${totalPlays} 次`
+    return t('albums.detail.listenSummary.plays', { count: totalPlays })
   }
 
   if (listenedSeconds < 3600) {
     const minutes = Math.max(1, Math.round(listenedSeconds / 60))
-    return `听过 ${totalPlays} 次 · 约 ${minutes} 分钟`
+    return t('albums.detail.listenSummary.minutes', { count: totalPlays, minutes })
   }
 
   const hoursTenths = Math.round((listenedSeconds / 3600) * 10) / 10
@@ -328,7 +376,7 @@ function formatListenSummaryLabel(totalPlays: number, listenedSeconds: number): 
     Number.isInteger(hoursTenths) || hoursTenths >= 10
       ? String(Math.round(hoursTenths))
       : hoursTenths.toFixed(1)
-  return `听过 ${totalPlays} 次 · 约 ${hoursLabel} 小时`
+  return t('albums.detail.listenSummary.hours', { count: totalPlays, hours: hoursLabel })
 }
 
 /**
@@ -336,6 +384,7 @@ function formatListenSummaryLabel(totalPlays: number, listenedSeconds: number): 
  * 见 docs/techdoc-album-detail-hero-billboard-redesign.md §3.1
  */
 function updateHeroStaticFluid(url: string | null, canvas: HTMLCanvasElement): void {
+  if (isPageUnmounted || !isModernAlbumDetail.value) return
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
@@ -360,7 +409,9 @@ function updateHeroStaticFluid(url: string | null, canvas: HTMLCanvasElement): v
   const img = new Image()
   img.decoding = 'async'
   img.onload = () => {
-    if (generation !== heroFluidGeneration) return
+    if (generation !== heroFluidGeneration || isPageUnmounted || !isModernAlbumDetail.value) {
+      return
+    }
 
     const offscreen = document.createElement('canvas')
     offscreen.width = 16
@@ -404,28 +455,55 @@ function updateHeroStaticFluid(url: string | null, canvas: HTMLCanvasElement): v
     ctx.restore()
   }
   img.onerror = () => {
-    if (generation !== heroFluidGeneration) return
+    if (generation !== heroFluidGeneration || isPageUnmounted || !isModernAlbumDetail.value) {
+      return
+    }
     fillBase()
   }
   img.src = url
 }
 
 function paintHeroFluid(): void {
+  if (isPageUnmounted || !isModernAlbumDetail.value) return
   const canvas = heroCanvasRef.value
   if (!canvas) return
   updateHeroStaticFluid(artworkUrl.value, canvas)
 }
 
-async function reloadTracks(): Promise<void> {
-  tracks.value = await auralis.library.getTracks()
+async function reloadTracks(options: { background?: boolean } = {}): Promise<boolean> {
+  const requestGeneration = ++loadGeneration
+  const hasExistingSnapshot = tracks.value.length > 0
+  if (!options.background && !hasExistingSnapshot) loadState.value = 'loading'
+
+  try {
+    const nextTracks = await auralis.library.getTracks()
+    if (isPageUnmounted || requestGeneration !== loadGeneration) return false
+
+    tracks.value = nextTracks
+    syncLoadStateFromTracks()
+    return true
+  } catch {
+    if (isPageUnmounted || requestGeneration !== loadGeneration) return false
+
+    if (hasExistingSnapshot || options.background) {
+      if (hasExistingSnapshot) syncLoadStateFromTracks()
+    } else {
+      loadState.value = 'error'
+    }
+    return false
+  }
 }
 
 function schedulePlayStatsReload(): void {
   if (playStatsReloadTimer) clearTimeout(playStatsReloadTimer)
   playStatsReloadTimer = setTimeout(() => {
     playStatsReloadTimer = null
-    void reloadTracks()
+    void reloadTracks({ background: true })
   }, PLAY_STATS_RELOAD_DEBOUNCE_MS)
+}
+
+function retryLoad(): void {
+  void reloadTracks()
 }
 
 function goBack(): void {
@@ -445,6 +523,12 @@ function openAlbum(album: AlbumSummary): void {
 }
 
 function showSearchResultHighlight(): void {
+  if (highlightTimeout) {
+    clearTimeout(highlightTimeout)
+    highlightTimeout = null
+  }
+  highlightedTrackId.value = null
+
   const trackId = Number(route.query.highlight)
   if (!Number.isInteger(trackId) || !albumTracks.value.some((track) => track.id === trackId)) return
 
@@ -461,16 +545,19 @@ function showSearchResultHighlight(): void {
 }
 
 function formatTrackCount(count: number): string {
-  return `${count} ${count === 1 ? 'Track' : 'Tracks'}`
+  return t(count === 1 ? 'albums.detail.trackCount.one' : 'albums.detail.trackCount.other', {
+    count,
+  })
 }
 
 function formatAlbumDuration(seconds: number): string {
-  if (seconds <= 0) return '00分00秒'
+  if (seconds <= 0) return t('albums.detail.duration.zero')
 
   if (seconds < 3600) {
-    const minutes = String(Math.floor(seconds / 60)).padStart(2, '0')
-    const remainingSeconds = String(Math.floor(seconds % 60)).padStart(2, '0')
-    return `${minutes} 分 ${remainingSeconds} 秒`
+    return t('albums.detail.duration.minutes', {
+      minutes: String(Math.floor(seconds / 60)).padStart(2, '0'),
+      seconds: String(Math.floor(seconds % 60)).padStart(2, '0'),
+    })
   }
 
   const hours = Math.floor(seconds / 3600)
@@ -480,12 +567,8 @@ function formatAlbumDuration(seconds: number): string {
 
   const hh = String(normalizedHours).padStart(2, '0')
 
-  if (normalizedMinutes === 0) {
-    return `${hh} 小时`
-  }
-
   const mm = String(normalizedMinutes).padStart(2, '0')
-  return `${hh} 小时 ${mm} 分`
+  return t('albums.detail.duration.hours', { hours: hh, minutes: mm })
 }
 
 function buildAlbumPlaybackQueue(): TrackListItem[] {
@@ -530,23 +613,24 @@ function playTrack(trackId: number): void {
   void playback.playTrackFromQueue(buildAlbumPlaybackQueue(), trackId)
 }
 
-/** Only when pointer is on the scrollbar strip, map wheel to horizontal scroll. */
+/** Map vertical wheel to horizontal scroll for 'More Albums' section with boundary pass-through. */
 function onMoreAlbumsWheel(event: WheelEvent): void {
   const scroller = event.currentTarget as HTMLElement
-  if (!isMoreScrollbarActive.value && !isPointerInMoreScrollbarZone(scroller, event.clientY)) {
-    return
-  }
   if (scroller.scrollWidth <= scroller.clientWidth + 1) return
 
   const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
   if (delta === 0) return
 
   const maxScrollLeft = scroller.scrollWidth - scroller.clientWidth
-  const nextLeft = Math.min(maxScrollLeft, Math.max(0, scroller.scrollLeft + delta))
-  if (nextLeft === scroller.scrollLeft) return
 
-  event.preventDefault()
-  scroller.scrollLeft = nextLeft
+  if (
+    (delta < 0 && scroller.scrollLeft > 0) ||
+    (delta > 0 && scroller.scrollLeft < maxScrollLeft - 1)
+  ) {
+    event.preventDefault()
+    scroller.scrollLeft += delta
+    updateMoreAlbumsScrollState(scroller)
+  }
 }
 
 function selectTrack(trackId: number): void {
@@ -574,7 +658,15 @@ function renderCoverTracking(): void {
   trackingFrame = null
   const stage = coverStageRef.value
   const pointer = pointerPosition
-  if (!stage || !pointer || reducedMotionQuery.matches) return
+  if (
+    !stage ||
+    !pointer ||
+    reducedMotionQuery.matches ||
+    isPageUnmounted ||
+    !isModernAlbumDetail.value
+  ) {
+    return
+  }
 
   const rect = stage.getBoundingClientRect()
   const centerX = rect.left + rect.width / 2
@@ -599,7 +691,9 @@ function scheduleCoverTracking(): void {
 }
 
 function onDocumentPointerMove(event: PointerEvent): void {
-  if (event.pointerType === 'touch' || reducedMotionQuery.matches) return
+  if (event.pointerType === 'touch' || reducedMotionQuery.matches || !isModernAlbumDetail.value) {
+    return
+  }
   pointerPosition = { x: event.clientX, y: event.clientY }
   scheduleCoverTracking()
 }
@@ -620,25 +714,94 @@ function bindHeroResizeObserver(): void {
   heroResizeObserver?.disconnect()
   heroResizeObserver = null
   const billboard = heroBillboardRef.value
-  if (!billboard || typeof ResizeObserver === 'undefined') return
+  if (
+    !billboard ||
+    typeof ResizeObserver === 'undefined' ||
+    isPageUnmounted ||
+    !isModernAlbumDetail.value
+  ) {
+    return
+  }
 
   heroResizeObserver = new ResizeObserver(() => {
-    paintHeroFluid()
+    if (isModernAlbumDetail.value && !isPageUnmounted) paintHeroFluid()
   })
   heroResizeObserver.observe(billboard)
+}
+
+function bindDetailScrollListener(): void {
+  const nextTarget = detailRootRef.value
+  if (detailScrollTarget === nextTarget) return
+  detailScrollTarget?.removeEventListener('scroll', scheduleCoverTracking)
+  detailScrollTarget = nextTarget
+  detailScrollTarget?.addEventListener('scroll', scheduleCoverTracking, { passive: true })
+}
+
+function unbindDetailScrollListener(): void {
+  detailScrollTarget?.removeEventListener('scroll', scheduleCoverTracking)
+  detailScrollTarget = null
+}
+
+async function enableModernEffects(): Promise<void> {
+  if (isPageUnmounted || !isModernAlbumDetail.value || loadState.value !== 'ready') return
+  const activationGeneration = ++modernEffectsActivationGeneration
+
+  if (!modernEffectsBound) {
+    modernEffectsBound = true
+    document.addEventListener('pointermove', onDocumentPointerMove, { passive: true })
+    document.addEventListener('pointerout', onDocumentPointerOut)
+    window.addEventListener('blur', resetCoverTracking)
+    reducedMotionQuery.addEventListener('change', onReducedMotionChange)
+  }
+
+  await nextTick()
+  if (
+    isPageUnmounted ||
+    !isModernAlbumDetail.value ||
+    loadState.value !== 'ready' ||
+    !modernEffectsBound ||
+    activationGeneration !== modernEffectsActivationGeneration
+  ) {
+    return
+  }
+  bindDetailScrollListener()
+  bindHeroResizeObserver()
+  paintHeroFluid()
+}
+
+function disableModernEffects(): void {
+  modernEffectsActivationGeneration += 1
+  resetCoverTracking()
+  heroFluidGeneration += 1
+  heroResizeObserver?.disconnect()
+  heroResizeObserver = null
+  unbindDetailScrollListener()
+
+  if (!modernEffectsBound) return
+  modernEffectsBound = false
+  document.removeEventListener('pointermove', onDocumentPointerMove)
+  document.removeEventListener('pointerout', onDocumentPointerOut)
+  window.removeEventListener('blur', resetCoverTracking)
+  reducedMotionQuery.removeEventListener('change', onReducedMotionChange)
 }
 
 watch(
   () => [albumArtist.value, albumTitle.value] as const,
   async () => {
+    const wasReady = loadState.value === 'ready'
     await nextTick()
+    if (isPageUnmounted) return
+    if (loadState.value !== 'loading' && loadState.value !== 'error') syncLoadStateFromTracks()
     detailRootRef.value?.scrollTo({ top: 0 })
+    if (wasReady && loadState.value === 'ready') showSearchResultHighlight()
+    void refreshMoreAlbumsScrollState()
+    if (isModernAlbumDetail.value) void enableModernEffects()
   },
 )
 
 watch(artworkUrl, async () => {
   await nextTick()
-  paintHeroFluid()
+  if (isModernAlbumDetail.value && !isPageUnmounted) paintHeroFluid()
 })
 
 watch(
@@ -646,75 +809,112 @@ watch(
   async (length) => {
     if (length <= 0) return
     await nextTick()
-    bindHeroResizeObserver()
-    paintHeroFluid()
+    if (isModernAlbumDetail.value && !isPageUnmounted) void enableModernEffects()
   },
 )
 
+watch(
+  () => moreAlbumsByArtist.value.map((album) => album.key).join('\u0001'),
+  () => {
+    void refreshMoreAlbumsScrollState()
+  },
+)
+
+watch(albumPresentation, (presentation) => {
+  if (presentation === 'modern' && loadState.value === 'ready') {
+    void enableModernEffects()
+  } else {
+    disableModernEffects()
+  }
+})
+
+watch(loadState, async (state, previousState) => {
+  if (state === 'ready') {
+    if (previousState !== 'ready') {
+      await nextTick()
+      if (isPageUnmounted || loadState.value !== 'ready') return
+      showSearchResultHighlight()
+    }
+    void refreshMoreAlbumsScrollState()
+    if (isModernAlbumDetail.value) {
+      void enableModernEffects()
+    } else {
+      disableModernEffects()
+    }
+  } else {
+    resetMoreAlbumsScrollState()
+    disableModernEffects()
+  }
+})
+
 onMounted(async () => {
   await reloadTracks()
-  await nextTick()
-  showSearchResultHighlight()
-  bindHeroResizeObserver()
-  paintHeroFluid()
+  if (isPageUnmounted) return
   unsubscribeChanged = auralis.library.onChanged((event) => {
     if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') {
       schedulePlayStatsReload()
       return
     }
-    void reloadTracks()
+    void reloadTracks({ background: true })
   })
-  document.addEventListener('pointermove', onDocumentPointerMove, { passive: true })
-  document.addEventListener('pointerout', onDocumentPointerOut)
-  window.addEventListener('blur', resetCoverTracking)
-  detailRootRef.value?.addEventListener('scroll', scheduleCoverTracking, { passive: true })
-  reducedMotionQuery.addEventListener('change', onReducedMotionChange)
 })
 
 onBeforeUnmount(() => {
-  resetCoverTracking()
-  heroFluidGeneration += 1
-  heroResizeObserver?.disconnect()
-  heroResizeObserver = null
+  isPageUnmounted = true
+  loadGeneration += 1
+  disableModernEffects()
   if (highlightTimeout) clearTimeout(highlightTimeout)
   if (playStatsReloadTimer) {
     clearTimeout(playStatsReloadTimer)
     playStatsReloadTimer = null
   }
-  onMoreScrollbarDragEnd()
   unsubscribeChanged?.()
-  document.removeEventListener('pointermove', onDocumentPointerMove)
-  document.removeEventListener('pointerout', onDocumentPointerOut)
-  window.removeEventListener('blur', resetCoverTracking)
-  detailRootRef.value?.removeEventListener('scroll', scheduleCoverTracking)
-  reducedMotionQuery.removeEventListener('change', onReducedMotionChange)
+  unsubscribeChanged = null
 })
 </script>
 
 <template>
-  <div class="album-detail-container h-full w-full relative bg-transparent">
+  <div
+    class="album-detail-container album-detail-page h-full w-full relative bg-transparent"
+    :data-visual-style="albumPresentation"
+  >
     <section
-      v-if="albumTracks.length"
+      v-if="loadState === 'ready'"
       ref="detailRootRef"
       class="album-detail-scroll-wrapper h-full w-full overflow-y-auto relative z-10"
     >
-      <button class="album-detail-back" type="button" aria-label="Back to albums" @click="goBack">
+      <button
+        class="album-detail-back"
+        type="button"
+        :aria-label="t('albums.detail.back')"
+        @click="goBack"
+      >
         <span class="i-lucide-arrow-left h-4 w-4" />
-        <span>返回专辑</span>
+        <span>{{ t('albums.detail.back') }}</span>
       </button>
 
       <div class="album-detail-wrapper">
         <!-- Phase 1: Hero 巨幕 Banner -->
-        <section ref="heroBillboardRef" class="album-hero-billboard" aria-label="专辑封面与身份">
-          <canvas ref="heroCanvasRef" class="album-hero-static-canvas" aria-hidden="true"></canvas>
+        <section
+          ref="heroBillboardRef"
+          class="album-hero-billboard"
+          :aria-label="t('albums.detail.heroAria', { title: displayAlbumTitle })"
+        >
+          <canvas
+            v-if="isModernAlbumDetail"
+            ref="heroCanvasRef"
+            class="album-hero-static-canvas"
+            aria-hidden="true"
+          ></canvas>
 
           <div ref="coverStageRef" class="album-hero-cover-container">
             <div class="album-hero-cover">
               <img
                 v-if="artworkUrl"
                 :src="artworkUrl"
-                :alt="`${albumTitle} cover`"
+                :alt="t('albums.detail.coverAlt', { title: displayAlbumTitle })"
                 class="h-full w-full object-cover"
+                decoding="async"
                 draggable="false"
               />
               <div v-else class="flex h-full w-full items-center justify-center" aria-hidden="true">
@@ -724,7 +924,7 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="album-hero-content-stage">
-            <h1 class="album-hero-title select-text">{{ albumTitle }}</h1>
+            <h1 class="album-hero-title select-text">{{ displayAlbumTitle }}</h1>
             <p v-if="heroEyebrow" class="album-hero-eyebrow select-text">{{ heroEyebrow }}</p>
             <p class="album-hero-sub select-text">
               <span v-for="(item, index) in heroSubItems" :key="index">
@@ -738,11 +938,11 @@ onBeforeUnmount(() => {
             <div class="album-hero-actions">
               <button class="album-hero-play-btn" type="button" @click="playAlbum">
                 <span class="i-lucide-play h-5 w-5 fill-current"></span>
-                <span>播放</span>
+                <span>{{ t('albums.detail.play') }}</span>
               </button>
               <button class="album-hero-shuffle-btn" type="button" @click="playAlbumShuffle">
                 <span class="i-lucide-shuffle h-4 w-4"></span>
-                <span>随机播放</span>
+                <span>{{ t('albums.detail.shuffle') }}</span>
               </button>
             </div>
             <!-- 法律附录：操作流下方 muted 一行；无数据不渲染 -->
@@ -755,7 +955,7 @@ onBeforeUnmount(() => {
         <!-- 中部：通栏曲目 -->
         <div class="album-body-grid">
           <div class="album-tracklist-panel">
-            <h2 class="album-tracklist-heading">曲目</h2>
+            <h2 class="album-tracklist-heading">{{ t('albums.detail.tracks') }}</h2>
             <div class="album-detail-track-list">
               <template v-for="group in albumDiscGroups" :key="group.discNo ?? 'single'">
                 <div
@@ -763,7 +963,7 @@ onBeforeUnmount(() => {
                   class="album-detail-disc-header"
                   role="presentation"
                 >
-                  Disc {{ group.discNo }}
+                  {{ t('albums.detail.disc', { number: group.discNo }) }}
                 </div>
                 <button
                   v-for="(track, index) in group.tracks"
@@ -788,12 +988,12 @@ onBeforeUnmount(() => {
                   </span>
                   <span class="min-w-0 text-left">
                     <span class="album-detail-track-title">{{
-                      track.title || 'Unknown Title'
+                      track.title || t('albums.detail.unknownTitle')
                     }}</span>
                     <span
                       v-if="track.artist && track.artist !== albumArtist"
                       class="album-detail-track-artist"
-                      >{{ formatArtist(track.artist) }}</span
+                      >{{ formatDisplayArtist(track.artist) }}</span
                     >
                   </span>
                   <span class="album-detail-track-duration">{{
@@ -809,19 +1009,20 @@ onBeforeUnmount(() => {
         <section
           v-if="showMoreAlbumsSection"
           class="album-more-gallery"
-          :aria-label="
-            displayAlbumArtist ? `${displayAlbumArtist} 的其他唱片` : '同艺人馆藏中的其他唱片'
-          "
+          :aria-label="t('albums.detail.moreAlbumsAria', { artist: displayAlbumArtist })"
         >
           <h2 class="album-more-gallery-title">
-            {{ displayAlbumArtist ? `${displayAlbumArtist} 的其他唱片` : '其他唱片' }}
+            {{ t('albums.detail.moreAlbumsTitle', { artist: displayAlbumArtist }) }}
           </h2>
           <div
+            ref="moreAlbumsScrollerRef"
             class="album-more-gallery-scroller"
-            :class="{ 'album-more-gallery-scroller--bar-active': isMoreScrollbarActive }"
-            @pointermove="onMoreAlbumsPointerMove"
-            @pointerleave="onMoreAlbumsPointerLeave"
-            @pointerdown="onMoreAlbumsPointerDown"
+            :class="{
+              'is-at-start': isMoreScrolledToStart,
+              'is-at-end': isMoreScrolledToEnd,
+              'is-unscrollable': !isMoreScrollable,
+            }"
+            @scroll="onMoreAlbumsScroll"
             @wheel="onMoreAlbumsWheel"
           >
             <button
@@ -829,14 +1030,18 @@ onBeforeUnmount(() => {
               :key="album.key"
               type="button"
               class="album-more-gallery-card"
-              :aria-label="`打开专辑 ${album.title}`"
+              :aria-label="
+                t('albums.detail.openAlbumAria', { title: formatDisplayAlbumTitle(album.title) })
+              "
               @click="openAlbum(album)"
             >
               <div class="album-more-gallery-cover">
                 <img
                   v-if="getArtworkUrl(album.artworkCacheKey)"
                   :src="getArtworkUrl(album.artworkCacheKey)!"
-                  :alt="`${album.title} cover`"
+                  :alt="
+                    t('albums.detail.coverAlt', { title: formatDisplayAlbumTitle(album.title) })
+                  "
                   class="h-full w-full object-cover"
                   loading="lazy"
                   decoding="async"
@@ -853,7 +1058,9 @@ onBeforeUnmount(() => {
                 </div>
               </div>
               <div class="album-more-gallery-meta">
-                <p class="album-more-gallery-album-title">{{ album.title }}</p>
+                <p class="album-more-gallery-album-title">
+                  {{ formatDisplayAlbumTitle(album.title) }}
+                </p>
                 <p class="album-more-gallery-year">
                   {{ formatAlbumYearLabel(album.releaseDate) }}
                 </p>
@@ -864,15 +1071,37 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <div v-else class="flex min-h-[60vh] items-center justify-center relative z-10">
-      <div class="text-center">
-        <p class="text-base font-semibold text-[var(--auralis-text)]">Album not found</p>
+    <div
+      v-else
+      class="album-detail-state flex min-h-[60vh] items-center justify-center relative z-10"
+      :class="`album-detail-state--${loadState}`"
+      :aria-live="loadState === 'loading' ? 'polite' : 'assertive'"
+    >
+      <div class="album-detail-state-content text-center">
+        <p class="album-detail-state-message text-base font-semibold text-[var(--auralis-text)]">
+          {{
+            loadState === 'loading'
+              ? t('albums.detail.loading')
+              : loadState === 'error'
+                ? t('albums.detail.loadError')
+                : t('albums.detail.notFound')
+          }}
+        </p>
         <button
-          class="mt-3 text-sm text-[var(--auralis-sidebar-active-text)]"
+          v-if="loadState === 'error'"
+          class="album-detail-state-action mt-3 text-sm text-[var(--auralis-sidebar-active-text)]"
+          type="button"
+          @click="retryLoad"
+        >
+          {{ t('albums.detail.retry') }}
+        </button>
+        <button
+          v-if="loadState !== 'loading'"
+          class="album-detail-state-action mt-3 text-sm text-[var(--auralis-sidebar-active-text)]"
           type="button"
           @click="goBack"
         >
-          Return to Albums
+          {{ t('albums.detail.returnToAlbums') }}
         </button>
       </div>
     </div>
@@ -928,10 +1157,10 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   width: 100%;
-  min-height: 250px;
+  min-height: 256px;
   align-items: center;
   gap: 28px;
-  padding: 24px 28px;
+  padding: 28px;
   border-radius: 22px;
   background: color-mix(in srgb, var(--auralis-dialog-bg) 88%, #000);
   border: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
@@ -985,7 +1214,7 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 8%;
   border-radius: 18px;
-  background: v-bind("artworkUrl ? 'url(' + artworkUrl + ')' : 'none'");
+  background: v-bind(artworkGlowBackground);
   background-size: cover;
   background-position: center;
   content: '';
@@ -1192,15 +1421,13 @@ onBeforeUnmount(() => {
 }
 
 .album-detail-track-list {
-  background: var(--auralis-track-list-bg);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid var(--auralis-track-list-border);
-  border-radius: 20px;
-  padding: 10px;
-  box-shadow:
-    0 12px 36px 0 rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  border-radius: 0;
+  padding: 4px 0;
+  box-shadow: none;
 }
 
 .album-detail-disc-header {
@@ -1416,14 +1643,27 @@ onBeforeUnmount(() => {
 
 /* —— Phase 3: More gallery —— */
 .album-more-gallery {
-  margin-top: 4px;
-  margin-right: -32px;
-  margin-left: -32px;
-  padding: 28px 32px 8px;
-  border-top: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
-  background: color-mix(in srgb, var(--auralis-dialog-bg, #25272a) 35%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  margin-top: 36px;
+  margin-right: 0;
+  margin-left: 0;
+  padding: 0 0 16px;
+  border-top: none;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.album-more-gallery::before {
+  content: '';
+  display: block;
+  height: 1px;
+  margin-bottom: 24px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--auralis-text) 16%, transparent) 0%,
+    color-mix(in srgb, var(--auralis-text) 4%, transparent) 70%,
+    transparent 100%
+  );
 }
 
 .album-more-gallery-title {
@@ -1435,92 +1675,97 @@ onBeforeUnmount(() => {
 }
 
 .album-more-gallery-scroller {
-  --more-scrollbar-size: 6px;
-  --more-scrollbar-thumb: color-mix(in srgb, var(--auralis-text) 28%, transparent);
-  --more-scrollbar-thumb-hover: color-mix(in srgb, var(--auralis-text) 42%, transparent);
-
   display: flex;
-  gap: 16px;
+  gap: 18px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 10px 4px 14px;
+  padding: 12px 16px 16px;
   margin-top: -4px;
   scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 28px,
+    #000 calc(100% - 28px),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    #000 28px,
+    #000 calc(100% - 28px),
+    transparent 100%
+  );
+  transition:
+    -webkit-mask-image 0.25s ease,
+    mask-image 0.25s ease;
 }
 
-.album-more-gallery-scroller--bar-active {
-  scrollbar-color: var(--more-scrollbar-thumb) transparent;
+.album-more-gallery-scroller.is-at-start {
+  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 28px), transparent 100%);
+}
+
+.album-more-gallery-scroller.is-at-end {
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 28px, #000 100%);
+  mask-image: linear-gradient(to right, transparent 0%, #000 28px, #000 100%);
+}
+
+.album-more-gallery-scroller.is-unscrollable,
+.album-more-gallery-scroller.is-at-start.is-at-end {
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 .album-more-gallery-scroller::-webkit-scrollbar {
-  width: var(--more-scrollbar-size);
-  height: var(--more-scrollbar-size);
-  background: transparent;
-}
-
-.album-more-gallery-scroller::-webkit-scrollbar-button {
   display: none;
   width: 0;
   height: 0;
 }
 
-.album-more-gallery-scroller::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.album-more-gallery-scroller::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 999px;
-  min-width: 24px;
-}
-
-.album-more-gallery-scroller--bar-active::-webkit-scrollbar-thumb {
-  background: var(--more-scrollbar-thumb);
-}
-
-.album-more-gallery-scroller--bar-active::-webkit-scrollbar-thumb:hover {
-  background: var(--more-scrollbar-thumb-hover);
-}
-
 .album-more-gallery-card {
   flex: 0 0 auto;
-  width: 156px;
-  min-width: 156px;
+  width: 144px;
+  min-width: 144px;
   scroll-snap-align: start;
   appearance: none;
   cursor: pointer;
   user-select: none;
-  background: color-mix(in srgb, var(--auralis-dialog-bg, #25272a) 72%, #000);
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
-  border-radius: 16px;
-  padding: 12px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
   color: inherit;
   font: inherit;
   text-align: left;
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-.album-more-gallery-card:hover {
-  transform: translateY(-6px);
-  filter: brightness(1.05);
-  border-color: color-mix(in srgb, var(--auralis-text) 22%, transparent);
-  box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow: none;
 }
 
 .album-more-gallery-cover {
   aspect-ratio: 1;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--auralis-artwork-placeholder-bg);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+  transition:
+    transform 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+    box-shadow 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.album-more-gallery-card:hover .album-more-gallery-cover {
+  transform: translateY(-6px) scale(1.03);
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.5),
+    0 0 20px
+      color-mix(
+        in srgb,
+        var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator, #6366f1)) 35%,
+        transparent
+      );
 }
 
 .album-more-gallery-meta {

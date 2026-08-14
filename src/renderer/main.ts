@@ -22,7 +22,14 @@ async function bootstrap(): Promise<void> {
     import('./shared/ipc/client'),
   ])
 
+  const { i18n } = await import('./i18n')
+  const { initLocale } = await import('./composables/useLocale')
+
+  // 冷启动同步 <html lang>（i18n locale 已在 createI18n 时读取，这里只补 lang）
+  initLocale()
+
   const app = createApp(App)
+  app.use(i18n)
   app.use(router)
   await router.isReady()
   app.mount('#app')

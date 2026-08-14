@@ -40,6 +40,11 @@ export class MetadataRefreshService {
     this.onTagWriteSuccess = handler
   }
 
+  /** True while a metadata refresh worker job is running. */
+  hasActiveJob(): boolean {
+    return this.activeJobId !== null
+  }
+
   refreshMissingMetadata(limit = 5000): { jobId: number } {
     if (this.activeJobId !== null && this.repository.getActiveJob()) {
       throw new Error(`A refresh job is already running (job ${this.activeJobId})`)

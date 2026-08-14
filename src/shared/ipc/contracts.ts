@@ -21,6 +21,7 @@ import type {
 import type {
   AnnualListeningInsights,
   DailyListeningDetail,
+  ListeningGenreSpectrum,
   ListeningRanking,
   ListeningRankingParams,
   ListeningHeatmap,
@@ -34,6 +35,7 @@ import type {
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
+import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 
 export interface SystemMediaPlaybackState {
   hasTrack: boolean
@@ -105,6 +107,10 @@ export interface IpcInvokeContract {
   'library:get-tracks': {
     request: void
     response: TrackListItem[]
+  }
+  'library:get-track-page': {
+    request: LibraryTrackPageRequest
+    response: LibraryTrackPage
   }
   'smart-playlists:list': {
     request: void
@@ -242,6 +248,10 @@ export interface IpcInvokeContract {
     request: ListeningRankingParams
     response: ListeningRanking
   }
+  'archive:get-listening-genre-spectrum': {
+    request: { year: number }
+    response: ListeningGenreSpectrum
+  }
   'archive:reset-play-stats': {
     request: void
     response: { ok: true }
@@ -291,22 +301,6 @@ export interface IpcInvokeContract {
   'metadata:update-track-metadata': {
     request: EditableTrackMetadata
     response: { ok: boolean }
-  }
-  'window:minimize': {
-    request: void
-    response: { ok: boolean }
-  }
-  'window:toggle-maximize': {
-    request: void
-    response: { ok: boolean }
-  }
-  'window:close': {
-    request: void
-    response: { ok: boolean }
-  }
-  'window:is-maximized': {
-    request: void
-    response: { maximized: boolean }
   }
   'window:enter-mini-player': {
     request: void

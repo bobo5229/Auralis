@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useFullscreenPlayer } from '@renderer/features/playback/composables/useFullscreenPlayer'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
@@ -20,6 +21,7 @@ const skipNextIconUrl = new URL(
 const playIconUrl = new URL('../../features/playback/assets/play.svg', import.meta.url).href
 
 const playback = usePlayback()
+const { t } = useI18n()
 const { isFullscreenPlayerOpen, closeFullscreenPlayer } = useFullscreenPlayer()
 const {
   status: lyricsStatus,
@@ -109,9 +111,9 @@ const volumeFillStyle = computed(() => ({
 }))
 
 const repeatButtonLabel = computed(() => {
-  if (playback.state.playbackMode === 'repeat-all') return 'Enable repeat one'
-  if (playback.state.playbackMode === 'repeat-one') return 'Disable repeat'
-  return 'Enable repeat all'
+  if (playback.state.playbackMode === 'repeat-all') return t('fullscreen.repeatEnableOne')
+  if (playback.state.playbackMode === 'repeat-one') return t('fullscreen.repeatDisable')
+  return t('fullscreen.repeatEnableAll')
 })
 
 const repeatIconClass = computed(() =>
@@ -520,7 +522,7 @@ onBeforeUnmount(() => {
       <section
         v-if="isFullscreenPlayerOpen"
         class="fullscreen-player"
-        aria-label="Full-screen player"
+        :aria-label="t('fullscreen.overlayAria')"
       >
         <FluidArtworkBackground
           :artwork-url="artworkUrl"
@@ -553,7 +555,7 @@ onBeforeUnmount(() => {
               class="fullscreen-player-progress"
               role="slider"
               tabindex="0"
-              aria-label="Playback progress"
+              :aria-label="t('player.progress')"
               aria-valuemin="0"
               :aria-valuemax="Math.round(playback.state.duration)"
               :aria-valuenow="Math.round(playback.state.currentTime)"
@@ -576,7 +578,7 @@ onBeforeUnmount(() => {
             <div class="fullscreen-player-controls">
               <button
                 type="button"
-                aria-label="Shuffle"
+                :aria-label="t('player.modeOption.shuffle')"
                 :class="{
                   'fullscreen-player-control-active': playback.state.playbackMode === 'shuffle',
                 }"
@@ -587,7 +589,7 @@ onBeforeUnmount(() => {
               <button
                 class="fullscreen-player-skip"
                 type="button"
-                aria-label="Previous track"
+                :aria-label="t('player.previous')"
                 @click="playback.playPrevious"
               >
                 <img
@@ -600,7 +602,7 @@ onBeforeUnmount(() => {
               <button
                 class="fullscreen-player-play"
                 type="button"
-                :aria-label="playback.state.isPlaying ? 'Pause' : 'Play'"
+                :aria-label="playback.state.isPlaying ? t('player.pause') : t('player.play')"
                 @click="playback.togglePlayPause"
               >
                 <span
@@ -619,7 +621,7 @@ onBeforeUnmount(() => {
               <button
                 class="fullscreen-player-skip"
                 type="button"
-                aria-label="Next track"
+                :aria-label="t('player.next')"
                 @click="playback.playNext"
               >
                 <img
@@ -646,7 +648,7 @@ onBeforeUnmount(() => {
             <div class="fullscreen-player-volume">
               <button
                 type="button"
-                :aria-label="playback.state.isMuted ? 'Unmute' : 'Mute'"
+                :aria-label="playback.state.isMuted ? t('player.unmute') : t('player.mute')"
                 @click="playback.toggleMute"
               >
                 <span class="h-5 w-5" :class="volumeIconClass" />
@@ -659,7 +661,7 @@ onBeforeUnmount(() => {
                   max="1"
                   step="0.01"
                   :value="playback.state.volume"
-                  aria-label="Volume"
+                  :aria-label="t('player.volume')"
                   @input="handleVolumeInput"
                 />
               </div>
@@ -691,7 +693,7 @@ onBeforeUnmount(() => {
                   'fullscreen-player-lyric-active': isPrelude,
                   'fullscreen-player-lyric-upcoming': !isPrelude,
                 }"
-                aria-label="Lyrics starting soon"
+                :aria-label="t('fullscreen.lyricsStartingSoon')"
                 data-lyric-prelude
               >
                 <span
@@ -720,7 +722,7 @@ onBeforeUnmount(() => {
               <div :style="{ height: `${lyricsBottomPadding}px` }"></div>
             </div>
           </div>
-          <div v-else class="fullscreen-player-lyrics-empty">暂无歌词</div>
+          <div v-else class="fullscreen-player-lyrics-empty">{{ t('player.lyricsEmpty') }}</div>
         </div>
       </section>
     </Transition>

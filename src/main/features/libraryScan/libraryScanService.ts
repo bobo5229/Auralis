@@ -53,6 +53,11 @@ export class LibraryScanService {
     this.onScanLifecycle = hooks
   }
 
+  /** True while a scan worker (or a scan in preparation) is running. */
+  isScanActive(): boolean {
+    return this.activeWorker !== null || this.activeJobId !== null
+  }
+
   async selectRoot(): Promise<SelectLibraryRootResult> {
     const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     const result = await dialog.showOpenDialog(window, {

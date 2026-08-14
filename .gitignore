@@ -28,6 +28,12 @@ AppData/
 .agents/
 .mimocode/
 
+# ZCode
+.zcode/
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
 # Coverage
 coverage/
 
@@ -48,6 +54,10 @@ genryu-font-master.zip
 docs/*
 !docs/ARCHITECTURE.md
 !docs/2026-07-17-architecture-review-fixes.md
+# 手稿皮肤 MVP：TECHDOC + Phase 5 受跟踪验收目录（含截图）
+!docs/techdoc-library-manuscript-skin-mvp.md
+!docs/library-manuscript-skin-mvp/
+!docs/library-manuscript-skin-mvp/**
 
 # Performance traces
 artifacts/
@@ -55,8 +65,15 @@ artifacts/
 # Issues
 issues/
 
+# Local audit / review handbooks (findings live under docs/reviews, already ignored)
+*作战手册.md
+
 # Release media session
 release-media-session/
 
 # UI prototypes / design exploration
 test/
+
+# Reasonix tool runtime data & config
+.reasonix/
+reasonix.toml

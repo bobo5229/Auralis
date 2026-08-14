@@ -122,11 +122,11 @@
   --auralis-volume-fill: #e1ddd6;
   --auralis-artwork-placeholder-bg: rgba(246, 242, 234, 0.12);
 
-  /* Playbar safe area */
-  --auralis-playbar-safe-area: 116px; /* h-18 (72px) + player-bottom-gap (44px) */
+  /* Playbar safe area — modern floating island: 72px height + 24px bottom gap */
+  --auralis-playbar-safe-area: 96px;
   --auralis-shell-edge-gap: 12px;
   --auralis-shell-vertical-gap: 24px;
-  --auralis-player-bottom-gap: 44px;
+  --auralis-player-bottom-gap: 24px;
   --auralis-playbar-bg: rgba(30, 32, 35, 0.16);
   --auralis-playbar-border: rgba(225, 221, 214, 0.18);
   --auralis-playbar-highlight: rgba(255, 255, 255, 0.16);
@@ -150,11 +150,6 @@
   /* Lyrics tokens */
   --auralis-lyrics-active: #afafb0;
   --auralis-lyrics-inactive: #515152;
-
-  /* Titlebar tokens */
-  --auralis-titlebar-bg: transparent;
-  --auralis-titlebar-border: var(--auralis-border-subtle);
-  --auralis-titlebar-title: var(--auralis-text-muted);
 
   /* Sidebar active state */
   --auralis-sidebar-active-bg: #263244;
@@ -230,7 +225,6 @@ input {
 }
 
 .player-bar {
-  left: calc(50vw + 122px);
   position: fixed;
   isolation: isolate;
   background: transparent;
@@ -239,6 +233,307 @@ input {
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   overflow: visible;
   transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Transparent host spanning the main column; chrome lives on the island. */
+.player-bar[data-player-presentation='modern'] {
+  left: 260px;
+  right: 0;
+  bottom: 24px;
+  width: auto;
+  min-width: 0;
+  height: 72px;
+  transform: none;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.player-bar[data-player-presentation='modern']::before {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .player-bar[data-player-presentation='modern'] {
+    right: 20%;
+  }
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-island {
+  pointer-events: auto;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: stretch;
+  width: min(920px, calc(100% - 48px));
+  height: 72px;
+  min-width: 0;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.22),
+    0 8px 24px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  overflow: visible;
+  container-type: inline-size;
+  container-name: modern-player-bar;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-island::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 3;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      180deg,
+      var(--auralis-playbar-highlight) 0%,
+      var(--auralis-playbar-highlight-soft) 18%,
+      transparent 48%,
+      var(--auralis-playbar-lowlight) 100%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(74, 111, 165, 0.06),
+      transparent 10% 90%,
+      rgba(126, 166, 217, 0.06)
+    ),
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-glass,
+.player-bar[data-player-presentation='modern'] .player-bar-album-tint {
+  border-radius: inherit;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-row {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: center;
+  column-gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 12px;
+}
+
+.player-bar[data-player-presentation='modern'] .track-info-card {
+  min-width: 0;
+  z-index: 4;
+}
+
+.player-bar[data-player-presentation='modern'] .transport-controls {
+  gap: 6px;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-time,
+.player-bar[data-player-presentation='modern'] .player-bar-progress-clock {
+  margin: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--auralis-text-muted);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.player-bar[data-player-presentation='modern'] .playback-actions {
+  justify-self: end;
+  min-width: 0;
+  z-index: 4;
+  gap: 6px;
+}
+
+.player-bar[data-player-presentation='modern'] .track-info-row {
+  width: 100%;
+  min-width: 0;
+}
+
+.player-bar[data-player-presentation='modern'] .track-info-empty {
+  align-items: flex-start;
+  min-height: 44px;
+}
+
+.player-bar[data-player-presentation='modern'] .track-text {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.player-bar[data-player-presentation='modern'] .track-title,
+.player-bar[data-player-presentation='modern'] .track-subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-bar[data-player-presentation='modern'] .track-title {
+  letter-spacing: -0.01em;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-progress-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+  margin-top: 6px;
+  min-width: 0;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-progress-row--idle {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-progress-row .track-progress {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  width: 100%;
+  margin-top: 0;
+  height: 3px;
+  z-index: 5;
+}
+
+.player-bar[data-player-presentation='modern']
+  .player-bar-progress-row
+  .track-progress:hover {
+  height: 6px;
+}
+
+.player-bar[data-player-presentation='modern'] .track-progress--idle {
+  opacity: 0.28;
+  cursor: default;
+  pointer-events: none;
+}
+
+.player-bar[data-player-presentation='modern'] .track-progress--idle:hover {
+  height: 3px;
+}
+
+.player-bar[data-player-presentation='modern'] .track-progress--idle::after {
+  display: none;
+}
+
+.player-bar[data-player-presentation='modern'] .track-progress--idle .track-progress-fill::after {
+  display: none;
+  animation: none;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-overflow {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-overflow-panel {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  z-index: 72;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 176px;
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid var(--auralis-playbar-border);
+  background: var(--auralis-playbar-bg);
+  box-shadow: var(--auralis-playbar-shadow);
+  -webkit-backdrop-filter: blur(18px) saturate(1.12);
+  backdrop-filter: blur(18px) saturate(1.12);
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-overflow-item {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 10px;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-overflow-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--auralis-text);
+  white-space: nowrap;
+}
+
+@container modern-player-bar (max-width: 800px) {
+  .volume-control-group > .volume-slider {
+    display: none;
+  }
+
+  .volume-control-group[data-volume-open='true'] .volume-overlay {
+    display: flex;
+    align-items: center;
+  }
+}
+
+@container modern-player-bar (max-width: 720px) {
+  .track-subtitle {
+    display: none;
+  }
+}
+
+@container modern-player-bar (max-width: 640px) {
+  .player-bar-overflow {
+    display: inline-flex;
+  }
+}
+
+.player-bar[data-player-presentation='modern'] .volume-overlay {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  z-index: 71;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: var(--auralis-playbar-bg);
+  border: 1px solid var(--auralis-playbar-border);
+  box-shadow: var(--auralis-playbar-shadow);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .player-bar[data-player-presentation='modern'] .volume-overlay,
+  .player-bar[data-player-presentation='modern'] .player-bar-overflow-panel {
+    background: color-mix(in srgb, var(--auralis-dialog-bg) 92%, transparent);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-bar[data-player-presentation='modern'] .transport-controls,
+  .player-bar[data-player-presentation='modern'] .track-text,
+  .player-bar[data-player-presentation='modern'] .playback-actions {
+    transition: none;
+  }
+}
+
+/* Phase 23 dock layout wrappers — display:contents so named areas can place
+   grandchildren. Manuscript and modern each own their grid rules. */
+.player-bar-dock-main,
+.player-bar-dock-actions,
+.player-bar-dock-rule {
+  display: contents;
+}
+
+/* Phase 23 narrow-window volume overlay — hidden by default; manuscript and
+   modern container queries reveal it when the inline slider is collapsed. */
+.player-bar .volume-overlay {
+  display: none;
 }
 
 .player-bar-glass {
@@ -377,6 +672,18 @@ input {
     inset 0 -1px 0 rgba(0, 0, 0, 0.28);
 }
 
+.player-bar--liquid-glass[data-player-presentation='modern'] {
+  box-shadow: none;
+}
+
+.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-island {
+  box-shadow:
+    0 20px 52px rgba(0, 0, 0, 0.32),
+    0 6px 18px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.28);
+}
+
 .player-bar--liquid-glass .player-bar-glass {
   border-color: rgba(255, 255, 255, 0.25);
   background:
@@ -390,6 +697,7 @@ input {
   backdrop-filter: blur(18px) saturate(1.12) contrast(1.04);
 }
 
+.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-island::before,
 .player-bar--liquid-glass::before {
   background:
     linear-gradient(
@@ -405,7 +713,8 @@ input {
 
 .player-bar--liquid-glass .queue-popover,
 .player-bar--liquid-glass .playback-mode-menu,
-.player-bar--liquid-glass .desktop-lyrics-toast {
+.player-bar--liquid-glass .desktop-lyrics-toast,
+.player-bar--liquid-glass .player-bar-overflow-panel {
   border-color: rgba(255, 255, 255, 0.22);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(17, 19, 24, 0.36)),
@@ -465,11 +774,7 @@ input {
   }
 }
 
-@media (min-width: 1280px) {
-  .player-bar {
-    left: calc(40vw + 122px);
-  }
-}
+/* xl modern host right edge is owned by the modern presentation rule above. */
 
 @media (prefers-contrast: more) {
   .player-bar-glass {
@@ -581,36 +886,43 @@ input {
   box-shadow: 0 8px 20px color-mix(in srgb, var(--auralis-active-album-accent) 20%, transparent);
 }
 
-.transport-control-primary {
-  background: var(--auralis-active-album-accent) !important;
+.player-bar[data-player-presentation='modern'] .transport-control-primary {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: var(--auralis-control-primary-bg) !important;
   border: 1px solid color-mix(in srgb, var(--auralis-active-album-accent) 40%, transparent) !important;
-  color: white !important;
+  color: var(--auralis-control-primary-text) !important;
   box-shadow:
     0 4px 14px color-mix(in srgb, var(--auralis-active-album-accent) 35%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
-  border-radius: 99px;
-  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
 }
 
-.transport-control-primary:hover {
-  transform: translateY(-1.5px) scale(1.06);
+.player-bar[data-player-presentation='modern'] .transport-control-primary:hover {
+  transform: translateY(-1.5px) scale(1.08);
   box-shadow:
     0 6px 18px color-mix(in srgb, var(--auralis-active-album-accent) 45%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
 }
 
-.transport-control-primary:active {
-  transform: scale(0.95) !important;
+.player-bar[data-player-presentation='modern'] .transport-control-primary:active {
+  transform: scale(0.94) !important;
 }
 
 .transport-control {
   border-radius: 8px;
-  transition: all 0.2s ease;
+  transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .transport-control:hover {
   background: color-mix(in srgb, var(--auralis-active-album-accent) 12%, transparent) !important;
   color: var(--auralis-active-album-accent) !important;
+  transform: translateY(-1px) scale(1.06);
 }
 
 .transport-control:active {
@@ -618,13 +930,13 @@ input {
 }
 
 .track-progress {
-  height: 4px;
+  height: 3px;
   border-radius: 99px;
   background: var(--auralis-progress-track);
   position: relative;
   overflow: visible !important;
   cursor: pointer;
-  transition: height 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: height 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .track-progress:hover {
@@ -640,16 +952,8 @@ input {
   border-radius: inherit;
 }
 
-.track-progress-fill::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
-  animation: playbar-progress-shimmer 2.5s infinite linear;
-}
+/* Decorative shimmer is opt-in via presentation; modern dual-rail keeps the
+   rail calm unless actively hovered/dragged (thumb only). */
 
 @keyframes playbar-progress-shimmer {
   0% {
@@ -672,7 +976,7 @@ input {
   border: 2px solid var(--auralis-active-album-accent);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   transform: translate(-50%, -50%) scale(0);
-  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
   pointer-events: none;
 }
 
@@ -807,14 +1111,13 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   }
 }
 
-/* Titlebar drag region */
-.app-titlebar {
-  -webkit-app-region: drag;
-}
-
-.app-titlebar button,
-.app-titlebar-controls {
-  -webkit-app-region: no-drag;
+/* 主窗口客户区：底色 / 内描边跟随专辑色板 */
+.app-window {
+  background: var(--auralis-window-chrome-bg, var(--auralis-app-background));
+  box-shadow: inset 0 0 0 1px var(--auralis-window-chrome-border, transparent);
+  transition:
+    background-color 280ms ease,
+    box-shadow 280ms ease;
 }
 
 /* Sidebar */
@@ -857,25 +1160,28 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-header {
-  padding: 14px 12px 12px;
+  padding: 20px 16px 14px;
   border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 6%, transparent);
   background: transparent;
 }
 
-/* Brand left, two utility actions as a compact trailing cluster. */
+/* Left-aligned Brand on first row; 3-column equal tools on second row. */
 .sidebar-header-main {
   display: flex;
+  width: 100%;
   min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
 }
 
-.sidebar-brand {
+.sidebar-brand-left {
   display: flex;
+  width: 100%;
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   align-items: center;
+  justify-content: flex-start;
   gap: 10px;
 }
 
@@ -903,7 +1209,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   height: 17px;
 }
 
-.sidebar-brand:hover .sidebar-brand-mark {
+.sidebar-brand-left:hover .sidebar-brand-mark {
   transform: scale(1.06) rotate(6deg);
   border-color: var(--auralis-sidebar-active-indicator);
   box-shadow:
@@ -913,81 +1219,67 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 
 .sidebar-brand-copy {
   min-width: 0;
+  flex: 0 0 auto;
 }
 
 .sidebar-brand-name {
-  overflow: hidden;
-  /* 品牌名字加入金属渐变光感，锁定项目蓝色调 */
+  /* 渐变流光：hover 时白→主题蓝→白 高光带沿字面扫过（克制微动 ~250ms） */
   background: linear-gradient(
-    135deg,
-    var(--auralis-text) 50%,
-    var(--auralis-sidebar-active-indicator)
+    110deg,
+    #ffffff 42%,
+    var(--auralis-sidebar-active-indicator) 50%,
+    #ffffff 58%
   );
+  background-size: 250% 100%;
+  background-position: 100% 0;
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
-  font-size: 17px;
+  color: #ffffff; /* fallback：不支持 background-clip: text 时仍为白色 */
+  font-size: 18px;
   font-weight: 800;
-  line-height: 20px;
-  text-overflow: ellipsis;
+  line-height: 22px;
   white-space: nowrap;
+  flex-shrink: 0;
+  /* 750ms 足够看清高光带扫过（原 250ms 太快） */
+  transition: background-position 750ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.sidebar-brand-caption {
-  margin-top: 1px;
-  overflow: hidden;
-  color: var(--auralis-text-faint);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.sidebar-brand-left:hover .sidebar-brand-name {
+  background-position: 0 0;
 }
 
-.sidebar-tool-cluster {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 7%, transparent);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, white 5%, transparent), transparent 70%),
-    color-mix(in srgb, var(--auralis-control-hover-bg) 70%, transparent);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 6px 16px rgba(0, 0, 0, 0.12);
+/* 3-column equal grid tool row */
+.sidebar-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: 100%;
 }
 
 .sidebar-tool-button {
   display: inline-flex;
-  width: 32px;
+  width: 100%;
   height: 32px;
-  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
+  border-radius: 8px;
   color: var(--auralis-text-faint);
+  background: transparent;
   transition:
     color 180ms ease,
     background 180ms ease,
-    transform 180ms ease,
-    box-shadow 180ms ease;
+    transform 180ms ease;
 }
 
 .sidebar-tool-button:hover {
-  color: var(--auralis-sidebar-active-indicator) !important;
-  background: color-mix(
-    in srgb,
-    var(--auralis-sidebar-active-indicator) 14%,
-    transparent
-  ) !important;
-  transform: translateY(-1px);
+  color: var(--auralis-sidebar-active-indicator);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 14%, transparent);
+  transform: translateY(-0.5px);
 }
 
 .sidebar-tool-button:active {
-  transform: scale(0.94);
+  transform: scale(0.96);
 }
 
 .sidebar-tool-button:focus-visible {
@@ -1001,11 +1293,9 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-tool-button-active {
-  background: color-mix(in srgb, var(--auralis-sidebar-active-bg) 88%, transparent) !important;
-  color: var(--auralis-sidebar-active-indicator) !important;
-  box-shadow:
-    0 2px 8px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  /* 与 hover 一致的极轻 Hover Glow，避免亮块从无壳行里爆出来 */
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+  color: var(--auralis-sidebar-active-indicator);
 }
 
 .sidebar-navigation {
@@ -1359,6 +1649,19 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   color: var(--auralis-text-faint);
 }
 
+/*
+ * 窄视口（< xl，最小窗口 900px）下主内容约 640px 宽，英文
+ * Modern/Manuscript 切换控件（约 150px，固定右缘）会侵入居中的
+ * 360px 搜索条右侧。将搜索条中心左移 44px 让位，不触碰 transform
+ * 以免与 search-bar 进出场动画冲突。阈值取 960：覆盖 941-943px
+ * 视口下无偏移时约 1-2px 的临界擦碰。
+ */
+@media (max-width: 960px) {
+  .library-search-bar {
+    left: calc(50% - 44px);
+  }
+}
+
 .search-bar-enter-active,
 .search-bar-leave-active {
   transition:
@@ -1379,13 +1682,17 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .library-context-menu {
-  position: relative;
   overflow: visible;
   padding: 6px;
 }
 
 .liquid-glass-panel.library-context-menu-root {
   overflow: visible !important;
+}
+
+.liquid-glass-panel.library-context-menu-sub-panel {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
 }
 
 .liquid-glass-panel.library-context-menu-root > .liquid-glass-panel__refraction,
@@ -1705,9 +2012,30 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .app-window {
+    transition: none;
+  }
+
+  .sidebar-brand-name {
+    transition: none;
+  }
+
   .library-view-fade-enter-active,
   .library-view-fade-leave-active {
     transition-duration: 0ms !important;
+  }
+
+  /* Library 搜索框：去掉纵向位移，仅瞬时切换（Phase 6 REVIEW Finding 5） */
+  .search-bar-enter-active,
+  .search-bar-leave-active {
+    transition-duration: 0ms !important;
+  }
+
+  .search-bar-enter-from,
+  .search-bar-leave-to,
+  .search-bar-enter-to,
+  .search-bar-leave-from {
+    transform: translateX(-50%);
   }
 
   .album-detail-exit-matrix-leave-active,
@@ -1758,15 +2086,5 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   background: color-mix(in srgb, var(--auralis-text) 36%, transparent) !important;
 }
 
-/* 侧边栏顶部窗口控制按钮区 */
-.sidebar-window-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 20px 8px;
-  -webkit-app-region: drag;
-}
 
-.sidebar-window-controls .window-dot {
-  -webkit-app-region: no-drag;
-}
+

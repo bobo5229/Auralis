@@ -1,0 +1,139 @@
+/* ==========================================================================
+ * Phase 18 — manuscript player overlay surfaces (queue / mode menu / toast)
+ * Owner scope only: selectors MUST start with
+ *   .player-overlay[data-player-presentation='manuscript']
+ * Never hit Fullscreen, Miniplayer, the desktop-lyrics window or page owners.
+ * ========================================================================== */
+
+.player-overlay[data-player-presentation='manuscript'] {
+  background: var(--manuscript-surface-overlay);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-overlay);
+  border-radius: var(--manuscript-radius-page);
+  box-shadow: var(--manuscript-effect-overlay-shadow);
+  color: var(--manuscript-content-primary);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  /* Overlay-internal remaps for shared --auralis-* consumer classes. */
+  --auralis-text: var(--manuscript-content-primary);
+  --auralis-text-faint: var(--manuscript-content-faint);
+  --auralis-text-disabled: var(--manuscript-content-disabled);
+  --auralis-song-row-now-playing-bg: var(--manuscript-state-selected);
+  --auralis-song-row-now-playing-title: var(--manuscript-accent-primary);
+  --auralis-song-row-now-playing-artist: var(--manuscript-content-muted);
+}
+
+/* Gradient highlight + cover tint layers are modern-only. */
+.player-overlay[data-player-presentation='manuscript']::before,
+.player-overlay[data-player-presentation='manuscript']::after {
+  display: none !important;
+}
+
+.player-overlay[data-player-presentation='manuscript'] > * {
+  z-index: auto;
+}
+
+/* ---------- Queue drawer ---------- */
+.player-overlay[data-player-presentation='manuscript'] .queue-popover-header {
+  border-bottom: var(--manuscript-hairline-width) solid var(--manuscript-border-row);
+}
+
+.player-overlay[data-player-presentation='manuscript'] .queue-popover-title {
+  color: var(--manuscript-content-primary);
+}
+
+.player-overlay[data-player-presentation='manuscript'] .queue-popover-count,
+.player-overlay[data-player-presentation='manuscript'] .queue-popover-section-label {
+  color: var(--manuscript-content-muted);
+}
+
+.player-overlay[data-player-presentation='manuscript'] .queue-item {
+  border-radius: var(--manuscript-radius-control-inner);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.player-overlay[data-player-presentation='manuscript'] .queue-item:hover {
+  background: var(--manuscript-state-hover);
+}
+
+.player-overlay[data-player-presentation='manuscript'] .queue-item-active {
+  background: var(--manuscript-state-selected);
+}
+
+.player-overlay[data-player-presentation='manuscript'] .queue-item-title {
+  color: var(--manuscript-content-primary);
+}
+
+.player-overlay[data-player-presentation='manuscript'] .queue-item-subtitle {
+  color: var(--manuscript-content-muted);
+}
+
+.player-overlay[data-player-presentation='manuscript'] .queue-item-cover {
+  border-radius: var(--manuscript-radius-artwork);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-subtle);
+  background: var(--manuscript-surface-recessed);
+}
+
+.player-overlay[data-player-presentation='manuscript']
+  .queue-popover-scroll::-webkit-scrollbar-thumb {
+  background: var(--manuscript-border-strong);
+  border-radius: var(--manuscript-radius-indicator);
+}
+
+.player-overlay[data-player-presentation='manuscript'] .queue-item:focus-visible,
+.player-overlay[data-player-presentation='manuscript'] .playback-mode-item:focus-visible {
+  outline: var(--manuscript-focus-ring-width) solid var(--manuscript-state-focus-ring);
+  outline-offset: -2px;
+}
+
+/* ---------- Mode menu ---------- */
+.player-overlay[data-player-presentation='manuscript'] .playback-mode-item {
+  border-radius: var(--manuscript-radius-control-inner);
+  color: var(--manuscript-content-secondary);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.player-overlay[data-player-presentation='manuscript'] .playback-mode-item:hover {
+  background: var(--manuscript-state-hover);
+  color: var(--manuscript-content-primary);
+}
+
+.player-overlay[data-player-presentation='manuscript'] .playback-mode-item-active {
+  background: var(--manuscript-state-selected);
+  color: var(--manuscript-content-stamp);
+}
+
+/* ---------- Narrow-window volume overlay ---------- */
+.player-overlay[data-player-presentation='manuscript'].volume-overlay {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  z-index: 71;
+  padding: 10px;
+  border-radius: var(--manuscript-radius-control);
+  background: var(--manuscript-surface-overlay);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-overlay);
+  box-shadow: var(--manuscript-effect-overlay-shadow);
+}
+
+.player-overlay[data-player-presentation='manuscript'].volume-overlay .volume-overlay-slider {
+  width: 90px;
+}
+
+.player-overlay[data-player-presentation='manuscript'].volume-overlay
+  .volume-overlay-slider:focus-visible {
+  outline: var(--manuscript-focus-ring-width) solid var(--manuscript-state-focus-ring);
+  outline-offset: 2px;
+}
+
+/* ---------- Motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .player-overlay[data-player-presentation='manuscript'],
+  .player-overlay[data-player-presentation='manuscript'] * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

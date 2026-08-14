@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { logger } from '@main/logging/logger'
 
-const VALID_KEY = /^[a-f0-9]{64}\.(jpg|png|webp)$/
+const VALID_KEY = /^(?:[a-f0-9]{64}\.(jpg|png|webp)|v2-[a-f0-9]{64}\.webp)$/
 
 const EXT_TO_MIME: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -21,12 +21,21 @@ function isPathUnderCacheDir(filePath: string, cacheDir: string): boolean {
   return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel)
 }
 
+/**
+ * Must be called before app.whenReady().
+ * Privileges enable fetch()/CORS for auralis-artwork:// so consumers like
+ * Media Session artwork resolution can fetch blobs without console errors.
+ * NOTE: registered together with auralis-audio in registerPrivilegedMediaSchemes()
+ * (registerSchemesAsPrivileged may only be called once).
+ */
 export function registerArtworkProtocol(cacheDir: string): void {
   const resolvedCacheDir = resolve(cacheDir)
 
   protocol.handle('auralis-artwork', async (request) => {
     const url = new URL(request.url)
-    const key = decodeURIComponent(url.hostname + url.pathname)
+    // standard scheme 下无路径时 pathname 为 '/'，需剔除再拼 key（key 存于 hostname）
+    const pathPart = url.pathname === '/' ? '' : url.pathname
+    const key = decodeURIComponent(url.hostname + pathPart)
 
     if (!VALID_KEY.test(key)) {
       logger.warn({ key }, 'Invalid artwork protocol key')

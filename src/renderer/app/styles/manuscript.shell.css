@@ -1,0 +1,51 @@
+/* Phase 17 shell canvas — owner scope only */
+
+.app-window[data-shell-presentation='manuscript'] {
+  background: var(--manuscript-surface-page);
+  box-shadow: inset 0 0 0 1px var(--manuscript-border-strong);
+  transition: none;
+  /* Phase 23 dual safe-area: the manuscript dock footer is 72px + 16px
+     breathing space. Consumers resolve this var inside the shell scope;
+     the global modern value (116px = 72 + 44 floating gap) stays untouched. */
+  --auralis-playbar-safe-area: 88px;
+}
+
+.app-window[data-shell-presentation='manuscript'] .app-shell {
+  background: var(--manuscript-surface-page);
+}
+
+.app-window[data-shell-presentation='manuscript'] .app-main {
+  background: transparent;
+}
+
+.app-window[data-shell-presentation='manuscript'] .app-shell-bg-fluid,
+.app-window[data-shell-presentation='manuscript'] .app-shell-bg-overlay {
+  display: none;
+}
+
+@media (prefers-contrast: more) {
+  .app-window[data-shell-presentation='manuscript'] {
+    box-shadow: inset 0 0 0 2px var(--manuscript-border-strong);
+  }
+
+  .app-window[data-shell-presentation='manuscript'] .app-shell {
+    background: var(--manuscript-surface-page);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-window[data-shell-presentation='manuscript'] .app-shell,
+  .app-window[data-shell-presentation='manuscript'] .app-main {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-window[data-shell-presentation='manuscript'],
+  .app-window[data-shell-presentation='manuscript'] .app-shell,
+  .app-window[data-shell-presentation='manuscript'] .app-main {
+    animation: none !important;
+    transition: none !important;
+  }
+}

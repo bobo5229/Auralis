@@ -1,0 +1,433 @@
+{
+  "nav": {
+    "songs": "Songs",
+    "albums": "Albums",
+    "archive": "Archive"
+  },
+  "sidebar": {
+    "library": "Library",
+    "playlists": "Playlists",
+    "playlistsEmpty": "No playlists yet",
+    "playlistNameRequired": "Name cannot be empty",
+    "newPlaylist": "New playlist",
+    "newSmartPlaylist": "New smart playlist",
+    "smartPlaylists": "Smart playlists",
+    "rename": "Rename",
+    "delete": "Delete",
+    "renameDialogTitle": "Rename playlist",
+    "playlistName": "Playlist name",
+    "cancel": "Cancel",
+    "save": "Save",
+    "create": "Create",
+    "queryDialogTitle": "Create smart playlist",
+    "queryAria": "Smart playlist query syntax",
+    "queryRequired": "Please enter a query",
+    "queryParseFailed": "Could not parse the query",
+    "deletePlaylistTitle": "Delete playlist?",
+    "deleteSmartPlaylistTitle": "Delete smart playlist?",
+    "toolbarAria": "Sidebar tools",
+    "tool": {
+      "facets": "Filter",
+      "facetsPanel": "Filter panel",
+      "miniPlayer": "Mini player",
+      "miniPlayerAction": "Switch to mini player",
+      "settings": "Settings"
+    }
+  },
+  "facets": {
+    "title": "Facets",
+    "trackCount": "{count} tracks",
+    "reset": "Reset",
+    "close": "Close",
+    "loading": "Loading facets…",
+    "genre": "Genre",
+    "albumArtist": "Album artist",
+    "album": "Album",
+    "createSmartPlaylist": "Create smart playlist",
+    "unknownGenre": "Unknown Genre",
+    "unknownArtist": "Unknown Artist",
+    "unknownAlbum": "Unknown Album"
+  },
+  "settings": {
+    "title": "Settings",
+    "eyebrow": "Preferences",
+    "headerDescription": "Manage your local music library and view app info.",
+    "navAriaLabel": "Settings sections",
+    "nav": {
+      "appearance": "Appearance",
+      "playback": "Playback",
+      "library": "Music Library",
+      "about": "About",
+      "appearanceDescription": "Current display theme",
+      "playbackDescription": "Audio transition behavior",
+      "libraryDescription": "Manage music files and metadata",
+      "aboutDescription": "Version and local data location"
+    },
+    "appearance": {
+      "headingTitle": "Appearance",
+      "headingDescription": "Page visual style, interface language, and player bar material are independent settings.",
+      "visualStyle": {
+        "label": "Page visual style",
+        "description": "Choose how covered catalog pages look. This is not the app theme and does not restyle the player or sidebar yet.",
+        "modernLabel": "Modern",
+        "modernDescription": "Dark, compact surfaces with soft corners and material depth.",
+        "manuscriptLabel": "Manuscript",
+        "manuscriptDescription": "Paper pages, ink type, hairline rules, and a restrained archival accent.",
+        "coverage": "Manuscript currently covers All Songs, playlists, albums, album detail, archive, and Settings. Sidebar, Now Playing, and PlayerBar stay on their existing surfaces.",
+        "ariaCurrent": "Current page visual style: {style}"
+      },
+      "themeAria": "Display theme",
+      "themeValue": "Dark",
+      "themeDescription": "Light theme is temporarily offline; the theme API remains for future multi-theme support.",
+      "language": "Display language",
+      "languageDescription": "Choose the language for the app interface.",
+      "playerBarMaterial": "Player bar material",
+      "playerBarMaterialDescription": "Tint the player bar with the current album artwork, or use the more translucent Liquid Glass effect.",
+      "playerBarMaterialOption": {
+        "coverTint": "Cover tint",
+        "liquidGlass": "Liquid Glass"
+      },
+      "note": "The app always uses the dark interface."
+    },
+    "playback": {
+      "headingTitle": "Playback",
+      "headingDescription": "Control track transitions and audio preloading.",
+      "gapless": "Gapless playback",
+      "gaplessDescription": "Pre-decode the next track and skip detectable digital silence between tracks of the same album",
+      "gaplessAriaOn": "Gapless playback, currently on",
+      "gaplessAriaOff": "Gapless playback, currently off",
+      "note": "Turning it off won't interrupt the current track; it applies from the next track change."
+    },
+    "library": {
+      "headingTitle": "Music Library",
+      "headingDescription": "Manage how Auralis reads and organizes your music.",
+      "currentFolder": "Current music folder",
+      "noFolderSelected": "No music folder selected yet",
+      "lastScanned": "Last scanned: {time}",
+      "chooseFolderHint": "Choose a folder to build your local library",
+      "changeFolder": "Change folder",
+      "selectFolder": "Select folder",
+      "rescan": "Rescan",
+      "scanLibrary": "Scan library",
+      "status": "Status",
+      "discovered": "Found",
+      "fileCount": "{count} files",
+      "scanningTitle": "Organizing your music library",
+      "scanningMessage": "Reading music files…",
+      "cancel": "Cancel",
+      "fileProgress": "{scanned} / {total} files",
+      "failedCount": "{count} failed",
+      "scanStatus": {
+        "scanning": "Scanning",
+        "waitingFirst": "Awaiting first scan",
+        "notConfigured": "Not configured",
+        "completed": "Scan completed",
+        "canceled": "Scan canceled",
+        "failed": "Scan failed",
+        "queued": "Queued",
+        "unknown": "Unknown status"
+      },
+      "neverScanned": "Never scanned",
+      "maintenanceTitle": "Metadata maintenance",
+      "maintenanceDescription": "Re-read audio files to fill in missing titles, artists, lyrics, and artwork.",
+      "maintaining": "Maintaining…",
+      "fillMissing": "Fill in missing info",
+      "refreshCompleted": "Completed · updated {updated}, {failed} failed",
+      "refreshFailed": "Metadata maintenance failed",
+      "refreshProcessing": "Processing {processed} / {total}",
+      "failuresHeading": "Some files could not be fully maintained",
+      "failureRecords": "Failure records",
+      "clearing": "Clearing…",
+      "clearRecords": "Clear records",
+      "trackFallback": "Track {id}",
+      "unknown": "Unknown",
+      "jobPrefix": "Job {id}",
+      "errors": {
+        "loadState": "Could not read library state",
+        "clearFailures": "Could not clear failure records",
+        "selectFolder": "Could not choose music folder",
+        "startScan": "Could not start scan",
+        "cancelScan": "Could not cancel scan",
+        "startRefresh": "Could not start metadata maintenance"
+      }
+    },
+    "about": {
+      "headingTitle": "About Auralis",
+      "headingDescription": "A quiet, private local music archive.",
+      "tagline": "Local Music Archive",
+      "version": "Version",
+      "versionDescription": "The currently installed app version",
+      "versionUnavailable": "Unavailable",
+      "databaseLocation": "Database location",
+      "databaseReadFailed": "Failed to read app info",
+      "databaseLoading": "Loading…",
+      "copyPath": "Copy path",
+      "copySuccess": "Copied",
+      "copyFailed": "Copy failed",
+      "note": "Music files and library data are all stored locally."
+    }
+  },
+  "player": {
+    "play": "Play",
+    "pause": "Pause",
+    "next": "Next",
+    "previous": "Previous",
+    "queue": "Queue",
+    "volume": "Volume",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "mode": "Playback mode",
+    "more": "More player controls",
+    "progress": "Playback progress",
+    "fullscreen": "Open full-screen player",
+    "queueCount": "{count} tracks",
+    "queueEmpty": "Queue is empty",
+    "nowPlaying": "Now playing",
+    "upNext": "Up next",
+    "playTrack": "Play {title}",
+    "unknownTrack": "Unknown track",
+    "unknownArtist": "Unknown Artist",
+    "lyricsLoading": "Loading lyrics",
+    "lyricsEmpty": "No lyrics",
+    "lyricsNoTrack": "No track selected",
+    "lyricsSeekToLine": "Jump to: {text}",
+    "lyricsSeekToTime": "Jump to {seconds} seconds",
+    "lyricsStartingSoon": "Lyrics starting soon",
+    "modeOption": {
+      "sequential": "Sequential",
+      "repeat-all": "Repeat all",
+      "repeat-one": "Repeat one",
+      "shuffle": "Shuffle",
+      "album-shuffle": "Album shuffle"
+    },
+    "modeDock": {
+      "sequential": "Seq",
+      "repeat-all": "Loop",
+      "repeat-one": "One",
+      "shuffle": "Shuffle",
+      "album-shuffle": "Album"
+    },
+    "desktopLyrics": {
+      "menu": "Desktop lyrics",
+      "ariaPassthroughOn": "Desktop lyrics, mouse passthrough enabled",
+      "ariaPassthroughOff": "Desktop lyrics, mouse passthrough disabled",
+      "titlePassthroughOn": "Right-click to disable mouse passthrough",
+      "titlePassthroughOff": "Right-click to enable mouse passthrough",
+      "toastOn": "Desktop lyrics enabled",
+      "toastOff": "Desktop lyrics disabled",
+      "passthroughOn": "Mouse passthrough enabled",
+      "passthroughOff": "Mouse passthrough disabled"
+    }
+  },
+  "fullscreen": {
+    "overlayAria": "Full-screen player",
+    "repeatEnableOne": "Enable repeat one",
+    "repeatDisable": "Disable repeat",
+    "repeatEnableAll": "Enable repeat all",
+    "lyricsStartingSoon": "Lyrics starting soon"
+  },
+  "miniPlayer": {
+    "open": "Open mini player",
+    "close": "Close mini player",
+    "play": "Play",
+    "pause": "Pause",
+    "next": "Next",
+    "previous": "Previous",
+    "toolbarAria": "Mini player tools",
+    "doubleClickRestore": "Double-click to return to main window",
+    "nothingPlaying": "Nothing playing",
+    "queueShort": "Queue",
+    "modeAria": "Playback mode: {mode}"
+  },
+  "albums": {
+    "detail": {
+      "back": "Back to Albums",
+      "play": "Play",
+      "shuffle": "Shuffle",
+      "tracks": "Tracks",
+      "disc": "Disc {number}",
+      "trackCount": {
+        "one": "{count} track",
+        "other": "{count} tracks"
+      },
+      "duration": {
+        "zero": "00 min 00 sec",
+        "minutes": "{minutes} min {seconds} sec",
+        "hours": "{hours} hr {minutes} min"
+      },
+      "listenSummary": {
+        "plays": "Played {count} times",
+        "minutes": "Played {count} times · about {minutes} min",
+        "hours": "Played {count} times · about {hours} hr"
+      },
+      "unknownYear": "Unknown year",
+      "unknownTitle": "Untitled track",
+      "moreAlbumsTitle": "More albums by {artist}",
+      "moreAlbumsAria": "More albums by {artist}",
+      "openAlbumAria": "Open album {title}",
+      "coverAlt": "Cover for {title}",
+      "heroAria": "Album cover and details for {title}",
+      "loading": "Loading album…",
+      "loadError": "Failed to load album",
+      "notFound": "Album not found",
+      "retry": "Retry",
+      "returnToAlbums": "Return to Albums"
+    },
+    "manuscript": {
+      "title": "Record Catalog",
+      "subtitle": "Private Music Collection Index",
+      "albumCount": "{count} albums",
+      "trackCount": "{count} tracks",
+      "catalogNumber": "CAT {number}",
+      "viewLabel": "Display"
+    },
+    "search": {
+      "ariaLabel": "Search albums and album artists",
+      "placeholder": "Search albums and album artists",
+      "matched": "Jumped to {index} of {total}",
+      "wrapped": "Wrapped to top ({index} of {total})",
+      "notFound": "No matching albums"
+    },
+    "view": {
+      "ariaLabel": "Album view mode",
+      "grid": "Regular grid",
+      "perspective": "Perspective covers"
+    },
+    "contextMenu": {
+      "locateCurrent": "Locate current album",
+      "play": "Play \"{title}\"",
+      "insert": "Play next \"{title}\"",
+      "switchToPerspective": "Switch to perspective cover view",
+      "switchToGrid": "Switch to regular cover view"
+    },
+    "status": {
+      "loading": "Loading album catalog…",
+      "empty": "No albums yet. Add a music folder in Settings.",
+      "loadError": "Failed to load album catalog",
+      "retry": "Retry"
+    },
+    "a11y": {
+      "openAlbum": "Open album {title}",
+      "coverAlt": "Cover for {title}"
+    }
+  },
+  "library": {
+    "manuscript": {
+      "header": {
+        "title": "All Songs",
+        "subtitle": "Private Music Collection Ledger",
+        "libraryMembership": "Main library catalog",
+        "playlistSubtitle": "Private anthology",
+        "playlistKind": "Hand-curated",
+        "playlistMembership": "A collection you maintain",
+        "smartPlaylistSubtitle": "Dynamic index",
+        "smartPlaylistKind": "Rule-generated",
+        "smartPlaylistMembership": "Read-only members that update automatically",
+        "untitled": "Untitled playlist",
+        "playlistFallback": "Playlist",
+        "smartPlaylistFallback": "Smart playlist",
+        "loadingTitle": "Binding the folio…",
+        "loadingSubtitle": "Retrieving catalog identity",
+        "trackCount": "{count} tracks",
+        "folio": "FOLIO {current} / {total}"
+      },
+      "ledger": {
+        "index": "NO.",
+        "artwork": "ART",
+        "title": "TITLE",
+        "artist": "ARTIST",
+        "album": "ALBUM",
+        "duration": "TIME"
+      },
+      "catalog": {
+        "number": "CAT {number} / {count} TRACKS",
+        "trackCount": "{count} TRACKS",
+        "fields": "NO. / TITLE / GENRE / TIME"
+      },
+      "status": {
+        "playing": "PLAY",
+        "paused": "PAUSE"
+      },
+      "missing": {
+        "title": "Untitled track",
+        "artist": "Unknown artist",
+        "album": "Unknown album",
+        "date": "Unknown date",
+        "genre": "Unclassified",
+        "artwork": "No artwork"
+      }
+    },
+    "search": {
+      "ariaLabel": "Search the current list",
+      "placeholder": "Search title, artist, album…",
+      "matched": "Jumped to {index} of {total}",
+      "wrapped": "Wrapped to top ({index} of {total})",
+      "notFound": "No matches found",
+      "clearSearch": "Clear search"
+    },
+    "contextMenu": {
+      "ariaLabel": "Library context menu",
+      "locateCurrent": "Locate current track",
+      "playTrack": "Play \"{title}\"",
+      "playAlbum": "Play album \"{album}\"",
+      "insertTrack": "Play next \"{title}\"",
+      "insertAlbum": "Play album next \"{album}\"",
+      "addToPlaylist": "Add to playlist",
+      "createPlaylist": "New playlist",
+      "editMetadata": "Edit metadata",
+      "switchToCover": "Switch to cover view",
+      "switchToFlat": "Switch to flat view",
+      "refresh": "Refresh library",
+      "noPlaylists": "No playlists available",
+      "playlistLoading": "Loading playlists…",
+      "playlistLoadError": "Failed to load playlists",
+      "addedSuccess": "Added to \"{name}\""
+    },
+    "metadataEditor": {
+      "title": "Edit Metadata",
+      "ariaLabel": "Edit track metadata",
+      "fields": {
+        "title": "Title",
+        "artist": "Artist",
+        "album": "Album",
+        "albumArtist": "Album Artist",
+        "genre": "Genre",
+        "year": "Year",
+        "releaseDate": "Release Date"
+      },
+      "placeholders": {
+        "title": "Enter track title",
+        "artist": "Enter artist name",
+        "album": "Enter album title",
+        "albumArtist": "Enter album artist name",
+        "genre": "Enter genre",
+        "year": "e.g. 2024",
+        "releaseDate": "e.g. 2024-05-20"
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving…"
+      },
+      "validation": {
+        "yearInvalid": "Year must be a 4-digit number",
+        "dateInvalid": "Release date must be in YYYY-MM-DD format"
+      },
+      "errors": {
+        "saveFailed": "Failed to save metadata"
+      }
+    },
+    "status": {
+      "loading": "Loading music library…",
+      "emptyAll": "No tracks in library",
+      "emptyPlaylist": "No tracks in playlist",
+      "emptySmartPlaylist": "No tracks match smart playlist criteria",
+      "loadError": "Failed to load music library",
+      "retry": "Retry"
+    },
+    "a11y": {
+      "songRow": "Track {index}: {title} - {artist}",
+      "albumArtwork": "Album {album}, press Enter for album context menu"
+    }
+  }
+}

@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import type { VisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 
 withDefaults(
   defineProps<{
     radius?: number
+    presentation?: VisualStyle
   }>(),
   {
     radius: 20,
+    presentation: 'modern',
   },
 )
 
@@ -20,17 +23,30 @@ function updateLight(event: PointerEvent): void {
   element.style.setProperty('--glass-pointer-x', `${event.clientX - bounds.left}px`)
   element.style.setProperty('--glass-pointer-y', `${event.clientY - bounds.top}px`)
 }
+
+defineExpose({
+  getElement: (): HTMLElement | null => panel.value,
+})
 </script>
 
 <template>
   <div
     ref="panel"
     class="liquid-glass-panel"
+    :class="{ 'liquid-glass-panel--manuscript': presentation === 'manuscript' }"
     :style="{ '--glass-radius': `${radius}px` }"
     @pointermove="updateLight"
   >
-    <div class="liquid-glass-panel__refraction" aria-hidden="true"></div>
-    <div class="liquid-glass-panel__highlight" aria-hidden="true"></div>
+    <div
+      v-if="presentation !== 'manuscript'"
+      class="liquid-glass-panel__refraction"
+      aria-hidden="true"
+    ></div>
+    <div
+      v-if="presentation !== 'manuscript'"
+      class="liquid-glass-panel__highlight"
+      aria-hidden="true"
+    ></div>
     <div class="liquid-glass-panel__content">
       <slot></slot>
     </div>
@@ -48,7 +64,6 @@ function updateLight(event: PointerEvent): void {
 .liquid-glass-panel {
   --glass-pointer-x: 24%;
   --glass-pointer-y: 12%;
-  position: relative;
   isolation: isolate;
   border-radius: var(--glass-radius);
   background: color-mix(in srgb, var(--auralis-context-menu-bg) 78%, transparent);
@@ -59,6 +74,30 @@ function updateLight(event: PointerEvent): void {
   backdrop-filter: blur(18px) saturate(1.18) contrast(1.04);
   -webkit-backdrop-filter: blur(18px) saturate(1.18) contrast(1.04);
   overflow: hidden;
+}
+
+/*
+ * Default positioning only: the panel must stay a containing block for its
+ * absolute glass layers, but callers that pin the panel with their own
+ * position utilities (context menus pass `fixed` / `absolute`) must win.
+ * Layered author rules lose to un-layered ones, so a caller's `.fixed` or
+ * `.absolute` always overrides this default `relative`; callers that pass no
+ * position keep the in-flow relative default.
+ */
+@layer liquid-glass-panel {
+  .liquid-glass-panel {
+    position: relative;
+  }
+}
+
+.liquid-glass-panel--manuscript {
+  background: var(--manuscript-surface-overlay, #f3eedf) !important;
+  border: var(--manuscript-hairline-width, 1px) solid
+    var(--manuscript-border-overlay, rgba(48, 43, 37, 0.46)) !important;
+  border-radius: var(--manuscript-radius-control, 2px) !important;
+  box-shadow: var(--manuscript-effect-overlay-shadow, 0 8px 24px rgba(41, 39, 35, 0.16)) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .liquid-glass-panel__refraction,

@@ -147,6 +147,40 @@ export class TrackRepository extends BaseRepository {
     return existing
   }
 
+  /**
+   * Read the persisted scan fingerprint (file_size + file_mtime_ms) for the
+   * given paths. Paths absent from the table are simply not present in the
+   * map. Used by the metadata watcher to skip a refresh job when a file was
+   * only opened for reading (same fingerprint as the last scan).
+   */
+  getFileFingerprintsByFilePaths(
+    filePaths: string[],
+  ): Map<string, { fileSize: number; fileMtimeMs: number }> {
+    const uniquePaths = [...new Set(filePaths)].filter(Boolean)
+    const fingerprints = new Map<string, { fileSize: number; fileMtimeMs: number }>()
+
+    if (uniquePaths.length === 0) {
+      return fingerprints
+    }
+
+    for (let index = 0; index < uniquePaths.length; index += 400) {
+      const batch = uniquePaths.slice(index, index + 400)
+      const placeholders = batch.map(() => '?').join(', ')
+      const rows = this.db
+        .prepare(
+          `SELECT file_path AS filePath, file_size AS fileSize, file_mtime_ms AS fileMtimeMs
+           FROM tracks WHERE file_path IN (${placeholders})`,
+        )
+        .all(...batch) as Array<{ filePath: string; fileSize: number; fileMtimeMs: number }>
+
+      for (const row of rows) {
+        fingerprints.set(row.filePath, { fileSize: row.fileSize, fileMtimeMs: row.fileMtimeMs })
+      }
+    }
+
+    return fingerprints
+  }
+
   getLyricsByTrackId(trackId: number): TrackLyrics | null {
     const row = this.db
       .prepare(
@@ -263,8 +297,11 @@ export class TrackRepository extends BaseRepository {
       VALUES (?, ?, ?)
       ON CONFLICT(title, artist) DO UPDATE SET
         artwork_cache_key = excluded.artwork_cache_key
-        WHERE albums.artwork_cache_key IS NULL
-          AND excluded.artwork_cache_key IS NOT NULL
+        WHERE excluded.artwork_cache_key LIKE 'v2-%.webp'
+          AND (
+            albums.artwork_cache_key IS NULL
+            OR albums.artwork_cache_key NOT LIKE 'v2-%.webp'
+          )
     `)
 
     const upsertBatch = this.db.transaction((items: ScannedTrack[]) => {
@@ -310,8 +347,11 @@ export class TrackRepository extends BaseRepository {
       VALUES (?, ?, ?)
       ON CONFLICT(title, artist) DO UPDATE SET
         artwork_cache_key = excluded.artwork_cache_key
-        WHERE albums.artwork_cache_key IS NULL
-          AND excluded.artwork_cache_key IS NOT NULL
+        WHERE excluded.artwork_cache_key LIKE 'v2-%.webp'
+          AND (
+            albums.artwork_cache_key IS NULL
+            OR albums.artwork_cache_key NOT LIKE 'v2-%.webp'
+          )
     `)
 
     const batch = this.db.transaction((patches: AlbumArtworkPatch[]) => {

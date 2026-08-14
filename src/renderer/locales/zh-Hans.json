@@ -1,0 +1,433 @@
+{
+  "nav": {
+    "songs": "歌曲",
+    "albums": "专辑",
+    "archive": "声迹"
+  },
+  "sidebar": {
+    "library": "资料库",
+    "playlists": "歌单",
+    "playlistsEmpty": "暂无歌单",
+    "playlistNameRequired": "名称不能为空",
+    "newPlaylist": "新建歌单",
+    "newSmartPlaylist": "新建智能歌单",
+    "smartPlaylists": "智能歌单",
+    "rename": "重命名",
+    "delete": "删除",
+    "renameDialogTitle": "重命名歌单",
+    "playlistName": "歌单名称",
+    "cancel": "取消",
+    "save": "保存",
+    "create": "创建",
+    "queryDialogTitle": "创建智能歌单",
+    "queryAria": "智能歌单查询语法",
+    "queryRequired": "请输入查询语法",
+    "queryParseFailed": "无法解析查询语法",
+    "deletePlaylistTitle": "删除歌单？",
+    "deleteSmartPlaylistTitle": "删除智能歌单？",
+    "toolbarAria": "侧栏工具",
+    "tool": {
+      "facets": "筛选",
+      "facetsPanel": "筛选面板",
+      "miniPlayer": "迷你播放器",
+      "miniPlayerAction": "切换到迷你播放器",
+      "settings": "设置"
+    }
+  },
+  "facets": {
+    "title": "筛选",
+    "trackCount": "{count} 首曲目",
+    "reset": "重置",
+    "close": "关闭",
+    "loading": "正在加载筛选…",
+    "genre": "流派",
+    "albumArtist": "专辑艺术家",
+    "album": "专辑",
+    "createSmartPlaylist": "创建智能歌单",
+    "unknownGenre": "未知流派",
+    "unknownArtist": "未知艺人",
+    "unknownAlbum": "未知专辑"
+  },
+  "settings": {
+    "title": "设置",
+    "eyebrow": "偏好设置",
+    "headerDescription": "管理你的本地音乐资料库，查看应用信息。",
+    "navAriaLabel": "设置分类",
+    "nav": {
+      "appearance": "外观",
+      "playback": "播放",
+      "library": "音乐资料库",
+      "about": "关于",
+      "appearanceDescription": "当前显示主题",
+      "playbackDescription": "控制音频衔接方式",
+      "libraryDescription": "管理音乐文件与元数据",
+      "aboutDescription": "版本与本地数据位置"
+    },
+    "appearance": {
+      "headingTitle": "外观",
+      "headingDescription": "页面视觉风格、界面语言和播放栏材质是彼此独立的设置。",
+      "visualStyle": {
+        "label": "页面视觉风格",
+        "description": "选择已覆盖目录页的呈现方式。这不是应用主题，也不会立刻改写播放器或侧栏。",
+        "modernLabel": "流光",
+        "modernDescription": "深色紧凑表面，柔和圆角与材质层次。",
+        "manuscriptLabel": "手稿",
+        "manuscriptDescription": "纸页、墨色文字、细线分隔和克制的档案强调色。",
+        "coverage": "手稿目前覆盖全部歌曲、歌单、专辑目录、专辑详情、归档和设置。侧栏、正在播放和播放栏仍使用既有表面。",
+        "ariaCurrent": "当前页面视觉风格：{style}"
+      },
+      "themeAria": "显示主题",
+      "themeValue": "深色",
+      "themeDescription": "浅色主题已暂时下线；主题 API 仍保留，便于日后恢复多主题。",
+      "language": "界面语言",
+      "languageDescription": "选择应用界面显示的语言。",
+      "playerBarMaterial": "播放栏材质",
+      "playerBarMaterialDescription": "选择播放栏跟随专辑封面取色，或使用更通透的 Liquid Glass 效果。",
+      "playerBarMaterialOption": {
+        "coverTint": "封面取色",
+        "liquidGlass": "Liquid Glass"
+      },
+      "note": "应用始终使用深色界面。"
+    },
+    "playback": {
+      "headingTitle": "播放",
+      "headingDescription": "控制曲目之间的衔接与音频预加载行为。",
+      "gapless": "无缝播放",
+      "gaplessDescription": "提前解码下一首，并在同专辑曲目交界处跳过可识别的数字静音",
+      "gaplessAriaOn": "无缝播放，当前已开启",
+      "gaplessAriaOff": "无缝播放，当前已关闭",
+      "note": "关闭后不会中断当前曲目，将从下一次切歌起使用普通播放。"
+    },
+    "library": {
+      "headingTitle": "音乐资料库",
+      "headingDescription": "管理 Auralis 读取和整理音乐的方式。",
+      "currentFolder": "当前音乐文件夹",
+      "noFolderSelected": "尚未选择音乐文件夹",
+      "lastScanned": "上次扫描：{time}",
+      "chooseFolderHint": "选择一个文件夹以建立本地资料库",
+      "changeFolder": "更换文件夹",
+      "selectFolder": "选择文件夹",
+      "rescan": "重新扫描",
+      "scanLibrary": "扫描资料库",
+      "status": "状态",
+      "discovered": "已发现",
+      "fileCount": "{count} 个文件",
+      "scanningTitle": "正在整理音乐资料库",
+      "scanningMessage": "正在读取音乐文件…",
+      "cancel": "取消",
+      "fileProgress": "{scanned} / {total} 个文件",
+      "failedCount": "{count} 个失败",
+      "scanStatus": {
+        "scanning": "正在扫描",
+        "waitingFirst": "等待首次扫描",
+        "notConfigured": "尚未设置",
+        "completed": "扫描完成",
+        "canceled": "扫描已取消",
+        "failed": "扫描失败",
+        "queued": "等待扫描",
+        "unknown": "未知状态"
+      },
+      "neverScanned": "从未扫描",
+      "maintenanceTitle": "元数据维护",
+      "maintenanceDescription": "重新读取音频文件，补全缺失的标题、艺术家、歌词和封面。",
+      "maintaining": "正在维护…",
+      "fillMissing": "补全缺失信息",
+      "refreshCompleted": "已完成 · 更新 {updated} 首，失败 {failed} 首",
+      "refreshFailed": "元数据维护失败",
+      "refreshProcessing": "正在处理 {processed} / {total}",
+      "failuresHeading": "最近有文件未能完成元数据维护",
+      "failureRecords": "失败记录",
+      "clearing": "正在清除…",
+      "clearRecords": "清除记录",
+      "trackFallback": "曲目 {id}",
+      "unknown": "未知",
+      "jobPrefix": "任务 {id}",
+      "errors": {
+        "loadState": "无法读取音乐资料库状态",
+        "clearFailures": "无法清除失败记录",
+        "selectFolder": "无法选择音乐文件夹",
+        "startScan": "无法开始扫描",
+        "cancelScan": "无法取消扫描",
+        "startRefresh": "无法开始元数据维护"
+      }
+    },
+    "about": {
+      "headingTitle": "关于 Auralis",
+      "headingDescription": "一个安静、私密的本地音乐归档工具。",
+      "tagline": "Local Music Archive",
+      "version": "版本",
+      "versionDescription": "当前安装的应用版本",
+      "versionUnavailable": "无法读取",
+      "databaseLocation": "数据库位置",
+      "databaseReadFailed": "无法读取应用信息",
+      "databaseLoading": "正在读取…",
+      "copyPath": "复制路径",
+      "copySuccess": "已复制",
+      "copyFailed": "复制失败",
+      "note": "音乐文件和资料库数据均保存在本机。"
+    }
+  },
+  "player": {
+    "play": "播放",
+    "pause": "暂停",
+    "next": "下一首",
+    "previous": "上一首",
+    "queue": "播放队列",
+    "volume": "音量",
+    "mute": "静音",
+    "unmute": "取消静音",
+    "mode": "播放模式",
+    "more": "更多播放控件",
+    "progress": "播放进度",
+    "fullscreen": "打开全屏播放器",
+    "queueCount": "{count} 首",
+    "queueEmpty": "暂无播放队列",
+    "nowPlaying": "正在播放",
+    "upNext": "接下来",
+    "playTrack": "播放 {title}",
+    "unknownTrack": "未知歌曲",
+    "unknownArtist": "未知艺人",
+    "lyricsLoading": "歌词加载中",
+    "lyricsEmpty": "暂无歌词",
+    "lyricsNoTrack": "未选择曲目",
+    "lyricsSeekToLine": "跳转到：{text}",
+    "lyricsSeekToTime": "跳转到 {seconds} 秒",
+    "lyricsStartingSoon": "歌词即将开始",
+    "modeOption": {
+      "sequential": "顺序播放",
+      "repeat-all": "列表循环",
+      "repeat-one": "单曲循环",
+      "shuffle": "随机播放",
+      "album-shuffle": "专辑随机"
+    },
+    "modeDock": {
+      "sequential": "顺序",
+      "repeat-all": "循环",
+      "repeat-one": "单曲",
+      "shuffle": "随机",
+      "album-shuffle": "专辑"
+    },
+    "desktopLyrics": {
+      "menu": "桌面歌词",
+      "ariaPassthroughOn": "桌面歌词，鼠标穿透已开启",
+      "ariaPassthroughOff": "桌面歌词，鼠标穿透已关闭",
+      "titlePassthroughOn": "右键单击关闭鼠标穿透",
+      "titlePassthroughOff": "右键单击开启鼠标穿透",
+      "toastOn": "桌面歌词已开启",
+      "toastOff": "桌面歌词已关闭",
+      "passthroughOn": "鼠标穿透已开启",
+      "passthroughOff": "鼠标穿透已关闭"
+    }
+  },
+  "fullscreen": {
+    "overlayAria": "全屏播放器",
+    "repeatEnableOne": "开启单曲循环",
+    "repeatDisable": "关闭循环",
+    "repeatEnableAll": "开启列表循环",
+    "lyricsStartingSoon": "歌词即将开始"
+  },
+  "miniPlayer": {
+    "open": "打开迷你播放器",
+    "close": "关闭迷你播放器",
+    "play": "播放",
+    "pause": "暂停",
+    "next": "下一首",
+    "previous": "上一首",
+    "toolbarAria": "迷你播放工具",
+    "doubleClickRestore": "双击返回主界面",
+    "nothingPlaying": "尚未播放",
+    "queueShort": "队列",
+    "modeAria": "播放模式：{mode}"
+  },
+  "albums": {
+    "detail": {
+      "back": "返回专辑",
+      "play": "播放",
+      "shuffle": "随机播放",
+      "tracks": "曲目",
+      "disc": "磟片 {number}",
+      "trackCount": {
+        "one": "{count} 首曲目",
+        "other": "{count} 首曲目"
+      },
+      "duration": {
+        "zero": "00 分 00 秒",
+        "minutes": "{minutes} 分 {seconds} 秒",
+        "hours": "{hours} 小时 {minutes} 分"
+      },
+      "listenSummary": {
+        "plays": "听过 {count} 次",
+        "minutes": "听过 {count} 次 · 约 {minutes} 分钟",
+        "hours": "听过 {count} 次 · 约 {hours} 小时"
+      },
+      "unknownYear": "年份未知",
+      "unknownTitle": "未命名曲目",
+      "moreAlbumsTitle": "{artist} 的更多专辑",
+      "moreAlbumsAria": "{artist} 的更多专辑",
+      "openAlbumAria": "打开专辑 {title}",
+      "coverAlt": "{title} 的封面",
+      "heroAria": "{title} 的专辑封面与详情",
+      "loading": "正在读取专辑…",
+      "loadError": "读取专辑失败",
+      "notFound": "未找到专辑",
+      "retry": "重试",
+      "returnToAlbums": "返回专辑目录"
+    },
+    "manuscript": {
+      "title": "唱片目录",
+      "subtitle": "私人音乐收藏索引",
+      "albumCount": "专辑 {count}",
+      "trackCount": "曲目 {count}",
+      "catalogNumber": "CAT {number}",
+      "viewLabel": "陈列方式"
+    },
+    "search": {
+      "ariaLabel": "搜索专辑和专辑艺术家",
+      "placeholder": "搜索专辑、专辑艺术家",
+      "matched": "定位到 {index} / {total}",
+      "wrapped": "已回到开头（{index} / {total}）",
+      "notFound": "未找到匹配专辑"
+    },
+    "view": {
+      "ariaLabel": "专辑视图模式",
+      "grid": "常规网格",
+      "perspective": "透视封面"
+    },
+    "contextMenu": {
+      "locateCurrent": "定位到当前专辑",
+      "play": "播放「{title}」",
+      "insert": "插播「{title}」",
+      "switchToPerspective": "切换到透视封面视图",
+      "switchToGrid": "切换到常规封面视图"
+    },
+    "status": {
+      "loading": "正在读取专辑目录…",
+      "empty": "尚未收录专辑，请先在设置中添加音乐文件夹。",
+      "loadError": "读取专辑目录失败",
+      "retry": "重试"
+    },
+    "a11y": {
+      "openAlbum": "打开专辑 {title}",
+      "coverAlt": "{title} 的封面"
+    }
+  },
+  "library": {
+    "manuscript": {
+      "header": {
+        "title": "全部歌曲",
+        "subtitle": "私人音乐收藏总账",
+        "libraryMembership": "曲库主目录",
+        "playlistSubtitle": "私人选辑",
+        "playlistKind": "手动编排",
+        "playlistMembership": "用户维护的成员集合",
+        "smartPlaylistSubtitle": "动态索引",
+        "smartPlaylistKind": "规则生成",
+        "smartPlaylistMembership": "自动更新的只读成员集合",
+        "untitled": "未命名歌单",
+        "playlistFallback": "普通歌单",
+        "smartPlaylistFallback": "智能歌单",
+        "loadingTitle": "档案装订中…",
+        "loadingSubtitle": "正在核对编目身份",
+        "trackCount": "曲目 {count}",
+        "folio": "FOLIO {current} / {total}"
+      },
+      "ledger": {
+        "index": "序号",
+        "artwork": "封面",
+        "title": "曲目",
+        "artist": "艺人",
+        "album": "专辑",
+        "duration": "时长"
+      },
+      "catalog": {
+        "number": "CAT {number} / {count} TRACKS",
+        "trackCount": "{count} TRACKS",
+        "fields": "NO. / TITLE / GENRE / TIME"
+      },
+      "status": {
+        "playing": "播放",
+        "paused": "暂停"
+      },
+      "missing": {
+        "title": "未命名曲目",
+        "artist": "未知艺人",
+        "album": "未知专辑",
+        "date": "日期未知",
+        "genre": "未分类",
+        "artwork": "无封面"
+      }
+    },
+    "search": {
+      "ariaLabel": "搜索当前列表",
+      "placeholder": "搜索标题、艺人、专辑…",
+      "matched": "定位到 {index} / {total}",
+      "wrapped": "已回到开头（{index} / {total}）",
+      "notFound": "未找到匹配项",
+      "clearSearch": "清空搜索"
+    },
+    "contextMenu": {
+      "ariaLabel": "曲库操作菜单",
+      "locateCurrent": "定位到当前歌曲",
+      "playTrack": "播放「{title}」",
+      "playAlbum": "播放专辑「{album}」",
+      "insertTrack": "插播「{title}」",
+      "insertAlbum": "插播专辑「{album}」",
+      "addToPlaylist": "添加到歌单",
+      "createPlaylist": "新建歌单",
+      "editMetadata": "编辑元数据",
+      "switchToCover": "切换到封面视图",
+      "switchToFlat": "切换到平铺视图",
+      "refresh": "刷新曲库",
+      "noPlaylists": "暂无可添加的歌单",
+      "playlistLoading": "正在加载歌单…",
+      "playlistLoadError": "加载歌单失败",
+      "addedSuccess": "已添加到「{name}」"
+    },
+    "metadataEditor": {
+      "title": "编辑元数据",
+      "ariaLabel": "编辑曲目元数据",
+      "fields": {
+        "title": "标题",
+        "artist": "艺人",
+        "album": "专辑",
+        "albumArtist": "专辑艺人",
+        "genre": "流派",
+        "year": "年份",
+        "releaseDate": "发行日期"
+      },
+      "placeholders": {
+        "title": "输入曲目标题",
+        "artist": "输入艺人名称",
+        "album": "输入专辑名称",
+        "albumArtist": "输入专辑艺人名称",
+        "genre": "输入流派",
+        "year": "例如：2024",
+        "releaseDate": "例如：2024-05-20"
+      },
+      "actions": {
+        "cancel": "取消",
+        "save": "保存",
+        "saving": "正在保存…"
+      },
+      "validation": {
+        "yearInvalid": "年份必须为四位数字",
+        "dateInvalid": "日期格式必须为 YYYY-MM-DD"
+      },
+      "errors": {
+        "saveFailed": "保存元数据失败"
+      }
+    },
+    "status": {
+      "loading": "正在读取音乐资料库…",
+      "emptyAll": "尚未收录曲目",
+      "emptyPlaylist": "歌单内暂无曲目",
+      "emptySmartPlaylist": "智能歌单无匹配曲目",
+      "loadError": "读取音乐资料库失败",
+      "retry": "重试"
+    },
+    "a11y": {
+      "songRow": "曲目 {index}：{title} - {artist}",
+      "albumArtwork": "专辑 {album}，按 Enter 打开专辑操作菜单"
+    }
+  }
+}

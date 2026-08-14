@@ -1,92 +1,46 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useFullscreenPlayer } from '@renderer/features/playback/composables/useFullscreenPlayer'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatPlaybackSubtitle } from '@renderer/features/playback/utils/formatPlaybackSubtitle'
-import { subscribeVisualFrame } from '@renderer/features/playback/utils/visualFrameScheduler'
+import {
+  formatPlaybackClock,
+  PLAYBACK_CLOCK_EMPTY,
+} from '@renderer/features/playback/utils/formatPlaybackClock'
+import PlayerBarProgress from './PlayerBarProgress.vue'
+
+const props = withDefaults(
+  defineProps<{
+    /** Manuscript and the modern island keep an in-card progress child. */
+    showProgress?: boolean
+    /** Modern island: current time | rail | duration. Manuscript uses the colophon. */
+    showSplitClocks?: boolean
+  }>(),
+  { showProgress: true, showSplitClocks: false },
+)
 
 const playback = usePlayback()
+const { t } = useI18n()
 const { openFullscreenPlayer } = useFullscreenPlayer()
 const imgError = ref(false)
-const isDraggingProgress = ref(false)
-const draggingProgressRatio = ref<number | null>(null)
-const progressFillRef = ref<HTMLElement | null>(null)
-let progressFrameUnsubscribe: (() => void) | null = null
-let progressAnchorTime = 0
-let progressAnchorAt = 0
 
-const progressRatio = computed(() => {
-  if (!playback.state.duration) {
-    return 0
-  }
+const currentTrack = computed(() => playback.state.currentTrack)
+const hasTrack = computed(() => currentTrack.value !== null)
 
-  if (draggingProgressRatio.value !== null) {
-    return draggingProgressRatio.value
-  }
+const currentClockText = computed(() => formatPlaybackClock(playback.state.currentTime))
 
-  return Math.min(1, Math.max(0, playback.state.currentTime / playback.state.duration))
-})
-
-const progressValueNow = computed(() => Math.round(progressRatio.value * 100))
-
-function renderVisualProgress(now: number): void {
-  const fill = progressFillRef.value
-  if (!fill) return
-
-  let ratio = draggingProgressRatio.value
-  if (ratio === null) {
-    const elapsed = playback.state.isPlaying ? Math.max(0, now - progressAnchorAt) / 1000 : 0
-    const visualTime = Math.min(playback.state.duration, progressAnchorTime + elapsed)
-    ratio =
-      playback.state.duration > 0
-        ? Math.min(1, Math.max(0, visualTime / playback.state.duration))
-        : 0
-  }
-  fill.style.transform = `scaleX(${ratio})`
-  fill.parentElement?.style.setProperty('--auralis-progress-value', ratio.toString())
-}
-
-function syncProgressAnchor(): void {
-  progressAnchorTime = playback.state.currentTime
-  progressAnchorAt = performance.now()
-  renderVisualProgress(progressAnchorAt)
-}
-
-function syncProgressFrameSubscription(): void {
-  const shouldAnimate = Boolean(playback.state.currentTrack && playback.state.isPlaying)
-  if (shouldAnimate) {
-    if (!progressFrameUnsubscribe) {
-      progressFrameUnsubscribe = subscribeVisualFrame(renderVisualProgress)
-    }
-  } else {
-    progressFrameUnsubscribe?.()
-    progressFrameUnsubscribe = null
-  }
-  syncProgressAnchor()
-}
+const durationClockText = computed(() =>
+  playback.state.duration > 0 ? formatPlaybackClock(playback.state.duration) : PLAYBACK_CLOCK_EMPTY,
+)
 
 watch(
   () => playback.state.currentTrackId,
   () => {
     imgError.value = false
-    nextTick(() => syncProgressFrameSubscription())
   },
 )
-
-watch(
-  () => [playback.state.currentTime, playback.state.duration, playback.state.isPlaying],
-  () => syncProgressFrameSubscription(),
-)
-
-onMounted(() => {
-  syncProgressFrameSubscription()
-})
-
-onBeforeUnmount(() => {
-  progressFrameUnsubscribe?.()
-  progressFrameUnsubscribe = null
-})
 
 function handleCoverClick(): void {
   openFullscreenPlayer()
@@ -97,111 +51,38 @@ function handleCoverKeydown(event: KeyboardEvent): void {
   event.preventDefault()
   openFullscreenPlayer()
 }
-
-function getProgressRatioFromPointer(event: PointerEvent, target: HTMLElement): number {
-  const rect = target.getBoundingClientRect()
-  const ratio = (event.clientX - rect.left) / rect.width
-  return Math.min(1, Math.max(0, ratio))
-}
-
-function updateDraggingProgressFromPointer(event: PointerEvent): void {
-  if (!playback.state.duration) return
-
-  const target = event.currentTarget as HTMLElement
-  const ratio = getProgressRatioFromPointer(event, target)
-  draggingProgressRatio.value = ratio
-}
-
-function commitDraggingProgress(): void {
-  if (draggingProgressRatio.value === null) return
-  playback.seekByRatio(draggingProgressRatio.value)
-}
-
-function handleProgressPointerDown(event: PointerEvent): void {
-  if (!playback.state.duration) return
-
-  const target = event.currentTarget as HTMLElement
-  isDraggingProgress.value = true
-  target.setPointerCapture(event.pointerId)
-  event.preventDefault()
-  updateDraggingProgressFromPointer(event)
-}
-
-function handleProgressPointerMove(event: PointerEvent): void {
-  if (!isDraggingProgress.value) return
-
-  updateDraggingProgressFromPointer(event)
-}
-
-function handleProgressPointerUp(event: PointerEvent): void {
-  if (!isDraggingProgress.value) return
-
-  updateDraggingProgressFromPointer(event)
-  commitDraggingProgress()
-  const target = event.currentTarget as HTMLElement
-
-  if (target.hasPointerCapture(event.pointerId)) {
-    target.releasePointerCapture(event.pointerId)
-  }
-
-  isDraggingProgress.value = false
-  draggingProgressRatio.value = null
-}
-
-function handleProgressPointerCancel(event: PointerEvent): void {
-  const target = event.currentTarget as HTMLElement
-
-  if (target.hasPointerCapture(event.pointerId)) {
-    target.releasePointerCapture(event.pointerId)
-  }
-
-  isDraggingProgress.value = false
-  draggingProgressRatio.value = null
-}
-
-function handleProgressKeydown(event: KeyboardEvent): void {
-  if (!playback.state.duration) return
-
-  const seekStepSeconds = event.shiftKey ? 10 : 5
-
-  if (event.key === 'ArrowLeft') {
-    event.preventDefault()
-    playback.seekTo(playback.state.currentTime - seekStepSeconds)
-  }
-
-  if (event.key === 'ArrowRight') {
-    event.preventDefault()
-    playback.seekTo(playback.state.currentTime + seekStepSeconds)
-  }
-}
 </script>
 
 <template>
   <div class="track-info-card">
-    <!-- Empty state -->
-    <div v-if="!playback.state.currentTrack" class="flex flex-col items-center gap-1.5">
+    <!-- Empty state: brand mark only — no fake scrub animation. -->
+    <div v-if="!hasTrack" class="track-info-empty flex flex-col items-start justify-center gap-1">
       <span class="text-sm font-semibold tracking-wide text-[var(--auralis-text-faint)]">
         Auralis
       </span>
-      <div class="track-progress opacity-30">
-        <div class="track-progress-fill" style="width: 0%"></div>
+      <div
+        v-if="props.showProgress && props.showSplitClocks"
+        class="player-bar-progress-row player-bar-progress-row--idle"
+      >
+        <PlayerBarProgress :interactive="false" />
       </div>
+      <PlayerBarProgress v-else-if="props.showProgress" :interactive="false" />
     </div>
 
-    <!-- Track state -->
-    <div v-else>
+    <!-- Track identity (+ optional inline progress) -->
+    <div v-else-if="currentTrack">
       <div class="track-info-row">
         <div
           class="track-cover cursor-pointer"
           role="button"
           tabindex="0"
-          aria-label="Open full-screen player"
+          :aria-label="t('player.fullscreen')"
           @click="handleCoverClick"
           @keydown="handleCoverKeydown"
         >
           <img
-            v-if="getArtworkUrl(playback.state.currentTrack.artworkCacheKey) && !imgError"
-            :src="getArtworkUrl(playback.state.currentTrack.artworkCacheKey) ?? undefined"
+            v-if="getArtworkUrl(currentTrack.artworkCacheKey) && !imgError"
+            :src="getArtworkUrl(currentTrack.artworkCacheKey) ?? undefined"
             class="h-full w-full rounded-[inherit] object-cover"
             @error="imgError = true"
           />
@@ -210,38 +91,18 @@ function handleProgressKeydown(event: KeyboardEvent): void {
           </div>
         </div>
         <div class="track-text">
-          <div class="track-title">{{ playback.state.currentTrack.title || 'Unknown Title' }}</div>
+          <div class="track-title">{{ currentTrack.title || 'Unknown Title' }}</div>
           <div class="track-subtitle">
-            {{ formatPlaybackSubtitle(playback.state.currentTrack) }}
+            {{ formatPlaybackSubtitle(currentTrack) }}
           </div>
         </div>
       </div>
-      <div
-        class="track-progress"
-        role="slider"
-        tabindex="0"
-        aria-label="Playback progress"
-        aria-valuemin="0"
-        :aria-valuemax="Math.round(playback.state.duration)"
-        :aria-valuenow="Math.round(playback.state.currentTime)"
-        :aria-valuetext="`${progressValueNow}%`"
-        @pointerdown="handleProgressPointerDown"
-        @pointermove="handleProgressPointerMove"
-        @pointerup="handleProgressPointerUp"
-        @pointercancel="handleProgressPointerCancel"
-        @keydown="handleProgressKeydown"
-      >
-        <div ref="progressFillRef" class="track-progress-fill"></div>
+      <div v-if="props.showProgress && props.showSplitClocks" class="player-bar-progress-row">
+        <span class="player-bar-progress-clock" aria-hidden="true">{{ currentClockText }}</span>
+        <PlayerBarProgress />
+        <span class="player-bar-progress-clock" aria-hidden="true">{{ durationClockText }}</span>
       </div>
+      <PlayerBarProgress v-else-if="props.showProgress" />
     </div>
   </div>
 </template>
-
-<style scoped>
-.track-progress-fill {
-  width: 100%;
-  transform: scaleX(0);
-  transform-origin: left center;
-  will-change: transform;
-}
-</style>
