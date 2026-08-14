@@ -75,10 +75,6 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.02);
 }
 
-.settings-page .settings-list--appearance {
-  margin-top: 16px;
-}
-
 .settings-page .settings-row {
   display: flex;
   gap: 24px;
@@ -103,12 +99,12 @@
   gap: 4px;
 }
 
-.settings-page .settings-row strong {
+.settings-page .settings-row > div > strong {
   font-size: 13px;
   font-weight: 700;
 }
 
-.settings-page .settings-row div span {
+.settings-page .settings-row > div > span {
   color: var(--auralis-text-subtle);
   font-size: 11px;
   font-weight: 500;
