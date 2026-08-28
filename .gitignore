@@ -50,6 +50,9 @@ Thumbs.db
 # Downloaded source archives
 genryu-font-master.zip
 
+# Isolated git worktrees (feature branches checked out beside the main workspace)
+.worktrees/
+
 # PRD & Tech Docs
 docs/*
 !docs/ARCHITECTURE.md
@@ -58,6 +61,9 @@ docs/*
 !docs/techdoc-library-manuscript-skin-mvp.md
 !docs/library-manuscript-skin-mvp/
 !docs/library-manuscript-skin-mvp/**
+# LibraryPage 编排拆分
+!docs/library-page-orchestration/
+!docs/library-page-orchestration/**
 
 # Performance traces
 artifacts/
