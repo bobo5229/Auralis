@@ -3,12 +3,13 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch 
 import { useRoute, useRouter } from 'vue-router'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
-import type { EditableTrackMetadata, TrackListItem } from '@shared/types/libraryScan'
+import type { TrackListItem } from '@shared/types/libraryScan'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import { auralis } from '@renderer/shared/ipc/client'
+import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import SongRow from '../components/SongRow.vue'
 import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
-import type { LibraryAlbumGroup } from '../components/AlbumCoverGroup.vue'
+import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import MetadataEditDialog from '../components/MetadataEditDialog.vue'
 import LibraryContextMenu from '../components/LibraryContextMenu.vue'
 import LibraryLedgerHeader from '../components/LibraryLedgerHeader.vue'
@@ -31,13 +32,16 @@ import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import '../styles/manuscript.css'
 import '../styles/manuscript.overlays.css'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
-import { createLibraryDerivedIndex } from '../utils/libraryDerivedIndex'
+import { createLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
 import {
   resolveLibraryViewportRestoreAction,
   type LibraryViewportRestore,
 } from '../utils/libraryViewportRestore'
-import { createLibrarySearchIndex } from '../utils/librarySearchIndex'
-import { scanLibrarySearchIndex } from '../utils/librarySearchScan'
+import {
+  createLibrarySearchIndexIncrementally,
+  LibrarySearchIndexBuildStaleError,
+} from '../utils/librarySearchIndex'
+import { scanLibrarySearchIndex, type LibrarySearchRecord } from '../utils/librarySearchScan'
 import { resolveLibraryPresentation, resolveLibrarySurfaceKind } from '../utils/libraryPresentation'
 import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
 import {
@@ -56,6 +60,11 @@ import {
 import { loadLibraryCatalogSnapshot } from '../utils/loadLibraryCatalogSnapshot'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { normalizeSearchText } from '../utils/normalizeSearchText'
+import {
+  useLibraryMetadataEditor,
+  type LibraryMetadataFocusTarget,
+  type LibraryMetadataRefreshResult,
+} from '../composables/useLibraryMetadataEditor'
 
 const { t } = useI18n()
 
@@ -73,13 +82,9 @@ const isLibrarySurface = computed(() => librarySurfaceKind.value !== null)
 
 const pageIdentity = ref<LibraryPageIdentity | null>(null)
 const tracks = shallowRef<TrackListItem[]>([])
-const librarySearchIndex = computed(() => createLibrarySearchIndex(tracks.value))
 const isLoading = ref(true)
 const scrollRef = ref<HTMLElement | null>(null)
 const firstVisibleTrackIndex = ref(0)
-const editingMetadata = ref<EditableTrackMetadata | null>(null)
-const isSavingMetadata = ref(false)
-const metadataEditError = ref<string | null>(null)
 
 const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
 const LIBRARY_TOP_INSET = 16
@@ -138,6 +143,8 @@ let pendingViewSwitchTrackId: number | null = null
 let pendingViewSwitchScrollFrame: number | null = null
 let pendingFirstVisibleTrackFrame: number | null = null
 let isPageUnmounted = false
+let librarySearchIndexGeneration = 0
+let librarySearchIndexPromise: Promise<readonly LibrarySearchRecord[] | null> = Promise.resolve([])
 
 // Deferred positioning (scrollToTrackById hops, view-switch frames, focus
 // restore) aborts when the user starts scrolling: wheel / touch input bumps
@@ -161,7 +168,7 @@ interface LibraryViewportCapture {
   previousTrackIds: number[]
 }
 
-type LibraryLoadResult = 'committed' | 'stale' | 'redirected' | 'failed' | 'queued'
+type LibraryLoadResult = LibraryMetadataRefreshResult
 
 watch(searchQuery, (q) => {
   if (!q.trim()) {
@@ -189,48 +196,15 @@ const rowVirtualizer = useVirtualizer(
 const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
 
-const albumGroups = computed<LibraryAlbumGroup[]>(() => {
-  const groups: LibraryAlbumGroup[] = []
-  const indexByKey = new Map<string, number>()
-
-  for (let i = 0; i < tracks.value.length; i++) {
-    const track = tracks.value[i]
-    const artist = track.albumArtist || track.artist || ''
-    const album = track.album || ''
-    const key = `${artist}\u0000${album}`
-
-    const existingIndex = indexByKey.get(key)
-    if (existingIndex !== undefined) {
-      const g = groups[existingIndex]
-      g.albumArtist ??= track.albumArtist || track.artist
-      g.album ??= track.album
-      g.releaseDate ??= track.releaseDate
-      g.artworkCacheKey ??= track.artworkCacheKey
-      g.tracks.push(track)
-    } else {
-      indexByKey.set(key, groups.length)
-      groups.push({
-        key,
-        album: track.album,
-        albumArtist: track.albumArtist || track.artist,
-        releaseDate: track.releaseDate,
-        artworkCacheKey: track.artworkCacheKey,
-        tracks: [track],
-        firstTrackIndex: i,
-      })
-    }
-  }
-
-  return groups
-})
-
 function getAlbumGroupSize(group: LibraryAlbumGroup): number {
   return getAlbumGroupEstimatedHeight(group.tracks.length, Boolean(group.releaseDate))
 }
 
-const libraryDerivedIndex = computed(() =>
-  createLibraryDerivedIndex(tracks.value, albumGroups.value, getAlbumGroupSize),
+const libraryCatalogViewIndex = computed(() =>
+  createLibraryCatalogViewIndex(tracks.value, getAlbumGroupSize),
 )
+const albumGroups = computed(() => libraryCatalogViewIndex.value.albumGroups)
+const libraryDerivedIndex = computed(() => libraryCatalogViewIndex.value)
 
 function getAlbumGroupByTrackId(trackId: number): LibraryAlbumGroup | null {
   const groupIndex = libraryDerivedIndex.value.albumGroupIndexByTrackId.get(trackId)
@@ -267,13 +241,8 @@ function onPlay(trackId: number) {
   })
 }
 
-interface FocusRestoreTarget {
-  trackId: number
-  source: LibraryContextMenuSource
-  openReason?: 'pointer' | 'keyboard'
-}
+type FocusRestoreTarget = LibraryMetadataFocusTarget
 
-let pendingMetadataDialogReturnTarget: FocusRestoreTarget | null = null
 let pendingViewSwitchReturnTarget: FocusRestoreTarget | null = null
 
 async function restoreLibraryFocus(
@@ -357,7 +326,7 @@ function closeContextMenu(handoffTarget?: 'metadata-dialog' | 'view-switch'): vo
   clearAddToPlaylistFeedback()
 
   if (handoffTarget === 'metadata-dialog') {
-    pendingMetadataDialogReturnTarget = target
+    metadataEditor.setReturnTarget(target)
   } else if (handoffTarget === 'view-switch') {
     pendingViewSwitchReturnTarget = target
   } else {
@@ -452,7 +421,11 @@ async function loadRegularPlaylistItems(): Promise<void> {
     const items = await auralis.playlists.listSidebarItems()
     regularPlaylistItems.value = items.filter((item) => item.kind === 'playlist')
   } catch (error) {
-    console.error('[Auralis] Failed to load playlists for context menu:', error)
+    rendererDiagnostics.error({
+      scope: 'library.context-menu',
+      message: 'Failed to load playlists',
+      cause: error,
+    })
     playlistLoadError.value =
       error instanceof Error ? error.message : t('library.contextMenu.playlistLoadError')
   } finally {
@@ -489,12 +462,20 @@ async function fetchLibrarySnapshot(
     isRequestCurrent,
   )
   if (import.meta.env.DEV) {
-    console.info('[Auralis] Library catalog snapshot loaded:', {
-      totalTracks: catalog.tracks.length,
-      totalPages: catalog.totalPages,
-      snapshotBuildMs: catalog.snapshotBuildMs,
-      pageSliceMs: catalog.pageSliceMs,
-      rendererLoadMs: catalog.rendererLoadMs,
+    rendererDiagnostics.info({
+      scope: 'library.catalog',
+      message: 'Library catalog snapshot loaded',
+      context: {
+        totalTracks: catalog.tracks.length,
+        totalPages: catalog.totalPages,
+        snapshotBuildMs: catalog.snapshotBuildMs,
+        snapshotHeapDeltaBytes: catalog.snapshotHeapDeltaBytes,
+        pageSliceMs: catalog.pageSliceMs,
+        pageRoundTripMs: catalog.pageRoundTripMs,
+        rendererAggregateMs: catalog.rendererAggregateMs,
+        rendererLoadMs: catalog.rendererLoadMs,
+        rendererHeapDeltaBytes: catalog.rendererHeapDeltaBytes,
+      },
     })
   }
   return createAllSongsLibrarySnapshot(catalog.tracks, readPersistedViewMode())
@@ -506,6 +487,44 @@ function commitLibrarySnapshot(snapshot: LibraryDataSnapshot): void {
   libraryViewMode.value = snapshot.viewMode
   lastMatchedTrackIndex = -1
   ensureKeyboardFocusTrackId()
+  scheduleLibrarySearchIndex(snapshot.tracks)
+}
+
+function scheduleLibrarySearchIndex(sourceTracks: readonly TrackListItem[]): void {
+  const generation = ++librarySearchIndexGeneration
+  const startedAt = performance.now()
+  let chunkCount = 0
+  let maxChunkMs = 0
+  librarySearchIndexPromise = createLibrarySearchIndexIncrementally(sourceTracks, {
+    isCurrent: () => !isPageUnmounted && generation === librarySearchIndexGeneration,
+    onChunk: (durationMs) => {
+      chunkCount += 1
+      maxChunkMs = Math.max(maxChunkMs, durationMs)
+    },
+  }).catch((error: unknown) => {
+    if (error instanceof LibrarySearchIndexBuildStaleError) return null
+    rendererDiagnostics.error({
+      scope: 'library.search',
+      message: 'Failed to build library search index',
+      cause: error,
+    })
+    return null
+  })
+  if (import.meta.env.DEV) {
+    void librarySearchIndexPromise.then((index) => {
+      if (index === null || generation !== librarySearchIndexGeneration) return
+      rendererDiagnostics.info({
+        scope: 'library.search',
+        message: 'Library search index ready',
+        context: {
+          totalTracks: index.length,
+          buildWallMs: performance.now() - startedAt,
+          chunkCount,
+          maxChunkMs,
+        },
+      })
+    })
+  }
 }
 
 function captureLibraryViewportRestore(): LibraryViewportCapture {
@@ -667,10 +686,20 @@ async function jumpToNextSearchMatch(): Promise<void> {
     return
   }
   const normalizedQuery = normalizeSearchText(query)
+  const searchGeneration = librarySearchIndexGeneration
+  const searchIndex = await librarySearchIndexPromise
+  if (
+    searchIndex === null ||
+    searchGeneration !== librarySearchIndexGeneration ||
+    query !== searchQuery.value.trim() ||
+    isPageUnmounted
+  ) {
+    return
+  }
 
   const isNewQuery = query !== lastSearchQuery
   const startIndex = isNewQuery ? 0 : lastMatchedTrackIndex + 1
-  const scanResult = scanLibrarySearchIndex(librarySearchIndex.value, normalizedQuery, startIndex)
+  const scanResult = scanLibrarySearchIndex(searchIndex, normalizedQuery, startIndex)
 
   if (scanResult.targetIndex === null || scanResult.matchPosition === null) {
     searchOutcome.value = { kind: 'not-found' }
@@ -867,8 +896,7 @@ function onDocumentPointerDown(event: PointerEvent): void {
 
 async function onEditMetadata(trackId: number): Promise<void> {
   closeContextMenu('metadata-dialog')
-  metadataEditError.value = null
-  editingMetadata.value = await auralis.metadata.getTrackMetadata(trackId)
+  await metadataEditor.open(trackId)
 }
 
 async function onLocateCurrentTrack(): Promise<void> {
@@ -999,64 +1027,25 @@ async function onRefreshLibrary(): Promise<void> {
   }
 }
 
-function closeMetadataEditor(): void {
-  if (isSavingMetadata.value) {
-    return
-  }
+const metadataEditor = useLibraryMetadataEditor({
+  loadTrackMetadata: (trackId) => auralis.metadata.getTrackMetadata(trackId),
+  updateTrackMetadata: (metadata) => auralis.metadata.updateTrackMetadata(metadata),
+  captureRouteScope: captureLibraryRouteScope,
+  refreshLibrary: () => loadLibraryData('metadata-save'),
+  restoreFocus: restoreLibraryFocus,
+  isDisposed: () => isPageUnmounted,
+  getSaveErrorMessage: () => t('library.metadataEditor.errors.saveFailed'),
+  logSaveError: (error) =>
+    rendererDiagnostics.error({
+      scope: 'library.metadata',
+      message: 'Failed to save metadata edits',
+      cause: error,
+    }),
+})
 
-  const returnTarget =
-    pendingMetadataDialogReturnTarget ??
-    (editingMetadata.value
-      ? { trackId: editingMetadata.value.trackId, source: 'track' as const }
-      : null)
-  editingMetadata.value = null
-  metadataEditError.value = null
-  pendingMetadataDialogReturnTarget = null
-
-  void restoreLibraryFocus(returnTarget)
-}
-
-async function saveMetadata(metadata: EditableTrackMetadata): Promise<void> {
-  isSavingMetadata.value = true
-  metadataEditError.value = null
-  const saveScope = captureLibraryRouteScope()
-
-  try {
-    await auralis.metadata.updateTrackMetadata(metadata)
-    if (isPageUnmounted) return
-
-    const returnTarget = pendingMetadataDialogReturnTarget ?? {
-      trackId: metadata.trackId,
-      source: 'track' as const,
-    }
-    const loadResult = await loadLibraryData('metadata-save')
-    const isStillInSaveScope = isSameLibraryRouteScope(saveScope, captureLibraryRouteScope())
-
-    if (loadResult === 'failed' || loadResult === 'queued') {
-      throw new Error('Metadata refresh after save failed')
-    }
-    if (loadResult === 'stale' && isStillInSaveScope) {
-      throw new Error('Metadata refresh after save became stale')
-    }
-    if (isPageUnmounted) return
-
-    editingMetadata.value = null
-    pendingMetadataDialogReturnTarget = null
-
-    if (isStillInSaveScope) {
-      await restoreLibraryFocus(returnTarget)
-    }
-  } catch (error) {
-    console.error('[Auralis] failed to save metadata edits:', error)
-    if (!isPageUnmounted) {
-      metadataEditError.value = t('library.metadataEditor.errors.saveFailed')
-    }
-  } finally {
-    if (!isPageUnmounted) {
-      isSavingMetadata.value = false
-    }
-  }
-}
+const { editingMetadata, isSavingMetadata, metadataEditError } = metadataEditor
+const closeMetadataEditor = metadataEditor.close
+const saveMetadata = metadataEditor.save
 
 const initialLoadError = ref<string | null>(null)
 
@@ -1140,10 +1129,18 @@ async function loadLibraryData(mode: LibraryLoadMode = 'foreground'): Promise<Li
     if (!isRequestCurrent()) return 'stale'
 
     if (isForeground) {
-      console.error('[Auralis] Initial library load failed:', error)
+      rendererDiagnostics.error({
+        scope: 'library.catalog',
+        message: 'Initial library load failed',
+        cause: error,
+      })
       initialLoadError.value = t('library.status.loadError')
     } else {
-      console.error('[Auralis] Background library refresh failed:', error)
+      rendererDiagnostics.error({
+        scope: 'library.catalog',
+        message: 'Background library refresh failed',
+        cause: error,
+      })
     }
 
     return 'failed'
@@ -1315,6 +1312,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   isPageUnmounted = true
+  librarySearchIndexGeneration += 1
   libraryRequestCoordinator.invalidate()
   window.removeEventListener('keydown', onWindowKeyDown)
   scrollRef.value?.removeEventListener('scroll', onScroll)

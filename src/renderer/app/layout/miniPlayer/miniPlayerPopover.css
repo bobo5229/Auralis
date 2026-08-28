@@ -1,0 +1,300 @@
+.mini-popover {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  box-sizing: border-box;
+  max-height: 300px;
+  border: 1px solid
+    color-mix(in srgb, var(--auralis-border-subtle, rgb(127 127 127 / 0.28)) 80%, transparent);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--auralis-surface-floating, #1c1e22) 94%, black);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset;
+  color: var(--auralis-text-primary, #f5f5f5);
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.mini-popover-background,
+.mini-popover-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.mini-popover-background {
+  z-index: 0;
+}
+
+.mini-popover-scrim {
+  z-index: 1;
+  background:
+    linear-gradient(
+      180deg,
+      rgb(8 10 14 / 0.18) 0%,
+      rgb(8 10 14 / 0.08) 38%,
+      rgb(8 10 14 / 0.72) 100%
+    ),
+    radial-gradient(ellipse 90% 55% at 50% 18%, rgb(0 0 0 / 0.05), transparent 70%);
+}
+
+.mini-mode-option,
+.mini-volume-value {
+  font-family:
+    'Auralis Desktop Lyrics SC', 'Songti SC', 'STSong', 'Noto Serif SC', 'Times New Roman', serif;
+}
+
+.mini-queue-panel,
+.mini-mode-panel,
+.mini-volume-panel {
+  position: relative;
+  z-index: 2;
+}
+
+.mini-queue-panel {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.mini-panel-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 13px 14px 10px;
+  color: var(--auralis-text-secondary, #c4c4c8);
+  font-size: 11px;
+}
+
+.mini-panel-heading span:first-child {
+  color: var(--auralis-text-primary, #f5f5f5);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.mini-empty {
+  padding: 28px;
+  color: var(--auralis-text-faint, #949499);
+  text-align: center;
+  font-size: 12px;
+}
+
+.mini-queue-list {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 0 8px 8px;
+}
+
+.mini-queue-section-label {
+  flex: none;
+  padding: 4px 15px 5px;
+  color: var(--auralis-text-faint, #949499);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.mini-queue-item,
+.mini-mode-option {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+  align-items: center;
+  border: 0;
+  border-radius: 10px;
+  padding: 7px;
+  color: var(--auralis-text-secondary, #c7c7cc);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+
+.mini-queue-item:hover,
+.mini-mode-option:hover,
+.mini-queue-item--active,
+.mini-mode-option--active {
+  color: var(--auralis-text-primary, #fff);
+  background: rgb(255 255 255 / 0.08);
+}
+
+.mini-queue-item:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--auralis-active-album-accent) 72%, white);
+  outline-offset: -2px;
+}
+
+.mini-queue-item--current {
+  width: calc(100% - 16px);
+  margin: 0 8px;
+  flex: none;
+  cursor: default;
+}
+
+.mini-queue-cover {
+  display: grid;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--auralis-surface-raised, #34363a);
+  color: var(--auralis-text-faint, #a0a0a5);
+}
+
+.mini-queue-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mini-queue-copy {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.mini-queue-copy b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.mini-queue-copy small {
+  overflow: hidden;
+  color: var(--auralis-text-secondary, #ababaf);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.mini-queue-item--active .mini-queue-copy b,
+.mini-queue-now {
+  color: var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator, #8ab4f8));
+}
+
+.mini-mode-panel {
+  padding: 8px;
+}
+
+.mini-mode-option {
+  min-height: 36px;
+  font-size: 12px;
+}
+
+.mini-volume-panel {
+  display: flex;
+  box-sizing: border-box;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 12px 12px;
+}
+
+.mini-volume-value {
+  flex: none;
+  color: var(--auralis-text-secondary, rgb(255 255 255 / 0.72));
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.mini-volume-slider {
+  flex: 1;
+  width: 4px;
+  min-height: 0;
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  border-radius: 999px;
+  background: linear-gradient(
+    to top,
+    var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator, #8ab4f8)) 0
+      var(--mini-volume),
+    var(--auralis-progress-track, rgb(255 255 255 / 0.18)) var(--mini-volume) 100%
+  );
+  outline: none;
+}
+
+.mini-volume-slider:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auralis-active-album-accent) 42%, transparent);
+}
+
+.mini-volume-slider::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  appearance: none;
+  border-radius: 50%;
+  background: var(--auralis-text-primary, #fff);
+  cursor: pointer;
+}
+
+.mini-volume-button {
+  position: relative;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--auralis-text-secondary, #c7c7cc);
+  cursor: pointer;
+}
+
+.mini-volume-button[data-tooltip]::after {
+  position: absolute;
+  z-index: 20;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  padding: 4px 7px;
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.82);
+  color: white;
+  content: attr(data-tooltip);
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(2px);
+  transition:
+    opacity 0.14s,
+    transform 0.14s;
+  white-space: nowrap;
+}
+
+.mini-volume-button[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%);
+}
+
+.mini-volume-button:hover {
+  background: rgb(255 255 255 / 0.08);
+  color: var(--auralis-text-primary, #fff);
+}
+
+.mini-volume-button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--auralis-active-album-accent) 72%, white);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-queue-item,
+  .mini-mode-option,
+  .mini-volume-button {
+    transition: none;
+  }
+
+  .mini-volume-button::after {
+    transition: none;
+  }
+}

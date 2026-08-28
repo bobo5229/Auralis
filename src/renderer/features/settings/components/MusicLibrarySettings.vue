@@ -8,6 +8,7 @@ import type {
   MetadataRefreshFailure,
 } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
+import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { useLocale, type AppLocale } from '@renderer/composables/useLocale'
 
 const { t } = useI18n()
@@ -118,7 +119,11 @@ const refreshStatusLabel = computed(() => {
 
 function getErrorMessage(error: unknown, fallback: string): string {
   // 用户可见错误统一走 i18n fallback；原始 error.message 仅打日志，避免英文直出混排。
-  console.error('[Auralis] library operation failed:', error)
+  rendererDiagnostics.error({
+    scope: 'settings.library',
+    message: 'Library operation failed',
+    cause: error,
+  })
   return fallback
 }
 

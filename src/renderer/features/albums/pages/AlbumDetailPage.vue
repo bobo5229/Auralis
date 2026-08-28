@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
@@ -8,33 +8,28 @@ import { useVisualStyle } from '@renderer/features/appearance/composables/useVis
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
-import { formatDuration } from '@renderer/features/library/utils/formatDuration'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import { formatGenreParts, splitGenreValues } from '@renderer/features/library/utils/formatGenre'
 
+import AlbumDetailTrackList from '../components/AlbumDetailTrackList.vue'
 import type { AlbumSummary } from '../types'
+import { useAlbumDetailTracks } from '../composables/useAlbumDetailTracks'
 import { resolveAlbumPresentation } from '../utils/albumPresentation'
 import '../styles/manuscript.detail.css'
-
-type AlbumDetailLoadState = 'loading' | 'ready' | 'not-found' | 'error'
 
 const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
 const { visualStyle } = useVisualStyle()
 const playback = usePlayback()
-const tracks = shallowRef<TrackListItem[]>([])
-const loadState = ref<AlbumDetailLoadState>('loading')
 const detailRootRef = ref<HTMLElement | null>(null)
 const coverStageRef = ref<HTMLElement | null>(null)
 const heroBillboardRef = ref<HTMLElement | null>(null)
 const heroCanvasRef = ref<HTMLCanvasElement | null>(null)
 const moreAlbumsScrollerRef = ref<HTMLElement | null>(null)
 const highlightedTrackId = ref<number | null>(null)
-let unsubscribeChanged: (() => void) | null = null
 let trackingFrame: number | null = null
 let highlightTimeout: ReturnType<typeof setTimeout> | null = null
-let playStatsReloadTimer: ReturnType<typeof setTimeout> | null = null
 let heroFluidGeneration = 0
 let heroResizeObserver: ResizeObserver | null = null
 let pointerPosition: { x: number; y: number } | null = null
@@ -42,14 +37,21 @@ let detailScrollTarget: HTMLElement | null = null
 let modernEffectsBound = false
 let modernEffectsActivationGeneration = 0
 let isPageUnmounted = false
-let loadGeneration = 0
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 const MAX_COVER_TILT_DEGREES = 12
-const PLAY_STATS_RELOAD_DEBOUNCE_MS = 400
 const HERO_CANVAS_HEIGHT = 250
 
 const albumArtist = computed(() => String(route.query.artist ?? ''))
 const albumTitle = computed(() => String(route.query.title ?? ''))
+const {
+  tracks,
+  albumTracks,
+  loadState,
+  initialize: initializeAlbumTracks,
+  reloadTracks,
+  syncLoadStateFromTracks,
+  dispose: disposeAlbumTracks,
+} = useAlbumDetailTracks({ albumArtist, albumTitle, library: auralis.library })
 const albumPresentation = computed(() => resolveAlbumPresentation(route.name, visualStyle.value))
 const isModernAlbumDetail = computed(() => albumPresentation.value === 'modern')
 const displayAlbumArtist = computed(() =>
@@ -88,36 +90,8 @@ function onMoreAlbumsScroll(event: Event): void {
   updateMoreAlbumsScrollState(event.currentTarget as HTMLElement)
 }
 
-const albumTracks = computed(() =>
-  tracks.value
-    .filter((track) => {
-      const artist = track.albumArtist || track.artist || 'Unknown Artist'
-      const title = track.album || 'Unknown Album'
-      return artist === albumArtist.value && title === albumTitle.value
-    })
-    .sort((left, right) => {
-      const discOrder = (left.discNo ?? 1) - (right.discNo ?? 1)
-      if (discOrder !== 0) return discOrder
-
-      const trackOrder =
-        (left.trackNo ?? Number.MAX_SAFE_INTEGER) - (right.trackNo ?? Number.MAX_SAFE_INTEGER)
-      if (trackOrder !== 0) return trackOrder
-
-      return (left.title ?? '').localeCompare(right.title ?? '')
-    }),
-)
-
-function syncLoadStateFromTracks(): void {
-  loadState.value = albumTracks.value.length > 0 ? 'ready' : 'not-found'
-}
-
 function formatDisplayAlbumTitle(title: string): string {
   return title === 'Unknown Album' ? t('library.unknownAlbum') : title
-}
-
-function formatDisplayArtist(artist: string | null | undefined): string {
-  if (artist === 'Unknown Artist') return t('library.unknownArtist')
-  return formatArtist(artist)
 }
 
 const albumGroups = computed(() => {
@@ -470,38 +444,6 @@ function paintHeroFluid(): void {
   updateHeroStaticFluid(artworkUrl.value, canvas)
 }
 
-async function reloadTracks(options: { background?: boolean } = {}): Promise<boolean> {
-  const requestGeneration = ++loadGeneration
-  const hasExistingSnapshot = tracks.value.length > 0
-  if (!options.background && !hasExistingSnapshot) loadState.value = 'loading'
-
-  try {
-    const nextTracks = await auralis.library.getTracks()
-    if (isPageUnmounted || requestGeneration !== loadGeneration) return false
-
-    tracks.value = nextTracks
-    syncLoadStateFromTracks()
-    return true
-  } catch {
-    if (isPageUnmounted || requestGeneration !== loadGeneration) return false
-
-    if (hasExistingSnapshot || options.background) {
-      if (hasExistingSnapshot) syncLoadStateFromTracks()
-    } else {
-      loadState.value = 'error'
-    }
-    return false
-  }
-}
-
-function schedulePlayStatsReload(): void {
-  if (playStatsReloadTimer) clearTimeout(playStatsReloadTimer)
-  playStatsReloadTimer = setTimeout(() => {
-    playStatsReloadTimer = null
-    void reloadTracks({ background: true })
-  }, PLAY_STATS_RELOAD_DEBOUNCE_MS)
-}
-
 function retryLoad(): void {
   void reloadTracks()
 }
@@ -848,28 +790,14 @@ watch(loadState, async (state, previousState) => {
 })
 
 onMounted(async () => {
-  await reloadTracks()
-  if (isPageUnmounted) return
-  unsubscribeChanged = auralis.library.onChanged((event) => {
-    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') {
-      schedulePlayStatsReload()
-      return
-    }
-    void reloadTracks({ background: true })
-  })
+  await initializeAlbumTracks()
 })
 
 onBeforeUnmount(() => {
   isPageUnmounted = true
-  loadGeneration += 1
+  disposeAlbumTracks()
   disableModernEffects()
   if (highlightTimeout) clearTimeout(highlightTimeout)
-  if (playStatsReloadTimer) {
-    clearTimeout(playStatsReloadTimer)
-    playStatsReloadTimer = null
-  }
-  unsubscribeChanged?.()
-  unsubscribeChanged = null
 })
 </script>
 
@@ -954,55 +882,15 @@ onBeforeUnmount(() => {
 
         <!-- 中部：通栏曲目 -->
         <div class="album-body-grid">
-          <div class="album-tracklist-panel">
-            <h2 class="album-tracklist-heading">{{ t('albums.detail.tracks') }}</h2>
-            <div class="album-detail-track-list">
-              <template v-for="group in albumDiscGroups" :key="group.discNo ?? 'single'">
-                <div
-                  v-if="group.discNo != null"
-                  class="album-detail-disc-header"
-                  role="presentation"
-                >
-                  {{ t('albums.detail.disc', { number: group.discNo }) }}
-                </div>
-                <button
-                  v-for="(track, index) in group.tracks"
-                  :key="track.id"
-                  class="album-detail-track"
-                  :class="{
-                    'album-detail-track--selected': playback.state.selectedTrackId === track.id,
-                    'album-detail-track--playing': playback.state.currentTrackId === track.id,
-                    'album-detail-track--search-highlight': highlightedTrackId === track.id,
-                  }"
-                  :data-track-id="track.id"
-                  type="button"
-                  @click="selectTrack(track.id)"
-                  @dblclick="playTrack(track.id)"
-                >
-                  <span class="album-detail-track-number" aria-hidden="true">
-                    <span class="album-detail-track-index">{{ track.trackNo ?? index + 1 }}</span>
-                    <span class="album-detail-track-play-icon i-lucide-play"></span>
-                    <span class="album-detail-track-eq" aria-hidden="true">
-                      <i></i><i></i><i></i>
-                    </span>
-                  </span>
-                  <span class="min-w-0 text-left">
-                    <span class="album-detail-track-title">{{
-                      track.title || t('albums.detail.unknownTitle')
-                    }}</span>
-                    <span
-                      v-if="track.artist && track.artist !== albumArtist"
-                      class="album-detail-track-artist"
-                      >{{ formatDisplayArtist(track.artist) }}</span
-                    >
-                  </span>
-                  <span class="album-detail-track-duration">{{
-                    formatDuration(track.durationSeconds)
-                  }}</span>
-                </button>
-              </template>
-            </div>
-          </div>
+          <AlbumDetailTrackList
+            :groups="albumDiscGroups"
+            :album-artist="albumArtist"
+            :selected-track-id="playback.state.selectedTrackId"
+            :current-track-id="playback.state.currentTrackId"
+            :highlighted-track-id="highlightedTrackId"
+            @select="selectTrack"
+            @play="playTrack"
+          />
         </div>
 
         <!-- Phase 3: 底部同艺人画廊 -->
@@ -1407,240 +1295,6 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
-.album-tracklist-panel {
-  min-width: 0;
-}
-
-.album-tracklist-heading {
-  margin: 0 0 12px;
-  color: var(--auralis-text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.album-detail-track-list {
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: none;
-  border-radius: 0;
-  padding: 4px 0;
-  box-shadow: none;
-}
-
-.album-detail-disc-header {
-  padding: 12px 14px 6px;
-  color: var(--auralis-text-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  user-select: none;
-  pointer-events: none;
-  opacity: 0.85;
-}
-
-.album-detail-disc-header:first-child {
-  padding-top: 4px;
-}
-
-.album-detail-track {
-  position: relative;
-  display: grid;
-  width: 100%;
-  min-height: 50px;
-  grid-template-columns: 42px minmax(0, 1fr) 58px;
-  align-items: center;
-  padding: 6px 16px 6px 8px;
-  color: var(--auralis-text);
-  border-radius: 12px;
-  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-.album-tracklist-panel--with-heat .album-detail-track {
-  grid-template-columns: 42px minmax(0, 1fr) 56px 58px;
-}
-
-.album-detail-track:not(:first-child)::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 12px;
-  right: 12px;
-  height: 1px;
-  background: var(--auralis-border-subtle);
-  pointer-events: none;
-}
-
-.album-detail-disc-header + .album-detail-track::before {
-  display: none;
-}
-
-.album-detail-track:hover,
-.album-detail-track--selected,
-.album-detail-track--playing,
-.album-detail-track--search-highlight {
-  background-color: var(--auralis-control-hover-bg);
-  transform: translateX(3px);
-  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.15);
-}
-
-.album-detail-track--search-highlight {
-  animation: album-track-search-highlight 1.8s ease-out;
-}
-
-@keyframes album-track-search-highlight {
-  0%,
-  35% {
-    background-color: var(--auralis-song-row-now-playing-bg);
-  }
-  100% {
-    background-color: var(--auralis-control-hover-bg);
-  }
-}
-
-.album-detail-track.album-detail-track--selected {
-  background-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
-  box-shadow:
-    inset 2px 0 0 var(--auralis-sidebar-active-indicator),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  transform: translateX(3px);
-}
-
-.album-detail-track.album-detail-track--playing {
-  background-color: color-mix(
-    in srgb,
-    var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator)) 18%,
-    transparent
-  );
-  box-shadow:
-    inset 3px 0 0 var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator)),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  transform: translateX(4px);
-}
-
-.album-detail-track--selected::before,
-.album-detail-track--playing::before,
-.album-detail-track--search-highlight::before {
-  display: none;
-}
-
-.album-detail-track--selected + .album-detail-track::before,
-.album-detail-track--playing + .album-detail-track::before,
-.album-detail-track--search-highlight + .album-detail-track::before {
-  display: none;
-}
-
-.album-detail-track-number {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 28px;
-  color: var(--auralis-text-faint);
-  font-size: 13px;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-}
-
-.album-detail-track-index {
-  transition: opacity 0.15s ease;
-}
-
-.album-detail-track-play-icon {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  opacity: 0;
-  color: var(--auralis-text);
-  transition: opacity 0.15s ease;
-}
-
-.album-detail-track-eq {
-  position: absolute;
-  display: none;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 2px;
-  width: 14px;
-  height: 12px;
-}
-
-.album-detail-track-eq i {
-  display: block;
-  width: 2px;
-  height: 40%;
-  border-radius: 1px;
-  background: var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator));
-  animation: album-eq-bar 0.9s ease-in-out infinite;
-}
-
-.album-detail-track-eq i:nth-child(2) {
-  height: 70%;
-  animation-delay: 0.15s;
-}
-
-.album-detail-track-eq i:nth-child(3) {
-  height: 50%;
-  animation-delay: 0.3s;
-}
-
-@keyframes album-eq-bar {
-  0%,
-  100% {
-    transform: scaleY(0.45);
-  }
-  50% {
-    transform: scaleY(1);
-  }
-}
-
-/* 非播放态 hover：序号 → 播放三角；播放中始终只显示 EQ，避免与三角叠层 */
-.album-detail-track:hover:not(.album-detail-track--playing) .album-detail-track-index {
-  opacity: 0;
-}
-
-.album-detail-track:hover:not(.album-detail-track--playing) .album-detail-track-play-icon {
-  opacity: 1;
-}
-
-.album-detail-track--playing .album-detail-track-index,
-.album-detail-track--playing .album-detail-track-play-icon {
-  opacity: 0;
-}
-
-.album-detail-track--playing .album-detail-track-eq {
-  display: flex;
-}
-
-.album-detail-track-duration {
-  color: var(--auralis-text-faint);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-.album-detail-track-title,
-.album-detail-track-artist {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.album-detail-track-title {
-  font-size: 14px;
-  font-weight: 650;
-}
-
-.album-detail-track-artist {
-  margin-top: 3px;
-  color: var(--auralis-text-muted);
-  font-size: 12px;
-}
-
 /* —— Phase 3: More gallery —— */
 .album-more-gallery {
   margin-top: 36px;
@@ -1830,12 +1484,6 @@ onBeforeUnmount(() => {
     transition: none !important;
   }
 
-  .album-detail-track:hover,
-  .album-detail-track--selected,
-  .album-detail-track--playing {
-    transform: none;
-  }
-
   .album-more-gallery-card:hover {
     transform: none;
   }
@@ -1844,15 +1492,6 @@ onBeforeUnmount(() => {
   .album-hero-shuffle-btn:hover,
   .album-detail-back:hover {
     transform: none;
-  }
-
-  .album-detail-track-eq i {
-    animation: none;
-    height: 55%;
-  }
-
-  .album-detail-track--search-highlight {
-    animation: none;
   }
 }
 </style>

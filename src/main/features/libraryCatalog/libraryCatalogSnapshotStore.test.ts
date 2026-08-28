@@ -44,6 +44,17 @@ describe('LibraryCatalogSnapshotStore', () => {
     expect(new Set(collectedIds).size).toBe(source.length)
   })
 
+  it('isolates the immutable snapshot order from returned page arrays', () => {
+    const source = [createTrack(1), createTrack(2), createTrack(3)]
+    const store = new LibraryCatalogSnapshotStore(() => source)
+    const first = store.getPage({ refresh: true, limit: 2 })
+    first.tracks.reverse()
+
+    const reread = store.getPage({ limit: 3 })
+    expect(reread.tracks.map((track) => track.id)).toEqual([1, 2, 3])
+    expect(first.diagnostics.snapshotHeapDeltaBytes).toEqual(expect.any(Number))
+  })
+
   it('expires old cursors when a refreshed snapshot replaces them', () => {
     const store = new LibraryCatalogSnapshotStore(() => [createTrack(1), createTrack(2)])
     const first = store.getPage({ refresh: true, limit: 1 })
@@ -56,10 +67,10 @@ describe('LibraryCatalogSnapshotStore', () => {
 
   it('clamps page sizes and rejects malformed cursors', () => {
     const store = new LibraryCatalogSnapshotStore(() =>
-      Array.from({ length: 1100 }, (_, index) => createTrack(index + 1)),
+      Array.from({ length: 5500 }, (_, index) => createTrack(index + 1)),
     )
 
-    expect(store.getPage({ refresh: true, limit: 5000 }).tracks).toHaveLength(1000)
+    expect(store.getPage({ refresh: true, limit: 50_000 }).tracks).toHaveLength(5000)
     expect(() => store.getPage({ cursor: 'not-a-cursor' })).toThrow(
       'Invalid library catalog cursor',
     )

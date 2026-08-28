@@ -4,7 +4,6 @@ import { useI18n } from 'vue-i18n'
 import FluidArtworkBackground from '@renderer/features/playback/components/FluidArtworkBackground.vue'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import { usePlaybackQueue } from '@renderer/features/playback/composables/usePlaybackQueue'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import { formatPlaybackSubtitle } from '@renderer/features/playback/utils/formatPlaybackSubtitle'
 import { subscribeVisualFrame } from '@renderer/features/playback/utils/visualFrameScheduler'
@@ -14,16 +13,12 @@ import { auralis } from '@renderer/shared/ipc/client'
 import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
 import { getDefaultMiniPlayerBodySize } from '@shared/constants/miniPlayer'
 import type { MiniPlayerBodySize, MiniPlayerPopoverDirection } from '@shared/ipc/contracts'
-
-type MiniPopover = 'queue' | 'mode' | 'volume' | null
-
-const MINI_POPOVER_GAP = 10
-const MINI_POPOVER_SURFACE_HEIGHTS: Record<Exclude<MiniPopover, null>, number> = {
-  queue: 300,
-  mode: 220,
-  volume: 220,
-}
-const MINI_VOLUME_POPOVER_WIDTH = 92
+import MiniPlayerPopover from './miniPlayer/MiniPlayerPopover.vue'
+import {
+  getMiniPopoverRegionHeight,
+  MINI_POPOVER_GAP_PX,
+  type MiniPopover,
+} from './miniPlayer/miniPlayerPopoverContract'
 
 /** Accent-metal light pose — reshuffled after each play-button hover ends. */
 interface MetalLightPose {
@@ -47,20 +42,10 @@ interface MetalLightPose {
 
 const playback = usePlayback()
 const { t } = useI18n()
-const {
-  currentTrack: queueCurrentTrack,
-  currentIndex: queueCurrentIndex,
-  upcomingTracks,
-  isQueueEmpty,
-  totalCount: queueTotalCount,
-  playTrack: playQueueTrack,
-  isActive: isQueueTrackActive,
-} = usePlaybackQueue()
 const activePopover = ref<MiniPopover>(null)
 const popoverDirection = ref<MiniPlayerPopoverDirection>('below')
 const popoverRegionHeight = ref(0)
 const imageErrorIds = ref<Set<number>>(new Set())
-const queueScrollRef = ref<HTMLElement | null>(null)
 const isDraggingProgress = ref(false)
 const draggingProgressRatio = ref<number | null>(null)
 const progressFillRef = ref<HTMLElement | null>(null)
@@ -143,7 +128,6 @@ const displayCurrentTime = computed(() => {
 })
 const currentTimeLabel = computed(() => formatDuration(displayCurrentTime.value) || '0:00')
 const durationLabel = computed(() => formatDuration(playback.state.duration) || '0:00')
-const volumeStyle = computed(() => ({ '--mini-volume': `${playback.state.volume * 100}%` }))
 const albumAccentColor = computed(() => {
   const primaryColor = albumPalette.value.accents[0]?.rgb
   if (!primaryColor || !currentTrack.value) return null
@@ -154,7 +138,7 @@ const canvasStyle = computed(
     ({
       width: `${bodySize.value.width}px`,
       minHeight: `${bodySize.value.height}px`,
-      '--mini-popover-gap': `${MINI_POPOVER_GAP}px`,
+      '--mini-popover-gap': `${MINI_POPOVER_GAP_PX}px`,
       '--auralis-active-album-accent':
         albumAccentColor.value ?? 'var(--auralis-sidebar-active-indicator)',
     }) as CSSProperties,
@@ -169,25 +153,6 @@ const miniPlayerStyle = computed(
         albumAccentColor.value ?? 'var(--auralis-sidebar-active-indicator)',
     }) as CSSProperties,
 )
-const popoverStyle = computed(() => {
-  const surfaceHeight = Math.max(0, popoverRegionHeight.value - MINI_POPOVER_GAP)
-  const isModePopover = activePopover.value === 'mode'
-  const isVolumePopover = activePopover.value === 'volume'
-  return {
-    width: `${
-      isModePopover
-        ? bodySize.value.width / 2
-        : isVolumePopover
-          ? MINI_VOLUME_POPOVER_WIDTH
-          : bodySize.value.width
-    }px`,
-    maxHeight: `${surfaceHeight}px`,
-    ...(isModePopover ? { alignSelf: 'center' } : {}),
-    ...(isVolumePopover ? { alignSelf: 'flex-end' } : {}),
-    ...(activePopover.value === 'queue' || isVolumePopover ? { height: `${surfaceHeight}px` } : {}),
-  } as CSSProperties
-})
-
 const playButtonMetalStyle = computed(
   () =>
     ({
@@ -235,22 +200,6 @@ const volumeDockLabel = computed(() =>
   playback.state.isMuted ? t('player.mute') : t('player.volume'),
 )
 
-/** Volume panel still uses ion glyphs for mute / level affordance. */
-const volumeIcon = computed(() => {
-  if (playback.state.isMuted) return 'i-ion-volume-mute'
-  if (playback.state.volume <= 0.33) return 'i-ion-volume-low'
-  if (playback.state.volume <= 0.66) return 'i-ion-volume-medium'
-  return 'i-ion-volume-high'
-})
-
-const modes = computed<Array<{ id: PlaybackMode; label: string; icon: string }>>(() => [
-  { id: 'sequential', label: t('player.modeOption.sequential'), icon: 'i-ion-play-skip-forward' },
-  { id: 'repeat-all', label: t('player.modeOption.repeat-all'), icon: 'i-ion-repeat' },
-  { id: 'repeat-one', label: t('player.modeOption.repeat-one'), icon: 'i-ion-sync' },
-  { id: 'shuffle', label: t('player.modeOption.shuffle'), icon: 'i-ion-shuffle' },
-  { id: 'album-shuffle', label: t('player.modeOption.album-shuffle'), icon: 'i-ion-disc' },
-])
-
 function artworkFailed(trackId: number): boolean {
   return imageErrorIds.value.has(trackId)
 }
@@ -261,8 +210,7 @@ function handleArtworkError(trackId: number): void {
 
 async function setPopover(next: MiniPopover): Promise<void> {
   activePopover.value = next
-  const surfaceHeight = next ? MINI_POPOVER_SURFACE_HEIGHTS[next] : 0
-  const regionHeight = next ? surfaceHeight + MINI_POPOVER_GAP : 0
+  const regionHeight = getMiniPopoverRegionHeight(next)
   popoverRegionHeight.value = regionHeight
   const result = await miniWindow.setMiniPlayerPopover({
     open: next !== null,
@@ -448,12 +396,6 @@ onMounted(() => {
   syncProgressFrameSubscription()
 })
 
-watch(queueCurrentIndex, () => {
-  nextTick(() => {
-    queueScrollRef.value?.scrollTo({ top: 0 })
-  })
-})
-
 onUnmounted(() => {
   document.documentElement.classList.remove('mini-player-root')
   document.removeEventListener('pointerdown', handleOutsidePointerDown)
@@ -470,137 +412,20 @@ onUnmounted(() => {
     :class="`mini-player-canvas--${popoverDirection}`"
     :style="canvasStyle"
   >
-    <section v-if="activePopover" class="mini-popover" data-mini-interactive :style="popoverStyle">
-      <FluidArtworkBackground
-        v-if="artworkUrl"
-        :artwork-url="artworkUrl"
-        :active="true"
-        :playing="playback.state.isPlaying"
-        class="mini-popover-background"
-      />
-      <div class="mini-popover-scrim" aria-hidden="true" />
-
-      <template v-if="activePopover === 'queue'">
-        <div class="mini-queue-panel" role="dialog" :aria-label="t('player.queue')">
-          <div class="mini-panel-heading">
-            <span>{{ t('player.queue') }}</span>
-            <span>{{ t('player.queueCount', { count: queueTotalCount }) }}</span>
-          </div>
-          <div v-if="isQueueEmpty" class="mini-empty">{{ t('player.queueEmpty') }}</div>
-          <template v-else>
-            <div class="mini-queue-section-label">{{ t('player.nowPlaying') }}</div>
-            <div
-              v-if="queueCurrentTrack"
-              class="mini-queue-item mini-queue-item--active mini-queue-item--current"
-            >
-              <div class="mini-queue-cover">
-                <img
-                  v-if="
-                    getArtworkUrl(queueCurrentTrack.artworkCacheKey) &&
-                    !artworkFailed(queueCurrentTrack.id)
-                  "
-                  :src="getArtworkUrl(queueCurrentTrack.artworkCacheKey)!"
-                  alt=""
-                  draggable="false"
-                  @error="handleArtworkError(queueCurrentTrack.id)"
-                />
-                <span v-else class="h-4 w-4 i-lucide-music" />
-              </div>
-              <span class="mini-queue-copy">
-                <b>{{ queueCurrentTrack.title || t('player.unknownTrack') }}</b>
-                <small>{{ formatPlaybackSubtitle(queueCurrentTrack) }}</small>
-              </span>
-              <span class="h-4 w-4 i-lucide-volume-2 mini-queue-now" />
-            </div>
-
-            <div v-if="upcomingTracks.length > 0" class="mini-queue-section-label">
-              {{ t('player.upNext') }}
-            </div>
-            <div
-              v-if="upcomingTracks.length > 0"
-              ref="queueScrollRef"
-              class="mini-queue-list scrollbar-none"
-            >
-              <button
-                v-for="track in upcomingTracks"
-                :key="track.id"
-                class="mini-queue-item"
-                :class="{ 'mini-queue-item--active': isQueueTrackActive(track.id) }"
-                type="button"
-                :aria-label="
-                  t('player.playTrack', { title: track.title || t('player.unknownTrack') })
-                "
-                @click="playQueueTrack(track.id)"
-              >
-                <div class="mini-queue-cover">
-                  <img
-                    v-if="getArtworkUrl(track.artworkCacheKey) && !artworkFailed(track.id)"
-                    :src="getArtworkUrl(track.artworkCacheKey)!"
-                    alt=""
-                    draggable="false"
-                    @error="handleArtworkError(track.id)"
-                  />
-                  <span v-else class="h-4 w-4 i-lucide-music" />
-                </div>
-                <span class="mini-queue-copy">
-                  <b>{{ track.title || t('player.unknownTrack') }}</b>
-                  <small>{{ formatPlaybackSubtitle(track) }}</small>
-                </span>
-              </button>
-            </div>
-          </template>
-        </div>
-      </template>
-
-      <div
-        v-else-if="activePopover === 'mode'"
-        class="mini-mode-panel"
-        role="menu"
-        :aria-label="t('player.mode')"
-      >
-        <button
-          v-for="mode in modes"
-          :key="mode.id"
-          class="mini-mode-option"
-          :class="{ 'mini-mode-option--active': mode.id === playback.state.playbackMode }"
-          type="button"
-          role="menuitemradio"
-          :aria-checked="mode.id === playback.state.playbackMode"
-          @click="selectPlaybackMode(mode.id)"
-        >
-          <span class="h-4 w-4" :class="mode.icon" />
-          <span>{{ mode.label }}</span>
-          <span
-            v-if="mode.id === playback.state.playbackMode"
-            class="ml-auto h-4 w-4 i-ion-checkmark"
-          />
-        </button>
-      </div>
-
-      <div v-else class="mini-volume-panel" role="dialog" :aria-label="t('player.volume')">
-        <output class="mini-volume-value"> {{ Math.round(playback.state.volume * 100) }}% </output>
-        <input
-          :value="playback.state.volume"
-          class="mini-volume-slider"
-          :style="volumeStyle"
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          :aria-label="t('player.volume')"
-          @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
-        />
-        <button
-          class="mini-icon-button mini-volume-button"
-          type="button"
-          :aria-label="playback.state.isMuted ? t('player.unmute') : t('player.mute')"
-          :data-tooltip="playback.state.isMuted ? t('player.unmute') : t('player.mute')"
-          @click="playback.toggleMute()"
-        >
-          <span class="h-4 w-4" :class="volumeIcon" />
-        </button>
-      </div>
-    </section>
+    <MiniPlayerPopover
+      v-if="activePopover"
+      :active="activePopover"
+      :artwork-url="artworkUrl"
+      :is-playing="playback.state.isPlaying"
+      :playback-mode="playback.state.playbackMode"
+      :volume="playback.state.volume"
+      :is-muted="playback.state.isMuted"
+      :body-width="bodySize.width"
+      :region-height="popoverRegionHeight"
+      @select-mode="selectPlaybackMode"
+      @set-volume="playback.setVolume"
+      @toggle-mute="playback.toggleMute"
+    />
 
     <!-- Vertical listening plaque (zero chrome): solid surface + fluid art scrim -->
     <section
@@ -800,8 +625,7 @@ onUnmounted(() => {
  * fills square corner wedges (reads as a second rectangular container).
  * OS window shadow is disabled in mini mode.
  */
-.mini-player,
-.mini-popover {
+.mini-player {
   pointer-events: auto;
   position: relative;
   isolation: isolate;
@@ -818,8 +642,7 @@ onUnmounted(() => {
   border-radius: 24px;
 }
 
-.mini-player-background,
-.mini-popover-background {
+.mini-player-background {
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -827,8 +650,7 @@ onUnmounted(() => {
 }
 
 /* Cover-forward scrim: light over art, denser toward controls */
-.mini-player-scrim,
-.mini-popover-scrim {
+.mini-player-scrim {
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -877,8 +699,7 @@ onUnmounted(() => {
 .mini-meta,
 .mini-progress-block,
 .mini-transport,
-.mini-actions-dock,
-.mini-popover {
+.mini-actions-dock {
   -webkit-app-region: no-drag;
 }
 
@@ -950,9 +771,7 @@ onUnmounted(() => {
 }
 
 .mini-title,
-.mini-subtitle,
-.mini-mode-option,
-.mini-volume-value {
+.mini-subtitle {
   font-family:
     'Auralis Desktop Lyrics SC', 'Songti SC', 'STSong', 'Noto Serif SC', 'Times New Roman', serif;
 }
@@ -1351,211 +1170,6 @@ onUnmounted(() => {
 .mini-play-button[data-tooltip]:hover::after {
   opacity: 1;
   transform: translateX(-50%);
-}
-
-/* ── Popovers ──────────────────────────────────────────── */
-.mini-popover {
-  box-sizing: border-box;
-  max-height: 300px;
-  border-radius: 24px;
-}
-
-.mini-queue-panel,
-.mini-mode-panel,
-.mini-volume-panel {
-  position: relative;
-  z-index: 2;
-}
-
-.mini-queue-panel {
-  display: flex;
-  height: 100%;
-  min-height: 0;
-  flex-direction: column;
-}
-
-.mini-panel-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 13px 14px 10px;
-  color: var(--auralis-text-secondary, #c4c4c8);
-  font-size: 11px;
-}
-
-.mini-panel-heading span:first-child {
-  color: var(--auralis-text-primary, #f5f5f5);
-  font-size: 13px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-}
-
-.mini-empty {
-  padding: 28px;
-  color: var(--auralis-text-faint, #949499);
-  text-align: center;
-  font-size: 12px;
-}
-
-.mini-queue-list {
-  min-height: 0;
-  flex: 1;
-  overflow: auto;
-  padding: 0 8px 8px;
-}
-
-.mini-queue-section-label {
-  flex: none;
-  padding: 4px 15px 5px;
-  color: var(--auralis-text-faint, #949499);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-.mini-queue-item,
-.mini-mode-option {
-  display: flex;
-  width: 100%;
-  gap: 10px;
-  align-items: center;
-  border: 0;
-  border-radius: 10px;
-  padding: 7px;
-  color: var(--auralis-text-secondary, #c7c7cc);
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
-}
-
-.mini-queue-item:hover,
-.mini-mode-option:hover,
-.mini-queue-item--active,
-.mini-mode-option--active {
-  color: var(--auralis-text-primary, #fff);
-  background: rgb(255 255 255 / 0.08);
-}
-
-.mini-queue-item:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--auralis-active-album-accent) 72%, white);
-  outline-offset: -2px;
-}
-
-.mini-queue-item--current {
-  width: calc(100% - 16px);
-  margin: 0 8px;
-  flex: none;
-  cursor: default;
-}
-
-.mini-queue-cover {
-  display: grid;
-  flex: none;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 8px;
-  background: var(--auralis-surface-raised, #34363a);
-  color: var(--auralis-text-faint, #a0a0a5);
-}
-
-.mini-queue-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.mini-queue-copy {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: 3px;
-}
-
-.mini-queue-copy b {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.mini-queue-copy small {
-  overflow: hidden;
-  color: var(--auralis-text-secondary, #ababaf);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 11px;
-}
-
-.mini-queue-item--active .mini-queue-copy b,
-.mini-queue-now {
-  color: var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator, #8ab4f8));
-}
-
-.mini-mode-panel {
-  padding: 8px;
-}
-
-.mini-mode-option {
-  min-height: 36px;
-  font-size: 12px;
-}
-
-.mini-volume-panel {
-  display: flex;
-  box-sizing: border-box;
-  height: 100%;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 12px 12px;
-}
-
-.mini-volume-value {
-  flex: none;
-  color: var(--auralis-text-secondary, rgb(255 255 255 / 0.72));
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.mini-volume-slider {
-  flex: 1;
-  width: 4px;
-  min-height: 0;
-  appearance: none;
-  writing-mode: vertical-lr;
-  direction: rtl;
-  border-radius: 999px;
-  background: linear-gradient(
-    to top,
-    var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator, #8ab4f8)) 0
-      var(--mini-volume),
-    var(--auralis-progress-track, rgb(255 255 255 / 0.18)) var(--mini-volume) 100%
-  );
-  outline: none;
-}
-
-.mini-volume-slider:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auralis-active-album-accent) 42%, transparent);
-}
-
-.mini-volume-slider::-webkit-slider-thumb {
-  width: 12px;
-  height: 12px;
-  appearance: none;
-  border-radius: 50%;
-  background: var(--auralis-text-primary, #fff);
-  cursor: pointer;
-}
-
-.mini-volume-button {
-  flex: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

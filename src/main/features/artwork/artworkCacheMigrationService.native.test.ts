@@ -20,17 +20,6 @@ const DatabaseCtor = nodeRequire('better-sqlite3') as unknown as new (
   path: string,
 ) => Database.Database
 
-// better-sqlite3 is rebuilt for the Electron ABI in this repo; under plain Node
-// the native binding may not load. Skip DB-backed suites when it does not.
-let sqliteAvailable = false
-try {
-  const probe = new DatabaseCtor(':memory:')
-  probe.close()
-  sqliteAvailable = true
-} catch {
-  sqliteAvailable = false
-}
-
 const tempDirs: string[] = []
 
 async function makeTempDir(): Promise<string> {
@@ -91,7 +80,7 @@ function getAlbumKey(db: Database.Database, title = 'Album', artist = 'Artist'):
   return row?.k ?? null
 }
 
-describe.skipIf(!sqliteAvailable)('ArtworkCacheMigrationService', () => {
+describe('ArtworkCacheMigrationService', () => {
   it('reports no legacy keys on an empty database', () => {
     const db = createDb()
     const service = new ArtworkCacheMigrationService(db, 'C:\\tmp\\cache')
@@ -243,7 +232,7 @@ describe.skipIf(!sqliteAvailable)('ArtworkCacheMigrationService', () => {
   })
 })
 
-describe.skipIf(!sqliteAvailable)('trackRepository artwork upsert rules', () => {
+describe('trackRepository artwork upsert rules', () => {
   const legacy = `${'a'.repeat(64)}.jpg`
   const v2a = `v2-${'b'.repeat(64)}.webp`
   const v2b = `v2-${'c'.repeat(64)}.webp`
@@ -299,7 +288,7 @@ describe.skipIf(!sqliteAvailable)('trackRepository artwork upsert rules', () => 
   })
 })
 
-describe.skipIf(!sqliteAvailable)('metadataRefreshRepository artwork upsert rules', () => {
+describe('metadataRefreshRepository artwork upsert rules', () => {
   const legacy = `${'d'.repeat(64)}.jpg`
   const v2a = `v2-${'e'.repeat(64)}.webp`
   const v2b = `v2-${'f'.repeat(64)}.webp`

@@ -38,28 +38,28 @@ gate、material 正交性、overlay 键盘模型与生命周期约束继续有�
 
 ## 3. 已冻结产品决策
 
-| 决策项         | 冻结结论                                                       |
-| -------------- | -------------------------------------------------------------- |
-| 皮肤范围       | 只改普通主窗口的 manuscript PlayerBar                          |
-| modern         | 保持现有流光悬浮 PlayerBar，不改变几何、材质或行为             |
-| 窗口范围       | Fullscreen、Miniplayer、桌面歌词独立窗口不变                   |
-| 定位模型       | 继续使用 `position: fixed`，不进入 AppShell grid flow          |
-| 高度           | 固定 72px                                                      |
-| 左边界         | 260px，与主内容 grid track 起点严格对齐                        |
-| 右边界         | `<xl`：`right: 0`；`xl`：`right: 20%`（禁止 `20vw`）           |
-| 底边界         | `bottom: 0`                                                    |
-| 圆角           | 四角直角 `border-radius: 0`（覆盖 Uno `rounded-full`）         |
-| 空状态         | 无当前曲时仍显示完整底栏；左对齐短进度线；右缘 `--:-- / --:--` |
-| 内容避让       | manuscript 主内容 88px；Now Playing `h-full` 落地，不再叠 88px |
-| 视觉           | 主栏纸面、仅顶边、dock 内阴影、无悬浮外投影、无 hover 抬升     |
-| 内部布局       | 左曲目信息与进度、中传输控制、四钮贴传输右侧 24px；右缘只读时间题署 `m:ss / m:ss` |
+| 决策项         | 冻结结论                                                                           |
+| -------------- | ---------------------------------------------------------------------------------- |
+| 皮肤范围       | 只改普通主窗口的 manuscript PlayerBar                                              |
+| modern         | 保持现有流光悬浮 PlayerBar，不改变几何、材质或行为                                 |
+| 窗口范围       | Fullscreen、Miniplayer、桌面歌词独立窗口不变                                       |
+| 定位模型       | 继续使用 `position: fixed`，不进入 AppShell grid flow                              |
+| 高度           | 固定 72px                                                                          |
+| 左边界         | 260px，与主内容 grid track 起点严格对齐                                            |
+| 右边界         | `<xl`：`right: 0`；`xl`：`right: 20%`（禁止 `20vw`）                               |
+| 底边界         | `bottom: 0`                                                                        |
+| 圆角           | 四角直角 `border-radius: 0`（覆盖 Uno `rounded-full`）                             |
+| 空状态         | 无当前曲时仍显示完整底栏；左对齐短进度线；右缘 `--:-- / --:--`                     |
+| 内容避让       | manuscript 主内容 88px；Now Playing `h-full` 落地，不再叠 88px                     |
+| 视觉           | 主栏纸面、仅顶边、dock 内阴影、无悬浮外投影、无 hover 抬升                         |
+| 内部布局       | 左曲目信息与进度、中传输控制、四钮贴传输右侧 24px；右缘只读时间题署 `m:ss / m:ss`  |
 | 中心基准       | 传输控制相对整条主栏页脚居中（dock-main 为 `display: contents`）；四钮不钉页脚右缘 |
-| `xl`           | 右缘停在 Now Playing 左边线；不把 actions 放进 Now Playing 列；不画 dock-rule |
-| 窄窗           | 依据 PlayerBar 容器宽度折叠常驻音量滑杆                        |
-| 折叠音量       | hover 或 `focus-within` 时向上展开紧凑滑杆；点击按钮仍静音     |
-| Player overlay | 队列、模式菜单和歌词提示继续向上展开                           |
-| 风格切换       | 立即切换，不做位置、宽度或圆角的几何动画                       |
-| 实现边界       | 复用现有 PlayerBar、playback composable 与子组件，不复制播放器 |
+| `xl`           | 右缘停在 Now Playing 左边线；不把 actions 放进 Now Playing 列；不画 dock-rule      |
+| 窄窗           | 依据 PlayerBar 容器宽度折叠常驻音量滑杆                                            |
+| 折叠音量       | hover 或 `focus-within` 时向上展开紧凑滑杆；点击按钮仍静音                         |
+| Player overlay | 队列、模式菜单和歌词提示继续向上展开                                               |
+| 风格切换       | 立即切换，不做位置、宽度或圆角的几何动画                                           |
+| 实现边界       | 复用现有 PlayerBar、playback composable 与子组件，不复制播放器                     |
 
 ## 4. 当前实现基线
 
@@ -530,8 +530,8 @@ npm.cmd run build
 | 260px 与 Sidebar 可见宽度混淆               | 以 grid track 为唯一左边界来源                             |
 | safe area 全局改为 88px 遮住 modern 内容    | 建立 presentation-safe 双值契约                            |
 | 页面已有 inset 叠加出大块空白               | 逐消费者审计，不机械删除页面自有节奏                       |
-| `xl` 后控制因内层 grid 被 actions 挤向左     | dock-main 用 `display: contents`，三区挂在页脚自身 grid    |
-| `xl` 右缘用 20vw 与壳层 20% 错位             | 固定写 `right: 20%`，禁止 `20vw`                           |
+| `xl` 后控制因内层 grid 被 actions 挤向左    | dock-main 用 `display: contents`，三区挂在页脚自身 grid    |
+| `xl` 右缘用 20vw 与壳层 20% 错位            | 固定写 `right: 20%`，禁止 `20vw`                           |
 | 900px 下三区挤压                            | 取消 720px min-width；container query 先折叠 volume slider |
 | 音量展开只支持 hover                        | 同时实现 `focus-within`、键盘与拖动保持                    |
 | dock wrapper 裁切 overlay                   | 保持必要 containing block `overflow: visible`              |

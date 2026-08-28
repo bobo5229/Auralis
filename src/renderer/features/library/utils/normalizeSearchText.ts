@@ -582,11 +582,16 @@ const TRADITIONAL_TO_SIMPLIFIED = new Map<string, string>([
   ['陳', '陈'],
 ])
 
+const TRADITIONAL_CHARACTER_PATTERN = new RegExp(
+  `[${Array.from(TRADITIONAL_TO_SIMPLIFIED.keys()).join('')}]`,
+  'gu',
+)
+
 function toSimplified(value: string): string {
-  return Array.from(
-    value,
+  return value.replace(
+    TRADITIONAL_CHARACTER_PATTERN,
     (character) => TRADITIONAL_TO_SIMPLIFIED.get(character) ?? character,
-  ).join('')
+  )
 }
 
 export function normalizeSearchText(value: string | null | undefined): string {

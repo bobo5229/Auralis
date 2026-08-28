@@ -3,6 +3,7 @@ import Database from 'better-sqlite3'
 import { join } from 'node:path'
 import { copyFileSync, existsSync, mkdirSync } from 'node:fs'
 import { migrateDatabase } from './schema'
+import { applyStagedRestoreIfExists } from './databaseBackupService'
 import { logger } from '@main/logging/logger'
 
 let database: Database.Database | undefined
@@ -41,12 +42,27 @@ export function initializeDatabase(): Database.Database {
     return database
   }
 
-  database = new Database(getDatabasePath())
+  const dbPath = getDatabasePath()
+  applyStagedRestoreIfExists(dbPath)
+
+  database = new Database(dbPath)
   database.pragma('journal_mode = WAL')
   database.pragma('foreign_keys = ON')
-  migrateDatabase(database)
 
-  logger.info({ databasePath }, 'SQLite initialized')
+  const healthCheck = database.pragma('quick_check(1)', { simple: true })
+  if (healthCheck !== 'ok') {
+    logger.fatal(
+      { healthCheck, databasePath: dbPath },
+      'Database quick_check failed with corruption',
+    )
+    database.close()
+    database = undefined
+    throw new Error(`Database quick_check failed: ${String(healthCheck)}`)
+  }
+
+  migrateDatabase(database, dbPath)
+
+  logger.info({ databasePath: dbPath }, 'SQLite initialized')
 
   return database
 }

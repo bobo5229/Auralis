@@ -1,4 +1,5 @@
 import { readonly, ref, toValue, watch, type MaybeRefOrGetter, type Ref } from 'vue'
+import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import type { ArtworkPalette } from '../types'
 import { FALLBACK_PALETTE } from '../utils/extractArtworkPalette'
 import { extractArtworkPaletteInWorker } from '../utils/artworkPaletteWorkerClient'
@@ -73,9 +74,11 @@ function getArtworkPalette(key: string): Promise<ArtworkPalette> {
       return value
     })
     .catch((error: unknown) => {
-      console.warn('[Auralis fluid background] Artwork palette extraction failed', {
-        key: key.slice(0, 8),
-        error,
+      rendererDiagnostics.warn({
+        scope: 'playback.artwork-palette',
+        message: 'Artwork palette extraction failed',
+        context: { cacheKeyPrefix: key.slice(0, 8) },
+        cause: error,
       })
       touchCacheEntry(key, { state: 'failed', retryAfter: Date.now() + FAILURE_RETRY_MS })
       return { ...FALLBACK_PALETTE, key }

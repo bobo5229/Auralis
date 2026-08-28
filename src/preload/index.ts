@@ -13,8 +13,13 @@ async function invoke<TChannel extends IpcInvokeChannel>(
 }
 
 export const auralisApi: AuralisApi = {
+  database: {
+    exportBackup: () => invoke(ipcChannels.database.exportBackup),
+    restoreBackup: () => invoke(ipcChannels.database.restoreBackup),
+  },
   app: {
     getInfo: () => invoke(ipcChannels.app.getInfo),
+    exportDiagnostics: () => invoke(ipcChannels.app.exportDiagnostics),
     rendererReady: () => ipcRenderer.send(ipcChannels.app.rendererReady),
   },
   library: {

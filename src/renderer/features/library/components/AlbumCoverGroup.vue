@@ -1,23 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { TrackListItem } from '@shared/types/libraryScan'
 import type { LibraryPresentation } from '../types/libraryPresentation'
+import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { formatArtist } from '../utils/formatArtist'
 import { formatCatalogNumber } from '../constants/libraryArchivePresentation'
 import AlbumCoverTrackRow from './AlbumCoverTrackRow.vue'
 import LibraryArtworkPlaceholder from './LibraryArtworkPlaceholder.vue'
-
-export type LibraryAlbumGroup = {
-  key: string
-  album: string | null
-  albumArtist: string | null
-  releaseDate: string | null
-  artworkCacheKey: string | null
-  tracks: TrackListItem[]
-  firstTrackIndex: number
-}
 
 const props = withDefaults(
   defineProps<{

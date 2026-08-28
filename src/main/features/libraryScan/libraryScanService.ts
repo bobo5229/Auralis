@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog } from 'electron'
-import { Worker } from 'node:worker_threads'
+import { Worker, type WorkerOptions } from 'node:worker_threads'
 import { join } from 'node:path'
 import type Database from 'better-sqlite3'
 import { ipcChannels } from '@shared/ipc/channels'
@@ -18,6 +18,8 @@ import { TrackRepository } from '@main/repositories/trackRepository'
 import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './libraryScanTypes'
 import { tryRelocateMissingCandidate } from './trackRelocationMatcher'
 
+export type LibraryScanWorkerFactory = (fileName: string, options: WorkerOptions) => Worker
+
 export class LibraryScanService {
   private readonly db: Database.Database
   private readonly libraryRootRepository: LibraryRootRepository
@@ -25,6 +27,8 @@ export class LibraryScanService {
   private readonly scanFailureRepository: ScanFailureRepository
   private readonly trackRepository: TrackRepository
   private readonly artworkCacheDir: string
+  private readonly createWorker: LibraryScanWorkerFactory
+  private readonly getAllWindows: () => BrowserWindow[]
   private activeWorker: Worker | null = null
   private activeJobId: number | null = null
   private onScanLifecycle: {
@@ -32,13 +36,20 @@ export class LibraryScanService {
     onEnd?: () => void | Promise<void>
   } = {}
 
-  constructor(db: Database.Database, artworkCacheDir: string) {
+  constructor(
+    db: Database.Database,
+    artworkCacheDir: string,
+    createWorker: LibraryScanWorkerFactory = (fileName, options) => new Worker(fileName, options),
+    getAllWindows: () => BrowserWindow[] = () => BrowserWindow.getAllWindows(),
+  ) {
     this.db = db
     this.libraryRootRepository = new LibraryRootRepository(db)
     this.scanJobRepository = new ScanJobRepository(db)
     this.scanFailureRepository = new ScanFailureRepository(db)
     this.trackRepository = new TrackRepository(db)
     this.artworkCacheDir = artworkCacheDir
+    this.createWorker = createWorker
+    this.getAllWindows = getAllWindows
     this.scanJobRepository.markInterruptedJobs()
   }
 
@@ -185,7 +196,7 @@ export class LibraryScanService {
       artworkCacheDir: this.artworkCacheDir,
     }
     const workerPath = join(__dirname, 'features/libraryScan/libraryScanWorker.js')
-    const worker = new Worker(workerPath, {
+    const worker = this.createWorker(workerPath, {
       workerData: workerInput,
     })
 
@@ -449,7 +460,7 @@ export class LibraryScanService {
   }
 
   private publishProgress(progress: LibraryScanProgress): void {
-    for (const window of BrowserWindow.getAllWindows()) {
+    for (const window of this.getAllWindows()) {
       try {
         if (!window.webContents.isDestroyed()) {
           window.webContents.send(ipcChannels.library.scanProgress, progress)
@@ -465,7 +476,7 @@ export class LibraryScanService {
     trackIds: number[],
     filePaths: string[] = [],
   ): void {
-    for (const window of BrowserWindow.getAllWindows()) {
+    for (const window of this.getAllWindows()) {
       try {
         if (!window.webContents.isDestroyed()) {
           window.webContents.send(ipcChannels.library.changed, {

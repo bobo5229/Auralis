@@ -38,6 +38,8 @@ import type {
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import type {
+  DatabaseExportBackupResult,
+  DatabaseRestoreBackupResult,
   MiniPlayerPopoverDirection,
   MiniPlayerWindowState,
   SystemMediaCommand,
@@ -45,8 +47,13 @@ import type {
 } from './contracts'
 
 export interface AuralisApi {
+  database: {
+    exportBackup: () => Promise<DatabaseExportBackupResult>
+    restoreBackup: () => Promise<DatabaseRestoreBackupResult>
+  }
   app: {
     getInfo: () => Promise<AppInfo>
+    exportDiagnostics: () => Promise<{ status: 'saved' | 'cancelled' | 'failed' }>
     rendererReady: () => void
   }
   library: {

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { createLibrarySearchIndex } from './librarySearchIndex'
+import {
+  createLibrarySearchIndex,
+  createLibrarySearchIndexIncrementally,
+  LibrarySearchIndexBuildStaleError,
+} from './librarySearchIndex'
 import { scanLibrarySearchIndex, type LibrarySearchRecord } from './librarySearchScan'
 import type { TrackListItem } from '@shared/types/libraryScan'
 
@@ -73,7 +77,7 @@ describe('createLibrarySearchIndex', () => {
   it('normalizes nullable metadata once into immutable search records', () => {
     const index = createLibrarySearchIndex([
       createTrack(1, {
-        title: '  ＡLPHA  ',
+        title: '  ＡLPHA 與夢  ',
         artist: null,
         albumArtist: 'Artist',
         album: 'Album',
@@ -82,7 +86,7 @@ describe('createLibrarySearchIndex', () => {
 
     expect(index).toEqual([
       {
-        title: 'alpha',
+        title: 'alpha 与梦',
         artist: '',
         albumArtist: 'artist',
         album: 'album',
@@ -90,5 +94,46 @@ describe('createLibrarySearchIndex', () => {
     ])
     expect(Object.isFrozen(index)).toBe(true)
     expect(Object.isFrozen(index[0])).toBe(true)
+  })
+
+  it('publishes one complete incremental index after yielding between bounded slices', async () => {
+    const tracks = Array.from({ length: 300 }, (_, index) =>
+      createTrack(index + 1, { title: `  Ｔrack ${index + 1}  `, artist: 'Artist' }),
+    )
+    const yields: number[] = []
+    let clock = 0
+    const index = await createLibrarySearchIndexIncrementally(tracks, {
+      isCurrent: () => true,
+      chunkBudgetMs: 1,
+      now: () => ++clock,
+      yieldToMain: async () => {
+        yields.push(clock)
+      },
+    })
+
+    expect(yields.length).toBeGreaterThan(1)
+    expect(index).toHaveLength(tracks.length)
+    expect(index[0].title).toBe('track 1')
+    expect(index.at(-1)?.title).toBe('track 300')
+    expect(Object.isFrozen(index)).toBe(true)
+  })
+
+  it('discards an incremental index when its generation becomes stale', async () => {
+    const tracks = Array.from({ length: 300 }, (_, index) => createTrack(index + 1))
+    let isCurrent = true
+    let yieldCount = 0
+    let clock = 0
+
+    await expect(
+      createLibrarySearchIndexIncrementally(tracks, {
+        isCurrent: () => isCurrent,
+        chunkBudgetMs: 1,
+        now: () => ++clock,
+        yieldToMain: async () => {
+          yieldCount += 1
+          if (yieldCount === 2) isCurrent = false
+        },
+      }),
+    ).rejects.toBeInstanceOf(LibrarySearchIndexBuildStaleError)
   })
 })

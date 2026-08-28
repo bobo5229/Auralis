@@ -61,12 +61,12 @@ describe('loadLibraryCatalogSnapshot', () => {
     expect(snapshot.pageSliceMs).toBeCloseTo(0.3)
     expect(fetchPage).toHaveBeenNthCalledWith(1, {
       cursor: undefined,
-      limit: 1000,
+      limit: 5000,
       refresh: true,
     })
     expect(fetchPage).toHaveBeenNthCalledWith(2, {
       cursor: 'next',
-      limit: 1000,
+      limit: 5000,
       refresh: false,
     })
   })
@@ -97,5 +97,44 @@ describe('loadLibraryCatalogSnapshot', () => {
       LibraryCatalogLoadStaleError,
     )
     expect(fetchPage).toHaveBeenCalledOnce()
+  })
+
+  it('preallocates and completely aggregates a 100k snapshot in twenty bounded pages', async () => {
+    const source = Array.from({ length: 100_000 }, (_, index) => createTrack(index + 1))
+    let requests = 0
+    const fetchPage = async (request: {
+      cursor?: string
+      limit?: number
+      refresh?: boolean
+    }): Promise<LibraryTrackPage> => {
+      requests += 1
+      const offset = request.cursor === undefined ? 0 : Number(request.cursor)
+      const limit = request.limit ?? 5000
+      const pageTracks = source.slice(offset, offset + limit)
+      const nextOffset = offset + pageTracks.length
+      return createPage(pageTracks, nextOffset < source.length ? String(nextOffset) : null, {
+        totalTracks: source.length,
+      })
+    }
+
+    const snapshot = await loadLibraryCatalogSnapshot(fetchPage, () => true)
+
+    expect(requests).toBe(20)
+    expect(snapshot.totalPages).toBe(20)
+    expect(snapshot.tracks).toHaveLength(source.length)
+    expect(snapshot.tracks[0].id).toBe(1)
+    expect(snapshot.tracks[49_999].id).toBe(50_000)
+    expect(snapshot.tracks.at(-1)?.id).toBe(100_000)
+    expect(new Set(snapshot.tracks.map((track) => track.id)).size).toBe(source.length)
+  })
+
+  it('rejects a page that would write beyond the advertised snapshot size', async () => {
+    const oversized = vi
+      .fn()
+      .mockResolvedValue(createPage([createTrack(1), createTrack(2)], null, { totalTracks: 1 }))
+
+    await expect(loadLibraryCatalogSnapshot(oversized, () => true)).rejects.toThrow(
+      'exceeds snapshot total',
+    )
   })
 })

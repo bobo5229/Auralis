@@ -24,11 +24,13 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 - 视觉与歌词：PixiJS、`@applemusic-like-lyrics/core`、OpenCC JS。
 - 数据库：SQLite，通过同步原生模块 `better-sqlite3` 访问。
 - 元数据：`music-metadata`，耗时扫描和刷新运行在 Node worker thread。
-- 日志：Pino；开发环境为 `debug`，生产环境为 `info`。
+- 日志与诊断：主进程使用 Pino（开发环境 `debug`、生产环境 `info`）；Renderer 使用仅写入本地
+  DevTools 的结构化诊断封装，不上传遥测。
 - 构建：electron-vite/Vite；安装包由 electron-builder 生成。
-- 质量检查：vue-tsc、TypeScript、ESLint、Prettier。
+- 质量检查：Vitest（Node 普通测试与 Electron ABI 原生测试）、vue-tsc、TypeScript、ESLint、
+  Prettier，以及 Library 视觉作用域静态检查。
 - Node.js：`package.json` 要求 `>=20.19.0`。
-- 发布目标：当前 electron-builder 只配置 Windows x64 的 NSIS 与目录包。
+- 发布目标：当前 electron-builder 配置 Windows x64 的 NSIS 安装包与 portable 包。
 
 `better-sqlite3` 必须与 Electron ABI 匹配；安装依赖或改变 Electron 版本后，
 必须运行 `npm.cmd run rebuild:native`。
@@ -101,6 +103,11 @@ Vue UI -> preload typed API -> Electron IPC handler -> Service -> Repository -> 
 新增或修改 IPC 时，必须同步维护 channels、contracts、api、preload 和 handler。
 renderer 不得绕过 `window.auralis` 直接使用 Electron 能力。
 
+主窗口与桌面歌词窗口均启用 `contextIsolation`、`webSecurity` 和 Electron sandbox，并关闭
+Node integration。preload 构建为自包含的 CommonJS `index.cjs` 与 `desktopLyrics.cjs`；桌面歌词
+只暴露自身所需的最小订阅 API。`src/main/app/webContentsSecurity.ts` 拒绝新窗口、webview 和权限
+请求，并阻止偏离已配置 renderer 入口的导航与重定向。
+
 ### 5.2 主进程业务层
 
 - 媒体库查询：`src/main/services/libraryService.ts`
@@ -158,6 +165,13 @@ CSS 变量，驱动玻璃染色、按钮、进度和音量反馈。全局 token/
 
 renderer 可以持有 UI 状态、播放用的 HTML media element、动画和派生展示数据，
 但不能读取数据库、扫描目录或解析音频标签。
+
+Renderer 错误统一通过 `src/renderer/shared/diagnostics/rendererDiagnostics.ts` 输出结构化事件。
+该封装限制字符串、对象深度和条目数量，脱敏路径、URL 及敏感上下文字段，只写入本地 DevTools，
+不会发送遥测。主进程的 `src/main/logging/mainProcessDiagnostics.ts` 捕获未处理异常、未处理
+Promise rejection、启动失败，以及 renderer/child process 退出；错误名称、消息、栈、路径和 URL
+在交给 Pino 前会归一化、截断和脱敏。致命主进程错误记录一次后以失败状态退出，诊断本身不得
+替代或掩盖原始故障。
 
 ## 6. 一次典型请求与数据流
 
@@ -253,6 +267,9 @@ npm.cmd run rebuild:native
 npm.cmd run dev
 npm.cmd run dev:no-direct-composition
 npm.cmd run dev:software-rendering
+npm.cmd test
+npm.cmd run test:unit
+npm.cmd run test:native
 npm.cmd run typecheck
 npm.cmd run lint
 npm.cmd run format
@@ -261,13 +278,29 @@ npm.cmd run pack
 npm.cmd run dist
 ```
 
-当前没有自动化测试框架或 `test` 脚本。每次变更至少应通过：
+测试分为两个 Vitest 执行通道，并由 `npm.cmd test` 统一编排：
+
+- `test:unit` 在普通 Node.js 进程中执行 `src/**/*.test.ts`，明确排除
+  `src/**/*.native.test.ts`，适合纯状态、索引、搜索、几何与不加载 Electron ABI 原生模块的
+  主进程逻辑。
+- `test:native` 由 Electron 启动 `scripts/run-electron-vitest.mjs`，再按
+  `vitest.native.config.ts` 执行 `src/**/*.native.test.ts`。数据库迁移、扫描服务、音频协议和
+  封面缓存等需要 `better-sqlite3` 的测试在这里运行，不能用普通 Node ABI 的执行结果替代。
+- `test:library-scope` 检查 Library 视觉样式的所有者作用域，防止跨页面污染。
+
+依赖安装后必须先运行 `npm.cmd run rebuild:native`，确保 `better-sqlite3` 与 Electron 38 ABI
+匹配，再执行完整测试。常规代码变更至少应通过：
 
 ```text
+npm.cmd test
 npm.cmd run typecheck
 npm.cmd run lint
-npm.cmd run build
 ```
+
+修改构建配置、入口、IPC、主进程、原生依赖或准备发布时，再运行 `npm.cmd run build`。
+`build` 已经把 `typecheck` 作为前置步骤；CI 因此在完整测试和 lint 后直接运行 `build`，同时
+完成类型检查和生产构建，避免重复执行同一轮类型检查。`lint` 的 pre-script 也会先检查 locale
+键，`build` 的 pre-script 会生成繁体中文资源并再次校验 locale。
 
 `format` 会写入整个仓库，应在运行后检查变更范围。
 
@@ -277,6 +310,8 @@ npm.cmd run build
 - renderer 禁止直接访问 SQLite、Node 文件系统、元数据解析或扫描逻辑。
 - 数据主路径保持 `Repository -> Service -> Typed IPC -> UI`。
 - preload 必须使用 context bridge；不要开启 renderer 的 Node integration。
+- 主窗口与桌面歌词窗口必须保持 sandbox；preload 保持自包含 CommonJS 输出和最小暴露面。
+- 所有 renderer 窗口必须复用导航、权限、新窗口和 webview 拒绝策略。
 - 跨进程数据必须有 shared 类型，不能用未声明的字符串 channel 或 `any` 漂移。
 - SQL 留在 repositories/schema；业务规则留在 services/features；handler 只做适配和组装。
 - 长时间扫描和元数据解析不能阻塞 Electron 主线程。
@@ -293,16 +328,20 @@ npm.cmd run build
 
 ## 12. 已知历史包袱与危险区域
 
-- `README.md` 的“初始化阶段/尚未实现扫描和播放”等描述已经过时；`docs/` 还有可能落后于实现的历史演示文档。
-- `.gitignore` 默认忽略 `docs/`，仅放行本文和 2026-07-17 修复记录；新增正式文档需明确决定是否跟踪。
-- 主窗和桌面歌词窗已启用 `webSecurity`，但仍设置 `sandbox: false`，开发分支还追加
-  `no-sandbox`。sandbox 仍是安全债务，不能假设 renderer 内容可信。
-- 主窗为 Auralis 自绘无框透明壳（见 `docs/techdoc-auralis-native-window-chrome.md`），
-  右上角自绘窗口控件；启动仍依赖 renderer ready 与 5 秒 fallback，需验证白屏、
-  崩溃和加载失败路径。
+- `docs/` 中仍可能存在落后于实现的历史演示或阶段性设计文档；功能状态以当前源码、路由和测试
+  为准。
+- `.gitignore` 默认忽略 `docs/`，仅放行本文、2026-07-17 修复记录和手稿皮肤验收资料；新增
+  正式文档需明确决定是否跟踪。
+- 主窗和桌面歌词窗已启用 sandbox、context isolation、`webSecurity` 与统一导航/权限策略；安全
+  边界仍依赖 preload、typed IPC 和自定义媒体协议的输入校验，新增能力时必须同步扩展相应测试，
+  不能假设 renderer 内容可信。
+- 主窗口使用操作系统原生边框和标题栏（`frame: true`、`transparent: false`）；不要根据历史
+  无框窗口设计文档重新引入 Renderer 自绘窗口控件或主壳拖拽区。桌面歌词仍是独立无框透明
+  窗口。启动仍依赖 renderer ready 与 fallback，需验证白屏、崩溃和加载失败路径。
 - 全局流体背景、播放器玻璃层、歌词磨砂层和页面局部样式共同叠加；改动 z-index、
   backdrop-filter、透明度或网格尺寸时，必须同时检查明暗主题、GPU 占用和低动态模式。
-- `src/renderer/App.vue` 仍有路由/封面状态调试日志，发布前应清理或接入受控日志。
+- Renderer 的业务错误已接入本地结构化诊断；新增诊断必须继续经过字段限制与脱敏，不能直接
+  输出媒体路径、任意 URL 或大对象，也不能借此引入遥测上传。
 - `src/main/ipc/registerIpcHandlers.ts` 同时负责依赖组装和大量 handler，体积与耦合较高。
 - `src/main/database/schema.ts` 是长期顺序迁移文件且多次重建同一 view；不能改写早期 migration。
 - 数据库是同步 `better-sqlite3`；大查询或大事务放在主线程会造成界面卡顿。
@@ -314,4 +353,6 @@ npm.cmd run build
 - 开发环境数据路径经历过迁移，`copyLegacyDevDatabaseIfNeeded` 是兼容逻辑；
   删除前必须确认旧 `data/auralis.sqlite` 用户已完成迁移。
 - `track_artists` 等预留规范化结构的写入与读取并不完全对称。
-- 没有自动化测试，数据库迁移、文件系统竞态、IPC 合约和播放统计回归主要靠人工验证。
+- 自动化测试已覆盖 Node 普通逻辑、部分 Electron ABI 原生链路和 Library 视觉作用域，但文件
+  系统竞态、IPC 合约完整性、无缝播放故障恢复和超大曲库性能仍需继续补强；不能只凭现有绿灯
+  推断这些路径均已覆盖。

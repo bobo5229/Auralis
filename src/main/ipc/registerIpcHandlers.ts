@@ -1,35 +1,39 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { stat } from 'node:fs/promises'
+import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
 import { getMiniPlayerWindowController } from '@main/app/miniPlayerWindowController'
+import { isTrustedRendererUrl } from '@main/app/webContentsSecurity'
 import { getDatabasePath } from '@main/database/connection'
-import { LibraryRepository } from '@main/repositories/libraryRepository'
-import { TrackRepository } from '@main/repositories/trackRepository'
-import { MetadataRefreshRepository } from '@main/repositories/metadataRefreshRepository'
-import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
-import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
-import { LibraryService } from '@main/services/libraryService'
-import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
-import { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
-import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
+import { exportDatabaseBackup, stageDatabaseRestore } from '@main/database/databaseBackupService'
 import { ArtworkCacheGarbageCollector } from '@main/features/artwork/artworkCacheGarbageCollector'
 import { ArtworkCacheMaintenanceService } from '@main/features/artwork/artworkCacheMaintenanceService'
 import { ArtworkCacheMigrationService } from '@main/features/artwork/artworkCacheMigrationService'
-import { buildAudioTrackUrl, isPlayableAudioExtension } from '@main/features/audio/audioProtocol'
 import { isPathUnderAnyRoot } from '@main/features/audio/audioPathGuard'
-import { PlayStatsRepository } from '@main/repositories/playStatsRepository'
-import { PlayStatsService } from '@main/services/playStatsService'
-import { PlaylistRepository } from '@main/repositories/playlistRepository'
-import { PlaylistService } from '@main/services/playlistService'
-import { SmartPlaylistRepository } from '@main/repositories/smartPlaylistRepository'
-import { SmartPlaylistService } from '@main/services/smartPlaylistService'
-import type { IpcResponse } from '@shared/ipc/contracts'
-import type { EditableTrackMetadata } from '@shared/types/libraryScan'
-import type { PlaylistViewMode, SidebarPlaylistKind } from '@shared/types/playlist'
-import type { SmartPlaylistRule, SmartPlaylistViewMode } from '@shared/types/smartPlaylist'
-import type { LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
+import { buildAudioTrackUrl, isPlayableAudioExtension } from '@main/features/audio/audioProtocol'
+import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
+import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
+import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
+import { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
 import { logger } from '@main/logging/logger'
+import { exportDiagnostics } from '@main/logging/diagnosticExport'
+import { LibraryRepository } from '@main/repositories/libraryRepository'
+import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
+import { MetadataRefreshRepository } from '@main/repositories/metadataRefreshRepository'
+import { PlaylistRepository } from '@main/repositories/playlistRepository'
+import { PlayStatsRepository } from '@main/repositories/playStatsRepository'
+import { SmartPlaylistRepository } from '@main/repositories/smartPlaylistRepository'
+import { TrackRepository } from '@main/repositories/trackRepository'
+import { LibraryService } from '@main/services/libraryService'
+import { PlaylistService } from '@main/services/playlistService'
+import { PlayStatsService } from '@main/services/playStatsService'
+import { SmartPlaylistService } from '@main/services/smartPlaylistService'
 import type Database from 'better-sqlite3'
+import { registerDomainIpcHandlers } from './registerDomainIpcHandlers'
+import {
+  createTrustedMainWindowSourcePolicy,
+  createValidatedIpcRegistrar,
+} from './validatedIpcRegistrar'
 
 function getInvokingMiniPlayerController(event: Electron.IpcMainInvokeEvent) {
   const window = BrowserWindow.fromWebContents(event.sender)
@@ -73,6 +77,11 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
       win.webContents.send(channel, data)
     }
   }
+  const notifyLibraryChanged = (data: {
+    reason: 'play-stats-updated' | 'play-stats-reset'
+    trackIds: number[]
+    filePaths: string[]
+  }) => sendToRenderer(ipcChannels.library.changed, data)
   const markTrackFileMissing = (filePath: string) => {
     const trackIds = trackRepository.markMissingByFilePaths([filePath])
     if (trackIds.length > 0) {
@@ -82,6 +91,31 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
         filePaths: [filePath],
       })
     }
+  }
+  const getAudioUrl = async (trackId: number) => {
+    const filePath = trackRepository.getFilePathById(trackId)
+
+    if (!filePath || !isPlayableAudioExtension(filePath)) {
+      return null
+    }
+
+    const rootPaths = libraryRootRepository.list().map((root) => root.path)
+    if (!isPathUnderAnyRoot(filePath, rootPaths)) {
+      return null
+    }
+
+    try {
+      const fileStats = await stat(filePath)
+      if (!fileStats.isFile()) {
+        markTrackFileMissing(filePath)
+        return null
+      }
+    } catch (error) {
+      if (isMissingFileError(error)) markTrackFileMissing(filePath)
+      return null
+    }
+
+    return { url: buildAudioTrackUrl(trackId) }
   }
   const metadataWatchService = new MetadataWatchService(
     libraryRootRepository,
@@ -135,399 +169,72 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
         .map((item) => [item.playlistId, item.trackCount] as const),
     )
 
+  const rendererEntry = process.env.ELECTRON_RENDERER_URL
+    ? process.env.ELECTRON_RENDERER_URL
+    : join(__dirname, '../renderer/index.html')
+  const electronIpcRegistrar = createValidatedIpcRegistrar({
+    register: (channel, listener) => ipcMain.handle(channel, listener),
+    isTrustedSender: createTrustedMainWindowSourcePolicy({
+      fromWebContents: (sender) => BrowserWindow.fromWebContents(sender),
+      isAllowedWindow: (window) =>
+        Boolean(getMiniPlayerWindowController(window as Electron.BrowserWindow)),
+      isTrustedRendererUrl: (url) => isTrustedRendererUrl(url, rendererEntry),
+    }),
+  })
+
   metadataWatchService.start()
   app.on('before-quit', () => {
     metadataWatchService.stop()
   })
 
-  ipcMain.handle(
-    ipcChannels.app.getInfo,
-    (): IpcResponse<'app:get-info'> => ({
-      name: 'Auralis',
-      version: app.getVersion(),
-      databasePath: getDatabasePath(),
-    }),
-  )
+  registerDomainIpcHandlers(electronIpcRegistrar, {
+    app: {
+      getInfo: () => ({
+        name: 'Auralis',
+        version: app.getVersion(),
+        databasePath: getDatabasePath(),
+      }),
+      exportDiagnostics: async (event) => {
+        const parentWindow = BrowserWindow.fromWebContents(event.sender)
+        if (!parentWindow) return { status: 'failed' as const }
 
-  ipcMain.handle(
-    ipcChannels.library.getStats,
-    (): IpcResponse<'library:get-stats'> => libraryService.getStats(),
-  )
-
-  ipcMain.handle(
-    ipcChannels.library.selectRoot,
-    async (): Promise<IpcResponse<'library:select-root'>> => {
-      const result = await libraryScanService.selectRoot()
-      metadataWatchService.syncRoots()
-      return result
-    },
-  )
-
-  ipcMain.handle(
-    ipcChannels.library.getRoots,
-    (): IpcResponse<'library:get-roots'> => libraryScanService.getRoots(),
-  )
-
-  ipcMain.handle(
-    ipcChannels.library.startScan,
-    (_event, payload: { rootId: number }): Promise<IpcResponse<'library:start-scan'>> =>
-      libraryScanService.startScan(payload.rootId),
-  )
-
-  ipcMain.handle(
-    ipcChannels.library.cancelScan,
-    (_event, payload: { jobId: number }): Promise<IpcResponse<'library:cancel-scan'>> =>
-      libraryScanService.cancelScan(payload.jobId),
-  )
-
-  ipcMain.handle(
-    ipcChannels.library.getScanStatus,
-    (_event, payload?: { jobId?: number }): IpcResponse<'library:get-scan-status'> =>
-      libraryScanService.getScanStatus(payload?.jobId),
-  )
-
-  ipcMain.handle(
-    ipcChannels.library.getTracks,
-    (): IpcResponse<'library:get-tracks'> => libraryService.getTracks(),
-  )
-
-  ipcMain.handle(
-    ipcChannels.library.getTrackPage,
-    (_event, payload: LibraryTrackPageRequest): IpcResponse<'library:get-track-page'> =>
-      libraryService.getTrackPage(payload),
-  )
-
-  ipcMain.handle(
-    ipcChannels.smartPlaylists.list,
-    (): IpcResponse<'smart-playlists:list'> => smartPlaylistService.list(),
-  )
-
-  ipcMain.handle(
-    ipcChannels.smartPlaylists.listTrackCounts,
-    (): IpcResponse<'smart-playlists:list-track-counts'> => smartPlaylistService.listTrackCounts(),
-  )
-
-  ipcMain.handle(
-    ipcChannels.smartPlaylists.getDetail,
-    (_event, payload: { id: number }): IpcResponse<'smart-playlists:get-detail'> =>
-      smartPlaylistService.getDetail(payload.id),
-  )
-
-  ipcMain.handle(
-    ipcChannels.smartPlaylists.create,
-    (
-      _event,
-      payload: { name: string; rule: SmartPlaylistRule },
-    ): IpcResponse<'smart-playlists:create'> =>
-      smartPlaylistService.create(payload.name, payload.rule),
-  )
-
-  ipcMain.handle(
-    ipcChannels.smartPlaylists.createFromQuery,
-    (_event, payload: { query: string }): IpcResponse<'smart-playlists:create-from-query'> =>
-      smartPlaylistService.createFromQuery(payload.query),
-  )
-
-  ipcMain.handle(
-    ipcChannels.smartPlaylists.rename,
-    (_event, payload: { id: number; name: string }): IpcResponse<'smart-playlists:rename'> =>
-      smartPlaylistService.rename(payload.id, payload.name),
-  )
-
-  ipcMain.handle(
-    ipcChannels.smartPlaylists.updateViewMode,
-    (
-      _event,
-      payload: { id: number; viewMode: SmartPlaylistViewMode },
-    ): IpcResponse<'smart-playlists:update-view-mode'> =>
-      smartPlaylistService.updateViewMode(payload.id, payload.viewMode),
-  )
-
-  ipcMain.handle(
-    ipcChannels.smartPlaylists.delete,
-    (_event, payload: { id: number }): IpcResponse<'smart-playlists:delete'> => ({
-      deleted: smartPlaylistService.delete(payload.id),
-    }),
-  )
-
-  ipcMain.handle(
-    ipcChannels.smartPlaylists.reorder,
-    (_event, payload: { ids: number[] }): IpcResponse<'smart-playlists:reorder'> =>
-      smartPlaylistService.reorder(payload.ids),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playlists.list,
-    (): IpcResponse<'playlists:list'> => playlistService.list(),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playlists.listTrackCounts,
-    (): IpcResponse<'playlists:list-track-counts'> => playlistService.listTrackCounts(),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playlists.listSidebarItems,
-    (): IpcResponse<'playlists:list-sidebar-items'> =>
-      playlistService.listSidebarItems(getSmartTrackCounts()),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playlists.getDetail,
-    (_event, payload: { id: number }): IpcResponse<'playlists:get-detail'> =>
-      playlistService.getDetail(payload.id),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playlists.create,
-    (): IpcResponse<'playlists:create'> => playlistService.create(),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playlists.rename,
-    (_event, payload: { id: number; name: string }): IpcResponse<'playlists:rename'> =>
-      playlistService.rename(payload.id, payload.name),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playlists.updateViewMode,
-    (
-      _event,
-      payload: { id: number; viewMode: PlaylistViewMode },
-    ): IpcResponse<'playlists:update-view-mode'> =>
-      playlistService.updateViewMode(payload.id, payload.viewMode),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playlists.delete,
-    (_event, payload: { id: number }): IpcResponse<'playlists:delete'> => ({
-      deleted: playlistService.delete(payload.id),
-    }),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playlists.addTracks,
-    (_event, payload: { id: number; trackIds: number[] }): IpcResponse<'playlists:add-tracks'> =>
-      playlistService.addTracks(payload.id, payload.trackIds),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playlists.reorderSidebarItems,
-    (
-      _event,
-      payload: { items: Array<{ kind: SidebarPlaylistKind; id: number }> },
-    ): IpcResponse<'playlists:reorder-sidebar-items'> => {
-      playlistService.reorderSidebarItems(payload.items)
-      return playlistService.listSidebarItems(getSmartTrackCounts())
-    },
-  )
-
-  ipcMain.handle(
-    ipcChannels.lyrics.getByTrackId,
-    (_event, payload: { trackId: number }): IpcResponse<'lyrics:get-by-track-id'> =>
-      libraryService.getLyrics(payload.trackId),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playback.getAudioUrl,
-    async (
-      _event,
-      payload: { trackId: number },
-    ): Promise<IpcResponse<'playback:get-audio-url'>> => {
-      const filePath = trackRepository.getFilePathById(payload.trackId)
-
-      if (!filePath) {
-        return null
-      }
-
-      if (!isPlayableAudioExtension(filePath)) {
-        return null
-      }
-
-      const rootPaths = libraryRootRepository.list().map((root) => root.path)
-
-      if (!isPathUnderAnyRoot(filePath, rootPaths)) {
-        return null
-      }
-
-      try {
-        const fileStats = await stat(filePath)
-
-        if (!fileStats.isFile()) {
-          markTrackFileMissing(filePath)
-          return null
-        }
-      } catch (error) {
-        if (isMissingFileError(error)) markTrackFileMissing(filePath)
-        return null
-      }
-
-      return { url: buildAudioTrackUrl(payload.trackId) }
-    },
-  )
-
-  ipcMain.handle(
-    ipcChannels.playback.getRandomTrack,
-    (_event, payload?: { excludeTrackId?: number }): IpcResponse<'playback:get-random-track'> =>
-      libraryService.getRandomTrack(payload?.excludeTrackId),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playback.getRandomAlbumTracks,
-    (
-      _event,
-      payload?: { excludeAlbumKey?: { albumArtist: string; album: string } },
-    ): IpcResponse<'playback:get-random-album-tracks'> =>
-      libraryService.getRandomAlbumTracks(payload?.excludeAlbumKey),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playback.getAlbumTracks,
-    (
-      _event,
-      payload: { albumKey: { albumArtist: string; album: string } },
-    ): IpcResponse<'playback:get-album-tracks'> => libraryService.getAlbumTracks(payload.albumKey),
-  )
-
-  ipcMain.handle(
-    ipcChannels.playback.recordEffectivePlay,
-    (
-      _event,
-      payload: { trackId: number; sessionId: string; playedAtIso: string },
-    ): IpcResponse<'playback:record-effective-play'> => {
-      const result = playStatsService.recordEffectivePlay(payload)
-      if (result.ok && result.recorded) {
-        sendToRenderer(ipcChannels.library.changed, {
-          reason: 'play-stats-updated',
-          trackIds: [payload.trackId],
-          filePaths: [],
+        return exportDiagnostics({
+          appVersion: app.getVersion(),
+          logsDirectory: join(app.getPath('userData'), 'logs'),
+          showSaveDialog: (options) => dialog.showSaveDialog(parentWindow, options),
         })
-      }
-      return result
+      },
     },
-  )
+    database: {
+      exportBackup: async (event) => {
+        const parentWindow = BrowserWindow.fromWebContents(event.sender)
+        if (!parentWindow) return { status: 'failed' as const, error: 'Window unavailable' }
 
-  ipcMain.handle(
-    ipcChannels.archive.getListeningHeatmap,
-    (_event, payload: { year: number }): IpcResponse<'archive:get-listening-heatmap'> =>
-      playStatsService.getListeningHeatmap(payload.year),
-  )
+        return exportDatabaseBackup({
+          db,
+          databasePath: getDatabasePath(),
+          showSaveDialog: (options) => dialog.showSaveDialog(parentWindow, options),
+        })
+      },
+      restoreBackup: async (event) => {
+        const parentWindow = BrowserWindow.fromWebContents(event.sender)
+        if (!parentWindow) return { status: 'failed' as const, error: 'Window unavailable' }
 
-  ipcMain.handle(
-    ipcChannels.archive.getDailyListeningDetail,
-    (_event, payload: { date: string }): IpcResponse<'archive:get-daily-listening-detail'> =>
-      playStatsService.getDailyListeningDetail(payload.date),
-  )
-
-  ipcMain.handle(
-    ipcChannels.archive.getAnnualListeningInsights,
-    (_event, payload: { year: number }): IpcResponse<'archive:get-annual-listening-insights'> =>
-      playStatsService.getAnnualListeningInsights(payload.year),
-  )
-
-  ipcMain.handle(
-    ipcChannels.archive.getListeningRanking,
-    (
-      _event,
-      payload: Parameters<typeof playStatsService.getListeningRanking>[0],
-    ): IpcResponse<'archive:get-listening-ranking'> =>
-      playStatsService.getListeningRanking(payload),
-  )
-
-  ipcMain.handle(
-    ipcChannels.archive.getListeningGenreSpectrum,
-    (_event, payload: { year: number }): IpcResponse<'archive:get-listening-genre-spectrum'> =>
-      playStatsService.getListeningGenreSpectrum(payload.year),
-  )
-
-  ipcMain.handle(
-    ipcChannels.archive.resetPlayStats,
-    (): IpcResponse<'archive:reset-play-stats'> => {
-      const result = playStatsService.resetAll()
-      sendToRenderer(ipcChannels.library.changed, {
-        reason: 'play-stats-reset',
-        trackIds: [],
-        filePaths: [],
-      })
-      return result
+        return stageDatabaseRestore({
+          currentDbPath: getDatabasePath(),
+          showOpenDialog: (options) => dialog.showOpenDialog(parentWindow, options),
+        })
+      },
     },
-  )
-
-  ipcMain.handle(
-    ipcChannels.metadata.refreshTrack,
-    (_event, payload: { trackId: number }): IpcResponse<'metadata:refresh-track'> =>
-      metadataRefreshService.refreshTrack(payload.trackId),
-  )
-
-  ipcMain.handle(
-    ipcChannels.metadata.refreshTracks,
-    (_event, payload: { trackIds: number[] }): IpcResponse<'metadata:refresh-tracks'> =>
-      metadataRefreshService.refreshTracks(payload.trackIds),
-  )
-
-  ipcMain.handle(
-    ipcChannels.metadata.refreshMissing,
-    (_event, payload?: { limit?: number }): IpcResponse<'metadata:refresh-missing'> =>
-      metadataRefreshService.refreshMissingMetadata(payload?.limit),
-  )
-
-  ipcMain.handle(
-    ipcChannels.metadata.refreshLyricsMissing,
-    (_event, payload?: { limit?: number }): IpcResponse<'metadata:refresh-lyrics-missing'> =>
-      metadataRefreshService.refreshLyricsForMissing(payload?.limit),
-  )
-
-  ipcMain.handle(
-    ipcChannels.metadata.getRefreshStatus,
-    (_event, payload: { jobId: number }): IpcResponse<'metadata:get-refresh-status'> =>
-      metadataRefreshService.getJobStatus(payload.jobId),
-  )
-
-  ipcMain.handle(
-    ipcChannels.metadata.listRefreshFailures,
-    (_event, payload?: { limit?: number }): IpcResponse<'metadata:list-refresh-failures'> =>
-      metadataRefreshService.listFailures(payload?.limit),
-  )
-
-  ipcMain.handle(
-    ipcChannels.metadata.clearRefreshFailures,
-    (): IpcResponse<'metadata:clear-refresh-failures'> => metadataRefreshService.clearFailures(),
-  )
-
-  ipcMain.handle(
-    ipcChannels.metadata.getTrackMetadata,
-    (_event, payload: { trackId: number }): IpcResponse<'metadata:get-track-metadata'> =>
-      metadataRefreshService.getTrackMetadata(payload.trackId),
-  )
-
-  ipcMain.handle(
-    ipcChannels.metadata.updateTrackMetadata,
-    (
-      _event,
-      payload: EditableTrackMetadata,
-    ): Promise<IpcResponse<'metadata:update-track-metadata'>> =>
-      metadataRefreshService.updateTrackMetadata(payload),
-  )
-
-  ipcMain.handle(ipcChannels.window.enterMiniPlayer, (event) => {
-    return getInvokingMiniPlayerController(event).enter()
+    library: { libraryService, libraryScanService, metadataWatchService },
+    playlists: { playlistService, smartPlaylistService, getSmartTrackCounts },
+    playbackArchive: {
+      libraryService,
+      playStatsService,
+      getAudioUrl,
+      notifyLibraryChanged,
+    },
+    metadata: { metadataRefreshService },
+    window: { getMiniPlayerController: getInvokingMiniPlayerController },
   })
-
-  ipcMain.handle(ipcChannels.window.restoreFromMiniPlayer, (event) => {
-    return getInvokingMiniPlayerController(event).restore()
-  })
-
-  ipcMain.handle(ipcChannels.window.getMiniPlayerState, (event) => {
-    return getInvokingMiniPlayerController(event).getState()
-  })
-
-  ipcMain.handle(
-    ipcChannels.window.setMiniPlayerPopover,
-    (event, payload: { open: boolean; direction: 'above' | 'below'; height: number }) =>
-      getInvokingMiniPlayerController(event).setPopover(
-        payload.open,
-        payload.direction,
-        payload.height,
-      ),
-  )
 }

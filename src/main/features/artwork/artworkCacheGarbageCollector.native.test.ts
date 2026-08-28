@@ -12,15 +12,6 @@ const DatabaseCtor = nodeRequire('better-sqlite3') as unknown as new (
   path: string,
 ) => Database.Database
 
-let sqliteAvailable = false
-try {
-  const probe = new DatabaseCtor(':memory:')
-  probe.close()
-  sqliteAvailable = true
-} catch {
-  sqliteAvailable = false
-}
-
 const tempDirs: string[] = []
 
 async function makeTempDir(): Promise<string> {
@@ -47,7 +38,7 @@ function v2Key(seed: string): string {
   return `v2-${seed.repeat(64).slice(0, 64)}.webp`
 }
 
-describe.skipIf(!sqliteAvailable)('ArtworkCacheGarbageCollector', () => {
+describe('ArtworkCacheGarbageCollector', () => {
   it('keeps files referenced by albums and track_metadata', async () => {
     const dir = await makeTempDir()
     const db = createDb()

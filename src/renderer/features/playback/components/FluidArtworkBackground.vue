@@ -4,6 +4,7 @@ import type {
   MeshGradientRenderer as AmllMeshGradientRenderer,
 } from '@applemusic-like-lyrics/core'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 
 const props = defineProps<{
   artworkUrl: string | null
@@ -55,7 +56,11 @@ async function syncAlbum(): Promise<void> {
     await currentBackground.setAlbum(image)
   } catch (error) {
     if (token !== albumRequestToken) return
-    console.warn('[Auralis AMLL background] Unable to load artwork', error)
+    rendererDiagnostics.warn({
+      scope: 'playback.fluid-background',
+      message: 'Unable to load artwork',
+      cause: error,
+    })
     const fallbackImage = await loadArtworkImage(FALLBACK_ALBUM).catch(() => null)
     if (fallbackImage && token === albumRequestToken) {
       await currentBackground.setAlbum(fallbackImage).catch(() => undefined)
@@ -129,7 +134,11 @@ async function initializeBackground(): Promise<void> {
     await syncAlbum()
   } catch (error) {
     if (disposed) return
-    console.warn('[Auralis AMLL background] Renderer unavailable', error)
+    rendererDiagnostics.warn({
+      scope: 'playback.fluid-background',
+      message: 'Renderer unavailable',
+      cause: error,
+    })
     background?.dispose()
     background = null
   }

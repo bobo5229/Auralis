@@ -11,6 +11,7 @@ import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassP
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { auralis } from '@renderer/shared/ipc/client'
+import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import type { ShellPresentation } from '../utils/shellPresentation'
 import { resolveRestorableFocusTarget } from '../utils/sidebarModalFocus'
 import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
@@ -343,7 +344,11 @@ async function playRandomPlaylistTrack(item: SidebarPlaylistItem): Promise<void>
     await playback.playTrackFromQueue(tracks, track.id, { shufflePool: tracks })
   } catch (error) {
     // 播放错误无 UI 消费方，仅打日志（原始 message 不直出，避免英文混排）。
-    console.error('[Auralis] random playlist track failed:', error)
+    rendererDiagnostics.error({
+      scope: 'sidebar.playlist',
+      message: 'Failed to play a random playlist track',
+      cause: error,
+    })
     playback.state.error = null
   }
 }
@@ -424,7 +429,11 @@ async function createFromQuery(): Promise<void> {
     isQueryDialogOpen.value = false
     onSmartPlaylistCreated(result.playlist)
   } catch (error) {
-    console.error('[Auralis] smart playlist query failed:', error)
+    rendererDiagnostics.error({
+      scope: 'sidebar.smart-playlist',
+      message: 'Failed to create a smart playlist from query',
+      cause: error,
+    })
     smartPlaylistQueryError.value = t('sidebar.queryParseFailed')
   } finally {
     isCreatingFromQuery.value = false

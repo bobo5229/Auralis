@@ -33,6 +33,14 @@ export default defineConfig({
           index: resolve('src/preload/index.ts'),
           desktopLyrics: resolve('src/preload/desktopLyrics.ts'),
         },
+        output: {
+          // Sandboxed Electron preloads run in a restricted CommonJS environment.
+          // Keep every entry self-contained because that environment cannot load
+          // arbitrary relative chunks.
+          format: 'cjs',
+          entryFileNames: '[name].cjs',
+          inlineDynamicImports: false,
+        },
       },
     },
     resolve: {
