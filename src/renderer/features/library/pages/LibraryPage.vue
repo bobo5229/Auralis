@@ -58,6 +58,11 @@ import {
   type LibraryDataSnapshot,
 } from '../utils/libraryDataSnapshot'
 import { loadLibraryCatalogSnapshot } from '../utils/loadLibraryCatalogSnapshot'
+import {
+  resolveKeyboardFocusTrackId,
+  resolveKeyboardMoveIndex,
+  type LibraryKeyboardMoveDirection,
+} from '../utils/libraryKeyboardFocus'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { normalizeSearchText } from '../utils/normalizeSearchText'
 import {
@@ -790,53 +795,29 @@ function clearSearch(): void {
 const keyboardFocusTrackId = ref<number | null>(null)
 
 function ensureKeyboardFocusTrackId(): number | null {
-  if (tracks.value.length === 0) {
-    keyboardFocusTrackId.value = null
-    return null
-  }
-
-  const currentId = keyboardFocusTrackId.value
-  const isValidCurrent =
-    currentId !== null && libraryDerivedIndex.value.trackIndexById.has(currentId)
-
-  if (!isValidCurrent) {
-    const selectedId = playback.state.selectedTrackId
-    const currentTrackId = playback.state.currentTrackId
-
-    const candidateId =
-      (selectedId && libraryDerivedIndex.value.trackIndexById.has(selectedId)
-        ? selectedId
-        : null) ??
-      (currentTrackId && libraryDerivedIndex.value.trackIndexById.has(currentTrackId)
-        ? currentTrackId
-        : null) ??
-      tracks.value[0]?.id ??
-      null
-
-    keyboardFocusTrackId.value = candidateId
-    return candidateId
-  }
-
-  return currentId
+  const nextId = resolveKeyboardFocusTrackId({
+    trackCount: tracks.value.length,
+    currentFocusId: keyboardFocusTrackId.value,
+    selectedTrackId: playback.state.selectedTrackId,
+    currentTrackId: playback.state.currentTrackId,
+    hasTrack: (id) => libraryDerivedIndex.value.trackIndexById.has(id),
+    firstTrackId: tracks.value[0]?.id ?? null,
+  })
+  keyboardFocusTrackId.value = nextId
+  return nextId
 }
 
-async function moveKeyboardFocus(direction: 'next' | 'prev' | 'first' | 'last'): Promise<void> {
+async function moveKeyboardFocus(direction: LibraryKeyboardMoveDirection): Promise<void> {
   if (tracks.value.length === 0) return
 
   const currentId = ensureKeyboardFocusTrackId()
   const currentIndex =
     currentId === null ? -1 : (libraryDerivedIndex.value.trackIndexById.get(currentId) ?? -1)
-  let targetIndex = 0
-
-  if (direction === 'first') {
-    targetIndex = 0
-  } else if (direction === 'last') {
-    targetIndex = tracks.value.length - 1
-  } else if (direction === 'next') {
-    targetIndex = currentIndex >= 0 ? Math.min(tracks.value.length - 1, currentIndex + 1) : 0
-  } else if (direction === 'prev') {
-    targetIndex = currentIndex >= 0 ? Math.max(0, currentIndex - 1) : 0
-  }
+  const targetIndex = resolveKeyboardMoveIndex({
+    direction,
+    currentIndex,
+    lastIndex: tracks.value.length - 1,
+  })
 
   const targetTrack = tracks.value[targetIndex]
   if (!targetTrack) return
