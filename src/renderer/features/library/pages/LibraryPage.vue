@@ -63,6 +63,7 @@ import {
   resolveKeyboardMoveIndex,
   type LibraryKeyboardMoveDirection,
 } from '../utils/libraryKeyboardFocus'
+import { resolveFirstVisibleTrackIndex } from '../utils/libraryFirstVisibleTrack'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { normalizeSearchText } from '../utils/normalizeSearchText'
 import {
@@ -1194,28 +1195,19 @@ function updateFirstVisibleTrackIndex(): void {
   // Both visual styles share the same virtualizer geometry, and the modern
   // viewport anchor is needed for background-refresh restore, so the first
   // visible track is tracked in modern and manuscript alike.
-  if (!scrollRef.value || tracks.value.length === 0) return
+  if (!scrollRef.value) return
 
-  let newIndex = 0
-  const offset = Math.max(0, scrollRef.value.scrollTop - LIBRARY_TOP_INSET)
-
-  if (!isCoverView.value) {
-    newIndex = Math.floor(offset / LIBRARY_LAYOUT_METRICS.flatRowHeight)
-  } else {
-    const virtualItems = virtualAlbumGroups.value
-    if (virtualItems.length > 0) {
-      const firstVisibleVirtualItem =
-        virtualItems.find((item) => item.end > offset) ?? virtualItems[0]
-      const group = albumGroups.value[firstVisibleVirtualItem.index]
-      if (group) {
-        newIndex = group.firstTrackIndex
-      }
-    }
-  }
-
-  const clamped = Math.max(0, Math.min(newIndex, tracks.value.length - 1))
-  if (clamped !== firstVisibleTrackIndex.value) {
-    firstVisibleTrackIndex.value = clamped
+  const nextIndex = resolveFirstVisibleTrackIndex({
+    scrollTop: scrollRef.value.scrollTop,
+    topInset: LIBRARY_TOP_INSET,
+    isCoverView: isCoverView.value,
+    flatRowHeight: LIBRARY_LAYOUT_METRICS.flatRowHeight,
+    trackCount: tracks.value.length,
+    virtualAlbumGroups: virtualAlbumGroups.value,
+    albumGroups: albumGroups.value,
+  })
+  if (nextIndex !== firstVisibleTrackIndex.value) {
+    firstVisibleTrackIndex.value = nextIndex
   }
 }
 
