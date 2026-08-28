@@ -895,6 +895,10 @@ onBeforeUnmount(() => {
   position: relative;
   display: inline-block;
   color: currentColor;
+  opacity: 0.94;
+  transition:
+    opacity 140ms ease,
+    color 140ms ease;
 }
 
 .fullscreen-player-filled-play {
@@ -903,6 +907,10 @@ onBeforeUnmount(() => {
   height: 56px;
   object-fit: contain;
   transform: translateX(3px);
+}
+
+.fullscreen-player-play:hover .fullscreen-player-filled-play {
+  opacity: 0.62;
 }
 
 .fullscreen-player-filled-pause {
@@ -939,6 +947,10 @@ onBeforeUnmount(() => {
   width: 38px;
   height: 32px;
   object-fit: contain;
+}
+
+.fullscreen-player-skip:hover .fullscreen-player-filled-skip-icon {
+  opacity: 0.62;
 }
 
 .fullscreen-player-volume {

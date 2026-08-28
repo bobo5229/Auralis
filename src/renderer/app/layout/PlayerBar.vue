@@ -34,6 +34,7 @@ import {
   togglePlayerBarExclusiveOverlay,
   type PlayerBarOverlayFlags,
 } from '@renderer/features/playback/utils/playerBarExclusiveOverlay'
+import { resolvePlayerPrimaryButtonTextColor } from '@renderer/features/playback/utils/resolvePlayerPrimaryButtonTextColor'
 
 const props = defineProps<{ presentation: PlayerSurfacePresentation }>()
 
@@ -97,6 +98,34 @@ const albumAccentColor = computed(() => {
     return null
   }
   return `rgb(${primaryColor.r} ${primaryColor.g} ${primaryColor.b})`
+})
+const isPrimaryPlaybackPending = computed(
+  () => isModernPlayer.value && playback.isPlaybackPending.value,
+)
+const isPrimaryPlaybackDisabled = computed(
+  () => !playback.state.currentTrack || isPrimaryPlaybackPending.value,
+)
+const primaryPlaybackLabel = computed(() => {
+  if (!playback.state.currentTrack) return t('player.playbackNoTrack')
+  if (isPrimaryPlaybackPending.value) return t('player.playbackLoading')
+  return playback.state.isPlaying ? t('player.pause') : t('player.play')
+})
+const primaryPlaybackIconClass = computed(() => {
+  if (isPrimaryPlaybackPending.value) return 'i-lucide-loader-circle'
+  return playback.state.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'
+})
+const modernPrimaryPlaybackButtonStyle = computed<CSSProperties>(() => {
+  const primaryColor = playback.state.currentTrack ? albumPalette.value?.accents[0]?.rgb : undefined
+
+  return {
+    '--auralis-player-primary-button-bg':
+      primaryColor && albumAccentColor.value
+        ? albumAccentColor.value
+        : 'var(--auralis-control-primary-bg)',
+    '--auralis-player-primary-button-fg': primaryColor
+      ? resolvePlayerPrimaryButtonTextColor(primaryColor)
+      : 'var(--auralis-control-primary-text)',
+  } as CSSProperties
 })
 const playerBarStyle = computed(
   () =>
@@ -547,7 +576,9 @@ const volumeSliderStyle = computed(() => {
   const percentage = `${Math.round(playback.state.volume * 100)}%`
 
   return {
-    background: `linear-gradient(to right, var(--auralis-active-album-accent) 0%, var(--auralis-active-album-accent) ${percentage}, var(--auralis-progress-track) ${percentage}, var(--auralis-progress-track) 100%)`,
+    '--volume-percent': percentage,
+    '--volume-track-bg': `linear-gradient(to right, var(--auralis-active-album-accent) 0%, var(--auralis-active-album-accent) ${percentage}, var(--auralis-progress-track) ${percentage}, var(--auralis-progress-track) 100%)`,
+    background: 'transparent',
   }
 })
 
@@ -559,7 +590,8 @@ function handleVolumeOverlayEscape(): void {
 
 // --- Transport ---
 function handlePlayPause(): void {
-  playback.togglePlayPause()
+  if (isModernPlayer.value && isPrimaryPlaybackDisabled.value) return
+  void playback.togglePlayPause()
 }
 
 function handlePrev(): void {
@@ -616,13 +648,13 @@ function handleToggleMute(): void {
             <button
               class="transport-control-primary"
               type="button"
-              :aria-label="playback.state.isPlaying ? t('player.pause') : t('player.play')"
+              :style="modernPrimaryPlaybackButtonStyle"
+              :disabled="isPrimaryPlaybackDisabled"
+              :aria-label="primaryPlaybackLabel"
+              :aria-busy="isPrimaryPlaybackPending ? 'true' : undefined"
               @click="handlePlayPause"
             >
-              <span
-                class="h-5 w-5"
-                :class="playback.state.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
-              />
+              <span class="h-5 w-5" :class="primaryPlaybackIconClass" />
             </button>
             <button
               class="transport-control"

@@ -121,6 +121,51 @@
 
 .player-overlay[data-player-presentation='manuscript'].volume-overlay .volume-overlay-slider {
   width: 90px;
+  height: 24px;
+}
+
+.player-overlay[data-player-presentation='manuscript'] input[type='range'].volume-slider {
+  height: 24px;
+  background: transparent !important;
+  transition: none;
+}
+
+.player-overlay[data-player-presentation='manuscript'] input[type='range'].volume-slider:hover {
+  height: 24px;
+}
+
+.player-overlay[data-player-presentation='manuscript']
+  input[type='range'].volume-slider::-webkit-slider-runnable-track,
+.player-overlay[data-player-presentation='manuscript']
+  input[type='range'].volume-slider:hover::-webkit-slider-runnable-track {
+  height: var(--manuscript-indicator-width);
+  border-radius: var(--manuscript-radius-indicator);
+  transition: none;
+}
+
+.player-overlay[data-player-presentation='manuscript']
+  input[type='range'].volume-slider::-moz-range-track,
+.player-overlay[data-player-presentation='manuscript']
+  input[type='range'].volume-slider:hover::-moz-range-track {
+  height: var(--manuscript-indicator-width);
+  border-radius: var(--manuscript-radius-indicator);
+  transition: none;
+}
+
+.player-overlay[data-player-presentation='manuscript']
+  input[type='range'].volume-slider::-webkit-slider-thumb,
+.player-overlay[data-player-presentation='manuscript']
+  input[type='range'].volume-slider:hover::-webkit-slider-thumb {
+  opacity: 0;
+  transform: none;
+}
+
+.player-overlay[data-player-presentation='manuscript']
+  input[type='range'].volume-slider::-moz-range-thumb,
+.player-overlay[data-player-presentation='manuscript']
+  input[type='range'].volume-slider:hover::-moz-range-thumb {
+  opacity: 0;
+  transform: none;
 }
 
 .player-overlay[data-player-presentation='manuscript'].volume-overlay

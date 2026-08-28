@@ -1,4 +1,4 @@
-import { reactive, ref } from 'vue'
+import { reactive, readonly, ref } from 'vue'
 import type { PlaybackMode, PlaybackState, PlaybackTrack } from '../types'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
@@ -17,6 +17,7 @@ import {
   selectRandomAlbumShuffleContext,
   type PlaybackTransitionPlan,
 } from '../core/playbackTransitionPlanner'
+import { createPlaybackRequestGate, type PlaybackRequestToken } from '../utils/playbackRequestGate'
 
 const VOLUME_KEY = 'auralis-volume'
 const GAPLESS_PLAYBACK_KEY = 'auralis-gapless-playback-enabled'
@@ -38,6 +39,9 @@ function clampVolume(value: number): number {
 
 const audio = new Audio()
 const gaplessPlaybackEnabled = ref(readPersistedGaplessPlayback())
+const playbackPending = ref(false)
+const readonlyPlaybackPending = readonly(playbackPending)
+const playbackRequestGate = createPlaybackRequestGate()
 
 function describeMediaError(code: number): string {
   switch (code) {
@@ -71,6 +75,7 @@ const state = reactive<PlaybackState>({
 
 let lastAudibleVolume = state.volume > 0 ? state.volume : 0.8
 let playbackRequestId = 0
+let audioSourceTrackId: number | null = null
 let queuedNextTrackId: number | null = null
 let transitionGeneration = 0
 
@@ -79,6 +84,44 @@ let scheduledPlan: PlaybackTransitionPlan | null = null
 const playbackHistory = new PlaybackHistory()
 let albumShuffleContext: AlbumShuffleContext = null
 let shuffleTrackPool: PlaybackTrack[] | null = null
+
+function beginPlaybackRequest(): PlaybackRequestToken {
+  const token = playbackRequestGate.begin()
+  playbackPending.value = true
+  return token
+}
+
+function isCurrentPlaybackRequest(token: PlaybackRequestToken, requestId: number): boolean {
+  return playbackRequestGate.isCurrent(token) && requestId === playbackRequestId
+}
+
+function finishPlaybackRequest(token: PlaybackRequestToken): void {
+  if (playbackRequestGate.finish(token)) {
+    playbackPending.value = false
+  }
+}
+
+function invalidatePlaybackRequest(): void {
+  playbackRequestGate.invalidate()
+  playbackPending.value = false
+}
+
+function clearHtmlAudioSource(): void {
+  // Clear the identity before pause/load so late events from the previous
+  // source cannot be mistaken for the current track.
+  audioSourceTrackId = null
+  audio.pause()
+  audio.removeAttribute('src')
+  audio.load()
+}
+
+function hasCurrentHtmlAudioSource(trackId: number): boolean {
+  return !gaplessEngine.isActive && audioSourceTrackId === trackId && Boolean(audio.src)
+}
+
+function getQueueContainingCurrentTrack(track: PlaybackTrack): PlaybackTrack[] {
+  return state.queue.some((queuedTrack) => queuedTrack.id === track.id) ? state.queue : [track]
+}
 
 audio.volume = state.volume
 audio.muted = state.isMuted
@@ -273,7 +316,7 @@ async function playTrackFromResolvedQueue(
   const requestId = ++playbackRequestId
   invalidateGaplessTransition()
   gaplessEngine.cancel()
-  audio.pause()
+  clearHtmlAudioSource()
 
   if (options?.recordHistory !== false) {
     pushHistory(state.currentTrack, trackId)
@@ -289,18 +332,20 @@ async function playTrackFromResolvedQueue(
   state.currentTime = 0
   state.duration = 0
   state.error = null
+  state.isPlaying = false
+  const pendingToken = beginPlaybackRequest()
 
   try {
     const audioUrl = await resolveAudioUrl(trackId)
 
-    if (requestId !== playbackRequestId) {
+    if (!isCurrentPlaybackRequest(pendingToken, requestId)) {
       return
     }
 
     const startedGapless =
       gaplessPlaybackEnabled.value && (await gaplessEngine.start(trackId, audioUrl))
 
-    if (requestId !== playbackRequestId) return
+    if (!isCurrentPlaybackRequest(pendingToken, requestId)) return
 
     if (startedGapless) {
       const snapshot = gaplessEngine.getSnapshot()
@@ -311,22 +356,25 @@ async function playTrackFromResolvedQueue(
       return
     }
 
+    audioSourceTrackId = trackId
     audio.src = audioUrl
     audio.currentTime = 0
     await audio.play()
 
-    if (requestId !== playbackRequestId) {
+    if (!isCurrentPlaybackRequest(pendingToken, requestId)) {
       return
     }
 
     effectivePlayTracker.start(trackId)
   } catch (err) {
-    if (requestId !== playbackRequestId) {
+    if (!isCurrentPlaybackRequest(pendingToken, requestId)) {
       return
     }
 
     state.isPlaying = false
     state.error = err instanceof Error ? err.message : String(err)
+  } finally {
+    finishPlaybackRequest(pendingToken)
   }
 }
 
@@ -338,22 +386,27 @@ function setPlaybackError(err: unknown): void {
 // --- Audio events ---
 
 audio.addEventListener('loadedmetadata', () => {
+  if (audioSourceTrackId !== state.currentTrackId) return
   state.duration = audio.duration
 })
 
 audio.addEventListener('durationchange', () => {
+  if (audioSourceTrackId !== state.currentTrackId) return
   state.duration = audio.duration
 })
 
 audio.addEventListener('timeupdate', () => {
+  if (audioSourceTrackId !== state.currentTrackId) return
   state.currentTime = audio.currentTime
 })
 
 audio.addEventListener('play', () => {
+  if (audioSourceTrackId !== state.currentTrackId) return
   state.isPlaying = true
 })
 
 audio.addEventListener('pause', () => {
+  if (audioSourceTrackId !== state.currentTrackId) return
   state.isPlaying = false
 })
 
@@ -382,10 +435,13 @@ audio.addEventListener('canplay', () => {
 })
 
 audio.addEventListener('ended', () => {
+  if (audioSourceTrackId !== state.currentTrackId) return
   void handleTrackEnded().catch(setPlaybackError)
 })
 
 audio.addEventListener('error', () => {
+  if (audioSourceTrackId !== state.currentTrackId) return
+  audioSourceTrackId = null
   effectivePlayTracker.end()
   state.isPlaying = false
   const mediaError = audio.error
@@ -688,37 +744,82 @@ function insertTracksAfterCurrent(tracks: PlaybackTrack[]): void {
 }
 
 async function togglePlayPause(): Promise<void> {
-  if (!state.currentTrack) return
+  if (!state.currentTrack || playbackPending.value) return
 
+  if (state.isPlaying) {
+    if (gaplessEngine.isActive) {
+      invalidateGaplessTransition()
+      gaplessEngine.pause()
+    } else audio.pause()
+    return
+  }
+
+  const track = state.currentTrack
+  if (!gaplessEngine.isActive && !hasCurrentHtmlAudioSource(track.id)) {
+    await playTrackFromResolvedQueue(getQueueContainingCurrentTrack(track), track.id, {
+      recordHistory: false,
+    })
+    return
+  }
+
+  const requestId = playbackRequestId
+  const pendingToken = beginPlaybackRequest()
   try {
-    if (state.isPlaying) {
-      if (gaplessEngine.isActive) {
-        invalidateGaplessTransition()
-        gaplessEngine.pause()
-      } else audio.pause()
+    if (gaplessEngine.isActive) {
+      await gaplessEngine.play()
+      if (!isCurrentPlaybackRequest(pendingToken, requestId)) return
+      if (state.currentTrackId) void refreshGaplessNext(state.currentTrackId)
     } else {
-      if (gaplessEngine.isActive) {
-        await gaplessEngine.play()
-        if (state.currentTrackId) void refreshGaplessNext(state.currentTrackId)
-      } else await audio.play()
+      await audio.play()
+    }
+
+    if (!isCurrentPlaybackRequest(pendingToken, requestId) || state.currentTrackId !== track.id) {
+      return
     }
   } catch (err) {
+    if (!isCurrentPlaybackRequest(pendingToken, requestId) || state.currentTrackId !== track.id) {
+      return
+    }
+
     state.isPlaying = false
     state.error = err instanceof Error ? err.message : String(err)
+  } finally {
+    finishPlaybackRequest(pendingToken)
   }
 }
 
 async function play(): Promise<void> {
-  if (!state.currentTrack) return
+  if (!state.currentTrack || state.isPlaying || playbackPending.value) return
 
+  const track = state.currentTrack
+  if (!gaplessEngine.isActive && !hasCurrentHtmlAudioSource(track.id)) {
+    await playTrackFromResolvedQueue(getQueueContainingCurrentTrack(track), track.id, {
+      recordHistory: false,
+    })
+    return
+  }
+
+  const requestId = playbackRequestId
+  const pendingToken = beginPlaybackRequest()
   try {
     if (gaplessEngine.isActive) {
       await gaplessEngine.play()
+      if (!isCurrentPlaybackRequest(pendingToken, requestId)) return
       if (state.currentTrackId) void refreshGaplessNext(state.currentTrackId)
     } else await audio.play()
+
+    if (!isCurrentPlaybackRequest(pendingToken, requestId) || state.currentTrackId !== track.id) {
+      return
+    }
   } catch (err) {
+    if (!isCurrentPlaybackRequest(pendingToken, requestId) || state.currentTrackId !== track.id) {
+      return
+    }
+
     state.isPlaying = false
     state.error = err instanceof Error ? err.message : String(err)
+  } finally {
+    finishPlaybackRequest(pendingToken)
   }
 }
 
@@ -868,9 +969,10 @@ function removeMissingTracksFromPlayback(trackIds: number[]): void {
 
   if (currentTrackMissing) {
     playbackRequestId += 1
+    invalidatePlaybackRequest()
     invalidateGaplessTransition()
     gaplessEngine.cancel()
-    audio.pause()
+    clearHtmlAudioSource()
     effectivePlayTracker.end()
     state.currentIndex = -1
     state.currentTrack = null
@@ -897,11 +999,10 @@ const unsubscribeLibraryChanged = auralis.library.onChanged((event) => {
 
 function disposePlayback(): void {
   playbackRequestId += 1
+  invalidatePlaybackRequest()
   invalidateGaplessTransition()
   effectivePlayTracker.end()
-  audio.pause()
-  audio.removeAttribute('src')
-  audio.load()
+  clearHtmlAudioSource()
   gaplessEngine.destroy()
   unsubscribeLibraryChanged()
 }
@@ -912,6 +1013,7 @@ export function usePlayback() {
   return {
     state,
     gaplessPlaybackEnabled,
+    isPlaybackPending: readonlyPlaybackPending,
     selectTrack,
     playTrackFromQueue,
     insertTrackAfterCurrent,

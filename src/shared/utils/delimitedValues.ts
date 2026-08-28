@@ -11,7 +11,7 @@
  * - Genre: `R&B/SOUL`, `Hip-hop/Rap`
  * - Artist: `AC/DC`
  * True multi-value tags must use `;` or `,` (e.g. `Rock; Pop`, not `Rock/Pop`).
- * See `docs/plan-genre-delimiter-atomic-compounds.md`.
+ * See `docs/topics/metadata/plan-genre-delimiter-atomic-compounds.md`.
  *
  * ## Display (list → UI string) — mandatory for all multi-value UI
  * Never show raw separators (`; ` / `, `) in read-only UI.

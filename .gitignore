@@ -23,6 +23,9 @@ AppData/
 .env.*
 !.env.example
 
+# Isolated git worktrees (feature branches checked out beside the main workspace)
+.worktrees/
+
 # Claude Code
 .claude/
 .agents/
@@ -50,14 +53,36 @@ Thumbs.db
 # Downloaded source archives
 genryu-font-master.zip
 
-# PRD & Tech Docs
+# Documentation: preserve local-only research; expose navigation and existing deliverables
 docs/*
+!docs/README.md
+!docs/CATALOG.md
+!docs/rules/
+!docs/rules/**
 !docs/ARCHITECTURE.md
-!docs/2026-07-17-architecture-review-fixes.md
-# 手稿皮肤 MVP：TECHDOC + Phase 5 受跟踪验收目录（含截图）
-!docs/techdoc-library-manuscript-skin-mvp.md
-!docs/library-manuscript-skin-mvp/
-!docs/library-manuscript-skin-mvp/**
+!docs/projects/
+docs/projects/*
+!docs/projects/README.md
+!docs/projects/library-manuscript-skin-mvp/
+!docs/projects/library-manuscript-skin-mvp/**
+!docs/history/
+docs/history/*
+!docs/history/README.md
+!docs/topics/
+docs/topics/*
+!docs/topics/README.md
+!docs/topics/playback/
+docs/topics/playback/*
+!docs/topics/playback/PRD-playerbar-matte-depth-2026-08-29.md
+!docs/topics/playback/TECHDOC-playerbar-matte-depth-2026-08-29.md
+!docs/topics/playback/TECHDOC-playerbar-modern-play-button-2026-08-28.md
+!docs/topics/playback/TECHDOC-playerbar-radius-2026-08-29.md
+!docs/reviews/
+docs/reviews/*
+!docs/reviews/2026-07-17-architecture-review-fixes.md
+!docs/handoffs/
+docs/handoffs/*
+!docs/handoffs/HANDOFF-remaining-work-2026-08-28.md
 
 # Performance traces
 artifacts/
@@ -65,7 +90,7 @@ artifacts/
 # Issues
 issues/
 
-# Local audit / review handbooks (findings live under docs/reviews, already ignored)
+# Local audit / review handbooks (most findings under docs/reviews remain local)
 *作战手册.md
 
 # Release media session
