@@ -27,7 +27,7 @@ import '../styles/manuscript.overlays.css'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { createLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
 import { resolveLibraryPresentation, resolveLibrarySurfaceKind } from '../utils/libraryPresentation'
-import { type LibraryRouteScope } from '../utils/libraryRouteScope'
+import type { LibraryRouteScope } from '../utils/libraryRouteScope'
 import {
   resolveKeyboardFocusTrackId,
   resolveKeyboardMoveIndex,
@@ -75,9 +75,7 @@ const playlistId = computed(() => {
   const parsed = Number(route.params.id)
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null
 })
-const isSmartPlaylist = computed(() => smartPlaylistId.value !== null)
-const isPlaylist = computed(() => playlistId.value !== null)
-const isScopedPlaylist = computed(() => isSmartPlaylist.value || isPlaylist.value)
+const isScopedPlaylist = computed(() => smartPlaylistId.value !== null || playlistId.value !== null)
 
 function captureLibraryRouteScope(): LibraryRouteScope {
   if (smartPlaylistId.value !== null) {
@@ -190,12 +188,10 @@ function onPlay(trackId: number) {
   })
 }
 
-type FocusRestoreTarget = LibraryMetadataFocusTarget
-
-let pendingViewSwitchReturnTarget: FocusRestoreTarget | null = null
+let pendingViewSwitchReturnTarget: LibraryMetadataFocusTarget | null = null
 
 async function restoreLibraryFocus(
-  target: FocusRestoreTarget | null,
+  target: LibraryMetadataFocusTarget | null,
   scroll = true,
 ): Promise<void> {
   if (!target) return
@@ -494,6 +490,7 @@ const saveMetadata = metadataEditor.save
 
 onMounted(async () => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
+  window.addEventListener('keydown', onWindowKeyDown)
   bindExternalPlaylistEvents()
   void loadRegularPlaylistItems()
   await loadLibraryData('foreground')
@@ -529,10 +526,6 @@ watch(libraryPresentation, async () => {
   if (isSearchFocused.value) {
     searchInputRef.value?.focus()
   }
-})
-
-onMounted(() => {
-  window.addEventListener('keydown', onWindowKeyDown)
 })
 
 onBeforeUnmount(() => {
