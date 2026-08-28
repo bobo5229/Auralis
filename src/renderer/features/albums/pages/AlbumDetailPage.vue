@@ -355,7 +355,7 @@ function formatListenSummaryLabel(totalPlays: number, listenedSeconds: number): 
 
 /**
  * 静态极光：离屏 16×16 采样 + 四角径向渐变，单帧绘制，无 rAF 循环。
- * 见 docs/techdoc-album-detail-hero-billboard-redesign.md §3.1
+ * 见 docs/topics/albums/techdoc-album-detail-hero-billboard-redesign.md §3.1
  */
 function updateHeroStaticFluid(url: string | null, canvas: HTMLCanvasElement): void {
   if (isPageUnmounted || !isModernAlbumDetail.value) return

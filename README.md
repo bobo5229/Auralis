@@ -15,7 +15,8 @@ on accounts, streaming services, recommendations, or cloud storage.
 - Simplified Chinese, Traditional Chinese, and English interfaces
 
 Feature status is determined by the current source, routes, and tests. Design documents under
-`docs/` may also record historical decisions and should not be treated as a release checklist.
+[Documentation](docs/README.md) includes topic designs and historical decisions; these are not a
+release checklist. Use the [catalog](docs/CATALOG.md) to find individual records.
 
 ## Product Direction
 

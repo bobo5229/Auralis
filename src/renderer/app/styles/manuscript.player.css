@@ -157,12 +157,31 @@
 
 /* ---------- Volume line ---------- */
 .player-bar[data-player-presentation='manuscript'] input[type='range'].volume-slider {
-  height: var(--manuscript-indicator-width);
+  height: 24px;
+  background: transparent !important;
   transition: none;
 }
 
 .player-bar[data-player-presentation='manuscript'] input[type='range'].volume-slider:hover {
+  height: 24px;
+}
+
+.player-bar[data-player-presentation='manuscript']
+  input[type='range'].volume-slider::-webkit-slider-runnable-track,
+.player-bar[data-player-presentation='manuscript']
+  input[type='range'].volume-slider:hover::-webkit-slider-runnable-track {
   height: var(--manuscript-indicator-width);
+  border-radius: var(--manuscript-radius-indicator);
+  transition: none;
+}
+
+.player-bar[data-player-presentation='manuscript']
+  input[type='range'].volume-slider::-moz-range-track,
+.player-bar[data-player-presentation='manuscript']
+  input[type='range'].volume-slider:hover::-moz-range-track {
+  height: var(--manuscript-indicator-width);
+  border-radius: var(--manuscript-radius-indicator);
+  transition: none;
 }
 
 .player-bar[data-player-presentation='manuscript']

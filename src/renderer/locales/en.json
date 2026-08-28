@@ -173,6 +173,8 @@
   "player": {
     "play": "Play",
     "pause": "Pause",
+    "playbackLoading": "Loading audio",
+    "playbackNoTrack": "Select a track to play",
     "next": "Next",
     "previous": "Previous",
     "queue": "Queue",
