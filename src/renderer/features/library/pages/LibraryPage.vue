@@ -27,21 +27,7 @@ import '../styles/manuscript.overlays.css'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { createLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
 import { resolveLibraryPresentation, resolveLibrarySurfaceKind } from '../utils/libraryPresentation'
-import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
-import {
-  LIBRARY_PLAYLISTS_CHANGED_EVENT,
-  LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT,
-  isSameLibraryRouteScope,
-  shouldRefreshLibraryForExternalPlaylistEvent,
-  type LibraryRouteScope,
-} from '../utils/libraryRouteScope'
-import {
-  createAllSongsLibrarySnapshot,
-  createPlaylistLibrarySnapshot,
-  createSmartPlaylistLibrarySnapshot,
-  type LibraryDataSnapshot,
-} from '../utils/libraryDataSnapshot'
-import { loadLibraryCatalogSnapshot } from '../utils/loadLibraryCatalogSnapshot'
+import { type LibraryRouteScope } from '../utils/libraryRouteScope'
 import {
   resolveKeyboardFocusTrackId,
   resolveKeyboardMoveIndex,
@@ -51,11 +37,11 @@ import { usePlayback } from '@renderer/features/playback/composables/usePlayback
 import {
   useLibraryMetadataEditor,
   type LibraryMetadataFocusTarget,
-  type LibraryMetadataRefreshResult,
 } from '../composables/useLibraryMetadataEditor'
 import { useLibrarySearchSession } from '../composables/useLibrarySearchSession'
 import { useLibraryViewport } from '../composables/useLibraryViewport'
 import { useLibraryContextMenu } from '../composables/useLibraryContextMenu'
+import { useLibraryCatalogLoader } from '../composables/useLibraryCatalogLoader'
 
 const { t } = useI18n()
 
@@ -110,12 +96,7 @@ function readPersistedViewMode(): LibraryViewMode {
 
 const libraryViewMode = ref<LibraryViewMode>(readPersistedViewMode())
 const isCoverView = computed(() => libraryViewMode.value === 'cover')
-let unsubscribeChanged: (() => void) | null = null
-let unsubscribeScanProgress: (() => void) | null = null
-const libraryRequestCoordinator = new LibraryRequestCoordinator()
 let isPageUnmounted = false
-
-type LibraryLoadResult = LibraryMetadataRefreshResult
 
 const rowVirtualizer = useVirtualizer(
   computed(() => ({
@@ -333,63 +314,6 @@ const {
   startLibraryScan: (rootId) => auralis.library.startScan(rootId),
 })
 
-function isCurrentLibraryRequest(generation: number, scope: LibraryRouteScope): boolean {
-  return (
-    !isPageUnmounted &&
-    libraryRequestCoordinator.isLatest(generation) &&
-    isSameLibraryRouteScope(scope, captureLibraryRouteScope())
-  )
-}
-
-async function fetchLibrarySnapshot(
-  scope: LibraryRouteScope,
-  isRequestCurrent: () => boolean,
-): Promise<LibraryDataSnapshot | null> {
-  if (scope.kind === 'smart-playlist') {
-    const detail = await auralis.smartPlaylists.getDetail(scope.id)
-    if (!detail) return null
-    return createSmartPlaylistLibrarySnapshot(detail)
-  }
-
-  if (scope.kind === 'playlist') {
-    const detail = await auralis.playlists.getDetail(scope.id)
-    if (!detail) return null
-    return createPlaylistLibrarySnapshot(detail)
-  }
-
-  const catalog = await loadLibraryCatalogSnapshot(
-    (request) => auralis.library.getTrackPage(request),
-    isRequestCurrent,
-  )
-  if (import.meta.env.DEV) {
-    rendererDiagnostics.info({
-      scope: 'library.catalog',
-      message: 'Library catalog snapshot loaded',
-      context: {
-        totalTracks: catalog.tracks.length,
-        totalPages: catalog.totalPages,
-        snapshotBuildMs: catalog.snapshotBuildMs,
-        snapshotHeapDeltaBytes: catalog.snapshotHeapDeltaBytes,
-        pageSliceMs: catalog.pageSliceMs,
-        pageRoundTripMs: catalog.pageRoundTripMs,
-        rendererAggregateMs: catalog.rendererAggregateMs,
-        rendererLoadMs: catalog.rendererLoadMs,
-        rendererHeapDeltaBytes: catalog.rendererHeapDeltaBytes,
-      },
-    })
-  }
-  return createAllSongsLibrarySnapshot(catalog.tracks, readPersistedViewMode())
-}
-
-function commitLibrarySnapshot(snapshot: LibraryDataSnapshot): void {
-  pageIdentity.value = snapshot.identity
-  tracks.value = snapshot.tracks
-  libraryViewMode.value = snapshot.viewMode
-  resetMatchCursor()
-  ensureKeyboardFocusTrackId()
-  scheduleLibrarySearchIndex(snapshot.tracks)
-}
-
 function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId?: number | null): void {
   beginViewSwitch(anchorTrackId ?? null)
 
@@ -516,6 +440,38 @@ function onListShellKeyDown(event: KeyboardEvent): void {
   }
 }
 
+const {
+  initialLoadError,
+  loadLibraryData,
+  retryInitialLoad,
+  bindExternalPlaylistEvents,
+  subscribeLibraryEvents,
+  dispose: disposeLibraryCatalogLoader,
+} = useLibraryCatalogLoader({
+  isDisposed: () => isPageUnmounted,
+  captureRouteScope: captureLibraryRouteScope,
+  pageIdentity,
+  tracks,
+  libraryViewMode,
+  isLoading,
+  getTrackPage: (request) => auralis.library.getTrackPage(request),
+  getPlaylistDetail: (id) => auralis.playlists.getDetail(id),
+  getSmartPlaylistDetail: (id) => auralis.smartPlaylists.getDetail(id),
+  readPersistedViewMode,
+  onSnapshotCommitted: (snapshot) => {
+    resetMatchCursor()
+    ensureKeyboardFocusTrackId()
+    scheduleLibrarySearchIndex(snapshot.tracks)
+  },
+  captureViewportRestore: captureLibraryViewportRestore,
+  restoreViewportRestore: restoreLibraryViewportRestore,
+  scrollToPlaybackTrack,
+  replaceWithLibraryHome: () => router.replace('/'),
+  loadErrorMessage: () => t('library.status.loadError'),
+  onLibraryChanged: (callback) => auralis.library.onChanged(callback),
+  onScanProgress: (callback) => auralis.library.onScanProgress(callback),
+})
+
 const metadataEditor = useLibraryMetadataEditor({
   loadTrackMetadata: (trackId) => auralis.metadata.getTrackMetadata(trackId),
   updateTrackMetadata: (metadata) => auralis.metadata.updateTrackMetadata(metadata),
@@ -536,122 +492,13 @@ const { editingMetadata, isSavingMetadata, metadataEditError } = metadataEditor
 const closeMetadataEditor = metadataEditor.close
 const saveMetadata = metadataEditor.save
 
-const initialLoadError = ref<string | null>(null)
-
-async function loadLibraryData(mode: LibraryLoadMode = 'foreground'): Promise<LibraryLoadResult> {
-  if (mode === 'metadata-save') {
-    while (libraryRequestCoordinator.hasActiveForeground && !isPageUnmounted) {
-      await libraryRequestCoordinator.waitForForegroundIdle()
-    }
-
-    if (isPageUnmounted) return 'stale'
-  }
-
-  const scope = captureLibraryRouteScope()
-  const generation = libraryRequestCoordinator.begin(mode)
-  if (generation === null) {
-    return mode === 'background' ? 'queued' : 'stale'
-  }
-  const isRequestCurrent = () => isCurrentLibraryRequest(generation, scope)
-  const isForeground = mode === 'foreground'
-  const viewportCapture = isForeground ? null : captureLibraryViewportRestore()
-
-  if (isForeground && isRequestCurrent()) {
-    isLoading.value = true
-    initialLoadError.value = null
-    pageIdentity.value = null
-  }
-
-  try {
-    const snapshot = await fetchLibrarySnapshot(scope, isRequestCurrent)
-    if (!isRequestCurrent()) return 'stale'
-
-    if (snapshot === null) {
-      await router.replace('/')
-      return 'redirected'
-    }
-
-    commitLibrarySnapshot(snapshot)
-    initialLoadError.value = null
-
-    if (viewportCapture) {
-      await restoreLibraryViewportRestore(viewportCapture, isRequestCurrent)
-    } else {
-      await scrollToPlaybackTrack(isRequestCurrent)
-    }
-
-    return isRequestCurrent() ? 'committed' : 'stale'
-  } catch (error) {
-    if (!isRequestCurrent()) return 'stale'
-
-    if (isForeground) {
-      rendererDiagnostics.error({
-        scope: 'library.catalog',
-        message: 'Initial library load failed',
-        cause: error,
-      })
-      initialLoadError.value = t('library.status.loadError')
-    } else {
-      rendererDiagnostics.error({
-        scope: 'library.catalog',
-        message: 'Background library refresh failed',
-        cause: error,
-      })
-    }
-
-    return 'failed'
-  } finally {
-    const completion = libraryRequestCoordinator.finish(generation)
-
-    if (completion.ownedForeground) {
-      if (!isPageUnmounted && isRequestCurrent()) {
-        isLoading.value = false
-      }
-    }
-
-    if (completion.shouldFlushBackground) {
-      void loadLibraryData('background')
-    }
-  }
-}
-
-async function retryInitialLoad(): Promise<void> {
-  await loadLibraryData('foreground')
-}
-
-function onExternalPlaylistCollectionChanged(eventName: string): void {
-  if (isPageUnmounted) return
-  if (!shouldRefreshLibraryForExternalPlaylistEvent(captureLibraryRouteScope(), eventName)) return
-  void loadLibraryData('background')
-}
-
-function onPlaylistsChanged(): void {
-  onExternalPlaylistCollectionChanged(LIBRARY_PLAYLISTS_CHANGED_EVENT)
-}
-
-function onSmartPlaylistsChanged(): void {
-  onExternalPlaylistCollectionChanged(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT)
-}
-
 onMounted(async () => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
-  window.addEventListener(LIBRARY_PLAYLISTS_CHANGED_EVENT, onPlaylistsChanged)
-  window.addEventListener(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT, onSmartPlaylistsChanged)
+  bindExternalPlaylistEvents()
   void loadRegularPlaylistItems()
   await loadLibraryData('foreground')
   if (isPageUnmounted) return
-
-  unsubscribeChanged = auralis.library.onChanged(async (event) => {
-    // Play-count ticks must not full-reload the library list
-    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
-    await loadLibraryData('background')
-  })
-
-  unsubscribeScanProgress = auralis.library.onScanProgress(async (progress) => {
-    if (progress.status === 'completed') {
-      await loadLibraryData('background')
-    }
-  })
+  subscribeLibraryEvents()
 })
 
 watch(
@@ -693,13 +540,9 @@ onBeforeUnmount(() => {
   invalidateLibrarySearchSession()
   disposeLibraryViewport()
   disposeLibraryContextMenu()
-  libraryRequestCoordinator.invalidate()
+  disposeLibraryCatalogLoader()
   window.removeEventListener('keydown', onWindowKeyDown)
   document.removeEventListener('pointerdown', onDocumentPointerDown)
-  unsubscribeChanged?.()
-  unsubscribeScanProgress?.()
-  window.removeEventListener(LIBRARY_PLAYLISTS_CHANGED_EVENT, onPlaylistsChanged)
-  window.removeEventListener(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT, onSmartPlaylistsChanged)
 })
 </script>
 
