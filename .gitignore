@@ -83,6 +83,8 @@ docs/reviews/*
 !docs/handoffs/
 docs/handoffs/*
 !docs/handoffs/HANDOFF-remaining-work-2026-08-28.md
+!docs/library-page-orchestration/
+!docs/library-page-orchestration/**
 
 # Performance traces
 artifacts/
