@@ -1,9 +1,10 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import LibraryPage from '@renderer/features/library/pages/LibraryPage.vue'
-import AlbumsPage from '@renderer/features/albums/pages/AlbumsPage.vue'
-import AlbumDetailPage from '@renderer/features/albums/pages/AlbumDetailPage.vue'
-import ArchivePage from '@renderer/features/archive/pages/ArchivePage.vue'
-import SettingsPage from '@renderer/features/settings/pages/SettingsPage.vue'
+
+const LibraryPage = () => import('@renderer/features/library/pages/LibraryPage.vue')
+const AlbumsPage = () => import('@renderer/features/albums/pages/AlbumsPage.vue')
+const AlbumDetailPage = () => import('@renderer/features/albums/pages/AlbumDetailPage.vue')
+const ArchivePage = () => import('@renderer/features/archive/pages/ArchivePage.vue')
+const SettingsPage = () => import('@renderer/features/settings/pages/SettingsPage.vue')
 
 export const router = createRouter({
   history: createWebHashHistory(),

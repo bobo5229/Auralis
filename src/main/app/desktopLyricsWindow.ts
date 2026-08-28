@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
 import type { IpcResponse } from '@shared/ipc/contracts'
+import { secureRendererWindow } from './webContentsSecurity'
 
 let desktopLyricsWindow: BrowserWindow | null = null
 let desktopLyricsEnabled = false
@@ -103,15 +104,21 @@ function createDesktopLyricsWindow(): BrowserWindow {
     autoHideMenuBar: true,
     webPreferences: {
       // Minimal preload: only desktop lyrics push subscription (no full AuralisApi).
-      preload: join(__dirname, '../preload/desktopLyrics.mjs'),
+      preload: join(__dirname, '../preload/desktopLyrics.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      // sandbox stays false: preload uses ESM contextBridge bridge without sandbox-compatible bundling.
-      sandbox: false,
+      sandbox: true,
       backgroundThrottling: false,
       webSecurity: true,
     },
   })
+
+  secureRendererWindow(
+    desktopLyricsWindow,
+    process.env.ELECTRON_RENDERER_URL
+      ? process.env.ELECTRON_RENDERER_URL
+      : join(__dirname, '../renderer/index.html'),
+  )
 
   keepDesktopLyricsAbove(desktopLyricsWindow)
   applyDesktopLyricsMousePassthrough(desktopLyricsWindow)

@@ -13,7 +13,7 @@
 
 @font-face {
   font-family: 'Auralis Desktop Lyrics SC';
-  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-EL.otf') format('opentype');
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-EL.woff2') format('woff2');
   font-weight: 200;
   font-style: normal;
   font-display: swap;
@@ -21,7 +21,7 @@
 
 @font-face {
   font-family: 'Auralis Desktop Lyrics SC';
-  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-L.otf') format('opentype');
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-L.woff2') format('woff2');
   font-weight: 300;
   font-style: normal;
   font-display: swap;
@@ -29,7 +29,7 @@
 
 @font-face {
   font-family: 'Auralis Desktop Lyrics SC';
-  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-R.otf') format('opentype');
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-R.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -37,7 +37,7 @@
 
 @font-face {
   font-family: 'Auralis Desktop Lyrics SC';
-  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-M.otf') format('opentype');
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-M.woff2') format('woff2');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -45,7 +45,7 @@
 
 @font-face {
   font-family: 'Auralis Desktop Lyrics SC';
-  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-SB.otf') format('opentype');
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-SB.woff2') format('woff2');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
@@ -53,7 +53,7 @@
 
 @font-face {
   font-family: 'Auralis Desktop Lyrics SC';
-  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-B.otf') format('opentype');
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-B.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -61,16 +61,8 @@
 
 @font-face {
   font-family: 'Auralis Desktop Lyrics SC';
-  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-H.otf') format('opentype');
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-H.woff2') format('woff2');
   font-weight: 800 900;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Auralis Desktop Lyrics HuaKang';
-  src: url('../../assets/fonts/华康新特明体.ttf') format('truetype');
-  font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
@@ -406,9 +398,7 @@ input {
   z-index: 5;
 }
 
-.player-bar[data-player-presentation='modern']
-  .player-bar-progress-row
-  .track-progress:hover {
+.player-bar[data-player-presentation='modern'] .player-bar-progress-row .track-progress:hover {
   height: 6px;
 }
 
@@ -2085,6 +2075,3 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 .is-album-detail ::-webkit-scrollbar-thumb:hover {
   background: color-mix(in srgb, var(--auralis-text) 36%, transparent) !important;
 }
-
-
-

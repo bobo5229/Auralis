@@ -60,11 +60,6 @@
   font-weight: 600;
 }
 
-.settings-page .settings-row--visual-style {
-  display: block;
-  padding: 16px;
-}
-
 .settings-page .settings-list {
   overflow: hidden;
   border: 1px solid var(--auralis-border-subtle);
@@ -83,6 +78,12 @@
   min-height: 72px;
   padding: 0 20px;
   transition: background-color 0.2s ease;
+}
+
+/* Must beat .settings-row { padding: 0 20px } or the title sits on the card edge. */
+.settings-page .settings-row.settings-row--visual-style {
+  display: block;
+  padding: 24px;
 }
 
 .settings-page .settings-row:hover {

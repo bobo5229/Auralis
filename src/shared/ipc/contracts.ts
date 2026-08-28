@@ -75,10 +75,34 @@ export interface IpcEventContract {
   'window:mini-player-state-changed': MiniPlayerWindowState
 }
 
+export interface DatabaseExportBackupResult {
+  status: 'saved' | 'cancelled' | 'failed'
+  targetPath?: string
+  error?: string
+}
+
+export interface DatabaseRestoreBackupResult {
+  status: 'staged' | 'cancelled' | 'failed'
+  requiresRestart?: boolean
+  error?: string
+}
+
 export interface IpcInvokeContract {
+  'database:export-backup': {
+    request: void
+    response: DatabaseExportBackupResult
+  }
+  'database:restore-backup': {
+    request: void
+    response: DatabaseRestoreBackupResult
+  }
   'app:get-info': {
     request: void
     response: AppInfo
+  }
+  'app:export-diagnostics': {
+    request: void
+    response: { status: 'saved' | 'cancelled' | 'failed' }
   }
   'library:get-stats': {
     request: void

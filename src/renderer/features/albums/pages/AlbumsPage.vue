@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
+import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -203,7 +204,11 @@ async function loadAlbums(): Promise<void> {
     await reloadAlbums()
   } catch (error) {
     if (!isPageUnmounted) {
-      console.error('[Auralis] failed to load albums:', error)
+      rendererDiagnostics.error({
+        scope: 'albums.catalog',
+        message: 'Failed to load albums',
+        cause: error,
+      })
       loadError.value = t('albums.status.loadError')
     }
   } finally {
@@ -399,7 +404,11 @@ onMounted(async () => {
     // Play-count ticks must not full-reload album summaries
     if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
     void reloadAlbums().catch((error) => {
-      console.error('[Auralis] failed to refresh albums:', error)
+      rendererDiagnostics.error({
+        scope: 'albums.catalog',
+        message: 'Failed to refresh albums',
+        cause: error,
+      })
     })
   })
 })

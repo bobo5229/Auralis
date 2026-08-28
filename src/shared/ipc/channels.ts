@@ -1,6 +1,11 @@
 export const ipcChannels = {
+  database: {
+    exportBackup: 'database:export-backup',
+    restoreBackup: 'database:restore-backup',
+  },
   app: {
     getInfo: 'app:get-info',
+    exportDiagnostics: 'app:export-diagnostics',
     rendererReady: 'app:renderer-ready',
   },
   library: {

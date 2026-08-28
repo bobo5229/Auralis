@@ -2,21 +2,28 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
+import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import type {
   AnnualListeningInsights,
   DailyListeningDetail,
   ListeningGenreSpectrum,
   ListeningHeatmap,
   ListeningRanking,
-  ListeningRankingParams,
-  ListeningRankingRange,
-  ListeningRankingTarget,
 } from '@shared/types/archive'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import MusicDnaCard from '@renderer/features/archive/components/MusicDnaCard.vue'
+import ArchiveDailyDetailDialog from '@renderer/features/archive/components/ArchiveDailyDetailDialog.vue'
+import {
+  formatArchiveMinutes as formatMinutes,
+  type ArchiveDailyDetailDialogModel,
+} from '@renderer/features/archive/utils/archiveDailyDetailState'
+import {
+  formatArchiveDateKey as formatDateKey,
+  useArchiveRanking,
+} from '../composables/useArchiveRanking'
 import { resolveArchivePresentation } from '../utils/archivePresentation'
 import '../styles/manuscript.css'
 import '../styles/manuscript.overlays.css'
@@ -47,18 +54,39 @@ const selectedYear = ref(currentYear)
 const heatmap = ref<ListeningHeatmap | null>(null)
 const annualInsights = ref<AnnualListeningInsights | null>(null)
 const annualInsightsError = ref(false)
-const listeningRanking = ref<ListeningRanking | null>(null)
-const rankingRange = ref<ListeningRankingRange>('day')
-const rankingTarget = ref<ListeningRankingTarget>('track')
-const rankingMonth = ref(new Date().getMonth() + 1)
-const rankingDate = ref(formatDateKey(new Date()))
-const rankingWeekStartDate = ref(getWeekMonday(new Date()))
-const rankingYear = ref(currentYear)
-const rankingPickerYear = ref(currentYear)
-const rankingPickerMonth = ref(new Date().getMonth() + 1)
-const isRankingLoading = ref(false)
-const rankingError = ref<string | null>(null)
-const showRankingPicker = ref(false)
+const {
+  listeningRanking,
+  rankingRange,
+  rankingTarget,
+  rankingMonth,
+  rankingYear,
+  rankingPickerYear,
+  rankingPickerMonth,
+  isRankingLoading,
+  rankingError,
+  showRankingPicker,
+  pickerPos,
+  rankingRanges,
+  rankingTargets,
+  rankingMonthOptions,
+  rankingPeriodLabel,
+  pickerCalendarDays,
+  weekOptions,
+  loadListeningRanking,
+  setRankingRange,
+  setRankingTarget,
+  selectRankingMonth,
+  selectRankingWeek,
+  handleCalendarCellClick,
+  goToToday,
+  goToCurrentWeek,
+  navigatePickerMonth,
+  navigatePickerYear,
+  changePickerYearBy,
+  toggleRankingPicker,
+} = useArchiveRanking(selectedYear, {
+  getListeningRanking: (params) => auralis.archive.getListeningRanking(params),
+})
 const isLoading = ref(true)
 const errorMessage = ref<string | null>(null)
 const tooltip = ref<HeatmapTooltip | null>(null)
@@ -67,13 +95,7 @@ const isDetailLoading = ref(false)
 const detailError = ref<string | null>(null)
 let detailRequestId = 0
 let detailDialogId = 0
-const detailDialog = ref<{
-  date: string
-  label: string
-  x: number
-  y: number
-  expanded: boolean
-} | null>(null)
+const detailDialog = ref<ArchiveDailyDetailDialogModel | null>(null)
 const showResetAction = ref(false)
 const showResetConfirmation = ref(false)
 const isResetting = ref(false)
@@ -91,19 +113,8 @@ const isGenreLoading = ref(false)
 const LONG_PRESS_MS = 1000
 const RESET_HOLD_MS = 3000
 const ARCHIVE_SCROLLBAR_HIDDEN_CLASS = 'archive-page-scrollbar-hidden'
-const rankingRanges: Array<{ value: ListeningRankingRange; label: string }> = [
-  { value: 'day', label: '日' },
-  { value: 'week', label: '周' },
-  { value: 'month', label: '月' },
-  { value: 'year', label: '年' },
-]
-const rankingTargets: Array<{ value: ListeningRankingTarget; label: string; icon: string }> = [
-  { value: 'track', label: '单曲', icon: 'i-lucide-music-2' },
-  { value: 'album', label: '专辑', icon: 'i-lucide-disc-3' },
-]
 let longPressTimer: number | null = null
 let resetHoldTimer: number | null = null
-let rankingRequestId = 0
 let annualRecapRequestId = 0
 let unsubscribeLibraryChanged: (() => void) | null = null
 
@@ -112,40 +123,12 @@ const weekdayNames = ['周日', '周一', '周二', '周三', '周四', '周五'
 const annualRecapWeekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 const ANNUAL_RECAP_PAGE_COUNT = 5
 
-function formatDateKey(date: Date): string {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0'),
-  ].join('-')
-}
-
 function getIntensityLevel(playCount: number): CalendarDay['level'] {
   if (playCount >= 7) return 4
   if (playCount >= 4) return 3
   if (playCount >= 2) return 2
   if (playCount >= 1) return 1
   return 0
-}
-
-function getWeekMonday(date: Date): string {
-  const d = new Date(date)
-  const day = d.getDay()
-  const offset = day === 0 ? -6 : 1 - day
-  d.setDate(d.getDate() + offset)
-  return formatDateKey(d)
-}
-
-function addDays(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00`)
-  d.setDate(d.getDate() + days)
-  return formatDateKey(d)
-}
-
-function formatMonthDay(dateStr: string): string {
-  const m = Number(dateStr.slice(5, 7))
-  const d = Number(dateStr.slice(8, 10))
-  return `${m}月${d}日`
 }
 
 const weekdayOrder = computed(() => {
@@ -188,100 +171,6 @@ const monthMarkers = computed(() => {
   })
 })
 
-const maxRankingMonth = computed(() =>
-  rankingYear.value === currentYear ? new Date().getMonth() + 1 : 12,
-)
-const rankingMonthOptions = computed(() =>
-  Array.from({ length: maxRankingMonth.value }, (_, index) => index + 1),
-)
-const rankingPeriodLabel = computed(() => {
-  if (rankingRange.value === 'day') {
-    const todayKey = formatDateKey(new Date())
-    return rankingDate.value === todayKey ? '今天' : formatMonthDay(rankingDate.value)
-  }
-  if (rankingRange.value === 'week') {
-    const currentMonday = getWeekMonday(new Date())
-    if (rankingWeekStartDate.value === currentMonday) return '本周'
-    const endDate = addDays(rankingWeekStartDate.value, 6)
-    return `${formatMonthDay(rankingWeekStartDate.value)} - ${formatMonthDay(endDate)}`
-  }
-  if (rankingRange.value === 'month') return `${rankingYear.value}年${rankingMonth.value}月`
-  return `${rankingYear.value}年`
-})
-
-interface PickerDayCell {
-  dateStr: string | null
-  isToday: boolean
-  isFuture: boolean
-  isSelected: boolean
-}
-
-const pickerCalendarDays = computed<PickerDayCell[]>(() => {
-  const year = rankingPickerYear.value
-  const month = rankingPickerMonth.value
-  const firstDay = new Date(year, month - 1, 1)
-  const lastDay = new Date(year, month, 0)
-  const daysInMonth = lastDay.getDate()
-  const startWeekday = (firstDay.getDay() + 6) % 7
-  const todayKey = formatDateKey(new Date())
-  const selectedKey = rankingDate.value
-  const cells: PickerDayCell[] = []
-
-  for (let i = 0; i < startWeekday; i++) {
-    cells.push({ dateStr: null, isToday: false, isFuture: false, isSelected: false })
-  }
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    cells.push({
-      dateStr,
-      isToday: dateStr === todayKey,
-      isFuture: dateStr > todayKey,
-      isSelected: dateStr === selectedKey,
-    })
-  }
-
-  return cells
-})
-
-const weekOptions = computed(() => {
-  const year = rankingPickerYear.value
-  const todayKey = formatDateKey(new Date())
-  const currentMonday = getWeekMonday(new Date())
-  const weeks: Array<{
-    startDate: string
-    endDate: string
-    dateRangeLabel: string
-    isCurrentWeek: boolean
-    isFuture: boolean
-    isSelected: boolean
-  }> = []
-  let cursor = getWeekMonday(new Date(year, 0, 1))
-  const endOfYear = formatDateKey(new Date(year, 11, 31))
-
-  while (cursor <= endOfYear) {
-    const weekEnd = addDays(cursor, 6)
-    const startYear = Number(cursor.slice(0, 4))
-    const endYear = Number(weekEnd.slice(0, 4))
-    const showYear = startYear !== endYear
-    const dateRangeLabel = showYear
-      ? `${startYear}年${formatMonthDay(cursor)} - ${endYear}年${formatMonthDay(weekEnd)}`
-      : `${formatMonthDay(cursor)} - ${formatMonthDay(weekEnd)}`
-    weeks.push({
-      startDate: cursor,
-      endDate: weekEnd,
-      dateRangeLabel,
-      isCurrentWeek: cursor === currentMonday,
-      isFuture: cursor > todayKey,
-      isSelected: cursor === rankingWeekStartDate.value,
-    })
-    cursor = addDays(cursor, 7)
-    const cursorDate = new Date(`${cursor}T00:00:00`)
-    if (cursorDate.getFullYear() > year) break
-  }
-
-  return weeks
-})
 const peakDay = computed(() =>
   calendarDays.value
     .filter((day) => !day.isFuture)
@@ -474,7 +363,11 @@ async function loadHeatmap(): Promise<void> {
   if (heatmapResult.status === 'fulfilled') {
     heatmap.value = heatmapResult.value
   } else {
-    console.error('[Auralis] failed to load listening heatmap:', heatmapResult.reason)
+    rendererDiagnostics.error({
+      scope: 'archive.heatmap',
+      message: 'Failed to load listening heatmap',
+      cause: heatmapResult.reason,
+    })
     errorMessage.value = '无法读取听歌记录'
   }
 
@@ -492,50 +385,6 @@ async function loadHeatmap(): Promise<void> {
 
   isGenreLoading.value = false
   isLoading.value = false
-}
-
-function normalizeRankingPeriod(): void {
-  if (rankingMonth.value > maxRankingMonth.value) {
-    rankingMonth.value = maxRankingMonth.value
-  }
-}
-
-async function loadListeningRanking(): Promise<void> {
-  normalizeRankingPeriod()
-  const requestId = ++rankingRequestId
-  isRankingLoading.value = true
-  rankingError.value = null
-
-  try {
-    const params: ListeningRankingParams = {
-      range: rankingRange.value,
-      target: rankingTarget.value,
-    }
-    if (rankingRange.value === 'day') {
-      params.date = rankingDate.value
-    } else if (rankingRange.value === 'week') {
-      params.weekStartDate = rankingWeekStartDate.value
-    } else if (rankingRange.value === 'month') {
-      params.year = rankingYear.value
-      params.month = rankingMonth.value
-    } else if (rankingRange.value === 'year') {
-      params.year = rankingYear.value
-    }
-    const result = await auralis.archive.getListeningRanking(params)
-    if (requestId === rankingRequestId) {
-      listeningRanking.value = result
-    }
-  } catch (error) {
-    if (requestId === rankingRequestId) {
-      console.error('[Auralis] failed to load listening ranking:', error)
-      rankingError.value = '无法读取听歌排行'
-      listeningRanking.value = null
-    }
-  } finally {
-    if (requestId === rankingRequestId) {
-      isRankingLoading.value = false
-    }
-  }
 }
 
 function clearAnnualRecapRankings(): void {
@@ -590,88 +439,6 @@ function goToPreviousAnnualRecapPage(): void {
 
 function goToNextAnnualRecapPage(): void {
   setAnnualRecapPage(annualRecapPage.value + 1)
-}
-
-function setRankingRange(range: ListeningRankingRange): void {
-  if (rankingRange.value === range) return
-  rankingRange.value = range
-  showRankingPicker.value = false
-  if (range === 'month' || range === 'year') {
-    rankingYear.value = selectedYear.value
-  }
-  void loadListeningRanking()
-}
-
-function setRankingTarget(target: ListeningRankingTarget): void {
-  if (rankingTarget.value === target) return
-  rankingTarget.value = target
-  void loadListeningRanking()
-}
-
-function selectRankingMonth(month: number): void {
-  rankingMonth.value = month
-  showRankingPicker.value = false
-  void loadListeningRanking()
-}
-
-function selectRankingWeek(mondayStr: string): void {
-  rankingWeekStartDate.value = mondayStr
-  showRankingPicker.value = false
-  void loadListeningRanking()
-}
-
-function handleCalendarCellClick(cell: PickerDayCell): void {
-  if (!cell.dateStr || cell.isFuture) return
-  rankingDate.value = cell.dateStr
-  showRankingPicker.value = false
-  void loadListeningRanking()
-}
-
-function goToToday(): void {
-  rankingDate.value = formatDateKey(new Date())
-  rankingPickerMonth.value = new Date().getMonth() + 1
-  rankingPickerYear.value = currentYear
-  showRankingPicker.value = false
-  void loadListeningRanking()
-}
-
-function goToCurrentWeek(): void {
-  rankingWeekStartDate.value = getWeekMonday(new Date())
-  rankingPickerYear.value = currentYear
-  showRankingPicker.value = false
-  void loadListeningRanking()
-}
-
-function navigatePickerMonth(delta: -1 | 1): void {
-  let month = rankingPickerMonth.value + delta
-  let year = rankingPickerYear.value
-  if (month < 1) {
-    month = 12
-    year--
-  } else if (month > 12) {
-    month = 1
-    year++
-  }
-  const now = new Date()
-  const currentYear = now.getFullYear()
-  const currentMonth = now.getMonth() + 1
-  if (year > currentYear || (year === currentYear && month > currentMonth)) return
-  rankingPickerMonth.value = month
-  rankingPickerYear.value = year
-}
-
-function navigatePickerYear(delta: -1 | 1): void {
-  const nextYear = rankingPickerYear.value + delta
-  if (nextYear < 1970 || nextYear > currentYear) return
-  rankingPickerYear.value = nextYear
-}
-
-function changePickerYearBy(delta: -1 | 1): void {
-  const nextYear = rankingYear.value + delta
-  if (nextYear < 1970 || nextYear > currentYear) return
-  rankingYear.value = nextYear
-  normalizeRankingPeriod()
-  void loadListeningRanking()
 }
 
 const selectedAlbumIndex = ref<number>(0)
@@ -770,19 +537,6 @@ watch(listeningRanking, () => {
   selectedAlbumIndex.value = 0
 })
 
-const pickerPos = ref<{ top: number; left: number }>({ top: 0, left: 0 })
-
-function toggleRankingPicker(event?: MouseEvent | KeyboardEvent): void {
-  if (!showRankingPicker.value && event?.currentTarget) {
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-    pickerPos.value = {
-      top: rect.top - 8,
-      left: rect.right,
-    }
-  }
-  showRankingPicker.value = !showRankingPicker.value
-}
-
 function updateTooltipPosition(event: MouseEvent): void {
   if (!tooltip.value) return
   tooltip.value = {
@@ -804,11 +558,6 @@ function showTooltip(event: MouseEvent | FocusEvent, day: CalendarDay): void {
 
 function hideTooltip(): void {
   tooltip.value = null
-}
-
-function formatMinutes(durationSeconds: number): string {
-  if (durationSeconds > 0 && durationSeconds < 60) return '不到 1 分钟'
-  return `${Math.round(durationSeconds / 60)} 分钟`
 }
 
 function formatRankingArtist(artist: string | null): string {
@@ -870,7 +619,12 @@ async function openDailyDetail(event: MouseEvent | KeyboardEvent, day: CalendarD
   } catch (error) {
     if (requestId !== detailRequestId) return
     if (detailDialog.value?.date !== dateKey) return
-    console.error('[Auralis] failed to load daily listening detail:', error)
+    rendererDiagnostics.error({
+      scope: 'archive.daily-detail',
+      message: 'Failed to load daily listening detail',
+      context: { dateKey },
+      cause: error,
+    })
     detailError.value = '无法读取当日播放记录'
   } finally {
     if (requestId === detailRequestId) {
@@ -1019,7 +773,11 @@ async function resetAllPlayStats(): Promise<void> {
       await loadAnnualRecapRankings()
     }
   } catch (error) {
-    console.error('[Auralis] failed to reset playback data:', error)
+    rendererDiagnostics.error({
+      scope: 'archive.playback-data',
+      message: 'Failed to reset playback data',
+      cause: error,
+    })
     resetError.value = '无法重置播放数据'
   } finally {
     isResetting.value = false
@@ -1528,77 +1286,14 @@ onBeforeUnmount(() => {
           {{ tooltip.text }}
         </div>
 
-        <div
+        <ArchiveDailyDetailDialog
           v-if="detailDialog"
-          class="archive-detail-backdrop"
-          :class="{ 'is-visible': detailDialog.expanded }"
-          @click.self="closeDailyDetail"
-        >
-          <section
-            class="archive-detail-dialog"
-            :class="{ 'is-expanded': detailDialog.expanded }"
-            :style="{
-              '--dialog-origin-x': `${detailDialog.x}px`,
-              '--dialog-origin-y': `${detailDialog.y}px`,
-            }"
-            role="dialog"
-            aria-modal="true"
-            :aria-label="`${detailDialog.label}播放排行`"
-          >
-            <header class="archive-detail-header">
-              <div>
-                <span>{{ detailDialog.label }}</span>
-                <h2>当日播放 Top 10</h2>
-                <p v-if="dailyDetail">
-                  {{ dailyDetail.totalPlayCount }} 次播放 ·
-                  {{ formatMinutes(dailyDetail.totalDurationSeconds) }}
-                </p>
-              </div>
-              <button type="button" aria-label="关闭" @click="closeDailyDetail">
-                <span class="i-lucide-x h-4 w-4"></span>
-              </button>
-            </header>
-
-            <div v-if="isDetailLoading" class="archive-detail-state">正在整理这一天的声迹…</div>
-            <div v-else-if="detailError" class="archive-detail-state">{{ detailError }}</div>
-            <ol v-else-if="dailyDetail?.tracks.length" class="archive-top-tracks">
-              <li
-                v-for="(track, index) in dailyDetail.tracks"
-                :key="track.trackId"
-                :style="{ '--item-index': index }"
-              >
-                <span
-                  class="archive-track-rank"
-                  :class="{
-                    'rank-gold': index === 0,
-                    'rank-silver': index === 1,
-                    'rank-bronze': index === 2,
-                  }"
-                  >{{ index + 1 }}</span
-                >
-                <div class="archive-track-artwork">
-                  <img
-                    v-if="getArtworkUrl(track.artworkCacheKey)"
-                    :src="getArtworkUrl(track.artworkCacheKey) ?? undefined"
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  <span v-else class="i-lucide-music-2 h-4 w-4"></span>
-                </div>
-                <div class="archive-track-copy">
-                  <strong>{{ track.title || '未知歌曲' }}</strong>
-                  <span>{{ track.artist || '未知艺人' }}</span>
-                </div>
-                <span class="archive-track-count">{{ track.playCount }} 次</span>
-              </li>
-            </ol>
-            <div v-else class="archive-detail-state">
-              <span class="i-lucide-calendar-clock h-6 w-6"></span>
-              <p>这一天还没有可用的歌曲明细</p>
-            </div>
-          </section>
-        </div>
+          :dialog="detailDialog"
+          :detail="dailyDetail"
+          :loading="isDetailLoading"
+          :error="detailError"
+          @close="closeDailyDetail"
+        />
 
         <div
           v-if="showAnnualRecap"
@@ -3450,22 +3145,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.archive-detail-backdrop {
-  position: fixed;
-  z-index: 100;
-  inset: 0;
-  background: rgba(12, 16, 20, 0);
-  pointer-events: none;
-  transition: background-color 240ms ease;
-  backdrop-filter: blur(0px);
-}
-
-.archive-detail-backdrop.is-visible {
-  background: rgba(12, 16, 20, 0.5);
-  backdrop-filter: blur(6px);
-  pointer-events: auto;
-}
-
 .archive-reset-backdrop {
   position: fixed;
   z-index: 120;
@@ -3616,275 +3295,6 @@ onBeforeUnmount(() => {
   to {
     transform: scaleX(1);
   }
-}
-
-/* Daily Details Dialog Glassmorphism */
-.archive-detail-dialog {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  display: flex;
-  flex-direction: column;
-  width: min(520px, calc(100vw - 40px));
-  height: min(650px, calc(100vh - 80px));
-  padding: 24px;
-  border-radius: 20px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
-  background: color-mix(in srgb, var(--auralis-dialog-bg) 88%, #000);
-  backdrop-filter: blur(35px) contrast(105%);
-  -webkit-backdrop-filter: blur(35px) contrast(105%);
-  box-shadow:
-    0 32px 90px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  color: var(--auralis-text);
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(calc(var(--dialog-origin-x) - 50vw), calc(var(--dialog-origin-y) - 50vh))
-    scale(0.18);
-  transform-origin: center;
-  will-change: transform, opacity;
-  transition:
-    transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 180ms ease;
-}
-
-.archive-detail-dialog.is-expanded {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translate(-50%, -50%) scale(1);
-}
-
-.archive-detail-header,
-.archive-top-tracks,
-.archive-detail-state {
-  opacity: 0;
-  transform: translateY(8px);
-  transition:
-    opacity 160ms ease 120ms,
-    transform 200ms ease 120ms;
-}
-
-.archive-detail-dialog.is-expanded .archive-detail-header,
-.archive-detail-dialog.is-expanded .archive-top-tracks,
-.archive-detail-dialog.is-expanded .archive-detail-state {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.archive-detail-dialog.is-expanded .archive-top-tracks li {
-  animation: archive-item-slide-in 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(var(--item-index) * 35ms + 120ms);
-}
-
-@keyframes archive-item-slide-in {
-  0% {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.archive-detail-header {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
-}
-
-.archive-detail-header > div > span {
-  color: var(--auralis-text-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.archive-detail-header h2 {
-  margin-top: 4px;
-  font-size: 22px;
-  font-weight: 800;
-}
-
-.archive-detail-header p {
-  margin-top: 5px;
-  color: var(--auralis-text-faint);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.archive-detail-header button {
-  display: inline-flex;
-  width: 32px;
-  height: 32px;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border-radius: 99px;
-  color: var(--auralis-text-muted);
-  transition: all 150ms ease;
-}
-
-.archive-detail-header button:hover {
-  background: var(--auralis-control-hover-bg);
-  color: var(--auralis-text);
-  transform: rotate(90deg);
-}
-
-.archive-detail-state {
-  display: flex;
-  min-height: 0;
-  flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: var(--auralis-text-muted);
-  font-size: 13px;
-}
-
-.archive-top-tracks {
-  display: grid;
-  flex: 1;
-  align-content: start;
-  grid-auto-rows: 54px;
-  gap: 6px;
-  margin-top: 16px;
-  overflow-y: auto;
-  padding: 8px;
-  background: rgba(0, 0, 0, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 14px;
-  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
-  scrollbar-color: color-mix(in srgb, var(--auralis-text) 24%, transparent) transparent;
-  scrollbar-width: thin;
-  list-style: none;
-}
-
-.archive-top-tracks::-webkit-scrollbar {
-  width: 5px;
-}
-
-.archive-top-tracks::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.archive-top-tracks::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--auralis-text) 24%, transparent);
-}
-
-.archive-top-tracks li {
-  display: grid;
-  min-width: 0;
-  height: 54px;
-  align-items: center;
-  padding: 8px 12px;
-  border-radius: 10px;
-  grid-template-columns: 22px 38px minmax(0, 1fr) auto;
-  gap: 12px;
-  border: 1px solid transparent;
-  transition:
-    background 160ms ease,
-    border-color 160ms ease;
-}
-
-.archive-top-tracks li:hover {
-  background: color-mix(in srgb, var(--auralis-text) 7%, transparent);
-  border-color: rgba(255, 255, 255, 0.06);
-}
-
-.archive-track-rank,
-.archive-track-count {
-  color: var(--auralis-text-faint);
-  font-size: 11px;
-}
-
-.archive-track-rank {
-  text-align: center;
-  font-weight: 700;
-}
-
-.archive-track-rank.rank-gold {
-  background: linear-gradient(135deg, #ffe57f 0%, #ffb300 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-weight: 800;
-  filter: drop-shadow(0 2px 4px rgba(255, 179, 0, 0.4));
-}
-
-.archive-track-rank.rank-silver {
-  background: linear-gradient(135deg, #ffffff 0%, #b0bec5 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-weight: 800;
-  filter: drop-shadow(0 2px 4px rgba(255, 255, 255, 0.4));
-}
-
-.archive-track-rank.rank-bronze {
-  background: linear-gradient(135deg, #ffcc80 0%, #d84315 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-weight: 800;
-  filter: drop-shadow(0 2px 4px rgba(216, 67, 21, 0.4));
-}
-
-.archive-track-artwork {
-  display: flex;
-  width: 38px;
-  height: 38px;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-radius: 6px;
-  background: var(--auralis-control-hover-bg);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--auralis-text-faint);
-}
-
-.archive-track-artwork img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.archive-track-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.archive-track-copy strong,
-.archive-track-copy span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.archive-track-copy strong {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.archive-track-copy span {
-  color: var(--auralis-text-muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.archive-track-count {
-  padding-left: 8px;
-  white-space: nowrap;
-  font-weight: 700;
 }
 
 @media (max-width: 900px) {

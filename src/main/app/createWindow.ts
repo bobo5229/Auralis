@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
 import { MiniPlayerWindowController } from './miniPlayerWindowController'
 import { createWindowsThumbarController } from './windowsThumbarController'
+import { secureRendererWindow } from './webContentsSecurity'
 
 function resolveAppIconPath(): string | undefined {
   const candidates = [
@@ -31,15 +32,19 @@ export function createWindow(): BrowserWindow {
     autoHideMenuBar: true,
     ...(icon ? { icon } : {}),
     webPreferences: {
-      preload: join(__dirname, '../preload/index.mjs'),
+      preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      // sandbox stays false: preload uses ESM contextBridge bridge without sandbox-compatible bundling.
-      sandbox: false,
+      sandbox: true,
       backgroundThrottling: false,
       webSecurity: true,
     },
   })
+
+  const rendererEntry = process.env.ELECTRON_RENDERER_URL
+    ? process.env.ELECTRON_RENDERER_URL
+    : join(__dirname, '../renderer/index.html')
+  secureRendererWindow(window, rendererEntry)
 
   window.setMenuBarVisibility(false)
   new MiniPlayerWindowController(window)
@@ -80,9 +85,9 @@ export function createWindow(): BrowserWindow {
   window.webContents.once('did-fail-load', showWindow)
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    window.loadURL(process.env.ELECTRON_RENDERER_URL)
+    window.loadURL(rendererEntry)
   } else {
-    window.loadFile(join(__dirname, '../renderer/index.html'))
+    window.loadFile(rendererEntry)
   }
 
   return window

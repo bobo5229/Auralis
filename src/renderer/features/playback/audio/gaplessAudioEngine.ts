@@ -1,3 +1,5 @@
+import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+
 export type AudioSnapshot = {
   currentTime: number
   duration: number
@@ -381,6 +383,10 @@ export class GaplessAudioEngine {
   }
 
   private reportPrepareFallback(trackId: number, reason: string): void {
-    console.warn('[Auralis gapless] Falling back to HTMLAudio', { trackId, reason })
+    rendererDiagnostics.warn({
+      scope: 'playback.gapless',
+      message: 'Falling back to HTMLAudio',
+      context: { trackId, reason },
+    })
   }
 }

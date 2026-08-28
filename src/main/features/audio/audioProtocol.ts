@@ -41,6 +41,97 @@ export function isPlayableAudioExtension(filePath: string): boolean {
   return playableExtensions.has(extname(filePath).toLowerCase())
 }
 
+export function createAudioProtocolHandler(
+  resolver: AudioProtocolResolver,
+): (request: Request) => Promise<Response> {
+  return async (request) => {
+    try {
+      const url = new URL(request.url)
+
+      if (url.hostname !== 'track') {
+        logger.warn({ url: request.url }, 'Invalid audio protocol host')
+        return new Response(null, { status: 400 })
+      }
+
+      const match = TRACK_ID_PATH.exec(url.pathname)
+
+      if (!match) {
+        logger.warn({ url: request.url }, 'Invalid audio protocol path')
+        return new Response(null, { status: 400 })
+      }
+
+      const trackId = Number(match[1])
+
+      if (!Number.isInteger(trackId) || trackId <= 0) {
+        return new Response(null, { status: 400 })
+      }
+
+      const filePath = resolver.getFilePathByTrackId(trackId)
+
+      if (!filePath) {
+        return new Response(null, { status: 404 })
+      }
+
+      if (!isPlayableAudioExtension(filePath)) {
+        logger.warn({ trackId, filePath }, 'Audio protocol rejected unsupported extension')
+        return new Response(null, { status: 415 })
+      }
+
+      const roots = resolver.getLibraryRootPaths()
+
+      if (!isPathUnderAnyRoot(filePath, roots)) {
+        logger.warn({ trackId, filePath }, 'Audio protocol path outside library roots')
+        return new Response(null, { status: 403 })
+      }
+
+      const resolvedPath = resolve(filePath)
+      let fileStats
+
+      try {
+        fileStats = await stat(resolvedPath)
+      } catch (error) {
+        if (isMissingFileError(error)) resolver.onFileMissing?.(trackId, filePath)
+        return new Response(null, { status: 404 })
+      }
+
+      if (!fileStats.isFile()) {
+        resolver.onFileMissing?.(trackId, filePath)
+        return new Response(null, { status: 404 })
+      }
+
+      const size = fileStats.size
+      const ext = extname(resolvedPath).toLowerCase()
+      const contentType = EXT_TO_MIME[ext] ?? 'application/octet-stream'
+      const rangeResult = parseBytesRange(request.headers.get('Range'), size)
+
+      if (rangeResult === 'unsatisfiable') {
+        return new Response(null, {
+          status: 416,
+          headers: {
+            'Content-Range': `bytes */${size}`,
+            'Accept-Ranges': 'bytes',
+            'Access-Control-Allow-Origin': '*',
+          },
+        })
+      }
+
+      // Manual byte-range responses are required for HTMLMediaElement seeking.
+      // net.fetch(file://) often ignores Range and returns 200 full-body, which
+      // causes Chromium to snap currentTime back to 0 after a seek.
+      return buildFileResponse(
+        resolvedPath,
+        size,
+        contentType,
+        rangeResult,
+        request.method.toUpperCase(),
+      )
+    } catch (error) {
+      logger.warn({ err: error, url: request.url }, 'Audio protocol handler failed')
+      return new Response(null, { status: 500 })
+    }
+  }
+}
+
 /**
  * Must be called before app.whenReady().
  * Privileges enable media streaming + CORS so <audio>/fetch work with webSecurity: true.
@@ -151,90 +242,5 @@ function buildFileResponse(
 }
 
 export function registerAudioProtocol(resolver: AudioProtocolResolver): void {
-  protocol.handle('auralis-audio', async (request) => {
-    try {
-      const url = new URL(request.url)
-
-      if (url.hostname !== 'track') {
-        logger.warn({ url: request.url }, 'Invalid audio protocol host')
-        return new Response(null, { status: 400 })
-      }
-
-      const match = TRACK_ID_PATH.exec(url.pathname)
-
-      if (!match) {
-        logger.warn({ url: request.url }, 'Invalid audio protocol path')
-        return new Response(null, { status: 400 })
-      }
-
-      const trackId = Number(match[1])
-
-      if (!Number.isInteger(trackId) || trackId <= 0) {
-        return new Response(null, { status: 400 })
-      }
-
-      const filePath = resolver.getFilePathByTrackId(trackId)
-
-      if (!filePath) {
-        return new Response(null, { status: 404 })
-      }
-
-      if (!isPlayableAudioExtension(filePath)) {
-        logger.warn({ trackId, filePath }, 'Audio protocol rejected unsupported extension')
-        return new Response(null, { status: 415 })
-      }
-
-      const roots = resolver.getLibraryRootPaths()
-
-      if (!isPathUnderAnyRoot(filePath, roots)) {
-        logger.warn({ trackId, filePath }, 'Audio protocol path outside library roots')
-        return new Response(null, { status: 403 })
-      }
-
-      const resolvedPath = resolve(filePath)
-      let fileStats
-
-      try {
-        fileStats = await stat(resolvedPath)
-      } catch (error) {
-        if (isMissingFileError(error)) resolver.onFileMissing?.(trackId, filePath)
-        return new Response(null, { status: 404 })
-      }
-
-      if (!fileStats.isFile()) {
-        resolver.onFileMissing?.(trackId, filePath)
-        return new Response(null, { status: 404 })
-      }
-
-      const size = fileStats.size
-      const ext = extname(resolvedPath).toLowerCase()
-      const contentType = EXT_TO_MIME[ext] ?? 'application/octet-stream'
-      const rangeResult = parseBytesRange(request.headers.get('Range'), size)
-
-      if (rangeResult === 'unsatisfiable') {
-        return new Response(null, {
-          status: 416,
-          headers: {
-            'Content-Range': `bytes */${size}`,
-            'Accept-Ranges': 'bytes',
-            'Access-Control-Allow-Origin': '*',
-          },
-        })
-      }
-
-      // Manual byte-range responses are required for HTMLMediaElement seeking.
-      // net.fetch(file://) often ignores Range and returns 200 full-body, which
-      // causes Chromium to snap currentTime back to 0 after a seek.
-      return buildFileResponse(
-        resolvedPath,
-        size,
-        contentType,
-        rangeResult,
-        request.method.toUpperCase(),
-      )
-    } catch (error) {
-      logger.warn({ err: error, url: request.url }, 'Audio protocol handler failed')
-      return new Response(null, { status: 500 })
-    }
-  })
+  protocol.handle('auralis-audio', createAudioProtocolHandler(resolver))
 }

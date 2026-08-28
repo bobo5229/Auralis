@@ -13,24 +13,28 @@ import {
 } from './features/audio/audioProtocol'
 import { LibraryRootRepository } from './repositories/libraryRootRepository'
 import { TrackRepository } from './repositories/trackRepository'
-import { logger } from './logging/logger'
+import { initializeLogger, logger, shutdownLogger } from './logging/logger'
+import { installMainProcessDiagnostics } from './logging/mainProcessDiagnostics'
 import { ipcChannels } from '@shared/ipc/channels'
+import { configureElectronSmokeEnvironment } from './app/smoke/electronSmokeEnvironment'
+import { runElectronSmokeTest } from './app/smoke/runElectronSmokeTest'
 
 // Custom media scheme privileges must be registered before app.ready (single call).
 registerPrivilegedMediaSchemes()
 
 app.setName('Auralis')
+const isElectronSmokeTest = configureElectronSmokeEnvironment(app)
 // Keep Windows taskbar / jump-list identity stable so shell uses the app icon, not Electron's.
 app.setAppUserModelId('com.bobo.auralis')
 registerDesktopLyricsIpcHandlers()
 
 const useSoftwareRendering = !app.isPackaged && process.env.AURALIS_SOFTWARE_RENDERING === '1'
 
-if (process.platform === 'win32' && !useSoftwareRendering) {
+if (process.platform === 'win32' && !useSoftwareRendering && !isElectronSmokeTest) {
   app.commandLine.appendSwitch('force_high_performance_gpu')
 }
 
-if (!app.isPackaged) {
+if (!app.isPackaged && !isElectronSmokeTest) {
   process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = '1'
   const devUserDataPath = join(app.getAppPath(), 'data', 'user-data')
   const devCachePath = join(devUserDataPath, 'cache')
@@ -71,8 +75,6 @@ if (!app.isPackaged) {
   }
 
   app.commandLine.appendSwitch('disk-cache-dir', devCachePath)
-  app.commandLine.appendSwitch('no-sandbox')
-
   app.once('gpu-info-update', () => {
     void app
       .getGPUInfo('basic')
@@ -92,38 +94,52 @@ if (!app.isPackaged) {
   })
 }
 
-app.whenReady().then(() => {
-  const artworkCacheDir = ensureArtworkCacheDir(app.getPath('userData'))
-  registerArtworkProtocol(artworkCacheDir)
-  const db = initializeDatabase()
-  const trackRepository = new TrackRepository(db)
-  const libraryRootRepository = new LibraryRootRepository(db)
-
-  registerAudioProtocol({
-    getFilePathByTrackId: (trackId) => trackRepository.getFilePathById(trackId),
-    getLibraryRootPaths: () => libraryRootRepository.list().map((root) => root.path),
-    onFileMissing: (_trackId, filePath) => {
-      const trackIds = trackRepository.markMissingByFilePaths([filePath])
-      if (trackIds.length === 0) return
-      for (const window of BrowserWindow.getAllWindows()) {
-        if (!window.webContents.isDestroyed()) {
-          window.webContents.send(ipcChannels.library.changed, {
-            reason: 'track-missing',
-            trackIds,
-            filePaths: [filePath],
-          })
-        }
-      }
-    },
-  })
-
-  registerIpcHandlers(db, artworkCacheDir)
-  createWindow()
-
-  app.on('activate', () => {
-    createWindow()
-  })
+initializeLogger({
+  development: !app.isPackaged,
+  logsDirectory: join(app.getPath('userData'), 'logs'),
+  persistToFile: app.isPackaged,
 })
+const mainProcessDiagnostics = installMainProcessDiagnostics({ app, process, logger })
+
+void app
+  .whenReady()
+  .then(() => {
+    const artworkCacheDir = ensureArtworkCacheDir(app.getPath('userData'))
+    registerArtworkProtocol(artworkCacheDir)
+    const db = initializeDatabase()
+    const trackRepository = new TrackRepository(db)
+    const libraryRootRepository = new LibraryRootRepository(db)
+
+    registerAudioProtocol({
+      getFilePathByTrackId: (trackId) => trackRepository.getFilePathById(trackId),
+      getLibraryRootPaths: () => libraryRootRepository.list().map((root) => root.path),
+      onFileMissing: (_trackId, filePath) => {
+        const trackIds = trackRepository.markMissingByFilePaths([filePath])
+        if (trackIds.length === 0) return
+        for (const window of BrowserWindow.getAllWindows()) {
+          if (!window.webContents.isDestroyed()) {
+            window.webContents.send(ipcChannels.library.changed, {
+              reason: 'track-missing',
+              trackIds,
+              filePaths: [filePath],
+            })
+          }
+        }
+      },
+    })
+
+    registerIpcHandlers(db, artworkCacheDir)
+    const mainWindow = createWindow()
+
+    if (isElectronSmokeTest) {
+      void runElectronSmokeTest(mainWindow)
+    } else {
+      app.on('activate', () => {
+        createWindow()
+      })
+    }
+  })
+  .catch(mainProcessDiagnostics.reportStartupFailure)
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -134,4 +150,6 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   closeDatabase()
   logger.info('Auralis shutdown complete')
+  mainProcessDiagnostics.dispose()
+  shutdownLogger()
 })

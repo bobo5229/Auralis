@@ -1,52 +1,25 @@
 import { reactive, ref } from 'vue'
 import type { PlaybackMode, PlaybackState, PlaybackTrack } from '../types'
 import { auralis } from '@renderer/shared/ipc/client'
+import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { GaplessAudioEngine } from '../audio/gaplessAudioEngine'
+import { EffectivePlayTracker } from '../core/effectivePlayTracker'
+import {
+  insertTrackAfterCurrent as buildSingleTrackInsertion,
+  insertTracksAfterCurrent as buildMultiTrackInsertion,
+  PlaybackHistory,
+  type AlbumShuffleContext,
+} from '../core/playbackQueueState'
+import {
+  findCurrentAlbumShuffleContext,
+  getAlbumKey,
+  resolvePlaybackTransition,
+  selectRandomAlbumShuffleContext,
+  type PlaybackTransitionPlan,
+} from '../core/playbackTransitionPlanner'
 
 const VOLUME_KEY = 'auralis-volume'
 const GAPLESS_PLAYBACK_KEY = 'auralis-gapless-playback-enabled'
-const HISTORY_LIMIT = 100
-
-// Play count tracking
-const PLAY_COUNT_THRESHOLD_RATIO = 0.55
-const PLAY_COUNT_TICK_MS = 1000
-const MAX_REALTIME_DELTA_SECONDS = 2.5
-const MIN_COUNTABLE_DURATION_SECONDS = 5
-const MAX_COUNTABLE_DURATION_SECONDS = 24 * 60 * 60
-
-type PlayCountSession = {
-  sessionId: string
-  trackId: number
-  lastSampleAt: number
-  realPlayedSeconds: number
-  counted: boolean
-  countInFlight: boolean
-}
-
-let playCountSession: PlayCountSession | null = null
-let playCountTimer: ReturnType<typeof setInterval> | null = null
-let isPlayCountBuffering = false
-let isPlayCountSeeking = false
-let seekFallbackTimer: ReturnType<typeof setTimeout> | null = null
-
-const SEEK_FALLBACK_MS = 300
-
-function setSeekingWithFallback(): void {
-  isPlayCountSeeking = true
-  if (seekFallbackTimer) clearTimeout(seekFallbackTimer)
-  seekFallbackTimer = setTimeout(() => {
-    isPlayCountSeeking = false
-    resetPlayCountSample()
-    seekFallbackTimer = null
-  }, SEEK_FALLBACK_MS)
-}
-
-function clearSeekFallback(): void {
-  if (seekFallbackTimer) {
-    clearTimeout(seekFallbackTimer)
-    seekFallbackTimer = null
-  }
-}
 
 function readPersistedVolume(): number {
   const raw = localStorage.getItem(VOLUME_KEY)
@@ -101,32 +74,9 @@ let playbackRequestId = 0
 let queuedNextTrackId: number | null = null
 let transitionGeneration = 0
 
-// Album shuffle context
-type AlbumShuffleContext = {
-  albumArtist: string
-  album: string
-  tracks: PlaybackTrack[]
-} | null
+let scheduledPlan: PlaybackTransitionPlan | null = null
 
-type TransitionPlan = {
-  queue: PlaybackTrack[]
-  track: PlaybackTrack
-  recordHistory: boolean
-  consumeQueued: boolean
-  nextAlbumShuffleContext?: AlbumShuffleContext
-}
-
-let scheduledPlan: TransitionPlan | null = null
-
-// History entry stores full context for correct restoration
-type HistoryEntry = {
-  track: PlaybackTrack
-  queue: PlaybackTrack[]
-  albumShuffleContext: AlbumShuffleContext
-  shuffleTrackPool: PlaybackTrack[] | null
-}
-
-let playbackHistory: HistoryEntry[] = []
+const playbackHistory = new PlaybackHistory()
 let albumShuffleContext: AlbumShuffleContext = null
 let shuffleTrackPool: PlaybackTrack[] | null = null
 
@@ -147,156 +97,56 @@ const gaplessEngine = new GaplessAudioEngine({
 })
 gaplessEngine.setVolume(state.volume, state.isMuted)
 
-// --- Play count helpers ---
+const effectivePlayTracker = new EffectivePlayTracker({
+  isPlaybackCountable: (trackId) => {
+    if (trackId !== state.currentTrackId) return false
+    if (gaplessEngine.isActive) return gaplessEngine.getSnapshot().isPlaying
+    if (audio.paused || audio.ended) return false
+    return audio.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+  },
+  getDurationSeconds: () => {
+    const snapshot = gaplessEngine.isActive ? gaplessEngine.getSnapshot() : null
+    const audioDuration = snapshot
+      ? snapshot.duration
+      : Number.isFinite(audio.duration) && audio.duration > 0
+        ? audio.duration
+        : 0
+    const trackDuration =
+      state.currentTrack?.durationSeconds &&
+      Number.isFinite(state.currentTrack.durationSeconds) &&
+      state.currentTrack.durationSeconds > 0
+        ? state.currentTrack.durationSeconds
+        : 0
 
-function isAudioCountable(): boolean {
-  if (!playCountSession) return false
-  if (playCountSession.counted) return false
-  if (playCountSession.trackId !== state.currentTrackId) return false
-  if (gaplessEngine.isActive) return gaplessEngine.getSnapshot().isPlaying
-  if (audio.paused || audio.ended) return false
-  if (isPlayCountBuffering) return false
-  if (isPlayCountSeeking) return false
-  if (audio.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return false
-  return true
-}
-
-function getEffectiveDuration(): number | null {
-  const snapshot = gaplessEngine.isActive ? gaplessEngine.getSnapshot() : null
-  const audioDuration = snapshot
-    ? snapshot.duration
-    : Number.isFinite(audio.duration) && audio.duration > 0
-      ? audio.duration
-      : 0
-  const trackDuration =
-    state.currentTrack?.durationSeconds &&
-    Number.isFinite(state.currentTrack.durationSeconds) &&
-    state.currentTrack.durationSeconds > 0
-      ? state.currentTrack.durationSeconds
-      : 0
-
-  const duration = audioDuration || trackDuration
-  if (duration < MIN_COUNTABLE_DURATION_SECONDS || duration > MAX_COUNTABLE_DURATION_SECONDS) {
-    return null
-  }
-
-  return duration
-}
-
-function startPlayCountSession(trackId: number): void {
-  if (playCountTimer) {
-    clearInterval(playCountTimer)
-    playCountTimer = null
-  }
-
-  isPlayCountBuffering = false
-  isPlayCountSeeking = false
-
-  const now = performance.now()
-  playCountSession = {
-    sessionId: `${trackId}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    trackId,
-    lastSampleAt: now,
-    realPlayedSeconds: 0,
-    counted: false,
-    countInFlight: false,
-  }
-
-  playCountTimer = setInterval(tickPlayCountSession, PLAY_COUNT_TICK_MS)
-}
-
-function endPlayCountSession(): void {
-  if (playCountTimer) {
-    clearInterval(playCountTimer)
-    playCountTimer = null
-  }
-  clearSeekFallback()
-  isPlayCountSeeking = false
-  isPlayCountBuffering = false
-  playCountSession = null
-}
-
-function resetPlayCountSample(): void {
-  if (playCountSession) {
-    playCountSession.lastSampleAt = performance.now()
-  }
-}
-
-function tickPlayCountSession(): void {
-  const session = playCountSession
-  if (!session || session.counted || session.countInFlight) return
-
-  const now = performance.now()
-
-  if (isAudioCountable()) {
-    const deltaSeconds = Math.min((now - session.lastSampleAt) / 1000, MAX_REALTIME_DELTA_SECONDS)
-    session.realPlayedSeconds += deltaSeconds
-  }
-
-  session.lastSampleAt = now
-
-  const effectiveDuration = getEffectiveDuration()
-  if (!effectiveDuration) return
-
-  if (session.realPlayedSeconds >= effectiveDuration * PLAY_COUNT_THRESHOLD_RATIO) {
-    tryRecordEffectivePlay(session)
-  }
-}
-
-function tryRecordEffectivePlay(session: PlayCountSession): void {
-  if (session.counted || session.countInFlight) return
-  session.countInFlight = true
-
-  const payload = {
-    trackId: session.trackId,
-    sessionId: session.sessionId,
-    playedAtIso: new Date().toISOString(),
-  }
-
-  auralis.playback
-    .recordEffectivePlay(payload)
-    .then((result) => {
-      // Only mark counted after successful persistence
-      if (result.ok) {
-        session.counted = true
-      }
+    return audioDuration || trackDuration || null
+  },
+  recordEffectivePlay: (payload) => auralis.playback.recordEffectivePlay(payload),
+  onRecordError: (error) => {
+    rendererDiagnostics.warn({
+      scope: 'playback.statistics',
+      message: 'Failed to record play count',
+      cause: error,
     })
-    .catch((err) => {
-      console.warn('[Auralis playback] Failed to record play count', err)
-      // counted stays false — the next tick will retry
-    })
-    .finally(() => {
-      session.countInFlight = false
-    })
-}
+  },
+})
 
 // --- History helpers ---
 
 function pushHistory(previousTrack: PlaybackTrack | null, nextTrackId: number): void {
-  if (!previousTrack) return
-  if (previousTrack.id === nextTrackId) return
-  playbackHistory.push({
-    track: previousTrack,
+  playbackHistory.push(previousTrack, nextTrackId, {
     queue: state.queue,
     albumShuffleContext,
     shuffleTrackPool,
   })
-  if (playbackHistory.length > HISTORY_LIMIT) {
-    playbackHistory = playbackHistory.slice(-HISTORY_LIMIT)
-  }
 }
 
-function popHistory(): HistoryEntry | null {
-  return playbackHistory.pop() ?? null
-}
-
-function applyTransitionPlan(plan: TransitionPlan): void {
+function applyTransitionPlan(plan: PlaybackTransitionPlan): void {
   if (plan.recordHistory) pushHistory(state.currentTrack, plan.track.id)
   if (plan.consumeQueued) queuedNextTrackId = null
   if (plan.nextAlbumShuffleContext !== undefined) {
     albumShuffleContext = plan.nextAlbumShuffleContext
   }
-  endPlayCountSession()
+  effectivePlayTracker.end()
   state.queue = plan.queue
   state.currentIndex = plan.queue.findIndex((track) => track.id === plan.track.id)
   state.currentTrack = plan.track
@@ -305,79 +155,31 @@ function applyTransitionPlan(plan: TransitionPlan): void {
   state.currentTime = 0
   state.duration = gaplessEngine.getSnapshot().duration
   state.error = null
-  startPlayCountSession(plan.track.id)
+  effectivePlayTracker.start(plan.track.id)
 }
 
-async function resolveTransitionPlan(fromTrackId: number): Promise<TransitionPlan | null> {
+async function resolveTransitionPlan(fromTrackId: number): Promise<PlaybackTransitionPlan | null> {
   if (state.currentTrackId !== fromTrackId) return null
-  const queue = state.queue
-  const index = state.currentIndex
-  const queued = queuedNextTrackId
-  if (state.playbackMode !== 'repeat-one' && queued !== null) {
-    const next = queue[index + 1]
-    if (next?.id === queued) return { queue, track: next, recordHistory: true, consumeQueued: true }
-  }
-  if (state.playbackMode === 'repeat-one' && state.currentTrack) {
-    return { queue, track: state.currentTrack, recordHistory: false, consumeQueued: false }
-  }
-  if (state.playbackMode === 'sequential' || state.playbackMode === 'repeat-all') {
-    const next = queue[index + 1] ?? (state.playbackMode === 'repeat-all' ? queue[0] : undefined)
-    return next ? { queue, track: next, recordHistory: true, consumeQueued: false } : null
-  }
-  if (state.playbackMode === 'shuffle') {
-    if (shuffleTrackPool?.length) {
-      const candidates = shuffleTrackPool.filter((track) => track.id !== fromTrackId)
-      const track = candidates[Math.floor(Math.random() * candidates.length)]
-      return track
-        ? { queue: shuffleTrackPool, track, recordHistory: true, consumeQueued: false }
-        : null
-    }
-    const track = (await auralis.playback.getRandomTrack(fromTrackId)) as PlaybackTrack | null
-    return track ? { queue: [track], track, recordHistory: true, consumeQueued: false } : null
-  }
-  if (state.playbackMode === 'album-shuffle') {
-    let context = albumShuffleContext
-    if (!context) {
-      if (shuffleTrackPool?.length) {
-        context = getScopedCurrentAlbumShuffleContext()
-      } else {
-        const currentAlbumKey = getCurrentAlbumKey()
-        if (!currentAlbumKey) return null
-        const currentAlbum = await auralis.playback.getAlbumTracks(currentAlbumKey)
-        const candidate = currentAlbum as AlbumShuffleContext
-        if (candidate?.tracks.some((track) => track.id === fromTrackId)) context = candidate
-      }
-    }
-
-    if (context) {
-      const albumIndex = context.tracks.findIndex((track) => track.id === fromTrackId)
-      const track = context.tracks[albumIndex + 1]
-      if (track) {
-        return {
-          queue: context.tracks,
-          track,
-          recordHistory: true,
-          consumeQueued: false,
-          nextAlbumShuffleContext: context,
-        }
-      }
-    }
-
-    const nextContext = shuffleTrackPool?.length
-      ? getRandomScopedAlbumShuffleContext()
-      : ((await auralis.playback.getRandomAlbumTracks(getCurrentAlbumKey())) as AlbumShuffleContext)
-    const track = nextContext?.tracks[0]
-    return track
-      ? {
-          queue: nextContext!.tracks,
-          track,
-          recordHistory: true,
-          consumeQueued: false,
-          nextAlbumShuffleContext: nextContext,
-        }
-      : null
-  }
-  return null
+  return resolvePlaybackTransition(
+    {
+      currentTrackId: state.currentTrackId,
+      currentTrack: state.currentTrack,
+      queue: state.queue,
+      currentIndex: state.currentIndex,
+      playbackMode: state.playbackMode,
+      queuedNextTrackId,
+      albumShuffleContext,
+      shuffleTrackPool,
+    },
+    {
+      getRandomTrack: async (excludeTrackId) =>
+        (await auralis.playback.getRandomTrack(excludeTrackId)) as PlaybackTrack | null,
+      getAlbumTracks: async (albumKey) =>
+        (await auralis.playback.getAlbumTracks(albumKey)) as AlbumShuffleContext,
+      getRandomAlbumTracks: async (excludeAlbumKey) =>
+        (await auralis.playback.getRandomAlbumTracks(excludeAlbumKey)) as AlbumShuffleContext,
+    },
+  )
 }
 
 function invalidateGaplessTransition(): void {
@@ -477,7 +279,7 @@ async function playTrackFromResolvedQueue(
     pushHistory(state.currentTrack, trackId)
   }
 
-  endPlayCountSession()
+  effectivePlayTracker.end()
 
   state.queue = queue
   state.currentIndex = index
@@ -504,7 +306,7 @@ async function playTrackFromResolvedQueue(
       const snapshot = gaplessEngine.getSnapshot()
       state.duration = snapshot.duration
       state.currentTime = snapshot.currentTime
-      startPlayCountSession(trackId)
+      effectivePlayTracker.start(trackId)
       void refreshGaplessNext(trackId)
       return
     }
@@ -517,7 +319,7 @@ async function playTrackFromResolvedQueue(
       return
     }
 
-    startPlayCountSession(trackId)
+    effectivePlayTracker.start(trackId)
   } catch (err) {
     if (requestId !== playbackRequestId) {
       return
@@ -556,33 +358,27 @@ audio.addEventListener('pause', () => {
 })
 
 audio.addEventListener('seeking', () => {
-  setSeekingWithFallback()
-  resetPlayCountSample()
+  effectivePlayTracker.beginSeekingWithFallback()
 })
 
 audio.addEventListener('seeked', () => {
-  clearSeekFallback()
-  isPlayCountSeeking = false
-  resetPlayCountSample()
+  effectivePlayTracker.endSeeking()
 })
 
 audio.addEventListener('waiting', () => {
-  isPlayCountBuffering = true
-  resetPlayCountSample()
+  effectivePlayTracker.setBuffering(true)
 })
 
 audio.addEventListener('stalled', () => {
-  isPlayCountBuffering = true
-  resetPlayCountSample()
+  effectivePlayTracker.setBuffering(true)
 })
 
 audio.addEventListener('playing', () => {
-  isPlayCountBuffering = false
-  resetPlayCountSample()
+  effectivePlayTracker.setBuffering(false)
 })
 
 audio.addEventListener('canplay', () => {
-  isPlayCountBuffering = false
+  effectivePlayTracker.setBuffering(false)
 })
 
 audio.addEventListener('ended', () => {
@@ -590,22 +386,23 @@ audio.addEventListener('ended', () => {
 })
 
 audio.addEventListener('error', () => {
-  endPlayCountSession()
+  effectivePlayTracker.end()
   state.isPlaying = false
   const mediaError = audio.error
   const detail = mediaError
     ? `${describeMediaError(mediaError.code)} (${mediaError.code})`
     : 'unknown media error'
   state.error = `Audio error: ${detail}`
-  console.error('[Auralis playback] Audio failed', {
-    trackId: state.currentTrackId,
-    title: state.currentTrack?.title,
-    artist: state.currentTrack?.artist,
-    src: audio.currentSrc || audio.src,
-    errorCode: mediaError?.code ?? null,
-    errorMessage: mediaError?.message ?? null,
-    networkState: audio.networkState,
-    readyState: audio.readyState,
+  rendererDiagnostics.error({
+    scope: 'playback.audio',
+    message: 'Audio playback failed',
+    context: {
+      trackId: state.currentTrackId,
+      errorCode: mediaError?.code ?? null,
+      errorDetail: detail,
+      networkState: audio.networkState,
+      readyState: audio.readyState,
+    },
   })
 })
 
@@ -624,7 +421,7 @@ async function handleTrackEnded(): Promise<void> {
         })
         return
       }
-      startPlayCountSession(state.currentTrackId!)
+      effectivePlayTracker.start(state.currentTrackId!)
       audio.currentTime = 0
       state.currentTime = 0
       await audio.play()
@@ -659,7 +456,7 @@ async function playNextInQueue(options?: { wrap?: boolean; stopAtEnd?: boolean }
       return
     }
     if (options?.stopAtEnd) {
-      endPlayCountSession()
+      effectivePlayTracker.end()
       if (gaplessEngine.isActive) gaplessEngine.pause()
       else audio.pause()
       state.isPlaying = false
@@ -752,68 +549,16 @@ async function playNextFromAlbumShuffleContext(): Promise<boolean> {
   return true
 }
 
-function getAlbumIdentity(track: PlaybackTrack): string | null {
-  const album = track.album?.trim()
-  if (!album) return null
-
-  const albumArtist = (track.albumArtist || track.artist || '').trim()
-  return `${albumArtist.toLocaleLowerCase()}\u0000${album.toLocaleLowerCase()}`
-}
-
-function buildScopedAlbumShuffleContexts(): NonNullable<AlbumShuffleContext>[] {
-  if (!shuffleTrackPool?.length) return []
-
-  const contexts = new Map<string, NonNullable<AlbumShuffleContext>>()
-  for (const track of shuffleTrackPool) {
-    const identity = getAlbumIdentity(track)
-    if (!identity) continue
-
-    const context = contexts.get(identity)
-    if (context) {
-      context.tracks.push(track)
-      continue
-    }
-
-    contexts.set(identity, {
-      albumArtist: track.albumArtist || track.artist || '',
-      album: track.album!.trim(),
-      tracks: [track],
-    })
-  }
-
-  return [...contexts.values()]
-}
-
-function getScopedCurrentAlbumShuffleContext(): NonNullable<AlbumShuffleContext> | null {
-  if (!state.currentTrackId) return null
-
-  return (
-    buildScopedAlbumShuffleContexts().find((context) =>
-      context.tracks.some((track) => track.id === state.currentTrackId),
-    ) ?? null
-  )
-}
-
-function getRandomScopedAlbumShuffleContext(): NonNullable<AlbumShuffleContext> | null {
-  const currentIdentity = state.currentTrack ? getAlbumIdentity(state.currentTrack) : null
-  const candidates = buildScopedAlbumShuffleContexts().filter(
-    (context) => getAlbumIdentity(context.tracks[0]) !== currentIdentity,
-  )
-  if (candidates.length === 0) return null
-
-  return candidates[Math.floor(Math.random() * candidates.length)]
-}
-
 async function adoptCurrentAlbumShuffleContext(): Promise<boolean> {
   if (shuffleTrackPool?.length) {
-    const context = getScopedCurrentAlbumShuffleContext()
+    const context = findCurrentAlbumShuffleContext(shuffleTrackPool, state.currentTrackId)
     if (!context) return false
 
     albumShuffleContext = context
     return true
   }
 
-  const currentAlbumKey = getCurrentAlbumKey()
+  const currentAlbumKey = getAlbumKey(state.currentTrack)
   if (!currentAlbumKey || !state.currentTrackId) return false
 
   const currentAlbum = await auralis.playback.getAlbumTracks(currentAlbumKey)
@@ -839,8 +584,8 @@ async function playNextAlbumShuffleTrack(): Promise<void> {
   }
 
   const context = shuffleTrackPool?.length
-    ? getRandomScopedAlbumShuffleContext()
-    : ((await auralis.playback.getRandomAlbumTracks(getCurrentAlbumKey())) as Exclude<
+    ? selectRandomAlbumShuffleContext(shuffleTrackPool, state.currentTrack)
+    : ((await auralis.playback.getRandomAlbumTracks(getAlbumKey(state.currentTrack))) as Exclude<
         AlbumShuffleContext,
         null
       > | null)
@@ -851,15 +596,6 @@ async function playNextAlbumShuffleTrack(): Promise<void> {
   await playTrackFromResolvedQueue(context.tracks, context.tracks[0].id, {
     recordHistory: true,
   })
-}
-
-function getCurrentAlbumKey(): { albumArtist: string; album: string } | undefined {
-  const track = state.currentTrack
-  if (!track?.album) return undefined
-  return {
-    albumArtist: track.albumArtist || track.artist || '',
-    album: track.album,
-  }
 }
 
 // --- Actions ---
@@ -885,7 +621,7 @@ function setPlaybackMode(mode: PlaybackMode): void {
     albumShuffleContext = null
   }
   if (mode !== 'shuffle' && mode !== 'album-shuffle') {
-    playbackHistory = []
+    playbackHistory.clear()
   }
   if (gaplessEngine.isActive && state.currentTrackId && state.isPlaying) {
     void refreshGaplessNext(state.currentTrackId)
@@ -925,22 +661,13 @@ async function playTrackFromQueue(
 
 function insertTrackAfterCurrent(track: PlaybackTrack): void {
   if (!state.currentTrack || state.currentIndex < 0) return
-  if (track.id === state.currentTrackId) return
-
   const currentQueue = state.queue.length > 0 ? state.queue : [state.currentTrack]
-  const withoutInsertedTrack = currentQueue.filter((queueTrack) => queueTrack.id !== track.id)
-  const currentIndex = withoutInsertedTrack.findIndex(
-    (queueTrack) => queueTrack.id === state.currentTrackId,
-  )
+  const insertion = buildSingleTrackInsertion(currentQueue, state.currentTrack.id, track)
+  if (!insertion) return
 
-  if (currentIndex < 0) return
-
-  const nextQueue = [...withoutInsertedTrack]
-  nextQueue.splice(currentIndex + 1, 0, track)
-
-  state.queue = nextQueue
-  state.currentIndex = currentIndex
-  queuedNextTrackId = track.id
+  state.queue = insertion.queue
+  state.currentIndex = insertion.currentIndex
+  queuedNextTrackId = insertion.queuedTrackId
   if (gaplessEngine.isActive && state.currentTrackId) {
     void refreshGaplessNext(state.currentTrackId)
   }
@@ -948,25 +675,13 @@ function insertTrackAfterCurrent(track: PlaybackTrack): void {
 
 function insertTracksAfterCurrent(tracks: PlaybackTrack[]): void {
   if (!state.currentTrack || state.currentIndex < 0) return
-
-  const insertIds = new Set(tracks.map((t) => t.id))
-  insertIds.delete(state.currentTrackId!)
-
-  const filtered = tracks.filter((t) => insertIds.has(t.id))
-  if (filtered.length === 0) return
-
   const currentQueue = state.queue.length > 0 ? state.queue : [state.currentTrack]
-  const withoutInserted = currentQueue.filter((t) => !insertIds.has(t.id))
-  const currentIndex = withoutInserted.findIndex((t) => t.id === state.currentTrackId)
+  const insertion = buildMultiTrackInsertion(currentQueue, state.currentTrack.id, tracks)
+  if (!insertion) return
 
-  if (currentIndex < 0) return
-
-  const nextQueue = [...withoutInserted]
-  nextQueue.splice(currentIndex + 1, 0, ...filtered)
-
-  state.queue = nextQueue
-  state.currentIndex = currentIndex
-  queuedNextTrackId = filtered[0].id
+  state.queue = insertion.queue
+  state.currentIndex = insertion.currentIndex
+  queuedNextTrackId = insertion.queuedTrackId
   if (gaplessEngine.isActive && state.currentTrackId) {
     void refreshGaplessNext(state.currentTrackId)
   }
@@ -1018,7 +733,7 @@ async function playPrevious(): Promise<void> {
   queuedNextTrackId = null
 
   if (state.playbackMode === 'shuffle' || state.playbackMode === 'album-shuffle') {
-    const entry = popHistory()
+    const entry = playbackHistory.pop()
     if (entry) {
       albumShuffleContext = entry.albumShuffleContext
       shuffleTrackPool = entry.shuffleTrackPool
@@ -1066,8 +781,7 @@ function seekByRatio(ratio: number): void {
 
   const clampedRatio = Math.min(1, Math.max(0, ratio))
   const nextTime = duration * clampedRatio
-  setSeekingWithFallback()
-  resetPlayCountSample()
+  effectivePlayTracker.beginSeekingWithFallback()
   if (gaplessEngine.isActive) {
     invalidateGaplessTransition()
     void gaplessEngine.seek(nextTime).then(() => {
@@ -1088,8 +802,7 @@ function seekTo(time: number): void {
   if (!duration) return
 
   const nextTime = Math.min(duration, Math.max(0, time))
-  setSeekingWithFallback()
-  resetPlayCountSample()
+  effectivePlayTracker.beginSeekingWithFallback()
   if (gaplessEngine.isActive) {
     invalidateGaplessTransition()
     void gaplessEngine.seek(nextTime).then(() => {
@@ -1147,20 +860,7 @@ function removeMissingTracksFromPlayback(trackIds: number[]): void {
     const tracks = albumShuffleContext.tracks.filter((track) => !missingIds.has(track.id))
     albumShuffleContext = tracks.length > 0 ? { ...albumShuffleContext, tracks } : null
   }
-  playbackHistory = playbackHistory
-    .filter((entry) => !missingIds.has(entry.track.id))
-    .map((entry) => ({
-      ...entry,
-      queue: entry.queue.filter((track) => !missingIds.has(track.id)),
-      shuffleTrackPool:
-        entry.shuffleTrackPool?.filter((track) => !missingIds.has(track.id)) ?? null,
-      albumShuffleContext: entry.albumShuffleContext
-        ? {
-            ...entry.albumShuffleContext,
-            tracks: entry.albumShuffleContext.tracks.filter((track) => !missingIds.has(track.id)),
-          }
-        : null,
-    }))
+  playbackHistory.removeTracks(missingIds)
 
   if (queuedNextTrackId !== null && missingIds.has(queuedNextTrackId)) {
     queuedNextTrackId = null
@@ -1171,7 +871,7 @@ function removeMissingTracksFromPlayback(trackIds: number[]): void {
     invalidateGaplessTransition()
     gaplessEngine.cancel()
     audio.pause()
-    endPlayCountSession()
+    effectivePlayTracker.end()
     state.currentIndex = -1
     state.currentTrack = null
     state.currentTrackId = null
@@ -1198,11 +898,7 @@ const unsubscribeLibraryChanged = auralis.library.onChanged((event) => {
 function disposePlayback(): void {
   playbackRequestId += 1
   invalidateGaplessTransition()
-  endPlayCountSession()
-  if (seekFallbackTimer) {
-    clearTimeout(seekFallbackTimer)
-    seekFallbackTimer = null
-  }
+  effectivePlayTracker.end()
   audio.pause()
   audio.removeAttribute('src')
   audio.load()

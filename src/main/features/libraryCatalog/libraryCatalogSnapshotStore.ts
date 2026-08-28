@@ -64,12 +64,15 @@ export class LibraryCatalogSnapshotStore {
     }
 
     let snapshotBuildMs: number | null = null
+    let snapshotHeapDeltaBytes: number | null = null
     let offset = 0
 
     if (request.refresh || this.snapshot === null) {
       const startedAt = performance.now()
+      const heapUsedBefore = process.memoryUsage().heapUsed
       this.snapshot = this.createSnapshot()
       snapshotBuildMs = performance.now() - startedAt
+      snapshotHeapDeltaBytes = process.memoryUsage().heapUsed - heapUsedBefore
     } else if (request.cursor !== undefined) {
       const cursor = decodeCursor(request.cursor)
       if (cursor.snapshotId !== this.snapshot.id) {
@@ -99,6 +102,7 @@ export class LibraryCatalogSnapshotStore {
       nextCursor,
       diagnostics: {
         snapshotBuildMs,
+        snapshotHeapDeltaBytes,
         pageSliceMs: performance.now() - pageStartedAt,
       },
     }

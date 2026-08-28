@@ -165,14 +165,16 @@
   height: var(--manuscript-indicator-width);
 }
 
-.player-bar[data-player-presentation='manuscript'] input[type='range'].volume-slider::-webkit-slider-thumb,
+.player-bar[data-player-presentation='manuscript']
+  input[type='range'].volume-slider::-webkit-slider-thumb,
 .player-bar[data-player-presentation='manuscript']
   input[type='range'].volume-slider:hover::-webkit-slider-thumb {
   opacity: 0;
   transform: none;
 }
 
-.player-bar[data-player-presentation='manuscript'] input[type='range'].volume-slider::-moz-range-thumb,
+.player-bar[data-player-presentation='manuscript']
+  input[type='range'].volume-slider::-moz-range-thumb,
 .player-bar[data-player-presentation='manuscript']
   input[type='range'].volume-slider:hover::-moz-range-thumb {
   opacity: 0;
