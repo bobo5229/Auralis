@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import SongRow from '../components/SongRow.vue'
@@ -21,12 +20,7 @@ import {
   LIBRARY_LAYOUT_METRICS,
 } from '../constants/libraryLayoutMetrics'
 import type { LibraryPageIdentity, LibraryPresentation } from '../types/libraryPresentation'
-import type {
-  LibraryContextMenuAnchor,
-  LibraryContextMenuSource,
-  LibraryContextMenuState,
-  LibraryViewMode,
-} from '../types/libraryInteraction'
+import type { LibraryViewMode } from '../types/libraryInteraction'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import '../styles/manuscript.css'
 import '../styles/manuscript.overlays.css'
@@ -61,6 +55,7 @@ import {
 } from '../composables/useLibraryMetadataEditor'
 import { useLibrarySearchSession } from '../composables/useLibrarySearchSession'
 import { useLibraryViewport } from '../composables/useLibraryViewport'
+import { useLibraryContextMenu } from '../composables/useLibraryContextMenu'
 
 const { t } = useI18n()
 
@@ -115,14 +110,8 @@ function readPersistedViewMode(): LibraryViewMode {
 
 const libraryViewMode = ref<LibraryViewMode>(readPersistedViewMode())
 const isCoverView = computed(() => libraryViewMode.value === 'cover')
-const contextMenu = ref<LibraryContextMenuState | null>(null)
-const isStartingLibraryRefresh = ref(false)
-const regularPlaylistItems = ref<SidebarPlaylistItem[]>([])
-const addToPlaylistFeedback = ref<{ playlistId: number; message: string } | null>(null)
-const isCreatingPlaylistFromMenu = ref(false)
 let unsubscribeChanged: (() => void) | null = null
 let unsubscribeScanProgress: (() => void) | null = null
-let addToPlaylistFeedbackTimer: number | null = null
 const libraryRequestCoordinator = new LibraryRequestCoordinator()
 let isPageUnmounted = false
 
@@ -292,125 +281,57 @@ async function restoreLibraryFocus(
   targetEl?.focus(scroll ? undefined : { preventScroll: true })
 }
 
-function closeContextMenu(handoffTarget?: 'metadata-dialog' | 'view-switch'): void {
-  if (!contextMenu.value) return
-
-  const target: FocusRestoreTarget = {
-    trackId: contextMenu.value.trackId,
-    source: contextMenu.value.source,
-    openReason: contextMenu.value.anchor.openReason,
-  }
-
-  contextMenu.value = null
-  clearAddToPlaylistFeedback()
-
-  if (handoffTarget === 'metadata-dialog') {
-    metadataEditor.setReturnTarget(target)
-  } else if (handoffTarget === 'view-switch') {
+const {
+  contextMenu,
+  contextMenuAnchor,
+  contextMenuTrackTitle,
+  contextMenuAlbumTitle,
+  regularPlaylistItems,
+  addToPlaylistFeedback,
+  playlistLoading,
+  playlistLoadError,
+  isCreatingPlaylistFromMenu,
+  isStartingLibraryRefresh,
+  closeContextMenu,
+  onOpenContextMenu,
+  onOpenAlbumArtworkContextMenu,
+  onContextMenuPlay,
+  onContextMenuInsert,
+  onEditMetadataFromContextMenu,
+  onLocateCurrentTrack,
+  onAddContextTracksToPlaylist,
+  onCreatePlaylistAndAddContextTracks,
+  onRefreshLibrary,
+  loadRegularPlaylistItems,
+  dispose: disposeLibraryContextMenu,
+} = useLibraryContextMenu({
+  tracks,
+  isScopedPlaylist: () => isScopedPlaylist.value,
+  getTrackById: (trackId) => libraryDerivedIndex.value.trackById.get(trackId) ?? null,
+  getAlbumGroupByTrackId,
+  currentTrackId: () => playback.state.currentTrackId,
+  onTrackActivated: (trackId) => {
+    keyboardFocusTrackId.value = trackId
+    playback.selectTrack(trackId)
+  },
+  playTrackFromQueue: (queue, trackId, playOptions) =>
+    playback.playTrackFromQueue(queue, trackId, playOptions),
+  insertTrackAfterCurrent: (track) => playback.insertTrackAfterCurrent(track),
+  insertTracksAfterCurrent: (albumTracks) => playback.insertTracksAfterCurrent(albumTracks),
+  scrollToTrackById,
+  openMetadataEditor: (trackId) => metadataEditor.open(trackId),
+  setMetadataReturnTarget: (target) => metadataEditor.setReturnTarget(target),
+  setViewSwitchReturnTarget: (target) => {
     pendingViewSwitchReturnTarget = target
-  } else {
-    // Pointer-opened menus only restore focus without yanking the viewport;
-    // keyboard-opened menus run the full scroll-and-focus restore.
-    void restoreLibraryFocus(target, target.openReason !== 'pointer')
-  }
-}
-
-function onOpenContextMenu(
-  trackId: number,
-  event: MouseEvent,
-  source: LibraryContextMenuSource = 'track',
-  openReason: 'pointer' | 'keyboard' = 'pointer',
-): void {
-  keyboardFocusTrackId.value = trackId
-  playback.selectTrack(trackId)
-  contextMenu.value = {
-    trackId,
-    source,
-    anchor: {
-      clientX: event.clientX,
-      clientY: event.clientY,
-      returnFocusTrackId: trackId,
-      openReason,
-    },
-  }
-  void loadRegularPlaylistItems()
-}
-
-function onOpenAlbumArtworkContextMenu(
-  anchorTrackId: number,
-  event: MouseEvent,
-  openReason: 'pointer' | 'keyboard' = 'pointer',
-): void {
-  onOpenContextMenu(anchorTrackId, event, 'album-artwork', openReason)
-}
-
-const contextMenuAnchor = computed<LibraryContextMenuAnchor>(() => ({
-  clientX: contextMenu.value?.anchor.clientX ?? 0,
-  clientY: contextMenu.value?.anchor.clientY ?? 0,
-  returnFocusTrackId: contextMenu.value?.anchor.returnFocusTrackId ?? null,
-  openReason: contextMenu.value?.anchor.openReason ?? 'pointer',
-}))
-
-const contextMenuTrackTitle = computed(() => {
-  if (!contextMenu.value) return ''
-  const track = getTrackById(contextMenu.value.trackId)
-  return track?.title || t('library.manuscript.missing.title')
+  },
+  restoreFocus: restoreLibraryFocus,
+  t: (key, values) => (values ? String(t(key, values)) : String(t(key))),
+  listSidebarItems: () => auralis.playlists.listSidebarItems(),
+  createPlaylist: () => auralis.playlists.create(),
+  addTracksToPlaylist: (playlistId, trackIds) => auralis.playlists.addTracks(playlistId, trackIds),
+  getLibraryRoots: () => auralis.library.getRoots(),
+  startLibraryScan: (rootId) => auralis.library.startScan(rootId),
 })
-
-const contextMenuAlbumTitle = computed(() => {
-  if (!contextMenu.value) return ''
-  const track = getTrackById(contextMenu.value.trackId)
-  return track?.album || t('library.manuscript.missing.album')
-})
-
-function onContextMenuPlay(): void {
-  if (!contextMenu.value) return
-  if (contextMenu.value.source === 'album-artwork') {
-    onPlayAlbum(contextMenu.value.trackId)
-  } else {
-    onPlayContextTrack(contextMenu.value.trackId)
-  }
-}
-
-function onContextMenuInsert(): void {
-  if (!contextMenu.value) return
-  if (contextMenu.value.source === 'album-artwork') {
-    onInsertAlbumAfterCurrent(contextMenu.value.trackId)
-  } else {
-    onInsertAfterCurrent(contextMenu.value.trackId)
-  }
-}
-
-function onEditMetadataFromContextMenu(): void {
-  if (!contextMenu.value) return
-  onEditMetadata(contextMenu.value.trackId)
-}
-
-function getTrackById(trackId: number): TrackListItem | null {
-  return libraryDerivedIndex.value.trackById.get(trackId) ?? null
-}
-
-const playlistLoading = ref(false)
-const playlistLoadError = ref<string | null>(null)
-
-async function loadRegularPlaylistItems(): Promise<void> {
-  playlistLoading.value = true
-  playlistLoadError.value = null
-  try {
-    const items = await auralis.playlists.listSidebarItems()
-    regularPlaylistItems.value = items.filter((item) => item.kind === 'playlist')
-  } catch (error) {
-    rendererDiagnostics.error({
-      scope: 'library.context-menu',
-      message: 'Failed to load playlists',
-      cause: error,
-    })
-    playlistLoadError.value =
-      error instanceof Error ? error.message : t('library.contextMenu.playlistLoadError')
-  } finally {
-    playlistLoading.value = false
-  }
-}
 
 function isCurrentLibraryRequest(generation: number, scope: LibraryRouteScope): boolean {
   return (
@@ -595,139 +516,6 @@ function onListShellKeyDown(event: KeyboardEvent): void {
   }
 }
 
-async function onEditMetadata(trackId: number): Promise<void> {
-  closeContextMenu('metadata-dialog')
-  await metadataEditor.open(trackId)
-}
-
-async function onLocateCurrentTrack(): Promise<void> {
-  closeContextMenu()
-
-  if (!playback.state.currentTrackId) {
-    return
-  }
-
-  await scrollToTrackById(playback.state.currentTrackId)
-}
-
-async function onPlayContextTrack(trackId: number): Promise<void> {
-  closeContextMenu()
-  await playback.playTrackFromQueue(tracks.value, trackId, {
-    shufflePool: isScopedPlaylist.value ? tracks.value : undefined,
-  })
-}
-
-function onInsertAfterCurrent(trackId: number): void {
-  closeContextMenu()
-
-  const track = getTrackById(trackId)
-  if (!track) return
-
-  playback.insertTrackAfterCurrent(track)
-}
-
-function onInsertAlbumAfterCurrent(trackId: number): void {
-  closeContextMenu()
-
-  const group = getAlbumGroupByTrackId(trackId)
-  if (!group) return
-
-  playback.insertTracksAfterCurrent(group.tracks)
-}
-
-function onPlayAlbum(trackId: number): void {
-  closeContextMenu()
-
-  const group = getAlbumGroupByTrackId(trackId)
-  if (!group || group.tracks.length === 0) return
-
-  playback.playTrackFromQueue(group.tracks, group.tracks[0].id, {
-    shufflePool: isScopedPlaylist.value ? tracks.value : undefined,
-  })
-}
-
-function getContextMenuTrackIds(): number[] {
-  if (!contextMenu.value) return []
-
-  if (contextMenu.value.source === 'album-artwork') {
-    const group = getAlbumGroupByTrackId(contextMenu.value.trackId)
-    return group?.tracks.map((track) => track.id) ?? []
-  }
-
-  return [contextMenu.value.trackId]
-}
-
-function clearAddToPlaylistFeedback(): void {
-  if (addToPlaylistFeedbackTimer !== null) {
-    window.clearTimeout(addToPlaylistFeedbackTimer)
-    addToPlaylistFeedbackTimer = null
-  }
-  addToPlaylistFeedback.value = null
-}
-
-async function onAddContextTracksToPlaylist(playlist: SidebarPlaylistItem): Promise<void> {
-  const trackIds = getContextMenuTrackIds()
-  if (trackIds.length === 0) return
-
-  await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds)
-}
-
-async function onCreatePlaylistAndAddContextTracks(): Promise<void> {
-  if (isCreatingPlaylistFromMenu.value) return
-
-  const trackIds = getContextMenuTrackIds()
-  if (trackIds.length === 0) return
-
-  isCreatingPlaylistFromMenu.value = true
-  try {
-    const playlist = await auralis.playlists.create()
-    await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds)
-    await loadRegularPlaylistItems()
-  } finally {
-    isCreatingPlaylistFromMenu.value = false
-  }
-}
-
-async function addContextTracksToPlaylist(
-  playlistId: number,
-  playlistName: string,
-  trackIds: number[],
-): Promise<void> {
-  await auralis.playlists.addTracks(playlistId, trackIds)
-  window.dispatchEvent(new CustomEvent(LIBRARY_PLAYLISTS_CHANGED_EVENT))
-  addToPlaylistFeedback.value = {
-    playlistId,
-    message: t('library.contextMenu.addedSuccess', { name: playlistName }),
-  }
-
-  if (addToPlaylistFeedbackTimer !== null) {
-    window.clearTimeout(addToPlaylistFeedbackTimer)
-  }
-  addToPlaylistFeedbackTimer = window.setTimeout(() => {
-    addToPlaylistFeedbackTimer = null
-    closeContextMenu()
-  }, 1200)
-}
-
-async function onRefreshLibrary(): Promise<void> {
-  if (isStartingLibraryRefresh.value) {
-    return
-  }
-
-  closeContextMenu()
-  isStartingLibraryRefresh.value = true
-
-  try {
-    const roots = await auralis.library.getRoots()
-    const activeRoot = roots[0]
-    if (!activeRoot) return
-
-    await auralis.library.startScan(activeRoot.id)
-  } finally {
-    isStartingLibraryRefresh.value = false
-  }
-}
-
 const metadataEditor = useLibraryMetadataEditor({
   loadTrackMetadata: (trackId) => auralis.metadata.getTrackMetadata(trackId),
   updateTrackMetadata: (metadata) => auralis.metadata.updateTrackMetadata(metadata),
@@ -904,6 +692,7 @@ onBeforeUnmount(() => {
   isPageUnmounted = true
   invalidateLibrarySearchSession()
   disposeLibraryViewport()
+  disposeLibraryContextMenu()
   libraryRequestCoordinator.invalidate()
   window.removeEventListener('keydown', onWindowKeyDown)
   document.removeEventListener('pointerdown', onDocumentPointerDown)
@@ -911,7 +700,6 @@ onBeforeUnmount(() => {
   unsubscribeScanProgress?.()
   window.removeEventListener(LIBRARY_PLAYLISTS_CHANGED_EVENT, onPlaylistsChanged)
   window.removeEventListener(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT, onSmartPlaylistsChanged)
-  clearAddToPlaylistFeedback()
 })
 </script>
 
