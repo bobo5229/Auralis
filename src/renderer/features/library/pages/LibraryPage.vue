@@ -25,7 +25,6 @@ import type {
   LibraryContextMenuAnchor,
   LibraryContextMenuSource,
   LibraryContextMenuState,
-  LibrarySearchOutcome,
   LibraryViewMode,
 } from '../types/libraryInteraction'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
@@ -37,11 +36,6 @@ import {
   resolveLibraryViewportRestoreAction,
   type LibraryViewportRestore,
 } from '../utils/libraryViewportRestore'
-import {
-  createLibrarySearchIndexIncrementally,
-  LibrarySearchIndexBuildStaleError,
-} from '../utils/librarySearchIndex'
-import { scanLibrarySearchIndex, type LibrarySearchRecord } from '../utils/librarySearchScan'
 import { resolveLibraryPresentation, resolveLibrarySurfaceKind } from '../utils/libraryPresentation'
 import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
 import {
@@ -65,12 +59,12 @@ import {
 } from '../utils/libraryKeyboardFocus'
 import { resolveFirstVisibleTrackIndex } from '../utils/libraryFirstVisibleTrack'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import { normalizeSearchText } from '../utils/normalizeSearchText'
 import {
   useLibraryMetadataEditor,
   type LibraryMetadataFocusTarget,
   type LibraryMetadataRefreshResult,
 } from '../composables/useLibraryMetadataEditor'
+import { useLibrarySearchSession } from '../composables/useLibrarySearchSession'
 
 const { t } = useI18n()
 
@@ -136,21 +130,10 @@ let unsubscribeScanProgress: (() => void) | null = null
 let addToPlaylistFeedbackTimer: number | null = null
 const libraryRequestCoordinator = new LibraryRequestCoordinator()
 
-// Search state
-const searchQuery = ref('')
-const isSearchFocused = ref(false)
-const isSearchZoneHovered = ref(false)
-const searchInputRef = ref<HTMLInputElement | null>(null)
-const searchRootRef = ref<HTMLElement | null>(null)
-const searchOutcome = ref<LibrarySearchOutcome>({ kind: 'idle' })
-let lastSearchQuery = ''
-let lastMatchedTrackIndex = -1
 let pendingViewSwitchTrackId: number | null = null
 let pendingViewSwitchScrollFrame: number | null = null
 let pendingFirstVisibleTrackFrame: number | null = null
 let isPageUnmounted = false
-let librarySearchIndexGeneration = 0
-let librarySearchIndexPromise: Promise<readonly LibrarySearchRecord[] | null> = Promise.resolve([])
 
 // Deferred positioning (scrollToTrackById hops, view-switch frames, focus
 // restore) aborts when the user starts scrolling: wheel / touch input bumps
@@ -175,19 +158,6 @@ interface LibraryViewportCapture {
 }
 
 type LibraryLoadResult = LibraryMetadataRefreshResult
-
-watch(searchQuery, (q) => {
-  if (!q.trim()) {
-    searchOutcome.value = { kind: 'idle' }
-    lastSearchQuery = ''
-    lastMatchedTrackIndex = -1
-  }
-})
-
-const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
-const shouldRenderSearchBar = computed(
-  () => isSearchZoneHovered.value || isSearchFocused.value || hasSearchQuery.value,
-)
 
 const rowVirtualizer = useVirtualizer(
   computed(() => ({
@@ -491,46 +461,9 @@ function commitLibrarySnapshot(snapshot: LibraryDataSnapshot): void {
   pageIdentity.value = snapshot.identity
   tracks.value = snapshot.tracks
   libraryViewMode.value = snapshot.viewMode
-  lastMatchedTrackIndex = -1
+  resetMatchCursor()
   ensureKeyboardFocusTrackId()
   scheduleLibrarySearchIndex(snapshot.tracks)
-}
-
-function scheduleLibrarySearchIndex(sourceTracks: readonly TrackListItem[]): void {
-  const generation = ++librarySearchIndexGeneration
-  const startedAt = performance.now()
-  let chunkCount = 0
-  let maxChunkMs = 0
-  librarySearchIndexPromise = createLibrarySearchIndexIncrementally(sourceTracks, {
-    isCurrent: () => !isPageUnmounted && generation === librarySearchIndexGeneration,
-    onChunk: (durationMs) => {
-      chunkCount += 1
-      maxChunkMs = Math.max(maxChunkMs, durationMs)
-    },
-  }).catch((error: unknown) => {
-    if (error instanceof LibrarySearchIndexBuildStaleError) return null
-    rendererDiagnostics.error({
-      scope: 'library.search',
-      message: 'Failed to build library search index',
-      cause: error,
-    })
-    return null
-  })
-  if (import.meta.env.DEV) {
-    void librarySearchIndexPromise.then((index) => {
-      if (index === null || generation !== librarySearchIndexGeneration) return
-      rendererDiagnostics.info({
-        scope: 'library.search',
-        message: 'Library search index ready',
-        context: {
-          totalTracks: index.length,
-          buildWallMs: performance.now() - startedAt,
-          chunkCount,
-          maxChunkMs,
-        },
-      })
-    })
-  }
 }
 
 function captureLibraryViewportRestore(): LibraryViewportCapture {
@@ -685,112 +618,44 @@ async function scrollToTrackIndex(index: number): Promise<void> {
   await scrollToTrackById(track.id)
 }
 
-async function jumpToNextSearchMatch(): Promise<void> {
-  const query = searchQuery.value.trim()
-  if (!query) {
-    searchOutcome.value = { kind: 'idle' }
-    return
-  }
-  const normalizedQuery = normalizeSearchText(query)
-  const searchGeneration = librarySearchIndexGeneration
-  const searchIndex = await librarySearchIndexPromise
-  if (
-    searchIndex === null ||
-    searchGeneration !== librarySearchIndexGeneration ||
-    query !== searchQuery.value.trim() ||
-    isPageUnmounted
-  ) {
-    return
-  }
-
-  const isNewQuery = query !== lastSearchQuery
-  const startIndex = isNewQuery ? 0 : lastMatchedTrackIndex + 1
-  const scanResult = scanLibrarySearchIndex(searchIndex, normalizedQuery, startIndex)
-
-  if (scanResult.targetIndex === null || scanResult.matchPosition === null) {
-    searchOutcome.value = { kind: 'not-found' }
-    return
-  }
-
-  if (isNewQuery) {
-    lastSearchQuery = query
-    lastMatchedTrackIndex = -1
-  }
-
-  lastMatchedTrackIndex = scanResult.targetIndex
-
-  searchOutcome.value = {
-    kind: 'matched',
-    index: scanResult.matchPosition,
-    total: scanResult.totalMatches,
-    wrapped: scanResult.wrapped,
-  }
-
-  await scrollToTrackIndex(scanResult.targetIndex)
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  const tagName = target.tagName.toLowerCase()
+  if (['input', 'textarea', 'select', 'button'].includes(tagName)) return true
+  if (target.isContentEditable) return true
+  if (target.closest('[role="dialog"]') || target.closest('[role="menu"]')) return true
+  return false
 }
 
-// Search event handlers
-function onLibraryListMouseMove(event: MouseEvent): void {
-  const containerRect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  if (event.clientY - containerRect.top > 48) {
-    isSearchZoneHovered.value = false
-    return
-  }
-
-  const bar = searchRootRef.value
-  if (!bar) {
-    isSearchZoneHovered.value = true
-    return
-  }
-
-  const barRect = bar.getBoundingClientRect()
-  isSearchZoneHovered.value =
-    event.clientX >= barRect.left &&
-    event.clientX <= barRect.right &&
-    event.clientY >= barRect.top &&
-    event.clientY <= barRect.bottom
-}
-
-function onLibraryListMouseLeave(): void {
-  if (!isSearchFocused.value && !hasSearchQuery.value) {
-    isSearchZoneHovered.value = false
-  }
-}
-
-function onSearchBarPointerDown(): void {
-  searchInputRef.value?.focus()
-}
-
-function onSearchInputFocus(): void {
-  isSearchFocused.value = true
-}
-
-function onSearchInputBlur(): void {
-  isSearchFocused.value = false
-}
-
-function onSearchKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Enter') {
-    event.preventDefault()
-    void jumpToNextSearchMatch()
-  } else if (event.key === 'Escape') {
-    event.preventDefault()
-    if (searchQuery.value !== '') {
-      clearSearch()
-    } else {
-      searchInputRef.value?.blur()
-      isSearchFocused.value = false
-    }
-  }
-}
+const {
+  searchQuery,
+  isSearchFocused,
+  searchInputRef,
+  searchRootRef,
+  searchOutcome,
+  hasSearchQuery,
+  shouldRenderSearchBar,
+  scheduleLibrarySearchIndex,
+  clearSearch,
+  resetMatchCursor,
+  onLibraryListMouseMove,
+  onLibraryListMouseLeave,
+  onSearchBarPointerDown,
+  onSearchInputFocus,
+  onSearchInputBlur,
+  onSearchKeydown,
+  onDocumentPointerDown,
+  onWindowKeyDown,
+  invalidate: invalidateLibrarySearchSession,
+} = useLibrarySearchSession({
+  isDisposed: () => isPageUnmounted,
+  isLibrarySurface: () => isLibrarySurface.value,
+  isInteractiveTarget,
+  scrollToTrackIndex,
+})
 
 function openSettings(): void {
   void router.push('/settings')
-}
-
-function clearSearch(): void {
-  searchQuery.value = ''
-  searchOutcome.value = { kind: 'idle' }
 }
 
 const keyboardFocusTrackId = ref<number | null>(null)
@@ -862,17 +727,6 @@ function onListShellKeyDown(event: KeyboardEvent): void {
       event.preventDefault()
       onPlay(focusId)
     }
-  }
-}
-
-function onDocumentPointerDown(event: PointerEvent): void {
-  const target = event.target
-  if (!(target instanceof Node)) return
-
-  if (searchRootRef.value?.contains(target)) return
-  isSearchFocused.value = false
-  if (!hasSearchQuery.value) {
-    isSearchZoneHovered.value = false
   }
 }
 
@@ -1183,7 +1037,7 @@ onMounted(async () => {
 watch(
   () => route.fullPath,
   async () => {
-    searchQuery.value = ''
+    clearSearch()
     closeContextMenu()
     await loadLibraryData('foreground')
     await nextTick()
@@ -1260,32 +1114,13 @@ watch(libraryPresentation, async () => {
   }
 })
 
-function isInteractiveTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  const tagName = target.tagName.toLowerCase()
-  if (['input', 'textarea', 'select', 'button'].includes(tagName)) return true
-  if (target.isContentEditable) return true
-  if (target.closest('[role="dialog"]') || target.closest('[role="menu"]')) return true
-  return false
-}
-
-function onWindowKeyDown(e: KeyboardEvent): void {
-  if (isLibrarySurface.value && e.key === '/' && !isInteractiveTarget(e.target)) {
-    e.preventDefault()
-    isSearchFocused.value = true
-    void nextTick(() => {
-      searchInputRef.value?.focus()
-    })
-  }
-}
-
 onMounted(() => {
   window.addEventListener('keydown', onWindowKeyDown)
 })
 
 onBeforeUnmount(() => {
   isPageUnmounted = true
-  librarySearchIndexGeneration += 1
+  invalidateLibrarySearchSession()
   libraryRequestCoordinator.invalidate()
   window.removeEventListener('keydown', onWindowKeyDown)
   scrollRef.value?.removeEventListener('scroll', onScroll)
