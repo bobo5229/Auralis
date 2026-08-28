@@ -32,10 +32,6 @@ import '../styles/manuscript.css'
 import '../styles/manuscript.overlays.css'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { createLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
-import {
-  resolveLibraryViewportRestoreAction,
-  type LibraryViewportRestore,
-} from '../utils/libraryViewportRestore'
 import { resolveLibraryPresentation, resolveLibrarySurfaceKind } from '../utils/libraryPresentation'
 import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
 import {
@@ -57,7 +53,6 @@ import {
   resolveKeyboardMoveIndex,
   type LibraryKeyboardMoveDirection,
 } from '../utils/libraryKeyboardFocus'
-import { resolveFirstVisibleTrackIndex } from '../utils/libraryFirstVisibleTrack'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import {
   useLibraryMetadataEditor,
@@ -65,6 +60,7 @@ import {
   type LibraryMetadataRefreshResult,
 } from '../composables/useLibraryMetadataEditor'
 import { useLibrarySearchSession } from '../composables/useLibrarySearchSession'
+import { useLibraryViewport } from '../composables/useLibraryViewport'
 
 const { t } = useI18n()
 
@@ -84,7 +80,6 @@ const pageIdentity = ref<LibraryPageIdentity | null>(null)
 const tracks = shallowRef<TrackListItem[]>([])
 const isLoading = ref(true)
 const scrollRef = ref<HTMLElement | null>(null)
-const firstVisibleTrackIndex = ref(0)
 
 const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
 const LIBRARY_TOP_INSET = 16
@@ -129,33 +124,7 @@ let unsubscribeChanged: (() => void) | null = null
 let unsubscribeScanProgress: (() => void) | null = null
 let addToPlaylistFeedbackTimer: number | null = null
 const libraryRequestCoordinator = new LibraryRequestCoordinator()
-
-let pendingViewSwitchTrackId: number | null = null
-let pendingViewSwitchScrollFrame: number | null = null
-let pendingFirstVisibleTrackFrame: number | null = null
 let isPageUnmounted = false
-
-// Deferred positioning (scrollToTrackById hops, view-switch frames, focus
-// restore) aborts when the user starts scrolling: wheel / touch input bumps
-// the generation, and pending tasks check it before touching scrollTop.
-let userScrollGeneration = 0
-
-function captureScrollGeneration(): number {
-  return userScrollGeneration
-}
-
-function isScrollInputCancelled(startGeneration: number): boolean {
-  return userScrollGeneration !== startGeneration
-}
-
-function onUserScrollInput(): void {
-  userScrollGeneration++
-}
-
-interface LibraryViewportCapture {
-  restore: LibraryViewportRestore
-  previousTrackIds: number[]
-}
 
 type LibraryLoadResult = LibraryMetadataRefreshResult
 
@@ -200,6 +169,40 @@ const albumVirtualizer = useVirtualizer(
 const virtualAlbumGroups = computed(() => albumVirtualizer.value.getVirtualItems())
 const albumGroupsTotalSize = computed(() => albumVirtualizer.value.getTotalSize())
 const albumVirtualWindowStart = computed(() => virtualAlbumGroups.value[0]?.start ?? 0)
+
+const viewport = useLibraryViewport({
+  scrollRef,
+  tracks,
+  isCoverView,
+  derivedIndex: libraryDerivedIndex,
+  albumGroups,
+  virtualAlbumGroups,
+  currentTrackId: () => playback.state.currentTrackId,
+  selectedTrackId: () => playback.state.selectedTrackId,
+  isDisposed: () => isPageUnmounted,
+  onViewSwitchComplete: (targetTrackId) => {
+    if (pendingViewSwitchReturnTarget) {
+      void restoreLibraryFocus(pendingViewSwitchReturnTarget)
+      pendingViewSwitchReturnTarget = null
+    } else {
+      void restoreLibraryFocus({ trackId: targetTrackId, source: 'track' })
+    }
+  },
+})
+
+const {
+  captureScrollGeneration,
+  isScrollInputCancelled,
+  scheduleFirstVisibleTrackIndexUpdate,
+  scrollToTrackById,
+  scrollToTrackIndex,
+  scrollToPlaybackTrack,
+  captureLibraryViewportRestore,
+  restoreLibraryViewportRestore,
+  beginViewSwitch,
+  onLibraryViewEnter,
+  dispose: disposeLibraryViewport,
+} = viewport
 
 function onRowFocus(trackId: number): void {
   keyboardFocusTrackId.value = trackId
@@ -466,98 +469,8 @@ function commitLibrarySnapshot(snapshot: LibraryDataSnapshot): void {
   scheduleLibrarySearchIndex(snapshot.tracks)
 }
 
-function captureLibraryViewportRestore(): LibraryViewportCapture {
-  return {
-    restore: {
-      scrollTop: scrollRef.value?.scrollTop ?? 0,
-      firstVisibleTrackId: tracks.value[firstVisibleTrackIndex.value]?.id ?? null,
-      scrollGeneration: userScrollGeneration,
-    },
-    previousTrackIds: tracks.value.map((track) => track.id),
-  }
-}
-
-const SCROLL_POSITION_RATIO = 0.33
-
-function scrollRenderedTrackToRatio(targetTrackId: number): boolean {
-  const container = scrollRef.value
-  if (!container) return false
-
-  if (isCoverView.value) {
-    const targetGroupIndex = libraryDerivedIndex.value.albumGroupIndexByTrackId.get(targetTrackId)
-    if (targetGroupIndex === undefined) return false
-
-    const targetOffset = libraryDerivedIndex.value.albumGroupStartOffsets[targetGroupIndex]
-    if (targetOffset === undefined) return false
-
-    container.scrollTop = Math.max(
-      0,
-      targetOffset + LIBRARY_TOP_INSET - container.clientHeight * SCROLL_POSITION_RATIO,
-    )
-    scheduleFirstVisibleTrackIndexUpdate()
-    return true
-  }
-
-  const targetIndex = libraryDerivedIndex.value.trackIndexById.get(targetTrackId)
-  if (targetIndex === undefined) return false
-
-  const offset =
-    targetIndex * LIBRARY_LAYOUT_METRICS.flatRowHeight +
-    LIBRARY_TOP_INSET -
-    container.clientHeight * SCROLL_POSITION_RATIO
-  container.scrollTop = Math.max(0, offset)
-  scheduleFirstVisibleTrackIndexUpdate()
-  return true
-}
-
-/** Top-aligned viewport restore (no 33% playback centering). */
-function scrollRenderedTrackToTop(targetTrackId: number): boolean {
-  const container = scrollRef.value
-  if (!container) return false
-
-  if (isCoverView.value) {
-    const targetGroupIndex = libraryDerivedIndex.value.albumGroupIndexByTrackId.get(targetTrackId)
-    if (targetGroupIndex === undefined) return false
-
-    const targetOffset = libraryDerivedIndex.value.albumGroupStartOffsets[targetGroupIndex]
-    if (targetOffset === undefined) return false
-
-    container.scrollTop = Math.max(0, targetOffset + LIBRARY_TOP_INSET)
-    scheduleFirstVisibleTrackIndexUpdate()
-    return true
-  }
-
-  const targetIndex = libraryDerivedIndex.value.trackIndexById.get(targetTrackId)
-  if (targetIndex === undefined) return false
-
-  container.scrollTop = Math.max(
-    0,
-    targetIndex * LIBRARY_LAYOUT_METRICS.flatRowHeight + LIBRARY_TOP_INSET,
-  )
-  scheduleFirstVisibleTrackIndexUpdate()
-  return true
-}
-
-async function scrollToTrackById(
-  targetTrackId: number,
-  isRequestCurrent?: () => boolean,
-  startGeneration: number = captureScrollGeneration(),
-): Promise<void> {
-  await nextTick()
-  if (isRequestCurrent && !isRequestCurrent()) return
-  if (isScrollInputCancelled(startGeneration)) return
-  await new Promise((resolve) => window.requestAnimationFrame(resolve))
-  if (isRequestCurrent && !isRequestCurrent()) return
-  if (isScrollInputCancelled(startGeneration)) return
-  scrollRenderedTrackToRatio(targetTrackId)
-}
-
 function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId?: number | null): void {
-  pendingViewSwitchTrackId = anchorTrackId ?? null
-  if (pendingViewSwitchScrollFrame !== null) {
-    window.cancelAnimationFrame(pendingViewSwitchScrollFrame)
-    pendingViewSwitchScrollFrame = null
-  }
+  beginViewSwitch(anchorTrackId ?? null)
 
   libraryViewMode.value = nextMode
   if (smartPlaylistId.value !== null) {
@@ -568,54 +481,6 @@ function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId?: number
     localStorage.setItem(LIBRARY_VIEW_MODE_KEY, nextMode)
   }
   closeContextMenu('view-switch')
-}
-
-function onLibraryViewEnter(): void {
-  if (pendingViewSwitchTrackId === null) return
-
-  const targetTrackId = pendingViewSwitchTrackId
-
-  const finishViewSwitch = () => {
-    if (pendingViewSwitchReturnTarget) {
-      restoreLibraryFocus(pendingViewSwitchReturnTarget)
-      pendingViewSwitchReturnTarget = null
-    } else {
-      restoreLibraryFocus({ trackId: targetTrackId, source: 'track' })
-    }
-    pendingViewSwitchTrackId = null
-  }
-
-  if (scrollRenderedTrackToRatio(targetTrackId)) {
-    finishViewSwitch()
-    return
-  }
-
-  const viewSwitchGeneration = captureScrollGeneration()
-  pendingViewSwitchScrollFrame = window.requestAnimationFrame(() => {
-    pendingViewSwitchScrollFrame = null
-    if (isScrollInputCancelled(viewSwitchGeneration)) {
-      finishViewSwitch()
-      return
-    }
-    scrollRenderedTrackToRatio(targetTrackId)
-    finishViewSwitch()
-  })
-}
-
-async function scrollToPlaybackTrack(isRequestCurrent?: () => boolean): Promise<void> {
-  const targetTrackId = playback.state.currentTrackId ?? playback.state.selectedTrackId
-
-  if (!targetTrackId) {
-    return
-  }
-
-  await scrollToTrackById(targetTrackId, isRequestCurrent)
-}
-
-async function scrollToTrackIndex(index: number): Promise<void> {
-  const track = tracks.value[index]
-  if (!track) return
-  await scrollToTrackById(track.id)
 }
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
@@ -885,39 +750,6 @@ const saveMetadata = metadataEditor.save
 
 const initialLoadError = ref<string | null>(null)
 
-/**
- * Viewport-first restore after a background refresh. Never drags the list
- * back to the playing / selected / keyboard-focused track; if the user
- * scrolled during the snapshot round-trip the restore is abandoned.
- */
-async function restoreLibraryViewportRestore(
-  capture: LibraryViewportCapture,
-  isRequestCurrent: () => boolean,
-): Promise<void> {
-  if (!isRequestCurrent()) return
-
-  const action = resolveLibraryViewportRestoreAction({
-    captured: capture.restore,
-    currentScrollGeneration: userScrollGeneration,
-    previousTrackIds: capture.previousTrackIds,
-    nextTrackIds: tracks.value.map((track) => track.id),
-    hasTrack: (id) => libraryDerivedIndex.value.trackById.has(id),
-  })
-
-  if (action.type === 'keep-scroll-top') {
-    const container = scrollRef.value
-    if (!container) return
-    container.scrollTop = action.scrollTop
-    scheduleFirstVisibleTrackIndexUpdate()
-    return
-  }
-
-  if (action.type === 'scroll-to-track') {
-    scrollRenderedTrackToTop(action.trackId)
-    scheduleFirstVisibleTrackIndexUpdate()
-  }
-}
-
 async function loadLibraryData(mode: LibraryLoadMode = 'foreground'): Promise<LibraryLoadResult> {
   if (mode === 'metadata-save') {
     while (libraryRequestCoordinator.hasActiveForeground && !isPageUnmounted) {
@@ -1045,56 +877,6 @@ watch(
   },
 )
 
-function updateFirstVisibleTrackIndex(): void {
-  // Both visual styles share the same virtualizer geometry, and the modern
-  // viewport anchor is needed for background-refresh restore, so the first
-  // visible track is tracked in modern and manuscript alike.
-  if (!scrollRef.value) return
-
-  const nextIndex = resolveFirstVisibleTrackIndex({
-    scrollTop: scrollRef.value.scrollTop,
-    topInset: LIBRARY_TOP_INSET,
-    isCoverView: isCoverView.value,
-    flatRowHeight: LIBRARY_LAYOUT_METRICS.flatRowHeight,
-    trackCount: tracks.value.length,
-    virtualAlbumGroups: virtualAlbumGroups.value,
-    albumGroups: albumGroups.value,
-  })
-  if (nextIndex !== firstVisibleTrackIndex.value) {
-    firstVisibleTrackIndex.value = nextIndex
-  }
-}
-
-function scheduleFirstVisibleTrackIndexUpdate(): void {
-  if (isPageUnmounted || pendingFirstVisibleTrackFrame !== null) return
-
-  pendingFirstVisibleTrackFrame = window.requestAnimationFrame(() => {
-    pendingFirstVisibleTrackFrame = null
-    if (isPageUnmounted) return
-    updateFirstVisibleTrackIndex()
-  })
-}
-
-function onScroll(): void {
-  scheduleFirstVisibleTrackIndexUpdate()
-}
-
-watch(
-  scrollRef,
-  (el, oldEl) => {
-    oldEl?.removeEventListener('scroll', onScroll)
-    oldEl?.removeEventListener('wheel', onUserScrollInput)
-    oldEl?.removeEventListener('touchstart', onUserScrollInput)
-    el?.addEventListener('scroll', onScroll, { passive: true })
-    el?.addEventListener('wheel', onUserScrollInput, { passive: true })
-    el?.addEventListener('touchstart', onUserScrollInput, { passive: true })
-    if (el) {
-      void nextTick(() => scheduleFirstVisibleTrackIndexUpdate())
-    }
-  },
-  { immediate: true },
-)
-
 watch(
   [isManuscriptLibrary, libraryViewMode, tracks, albumGroups],
   () => {
@@ -1121,18 +903,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
   isPageUnmounted = true
   invalidateLibrarySearchSession()
+  disposeLibraryViewport()
   libraryRequestCoordinator.invalidate()
   window.removeEventListener('keydown', onWindowKeyDown)
-  scrollRef.value?.removeEventListener('scroll', onScroll)
   document.removeEventListener('pointerdown', onDocumentPointerDown)
-  if (pendingFirstVisibleTrackFrame !== null) {
-    window.cancelAnimationFrame(pendingFirstVisibleTrackFrame)
-    pendingFirstVisibleTrackFrame = null
-  }
-  if (pendingViewSwitchScrollFrame !== null) {
-    window.cancelAnimationFrame(pendingViewSwitchScrollFrame)
-    pendingViewSwitchScrollFrame = null
-  }
   unsubscribeChanged?.()
   unsubscribeScanProgress?.()
   window.removeEventListener(LIBRARY_PLAYLISTS_CHANGED_EVENT, onPlaylistsChanged)
