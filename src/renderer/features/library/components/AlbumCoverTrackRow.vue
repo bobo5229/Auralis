@@ -143,7 +143,7 @@ function onRowKeyDown(event: KeyboardEvent): void {
     </span>
     <div class="min-w-0 flex flex-col justify-center overflow-hidden max-h-full">
       <span
-        class="cover-track-title truncate text-sm font-bold leading-[16px] text-[var(--auralis-text)]"
+        class="cover-track-title truncate text-sm font-bold leading-5 text-[var(--auralis-text)]"
         :class="{ 'italic opacity-70': presentation === 'manuscript' && titleDisplay.missing }"
         :title="presentation === 'manuscript' ? titleDisplay.text : (track.title ?? undefined)"
       >

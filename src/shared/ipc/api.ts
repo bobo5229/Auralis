@@ -134,12 +134,14 @@ export interface AuralisApi {
   desktopLyrics: {
     toggle: () => Promise<{ visible: boolean }>
     isVisible: () => Promise<{ visible: boolean }>
+    setSuppressed: (suppressed: boolean) => Promise<{ ok: boolean }>
     toggleMousePassthrough: () => Promise<{ enabled: boolean }>
     isMousePassthroughEnabled: () => Promise<{ enabled: boolean }>
     update: (payload: DesktopLyricsPayload) => Promise<{ ok: boolean }>
     onUpdate: (callback: (payload: DesktopLyricsPayload) => void) => () => void
     onVisibilityChanged: (callback: (visible: boolean) => void) => () => void
     onMousePassthroughChanged: (callback: (enabled: boolean) => void) => () => void
+    ready: () => void
   }
   archive: {
     getListeningHeatmap: (year: number) => Promise<ListeningHeatmap>
@@ -194,7 +196,10 @@ export interface AuralisApi {
 
 /** Minimal API exposed only to the desktop lyrics renderer. */
 export interface DesktopLyricsApi {
-  desktopLyrics: Pick<AuralisApi['desktopLyrics'], 'onUpdate'>
+  desktopLyrics: Pick<
+    AuralisApi['desktopLyrics'],
+    'onUpdate' | 'ready' | 'toggleMousePassthrough' | 'onMousePassthroughChanged'
+  >
 }
 
 export type RendererApi = AuralisApi | DesktopLyricsApi

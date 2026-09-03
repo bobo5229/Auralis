@@ -54,8 +54,8 @@
   transition: none;
 }
 
-.app-sidebar[data-shell-presentation='manuscript'] .sidebar-brand-left:hover .sidebar-brand-name {
-  background-position: unset;
+.app-sidebar[data-shell-presentation='manuscript'] .sidebar-brand-name::after {
+  content: none;
 }
 
 .app-sidebar[data-shell-presentation='manuscript'] .sidebar-tool-button {

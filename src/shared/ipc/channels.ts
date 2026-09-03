@@ -60,12 +60,14 @@ export const ipcChannels = {
   desktopLyrics: {
     toggle: 'desktop-lyrics:toggle',
     isVisible: 'desktop-lyrics:is-visible',
+    setSuppressed: 'desktop-lyrics:set-suppressed',
     toggleMousePassthrough: 'desktop-lyrics:toggle-mouse-passthrough',
     isMousePassthroughEnabled: 'desktop-lyrics:is-mouse-passthrough-enabled',
     update: 'desktop-lyrics:update',
     changed: 'desktop-lyrics:changed',
     visibilityChanged: 'desktop-lyrics:visibility-changed',
     mousePassthroughChanged: 'desktop-lyrics:mouse-passthrough-changed',
+    ready: 'desktop-lyrics:ready',
   },
   archive: {
     getListeningHeatmap: 'archive:get-listening-heatmap',

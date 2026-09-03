@@ -18,6 +18,7 @@ const dangerousPropertyNames = new Set(['__proto__', 'constructor', 'prototype']
 type DesktopLyricsInvokeChannel =
   | 'desktop-lyrics:toggle'
   | 'desktop-lyrics:is-visible'
+  | 'desktop-lyrics:set-suppressed'
   | 'desktop-lyrics:toggle-mouse-passthrough'
   | 'desktop-lyrics:is-mouse-passthrough-enabled'
   | 'desktop-lyrics:update'

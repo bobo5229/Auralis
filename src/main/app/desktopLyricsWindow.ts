@@ -1,14 +1,23 @@
-import { BrowserWindow, ipcMain, screen } from 'electron'
+import { BrowserWindow, app, ipcMain, screen } from 'electron'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
 import type { IpcResponse } from '@shared/ipc/contracts'
+import {
+  parseDesktopLyricsSavedBounds,
+  resolveDesktopLyricsRestoreBounds,
+  type DesktopLyricsSavedBounds,
+} from './desktopLyricsBounds'
 import { secureRendererWindow } from './webContentsSecurity'
 
 let desktopLyricsWindow: BrowserWindow | null = null
 let desktopLyricsEnabled = false
+let desktopLyricsSuppressed = false
 let desktopLyricsMousePassthroughEnabled = true
 let latestPayload: DesktopLyricsPayload | null = null
+let persistBoundsTimer: ReturnType<typeof setTimeout> | null = null
+let displayListenersBound = false
 
 function keepDesktopLyricsAbove(window: BrowserWindow): void {
   if (window.isDestroyed()) return
@@ -34,14 +43,26 @@ function broadcastMousePassthrough(enabled: boolean): void {
 function applyDesktopLyricsMousePassthrough(window = desktopLyricsWindow): void {
   if (!window || window.isDestroyed()) return
 
-  // 始终保持不可聚焦（Alt+Tab 收录主要来自可聚焦窗口）；仅切换鼠标穿透
-  window.setFocusable(false)
-  window.setIgnoreMouseEvents(desktopLyricsMousePassthroughEnabled, { forward: true })
+  if (desktopLyricsMousePassthroughEnabled) {
+    window.setFocusable(false)
+    window.setIgnoreMouseEvents(true, { forward: true })
+  } else {
+    window.setIgnoreMouseEvents(false)
+    window.setFocusable(true)
+  }
 }
 
 function sendLatestPayload(): void {
   if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed() || !latestPayload) return
   desktopLyricsWindow.webContents.send(ipcChannels.desktopLyrics.changed, latestPayload)
+}
+
+function sendMousePassthroughState(): void {
+  if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return
+  desktopLyricsWindow.webContents.send(
+    ipcChannels.desktopLyrics.mousePassthroughChanged,
+    desktopLyricsMousePassthroughEnabled,
+  )
 }
 
 function loadDesktopLyricsRenderer(window: BrowserWindow): void {
@@ -57,8 +78,89 @@ function loadDesktopLyricsRenderer(window: BrowserWindow): void {
   })
 }
 
+function desktopLyricsBoundsFilePath(): string {
+  return join(app.getPath('userData'), 'desktop-lyrics-bounds.json')
+}
+
+function loadSavedDesktopLyricsBounds(): DesktopLyricsSavedBounds | null {
+  try {
+    const filePath = desktopLyricsBoundsFilePath()
+    if (!existsSync(filePath)) return null
+    return parseDesktopLyricsSavedBounds(JSON.parse(readFileSync(filePath, 'utf8')))
+  } catch {
+    return null
+  }
+}
+
+function persistDesktopLyricsBounds(): void {
+  if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return
+
+  const bounds = desktopLyricsWindow.getBounds()
+  const display = screen.getDisplayMatching(bounds)
+  const saved: DesktopLyricsSavedBounds = {
+    x: bounds.x,
+    y: bounds.y,
+    displayId: display.id,
+  }
+
+  try {
+    writeFileSync(desktopLyricsBoundsFilePath(), `${JSON.stringify(saved)}\n`, 'utf8')
+  } catch {
+    // Persistence is best-effort; a failed write must not break lyrics.
+  }
+}
+
+function schedulePersistDesktopLyricsBounds(): void {
+  if (persistBoundsTimer) {
+    clearTimeout(persistBoundsTimer)
+  }
+
+  persistBoundsTimer = setTimeout(() => {
+    persistBoundsTimer = null
+    persistDesktopLyricsBounds()
+  }, 250)
+}
+
+function listDesktopLyricsDisplays() {
+  return screen.getAllDisplays().map((display) => ({
+    id: display.id,
+    workArea: display.workArea,
+  }))
+}
+
+function resolveCurrentDesktopLyricsBounds() {
+  const saved =
+    desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()
+      ? {
+          x: desktopLyricsWindow.getBounds().x,
+          y: desktopLyricsWindow.getBounds().y,
+          displayId: screen.getDisplayMatching(desktopLyricsWindow.getBounds()).id,
+        }
+      : loadSavedDesktopLyricsBounds()
+
+  return resolveDesktopLyricsRestoreBounds({
+    saved,
+    displays: listDesktopLyricsDisplays(),
+  })
+}
+
+function relocateDesktopLyricsWindow(): void {
+  if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return
+  desktopLyricsWindow.setBounds(resolveCurrentDesktopLyricsBounds())
+  persistDesktopLyricsBounds()
+}
+
+function bindDesktopLyricsDisplayListeners(): void {
+  if (displayListenersBound) return
+  displayListenersBound = true
+  screen.on('display-metrics-changed', relocateDesktopLyricsWindow)
+  screen.on('display-added', relocateDesktopLyricsWindow)
+  screen.on('display-removed', relocateDesktopLyricsWindow)
+}
+
 function syncDesktopLyricsWindowVisibility(): void {
-  if (!desktopLyricsEnabled) {
+  if (!desktopLyricsEnabled || desktopLyricsSuppressed) {
+    persistDesktopLyricsBounds()
     desktopLyricsWindow?.hide()
     return
   }
@@ -76,15 +178,13 @@ function createDesktopLyricsWindow(): BrowserWindow {
     return desktopLyricsWindow
   }
 
-  const { workArea } = screen.getPrimaryDisplay()
-  const width = Math.min(980, Math.max(720, workArea.width - 160))
-  const height = 150
+  const bounds = resolveCurrentDesktopLyricsBounds()
 
   desktopLyricsWindow = new BrowserWindow({
-    width,
-    height,
-    x: Math.round(workArea.x + (workArea.width - width) / 2),
-    y: Math.round(workArea.y + workArea.height - height - 96),
+    width: bounds.width,
+    height: bounds.height,
+    x: bounds.x,
+    y: bounds.y,
     minWidth: 640,
     minHeight: 120,
     maxHeight: 220,
@@ -98,8 +198,6 @@ function createDesktopLyricsWindow(): BrowserWindow {
     movable: true,
     show: false,
     skipTaskbar: true,
-    // 始终不可聚焦：tool window 不聚焦就不会被 Alt+Tab 收录
-    focusable: false,
     alwaysOnTop: true,
     autoHideMenuBar: true,
     webPreferences: {
@@ -136,7 +234,13 @@ function createDesktopLyricsWindow(): BrowserWindow {
     keepDesktopLyricsAbove(desktopLyricsWindow!)
     sendLatestPayload()
   })
+  desktopLyricsWindow.on('moved', schedulePersistDesktopLyricsBounds)
   desktopLyricsWindow.on('closed', () => {
+    if (persistBoundsTimer) {
+      clearTimeout(persistBoundsTimer)
+      persistBoundsTimer = null
+    }
+    persistDesktopLyricsBounds()
     desktopLyricsWindow = null
   })
 
@@ -146,6 +250,15 @@ function createDesktopLyricsWindow(): BrowserWindow {
 }
 
 export function registerDesktopLyricsIpcHandlers(): void {
+  bindDesktopLyricsDisplayListeners()
+
+  ipcMain.on(ipcChannels.desktopLyrics.ready, (event) => {
+    if (event.sender === desktopLyricsWindow?.webContents) {
+      sendLatestPayload()
+      sendMousePassthroughState()
+    }
+  })
+
   ipcMain.handle(ipcChannels.desktopLyrics.toggle, (): IpcResponse<'desktop-lyrics:toggle'> => {
     desktopLyricsEnabled = !desktopLyricsEnabled
     syncDesktopLyricsWindowVisibility()
@@ -159,6 +272,18 @@ export function registerDesktopLyricsIpcHandlers(): void {
     (): IpcResponse<'desktop-lyrics:is-visible'> => ({
       visible: desktopLyricsEnabled,
     }),
+  )
+
+  ipcMain.handle(
+    ipcChannels.desktopLyrics.setSuppressed,
+    (
+      _event,
+      { suppressed }: { suppressed: boolean },
+    ): IpcResponse<'desktop-lyrics:set-suppressed'> => {
+      desktopLyricsSuppressed = suppressed
+      syncDesktopLyricsWindowVisibility()
+      return { ok: true }
+    },
   )
 
   ipcMain.handle(
@@ -187,4 +312,20 @@ export function registerDesktopLyricsIpcHandlers(): void {
       return { ok: true }
     },
   )
+}
+
+export function disposeDesktopLyricsWindow(): void {
+  desktopLyricsEnabled = false
+  desktopLyricsSuppressed = false
+  if (persistBoundsTimer) {
+    clearTimeout(persistBoundsTimer)
+    persistBoundsTimer = null
+  }
+  persistDesktopLyricsBounds()
+  if (desktopLyricsWindow && !desktopLyricsWindow.isDestroyed()) {
+    desktopLyricsWindow.close()
+  }
+  desktopLyricsWindow = null
+  latestPayload = null
+  broadcastVisibility(false)
 }

@@ -36,7 +36,7 @@ function syncRendererState(): void {
   if (!background) return
 
   background.setStaticMode(reducedMotionQuery?.matches === true)
-  background.setFlowSpeed(props.playing ? 2.2 : 0.6)
+  background.setFlowSpeed(props.playing ? 1.6 : 0.6)
 
   if (props.active && document.visibilityState === 'visible') {
     background.resume()
@@ -204,9 +204,16 @@ onBeforeUnmount(() => {
       ellipse at 34% 43%,
       transparent 0 23%,
       rgba(0, 0, 0, 0.14) 62%,
-      rgba(0, 0, 0, 0.4) 100%
+      rgba(0, 0, 0, 0.45) 100%
     ),
-    linear-gradient(to bottom, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.34));
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.08) 0%,
+      transparent 30%,
+      transparent 60%,
+      rgba(14, 17, 23, 0.4) 80%,
+      rgba(14, 17, 23, 0.8) 100%
+    );
 }
 
 .fluid-artwork-background-noise {

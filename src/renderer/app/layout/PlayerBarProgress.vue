@@ -55,7 +55,8 @@ function renderVisualProgress(now: number): void {
       ratio = Math.min(1, Math.max(0, visualTime / playback.state.duration))
     }
   }
-  fill.style.transform = `scaleX(${ratio})`
+  const concealedPercentage = (1 - ratio) * 100
+  fill.style.clipPath = `inset(0 ${concealedPercentage}% 0 0 round 999px)`
   fill.parentElement?.style.setProperty('--auralis-progress-value', ratio.toString())
 }
 
@@ -208,8 +209,7 @@ function handleProgressKeydown(event: KeyboardEvent): void {
 <style scoped>
 .track-progress-fill {
   width: 100%;
-  transform: scaleX(0);
-  transform-origin: left center;
-  will-change: transform;
+  clip-path: inset(0 100% 0 0 round 999px);
+  will-change: clip-path;
 }
 </style>

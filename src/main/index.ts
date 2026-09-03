@@ -2,7 +2,10 @@ import { app, BrowserWindow } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { createWindow } from './app/createWindow'
-import { registerDesktopLyricsIpcHandlers } from './app/desktopLyricsWindow'
+import {
+  disposeDesktopLyricsWindow,
+  registerDesktopLyricsIpcHandlers,
+} from './app/desktopLyricsWindow'
 import { closeDatabase, initializeDatabase } from './database/connection'
 import { registerIpcHandlers } from './ipc/registerIpcHandlers'
 import { ensureArtworkCacheDir } from './features/artwork/artworkCache'
@@ -26,7 +29,6 @@ app.setName('Auralis')
 const isElectronSmokeTest = configureElectronSmokeEnvironment(app)
 // Keep Windows taskbar / jump-list identity stable so shell uses the app icon, not Electron's.
 app.setAppUserModelId('com.bobo.auralis')
-registerDesktopLyricsIpcHandlers()
 
 const useSoftwareRendering = !app.isPackaged && process.env.AURALIS_SOFTWARE_RENDERING === '1'
 
@@ -129,6 +131,7 @@ void app
     })
 
     registerIpcHandlers(db, artworkCacheDir)
+    registerDesktopLyricsIpcHandlers()
     const mainWindow = createWindow()
 
     if (isElectronSmokeTest) {
@@ -148,6 +151,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('before-quit', () => {
+  disposeDesktopLyricsWindow()
   closeDatabase()
   logger.info('Auralis shutdown complete')
   mainProcessDiagnostics.dispose()

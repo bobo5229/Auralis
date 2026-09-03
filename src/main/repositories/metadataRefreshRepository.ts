@@ -85,6 +85,15 @@ function daysInMonth(year: number, month: number): number {
   return [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]
 }
 
+export function resolveArtworkKeyForUserEdit(
+  trackMetadataKey: string | null | undefined,
+  albumKey: string | null | undefined,
+): string | null {
+  if (trackMetadataKey) return trackMetadataKey
+  if (albumKey) return albumKey
+  return null
+}
+
 function normalizeEditableReleaseDate(value: string | null): string | null {
   const normalized = normalizeEditableText(value)
 
@@ -289,6 +298,27 @@ export class MetadataRefreshRepository extends BaseRepository {
       const genreDisplay = normalizeEditableText(item.genreDisplay)
       const releaseDate = normalizeEditableReleaseDate(item.releaseDate)
       const year = normalizeEditableYear(item.year)
+      const existingArtwork = this.db
+        .prepare(
+          `SELECT tm.artwork_cache_key AS trackMetadataKey,
+                  a.artwork_cache_key AS albumKey
+           FROM tracks t
+           LEFT JOIN track_metadata tm ON tm.track_id = t.id
+           LEFT JOIN albums a
+             ON COALESCE(tm.album_title, t.album) = a.title
+            AND COALESCE(
+                  NULLIF(COALESCE(tm.album_artist_display, t.album_artist), ''),
+                  COALESCE(tm.artist_display, t.artist)
+                ) = a.artist
+           WHERE t.id = ?`,
+        )
+        .get(item.trackId) as
+        | { trackMetadataKey: string | null; albumKey: string | null }
+        | undefined
+      const artworkCacheKey = resolveArtworkKeyForUserEdit(
+        existingArtwork?.trackMetadataKey,
+        existingArtwork?.albumKey,
+      )
 
       this.db
         .prepare(
@@ -301,10 +331,11 @@ export class MetadataRefreshRepository extends BaseRepository {
             genre_display,
             year,
             release_date,
+            artwork_cache_key,
             source,
             refreshed_at
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'user_edit', CURRENT_TIMESTAMP)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'user_edit', CURRENT_TIMESTAMP)
           ON CONFLICT(track_id) DO UPDATE SET
             title = excluded.title,
             artist_display = excluded.artist_display,
@@ -313,6 +344,10 @@ export class MetadataRefreshRepository extends BaseRepository {
             genre_display = excluded.genre_display,
             year = excluded.year,
             release_date = excluded.release_date,
+            artwork_cache_key = COALESCE(
+              track_metadata.artwork_cache_key,
+              excluded.artwork_cache_key
+            ),
             source = excluded.source,
             refreshed_at = CURRENT_TIMESTAMP`,
         )
@@ -325,6 +360,7 @@ export class MetadataRefreshRepository extends BaseRepository {
           genreDisplay,
           year,
           releaseDate,
+          artworkCacheKey,
         )
 
       this.replaceTrackArtists(

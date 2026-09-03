@@ -244,6 +244,10 @@ export interface IpcInvokeContract {
     request: void
     response: { visible: boolean }
   }
+  'desktop-lyrics:set-suppressed': {
+    request: { suppressed: boolean }
+    response: { ok: boolean }
+  }
   'desktop-lyrics:toggle-mouse-passthrough': {
     request: void
     response: { enabled: boolean }

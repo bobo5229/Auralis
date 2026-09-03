@@ -10,6 +10,7 @@ import MiniPlayer from './app/layout/MiniPlayer.vue'
 import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
 import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { useDesktopLyricsSync } from '@renderer/features/lyrics/composables/useDesktopLyricsSync'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
@@ -26,6 +27,7 @@ const route = useRoute()
 const playback = usePlayback()
 const { visualStyle } = useVisualStyle()
 useSystemMediaIntegration()
+useDesktopLyricsSync()
 const { displayMode, onMiniPlayerWindowStateChanged, syncMiniPlayerWindowState } =
   usePlayerDisplayMode()
 const shellPresentation = computed(() =>
@@ -124,6 +126,8 @@ const transitionName = computed(() => {
       class="app-shell relative"
       :class="{ 'is-album-detail': isAlbumDetail, 'has-artwork': shouldRenderShellArtwork }"
     >
+      <div class="wco-drag-region" aria-hidden="true" />
+
       <!-- 仅 modern 且有封面时挂载流体背景，避免手稿模式继续跑 canvas / RAF -->
       <FluidArtworkBackground
         v-if="shouldRenderShellArtwork"

@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useFullscreenPlayer } from '@renderer/features/playback/composables/useFullscreenPlayer'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatPlaybackSubtitle } from '@renderer/features/playback/utils/formatPlaybackSubtitle'
 import { useTrackLyrics } from '@renderer/features/lyrics/composables/useTrackLyrics'
+import { useFullscreenLyricsViewport } from '@renderer/features/lyrics/composables/useFullscreenLyricsViewport'
 import type { LyricLine } from '@renderer/features/lyrics/types'
 import FluidArtworkBackground from '@renderer/features/playback/components/FluidArtworkBackground.vue'
-import { subscribeVisualFrame } from '@renderer/features/playback/utils/visualFrameScheduler'
+import { usePlaybackProgressInteraction } from '@renderer/features/playback/composables/usePlaybackProgressInteraction'
 
 const skipPreviousIconUrl = new URL(
   '../../features/playback/assets/skip-previous-rounded.svg',
@@ -34,37 +35,9 @@ const {
 } = useTrackLyrics()
 
 const imgError = ref(false)
-const isDraggingProgress = ref(false)
-const draggingProgressRatio = ref<number | null>(null)
 const progressFillRef = ref<HTMLElement | null>(null)
 const lyricsScrollRef = ref<HTMLElement | null>(null)
 const lyricsTrackRef = ref<HTMLElement | null>(null)
-const lyricsContainerHeight = ref(0)
-const isUserScrollingLyrics = ref(false)
-let lyricsScrollTimeout: ReturnType<typeof setTimeout> | null = null
-let lyricsResizeObserver: ResizeObserver | null = null
-let observedLyricsContainer: HTMLElement | null = null
-let lyricsAnimation: Animation | null = null
-let lyricsOffset = 0
-let lyricLineMetrics: Array<{ offset: number; height: number }> = []
-let lyricPreludeMetric: { offset: number; height: number } | null = null
-let lyricMetricsLineCount = -1
-let lyricMetricsPreludeState = false
-let lyricsScrollMax = 0
-let progressFrameUnsubscribe: (() => void) | null = null
-let progressAnchorTime = 0
-let progressAnchorAt = 0
-const LYRIC_MIN_DURATION_MS = 420
-const LYRIC_MAX_DURATION_MS = 650
-const LYRIC_DURATION_BASE_MS = 380
-const LYRIC_DURATION_PER_PIXEL = 0.65
-const LYRIC_EASING = 'cubic-bezier(0.4, 0, 0.2, 1)'
-
-const progressRatio = computed(() => {
-  if (!playback.state.duration) return 0
-  if (draggingProgressRatio.value !== null) return draggingProgressRatio.value
-  return Math.min(1, Math.max(0, playback.state.currentTime / playback.state.duration))
-})
 
 const artworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
@@ -73,15 +46,11 @@ const subtitle = computed(() =>
   playback.state.currentTrack ? formatPlaybackSubtitle(playback.state.currentTrack) : 'No track',
 )
 
-const progressValueNow = computed(() => Math.round(progressRatio.value * 100))
 const currentTimeLabel = computed(() => formatTime(playback.state.currentTime))
 const remainingTimeLabel = computed(() => {
   const remaining = Math.max(0, playback.state.duration - playback.state.currentTime)
   return playback.state.duration ? `-${formatTime(remaining)}` : '-0:00'
 })
-
-const lyricsTopPadding = computed(() => Math.round(lyricsContainerHeight.value * 0.3))
-const lyricsBottomPadding = computed(() => Math.round(lyricsContainerHeight.value * 0.7))
 
 const fullscreenLyricLines = computed<LyricLine[]>(() => {
   if (lyricsStatus.value === 'plain' && rawLyrics.value) {
@@ -128,337 +97,52 @@ function formatTime(seconds: number): string {
   return `${minutes}:${secs.toString().padStart(2, '0')}`
 }
 
-function renderVisualProgress(now: number): void {
+function renderProgressRatio(ratio: number): void {
   const fill = progressFillRef.value
   if (!fill) return
-
-  let ratio = draggingProgressRatio.value
-  if (ratio === null) {
-    const elapsed = playback.state.isPlaying ? Math.max(0, now - progressAnchorAt) / 1000 : 0
-    const visualTime = Math.min(playback.state.duration, progressAnchorTime + elapsed)
-    ratio =
-      playback.state.duration > 0
-        ? Math.min(1, Math.max(0, visualTime / playback.state.duration))
-        : 0
-  }
   fill.style.clipPath = `inset(0 ${(1 - ratio) * 100}% 0 0 round 999px)`
 }
 
-function syncProgressAnchor(): void {
-  progressAnchorTime = playback.state.currentTime
-  progressAnchorAt = performance.now()
-  renderVisualProgress(progressAnchorAt)
-}
+const {
+  valueNow: progressValueNow,
+  onPointerDown: handleProgressPointerDown,
+  onPointerMove: handleProgressPointerMove,
+  onPointerUp: handleProgressPointerUp,
+  onPointerCancel: handleProgressPointerCancel,
+  onKeydown: handleProgressKeydown,
+} = usePlaybackProgressInteraction({
+  duration: computed(() => playback.state.duration),
+  currentTime: computed(() => playback.state.currentTime),
+  isPlaying: computed(() => playback.state.isPlaying),
+  active: isFullscreenPlayerOpen,
+  seekByRatio: playback.seekByRatio,
+  seekTo: playback.seekTo,
+  renderRatio: renderProgressRatio,
+  resolveSeekStepSeconds: (shiftKey) => (shiftKey ? 10 : 5),
+})
 
-function syncProgressFrameSubscription(): void {
-  if (isFullscreenPlayerOpen.value) {
-    if (!progressFrameUnsubscribe) {
-      progressFrameUnsubscribe = subscribeVisualFrame(renderVisualProgress)
-    }
-    syncProgressAnchor()
-    return
-  }
-
-  progressFrameUnsubscribe?.()
-  progressFrameUnsubscribe = null
-}
-
-function clampScroll(value: number, max: number): number {
-  return Math.max(0, Math.min(value, max))
-}
-
-function getCurrentLyricsOffset(): number {
-  const track = lyricsTrackRef.value
-  if (!track || !lyricsAnimation) return lyricsOffset
-
-  const transform = getComputedStyle(track).transform
-  if (transform === 'none') return 0
-  try {
-    return new DOMMatrixReadOnly(transform).m42
-  } catch {
-    return lyricsOffset
-  }
-}
-
-function setLyricsOffset(offset: number): void {
-  const track = lyricsTrackRef.value
-  lyricsOffset = offset
-  if (track) track.style.transform = `translate3d(0, ${offset}px, 0)`
-}
-
-function cancelLyricsAnimation(commitCurrentPosition: boolean): number {
-  const currentOffset = commitCurrentPosition ? getCurrentLyricsOffset() : lyricsOffset
-  lyricsAnimation?.cancel()
-  lyricsAnimation = null
-  setLyricsOffset(currentOffset)
-  return currentOffset
-}
-
-function resetFullscreenLyricsPosition(): void {
-  if (lyricsScrollTimeout) {
-    clearTimeout(lyricsScrollTimeout)
-    lyricsScrollTimeout = null
-  }
-  isUserScrollingLyrics.value = false
-  cancelLyricsAnimation(false)
-  setLyricsOffset(0)
-  if (lyricsScrollRef.value) lyricsScrollRef.value.scrollTop = 0
-  lyricLineMetrics = []
-  lyricPreludeMetric = null
-  lyricMetricsLineCount = -1
-  lyricMetricsPreludeState = false
-  lyricsScrollMax = 0
-}
-
-function rebuildLyricLineMetrics(force = false): void {
-  const container = lyricsScrollRef.value
-  const track = lyricsTrackRef.value
-  if (!container || !track) {
-    lyricLineMetrics = []
-    lyricPreludeMetric = null
-    lyricMetricsLineCount = -1
-    lyricMetricsPreludeState = false
-    lyricsScrollMax = 0
-    return
-  }
-
-  if (
-    !force &&
-    lyricMetricsLineCount === fullscreenLyricLines.value.length &&
-    lyricMetricsPreludeState === showPrelude.value
-  ) {
-    return
-  }
-
-  const elements = track.querySelectorAll<HTMLElement>('[data-lyric-index]')
-  lyricLineMetrics = Array.from(elements, (element) => ({
-    offset: element.offsetTop,
-    height: element.offsetHeight,
-  }))
-  const preludeElement = track.querySelector<HTMLElement>('[data-lyric-prelude]')
-  lyricPreludeMetric = preludeElement
-    ? { offset: preludeElement.offsetTop, height: preludeElement.offsetHeight }
-    : null
-  lyricMetricsLineCount = fullscreenLyricLines.value.length
-  lyricMetricsPreludeState = showPrelude.value
-  lyricsScrollMax = Math.max(0, track.scrollHeight - container.clientHeight)
-}
-
-function computeLyricScrollTarget(): number | null {
-  if (!lyricsScrollRef.value) return null
-
-  if (isPrelude.value) {
-    if (!lyricPreludeMetric) return 0
-    const target =
-      lyricPreludeMetric.offset - lyricsContainerHeight.value * 0.3 + lyricPreludeMetric.height / 2
-    return clampScroll(target, lyricsScrollMax)
-  }
-
-  if (lyricsStatus.value !== 'lrc' || activeIndex.value < 0) return null
-
-  const metric = lyricLineMetrics[activeIndex.value]
-  if (!metric) return null
-  const target = metric.offset - lyricsContainerHeight.value * 0.3 + metric.height / 2
-  return clampScroll(target, lyricsScrollMax)
-}
-
-function updateLyricScrollTarget(behavior: ScrollBehavior = 'smooth'): void {
-  if (isUserScrollingLyrics.value) return
-
-  const target = computeLyricScrollTarget()
-  const container = lyricsScrollRef.value
-  const track = lyricsTrackRef.value
-  if (target === null || !container || !track) return
-  const targetOffset = -target
-
-  if (behavior === 'auto') {
-    cancelLyricsAnimation(false)
-    container.scrollTop = 0
-    setLyricsOffset(targetOffset)
-    return
-  }
-
-  const currentOffset = cancelLyricsAnimation(true)
-  const distance = Math.abs(targetOffset - currentOffset)
-  if (distance < 0.5) {
-    setLyricsOffset(targetOffset)
-    return
-  }
-
-  const duration = Math.min(
-    LYRIC_MAX_DURATION_MS,
-    Math.max(LYRIC_MIN_DURATION_MS, LYRIC_DURATION_BASE_MS + distance * LYRIC_DURATION_PER_PIXEL),
-  )
-  setLyricsOffset(targetOffset)
-  const animation = track.animate(
-    [
-      { transform: `translate3d(0, ${currentOffset}px, 0)` },
-      { transform: `translate3d(0, ${targetOffset}px, 0)` },
-    ],
-    {
-      duration,
-      easing: LYRIC_EASING,
-      fill: 'both',
-    },
-  )
-  lyricsAnimation = animation
-  void animation.finished
-    .then(() => {
-      if (lyricsAnimation !== animation) return
-      lyricsAnimation = null
-      animation.cancel()
-      setLyricsOffset(targetOffset)
-    })
-    .catch(() => undefined)
-}
-
-function pauseFullscreenLyricAutoFollow(): void {
-  const container = lyricsScrollRef.value
-  if (!isUserScrollingLyrics.value) {
-    const currentOffset = cancelLyricsAnimation(true)
-    if (container) {
-      setLyricsOffset(0)
-      container.scrollTop = -currentOffset
-    }
-  }
-  isUserScrollingLyrics.value = true
-
-  if (lyricsScrollTimeout) clearTimeout(lyricsScrollTimeout)
-
-  lyricsScrollTimeout = setTimeout(() => {
-    const scrollTop = container?.scrollTop ?? 0
-    if (container) container.scrollTop = 0
-    setLyricsOffset(-scrollTop)
-    isUserScrollingLyrics.value = false
-    updateLyricScrollTarget()
-  }, 3000)
-}
-
-function syncLyricsScrollContainer(): void {
-  const lyricsContainer = lyricsScrollRef.value
-
-  if (!lyricsContainer) {
-    lyricsResizeObserver?.disconnect()
-    lyricsResizeObserver = null
-    observedLyricsContainer = null
-    lyricsContainerHeight.value = 0
-    return
-  }
-
-  if (lyricsContainer === observedLyricsContainer && lyricsResizeObserver) return
-
-  lyricsResizeObserver?.disconnect()
-  lyricsContainerHeight.value = lyricsContainer.clientHeight
-  lyricsResizeObserver = new ResizeObserver((entries) => {
-    lyricsContainerHeight.value = entries[0].contentRect.height
-    nextTick(() => {
-      rebuildLyricLineMetrics(true)
-      updateLyricScrollTarget('auto')
-    })
-  })
-  lyricsResizeObserver.observe(lyricsContainer)
-  observedLyricsContainer = lyricsContainer
-}
+const {
+  topPadding: lyricsTopPadding,
+  bottomPadding: lyricsBottomPadding,
+  pauseAutoFollow: pauseFullscreenLyricAutoFollow,
+} = useFullscreenLyricsViewport({
+  scrollRef: lyricsScrollRef,
+  trackRef: lyricsTrackRef,
+  currentTrackId: computed(() => playback.state.currentTrackId),
+  lyricsStatus,
+  lineCount: computed(() => fullscreenLyricLines.value.length),
+  activeIndex,
+  isPrelude,
+  showPrelude,
+  isOpen: isFullscreenPlayerOpen,
+})
 
 watch(
   () => playback.state.currentTrackId,
   () => {
     imgError.value = false
-    resetFullscreenLyricsPosition()
   },
 )
-
-watch(
-  () => [playback.state.currentTime, playback.state.duration, playback.state.isPlaying],
-  () => syncProgressAnchor(),
-)
-
-watch(isFullscreenPlayerOpen, () => {
-  nextTick(() => syncProgressFrameSubscription())
-})
-
-watch(
-  () => [
-    activeIndex.value,
-    isPrelude.value,
-    fullscreenLyricLines.value.length,
-    isFullscreenPlayerOpen.value,
-  ],
-  () => {
-    nextTick(() => {
-      syncLyricsScrollContainer()
-      rebuildLyricLineMetrics()
-      updateLyricScrollTarget(isFullscreenPlayerOpen.value ? 'smooth' : 'auto')
-    })
-  },
-  { flush: 'post' },
-)
-
-function getProgressRatioFromPointer(event: PointerEvent, target: HTMLElement): number {
-  const rect = target.getBoundingClientRect()
-  const ratio = (event.clientX - rect.left) / rect.width
-  return Math.min(1, Math.max(0, ratio))
-}
-
-function updateDraggingProgressFromPointer(event: PointerEvent): void {
-  if (!playback.state.duration) return
-  const target = event.currentTarget as HTMLElement
-  const ratio = getProgressRatioFromPointer(event, target)
-  draggingProgressRatio.value = ratio
-}
-
-function commitDraggingProgress(): void {
-  if (draggingProgressRatio.value === null) return
-  playback.seekByRatio(draggingProgressRatio.value)
-}
-
-function handleProgressPointerDown(event: PointerEvent): void {
-  if (!playback.state.duration) return
-  const target = event.currentTarget as HTMLElement
-  isDraggingProgress.value = true
-  target.setPointerCapture(event.pointerId)
-  event.preventDefault()
-  updateDraggingProgressFromPointer(event)
-}
-
-function handleProgressPointerMove(event: PointerEvent): void {
-  if (!isDraggingProgress.value) return
-  updateDraggingProgressFromPointer(event)
-}
-
-function handleProgressPointerUp(event: PointerEvent): void {
-  if (!isDraggingProgress.value) return
-  updateDraggingProgressFromPointer(event)
-  commitDraggingProgress()
-  const target = event.currentTarget as HTMLElement
-  if (target.hasPointerCapture(event.pointerId)) {
-    target.releasePointerCapture(event.pointerId)
-  }
-  isDraggingProgress.value = false
-  draggingProgressRatio.value = null
-}
-
-function handleProgressPointerCancel(event: PointerEvent): void {
-  const target = event.currentTarget as HTMLElement
-  if (target.hasPointerCapture(event.pointerId)) {
-    target.releasePointerCapture(event.pointerId)
-  }
-  isDraggingProgress.value = false
-  draggingProgressRatio.value = null
-}
-
-function handleProgressKeydown(event: KeyboardEvent): void {
-  if (!playback.state.duration) return
-  const seekStepSeconds = event.shiftKey ? 10 : 5
-  if (event.key === 'ArrowLeft') {
-    event.preventDefault()
-    playback.seekTo(playback.state.currentTime - seekStepSeconds)
-  }
-  if (event.key === 'ArrowRight') {
-    event.preventDefault()
-    playback.seekTo(playback.state.currentTime + seekStepSeconds)
-  }
-}
 
 function handleKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
@@ -488,31 +172,10 @@ function handleRepeatClick(): void {
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
-  syncProgressAnchor()
-  syncProgressFrameSubscription()
-
-  nextTick(() => {
-    syncLyricsScrollContainer()
-    rebuildLyricLineMetrics(true)
-    updateLyricScrollTarget('auto')
-  })
-
-  void document.fonts.ready.then(() => {
-    nextTick(() => {
-      rebuildLyricLineMetrics(true)
-      updateLyricScrollTarget('auto')
-    })
-  })
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
-  progressFrameUnsubscribe?.()
-  progressFrameUnsubscribe = null
-  if (lyricsScrollTimeout) clearTimeout(lyricsScrollTimeout)
-  cancelLyricsAnimation(false)
-  lyricsResizeObserver?.disconnect()
-  observedLyricsContainer = null
 })
 </script>
 
@@ -524,6 +187,7 @@ onBeforeUnmount(() => {
         class="fullscreen-player"
         :aria-label="t('fullscreen.overlayAria')"
       >
+        <div class="fullscreen-drag-region" aria-hidden="true" />
         <FluidArtworkBackground
           :artwork-url="artworkUrl"
           :active="isFullscreenPlayerOpen"
@@ -750,6 +414,16 @@ onBeforeUnmount(() => {
   color: var(--auralis-text);
   background: #15181d;
   overflow: hidden;
+}
+
+.fullscreen-drag-region {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 140px;
+  height: 36px;
+  -webkit-app-region: drag;
+  z-index: 101;
 }
 
 .fullscreen-player-left,

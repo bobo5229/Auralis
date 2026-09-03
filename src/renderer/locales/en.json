@@ -214,14 +214,20 @@
     },
     "desktopLyrics": {
       "menu": "Desktop lyrics",
-      "ariaPassthroughOn": "Desktop lyrics, mouse passthrough enabled",
-      "ariaPassthroughOff": "Desktop lyrics, mouse passthrough disabled",
-      "titlePassthroughOn": "Right-click to disable mouse passthrough",
-      "titlePassthroughOff": "Right-click to enable mouse passthrough",
+      "titleToggle": "Show or hide desktop lyrics",
+      "lockPopoverTitle": "Desktop lyrics lock",
+      "lockedLabel": "Lock",
+      "unlockedLabel": "Unlock / Drag",
+      "lockMenu": "Lock",
+      "unlockMenu": "Unlock",
+      "ariaLockOn": "Desktop lyrics locked, click to unlock for dragging",
+      "ariaLockOff": "Desktop lyrics unlocked, click to lock",
+      "titleLockOn": "Unlock to drag the window",
+      "titleLockOff": "Lock desktop lyrics",
+      "lockedToast": "Desktop lyrics locked",
+      "unlockedToast": "Desktop lyrics unlocked",
       "toastOn": "Desktop lyrics enabled",
-      "toastOff": "Desktop lyrics disabled",
-      "passthroughOn": "Mouse passthrough enabled",
-      "passthroughOff": "Mouse passthrough disabled"
+      "toastOff": "Desktop lyrics disabled"
     }
   },
   "fullscreen": {
@@ -246,7 +252,7 @@
   },
   "albums": {
     "detail": {
-      "back": "Back to Albums",
+      "back": "Back to List",
       "play": "Play",
       "shuffle": "Shuffle",
       "tracks": "Tracks",
@@ -283,8 +289,7 @@
       "subtitle": "Private Music Collection Index",
       "albumCount": "{count} albums",
       "trackCount": "{count} tracks",
-      "catalogNumber": "CAT {number}",
-      "viewLabel": "Display"
+      "catalogNumber": "CAT {number}"
     },
     "search": {
       "ariaLabel": "Search albums and album artists",
@@ -292,11 +297,6 @@
       "matched": "Jumped to {index} of {total}",
       "wrapped": "Wrapped to top ({index} of {total})",
       "notFound": "No matching albums"
-    },
-    "view": {
-      "ariaLabel": "Album view mode",
-      "grid": "Regular grid",
-      "perspective": "Perspective covers"
     },
     "contextMenu": {
       "locateCurrent": "Locate current album",

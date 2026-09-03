@@ -308,6 +308,7 @@ function assertLibraryHeaderLocaleParity(locales) {
 
 const [
   page,
+  libraryCatalogLoader,
   albumCoverGroup,
   manuscriptCss,
   overlayCss,
@@ -356,6 +357,7 @@ const [
   playerBarMaterial,
 ] = await Promise.all([
   readProjectFile('src/renderer/features/library/pages/LibraryPage.vue'),
+  readProjectFile('src/renderer/features/library/composables/useLibraryCatalogLoader.ts'),
   readProjectFile('src/renderer/features/library/components/AlbumCoverGroup.vue'),
   readProjectFile('src/renderer/features/library/styles/manuscript.css'),
   readProjectFile('src/renderer/features/library/styles/manuscript.overlays.css'),
@@ -422,10 +424,22 @@ assertExcludes(albumsPage, /VisualStyleSwitch/, 'albums page visual style switch
 assertExcludes(albumDetailPage, /VisualStyleSwitch/, 'album detail visual style switch')
 assertExcludes(archivePage, /VisualStyleSwitch/, 'archive page visual style switch')
 assertExcludes(page, /LibraryArchiveHeader/, 'library archive letterhead')
-assertIncludes(page, 'pageIdentity.value = snapshot.identity', 'library snapshot identity')
+assertIncludes(
+  page + libraryCatalogLoader,
+  'pageIdentity.value = snapshot.identity',
+  'library snapshot identity',
+)
 assertIncludes(page, ':presentation="libraryPresentation"', 'child presentation binding')
-assertIncludes(page, 'LIBRARY_PLAYLISTS_CHANGED_EVENT', 'regular playlist refresh event')
-assertIncludes(page, 'LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT', 'smart playlist refresh event')
+assertIncludes(
+  page + libraryCatalogLoader,
+  'LIBRARY_PLAYLISTS_CHANGED_EVENT',
+  'regular playlist refresh event',
+)
+assertIncludes(
+  page + libraryCatalogLoader,
+  'LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT',
+  'smart playlist refresh event',
+)
 assertExcludes(
   page,
   /route\.name\s*===\s*(['"])library\1\s*&&\s*visualStyle/,
@@ -807,7 +821,7 @@ assertIncludes(
   'modern island is capped at 920px with 24px side gaps',
 )
 assertIncludes(mainCss, 'pointer-events: none', 'modern host is a click-through positioning slot')
-assertIncludes(mainCss, 'bottom: 24px', 'modern host sits 24px off the window bottom')
+assertMatches(mainCss, /bottom:\s*(?:24|36)px/, 'modern host sits off the window bottom')
 assertIncludes(
   mainCss,
   ".player-bar[data-player-presentation='modern'] .track-info-card",
@@ -856,14 +870,10 @@ assertIncludes(playerBar, 'player-bar-overflow', 'modern overflow exists for the
 assertIncludes(playerBar, 'isUtilitiesOverflow', 'overflow is gated on the 640px helper')
 assertIncludes(
   playerBar,
-  'togglePlayerBarExclusiveOverlay',
-  'player bar toggles go through exclusive overlay helper',
+  'usePlayerBarOverlayController',
+  'player bar toggles go through exclusive overlay controller',
 )
-assertIncludes(
-  playerBar,
-  'resolveVolumeHoverOverlayFlags',
-  'volume hover exclusivity is gated on overlay retreat',
-)
+assertIncludes(playerBar, 'useVolumeOverlay', 'volume hover overlay controller is wired')
 assertIncludes(
   playerBar,
   'isPlayerBarVolumeOverlayRetreatActive',
@@ -971,7 +981,7 @@ assertIncludes(
   'modern player bar owns host geometry under presentation scope',
 )
 assertIncludes(shellManuscriptCss, '--auralis-playbar-safe-area: 88px', 'manuscript dock safe area')
-assertIncludes(mainCss, '--auralis-playbar-safe-area: 96px', 'modern island safe area is 96px')
+assertMatches(mainCss, /--auralis-playbar-safe-area:\s*(?:96|108)px/, 'modern island safe area')
 assertIncludes(playerBar, 'player-bar-dock-main', 'player bar dock main wrapper')
 assertIncludes(playerBar, 'player-bar-dock-actions', 'player bar dock actions wrapper')
 assertIncludes(

@@ -114,11 +114,11 @@
   --auralis-volume-fill: #e1ddd6;
   --auralis-artwork-placeholder-bg: rgba(246, 242, 234, 0.12);
 
-  /* Playbar safe area — modern floating island: 72px height + 24px bottom gap */
-  --auralis-playbar-safe-area: 96px;
+  /* Playbar safe area — modern floating island: 72px height + 36px bottom gap */
+  --auralis-playbar-safe-area: 108px;
   --auralis-shell-edge-gap: 12px;
   --auralis-shell-vertical-gap: 24px;
-  --auralis-player-bottom-gap: 24px;
+  --auralis-player-bottom-gap: 36px;
   --auralis-playbar-bg: rgba(30, 32, 35, 0.16);
   --auralis-playbar-border: rgba(225, 221, 214, 0.18);
   --auralis-playbar-highlight: rgba(255, 255, 255, 0.16);
@@ -187,6 +187,17 @@
   --auralis-more-card-border: rgba(255, 255, 255, 0.04);
 }
 
+.wco-drag-region {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 140px;
+  height: 36px;
+  -webkit-app-region: drag;
+  z-index: 5;
+  pointer-events: auto;
+}
+
 body {
   min-width: 320px;
   min-height: 100vh;
@@ -231,7 +242,7 @@ input {
 .player-bar[data-player-presentation='modern'] {
   left: 260px;
   right: 0;
-  bottom: 24px;
+  bottom: 36px;
   width: auto;
   min-width: 0;
   height: 72px;
@@ -353,7 +364,7 @@ input {
 }
 
 .player-bar[data-player-presentation='modern'] .track-info-empty {
-  align-items: flex-start;
+  align-items: center;
   min-height: 44px;
 }
 
@@ -704,6 +715,7 @@ input {
 .player-bar--liquid-glass .queue-popover,
 .player-bar--liquid-glass .playback-mode-menu,
 .player-bar--liquid-glass .desktop-lyrics-toast,
+.player-bar--liquid-glass .desktop-lyrics-lock-popover,
 .player-bar--liquid-glass .player-bar-overflow-panel {
   border-color: rgba(255, 255, 255, 0.22);
   background:
@@ -739,7 +751,8 @@ input {
   .player-bar--liquid-glass .player-bar-glass,
   .player-bar--liquid-glass .queue-popover,
   .player-bar--liquid-glass .playback-mode-menu,
-  .player-bar--liquid-glass .desktop-lyrics-toast {
+  .player-bar--liquid-glass .desktop-lyrics-toast,
+  .player-bar--liquid-glass .desktop-lyrics-lock-popover {
     background: rgba(31, 34, 40, 0.92);
   }
 }
@@ -748,7 +761,8 @@ input {
   .player-bar--liquid-glass .player-bar-glass,
   .player-bar--liquid-glass .queue-popover,
   .player-bar--liquid-glass .playback-mode-menu,
-  .player-bar--liquid-glass .desktop-lyrics-toast {
+  .player-bar--liquid-glass .desktop-lyrics-toast,
+  .player-bar--liquid-glass .desktop-lyrics-lock-popover {
     background: rgba(31, 34, 40, 0.92);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -776,7 +790,8 @@ input {
   .player-bar--liquid-glass .player-bar-glass,
   .player-bar--liquid-glass .queue-popover,
   .player-bar--liquid-glass .playback-mode-menu,
-  .player-bar--liquid-glass .desktop-lyrics-toast {
+  .player-bar--liquid-glass .desktop-lyrics-toast,
+  .player-bar--liquid-glass .desktop-lyrics-lock-popover {
     border-color: rgba(255, 255, 255, 0.58);
     background: #202329;
     -webkit-backdrop-filter: none;
@@ -805,6 +820,7 @@ input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 2px;
 }
 
 .desktop-lyrics-toast {
@@ -839,10 +855,120 @@ input {
   }
 }
 
+.desktop-lyrics-lock-popover {
+  position: absolute;
+  right: 50%;
+  bottom: calc(100% + 14px);
+  z-index: 72;
+  width: 84px;
+  transform: translateX(50%);
+  border: 1px solid var(--auralis-playbar-border);
+  border-radius: 12px;
+  padding: 4px;
+  background: var(--auralis-playbar-bg);
+  box-shadow: var(--auralis-playbar-shadow);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  animation: desktop-lyrics-lock-popover-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  user-select: none;
+}
+
+@keyframes desktop-lyrics-lock-popover-in {
+  from {
+    opacity: 0;
+    transform: translate(50%, 6px) scale(0.96);
+  }
+}
+
+.desktop-lyrics-lock-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--auralis-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
+}
+
+.desktop-lyrics-lock-pill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--auralis-active-album-accent) 22%, rgba(255, 255, 255, 0.12));
+  border: 1px solid color-mix(in srgb, var(--auralis-active-album-accent) 30%, rgba(255, 255, 255, 0.2));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.desktop-lyrics-lock-option {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--auralis-text-muted);
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    transform 180ms ease;
+  outline: none;
+}
+
+.desktop-lyrics-lock-option:hover {
+  color: var(--auralis-text);
+}
+
+.desktop-lyrics-lock-option--active {
+  color: var(--auralis-text);
+}
+
+.desktop-lyrics-lock-option:focus-visible {
+  outline: 2px solid var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator));
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-lyrics-lock-popover,
+  .desktop-lyrics-lock-pill,
+  .desktop-lyrics-lock-option {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .desktop-lyrics-lock-popover {
+    background: color-mix(in srgb, var(--auralis-dialog-bg) 92%, transparent);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
 .player-bar .player-control {
   border-radius: 8px;
   transition: all 0.2s ease;
   box-shadow: none !important;
+}
+
+.player-bar[data-player-presentation='modern'] .player-control:focus,
+.player-bar[data-player-presentation='modern'] .transport-control:focus {
+  outline: none;
+}
+
+.player-bar[data-player-presentation='modern'] .player-control:focus-visible,
+.player-bar[data-player-presentation='modern'] .transport-control:focus-visible {
+  outline: 2px solid var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator));
+  outline-offset: 2px;
 }
 
 .player-bar .player-control:hover {
@@ -1299,7 +1425,10 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   box-shadow:
     0 4px 14px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent),
     inset 0 1px 0 color-mix(in srgb, white 40%, transparent);
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease;
 }
 
 .sidebar-brand-mark span {
@@ -1308,10 +1437,10 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-brand-left:hover .sidebar-brand-mark {
-  transform: scale(1.06) rotate(6deg);
+  transform: scale(1.03);
   border-color: var(--auralis-sidebar-active-indicator);
   box-shadow:
-    0 6px 20px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 35%, transparent),
+    0 6px 18px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 28%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
@@ -1321,30 +1450,37 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-brand-name {
-  /* 渐变流光：hover 时白→主题蓝→白 高光带沿字面扫过（克制微动 ~250ms） */
-  background: linear-gradient(
-    110deg,
-    #ffffff 42%,
-    var(--auralis-sidebar-active-indicator) 50%,
-    #ffffff 58%
-  );
-  background-size: 250% 100%;
-  background-position: 100% 0;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: #ffffff; /* fallback：不支持 background-clip: text 时仍为白色 */
+  position: relative;
+  color: color-mix(in srgb, #ffffff 88%, transparent);
   font-size: 18px;
   font-weight: 800;
   line-height: 22px;
   white-space: nowrap;
   flex-shrink: 0;
-  /* 750ms 足够看清高光带扫过（原 250ms 太快） */
-  transition: background-position 750ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: color 200ms ease;
+}
+
+.sidebar-brand-name::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--auralis-sidebar-active-indicator);
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar-brand-left:hover .sidebar-brand-name {
-  background-position: 0 0;
+  color: color-mix(in srgb, #ffffff 88%, var(--auralis-sidebar-active-indicator));
+}
+
+.sidebar-brand-left:hover .sidebar-brand-name::after {
+  transform: scaleX(1);
+  transition-duration: 400ms;
 }
 
 /* 3-column equal grid tool row */
@@ -1709,7 +1845,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   left: 0;
   right: 0;
   height: 48px;
-  z-index: 10;
+  z-index: 70;
   pointer-events: none;
 }
 
@@ -1732,6 +1868,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   backdrop-filter: blur(14px) saturate(1.08);
   -webkit-backdrop-filter: blur(14px) saturate(1.08);
   pointer-events: auto;
+  -webkit-app-region: no-drag;
 }
 
 .library-search-input {
@@ -2058,6 +2195,11 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   position: fixed;
   inset: 0;
   -webkit-app-region: drag;
+  cursor: grab;
+}
+
+.desktop-lyrics-drag-region:active {
+  cursor: grabbing;
 }
 
 .desktop-lyrics-lines {
@@ -2114,8 +2256,18 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
     transition: none;
   }
 
-  .sidebar-brand-name {
+  .sidebar-brand-mark,
+  .sidebar-brand-name,
+  .sidebar-brand-name::after {
     transition: none;
+  }
+
+  .sidebar-brand-left:hover .sidebar-brand-mark {
+    transform: none;
+  }
+
+  .sidebar-brand-name::after {
+    content: none;
   }
 
   .library-view-fade-enter-active,

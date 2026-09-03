@@ -305,3 +305,101 @@ function onKeyDown(e: KeyboardEvent): void {
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.library-dialog-scrim {
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.metadata-dialog-panel {
+  box-sizing: border-box;
+  background: var(--auralis-dialog-bg, #25272a);
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 12px;
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.metadata-dialog-header {
+  color: var(--auralis-text);
+}
+
+.metadata-dialog-label {
+  color: var(--auralis-text-muted);
+}
+
+.metadata-dialog-input {
+  box-sizing: border-box;
+  width: 100%;
+  background: var(--auralis-search-bg);
+  border: 1px solid var(--auralis-search-border, rgba(246, 242, 234, 0.1));
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--auralis-text);
+  outline: none;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.metadata-dialog-input:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: -1px;
+  border-color: var(--auralis-sidebar-active-indicator);
+}
+
+.metadata-dialog-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.metadata-dialog-input[aria-invalid='true'] {
+  border-color: var(--auralis-danger, #ef4444);
+}
+
+.metadata-dialog-btn-secondary {
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--auralis-border-subtle);
+  color: var(--auralis-text-muted);
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    border-color 150ms ease;
+}
+
+.metadata-dialog-btn-secondary:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+  border-color: var(--auralis-text-muted);
+}
+
+.metadata-dialog-btn-secondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.metadata-dialog-btn-primary {
+  border-radius: 6px;
+  background: var(--auralis-control-primary-bg, var(--auralis-sidebar-active-indicator));
+  color: var(--auralis-control-primary-text, #ffffff);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    opacity 150ms ease,
+    background-color 150ms ease;
+}
+
+.metadata-dialog-btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.metadata-dialog-btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+</style>

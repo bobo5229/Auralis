@@ -13,7 +13,10 @@ const props = defineProps<{
   currentMode: PlaybackMode
   presentation: PlayerSurfacePresentation
 }>()
-const emit = defineEmits<{ select: [mode: PlaybackMode]; close: [] }>()
+const emit = defineEmits<{
+  select: [mode: PlaybackMode, source: 'pointer' | 'keyboard']
+  close: []
+}>()
 
 const { t } = useI18n()
 const element = ref<HTMLElement | null>(null)
@@ -27,7 +30,7 @@ const modes = computed<Array<{ id: PlaybackMode; label: string; icon: string }>>
 ])
 
 function handleSelect(mode: PlaybackMode): void {
-  emit('select', mode)
+  emit('select', mode, 'pointer')
 }
 
 // Roving tabindex: only the focused item is tabbable, so Tab exits the menu
@@ -68,8 +71,7 @@ function handleKeydown(event: KeyboardEvent): void {
     event.preventDefault()
     const mode = modes.value[result.modeIndex]
     if (mode) {
-      // Close through the same path as Escape so the trigger regains focus.
-      emit('select', mode.id)
+      emit('select', mode.id, 'keyboard')
     }
   }
 }

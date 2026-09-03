@@ -80,10 +80,30 @@ function hasDesktopLyricsFontGlyph(character: string): boolean {
   return false
 }
 
-function hasSupportedConvertedGlyphs(value: string): boolean {
-  return Array.from(value).every(
-    (character) => !isCjkCharacter(character) || hasDesktopLyricsFontGlyph(character),
-  )
+function hasSupportedConvertedGlyphs(
+  value: string,
+  hasGlyph: (character: string) => boolean,
+): boolean {
+  return Array.from(value).every((character) => !isCjkCharacter(character) || hasGlyph(character))
+}
+
+export function convertDesktopLyricsText(
+  value: string,
+  hasGlyph: (character: string) => boolean,
+): string {
+  const converted = toTraditional(value)
+  if (converted === value) return value
+
+  if (hasSupportedConvertedGlyphs(converted, hasGlyph)) {
+    return converted
+  }
+
+  return Array.from(value, (character) => {
+    const candidate = toTraditional(character)
+    return candidate !== character && hasSupportedConvertedGlyphs(candidate, hasGlyph)
+      ? candidate
+      : character
+  }).join('')
 }
 
 export function ensureDesktopLyricsFontReady(): Promise<void> {
@@ -102,16 +122,5 @@ export function ensureDesktopLyricsFontReady(): Promise<void> {
 
 export function formatDesktopLyricsText(value: string): string {
   if (!value || !fontReady) return value
-
-  const converted = toTraditional(value)
-  if (converted === value) return value
-
-  if (hasSupportedConvertedGlyphs(converted)) {
-    return converted
-  }
-
-  return Array.from(value, (character) => {
-    const candidate = toTraditional(character)
-    return candidate !== character && hasSupportedConvertedGlyphs(candidate) ? candidate : character
-  }).join('')
+  return convertDesktopLyricsText(value, hasDesktopLyricsFontGlyph)
 }

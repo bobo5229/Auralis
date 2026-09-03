@@ -42,7 +42,7 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 - `src/preload/`：受控的 context bridge；向 renderer 暴露 `window.auralis`。
 - `src/renderer/`：Vue 界面、路由、视图状态、播放元素和视觉效果。
 - `src/shared/`：跨进程 IPC 合约、领域类型和纯函数。
-- `docs/`：设计演示、技术记录和本文；当前仅本文不被 `.gitignore` 忽略。
+- `docs/`：规则、架构说明、导航、项目档案、主题方案、历史批次、评审记录和设计演示；详细文档是否纳入版本控制由 `.gitignore` 的精确例外决定。
 - `data/`：开发环境用户数据；包含数据库和缓存，不是源代码。
 - `out/`：electron-vite 构建产物，不应手工编辑。
 - `release/`：electron-builder 打包产物。
@@ -153,6 +153,9 @@ token。Miniplayer 当前复用同一主 `BrowserWindow`，因此也继承原生
 独立无框透明窗口，保留自身 drag / no-drag 区域。
 
 播放视觉链路以 `src/renderer/features/playback/composables/usePlayback.ts` 为唯一状态源：
+其内部采用分层架构编排（`usePlayback` 稳定单例门面 -> `PlaybackController` 唯一状态编排者 ->
+`PlaybackAudioRuntime` 双后端音频运行时、`PlaybackNavigationSession` 导航与历史会话、
+`playbackTransitionPlanner` 纯规划器及 `EffectivePlayTracker` 有效播放统计）。
 当前曲目封面 key 经 `getArtworkUrl` 转成 `auralis-artwork://` URL；`src/renderer/App.vue`
 将 `FluidArtworkBackground.vue` 放在整个网格底层，歌词面板和页面共享其磨砂背景。
 `PlayerBar.vue` 再通过 `useArtworkPalette.ts` 和 `artworkPalette.worker.ts` 提取主色，写入
@@ -330,8 +333,8 @@ npm.cmd run lint
 
 - `docs/` 中仍可能存在落后于实现的历史演示或阶段性设计文档；功能状态以当前源码、路由和测试
   为准。
-- `.gitignore` 默认忽略 `docs/`，仅放行本文、2026-07-17 修复记录和手稿皮肤验收资料；新增
-  正式文档需明确决定是否跟踪。
+- `.gitignore` 默认忽略 `docs/` 下的详细资料，仅通过精确例外跟踪规则、架构说明、导航、手稿皮肤项目档案、
+  选定专题/评审/交接文档；新增正式文档需明确决定是否跟踪。
 - 主窗和桌面歌词窗已启用 sandbox、context isolation、`webSecurity` 与统一导航/权限策略；安全
   边界仍依赖 preload、typed IPC 和自定义媒体协议的输入校验，新增能力时必须同步扩展相应测试，
   不能假设 renderer 内容可信。

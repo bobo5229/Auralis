@@ -35,3 +35,36 @@ export function resolveChangedFilePaths(input: {
     })
     .map((entry) => entry.filePath)
 }
+
+/**
+ * Watch flush decision: audio fingerprint changes plus sidecar lyrics intent.
+ *
+ * `.lrc` events map onto the audio path without touching the audio fingerprint,
+ * so those paths must still refresh even when size and mtime match. Intent
+ * paths that are not in this `stats` batch are ignored. An omitted or empty
+ * `lyricsIntentPaths` matches `resolveChangedFilePaths`.
+ */
+export function resolveWatchRefreshPaths(input: {
+  stats: WatchedFileStat[]
+  fingerprints: Map<string, FileScanFingerprint>
+  lyricsIntentPaths?: Iterable<string>
+}): string[] {
+  const changedPaths = new Set(
+    resolveChangedFilePaths({
+      stats: input.stats,
+      fingerprints: input.fingerprints,
+    }),
+  )
+  const lyricsIntentPaths = new Set(input.lyricsIntentPaths ?? [])
+  const selected = new Set<string>()
+  const result: string[] = []
+
+  for (const entry of input.stats) {
+    if (selected.has(entry.filePath)) continue
+    if (!changedPaths.has(entry.filePath) && !lyricsIntentPaths.has(entry.filePath)) continue
+    selected.add(entry.filePath)
+    result.push(entry.filePath)
+  }
+
+  return result
+}
