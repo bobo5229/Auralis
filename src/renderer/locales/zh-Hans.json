@@ -214,14 +214,20 @@
     },
     "desktopLyrics": {
       "menu": "桌面歌词",
-      "ariaPassthroughOn": "桌面歌词，鼠标穿透已开启",
-      "ariaPassthroughOff": "桌面歌词，鼠标穿透已关闭",
-      "titlePassthroughOn": "右键单击关闭鼠标穿透",
-      "titlePassthroughOff": "右键单击开启鼠标穿透",
+      "titleToggle": "显示或隐藏桌面歌词",
+      "lockPopoverTitle": "桌面歌词锁定",
+      "lockedLabel": "锁定",
+      "unlockedLabel": "解锁 / 可拖动",
+      "lockMenu": "锁定",
+      "unlockMenu": "解锁",
+      "ariaLockOn": "桌面歌词已锁定，点击解锁以便拖动",
+      "ariaLockOff": "桌面歌词未锁定，点击锁定",
+      "titleLockOn": "解锁以拖动窗口",
+      "titleLockOff": "锁定桌面歌词",
+      "lockedToast": "桌面歌词已锁定",
+      "unlockedToast": "桌面歌词已解锁",
       "toastOn": "桌面歌词已开启",
-      "toastOff": "桌面歌词已关闭",
-      "passthroughOn": "鼠标穿透已开启",
-      "passthroughOff": "鼠标穿透已关闭"
+      "toastOff": "桌面歌词已关闭"
     }
   },
   "fullscreen": {
@@ -246,7 +252,7 @@
   },
   "albums": {
     "detail": {
-      "back": "返回专辑",
+      "back": "返回列表",
       "play": "播放",
       "shuffle": "随机播放",
       "tracks": "曲目",
@@ -283,8 +289,7 @@
       "subtitle": "私人音乐收藏索引",
       "albumCount": "专辑 {count}",
       "trackCount": "曲目 {count}",
-      "catalogNumber": "CAT {number}",
-      "viewLabel": "陈列方式"
+      "catalogNumber": "CAT {number}"
     },
     "search": {
       "ariaLabel": "搜索专辑和专辑艺术家",
@@ -292,11 +297,6 @@
       "matched": "定位到 {index} / {total}",
       "wrapped": "已回到开头（{index} / {total}）",
       "notFound": "未找到匹配专辑"
-    },
-    "view": {
-      "ariaLabel": "专辑视图模式",
-      "grid": "常规网格",
-      "perspective": "透视封面"
     },
     "contextMenu": {
       "locateCurrent": "定位到当前专辑",

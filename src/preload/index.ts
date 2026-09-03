@@ -128,6 +128,8 @@ export const auralisApi: AuralisApi = {
   desktopLyrics: {
     toggle: () => invoke(ipcChannels.desktopLyrics.toggle),
     isVisible: () => invoke(ipcChannels.desktopLyrics.isVisible),
+    setSuppressed: (suppressed: boolean) =>
+      invoke(ipcChannels.desktopLyrics.setSuppressed, { suppressed }),
     toggleMousePassthrough: () => invoke(ipcChannels.desktopLyrics.toggleMousePassthrough),
     isMousePassthroughEnabled: () => invoke(ipcChannels.desktopLyrics.isMousePassthroughEnabled),
     update: (payload) => invoke(ipcChannels.desktopLyrics.update, payload),
@@ -166,6 +168,9 @@ export const auralisApi: AuralisApi = {
       return () => {
         ipcRenderer.removeListener(ipcChannels.desktopLyrics.mousePassthroughChanged, listener)
       }
+    },
+    ready: () => {
+      ipcRenderer.send(ipcChannels.desktopLyrics.ready)
     },
   },
   archive: {

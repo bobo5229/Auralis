@@ -541,6 +541,8 @@ onBeforeUnmount(() => {
             </span>
           </button>
 
+          <div class="library-context-menu-separator" role="separator"></div>
+
           <!-- 插播曲目 / 插播专辑 -->
           <button
             class="library-context-menu-item"
@@ -561,6 +563,8 @@ onBeforeUnmount(() => {
               }}
             </span>
           </button>
+
+          <div class="library-context-menu-separator" role="separator"></div>
 
           <!-- 添加到歌单 (带子菜单) -->
           <div

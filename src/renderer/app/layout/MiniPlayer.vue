@@ -1,125 +1,71 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
+import { computed, onMounted, onUnmounted, ref, type CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 import FluidArtworkBackground from '@renderer/features/playback/components/FluidArtworkBackground.vue'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { usePlaybackProgressInteraction } from '@renderer/features/playback/composables/usePlaybackProgressInteraction'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import { formatPlaybackSubtitle } from '@renderer/features/playback/utils/formatPlaybackSubtitle'
-import { subscribeVisualFrame } from '@renderer/features/playback/utils/visualFrameScheduler'
 import { formatDuration } from '@renderer/features/library/utils/formatDuration'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
-import { auralis } from '@renderer/shared/ipc/client'
 import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
-import { getDefaultMiniPlayerBodySize } from '@shared/constants/miniPlayer'
-import type { MiniPlayerBodySize, MiniPlayerPopoverDirection } from '@shared/ipc/contracts'
 import MiniPlayerPopover from './miniPlayer/MiniPlayerPopover.vue'
 import {
   getMiniPopoverRegionHeight,
   MINI_POPOVER_GAP_PX,
   type MiniPopover,
 } from './miniPlayer/miniPlayerPopoverContract'
-
-/** Accent-metal light pose — reshuffled after each play-button hover ends. */
-interface MetalLightPose {
-  hiX: number
-  hiY: number
-  hiW: number
-  hiH: number
-  loX: number
-  loY: number
-  loW: number
-  loH: number
-  bodyAngle: number
-  hoverHiX: number
-  hoverHiY: number
-  hoverLoX: number
-  hoverLoY: number
-  sweepAngle: number
-  sweepFrom: number
-  sweepTo: number
-}
+import { useMiniPlayerMetalLight } from './miniPlayer/useMiniPlayerMetalLight'
+import { useMiniPlayerWindowSync } from './miniPlayer/useMiniPlayerWindowSync'
 
 const playback = usePlayback()
 const { t } = useI18n()
 const activePopover = ref<MiniPopover>(null)
-const popoverDirection = ref<MiniPlayerPopoverDirection>('below')
-const popoverRegionHeight = ref(0)
 const imageErrorIds = ref<Set<number>>(new Set())
-const isDraggingProgress = ref(false)
-const draggingProgressRatio = ref<number | null>(null)
 const progressFillRef = ref<HTMLElement | null>(null)
-const metalLight = ref<MetalLightPose>(createMetalLightPose())
-let unsubscribeMiniPlayerState: (() => void) | undefined
-let progressFrameUnsubscribe: (() => void) | null = null
-let progressAnchorTime = 0
-let progressAnchorAt = 0
-
-function randomRange(min: number, max: number): number {
-  return min + Math.random() * (max - min)
-}
-
-function createMetalLightPose(previous?: MetalLightPose | null): MetalLightPose {
-  // Highlight stays in the upper half; dark sits roughly opposite for volume.
-  let hiX = randomRange(14, 70)
-  let hiY = randomRange(8, 40)
-  let loX = randomRange(40, 90)
-  let loY = randomRange(52, 90)
-
-  if (previous) {
-    // Nudge away from last pose so the change is noticeable.
-    if (Math.abs(hiX - previous.hiX) < 12) hiX = ((previous.hiX + randomRange(28, 48)) % 70) + 12
-    if (Math.abs(hiY - previous.hiY) < 10) hiY = ((previous.hiY + randomRange(14, 28)) % 32) + 8
-    if (Math.abs(loX - previous.loX) < 12) loX = ((previous.loX + randomRange(24, 42)) % 50) + 40
-    if (Math.abs(loY - previous.loY) < 10) loY = ((previous.loY + randomRange(12, 24)) % 38) + 52
-  }
-
-  if (Math.abs(loX - hiX) < 18) loX = Math.min(90, Math.max(40, hiX + (hiX < 50 ? 28 : -28)))
-  if (Math.abs(loY - hiY) < 22) loY = Math.min(90, hiY + randomRange(36, 52))
-
-  const bodyAngle = randomRange(118, 208)
-  const hoverHiX = Math.min(78, Math.max(10, hiX + randomRange(-8, 12)))
-  const hoverHiY = Math.min(48, Math.max(6, hiY + randomRange(-10, 6)))
-  const hoverLoX = Math.min(94, Math.max(36, loX + randomRange(-8, 8)))
-  const hoverLoY = Math.min(94, Math.max(48, loY + randomRange(-6, 10)))
-
-  return {
-    hiX,
-    hiY,
-    hiW: randomRange(105, 140),
-    hiH: randomRange(78, 105),
-    loX,
-    loY,
-    loW: randomRange(78, 110),
-    loH: randomRange(68, 95),
-    bodyAngle,
-    hoverHiX,
-    hoverHiY,
-    hoverLoX,
-    hoverLoY,
-    sweepAngle: randomRange(98, 148),
-    sweepFrom: randomRange(115, 145),
-    sweepTo: randomRange(-40, -10),
-  }
-}
-
-/** After hover ends: new highlight / dark / body angles for the next rest + hover. */
-function reshuffleMetalLight(): void {
-  metalLight.value = createMetalLightPose(metalLight.value)
-}
-
-const miniWindow = auralis.window
-const bodySize = ref<MiniPlayerBodySize>(getDefaultMiniPlayerBodySize())
+const isMiniPlayerActive = ref(false)
+const {
+  bodySize,
+  popoverDirection,
+  popoverRegionHeight,
+  start: startMiniPlayerWindowSync,
+  stop: stopMiniPlayerWindowSync,
+  setPopover: syncPopoverWindow,
+  restoreMainWindow,
+} = useMiniPlayerWindowSync()
+const { style: playButtonMetalStyle, reshuffle: reshuffleMetalLight } = useMiniPlayerMetalLight()
 const currentTrack = computed(() => playback.state.currentTrack)
 const currentArtworkCacheKey = computed(() => currentTrack.value?.artworkCacheKey ?? null)
 const { palette: albumPalette } = useArtworkPalette(currentArtworkCacheKey)
 const artworkUrl = computed(() => getArtworkUrl(currentArtworkCacheKey.value))
-const progressRatio = computed(() => {
-  if (!playback.state.duration) return 0
-  if (draggingProgressRatio.value !== null) return draggingProgressRatio.value
-  return Math.min(1, Math.max(0, playback.state.currentTime / playback.state.duration))
+
+function renderProgressRatio(ratio: number): void {
+  const fill = progressFillRef.value
+  if (!fill) return
+  fill.style.transform = `scaleX(${ratio})`
+  fill.parentElement?.style.setProperty('--auralis-progress-value', ratio.toString())
+}
+
+const {
+  draggingRatio: draggingProgressRatio,
+  valueNow: progressValueNow,
+  onPointerDown: handleProgressPointerDown,
+  onPointerMove: handleProgressPointerMove,
+  onPointerUp: handleProgressPointerUp,
+  onPointerCancel: handleProgressPointerCancel,
+  onKeydown: handleProgressKeydown,
+} = usePlaybackProgressInteraction({
+  duration: computed(() => playback.state.duration),
+  currentTime: computed(() => playback.state.currentTime),
+  isPlaying: computed(() => playback.state.isPlaying),
+  active: isMiniPlayerActive,
+  seekByRatio: playback.seekByRatio,
+  seekTo: playback.seekTo,
+  renderRatio: renderProgressRatio,
+  resolveSeekStepSeconds: (shiftKey) => (shiftKey ? 10 : 5),
 })
-const progressValueNow = computed(() => Math.round(progressRatio.value * 100))
+
 const displayCurrentTime = computed(() => {
   if (draggingProgressRatio.value !== null && playback.state.duration > 0) {
     return draggingProgressRatio.value * playback.state.duration
@@ -153,36 +99,6 @@ const miniPlayerStyle = computed(
         albumAccentColor.value ?? 'var(--auralis-sidebar-active-indicator)',
     }) as CSSProperties,
 )
-const playButtonMetalStyle = computed(
-  () =>
-    ({
-      '--metal-hi-x': `${metalLight.value.hiX}%`,
-      '--metal-hi-y': `${metalLight.value.hiY}%`,
-      '--metal-hi-w': `${metalLight.value.hiW}%`,
-      '--metal-hi-h': `${metalLight.value.hiH}%`,
-      '--metal-lo-x': `${metalLight.value.loX}%`,
-      '--metal-lo-y': `${metalLight.value.loY}%`,
-      '--metal-lo-w': `${metalLight.value.loW}%`,
-      '--metal-lo-h': `${metalLight.value.loH}%`,
-      '--metal-body-angle': `${metalLight.value.bodyAngle}deg`,
-      '--metal-hi-hover-x': `${metalLight.value.hoverHiX}%`,
-      '--metal-hi-hover-y': `${metalLight.value.hoverHiY}%`,
-      '--metal-lo-hover-x': `${metalLight.value.hoverLoX}%`,
-      '--metal-lo-hover-y': `${metalLight.value.hoverLoY}%`,
-      '--metal-sweep-angle': `${metalLight.value.sweepAngle}deg`,
-      '--metal-sweep-from': `${metalLight.value.sweepFrom}%`,
-      '--metal-sweep-to': `${metalLight.value.sweepTo}%`,
-    }) as CSSProperties,
-)
-
-function applyBodyFromState(body: MiniPlayerBodySize | undefined): void {
-  if (!body?.coverSize || !body.width || !body.height) return
-  bodySize.value = {
-    coverSize: body.coverSize,
-    width: body.width,
-    height: body.height,
-  }
-}
 
 /** Dock bar short labels (serif text buttons). Full names live in the mode popover. */
 const modeDockLabel = computed(() => {
@@ -212,15 +128,7 @@ async function setPopover(next: MiniPopover): Promise<void> {
   activePopover.value = next
   const regionHeight = getMiniPopoverRegionHeight(next)
   popoverRegionHeight.value = regionHeight
-  const result = await miniWindow.setMiniPlayerPopover({
-    open: next !== null,
-    direction: popoverDirection.value,
-    height: regionHeight,
-  })
-  if (result?.popover.direction) {
-    popoverDirection.value = result.popover.direction
-    popoverRegionHeight.value = result.popover.height
-  }
+  await syncPopoverWindow(next !== null, regionHeight)
 }
 
 function togglePopover(popover: Exclude<MiniPopover, null>): void {
@@ -253,114 +161,6 @@ function handleOutsidePointerDown(event: PointerEvent): void {
   closePopover()
 }
 
-function renderVisualProgress(now: number): void {
-  const fill = progressFillRef.value
-  if (!fill) return
-
-  let ratio = draggingProgressRatio.value
-  if (ratio === null) {
-    const elapsed = playback.state.isPlaying ? Math.max(0, now - progressAnchorAt) / 1000 : 0
-    const visualTime = Math.min(playback.state.duration, progressAnchorTime + elapsed)
-    ratio =
-      playback.state.duration > 0
-        ? Math.min(1, Math.max(0, visualTime / playback.state.duration))
-        : 0
-  }
-
-  fill.style.transform = `scaleX(${ratio})`
-  fill.parentElement?.style.setProperty('--auralis-progress-value', ratio.toString())
-}
-
-function syncProgressAnchor(): void {
-  progressAnchorTime = playback.state.currentTime
-  progressAnchorAt = performance.now()
-  renderVisualProgress(progressAnchorAt)
-}
-
-function syncProgressFrameSubscription(): void {
-  const shouldAnimate = Boolean(currentTrack.value && playback.state.isPlaying)
-  if (shouldAnimate) {
-    if (!progressFrameUnsubscribe) {
-      progressFrameUnsubscribe = subscribeVisualFrame(renderVisualProgress)
-    }
-  } else {
-    progressFrameUnsubscribe?.()
-    progressFrameUnsubscribe = null
-  }
-  syncProgressAnchor()
-}
-
-watch(
-  () => playback.state.currentTrackId,
-  () => nextTick(syncProgressFrameSubscription),
-)
-
-watch(
-  () => [playback.state.currentTime, playback.state.duration, playback.state.isPlaying],
-  syncProgressFrameSubscription,
-)
-
-function progressRatioFromEvent(event: PointerEvent, target: HTMLElement): number {
-  const rect = target.getBoundingClientRect()
-  return Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width))
-}
-
-function updateDraggingProgressFromPointer(event: PointerEvent): void {
-  if (!playback.state.duration) return
-  const target = event.currentTarget as HTMLElement
-  draggingProgressRatio.value = progressRatioFromEvent(event, target)
-}
-
-function handleProgressPointerDown(event: PointerEvent): void {
-  if (!playback.state.duration) return
-  const target = event.currentTarget as HTMLElement
-  isDraggingProgress.value = true
-  target.setPointerCapture(event.pointerId)
-  event.preventDefault()
-  updateDraggingProgressFromPointer(event)
-}
-
-function handleProgressPointerMove(event: PointerEvent): void {
-  if (!isDraggingProgress.value) return
-  updateDraggingProgressFromPointer(event)
-}
-
-function handleProgressPointerUp(event: PointerEvent): void {
-  if (!isDraggingProgress.value) return
-
-  updateDraggingProgressFromPointer(event)
-  if (draggingProgressRatio.value !== null) playback.seekByRatio(draggingProgressRatio.value)
-
-  const target = event.currentTarget as HTMLElement
-  if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId)
-  isDraggingProgress.value = false
-  draggingProgressRatio.value = null
-}
-
-function handleProgressPointerCancel(event: PointerEvent): void {
-  const target = event.currentTarget as HTMLElement
-  if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId)
-  isDraggingProgress.value = false
-  draggingProgressRatio.value = null
-}
-
-function handleProgressKeydown(event: KeyboardEvent): void {
-  if (!playback.state.duration) return
-  const delta = event.shiftKey ? 10 : 5
-  if (event.key === 'ArrowLeft') {
-    event.preventDefault()
-    playback.seekTo(playback.state.currentTime - delta)
-  }
-  if (event.key === 'ArrowRight') {
-    event.preventDefault()
-    playback.seekTo(playback.state.currentTime + delta)
-  }
-}
-
-function restoreMainWindow(): void {
-  void miniWindow.restoreFromMiniPlayer()
-}
-
 /** Direction A: no window chrome — double-click sleeve / plaque to return. */
 function handleRestoreGesture(event: MouseEvent): void {
   const target = event.target
@@ -380,29 +180,19 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 onMounted(() => {
+  isMiniPlayerActive.value = true
   document.documentElement.classList.add('mini-player-root')
   document.addEventListener('pointerdown', handleOutsidePointerDown)
   document.addEventListener('keydown', handleKeydown)
-  void miniWindow.getMiniPlayerState().then((state) => {
-    popoverDirection.value = state.popover.direction
-    popoverRegionHeight.value = state.popover.height
-    applyBodyFromState(state.body)
-  })
-  unsubscribeMiniPlayerState = miniWindow.onMiniPlayerStateChanged((state) => {
-    popoverDirection.value = state.popover.direction
-    popoverRegionHeight.value = state.popover.height
-    applyBodyFromState(state.body)
-  })
-  syncProgressFrameSubscription()
+  startMiniPlayerWindowSync()
 })
 
 onUnmounted(() => {
+  isMiniPlayerActive.value = false
   document.documentElement.classList.remove('mini-player-root')
   document.removeEventListener('pointerdown', handleOutsidePointerDown)
   document.removeEventListener('keydown', handleKeydown)
-  unsubscribeMiniPlayerState?.()
-  progressFrameUnsubscribe?.()
-  progressFrameUnsubscribe = null
+  stopMiniPlayerWindowSync()
 })
 </script>
 

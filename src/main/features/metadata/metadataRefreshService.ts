@@ -34,7 +34,8 @@ export class MetadataRefreshService {
   }
 
   /**
-   * Wire a callback after successful audio tag writes (e.g. suppress watch refresh).
+   * Called immediately before the audio file is rewritten so watchers can
+   * suppress the incoming mtime events (e.g. skip a metadata refresh).
    */
   setTagWriteSuccessHandler(handler: (filePath: string) => void): void {
     this.onTagWriteSuccess = handler
@@ -273,9 +274,10 @@ export class MetadataRefreshService {
       throw new Error(`Audio file not found for track ${metadata.trackId}`)
     }
 
-    await writeAudioTags(filePath, metadata)
-    // Suppress watch refresh BEFORE DB write so a concurrent flush cannot race.
+    // Suppress before the file mutates: ffmpeg replace fires watch events while
+    // the write is still in flight, and a 1200ms flush can start first.
     this.onTagWriteSuccess?.(filePath)
+    await writeAudioTags(filePath, metadata)
     this.repository.updateUserEditedMetadata(metadata)
     return { ok: true }
   }

@@ -21,6 +21,7 @@ const unsubscribeUpdate = desktopLyricsApi.desktopLyrics.onUpdate((nextPayload) 
 
 onMounted(() => {
   document.documentElement.classList.add('desktop-lyrics-root')
+  desktopLyricsApi.desktopLyrics.ready()
 })
 
 onBeforeUnmount(() => {

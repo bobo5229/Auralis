@@ -3,10 +3,7 @@ import type { FSWatcher } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
 import { parseFile } from 'music-metadata'
-import {
-  isSupportedAudioFile,
-  supportedAudioExtensions,
-} from '@main/features/libraryScan/audioFileFilter'
+import { isSupportedAudioFile } from '@main/features/libraryScan/audioFileFilter'
 import {
   normalizeIdentityText,
   normalizeMetadata,
@@ -17,7 +14,8 @@ import { TrackRepository } from '@main/repositories/trackRepository'
 import type { MissingTrackCandidate } from '@main/repositories/trackRepository'
 import { logger } from '@main/logging/logger'
 import type { MetadataRefreshService } from './metadataRefreshService'
-import { resolveChangedFilePaths } from './metadataFileChangeFilter'
+import { resolveWatchRefreshPaths } from './metadataFileChangeFilter'
+import { resolveAudioCandidatesForLyricSidecar } from './lyricSidecarPaths'
 import type { LibraryIncrementalImportService } from '../libraryScan/libraryIncrementalImportService'
 import { resolveLyricsForFile } from './resolveLyricsForFile'
 import {
@@ -62,6 +60,8 @@ function isTransientStatError(error: unknown): boolean {
 export class MetadataWatchService {
   private readonly watchers = new Map<string, FSWatcher>()
   private readonly pendingFilePaths = new Map<string, number>()
+  /** Audio paths whose pending event came from a sidecar `.lrc` mapping. */
+  private readonly pendingLyricsIntentPaths = new Set<string>()
   private readonly unstableRetries = new Map<string, number>()
   private readonly inFlightFilePaths = new Set<string>()
   private readonly deferredFilePaths = new Set<string>()
@@ -152,6 +152,7 @@ export class MetadataWatchService {
     this.suppressRefreshUntil.set(normalizedPath, Date.now() + durationMs)
     // Drop any already-queued refresh for this path.
     this.pendingFilePaths.delete(normalizedPath)
+    this.pendingLyricsIntentPaths.delete(normalizedPath)
     this.deferredFilePaths.delete(normalizedPath)
   }
 
@@ -197,15 +198,12 @@ export class MetadataWatchService {
         const filePath = normalize(join(rootPath, filename.toString()))
 
         if (extname(filePath).toLowerCase() === '.lrc') {
-          const basePath = filePath.slice(0, -extname(filePath).length)
-          const audioCandidates = supportedAudioExtensions.flatMap((extension) => [
-            `${basePath}${extension}`,
-            `${basePath}${extension.toUpperCase()}`,
-          ])
+          const audioCandidates = resolveAudioCandidatesForLyricSidecar(filePath)
           const knownAudioPaths = this.trackRepository.getExistingFilePaths(audioCandidates)
 
           for (const audioPath of knownAudioPaths) {
             this.pendingFilePaths.set(audioPath, Date.now())
+            this.pendingLyricsIntentPaths.add(audioPath)
           }
 
           if (knownAudioPaths.size > 0) {
@@ -332,21 +330,24 @@ export class MetadataWatchService {
         .filter((entry) => !knownPaths.has(entry.filePath))
         .map((entry) => entry.filePath)
 
-      // Known tracks: metadata refresh only for files whose on-disk fingerprint
-      // differs from the last scan. Opening a file for playback leaves size +
-      // mtime untouched, so it must not create a refresh job — the job would
-      // broadcast library:changed and drag the song-list viewport back to the
-      // playing track. Missing fingerprints / unusable mtimes stay conservative
-      // and go through refresh.
+      // Known tracks: refresh when the audio fingerprint changed, or when a
+      // sidecar `.lrc` mapped this path into lyrics intent. Opening a file for
+      // playback leaves size + mtime untouched and carries no lyrics intent, so
+      // it must not create a refresh job. Tag-write suppression is applied
+      // before this decision.
       const refreshCandidates = knownEntries.filter(
         (entry) => !this.isRefreshSuppressed(entry.filePath),
       )
       const fingerprints = this.trackRepository.getFileFingerprintsByFilePaths(
         refreshCandidates.map((entry) => entry.filePath),
       )
-      const changedPaths = resolveChangedFilePaths({
+      const lyricsIntentPaths = refreshCandidates
+        .map((entry) => entry.filePath)
+        .filter((filePath) => this.pendingLyricsIntentPaths.has(filePath))
+      const changedPaths = resolveWatchRefreshPaths({
         stats: refreshCandidates,
         fingerprints,
+        lyricsIntentPaths,
       })
 
       if (changedPaths.length > 0) {
@@ -381,6 +382,14 @@ export class MetadataWatchService {
     if (missingPaths.length > 0) {
       for (const filePath of missingPaths) {
         this.enqueueMissingFile(filePath)
+      }
+    }
+
+    // Drop lyrics intent for paths this batch finished. Deferred and
+    // requeued (transient stat / refresh defer) paths keep their intent.
+    for (const filePath of incoming) {
+      if (!this.pendingFilePaths.has(filePath)) {
+        this.pendingLyricsIntentPaths.delete(filePath)
       }
     }
   }

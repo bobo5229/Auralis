@@ -26,6 +26,6 @@
 
 只有任务需要产品或历史设计背景时才读取，不作为常驻规则或新的验收门槛：
 
-- [曲库加载 PRD](<../2026-06-24/01-曲库加载/Auralis 曲库加载 PRD.md>)
-- [曲库加载技术设计](<../2026-06-24/01-曲库加载/Auralis 曲库加载技术设计.md>)
-- [悬浮 Playbar PRD](<../2026-06-24/01-曲库加载/Auralis 悬浮 Playbar PRD.md>)
+- [曲库加载 PRD](<../history/2026-06-24/01-曲库加载/Auralis 曲库加载 PRD.md>)
+- [曲库加载技术设计](<../history/2026-06-24/01-曲库加载/Auralis 曲库加载技术设计.md>)
+- [悬浮 Playbar PRD](<../history/2026-06-24/01-曲库加载/Auralis 悬浮 Playbar PRD.md>)

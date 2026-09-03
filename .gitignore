@@ -77,6 +77,10 @@ docs/topics/playback/*
 !docs/topics/playback/TECHDOC-playerbar-matte-depth-2026-08-29.md
 !docs/topics/playback/TECHDOC-playerbar-modern-play-button-2026-08-28.md
 !docs/topics/playback/TECHDOC-playerbar-radius-2026-08-29.md
+!docs/topics/playback/TECHDOC-use-playback-architecture-split-2026-08-30.md
+!docs/topics/playback/TECHDOC-fullscreen-player-overlay-refactor-2026-08-30.md
+!docs/topics/playback/TECHDOC-mini-player-script-refactor-2026-08-30.md
+!docs/topics/playback/TECHDOC-player-bar-overlay-controller-2026-08-30.md
 !docs/reviews/
 docs/reviews/*
 !docs/reviews/2026-07-17-architecture-review-fixes.md

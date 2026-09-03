@@ -39,7 +39,8 @@ export function useLibrarySearchSession(options: {
 } {
   const searchQuery = ref('')
   const isSearchFocused = ref(false)
-  const isSearchZoneHovered = ref(false)
+  const isTopZoneHovered = ref(false)
+  const isSearchBarHovered = ref(false)
   const searchInputRef = ref<HTMLElement | null>(null)
   const searchRootRef = ref<HTMLElement | null>(null)
   const searchOutcome = ref<LibrarySearchOutcome>({ kind: 'idle' })
@@ -59,8 +60,9 @@ export function useLibrarySearchSession(options: {
   })
 
   const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
+  const isSearchZoneHovered = computed(() => isTopZoneHovered.value || isSearchBarHovered.value)
   const shouldRenderSearchBar = computed(
-    () => isSearchZoneHovered.value || isSearchFocused.value || hasSearchQuery.value,
+    () => isSearchFocused.value || hasSearchQuery.value || isSearchZoneHovered.value,
   )
 
   function scheduleLibrarySearchIndex(sourceTracks: readonly TrackListItem[]): void {
@@ -145,33 +147,33 @@ export function useLibrarySearchSession(options: {
   }
 
   function onLibraryListMouseMove(event: MouseEvent): void {
-    const containerRect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-    if (event.clientY - containerRect.top > 48) {
-      isSearchZoneHovered.value = false
-      return
-    }
+    const currentTarget = event.currentTarget as HTMLElement | null
+    if (!currentTarget) return
+
+    const containerRect = currentTarget.getBoundingClientRect()
+    const relativeY = event.clientY - containerRect.top
+    isTopZoneHovered.value = relativeY >= 0 && relativeY <= 48
 
     const bar = searchRootRef.value
-    if (!bar) {
-      isSearchZoneHovered.value = true
-      return
+    if (bar) {
+      const barRect = bar.getBoundingClientRect()
+      isSearchBarHovered.value =
+        event.clientX >= barRect.left &&
+        event.clientX <= barRect.right &&
+        event.clientY >= barRect.top &&
+        event.clientY <= barRect.bottom
+    } else {
+      isSearchBarHovered.value = false
     }
-
-    const barRect = bar.getBoundingClientRect()
-    isSearchZoneHovered.value =
-      event.clientX >= barRect.left &&
-      event.clientX <= barRect.right &&
-      event.clientY >= barRect.top &&
-      event.clientY <= barRect.bottom
   }
 
   function onLibraryListMouseLeave(): void {
-    if (!isSearchFocused.value && !hasSearchQuery.value) {
-      isSearchZoneHovered.value = false
-    }
+    isTopZoneHovered.value = false
+    isSearchBarHovered.value = false
   }
 
   function onSearchBarPointerDown(): void {
+    isSearchFocused.value = true
     searchInputRef.value?.focus()
   }
 
@@ -180,7 +182,7 @@ export function useLibrarySearchSession(options: {
   }
 
   function onSearchInputBlur(): void {
-    isSearchFocused.value = false
+    // 聚焦锁定主要由 onDocumentPointerDown 或 Escape 控制，避免输入框内子元素点击时误卸载
   }
 
   function clearSearch(): void {
@@ -201,8 +203,8 @@ export function useLibrarySearchSession(options: {
       if (searchQuery.value !== '') {
         clearSearch()
       } else {
-        searchInputRef.value?.blur()
         isSearchFocused.value = false
+        searchInputRef.value?.blur()
       }
     }
   }
@@ -211,10 +213,15 @@ export function useLibrarySearchSession(options: {
     const target = event.target
     if (!(target instanceof Node)) return
 
-    if (searchRootRef.value?.contains(target)) return
+    const bar = searchRootRef.value
+    if (bar && (bar === target || bar.contains(target))) {
+      return
+    }
+
     isSearchFocused.value = false
     if (!hasSearchQuery.value) {
-      isSearchZoneHovered.value = false
+      isTopZoneHovered.value = false
+      isSearchBarHovered.value = false
     }
   }
 

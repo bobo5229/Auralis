@@ -82,8 +82,10 @@ function deferred<T>(): Deferred<T> {
   return { promise, resolve: resolvePromise, reject: rejectPromise }
 }
 
-function flushPromises(): Promise<void> {
-  return Promise.resolve().then(() => undefined)
+async function flushPromises(): Promise<void> {
+  for (let i = 0; i < 10; i++) {
+    await Promise.resolve()
+  }
 }
 
 class TestAudio {
@@ -242,12 +244,14 @@ function createApi(): AuralisApi {
     desktopLyrics: {
       toggle: vi.fn(),
       isVisible: vi.fn(),
+      setSuppressed: vi.fn(),
       toggleMousePassthrough: vi.fn(),
       isMousePassthroughEnabled: vi.fn(),
       update: vi.fn(),
       onUpdate: vi.fn(),
       onVisibilityChanged: vi.fn(),
       onMousePassthroughChanged: vi.fn(),
+      ready: vi.fn(),
     },
     archive: {
       getListeningHeatmap: vi.fn(),
@@ -366,6 +370,16 @@ describe('usePlayback foreground request state', () => {
     installBrowserHarness()
   })
 
+  it('returns the same singleton public API for repeated calls', async () => {
+    vi.resetModules()
+    const { usePlayback } = await import('./usePlayback')
+
+    const first = usePlayback()
+    const second = usePlayback()
+
+    expect(second).toBe(first)
+  })
+
   it('does not invoke playback while there is no current track', async () => {
     const playback = await loadPlayback()
 
@@ -409,6 +423,7 @@ describe('usePlayback foreground request state', () => {
     const playback = await loadPlayback()
 
     await playback.playTrackFromQueue([track(1), track(2)], 1)
+    await flushPromises()
 
     expect(api.playback.getAudioUrl).toHaveBeenLastCalledWith(2)
     expect(playback.isPlaybackPending.value).toBe(false)
@@ -490,5 +505,167 @@ describe('usePlayback foreground request state', () => {
     url.resolve({ url: 'audio://1' })
     await request
     expect(playback.isPlaybackPending.value).toBe(false)
+  })
+})
+
+describe('usePlayback mode navigation & characterization frozen semantics', () => {
+  beforeEach(() => {
+    installBrowserHarness()
+  })
+
+  it('sequential mode: manual next stops at end without error, ended stops and resets time', async () => {
+    const playback = await loadPlayback()
+    const audio = TestAudio.latest!
+    await playback.playTrackFromQueue([track(1), track(2)], 2)
+    expect(playback.state.currentTrackId).toBe(2)
+
+    // Manual next at end of queue
+    await playback.playNext()
+    expect(playback.state.currentTrackId).toBe(2)
+    expect(playback.state.isPlaying).toBe(true)
+
+    // Natural ended at end of queue
+    audio.currentTime = 180
+    audio.dispatch('ended')
+    await flushPromises()
+
+    expect(playback.state.isPlaying).toBe(false)
+    expect(playback.state.currentTime).toBe(0)
+  })
+
+  it('repeat-all mode: manual next and natural ended wrap to first track', async () => {
+    const playback = await loadPlayback()
+    const audio = TestAudio.latest!
+    playback.setPlaybackMode('repeat-all')
+    await playback.playTrackFromQueue([track(1), track(2)], 2)
+
+    await playback.playNext()
+    expect(playback.state.currentTrackId).toBe(1)
+
+    audio.dispatch('ended')
+    await flushPromises()
+    expect(playback.state.currentTrackId).toBe(2)
+  })
+
+  it('repeat-one mode: manual next advances sequentially, ended repeats current track', async () => {
+    const playback = await loadPlayback()
+    const audio = TestAudio.latest!
+    playback.setPlaybackMode('repeat-one')
+    await playback.playTrackFromQueue([track(1), track(2)], 1)
+
+    // Manual next advances to track 2
+    await playback.playNext()
+    expect(playback.state.currentTrackId).toBe(2)
+
+    // Natural ended replays track 2
+    audio.currentTime = 180
+    audio.dispatch('ended')
+    await flushPromises()
+    expect(playback.state.currentTrackId).toBe(2)
+    expect(playback.state.currentTime).toBe(0)
+    expect(playback.state.isPlaying).toBe(true)
+  })
+
+  it('queuedNextTrackId: consumed on manual next across modes, but skipped on repeat-one ended', async () => {
+    const playback = await loadPlayback()
+    const audio = TestAudio.latest!
+    playback.setPlaybackMode('repeat-one')
+    await playback.playTrackFromQueue([track(1), track(2)], 1)
+
+    // Insert track 3 after current
+    playback.insertTrackAfterCurrent(track(3))
+    expect(playback.state.queue.map((t) => t.id)).toEqual([1, 3, 2])
+
+    // Natural ended in repeat-one replays track 1 and DOES NOT consume queued track
+    audio.dispatch('ended')
+    await flushPromises()
+    expect(playback.state.currentTrackId).toBe(1)
+
+    // Manual next consumes queued track 3
+    await playback.playNext()
+    expect(playback.state.currentTrackId).toBe(3)
+  })
+
+  it('shuffle mode: playNext picks from shuffle pool or API, playPrevious restores history', async () => {
+    const playback = await loadPlayback()
+    playback.setPlaybackMode('shuffle')
+    await playback.playTrackFromQueue([track(1)], 1, {
+      shufflePool: [track(1), track(2), track(3)],
+    })
+
+    await playback.playNext()
+    const secondTrackId = playback.state.currentTrackId
+    expect([2, 3]).toContain(secondTrackId)
+
+    await playback.playPrevious()
+    expect(playback.state.currentTrackId).toBe(1)
+  })
+
+  it('album-shuffle mode: advances within album, then transitions to random album', async () => {
+    const album1Track1: PlaybackTrack = { ...track(10), album: 'Album A', artist: 'Artist A' }
+    const album1Track2: PlaybackTrack = { ...track(11), album: 'Album A', artist: 'Artist A' }
+    const album2Track1: PlaybackTrack = { ...track(20), album: 'Album B', artist: 'Artist B' }
+
+    vi.mocked(api.playback.getAlbumTracks).mockResolvedValue({
+      albumArtist: 'Artist A',
+      album: 'Album A',
+      tracks: [album1Track1, album1Track2],
+    })
+    vi.mocked(api.playback.getRandomAlbumTracks).mockResolvedValue({
+      albumArtist: 'Artist B',
+      album: 'Album B',
+      tracks: [album2Track1],
+    })
+
+    const playback = await loadPlayback()
+    playback.setPlaybackMode('album-shuffle')
+    await playback.playTrackFromQueue([album1Track1, album1Track2], 10)
+
+    // Advance within album
+    await playback.playNext()
+    expect(playback.state.currentTrackId).toBe(11)
+
+    // End of album transitions to next album
+    await playback.playNext()
+    expect(playback.state.currentTrackId).toBe(20)
+
+    // History restores previous album track
+    await playback.playPrevious()
+    expect(playback.state.currentTrackId).toBe(11)
+  })
+
+  it('previous track at start of queue: wraps in repeat-all, seeks to start in sequential', async () => {
+    const playback = await loadPlayback()
+    const audio = TestAudio.latest!
+    await playback.playTrackFromQueue([track(1), track(2)], 1)
+    audio.currentTime = 50
+    playback.state.currentTime = 50
+
+    await playback.playPrevious()
+    expect(playback.state.currentTrackId).toBe(1)
+    expect(audio.currentTime).toBe(0)
+    expect(playback.state.currentTime).toBe(0)
+
+    playback.setPlaybackMode('repeat-all')
+    await playback.playPrevious()
+    expect(playback.state.currentTrackId).toBe(2)
+  })
+
+  it('missing tracks cleanup: removes non-current tracks, halts and reports error when current track is missing', async () => {
+    const playback = await loadPlayback()
+    await playback.playTrackFromQueue([track(1), track(2), track(3)], 2)
+    playback.insertTrackAfterCurrent(track(4))
+
+    // Remove non-current track 3 & queued track 4
+    libraryChangedListener?.({ reason: 'track-missing', trackIds: [3, 4], filePaths: [] })
+    expect(playback.state.queue.map((t) => t.id)).toEqual([1, 2])
+    expect(playback.state.currentTrackId).toBe(2)
+
+    // Remove current track 2
+    libraryChangedListener?.({ reason: 'track-missing', trackIds: [2], filePaths: [] })
+    expect(playback.state.currentTrackId).toBeNull()
+    expect(playback.state.currentTrack).toBeNull()
+    expect(playback.state.isPlaying).toBe(false)
+    expect(playback.state.error).toContain('unavailable')
   })
 })

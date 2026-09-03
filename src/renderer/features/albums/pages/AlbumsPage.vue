@@ -64,7 +64,8 @@ const displayMode = ref<AlbumDisplayMode>(readDisplayMode())
 const contextMenu = ref<AlbumContextMenuState | null>(null)
 const searchQuery = ref('')
 const isSearchFocused = ref(false)
-const isSearchZoneHovered = ref(false)
+const isTopZoneHovered = ref(false)
+const isSearchBarHovered = ref(false)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchRootRef = ref<HTMLElement | null>(null)
 const highlightedAlbumKey = ref<string | null>(null)
@@ -80,6 +81,7 @@ let restoreScrollFrame: number | null = null
 let isPageUnmounted = false
 
 const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
+const isSearchZoneHovered = computed(() => isTopZoneHovered.value || isSearchBarHovered.value)
 const shouldRenderSearchBar = computed(
   () => isSearchZoneHovered.value || isSearchFocused.value || hasSearchQuery.value,
 )
@@ -291,37 +293,37 @@ function onSearchKeydown(event: KeyboardEvent): void {
 
 function onAlbumsMouseMove(event: MouseEvent): void {
   const containerRect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  if (event.clientY - containerRect.top > 48) {
-    isSearchZoneHovered.value = false
-    return
-  }
+  const relativeY = event.clientY - containerRect.top
+  isTopZoneHovered.value = relativeY >= 0 && relativeY <= 48
 
   const bar = searchRootRef.value
-  if (!bar) {
-    isSearchZoneHovered.value = true
-    return
+  if (bar) {
+    const barRect = bar.getBoundingClientRect()
+    isSearchBarHovered.value =
+      event.clientX >= barRect.left &&
+      event.clientX <= barRect.right &&
+      event.clientY >= barRect.top &&
+      event.clientY <= barRect.bottom
+  } else {
+    isSearchBarHovered.value = false
   }
-
-  const barRect = bar.getBoundingClientRect()
-  isSearchZoneHovered.value =
-    event.clientX >= barRect.left &&
-    event.clientX <= barRect.right &&
-    event.clientY >= barRect.top &&
-    event.clientY <= barRect.bottom
 }
 
 function onAlbumsMouseLeave(): void {
-  if (!isSearchFocused.value && !hasSearchQuery.value) {
-    isSearchZoneHovered.value = false
-  }
+  isTopZoneHovered.value = false
+  isSearchBarHovered.value = false
 }
 
 function onDocumentPointerDown(event: PointerEvent): void {
   const target = event.target
-  if (!(target instanceof Node) || searchRootRef.value?.contains(target)) return
+  const bar = searchRootRef.value
+  if (!(target instanceof Node) || (bar && (bar === target || bar.contains(target)))) return
 
   isSearchFocused.value = false
-  if (!hasSearchQuery.value) isSearchZoneHovered.value = false
+  if (!hasSearchQuery.value) {
+    isTopZoneHovered.value = false
+    isSearchBarHovered.value = false
+  }
 }
 
 function closeContextMenu(): void {
@@ -484,43 +486,6 @@ onBeforeUnmount(() => {
           :album-count="albums.length"
           :track-count="tracks.length"
         />
-        <div class="albums-page-toolbar">
-          <span v-if="isManuscriptAlbums" class="albums-toolbar-label">
-            {{ t('albums.manuscript.viewLabel') }}
-          </span>
-          <div class="view-mode-switch" role="group" :aria-label="t('albums.view.ariaLabel')">
-            <div
-              class="view-mode-slider-thumb"
-              :class="`is-${displayMode}`"
-              aria-hidden="true"
-            ></div>
-            <button
-              type="button"
-              class="switch-btn"
-              :class="{ 'is-active': displayMode === 'grid' }"
-              :aria-pressed="displayMode === 'grid'"
-              :aria-label="t('albums.view.grid')"
-              :title="t('albums.view.grid')"
-              @click="setDisplayMode('grid')"
-            >
-              <span class="i-lucide-grid-2x2 h-4 w-4 relative z-10" aria-hidden="true"></span>
-            </button>
-            <button
-              type="button"
-              class="switch-btn"
-              :class="{ 'is-active': displayMode === 'perspective' }"
-              :aria-pressed="displayMode === 'perspective'"
-              :aria-label="t('albums.view.perspective')"
-              :title="t('albums.view.perspective')"
-              @click="setDisplayMode('perspective')"
-            >
-              <span
-                class="i-lucide-panels-top-left h-4 w-4 relative z-10"
-                aria-hidden="true"
-              ></span>
-            </button>
-          </div>
-        </div>
 
         <div
           v-if="albums.length > 0"
@@ -695,98 +660,10 @@ onBeforeUnmount(() => {
   transition-delay: var(--row-delay, 0ms);
 }
 
-.albums-page-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 8px 20px;
-  margin-bottom: 8px;
-}
-
-/* 悬浮微光磨砂胶囊 (Floating Glass Pill Control) */
-.view-mode-switch {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  padding: 4px;
-  border-radius: 14px;
-  background: rgba(18, 20, 26, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.1),
-    0 8px 24px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
-
-/* 物理流体弹簧滑块 (Fluid Spring Thumb) */
-.view-mode-slider-thumb {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 32px;
-  height: 28px;
-  border-radius: 10px;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--auralis-sidebar-active-indicator, #6366f1) 75%, #ffffff 25%) 0%,
-    color-mix(in srgb, var(--auralis-sidebar-active-indicator, #6366f1) 90%, #000000 10%) 100%
-  );
-  box-shadow:
-    0 4px 14px color-mix(in srgb, var(--auralis-sidebar-active-indicator, #6366f1) 50%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
-  transition:
-    transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
-    width 0.25s ease-out;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.view-mode-slider-thumb.is-grid {
-  transform: translateX(0);
-}
-
-.view-mode-slider-thumb.is-perspective {
-  transform: translateX(32px);
-}
-
-.switch-btn {
-  position: relative;
-  z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 28px;
-  padding: 0;
-  border-radius: 10px;
-  border: none;
-  background: transparent;
-  color: var(--auralis-text-muted);
-  cursor: pointer;
-  transition: color 0.25s ease;
-}
-
-.switch-btn:hover {
-  color: #ffffff;
-}
-
-.switch-btn.is-active {
-  color: #ffffff;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .view-mode-slider-thumb {
-    transition: none !important;
-  }
-
   .albums-grid-row {
     transition: none !important;
     transition-delay: 0ms !important;
-  }
-
-  .switch-btn {
-    transition: none;
   }
 }
 </style>

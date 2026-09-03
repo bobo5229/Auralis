@@ -11,6 +11,7 @@
 }
 
 /* Scrim 蒙版 */
+.library-overlay[data-visual-style='manuscript'] .library-dialog-scrim,
 .library-overlay[data-visual-style='manuscript'].library-dialog-scrim {
   background: var(--manuscript-surface-scrim);
   backdrop-filter: none;

@@ -11,13 +11,10 @@ import TrackProgressInfo from './TrackProgressInfo.vue'
 import PlayerBarTimeColophon from './PlayerBarTimeColophon.vue'
 import PlaybackQueuePopover from './PlaybackQueuePopover.vue'
 import PlaybackModeMenu from './PlaybackModeMenu.vue'
-import { useTrackLyrics } from '@renderer/features/lyrics/composables/useTrackLyrics'
-import {
-  ensureDesktopLyricsFontReady,
-  formatDesktopLyricsText,
-} from '@renderer/features/lyrics/utils/formatDesktopLyricsText'
-import { auralis } from '@renderer/shared/ipc/client'
-import type { DesktopLyricsPayload, DesktopLyricsStatus } from '@shared/types/desktopLyrics'
+import DesktopLyricsLockPopover from './DesktopLyricsLockPopover.vue'
+import PlaybarQueueIcon from '@renderer/features/playback/components/PlaybarQueueIcon.vue'
+import PlaybarLyricsIcon from '@renderer/features/playback/components/PlaybarLyricsIcon.vue'
+import { useDesktopLyricsSync } from '@renderer/features/lyrics/composables/useDesktopLyricsSync'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import {
   resolvePlayerPaletteEnabled,
@@ -25,22 +22,20 @@ import {
 } from '@renderer/app/utils/playerSurfacePresentation'
 import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverlayFocus'
 import {
+  usePlayerBarOverlayController,
+  type PlayerBarOverlayId,
+} from './playerBar/usePlayerBarOverlayController'
+import {
   MODERN_PLAYER_BAR_MAX_WIDTH_PX,
   shouldOverflowModernUtilities,
 } from '@renderer/features/playback/utils/modernPlayerBarLayout'
-import {
-  isPlayerBarVolumeOverlayRetreatActive,
-  resolveVolumeHoverOverlayFlags,
-  togglePlayerBarExclusiveOverlay,
-  type PlayerBarOverlayFlags,
-} from '@renderer/features/playback/utils/playerBarExclusiveOverlay'
+import { isPlayerBarVolumeOverlayRetreatActive } from '@renderer/features/playback/utils/playerBarExclusiveOverlay'
 import { resolvePlayerPrimaryButtonTextColor } from '@renderer/features/playback/utils/resolvePlayerPrimaryButtonTextColor'
 
 const props = defineProps<{ presentation: PlayerSurfacePresentation }>()
 
 const playback = usePlayback()
 const { t } = useI18n()
-const lyrics = useTrackLyrics()
 const { playerBarMaterial } = usePlayerBarMaterial()
 const { displayMode } = usePlayerDisplayMode()
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
@@ -137,26 +132,28 @@ const playerBarStyle = computed(
 )
 
 // --- Queue popover ---
-const isQueueOpen = ref(false)
 const queueButtonRef = ref<HTMLElement | null>(null)
 const queuePopoverRef = ref<HTMLElement | null>(null)
-const isDesktopLyricsVisible = ref(false)
-const isDesktopLyricsMousePassthroughEnabled = ref(true)
+const {
+  isVisible: isDesktopLyricsVisible,
+  isMousePassthroughEnabled: isDesktopLyricsMousePassthroughEnabled,
+  toggle: toggleDesktopLyricsSession,
+  toggleMousePassthrough: toggleDesktopLyricsMousePassthroughSession,
+} = useDesktopLyricsSync()
 const desktopLyricsToast = ref<string | null>(null)
-let unsubscribeDesktopLyricsVisibility: (() => void) | null = null
-let unsubscribeDesktopLyricsMousePassthrough: (() => void) | null = null
 let desktopLyricsToastTimer: ReturnType<typeof setTimeout> | null = null
-/** Last IPC payload fingerprint — skip identical line-level updates. */
-let lastDesktopLyricsPayloadKey: string | null = null
 
 // Modern island: lyrics + mode stay first-class until the island is ≤640px.
-const isOverflowOpen = ref(false)
 const overflowButtonRef = ref<HTMLElement | null>(null)
 const overflowPanelRef = ref<HTMLElement | null>(null)
-const isModeMenuOpen = ref(false)
 const volumeGroupRef = ref<HTMLElement | null>(null)
 const volumeMuteButtonRef = ref<HTMLButtonElement | null>(null)
 const volumeOverlay = useVolumeOverlay(() => volumeGroupRef.value)
+const overlayController = usePlayerBarOverlayController(volumeOverlay)
+const { isQueueOpen, isModeMenuOpen, isOverflowOpen, isDesktopLyricsLockOpen, isVolumeOpen } =
+  overlayController
+const desktopLyricsButtonRef = ref<HTMLElement | null>(null)
+const desktopLyricsLockPopoverRef = ref<HTMLElement | null>(null)
 const playerBarHostRef = ref<HTMLElement | null>(null)
 const hostInlineSize = ref(Number.POSITIVE_INFINITY)
 const islandRef = ref<HTMLElement | null>(null)
@@ -190,26 +187,8 @@ function unbindIslandObserver(): void {
   islandResizeObserver = null
 }
 
-function currentOverlayFlags(): PlayerBarOverlayFlags {
-  return {
-    queue: isQueueOpen.value,
-    mode: isModeMenuOpen.value,
-    overflow: isOverflowOpen.value,
-    volume: volumeOverlay.open.value,
-  }
-}
-
-function applyExclusiveOverlay(next: PlayerBarOverlayFlags): void {
-  isQueueOpen.value = next.queue
-  isModeMenuOpen.value = next.mode
-  isOverflowOpen.value = next.overflow
-  if (!next.volume) {
-    volumeOverlay.dismiss()
-  }
-}
-
 function toggleQueue(): void {
-  applyExclusiveOverlay(togglePlayerBarExclusiveOverlay(currentOverlayFlags(), 'queue'))
+  overlayController.toggle('queue')
 }
 
 function measureHostInlineSize(): number {
@@ -229,11 +208,7 @@ function isVolumeOverlayRetreatActive(): boolean {
 }
 
 function applyVolumeHoverExclusivity(): void {
-  const retreatActive = isVolumeOverlayRetreatActive()
-  const next = resolveVolumeHoverOverlayFlags(currentOverlayFlags(), retreatActive)
-  if (retreatActive) {
-    applyExclusiveOverlay(next)
-  }
+  if (isVolumeOverlayRetreatActive()) overlayController.activateVolume()
 }
 
 function handleVolumePointerEnter(): void {
@@ -251,125 +226,52 @@ function handleVolumeSliderPointerDown(): void {
   volumeOverlay.onSliderPointerDown()
 }
 
-function closeQueue(): void {
-  isQueueOpen.value = false
-}
-
 function handleQueueClose(): void {
-  isQueueOpen.value = false
+  overlayController.close('queue')
   resolveRestorablePlayerTrigger(queueButtonRef.value)?.focus()
 }
 
-function getPlainLyricLines(rawLyrics: string | null): string[] {
-  return (rawLyrics ?? '')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-}
-
-function buildDesktopLyricsPayload(): DesktopLyricsPayload {
-  const track = playback.state.currentTrack
-  const status: DesktopLyricsStatus =
-    lyrics.status.value === 'no-track' ? 'idle' : lyrics.status.value
-
-  if (!track) {
-    return {
-      trackId: null,
-      title: null,
-      artist: null,
-      currentLine: '',
-      nextLine: '',
-      status: 'idle',
-      isPlaying: false,
-    }
-  }
-
-  let currentLine = ''
-  let nextLine = ''
-
-  if (lyrics.status.value === 'loading') {
-    currentLine = t('player.lyricsLoading')
-  } else if (lyrics.status.value === 'empty') {
-    currentLine = t('player.lyricsEmpty')
-  } else if (lyrics.status.value === 'plain') {
-    const lines = getPlainLyricLines(lyrics.rawLyrics.value)
-    currentLine = lines[0] ?? t('player.lyricsEmpty')
-    nextLine = lines[1] ?? ''
-  } else if (lyrics.status.value === 'lrc') {
-    const lines = lyrics.parsedLines.value.filter((line) => line.text.length > 0)
-    const activeIndex = lines.findIndex(
-      (line) => line.id === lyrics.parsedLines.value[lyrics.activeIndex.value]?.id,
-    )
-
-    if (activeIndex >= 0) {
-      currentLine = lines[activeIndex]?.text ?? ''
-      nextLine = lines[activeIndex + 1]?.text ?? ''
-    } else {
-      currentLine = lyrics.showPrelude.value ? '.'.repeat(lyrics.preludeLitDotCount.value) : ''
-      nextLine = lines[0]?.text ?? ''
-    }
-  }
-
-  return {
-    trackId: track.id,
-    title: track.title,
-    artist: track.artist,
-    currentLine: formatDesktopLyricsText(currentLine),
-    nextLine: formatDesktopLyricsText(nextLine),
-    status,
-    isPlaying: playback.state.isPlaying,
-  }
-}
-
-function getDesktopLyricsPayloadKey(payload: DesktopLyricsPayload): string {
-  return [
-    payload.trackId ?? '',
-    payload.title ?? '',
-    payload.artist ?? '',
-    payload.currentLine,
-    payload.nextLine,
-    payload.status,
-    payload.isPlaying ? '1' : '0',
-  ].join('\0')
-}
-
-/**
- * Push desktop lyrics state to the secondary window.
- * Skips when the window is hidden (unless force) and when the line-level payload is unchanged.
- * Intentionally does not depend on currentTime ticks — activeIndex / prelude drive line changes.
- */
-function syncDesktopLyrics(force = false): void {
-  if (!force && !isDesktopLyricsVisible.value) return
-
-  const payload = buildDesktopLyricsPayload()
-  const key = getDesktopLyricsPayloadKey(payload)
-  if (!force && key === lastDesktopLyricsPayloadKey) return
-
-  lastDesktopLyricsPayloadKey = key
-  void auralis.desktopLyrics.update(payload)
-}
-
 async function toggleDesktopLyrics(): Promise<void> {
-  const result = await auralis.desktopLyrics.toggle()
-  isDesktopLyricsVisible.value = result.visible
+  const result = await toggleDesktopLyricsSession()
   showDesktopLyricsToast(
     result.visible ? 'player.desktopLyrics.toastOn' : 'player.desktopLyrics.toastOff',
   )
-  if (result.visible) {
-    syncDesktopLyrics(true)
+}
+
+function dismissDesktopLyricsToast(): void {
+  desktopLyricsToast.value = null
+  if (desktopLyricsToastTimer) {
+    clearTimeout(desktopLyricsToastTimer)
+    desktopLyricsToastTimer = null
   }
 }
 
-async function toggleDesktopLyricsMousePassthrough(event: MouseEvent): Promise<void> {
-  event.preventDefault()
-  const result = await auralis.desktopLyrics.toggleMousePassthrough()
-  isDesktopLyricsMousePassthroughEnabled.value = result.enabled
-  showDesktopLyricsToast(
-    result.enabled ? 'player.desktopLyrics.passthroughOn' : 'player.desktopLyrics.passthroughOff',
-  )
+function toggleDesktopLyricsLockPopover(): void {
+  dismissDesktopLyricsToast()
+  overlayController.toggle('desktopLyricsLock')
+}
+
+function handleDesktopLyricsLockClose(restoreFocus = true): void {
+  overlayController.close('desktopLyricsLock')
+  if (!restoreFocus) return
+  resolveRestorablePlayerTrigger(desktopLyricsButtonRef.value)?.focus()
+}
+
+async function handleDesktopLyricsLockChange(locked: boolean): Promise<void> {
+  if (isDesktopLyricsMousePassthroughEnabled.value !== locked) {
+    await toggleDesktopLyricsMousePassthroughSession()
+    if (!isDesktopLyricsLockOpen.value) {
+      const resultEnabled = isDesktopLyricsMousePassthroughEnabled.value
+      showDesktopLyricsToast(
+        resultEnabled ? 'player.desktopLyrics.lockedToast' : 'player.desktopLyrics.unlockedToast',
+      )
+    }
+  }
 }
 
 function showDesktopLyricsToast(key: string): void {
+  if (isDesktopLyricsLockOpen.value) return
+
   desktopLyricsToast.value = key
 
   if (desktopLyricsToastTimer) {
@@ -387,31 +289,26 @@ const modeButtonRef = ref<HTMLElement | null>(null)
 const modeMenuRef = ref<HTMLElement | null>(null)
 
 function toggleModeMenu(): void {
-  applyExclusiveOverlay(togglePlayerBarExclusiveOverlay(currentOverlayFlags(), 'mode'))
+  overlayController.toggle('mode')
 }
 
-function closeModeMenu(): void {
-  isModeMenuOpen.value = false
-}
-
-function handleModeMenuClose(): void {
-  isModeMenuOpen.value = false
+function handleModeMenuClose(restoreFocus = true): void {
+  overlayController.close('mode')
+  if (!restoreFocus) return
   resolveRestorablePlayerTrigger(modeButtonRef.value ?? overflowButtonRef.value)?.focus()
 }
 
-function handleSelectMode(mode: PlaybackMode): void {
+function handleSelectMode(mode: PlaybackMode, source: 'pointer' | 'keyboard' = 'keyboard'): void {
   playback.setPlaybackMode(mode)
-  // Close through the same path as Escape so the mode button regains focus
-  // after keyboard or mouse selection (P2).
-  handleModeMenuClose()
+  handleModeMenuClose(source !== 'pointer')
 }
 
 function toggleOverflow(): void {
-  applyExclusiveOverlay(togglePlayerBarExclusiveOverlay(currentOverlayFlags(), 'overflow'))
+  overlayController.toggle('overflow')
 }
 
 function closeOverflow(): void {
-  isOverflowOpen.value = false
+  overlayController.close('overflow')
 }
 
 function handleOverflowEscape(): void {
@@ -425,34 +322,32 @@ function handleDocumentPointerDown(event: PointerEvent): void {
   const target = event.target
   if (!(target instanceof Node)) return
 
-  if (isQueueOpen.value) {
-    if (queueButtonRef.value?.contains(target)) return
-    if (queuePopoverRef.value?.contains(target)) return
-    closeQueue()
+  const inside = new Set<PlayerBarOverlayId>()
+  if (queueButtonRef.value?.contains(target) || queuePopoverRef.value?.contains(target)) {
+    inside.add('queue')
   }
-
-  if (isModeMenuOpen.value) {
-    if (modeButtonRef.value?.contains(target)) return
-    if (modeMenuRef.value?.contains(target)) return
-    closeModeMenu()
+  if (modeButtonRef.value?.contains(target) || modeMenuRef.value?.contains(target)) {
+    inside.add('mode')
   }
-
-  if (isOverflowOpen.value) {
-    if (overflowButtonRef.value?.contains(target)) return
-    if (overflowPanelRef.value?.contains(target)) return
-    closeOverflow()
+  if (overflowButtonRef.value?.contains(target) || overflowPanelRef.value?.contains(target)) {
+    inside.add('overflow')
   }
-
-  if (volumeOverlay.open.value) {
-    if (volumeGroupRef.value?.contains(target)) return
-    volumeOverlay.dismiss()
+  if (
+    desktopLyricsButtonRef.value?.contains(target) ||
+    desktopLyricsLockPopoverRef.value?.contains(target) ||
+    ((target as Element).closest?.('.desktop-lyrics-lock-popover') ?? false)
+  ) {
+    inside.add('desktopLyricsLock')
   }
+  if (volumeGroupRef.value?.contains(target)) {
+    inside.add('volume')
+  }
+  overlayController.dismissOutside(inside)
 }
 
 watch(isUtilitiesOverflow, (collapsed) => {
   if (collapsed) return
-  closeOverflow()
-  closeModeMenu()
+  overlayController.closeMany(['overflow', 'mode', 'desktopLyricsLock'])
 })
 
 watch(
@@ -474,39 +369,10 @@ onMounted(() => {
   if (isModernPlayer.value) {
     bindIslandObserver()
   }
-  void ensureDesktopLyricsFontReady().then(() => {
-    if (isDesktopLyricsVisible.value) {
-      syncDesktopLyrics(true)
-    }
-  })
-  void auralis.desktopLyrics.isVisible().then((result) => {
-    isDesktopLyricsVisible.value = result.visible
-    if (result.visible) {
-      syncDesktopLyrics(true)
-    }
-  })
-  void auralis.desktopLyrics.isMousePassthroughEnabled().then((result) => {
-    isDesktopLyricsMousePassthroughEnabled.value = result.enabled
-  })
-  unsubscribeDesktopLyricsVisibility = auralis.desktopLyrics.onVisibilityChanged((visible) => {
-    isDesktopLyricsVisible.value = visible
-    if (visible) {
-      syncDesktopLyrics(true)
-    }
-  })
-  unsubscribeDesktopLyricsMousePassthrough = auralis.desktopLyrics.onMousePassthroughChanged(
-    (enabled) => {
-      isDesktopLyricsMousePassthroughEnabled.value = enabled
-    },
-  )
 })
 
 onUnmounted(() => {
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
-  unsubscribeDesktopLyricsVisibility?.()
-  unsubscribeDesktopLyricsVisibility = null
-  unsubscribeDesktopLyricsMousePassthrough?.()
-  unsubscribeDesktopLyricsMousePassthrough = null
   if (desktopLyricsToastTimer) {
     clearTimeout(desktopLyricsToastTimer)
     desktopLyricsToastTimer = null
@@ -515,41 +381,20 @@ onUnmounted(() => {
   stopAlbumTint()
 })
 
-// Do not watch currentTime — it fires every media tick. Line changes already
-// surface via activeIndex / preludeLitDotCount; track/play/status cover the rest.
-watch(
-  () => [
-    playback.state.currentTrackId,
-    playback.state.currentTrack?.title,
-    playback.state.currentTrack?.artist,
-    playback.state.isPlaying,
-    lyrics.status.value,
-    lyrics.rawLyrics.value,
-    lyrics.activeIndex.value,
-    lyrics.showPrelude.value,
-    lyrics.preludeLitDotCount.value,
-    lyrics.parsedLines.value.length,
-  ],
-  () => {
-    syncDesktopLyrics()
-  },
-  { immediate: true },
-)
-
 // --- Mode icon ---
 const playbackModeIconClass = computed(() => {
   switch (playback.state.playbackMode) {
     case 'repeat-all':
-      return 'i-ri-repeat-fill'
+      return 'i-lucide-repeat'
     case 'repeat-one':
-      return 'i-ri-repeat-one-fill'
+      return 'i-lucide-repeat-1'
     case 'shuffle':
-      return 'i-ri-shuffle-fill'
+      return 'i-lucide-shuffle'
     case 'album-shuffle':
-      return 'i-ri-disc-fill'
+      return 'i-lucide-disc-3'
     case 'sequential':
     default:
-      return 'i-ri-play-list-fill'
+      return 'i-lucide-list-end'
   }
 })
 
@@ -583,8 +428,8 @@ const volumeSliderStyle = computed(() => {
 })
 
 function handleVolumeOverlayEscape(): void {
-  if (!volumeOverlay.open.value) return
-  volumeOverlay.dismiss()
+  if (!isVolumeOpen.value) return
+  overlayController.close('volume')
   volumeMuteButtonRef.value?.focus()
 }
 
@@ -678,7 +523,7 @@ function handleToggleMute(): void {
               :aria-expanded="isQueueOpen"
               @click="toggleQueue"
             >
-              <span class="playbar-action-icon h-4 w-4 i-ri-play-list-2-fill" />
+              <PlaybarQueueIcon class="playbar-action-icon h-4 w-4" />
             </button>
 
             <div ref="queuePopoverRef" class="contents">
@@ -691,27 +536,32 @@ function handleToggleMute(): void {
 
             <div v-if="!isUtilitiesOverflow" class="desktop-lyrics-control-wrap">
               <button
+                ref="desktopLyricsButtonRef"
                 class="player-control"
-                :class="{ 'player-control-active': isDesktopLyricsVisible }"
+                :class="{
+                  'player-control-active': isDesktopLyricsVisible || isDesktopLyricsLockOpen,
+                }"
                 type="button"
-                :aria-label="
-                  isDesktopLyricsMousePassthroughEnabled
-                    ? t('player.desktopLyrics.ariaPassthroughOn')
-                    : t('player.desktopLyrics.ariaPassthroughOff')
-                "
+                :aria-label="t('player.desktopLyrics.menu')"
                 :aria-pressed="isDesktopLyricsVisible"
-                :title="
-                  isDesktopLyricsMousePassthroughEnabled
-                    ? t('player.desktopLyrics.titlePassthroughOn')
-                    : t('player.desktopLyrics.titlePassthroughOff')
-                "
+                :aria-expanded="isDesktopLyricsLockOpen"
+                :title="t('player.desktopLyrics.titleToggle')"
                 @click="toggleDesktopLyrics"
-                @contextmenu="toggleDesktopLyricsMousePassthrough"
+                @contextmenu.prevent="toggleDesktopLyricsLockPopover"
               >
-                <span class="playbar-action-icon h-4 w-4 i-lucide-captions" />
+                <PlaybarLyricsIcon class="playbar-action-icon h-4 w-4" />
               </button>
+              <div ref="desktopLyricsLockPopoverRef" class="contents">
+                <DesktopLyricsLockPopover
+                  v-if="isDesktopLyricsLockOpen"
+                  :is-locked="isDesktopLyricsMousePassthroughEnabled"
+                  :presentation="props.presentation"
+                  @change="handleDesktopLyricsLockChange"
+                  @close="handleDesktopLyricsLockClose"
+                />
+              </div>
               <div
-                v-if="desktopLyricsToast"
+                v-if="desktopLyricsToast && !isDesktopLyricsLockOpen"
                 class="player-overlay desktop-lyrics-toast"
                 :data-player-presentation="props.presentation"
               >
@@ -757,30 +607,32 @@ function handleToggleMute(): void {
                 <div class="desktop-lyrics-control-wrap">
                   <button
                     class="player-control player-bar-overflow-item"
-                    :class="{ 'player-control-active': isDesktopLyricsVisible }"
+                    :class="{
+                      'player-control-active': isDesktopLyricsVisible || isDesktopLyricsLockOpen,
+                    }"
                     type="button"
                     role="menuitem"
-                    :aria-label="
-                      isDesktopLyricsMousePassthroughEnabled
-                        ? t('player.desktopLyrics.ariaPassthroughOn')
-                        : t('player.desktopLyrics.ariaPassthroughOff')
-                    "
+                    :aria-label="t('player.desktopLyrics.menu')"
                     :aria-pressed="isDesktopLyricsVisible"
-                    :title="
-                      isDesktopLyricsMousePassthroughEnabled
-                        ? t('player.desktopLyrics.titlePassthroughOn')
-                        : t('player.desktopLyrics.titlePassthroughOff')
-                    "
+                    :aria-expanded="isDesktopLyricsLockOpen"
+                    :title="t('player.desktopLyrics.titleToggle')"
                     @click="toggleDesktopLyrics"
-                    @contextmenu="toggleDesktopLyricsMousePassthrough"
+                    @contextmenu.prevent="toggleDesktopLyricsLockPopover"
                   >
-                    <span class="playbar-action-icon h-4 w-4 i-lucide-captions" />
+                    <PlaybarLyricsIcon class="playbar-action-icon h-4 w-4" />
                     <span class="player-bar-overflow-label">{{
                       t('player.desktopLyrics.menu')
                     }}</span>
                   </button>
+                  <DesktopLyricsLockPopover
+                    v-if="isDesktopLyricsLockOpen"
+                    :is-locked="isDesktopLyricsMousePassthroughEnabled"
+                    :presentation="props.presentation"
+                    @change="handleDesktopLyricsLockChange"
+                    @close="handleDesktopLyricsLockClose"
+                  />
                   <div
-                    v-if="desktopLyricsToast"
+                    v-if="desktopLyricsToast && !isDesktopLyricsLockOpen"
                     class="player-overlay desktop-lyrics-toast"
                     :data-player-presentation="props.presentation"
                   >
@@ -817,7 +669,7 @@ function handleToggleMute(): void {
             <div
               ref="volumeGroupRef"
               class="volume-control-group"
-              :data-volume-open="volumeOverlay.open.value ? 'true' : 'false'"
+              :data-volume-open="isVolumeOpen ? 'true' : 'false'"
               @pointerenter="handleVolumePointerEnter"
               @pointerleave="volumeOverlay.onPointerLeave"
               @focusin="handleVolumeFocusIn"
@@ -912,26 +764,28 @@ function handleToggleMute(): void {
           <div class="desktop-lyrics-control-wrap">
             <button
               class="player-control"
-              :class="{ 'player-control-active': isDesktopLyricsVisible }"
+              :class="{
+                'player-control-active': isDesktopLyricsVisible || isDesktopLyricsLockOpen,
+              }"
               type="button"
-              :aria-label="
-                isDesktopLyricsMousePassthroughEnabled
-                  ? t('player.desktopLyrics.ariaPassthroughOn')
-                  : t('player.desktopLyrics.ariaPassthroughOff')
-              "
+              :aria-label="t('player.desktopLyrics.menu')"
               :aria-pressed="isDesktopLyricsVisible"
-              :title="
-                isDesktopLyricsMousePassthroughEnabled
-                  ? t('player.desktopLyrics.titlePassthroughOn')
-                  : t('player.desktopLyrics.titlePassthroughOff')
-              "
+              :aria-expanded="isDesktopLyricsLockOpen"
+              :title="t('player.desktopLyrics.titleToggle')"
               @click="toggleDesktopLyrics"
-              @contextmenu="toggleDesktopLyricsMousePassthrough"
+              @contextmenu.prevent="toggleDesktopLyricsLockPopover"
             >
-              <span class="playbar-action-icon h-4 w-4 i-lucide-captions" />
+              <PlaybarLyricsIcon class="playbar-action-icon h-4 w-4" />
             </button>
+            <DesktopLyricsLockPopover
+              v-if="isDesktopLyricsLockOpen"
+              :is-locked="isDesktopLyricsMousePassthroughEnabled"
+              :presentation="props.presentation"
+              @change="handleDesktopLyricsLockChange"
+              @close="handleDesktopLyricsLockClose"
+            />
             <div
-              v-if="desktopLyricsToast"
+              v-if="desktopLyricsToast && !isDesktopLyricsLockOpen"
               class="player-overlay desktop-lyrics-toast"
               :data-player-presentation="props.presentation"
             >
@@ -948,7 +802,7 @@ function handleToggleMute(): void {
             :aria-expanded="isQueueOpen"
             @click="toggleQueue"
           >
-            <span class="playbar-action-icon h-4 w-4 i-ri-play-list-2-fill" />
+            <PlaybarQueueIcon class="playbar-action-icon h-4 w-4" />
           </button>
 
           <div ref="queuePopoverRef" class="contents">
@@ -984,7 +838,7 @@ function handleToggleMute(): void {
           <div
             ref="volumeGroupRef"
             class="volume-control-group"
-            :data-volume-open="volumeOverlay.open.value ? 'true' : 'false'"
+            :data-volume-open="isVolumeOpen ? 'true' : 'false'"
             @pointerenter="handleVolumePointerEnter"
             @pointerleave="volumeOverlay.onPointerLeave"
             @focusin="handleVolumeFocusIn"

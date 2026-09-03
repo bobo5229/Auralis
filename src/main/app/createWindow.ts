@@ -2,6 +2,7 @@ import { BrowserWindow, app, ipcMain } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
+import { disposeDesktopLyricsWindow } from './desktopLyricsWindow'
 import { MiniPlayerWindowController } from './miniPlayerWindowController'
 import { createWindowsThumbarController } from './windowsThumbarController'
 import { secureRendererWindow } from './webContentsSecurity'
@@ -29,7 +30,12 @@ export function createWindow(): BrowserWindow {
     transparent: false,
     frame: true,
     show: false,
-    autoHideMenuBar: true,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#00000000',
+      symbolColor: '#e1ddd6',
+      height: 36,
+    },
     ...(icon ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
@@ -46,7 +52,6 @@ export function createWindow(): BrowserWindow {
     : join(__dirname, '../renderer/index.html')
   secureRendererWindow(window, rendererEntry)
 
-  window.setMenuBarVisibility(false)
   new MiniPlayerWindowController(window)
   const disposeThumbarController = createWindowsThumbarController(window)
 
@@ -79,6 +84,7 @@ export function createWindow(): BrowserWindow {
     clearTimeout(readyTimeout)
     ipcMain.removeListener(ipcChannels.app.rendererReady, handleRendererReady)
     disposeThumbarController()
+    disposeDesktopLyricsWindow()
   })
 
   window.webContents.once('render-process-gone', showWindow)

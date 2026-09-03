@@ -6,10 +6,17 @@ import {
 } from '@shared/constants/miniPlayer'
 import { ipcChannels } from '@shared/ipc/channels'
 import type { MiniPlayerPopoverDirection, MiniPlayerWindowState } from '@shared/ipc/contracts'
+import {
+  miniPlayerBoundsApplied,
+  resolveMiniPlayerSourceBounds,
+  windowOccupiesDisplay,
+} from './miniPlayerWindowBounds'
 
 interface WindowPreferences {
   bounds: Electron.Rectangle
+  wasFullScreen: boolean
   wasMaximized: boolean
+  fullscreenable: boolean
   minimumSize: [number, number]
   maximumSize: [number, number]
   resizable: boolean
@@ -17,6 +24,65 @@ interface WindowPreferences {
   alwaysOnTop: boolean
   /** OS window shadow (rectangular); disabled in mini so CSS radius can stand alone. */
   hasShadow: boolean
+}
+
+const LEAVE_FULL_SCREEN_TIMEOUT_MS = 1000
+const UNMAXIMIZE_TIMEOUT_MS = 500
+const BOUNDS_RETRY_DELAY_MS = 50
+
+const MAIN_WINDOW_TITLE_BAR_OVERLAY = {
+  color: '#00000000',
+  symbolColor: '#e1ddd6',
+  height: 36,
+} as const
+
+const MINI_PLAYER_TITLE_BAR_OVERLAY = {
+  color: '#00000000',
+  symbolColor: '#00000000',
+  height: 0,
+} as const
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+function waitForWindowEvent(
+  window: BrowserWindow,
+  eventName: 'leave-full-screen' | 'unmaximize',
+  timeoutMs: number,
+): Promise<void> {
+  return new Promise((resolve) => {
+    if (window.isDestroyed()) {
+      resolve()
+      return
+    }
+
+    let settled = false
+    const finish = (): void => {
+      if (settled) {
+        return
+      }
+      settled = true
+      clearTimeout(timer)
+      if (eventName === 'leave-full-screen') {
+        window.removeListener('leave-full-screen', onEvent)
+      } else {
+        window.removeListener('unmaximize', onEvent)
+      }
+      resolve()
+    }
+    const onEvent = (): void => {
+      finish()
+    }
+    const timer = setTimeout(finish, timeoutMs)
+    if (eventName === 'leave-full-screen') {
+      window.once('leave-full-screen', onEvent)
+    } else {
+      window.once('unmaximize', onEvent)
+    }
+  })
 }
 
 interface MiniPlayerPopover {
@@ -38,18 +104,53 @@ export class MiniPlayerWindowController {
 
   constructor(private readonly window: BrowserWindow) {
     controllers.set(window, this)
-    window.once('closed', () => controllers.delete(window))
+
+    const { webContents } = window
+    const onBeforeInput = (event: Electron.Event, input: Electron.Input): void => {
+      if (this.preferences && input.type === 'keyDown' && input.key === 'F11') {
+        event.preventDefault()
+      }
+    }
+    const onEnterFullScreen = (): void => {
+      if (this.preferences && !this.window.isDestroyed() && this.window.isFullScreen()) {
+        this.window.setFullScreen(false)
+      }
+    }
+
+    webContents.on('before-input-event', onBeforeInput)
+    window.on('enter-full-screen', onEnterFullScreen)
+
+    window.once('closed', () => {
+      controllers.delete(window)
+      if (!webContents.isDestroyed()) {
+        webContents.removeListener('before-input-event', onBeforeInput)
+      }
+      window.removeListener('enter-full-screen', onEnterFullScreen)
+    })
   }
 
-  enter(): MiniPlayerWindowState {
+  async enter(): Promise<MiniPlayerWindowState> {
     if (this.preferences) {
       return this.getState()
     }
 
+    const currentBounds = this.window.getBounds()
+    const occupiesDisplay = windowOccupiesDisplay(
+      currentBounds,
+      screen.getDisplayMatching(currentBounds).bounds,
+    )
+    const wasFullScreen = this.window.isFullScreen()
     const wasMaximized = this.window.isMaximized()
     const preferences: WindowPreferences = {
-      bounds: wasMaximized ? this.window.getNormalBounds() : this.window.getBounds(),
+      bounds: resolveMiniPlayerSourceBounds(
+        wasFullScreen || occupiesDisplay,
+        wasMaximized,
+        currentBounds,
+        this.window.getNormalBounds(),
+      ),
+      wasFullScreen,
       wasMaximized,
+      fullscreenable: this.window.isFullScreenable(),
       minimumSize: toSizeTuple(this.window.getMinimumSize()),
       maximumSize: toSizeTuple(this.window.getMaximumSize()),
       resizable: this.window.isResizable(),
@@ -59,43 +160,74 @@ export class MiniPlayerWindowController {
     }
     this.preferences = preferences
 
-    if (wasMaximized) {
-      this.window.unmaximize()
+    await this.exitScreenOccupyingMode(wasFullScreen || occupiesDisplay)
+    if (this.window.isDestroyed()) {
+      return this.emitState()
     }
 
     this.body = this.resolveBodySize(preferences.bounds)
     this.popover = { open: false, direction: this.getSuggestedPopoverDirection(), height: 0 }
-    this.window.setResizable(false)
-    this.window.setMaximizable(false)
-    // Transparent rounded plaque: OS shadow is rectangular and reads as a second "container".
-    this.window.setHasShadow(false)
-    this.setFixedMiniPlayerSize(this.body.height)
-    this.window.setBounds(this.getClampedBodyBounds(preferences.bounds))
+    this.window.setTitleBarOverlay(MINI_PLAYER_TITLE_BAR_OVERLAY)
+    await this.applyMiniPlayerGeometry(this.getClampedBodyBounds(preferences.bounds))
+    if (this.window.isDestroyed()) {
+      return this.emitState()
+    }
+
     this.window.setAlwaysOnTop(true, 'floating')
     this.window.moveTop()
 
     return this.emitState()
   }
 
-  restore(): MiniPlayerWindowState {
+  async restore(): Promise<MiniPlayerWindowState> {
     if (!this.preferences) {
       return this.getState()
     }
 
+    // Clear mini mode before restoring fullscreen so the enter-full-screen guard
+    // does not immediately cancel the restore.
     const preferences = this.preferences
     this.preferences = null
     this.popover = { open: false, direction: 'below', height: 0 }
     this.body = getDefaultMiniPlayerBodySize()
 
+    if (this.window.isDestroyed()) {
+      return this.emitState()
+    }
+
+    this.window.setAlwaysOnTop(preferences.alwaysOnTop)
+    this.window.setResizable(true)
+    this.window.setMaximizable(preferences.maximizable)
+    this.window.setFullScreenable(preferences.fullscreenable)
+    this.window.setHasShadow(preferences.hasShadow)
+    this.window.setTitleBarOverlay(MAIN_WINDOW_TITLE_BAR_OVERLAY)
+    this.window.setMinimumSize(0, 0)
+    this.window.setMaximumSize(
+      Math.max(preferences.bounds.width, 10000),
+      Math.max(preferences.bounds.height, 10000),
+    )
+
+    this.window.setBounds(preferences.bounds)
+
+    if (!miniPlayerBoundsApplied(this.window.getBounds(), preferences.bounds)) {
+      await delay(BOUNDS_RETRY_DELAY_MS)
+      if (this.window.isDestroyed()) {
+        return this.emitState()
+      }
+      this.window.setBounds(preferences.bounds)
+    }
+
+    if (this.window.isDestroyed()) {
+      return this.emitState()
+    }
+
     this.window.setMinimumSize(...preferences.minimumSize)
     this.window.setMaximumSize(...preferences.maximumSize)
     this.window.setResizable(preferences.resizable)
-    this.window.setMaximizable(preferences.maximizable)
-    this.window.setHasShadow(preferences.hasShadow)
-    this.window.setBounds(preferences.bounds)
-    this.window.setAlwaysOnTop(preferences.alwaysOnTop)
 
-    if (preferences.wasMaximized) {
+    if (preferences.wasFullScreen) {
+      this.window.setFullScreen(true)
+    } else if (preferences.wasMaximized) {
       this.window.maximize()
     }
 
@@ -159,6 +291,84 @@ export class MiniPlayerWindowController {
       this.window.webContents.send(ipcChannels.window.miniPlayerStateChanged, state)
     }
     return state
+  }
+
+  /**
+   * Windows reports `isFullScreen() === false` immediately after `setFullScreen(false)`
+   * while the shell is still exclusive. Skipping the leave event then locking min/max
+   * leaves a fullscreen-sized window with the mini UI in the corner.
+   */
+  private async exitScreenOccupyingMode(shouldLeaveFullScreen: boolean): Promise<void> {
+    if (this.window.isDestroyed()) {
+      return
+    }
+
+    if (this.window.isFullScreen()) {
+      const leftFullScreen = waitForWindowEvent(
+        this.window,
+        'leave-full-screen',
+        LEAVE_FULL_SCREEN_TIMEOUT_MS,
+      )
+      this.window.setFullScreen(false)
+      await leftFullScreen
+    } else if (shouldLeaveFullScreen) {
+      this.window.setFullScreen(false)
+    }
+
+    if (this.window.isDestroyed()) {
+      return
+    }
+
+    if (this.window.isMaximized()) {
+      const unmaximized = waitForWindowEvent(this.window, 'unmaximize', UNMAXIMIZE_TIMEOUT_MS)
+      this.window.unmaximize()
+      await unmaximized
+    }
+  }
+
+  private async applyMiniPlayerGeometry(target: Electron.Rectangle): Promise<void> {
+    if (this.window.isDestroyed()) {
+      return
+    }
+
+    // Unlock constraints before shrinking. Setting min=max on a still-large
+    // non-resizable window is ignored on Windows.
+    this.window.setResizable(true)
+    this.window.setMaximizable(false)
+    this.window.setHasShadow(false)
+    this.window.setMinimumSize(target.width, target.height)
+    this.window.setMaximumSize(Math.max(target.width, 10000), Math.max(target.height, 10000))
+    this.window.setBounds(target)
+
+    if (!miniPlayerBoundsApplied(this.window.getBounds(), target)) {
+      await delay(BOUNDS_RETRY_DELAY_MS)
+      if (this.window.isDestroyed()) {
+        return
+      }
+      if (this.window.isFullScreen()) {
+        this.window.setFullScreen(false)
+        await waitForWindowEvent(this.window, 'leave-full-screen', LEAVE_FULL_SCREEN_TIMEOUT_MS)
+      }
+      if (this.window.isDestroyed()) {
+        return
+      }
+      const wasVisible = this.window.isVisible()
+      if (wasVisible) {
+        this.window.hide()
+      }
+      this.window.setBounds(target)
+      if (wasVisible && !this.window.isDestroyed()) {
+        this.window.show()
+      }
+    }
+
+    if (this.window.isDestroyed()) {
+      return
+    }
+
+    this.setFixedMiniPlayerSize(target.height)
+    this.window.setResizable(false)
+    this.window.setFullScreenable(false)
   }
 
   private resolveBodySize(source: Electron.Rectangle): MiniPlayerBodySize {

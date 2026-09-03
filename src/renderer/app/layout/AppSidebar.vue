@@ -349,7 +349,7 @@ async function playRandomPlaylistTrack(item: SidebarPlaylistItem): Promise<void>
       message: 'Failed to play a random playlist track',
       cause: error,
     })
-    playback.state.error = null
+    playback.clearError()
   }
 }
 

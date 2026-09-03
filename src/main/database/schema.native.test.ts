@@ -36,9 +36,9 @@ describe('migrateDatabase', () => {
       .all() as string[]
 
     expect(migrations.map(({ id }) => id)).toEqual(
-      Array.from({ length: 20 }, (_, index) => index + 1),
+      Array.from({ length: 21 }, (_, index) => index + 1),
     )
-    expect(migrations.at(-1)?.name).toBe('add_regular_playlists')
+    expect(migrations.at(-1)?.name).toBe('library_track_display_artwork_album_join')
     expect(objects).toEqual(
       expect.arrayContaining([
         'tracks',
@@ -108,6 +108,6 @@ describe('migrateDatabase', () => {
       availability: 'available',
       playCount: 0,
     })
-    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(20)
+    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(21)
   })
 })

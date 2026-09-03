@@ -20,6 +20,7 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.desktopLyrics.changed,
   ipcChannels.desktopLyrics.visibilityChanged,
   ipcChannels.desktopLyrics.mousePassthroughChanged,
+  ipcChannels.desktopLyrics.ready,
   ipcChannels.metadata.refreshProgress,
   ipcChannels.window.miniPlayerStateChanged,
 ])
@@ -27,6 +28,7 @@ const nonInvokeChannels = new Set<string>([
 const externalInvokeChannels = new Set<string>([
   ipcChannels.desktopLyrics.toggle,
   ipcChannels.desktopLyrics.isVisible,
+  ipcChannels.desktopLyrics.setSuppressed,
   ipcChannels.desktopLyrics.toggleMousePassthrough,
   ipcChannels.desktopLyrics.isMousePassthroughEnabled,
   ipcChannels.desktopLyrics.update,

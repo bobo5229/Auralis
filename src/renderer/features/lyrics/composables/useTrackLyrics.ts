@@ -4,6 +4,7 @@ import { usePlayback } from '@renderer/features/playback/composables/usePlayback
 import type { LyricLine } from '../types'
 import { parseLrc } from '../utils/parseLrc'
 import { getActiveLyricIndex } from '../utils/getActiveLyricIndex'
+import { shouldRefetchLyricsOnLibraryChange } from '../utils/shouldRefetchLyricsOnLibraryChange'
 
 export type LyricsStatus = 'no-track' | 'loading' | 'empty' | 'plain' | 'lrc'
 
@@ -118,17 +119,17 @@ watch(
 // Subscribe once for the process lifetime (singleton; no per-component unmount).
 auralis.library.onChanged((event) => {
   const trackId = playback.state.currentTrackId
-  if (!trackId) return
-
   if (
-    event.reason === 'metadata-refresh' ||
-    event.reason === 'file-change' ||
-    event.reason === 'track-relocated'
+    !shouldRefetchLyricsOnLibraryChange({
+      currentTrackId: trackId,
+      reason: event.reason,
+      trackIds: event.trackIds,
+    })
   ) {
-    if (event.trackIds.includes(trackId)) {
-      void fetchLyrics(trackId)
-    }
+    return
   }
+  if (trackId == null) return
+  void fetchLyrics(trackId)
 })
 
 export function useTrackLyrics() {

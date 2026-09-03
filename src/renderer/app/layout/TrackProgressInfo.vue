@@ -56,17 +56,22 @@ function handleCoverKeydown(event: KeyboardEvent): void {
 <template>
   <div class="track-info-card">
     <!-- Empty state: brand mark only — no fake scrub animation. -->
-    <div v-if="!hasTrack" class="track-info-empty flex flex-col items-start justify-center gap-1">
-      <span class="text-sm font-semibold tracking-wide text-[var(--auralis-text-faint)]">
+    <div
+      v-if="!hasTrack"
+      class="track-info-empty flex w-full flex-col items-center justify-center gap-1"
+    >
+      <span
+        class="text-sm font-semibold tracking-wide text-[var(--auralis-text-faint)] text-center"
+      >
         Auralis
       </span>
       <div
         v-if="props.showProgress && props.showSplitClocks"
-        class="player-bar-progress-row player-bar-progress-row--idle"
+        class="player-bar-progress-row player-bar-progress-row--idle w-full"
       >
         <PlayerBarProgress :interactive="false" />
       </div>
-      <PlayerBarProgress v-else-if="props.showProgress" :interactive="false" />
+      <PlayerBarProgress v-else-if="props.showProgress" :interactive="false" class="w-full" />
     </div>
 
     <!-- Track identity (+ optional inline progress) -->

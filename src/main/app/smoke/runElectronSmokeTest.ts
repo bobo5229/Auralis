@@ -1,4 +1,5 @@
 import { app, BrowserWindow, type WebContents } from 'electron'
+import { disposeDesktopLyricsWindow } from '../desktopLyricsWindow'
 
 interface SmokeCheck {
   name: string
@@ -35,6 +36,8 @@ interface DesktopLyricsBridgeProbe {
   apiExists: boolean
   onlyDesktopLyrics: boolean
   canSubscribe: boolean
+  canToggleLock: boolean
+  canSubscribeLock: boolean
   exposesFullAppApi: boolean
 }
 
@@ -268,6 +271,8 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
             apiExists: typeof api === 'object',
             onlyDesktopLyrics: JSON.stringify(Object.keys(api || {})) === '["desktopLyrics"]',
             canSubscribe: typeof api?.desktopLyrics?.onUpdate === 'function',
+            canToggleLock: typeof api?.desktopLyrics?.toggleMousePassthrough === 'function',
+            canSubscribeLock: typeof api?.desktopLyrics?.onMousePassthroughChanged === 'function',
             exposesFullAppApi: typeof api?.app === 'object'
           }
         })()`,
@@ -278,6 +283,8 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
         !bridgeProbe.apiExists ||
         !bridgeProbe.onlyDesktopLyrics ||
         !bridgeProbe.canSubscribe ||
+        !bridgeProbe.canToggleLock ||
+        !bridgeProbe.canSubscribeLock ||
         bridgeProbe.exposesFullAppApi
       ) {
         throw new Error(`Desktop lyrics bridge is not restricted: ${JSON.stringify(bridgeProbe)}`)
@@ -320,6 +327,20 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
         return line === 'Smoke current line'
       })
     })
+
+    await record(
+      'desktop lyrics window is destroyed on dispose without lingering windows',
+      async () => {
+        disposeDesktopLyricsWindow()
+        await waitFor(
+          'desktop lyrics window destruction',
+          () =>
+            !BrowserWindow.getAllWindows().some((window) =>
+              window.webContents.getURL().includes('desktopLyrics=1'),
+            ),
+        )
+      },
+    )
 
     await record('no main-frame load or renderer failure occurred', () => {
       if (loadFailures.length > 0) throw new Error(loadFailures.join('\n'))

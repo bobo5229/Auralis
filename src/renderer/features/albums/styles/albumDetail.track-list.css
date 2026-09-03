@@ -69,6 +69,18 @@
   display: none;
 }
 
+/* 仅一轨时补底部分隔，避免细行漂在空白里 */
+.album-detail-track:only-of-type::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: var(--auralis-border-subtle);
+  pointer-events: none;
+}
+
 .album-detail-track:hover,
 .album-detail-track--selected,
 .album-detail-track--playing,
