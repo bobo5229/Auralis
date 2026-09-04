@@ -401,28 +401,34 @@ export class LibraryScanService {
     const newTracks: ScannedTrack[] = []
     const relocatedIds: number[] = []
 
-    for (const track of tracks) {
-      try {
-        const match = tryRelocateMissingCandidate(this.trackRepository, track)
+    const hasMissing = this.trackRepository.hasMissingTracks()
 
-        if (match) {
-          const relocated = this.trackRepository.relocateTrack(match.candidate.trackId, track)
+    if (!hasMissing) {
+      newTracks.push(...tracks)
+    } else {
+      for (const track of tracks) {
+        try {
+          const match = tryRelocateMissingCandidate(this.trackRepository, track)
 
-          if (relocated) {
-            relocatedIds.push(match.candidate.trackId)
+          if (match) {
+            const relocated = this.trackRepository.relocateTrack(match.candidate.trackId, track)
+
+            if (relocated) {
+              relocatedIds.push(match.candidate.trackId)
+            } else {
+              // Path occupied or constraint race — fall back to path upsert.
+              newTracks.push(track)
+            }
           } else {
-            // Path occupied or constraint race — fall back to path upsert.
             newTracks.push(track)
           }
-        } else {
+        } catch (error) {
+          logger.warn(
+            { error, filePath: track.filePath },
+            'Failed to relocate/upsert scanned track; trying upsert fallback',
+          )
           newTracks.push(track)
         }
-      } catch (error) {
-        logger.warn(
-          { error, filePath: track.filePath },
-          'Failed to relocate/upsert scanned track; trying upsert fallback',
-        )
-        newTracks.push(track)
       }
     }
 

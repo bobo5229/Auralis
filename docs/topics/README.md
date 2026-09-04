@@ -9,7 +9,7 @@
 | [albums：专辑](../CATALOG.md#albums专辑)           | 专辑目录、详情页、头部视觉、退出与曲目推送动效            |
 | [archive：音乐归档](../CATALOG.md#archive音乐归档) | 收听排行、年度总结、Music DNA；不是文档历史归档           |
 | [artwork：封面](../CATALOG.md#artwork封面)         | 封面加载与缓存优化                                        |
-| [library：曲库](../CATALOG.md#library曲库)         | 歌曲列表滚动、播放后的视口恢复                            |
+| [library：曲库](../CATALOG.md#library曲库)         | 歌曲列表滚动、播放后视口恢复、初次扫描性能优化            |
 | [metadata：元数据](../CATALOG.md#metadata元数据)   | 流派分隔及原子复合名称                                    |
 | [playback：播放](../CATALOG.md#playback播放界面)   | 播放编排架构、PlayerBar、全屏背景、桌面歌词与迷你模式同步 |
 | [shell：应用外壳](../CATALOG.md#shell应用外壳)     | 主窗口标题栏、Sidebar 品牌与工具区、界面语言              |

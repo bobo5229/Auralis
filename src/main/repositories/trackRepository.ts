@@ -442,6 +442,11 @@ export class TrackRepository extends BaseRepository {
     return restoredIds
   }
 
+  hasMissingTracks(): boolean {
+    const row = this.db.prepare("SELECT 1 FROM tracks WHERE availability = 'missing' LIMIT 1").get()
+    return Boolean(row)
+  }
+
   getMissingCandidates(): MissingTrackCandidate[] {
     return this.db
       .prepare(

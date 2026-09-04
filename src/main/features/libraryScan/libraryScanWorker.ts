@@ -1,4 +1,5 @@
 import { parentPort, workerData } from 'node:worker_threads'
+import { cpus } from 'node:os'
 import { basename, dirname, join, parse } from 'node:path'
 import { readFile, readdir, stat } from 'node:fs/promises'
 import { parseFile } from 'music-metadata'
@@ -27,6 +28,8 @@ const artworkBatch: AlbumArtworkPatch[] = []
 const lyricsBatch: TrackLyricsPatch[] = []
 const foundFilePaths: string[] = []
 const unreadableDirectoryPaths: string[] = []
+
+const SCAN_CONCURRENCY = Math.max(4, Math.min(cpus().length || 4, 8))
 
 // In-memory caches scoped to this scan run (see §4–7 of TechDoc)
 const albumArtworkCache = new Map<string, string | null>()
@@ -98,17 +101,6 @@ async function collectAudioFiles(directoryPath: string): Promise<string[]> {
   return files
 }
 
-async function resolveArtwork(
-  filePath: string,
-  metadata: Awaited<ReturnType<typeof parseFile>> | null,
-): Promise<string | null> {
-  if (!metadata) {
-    return resolveDirectoryCover(filePath)
-  }
-
-  return resolveArtworkForFile(filePath, metadata, input.artworkCacheDir)
-}
-
 async function resolveDirectoryCover(filePath: string): Promise<string | null> {
   const dir = dirname(filePath)
   const cached = directoryCoverCache.get(dir)
@@ -131,6 +123,22 @@ async function resolveDirectoryCover(filePath: string): Promise<string | null> {
     directoryCoverCache.set(dir, null)
     return null
   }
+}
+
+async function resolveArtwork(
+  filePath: string,
+  metadata: Awaited<ReturnType<typeof parseFile>> | null,
+): Promise<string | null> {
+  const dirCoverKey = await resolveDirectoryCover(filePath)
+  if (dirCoverKey) {
+    return dirCoverKey
+  }
+
+  if (!metadata) {
+    return null
+  }
+
+  return resolveArtworkForFile(filePath, metadata, input.artworkCacheDir)
 }
 
 function flushTrackBatch(): void {
@@ -161,13 +169,16 @@ async function createScannedTrack(
   filePath: string,
   fileStat: Awaited<ReturnType<typeof stat>>,
   metadata: Awaited<ReturnType<typeof parseFile>>,
+  resolvedArtworkKey?: string | null,
 ): Promise<ScannedTrack> {
   const normalized = normalizeMetadata(metadata, filePath)
-  const artworkCacheKey = await resolveArtwork(filePath, metadata)
+  const albumKey = getAlbumKey(normalized.album, normalized.albumArtist)
+  const cachedAlbumKey = albumKey ? albumArtworkCache.get(albumKey) : undefined
+  const artworkCacheKey =
+    resolvedArtworkKey ?? cachedAlbumKey ?? (await resolveArtwork(filePath, metadata))
   const lyrics = await resolveLyricsForFile(filePath, metadata)
   const identity = normalizeIdentityText(metadata)
 
-  const albumKey = getAlbumKey(normalized.album, normalized.albumArtist)
   if (albumKey && artworkCacheKey) {
     albumArtworkCache.set(albumKey, artworkCacheKey)
   }
@@ -256,6 +267,24 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
 
   try {
     if (!fileUnchanged || needsMetadataBackfill) {
+      const dirCoverKey = await resolveDirectoryCover(filePath)
+      let knownAlbumArtworkKey: string | null | undefined = dirCoverKey ?? undefined
+
+      if (knownAlbumArtworkKey === undefined && knownFile?.album && knownFile.albumArtist) {
+        const albumKey = getAlbumKey(knownFile.album, knownFile.albumArtist)
+        if (albumKey) {
+          knownAlbumArtworkKey = albumArtworkCache.get(albumKey)
+        }
+      }
+
+      if (knownAlbumArtworkKey !== undefined && isCurrentArtworkCacheKey(knownAlbumArtworkKey)) {
+        const metadata = await parseFile(filePath, { duration: true, skipCovers: true })
+        return {
+          kind: 'track',
+          track: await createScannedTrack(filePath, fileStat, metadata, knownAlbumArtworkKey),
+        }
+      }
+
       const metadata = await parseFile(filePath, { duration: true })
       return {
         kind: 'track',
@@ -295,7 +324,13 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
       }
 
       // Cache miss or lyrics backfill: parse file once and reuse metadata for both tasks.
-      const metadata = await parseFile(filePath, { duration: false, skipCovers: false })
+      const dirCoverKey = await resolveDirectoryCover(filePath)
+      const hasKnownKey =
+        dirCoverKey !== null ||
+        (albumKey !== null && albumArtworkCache.get(albumKey!) !== undefined)
+      const skipCovers = Boolean(hasKnownKey)
+
+      const metadata = await parseFile(filePath, { duration: false, skipCovers })
 
       if (needsLyricsBackfill) {
         const lyrics = await resolveLyricsForFile(filePath, metadata)
@@ -312,7 +347,7 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
       const knownKey = knownFile?.artworkCacheKey ?? null
       const artworkCacheKey = isCurrentArtworkCacheKey(knownKey)
         ? knownKey
-        : await resolveArtwork(filePath, metadata)
+        : (dirCoverKey ?? (await resolveArtwork(filePath, metadata)))
 
       // Cache both success and failure to avoid repeated parseFile for albums without artwork
       if (albumKey) {
@@ -387,49 +422,72 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
   return { kind: 'skip' }
 }
 
+function handleReadResult(result: ReadTrackResult, filePath: string): void {
+  scannedFiles += 1
+  foundFilePaths.push(filePath)
+
+  if (result.kind === 'track') {
+    trackBatch.push(result.track)
+
+    if (trackBatch.length >= 300) {
+      flushTrackBatch()
+    }
+  } else if (result.kind === 'artwork') {
+    artworkBatch.push(result.patch)
+
+    if (artworkBatch.length >= 300) {
+      flushArtworkBatch()
+    }
+  } else if (result.kind === 'patches') {
+    if (result.artworkPatch) {
+      artworkBatch.push(result.artworkPatch)
+    }
+
+    if (result.lyricsPatch) {
+      lyricsBatch.push(result.lyricsPatch)
+    }
+
+    if (artworkBatch.length >= 300) {
+      flushArtworkBatch()
+    }
+
+    if (lyricsBatch.length >= 300) {
+      flushLyricsBatch()
+    }
+  }
+
+  postProgress(filePath, null)
+}
+
 async function run(): Promise<void> {
   postProgress(null, 'Collecting audio files', true)
   const audioFiles = await collectAudioFiles(input.rootPath)
   totalFiles = audioFiles.length
   postProgress(null, 'Scanning audio files', true)
 
-  for (const filePath of audioFiles) {
-    const result = await readTrack(filePath)
-    scannedFiles += 1
-    foundFilePaths.push(filePath)
+  let index = 0
+  const executing = new Set<Promise<void>>()
 
-    if (result.kind === 'track') {
-      trackBatch.push(result.track)
+  while (index < audioFiles.length) {
+    const filePath = audioFiles[index++]
+    const p = Promise.resolve().then(() => readTrack(filePath))
 
-      if (trackBatch.length >= 300) {
-        flushTrackBatch()
-      }
-    } else if (result.kind === 'artwork') {
-      artworkBatch.push(result.patch)
+    const tracker: Promise<void> = p.then(
+      (res) => {
+        executing.delete(tracker)
+        handleReadResult(res, filePath)
+      },
+      () => {
+        executing.delete(tracker)
+      },
+    )
+    executing.add(tracker)
 
-      if (artworkBatch.length >= 300) {
-        flushArtworkBatch()
-      }
-    } else if (result.kind === 'patches') {
-      if (result.artworkPatch) {
-        artworkBatch.push(result.artworkPatch)
-      }
-
-      if (result.lyricsPatch) {
-        lyricsBatch.push(result.lyricsPatch)
-      }
-
-      if (artworkBatch.length >= 300) {
-        flushArtworkBatch()
-      }
-
-      if (lyricsBatch.length >= 300) {
-        flushLyricsBatch()
-      }
+    if (executing.size >= SCAN_CONCURRENCY) {
+      await Promise.race(executing)
     }
-
-    postProgress(filePath, null)
   }
+  await Promise.all(executing)
 
   flushTrackBatch()
   flushArtworkBatch()

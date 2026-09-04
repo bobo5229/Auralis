@@ -65,6 +65,7 @@
 
 - [修复 Library 歌曲列表滚动掉帧](topics/library/fix-song-row-scroll-jank.md)
 - [TECHDOC：播放后歌曲列表视口被拽回当前曲](topics/library/techdoc-library-playback-viewport-restore.md)
+- [TECHDOC：曲库初次加载文件夹扫描性能优化方案](topics/library/techdoc-library-initial-scan-performance-optimization.md)
 
 ### metadata：元数据
 
