@@ -103,8 +103,16 @@ const windowChromeStyle = computed<CSSProperties>(() => {
   } as CSSProperties
 })
 
-/** 专辑详情 ➔ 专辑列表：黑胶沉降与景深聚拢归位；其余路由使用默认 fade */
+/**
+ * 路由过渡规则：
+ * 1. 专辑列表 ➔ 专辑详情：景深穿梭与黑胶破土浮升 (album-detail-enter-matrix)
+ * 2. 专辑详情 ➔ 专辑列表：黑胶沉降与景深聚拢归位 (album-detail-exit-matrix)
+ * 3. 其余路由切换：通用平滑淡入淡出 (fade)
+ */
 const transitionName = computed(() => {
+  if (route.name === 'album-detail' && previousRouteName.value === 'albums') {
+    return 'album-detail-enter-matrix'
+  }
   if (route.name === 'albums' && previousRouteName.value === 'album-detail') {
     return 'album-detail-exit-matrix'
   }

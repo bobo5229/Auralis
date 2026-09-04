@@ -506,7 +506,6 @@ onBeforeUnmount(() => {
                 height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
                 gridTemplateColumns: `repeat(${columnCount}, minmax(0, 1fr))`,
-                '--row-delay': `${(virtualRow.index % 6) * 40}ms`,
               }"
             >
               <AlbumCard
@@ -654,16 +653,12 @@ onBeforeUnmount(() => {
   padding-right: 20px;
   /* 行内允许 3D 阴影轻微溢出，避免相邻行互相裁切观感 */
   overflow: visible;
-  transition:
-    transform 0.4s cubic-bezier(0.25, 1, 0.5, 1),
-    opacity 0.3s ease;
-  transition-delay: var(--row-delay, 0ms);
+  transition: opacity 0.3s ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .albums-grid-row {
     transition: none !important;
-    transition-delay: 0ms !important;
   }
 }
 </style>
