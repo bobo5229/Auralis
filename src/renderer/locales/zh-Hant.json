@@ -266,6 +266,17 @@
         "minutes": "{minutes} 分 {seconds} 秒",
         "hours": "{hours} 小時 {minutes} 分"
       },
+      "metrics": {
+        "tracks": "曲目",
+        "duration": "總長",
+        "plays": "已聽",
+        "listened": "累計",
+        "stats": "收聽統計",
+        "playsUnit": "{count} 次",
+        "playsUnitOne": "{count} 次",
+        "minutesUnit": "{minutes} 分鐘",
+        "hoursUnit": "{hours} 小時"
+      },
       "listenSummary": {
         "plays": "聽過 {count} 次",
         "minutes": "聽過 {count} 次 · 約 {minutes} 分鐘",
@@ -433,6 +444,28 @@
     "a11y": {
       "songRow": "曲目 {index}：{title} - {artist}",
       "albumArtwork": "專輯 {album}，按 Enter 打開專輯操作菜單"
+    }
+  },
+  "archive": {
+    "title": "聲跡",
+    "annualSummary": "年度摘要",
+    "annualRecap": "年度總結",
+    "linerNotes": {
+      "badge": "ANNUAL NOTES · {year} ARCHIVE",
+      "serial": "NO. #AUR-{year}-{checksum}",
+      "archiveId": "ARCHIVE-ID: #AUR-{year}-{checksum}",
+      "status": "STATUS: {status}",
+      "statusVerified": "VERIFIED & ARCHIVED",
+      "statusPending": "PENDING",
+      "statusAudited": "AUDITED",
+      "emptyNarrative": "本年度檔案室尚無旋律登記入庫。當第一首曲目流淌時，專屬時光檔案將在此正式封存。",
+      "auditOrg": "AURALIS AUDIT",
+      "receiptTitle": "* METRICS RECEIPT *",
+      "receiptActiveDays": "ACTIVE DAYS",
+      "receiptTotalPlays": "TOTAL PLAYS",
+      "receiptTotalDuration": "TOTAL DURATION",
+      "receiptDailyAverage": "DAILY AVERAGE",
+      "receiptPeakLog": "PEAK LOG"
     }
   }
 }

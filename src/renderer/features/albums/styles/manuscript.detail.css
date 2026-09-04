@@ -76,11 +76,11 @@
 
 .album-detail-page[data-visual-style='manuscript'] .album-hero-billboard {
   position: relative;
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
   min-height: 276px;
-  grid-template-columns: 224px minmax(0, 1fr);
-  align-items: center;
-  column-gap: clamp(28px, 4cqi, 56px);
   padding: 28px 32px 34px 18px;
   border: 0;
   border-top: var(--manuscript-hairline-width) solid var(--manuscript-border-ledger-strong);
@@ -95,6 +95,16 @@
 
 .album-detail-page[data-visual-style='manuscript'] .album-hero-static-canvas {
   display: none;
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-hero-main-stage {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 228px;
+  grid-template-columns: 224px minmax(0, 1fr);
+  column-gap: clamp(28px, 4cqi, 56px);
+  align-items: start;
 }
 
 .album-detail-page[data-visual-style='manuscript'] .album-hero-cover-container {
@@ -124,73 +134,152 @@
 
 .album-detail-page[data-visual-style='manuscript'] .album-hero-content-stage {
   min-height: 0;
-  padding: 0;
+  padding: 0 250px 0 0;
   align-items: flex-start;
   justify-content: center;
+  gap: 12px;
   color: var(--manuscript-content-primary);
   font-family: var(--manuscript-font-body);
 }
 
-.album-detail-page[data-visual-style='manuscript'] .album-hero-eyebrow {
+.album-detail-page[data-visual-style='manuscript'] .album-hero-zone-genres {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-badge {
+  background: var(--manuscript-surface-control);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  border-radius: var(--manuscript-radius-control);
   color: var(--manuscript-content-ledger-label);
   font-family: var(--manuscript-font-numeric);
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.09em;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   line-height: 1.35;
-  text-transform: uppercase;
+  padding: 2px 7px;
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-genre-pill {
+  background: var(--manuscript-surface-control);
+  border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
+  border-radius: var(--manuscript-radius-control);
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 2px 9px;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-genre-pill:hover {
+  border-color: var(--manuscript-accent-primary);
+  background: var(--manuscript-state-hover);
+  color: var(--manuscript-accent-primary);
+  box-shadow: none;
+  transform: none;
+  filter: none;
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-genre-pill:active {
+  transform: translateY(1px);
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-hero-zone-primary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-hero-meta-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 .album-detail-page[data-visual-style='manuscript'] .album-hero-title {
-  margin-top: 6px;
+  margin: 0;
+  padding-bottom: 6px;
+  box-sizing: border-box;
   max-width: 19ch;
   color: var(--manuscript-content-primary);
   font-family: var(--manuscript-font-body);
   font-size: clamp(28px, 3.6cqi, 44px);
   font-weight: 650;
   letter-spacing: 0.015em;
-  line-height: 1.12;
+  line-height: 1.22;
+  user-select: none;
 }
 
-.album-detail-page[data-visual-style='manuscript'] .album-hero-meta-chain {
-  margin-top: 10px;
+.album-detail-page[data-visual-style='manuscript'] .album-hero-artist-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: var(--manuscript-content-secondary);
   font-family: var(--manuscript-font-body);
-  font-size: 13px;
+  font-size: 15px;
+  font-weight: 650;
   line-height: 1.4;
 }
 
-.album-detail-page[data-visual-style='manuscript'] .album-hero-meta-item.album-hero-artist {
+.album-detail-page[data-visual-style='manuscript'] .album-hero-artist-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
   color: var(--manuscript-content-primary);
-  font-weight: 600;
+  font-family: var(--manuscript-font-body);
+  font-size: 15px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: color 120ms ease;
 }
 
-.album-detail-page[data-visual-style='manuscript'] .album-hero-meta-item.album-hero-listen {
+.album-detail-page[data-visual-style='manuscript'] .album-hero-artist-btn:hover {
   color: var(--manuscript-accent-primary);
-  font-family: var(--manuscript-font-ui);
-  font-size: 11px;
+  text-decoration: underline;
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-hero-artist-text {
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-body);
+  font-size: 15px;
   font-weight: 650;
 }
 
-.album-detail-page[data-visual-style='manuscript'] .album-hero-meta-dot {
+.album-detail-page[data-visual-style='manuscript'] .album-hero-artist-dot {
   color: var(--manuscript-border-ledger-strong);
 }
 
+.album-detail-page[data-visual-style='manuscript'] .album-hero-year-text {
+  color: var(--manuscript-content-ledger-label);
+  font-family: var(--manuscript-font-numeric);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 .album-detail-page[data-visual-style='manuscript'] .album-hero-actions {
-  gap: 8px;
-  margin-top: 17px;
+  position: absolute;
+  right: 0;
+  top: calc(216px + 12px - 46px);
+  gap: 10px;
 }
 
 .album-detail-page[data-visual-style='manuscript'] .album-hero-play-btn,
 .album-detail-page[data-visual-style='manuscript'] .album-hero-shuffle-btn {
-  min-height: 38px;
+  min-height: 46px;
+  height: 46px;
   border-radius: var(--manuscript-radius-control);
   font-family: var(--manuscript-font-ui);
   font-weight: 700;
@@ -206,9 +295,9 @@
 }
 
 .album-detail-page[data-visual-style='manuscript'] .album-hero-play-btn {
-  min-width: 112px;
-  height: 40px;
-  padding-inline: 16px;
+  min-width: 120px;
+  height: 46px;
+  padding-inline: 22px;
   border: var(--manuscript-hairline-width) solid var(--manuscript-accent-primary);
   background: var(--manuscript-accent-primary);
   box-shadow: none;
@@ -227,13 +316,13 @@
 }
 
 .album-detail-page[data-visual-style='manuscript'] .album-hero-shuffle-btn {
-  min-width: 104px;
-  height: 40px;
-  padding-inline: 14px;
+  min-width: 108px;
+  height: 46px;
+  padding-inline: 18px;
   border: var(--manuscript-hairline-width) solid var(--manuscript-border-strong);
   background: var(--manuscript-surface-control);
   color: var(--manuscript-content-primary);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .album-detail-page[data-visual-style='manuscript'] .album-hero-shuffle-btn:hover {
@@ -254,14 +343,59 @@
   outline-offset: 2px;
 }
 
-.album-detail-page[data-visual-style='manuscript'] .album-hero-legal {
-  margin: 12px 0 0;
-  padding-top: 0;
-  border-top: none;
+.album-detail-page[data-visual-style='manuscript'] .album-hero-zone-metrics {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-hero-metric-item {
+  gap: 6px;
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-hero-metric-label {
+  color: var(--manuscript-content-ledger-label);
+  font-family: var(--manuscript-font-numeric);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-hero-metric-value {
+  color: var(--manuscript-content-primary);
+  font-family: var(--manuscript-font-numeric);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-hero-flipper-face--front {
+  color: var(--manuscript-content-ledger-label);
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-hero-flipper-arrow {
+  width: 13px;
+  height: 13px;
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-hero-footer-stage {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+.album-detail-page[data-visual-style='manuscript'] .album-hero-legal-text {
+  margin: 0 0 0 8px;
+  width: 100%;
   color: var(--manuscript-content-faint);
   font-family: var(--manuscript-font-ui);
   font-size: 10px;
   letter-spacing: 0.015em;
+  white-space: normal;
+  word-break: break-word;
+  user-select: none;
 }
 
 .album-detail-page[data-visual-style='manuscript'] .album-body-grid {
@@ -667,9 +801,14 @@
 
   .album-detail-page[data-visual-style='manuscript'] .album-hero-billboard {
     min-height: 0;
+    padding: 22px 10px 26px;
+    gap: 14px;
+  }
+
+  .album-detail-page[data-visual-style='manuscript'] .album-hero-main-stage {
+    min-height: 0;
     grid-template-columns: minmax(0, 1fr);
     row-gap: 18px;
-    padding: 22px 10px 26px;
   }
 
   .album-detail-page[data-visual-style='manuscript'] .album-hero-cover-container {
@@ -684,12 +823,23 @@
     padding: 0;
   }
 
+  .album-detail-page[data-visual-style='manuscript'] .album-hero-actions {
+    position: static;
+    margin-top: 10px;
+  }
+
   .album-detail-page[data-visual-style='manuscript'] .album-hero-title {
     max-width: 100%;
     font-size: clamp(24px, 7.5cqi, 32px);
   }
 
-  .album-detail-page[data-visual-style='manuscript'] .album-hero-legal {
+  .album-detail-page[data-visual-style='manuscript'] .album-hero-zone-primary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .album-detail-page[data-visual-style='manuscript'] .album-hero-legal-text {
     max-width: 100%;
     white-space: normal;
   }
@@ -744,6 +894,8 @@
   .album-detail-page[data-visual-style='manuscript'] .album-detail-back,
   .album-detail-page[data-visual-style='manuscript'] .album-hero-play-btn,
   .album-detail-page[data-visual-style='manuscript'] .album-hero-shuffle-btn,
+  .album-detail-page[data-visual-style='manuscript'] .album-hero-metric-flipper-cube,
+  .album-detail-page[data-visual-style='manuscript'] .album-genre-pill,
   .album-detail-page[data-visual-style='manuscript'] .album-detail-state-action {
     transform: none !important;
     transition: none !important;

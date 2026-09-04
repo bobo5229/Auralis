@@ -266,6 +266,17 @@
         "minutes": "{minutes} min {seconds} sec",
         "hours": "{hours} hr {minutes} min"
       },
+      "metrics": {
+        "tracks": "Tracks",
+        "duration": "Duration",
+        "plays": "Plays",
+        "listened": "Time",
+        "stats": "Listening Stats",
+        "playsUnit": "{count} plays",
+        "playsUnitOne": "{count} play",
+        "minutesUnit": "{minutes} min",
+        "hoursUnit": "{hours} hr"
+      },
       "listenSummary": {
         "plays": "Played {count} times",
         "minutes": "Played {count} times · about {minutes} min",
@@ -433,6 +444,28 @@
     "a11y": {
       "songRow": "Track {index}: {title} - {artist}",
       "albumArtwork": "Album {album}, press Enter for album context menu"
+    }
+  },
+  "archive": {
+    "title": "Archive",
+    "annualSummary": "Annual Summary",
+    "annualRecap": "Annual Recap",
+    "linerNotes": {
+      "badge": "ANNUAL NOTES · {year} ARCHIVE",
+      "serial": "NO. #AUR-{year}-{checksum}",
+      "archiveId": "ARCHIVE-ID: #AUR-{year}-{checksum}",
+      "status": "STATUS: {status}",
+      "statusVerified": "VERIFIED & ARCHIVED",
+      "statusPending": "PENDING",
+      "statusAudited": "AUDITED",
+      "emptyNarrative": "No melodies have been archived for this year yet. When the first track plays, your personal time archive will be officially sealed here.",
+      "auditOrg": "AURALIS AUDIT",
+      "receiptTitle": "* METRICS RECEIPT *",
+      "receiptActiveDays": "ACTIVE DAYS",
+      "receiptTotalPlays": "TOTAL PLAYS",
+      "receiptTotalDuration": "TOTAL DURATION",
+      "receiptDailyAverage": "DAILY AVERAGE",
+      "receiptPeakLog": "PEAK LOG"
     }
   }
 }

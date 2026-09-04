@@ -15,6 +15,8 @@ import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import MusicDnaCard from '@renderer/features/archive/components/MusicDnaCard.vue'
+import EditorialLinerNotesCard from '@renderer/features/archive/components/EditorialLinerNotesCard.vue'
+import type { EditorialLinerNotesData } from '@renderer/features/archive/utils/editorialLinerNotes'
 import ArchiveDailyDetailDialog from '@renderer/features/archive/components/ArchiveDailyDetailDialog.vue'
 import {
   formatArchiveMinutes as formatMinutes,
@@ -96,7 +98,6 @@ const detailError = ref<string | null>(null)
 let detailRequestId = 0
 let detailDialogId = 0
 const detailDialog = ref<ArchiveDailyDetailDialogModel | null>(null)
-const showResetAction = ref(false)
 const showResetConfirmation = ref(false)
 const isResetting = ref(false)
 const isHoldingReset = ref(false)
@@ -110,10 +111,8 @@ const annualRecapPage = ref(0)
 const genreSpectrum = ref<ListeningGenreSpectrum | null>(null)
 const isGenreLoading = ref(false)
 
-const LONG_PRESS_MS = 1000
 const RESET_HOLD_MS = 3000
 const ARCHIVE_SCROLLBAR_HIDDEN_CLASS = 'archive-page-scrollbar-hidden'
-let longPressTimer: number | null = null
 let resetHoldTimer: number | null = null
 let annualRecapRequestId = 0
 let unsubscribeLibraryChanged: (() => void) | null = null
@@ -180,99 +179,22 @@ const peakDay = computed(() =>
       return peak
     }, null),
 )
-const annualSummary = computed(() => {
+const linerNotesData = computed<EditorialLinerNotesData>(() => {
   const elapsedDays = calendarDays.value.filter((day) => !day.isFuture)
-  const listeningDays = elapsedDays.filter((day) => day.playCount > 0).length
+  const activeDays = elapsedDays.filter((day) => day.playCount > 0).length
   const totalPlays = elapsedDays.reduce((total, day) => total + day.playCount, 0)
   const totalDurationSeconds = elapsedDays.reduce((total, day) => total + day.durationSeconds, 0)
-  const totalMinutes = Math.round(totalDurationSeconds / 60)
-  let longestStreak = 0
-  let currentStreak = 0
-  const activeDaysByMonth = Array.from({ length: 12 }, () => 0)
 
-  for (const day of elapsedDays) {
-    if (day.playCount > 0) {
-      currentStreak += 1
-      longestStreak = Math.max(longestStreak, currentStreak)
-      activeDaysByMonth[Number(day.date.slice(5, 7)) - 1] += 1
-    } else {
-      currentStreak = 0
-    }
+  return {
+    year: selectedYear.value,
+    activeDays,
+    totalDaysInYear: calendarDays.value.length,
+    totalPlays,
+    totalDurationSeconds,
+    peakDayDate: peakDay.value?.date ?? null,
+    peakDayPlays: peakDay.value?.playCount ?? 0,
+    isPending: activeDays === 0 && totalPlays === 0,
   }
-
-  const mostActiveMonthIndex = activeDaysByMonth.reduce(
-    (bestIndex, count, index, counts) => (count > counts[bestIndex] ? index : bestIndex),
-    0,
-  )
-  const longestListeningDay = elapsedDays.reduce<CalendarDay | null>((longest, day) => {
-    if (day.durationSeconds <= 0) return longest
-    if (!longest || day.durationSeconds > longest.durationSeconds) return day
-    return longest
-  }, null)
-  const activeRate = elapsedDays.length ? Math.round((listeningDays / elapsedDays.length) * 100) : 0
-  const averagePlays = listeningDays ? (totalPlays / listeningDays).toFixed(1) : '0.0'
-  const averageMinutes = listeningDays
-    ? (totalDurationSeconds / 60 / listeningDays).toFixed(1)
-    : '0.0'
-  const topTrack = annualInsights.value?.topTrack
-  const peakInsights = annualInsights.value?.peakDay
-  const insightFallback = annualInsightsError.value ? '暂无详细数据' : '暂无歌曲明细'
-
-  return [
-    {
-      key: 'listeningDays',
-      label: '听歌天数',
-      value: `${listeningDays}`,
-      unit: '天',
-      details: [
-        `年度活跃率 · ${listeningDays} / ${elapsedDays.length} 天 · ${activeRate}%`,
-        `最长连续聆听 · ${longestStreak} 天`,
-        listeningDays
-          ? `最活跃月份 · ${mostActiveMonthIndex + 1} 月 · ${activeDaysByMonth[mostActiveMonthIndex]} 天`
-          : '最活跃月份 · 暂无记录',
-      ],
-    },
-    {
-      key: 'plays',
-      label: '播放次数',
-      value: `${totalPlays}`,
-      unit: '次',
-      details: [
-        `平均每个听歌日 · ${averagePlays} 次`,
-        `单日最高 · ${peakDay.value?.playCount ?? 0} 次`,
-        topTrack
-          ? `年度最常听 · ${topTrack.title || '未知歌曲'} · ${topTrack.playCount}\u00a0次`
-          : insightFallback,
-      ],
-    },
-    {
-      key: 'duration',
-      label: '已收听',
-      value: `${totalMinutes}`,
-      unit: '分钟',
-      details: [
-        `累计时长 · ${formatHoursAndMinutes(totalDurationSeconds)}`,
-        `平均每个听歌日 · ${averageMinutes} 分钟`,
-        longestListeningDay
-          ? `收听最久 · ${longestListeningDay.label} · ${formatMinutes(longestListeningDay.durationSeconds)}`
-          : '收听最久 · 暂无记录',
-      ],
-    },
-    {
-      key: 'peakDay',
-      label: '最活跃的一天',
-      value: peakDay.value?.label ?? '暂无记录',
-      unit: peakDay.value ? `${peakDay.value.playCount} 次` : '',
-      clickable: Boolean(peakDay.value),
-      details: [
-        `收听时长 · ${formatMinutes(peakDay.value?.durationSeconds ?? 0)}`,
-        peakInsights ? `不同歌曲 · ${peakInsights.uniqueTrackCount} 首` : insightFallback,
-        peakInsights?.topTracks.length
-          ? `Top 3 · ${peakInsights.topTracks.map((track) => track.title || '未知歌曲').join('、')}`
-          : insightFallback,
-      ],
-    },
-  ]
 })
 
 const annualRecapTrackTop10 = computed(
@@ -564,14 +486,6 @@ function formatRankingArtist(artist: string | null): string {
   return formatArtist(artist) || '未知艺术家'
 }
 
-function formatAnnualTopTrack(detail: string): string {
-  return detail.replace(/^年度最常听 · /, '')
-}
-
-function formatDailyTopTracks(detail: string): string {
-  return detail.replace(/^Top 3 · /, '')
-}
-
 function formatHoursAndMinutes(durationSeconds: number): string {
   if (durationSeconds > 0 && durationSeconds < 60) return '不到 1 分钟'
   const totalMinutes = Math.round(durationSeconds / 60)
@@ -633,18 +547,9 @@ async function openDailyDetail(event: MouseEvent | KeyboardEvent, day: CalendarD
   }
 }
 
-function activateSummaryItem(event: MouseEvent | KeyboardEvent, key: string): void {
-  if (key !== 'peakDay' || !peakDay.value) return
-  if (event instanceof KeyboardEvent && event.key !== 'Enter' && event.key !== ' ') return
-  if (event instanceof KeyboardEvent) event.preventDefault()
+function handleLinerNotesPeakClick(event: MouseEvent | KeyboardEvent): void {
+  if (!peakDay.value) return
   void openDailyDetail(event, peakDay.value)
-}
-
-function dismissSummaryPopover(event: KeyboardEvent): void {
-  if (event.key === 'Escape') {
-    const target = event.currentTarget as HTMLElement
-    target.blur()
-  }
 }
 
 function closeDailyDetail(): void {
@@ -664,37 +569,9 @@ function closeDailyDetail(): void {
   }, 240)
 }
 
-function cancelLongPress(): void {
-  if (longPressTimer !== null) {
-    window.clearTimeout(longPressTimer)
-    longPressTimer = null
-  }
-}
-
-function startLongPress(): void {
-  if (longPressTimer !== null || showResetAction.value) return
-  longPressTimer = window.setTimeout(() => {
-    showResetAction.value = true
-    longPressTimer = null
-  }, LONG_PRESS_MS)
-}
-
-function handleTitleKeyDown(event: KeyboardEvent): void {
-  if (event.key !== 'Enter' && event.key !== ' ') return
-  event.preventDefault()
-  startLongPress()
-}
-
-function handleTitleKeyUp(event: KeyboardEvent): void {
-  if (event.key === 'Enter' || event.key === ' ') cancelLongPress()
-}
-
 function handleDocumentPointerDown(event: PointerEvent): void {
   const target = event.target
   if (!(target instanceof Element)) return
-  if (!target.closest('[data-reset-control]')) {
-    showResetAction.value = false
-  }
   if (!target.closest('[data-ranking-period-control]')) {
     showRankingPicker.value = false
   }
@@ -714,7 +591,6 @@ function handleDocumentKeyDown(event: KeyboardEvent): void {
 }
 
 function openResetConfirmation(): void {
-  showResetAction.value = false
   resetError.value = null
   showResetConfirmation.value = true
 }
@@ -803,7 +679,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   heroFluidGeneration += 1
-  cancelLongPress()
   cancelResetHold()
   unsubscribeLibraryChanged?.()
   document.body.classList.remove(ARCHIVE_SCROLLBAR_HIDDEN_CLASS)
@@ -874,102 +749,12 @@ onBeforeUnmount(() => {
     />
 
     <section v-if="!isLoading && !errorMessage" class="archive-summary">
-      <div class="archive-section-heading">
-        <div class="archive-title-row" data-reset-control>
-          <div>
-            <span class="archive-section-kicker">Annual Notes</span>
-            <h2
-              role="button"
-              tabindex="0"
-              aria-label="年度摘要，长按一秒显示播放数据重置操作"
-              @pointerdown="startLongPress"
-              @pointerup="cancelLongPress"
-              @pointerleave="cancelLongPress"
-              @pointercancel="cancelLongPress"
-              @keydown="handleTitleKeyDown"
-              @keyup="handleTitleKeyUp"
-              @blur="cancelLongPress"
-              @contextmenu.prevent
-            >
-              年度摘要
-            </h2>
-            <p>把这一年的活跃天数、播放次数、时长和峰值浓缩成四条线索。</p>
-          </div>
-          <Transition name="archive-reset-action">
-            <button
-              v-if="showResetAction"
-              type="button"
-              class="archive-reset-action"
-              @click="openResetConfirmation"
-            >
-              重置播放数据
-            </button>
-          </Transition>
-        </div>
-        <button type="button" class="archive-annual-recap-entry" @click="openAnnualRecap">
-          <span class="i-lucide-sparkles h-4 w-4"></span>
-          <span>年度总结</span>
-        </button>
-      </div>
-      <div class="archive-summary-grid">
-        <div
-          v-for="item in annualSummary"
-          :key="item.key"
-          class="archive-summary-item"
-          :class="{
-            'archive-summary-item--clickable': item.clickable,
-            'archive-summary-item--peak-day': item.key === 'peakDay',
-          }"
-          tabindex="0"
-          :role="item.clickable ? 'button' : undefined"
-          @click="activateSummaryItem($event, item.key)"
-          @keydown="activateSummaryItem($event, item.key)"
-          @keydown.esc="dismissSummaryPopover"
-        >
-          <span class="archive-summary-label">{{ item.label }}</span>
-          <div class="archive-summary-value">
-            <strong>{{ item.value }}</strong>
-            <span v-if="item.unit">{{ item.unit }}</span>
-          </div>
-          <div class="archive-summary-expanded">
-            <div class="archive-summary-expanded-main">
-              <span class="archive-summary-label">{{ item.label }}</span>
-              <div class="archive-summary-value">
-                <strong>{{ item.value }}</strong>
-                <span v-if="item.unit">{{ item.unit }}</span>
-              </div>
-            </div>
-            <div class="archive-summary-details">
-              <template v-for="(detail, detailIndex) in item.details" :key="detail">
-                <div
-                  v-if="
-                    item.key === 'plays' && detailIndex === 2 && detail.startsWith('年度最常听 · ')
-                  "
-                  class="archive-summary-top-track"
-                >
-                  <span class="archive-summary-top-track-label">年度最常听</span>
-                  <span class="archive-summary-top-track-value">
-                    {{ formatAnnualTopTrack(detail) }}
-                  </span>
-                </div>
-                <div
-                  v-else-if="
-                    item.key === 'peakDay' && detailIndex === 2 && detail.startsWith('Top 3 · ')
-                  "
-                  class="archive-summary-top-tracks"
-                >
-                  <span class="archive-summary-top-tracks-label">Top 3</span>
-                  <span class="archive-summary-top-tracks-value">
-                    {{ formatDailyTopTracks(detail) }}
-                  </span>
-                </div>
-                <span v-else>{{ detail }}</span>
-              </template>
-              <small v-if="item.clickable">点击查看完整 Top 10</small>
-            </div>
-          </div>
-        </div>
-      </div>
+      <EditorialLinerNotesCard
+        :data="linerNotesData"
+        @click-peak="handleLinerNotesPeakClick"
+        @open-recap="openAnnualRecap"
+        @reset="openResetConfirmation"
+      />
     </section>
 
     <section v-if="!isLoading && !errorMessage" class="archive-ranking">
@@ -1093,9 +878,8 @@ onBeforeUnmount(() => {
             <h3 class="album-hero-title">{{ selectedAlbumItem.title || '未知专辑' }}</h3>
             <p class="album-hero-artist">{{ formatRankingArtist(selectedAlbumItem.artist) }}</p>
             <p class="album-hero-summary-text">
-              {{ selectedAlbumItem.title || '未知专辑' }} 你听了
-              {{ selectedAlbumItem.playCount }} 次
-              {{ formatMinutes(selectedAlbumItem.durationSeconds) }}
+              已听 <strong>{{ selectedAlbumItem.playCount }}</strong> 次 · 累计
+              <strong>{{ formatMinutes(selectedAlbumItem.durationSeconds) }}</strong>
             </p>
           </div>
         </div>
@@ -1838,351 +1622,7 @@ onBeforeUnmount(() => {
 
 .archive-summary {
   margin-top: 28px;
-}
-
-.archive-summary-grid {
-  display: grid;
-  margin-top: 16px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-}
-
-/* Summary Cards (Borderless Streamline Layout) */
-.archive-summary-item {
-  position: relative;
-  z-index: 1;
-  min-width: 0;
-  min-height: 140px;
-  padding: 20px;
-  border: 1px solid transparent;
-  border-radius: 16px;
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  outline: none;
-  box-shadow: none;
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-  overflow: visible;
-}
-
-/* Subtle glow background for each card based on its child index */
-.archive-summary-item:nth-child(1) {
-  --glow-color: rgba(111, 125, 99, 0.35);
-} /* Moss 绿 */
-.archive-summary-item:nth-child(2) {
-  --glow-color: rgba(164, 124, 72, 0.35);
-} /* Brass 金 */
-.archive-summary-item:nth-child(3) {
-  --glow-color: rgba(93, 103, 115, 0.35);
-} /* Dusk 蓝 */
-.archive-summary-item:nth-child(4) {
-  --glow-color: rgba(74, 111, 165, 0.35);
-} /* Auralis 蓝 */
-
-.archive-summary-item::before {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(
-    circle at 85% 15%,
-    var(--glow-color, transparent) 0%,
-    transparent 60%
-  );
-  content: '';
-  opacity: 0.35;
-  z-index: -1;
-  transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
-  pointer-events: none;
-}
-
-.archive-summary-item:hover,
-.archive-summary-item:focus-within {
-  z-index: 20;
-  border-color: transparent;
-  background: color-mix(in srgb, var(--auralis-text) 3.5%, transparent);
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--auralis-text) 4%, transparent);
-  transform: translateY(-2px);
-}
-
-.archive-summary-item:hover::before {
-  opacity: 0.6;
-}
-
-.archive-summary-item:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 50%, transparent);
-}
-
-.archive-summary-item--clickable {
-  cursor: pointer;
-}
-
-.archive-summary-item > .archive-summary-label,
-.archive-summary-item > .archive-summary-value {
-  transition:
-    opacity 150ms ease,
-    transform 200ms ease;
-}
-
-.archive-summary-item:hover > .archive-summary-label,
-.archive-summary-item:hover > .archive-summary-value,
-.archive-summary-item:focus-within > .archive-summary-label,
-.archive-summary-item:focus-within > .archive-summary-value {
-  opacity: 0;
-  transform: translateY(-6px);
-}
-
-.archive-summary-label {
-  display: block;
-  color: var(--auralis-text-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.archive-summary-value {
-  display: flex;
-  min-width: 0;
-  align-items: baseline;
-  gap: 7px;
-  margin-top: 20px;
-  color: var(--auralis-text);
-}
-
-.archive-summary-value strong {
-  overflow: hidden;
-  font-size: 34px;
-  font-weight: 800;
-  font-family: 'Outfit', 'Inter', sans-serif;
-  letter-spacing: -0.02em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.archive-summary-value span {
-  flex-shrink: 0;
-  color: var(--auralis-text-faint);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-/* Expanded Card content in Summary grid */
-.archive-summary-expanded {
-  position: absolute;
-  z-index: 30;
-  top: 50%;
-  left: 50%;
-  display: grid;
-  width: 160%;
-  height: 160%;
-  min-height: 154px;
-  overflow: hidden;
-  padding: 20px 22px;
-  border: 1px solid var(--auralis-playbar-border);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--auralis-dialog-bg) 80%, transparent);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
-  -webkit-backdrop-filter: blur(25px) saturate(150%);
-  backdrop-filter: blur(25px) saturate(150%);
-  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1.2fr);
-  column-gap: 20px;
-  isolation: isolate;
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, -50%) scale(0.85);
-  transition:
-    opacity 200ms ease,
-    transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.archive-summary-expanded::before {
-  position: absolute;
-  z-index: 0;
-  border-radius: inherit;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.12) 0%,
-      rgba(255, 255, 255, 0.04) 18%,
-      transparent 48%,
-      rgba(0, 0, 0, 0.15) 100%
-    ),
-    radial-gradient(circle at 15% 15%, var(--glow-color, transparent) 0%, transparent 60%);
-  content: '';
-  inset: 0;
-  opacity: 0.8;
-  pointer-events: none;
-}
-
-.archive-summary-item:first-child .archive-summary-expanded {
-  left: 0;
-  transform: translate(0, -50%) scale(0.85);
-  transform-origin: left center;
-}
-
-.archive-summary-item:last-child .archive-summary-expanded {
-  right: 0;
-  left: auto;
-  transform: translate(0, -50%) scale(0.85);
-  transform-origin: right center;
-}
-
-.archive-summary-item:hover .archive-summary-expanded,
-.archive-summary-item:focus-within .archive-summary-expanded {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translate(-50%, -50%) scale(1);
-}
-
-.archive-summary-item:first-child:hover .archive-summary-expanded,
-.archive-summary-item:first-child:focus-within .archive-summary-expanded,
-.archive-summary-item:last-child:hover .archive-summary-expanded,
-.archive-summary-item:last-child:focus-within .archive-summary-expanded {
-  transform: translate(0, -50%) scale(1);
-}
-
-.archive-summary-expanded-main {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  justify-content: center;
-  padding-right: 2px;
-}
-
-.archive-summary-expanded-main .archive-summary-label {
-  font-size: 13px;
-}
-
-.archive-summary-expanded-main .archive-summary-value {
-  margin-top: 10px;
-}
-
-.archive-summary-expanded-main .archive-summary-value strong {
-  font-size: 32px;
-  letter-spacing: -0.04em;
-  background: none;
-  -webkit-text-fill-color: initial;
-}
-
-.archive-summary-expanded-main .archive-summary-value span {
-  font-size: 13px;
-}
-
-.archive-summary-details {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  justify-content: center;
-  gap: 9px;
-  padding-left: 20px;
-  border-left: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
-  color: color-mix(in srgb, var(--auralis-text) 80%, transparent);
-  font-size: 13px;
-  font-weight: 560;
-  line-height: 1.4;
-}
-
-.archive-summary-details span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.archive-summary-top-track,
-.archive-summary-top-tracks {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.archive-summary-details .archive-summary-top-track-label,
-.archive-summary-details .archive-summary-top-tracks-label {
-  color: color-mix(in srgb, var(--auralis-text) 50%, transparent);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.archive-summary-details .archive-summary-top-track-value,
-.archive-summary-details .archive-summary-top-tracks-value {
-  overflow: hidden;
-  color: var(--auralis-text);
-  font-size: 13px;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.archive-summary-details .archive-summary-top-tracks-value {
-  display: -webkit-box;
-  line-height: 1.4;
-  white-space: normal;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.archive-summary-details small {
-  align-self: flex-start;
-  margin-top: 4px;
-  color: var(--auralis-sidebar-active-indicator);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.archive-summary-item--peak-day .archive-summary-expanded {
-  height: 170%;
-  min-height: 174px;
-  padding: 20px 22px;
-  grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
-}
-
-.archive-summary-item--peak-day .archive-summary-expanded-main {
-  justify-content: flex-start;
-  padding-top: 10px;
-}
-
-.archive-summary-item--peak-day .archive-summary-expanded-main .archive-summary-value {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-}
-
-.archive-summary-item--peak-day .archive-summary-expanded-main .archive-summary-value strong {
-  font-size: 24px;
-  letter-spacing: -0.05em;
-  line-height: 1.2;
-}
-
-.archive-summary-item--peak-day .archive-summary-expanded-main .archive-summary-value span {
-  margin-top: 2px;
-  font-size: 11px;
-}
-
-.archive-summary-item--peak-day .archive-summary-details {
-  justify-content: center;
-  gap: 11px;
-  padding-left: 18px;
-}
-
-.archive-summary-item--peak-day .archive-summary-details span {
-  min-height: 0;
-  padding: 0;
-}
-
-.archive-summary-item--peak-day .archive-summary-details small {
-  display: block;
-  width: auto;
-  min-height: 0;
-  margin-top: 0;
-  padding: 0;
-  font-size: 11px;
+  container-type: inline-size;
 }
 
 .archive-annual-recap-entry {
@@ -3093,6 +2533,8 @@ onBeforeUnmount(() => {
 }
 
 .archive-ranking-copy {
+  flex: 1 1 0%;
+  min-width: 0;
   gap: 3px;
 }
 
@@ -3117,7 +2559,11 @@ onBeforeUnmount(() => {
 }
 
 .archive-ranking-meta {
+  margin-left: auto;
   align-items: flex-end;
+  text-align: right;
+  flex-shrink: 0;
+  min-width: 72px;
   gap: 3px;
   white-space: nowrap;
 }
@@ -3534,12 +2980,15 @@ onBeforeUnmount(() => {
   font-size: 12px;
   color: var(--auralis-text-faint);
   line-height: 1.4;
-  word-break: break-all;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.album-hero-summary-text strong {
+  color: var(--auralis-text);
+  font-weight: 700;
+  font-family: 'Outfit', 'Inter', sans-serif;
 }
 
 .archive-album-magazine-list {
