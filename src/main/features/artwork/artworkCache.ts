@@ -129,6 +129,8 @@ async function writeArtworkFileAtomically(
   }
 }
 
+const inFlightConversions = new Map<string, Promise<string | null>>()
+
 /**
  * Generate the v2 WebP display cache for an artwork source.
  * Returns the cache key on success (reusing an existing file when present),
@@ -146,46 +148,60 @@ export async function writeArtworkToCache(
     return key
   }
 
-  try {
-    await mkdir(cacheDir, { recursive: true })
-  } catch {
-    logger.warn(
-      { cacheDir, cacheVersion: ARTWORK_CACHE_VERSION },
-      'Artwork cache directory is not writable',
+  const inFlight = inFlightConversions.get(key)
+  if (inFlight) {
+    return inFlight
+  }
+
+  const conversionPromise = (async (): Promise<string | null> => {
+    try {
+      await mkdir(cacheDir, { recursive: true })
+    } catch {
+      logger.warn(
+        { cacheDir, cacheVersion: ARTWORK_CACHE_VERSION },
+        'Artwork cache directory is not writable',
+      )
+      return null
+    }
+
+    const startedAt = Date.now()
+    const converted = await convertArtworkToWebp(source)
+
+    if (!converted) {
+      return null
+    }
+
+    const sourceDimensions = await readSourceDimensions(source)
+    const written = await writeArtworkFileAtomically(cacheDir, key, converted.data)
+
+    if (!written) {
+      return null
+    }
+
+    logger.debug(
+      {
+        sourcePath,
+        mimeType: source.mimeType,
+        sourceBytes: source.data.byteLength,
+        outputBytes: converted.data.byteLength,
+        compressionRatio: source.data.byteLength / Math.max(converted.data.byteLength, 1),
+        sourceWidth: sourceDimensions.width,
+        sourceHeight: sourceDimensions.height,
+        outputWidth: converted.width,
+        outputHeight: converted.height,
+        durationMs: Date.now() - startedAt,
+        cacheVersion: ARTWORK_CACHE_VERSION,
+      },
+      'Artwork converted to v2 webp',
     )
-    return null
+
+    return key
+  })()
+
+  inFlightConversions.set(key, conversionPromise)
+  try {
+    return await conversionPromise
+  } finally {
+    inFlightConversions.delete(key)
   }
-
-  const startedAt = Date.now()
-  const converted = await convertArtworkToWebp(source)
-
-  if (!converted) {
-    return null
-  }
-
-  const sourceDimensions = await readSourceDimensions(source)
-  const written = await writeArtworkFileAtomically(cacheDir, key, converted.data)
-
-  if (!written) {
-    return null
-  }
-
-  logger.debug(
-    {
-      sourcePath,
-      mimeType: source.mimeType,
-      sourceBytes: source.data.byteLength,
-      outputBytes: converted.data.byteLength,
-      compressionRatio: source.data.byteLength / Math.max(converted.data.byteLength, 1),
-      sourceWidth: sourceDimensions.width,
-      sourceHeight: sourceDimensions.height,
-      outputWidth: converted.width,
-      outputHeight: converted.height,
-      durationMs: Date.now() - startedAt,
-      cacheVersion: ARTWORK_CACHE_VERSION,
-    },
-    'Artwork converted to v2 webp',
-  )
-
-  return key
 }
