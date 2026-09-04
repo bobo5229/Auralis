@@ -19,6 +19,19 @@ export function windowOccupiesDisplay(
   )
 }
 
+/**
+ * Windows can report `isFullScreen() === false` while the HWND still covers the
+ * display. Treat that leftover exclusive state as still occupying.
+ */
+export function isScreenOccupying(
+  isFullScreen: boolean,
+  bounds: Electron.Rectangle,
+  displayBounds: Electron.Rectangle,
+  tolerance = 2,
+): boolean {
+  return isFullScreen || windowOccupiesDisplay(bounds, displayBounds, tolerance)
+}
+
 export function miniPlayerBoundsApplied(
   actual: Pick<Electron.Rectangle, 'width' | 'height'>,
   expected: Pick<Electron.Rectangle, 'width' | 'height'>,

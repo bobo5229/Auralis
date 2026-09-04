@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isScreenOccupying,
   miniPlayerBoundsApplied,
   resolveMiniPlayerSourceBounds,
   windowOccupiesDisplay,
@@ -36,6 +37,23 @@ describe('windowOccupiesDisplay', () => {
   it('is false for a restored or mini window', () => {
     expect(windowOccupiesDisplay(bounds, display)).toBe(false)
     expect(windowOccupiesDisplay({ x: 40, y: 40, width: 304, height: 512 }, display)).toBe(false)
+  })
+})
+
+describe('isScreenOccupying', () => {
+  const display = { x: 0, y: 0, width: 1920, height: 1080 }
+
+  it('is true when isFullScreen is true even if bounds are not the display', () => {
+    expect(isScreenOccupying(true, bounds, display)).toBe(true)
+  })
+
+  it('is true when the window occupies the display even if isFullScreen is false', () => {
+    expect(isScreenOccupying(false, { x: 0, y: 0, width: 1920, height: 1080 }, display)).toBe(true)
+  })
+
+  it('is false for a restored or mini window that is not fullscreen', () => {
+    expect(isScreenOccupying(false, bounds, display)).toBe(false)
+    expect(isScreenOccupying(false, { x: 40, y: 40, width: 304, height: 512 }, display)).toBe(false)
   })
 })
 

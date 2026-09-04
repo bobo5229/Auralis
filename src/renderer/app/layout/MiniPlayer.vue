@@ -429,7 +429,8 @@ onUnmounted(() => {
 
 /* ── Vertical plaque shell ─────────────────────────────── */
 .mini-player {
-  border-radius: 24px;
+  /* Win11 DWM default is ~8px; larger CSS radius leaves #1f2528 wedges. */
+  border-radius: 8px;
 }
 
 .mini-player-background {

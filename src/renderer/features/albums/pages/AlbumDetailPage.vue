@@ -9,7 +9,7 @@ import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
-import { formatGenreParts, splitGenreValues } from '@renderer/features/library/utils/formatGenre'
+import { splitGenreValues } from '@renderer/features/library/utils/formatGenre'
 
 import AlbumDetailTrackList from '../components/AlbumDetailTrackList.vue'
 import type { AlbumSummary } from '../types'
@@ -159,17 +159,71 @@ function collectGenreCounts(): { label: string; count: number; firstSeen: number
   )
 }
 
-/** Top album genres as display string: single label, or `A & B` when two dominate. */
-const dominantGenreLabel = computed(() =>
-  formatGenreParts(
-    collectGenreCounts()
-      .slice(0, 2)
-      .map((genre) => genre.label),
-  ),
-)
+/** 提取所有流派胶囊，去重并按频次与先后顺序排列 */
+const albumGenrePills = computed<string[]>(() => collectGenreCounts().map((genre) => genre.label))
 
-const heroTrackCountLabel = computed(() => formatTrackCount(albumTracks.value.length))
-const heroDurationLabel = computed(() => formatAlbumDuration(totalDurationSeconds.value))
+function onGenrePillClick(genre: string): void {
+  void router.push({ name: 'library', query: { q: genre } })
+}
+
+function onArtistClick(): void {
+  if (!albumArtist.value || albumArtist.value === 'Unknown Artist') return
+  void router.push({ name: 'library', query: { q: albumArtist.value } })
+}
+
+function formatMetricsDuration(seconds: number): string {
+  if (seconds <= 0) return '00:00'
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = Math.floor(seconds % 60)
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+const metricsTrackCount = computed(() => albumTracks.value.length)
+const metricsTotalDuration = computed(() => formatMetricsDuration(totalDurationSeconds.value))
+
+const metricsListenData = computed(() => {
+  let totalPlays = 0
+  let listenedSeconds = 0
+
+  for (const track of albumTracks.value) {
+    const playCount = track.playCount ?? 0
+    totalPlays += playCount
+    listenedSeconds += playCount * (track.durationSeconds ?? 0)
+  }
+
+  return { totalPlays, listenedSeconds }
+})
+
+const metricsTotalPlays = computed(() => metricsListenData.value.totalPlays)
+
+const metricsPlaysLabel = computed(() => {
+  const count = metricsTotalPlays.value
+  const key = count === 1 ? 'albums.detail.metrics.playsUnitOne' : 'albums.detail.metrics.playsUnit'
+  return t(key, { count })
+})
+
+const metricsTotalTime = computed(() => {
+  const seconds = metricsListenData.value.listenedSeconds
+  if (seconds <= 0) {
+    return t('albums.detail.metrics.minutesUnit', { minutes: 0 })
+  }
+
+  if (seconds < 3600) {
+    const minutes = Math.max(1, Math.round(seconds / 60))
+    return t('albums.detail.metrics.minutesUnit', { minutes })
+  }
+
+  const hoursTenths = Math.round((seconds / 3600) * 10) / 10
+  const hoursLabel =
+    Number.isInteger(hoursTenths) || hoursTenths >= 10
+      ? String(Math.round(hoursTenths))
+      : hoursTenths.toFixed(1)
+  return t('albums.detail.metrics.hoursUnit', { hours: hoursLabel })
+})
 
 /**
  * Hero 法律附录：版权 + 完整发行日（有则拼接）。
@@ -268,25 +322,6 @@ async function refreshMoreAlbumsScrollState(): Promise<void> {
   }
 }
 
-/** 估算收听：playCount 之和与 playCount * duration 之和（非精确会话时长）。 */
-const albumListenSummary = computed(() => {
-  let totalPlays = 0
-  let listenedSeconds = 0
-
-  for (const track of albumTracks.value) {
-    const playCount = track.playCount ?? 0
-    totalPlays += playCount
-    listenedSeconds += playCount * (track.durationSeconds ?? 0)
-  }
-
-  if (totalPlays <= 0) return null
-
-  return {
-    totalPlays,
-    label: formatListenSummaryLabel(totalPlays, listenedSeconds),
-  }
-})
-
 /**
  * 多碟分组：至少两个不同有效 discNo（null 视为 1）时才分组并显示 Disc 头。
  * 单碟或全同一碟时 discNo 为 null，模板不渲染分组头。
@@ -312,24 +347,6 @@ const albumDiscGroups = computed(() => {
   }
   return groups
 })
-
-function formatListenSummaryLabel(totalPlays: number, listenedSeconds: number): string {
-  if (listenedSeconds <= 0) {
-    return t('albums.detail.listenSummary.plays', { count: totalPlays })
-  }
-
-  if (listenedSeconds < 3600) {
-    const minutes = Math.max(1, Math.round(listenedSeconds / 60))
-    return t('albums.detail.listenSummary.minutes', { count: totalPlays, minutes })
-  }
-
-  const hoursTenths = Math.round((listenedSeconds / 3600) * 10) / 10
-  const hoursLabel =
-    Number.isInteger(hoursTenths) || hoursTenths >= 10
-      ? String(Math.round(hoursTenths))
-      : hoursTenths.toFixed(1)
-  return t('albums.detail.listenSummary.hours', { count: totalPlays, hours: hoursLabel })
-}
 
 /**
  * 静态极光：离屏 16×16 采样 + 四角径向渐变，单帧绘制，无 rAF 循环。
@@ -468,33 +485,6 @@ function showSearchResultHighlight(): void {
     highlightedTrackId.value = null
     highlightTimeout = null
   }, 1800)
-}
-
-function formatTrackCount(count: number): string {
-  return t(count === 1 ? 'albums.detail.trackCount.one' : 'albums.detail.trackCount.other', {
-    count,
-  })
-}
-
-function formatAlbumDuration(seconds: number): string {
-  if (seconds <= 0) return t('albums.detail.duration.zero')
-
-  if (seconds < 3600) {
-    return t('albums.detail.duration.minutes', {
-      minutes: String(Math.floor(seconds / 60)).padStart(2, '0'),
-      seconds: String(Math.floor(seconds % 60)).padStart(2, '0'),
-    })
-  }
-
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.round((seconds % 3600) / 60)
-  const normalizedHours = hours + Math.floor(minutes / 60)
-  const normalizedMinutes = minutes % 60
-
-  const hh = String(normalizedHours).padStart(2, '0')
-
-  const mm = String(normalizedMinutes).padStart(2, '0')
-  return t('albums.detail.duration.hours', { hours: hh, minutes: mm })
 }
 
 function buildAlbumPlaybackQueue(): TrackListItem[] {
@@ -819,57 +809,157 @@ onBeforeUnmount(() => {
             aria-hidden="true"
           ></canvas>
 
-          <div ref="coverStageRef" class="album-hero-cover-container">
-            <div class="album-hero-cover">
-              <img
-                v-if="artworkUrl"
-                :src="artworkUrl"
-                :alt="t('albums.detail.coverAlt', { title: displayAlbumTitle })"
-                class="h-full w-full object-cover"
-                decoding="async"
-                draggable="false"
-              />
-              <div v-else class="flex h-full w-full items-center justify-center" aria-hidden="true">
-                <span class="i-lucide-disc-3 h-16 w-16 text-[var(--auralis-text-disabled)]"></span>
+          <!-- 上半部分：主内容层（封面 + 信息流 + 对齐封面底部的操作按钮） -->
+          <div class="album-hero-main-stage">
+            <!-- 左侧：封面舞台 -->
+            <div ref="coverStageRef" class="album-hero-cover-container">
+              <div class="album-hero-cover">
+                <img
+                  v-if="artworkUrl"
+                  :src="artworkUrl"
+                  :alt="t('albums.detail.coverAlt', { title: displayAlbumTitle })"
+                  class="h-full w-full object-cover"
+                  decoding="async"
+                  draggable="false"
+                />
+                <div
+                  v-else
+                  class="flex h-full w-full items-center justify-center"
+                  aria-hidden="true"
+                >
+                  <span
+                    class="i-lucide-disc-3 h-16 w-16 text-[var(--auralis-text-disabled)]"
+                  ></span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="album-hero-content-stage">
-            <div class="album-hero-eyebrow select-text">
-              <span>ALBUM</span>
-              <template v-if="dominantGenreLabel">
-                <span class="album-hero-meta-dot" aria-hidden="true">·</span>
-                <span>{{ dominantGenreLabel }}</span>
-              </template>
+            <!-- 中间：信息主干流（右侧安全避让操作按钮） -->
+            <div class="album-hero-content-stage">
+              <!-- Zone 1: 流派与类别 -->
+              <div class="album-hero-zone-genres select-none">
+                <span class="album-badge">ALBUM</span>
+                <div v-if="albumGenrePills.length > 0" class="album-genre-pills">
+                  <button
+                    v-for="genre in albumGenrePills"
+                    :key="genre"
+                    type="button"
+                    class="album-genre-pill"
+                    :title="genre"
+                    @click="onGenrePillClick(genre)"
+                  >
+                    {{ genre }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Zone 2: 核心文本（纯元数据） -->
+              <div class="album-hero-zone-primary">
+                <div class="album-hero-meta-block">
+                  <h1 class="album-hero-title select-none" :title="displayAlbumTitle">
+                    {{ displayAlbumTitle }}
+                  </h1>
+                  <div class="album-hero-artist-row select-text">
+                    <button
+                      v-if="albumArtist && albumArtist !== 'Unknown Artist'"
+                      type="button"
+                      class="album-hero-artist-btn"
+                      :title="displayAlbumArtist"
+                      @click="onArtistClick"
+                    >
+                      {{ displayAlbumArtist }}
+                    </button>
+                    <span v-else class="album-hero-artist-text">{{ displayAlbumArtist }}</span>
+                    <span class="album-hero-artist-dot" aria-hidden="true">·</span>
+                    <span class="album-hero-year-text">{{ albumReleaseYear }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Zone 3: 播放度量与 3D 翻转统计（轻量无底色纯文字行） -->
+              <div class="album-hero-zone-metrics select-none">
+                <div class="album-hero-metric-item">
+                  <span class="album-hero-metric-label">{{
+                    t('albums.detail.metrics.tracks')
+                  }}</span>
+                  <span class="album-hero-metric-value">{{ metricsTrackCount }}</span>
+                </div>
+                <div class="album-hero-metric-item">
+                  <span class="album-hero-metric-label">{{
+                    t('albums.detail.metrics.duration')
+                  }}</span>
+                  <span class="album-hero-metric-value">{{ metricsTotalDuration }}</span>
+                </div>
+
+                <!-- 3D 滚筒翻转微交互（Zero Layout Shift 原地翻转） -->
+                <div
+                  class="album-hero-metric-flipper-stage"
+                  tabindex="0"
+                  role="region"
+                  :aria-label="t('albums.detail.metrics.stats')"
+                >
+                  <!-- 隐藏测宽占位层：锁定正反两面最大物理尺寸，确保左侧指标绝对不发生任何横向抖动 -->
+                  <div class="album-hero-metric-flipper-measure" aria-hidden="true">
+                    <span class="album-hero-metric-label">{{
+                      t('albums.detail.metrics.plays')
+                    }}</span>
+                    <span class="album-hero-metric-value">{{ metricsPlaysLabel }}</span>
+                    <span class="album-hero-metric-label">{{
+                      t('albums.detail.metrics.listened')
+                    }}</span>
+                    <span class="album-hero-metric-value">{{ metricsTotalTime }}</span>
+                  </div>
+
+                  <!-- 3D 滚筒主体（preserve-3d） -->
+                  <div class="album-hero-flipper-cube">
+                    <!-- 正面（默认态）：向右的箭头 -->
+                    <div class="album-hero-flipper-face album-hero-flipper-face--front">
+                      <svg
+                        class="album-hero-flipper-arrow"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="m9 18 6-6-6-6" />
+                      </svg>
+                    </div>
+
+                    <!-- 背面（悬停翻出）：已听次数与累计收听时长 -->
+                    <div class="album-hero-flipper-face album-hero-flipper-face--back">
+                      <span class="album-hero-metric-label">{{
+                        t('albums.detail.metrics.plays')
+                      }}</span>
+                      <span class="album-hero-metric-value">{{ metricsPlaysLabel }}</span>
+                      <span class="album-hero-metric-label">{{
+                        t('albums.detail.metrics.listened')
+                      }}</span>
+                      <span class="album-hero-metric-value">{{ metricsTotalTime }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <h1 class="album-hero-title select-text">{{ displayAlbumTitle }}</h1>
-            <div class="album-hero-meta-chain select-text">
-              <span class="album-hero-meta-item album-hero-artist">{{ displayAlbumArtist }}</span>
-              <span class="album-hero-meta-dot" aria-hidden="true">·</span>
-              <span class="album-hero-meta-item album-hero-year">{{ albumReleaseYear }}</span>
-              <span class="album-hero-meta-dot" aria-hidden="true">·</span>
-              <span class="album-hero-meta-item album-hero-count">{{ heroTrackCountLabel }}</span>
-              <span class="album-hero-meta-dot" aria-hidden="true">·</span>
-              <span class="album-hero-meta-item album-hero-duration">{{ heroDurationLabel }}</span>
-              <template v-if="albumListenSummary">
-                <span class="album-hero-meta-dot" aria-hidden="true">·</span>
-                <span class="album-hero-meta-item album-hero-listen">{{
-                  albumListenSummary.label
-                }}</span>
-              </template>
-            </div>
+
+            <!-- 右侧：严格与封面底边对齐的 Hero Action 大按钮组 -->
             <div class="album-hero-actions">
               <button class="album-hero-play-btn" type="button" @click="playAlbum">
-                <span class="i-lucide-play h-5 w-5 fill-current"></span>
+                <span class="i-lucide-play h-5 w-5 fill-current" aria-hidden="true"></span>
                 <span>{{ t('albums.detail.play') }}</span>
               </button>
               <button class="album-hero-shuffle-btn" type="button" @click="playAlbumShuffle">
-                <span class="i-lucide-shuffle h-4 w-4"></span>
+                <span class="i-lucide-shuffle h-[18px] w-[18px]" aria-hidden="true"></span>
                 <span>{{ t('albums.detail.shuffle') }}</span>
               </button>
             </div>
-            <p v-if="heroLegalLine" class="album-hero-legal select-text" :title="heroLegalLine">
+          </div>
+
+          <!-- 下半部分：底部脚注层（横跨全宽，完整横向展开，低于按钮与封面底边） -->
+          <div v-if="heroLegalLine" class="album-hero-footer-stage select-none">
+            <p class="album-hero-legal-text" :title="heroLegalLine">
               {{ heroLegalLine }}
             </p>
           </div>
@@ -1049,23 +1139,22 @@ onBeforeUnmount(() => {
 
 /* —— Phase 1: Hero Billboard —— */
 .album-hero-billboard {
+  --album-hero-cover-size: 176px;
   position: relative;
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   width: 100%;
-  min-height: 256px;
-  grid-template-columns: 200px minmax(0, 1fr);
-  column-gap: 32px;
-  align-items: center;
   padding: 32px;
-  border-radius: 22px;
+  border-radius: 24px;
   background: color-mix(in srgb, var(--auralis-dialog-bg) 88%, #000);
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 12%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow:
     0 24px 60px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
   overflow: hidden;
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
 }
 
 .album-hero-static-canvas {
@@ -1079,6 +1168,18 @@ onBeforeUnmount(() => {
   border-radius: inherit;
 }
 
+/* 上半部分：主内容层（封面 + 信息流 + 按钮） */
+.album-hero-main-stage {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: 100%;
+  min-height: var(--album-hero-cover-size);
+  grid-template-columns: var(--album-hero-cover-size) minmax(0, 1fr);
+  column-gap: 32px;
+  align-items: start;
+}
+
 .album-hero-cover-container {
   --detail-cover-rotate-x: 0deg;
   --detail-cover-rotate-y: 0deg;
@@ -1086,18 +1187,17 @@ onBeforeUnmount(() => {
   --detail-cover-shift-y: 0px;
   --detail-cover-shadow-x: 0px;
   --detail-cover-shadow-y: 18px;
-  align-self: center;
   position: relative;
   z-index: 1;
-  width: 200px;
-  height: 200px;
+  width: var(--album-hero-cover-size);
+  height: var(--album-hero-cover-size);
   perspective: 900px;
 }
 
 .album-hero-cover-container::before {
   position: absolute;
   inset: 6%;
-  border-radius: 14px;
+  border-radius: 16px;
   background: rgba(0, 0, 0, 0.4);
   content: '';
   filter: blur(18px);
@@ -1135,7 +1235,7 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--auralis-artwork-placeholder-bg);
   box-shadow:
     0 16px 40px rgba(0, 0, 0, 0.45),
@@ -1153,119 +1253,201 @@ onBeforeUnmount(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
+  gap: 12px;
+  padding-right: 250px;
   color: #f4f1ea;
 }
 
-.album-hero-eyebrow {
+/* Zone 1: 流派与类别 */
+.album-hero-zone-genres {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+
+.album-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.7);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(244, 241, 234, 0.65);
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+.album-genre-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.album-genre-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid
+    color-mix(in srgb, var(--auralis-active-album-accent, #818cf8) 35%, rgba(255, 255, 255, 0.16));
+  color: var(--auralis-active-album-accent, rgba(255, 255, 255, 0.92));
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1.3;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.album-genre-pill:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: var(--auralis-active-album-accent, #a5b4fc);
+  color: #ffffff;
+  transform: translateY(-1px);
+  filter: brightness(1.15);
+  box-shadow: 0 4px 12px
+    color-mix(in srgb, var(--auralis-active-album-accent, #818cf8) 30%, transparent);
+}
+
+.album-genre-pill:active {
+  transform: translateY(0);
+}
+
+/* Zone 2: 核心文本与主操作 */
+.album-hero-zone-primary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  width: 100%;
+}
+
+.album-hero-meta-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .album-hero-title {
-  margin: 6px 0 0;
+  margin: 0;
+  padding-bottom: 6px;
+  box-sizing: border-box;
   max-width: 100%;
-  color: #faf7f0;
+  color: #ffffff;
   font-family: 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
-  font-size: clamp(24px, 3vw, 36px);
-  font-weight: 750;
-  line-height: 1.18;
+  font-size: clamp(24px, 2.8vw, 38px);
+  font-weight: 800;
+  line-height: 1.22;
   letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-}
-
-.album-hero-meta-chain {
-  margin-top: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 550;
-  color: rgba(244, 241, 234, 0.82);
-  line-height: 1.4;
-}
-
-.album-hero-meta-item.album-hero-artist {
-  font-weight: 650;
-  color: #faf7f0;
-}
-
-.album-hero-meta-item.album-hero-listen {
-  color: rgba(196, 165, 116, 0.95);
-}
-
-.album-hero-meta-dot {
-  color: rgba(244, 241, 234, 0.4);
   user-select: none;
 }
 
-.album-hero-actions {
-  margin-top: 18px;
+.album-hero-artist-row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.92);
 }
 
-.album-hero-legal {
-  position: relative;
-  z-index: 1;
-  margin: 12px 0 0;
-  max-width: 100%;
-  padding-top: 0;
-  border-top: none;
-  color: rgba(244, 241, 234, 0.42);
-  font-size: 11px;
-  line-height: 1.4;
-  letter-spacing: 0.01em;
+.album-hero-artist-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 17px;
+  font-weight: 650;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.15s ease;
+  max-width: 320px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.album-hero-artist-btn:hover {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.album-hero-artist-text {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.album-hero-artist-dot {
+  color: rgba(255, 255, 255, 0.4);
+  user-select: none;
+}
+
+.album-hero-year-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.album-hero-actions {
+  position: absolute;
+  right: 0;
+  top: calc(var(--album-hero-cover-size) - 48px);
+  height: 48px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .album-hero-play-btn {
   display: inline-flex;
   width: fit-content;
-  min-width: 128px;
-  height: 44px;
+  min-width: 124px;
+  height: 48px;
+  padding: 0 24px;
   align-items: center;
   justify-content: center;
-  gap: 9px;
+  gap: 8px;
   border: none;
   border-radius: 999px;
   background: linear-gradient(
     135deg,
-    var(--auralis-active-album-accent, #4f46e5) 0%,
-    color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 80%, #000) 100%
+    var(--auralis-active-album-accent, #6366f1) 0%,
+    color-mix(in srgb, var(--auralis-active-album-accent, #6366f1) 75%, #000) 100%
   );
   color: #ffffff;
   font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  box-shadow: 0 6px 20px
-    color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 45%, transparent);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  overflow: hidden;
-  position: relative;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  box-shadow:
+    0 8px 24px color-mix(in srgb, var(--auralis-active-album-accent, #6366f1) 50%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: all 0.22s cubic-bezier(0.25, 0.8, 0.25, 1);
+  cursor: pointer;
 }
 
 .album-hero-play-btn:hover {
-  transform: translateY(-2px) scale(1.03);
-  filter: brightness(1.06);
-  box-shadow: 0 10px 28px
-    color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 52%, transparent);
+  transform: translateY(-2px) scale(1.02);
+  filter: brightness(1.1);
+  box-shadow:
+    0 12px 28px color-mix(in srgb, var(--auralis-active-album-accent, #6366f1) 60%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
 .album-hero-play-btn:active {
@@ -1276,30 +1458,177 @@ onBeforeUnmount(() => {
   display: inline-flex;
   width: fit-content;
   min-width: 112px;
-  height: 40px;
+  height: 48px;
+  padding: 0 20px;
   align-items: center;
   justify-content: center;
-  gap: 7px;
+  gap: 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.18);
-  color: rgba(244, 241, 234, 0.88);
-  font-size: 13px;
-  font-weight: 600;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  transition: all 0.25s ease;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 15px;
+  font-weight: 650;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+  cursor: pointer;
 }
 
 .album-hero-shuffle-btn:hover {
-  background: rgba(255, 255, 255, 0.14);
-  border-color: rgba(255, 255, 255, 0.28);
-  color: #faf7f0;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.32);
+  color: #ffffff;
   transform: translateY(-1px);
 }
 
 .album-hero-shuffle-btn:active {
   transform: translateY(0);
+}
+
+/* Zone 3: 播放度量与 3D 翻转统计（轻量无底色纯文字行） */
+.album-hero-zone-metrics {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.album-hero-metric-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1;
+}
+
+.album-hero-metric-label {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+}
+
+.album-hero-metric-value {
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* —— 3D 滚筒翻转微交互（Zero Layout Shift 原地翻转） —— */
+.album-hero-metric-flipper-stage {
+  position: relative;
+  height: 20px;
+  perspective: 500px;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  outline: none;
+}
+
+.album-hero-metric-flipper-stage:focus-visible {
+  outline: 1px dashed rgba(255, 255, 255, 0.35);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* 测量层：不可见但占据物理空间，锁定正反面统一宽度，杜绝左侧任何抖动 */
+.album-hero-metric-flipper-measure {
+  visibility: hidden;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* 滚筒本体：X 轴 3D 旋转体 */
+.album-hero-metric-flipper-cube {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
+  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: center center;
+}
+
+/* 悬停或获得焦点时原地翻滚 180° */
+.album-hero-metric-flipper-stage:hover .album-hero-metric-flipper-cube,
+.album-hero-metric-flipper-stage:focus-visible .album-hero-metric-flipper-cube {
+  transform: rotateX(180deg);
+}
+
+/* 正反面基础属性 */
+.album-hero-flipper-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* 正面：向右的箭头 */
+.album-hero-flipper-face--front {
+  transform: rotateX(0deg);
+  display: flex;
+  align-items: center;
+  color: rgba(255, 255, 255, 0.45);
+  transition: color 0.2s ease;
+}
+
+.album-hero-metric-flipper-stage:hover .album-hero-flipper-face--front {
+  color: #ffffff;
+}
+
+.album-hero-flipper-arrow {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  transition:
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.2s ease;
+}
+
+.album-hero-metric-flipper-stage:hover .album-hero-flipper-arrow {
+  transform: translateX(2px);
+}
+
+/* 背面：绕 X 轴预转 180° */
+.album-hero-flipper-face--back {
+  transform: rotateX(180deg);
+  gap: 8px;
+}
+
+/* 下半部分：底部脚注层（横跨全宽，完整横向平铺展开） */
+.album-hero-footer-stage {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding-top: 2px;
+}
+
+.album-hero-legal-text {
+  margin: 0;
+  width: 100%;
+  color: rgba(255, 255, 255, 0.32);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  white-space: normal;
+  word-break: break-word;
+  user-select: none;
 }
 
 /* —— 中部：通栏曲目 —— */
@@ -1462,15 +1791,13 @@ onBeforeUnmount(() => {
 
 @media (max-width: 959px) {
   .album-hero-billboard {
-    min-height: 0;
-    grid-template-columns: 168px minmax(0, 1fr);
-    column-gap: 20px;
+    --album-hero-cover-size: 160px;
     padding: 20px;
+    gap: 14px;
   }
 
-  .album-hero-cover-container {
-    width: 168px;
-    height: 168px;
+  .album-hero-main-stage {
+    column-gap: 20px;
   }
 
   .album-body-grid {
@@ -1478,8 +1805,27 @@ onBeforeUnmount(() => {
   }
 }
 
+@media (max-width: 780px) {
+  .album-hero-content-stage {
+    padding-right: 0;
+  }
+
+  .album-hero-actions {
+    position: static;
+    margin-top: 10px;
+  }
+}
+
+@media (max-width: 680px) {
+  .album-hero-zone-primary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+}
+
 @media (max-width: 640px) {
-  .album-hero-billboard {
+  .album-hero-main-stage {
     grid-template-columns: minmax(0, 1fr);
     row-gap: 18px;
   }
@@ -1490,6 +1836,10 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .album-hero-metric-flipper-cube {
+    transition: none !important;
+  }
+
   .album-hero-cover,
   .album-hero-cover-container::before,
   .album-hero-cover-container::after {
@@ -1503,6 +1853,7 @@ onBeforeUnmount(() => {
 
   .album-hero-play-btn:hover,
   .album-hero-shuffle-btn:hover,
+  .album-genre-pill:hover,
   .album-detail-back:hover {
     transform: none;
   }
