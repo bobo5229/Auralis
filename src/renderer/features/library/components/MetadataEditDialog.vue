@@ -315,7 +315,7 @@ function onKeyDown(e: KeyboardEvent): void {
 
 .metadata-dialog-panel {
   box-sizing: border-box;
-  background: var(--auralis-dialog-bg, #25272a);
+  background: var(--auralis-dialog-bg);
   border: 1px solid var(--auralis-border-subtle);
   border-radius: 12px;
   box-shadow:
@@ -335,7 +335,7 @@ function onKeyDown(e: KeyboardEvent): void {
   box-sizing: border-box;
   width: 100%;
   background: var(--auralis-search-bg);
-  border: 1px solid var(--auralis-search-border, rgba(246, 242, 234, 0.1));
+  border: 1px solid var(--auralis-search-border);
   border-radius: 6px;
   padding: 6px 10px;
   color: var(--auralis-text);
@@ -346,9 +346,9 @@ function onKeyDown(e: KeyboardEvent): void {
 }
 
 .metadata-dialog-input:focus-visible {
-  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline: 2px solid var(--auralis-focus-ring);
   outline-offset: -1px;
-  border-color: var(--auralis-sidebar-active-indicator);
+  border-color: var(--auralis-focus-ring);
 }
 
 .metadata-dialog-input:disabled {
@@ -357,7 +357,7 @@ function onKeyDown(e: KeyboardEvent): void {
 }
 
 .metadata-dialog-input[aria-invalid='true'] {
-  border-color: var(--auralis-danger, #ef4444);
+  border-color: var(--auralis-danger);
 }
 
 .metadata-dialog-btn-secondary {

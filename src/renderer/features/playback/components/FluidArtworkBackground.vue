@@ -188,7 +188,7 @@ onBeforeUnmount(() => {
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
-  background: #0e1117;
+  background: var(--auralis-artwork-background-fallback);
 }
 
 .fluid-artwork-background-canvas {

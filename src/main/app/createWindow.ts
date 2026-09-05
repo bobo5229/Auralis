@@ -26,7 +26,7 @@ export function createWindow(): BrowserWindow {
     minWidth: 900,
     minHeight: 620,
     title: 'Auralis',
-    backgroundColor: '#1f2528',
+    backgroundColor: '#0c0b0a',
     transparent: false,
     frame: true,
     show: false,

@@ -35,6 +35,9 @@ async function bootstrap(): Promise<void> {
   app.mount('#app')
   await nextTick()
   auralis.app.rendererReady()
+
+  const { schedulePrimaryRouteWarmup } = await import('./app/router/routeWarmup')
+  schedulePrimaryRouteWarmup()
 }
 
 void bootstrap()

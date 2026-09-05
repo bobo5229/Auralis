@@ -93,34 +93,44 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Theme tokens */
-  --auralis-bg: #1f1f1f;
-  --auralis-main-bg: transparent;
-  --auralis-dialog-bg: #25272a;
-  --auralis-sidebar-bg: #232324;
-  --auralis-now-playing-bg: rgba(20, 21, 23, 0.72);
-  --auralis-border-subtle: rgba(225, 221, 214, 0.08);
-  --auralis-text: rgba(225, 221, 214, 0.92);
-  --auralis-text-muted: rgba(225, 221, 214, 0.62);
-  --auralis-text-subtle: rgba(225, 221, 214, 0.42);
-  --auralis-text-faint: rgba(246, 242, 234, 0.36);
-  --auralis-text-disabled: rgba(246, 242, 234, 0.22);
-  --auralis-control-hover-bg: rgba(255, 255, 255, 0.07);
-  --auralis-control-active-bg: rgba(255, 255, 255, 0.14);
-  --auralis-control-primary-bg: #e8e1d2;
-  --auralis-control-primary-text: #1f1f1f;
-  --auralis-progress-track: rgba(255, 255, 255, 0.08);
+  /* Modern theme tokens: static shell uses warm black and restrained gold. */
+  --auralis-bg: #0c0b0a;
+  --auralis-main-bg: #12110f;
+  --auralis-dialog-bg: #1f1c18;
+  --auralis-sidebar-bg: #181613;
+  --auralis-now-playing-bg: rgba(24, 22, 19, 0.88);
+  --auralis-surface-raised: #1f1c18;
+  --auralis-surface-floating: #27231e;
+  --auralis-border-subtle: rgba(232, 220, 198, 0.08);
+  --auralis-border-strong: rgba(232, 220, 198, 0.14);
+  --auralis-text: #f3eee6;
+  --auralis-text-muted: #b7aea2;
+  --auralis-text-subtle: #7d756b;
+  --auralis-text-faint: rgba(125, 117, 107, 0.68);
+  --auralis-text-disabled: rgba(183, 174, 162, 0.35);
+  --auralis-control-bg: var(--auralis-surface-raised);
+  --auralis-control-hover-bg: rgba(232, 220, 198, 0.08);
+  --auralis-control-active-bg: rgba(201, 177, 132, 0.14);
+  --auralis-control-primary-bg: #c9b184;
+  --auralis-control-primary-text: #0c0b0a;
+  --auralis-focus-ring: #e8d7b0;
+  --auralis-danger: #c96a55;
+  --auralis-success: #8aa36a;
+  --auralis-artwork-accent-fallback: #9e8558;
+  --auralis-artwork-background-fallback: #0e0d0b;
+  --auralis-surface-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
+  --auralis-progress-track: rgba(232, 220, 198, 0.08);
   --auralis-progress-fill: #e1ddd6;
   --auralis-volume-fill: #e1ddd6;
-  --auralis-artwork-placeholder-bg: rgba(246, 242, 234, 0.12);
+  --auralis-artwork-placeholder-bg: rgba(232, 220, 198, 0.12);
 
   /* Playbar safe area — modern floating island: 72px height + 36px bottom gap */
   --auralis-playbar-safe-area: 108px;
   --auralis-shell-edge-gap: 12px;
   --auralis-shell-vertical-gap: 24px;
   --auralis-player-bottom-gap: 36px;
-  --auralis-playbar-bg: rgba(30, 32, 35, 0.16);
-  --auralis-playbar-border: rgba(225, 221, 214, 0.18);
+  --auralis-playbar-bg: rgba(31, 28, 24, 0.88);
+  --auralis-playbar-border: rgba(232, 220, 198, 0.14);
   --auralis-playbar-highlight: rgba(255, 255, 255, 0.16);
   --auralis-playbar-highlight-soft: rgba(255, 255, 255, 0.06);
   --auralis-playbar-lowlight: rgba(0, 0, 0, 0.24);
@@ -132,59 +142,64 @@
 
   /* Song list tokens */
   --auralis-song-row-bg: transparent;
-  --auralis-song-row-alt-bg: rgba(255, 255, 255, 0.014);
-  --auralis-song-row-border: rgba(225, 221, 214, 0.06);
-  --auralis-song-row-now-playing-bg: rgba(126, 166, 217, 0.14);
-  --auralis-song-row-now-playing-title: #a9cbed;
-  --auralis-song-row-now-playing-artist: #8fb7dd;
-  --auralis-song-row-now-playing-duration: #7ea6d9;
+  --auralis-song-row-alt-bg: rgba(232, 220, 198, 0.014);
+  --auralis-song-row-border: rgba(232, 220, 198, 0.08);
+  --auralis-song-row-now-playing-bg: rgba(201, 177, 132, 0.12);
+  --auralis-song-row-now-playing-title: #e8d7b0;
+  --auralis-song-row-now-playing-artist: #c9b184;
+  --auralis-song-row-now-playing-duration: #9e8558;
 
   /* Lyrics tokens */
-  --auralis-lyrics-active: #afafb0;
+  --auralis-lyrics-active: #e8d7b0;
   --auralis-lyrics-inactive: #515152;
 
   /* Sidebar active state */
-  --auralis-sidebar-active-bg: #263244;
-  --auralis-sidebar-active-indicator: #7ea6d9;
-  --auralis-sidebar-active-icon: #91b7e8;
-  --auralis-sidebar-active-text: #a6c8f2;
+  --auralis-sidebar-active-bg: rgba(201, 177, 132, 0.12);
+  --auralis-sidebar-active-indicator: #c9b184;
+  --auralis-sidebar-active-icon: #e8d7b0;
+  --auralis-sidebar-active-text: #e8d7b0;
 
   /* Search bar */
-  --auralis-search-bg: rgba(36, 39, 43, 0.54);
-  --auralis-search-border: rgba(246, 242, 234, 0.1);
+  --auralis-search-bg: rgba(31, 28, 24, 0.72);
+  --auralis-search-border: rgba(232, 220, 198, 0.1);
   --auralis-search-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-  --auralis-context-menu-bg: rgba(36, 39, 43, 0.58);
-  --auralis-context-menu-border: rgba(246, 242, 234, 0.1);
+  --auralis-context-menu-bg: rgba(31, 28, 24, 0.9);
+  --auralis-context-menu-border: rgba(232, 220, 198, 0.1);
   --auralis-context-menu-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
 
   /* Cover view */
-  --auralis-cover-track-bg: rgba(30, 30, 30, 0.22);
-  --auralis-cover-track-hover-bg: rgba(255, 255, 255, 0.08);
-  --auralis-cover-divider: rgba(225, 221, 214, 0.1);
-  --auralis-cover-track-divider: rgba(225, 221, 214, 0.07);
+  --auralis-cover-track-bg: rgba(31, 28, 24, 0.34);
+  --auralis-cover-track-hover-bg: rgba(232, 220, 198, 0.08);
+  --auralis-cover-divider: rgba(232, 220, 198, 0.1);
+  --auralis-cover-track-divider: rgba(232, 220, 198, 0.07);
 
   /* App environment glow */
-  --auralis-app-bg: #1f1f1f;
+  --auralis-app-bg: #0c0b0a;
   --auralis-app-glow-a: transparent;
   --auralis-app-glow-b: transparent;
   --auralis-app-background: var(--auralis-app-bg);
   /* Album detail "more works" band — lifted charcoal vs page black */
-  --auralis-album-detail-more-bg: #2a2a2b;
+  --auralis-album-detail-more-bg: #1f1c18;
 
   /* Album Detail frosted surfaces */
   --auralis-overlay-bg: color-mix(in srgb, var(--auralis-bg) 70%, transparent);
   --auralis-overlay-blur: blur(20px) saturate(1.45) contrast(1.02);
-  --auralis-btn-back-bg: rgba(255, 255, 255, 0.04);
-  --auralis-btn-back-border: rgba(255, 255, 255, 0.08);
-  --auralis-btn-back-hover: rgba(255, 255, 255, 0.08);
-  --auralis-stats-panel-bg: rgba(255, 255, 255, 0.03);
-  --auralis-stats-panel-border: rgba(255, 255, 255, 0.06);
-  --auralis-stats-divider: rgba(255, 255, 255, 0.1);
-  --auralis-track-list-bg: rgba(255, 255, 255, 0.025);
-  --auralis-track-list-border: rgba(255, 255, 255, 0.05);
-  --auralis-heat-bar-wrap: rgba(255, 255, 255, 0.06);
-  --auralis-more-card-bg: rgba(255, 255, 255, 0.02);
-  --auralis-more-card-border: rgba(255, 255, 255, 0.04);
+  --auralis-btn-back-bg: rgba(232, 220, 198, 0.04);
+  --auralis-btn-back-border: rgba(232, 220, 198, 0.08);
+  --auralis-btn-back-hover: rgba(232, 220, 198, 0.08);
+  --auralis-stats-panel-bg: rgba(232, 220, 198, 0.03);
+  --auralis-stats-panel-border: rgba(232, 220, 198, 0.06);
+  --auralis-stats-divider: rgba(232, 220, 198, 0.1);
+  --auralis-track-list-bg: rgba(232, 220, 198, 0.025);
+  --auralis-track-list-border: rgba(232, 220, 198, 0.05);
+  --auralis-heat-bar-wrap: rgba(232, 220, 198, 0.06);
+  --auralis-more-card-bg: rgba(232, 220, 198, 0.02);
+  --auralis-more-card-border: rgba(232, 220, 198, 0.04);
+
+  /* Window chrome defaults remain static; App.vue must not replace them with palette output. */
+  --auralis-window-chrome-bg: var(--auralis-bg);
+  --auralis-window-chrome-accent: var(--auralis-sidebar-active-indicator);
+  --auralis-window-chrome-border: var(--auralis-border-strong);
 }
 
 .wco-drag-region {
@@ -305,9 +320,9 @@ input {
     ),
     linear-gradient(
       90deg,
-      rgba(74, 111, 165, 0.06),
+      var(--auralis-playbar-highlight-soft),
       transparent 10% 90%,
-      rgba(126, 166, 217, 0.06)
+      var(--auralis-playbar-highlight-soft)
     ),
     linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
   opacity: 0.72;
@@ -543,7 +558,11 @@ input {
   z-index: 0;
   overflow: hidden;
   border-radius: inherit;
-  background: color-mix(in srgb, var(--auralis-playbar-bg) 50%, rgba(126, 166, 217, 0.02));
+  background: color-mix(
+    in srgb,
+    var(--auralis-playbar-bg) 50%,
+    var(--auralis-playbar-highlight-soft)
+  );
   pointer-events: none;
   border: 1px solid color-mix(in srgb, var(--auralis-playbar-border) 35%, transparent);
   box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.05);
@@ -566,9 +585,9 @@ input {
     ),
     linear-gradient(
       90deg,
-      rgba(74, 111, 165, 0.06),
+      var(--auralis-playbar-highlight-soft),
       transparent 10% 90%,
-      rgba(126, 166, 217, 0.06)
+      var(--auralis-playbar-highlight-soft)
     ),
     linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
   opacity: 0.72;
@@ -665,58 +684,46 @@ input {
 
 /* Liquid Glass is a restrained web approximation. Album color remains reserved for
    cover-tint and selected states. */
-.player-bar--liquid-glass {
-  box-shadow:
-    0 20px 52px rgba(0, 0, 0, 0.32),
-    0 6px 18px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.28);
-}
-
 .player-bar--liquid-glass[data-player-presentation='modern'] {
   box-shadow: none;
 }
 
 .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-island {
-  box-shadow:
-    0 20px 52px rgba(0, 0, 0, 0.32),
-    0 6px 18px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.28);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.26);
 }
 
-.player-bar--liquid-glass .player-bar-glass {
-  border-color: rgba(255, 255, 255, 0.25);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(16, 19, 24, 0.34)),
-    rgba(20, 23, 28, 0.48);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    inset 1px 0 0 rgba(255, 255, 255, 0.08),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.22);
-  -webkit-backdrop-filter: blur(18px) saturate(1.12) contrast(1.04);
-  backdrop-filter: blur(18px) saturate(1.12) contrast(1.04);
+.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass {
+  z-index: 1;
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(16, 20, 26, 0.36);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
+/* 边缘透镜折射层：严格基于 nikdelvin/liquid-glass 开源算法动态注入 3 通道色散与矢量位移 */
+.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  box-shadow: none;
+  opacity: 1;
+}
+
+/* 扁平化设计：隐藏伪 3D 摄影棚顶光与径向反光层 */
 .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-island::before,
-.player-bar--liquid-glass::before {
-  background:
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.22),
-      rgba(255, 255, 255, 0.035) 22%,
-      transparent 52%
-    ),
-    radial-gradient(ellipse 54% 72% at 8% 0%, rgba(255, 255, 255, 0.14), transparent 72%),
-    linear-gradient(102deg, transparent 17%, rgba(255, 255, 255, 0.1) 43%, transparent 57%);
-  opacity: 0.9;
+.player-bar--liquid-glass[data-player-presentation='modern']::before {
+  display: none !important;
 }
 
-.player-bar--liquid-glass .queue-popover,
-.player-bar--liquid-glass .playback-mode-menu,
-.player-bar--liquid-glass .desktop-lyrics-toast,
-.player-bar--liquid-glass .desktop-lyrics-lock-popover,
-.player-bar--liquid-glass .player-bar-overflow-panel {
+.player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover,
+.player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu,
+.player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-toast,
+.player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-lock-popover,
+.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-overflow-panel {
   border-color: rgba(255, 255, 255, 0.22);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(17, 19, 24, 0.36)),
@@ -729,8 +736,8 @@ input {
   backdrop-filter: blur(18px) saturate(1.12) contrast(1.04);
 }
 
-.player-bar--liquid-glass .queue-popover::before,
-.player-bar--liquid-glass .playback-mode-menu::before {
+.player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover::before,
+.player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu::before {
   background:
     linear-gradient(
       180deg,
@@ -742,30 +749,46 @@ input {
   opacity: 0.85;
 }
 
-.player-bar--liquid-glass .queue-popover::after,
-.player-bar--liquid-glass .playback-mode-menu::after {
+.player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover::after,
+.player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu::after {
   background: transparent;
 }
 
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .player-bar--liquid-glass .player-bar-glass,
-  .player-bar--liquid-glass .queue-popover,
-  .player-bar--liquid-glass .playback-mode-menu,
-  .player-bar--liquid-glass .desktop-lyrics-toast,
-  .player-bar--liquid-glass .desktop-lyrics-lock-popover {
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-toast,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-lock-popover {
     background: rgba(31, 34, 40, 0.92);
+  }
+
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge {
+    display: none !important;
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .player-bar--liquid-glass .player-bar-glass,
-  .player-bar--liquid-glass .queue-popover,
-  .player-bar--liquid-glass .playback-mode-menu,
-  .player-bar--liquid-glass .desktop-lyrics-toast,
-  .player-bar--liquid-glass .desktop-lyrics-lock-popover {
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-toast,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-lock-popover {
     background: rgba(31, 34, 40, 0.92);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge {
+    display: none !important;
+  }
+}
+
+/* The liquid surface changes backdrop-filter values when its material changes. */
+@media (prefers-reduced-motion: reduce) {
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge {
+    transition: none;
   }
 }
 
@@ -787,20 +810,24 @@ input {
     backdrop-filter: none;
   }
 
-  .player-bar--liquid-glass .player-bar-glass,
-  .player-bar--liquid-glass .queue-popover,
-  .player-bar--liquid-glass .playback-mode-menu,
-  .player-bar--liquid-glass .desktop-lyrics-toast,
-  .player-bar--liquid-glass .desktop-lyrics-lock-popover {
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-toast,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-lock-popover {
     border-color: rgba(255, 255, 255, 0.58);
     background: #202329;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 
-  .player-bar--liquid-glass::before,
-  .player-bar--liquid-glass .queue-popover::before,
-  .player-bar--liquid-glass .playback-mode-menu::before {
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge {
+    display: none !important;
+  }
+
+  .player-bar--liquid-glass[data-player-presentation='modern']::before,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover::before,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu::before {
     opacity: 0;
   }
 }
@@ -898,7 +925,8 @@ input {
   width: calc(50% - 2px);
   border-radius: 6px;
   background: color-mix(in srgb, var(--auralis-active-album-accent) 22%, rgba(255, 255, 255, 0.12));
-  border: 1px solid color-mix(in srgb, var(--auralis-active-album-accent) 30%, rgba(255, 255, 255, 0.2));
+  border: 1px solid
+    color-mix(in srgb, var(--auralis-active-album-accent) 30%, rgba(255, 255, 255, 0.2));
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
   transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
   pointer-events: none;
@@ -1288,7 +1316,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 
 ::selection {
   color: #f6f2ea;
-  background: #5d6773;
+  background: rgba(201, 177, 132, 0.28);
 }
 
 ::-webkit-scrollbar {
@@ -1335,7 +1363,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   }
 }
 
-/* 主窗口客户区：底色 / 内描边跟随专辑色板 */
+/* 主窗口客户区：底色 / 内描边由静态壳 token 提供。 */
 .app-window {
   background: var(--auralis-window-chrome-bg, var(--auralis-app-background));
   box-shadow: inset 0 0 0 1px var(--auralis-window-chrome-border, transparent);
@@ -1517,7 +1545,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-tool-button:focus-visible {
-  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline: 2px solid var(--auralis-focus-ring);
   outline-offset: 1px;
 }
 
@@ -1620,7 +1648,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .sidebar-link:focus-visible {
-  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline: 2px solid var(--auralis-focus-ring);
   outline-offset: -2px;
 }
 
@@ -1790,7 +1818,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .smart-playlist-add-button:focus-visible {
-  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline: 2px solid var(--auralis-focus-ring);
   outline-offset: 1px;
 }
 
@@ -1957,11 +1985,11 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .library-context-menu-item.smart-playlist-context-danger {
-  color: #d75454;
+  color: var(--auralis-danger);
 }
 
 .library-context-menu-item.smart-playlist-context-danger:hover:not(:disabled) {
-  color: #e35d5d;
+  color: var(--auralis-danger);
 }
 
 .library-context-menu-item:disabled {
@@ -2082,12 +2110,12 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 
 .smart-playlist-dialog input:focus,
 .smart-playlist-dialog textarea:focus {
-  border-color: var(--auralis-sidebar-active-indicator);
+  border-color: var(--auralis-focus-ring);
 }
 
 .smart-playlist-dialog-error {
   margin: 6px 0 0;
-  color: #d75454;
+  color: var(--auralis-danger);
   font-size: 12px;
 }
 
@@ -2123,7 +2151,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .smart-playlist-dialog-actions .smart-playlist-dialog-danger {
-  color: #d75454;
+  color: var(--auralis-danger);
 }
 
 /* 专辑详情页退出 ➔ 专辑列表页：黑胶沉降与景深聚拢归位 */
@@ -2264,7 +2292,7 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 }
 
 .desktop-lyrics-line-current {
-  color: #0728ec;
+  color: var(--auralis-lyrics-active);
   -webkit-text-stroke: 1.1px #ffffff;
   paint-order: stroke fill;
 }

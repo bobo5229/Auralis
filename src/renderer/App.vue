@@ -7,13 +7,10 @@ import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
 import MiniPlayer from './app/layout/MiniPlayer.vue'
-import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
+import VisualStyleTransitionCurtain from './features/appearance/components/VisualStyleTransitionCurtain.vue'
 import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
-import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useDesktopLyricsSync } from '@renderer/features/lyrics/composables/useDesktopLyricsSync'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
-import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
-import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { resolveShellPresentation } from './app/utils/shellPresentation'
 import { resolvePlayerSurfacePresentation } from './app/utils/playerSurfacePresentation'
@@ -24,7 +21,6 @@ import './app/styles/manuscript.player.css'
 import './app/styles/manuscript.player-overlays.css'
 
 const route = useRoute()
-const playback = usePlayback()
 const { visualStyle } = useVisualStyle()
 useSystemMediaIntegration()
 useDesktopLyricsSync()
@@ -33,7 +29,6 @@ const { displayMode, onMiniPlayerWindowStateChanged, syncMiniPlayerWindowState }
 const shellPresentation = computed(() =>
   resolveShellPresentation(displayMode.value, visualStyle.value),
 )
-const isModernShell = computed(() => shellPresentation.value === 'modern')
 // Phase 18: persistent player surfaces (Now Playing + PlayerBar) get their own
 // presentation — fullscreen and mini always resolve to modern (Phase 19/20 own
 // those surfaces). Never used as a component key or v-if gate.
@@ -60,23 +55,11 @@ onBeforeUnmount(() => {
   unsubscribeMiniPlayerWindowState = null
 })
 
-const artworkUrl = computed(() => {
-  const artworkKey = playback.state.currentTrack?.artworkCacheKey ?? null
-  return getArtworkUrl(artworkKey)
-})
-
 const isAlbumDetail = computed(() => {
   return route.name === 'album-detail'
 })
 
-/** 当前曲封面 key；无曲 / 无封面时为 null（色板回退主题） */
-const artworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
-const { palette: chromePalette } = useArtworkPalette(artworkCacheKey, {
-  enabled: isModernShell,
-})
-const shouldRenderShellArtwork = computed(() => isModernShell.value && !!artworkUrl.value)
-
-/** 壳层 chrome 变量：modern 跟当前曲色板；manuscript 使用共享纸面 token */
+/** 壳层 chrome：modern 固定使用主题 token；manuscript 使用共享纸面 token。 */
 const windowChromeStyle = computed<CSSProperties>(() => {
   if (shellPresentation.value === 'manuscript') {
     return {
@@ -86,20 +69,10 @@ const windowChromeStyle = computed<CSSProperties>(() => {
     } as CSSProperties
   }
 
-  const hasTrack = !!playback.state.currentTrack
-  const pal = chromePalette.value
-  const accent = pal?.accents[0]?.rgb
-  const accentCss = accent ? `rgb(${accent.r} ${accent.g} ${accent.b})` : null
-
   return {
-    '--auralis-window-chrome-bg':
-      hasTrack && pal
-        ? `rgb(${pal.background.r} ${pal.background.g} ${pal.background.b})`
-        : 'var(--auralis-app-background)',
-    '--auralis-window-chrome-accent': accentCss ?? 'var(--auralis-sidebar-active-indicator)',
-    '--auralis-window-chrome-border': accentCss
-      ? `color-mix(in srgb, ${accentCss} 35%, transparent)`
-      : 'var(--auralis-border-subtle)',
+    '--auralis-window-chrome-bg': 'var(--auralis-bg)',
+    '--auralis-window-chrome-accent': 'var(--auralis-sidebar-active-indicator)',
+    '--auralis-window-chrome-border': 'var(--auralis-border-strong)',
   } as CSSProperties
 })
 
@@ -130,21 +103,8 @@ const transitionName = computed(() => {
     :data-shell-presentation="shellPresentation"
     :style="windowChromeStyle"
   >
-    <div
-      class="app-shell relative"
-      :class="{ 'is-album-detail': isAlbumDetail, 'has-artwork': shouldRenderShellArtwork }"
-    >
+    <div class="app-shell relative" :class="{ 'is-album-detail': isAlbumDetail }">
       <div class="wco-drag-region" aria-hidden="true" />
-
-      <!-- 仅 modern 且有封面时挂载流体背景，避免手稿模式继续跑 canvas / RAF -->
-      <FluidArtworkBackground
-        v-if="shouldRenderShellArtwork"
-        :artwork-url="artworkUrl"
-        :active="true"
-        :playing="playback.state.isPlaying"
-        class="app-shell-bg-fluid"
-      />
-      <div v-if="shouldRenderShellArtwork" class="app-shell-bg-overlay" aria-hidden="true"></div>
 
       <AppSidebar class="relative z-10" :presentation="shellPresentation" />
 
@@ -158,28 +118,8 @@ const transitionName = computed(() => {
 
       <NowPlayingPanel class="relative z-10" :presentation="playerPresentation" />
       <PlayerBar class="relative z-10" :presentation="playerPresentation" />
+      <VisualStyleTransitionCurtain />
     </div>
     <FullscreenPlayerOverlay />
   </div>
 </template>
-
-<style scoped>
-.app-shell-bg-fluid {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.app-shell-bg-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: var(--auralis-overlay-bg);
-  backdrop-filter: var(--auralis-overlay-blur);
-  -webkit-backdrop-filter: var(--auralis-overlay-blur);
-  pointer-events: none;
-}
-</style>

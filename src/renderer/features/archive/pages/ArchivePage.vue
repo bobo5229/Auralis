@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
 import { useRoute } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
@@ -13,6 +13,7 @@ import type {
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
+import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import MusicDnaCard from '@renderer/features/archive/components/MusicDnaCard.vue'
 import EditorialLinerNotesCard from '@renderer/features/archive/components/EditorialLinerNotesCard.vue'
@@ -369,6 +370,23 @@ const selectedAlbumItem = computed(() => {
   if (rankingTarget.value !== 'album' || !listeningRanking.value?.items.length) return null
   return listeningRanking.value.items[selectedAlbumIndex.value] || listeningRanking.value.items[0]
 })
+const selectedAlbumArtworkCacheKey = computed(
+  () => selectedAlbumItem.value?.artworkCacheKey ?? null,
+)
+const { palette: archivePalette } = useArtworkPalette(selectedAlbumArtworkCacheKey, {
+  enabled: isModernArchive,
+})
+const archiveStyle = computed<CSSProperties>(() => {
+  const accent = archivePalette.value.accents[0]?.rgb
+  const resolvedAccent =
+    archivePalette.value.quality === 'fallback' || !accent
+      ? 'var(--auralis-artwork-accent-fallback)'
+      : `rgb(${accent.r} ${accent.g} ${accent.b})`
+
+  return {
+    '--auralis-archive-accent': resolvedAccent,
+  } as CSSProperties
+})
 
 const heroCanvasRef = ref<HTMLCanvasElement | null>(null)
 let heroFluidGeneration = 0
@@ -688,7 +706,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="archive-page content-frame" :data-visual-style="archivePresentation">
+  <section
+    class="archive-page content-frame"
+    :data-visual-style="archivePresentation"
+    :style="isModernArchive ? archiveStyle : undefined"
+  >
     <div class="archive-heatmap-card">
       <div class="archive-card-heading">
         <div>
@@ -2275,22 +2297,20 @@ onBeforeUnmount(() => {
 }
 
 .calendar-grid button.is-today {
-  color: var(--auralis-active-album-accent, #ffe57f);
+  color: var(--auralis-archive-accent);
   font-weight: 800;
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--auralis-active-album-accent, #ffe57f) 40%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--auralis-archive-accent) 40%, transparent);
 }
 
 .calendar-grid button.is-selected {
   background: linear-gradient(
     135deg,
-    var(--auralis-active-album-accent, #4f46e5) 0%,
-    color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 80%, #000) 100%
+    var(--auralis-archive-accent) 0%,
+    color-mix(in srgb, var(--auralis-archive-accent) 80%, #000) 100%
   );
   color: #ffffff;
   font-weight: 800;
-  box-shadow: 0 4px 14px
-    color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 45%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--auralis-archive-accent) 45%, transparent);
 }
 
 /* Week list */
@@ -2344,13 +2364,12 @@ onBeforeUnmount(() => {
 .picker-week-list button.is-current {
   background: linear-gradient(
     135deg,
-    var(--auralis-active-album-accent, #4f46e5) 0%,
-    color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 80%, #000) 100%
+    var(--auralis-archive-accent) 0%,
+    color-mix(in srgb, var(--auralis-archive-accent) 80%, #000) 100%
   );
   color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 4px 12px
-    color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 40%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--auralis-archive-accent) 40%, transparent);
 }
 
 .picker-week-list .week-date-range {
@@ -3015,12 +3034,11 @@ onBeforeUnmount(() => {
 .archive-album-magazine-item:hover,
 .archive-album-magazine-item.is-selected {
   background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
-  border-color: color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 30%, transparent);
+  border-color: color-mix(in srgb, var(--auralis-archive-accent) 30%, transparent);
   transform: translateX(4px);
 }
 
 .archive-album-magazine-item.is-selected {
-  box-shadow: 0 4px 16px
-    color-mix(in srgb, var(--auralis-active-album-accent, #4f46e5) 20%, transparent);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--auralis-archive-accent) 20%, transparent);
 }
 </style>

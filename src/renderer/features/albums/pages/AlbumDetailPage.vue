@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
@@ -7,6 +7,7 @@ import { auralis } from '@renderer/shared/ipc/client'
 import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import { splitGenreValues } from '@renderer/features/library/utils/formatGenre'
@@ -112,10 +113,23 @@ const albumGroups = computed(() => {
   return [...groupedAlbums.entries()].map(([key, groupTracks]) => ({ key, tracks: groupTracks }))
 })
 
-const artworkUrl = computed(() => {
-  const artworkKey =
-    albumTracks.value.find((track) => track.artworkCacheKey)?.artworkCacheKey ?? null
-  return getArtworkUrl(artworkKey)
+const artworkCacheKey = computed(
+  () => albumTracks.value.find((track) => track.artworkCacheKey)?.artworkCacheKey ?? null,
+)
+const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
+const { palette: albumPalette } = useArtworkPalette(artworkCacheKey, {
+  enabled: isModernAlbumDetail,
+})
+const albumDetailStyle = computed<CSSProperties>(() => {
+  const accent = albumPalette.value.accents[0]?.rgb
+  const resolvedAccent =
+    albumPalette.value.quality === 'fallback' || !accent
+      ? 'var(--auralis-artwork-accent-fallback)'
+      : `rgb(${accent.r} ${accent.g} ${accent.b})`
+
+  return {
+    '--auralis-album-detail-accent': resolvedAccent,
+  } as CSSProperties
 })
 const artworkGlowBackground = computed(() =>
   artworkUrl.value ? `url("${artworkUrl.value}")` : 'none',
@@ -779,6 +793,7 @@ onBeforeUnmount(() => {
   <div
     class="album-detail-container album-detail-page h-full w-full relative bg-transparent"
     :data-visual-style="albumPresentation"
+    :style="isModernAlbumDetail ? albumDetailStyle : undefined"
   >
     <section
       v-if="loadState === 'ready'"
@@ -1293,8 +1308,8 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid
-    color-mix(in srgb, var(--auralis-active-album-accent, #818cf8) 35%, rgba(255, 255, 255, 0.16));
-  color: var(--auralis-active-album-accent, rgba(255, 255, 255, 0.92));
+    color-mix(in srgb, var(--auralis-album-detail-accent) 35%, rgba(255, 255, 255, 0.16));
+  color: var(--auralis-album-detail-accent);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -1308,12 +1323,11 @@ onBeforeUnmount(() => {
 
 .album-genre-pill:hover {
   background: rgba(255, 255, 255, 0.16);
-  border-color: var(--auralis-active-album-accent, #a5b4fc);
+  border-color: var(--auralis-album-detail-accent);
   color: #ffffff;
   transform: translateY(-1px);
   filter: brightness(1.15);
-  box-shadow: 0 4px 12px
-    color-mix(in srgb, var(--auralis-active-album-accent, #818cf8) 30%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--auralis-album-detail-accent) 30%, transparent);
 }
 
 .album-genre-pill:active {
@@ -1428,15 +1442,15 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: linear-gradient(
     135deg,
-    var(--auralis-active-album-accent, #6366f1) 0%,
-    color-mix(in srgb, var(--auralis-active-album-accent, #6366f1) 75%, #000) 100%
+    var(--auralis-album-detail-accent) 0%,
+    color-mix(in srgb, var(--auralis-album-detail-accent) 75%, #000) 100%
   );
   color: #ffffff;
   font-size: 15px;
   font-weight: 750;
   letter-spacing: 0.02em;
   box-shadow:
-    0 8px 24px color-mix(in srgb, var(--auralis-active-album-accent, #6366f1) 50%, transparent),
+    0 8px 24px color-mix(in srgb, var(--auralis-album-detail-accent) 50%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.25);
   transition: all 0.22s cubic-bezier(0.25, 0.8, 0.25, 1);
   cursor: pointer;
@@ -1446,7 +1460,7 @@ onBeforeUnmount(() => {
   transform: translateY(-2px) scale(1.02);
   filter: brightness(1.1);
   box-shadow:
-    0 12px 28px color-mix(in srgb, var(--auralis-active-album-accent, #6366f1) 60%, transparent),
+    0 12px 28px color-mix(in srgb, var(--auralis-album-detail-accent) 60%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
 }
 
@@ -1760,12 +1774,7 @@ onBeforeUnmount(() => {
   transform: translateY(-6px) scale(1.03);
   box-shadow:
     0 16px 36px rgba(0, 0, 0, 0.5),
-    0 0 20px
-      color-mix(
-        in srgb,
-        var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator, #6366f1)) 35%,
-        transparent
-      );
+    0 0 20px color-mix(in srgb, var(--auralis-album-detail-accent) 35%, transparent);
 }
 
 .album-more-gallery-meta {

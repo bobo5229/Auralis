@@ -112,9 +112,19 @@ defineExpose({
 .liquid-glass-panel__refraction {
   padding: 1px;
   background:
-    linear-gradient(115deg, rgb(255 90 90 / 20%), transparent 24% 72%, rgb(70 130 255 / 18%))
+    linear-gradient(
+        115deg,
+        var(--auralis-border-strong),
+        transparent 24% 72%,
+        var(--auralis-border-subtle)
+      )
       border-box,
-    linear-gradient(145deg, rgb(255 255 255 / 34%), rgb(255 255 255 / 5%) 42%, rgb(0 0 0 / 16%))
+    linear-gradient(
+        145deg,
+        var(--auralis-border-strong),
+        var(--auralis-border-subtle) 42%,
+        transparent
+      )
       border-box;
   mask:
     linear-gradient(#000 0 0) content-box exclude,

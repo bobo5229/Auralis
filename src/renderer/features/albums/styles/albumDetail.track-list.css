@@ -105,21 +105,17 @@
 }
 
 .album-detail-track.album-detail-track--selected {
-  background-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+  background-color: color-mix(in srgb, var(--auralis-album-detail-accent) 12%, transparent);
   box-shadow:
-    inset 2px 0 0 var(--auralis-sidebar-active-indicator),
+    inset 2px 0 0 var(--auralis-album-detail-accent),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
   transform: translateX(3px);
 }
 
 .album-detail-track.album-detail-track--playing {
-  background-color: color-mix(
-    in srgb,
-    var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator)) 18%,
-    transparent
-  );
+  background-color: color-mix(in srgb, var(--auralis-album-detail-accent) 18%, transparent);
   box-shadow:
-    inset 3px 0 0 var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator)),
+    inset 3px 0 0 var(--auralis-album-detail-accent),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
   transform: translateX(4px);
 }
@@ -176,7 +172,7 @@
   width: 2px;
   height: 40%;
   border-radius: 1px;
-  background: var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator));
+  background: var(--auralis-album-detail-accent);
   animation: album-eq-bar 0.9s ease-in-out infinite;
 }
 

@@ -9,7 +9,7 @@
   border-radius: 8px;
   background: color-mix(in srgb, var(--auralis-surface-floating, #1c1e22) 94%, black);
   box-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset;
-  color: var(--auralis-text-primary, #f5f5f5);
+  color: var(--auralis-text);
   pointer-events: auto;
   -webkit-app-region: no-drag;
 }
@@ -62,12 +62,12 @@
   justify-content: space-between;
   align-items: baseline;
   padding: 13px 14px 10px;
-  color: var(--auralis-text-secondary, #c4c4c8);
+  color: var(--auralis-text-muted);
   font-size: 11px;
 }
 
 .mini-panel-heading span:first-child {
-  color: var(--auralis-text-primary, #f5f5f5);
+  color: var(--auralis-text);
   font-size: 13px;
   font-weight: 650;
   letter-spacing: 0.01em;
@@ -105,7 +105,7 @@
   border: 0;
   border-radius: 10px;
   padding: 7px;
-  color: var(--auralis-text-secondary, #c7c7cc);
+  color: var(--auralis-text-muted);
   background: transparent;
   text-align: left;
   cursor: pointer;
@@ -118,12 +118,12 @@
 .mini-mode-option:hover,
 .mini-queue-item--active,
 .mini-mode-option--active {
-  color: var(--auralis-text-primary, #fff);
+  color: var(--auralis-text);
   background: rgb(255 255 255 / 0.08);
 }
 
 .mini-queue-item:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--auralis-active-album-accent) 72%, white);
+  outline: 2px solid var(--auralis-focus-ring);
   outline-offset: -2px;
 }
 
@@ -169,7 +169,7 @@
 
 .mini-queue-copy small {
   overflow: hidden;
-  color: var(--auralis-text-secondary, #ababaf);
+  color: var(--auralis-text-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 11px;
@@ -177,7 +177,7 @@
 
 .mini-queue-item--active .mini-queue-copy b,
 .mini-queue-now {
-  color: var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator, #8ab4f8));
+  color: var(--auralis-active-album-accent, var(--auralis-artwork-accent-fallback));
 }
 
 .mini-mode-panel {
@@ -201,7 +201,7 @@
 
 .mini-volume-value {
   flex: none;
-  color: var(--auralis-text-secondary, rgb(255 255 255 / 0.72));
+  color: var(--auralis-text-muted);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -217,15 +217,14 @@
   border-radius: 999px;
   background: linear-gradient(
     to top,
-    var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator, #8ab4f8)) 0
-      var(--mini-volume),
+    var(--auralis-active-album-accent, var(--auralis-artwork-accent-fallback)) 0 var(--mini-volume),
     var(--auralis-progress-track, rgb(255 255 255 / 0.18)) var(--mini-volume) 100%
   );
   outline: none;
 }
 
 .mini-volume-slider:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--auralis-active-album-accent) 42%, transparent);
+  box-shadow: 0 0 0 2px var(--auralis-focus-ring);
 }
 
 .mini-volume-slider::-webkit-slider-thumb {
@@ -233,7 +232,7 @@
   height: 12px;
   appearance: none;
   border-radius: 50%;
-  background: var(--auralis-text-primary, #fff);
+  background: var(--auralis-text);
   cursor: pointer;
 }
 
@@ -247,7 +246,7 @@
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: var(--auralis-text-secondary, #c7c7cc);
+  color: var(--auralis-text-muted);
   cursor: pointer;
 }
 
@@ -279,11 +278,11 @@
 
 .mini-volume-button:hover {
   background: rgb(255 255 255 / 0.08);
-  color: var(--auralis-text-primary, #fff);
+  color: var(--auralis-text);
 }
 
 .mini-volume-button:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--auralis-active-album-accent) 72%, white);
+  outline: 2px solid var(--auralis-focus-ring);
   outline-offset: 2px;
 }
 

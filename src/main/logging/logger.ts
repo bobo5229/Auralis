@@ -2,12 +2,28 @@ import pino, { type DestinationStream, type Logger } from 'pino'
 import { sanitizeLogValue } from './logSanitizer'
 import { RollingLogStore, type RollingLogStoreOptions } from './rollingLogStore'
 
+const SUPPORTED_LOG_LEVELS = ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'] as const
+
+type LogLevel = (typeof SUPPORTED_LOG_LEVELS)[number]
+
 const isDevelopment = process.env.NODE_ENV !== 'production'
+
+function isSupportedLogLevel(value: string): value is LogLevel {
+  return SUPPORTED_LOG_LEVELS.includes(value as LogLevel)
+}
+
+export function resolveLogLevel(
+  development: boolean,
+  configuredLevel = process.env.AURALIS_LOG_LEVEL,
+): LogLevel {
+  const defaultLevel: LogLevel = development ? 'debug' : 'info'
+  return configuredLevel && isSupportedLogLevel(configuredLevel) ? configuredLevel : defaultLevel
+}
 
 function createLogger(destination?: DestinationStream, development = isDevelopment): Logger {
   return pino(
     {
-      level: development ? 'debug' : 'info',
+      level: resolveLogLevel(development),
       hooks: {
         logMethod(args, method) {
           method.apply(this, args.map(sanitizeLogValue) as Parameters<typeof method>)

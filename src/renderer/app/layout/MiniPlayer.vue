@@ -86,7 +86,7 @@ const canvasStyle = computed(
       minHeight: `${bodySize.value.height}px`,
       '--mini-popover-gap': `${MINI_POPOVER_GAP_PX}px`,
       '--auralis-active-album-accent':
-        albumAccentColor.value ?? 'var(--auralis-sidebar-active-indicator)',
+        albumAccentColor.value ?? 'var(--auralis-artwork-accent-fallback)',
     }) as CSSProperties,
 )
 const miniPlayerStyle = computed(
@@ -96,7 +96,7 @@ const miniPlayerStyle = computed(
       height: `${bodySize.value.height}px`,
       '--mini-cover-size': `${bodySize.value.coverSize}px`,
       '--auralis-active-album-accent':
-        albumAccentColor.value ?? 'var(--auralis-sidebar-active-indicator)',
+        albumAccentColor.value ?? 'var(--auralis-artwork-accent-fallback)',
     }) as CSSProperties,
 )
 
@@ -420,11 +420,12 @@ onUnmounted(() => {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  color: var(--auralis-text-primary, #f5f5f5);
-  border: 1px solid
-    color-mix(in srgb, var(--auralis-border-subtle, rgb(127 127 127 / 0.28)) 80%, transparent);
-  background: color-mix(in srgb, var(--auralis-surface-floating, #1c1e22) 94%, black);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset;
+  color: var(--auralis-text);
+  border: 1px solid var(--auralis-border-strong);
+  background: var(--auralis-surface-floating);
+  box-shadow:
+    var(--auralis-surface-shadow),
+    inset 0 1px 0 var(--auralis-border-strong);
 }
 
 /* ── Vertical plaque shell ─────────────────────────────── */
@@ -517,7 +518,7 @@ onUnmounted(() => {
   place-items: center;
   overflow: hidden;
   border-radius: 18px;
-  background: color-mix(in srgb, var(--auralis-surface-raised, #34363a) 80%, black);
+  background: var(--auralis-surface-raised);
   color: var(--auralis-text-faint, #a0a0a5);
   cursor: pointer;
   box-shadow:
@@ -581,7 +582,7 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--auralis-text-secondary, #b5b5ba);
+  color: var(--auralis-text-muted);
   font-size: 12px;
   line-height: 1.3;
 }
@@ -645,12 +646,11 @@ onUnmounted(() => {
   box-sizing: border-box;
   /* Fully clear fill — shape from rim + blur only, no RGB edge dispersion */
   background: transparent !important;
-  border: 1px solid rgb(190 210 255 / 0.14);
+  border: 1px solid var(--auralis-border-strong);
   box-shadow:
-    0 1px 1px rgb(0 6 18 / 0.22),
-    0 4px 12px rgb(0 10 28 / 0.16),
-    inset 0 1px 0 rgb(230 240 255 / 0.16),
-    inset 0 -1px 0 rgb(0 8 24 / 0.22) !important;
+    var(--auralis-surface-shadow),
+    inset 0 1px 0 var(--auralis-border-strong),
+    inset 0 -1px 0 var(--auralis-border-subtle) !important;
 }
 
 /* Panel content must span the bar or the toolbar shrink-wraps to icon width */
@@ -696,7 +696,7 @@ onUnmounted(() => {
   border: 0;
   border-radius: 14px;
   justify-self: stretch;
-  color: var(--auralis-text-secondary, #cacace);
+  color: var(--auralis-text-muted);
   background: transparent;
   cursor: pointer;
   transition:
@@ -722,7 +722,7 @@ onUnmounted(() => {
 /* Island hover: color only — no circular fill blob */
 .mini-actions-button:hover {
   background: transparent;
-  color: var(--auralis-text-primary, #fff);
+  color: var(--auralis-text);
   box-shadow: none;
 }
 
@@ -744,7 +744,7 @@ onUnmounted(() => {
   place-items: center;
   border: 0;
   border-radius: 10px;
-  color: var(--auralis-text-secondary, #cacace);
+  color: var(--auralis-text-muted);
   background: transparent;
   cursor: pointer;
   transition:
@@ -793,7 +793,7 @@ onUnmounted(() => {
 
 .mini-icon-button:hover,
 .mini-icon-button--active {
-  color: var(--auralis-text-primary, #fff);
+  color: var(--auralis-text);
   background: rgb(255 255 255 / 0.12);
 }
 
@@ -812,8 +812,8 @@ onUnmounted(() => {
   height: 54px;
   border-radius: 50%;
   color: #121214;
-  background: var(--auralis-text-primary, #f4f4f5);
-  box-shadow: 0 8px 22px rgb(0 0 0 / 0.28);
+  background: var(--auralis-text);
+  box-shadow: var(--auralis-surface-shadow);
   overflow: visible;
   transition:
     color 0.14s ease,

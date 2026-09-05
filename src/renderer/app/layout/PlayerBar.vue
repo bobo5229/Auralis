@@ -26,11 +26,13 @@ import {
   type PlayerBarOverlayId,
 } from './playerBar/usePlayerBarOverlayController'
 import {
+  MODERN_PLAYER_BAR_HEIGHT_PX,
   MODERN_PLAYER_BAR_MAX_WIDTH_PX,
   shouldOverflowModernUtilities,
 } from '@renderer/features/playback/utils/modernPlayerBarLayout'
 import { isPlayerBarVolumeOverlayRetreatActive } from '@renderer/features/playback/utils/playerBarExclusiveOverlay'
 import { resolvePlayerPrimaryButtonTextColor } from '@renderer/features/playback/utils/resolvePlayerPrimaryButtonTextColor'
+import { useLiquidGlassFilter } from '@renderer/features/playback/composables/useLiquidGlassFilter'
 
 const props = defineProps<{ presentation: PlayerSurfacePresentation }>()
 
@@ -44,6 +46,13 @@ const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artwo
 // under fullscreen must not decode images, paint canvases or start worker
 // colour work (TECHDOC §6.1 risk).
 const isModernPlayer = computed(() => props.presentation === 'modern')
+const isNormalPlayerDisplay = computed(() => displayMode.value === 'normal')
+const isModernLiquidGlassSurface = computed(
+  () =>
+    isModernPlayer.value &&
+    isNormalPlayerDisplay.value &&
+    playerBarMaterial.value === 'liquid-glass',
+)
 const paletteEnabled = computed(() =>
   resolvePlayerPaletteEnabled({
     presentation: props.presentation,
@@ -127,7 +136,7 @@ const playerBarStyle = computed(
     ({
       '--auralis-active-album-tint': activeAlbumTint.value ?? 'transparent',
       '--auralis-active-album-accent':
-        albumAccentColor.value ?? 'var(--auralis-sidebar-active-indicator)',
+        albumAccentColor.value ?? 'var(--auralis-artwork-accent-fallback)',
     }) as CSSProperties,
 )
 
@@ -160,11 +169,24 @@ const islandRef = ref<HTMLElement | null>(null)
 const islandInlineSize = ref(MODERN_PLAYER_BAR_MAX_WIDTH_PX)
 let islandResizeObserver: ResizeObserver | null = null
 
+const {
+  isLiquidGlassActive: isLiquidGlassRefractionActive,
+  liquidFilterStyle,
+  updateFilter: updateLiquidDisplacementMap,
+} = useLiquidGlassFilter(islandRef, {
+  presentation: computed(() => props.presentation),
+  radius: 28,
+  depth: 10,
+  strength: 55,
+  chromaticAberration: 2,
+})
+
 const isUtilitiesOverflow = computed(() => shouldOverflowModernUtilities(islandInlineSize.value))
 
 function syncIslandInlineSize(width: number): void {
   if (!Number.isFinite(width) || width <= 0) return
   islandInlineSize.value = width
+  updateLiquidDisplacementMap()
 }
 
 function bindIslandObserver(): void {
@@ -351,9 +373,9 @@ watch(isUtilitiesOverflow, (collapsed) => {
 })
 
 watch(
-  isModernPlayer,
-  async (modern) => {
-    if (!modern) {
+  () => isModernPlayer.value && isNormalPlayerDisplay.value,
+  async (shouldObserveIsland) => {
+    if (!shouldObserveIsland) {
       unbindIslandObserver()
       closeOverflow()
       return
@@ -366,7 +388,7 @@ watch(
 
 onMounted(() => {
   document.addEventListener('pointerdown', handleDocumentPointerDown)
-  if (isModernPlayer.value) {
+  if (isModernPlayer.value && isNormalPlayerDisplay.value) {
     bindIslandObserver()
   }
 })
@@ -459,13 +481,20 @@ function handleToggleMute(): void {
     :data-player-presentation="props.presentation"
     :class="{
       'player-bar--album-tinted': hasActiveAlbumTint,
-      'player-bar--liquid-glass': playerBarMaterial === 'liquid-glass',
+      'player-bar--liquid-glass': isModernLiquidGlassSurface,
     }"
     :style="playerBarStyle"
   >
     <!-- Modern floating island: chrome lives on the island, not the host. -->
     <template v-if="isModernPlayer">
       <div ref="islandRef" class="player-bar-island">
+        <!-- SVG 折射层仅在 normal modern surface 且 CSS parser 接受 url() 时挂载。先折射，后压暗。 -->
+        <div
+          v-if="isLiquidGlassRefractionActive"
+          class="player-bar-liquid-refract-edge"
+          :style="liquidFilterStyle"
+          aria-hidden="true"
+        ></div>
         <div class="player-bar-glass" aria-hidden="true"></div>
         <div
           v-if="paletteEnabled && playerBarMaterial === 'cover-tint' && previousAlbumTint"

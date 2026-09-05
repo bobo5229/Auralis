@@ -1,35 +1,40 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-
-const LibraryPage = () => import('@renderer/features/library/pages/LibraryPage.vue')
-const AlbumsPage = () => import('@renderer/features/albums/pages/AlbumsPage.vue')
-const AlbumDetailPage = () => import('@renderer/features/albums/pages/AlbumDetailPage.vue')
-const ArchivePage = () => import('@renderer/features/archive/pages/ArchivePage.vue')
-const SettingsPage = () => import('@renderer/features/settings/pages/SettingsPage.vue')
+import { routeLoaders } from './routeComponentLoaders'
 
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    { path: '/', name: 'library', component: LibraryPage, meta: { title: 'Library' } },
+    { path: '/', name: 'library', component: routeLoaders.library, meta: { title: 'Library' } },
     {
       path: '/smart-playlists/:id',
       name: 'smart-playlist',
-      component: LibraryPage,
+      component: routeLoaders.library,
       meta: { title: 'Smart Playlist' },
     },
     {
       path: '/playlists/:id',
       name: 'playlist',
-      component: LibraryPage,
+      component: routeLoaders.library,
       meta: { title: 'Playlist' },
     },
-    { path: '/albums', name: 'albums', component: AlbumsPage, meta: { title: 'Albums' } },
+    { path: '/albums', name: 'albums', component: routeLoaders.albums, meta: { title: 'Albums' } },
     {
       path: '/albums/detail',
       name: 'album-detail',
-      component: AlbumDetailPage,
+      component: routeLoaders.albumDetail,
       meta: { title: 'Album' },
     },
-    { path: '/archive', name: 'archive', component: ArchivePage, meta: { title: 'Archive' } },
-    { path: '/settings', name: 'settings', component: SettingsPage, meta: { title: 'Settings' } },
+    {
+      path: '/archive',
+      name: 'archive',
+      component: routeLoaders.archive,
+      meta: { title: 'Archive' },
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: routeLoaders.settings,
+      meta: { title: 'Settings' },
+    },
   ],
 })

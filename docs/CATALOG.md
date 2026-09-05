@@ -73,9 +73,12 @@
 
 ### playback：播放界面
 
+- [TECHDOC：modern PlayerBar Liquid Glass 视觉保真修复](topics/playback/TECHDOC-playerbar-liquid-glass-visual-fidelity-2026-09-05.md)
 - [TECHDOC：`usePlayback` 播放编排拆分](topics/playback/TECHDOC-use-playback-architecture-split-2026-08-30.md)
 - [TECHDOC：迷你模式下桌面歌词必须继续同步](topics/playback/TECHDOC-desktop-lyrics-miniplayer-sync.md)
 - [TECHDOC：桌面歌词窗口不得拖住进程](topics/playback/TECHDOC-desktop-lyrics-window-lifecycle.md)
+- [PRD：全局悬浮播放条交互与空间自适应重构](topics/playback/prd-playerbar-floating-adaptive.md)
+- [TECHDOC：全局悬浮播放条交互与空间自适应重构](topics/playback/techdoc-playerbar-floating-adaptive.md)
 - [PRD：PlayerBar 纽扣式内凹播放按钮](topics/playback/PRD-playerbar-matte-depth-2026-08-29.md)
 - [全屏播放界面动态流体背景 TECHDOC](topics/playback/techdoc-fullscreen-album-palette-background.md)
 - [全屏播放器动态流光背景 TECHDOC](topics/playback/techdoc-fullscreen-fluid-gradient.md)
@@ -90,6 +93,7 @@
 - [Sidebar 品牌区方案 A：品牌与工具分行](topics/shell/plan-sidebar-brand-two-row-header.md)
 - [PRD: 侧边栏头部与工具栏重构 (Sidebar Header & Toolbar Redesign)](topics/shell/prd-sidebar-header-redesign.md)
 - [Auralis 原生窗口壳（无框 + 专辑色融入）TECHDOC](topics/shell/techdoc-auralis-native-window-chrome.md)
+- [TECHDOC：Sidebar 首次路由切换预热](topics/shell/techdoc-sidebar-first-navigation-warmup.md)
 - [TECHDOC: 侧边栏头部与工具栏重构技术设计文档](topics/shell/techdoc-sidebar-header-redesign.md)
 - [Sidebar 工具簇：雾面薄壳 TECHDOC](topics/shell/techdoc-sidebar-tool-cluster-mist-capsule.md)
 - [UI 界面语言：简 / 繁 / 英 TECHDOC](topics/shell/techdoc-ui-locale-zh-hans-hant-en.md)

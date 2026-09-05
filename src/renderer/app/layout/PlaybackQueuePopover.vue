@@ -207,7 +207,7 @@ onUnmounted(() => {
 
 <style scoped>
 .queue-item:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator, #8ab4f8) 72%, white);
+  outline: 2px solid var(--auralis-focus-ring);
   outline-offset: -2px;
 }
 </style>

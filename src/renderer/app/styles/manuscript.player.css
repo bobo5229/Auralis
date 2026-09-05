@@ -53,10 +53,11 @@
   --auralis-control-active-bg: var(--manuscript-state-accent-soft);
 }
 
-/* Glass, album tint and gradient highlight layers are modern-only decorations. */
+/* Glass, album tint, liquid refract and gradient highlight layers are modern-only decorations. */
 .player-bar[data-player-presentation='manuscript']::before,
 .player-bar[data-player-presentation='manuscript'] .player-bar-glass,
-.player-bar[data-player-presentation='manuscript'] .player-bar-album-tint {
+.player-bar[data-player-presentation='manuscript'] .player-bar-album-tint,
+.player-bar[data-player-presentation='manuscript'] .player-bar-liquid-refract-edge {
   display: none !important;
 }
 

@@ -12,6 +12,8 @@ import { usePlayback } from '@renderer/features/playback/composables/usePlayback
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import { prefetchRouteOnIntent } from '../router/routeWarmup'
+import type { WarmableRouteName } from '../router/routeComponentLoaders'
 import type { ShellPresentation } from '../utils/shellPresentation'
 import { resolveRestorableFocusTarget } from '../utils/sidebarModalFocus'
 import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
@@ -67,11 +69,19 @@ const { t } = useI18n()
 
 const activePath = ref(route.path)
 
-const primaryNav = computed(() => [
+const primaryNav = computed<
+  Array<{ to: string; label: string; icon: string; routeName?: WarmableRouteName }>
+>(() => [
   { to: '/', label: t('nav.songs'), icon: 'i-lucide-music' },
-  { to: '/albums', label: t('nav.albums'), icon: 'i-lucide-disc-3' },
-  { to: '/archive', label: t('nav.archive'), icon: 'i-lucide-archive' },
+  { to: '/albums', label: t('nav.albums'), icon: 'i-lucide-disc-3', routeName: 'albums' },
+  { to: '/archive', label: t('nav.archive'), icon: 'i-lucide-archive', routeName: 'archive' },
 ])
+
+function onRouteIntent(routeName?: WarmableRouteName): void {
+  if (routeName) {
+    void prefetchRouteOnIntent(routeName)
+  }
+}
 
 const primaryNavItems = computed(() =>
   primaryNav.value.map((item) => ({
@@ -626,6 +636,8 @@ onBeforeUnmount(() => {
             :title="t('sidebar.tool.settings')"
             :draggable="false"
             @dragstart.prevent
+            @pointerenter="onRouteIntent('settings')"
+            @focusin="onRouteIntent('settings')"
             @pointerdown="setPendingActiveFromPointer($event, '/settings')"
             @keydown.enter="setPendingActive('/settings')"
             @keydown.space="setPendingActive('/settings')"
@@ -652,6 +664,8 @@ onBeforeUnmount(() => {
               (item.to === '/albums' && activePath.startsWith('/albums/')),
           }"
           @dragstart.prevent
+          @pointerenter="onRouteIntent(item.routeName)"
+          @focusin="onRouteIntent(item.routeName)"
           @pointerdown="setPendingActiveFromPointer($event, item.to)"
           @keydown.enter="setPendingActive(item.to)"
           @keydown.space="setPendingActive(item.to)"

@@ -677,12 +677,25 @@ assertIncludes(
   'ordinary window shell marker',
 )
 assertIncludes(appShell, ':presentation="shellPresentation"', 'sidebar presentation prop')
-assertIncludes(appShell, 'v-if="shouldRenderShellArtwork"', 'shell artwork mount gate')
 assertIncludes(
   appShell,
-  'useArtworkPalette(artworkCacheKey, {\n  enabled: isModernShell,\n})',
-  'shell palette enabled gate',
+  "'--auralis-window-chrome-bg': 'var(--auralis-bg)'",
+  'modern shell static chrome background',
 )
+assertIncludes(
+  appShell,
+  "'--auralis-window-chrome-accent': 'var(--auralis-sidebar-active-indicator)'",
+  'modern shell static chrome accent',
+)
+assertIncludes(
+  appShell,
+  "'--auralis-window-chrome-border': 'var(--auralis-border-strong)'",
+  'modern shell static chrome border',
+)
+assertExcludes(appShell, /shouldRenderShellArtwork/, 'static shell artwork mount gate')
+assertExcludes(appShell, /useArtworkPalette/, 'static shell palette subscription')
+assertExcludes(appShell, /chromePalette/, 'static shell palette state')
+assertExcludes(appShell, /FluidArtworkBackground/, 'static shell artwork background')
 assertExcludes(appShell, /:key\s*=\s*['"]shellPresentation['"]/, 'shell presentation remount key')
 assertIncludes(
   appShell,
