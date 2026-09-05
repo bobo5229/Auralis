@@ -26,6 +26,7 @@ export interface LiquidGlassFilterConfig {
   chromaticAberration?: number
   brightness?: number
   saturate?: number
+  blur?: number
   forceEnableSyntax?: boolean
 }
 
@@ -56,6 +57,7 @@ export function useLiquidGlassFilter(
   const chromaticAberration = config.chromaticAberration ?? 2
   const brightness = config.brightness ?? 1.08
   const saturate = config.saturate ?? 1.4
+  const blur = config.blur ?? 0
   const syntaxSupported = config.forceEnableSyntax ?? supportsBackdropFilterUrlSyntax()
 
   const isModern = computed(() => unref(config.presentation) === 'modern')
@@ -83,10 +85,14 @@ export function useLiquidGlassFilter(
     if (!el) return
 
     const width = Math.round(
-      el.clientWidth || (typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect().width : 0) || 0,
+      el.clientWidth ||
+        (typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect().width : 0) ||
+        0,
     )
     const height = Math.round(
-      el.clientHeight || (typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect().height : 0) || 0,
+      el.clientHeight ||
+        (typeof el.getBoundingClientRect === 'function' ? el.getBoundingClientRect().height : 0) ||
+        0,
     )
     if (width <= 0 || height <= 0) return
 
@@ -102,9 +108,10 @@ export function useLiquidGlassFilter(
 
   const liquidFilterStyle = computed<CSSProperties>(() => {
     if (!isLiquidGlassActive.value || !filterUrl.value) return {}
+    const blurSegment = blur > 0 ? ` blur(${blur}px)` : ''
     return {
-      backdropFilter: `url('${filterUrl.value}') brightness(${brightness}) saturate(${saturate})`,
-      WebkitBackdropFilter: `url('${filterUrl.value}') brightness(${brightness}) saturate(${saturate})`,
+      backdropFilter: `url('${filterUrl.value}')${blurSegment} brightness(${brightness}) saturate(${saturate})`,
+      WebkitBackdropFilter: `url('${filterUrl.value}')${blurSegment} brightness(${brightness}) saturate(${saturate})`,
     }
   })
 

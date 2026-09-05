@@ -7,10 +7,7 @@ vi.mock('@renderer/features/playback/composables/usePlayerDisplayMode', () => ({
   }),
 }))
 
-import {
-  resolveIsLiquidGlassActive,
-  useLiquidGlassFilter,
-} from './useLiquidGlassFilter'
+import { resolveIsLiquidGlassActive, useLiquidGlassFilter } from './useLiquidGlassFilter'
 import { usePlayerBarMaterial } from '@renderer/features/settings/composables/usePlayerBarMaterial'
 
 describe('resolveIsLiquidGlassActive', () => {
@@ -28,7 +25,7 @@ describe('useLiquidGlassFilter', () => {
     const el = {
       clientWidth: 360,
       clientHeight: 400,
-      getBoundingClientRect: () => ({ width: 360, height: 400 } as DOMRect),
+      getBoundingClientRect: () => ({ width: 360, height: 400 }) as DOMRect,
     } as unknown as HTMLElement
 
     const target = ref<HTMLElement | null>(el)
@@ -59,5 +56,34 @@ describe('useLiquidGlassFilter', () => {
     await nextTick()
     expect(isLiquidGlassActive.value).toBe(false)
     expect(liquidFilterStyle.value).toEqual({})
+  })
+
+  it('includes blur in backdropFilter and WebkitBackdropFilter when blur option is provided', async () => {
+    const el = {
+      clientWidth: 360,
+      clientHeight: 400,
+      getBoundingClientRect: () => ({ width: 360, height: 400 }) as DOMRect,
+    } as unknown as HTMLElement
+
+    const target = ref<HTMLElement | null>(el)
+    const presentation = ref<'modern' | 'manuscript'>('modern')
+
+    const { setPlayerBarMaterial } = usePlayerBarMaterial()
+    setPlayerBarMaterial('liquid-glass')
+
+    const { liquidFilterStyle, updateFilter } = useLiquidGlassFilter(target, {
+      presentation,
+      blur: 16,
+      forceEnableSyntax: true,
+    })
+
+    updateFilter()
+    await nextTick()
+
+    expect(liquidFilterStyle.value.backdropFilter).toContain('blur(16px)')
+    expect(liquidFilterStyle.value.WebkitBackdropFilter).toContain('blur(16px)')
+    expect(liquidFilterStyle.value.backdropFilter).toMatch(
+      /url\('.+'\) blur\(16px\) brightness\(1\.08\) saturate\(1\.4\)/,
+    )
   })
 })
