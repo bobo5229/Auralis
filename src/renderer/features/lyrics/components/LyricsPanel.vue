@@ -1,0 +1,44 @@
+<script setup lang="ts">
+import { useI18n } from 'vue-i18n'
+import { useTrackLyrics } from '../composables/useTrackLyrics'
+import SyncedLyricsView from './SyncedLyricsView.vue'
+import PlainLyricsView from './PlainLyricsView.vue'
+import LyricsEmptyState from './LyricsEmptyState.vue'
+
+const { t } = useI18n()
+const { status, rawLyrics, parsedLines, activeIndex, isPrelude, showPrelude, preludeLitDotCount } =
+  useTrackLyrics()
+</script>
+
+<template>
+  <div
+    class="flex h-full flex-col"
+    :style="{
+      maskImage:
+        'linear-gradient(to bottom, transparent 0, black 120px, black calc(100% - 120px), transparent 100%)',
+    }"
+  >
+    <div class="flex-1 overflow-hidden">
+      <div v-if="status === 'no-track'" class="flex h-full items-center justify-center">
+        <p class="text-sm text-[var(--auralis-text-faint)]">{{ t('player.lyricsNoTrack') }}</p>
+      </div>
+
+      <div v-else-if="status === 'loading'" class="flex h-full items-center justify-center">
+        <p class="text-sm text-[var(--auralis-text-faint)]">{{ t('player.lyricsLoading') }}</p>
+      </div>
+
+      <LyricsEmptyState v-else-if="status === 'empty'" />
+
+      <PlainLyricsView v-else-if="status === 'plain' && rawLyrics" :text="rawLyrics" />
+
+      <SyncedLyricsView
+        v-else-if="status === 'lrc'"
+        :lines="parsedLines"
+        :active-index="activeIndex"
+        :is-prelude="isPrelude"
+        :show-prelude="showPrelude"
+        :prelude-lit-dot-count="preludeLitDotCount"
+      />
+    </div>
+  </div>
+</template>

@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auralis - Modern Playbar Liquid Glass 材质增强对比 Demo</title>
+  <style>
+    /* ==========================================================================
+       Auralis 核心全局与深色设计系统 Token (复刻 main.css)
+       ========================================================================== */
+    :root {
+      color-scheme: dark;
+      --auralis-bg: #0c0b0a;
+      --auralis-main-bg: #12110f;
+      --auralis-sidebar-bg: #181613;
+      --auralis-now-playing-bg: rgba(24, 22, 19, 0.88);
+      --auralis-surface-raised: #1f1c18;
+      --auralis-surface-floating: #27231e;
+      --auralis-border-subtle: rgba(232, 220, 198, 0.08);
+      --auralis-border-strong: rgba(232, 220, 198, 0.14);
+      --auralis-text: #f3eee6;
+      --auralis-text-muted: #b7aea2;
+      --auralis-text-subtle: #7d756b;
+      --auralis-text-faint: rgba(125, 117, 107, 0.68);
+      --auralis-text-disabled: rgba(183, 174, 162, 0.35);
+      --auralis-control-bg: var(--auralis-surface-raised);
+      --auralis-control-hover-bg: rgba(232, 220, 198, 0.08);
+      --auralis-control-active-bg: rgba(201, 177, 132, 0.14);
+      --auralis-control-primary-bg: #c9b184;
+      --auralis-control-primary-text: #0c0b0a;
+      --auralis-progress-track: rgba(232, 220, 198, 0.08);
+      --auralis-progress-fill: #e1ddd6;
+      --auralis-sidebar-active-indicator: #c9b184;
+
+      /* 既有 Playbar 基础 Token */
+      --auralis-playbar-bg: rgba(31, 28, 24, 0.88);
+      --auralis-playbar-border: rgba(232, 220, 198, 0.14);
+      --auralis-playbar-highlight: rgba(255, 255, 255, 0.16);
+      --auralis-playbar-highlight-soft: rgba(255, 255, 255, 0.06);
+      --auralis-playbar-lowlight: rgba(0, 0, 0, 0.24);
+      --auralis-playbar-album-alpha: 0.28;
+      --auralis-playbar-album-saturate: 1.08;
+
+      /* 当前演示的模拟专辑主色（暖琥珀/金棕调） */
+      --sample-album-r: 184;
+      --sample-album-g: 138;
+      --sample-album-b: 68;
+      --auralis-active-album-accent: rgb(var(--sample-album-r) var(--sample-album-g) var(--sample-album-b));
+      --auralis-active-album-tint: rgb(var(--sample-album-r) var(--sample-album-g) var(--sample-album-b) / var(--auralis-playbar-album-alpha));
+
+      /* ========================================================================
+         Liquid Glass 增强材质专用设计 Token（推荐迁移参数）
+         ======================================================================== */
+      --auralis-liquid-glass-bg-base: rgba(18, 17, 16, 0.22);
+      --auralis-liquid-glass-layer-warmth: rgba(32, 27, 22, 0.18);
+      --auralis-liquid-glass-layer-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.015) 30%, transparent 60%, rgba(0, 0, 0, 0.25) 100%);
+      --auralis-liquid-glass-border-outer: rgba(255, 255, 255, 0.15);
+      --auralis-liquid-glass-border-rim: 1px solid rgba(255, 255, 255, 0.18);
+      --auralis-liquid-glass-rim-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.24), inset 0 -1px 0 rgba(0, 0, 0, 0.42);
+      --auralis-liquid-glass-side-rim: inset 1px 0 0 rgba(255, 255, 255, 0.1), inset -1px 0 0 rgba(255, 255, 255, 0.08);
+      --auralis-liquid-glass-shadow: 0 18px 42px rgba(0, 0, 0, 0.42), 0 6px 18px rgba(0, 0, 0, 0.26);
+      --auralis-liquid-glass-backdrop-blur: 26px;
+      --auralis-liquid-glass-backdrop-saturate: 160%;
+      --auralis-liquid-glass-backdrop-contrast: 104%;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background-color: var(--auralis-bg);
+      color: var(--auralis-text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      padding: 32px 24px 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: background 0.3s ease;
+    }
+
+    /* 顶部介绍与实验控制栏 */
+    .header-panel {
+      width: min(1040px, 100%);
+      margin-bottom: 28px;
+    }
+    .header-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(201, 177, 132, 0.16);
+      color: #e8d7b0;
+      border: 1px solid rgba(201, 177, 132, 0.28);
+    }
+    .header-desc {
+      font-size: 13px;
+      color: var(--auralis-text-muted);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .controls-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 18px;
+      background: var(--auralis-sidebar-bg);
+      border: 1px solid var(--auralis-border-subtle);
+      border-radius: 14px;
+    }
+    .controls-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .control-label {
+      font-size: 12px;
+      color: var(--auralis-text-muted);
+      font-weight: 500;
+    }
+    .btn-toggle {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--auralis-text);
+      padding: 5px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-toggle:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+    .btn-toggle.active {
+      background: var(--auralis-control-primary-bg);
+      color: var(--auralis-control-primary-text);
+      border-color: var(--auralis-control-primary-bg);
+      font-weight: 600;
+    }
+
+    /* 演示舞台背景容器 */
+    .showcase-stage {
+      width: min(1040px, 100%);
+      display: flex;
+      flex-direction: column;
+      gap: 36px;
+    }
+
+    .demo-card {
+      background: #100f0d;
+      border: 1px solid var(--auralis-border-subtle);
+      border-radius: 20px;
+      padding: 24px 20px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 0 8px;
+    }
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-tag {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 1px 7px;
+      border-radius: 6px;
+    }
+    .tag-before {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--auralis-text-muted);
+    }
+    .tag-after {
+      background: rgba(201, 177, 132, 0.2);
+      color: #e8d7b0;
+      border: 1px solid rgba(201, 177, 132, 0.3);
+    }
+    .card-status {
+      font-size: 12px;
+      color: var(--auralis-text-subtle);
+    }
+
+    /* 模拟播放器下方的内容背景 */
+    .mock-underlayer-viewport {
+      position: relative;
+      height: 160px;
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      background-color: #0c0b0a;
+      transition: background 0.4s ease;
+    }
+
+    /* 背景模式 1：纯暖黑深渊（极限测试） */
+    .bg-pitch-black .mock-underlayer-viewport {
+      background: #0b0a09;
+    }
+    .bg-pitch-black .underlayer-content {
+      opacity: 0.15;
+    }
+
+    /* 背景模式 2：微弱环境光 */
+    .bg-subtle-glow .mock-underlayer-viewport {
+      background:
+        radial-gradient(ellipse 600px 120px at 50% 90%, rgba(184, 138, 68, 0.12), transparent 75%),
+        radial-gradient(circle at 15% 40%, rgba(45, 52, 64, 0.2), transparent 60%),
+        #0c0b0a;
+    }
+
+    /* 背景模式 3：带文字与微弱网格内容 */
+    .bg-grid-lyrics .mock-underlayer-viewport {
+      background-color: #0c0b0a;
+      background-image:
+        linear-gradient(to right, rgba(232, 220, 198, 0.035) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(232, 220, 198, 0.035) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+    .bg-grid-lyrics .underlayer-content {
+      opacity: 0.65;
+    }
+
+    .underlayer-content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      padding: 16px 28px;
+      pointer-events: none;
+      user-select: none;
+      font-size: 13px;
+      letter-spacing: 0.02em;
+      color: rgba(243, 238, 230, 0.45);
+      font-weight: 500;
+      transition: opacity 0.3s ease;
+    }
+    .underlayer-row {
+      display: flex;
+      justify-content: space-between;
+      white-space: nowrap;
+    }
+    .underlayer-highlight {
+      color: rgba(201, 177, 132, 0.6);
+    }
+
+    /* ==========================================================================
+       复刻 Modern Playbar 岛状结构与基础尺寸 (72px, 28px 圆角, 920px 限制)
+       ========================================================================== */
+    .player-bar-host {
+      position: absolute;
+      width: 100%;
+      height: 72px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0 16px;
+      pointer-events: auto;
+      z-index: 10;
+    }
+
+    .player-bar-island {
+      position: relative;
+      isolation: isolate;
+      display: flex;
+      align-items: stretch;
+      width: min(920px, 100%);
+      height: 72px;
+      border-radius: 28px;
+      overflow: visible;
+    }
+
+    /* 内部三段网格内容层 */
+    .player-bar-row {
+      position: relative;
+      z-index: 4;
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr) max-content;
+      align-items: center;
+      column-gap: 12px;
+      width: 100%;
+      min-width: 0;
+      padding: 0 12px;
+    }
+
+    /* 左侧曲目控制组 */
+    .transport-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .transport-control {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: var(--auralis-text-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .transport-control:hover {
+      background: color-mix(in srgb, var(--auralis-active-album-accent) 12%, transparent);
+      color: var(--auralis-active-album-accent);
+      transform: translateY(-1px) scale(1.06);
+    }
+    .transport-control svg {
+      width: 16px;
+      height: 16px;
+      fill: currentColor;
+    }
+
+    /* 米金质感主播放按钮 (40px) */
+    .transport-control-primary {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--auralis-control-primary-bg);
+      border: none;
+      color: var(--auralis-control-primary-text);
+      cursor: pointer;
+      box-shadow: none;
+      transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .transport-control-primary::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      border-radius: inherit;
+      opacity: 0.75;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 42%, transparent 60%, rgba(0, 0, 0, 0.1));
+      -webkit-mask: radial-gradient(circle closest-side, transparent 0 54%, #000 72% 86%, transparent 100%);
+      mask: radial-gradient(circle closest-side, transparent 0 54%, #000 72% 86%, transparent 100%);
+    }
+    .transport-control-primary::after {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      z-index: 0;
+      border-radius: inherit;
+      opacity: 0.8;
+      background: linear-gradient(180deg, rgba(0, 0, 0, 0.24), transparent 44%, transparent 60%, rgba(255, 255, 255, 0.2));
+      -webkit-mask: radial-gradient(circle closest-side, transparent 0 42%, #000 68% 78%, transparent 100%);
+      mask: radial-gradient(circle closest-side, transparent 0 42%, #000 68% 78%, transparent 100%);
+    }
+    .transport-control-primary svg {
+      position: relative;
+      z-index: 1;
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    .transport-control-primary:hover {
+      transform: translateY(-0.25px) scale(1.02);
+    }
+
+    /* 中部信息与进度条 */
+    .track-info-card {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 4px;
+    }
+    .track-info-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-width: 0;
+    }
+    .track-cover {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 1px solid rgba(243, 238, 230, 0.08);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    }
+    .track-text {
+      flex: 1 1 0;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .track-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--auralis-text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.25;
+    }
+    .track-subtitle {
+      font-size: 11px;
+      color: var(--auralis-text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.35;
+    }
+    .player-bar-progress-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      column-gap: 8px;
+      margin-top: 5px;
+      min-width: 0;
+    }
+    .player-bar-progress-clock {
+      font-size: 11px;
+      font-variant-numeric: tabular-nums;
+      color: var(--auralis-text-muted);
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .track-progress {
+      height: 3px;
+      border-radius: 99px;
+      background: var(--auralis-progress-track);
+      position: relative;
+      cursor: pointer;
+    }
+    .track-progress-fill {
+      width: 38%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--auralis-active-album-accent);
+      box-shadow: 0 1px 4px color-mix(in srgb, var(--auralis-active-album-accent) 30%, transparent);
+    }
+
+    /* 右侧功能操作按钮 */
+    .playback-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .player-control {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: var(--auralis-text-muted);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .player-control:hover {
+      background: color-mix(in srgb, var(--auralis-active-album-accent) 12%, transparent);
+      color: var(--auralis-active-album-accent);
+      transform: translateY(-1px);
+    }
+    .player-control svg {
+      width: 15px;
+      height: 15px;
+      fill: currentColor;
+    }
+    .volume-control-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .mock-volume-slider {
+      width: 76px;
+      height: 4px;
+      border-radius: 999px;
+      background: linear-gradient(
+        to right,
+        var(--auralis-active-album-accent) 0%,
+        var(--auralis-active-album-accent) 65%,
+        var(--auralis-progress-track) 65%,
+        var(--auralis-progress-track) 100%
+      );
+      margin-left: 2px;
+      cursor: pointer;
+    }
+
+    /* ==========================================================================
+       对比 1：BEFORE (当前仓库线上既有实现)
+       ========================================================================== */
+    .before-version .player-bar-island {
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.26);
+    }
+
+    /* 线上：.player-bar-island::before 和 ::before 被直接隐藏 display: none !important */
+    .before-version .player-bar-island::before,
+    .before-version .player-bar-island::after {
+      display: none !important;
+    }
+
+    /* 线上：player-bar-glass 只有单层低透明度实色背景，没有 backdrop-filter */
+    .before-version .player-bar-glass {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      z-index: 1;
+      border-color: rgba(255, 255, 255, 0.16);
+      background: rgba(16, 20, 26, 0.36);
+      box-shadow: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      pointer-events: none;
+    }
+
+    /* 线上：在 liquid-glass 模式下，player-bar-album-tint 被 v-if 阻断为 cover-tint 专属 */
+    .before-version .player-bar-album-tint {
+      display: none;
+    }
+
+    .before-version .player-bar-liquid-refract-edge {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      z-index: 0;
+      backdrop-filter: blur(0.5px) brightness(1.08) saturate(1.4);
+      -webkit-backdrop-filter: blur(0.5px) brightness(1.08) saturate(1.4);
+    }
+
+    /* ==========================================================================
+       对比 2：AFTER (本轮 Liquid Glass 第一优先级材质增强实验版)
+       ========================================================================== */
+    .after-version .player-bar-island {
+      border: var(--auralis-liquid-glass-border-rim);
+      box-shadow: var(--auralis-liquid-glass-shadow);
+      position: relative;
+    }
+
+    /* 增强 2：克制的光学边缘伪元素层 (::before) - 极细边缘反光与微低光 */
+    .after-version .player-bar-island::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      border-radius: inherit;
+      pointer-events: none;
+      box-shadow: var(--auralis-liquid-glass-rim-highlight), var(--auralis-liquid-glass-side-rim);
+      background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.14) 0%,
+        rgba(255, 255, 255, 0.03) 12%,
+        transparent 35%,
+        transparent 75%,
+        rgba(0, 0, 0, 0.32) 100%
+      );
+      opacity: 0.85;
+    }
+
+    /* 增强 3：双层半透明介质底色与连续深色光学折射 (player-bar-glass) */
+    .after-version .player-bar-glass {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        var(--auralis-liquid-glass-layer-sheen),
+        radial-gradient(120% 100% at 50% 0%, rgba(255, 255, 255, 0.05) 0%, transparent 60%),
+        color-mix(in srgb, var(--auralis-liquid-glass-bg-base) 70%, var(--auralis-liquid-glass-layer-warmth));
+      backdrop-filter: blur(var(--auralis-liquid-glass-backdrop-blur)) saturate(var(--auralis-liquid-glass-backdrop-saturate)) contrast(var(--auralis-liquid-glass-backdrop-contrast));
+      -webkit-backdrop-filter: blur(var(--auralis-liquid-glass-backdrop-blur)) saturate(var(--auralis-liquid-glass-backdrop-saturate)) contrast(var(--auralis-liquid-glass-backdrop-contrast));
+    }
+
+    /* 增强 4：player-bar-album-tint 延展衰减实验 */
+    .after-version .player-bar-album-tint {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      z-index: 2;
+      pointer-events: none;
+      background: linear-gradient(
+        90deg,
+        rgb(var(--sample-album-r) var(--sample-album-g) var(--sample-album-b) / 0.26) 0%,
+        rgb(var(--sample-album-r) var(--sample-album-g) var(--sample-album-b) / 0.14) 22%,
+        rgb(var(--sample-album-r) var(--sample-album-g) var(--sample-album-b) / 0.05) 45%,
+        rgb(var(--sample-album-r) var(--sample-album-g) var(--sample-album-b) / 0.015) 70%,
+        transparent 90%
+      );
+      mix-blend-mode: screen;
+      opacity: 0.9;
+    }
+
+    /* 增强 5：折射底层 */
+    .after-version .player-bar-liquid-refract-edge {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      z-index: 0;
+      backdrop-filter: blur(1.5px) brightness(1.06) saturate(1.3);
+      -webkit-backdrop-filter: blur(1.5px) brightness(1.06) saturate(1.3);
+    }
+
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      gap: 16px;
+      margin-top: 10px;
+    }
+    .analysis-card {
+      background: rgba(24, 22, 19, 0.6);
+      border: 1px solid var(--auralis-border-subtle);
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .analysis-title {
+      font-weight: 700;
+      color: #e8d7b0;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .analysis-card ul {
+      padding-left: 18px;
+      color: var(--auralis-text-muted);
+    }
+    .analysis-card li {
+      margin-bottom: 6px;
+    }
+    .code-chip {
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #f3eee6;
+    }
+  </style>
+</head>
+<body class="bg-pitch-black">
+
+  <div class="header-panel">
+    <div class="header-title">
+      <span>Auralis · Modern Playbar Liquid Glass 材质增强对比</span>
+      <span class="header-badge">独立实验 DEMO</span>
+    </div>
+    <div class="header-desc">
+      当前 modern + liquid-glass 下，整条 Playbar 虽有玻璃层，但在深色背底时中部和右侧极易被视作实心黑色胶囊。<br />
+      本实验遵循 KISS 原则与 Auralis 暖黑、克制、精致的气质，在完全不改变尺寸、布局与控件的前提下，探索第一优先级材质光学层次增强。
+    </div>
+
+    <div class="controls-bar">
+      <div class="controls-group">
+        <span class="control-label">测试背底环境：</span>
+        <button class="btn-toggle active" onclick="setBg('bg-pitch-black', this)">纯暖黑深渊 (#0B0A09 极限测试)</button>
+        <button class="btn-toggle" onclick="setBg('bg-subtle-glow', this)">微弱环境氛围光</button>
+        <button class="btn-toggle" onclick="setBg('bg-grid-lyrics', this)">曲库网格与深色文字穿透</button>
+      </div>
+      <div class="controls-group">
+        <span class="control-label">专辑配色模拟：</span>
+        <button class="btn-toggle active" onclick="setAlbumColor(184, 138, 68, this)">琥珀金棕 (默认)</button>
+        <button class="btn-toggle" onclick="setAlbumColor(140, 92, 185, this)">沉静紫</button>
+        <button class="btn-toggle" onclick="setAlbumColor(72, 145, 128, this)">松石青</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="showcase-stage">
+
+    <!-- ==================== BEFORE 区块 ==================== -->
+    <div class="demo-card before-version">
+      <div class="card-header">
+        <div class="card-title">
+          <span>方案 A: 当前既有线上实现 (BEFORE)</span>
+          <span class="card-tag tag-before">Current Baseline</span>
+        </div>
+        <div class="card-status">单一 0.36 不透明度深色底 · 伪元素光泽禁用 · Tint 未延展</div>
+      </div>
+
+      <div class="mock-underlayer-viewport">
+        <div class="underlayer-content">
+          <div class="underlayer-row">
+            <span>01. Rachmaninoff: Piano Concerto No. 2 in C Minor, Op. 18 - I. Moderato</span>
+            <span class="underlayer-highlight">FLAC 96kHz / 24bit</span>
+            <span>10:48</span>
+          </div>
+          <div class="underlayer-row">
+            <span>02. Chopin: Nocturne in C-sharp minor, B. 49</span>
+            <span>FLAC 44.1kHz / 16bit</span>
+            <span>04:12</span>
+          </div>
+          <div class="underlayer-row">
+            <span>03. Debussy: Suite bergamasque, L. 75: III. Clair de lune</span>
+            <span>DSD 2.8MHz</span>
+            <span>05:32</span>
+          </div>
+        </div>
+
+        <div class="player-bar-host">
+          <div class="player-bar-island">
+            <div class="player-bar-liquid-refract-edge"></div>
+            <div class="player-bar-glass"></div>
+            <div class="player-bar-album-tint"></div>
+
+            <div class="player-bar-row">
+              <div class="transport-controls">
+                <button class="transport-control" title="上一首">
+                  <svg viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"></line></svg>
+                </button>
+                <button class="transport-control-primary" title="播放 / 暂停">
+                  <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                </button>
+                <button class="transport-control" title="下一首">
+                  <svg viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"></line></svg>
+                </button>
+              </div>
+
+              <div class="track-info-card">
+                <div class="track-info-row">
+                  <div class="track-cover">
+                    <div style="width:100%;height:100%;background:linear-gradient(135deg, rgb(var(--sample-album-r) var(--sample-album-g) var(--sample-album-b)), #1a1612);display:flex;align-items:center;justify-content:center;">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+                    </div>
+                  </div>
+                  <div class="track-text">
+                    <div class="track-title">Piano Concerto No. 2 in C Minor, Op. 18: I. Moderato</div>
+                    <div class="track-subtitle">Sergei Rachmaninoff · London Symphony Orchestra</div>
+                  </div>
+                </div>
+                <div class="player-bar-progress-row">
+                  <span class="player-bar-progress-clock">04:18</span>
+                  <div class="track-progress"><div class="track-progress-fill"></div></div>
+                  <span class="player-bar-progress-clock">10:48</span>
+                </div>
+              </div>
+
+              <div class="playback-actions">
+                <button class="player-control" title="播放队列">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                </button>
+                <button class="player-control" title="桌面歌词">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"></path></svg>
+                </button>
+                <button class="player-control" title="播放模式">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                </button>
+                <div class="volume-control-group">
+                  <button class="player-control" title="音量">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                  </button>
+                  <div class="mock-volume-slider"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ==================== AFTER 区块 ==================== -->
+    <div class="demo-card after-version">
+      <div class="card-header">
+        <div class="card-title">
+          <span>方案 B: 第一优先级材质增强版 (AFTER)</span>
+          <span class="card-tag tag-after">Target Experiment</span>
+        </div>
+        <div class="card-status">多层半透明光泽介质 · 顶部内高光+底部深沉压暗 · 柔和低强度 Tint 延展</div>
+      </div>
+
+      <div class="mock-underlayer-viewport">
+        <div class="underlayer-content">
+          <div class="underlayer-row">
+            <span>01. Rachmaninoff: Piano Concerto No. 2 in C Minor, Op. 18 - I. Moderato</span>
+            <span class="underlayer-highlight">FLAC 96kHz / 24bit</span>
+            <span>10:48</span>
+          </div>
+          <div class="underlayer-row">
+            <span>02. Chopin: Nocturne in C-sharp minor, B. 49</span>
+            <span>FLAC 44.1kHz / 16bit</span>
+            <span>04:12</span>
+          </div>
+          <div class="underlayer-row">
+            <span>03. Debussy: Suite bergamasque, L. 75: III. Clair de lune</span>
+            <span>DSD 2.8MHz</span>
+            <span>05:32</span>
+          </div>
+        </div>
+
+        <div class="player-bar-host">
+          <div class="player-bar-island">
+            <div class="player-bar-liquid-refract-edge"></div>
+            <div class="player-bar-glass"></div>
+            <div class="player-bar-album-tint"></div>
+
+            <div class="player-bar-row">
+              <div class="transport-controls">
+                <button class="transport-control" title="上一首">
+                  <svg viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5" stroke="currentColor" stroke-width="2"></line></svg>
+                </button>
+                <button class="transport-control-primary" title="播放 / 暂停">
+                  <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                </button>
+                <button class="transport-control" title="下一首">
+                  <svg viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"></line></svg>
+                </button>
+              </div>
+
+              <div class="track-info-card">
+                <div class="track-info-row">
+                  <div class="track-cover">
+                    <div style="width:100%;height:100%;background:linear-gradient(135deg, rgb(var(--sample-album-r) var(--sample-album-g) var(--sample-album-b)), #1a1612);display:flex;align-items:center;justify-content:center;">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+                    </div>
+                  </div>
+                  <div class="track-text">
+                    <div class="track-title">Piano Concerto No. 2 in C Minor, Op. 18: I. Moderato</div>
+                    <div class="track-subtitle">Sergei Rachmaninoff · London Symphony Orchestra</div>
+                  </div>
+                </div>
+                <div class="player-bar-progress-row">
+                  <span class="player-bar-progress-clock">04:18</span>
+                  <div class="track-progress"><div class="track-progress-fill"></div></div>
+                  <span class="player-bar-progress-clock">10:48</span>
+                </div>
+              </div>
+
+              <div class="playback-actions">
+                <button class="player-control" title="播放队列">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                </button>
+                <button class="player-control" title="桌面歌词">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"></path></svg>
+                </button>
+                <button class="player-control" title="播放模式">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                </button>
+                <div class="volume-control-group">
+                  <button class="player-control" title="音量">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                  </button>
+                  <div class="mock-volume-slider"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 实验深度分析与迁移建议 ==================== -->
+    <div class="analysis-grid">
+      <div class="analysis-card">
+        <div class="analysis-title">
+          <span>1. 哪些改动降低了纯黑实心感？</span>
+        </div>
+        <ul>
+          <li><strong>基底不透明度重塑：</strong>将单一硬编码 <span class="code-chip">rgba(16, 20, 26, 0.36)</span> 改为双层低密度暖黑介质 <span class="code-chip">rgba(18, 17, 16, 0.22)</span> + <span class="code-chip">rgba(32, 27, 22, 0.18)</span>，底色不再因单一过深色值形成密实黑色胶囊遮盖。</li>
+          <li><strong>表面光学微光泽 (Top Sheen)：</strong>在基底上叠合 <span class="code-chip">linear-gradient(180deg, 0.07 -&gt; 0.015 -&gt; trans)</span>，给整条玻璃赋予连续物理表面，即便背底全黑，也能感知到玻璃面上的环境微光漫反射。</li>
+        </ul>
+      </div>
+
+      <div class="analysis-card">
+        <div class="analysis-title">
+          <span>2. 哪些改动提高了中右侧 Liquid Glass 感知性？</span>
+        </div>
+        <ul>
+          <li><strong>双重微边缘立体度 (Rim Highlights)：</strong>重新激活 <span class="code-chip">::before</span> 并采用 <span class="code-chip">inset 0 1px 0 rgba(255,255,255,0.24)</span> 顶反光 + <span class="code-chip">inset 0 -1px 0 rgba(0,0,0,0.42)</span> 底压暗，勾勒出完整胶囊的厚度轮廓。</li>
+          <li><strong>专辑 Tint 超轻量级长距衰减：</strong>向中部展开柔和衰减梯度（<span class="code-chip">26% -&gt; 14% -&gt; 5% -&gt; 1.5% -&gt; 0%</span>），打破中右侧与左侧的光学孤立断层，同时严控整体不偏色。</li>
+          <li><strong>轻量级连续磨砂：</strong>注入适度 <span class="code-chip">backdrop-filter: blur(26px)</span>，使背底穿透内容与边缘折射实现丝滑融合。</li>
+        </ul>
+      </div>
+
+      <div class="analysis-card">
+        <div class="analysis-title">
+          <span>3. 最值得后续迁移回正式代码的参数</span>
+        </div>
+        <ul>
+          <li><span class="code-chip">--auralis-liquid-glass-bg-base</span>: 极薄暖黑基础层。</li>
+          <li><span class="code-chip">--auralis-liquid-glass-rim-highlight</span>: 顶部 1px 精致内高光与底部压暗。</li>
+          <li><span class="code-chip">--auralis-liquid-glass-layer-sheen</span>: 连续表面漫射光。</li>
+          <li><span class="code-chip">player-bar-album-tint</span> 在 liquid-glass 下的长距渐变算法。</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    function setBg(className, btn) {
+      document.body.className = className;
+      document.querySelectorAll('.controls-bar .controls-group:first-child .btn-toggle').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+
+    function setAlbumColor(r, g, b, btn) {
+      document.documentElement.style.setProperty('--sample-album-r', r);
+      document.documentElement.style.setProperty('--sample-album-g', g);
+      document.documentElement.style.setProperty('--sample-album-b', b);
+      document.querySelectorAll('.controls-bar .controls-group:last-child .btn-toggle').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>

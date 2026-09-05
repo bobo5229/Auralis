@@ -1,0 +1,2485 @@
+@font-face {
+  font-family: 'Auralis Sans SC';
+  src: url('../../assets/fonts/OPPO_Sans/OPPO_Sans_4.0.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range:
+    U+4E00-9FFF, U+3400-4DBF, U+2F00-2FDF, U+3000-303F, U+FF00-FFEF, U+2E80-2EFF, U+3100-312F,
+    U+31A0-31BF, U+31F0-31FF, U+3200-32FF, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+F900-FAFF,
+    U+FE30-FE4F, U+20000-2A6DF, U+2A700-2B73F, U+2B740-2B81F, U+2B820-2CEAF, U+2CEB0-2EBEF,
+    U+30000-3134F;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-EL.woff2') format('woff2');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-L.woff2') format('woff2');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-R.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-M.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-SB.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-B.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Auralis Desktop Lyrics SC';
+  src: url('../../assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-H.woff2') format('woff2');
+  font-weight: 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Dark-only tokens on :root. data-theme="dark" kept as an alias for any
+   residual [data-theme='dark'] selectors and future multi-theme work. */
+:root,
+[data-theme='dark'] {
+  color: var(--auralis-text);
+  background: var(--auralis-bg);
+  color-scheme: dark;
+  font-family:
+    Inter,
+    'Auralis Sans SC',
+    'Arial Unicode MS',
+    'Nirmala UI',
+    'Microsoft Himalaya',
+    'Leelawadee UI',
+    'Segoe UI Symbol',
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* Modern theme tokens: static shell uses warm black and restrained gold. */
+  --auralis-bg: #0c0b0a;
+  --auralis-main-bg: #12110f;
+  --auralis-dialog-bg: #1f1c18;
+  --auralis-sidebar-bg: #181613;
+  --auralis-now-playing-bg: rgba(24, 22, 19, 0.88);
+  --auralis-surface-raised: #1f1c18;
+  --auralis-surface-floating: #27231e;
+  --auralis-border-subtle: rgba(232, 220, 198, 0.08);
+  --auralis-border-strong: rgba(232, 220, 198, 0.14);
+  --auralis-text: #f3eee6;
+  --auralis-text-muted: #b7aea2;
+  --auralis-text-subtle: #7d756b;
+  --auralis-text-faint: rgba(125, 117, 107, 0.68);
+  --auralis-text-disabled: rgba(183, 174, 162, 0.35);
+  --auralis-control-bg: var(--auralis-surface-raised);
+  --auralis-control-hover-bg: rgba(232, 220, 198, 0.08);
+  --auralis-control-active-bg: rgba(201, 177, 132, 0.14);
+  --auralis-control-primary-bg: #c9b184;
+  --auralis-control-primary-text: #0c0b0a;
+  --auralis-focus-ring: #e8d7b0;
+  --auralis-danger: #c96a55;
+  --auralis-success: #8aa36a;
+  --auralis-artwork-accent-fallback: #9e8558;
+  --auralis-artwork-background-fallback: #0e0d0b;
+  --auralis-surface-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
+  --auralis-progress-track: rgba(232, 220, 198, 0.08);
+  --auralis-progress-fill: #e1ddd6;
+  --auralis-volume-fill: #e1ddd6;
+  --auralis-artwork-placeholder-bg: rgba(232, 220, 198, 0.12);
+
+  /* Playbar safe area — modern floating island: 72px height + 36px bottom gap */
+  --auralis-playbar-safe-area: 108px;
+  --auralis-shell-edge-gap: 12px;
+  --auralis-shell-vertical-gap: 24px;
+  --auralis-player-bottom-gap: 36px;
+  --auralis-playbar-bg: rgba(31, 28, 24, 0.88);
+  --auralis-playbar-border: rgba(232, 220, 198, 0.14);
+  --auralis-playbar-highlight: rgba(255, 255, 255, 0.16);
+  --auralis-playbar-highlight-soft: rgba(255, 255, 255, 0.06);
+  --auralis-playbar-lowlight: rgba(0, 0, 0, 0.24);
+  --auralis-playbar-album-alpha: 0.28;
+  --auralis-playbar-album-saturate: 1.08;
+  --auralis-playbar-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 20px 48px rgba(0, 0, 0, 0.22);
+
+  /* Song list tokens */
+  --auralis-song-row-bg: transparent;
+  --auralis-song-row-alt-bg: rgba(232, 220, 198, 0.014);
+  --auralis-song-row-border: rgba(232, 220, 198, 0.08);
+  --auralis-song-row-now-playing-bg: rgba(201, 177, 132, 0.12);
+  --auralis-song-row-now-playing-title: #e8d7b0;
+  --auralis-song-row-now-playing-artist: #c9b184;
+  --auralis-song-row-now-playing-duration: #9e8558;
+
+  /* Lyrics tokens */
+  --auralis-lyrics-active: #e8d7b0;
+  --auralis-lyrics-inactive: #515152;
+
+  /* Sidebar active state */
+  --auralis-sidebar-active-bg: rgba(201, 177, 132, 0.12);
+  --auralis-sidebar-active-indicator: #c9b184;
+  --auralis-sidebar-active-icon: #e8d7b0;
+  --auralis-sidebar-active-text: #e8d7b0;
+
+  /* Search bar */
+  --auralis-search-bg: rgba(31, 28, 24, 0.72);
+  --auralis-search-border: rgba(232, 220, 198, 0.1);
+  --auralis-search-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  --auralis-context-menu-bg: rgba(31, 28, 24, 0.9);
+  --auralis-context-menu-border: rgba(232, 220, 198, 0.1);
+  --auralis-context-menu-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+
+  /* Cover view */
+  --auralis-cover-track-bg: rgba(31, 28, 24, 0.34);
+  --auralis-cover-track-hover-bg: rgba(232, 220, 198, 0.08);
+  --auralis-cover-divider: rgba(232, 220, 198, 0.1);
+  --auralis-cover-track-divider: rgba(232, 220, 198, 0.07);
+
+  /* App environment glow */
+  --auralis-app-bg: #0c0b0a;
+  --auralis-app-glow-a: transparent;
+  --auralis-app-glow-b: transparent;
+  --auralis-app-background: var(--auralis-app-bg);
+  /* Album detail "more works" band — lifted charcoal vs page black */
+  --auralis-album-detail-more-bg: #1f1c18;
+
+  /* Album Detail frosted surfaces */
+  --auralis-overlay-bg: color-mix(in srgb, var(--auralis-bg) 70%, transparent);
+  --auralis-overlay-blur: blur(20px) saturate(1.45) contrast(1.02);
+  --auralis-btn-back-bg: rgba(232, 220, 198, 0.04);
+  --auralis-btn-back-border: rgba(232, 220, 198, 0.08);
+  --auralis-btn-back-hover: rgba(232, 220, 198, 0.08);
+  --auralis-stats-panel-bg: rgba(232, 220, 198, 0.03);
+  --auralis-stats-panel-border: rgba(232, 220, 198, 0.06);
+  --auralis-stats-divider: rgba(232, 220, 198, 0.1);
+  --auralis-track-list-bg: rgba(232, 220, 198, 0.025);
+  --auralis-track-list-border: rgba(232, 220, 198, 0.05);
+  --auralis-heat-bar-wrap: rgba(232, 220, 198, 0.06);
+  --auralis-more-card-bg: rgba(232, 220, 198, 0.02);
+  --auralis-more-card-border: rgba(232, 220, 198, 0.04);
+
+  /* Window chrome defaults remain static; App.vue must not replace them with palette output. */
+  --auralis-window-chrome-bg: var(--auralis-bg);
+  --auralis-window-chrome-accent: var(--auralis-sidebar-active-indicator);
+  --auralis-window-chrome-border: var(--auralis-border-strong);
+}
+
+.wco-drag-region {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 140px;
+  height: 36px;
+  -webkit-app-region: drag;
+  z-index: 5;
+  pointer-events: auto;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  color: var(--auralis-text);
+  background: var(--auralis-bg);
+}
+
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+*:focus {
+  outline: none;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.track-title,
+.queue-item-title,
+.fullscreen-player-meta h1 {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.player-bar {
+  --playbar-album-layer-opacity: 0.85;
+  position: fixed;
+  isolation: isolate;
+  background: transparent;
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  overflow: visible;
+  transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/* Transparent host spanning the main column; chrome lives on the island. */
+.player-bar[data-player-presentation='modern'] {
+  left: 260px;
+  right: 0;
+  bottom: 36px;
+  width: auto;
+  min-width: 0;
+  height: 72px;
+  transform: none;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.player-bar[data-player-presentation='modern']::before {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .player-bar[data-player-presentation='modern'] {
+    right: 20%;
+  }
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-island {
+  pointer-events: auto;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: stretch;
+  width: min(920px, calc(100% - 48px));
+  height: 72px;
+  min-width: 0;
+  border-radius: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.22),
+    0 8px 24px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  overflow: visible;
+  container-type: inline-size;
+  container-name: modern-player-bar;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-island::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 3;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      180deg,
+      var(--auralis-playbar-highlight) 0%,
+      var(--auralis-playbar-highlight-soft) 18%,
+      transparent 48%,
+      var(--auralis-playbar-lowlight) 100%
+    ),
+    linear-gradient(
+      90deg,
+      var(--auralis-playbar-highlight-soft),
+      transparent 10% 90%,
+      var(--auralis-playbar-highlight-soft)
+    ),
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-glass,
+.player-bar[data-player-presentation='modern'] .player-bar-album-tint {
+  border-radius: inherit;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-row {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: center;
+  column-gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 12px;
+}
+
+.player-bar[data-player-presentation='modern'] .track-info-card {
+  min-width: 0;
+  z-index: 4;
+}
+
+.player-bar[data-player-presentation='modern'] .transport-controls {
+  gap: 6px;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-time,
+.player-bar[data-player-presentation='modern'] .player-bar-progress-clock {
+  margin: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--auralis-text-muted);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.player-bar[data-player-presentation='modern'] .playback-actions {
+  justify-self: end;
+  min-width: 0;
+  z-index: 4;
+  gap: 6px;
+}
+
+.player-bar[data-player-presentation='modern'] .track-info-row {
+  width: 100%;
+  min-width: 0;
+}
+
+.player-bar[data-player-presentation='modern'] .track-info-empty {
+  align-items: center;
+  min-height: 44px;
+}
+
+.player-bar[data-player-presentation='modern'] .track-text {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.player-bar[data-player-presentation='modern'] .track-title,
+.player-bar[data-player-presentation='modern'] .track-subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-bar[data-player-presentation='modern'] .track-title {
+  letter-spacing: -0.01em;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-progress-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+  margin-top: 6px;
+  min-width: 0;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-progress-row--idle {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-progress-row .track-progress {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  width: 100%;
+  margin-top: 0;
+  height: 3px;
+  z-index: 5;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-progress-row .track-progress:hover {
+  height: 6px;
+}
+
+.player-bar[data-player-presentation='modern'] .track-progress--idle {
+  opacity: 0.28;
+  cursor: default;
+  pointer-events: none;
+}
+
+.player-bar[data-player-presentation='modern'] .track-progress--idle:hover {
+  height: 3px;
+}
+
+.player-bar[data-player-presentation='modern'] .track-progress--idle::after {
+  display: none;
+}
+
+.player-bar[data-player-presentation='modern'] .track-progress--idle .track-progress-fill::after {
+  display: none;
+  animation: none;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-overflow {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-overflow-panel {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  z-index: 72;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 176px;
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid var(--auralis-playbar-border);
+  background: var(--auralis-playbar-bg);
+  box-shadow: var(--auralis-playbar-shadow);
+  -webkit-backdrop-filter: blur(18px) saturate(1.12);
+  backdrop-filter: blur(18px) saturate(1.12);
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-overflow-item {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 10px;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.player-bar[data-player-presentation='modern'] .player-bar-overflow-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--auralis-text);
+  white-space: nowrap;
+}
+
+@container modern-player-bar (max-width: 800px) {
+  .volume-control-group > .volume-slider {
+    display: none;
+  }
+
+  .volume-control-group[data-volume-open='true'] .volume-overlay {
+    display: flex;
+    align-items: center;
+  }
+}
+
+@container modern-player-bar (max-width: 720px) {
+  .track-subtitle {
+    display: none;
+  }
+}
+
+@container modern-player-bar (max-width: 640px) {
+  .player-bar-overflow {
+    display: inline-flex;
+  }
+}
+
+.player-bar[data-player-presentation='modern'] .volume-overlay {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  right: 0;
+  z-index: 71;
+  padding: 10px 12px;
+  border-radius: 999px;
+  background: var(--auralis-playbar-bg);
+  border: 1px solid var(--auralis-playbar-border);
+  box-shadow: var(--auralis-playbar-shadow);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .player-bar[data-player-presentation='modern'] .volume-overlay,
+  .player-bar[data-player-presentation='modern'] .player-bar-overflow-panel {
+    background: color-mix(in srgb, var(--auralis-dialog-bg) 92%, transparent);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-bar[data-player-presentation='modern'] .transport-controls,
+  .player-bar[data-player-presentation='modern'] .track-text,
+  .player-bar[data-player-presentation='modern'] .playback-actions {
+    transition: none;
+  }
+}
+
+/* Phase 23 dock layout wrappers — display:contents so named areas can place
+   grandchildren. Manuscript and modern each own their grid rules. */
+.player-bar-dock-main,
+.player-bar-dock-actions,
+.player-bar-dock-rule {
+  display: contents;
+}
+
+/* Phase 23 narrow-window volume overlay — hidden by default; manuscript and
+   modern container queries reveal it when the inline slider is collapsed. */
+.player-bar .volume-overlay {
+  display: none;
+}
+
+.player-bar-glass {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: color-mix(
+    in srgb,
+    var(--auralis-playbar-bg) 50%,
+    var(--auralis-playbar-highlight-soft)
+  );
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--auralis-playbar-border) 35%, transparent);
+  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+.player-bar::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 3;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      180deg,
+      var(--auralis-playbar-highlight) 0%,
+      var(--auralis-playbar-highlight-soft) 18%,
+      transparent 48%,
+      var(--auralis-playbar-lowlight) 100%
+    ),
+    linear-gradient(
+      90deg,
+      var(--auralis-playbar-highlight-soft),
+      transparent 10% 90%,
+      var(--auralis-playbar-highlight-soft)
+    ),
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.player-bar > :not(.player-bar-album-tint, .player-bar-glass) {
+  position: relative;
+  z-index: 4;
+}
+
+.player-bar-glass,
+.playback-mode-menu {
+  -webkit-backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
+  backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
+}
+
+.player-bar[data-player-presentation='modern'] .queue-popover {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: color-mix(
+    in srgb,
+    var(--auralis-playbar-bg) 50%,
+    var(--auralis-playbar-highlight-soft)
+  );
+  box-shadow: var(--auralis-playbar-shadow);
+  -webkit-backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
+  backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
+}
+
+.player-bar[data-player-presentation='modern'] .queue-popover::before,
+.playback-mode-menu::before {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 1;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      180deg,
+      var(--auralis-playbar-highlight) 0%,
+      var(--auralis-playbar-highlight-soft) 18%,
+      transparent 48%,
+      var(--auralis-playbar-lowlight) 100%
+    ),
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.player-bar[data-player-presentation='modern'] .queue-popover::before {
+  background:
+    linear-gradient(
+      180deg,
+      var(--auralis-playbar-highlight) 0%,
+      var(--auralis-playbar-highlight-soft) 18%,
+      transparent 48%,
+      var(--auralis-playbar-lowlight) 100%
+    ),
+    linear-gradient(
+      90deg,
+      var(--auralis-playbar-highlight-soft),
+      transparent 10% 90%,
+      var(--auralis-playbar-highlight-soft)
+    ),
+    linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
+}
+
+.player-bar[data-player-presentation='modern'] .queue-popover::after,
+.playback-mode-menu::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  z-index: 0;
+  border-radius: inherit;
+  background-color: var(--auralis-active-album-tint, transparent);
+  filter: saturate(var(--auralis-playbar-album-saturate));
+  transition: background-color 420ms ease;
+  pointer-events: none;
+}
+
+.player-bar[data-player-presentation='modern'] .queue-popover::after {
+  opacity: var(--playbar-album-layer-opacity);
+}
+
+.player-bar[data-player-presentation='modern'] .queue-popover > *,
+.playback-mode-menu > * {
+  position: relative;
+  z-index: 2;
+}
+
+.player-bar[data-player-presentation='modern'] .queue-item:hover {
+  background: var(--auralis-control-hover-bg);
+}
+
+.player-bar[data-player-presentation='modern'] .queue-item-active,
+.player-bar[data-player-presentation='modern'] .queue-item-active:hover {
+  background: color-mix(
+    in srgb,
+    var(--auralis-active-album-accent) 14%,
+    var(--auralis-song-row-now-playing-bg)
+  );
+}
+
+.player-bar[data-player-presentation='modern'] .queue-item-active .queue-item-title {
+  color: var(--auralis-active-album-accent);
+}
+
+.player-bar[data-player-presentation='modern'] .queue-item-active .queue-item-subtitle {
+  color: color-mix(in srgb, var(--auralis-active-album-accent) 74%, var(--auralis-text-muted));
+}
+
+.player-bar[data-player-presentation='modern'] .queue-item:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: -2px;
+}
+
+.queue-popover-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.queue-popover-scroll::-webkit-scrollbar-track,
+.queue-popover-scroll::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.queue-popover-scroll::-webkit-scrollbar-thumb {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  background-clip: padding-box;
+}
+
+.queue-popover-scroll::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--auralis-text) 22%, transparent);
+  background-clip: padding-box;
+}
+
+.player-bar-album-tint {
+  position: absolute;
+  inset: 1px;
+  z-index: 2;
+  border-radius: inherit;
+  opacity: var(--playbar-album-layer-opacity);
+  filter: saturate(var(--auralis-playbar-album-saturate));
+  pointer-events: none;
+  transition: background-color 420ms ease;
+}
+
+.player-bar-album-tint-previous {
+  animation: playbar-album-tint-fade-out 420ms ease forwards;
+}
+
+/* Liquid Glass is a restrained web approximation. Album color remains reserved for
+   cover-tint and selected states. */
+.player-bar--liquid-glass[data-player-presentation='modern'] {
+  box-shadow: none;
+}
+
+.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-island {
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.26);
+}
+
+.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass {
+  z-index: 1;
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(16, 20, 26, 0.36);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* 边缘透镜折射层：严格基于 nikdelvin/liquid-glass 开源算法动态注入 3 通道色散与矢量位移 */
+.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  box-shadow: none;
+  opacity: 1;
+}
+
+/* 扁平化设计：隐藏伪 3D 摄影棚顶光与径向反光层 */
+.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-island::before,
+.player-bar--liquid-glass[data-player-presentation='modern']::before {
+  display: none !important;
+}
+
+.player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu,
+.player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-toast,
+.player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-lock-popover,
+.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-overflow-panel {
+  border-color: rgba(255, 255, 255, 0.22);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(17, 19, 24, 0.36)),
+    rgba(20, 23, 28, 0.52);
+  box-shadow:
+    0 18px 38px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.23),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.12) contrast(1.04);
+  backdrop-filter: blur(18px) saturate(1.12) contrast(1.04);
+}
+
+.player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(16, 20, 26, 0.36);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.3);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover-liquid-refract-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0 !important;
+}
+
+.player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover::before {
+  display: none;
+}
+
+.player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu::before {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.2),
+      rgba(255, 255, 255, 0.025) 24%,
+      transparent 54%
+    ),
+    linear-gradient(108deg, transparent 20%, rgba(255, 255, 255, 0.09) 47%, transparent 62%);
+  opacity: 0.85;
+}
+
+.player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover::after,
+.player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu::after {
+  background: transparent;
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-toast,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-lock-popover {
+    background: rgba(31, 34, 40, 0.92);
+  }
+
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover-liquid-refract-edge {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-toast,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-lock-popover {
+    background: rgba(31, 34, 40, 0.92);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover-liquid-refract-edge {
+    display: none !important;
+  }
+}
+
+/* The liquid surface changes backdrop-filter values when its material changes. */
+@media (prefers-reduced-motion: reduce) {
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge {
+    transition: none;
+  }
+}
+
+@keyframes playbar-album-tint-fade-out {
+  from {
+    opacity: var(--playbar-album-layer-opacity, 0.85);
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* xl modern host right edge is owned by the modern presentation rule above. */
+
+@media (prefers-contrast: more) {
+  .player-bar-glass {
+    background: var(--auralis-now-playing-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-toast,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-lock-popover {
+    border-color: rgba(255, 255, 255, 0.58);
+    background: #202329;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover-liquid-refract-edge {
+    display: none !important;
+  }
+
+  .player-bar--liquid-glass[data-player-presentation='modern']::before,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover::before,
+  .player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu::before {
+    opacity: 0;
+  }
+}
+
+.playbar-action-icon {
+  color: var(--auralis-text-muted);
+  transition: color 0.2s ease;
+}
+
+.player-control:hover .playbar-action-icon,
+.player-control-active .playbar-action-icon {
+  color: var(--auralis-active-album-accent) !important;
+}
+
+.desktop-lyrics-control-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.desktop-lyrics-toast {
+  position: absolute;
+  right: 50%;
+  bottom: calc(100% + 14px);
+  z-index: 30;
+  width: max-content;
+  max-width: 180px;
+  transform: translateX(50%);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 85%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: var(--auralis-text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  animation: desktop-lyrics-toast-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes desktop-lyrics-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(50%, 6px) scale(0.95);
+  }
+}
+
+.desktop-lyrics-lock-popover {
+  position: absolute;
+  right: 50%;
+  bottom: calc(100% + 14px);
+  z-index: 72;
+  width: 84px;
+  transform: translateX(50%);
+  border: 1px solid var(--auralis-playbar-border);
+  border-radius: 12px;
+  padding: 4px;
+  background: var(--auralis-playbar-bg);
+  box-shadow: var(--auralis-playbar-shadow);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  animation: desktop-lyrics-lock-popover-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  user-select: none;
+}
+
+@keyframes desktop-lyrics-lock-popover-in {
+  from {
+    opacity: 0;
+    transform: translate(50%, 6px) scale(0.96);
+  }
+}
+
+.desktop-lyrics-lock-switch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--auralis-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
+}
+
+.desktop-lyrics-lock-pill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--auralis-active-album-accent) 22%, rgba(255, 255, 255, 0.12));
+  border: 1px solid
+    color-mix(in srgb, var(--auralis-active-album-accent) 30%, rgba(255, 255, 255, 0.2));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.desktop-lyrics-lock-option {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--auralis-text-muted);
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    transform 180ms ease;
+  outline: none;
+}
+
+.desktop-lyrics-lock-option:hover {
+  color: var(--auralis-text);
+}
+
+.desktop-lyrics-lock-option--active {
+  color: var(--auralis-text);
+}
+
+.desktop-lyrics-lock-option:focus-visible {
+  outline: 2px solid var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator));
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-lyrics-lock-popover,
+  .desktop-lyrics-lock-pill,
+  .desktop-lyrics-lock-option {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .desktop-lyrics-lock-popover {
+    background: color-mix(in srgb, var(--auralis-dialog-bg) 92%, transparent);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.player-bar .player-control {
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  box-shadow: none !important;
+}
+
+.player-bar[data-player-presentation='modern'] .player-control:focus,
+.player-bar[data-player-presentation='modern'] .transport-control:focus {
+  outline: none;
+}
+
+.player-bar[data-player-presentation='modern'] .player-control:focus-visible,
+.player-bar[data-player-presentation='modern'] .transport-control:focus-visible {
+  outline: 2px solid var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator));
+  outline-offset: 2px;
+}
+
+.player-bar .player-control:hover {
+  background: color-mix(in srgb, var(--auralis-active-album-accent) 12%, transparent) !important;
+  color: var(--auralis-active-album-accent) !important;
+  transform: translateY(-1px);
+}
+
+.player-bar .player-control:active {
+  transform: scale(0.95);
+}
+
+.player-bar .player-control-active {
+  background: color-mix(in srgb, var(--auralis-active-album-accent) 18%, transparent) !important;
+  color: var(--auralis-active-album-accent) !important;
+  border: 1px solid color-mix(in srgb, var(--auralis-active-album-accent) 15%, transparent);
+}
+
+.track-cover {
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.track-cover:hover {
+  transform: translateY(-2px) scale(1.04);
+  border-color: color-mix(in srgb, var(--auralis-active-album-accent) 35%, transparent);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--auralis-active-album-accent) 20%, transparent);
+}
+
+.player-bar[data-player-presentation='modern'] .transport-control-primary {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background-color: var(
+    --auralis-player-primary-button-bg,
+    var(--auralis-control-primary-bg)
+  ) !important;
+  background-image: none !important;
+  border: none !important;
+  color: var(--auralis-player-primary-button-fg, var(--auralis-control-primary-text)) !important;
+  box-shadow: none !important;
+  --auralis-player-primary-bevel-opacity: 0.75;
+  --auralis-player-primary-recess-opacity: 0.8;
+  transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+
+.player-bar[data-player-presentation='modern'] .transport-control-primary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: var(--auralis-player-primary-bevel-opacity, 0.75);
+  background: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 0.12),
+    transparent 42%,
+    transparent 60%,
+    rgb(0 0 0 / 0.1)
+  );
+  -webkit-mask: radial-gradient(
+    circle closest-side,
+    transparent 0 54%,
+    #000 72% 86%,
+    transparent 100%
+  );
+  mask: radial-gradient(circle closest-side, transparent 0 54%, #000 72% 86%, transparent 100%);
+}
+
+.player-bar[data-player-presentation='modern'] .transport-control-primary::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: var(--auralis-player-primary-recess-opacity, 0.8);
+  background: linear-gradient(
+    180deg,
+    rgb(0 0 0 / 0.24),
+    transparent 44%,
+    transparent 60%,
+    rgb(255 255 255 / 0.2)
+  );
+  -webkit-mask: radial-gradient(
+    circle closest-side,
+    transparent 0 42%,
+    #000 68% 78%,
+    transparent 100%
+  );
+  mask: radial-gradient(circle closest-side, transparent 0 42%, #000 68% 78%, transparent 100%);
+}
+
+.player-bar[data-player-presentation='modern'] .transport-control-primary > span {
+  position: relative;
+  z-index: 1;
+}
+
+.player-bar[data-player-presentation='modern'] .transport-control-primary:hover:not(:disabled) {
+  --auralis-player-primary-bevel-opacity: 0.8;
+  --auralis-player-primary-recess-opacity: 0.86;
+  transform: translateY(-0.25px) scale(1.01) !important;
+}
+
+.player-bar[data-player-presentation='modern'] .transport-control-primary:active:not(:disabled) {
+  --auralis-player-primary-bevel-opacity: 0.85;
+  --auralis-player-primary-recess-opacity: 1;
+  transform: translateY(0.25px) scale(0.99) !important;
+}
+
+.player-bar[data-player-presentation='modern'] .transport-control-primary:disabled {
+  --auralis-player-primary-bevel-opacity: 0.45;
+  --auralis-player-primary-recess-opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.player-bar[data-player-presentation='modern'] .transport-control-primary[aria-busy='true'] {
+  cursor: wait;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-bar[data-player-presentation='modern'] .transport-control-primary,
+  .player-bar[data-player-presentation='modern'] .transport-control-primary:hover:not(:disabled),
+  .player-bar[data-player-presentation='modern'] .transport-control-primary:active:not(:disabled),
+  .player-bar[data-player-presentation='modern'] .transport-control-primary:disabled {
+    transition: none !important;
+    transform: none !important;
+  }
+}
+
+.transport-control {
+  border-radius: 8px;
+  transition: all 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.transport-control:hover {
+  background: color-mix(in srgb, var(--auralis-active-album-accent) 12%, transparent) !important;
+  color: var(--auralis-active-album-accent) !important;
+  transform: translateY(-1px) scale(1.06);
+}
+
+.transport-control:active {
+  transform: scale(0.93);
+}
+
+.track-progress {
+  height: 3px;
+  border-radius: 99px;
+  background: var(--auralis-progress-track);
+  position: relative;
+  overflow: visible !important;
+  cursor: pointer;
+  transition: height 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.track-progress:hover {
+  height: 6px;
+}
+
+.track-progress-fill {
+  background: var(--auralis-active-album-accent) !important;
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--auralis-active-album-accent) 30%, transparent);
+  position: relative;
+  overflow: hidden;
+  height: 100%;
+  border-radius: inherit;
+}
+
+/* Decorative shimmer is opt-in via presentation; modern dual-rail keeps the
+   rail calm unless actively hovered/dragged (thumb only). */
+
+@keyframes playbar-progress-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.track-progress::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: calc(var(--auralis-progress-value, 0) * 100%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid var(--auralis-active-album-accent);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+}
+
+.track-progress:hover::after {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.volume-control-group {
+  position: relative;
+}
+
+input[type='range'].volume-slider {
+  width: 90px;
+  height: 24px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--auralis-sidebar-active-indicator) !important;
+  cursor: pointer;
+  background: transparent !important;
+  border: none;
+  position: relative;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input[type='range'].volume-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(
+    --volume-track-bg,
+    linear-gradient(
+      to right,
+      var(--auralis-active-album-accent) 0%,
+      var(--auralis-active-album-accent) var(--volume-percent, 100%),
+      var(--auralis-progress-track) var(--volume-percent, 100%),
+      var(--auralis-progress-track) 100%
+    )
+  );
+  transition: height 0.2s ease;
+}
+
+input[type='range'].volume-slider:hover::-webkit-slider-runnable-track {
+  height: 5px;
+}
+
+input[type='range'].volume-slider::-webkit-slider-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid var(--auralis-active-album-accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: -3px;
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    margin-top 0.2s ease;
+}
+
+input[type='range'].volume-slider:hover::-webkit-slider-thumb {
+  opacity: 1;
+  transform: scale(1);
+  margin-top: -2.5px;
+}
+
+input[type='range'].volume-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(
+    --volume-track-bg,
+    linear-gradient(
+      to right,
+      var(--auralis-active-album-accent) 0%,
+      var(--auralis-active-album-accent) var(--volume-percent, 100%),
+      var(--auralis-progress-track) var(--volume-percent, 100%),
+      var(--auralis-progress-track) 100%
+    )
+  );
+  transition: height 0.2s ease;
+}
+
+input[type='range'].volume-slider:hover::-moz-range-track {
+  height: 5px;
+}
+
+input[type='range'].volume-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid var(--auralis-active-album-accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  border: none;
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+input[type='range'].volume-slider:hover::-moz-range-thumb {
+  opacity: 1;
+  transform: scale(1);
+}
+
+::selection {
+  color: #f6f2ea;
+  background: rgba(201, 177, 132, 0.28);
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--auralis-main-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--auralis-text-disabled);
+  border: 3px solid var(--auralis-main-bg);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--auralis-text-faint);
+}
+
+/* Lyrics dot animation */
+.lyric-dot {
+  color: var(--auralis-lyrics-inactive);
+  opacity: 0.15;
+  animation: dot-fill 1s ease forwards;
+}
+
+.lyric-dot:nth-child(2) {
+  animation-delay: 1s;
+}
+
+.lyric-dot:nth-child(3) {
+  animation-delay: 2s;
+}
+
+@keyframes dot-fill {
+  from {
+    opacity: 0.15;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* 主窗口客户区：底色 / 内描边由静态壳 token 提供。 */
+.app-window {
+  background: var(--auralis-window-chrome-bg, var(--auralis-app-background));
+  box-shadow: inset 0 0 0 1px var(--auralis-window-chrome-border, transparent);
+  transition:
+    background-color 280ms ease,
+    box-shadow 280ms ease;
+}
+
+/* Sidebar */
+.app-sidebar {
+  position: relative;
+  isolation: isolate;
+  /* 沉浸式玻璃质感背景 */
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 46%, transparent) !important;
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border-right: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.28),
+    inset 1px 1px 0 rgba(255, 255, 255, 0.06);
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    background 0.3s ease;
+}
+
+.app-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  /* 利用项目主题蓝，营造背景流体光感 */
+  background:
+    radial-gradient(
+      circle at 0% 0%,
+      color-mix(in srgb, var(--auralis-sidebar-active-indicator) 15%, transparent) 0%,
+      transparent 75%
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent) 0%,
+      transparent 75%
+    );
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.sidebar-header {
+  padding: 20px 16px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 6%, transparent);
+  background: transparent;
+}
+
+/* Left-aligned Brand on first row; 3-column equal tools on second row. */
+.sidebar-header-main {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.sidebar-brand-left {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.sidebar-brand-mark {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 30%, transparent);
+  border-radius: 10px;
+  color: var(--auralis-sidebar-active-indicator);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, white 24%, transparent), transparent 60%),
+    color-mix(in srgb, var(--auralis-sidebar-active-bg) 75%, transparent);
+  box-shadow:
+    0 4px 14px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 40%, transparent);
+  transition:
+    transform 200ms ease,
+    box-shadow 200ms ease,
+    border-color 200ms ease;
+}
+
+.sidebar-brand-mark span {
+  width: 17px;
+  height: 17px;
+}
+
+.sidebar-brand-left:hover .sidebar-brand-mark {
+  transform: scale(1.03);
+  border-color: var(--auralis-sidebar-active-indicator);
+  box-shadow:
+    0 6px 18px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 28%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.sidebar-brand-copy {
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.sidebar-brand-name {
+  position: relative;
+  color: color-mix(in srgb, #ffffff 88%, transparent);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 22px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 200ms ease;
+}
+
+.sidebar-brand-name::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--auralis-sidebar-active-indicator);
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-brand-left:hover .sidebar-brand-name {
+  color: color-mix(in srgb, #ffffff 88%, var(--auralis-sidebar-active-indicator));
+}
+
+.sidebar-brand-left:hover .sidebar-brand-name::after {
+  transform: scaleX(1);
+  transition-duration: 400ms;
+}
+
+/* 3-column equal grid tool row */
+.sidebar-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: 100%;
+}
+
+.sidebar-tool-button {
+  display: inline-flex;
+  width: 100%;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--auralis-text-faint);
+  background: transparent;
+  transition:
+    color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
+}
+
+.sidebar-tool-button:hover {
+  color: var(--auralis-sidebar-active-indicator);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 14%, transparent);
+  transform: translateY(-0.5px);
+}
+
+.sidebar-tool-button:active {
+  transform: scale(0.96);
+}
+
+.sidebar-tool-button:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 1px;
+}
+
+.sidebar-tool-button > span {
+  width: 15px;
+  height: 15px;
+}
+
+.sidebar-tool-button-active {
+  /* 与 hover 一致的极轻 Hover Glow，避免亮块从无壳行里爆出来 */
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+  color: var(--auralis-sidebar-active-indicator);
+}
+
+.sidebar-navigation {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 0;
+}
+
+.sidebar-primary-section {
+  padding-bottom: 12px;
+}
+
+.sidebar-playlist-section {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.sidebar-playlist-section::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-playlist-section::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auralis-text) 12%, transparent);
+}
+
+.sidebar-section-label {
+  padding: 0 16px 8px;
+  color: var(--auralis-text-faint);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sidebar-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-section-title .sidebar-section-label {
+  padding-right: 0;
+  padding-bottom: 0;
+}
+
+.sidebar-section-meta {
+  border-radius: 8px;
+  color: var(--auralis-text-faint);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  background: color-mix(in srgb, var(--auralis-text) 4%, transparent);
+  padding: 2px 6px;
+}
+
+/* Redesigned Links as Light Cards */
+.sidebar-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 38px;
+  margin: 3px 10px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  color: var(--auralis-text-muted);
+  text-decoration: none;
+  transition: all 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sidebar-link:hover {
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent);
+  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+  color: var(--auralis-text);
+  transform: translateX(3px);
+}
+
+.sidebar-link-with-count {
+  justify-content: flex-start;
+}
+
+.sidebar-link:active {
+  transform: scale(0.98) translateX(2px);
+}
+
+.sidebar-link:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: -2px;
+}
+
+.sidebar-link-icon {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  color: var(--auralis-text-muted);
+  transition:
+    color 200ms ease,
+    transform 200ms ease;
+}
+
+.sidebar-link-icon > span {
+  width: 16px;
+  height: 16px;
+}
+
+.sidebar-link-label {
+  flex: 1;
+  overflow: hidden;
+  margin-left: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Counts inside active links */
+.sidebar-link-count {
+  color: var(--auralis-text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  opacity: 0;
+  transform: translateX(12px);
+  transition:
+    opacity 0.22s ease,
+    transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 0.2s ease;
+  will-change: transform, opacity;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.sidebar-link:hover .sidebar-link-count {
+  opacity: 1;
+  transform: translateX(0);
+  color: var(--auralis-text-faint) !important;
+}
+
+.sidebar-link-active .sidebar-link-count {
+  opacity: 0;
+  transform: translateX(12px);
+}
+
+.sidebar-link-active:hover .sidebar-link-count {
+  color: var(--auralis-sidebar-active-text) !important;
+}
+
+/* Active Sidebar Link (Glow Glassmorphism + Shimmer) */
+.sidebar-link-active {
+  background: linear-gradient(
+    95deg,
+    color-mix(in srgb, var(--auralis-sidebar-active-bg) 85%, transparent),
+    color-mix(in srgb, var(--auralis-sidebar-active-bg) 60%, transparent)
+  ) !important;
+  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 35%, transparent) !important;
+  color: var(--auralis-sidebar-active-text) !important;
+  box-shadow:
+    0 4px 14px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 14%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  font-weight: 700;
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-link-active .sidebar-link-icon {
+  color: var(--auralis-sidebar-active-icon) !important;
+  transform: scale(1.05);
+}
+
+.sidebar-link-active:hover {
+  background: linear-gradient(
+    95deg,
+    color-mix(in srgb, var(--auralis-sidebar-active-bg) 95%, transparent),
+    color-mix(in srgb, var(--auralis-sidebar-active-bg) 70%, transparent)
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--auralis-sidebar-active-indicator) 50%,
+    transparent
+  ) !important;
+  transform: translateX(3px) scale(1.01);
+}
+
+/* Delicate Left Indicator Line */
+.sidebar-link-active::before {
+  content: '' !important;
+  position: absolute;
+  left: 0;
+  top: 25%;
+  height: 50%;
+  width: 3px !important;
+  border-radius: 2px;
+  background: var(--auralis-sidebar-active-indicator) !important;
+  box-shadow: 0 0 8px var(--auralis-sidebar-active-indicator);
+  transform: scaleY(1) !important;
+  transition: transform 0.25s ease;
+}
+
+/* Shimmer Sweep Effect */
+.sidebar-link-active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent),
+    transparent
+  );
+  transform: skewX(-20deg);
+  pointer-events: none;
+  animation: sidebar-shimmer 5s infinite linear;
+}
+
+@keyframes sidebar-shimmer {
+  0% {
+    left: -150%;
+  }
+  25% {
+    left: 150%;
+  }
+  100% {
+    left: 150%;
+  }
+}
+
+.sidebar-link[data-smart-playlist-id] {
+  padding-right: 12px;
+}
+
+.smart-playlist-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 16px 8px;
+}
+
+.smart-playlist-add-button {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--auralis-text-faint);
+  transition: all 150ms ease;
+}
+
+.smart-playlist-add-button:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 1px;
+}
+
+.smart-playlist-add-button:hover {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+  transform: scale(1.08);
+}
+
+.smart-playlist-add-button:active {
+  transform: scale(0.95);
+}
+
+.smart-playlist-add-button span {
+  width: 14px;
+  height: 14px;
+}
+
+.smart-playlist-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 16px;
+  color: var(--auralis-text-faint);
+  font-size: 12px;
+}
+
+.smart-playlist-empty span:first-child {
+  width: 16px;
+  height: 16px;
+}
+
+.smart-playlist-link-pressed {
+  background: var(--auralis-control-hover-bg);
+}
+
+.smart-playlist-link-dragging {
+  z-index: 1;
+  cursor: grab !important;
+  opacity: 0.5;
+}
+
+.song-row {
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--auralis-song-row-border, transparent);
+}
+
+/* Library search bar */
+.library-search-zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  z-index: 70;
+  pointer-events: none;
+}
+
+.library-search-bar {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 360px;
+  max-width: min(360px, calc(100% - 48px));
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--auralis-search-border);
+  background: var(--auralis-search-bg);
+  box-shadow: var(--auralis-search-shadow);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.library-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--auralis-text);
+}
+
+.library-search-input::placeholder {
+  color: var(--auralis-text-faint);
+}
+
+/*
+ * 窄视口（< xl，最小窗口 900px）下主内容约 640px 宽，英文
+ * Modern/Manuscript 切换控件（约 150px，固定右缘）会侵入居中的
+ * 360px 搜索条右侧。将搜索条中心左移 44px 让位，不触碰 transform
+ * 以免与 search-bar 进出场动画冲突。阈值取 960：覆盖 941-943px
+ * 视口下无偏移时约 1-2px 的临界擦碰。
+ */
+@media (max-width: 960px) {
+  .library-search-bar {
+    left: calc(50% - 44px);
+  }
+}
+
+.search-bar-enter-active,
+.search-bar-leave-active {
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.search-bar-enter-from,
+.search-bar-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.search-bar-enter-to,
+.search-bar-leave-from {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.library-context-menu {
+  overflow: visible;
+  padding: 6px;
+}
+
+.liquid-glass-panel.library-context-menu-root {
+  overflow: visible !important;
+}
+
+.liquid-glass-panel.library-context-menu-sub-panel {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+}
+
+.liquid-glass-panel.library-context-menu-root > .liquid-glass-panel__refraction,
+.liquid-glass-panel.library-context-menu-root > .liquid-glass-panel__highlight {
+  overflow: hidden;
+}
+
+.library-context-menu-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  border-radius: 14px;
+  padding: 4px 12px;
+  color: var(--auralis-text);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
+}
+
+.library-context-menu-item:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
+.library-context-menu-item.smart-playlist-context-danger {
+  color: var(--auralis-danger);
+}
+
+.library-context-menu-item.smart-playlist-context-danger:hover:not(:disabled) {
+  color: var(--auralis-danger);
+}
+
+.library-context-menu-item:disabled {
+  cursor: default;
+}
+
+.library-context-menu-item span:first-child {
+  width: 1em;
+  height: 1em;
+  flex: 0 0 1em;
+  color: currentColor;
+}
+
+.library-context-menu-item span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-context-menu-text {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-context-menu-chevron {
+  width: 1em !important;
+  min-width: 1em !important;
+  margin-left: auto;
+  overflow: visible !important;
+  opacity: 0.62;
+}
+
+.library-context-menu-submenu-root {
+  position: relative;
+}
+
+.playlist-add-submenu {
+  position: absolute;
+  top: -6px;
+  left: 100%;
+  z-index: 2;
+  width: 228px;
+  padding-left: 8px;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+  pointer-events: none;
+}
+
+.playlist-add-submenu-panel {
+  width: 220px;
+}
+
+.library-context-menu-submenu-root:hover .playlist-add-submenu,
+.library-context-menu-submenu-root:focus-within .playlist-add-submenu {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.library-context-menu-separator {
+  width: calc(100% + 12px);
+  height: 1px;
+  margin: 4px -6px;
+  background: var(--auralis-border-subtle);
+}
+
+.smart-playlist-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+}
+
+.smart-playlist-dialog {
+  width: min(360px, calc(100vw - 48px));
+  padding: 18px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 20px;
+  background: var(--auralis-dialog-bg);
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
+}
+
+.smart-playlist-dialog h2 {
+  margin: 0 0 16px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.smart-playlist-dialog input,
+.smart-playlist-dialog textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 6px;
+  outline: none;
+  color: var(--auralis-text);
+  background: var(--auralis-control-bg);
+  font-size: 14px;
+}
+
+.smart-playlist-dialog textarea {
+  min-height: 96px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.smart-playlist-dialog input:focus,
+.smart-playlist-dialog textarea:focus {
+  border-color: var(--auralis-focus-ring);
+}
+
+.smart-playlist-dialog-error {
+  margin: 6px 0 0;
+  color: var(--auralis-danger);
+  font-size: 12px;
+}
+
+.smart-playlist-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.smart-playlist-dialog-actions button {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--auralis-text-muted);
+  background: transparent;
+  font-size: 13px;
+}
+
+.smart-playlist-dialog-actions button:hover {
+  color: var(--auralis-text);
+  background: var(--auralis-control-hover-bg);
+}
+
+.smart-playlist-dialog-actions button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.smart-playlist-dialog-actions .smart-playlist-dialog-primary {
+  color: var(--auralis-sidebar-active-text);
+  background: var(--auralis-sidebar-active-bg);
+}
+
+.smart-playlist-dialog-actions .smart-playlist-dialog-danger {
+  color: var(--auralis-danger);
+}
+
+/* 专辑详情页退出 ➔ 专辑列表页：黑胶沉降与景深聚拢归位 */
+.album-detail-exit-matrix-leave-active {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity, filter;
+  z-index: 20;
+}
+
+.album-detail-exit-matrix-leave-to {
+  opacity: 0;
+  transform: scale(0.92) translateY(16px);
+  filter: blur(8px);
+}
+
+.album-detail-exit-matrix-enter-active {
+  transition:
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
+  z-index: 10;
+}
+
+.album-detail-exit-matrix-enter-from {
+  opacity: 0;
+  transform: scale(1.04);
+}
+
+/* 专辑列表页进入 ➔ 专辑详情页：景深前推与黑胶破土浮升 */
+.album-detail-enter-matrix-leave-active {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  transition:
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity, filter;
+  z-index: 10;
+}
+
+.album-detail-enter-matrix-leave-to {
+  opacity: 0;
+  transform: scale(1.04);
+  filter: blur(6px);
+}
+
+.album-detail-enter-matrix-enter-active {
+  transition:
+    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 320ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity, filter;
+  z-index: 20;
+}
+
+.album-detail-enter-matrix-enter-from {
+  opacity: 0;
+  transform: scale(0.94) translateY(16px);
+  filter: blur(6px);
+}
+
+/* Library view switch fade */
+.library-view-fade-enter-active,
+.library-view-fade-leave-active {
+  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.library-view-fade-enter-from,
+.library-view-fade-leave-to {
+  opacity: 0;
+}
+
+.library-view-fade-enter-to,
+.library-view-fade-leave-from {
+  opacity: 1;
+}
+
+.desktop-lyrics-window {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+}
+
+.desktop-lyrics-root,
+.desktop-lyrics-root body,
+.desktop-lyrics-root #app {
+  overflow: hidden;
+  background: transparent !important;
+}
+
+.desktop-lyrics-drag-region {
+  position: fixed;
+  inset: 0;
+  -webkit-app-region: drag;
+  cursor: grab;
+}
+
+.desktop-lyrics-drag-region:active {
+  cursor: grabbing;
+}
+
+.desktop-lyrics-lines {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 12px 34px;
+  font-family: 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
+  text-align: center;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+.desktop-lyrics-line {
+  width: 100%;
+  overflow: hidden;
+  font-size: 38px;
+  font-weight: 500;
+  line-height: 1.22;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-lyrics-line-current {
+  color: var(--auralis-lyrics-active);
+  -webkit-text-stroke: 1.1px #ffffff;
+  paint-order: stroke fill;
+}
+
+.desktop-lyrics-line-next {
+  color: #ffffff;
+  -webkit-text-stroke: 1.1px #000000;
+  paint-order: stroke fill;
+}
+
+@keyframes desktop-lyrics-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(50%) translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(50%) translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-window {
+    transition: none;
+  }
+
+  .sidebar-brand-mark,
+  .sidebar-brand-name,
+  .sidebar-brand-name::after {
+    transition: none;
+  }
+
+  .sidebar-brand-left:hover .sidebar-brand-mark {
+    transform: none;
+  }
+
+  .sidebar-brand-name::after {
+    content: none;
+  }
+
+  .library-view-fade-enter-active,
+  .library-view-fade-leave-active {
+    transition-duration: 0ms !important;
+  }
+
+  /* Library 搜索框：去掉纵向位移，仅瞬时切换（Phase 6 REVIEW Finding 5） */
+  .search-bar-enter-active,
+  .search-bar-leave-active {
+    transition-duration: 0ms !important;
+  }
+
+  .search-bar-enter-from,
+  .search-bar-leave-to,
+  .search-bar-enter-to,
+  .search-bar-leave-from {
+    transform: translateX(-50%);
+  }
+
+  .album-detail-exit-matrix-leave-active,
+  .album-detail-exit-matrix-enter-active,
+  .album-detail-enter-matrix-leave-active,
+  .album-detail-enter-matrix-enter-active {
+    transition: opacity 300ms ease;
+    will-change: opacity;
+  }
+
+  .album-detail-exit-matrix-leave-to,
+  .album-detail-exit-matrix-enter-from,
+  .album-detail-enter-matrix-leave-to,
+  .album-detail-enter-matrix-enter-from {
+    transform: none !important;
+    filter: none !important;
+  }
+
+  .player-bar-album-tint-previous {
+    animation: none !important;
+  }
+
+  .lyric-dot {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+
+  .desktop-lyrics-toast {
+    animation: none !important;
+  }
+}
+
+/* 歌词面板在播放状态下的磨砂玻璃流光化适配 */
+.has-artwork .now-playing-panel {
+  background: color-mix(in srgb, var(--auralis-now-playing-bg) 35%, transparent) !important;
+  backdrop-filter: blur(20px) saturate(1.2) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(1.2) !important;
+  border-left: 1px solid var(--auralis-border-subtle) !important;
+}
+
+/* 专辑页下所有垂直滚动条自适应透明融入背景，消灭任何顽固白色轨道 */
+.is-album-detail ::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.is-album-detail ::-webkit-scrollbar-thumb {
+  border-color: transparent !important;
+  background: color-mix(in srgb, var(--auralis-text) 22%, transparent) !important;
+}
+
+.is-album-detail ::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--auralis-text) 36%, transparent) !important;
+}

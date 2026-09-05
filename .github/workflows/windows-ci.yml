@@ -1,0 +1,59 @@
+name: Windows CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      npm_config_cache: ${{ github.workspace }}\.npm-cache
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.1
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm.cmd ci --cache .npm-cache --prefer-offline
+
+      - name: Rebuild native modules for Electron
+        run: npm.cmd run rebuild:native
+
+      - name: Type-check TypeScript & Vue
+        run: npm.cmd run typecheck
+
+      - name: Check code formatting
+        run: npm.cmd run format:check
+
+      - name: Lint (Zero Warnings)
+        run: npm.cmd run lint
+
+      - name: Run unit, Electron-native, and visual-scope tests
+        run: npm.cmd test
+
+      - name: Build application bundle
+        run: npm.cmd run build
+
+      - name: Check build asset budget
+        run: npm.cmd run check:budget
+
+      - name: Run Electron smoke test
+        run: npm.cmd run smoke:electron
+
+      - name: Pack unpacked directory
+        run: npm.cmd run pack:dir
+
+      - name: Verify build and distribution artifacts
+        run: npm.cmd run verify:artifacts
