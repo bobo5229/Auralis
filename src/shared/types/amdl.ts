@@ -8,6 +8,12 @@ export type AmdlTaskState =
 
 export type AmdlDownloadMode = 'direct' | 'select'
 
+export interface AmdlSelectableTrack {
+  index: number
+  title: string
+  type: string
+}
+
 export type AmdlStage =
   | 'launching'
   | 'selecting'
