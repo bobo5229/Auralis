@@ -6,8 +6,11 @@ export type AmdlTaskState =
   | 'failed'
   | 'cancelled'
 
+export type AmdlDownloadMode = 'direct' | 'select'
+
 export type AmdlStage =
   | 'launching'
+  | 'selecting'
   | 'preparing'
   | 'downloading'
   | 'processing'

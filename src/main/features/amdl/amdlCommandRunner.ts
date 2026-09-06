@@ -1,5 +1,11 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import type { AmdlLogEvent, AmdlStage, AmdlTaskProgress, AmdlTaskState } from '@shared/types/amdl'
+import type {
+  AmdlDownloadMode,
+  AmdlLogEvent,
+  AmdlStage,
+  AmdlTaskProgress,
+  AmdlTaskState,
+} from '@shared/types/amdl'
 import { parseAmdlOutputLine, type AmdlCompletionSummary } from './amdlOutputParser'
 import { LineBuffer } from './lineBuffer'
 
@@ -22,8 +28,10 @@ export type SpawnFactory = (command: string, args: readonly string[]) => ChildPr
 export function buildWslAmdlArgs(
   url: string,
   config: Required<AmdlCommandConfig> = DEFAULT_AMDL_CONFIG,
+  mode: AmdlDownloadMode = 'direct',
 ): string[] {
-  const bashScript = 'cd "' + config.workingDirectory + '" && go run main.go --aac "$1"'
+  const flags = mode === 'select' ? '--aac --select' : '--aac'
+  const bashScript = 'cd "' + config.workingDirectory + '" && go run main.go ' + flags + ' "$1"'
   return [
     '-d',
     config.distro,
@@ -41,6 +49,7 @@ export function buildWslAmdlArgs(
 export interface AmdlRunnerOptions {
   taskId: string
   url: string
+  mode?: AmdlDownloadMode
   config?: AmdlCommandConfig
   spawnProcess?: SpawnFactory
   onProgress: (progress: AmdlTaskProgress) => void
@@ -50,6 +59,7 @@ export interface AmdlRunnerOptions {
 export class AmdlCommandRunner {
   private readonly taskId: string
   private readonly url: string
+  private readonly mode: AmdlDownloadMode
   private readonly config: Required<AmdlCommandConfig>
   private readonly spawnProcess: SpawnFactory
   private readonly onProgress: (progress: AmdlTaskProgress) => void
@@ -73,6 +83,7 @@ export class AmdlCommandRunner {
   constructor(options: AmdlRunnerOptions) {
     this.taskId = options.taskId
     this.url = options.url
+    this.mode = options.mode ?? 'direct'
     this.config = { ...DEFAULT_AMDL_CONFIG, ...options.config }
     this.spawnProcess = options.spawnProcess ?? ((cmd, args) => spawn(cmd, args))
     this.onProgress = options.onProgress
@@ -99,7 +110,7 @@ export class AmdlCommandRunner {
       return
     }
 
-    const args = buildWslAmdlArgs(this.url, this.config)
+    const args = buildWslAmdlArgs(this.url, this.config, this.mode)
     let child: ChildProcess
     try {
       child = this.spawnProcess(this.config.command, args)

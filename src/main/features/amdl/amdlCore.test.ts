@@ -152,6 +152,67 @@ describe('AMDL Backend Core', () => {
       expect(args[7]).not.toContain(url)
       expect(args[9]).toBe(url)
     })
+
+    it('defaults to direct mode: contains --aac and does not contain --select', () => {
+      const url = 'https://music.apple.com/us/album/test/123'
+      const args = buildWslAmdlArgs(url, DEFAULT_AMDL_CONFIG)
+      const bashScript = args[7]
+      expect(bashScript).toContain('--aac')
+      expect(bashScript).not.toContain('--select')
+      expect(bashScript).not.toContain(url)
+      expect(args[args.length - 1]).toBe(url)
+    })
+
+    it('direct mode: explicitly passed, contains --aac and does not contain --select', () => {
+      const url = 'https://music.apple.com/us/album/test/123'
+      const args = buildWslAmdlArgs(url, DEFAULT_AMDL_CONFIG, 'direct')
+      const bashScript = args[7]
+      expect(bashScript).toContain('--aac')
+      expect(bashScript).not.toContain('--select')
+      expect(bashScript).not.toContain(url)
+      expect(args[args.length - 1]).toBe(url)
+    })
+
+    it('select mode: contains both --aac and --select in bash script', () => {
+      const url = 'https://music.apple.com/us/album/test/123'
+      const args = buildWslAmdlArgs(url, DEFAULT_AMDL_CONFIG, 'select')
+      const bashScript = args[7]
+      expect(bashScript).toContain('--aac --select')
+      expect(bashScript).not.toContain(url)
+      expect(args[args.length - 1]).toBe(url)
+      expect(args).toEqual([
+        '-d',
+        'u22-amdl',
+        '-u',
+        'root',
+        '-e',
+        'bash',
+        '-lic',
+        'cd "/mnt/e/AMDL-WSL2 (ALL IN ONE)/AMDL-WSL/apple-music-downloader" && go run main.go --aac --select "$1"',
+        'auralis-amdl',
+        url,
+      ])
+    })
+
+    it('runner passes mode to spawn command args', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+      const url = 'https://music.apple.com/us/album/test/123'
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-select',
+        url,
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+      runner.start()
+
+      expect(spawnMock).toHaveBeenCalledTimes(1)
+      const spawnedArgs = spawnMock.mock.calls[0][1] as string[]
+      expect(spawnedArgs[7]).toContain('--aac --select')
+      expect(spawnedArgs[spawnedArgs.length - 1]).toBe(url)
+    })
   })
 
   describe('5. Process lifecycle and terminal settlements', () => {
