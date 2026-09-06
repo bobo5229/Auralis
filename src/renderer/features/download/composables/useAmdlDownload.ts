@@ -1,5 +1,10 @@
 import { computed, getCurrentInstance, onBeforeUnmount, ref } from 'vue'
-import type { AmdlLogEvent, AmdlTaskProgress } from '@shared/types/amdl'
+import type {
+  AmdlDownloadMode,
+  AmdlLogEvent,
+  AmdlSelectionRequest,
+  AmdlTaskProgress,
+} from '@shared/types/amdl'
 import type { AuralisApi } from '@shared/ipc/api'
 
 export const MAX_LOG_LINES = 500
@@ -26,10 +31,26 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
   const isStarting = ref(false)
   const startError = ref<string | null>(null)
 
+  // Selection state
+  const selectionRequest = ref<AmdlSelectionRequest | null>(null)
+  const selectionError = ref<string | null>(null)
+  const isSubmittingSelection = ref(false)
+  const selectionSubmitted = ref(false)
+
+  // Track pending mode during isStarting to resolve selectionRequest race
+  const pendingMode = ref<AmdlDownloadMode | null>(null)
+
   const isRunning = computed(() => {
     const state = currentTask.value?.state
     return state === 'starting' || state === 'running'
   })
+
+  function clearSelectionState(): void {
+    selectionRequest.value = null
+    selectionError.value = null
+    isSubmittingSelection.value = false
+    selectionSubmitted.value = false
+  }
 
   // Append log keeping within maxLogs ring buffer
   function appendLog(log: AmdlLogEvent): void {
@@ -54,6 +75,37 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
 
     if (progress.taskId === currentTaskId.value) {
       currentTask.value = progress
+
+      // If stage left selecting or task settled into terminal state, clear selection state
+      if (progress.stage !== 'selecting' && selectionRequest.value) {
+        clearSelectionState()
+      } else if (
+        progress.state !== 'starting' &&
+        progress.state !== 'running' &&
+        (selectionRequest.value || selectionSubmitted.value || isSubmittingSelection.value)
+      ) {
+        clearSelectionState()
+      }
+    }
+  }
+
+  // Handle incoming selection request with race condition protection
+  function handleSelectionRequest(request: AmdlSelectionRequest): void {
+    // Case 1: Already associated with currentTaskId
+    if (currentTaskId.value && request.taskId === currentTaskId.value) {
+      selectionRequest.value = request
+      selectionError.value = null
+      selectionSubmitted.value = false
+      return
+    }
+
+    // Case 2: Race condition - start(url, 'select') in flight (isStarting=true, pendingMode='select')
+    // but start() Promise hasn't resolved yet. Accept request and associate with new taskId.
+    if (isStarting.value && pendingMode.value === 'select') {
+      currentTaskId.value = request.taskId
+      selectionRequest.value = request
+      selectionError.value = null
+      selectionSubmitted.value = false
     }
   }
 
@@ -66,9 +118,14 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
     appendLog(log)
   })
 
+  const unsubSelectionRequest = client.download.onSelectionRequest?.((request) => {
+    handleSelectionRequest(request)
+  })
+
   function cleanup(): void {
     unsubProgress()
     unsubLog()
+    unsubSelectionRequest?.()
   }
 
   if (getCurrentInstance()) {
@@ -89,7 +146,10 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
     }
   }
 
-  async function startDownload(rawUrl: string): Promise<boolean> {
+  async function startDownload(
+    rawUrl: string,
+    mode: AmdlDownloadMode = 'direct',
+  ): Promise<boolean> {
     if (isRunning.value || isStarting.value) {
       return false
     }
@@ -101,10 +161,12 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
     }
 
     isStarting.value = true
+    pendingMode.value = mode
     startError.value = null
+    clearSelectionState()
 
     try {
-      const result = await client.download.start(trimmed)
+      const result = await client.download.start(trimmed, mode)
       if (!result.ok || !result.taskId) {
         startError.value = result.error ?? 'Failed to start download'
         return false
@@ -130,6 +192,36 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
       return false
     } finally {
       isStarting.value = false
+      pendingMode.value = null
+    }
+  }
+
+  async function submitSelection(trackIndexes: number[]): Promise<boolean> {
+    if (!currentTaskId.value) {
+      selectionError.value = 'No active task'
+      return false
+    }
+
+    if (isSubmittingSelection.value) {
+      return false
+    }
+
+    isSubmittingSelection.value = true
+    selectionError.value = null
+
+    try {
+      const result = await client.download.submitSelection(currentTaskId.value, trackIndexes)
+      if (!result.ok) {
+        selectionError.value = result.error ?? 'Failed to submit selection'
+        return false
+      }
+      selectionSubmitted.value = true
+      return true
+    } catch (error) {
+      selectionError.value = error instanceof Error ? error.message : String(error)
+      return false
+    } finally {
+      isSubmittingSelection.value = false
     }
   }
 
@@ -157,7 +249,12 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
     isStarting,
     isRunning,
     startError,
+    selectionRequest,
+    selectionError,
+    isSubmittingSelection,
+    selectionSubmitted,
     startDownload,
+    submitSelection,
     cancelDownload,
     refreshStatus,
     cleanup,
