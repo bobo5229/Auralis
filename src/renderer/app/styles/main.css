@@ -1591,10 +1591,10 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
   transition-duration: 400ms;
 }
 
-/* 3-column equal grid tool row */
+/* Equal grid tool row */
 .sidebar-tools-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   width: 100%;
 }

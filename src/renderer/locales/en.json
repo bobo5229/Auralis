@@ -29,6 +29,8 @@
     "tool": {
       "facets": "Filter",
       "facetsPanel": "Filter panel",
+      "download": "Download",
+      "downloadAction": "Download from Apple Music",
       "miniPlayer": "Mini player",
       "miniPlayerAction": "Switch to mini player",
       "settings": "Settings"
@@ -466,6 +468,24 @@
       "receiptTotalDuration": "TOTAL DURATION",
       "receiptDailyAverage": "DAILY AVERAGE",
       "receiptPeakLog": "PEAK LOG"
+    }
+  },
+  "download": {
+    "title": "Download Music",
+    "urlLabel": "Apple Music track URL",
+    "urlPlaceholder": "https://music.apple.com/...",
+    "startAction": "Start Download",
+    "cancelAction": "Cancel Download",
+    "showLogs": "View Logs",
+    "hideLogs": "Hide Logs",
+    "status": {
+      "preparing": "Preparing…",
+      "downloading": "Downloading…",
+      "processing": "Processing…",
+      "completed": "Download completed",
+      "alreadyExists": "File already exists",
+      "failed": "Download failed",
+      "cancelled": "Cancelled"
     }
   }
 }

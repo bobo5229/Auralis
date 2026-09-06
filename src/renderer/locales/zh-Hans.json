@@ -29,6 +29,8 @@
     "tool": {
       "facets": "筛选",
       "facetsPanel": "筛选面板",
+      "download": "下载",
+      "downloadAction": "从 Apple Music 下载",
       "miniPlayer": "迷你播放器",
       "miniPlayerAction": "切换到迷你播放器",
       "settings": "设置"
@@ -466,6 +468,24 @@
       "receiptTotalDuration": "TOTAL DURATION",
       "receiptDailyAverage": "DAILY AVERAGE",
       "receiptPeakLog": "PEAK LOG"
+    }
+  },
+  "download": {
+    "title": "下载音乐",
+    "urlLabel": "Apple Music 单曲链接",
+    "urlPlaceholder": "https://music.apple.com/...",
+    "startAction": "开始下载",
+    "cancelAction": "取消下载",
+    "showLogs": "查看日志",
+    "hideLogs": "收起日志",
+    "status": {
+      "preparing": "准备中…",
+      "downloading": "正在下载…",
+      "processing": "正在处理…",
+      "completed": "下载完成",
+      "alreadyExists": "文件已存在",
+      "failed": "下载失败",
+      "cancelled": "已取消"
     }
   }
 }
