@@ -79,12 +79,35 @@ describe('AMDL Backend Core', () => {
       expect(parseAmdlOutputLine('Song->Gareth.T').stage).toBe('downloading')
     })
 
-    it('ignores unknown or noisy lines without failing', () => {
+    it('parses completion summary with Completed, Warnings, and Errors', () => {
       const parsed = parseAmdlOutputLine(
-        '=======  [✔ ] Completed: 1/1  |  [⚠ ] Warnings: 0  =======',
+        '=======  [✔ ] Completed: 1/1  |  [⚠ ] Warnings: 0  |  [✖ ] Errors: 0  =======',
       )
+      expect(parsed.completionSummary).toEqual({
+        completed: 1,
+        total: 1,
+        warnings: 0,
+        errors: 0,
+      })
+    })
+
+    it('parses completion summary with 0/0 and non-zero warnings/errors', () => {
+      const parsed = parseAmdlOutputLine(
+        '=======  [✔ ] Completed: 0/0  |  [⚠ ] Warnings: 2  |  [✖ ] Errors: 1  =======',
+      )
+      expect(parsed.completionSummary).toEqual({
+        completed: 0,
+        total: 0,
+        warnings: 2,
+        errors: 1,
+      })
+    })
+
+    it('ignores unknown or noisy lines without failing', () => {
+      const parsed = parseAmdlOutputLine('Just some arbitrary log line')
       expect(parsed.stage).toBeUndefined()
       expect(parsed.alreadyExists).toBeUndefined()
+      expect(parsed.completionSummary).toBeUndefined()
     })
   })
 
@@ -118,7 +141,7 @@ describe('AMDL Backend Core', () => {
         'u22-amdl',
         '-u',
         'root',
-        '--',
+        '-e',
         'bash',
         '-lic',
         'cd "/mnt/e/AMDL-WSL2 (ALL IN ONE)/AMDL-WSL/apple-music-downloader" && go run main.go --aac "$1"',
@@ -132,7 +155,7 @@ describe('AMDL Backend Core', () => {
   })
 
   describe('5. Process lifecycle and terminal settlements', () => {
-    it('exit 0 -> completed', () => {
+    it('exit 0 + valid completion summary -> completed', () => {
       const mockChild = new MockChildProcess()
       const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
       const progressList: AmdlTaskProgress[] = []
@@ -146,6 +169,10 @@ describe('AMDL Backend Core', () => {
 
       runner.start()
       mockChild.stdout.emit('data', 'Downloaded\n')
+      mockChild.stdout.emit(
+        'data',
+        '=======  [✔ ] Completed: 1/1  |  [⚠ ] Warnings: 0  |  [✖ ] Errors: 0  =======\n',
+      )
       mockChild.emit('close', 0)
 
       const finalProgress = runner.getProgress()
@@ -154,7 +181,7 @@ describe('AMDL Backend Core', () => {
       expect(finalProgress.finishedAt).not.toBeNull()
     })
 
-    it('exit 0 + alreadyExists -> already-exists', () => {
+    it('exit 0 + alreadyExists + valid completion summary -> already-exists', () => {
       const mockChild = new MockChildProcess()
       const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
 
@@ -167,11 +194,128 @@ describe('AMDL Backend Core', () => {
 
       runner.start()
       mockChild.stdout.emit('data', 'Track already exists locally.\n')
+      mockChild.stdout.emit(
+        'data',
+        '=======  [✔ ] Completed: 1/1  |  [⚠ ] Warnings: 0  |  [✖ ] Errors: 0  =======\n',
+      )
       mockChild.emit('close', 0)
 
       const finalProgress = runner.getProgress()
       expect(finalProgress.state).toBe('already-exists')
       expect(finalProgress.alreadyExists).toBe(true)
+    })
+
+    it('exit 0 + without summary -> failed', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-no-sum',
+        url: 'https://music.apple.com/song',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      mockChild.stdout.emit('data', 'Downloaded\n')
+      mockChild.emit('close', 0)
+
+      const finalProgress = runner.getProgress()
+      expect(finalProgress.state).toBe('failed')
+      expect(finalProgress.error).toContain('without a completion summary')
+    })
+
+    it('exit 0 + summary 0/0 -> failed', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-0-0',
+        url: 'https://music.apple.com/song',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      mockChild.stdout.emit('data', 'Queue 1 of 1: Invalid type\n')
+      mockChild.stdout.emit(
+        'data',
+        '=======  [✔ ] Completed: 0/0  |  [⚠ ] Warnings: 0  |  [✖ ] Errors: 0  =======\n',
+      )
+      mockChild.emit('close', 0)
+
+      const finalProgress = runner.getProgress()
+      expect(finalProgress.state).toBe('failed')
+      expect(finalProgress.error).toContain('without a successful download')
+    })
+
+    it('exit 0 + summary errors > 0 -> failed', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-err-sum',
+        url: 'https://music.apple.com/song',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      mockChild.stdout.emit(
+        'data',
+        '=======  [✔ ] Completed: 1/1  |  [⚠ ] Warnings: 0  |  [✖ ] Errors: 1  =======\n',
+      )
+      mockChild.emit('close', 0)
+
+      const finalProgress = runner.getProgress()
+      expect(finalProgress.state).toBe('failed')
+      expect(finalProgress.error).toContain('reported errors in its completion summary')
+    })
+
+    it('exit 0 + completed < total -> failed', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-partial',
+        url: 'https://music.apple.com/song',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      mockChild.stdout.emit(
+        'data',
+        '=======  [✔ ] Completed: 1/2  |  [⚠ ] Warnings: 0  |  [✖ ] Errors: 0  =======\n',
+      )
+      mockChild.emit('close', 0)
+
+      const finalProgress = runner.getProgress()
+      expect(finalProgress.state).toBe('failed')
+      expect(finalProgress.error).toContain('did not complete all tracks')
+    })
+
+    it('non-zero exit -> failed even if summary looked successful', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-nonzero-sum',
+        url: 'https://music.apple.com/song',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      mockChild.stdout.emit(
+        'data',
+        '=======  [✔ ] Completed: 1/1  |  [⚠ ] Warnings: 0  |  [✖ ] Errors: 0  =======\n',
+      )
+      mockChild.emit('close', 1)
+
+      const finalProgress = runner.getProgress()
+      expect(finalProgress.state).toBe('failed')
+      expect(finalProgress.error).toContain('Process exited with code 1')
     })
 
     it('non-zero exit -> failed', () => {
@@ -242,6 +386,29 @@ describe('AMDL Backend Core', () => {
       expect(finalProgress.state).toBe('cancelled')
     })
 
+    it('cancel takes precedence over successful summary and exit 0', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-cancel-summary',
+        url: 'https://music.apple.com/song',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      mockChild.stdout.emit(
+        'data',
+        '=======  [✔ ] Completed: 1/1  |  [⚠ ] Warnings: 0  |  [✖ ] Errors: 0  =======\n',
+      )
+      runner.cancel()
+      mockChild.emit('close', 0)
+
+      const finalProgress = runner.getProgress()
+      expect(finalProgress.state).toBe('cancelled')
+    })
+
     it('terminal state cannot be overwritten by subsequent close or error events', () => {
       const mockChild = new MockChildProcess()
       const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
@@ -254,6 +421,10 @@ describe('AMDL Backend Core', () => {
       })
 
       runner.start()
+      mockChild.stdout.emit(
+        'data',
+        '=======  [✔ ] Completed: 1/1  |  [⚠ ] Warnings: 0  |  [✖ ] Errors: 0  =======\n',
+      )
       mockChild.emit('close', 0)
       expect(runner.getProgress().state).toBe('completed')
 

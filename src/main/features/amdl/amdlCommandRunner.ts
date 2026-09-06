@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import type { AmdlLogEvent, AmdlStage, AmdlTaskProgress, AmdlTaskState } from '@shared/types/amdl'
-import { parseAmdlOutputLine } from './amdlOutputParser'
+import { parseAmdlOutputLine, type AmdlCompletionSummary } from './amdlOutputParser'
 import { LineBuffer } from './lineBuffer'
 
 export interface AmdlCommandConfig {
@@ -29,7 +29,7 @@ export function buildWslAmdlArgs(
     config.distro,
     '-u',
     config.user,
-    '--',
+    '-e',
     'bash',
     '-lic',
     bashScript,
@@ -59,6 +59,7 @@ export class AmdlCommandRunner {
   private cancelRequested = false
   private terminalSettled = false
   private alreadyExistsObserved = false
+  private completionSummary: AmdlCompletionSummary | null = null
   private currentState: AmdlTaskState = 'starting'
   private currentStage: AmdlStage = 'launching'
   private lastMessage: string | null = null
@@ -155,20 +156,60 @@ export class AmdlCommandRunner {
         return
       }
 
+      // 1. cancelRequested -> cancelled
       if (this.cancelRequested) {
         this.settleTerminal('cancelled', null, this.lastError)
         return
       }
 
-      if (code === 0) {
-        if (this.alreadyExistsObserved) {
-          this.settleTerminal('already-exists', null, null)
-        } else {
-          this.settleTerminal('completed', null, null)
-        }
-      } else {
+      // 2. exitCode !== 0 -> failed
+      if (code !== 0) {
         const exitMsg = 'Process exited with code ' + (code ?? 'unknown')
         this.settleTerminal('failed', null, this.lastError ?? exitMsg)
+        return
+      }
+
+      // 3. Missing completionSummary -> failed
+      if (!this.completionSummary) {
+        this.settleTerminal(
+          'failed',
+          null,
+          this.lastError ?? 'AMDL exited without a completion summary.',
+        )
+        return
+      }
+
+      // 4. completionSummary.errors > 0 -> failed
+      if (this.completionSummary.errors > 0) {
+        this.settleTerminal(
+          'failed',
+          null,
+          this.lastError ?? 'AMDL reported errors in its completion summary.',
+        )
+        return
+      }
+
+      // 5. total <= 0 or completed <= 0 -> failed
+      if (this.completionSummary.total <= 0 || this.completionSummary.completed <= 0) {
+        this.settleTerminal(
+          'failed',
+          null,
+          this.lastError ?? 'AMDL completed without a successful download.',
+        )
+        return
+      }
+
+      // 6. completed !== total -> failed
+      if (this.completionSummary.completed !== this.completionSummary.total) {
+        this.settleTerminal('failed', null, this.lastError ?? 'AMDL did not complete all tracks.')
+        return
+      }
+
+      // 7. Otherwise -> already-exists or completed
+      if (this.alreadyExistsObserved) {
+        this.settleTerminal('already-exists', null, null)
+      } else {
+        this.settleTerminal('completed', null, null)
       }
     })
   }
@@ -208,6 +249,9 @@ export class AmdlCommandRunner {
     const parsed = parseAmdlOutputLine(line)
 
     let changed = false
+    if (parsed.completionSummary) {
+      this.completionSummary = parsed.completionSummary
+    }
     if (parsed.alreadyExists) {
       this.alreadyExistsObserved = true
       changed = true
