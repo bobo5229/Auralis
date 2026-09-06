@@ -37,7 +37,12 @@ import type {
 } from '@shared/types/smartPlaylist'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
-import type { AmdlLogEvent, AmdlTaskProgress } from '@shared/types/amdl'
+import type {
+  AmdlDownloadMode,
+  AmdlLogEvent,
+  AmdlSelectionRequest,
+  AmdlTaskProgress,
+} from '@shared/types/amdl'
 import type {
   DatabaseExportBackupResult,
   DatabaseRestoreBackupResult,
@@ -194,11 +199,19 @@ export interface AuralisApi {
     onMiniPlayerStateChanged: (callback: (state: MiniPlayerWindowState) => void) => () => void
   }
   download: {
-    start: (url: string) => Promise<{ ok: boolean; taskId?: string; error?: string }>
+    start: (
+      url: string,
+      mode?: AmdlDownloadMode,
+    ) => Promise<{ ok: boolean; taskId?: string; error?: string }>
     cancel: (taskId: string) => Promise<{ ok: boolean; error?: string }>
     getStatus: (taskId: string) => Promise<AmdlTaskProgress | null>
+    submitSelection: (
+      taskId: string,
+      trackIndexes: number[],
+    ) => Promise<{ ok: boolean; error?: string }>
     onProgress: (callback: (progress: AmdlTaskProgress) => void) => () => void
     onLog: (callback: (log: AmdlLogEvent) => void) => () => void
+    onSelectionRequest: (callback: (request: AmdlSelectionRequest) => void) => () => void
   }
 }
 
