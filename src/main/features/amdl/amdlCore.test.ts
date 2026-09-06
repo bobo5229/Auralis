@@ -6,11 +6,15 @@ import { parseAmdlOutputLine } from './amdlOutputParser'
 import { LineBuffer } from './lineBuffer'
 import { AmdlCommandRunner, buildWslAmdlArgs, DEFAULT_AMDL_CONFIG } from './amdlCommandRunner'
 import { AmdlDownloadService } from './amdlDownloadService'
-import type { AmdlTaskProgress } from '@shared/types/amdl'
+import type { AmdlSelectionRequest, AmdlTaskProgress } from '@shared/types/amdl'
 
 class MockChildProcess extends EventEmitter {
   stdout = new EventEmitter()
   stderr = new EventEmitter()
+  stdin = {
+    writable: true,
+    write: vi.fn().mockReturnValue(true),
+  }
   killed = false
 
   kill(): boolean {
@@ -575,6 +579,277 @@ describe('AMDL Backend Core', () => {
         { stream: 'stderr', line: 'Some diagnostic stderr line' },
         { stream: 'stdout', line: 'Residual line without newline' },
       ])
+    })
+  })
+
+  describe('8. Runner interactive track selection (Phase 1C)', () => {
+    const SAMPLE_TABLE = [
+      'Queue 1 of 1: Album',
+      'Storefront: cn',
+      '+--------------+--------------------------------------------------------+-------------------+-------+',
+      '| TRACK NUMBER |                       TRACK NAME                       | EXPLICIT/CLEAN/NO | TYPE  |',
+      '+--------------+--------------------------------------------------------+-------------------+-------+',
+      '| 1            | Track One                                              | None              | SONG  |',
+      '| 2            | Track Two                                              | None              | SONG  |',
+      '| 12           | Track Twelve                                           | None              | SONG  |',
+      '| 14           | 03. Drums, Percussion & Horn                           | None              | SONG  |',
+      '|              | Solo (Live)                                            |                   |       |',
+      '| 27           | Track Twenty Seven                                     | None              | SONG  |',
+      '| 32           | 04. Medley (友情歌 2014-1985)                          | None              | SONG  |',
+      '|              | [Live]                                                 |                   |       |',
+      '| 33           | Track Thirty Three                                     | None              | SONG  |',
+      '+--------------+--------------------------------------------------------+-------------------+-------+',
+    ]
+
+    it('1. select mode + song URL without handshake -> does not enter selecting stage', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+      const progressList: AmdlTaskProgress[] = []
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-no-handshake',
+        url: 'https://music.apple.com/song',
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: (p) => progressList.push(p),
+      })
+
+      runner.start()
+      mockChild.stdout.emit('data', 'Queue 1 of 1: Song\n')
+      mockChild.stdout.emit('data', 'Track 1 of 1: Song Title\n')
+
+      expect(runner.getProgress().stage).toBe('downloading')
+      expect(progressList.some((p) => p.stage === 'selecting')).toBe(false)
+    })
+
+    it('2 & 3. album handshake -> stage selecting, emits SelectionRequest with tracks', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+      const requests: AmdlSelectionRequest[] = []
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-select-handshake',
+        url: 'https://music.apple.com/album',
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+        onSelectionRequest: (req) => requests.push(req),
+      })
+
+      runner.start()
+      for (const line of SAMPLE_TABLE) {
+        mockChild.stdout.emit('data', line + '\n')
+      }
+      expect(runner.getProgress().stage).not.toBe('selecting')
+      expect(requests).toHaveLength(0)
+
+      // Emit handshake
+      mockChild.stdout.emit('data', 'Please select from the track options above\n')
+
+      expect(runner.getProgress().state).toBe('running')
+      expect(runner.getProgress().stage).toBe('selecting')
+      expect(requests).toHaveLength(1)
+      expect(requests[0].taskId).toBe('task-select-handshake')
+      expect(requests[0].tracks).toHaveLength(7) // 1, 2, 12, 14, 27, 32, 33
+      expect(requests[0].tracks[3]).toEqual({
+        index: 14,
+        title: '03. Drums, Percussion & Horn Solo (Live)',
+        type: 'SONG',
+      })
+    })
+
+    it('4 & 5. submit [12, 27] writes 12,27\\n to stdin and deduplicates [12, 12, 27]', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-submit',
+        url: 'https://music.apple.com/album',
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      for (const line of SAMPLE_TABLE) {
+        mockChild.stdout.emit('data', line + '\n')
+      }
+      mockChild.stdout.emit('data', 'Please select from the track options above\n')
+
+      const res = runner.submitSelection([12, 12, 27])
+      expect(res.ok).toBe(true)
+      expect(mockChild.stdin.write).toHaveBeenCalledWith('12,27\n')
+    })
+
+    it('6. empty array rejected', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-submit-empty',
+        url: 'https://music.apple.com/album',
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      for (const line of SAMPLE_TABLE) {
+        mockChild.stdout.emit('data', line + '\n')
+      }
+      mockChild.stdout.emit('data', 'Please select from the track options above\n')
+
+      const res = runner.submitSelection([])
+      expect(res.ok).toBe(false)
+      expect(res.error).toContain('cannot be empty')
+      expect(mockChild.stdin.write).not.toHaveBeenCalled()
+    })
+
+    it('7. non-existent track index 999 rejected', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-submit-999',
+        url: 'https://music.apple.com/album',
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      for (const line of SAMPLE_TABLE) {
+        mockChild.stdout.emit('data', line + '\n')
+      }
+      mockChild.stdout.emit('data', 'Please select from the track options above\n')
+
+      const res = runner.submitSelection([12, 999])
+      expect(res.ok).toBe(false)
+      expect(res.error).toContain('Track index not found')
+      expect(mockChild.stdin.write).not.toHaveBeenCalled()
+    })
+
+    it('8. submit before selecting rejected', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-submit-early',
+        url: 'https://music.apple.com/album',
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      // Still in launching/preparing stage, no handshake yet
+      const res = runner.submitSelection([1])
+      expect(res.ok).toBe(false)
+      expect(res.error).toContain('not waiting for track selection')
+    })
+
+    it('9. second submit rejected', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-submit-twice',
+        url: 'https://music.apple.com/album',
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      for (const line of SAMPLE_TABLE) {
+        mockChild.stdout.emit('data', line + '\n')
+      }
+      mockChild.stdout.emit('data', 'Please select from the track options above\n')
+
+      const firstRes = runner.submitSelection([12])
+      expect(firstRes.ok).toBe(true)
+
+      const secondRes = runner.submitSelection([27])
+      expect(secondRes.ok).toBe(false)
+      expect(secondRes.error).toContain('not waiting for track selection')
+    })
+
+    it('10. submit after terminal rejected', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-submit-term',
+        url: 'https://music.apple.com/album',
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      mockChild.emit('close', 1)
+
+      const res = runner.submitSelection([1])
+      expect(res.ok).toBe(false)
+      expect(res.error).toContain('settled')
+    })
+
+    it('11. selecting -> cancel -> cancelled and subsequent submit rejected', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-select-cancel',
+        url: 'https://music.apple.com/album',
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      for (const line of SAMPLE_TABLE) {
+        mockChild.stdout.emit('data', line + '\n')
+      }
+      mockChild.stdout.emit('data', 'Please select from the track options above\n')
+      expect(runner.getProgress().stage).toBe('selecting')
+
+      const cancelOk = runner.cancel()
+      expect(cancelOk).toBe(true)
+      expect(mockChild.killed).toBe(true)
+
+      mockChild.emit('close', 137)
+      expect(runner.getProgress().state).toBe('cancelled')
+
+      const submitRes = runner.submitSelection([12])
+      expect(submitRes.ok).toBe(false)
+      expect(submitRes.error).toContain('settled')
+    })
+
+    it('12 & 13. does not fake downloading stage immediately upon submit; enters downloading only on Track line', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-stage-transition',
+        url: 'https://music.apple.com/album',
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      for (const line of SAMPLE_TABLE) {
+        mockChild.stdout.emit('data', line + '\n')
+      }
+      mockChild.stdout.emit('data', 'Please select from the track options above\n')
+
+      runner.submitSelection([12])
+      // Stage remains whatever it was (selecting) and is not artificially forced to downloading
+      expect(runner.getProgress().stage).toBe('selecting')
+
+      // Now AMDL outputs subsequent preparing / track download line
+      mockChild.stdout.emit('data', 'Track 12 of 33: Track Twelve\n')
+      expect(runner.getProgress().stage).toBe('downloading')
     })
   })
 })

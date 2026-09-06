@@ -14,6 +14,11 @@ export interface AmdlSelectableTrack {
   type: string
 }
 
+export interface AmdlSelectionRequest {
+  taskId: string
+  tracks: AmdlSelectableTrack[]
+}
+
 export type AmdlStage =
   | 'launching'
   | 'selecting'

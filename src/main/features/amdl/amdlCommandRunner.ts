@@ -2,11 +2,14 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import type {
   AmdlDownloadMode,
   AmdlLogEvent,
+  AmdlSelectableTrack,
+  AmdlSelectionRequest,
   AmdlStage,
   AmdlTaskProgress,
   AmdlTaskState,
 } from '@shared/types/amdl'
 import { parseAmdlOutputLine, type AmdlCompletionSummary } from './amdlOutputParser'
+import { AmdlSelectionParser } from './amdlSelectionParser'
 import { LineBuffer } from './lineBuffer'
 
 export interface AmdlCommandConfig {
@@ -54,6 +57,7 @@ export interface AmdlRunnerOptions {
   spawnProcess?: SpawnFactory
   onProgress: (progress: AmdlTaskProgress) => void
   onLog?: (event: AmdlLogEvent) => void
+  onSelectionRequest?: (request: AmdlSelectionRequest) => void
 }
 
 export class AmdlCommandRunner {
@@ -64,6 +68,7 @@ export class AmdlCommandRunner {
   private readonly spawnProcess: SpawnFactory
   private readonly onProgress: (progress: AmdlTaskProgress) => void
   private readonly onLog?: (event: AmdlLogEvent) => void
+  private readonly onSelectionRequest?: (request: AmdlSelectionRequest) => void
 
   private childProcess: ChildProcess | null = null
   private cancelRequested = false
@@ -77,6 +82,11 @@ export class AmdlCommandRunner {
   private startedAtIso: string
   private finishedAtIso: string | null = null
 
+  private selectionPending = false
+  private selectionPromptEmitted = false
+  private selectableTracks: readonly AmdlSelectableTrack[] = []
+  private selectionParser = new AmdlSelectionParser()
+
   private stdoutBuffer = new LineBuffer()
   private stderrBuffer = new LineBuffer()
 
@@ -88,6 +98,7 @@ export class AmdlCommandRunner {
     this.spawnProcess = options.spawnProcess ?? ((cmd, args) => spawn(cmd, args))
     this.onProgress = options.onProgress
     this.onLog = options.onLog
+    this.onSelectionRequest = options.onSelectionRequest
     this.startedAtIso = new Date().toISOString()
   }
 
@@ -231,6 +242,7 @@ export class AmdlCommandRunner {
     }
 
     this.cancelRequested = true
+    this.selectionPending = false
     this.lastMessage = 'Cancellation requested'
     this.emitProgress()
 
@@ -245,6 +257,52 @@ export class AmdlCommandRunner {
     return true
   }
 
+  submitSelection(trackIndexes: number[]): { ok: boolean; error?: string } {
+    if (this.terminalSettled) {
+      return { ok: false, error: 'Task has already settled.' }
+    }
+    if (this.currentState !== 'running') {
+      return { ok: false, error: 'Task is not running.' }
+    }
+    if (this.currentStage !== 'selecting' || !this.selectionPending) {
+      return { ok: false, error: 'Task is not waiting for track selection.' }
+    }
+    if (!Array.isArray(trackIndexes) || trackIndexes.length === 0) {
+      return { ok: false, error: 'Track selection cannot be empty.' }
+    }
+
+    const availableIndexes = new Set(this.selectableTracks.map((t) => t.index))
+    const uniqueNormalized: number[] = []
+    const seen = new Set<number>()
+
+    for (const idx of trackIndexes) {
+      if (!Number.isInteger(idx) || idx <= 0) {
+        return { ok: false, error: 'Invalid track index: ' + idx }
+      }
+      if (!availableIndexes.has(idx)) {
+        return { ok: false, error: 'Track index not found in selectable tracks: ' + idx }
+      }
+      if (!seen.has(idx)) {
+        seen.add(idx)
+        uniqueNormalized.push(idx)
+      }
+    }
+
+    if (!this.childProcess || !this.childProcess.stdin || !this.childProcess.stdin.writable) {
+      return { ok: false, error: 'Child process stdin is not writable.' }
+    }
+
+    const inputPayload = uniqueNormalized.join(',') + '\n'
+    try {
+      this.childProcess.stdin.write(inputPayload)
+      this.selectionPending = false
+      return { ok: true }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      return { ok: false, error: 'Failed to write selection to stdin: ' + msg }
+    }
+  }
+
   private handleStdoutLine(line: string): void {
     if (this.terminalSettled) return
 
@@ -255,6 +313,25 @@ export class AmdlCommandRunner {
         stream: 'stdout',
         line: trimmed,
       })
+    }
+
+    // Feed to selection parser
+    const selectionRes = this.selectionParser.feedLine(line)
+    if (
+      selectionRes.selectionRequested &&
+      !this.selectionPromptEmitted &&
+      selectionRes.tracks.length > 0
+    ) {
+      this.selectionPromptEmitted = true
+      this.selectionPending = true
+      this.selectableTracks = [...selectionRes.tracks]
+      this.currentStage = 'selecting'
+      this.emitProgress()
+      this.onSelectionRequest?.({
+        taskId: this.taskId,
+        tracks: [...selectionRes.tracks],
+      })
+      return
     }
 
     const parsed = parseAmdlOutputLine(line)
@@ -306,6 +383,7 @@ export class AmdlCommandRunner {
     }
 
     this.terminalSettled = true
+    this.selectionPending = false
     this.currentState = state
     this.currentStage = stage
     if (error !== null) {
