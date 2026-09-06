@@ -1,4 +1,5 @@
-﻿import { ipcChannels } from '@shared/ipc/channels'
+import { ipcChannels } from '@shared/ipc/channels'
+import type { AmdlDownloadMode } from '@shared/types/amdl'
 import type { AmdlDownloadService } from '@main/features/amdl/amdlDownloadService'
 import type { IpcHandlerRegistrar } from './ipcHandlerRegistrar'
 
@@ -12,9 +13,12 @@ export function registerDownloadIpcHandlers(
 ): void {
   const { downloadService } = dependencies
 
-  registrar.handle(ipcChannels.download.start, (_event, payload: { url: string }) => {
-    return downloadService.startDownload(payload.url)
-  })
+  registrar.handle(
+    ipcChannels.download.start,
+    (_event, payload: { url: string; mode?: AmdlDownloadMode }) => {
+      return downloadService.startDownload(payload.url, payload.mode ?? 'direct')
+    },
+  )
 
   registrar.handle(ipcChannels.download.cancel, (_event, payload: { taskId: string }) => {
     return downloadService.cancelDownload(payload.taskId)
@@ -27,4 +31,11 @@ export function registerDownloadIpcHandlers(
     }
     return null
   })
+
+  registrar.handle(
+    ipcChannels.download.submitSelection,
+    (_event, payload: { taskId: string; trackIndexes: number[] }) => {
+      return downloadService.submitSelection(payload.taskId, payload.trackIndexes)
+    },
+  )
 }

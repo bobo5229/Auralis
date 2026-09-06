@@ -45,7 +45,7 @@ function parse(channel: DomainIpcInvokeChannel, payload?: unknown): unknown {
 }
 
 describe('domain IPC payload validation coverage', () => {
-  it('classifies all 59 domain invoke channels exactly once', () => {
+  it('classifies all 60 domain invoke channels exactly once', () => {
     const actualChannels = Object.keys(domainIpcPayloadPolicies).sort()
     const kinds = Object.values(domainIpcPayloadPolicies).reduce<Record<string, number>>(
       (counts, policy) => {
@@ -56,8 +56,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(59)
-    expect(kinds).toEqual({ void: 19, optional: 6, required: 34 })
+    expect(actualChannels).toHaveLength(60)
+    expect(kinds).toEqual({ void: 19, optional: 6, required: 35 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -228,8 +228,32 @@ describe('domain IPC payload validation behavior', () => {
     expect(parse('download:start', { url: 'https://music.apple.com/song' })).toEqual({
       url: 'https://music.apple.com/song',
     })
+    expect(
+      parse('download:start', { url: 'https://music.apple.com/song', mode: 'direct' }),
+    ).toEqual({
+      url: 'https://music.apple.com/song',
+      mode: 'direct',
+    })
+    expect(
+      parse('download:start', { url: 'https://music.apple.com/album', mode: 'select' }),
+    ).toEqual({
+      url: 'https://music.apple.com/album',
+      mode: 'select',
+    })
     expect(() => parse('download:start', { url: '' })).toThrow(/invalid length/)
     expect(() => parse('download:start', { url: 'a'.repeat(2049) })).toThrow(/invalid length/)
+    expect(() =>
+      parse('download:start', { url: 'https://music.apple.com/song', mode: 'alac' }),
+    ).toThrow(/unsupported value/)
+    expect(() =>
+      parse('download:start', { url: 'https://music.apple.com/song', mode: 'aac' }),
+    ).toThrow(/unsupported value/)
+    expect(() =>
+      parse('download:start', { url: 'https://music.apple.com/song', mode: '--select' }),
+    ).toThrow(/unsupported value/)
+    expect(() =>
+      parse('download:start', { url: 'https://music.apple.com/song', command: 'whoami' }),
+    ).toThrow(/unexpected property/)
     expect(() =>
       parse('download:start', { url: 'https://music.apple.com/song', extra: 'bad' }),
     ).toThrow(/unexpected property/)
@@ -251,5 +275,60 @@ describe('domain IPC payload validation behavior', () => {
     expect(() => parse('download:get-status', { taskId: 'task-1', extra: 'bad' })).toThrow(
       /unexpected property/,
     )
+
+    // download:submit-selection
+    expect(
+      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [1, 2, 3] }),
+    ).toEqual({
+      taskId: 'task-123',
+      trackIndexes: [1, 2, 3],
+    })
+    expect(() => parse('download:submit-selection', { taskId: '', trackIndexes: [1] })).toThrow(
+      /invalid length/,
+    )
+    expect(() =>
+      parse('download:submit-selection', { taskId: 'a'.repeat(129), trackIndexes: [1] }),
+    ).toThrow(/invalid length/)
+    expect(() =>
+      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [] }),
+    ).toThrow(/invalid item count/)
+    expect(() =>
+      parse('download:submit-selection', {
+        taskId: 'task-123',
+        trackIndexes: Array.from({ length: 1001 }, (_, i) => i + 1),
+      }),
+    ).toThrow(/invalid item count/)
+    expect(() =>
+      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: '1,2,3' }),
+    ).toThrow(/plain array/)
+    expect(() =>
+      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [0] }),
+    ).toThrow(/below the minimum/)
+    expect(() =>
+      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [-1] }),
+    ).toThrow(/below the minimum/)
+    expect(() =>
+      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [1.5] }),
+    ).toThrow(/safe integer/)
+    expect(() =>
+      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [NaN] }),
+    ).toThrow(/finite number/)
+    expect(() =>
+      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [Infinity] }),
+    ).toThrow(/finite number/)
+    expect(() =>
+      parse('download:submit-selection', {
+        taskId: 'task-123',
+        trackIndexes: [1],
+        extra: 'bad',
+      }),
+    ).toThrow(/unexpected property/)
+    expect(() =>
+      parse('download:submit-selection', {
+        taskId: 'task-123',
+        trackIndexes: [1],
+        stdin: '1\n',
+      }),
+    ).toThrow(/unexpected property/)
   })
 })

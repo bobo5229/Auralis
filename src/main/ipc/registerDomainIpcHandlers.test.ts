@@ -85,7 +85,7 @@ describe('domain IPC registration coverage', () => {
 
     registerDomainIpcHandlers(registrar, inertDependencies)
 
-    expect(registeredChannels).toHaveLength(59)
+    expect(registeredChannels).toHaveLength(60)
     expect(auditRegistrations(expectedDomainInvokeChannels, registeredChannels)).toEqual({
       missing: [],
       duplicates: [],

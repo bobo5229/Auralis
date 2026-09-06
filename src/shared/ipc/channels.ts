@@ -100,6 +100,7 @@ export const ipcChannels = {
     start: 'download:start',
     cancel: 'download:cancel',
     getStatus: 'download:get-status',
+    submitSelection: 'download:submit-selection',
     progress: 'download:progress',
     log: 'download:log',
   },

@@ -36,7 +36,7 @@ import type {
 } from '@shared/types/smartPlaylist'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
-import type { AmdlLogEvent, AmdlTaskProgress } from '@shared/types/amdl'
+import type { AmdlDownloadMode, AmdlLogEvent, AmdlTaskProgress } from '@shared/types/amdl'
 
 export interface SystemMediaPlaybackState {
   hasTrack: boolean
@@ -350,7 +350,7 @@ export interface IpcInvokeContract {
     response: MiniPlayerWindowState
   }
   'download:start': {
-    request: { url: string }
+    request: { url: string; mode?: AmdlDownloadMode }
     response: { ok: boolean; taskId?: string; error?: string }
   }
   'download:cancel': {
@@ -360,6 +360,10 @@ export interface IpcInvokeContract {
   'download:get-status': {
     request: { taskId: string }
     response: AmdlTaskProgress | null
+  }
+  'download:submit-selection': {
+    request: { taskId: string; trackIndexes: number[] }
+    response: { ok: boolean; error?: string }
   }
 }
 
