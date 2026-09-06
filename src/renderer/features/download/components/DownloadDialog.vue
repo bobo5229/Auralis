@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { AmdlLogEvent, AmdlTaskProgress } from '@shared/types/amdl'
+import type {
+  AmdlDownloadMode,
+  AmdlLogEvent,
+  AmdlSelectionRequest,
+  AmdlTaskProgress,
+} from '@shared/types/amdl'
 import type { ShellPresentation } from '@renderer/app/utils/shellPresentation'
 import { useSidebarOwnedModal } from '@renderer/app/utils/useSidebarOwnedModal'
 
@@ -12,10 +17,18 @@ const props = withDefaults(
     logs: AmdlLogEvent[]
     isStarting: boolean
     startError: string | null
+    selectionRequest?: AmdlSelectionRequest | null
+    selectionError?: string | null
+    isSubmittingSelection?: boolean
+    selectionSubmitted?: boolean
     presentation?: ShellPresentation
     triggerElement?: HTMLElement | null
   }>(),
   {
+    selectionRequest: null,
+    selectionError: null,
+    isSubmittingSelection: false,
+    selectionSubmitted: false,
     presentation: 'modern',
     triggerElement: null,
   },
@@ -23,13 +36,16 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   close: []
-  start: [url: string]
+  start: [url: string, mode?: AmdlDownloadMode]
+  submitSelection: [trackIndexes: number[]]
   cancel: []
 }>()
 
 const { t } = useI18n()
 
 const inputUrl = ref('')
+const selectTracksMode = ref(false)
+const selectedTrackIndexes = ref<number[]>([])
 const showLogs = ref(false)
 const dialogRef = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLInputElement | null>(null)
@@ -54,9 +70,23 @@ watch(
   },
 )
 
+// When a new selectionRequest arrives, clear selection so tracks default to unselected
+watch(
+  () => props.selectionRequest,
+  (req) => {
+    if (req) {
+      selectedTrackIndexes.value = []
+    }
+  },
+)
+
 const isRunning = computed(() => {
   const state = props.task?.state
   return state === 'starting' || state === 'running'
+})
+
+const isSelectingStage = computed(() => {
+  return props.task?.state === 'running' && props.task?.stage === 'selecting'
 })
 
 const canSubmit = computed(() => {
@@ -81,6 +111,9 @@ const statusBadge = computed(() => {
   }
 
   // Running stages
+  if (props.task.stage === 'selecting') {
+    return { text: t('download.status.selecting'), class: 'download-status--running' }
+  }
   if (props.task.stage === 'launching' || props.task.stage === 'preparing') {
     return { text: t('download.status.preparing'), class: 'download-status--running' }
   }
@@ -96,7 +129,7 @@ const statusBadge = computed(() => {
 
 function onSubmit(): void {
   if (!canSubmit.value) return
-  emit('start', inputUrl.value.trim())
+  emit('start', inputUrl.value.trim(), selectTracksMode.value ? 'select' : 'direct')
 }
 
 function onCancel(): void {
@@ -105,6 +138,41 @@ function onCancel(): void {
 
 function toggleLogs(): void {
   showLogs.value = !showLogs.value
+}
+
+function isTrackSelected(index: number): boolean {
+  return selectedTrackIndexes.value.includes(index)
+}
+
+function toggleTrack(index: number): void {
+  if (props.selectionSubmitted || props.isSubmittingSelection) return
+  const current = selectedTrackIndexes.value
+  if (current.includes(index)) {
+    selectedTrackIndexes.value = current.filter((i) => i !== index)
+  } else {
+    selectedTrackIndexes.value = [...current, index].sort((a, b) => a - b)
+  }
+}
+
+function selectAllTracks(): void {
+  if (props.selectionSubmitted || props.isSubmittingSelection || !props.selectionRequest) return
+  selectedTrackIndexes.value = props.selectionRequest.tracks.map((t) => t.index)
+}
+
+function clearAllTracks(): void {
+  if (props.selectionSubmitted || props.isSubmittingSelection) return
+  selectedTrackIndexes.value = []
+}
+
+function onSubmitSelection(): void {
+  if (
+    selectedTrackIndexes.value.length === 0 ||
+    props.selectionSubmitted ||
+    props.isSubmittingSelection
+  ) {
+    return
+  }
+  emit('submitSelection', [...selectedTrackIndexes.value])
 }
 </script>
 
@@ -142,6 +210,19 @@ function toggleLogs(): void {
           />
         </div>
 
+        <!-- Select Mode Checkbox (before download starts) -->
+        <div v-if="!isRunning" class="download-mode-option">
+          <label class="download-mode-checkbox-label">
+            <input
+              v-model="selectTracksMode"
+              type="checkbox"
+              class="download-mode-checkbox"
+              :disabled="isStarting"
+            />
+            <span>{{ t('download.selectTracksCheckbox') }}</span>
+          </label>
+        </div>
+
         <p v-if="startError" class="smart-playlist-dialog-error">
           {{ startError }}
         </p>
@@ -161,6 +242,77 @@ function toggleLogs(): void {
           >
             {{ task?.state === 'failed' ? (task.error ?? task.message) : task?.message }}
           </span>
+        </div>
+
+        <!-- Selecting Stage: Loading tracks placeholder -->
+        <div
+          v-if="isSelectingStage && !selectionRequest && !selectionSubmitted"
+          class="download-selection-loading"
+        >
+          <span class="download-selection-spinner" aria-hidden="true"></span>
+          <span>{{ t('download.loadingTracks') }}</span>
+        </div>
+
+        <!-- Selecting Stage: Interactive Track Table -->
+        <div
+          v-if="isSelectingStage && selectionRequest && !selectionSubmitted"
+          class="download-selection-section"
+        >
+          <div class="download-selection-header">
+            <span class="download-selection-count">
+              {{ t('download.selectedCount', { count: selectedTrackIndexes.length }) }}
+            </span>
+            <div class="download-selection-tools">
+              <button
+                type="button"
+                class="download-selection-tool-btn"
+                :disabled="isSubmittingSelection"
+                @click="selectAllTracks"
+              >
+                {{ t('download.selectAll') }}
+              </button>
+              <span class="download-selection-separator">|</span>
+              <button
+                type="button"
+                class="download-selection-tool-btn"
+                :disabled="isSubmittingSelection || selectedTrackIndexes.length === 0"
+                @click="clearAllTracks"
+              >
+                {{ t('download.clearAll') }}
+              </button>
+            </div>
+          </div>
+
+          <div class="download-tracks-list" role="listbox" aria-multiselectable="true">
+            <div
+              v-for="track in selectionRequest.tracks"
+              :key="track.index"
+              class="download-track-row"
+              :class="{ 'download-track-row--selected': isTrackSelected(track.index) }"
+              @click="toggleTrack(track.index)"
+            >
+              <input
+                type="checkbox"
+                class="download-track-checkbox"
+                :checked="isTrackSelected(track.index)"
+                :disabled="isSubmittingSelection"
+                tabindex="-1"
+                @click.stop="toggleTrack(track.index)"
+              />
+              <span class="download-track-index">{{ track.index }}</span>
+              <span class="download-track-title" :title="track.title">{{ track.title }}</span>
+            </div>
+          </div>
+
+          <p v-if="selectionError" class="smart-playlist-dialog-error">
+            {{ selectionError }}
+          </p>
+        </div>
+
+        <!-- Selecting Stage: Submitted state banner -->
+        <div v-if="isSelectingStage && selectionSubmitted" class="download-selection-submitted">
+          <span class="download-selection-spinner" aria-hidden="true"></span>
+          <span>{{ t('download.selectionSubmitted') }}</span>
         </div>
 
         <!-- Log Drawer Toggle -->
@@ -197,17 +349,38 @@ function toggleLogs(): void {
           <button type="button" @click="emit('close')">
             {{ t('download.closeAction') }}
           </button>
-          <button
-            v-if="isRunning"
-            type="button"
-            class="download-btn-cancel smart-playlist-dialog-danger"
-            @click="onCancel"
-          >
-            {{ t('download.cancelAction') }}
-          </button>
-          <button v-else type="submit" class="smart-playlist-dialog-primary" :disabled="!canSubmit">
-            {{ t('download.startAction') }}
-          </button>
+          <template v-if="isSelectingStage && selectionRequest && !selectionSubmitted">
+            <button
+              type="button"
+              class="download-btn-cancel smart-playlist-dialog-danger"
+              :disabled="isSubmittingSelection"
+              @click="onCancel"
+            >
+              {{ t('download.cancelAction') }}
+            </button>
+            <button
+              type="button"
+              class="smart-playlist-dialog-primary"
+              :disabled="selectedTrackIndexes.length === 0 || isSubmittingSelection"
+              @click="onSubmitSelection"
+            >
+              {{ t('download.downloadSelected') }}
+            </button>
+          </template>
+          <template v-else-if="isRunning">
+            <button
+              type="button"
+              class="download-btn-cancel smart-playlist-dialog-danger"
+              @click="onCancel"
+            >
+              {{ t('download.cancelAction') }}
+            </button>
+          </template>
+          <template v-else>
+            <button type="submit" class="smart-playlist-dialog-primary" :disabled="!canSubmit">
+              {{ t('download.startAction') }}
+            </button>
+          </template>
         </div>
       </form>
     </section>
@@ -343,5 +516,163 @@ function toggleLogs(): void {
 
 .download-dialog-actions {
   margin-top: 16px;
+}
+
+.download-mode-option {
+  margin-top: -4px;
+  margin-bottom: 12px;
+}
+
+.download-mode-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--auralis-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.download-mode-checkbox-label:hover {
+  color: var(--auralis-text);
+}
+
+.download-mode-checkbox {
+  accent-color: var(--auralis-accent, #38bdf8);
+  cursor: pointer;
+}
+
+.download-selection-loading,
+.download-selection-submitted {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 80%, black 20%);
+  border: 1px solid var(--auralis-border-subtle);
+  font-size: 12px;
+  color: var(--auralis-text-muted);
+}
+
+.download-selection-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--auralis-border-subtle);
+  border-top-color: #38bdf8;
+  border-radius: 50%;
+  animation: download-spin 800ms linear infinite;
+}
+
+@keyframes download-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.download-selection-section {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.download-selection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.download-selection-count {
+  font-weight: 600;
+  color: var(--auralis-text);
+}
+
+.download-selection-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.download-selection-tool-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  color: var(--auralis-text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.download-selection-tool-btn:hover:not(:disabled) {
+  color: var(--auralis-text);
+}
+
+.download-selection-tool-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  text-decoration: none;
+}
+
+.download-selection-separator {
+  font-size: 10px;
+  color: var(--auralis-text-muted);
+  opacity: 0.5;
+}
+
+.download-tracks-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border-radius: 6px;
+  border: 1px solid var(--auralis-border-subtle);
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 70%, black 30%);
+}
+
+.download-track-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+  transition: background-color 120ms ease;
+}
+
+.download-track-row:last-child {
+  border-bottom: none;
+}
+
+.download-track-row:hover {
+  background: var(--auralis-control-hover-bg, rgba(255, 255, 255, 0.05));
+}
+
+.download-track-row--selected {
+  background: color-mix(in srgb, var(--auralis-accent, #38bdf8) 12%, transparent);
+}
+
+.download-track-checkbox {
+  accent-color: var(--auralis-accent, #38bdf8);
+  cursor: pointer;
+}
+
+.download-track-index {
+  font-size: 11px;
+  min-width: 20px;
+  font-weight: 600;
+  color: var(--auralis-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.download-track-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--auralis-text);
 }
 </style>

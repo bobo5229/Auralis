@@ -920,10 +920,15 @@ onBeforeUnmount(() => {
         :logs="download.logs.value"
         :is-starting="download.isStarting.value"
         :start-error="download.startError.value"
+        :selection-request="download.selectionRequest.value"
+        :selection-error="download.selectionError.value"
+        :is-submitting-selection="download.isSubmittingSelection.value"
+        :selection-submitted="download.selectionSubmitted.value"
         :presentation="presentation"
         :trigger-element="downloadTriggerElement"
         @close="closeDownloadDialog"
         @start="download.startDownload"
+        @submit-selection="download.submitSelection"
         @cancel="download.cancelDownload"
       />
     </Teleport>
