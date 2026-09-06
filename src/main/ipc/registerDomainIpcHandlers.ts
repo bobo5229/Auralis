@@ -21,6 +21,10 @@ import {
   type PlaylistIpcDependencies,
 } from './registerPlaylistIpcHandlers'
 import { registerWindowIpcHandlers, type WindowIpcDependencies } from './registerWindowIpcHandlers'
+import {
+  registerDownloadIpcHandlers,
+  type DownloadIpcDependencies,
+} from './registerDownloadIpcHandlers'
 
 export interface DomainIpcDependencies {
   app: AppIpcDependencies
@@ -30,6 +34,7 @@ export interface DomainIpcDependencies {
   playbackArchive: PlaybackArchiveIpcDependencies
   metadata: MetadataIpcDependencies
   window: WindowIpcDependencies
+  download: DownloadIpcDependencies
 }
 
 export function registerDomainIpcHandlers(
@@ -43,4 +48,5 @@ export function registerDomainIpcHandlers(
   registerPlaybackArchiveIpcHandlers(registrar, dependencies.playbackArchive)
   registerMetadataIpcHandlers(registrar, dependencies.metadata)
   registerWindowIpcHandlers(registrar, dependencies.window)
+  registerDownloadIpcHandlers(registrar, dependencies.download)
 }

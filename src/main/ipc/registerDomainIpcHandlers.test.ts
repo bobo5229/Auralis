@@ -46,6 +46,8 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.desktopLyrics.ready,
   ipcChannels.metadata.refreshProgress,
   ipcChannels.window.miniPlayerStateChanged,
+  ipcChannels.download.progress,
+  ipcChannels.download.log,
 ])
 
 const externallyRegisteredInvokeChannels = new Set<string>([
@@ -69,6 +71,7 @@ const inertDependencies = {
   playbackArchive: {},
   metadata: {},
   window: {},
+  download: { downloadService: {} },
 } as unknown as DomainIpcDependencies
 
 describe('domain IPC registration coverage', () => {
@@ -82,7 +85,7 @@ describe('domain IPC registration coverage', () => {
 
     registerDomainIpcHandlers(registrar, inertDependencies)
 
-    expect(registeredChannels).toHaveLength(56)
+    expect(registeredChannels).toHaveLength(59)
     expect(auditRegistrations(expectedDomainInvokeChannels, registeredChannels)).toEqual({
       missing: [],
       duplicates: [],

@@ -37,6 +37,7 @@ import type {
 } from '@shared/types/smartPlaylist'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
+import type { AmdlLogEvent, AmdlTaskProgress } from '@shared/types/amdl'
 import type {
   DatabaseExportBackupResult,
   DatabaseRestoreBackupResult,
@@ -191,6 +192,13 @@ export interface AuralisApi {
       height: number
     }) => Promise<MiniPlayerWindowState>
     onMiniPlayerStateChanged: (callback: (state: MiniPlayerWindowState) => void) => () => void
+  }
+  download: {
+    start: (url: string) => Promise<{ ok: boolean; taskId?: string; error?: string }>
+    cancel: (taskId: string) => Promise<{ ok: boolean; error?: string }>
+    getStatus: (taskId: string) => Promise<AmdlTaskProgress | null>
+    onProgress: (callback: (progress: AmdlTaskProgress) => void) => () => void
+    onLog: (callback: (log: AmdlLogEvent) => void) => () => void
   }
 }
 

@@ -96,4 +96,11 @@ export const ipcChannels = {
     setMiniPlayerPopover: 'window:set-mini-player-popover',
     miniPlayerStateChanged: 'window:mini-player-state-changed',
   },
+  download: {
+    start: 'download:start',
+    cancel: 'download:cancel',
+    getStatus: 'download:get-status',
+    progress: 'download:progress',
+    log: 'download:log',
+  },
 } as const

@@ -304,4 +304,45 @@ describe('AMDL Backend Core', () => {
       expect(mockChild.killed).toBe(true)
     })
   })
+
+  describe('7. Raw log forwarding', () => {
+    it('forwards complete buffered stdout and stderr lines via onLog', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+      const logs: Array<{ stream: 'stdout' | 'stderr'; line: string }> = []
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-log-1',
+        url: 'https://music.apple.com/song',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+        onLog: (event) => logs.push({ stream: event.stream, line: event.line }),
+      })
+
+      runner.start()
+
+      // Chunked stdout: "Downloa" + "ded\n"
+      mockChild.stdout.emit('data', 'Downloa')
+      expect(logs).toHaveLength(0)
+
+      mockChild.stdout.emit('data', 'ded\n')
+      expect(logs).toEqual([{ stream: 'stdout', line: 'Downloaded' }])
+
+      // stderr line
+      mockChild.stderr.emit('data', 'Some diagnostic stderr line\n')
+      expect(logs).toEqual([
+        { stream: 'stdout', line: 'Downloaded' },
+        { stream: 'stderr', line: 'Some diagnostic stderr line' },
+      ])
+
+      // Residual flush on close
+      mockChild.stdout.emit('data', 'Residual line without newline')
+      mockChild.emit('close', 0)
+      expect(logs).toEqual([
+        { stream: 'stdout', line: 'Downloaded' },
+        { stream: 'stderr', line: 'Some diagnostic stderr line' },
+        { stream: 'stdout', line: 'Residual line without newline' },
+      ])
+    })
+  })
 })

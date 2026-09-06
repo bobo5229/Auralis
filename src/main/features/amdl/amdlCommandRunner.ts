@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process'
-import type { AmdlStage, AmdlTaskProgress, AmdlTaskState } from '@shared/types/amdl'
+import type { AmdlLogEvent, AmdlStage, AmdlTaskProgress, AmdlTaskState } from '@shared/types/amdl'
 import { parseAmdlOutputLine } from './amdlOutputParser'
 import { LineBuffer } from './lineBuffer'
 
@@ -44,6 +44,7 @@ export interface AmdlRunnerOptions {
   config?: AmdlCommandConfig
   spawnProcess?: SpawnFactory
   onProgress: (progress: AmdlTaskProgress) => void
+  onLog?: (event: AmdlLogEvent) => void
 }
 
 export class AmdlCommandRunner {
@@ -52,6 +53,7 @@ export class AmdlCommandRunner {
   private readonly config: Required<AmdlCommandConfig>
   private readonly spawnProcess: SpawnFactory
   private readonly onProgress: (progress: AmdlTaskProgress) => void
+  private readonly onLog?: (event: AmdlLogEvent) => void
 
   private childProcess: ChildProcess | null = null
   private cancelRequested = false
@@ -73,6 +75,7 @@ export class AmdlCommandRunner {
     this.config = { ...DEFAULT_AMDL_CONFIG, ...options.config }
     this.spawnProcess = options.spawnProcess ?? ((cmd, args) => spawn(cmd, args))
     this.onProgress = options.onProgress
+    this.onLog = options.onLog
     this.startedAtIso = new Date().toISOString()
   }
 
@@ -192,6 +195,16 @@ export class AmdlCommandRunner {
 
   private handleStdoutLine(line: string): void {
     if (this.terminalSettled) return
+
+    const trimmed = line.trim()
+    if (trimmed) {
+      this.onLog?.({
+        taskId: this.taskId,
+        stream: 'stdout',
+        line: trimmed,
+      })
+    }
+
     const parsed = parseAmdlOutputLine(line)
 
     let changed = false
@@ -217,6 +230,12 @@ export class AmdlCommandRunner {
     if (this.terminalSettled) return
     const trimmed = line.trim()
     if (!trimmed) return
+
+    this.onLog?.({
+      taskId: this.taskId,
+      stream: 'stderr',
+      line: trimmed,
+    })
 
     // Record as lastError if significant, but don't fail immediately until exit
     this.lastError = trimmed

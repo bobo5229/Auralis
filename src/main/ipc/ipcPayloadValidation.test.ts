@@ -23,6 +23,8 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.desktopLyrics.ready,
   ipcChannels.metadata.refreshProgress,
   ipcChannels.window.miniPlayerStateChanged,
+  ipcChannels.download.progress,
+  ipcChannels.download.log,
 ])
 
 const externalInvokeChannels = new Set<string>([
@@ -43,7 +45,7 @@ function parse(channel: DomainIpcInvokeChannel, payload?: unknown): unknown {
 }
 
 describe('domain IPC payload validation coverage', () => {
-  it('classifies all 56 domain invoke channels exactly once', () => {
+  it('classifies all 59 domain invoke channels exactly once', () => {
     const actualChannels = Object.keys(domainIpcPayloadPolicies).sort()
     const kinds = Object.values(domainIpcPayloadPolicies).reduce<Record<string, number>>(
       (counts, policy) => {
@@ -54,8 +56,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(56)
-    expect(kinds).toEqual({ void: 19, optional: 6, required: 31 })
+    expect(actualChannels).toHaveLength(59)
+    expect(kinds).toEqual({ void: 19, optional: 6, required: 34 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -219,5 +221,35 @@ describe('domain IPC payload validation behavior', () => {
       expect(error).toBeInstanceOf(IpcPayloadValidationError)
       expect((error as Error).message).not.toContain('sensitive-user-query')
     }
+  })
+
+  it('validates download IPC payloads correctly', () => {
+    // download:start
+    expect(parse('download:start', { url: 'https://music.apple.com/song' })).toEqual({
+      url: 'https://music.apple.com/song',
+    })
+    expect(() => parse('download:start', { url: '' })).toThrow(/invalid length/)
+    expect(() => parse('download:start', { url: 'a'.repeat(2049) })).toThrow(/invalid length/)
+    expect(() =>
+      parse('download:start', { url: 'https://music.apple.com/song', extra: 'bad' }),
+    ).toThrow(/unexpected property/)
+
+    // download:cancel
+    expect(parse('download:cancel', { taskId: 'task-123' })).toEqual({ taskId: 'task-123' })
+    expect(() => parse('download:cancel', { taskId: '' })).toThrow(/invalid length/)
+    expect(() => parse('download:cancel', { taskId: 'a'.repeat(129) })).toThrow(/invalid length/)
+    expect(() => parse('download:cancel', { taskId: 'task-1', extra: 'bad' })).toThrow(
+      /unexpected property/,
+    )
+
+    // download:get-status
+    expect(parse('download:get-status', { taskId: 'task-123' })).toEqual({ taskId: 'task-123' })
+    expect(() => parse('download:get-status', { taskId: '' })).toThrow(/invalid length/)
+    expect(() => parse('download:get-status', { taskId: 'a'.repeat(129) })).toThrow(
+      /invalid length/,
+    )
+    expect(() => parse('download:get-status', { taskId: 'task-1', extra: 'bad' })).toThrow(
+      /unexpected property/,
+    )
   })
 })

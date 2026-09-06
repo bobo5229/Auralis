@@ -4,6 +4,7 @@ import type { IpcInvokeChannel, IpcRequest, IpcResponse } from '@shared/ipc/cont
 import type { SystemMediaCommand } from '@shared/ipc/contracts'
 import { ipcChannels } from '@shared/ipc/channels'
 import type { LibraryScanProgress } from '@shared/types/libraryScan'
+import type { AmdlLogEvent, AmdlTaskProgress } from '@shared/types/amdl'
 
 async function invoke<TChannel extends IpcInvokeChannel>(
   channel: TChannel,
@@ -231,6 +232,29 @@ export const auralisApi: AuralisApi = {
 
       ipcRenderer.on(ipcChannels.window.miniPlayerStateChanged, listener)
       return () => ipcRenderer.removeListener(ipcChannels.window.miniPlayerStateChanged, listener)
+    },
+  },
+  download: {
+    start: (url: string) => invoke(ipcChannels.download.start, { url }),
+    cancel: (taskId: string) => invoke(ipcChannels.download.cancel, { taskId }),
+    getStatus: (taskId: string) => invoke(ipcChannels.download.getStatus, { taskId }),
+    onProgress: (callback: (progress: AmdlTaskProgress) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, progress: AmdlTaskProgress) => {
+        callback(progress)
+      }
+      ipcRenderer.on(ipcChannels.download.progress, listener)
+      return () => {
+        ipcRenderer.removeListener(ipcChannels.download.progress, listener)
+      }
+    },
+    onLog: (callback: (log: AmdlLogEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, log: AmdlLogEvent) => {
+        callback(log)
+      }
+      ipcRenderer.on(ipcChannels.download.log, listener)
+      return () => {
+        ipcRenderer.removeListener(ipcChannels.download.log, listener)
+      }
     },
   },
 }

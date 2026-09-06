@@ -458,6 +458,21 @@ export const domainIpcPayloadPolicies = {
       height: field(finiteNumber({ integer: true, min: 0, max: 4_096 })),
     }),
   ),
+  [ipcChannels.download.start]: required(
+    objectShape({
+      url: field(stringValue({ min: 1, max: 2048 })),
+    }),
+  ),
+  [ipcChannels.download.cancel]: required(
+    objectShape({
+      taskId: field(stringValue({ min: 1, max: 128 })),
+    }),
+  ),
+  [ipcChannels.download.getStatus]: required(
+    objectShape({
+      taskId: field(stringValue({ min: 1, max: 128 })),
+    }),
+  ),
 } satisfies Record<DomainIpcInvokeChannel, IpcPayloadPolicy>
 
 export function parseDomainIpcPayload(

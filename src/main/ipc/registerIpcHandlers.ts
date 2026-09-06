@@ -10,7 +10,8 @@ import { ArtworkCacheGarbageCollector } from '@main/features/artwork/artworkCach
 import { ArtworkCacheMaintenanceService } from '@main/features/artwork/artworkCacheMaintenanceService'
 import { ArtworkCacheMigrationService } from '@main/features/artwork/artworkCacheMigrationService'
 import { isPathUnderAnyRoot } from '@main/features/audio/audioPathGuard'
-import { buildAudioTrackUrl, isPlayableAudioExtension } from '@main/features/audio/audioProtocol'
+import { isPlayableAudioExtension, buildAudioTrackUrl } from '@main/features/audio/audioProtocol'
+import { AmdlDownloadService } from '@main/features/amdl/amdlDownloadService'
 import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
 import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
 import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
@@ -74,9 +75,21 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   )
   const sendToRenderer = (channel: string, data: unknown) => {
     for (const win of BrowserWindow.getAllWindows()) {
-      win.webContents.send(channel, data)
+      if (!win.webContents.isDestroyed()) {
+        win.webContents.send(channel, data)
+      }
     }
   }
+
+  const downloadService = new AmdlDownloadService({
+    onProgress: (progress) => {
+      sendToRenderer(ipcChannels.download.progress, progress)
+    },
+    onLog: (log) => {
+      sendToRenderer(ipcChannels.download.log, log)
+    },
+  })
+
   const notifyLibraryChanged = (data: {
     reason: 'play-stats-updated' | 'play-stats-reset'
     trackIds: number[]
@@ -236,5 +249,6 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     },
     metadata: { metadataRefreshService },
     window: { getMiniPlayerController: getInvokingMiniPlayerController },
+    download: { downloadService },
   })
 }

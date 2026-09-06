@@ -1,5 +1,5 @@
-﻿import { randomUUID } from 'node:crypto'
-import type { AmdlTaskProgress } from '@shared/types/amdl'
+import { randomUUID } from 'node:crypto'
+import type { AmdlLogEvent, AmdlTaskProgress } from '@shared/types/amdl'
 import { AmdlCommandRunner, type AmdlCommandConfig, type SpawnFactory } from './amdlCommandRunner'
 import { validateAppleMusicUrl } from './amdlUrlValidator'
 
@@ -7,6 +7,7 @@ export interface AmdlDownloadServiceOptions {
   config?: AmdlCommandConfig
   spawnProcess?: SpawnFactory
   onProgress?: (progress: AmdlTaskProgress) => void
+  onLog?: (event: AmdlLogEvent) => void
 }
 
 export class AmdlDownloadService {
@@ -15,11 +16,13 @@ export class AmdlDownloadService {
   private readonly config?: AmdlCommandConfig
   private readonly spawnProcess?: SpawnFactory
   private readonly onProgressCallback?: (progress: AmdlTaskProgress) => void
+  private readonly onLogCallback?: (event: AmdlLogEvent) => void
 
   constructor(options: AmdlDownloadServiceOptions = {}) {
     this.config = options.config
     this.spawnProcess = options.spawnProcess
     this.onProgressCallback = options.onProgress
+    this.onLogCallback = options.onLog
   }
 
   isDownloadActive(): boolean {
@@ -56,6 +59,9 @@ export class AmdlDownloadService {
       spawnProcess: this.spawnProcess,
       onProgress: (progress) => {
         this.onProgressCallback?.(progress)
+      },
+      onLog: (event) => {
+        this.onLogCallback?.(event)
       },
     })
 

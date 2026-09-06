@@ -280,6 +280,13 @@ function createApi(): AuralisApi {
       setMiniPlayerPopover: vi.fn(),
       onMiniPlayerStateChanged: vi.fn(),
     },
+    download: {
+      start: vi.fn(),
+      cancel: vi.fn(),
+      getStatus: vi.fn(),
+      onProgress: vi.fn(),
+      onLog: vi.fn(),
+    },
   }
 }
 

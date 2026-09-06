@@ -36,6 +36,7 @@ import type {
 } from '@shared/types/smartPlaylist'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
+import type { AmdlLogEvent, AmdlTaskProgress } from '@shared/types/amdl'
 
 export interface SystemMediaPlaybackState {
   hasTrack: boolean
@@ -73,6 +74,8 @@ export interface IpcSendContract {
 export interface IpcEventContract {
   'system-media:command': SystemMediaCommand
   'window:mini-player-state-changed': MiniPlayerWindowState
+  'download:progress': AmdlTaskProgress
+  'download:log': AmdlLogEvent
 }
 
 export interface DatabaseExportBackupResult {
@@ -345,6 +348,18 @@ export interface IpcInvokeContract {
   'window:set-mini-player-popover': {
     request: { open: boolean; direction: MiniPlayerPopoverDirection; height: number }
     response: MiniPlayerWindowState
+  }
+  'download:start': {
+    request: { url: string }
+    response: { ok: boolean; taskId?: string; error?: string }
+  }
+  'download:cancel': {
+    request: { taskId: string }
+    response: { ok: boolean; error?: string }
+  }
+  'download:get-status': {
+    request: { taskId: string }
+    response: AmdlTaskProgress | null
   }
 }
 

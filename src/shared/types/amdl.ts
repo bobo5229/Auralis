@@ -1,4 +1,4 @@
-﻿export type AmdlTaskState =
+export type AmdlTaskState =
   | 'starting'
   | 'running'
   | 'completed'
@@ -24,4 +24,10 @@ export interface AmdlTaskProgress {
   error: string | null
   startedAt: string
   finishedAt: string | null
+}
+
+export interface AmdlLogEvent {
+  taskId: string
+  stream: 'stdout' | 'stderr'
+  line: string
 }
