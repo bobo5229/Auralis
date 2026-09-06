@@ -48,6 +48,7 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.window.miniPlayerStateChanged,
   ipcChannels.download.progress,
   ipcChannels.download.log,
+  ipcChannels.download.selectionRequest,
 ])
 
 const externallyRegisteredInvokeChannels = new Set<string>([

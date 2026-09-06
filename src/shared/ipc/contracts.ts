@@ -36,7 +36,12 @@ import type {
 } from '@shared/types/smartPlaylist'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
-import type { AmdlDownloadMode, AmdlLogEvent, AmdlTaskProgress } from '@shared/types/amdl'
+import type {
+  AmdlDownloadMode,
+  AmdlLogEvent,
+  AmdlSelectionRequest,
+  AmdlTaskProgress,
+} from '@shared/types/amdl'
 
 export interface SystemMediaPlaybackState {
   hasTrack: boolean
@@ -76,6 +81,7 @@ export interface IpcEventContract {
   'window:mini-player-state-changed': MiniPlayerWindowState
   'download:progress': AmdlTaskProgress
   'download:log': AmdlLogEvent
+  'download:selection-request': AmdlSelectionRequest
 }
 
 export interface DatabaseExportBackupResult {

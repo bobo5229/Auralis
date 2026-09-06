@@ -103,5 +103,6 @@ export const ipcChannels = {
     submitSelection: 'download:submit-selection',
     progress: 'download:progress',
     log: 'download:log',
+    selectionRequest: 'download:selection-request',
   },
 } as const

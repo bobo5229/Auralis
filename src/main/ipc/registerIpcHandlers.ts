@@ -88,6 +88,9 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     onLog: (log) => {
       sendToRenderer(ipcChannels.download.log, log)
     },
+    onSelectionRequest: (request) => {
+      sendToRenderer(ipcChannels.download.selectionRequest, request)
+    },
   })
 
   const notifyLibraryChanged = (data: {

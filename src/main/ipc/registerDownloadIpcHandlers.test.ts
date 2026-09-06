@@ -7,10 +7,10 @@ import type { AmdlTaskProgress } from '@shared/types/amdl'
 
 describe('registerDownloadIpcHandlers', () => {
   it('wires start, cancel, getStatus, and submitSelection to AmdlDownloadService', async () => {
-    const handlers = new Map<string, (event: unknown, payload: any) => unknown>()
+    const handlers = new Map<string, (event: unknown, payload: never) => unknown>()
     const registrar: IpcHandlerRegistrar = {
       handle: (channel, listener) => {
-        handlers.set(channel, listener as (event: unknown, payload: any) => unknown)
+        handlers.set(channel, listener as (event: unknown, payload: never) => unknown)
       },
     }
 
