@@ -112,7 +112,13 @@ const statusBadge = computed(() => {
 
   // Running stages
   if (props.task.stage === 'selecting') {
-    return { text: t('download.status.selecting'), class: 'download-status--running' }
+    if (props.selectionSubmitted) {
+      return { text: t('download.status.selectingSubmitted'), class: 'download-status--running' }
+    }
+    if (props.selectionRequest) {
+      return { text: t('download.status.selectingReady'), class: 'download-status--running' }
+    }
+    return { text: t('download.status.selectingReading'), class: 'download-status--running' }
   }
   if (props.task.stage === 'launching' || props.task.stage === 'preparing') {
     return { text: t('download.status.preparing'), class: 'download-status--running' }

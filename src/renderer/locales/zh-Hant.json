@@ -489,6 +489,9 @@
     "status": {
       "preparing": "準備中…",
       "selecting": "等待選擇曲目…",
+      "selectingReading": "正在讀取曲目列表…",
+      "selectingReady": "選擇要下載的曲目",
+      "selectingSubmitted": "已提交曲目選擇…",
       "downloading": "正在下載…",
       "processing": "正在處理…",
       "completed": "下載完成",

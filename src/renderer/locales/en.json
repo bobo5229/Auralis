@@ -489,6 +489,9 @@
     "status": {
       "preparing": "Preparing…",
       "selecting": "Waiting for track selection…",
+      "selectingReading": "Loading track list…",
+      "selectingReady": "Select tracks to download",
+      "selectingSubmitted": "Track selection submitted…",
       "downloading": "Downloading…",
       "processing": "Processing…",
       "completed": "Download completed",
