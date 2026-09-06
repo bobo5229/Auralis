@@ -33,16 +33,16 @@ export function parseAmdlOutputLine(line: string): AmdlParsedLine {
     }
   }
 
-  if (trimmed.startsWith('Track ') || trimmed.includes('Song->')) {
+  if (trimmed.startsWith('Queue ')) {
     return {
-      stage: 'downloading',
+      stage: 'preparing',
       message: trimmed,
     }
   }
 
-  if (trimmed.startsWith('Queue ')) {
+  if (trimmed.startsWith('Track ') || trimmed.includes('Song->')) {
     return {
-      stage: 'preparing',
+      stage: 'downloading',
       message: trimmed,
     }
   }

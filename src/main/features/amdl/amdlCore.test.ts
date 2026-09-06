@@ -69,13 +69,14 @@ describe('AMDL Backend Core', () => {
       expect(parsed.message).toBe('Track already exists locally.')
     })
 
-    it('parses Queue signal as preparing', () => {
-      expect(parseAmdlOutputLine('Queue 1 of 1: Song->Gareth.T').stage).toBe('downloading')
+    it('parses Queue signal as preparing even when containing Song->', () => {
+      expect(parseAmdlOutputLine('Queue 1 of 1: Song->Gareth.T').stage).toBe('preparing')
       expect(parseAmdlOutputLine('Queue 1 of 1').stage).toBe('preparing')
     })
 
-    it('parses Track and Song signals as downloading', () => {
+    it('parses Track and non-Queue Song signals as downloading', () => {
       expect(parseAmdlOutputLine('Track 1 of 1: songs').stage).toBe('downloading')
+      expect(parseAmdlOutputLine('Song->Gareth.T').stage).toBe('downloading')
     })
 
     it('ignores unknown or noisy lines without failing', () => {
