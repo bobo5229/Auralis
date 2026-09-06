@@ -59,7 +59,7 @@ describe('AMDL Backend Core', () => {
 
     it('parses Decrypted signal', () => {
       const parsed = parseAmdlOutputLine('Decrypted')
-      expect(parsed.stage).toBe('processing')
+      expect(parsed.stage).toBe('finalizing')
       expect(parsed.message).toBe('Decrypted')
     })
 
@@ -69,9 +69,13 @@ describe('AMDL Backend Core', () => {
       expect(parsed.message).toBe('Track already exists locally.')
     })
 
-    it('parses Queue / Track signals as preparing', () => {
-      expect(parseAmdlOutputLine('Queue 1 of 1: Song->Gareth.T').stage).toBe('preparing')
-      expect(parseAmdlOutputLine('Track 1 of 1: songs').stage).toBe('preparing')
+    it('parses Queue signal as preparing', () => {
+      expect(parseAmdlOutputLine('Queue 1 of 1: Song->Gareth.T').stage).toBe('downloading')
+      expect(parseAmdlOutputLine('Queue 1 of 1').stage).toBe('preparing')
+    })
+
+    it('parses Track and Song signals as downloading', () => {
+      expect(parseAmdlOutputLine('Track 1 of 1: songs').stage).toBe('downloading')
     })
 
     it('ignores unknown or noisy lines without failing', () => {
@@ -207,6 +211,31 @@ describe('AMDL Backend Core', () => {
 
       // Later, process exits with code 1 or killed signal
       mockChild.emit('close', 137)
+
+      const finalProgress = runner.getProgress()
+      expect(finalProgress.state).toBe('cancelled')
+    })
+
+    it('cancel + child error event + close event -> cancelled', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-4b',
+        url: 'https://music.apple.com/song',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      runner.cancel()
+      expect(mockChild.killed).toBe(true)
+
+      // Emit child process error
+      mockChild.emit('error', new Error('Process killed abnormally'))
+
+      // Then process closes with non-zero
+      mockChild.emit('close', 1)
 
       const finalProgress = runner.getProgress()
       expect(finalProgress.state).toBe('cancelled')

@@ -130,7 +130,11 @@ export class AmdlCommandRunner {
 
     child.on('error', (err: Error) => {
       if (this.terminalSettled) return
-      this.settleTerminal('failed', null, err.message)
+      if (this.cancelRequested) {
+        this.settleTerminal('cancelled', null, err.message)
+      } else {
+        this.settleTerminal('failed', null, err.message)
+      }
     })
 
     child.on('close', (code: number | null) => {

@@ -1,4 +1,4 @@
-﻿import type { AmdlStage } from '@shared/types/amdl'
+import type { AmdlStage } from '@shared/types/amdl'
 
 export interface AmdlParsedLine {
   stage?: AmdlStage
@@ -21,7 +21,7 @@ export function parseAmdlOutputLine(line: string): AmdlParsedLine {
 
   if (trimmed === 'Decrypted' || trimmed.startsWith('Decrypted')) {
     return {
-      stage: 'processing',
+      stage: 'finalizing',
       message: 'Decrypted',
     }
   }
@@ -33,7 +33,14 @@ export function parseAmdlOutputLine(line: string): AmdlParsedLine {
     }
   }
 
-  if (trimmed.startsWith('Queue ') || trimmed.startsWith('Track ') || trimmed.includes('Song->')) {
+  if (trimmed.startsWith('Track ') || trimmed.includes('Song->')) {
+    return {
+      stage: 'downloading',
+      message: trimmed,
+    }
+  }
+
+  if (trimmed.startsWith('Queue ')) {
     return {
       stage: 'preparing',
       message: trimmed,
