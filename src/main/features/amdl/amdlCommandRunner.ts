@@ -74,6 +74,7 @@ export class AmdlCommandRunner {
   private cancelRequested = false
   private terminalSettled = false
   private alreadyExistsObserved = false
+  private downloadedObserved = false
   private completionSummary: AmdlCompletionSummary | null = null
   private currentState: AmdlTaskState = 'starting'
   private currentStage: AmdlStage = 'launching'
@@ -228,7 +229,7 @@ export class AmdlCommandRunner {
       }
 
       // 7. Otherwise -> already-exists or completed
-      if (this.alreadyExistsObserved) {
+      if (this.alreadyExistsObserved && !this.downloadedObserved) {
         this.settleTerminal('already-exists', null, null)
       } else {
         this.settleTerminal('completed', null, null)
@@ -337,6 +338,9 @@ export class AmdlCommandRunner {
     const parsed = parseAmdlOutputLine(line)
 
     let changed = false
+    if (parsed.message === 'Downloaded') {
+      this.downloadedObserved = true
+    }
     if (parsed.completionSummary) {
       this.completionSummary = parsed.completionSummary
     }

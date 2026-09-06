@@ -946,4 +946,119 @@ describe('AMDL Backend Core', () => {
       expect(runner.getProgress().stage).toBe('downloading')
     })
   })
+
+  describe('9. Multi-track settlement and already-exists semantics (Phase 1E)', () => {
+    it('all selected tracks already exist -> settles as already-exists', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-all-dup',
+        url: 'https://music.apple.com/album',
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      mockChild.stdout.emit('data', 'Track 12 of 33: Track Twelve\n')
+      mockChild.stdout.emit('data', 'Track already exists locally.\n')
+      mockChild.stdout.emit('data', 'Track 27 of 33: Track Twenty Seven\n')
+      mockChild.stdout.emit('data', 'Track already exists locally.\n')
+      mockChild.stdout.emit(
+        'data',
+        '=======  [✔ ] Completed: 2/2  |  [⚠ ] Warnings: 0  |  [✖ ] Errors: 0  =======\n',
+      )
+      mockChild.emit('close', 0)
+
+      const progress = runner.getProgress()
+      expect(progress.state).toBe('already-exists')
+      expect(progress.alreadyExists).toBe(true)
+    })
+
+    it('mixed duplicate and new download -> settles as completed', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-mixed',
+        url: 'https://music.apple.com/album',
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      // Track 12: already exists
+      mockChild.stdout.emit('data', 'Track 12 of 33: Track Twelve\n')
+      mockChild.stdout.emit('data', 'Track already exists locally.\n')
+      // Track 27: new download
+      mockChild.stdout.emit('data', 'Track 27 of 33: Track Twenty Seven\n')
+      mockChild.stdout.emit('data', 'Downloaded\n')
+      mockChild.stdout.emit('data', 'Decrypted\n')
+      mockChild.stdout.emit(
+        'data',
+        '=======  [✔ ] Completed: 2/2  |  [⚠ ] Warnings: 0  |  [✖ ] Errors: 0  =======\n',
+      )
+      mockChild.emit('close', 0)
+
+      const progress = runner.getProgress()
+      expect(progress.state).toBe('completed')
+    })
+
+    it('all new downloads -> settles as completed', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-all-new',
+        url: 'https://music.apple.com/album',
+        mode: 'select',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      mockChild.stdout.emit('data', 'Track 12 of 33: Track Twelve\n')
+      mockChild.stdout.emit('data', 'Downloaded\n')
+      mockChild.stdout.emit('data', 'Decrypted\n')
+      mockChild.stdout.emit('data', 'Track 27 of 33: Track Twenty Seven\n')
+      mockChild.stdout.emit('data', 'Downloaded\n')
+      mockChild.stdout.emit('data', 'Decrypted\n')
+      mockChild.stdout.emit(
+        'data',
+        '=======  [✔ ] Completed: 2/2  |  [⚠ ] Warnings: 0  |  [✖ ] Errors: 0  =======\n',
+      )
+      mockChild.emit('close', 0)
+
+      const progress = runner.getProgress()
+      expect(progress.state).toBe('completed')
+      expect(progress.alreadyExists).toBe(false)
+    })
+
+    it('single track duplicate (MVP backwards compatibility) -> settles as already-exists', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const runner = new AmdlCommandRunner({
+        taskId: 'task-single-dup',
+        url: 'https://music.apple.com/song',
+        mode: 'direct',
+        spawnProcess: spawnMock,
+        onProgress: () => {},
+      })
+
+      runner.start()
+      mockChild.stdout.emit('data', 'Track already exists locally.\n')
+      mockChild.stdout.emit(
+        'data',
+        '=======  [✔ ] Completed: 1/1  |  [⚠ ] Warnings: 0  |  [✖ ] Errors: 0  =======\n',
+      )
+      mockChild.emit('close', 0)
+
+      const progress = runner.getProgress()
+      expect(progress.state).toBe('already-exists')
+      expect(progress.alreadyExists).toBe(true)
+    })
+  })
 })
