@@ -476,6 +476,7 @@
     "urlPlaceholder": "https://music.apple.com/...",
     "startAction": "開始下載",
     "cancelAction": "取消下載",
+    "closeAction": "關閉",
     "showLogs": "查看日誌",
     "hideLogs": "收起日誌",
     "status": {

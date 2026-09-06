@@ -111,6 +111,7 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
       }
 
       currentTaskId.value = result.taskId
+      currentTask.value = null
       logs.value = []
 
       // Fetch initial status immediately to avoid race with initial progress

@@ -152,8 +152,14 @@ function toggleLogs(): void {
             <span class="download-status-dot" aria-hidden="true"></span>
             {{ statusBadge.text }}
           </span>
-          <span v-if="task?.message" class="download-status-msg" :title="task.message">
-            {{ task.message }}
+          <span
+            v-if="task?.state === 'failed' ? (task.error ?? task.message) : task?.message"
+            class="download-status-msg"
+            :title="
+              task?.state === 'failed' ? (task.error ?? task.message ?? '') : (task?.message ?? '')
+            "
+          >
+            {{ task?.state === 'failed' ? (task.error ?? task.message) : task?.message }}
           </span>
         </div>
 
@@ -189,7 +195,7 @@ function toggleLogs(): void {
 
         <div class="smart-playlist-dialog-actions download-dialog-actions">
           <button type="button" @click="emit('close')">
-            {{ t('sidebar.cancel') }}
+            {{ t('download.closeAction') }}
           </button>
           <button
             v-if="isRunning"

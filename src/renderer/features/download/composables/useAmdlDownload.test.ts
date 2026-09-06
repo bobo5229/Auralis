@@ -138,16 +138,31 @@ describe('useAmdlDownload', () => {
       .mockResolvedValueOnce({ ok: true, taskId: 'task-2' })
     mock.client.download.getStatus = vi.fn().mockResolvedValue(null)
 
-    const { currentTaskId, logs, startDownload } = useAmdlDownload({ client: mock.client })
+    const { currentTaskId, currentTask, logs, startDownload } = useAmdlDownload({
+      client: mock.client,
+    })
 
     await startDownload('https://music.apple.com/us/album/test/123?i=1')
     mock.emitLog({ taskId: 'task-1', stream: 'stdout', line: 'task 1 log' })
+    mock.emitProgress({
+      taskId: 'task-1',
+      url: 'https://music.apple.com/us/album/test/123?i=1',
+      state: 'completed',
+      stage: null,
+      alreadyExists: false,
+      message: 'Completed',
+      error: null,
+      startedAt: '2026-09-06T00:00:00Z',
+      finishedAt: '2026-09-06T00:00:01Z',
+    })
     expect(logs.value).toHaveLength(1)
+    expect(currentTask.value?.state).toBe('completed')
 
-    // Start second download
+    // Start second download - should clear old logs and old terminal state
     await startDownload('https://music.apple.com/us/album/test/123?i=2')
     expect(currentTaskId.value).toBe('task-2')
     expect(logs.value).toHaveLength(0)
+    expect(currentTask.value).toBeNull()
   })
 
   it('prevents starting a download while a task is running', async () => {

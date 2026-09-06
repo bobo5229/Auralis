@@ -476,6 +476,7 @@
     "urlPlaceholder": "https://music.apple.com/...",
     "startAction": "Start Download",
     "cancelAction": "Cancel Download",
+    "closeAction": "Close",
     "showLogs": "View Logs",
     "hideLogs": "Hide Logs",
     "status": {
