@@ -539,6 +539,100 @@ describe('AMDL Backend Core', () => {
       expect(cancelRes.ok).toBe(true)
       expect(mockChild.killed).toBe(true)
     })
+
+    it('startDownload defaults to direct mode, passing --aac without --select to spawn args', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const service = new AmdlDownloadService({ spawnProcess: spawnMock })
+      const res = service.startDownload('https://music.apple.com/song1')
+      expect(res.ok).toBe(true)
+
+      const spawnedArgs = spawnMock.mock.calls[0][1] as string[]
+      expect(spawnedArgs[7]).toContain('--aac')
+      expect(spawnedArgs[7]).not.toContain('--select')
+    })
+
+    it('startDownload with select mode passes --aac --select to spawn args', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const service = new AmdlDownloadService({ spawnProcess: spawnMock })
+      const res = service.startDownload('https://music.apple.com/album1', 'select')
+      expect(res.ok).toBe(true)
+
+      const spawnedArgs = spawnMock.mock.calls[0][1] as string[]
+      expect(spawnedArgs[7]).toContain('--aac --select')
+    })
+
+    it('forwards SelectionRequest upwards to onSelectionRequest callback', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+      const requests: AmdlSelectionRequest[] = []
+
+      const service = new AmdlDownloadService({
+        spawnProcess: spawnMock,
+        onSelectionRequest: (req) => requests.push(req),
+      })
+
+      const res = service.startDownload('https://music.apple.com/album1', 'select')
+      expect(res.ok).toBe(true)
+      const taskId = res.taskId!
+
+      mockChild.stdout.emit('data', '| 1 | Track 1 | None | SONG |\n')
+      mockChild.stdout.emit('data', 'Please select from the track options above\n')
+
+      expect(requests).toHaveLength(1)
+      expect(requests[0].taskId).toBe(taskId)
+      expect(requests[0].tracks).toEqual([{ index: 1, title: 'Track 1', type: 'SONG' }])
+    })
+
+    it('submitSelection delegates to active runner with correct taskId and writes to stdin', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const service = new AmdlDownloadService({ spawnProcess: spawnMock })
+      const res = service.startDownload('https://music.apple.com/album1', 'select')
+      expect(res.ok).toBe(true)
+      const taskId = res.taskId!
+
+      mockChild.stdout.emit('data', '| 1 | Track 1 | None | SONG |\n')
+      mockChild.stdout.emit('data', 'Please select from the track options above\n')
+
+      const submitRes = service.submitSelection(taskId, [1])
+      expect(submitRes.ok).toBe(true)
+      expect(mockChild.stdin.write).toHaveBeenCalledWith('1\n')
+    })
+
+    it('submitSelection rejects if taskId does not match activeTaskId', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const service = new AmdlDownloadService({ spawnProcess: spawnMock })
+      service.startDownload('https://music.apple.com/album1', 'select')
+
+      const submitRes = service.submitSelection('wrong-task-id', [1])
+      expect(submitRes.ok).toBe(false)
+      expect(submitRes.error).toContain('Task not found or not active')
+      expect(mockChild.stdin.write).not.toHaveBeenCalled()
+    })
+
+    it('selecting stage is considered an active download (isDownloadActive === true)', () => {
+      const mockChild = new MockChildProcess()
+      const spawnMock = vi.fn().mockReturnValue(mockChild as unknown as ChildProcess)
+
+      const service = new AmdlDownloadService({ spawnProcess: spawnMock })
+      service.startDownload('https://music.apple.com/album1', 'select')
+
+      mockChild.stdout.emit('data', '| 1 | Track 1 | None | SONG |\n')
+      mockChild.stdout.emit('data', 'Please select from the track options above\n')
+
+      expect(service.isDownloadActive()).toBe(true)
+
+      const secondStart = service.startDownload('https://music.apple.com/song2')
+      expect(secondStart.ok).toBe(false)
+      expect(secondStart.error).toContain('Another download task is currently active')
+    })
   })
 
   describe('7. Raw log forwarding', () => {

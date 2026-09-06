@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto'
-import type { AmdlLogEvent, AmdlTaskProgress } from '@shared/types/amdl'
+import type {
+  AmdlDownloadMode,
+  AmdlLogEvent,
+  AmdlSelectionRequest,
+  AmdlTaskProgress,
+} from '@shared/types/amdl'
 import { AmdlCommandRunner, type AmdlCommandConfig, type SpawnFactory } from './amdlCommandRunner'
 import { validateAppleMusicUrl } from './amdlUrlValidator'
 
@@ -8,6 +13,7 @@ export interface AmdlDownloadServiceOptions {
   spawnProcess?: SpawnFactory
   onProgress?: (progress: AmdlTaskProgress) => void
   onLog?: (event: AmdlLogEvent) => void
+  onSelectionRequest?: (request: AmdlSelectionRequest) => void
 }
 
 export class AmdlDownloadService {
@@ -17,12 +23,14 @@ export class AmdlDownloadService {
   private readonly spawnProcess?: SpawnFactory
   private readonly onProgressCallback?: (progress: AmdlTaskProgress) => void
   private readonly onLogCallback?: (event: AmdlLogEvent) => void
+  private readonly onSelectionRequestCallback?: (request: AmdlSelectionRequest) => void
 
   constructor(options: AmdlDownloadServiceOptions = {}) {
     this.config = options.config
     this.spawnProcess = options.spawnProcess
     this.onProgressCallback = options.onProgress
     this.onLogCallback = options.onLog
+    this.onSelectionRequestCallback = options.onSelectionRequest
   }
 
   isDownloadActive(): boolean {
@@ -35,7 +43,10 @@ export class AmdlDownloadService {
     return this.activeRunner ? this.activeRunner.getProgress() : null
   }
 
-  startDownload(rawUrl: string): { ok: boolean; taskId?: string; error?: string } {
+  startDownload(
+    rawUrl: string,
+    mode: AmdlDownloadMode = 'direct',
+  ): { ok: boolean; taskId?: string; error?: string } {
     if (this.isDownloadActive()) {
       return {
         ok: false,
@@ -55,6 +66,7 @@ export class AmdlDownloadService {
     const runner = new AmdlCommandRunner({
       taskId,
       url: validation.normalizedUrl,
+      mode,
       config: this.config,
       spawnProcess: this.spawnProcess,
       onProgress: (progress) => {
@@ -63,6 +75,9 @@ export class AmdlDownloadService {
       onLog: (event) => {
         this.onLogCallback?.(event)
       },
+      onSelectionRequest: (request) => {
+        this.onSelectionRequestCallback?.(request)
+      },
     })
 
     this.activeTaskId = taskId
@@ -70,6 +85,14 @@ export class AmdlDownloadService {
     runner.start()
 
     return { ok: true, taskId }
+  }
+
+  submitSelection(taskId: string, trackIndexes: number[]): { ok: boolean; error?: string } {
+    if (!this.activeRunner || this.activeTaskId !== taskId) {
+      return { ok: false, error: 'Task not found or not active' }
+    }
+
+    return this.activeRunner.submitSelection(trackIndexes)
   }
 
   cancelDownload(taskId: string): { ok: boolean; error?: string } {
