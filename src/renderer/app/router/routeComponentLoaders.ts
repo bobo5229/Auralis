@@ -1,6 +1,6 @@
 import type { RouteComponent } from 'vue-router'
 
-export type WarmableRouteName = 'albums' | 'archive' | 'settings'
+export type WarmableRouteName = 'albums' | 'archive' | 'settings' | 'download'
 
 export type RouteComponentModule = RouteComponent | { default: RouteComponent }
 export type RouteComponentLoader = () => Promise<RouteComponentModule>
@@ -21,6 +21,7 @@ export const rawRouteLoaders = {
   albumDetail: () => import('@renderer/features/albums/pages/AlbumDetailPage.vue'),
   archive: () => import('@renderer/features/archive/pages/ArchivePage.vue'),
   settings: () => import('@renderer/features/settings/pages/SettingsPage.vue'),
+  download: () => import('@renderer/features/download/pages/DownloadPage.vue'),
 } as const satisfies Record<string, RouteComponentLoader>
 
 export function createRouteLoaderRegistry(
@@ -54,12 +55,14 @@ export function createRouteLoaderRegistry(
     albumDetail: () => getOrLoad('albumDetail', loaders.albumDetail),
     archive: () => getOrLoad('archive', loaders.archive),
     settings: () => getOrLoad('settings', loaders.settings),
+    download: () => getOrLoad('download', loaders.download),
   }
 
   const warmableRouteMap: Record<WarmableRouteName, RouteComponentLoader> = {
     albums: routeLoaders.albums,
     archive: routeLoaders.archive,
     settings: routeLoaders.settings,
+    download: routeLoaders.download,
   }
 
   const isWarmableRoute = (name: unknown): name is WarmableRouteName =>

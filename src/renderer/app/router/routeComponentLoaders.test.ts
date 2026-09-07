@@ -17,11 +17,13 @@ describe('routeComponentLoaders', () => {
       albumDetail: vi.fn(),
       archive: vi.fn(),
       settings: vi.fn(),
+      download: vi.fn(),
     })
 
     expect(registry.isWarmableRoute('albums')).toBe(true)
     expect(registry.isWarmableRoute('archive')).toBe(true)
     expect(registry.isWarmableRoute('settings')).toBe(true)
+    expect(registry.isWarmableRoute('download')).toBe(true)
 
     expect(registry.isWarmableRoute('library')).toBe(false)
     expect(registry.isWarmableRoute('album-detail')).toBe(false)

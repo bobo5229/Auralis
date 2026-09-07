@@ -7,8 +7,6 @@ import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import { useRoute } from 'vue-router'
 import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
-import DownloadDialog from '@renderer/features/download/components/DownloadDialog.vue'
-import { useAmdlDownload } from '@renderer/features/download/composables/useAmdlDownload'
 import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
@@ -31,19 +29,6 @@ const router = useRouter()
 const playback = usePlayback()
 const { enterMiniPlayer } = usePlayerDisplayMode()
 const isFacetsDialogOpen = ref(false)
-const isDownloadDialogOpen = ref(false)
-const downloadTriggerElement = ref<HTMLElement | null>(null)
-const download = useAmdlDownload()
-
-function openDownloadDialog(event: MouseEvent): void {
-  downloadTriggerElement.value = event.currentTarget as HTMLElement
-  isDownloadDialogOpen.value = true
-  void download.refreshStatus()
-}
-
-function closeDownloadDialog(): void {
-  isDownloadDialogOpen.value = false
-}
 
 const playlistItems = ref<SidebarPlaylistItem[]>([])
 const libraryStats = ref<LibraryStats>({ trackCount: 0, albumCount: 0 })
@@ -635,15 +620,22 @@ onBeforeUnmount(() => {
           >
             <span class="i-lucide-list-filter"></span>
           </button>
-          <button
+          <RouterLink
+            to="/download"
             class="sidebar-tool-button"
-            type="button"
+            :class="{ 'sidebar-tool-button-active': activePath === '/download' }"
             :aria-label="t('sidebar.tool.downloadAction')"
             :title="t('sidebar.tool.download')"
-            @click="openDownloadDialog"
+            :draggable="false"
+            @dragstart.prevent
+            @pointerenter="onRouteIntent('download')"
+            @focusin="onRouteIntent('download')"
+            @pointerdown="setPendingActiveFromPointer($event, '/download')"
+            @keydown.enter="setPendingActive('/download')"
+            @keydown.space="setPendingActive('/download')"
           >
             <span class="i-lucide-cloud-download"></span>
-          </button>
+          </RouterLink>
           <button
             class="sidebar-tool-button"
             type="button"
@@ -914,23 +906,6 @@ onBeforeUnmount(() => {
         </section>
       </div>
 
-      <DownloadDialog
-        :open="isDownloadDialogOpen"
-        :task="download.currentTask.value"
-        :logs="download.logs.value"
-        :is-starting="download.isStarting.value"
-        :start-error="download.startError.value"
-        :selection-request="download.selectionRequest.value"
-        :selection-error="download.selectionError.value"
-        :is-submitting-selection="download.isSubmittingSelection.value"
-        :selection-submitted="download.selectionSubmitted.value"
-        :presentation="presentation"
-        :trigger-element="downloadTriggerElement"
-        @close="closeDownloadDialog"
-        @start="download.startDownload"
-        @submit-selection="download.submitSelection"
-        @cancel="download.cancelDownload"
-      />
     </Teleport>
   </aside>
 </template>

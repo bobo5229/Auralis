@@ -284,8 +284,10 @@ function createApi(): AuralisApi {
       start: vi.fn(),
       cancel: vi.fn(),
       getStatus: vi.fn(),
+      submitSelection: vi.fn(),
       onProgress: vi.fn(),
       onLog: vi.fn(),
+      onSelectionRequest: vi.fn(),
     },
   }
 }

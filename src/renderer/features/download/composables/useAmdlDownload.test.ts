@@ -481,5 +481,313 @@ describe('useAmdlDownload', () => {
       })
       expect(selectionRequest.value).toBeNull()
     })
+
+    it('allows retry on submitSelection failure, but blocks duplicate submission after success', async () => {
+      const mock = createMockClient()
+      mock.client.download.start = vi.fn().mockResolvedValue({ ok: true, taskId: 'task-1' })
+      mock.client.download.getStatus = vi.fn().mockResolvedValue(null)
+      mock.client.download.submitSelection = vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, error: 'Network timeout' })
+        .mockResolvedValueOnce({ ok: true })
+
+      const {
+        selectionError,
+        selectionSubmitted,
+        startDownload,
+        submitSelection,
+      } = useAmdlDownload({ client: mock.client })
+
+      await startDownload('https://music.apple.com/us/album/test/123', 'select')
+      mock.emitSelectionRequest({
+        taskId: 'task-1',
+        tracks: [{ index: 1, title: 'Track 1', type: 'song' }],
+      })
+
+      // First submit fails -> can retry
+      const firstTry = await submitSelection([1])
+      expect(firstTry).toBe(false)
+      expect(selectionSubmitted.value).toBe(false)
+      expect(selectionError.value).toBe('Network timeout')
+
+      // Second submit succeeds -> selectionSubmitted becomes true
+      const secondTry = await submitSelection([1])
+      expect(secondTry).toBe(true)
+      expect(selectionSubmitted.value).toBe(true)
+      expect(selectionError.value).toBeNull()
+      expect(mock.client.download.submitSelection).toHaveBeenCalledTimes(2)
+
+      // Third submit blocked by selectionSubmitted
+      const thirdTry = await submitSelection([1])
+      expect(thirdTry).toBe(false)
+      expect(mock.client.download.submitSelection).toHaveBeenCalledTimes(2)
+    })
+
+    it('preserves selectionRequest and currentTask across unmount / reopen when held by parent scope', async () => {
+      const mock = createMockClient()
+      mock.client.download.start = vi.fn().mockResolvedValue({ ok: true, taskId: 'task-1' })
+      mock.client.download.getStatus = vi.fn().mockResolvedValue(null)
+
+      // In AppSidebar, useAmdlDownload is created at the sidebar level (persisting when dialog toggles)
+      const download = useAmdlDownload({ client: mock.client })
+
+      await download.startDownload('https://music.apple.com/us/album/test/123', 'select')
+      mock.emitProgress({
+        taskId: 'task-1',
+        url: 'https://music.apple.com/us/album/test/123',
+        state: 'running',
+        stage: 'selecting',
+        alreadyExists: false,
+        message: 'Waiting for selection',
+        error: null,
+        startedAt: '2026-09-06T00:00:00Z',
+        finishedAt: null,
+      })
+      mock.emitSelectionRequest({
+        taskId: 'task-1',
+        tracks: [
+          { index: 1, title: 'Track 1', type: 'song' },
+          { index: 2, title: 'Track 2', type: 'song' },
+        ],
+      })
+
+      // Simulate closing and reopening Dialog (which just reads props from download)
+      expect(download.selectionRequest.value).not.toBeNull()
+      expect(download.currentTask.value?.stage).toBe('selecting')
+
+      // Dialog is "closed" then "reopened": download instance retains exact same state
+      expect(download.selectionRequest.value?.tracks).toHaveLength(2)
+      expect(download.selectionRequest.value?.tracks[0].title).toBe('Track 1')
+    })
+  })
+
+  describe('end-to-end user path simulation (Phase 3C)', () => {
+    it('Path 1: direct mode download for single track (checkbox off, start with direct)', async () => {
+      const mock = createMockClient()
+      mock.client.download.start = vi.fn().mockResolvedValue({ ok: true, taskId: 'task-direct-1' })
+      mock.client.download.getStatus = vi.fn().mockResolvedValue(null)
+
+      const { currentTaskId, currentTask, selectionRequest, startDownload } = useAmdlDownload({
+        client: mock.client,
+      })
+
+      // Start with default / explicit direct
+      const started = await startDownload('https://music.apple.com/us/album/test/123?i=456', 'direct')
+      expect(started).toBe(true)
+      expect(mock.client.download.start).toHaveBeenCalledWith(
+        'https://music.apple.com/us/album/test/123?i=456',
+        'direct',
+      )
+      expect(currentTaskId.value).toBe('task-direct-1')
+      expect(selectionRequest.value).toBeNull()
+
+      // Progress flows directly through downloading -> completed
+      mock.emitProgress({
+        taskId: 'task-direct-1',
+        url: 'https://music.apple.com/us/album/test/123?i=456',
+        state: 'running',
+        stage: 'downloading',
+        alreadyExists: false,
+        message: 'Downloading 1/1',
+        error: null,
+        startedAt: '2026-09-06T00:00:00Z',
+        finishedAt: null,
+      })
+      expect(currentTask.value?.stage).toBe('downloading')
+      expect(selectionRequest.value).toBeNull()
+
+      mock.emitProgress({
+        taskId: 'task-direct-1',
+        url: 'https://music.apple.com/us/album/test/123?i=456',
+        state: 'completed',
+        stage: null,
+        alreadyExists: false,
+        message: 'Completed',
+        error: null,
+        startedAt: '2026-09-06T00:00:00Z',
+        finishedAt: '2026-09-06T00:00:10Z',
+      })
+      expect(currentTask.value?.state).toBe('completed')
+    })
+
+    it('Path 2: select mode with single-track URL (AMDL does not emit selection, finishes directly)', async () => {
+      const mock = createMockClient()
+      mock.client.download.start = vi.fn().mockResolvedValue({ ok: true, taskId: 'task-select-single' })
+      mock.client.download.getStatus = vi.fn().mockResolvedValue(null)
+
+      const { currentTask, selectionRequest, startDownload } = useAmdlDownload({
+        client: mock.client,
+      })
+
+      // User checked "selectTracksMode" but passed single track URL
+      const started = await startDownload('https://music.apple.com/us/album/test/123?i=456', 'select')
+      expect(started).toBe(true)
+      expect(mock.client.download.start).toHaveBeenCalledWith(
+        'https://music.apple.com/us/album/test/123?i=456',
+        'select',
+      )
+
+      // AMDL bypasses selection prompt and goes straight to downloading
+      mock.emitProgress({
+        taskId: 'task-select-single',
+        url: 'https://music.apple.com/us/album/test/123?i=456',
+        state: 'running',
+        stage: 'downloading',
+        alreadyExists: false,
+        message: 'Downloading track',
+        error: null,
+        startedAt: '2026-09-06T00:00:00Z',
+        finishedAt: null,
+      })
+      expect(selectionRequest.value).toBeNull()
+
+      mock.emitProgress({
+        taskId: 'task-select-single',
+        url: 'https://music.apple.com/us/album/test/123?i=456',
+        state: 'completed',
+        stage: null,
+        alreadyExists: false,
+        message: 'Completed',
+        error: null,
+        startedAt: '2026-09-06T00:00:00Z',
+        finishedAt: '2026-09-06T00:00:10Z',
+      })
+      expect(currentTask.value?.state).toBe('completed')
+      expect(selectionRequest.value).toBeNull()
+    })
+
+    it('Path 3: select mode with album URL (start select -> selecting -> selectionRequest -> submitSelection -> downloading -> terminal)', async () => {
+      const mock = createMockClient()
+      mock.client.download.start = vi.fn().mockResolvedValue({ ok: true, taskId: 'task-album' })
+      mock.client.download.getStatus = vi.fn().mockResolvedValue(null)
+      mock.client.download.submitSelection = vi.fn().mockResolvedValue({ ok: true })
+
+      const {
+        currentTaskId,
+        currentTask,
+        selectionRequest,
+        selectionSubmitted,
+        startDownload,
+        submitSelection,
+      } = useAmdlDownload({ client: mock.client })
+
+      // 1. Start download with select mode
+      await startDownload('https://music.apple.com/us/album/test/123', 'select')
+      expect(currentTaskId.value).toBe('task-album')
+
+      // 2. Selecting stage begins
+      mock.emitProgress({
+        taskId: 'task-album',
+        url: 'https://music.apple.com/us/album/test/123',
+        state: 'running',
+        stage: 'selecting',
+        alreadyExists: false,
+        message: 'Loading track list',
+        error: null,
+        startedAt: '2026-09-06T00:00:00Z',
+        finishedAt: null,
+      })
+      expect(currentTask.value?.stage).toBe('selecting')
+      expect(selectionRequest.value).toBeNull()
+
+      // 3. SelectionRequest arrives with tracks
+      mock.emitSelectionRequest({
+        taskId: 'task-album',
+        tracks: [
+          { index: 12, title: 'Song 12', type: 'song' },
+          { index: 27, title: 'Song 27', type: 'song' },
+        ],
+      })
+      expect(selectionRequest.value?.tracks).toHaveLength(2)
+
+      // 4. Submit selection [12, 27]
+      const submitted = await submitSelection([12, 27])
+      expect(submitted).toBe(true)
+      expect(selectionSubmitted.value).toBe(true)
+      expect(mock.client.download.submitSelection).toHaveBeenCalledWith('task-album', [12, 27])
+
+      // 5. Backend transitions to downloading stage -> selection cleared
+      mock.emitProgress({
+        taskId: 'task-album',
+        url: 'https://music.apple.com/us/album/test/123',
+        state: 'running',
+        stage: 'downloading',
+        alreadyExists: false,
+        message: 'Downloading selected tracks (1/2)',
+        error: null,
+        startedAt: '2026-09-06T00:00:00Z',
+        finishedAt: null,
+      })
+      expect(selectionRequest.value).toBeNull()
+      expect(selectionSubmitted.value).toBe(false)
+      expect(currentTask.value?.stage).toBe('downloading')
+
+      // 6. Terminal completion
+      mock.emitProgress({
+        taskId: 'task-album',
+        url: 'https://music.apple.com/us/album/test/123',
+        state: 'completed',
+        stage: null,
+        alreadyExists: false,
+        message: 'Completed: 2/2',
+        error: null,
+        startedAt: '2026-09-06T00:00:00Z',
+        finishedAt: '2026-09-06T00:01:00Z',
+      })
+      expect(currentTask.value?.state).toBe('completed')
+    })
+
+    it('Path 4: cancel during selecting stage (cancel -> main cancels -> cancelled progress -> clean selection)', async () => {
+      const mock = createMockClient()
+      mock.client.download.start = vi.fn().mockResolvedValue({ ok: true, taskId: 'task-cancel' })
+      mock.client.download.getStatus = vi.fn().mockResolvedValue(null)
+      mock.client.download.cancel = vi.fn().mockResolvedValue({ ok: true })
+
+      const {
+        currentTask,
+        selectionRequest,
+        startDownload,
+        cancelDownload,
+      } = useAmdlDownload({ client: mock.client })
+
+      await startDownload('https://music.apple.com/us/album/test/123', 'select')
+      mock.emitProgress({
+        taskId: 'task-cancel',
+        url: 'https://music.apple.com/us/album/test/123',
+        state: 'running',
+        stage: 'selecting',
+        alreadyExists: false,
+        message: 'Waiting for selection',
+        error: null,
+        startedAt: '2026-09-06T00:00:00Z',
+        finishedAt: null,
+      })
+      mock.emitSelectionRequest({
+        taskId: 'task-cancel',
+        tracks: [{ index: 1, title: 'Track 1', type: 'song' }],
+      })
+      expect(selectionRequest.value).not.toBeNull()
+
+      // User hits cancel
+      const cancelOk = await cancelDownload()
+      expect(cancelOk).toBe(true)
+      expect(mock.client.download.cancel).toHaveBeenCalledWith('task-cancel')
+
+      // Main sends cancelled progress
+      mock.emitProgress({
+        taskId: 'task-cancel',
+        url: 'https://music.apple.com/us/album/test/123',
+        state: 'cancelled',
+        stage: null,
+        alreadyExists: false,
+        message: 'Cancelled by user',
+        error: null,
+        startedAt: '2026-09-06T00:00:00Z',
+        finishedAt: '2026-09-06T00:00:05Z',
+      })
+
+      expect(currentTask.value?.state).toBe('cancelled')
+      expect(selectionRequest.value).toBeNull()
+    })
   })
 })

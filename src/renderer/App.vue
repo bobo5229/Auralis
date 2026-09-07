@@ -14,6 +14,7 @@ import { useSystemMediaIntegration } from '@renderer/features/playback/composabl
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { resolveShellPresentation } from './app/utils/shellPresentation'
 import { resolvePlayerSurfacePresentation } from './app/utils/playerSurfacePresentation'
+import { provideAmdlDownload } from '@renderer/features/download/composables/downloadContext'
 import type { CSSProperties } from 'vue'
 import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import './app/styles/manuscript.shell.css'
@@ -22,6 +23,7 @@ import './app/styles/manuscript.player-overlays.css'
 
 const route = useRoute()
 const { visualStyle } = useVisualStyle()
+provideAmdlDownload()
 useSystemMediaIntegration()
 useDesktopLyricsSync()
 const { displayMode, onMiniPlayerWindowStateChanged, syncMiniPlayerWindowState } =

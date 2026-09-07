@@ -202,7 +202,7 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
       return false
     }
 
-    if (isSubmittingSelection.value) {
+    if (selectionSubmitted.value || isSubmittingSelection.value) {
       return false
     }
 

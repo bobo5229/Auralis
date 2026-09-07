@@ -36,5 +36,11 @@ export const router = createRouter({
       component: routeLoaders.settings,
       meta: { title: 'Settings' },
     },
+    {
+      path: '/download',
+      name: 'download',
+      component: routeLoaders.download,
+      meta: { title: 'Download' },
+    },
   ],
 })

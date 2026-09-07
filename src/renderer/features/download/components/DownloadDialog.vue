@@ -44,7 +44,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const inputUrl = ref('')
-const selectTracksMode = ref(false)
+const selectedMode = ref<AmdlDownloadMode>('direct')
 const selectedTrackIndexes = ref<number[]>([])
 const showLogs = ref(false)
 const dialogRef = ref<HTMLElement | null>(null)
@@ -133,9 +133,14 @@ const statusBadge = computed(() => {
   return { text: t('download.status.preparing'), class: 'download-status--running' }
 })
 
+function setMode(mode: AmdlDownloadMode): void {
+  if (props.isStarting || isRunning.value) return
+  selectedMode.value = mode
+}
+
 function onSubmit(): void {
   if (!canSubmit.value) return
-  emit('start', inputUrl.value.trim(), selectTracksMode.value ? 'select' : 'direct')
+  emit('start', inputUrl.value.trim(), selectedMode.value)
 }
 
 function onCancel(): void {
@@ -196,9 +201,12 @@ function onSubmitSelection(): void {
       aria-modal="true"
       :aria-label="t('download.title')"
     >
-      <h2>{{ t('download.title') }}</h2>
+      <div class="download-dialog-header">
+        <h2>{{ t('download.title') }}</h2>
+      </div>
 
       <form @submit.prevent="onSubmit">
+        <!-- Field 1: Apple Music URL Input -->
         <div class="download-dialog-field">
           <label class="download-dialog-label" for="amdl-url-input">
             {{ t('download.urlLabel') }}
@@ -216,24 +224,56 @@ function onSubmitSelection(): void {
           />
         </div>
 
-        <!-- Select Mode Checkbox (before download starts) -->
-        <div v-if="!isRunning" class="download-mode-option">
-          <label class="download-mode-checkbox-label">
-            <input
-              v-model="selectTracksMode"
-              type="checkbox"
-              class="download-mode-checkbox"
-              :disabled="isStarting"
-            />
-            <span>{{ t('download.selectTracksCheckbox') }}</span>
+        <!-- Field 2: Download Mode Selection Cards -->
+        <div v-if="!isRunning" class="download-dialog-field">
+          <label class="download-dialog-label">
+            {{ t('download.modeLabel') }}
           </label>
+          <div class="download-mode-grid" role="radiogroup" :aria-label="t('download.modeLabel')">
+            <button
+              type="button"
+              class="download-mode-card"
+              :class="{ 'download-mode-card--selected': selectedMode === 'direct' }"
+              :disabled="isStarting"
+              role="radio"
+              :aria-checked="selectedMode === 'direct'"
+              @click="setMode('direct')"
+            >
+              <div class="download-mode-card-radio">
+                <span class="download-mode-dot" aria-hidden="true"></span>
+              </div>
+              <div class="download-mode-card-content">
+                <span class="download-mode-card-title">{{ t('download.modeDirect') }}</span>
+                <span class="download-mode-card-desc">{{ t('download.modeDirectDesc') }}</span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              class="download-mode-card"
+              :class="{ 'download-mode-card--selected': selectedMode === 'select' }"
+              :disabled="isStarting"
+              role="radio"
+              :aria-checked="selectedMode === 'select'"
+              @click="setMode('select')"
+            >
+              <div class="download-mode-card-radio">
+                <span class="download-mode-dot" aria-hidden="true"></span>
+              </div>
+              <div class="download-mode-card-content">
+                <span class="download-mode-card-title">{{ t('download.modeSelect') }}</span>
+                <span class="download-mode-card-desc">{{ t('download.modeSelectDesc') }}</span>
+              </div>
+            </button>
+          </div>
         </div>
 
+        <!-- General Start / Launch Error -->
         <p v-if="startError" class="smart-playlist-dialog-error">
           {{ startError }}
         </p>
 
-        <!-- Status Indicator while running or terminal -->
+        <!-- Status Card (running, terminal, or between steps) -->
         <div v-if="statusBadge" class="download-status-card">
           <span class="download-status-badge" :class="statusBadge.class">
             <span class="download-status-dot" aria-hidden="true"></span>
@@ -250,24 +290,32 @@ function onSubmitSelection(): void {
           </span>
         </div>
 
-        <!-- Selecting Stage: Loading tracks placeholder -->
+        <!-- Selecting Stage 1: Loading selectable tracks -->
         <div
           v-if="isSelectingStage && !selectionRequest && !selectionSubmitted"
-          class="download-selection-loading"
+          class="download-state-panel download-state-panel--loading"
         >
-          <span class="download-selection-spinner" aria-hidden="true"></span>
-          <span>{{ t('download.loadingTracks') }}</span>
+          <span class="download-spinner" aria-hidden="true"></span>
+          <div class="download-state-text">
+            <span class="download-state-title">{{ t('download.loadingTracks') }}</span>
+            <span class="download-state-hint">{{ t('download.selectTracksHint') }}</span>
+          </div>
         </div>
 
-        <!-- Selecting Stage: Interactive Track Table -->
+        <!-- Selecting Stage 2: Interactive Track Selection List -->
         <div
           v-if="isSelectingStage && selectionRequest && !selectionSubmitted"
           class="download-selection-section"
         >
           <div class="download-selection-header">
-            <span class="download-selection-count">
-              {{ t('download.selectedCount', { count: selectedTrackIndexes.length }) }}
-            </span>
+            <div class="download-selection-count-group">
+              <span class="download-selection-count-badge">
+                {{ selectedTrackIndexes.length }}
+              </span>
+              <span class="download-selection-count-label">
+                {{ t('download.selectedCount', { count: selectedTrackIndexes.length }) }}
+              </span>
+            </div>
             <div class="download-selection-tools">
               <button
                 type="button"
@@ -277,7 +325,7 @@ function onSubmitSelection(): void {
               >
                 {{ t('download.selectAll') }}
               </button>
-              <span class="download-selection-separator">|</span>
+              <span class="download-selection-separator" aria-hidden="true">/</span>
               <button
                 type="button"
                 class="download-selection-tool-btn"
@@ -315,13 +363,19 @@ function onSubmitSelection(): void {
           </p>
         </div>
 
-        <!-- Selecting Stage: Submitted state banner -->
-        <div v-if="isSelectingStage && selectionSubmitted" class="download-selection-submitted">
-          <span class="download-selection-spinner" aria-hidden="true"></span>
-          <span>{{ t('download.selectionSubmitted') }}</span>
+        <!-- Selecting Stage 3: Selection submitted banner -->
+        <div
+          v-if="isSelectingStage && selectionSubmitted"
+          class="download-state-panel download-state-panel--submitted"
+        >
+          <span class="download-spinner" aria-hidden="true"></span>
+          <div class="download-state-text">
+            <span class="download-state-title">{{ t('download.submittingSelection') }}</span>
+            <span class="download-state-hint">{{ t('download.selectionSubmitted') }}</span>
+          </div>
         </div>
 
-        <!-- Log Drawer Toggle -->
+        <!-- Log Viewer Collapsible -->
         <div v-if="logs.length > 0" class="download-logs-section">
           <button
             type="button"
@@ -351,14 +405,16 @@ function onSubmitSelection(): void {
           </div>
         </div>
 
+        <!-- Dialog Footer Action Buttons -->
         <div class="smart-playlist-dialog-actions download-dialog-actions">
-          <button type="button" @click="emit('close')">
+          <button type="button" class="download-action-btn" @click="emit('close')">
             {{ t('download.closeAction') }}
           </button>
+
           <template v-if="isSelectingStage && selectionRequest && !selectionSubmitted">
             <button
               type="button"
-              class="download-btn-cancel smart-playlist-dialog-danger"
+              class="download-action-btn download-btn-cancel smart-playlist-dialog-danger"
               :disabled="isSubmittingSelection"
               @click="onCancel"
             >
@@ -366,24 +422,30 @@ function onSubmitSelection(): void {
             </button>
             <button
               type="button"
-              class="smart-playlist-dialog-primary"
+              class="download-action-btn smart-playlist-dialog-primary"
               :disabled="selectedTrackIndexes.length === 0 || isSubmittingSelection"
               @click="onSubmitSelection"
             >
               {{ t('download.downloadSelected') }}
             </button>
           </template>
+
           <template v-else-if="isRunning">
             <button
               type="button"
-              class="download-btn-cancel smart-playlist-dialog-danger"
+              class="download-action-btn download-btn-cancel smart-playlist-dialog-danger"
               @click="onCancel"
             >
               {{ t('download.cancelAction') }}
             </button>
           </template>
+
           <template v-else>
-            <button type="submit" class="smart-playlist-dialog-primary" :disabled="!canSubmit">
+            <button
+              type="submit"
+              class="download-action-btn smart-playlist-dialog-primary"
+              :disabled="!canSubmit"
+            >
               {{ t('download.startAction') }}
             </button>
           </template>
@@ -395,31 +457,153 @@ function onSubmitSelection(): void {
 
 <style scoped>
 .download-dialog {
-  width: min(440px, calc(100vw - 48px));
+  width: min(480px, calc(100vw - 48px));
+  background: var(--auralis-dialog-bg, #181c1f);
+  border: 1px solid var(--auralis-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.download-dialog-header {
+  margin-bottom: 16px;
+}
+
+.download-dialog-header h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--auralis-text, #f1f5f9);
+  letter-spacing: -0.01em;
 }
 
 .download-dialog-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .download-dialog-label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--auralis-text-muted);
+  color: var(--auralis-text-muted, #94a3b8);
 }
 
+.download-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--auralis-border-subtle, rgba(255, 255, 255, 0.1));
+  background: var(--auralis-control-bg, rgba(255, 255, 255, 0.04));
+  color: var(--auralis-text, #f1f5f9);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 150ms ease, background-color 150ms ease;
+}
+
+.download-input:focus {
+  border-color: var(--auralis-focus-ring, #38bdf8);
+  background: var(--auralis-control-hover-bg, rgba(255, 255, 255, 0.06));
+}
+
+.download-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Option Cards for Mode Selection */
+.download-mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.download-mode-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--auralis-border-subtle, rgba(255, 255, 255, 0.08));
+  background: var(--auralis-control-bg, rgba(255, 255, 255, 0.03));
+  text-align: left;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.download-mode-card:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: var(--auralis-control-hover-bg, rgba(255, 255, 255, 0.06));
+}
+
+.download-mode-card:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.download-mode-card--selected {
+  border-color: var(--auralis-focus-ring, #38bdf8);
+  background: color-mix(in srgb, var(--auralis-focus-ring, #38bdf8) 8%, var(--auralis-control-bg, rgba(255, 255, 255, 0.03)));
+}
+
+.download-mode-card-radio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 1.5px solid var(--auralis-text-muted, #94a3b8);
+  flex-shrink: 0;
+  transition: border-color 140ms ease;
+}
+
+.download-mode-card--selected .download-mode-card-radio {
+  border-color: var(--auralis-focus-ring, #38bdf8);
+}
+
+.download-mode-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background-color 140ms ease;
+}
+
+.download-mode-card--selected .download-mode-dot {
+  background: var(--auralis-focus-ring, #38bdf8);
+}
+
+.download-mode-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.download-mode-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--auralis-text, #f1f5f9);
+}
+
+.download-mode-card-desc {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--auralis-text-muted, #94a3b8);
+}
+
+/* Status Indicator Card */
 .download-status-card {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 14px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--auralis-dialog-bg) 80%, black 20%);
-  border: 1px solid var(--auralis-border-subtle);
+  gap: 10px;
+  padding: 9px 12px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--auralis-dialog-bg, #181c1f) 85%, black 15%);
+  border: 1px solid var(--auralis-border-subtle, rgba(255, 255, 255, 0.08));
   font-size: 12px;
 }
 
@@ -432,8 +616,8 @@ function onSubmitSelection(): void {
 }
 
 .download-status-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: currentColor;
 }
@@ -455,7 +639,7 @@ function onSubmitSelection(): void {
 }
 
 .download-status--neutral {
-  color: var(--auralis-text-muted);
+  color: var(--auralis-text-muted, #94a3b8);
 }
 
 .download-status-msg {
@@ -463,12 +647,187 @@ function onSubmitSelection(): void {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--auralis-text-muted);
+  color: var(--auralis-text-muted, #94a3b8);
   font-size: 11px;
 }
 
+/* State Panel (Loading & Submitted) */
+.download-state-panel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--auralis-dialog-bg, #181c1f) 90%, black 10%);
+  border: 1px solid var(--auralis-border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.download-state-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.download-state-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--auralis-text, #f1f5f9);
+}
+
+.download-state-hint {
+  font-size: 11px;
+  color: var(--auralis-text-muted, #94a3b8);
+}
+
+.download-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--auralis-border-subtle, rgba(255, 255, 255, 0.15));
+  border-top-color: var(--auralis-focus-ring, #38bdf8);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: download-spin 750ms linear infinite;
+}
+
+@keyframes download-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Interactive Track Selection Section */
+.download-selection-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.download-selection-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.download-selection-count-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.download-selection-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--auralis-focus-ring, #38bdf8) 20%, transparent);
+  color: var(--auralis-focus-ring, #38bdf8);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.download-selection-count-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--auralis-text, #f1f5f9);
+}
+
+.download-selection-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.download-selection-tool-btn {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--auralis-text-muted, #94a3b8);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.download-selection-tool-btn:hover:not(:disabled) {
+  color: var(--auralis-text, #f1f5f9);
+  background: var(--auralis-control-hover-bg, rgba(255, 255, 255, 0.06));
+}
+
+.download-selection-tool-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.download-selection-separator {
+  font-size: 11px;
+  color: var(--auralis-text-muted, #94a3b8);
+  opacity: 0.3;
+}
+
+.download-tracks-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid var(--auralis-border-subtle, rgba(255, 255, 255, 0.08));
+  background: color-mix(in srgb, var(--auralis-dialog-bg, #181c1f) 75%, black 25%);
+  scrollbar-width: thin;
+}
+
+.download-track-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--auralis-border-subtle, rgba(255, 255, 255, 0.08)) 50%, transparent);
+  transition: background-color 100ms ease;
+}
+
+.download-track-row:last-child {
+  border-bottom: none;
+}
+
+.download-track-row:hover {
+  background: var(--auralis-control-hover-bg, rgba(255, 255, 255, 0.05));
+}
+
+.download-track-row--selected {
+  background: color-mix(in srgb, var(--auralis-focus-ring, #38bdf8) 12%, transparent);
+}
+
+.download-track-checkbox {
+  accent-color: var(--auralis-focus-ring, #38bdf8);
+  cursor: pointer;
+}
+
+.download-track-index {
+  font-size: 11px;
+  min-width: 22px;
+  font-weight: 600;
+  color: var(--auralis-text-muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
+}
+
+.download-track-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--auralis-text, #f1f5f9);
+}
+
+/* Logs Drawer */
 .download-logs-section {
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .download-logs-toggle {
@@ -479,13 +838,13 @@ function onSubmitSelection(): void {
   background: transparent;
   border: none;
   font-size: 12px;
-  color: var(--auralis-text-muted);
+  color: var(--auralis-text-muted, #94a3b8);
   cursor: pointer;
   transition: color 150ms ease;
 }
 
 .download-logs-toggle:hover {
-  color: var(--auralis-text);
+  color: var(--auralis-text, #f1f5f9);
 }
 
 .download-logs-count {
@@ -495,17 +854,18 @@ function onSubmitSelection(): void {
 
 .download-logs-viewer {
   margin-top: 6px;
-  max-height: 160px;
+  max-height: 150px;
   overflow-y: auto;
   padding: 8px 10px;
-  border-radius: 6px;
-  background: #0f172a;
+  border-radius: 8px;
+  background: #0b0f17;
   color: #94a3b8;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 11px;
   line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-all;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .download-log-line {
@@ -520,165 +880,20 @@ function onSubmitSelection(): void {
   color: #cbd5e1;
 }
 
+/* Action Buttons */
 .download-dialog-actions {
-  margin-top: 16px;
-}
-
-.download-mode-option {
-  margin-top: -4px;
-  margin-bottom: 12px;
-}
-
-.download-mode-checkbox-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--auralis-text-muted);
-  cursor: pointer;
-  user-select: none;
-}
-
-.download-mode-checkbox-label:hover {
-  color: var(--auralis-text);
-}
-
-.download-mode-checkbox {
-  accent-color: var(--auralis-accent, #38bdf8);
-  cursor: pointer;
-}
-
-.download-selection-loading,
-.download-selection-submitted {
   display: flex;
-  align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  margin-top: 14px;
-  padding: 10px 12px;
+  margin-top: 18px;
+}
+
+.download-action-btn {
+  padding: 7px 14px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--auralis-dialog-bg) 80%, black 20%);
-  border: 1px solid var(--auralis-border-subtle);
-  font-size: 12px;
-  color: var(--auralis-text-muted);
-}
-
-.download-selection-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--auralis-border-subtle);
-  border-top-color: #38bdf8;
-  border-radius: 50%;
-  animation: download-spin 800ms linear infinite;
-}
-
-@keyframes download-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.download-selection-section {
-  margin-top: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.download-selection-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-}
-
-.download-selection-count {
-  font-weight: 600;
-  color: var(--auralis-text);
-}
-
-.download-selection-tools {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.download-selection-tool-btn {
-  background: transparent;
-  border: none;
-  padding: 0;
-  font-size: 11px;
-  color: var(--auralis-text-muted);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.download-selection-tool-btn:hover:not(:disabled) {
-  color: var(--auralis-text);
-}
-
-.download-selection-tool-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
-  text-decoration: none;
-}
-
-.download-selection-separator {
-  font-size: 10px;
-  color: var(--auralis-text-muted);
-  opacity: 0.5;
-}
-
-.download-tracks-list {
-  max-height: 200px;
-  overflow-y: auto;
-  border-radius: 6px;
-  border: 1px solid var(--auralis-border-subtle);
-  background: color-mix(in srgb, var(--auralis-dialog-bg) 70%, black 30%);
-}
-
-.download-track-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  font-size: 12px;
-  cursor: pointer;
-  user-select: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
-  transition: background-color 120ms ease;
-}
-
-.download-track-row:last-child {
-  border-bottom: none;
-}
-
-.download-track-row:hover {
-  background: var(--auralis-control-hover-bg, rgba(255, 255, 255, 0.05));
-}
-
-.download-track-row--selected {
-  background: color-mix(in srgb, var(--auralis-accent, #38bdf8) 12%, transparent);
-}
-
-.download-track-checkbox {
-  accent-color: var(--auralis-accent, #38bdf8);
-  cursor: pointer;
-}
-
-.download-track-index {
-  font-size: 11px;
-  min-width: 20px;
-  font-weight: 600;
-  color: var(--auralis-text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.download-track-title {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--auralis-text);
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 120ms ease;
 }
 </style>
+
