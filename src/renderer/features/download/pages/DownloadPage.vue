@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AmdlDownloadMode } from '@shared/types/amdl'
 import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
@@ -137,19 +137,10 @@ const taskStatus = computed(() => {
 })
 
 /**
- * Phase B3: 曲目选择交互逻辑
+ * Phase B3: 曲目选择交互逻辑（由 App session download context 持久化）
  */
-const selectedTrackIndexes = ref<number[]>([])
-
-// 当新的选曲请求到达时，重置本地已勾选索引
-watch(
-  () => download.selectionRequest.value,
-  (req) => {
-    if (!req) {
-      selectedTrackIndexes.value = []
-    }
-  },
-)
+const { selectedTrackIndexes, toggleTrack, selectAllTracks, clearAllTracks, isTrackSelected } =
+  download
 
 const isSelectingStage = computed(() => {
   return (
@@ -165,35 +156,6 @@ const canSubmitSelection = computed(() => {
     !download.selectionSubmitted.value
   )
 })
-
-function isTrackSelected(index: number): boolean {
-  return selectedTrackIndexes.value.includes(index)
-}
-
-function toggleTrack(index: number): void {
-  if (download.selectionSubmitted.value || download.isSubmittingSelection.value) return
-  const current = selectedTrackIndexes.value
-  if (current.includes(index)) {
-    selectedTrackIndexes.value = current.filter((i) => i !== index)
-  } else {
-    selectedTrackIndexes.value = [...current, index].sort((a, b) => a - b)
-  }
-}
-
-function selectAllTracks(): void {
-  if (
-    download.selectionSubmitted.value ||
-    download.isSubmittingSelection.value ||
-    !download.selectionRequest.value
-  )
-    return
-  selectedTrackIndexes.value = download.selectionRequest.value.tracks.map((t) => t.index)
-}
-
-function clearAllTracks(): void {
-  if (download.selectionSubmitted.value || download.isSubmittingSelection.value) return
-  selectedTrackIndexes.value = []
-}
 
 async function onSubmitSelection(): Promise<void> {
   if (!canSubmitSelection.value) return
@@ -567,18 +529,6 @@ defineExpose({
   min-height: 100%;
   margin: 0 auto;
   padding: 38px 36px var(--auralis-playbar-safe-area);
-  animation: download-page-enter 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-@keyframes download-page-enter {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* Header */

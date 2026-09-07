@@ -36,6 +36,7 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
   const selectionError = ref<string | null>(null)
   const isSubmittingSelection = ref(false)
   const selectionSubmitted = ref(false)
+  const selectedTrackIndexes = ref<number[]>([])
 
   // Track pending mode during isStarting to resolve selectionRequest race
   const pendingMode = ref<AmdlDownloadMode | null>(null)
@@ -50,6 +51,7 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
     selectionError.value = null
     isSubmittingSelection.value = false
     selectionSubmitted.value = false
+    selectedTrackIndexes.value = []
   }
 
   // Append log keeping within maxLogs ring buffer
@@ -196,7 +198,32 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
     }
   }
 
-  async function submitSelection(trackIndexes: number[]): Promise<boolean> {
+  function toggleTrack(index: number): void {
+    if (selectionSubmitted.value || isSubmittingSelection.value) return
+    const current = selectedTrackIndexes.value
+    if (current.includes(index)) {
+      selectedTrackIndexes.value = current.filter((i) => i !== index)
+    } else {
+      selectedTrackIndexes.value = [...current, index].sort((a, b) => a - b)
+    }
+  }
+
+  function selectAllTracks(): void {
+    if (selectionSubmitted.value || isSubmittingSelection.value || !selectionRequest.value) return
+    selectedTrackIndexes.value = selectionRequest.value.tracks.map((t) => t.index)
+  }
+
+  function clearAllTracks(): void {
+    if (selectionSubmitted.value || isSubmittingSelection.value) return
+    selectedTrackIndexes.value = []
+  }
+
+  function isTrackSelected(index: number): boolean {
+    return selectedTrackIndexes.value.includes(index)
+  }
+
+  async function submitSelection(trackIndexes?: number[]): Promise<boolean> {
+    const indexes = trackIndexes ?? selectedTrackIndexes.value
     if (!currentTaskId.value) {
       selectionError.value = 'No active task'
       return false
@@ -210,11 +237,12 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
     selectionError.value = null
 
     try {
-      const result = await client.download.submitSelection(currentTaskId.value, trackIndexes)
+      const result = await client.download.submitSelection(currentTaskId.value, indexes)
       if (!result.ok) {
         selectionError.value = result.error ?? 'Failed to submit selection'
         return false
       }
+      selectedTrackIndexes.value = indexes
       selectionSubmitted.value = true
       return true
     } catch (error) {
@@ -253,6 +281,11 @@ export function useAmdlDownload(options: UseAmdlDownloadOptions = {}) {
     selectionError,
     isSubmittingSelection,
     selectionSubmitted,
+    selectedTrackIndexes,
+    toggleTrack,
+    selectAllTracks,
+    clearAllTracks,
+    isTrackSelected,
     startDownload,
     submitSelection,
     cancelDownload,

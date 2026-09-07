@@ -38,6 +38,7 @@ manuscript selector 必须限定在对应 owner 下：
 | Album detail | `.album-detail-page[data-visual-style='manuscript']`                                                              |
 | Archive      | `.archive-page[data-visual-style='manuscript']`                                                                   |
 | Settings     | `.settings-page[data-visual-style='manuscript']`                                                                  |
+| Download     | `.download-page[data-visual-style='manuscript']`                                                                  |
 | Sidebar      | `.app-sidebar[data-shell-presentation='manuscript']`                                                              |
 | Shell        | `.app-window[data-shell-presentation='manuscript']`                                                               |
 | Player       | `.now-playing-panel[data-player-presentation='manuscript']`、`.player-bar[data-player-presentation='manuscript']` |

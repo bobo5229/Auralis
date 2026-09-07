@@ -472,7 +472,7 @@
   },
   "download": {
     "title": "下載音樂",
-    "pageSubtitle": "解析並下載 Apple Music 音頻與唱片資料",
+    "pageSubtitle": "從 Apple Music 下載 AAC 音樂",
     "currentTaskTitle": "當前任務",
     "urlLabel": "Apple Music 鏈接",
     "urlPlaceholder": "https://music.apple.com/...",

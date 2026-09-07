@@ -402,6 +402,79 @@ describe('useAmdlDownload', () => {
       expect(mock.client.download.submitSelection).toHaveBeenCalledWith('task-1', [1])
     })
 
+    it('manages selectedTrackIndexes with toggle, selectAll, clearAll, and preserves them after submit', async () => {
+      const mock = createMockClient()
+      mock.client.download.start = vi.fn().mockResolvedValue({ ok: true, taskId: 'task-1' })
+      mock.client.download.getStatus = vi.fn().mockResolvedValue(null)
+      mock.client.download.submitSelection = vi.fn().mockResolvedValue({ ok: true })
+
+      const {
+        selectedTrackIndexes,
+        toggleTrack,
+        selectAllTracks,
+        clearAllTracks,
+        isTrackSelected,
+        submitSelection,
+        startDownload,
+        selectionSubmitted,
+      } = useAmdlDownload({ client: mock.client })
+
+      await startDownload('https://music.apple.com/us/album/test/123', 'select')
+      mock.emitSelectionRequest({
+        taskId: 'task-1',
+        tracks: [
+          { index: 1, title: 'Track 1', type: 'song' },
+          { index: 2, title: 'Track 2', type: 'song' },
+          { index: 3, title: 'Track 3', type: 'song' },
+        ],
+      })
+
+      expect(selectedTrackIndexes.value).toEqual([])
+
+      // Toggle track 2
+      toggleTrack(2)
+      expect(selectedTrackIndexes.value).toEqual([2])
+      expect(isTrackSelected(2)).toBe(true)
+      expect(isTrackSelected(1)).toBe(false)
+
+      // Toggle track 1 -> sorted [1, 2]
+      toggleTrack(1)
+      expect(selectedTrackIndexes.value).toEqual([1, 2])
+
+      // Toggle track 2 off
+      toggleTrack(2)
+      expect(selectedTrackIndexes.value).toEqual([1])
+
+      // Select all
+      selectAllTracks()
+      expect(selectedTrackIndexes.value).toEqual([1, 2, 3])
+
+      // Clear all
+      clearAllTracks()
+      expect(selectedTrackIndexes.value).toEqual([])
+
+      // Select 1 and 3, then submit
+      toggleTrack(1)
+      toggleTrack(3)
+      expect(selectedTrackIndexes.value).toEqual([1, 3])
+
+      // submitSelection without args should use selectedTrackIndexes
+      const ok = await submitSelection()
+      expect(ok).toBe(true)
+      expect(selectionSubmitted.value).toBe(true)
+      expect(mock.client.download.submitSelection).toHaveBeenCalledWith('task-1', [1, 3])
+      // Preserves selectedTrackIndexes even after submit
+      expect(selectedTrackIndexes.value).toEqual([1, 3])
+
+      // After submit, toggle/select/clear should be blocked
+      toggleTrack(1)
+      expect(selectedTrackIndexes.value).toEqual([1, 3])
+      clearAllTracks()
+      expect(selectedTrackIndexes.value).toEqual([1, 3])
+      selectAllTracks()
+      expect(selectedTrackIndexes.value).toEqual([1, 3])
+    })
+
     it('sets selectionError when submitSelection fails', async () => {
       const mock = createMockClient()
       mock.client.download.start = vi.fn().mockResolvedValue({ ok: true, taskId: 'task-1' })

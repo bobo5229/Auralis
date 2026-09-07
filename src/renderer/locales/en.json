@@ -472,7 +472,7 @@
   },
   "download": {
     "title": "Download Music",
-    "pageSubtitle": "Resolve and download Apple Music audio and album material",
+    "pageSubtitle": "Download AAC music from Apple Music",
     "currentTaskTitle": "Current Task",
     "urlLabel": "Apple Music URL",
     "urlPlaceholder": "https://music.apple.com/...",
