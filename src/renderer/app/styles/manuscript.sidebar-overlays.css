@@ -6,8 +6,7 @@
 }
 
 .sidebar-overlay[data-shell-presentation='manuscript'].smart-playlist-dialog-backdrop,
-.sidebar-overlay[data-shell-presentation='manuscript'].facets-dialog-backdrop,
-.sidebar-overlay[data-shell-presentation='manuscript'].download-dialog-backdrop {
+.sidebar-overlay[data-shell-presentation='manuscript'].facets-dialog-backdrop {
   background: var(--manuscript-surface-scrim);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;

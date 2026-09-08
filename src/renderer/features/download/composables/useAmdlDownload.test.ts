@@ -601,7 +601,7 @@ describe('useAmdlDownload', () => {
       mock.client.download.start = vi.fn().mockResolvedValue({ ok: true, taskId: 'task-1' })
       mock.client.download.getStatus = vi.fn().mockResolvedValue(null)
 
-      // In AppSidebar, useAmdlDownload is created at the sidebar level (persisting when dialog toggles)
+      // When useAmdlDownload is held at the session level, state persists across view unmount/re-entry
       const download = useAmdlDownload({ client: mock.client })
 
       await download.startDownload('https://music.apple.com/us/album/test/123', 'select')
@@ -624,7 +624,7 @@ describe('useAmdlDownload', () => {
         ],
       })
 
-      // Simulate closing and reopening Dialog (which just reads props from download)
+      // State persists across view unmounting and remounting
       expect(download.selectionRequest.value).not.toBeNull()
       expect(download.currentTask.value?.stage).toBe('selecting')
 
