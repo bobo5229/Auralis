@@ -11,11 +11,19 @@ import type {
 } from '@shared/ipc/contracts'
 import { ipcChannels } from '@shared/ipc/channels'
 
+type IpcInvokeArgs<C extends IpcInvokeChannel> = [void] extends [IpcRequest<C>]
+  ? [payload?: IpcRequest<C>]
+  : [payload: IpcRequest<C>]
+
 async function invoke<TChannel extends IpcInvokeChannel>(
   channel: TChannel,
-  payload?: IpcRequest<TChannel>,
+  ...payload: IpcInvokeArgs<TChannel>
 ): Promise<IpcResponse<TChannel>> {
-  return ipcRenderer.invoke(channel, payload)
+  if (payload.length === 0) {
+    return ipcRenderer.invoke(channel)
+  }
+
+  return ipcRenderer.invoke(channel, payload[0])
 }
 
 function on<C extends IpcEventChannel>(
