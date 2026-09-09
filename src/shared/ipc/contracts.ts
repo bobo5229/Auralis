@@ -1,6 +1,7 @@
 import type { AppInfo, LibraryStats } from '@shared/types/app'
 import type {
   LibraryRoot,
+  LibraryScanProgress,
   LibraryScanStatus,
   SelectLibraryRootResult,
   TrackListItem,
@@ -43,6 +44,30 @@ import type {
   AmdlTaskProgress,
 } from '@shared/types/amdl'
 
+export type LibraryChangedReason =
+  | 'track-added'
+  | 'track-missing'
+  | 'track-restored'
+  | 'track-relocated'
+  | 'metadata-refresh'
+  | 'file-change'
+  | 'play-stats-updated'
+  | 'play-stats-reset'
+
+export interface LibraryChangedEvent {
+  reason: LibraryChangedReason
+  trackIds: number[]
+  filePaths: string[]
+}
+
+export interface MetadataRefreshProgressEvent {
+  jobId: number
+  status: string
+  totalTracks: number
+  processedTracks: number
+  failedTracks: number
+}
+
 export interface SystemMediaPlaybackState {
   hasTrack: boolean
   isPlaying: boolean
@@ -73,16 +98,29 @@ export interface MiniPlayerWindowState {
 }
 
 export interface IpcSendContract {
+  'app:renderer-ready': void
+  'desktop-lyrics:ready': void
   'system-media:update-thumbar-state': SystemMediaPlaybackState
 }
 
 export interface IpcEventContract {
   'system-media:command': SystemMediaCommand
   'window:mini-player-state-changed': MiniPlayerWindowState
+  'library:scan-progress': LibraryScanProgress
+  'library:changed': LibraryChangedEvent
+  'desktop-lyrics:changed': DesktopLyricsPayload
+  'desktop-lyrics:visibility-changed': boolean
+  'desktop-lyrics:mouse-passthrough-changed': boolean
+  'metadata:refresh-progress': MetadataRefreshProgressEvent
   'download:progress': AmdlTaskProgress
   'download:log': AmdlLogEvent
   'download:selection-request': AmdlSelectionRequest
 }
+
+export type IpcEventChannel = keyof IpcEventContract
+export type IpcEventPayload<C extends IpcEventChannel> = IpcEventContract[C]
+export type IpcSendChannel = keyof IpcSendContract
+export type IpcSendPayload<C extends IpcSendChannel> = IpcSendContract[C]
 
 export interface DatabaseExportBackupResult {
   status: 'saved' | 'cancelled' | 'failed'

@@ -1,7 +1,7 @@
 import { ipcChannels } from '@shared/ipc/channels'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
-import type { IpcHandlerRegistrar } from './ipcHandlerRegistrar'
+import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
 
 type MetadataOperations = Pick<
   MetadataRefreshService,

@@ -26,16 +26,26 @@
 
 ## Typed IPC
 
-新增或修改 invoke 时，同步检查并维护相关定义和接线：
+跨进程访问必须经过类型化 Preload/IPC。必须保留 contextIsolation、显式 preload API，以及
+sender / top-frame / trusted URL 校验。新增简单能力不再默认新建 Service、Domain registrar、
+Dependency interface 或中间 Router。
 
-1. `src/shared/ipc/contracts.ts`
-2. `src/shared/ipc/channels.ts`
-3. `src/shared/ipc/api.ts`
-4. `src/main/ipc/registerIpcHandlers.ts` 及实际 domain registrar
-5. `src/preload/index.ts`
+各文件真实职责：
 
-主进程现有 payload 校验与注册覆盖检查也必须保持一致，不能只修改 TypeScript 类型就假设输入安全。
-具体注册点以当前源码为准，不维护容易过时的通道数量。
+| 文件                                                   | 职责                                                                            |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `src/shared/ipc/channels.ts`                           | 运行时通道名                                                                    |
+| `src/shared/ipc/contracts.ts`                          | 唯一 transport 类型来源（invoke request/response、event payload、send payload） |
+| `src/shared/ipc/api.ts`                                | Renderer-facing API 人体工学，从 contract 推导，不重新定义数据结构              |
+| `src/preload/index.ts`                                 | 显式 capability；不暴露 `ipcRenderer` 或 generic `invoke(channel)`              |
+| `src/main/ipc/registerIpcHandlers.ts`                  | Main composition root：装配依赖、注册 IPC                                       |
+| 保留的 domain registrar                                | 仅 Library / Playlist / PlaybackArchive / Metadata / Download                   |
+| `validatedIpcRegistrar.ts` + `ipcPayloadValidation.ts` | sender 信任 + payload 结构/资源安全；业务合法性在 Service                       |
 
+新增或修改通道时，更新通道名、contract、preload 显式方法和 composition root / 已有 registrar
+的注册。payload 校验覆盖必须与通道一致，不能只改 TypeScript 类型就假设输入安全。具体注册点
+以当前源码为准，不维护容易过时的通道数量。
+
+`api.ts` 从 contract 推导方法签名，保留 positional 参数人体工学，不把 UI 改成一律对象参数。
 Renderer 从 `src/renderer/shared/ipc/client.ts` 使用 preload API。
 主进程推送事件由 preload 包装监听器并返回 unsubscribe；使用方负责适时解除订阅。

@@ -1,217 +1,204 @@
-import type { AppInfo, LibraryStats } from '@shared/types/app'
 import type {
-  LibraryRoot,
-  LibraryScanProgress,
-  LibraryScanStatus,
-  SelectLibraryRootResult,
-  TrackListItem,
-  TrackLyrics,
-  MetadataRefreshFailure,
-  EditableTrackMetadata,
-} from '@shared/types/libraryScan'
-import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
-import type {
-  AddPlaylistTracksResult,
-  Playlist,
-  PlaylistDetail,
-  PlaylistTrackCount,
-  PlaylistViewMode,
-  SidebarPlaylistItem,
-  SidebarPlaylistKind,
-} from '@shared/types/playlist'
-import type {
-  AnnualListeningInsights,
-  DailyListeningDetail,
-  ListeningGenreSpectrum,
-  ListeningHeatmap,
-  ListeningRanking,
-  ListeningRankingParams,
-} from '@shared/types/archive'
-import type {
-  CreateSmartPlaylistResult,
-  SmartPlaylist,
-  SmartPlaylistDetail,
-  SmartPlaylistRule,
-  SmartPlaylistTrackCount,
-  SmartPlaylistViewMode,
-} from '@shared/types/smartPlaylist'
-import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
-import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
-import type {
-  AmdlDownloadMode,
-  AmdlLogEvent,
-  AmdlSelectionRequest,
-  AmdlTaskProgress,
-} from '@shared/types/amdl'
-import type {
-  DatabaseExportBackupResult,
-  DatabaseRestoreBackupResult,
-  MiniPlayerPopoverDirection,
-  MiniPlayerWindowState,
-  SystemMediaCommand,
-  SystemMediaPlaybackState,
+  IpcEventPayload,
+  IpcInvokeChannel,
+  IpcRequest,
+  IpcResponse,
+  IpcSendPayload,
 } from './contracts'
+
+type Req<C extends IpcInvokeChannel> = Exclude<IpcRequest<C>, void>
+type Result<C extends IpcInvokeChannel> = Promise<IpcResponse<C>>
 
 export interface AuralisApi {
   database: {
-    exportBackup: () => Promise<DatabaseExportBackupResult>
-    restoreBackup: () => Promise<DatabaseRestoreBackupResult>
+    exportBackup: () => Result<'database:export-backup'>
+    restoreBackup: () => Result<'database:restore-backup'>
   }
   app: {
-    getInfo: () => Promise<AppInfo>
-    exportDiagnostics: () => Promise<{ status: 'saved' | 'cancelled' | 'failed' }>
+    getInfo: () => Result<'app:get-info'>
+    exportDiagnostics: () => Result<'app:export-diagnostics'>
     rendererReady: () => void
   }
   library: {
-    getStats: () => Promise<LibraryStats>
-    selectRoot: () => Promise<SelectLibraryRootResult>
-    getRoots: () => Promise<LibraryRoot[]>
-    startScan: (rootId: number) => Promise<{ jobId: number }>
-    cancelScan: (jobId: number) => Promise<{ ok: boolean }>
-    getScanStatus: (jobId?: number) => Promise<LibraryScanStatus | null>
-    getTracks: () => Promise<TrackListItem[]>
-    getTrackPage: (request: LibraryTrackPageRequest) => Promise<LibraryTrackPage>
-    onScanProgress: (callback: (progress: LibraryScanProgress) => void) => () => void
-    onChanged: (
-      callback: (event: {
-        reason:
-          | 'track-added'
-          | 'track-missing'
-          | 'track-restored'
-          | 'track-relocated'
-          | 'metadata-refresh'
-          | 'file-change'
-          | 'play-stats-updated'
-          | 'play-stats-reset'
-        trackIds: number[]
-        filePaths: string[]
-      }) => void,
+    getStats: () => Result<'library:get-stats'>
+    selectRoot: () => Result<'library:select-root'>
+    getRoots: () => Result<'library:get-roots'>
+    startScan: (rootId: Req<'library:start-scan'>['rootId']) => Result<'library:start-scan'>
+    cancelScan: (jobId: Req<'library:cancel-scan'>['jobId']) => Result<'library:cancel-scan'>
+    getScanStatus: (
+      jobId?: Req<'library:get-scan-status'>['jobId'],
+    ) => Result<'library:get-scan-status'>
+    getTracks: () => Result<'library:get-tracks'>
+    getTrackPage: (request: Req<'library:get-track-page'>) => Result<'library:get-track-page'>
+    onScanProgress: (
+      callback: (progress: IpcEventPayload<'library:scan-progress'>) => void,
     ) => () => void
+    onChanged: (callback: (event: IpcEventPayload<'library:changed'>) => void) => () => void
   }
   smartPlaylists: {
-    list: () => Promise<SmartPlaylist[]>
-    listTrackCounts: () => Promise<SmartPlaylistTrackCount[]>
-    getDetail: (id: number) => Promise<SmartPlaylistDetail | null>
-    create: (name: string, rule: SmartPlaylistRule) => Promise<CreateSmartPlaylistResult>
-    createFromQuery: (query: string) => Promise<CreateSmartPlaylistResult>
-    rename: (id: number, name: string) => Promise<SmartPlaylist | null>
-    updateViewMode: (id: number, viewMode: SmartPlaylistViewMode) => Promise<SmartPlaylist | null>
-    delete: (id: number) => Promise<{ deleted: boolean }>
-    reorder: (ids: number[]) => Promise<SmartPlaylist[]>
+    list: () => Result<'smart-playlists:list'>
+    listTrackCounts: () => Result<'smart-playlists:list-track-counts'>
+    getDetail: (id: Req<'smart-playlists:get-detail'>['id']) => Result<'smart-playlists:get-detail'>
+    create: (
+      name: Req<'smart-playlists:create'>['name'],
+      rule: Req<'smart-playlists:create'>['rule'],
+    ) => Result<'smart-playlists:create'>
+    createFromQuery: (
+      query: Req<'smart-playlists:create-from-query'>['query'],
+    ) => Result<'smart-playlists:create-from-query'>
+    rename: (
+      id: Req<'smart-playlists:rename'>['id'],
+      name: Req<'smart-playlists:rename'>['name'],
+    ) => Result<'smart-playlists:rename'>
+    updateViewMode: (
+      id: Req<'smart-playlists:update-view-mode'>['id'],
+      viewMode: Req<'smart-playlists:update-view-mode'>['viewMode'],
+    ) => Result<'smart-playlists:update-view-mode'>
+    delete: (id: Req<'smart-playlists:delete'>['id']) => Result<'smart-playlists:delete'>
+    reorder: (ids: Req<'smart-playlists:reorder'>['ids']) => Result<'smart-playlists:reorder'>
   }
   playlists: {
-    list: () => Promise<Playlist[]>
-    listTrackCounts: () => Promise<PlaylistTrackCount[]>
-    listSidebarItems: () => Promise<SidebarPlaylistItem[]>
-    getDetail: (id: number) => Promise<PlaylistDetail | null>
-    create: () => Promise<Playlist>
-    rename: (id: number, name: string) => Promise<Playlist | null>
-    updateViewMode: (id: number, viewMode: PlaylistViewMode) => Promise<Playlist | null>
-    delete: (id: number) => Promise<{ deleted: boolean }>
-    addTracks: (id: number, trackIds: number[]) => Promise<AddPlaylistTracksResult>
+    list: () => Result<'playlists:list'>
+    listTrackCounts: () => Result<'playlists:list-track-counts'>
+    listSidebarItems: () => Result<'playlists:list-sidebar-items'>
+    getDetail: (id: Req<'playlists:get-detail'>['id']) => Result<'playlists:get-detail'>
+    create: () => Result<'playlists:create'>
+    rename: (
+      id: Req<'playlists:rename'>['id'],
+      name: Req<'playlists:rename'>['name'],
+    ) => Result<'playlists:rename'>
+    updateViewMode: (
+      id: Req<'playlists:update-view-mode'>['id'],
+      viewMode: Req<'playlists:update-view-mode'>['viewMode'],
+    ) => Result<'playlists:update-view-mode'>
+    delete: (id: Req<'playlists:delete'>['id']) => Result<'playlists:delete'>
+    addTracks: (
+      id: Req<'playlists:add-tracks'>['id'],
+      trackIds: Req<'playlists:add-tracks'>['trackIds'],
+    ) => Result<'playlists:add-tracks'>
     reorderSidebarItems: (
-      items: Array<{ kind: SidebarPlaylistKind; id: number }>,
-    ) => Promise<SidebarPlaylistItem[]>
+      items: Req<'playlists:reorder-sidebar-items'>['items'],
+    ) => Result<'playlists:reorder-sidebar-items'>
   }
   lyrics: {
-    getByTrackId: (trackId: number) => Promise<TrackLyrics | null>
+    getByTrackId: (
+      trackId: Req<'lyrics:get-by-track-id'>['trackId'],
+    ) => Result<'lyrics:get-by-track-id'>
   }
   playback: {
-    getAudioUrl: (trackId: number) => Promise<{ url: string } | null>
-    getRandomTrack: (excludeTrackId?: number) => Promise<PlaybackTrackDto | null>
-    getRandomAlbumTracks: (excludeAlbumKey?: {
-      albumArtist: string
-      album: string
-    }) => Promise<RandomAlbumTracksResult | null>
-    getAlbumTracks: (albumKey: {
-      albumArtist: string
-      album: string
-    }) => Promise<RandomAlbumTracksResult | null>
-    recordEffectivePlay: (payload: {
-      trackId: number
-      sessionId: string
-      playedAtIso: string
-    }) => Promise<{ ok: boolean; recorded: boolean }>
+    getAudioUrl: (
+      trackId: Req<'playback:get-audio-url'>['trackId'],
+    ) => Result<'playback:get-audio-url'>
+    getRandomTrack: (
+      excludeTrackId?: Req<'playback:get-random-track'>['excludeTrackId'],
+    ) => Result<'playback:get-random-track'>
+    getRandomAlbumTracks: (
+      excludeAlbumKey?: Req<'playback:get-random-album-tracks'>['excludeAlbumKey'],
+    ) => Result<'playback:get-random-album-tracks'>
+    getAlbumTracks: (
+      albumKey: Req<'playback:get-album-tracks'>['albumKey'],
+    ) => Result<'playback:get-album-tracks'>
+    recordEffectivePlay: (
+      payload: Req<'playback:record-effective-play'>,
+    ) => Result<'playback:record-effective-play'>
   }
   systemMedia: {
-    updateThumbarState: (state: SystemMediaPlaybackState) => void
-    onCommand: (callback: (command: SystemMediaCommand) => void) => () => void
+    updateThumbarState: (state: IpcSendPayload<'system-media:update-thumbar-state'>) => void
+    onCommand: (callback: (command: IpcEventPayload<'system-media:command'>) => void) => () => void
   }
   desktopLyrics: {
-    toggle: () => Promise<{ visible: boolean }>
-    isVisible: () => Promise<{ visible: boolean }>
-    setSuppressed: (suppressed: boolean) => Promise<{ ok: boolean }>
-    toggleMousePassthrough: () => Promise<{ enabled: boolean }>
-    isMousePassthroughEnabled: () => Promise<{ enabled: boolean }>
-    update: (payload: DesktopLyricsPayload) => Promise<{ ok: boolean }>
-    onUpdate: (callback: (payload: DesktopLyricsPayload) => void) => () => void
-    onVisibilityChanged: (callback: (visible: boolean) => void) => () => void
-    onMousePassthroughChanged: (callback: (enabled: boolean) => void) => () => void
+    toggle: () => Result<'desktop-lyrics:toggle'>
+    isVisible: () => Result<'desktop-lyrics:is-visible'>
+    setSuppressed: (
+      suppressed: Req<'desktop-lyrics:set-suppressed'>['suppressed'],
+    ) => Result<'desktop-lyrics:set-suppressed'>
+    toggleMousePassthrough: () => Result<'desktop-lyrics:toggle-mouse-passthrough'>
+    isMousePassthroughEnabled: () => Result<'desktop-lyrics:is-mouse-passthrough-enabled'>
+    update: (payload: Req<'desktop-lyrics:update'>) => Result<'desktop-lyrics:update'>
+    onUpdate: (callback: (payload: IpcEventPayload<'desktop-lyrics:changed'>) => void) => () => void
+    onVisibilityChanged: (
+      callback: (visible: IpcEventPayload<'desktop-lyrics:visibility-changed'>) => void,
+    ) => () => void
+    onMousePassthroughChanged: (
+      callback: (enabled: IpcEventPayload<'desktop-lyrics:mouse-passthrough-changed'>) => void,
+    ) => () => void
     ready: () => void
   }
   archive: {
-    getListeningHeatmap: (year: number) => Promise<ListeningHeatmap>
-    getDailyListeningDetail: (date: string) => Promise<DailyListeningDetail>
-    getAnnualListeningInsights: (year: number) => Promise<AnnualListeningInsights>
-    getListeningRanking: (params: ListeningRankingParams) => Promise<ListeningRanking>
-    getListeningGenreSpectrum: (year: number) => Promise<ListeningGenreSpectrum>
-    resetPlayStats: () => Promise<{ ok: true }>
+    getListeningHeatmap: (
+      year: Req<'archive:get-listening-heatmap'>['year'],
+    ) => Result<'archive:get-listening-heatmap'>
+    getDailyListeningDetail: (
+      date: Req<'archive:get-daily-listening-detail'>['date'],
+    ) => Result<'archive:get-daily-listening-detail'>
+    getAnnualListeningInsights: (
+      year: Req<'archive:get-annual-listening-insights'>['year'],
+    ) => Result<'archive:get-annual-listening-insights'>
+    getListeningRanking: (
+      params: Req<'archive:get-listening-ranking'>,
+    ) => Result<'archive:get-listening-ranking'>
+    getListeningGenreSpectrum: (
+      year: Req<'archive:get-listening-genre-spectrum'>['year'],
+    ) => Result<'archive:get-listening-genre-spectrum'>
+    resetPlayStats: () => Result<'archive:reset-play-stats'>
   }
   metadata: {
-    refreshTrack: (trackId: number) => Promise<{ jobId: number }>
-    refreshTracks: (trackIds: number[]) => Promise<{ jobId: number }>
-    refreshMissing: (limit?: number) => Promise<{ jobId: number }>
-    refreshLyricsMissing: (limit?: number) => Promise<{ jobId: number }>
-    getRefreshStatus: (jobId: number) => Promise<{
-      id: number
-      scope: string
-      status: string
-      totalTracks: number
-      processedTracks: number
-      failedTracks: number
-      startedAt: string
-      finishedAt: string | null
-      errorMessage: string | null
-    } | null>
-    listRefreshFailures: (limit?: number) => Promise<MetadataRefreshFailure[]>
-    clearRefreshFailures: () => Promise<{ deletedCount: number }>
-    getTrackMetadata: (trackId: number) => Promise<EditableTrackMetadata | null>
-    updateTrackMetadata: (metadata: EditableTrackMetadata) => Promise<{ ok: boolean }>
+    refreshTrack: (
+      trackId: Req<'metadata:refresh-track'>['trackId'],
+    ) => Result<'metadata:refresh-track'>
+    refreshTracks: (
+      trackIds: Req<'metadata:refresh-tracks'>['trackIds'],
+    ) => Result<'metadata:refresh-tracks'>
+    refreshMissing: (
+      limit?: Req<'metadata:refresh-missing'>['limit'],
+    ) => Result<'metadata:refresh-missing'>
+    refreshLyricsMissing: (
+      limit?: Req<'metadata:refresh-lyrics-missing'>['limit'],
+    ) => Result<'metadata:refresh-lyrics-missing'>
+    getRefreshStatus: (
+      jobId: Req<'metadata:get-refresh-status'>['jobId'],
+    ) => Result<'metadata:get-refresh-status'>
+    listRefreshFailures: (
+      limit?: Req<'metadata:list-refresh-failures'>['limit'],
+    ) => Result<'metadata:list-refresh-failures'>
+    clearRefreshFailures: () => Result<'metadata:clear-refresh-failures'>
+    getTrackMetadata: (
+      trackId: Req<'metadata:get-track-metadata'>['trackId'],
+    ) => Result<'metadata:get-track-metadata'>
+    updateTrackMetadata: (
+      metadata: Req<'metadata:update-track-metadata'>,
+    ) => Result<'metadata:update-track-metadata'>
     onRefreshProgress: (
-      callback: (progress: {
-        jobId: number
-        status: string
-        totalTracks: number
-        processedTracks: number
-        failedTracks: number
-      }) => void,
+      callback: (progress: IpcEventPayload<'metadata:refresh-progress'>) => void,
     ) => () => void
   }
   window: {
-    enterMiniPlayer: () => Promise<MiniPlayerWindowState>
-    restoreFromMiniPlayer: () => Promise<MiniPlayerWindowState>
-    getMiniPlayerState: () => Promise<MiniPlayerWindowState>
-    setMiniPlayerPopover: (payload: {
-      open: boolean
-      direction: MiniPlayerPopoverDirection
-      height: number
-    }) => Promise<MiniPlayerWindowState>
-    onMiniPlayerStateChanged: (callback: (state: MiniPlayerWindowState) => void) => () => void
+    enterMiniPlayer: () => Result<'window:enter-mini-player'>
+    restoreFromMiniPlayer: () => Result<'window:restore-from-mini-player'>
+    getMiniPlayerState: () => Result<'window:get-mini-player-state'>
+    setMiniPlayerPopover: (
+      payload: Req<'window:set-mini-player-popover'>,
+    ) => Result<'window:set-mini-player-popover'>
+    onMiniPlayerStateChanged: (
+      callback: (state: IpcEventPayload<'window:mini-player-state-changed'>) => void,
+    ) => () => void
   }
   download: {
     start: (
-      url: string,
-      mode?: AmdlDownloadMode,
-    ) => Promise<{ ok: boolean; taskId?: string; error?: string }>
-    cancel: (taskId: string) => Promise<{ ok: boolean; error?: string }>
-    getStatus: (taskId: string) => Promise<AmdlTaskProgress | null>
+      url: Req<'download:start'>['url'],
+      mode?: Req<'download:start'>['mode'],
+    ) => Result<'download:start'>
+    cancel: (taskId: Req<'download:cancel'>['taskId']) => Result<'download:cancel'>
+    getStatus: (taskId: Req<'download:get-status'>['taskId']) => Result<'download:get-status'>
     submitSelection: (
-      taskId: string,
-      trackIndexes: number[],
-    ) => Promise<{ ok: boolean; error?: string }>
-    onProgress: (callback: (progress: AmdlTaskProgress) => void) => () => void
-    onLog: (callback: (log: AmdlLogEvent) => void) => () => void
-    onSelectionRequest: (callback: (request: AmdlSelectionRequest) => void) => () => void
+      taskId: Req<'download:submit-selection'>['taskId'],
+      trackIndexes: Req<'download:submit-selection'>['trackIndexes'],
+    ) => Result<'download:submit-selection'>
+    onProgress: (callback: (progress: IpcEventPayload<'download:progress'>) => void) => () => void
+    onLog: (callback: (log: IpcEventPayload<'download:log'>) => void) => () => void
+    onSelectionRequest: (
+      callback: (request: IpcEventPayload<'download:selection-request'>) => void,
+    ) => () => void
   }
 }
 

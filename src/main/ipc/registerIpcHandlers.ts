@@ -30,7 +30,11 @@ import { PlaylistService } from '@main/services/playlistService'
 import { PlayStatsService } from '@main/services/playStatsService'
 import { SmartPlaylistService } from '@main/services/smartPlaylistService'
 import type Database from 'better-sqlite3'
-import { registerDomainIpcHandlers } from './registerDomainIpcHandlers'
+import { registerDownloadIpcHandlers } from './registerDownloadIpcHandlers'
+import { registerLibraryIpcHandlers } from './registerLibraryIpcHandlers'
+import { registerMetadataIpcHandlers } from './registerMetadataIpcHandlers'
+import { registerPlaybackArchiveIpcHandlers } from './registerPlaybackArchiveIpcHandlers'
+import { registerPlaylistIpcHandlers } from './registerPlaylistIpcHandlers'
 import {
   createTrustedMainWindowSourcePolicy,
   createValidatedIpcRegistrar,
@@ -203,55 +207,73 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     metadataWatchService.stop()
   })
 
-  registerDomainIpcHandlers(electronIpcRegistrar, {
-    app: {
-      getInfo: () => ({
-        name: 'Auralis',
-        version: app.getVersion(),
-        databasePath: getDatabasePath(),
-      }),
-      exportDiagnostics: async (event) => {
-        const parentWindow = BrowserWindow.fromWebContents(event.sender)
-        if (!parentWindow) return { status: 'failed' as const }
+  electronIpcRegistrar.handle(ipcChannels.app.getInfo, () => ({
+    name: 'Auralis',
+    version: app.getVersion(),
+    databasePath: getDatabasePath(),
+  }))
+  electronIpcRegistrar.handle(ipcChannels.app.exportDiagnostics, async (event) => {
+    const parentWindow = BrowserWindow.fromWebContents(event.sender)
+    if (!parentWindow) return { status: 'failed' as const }
 
-        return exportDiagnostics({
-          appVersion: app.getVersion(),
-          logsDirectory: join(app.getPath('userData'), 'logs'),
-          showSaveDialog: (options) => dialog.showSaveDialog(parentWindow, options),
-        })
-      },
-    },
-    database: {
-      exportBackup: async (event) => {
-        const parentWindow = BrowserWindow.fromWebContents(event.sender)
-        if (!parentWindow) return { status: 'failed' as const, error: 'Window unavailable' }
-
-        return exportDatabaseBackup({
-          db,
-          databasePath: getDatabasePath(),
-          showSaveDialog: (options) => dialog.showSaveDialog(parentWindow, options),
-        })
-      },
-      restoreBackup: async (event) => {
-        const parentWindow = BrowserWindow.fromWebContents(event.sender)
-        if (!parentWindow) return { status: 'failed' as const, error: 'Window unavailable' }
-
-        return stageDatabaseRestore({
-          currentDbPath: getDatabasePath(),
-          showOpenDialog: (options) => dialog.showOpenDialog(parentWindow, options),
-        })
-      },
-    },
-    library: { libraryService, libraryScanService, metadataWatchService },
-    playlists: { playlistService, smartPlaylistService, getSmartTrackCounts },
-    playbackArchive: {
-      libraryService,
-      playStatsService,
-      getAudioUrl,
-      notifyLibraryChanged,
-    },
-    metadata: { metadataRefreshService },
-    window: { getMiniPlayerController: getInvokingMiniPlayerController },
-    download: { downloadService },
+    return exportDiagnostics({
+      appVersion: app.getVersion(),
+      logsDirectory: join(app.getPath('userData'), 'logs'),
+      showSaveDialog: (options) => dialog.showSaveDialog(parentWindow, options),
+    })
   })
+  electronIpcRegistrar.handle(ipcChannels.database.exportBackup, async (event) => {
+    const parentWindow = BrowserWindow.fromWebContents(event.sender)
+    if (!parentWindow) return { status: 'failed' as const, error: 'Window unavailable' }
+
+    return exportDatabaseBackup({
+      db,
+      databasePath: getDatabasePath(),
+      showSaveDialog: (options) => dialog.showSaveDialog(parentWindow, options),
+    })
+  })
+  electronIpcRegistrar.handle(ipcChannels.database.restoreBackup, async (event) => {
+    const parentWindow = BrowserWindow.fromWebContents(event.sender)
+    if (!parentWindow) return { status: 'failed' as const, error: 'Window unavailable' }
+
+    return stageDatabaseRestore({
+      currentDbPath: getDatabasePath(),
+      showOpenDialog: (options) => dialog.showOpenDialog(parentWindow, options),
+    })
+  })
+  electronIpcRegistrar.handle(ipcChannels.window.enterMiniPlayer, (event) =>
+    getInvokingMiniPlayerController(event).enter(),
+  )
+  electronIpcRegistrar.handle(ipcChannels.window.restoreFromMiniPlayer, (event) =>
+    getInvokingMiniPlayerController(event).restore(),
+  )
+  electronIpcRegistrar.handle(ipcChannels.window.getMiniPlayerState, (event) =>
+    getInvokingMiniPlayerController(event).getState(),
+  )
+  electronIpcRegistrar.handle(ipcChannels.window.setMiniPlayerPopover, (event, payload) =>
+    getInvokingMiniPlayerController(event).setPopover(
+      payload.open,
+      payload.direction,
+      payload.height,
+    ),
+  )
+
+  registerLibraryIpcHandlers(electronIpcRegistrar, {
+    libraryService,
+    libraryScanService,
+    metadataWatchService,
+  })
+  registerPlaylistIpcHandlers(electronIpcRegistrar, {
+    playlistService,
+    smartPlaylistService,
+    getSmartTrackCounts,
+  })
+  registerPlaybackArchiveIpcHandlers(electronIpcRegistrar, {
+    libraryService,
+    playStatsService,
+    getAudioUrl,
+    notifyLibraryChanged,
+  })
+  registerMetadataIpcHandlers(electronIpcRegistrar, { metadataRefreshService })
+  registerDownloadIpcHandlers(electronIpcRegistrar, { downloadService })
 }

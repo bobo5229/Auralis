@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { ipcChannels } from '@shared/ipc/channels'
-import type { IpcHandlerRegistrar } from './ipcHandlerRegistrar'
+import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
 import { registerDownloadIpcHandlers } from './registerDownloadIpcHandlers'
 import type { AmdlDownloadService } from '@main/features/amdl/amdlDownloadService'
 import type { AmdlTaskProgress } from '@shared/types/amdl'

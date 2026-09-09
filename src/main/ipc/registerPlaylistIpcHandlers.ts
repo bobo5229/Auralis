@@ -3,7 +3,7 @@ import type { PlaylistViewMode, SidebarPlaylistKind } from '@shared/types/playli
 import type { SmartPlaylistRule, SmartPlaylistViewMode } from '@shared/types/smartPlaylist'
 import type { PlaylistService } from '@main/services/playlistService'
 import type { SmartPlaylistService } from '@main/services/smartPlaylistService'
-import type { IpcHandlerRegistrar } from './ipcHandlerRegistrar'
+import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
 
 type PlaylistOperations = Pick<
   PlaylistService,

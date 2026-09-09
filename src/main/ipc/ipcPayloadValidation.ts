@@ -100,8 +100,8 @@ function finiteNumber(options: { min?: number; max?: number; integer?: boolean }
 
 const positiveId = finiteNumber({ integer: true, min: 1 })
 const positiveLimit = finiteNumber({ integer: true, min: 1, max: MAX_ID_LIST_LENGTH })
-const archiveYear = finiteNumber({ integer: true, min: 1970, max: new Date().getFullYear() })
-const metadataYear = finiteNumber({ integer: true, min: 1, max: 9_999 })
+const archiveYear = finiteNumber({ integer: true })
+const metadataYear = finiteNumber({ integer: true })
 
 function enumValue(values: readonly string[]): Validator {
   const allowed = new Set(values)
@@ -211,27 +211,12 @@ const dateKey: Validator = (value, path, context) => {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     fail(path, 'must use the YYYY-MM-DD format')
   }
-  const [year, month, day] = value.split('-').map(Number)
-  const date = new Date(Date.UTC(year, month - 1, day))
-  if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() + 1 !== month ||
-    date.getUTCDate() !== day
-  ) {
-    fail(path, 'must be a valid calendar date')
-  }
 }
 
 const partialDate: Validator = (value, path, context) => {
   stringValue({ min: 4, max: 10 })(value, path, context)
-  if (typeof value !== 'string') return
-  const match = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/.exec(value)
-  if (!match) fail(path, 'must use YYYY, YYYY-MM, or YYYY-MM-DD')
-  const month = match[2] === undefined ? 1 : Number(match[2])
-  const day = match[3] === undefined ? 1 : Number(match[3])
-  const date = new Date(Date.UTC(Number(match[1]), month - 1, day))
-  if (date.getUTCMonth() + 1 !== month || date.getUTCDate() !== day) {
-    fail(path, 'must be a valid partial date')
+  if (typeof value !== 'string' || !/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/.test(value)) {
+    fail(path, 'must use YYYY, YYYY-MM, or YYYY-MM-DD')
   }
 }
 
@@ -258,7 +243,7 @@ const smartPlaylistRule: Validator = (value, path, context) => {
   const expression: Validator = (node, nodePath, nodeContext) => {
     const validateExpression = (candidate: unknown, candidatePath: string, depth: number): void => {
       countRuleNode(candidatePath, depth)
-      const baseShape = objectShape({
+      objectShape({
         type: field(enumValue(['predicate', 'and', 'or'])),
         field: field(enumValue(['genre', 'artist', 'albumArtist', 'added']), true),
         operator: field(enumValue(['has', 'isEmpty', 'addedBefore', 'addedWithin']), true),
@@ -270,33 +255,7 @@ const smartPlaylistRule: Validator = (value, path, context) => {
           }),
           true,
         ),
-      })
-      baseShape(candidate, candidatePath, nodeContext)
-
-      const record = candidate as Record<string, unknown>
-      if (record.type === 'predicate') {
-        if (!Object.hasOwn(record, 'field') || !Object.hasOwn(record, 'operator')) {
-          fail(candidatePath, 'is missing predicate fields')
-        }
-        if (Object.hasOwn(record, 'operands'))
-          fail(candidatePath, 'mixes predicate and boolean fields')
-        if (record.operator === 'isEmpty' && Object.hasOwn(record, 'value')) {
-          fail(candidatePath, 'must omit value for isEmpty')
-        }
-        if (record.operator !== 'isEmpty' && !Object.hasOwn(record, 'value')) {
-          fail(candidatePath, 'requires a predicate value')
-        }
-        return
-      }
-
-      if (!Object.hasOwn(record, 'operands')) fail(candidatePath, 'requires operands')
-      if (
-        Object.hasOwn(record, 'field') ||
-        Object.hasOwn(record, 'operator') ||
-        Object.hasOwn(record, 'value')
-      ) {
-        fail(candidatePath, 'mixes boolean and predicate fields')
-      }
+      })(candidate, candidatePath, nodeContext)
     }
 
     validateExpression(node, nodePath, 1)
@@ -307,16 +266,10 @@ const smartPlaylistRule: Validator = (value, path, context) => {
     value: field(nullable(stringValue({ max: MAX_TEXT_LENGTH }))),
   })
 
-  const ruleShape = objectShape({
+  objectShape({
     conditions: field(arrayOf(legacyCondition, { min: 1, max: 128 }), true),
     expression: field(expression, true),
-  })
-  ruleShape(value, path, context)
-
-  const record = value as Record<string, unknown>
-  const hasConditions = Object.hasOwn(record, 'conditions')
-  const hasExpression = Object.hasOwn(record, 'expression')
-  if (hasConditions === hasExpression) fail(path, 'must contain exactly one rule representation')
+  })(value, path, context)
 }
 
 const rankingPayload = objectShape({

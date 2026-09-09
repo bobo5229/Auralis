@@ -1,8 +1,20 @@
 import type { IpcMainInvokeEvent } from 'electron'
-import type { IpcHandlerRegistrar } from './ipcHandlerRegistrar'
+import type { IpcInvokeChannel, IpcRequest, IpcResponse } from '@shared/ipc/contracts'
 import { parseDomainIpcPayload, type DomainIpcInvokeChannel } from './ipcPayloadValidation'
 
+type MaybePromise<T> = T | Promise<T>
+type NormalizeVoid<T> = void extends T ? Exclude<T, void> | undefined : T
 type RawInvokeListener = (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown
+
+export interface IpcHandlerRegistrar {
+  handle<TChannel extends IpcInvokeChannel>(
+    channel: TChannel,
+    listener: (
+      event: IpcMainInvokeEvent,
+      payload: NormalizeVoid<IpcRequest<TChannel>>,
+    ) => MaybePromise<IpcResponse<TChannel>>,
+  ): void
+}
 
 export interface ValidatedIpcRegistrarOptions {
   register(channel: string, listener: RawInvokeListener): void

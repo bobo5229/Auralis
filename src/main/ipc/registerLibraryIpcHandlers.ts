@@ -3,7 +3,7 @@ import type { LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import type { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
 import type { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
 import type { LibraryService } from '@main/services/libraryService'
-import type { IpcHandlerRegistrar } from './ipcHandlerRegistrar'
+import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
 
 type LibraryQueries = Pick<LibraryService, 'getStats' | 'getTracks' | 'getTrackPage' | 'getLyrics'>
 

@@ -1,7 +1,7 @@
 import { ipcChannels } from '@shared/ipc/channels'
 import type { AmdlDownloadMode } from '@shared/types/amdl'
 import type { AmdlDownloadService } from '@main/features/amdl/amdlDownloadService'
-import type { IpcHandlerRegistrar } from './ipcHandlerRegistrar'
+import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
 
 export interface DownloadIpcDependencies {
   downloadService: AmdlDownloadService

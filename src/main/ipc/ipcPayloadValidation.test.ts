@@ -144,7 +144,7 @@ describe('domain IPC payload validation behavior', () => {
     ['playlists:update-view-mode', { id: 1, viewMode: 'tiles' }],
     ['playback:get-album-tracks', { albumKey: { albumArtist: 'A' } }],
     ['playback:record-effective-play', { trackId: 1, sessionId: 'x', playedAtIso: 'today' }],
-    ['archive:get-daily-listening-detail', { date: '2026-02-30' }],
+    ['archive:get-daily-listening-detail', { date: '02/30/2026' }],
     ['archive:get-listening-ranking', { range: 'quarter', target: 'track' }],
     ['metadata:refresh-missing', { limit: -1 }],
     ['window:set-mini-player-popover', { open: true, direction: 'left', height: 200 }],
@@ -190,6 +190,55 @@ describe('domain IPC payload validation behavior', () => {
         trackIds: Array.from({ length: 10_001 }, (_, index) => index + 1),
       }),
     ).toThrow(/invalid item count/)
+  })
+
+  it('accepts structurally valid years and dates without calendar or range checks', () => {
+    expect(parse('archive:get-listening-heatmap', { year: 1969 })).toEqual({ year: 1969 })
+    expect(parse('archive:get-daily-listening-detail', { date: '2026-02-30' })).toEqual({
+      date: '2026-02-30',
+    })
+    expect(
+      parse('metadata:update-track-metadata', {
+        trackId: 42,
+        title: 'Title',
+        artistDisplay: null,
+        albumTitle: 'Album',
+        albumArtistDisplay: 'Artist',
+        genreDisplay: 'Genre',
+        year: 0,
+        releaseDate: '2026-02-30',
+      }),
+    ).toBeTruthy()
+    expect(() => parse('archive:get-listening-heatmap', { year: Number.NaN })).toThrow(
+      /finite number/,
+    )
+    expect(() =>
+      parse('archive:get-listening-heatmap', { year: Number.POSITIVE_INFINITY }),
+    ).toThrow(/finite number/)
+  })
+
+  it('keeps smart-playlist resource and enum-shape checks without business pairing', () => {
+    expect(parse('smart-playlists:create', { name: 'Empty rule', rule: {} })).toBeTruthy()
+    expect(
+      parse('smart-playlists:create', {
+        name: 'Mixed shape',
+        rule: {
+          expression: {
+            type: 'predicate',
+            field: 'genre',
+            operator: 'has',
+            value: 'ambient',
+            operands: [{ type: 'predicate', field: 'artist', operator: 'isEmpty' }],
+          },
+        },
+      }),
+    ).toBeTruthy()
+    expect(() =>
+      parse('smart-playlists:create', {
+        name: 'Bad enum',
+        rule: { expression: { type: 'xor' } },
+      }),
+    ).toThrow(/unsupported value/)
   })
 
   it('bounds recursive smart-playlist rules', () => {

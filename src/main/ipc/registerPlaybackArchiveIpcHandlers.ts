@@ -2,7 +2,7 @@ import { ipcChannels } from '@shared/ipc/channels'
 import type { IpcResponse } from '@shared/ipc/contracts'
 import type { LibraryService } from '@main/services/libraryService'
 import type { PlayStatsService } from '@main/services/playStatsService'
-import type { IpcHandlerRegistrar } from './ipcHandlerRegistrar'
+import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
 
 type PlaybackQueries = Pick<
   LibraryService,
