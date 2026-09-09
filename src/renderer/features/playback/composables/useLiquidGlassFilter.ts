@@ -60,9 +60,6 @@ export function useLiquidGlassFilter(
   const blur = config.blur ?? 0
   const syntaxSupported = config.forceEnableSyntax ?? supportsBackdropFilterUrlSyntax()
 
-  const isModern = computed(() => unref(config.presentation) === 'modern')
-  const isNormalDisplay = computed(() => displayMode.value === 'normal')
-
   const isLiquidGlassActive = computed(() =>
     resolveIsLiquidGlassActive(
       unref(config.presentation),

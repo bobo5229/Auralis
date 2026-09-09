@@ -26,7 +26,6 @@ import {
   type PlayerBarOverlayId,
 } from './playerBar/usePlayerBarOverlayController'
 import {
-  MODERN_PLAYER_BAR_HEIGHT_PX,
   MODERN_PLAYER_BAR_MAX_WIDTH_PX,
   shouldOverflowModernUtilities,
 } from '@renderer/features/playback/utils/modernPlayerBarLayout'
