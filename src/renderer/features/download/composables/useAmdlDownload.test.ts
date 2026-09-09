@@ -564,12 +564,8 @@ describe('useAmdlDownload', () => {
         .mockResolvedValueOnce({ ok: false, error: 'Network timeout' })
         .mockResolvedValueOnce({ ok: true })
 
-      const {
-        selectionError,
-        selectionSubmitted,
-        startDownload,
-        submitSelection,
-      } = useAmdlDownload({ client: mock.client })
+      const { selectionError, selectionSubmitted, startDownload, submitSelection } =
+        useAmdlDownload({ client: mock.client })
 
       await startDownload('https://music.apple.com/us/album/test/123', 'select')
       mock.emitSelectionRequest({
@@ -628,14 +624,14 @@ describe('useAmdlDownload', () => {
       expect(download.selectionRequest.value).not.toBeNull()
       expect(download.currentTask.value?.stage).toBe('selecting')
 
-      // Dialog is "closed" then "reopened": download instance retains exact same state
+      // Page navigated away then returned: download instance retains exact same state
       expect(download.selectionRequest.value?.tracks).toHaveLength(2)
       expect(download.selectionRequest.value?.tracks[0].title).toBe('Track 1')
     })
   })
 
   describe('end-to-end user path simulation (Phase 3C)', () => {
-    it('Path 1: direct mode download for single track (checkbox off, start with direct)', async () => {
+    it('Path 1: direct mode download for single track (direct mode selected, start with direct)', async () => {
       const mock = createMockClient()
       mock.client.download.start = vi.fn().mockResolvedValue({ ok: true, taskId: 'task-direct-1' })
       mock.client.download.getStatus = vi.fn().mockResolvedValue(null)
@@ -645,7 +641,10 @@ describe('useAmdlDownload', () => {
       })
 
       // Start with default / explicit direct
-      const started = await startDownload('https://music.apple.com/us/album/test/123?i=456', 'direct')
+      const started = await startDownload(
+        'https://music.apple.com/us/album/test/123?i=456',
+        'direct',
+      )
       expect(started).toBe(true)
       expect(mock.client.download.start).toHaveBeenCalledWith(
         'https://music.apple.com/us/album/test/123?i=456',
@@ -685,15 +684,20 @@ describe('useAmdlDownload', () => {
 
     it('Path 2: select mode with single-track URL (AMDL does not emit selection, finishes directly)', async () => {
       const mock = createMockClient()
-      mock.client.download.start = vi.fn().mockResolvedValue({ ok: true, taskId: 'task-select-single' })
+      mock.client.download.start = vi
+        .fn()
+        .mockResolvedValue({ ok: true, taskId: 'task-select-single' })
       mock.client.download.getStatus = vi.fn().mockResolvedValue(null)
 
       const { currentTask, selectionRequest, startDownload } = useAmdlDownload({
         client: mock.client,
       })
 
-      // User checked "selectTracksMode" but passed single track URL
-      const started = await startDownload('https://music.apple.com/us/album/test/123?i=456', 'select')
+      // User selected "select" mode but passed single track URL
+      const started = await startDownload(
+        'https://music.apple.com/us/album/test/123?i=456',
+        'select',
+      )
       expect(started).toBe(true)
       expect(mock.client.download.start).toHaveBeenCalledWith(
         'https://music.apple.com/us/album/test/123?i=456',
@@ -816,12 +820,9 @@ describe('useAmdlDownload', () => {
       mock.client.download.getStatus = vi.fn().mockResolvedValue(null)
       mock.client.download.cancel = vi.fn().mockResolvedValue({ ok: true })
 
-      const {
-        currentTask,
-        selectionRequest,
-        startDownload,
-        cancelDownload,
-      } = useAmdlDownload({ client: mock.client })
+      const { currentTask, selectionRequest, startDownload, cancelDownload } = useAmdlDownload({
+        client: mock.client,
+      })
 
       await startDownload('https://music.apple.com/us/album/test/123', 'select')
       mock.emitProgress({
