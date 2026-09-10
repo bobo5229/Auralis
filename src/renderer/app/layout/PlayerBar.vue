@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { useAlbumTint } from '@renderer/features/playback/composables/useAlbumTint'
-import { useVolumeOverlay } from '@renderer/features/playback/composables/useVolumeOverlay'
 import { usePlayerBarMaterial } from '@renderer/features/settings/composables/usePlayerBarMaterial'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import TrackProgressInfo from './TrackProgressInfo.vue'
 import PlayerBarTimeColophon from './PlayerBarTimeColophon.vue'
 import PlaybackQueuePopover from './PlaybackQueuePopover.vue'
 import PlaybackModeMenu from './PlaybackModeMenu.vue'
+import PlayerVolumeControl from './PlayerVolumeControl.vue'
 import DesktopLyricsLockPopover from './DesktopLyricsLockPopover.vue'
 import PlaybarQueueIcon from '@renderer/features/playback/components/PlaybarQueueIcon.vue'
 import PlaybarLyricsIcon from '@renderer/features/playback/components/PlaybarLyricsIcon.vue'
@@ -25,10 +25,8 @@ import {
   usePlayerBarOverlayController,
   type PlayerBarOverlayId,
 } from './playerBar/usePlayerBarOverlayController'
-import {
-  MODERN_PLAYER_BAR_MAX_WIDTH_PX,
-  shouldOverflowModernUtilities,
-} from '@renderer/features/playback/utils/modernPlayerBarLayout'
+import { usePlayerBarIslandMetrics } from './playerBar/usePlayerBarIslandMetrics'
+import { shouldOverflowModernUtilities } from '@renderer/features/playback/utils/modernPlayerBarLayout'
 import { isPlayerBarVolumeOverlayRetreatActive } from '@renderer/features/playback/utils/playerBarExclusiveOverlay'
 import { resolvePlayerPrimaryButtonTextColor } from '@renderer/features/playback/utils/resolvePlayerPrimaryButtonTextColor'
 import { useLiquidGlassFilter } from '@renderer/features/playback/composables/useLiquidGlassFilter'
@@ -154,19 +152,20 @@ let desktopLyricsToastTimer: ReturnType<typeof setTimeout> | null = null
 // Modern island: lyrics + mode stay first-class until the island is ≤640px.
 const overflowButtonRef = ref<HTMLElement | null>(null)
 const overflowPanelRef = ref<HTMLElement | null>(null)
-const volumeGroupRef = ref<HTMLElement | null>(null)
-const volumeMuteButtonRef = ref<HTMLButtonElement | null>(null)
-const volumeOverlay = useVolumeOverlay(() => volumeGroupRef.value)
-const overlayController = usePlayerBarOverlayController(volumeOverlay)
-const { isQueueOpen, isModeMenuOpen, isOverflowOpen, isDesktopLyricsLockOpen, isVolumeOpen } =
-  overlayController
+const volumeControlRef = ref<{
+  el: HTMLElement | null
+  open: boolean
+  dismiss: () => void
+} | null>(null)
+const overlayController = usePlayerBarOverlayController({
+  open: computed(() => volumeControlRef.value?.open ?? false),
+  dismiss: () => volumeControlRef.value?.dismiss(),
+})
+const { isQueueOpen, isModeMenuOpen, isOverflowOpen, isDesktopLyricsLockOpen } = overlayController
 const desktopLyricsButtonRef = ref<HTMLElement | null>(null)
 const desktopLyricsLockPopoverRef = ref<HTMLElement | null>(null)
 const playerBarHostRef = ref<HTMLElement | null>(null)
-const hostInlineSize = ref(Number.POSITIVE_INFINITY)
 const islandRef = ref<HTMLElement | null>(null)
-const islandInlineSize = ref(MODERN_PLAYER_BAR_MAX_WIDTH_PX)
-let islandResizeObserver: ResizeObserver | null = null
 
 const {
   isLiquidGlassActive: isLiquidGlassRefractionActive,
@@ -180,71 +179,24 @@ const {
   chromaticAberration: 2,
 })
 
+const { islandInlineSize, measureHostInlineSize } = usePlayerBarIslandMetrics({
+  islandRef,
+  hostRef: playerBarHostRef,
+  enabled: computed(() => isModernPlayer.value && isNormalPlayerDisplay.value),
+  onIslandSizeChange: updateLiquidDisplacementMap,
+})
+
 const isUtilitiesOverflow = computed(() => shouldOverflowModernUtilities(islandInlineSize.value))
 
-function syncIslandInlineSize(width: number): void {
-  if (!Number.isFinite(width) || width <= 0) return
-  islandInlineSize.value = width
-  updateLiquidDisplacementMap()
-}
-
-function bindIslandObserver(): void {
-  islandResizeObserver?.disconnect()
-  islandResizeObserver = null
-  const el = islandRef.value
-  if (!el || !isModernPlayer.value) return
-
-  islandResizeObserver = new ResizeObserver((entries) => {
-    const entry = entries[0]
-    const size = entry?.borderBoxSize?.[0]?.inlineSize ?? entry?.contentRect.width ?? el.clientWidth
-    syncIslandInlineSize(size)
-  })
-  islandResizeObserver.observe(el)
-  syncIslandInlineSize(el.getBoundingClientRect().width)
-}
-
-function unbindIslandObserver(): void {
-  islandResizeObserver?.disconnect()
-  islandResizeObserver = null
-}
+const volumeRetreatActive = computed(() =>
+  isPlayerBarVolumeOverlayRetreatActive({
+    presentation: props.presentation,
+    surfaceInlineSizePx: isModernPlayer.value ? islandInlineSize.value : measureHostInlineSize(),
+  }),
+)
 
 function toggleQueue(): void {
   overlayController.toggle('queue')
-}
-
-function measureHostInlineSize(): number {
-  const width = playerBarHostRef.value?.getBoundingClientRect().width
-  if (width && Number.isFinite(width) && width > 0) {
-    hostInlineSize.value = width
-    return width
-  }
-  return hostInlineSize.value
-}
-
-function isVolumeOverlayRetreatActive(): boolean {
-  return isPlayerBarVolumeOverlayRetreatActive({
-    presentation: props.presentation,
-    surfaceInlineSizePx: isModernPlayer.value ? islandInlineSize.value : measureHostInlineSize(),
-  })
-}
-
-function applyVolumeHoverExclusivity(): void {
-  if (isVolumeOverlayRetreatActive()) overlayController.activateVolume()
-}
-
-function handleVolumePointerEnter(): void {
-  applyVolumeHoverExclusivity()
-  volumeOverlay.onPointerEnter()
-}
-
-function handleVolumeFocusIn(event: FocusEvent): void {
-  applyVolumeHoverExclusivity()
-  volumeOverlay.onFocusIn(event)
-}
-
-function handleVolumeSliderPointerDown(): void {
-  applyVolumeHoverExclusivity()
-  volumeOverlay.onSliderPointerDown()
 }
 
 function handleQueueClose(): void {
@@ -360,7 +312,7 @@ function handleDocumentPointerDown(event: PointerEvent): void {
   ) {
     inside.add('desktopLyricsLock')
   }
-  if (volumeGroupRef.value?.contains(target)) {
+  if (volumeControlRef.value?.el?.contains(target)) {
     inside.add('volume')
   }
   overlayController.dismissOutside(inside)
@@ -373,23 +325,13 @@ watch(isUtilitiesOverflow, (collapsed) => {
 
 watch(
   () => isModernPlayer.value && isNormalPlayerDisplay.value,
-  async (shouldObserveIsland) => {
-    if (!shouldObserveIsland) {
-      unbindIslandObserver()
-      closeOverflow()
-      return
-    }
-    await nextTick()
-    bindIslandObserver()
+  (shouldObserveIsland) => {
+    if (!shouldObserveIsland) closeOverflow()
   },
-  { flush: 'post' },
 )
 
 onMounted(() => {
   document.addEventListener('pointerdown', handleDocumentPointerDown)
-  if (isModernPlayer.value && isNormalPlayerDisplay.value) {
-    bindIslandObserver()
-  }
 })
 
 onUnmounted(() => {
@@ -398,7 +340,6 @@ onUnmounted(() => {
     clearTimeout(desktopLyricsToastTimer)
     desktopLyricsToastTimer = null
   }
-  unbindIslandObserver()
   stopAlbumTint()
 })
 
@@ -419,41 +360,6 @@ const playbackModeIconClass = computed(() => {
   }
 })
 
-// --- Volume ---
-const volumeIconClass = computed(() => {
-  if (playback.state.isMuted) {
-    return 'i-ri-volume-mute-fill'
-  }
-
-  const volume = playback.state.volume
-
-  if (volume <= 0) {
-    return 'i-ri-volume-mute-fill'
-  }
-
-  if (volume <= 0.4) {
-    return 'i-ri-volume-down-fill'
-  }
-
-  return 'i-ri-volume-up-fill'
-})
-
-const volumeSliderStyle = computed(() => {
-  const percentage = `${Math.round(playback.state.volume * 100)}%`
-
-  return {
-    '--volume-percent': percentage,
-    '--volume-track-bg': `linear-gradient(to right, var(--auralis-active-album-accent) 0%, var(--auralis-active-album-accent) ${percentage}, var(--auralis-progress-track) ${percentage}, var(--auralis-progress-track) 100%)`,
-    background: 'transparent',
-  }
-})
-
-function handleVolumeOverlayEscape(): void {
-  if (!isVolumeOpen.value) return
-  overlayController.close('volume')
-  volumeMuteButtonRef.value?.focus()
-}
-
 // --- Transport ---
 function handlePlayPause(): void {
   if (isModernPlayer.value && isPrimaryPlaybackDisabled.value) return
@@ -466,10 +372,6 @@ function handlePrev(): void {
 
 function handleNext(): void {
   playback.playNext()
-}
-
-function handleToggleMute(): void {
-  playback.toggleMute()
 }
 </script>
 
@@ -694,58 +596,12 @@ function handleToggleMute(): void {
               />
             </div>
 
-            <div
-              ref="volumeGroupRef"
-              class="volume-control-group"
-              :data-volume-open="isVolumeOpen ? 'true' : 'false'"
-              @pointerenter="handleVolumePointerEnter"
-              @pointerleave="volumeOverlay.onPointerLeave"
-              @focusin="handleVolumeFocusIn"
-              @focusout="volumeOverlay.onFocusOut"
-              @keydown.esc="handleVolumeOverlayEscape"
-            >
-              <button
-                ref="volumeMuteButtonRef"
-                class="player-control"
-                type="button"
-                :aria-label="playback.state.isMuted ? t('player.unmute') : t('player.mute')"
-                @click="handleToggleMute"
-              >
-                <span class="playbar-action-icon h-4 w-4" :class="volumeIconClass" />
-              </button>
-              <input
-                type="range"
-                class="volume-slider"
-                min="0"
-                max="1"
-                step="0.01"
-                :value="playback.state.volume"
-                :style="volumeSliderStyle"
-                :aria-label="t('player.volume')"
-                @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
-              />
-              <div
-                class="player-overlay volume-overlay"
-                :data-player-presentation="props.presentation"
-                role="group"
-                :aria-label="t('player.volume')"
-              >
-                <input
-                  type="range"
-                  class="volume-slider volume-overlay-slider"
-                  min="0"
-                  max="1"
-                  step="0.01"
-                  :value="playback.state.volume"
-                  :style="volumeSliderStyle"
-                  :aria-label="t('player.volume')"
-                  @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
-                  @pointerdown="handleVolumeSliderPointerDown"
-                  @pointerup="volumeOverlay.onSliderPointerUp"
-                  @pointercancel="volumeOverlay.onSliderPointerUp"
-                />
-              </div>
-            </div>
+            <PlayerVolumeControl
+              ref="volumeControlRef"
+              :presentation="props.presentation"
+              :retreat-active="volumeRetreatActive"
+              @activate="overlayController.activateVolume()"
+            />
           </div>
         </div>
       </div>
@@ -863,58 +719,12 @@ function handleToggleMute(): void {
             />
           </div>
 
-          <div
-            ref="volumeGroupRef"
-            class="volume-control-group"
-            :data-volume-open="isVolumeOpen ? 'true' : 'false'"
-            @pointerenter="handleVolumePointerEnter"
-            @pointerleave="volumeOverlay.onPointerLeave"
-            @focusin="handleVolumeFocusIn"
-            @focusout="volumeOverlay.onFocusOut"
-            @keydown.esc="handleVolumeOverlayEscape"
-          >
-            <button
-              ref="volumeMuteButtonRef"
-              class="player-control"
-              type="button"
-              :aria-label="playback.state.isMuted ? t('player.unmute') : t('player.mute')"
-              @click="handleToggleMute"
-            >
-              <span class="playbar-action-icon h-4 w-4" :class="volumeIconClass" />
-            </button>
-            <input
-              type="range"
-              class="volume-slider"
-              min="0"
-              max="1"
-              step="0.01"
-              :value="playback.state.volume"
-              :style="volumeSliderStyle"
-              :aria-label="t('player.volume')"
-              @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
-            />
-            <div
-              class="player-overlay volume-overlay"
-              :data-player-presentation="props.presentation"
-              role="group"
-              :aria-label="t('player.volume')"
-            >
-              <input
-                type="range"
-                class="volume-slider volume-overlay-slider"
-                min="0"
-                max="1"
-                step="0.01"
-                :value="playback.state.volume"
-                :style="volumeSliderStyle"
-                :aria-label="t('player.volume')"
-                @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
-                @pointerdown="handleVolumeSliderPointerDown"
-                @pointerup="volumeOverlay.onSliderPointerUp"
-                @pointercancel="volumeOverlay.onSliderPointerUp"
-              />
-            </div>
-          </div>
+          <PlayerVolumeControl
+            ref="volumeControlRef"
+            :presentation="props.presentation"
+            :retreat-active="volumeRetreatActive"
+            @activate="overlayController.activateVolume()"
+          />
         </div>
 
         <PlayerBarTimeColophon />

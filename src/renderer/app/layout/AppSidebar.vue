@@ -17,6 +17,7 @@ import type { WarmableRouteName } from '../router/routeComponentLoaders'
 import type { ShellPresentation } from '../utils/shellPresentation'
 import { resolveRestorableFocusTarget } from '../utils/sidebarModalFocus'
 import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
+import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
 import '../styles/manuscript.sidebar.css'
 import '../styles/manuscript.sidebar-overlays.css'
 
@@ -48,22 +49,10 @@ const queryDialogRef = ref<HTMLElement | null>(null)
 const deleteDialogRef = ref<HTMLElement | null>(null)
 const sidebarModalTrigger = ref<HTMLElement | null>(null)
 const isCreatingFromQuery = ref(false)
-const pressedPlaylistKey = ref<string | null>(null)
-const draggingPlaylistKey = ref<string | null>(null)
-const dropTarget = ref<{ key: string; position: 'before' | 'after' } | null>(null)
-let longPressTimer: number | null = null
-let pendingDrag: {
-  playlistKey: string
-  pointerId: number
-  startX: number
-  startY: number
-} | null = null
-let suppressPlaylistClick = false
 let unsubscribeLibraryChanged: (() => void) | null = null
 /** Cleans up optimistic nav highlight listeners when a new press starts or the component unmounts. */
 let pendingNavCleanup: (() => void) | null = null
 
-const LONG_PRESS_DELAY_MS = 280
 const POINTER_MOVE_TOLERANCE = 6
 
 const { t } = useI18n()
@@ -99,6 +88,18 @@ const primaryNavItems = computed(() =>
 function getPlaylistKey(item: { kind: string; id: number }): string {
   return `${item.kind}:${item.id}`
 }
+
+const {
+  pressedPlaylistKey,
+  draggingPlaylistKey,
+  dropTarget,
+  onPointerDown: onPlaylistPointerDown,
+  shouldSuppressClick,
+} = useSidebarPlaylistReorder({
+  playlistItems,
+  persistOrder: (items) => auralis.playlists.reorderSidebarItems(items),
+  reload: () => loadSidebarPlaylists(),
+})
 
 function getPlaylistPath(item: SidebarPlaylistItem): string {
   return item.kind === 'playlist' ? `/playlists/${item.id}` : `/smart-playlists/${item.id}`
@@ -215,125 +216,8 @@ function setPendingActiveFromPointer(event: PointerEvent, path: string): void {
   window.addEventListener('pointercancel', onCancel)
 }
 
-function clearLongPressTimer(): void {
-  if (longPressTimer !== null) {
-    window.clearTimeout(longPressTimer)
-    longPressTimer = null
-  }
-}
-
-function resetPlaylistDrag(): void {
-  clearLongPressTimer()
-  pendingDrag = null
-  pressedPlaylistKey.value = null
-  draggingPlaylistKey.value = null
-  dropTarget.value = null
-}
-
-function onPlaylistPointerDown(item: SidebarPlaylistItem, event: PointerEvent): void {
-  if (event.button !== 0) return
-
-  resetPlaylistDrag()
-  const playlistKey = getPlaylistKey(item)
-  pendingDrag = {
-    playlistKey,
-    pointerId: event.pointerId,
-    startX: event.clientX,
-    startY: event.clientY,
-  }
-  pressedPlaylistKey.value = playlistKey
-  longPressTimer = window.setTimeout(() => {
-    if (!pendingDrag) return
-    draggingPlaylistKey.value = pendingDrag.playlistKey
-    suppressPlaylistClick = true
-    longPressTimer = null
-  }, LONG_PRESS_DELAY_MS)
-}
-
-function onPlaylistPointerMove(event: PointerEvent): void {
-  if (!pendingDrag || event.pointerId !== pendingDrag.pointerId) return
-
-  if (draggingPlaylistKey.value === null) {
-    const distance = Math.hypot(
-      event.clientX - pendingDrag.startX,
-      event.clientY - pendingDrag.startY,
-    )
-    if (distance > POINTER_MOVE_TOLERANCE) {
-      resetPlaylistDrag()
-    }
-    return
-  }
-
-  event.preventDefault()
-  const element = document
-    .elementFromPoint(event.clientX, event.clientY)
-    ?.closest<HTMLElement>('[data-sidebar-playlist-key]')
-  if (!element) {
-    dropTarget.value = null
-    return
-  }
-
-  const targetKey = element.dataset.sidebarPlaylistKey
-  if (!targetKey || targetKey === draggingPlaylistKey.value) {
-    dropTarget.value = null
-    return
-  }
-
-  const bounds = element.getBoundingClientRect()
-  dropTarget.value = {
-    key: targetKey,
-    position: event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after',
-  }
-}
-
-async function persistPlaylistDrop(): Promise<void> {
-  const sourceKey = draggingPlaylistKey.value
-  const target = dropTarget.value
-  if (sourceKey === null || !target) return
-
-  const next = playlistItems.value.filter((item) => getPlaylistKey(item) !== sourceKey)
-  const source = playlistItems.value.find((item) => getPlaylistKey(item) === sourceKey)
-  const targetIndex = next.findIndex((item) => getPlaylistKey(item) === target.key)
-  if (!source || targetIndex < 0) return
-
-  next.splice(targetIndex + (target.position === 'after' ? 1 : 0), 0, source)
-  playlistItems.value = next
-
-  try {
-    playlistItems.value = await auralis.playlists.reorderSidebarItems(
-      next.map((item) => ({ kind: item.kind, id: item.id })),
-    )
-  } catch {
-    await loadSidebarPlaylists()
-  }
-}
-
-function onPlaylistPointerUp(event: PointerEvent): void {
-  if (!pendingDrag || event.pointerId !== pendingDrag.pointerId) return
-  const wasDragging = draggingPlaylistKey.value !== null
-  if (wasDragging) void persistPlaylistDrop()
-  resetPlaylistDrag()
-
-  if (wasDragging) {
-    window.setTimeout(() => {
-      suppressPlaylistClick = false
-    })
-  }
-}
-
-function onPlaylistPointerCancel(event: PointerEvent): void {
-  if (!pendingDrag || event.pointerId !== pendingDrag.pointerId) return
-  const wasDragging = draggingPlaylistKey.value !== null
-  resetPlaylistDrag()
-  if (wasDragging) {
-    window.setTimeout(() => {
-      suppressPlaylistClick = false
-    })
-  }
-}
-
 function onPlaylistClick(event: MouseEvent, path: string): void {
-  if (suppressPlaylistClick) {
+  if (shouldSuppressClick()) {
     event.preventDefault()
     event.stopPropagation()
     return
@@ -367,7 +251,7 @@ async function playRandomPlaylistTrack(item: SidebarPlaylistItem): Promise<void>
 function onPlaylistDoubleClick(item: SidebarPlaylistItem, event: MouseEvent): void {
   event.preventDefault()
   event.stopPropagation()
-  if (suppressPlaylistClick || draggingPlaylistKey.value !== null) return
+  if (shouldSuppressClick()) return
   void playRandomPlaylistTrack(item)
 }
 
@@ -580,21 +464,14 @@ onMounted(() => {
     void loadSidebarStats()
   })
   window.addEventListener('auralis-playlists-changed', onPlaylistsChanged)
-  window.addEventListener('pointermove', onPlaylistPointerMove, { passive: false })
-  window.addEventListener('pointerup', onPlaylistPointerUp)
-  window.addEventListener('pointercancel', onPlaylistPointerCancel)
 })
 
 onBeforeUnmount(() => {
   pendingNavCleanup?.()
   pendingNavCleanup = null
-  resetPlaylistDrag()
   unsubscribeLibraryChanged?.()
   unsubscribeLibraryChanged = null
   window.removeEventListener('auralis-playlists-changed', onPlaylistsChanged)
-  window.removeEventListener('pointermove', onPlaylistPointerMove)
-  window.removeEventListener('pointerup', onPlaylistPointerUp)
-  window.removeEventListener('pointercancel', onPlaylistPointerCancel)
 })
 </script>
 
@@ -905,7 +782,6 @@ onBeforeUnmount(() => {
           </div>
         </section>
       </div>
-
     </Teleport>
   </aside>
 </template>

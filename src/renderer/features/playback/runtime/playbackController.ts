@@ -2,6 +2,7 @@ import { reactive, readonly, ref, type Ref } from 'vue'
 import type { PlaybackMode, PlaybackState, PlaybackTrack } from '../types'
 import {
   createPlaybackAudioRuntime,
+  type PlaybackAudioCallbacks,
   type PlaybackAudioRuntime,
 } from '../audio/playbackAudioRuntime'
 import { EffectivePlayTracker } from '../core/effectivePlayTracker'
@@ -93,7 +94,6 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   })
 
   let lastAudibleVolume = state.volume > 0 ? state.volume : 0.8
-  let playbackRequestId = 0
   let transitionGeneration = 0
   let isDisposed = false
 
@@ -105,8 +105,8 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     return token
   }
 
-  function isCurrentPlaybackRequest(token: PlaybackRequestToken, requestId: number): boolean {
-    return playbackRequestGate.isCurrent(token) && requestId === playbackRequestId
+  function isCurrentPlaybackRequest(token: PlaybackRequestToken): boolean {
+    return playbackRequestGate.isCurrent(token)
   }
 
   function finishPlaybackRequest(token: PlaybackRequestToken): void {
@@ -125,89 +125,49 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     state.error = err instanceof Error ? err.message : String(err)
   }
 
-  const audioRuntime: PlaybackAudioRuntime = deps.createAudioRuntime
-    ? deps.createAudioRuntime({
-        onTimeUpdate: ({ currentTime, duration }) => {
-          state.currentTime = currentTime
-          state.duration = duration
-        },
-        onDurationChange: (duration) => {
-          state.duration = duration
-        },
-        onPlayingChange: (isPlaying) => {
-          state.isPlaying = isPlaying
-        },
-        onEnded: (nextTrackId) => {
-          void commitBoundary(nextTrackId).catch(setPlaybackError)
-        },
-        onError: (error) => {
-          audioRuntime.clear()
-          effectivePlayTracker.end()
-          state.isPlaying = false
-          state.error = `Audio error: ${error.detail}`
-          deps.diagnostics.error({
-            scope: 'playback.audio',
-            message: 'Audio playback failed',
-            context: {
-              trackId: state.currentTrackId,
-              errorCode: error.errorCode,
-              errorDetail: error.detail,
-              networkState: error.networkState,
-              readyState: error.readyState,
-            },
-          })
-        },
-        onSeeking: () => {
-          effectivePlayTracker.beginSeekingWithFallback()
-        },
-        onSeeked: () => {
-          effectivePlayTracker.endSeeking()
-        },
-        onBufferingChange: (buffering) => {
-          effectivePlayTracker.setBuffering(buffering)
+  const audioCallbacks: PlaybackAudioCallbacks = {
+    onTimeUpdate: ({ currentTime, duration }) => {
+      state.currentTime = currentTime
+      state.duration = duration
+    },
+    onDurationChange: (duration) => {
+      state.duration = duration
+    },
+    onPlayingChange: (isPlaying) => {
+      state.isPlaying = isPlaying
+    },
+    onEnded: (nextTrackId) => {
+      void commitBoundary(nextTrackId).catch(setPlaybackError)
+    },
+    onError: (error) => {
+      audioRuntime.clear()
+      effectivePlayTracker.end()
+      state.isPlaying = false
+      state.error = `Audio error: ${error.detail}`
+      deps.diagnostics.error({
+        scope: 'playback.audio',
+        message: 'Audio playback failed',
+        context: {
+          trackId: state.currentTrackId,
+          errorCode: error.errorCode,
+          errorDetail: error.detail,
+          networkState: error.networkState,
+          readyState: error.readyState,
         },
       })
-    : createPlaybackAudioRuntime({
-        onTimeUpdate: ({ currentTime, duration }) => {
-          state.currentTime = currentTime
-          state.duration = duration
-        },
-        onDurationChange: (duration) => {
-          state.duration = duration
-        },
-        onPlayingChange: (isPlaying) => {
-          state.isPlaying = isPlaying
-        },
-        onEnded: (nextTrackId) => {
-          void commitBoundary(nextTrackId).catch(setPlaybackError)
-        },
-        onError: (error) => {
-          audioRuntime.clear()
-          effectivePlayTracker.end()
-          state.isPlaying = false
-          state.error = `Audio error: ${error.detail}`
-          deps.diagnostics.error({
-            scope: 'playback.audio',
-            message: 'Audio playback failed',
-            context: {
-              trackId: state.currentTrackId,
-              errorCode: error.errorCode,
-              errorDetail: error.detail,
-              networkState: error.networkState,
-              readyState: error.readyState,
-            },
-          })
-        },
-        onSeeking: () => {
-          effectivePlayTracker.beginSeekingWithFallback()
-        },
-        onSeeked: () => {
-          effectivePlayTracker.endSeeking()
-        },
-        onBufferingChange: (buffering) => {
-          effectivePlayTracker.setBuffering(buffering)
-        },
-      })
+    },
+    onSeeking: () => {
+      effectivePlayTracker.beginSeekingWithFallback()
+    },
+    onSeeked: () => {
+      effectivePlayTracker.endSeeking()
+    },
+    onBufferingChange: (buffering) => {
+      effectivePlayTracker.setBuffering(buffering)
+    },
+  }
+  const createAudioRuntime = deps.createAudioRuntime ?? createPlaybackAudioRuntime
+  const audioRuntime: PlaybackAudioRuntime = createAudioRuntime(audioCallbacks)
 
   audioRuntime.setVolume(state.volume, state.isMuted)
 
@@ -285,6 +245,10 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     audioRuntime.cancelScheduledNext()
   }
 
+  function isCurrentGaplessPrefetch(generation: number, fromTrackId: number): boolean {
+    return generation === transitionGeneration && state.currentTrackId === fromTrackId
+  }
+
   function isSameAlbumBoundary(current: PlaybackTrack | null, next: PlaybackTrack): boolean {
     if (!current?.album || !next.album) return false
     const currentAlbumArtist = current.albumArtist || current.artist || ''
@@ -304,37 +268,21 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     }
 
     const generation = ++transitionGeneration
-    const requestId = playbackRequestId
     scheduledPlan = null
     audioRuntime.cancelScheduledNext()
 
     try {
       if (!audioRuntime.getSnapshot().isPlaying) return
       const plan = await resolveTransitionPlan(fromTrackId)
-      if (
-        !plan ||
-        generation !== transitionGeneration ||
-        requestId !== playbackRequestId ||
-        state.currentTrackId !== fromTrackId
-      )
-        return
+      if (!plan || !isCurrentGaplessPrefetch(generation, fromTrackId)) return
 
       const url = await resolveAudioUrl(plan.track.id)
-      if (
-        generation !== transitionGeneration ||
-        requestId !== playbackRequestId ||
-        state.currentTrackId !== fromTrackId
-      )
-        return
+      if (!isCurrentGaplessPrefetch(generation, fromTrackId)) return
 
       const scheduled = await audioRuntime.scheduleNext(plan.track.id, url, {
         trimBoundarySilence: isSameAlbumBoundary(state.currentTrack, plan.track),
       })
-      if (
-        generation !== transitionGeneration ||
-        requestId !== playbackRequestId ||
-        state.currentTrackId !== fromTrackId
-      ) {
+      if (!isCurrentGaplessPrefetch(generation, fromTrackId)) {
         if (scheduled) audioRuntime.cancelScheduledNext()
         return
       }
@@ -367,27 +315,27 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   ): Promise<void> {
     const index = queue.findIndex((t) => t.id === trackId)
     if (index === -1) return
-    const requestId = ++playbackRequestId
-    invalidateGaplessTransition()
-    audioRuntime.clear()
-
-    if (options?.recordHistory !== false) {
-      navigationSession.pushHistory(state.currentTrack, trackId, state.queue)
-    }
-
-    if (options?.resetShuffleContext) {
-      navigationSession.resetForTrackSwitch(options.resetShuffleContext)
-    }
-
-    effectivePlayTracker.end()
-    commitCurrentTrack(queue[index], queue, 0)
-    state.isPlaying = false
     const pendingToken = beginPlaybackRequest()
 
     try {
+      invalidateGaplessTransition()
+      audioRuntime.clear()
+
+      if (options?.recordHistory !== false) {
+        navigationSession.pushHistory(state.currentTrack, trackId, state.queue)
+      }
+
+      if (options?.resetShuffleContext) {
+        navigationSession.resetForTrackSwitch(options.resetShuffleContext)
+      }
+
+      effectivePlayTracker.end()
+      commitCurrentTrack(queue[index], queue, 0)
+      state.isPlaying = false
+
       const audioUrl = await resolveAudioUrl(trackId)
 
-      if (!isCurrentPlaybackRequest(pendingToken, requestId)) {
+      if (!isCurrentPlaybackRequest(pendingToken)) {
         return
       }
 
@@ -395,7 +343,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         preferGapless: gaplessPlaybackEnabled.value,
       })
 
-      if (!isCurrentPlaybackRequest(pendingToken, requestId)) {
+      if (!isCurrentPlaybackRequest(pendingToken)) {
         return
       }
 
@@ -407,12 +355,11 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         void refreshGaplessNext(trackId)
       }
     } catch (err) {
-      if (!isCurrentPlaybackRequest(pendingToken, requestId)) {
+      if (!isCurrentPlaybackRequest(pendingToken)) {
         return
       }
 
-      state.isPlaying = false
-      state.error = err instanceof Error ? err.message : String(err)
+      setPlaybackError(err)
     } finally {
       finishPlaybackRequest(pendingToken)
     }
@@ -564,12 +511,11 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       return
     }
 
-    const requestId = playbackRequestId
     const pendingToken = beginPlaybackRequest()
     try {
       await audioRuntime.resume()
 
-      if (!isCurrentPlaybackRequest(pendingToken, requestId) || state.currentTrackId !== track.id) {
+      if (!isCurrentPlaybackRequest(pendingToken) || state.currentTrackId !== track.id) {
         return
       }
 
@@ -577,12 +523,11 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         void refreshGaplessNext(state.currentTrackId)
       }
     } catch (err) {
-      if (!isCurrentPlaybackRequest(pendingToken, requestId) || state.currentTrackId !== track.id) {
+      if (!isCurrentPlaybackRequest(pendingToken) || state.currentTrackId !== track.id) {
         return
       }
 
-      state.isPlaying = false
-      state.error = err instanceof Error ? err.message : String(err)
+      setPlaybackError(err)
     } finally {
       finishPlaybackRequest(pendingToken)
     }
@@ -731,7 +676,6 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     state.queue = state.queue.filter((track) => !missingIds.has(track.id))
 
     if (currentTrackMissing) {
-      playbackRequestId += 1
       invalidatePlaybackRequest()
       invalidateGaplessTransition()
       audioRuntime.clear()
@@ -762,7 +706,6 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   function dispose(): void {
     if (isDisposed) return
     isDisposed = true
-    playbackRequestId += 1
     invalidatePlaybackRequest()
     invalidateGaplessTransition()
     effectivePlayTracker.end()

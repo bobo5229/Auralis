@@ -1,10 +1,6 @@
 import type { PlaybackTrack } from '../types'
 import type { AlbumShuffleContext } from '../core/playbackQueueState'
-import {
-  createPlaybackAudioRuntime,
-  type PlaybackAudioCallbacks,
-  type PlaybackAudioRuntime,
-} from '../audio/playbackAudioRuntime'
+import type { PlaybackAudioCallbacks, PlaybackAudioRuntime } from '../audio/playbackAudioRuntime'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 
@@ -68,6 +64,5 @@ export function createBrowserPlaybackDependencies(): PlaybackDependencies {
       warn: (event) => rendererDiagnostics.warn(event),
       error: (event) => rendererDiagnostics.error(event),
     },
-    createAudioRuntime: (callbacks) => createPlaybackAudioRuntime(callbacks),
   }
 }

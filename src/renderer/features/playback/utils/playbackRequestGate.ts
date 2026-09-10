@@ -11,6 +11,8 @@ export interface PlaybackRequestGate {
  * Tracks the one foreground audio operation whose completion is allowed to
  * clear the playback-pending state.  A newer operation supersedes an older
  * one, so a late finally block cannot unlock the newer request.
+ * Token identity covers pending load/resume; gapless invalidation uses
+ * transitionGeneration.
  */
 export function createPlaybackRequestGate(): PlaybackRequestGate {
   let nextToken = 0
