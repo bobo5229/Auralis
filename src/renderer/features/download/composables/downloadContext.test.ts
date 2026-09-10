@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createRenderer, defineComponent, h, nextTick, ref, type Component } from 'vue'
+import { createRenderer, h, nextTick, ref, type Component } from 'vue'
+import type { AuralisApi } from '@shared/ipc/api'
+import type { AmdlSelectionRequest, AmdlTaskProgress } from '@shared/types/amdl'
 import { provideAmdlDownload, useProvidedAmdlDownload } from './downloadContext'
 import type { useAmdlDownload } from './useAmdlDownload'
 
@@ -20,16 +22,35 @@ function createValueHolder<T>() {
   }
 }
 
+function createTestDownloadClient(download: AuralisApi['download']): AuralisApi {
+  return { download } as unknown as AuralisApi
+}
+
+function createStubDownloadClient(
+  overrides: Partial<AuralisApi['download']> = {},
+): AuralisApi['download'] {
+  return {
+    start: async () => ({ ok: true, taskId: 't-1' }),
+    cancel: async () => ({ ok: true }),
+    getStatus: async () => null,
+    submitSelection: async () => ({ ok: true }),
+    onProgress: () => () => undefined,
+    onLog: () => () => undefined,
+    onSelectionRequest: () => () => undefined,
+    ...overrides,
+  }
+}
+
 function createTestApp(rootComponent: Component) {
   const { createApp } = createRenderer({
-    patchProp: () => {},
-    insert: () => {},
-    remove: () => {},
+    patchProp: () => undefined,
+    insert: () => undefined,
+    remove: () => undefined,
     createElement: () => ({}),
     createText: () => ({}),
     createComment: () => ({}),
-    setText: () => {},
-    setElementText: () => {},
+    setText: () => undefined,
+    setElementText: () => undefined,
     parentNode: () => null,
     nextSibling: () => null,
   })
@@ -38,13 +59,17 @@ function createTestApp(rootComponent: Component) {
   return app
 }
 
+function setupView(setup: () => unknown): Component {
+  return {
+    setup,
+    render: () => null,
+  }
+}
+
 describe('downloadContext', () => {
   it('throws error when useProvidedAmdlDownload is called outside provider', () => {
-    const Child = defineComponent({
-      setup() {
-        useProvidedAmdlDownload()
-        return () => null
-      },
+    const Child = setupView(() => {
+      useProvidedAmdlDownload()
     })
 
     expect(() => createTestApp(Child)).toThrow(
@@ -55,34 +80,18 @@ describe('downloadContext', () => {
   it('provides and injects download instance down the component tree', () => {
     const injected = createValueHolder<AmdlDownloadContext>()
 
-    const Child = defineComponent({
-      setup() {
-        injected.set(useProvidedAmdlDownload())
-        return () => null
-      },
+    const Child = setupView(() => {
+      injected.set(useProvidedAmdlDownload())
     })
 
-    const Parent = defineComponent({
+    const Parent: Component = {
       setup() {
-        const download = provideAmdlDownload({
-          client: {
-            download: {
-              start: async () => ({ ok: true, taskId: 't-1' }),
-              cancel: async () => ({ ok: true }),
-              getStatus: async () => null,
-              submitSelection: async () => ({ ok: true }),
-              onProgress: () => () => {},
-              onLog: () => () => {},
-              onSelectionRequest: () => () => {},
-            },
-          } as any,
+        provideAmdlDownload({
+          client: createTestDownloadClient(createStubDownloadClient()),
         })
-        return { download }
+        return () => h(Child)
       },
-      render() {
-        return h(Child)
-      },
-    })
+    }
 
     createTestApp(Parent)
 
@@ -95,40 +104,28 @@ describe('downloadContext', () => {
     const injectedFirst = createValueHolder<AmdlDownloadContext>()
     const injectedSecond = createValueHolder<AmdlDownloadContext>()
 
-    const Child1 = defineComponent({
-      setup() {
-        injectedFirst.set(useProvidedAmdlDownload())
-        return () => null
-      },
+    const Child1 = setupView(() => {
+      injectedFirst.set(useProvidedAmdlDownload())
     })
 
-    const Child2 = defineComponent({
-      setup() {
-        injectedSecond.set(useProvidedAmdlDownload())
-        return () => null
-      },
+    const Child2 = setupView(() => {
+      injectedSecond.set(useProvidedAmdlDownload())
     })
 
     const showFirst = ref(true)
 
-    const Parent = defineComponent({
+    const Parent: Component = {
       setup() {
         provideAmdlDownload({
-          client: {
-            download: {
+          client: createTestDownloadClient(
+            createStubDownloadClient({
               start: async () => ({ ok: true, taskId: 't-2' }),
-              cancel: async () => ({ ok: true }),
-              getStatus: async () => null,
-              submitSelection: async () => ({ ok: true }),
-              onProgress: () => () => {},
-              onLog: () => () => {},
-              onSelectionRequest: () => () => {},
-            },
-          } as any,
+            }),
+          ),
         })
         return () => (showFirst.value ? h(Child1) : h(Child2))
       },
-    })
+    }
 
     createTestApp(Parent)
 
@@ -150,38 +147,30 @@ describe('downloadContext', () => {
   it('supports restarting a new task after terminal state (completed, failed, cancelled)', async () => {
     const injected = createValueHolder<AmdlDownloadContext>()
 
-    const Child = defineComponent({
-      setup() {
-        injected.set(useProvidedAmdlDownload())
-        return () => null
-      },
+    const Child = setupView(() => {
+      injected.set(useProvidedAmdlDownload())
     })
 
     let currentMockId = 't-first'
     const startMock = vi.fn().mockImplementation(async () => ({ ok: true, taskId: currentMockId }))
+    const progressHolder = createValueHolder<(progress: AmdlTaskProgress) => void>()
 
-    const progressHolder = createValueHolder<(p: any) => void>()
-    const Parent = defineComponent({
+    const Parent: Component = {
       setup() {
         provideAmdlDownload({
-          client: {
-            download: {
+          client: createTestDownloadClient(
+            createStubDownloadClient({
               start: startMock,
-              cancel: async () => ({ ok: true }),
-              getStatus: async () => null,
-              submitSelection: async () => ({ ok: true }),
-              onProgress: (cb: any) => {
-                progressHolder.set(cb)
-                return () => {}
+              onProgress: (callback) => {
+                progressHolder.set(callback)
+                return () => undefined
               },
-              onLog: () => () => {},
-              onSelectionRequest: () => () => {},
-            },
-          } as any,
+            }),
+          ),
         })
         return () => h(Child)
       },
-    })
+    }
 
     createTestApp(Parent)
 
@@ -220,44 +209,33 @@ describe('downloadContext', () => {
     const injectedFirst = createValueHolder<AmdlDownloadContext>()
     const injectedSecond = createValueHolder<AmdlDownloadContext>()
 
-    const Child1 = defineComponent({
-      setup() {
-        injectedFirst.set(useProvidedAmdlDownload())
-        return () => null
-      },
+    const Child1 = setupView(() => {
+      injectedFirst.set(useProvidedAmdlDownload())
     })
 
-    const Child2 = defineComponent({
-      setup() {
-        injectedSecond.set(useProvidedAmdlDownload())
-        return () => null
-      },
+    const Child2 = setupView(() => {
+      injectedSecond.set(useProvidedAmdlDownload())
     })
 
     const showFirst = ref(true)
-    const selectionRequestHolder = createValueHolder<(req: any) => void>()
+    const selectionRequestHolder = createValueHolder<(request: AmdlSelectionRequest) => void>()
 
-    const Parent = defineComponent({
+    const Parent: Component = {
       setup() {
         provideAmdlDownload({
-          client: {
-            download: {
+          client: createTestDownloadClient(
+            createStubDownloadClient({
               start: async () => ({ ok: true, taskId: 't-sel' }),
-              cancel: async () => ({ ok: true }),
-              getStatus: async () => null,
-              submitSelection: async () => ({ ok: true }),
-              onProgress: () => () => {},
-              onLog: () => () => {},
-              onSelectionRequest: (cb: any) => {
-                selectionRequestHolder.set(cb)
-                return () => {}
+              onSelectionRequest: (callback) => {
+                selectionRequestHolder.set(callback)
+                return () => undefined
               },
-            },
-          } as any,
+            }),
+          ),
         })
         return () => (showFirst.value ? h(Child1) : h(Child2))
       },
-    })
+    }
 
     createTestApp(Parent)
     const first = injectedFirst.get()

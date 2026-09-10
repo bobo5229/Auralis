@@ -887,14 +887,8 @@ assertIncludes(
   'player bar toggles go through exclusive overlay controller',
 )
 assertIncludes(playerBar, 'PlayerVolumeControl', 'player bar hosts the extracted volume control')
-const playerVolumeControl = await readProjectFile(
-  'src/renderer/app/layout/PlayerVolumeControl.vue',
-)
-assertIncludes(
-  playerVolumeControl,
-  'useVolumeOverlay',
-  'volume hover overlay controller is wired',
-)
+const playerVolumeControl = await readProjectFile('src/renderer/app/layout/PlayerVolumeControl.vue')
+assertIncludes(playerVolumeControl, 'useVolumeOverlay', 'volume hover overlay controller is wired')
 assertIncludes(
   playerBar,
   'isPlayerBarVolumeOverlayRetreatActive',
@@ -1038,11 +1032,7 @@ assertExcludes(
   'time colophon uses fixed group spacing, not margin-left auto',
 )
 assertIncludes(playerBar, 'player-bar-dock-rule', 'player bar dock rule wrapper')
-assertIncludes(
-  playerVolumeControl,
-  'volume-overlay',
-  'player bar volume overlay markup',
-)
+assertIncludes(playerVolumeControl, 'volume-overlay', 'player bar volume overlay markup')
 assertIncludes(
   playerManuscriptCss,
   '@container manuscript-player-bar',

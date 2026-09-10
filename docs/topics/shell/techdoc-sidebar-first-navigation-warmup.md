@@ -36,11 +36,11 @@
 
 当前构建产物提供了量级证据，但不是最终性能基线：
 
-| 页面 | JS（约） | CSS（约） | 首访附加工作 |
-| --- | ---: | ---: | --- |
-| Albums | 31 KB | 17 KB | 解析模块与样式 |
-| Archive | 121 KB | 109 KB | 解析较大的页面模块与样式 |
-| Settings | 48 KB | 40 KB | 静态依赖三个设置分区组件 |
+| 页面     | JS（约） | CSS（约） | 首访附加工作             |
+| -------- | -------: | --------: | ------------------------ |
+| Albums   |    31 KB |     17 KB | 解析模块与样式           |
+| Archive  |   121 KB |    109 KB | 解析较大的页面模块与样式 |
+| Settings |    48 KB |     40 KB | 静态依赖三个设置分区组件 |
 
 这些是未压缩的本地产物大小，只用于解释页面间差异，不可直接当作耗时结论。
 
@@ -195,15 +195,15 @@ Albums 或 Archive 仍存在超过门槛的长任务，才另开方案处理对�
 
 ## 7. 预计文件范围
 
-| 文件 | 计划改动 |
-| --- | --- |
-| `src/renderer/app/router/routeComponentLoaders.ts` | 新增唯一 loader 表与预热 route 类型 |
-| `src/renderer/app/router/routeComponentLoaders.test.ts` | loader 映射与失败重试测试 |
-| `src/renderer/app/router/routeWarmup.ts` | intent/idle 调度、去重、取消、诊断 |
-| `src/renderer/app/router/routeWarmup.test.ts` | 顺序、降级、失败、dispose 测试 |
-| `src/renderer/app/router/index.ts` | 复用集中 loader |
-| `src/renderer/app/layout/AppSidebar.vue` | 接入 pointer/focus 意图预取 |
-| `src/renderer/main.ts` | rendererReady 后启动空闲预热 |
+| 文件                                                    | 计划改动                            |
+| ------------------------------------------------------- | ----------------------------------- |
+| `src/renderer/app/router/routeComponentLoaders.ts`      | 新增唯一 loader 表与预热 route 类型 |
+| `src/renderer/app/router/routeComponentLoaders.test.ts` | loader 映射与失败重试测试           |
+| `src/renderer/app/router/routeWarmup.ts`                | intent/idle 调度、去重、取消、诊断  |
+| `src/renderer/app/router/routeWarmup.test.ts`           | 顺序、降级、失败、dispose 测试      |
+| `src/renderer/app/router/index.ts`                      | 复用集中 loader                     |
+| `src/renderer/app/layout/AppSidebar.vue`                | 接入 pointer/focus 意图预取         |
+| `src/renderer/main.ts`                                  | rendererReady 后启动空闲预热        |
 
 默认不修改 `electron.vite.config.ts`、主进程、preload、shared IPC、业务页面和数据库。
 
@@ -254,13 +254,13 @@ Albums 或 Archive 仍存在超过门槛的长任务，才另开方案处理对�
 
 ## 9. 风险与回滚
 
-| 风险 | 控制措施 |
-| --- | --- |
-| 预热反而争抢首屏 | 严格置于 `rendererReady()` 后，并一次只加载一个 chunk |
-| intent 与 idle 重复加载 | 共用 loader/in-flight 状态；模块系统缓存成功结果 |
-| rejected Promise 被永久缓存 | catch 后清除 in-flight，正常导航允许重试 |
-| 低端设备 idle 时间不足 | intent 预取和正常导航始终可用；不以预热完成为导航前提 |
-| 预热扩大为业务数据缓存 | 文件范围和 Step 4 决策门明确禁止 |
+| 风险                        | 控制措施                                                  |
+| --------------------------- | --------------------------------------------------------- |
+| 预热反而争抢首屏            | 严格置于 `rendererReady()` 后，并一次只加载一个 chunk     |
+| intent 与 idle 重复加载     | 共用 loader/in-flight 状态；模块系统缓存成功结果          |
+| rejected Promise 被永久缓存 | catch 后清除 in-flight，正常导航允许重试                  |
+| 低端设备 idle 时间不足      | intent 预取和正常导航始终可用；不以预热完成为导航前提     |
+| 预热扩大为业务数据缓存      | 文件范围和 Step 4 决策门明确禁止                          |
 | Desktop Lyrics 引入无用代码 | 保持其 bootstrap 提前 return，预热模块只在主 App 分支导入 |
 
 若生产基线显示冷启动或交互性能回退，回滚顺序为：先关闭 idle 调度，保留 intent 预取；仍回退时移除

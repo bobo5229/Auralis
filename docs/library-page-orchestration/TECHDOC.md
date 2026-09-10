@@ -21,15 +21,15 @@
 
 ## 2. 非目标
 
-| 不做 | 原因 |
-| --- | --- |
-| 改 `library:get-track-page` / 游标 / OFFSET | 现有消费者依赖完整有序快照 |
-| 改 `LIBRARY_LAYOUT_METRICS` 任何数字 | 虚拟列表与 CSS 必须同步；本轮不同步改几何 |
-| 抽 TanStack virtualizer 出页面 | 与模板、`scrollRef`、行高公式绑死 |
-| 重写搜索算法或繁简表 | `normalizeSearchText` / `scanLibrarySearchIndex` 已独立 |
-| 动 `usePlayback`、扫描、备份、IPC | 不在本文件优化范围内 |
-| 视觉风格切换 remount `RouterView` / Sidebar | Agents.md 硬约束 |
-| 为拆而拆已经独立的模块 | 见 §4 |
+| 不做                                        | 原因                                                    |
+| ------------------------------------------- | ------------------------------------------------------- |
+| 改 `library:get-track-page` / 游标 / OFFSET | 现有消费者依赖完整有序快照                              |
+| 改 `LIBRARY_LAYOUT_METRICS` 任何数字        | 虚拟列表与 CSS 必须同步；本轮不同步改几何               |
+| 抽 TanStack virtualizer 出页面              | 与模板、`scrollRef`、行高公式绑死                       |
+| 重写搜索算法或繁简表                        | `normalizeSearchText` / `scanLibrarySearchIndex` 已独立 |
+| 动 `usePlayback`、扫描、备份、IPC           | 不在本文件优化范围内                                    |
+| 视觉风格切换 remount `RouterView` / Sidebar | Agents.md 硬约束                                        |
+| 为拆而拆已经独立的模块                      | 见 §4                                                   |
 
 ## 3. 冻结不变量
 
@@ -68,19 +68,19 @@
 
 这些模块已经存在，本轮只消费，不改语义、不合并、不改名。
 
-| 模块 | 职责 |
-| --- | --- |
-| `utils/libraryRequestCoordinator.ts` | generation 与三车道 |
-| `utils/loadLibraryCatalogSnapshot.ts` | 分页聚合 |
-| `utils/libraryDataSnapshot.ts` | All Songs / 歌单快照 |
-| `utils/libraryCatalogViewIndex.ts` | 分组 + id 查找 + 封面偏移 |
-| `utils/libraryViewportRestore.ts` | 后台刷新视口决策 |
-| `utils/librarySearchIndex.ts` | 增量索引 |
-| `utils/librarySearchScan.ts` | 前缀扫描 |
-| `utils/libraryPresentation.ts` | route.name + visualStyle |
-| `utils/libraryRouteScope.ts` | 路由身份与外部歌单事件 |
-| `composables/useLibraryMetadataEditor.ts` | 元数据打开/保存/焦点归还 |
-| `constants/libraryLayoutMetrics.ts` | 几何单一事实源 |
+| 模块                                      | 职责                      |
+| ----------------------------------------- | ------------------------- |
+| `utils/libraryRequestCoordinator.ts`      | generation 与三车道       |
+| `utils/loadLibraryCatalogSnapshot.ts`     | 分页聚合                  |
+| `utils/libraryDataSnapshot.ts`            | All Songs / 歌单快照      |
+| `utils/libraryCatalogViewIndex.ts`        | 分组 + id 查找 + 封面偏移 |
+| `utils/libraryViewportRestore.ts`         | 后台刷新视口决策          |
+| `utils/librarySearchIndex.ts`             | 增量索引                  |
+| `utils/librarySearchScan.ts`              | 前缀扫描                  |
+| `utils/libraryPresentation.ts`            | route.name + visualStyle  |
+| `utils/libraryRouteScope.ts`              | 路由身份与外部歌单事件    |
+| `composables/useLibraryMetadataEditor.ts` | 元数据打开/保存/焦点归还  |
+| `constants/libraryLayoutMetrics.ts`       | 几何单一事实源            |
 
 `LibraryPage.vue` 仍是编排中枢。下面的 Step 只搬它还没搬走的块。
 

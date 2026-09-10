@@ -297,14 +297,16 @@ defineExpose({
 
         <!-- Form Actions -->
         <div class="download-form-actions">
-          <button
-            type="submit"
-            class="download-submit-button"
-            :disabled="!canStart"
-          >
-            <span v-if="download.isStarting.value" class="download-spinner" aria-hidden="true"></span>
+          <button type="submit" class="download-submit-button" :disabled="!canStart">
+            <span
+              v-if="download.isStarting.value"
+              class="download-spinner"
+              aria-hidden="true"
+            ></span>
             <span v-else class="i-lucide-arrow-right" aria-hidden="true"></span>
-            <span>{{ download.isStarting.value ? t('download.status.preparing') : t('download.startAction') }}</span>
+            <span>{{
+              download.isStarting.value ? t('download.status.preparing') : t('download.startAction')
+            }}</span>
           </button>
         </div>
       </form>
@@ -348,11 +350,19 @@ defineExpose({
       <!-- Task Info & Message -->
       <div class="download-task-body">
         <p
-          v-if="download.currentTask.value.state === 'failed' ? (download.currentTask.value.error ?? download.currentTask.value.message) : download.currentTask.value.message"
+          v-if="
+            download.currentTask.value.state === 'failed'
+              ? (download.currentTask.value.error ?? download.currentTask.value.message)
+              : download.currentTask.value.message
+          "
           class="download-task-message"
           :class="{ 'is-error': download.currentTask.value.state === 'failed' }"
         >
-          {{ download.currentTask.value.state === 'failed' ? (download.currentTask.value.error ?? download.currentTask.value.message) : download.currentTask.value.message }}
+          {{
+            download.currentTask.value.state === 'failed'
+              ? (download.currentTask.value.error ?? download.currentTask.value.message)
+              : download.currentTask.value.message
+          }}
         </p>
 
         <div class="download-task-meta">
@@ -375,8 +385,12 @@ defineExpose({
         <div class="download-selection-title-group">
           <span class="download-selection-title">{{ t('download.chooseTracks') }}</span>
           <span class="download-selection-count-pill">
-            <span class="download-selection-count-highlight">{{ selectedTrackIndexes.length }}</span>
-            <span class="download-selection-count-total">/ {{ download.selectionRequest.value.tracks.length }}</span>
+            <span class="download-selection-count-highlight">{{
+              selectedTrackIndexes.length
+            }}</span>
+            <span class="download-selection-count-total"
+              >/ {{ download.selectionRequest.value.tracks.length }}</span
+            >
           </span>
         </div>
 
@@ -393,7 +407,11 @@ defineExpose({
           <button
             type="button"
             class="download-tool-link"
-            :disabled="download.isSubmittingSelection.value || download.selectionSubmitted.value || selectedTrackIndexes.length === 0"
+            :disabled="
+              download.isSubmittingSelection.value ||
+              download.selectionSubmitted.value ||
+              selectedTrackIndexes.length === 0
+            "
             @click="clearAllTracks"
           >
             {{ t('download.clearAll') }}
@@ -414,7 +432,8 @@ defineExpose({
           class="download-track-item"
           :class="{
             'is-selected': isTrackSelected(track.index),
-            'is-disabled': download.isSubmittingSelection.value || download.selectionSubmitted.value,
+            'is-disabled':
+              download.isSubmittingSelection.value || download.selectionSubmitted.value,
           }"
           role="option"
           :aria-selected="isTrackSelected(track.index)"
@@ -468,7 +487,11 @@ defineExpose({
           :disabled="!canSubmitSelection"
           @click="onSubmitSelection"
         >
-          <span v-if="download.isSubmittingSelection.value" class="download-spinner" aria-hidden="true"></span>
+          <span
+            v-if="download.isSubmittingSelection.value"
+            class="download-spinner"
+            aria-hidden="true"
+          ></span>
           <span v-else class="i-lucide-download" aria-hidden="true"></span>
           <span>
             {{
@@ -515,7 +538,9 @@ defineExpose({
           class="download-log-row"
           :class="log.stream === 'stderr' ? 'download-log-row--stderr' : 'download-log-row--stdout'"
         >
-          <span class="download-log-prefix" aria-hidden="true">{{ log.stream === 'stderr' ? '[ERR]' : '[OUT]' }}</span>
+          <span class="download-log-prefix" aria-hidden="true">{{
+            log.stream === 'stderr' ? '[ERR]' : '[OUT]'
+          }}</span>
           <span class="download-log-text">{{ log.line }}</span>
         </div>
       </div>
@@ -551,7 +576,8 @@ defineExpose({
   background: color-mix(in srgb, var(--auralis-sidebar-active-indicator, #38bdf8) 12%, transparent);
   color: var(--auralis-sidebar-active-indicator, #38bdf8);
   font-size: 22px;
-  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator, #38bdf8) 25%, transparent);
+  border: 1px solid
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator, #38bdf8) 25%, transparent);
 }
 
 .download-header-title {
@@ -652,7 +678,9 @@ defineExpose({
   background: transparent;
   color: var(--auralis-text-subtle, #64748b);
   cursor: pointer;
-  transition: color 140ms ease, background-color 140ms ease;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease;
 }
 
 .download-input-clear:hover {
@@ -682,7 +710,11 @@ defineExpose({
 }
 
 .download-mode-card:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--auralis-focus-ring, #38bdf8) 35%, rgba(255, 255, 255, 0.15));
+  border-color: color-mix(
+    in srgb,
+    var(--auralis-focus-ring, #38bdf8) 35%,
+    rgba(255, 255, 255, 0.15)
+  );
   background: var(--auralis-control-hover-bg, rgba(255, 255, 255, 0.05));
   transform: translateY(-1px);
 }
@@ -694,7 +726,11 @@ defineExpose({
 
 .download-mode-card.is-selected {
   border-color: var(--auralis-focus-ring, #38bdf8);
-  background: color-mix(in srgb, var(--auralis-focus-ring, #38bdf8) 9%, var(--auralis-control-bg, rgba(255, 255, 255, 0.03)));
+  background: color-mix(
+    in srgb,
+    var(--auralis-focus-ring, #38bdf8) 9%,
+    var(--auralis-control-bg, rgba(255, 255, 255, 0.03))
+  );
   box-shadow:
     0 4px 16px color-mix(in srgb, var(--auralis-focus-ring, #38bdf8) 12%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.12);
@@ -797,14 +833,16 @@ defineExpose({
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--auralis-sidebar-active-indicator, #38bdf8) 28%, transparent);
+  box-shadow: 0 4px 14px
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator, #38bdf8) 28%, transparent);
   transition: all 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .download-submit-button:hover:not(:disabled) {
   transform: translateY(-1px);
   filter: brightness(1.08);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--auralis-sidebar-active-indicator, #38bdf8) 36%, transparent);
+  box-shadow: 0 6px 18px
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator, #38bdf8) 36%, transparent);
 }
 
 .download-submit-button:active:not(:disabled) {
@@ -847,15 +885,27 @@ defineExpose({
 }
 
 .download-task-card--running {
-  border-color: color-mix(in srgb, #38bdf8 28%, var(--auralis-border-subtle, rgba(255, 255, 255, 0.08)));
+  border-color: color-mix(
+    in srgb,
+    #38bdf8 28%,
+    var(--auralis-border-subtle, rgba(255, 255, 255, 0.08))
+  );
 }
 
 .download-task-card--success {
-  border-color: color-mix(in srgb, #4ade80 28%, var(--auralis-border-subtle, rgba(255, 255, 255, 0.08)));
+  border-color: color-mix(
+    in srgb,
+    #4ade80 28%,
+    var(--auralis-border-subtle, rgba(255, 255, 255, 0.08))
+  );
 }
 
 .download-task-card--error {
-  border-color: color-mix(in srgb, #f87171 28%, var(--auralis-border-subtle, rgba(255, 255, 255, 0.08)));
+  border-color: color-mix(
+    in srgb,
+    #f87171 28%,
+    var(--auralis-border-subtle, rgba(255, 255, 255, 0.08))
+  );
 }
 
 .download-task-header {
@@ -983,7 +1033,12 @@ defineExpose({
   background: color-mix(in srgb, var(--auralis-sidebar-bg, #181c1f) 75%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid color-mix(in srgb, var(--auralis-focus-ring, #38bdf8) 25%, var(--auralis-border-subtle, rgba(255, 255, 255, 0.08)));
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--auralis-focus-ring, #38bdf8) 25%,
+      var(--auralis-border-subtle, rgba(255, 255, 255, 0.08))
+    );
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
   display: flex;
   flex-direction: column;
@@ -1081,7 +1136,8 @@ defineExpose({
   font-size: 13px;
   cursor: pointer;
   user-select: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--auralis-border-subtle, rgba(255, 255, 255, 0.08)) 45%, transparent);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--auralis-border-subtle, rgba(255, 255, 255, 0.08)) 45%, transparent);
   transition: all 120ms ease;
   outline: none;
 }
@@ -1091,7 +1147,11 @@ defineExpose({
 }
 
 .download-track-item:hover:not(.is-disabled) {
-  background: color-mix(in srgb, var(--auralis-control-hover-bg, rgba(255, 255, 255, 0.06)) 85%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--auralis-control-hover-bg, rgba(255, 255, 255, 0.06)) 85%,
+    transparent
+  );
 }
 
 .download-track-item:focus-visible {
@@ -1183,14 +1243,16 @@ defineExpose({
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--auralis-sidebar-active-indicator, #38bdf8) 28%, transparent);
+  box-shadow: 0 4px 14px
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator, #38bdf8) 28%, transparent);
   transition: all 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .download-submit-selection-btn:hover:not(:disabled) {
   transform: translateY(-1px);
   filter: brightness(1.08);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--auralis-sidebar-active-indicator, #38bdf8) 36%, transparent);
+  box-shadow: 0 6px 18px
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator, #38bdf8) 36%, transparent);
 }
 
 .download-submit-selection-btn:active:not(:disabled) {
@@ -1407,10 +1469,16 @@ defineExpose({
 
 .download-page[data-visual-style='manuscript'] .download-mode-card.is-selected {
   border-color: var(--manuscript-color-accent-700, #8b302f);
-  background: color-mix(in srgb, var(--manuscript-color-accent-700, #8b302f) 10%, var(--manuscript-surface-recessed, #e9e1cf));
+  background: color-mix(
+    in srgb,
+    var(--manuscript-color-accent-700, #8b302f) 10%,
+    var(--manuscript-surface-recessed, #e9e1cf)
+  );
 }
 
-.download-page[data-visual-style='manuscript'] .download-mode-card.is-selected .download-mode-indicator {
+.download-page[data-visual-style='manuscript']
+  .download-mode-card.is-selected
+  .download-mode-indicator {
   border-color: var(--manuscript-color-accent-700, #8b302f);
 }
 
