@@ -62,16 +62,6 @@
       "aboutDescription": "Version and local data location"
     },
     "appearance": {
-      "visualStyle": {
-        "label": "Page visual style",
-        "description": "Choose how covered catalog pages look. This is not the app theme and does not restyle the player or sidebar yet.",
-        "modernLabel": "Modern",
-        "modernDescription": "Dark, compact surfaces with soft corners and material depth.",
-        "manuscriptLabel": "Manuscript",
-        "manuscriptDescription": "Paper pages, ink type, hairline rules, and a restrained archival accent.",
-        "coverage": "Manuscript currently covers All Songs, playlists, albums, album detail, archive, and Settings. Sidebar, Now Playing, and PlayerBar stay on their existing surfaces.",
-        "ariaCurrent": "Current page visual style: {style}"
-      },
       "language": "Display language",
       "languageDescription": "Choose the language for the app interface.",
       "playerBarMaterial": "Player bar material",
@@ -297,13 +287,6 @@
       "retry": "Retry",
       "returnToAlbums": "Return to Albums"
     },
-    "manuscript": {
-      "title": "Record Catalog",
-      "subtitle": "Private Music Collection Index",
-      "albumCount": "{count} albums",
-      "trackCount": "{count} tracks",
-      "catalogNumber": "CAT {number}"
-    },
     "search": {
       "ariaLabel": "Search albums and album artists",
       "placeholder": "Search albums and album artists",
@@ -330,51 +313,6 @@
     }
   },
   "library": {
-    "manuscript": {
-      "header": {
-        "title": "All Songs",
-        "subtitle": "Private Music Collection Ledger",
-        "libraryMembership": "Main library catalog",
-        "playlistSubtitle": "Private anthology",
-        "playlistKind": "Hand-curated",
-        "playlistMembership": "A collection you maintain",
-        "smartPlaylistSubtitle": "Dynamic index",
-        "smartPlaylistKind": "Rule-generated",
-        "smartPlaylistMembership": "Read-only members that update automatically",
-        "untitled": "Untitled playlist",
-        "playlistFallback": "Playlist",
-        "smartPlaylistFallback": "Smart playlist",
-        "loadingTitle": "Binding the folio…",
-        "loadingSubtitle": "Retrieving catalog identity",
-        "trackCount": "{count} tracks",
-        "folio": "FOLIO {current} / {total}"
-      },
-      "ledger": {
-        "index": "NO.",
-        "artwork": "ART",
-        "title": "TITLE",
-        "artist": "ARTIST",
-        "album": "ALBUM",
-        "duration": "TIME"
-      },
-      "catalog": {
-        "number": "CAT {number} / {count} TRACKS",
-        "trackCount": "{count} TRACKS",
-        "fields": "NO. / TITLE / GENRE / TIME"
-      },
-      "status": {
-        "playing": "PLAY",
-        "paused": "PAUSE"
-      },
-      "missing": {
-        "title": "Untitled track",
-        "artist": "Unknown artist",
-        "album": "Unknown album",
-        "date": "Unknown date",
-        "genre": "Unclassified",
-        "artwork": "No artwork"
-      }
-    },
     "search": {
       "ariaLabel": "Search the current list",
       "placeholder": "Search title, artist, album…",
@@ -446,6 +384,14 @@
     "a11y": {
       "songRow": "Track {index}: {title} - {artist}",
       "albumArtwork": "Album {album}, press Enter for album context menu"
+    },
+    "missing": {
+      "title": "Untitled track",
+      "artist": "Unknown artist",
+      "album": "Unknown album",
+      "date": "Unknown date",
+      "genre": "Unclassified",
+      "artwork": "No artwork"
     }
   },
   "archive": {

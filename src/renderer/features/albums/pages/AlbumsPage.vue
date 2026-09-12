@@ -1,23 +1,17 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
-import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
-import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
 import { normalizeSearchText } from '@renderer/features/library/utils/normalizeSearchText'
 import AlbumCard from '../components/AlbumCard.vue'
-import AlbumCatalogHeader from '../components/AlbumCatalogHeader.vue'
 import type { AlbumSummary } from '../types'
-import { resolveAlbumPresentation } from '../utils/albumPresentation'
 import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
-import '../styles/manuscript.css'
-import '../styles/manuscript.overlays.css'
 
 /**
  * 网格行左右阴影缓冲带：须覆盖默认侧倾 -12px 阴影与 hover 转正后的模糊外溢。
@@ -50,10 +44,8 @@ function readDisplayMode(): AlbumDisplayMode {
 }
 
 const tracks = shallowRef<TrackListItem[]>([])
-const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
-const { visualStyle } = useVisualStyle()
 const playback = usePlayback()
 const isLoading = ref(true)
 const loadError = ref<string | null>(null)
@@ -85,8 +77,6 @@ const isSearchZoneHovered = computed(() => isTopZoneHovered.value || isSearchBar
 const shouldRenderSearchBar = computed(
   () => isSearchZoneHovered.value || isSearchFocused.value || hasSearchQuery.value,
 )
-const albumPresentation = computed(() => resolveAlbumPresentation(route.name, visualStyle.value))
-const isManuscriptAlbums = computed(() => albumPresentation.value === 'manuscript')
 const searchFeedback = computed(() => {
   if (searchOutcome.value === 'not-found') return t('albums.search.notFound')
   if (searchOutcome.value === 'wrapped') {
@@ -435,7 +425,6 @@ onBeforeUnmount(() => {
 <template>
   <section
     class="albums-page relative flex h-full min-h-0 flex-col"
-    :data-visual-style="albumPresentation"
     @mousemove="onAlbumsMouseMove"
     @mouseleave="onAlbumsMouseLeave"
   >
@@ -462,7 +451,7 @@ onBeforeUnmount(() => {
           />
         </div>
       </Transition>
-      <p v-if="isManuscriptAlbums" class="albums-search-feedback" aria-live="polite">
+      <p v-if="hasSearchQuery" class="albums-search-feedback" aria-live="polite">
         {{ searchFeedback }}
       </p>
     </div>
@@ -481,12 +470,6 @@ onBeforeUnmount(() => {
     <template v-else>
       <!-- 统一水平内边距容器：Header 与网格物理像素对齐 -->
       <div class="albums-page-body">
-        <AlbumCatalogHeader
-          v-if="isManuscriptAlbums"
-          :album-count="albums.length"
-          :track-count="tracks.length"
-        />
-
         <div
           v-if="albums.length > 0"
           ref="scrollRef"
@@ -514,7 +497,6 @@ onBeforeUnmount(() => {
                 :album="album"
                 :display-mode="displayMode"
                 :highlighted="highlightedAlbumKey === album.key"
-                :presentation="albumPresentation"
                 :catalog-number="virtualRow.index * columnCount + columnIndex + 1"
                 @open="openAlbum"
                 @open-context-menu="openContextMenu"
@@ -530,15 +512,9 @@ onBeforeUnmount(() => {
     </template>
 
     <Teleport to="body">
-      <div
-        v-if="contextMenu"
-        class="albums-overlay fixed inset-0 z-[60]"
-        :data-visual-style="albumPresentation"
-        @click="closeContextMenu"
-      >
+      <div v-if="contextMenu" class="albums-overlay fixed inset-0 z-[60]" @click="closeContextMenu">
         <LiquidGlassPanel
           class="library-context-menu fixed w-55"
-          :presentation="albumPresentation"
           :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
           @click.stop
         >

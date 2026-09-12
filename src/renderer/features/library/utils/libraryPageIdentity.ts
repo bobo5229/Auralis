@@ -1,4 +1,4 @@
-import type { LibraryPageIdentity } from '../types/libraryPresentation'
+import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 
 export function createLibraryIdentity(): LibraryPageIdentity {
   return { kind: 'library' }

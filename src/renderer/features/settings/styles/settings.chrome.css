@@ -80,12 +80,6 @@
   transition: background-color 0.2s ease;
 }
 
-/* Must beat .settings-row { padding: 0 20px } or the title sits on the card edge. */
-.settings-page .settings-row.settings-row--visual-style {
-  display: block;
-  padding: 24px;
-}
-
 .settings-page .settings-row:hover {
   background: color-mix(in srgb, var(--auralis-text) 1.5%, transparent);
 }

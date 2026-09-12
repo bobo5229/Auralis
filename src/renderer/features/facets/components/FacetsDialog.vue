@@ -7,7 +7,6 @@ import { auralis } from '@renderer/shared/ipc/client'
 import { splitGenreValues } from '@renderer/features/library/utils/formatGenre'
 import { splitArtistValues } from '@renderer/features/library/utils/formatArtist'
 import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
-import type { ShellPresentation } from '@renderer/app/utils/shellPresentation'
 
 const { t } = useI18n()
 
@@ -30,11 +29,8 @@ interface FacetContextMenuState {
 const props = withDefaults(
   defineProps<{
     open: boolean
-    presentation?: ShellPresentation
   }>(),
-  {
-    presentation: 'modern',
-  },
+  {},
 )
 
 const emit = defineEmits<{
@@ -297,12 +293,7 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <Transition name="facets-dialog-fade">
-      <div
-        v-if="open"
-        class="sidebar-overlay facets-dialog-backdrop"
-        :data-shell-presentation="presentation"
-        @click.self="emit('close')"
-      >
+      <div v-if="open" class="sidebar-overlay facets-dialog-backdrop" @click.self="emit('close')">
         <section
           class="facets-dialog-panel"
           role="dialog"
@@ -380,7 +371,6 @@ onBeforeUnmount(() => {
         <div v-if="contextMenu" class="facets-context-layer" @click="closeContextMenu">
           <LiquidGlassPanel
             class="library-context-menu facets-context-menu"
-            :presentation="presentation"
             :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
             @click.stop
           >

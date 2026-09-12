@@ -5,7 +5,7 @@ import type { PlaylistDetail } from '@shared/types/playlist'
 import type { SmartPlaylistDetail } from '@shared/types/smartPlaylist'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import type { LibraryViewMode } from '../types/libraryInteraction'
-import type { LibraryPageIdentity } from '../types/libraryPresentation'
+import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryMetadataRefreshResult } from './useLibraryMetadataEditor'
 import type { LibraryViewportCapture } from './useLibraryViewport'
 import {

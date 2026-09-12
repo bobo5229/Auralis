@@ -4,7 +4,6 @@ import {
   activatePlayerBarVolumeOverlay,
   countOpenPlayerBarOverlays,
   isPlayerBarVolumeOverlayRetreatActive,
-  MANUSCRIPT_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX,
   PLAYER_BAR_OVERLAYS_CLOSED,
   resolveVolumeHoverOverlayFlags,
   togglePlayerBarExclusiveOverlay,
@@ -61,33 +60,11 @@ describe('activatePlayerBarVolumeOverlay', () => {
 
 describe('isPlayerBarVolumeOverlayRetreatActive', () => {
   it('follows the modern island 800px collapse', () => {
+    expect(isPlayerBarVolumeOverlayRetreatActive(MODERN_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX)).toBe(
+      true,
+    )
     expect(
-      isPlayerBarVolumeOverlayRetreatActive({
-        presentation: 'modern',
-        surfaceInlineSizePx: MODERN_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX,
-      }),
-    ).toBe(true)
-    expect(
-      isPlayerBarVolumeOverlayRetreatActive({
-        presentation: 'modern',
-        surfaceInlineSizePx: MODERN_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX + 1,
-      }),
-    ).toBe(false)
-  })
-
-  it('follows the manuscript 760px collapse', () => {
-    expect(MANUSCRIPT_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX).toBe(760)
-    expect(
-      isPlayerBarVolumeOverlayRetreatActive({
-        presentation: 'manuscript',
-        surfaceInlineSizePx: MANUSCRIPT_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX,
-      }),
-    ).toBe(true)
-    expect(
-      isPlayerBarVolumeOverlayRetreatActive({
-        presentation: 'manuscript',
-        surfaceInlineSizePx: MANUSCRIPT_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX + 1,
-      }),
+      isPlayerBarVolumeOverlayRetreatActive(MODERN_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX + 1),
     ).toBe(false)
   })
 })

@@ -1,24 +1,13 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import AppearanceSettings from '../components/AppearanceSettings.vue'
 import AboutSettings from '../components/AboutSettings.vue'
 import MusicLibrarySettings from '../components/MusicLibrarySettings.vue'
-import { resolveSettingsPresentation } from '../utils/settingsPresentation'
 import { DEFAULT_SETTINGS_SECTION, type SettingsSection } from '../utils/settingsSections'
-import type { SettingsPresentation } from '../types/settingsPresentation'
-import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import '../styles/settings.chrome.css'
-import '../styles/manuscript.css'
 
 const { t } = useI18n()
-const route = useRoute()
-const { visualStyle } = useVisualStyle()
-const settingsPresentation = computed<SettingsPresentation>(() =>
-  resolveSettingsPresentation(route.name, visualStyle.value),
-)
 
 const sections = computed<
   Array<{
@@ -52,7 +41,7 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
 </script>
 
 <template>
-  <section class="settings-page" :data-visual-style="settingsPresentation">
+  <section class="settings-page">
     <header class="settings-header">
       <h1>{{ t('settings.title') }}</h1>
     </header>

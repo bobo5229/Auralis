@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 
 import {
   type EditorialLinerNotesData,
@@ -25,10 +24,9 @@ const emit = defineEmits<{
 }>()
 
 const { t, locale } = useI18n()
-const { visualStyle } = useVisualStyle()
 
 const isEn = computed(() => locale.value.startsWith('en'))
-const currentTheme = computed(() => (visualStyle.value === 'manuscript' ? 'manuscript' : 'modern'))
+const currentTheme = 'modern'
 const emptyNarrative = computed(() => t('archive.linerNotes.emptyNarrative'))
 
 const isPending = computed(
@@ -288,29 +286,7 @@ function emitPeakClick(event: MouseEvent | KeyboardEvent): void {
   user-select: none;
 }
 
-/* 1. Manuscript 皮肤 */
-.editorial-liner-notes[data-theme='manuscript'] {
-  --liner-bg-left: #fdfbf7;
-  --liner-bg-right: #f6f0e4;
-  --liner-text-primary: #33261d;
-  --liner-text-secondary: #857567;
-  --liner-accent: #a3412f;
-  --liner-border: var(--manuscript-hairline-width, 1px) solid
-    var(--manuscript-border-ledger, #d8cebf);
-  --liner-dash-color: #c9bcab;
-  --liner-stamp-color: #a3412f;
-  --liner-stamp-border: 1.5px dashed rgba(163, 65, 47, 0.65);
-  --liner-barcode-ink: #3b2c22;
-  --liner-notch-bg: var(--manuscript-surface-page, #f7f3ec);
-  --liner-shadow: 0 16px 36px rgba(60, 44, 30, 0.08);
-  --liner-shadow-hover: 0 22px 46px rgba(60, 44, 30, 0.12);
-  --liner-font-body: var(--manuscript-font-body, 'Auralis Desktop Lyrics SC', Georgia, serif);
-  --liner-font-ui: var(--manuscript-font-ui, 'Auralis Sans SC', system-ui, sans-serif);
-  --liner-font-mono: 'Courier New', Courier, monospace;
-  --liner-font-number: var(--manuscript-font-numeric, 'Auralis Sans SC', sans-serif);
-}
-
-/* 2. Modern 皮肤 */
+/* Modern visual tokens */
 .editorial-liner-notes[data-theme='modern'] {
   --liner-bg-left: rgba(24, 22, 20, 0.65);
   --liner-bg-right: rgba(31, 28, 25, 0.85);
@@ -385,17 +361,6 @@ function emitPeakClick(event: MouseEvent | KeyboardEvent): void {
   cursor: pointer;
   transition: all 180ms ease;
   user-select: none;
-}
-
-.editorial-liner-notes[data-theme='manuscript'] .narrative-recap-btn {
-  border: var(--manuscript-hairline-width, 1px) solid var(--liner-accent);
-  color: var(--liner-accent);
-  background: transparent;
-}
-
-.editorial-liner-notes[data-theme='manuscript'] .narrative-recap-btn:hover {
-  background: rgba(163, 65, 47, 0.08);
-  transform: translateY(-1px);
 }
 
 .editorial-liner-notes[data-theme='modern'] .narrative-recap-btn {
@@ -569,10 +534,6 @@ function emitPeakClick(event: MouseEvent | KeyboardEvent): void {
 
 .editorial-liner-notes:hover .inspection-stamp {
   transform: rotate(-11deg) scale(1.03);
-}
-
-.editorial-liner-notes[data-theme='manuscript'] .inspection-stamp {
-  mix-blend-mode: multiply;
 }
 
 .editorial-liner-notes[data-theme='modern'] .inspection-stamp {

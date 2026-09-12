@@ -1,7 +1,7 @@
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { PlaylistDetail } from '@shared/types/playlist'
 import type { SmartPlaylistDetail } from '@shared/types/smartPlaylist'
-import type { LibraryPageIdentity } from '../types/libraryPresentation'
+import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryViewMode } from '../types/libraryInteraction'
 import {
   createLibraryIdentity,

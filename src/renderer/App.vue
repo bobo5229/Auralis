@@ -7,36 +7,17 @@ import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
 import MiniPlayer from './app/layout/MiniPlayer.vue'
-import VisualStyleTransitionCurtain from './features/appearance/components/VisualStyleTransitionCurtain.vue'
-import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import { useDesktopLyricsSync } from '@renderer/features/lyrics/composables/useDesktopLyricsSync'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
-import { resolveShellPresentation } from './app/utils/shellPresentation'
-import { resolvePlayerSurfacePresentation } from './app/utils/playerSurfacePresentation'
 import { provideAmdlDownload } from '@renderer/features/download/composables/downloadContext'
-import type { CSSProperties } from 'vue'
-import '@renderer/features/appearance/styles/manuscript.tokens.css'
-import './app/styles/manuscript.shell.css'
-import './app/styles/manuscript.player.css'
-import './app/styles/manuscript.player-overlays.css'
 
 const route = useRoute()
-const { visualStyle } = useVisualStyle()
 provideAmdlDownload()
 useSystemMediaIntegration()
 useDesktopLyricsSync()
 const { displayMode, onMiniPlayerWindowStateChanged, syncMiniPlayerWindowState } =
   usePlayerDisplayMode()
-const shellPresentation = computed(() =>
-  resolveShellPresentation(displayMode.value, visualStyle.value),
-)
-// Phase 18: persistent player surfaces (Now Playing + PlayerBar) get their own
-// presentation — fullscreen and mini always resolve to modern (Phase 19/20 own
-// those surfaces). Never used as a component key or v-if gate.
-const playerPresentation = computed(() =>
-  resolvePlayerSurfacePresentation(displayMode.value, visualStyle.value),
-)
 let unsubscribeMiniPlayerWindowState: (() => void) | null = null
 
 /** 上一导航来源路由名；在 beforeEach 中更新，供 Transition 在目标路由已切换时仍能判断方向 */
@@ -61,23 +42,6 @@ const isAlbumDetail = computed(() => {
   return route.name === 'album-detail'
 })
 
-/** 壳层 chrome：modern 固定使用主题 token；manuscript 使用共享纸面 token。 */
-const windowChromeStyle = computed<CSSProperties>(() => {
-  if (shellPresentation.value === 'manuscript') {
-    return {
-      '--auralis-window-chrome-bg': 'var(--manuscript-surface-page)',
-      '--auralis-window-chrome-accent': 'var(--manuscript-accent-primary)',
-      '--auralis-window-chrome-border': 'var(--manuscript-border-strong)',
-    } as CSSProperties
-  }
-
-  return {
-    '--auralis-window-chrome-bg': 'var(--auralis-bg)',
-    '--auralis-window-chrome-accent': 'var(--auralis-sidebar-active-indicator)',
-    '--auralis-window-chrome-border': 'var(--auralis-border-strong)',
-  } as CSSProperties
-})
-
 /**
  * 路由过渡规则：
  * 1. 专辑列表 ➔ 专辑详情：景深穿梭与黑胶破土浮升 (album-detail-enter-matrix)
@@ -98,17 +62,11 @@ const transitionName = computed(() => {
 <template>
   <MiniPlayer v-if="displayMode === 'mini'" />
 
-  <div
-    v-else
-    class="app-window"
-    data-app-shell-root
-    :data-shell-presentation="shellPresentation"
-    :style="windowChromeStyle"
-  >
+  <div v-else class="app-window" data-app-shell-root>
     <div class="app-shell relative" :class="{ 'is-album-detail': isAlbumDetail }">
       <div class="wco-drag-region" aria-hidden="true" />
 
-      <AppSidebar class="relative z-10" :presentation="shellPresentation" />
+      <AppSidebar class="relative z-10" />
 
       <main class="app-main relative z-10">
         <RouterView v-slot="{ Component, route: viewRoute }">
@@ -118,9 +76,8 @@ const transitionName = computed(() => {
         </RouterView>
       </main>
 
-      <NowPlayingPanel class="relative z-10" :presentation="playerPresentation" />
-      <PlayerBar class="relative z-10" :presentation="playerPresentation" />
-      <VisualStyleTransitionCurtain />
+      <NowPlayingPanel class="relative z-10" />
+      <PlayerBar class="relative z-10" />
     </div>
     <FullscreenPlayerOverlay />
   </div>

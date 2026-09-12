@@ -255,7 +255,7 @@ input {
 }
 
 /* Transparent host spanning the main column; chrome lives on the island. */
-.player-bar[data-player-presentation='modern'] {
+.player-bar {
   left: 260px;
   right: 0;
   bottom: 36px;
@@ -275,17 +275,17 @@ input {
   overflow: visible;
 }
 
-.player-bar[data-player-presentation='modern']::before {
+.player-bar::before {
   display: none;
 }
 
 @media (min-width: 1280px) {
-  .player-bar[data-player-presentation='modern'] {
+  .player-bar {
     right: 20%;
   }
 }
 
-.player-bar[data-player-presentation='modern'] .player-bar-island {
+.player-bar .player-bar-island {
   pointer-events: auto;
   position: relative;
   isolation: isolate;
@@ -305,7 +305,7 @@ input {
   container-name: modern-player-bar;
 }
 
-.player-bar[data-player-presentation='modern'] .player-bar-island::before {
+.player-bar .player-bar-island::before {
   content: '';
   position: absolute;
   inset: 1px;
@@ -330,12 +330,12 @@ input {
   pointer-events: none;
 }
 
-.player-bar[data-player-presentation='modern'] .player-bar-glass,
-.player-bar[data-player-presentation='modern'] .player-bar-album-tint {
+.player-bar .player-bar-glass,
+.player-bar .player-bar-album-tint {
   border-radius: inherit;
 }
 
-.player-bar[data-player-presentation='modern'] .player-bar-row {
+.player-bar .player-bar-row {
   position: relative;
   z-index: 4;
   display: grid;
@@ -347,17 +347,17 @@ input {
   padding: 0 12px;
 }
 
-.player-bar[data-player-presentation='modern'] .track-info-card {
+.player-bar .track-info-card {
   min-width: 0;
   z-index: 4;
 }
 
-.player-bar[data-player-presentation='modern'] .transport-controls {
+.player-bar .transport-controls {
   gap: 6px;
 }
 
-.player-bar[data-player-presentation='modern'] .player-bar-time,
-.player-bar[data-player-presentation='modern'] .player-bar-progress-clock {
+.player-bar .player-bar-time,
+.player-bar .player-bar-progress-clock {
   margin: 0;
   font-size: 11px;
   font-variant-numeric: tabular-nums;
@@ -367,41 +367,41 @@ input {
   white-space: nowrap;
 }
 
-.player-bar[data-player-presentation='modern'] .playback-actions {
+.player-bar .playback-actions {
   justify-self: end;
   min-width: 0;
   z-index: 4;
   gap: 6px;
 }
 
-.player-bar[data-player-presentation='modern'] .track-info-row {
+.player-bar .track-info-row {
   width: 100%;
   min-width: 0;
 }
 
-.player-bar[data-player-presentation='modern'] .track-info-empty {
+.player-bar .track-info-empty {
   align-items: center;
   min-height: 44px;
 }
 
-.player-bar[data-player-presentation='modern'] .track-text {
+.player-bar .track-text {
   flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
 }
 
-.player-bar[data-player-presentation='modern'] .track-title,
-.player-bar[data-player-presentation='modern'] .track-subtitle {
+.player-bar .track-title,
+.player-bar .track-subtitle {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.player-bar[data-player-presentation='modern'] .track-title {
+.player-bar .track-title {
   letter-spacing: -0.01em;
 }
 
-.player-bar[data-player-presentation='modern'] .player-bar-progress-row {
+.player-bar .player-bar-progress-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -410,11 +410,11 @@ input {
   min-width: 0;
 }
 
-.player-bar[data-player-presentation='modern'] .player-bar-progress-row--idle {
+.player-bar .player-bar-progress-row--idle {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.player-bar[data-player-presentation='modern'] .player-bar-progress-row .track-progress {
+.player-bar .player-bar-progress-row .track-progress {
   position: relative;
   left: auto;
   right: auto;
@@ -425,36 +425,36 @@ input {
   z-index: 5;
 }
 
-.player-bar[data-player-presentation='modern'] .player-bar-progress-row .track-progress:hover {
+.player-bar .player-bar-progress-row .track-progress:hover {
   height: 6px;
 }
 
-.player-bar[data-player-presentation='modern'] .track-progress--idle {
+.player-bar .track-progress--idle {
   opacity: 0.28;
   cursor: default;
   pointer-events: none;
 }
 
-.player-bar[data-player-presentation='modern'] .track-progress--idle:hover {
+.player-bar .track-progress--idle:hover {
   height: 3px;
 }
 
-.player-bar[data-player-presentation='modern'] .track-progress--idle::after {
+.player-bar .track-progress--idle::after {
   display: none;
 }
 
-.player-bar[data-player-presentation='modern'] .track-progress--idle .track-progress-fill::after {
+.player-bar .track-progress--idle .track-progress-fill::after {
   display: none;
   animation: none;
 }
 
-.player-bar[data-player-presentation='modern'] .player-bar-overflow {
+.player-bar .player-bar-overflow {
   position: relative;
   display: inline-flex;
   align-items: center;
 }
 
-.player-bar[data-player-presentation='modern'] .player-bar-overflow-panel {
+.player-bar .player-bar-overflow-panel {
   position: absolute;
   bottom: calc(100% + 12px);
   right: 0;
@@ -472,7 +472,7 @@ input {
   backdrop-filter: blur(18px) saturate(1.12);
 }
 
-.player-bar[data-player-presentation='modern'] .player-bar-overflow-item {
+.player-bar .player-bar-overflow-item {
   width: 100%;
   justify-content: flex-start;
   gap: 10px;
@@ -480,7 +480,7 @@ input {
   padding: 8px 10px;
 }
 
-.player-bar[data-player-presentation='modern'] .player-bar-overflow-label {
+.player-bar .player-bar-overflow-label {
   font-size: 12px;
   font-weight: 600;
   color: var(--auralis-text);
@@ -510,7 +510,7 @@ input {
   }
 }
 
-.player-bar[data-player-presentation='modern'] .volume-overlay {
+.player-bar .volume-overlay {
   position: absolute;
   bottom: calc(100% + 12px);
   right: 0;
@@ -523,8 +523,8 @@ input {
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .player-bar[data-player-presentation='modern'] .volume-overlay,
-  .player-bar[data-player-presentation='modern'] .player-bar-overflow-panel {
+  .player-bar .volume-overlay,
+  .player-bar .player-bar-overflow-panel {
     background: color-mix(in srgb, var(--auralis-dialog-bg) 92%, transparent);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -532,23 +532,15 @@ input {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .player-bar[data-player-presentation='modern'] .transport-controls,
-  .player-bar[data-player-presentation='modern'] .track-text,
-  .player-bar[data-player-presentation='modern'] .playback-actions {
+  .player-bar .transport-controls,
+  .player-bar .track-text,
+  .player-bar .playback-actions {
     transition: none;
   }
 }
 
-/* Phase 23 dock layout wrappers — display:contents so named areas can place
-   grandchildren. Manuscript and modern each own their grid rules. */
-.player-bar-dock-main,
-.player-bar-dock-actions,
-.player-bar-dock-rule {
-  display: contents;
-}
-
-/* Phase 23 narrow-window volume overlay — hidden by default; manuscript and
-   modern container queries reveal it when the inline slider is collapsed. */
+/* Narrow-window volume overlay; the modern container query reveals it when
+   the inline slider is collapsed. */
 .player-bar .volume-overlay {
   display: none;
 }
@@ -606,7 +598,7 @@ input {
   backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
 }
 
-.player-bar[data-player-presentation='modern'] .queue-popover {
+.player-bar .queue-popover {
   border: 1px solid rgba(255, 255, 255, 0.16);
   background: color-mix(
     in srgb,
@@ -618,7 +610,7 @@ input {
   backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
 }
 
-.player-bar[data-player-presentation='modern'] .queue-popover::before,
+.player-bar .queue-popover::before,
 .playback-mode-menu::before {
   content: '';
   position: absolute;
@@ -638,7 +630,7 @@ input {
   pointer-events: none;
 }
 
-.player-bar[data-player-presentation='modern'] .queue-popover::before {
+.player-bar .queue-popover::before {
   background:
     linear-gradient(
       180deg,
@@ -656,7 +648,7 @@ input {
     linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
 }
 
-.player-bar[data-player-presentation='modern'] .queue-popover::after,
+.player-bar .queue-popover::after,
 .playback-mode-menu::after {
   content: '';
   position: absolute;
@@ -669,22 +661,22 @@ input {
   pointer-events: none;
 }
 
-.player-bar[data-player-presentation='modern'] .queue-popover::after {
+.player-bar .queue-popover::after {
   opacity: var(--playbar-album-layer-opacity);
 }
 
-.player-bar[data-player-presentation='modern'] .queue-popover > *,
+.player-bar .queue-popover > *,
 .playback-mode-menu > * {
   position: relative;
   z-index: 2;
 }
 
-.player-bar[data-player-presentation='modern'] .queue-item:hover {
+.player-bar .queue-item:hover {
   background: var(--auralis-control-hover-bg);
 }
 
-.player-bar[data-player-presentation='modern'] .queue-item-active,
-.player-bar[data-player-presentation='modern'] .queue-item-active:hover {
+.player-bar .queue-item-active,
+.player-bar .queue-item-active:hover {
   background: color-mix(
     in srgb,
     var(--auralis-active-album-accent) 14%,
@@ -692,15 +684,15 @@ input {
   );
 }
 
-.player-bar[data-player-presentation='modern'] .queue-item-active .queue-item-title {
+.player-bar .queue-item-active .queue-item-title {
   color: var(--auralis-active-album-accent);
 }
 
-.player-bar[data-player-presentation='modern'] .queue-item-active .queue-item-subtitle {
+.player-bar .queue-item-active .queue-item-subtitle {
   color: color-mix(in srgb, var(--auralis-active-album-accent) 74%, var(--auralis-text-muted));
 }
 
-.player-bar[data-player-presentation='modern'] .queue-item:focus-visible {
+.player-bar .queue-item:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: -2px;
 }
@@ -743,16 +735,16 @@ input {
 
 /* Liquid Glass is a restrained web approximation. Album color remains reserved for
    cover-tint and selected states. */
-.player-bar--liquid-glass[data-player-presentation='modern'] {
+.player-bar--liquid-glass {
   box-shadow: none;
 }
 
-.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-island {
+.player-bar--liquid-glass .player-bar-island {
   border-color: rgba(255, 255, 255, 0.16);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.26);
 }
 
-.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass {
+.player-bar--liquid-glass .player-bar-glass {
   z-index: 1;
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(16, 20, 26, 0.36);
@@ -762,7 +754,7 @@ input {
 }
 
 /* 边缘透镜折射层：严格基于 nikdelvin/liquid-glass 开源算法动态注入 3 通道色散与矢量位移 */
-.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge {
+.player-bar--liquid-glass .player-bar-liquid-refract-edge {
   position: absolute;
   inset: 0;
   border-radius: inherit;
@@ -773,15 +765,15 @@ input {
 }
 
 /* 扁平化设计：隐藏伪 3D 摄影棚顶光与径向反光层 */
-.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-island::before,
-.player-bar--liquid-glass[data-player-presentation='modern']::before {
+.player-bar--liquid-glass .player-bar-island::before,
+.player-bar--liquid-glass::before {
   display: none !important;
 }
 
-.player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu,
-.player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-toast,
-.player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-lock-popover,
-.player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-overflow-panel {
+.player-bar--liquid-glass .playback-mode-menu,
+.player-bar--liquid-glass .desktop-lyrics-toast,
+.player-bar--liquid-glass .desktop-lyrics-lock-popover,
+.player-bar--liquid-glass .player-bar-overflow-panel {
   border-color: rgba(255, 255, 255, 0.22);
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(17, 19, 24, 0.36)),
@@ -794,7 +786,7 @@ input {
   backdrop-filter: blur(18px) saturate(1.12) contrast(1.04);
 }
 
-.player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover {
+.player-bar--liquid-glass .queue-popover {
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(16, 20, 26, 0.36);
   box-shadow: 0 18px 38px rgba(0, 0, 0, 0.3);
@@ -802,7 +794,7 @@ input {
   backdrop-filter: none;
 }
 
-.player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover-liquid-refract-edge {
+.player-bar--liquid-glass .queue-popover-liquid-refract-edge {
   position: absolute;
   inset: 0;
   border-radius: inherit;
@@ -810,11 +802,11 @@ input {
   z-index: 0 !important;
 }
 
-.player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover::before {
+.player-bar--liquid-glass .queue-popover::before {
   display: none;
 }
 
-.player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu::before {
+.player-bar--liquid-glass .playback-mode-menu::before {
   background:
     linear-gradient(
       180deg,
@@ -826,47 +818,47 @@ input {
   opacity: 0.85;
 }
 
-.player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover::after,
-.player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu::after {
+.player-bar--liquid-glass .queue-popover::after,
+.player-bar--liquid-glass .playback-mode-menu::after {
   background: transparent;
 }
 
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-toast,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-lock-popover {
+  .player-bar--liquid-glass .player-bar-glass,
+  .player-bar--liquid-glass .queue-popover,
+  .player-bar--liquid-glass .playback-mode-menu,
+  .player-bar--liquid-glass .desktop-lyrics-toast,
+  .player-bar--liquid-glass .desktop-lyrics-lock-popover {
     background: rgba(31, 34, 40, 0.92);
   }
 
-  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover-liquid-refract-edge {
+  .player-bar--liquid-glass .player-bar-liquid-refract-edge,
+  .player-bar--liquid-glass .queue-popover-liquid-refract-edge {
     display: none !important;
   }
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-toast,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-lock-popover {
+  .player-bar--liquid-glass .player-bar-glass,
+  .player-bar--liquid-glass .queue-popover,
+  .player-bar--liquid-glass .playback-mode-menu,
+  .player-bar--liquid-glass .desktop-lyrics-toast,
+  .player-bar--liquid-glass .desktop-lyrics-lock-popover {
     background: rgba(31, 34, 40, 0.92);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 
-  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover-liquid-refract-edge {
+  .player-bar--liquid-glass .player-bar-liquid-refract-edge,
+  .player-bar--liquid-glass .queue-popover-liquid-refract-edge {
     display: none !important;
   }
 }
 
 /* The liquid surface changes backdrop-filter values when its material changes. */
 @media (prefers-reduced-motion: reduce) {
-  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge {
+  .player-bar--liquid-glass .player-bar-glass,
+  .player-bar--liquid-glass .player-bar-liquid-refract-edge {
     transition: none;
   }
 }
@@ -889,25 +881,25 @@ input {
     backdrop-filter: none;
   }
 
-  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-glass,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-toast,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .desktop-lyrics-lock-popover {
+  .player-bar--liquid-glass .player-bar-glass,
+  .player-bar--liquid-glass .queue-popover,
+  .player-bar--liquid-glass .playback-mode-menu,
+  .player-bar--liquid-glass .desktop-lyrics-toast,
+  .player-bar--liquid-glass .desktop-lyrics-lock-popover {
     border-color: rgba(255, 255, 255, 0.58);
     background: #202329;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 
-  .player-bar--liquid-glass[data-player-presentation='modern'] .player-bar-liquid-refract-edge,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover-liquid-refract-edge {
+  .player-bar--liquid-glass .player-bar-liquid-refract-edge,
+  .player-bar--liquid-glass .queue-popover-liquid-refract-edge {
     display: none !important;
   }
 
-  .player-bar--liquid-glass[data-player-presentation='modern']::before,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .queue-popover::before,
-  .player-bar--liquid-glass[data-player-presentation='modern'] .playback-mode-menu::before {
+  .player-bar--liquid-glass::before,
+  .player-bar--liquid-glass .queue-popover::before,
+  .player-bar--liquid-glass .playback-mode-menu::before {
     opacity: 0;
   }
 }
@@ -1068,13 +1060,13 @@ input {
   box-shadow: none !important;
 }
 
-.player-bar[data-player-presentation='modern'] .player-control:focus,
-.player-bar[data-player-presentation='modern'] .transport-control:focus {
+.player-bar .player-control:focus,
+.player-bar .transport-control:focus {
   outline: none;
 }
 
-.player-bar[data-player-presentation='modern'] .player-control:focus-visible,
-.player-bar[data-player-presentation='modern'] .transport-control:focus-visible {
+.player-bar .player-control:focus-visible,
+.player-bar .transport-control:focus-visible {
   outline: 2px solid var(--auralis-active-album-accent, var(--auralis-sidebar-active-indicator));
   outline-offset: 2px;
 }
@@ -1110,7 +1102,7 @@ input {
   box-shadow: 0 8px 20px color-mix(in srgb, var(--auralis-active-album-accent) 20%, transparent);
 }
 
-.player-bar[data-player-presentation='modern'] .transport-control-primary {
+.player-bar .transport-control-primary {
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -1134,7 +1126,7 @@ input {
   transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
 }
 
-.player-bar[data-player-presentation='modern'] .transport-control-primary::before {
+.player-bar .transport-control-primary::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -1158,7 +1150,7 @@ input {
   mask: radial-gradient(circle closest-side, transparent 0 54%, #000 72% 86%, transparent 100%);
 }
 
-.player-bar[data-player-presentation='modern'] .transport-control-primary::after {
+.player-bar .transport-control-primary::after {
   content: '';
   position: absolute;
   inset: 3px;
@@ -1182,39 +1174,39 @@ input {
   mask: radial-gradient(circle closest-side, transparent 0 42%, #000 68% 78%, transparent 100%);
 }
 
-.player-bar[data-player-presentation='modern'] .transport-control-primary > span {
+.player-bar .transport-control-primary > span {
   position: relative;
   z-index: 1;
 }
 
-.player-bar[data-player-presentation='modern'] .transport-control-primary:hover:not(:disabled) {
+.player-bar .transport-control-primary:hover:not(:disabled) {
   --auralis-player-primary-bevel-opacity: 0.8;
   --auralis-player-primary-recess-opacity: 0.86;
   transform: translateY(-0.25px) scale(1.01) !important;
 }
 
-.player-bar[data-player-presentation='modern'] .transport-control-primary:active:not(:disabled) {
+.player-bar .transport-control-primary:active:not(:disabled) {
   --auralis-player-primary-bevel-opacity: 0.85;
   --auralis-player-primary-recess-opacity: 1;
   transform: translateY(0.25px) scale(0.99) !important;
 }
 
-.player-bar[data-player-presentation='modern'] .transport-control-primary:disabled {
+.player-bar .transport-control-primary:disabled {
   --auralis-player-primary-bevel-opacity: 0.45;
   --auralis-player-primary-recess-opacity: 0.5;
   cursor: not-allowed;
   transform: none !important;
 }
 
-.player-bar[data-player-presentation='modern'] .transport-control-primary[aria-busy='true'] {
+.player-bar .transport-control-primary[aria-busy='true'] {
   cursor: wait;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .player-bar[data-player-presentation='modern'] .transport-control-primary,
-  .player-bar[data-player-presentation='modern'] .transport-control-primary:hover:not(:disabled),
-  .player-bar[data-player-presentation='modern'] .transport-control-primary:active:not(:disabled),
-  .player-bar[data-player-presentation='modern'] .transport-control-primary:disabled {
+  .player-bar .transport-control-primary,
+  .player-bar .transport-control-primary:hover:not(:disabled),
+  .player-bar .transport-control-primary:active:not(:disabled),
+  .player-bar .transport-control-primary:disabled {
     transition: none !important;
     transform: none !important;
   }
@@ -1990,19 +1982,6 @@ input[type='range'].volume-slider:hover::-moz-range-thumb {
 
 .library-search-input::placeholder {
   color: var(--auralis-text-faint);
-}
-
-/*
- * 窄视口（< xl，最小窗口 900px）下主内容约 640px 宽，英文
- * Modern/Manuscript 切换控件（约 150px，固定右缘）会侵入居中的
- * 360px 搜索条右侧。将搜索条中心左移 44px 让位，不触碰 transform
- * 以免与 search-bar 进出场动画冲突。阈值取 960：覆盖 941-943px
- * 视口下无偏移时约 1-2px 的临界擦碰。
- */
-@media (max-width: 960px) {
-  .library-search-bar {
-    left: calc(50% - 44px);
-  }
 }
 
 .search-bar-enter-active,

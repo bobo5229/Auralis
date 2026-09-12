@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { LibraryStatusKind } from '../types/libraryInteraction'
-import type { LibraryPresentation } from '../types/libraryPresentation'
 
 withDefaults(
   defineProps<{
     kind: LibraryStatusKind
-    presentation?: LibraryPresentation
     query?: string
     scanProgressText?: string
     errorMessage?: string
@@ -14,7 +12,6 @@ withDefaults(
     isSmartPlaylist?: boolean
   }>(),
   {
-    presentation: 'modern',
     query: '',
     scanProgressText: '',
     errorMessage: '',
@@ -35,7 +32,6 @@ const { t } = useI18n()
 <template>
   <div
     class="library-status-state flex flex-1 flex-col items-center justify-center p-8 text-center select-none"
-    :data-visual-style="presentation"
     role="status"
     aria-live="polite"
   >

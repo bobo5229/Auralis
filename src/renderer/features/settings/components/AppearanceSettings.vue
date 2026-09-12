@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import VisualStylePreference from '@renderer/features/appearance/components/VisualStylePreference.vue'
 import { type PlayerBarMaterial, usePlayerBarMaterial } from '../composables/usePlayerBarMaterial'
 import { type AppLocale, useLocale } from '@renderer/composables/useLocale'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -115,10 +114,6 @@ function handleLocaleKeydown(event: KeyboardEvent, value: AppLocale): void {
 <template>
   <section class="settings-section">
     <div class="settings-list">
-      <div class="settings-row settings-row--visual-style">
-        <VisualStylePreference />
-      </div>
-
       <div class="settings-row">
         <div>
           <strong id="locale-label">{{ t('settings.appearance.language') }}</strong>

@@ -22,7 +22,7 @@ export default defineConfig({
     'now-playing-panel':
       'hidden h-full min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-4 xl:flex',
     // Geometry is owned by presentation-scoped CSS (modern dual-rail dock /
-    // manuscript footer). Keep only shared stacking + material shell here.
+    // player footer variants). Keep only shared stacking + material shell here.
     'player-bar':
       'fixed z-50 h-18 border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] shadow-[var(--auralis-playbar-shadow)]',
     'transport-controls': 'flex items-center gap-2 shrink-0',

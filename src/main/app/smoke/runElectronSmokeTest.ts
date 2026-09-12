@@ -26,6 +26,12 @@ interface RouteProbe {
   settingsMounted: boolean
 }
 
+interface StartupPresentationProbe {
+  mode: 'normal' | 'mini'
+  shellMounted: boolean
+  miniMounted: boolean
+}
+
 interface MiniPlayerProbe {
   entered: string
   observed: string
@@ -85,6 +91,38 @@ async function withTimeout<T>(
   }
 }
 
+async function waitForStartupPresentation(
+  mainWindow: BrowserWindow,
+): Promise<StartupPresentationProbe> {
+  return (await mainWindow.webContents.executeJavaScript(
+    `(async () => {
+      const deadline = Date.now() + ${CHECK_TIMEOUT_MS}
+      while (Date.now() < deadline) {
+        const shellMounted = Boolean(document.querySelector('[data-app-shell-root]'))
+        const miniMounted = Boolean(document.querySelector('.mini-player-canvas'))
+        if (shellMounted || miniMounted) {
+          const state = await window.auralis.window.getMiniPlayerState()
+          const mode = state.mode === 'mini' ? 'mini' : 'normal'
+          const presentationMatchesMode =
+            (mode === 'mini' && miniMounted) || (mode === 'normal' && shellMounted)
+          if (presentationMatchesMode) {
+            return { mode, shellMounted, miniMounted }
+          }
+        }
+        await new Promise((resolve) => setTimeout(resolve, ${POLL_INTERVAL_MS}))
+      }
+
+      const state = await window.auralis.window.getMiniPlayerState()
+      return {
+        mode: state.mode === 'mini' ? 'mini' : 'normal',
+        shellMounted: Boolean(document.querySelector('[data-app-shell-root]')),
+        miniMounted: Boolean(document.querySelector('.mini-player-canvas')),
+      }
+    })()`,
+    true,
+  )) as StartupPresentationProbe
+}
+
 async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
   const checks: SmokeCheck[] = []
   const loadFailures: string[] = []
@@ -135,6 +173,39 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
     await record('main window finishes loading without failure', async () => {
       await waitFor('main window did-finish-load', () => finishedLoads.has(mainWindow.webContents))
       if (loadFailures.length > 0) throw new Error(loadFailures.join('\n'))
+    })
+
+    await record('legacy visual-style preference does not affect startup', async () => {
+      const restoredState = (await mainWindow.webContents.executeJavaScript(
+        `window.auralis.window.restoreFromMiniPlayer()`,
+        true,
+      )) as { mode?: string }
+      if (restoredState.mode !== 'normal') {
+        throw new Error(
+          `Expected a normal main window before reload, received ${JSON.stringify(restoredState)}`,
+        )
+      }
+
+      await mainWindow.webContents.executeJavaScript(
+        `localStorage.setItem('auralis-visual-style', 'manuscript')`,
+        true,
+      )
+      finishedLoads.delete(mainWindow.webContents)
+      mainWindow.webContents.reload()
+      await waitFor('main window reload with legacy preference', () =>
+        finishedLoads.has(mainWindow.webContents),
+      )
+      const presentation = await waitForStartupPresentation(mainWindow)
+      if (
+        presentation.mode !== 'normal' ||
+        !presentation.shellMounted ||
+        presentation.miniMounted ||
+        loadFailures.length > 0
+      ) {
+        throw new Error(
+          `Legacy visual-style preference prevented the modern shell from mounting: ${JSON.stringify(presentation)}`,
+        )
+      }
     })
 
     await record('sandboxed main preload exposes working app.getInfo', async () => {

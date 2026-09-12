@@ -1,5 +1,3 @@
-export type LibraryPresentation = 'modern' | 'manuscript'
-
 export type LibrarySurfaceKind = 'library' | 'playlist' | 'smart-playlist'
 
 export type LibraryPageIdentity =

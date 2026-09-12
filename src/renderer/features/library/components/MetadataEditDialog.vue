@@ -2,18 +2,14 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
-import type { LibraryPresentation } from '../types/libraryPresentation'
 
 const props = withDefaults(
   defineProps<{
-    presentation?: LibraryPresentation
     metadata: EditableTrackMetadata | null
     saving: boolean
     errorMessage: string | null
   }>(),
-  {
-    presentation: 'modern',
-  },
+  {},
 )
 
 const emit = defineEmits<{
@@ -162,12 +158,7 @@ function onKeyDown(e: KeyboardEvent): void {
 
 <template>
   <Teleport to="body">
-    <div
-      v-if="metadata"
-      class="library-overlay"
-      :data-visual-style="presentation"
-      data-library-overlay="metadata-dialog"
-    >
+    <div v-if="metadata" class="library-overlay" data-library-overlay="metadata-dialog">
       <div
         class="fixed inset-0 z-[70] flex items-center justify-center p-4 library-dialog-scrim"
         @keydown="onKeyDown"

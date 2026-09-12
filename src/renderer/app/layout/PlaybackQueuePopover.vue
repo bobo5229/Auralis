@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlaybackQueue } from '@renderer/features/playback/composables/usePlaybackQueue'
 import { useLiquidGlassFilter } from '@renderer/features/playback/composables/useLiquidGlassFilter'
@@ -10,15 +10,13 @@ import {
   resolvePlayerOverlayKeyAction,
   resolveQueueInitialFocusTarget,
 } from '@renderer/app/utils/playerOverlayFocus'
-import type { PlayerSurfacePresentation } from '@renderer/app/utils/playerSurfacePresentation'
 import type { PlaybackTrack } from '@renderer/features/playback/types'
 
-const props = defineProps<{ presentation: PlayerSurfacePresentation }>()
+defineProps<{}>()
 const emit = defineEmits<{ close: [] }>()
 const element = ref<HTMLElement | null>(null)
 
 const { isLiquidGlassActive, liquidFilterStyle } = useLiquidGlassFilter(element, {
-  presentation: computed(() => props.presentation),
   radius: 24,
   depth: 10,
   strength: 55,
@@ -117,7 +115,6 @@ onUnmounted(() => {
   <div
     ref="element"
     class="player-overlay queue-popover"
-    :data-player-presentation="props.presentation"
     role="dialog"
     tabindex="-1"
     :aria-label="t('player.queue')"

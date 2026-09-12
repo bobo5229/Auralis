@@ -41,7 +41,7 @@ export function getAlbumGroupEstimatedHeight(trackCount: number, hasReleaseDate:
   return Math.max(coverColumnHeight, tracksPanelHeight) + groupPadBlock + m.coverGroupBorderWidth
 }
 
-/** 挂到 LibraryPage 根节点的 CSS 变量（带 px）；modern / manuscript / 歌单路由均绑定 */
+/** 挂到 LibraryPage 根节点的 CSS 变量（带 px）；全部曲库与歌单路由均绑定。 */
 export const LIBRARY_LAYOUT_CSS_VARS: Readonly<Record<string, string>> = {
   '--library-flat-row-height': `${LIBRARY_LAYOUT_METRICS.flatRowHeight}px`,
   '--library-flat-artwork-size': `${LIBRARY_LAYOUT_METRICS.flatArtworkSize}px`,

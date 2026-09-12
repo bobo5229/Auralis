@@ -3,10 +3,8 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useVolumeOverlay } from '@renderer/features/playback/composables/useVolumeOverlay'
-import type { PlayerSurfacePresentation } from '@renderer/app/utils/playerSurfacePresentation'
 
 const props = defineProps<{
-  presentation: PlayerSurfacePresentation
   retreatActive: boolean
 }>()
 
@@ -115,12 +113,7 @@ defineExpose({
       :aria-label="t('player.volume')"
       @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
     />
-    <div
-      class="player-overlay volume-overlay"
-      :data-player-presentation="props.presentation"
-      role="group"
-      :aria-label="t('player.volume')"
-    >
+    <div class="player-overlay volume-overlay" role="group" :aria-label="t('player.volume')">
       <input
         type="range"
         class="volume-slider volume-overlay-slider"

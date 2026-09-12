@@ -1,8 +1,10 @@
 # Auralis 手稿皮肤交付状态与后续路线图
 
+> **归档说明（2026-09-12）**：手稿视觉皮肤及其偏好状态、运行时样式和设置入口已从产品中移除。Auralis 当前仅保留 modern 单态；本文以下内容是历史交付快照，不是当前实现、待办或恢复授权。
+
 **文档类型**：总体交付文档  
 **状态快照**：2026-08-13  
-**适用范围**：`modern | manuscript` Renderer 视觉风格  
+**历史适用范围**：`modern | manuscript` Renderer 视觉风格
 **唯一偏好源**：`src/renderer/features/appearance/composables/useVisualStyle.ts`  
 **持久化键**：`auralis-visual-style`
 

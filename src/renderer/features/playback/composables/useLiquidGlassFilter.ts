@@ -8,7 +8,6 @@ import {
   watch,
   type CSSProperties,
   type Ref,
-  unref,
 } from 'vue'
 import { usePlayerBarMaterial } from '@renderer/features/settings/composables/usePlayerBarMaterial'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
@@ -16,10 +15,8 @@ import {
   getDisplacementFilter,
   supportsBackdropFilterUrlSyntax,
 } from '@renderer/features/playback/utils/liquidGlassDisplacementMap'
-import type { PlayerSurfacePresentation } from '@renderer/app/utils/playerSurfacePresentation'
 
 export interface LiquidGlassFilterConfig {
-  presentation: Ref<PlayerSurfacePresentation> | PlayerSurfacePresentation
   radius?: number
   depth?: number
   strength?: number
@@ -31,17 +28,11 @@ export interface LiquidGlassFilterConfig {
 }
 
 export function resolveIsLiquidGlassActive(
-  presentation: PlayerSurfacePresentation,
   material: string,
   displayMode: string,
   syntaxSupported = supportsBackdropFilterUrlSyntax(),
 ): boolean {
-  return (
-    presentation === 'modern' &&
-    displayMode === 'normal' &&
-    material === 'liquid-glass' &&
-    syntaxSupported
-  )
+  return displayMode === 'normal' && material === 'liquid-glass' && syntaxSupported
 }
 
 export function useLiquidGlassFilter(
@@ -62,7 +53,6 @@ export function useLiquidGlassFilter(
 
   const isLiquidGlassActive = computed(() =>
     resolveIsLiquidGlassActive(
-      unref(config.presentation),
       playerBarMaterial.value,
       displayMode.value,
       syntaxSupported,

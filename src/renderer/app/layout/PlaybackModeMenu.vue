@@ -6,12 +6,10 @@ import {
   resolveModeMenuItemTabIndex,
   resolveModeMenuKeydown,
 } from '@renderer/app/utils/playerOverlayFocus'
-import type { PlayerSurfacePresentation } from '@renderer/app/utils/playerSurfacePresentation'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 
 const props = defineProps<{
   currentMode: PlaybackMode
-  presentation: PlayerSurfacePresentation
 }>()
 const emit = defineEmits<{
   select: [mode: PlaybackMode, source: 'pointer' | 'keyboard']
@@ -94,7 +92,6 @@ onUnmounted(() => {
   <div
     ref="element"
     class="player-overlay playback-mode-menu"
-    :data-player-presentation="props.presentation"
     role="menu"
     :aria-label="t('player.mode')"
   >

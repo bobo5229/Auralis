@@ -20,7 +20,7 @@ export function isVolumeOverlayOpen(input: VolumeOverlaySignals): boolean {
 }
 
 /**
- * Volume overlay state for the manuscript narrow-window layout. `getGroup`
+ * Volume overlay state for the narrow-window PlayerBar. `getGroup`
  * returns the volume group element so focus entries can tell "arriving from
  * outside" (clears the dismissal latch) from "moving within the group" (does
  * not).

@@ -7,7 +7,6 @@ import { useAlbumTint } from '@renderer/features/playback/composables/useAlbumTi
 import { usePlayerBarMaterial } from '@renderer/features/settings/composables/usePlayerBarMaterial'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import TrackProgressInfo from './TrackProgressInfo.vue'
-import PlayerBarTimeColophon from './PlayerBarTimeColophon.vue'
 import PlaybackQueuePopover from './PlaybackQueuePopover.vue'
 import PlaybackModeMenu from './PlaybackModeMenu.vue'
 import PlayerVolumeControl from './PlayerVolumeControl.vue'
@@ -16,10 +15,7 @@ import PlaybarQueueIcon from '@renderer/features/playback/components/PlaybarQueu
 import PlaybarLyricsIcon from '@renderer/features/playback/components/PlaybarLyricsIcon.vue'
 import { useDesktopLyricsSync } from '@renderer/features/lyrics/composables/useDesktopLyricsSync'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
-import {
-  resolvePlayerPaletteEnabled,
-  type PlayerSurfacePresentation,
-} from '@renderer/app/utils/playerSurfacePresentation'
+import { isPlayerVisualEffectsActive } from '@renderer/app/utils/playerVisualEffects'
 import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverlayFocus'
 import {
   usePlayerBarOverlayController,
@@ -31,31 +27,18 @@ import { isPlayerBarVolumeOverlayRetreatActive } from '@renderer/features/playba
 import { resolvePlayerPrimaryButtonTextColor } from '@renderer/features/playback/utils/resolvePlayerPrimaryButtonTextColor'
 import { useLiquidGlassFilter } from '@renderer/features/playback/composables/useLiquidGlassFilter'
 
-const props = defineProps<{ presentation: PlayerSurfacePresentation }>()
-
 const playback = usePlayback()
 const { t } = useI18n()
 const { playerBarMaterial } = usePlayerBarMaterial()
 const { displayMode } = usePlayerDisplayMode()
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
-// Phase 18: palette extraction and album tint only run for the modern player
-// presentation while the surface is the visible one; the hidden PlayerBar
-// under fullscreen must not decode images, paint canvases or start worker
-// colour work (TECHDOC §6.1 risk).
-const isModernPlayer = computed(() => props.presentation === 'modern')
+// Fullscreen and Miniplayer own their visual pipelines. The hidden PlayerBar
+// must not decode artwork, paint canvases, or start palette work.
 const isNormalPlayerDisplay = computed(() => displayMode.value === 'normal')
 const isModernLiquidGlassSurface = computed(
-  () =>
-    isModernPlayer.value &&
-    isNormalPlayerDisplay.value &&
-    playerBarMaterial.value === 'liquid-glass',
+  () => isNormalPlayerDisplay.value && playerBarMaterial.value === 'liquid-glass',
 )
-const paletteEnabled = computed(() =>
-  resolvePlayerPaletteEnabled({
-    presentation: props.presentation,
-    displayMode: displayMode.value,
-  }),
-)
+const paletteEnabled = computed(() => isPlayerVisualEffectsActive(displayMode.value))
 const { palette: albumPalette } = useArtworkPalette(currentArtworkCacheKey, {
   enabled: paletteEnabled,
 })
@@ -89,20 +72,13 @@ const previousAlbumTintStyle = computed<CSSProperties>(() => ({
 }))
 
 const albumAccentColor = computed(() => {
-  // manuscript 使用稳定档案 accent，不从旧封面保留颜色（TECHDOC §6.2）
-  if (!isModernPlayer.value) {
-    return 'var(--manuscript-accent-primary)'
-  }
-
   const primaryColor = albumPalette.value?.accents[0]?.rgb
   if (!primaryColor || !playback.state.currentTrack) {
     return null
   }
   return `rgb(${primaryColor.r} ${primaryColor.g} ${primaryColor.b})`
 })
-const isPrimaryPlaybackPending = computed(
-  () => isModernPlayer.value && playback.isPlaybackPending.value,
-)
+const isPrimaryPlaybackPending = computed(() => playback.isPlaybackPending.value)
 const isPrimaryPlaybackDisabled = computed(
   () => !playback.state.currentTrack || isPrimaryPlaybackPending.value,
 )
@@ -172,27 +148,23 @@ const {
   liquidFilterStyle,
   updateFilter: updateLiquidDisplacementMap,
 } = useLiquidGlassFilter(islandRef, {
-  presentation: computed(() => props.presentation),
   radius: 28,
   depth: 10,
   strength: 55,
   chromaticAberration: 2,
 })
 
-const { islandInlineSize, measureHostInlineSize } = usePlayerBarIslandMetrics({
+const { islandInlineSize } = usePlayerBarIslandMetrics({
   islandRef,
   hostRef: playerBarHostRef,
-  enabled: computed(() => isModernPlayer.value && isNormalPlayerDisplay.value),
+  enabled: isNormalPlayerDisplay,
   onIslandSizeChange: updateLiquidDisplacementMap,
 })
 
 const isUtilitiesOverflow = computed(() => shouldOverflowModernUtilities(islandInlineSize.value))
 
 const volumeRetreatActive = computed(() =>
-  isPlayerBarVolumeOverlayRetreatActive({
-    presentation: props.presentation,
-    surfaceInlineSizePx: isModernPlayer.value ? islandInlineSize.value : measureHostInlineSize(),
-  }),
+  isPlayerBarVolumeOverlayRetreatActive(islandInlineSize.value),
 )
 
 function toggleQueue(): void {
@@ -324,7 +296,7 @@ watch(isUtilitiesOverflow, (collapsed) => {
 })
 
 watch(
-  () => isModernPlayer.value && isNormalPlayerDisplay.value,
+  () => isNormalPlayerDisplay.value,
   (shouldObserveIsland) => {
     if (!shouldObserveIsland) closeOverflow()
   },
@@ -362,7 +334,7 @@ const playbackModeIconClass = computed(() => {
 
 // --- Transport ---
 function handlePlayPause(): void {
-  if (isModernPlayer.value && isPrimaryPlaybackDisabled.value) return
+  if (isPrimaryPlaybackDisabled.value) return
   void playback.togglePlayPause()
 }
 
@@ -379,7 +351,6 @@ function handleNext(): void {
   <footer
     ref="playerBarHostRef"
     class="player-bar"
-    :data-player-presentation="props.presentation"
     :class="{
       'player-bar--album-tinted': hasActiveAlbumTint,
       'player-bar--liquid-glass': isModernLiquidGlassSurface,
@@ -387,7 +358,7 @@ function handleNext(): void {
     :style="playerBarStyle"
   >
     <!-- Modern floating island: chrome lives on the island, not the host. -->
-    <template v-if="isModernPlayer">
+    <template>
       <div ref="islandRef" class="player-bar-island">
         <!-- SVG 折射层仅在 normal modern surface 且 CSS parser 接受 url() 时挂载。先折射，后压暗。 -->
         <div
@@ -457,11 +428,7 @@ function handleNext(): void {
             </button>
 
             <div ref="queuePopoverRef" class="contents">
-              <PlaybackQueuePopover
-                v-if="isQueueOpen"
-                :presentation="props.presentation"
-                @close="handleQueueClose"
-              />
+              <PlaybackQueuePopover v-if="isQueueOpen" @close="handleQueueClose" />
             </div>
 
             <div v-if="!isUtilitiesOverflow" class="desktop-lyrics-control-wrap">
@@ -485,7 +452,6 @@ function handleNext(): void {
                 <DesktopLyricsLockPopover
                   v-if="isDesktopLyricsLockOpen"
                   :is-locked="isDesktopLyricsMousePassthroughEnabled"
-                  :presentation="props.presentation"
                   @change="handleDesktopLyricsLockChange"
                   @close="handleDesktopLyricsLockClose"
                 />
@@ -493,7 +459,6 @@ function handleNext(): void {
               <div
                 v-if="desktopLyricsToast && !isDesktopLyricsLockOpen"
                 class="player-overlay desktop-lyrics-toast"
-                :data-player-presentation="props.presentation"
               >
                 {{ t(desktopLyricsToast) }}
               </div>
@@ -529,7 +494,6 @@ function handleNext(): void {
                 v-if="isOverflowOpen"
                 ref="overflowPanelRef"
                 class="player-overlay player-bar-overflow-panel"
-                :data-player-presentation="props.presentation"
                 role="menu"
                 :aria-label="t('player.more')"
                 @keydown.esc="handleOverflowEscape"
@@ -557,14 +521,12 @@ function handleNext(): void {
                   <DesktopLyricsLockPopover
                     v-if="isDesktopLyricsLockOpen"
                     :is-locked="isDesktopLyricsMousePassthroughEnabled"
-                    :presentation="props.presentation"
                     @change="handleDesktopLyricsLockChange"
                     @close="handleDesktopLyricsLockClose"
                   />
                   <div
                     v-if="desktopLyricsToast && !isDesktopLyricsLockOpen"
                     class="player-overlay desktop-lyrics-toast"
-                    :data-player-presentation="props.presentation"
                   >
                     {{ t(desktopLyricsToast) }}
                   </div>
@@ -590,7 +552,6 @@ function handleNext(): void {
               <PlaybackModeMenu
                 v-if="isModeMenuOpen"
                 :current-mode="playback.state.playbackMode"
-                :presentation="props.presentation"
                 @select="handleSelectMode"
                 @close="handleModeMenuClose"
               />
@@ -598,139 +559,12 @@ function handleNext(): void {
 
             <PlayerVolumeControl
               ref="volumeControlRef"
-              :presentation="props.presentation"
               :retreat-active="volumeRetreatActive"
               @activate="overlayController.activateVolume()"
             />
           </div>
         </div>
       </div>
-    </template>
-
-    <!-- Manuscript dock: display:contents wrappers + named areas (Phase 23). -->
-    <template v-else>
-      <div class="player-bar-dock-main">
-        <div class="transport-controls">
-          <button
-            class="transport-control"
-            type="button"
-            :aria-label="t('player.previous')"
-            @click="handlePrev"
-          >
-            <span class="h-4 w-4 i-lucide-skip-back" />
-          </button>
-          <button
-            class="transport-control-primary"
-            type="button"
-            :aria-label="playback.state.isPlaying ? t('player.pause') : t('player.play')"
-            @click="handlePlayPause"
-          >
-            <span
-              class="h-5 w-5"
-              :class="playback.state.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
-            />
-          </button>
-          <button
-            class="transport-control"
-            type="button"
-            :aria-label="t('player.next')"
-            @click="handleNext"
-          >
-            <span class="h-4 w-4 i-lucide-skip-forward" />
-          </button>
-        </div>
-
-        <TrackProgressInfo />
-      </div>
-
-      <div class="player-bar-dock-actions">
-        <div class="playback-actions">
-          <div class="desktop-lyrics-control-wrap">
-            <button
-              class="player-control"
-              :class="{
-                'player-control-active': isDesktopLyricsVisible || isDesktopLyricsLockOpen,
-              }"
-              type="button"
-              :aria-label="t('player.desktopLyrics.menu')"
-              :aria-pressed="isDesktopLyricsVisible"
-              :aria-expanded="isDesktopLyricsLockOpen"
-              :title="t('player.desktopLyrics.titleToggle')"
-              @click="toggleDesktopLyrics"
-              @contextmenu.prevent="toggleDesktopLyricsLockPopover"
-            >
-              <PlaybarLyricsIcon class="playbar-action-icon h-4 w-4" />
-            </button>
-            <DesktopLyricsLockPopover
-              v-if="isDesktopLyricsLockOpen"
-              :is-locked="isDesktopLyricsMousePassthroughEnabled"
-              :presentation="props.presentation"
-              @change="handleDesktopLyricsLockChange"
-              @close="handleDesktopLyricsLockClose"
-            />
-            <div
-              v-if="desktopLyricsToast && !isDesktopLyricsLockOpen"
-              class="player-overlay desktop-lyrics-toast"
-              :data-player-presentation="props.presentation"
-            >
-              {{ t(desktopLyricsToast) }}
-            </div>
-          </div>
-
-          <button
-            ref="queueButtonRef"
-            class="player-control"
-            :class="{ 'player-control-active': isQueueOpen }"
-            type="button"
-            :aria-label="t('player.queue')"
-            :aria-expanded="isQueueOpen"
-            @click="toggleQueue"
-          >
-            <PlaybarQueueIcon class="playbar-action-icon h-4 w-4" />
-          </button>
-
-          <div ref="queuePopoverRef" class="contents">
-            <PlaybackQueuePopover
-              v-if="isQueueOpen"
-              :presentation="props.presentation"
-              @close="handleQueueClose"
-            />
-          </div>
-
-          <button
-            ref="modeButtonRef"
-            class="player-control"
-            :class="{ 'player-control-active': isModeMenuOpen }"
-            type="button"
-            :aria-label="t('player.mode')"
-            :aria-expanded="isModeMenuOpen"
-            @click="toggleModeMenu"
-          >
-            <span class="playbar-action-icon h-4 w-4" :class="playbackModeIconClass" />
-          </button>
-
-          <div ref="modeMenuRef" class="contents">
-            <PlaybackModeMenu
-              v-if="isModeMenuOpen"
-              :current-mode="playback.state.playbackMode"
-              :presentation="props.presentation"
-              @select="handleSelectMode"
-              @close="handleModeMenuClose"
-            />
-          </div>
-
-          <PlayerVolumeControl
-            ref="volumeControlRef"
-            :presentation="props.presentation"
-            :retreat-active="volumeRetreatActive"
-            @activate="overlayController.activateVolume()"
-          />
-        </div>
-
-        <PlayerBarTimeColophon />
-      </div>
-
-      <div class="player-bar-dock-rule" aria-hidden="true"></div>
     </template>
   </footer>
 </template>

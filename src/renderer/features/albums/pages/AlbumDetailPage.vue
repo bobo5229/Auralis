@@ -4,8 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
-import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
-import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
@@ -15,13 +13,10 @@ import { splitGenreValues } from '@renderer/features/library/utils/formatGenre'
 import AlbumDetailTrackList from '../components/AlbumDetailTrackList.vue'
 import type { AlbumSummary } from '../types'
 import { useAlbumDetailTracks } from '../composables/useAlbumDetailTracks'
-import { resolveAlbumPresentation } from '../utils/albumPresentation'
-import '../styles/manuscript.detail.css'
 
 const route = useRoute()
 const router = useRouter()
 const { t, locale } = useI18n()
-const { visualStyle } = useVisualStyle()
 const playback = usePlayback()
 const detailRootRef = ref<HTMLElement | null>(null)
 const coverStageRef = ref<HTMLElement | null>(null)
@@ -52,8 +47,7 @@ const {
   syncLoadStateFromTracks,
   dispose: disposeAlbumTracks,
 } = useAlbumDetailTracks({ albumArtist, albumTitle, library: auralis.library })
-const albumPresentation = computed(() => resolveAlbumPresentation(route.name, visualStyle.value))
-const isModernAlbumDetail = computed(() => albumPresentation.value === 'modern')
+const isAlbumDetailEffectsActive = computed(() => true)
 const displayAlbumArtist = computed(() =>
   albumArtist.value === 'Unknown Artist'
     ? t('library.unknownArtist')
@@ -118,7 +112,7 @@ const artworkCacheKey = computed(
 )
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
 const { palette: albumPalette } = useArtworkPalette(artworkCacheKey, {
-  enabled: isModernAlbumDetail,
+  enabled: isAlbumDetailEffectsActive,
 })
 const albumDetailStyle = computed<CSSProperties>(() => {
   const accent = albumPalette.value.accents[0]?.rgb
@@ -367,7 +361,7 @@ const albumDiscGroups = computed(() => {
  * 见 docs/topics/albums/techdoc-album-detail-hero-billboard-redesign.md §3.1
  */
 function updateHeroStaticFluid(url: string | null, canvas: HTMLCanvasElement): void {
-  if (isPageUnmounted || !isModernAlbumDetail.value) return
+  if (isPageUnmounted || !isAlbumDetailEffectsActive.value) return
   const ctx = canvas.getContext('2d')
   if (!ctx) return
 
@@ -398,7 +392,11 @@ function updateHeroStaticFluid(url: string | null, canvas: HTMLCanvasElement): v
   const img = new Image()
   img.decoding = 'async'
   img.onload = () => {
-    if (generation !== heroFluidGeneration || isPageUnmounted || !isModernAlbumDetail.value) {
+    if (
+      generation !== heroFluidGeneration ||
+      isPageUnmounted ||
+      !isAlbumDetailEffectsActive.value
+    ) {
       return
     }
 
@@ -444,7 +442,11 @@ function updateHeroStaticFluid(url: string | null, canvas: HTMLCanvasElement): v
     ctx.restore()
   }
   img.onerror = () => {
-    if (generation !== heroFluidGeneration || isPageUnmounted || !isModernAlbumDetail.value) {
+    if (
+      generation !== heroFluidGeneration ||
+      isPageUnmounted ||
+      !isAlbumDetailEffectsActive.value
+    ) {
       return
     }
     fillBase()
@@ -453,7 +455,7 @@ function updateHeroStaticFluid(url: string | null, canvas: HTMLCanvasElement): v
 }
 
 function paintHeroFluid(): void {
-  if (isPageUnmounted || !isModernAlbumDetail.value) return
+  if (isPageUnmounted || !isAlbumDetailEffectsActive.value) return
   const canvas = heroCanvasRef.value
   if (!canvas) return
   updateHeroStaticFluid(artworkUrl.value, canvas)
@@ -593,7 +595,7 @@ function renderCoverTracking(): void {
     !pointer ||
     reducedMotionQuery.matches ||
     isPageUnmounted ||
-    !isModernAlbumDetail.value
+    !isAlbumDetailEffectsActive.value
   ) {
     return
   }
@@ -621,7 +623,11 @@ function scheduleCoverTracking(): void {
 }
 
 function onDocumentPointerMove(event: PointerEvent): void {
-  if (event.pointerType === 'touch' || reducedMotionQuery.matches || !isModernAlbumDetail.value) {
+  if (
+    event.pointerType === 'touch' ||
+    reducedMotionQuery.matches ||
+    !isAlbumDetailEffectsActive.value
+  ) {
     return
   }
   pointerPosition = { x: event.clientX, y: event.clientY }
@@ -648,13 +654,13 @@ function bindHeroResizeObserver(): void {
     !billboard ||
     typeof ResizeObserver === 'undefined' ||
     isPageUnmounted ||
-    !isModernAlbumDetail.value
+    !isAlbumDetailEffectsActive.value
   ) {
     return
   }
 
   heroResizeObserver = new ResizeObserver(() => {
-    if (isModernAlbumDetail.value && !isPageUnmounted) paintHeroFluid()
+    if (isAlbumDetailEffectsActive.value && !isPageUnmounted) paintHeroFluid()
   })
   heroResizeObserver.observe(billboard)
 }
@@ -673,7 +679,7 @@ function unbindDetailScrollListener(): void {
 }
 
 async function enableModernEffects(): Promise<void> {
-  if (isPageUnmounted || !isModernAlbumDetail.value || loadState.value !== 'ready') return
+  if (isPageUnmounted || !isAlbumDetailEffectsActive.value || loadState.value !== 'ready') return
   const activationGeneration = ++modernEffectsActivationGeneration
 
   if (!modernEffectsBound) {
@@ -687,7 +693,7 @@ async function enableModernEffects(): Promise<void> {
   await nextTick()
   if (
     isPageUnmounted ||
-    !isModernAlbumDetail.value ||
+    !isAlbumDetailEffectsActive.value ||
     loadState.value !== 'ready' ||
     !modernEffectsBound ||
     activationGeneration !== modernEffectsActivationGeneration
@@ -725,13 +731,13 @@ watch(
     detailRootRef.value?.scrollTo({ top: 0 })
     if (wasReady && loadState.value === 'ready') showSearchResultHighlight()
     void refreshMoreAlbumsScrollState()
-    if (isModernAlbumDetail.value) void enableModernEffects()
+    if (isAlbumDetailEffectsActive.value) void enableModernEffects()
   },
 )
 
 watch(artworkUrl, async () => {
   await nextTick()
-  if (isModernAlbumDetail.value && !isPageUnmounted) paintHeroFluid()
+  if (isAlbumDetailEffectsActive.value && !isPageUnmounted) paintHeroFluid()
 })
 
 watch(
@@ -739,7 +745,7 @@ watch(
   async (length) => {
     if (length <= 0) return
     await nextTick()
-    if (isModernAlbumDetail.value && !isPageUnmounted) void enableModernEffects()
+    if (isAlbumDetailEffectsActive.value && !isPageUnmounted) void enableModernEffects()
   },
 )
 
@@ -750,14 +756,6 @@ watch(
   },
 )
 
-watch(albumPresentation, (presentation) => {
-  if (presentation === 'modern' && loadState.value === 'ready') {
-    void enableModernEffects()
-  } else {
-    disableModernEffects()
-  }
-})
-
 watch(loadState, async (state, previousState) => {
   if (state === 'ready') {
     if (previousState !== 'ready') {
@@ -766,7 +764,7 @@ watch(loadState, async (state, previousState) => {
       showSearchResultHighlight()
     }
     void refreshMoreAlbumsScrollState()
-    if (isModernAlbumDetail.value) {
+    if (isAlbumDetailEffectsActive.value) {
       void enableModernEffects()
     } else {
       disableModernEffects()
@@ -792,8 +790,7 @@ onBeforeUnmount(() => {
 <template>
   <div
     class="album-detail-container album-detail-page h-full w-full relative bg-transparent"
-    :data-visual-style="albumPresentation"
-    :style="isModernAlbumDetail ? albumDetailStyle : undefined"
+    :style="isAlbumDetailEffectsActive ? albumDetailStyle : undefined"
   >
     <section
       v-if="loadState === 'ready'"
@@ -818,7 +815,7 @@ onBeforeUnmount(() => {
           :aria-label="t('albums.detail.heroAria', { title: displayAlbumTitle })"
         >
           <canvas
-            v-if="isModernAlbumDetail"
+            v-if="isAlbumDetailEffectsActive"
             ref="heroCanvasRef"
             class="album-hero-static-canvas"
             aria-hidden="true"

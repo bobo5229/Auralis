@@ -25,7 +25,6 @@ export type LibrarySearchOutcome =
 
 export interface LibraryContextMenuProps {
   open: boolean
-  presentation: 'modern' | 'manuscript'
   source: LibraryContextMenuSource
   anchor: LibraryContextMenuAnchor
   trackTitle: string

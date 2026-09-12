@@ -1,15 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { VisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 
 withDefaults(
   defineProps<{
     radius?: number
-    presentation?: VisualStyle
   }>(),
   {
     radius: 20,
-    presentation: 'modern',
   },
 )
 
@@ -33,17 +30,14 @@ defineExpose({
   <div
     ref="panel"
     class="liquid-glass-panel"
-    :class="{ 'liquid-glass-panel--manuscript': presentation === 'manuscript' }"
     :style="{ '--glass-radius': `${radius}px` }"
     @pointermove="updateLight"
   >
     <div
-      v-if="presentation !== 'manuscript'"
       class="liquid-glass-panel__refraction"
       aria-hidden="true"
     ></div>
     <div
-      v-if="presentation !== 'manuscript'"
       class="liquid-glass-panel__highlight"
       aria-hidden="true"
     ></div>
@@ -88,16 +82,6 @@ defineExpose({
   .liquid-glass-panel {
     position: relative;
   }
-}
-
-.liquid-glass-panel--manuscript {
-  background: var(--manuscript-surface-overlay, #f3eedf) !important;
-  border: var(--manuscript-hairline-width, 1px) solid
-    var(--manuscript-border-overlay, rgba(48, 43, 37, 0.46)) !important;
-  border-radius: var(--manuscript-radius-control, 2px) !important;
-  box-shadow: var(--manuscript-effect-overlay-shadow, 0 8px 24px rgba(41, 39, 35, 0.16)) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
 }
 
 .liquid-glass-panel__refraction,

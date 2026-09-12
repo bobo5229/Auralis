@@ -55,7 +55,7 @@ export function useLibraryViewport(options: {
   function updateFirstVisibleTrackIndex(): void {
     // Both visual styles share the same virtualizer geometry, and the modern
     // viewport anchor is needed for background-refresh restore, so the first
-    // visible track is tracked in modern and manuscript alike.
+    // Track the first visible row for reliable viewport restoration.
     const container = options.scrollRef.value
     if (!container) return
 

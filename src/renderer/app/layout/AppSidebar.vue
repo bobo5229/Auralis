@@ -14,16 +14,9 @@ import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { prefetchRouteOnIntent } from '../router/routeWarmup'
 import type { WarmableRouteName } from '../router/routeComponentLoaders'
-import type { ShellPresentation } from '../utils/shellPresentation'
 import { resolveRestorableFocusTarget } from '../utils/sidebarModalFocus'
 import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
 import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
-import '../styles/manuscript.sidebar.css'
-import '../styles/manuscript.sidebar-overlays.css'
-
-defineProps<{
-  presentation: ShellPresentation
-}>()
 
 const route = useRoute()
 const router = useRouter()
@@ -476,7 +469,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside class="app-sidebar" :data-shell-presentation="presentation">
+  <aside class="app-sidebar">
     <header class="sidebar-header">
       <div class="sidebar-header-main">
         <div class="sidebar-brand-left">
@@ -627,21 +620,14 @@ onBeforeUnmount(() => {
     </nav>
     <FacetsDialog
       :open="isFacetsDialogOpen"
-      :presentation="presentation"
       @close="isFacetsDialogOpen = false"
       @created="onSmartPlaylistCreated"
     />
 
     <Teleport to="body">
-      <div
-        v-if="createMenu"
-        class="sidebar-overlay fixed inset-0 z-[88]"
-        :data-shell-presentation="presentation"
-        @click="closeCreateMenu"
-      >
+      <div v-if="createMenu" class="sidebar-overlay fixed inset-0 z-[88]" @click="closeCreateMenu">
         <LiquidGlassPanel
           class="library-context-menu create-playlist-menu fixed w-48"
-          :presentation="presentation"
           :style="{
             left: `${createMenu.x}px`,
             top: `${createMenu.y}px`,
@@ -662,12 +648,10 @@ onBeforeUnmount(() => {
       <div
         v-if="playlistContextMenu"
         class="sidebar-overlay fixed inset-0 z-[90]"
-        :data-shell-presentation="presentation"
         @click="closePlaylistContextMenu"
       >
         <LiquidGlassPanel
           class="library-context-menu fixed w-40"
-          :presentation="presentation"
           :style="{
             left: `${playlistContextMenu.x}px`,
             top: `${playlistContextMenu.y}px`,
@@ -689,11 +673,7 @@ onBeforeUnmount(() => {
         </LiquidGlassPanel>
       </div>
 
-      <div
-        v-if="renamingPlaylist"
-        class="sidebar-overlay smart-playlist-dialog-backdrop"
-        :data-shell-presentation="presentation"
-      >
+      <div v-if="renamingPlaylist" class="sidebar-overlay smart-playlist-dialog-backdrop">
         <form
           ref="renameDialogRef"
           class="smart-playlist-dialog"
@@ -720,11 +700,7 @@ onBeforeUnmount(() => {
         </form>
       </div>
 
-      <div
-        v-if="isQueryDialogOpen"
-        class="sidebar-overlay smart-playlist-dialog-backdrop"
-        :data-shell-presentation="presentation"
-      >
+      <div v-if="isQueryDialogOpen" class="sidebar-overlay smart-playlist-dialog-backdrop">
         <form
           ref="queryDialogRef"
           class="smart-playlist-dialog smart-playlist-query-dialog"
@@ -761,11 +737,7 @@ onBeforeUnmount(() => {
         </form>
       </div>
 
-      <div
-        v-if="deletingPlaylist"
-        class="sidebar-overlay smart-playlist-dialog-backdrop"
-        :data-shell-presentation="presentation"
-      >
+      <div v-if="deletingPlaylist" class="sidebar-overlay smart-playlist-dialog-backdrop">
         <section
           ref="deleteDialogRef"
           class="smart-playlist-dialog"

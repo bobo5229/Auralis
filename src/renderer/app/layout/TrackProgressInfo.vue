@@ -13,9 +13,9 @@ import PlayerBarProgress from './PlayerBarProgress.vue'
 
 const props = withDefaults(
   defineProps<{
-    /** Manuscript and the modern island keep an in-card progress child. */
+    /** Keep the progress child inside the modern PlayerBar identity card. */
     showProgress?: boolean
-    /** Modern island: current time | rail | duration. Manuscript uses the colophon. */
+    /** Show current time, rail, and duration inside the modern island. */
     showSplitClocks?: boolean
   }>(),
   { showProgress: true, showSplitClocks: false },

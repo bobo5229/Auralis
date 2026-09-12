@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { PlayerSurfacePresentation } from '@renderer/app/utils/playerSurfacePresentation'
 
 const props = defineProps<{
   isLocked: boolean
-  presentation: PlayerSurfacePresentation
 }>()
 
 const emit = defineEmits<{
@@ -78,7 +76,6 @@ onUnmounted(() => {
   <div
     ref="element"
     class="player-overlay desktop-lyrics-lock-popover"
-    :data-player-presentation="props.presentation"
     role="dialog"
     tabindex="-1"
     :aria-label="t('player.desktopLyrics.lockPopoverTitle')"

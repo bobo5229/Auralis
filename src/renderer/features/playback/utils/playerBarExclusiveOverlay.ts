@@ -2,9 +2,6 @@ import { shouldCollapseModernInlineVolume } from './modernPlayerBarLayout'
 
 export type PlayerBarExclusiveOverlay = 'queue' | 'mode' | 'overflow' | 'volume'
 
-/** Matches `@container manuscript-player-bar (max-width: 760px)`. */
-export const MANUSCRIPT_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX = 760
-
 export interface PlayerBarOverlayFlags {
   queue: boolean
   mode: boolean
@@ -47,14 +44,8 @@ export function activatePlayerBarVolumeOverlay(): PlayerBarOverlayFlags {
   return only('volume')
 }
 
-export function isPlayerBarVolumeOverlayRetreatActive(input: {
-  presentation: 'modern' | 'manuscript'
-  surfaceInlineSizePx: number
-}): boolean {
-  if (input.presentation === 'modern') {
-    return shouldCollapseModernInlineVolume(input.surfaceInlineSizePx)
-  }
-  return input.surfaceInlineSizePx <= MANUSCRIPT_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX
+export function isPlayerBarVolumeOverlayRetreatActive(surfaceInlineSizePx: number): boolean {
+  return shouldCollapseModernInlineVolume(surfaceInlineSizePx)
 }
 
 /**

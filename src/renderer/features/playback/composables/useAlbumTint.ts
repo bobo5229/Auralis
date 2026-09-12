@@ -4,11 +4,9 @@ import { computed, readonly, ref, toValue, watch, type MaybeRefOrGetter, type Re
 const TINT_CROSSFADE_MS = 420
 
 /**
- * Drives the PlayerBar album-tint crossfade layers. The tint only exists in the
- * modern player presentation: while `enabled` is false the timer is cleared and
- * both layers reset to null so the manuscript surface never renders (or keeps)
- * a cover-derived color (Phase 18 TECHDOC §6.2). Re-enabling restores the
- * current tint once — never a stale cover.
+ * Drives the PlayerBar album-tint crossfade layers. While `enabled` is false,
+ * the timer is cleared and both layers reset so hidden surfaces never retain a
+ * cover-derived color. Re-enabling restores the current tint once.
  */
 export function useAlbumTint(albumTint: Ref<string | null>, enabled: MaybeRefOrGetter<boolean>) {
   const activeAlbumTint = ref<string | null>(null)

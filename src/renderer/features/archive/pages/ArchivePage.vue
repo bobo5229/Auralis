@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
-import { useRoute } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import type {
@@ -12,9 +11,7 @@ import type {
 } from '@shared/types/archive'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
-import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
-import '@renderer/features/appearance/styles/manuscript.tokens.css'
 import MusicDnaCard from '@renderer/features/archive/components/MusicDnaCard.vue'
 import EditorialLinerNotesCard from '@renderer/features/archive/components/EditorialLinerNotesCard.vue'
 import type { EditorialLinerNotesData } from '@renderer/features/archive/utils/editorialLinerNotes'
@@ -27,9 +24,6 @@ import {
   formatArchiveDateKey as formatDateKey,
   useArchiveRanking,
 } from '../composables/useArchiveRanking'
-import { resolveArchivePresentation } from '../utils/archivePresentation'
-import '../styles/manuscript.css'
-import '../styles/manuscript.overlays.css'
 
 interface CalendarDay {
   date: string
@@ -47,12 +41,7 @@ interface HeatmapTooltip {
 }
 
 const currentYear = new Date().getFullYear()
-const route = useRoute()
-const { visualStyle } = useVisualStyle()
-const archivePresentation = computed(() =>
-  resolveArchivePresentation(route.name, visualStyle.value),
-)
-const isModernArchive = computed(() => archivePresentation.value === 'modern')
+const isArchiveEffectsActive = computed(() => true)
 const selectedYear = ref(currentYear)
 const heatmap = ref<ListeningHeatmap | null>(null)
 const annualInsights = ref<AnnualListeningInsights | null>(null)
@@ -374,7 +363,7 @@ const selectedAlbumArtworkCacheKey = computed(
   () => selectedAlbumItem.value?.artworkCacheKey ?? null,
 )
 const { palette: archivePalette } = useArtworkPalette(selectedAlbumArtworkCacheKey, {
-  enabled: isModernArchive,
+  enabled: isArchiveEffectsActive,
 })
 const archiveStyle = computed<CSSProperties>(() => {
   const accent = archivePalette.value.accents[0]?.rgb
@@ -393,7 +382,7 @@ let heroFluidGeneration = 0
 
 function updateHeroStaticFluid(): void {
   const generation = ++heroFluidGeneration
-  if (!isModernArchive.value) return
+  if (!isArchiveEffectsActive.value) return
 
   const item = selectedAlbumItem.value
   const canvas = heroCanvasRef.value
@@ -416,7 +405,7 @@ function updateHeroStaticFluid(): void {
   const img = new Image()
   img.crossOrigin = 'anonymous'
   img.onload = () => {
-    if (generation !== heroFluidGeneration || !isModernArchive.value) return
+    if (generation !== heroFluidGeneration || !isArchiveEffectsActive.value) return
 
     const sampleCanvas = document.createElement('canvas')
     sampleCanvas.width = 16
@@ -460,13 +449,6 @@ watch(selectedAlbumItem, () => {
   void nextTick(() => {
     updateHeroStaticFluid()
   })
-})
-
-watch(archivePresentation, async (presentation) => {
-  heroFluidGeneration += 1
-  if (presentation !== 'modern') return
-  await nextTick()
-  updateHeroStaticFluid()
 })
 
 watch(rankingTarget, () => {
@@ -708,8 +690,7 @@ onBeforeUnmount(() => {
 <template>
   <section
     class="archive-page content-frame"
-    :data-visual-style="archivePresentation"
-    :style="isModernArchive ? archiveStyle : undefined"
+    :style="isArchiveEffectsActive ? archiveStyle : undefined"
   >
     <div class="archive-heatmap-card">
       <div class="archive-card-heading">
@@ -869,7 +850,7 @@ onBeforeUnmount(() => {
         <!-- Left: Hero Stage -->
         <div v-if="selectedAlbumItem" class="album-hero-stage">
           <canvas
-            v-if="isModernArchive"
+            v-if="isArchiveEffectsActive"
             ref="heroCanvasRef"
             class="album-hero-static-canvas"
           ></canvas>
@@ -949,7 +930,7 @@ onBeforeUnmount(() => {
     </section>
 
     <Teleport to="body">
-      <div class="archive-overlay" :data-visual-style="archivePresentation">
+      <div class="archive-overlay">
         <Transition name="archive-picker-fade">
           <div
             v-if="showRankingPicker"

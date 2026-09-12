@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { VisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import type { AlbumSummary } from '../types'
@@ -9,22 +8,12 @@ import type { AlbumSummary } from '../types'
 const props = defineProps<{
   album: AlbumSummary
   displayMode: 'grid' | 'perspective'
-  presentation?: VisualStyle
-  catalogNumber?: number
   highlighted?: boolean
 }>()
 
 const { t } = useI18n()
-const displayAlbumTitle = computed(() =>
-  props.presentation === 'manuscript' && props.album.title === 'Unknown Album'
-    ? t('library.manuscript.missing.album')
-    : props.album.title,
-)
-const displayAlbumArtist = computed(() =>
-  props.presentation === 'manuscript' && props.album.albumArtist === 'Unknown Artist'
-    ? t('library.manuscript.missing.artist')
-    : formatArtist(props.album.albumArtist),
-)
+const displayAlbumTitle = computed(() => props.album.title)
+const displayAlbumArtist = computed(() => formatArtist(props.album.albumArtist))
 
 const emit = defineEmits<{
   open: [album: AlbumSummary]
@@ -52,11 +41,7 @@ function onContextMenu(event: MouseEvent): void {
 <template>
   <article
     class="album-card min-w-0"
-    :class="[
-      `album-card--${displayMode}`,
-      `album-card--${presentation ?? 'modern'}`,
-      { 'album-card--highlighted': highlighted },
-    ]"
+    :class="[`album-card--${displayMode}`, { 'album-card--highlighted': highlighted }]"
   >
     <!-- cover-stage 锁定 1:1；cover-frame 承载 3D；img 绝对填充 + object-fit:cover 强制裁切 -->
     <div
@@ -82,9 +67,6 @@ function onContextMenu(event: MouseEvent): void {
         />
         <div v-else class="cover-img cover-img--placeholder" aria-hidden="true">
           <span class="i-lucide-disc-3 h-10 w-10"></span>
-          <span v-if="presentation === 'manuscript'" class="album-card-missing-artwork">
-            {{ t('library.manuscript.missing.artwork') }}
-          </span>
         </div>
       </div>
     </div>
@@ -93,17 +75,8 @@ function onContextMenu(event: MouseEvent): void {
       <h2 class="album-card-title">{{ displayAlbumTitle }}</h2>
       <p class="album-card-artist">{{ displayAlbumArtist }}</p>
       <div class="album-card-index-line">
-        <span v-if="presentation === 'manuscript'" class="album-card-catalog-number">
-          {{ t('albums.manuscript.catalogNumber', { number: catalogNumber ?? 0 }) }}
-        </span>
         <span class="album-card-year">
-          <template v-if="album.releaseDate">
-            {{ album.releaseDate.slice(0, 4)
-            }}<template v-if="presentation !== 'manuscript'">年</template>
-          </template>
-          <template v-else-if="presentation === 'manuscript'">
-            {{ t('library.manuscript.missing.date') }}
-          </template>
+          <template v-if="album.releaseDate"> {{ album.releaseDate.slice(0, 4) }}年 </template>
           <template v-else>&nbsp;</template>
         </span>
       </div>

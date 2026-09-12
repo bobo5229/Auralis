@@ -2,11 +2,9 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AmdlDownloadMode } from '@shared/types/amdl'
-import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import { useProvidedAmdlDownload } from '../composables/downloadContext'
 
 const { t } = useI18n()
-const { visualStyle } = useVisualStyle()
 const download = useProvidedAmdlDownload()
 
 const inputUrl = ref('')
@@ -191,7 +189,7 @@ defineExpose({
 </script>
 
 <template>
-  <section class="download-page" :data-visual-style="visualStyle">
+  <section class="download-page">
     <!-- Page Header -->
     <header class="download-header">
       <div class="download-header-title-row">
@@ -1414,95 +1412,5 @@ defineExpose({
     transition: none;
     transform: none;
   }
-}
-/* Manuscript presentation adaptation */
-.download-page[data-visual-style='manuscript'] {
-  color: var(--manuscript-content-primary, #292723);
-}
-
-.download-page[data-visual-style='manuscript'] .download-header-title {
-  color: var(--manuscript-content-primary, #292723);
-  font-family: var(--manuscript-font-family-serif, serif);
-  font-weight: 700;
-}
-
-.download-page[data-visual-style='manuscript'] .download-header-subtitle {
-  color: var(--manuscript-content-muted, #6d675e);
-}
-
-.download-page[data-visual-style='manuscript'] .download-header-icon {
-  background: color-mix(in srgb, var(--manuscript-color-accent-700, #8b302f) 12%, transparent);
-  color: var(--manuscript-color-accent-700, #8b302f);
-  border-color: color-mix(in srgb, var(--manuscript-color-accent-700, #8b302f) 25%, transparent);
-}
-
-.download-page[data-visual-style='manuscript'] .download-config-card,
-.download-page[data-visual-style='manuscript'] .download-task-card,
-.download-page[data-visual-style='manuscript'] .download-selection-card,
-.download-page[data-visual-style='manuscript'] .download-logs-card {
-  background: var(--manuscript-surface-control, #f3eedf);
-  border-color: rgba(var(--manuscript-color-rule-rgb, 62, 57, 50), 0.2);
-  box-shadow: 0 4px 16px rgba(41, 39, 35, 0.08);
-}
-
-.download-page[data-visual-style='manuscript'] .download-field-label,
-.download-page[data-visual-style='manuscript'] .download-selection-title,
-.download-page[data-visual-style='manuscript'] .download-task-section-label,
-.download-page[data-visual-style='manuscript'] .download-logs-title {
-  color: var(--manuscript-content-primary, #292723);
-}
-
-.download-page[data-visual-style='manuscript'] .download-url-input {
-  background: var(--manuscript-surface-recessed, #e9e1cf);
-  border-color: rgba(var(--manuscript-color-rule-rgb, 62, 57, 50), 0.2);
-  color: var(--manuscript-content-primary, #292723);
-}
-
-.download-page[data-visual-style='manuscript'] .download-mode-card {
-  background: var(--manuscript-surface-recessed, #e9e1cf);
-  border-color: rgba(var(--manuscript-color-rule-rgb, 62, 57, 50), 0.2);
-}
-
-.download-page[data-visual-style='manuscript'] .download-mode-name {
-  color: var(--manuscript-content-primary, #292723);
-}
-
-.download-page[data-visual-style='manuscript'] .download-mode-card.is-selected {
-  border-color: var(--manuscript-color-accent-700, #8b302f);
-  background: color-mix(
-    in srgb,
-    var(--manuscript-color-accent-700, #8b302f) 10%,
-    var(--manuscript-surface-recessed, #e9e1cf)
-  );
-}
-
-.download-page[data-visual-style='manuscript']
-  .download-mode-card.is-selected
-  .download-mode-indicator {
-  border-color: var(--manuscript-color-accent-700, #8b302f);
-}
-
-.download-page[data-visual-style='manuscript'] .download-mode-card.is-selected .download-mode-dot {
-  background: var(--manuscript-color-accent-700, #8b302f);
-}
-
-.download-page[data-visual-style='manuscript'] .download-submit-button,
-.download-page[data-visual-style='manuscript'] .download-submit-selection-btn {
-  background: var(--manuscript-color-accent-700, #8b302f);
-  color: #fff;
-}
-
-.download-page[data-visual-style='manuscript'] .download-track-item {
-  color: var(--manuscript-content-primary, #292723);
-  border-bottom-color: rgba(var(--manuscript-color-rule-rgb, 62, 57, 50), 0.12);
-}
-
-.download-page[data-visual-style='manuscript'] .download-track-title {
-  color: var(--manuscript-content-primary, #292723);
-}
-
-.download-page[data-visual-style='manuscript'] .download-tracks-scroll-container {
-  background: var(--manuscript-surface-recessed, #e9e1cf);
-  border-color: rgba(var(--manuscript-color-rule-rgb, 62, 57, 50), 0.2);
 }
 </style>

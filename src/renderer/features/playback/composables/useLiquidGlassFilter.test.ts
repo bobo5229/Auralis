@@ -11,12 +11,11 @@ import { resolveIsLiquidGlassActive, useLiquidGlassFilter } from './useLiquidGla
 import { usePlayerBarMaterial } from '@renderer/features/settings/composables/usePlayerBarMaterial'
 
 describe('resolveIsLiquidGlassActive', () => {
-  it('returns true only for modern presentation + liquid-glass material + normal display + syntax supported', () => {
-    expect(resolveIsLiquidGlassActive('modern', 'liquid-glass', 'normal', true)).toBe(true)
-    expect(resolveIsLiquidGlassActive('manuscript', 'liquid-glass', 'normal', true)).toBe(false)
-    expect(resolveIsLiquidGlassActive('modern', 'cover-tint', 'normal', true)).toBe(false)
-    expect(resolveIsLiquidGlassActive('modern', 'liquid-glass', 'fullscreen', true)).toBe(false)
-    expect(resolveIsLiquidGlassActive('modern', 'liquid-glass', 'normal', false)).toBe(false)
+  it('returns true only for liquid-glass material, normal display, and supported syntax', () => {
+    expect(resolveIsLiquidGlassActive('liquid-glass', 'normal', true)).toBe(true)
+    expect(resolveIsLiquidGlassActive('cover-tint', 'normal', true)).toBe(false)
+    expect(resolveIsLiquidGlassActive('liquid-glass', 'fullscreen', true)).toBe(false)
+    expect(resolveIsLiquidGlassActive('liquid-glass', 'normal', false)).toBe(false)
   })
 })
 
@@ -29,13 +28,10 @@ describe('useLiquidGlassFilter', () => {
     } as unknown as HTMLElement
 
     const target = ref<HTMLElement | null>(el)
-    const presentation = ref<'modern' | 'manuscript'>('modern')
-
     const { setPlayerBarMaterial } = usePlayerBarMaterial()
     setPlayerBarMaterial('liquid-glass')
 
     const { isLiquidGlassActive, liquidFilterStyle, updateFilter } = useLiquidGlassFilter(target, {
-      presentation,
       radius: 16,
       depth: 8,
       strength: 40,
@@ -51,11 +47,6 @@ describe('useLiquidGlassFilter', () => {
     expect(liquidFilterStyle.value.backdropFilter).toContain('url(')
     expect(liquidFilterStyle.value.backdropFilter).toContain('brightness(1.08)')
     expect(liquidFilterStyle.value.backdropFilter).toContain('saturate(1.4)')
-
-    presentation.value = 'manuscript'
-    await nextTick()
-    expect(isLiquidGlassActive.value).toBe(false)
-    expect(liquidFilterStyle.value).toEqual({})
   })
 
   it('includes blur in backdropFilter and WebkitBackdropFilter when blur option is provided', async () => {
@@ -66,13 +57,10 @@ describe('useLiquidGlassFilter', () => {
     } as unknown as HTMLElement
 
     const target = ref<HTMLElement | null>(el)
-    const presentation = ref<'modern' | 'manuscript'>('modern')
-
     const { setPlayerBarMaterial } = usePlayerBarMaterial()
     setPlayerBarMaterial('liquid-glass')
 
     const { liquidFilterStyle, updateFilter } = useLiquidGlassFilter(target, {
-      presentation,
       blur: 16,
       forceEnableSyntax: true,
     })

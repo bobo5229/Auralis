@@ -56,13 +56,13 @@ export function useLibraryContextMenu(options: {
   const contextMenuTrackTitle = computed(() => {
     if (!contextMenu.value) return ''
     const track = options.getTrackById(contextMenu.value.trackId)
-    return track?.title || options.t('library.manuscript.missing.title')
+    return track?.title || options.t('library.missing.title')
   })
 
   const contextMenuAlbumTitle = computed(() => {
     if (!contextMenu.value) return ''
     const track = options.getTrackById(contextMenu.value.trackId)
-    return track?.album || options.t('library.manuscript.missing.album')
+    return track?.album || options.t('library.missing.album')
   })
 
   function clearAddToPlaylistFeedback(): void {

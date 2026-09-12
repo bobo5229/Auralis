@@ -8,11 +8,9 @@ import type {
   LibraryContextMenuSource,
   LibraryViewMode,
 } from '../types/libraryInteraction'
-import type { LibraryPresentation } from '../types/libraryPresentation'
 
 const props = defineProps<{
   open: boolean
-  presentation: LibraryPresentation
   source: LibraryContextMenuSource
   anchor: LibraryContextMenuAnchor
   trackTitle: string
@@ -486,16 +484,10 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <div
-      v-if="open"
-      class="library-overlay"
-      :data-visual-style="presentation"
-      data-library-overlay="context-menu"
-    >
+    <div v-if="open" class="library-overlay" data-library-overlay="context-menu">
       <div class="fixed inset-0 z-[60]" @click="onBackdropClick" @keydown="onKeyDown">
         <LiquidGlassPanel
           ref="menuRef"
-          :presentation="presentation"
           class="library-context-menu-root library-context-menu-main-panel library-context-menu-panel fixed z-[61] w-58 p-1 select-none"
           :style="{ left: `${menuX}px`, top: `${menuY}px` }"
           role="menu"
@@ -597,7 +589,6 @@ onBeforeUnmount(() => {
             <LiquidGlassPanel
               v-if="showSubMenu"
               ref="subMenuRef"
-              :presentation="presentation"
               class="library-context-menu-sub-panel library-context-menu-panel absolute z-[62] w-52 p-1"
               :class="[
                 subMenuFlipsLeft ? 'right-full mr-1' : 'left-full ml-1',

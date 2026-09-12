@@ -11,22 +11,17 @@ import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import MetadataEditDialog from '../components/MetadataEditDialog.vue'
 import LibraryContextMenu from '../components/LibraryContextMenu.vue'
-import LibraryLedgerHeader from '../components/LibraryLedgerHeader.vue'
 import LibraryStatusState from '../components/LibraryStatusState.vue'
-import { useVisualStyle } from '@renderer/features/appearance/composables/useVisualStyle'
 import {
   getAlbumGroupEstimatedHeight,
   LIBRARY_LAYOUT_CSS_VARS,
   LIBRARY_LAYOUT_METRICS,
 } from '../constants/libraryLayoutMetrics'
-import type { LibraryPageIdentity, LibraryPresentation } from '../types/libraryPresentation'
+import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryViewMode } from '../types/libraryInteraction'
-import '@renderer/features/appearance/styles/manuscript.tokens.css'
-import '../styles/manuscript.css'
-import '../styles/manuscript.overlays.css'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { createLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
-import { resolveLibraryPresentation, resolveLibrarySurfaceKind } from '../utils/libraryPresentation'
+import { resolveLibrarySurfaceKind } from '../utils/librarySurface'
 import type { LibraryRouteScope } from '../utils/libraryRouteScope'
 import {
   resolveKeyboardFocusTrackId,
@@ -49,11 +44,6 @@ const playback = usePlayback()
 const route = useRoute()
 const router = useRouter()
 
-const { visualStyle } = useVisualStyle()
-const libraryPresentation = computed<LibraryPresentation>(() =>
-  resolveLibraryPresentation(route.name, visualStyle.value),
-)
-const isManuscriptLibrary = computed(() => libraryPresentation.value === 'manuscript')
 const librarySurfaceKind = computed(() => resolveLibrarySurfaceKind(route.name))
 const isLibrarySurface = computed(() => librarySurfaceKind.value !== null)
 
@@ -335,11 +325,9 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
 
 const {
   searchQuery,
-  isSearchFocused,
   searchInputRef,
   searchRootRef,
   searchOutcome,
-  hasSearchQuery,
   shouldRenderSearchBar,
   scheduleLibrarySearchIndex,
   clearSearch,
@@ -406,7 +394,7 @@ async function moveKeyboardFocus(direction: LibraryKeyboardMoveDirection): Promi
 }
 
 function onListShellKeyDown(event: KeyboardEvent): void {
-  if (!isManuscriptLibrary.value || isInteractiveTarget(event.target)) return
+  if (isInteractiveTarget(event.target)) return
   if (contextMenu.value !== null || editingMetadata.value !== null) return
 
   if (event.key === 'ArrowDown') {
@@ -509,25 +497,6 @@ watch(
   },
 )
 
-watch(
-  [isManuscriptLibrary, libraryViewMode, tracks, albumGroups],
-  () => {
-    if (isManuscriptLibrary.value) {
-      void nextTick(() => scheduleFirstVisibleTrackIndexUpdate())
-    }
-  },
-  { immediate: true },
-)
-
-watch(libraryPresentation, async () => {
-  if (!isSearchFocused.value && !hasSearchQuery.value) return
-  await nextTick()
-  if (isPageUnmounted) return
-  if (isSearchFocused.value) {
-    searchInputRef.value?.focus()
-  }
-})
-
 onBeforeUnmount(() => {
   isPageUnmounted = true
   invalidateLibrarySearchSession()
@@ -542,16 +511,14 @@ onBeforeUnmount(() => {
 <template>
   <section
     class="library-page relative flex h-full min-h-0 flex-col"
-    :data-visual-style="libraryPresentation"
     :data-library-surface="librarySurfaceKind ?? undefined"
     :style="LIBRARY_LAYOUT_CSS_VARS"
   >
-    <LibraryStatusState v-if="isLoading" kind="loading" :presentation="libraryPresentation" />
+    <LibraryStatusState v-if="isLoading" kind="loading" />
 
     <LibraryStatusState
       v-else-if="initialLoadError"
       kind="error"
-      :presentation="libraryPresentation"
       :error-message="initialLoadError"
       @retry="retryInitialLoad"
     />
@@ -559,7 +526,6 @@ onBeforeUnmount(() => {
     <LibraryStatusState
       v-else-if="tracks.length === 0"
       kind="empty"
-      :presentation="libraryPresentation"
       :is-playlist="playlistId !== null"
       :is-smart-playlist="smartPlaylistId !== null"
       @open-settings="openSettings"
@@ -622,8 +588,6 @@ onBeforeUnmount(() => {
         </Transition>
       </div>
 
-      <LibraryLedgerHeader v-if="isManuscriptLibrary && !isCoverView" />
-
       <div
         ref="scrollRef"
         tabindex="-1"
@@ -644,8 +608,6 @@ onBeforeUnmount(() => {
                   :key="String(virtualRow.key)"
                   :track="tracks[virtualRow.index]"
                   :index="virtualRow.index"
-                  :total-tracks="tracks.length"
-                  :presentation="libraryPresentation"
                   :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
                   :is-playing="playback.state.isPlaying"
                   :selected="playback.state.selectedTrackId === tracks[virtualRow.index].id"
@@ -687,13 +649,10 @@ onBeforeUnmount(() => {
                     :data-album-key="albumGroups[virtualGroup.index].key"
                     :data-first-track-id="albumGroups[virtualGroup.index].tracks[0]?.id"
                     :group="albumGroups[virtualGroup.index]"
-                    :group-index="virtualGroup.index"
-                    :total-groups="albumGroups.length"
                     :now-playing-track-id="playback.state.currentTrackId"
                     :is-playing="playback.state.isPlaying"
                     :selected-track-id="playback.state.selectedTrackId"
                     :focused-track-id="keyboardFocusTrackId"
-                    :presentation="libraryPresentation"
                     :style="{
                       height: `${virtualGroup.size}px`,
                     }"
@@ -719,7 +678,6 @@ onBeforeUnmount(() => {
     </div>
 
     <MetadataEditDialog
-      :presentation="libraryPresentation"
       :metadata="editingMetadata"
       :saving="isSavingMetadata"
       :error-message="metadataEditError"
@@ -729,7 +687,6 @@ onBeforeUnmount(() => {
 
     <LibraryContextMenu
       :open="contextMenu !== null"
-      :presentation="libraryPresentation"
       :source="contextMenu?.source ?? 'track'"
       :anchor="contextMenuAnchor"
       :track-title="contextMenuTrackTitle"
