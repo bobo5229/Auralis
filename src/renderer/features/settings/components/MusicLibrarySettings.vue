@@ -9,17 +9,8 @@ import type {
 } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
-import { useLocale, type AppLocale } from '@renderer/composables/useLocale'
 
 const { t } = useI18n()
-const { locale } = useLocale()
-
-/** 日期区域随 UI 语言映射（TECHDOC 非目标外的轻量收尾）。 */
-const DATE_LOCALES: Record<AppLocale, string> = {
-  'zh-Hans': 'zh-CN',
-  'zh-Hant': 'zh-TW',
-  en: 'en-US',
-}
 
 const roots = ref<LibraryRoot[]>([])
 const scanStatus = ref<LibraryScanStatus | null>(null)
@@ -81,7 +72,7 @@ const lastScannedLabel = computed(() => {
   const date = new Date(activeRoot.value.lastScannedAt)
   if (Number.isNaN(date.getTime())) return activeRoot.value.lastScannedAt
 
-  return new Intl.DateTimeFormat(DATE_LOCALES[locale.value], {
+  return new Intl.DateTimeFormat('zh-CN', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',

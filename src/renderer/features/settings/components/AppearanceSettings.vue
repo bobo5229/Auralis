@@ -2,11 +2,9 @@
 import { computed, nextTick, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { type PlayerBarMaterial, usePlayerBarMaterial } from '../composables/usePlayerBarMaterial'
-import { type AppLocale, useLocale } from '@renderer/composables/useLocale'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 
 const { t } = useI18n()
-const { locale, setLocale, localeOptions } = useLocale()
 const { playerBarMaterial, setPlayerBarMaterial } = usePlayerBarMaterial()
 const { gaplessPlaybackEnabled, setGaplessPlaybackEnabled } = usePlayback()
 
@@ -25,7 +23,6 @@ const playerBarMaterialOptions = computed<Array<{ value: PlayerBarMaterial; labe
 
 const coverTintButtonRef = ref<HTMLButtonElement | null>(null)
 const liquidGlassButtonRef = ref<HTMLButtonElement | null>(null)
-const localeButtonRefs = new Map<AppLocale, HTMLButtonElement>()
 
 function getPlayerBarMaterialButton(value: PlayerBarMaterial): HTMLButtonElement | null {
   return value === 'cover-tint' ? coverTintButtonRef.value : liquidGlassButtonRef.value
@@ -68,81 +65,11 @@ function handlePlayerBarMaterialKeydown(event: KeyboardEvent, value: PlayerBarMa
   const nextOption = playerBarMaterialOptions.value[nextIndex]
   if (nextOption) selectPlayerBarMaterial(nextOption.value, true)
 }
-
-function setLocaleButtonRef(value: AppLocale, el: unknown): void {
-  if (el instanceof HTMLButtonElement) localeButtonRefs.set(value, el)
-  else localeButtonRefs.delete(value)
-}
-
-function selectLocale(value: AppLocale, focusSelectedOption = false): void {
-  setLocale(value)
-  if (focusSelectedOption) {
-    void nextTick(() => localeButtonRefs.get(value)?.focus())
-  }
-}
-
-function handleLocaleKeydown(event: KeyboardEvent, value: AppLocale): void {
-  const currentIndex = localeOptions.value.findIndex((option) => option.value === value)
-  if (currentIndex < 0) return
-
-  let nextIndex: number | null = null
-  switch (event.key) {
-    case 'ArrowLeft':
-    case 'ArrowUp':
-      nextIndex = (currentIndex - 1 + localeOptions.value.length) % localeOptions.value.length
-      break
-    case 'ArrowRight':
-    case 'ArrowDown':
-      nextIndex = (currentIndex + 1) % localeOptions.value.length
-      break
-    case 'Home':
-      nextIndex = 0
-      break
-    case 'End':
-      nextIndex = localeOptions.value.length - 1
-      break
-    default:
-      return
-  }
-
-  event.preventDefault()
-  const nextOption = localeOptions.value[nextIndex]
-  if (nextOption) selectLocale(nextOption.value, true)
-}
 </script>
 
 <template>
   <section class="settings-section">
     <div class="settings-list">
-      <div class="settings-row">
-        <div>
-          <strong id="locale-label">{{ t('settings.appearance.language') }}</strong>
-          <span id="locale-description">{{ t('settings.appearance.languageDescription') }}</span>
-        </div>
-        <div
-          class="settings-segmented-control"
-          role="radiogroup"
-          aria-labelledby="locale-label"
-          aria-describedby="locale-description"
-        >
-          <button
-            v-for="option in localeOptions"
-            :key="option.value"
-            :ref="(el) => setLocaleButtonRef(option.value, el)"
-            type="button"
-            role="radio"
-            class="settings-segmented-option"
-            :class="{ 'is-selected': locale === option.value }"
-            :aria-checked="locale === option.value"
-            :tabindex="locale === option.value ? 0 : -1"
-            @click="selectLocale(option.value)"
-            @keydown="handleLocaleKeydown($event, option.value)"
-          >
-            {{ option.label }}
-          </button>
-        </div>
-      </div>
-
       <div class="settings-row">
         <div>
           <strong id="player-bar-material-label">{{

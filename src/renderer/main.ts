@@ -23,10 +23,8 @@ async function bootstrap(): Promise<void> {
   ])
 
   const { i18n } = await import('./i18n')
-  const { initLocale } = await import('./composables/useLocale')
-
-  // 冷启动同步 <html lang>（i18n locale 已在 createI18n 时读取，这里只补 lang）
-  initLocale()
+  // 界面固定使用简体中文，清理历史版本的语言偏好。
+  localStorage.removeItem('auralis-locale')
 
   const app = createApp(App)
   app.use(i18n)
