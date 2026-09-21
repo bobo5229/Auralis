@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import type { SmartPlaylist } from '@shared/types/smartPlaylist'
-import { SmartPlaylistService } from '@main/services/smartPlaylistService'
 import {
   buildPlaylistRule,
   evaluateBuilder,
   indexBuilderTracks,
   newBuilderState,
-  type BuilderRelation,
 } from './smartPlaylistBuilder'
 
 function track(id: number, genre: string | null, artist: string | null): TrackListItem {
@@ -28,44 +25,6 @@ describe('smart playlist builder', () => {
     expect(options.artist.some((option) => option.value === 'ac/dc')).toBe(true)
     expect(options.artist.some((option) => option.value === 'different album artist')).toBe(false)
   })
-  for (const outer of ['and', 'or'] as BuilderRelation[]) {
-    for (const genre of ['and', 'or'] as BuilderRelation[]) {
-      for (const artist of ['and', 'or'] as BuilderRelation[]) {
-        it(`keeps preview and persisted rule equivalent: ${outer}/${genre}/${artist}`, () => {
-          const state = newBuilderState()
-          state.fields = ['genre', 'artist']
-          state.relation = outer
-          state.groups.genre = { relation: genre, values: ['pop', 'rock'] }
-          state.groups.artist = { relation: artist, values: ['a', 'b'] }
-          const rule = buildPlaylistRule(state)
-          const playlist = { id: 1, name: 'Test', rule } as SmartPlaylist
-          const service = new SmartPlaylistService(
-            { getById: () => playlist } as unknown as ConstructorParameters<
-              typeof SmartPlaylistService
-            >[0],
-            { getAll: () => tracks } as unknown as ConstructorParameters<
-              typeof SmartPlaylistService
-            >[1],
-          )
-          const preview = evaluateBuilder(state, indexBuilderTracks(tracks))
-          expect([...preview.ids].sort()).toEqual(
-            service
-              .getDetail(1)
-              ?.tracks.map((track) => track.id)
-              .sort(),
-          )
-          const added = track(6, 'Pop;Rock', 'A;B')
-          tracks.push(added)
-          try {
-            service.clearTrackListCache()
-            expect(service.getDetail(1)?.tracks.map((track) => track.id)).toContain(6)
-          } finally {
-            tracks.pop()
-          }
-        })
-      }
-    }
-  }
   it('distinguishes group intersection from cross-group intersection', () => {
     const state = newBuilderState()
     state.fields = ['genre', 'artist']

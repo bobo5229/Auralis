@@ -6,6 +6,7 @@
     "vitest.native.config.ts",
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
+    "src/renderer/features/smartPlaylists/utils/smartPlaylistBuilder.ts",
     "src/shared/**/*.ts"
   ],
   "compilerOptions": {

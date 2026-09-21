@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'vue'
+import type { CSSProperties, DeepReadonly } from 'vue'
 import type { ArtworkPalette, RgbColor } from '@renderer/features/playback/types'
 
 function formatRgb(color: RgbColor): string {
@@ -6,7 +6,7 @@ function formatRgb(color: RgbColor): string {
 }
 
 export function resolveAlbumHeroTint(
-  palette: ArtworkPalette,
+  palette: DeepReadonly<ArtworkPalette>,
   artworkCacheKey: string | null,
   artworkUrl: string | null,
 ): {
@@ -34,7 +34,7 @@ export function resolveAlbumHeroTint(
 }
 
 export function albumHeroTintStyle(
-  palette: ArtworkPalette,
+  palette: DeepReadonly<ArtworkPalette>,
   artworkCacheKey: string | null,
   artworkUrl: string | null,
   accent: string,

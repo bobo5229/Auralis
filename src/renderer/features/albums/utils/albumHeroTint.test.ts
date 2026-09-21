@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { readonly } from 'vue'
 import { FALLBACK_PALETTE } from '@renderer/features/playback/utils/extractArtworkPalette'
 import type { ArtworkPalette } from '@renderer/features/playback/types'
 
@@ -26,7 +27,11 @@ describe('resolveAlbumHeroTint', () => {
   })
 
   it('enables the cached palette gradient only for the matching artwork key', () => {
-    const tint = resolveAlbumHeroTint(paletteFor('cover-a'), 'cover-a', 'auralis-artwork://cover-a')
+    const tint = resolveAlbumHeroTint(
+      readonly(paletteFor('cover-a')),
+      'cover-a',
+      'auralis-artwork://cover-a',
+    )
 
     expect(tint.hasPaletteTint).toBe(true)
     expect(tint.background).toBe('rgb(20 8 12)')
@@ -37,7 +42,7 @@ describe('resolveAlbumHeroTint', () => {
 
   it('writes CSS custom properties without waiting for heavy effects', () => {
     const style = albumHeroTintStyle(
-      paletteFor('cover-a'),
+      readonly(paletteFor('cover-a')),
       'cover-a',
       'auralis-artwork://cover-a',
       'rgb(180 40 60)',
