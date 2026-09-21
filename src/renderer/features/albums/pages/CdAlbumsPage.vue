@@ -307,8 +307,9 @@ onBeforeUnmount(() => {
 <style scoped>
 /* The approved light CD canvas is local to this page, independent of app theme. */
 .cd-page {
+  --auralis-playbar-safe-area: 0px;
   box-sizing: border-box;
-  padding-bottom: var(--auralis-playbar-safe-area);
+  padding-bottom: 0;
   height: 100%;
   min-height: 0;
   display: flex;
@@ -358,6 +359,7 @@ onBeforeUnmount(() => {
   height: 32px;
   padding: 0;
   border-color: transparent;
+  -webkit-app-region: no-drag;
 }
 .cd-info {
   position: absolute;

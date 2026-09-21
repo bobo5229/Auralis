@@ -48,11 +48,15 @@ const isAlbumDetail = computed(() => {
   return route.name === 'album-detail'
 })
 
+const isCdAlbums = computed(() => {
+  return route.name === 'cd-albums'
+})
+
 const artworkUrl = computed(() =>
   getArtworkUrl(playback.state.currentTrack?.artworkCacheKey ?? null),
 )
 const shouldRenderShellArtwork = computed(
-  () => displayMode.value === 'normal' && artworkUrl.value !== null,
+  () => displayMode.value === 'normal' && !isCdAlbums.value && artworkUrl.value !== null,
 )
 
 /**
@@ -83,10 +87,14 @@ function onTransitionEnterCancelled(): void {
 <template>
   <MiniPlayer v-if="displayMode === 'mini'" />
 
-  <div v-else class="app-window" data-app-shell-root>
+  <div v-else class="app-window" :class="{ 'is-cd-albums': isCdAlbums }" data-app-shell-root>
     <div
       class="app-shell relative"
-      :class="{ 'is-album-detail': isAlbumDetail, 'has-artwork': shouldRenderShellArtwork }"
+      :class="{
+        'is-album-detail': isAlbumDetail,
+        'is-cd-albums': isCdAlbums,
+        'has-artwork': shouldRenderShellArtwork,
+      }"
     >
       <div class="wco-drag-region" aria-hidden="true" />
 
@@ -99,7 +107,7 @@ function onTransitionEnterCancelled(): void {
       />
       <div v-if="shouldRenderShellArtwork" class="app-shell-bg-overlay" aria-hidden="true" />
 
-      <AppSidebar class="relative z-10" />
+      <AppSidebar v-if="!isCdAlbums" class="relative z-10" />
 
       <main class="app-main relative z-10">
         <RouterView v-slot="{ Component, route: viewRoute }">
@@ -120,14 +128,30 @@ function onTransitionEnterCancelled(): void {
         </RouterView>
       </main>
 
-      <NowPlayingPanel class="relative z-10" />
-      <PlayerBar />
+      <NowPlayingPanel v-if="!isCdAlbums" class="relative z-10" />
+      <PlayerBar v-if="!isCdAlbums" />
     </div>
     <FullscreenPlayerOverlay />
   </div>
 </template>
 
 <style scoped>
+.app-window.is-cd-albums {
+  background: #eeeeec;
+  box-shadow: none;
+}
+
+.app-shell.is-cd-albums {
+  grid-template-columns: minmax(0, 1fr) !important;
+  background: #eeeeec;
+}
+
+@media (min-width: 1280px) {
+  .app-shell.is-cd-albums {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
 .app-shell-bg-fluid,
 .app-shell-bg-overlay {
   position: absolute;
