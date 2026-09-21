@@ -79,7 +79,6 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
   min-height: 100%;
   margin: 0 auto;
   padding: 38px 36px var(--auralis-playbar-safe-area);
-  animation: settings-enter 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .settings-header {
@@ -241,13 +240,6 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
   min-width: 0;
 }
 
-@keyframes settings-enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-}
-
 @media (max-width: 820px) {
   .settings-page {
     padding: 28px 24px var(--auralis-playbar-safe-area);
@@ -294,10 +286,6 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .settings-page {
-    animation: none;
-  }
-
   .settings-nav button,
   .settings-nav button:hover,
   .settings-nav-icon,

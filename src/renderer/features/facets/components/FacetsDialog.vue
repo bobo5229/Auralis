@@ -6,7 +6,6 @@ import type { SmartPlaylist, SmartPlaylistRuleCondition } from '@shared/types/sm
 import { auralis } from '@renderer/shared/ipc/client'
 import { splitGenreValues } from '@renderer/features/library/utils/formatGenre'
 import { splitArtistValues } from '@renderer/features/library/utils/formatArtist'
-import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
 
 const { t } = useI18n()
 
@@ -369,8 +368,8 @@ onBeforeUnmount(() => {
         </section>
 
         <div v-if="contextMenu" class="facets-context-layer" @click="closeContextMenu">
-          <LiquidGlassPanel
-            class="library-context-menu facets-context-menu"
+          <div
+            class="library-context-menu frosted-context-menu facets-context-menu"
             :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
             @click.stop
           >
@@ -378,7 +377,7 @@ onBeforeUnmount(() => {
               <span class="i-lucide-list-plus"></span>
               <span>{{ t('facets.createSmartPlaylist') }}</span>
             </button>
-          </LiquidGlassPanel>
+          </div>
         </div>
       </div>
     </Transition>

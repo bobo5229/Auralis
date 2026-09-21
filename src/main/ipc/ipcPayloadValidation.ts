@@ -12,7 +12,6 @@ const MAX_VALIDATION_NODES = 50_000
 const MAX_PAYLOAD_STRING_UNITS = 262_144
 const MAX_RULE_DEPTH = 16
 const MAX_RULE_NODES = 256
-const MAX_AMDL_SELECTION_TRACKS = 1_000
 
 const dangerousPropertyNames = new Set(['__proto__', 'constructor', 'prototype'])
 
@@ -314,6 +313,12 @@ export const domainIpcPayloadPolicies = {
       refresh: field(booleanValue, true),
     }),
   ),
+  [ipcChannels.library.getAlbumDetail]: required(
+    objectShape({
+      albumArtist: field(stringValue({ max: MAX_TEXT_LENGTH })),
+      albumTitle: field(stringValue({ max: MAX_TEXT_LENGTH })),
+    }),
+  ),
   [ipcChannels.smartPlaylists.list]: voidPayload(),
   [ipcChannels.smartPlaylists.listTrackCounts]: voidPayload(),
   [ipcChannels.smartPlaylists.getDetail]: required(idPayload('id')),
@@ -410,33 +415,6 @@ export const domainIpcPayloadPolicies = {
       open: field(booleanValue),
       direction: field(enumValue(['above', 'below'])),
       height: field(finiteNumber({ integer: true, min: 0, max: 4_096 })),
-    }),
-  ),
-  [ipcChannels.download.start]: required(
-    objectShape({
-      url: field(stringValue({ min: 1, max: 2048 })),
-      mode: field(enumValue(['direct', 'select']), true),
-    }),
-  ),
-  [ipcChannels.download.cancel]: required(
-    objectShape({
-      taskId: field(stringValue({ min: 1, max: 128 })),
-    }),
-  ),
-  [ipcChannels.download.getStatus]: required(
-    objectShape({
-      taskId: field(stringValue({ min: 1, max: 128 })),
-    }),
-  ),
-  [ipcChannels.download.submitSelection]: required(
-    objectShape({
-      taskId: field(stringValue({ min: 1, max: 128 })),
-      trackIndexes: field(
-        arrayOf(finiteNumber({ integer: true, min: 1 }), {
-          min: 1,
-          max: MAX_AMDL_SELECTION_TRACKS,
-        }),
-      ),
     }),
   ),
 } satisfies Record<DomainIpcInvokeChannel, IpcPayloadPolicy>

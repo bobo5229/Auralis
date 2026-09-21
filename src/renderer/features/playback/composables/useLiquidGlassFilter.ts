@@ -8,6 +8,7 @@ import {
   watch,
   type CSSProperties,
   type Ref,
+  unref,
 } from 'vue'
 import { usePlayerBarMaterial } from '@renderer/features/settings/composables/usePlayerBarMaterial'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
@@ -15,6 +16,17 @@ import {
   getDisplacementFilter,
   supportsBackdropFilterUrlSyntax,
 } from '@renderer/features/playback/utils/liquidGlassDisplacementMap'
+
+export interface LiquidGlassRefractionConfig {
+  active: Ref<boolean> | boolean
+  radius?: number
+  depth?: number
+  strength?: number
+  chromaticAberration?: number
+  brightness?: number
+  saturate?: number
+  blur?: number
+}
 
 export interface LiquidGlassFilterConfig {
   radius?: number
@@ -35,13 +47,14 @@ export function resolveIsLiquidGlassActive(
   return displayMode === 'normal' && material === 'liquid-glass' && syntaxSupported
 }
 
-export function useLiquidGlassFilter(
+/**
+ * Size-bound SVG displacement filter (nikdelvin/liquid-glass). Independent of
+ * PlayerBar material so overlays can share the same refraction pipeline.
+ */
+export function useLiquidGlassRefraction(
   targetRef: Ref<HTMLElement | null>,
-  config: LiquidGlassFilterConfig,
+  config: LiquidGlassRefractionConfig,
 ) {
-  const { playerBarMaterial } = usePlayerBarMaterial()
-  const { displayMode } = usePlayerDisplayMode()
-
   const radius = config.radius ?? 16
   const depth = config.depth ?? 10
   const strength = config.strength ?? 40
@@ -49,21 +62,13 @@ export function useLiquidGlassFilter(
   const brightness = config.brightness ?? 1.08
   const saturate = config.saturate ?? 1.4
   const blur = config.blur ?? 0
-  const syntaxSupported = config.forceEnableSyntax ?? supportsBackdropFilterUrlSyntax()
 
-  const isLiquidGlassActive = computed(() =>
-    resolveIsLiquidGlassActive(
-      playerBarMaterial.value,
-      displayMode.value,
-      syntaxSupported,
-    ),
-  )
-
+  const isActive = computed(() => unref(config.active))
   const filterUrl = ref<string | null>(null)
   let resizeObserver: ResizeObserver | null = null
 
   function updateFilter(): void {
-    if (!isLiquidGlassActive.value) {
+    if (!isActive.value) {
       filterUrl.value = null
       return
     }
@@ -94,7 +99,7 @@ export function useLiquidGlassFilter(
   }
 
   const liquidFilterStyle = computed<CSSProperties>(() => {
-    if (!isLiquidGlassActive.value || !filterUrl.value) return {}
+    if (!isActive.value || !filterUrl.value) return {}
     const blurSegment = blur > 0 ? ` blur(${blur}px)` : ''
     return {
       backdropFilter: `url('${filterUrl.value}')${blurSegment} brightness(${brightness}) saturate(${saturate})`,
@@ -138,16 +143,43 @@ export function useLiquidGlassFilter(
     },
   )
 
-  watch(
-    () => [playerBarMaterial.value, isLiquidGlassActive.value],
-    () => {
-      void nextTick(() => updateFilter())
-    },
+  watch(isActive, () => {
+    void nextTick(() => updateFilter())
+  })
+
+  return {
+    isActive,
+    liquidFilterStyle,
+    updateFilter,
+  }
+}
+
+export function useLiquidGlassFilter(
+  targetRef: Ref<HTMLElement | null>,
+  config: LiquidGlassFilterConfig,
+) {
+  const { playerBarMaterial } = usePlayerBarMaterial()
+  const { displayMode } = usePlayerDisplayMode()
+  const syntaxSupported = config.forceEnableSyntax ?? supportsBackdropFilterUrlSyntax()
+
+  const isLiquidGlassActive = computed(() =>
+    resolveIsLiquidGlassActive(playerBarMaterial.value, displayMode.value, syntaxSupported),
   )
+
+  const refraction = useLiquidGlassRefraction(targetRef, {
+    active: isLiquidGlassActive,
+    radius: config.radius,
+    depth: config.depth,
+    strength: config.strength,
+    chromaticAberration: config.chromaticAberration,
+    brightness: config.brightness,
+    saturate: config.saturate,
+    blur: config.blur,
+  })
 
   return {
     isLiquidGlassActive,
-    liquidFilterStyle,
-    updateFilter,
+    liquidFilterStyle: refraction.liquidFilterStyle,
+    updateFilter: refraction.updateFilter,
   }
 }

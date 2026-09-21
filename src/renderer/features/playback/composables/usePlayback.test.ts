@@ -196,6 +196,7 @@ function createApi(): AuralisApi {
       getScanStatus: vi.fn(),
       getTracks: vi.fn(),
       getTrackPage: vi.fn(),
+      getAlbumDetail: vi.fn(),
       onScanProgress: vi.fn(),
       onChanged: vi.fn((listener) => {
         libraryChangedListener = listener
@@ -279,15 +280,6 @@ function createApi(): AuralisApi {
       getMiniPlayerState: vi.fn(),
       setMiniPlayerPopover: vi.fn(),
       onMiniPlayerStateChanged: vi.fn(),
-    },
-    download: {
-      start: vi.fn(),
-      cancel: vi.fn(),
-      getStatus: vi.fn(),
-      submitSelection: vi.fn(),
-      onProgress: vi.fn(),
-      onLog: vi.fn(),
-      onSelectionRequest: vi.fn(),
     },
   }
 }

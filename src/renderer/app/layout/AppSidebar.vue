@@ -7,7 +7,7 @@ import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import { useRoute } from 'vue-router'
 import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
-import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
+import SmartPlaylistBuilderDialog from '@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -17,6 +17,7 @@ import type { WarmableRouteName } from '../router/routeComponentLoaders'
 import { resolveRestorableFocusTarget } from '../utils/sidebarModalFocus'
 import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
 import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
+import { animateTrashLid } from '@renderer/shared/animation/motion'
 
 const route = useRoute()
 const router = useRouter()
@@ -30,18 +31,29 @@ const createMenu = ref<{ x: number; y: number } | null>(null)
 const playlistContextMenu = ref<{ item: SidebarPlaylistItem; x: number; y: number } | null>(null)
 const renamingPlaylist = ref<SidebarPlaylistItem | null>(null)
 const deletingPlaylist = ref<SidebarPlaylistItem | null>(null)
+const isDeletingPlaylist = ref(false)
+const deleteError = ref('')
+const deleteLid = ref<SVGGElement | null>(null)
+let stopDeleteLidAnimation: (() => void) | undefined
+let deleteMotionPreference: MediaQueryList | undefined
+
+function updateDeleteLid(): void {
+  stopDeleteLidAnimation?.()
+  if (deleteLid.value) {
+    stopDeleteLidAnimation = animateTrashLid(
+      deleteLid.value,
+      deletingPlaylist.value !== null,
+      deleteMotionPreference?.matches ?? false,
+    )
+  }
+}
+watch([deleteLid, deletingPlaylist], updateDeleteLid, { flush: 'post' })
 const renameValue = ref('')
 const renameError = ref('')
 const renameInput = ref<HTMLInputElement | null>(null)
 const renameDialogRef = ref<HTMLElement | null>(null)
-const isQueryDialogOpen = ref(false)
-const smartPlaylistQuery = ref('')
-const smartPlaylistQueryError = ref('')
-const queryInput = ref<HTMLTextAreaElement | null>(null)
-const queryDialogRef = ref<HTMLElement | null>(null)
-const deleteDialogRef = ref<HTMLElement | null>(null)
+const isBuilderOpen = ref(false)
 const sidebarModalTrigger = ref<HTMLElement | null>(null)
-const isCreatingFromQuery = ref(false)
 let unsubscribeLibraryChanged: (() => void) | null = null
 /** Cleans up optimistic nav highlight listeners when a new press starts or the component unmounts. */
 let pendingNavCleanup: (() => void) | null = null
@@ -55,8 +67,9 @@ const activePath = ref(route.path)
 const primaryNav = computed<
   Array<{ to: string; label: string; icon: string; routeName?: WarmableRouteName }>
 >(() => [
-  { to: '/', label: t('nav.songs'), icon: 'i-lucide-music' },
+  { to: '/', label: t('nav.songs'), icon: 'i-lucide-music', routeName: 'library' },
   { to: '/albums', label: t('nav.albums'), icon: 'i-lucide-disc-3', routeName: 'albums' },
+  { to: '/albums/cd', label: t('albums.cd.title'), icon: 'i-lucide-disc' },
   { to: '/archive', label: t('nav.archive'), icon: 'i-lucide-archive', routeName: 'archive' },
 ])
 
@@ -101,12 +114,6 @@ function getPlaylistPath(item: SidebarPlaylistItem): string {
 function getPlaylistIcon(item: SidebarPlaylistItem): string {
   return item.kind === 'playlist' ? 'i-lucide-list-music' : 'i-lucide-sparkles'
 }
-
-const deletingPlaylistTitle = computed(() =>
-  deletingPlaylist.value?.kind === 'playlist'
-    ? t('sidebar.deletePlaylistTitle')
-    : t('sidebar.deleteSmartPlaylistTitle'),
-)
 
 function rememberSidebarModalTrigger(preferred?: HTMLElement | null): void {
   sidebarModalTrigger.value =
@@ -286,49 +293,17 @@ function onSmartPlaylistCreated(playlist: SmartPlaylist): void {
   void router.push(`/smart-playlists/${playlist.id}`)
 }
 
-async function openQueryDialog(): Promise<void> {
+function openSmartPlaylistBuilder(): void {
   rememberSidebarModalTrigger(
     document.querySelector<HTMLElement>('.app-sidebar .smart-playlist-add-button'),
   )
   closeCreateMenu()
-  smartPlaylistQuery.value = ''
-  smartPlaylistQueryError.value = ''
-  isQueryDialogOpen.value = true
-  await nextTick()
-  queryInput.value?.focus()
-}
-
-function closeQueryDialog(): void {
-  if (isCreatingFromQuery.value) return
-  isQueryDialogOpen.value = false
-  smartPlaylistQueryError.value = ''
-}
-
-async function createFromQuery(): Promise<void> {
-  if (!smartPlaylistQuery.value.trim()) {
-    smartPlaylistQueryError.value = t('sidebar.queryRequired')
-    return
-  }
-
-  isCreatingFromQuery.value = true
-  smartPlaylistQueryError.value = ''
-  try {
-    const result = await auralis.smartPlaylists.createFromQuery(smartPlaylistQuery.value)
-    isQueryDialogOpen.value = false
-    onSmartPlaylistCreated(result.playlist)
-  } catch (error) {
-    rendererDiagnostics.error({
-      scope: 'sidebar.smart-playlist',
-      message: 'Failed to create a smart playlist from query',
-      cause: error,
-    })
-    smartPlaylistQueryError.value = t('sidebar.queryParseFailed')
-  } finally {
-    isCreatingFromQuery.value = false
-  }
+  isBuilderOpen.value = true
 }
 
 function openPlaylistContextMenu(item: SidebarPlaylistItem, event: MouseEvent): void {
+  deletingPlaylist.value = null
+  deleteError.value = ''
   const menuWidth = 160
   const menuHeight = 82
   playlistContextMenu.value = {
@@ -339,7 +314,23 @@ function openPlaylistContextMenu(item: SidebarPlaylistItem, event: MouseEvent): 
 }
 
 function closePlaylistContextMenu(): void {
+  deletingPlaylist.value = null
+  deleteError.value = ''
   playlistContextMenu.value = null
+}
+
+function cancelDeleteOnOtherClick(event: MouseEvent): void {
+  if (!(event.target as Element).closest('[data-delete-playlist]')) {
+    deletingPlaylist.value = null
+    deleteError.value = ''
+  }
+}
+
+function onPlaylistMenuKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Escape' || !playlistContextMenu.value) return
+  const item = playlistContextMenu.value.item
+  closePlaylistContextMenu()
+  playlistRowElement(item)?.focus()
 }
 
 async function openRenameDialog(): Promise<void> {
@@ -383,19 +374,15 @@ async function submitRename(): Promise<void> {
   closeRenameDialog()
 }
 
-function openDeleteDialog(): void {
-  if (!playlistContextMenu.value) return
+async function requestDelete(): Promise<void> {
+  if (!playlistContextMenu.value || isDeletingPlaylist.value) return
   const item = playlistContextMenu.value.item
-  rememberSidebarModalTrigger(playlistRowElement(item))
+  if (deletingPlaylist.value && getPlaylistKey(deletingPlaylist.value) === getPlaylistKey(item)) {
+    await confirmDelete()
+    return
+  }
   deletingPlaylist.value = item
-  closePlaylistContextMenu()
-  void nextTick(() => {
-    deleteDialogRef.value?.querySelector<HTMLElement>('button')?.focus()
-  })
-}
-
-function closeDeleteDialog(): void {
-  deletingPlaylist.value = null
+  deleteError.value = ''
 }
 
 useSidebarOwnedModal({
@@ -404,52 +391,58 @@ useSidebarOwnedModal({
   trigger: sidebarModalTrigger,
   onEscape: closeRenameDialog,
 })
-useSidebarOwnedModal({
-  isOpen: () => isQueryDialogOpen.value,
-  container: queryDialogRef,
-  trigger: sidebarModalTrigger,
-  canDismiss: () => !isCreatingFromQuery.value,
-  onEscape: closeQueryDialog,
-})
-useSidebarOwnedModal({
-  isOpen: () => deletingPlaylist.value !== null,
-  container: deleteDialogRef,
-  trigger: sidebarModalTrigger,
-  onEscape: closeDeleteDialog,
-})
 
 function onPlaylistsChanged(): void {
   void loadSidebarStats()
 }
 
 async function confirmDelete(): Promise<void> {
-  if (!deletingPlaylist.value) return
+  if (!deletingPlaylist.value || isDeletingPlaylist.value) return
   const deleting = deletingPlaylist.value
-  const result =
-    deleting.kind === 'playlist'
-      ? await auralis.playlists.delete(deleting.id)
-      : await auralis.smartPlaylists.delete(deleting.id)
+  const menu = playlistContextMenu.value
+  isDeletingPlaylist.value = true
+  try {
+    const result =
+      deleting.kind === 'playlist'
+        ? await auralis.playlists.delete(deleting.id)
+        : await auralis.smartPlaylists.delete(deleting.id)
 
-  if (result.deleted) {
-    playlistItems.value = playlistItems.value.filter(
-      (item) => getPlaylistKey(item) !== getPlaylistKey(deleting),
-    )
-    window.dispatchEvent(
-      new CustomEvent(
-        deleting.kind === 'playlist'
-          ? 'auralis-playlists-changed'
-          : 'auralis-smart-playlists-changed',
-      ),
-    )
-    if (route.path === getPlaylistPath(deleting)) {
-      await router.push('/')
+    if (result.deleted) {
+      playlistItems.value = playlistItems.value.filter(
+        (item) => getPlaylistKey(item) !== getPlaylistKey(deleting),
+      )
+      window.dispatchEvent(
+        new CustomEvent(
+          deleting.kind === 'playlist'
+            ? 'auralis-playlists-changed'
+            : 'auralis-smart-playlists-changed',
+        ),
+      )
+      if (route.path === getPlaylistPath(deleting)) {
+        await router.push('/')
+      }
     }
-  }
 
-  closeDeleteDialog()
+    if (playlistContextMenu.value === menu) closePlaylistContextMenu()
+  } catch (cause) {
+    rendererDiagnostics.warn({
+      scope: 'sidebar.delete-playlist',
+      message: 'Failed to delete playlist',
+      cause,
+    })
+    if (playlistContextMenu.value === menu) {
+      deletingPlaylist.value = null
+      deleteError.value = '删除失败，请重试'
+    }
+  } finally {
+    isDeletingPlaylist.value = false
+  }
 }
 
 onMounted(() => {
+  deleteMotionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  deleteMotionPreference.addEventListener('change', updateDeleteLid)
+  window.addEventListener('keydown', onPlaylistMenuKeydown)
   void loadSidebarPlaylists()
   void loadSidebarStats()
   unsubscribeLibraryChanged = auralis.library.onChanged((event) => {
@@ -460,6 +453,9 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  stopDeleteLidAnimation?.()
+  deleteMotionPreference?.removeEventListener('change', updateDeleteLid)
+  window.removeEventListener('keydown', onPlaylistMenuKeydown)
   pendingNavCleanup?.()
   pendingNavCleanup = null
   unsubscribeLibraryChanged?.()
@@ -490,22 +486,6 @@ onBeforeUnmount(() => {
           >
             <span class="i-lucide-list-filter"></span>
           </button>
-          <RouterLink
-            to="/download"
-            class="sidebar-tool-button"
-            :class="{ 'sidebar-tool-button-active': activePath === '/download' }"
-            :aria-label="t('sidebar.tool.downloadAction')"
-            :title="t('sidebar.tool.download')"
-            :draggable="false"
-            @dragstart.prevent
-            @pointerenter="onRouteIntent('download')"
-            @focusin="onRouteIntent('download')"
-            @pointerdown="setPendingActiveFromPointer($event, '/download')"
-            @keydown.enter="setPendingActive('/download')"
-            @keydown.space="setPendingActive('/download')"
-          >
-            <span class="i-lucide-cloud-download"></span>
-          </RouterLink>
           <button
             class="sidebar-tool-button"
             type="button"
@@ -548,7 +528,7 @@ onBeforeUnmount(() => {
             'sidebar-link-with-count': item.count !== null,
             'sidebar-link-active':
               activePath === item.to ||
-              (item.to === '/albums' && activePath.startsWith('/albums/')),
+              (item.to === '/albums' && route.name === 'album-detail' && activePath === route.path),
           }"
           @dragstart.prevent
           @pointerenter="onRouteIntent(item.routeName)"
@@ -623,11 +603,17 @@ onBeforeUnmount(() => {
       @close="isFacetsDialogOpen = false"
       @created="onSmartPlaylistCreated"
     />
+    <SmartPlaylistBuilderDialog
+      :open="isBuilderOpen"
+      :trigger="sidebarModalTrigger"
+      @close="isBuilderOpen = false"
+      @created="onSmartPlaylistCreated"
+    />
 
     <Teleport to="body">
       <div v-if="createMenu" class="sidebar-overlay fixed inset-0 z-[88]" @click="closeCreateMenu">
-        <LiquidGlassPanel
-          class="library-context-menu create-playlist-menu fixed w-48"
+        <div
+          class="library-context-menu frosted-context-menu fixed w-48"
           :style="{
             left: `${createMenu.x}px`,
             top: `${createMenu.y}px`,
@@ -638,20 +624,22 @@ onBeforeUnmount(() => {
             <span class="i-lucide-list-music"></span>
             <span>{{ t('sidebar.newPlaylist') }}</span>
           </button>
-          <button class="library-context-menu-item" type="button" @click="openQueryDialog">
+          <div class="library-context-menu-separator" role="separator"></div>
+          <button class="library-context-menu-item" type="button" @click="openSmartPlaylistBuilder">
             <span class="i-lucide-sparkles"></span>
             <span>{{ t('sidebar.newSmartPlaylist') }}</span>
           </button>
-        </LiquidGlassPanel>
+        </div>
       </div>
 
       <div
         v-if="playlistContextMenu"
         class="sidebar-overlay fixed inset-0 z-[90]"
         @click="closePlaylistContextMenu"
+        @click.capture="cancelDeleteOnOtherClick"
       >
-        <LiquidGlassPanel
-          class="library-context-menu fixed w-40"
+        <div
+          class="library-context-menu frosted-context-menu fixed w-40"
           :style="{
             left: `${playlistContextMenu.x}px`,
             top: `${playlistContextMenu.y}px`,
@@ -662,15 +650,36 @@ onBeforeUnmount(() => {
             <span class="i-lucide-pencil"></span>
             <span>{{ t('sidebar.rename') }}</span>
           </button>
+          <div class="library-context-menu-separator" role="separator"></div>
           <button
             class="library-context-menu-item smart-playlist-context-danger"
             type="button"
-            @click="openDeleteDialog"
+            data-delete-playlist
+            :disabled="isDeletingPlaylist"
+            @click="requestDelete"
           >
-            <span class="i-lucide-trash-2"></span>
-            <span>{{ t('sidebar.delete') }}</span>
+            <span aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                width="1em"
+                height="1em"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                overflow="visible"
+              >
+                <path d="M5 6l1 14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-14M10 10v8M14 10v8" />
+                <g ref="deleteLid">
+                  <path d="M3 6h18M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
+                </g>
+              </svg>
+            </span>
+            <span>{{ deletingPlaylist ? '确认删除' : t('sidebar.delete') }}</span>
           </button>
-        </LiquidGlassPanel>
+          <p v-if="deleteError" class="px-3 py-1 text-xs" role="alert">{{ deleteError }}</p>
+        </div>
       </div>
 
       <div v-if="renamingPlaylist" class="sidebar-overlay smart-playlist-dialog-backdrop">
@@ -698,61 +707,6 @@ onBeforeUnmount(() => {
             </button>
           </div>
         </form>
-      </div>
-
-      <div v-if="isQueryDialogOpen" class="sidebar-overlay smart-playlist-dialog-backdrop">
-        <form
-          ref="queryDialogRef"
-          class="smart-playlist-dialog smart-playlist-query-dialog"
-          role="dialog"
-          aria-modal="true"
-          :aria-label="t('sidebar.queryDialogTitle')"
-          @submit.prevent="createFromQuery"
-        >
-          <h2>{{ t('sidebar.queryDialogTitle') }}</h2>
-          <textarea
-            ref="queryInput"
-            v-model="smartPlaylistQuery"
-            rows="4"
-            :aria-label="t('sidebar.queryAria')"
-            placeholder='GENRE HAS "K-Pop" AND ARTIST HAS "aespa" OR "NMIXX"'
-            spellcheck="false"
-            @input="smartPlaylistQueryError = ''"
-          ></textarea>
-          <p v-if="smartPlaylistQueryError" class="smart-playlist-dialog-error">
-            {{ smartPlaylistQueryError }}
-          </p>
-          <div class="smart-playlist-dialog-actions">
-            <button type="button" :disabled="isCreatingFromQuery" @click="closeQueryDialog">
-              {{ t('sidebar.cancel') }}
-            </button>
-            <button
-              type="submit"
-              class="smart-playlist-dialog-primary"
-              :disabled="isCreatingFromQuery"
-            >
-              {{ t('sidebar.create') }}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <div v-if="deletingPlaylist" class="sidebar-overlay smart-playlist-dialog-backdrop">
-        <section
-          ref="deleteDialogRef"
-          class="smart-playlist-dialog"
-          role="alertdialog"
-          aria-modal="true"
-          :aria-label="deletingPlaylistTitle"
-        >
-          <h2>{{ deletingPlaylistTitle }}</h2>
-          <div class="smart-playlist-dialog-actions">
-            <button type="button" @click="closeDeleteDialog">{{ t('sidebar.cancel') }}</button>
-            <button type="button" class="smart-playlist-dialog-danger" @click="confirmDelete">
-              {{ t('sidebar.delete') }}
-            </button>
-          </div>
-        </section>
       </div>
     </Teleport>
   </aside>

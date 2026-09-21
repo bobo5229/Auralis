@@ -2,14 +2,14 @@
  * Modern floating-island PlayerBar layout constants.
  * CSS container queries must stay in lockstep with these values.
  */
-export const MODERN_PLAYER_BAR_HEIGHT_PX = 72
+export const MODERN_PLAYER_BAR_HEIGHT_PX = 64
 
 /** Bottom gap under the floating island (px). Safe area = height + gap. */
 export const MODERN_PLAYER_BAR_BOTTOM_GAP_PX = 24
 
-export const MODERN_PLAYER_BAR_MAX_WIDTH_PX = 920
+export const MODERN_PLAYER_BAR_MAX_WIDTH_PX = 780
 
-export const MODERN_PLAYER_BAR_COLUMN_INSET_PX = 24
+export const MODERN_PLAYER_BAR_COLUMN_INSET_PX = 32
 
 export const MODERN_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX = 800
 

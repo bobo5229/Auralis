@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 单曲排行 Demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        color: #f3eee6;
+        background: #111214;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      button {
+        font: inherit;
+        cursor: pointer;
+        color: inherit;
+        border: 0;
+        background: none;
+      }
+      button:focus-visible {
+        outline: 2px solid #e1ddd6;
+        outline-offset: 4px;
+      }
+      main {
+        max-width: 1160px;
+        margin: 0 auto;
+        padding: 54px 44px 80px;
+      }
+      .demo-label {
+        color: #9299a3;
+        font-size: 12px;
+        margin: 0 0 36px;
+        letter-spacing: 0.08em;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 24px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 650;
+        letter-spacing: -0.6px;
+      }
+      .periods {
+        display: flex;
+        gap: 24px;
+      }
+      .periods button {
+        color: #9299a3;
+        padding: 10px 2px;
+        border-bottom: 2px solid transparent;
+      }
+      .periods button[aria-pressed='true'] {
+        color: #f3eee6;
+        border-color: #e1ddd6;
+      }
+      .toolbar {
+        margin: 26px 0 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .type {
+        font-size: 14px;
+        color: #afb4bc;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .type span {
+        color: #9299a3;
+        font-variant-numeric: tabular-nums;
+      }
+      .date {
+        color: #afb4bc;
+        font-size: 13px;
+      }
+      .columns,
+      .track {
+        display: grid;
+        grid-template-columns: 40px 48px minmax(0, 1fr) 96px 112px;
+        gap: 20px;
+        align-items: center;
+        padding: 0 12px;
+      }
+      .columns {
+        height: 40px;
+        color: #9299a3;
+        font-size: 12px;
+        border-bottom: 1px solid #e1ddd624;
+      }
+      .columns .name {
+        grid-column: 2 / 4;
+      }
+      .numeric {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      ol {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .track {
+        min-height: 82px;
+        border-bottom: 1px solid #e1ddd614;
+      }
+      .track:hover,
+      .track:focus-within {
+        background: #e1ddd60f;
+      }
+      .rank-control {
+        width: 36px;
+        height: 40px;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        color: #9299a3;
+      }
+      .rank-control > * {
+        grid-area: 1 / 1;
+      }
+      .rank {
+        font-size: 16px;
+        font-variant-numeric: tabular-nums;
+      }
+      .track:nth-child(-n + 3) .rank {
+        color: #f3eee6;
+      }
+      svg {
+        width: 18px;
+        height: 18px;
+        fill: currentColor;
+      }
+      .play-icon,
+      .pause-icon {
+        opacity: 0;
+      }
+      .track:hover .rank,
+      .track:focus-within .rank,
+      .track.playing .rank {
+        opacity: 0;
+      }
+      .track:hover .play-icon,
+      .track:focus-within .play-icon {
+        opacity: 1;
+      }
+      .track.playing .play-icon {
+        opacity: 0;
+      }
+      .track.playing .pause-icon {
+        opacity: 1;
+      }
+      .rank-control:hover {
+        color: #afb4bc;
+      }
+      .track.playing .rank-control {
+        color: #f3eee6;
+      }
+      .cover {
+        width: 48px;
+        height: 48px;
+        object-fit: cover;
+        border-radius: 4px;
+        background: #202328;
+      }
+      .song {
+        min-width: 0;
+      }
+      .song h2 {
+        font-size: 15px;
+        font-weight: 600;
+        margin: 0 0 6px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .song p {
+        font-size: 12px;
+        color: #afb4bc;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .plays {
+        font-size: 15px;
+      }
+      .duration {
+        color: #afb4bc;
+        font-size: 13px;
+      }
+      .unit {
+        color: #9299a3;
+        font-size: 12px;
+        margin-left: 5px;
+      }
+      .bottom {
+        display: flex;
+        justify-content: center;
+        padding-top: 22px;
+      }
+      .expand {
+        color: #afb4bc;
+        padding: 10px 18px;
+        font-size: 13px;
+      }
+      .expand:hover {
+        color: #f3eee6;
+      }
+      .expand span {
+        padding-left: 8px;
+        color: #9299a3;
+      }
+      .status {
+        color: #9299a3;
+        font-size: 12px;
+        margin: 28px 0 0;
+        min-height: 18px;
+      }
+      @media (hover: none) {
+        .rank {
+          display: none;
+        }
+        .play-icon {
+          opacity: 1;
+        }
+      }
+      @media (max-width: 650px) {
+        main {
+          padding: 28px 18px 48px;
+        }
+        header {
+          align-items: flex-start;
+        }
+        h1 {
+          font-size: 24px;
+        }
+        .periods {
+          gap: 16px;
+        }
+        .columns,
+        .track {
+          grid-template-columns: 28px 40px minmax(0, 1fr) 58px;
+          gap: 12px;
+          padding-inline: 4px;
+        }
+        .duration {
+          display: none;
+        }
+        .cover {
+          width: 40px;
+          height: 40px;
+        }
+        .rank-control {
+          width: 28px;
+        }
+        .track {
+          min-height: 76px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="demo-label">AURALIS / 单曲排行 DEMO</p>
+      <header>
+        <h1>听歌排行</h1>
+        <nav class="periods" aria-label="排行周期">
+          <button aria-pressed="true" data-period="0">日</button>
+          <button aria-pressed="false" data-period="1">周</button>
+          <button aria-pressed="false" data-period="2">月</button>
+          <button aria-pressed="false" data-period="3">年</button>
+        </nav>
+      </header>
+      <div class="toolbar">
+        <div class="type">单曲 <span>14 首</span></div>
+        <div class="date" id="date">2026 年 9 月 21 日</div>
+      </div>
+      <div class="columns" aria-hidden="true">
+        <span>#</span><span class="name">歌曲</span><span class="numeric">播放次数</span
+        ><span class="numeric duration">收听时长</span>
+      </div>
+      <ol id="tracks" aria-label="单曲收听排行"></ol>
+      <div class="bottom">
+        <button class="expand" id="expand" aria-expanded="false" aria-controls="tracks">
+          展开更多 <span>4</span>
+        </button>
+      </div>
+      <p class="status" id="status" role="status">示例数据 · 封面为占位图片 · 播放仅演示交互</p>
+    </main>
+    <script src="ranking-record-shelf-data.js"></script>
+    <script>
+      const songs = [
+        ['不知所以然', '蔡健雅', 0, 12, 39],
+        ['可爱', '蔡健雅', 0, 10, 42],
+        ['谢谢侬', '陈奕迅', 1, 9, 38],
+        ['陌生人', '蔡健雅', 2, 8, 33],
+        ['爱是怀疑', '陈奕迅', 1, 7, 31],
+        ['红色高跟鞋', '蔡健雅', 3, 6, 20],
+        ['与我常在', '陈奕迅', 4, 5, 21],
+        ['记念', '蔡健雅', 5, 4, 15],
+        ['失落沙洲', '徐佳莹', 3, 3, 14],
+        ['好想放假', '蔡健雅', 5, 3, 10],
+        ['True Love', '蔡健雅', 5, 2, 8],
+        ['富士山下', '陈奕迅', 4, 2, 9],
+        ['达尔文', '蔡健雅', 2, 1, 4],
+        ['十年', '陈奕迅', 1, 1, 3],
+      ]
+      let expanded = false
+      let period = 0
+      let playing = null
+      const tracks = document.getElementById('tracks')
+      const expand = document.getElementById('expand')
+      const play =
+        '<svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.7c0-1 1.1-1.6 1.9-1.1l12 7.3a1.3 1.3 0 0 1 0 2.2l-12 7.3A1.3 1.3 0 0 1 6 19.3Z"/></svg>'
+      const pause =
+        '<svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/></svg>'
+      function updatePlayback() {
+        tracks.querySelectorAll('.track').forEach((row) => {
+          const index = Number(row.dataset.index)
+          row.classList.toggle('playing', playing === index)
+          row
+            .querySelector('button')
+            .setAttribute('aria-label', `${playing === index ? '暂停' : '播放'} ${songs[index][0]}`)
+          row.querySelector('button').setAttribute('aria-pressed', String(playing === index))
+        })
+      }
+      function render() {
+        const multiplier = [1, 3, 8, 27][period]
+        tracks.innerHTML = songs
+          .slice(0, expanded ? songs.length : 10)
+          .map(
+            ([name, artist, cover, count, minutes], index) => `
+          <li class="track" data-index="${index}">
+            <button class="rank-control" type="button"><span class="rank">${String(index + 1).padStart(2, '0')}</span>${play}${pause}</button>
+            <img class="cover" src="${window.rankingCovers[cover]}" alt="" decoding="async" />
+            <div class="song"><h2>${name}</h2><p>${artist}</p></div>
+            <div class="numeric plays">${count * multiplier}<span class="unit">次</span></div>
+            <div class="numeric duration">${minutes * multiplier}<span class="unit">分钟</span></div>
+          </li>`,
+          )
+          .join('')
+        updatePlayback()
+        expand.setAttribute('aria-expanded', String(expanded))
+        expand.innerHTML = expanded ? '收起' : '展开更多 <span>4</span>'
+      }
+      tracks.addEventListener('click', (event) => {
+        const button = event.target.closest('button')
+        if (!button) return
+        const index = Number(button.closest('.track').dataset.index)
+        playing = playing === index ? null : index
+        updatePlayback()
+        document.getElementById('status').textContent =
+          playing === null ? '演示已暂停' : `演示播放：${songs[index][1]} · ${songs[index][0]}`
+      })
+      expand.addEventListener('click', () => {
+        expanded = !expanded
+        render()
+      })
+      document.querySelectorAll('[data-period]').forEach((button) =>
+        button.addEventListener('click', () => {
+          period = Number(button.dataset.period)
+          document
+            .querySelectorAll('[data-period]')
+            .forEach((item) => item.setAttribute('aria-pressed', String(item === button)))
+          document.getElementById('date').textContent = [
+            '2026 年 9 月 21 日',
+            '2026 年 9 月 21 日 — 9 月 27 日',
+            '2026 年 9 月',
+            '2026 年',
+          ][period]
+          render()
+        }),
+      )
+      render()
+    </script>
+  </body>
+</html>

@@ -35,6 +35,7 @@
 
 ### albums：专辑
 
+- [TECHDOC：专辑详情页本地分类兜底画廊](topics/albums/techdoc-album-detail-local-catalog-fallback-gallery.md)
 - [专辑详情页重构 MVP 实施计划 (Album Detail Page Redesign MVP Plan)](topics/albums/2026-07-25-album-detail-redesign-plan.md)
 - [产品需求文档 (PRD)：专辑详情页退出景深沉降过渡](topics/albums/prd-album-detail-exit-transition.md)
 - [产品需求文档 (PRD)：专辑详情页热门单曲右下角入口与物理推移联动](topics/albums/prd-album-detail-top-tracks-push.md)
@@ -63,16 +64,19 @@
 
 ### library：曲库
 
+- [TECHDOC：曲库分页并发加载与快照生命周期](topics/library/TECHDOC-catalog-concurrent-load-2026-09-21.md)
 - [修复 Library 歌曲列表滚动掉帧](topics/library/fix-song-row-scroll-jank.md)
 - [TECHDOC：播放后歌曲列表视口被拽回当前曲](topics/library/techdoc-library-playback-viewport-restore.md)
 - [TECHDOC：曲库初次加载文件夹扫描性能优化方案](topics/library/techdoc-library-initial-scan-performance-optimization.md)
 
 ### metadata：元数据
 
+- [TECHDOC：元数据刷新后的文件指纹一致性](topics/metadata/TECHDOC-refresh-file-fingerprint-2026-09-21.md)
 - [流派多值分隔符与原子复合流派方案](topics/metadata/plan-genre-delimiter-atomic-compounds.md)
 
 ### playback：播放界面
 
+- [TECHDOC：无缝播放解码前的内存预算与回退](topics/playback/TECHDOC-gapless-memory-budget-2026-09-21.md)
 - [TECHDOC：PlayerBar 与播放队列浮层材质统一](topics/playback/TECHDOC-playerbar-queue-surface-unification-2026-09-06.md)
 - [TECHDOC：modern PlayerBar Liquid Glass 视觉保真修复](topics/playback/TECHDOC-playerbar-liquid-glass-visual-fidelity-2026-09-05.md)
 - [TECHDOC：`usePlayback` 播放编排拆分](topics/playback/TECHDOC-use-playback-architecture-split-2026-08-30.md)

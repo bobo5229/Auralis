@@ -23,9 +23,6 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.desktopLyrics.ready,
   ipcChannels.metadata.refreshProgress,
   ipcChannels.window.miniPlayerStateChanged,
-  ipcChannels.download.progress,
-  ipcChannels.download.log,
-  ipcChannels.download.selectionRequest,
 ])
 
 const externalInvokeChannels = new Set<string>([
@@ -46,7 +43,7 @@ function parse(channel: DomainIpcInvokeChannel, payload?: unknown): unknown {
 }
 
 describe('domain IPC payload validation coverage', () => {
-  it('classifies all 60 domain invoke channels exactly once', () => {
+  it('classifies all 57 domain invoke channels exactly once', () => {
     const actualChannels = Object.keys(domainIpcPayloadPolicies).sort()
     const kinds = Object.values(domainIpcPayloadPolicies).reduce<Record<string, number>>(
       (counts, policy) => {
@@ -57,8 +54,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(60)
-    expect(kinds).toEqual({ void: 19, optional: 6, required: 35 })
+    expect(actualChannels).toHaveLength(57)
+    expect(kinds).toEqual({ void: 19, optional: 6, required: 32 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -86,6 +83,9 @@ describe('domain IPC payload validation behavior', () => {
     expect(
       parse('library:get-track-page', { cursor: 'snapshot:cursor', limit: 1_000, refresh: true }),
     ).toEqual({ cursor: 'snapshot:cursor', limit: 1_000, refresh: true })
+    expect(
+      parse('library:get-album-detail', { albumArtist: 'Artist', albumTitle: 'Album' }),
+    ).toEqual({ albumArtist: 'Artist', albumTitle: 'Album' })
     expect(parse('library:get-scan-status', { jobId: undefined })).toEqual({ jobId: undefined })
     expect(
       parse('playback:get-random-album-tracks', {
@@ -271,114 +271,5 @@ describe('domain IPC payload validation behavior', () => {
       expect(error).toBeInstanceOf(IpcPayloadValidationError)
       expect((error as Error).message).not.toContain('sensitive-user-query')
     }
-  })
-
-  it('validates download IPC payloads correctly', () => {
-    // download:start
-    expect(parse('download:start', { url: 'https://music.apple.com/song' })).toEqual({
-      url: 'https://music.apple.com/song',
-    })
-    expect(
-      parse('download:start', { url: 'https://music.apple.com/song', mode: 'direct' }),
-    ).toEqual({
-      url: 'https://music.apple.com/song',
-      mode: 'direct',
-    })
-    expect(
-      parse('download:start', { url: 'https://music.apple.com/album', mode: 'select' }),
-    ).toEqual({
-      url: 'https://music.apple.com/album',
-      mode: 'select',
-    })
-    expect(() => parse('download:start', { url: '' })).toThrow(/invalid length/)
-    expect(() => parse('download:start', { url: 'a'.repeat(2049) })).toThrow(/invalid length/)
-    expect(() =>
-      parse('download:start', { url: 'https://music.apple.com/song', mode: 'alac' }),
-    ).toThrow(/unsupported value/)
-    expect(() =>
-      parse('download:start', { url: 'https://music.apple.com/song', mode: 'aac' }),
-    ).toThrow(/unsupported value/)
-    expect(() =>
-      parse('download:start', { url: 'https://music.apple.com/song', mode: '--select' }),
-    ).toThrow(/unsupported value/)
-    expect(() =>
-      parse('download:start', { url: 'https://music.apple.com/song', command: 'whoami' }),
-    ).toThrow(/unexpected property/)
-    expect(() =>
-      parse('download:start', { url: 'https://music.apple.com/song', extra: 'bad' }),
-    ).toThrow(/unexpected property/)
-
-    // download:cancel
-    expect(parse('download:cancel', { taskId: 'task-123' })).toEqual({ taskId: 'task-123' })
-    expect(() => parse('download:cancel', { taskId: '' })).toThrow(/invalid length/)
-    expect(() => parse('download:cancel', { taskId: 'a'.repeat(129) })).toThrow(/invalid length/)
-    expect(() => parse('download:cancel', { taskId: 'task-1', extra: 'bad' })).toThrow(
-      /unexpected property/,
-    )
-
-    // download:get-status
-    expect(parse('download:get-status', { taskId: 'task-123' })).toEqual({ taskId: 'task-123' })
-    expect(() => parse('download:get-status', { taskId: '' })).toThrow(/invalid length/)
-    expect(() => parse('download:get-status', { taskId: 'a'.repeat(129) })).toThrow(
-      /invalid length/,
-    )
-    expect(() => parse('download:get-status', { taskId: 'task-1', extra: 'bad' })).toThrow(
-      /unexpected property/,
-    )
-
-    // download:submit-selection
-    expect(
-      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [1, 2, 3] }),
-    ).toEqual({
-      taskId: 'task-123',
-      trackIndexes: [1, 2, 3],
-    })
-    expect(() => parse('download:submit-selection', { taskId: '', trackIndexes: [1] })).toThrow(
-      /invalid length/,
-    )
-    expect(() =>
-      parse('download:submit-selection', { taskId: 'a'.repeat(129), trackIndexes: [1] }),
-    ).toThrow(/invalid length/)
-    expect(() =>
-      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [] }),
-    ).toThrow(/invalid item count/)
-    expect(() =>
-      parse('download:submit-selection', {
-        taskId: 'task-123',
-        trackIndexes: Array.from({ length: 1001 }, (_, i) => i + 1),
-      }),
-    ).toThrow(/invalid item count/)
-    expect(() =>
-      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: '1,2,3' }),
-    ).toThrow(/plain array/)
-    expect(() =>
-      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [0] }),
-    ).toThrow(/below the minimum/)
-    expect(() =>
-      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [-1] }),
-    ).toThrow(/below the minimum/)
-    expect(() =>
-      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [1.5] }),
-    ).toThrow(/safe integer/)
-    expect(() =>
-      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [NaN] }),
-    ).toThrow(/finite number/)
-    expect(() =>
-      parse('download:submit-selection', { taskId: 'task-123', trackIndexes: [Infinity] }),
-    ).toThrow(/finite number/)
-    expect(() =>
-      parse('download:submit-selection', {
-        taskId: 'task-123',
-        trackIndexes: [1],
-        extra: 'bad',
-      }),
-    ).toThrow(/unexpected property/)
-    expect(() =>
-      parse('download:submit-selection', {
-        taskId: 'task-123',
-        trackIndexes: [1],
-        stdin: '1\n',
-      }),
-    ).toThrow(/unexpected property/)
   })
 })

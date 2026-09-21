@@ -10,8 +10,8 @@ import { ArtworkCacheGarbageCollector } from '@main/features/artwork/artworkCach
 import { ArtworkCacheMaintenanceService } from '@main/features/artwork/artworkCacheMaintenanceService'
 import { ArtworkCacheMigrationService } from '@main/features/artwork/artworkCacheMigrationService'
 import { isPathUnderAnyRoot } from '@main/features/audio/audioPathGuard'
+import { probeAudioDecode } from '@main/features/audio/audioDecodeProbe'
 import { isPlayableAudioExtension, buildAudioTrackUrl } from '@main/features/audio/audioProtocol'
-import { AmdlDownloadService } from '@main/features/amdl/amdlDownloadService'
 import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
 import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
 import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
@@ -30,7 +30,6 @@ import { PlaylistService } from '@main/services/playlistService'
 import { PlayStatsService } from '@main/services/playStatsService'
 import { SmartPlaylistService } from '@main/services/smartPlaylistService'
 import type Database from 'better-sqlite3'
-import { registerDownloadIpcHandlers } from './registerDownloadIpcHandlers'
 import { registerLibraryIpcHandlers } from './registerLibraryIpcHandlers'
 import { registerMetadataIpcHandlers } from './registerMetadataIpcHandlers'
 import { registerPlaybackArchiveIpcHandlers } from './registerPlaybackArchiveIpcHandlers'
@@ -85,18 +84,6 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     }
   }
 
-  const downloadService = new AmdlDownloadService({
-    onProgress: (progress) => {
-      sendToRenderer(ipcChannels.download.progress, progress)
-    },
-    onLog: (log) => {
-      sendToRenderer(ipcChannels.download.log, log)
-    },
-    onSelectionRequest: (request) => {
-      sendToRenderer(ipcChannels.download.selectionRequest, request)
-    },
-  })
-
   const notifyLibraryChanged = (data: {
     reason: 'play-stats-updated' | 'play-stats-reset'
     trackIds: number[]
@@ -135,7 +122,7 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
       return null
     }
 
-    return { url: buildAudioTrackUrl(trackId) }
+    return { url: buildAudioTrackUrl(trackId), decodeProbe: await probeAudioDecode(filePath) }
   }
   const metadataWatchService = new MetadataWatchService(
     libraryRootRepository,
@@ -275,5 +262,4 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     notifyLibraryChanged,
   })
   registerMetadataIpcHandlers(electronIpcRegistrar, { metadataRefreshService })
-  registerDownloadIpcHandlers(electronIpcRegistrar, { downloadService })
 }

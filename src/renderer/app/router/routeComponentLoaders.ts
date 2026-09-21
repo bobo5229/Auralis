@@ -1,11 +1,12 @@
 import type { RouteComponent } from 'vue-router'
 
-export type WarmableRouteName = 'albums' | 'archive' | 'settings' | 'download'
+export type WarmableRouteName = 'library' | 'albums' | 'archive' | 'settings'
 
 export type RouteComponentModule = RouteComponent | { default: RouteComponent }
 export type RouteComponentLoader = () => Promise<RouteComponentModule>
 
 export const PRIMARY_WARMABLE_ROUTES: readonly WarmableRouteName[] = [
+  'library',
   'albums',
   'archive',
   'settings',
@@ -18,10 +19,10 @@ export const PRIMARY_WARMABLE_ROUTES: readonly WarmableRouteName[] = [
 export const rawRouteLoaders = {
   library: () => import('@renderer/features/library/pages/LibraryPage.vue'),
   albums: () => import('@renderer/features/albums/pages/AlbumsPage.vue'),
+  cdAlbums: () => import('@renderer/features/albums/pages/CdAlbumsPage.vue'),
   albumDetail: () => import('@renderer/features/albums/pages/AlbumDetailPage.vue'),
   archive: () => import('@renderer/features/archive/pages/ArchivePage.vue'),
   settings: () => import('@renderer/features/settings/pages/SettingsPage.vue'),
-  download: () => import('@renderer/features/download/pages/DownloadPage.vue'),
 } as const satisfies Record<string, RouteComponentLoader>
 
 export function createRouteLoaderRegistry(
@@ -52,17 +53,17 @@ export function createRouteLoaderRegistry(
   const routeLoaders = {
     library: () => getOrLoad('library', loaders.library),
     albums: () => getOrLoad('albums', loaders.albums),
+    cdAlbums: () => getOrLoad('cdAlbums', loaders.cdAlbums),
     albumDetail: () => getOrLoad('albumDetail', loaders.albumDetail),
     archive: () => getOrLoad('archive', loaders.archive),
     settings: () => getOrLoad('settings', loaders.settings),
-    download: () => getOrLoad('download', loaders.download),
   }
 
   const warmableRouteMap: Record<WarmableRouteName, RouteComponentLoader> = {
+    library: routeLoaders.library,
     albums: routeLoaders.albums,
     archive: routeLoaders.archive,
     settings: routeLoaders.settings,
-    download: routeLoaders.download,
   }
 
   const isWarmableRoute = (name: unknown): name is WarmableRouteName =>

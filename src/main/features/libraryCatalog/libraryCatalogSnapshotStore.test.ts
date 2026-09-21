@@ -55,14 +55,32 @@ describe('LibraryCatalogSnapshotStore', () => {
     expect(first.diagnostics.snapshotHeapDeltaBytes).toEqual(expect.any(Number))
   })
 
-  it('expires old cursors when a refreshed snapshot replaces them', () => {
+  it('retains the preceding generation, then evicts on the third refresh', () => {
     const store = new LibraryCatalogSnapshotStore(() => [createTrack(1), createTrack(2)])
     const first = store.getPage({ refresh: true, limit: 1 })
     expect(first.nextCursor).not.toBeNull()
 
     const refreshed = store.getPage({ refresh: true, limit: 1 })
     expect(refreshed.snapshotId).not.toBe(first.snapshotId)
+    expect(store.getPage({ cursor: first.nextCursor! }).tracks.map((t) => t.id)).toEqual([2])
+    expect(store.getPage({ refresh: true }).diagnostics.retainedSnapshots).toBe(2)
     expect(() => store.getPage({ cursor: first.nextCursor!, limit: 1 })).toThrow('expired snapshot')
+  })
+
+  it('expires idle cursors without silently building a replacement', () => {
+    let now = 0
+    let builds = 0
+    const store = new LibraryCatalogSnapshotStore(
+      () => {
+        builds++
+        return [createTrack(1), createTrack(2)]
+      },
+      () => now,
+    )
+    const page = store.getPage({ limit: 1 })
+    now = 60_000
+    expect(() => store.getPage({ cursor: page.nextCursor! })).toThrow('expired snapshot')
+    expect(builds).toBe(1)
   })
 
   it('clamps page sizes and rejects malformed cursors', () => {

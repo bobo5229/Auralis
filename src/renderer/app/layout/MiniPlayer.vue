@@ -335,7 +335,7 @@ onUnmounted(() => {
 
         <!-- Control Center–style media bar: full content width, three equal text cells -->
         <div class="mini-actions-dock" data-mini-interactive>
-          <LiquidGlassPanel class="mini-actions-glass" :radius="18">
+          <LiquidGlassPanel class="mini-actions-glass" :radius="18" :refraction="false">
             <div class="mini-actions" role="toolbar" :aria-label="t('miniPlayer.toolbarAria')">
               <button
                 class="mini-actions-button"

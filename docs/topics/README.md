@@ -18,6 +18,7 @@
 
 ## 已知关系与待核实事项
 
+- 2026-09-21 审查后的三项性能相关修复方案均待实施，建议按[曲库分页并发](library/TECHDOC-catalog-concurrent-load-2026-09-21.md)、[无缝解码预算](playback/TECHDOC-gapless-memory-budget-2026-09-21.md)、[元数据文件指纹](metadata/TECHDOC-refresh-file-fingerprint-2026-09-21.md)顺序处理。文档分别注明已复现证据和未测量风险，不代表修复已完成。
 - AlbumsPage 的 Liquid Aurora、Obsidian Shelf、Recessed Metal 三组草案并存。选用、替代及实现关系待核实；不能按文件顺序判定最新版，也不能把三套叠加成一个实施要求。
 - [旧无框窗口壳 TECHDOC](shell/techdoc-auralis-native-window-chrome.md)原文已标注废弃；其替代方向见[系统原生标题栏方案](shell/plan-native-window-chrome.md)。不要按旧壳文档恢复自绘无框主窗口。
 - [播放按钮 PRD](playback/PRD-playerbar-matte-depth-2026-08-29.md)与[TECHDOC](playback/TECHDOC-playerbar-matte-depth-2026-08-29.md)已用“纽扣式内凹”取代“浅凸哑光”设计。保留 `matte-depth` 文件名仅为稳定引用，不应据文件名还原旧方向；文档方案不代表已实现。

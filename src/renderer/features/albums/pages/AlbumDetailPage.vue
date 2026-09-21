@@ -5,14 +5,28 @@ import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
+import {
+  prefetchArtworkPalette,
+  useArtworkPalette,
+} from '@renderer/features/playback/composables/useArtworkPalette'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import { splitGenreValues } from '@renderer/features/library/utils/formatGenre'
 
+import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumDetailTrackList from '../components/AlbumDetailTrackList.vue'
 import type { AlbumSummary } from '../types'
 import { useAlbumDetailTracks } from '../composables/useAlbumDetailTracks'
+import { albumHeroTintStyle, resolveAlbumHeroTint } from '../utils/albumHeroTint'
+
+const props = withDefaults(
+  defineProps<{
+    isEntering?: boolean
+  }>(),
+  {
+    isEntering: false,
+  },
+)
 
 const route = useRoute()
 const router = useRouter()
@@ -20,14 +34,10 @@ const { t, locale } = useI18n()
 const playback = usePlayback()
 const detailRootRef = ref<HTMLElement | null>(null)
 const coverStageRef = ref<HTMLElement | null>(null)
-const heroBillboardRef = ref<HTMLElement | null>(null)
-const heroCanvasRef = ref<HTMLCanvasElement | null>(null)
 const moreAlbumsScrollerRef = ref<HTMLElement | null>(null)
 const highlightedTrackId = ref<number | null>(null)
 let trackingFrame: number | null = null
 let highlightTimeout: ReturnType<typeof setTimeout> | null = null
-let heroFluidGeneration = 0
-let heroResizeObserver: ResizeObserver | null = null
 let pointerPosition: { x: number; y: number } | null = null
 let detailScrollTarget: HTMLElement | null = null
 let modernEffectsBound = false
@@ -41,13 +51,21 @@ const albumTitle = computed(() => String(route.query.title ?? ''))
 const {
   tracks,
   albumTracks,
+  moreAlbums: moreAlbumsByArtist,
+  previewArtworkCacheKey,
+  previewReleaseDate,
   loadState,
   initialize: initializeAlbumTracks,
   reloadTracks,
-  syncLoadStateFromTracks,
+  ensureCurrentAlbum,
   dispose: disposeAlbumTracks,
 } = useAlbumDetailTracks({ albumArtist, albumTitle, library: auralis.library })
-const isAlbumDetailEffectsActive = computed(() => true)
+
+/**
+ * 完整详情由快照/查询是否就绪决定；入场动画只关闭高开销效果，不拆两套 DOM。
+ */
+const hasRenderableData = computed(() => loadState.value === 'ready')
+const isEffectsActive = computed(() => hasRenderableData.value && !props.isEntering)
 const displayAlbumArtist = computed(() =>
   albumArtist.value === 'Unknown Artist'
     ? t('library.unknownArtist')
@@ -108,12 +126,17 @@ const albumGroups = computed(() => {
 })
 
 const artworkCacheKey = computed(
-  () => albumTracks.value.find((track) => track.artworkCacheKey)?.artworkCacheKey ?? null,
+  () =>
+    albumTracks.value.find((track) => track.artworkCacheKey)?.artworkCacheKey ??
+    previewArtworkCacheKey.value,
 )
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
 const { palette: albumPalette } = useArtworkPalette(artworkCacheKey, {
-  enabled: isAlbumDetailEffectsActive,
+  enabled: hasRenderableData,
 })
+const heroTint = computed(() =>
+  resolveAlbumHeroTint(albumPalette.value, artworkCacheKey.value, artworkUrl.value),
+)
 const albumDetailStyle = computed<CSSProperties>(() => {
   const accent = albumPalette.value.accents[0]?.rgb
   const resolvedAccent =
@@ -121,16 +144,20 @@ const albumDetailStyle = computed<CSSProperties>(() => {
       ? 'var(--auralis-artwork-accent-fallback)'
       : `rgb(${accent.r} ${accent.g} ${accent.b})`
 
-  return {
-    '--auralis-album-detail-accent': resolvedAccent,
-  } as CSSProperties
+  return albumHeroTintStyle(
+    albumPalette.value,
+    artworkCacheKey.value,
+    artworkUrl.value,
+    resolvedAccent,
+  )
 })
 const artworkGlowBackground = computed(() =>
   artworkUrl.value ? `url("${artworkUrl.value}")` : 'none',
 )
 
 const releaseDate = computed(
-  () => albumTracks.value.find((track) => track.releaseDate)?.releaseDate ?? null,
+  () =>
+    albumTracks.value.find((track) => track.releaseDate)?.releaseDate ?? previewReleaseDate.value,
 )
 const copyright = computed(
   () => albumTracks.value.find((track) => track.copyright)?.copyright ?? null,
@@ -170,24 +197,15 @@ function collectGenreCounts(): { label: string; count: number; firstSeen: number
 /** 提取所有流派胶囊，去重并按频次与先后顺序排列 */
 const albumGenrePills = computed<string[]>(() => collectGenreCounts().map((genre) => genre.label))
 
-function onGenrePillClick(genre: string): void {
-  void router.push({ name: 'library', query: { q: genre } })
-}
-
 function onArtistClick(): void {
   if (!albumArtist.value || albumArtist.value === 'Unknown Artist') return
   void router.push({ name: 'library', query: { q: albumArtist.value } })
 }
 
 function formatMetricsDuration(seconds: number): string {
-  if (seconds <= 0) return '00:00'
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  const s = Math.floor(seconds % 60)
-  if (h > 0) {
-    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-  }
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  const totalSeconds = Math.max(0, Math.floor(seconds))
+  const minutes = Math.floor(totalSeconds / 60)
+  return `${minutes}分${totalSeconds % 60}秒`
 }
 
 const metricsTrackCount = computed(() => albumTracks.value.length)
@@ -246,13 +264,6 @@ const heroLegalLine = computed(() => {
   return parts.length > 0 ? parts.join(' · ') : null
 })
 
-/** Year for sort: missing/invalid → +∞ so unknown years sort after dated albums (ascending). */
-function albumYearSortKey(value: string | null): number {
-  if (!value) return Number.POSITIVE_INFINITY
-  const year = Number(value.slice(0, 4))
-  return Number.isFinite(year) ? year : Number.POSITIVE_INFINITY
-}
-
 function formatAlbumYearLabel(value: string | null): string {
   if (!value) return t('albums.detail.unknownYear')
   const yearText = value.slice(0, 4)
@@ -265,62 +276,18 @@ function formatAlbumYearLabel(value: string | null): string {
 
 const albumReleaseYear = computed(() => formatAlbumYearLabel(releaseDate.value))
 
-/**
- * Other albums by the same album-artist key as the current detail page.
- * Cards navigate to that album's detail page via openAlbum.
- */
-const moreAlbumsByArtist = computed<AlbumSummary[]>(() => {
-  const artistKey = albumArtist.value
-  if (!artistKey || artistKey === 'Unknown Artist') return []
-
-  const currentKey = `${artistKey}\u0000${albumTitle.value}`
-  const grouped = new Map<string, AlbumSummary>()
-
-  for (const track of tracks.value) {
-    const albumArtistName = track.albumArtist || track.artist || 'Unknown Artist'
-    if (albumArtistName !== artistKey) continue
-
-    const title = track.album || 'Unknown Album'
-    const key = `${albumArtistName}\u0000${title}`
-    if (key === currentKey) continue
-
-    const existing = grouped.get(key)
-    if (existing) {
-      existing.releaseDate ??= track.releaseDate
-      existing.artworkCacheKey ??= track.artworkCacheKey
-      existing.tracks.push(track)
-      continue
-    }
-
-    grouped.set(key, {
-      key,
-      title,
-      albumArtist: albumArtistName,
-      releaseDate: track.releaseDate,
-      artworkCacheKey: track.artworkCacheKey,
-      tracks: [track],
-    })
-  }
-
-  return [...grouped.values()].sort((left, right) => {
-    const yearOrder = albumYearSortKey(left.releaseDate) - albumYearSortKey(right.releaseDate)
-    if (yearOrder !== 0) return yearOrder
-    return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
-  })
-})
-
 const showMoreAlbumsSection = computed(
   () => albumTracks.value.length > 0 && moreAlbumsByArtist.value.length > 0,
 )
 
 async function refreshMoreAlbumsScrollState(): Promise<void> {
-  if (loadState.value !== 'ready' || !showMoreAlbumsSection.value) {
+  if (!isEffectsActive.value || !showMoreAlbumsSection.value) {
     resetMoreAlbumsScrollState()
     return
   }
 
   await nextTick()
-  if (isPageUnmounted || loadState.value !== 'ready' || !showMoreAlbumsSection.value) return
+  if (isPageUnmounted || !isEffectsActive.value || !showMoreAlbumsSection.value) return
 
   const scroller = moreAlbumsScrollerRef.value
   if (scroller) {
@@ -356,111 +323,6 @@ const albumDiscGroups = computed(() => {
   return groups
 })
 
-/**
- * 静态极光：离屏 16×16 采样 + 四角径向渐变，单帧绘制，无 rAF 循环。
- * 见 docs/topics/albums/techdoc-album-detail-hero-billboard-redesign.md §3.1
- */
-function updateHeroStaticFluid(url: string | null, canvas: HTMLCanvasElement): void {
-  if (isPageUnmounted || !isAlbumDetailEffectsActive.value) return
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  const parentRect = canvas.parentElement?.getBoundingClientRect()
-  const width = Math.max(
-    1,
-    Math.floor(parentRect?.width || canvas.parentElement?.clientWidth || 800),
-  )
-  const height = Math.max(
-    1,
-    Math.floor(parentRect?.height || canvas.parentElement?.clientHeight || 280),
-  )
-  if (canvas.width !== width) canvas.width = width
-  if (canvas.height !== height) canvas.height = height
-
-  const generation = ++heroFluidGeneration
-
-  const fillBase = () => {
-    ctx.fillStyle = '#0a0b0d'
-    ctx.fillRect(0, 0, width, height)
-  }
-
-  if (!url) {
-    fillBase()
-    return
-  }
-
-  const img = new Image()
-  img.decoding = 'async'
-  img.onload = () => {
-    if (
-      generation !== heroFluidGeneration ||
-      isPageUnmounted ||
-      !isAlbumDetailEffectsActive.value
-    ) {
-      return
-    }
-
-    const offscreen = document.createElement('canvas')
-    offscreen.width = 16
-    offscreen.height = 16
-    const oCtx = offscreen.getContext('2d', { willReadFrequently: true })
-    if (!oCtx) return
-
-    oCtx.drawImage(img, 0, 0, 16, 16)
-    let data: Uint8ClampedArray
-    try {
-      data = oCtx.getImageData(0, 0, 16, 16).data
-    } catch {
-      fillBase()
-      return
-    }
-
-    const c1 = `rgb(${data[0]}, ${data[1]}, ${data[2]})`
-    const c2 = `rgb(${data[15 * 4]}, ${data[15 * 4 + 1]}, ${data[15 * 4 + 2]})`
-    const c3 = `rgb(${data[16 * 15 * 4]}, ${data[16 * 15 * 4 + 1]}, ${data[16 * 15 * 4 + 2]})`
-    const c4 = `rgb(${data[(16 * 16 - 1) * 4]}, ${data[(16 * 16 - 1) * 4 + 1]}, ${data[(16 * 16 - 1) * 4 + 2]})`
-
-    fillBase()
-    ctx.save()
-    ctx.globalCompositeOperation = 'screen'
-    ctx.globalAlpha = 0.75
-
-    const drawBlob = (x: number, y: number, r: number, color: string) => {
-      const grad = ctx.createRadialGradient(x, y, 0, x, y, r)
-      grad.addColorStop(0, color)
-      grad.addColorStop(1, 'transparent')
-      ctx.fillStyle = grad
-      ctx.beginPath()
-      ctx.arc(x, y, r, 0, Math.PI * 2)
-      ctx.fill()
-    }
-
-    drawBlob(width * 0.15, height * 0.3, width * 0.45, c1)
-    drawBlob(width * 0.85, height * 0.2, width * 0.4, c2)
-    drawBlob(width * 0.25, height * 0.9, width * 0.5, c3)
-    drawBlob(width * 0.75, height * 0.8, width * 0.45, c4)
-    ctx.restore()
-  }
-  img.onerror = () => {
-    if (
-      generation !== heroFluidGeneration ||
-      isPageUnmounted ||
-      !isAlbumDetailEffectsActive.value
-    ) {
-      return
-    }
-    fillBase()
-  }
-  img.src = url
-}
-
-function paintHeroFluid(): void {
-  if (isPageUnmounted || !isAlbumDetailEffectsActive.value) return
-  const canvas = heroCanvasRef.value
-  if (!canvas) return
-  updateHeroStaticFluid(artworkUrl.value, canvas)
-}
-
 function retryLoad(): void {
   void reloadTracks()
 }
@@ -471,6 +333,17 @@ function goBack(): void {
 
 function openAlbum(album: AlbumSummary): void {
   if (album.albumArtist === albumArtist.value && album.title === albumTitle.value) return
+
+  prefetchArtworkPalette(album.artworkCacheKey)
+  writeAlbumDetailSnapshot({
+    albumArtist: album.albumArtist,
+    albumTitle: album.title,
+    artworkCacheKey: album.artworkCacheKey,
+    releaseDate: album.releaseDate,
+    tracks: album.tracks,
+    moreAlbums: moreAlbumsByArtist.value.filter((candidate) => candidate.key !== album.key),
+    catalogTracks: tracks.value.length > albumTracks.value.length ? tracks.value : null,
+  })
 
   void router.push({
     name: 'album-detail',
@@ -595,7 +468,7 @@ function renderCoverTracking(): void {
     !pointer ||
     reducedMotionQuery.matches ||
     isPageUnmounted ||
-    !isAlbumDetailEffectsActive.value
+    !isEffectsActive.value
   ) {
     return
   }
@@ -623,11 +496,7 @@ function scheduleCoverTracking(): void {
 }
 
 function onDocumentPointerMove(event: PointerEvent): void {
-  if (
-    event.pointerType === 'touch' ||
-    reducedMotionQuery.matches ||
-    !isAlbumDetailEffectsActive.value
-  ) {
+  if (event.pointerType === 'touch' || reducedMotionQuery.matches || !isEffectsActive.value) {
     return
   }
   pointerPosition = { x: event.clientX, y: event.clientY }
@@ -646,25 +515,6 @@ function onReducedMotionChange(): void {
   }
 }
 
-function bindHeroResizeObserver(): void {
-  heroResizeObserver?.disconnect()
-  heroResizeObserver = null
-  const billboard = heroBillboardRef.value
-  if (
-    !billboard ||
-    typeof ResizeObserver === 'undefined' ||
-    isPageUnmounted ||
-    !isAlbumDetailEffectsActive.value
-  ) {
-    return
-  }
-
-  heroResizeObserver = new ResizeObserver(() => {
-    if (isAlbumDetailEffectsActive.value && !isPageUnmounted) paintHeroFluid()
-  })
-  heroResizeObserver.observe(billboard)
-}
-
 function bindDetailScrollListener(): void {
   const nextTarget = detailRootRef.value
   if (detailScrollTarget === nextTarget) return
@@ -679,7 +529,7 @@ function unbindDetailScrollListener(): void {
 }
 
 async function enableModernEffects(): Promise<void> {
-  if (isPageUnmounted || !isAlbumDetailEffectsActive.value || loadState.value !== 'ready') return
+  if (isPageUnmounted || !isEffectsActive.value) return
   const activationGeneration = ++modernEffectsActivationGeneration
 
   if (!modernEffectsBound) {
@@ -693,24 +543,18 @@ async function enableModernEffects(): Promise<void> {
   await nextTick()
   if (
     isPageUnmounted ||
-    !isAlbumDetailEffectsActive.value ||
-    loadState.value !== 'ready' ||
+    !isEffectsActive.value ||
     !modernEffectsBound ||
     activationGeneration !== modernEffectsActivationGeneration
   ) {
     return
   }
   bindDetailScrollListener()
-  bindHeroResizeObserver()
-  paintHeroFluid()
 }
 
 function disableModernEffects(): void {
   modernEffectsActivationGeneration += 1
   resetCoverTracking()
-  heroFluidGeneration += 1
-  heroResizeObserver?.disconnect()
-  heroResizeObserver = null
   unbindDetailScrollListener()
 
   if (!modernEffectsBound) return
@@ -721,59 +565,50 @@ function disableModernEffects(): void {
   reducedMotionQuery.removeEventListener('change', onReducedMotionChange)
 }
 
+/**
+ * 高开销效果在入场动画结束后启用；内容 DOM 由 hasRenderableData 单独控制，这里不重建页面。
+ */
+watch(
+  isEffectsActive,
+  async (active) => {
+    if (!active) {
+      resetMoreAlbumsScrollState()
+      disableModernEffects()
+      return
+    }
+
+    await nextTick()
+    if (isPageUnmounted || !isEffectsActive.value) return
+
+    showSearchResultHighlight()
+    void refreshMoreAlbumsScrollState()
+    void enableModernEffects()
+  },
+  { immediate: true },
+)
+
 watch(
   () => [albumArtist.value, albumTitle.value] as const,
   async () => {
-    const wasReady = loadState.value === 'ready'
+    const wasEffectsActive = isEffectsActive.value
+    await ensureCurrentAlbum()
     await nextTick()
     if (isPageUnmounted) return
-    if (loadState.value !== 'loading' && loadState.value !== 'error') syncLoadStateFromTracks()
     detailRootRef.value?.scrollTo({ top: 0 })
-    if (wasReady && loadState.value === 'ready') showSearchResultHighlight()
+    if (wasEffectsActive && isEffectsActive.value) showSearchResultHighlight()
     void refreshMoreAlbumsScrollState()
-    if (isAlbumDetailEffectsActive.value) void enableModernEffects()
-  },
-)
-
-watch(artworkUrl, async () => {
-  await nextTick()
-  if (isAlbumDetailEffectsActive.value && !isPageUnmounted) paintHeroFluid()
-})
-
-watch(
-  () => albumTracks.value.length,
-  async (length) => {
-    if (length <= 0) return
-    await nextTick()
-    if (isAlbumDetailEffectsActive.value && !isPageUnmounted) void enableModernEffects()
+    if (isEffectsActive.value) void enableModernEffects()
   },
 )
 
 watch(
-  () => moreAlbumsByArtist.value.map((album) => album.key).join('\u0001'),
-  () => {
+  () =>
+    isEffectsActive.value ? moreAlbumsByArtist.value.map((album) => album.key).join('\u0001') : '',
+  (key, prevKey) => {
+    if (!isEffectsActive.value || key === prevKey) return
     void refreshMoreAlbumsScrollState()
   },
 )
-
-watch(loadState, async (state, previousState) => {
-  if (state === 'ready') {
-    if (previousState !== 'ready') {
-      await nextTick()
-      if (isPageUnmounted || loadState.value !== 'ready') return
-      showSearchResultHighlight()
-    }
-    void refreshMoreAlbumsScrollState()
-    if (isAlbumDetailEffectsActive.value) {
-      void enableModernEffects()
-    } else {
-      disableModernEffects()
-    }
-  } else {
-    resetMoreAlbumsScrollState()
-    disableModernEffects()
-  }
-})
 
 onMounted(async () => {
   await initializeAlbumTracks()
@@ -790,12 +625,12 @@ onBeforeUnmount(() => {
 <template>
   <div
     class="album-detail-container album-detail-page h-full w-full relative bg-transparent"
-    :style="isAlbumDetailEffectsActive ? albumDetailStyle : undefined"
+    :style="hasRenderableData ? albumDetailStyle : undefined"
   >
     <section
-      v-if="loadState === 'ready'"
+      v-if="hasRenderableData"
       ref="detailRootRef"
-      class="album-detail-scroll-wrapper h-full w-full overflow-y-auto relative z-10"
+      class="album-detail-scroll-wrapper h-full w-full overflow-x-hidden overflow-y-auto relative z-10"
     >
       <button
         class="album-detail-back"
@@ -810,21 +645,28 @@ onBeforeUnmount(() => {
       <div class="album-detail-wrapper">
         <!-- Phase 1: Hero 巨幕 Banner -->
         <section
-          ref="heroBillboardRef"
           class="album-hero-billboard"
           :aria-label="t('albums.detail.heroAria', { title: displayAlbumTitle })"
         >
-          <canvas
-            v-if="isAlbumDetailEffectsActive"
-            ref="heroCanvasRef"
-            class="album-hero-static-canvas"
-            aria-hidden="true"
-          ></canvas>
+          <div class="album-hero-tint" aria-hidden="true">
+            <div
+              class="album-hero-tint-wash"
+              :class="{ 'album-hero-tint-wash--ready': Boolean(artworkUrl) }"
+            />
+            <div
+              class="album-hero-tint-gradient"
+              :class="{ 'album-hero-tint-gradient--ready': heroTint.hasPaletteTint }"
+            />
+          </div>
 
-          <!-- 上半部分：主内容层（封面 + 信息流 + 对齐封面底部的操作按钮） -->
+          <!-- 主内容层：封面与专辑信息、播放操作 -->
           <div class="album-hero-main-stage">
             <!-- 左侧：封面舞台 -->
-            <div ref="coverStageRef" class="album-hero-cover-container">
+            <div
+              ref="coverStageRef"
+              class="album-hero-cover-container"
+              :class="{ 'album-hero-cover-container--effects-active': isEffectsActive }"
+            >
               <div class="album-hero-cover">
                 <img
                   v-if="artworkUrl"
@@ -846,22 +688,19 @@ onBeforeUnmount(() => {
               </div>
             </div>
 
-            <!-- 中间：信息主干流（右侧安全避让操作按钮） -->
+            <!-- 专辑信息与操作 -->
             <div class="album-hero-content-stage">
-              <!-- Zone 1: 流派与类别 -->
-              <div class="album-hero-zone-genres select-none">
-                <span class="album-badge">ALBUM</span>
-                <div v-if="albumGenrePills.length > 0" class="album-genre-pills">
-                  <button
+              <!-- Zone 1: 流派 -->
+              <div v-if="albumGenrePills.length > 0" class="album-hero-zone-genres select-none">
+                <div class="album-genre-pills">
+                  <span
                     v-for="genre in albumGenrePills"
                     :key="genre"
-                    type="button"
                     class="album-genre-pill"
                     :title="genre"
-                    @click="onGenrePillClick(genre)"
                   >
                     {{ genre }}
-                  </button>
+                  </span>
                 </div>
               </div>
 
@@ -888,84 +727,48 @@ onBeforeUnmount(() => {
                 </div>
               </div>
 
-              <!-- Zone 3: 播放度量与 3D 翻转统计（轻量无底色纯文字行） -->
+              <!-- Zone 3: 专辑信息与收听统计 -->
               <div class="album-hero-zone-metrics select-none">
-                <div class="album-hero-metric-item">
-                  <span class="album-hero-metric-label">{{
-                    t('albums.detail.metrics.tracks')
-                  }}</span>
-                  <span class="album-hero-metric-value">{{ metricsTrackCount }}</span>
+                <div class="album-hero-metric-row">
+                  <div class="album-hero-metric-item">
+                    <span class="album-hero-metric-label">{{
+                      t('albums.detail.metrics.tracks')
+                    }}</span>
+                    <span class="album-hero-metric-value">{{ metricsTrackCount }}</span>
+                  </div>
+                  <div class="album-hero-metric-item">
+                    <span class="album-hero-metric-label">{{
+                      t('albums.detail.metrics.duration')
+                    }}</span>
+                    <span class="album-hero-metric-value">{{ metricsTotalDuration }}</span>
+                  </div>
                 </div>
-                <div class="album-hero-metric-item">
-                  <span class="album-hero-metric-label">{{
-                    t('albums.detail.metrics.duration')
-                  }}</span>
-                  <span class="album-hero-metric-value">{{ metricsTotalDuration }}</span>
-                </div>
-
-                <!-- 3D 滚筒翻转微交互（Zero Layout Shift 原地翻转） -->
-                <div
-                  class="album-hero-metric-flipper-stage"
-                  tabindex="0"
-                  role="region"
-                  :aria-label="t('albums.detail.metrics.stats')"
-                >
-                  <!-- 隐藏测宽占位层：锁定正反两面最大物理尺寸，确保左侧指标绝对不发生任何横向抖动 -->
-                  <div class="album-hero-metric-flipper-measure" aria-hidden="true">
+                <div class="album-hero-metric-row">
+                  <div class="album-hero-metric-item">
                     <span class="album-hero-metric-label">{{
                       t('albums.detail.metrics.plays')
                     }}</span>
                     <span class="album-hero-metric-value">{{ metricsPlaysLabel }}</span>
+                  </div>
+                  <div class="album-hero-metric-item">
                     <span class="album-hero-metric-label">{{
                       t('albums.detail.metrics.listened')
                     }}</span>
                     <span class="album-hero-metric-value">{{ metricsTotalTime }}</span>
                   </div>
-
-                  <!-- 3D 滚筒主体（preserve-3d） -->
-                  <div class="album-hero-flipper-cube">
-                    <!-- 正面（默认态）：向右的箭头 -->
-                    <div class="album-hero-flipper-face album-hero-flipper-face--front">
-                      <svg
-                        class="album-hero-flipper-arrow"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2.2"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path d="m9 18 6-6-6-6" />
-                      </svg>
-                    </div>
-
-                    <!-- 背面（悬停翻出）：已听次数与累计收听时长 -->
-                    <div class="album-hero-flipper-face album-hero-flipper-face--back">
-                      <span class="album-hero-metric-label">{{
-                        t('albums.detail.metrics.plays')
-                      }}</span>
-                      <span class="album-hero-metric-value">{{ metricsPlaysLabel }}</span>
-                      <span class="album-hero-metric-label">{{
-                        t('albums.detail.metrics.listened')
-                      }}</span>
-                      <span class="album-hero-metric-value">{{ metricsTotalTime }}</span>
-                    </div>
-                  </div>
                 </div>
               </div>
-            </div>
-
-            <!-- 右侧：严格与封面底边对齐的 Hero Action 大按钮组 -->
-            <div class="album-hero-actions">
-              <button class="album-hero-play-btn" type="button" @click="playAlbum">
-                <span class="i-lucide-play h-5 w-5 fill-current" aria-hidden="true"></span>
-                <span>{{ t('albums.detail.play') }}</span>
-              </button>
-              <button class="album-hero-shuffle-btn" type="button" @click="playAlbumShuffle">
-                <span class="i-lucide-shuffle h-[18px] w-[18px]" aria-hidden="true"></span>
-                <span>{{ t('albums.detail.shuffle') }}</span>
-              </button>
+              <!-- 专辑播放操作 -->
+              <div class="album-hero-actions">
+                <button class="album-hero-play-btn" type="button" @click="playAlbum">
+                  <span class="i-lucide-play h-5 w-5 fill-current" aria-hidden="true"></span>
+                  <span>{{ t('albums.detail.play') }}</span>
+                </button>
+                <button class="album-hero-shuffle-btn" type="button" @click="playAlbumShuffle">
+                  <span class="i-lucide-shuffle h-[18px] w-[18px]" aria-hidden="true"></span>
+                  <span>{{ t('albums.detail.shuffle') }}</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1056,21 +859,50 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
+    <section
+      v-else-if="loadState === 'loading'"
+      class="album-detail-scroll-wrapper album-detail-skeleton h-full w-full overflow-hidden relative z-10"
+      aria-busy="true"
+      :aria-label="t('albums.detail.loading')"
+    >
+      <button
+        class="album-detail-back"
+        type="button"
+        :aria-label="t('albums.detail.back')"
+        @click="goBack"
+      >
+        <span class="i-lucide-arrow-left" aria-hidden="true" />
+        <span>{{ t('albums.detail.back') }}</span>
+      </button>
+
+      <div class="album-detail-wrapper" aria-hidden="true">
+        <section class="album-hero-billboard">
+          <div class="album-hero-main-stage">
+            <div class="album-hero-cover-container">
+              <div class="album-hero-cover album-detail-skeleton-block"></div>
+            </div>
+            <div class="album-hero-content-stage">
+              <div class="album-detail-skeleton-line album-detail-skeleton-line--title"></div>
+              <div class="album-detail-skeleton-line album-detail-skeleton-line--meta"></div>
+              <div class="album-detail-skeleton-line album-detail-skeleton-line--metrics"></div>
+            </div>
+          </div>
+        </section>
+        <div class="album-body-grid">
+          <div v-for="index in 8" :key="index" class="album-detail-skeleton-track"></div>
+        </div>
+      </div>
+    </section>
+
     <div
       v-else
       class="album-detail-state flex min-h-[60vh] items-center justify-center relative z-10"
       :class="`album-detail-state--${loadState}`"
-      :aria-live="loadState === 'loading' ? 'polite' : 'assertive'"
+      aria-live="assertive"
     >
       <div class="album-detail-state-content text-center">
         <p class="album-detail-state-message text-base font-semibold text-[var(--auralis-text)]">
-          {{
-            loadState === 'loading'
-              ? t('albums.detail.loading')
-              : loadState === 'error'
-                ? t('albums.detail.loadError')
-                : t('albums.detail.notFound')
-          }}
+          {{ loadState === 'error' ? t('albums.detail.loadError') : t('albums.detail.notFound') }}
         </p>
         <button
           v-if="loadState === 'error'"
@@ -1081,7 +913,6 @@ onBeforeUnmount(() => {
           {{ t('albums.detail.retry') }}
         </button>
         <button
-          v-if="loadState !== 'loading'"
           class="album-detail-state-action mt-3 text-sm text-[var(--auralis-sidebar-active-text)]"
           type="button"
           @click="goBack"
@@ -1097,10 +928,12 @@ onBeforeUnmount(() => {
 .album-detail-container {
   width: 100%;
   height: 100%;
+  min-height: 0;
   position: relative;
 }
 
 .album-detail-scroll-wrapper {
+  min-height: 0;
   padding: var(--auralis-shell-edge-gap) 32px calc(var(--auralis-playbar-safe-area) + 40px);
 }
 
@@ -1157,27 +990,74 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 16px;
   width: 100%;
-  padding: 32px;
-  border-radius: 24px;
-  background: color-mix(in srgb, var(--auralis-dialog-bg) 88%, #000);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    0 24px 60px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  overflow: hidden;
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
+  padding: 24px 0 12px;
+  isolation: isolate;
 }
 
-.album-hero-static-canvas {
+.album-hero-tint {
+  position: absolute;
+  top: -48px;
+  left: -64px;
+  width: calc(var(--album-hero-cover-size) + 280px);
+  height: calc(var(--album-hero-cover-size) + 200px);
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* Fade before the scroller clips this layer 32px from its left edge. */
+  -webkit-mask-image:
+    linear-gradient(to right, transparent 48px, #000 128px),
+    radial-gradient(ellipse at 40% 45%, #000 0%, transparent 70%);
+  mask-image:
+    linear-gradient(to right, transparent 48px, #000 128px),
+    radial-gradient(ellipse at 40% 45%, #000 0%, transparent 70%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+
+.album-hero-tint-wash,
+.album-hero-tint-gradient {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.9;
-  border-radius: inherit;
+}
+
+.album-hero-tint-wash {
+  background-image: var(--album-hero-wash-image);
+  background-position: center;
+  background-size: cover;
+  opacity: 0;
+}
+
+.album-hero-tint-wash--ready {
+  opacity: 0.18;
+}
+
+.album-hero-tint-gradient {
+  opacity: 0;
+  background:
+    radial-gradient(
+      ellipse at 18% 28%,
+      color-mix(in srgb, var(--album-hero-tint-a) 72%, transparent) 0%,
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse at 86% 18%,
+      color-mix(in srgb, var(--album-hero-tint-b) 58%, transparent) 0%,
+      transparent 52%
+    ),
+    radial-gradient(
+      ellipse at 72% 88%,
+      color-mix(in srgb, var(--album-hero-tint-c) 48%, transparent) 0%,
+      transparent 55%
+    ),
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--album-hero-tint-bg) 88%, #000) 0%,
+      color-mix(in srgb, var(--album-hero-tint-a) 28%, #0c0d10) 100%
+    );
+}
+
+.album-hero-tint-gradient--ready {
+  opacity: 0.32;
 }
 
 /* 上半部分：主内容层（封面 + 信息流 + 按钮） */
@@ -1223,12 +1103,12 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 8%;
   border-radius: 18px;
-  background: v-bind(artworkGlowBackground);
+  background: none;
   background-size: cover;
   background-position: center;
   content: '';
-  filter: blur(28px) saturate(1.8);
-  opacity: 0.55;
+  filter: none;
+  opacity: 0;
   pointer-events: none;
   z-index: -1;
   transform: translate3d(
@@ -1241,6 +1121,12 @@ onBeforeUnmount(() => {
     transform 140ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 0.3s;
   will-change: transform;
+}
+
+.album-hero-cover-container--effects-active::after {
+  background: v-bind(artworkGlowBackground);
+  filter: blur(28px) saturate(1.8);
+  opacity: 0.55;
 }
 
 .album-hero-cover {
@@ -1266,29 +1152,47 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding-right: 250px;
   color: #f4f1ea;
 }
 
-/* Zone 1: 流派与类别 */
+.album-detail-skeleton-block,
+.album-detail-skeleton-line,
+.album-detail-skeleton-track {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.album-detail-skeleton-line {
+  border-radius: 8px;
+}
+
+.album-detail-skeleton-line--title {
+  width: min(420px, 72%);
+  height: 28px;
+}
+
+.album-detail-skeleton-line--meta {
+  width: min(240px, 48%);
+  height: 16px;
+  margin-top: 10px;
+}
+
+.album-detail-skeleton-line--metrics {
+  width: min(180px, 36%);
+  height: 14px;
+  margin-top: 18px;
+}
+
+.album-detail-skeleton-track {
+  height: 50px;
+  border-radius: 12px;
+}
+
+/* Zone 1: 流派 */
 .album-hero-zone-genres {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-}
-
-.album-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  line-height: 1.2;
 }
 
 .album-genre-pills {
@@ -1306,29 +1210,14 @@ onBeforeUnmount(() => {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid
     color-mix(in srgb, var(--auralis-album-detail-accent) 35%, rgba(255, 255, 255, 0.16));
-  color: var(--auralis-album-detail-accent);
+  color: var(--auralis-text);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.5px;
   line-height: 1.3;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
-}
-
-.album-genre-pill:hover {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: var(--auralis-album-detail-accent);
-  color: #ffffff;
-  transform: translateY(-1px);
-  filter: brightness(1.15);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--auralis-album-detail-accent) 30%, transparent);
-}
-
-.album-genre-pill:active {
-  transform: translateY(0);
 }
 
 /* Zone 2: 核心文本与主操作 */
@@ -1412,16 +1301,14 @@ onBeforeUnmount(() => {
 .album-hero-year-text {
   font-size: 14px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--auralis-text-muted);
 }
 
 .album-hero-actions {
-  position: absolute;
-  right: 0;
-  top: calc(var(--album-hero-cover-size) - 48px);
-  height: 48px;
+  margin-top: 8px;
   z-index: 2;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
@@ -1497,25 +1384,32 @@ onBeforeUnmount(() => {
   transform: translateY(0);
 }
 
-/* Zone 3: 播放度量与 3D 翻转统计（轻量无底色纯文字行） */
+/* Zone 3: 专辑信息与收听统计 */
 .album-hero-zone-metrics {
   margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  width: fit-content;
+  display: grid;
+  grid-template-columns: repeat(4, max-content);
+  gap: 12px;
   max-width: 100%;
 }
 
-.album-hero-metric-item {
-  display: inline-flex;
+.album-hero-metric-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
-  gap: 6px;
+}
+
+.album-hero-metric-item {
+  display: grid;
+  grid-column: span 2;
+  grid-template-columns: subgrid;
+  align-items: center;
   line-height: 1;
 }
 
 .album-hero-metric-label {
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--auralis-text-muted);
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.2px;
@@ -1530,97 +1424,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-/* —— 3D 滚筒翻转微交互（Zero Layout Shift 原地翻转） —— */
-.album-hero-metric-flipper-stage {
-  position: relative;
-  height: 20px;
-  perspective: 500px;
-  display: inline-flex;
-  align-items: center;
-  cursor: pointer;
-  outline: none;
-}
-
-.album-hero-metric-flipper-stage:focus-visible {
-  outline: 1px dashed rgba(255, 255, 255, 0.35);
-  outline-offset: 3px;
-  border-radius: 4px;
-}
-
-/* 测量层：不可见但占据物理空间，锁定正反面统一宽度，杜绝左侧任何抖动 */
-.album-hero-metric-flipper-measure {
-  visibility: hidden;
-  pointer-events: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  white-space: nowrap;
-  user-select: none;
-}
-
-/* 滚筒本体：X 轴 3D 旋转体 */
-.album-hero-metric-flipper-cube {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-  -webkit-transform-style: preserve-3d;
-  transition: transform 380ms cubic-bezier(0.16, 1, 0.3, 1);
-  transform-origin: center center;
-}
-
-/* 悬停或获得焦点时原地翻滚 180° */
-.album-hero-metric-flipper-stage:hover .album-hero-metric-flipper-cube,
-.album-hero-metric-flipper-stage:focus-visible .album-hero-metric-flipper-cube {
-  transform: rotateX(180deg);
-}
-
-/* 正反面基础属性 */
-.album-hero-flipper-face {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  white-space: nowrap;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
-
-/* 正面：向右的箭头 */
-.album-hero-flipper-face--front {
-  transform: rotateX(0deg);
-  display: flex;
-  align-items: center;
-  color: rgba(255, 255, 255, 0.45);
-  transition: color 0.2s ease;
-}
-
-.album-hero-metric-flipper-stage:hover .album-hero-flipper-face--front {
-  color: #ffffff;
-}
-
-.album-hero-flipper-arrow {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-  transition:
-    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-    color 0.2s ease;
-}
-
-.album-hero-metric-flipper-stage:hover .album-hero-flipper-arrow {
-  transform: translateX(2px);
-}
-
-/* 背面：绕 X 轴预转 180° */
-.album-hero-flipper-face--back {
-  transform: rotateX(180deg);
-  gap: 8px;
-}
-
 /* 下半部分：底部脚注层（横跨全宽，完整横向平铺展开） */
 .album-hero-footer-stage {
   position: relative;
@@ -1632,7 +1435,7 @@ onBeforeUnmount(() => {
 .album-hero-legal-text {
   margin: 0;
   width: 100%;
-  color: rgba(255, 255, 255, 0.32);
+  color: var(--auralis-text-subtle);
   font-size: 11px;
   font-weight: 400;
   line-height: 1.4;
@@ -1686,13 +1489,16 @@ onBeforeUnmount(() => {
 }
 
 .album-more-gallery-scroller {
+  --gallery-inline-padding: 16px;
   display: flex;
   gap: 18px;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 12px 16px 16px;
+  padding: 12px var(--gallery-inline-padding) 16px;
   margin-top: -4px;
   scroll-snap-type: x proximity;
+  /* Keep the first card snapped at scrollLeft = 0, including its inset. */
+  scroll-padding-inline: var(--gallery-inline-padding);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -1798,7 +1604,7 @@ onBeforeUnmount(() => {
 @media (max-width: 959px) {
   .album-hero-billboard {
     --album-hero-cover-size: 160px;
-    padding: 20px;
+    padding: 20px 0 12px;
     gap: 14px;
   }
 
@@ -1808,17 +1614,6 @@ onBeforeUnmount(() => {
 
   .album-body-grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 780px) {
-  .album-hero-content-stage {
-    padding-right: 0;
-  }
-
-  .album-hero-actions {
-    position: static;
-    margin-top: 10px;
   }
 }
 
@@ -1842,10 +1637,6 @@ onBeforeUnmount(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .album-hero-metric-flipper-cube {
-    transition: none !important;
-  }
-
   .album-hero-cover,
   .album-hero-cover-container::before,
   .album-hero-cover-container::after {
@@ -1859,7 +1650,6 @@ onBeforeUnmount(() => {
 
   .album-hero-play-btn:hover,
   .album-hero-shuffle-btn:hover,
-  .album-genre-pill:hover,
   .album-detail-back:hover {
     transform: none;
   }

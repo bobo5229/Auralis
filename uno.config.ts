@@ -18,25 +18,22 @@ export default defineConfig({
       'grid h-full min-h-0 grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-transparent text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_20%]',
     'app-sidebar':
       'flex w-[232px] h-[calc(100%_-_var(--auralis-shell-vertical-gap))] min-h-0 flex-col m-[var(--auralis-shell-edge-gap)_0_var(--auralis-shell-edge-gap)_var(--auralis-shell-edge-gap)] rounded-lg border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
-    'app-main': 'min-h-0 overflow-y-auto bg-transparent',
+    'app-main': 'min-w-0 min-h-0 overflow-hidden bg-transparent',
     'now-playing-panel':
       'hidden h-full min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-4 xl:flex',
-    // Geometry is owned by presentation-scoped CSS (modern dual-rail dock /
-    // player footer variants). Keep only shared stacking + material shell here.
+    // Geometry and stacking are owned exclusively by main.css (.player-bar). Keep only material shell tokens here.
     'player-bar':
-      'fixed z-50 h-18 border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] shadow-[var(--auralis-playbar-shadow)]',
+      'border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] shadow-[var(--auralis-playbar-shadow)]',
     'transport-controls': 'flex items-center gap-2 shrink-0',
     'transport-control':
       'inline-flex items-center justify-center rounded p-2 text-[var(--auralis-text-muted)] transition hover:text-[var(--auralis-text)] shadow-none hover:shadow-none',
-    'transport-control-primary':
-      'inline-flex items-center justify-center rounded-full p-3 text-[#1f1f1f] bg-[#e8e1d2] transition shadow-none hover:shadow-none',
     'playback-actions': 'relative flex items-center gap-3 shrink-0',
     'volume-control-group': 'flex items-center gap-1.5 shrink-0',
     'track-info-card': 'flex-1 min-w-0',
     'track-info-row': 'flex items-center gap-3',
     'track-cover':
-      'w-11 h-11 rounded-lg shrink-0 bg-[var(--auralis-border-subtle)] overflow-hidden',
-    'track-text': 'flex flex-col justify-center min-w-0 h-11',
+      'w-10 h-10 rounded-lg shrink-0 bg-[var(--auralis-border-subtle)] overflow-hidden',
+    'track-text': 'flex flex-col justify-center min-w-0 h-10',
     'track-title': 'text-[13px] leading-[18px] font-semibold truncate',
     'track-subtitle': 'text-xs leading-4 text-[var(--auralis-text-muted)] truncate',
     'track-progress':

@@ -19,7 +19,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'click-peak', event: MouseEvent | KeyboardEvent, date: string): void
-  (e: 'open-recap'): void
   (e: 'reset'): void
 }>()
 
@@ -87,15 +86,6 @@ function emitPeakClick(event: MouseEvent | KeyboardEvent): void {
           >
             ANNUAL NOTES · {{ data.year }} ARCHIVE
           </span>
-          <button
-            v-if="!isPending"
-            type="button"
-            class="narrative-recap-btn"
-            @click="emit('open-recap')"
-          >
-            <span class="i-lucide-sparkles inline-block h-3.5 w-3.5"></span>
-            <span>{{ t('archive.annualRecap') }}</span>
-          </button>
         </div>
         <span class="narrative-serial">NO. #AUR-{{ data.year }}-{{ checksumPrefix }}</span>
       </header>

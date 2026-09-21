@@ -6,8 +6,17 @@ import {
 } from './routeComponentLoaders'
 
 describe('routeComponentLoaders', () => {
-  it('defines primary warmable routes strictly matching albums, archive, and settings', () => {
-    expect(PRIMARY_WARMABLE_ROUTES).toEqual(['albums', 'archive', 'settings'])
+  it('loads the CD page lazily without adding it to primary warmup', async () => {
+    const cdAlbums = vi.fn().mockResolvedValue({ default: { name: 'CdAlbumsPage' } })
+    const registry = createRouteLoaderRegistry({ cdAlbums })
+    expect(cdAlbums).not.toHaveBeenCalled()
+    expect(registry.isWarmableRoute('cd-albums')).toBe(false)
+    await Promise.all([registry.routeLoaders.cdAlbums(), registry.routeLoaders.cdAlbums()])
+    expect(cdAlbums).toHaveBeenCalledTimes(1)
+  })
+
+  it('defines primary warmable routes strictly matching library, albums, archive, and settings', () => {
+    expect(PRIMARY_WARMABLE_ROUTES).toEqual(['library', 'albums', 'archive', 'settings'])
   })
 
   it('correctly checks isWarmableRoute only for valid warmable routes', () => {
@@ -17,15 +26,14 @@ describe('routeComponentLoaders', () => {
       albumDetail: vi.fn(),
       archive: vi.fn(),
       settings: vi.fn(),
-      download: vi.fn(),
     })
 
+    expect(registry.isWarmableRoute('library')).toBe(true)
     expect(registry.isWarmableRoute('albums')).toBe(true)
     expect(registry.isWarmableRoute('archive')).toBe(true)
     expect(registry.isWarmableRoute('settings')).toBe(true)
-    expect(registry.isWarmableRoute('download')).toBe(true)
+    expect(registry.isWarmableRoute('download')).toBe(false)
 
-    expect(registry.isWarmableRoute('library')).toBe(false)
     expect(registry.isWarmableRoute('album-detail')).toBe(false)
     expect(registry.isWarmableRoute('playlist')).toBe(false)
     expect(registry.isWarmableRoute(null)).toBe(false)

@@ -5,6 +5,7 @@ import { LibraryRepository } from '@main/repositories/libraryRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
 import { LibraryCatalogSnapshotStore } from '@main/features/libraryCatalog/libraryCatalogSnapshotStore'
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
+import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
 
 export class LibraryService {
   private readonly catalogSnapshotStore: LibraryCatalogSnapshotStore
@@ -26,6 +27,16 @@ export class LibraryService {
 
   getTrackPage(request: LibraryTrackPageRequest): LibraryTrackPage {
     return this.catalogSnapshotStore.getPage(request)
+  }
+
+  getAlbumDetail(request: AlbumDetailRequest): AlbumDetailResult {
+    return {
+      tracks: this.trackRepository.getAlbumDetailTracks(request.albumArtist, request.albumTitle),
+      moreAlbums: this.trackRepository.getArtistAlbumSummaries(
+        request.albumArtist,
+        request.albumTitle,
+      ),
+    }
   }
 
   getLyrics(trackId: number): TrackLyrics | null {

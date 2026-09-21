@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+import { prefetchArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import type { AlbumSummary } from '../types'
 
 const props = defineProps<{
@@ -21,13 +22,40 @@ const emit = defineEmits<{
 }>()
 
 const imageFailed = ref(false)
+const cardRootRef = ref<HTMLElement | null>(null)
+let visibilityObserver: IntersectionObserver | null = null
+
+function prefetchCoverPalette(): void {
+  prefetchArtworkPalette(props.album.artworkCacheKey)
+}
 
 watch(
   () => props.album.artworkCacheKey,
   () => {
     imageFailed.value = false
+    prefetchCoverPalette()
   },
 )
+
+onMounted(() => {
+  const card = cardRootRef.value
+  if (card && typeof IntersectionObserver !== 'undefined') {
+    visibilityObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) prefetchCoverPalette()
+      },
+      { rootMargin: '120px', threshold: 0.01 },
+    )
+    visibilityObserver.observe(card)
+  } else {
+    prefetchCoverPalette()
+  }
+})
+
+onBeforeUnmount(() => {
+  visibilityObserver?.disconnect()
+  visibilityObserver = null
+})
 
 function openAlbum(): void {
   emit('open', props.album)
@@ -40,8 +68,10 @@ function onContextMenu(event: MouseEvent): void {
 
 <template>
   <article
+    ref="cardRootRef"
     class="album-card min-w-0"
     :class="[`album-card--${displayMode}`, { 'album-card--highlighted': highlighted }]"
+    @pointerenter="prefetchCoverPalette"
   >
     <!-- cover-stage 锁定 1:1；cover-frame 承载 3D；img 绝对填充 + object-fit:cover 强制裁切 -->
     <div

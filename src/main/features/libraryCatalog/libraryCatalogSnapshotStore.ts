@@ -3,11 +3,13 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import {
   LIBRARY_CATALOG_DEFAULT_PAGE_SIZE,
   LIBRARY_CATALOG_MAX_PAGE_SIZE,
+  LibraryCatalogExpiredError,
   type LibraryTrackPage,
   type LibraryTrackPageRequest,
 } from '@shared/types/libraryCatalog'
 
 interface LibraryCatalogSnapshot {
+  lastAccessedAt: number
   readonly id: string
   readonly tracks: readonly TrackListItem[]
 }
@@ -48,15 +50,19 @@ function decodeCursor(value: string): LibraryCatalogCursor {
 }
 
 /**
- * Maintains one immutable, pinyin-sorted catalog snapshot in the main process.
+ * Maintains bounded immutable, pinyin-sorted catalog generations in the main process.
  * Cursors address offsets inside that snapshot, so renderer paging cannot reorder
  * or duplicate tracks while the underlying database is changing.
  */
 export class LibraryCatalogSnapshotStore {
-  private snapshot: LibraryCatalogSnapshot | null = null
+  private snapshots = new Map<string, LibraryCatalogSnapshot>()
+  private currentId: string | null = null
   private snapshotSequence = 0
 
-  constructor(private readonly loadTracks: () => TrackListItem[]) {}
+  constructor(
+    private readonly loadTracks: () => TrackListItem[],
+    private readonly now: () => number = Date.now,
+  ) {}
 
   getPage(request: LibraryTrackPageRequest = {}): LibraryTrackPage {
     if (request.refresh && request.cursor !== undefined) {
@@ -67,21 +73,32 @@ export class LibraryCatalogSnapshotStore {
     let snapshotHeapDeltaBytes: number | null = null
     let offset = 0
 
-    if (request.refresh || this.snapshot === null) {
+    // Validate cursors before cleanup/building; never reinterpret one as a first page.
+    const cursor = request.cursor === undefined ? null : decodeCursor(request.cursor)
+    for (const [id, retained] of this.snapshots) {
+      if (this.now() - retained.lastAccessedAt >= LIBRARY_CATALOG_IDLE_MS) {
+        this.snapshots.delete(id)
+      }
+    }
+    let snapshot = this.currentId ? this.snapshots.get(this.currentId) : undefined
+    if (cursor) {
+      snapshot = this.snapshots.get(cursor.snapshotId)
+      if (!snapshot) throw new LibraryCatalogExpiredError()
+      offset = cursor.offset
+    } else if (request.refresh || !snapshot) {
       const startedAt = performance.now()
       const heapUsedBefore = process.memoryUsage().heapUsed
-      this.snapshot = this.createSnapshot()
+      snapshot = this.createSnapshot()
+      this.currentId = snapshot.id
+      this.snapshots.set(snapshot.id, snapshot)
+      while (this.snapshots.size > LIBRARY_CATALOG_RETAINED_GENERATIONS) {
+        this.snapshots.delete(this.snapshots.keys().next().value!)
+      }
       snapshotBuildMs = performance.now() - startedAt
       snapshotHeapDeltaBytes = process.memoryUsage().heapUsed - heapUsedBefore
-    } else if (request.cursor !== undefined) {
-      const cursor = decodeCursor(request.cursor)
-      if (cursor.snapshotId !== this.snapshot.id) {
-        throw new Error('Library catalog cursor refers to an expired snapshot')
-      }
-      offset = cursor.offset
     }
 
-    const snapshot = this.snapshot
+    snapshot.lastAccessedAt = this.now()
     const pageSize = normalizePageSize(request.limit)
     if (offset > snapshot.tracks.length) {
       throw new Error('Library catalog cursor offset exceeds snapshot size')
@@ -101,6 +118,7 @@ export class LibraryCatalogSnapshotStore {
       tracks,
       nextCursor,
       diagnostics: {
+        retainedSnapshots: this.snapshots.size,
         snapshotBuildMs,
         snapshotHeapDeltaBytes,
         pageSliceMs: performance.now() - pageStartedAt,
@@ -111,8 +129,12 @@ export class LibraryCatalogSnapshotStore {
   private createSnapshot(): LibraryCatalogSnapshot {
     this.snapshotSequence += 1
     return {
+      lastAccessedAt: this.now(),
       id: `${Date.now().toString(36)}-${this.snapshotSequence.toString(36)}`,
-      tracks: Object.freeze(this.loadTracks().slice()),
+      tracks: Object.freeze(this.loadTracks().map((track) => Object.freeze({ ...track }))),
     }
   }
 }
+
+export const LIBRARY_CATALOG_RETAINED_GENERATIONS = 2
+export const LIBRARY_CATALOG_IDLE_MS = 60_000

@@ -1,4 +1,16 @@
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import {
+  AUDIO_FILE_SIZE_HEADER,
+  AUDIO_FILE_MTIME_HEADER,
+  type AudioDecodeProbe,
+} from '@shared/types/audioDecode'
+import {
+  audioDecodeBudget,
+  readEncodedAudio,
+  MAX_SINGLE_PCM_BYTES,
+  MAX_DECODE_BUDGET_BYTES,
+  MAX_DURATION_SECONDS,
+} from './audioDecodeBudget'
 
 export type AudioSnapshot = {
   currentTime: number
@@ -20,12 +32,9 @@ type EngineOptions = {
 
 type ScheduleNextOptions = {
   trimBoundarySilence?: boolean
+  decodeProbe?: AudioDecodeProbe | null
 }
 
-const MAX_ENCODED_BYTES = 256 * 1024 * 1024
-const MAX_SINGLE_PCM_BYTES = 320 * 1024 * 1024
-const MAX_BUFFERED_PCM_BYTES = 512 * 1024 * 1024
-const MAX_DURATION_SECONDS = 2 * 60 * 60
 const SILENCE_THRESHOLD = 0.001
 const MAX_BOUNDARY_SILENCE_SECONDS = 8
 const SILENCE_GUARD_SECONDS = 0.005
@@ -53,6 +62,11 @@ export class GaplessAudioEngine {
   private frame: number | null = null
   private volume = 1
   private muted = false
+  private generation = 0
+  private destroyed = false
+  private activePreparation = false
+  private reservedBytes = 0
+  private activeDecodes = 0
 
   constructor(private readonly options: EngineOptions) {}
 
@@ -69,33 +83,55 @@ export class GaplessAudioEngine {
     return { currentTime, duration, isPlaying: this.playing }
   }
 
-  async prepare(trackId: number, url: string): Promise<boolean> {
+  async prepare(trackId: number, url: string, probe?: AudioDecodeProbe | null): Promise<boolean> {
     this.abortController?.abort()
+    const generation = ++this.generation
+    if (this.destroyed || this.activePreparation) {
+      this.reportPrepareFallback(trackId, 'previous preparation is still in flight')
+      return false
+    }
+    const context = this.ensureContext()
+    const budget = audioDecodeBudget(
+      probe,
+      context.sampleRate,
+      this.heldPcmBytes(),
+      this.reservedBytes,
+    )
+    if (!budget.allowed || !probe) {
+      this.reportPrepareFallback(trackId, budget.allowed ? 'missing probe' : budget.reason)
+      return false
+    }
+    this.activePreparation = true
+    this.reservedBytes = budget.reservationBytes
     const controller = new AbortController()
     this.abortController = controller
     try {
-      const response = await fetch(url, { signal: controller.signal })
-      const length = Number(response.headers.get('content-length') || 0)
-      if (!response.ok || (length && length > MAX_ENCODED_BYTES)) {
-        this.reportPrepareFallback(trackId, `encoded payload is ${length || 'unknown'} bytes`)
-        return false
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          [AUDIO_FILE_SIZE_HEADER]: String(probe.fileSize),
+          [AUDIO_FILE_MTIME_HEADER]: String(probe.fileMtimeMs),
+        },
+      })
+      const encoded = await readEncodedAudio(response, probe.fileSize)
+      if (!this.isCurrent(generation) || controller.signal.aborted) return false
+      this.activeDecodes++
+      let buffer: AudioBuffer
+      try {
+        buffer = await context.decodeAudioData(encoded)
+      } finally {
+        this.activeDecodes--
       }
-      const encoded = await response.arrayBuffer()
-      if (encoded.byteLength > MAX_ENCODED_BYTES || controller.signal.aborted) {
-        if (!controller.signal.aborted) {
-          this.reportPrepareFallback(trackId, `encoded payload is ${encoded.byteLength} bytes`)
-        }
-        return false
-      }
-      const context = this.ensureContext()
-      const buffer = await context.decodeAudioData(encoded)
+      if (!this.isCurrent(generation) || controller.signal.aborted) return false
       const pcmBytes = buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT
-      const bufferedPcmBytes = (this.current?.pcmBytes ?? 0) + pcmBytes
+      const bufferedPcmBytes = this.heldPcmBytes() + pcmBytes
       if (
-        !buffer.duration ||
+        !Number.isFinite(buffer.duration) ||
+        buffer.duration <= 0 ||
         buffer.duration > MAX_DURATION_SECONDS ||
         pcmBytes > MAX_SINGLE_PCM_BYTES ||
-        bufferedPcmBytes > MAX_BUFFERED_PCM_BYTES
+        bufferedPcmBytes + probe.fileSize > MAX_DECODE_BUDGET_BYTES ||
+        pcmBytes > budget.pcmBytes * 1.1
       ) {
         this.reportPrepareFallback(
           trackId,
@@ -115,17 +151,27 @@ export class GaplessAudioEngine {
       }
       return false
     } finally {
+      this.activePreparation = false
+      this.reservedBytes = 0
       if (this.abortController === controller) this.abortController = null
     }
   }
 
-  async start(trackId: number, url: string, offset = 0): Promise<boolean> {
+  async start(
+    trackId: number,
+    url: string,
+    offset = 0,
+    probe?: AudioDecodeProbe | null,
+  ): Promise<boolean> {
     this.cancel()
-    if (!(await this.prepare(trackId, url)) || !this.next) return false
+    const pending = this.prepare(trackId, url, probe)
+    const generation = this.generation
+    if (!(await pending) || !this.isCurrent(generation) || !this.next) return false
     this.current = this.next
     this.next = null
     this.offset = Math.min(Math.max(0, offset), Math.max(0, this.current.buffer.duration - 0.001))
     await this.resume()
+    if (!this.isCurrent(generation) || !this.current) return false
     this.startCurrentSource()
     return true
   }
@@ -136,7 +182,18 @@ export class GaplessAudioEngine {
     options: ScheduleNextOptions = {},
   ): Promise<boolean> {
     if (!this.current || !this.playing) return false
-    if (!(await this.prepare(trackId, url)) || !this.next || this.next.trackId !== trackId)
+    const current = this.current
+    this.cancelScheduledNext()
+    const pending = this.prepare(trackId, url, options.decodeProbe)
+    const generation = this.generation
+    if (
+      !(await pending) ||
+      !this.isCurrent(generation) ||
+      this.current !== current ||
+      !this.playing ||
+      !this.next ||
+      this.next.trackId !== trackId
+    )
       return false
     // If decoding completed after the current source has ended, do not start it late.
     const trailingSilence = options.trimBoundarySilence
@@ -164,11 +221,15 @@ export class GaplessAudioEngine {
 
   async play(): Promise<void> {
     if (!this.current || this.playing) return
+    const generation = this.generation
     await this.resume()
+    if (!this.isCurrent(generation)) return
     this.startCurrentSource()
   }
 
   pause(): void {
+    this.generation++
+    this.abortController?.abort()
     if (!this.playing) return
     this.offset = this.getSnapshot().currentTime
     this.expectedEnd = true
@@ -203,6 +264,7 @@ export class GaplessAudioEngine {
   }
 
   cancel(): void {
+    this.generation++
     this.abortController?.abort()
     this.abortController = null
     this.expectedEnd = true
@@ -223,6 +285,7 @@ export class GaplessAudioEngine {
   }
 
   cancelScheduledNext(): void {
+    this.generation++
     this.abortController?.abort()
     this.abortController = null
     this.cancelBoundarySource()
@@ -235,6 +298,7 @@ export class GaplessAudioEngine {
   }
 
   destroy(): void {
+    this.destroyed = true
     this.cancel()
     void this.context?.close()
     this.context = null
@@ -242,6 +306,7 @@ export class GaplessAudioEngine {
   }
 
   private ensureContext(): AudioContext {
+    if (this.destroyed) throw new Error('Audio engine is destroyed')
     if (!this.context) this.context = new AudioContext()
     if (!this.gain) {
       this.gain = this.context.createGain()
@@ -269,6 +334,8 @@ export class GaplessAudioEngine {
           this.scheduledBoundaryAt ?? this.startedAt + buffer.duration - this.offset
         this.promoteScheduledNext(boundaryAt)
       } else {
+        this.generation++
+        this.abortController?.abort()
         this.playing = false
         this.stopTicker()
       }
@@ -386,7 +453,33 @@ export class GaplessAudioEngine {
     rendererDiagnostics.warn({
       scope: 'playback.gapless',
       message: 'Falling back to HTMLAudio',
-      context: { trackId, reason },
+      context: {
+        trackId,
+        reason,
+        reservedBytes: this.reservedBytes,
+        activeDecodes: this.activeDecodes,
+      },
     })
+  }
+
+  private isCurrent(generation: number): boolean {
+    return !this.destroyed && generation === this.generation
+  }
+
+  private heldPcmBytes(): number {
+    const buffers = new Set<AudioBuffer>()
+    let bytes = 0
+    for (const buffer of [
+      this.current?.buffer,
+      this.next?.buffer,
+      this.currentSource?.buffer,
+      this.nextSource?.buffer,
+    ]) {
+      if (buffer && !buffers.has(buffer)) {
+        buffers.add(buffer)
+        bytes += buffer.length * buffer.numberOfChannels * Float32Array.BYTES_PER_ELEMENT
+      }
+    }
+    return bytes
   }
 }

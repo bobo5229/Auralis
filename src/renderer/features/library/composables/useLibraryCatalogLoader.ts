@@ -1,5 +1,8 @@
 import { ref, type Ref } from 'vue'
-import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
+import type {
+  LibraryTrackPageResponse,
+  LibraryTrackPageRequest,
+} from '@shared/types/libraryCatalog'
 import type { TrackListItem, LibraryScanProgress } from '@shared/types/libraryScan'
 import type { PlaylistDetail } from '@shared/types/playlist'
 import type { SmartPlaylistDetail } from '@shared/types/smartPlaylist'
@@ -14,7 +17,7 @@ import {
   createSmartPlaylistLibrarySnapshot,
   type LibraryDataSnapshot,
 } from '../utils/libraryDataSnapshot'
-import { loadLibraryCatalogSnapshot } from '../utils/loadLibraryCatalogSnapshot'
+import { SharedLibraryCatalogLoad } from '../utils/sharedLibraryCatalogLoad'
 import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
 import {
   LIBRARY_PLAYLISTS_CHANGED_EVENT,
@@ -33,7 +36,8 @@ export function useLibraryCatalogLoader(options: {
   tracks: { value: TrackListItem[] }
   libraryViewMode: Ref<LibraryViewMode>
   isLoading: Ref<boolean>
-  getTrackPage: (request: LibraryTrackPageRequest) => Promise<LibraryTrackPage>
+  getTrackPage: (request: LibraryTrackPageRequest) => Promise<LibraryTrackPageResponse>
+  catalogClient?: SharedLibraryCatalogLoad
   getPlaylistDetail: (id: number) => Promise<PlaylistDetail | null>
   getSmartPlaylistDetail: (id: number) => Promise<SmartPlaylistDetail | null>
   readPersistedViewMode: () => LibraryViewMode
@@ -63,7 +67,9 @@ export function useLibraryCatalogLoader(options: {
   onScanProgress: (callback: (progress: LibraryScanProgress) => void | Promise<void>) => () => void
 }) {
   const coordinator = new LibraryRequestCoordinator()
+  const catalogClient = options.catalogClient ?? new SharedLibraryCatalogLoad(options.getTrackPage)
   const initialLoadError = ref<string | null>(null)
+  let committedScope: LibraryRouteScope | null = null
   let unsubscribeChanged: (() => void) | null = null
   let unsubscribeScanProgress: (() => void) | null = null
 
@@ -91,7 +97,7 @@ export function useLibraryCatalogLoader(options: {
       return createPlaylistLibrarySnapshot(detail)
     }
 
-    const catalog = await loadLibraryCatalogSnapshot(options.getTrackPage, isRequestCurrent)
+    const catalog = await catalogClient.load(isRequestCurrent)
     if (import.meta.env.DEV) {
       rendererDiagnostics.info({
         scope: 'library.catalog',
@@ -109,7 +115,7 @@ export function useLibraryCatalogLoader(options: {
         },
       })
     }
-    return createAllSongsLibrarySnapshot(catalog.tracks, options.readPersistedViewMode())
+    return createAllSongsLibrarySnapshot([...catalog.tracks], options.readPersistedViewMode())
   }
 
   function commitLibrarySnapshot(snapshot: LibraryDataSnapshot): void {
@@ -126,6 +132,7 @@ export function useLibraryCatalogLoader(options: {
       }
 
       if (options.isDisposed()) return 'stale'
+      catalogClient.invalidate()
     }
 
     const scope = options.captureRouteScope()
@@ -135,12 +142,14 @@ export function useLibraryCatalogLoader(options: {
     }
     const isRequestCurrent = () => isCurrentLibraryRequest(generation, scope)
     const isForeground = mode === 'foreground'
+    const hasPreviousSnapshot =
+      committedScope !== null && isSameLibraryRouteScope(committedScope, scope)
     const viewportCapture = isForeground ? null : options.captureViewportRestore()
 
     if (isForeground && isRequestCurrent()) {
-      options.isLoading.value = true
+      options.isLoading.value = !hasPreviousSnapshot
       initialLoadError.value = null
-      options.pageIdentity.value = null
+      if (!hasPreviousSnapshot) options.pageIdentity.value = null
     }
 
     try {
@@ -153,6 +162,7 @@ export function useLibraryCatalogLoader(options: {
       }
 
       commitLibrarySnapshot(snapshot)
+      committedScope = scope
       initialLoadError.value = null
 
       if (viewportCapture) {
@@ -164,6 +174,7 @@ export function useLibraryCatalogLoader(options: {
       return isRequestCurrent() ? 'committed' : 'stale'
     } catch (error) {
       if (!isRequestCurrent()) return 'stale'
+      initialLoadError.value = options.loadErrorMessage()
 
       if (isForeground) {
         rendererDiagnostics.error({
@@ -197,6 +208,7 @@ export function useLibraryCatalogLoader(options: {
   }
 
   async function retryInitialLoad(): Promise<void> {
+    catalogClient.invalidate()
     await loadLibraryData('foreground')
   }
 
@@ -225,11 +237,13 @@ export function useLibraryCatalogLoader(options: {
   function subscribeLibraryEvents(): void {
     unsubscribeChanged = options.onLibraryChanged(async (event) => {
       if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
+      catalogClient.invalidate()
       await loadLibraryData('background')
     })
 
     unsubscribeScanProgress = options.onScanProgress(async (progress) => {
       if (progress.status === 'completed') {
+        catalogClient.invalidate()
         await loadLibraryData('background')
       }
     })

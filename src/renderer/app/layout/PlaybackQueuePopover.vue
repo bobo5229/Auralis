@@ -2,7 +2,6 @@
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlaybackQueue } from '@renderer/features/playback/composables/usePlaybackQueue'
-import { useLiquidGlassFilter } from '@renderer/features/playback/composables/useLiquidGlassFilter'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import {
@@ -15,13 +14,6 @@ import type { PlaybackTrack } from '@renderer/features/playback/types'
 defineProps<{}>()
 const emit = defineEmits<{ close: [] }>()
 const element = ref<HTMLElement | null>(null)
-
-const { isLiquidGlassActive, liquidFilterStyle } = useLiquidGlassFilter(element, {
-  radius: 24,
-  depth: 10,
-  strength: 55,
-  chromaticAberration: 2,
-})
 
 const { t } = useI18n()
 
@@ -119,12 +111,6 @@ onUnmounted(() => {
     tabindex="-1"
     :aria-label="t('player.queue')"
   >
-    <div
-      v-if="isLiquidGlassActive"
-      class="queue-popover-liquid-refract-edge"
-      :style="liquidFilterStyle"
-      aria-hidden="true"
-    ></div>
     <div class="queue-popover-header">
       <span class="queue-popover-title">{{ t('player.queue') }}</span>
       <span v-if="!isQueueEmpty" class="queue-popover-count">{{

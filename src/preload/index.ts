@@ -73,6 +73,7 @@ export const auralisApi: AuralisApi = {
       invoke(ipcChannels.library.getScanStatus, jobId ? { jobId } : undefined),
     getTracks: () => invoke(ipcChannels.library.getTracks),
     getTrackPage: (request) => invoke(ipcChannels.library.getTrackPage, request),
+    getAlbumDetail: (request) => invoke(ipcChannels.library.getAlbumDetail, request),
     onScanProgress: (callback) => on(ipcChannels.library.scanProgress, callback),
     onChanged: (callback) => on(ipcChannels.library.changed, callback),
   },
@@ -163,17 +164,6 @@ export const auralisApi: AuralisApi = {
     getMiniPlayerState: () => invoke(ipcChannels.window.getMiniPlayerState),
     setMiniPlayerPopover: (payload) => invoke(ipcChannels.window.setMiniPlayerPopover, payload),
     onMiniPlayerStateChanged: (callback) => on(ipcChannels.window.miniPlayerStateChanged, callback),
-  },
-  download: {
-    start: (url, mode) =>
-      invoke(ipcChannels.download.start, mode !== undefined ? { url, mode } : { url }),
-    cancel: (taskId) => invoke(ipcChannels.download.cancel, { taskId }),
-    getStatus: (taskId) => invoke(ipcChannels.download.getStatus, { taskId }),
-    submitSelection: (taskId, trackIndexes) =>
-      invoke(ipcChannels.download.submitSelection, { taskId, trackIndexes }),
-    onProgress: (callback) => on(ipcChannels.download.progress, callback),
-    onLog: (callback) => on(ipcChannels.download.log, callback),
-    onSelectionRequest: (callback) => on(ipcChannels.download.selectionRequest, callback),
   },
 }
 

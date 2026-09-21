@@ -1,4 +1,8 @@
 import { GaplessAudioEngine } from './gaplessAudioEngine'
+import type { AudioDecodeProbe } from '@shared/types/audioDecode'
+
+type StartOptions = { preferGapless: boolean; decodeProbe?: AudioDecodeProbe | null }
+type NextOptions = { trimBoundarySilence: boolean; decodeProbe?: AudioDecodeProbe | null }
 
 export interface PlaybackAudioSnapshot {
   kind: 'html-audio' | 'gapless' | 'idle'
@@ -32,16 +36,12 @@ export interface PlaybackAudioRuntimeOptions {
 }
 
 export interface PlaybackAudioRuntime {
-  start(trackId: number, url: string, options: { preferGapless: boolean }): Promise<void>
+  start(trackId: number, url: string, options: StartOptions): Promise<void>
   resume(): Promise<void>
   pause(): void
   seek(time: number): Promise<void>
   setVolume(volume: number, muted: boolean): void
-  scheduleNext(
-    trackId: number,
-    url: string,
-    options: { trimBoundarySilence: boolean },
-  ): Promise<boolean>
+  scheduleNext(trackId: number, url: string, options: NextOptions): Promise<boolean>
   cancelScheduledNext(): void
   clear(): void
   getSnapshot(): PlaybackAudioSnapshot
@@ -205,17 +205,16 @@ export function createPlaybackAudioRuntime(
     clearHtmlAudio()
   }
 
-  async function start(
-    trackId: number,
-    url: string,
-    startOptions: { preferGapless: boolean },
-  ): Promise<void> {
+  async function start(trackId: number, url: string, startOptions: StartOptions): Promise<void> {
+    if (isDisposed) return
     clear()
     const startSessionId = ++activeSessionId
     currentTrackId = trackId
 
     if (startOptions.preferGapless) {
-      const started = await gaplessEngine.start(trackId, url)
+      const started = await gaplessEngine
+        .start(trackId, url, 0, startOptions.decodeProbe)
+        .catch(() => false)
       // If a newer start() or clear() occurred while gapless was starting, abort immediately.
       if (startSessionId !== activeSessionId) {
         return
@@ -232,6 +231,7 @@ export function createPlaybackAudioRuntime(
         callbacks.onPlayingChange(snapshot.isPlaying)
         return
       }
+      gaplessEngine.cancel()
     }
 
     // Guard against race conditions before HTMLAudio fallback.
@@ -292,9 +292,10 @@ export function createPlaybackAudioRuntime(
   async function scheduleNext(
     trackId: number,
     url: string,
-    scheduleOptions: { trimBoundarySilence: boolean },
+    scheduleOptions: NextOptions,
   ): Promise<boolean> {
-    return gaplessEngine.scheduleNext(trackId, url, scheduleOptions)
+    if (isDisposed || activeBackend !== 'gapless') return false
+    return gaplessEngine.scheduleNext(trackId, url, scheduleOptions).catch(() => false)
   }
 
   function cancelScheduledNext(): void {

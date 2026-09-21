@@ -17,6 +17,7 @@ export const ipcChannels = {
     getScanStatus: 'library:get-scan-status',
     getTracks: 'library:get-tracks',
     getTrackPage: 'library:get-track-page',
+    getAlbumDetail: 'library:get-album-detail',
     scanProgress: 'library:scan-progress',
     changed: 'library:changed',
   },
@@ -95,14 +96,5 @@ export const ipcChannels = {
     getMiniPlayerState: 'window:get-mini-player-state',
     setMiniPlayerPopover: 'window:set-mini-player-popover',
     miniPlayerStateChanged: 'window:mini-player-state-changed',
-  },
-  download: {
-    start: 'download:start',
-    cancel: 'download:cancel',
-    getStatus: 'download:get-status',
-    submitSelection: 'download:submit-selection',
-    progress: 'download:progress',
-    log: 'download:log',
-    selectionRequest: 'download:selection-request',
   },
 } as const

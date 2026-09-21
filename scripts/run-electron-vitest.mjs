@@ -4,7 +4,7 @@ import { startVitest } from 'vitest/node'
 let exitCode = 1
 
 try {
-  await startVitest('test', [], {
+  await startVitest('test', process.argv.slice(2), {
     config: 'vitest.native.config.ts',
     run: true,
   })

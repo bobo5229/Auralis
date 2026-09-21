@@ -46,6 +46,22 @@ describe('useArtworkPalette enabled contract', () => {
     expect(palette.value.key).toBe('cover-b')
   })
 
+  it('applies a peeked palette synchronously before the async load resolves', async () => {
+    const artworkCacheKey = ref<string | null>('cover-sync')
+    const peeked = paletteFor('cover-sync')
+    const loadPalette = vi.fn(async (key: string) => paletteFor(`loaded-${key}`))
+
+    const { palette } = useArtworkPalette(artworkCacheKey, {
+      loadPalette,
+      peekPalette: (key) => (key === 'cover-sync' ? peeked : null),
+    })
+
+    expect(palette.value).toEqual(peeked)
+    await flushPaletteWatch()
+    expect(loadPalette).toHaveBeenCalledWith('cover-sync')
+    expect(palette.value.key).toBe('loaded-cover-sync')
+  })
+
   it('defaults to enabled so existing callers keep loading', async () => {
     const artworkCacheKey = ref<string | null>('cover-c')
     const loadPalette = vi.fn(async (key: string) => paletteFor(key))

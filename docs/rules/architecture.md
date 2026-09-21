@@ -39,7 +39,7 @@ Dependency interface 或中间 Router。
 | `src/shared/ipc/api.ts`                                | Renderer-facing API 人体工学，从 contract 推导，不重新定义数据结构              |
 | `src/preload/index.ts`                                 | 显式 capability；不暴露 `ipcRenderer` 或 generic `invoke(channel)`              |
 | `src/main/ipc/registerIpcHandlers.ts`                  | Main composition root：装配依赖、注册 IPC                                       |
-| 保留的 domain registrar                                | 仅 Library / Playlist / PlaybackArchive / Metadata / Download                   |
+| 保留的 domain registrar                                | 仅 Library / Playlist / PlaybackArchive / Metadata                   |
 | `validatedIpcRegistrar.ts` + `ipcPayloadValidation.ts` | sender 信任 + payload 结构/资源安全；业务合法性在 Service                       |
 
 新增或修改通道时，更新通道名、contract、preload 显式方法和 composition root / 已有 registrar

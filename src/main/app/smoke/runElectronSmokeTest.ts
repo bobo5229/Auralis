@@ -208,6 +208,138 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
       }
     })
 
+    await record('playerbar layout contract holds at idle startup', async () => {
+      const probe = (await mainWindow.webContents.executeJavaScript(
+        `(async () => {
+          const el = document.querySelector('.player-bar')
+          const style = el ? getComputedStyle(el) : null
+          const rect = el?.getBoundingClientRect()
+          const island = document.querySelector('.player-bar-island')
+          const islandStyle = island ? getComputedStyle(island) : null
+          const primaryBtn = document.querySelector('.transport-control-primary')
+          const queueBtn = document.querySelector('.playback-actions button.player-control')
+
+          const inViewport = Boolean(rect) &&
+            rect.width > 0 &&
+            rect.height > 0 &&
+            rect.right > 0 &&
+            rect.left < window.innerWidth &&
+            rect.bottom > 0 &&
+            rect.top < window.innerHeight
+
+          let clickVerification = false
+          if (queueBtn instanceof HTMLElement) {
+            const initialExpanded = queueBtn.getAttribute('aria-expanded')
+            queueBtn.click()
+            await new Promise((resolve) => setTimeout(resolve, 50))
+            const expandedAfterFirstClick = queueBtn.getAttribute('aria-expanded')
+            queueBtn.click()
+            await new Promise((resolve) => setTimeout(resolve, 50))
+            const closedAfterSecondClick = queueBtn.getAttribute('aria-expanded')
+            clickVerification =
+              initialExpanded === 'false' &&
+              expandedAfterFirstClick === 'true' &&
+              closedAfterSecondClick === 'false'
+          }
+
+          return {
+            mounted: Boolean(el),
+            className: el?.className ?? '',
+            position: style?.position ?? null,
+            zIndex: style?.zIndex ?? null,
+            display: style?.display ?? null,
+            visibility: style?.visibility ?? null,
+            opacity: style?.opacity ?? null,
+            pointerEvents: style?.pointerEvents ?? null,
+            islandMounted: Boolean(island),
+            islandPointerEvents: islandStyle?.pointerEvents ?? null,
+            primaryButtonMounted: Boolean(primaryBtn),
+            primaryButtonDisabled: Boolean(primaryBtn && 'disabled' in primaryBtn && primaryBtn.disabled),
+            clickVerification,
+            rect: rect ? {
+              top: rect.top,
+              bottom: rect.bottom,
+              left: rect.left,
+              right: rect.right,
+              width: rect.width,
+              height: rect.height,
+            } : null,
+            inViewport,
+            bottomDistance: rect ? window.innerHeight - rect.bottom : null,
+            horizontalIntersection: Boolean(rect) && rect.right > 0 && rect.left < window.innerWidth,
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight,
+          }
+        })()`,
+        true,
+      )) as {
+        mounted: boolean
+        className: string
+        position: string | null
+        zIndex: string | null
+        display: string | null
+        visibility: string | null
+        opacity: string | null
+        pointerEvents: string | null
+        islandMounted: boolean
+        islandPointerEvents: string | null
+        primaryButtonMounted: boolean
+        primaryButtonDisabled: boolean
+        clickVerification: boolean
+        rect: {
+          top: number
+          bottom: number
+          left: number
+          right: number
+          width: number
+          height: number
+        } | null
+        inViewport: boolean
+        bottomDistance: number | null
+        horizontalIntersection: boolean
+        viewportWidth: number
+        viewportHeight: number
+      }
+
+      if (!probe.mounted) throw new Error('PlayerBar is not mounted')
+      if (probe.className.includes('relative')) {
+        throw new Error(`PlayerBar unexpectedly retained relative class: ${probe.className}`)
+      }
+      if (probe.position !== 'fixed') {
+        throw new Error(`Expected PlayerBar position fixed, received: ${String(probe.position)}`)
+      }
+      if (probe.zIndex !== '50') {
+        throw new Error(`Expected PlayerBar z-index 50, received: ${String(probe.zIndex)}`)
+      }
+      if (probe.pointerEvents !== 'none') {
+        throw new Error(
+          `Expected PlayerBar host pointer-events none, received: ${String(probe.pointerEvents)}`,
+        )
+      }
+      if (!probe.islandMounted) throw new Error('PlayerBar island is not mounted')
+      if (probe.islandPointerEvents !== 'auto') {
+        throw new Error(
+          `Expected PlayerBar island pointer-events auto, received: ${String(probe.islandPointerEvents)}`,
+        )
+      }
+      if (!probe.inViewport) {
+        throw new Error(`PlayerBar is outside viewport: ${JSON.stringify(probe.rect)}`)
+      }
+      if (probe.bottomDistance === null || Math.abs(probe.bottomDistance - 36) > 2) {
+        throw new Error(
+          `PlayerBar bottom distance expected ~36px, received: ${String(probe.bottomDistance)}`,
+        )
+      }
+      if (!probe.primaryButtonMounted || !probe.primaryButtonDisabled) {
+        throw new Error('Expected idle transport primary button to be present and disabled')
+      }
+      if (!probe.clickVerification) {
+        throw new Error(
+          'PlayerBar island click interaction failed to trigger expected state change',
+        )
+      }
+    })
+
     await record('sandboxed main preload exposes working app.getInfo', async () => {
       const probe = (await mainWindow.webContents.executeJavaScript(
         `(async () => {
@@ -255,6 +387,87 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
 
       if (probe.hash !== '#/settings' || !probe.settingsMounted) {
         throw new Error(`Settings route did not mount: ${JSON.stringify(probe)}`)
+      }
+
+      const playerBarOnRoute = (await mainWindow.webContents.executeJavaScript(
+        `(() => {
+          const el = document.querySelector('.player-bar')
+          const style = el ? getComputedStyle(el) : null
+          const rect = el?.getBoundingClientRect()
+          const inViewport = Boolean(rect) &&
+            rect.width > 0 &&
+            rect.height > 0 &&
+            rect.right > 0 &&
+            rect.left < window.innerWidth &&
+            rect.bottom > 0 &&
+            rect.top < window.innerHeight
+          return {
+            mounted: Boolean(el),
+            position: style?.position,
+            inViewport,
+            bottomDistance: rect ? window.innerHeight - rect.bottom : null,
+          }
+        })()`,
+        true,
+      )) as {
+        mounted: boolean
+        position?: string
+        inViewport: boolean
+        bottomDistance: number | null
+      }
+      if (
+        !playerBarOnRoute.mounted ||
+        playerBarOnRoute.position !== 'fixed' ||
+        !playerBarOnRoute.inViewport
+      ) {
+        throw new Error(
+          `PlayerBar layout degraded on route navigation: ${JSON.stringify(playerBarOnRoute)}`,
+        )
+      }
+    })
+
+    await record('playerbar geometry anchors correctly across window resize', async () => {
+      const originalBounds = mainWindow.getBounds()
+      try {
+        mainWindow.setSize(900, 600)
+        await delay(100)
+        const probe = (await mainWindow.webContents.executeJavaScript(
+          `(() => {
+            const el = document.querySelector('.player-bar')
+            const style = el ? getComputedStyle(el) : null
+            const rect = el?.getBoundingClientRect()
+            const inViewport = Boolean(rect) &&
+              rect.width > 0 &&
+              rect.height > 0 &&
+              rect.right > 0 &&
+              rect.left < window.innerWidth &&
+              rect.bottom > 0 &&
+              rect.top < window.innerHeight
+            return {
+              mounted: Boolean(el),
+              position: style?.position,
+              inViewport,
+              bottomDistance: rect ? window.innerHeight - rect.bottom : null,
+            }
+          })()`,
+          true,
+        )) as {
+          mounted: boolean
+          position?: string
+          inViewport: boolean
+          bottomDistance: number | null
+        }
+        if (!probe.mounted || probe.position !== 'fixed' || !probe.inViewport) {
+          throw new Error(`PlayerBar layout degraded after window resize: ${JSON.stringify(probe)}`)
+        }
+        if (probe.bottomDistance === null || Math.abs(probe.bottomDistance - 36) > 2) {
+          throw new Error(
+            `PlayerBar bottom distance after resize expected ~36px, received: ${String(probe.bottomDistance)}`,
+          )
+        }
+      } finally {
+        mainWindow.setBounds(originalBounds)
+        await delay(100)
       }
     })
 
@@ -313,6 +526,53 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
 
       if (probe.entered !== 'mini' || probe.observed !== 'mini' || probe.restored !== 'normal') {
         throw new Error(`Unexpected miniplayer transition: ${JSON.stringify(probe)}`)
+      }
+    })
+
+    await record('playerbar layout contract holds after restoring from miniplayer', async () => {
+      const probe = (await mainWindow.webContents.executeJavaScript(
+        `(() => {
+          const el = document.querySelector('.player-bar')
+          const style = el ? getComputedStyle(el) : null
+          const rect = el?.getBoundingClientRect()
+          const island = document.querySelector('.player-bar-island')
+          const islandStyle = island ? getComputedStyle(island) : null
+          const inViewport = Boolean(rect) &&
+            rect.width > 0 &&
+            rect.height > 0 &&
+            rect.right > 0 &&
+            rect.left < window.innerWidth &&
+            rect.bottom > 0 &&
+            rect.top < window.innerHeight
+          return {
+            mounted: Boolean(el),
+            position: style?.position,
+            zIndex: style?.zIndex,
+            inViewport,
+            bottomDistance: rect ? window.innerHeight - rect.bottom : null,
+            islandMounted: Boolean(island),
+            islandPointerEvents: islandStyle?.pointerEvents,
+          }
+        })()`,
+        true,
+      )) as {
+        mounted: boolean
+        position?: string
+        zIndex?: string
+        inViewport: boolean
+        bottomDistance: number | null
+        islandMounted: boolean
+        islandPointerEvents?: string
+      }
+      if (!probe.mounted || probe.position !== 'fixed' || !probe.inViewport) {
+        throw new Error(
+          `PlayerBar layout degraded after miniplayer restoration: ${JSON.stringify(probe)}`,
+        )
+      }
+      if (probe.islandPointerEvents !== 'auto') {
+        throw new Error(
+          `PlayerBar island pointer-events degraded after miniplayer restoration: ${String(probe.islandPointerEvents)}`,
+        )
       }
     })
 

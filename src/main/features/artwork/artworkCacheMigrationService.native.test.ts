@@ -295,6 +295,9 @@ describe('metadataRefreshRepository artwork upsert rules', () => {
 
   function refreshedTrack(artworkCacheKey: string | null, trackId = 1): RefreshedTrackMetadata {
     return {
+      sourceFilePath: trackId === 1 ? 'C:\\music\\x.mp3' : 'C:\\music\\y.mp3',
+      fileSize: 100,
+      fileMtimeMs: 200,
       trackId,
       title: 'Title',
       artistDisplay: 'Artist',

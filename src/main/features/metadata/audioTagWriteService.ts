@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { copyFile, rename, rm, writeFile } from 'node:fs/promises'
+import { copyFile, rename, rm, writeFile, stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
@@ -143,7 +143,11 @@ async function remuxWithCover(
   ])
 }
 
-async function replaceOriginalFile(originalPath: string, generatedPath: string): Promise<void> {
+async function replaceOriginalFile(
+  originalPath: string,
+  generatedPath: string,
+  expected: { size: number; mtimeMs: number },
+): Promise<void> {
   const operationId = randomUUID()
   const stagingPath = `${originalPath}.auralis-replacement-${operationId}`
   const backupPath = `${originalPath}.auralis-backup-${operationId}`
@@ -151,9 +155,17 @@ async function replaceOriginalFile(originalPath: string, generatedPath: string):
   await copyFile(generatedPath, stagingPath)
 
   try {
+    const beforeReplace = await stat(originalPath)
+    if (beforeReplace.size !== expected.size || beforeReplace.mtimeMs !== expected.mtimeMs) {
+      throw new Error('Audio file changed during tag writing; original was not replaced')
+    }
     await rename(originalPath, backupPath)
 
     try {
+      const backup = await stat(backupPath)
+      if (backup.size !== expected.size || backup.mtimeMs !== expected.mtimeMs) {
+        throw new Error('Audio file changed before tag replacement; restoring original')
+      }
       await rename(stagingPath, originalPath)
     } catch (error) {
       await rename(backupPath, originalPath)
@@ -170,6 +182,7 @@ export async function writeAudioTags(
   filePath: string,
   metadata: EditableTrackMetadata,
 ): Promise<void> {
+  const originalFingerprint = await stat(filePath)
   const extension = extname(filePath)
 
   if (!extension) {
@@ -200,7 +213,7 @@ export async function writeAudioTags(
       }
     }
 
-    await replaceOriginalFile(filePath, taggedPath)
+    await replaceOriginalFile(filePath, taggedPath, originalFingerprint)
   } finally {
     await rm(outputPath, { force: true })
     await rm(coveredPath, { force: true })

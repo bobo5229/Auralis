@@ -279,7 +279,8 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       const url = await resolveAudioUrl(plan.track.id)
       if (!isCurrentGaplessPrefetch(generation, fromTrackId)) return
 
-      const scheduled = await audioRuntime.scheduleNext(plan.track.id, url, {
+      const scheduled = await audioRuntime.scheduleNext(plan.track.id, url.url, {
+        decodeProbe: url.decodeProbe,
         trimBoundarySilence: isSameAlbumBoundary(state.currentTrack, plan.track),
       })
       if (!isCurrentGaplessPrefetch(generation, fromTrackId)) {
@@ -339,7 +340,8 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         return
       }
 
-      await audioRuntime.start(trackId, audioUrl, {
+      await audioRuntime.start(trackId, audioUrl.url, {
+        decodeProbe: audioUrl.decodeProbe,
         preferGapless: gaplessPlaybackEnabled.value,
       })
 
@@ -422,14 +424,14 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     state.selectedTrackId = trackId
   }
 
-  async function resolveAudioUrl(trackId: number): Promise<string> {
+  async function resolveAudioUrl(trackId: number) {
     const result = await deps.getAudioUrl(trackId)
 
     if (!result?.url) {
       throw new Error('Audio file is unavailable')
     }
 
-    return result.url
+    return result
   }
 
   function setPlaybackMode(mode: PlaybackMode): void {

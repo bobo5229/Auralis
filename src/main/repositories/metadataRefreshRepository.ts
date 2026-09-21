@@ -20,6 +20,9 @@ export interface TrackForMetadataRefresh {
 }
 
 export interface RefreshedTrackMetadata {
+  sourceFilePath: string
+  fileSize: number
+  fileMtimeMs: number
   trackId: number
   title: string
   artistDisplay: string
@@ -568,11 +571,6 @@ export class MetadataRefreshRepository extends BaseRepository {
   }
 
   updateTrackMetadata(result: RefreshedTrackMetadata): void {
-    const existingSource = this.db
-      .prepare(`SELECT source FROM track_metadata WHERE track_id = ?`)
-      .get(result.trackId) as { source: string } | undefined
-    const preserveUserEdit = existingSource?.source === 'user_edit'
-
     // Full file_tag write — skipped when user_edit must be preserved.
     const upsertTrackMetadata = this.db.prepare(`
       INSERT INTO track_metadata (
@@ -626,10 +624,12 @@ export class MetadataRefreshRepository extends BaseRepository {
           lyrics_format = ?,
           isrc = ?,
           metadata_signature = ?,
-          lyrics_checked_mtime_ms = file_mtime_ms,
-          metadata_checked_mtime_ms = file_mtime_ms,
+          file_size = ?,
+          file_mtime_ms = ?,
+          lyrics_checked_mtime_ms = ?,
+          metadata_checked_mtime_ms = ?,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      WHERE id = ? AND file_path = ?
     `)
 
     const updateTrackFull = this.db.prepare(`
@@ -649,10 +649,12 @@ export class MetadataRefreshRepository extends BaseRepository {
           lyrics_format = ?,
           isrc = ?,
           metadata_signature = ?,
-          lyrics_checked_mtime_ms = file_mtime_ms,
-          metadata_checked_mtime_ms = file_mtime_ms,
+          file_size = ?,
+          file_mtime_ms = ?,
+          lyrics_checked_mtime_ms = ?,
+          metadata_checked_mtime_ms = ?,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
+      WHERE id = ? AND file_path = ?
     `)
 
     // When preserving user_edit, still refresh lyrics/artwork side-data on track_metadata.
@@ -714,6 +716,11 @@ export class MetadataRefreshRepository extends BaseRepository {
     `)
 
     const write = this.db.transaction((metadata: RefreshedTrackMetadata) => {
+      this.assertTrackIdentity(metadata)
+      const existingSource = this.db
+        .prepare('SELECT source FROM track_metadata WHERE track_id = ?')
+        .get(metadata.trackId) as { source: string } | undefined
+      const preserveUserEdit = existingSource?.source === 'user_edit'
       const artistDisplay = metadata.artistDisplay || metadata.artist
       const albumTitle = metadata.albumTitle || metadata.album
       const albumArtistDisplay =
@@ -738,7 +745,12 @@ export class MetadataRefreshRepository extends BaseRepository {
           metadata.lyricsFormat,
           metadata.isrc,
           metadata.metadataSignature,
+          metadata.fileSize,
+          metadata.fileMtimeMs,
+          metadata.fileMtimeMs,
+          metadata.fileMtimeMs,
           metadata.trackId,
+          metadata.sourceFilePath,
         )
         return
       }
@@ -773,7 +785,12 @@ export class MetadataRefreshRepository extends BaseRepository {
         metadata.lyricsFormat,
         metadata.isrc,
         metadata.metadataSignature,
+        metadata.fileSize,
+        metadata.fileMtimeMs,
+        metadata.fileMtimeMs,
+        metadata.fileMtimeMs,
         metadata.trackId,
+        metadata.sourceFilePath,
       )
 
       upsertAlbum.run(albumTitle, albumArtistDisplay, metadata.artworkCacheKey)
@@ -800,27 +817,75 @@ export class MetadataRefreshRepository extends BaseRepository {
     write(result)
   }
 
-  updateTrackLyrics(trackId: number, lyricsText: string | null, lyricsFormat: string | null): void {
-    this.db
-      .prepare(
-        `UPDATE tracks
+  updateTrackLyrics(result: RefreshedTrackMetadata): void {
+    this.db.transaction(() => {
+      const fingerprint = this.assertTrackIdentity(result)
+      if (
+        fingerprint.fileSize !== result.fileSize ||
+        fingerprint.fileMtimeMs !== result.fileMtimeMs
+      ) {
+        // The worker already read full tags: an audio change must not be consumed as lyrics-only.
+        this.updateTrackMetadata(result)
+        return
+      }
+      this.db
+        .prepare(
+          `UPDATE tracks
          SET lyrics_text = ?,
              lyrics_format = ?,
-             lyrics_checked_mtime_ms = file_mtime_ms,
+             lyrics_checked_mtime_ms = ?,
              updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-      )
-      .run(lyricsText, lyricsFormat, trackId)
+         WHERE id = ? AND file_path = ?`,
+        )
+        .run(
+          result.lyricsText,
+          result.lyricsFormat,
+          result.fileMtimeMs,
+          result.trackId,
+          result.sourceFilePath,
+        )
 
-    this.db
-      .prepare(
-        `UPDATE track_metadata
+      this.db
+        .prepare(
+          `UPDATE track_metadata
          SET lyrics_text = ?,
              lyrics_format = ?,
              refreshed_at = CURRENT_TIMESTAMP
          WHERE track_id = ?`,
+        )
+        .run(result.lyricsText, result.lyricsFormat, result.trackId)
+    })()
+  }
+
+  commitVerifiedUserEdit(metadata: EditableTrackMetadata, result: RefreshedTrackMetadata): void {
+    this.db.transaction(() => {
+      if (metadata.trackId !== result.trackId) throw new Error('Metadata track identity changed')
+      this.assertTrackIdentity(result)
+      this.updateUserEditedMetadata(metadata)
+      this.updateTrackMetadata(result)
+    })()
+  }
+
+  private assertTrackIdentity(
+    result: Pick<RefreshedTrackMetadata, 'trackId' | 'sourceFilePath' | 'fileSize' | 'fileMtimeMs'>,
+  ) {
+    if (
+      !Number.isSafeInteger(result.fileSize) ||
+      result.fileSize < 0 ||
+      !Number.isFinite(result.fileMtimeMs)
+    ) {
+      throw new Error('Invalid metadata file fingerprint')
+    }
+    const row = this.db
+      .prepare(
+        `SELECT file_size AS fileSize, file_mtime_ms AS fileMtimeMs
+      FROM tracks WHERE id = ? AND file_path = ?`,
       )
-      .run(lyricsText, lyricsFormat, trackId)
+      .get(result.trackId, result.sourceFilePath) as
+      | { fileSize: number | null; fileMtimeMs: number | null }
+      | undefined
+    if (!row) throw new Error('Metadata track identity changed or track was removed')
+    return row
   }
 
   private replaceTrackArtists(

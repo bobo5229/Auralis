@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Auralis · 唱片排行 Demo</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#111214;color:#f3eee6;font:14px 'Segoe UI','Microsoft YaHei',sans-serif}button,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible{outline:2px solid #afb4bc;outline-offset:5px}header{padding:36px 48px 0;display:flex;justify-content:space-between;align-items:end;gap:24px}h1{font-size:28px;margin:0 0 10px;letter-spacing:-1px}.eyebrow{color:#9299a3;font-size:11px;letter-spacing:2px;margin:0 0 12px}.sub{color:#afb4bc;margin:0}.tabs{display:flex;gap:6px}.tabs button,.type button{border:0;background:transparent;color:#9299a3;padding:8px 14px;border-radius:6px}.tabs button[aria-pressed=true],.type button[aria-pressed=true]{color:#f3eee6;background:#25282d}.toolbar{display:flex;justify-content:space-between;align-items:center;padding:26px 48px 0}.type{display:flex;gap:8px}.arrows{display:flex;gap:10px}.arrows button{background:transparent;border:1px solid #ffffff18;border-radius:50%;width:34px;height:34px;color:#afb4bc}.shelf{--angle:50deg;--step:100px;--pull:90px;--size:250px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:#42464e transparent;overscroll-behavior-x:contain;padding:0 48px;outline:none}.rack{display:flex;position:relative;width:max-content;min-width:100%;padding:105px 140px 55px 20px;isolation:isolate}.rack:after{content:'';position:absolute;left:0;right:0;bottom:60px;height:1px;background:linear-gradient(90deg,transparent,#ffffff12 12%,#ffffff12 88%,transparent);z-index:-1}.slot{width:var(--step);height:330px;position:relative;flex-shrink:0;border:0;background:none;padding:0;text-align:left;color:inherit;perspective:1100px;outline-offset:-4px!important;-webkit-tap-highlight-color:transparent}.record{position:absolute;top:20px;left:0;width:var(--size);height:var(--size);transform-style:preserve-3d;transform-origin:32% 65%;transform:rotateY(calc(-1 * var(--angle)));transition:transform 620ms cubic-bezier(.18,.85,.2,1);pointer-events:none}.face{position:absolute;inset:0;backface-visibility:hidden;transform:translateZ(5px);border-radius:3px;overflow:hidden;background:#292d32;box-shadow:0 24px 32px #0007,0 1px 0 #ffffff30 inset}.face img{width:100%;height:100%;object-fit:cover;display:block}.face:after{content:'';position:absolute;inset:0;background:linear-gradient(105deg,#ffffff1a,transparent 25%,#0002 85%);box-shadow:inset 1px 0 0 #ffffff50,inset -2px 0 0 #0006}.spine{position:absolute;top:0;left:0;width:10px;height:100%;transform-origin:left;transform:translateZ(5px) rotateY(90deg);background:linear-gradient(90deg,#c5c6c8,#62656a 30%,#afb1b4 50%,#34373b);backface-visibility:visible}.top-edge{position:absolute;top:0;left:0;width:100%;height:10px;background:#c5c3bf;transform-origin:top;transform:translateZ(5px) rotateX(-90deg)}.back{position:absolute;inset:0;background:#292c31;transform:translateZ(-5px);border-radius:3px}.rank{position:absolute;bottom:12px;left:14px;font-size:15px;font-variant-numeric:tabular-nums;color:#737b87;transition:color .2s}.slot.active{z-index:30!important}.slot.active .record{transform:translateY(-28px) translateZ(var(--pull)) rotateY(-18deg)}.slot.active .rank{color:#f3eee6}.slot.active .face{box-shadow:0 35px 55px #0009}.info{margin:0 48px;padding:22px 0 30px;border-bottom:1px solid #ffffff12;display:grid;grid-template-columns:1fr auto;gap:24px;min-height:133px}.info h2{font-size:25px;letter-spacing:-.5px;margin:0 0 9px;line-height:1.3}.artist{color:#afb4bc;margin:0}.metrics{display:flex;align-items:center;gap:40px}.metric span{color:#9299a3;display:block;font-size:12px;margin-top:7px}.metric strong{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}.tuning{padding:28px 48px;display:flex;align-items:center;gap:32px;flex-wrap:wrap}.tuning label{display:grid;grid-template-columns:auto 42px;gap:10px;font-size:12px;color:#afb4bc;width:185px}.tuning output{text-align:right;color:#f3eee6}.tuning input{grid-column:1/-1;width:100%;accent-color:#afb4bc}.reset{background:transparent;border:1px solid #ffffff20;color:#afb4bc;border-radius:6px;padding:8px 12px}footer{padding:0 48px 26px;color:#737b87;font-size:12px;line-height:1.8}@media(max-width:700px){header,.toolbar{padding-left:24px;padding-right:24px}header{align-items:start;flex-direction:column}.shelf{padding:0 24px;--size:220px}.rack{padding-top:90px;padding-bottom:25px}.slot{height:295px}.info{margin:0 24px}.metrics{gap:18px}.metric strong{font-size:18px}.tuning{padding:24px;gap:22px}footer{padding:0 24px 24px}.info h2{font-size:21px}}@media(prefers-reduced-motion:reduce){.record,.rank{transition:none}}
+.face img {
+  filter: blur(0);
+  transition: filter 320ms ease;
+}
+.rack:has(.slot.active) .slot:not(.active) .face img,
+.rack:has(.slot.active) .slot:not(.active) .spine-label,
+.rack:has(.slot.active) .slot:not(.active) .rank {
+  filter: blur(3px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .face img { transition: none; }
+}
+.spine { left: 100%; width: 26px; background: linear-gradient(90deg,#34383f,#23262c 55%,#393d44); color: #f3eee6; display: flex; align-items: center; justify-content: center; box-shadow: inset 1px 0 #ffffff30, inset -1px 0 #0008; }
+.spine-label { writing-mode: vertical-rl; text-orientation: mixed; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-height: calc(100% - 24px); font-size: 11px; font-weight: 600; letter-spacing: .5px; }
+.top-edge { height: 26px; }
+.back { transform: translateZ(-21px); }
+</style>
+</head>
+<body>
+<header><div><p class="eyebrow">AURALIS / ARCHIVE</p><h1>听歌排行</h1><p class="sub" id="period">本年 · 单曲榜</p></div><div class="tabs" aria-label="排行范围"><button data-period="今天" aria-pressed="false">日</button><button data-period="本周" aria-pressed="false">周</button><button data-period="本月" aria-pressed="false">月</button><button data-period="本年" aria-pressed="true">年</button></div></header>
+<div class="toolbar"><div class="type" aria-label="排行类型"><button aria-pressed="true" data-type="单曲榜">单曲</button><button aria-pressed="false" data-type="专辑榜">专辑</button></div><div class="arrows"><button id="prev" aria-label="上一张">←</button><button id="next" aria-label="下一张">→</button></div></div>
+<div class="shelf" role="region" aria-label="唱片排行，可横向滚动"><div class="rack"></div></div>
+<section class="info" aria-live="polite"><div><h2 id="name"></h2><p class="artist" id="artist"></p></div><div class="metrics"><div class="metric"><strong id="plays"></strong><span>播放次数</span></div><div class="metric"><strong id="duration"></strong><span>收听时长</span></div></div></section>
+<div class="tuning"><label>默认倾角<output id="angleValue">50°</output><input id="angle" aria-label="默认倾角" type="range" min="40" max="78" value="50"></label><label>封面重叠<output id="stepValue">10%</output><input id="step" aria-label="封面重叠比例" type="range" min="10" max="20" value="10"></label><label>抽出幅度<output id="pullValue">90</output><input id="pull" aria-label="抽出幅度" type="range" min="30" max="160" value="90"></label><button class="reset">恢复默认</button></div>
+<footer>交互 Demo · 图片及排行均为示例。悬停抽出，移开归位；点击或键盘聚焦可停留。左右方向键切换，横向滚动查看更多。</footer>
+<script src="ranking-record-shelf-data.js"></script>
+<script>
+const shelf=document.querySelector('.shelf'),rack=document.querySelector('.rack');
+const titles=['记念','陌生人','说到爱','若你碰到他','双栖动物','Goodbye & Hello','天使与魔鬼的对话','失语者','我要给世界最悠长的湿吻','DEPART'];
+const albumTitles=['记念','陌生人','说到爱','若你碰到他','双栖动物','Goodbye & Hello','天使与魔鬼的对话','失语者','我要给世界最悠长的湿吻','DEPART'];
+let selected=0,pinned=null,period='本年',type='单曲榜';
+const slots=[];
+function show(index){selected=index;const n=({今天:1,本周:4,本月:12,本年:38})[period];document.querySelector('#name').textContent=(type==='单曲榜'?titles:albumTitles)[index];document.querySelector('#artist').textContent='蔡健雅 · 第 '+String(index+1).padStart(2,'0')+' 名';document.querySelector('#plays').textContent=String(Math.max(1,Math.round((titles.length-index)*n*(type==='专辑榜'?1.8:1))));document.querySelector('#duration').textContent=Math.round((titles.length-index)*n*.065*(type==='专辑榜'?1.8:1))+' 小时';}
+function activate(index){slots.forEach((s,i)=>s.classList.toggle('active',i===index));show(index)}
+function restore(){slots.forEach((s,i)=>s.classList.toggle('active',i===pinned));if(pinned!==null)show(pinned)}
+for(let i=0;i<titles.length;i++){const b=document.createElement('button');b.className='slot';b.style.zIndex=String(titles.length-i);b.setAttribute('aria-label','第 '+(i+1)+' 名，'+titles[i]);const cover=document.createElement('img');cover.src=window.rankingCovers[i%window.rankingCovers.length];cover.alt='示例封面 '+(i+1);cover.decoding='async';cover.draggable=false;b.innerHTML='<span class="record"><span class="back"></span><span class="spine"></span><span class="top-edge"></span><span class="face"></span></span><span class="rank">'+String(i+1).padStart(2,'0')+'</span>';b.querySelector('.face').append(cover);const spineLabel=document.createElement('span');spineLabel.className='spine-label';spineLabel.textContent='蔡健雅 - '+albumTitles[i];b.querySelector('.spine').append(spineLabel);b.title=spineLabel.textContent;b.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')activate(i)});b.addEventListener('pointerleave',restore);b.addEventListener('focus',()=>activate(i));b.addEventListener('blur',restore);b.addEventListener('click',()=>{pinned=pinned===i?null:i;restore()});b.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();navigate(i+(e.key==='ArrowRight'?1:-1))}if(e.key==='Escape'){pinned=null;b.blur();restore()}});slots.push(b);rack.append(b)}
+function navigate(index){const i=Math.max(0,Math.min(slots.length-1,index));pinned=i;activate(i);slots[i].focus({preventScroll:true});shelf.scrollTo({left:Math.max(0,slots[i].offsetLeft-120),behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'})}
+document.querySelector('#prev').onclick=()=>navigate(selected-1);document.querySelector('#next').onclick=()=>navigate(selected+1);
+document.querySelectorAll('[data-period]').forEach(b=>b.onclick=()=>{period=b.dataset.period;document.querySelectorAll('[data-period]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));refresh()});document.querySelectorAll('[data-type]').forEach(b=>b.onclick=()=>{type=b.dataset.type;document.querySelectorAll('[data-type]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));refresh()});
+function refresh(){document.querySelector('#period').textContent=period+' · '+type;show(selected)}
+function updateSpacing(){
+  const probe=slots[0].cloneNode(true);
+  probe.classList.remove('active');
+  probe.setAttribute('aria-hidden','true');
+  probe.tabIndex=-1;
+  probe.style.cssText='position:absolute;visibility:hidden;pointer-events:none';
+  probe.querySelector('.record').style.transition='none';
+  rack.append(probe);
+  const overlap=Number(document.querySelector('#step').value)/100;
+  for(let pass=0;pass<3;pass++){
+    const width=probe.querySelector('.face').getBoundingClientRect().width;
+    shelf.style.setProperty('--step',`${width*(1-overlap)}px`);
+  }
+  probe.remove();
+}
+for(const key of ['angle','step','pull']){const input=document.querySelector('#'+key);input.oninput=()=>{if(key!=='step')shelf.style.setProperty('--'+key,input.value+(key==='angle'?'deg':'px'));document.querySelector('#'+key+'Value').textContent=input.value+(key==='angle'?'°':key==='step'?'%':'');updateSpacing()}}
+document.querySelector('.reset').onclick=()=>{for(const [key,value] of Object.entries({angle:50,step:10,pull:90})){const input=document.querySelector('#'+key);input.value=value;input.oninput()}pinned=null;restore()};show(0);updateSpacing();window.addEventListener("resize",updateSpacing);
+</script>
+</body>
+</html>

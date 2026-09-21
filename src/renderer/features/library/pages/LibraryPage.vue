@@ -37,6 +37,7 @@ import { useLibrarySearchSession } from '../composables/useLibrarySearchSession'
 import { useLibraryViewport } from '../composables/useLibraryViewport'
 import { useLibraryContextMenu } from '../composables/useLibraryContextMenu'
 import { useLibraryCatalogLoader } from '../composables/useLibraryCatalogLoader'
+import { libraryCatalogClient } from '../utils/libraryCatalogClient'
 
 const { t } = useI18n()
 
@@ -432,6 +433,7 @@ const {
   subscribeLibraryEvents,
   dispose: disposeLibraryCatalogLoader,
 } = useLibraryCatalogLoader({
+  catalogClient: libraryCatalogClient,
   isDisposed: () => isPageUnmounted,
   captureRouteScope: captureLibraryRouteScope,
   pageIdentity,
@@ -514,10 +516,20 @@ onBeforeUnmount(() => {
     :data-library-surface="librarySurfaceKind ?? undefined"
     :style="LIBRARY_LAYOUT_CSS_VARS"
   >
+    <div
+      v-if="initialLoadError && pageIdentity"
+      class="flex shrink-0 items-center gap-3 px-4 py-2 text-xs text-[var(--auralis-text-muted)]"
+      role="status"
+    >
+      <span>{{ initialLoadError }}</span>
+      <button type="button" class="underline" @click="retryInitialLoad">
+        {{ t('library.status.retry') }}
+      </button>
+    </div>
     <LibraryStatusState v-if="isLoading" kind="loading" />
 
     <LibraryStatusState
-      v-else-if="initialLoadError"
+      v-else-if="initialLoadError && !pageIdentity"
       kind="error"
       :error-message="initialLoadError"
       @retry="retryInitialLoad"
@@ -592,6 +604,7 @@ onBeforeUnmount(() => {
         ref="scrollRef"
         tabindex="-1"
         class="library-list-scroll flex-1 overflow-auto pb-[var(--auralis-playbar-safe-area)] outline-none"
+        :class="{ 'xl:[scrollbar-gutter:stable]': librarySurfaceKind === 'playlist' }"
       >
         <Transition name="library-view-fade" mode="out-in" @enter="onLibraryViewEnter">
           <div :key="libraryViewMode" class="min-h-full">

@@ -1,10 +1,22 @@
-import { computed, shallowRef, type ComputedRef, type Ref } from 'vue'
+import { computed, ref, shallowRef, type ComputedRef, type Ref } from 'vue'
 import type { AuralisApi } from '@shared/ipc/api'
+import type { AlbumDetailResult, AlbumDetailSummary } from '@shared/types/albumDetail'
 import type { TrackListItem } from '@shared/types/libraryScan'
+import {
+  invalidateAlbumDetailSnapshot,
+  readAlbumDetailSnapshot,
+  snapshotHasCatalog,
+  writeAlbumDetailSnapshot,
+  type AlbumDetailSnapshot,
+} from '../albumDetailSnapshot'
+import type { AlbumSummary } from '../types'
+import { groupAlbums, moreAlbumsByArtist, selectAlbumTracks } from '../utils/albumGrouping'
+import { albumIdentityKey } from '../utils/albumIdentity'
 
 export type AlbumDetailLoadState = 'loading' | 'ready' | 'not-found' | 'error'
+export { selectAlbumTracks }
 
-type AlbumDetailLibraryClient = Pick<AuralisApi['library'], 'getTracks' | 'onChanged'>
+type AlbumDetailLibraryClient = Pick<AuralisApi['library'], 'getAlbumDetail' | 'onChanged'>
 
 interface UseAlbumDetailTracksOptions {
   albumArtist: Readonly<Ref<string>>
@@ -16,36 +28,34 @@ interface UseAlbumDetailTracksOptions {
 interface UseAlbumDetailTracksResult {
   tracks: Ref<TrackListItem[]>
   albumTracks: ComputedRef<TrackListItem[]>
+  moreAlbums: ComputedRef<AlbumSummary[]>
+  previewArtworkCacheKey: Ref<string | null>
+  previewReleaseDate: Ref<string | null>
   loadState: Ref<AlbumDetailLoadState>
   initialize: () => Promise<void>
   reloadTracks: (options?: { background?: boolean }) => Promise<boolean>
+  ensureCurrentAlbum: () => Promise<void>
   syncLoadStateFromTracks: () => void
   dispose: () => void
 }
 
 const DEFAULT_PLAY_STATS_RELOAD_DEBOUNCE_MS = 400
 
-export function selectAlbumTracks(
-  tracks: TrackListItem[],
-  albumArtist: string,
-  albumTitle: string,
-): TrackListItem[] {
-  return tracks
-    .filter((track) => {
-      const artist = track.albumArtist || track.artist || 'Unknown Artist'
-      const title = track.album || 'Unknown Album'
-      return artist === albumArtist && title === albumTitle
-    })
-    .sort((left, right) => {
-      const discOrder = (left.discNo ?? 1) - (right.discNo ?? 1)
-      if (discOrder !== 0) return discOrder
+function toAlbumSummary(summary: AlbumDetailSummary): AlbumSummary {
+  return {
+    key: albumIdentityKey(summary.albumArtist, summary.title),
+    title: summary.title,
+    albumArtist: summary.albumArtist,
+    releaseDate: summary.releaseDate,
+    artworkCacheKey: summary.artworkCacheKey,
+    tracks: [],
+  }
+}
 
-      const trackOrder =
-        (left.trackNo ?? Number.MAX_SAFE_INTEGER) - (right.trackNo ?? Number.MAX_SAFE_INTEGER)
-      if (trackOrder !== 0) return trackOrder
-
-      return (left.title ?? '').localeCompare(right.title ?? '')
-    })
+function snapshotWorkingTracks(snapshot: AlbumDetailSnapshot | null): TrackListItem[] {
+  if (!snapshot) return []
+  if (snapshotHasCatalog(snapshot) && snapshot.catalogTracks) return snapshot.catalogTracks
+  return snapshot.tracks
 }
 
 export function useAlbumDetailTracks({
@@ -54,11 +64,29 @@ export function useAlbumDetailTracks({
   library,
   playStatsReloadDebounceMs = DEFAULT_PLAY_STATS_RELOAD_DEBOUNCE_MS,
 }: UseAlbumDetailTracksOptions): UseAlbumDetailTracksResult {
-  const tracks = shallowRef<TrackListItem[]>([])
-  const loadState = shallowRef<AlbumDetailLoadState>('loading')
+  const initialSnapshot = readAlbumDetailSnapshot(albumArtist.value, albumTitle.value)
+  const tracks = shallowRef<TrackListItem[]>(snapshotWorkingTracks(initialSnapshot))
+  const storedMoreAlbums = shallowRef<AlbumSummary[]>(
+    initialSnapshot && !snapshotHasCatalog(initialSnapshot) ? initialSnapshot.moreAlbums : [],
+  )
+  const previewArtworkCacheKey = ref<string | null>(initialSnapshot?.artworkCacheKey ?? null)
+  const previewReleaseDate = ref<string | null>(initialSnapshot?.releaseDate ?? null)
+  const loadState = shallowRef<AlbumDetailLoadState>(
+    selectAlbumTracks(tracks.value, albumArtist.value, albumTitle.value).length > 0
+      ? 'ready'
+      : 'loading',
+  )
+  let hasCatalogSnapshot = snapshotHasCatalog(initialSnapshot)
   const albumTracks = computed(() =>
     selectAlbumTracks(tracks.value, albumArtist.value, albumTitle.value),
   )
+  const moreAlbums = computed(() => {
+    if (!hasCatalogSnapshot && storedMoreAlbums.value.length > 0) {
+      return moreAlbumsByArtist(storedMoreAlbums.value, albumArtist.value, albumTitle.value)
+    }
+
+    return moreAlbumsByArtist(groupAlbums(tracks.value), albumArtist.value, albumTitle.value)
+  })
 
   let disposed = false
   let loadGeneration = 0
@@ -69,17 +97,122 @@ export function useAlbumDetailTracks({
     loadState.value = albumTracks.value.length > 0 ? 'ready' : 'not-found'
   }
 
+  function applySnapshot(snapshot: AlbumDetailSnapshot): void {
+    previewArtworkCacheKey.value = snapshot.artworkCacheKey
+    previewReleaseDate.value = snapshot.releaseDate
+
+    if (snapshotHasCatalog(snapshot) && snapshot.catalogTracks) {
+      tracks.value = snapshot.catalogTracks
+      storedMoreAlbums.value = []
+      hasCatalogSnapshot = true
+    } else if (!hasCatalogSnapshot) {
+      tracks.value = snapshot.tracks
+      storedMoreAlbums.value = snapshot.moreAlbums
+    }
+
+    if (albumTracks.value.length > 0) {
+      previewArtworkCacheKey.value =
+        albumTracks.value.find((track) => track.artworkCacheKey)?.artworkCacheKey ??
+        snapshot.artworkCacheKey
+      previewReleaseDate.value =
+        albumTracks.value.find((track) => track.releaseDate)?.releaseDate ?? snapshot.releaseDate
+      loadState.value = 'ready'
+    }
+  }
+
+  function mergeAlbumTracks(nextAlbumTracks: TrackListItem[]): void {
+    if (!hasCatalogSnapshot) {
+      tracks.value = nextAlbumTracks
+      return
+    }
+
+    const replacements = new Map(nextAlbumTracks.map((track) => [track.id, track]))
+    const seen = new Set<number>()
+    const merged: TrackListItem[] = []
+
+    for (const track of tracks.value) {
+      const replacement = replacements.get(track.id)
+      if (replacement) {
+        merged.push(replacement)
+        seen.add(track.id)
+      } else {
+        merged.push(track)
+      }
+    }
+
+    for (const track of nextAlbumTracks) {
+      if (!seen.has(track.id)) merged.push(track)
+    }
+
+    tracks.value = merged
+  }
+
+  function rememberSnapshot(result: AlbumDetailResult): void {
+    writeAlbumDetailSnapshot({
+      albumArtist: albumArtist.value,
+      albumTitle: albumTitle.value,
+      artworkCacheKey:
+        result.tracks.find((track) => track.artworkCacheKey)?.artworkCacheKey ??
+        previewArtworkCacheKey.value,
+      releaseDate:
+        result.tracks.find((track) => track.releaseDate)?.releaseDate ?? previewReleaseDate.value,
+      tracks: result.tracks,
+      moreAlbums: result.moreAlbums.map(toAlbumSummary),
+      catalogTracks: hasCatalogSnapshot ? tracks.value : null,
+    })
+  }
+
+  function syncToCurrentAlbum(): boolean {
+    const snapshot = readAlbumDetailSnapshot(albumArtist.value, albumTitle.value)
+    if (snapshot) applySnapshot(snapshot)
+
+    if (albumTracks.value.length > 0) {
+      if (!previewArtworkCacheKey.value) {
+        previewArtworkCacheKey.value =
+          albumTracks.value.find((track) => track.artworkCacheKey)?.artworkCacheKey ?? null
+      }
+      if (!previewReleaseDate.value) {
+        previewReleaseDate.value =
+          albumTracks.value.find((track) => track.releaseDate)?.releaseDate ?? null
+      }
+      loadState.value = 'ready'
+      return true
+    }
+
+    if (snapshot) {
+      loadState.value = 'loading'
+      return false
+    }
+
+    if (hasCatalogSnapshot) {
+      syncLoadStateFromTracks()
+      return loadState.value === 'ready'
+    }
+
+    return false
+  }
+
   async function reloadTracks(options: { background?: boolean } = {}): Promise<boolean> {
     const requestGeneration = ++loadGeneration
-    const hasExistingSnapshot = tracks.value.length > 0
+    const hasExistingSnapshot = albumTracks.value.length > 0
     if (!options.background && !hasExistingSnapshot) loadState.value = 'loading'
 
     try {
-      const nextTracks = await library.getTracks()
+      const result = await library.getAlbumDetail({
+        albumArtist: albumArtist.value,
+        albumTitle: albumTitle.value,
+      })
       if (disposed || requestGeneration !== loadGeneration) return false
 
-      tracks.value = nextTracks
+      mergeAlbumTracks(result.tracks)
+      if (!hasCatalogSnapshot) storedMoreAlbums.value = result.moreAlbums.map(toAlbumSummary)
+      previewArtworkCacheKey.value =
+        result.tracks.find((track) => track.artworkCacheKey)?.artworkCacheKey ??
+        previewArtworkCacheKey.value
+      previewReleaseDate.value =
+        result.tracks.find((track) => track.releaseDate)?.releaseDate ?? previewReleaseDate.value
       syncLoadStateFromTracks()
+      rememberSnapshot(result)
       return true
     } catch {
       if (disposed || requestGeneration !== loadGeneration) return false
@@ -93,6 +226,11 @@ export function useAlbumDetailTracks({
     }
   }
 
+  async function ensureCurrentAlbum(): Promise<void> {
+    if (syncToCurrentAlbum()) return
+    await reloadTracks()
+  }
+
   function schedulePlayStatsReload(): void {
     if (playStatsReloadTimer) clearTimeout(playStatsReloadTimer)
     playStatsReloadTimer = setTimeout(() => {
@@ -102,7 +240,7 @@ export function useAlbumDetailTracks({
   }
 
   async function initialize(): Promise<void> {
-    await reloadTracks()
+    await ensureCurrentAlbum()
     if (disposed) return
 
     unsubscribeChanged?.()
@@ -111,6 +249,9 @@ export function useAlbumDetailTracks({
         schedulePlayStatsReload()
         return
       }
+      hasCatalogSnapshot = false
+      storedMoreAlbums.value = []
+      invalidateAlbumDetailSnapshot()
       void reloadTracks({ background: true })
     })
   }
@@ -132,9 +273,13 @@ export function useAlbumDetailTracks({
   return {
     tracks,
     albumTracks,
+    moreAlbums,
+    previewArtworkCacheKey,
+    previewReleaseDate,
     loadState,
     initialize,
     reloadTracks,
+    ensureCurrentAlbum,
     syncLoadStateFromTracks,
     dispose,
   }

@@ -1,4 +1,5 @@
 import type { PlaybackTrack } from '../types'
+import type { AudioResource } from '@shared/types/audioDecode'
 import type { AlbumShuffleContext } from '../core/playbackQueueState'
 import type { PlaybackAudioCallbacks, PlaybackAudioRuntime } from '../audio/playbackAudioRuntime'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -20,7 +21,7 @@ export interface PlaybackDiagnosticsLogger {
 }
 
 export interface PlaybackDependencies {
-  getAudioUrl(trackId: number): Promise<{ url: string } | null | undefined>
+  getAudioUrl(trackId: number): Promise<AudioResource | null | undefined>
   getRandomTrack(excludeTrackId?: number): Promise<PlaybackTrack | null | undefined>
   getAlbumTracks(albumKey: {
     albumArtist: string

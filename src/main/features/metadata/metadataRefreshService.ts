@@ -7,6 +7,9 @@ import type {
   MetadataRefreshWorkerMessage,
 } from './metadataRefreshTypes'
 import { writeAudioTags } from './audioTagWriteService'
+import { assertMetadataFingerprint, readStableMetadata } from './readStableMetadata'
+import { verifyWrittenMetadata } from './verifyWrittenMetadata'
+import { logger } from '../../logging/logger'
 
 function getWorkerPath(): string {
   return join(__dirname, 'features/metadata/metadataRefreshWorker.js')
@@ -24,6 +27,9 @@ export class MetadataRefreshService {
   private activeWorker: Worker | null = null
   private activeJobId: number | null = null
   private onTagWriteSuccess: ((filePath: string) => void) | null = null
+  private readonly trackGenerations = new Map<number, number>()
+  private readonly writingTracks = new Set<number>()
+  private readonly pendingReconciliation = new Set<number>()
 
   constructor(
     private readonly repository: MetadataRefreshRepository,
@@ -129,6 +135,13 @@ export class MetadataRefreshService {
   }
 
   private startWorker(input: MetadataRefreshWorkerInput): void {
+    input = {
+      ...input,
+      tracks: input.tracks.map((track) => ({
+        ...track,
+        generation: this.trackGenerations.get(track.trackId) ?? 0,
+      })),
+    }
     const worker = new Worker(getWorkerPath(), {
       workerData: input,
     })
@@ -137,22 +150,48 @@ export class MetadataRefreshService {
     this.activeJobId = input.jobId
 
     let failed = 0
+    let committed = 0
+    const expectedTracks = new Map(input.tracks.map((track) => [track.trackId, track]))
+    const committedTrackIds: number[] = []
+    let messages = Promise.resolve()
 
     const cleanup = (): void => {
       if (this.activeWorker === worker) {
         this.activeWorker = null
         this.activeJobId = null
+        queueMicrotask(() => this.flushReconciliation())
       }
     }
 
-    worker.on('message', (message: MetadataRefreshWorkerMessage) => {
+    const handleMessage = async (message: MetadataRefreshWorkerMessage): Promise<void> => {
+      if (this.activeWorker !== worker || this.activeJobId !== input.jobId) return
       switch (message.type) {
         case 'result': {
           const r = message.payload
-          if (input.writeMode === 'lyrics') {
-            this.repository.updateTrackLyrics(r.trackId, r.lyricsText, r.lyricsFormat)
-          } else {
-            this.repository.updateTrackMetadata(r)
+          try {
+            const matches = () =>
+              r.jobId === input.jobId &&
+              expectedTracks.get(r.trackId)?.filePath === r.sourceFilePath &&
+              expectedTracks.get(r.trackId)?.generation === r.generation &&
+              r.generation === (this.trackGenerations.get(r.trackId) ?? 0) &&
+              !this.writingTracks.has(r.trackId) &&
+              this.activeWorker === worker &&
+              this.repository.getTrackFilePath(r.trackId) === r.sourceFilePath
+            if (!matches()) throw new Error('Stale metadata result or changed track identity')
+            await assertMetadataFingerprint(r)
+            if (!matches()) throw new Error('Stale metadata result or changed track identity')
+            if (input.writeMode === 'lyrics') this.repository.updateTrackLyrics(r)
+            else this.repository.updateTrackMetadata(r)
+            committed++
+            committedTrackIds.push(r.trackId)
+          } catch (error) {
+            failed++
+            const reason = error instanceof Error ? error.message : 'Metadata commit failed'
+            this.repository.addFailure(input.jobId, r.trackId, r.sourceFilePath, reason)
+            logger.warn(
+              { err: error, jobId: input.jobId, trackId: r.trackId },
+              'Metadata result was not committed',
+            )
           }
           break
         }
@@ -160,7 +199,14 @@ export class MetadataRefreshService {
         case 'failure': {
           const f = message.payload
 
-          if (f.trackId !== null && this.isMissingFileFailure(f.reason)) {
+          const source = expectedTracks.get(f.trackId)
+          if (f.jobId !== input.jobId || !source || source.filePath !== f.filePath) break
+          if (
+            this.isMissingFileFailure(f.reason) &&
+            source.generation === (this.trackGenerations.get(f.trackId) ?? 0) &&
+            !this.writingTracks.has(f.trackId) &&
+            this.repository.getTrackFilePath(f.trackId) === f.filePath
+          ) {
             this.repository.markTrackMissing(f.trackId)
           } else {
             this.repository.addFailure(f.jobId, f.trackId, f.filePath, f.reason)
@@ -171,20 +217,24 @@ export class MetadataRefreshService {
         }
 
         case 'progress': {
-          const p = message.payload
-          this.repository.updateJobProgress(p.jobId, p.processed, p.failed)
-          this.pushProgress(p.jobId, p.processed + p.failed, input.tracks.length, p.failed)
+          this.repository.updateJobProgress(input.jobId, committed, failed)
+          this.pushProgress(input.jobId, committed + failed, input.tracks.length, failed, 'running')
           break
         }
 
         case 'complete': {
-          cleanup()
+          this.repository.updateJobProgress(input.jobId, committed, failed)
           this.repository.completeJob(input.jobId)
-          this.pushProgress(input.jobId, input.tracks.length, input.tracks.length, failed)
-          this.pushChanged(
-            input.tracks.map((track) => track.trackId),
-            this.getChangedReason(input.jobId),
+          this.pushProgress(
+            input.jobId,
+            committed + failed,
+            input.tracks.length,
+            failed,
+            'completed',
           )
+          if (committedTrackIds.length)
+            this.pushChanged(committedTrackIds, this.getChangedReason(input.jobId))
+          cleanup()
           break
         }
 
@@ -195,23 +245,45 @@ export class MetadataRefreshService {
           break
         }
       }
-    })
+    }
 
-    worker.on('error', (error) => {
-      cleanup()
-      this.repository.completeJob(input.jobId, error.message)
-      this.pushProgress(input.jobId, 0, input.tracks.length, input.tracks.length, 'failed')
-    })
+    const enqueue = (operation: () => Promise<void> | void): void => {
+      messages = messages.then(operation).catch((error: unknown) => {
+        logger.error({ err: error, jobId: input.jobId }, 'Metadata message processing failed')
+        if (this.activeWorker === worker) {
+          cleanup()
+          this.repository.completeJob(
+            input.jobId,
+            error instanceof Error ? error.message : 'Metadata commit failed',
+          )
+          this.pushProgress(input.jobId, committed + failed, input.tracks.length, failed, 'failed')
+        }
+      })
+    }
+    worker.on('message', (message: MetadataRefreshWorkerMessage) =>
+      enqueue(() => handleMessage(message)),
+    )
 
-    worker.on('exit', (code) => {
-      // Only handle unexpected exit — normal completion is handled by the
-      // 'complete' or 'fatal' message handlers which call cleanup() first.
-      if (this.activeJobId === input.jobId && code !== 0) {
+    worker.on('error', (error) =>
+      enqueue(() => {
+        if (this.activeWorker !== worker) return
         cleanup()
-        this.repository.completeJob(input.jobId, `Worker exited unexpectedly (code ${code})`)
+        this.repository.completeJob(input.jobId, error.message)
         this.pushProgress(input.jobId, 0, input.tracks.length, input.tracks.length, 'failed')
-      }
-    })
+      }),
+    )
+
+    worker.on('exit', (code) =>
+      enqueue(() => {
+        // Only handle unexpected exit — normal completion is handled by the
+        // 'complete' or 'fatal' message handlers which call cleanup() first.
+        if (this.activeWorker === worker && this.activeJobId === input.jobId) {
+          cleanup()
+          this.repository.completeJob(input.jobId, `Worker exited unexpectedly (code ${code})`)
+          this.pushProgress(input.jobId, 0, input.tracks.length, input.tracks.length, 'failed')
+        }
+      }),
+    )
   }
 
   private pushProgress(
@@ -274,11 +346,49 @@ export class MetadataRefreshService {
       throw new Error(`Audio file not found for track ${metadata.trackId}`)
     }
 
+    if (this.writingTracks.has(metadata.trackId))
+      throw new Error('A tag write is already running for this track')
+    const generation = (this.trackGenerations.get(metadata.trackId) ?? 0) + 1
+    this.trackGenerations.set(metadata.trackId, generation)
+    this.writingTracks.add(metadata.trackId)
+
     // Suppress before the file mutates: ffmpeg replace fires watch events while
     // the write is still in flight, and a 1200ms flush can start first.
-    this.onTagWriteSuccess?.(filePath)
-    await writeAudioTags(filePath, metadata)
-    this.repository.updateUserEditedMetadata(metadata)
-    return { ok: true }
+    try {
+      this.onTagWriteSuccess?.(filePath)
+      await writeAudioTags(filePath, metadata)
+      const result = await readStableMetadata(metadata.trackId, filePath, this.artworkCacheDir)
+      verifyWrittenMetadata(metadata, result)
+      await assertMetadataFingerprint(result)
+      if (this.trackGenerations.get(metadata.trackId) !== generation)
+        throw new Error('Tag write became stale')
+      this.repository.commitVerifiedUserEdit(metadata, result)
+      return { ok: true }
+    } catch (error) {
+      this.pendingReconciliation.add(metadata.trackId)
+      logger.warn(
+        { err: error, trackId: metadata.trackId },
+        'Tag write requires metadata reconciliation',
+      )
+      throw error
+    } finally {
+      this.writingTracks.delete(metadata.trackId)
+      this.flushReconciliation()
+    }
+  }
+
+  private flushReconciliation(): void {
+    if (this.activeJobId !== null) return
+    const ids = [...this.pendingReconciliation].filter((id) => !this.writingTracks.has(id))
+    if (!ids.length) return
+    for (const id of ids) this.pendingReconciliation.delete(id)
+    try {
+      this.refreshTracksFromFileChanges(ids)
+    } catch (error) {
+      logger.warn(
+        { err: error, trackIds: ids },
+        'Unable to start metadata reconciliation; explicit retry required',
+      )
+    }
   }
 }

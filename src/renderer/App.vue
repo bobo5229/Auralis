@@ -7,13 +7,15 @@ import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
 import MiniPlayer from './app/layout/MiniPlayer.vue'
+import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
 import { useDesktopLyricsSync } from '@renderer/features/lyrics/composables/useDesktopLyricsSync'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
+import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
-import { provideAmdlDownload } from '@renderer/features/download/composables/downloadContext'
+import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 
 const route = useRoute()
-provideAmdlDownload()
+const playback = usePlayback()
 useSystemMediaIntegration()
 useDesktopLyricsSync()
 const { displayMode, onMiniPlayerWindowStateChanged, syncMiniPlayerWindowState } =
@@ -22,9 +24,12 @@ let unsubscribeMiniPlayerWindowState: (() => void) | null = null
 
 /** 上一导航来源路由名；在 beforeEach 中更新，供 Transition 在目标路由已切换时仍能判断方向 */
 const previousRouteName = ref(route.name)
+/** Albums ➔ AlbumDetail 专属进入过渡标记；在 beforeEach 提早设为 true，并在 after-enter/cancelled 时复位 */
+const isAlbumDetailEntering = ref(false)
 
-const removeBeforeEach = router.beforeEach((_to, from) => {
+const removeBeforeEach = router.beforeEach((to, from) => {
   previousRouteName.value = from.name
+  isAlbumDetailEntering.value = to.name === 'album-detail' && from.name === 'albums'
 })
 
 onMounted(() => {
@@ -34,6 +39,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   removeBeforeEach()
+  isAlbumDetailEntering.value = false
   unsubscribeMiniPlayerWindowState?.()
   unsubscribeMiniPlayerWindowState = null
 })
@@ -42,11 +48,18 @@ const isAlbumDetail = computed(() => {
   return route.name === 'album-detail'
 })
 
+const artworkUrl = computed(() =>
+  getArtworkUrl(playback.state.currentTrack?.artworkCacheKey ?? null),
+)
+const shouldRenderShellArtwork = computed(
+  () => displayMode.value === 'normal' && artworkUrl.value !== null,
+)
+
 /**
  * 路由过渡规则：
  * 1. 专辑列表 ➔ 专辑详情：景深穿梭与黑胶破土浮升 (album-detail-enter-matrix)
  * 2. 专辑详情 ➔ 专辑列表：黑胶沉降与景深聚拢归位 (album-detail-exit-matrix)
- * 3. 其余路由切换：通用平滑淡入淡出 (fade)
+ * 3. 其余路由切换：不使用 CSS 过渡，立即完成
  */
 const transitionName = computed(() => {
   if (route.name === 'album-detail' && previousRouteName.value === 'albums') {
@@ -55,30 +68,81 @@ const transitionName = computed(() => {
   if (route.name === 'albums' && previousRouteName.value === 'album-detail') {
     return 'album-detail-exit-matrix'
   }
-  return 'fade'
+  return null
 })
+
+function onTransitionAfterEnter(): void {
+  isAlbumDetailEntering.value = false
+}
+
+function onTransitionEnterCancelled(): void {
+  isAlbumDetailEntering.value = false
+}
 </script>
 
 <template>
   <MiniPlayer v-if="displayMode === 'mini'" />
 
   <div v-else class="app-window" data-app-shell-root>
-    <div class="app-shell relative" :class="{ 'is-album-detail': isAlbumDetail }">
+    <div
+      class="app-shell relative"
+      :class="{ 'is-album-detail': isAlbumDetail, 'has-artwork': shouldRenderShellArtwork }"
+    >
       <div class="wco-drag-region" aria-hidden="true" />
+
+      <FluidArtworkBackground
+        v-if="shouldRenderShellArtwork"
+        :artwork-url="artworkUrl"
+        :active="true"
+        :playing="playback.state.isPlaying"
+        class="app-shell-bg-fluid"
+      />
+      <div v-if="shouldRenderShellArtwork" class="app-shell-bg-overlay" aria-hidden="true" />
 
       <AppSidebar class="relative z-10" />
 
       <main class="app-main relative z-10">
         <RouterView v-slot="{ Component, route: viewRoute }">
-          <Transition :name="transitionName">
-            <component :is="Component" :key="String(viewRoute.name)" />
+          <Transition
+            :name="transitionName ?? undefined"
+            :css="transitionName !== null"
+            @after-enter="onTransitionAfterEnter"
+            @enter-cancelled="onTransitionEnterCancelled"
+          >
+            <component
+              :is="Component"
+              :key="String(viewRoute.name)"
+              v-bind="
+                viewRoute.name === 'album-detail' ? { isEntering: isAlbumDetailEntering } : {}
+              "
+            />
           </Transition>
         </RouterView>
       </main>
 
       <NowPlayingPanel class="relative z-10" />
-      <PlayerBar class="relative z-10" />
+      <PlayerBar />
     </div>
     <FullscreenPlayerOverlay />
   </div>
 </template>
+
+<style scoped>
+.app-shell-bg-fluid,
+.app-shell-bg-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.app-shell-bg-fluid {
+  z-index: 0;
+}
+
+.app-shell-bg-overlay {
+  z-index: 1;
+  background: color-mix(in srgb, #0c0b0a 65%, transparent);
+  backdrop-filter: blur(20px) saturate(1.45) contrast(1.02);
+  -webkit-backdrop-filter: blur(20px) saturate(1.45) contrast(1.02);
+}
+</style>

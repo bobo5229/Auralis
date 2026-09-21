@@ -7,6 +7,7 @@ import type {
   TrackLyrics,
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto } from '@shared/types/playback'
+import type { AlbumDetailSummary } from '@shared/types/albumDetail'
 import type { NormalizedIdentity } from '@main/features/metadata/metadataNormalizer'
 import { BaseRepository } from './baseRepository'
 
@@ -58,6 +59,33 @@ function toRootPrefixes(rootPath: string): string[] {
 function escapeLikePattern(value: string): string {
   return value.replace(/~/g, '~~').replace(/%/g, '~%').replace(/_/g, '~_')
 }
+
+const TRACK_LIST_ITEM_COLUMNS = `id, title, artist, album,
+                album_artist AS albumArtist,
+                track_no AS trackNo,
+                disc_no AS discNo,
+                release_date AS releaseDate,
+                copyright,
+                duration_seconds AS durationSeconds,
+                artwork_cache_key AS artworkCacheKey,
+                genre,
+                availability,
+                play_count AS playCount,
+                last_played_at AS lastPlayedAt,
+                created_at AS createdAt`
+
+/** Matches renderer album identity: albumArtist || artist || 'Unknown Artist'. */
+const albumArtistIdentityExpr = `CASE
+          WHEN NULLIF(album_artist, '') IS NOT NULL THEN album_artist
+          WHEN NULLIF(artist, '') IS NOT NULL THEN artist
+          ELSE 'Unknown Artist'
+        END`
+
+/** Matches renderer album identity: album || 'Unknown Album'. */
+const albumTitleIdentityExpr = `CASE
+          WHEN NULLIF(album, '') IS NOT NULL THEN album
+          ELSE 'Unknown Album'
+        END`
 
 const libraryArtistCollator = new Intl.Collator('zh-Hans-u-co-pinyin', {
   sensitivity: 'base',
@@ -195,19 +223,7 @@ export class TrackRepository extends BaseRepository {
   getAll(): TrackListItem[] {
     const tracks = this.db
       .prepare(
-        `SELECT id, title, artist, album,
-                album_artist AS albumArtist,
-                track_no AS trackNo,
-                disc_no AS discNo,
-                release_date AS releaseDate,
-                copyright,
-                duration_seconds AS durationSeconds,
-                artwork_cache_key AS artworkCacheKey,
-                genre,
-                availability,
-                play_count AS playCount,
-                last_played_at AS lastPlayedAt,
-                created_at AS createdAt
+        `SELECT ${TRACK_LIST_ITEM_COLUMNS}
          FROM library_track_display
          WHERE availability = 'available'
          ORDER BY id ASC`,
@@ -215,6 +231,45 @@ export class TrackRepository extends BaseRepository {
       .all() as TrackListItem[]
 
     return tracks.sort(compareLibraryTracks)
+  }
+
+  getAlbumDetailTracks(albumArtist: string, albumTitle: string): TrackListItem[] {
+    return this.db
+      .prepare(
+        `SELECT ${TRACK_LIST_ITEM_COLUMNS}
+         FROM library_track_display
+         WHERE availability = 'available'
+           AND ${albumArtistIdentityExpr} = ?
+           AND ${albumTitleIdentityExpr} = ?
+         ORDER BY
+           COALESCE(disc_no, 1) ASC,
+           CASE WHEN track_no IS NULL THEN 1 ELSE 0 END,
+           track_no ASC,
+           title COLLATE NOCASE ASC,
+           id ASC`,
+      )
+      .all(albumArtist, albumTitle) as TrackListItem[]
+  }
+
+  getArtistAlbumSummaries(albumArtist: string, excludeAlbumTitle: string): AlbumDetailSummary[] {
+    return this.db
+      .prepare(
+        `SELECT
+            ${albumArtistIdentityExpr} AS albumArtist,
+            ${albumTitleIdentityExpr} AS title,
+            MIN(release_date) AS releaseDate,
+            MIN(NULLIF(artwork_cache_key, '')) AS artworkCacheKey
+         FROM library_track_display
+         WHERE availability = 'available'
+           AND ${albumArtistIdentityExpr} = ?
+           AND ${albumTitleIdentityExpr} != ?
+         GROUP BY ${albumArtistIdentityExpr}, ${albumTitleIdentityExpr}
+         ORDER BY
+           CASE WHEN MIN(release_date) IS NULL THEN 1 ELSE 0 END,
+           MIN(release_date) ASC,
+           title COLLATE NOCASE ASC`,
+      )
+      .all(albumArtist, excludeAlbumTitle) as AlbumDetailSummary[]
   }
 
   getKnownFiles(): KnownTrackFile[] {

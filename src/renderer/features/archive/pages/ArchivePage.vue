@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import type {
   AnnualListeningInsights,
   DailyListeningDetail,
-  ListeningGenreSpectrum,
   ListeningHeatmap,
   ListeningRanking,
 } from '@shared/types/archive'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
-import { formatArtist } from '@renderer/features/library/utils/formatArtist'
-import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
-import MusicDnaCard from '@renderer/features/archive/components/MusicDnaCard.vue'
+import RankingRecordShelf from '../components/RankingRecordShelf.vue'
+import RankingTrackRibbons from '../components/RankingTrackRibbons.vue'
 import EditorialLinerNotesCard from '@renderer/features/archive/components/EditorialLinerNotesCard.vue'
 import type { EditorialLinerNotesData } from '@renderer/features/archive/utils/editorialLinerNotes'
 import ArchiveDailyDetailDialog from '@renderer/features/archive/components/ArchiveDailyDetailDialog.vue'
@@ -41,7 +39,6 @@ interface HeatmapTooltip {
 }
 
 const currentYear = new Date().getFullYear()
-const isArchiveEffectsActive = computed(() => true)
 const selectedYear = ref(currentYear)
 const heatmap = ref<ListeningHeatmap | null>(null)
 const annualInsights = ref<AnnualListeningInsights | null>(null)
@@ -98,11 +95,8 @@ const annualRecapError = ref<string | null>(null)
 const annualRecapTrackRanking = ref<ListeningRanking | null>(null)
 const annualRecapAlbumRanking = ref<ListeningRanking | null>(null)
 const annualRecapPage = ref(0)
-const genreSpectrum = ref<ListeningGenreSpectrum | null>(null)
-const isGenreLoading = ref(false)
 
 const RESET_HOLD_MS = 3000
-const ARCHIVE_SCROLLBAR_HIDDEN_CLASS = 'archive-page-scrollbar-hidden'
 let resetHoldTimer: number | null = null
 let annualRecapRequestId = 0
 let unsubscribeLibraryChanged: (() => void) | null = null
@@ -258,18 +252,15 @@ const annualRecapMetrics = computed(() => {
 
 async function loadHeatmap(): Promise<void> {
   isLoading.value = true
-  isGenreLoading.value = true
   errorMessage.value = null
   annualInsights.value = null
   annualInsightsError.value = false
-  genreSpectrum.value = null
   tooltip.value = null
 
   const year = selectedYear.value
-  const [heatmapResult, insightsResult, genreResult] = await Promise.allSettled([
+  const [heatmapResult, insightsResult] = await Promise.allSettled([
     auralis.archive.getListeningHeatmap(year),
     auralis.archive.getAnnualListeningInsights(year),
-    auralis.archive.getListeningGenreSpectrum(year),
   ])
 
   if (heatmapResult.status === 'fulfilled') {
@@ -289,13 +280,6 @@ async function loadHeatmap(): Promise<void> {
     annualInsightsError.value = true
   }
 
-  if (genreResult.status === 'fulfilled') {
-    genreSpectrum.value = genreResult.value
-  } else {
-    genreSpectrum.value = null
-  }
-
-  isGenreLoading.value = false
   isLoading.value = false
 }
 
@@ -353,112 +337,6 @@ function goToNextAnnualRecapPage(): void {
   setAnnualRecapPage(annualRecapPage.value + 1)
 }
 
-const selectedAlbumIndex = ref<number>(0)
-
-const selectedAlbumItem = computed(() => {
-  if (rankingTarget.value !== 'album' || !listeningRanking.value?.items.length) return null
-  return listeningRanking.value.items[selectedAlbumIndex.value] || listeningRanking.value.items[0]
-})
-const selectedAlbumArtworkCacheKey = computed(
-  () => selectedAlbumItem.value?.artworkCacheKey ?? null,
-)
-const { palette: archivePalette } = useArtworkPalette(selectedAlbumArtworkCacheKey, {
-  enabled: isArchiveEffectsActive,
-})
-const archiveStyle = computed<CSSProperties>(() => {
-  const accent = archivePalette.value.accents[0]?.rgb
-  const resolvedAccent =
-    archivePalette.value.quality === 'fallback' || !accent
-      ? 'var(--auralis-artwork-accent-fallback)'
-      : `rgb(${accent.r} ${accent.g} ${accent.b})`
-
-  return {
-    '--auralis-archive-accent': resolvedAccent,
-  } as CSSProperties
-})
-
-const heroCanvasRef = ref<HTMLCanvasElement | null>(null)
-let heroFluidGeneration = 0
-
-function updateHeroStaticFluid(): void {
-  const generation = ++heroFluidGeneration
-  if (!isArchiveEffectsActive.value) return
-
-  const item = selectedAlbumItem.value
-  const canvas = heroCanvasRef.value
-  if (!item || !canvas) return
-
-  const url = getArtworkUrl(item.artworkCacheKey)
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-
-  const width = (canvas.width = 240)
-  const height = (canvas.height = 340)
-
-  if (!url) {
-    ctx.clearRect(0, 0, width, height)
-    ctx.fillStyle = '#141518'
-    ctx.fillRect(0, 0, width, height)
-    return
-  }
-
-  const img = new Image()
-  img.crossOrigin = 'anonymous'
-  img.onload = () => {
-    if (generation !== heroFluidGeneration || !isArchiveEffectsActive.value) return
-
-    const sampleCanvas = document.createElement('canvas')
-    sampleCanvas.width = 16
-    sampleCanvas.height = 16
-    const sCtx = sampleCanvas.getContext('2d')
-    if (!sCtx) return
-    sCtx.drawImage(img, 0, 0, 16, 16)
-    const imgData = sCtx.getImageData(0, 0, 16, 16).data
-
-    const c1 = `rgb(${imgData[0]}, ${imgData[1]}, ${imgData[2]})`
-    const c2 = `rgb(${imgData[15 * 4]}, ${imgData[15 * 4 + 1]}, ${imgData[15 * 4 + 2]})`
-    const c3 = `rgb(${imgData[16 * 15 * 4]}, ${imgData[16 * 15 * 4 + 1]}, ${imgData[16 * 15 * 4 + 2]})`
-    const c4 = `rgb(${imgData[(16 * 16 - 1) * 4]}, ${imgData[(16 * 16 - 1) * 4 + 1]}, ${imgData[(16 * 16 - 1) * 4 + 2]})`
-
-    ctx.fillStyle = '#0e0f12'
-    ctx.fillRect(0, 0, width, height)
-
-    const drawBlob = (x: number, y: number, r: number, color: string) => {
-      const grad = ctx.createRadialGradient(x, y, 0, x, y, r)
-      grad.addColorStop(0, color)
-      grad.addColorStop(1, 'transparent')
-      ctx.fillStyle = grad
-      ctx.beginPath()
-      ctx.arc(x, y, r, 0, Math.PI * 2)
-      ctx.fill()
-    }
-
-    ctx.save()
-    ctx.globalCompositeOperation = 'screen'
-    ctx.globalAlpha = 0.7
-    drawBlob(40, 50, 160, c1)
-    drawBlob(200, 60, 150, c2)
-    drawBlob(50, 280, 170, c3)
-    drawBlob(190, 290, 160, c4)
-    ctx.restore()
-  }
-  img.src = url
-}
-
-watch(selectedAlbumItem, () => {
-  void nextTick(() => {
-    updateHeroStaticFluid()
-  })
-})
-
-watch(rankingTarget, () => {
-  selectedAlbumIndex.value = 0
-})
-
-watch(listeningRanking, () => {
-  selectedAlbumIndex.value = 0
-})
-
 function updateTooltipPosition(event: MouseEvent): void {
   if (!tooltip.value) return
   tooltip.value = {
@@ -480,20 +358,6 @@ function showTooltip(event: MouseEvent | FocusEvent, day: CalendarDay): void {
 
 function hideTooltip(): void {
   tooltip.value = null
-}
-
-function formatRankingArtist(artist: string | null): string {
-  return formatArtist(artist) || '未知艺术家'
-}
-
-function formatHoursAndMinutes(durationSeconds: number): string {
-  if (durationSeconds > 0 && durationSeconds < 60) return '不到 1 分钟'
-  const totalMinutes = Math.round(durationSeconds / 60)
-  const hours = Math.floor(totalMinutes / 60)
-  const minutes = totalMinutes % 60
-  if (!hours) return `${minutes} 分钟`
-  if (!minutes) return `${hours} 小时`
-  return `${hours} 小时 ${minutes} 分钟`
 }
 
 async function openDailyDetail(event: MouseEvent | KeyboardEvent, day: CalendarDay): Promise<void> {
@@ -549,6 +413,7 @@ async function openDailyDetail(event: MouseEvent | KeyboardEvent, day: CalendarD
 
 function handleLinerNotesPeakClick(event: MouseEvent | KeyboardEvent): void {
   if (!peakDay.value) return
+  closeAnnualRecap()
   void openDailyDetail(event, peakDay.value)
 }
 
@@ -661,12 +526,10 @@ async function resetAllPlayStats(): Promise<void> {
 }
 
 onMounted(() => {
-  document.body.classList.add(ARCHIVE_SCROLLBAR_HIDDEN_CLASS)
   document.addEventListener('pointerdown', handleDocumentPointerDown)
   document.addEventListener('keydown', handleDocumentKeyDown)
   void loadHeatmap()
   void loadListeningRanking()
-  void loadAnnualRecapRankings()
   unsubscribeLibraryChanged = auralis.library.onChanged((event) => {
     if (event.reason !== 'play-stats-updated' && event.reason !== 'play-stats-reset') return
     void loadHeatmap()
@@ -678,26 +541,28 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  heroFluidGeneration += 1
   cancelResetHold()
   unsubscribeLibraryChanged?.()
-  document.body.classList.remove(ARCHIVE_SCROLLBAR_HIDDEN_CLASS)
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
   document.removeEventListener('keydown', handleDocumentKeyDown)
 })
 </script>
 
 <template>
-  <section
-    class="archive-page content-frame"
-    :style="isArchiveEffectsActive ? archiveStyle : undefined"
-  >
+  <section class="archive-page content-frame">
     <div class="archive-heatmap-card">
       <div class="archive-card-heading">
         <div>
           <span class="archive-section-kicker">Calendar</span>
           <h2>音乐日历</h2>
-          <p>颜色越深，代表那一天留下的播放时间越多。</p>
+          <button
+            v-if="!isLoading && !errorMessage"
+            type="button"
+            class="archive-recap-entry"
+            @click="openAnnualRecap"
+          >
+            年度总结
+          </button>
         </div>
         <div class="archive-legend" aria-label="播放次数颜色图例">
           <span>少</span>
@@ -744,21 +609,6 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
-
-    <MusicDnaCard
-      v-if="!errorMessage"
-      :data="genreSpectrum"
-      :loading="isLoading || isGenreLoading"
-    />
-
-    <section v-if="!isLoading && !errorMessage" class="archive-summary">
-      <EditorialLinerNotesCard
-        :data="linerNotesData"
-        @click-peak="handleLinerNotesPeakClick"
-        @open-recap="openAnnualRecap"
-        @reset="openResetConfirmation"
-      />
-    </section>
 
     <section v-if="!isLoading && !errorMessage" class="archive-ranking">
       <div class="archive-ranking-heading">
@@ -810,123 +660,13 @@ onBeforeUnmount(() => {
       <div v-else-if="!listeningRanking?.items.length" class="archive-ranking-state">
         暂无排行数据
       </div>
-      <!-- Track Ranking (Single column list) -->
-      <ol v-else-if="rankingTarget === 'track'" class="archive-ranking-list">
-        <li v-for="(item, index) in listeningRanking.items" :key="item.key">
-          <span
-            class="archive-ranking-rank"
-            :class="{
-              'rank-gold': index === 0,
-              'rank-silver': index === 1,
-              'rank-bronze': index === 2,
-            }"
-            >{{ index + 1 }}</span
-          >
-          <div class="archive-ranking-artwork">
-            <img
-              v-if="getArtworkUrl(item.artworkCacheKey)"
-              :src="getArtworkUrl(item.artworkCacheKey) ?? undefined"
-              alt=""
-              loading="lazy"
-              decoding="async"
-            />
-            <span v-else class="i-lucide-music-2 h-4 w-4"></span>
-          </div>
-          <div class="archive-ranking-copy">
-            <strong>
-              {{ item.title || '未知歌曲' }}
-            </strong>
-            <span>{{ formatRankingArtist(item.artist) }}</span>
-          </div>
-          <div class="archive-ranking-meta">
-            <strong>{{ item.playCount }} 次</strong>
-            <span>{{ formatMinutes(item.durationSeconds) }}</span>
-          </div>
-        </li>
-      </ol>
-
-      <!-- Album Ranking (Editorial Magazine Split Layout) -->
-      <div v-else class="archive-album-magazine-layout">
-        <!-- Left: Hero Stage -->
-        <div v-if="selectedAlbumItem" class="album-hero-stage">
-          <canvas
-            v-if="isArchiveEffectsActive"
-            ref="heroCanvasRef"
-            class="album-hero-static-canvas"
-          ></canvas>
-          <div class="album-hero-cover-wrapper">
-            <img
-              v-if="getArtworkUrl(selectedAlbumItem.artworkCacheKey)"
-              :src="getArtworkUrl(selectedAlbumItem.artworkCacheKey) ?? undefined"
-              alt=""
-              class="album-hero-cover"
-              loading="lazy"
-              decoding="async"
-            />
-            <div v-else class="album-hero-cover-placeholder">
-              <span class="i-lucide-disc-3 h-12 w-12 opacity-40"></span>
-            </div>
-            <span
-              class="album-hero-badge"
-              :class="{
-                'rank-gold': selectedAlbumIndex === 0,
-                'rank-silver': selectedAlbumIndex === 1,
-                'rank-bronze': selectedAlbumIndex === 2,
-              }"
-            >
-              TOP {{ selectedAlbumIndex + 1 }}
-            </span>
-          </div>
-          <div class="album-hero-info">
-            <h3 class="album-hero-title">{{ selectedAlbumItem.title || '未知专辑' }}</h3>
-            <p class="album-hero-artist">{{ formatRankingArtist(selectedAlbumItem.artist) }}</p>
-            <p class="album-hero-summary-text">
-              已听 <strong>{{ selectedAlbumItem.playCount }}</strong> 次 · 累计
-              <strong>{{ formatMinutes(selectedAlbumItem.durationSeconds) }}</strong>
-            </p>
-          </div>
-        </div>
-
-        <!-- Right: Album Scroll List -->
-        <ol class="archive-album-magazine-list">
-          <li
-            v-for="(item, index) in listeningRanking.items"
-            :key="item.key"
-            class="archive-album-magazine-item"
-            :class="{ 'is-selected': index === selectedAlbumIndex }"
-            @mouseenter="selectedAlbumIndex = index"
-          >
-            <span
-              class="archive-ranking-rank"
-              :class="{
-                'rank-gold': index === 0,
-                'rank-silver': index === 1,
-                'rank-bronze': index === 2,
-              }"
-            >
-              {{ index + 1 }}
-            </span>
-            <div class="archive-ranking-artwork">
-              <img
-                v-if="getArtworkUrl(item.artworkCacheKey)"
-                :src="getArtworkUrl(item.artworkCacheKey) ?? undefined"
-                alt=""
-                loading="lazy"
-                decoding="async"
-              />
-              <span v-else class="i-lucide-disc h-4 w-4"></span>
-            </div>
-            <div class="archive-ranking-copy">
-              <strong>{{ item.title || '未知专辑' }}</strong>
-              <span>{{ formatRankingArtist(item.artist) }}</span>
-            </div>
-            <div class="archive-ranking-meta">
-              <strong>{{ item.playCount }} 次</strong>
-              <span>{{ formatMinutes(item.durationSeconds) }}</span>
-            </div>
-          </li>
-        </ol>
-      </div>
+      <RankingRecordShelf
+        v-else-if="rankingTarget === 'album'"
+        :key="rankingTarget"
+        :items="listeningRanking.items"
+        :target="rankingTarget"
+      />
+      <RankingTrackRibbons v-else :items="listeningRanking.items" />
     </section>
 
     <Teleport to="body">
@@ -1097,7 +837,6 @@ onBeforeUnmount(() => {
               <div>
                 <span class="archive-section-kicker">Year in Review</span>
                 <h2 id="archive-annual-recap-title">{{ selectedYear }} 年度总结</h2>
-                <p>这一年留下的播放、收听时长和年度 Top 10。</p>
               </div>
               <button type="button" aria-label="关闭年度总结" @click="closeAnnualRecap">
                 <span class="i-lucide-x h-4 w-4"></span>
@@ -1109,15 +848,13 @@ onBeforeUnmount(() => {
                 <section
                   v-if="annualRecapPage === 0"
                   key="cover"
-                  class="archive-annual-recap-page archive-annual-recap-page--cover"
+                  class="archive-annual-recap-ticket"
                 >
-                  <span class="archive-section-kicker">Year in Review</span>
-                  <h3>{{ selectedYear }} 年度总结</h3>
-                  <p>这一年留下的声音轨迹，先从总时长开始。</p>
-                  <strong>
-                    {{ formatHoursAndMinutes(annualRecapMetrics.totalDurationSeconds) }}
-                  </strong>
-                  <small>{{ annualRecapMetrics.totalPlays }} 次播放</small>
+                  <EditorialLinerNotesCard
+                    :data="linerNotesData"
+                    @click-peak="handleLinerNotesPeakClick"
+                    @reset="openResetConfirmation"
+                  />
                 </section>
 
                 <section
@@ -1234,7 +971,6 @@ onBeforeUnmount(() => {
                 <section v-else key="timeline" class="archive-annual-recap-page">
                   <div class="archive-annual-recap-section-heading">
                     <span>时间轨迹</span>
-                    <small>按当前年份统计</small>
                   </div>
                   <div class="archive-annual-recap-timeline">
                     <div>
@@ -1345,6 +1081,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .archive-page {
+  --auralis-archive-accent: var(--auralis-sidebar-active-indicator);
   --archive-panel-bg: color-mix(in srgb, var(--auralis-sidebar-bg) 65%, transparent);
   --archive-panel-border: color-mix(in srgb, var(--auralis-text) 8%, transparent);
   --archive-panel-shadow: 0 16px 36px color-mix(in srgb, var(--auralis-text) 5%, transparent);
@@ -1353,15 +1090,15 @@ onBeforeUnmount(() => {
     var(--auralis-sidebar-active-indicator) 12%,
     transparent
   );
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
   padding-bottom: calc(var(--auralis-playbar-safe-area) + 40px);
 }
 
-:global(body.archive-page-scrollbar-hidden .app-main) {
-  scrollbar-width: none;
-}
-
-:global(body.archive-page-scrollbar-hidden .app-main::-webkit-scrollbar) {
+.archive-page::-webkit-scrollbar {
   display: none;
 }
 
@@ -1446,27 +1183,9 @@ onBeforeUnmount(() => {
   line-height: 1.65;
 }
 
-/* Glassmorphism Panel styles */
+/* Calendar content aligns with the other sections without an outer panel. */
 .archive-heatmap-card {
-  padding: 24px;
-  border: 1px solid var(--archive-panel-border);
-  border-radius: 16px;
-  background: var(--archive-panel-bg);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  box-shadow:
-    var(--archive-panel-shadow),
-    inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
-  transition:
-    border-color 0.3s ease,
-    box-shadow 0.3s ease;
-}
-
-.archive-heatmap-card:hover {
-  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
-  box-shadow:
-    0 20px 48px color-mix(in srgb, var(--auralis-text) 8%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 20%, transparent);
+  padding: 0;
 }
 
 .archive-card-heading h2,
@@ -1517,10 +1236,7 @@ onBeforeUnmount(() => {
 .archive-heatmap-scroll {
   margin-top: 22px;
   overflow-x: auto;
-  padding: 18px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 6%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--auralis-main-bg) 40%, transparent);
+  padding: 6px 0;
 }
 
 .archive-heatmap-layout {
@@ -1725,8 +1441,32 @@ onBeforeUnmount(() => {
 
 .archive-annual-recap-content {
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
+  min-height: 0;
   padding: 22px 28px 18px;
+}
+
+.archive-annual-recap-ticket {
+  min-width: 0;
+}
+
+.archive-recap-entry {
+  margin-top: 12px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+  cursor: pointer;
+}
+
+.archive-recap-entry:hover {
+  background: var(--auralis-control-active-bg);
+}
+
+.archive-recap-entry:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 3px;
 }
 
 .archive-annual-recap-page {
@@ -2061,29 +1801,10 @@ onBeforeUnmount(() => {
   transform: translateX(-18px);
 }
 
-/* Ranking Card Glassmorphism */
+/* Ranking section */
 .archive-ranking {
-  margin-top: 24px;
-  margin-bottom: 16px;
-  padding: 24px;
-  border: 1px solid var(--archive-panel-border);
-  border-radius: 16px;
-  background: var(--archive-panel-bg);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  box-shadow:
-    var(--archive-panel-shadow),
-    inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
-  transition:
-    border-color 0.3s ease,
-    box-shadow 0.3s ease;
-}
-
-.archive-ranking:hover {
-  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
-  box-shadow:
-    0 20px 48px color-mix(in srgb, var(--auralis-text) 8%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 20%, transparent);
+  margin-top: 32px;
+  padding: 0;
 }
 
 .archive-ranking-heading p {
@@ -2421,160 +2142,6 @@ onBeforeUnmount(() => {
   font-size: 13px;
 }
 
-.archive-ranking-list {
-  display: grid;
-  gap: 6px;
-  margin-top: 14px;
-  max-height: 620px;
-  overflow-y: auto;
-  padding: 10px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 7%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--auralis-main-bg) 38%, transparent);
-  scrollbar-color: color-mix(in srgb, var(--auralis-text) 20%, transparent) transparent;
-  scrollbar-width: thin;
-  list-style: none;
-}
-
-.archive-ranking-list::-webkit-scrollbar {
-  width: 5px;
-}
-
-.archive-ranking-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.archive-ranking-list::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--auralis-text) 20%, transparent);
-}
-
-.archive-ranking-list li {
-  display: grid;
-  min-width: 0;
-  align-items: center;
-  padding: 10px 14px;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  grid-template-columns: 36px 48px minmax(0, 1fr) auto;
-  gap: 14px;
-  background: rgba(255, 255, 255, 0.015);
-  transition: all 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  position: relative;
-}
-
-.archive-ranking-list li:hover {
-  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent);
-  box-shadow: 0 8px 20px color-mix(in srgb, var(--auralis-text) 4%, transparent);
-  transform: translateX(4px) scale(1.005);
-}
-
-/* Redesigned Rankings with metallic shades for Top 3 */
-.archive-ranking-rank {
-  font-family: 'Outfit', 'Inter', sans-serif;
-  color: var(--auralis-text-faint);
-  font-size: 15px;
-  font-weight: 700;
-  text-align: center;
-  transition: transform 0.2s ease;
-}
-
-.archive-ranking-list li:nth-child(1) .archive-ranking-rank {
-  color: #ffd700;
-  font-size: 20px;
-  font-weight: 800;
-  text-shadow: 0 0 10px rgba(255, 215, 0, 0.45);
-}
-
-.archive-ranking-list li:nth-child(2) .archive-ranking-rank {
-  color: #c0c0c0;
-  font-size: 20px;
-  font-weight: 800;
-  text-shadow: 0 0 10px rgba(192, 192, 192, 0.45);
-}
-
-.archive-ranking-list li:nth-child(3) .archive-ranking-rank {
-  color: #cd7f32;
-  font-size: 20px;
-  font-weight: 800;
-  text-shadow: 0 0 10px rgba(205, 127, 50, 0.45);
-}
-
-.archive-ranking-list li:hover .archive-ranking-rank {
-  transform: scale(1.15);
-}
-
-.archive-ranking-artwork {
-  display: flex;
-  width: 48px;
-  height: 48px;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-radius: 8px;
-  background: var(--auralis-control-hover-bg);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-  color: var(--auralis-text-faint);
-}
-
-.archive-ranking-artwork img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.archive-ranking-copy,
-.archive-ranking-meta {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-}
-
-.archive-ranking-copy {
-  flex: 1 1 0%;
-  min-width: 0;
-  gap: 3px;
-}
-
-.archive-ranking-copy strong,
-.archive-ranking-copy span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.archive-ranking-copy strong {
-  color: var(--auralis-text);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.archive-ranking-copy span,
-.archive-ranking-meta span {
-  color: var(--auralis-text-muted);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.archive-ranking-meta {
-  margin-left: auto;
-  align-items: flex-end;
-  text-align: right;
-  flex-shrink: 0;
-  min-width: 72px;
-  gap: 3px;
-  white-space: nowrap;
-}
-
-.archive-ranking-meta strong {
-  color: var(--auralis-text);
-  font-size: 13px;
-  font-weight: 700;
-  font-family: 'Outfit', 'Inter', sans-serif;
-}
-
 .archive-tooltip {
   position: fixed;
   z-index: 90;
@@ -2795,11 +2362,6 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 640px) {
-  .archive-heatmap-card,
-  .archive-ranking {
-    padding: 18px;
-  }
-
   .archive-annual-recap-backdrop {
     padding: 14px;
   }
@@ -2854,172 +2416,5 @@ onBeforeUnmount(() => {
   .archive-ranking-meta {
     display: none;
   }
-}
-
-/* Editorial Magazine Layout for Album Ranking */
-.archive-album-magazine-layout {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 20px;
-  align-items: start;
-  padding: 4px 0;
-}
-
-.album-hero-stage {
-  position: sticky;
-  top: 12px;
-  height: 350px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  text-align: center;
-  padding: 18px 16px;
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--auralis-dialog-bg) 88%, #000);
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(20px);
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
-.album-hero-static-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  filter: blur(32px) saturate(150%);
-  opacity: 0.85;
-  transition: opacity 300ms ease;
-  pointer-events: none;
-}
-
-.album-hero-cover-wrapper,
-.album-hero-info {
-  position: relative;
-  z-index: 1;
-}
-
-.album-hero-cover-wrapper {
-  position: relative;
-  width: 160px;
-  height: 160px;
-  margin-bottom: 14px;
-  border-radius: 14px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
-  overflow: hidden;
-}
-
-.album-hero-cover {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.album-hero-cover-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
-}
-
-.album-hero-badge {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(12px);
-  font-size: 11px;
-  font-weight: 800;
-  color: var(--auralis-text);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.album-hero-info {
-  width: 100%;
-}
-
-.album-hero-title {
-  margin: 4px 0 2px;
-  height: 40px;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--auralis-text);
-  line-height: 1.33;
-  word-break: break-all;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.album-hero-artist {
-  font-size: 12px;
-  color: var(--auralis-text-muted);
-  margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.album-hero-summary-text {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
-  font-size: 12px;
-  color: var(--auralis-text-faint);
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.album-hero-summary-text strong {
-  color: var(--auralis-text);
-  font-weight: 700;
-  font-family: 'Outfit', 'Inter', sans-serif;
-}
-
-.archive-album-magazine-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.archive-album-magazine-item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  border: 1px solid transparent;
-  background: color-mix(in srgb, var(--auralis-text) 3%, transparent);
-  transition: all 180ms ease;
-  cursor: pointer;
-}
-
-.archive-album-magazine-item:hover,
-.archive-album-magazine-item.is-selected {
-  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
-  border-color: color-mix(in srgb, var(--auralis-archive-accent) 30%, transparent);
-  transform: translateX(4px);
-}
-
-.archive-album-magazine-item.is-selected {
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--auralis-archive-accent) 20%, transparent);
 }
 </style>

@@ -88,9 +88,23 @@ function getArtworkPalette(key: string): Promise<ArtworkPalette> {
   return promise
 }
 
+export function peekArtworkPalette(key: string | null | undefined): ArtworkPalette | null {
+  if (!key) return null
+  const cached = paletteCache.get(key)
+  if (cached?.state !== 'resolved') return null
+  touchCacheEntry(key, cached)
+  return cached.value
+}
+
+export function prefetchArtworkPalette(key: string | null | undefined): void {
+  if (!key) return
+  void getArtworkPalette(key)
+}
+
 export type UseArtworkPaletteOptions = {
   enabled?: MaybeRefOrGetter<boolean>
   loadPalette?: (key: string) => Promise<ArtworkPalette>
+  peekPalette?: (key: string) => ArtworkPalette | null
 }
 
 export function useArtworkPalette(
@@ -100,6 +114,7 @@ export function useArtworkPalette(
   const palette = ref<ArtworkPalette>(FALLBACK_PALETTE)
   let requestToken = 0
   const loadPalette = options.loadPalette ?? getArtworkPalette
+  const peekPalette = options.peekPalette ?? peekArtworkPalette
 
   watch(
     [artworkCacheKey, () => toValue(options.enabled) ?? true],
@@ -110,6 +125,9 @@ export function useArtworkPalette(
         palette.value = FALLBACK_PALETTE
         return
       }
+
+      const peeked = peekPalette(key)
+      palette.value = peeked ?? FALLBACK_PALETTE
 
       const nextPalette = await loadPalette(key)
       if (token === requestToken) palette.value = nextPalette

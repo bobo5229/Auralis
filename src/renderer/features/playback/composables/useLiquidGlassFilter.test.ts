@@ -7,7 +7,11 @@ vi.mock('@renderer/features/playback/composables/usePlayerDisplayMode', () => ({
   }),
 }))
 
-import { resolveIsLiquidGlassActive, useLiquidGlassFilter } from './useLiquidGlassFilter'
+import {
+  resolveIsLiquidGlassActive,
+  useLiquidGlassFilter,
+  useLiquidGlassRefraction,
+} from './useLiquidGlassFilter'
 import { usePlayerBarMaterial } from '@renderer/features/settings/composables/usePlayerBarMaterial'
 
 describe('resolveIsLiquidGlassActive', () => {
@@ -73,5 +77,45 @@ describe('useLiquidGlassFilter', () => {
     expect(liquidFilterStyle.value.backdropFilter).toMatch(
       /url\('.+'\) blur\(16px\) brightness\(1\.08\) saturate\(1\.4\)/,
     )
+  })
+})
+
+describe('useLiquidGlassRefraction', () => {
+  it('generates displacement backdropFilter independently of player bar material', async () => {
+    const el = {
+      clientWidth: 240,
+      clientHeight: 320,
+      getBoundingClientRect: () => ({ width: 240, height: 320 }) as DOMRect,
+    } as unknown as HTMLElement
+
+    const { setPlayerBarMaterial } = usePlayerBarMaterial()
+    setPlayerBarMaterial('cover-tint')
+
+    const target = ref<HTMLElement | null>(el)
+    const active = ref(true)
+    const { isActive, liquidFilterStyle, updateFilter } = useLiquidGlassRefraction(target, {
+      active,
+      radius: 20,
+      depth: 10,
+      strength: 50,
+      chromaticAberration: 2,
+      brightness: 1.08,
+      saturate: 1.28,
+    })
+
+    updateFilter()
+    await nextTick()
+
+    expect(isActive.value).toBe(true)
+    expect(liquidFilterStyle.value.backdropFilter).toContain('url(')
+    expect(liquidFilterStyle.value.backdropFilter).toContain('#displace')
+    expect(liquidFilterStyle.value.backdropFilter).toContain('brightness(1.08)')
+    expect(liquidFilterStyle.value.backdropFilter).toContain('saturate(1.28)')
+    expect(liquidFilterStyle.value.WebkitBackdropFilter).toContain('url(')
+
+    active.value = false
+    await nextTick()
+    expect(isActive.value).toBe(false)
+    expect(liquidFilterStyle.value).toEqual({})
   })
 })

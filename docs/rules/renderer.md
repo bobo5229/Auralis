@@ -16,8 +16,9 @@
 ## 状态与实现来源
 
 - 播放视觉状态来自现有 playback composable，不建立第二套 player store。
-- 应用只提供 modern 视觉；全局 theme 和 PlayerBar material（`cover-tint | liquid-glass`）相互独立，
-  不互相重置。主题可用模式以 `useTheme.ts` 为准；当前为 dark-only。
+- 应用只提供 modern 视觉；当前 PlayerBar 及其浮层固定使用深色磨砂材质，不读取历史 material 偏好。
+  液态玻璃保留在 `LiquidGlassPanel.vue` 和 `useLiquidGlassRefraction` 中供其他界面复用。
+  主题可用模式以 `useTheme.ts` 为准；当前为 dark-only。
 - 页面 presentation 根据显式 Vue Router route name 解析，不能根据路径前缀推断。
 - 样式优先使用 UnoCSS；主题颜色和稳定布局 shortcut 位于 `uno.config.ts`。
 - 新动画通过 `src/renderer/shared/animation/motion.ts` 封装，尊重 `prefers-reduced-motion`，
@@ -43,7 +44,6 @@
   图片保持 `decoding='async'`。
 - 虚拟列表几何保持一致，修改时 CSS 和 virtualizer estimate 必须同步：平铺行 44px、
   封面轨道 40px、封面 250px、轨道面板垂直 padding 合计 20px、专辑组垂直 padding 合计 56px。
-- PlayerBar 保持现代悬浮岛几何；窄窗音量滑杆通过 `modern-player-bar` 容器查询折叠，并以向上
-  overlay 展开。
+- PlayerBar 保持现代悬浮岛几何；音量控制在栏内横向展开，左边缘保持固定，右端扩展受可用空间限制。
 
 检查哪些状态、主题和断点由 [风险分级验收](validation.md) 决定，不因加载本文而全量回归。

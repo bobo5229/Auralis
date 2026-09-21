@@ -1,4 +1,5 @@
 import type { AppInfo, LibraryStats } from '@shared/types/app'
+import type { AudioResource } from '@shared/types/audioDecode'
 import type {
   LibraryRoot,
   LibraryScanProgress,
@@ -36,13 +37,11 @@ import type {
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
 import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
-import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import type {
-  AmdlDownloadMode,
-  AmdlLogEvent,
-  AmdlSelectionRequest,
-  AmdlTaskProgress,
-} from '@shared/types/amdl'
+  LibraryTrackPageResponse,
+  LibraryTrackPageRequest,
+} from '@shared/types/libraryCatalog'
+import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
 
 export type LibraryChangedReason =
   | 'track-added'
@@ -112,9 +111,6 @@ export interface IpcEventContract {
   'desktop-lyrics:visibility-changed': boolean
   'desktop-lyrics:mouse-passthrough-changed': boolean
   'metadata:refresh-progress': MetadataRefreshProgressEvent
-  'download:progress': AmdlTaskProgress
-  'download:log': AmdlLogEvent
-  'download:selection-request': AmdlSelectionRequest
 }
 
 export type IpcEventChannel = keyof IpcEventContract
@@ -181,7 +177,11 @@ export interface IpcInvokeContract {
   }
   'library:get-track-page': {
     request: LibraryTrackPageRequest
-    response: LibraryTrackPage
+    response: LibraryTrackPageResponse
+  }
+  'library:get-album-detail': {
+    request: AlbumDetailRequest
+    response: AlbumDetailResult
   }
   'smart-playlists:list': {
     request: void
@@ -265,7 +265,7 @@ export interface IpcInvokeContract {
   }
   'playback:get-audio-url': {
     request: { trackId: number }
-    response: { url: string } | null
+    response: AudioResource | null
   }
   'playback:get-random-track': {
     request: { excludeTrackId?: number } | void
@@ -392,22 +392,6 @@ export interface IpcInvokeContract {
   'window:set-mini-player-popover': {
     request: { open: boolean; direction: MiniPlayerPopoverDirection; height: number }
     response: MiniPlayerWindowState
-  }
-  'download:start': {
-    request: { url: string; mode?: AmdlDownloadMode }
-    response: { ok: boolean; taskId?: string; error?: string }
-  }
-  'download:cancel': {
-    request: { taskId: string }
-    response: { ok: boolean; error?: string }
-  }
-  'download:get-status': {
-    request: { taskId: string }
-    response: AmdlTaskProgress | null
-  }
-  'download:submit-selection': {
-    request: { taskId: string; trackIndexes: number[] }
-    response: { ok: boolean; error?: string }
   }
 }
 

@@ -1,6 +1,7 @@
 import {
   LIBRARY_CATALOG_MAX_PAGE_SIZE,
-  type LibraryTrackPage,
+  LibraryCatalogExpiredError,
+  type LibraryTrackPageResponse,
   type LibraryTrackPageRequest,
 } from '@shared/types/libraryCatalog'
 import type { TrackListItem } from '@shared/types/libraryScan'
@@ -36,7 +37,22 @@ function readRendererHeapUsed(): number | null {
 
 /** Aggregate bounded IPC pages into the behavior-compatible renderer snapshot. */
 export async function loadLibraryCatalogSnapshot(
-  fetchPage: (request: LibraryTrackPageRequest) => Promise<LibraryTrackPage>,
+  fetchPage: (request: LibraryTrackPageRequest) => Promise<LibraryTrackPageResponse>,
+  isCurrent: () => boolean,
+): Promise<LoadedLibraryCatalogSnapshot> {
+  try {
+    return await loadAttempt(fetchPage, isCurrent)
+  } catch (error) {
+    if (!(error instanceof LibraryCatalogExpiredError)) {
+      throw error
+    }
+    if (!isCurrent()) throw new LibraryCatalogLoadStaleError()
+    return loadAttempt(fetchPage, isCurrent)
+  }
+}
+
+async function loadAttempt(
+  fetchPage: (request: LibraryTrackPageRequest) => Promise<LibraryTrackPageResponse>,
   isCurrent: () => boolean,
 ): Promise<LoadedLibraryCatalogSnapshot> {
   const loadStartedAt = performance.now()
@@ -52,6 +68,7 @@ export async function loadLibraryCatalogSnapshot(
   let pageSliceMs = 0
   let pageRoundTripMs = 0
   let rendererAggregateMs = 0
+  const seenCursors = new Set<string>()
 
   do {
     if (!isCurrent()) throw new LibraryCatalogLoadStaleError()
@@ -62,11 +79,18 @@ export async function loadLibraryCatalogSnapshot(
       limit: LIBRARY_CATALOG_MAX_PAGE_SIZE,
       refresh: cursor === undefined,
     })
+    if ('error' in page) {
+      if (page.error.code === 'CATALOG_SNAPSHOT_EXPIRED') throw new LibraryCatalogExpiredError()
+      throw new Error('Unexpected library catalog response')
+    }
     pageRoundTripMs += performance.now() - pageRequestStartedAt
 
     if (!isCurrent()) throw new LibraryCatalogLoadStaleError()
 
     if (snapshotId === null) {
+      if (!Number.isSafeInteger(page.totalTracks) || page.totalTracks < 0) {
+        throw new Error('Invalid library catalog total')
+      }
       snapshotId = page.snapshotId
       expectedTotal = page.totalTracks
       tracks = new Array<TrackListItem>(expectedTotal)
@@ -88,6 +112,12 @@ export async function loadLibraryCatalogSnapshot(
     snapshotHeapDeltaBytes += page.diagnostics.snapshotHeapDeltaBytes ?? 0
     pageSliceMs += page.diagnostics.pageSliceMs
     cursor = page.nextCursor ?? undefined
+    if (cursor) {
+      if (!page.tracks.length || seenCursors.has(cursor)) {
+        throw new Error('Library catalog pagination made no progress')
+      }
+      seenCursors.add(cursor)
+    }
   } while (cursor)
 
   if (

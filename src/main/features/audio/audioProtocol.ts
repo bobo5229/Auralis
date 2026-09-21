@@ -6,6 +6,7 @@ import { Readable } from 'node:stream'
 import { logger } from '@main/logging/logger'
 import { supportedAudioExtensions } from '@main/features/libraryScan/audioFileFilter'
 import { isPathUnderAnyRoot } from './audioPathGuard'
+import { AUDIO_FILE_SIZE_HEADER, AUDIO_FILE_MTIME_HEADER } from '@shared/types/audioDecode'
 
 const TRACK_ID_PATH = /^\/(\d+)$/
 const BYTES_RANGE = /^bytes=(\d*)-(\d*)$/i
@@ -100,6 +101,27 @@ export function createAudioProtocolHandler(
       }
 
       const size = fileStats.size
+      if (request.method.toUpperCase() === 'OPTIONS') {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+            'Access-Control-Allow-Headers': `${AUDIO_FILE_SIZE_HEADER}, ${AUDIO_FILE_MTIME_HEADER}, Range`,
+          },
+        })
+      }
+      const expectedSize = request.headers.get(AUDIO_FILE_SIZE_HEADER)
+      const expectedMtime = request.headers.get(AUDIO_FILE_MTIME_HEADER)
+      if (
+        (expectedSize !== null || expectedMtime !== null) &&
+        (expectedSize === null ||
+          expectedMtime === null ||
+          Number(expectedSize) !== size ||
+          Number(expectedMtime) !== fileStats.mtimeMs)
+      ) {
+        return new Response(null, { status: 412, headers: { 'Access-Control-Allow-Origin': '*' } })
+      }
       const ext = extname(resolvedPath).toLowerCase()
       const contentType = EXT_TO_MIME[ext] ?? 'application/octet-stream'
       const rangeResult = parseBytesRange(request.headers.get('Range'), size)

@@ -34,24 +34,24 @@ class MockIdleScheduler implements IdleScheduler {
 }
 
 describe('routeWarmup', () => {
-  it('prefetches route on intent and marks it as warmed', async () => {
+  it('prefetches the library route on intent and marks it as warmed', async () => {
     const loadMock = vi.fn().mockResolvedValue({ default: {} })
     const coordinator = createRouteWarmupCoordinator({
       loadRoute: loadMock,
     })
 
-    expect(coordinator.isRouteWarmed('albums')).toBe(false)
-    await coordinator.prefetchRouteOnIntent('albums')
+    expect(coordinator.isRouteWarmed('library')).toBe(false)
+    await coordinator.prefetchRouteOnIntent('library')
 
-    expect(loadMock).toHaveBeenCalledWith('albums')
-    expect(coordinator.isRouteWarmed('albums')).toBe(true)
+    expect(loadMock).toHaveBeenCalledWith('library')
+    expect(coordinator.isRouteWarmed('library')).toBe(true)
 
     // Second intent prefetch should be a no-op
-    await coordinator.prefetchRouteOnIntent('albums')
+    await coordinator.prefetchRouteOnIntent('library')
     expect(loadMock).toHaveBeenCalledTimes(1)
   })
 
-  it('runs idle warmup sequentially: Albums -> Archive -> Settings', async () => {
+  it('runs idle warmup sequentially: Library -> Albums -> Archive -> Settings', async () => {
     const loaded: WarmableRouteName[] = []
     const loadMock = vi.fn().mockImplementation(async (name: WarmableRouteName) => {
       loaded.push(name)
@@ -68,19 +68,24 @@ describe('routeWarmup', () => {
     expect(scheduler.pendingCount).toBe(1)
     expect(loaded).toEqual([])
 
-    // Trigger first idle -> albums
+    // Trigger first idle -> library
     await scheduler.triggerNext()
-    expect(loaded).toEqual(['albums'])
+    expect(loaded).toEqual(['library'])
     expect(scheduler.pendingCount).toBe(1)
 
-    // Trigger second idle -> archive
+    // Trigger second idle -> albums
     await scheduler.triggerNext()
-    expect(loaded).toEqual(['albums', 'archive'])
+    expect(loaded).toEqual(['library', 'albums'])
     expect(scheduler.pendingCount).toBe(1)
 
-    // Trigger third idle -> settings
+    // Trigger third idle -> archive
     await scheduler.triggerNext()
-    expect(loaded).toEqual(['albums', 'archive', 'settings'])
+    expect(loaded).toEqual(['library', 'albums', 'archive'])
+    expect(scheduler.pendingCount).toBe(1)
+
+    // Trigger fourth idle -> settings
+    await scheduler.triggerNext()
+    expect(loaded).toEqual(['library', 'albums', 'archive', 'settings'])
     expect(scheduler.pendingCount).toBe(0)
     expect(coordinator._getPendingIdleQueue()).toEqual([])
   })
@@ -103,13 +108,15 @@ describe('routeWarmup', () => {
     expect(loaded).toEqual(['archive'])
 
     coordinator.schedulePrimaryRouteWarmup()
-    // albums should be first
+    // library should be first
     await scheduler.triggerNext()
-    expect(loaded).toEqual(['archive', 'albums'])
+    expect(loaded).toEqual(['archive', 'library'])
 
-    // Next idle should skip archive and load settings
+    // Next idle should load albums, then settings
     await scheduler.triggerNext()
-    expect(loaded).toEqual(['archive', 'albums', 'settings'])
+    expect(loaded).toEqual(['archive', 'library', 'albums'])
+    await scheduler.triggerNext()
+    expect(loaded).toEqual(['archive', 'library', 'albums', 'settings'])
     expect(scheduler.pendingCount).toBe(0)
   })
 
@@ -134,7 +141,7 @@ describe('routeWarmup', () => {
     // Now trigger with 10ms left
     scheduler.triggerNext(10, false)
     await Promise.resolve()
-    expect(loadMock).toHaveBeenCalledWith('albums')
+    expect(loadMock).toHaveBeenCalledWith('library')
   })
 
   it('allows retry on next intent or navigation if load fails, without marking warmed', async () => {

@@ -46,6 +46,8 @@ export interface PaletteColor {
 
 export interface ArtworkPalette {
   key: string
+  /** Original dominant artwork color before display tone mapping. */
+  dominant?: RgbColor
   background: RgbColor
   accents: PaletteColor[]
   textTone: 'light' | 'dark'

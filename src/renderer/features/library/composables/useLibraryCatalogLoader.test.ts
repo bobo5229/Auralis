@@ -114,6 +114,19 @@ function createLoader(overrides?: {
 }
 
 describe('useLibraryCatalogLoader', () => {
+  it('keeps a complete prior snapshot and identity visible after a failed reload', async () => {
+    const getTrackPage = vi
+      .fn()
+      .mockResolvedValueOnce(createPage([createTrack(1)]))
+      .mockRejectedValueOnce(new Error('query failed'))
+    const { loader, tracks, pageIdentity, isLoading } = createLoader({ getTrackPage })
+    await loader.loadLibraryData()
+    await loader.retryInitialLoad()
+    expect(tracks.value.map((track) => track.id)).toEqual([1])
+    expect(pageIdentity.value).toEqual({ kind: 'library' })
+    expect(isLoading.value).toBe(false)
+    expect(loader.initialLoadError.value).toBe('load failed')
+  })
   it('queues background refresh while foreground is in flight and flushes after finish', async () => {
     const gate = deferred<LibraryTrackPage>()
     const getTrackPage = vi
@@ -178,11 +191,7 @@ describe('useLibraryCatalogLoader', () => {
 
   it('does not commit a stale generation after a newer request starts', async () => {
     const first = deferred<LibraryTrackPage>()
-    const second = deferred<LibraryTrackPage>()
-    const getTrackPage = vi
-      .fn()
-      .mockImplementationOnce(() => first.promise)
-      .mockImplementationOnce(() => second.promise)
+    const getTrackPage = vi.fn().mockImplementationOnce(() => first.promise)
     const { loader, tracks, onSnapshotCommitted, scrollToPlaybackTrack } = createLoader({
       getTrackPage,
     })
@@ -194,12 +203,10 @@ describe('useLibraryCatalogLoader', () => {
 
     first.resolve(createPage([createTrack(1)]))
     expect(await stale).toBe('stale')
-    expect(onSnapshotCommitted).not.toHaveBeenCalled()
-    expect(tracks.value).toEqual([])
-
-    second.resolve(createPage([createTrack(2), createTrack(3)]))
     expect(await latest).toBe('committed')
-    expect(tracks.value.map((track) => track.id)).toEqual([2, 3])
+    expect(getTrackPage).toHaveBeenCalledOnce()
+    expect(onSnapshotCommitted).toHaveBeenCalledOnce()
+    expect(tracks.value.map((track) => track.id)).toEqual([1])
     expect(scrollToPlaybackTrack).toHaveBeenCalledOnce()
   })
 })

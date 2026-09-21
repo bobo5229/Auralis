@@ -30,6 +30,7 @@ export interface AuralisApi {
     ) => Result<'library:get-scan-status'>
     getTracks: () => Result<'library:get-tracks'>
     getTrackPage: (request: Req<'library:get-track-page'>) => Result<'library:get-track-page'>
+    getAlbumDetail: (request: Req<'library:get-album-detail'>) => Result<'library:get-album-detail'>
     onScanProgress: (
       callback: (progress: IpcEventPayload<'library:scan-progress'>) => void,
     ) => () => void
@@ -181,23 +182,6 @@ export interface AuralisApi {
     ) => Result<'window:set-mini-player-popover'>
     onMiniPlayerStateChanged: (
       callback: (state: IpcEventPayload<'window:mini-player-state-changed'>) => void,
-    ) => () => void
-  }
-  download: {
-    start: (
-      url: Req<'download:start'>['url'],
-      mode?: Req<'download:start'>['mode'],
-    ) => Result<'download:start'>
-    cancel: (taskId: Req<'download:cancel'>['taskId']) => Result<'download:cancel'>
-    getStatus: (taskId: Req<'download:get-status'>['taskId']) => Result<'download:get-status'>
-    submitSelection: (
-      taskId: Req<'download:submit-selection'>['taskId'],
-      trackIndexes: Req<'download:submit-selection'>['trackIndexes'],
-    ) => Result<'download:submit-selection'>
-    onProgress: (callback: (progress: IpcEventPayload<'download:progress'>) => void) => () => void
-    onLog: (callback: (log: IpcEventPayload<'download:log'>) => void) => () => void
-    onSelectionRequest: (
-      callback: (request: IpcEventPayload<'download:selection-request'>) => void,
     ) => () => void
   }
 }

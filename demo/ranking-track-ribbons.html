@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 曲目带 Demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        color: #f3eee6;
+        background: #111214;
+        --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        background: none;
+        border: 0;
+        cursor: pointer;
+      }
+      button:focus-visible {
+        outline: 2px solid #e1ddd6;
+        outline-offset: -3px;
+      }
+      main {
+        max-width: 1120px;
+        margin: auto;
+        padding: 44px 44px 64px;
+      }
+      .demo {
+        color: #9299a3;
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        margin: 0 0 30px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 24px;
+        margin-bottom: 30px;
+      }
+      h1 {
+        font-size: 28px;
+        margin: 0;
+        font-weight: 650;
+        letter-spacing: -0.5px;
+      }
+      .date {
+        color: #afb4bc;
+        font-size: 13px;
+      }
+      .heading {
+        display: flex;
+        justify-content: space-between;
+        color: #9299a3;
+        font-size: 12px;
+        padding: 0 16px 15px;
+        border-bottom: 1px solid #e1ddd624;
+      }
+      .heading strong {
+        color: #afb4bc;
+        font-weight: 500;
+      }
+      ol {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        min-height: 892px;
+      }
+      .track {
+        height: 76px;
+        position: relative;
+        border-bottom: 1px solid #e1ddd614;
+        isolation: isolate;
+        transition: height 540ms var(--ease);
+      }
+      .track::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(90deg, transparent, var(--tint), transparent);
+        opacity: 0;
+        transition: opacity 420ms ease;
+        z-index: -1;
+      }
+      .track.open {
+        height: 208px;
+      }
+      .track.open::before {
+        opacity: 0.11;
+      }
+      .inspect {
+        display: grid;
+        grid-template-columns: 34px 52px minmax(0, 1fr) 74px;
+        gap: 22px;
+        align-items: center;
+        width: calc(100% - 72px);
+        height: 100%;
+        text-align: left;
+        padding: 0 16px;
+        transition: grid-template-columns 540ms var(--ease);
+      }
+      .open .inspect {
+        grid-template-columns: 34px 164px minmax(0, 1fr) 74px;
+      }
+      .rank {
+        font-size: 15px;
+        font-variant-numeric: tabular-nums;
+        color: #9299a3;
+      }
+      .track:nth-child(-n + 3) .rank {
+        color: #f3eee6;
+      }
+      .art {
+        display: block;
+        height: 42px;
+        overflow: hidden;
+        border-radius: 3px;
+        transition:
+          height 540ms var(--ease),
+          opacity 350ms ease;
+      }
+      .art img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .open .art {
+        height: 164px;
+      }
+      .copy {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .name {
+        font-weight: 600;
+        font-size: 16px;
+        line-height: 1.4;
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: font-size 540ms var(--ease);
+      }
+      .artist {
+        font-size: 12px;
+        color: #afb4bc;
+        display: block;
+        margin-top: 5px;
+      }
+      .open .name {
+        font-size: 26px;
+      }
+      .details {
+        display: grid;
+        grid-template-rows: 0fr;
+        opacity: 0;
+        transition:
+          grid-template-rows 540ms var(--ease),
+          opacity 300ms ease;
+      }
+      .details-inner {
+        overflow: hidden;
+      }
+      .open .details {
+        grid-template-rows: 1fr;
+        opacity: 1;
+      }
+      .album {
+        display: block;
+        color: #9299a3;
+        font-size: 12px;
+        padding-top: 15px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .listening {
+        display: block;
+        color: #afb4bc;
+        font-size: 12px;
+        margin-top: 10px;
+      }
+      .count {
+        text-align: right;
+        font-size: 17px;
+        font-variant-numeric: tabular-nums;
+      }
+      .count small {
+        display: block;
+        font-size: 11px;
+        color: #9299a3;
+        margin-top: 4px;
+      }
+      .play {
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: grid;
+        place-items: center;
+        width: 40px;
+        height: 40px;
+        color: #f3eee6;
+        opacity: 0;
+        transition: opacity 200ms ease;
+      }
+      .open .play,
+      .playing .play,
+      .play:focus-visible {
+        opacity: 1;
+      }
+      .play:hover {
+        color: #afb4bc;
+      }
+      svg {
+        width: 22px;
+        height: 22px;
+        fill: currentColor;
+        grid-area: 1/1;
+      }
+      .pause-icon,
+      .playing .play-icon {
+        display: none;
+      }
+      .playing .pause-icon {
+        display: block;
+      }
+      .track.playing::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: calc(50% - 7px);
+        height: 14px;
+        width: 2px;
+        background: #e1ddd6;
+      }
+      .has-open .track:not(.open) .art {
+        opacity: 0.65;
+      }
+      .has-open .track:not(.open) .name {
+        color: #afb4bc;
+      }
+      footer {
+        margin-top: 22px;
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        font-size: 11px;
+        color: #9299a3;
+      }
+      footer a {
+        color: #afb4bc;
+        text-underline-offset: 4px;
+      }
+      @media (max-width: 680px) {
+        main {
+          padding: 28px 16px 40px;
+        }
+        header {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .inspect {
+          gap: 12px;
+          padding-inline: 8px;
+          grid-template-columns: 24px 40px minmax(0, 1fr);
+          width: calc(100% - 48px);
+        }
+        .open .inspect {
+          grid-template-columns: 24px 90px minmax(0, 1fr);
+        }
+        .open .art {
+          height: 90px;
+        }
+        .open .name {
+          font-size: 19px;
+        }
+        .open.track {
+          height: 164px;
+        }
+        .count {
+          display: none;
+        }
+        .play {
+          right: 2px;
+        }
+        .album {
+          padding-top: 10px;
+        }
+        ol {
+          min-height: 848px;
+        }
+      }
+      @media (hover: none) {
+        .play {
+          opacity: 1;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="demo">AURALIS / 曲目带 DEMO</p>
+      <header>
+        <h1>听歌排行</h1>
+        <span class="date">2026 年 9 月 21 日</span>
+      </header>
+      <div class="heading"><strong>单曲 · 10 首</strong><span>播放次数</span></div>
+      <ol id="tracks" aria-label="单曲排行"></ol>
+      <footer>
+        <span id="status" role="status">示例数据与占位封面 · 播放仅演示交互</span
+        ><a href="ranking-track-list.html">查看上一版</a>
+      </footer>
+    </main>
+    <script src="ranking-record-shelf-data.js"></script>
+    <script>
+      const songs = [
+        ['不知所以然', '蔡健雅', '说到爱', 0, 12, 39, '#a89776'],
+        ['可爱', '蔡健雅', '说到爱', 0, 10, 42, '#a89776'],
+        ['谢谢侬', '陈奕迅', 'Special Thanks To...', 1, 9, 38, '#849aaa'],
+        ['陌生人', '蔡健雅', '陌生人', 2, 8, 33, '#8f9b82'],
+        ['爱是怀疑', '陈奕迅', 'Special Thanks To...', 1, 7, 31, '#849aaa'],
+        ['红色高跟鞋', '蔡健雅', '若你碰到他', 3, 6, 20, '#a78c8c'],
+        ['与我常在', '陈奕迅', '与我常在', 4, 5, 21, '#9e9876'],
+        ['记念', '蔡健雅', '记念', 5, 4, 15, '#839ba1'],
+        ['失落沙洲', '徐佳莹', 'LaLa 首张创作专辑', 3, 3, 14, '#a78c8c'],
+        ['好想放假', '蔡健雅', '记念', 5, 3, 10, '#839ba1'],
+      ]
+      const tracks = document.getElementById('tracks')
+      const play =
+        '<svg class="play-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4.7c0-1 1.1-1.6 1.9-1.1l12 7.3a1.3 1.3 0 0 1 0 2.2l-12 7.3A1.3 1.3 0 0 1 6 19.3Z"/></svg>'
+      const pause =
+        '<svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/></svg>'
+      tracks.innerHTML = songs
+        .map(
+          ([name, artist, album, art, count, minutes, tint], index) => `
+        <li class="track" data-index="${index}" style="--tint:${tint}">
+          <button class="inspect" aria-label="展开 ${artist} - ${name}" aria-expanded="false">
+            <span class="rank">${String(index + 1).padStart(2, '0')}</span>
+            <span class="art"><img src="${window.rankingCovers[art]}" alt="" decoding="async" draggable="false" /></span>
+            <span class="copy"><span class="name">${name}</span><span class="artist">${artist}</span>
+              <span class="details"><span class="details-inner"><span class="album">${album}</span><span class="listening">${count} 次播放 · 收听 ${minutes} 分钟</span></span></span>
+            </span>
+            <span class="count">${count}<small>次</small></span>
+          </button>
+          <button class="play" aria-label="演示播放 ${name}" aria-pressed="false">${play}${pause}</button>
+        </li>`,
+        )
+        .join('')
+      const rows = [...tracks.children]
+      let active = -1
+      let playing = -1
+      let pointerX = -1
+      let pointerY = -1
+      function activate(index) {
+        active = index
+        tracks.classList.toggle('has-open', index >= 0)
+        rows.forEach((row, i) => {
+          row.classList.toggle('open', i === index)
+          row.querySelector('.inspect').setAttribute('aria-expanded', String(i === index))
+        })
+      }
+      // Layout movement alone must not select the row sliding under a stationary pointer.
+      tracks.addEventListener('pointermove', (event) => {
+        if (
+          event.pointerType !== 'mouse' ||
+          (event.clientX === pointerX && event.clientY === pointerY)
+        )
+          return
+        pointerX = event.clientX
+        pointerY = event.clientY
+        const row = event.target.closest('.track')
+        activate(row ? Number(row.dataset.index) : -1)
+      })
+      tracks.addEventListener('pointerleave', () => {
+        pointerX = pointerY = -1
+        activate(-1)
+      })
+      tracks.addEventListener('focusin', (event) => {
+        if (event.target.matches(':focus-visible'))
+          activate(Number(event.target.closest('.track').dataset.index))
+      })
+      tracks.addEventListener('focusout', (event) => {
+        if (!tracks.contains(event.relatedTarget)) activate(-1)
+      })
+      tracks.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          event.target.blur()
+          activate(-1)
+        }
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault()
+          const index = Number(event.target.closest('.track').dataset.index)
+          const next = Math.max(
+            0,
+            Math.min(rows.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)),
+          )
+          activate(next)
+          rows[next].querySelector('.inspect').focus({ preventScroll: true })
+        }
+      })
+      tracks.addEventListener('click', (event) => {
+        const button = event.target.closest('button')
+        if (!button) return
+        const index = Number(button.closest('.track').dataset.index)
+        if (button.classList.contains('inspect')) {
+          activate(active === index ? -1 : index)
+          return
+        }
+        playing = playing === index ? -1 : index
+        rows.forEach((row, i) => {
+          row.classList.toggle('playing', i === playing)
+          row.querySelector('.play').setAttribute('aria-pressed', String(i === playing))
+          row
+            .querySelector('.play')
+            .setAttribute('aria-label', `演示${i === playing ? '暂停' : '播放'} ${songs[i][0]}`)
+        })
+        document.getElementById('status').textContent =
+          playing < 0 ? '演示已暂停' : `演示播放：${songs[index][1]} · ${songs[index][0]}`
+      })
+    </script>
+  </body>
+</html>

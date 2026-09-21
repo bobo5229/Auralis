@@ -19,6 +19,12 @@ export const router = createRouter({
     },
     { path: '/albums', name: 'albums', component: routeLoaders.albums, meta: { title: 'Albums' } },
     {
+      path: '/albums/cd',
+      name: 'cd-albums',
+      component: routeLoaders.cdAlbums,
+      meta: { title: 'CD Albums' },
+    },
+    {
       path: '/albums/detail',
       name: 'album-detail',
       component: routeLoaders.albumDetail,
@@ -35,12 +41,6 @@ export const router = createRouter({
       name: 'settings',
       component: routeLoaders.settings,
       meta: { title: 'Settings' },
-    },
-    {
-      path: '/download',
-      name: 'download',
-      component: routeLoaders.download,
-      meta: { title: 'Download' },
     },
   ],
 })

@@ -2,7 +2,6 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
-import LiquidGlassPanel from './LiquidGlassPanel.vue'
 import type {
   LibraryContextMenuAnchor,
   LibraryContextMenuSource,
@@ -40,12 +39,8 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-const menuRef = ref<InstanceType<typeof LiquidGlassPanel> | null>(null)
-const subMenuRef = ref<InstanceType<typeof LiquidGlassPanel> | null>(null)
-
-function getPanelElement(comp: InstanceType<typeof LiquidGlassPanel> | null): HTMLElement | null {
-  return comp?.getElement() ?? null
-}
+const menuRef = ref<HTMLElement | null>(null)
+const subMenuRef = ref<HTMLElement | null>(null)
 
 const menuX = ref(0)
 const menuY = ref(0)
@@ -207,7 +202,7 @@ function updateSubMenuGeometry(): void {
   if (!props.open || !showSubMenu.value) return
 
   nextTick(() => {
-    const subMenuEl = getPanelElement(subMenuRef.value)
+    const subMenuEl = subMenuRef.value
     if (!subMenuEl) return
 
     const margin = 8
@@ -237,7 +232,7 @@ function updatePosition(): void {
   const defaultWidth = 240
   const defaultHeight = 320
 
-  const menuEl = getPanelElement(menuRef.value)
+  const menuEl = menuRef.value
   const width = menuEl ? menuEl.getBoundingClientRect().width : defaultWidth
   const height = menuEl ? menuEl.getBoundingClientRect().height : defaultHeight
 
@@ -304,8 +299,8 @@ watch(
 )
 
 function focusActiveItem(): void {
-  const menuEl = getPanelElement(menuRef.value)
-  const subMenuEl = getPanelElement(subMenuRef.value)
+  const menuEl = menuRef.value
+  const subMenuEl = subMenuRef.value
 
   if (isSubMenuFocused.value && subMenuEl) {
     const items = subMenuEl.querySelectorAll<HTMLButtonElement>('[data-context-sub-item]')
@@ -486,9 +481,9 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div v-if="open" class="library-overlay" data-library-overlay="context-menu">
       <div class="fixed inset-0 z-[60]" @click="onBackdropClick" @keydown="onKeyDown">
-        <LiquidGlassPanel
+        <div
           ref="menuRef"
-          class="library-context-menu-root library-context-menu-main-panel library-context-menu-panel fixed z-[61] w-58 p-1 select-none"
+          class="library-context-menu-root library-context-menu-main-panel library-context-menu-panel frosted-context-menu fixed z-[61] w-58 p-1 select-none"
           :style="{ left: `${menuX}px`, top: `${menuY}px` }"
           role="menu"
           :aria-label="t('library.contextMenu.ariaLabel')"
@@ -586,10 +581,10 @@ onBeforeUnmount(() => {
             </button>
 
             <!-- 子菜单 -->
-            <LiquidGlassPanel
+            <div
               v-if="showSubMenu"
               ref="subMenuRef"
-              class="library-context-menu-sub-panel library-context-menu-panel absolute z-[62] w-52 p-1"
+              class="library-context-menu-sub-panel library-context-menu-panel frosted-context-menu absolute z-[62] w-52 p-1"
               :class="[
                 subMenuFlipsLeft ? 'right-full mr-1' : 'left-full ml-1',
                 subMenuFlipsUp ? 'bottom-0' : 'top-0',
@@ -629,31 +624,32 @@ onBeforeUnmount(() => {
                 {{ t('library.contextMenu.noPlaylists') }}
               </div>
               <template v-else>
-                <button
-                  v-for="(pl, idx) in playlists"
-                  :key="pl.id"
-                  class="library-context-menu-item"
-                  type="button"
-                  role="menuitem"
-                  data-context-sub-item
-                  :tabindex="isSubMenuFocused && subActiveIndex === idx + 1 ? 0 : -1"
-                  @click="onAddToPlaylistClick(pl)"
-                  @mouseenter="onPlaylistMouseEnter(idx)"
-                >
-                  <span class="i-lucide-list-music"></span>
-                  <span class="library-context-menu-text truncate" :title="pl.name">{{
-                    pl.name
-                  }}</span>
-                  <span
-                    v-if="playlistFeedback && playlistFeedback.playlistId === pl.id"
-                    class="library-context-menu-chevron text-[10px] text-green-600 font-bold"
-                    aria-live="polite"
+                <template v-for="(pl, idx) in playlists" :key="pl.id">
+                  <div v-if="idx > 0" class="library-context-menu-separator" role="separator"></div>
+                  <button
+                    class="library-context-menu-item"
+                    type="button"
+                    role="menuitem"
+                    data-context-sub-item
+                    :tabindex="isSubMenuFocused && subActiveIndex === idx + 1 ? 0 : -1"
+                    @click="onAddToPlaylistClick(pl)"
+                    @mouseenter="onPlaylistMouseEnter(idx)"
                   >
-                    ✓
-                  </span>
-                </button>
+                    <span class="i-lucide-list-music"></span>
+                    <span class="library-context-menu-text truncate" :title="pl.name">{{
+                      pl.name
+                    }}</span>
+                    <span
+                      v-if="playlistFeedback && playlistFeedback.playlistId === pl.id"
+                      class="library-context-menu-chevron text-[10px] text-green-600 font-bold"
+                      aria-live="polite"
+                    >
+                      ✓
+                    </span>
+                  </button>
+                </template>
               </template>
-            </LiquidGlassPanel>
+            </div>
           </div>
 
           <div class="library-context-menu-separator" role="separator"></div>
@@ -729,8 +725,15 @@ onBeforeUnmount(() => {
               <span class="truncate">{{ playlistFeedback.message }}</span>
             </div>
           </template>
-        </LiquidGlassPanel>
+        </div>
       </div>
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.library-context-menu-sub-panel {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+</style>

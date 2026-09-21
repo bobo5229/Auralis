@@ -89,6 +89,7 @@ function handleCoverKeydown(event: KeyboardEvent): void {
             v-if="getArtworkUrl(currentTrack.artworkCacheKey) && !imgError"
             :src="getArtworkUrl(currentTrack.artworkCacheKey) ?? undefined"
             class="h-full w-full rounded-[inherit] object-cover"
+            decoding="async"
             @error="imgError = true"
           />
           <div v-else class="flex h-full w-full items-center justify-center">

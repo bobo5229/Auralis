@@ -1,11 +1,13 @@
 import { ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AuralisApi } from '@shared/ipc/api'
+import type { AlbumDetailResult } from '@shared/types/albumDetail'
 import type { TrackListItem } from '@shared/types/libraryScan'
 
+import { invalidateAlbumDetailSnapshot, writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import { selectAlbumTracks, useAlbumDetailTracks } from './useAlbumDetailTracks'
 
-type LibraryClient = Pick<AuralisApi['library'], 'getTracks' | 'onChanged'>
+type LibraryClient = Pick<AuralisApi['library'], 'getAlbumDetail' | 'onChanged'>
 type LibraryChangedListener = Parameters<LibraryClient['onChanged']>[0]
 type LibraryChangedEvent = Parameters<LibraryChangedListener>[0]
 
@@ -34,15 +36,17 @@ function createTrack(id: number, patch: Partial<TrackListItem> = {}): TrackListI
 function createLibraryClient() {
   let changedListener: LibraryChangedListener | null = null
   const unsubscribe = vi.fn()
-  const getTracks = vi.fn(async (): Promise<TrackListItem[]> => [])
+  const getAlbumDetail = vi.fn(
+    async (): Promise<AlbumDetailResult> => ({ tracks: [], moreAlbums: [] }),
+  )
   const onChanged = vi.fn((listener: LibraryChangedListener) => {
     changedListener = listener
     return unsubscribe
   })
 
   return {
-    client: { getTracks, onChanged } satisfies LibraryClient,
-    getTracks,
+    client: { getAlbumDetail, onChanged } satisfies LibraryClient,
+    getAlbumDetail,
     unsubscribe,
     emit(event: LibraryChangedEvent): void {
       changedListener?.(event)
@@ -62,6 +66,7 @@ function createDeferred<T>() {
 
 afterEach(() => {
   vi.useRealTimers()
+  invalidateAlbumDetailSnapshot()
 })
 
 describe('selectAlbumTracks', () => {
@@ -91,9 +96,49 @@ describe('selectAlbumTracks', () => {
 })
 
 describe('useAlbumDetailTracks', () => {
-  it('loads the snapshot and derives ready/not-found state when the route identity changes', async () => {
+  it('hydrates synchronously from a matching snapshot and skips IPC', async () => {
+    writeAlbumDetailSnapshot({
+      albumArtist: 'Artist',
+      albumTitle: 'Album',
+      artworkCacheKey: 'cover',
+      releaseDate: '2020-01-01',
+      tracks: [createTrack(1)],
+      moreAlbums: [],
+      catalogTracks: [createTrack(1), createTrack(2, { album: 'Other' })],
+    })
     const library = createLibraryClient()
-    library.getTracks.mockResolvedValue([createTrack(1), createTrack(2, { album: 'Other' })])
+    const detail = useAlbumDetailTracks({
+      albumArtist: ref('Artist'),
+      albumTitle: ref('Album'),
+      library: library.client,
+    })
+
+    expect(detail.loadState.value).toBe('ready')
+    expect(detail.albumTracks.value.map((track) => track.id)).toEqual([1])
+    expect(detail.previewArtworkCacheKey.value).toBe('cover')
+    expect(detail.moreAlbums.value.map((album) => album.title)).toEqual(['Other'])
+
+    await detail.initialize()
+    expect(library.getAlbumDetail).not.toHaveBeenCalled()
+
+    library.getAlbumDetail.mockResolvedValue({ tracks: [createTrack(1)], moreAlbums: [] })
+    library.emit({ reason: 'metadata-refresh', trackIds: [1], filePaths: [] })
+    expect(library.getAlbumDetail).toHaveBeenCalledTimes(1)
+  })
+
+  it('loads the album via getAlbumDetail and derives ready/not-found state', async () => {
+    const library = createLibraryClient()
+    library.getAlbumDetail.mockResolvedValue({
+      tracks: [createTrack(1)],
+      moreAlbums: [
+        {
+          title: 'Other',
+          albumArtist: 'Artist',
+          releaseDate: '2019-01-01',
+          artworkCacheKey: null,
+        },
+      ],
+    })
     const albumArtist = ref('Artist')
     const albumTitle = ref('Album')
     const detail = useAlbumDetailTracks({
@@ -106,17 +151,22 @@ describe('useAlbumDetailTracks', () => {
 
     expect(detail.loadState.value).toBe('ready')
     expect(detail.albumTracks.value.map((track) => track.id)).toEqual([1])
+    expect(detail.moreAlbums.value.map((album) => album.title)).toEqual(['Other'])
+    expect(library.getAlbumDetail).toHaveBeenCalledWith({
+      albumArtist: 'Artist',
+      albumTitle: 'Album',
+    })
 
     albumTitle.value = 'Missing'
-    detail.syncLoadStateFromTracks()
+    await detail.ensureCurrentAlbum()
     expect(detail.loadState.value).toBe('not-found')
   })
 
   it('lets the newest request win when background reloads resolve out of order', async () => {
     const library = createLibraryClient()
-    const first = createDeferred<TrackListItem[]>()
-    const second = createDeferred<TrackListItem[]>()
-    library.getTracks.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
+    const first = createDeferred<AlbumDetailResult>()
+    const second = createDeferred<AlbumDetailResult>()
+    library.getAlbumDetail.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise)
     const detail = useAlbumDetailTracks({
       albumArtist: ref('Artist'),
       albumTitle: ref('Album'),
@@ -125,12 +175,12 @@ describe('useAlbumDetailTracks', () => {
 
     const firstReload = detail.reloadTracks({ background: true })
     const secondReload = detail.reloadTracks({ background: true })
-    second.resolve([createTrack(2)])
+    second.resolve({ tracks: [createTrack(2)], moreAlbums: [] })
 
     await expect(secondReload).resolves.toBe(true)
     expect(detail.tracks.value.map((track) => track.id)).toEqual([2])
 
-    first.resolve([createTrack(1)])
+    first.resolve({ tracks: [createTrack(1)], moreAlbums: [] })
     await expect(firstReload).resolves.toBe(false)
     expect(detail.tracks.value.map((track) => track.id)).toEqual([2])
   })
@@ -138,7 +188,7 @@ describe('useAlbumDetailTracks', () => {
   it('debounces play-stat changes but reloads other library changes immediately', async () => {
     vi.useFakeTimers()
     const library = createLibraryClient()
-    library.getTracks.mockResolvedValue([createTrack(1)])
+    library.getAlbumDetail.mockResolvedValue({ tracks: [createTrack(1)], moreAlbums: [] })
     const detail = useAlbumDetailTracks({
       albumArtist: ref('Artist'),
       albumTitle: ref('Album'),
@@ -151,13 +201,13 @@ describe('useAlbumDetailTracks', () => {
     library.emit({ ...baseEvent, reason: 'play-stats-updated' })
     library.emit({ ...baseEvent, reason: 'play-stats-reset' })
     await vi.advanceTimersByTimeAsync(399)
-    expect(library.getTracks).toHaveBeenCalledTimes(1)
+    expect(library.getAlbumDetail).toHaveBeenCalledTimes(1)
 
     await vi.advanceTimersByTimeAsync(1)
-    expect(library.getTracks).toHaveBeenCalledTimes(2)
+    expect(library.getAlbumDetail).toHaveBeenCalledTimes(2)
 
     library.emit({ ...baseEvent, reason: 'metadata-refresh' })
-    expect(library.getTracks).toHaveBeenCalledTimes(3)
+    expect(library.getAlbumDetail).toHaveBeenCalledTimes(3)
 
     detail.dispose()
     expect(library.unsubscribe).toHaveBeenCalledOnce()
@@ -165,8 +215,8 @@ describe('useAlbumDetailTracks', () => {
 
   it('preserves an existing ready snapshot after a failed background reload', async () => {
     const library = createLibraryClient()
-    library.getTracks
-      .mockResolvedValueOnce([createTrack(1)])
+    library.getAlbumDetail
+      .mockResolvedValueOnce({ tracks: [createTrack(1)], moreAlbums: [] })
       .mockRejectedValueOnce(new Error('fail'))
     const detail = useAlbumDetailTracks({
       albumArtist: ref('Artist'),
@@ -184,7 +234,9 @@ describe('useAlbumDetailTracks', () => {
   it('reports an initial foreground failure and cancels pending work on dispose', async () => {
     vi.useFakeTimers()
     const library = createLibraryClient()
-    library.getTracks.mockRejectedValueOnce(new Error('fail')).mockResolvedValue([createTrack(1)])
+    library.getAlbumDetail
+      .mockRejectedValueOnce(new Error('fail'))
+      .mockResolvedValue({ tracks: [createTrack(1)], moreAlbums: [] })
     const detail = useAlbumDetailTracks({
       albumArtist: ref('Artist'),
       albumTitle: ref('Album'),
@@ -199,7 +251,7 @@ describe('useAlbumDetailTracks', () => {
     detail.dispose()
     await vi.advanceTimersByTimeAsync(400)
 
-    expect(library.getTracks).toHaveBeenCalledTimes(1)
+    expect(library.getAlbumDetail).toHaveBeenCalledTimes(1)
     expect(library.unsubscribe).toHaveBeenCalledOnce()
   })
 })

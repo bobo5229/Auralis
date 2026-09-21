@@ -1,4 +1,5 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, mkdir, rm, writeFile, stat } from 'node:fs/promises'
+import { AUDIO_FILE_SIZE_HEADER, AUDIO_FILE_MTIME_HEADER } from '@shared/types/audioDecode'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -31,6 +32,25 @@ afterEach(async () => {
 })
 
 describe('audio protocol handler', () => {
+  it('rejects a stale decode fingerprint before returning the body', async () => {
+    const { root, filePath } = await createFixture()
+    const info = await stat(filePath)
+    const handler = createAudioProtocolHandler(resolver(filePath, [root]))
+    const headers = {
+      [AUDIO_FILE_SIZE_HEADER]: String(info.size),
+      [AUDIO_FILE_MTIME_HEADER]: String(info.mtimeMs),
+    }
+    const preflight = await handler(new Request('auralis-audio://track/1', { method: 'OPTIONS' }))
+    expect(preflight.status).toBe(204)
+    expect(preflight.headers.get('Access-Control-Allow-Headers')).toContain(AUDIO_FILE_MTIME_HEADER)
+    const response = await handler(new Request('auralis-audio://track/1', { headers }))
+    expect(response.status).toBe(200)
+    await response.arrayBuffer()
+    await writeFile(filePath, 'changed contents')
+    const stale = await handler(new Request('auralis-audio://track/1', { headers }))
+    expect(stale.status).toBe(412)
+    expect(await stale.text()).toBe('')
+  })
   it('rejects invalid hosts, paths, and unsupported extensions', async () => {
     const handler = createAudioProtocolHandler(resolver('C:\\Music\\track.txt', ['C:\\Music']))
 

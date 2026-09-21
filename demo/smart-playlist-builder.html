@@ -1,0 +1,982 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 智能歌单 Demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        background: #111214;
+        color: #f3eee6;
+        --text: #f3eee6;
+        --muted: #afb4bc;
+        --subtle: #9299a3;
+        --line: #e1ddd614;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+        border: 0;
+        background: none;
+        color: inherit;
+      }
+      button:disabled {
+        cursor: default;
+        color: #afb4bc59;
+      }
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid #e1ddd6;
+        outline-offset: 3px;
+      }
+      svg {
+        width: 20px;
+        height: 20px;
+        flex-shrink: 0;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .scene {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        grid-template-columns: 210px 1fr;
+        gap: 40px;
+        padding: 24px;
+        z-index: -1;
+        color: #9299a3;
+        user-select: none;
+      }
+      .scene-sidebar {
+        background: #17191c;
+        border-radius: 16px;
+        padding: 28px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+      }
+      .scene-sidebar strong {
+        font-size: 18px;
+        color: #afb4bc;
+        margin-bottom: 32px;
+      }
+      .scene-page {
+        padding: 38px 20px;
+      }
+      .scene-page h2 {
+        font-size: 32px;
+        font-weight: 500;
+      }
+      .scene-lines {
+        height: 380px;
+        margin-top: 36px;
+        background: repeating-linear-gradient(transparent 0 62px, #e1ddd60a 62px 63px);
+      }
+      .demo-bar {
+        position: fixed;
+        bottom: 20px;
+        left: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        color: var(--subtle);
+        font-size: 11px;
+      }
+      .demo-bar button {
+        color: var(--text);
+        padding: 8px 12px;
+        border: 1px solid #e1ddd624;
+        border-radius: 6px;
+      }
+      dialog {
+        width: min(1020px, calc(100vw - 48px));
+        max-width: none;
+        padding: 0;
+        border: 0;
+        border-radius: 20px;
+        color: var(--text);
+        background: rgba(27, 29, 33, 0.96);
+        box-shadow: 0 32px 100px #0006;
+        overflow: hidden;
+      }
+      dialog::backdrop {
+        background: #08090ba8;
+        backdrop-filter: blur(7px);
+      }
+      main {
+        display: flex;
+        flex-direction: column;
+        height: min(790px, calc(100dvh - 104px));
+        min-height: 360px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 26px 30px 20px;
+        gap: 20px;
+      }
+      .title-lockup {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .title-lockup svg {
+        color: var(--muted);
+      }
+      h1 {
+        margin: 0;
+        font-size: 21px;
+        font-weight: 600;
+        letter-spacing: -0.4px;
+      }
+      .close {
+        display: grid;
+        place-items: center;
+        width: 32px;
+        height: 32px;
+        color: var(--subtle);
+      }
+      .close:hover {
+        color: var(--text);
+      }
+      .steps {
+        display: flex;
+        gap: 28px;
+        padding: 0 30px;
+        border-bottom: 1px solid var(--line);
+        flex-shrink: 0;
+        font-size: 12px;
+        color: var(--subtle);
+      }
+      .steps > span {
+        padding: 0 0 15px;
+        border-bottom: 2px solid transparent;
+      }
+      .steps > span.current {
+        color: var(--text);
+        border-color: #e1ddd6;
+      }
+      .steps b {
+        font-weight: 500;
+        font-size: 11px;
+        margin-right: 9px;
+        font-variant-numeric: tabular-nums;
+      }
+      .stage {
+        padding: 24px 30px;
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #484d55 transparent;
+      }
+      .stage[data-step='1'] {
+        padding: 40px max(30px, calc((100% - 640px) / 2));
+      }
+      h2 {
+        font-size: 15px;
+        font-weight: 600;
+        margin: 0 0 20px;
+      }
+      .step-heading {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+      .step-heading small {
+        color: var(--subtle);
+        font-size: 12px;
+      }
+      .dimension {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 23px 14px;
+        border-bottom: 1px solid var(--line);
+        cursor: pointer;
+      }
+      .dimension .dimension-icon {
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+        flex: 0 0 32px;
+      }
+      .dimension .dimension-icon svg {
+        width: 24px;
+        height: 24px;
+      }
+      .dimension .dimension-name {
+        flex: 1;
+        font-size: 16px;
+      }
+      .dimension small {
+        color: var(--subtle);
+        font-size: 12px;
+      }
+      input[type='checkbox'] {
+        appearance: none;
+        width: 17px;
+        height: 17px;
+        border: 1px solid #9299a380;
+        border-radius: 4px;
+        margin: 0;
+        display: grid;
+        place-content: center;
+        flex-shrink: 0;
+        cursor: pointer;
+        background: transparent;
+      }
+      input[type='checkbox']:checked {
+        background: #e1ddd6;
+        border-color: #e1ddd6;
+      }
+      input[type='checkbox']:checked::after {
+        content: '';
+        width: 8px;
+        height: 4px;
+        border-left: 1.8px solid #111214;
+        border-bottom: 1.8px solid #111214;
+        transform: translateY(-1px) rotate(-45deg);
+      }
+      .dimension:has(:checked),
+      .choice:has(:checked) {
+        background: #e1ddd60a;
+      }
+      .dimension:hover,
+      .choice:hover {
+        background: #e1ddd60f;
+      }
+      .relation {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .outer {
+        padding: 0 0 20px;
+        border-bottom: 1px solid #e1ddd624;
+        margin-bottom: 24px;
+        justify-content: space-between;
+      }
+      [data-step='1'] .outer {
+        padding: 28px 0;
+        border: 0;
+      }
+      .label {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .outer .label {
+        font-size: 13px;
+        color: var(--text);
+      }
+      .switch {
+        display: inline-flex;
+        padding: 3px;
+        background: #11121480;
+        border-radius: 7px;
+        gap: 2px;
+      }
+      .switch button {
+        padding: 6px 11px;
+        font-size: 12px;
+        border-radius: 4px;
+        color: var(--subtle);
+        white-space: nowrap;
+      }
+      .switch button[aria-pressed='true'] {
+        background: #e1ddd619;
+        color: var(--text);
+      }
+      .outer .switch button[aria-pressed='true'] {
+        background: #e1ddd6;
+        color: #111214;
+      }
+      .switch button:disabled {
+        opacity: 0.35;
+      }
+      .single {
+        font-size: 11px;
+        color: var(--subtle);
+        flex-basis: 100%;
+      }
+      .builder {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(250px, 1fr);
+        gap: 28px;
+        align-items: start;
+      }
+      .group {
+        padding-bottom: 24px;
+        margin-bottom: 24px;
+        border-bottom: 1px solid var(--line);
+      }
+      .group:last-child {
+        margin-bottom: 0;
+        border: 0;
+        padding-bottom: 0;
+      }
+      .group-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .group-header h2 {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+      }
+      .group-header h2 svg {
+        width: 16px;
+        height: 16px;
+        color: var(--muted);
+      }
+      .group .relation {
+        justify-content: space-between;
+        margin-bottom: 14px;
+      }
+      .badge {
+        color: var(--subtle);
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .badge.empty {
+        color: #e5a5a0;
+      }
+      .selected-values {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 12px;
+        min-height: 28px;
+      }
+      .selected-values:empty {
+        display: none;
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+        border: 1px solid #e1ddd624;
+        border-radius: 5px;
+        padding: 5px 7px;
+        color: var(--text);
+        max-width: 100%;
+      }
+      .chip span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .chip svg {
+        width: 12px;
+        height: 12px;
+        color: var(--subtle);
+      }
+      .chip:hover {
+        background: #e1ddd614;
+      }
+      .clear-group {
+        font-size: 11px;
+        color: var(--subtle);
+        padding: 4px 6px;
+      }
+      .search-wrap {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 0 10px;
+        background: #11121499;
+        border-radius: 6px;
+        margin-bottom: 10px;
+      }
+      .search-wrap > svg {
+        color: var(--subtle);
+        width: 16px;
+        height: 16px;
+      }
+      .search-wrap:focus-within {
+        outline: 1px solid #9299a3;
+      }
+      .search {
+        width: 100%;
+        min-width: 0;
+        padding: 10px 0;
+        border: 0;
+        background: none;
+        color: var(--text);
+        font-size: 12px;
+      }
+      .search:focus-visible {
+        outline: none;
+      }
+      .search::placeholder {
+        color: var(--subtle);
+      }
+      .clear-search {
+        display: grid;
+        place-items: center;
+        color: var(--subtle);
+        width: 24px;
+        height: 28px;
+        padding: 0;
+      }
+      .clear-search svg {
+        width: 14px;
+        height: 14px;
+      }
+      .choices {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2px 8px;
+        max-height: 184px;
+        overflow: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #484d55 transparent;
+      }
+      .choice {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 9px 7px;
+        min-height: 38px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        min-width: 0;
+      }
+      .choice span {
+        flex: 1;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .choice small {
+        color: var(--subtle);
+        font-size: 10px;
+        font-variant-numeric: tabular-nums;
+      }
+      .choice input[type='checkbox'] {
+        width: 15px;
+        height: 15px;
+        border-radius: 3px;
+      }
+      aside {
+        border-left: 1px solid var(--line);
+        padding-left: 24px;
+        position: sticky;
+        top: 0;
+      }
+      .preview-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+      }
+      .preview-head h2 {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .preview-head strong {
+        font-size: 30px;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -1px;
+      }
+      .preview-head small {
+        color: var(--subtle);
+        font-size: 11px;
+        margin-left: 5px;
+      }
+      .expression {
+        color: var(--subtle);
+        font-size: 11px;
+        line-height: 1.9;
+        margin: 14px 0 20px;
+        overflow-wrap: anywhere;
+      }
+      .notice {
+        font-size: 12px;
+        line-height: 1.7;
+        color: #e5a5a0;
+        margin: 12px 0;
+      }
+      .notice.neutral {
+        color: var(--subtle);
+      }
+      .results {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .results li {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .results .result-index {
+        color: var(--subtle);
+        font-size: 10px;
+        width: 18px;
+        font-variant-numeric: tabular-nums;
+        flex-shrink: 0;
+      }
+      .result-copy {
+        min-width: 0;
+      }
+      .results .song-title {
+        display: block;
+        font-size: 12px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .results small {
+        display: block;
+        font-size: 11px;
+        color: var(--subtle);
+        margin-top: 5px;
+        line-height: 1.5;
+      }
+      .empty-preview {
+        padding: 38px 0;
+        color: var(--subtle);
+        text-align: center;
+      }
+      .empty-preview svg {
+        width: 28px;
+        height: 28px;
+        margin-bottom: 8px;
+      }
+      .empty-preview p {
+        font-size: 12px;
+        margin: 0;
+      }
+      .actions {
+        border-top: 1px solid var(--line);
+        padding: 20px 30px;
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        flex-shrink: 0;
+      }
+      .primary {
+        margin-left: auto;
+        background: #e1ddd6;
+        color: #111214;
+        padding: 11px 20px;
+        border-radius: 7px;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      .primary:disabled {
+        color: #afb4bc59;
+        background: #e1ddd60d;
+      }
+      .primary:hover:not(:disabled) {
+        background: #f3eee6;
+      }
+      .back {
+        font-size: 12px;
+        color: var(--muted);
+        padding: 10px 0;
+        margin-right: 8px;
+        white-space: nowrap;
+      }
+      .name {
+        width: 240px;
+        min-width: 0;
+        padding: 10px 12px;
+        border: 1px solid #e1ddd614;
+        border-radius: 6px;
+        background: #11121480;
+        color: var(--text);
+        font-size: 12px;
+      }
+      .name::placeholder {
+        color: var(--subtle);
+      }
+      .status {
+        margin: 0;
+        padding: 0 30px 18px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 760px) {
+        dialog {
+          width: calc(100vw - 24px);
+          border-radius: 14px;
+        }
+        main {
+          height: calc(100dvh - 64px);
+          min-height: 0;
+        }
+        header {
+          padding: 20px;
+        }
+        h1 {
+          font-size: 19px;
+        }
+        .steps {
+          padding-inline: 20px;
+          gap: 24px;
+        }
+        .stage,
+        .stage[data-step='1'] {
+          padding: 22px 20px;
+        }
+        .builder {
+          grid-template-columns: 1fr;
+        }
+        aside {
+          position: static;
+          border-left: 0;
+          border-top: 1px solid var(--line);
+          padding: 22px 0 0;
+        }
+        .actions {
+          padding: 16px 20px;
+          flex-wrap: wrap;
+        }
+        .name {
+          flex: 1;
+          width: 160px;
+        }
+        .demo-bar {
+          bottom: 4px;
+          font-size: 10px;
+        }
+        .scene {
+          display: none;
+        }
+      }
+      @media (prefers-reduced-transparency: reduce) {
+        dialog {
+          background: #1b1d21;
+        }
+        dialog::backdrop {
+          backdrop-filter: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="scene" aria-hidden="true">
+      <div class="scene-sidebar">
+        <strong>AuralisMusic</strong><span>歌曲</span><span>专辑</span><span>声迹</span
+        ><span>歌单</span>
+      </div>
+      <div class="scene-page">
+        <h2>我的音乐</h2>
+        <div class="scene-lines"></div>
+      </div>
+    </div>
+    <div class="demo-bar">
+      <span>智能歌单 UI Demo · 示例曲库，不写入播放器</span><button id="reopen">打开弹窗</button>
+    </div>
+    <dialog id="builder-dialog" aria-labelledby="dialog-title">
+      <main>
+        <header>
+          <div class="title-lockup">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5ZM20 2v4M18 4h4" />
+            </svg>
+            <h1 id="dialog-title">新建智能歌单</h1>
+          </div>
+          <button id="close" class="close" aria-label="关闭">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6" /></svg>
+          </button>
+        </header>
+        <div class="steps">
+          <span id="step-one" class="current"><b>01</b>选择条件</span
+          ><span id="step-two"><b>02</b>选择具体值</span>
+        </div>
+        <div id="stage" class="stage"></div>
+        <div class="actions">
+          <button id="back" class="back" hidden>← 上一步</button>
+          <input
+            id="name"
+            class="name"
+            aria-label="歌单名称"
+            placeholder="歌单名称"
+            value="我的智能歌单"
+            maxlength="80"
+            hidden
+          />
+          <button id="next" class="primary" disabled>下一步</button>
+          <button id="create" class="primary" hidden disabled>创建歌单</button>
+        </div>
+        <p id="status" class="status" role="status" hidden></p>
+      </main>
+    </dialog>
+    <script>
+      const tracks = [
+        { title: '晴天', artists: ['周杰伦'], genres: ['Mandopop', 'Pop'] },
+        { title: '夜曲', artists: ['周杰伦'], genres: ['Mandopop', 'Hip-Hop'] },
+        { title: '陌生人', artists: ['蔡健雅'], genres: ['Mandopop', 'Pop'] },
+        { title: '达尔文', artists: ['蔡健雅'], genres: ['Mandopop', 'Folk'] },
+        { title: '富士山下', artists: ['陈奕迅'], genres: ['Cantopop', 'Pop'] },
+        { title: '浮夸', artists: ['陈奕迅'], genres: ['Cantopop', 'Rock'] },
+        { title: '失落沙洲', artists: ['徐佳莹'], genres: ['Mandopop', 'Pop'] },
+        { title: '身骑白马', artists: ['徐佳莹'], genres: ['Mandopop', 'Folk'] },
+        { title: '合作曲目 A', artists: ['蔡健雅', '陈奕迅'], genres: ['Mandopop', 'Pop'] },
+        { title: '合作曲目 B', artists: ['周杰伦', '陈奕迅'], genres: ['Mandopop', 'Hip-Hop'] },
+        { title: '合作曲目 C', artists: ['蔡健雅', '徐佳莹'], genres: ['Mandopop', 'Folk'] },
+        { title: '摇滚现场', artists: ['五月天'], genres: ['Mandopop', 'Rock'] },
+      ]
+      const labels = { genres: '流派', artists: '艺术家' }
+      const state = {
+        step: 1,
+        enabled: [],
+        outer: 'and',
+        modes: { genres: 'or', artists: 'or' },
+        selected: { genres: [], artists: [] },
+      }
+      function matchesGroup(track, key, values, mode) {
+        return (
+          values.length > 0 &&
+          (mode === 'and'
+            ? values.every((value) => track[key].includes(value))
+            : values.some((value) => track[key].includes(value)))
+        )
+      }
+      function evaluate(config) {
+        const groups = config.enabled.map((key) => ({
+          key,
+          matches: tracks.filter((track) =>
+            matchesGroup(track, key, config.selected[key], config.modes[key]),
+          ),
+        }))
+        const complete =
+          groups.length > 0 && config.enabled.every((key) => config.selected[key].length > 0)
+        const matches = complete
+          ? tracks.filter((track) =>
+              config.outer === 'and'
+                ? groups.every((group) => group.matches.includes(track))
+                : groups.some((group) => group.matches.includes(track)),
+            )
+          : []
+        return { groups, complete, matches }
+      }
+      const stage = document.getElementById('stage')
+      const next = document.getElementById('next')
+      const back = document.getElementById('back')
+      const create = document.getElementById('create')
+      const name = document.getElementById('name')
+      const status = document.getElementById('status')
+      const allValues = (key) =>
+        [...new Set(tracks.flatMap((track) => track[key]))].sort((a, b) =>
+          a.localeCompare(b, 'zh-CN'),
+        )
+      const icon = (key) =>
+        `<svg viewBox="0 0 24 24" aria-hidden="true">${key === 'genres' ? '<path d="M4 6h16M4 12h10M4 18h6M18 10v10M15 17l3 3 3-3"/>' : '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>'}</svg>`
+      const cross =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg>'
+      const searchIcon =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg>'
+      const switchHtml = (
+        scope,
+        value,
+        disabled = false,
+      ) => `<div class="switch" role="group" aria-label="${scope === 'outer' ? '不同维度之间的关系' : labels[scope] + '组内关系'}">
+      <button id="${scope}-and" data-scope="${scope}" data-mode="and" aria-pressed="${value === 'and'}" ${disabled ? 'disabled' : ''}>${scope === 'outer' ? '和 · 同时满足' : '和'}</button>
+      <button id="${scope}-or" data-scope="${scope}" data-mode="or" aria-pressed="${value === 'or'}" ${disabled ? 'disabled' : ''}>${scope === 'outer' ? '或 · 满足任一' : '或'}</button></div>`
+      const outerHtml = () =>
+        `<div class="relation outer"><span class="label">条件组之间</span>${switchHtml('outer', state.outer, state.enabled.length < 2)}${state.enabled.length < 2 ? '<span class="single">选择两个维度后可设置</span>' : ''}</div>`
+      function render() {
+        const focusId = document.activeElement?.id
+        const searches = Object.fromEntries(
+          [...stage.querySelectorAll('[data-search]')].map((input) => [
+            input.dataset.search,
+            input.value,
+          ]),
+        )
+        const result = evaluate(state)
+        stage.dataset.step = String(state.step)
+        status.hidden = true
+        document.getElementById('step-one').classList.toggle('current', state.step === 1)
+        document.getElementById('step-two').classList.toggle('current', state.step === 2)
+        next.hidden = state.step !== 1
+        next.disabled = state.enabled.length === 0
+        back.hidden = name.hidden = create.hidden = state.step !== 2
+        create.disabled = !result.complete || result.matches.length === 0 || !name.value.trim()
+        if (state.step === 1) {
+          stage.innerHTML = `<div class="step-heading"><h2>选择筛选维度</h2><small>已选 ${state.enabled.length} 项</small></div>${Object.keys(
+            labels,
+          )
+            .map(
+              (key) =>
+                `<label class="dimension"><span class="dimension-icon">${icon(key)}</span><span class="dimension-name">${labels[key]}</span><small>${allValues(key).length} 个值</small><input id="dimension-${key}" type="checkbox" data-dimension="${key}" ${state.enabled.includes(key) ? 'checked' : ''}/></label>`,
+            )
+            .join('')}${outerHtml()}`
+        } else {
+          const groupHtml = result.groups
+            .map(
+              ({ key, matches }) => `<section class="group">
+          <div class="group-header"><h2>${icon(key)}${labels[key]}</h2><span class="badge ${state.selected[key].length && !matches.length ? 'empty' : ''}">${state.selected[key].length ? matches.length + ' 首匹配' : '未选择'}</span></div>
+          <div class="relation"><span class="label">组内关系 · ${state.modes[key] === 'and' ? '同时满足' : '满足任一'}</span>${switchHtml(key, state.modes[key])}</div>
+          <div class="selected-values" aria-label="已选${labels[key]}">${state.selected[key].map((value) => `<button class="chip" data-remove-key="${key}" data-remove-value="${value}" aria-label="移除 ${value}"><span>${value}</span>${cross}</button>`).join('')}${state.selected[key].length ? `<button class="clear-group" data-clear-group="${key}">清空</button>` : ''}</div>
+          <div class="search-wrap">${searchIcon}<input id="search-${key}" class="search" data-search="${key}" placeholder="检索${labels[key]}" aria-label="检索${labels[key]}" /><button id="clear-search-${key}" class="clear-search" data-clear-search="${key}" aria-label="清除${labels[key]}检索" hidden>${cross}</button></div>
+          <div class="choices" data-choices="${key}">${allValues(key)
+            .map(
+              (value, index) =>
+                `<label class="choice" data-value="${value}"><input id="value-${key}-${index}" type="checkbox" data-key="${key}" value="${value}" ${state.selected[key].includes(value) ? 'checked' : ''}/><span>${value}</span><small>${tracks.filter((track) => track[key].includes(value)).length}</small></label>`,
+            )
+            .join('')}</div>
+          <p class="notice neutral" data-search-empty="${key}" hidden>没有找到相应的值</p>
+          ${state.selected[key].length && !matches.length ? `<p class="notice">${labels[key]}组内所选值没有交集</p>` : ''}
+        </section>`,
+            )
+            .join('')
+          const expression = state.enabled
+            .map(
+              (key) =>
+                `（${labels[key]}：${state.selected[key].join(state.modes[key] === 'and' ? ' 和 ' : ' 或 ') || '未选择'}）`,
+            )
+            .join(state.outer === 'and' ? ' 和 ' : ' 或 ')
+          let notice = ''
+          if (!result.complete) notice = '<p class="notice neutral">请选择每个条件组的具体值</p>'
+          else if (!result.matches.length)
+            notice = `<p class="notice">${result.groups.some((group) => !group.matches.length) ? '条件组内无匹配，无法创建' : '各条件组之间没有交集，无法创建'}</p>`
+          stage.innerHTML = `${outerHtml()}<div class="builder"><div>${groupHtml}</div><aside><div class="preview-head"><h2>匹配歌曲</h2><div role="status" aria-live="polite"><strong>${result.matches.length}</strong><small>首</small></div></div><p class="expression">${expression}</p><div role="status">${notice}</div>${!result.matches.length ? `<div class="empty-preview"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v12M9 8l12-2"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="18" cy="15" rx="3" ry="3"/></svg></div>` : ''}<ul class="results">${result.matches.map((track, index) => `<li><span class="result-index">${String(index + 1).padStart(2, '0')}</span><div class="result-copy"><span class="song-title">${track.title}</span><small>${track.artists.join(' / ')} · ${track.genres.join(' / ')}</small></div></li>`).join('')}</ul></aside></div>`
+          for (const [key, value] of Object.entries(searches)) {
+            const input = document.getElementById('search-' + key)
+            if (input) {
+              input.value = value
+              filterValues(key, value)
+            }
+          }
+        }
+        if (focusId) document.getElementById(focusId)?.focus({ preventScroll: true })
+      }
+      function filterValues(key, query) {
+        document.getElementById('clear-search-' + key).hidden = query.length === 0
+        let visible = 0
+        stage.querySelectorAll(`[data-choices="${key}"] .choice`).forEach((choice) => {
+          choice.hidden = !choice.dataset.value
+            .toLocaleLowerCase()
+            .includes(query.trim().toLocaleLowerCase())
+          if (!choice.hidden) visible++
+        })
+        stage.querySelector(`[data-search-empty="${key}"]`).hidden = visible > 0
+      }
+      stage.addEventListener('change', (event) => {
+        const input = event.target
+        if (!input.dataset.dimension && !input.dataset.key) return
+        if (input.dataset.dimension)
+          state.enabled = Object.keys(labels).filter((key) =>
+            key === input.dataset.dimension ? input.checked : state.enabled.includes(key),
+          )
+        if (input.dataset.key) {
+          const values = state.selected[input.dataset.key]
+          state.selected[input.dataset.key] = input.checked
+            ? [...values, input.value]
+            : values.filter((value) => value !== input.value)
+        }
+        render()
+      })
+      stage.addEventListener('click', (event) => {
+        const button = event.target.closest('button')
+        if (!button) return
+        if (button.dataset.clearSearch) {
+          const key = button.dataset.clearSearch
+          const input = document.getElementById('search-' + key)
+          input.value = ''
+          filterValues(key, '')
+          input.focus()
+          return
+        }
+        if (button.dataset.removeKey || button.dataset.clearGroup) {
+          const key = button.dataset.removeKey || button.dataset.clearGroup
+          state.selected[key] = button.dataset.clearGroup
+            ? []
+            : state.selected[key].filter((value) => value !== button.dataset.removeValue)
+          render()
+          document.getElementById('search-' + key)?.focus({ preventScroll: true })
+          return
+        }
+        if (!button.dataset.scope) return
+        if (button.dataset.scope === 'outer') state.outer = button.dataset.mode
+        else state.modes[button.dataset.scope] = button.dataset.mode
+        render()
+      })
+      stage.addEventListener('input', (event) => {
+        if (event.target.dataset.search)
+          filterValues(event.target.dataset.search, event.target.value)
+      })
+      next.addEventListener('click', () => {
+        state.step = 2
+        render()
+        stage.scrollTop = 0
+        back.focus()
+      })
+      back.addEventListener('click', () => {
+        state.step = 1
+        render()
+        stage.scrollTop = 0
+        document.querySelector('[data-dimension]')?.focus()
+      })
+      name.addEventListener('input', () => {
+        const result = evaluate(state)
+        create.disabled = !name.value.trim() || !result.complete || !result.matches.length
+        status.hidden = true
+      })
+      create.addEventListener('click', () => {
+        const result = evaluate(state)
+        if (!name.value.trim() || !result.complete || !result.matches.length) return
+        status.textContent = `演示已创建「${name.value.trim()}」，匹配 ${result.matches.length} 首歌曲。未写入播放器。`
+        status.hidden = false
+      })
+      const dialog = document.getElementById('builder-dialog')
+      document.getElementById('close').addEventListener('click', () => dialog.close())
+      document.getElementById('reopen').addEventListener('click', () => dialog.showModal())
+      dialog.addEventListener('click', (event) => {
+        if (event.target !== dialog) return
+        const rect = dialog.getBoundingClientRect()
+        if (
+          event.clientX < rect.left ||
+          event.clientX > rect.right ||
+          event.clientY < rect.top ||
+          event.clientY > rect.bottom
+        )
+          dialog.close()
+      })
+      render()
+      dialog.showModal()
+    </script>
+  </body>
+</html>

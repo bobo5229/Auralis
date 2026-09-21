@@ -264,6 +264,7 @@ export function extractArtworkPalette(key: string, pixels: Uint8ClampedArray): A
 
   return {
     key,
+    dominant: dominant.rgb,
     background: oklabToRgb(backgroundOklab),
     accents,
     textTone: 'light',

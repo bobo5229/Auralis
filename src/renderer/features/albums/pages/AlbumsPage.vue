@@ -7,10 +7,12 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import LiquidGlassPanel from '@renderer/features/library/components/LiquidGlassPanel.vue'
 import { normalizeSearchText } from '@renderer/features/library/utils/normalizeSearchText'
+import { prefetchArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
+import { invalidateAlbumDetailSnapshot, writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumCard from '../components/AlbumCard.vue'
 import type { AlbumSummary } from '../types'
+import { groupAlbums, moreAlbumsByArtist } from '../utils/albumGrouping'
 import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
 
 /**
@@ -102,34 +104,55 @@ watch(searchQuery, (query) => {
   }
 })
 
-const albums = computed<AlbumSummary[]>(() => {
-  const groupedAlbums = new Map<string, AlbumSummary>()
+const albums = computed<AlbumSummary[]>(() => groupAlbums(tracks.value))
 
-  for (const track of tracks.value) {
-    const albumArtist = track.albumArtist || track.artist || 'Unknown Artist'
-    const title = track.album || 'Unknown Album'
-    const key = `${albumArtist}\u0000${title}`
-    const existing = groupedAlbums.get(key)
+let idlePalettePrefetchHandle: number | null = null
+let idlePalettePrefetchMode: 'idle' | 'timeout' | null = null
 
-    if (existing) {
-      existing.releaseDate ??= track.releaseDate
-      existing.artworkCacheKey ??= track.artworkCacheKey
-      existing.tracks.push(track)
-      continue
-    }
+function cancelIdlePalettePrefetch(): void {
+  if (idlePalettePrefetchHandle == null) return
+  if (idlePalettePrefetchMode === 'idle') window.cancelIdleCallback(idlePalettePrefetchHandle)
+  else window.clearTimeout(idlePalettePrefetchHandle)
+  idlePalettePrefetchHandle = null
+  idlePalettePrefetchMode = null
+}
 
-    groupedAlbums.set(key, {
-      key,
-      title,
-      albumArtist,
-      releaseDate: track.releaseDate,
-      artworkCacheKey: track.artworkCacheKey,
-      tracks: [track],
-    })
+function prefetchVisibleAlbumPalettes(): void {
+  idlePalettePrefetchHandle = null
+  idlePalettePrefetchMode = null
+  if (isPageUnmounted) return
+  for (const virtualRow of rowVirtualizer.value.getVirtualItems()) {
+    const row = albumRows.value[virtualRow.index]
+    if (!row) continue
+    for (const album of row) prefetchArtworkPalette(album.artworkCacheKey)
   }
+}
 
-  return [...groupedAlbums.values()]
-})
+function scheduleIdlePalettePrefetch(): void {
+  cancelIdlePalettePrefetch()
+  if (typeof window.requestIdleCallback === 'function') {
+    idlePalettePrefetchMode = 'idle'
+    idlePalettePrefetchHandle = window.requestIdleCallback(prefetchVisibleAlbumPalettes, {
+      timeout: 1500,
+    })
+    return
+  }
+  idlePalettePrefetchMode = 'timeout'
+  idlePalettePrefetchHandle = window.setTimeout(prefetchVisibleAlbumPalettes, 200)
+}
+
+function seedAlbumDetailSnapshot(album: AlbumSummary): void {
+  prefetchArtworkPalette(album.artworkCacheKey)
+  writeAlbumDetailSnapshot({
+    albumArtist: album.albumArtist,
+    albumTitle: album.title,
+    artworkCacheKey: album.artworkCacheKey,
+    releaseDate: album.releaseDate,
+    tracks: album.tracks,
+    moreAlbums: moreAlbumsByArtist(albums.value, album.albumArtist, album.title),
+    catalogTracks: tracks.value,
+  })
+}
 
 const albumRows = computed(() => {
   const cols = columnCount.value
@@ -186,7 +209,9 @@ function restoreScrollPosition(): void {
 
 async function reloadAlbums(): Promise<void> {
   const nextTracks = await auralis.library.getTracks()
-  if (!isPageUnmounted) tracks.value = nextTracks
+  if (isPageUnmounted) return
+  tracks.value = nextTracks
+  scheduleIdlePalettePrefetch()
 }
 
 async function loadAlbums(): Promise<void> {
@@ -217,6 +242,7 @@ async function loadAlbums(): Promise<void> {
   }
   if (restoreScrollFrame !== null) cancelAnimationFrame(restoreScrollFrame)
   restoreScrollFrame = requestAnimationFrame(restoreScrollPosition)
+  scheduleIdlePalettePrefetch()
 }
 
 function setDisplayMode(mode: AlbumDisplayMode): void {
@@ -340,6 +366,10 @@ function locateCurrentAlbum(): void {
 
   const currentAlbumArtist = currentTrack.albumArtist || currentTrack.artist || 'Unknown Artist'
   const currentAlbumTitle = currentTrack.album || 'Unknown Album'
+  const currentAlbum = albums.value.find(
+    (album) => album.albumArtist === currentAlbumArtist && album.title === currentAlbumTitle,
+  )
+  if (currentAlbum) seedAlbumDetailSnapshot(currentAlbum)
   void router.push({
     name: 'album-detail',
     query: {
@@ -378,6 +408,7 @@ function insertContextAlbum(): void {
 
 function openAlbum(album: AlbumSummary): void {
   closeContextMenu()
+  seedAlbumDetailSnapshot(album)
   void router.push({
     name: 'album-detail',
     query: {
@@ -395,6 +426,7 @@ onMounted(async () => {
   unsubscribeChanged = auralis.library.onChanged((event) => {
     // Play-count ticks must not full-reload album summaries
     if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
+    invalidateAlbumDetailSnapshot()
     void reloadAlbums().catch((error) => {
       rendererDiagnostics.error({
         scope: 'albums.catalog',
@@ -419,6 +451,7 @@ onBeforeUnmount(() => {
   }
   resizeObserver?.disconnect()
   unsubscribeChanged?.()
+  cancelIdlePalettePrefetch()
 })
 </script>
 
@@ -513,8 +546,8 @@ onBeforeUnmount(() => {
 
     <Teleport to="body">
       <div v-if="contextMenu" class="albums-overlay fixed inset-0 z-[60]" @click="closeContextMenu">
-        <LiquidGlassPanel
-          class="library-context-menu fixed w-55"
+        <div
+          class="library-context-menu frosted-context-menu fixed w-55"
           :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
           @click.stop
         >
@@ -559,7 +592,7 @@ onBeforeUnmount(() => {
               }}
             </span>
           </button>
-        </LiquidGlassPanel>
+        </div>
       </div>
     </Teleport>
   </section>
@@ -609,12 +642,11 @@ onBeforeUnmount(() => {
 .albums-scroll {
   min-height: 0;
   flex: 1;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   /* 首行与 Header 之间的呼吸区；避免元信息/3D 上沿贴死 */
   padding-top: 12px;
   padding-bottom: var(--auralis-playbar-safe-area);
-  /* 预留滚动条槽，避免出现滚动条时内容相对 Header 横向偏移 */
-  scrollbar-gutter: stable;
 }
 
 /* 3D 模式额外顶缓冲，避免首行侧倾投影被 Header 下沿裁切 */

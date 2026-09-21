@@ -16,19 +16,19 @@ import {
 
 describe('modernPlayerBarLayout', () => {
   it('encodes the floating-island geometry contract', () => {
-    expect(MODERN_PLAYER_BAR_HEIGHT_PX).toBe(72)
+    expect(MODERN_PLAYER_BAR_HEIGHT_PX).toBe(64)
     expect(MODERN_PLAYER_BAR_BOTTOM_GAP_PX).toBe(24)
-    expect(MODERN_PLAYER_BAR_MAX_WIDTH_PX).toBe(920)
-    expect(MODERN_PLAYER_BAR_COLUMN_INSET_PX).toBe(24)
+    expect(MODERN_PLAYER_BAR_MAX_WIDTH_PX).toBe(780)
+    expect(MODERN_PLAYER_BAR_COLUMN_INSET_PX).toBe(32)
     expect(resolveModernPlayerBarSafeAreaPx()).toBe(
       MODERN_PLAYER_BAR_HEIGHT_PX + MODERN_PLAYER_BAR_BOTTOM_GAP_PX,
     )
-    expect(resolveModernPlayerBarSafeAreaPx()).toBe(96)
+    expect(resolveModernPlayerBarSafeAreaPx()).toBe(88)
   })
 
-  it('caps the island at the max width and keeps 24px side gaps', () => {
+  it('caps the island at the max width and keeps 32px side gaps', () => {
     expect(resolveModernPlayerBarIslandWidthPx(1000)).toBe(MODERN_PLAYER_BAR_MAX_WIDTH_PX)
-    expect(resolveModernPlayerBarIslandWidthPx(968)).toBe(MODERN_PLAYER_BAR_MAX_WIDTH_PX)
+    expect(resolveModernPlayerBarIslandWidthPx(844)).toBe(MODERN_PLAYER_BAR_MAX_WIDTH_PX)
     expect(resolveModernPlayerBarIslandWidthPx(800)).toBe(
       800 - MODERN_PLAYER_BAR_COLUMN_INSET_PX * 2,
     )
