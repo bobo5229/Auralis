@@ -67,14 +67,6 @@ export function initializeDatabase(): Database.Database {
   return database
 }
 
-export function getDatabase(): Database.Database {
-  if (!database) {
-    throw new Error('Database has not been initialized')
-  }
-
-  return database
-}
-
 export function closeDatabase(): void {
   if (database) {
     database.close()

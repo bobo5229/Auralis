@@ -11,10 +11,12 @@ import {
 } from '@renderer/features/playback/composables/useArtworkPalette'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
-import { splitGenreValues } from '@renderer/features/library/utils/formatGenre'
 
 import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumDetailTrackList from '../components/AlbumDetailTrackList.vue'
+import AlbumMoreGallery from '../components/AlbumMoreGallery.vue'
+import { useAlbumCoverTracking } from '../composables/useAlbumCoverTracking'
+import { useAlbumDetailPresentation } from '../composables/useAlbumDetailPresentation'
 import type { AlbumSummary } from '../types'
 import { useAlbumDetailTracks } from '../composables/useAlbumDetailTracks'
 import { albumHeroTintStyle, resolveAlbumHeroTint } from '../utils/albumHeroTint'
@@ -31,23 +33,15 @@ const props = withDefaults(
 
 const route = useRoute()
 const router = useRouter()
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const playback = usePlayback()
 const detailRootRef = ref<HTMLElement | null>(null)
 const coverStageRef = ref<HTMLElement | null>(null)
-const moreAlbumsScrollerRef = ref<HTMLElement | null>(null)
 const highlightedTrackId = ref<number | null>(null)
-let trackingFrame: number | null = null
 let highlightTimeout: ReturnType<typeof setTimeout> | null = null
-let pointerPosition: { x: number; y: number } | null = null
-let detailScrollTarget: HTMLElement | null = null
-let modernEffectsBound = false
-let modernEffectsActivationGeneration = 0
 let isPageUnmounted = false
 let artworkTransition: ReturnType<typeof createAlbumArtworkTransition> | null = null
 const isOpeningWork = ref(false)
-const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-const MAX_COVER_TILT_DEGREES = 12
 
 const albumArtist = computed(() => String(route.query.artist ?? ''))
 const albumTitle = computed(() => String(route.query.title ?? ''))
@@ -69,6 +63,17 @@ const {
  */
 const hasRenderableData = computed(() => loadState.value === 'ready')
 const isEffectsActive = computed(() => hasRenderableData.value && !props.isEntering)
+useAlbumCoverTracking(detailRootRef, coverStageRef, isEffectsActive)
+const {
+  albumGenrePills,
+  metricsTrackCount,
+  metricsTotalDuration,
+  metricsPlaysLabel,
+  metricsTotalTime,
+  heroLegalLine,
+  albumReleaseYear,
+  albumDiscGroups,
+} = useAlbumDetailPresentation(albumTracks, previewReleaseDate)
 const displayAlbumArtist = computed(() =>
   albumArtist.value === 'Unknown Artist'
     ? t('library.unknownArtist')
@@ -77,37 +82,6 @@ const displayAlbumArtist = computed(() =>
 const displayAlbumTitle = computed(() =>
   albumTitle.value === 'Unknown Album' ? t('library.unknownAlbum') : albumTitle.value,
 )
-
-const isMoreScrolledToStart = ref(true)
-const isMoreScrolledToEnd = ref(false)
-const isMoreScrollable = ref(false)
-
-function resetMoreAlbumsScrollState(): void {
-  isMoreScrolledToStart.value = true
-  isMoreScrolledToEnd.value = false
-  isMoreScrollable.value = false
-}
-
-function updateMoreAlbumsScrollState(scroller: HTMLElement | null): void {
-  if (!scroller) return
-  const maxScroll = scroller.scrollWidth - scroller.clientWidth
-  isMoreScrollable.value = maxScroll > 1
-  if (!isMoreScrollable.value) {
-    isMoreScrolledToStart.value = true
-    isMoreScrolledToEnd.value = true
-    return
-  }
-  isMoreScrolledToStart.value = scroller.scrollLeft <= 2
-  isMoreScrolledToEnd.value = scroller.scrollLeft >= maxScroll - 2
-}
-
-function onMoreAlbumsScroll(event: Event): void {
-  updateMoreAlbumsScrollState(event.currentTarget as HTMLElement)
-}
-
-function formatDisplayAlbumTitle(title: string): string {
-  return title === 'Unknown Album' ? t('library.unknownAlbum') : title
-}
 
 const albumGroups = computed(() => {
   const groupedAlbums = new Map<string, TrackListItem[]>()
@@ -158,173 +132,14 @@ const artworkGlowBackground = computed(() =>
   artworkUrl.value ? `url("${artworkUrl.value}")` : 'none',
 )
 
-const releaseDate = computed(
-  () =>
-    albumTracks.value.find((track) => track.releaseDate)?.releaseDate ?? previewReleaseDate.value,
-)
-const copyright = computed(
-  () => albumTracks.value.find((track) => track.copyright)?.copyright ?? null,
-)
-const totalDurationSeconds = computed(() =>
-  albumTracks.value.reduce((total, track) => total + (track.durationSeconds ?? 0), 0),
-)
-
-function collectGenreCounts(): { label: string; count: number; firstSeen: number }[] {
-  const genreCounts = new Map<string, { label: string; count: number; firstSeen: number }>()
-  let firstSeen = 0
-
-  for (const track of albumTracks.value) {
-    const trackGenres = new Map<string, string>()
-
-    for (const genre of splitGenreValues(track.genre)) {
-      trackGenres.set(genre.toLocaleLowerCase(), genre)
-    }
-
-    for (const [key, genre] of trackGenres) {
-      const existing = genreCounts.get(key)
-
-      if (existing) {
-        existing.count += 1
-      } else {
-        genreCounts.set(key, { label: genre, count: 1, firstSeen })
-        firstSeen += 1
-      }
-    }
-  }
-
-  return [...genreCounts.values()].sort(
-    (left, right) => right.count - left.count || left.firstSeen - right.firstSeen,
-  )
-}
-
-/** 提取所有流派胶囊，去重并按频次与先后顺序排列 */
-const albumGenrePills = computed<string[]>(() => collectGenreCounts().map((genre) => genre.label))
-
 function onArtistClick(): void {
   if (!albumArtist.value || albumArtist.value === 'Unknown Artist') return
   void router.push({ name: 'library', query: { q: albumArtist.value } })
 }
 
-function formatMetricsDuration(seconds: number): string {
-  const totalSeconds = Math.max(0, Math.floor(seconds))
-  const minutes = Math.floor(totalSeconds / 60)
-  return `${minutes}分${totalSeconds % 60}秒`
-}
-
-const metricsTrackCount = computed(() => albumTracks.value.length)
-const metricsTotalDuration = computed(() => formatMetricsDuration(totalDurationSeconds.value))
-
-const metricsListenData = computed(() => {
-  let totalPlays = 0
-  let listenedSeconds = 0
-
-  for (const track of albumTracks.value) {
-    const playCount = track.playCount ?? 0
-    totalPlays += playCount
-    listenedSeconds += playCount * (track.durationSeconds ?? 0)
-  }
-
-  return { totalPlays, listenedSeconds }
-})
-
-const metricsTotalPlays = computed(() => metricsListenData.value.totalPlays)
-
-const metricsPlaysLabel = computed(() => {
-  const count = metricsTotalPlays.value
-  const key = count === 1 ? 'albums.detail.metrics.playsUnitOne' : 'albums.detail.metrics.playsUnit'
-  return t(key, { count })
-})
-
-const metricsTotalTime = computed(() => {
-  const seconds = metricsListenData.value.listenedSeconds
-  if (seconds <= 0) {
-    return t('albums.detail.metrics.minutesUnit', { minutes: 0 })
-  }
-
-  if (seconds < 3600) {
-    const minutes = Math.max(1, Math.round(seconds / 60))
-    return t('albums.detail.metrics.minutesUnit', { minutes })
-  }
-
-  const hoursTenths = Math.round((seconds / 3600) * 10) / 10
-  const hoursLabel =
-    Number.isInteger(hoursTenths) || hoursTenths >= 10
-      ? String(Math.round(hoursTenths))
-      : hoursTenths.toFixed(1)
-  return t('albums.detail.metrics.hoursUnit', { hours: hoursLabel })
-})
-
-/**
- * Hero 法律附录：版权 + 完整发行日（有则拼接）。
- * 无真实数据时不渲染，绝不写「未知」占位。
- */
-const heroLegalLine = computed(() => {
-  const parts: string[] = []
-  const copyrightText = copyright.value?.trim()
-  const dateText = releaseDate.value?.trim()
-  if (copyrightText) parts.push(copyrightText)
-  if (dateText) parts.push(dateText)
-  return parts.length > 0 ? parts.join(' · ') : null
-})
-
-function formatAlbumYearLabel(value: string | null): string {
-  if (!value) return t('albums.detail.unknownYear')
-  const yearText = value.slice(0, 4)
-  if (!/^\d{4}$/.test(yearText)) return t('albums.detail.unknownYear')
-  const year = Number(yearText)
-  return new Intl.DateTimeFormat(locale.value, { year: 'numeric', timeZone: 'UTC' }).format(
-    new Date(Date.UTC(year, 0, 1)),
-  )
-}
-
-const albumReleaseYear = computed(() => formatAlbumYearLabel(releaseDate.value))
-
 const showMoreAlbumsSection = computed(
   () => albumTracks.value.length > 0 && moreAlbumsByArtist.value.length > 0,
 )
-
-async function refreshMoreAlbumsScrollState(): Promise<void> {
-  if (!isEffectsActive.value || !showMoreAlbumsSection.value) {
-    resetMoreAlbumsScrollState()
-    return
-  }
-
-  await nextTick()
-  if (isPageUnmounted || !isEffectsActive.value || !showMoreAlbumsSection.value) return
-
-  const scroller = moreAlbumsScrollerRef.value
-  if (scroller) {
-    updateMoreAlbumsScrollState(scroller)
-  } else {
-    resetMoreAlbumsScrollState()
-  }
-}
-
-/**
- * 多碟分组：至少两个不同有效 discNo（null 视为 1）时才分组并显示 Disc 头。
- * 单碟或全同一碟时 discNo 为 null，模板不渲染分组头。
- */
-const albumDiscGroups = computed(() => {
-  const tracksInAlbum = albumTracks.value
-  if (tracksInAlbum.length === 0) return [] as { discNo: number | null; tracks: TrackListItem[] }[]
-
-  const distinctDiscs = new Set(tracksInAlbum.map((track) => track.discNo ?? 1))
-  if (distinctDiscs.size < 2) {
-    return [{ discNo: null, tracks: tracksInAlbum }]
-  }
-
-  const groups: { discNo: number; tracks: TrackListItem[] }[] = []
-  for (const track of tracksInAlbum) {
-    const discNo = track.discNo ?? 1
-    const last = groups[groups.length - 1]
-    if (last && last.discNo === discNo) {
-      last.tracks.push(track)
-    } else {
-      groups.push({ discNo, tracks: [track] })
-    }
-  }
-  return groups
-})
 
 function retryLoad(): void {
   void reloadTracks()
@@ -443,171 +258,22 @@ function playTrack(trackId: number): void {
   void playback.playTrackFromQueue(buildAlbumPlaybackQueue(), trackId)
 }
 
-/** Map vertical wheel to horizontal scroll for 'More Albums' section with boundary pass-through. */
-function onMoreAlbumsWheel(event: WheelEvent): void {
-  const scroller = event.currentTarget as HTMLElement
-  if (scroller.scrollWidth <= scroller.clientWidth + 1) return
-
-  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY
-  if (delta === 0) return
-
-  const maxScrollLeft = scroller.scrollWidth - scroller.clientWidth
-
-  if (
-    (delta < 0 && scroller.scrollLeft > 0) ||
-    (delta > 0 && scroller.scrollLeft < maxScrollLeft - 1)
-  ) {
-    event.preventDefault()
-    scroller.scrollLeft += delta
-    updateMoreAlbumsScrollState(scroller)
-  }
-}
-
 function selectTrack(trackId: number): void {
   playback.selectTrack(trackId)
 }
 
-function resetCoverTracking(): void {
-  pointerPosition = null
-  if (trackingFrame !== null) {
-    window.cancelAnimationFrame(trackingFrame)
-    trackingFrame = null
-  }
-
-  const stage = coverStageRef.value
-  if (!stage) return
-  stage.style.removeProperty('--detail-cover-rotate-x')
-  stage.style.removeProperty('--detail-cover-rotate-y')
-  stage.style.removeProperty('--detail-cover-shift-x')
-  stage.style.removeProperty('--detail-cover-shift-y')
-  stage.style.removeProperty('--detail-cover-shadow-x')
-  stage.style.removeProperty('--detail-cover-shadow-y')
-}
-
-function renderCoverTracking(): void {
-  trackingFrame = null
-  const stage = coverStageRef.value
-  const pointer = pointerPosition
-  if (
-    !stage ||
-    !pointer ||
-    reducedMotionQuery.matches ||
-    isPageUnmounted ||
-    !isEffectsActive.value
-  ) {
-    return
-  }
-
-  const rect = stage.getBoundingClientRect()
-  const centerX = rect.left + rect.width / 2
-  const centerY = rect.top + rect.height / 2
-  const horizontalRange = Math.max(centerX, window.innerWidth - centerX, 1)
-  const verticalRange = Math.max(centerY, window.innerHeight - centerY, 1)
-  const xRatio = Math.min(1, Math.max(-1, (pointer.x - centerX) / horizontalRange))
-  const yRatio = Math.min(1, Math.max(-1, (pointer.y - centerY) / verticalRange))
-
-  stage.style.setProperty('--detail-cover-rotate-x', `${-yRatio * MAX_COVER_TILT_DEGREES}deg`)
-  stage.style.setProperty('--detail-cover-rotate-y', `${xRatio * MAX_COVER_TILT_DEGREES}deg`)
-  stage.style.setProperty('--detail-cover-shift-x', `${xRatio * 5}px`)
-  stage.style.setProperty('--detail-cover-shift-y', `${yRatio * 5}px`)
-  stage.style.setProperty('--detail-cover-shadow-x', `${-xRatio * 12}px`)
-  stage.style.setProperty('--detail-cover-shadow-y', `${18 - yRatio * 10}px`)
-}
-
-function scheduleCoverTracking(): void {
-  if (trackingFrame === null) {
-    trackingFrame = window.requestAnimationFrame(renderCoverTracking)
-  }
-}
-
-function onDocumentPointerMove(event: PointerEvent): void {
-  if (event.pointerType === 'touch' || reducedMotionQuery.matches || !isEffectsActive.value) {
-    return
-  }
-  pointerPosition = { x: event.clientX, y: event.clientY }
-  scheduleCoverTracking()
-}
-
-function onDocumentPointerOut(event: PointerEvent): void {
-  if (event.relatedTarget === null) {
-    resetCoverTracking()
-  }
-}
-
-function onReducedMotionChange(): void {
-  if (reducedMotionQuery.matches) {
-    resetCoverTracking()
-  }
-}
-
-function bindDetailScrollListener(): void {
-  const nextTarget = detailRootRef.value
-  if (detailScrollTarget === nextTarget) return
-  detailScrollTarget?.removeEventListener('scroll', scheduleCoverTracking)
-  detailScrollTarget = nextTarget
-  detailScrollTarget?.addEventListener('scroll', scheduleCoverTracking, { passive: true })
-}
-
-function unbindDetailScrollListener(): void {
-  detailScrollTarget?.removeEventListener('scroll', scheduleCoverTracking)
-  detailScrollTarget = null
-}
-
-async function enableModernEffects(): Promise<void> {
-  if (isPageUnmounted || !isEffectsActive.value) return
-  const activationGeneration = ++modernEffectsActivationGeneration
-
-  if (!modernEffectsBound) {
-    modernEffectsBound = true
-    document.addEventListener('pointermove', onDocumentPointerMove, { passive: true })
-    document.addEventListener('pointerout', onDocumentPointerOut)
-    window.addEventListener('blur', resetCoverTracking)
-    reducedMotionQuery.addEventListener('change', onReducedMotionChange)
-  }
-
-  await nextTick()
-  if (
-    isPageUnmounted ||
-    !isEffectsActive.value ||
-    !modernEffectsBound ||
-    activationGeneration !== modernEffectsActivationGeneration
-  ) {
-    return
-  }
-  bindDetailScrollListener()
-}
-
-function disableModernEffects(): void {
-  modernEffectsActivationGeneration += 1
-  resetCoverTracking()
-  unbindDetailScrollListener()
-
-  if (!modernEffectsBound) return
-  modernEffectsBound = false
-  document.removeEventListener('pointermove', onDocumentPointerMove)
-  document.removeEventListener('pointerout', onDocumentPointerOut)
-  window.removeEventListener('blur', resetCoverTracking)
-  reducedMotionQuery.removeEventListener('change', onReducedMotionChange)
-}
-
 /**
- * 高开销效果在入场动画结束后启用；内容 DOM 由 hasRenderableData 单独控制，这里不重建页面。
+ * 入场动画结束且详情就绪后，再定位搜索命中的曲目。
  */
 watch(
   isEffectsActive,
   async (active) => {
-    if (!active) {
-      resetMoreAlbumsScrollState()
-      disableModernEffects()
-      return
-    }
+    if (!active) return
 
     await nextTick()
     if (isPageUnmounted || !isEffectsActive.value) return
 
     showSearchResultHighlight()
-    void refreshMoreAlbumsScrollState()
-    void enableModernEffects()
   },
   { immediate: true },
 )
@@ -621,8 +287,6 @@ watch(
     if (isPageUnmounted) return
     detailRootRef.value?.scrollTo({ top: 0 })
     if (wasEffectsActive && isEffectsActive.value) showSearchResultHighlight()
-    void refreshMoreAlbumsScrollState()
-    if (isEffectsActive.value) void enableModernEffects()
     const transition = artworkTransition
     if (transition) {
       const cover = coverStageRef.value?.querySelector<HTMLElement>('.album-hero-cover')
@@ -638,15 +302,6 @@ watch(
   },
 )
 
-watch(
-  () =>
-    isEffectsActive.value ? moreAlbumsByArtist.value.map((album) => album.key).join('\u0001') : '',
-  (key, prevKey) => {
-    if (!isEffectsActive.value || key === prevKey) return
-    void refreshMoreAlbumsScrollState()
-  },
-)
-
 onMounted(async () => {
   await initializeAlbumTracks()
 })
@@ -656,7 +311,6 @@ onBeforeUnmount(() => {
   artworkTransition?.cancel()
   artworkTransition = null
   disposeAlbumTracks()
-  disableModernEffects()
   if (highlightTimeout) clearTimeout(highlightTimeout)
 })
 </script>
@@ -833,69 +487,14 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Phase 3: 底部同艺人画廊 -->
-        <section
+        <AlbumMoreGallery
           v-if="showMoreAlbumsSection"
-          class="album-more-gallery"
-          :aria-label="t('albums.detail.moreAlbumsAria', { artist: displayAlbumArtist })"
-        >
-          <h2 class="album-more-gallery-title">
-            {{ t('albums.detail.moreAlbumsTitle', { artist: displayAlbumArtist }) }}
-          </h2>
-          <div
-            ref="moreAlbumsScrollerRef"
-            class="album-more-gallery-scroller"
-            :class="{
-              'is-at-start': isMoreScrolledToStart,
-              'is-at-end': isMoreScrolledToEnd,
-              'is-unscrollable': !isMoreScrollable,
-            }"
-            @scroll="onMoreAlbumsScroll"
-            @wheel="onMoreAlbumsWheel"
-          >
-            <button
-              v-for="album in moreAlbumsByArtist"
-              :key="album.key"
-              type="button"
-              class="album-more-gallery-card"
-              :aria-label="
-                t('albums.detail.openAlbumAria', { title: formatDisplayAlbumTitle(album.title) })
-              "
-              :disabled="isOpeningWork"
-              @click="openAlbum(album, $event)"
-            >
-              <div class="album-more-gallery-cover">
-                <img
-                  v-if="getArtworkUrl(album.artworkCacheKey)"
-                  :src="getArtworkUrl(album.artworkCacheKey)!"
-                  :alt="
-                    t('albums.detail.coverAlt', { title: formatDisplayAlbumTitle(album.title) })
-                  "
-                  class="h-full w-full object-cover"
-                  loading="lazy"
-                  decoding="async"
-                  draggable="false"
-                />
-                <div
-                  v-else
-                  class="flex h-full w-full items-center justify-center bg-[var(--auralis-artwork-placeholder-bg)]"
-                  aria-hidden="true"
-                >
-                  <span
-                    class="i-lucide-disc-3 h-10 w-10 text-[var(--auralis-text-disabled)]"
-                  ></span>
-                </div>
-              </div>
-              <div class="album-more-gallery-meta">
-                <p class="album-more-gallery-album-title">
-                  {{ formatDisplayAlbumTitle(album.title) }}
-                </p>
-                <p class="album-more-gallery-year">
-                  {{ formatAlbumYearLabel(album.releaseDate) }}
-                </p>
-              </div>
-            </button>
-          </div>
-        </section>
+          :albums="moreAlbumsByArtist"
+          :artist-label="displayAlbumArtist"
+          :effects-active="isEffectsActive"
+          :opening="isOpeningWork"
+          @open="openAlbum"
+        />
       </div>
     </section>
 
@@ -1013,16 +612,12 @@ onBeforeUnmount(() => {
   outline: 2px solid var(--auralis-sidebar-active-indicator);
   outline-offset: 3px;
 }
-
-/* —— 三段式外壳 —— */
 .album-detail-wrapper {
   display: flex;
   flex-direction: column;
   gap: 28px;
   min-width: 0;
 }
-
-/* —— Phase 1: Hero Billboard —— */
 .album-hero-billboard {
   --album-hero-cover-size: 176px;
   position: relative;
@@ -1099,8 +694,6 @@ onBeforeUnmount(() => {
 .album-hero-tint-gradient--ready {
   opacity: 0.32;
 }
-
-/* 上半部分：主内容层（封面 + 信息流 + 按钮） */
 .album-hero-main-stage {
   position: relative;
   z-index: 1;
@@ -1226,8 +819,6 @@ onBeforeUnmount(() => {
   height: 50px;
   border-radius: 12px;
 }
-
-/* Zone 1: 流派 */
 .album-hero-zone-genres {
   display: flex;
   flex-wrap: wrap;
@@ -1259,8 +850,6 @@ onBeforeUnmount(() => {
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
-
-/* Zone 2: 核心文本与主操作 */
 .album-hero-zone-primary {
   display: flex;
   align-items: center;
@@ -1423,8 +1012,6 @@ onBeforeUnmount(() => {
 .album-hero-shuffle-btn:active {
   transform: translateY(0);
 }
-
-/* Zone 3: 专辑信息与收听统计 */
 .album-hero-zone-metrics {
   margin-top: 6px;
   display: grid;
@@ -1463,8 +1050,6 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-
-/* 下半部分：底部脚注层（横跨全宽，完整横向平铺展开） */
 .album-hero-footer-stage {
   position: relative;
   z-index: 1;
@@ -1484,8 +1069,6 @@ onBeforeUnmount(() => {
   word-break: break-word;
   user-select: none;
 }
-
-/* —— 中部：通栏曲目 —— */
 .album-body-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -1493,153 +1076,6 @@ onBeforeUnmount(() => {
   align-items: start;
   min-width: 0;
   position: relative;
-}
-
-/* —— Phase 3: More gallery —— */
-.album-more-gallery {
-  margin-top: 36px;
-  margin-right: 0;
-  margin-left: 0;
-  padding: 0 0 16px;
-  border-top: none;
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-.album-more-gallery::before {
-  content: '';
-  display: block;
-  height: 1px;
-  margin-bottom: 24px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--auralis-text) 16%, transparent) 0%,
-    color-mix(in srgb, var(--auralis-text) 4%, transparent) 70%,
-    transparent 100%
-  );
-}
-
-.album-more-gallery-title {
-  margin: 0 0 16px;
-  color: var(--auralis-text);
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.album-more-gallery-scroller {
-  --gallery-inline-padding: 16px;
-  display: flex;
-  gap: 18px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding: 12px var(--gallery-inline-padding) 16px;
-  margin-top: -4px;
-  margin-inline: calc(-1 * var(--gallery-inline-padding));
-  scroll-snap-type: x proximity;
-  /* Keep the first card snapped at scrollLeft = 0, including its inset. */
-  scroll-padding-inline: var(--gallery-inline-padding);
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    #000 28px,
-    #000 calc(100% - 28px),
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    #000 28px,
-    #000 calc(100% - 28px),
-    transparent 100%
-  );
-  transition:
-    -webkit-mask-image 0.25s ease,
-    mask-image 0.25s ease;
-}
-
-.album-more-gallery-scroller.is-at-start {
-  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 28px), transparent 100%);
-  mask-image: linear-gradient(to right, #000 0%, #000 calc(100% - 28px), transparent 100%);
-}
-
-.album-more-gallery-scroller.is-at-end {
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, #000 28px, #000 100%);
-  mask-image: linear-gradient(to right, transparent 0%, #000 28px, #000 100%);
-}
-
-.album-more-gallery-scroller.is-unscrollable,
-.album-more-gallery-scroller.is-at-start.is-at-end {
-  -webkit-mask-image: none;
-  mask-image: none;
-}
-
-.album-more-gallery-scroller::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-.album-more-gallery-card {
-  flex: 0 0 auto;
-  width: 144px;
-  min-width: 144px;
-  scroll-snap-align: start;
-  appearance: none;
-  cursor: pointer;
-  user-select: none;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: 0;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  box-shadow: none;
-}
-
-.album-more-gallery-cover {
-  aspect-ratio: 1;
-  overflow: hidden;
-  border-radius: 14px;
-  background: var(--auralis-artwork-placeholder-bg);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-  transition:
-    transform 0.35s cubic-bezier(0.25, 1, 0.5, 1),
-    box-shadow 0.35s cubic-bezier(0.25, 1, 0.5, 1);
-}
-
-.album-more-gallery-card:hover .album-more-gallery-cover {
-  transform: translateY(-6px) scale(1.03);
-  box-shadow:
-    0 16px 36px rgba(0, 0, 0, 0.5),
-    0 0 20px color-mix(in srgb, var(--auralis-album-detail-accent) 35%, transparent);
-}
-
-.album-more-gallery-meta {
-  margin-top: 10px;
-  min-width: 0;
-}
-
-.album-more-gallery-album-title {
-  overflow: hidden;
-  color: var(--auralis-text);
-  font-size: 13px;
-  font-weight: 650;
-  line-height: 1.3;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.album-more-gallery-year {
-  margin-top: 4px;
-  color: var(--auralis-text-faint);
-  font-size: 12px;
 }
 
 @media (max-width: 959px) {
@@ -1683,10 +1119,6 @@ onBeforeUnmount(() => {
   .album-hero-cover-container::after {
     transform: none !important;
     transition: none !important;
-  }
-
-  .album-more-gallery-card:hover {
-    transform: none;
   }
 
   .album-hero-play-btn:hover,

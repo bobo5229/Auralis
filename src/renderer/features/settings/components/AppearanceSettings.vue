@@ -3,7 +3,12 @@ import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 
 const { t } = useI18n()
-const { gaplessPlaybackEnabled, setGaplessPlaybackEnabled } = usePlayback()
+const {
+  gaplessPlaybackEnabled,
+  setGaplessPlaybackEnabled,
+  skipDigitalSilenceEnabled,
+  setSkipDigitalSilenceEnabled,
+} = usePlayback()
 </script>
 
 <template>
@@ -29,6 +34,27 @@ const { gaplessPlaybackEnabled, setGaplessPlaybackEnabled } = usePlayback()
           "
           :class="{ 'is-enabled': gaplessPlaybackEnabled }"
           @click="setGaplessPlaybackEnabled(!gaplessPlaybackEnabled)"
+        >
+          <span class="settings-switch-thumb" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="settings-row">
+        <div>
+          <strong>跳过边界数字静音</strong>
+          <span id="digital-silence-description">
+            无缝播放时，跳过同专辑、同碟连续音轨边界不超过 100 毫秒的全零静音。
+          </span>
+        </div>
+        <button
+          type="button"
+          class="settings-switch"
+          role="switch"
+          aria-label="跳过边界数字静音"
+          aria-describedby="digital-silence-description"
+          :aria-checked="skipDigitalSilenceEnabled"
+          :disabled="!gaplessPlaybackEnabled"
+          :class="{ 'is-enabled': skipDigitalSilenceEnabled }"
+          @click="setSkipDigitalSilenceEnabled(!skipDigitalSilenceEnabled)"
         >
           <span class="settings-switch-thumb" aria-hidden="true"></span>
         </button>

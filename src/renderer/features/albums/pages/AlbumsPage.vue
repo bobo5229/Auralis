@@ -23,6 +23,7 @@ import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
 const GRID_PADDING_X = 40
 const COLUMN_GAP = 20
 const ROW_GAP = 28
+const PERSPECTIVE_ROW_GAP = 8
 /** 封面下方固定元信息区：12px margin + 58px 文本块 */
 const CARD_METADATA_HEIGHT = 70
 /** 目标封面边长黄金区间 ~180–200px，用于加密列数 */
@@ -222,7 +223,8 @@ function updateAdaptiveGrid(): boolean {
     cardWidth = Math.max(1, (availableWidth - COLUMN_GAP * (cols - 1)) / cols)
   }
 
-  const nextRowHeight = cardWidth + CARD_METADATA_HEIGHT + ROW_GAP
+  const rowGap = displayMode.value === 'perspective' ? PERSPECTIVE_ROW_GAP : ROW_GAP
+  const nextRowHeight = cardWidth + CARD_METADATA_HEIGHT + rowGap
   if (columnCount.value !== cols || rowHeight.value !== nextRowHeight) {
     columnCount.value = cols
     rowHeight.value = nextRowHeight
@@ -261,6 +263,7 @@ watch(canRefresh, (allowed) => {
 
 function setDisplayMode(mode: AlbumDisplayMode): void {
   displayMode.value = mode
+  updateAdaptiveGrid()
   localStorage.setItem(ALBUM_DISPLAY_MODE_KEY, mode)
 }
 

@@ -24,6 +24,31 @@ function createTrack(id: number): TrackListItem {
 }
 
 describe('LibraryCatalogSnapshotStore', () => {
+  it('shares unchanged refreshes across consumers and rebuilds only for a new revision', () => {
+    let revision = '1'
+    let builds = 0
+    const source = [createTrack(1), createTrack(2)]
+    const store = new LibraryCatalogSnapshotStore(
+      () => {
+        builds++
+        return source
+      },
+      Date.now,
+      () => revision,
+    )
+    const first = store.getPage({ refresh: true, limit: 1 })
+    for (let i = 0; i < 5; i++)
+      expect(store.getPage({ refresh: true }).snapshotId).toBe(first.snapshotId)
+    expect(builds).toBe(1)
+    revision = '2'
+    source[1].title = 'Changed'
+    const updated = store.getPage({ refresh: true })
+    expect(updated.snapshotId).not.toBe(first.snapshotId)
+    expect(updated.tracks[1].title).toBe('Changed')
+    expect(store.getPage({ cursor: first.nextCursor! }).tracks[0].title).toBe('Track 2')
+    expect(builds).toBe(2)
+  })
+
   it('walks a stable snapshot without duplicates or omissions', () => {
     const source = Array.from({ length: 50_005 }, (_, index) => createTrack(index + 1))
     const store = new LibraryCatalogSnapshotStore(() => source)

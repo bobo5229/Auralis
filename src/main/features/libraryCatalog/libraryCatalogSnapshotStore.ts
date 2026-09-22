@@ -9,6 +9,7 @@ import {
 } from '@shared/types/libraryCatalog'
 
 interface LibraryCatalogSnapshot {
+  readonly revision: string | undefined
   lastAccessedAt: number
   readonly id: string
   readonly tracks: readonly TrackListItem[]
@@ -62,6 +63,7 @@ export class LibraryCatalogSnapshotStore {
   constructor(
     private readonly loadTracks: () => TrackListItem[],
     private readonly now: () => number = Date.now,
+    private readonly readRevision?: () => string,
   ) {}
 
   getPage(request: LibraryTrackPageRequest = {}): LibraryTrackPage {
@@ -81,14 +83,18 @@ export class LibraryCatalogSnapshotStore {
       }
     }
     let snapshot = this.currentId ? this.snapshots.get(this.currentId) : undefined
+    const revision = cursor ? undefined : this.readRevision?.()
     if (cursor) {
       snapshot = this.snapshots.get(cursor.snapshotId)
       if (!snapshot) throw new LibraryCatalogExpiredError()
       offset = cursor.offset
-    } else if (request.refresh || !snapshot) {
+    } else if (
+      !snapshot ||
+      (request.refresh && (!this.readRevision || snapshot.revision !== revision))
+    ) {
       const startedAt = performance.now()
       const heapUsedBefore = process.memoryUsage().heapUsed
-      snapshot = this.createSnapshot()
+      snapshot = this.createSnapshot(revision)
       this.currentId = snapshot.id
       this.snapshots.set(snapshot.id, snapshot)
       while (this.snapshots.size > LIBRARY_CATALOG_RETAINED_GENERATIONS) {
@@ -126,9 +132,10 @@ export class LibraryCatalogSnapshotStore {
     }
   }
 
-  private createSnapshot(): LibraryCatalogSnapshot {
+  private createSnapshot(revision: string | undefined): LibraryCatalogSnapshot {
     this.snapshotSequence += 1
     return {
+      revision,
       lastAccessedAt: this.now(),
       id: `${Date.now().toString(36)}-${this.snapshotSequence.toString(36)}`,
       tracks: Object.freeze(this.loadTracks().map((track) => Object.freeze({ ...track }))),

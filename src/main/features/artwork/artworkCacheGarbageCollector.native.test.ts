@@ -2,7 +2,7 @@ import { mkdtemp, readdir, rm, writeFile, chmod } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type Database from 'better-sqlite3'
 import { migrateDatabase } from '../../database/schema'
 import { ArtworkCacheGarbageCollector } from './artworkCacheGarbageCollector'
@@ -39,6 +39,40 @@ function v2Key(seed: string): string {
 }
 
 describe('ArtworkCacheGarbageCollector', () => {
+  it('keeps a reference committed after the initial snapshot', async () => {
+    const dir = await makeTempDir()
+    const db = createDb()
+    const key = v2Key('a')
+    await writeFile(join(dir, key), 'bytes')
+    const collector = new ArtworkCacheGarbageCollector(db, dir)
+    const collect = collector.collectReferencedKeys.bind(collector)
+    vi.spyOn(collector, 'collectReferencedKeys').mockImplementationOnce(() => {
+      const snapshot = collect()
+      db.prepare('INSERT INTO albums(title,artist,artwork_cache_key) VALUES(?,?,?)').run(
+        'New',
+        'Artist',
+        key,
+      )
+      return snapshot
+    })
+    expect((await collector.collectGarbage()).orphanFileCount).toBe(0)
+    expect(await readdir(dir)).toContain(key)
+    db.close()
+  })
+
+  it('keeps in-flight artwork when a writer starts while directory reading is pending', async () => {
+    const dir = await makeTempDir()
+    const db = createDb()
+    const key = v2Key('b')
+    await writeFile(join(dir, key), 'bytes')
+    let writing = false
+    const pending = new ArtworkCacheGarbageCollector(db, dir).collectGarbage(() => !writing)
+    writing = true
+    expect((await pending).orphanFileCount).toBe(0)
+    expect(await readdir(dir)).toContain(key)
+    db.close()
+  })
+
   it('keeps files referenced by albums and track_metadata', async () => {
     const dir = await makeTempDir()
     const db = createDb()

@@ -21,6 +21,7 @@ import {
   validateBackupFile,
 } from './databaseBackupService'
 import { migrateDatabase } from './schema'
+import { migrations } from './schemaMigrations'
 
 const nodeRequire = createRequire(import.meta.url)
 const DatabaseCtor = nodeRequire('better-sqlite3') as unknown as new (
@@ -58,6 +59,50 @@ describe('databaseBackupService', () => {
   })
 
   describe('validateBackupFile', () => {
+    it.each([
+      'tracks-only',
+      'missing-column',
+      'future-version',
+      'missing-history',
+      'missing-table',
+      'broken-reference',
+    ])('rejects a %s database', (kind) => {
+      const path = join(tempDir, `${kind}.backup`)
+      const db = openDb(path)
+      if (kind === 'tracks-only') db.exec('CREATE TABLE tracks (id INTEGER PRIMARY KEY)')
+      else {
+        migrateDatabase(db)
+        if (kind === 'missing-column')
+          db.exec('ALTER TABLE tracks DROP COLUMN lyrics_sidecar_fingerprint')
+        if (kind === 'future-version')
+          db.exec("INSERT INTO schema_migrations (id, name) VALUES (999, 'future')")
+        if (kind === 'missing-history') db.exec('DELETE FROM schema_migrations WHERE id = 2')
+        if (kind === 'missing-table') db.exec('DROP TABLE scan_failures')
+        if (kind === 'broken-reference') {
+          db.pragma('foreign_keys = OFF')
+          db.exec("INSERT INTO track_metadata(track_id,source) VALUES(999,'file_tag')")
+        }
+      }
+      db.close()
+      expect(validateBackupFile(path, DatabaseCtor).ok).toBe(false)
+    })
+
+    it('accepts a complete older schema and migrates it before discarding rollback files', () => {
+      const path = join(tempDir, 'older.sqlite')
+      const db = openDb(`${path}.restore_staged`)
+      db.exec(migrations[0].sql)
+      db.exec(
+        "CREATE TABLE schema_migrations (id INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP); INSERT INTO schema_migrations(id,name) VALUES(1,'initial_library_schema')",
+      )
+      db.close()
+      expect(validateBackupFile(`${path}.restore_staged`, DatabaseCtor).ok).toBe(true)
+      expect(applyStagedRestoreIfExists(path, { databaseCtor: DatabaseCtor })).toBe(true)
+      const restored = openDb(path)
+      expect(restored.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(
+        migrations.length,
+      )
+    })
+
     it('returns error for non-existent file', () => {
       const result = validateBackupFile(join(tempDir, 'does-not-exist.backup'), DatabaseCtor)
       expect(result.ok).toBe(false)
@@ -263,6 +308,29 @@ describe('databaseBackupService', () => {
   })
 
   describe('applyStagedRestoreIfExists', () => {
+    it('retains original data when migration fails after writing replacement WAL data', () => {
+      const path = join(tempDir, 'rollback.sqlite')
+      const old = openDb(path)
+      migrateDatabase(old)
+      old.exec("INSERT INTO tracks(file_path,title) VALUES('original.flac','Original')")
+      old.close()
+      const staged = openDb(`${path}.restore_staged`)
+      migrateDatabase(staged)
+      staged.close()
+      expect(() =>
+        applyStagedRestoreIfExists(path, {
+          databaseCtor: DatabaseCtor,
+          migrate: (db) => {
+            expect(existsSync(`${path}.rollback`)).toBe(true)
+            db.pragma('journal_mode = WAL')
+            db.exec("INSERT INTO tracks(file_path,title) VALUES('replacement.flac','Replacement')")
+            throw new Error('migration failed')
+          },
+        }),
+      ).toThrow('migration failed')
+      expect(openDb(path).prepare('SELECT title FROM tracks').pluck().all()).toEqual(['Original'])
+    })
+
     it('returns false when no staged restore exists', () => {
       const dbPath = join(tempDir, 'auralis.sqlite')
       const applied = applyStagedRestoreIfExists(dbPath, { databaseCtor: DatabaseCtor })

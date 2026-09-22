@@ -10,12 +10,7 @@ import {
   type Ref,
   unref,
 } from 'vue'
-import { usePlayerBarMaterial } from '@renderer/features/settings/composables/usePlayerBarMaterial'
-import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
-import {
-  getDisplacementFilter,
-  supportsBackdropFilterUrlSyntax,
-} from '@renderer/features/playback/utils/liquidGlassDisplacementMap'
+import { getDisplacementFilter } from '@renderer/features/playback/utils/liquidGlassDisplacementMap'
 
 export interface LiquidGlassRefractionConfig {
   active: Ref<boolean> | boolean
@@ -26,25 +21,6 @@ export interface LiquidGlassRefractionConfig {
   brightness?: number
   saturate?: number
   blur?: number
-}
-
-export interface LiquidGlassFilterConfig {
-  radius?: number
-  depth?: number
-  strength?: number
-  chromaticAberration?: number
-  brightness?: number
-  saturate?: number
-  blur?: number
-  forceEnableSyntax?: boolean
-}
-
-export function resolveIsLiquidGlassActive(
-  material: string,
-  displayMode: string,
-  syntaxSupported = supportsBackdropFilterUrlSyntax(),
-): boolean {
-  return displayMode === 'normal' && material === 'liquid-glass' && syntaxSupported
 }
 
 /**
@@ -151,35 +127,5 @@ export function useLiquidGlassRefraction(
     isActive,
     liquidFilterStyle,
     updateFilter,
-  }
-}
-
-export function useLiquidGlassFilter(
-  targetRef: Ref<HTMLElement | null>,
-  config: LiquidGlassFilterConfig,
-) {
-  const { playerBarMaterial } = usePlayerBarMaterial()
-  const { displayMode } = usePlayerDisplayMode()
-  const syntaxSupported = config.forceEnableSyntax ?? supportsBackdropFilterUrlSyntax()
-
-  const isLiquidGlassActive = computed(() =>
-    resolveIsLiquidGlassActive(playerBarMaterial.value, displayMode.value, syntaxSupported),
-  )
-
-  const refraction = useLiquidGlassRefraction(targetRef, {
-    active: isLiquidGlassActive,
-    radius: config.radius,
-    depth: config.depth,
-    strength: config.strength,
-    chromaticAberration: config.chromaticAberration,
-    brightness: config.brightness,
-    saturate: config.saturate,
-    blur: config.blur,
-  })
-
-  return {
-    isLiquidGlassActive,
-    liquidFilterStyle: refraction.liquidFilterStyle,
-    updateFilter: refraction.updateFilter,
   }
 }

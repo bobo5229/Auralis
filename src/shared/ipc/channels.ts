@@ -48,6 +48,9 @@ export const ipcChannels = {
     getByTrackId: 'lyrics:get-by-track-id',
   },
   playback: {
+    nativeAvailability: 'playback:native-availability',
+    nativeCommand: 'playback:native-command',
+    nativeEvent: 'playback:native-event',
     getAudioUrl: 'playback:get-audio-url',
     getRandomTrack: 'playback:get-random-track',
     getRandomAlbumTracks: 'playback:get-random-album-tracks',

@@ -100,6 +100,10 @@
     ],
     "extraResources": [
       {
+        "from": "resources/audio",
+        "to": "audio"
+      },
+      {
         "from": "resources/icons/icon.png",
         "to": "icons/icon.png"
       }

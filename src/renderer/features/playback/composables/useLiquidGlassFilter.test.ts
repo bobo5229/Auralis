@@ -1,29 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { nextTick, ref } from 'vue'
 
-vi.mock('@renderer/features/playback/composables/usePlayerDisplayMode', () => ({
-  usePlayerDisplayMode: () => ({
-    displayMode: ref<'normal' | 'fullscreen' | 'mini'>('normal'),
-  }),
-}))
+import { useLiquidGlassRefraction } from './useLiquidGlassFilter'
 
-import {
-  resolveIsLiquidGlassActive,
-  useLiquidGlassFilter,
-  useLiquidGlassRefraction,
-} from './useLiquidGlassFilter'
-import { usePlayerBarMaterial } from '@renderer/features/settings/composables/usePlayerBarMaterial'
-
-describe('resolveIsLiquidGlassActive', () => {
-  it('returns true only for liquid-glass material, normal display, and supported syntax', () => {
-    expect(resolveIsLiquidGlassActive('liquid-glass', 'normal', true)).toBe(true)
-    expect(resolveIsLiquidGlassActive('cover-tint', 'normal', true)).toBe(false)
-    expect(resolveIsLiquidGlassActive('liquid-glass', 'fullscreen', true)).toBe(false)
-    expect(resolveIsLiquidGlassActive('liquid-glass', 'normal', false)).toBe(false)
-  })
-})
-
-describe('useLiquidGlassFilter', () => {
+describe('useLiquidGlassRefraction styles', () => {
   it('activates and generates valid backdropFilter style when active and target element has dimensions', async () => {
     const el = {
       clientWidth: 360,
@@ -32,18 +12,15 @@ describe('useLiquidGlassFilter', () => {
     } as unknown as HTMLElement
 
     const target = ref<HTMLElement | null>(el)
-    const { setPlayerBarMaterial } = usePlayerBarMaterial()
-    setPlayerBarMaterial('liquid-glass')
-
-    const { isLiquidGlassActive, liquidFilterStyle, updateFilter } = useLiquidGlassFilter(target, {
+    const { isActive, liquidFilterStyle, updateFilter } = useLiquidGlassRefraction(target, {
+      active: true,
       radius: 16,
       depth: 8,
       strength: 40,
       chromaticAberration: 2,
-      forceEnableSyntax: true,
     })
 
-    expect(isLiquidGlassActive.value).toBe(true)
+    expect(isActive.value).toBe(true)
 
     updateFilter()
     await nextTick()
@@ -61,12 +38,9 @@ describe('useLiquidGlassFilter', () => {
     } as unknown as HTMLElement
 
     const target = ref<HTMLElement | null>(el)
-    const { setPlayerBarMaterial } = usePlayerBarMaterial()
-    setPlayerBarMaterial('liquid-glass')
-
-    const { liquidFilterStyle, updateFilter } = useLiquidGlassFilter(target, {
+    const { liquidFilterStyle, updateFilter } = useLiquidGlassRefraction(target, {
+      active: true,
       blur: 16,
-      forceEnableSyntax: true,
     })
 
     updateFilter()
@@ -81,15 +55,12 @@ describe('useLiquidGlassFilter', () => {
 })
 
 describe('useLiquidGlassRefraction', () => {
-  it('generates displacement backdropFilter independently of player bar material', async () => {
+  it('generates displacement backdropFilter and clears it when disabled', async () => {
     const el = {
       clientWidth: 240,
       clientHeight: 320,
       getBoundingClientRect: () => ({ width: 240, height: 320 }) as DOMRect,
     } as unknown as HTMLElement
-
-    const { setPlayerBarMaterial } = usePlayerBarMaterial()
-    setPlayerBarMaterial('cover-tint')
 
     const target = ref<HTMLElement | null>(el)
     const active = ref(true)

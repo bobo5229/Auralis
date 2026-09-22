@@ -14,7 +14,11 @@ export class LibraryService {
     private readonly libraryRepository: LibraryRepository,
     private readonly trackRepository: TrackRepository,
   ) {
-    this.catalogSnapshotStore = new LibraryCatalogSnapshotStore(() => this.trackRepository.getAll())
+    this.catalogSnapshotStore = new LibraryCatalogSnapshotStore(
+      () => this.trackRepository.getAll(),
+      Date.now,
+      () => this.trackRepository.getChangeToken(),
+    )
   }
 
   getStats(): LibraryStats {

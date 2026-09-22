@@ -1,14 +1,13 @@
-import type { ICommonTagsResult } from 'music-metadata'
+import type { IAudioMetadata } from 'music-metadata'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
-import type { RefreshedTrackMetadata } from '../../repositories/metadataRefreshRepository'
 import { normalizeArtists, resolveGenres } from './metadataNormalizer'
 
 /** Compare actual tags, not display fallbacks such as filename/Unknown Artist. */
 export function verifyWrittenMetadata(
   expected: EditableTrackMetadata,
-  actual: RefreshedTrackMetadata,
+  actual: Pick<IAudioMetadata, 'common' | 'native'>,
 ): void {
-  const common = JSON.parse(actual.rawCommonJson) as ICommonTagsResult
+  const { common, native } = actual
   const text = (value: string | null | undefined) => value?.trim() || ''
   const list = (value: string | null) =>
     (value ?? '')
@@ -18,11 +17,7 @@ export function verifyWrittenMetadata(
       .join('; ')
   const expectedDate = text(expected.releaseDate) || String(expected.year ?? '')
   let actualDate = text(common.date) || String(common.year ?? '')
-  if (!common.date && common.year !== undefined && actual.rawNativeJson) {
-    const native = JSON.parse(actual.rawNativeJson) as Record<
-      string,
-      Array<{ id: string; value: unknown }>
-    >
+  if (!common.date && common.year !== undefined) {
     const dayMonth = native['ID3v2.3']?.find((tag) => tag.id === 'TDAT')?.value
     // FFmpeg writes v2.3 dates as TYER + TDAT (DDMM); music-metadata exposes only TYER in common.
     if (typeof dayMonth === 'string' && /^\d{4}$/.test(dayMonth)) {

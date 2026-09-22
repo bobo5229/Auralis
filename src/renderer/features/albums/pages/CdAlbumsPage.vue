@@ -5,11 +5,14 @@ import { useRouter } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
+import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import { groupAlbums, selectAlbumTracks } from '../utils/albumGrouping'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import CdTrackList from '../components/CdTrackList.vue'
+import CdFocusLyrics from '../components/CdFocusLyrics.vue'
 import { createCdStage, type CdAlbum } from '../utils/cdStageController'
 import { animateProgress } from '@renderer/shared/animation/motion'
 
@@ -31,9 +34,32 @@ const controlsRef = ref<HTMLElement | null>(null)
 const focused = ref(false)
 const focusSettled = ref(false)
 const cdMode = ref<PlaybackMode>('repeat-all')
+const discSurface = ref<'cd' | 'vinyl'>('cd')
+const surfaceSwitchRef = ref<HTMLElement | null>(null)
+const surfaceIndicatorRef = ref<HTMLElement | null>(null)
+const albumInfo = shallowRef<CdAlbumInfo[]>([])
+const selected = ref(0)
 let queueOwned = false
 let ownedIds: number[] = []
 const focusedAlbum = computed(() => albumInfo.value[selected.value] ?? null)
+const ringTrackMatches = computed(() => {
+  const trackId = playback.state.currentTrackId
+  return (
+    trackId !== null && Boolean(focusedAlbum.value?.tracks.some((track) => track.id === trackId))
+  )
+})
+const ringArtworkKey = computed(() =>
+  ringTrackMatches.value ? (playback.state.currentTrack?.artworkCacheKey ?? null) : null,
+)
+const { palette: ringPalette } = useArtworkPalette(ringArtworkKey, {
+  enabled: ringTrackMatches,
+})
+const ringAccent = computed(() => {
+  const accent = ringPalette.value.accents[0]?.rgb
+  return ringPalette.value.quality === 'fallback' || !accent
+    ? '#62625b'
+    : `rgb(${accent.r} ${accent.g} ${accent.b})`
+})
 
 watch(
   () => playback.state.queue,
@@ -77,6 +103,7 @@ function focusChange(progress: number, settled: boolean): void {
   const wasFocused = focused.value
   focused.value = progress > 0 || !settled
   focusSettled.value = progress === 1 && settled
+  stageRef.value?.style.setProperty('--cd-focus', String(progress))
   if (!wasFocused && focused.value) settleInfo()
   const p = Math.max(0, Math.min(1, (progress - 0.72) / 0.28))
   const reveal = p * p * p * (10 + p * (-15 + 6 * p))
@@ -97,18 +124,32 @@ function focusChange(progress: number, settled: boolean): void {
 }
 const stageRef = ref<HTMLElement | null>(null)
 const infoRef = ref<HTMLElement | null>(null)
-const albumInfo = shallowRef<CdAlbumInfo[]>([])
 const loading = ref(true)
 const starting = ref(false)
 const infoSuppressed = ref(false)
 let startupPlayed = false
 const failed = ref(false)
 const count = ref(0)
-const selected = ref(0)
 const infoSelected = ref(0)
 const currentAlbum = computed(() => albumInfo.value[infoSelected.value] ?? null)
 const displayedAlbum = shallowRef<CdAlbumInfo | null>(null)
+const browsingPlayback = computed(() => {
+  const track = playback.state.currentTrack
+  if (focused.value || !track || displayedAlbum.value?.tracks.some((item) => item.id === track.id))
+    return null
+  const title = track.title?.trim() || t('albums.detail.unknownTitle')
+  const artist = formatArtist(track.artist)
+  return {
+    label: t(playback.state.isPlaying ? 'albums.cd.nowPlaying' : 'albums.cd.paused'),
+    song: artist ? `${title} - ${artist}` : title,
+    album: track.album?.trim() ?? '',
+  }
+})
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+let vinylBlend = 0
+let cancelSurfaceAnimation: (() => void) | null = null
+let cancelIndicatorAnimation: (() => void) | null = null
+let indicatorEdges: { left: number; right: number } | null = null
 let cancelInfoAnimation: (() => void) | null = null
 let infoGeneration = 0
 let controller: ReturnType<typeof createCdStage> | null = null
@@ -116,6 +157,121 @@ let unsubscribe: (() => void) | null = null
 let disposed = false
 let inFlight = false
 let refreshPending = false
+
+function setDiscSurface(surface: 'cd' | 'vinyl'): void {
+  discSurface.value = surface
+  cancelSurfaceAnimation?.()
+  cancelSurfaceAnimation = null
+  const from = vinylBlend
+  const to = surface === 'vinyl' ? 1 : 0
+  const update = (value: number): void => {
+    vinylBlend = value
+    stageRef.value?.style.setProperty('--cd-vinyl', String(value))
+  }
+  if (reducedMotion.matches || from === to) {
+    update(to)
+    return
+  }
+  cancelSurfaceAnimation = animateProgress(
+    280,
+    (progress) => update(from + (to - from) * (1 - (1 - progress) ** 3)),
+    () => {
+      update(to)
+      cancelSurfaceAnimation = null
+    },
+  )
+}
+
+function onMotionPreferenceChange(): void {
+  settleInfo()
+  if (reducedMotion.matches) {
+    setDiscSurface(discSurface.value)
+    moveSurfaceIndicator(false)
+  }
+}
+
+function moveSurfaceIndicator(animate: boolean): void {
+  cancelIndicatorAnimation?.()
+  cancelIndicatorAnimation = null
+  const group = surfaceSwitchRef.value
+  const line = surfaceIndicatorRef.value
+  const button = group?.querySelector<HTMLElement>('button[aria-pressed="true"]')
+  if (!group || !line || !button) return
+  const groupRect = group.getBoundingClientRect()
+  const buttonRect = button.getBoundingClientRect()
+  const target = {
+    left: buttonRect.left - groupRect.left,
+    right: buttonRect.right - groupRect.left,
+  }
+  const draw = (left: number, right: number): void => {
+    indicatorEdges = { left, right }
+    line.style.transform = `translateX(${left}px)`
+    line.style.width = `${right - left}px`
+  }
+  if (!animate || reducedMotion.matches || !indicatorEdges) {
+    draw(target.left, target.right)
+    return
+  }
+  const from = { ...indicatorEdges }
+  const movingRight = target.left + target.right > from.left + from.right
+  cancelIndicatorAnimation = animateProgress(
+    440,
+    (progress) => {
+      // The leading edge reaches out first; the trailing edge releases a little later.
+      const lead = 1 - (1 - progress) ** 3
+      const delayed = Math.max(0, (progress - 0.18) / 0.82)
+      const trail = delayed * delayed * (3 - 2 * delayed)
+      draw(
+        from.left + (target.left - from.left) * (movingRight ? trail : lead),
+        from.right + (target.right - from.right) * (movingRight ? lead : trail),
+      )
+    },
+    () => {
+      draw(target.left, target.right)
+      cancelIndicatorAnimation = null
+    },
+  )
+}
+
+watch(discSurface, () => moveSurfaceIndicator(true), { flush: 'post' })
+watch(
+  surfaceSwitchRef,
+  (element, _, onCleanup) => {
+    if (!element) return
+    moveSurfaceIndicator(false)
+    const observer = new ResizeObserver(() => moveSurfaceIndicator(false))
+    observer.observe(element)
+    onCleanup(() => {
+      observer.disconnect()
+      cancelIndicatorAnimation?.()
+      cancelIndicatorAnimation = null
+      indicatorEdges = null
+    })
+  },
+  { flush: 'post' },
+)
+
+function syncPlaybackRing(): void {
+  const duration = playback.state.duration
+  controller?.setPlayback({
+    visible: focusSettled.value && ringTrackMatches.value,
+    playing: playback.state.isPlaying,
+    progress: Number.isFinite(duration) && duration > 0 ? playback.state.currentTime / duration : 0,
+    accent: ringAccent.value,
+  })
+}
+
+watch(
+  [
+    focusSettled,
+    ringTrackMatches,
+    () => playback.state.isPlaying,
+    () => playback.state.currentTime,
+    () => playback.state.duration,
+    ringAccent,
+  ],
+  syncPlaybackRing,
+)
 
 async function loadAlbums(): Promise<void> {
   if (inFlight) {
@@ -306,7 +462,7 @@ function setRapidBrowse(running: boolean): void {
 
 onMounted(() => {
   if (!stageRef.value) return
-  reducedMotion.addEventListener('change', settleInfo)
+  reducedMotion.addEventListener('change', onMotionPreferenceChange)
   window.addEventListener('resize', settleInfo)
   controller = createCdStage(
     stageRef.value,
@@ -333,8 +489,13 @@ onMounted(() => {
         }
       },
       change: focusChange,
+      togglePlayback: () => {
+        if (ringTrackMatches.value && !loading.value && !failed.value)
+          void playback.togglePlayPause()
+      },
     },
   )
+  syncPlaybackRing()
   stageRef.value.focus({ preventScroll: true })
   unsubscribe = auralis.library.onChanged((event) => {
     if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
@@ -347,7 +508,9 @@ onBeforeUnmount(() => {
   disposed = true
   unsubscribe?.()
   settleInfo()
-  reducedMotion.removeEventListener('change', settleInfo)
+  cancelSurfaceAnimation?.()
+  cancelSurfaceAnimation = null
+  reducedMotion.removeEventListener('change', onMotionPreferenceChange)
   window.removeEventListener('resize', settleInfo)
   controller?.dispose()
   controller = null
@@ -372,6 +535,25 @@ onBeforeUnmount(() => {
       >
         <span class="i-lucide-arrow-left" aria-hidden="true"></span>
       </button>
+      <div
+        v-if="focused"
+        ref="surfaceSwitchRef"
+        class="cd-surface-switch"
+        role="group"
+        :aria-label="t('albums.cd.surface.label')"
+      >
+        <button type="button" :aria-pressed="discSurface === 'cd'" @click="setDiscSurface('cd')">
+          {{ t('albums.cd.surface.cd') }}
+        </button>
+        <button
+          type="button"
+          :aria-pressed="discSurface === 'vinyl'"
+          @click="setDiscSurface('vinyl')"
+        >
+          {{ t('albums.cd.surface.vinyl') }}
+        </button>
+        <span ref="surfaceIndicatorRef" class="cd-surface-indicator" aria-hidden="true"></span>
+      </div>
     </header>
     <div class="cd-content">
       <aside
@@ -402,6 +584,18 @@ onBeforeUnmount(() => {
             <dd dir="auto">{{ displayedAlbum.copyright }}</dd>
           </div>
         </dl>
+        <p
+          v-if="browsingPlayback"
+          class="cd-browsing-playback"
+          role="status"
+          :title="`${browsingPlayback.label} ${browsingPlayback.song} ${browsingPlayback.album}`"
+        >
+          <span class="cd-browsing-playback-label">{{ browsingPlayback.label }}</span>
+          <span class="cd-browsing-playback-song" dir="auto">{{ browsingPlayback.song }}</span>
+          <span v-if="browsingPlayback.album" class="cd-browsing-playback-album" dir="auto">{{
+            browsingPlayback.album
+          }}</span>
+        </p>
       </aside>
       <div
         ref="stageRef"
@@ -433,6 +627,13 @@ onBeforeUnmount(() => {
           {{ playback.state.error }}
         </p>
       </section>
+      <CdFocusLyrics
+        :active="focusSettled && ringTrackMatches && !loading && !failed"
+        :accent="ringAccent"
+        :stage="stageRef"
+        :information="infoRef"
+        :tracks="trackPanelRef"
+      />
       <div v-if="loading || failed || !count" class="cd-status" role="status">
         <template v-if="failed">
           <p>{{ t('albums.status.loadError') }}</p>
@@ -544,7 +745,9 @@ onBeforeUnmount(() => {
   color: #292929;
 }
 .cd-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
   padding: 16px 24px 8px;
 }
 .cd-page button {
@@ -573,6 +776,41 @@ onBeforeUnmount(() => {
   outline: 2px solid #292929;
   outline-offset: 3px;
 }
+.cd-surface-switch {
+  position: relative;
+  grid-column: 2;
+  display: inline-flex;
+  gap: 24px;
+  -webkit-app-region: no-drag;
+}
+.cd-page .cd-surface-switch button {
+  padding: 6px 0;
+  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  line-height: 20px;
+  font-size: 12px;
+  font-weight: 400;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #62625b;
+}
+.cd-page .cd-surface-switch button:hover:not(:disabled) {
+  background: transparent;
+  color: #292929;
+}
+.cd-page .cd-surface-switch button[aria-pressed='true'] {
+  color: #292929;
+}
+.cd-surface-indicator {
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  width: 0;
+  height: 1px;
+  border-radius: 999px;
+  background: #292929;
+  pointer-events: none;
+}
 .cd-content {
   position: relative;
   flex: 1;
@@ -580,6 +818,7 @@ onBeforeUnmount(() => {
   container-type: inline-size;
 }
 .cd-page .cd-back {
+  justify-self: start;
   width: 32px;
   height: 32px;
   padding: 0;
@@ -591,8 +830,8 @@ onBeforeUnmount(() => {
   top: 8px;
   left: 32px;
   z-index: 5;
-  width: min(320px, 29vw);
-  max-height: 44%;
+  width: min(380px, 31vw);
+  max-height: 48%;
   overflow-y: auto;
   scrollbar-width: thin;
   color-scheme: light;
@@ -603,7 +842,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: flex-end;
   gap: 16px;
-  padding-bottom: 10px;
+  padding-bottom: 14px;
   border-bottom: 1px solid #8e8e88;
 }
 .cd-info-title {
@@ -612,7 +851,7 @@ onBeforeUnmount(() => {
   margin: 0;
   padding-bottom: 3px;
   font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 30px;
+  font-size: 36px;
   font-weight: 400;
   font-style: italic;
   font-synthesis: none;
@@ -623,12 +862,46 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   padding-bottom: 6px;
   font-family: Georgia, 'Auralis Desktop Lyrics SC', serif;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
   color: #55554f;
 }
 .cd-info-fields {
   margin: 0;
+}
+.cd-browsing-playback {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 28px 0 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #aaa9a3;
+  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #42423d;
+  white-space: nowrap;
+}
+.cd-browsing-playback-label {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-style: italic;
+  color: #85857d;
+}
+.cd-browsing-playback-song,
+.cd-browsing-playback-album {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cd-browsing-playback-song {
+  flex: 0 1 auto;
+}
+.cd-browsing-playback-album {
+  flex: 0 4 auto;
+  max-width: 30%;
+  font-size: 14px;
+  color: #6f6f67;
 }
 .cd-info-row {
   box-sizing: border-box;
@@ -636,40 +909,42 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   align-items: start;
-  gap: 18px;
-  padding: 8px 0;
+  gap: 20px;
+  padding: 11px 0;
 }
 .cd-info-row + .cd-info-row {
   border-top: 1px solid #aaa9a3;
 }
 .cd-info-row dt {
-  font-size: 10px;
+  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-size: 12px;
   color: #62625b;
   line-height: 1.7;
 }
 .cd-info-row dd {
   margin: 0;
   font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.5;
   text-align: right;
   overflow-wrap: anywhere;
   white-space: pre-line;
 }
 .cd-info-copyright dd {
-  font-size: 11px;
+  font-size: 13px;
 }
 @container (max-width: 600px) {
   .cd-info {
     left: 24px;
-    width: min(280px, 29vw);
+    width: min(300px, 31vw);
   }
   .cd-info-title {
-    font-size: 26px;
+    font-size: 28px;
   }
 }
 .cd-stage {
   position: absolute;
+  z-index: 1;
   inset: 0;
   /* Discs can extend beyond the stage; the page owns the outer clipping edge. */
   overflow: visible;
@@ -746,9 +1021,21 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 .cd-stage :deep(.cd-hover) {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   transform: perspective(1100px) rotateX(0deg) rotateY(0deg);
+}
+.cd-stage :deep(.cd-disc-shadow) {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 400px;
+  height: 400px;
+  overflow: visible;
+  pointer-events: none;
+  fill: #3a3b38;
 }
 .cd-stage :deep(.cd-disc) {
   position: relative;
@@ -760,6 +1047,14 @@ onBeforeUnmount(() => {
   pointer-events: auto;
   mask-image: radial-gradient(circle, transparent 0 6.8%, #000 7.1%);
   box-shadow: inset 0 0 0 2px #858586;
+}
+.cd-stage :deep(.cd-sidewall) {
+  position: absolute;
+  inset: 0;
+  width: 400px;
+  height: 400px;
+  overflow: visible;
+  pointer-events: none;
 }
 .cd-stage :deep(.cd-art) {
   position: absolute;
@@ -789,6 +1084,36 @@ onBeforeUnmount(() => {
     inset 1px 1px 0 2px #ffffff80,
     inset -2px -2px 0 3px #42424280,
     inset 0 0 0 5px #dadbd550;
+}
+.cd-stage :deep(.cd-disc::after) {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  z-index: 1;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    repeating-radial-gradient(
+      circle at center,
+      #08080830 0 0.65px,
+      #ffffff14 0.85px 1.15px,
+      transparent 1.4px 2.8px
+    ),
+    conic-gradient(
+      from 25deg,
+      #08080818,
+      #ffffff20 16%,
+      #08080830 32%,
+      #08080810 47%,
+      #ffffff24 65%,
+      #08080830 82%,
+      #08080818
+    );
+  box-shadow: inset 0 0 0 2px #10101038;
+}
+.cd-stage :deep(.cd-position[data-selected='true'] .cd-disc::after) {
+  opacity: calc(var(--cd-vinyl, 0) * var(--cd-focus, 0));
 }
 .cd-stage :deep(.cd-hub) {
   position: absolute;
@@ -820,6 +1145,30 @@ onBeforeUnmount(() => {
   border-radius: 50%;
   border: 5px solid #f8f8f890;
   box-shadow: 0 0 0 2px #6c747b60;
+}
+.cd-stage :deep(.cd-wave-ring) {
+  position: absolute;
+  left: -28px;
+  top: -28px;
+  width: 456px;
+  height: 456px;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+  transform-box: border-box;
+  transform-origin: center;
+}
+.cd-stage :deep(.cd-wave-ring path) {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.cd-stage :deep(.cd-wave-track) {
+  stroke: #b7b7b0;
+}
+.cd-stage :deep(.cd-wave-progress) {
+  stroke: #62625b;
 }
 @media (max-width: 800px) {
   .cd-controls {

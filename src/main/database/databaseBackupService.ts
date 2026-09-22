@@ -1,4 +1,6 @@
 import Database from 'better-sqlite3'
+import { assertBackupSchema } from './databaseBackupValidation'
+import { migrateDatabase } from './schema'
 import { randomUUID } from 'node:crypto'
 import {
   closeSync,
@@ -71,18 +73,7 @@ export function validateBackupFile(
         return { ok: false, error: `SQLite quick_check failed: ${String(checkResult)}` }
       }
 
-      const hasSchemaMigrations = testDb
-        .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='schema_migrations'")
-        .pluck()
-        .get()
-      const hasTracks = testDb
-        .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='tracks'")
-        .pluck()
-        .get()
-
-      if (!hasSchemaMigrations && !hasTracks) {
-        return { ok: false, error: 'Database does not contain expected Auralis tables.' }
-      }
+      assertBackupSchema(testDb, databaseCtor)
     } finally {
       testDb.close()
     }
@@ -216,7 +207,7 @@ export async function stageDatabaseRestore(
  */
 export function applyStagedRestoreIfExists(
   databasePath: string,
-  options?: { databaseCtor?: DatabaseConstructor },
+  options?: { databaseCtor?: DatabaseConstructor; migrate?: (db: Database.Database) => void },
 ): boolean {
   const stagedPath = `${databasePath}.restore_staged`
   if (!existsSync(stagedPath)) {
@@ -238,6 +229,7 @@ export function applyStagedRestoreIfExists(
   let hasOriginalDb = false
   let hasOriginalWal = false
   let hasOriginalShm = false
+  let replaced = false
 
   try {
     // 1. Create rollback copies of active files
@@ -254,14 +246,21 @@ export function applyStagedRestoreIfExists(
       hasOriginalShm = true
     }
 
+    const validation = validateBackupFile(stagedPath, databaseCtor)
+    if (!validation.ok) throw new Error(validation.error)
+
     // 2. Replace active db with staged file and clear previous wal/shm
+    replaced = true
     copyFileSync(stagedPath, databasePath)
     if (existsSync(walPath)) unlinkSync(walPath)
     if (existsSync(shmPath)) unlinkSync(shmPath)
 
-    // 3. Verify the restored database file
+    // 3. Migrate and verify before releasing the original database rollback files.
     const testDb = new databaseCtor(databasePath, { fileMustExist: true })
     try {
+      testDb.pragma('foreign_keys = ON')
+      ;(options?.migrate ?? migrateDatabase)(testDb)
+      assertBackupSchema(testDb, databaseCtor)
       const checkResult = testDb.pragma('quick_check(1)', { simple: true })
       if (checkResult !== 'ok') {
         throw new Error(`Corrupt restored database quick_check: ${String(checkResult)}`)
@@ -272,9 +271,13 @@ export function applyStagedRestoreIfExists(
 
     // 4. Success — clean up staged file and rollback backups
     if (existsSync(stagedPath)) unlinkSync(stagedPath)
-    if (existsSync(rollbackPath)) unlinkSync(rollbackPath)
-    if (existsSync(rollbackWalPath)) unlinkSync(rollbackWalPath)
-    if (existsSync(rollbackShmPath)) unlinkSync(rollbackShmPath)
+    for (const path of [rollbackPath, rollbackWalPath, rollbackShmPath]) {
+      try {
+        if (existsSync(path)) unlinkSync(path)
+      } catch (error) {
+        logger.warn({ error, path }, 'Restore succeeded; rollback cleanup deferred')
+      }
+    }
 
     logger.info({ databasePath }, 'Staged database restore applied and verified successfully')
     return true
@@ -284,8 +287,12 @@ export function applyStagedRestoreIfExists(
       'Failed to apply staged database restore; executing rollback',
     )
 
-    // Rollback to original files
+    // Remove replacement WAL/SHM before restoring the original set.
     try {
+      if (replaced) {
+        for (const path of [walPath, shmPath]) if (existsSync(path)) unlinkSync(path)
+        if (!hasOriginalDb && existsSync(databasePath)) unlinkSync(databasePath)
+      }
       if (hasOriginalDb && existsSync(rollbackPath)) {
         copyFileSync(rollbackPath, databasePath)
         unlinkSync(rollbackPath)

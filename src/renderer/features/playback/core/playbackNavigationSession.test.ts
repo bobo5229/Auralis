@@ -25,6 +25,59 @@ function dummySource(overrides: Partial<PlaybackTransitionSource> = {}): Playbac
 }
 
 describe('PlaybackNavigationSession', () => {
+  it.each(['shuffle', 'album-shuffle'] as const)(
+    'plays every inserted track before resuming %s',
+    async (playbackMode) => {
+      const navigation = new PlaybackNavigationSession()
+      let queue = [track(1), track(9)]
+      queue = navigation.insertMultipleTracks(queue, 1, [
+        track(2),
+        track(2),
+        track(3),
+        track(4),
+      ])!.queue
+      queue = navigation.insertSingleTrack(queue, 1, track(5))!.queue
+      navigation.removeMissingTracks(new Set([3]), 1)
+      queue = queue.filter((item) => item.id !== 3)
+      let current = queue[0]
+      const source = dummySource()
+      for (const expected of [5, 2, 4]) {
+        const state = {
+          queue,
+          currentIndex: queue.indexOf(current),
+          currentTrack: current,
+          currentTrackId: current.id,
+          playbackMode,
+        }
+        const prefetched = await navigation.resolveAdvance(state, source, 'gapless-prefetch')
+        const next = await navigation.resolveAdvance(state, source, 'manual-next')
+        expect(next).toEqual(prefetched)
+        if (next.kind !== 'play') throw new Error('Missing queued track')
+        expect(next.plan.track.id).toBe(expected)
+        navigation.applyPlan(next.plan, current, queue)
+        current = next.plan.track
+      }
+      expect(navigation.getQueuedNextTrackId()).toBeNull()
+      expect(source.getRandomTrack).not.toHaveBeenCalled()
+      expect(source.getRandomAlbumTracks).not.toHaveBeenCalled()
+      await navigation.resolveAdvance(
+        {
+          queue,
+          currentIndex: queue.indexOf(current),
+          currentTrack: current,
+          currentTrackId: current.id,
+          playbackMode,
+        },
+        source,
+        'manual-next',
+      )
+      if (playbackMode === 'shuffle') expect(source.getRandomTrack).toHaveBeenCalledWith(4)
+      else expect(source.getRandomAlbumTracks).toHaveBeenCalledTimes(1)
+      navigation.resetForTrackSwitch()
+      expect(navigation.getQueuedNextTrackId()).toBeNull()
+    },
+  )
+
   let session: PlaybackNavigationSession
 
   beforeEach(() => {

@@ -63,21 +63,82 @@
   const mix = (a, b, t) => a + (b - a) * t
   let progress = 0,
     paused = false,
-    lastTick = performance.now()
+    lastTick = performance.now(),
+    waveFrame = 0,
+    lastWaveDraw = 0
 
-  function wavePath(seed) {
+  function wavePath(seed, seconds = 0, active = false) {
     const points = []
+    const tau = Math.PI * 2
+    const circularDistance = (angle, center) => {
+      const distance = Math.abs(angle - center) % tau
+      return Math.min(distance, tau - distance)
+    }
+    const burst = (angle, center, width, height) => {
+      const distance = circularDistance(angle, center) / width
+      return height * Math.exp(-distance * distance * 2.4)
+    }
+    // Each album gets a few deterministic high-energy regions. Most of the
+    // circumference stays restrained, so the ring reads as a musical envelope
+    // instead of a uniformly enlarged saw edge.
+    const centers = [
+      (0.42 + seed * 0.31) % tau,
+      (2.65 + seed * 0.17) % tau,
+      (4.78 + seed * 0.23) % tau,
+    ]
     for (let i = 0; i <= 1440; i++) {
-      const angle = (i / 1440) * Math.PI * 2
-      const carrier = Math.sin(angle * 64 + seed)
-      const sharpness = 0.65 + 0.55 * (1 + Math.sin(angle * 7 + seed))
-      const amplitude = 4 + 3 * (0.5 + 0.5 * Math.sin(angle * 11 + seed))
-      const radius = 216 + amplitude * Math.sign(carrier) * Math.abs(carrier) ** sharpness
+      const angle = (i / 1440) * tau
+      const carrier = Math.sin(angle * 64 + seed) + 0.2 * Math.sin(angle * 103 + seed * 1.61)
+      const normalizedCarrier = Math.max(-1, Math.min(1, carrier / 1.2))
+      const sharpness = 0.68 + 0.36 * (0.5 + 0.5 * Math.sin(angle * 7 + seed))
+      const quietMotion = 3.2 + 1.8 * (0.5 + 0.5 * Math.sin(angle * 9 - seed * 0.7))
+      const energy =
+        burst(angle, centers[0], 0.24, 13) +
+        burst(angle, centers[1], 0.34, 8.5) +
+        burst(angle, centers[2], 0.18, 10.5)
+      // Neighbouring peaks share a loose local rhythm, while distant regions
+      // move independently. The ring stays centred; only radial wave height moves.
+      const localBeat =
+        0.72 +
+        0.2 * Math.sin(seconds * 8.4 + angle * 3.2 + seed) +
+        0.13 * Math.sin(seconds * 13.7 - angle * 4.6 + seed * 0.63)
+      const accent = Math.max(0, Math.sin(seconds * 6.1 + angle * 2.1 + seed * 1.4)) ** 4
+      const motion = active ? Math.max(0.48, localBeat + accent * 0.38) : 1
+      const amplitude = (quietMotion + energy) * motion
+      const shapedRadius =
+        216 + amplitude * Math.sign(normalizedCarrier) * Math.abs(normalizedCarrier) ** sharpness
       points.push(
-        `${i ? 'L' : 'M'}${(200 + Math.sin(angle) * radius).toFixed(2)},${(200 - Math.cos(angle) * radius).toFixed(2)}`,
+        `${i ? 'L' : 'M'}${(200 + Math.sin(angle) * shapedRadius).toFixed(2)},${(200 - Math.cos(angle) * shapedRadius).toFixed(2)}`,
       )
     }
     return `${points.join(' ')} Z`
+  }
+
+  function shouldAnimateWave() {
+    return !media.matches && !paused && playing && focus === 1 && goal === 1
+  }
+
+  function animateWave(timestamp) {
+    waveFrame = 0
+    if (!shouldAnimateWave()) return
+    if (timestamp - lastWaveDraw >= 32) {
+      lastWaveDraw = timestamp
+      for (const [index, node] of nodes) {
+        if (index !== selected || playing.album !== mod(index)) continue
+        const path = wavePath(node.seed, timestamp / 1000, true)
+        node.paths.forEach((element) => element.setAttribute('d', path))
+      }
+    }
+    waveFrame = requestAnimationFrame(animateWave)
+  }
+
+  function updateWaveAnimation() {
+    if (shouldAnimateWave()) {
+      if (!waveFrame) waveFrame = requestAnimationFrame(animateWave)
+      return
+    }
+    if (waveFrame) cancelAnimationFrame(waveFrame)
+    waveFrame = 0
   }
 
   function coverColor(img) {
@@ -111,6 +172,7 @@
     byId('pause').textContent = paused ? '继续' : '暂停'
     byId('seek').value = String(progress * 100)
     byId('progress-label').textContent = `${Math.floor(progress * 180)} / 180 秒`
+    updateWaveAnimation()
   }
 
   function createDisc(index) {
@@ -127,9 +189,10 @@
     img.draggable = false
     const ring = slot.querySelector('.wave-ring')
     const progressPath = slot.querySelector('.wave-progress')
-    ring
-      .querySelectorAll('path')
-      .forEach((path) => path.setAttribute('d', wavePath(mod(index) * 1.73)))
+    const seed = mod(index) * 1.73
+    const paths = [...ring.querySelectorAll('path')]
+    const initialPath = wavePath(seed)
+    paths.forEach((path) => path.setAttribute('d', initialPath))
     img.addEventListener(
       'load',
       () => {
@@ -179,6 +242,8 @@
       plane: slot.querySelector('.plane'),
       ring,
       progress: progressPath,
+      seed,
+      paths,
     }
     nodes.set(index, node)
     return node
@@ -437,6 +502,7 @@
     'pagehide',
     () => {
       cancel?.()
+      if (waveFrame) cancelAnimationFrame(waveFrame)
       observer.disconnect()
       clearInterval(playbackTimer)
       listeners.abort()

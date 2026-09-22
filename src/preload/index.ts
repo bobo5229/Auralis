@@ -106,6 +106,9 @@ export const auralisApi: AuralisApi = {
     getByTrackId: (trackId) => invoke(ipcChannels.lyrics.getByTrackId, { trackId }),
   },
   playback: {
+    nativeAvailability: () => invoke(ipcChannels.playback.nativeAvailability),
+    nativeCommand: (request) => invoke(ipcChannels.playback.nativeCommand, request),
+    onNativeEvent: (callback) => on(ipcChannels.playback.nativeEvent, callback),
     getAudioUrl: (trackId) => invoke(ipcChannels.playback.getAudioUrl, { trackId }),
     getRandomTrack: (excludeTrackId) =>
       invoke(ipcChannels.playback.getRandomTrack, excludeTrackId ? { excludeTrackId } : undefined),

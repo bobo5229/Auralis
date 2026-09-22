@@ -12,6 +12,7 @@ function flattenChannels(value: object): string[] {
 }
 
 const nonInvokeChannels = new Set<string>([
+  ipcChannels.playback.nativeEvent,
   ipcChannels.app.rendererReady,
   ipcChannels.library.scanProgress,
   ipcChannels.library.changed,
@@ -43,7 +44,7 @@ function parse(channel: DomainIpcInvokeChannel, payload?: unknown): unknown {
 }
 
 describe('domain IPC payload validation coverage', () => {
-  it('classifies all 57 domain invoke channels exactly once', () => {
+  it('classifies all domain invoke channels exactly once', () => {
     const actualChannels = Object.keys(domainIpcPayloadPolicies).sort()
     const kinds = Object.values(domainIpcPayloadPolicies).reduce<Record<string, number>>(
       (counts, policy) => {
@@ -54,8 +55,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(57)
-    expect(kinds).toEqual({ void: 19, optional: 6, required: 32 })
+    expect(actualChannels).toHaveLength(59)
+    expect(kinds).toEqual({ void: 20, optional: 6, required: 33 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {

@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { stat } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
 import { getMiniPlayerWindowController } from '@main/app/miniPlayerWindowController'
@@ -11,6 +12,7 @@ import { ArtworkCacheMaintenanceService } from '@main/features/artwork/artworkCa
 import { ArtworkCacheMigrationService } from '@main/features/artwork/artworkCacheMigrationService'
 import { isPathUnderAnyRoot } from '@main/features/audio/audioPathGuard'
 import { probeAudioDecode } from '@main/features/audio/audioDecodeProbe'
+import { NativePlaybackService } from '@main/features/audio/nativePlaybackService'
 import { isPlayableAudioExtension, buildAudioTrackUrl } from '@main/features/audio/audioProtocol'
 import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
 import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
@@ -143,7 +145,7 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     new ArtworkCacheGarbageCollector(db, artworkCacheDir),
     {
       isScanActive: () => libraryScanService.isScanActive(),
-      isRefreshActive: () => metadataRefreshService.hasActiveJob(),
+      isRefreshActive: () => metadataRefreshService.hasActiveArtworkWrites(),
       isImportActive: () => incrementalImportService.isImportActive(),
     },
   )
@@ -190,7 +192,42 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   })
 
   metadataWatchService.start()
+  const audioBinDirectory = app.isPackaged
+    ? join(process.resourcesPath, 'audio')
+    : join(app.getAppPath(), 'resources/audio')
+  const mpvPath = join(audioBinDirectory, 'mpv.exe')
+  const nativePlayback = new NativePlaybackService({
+    mpvPath,
+    ffmpegPath: join(audioBinDirectory, 'ffmpeg.exe'),
+    resolveTrack: async (trackId) => {
+      // Reuse the same catalog, extension, root and file checks as audio://.
+      if (!(await getAudioUrl(trackId))) throw new Error('Audio file is unavailable')
+      const path = trackRepository.getFilePathById(trackId)
+      if (!path) throw new Error('Audio file is unavailable')
+      return path
+    },
+    emit: (event) => sendToRenderer(ipcChannels.playback.nativeEvent, event),
+    warn: (error) =>
+      logger.warn({ error }, 'Digital silence scan skipped; preserving original audio'),
+  })
+  const nativeOwners = new WeakSet<Electron.WebContents>()
+  electronIpcRegistrar.handle(ipcChannels.playback.nativeAvailability, () => ({
+    available: existsSync(mpvPath),
+    ...(!existsSync(mpvPath) ? { reason: 'mpv runtime is not installed' } : {}),
+  }))
+  electronIpcRegistrar.handle(ipcChannels.playback.nativeCommand, (event, request) => {
+    if (!nativeOwners.has(event.sender)) {
+      nativeOwners.add(event.sender)
+      event.sender.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
+        if (isMainFrame && !isInPlace) nativePlayback.dispose()
+      })
+      event.sender.once('destroyed', () => nativePlayback.dispose())
+      event.sender.on('render-process-gone', () => nativePlayback.dispose())
+    }
+    return nativePlayback.command(request)
+  })
   app.on('before-quit', () => {
+    nativePlayback.dispose()
     metadataWatchService.stop()
   })
 

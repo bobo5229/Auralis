@@ -75,10 +75,6 @@ export function normalizeArtists(artists?: string[], artist?: string): string[] 
   return uniqueValues(cleanTextValues([...(artists ?? []), artist]))
 }
 
-export function normalizeArtist(artists?: string[], artist?: string): string {
-  return normalizeArtists(artists, artist).join('; ') || 'Unknown Artist'
-}
-
 export function normalizeAlbumArtists(
   albumArtists?: string[],
   albumArtist?: string,
@@ -91,14 +87,6 @@ export function normalizeAlbumArtists(
   }
 
   return normalizeArtists(undefined, artist)
-}
-
-export function normalizeAlbumArtist(
-  albumArtists?: string[],
-  albumArtist?: string,
-  artist?: string,
-): string {
-  return normalizeAlbumArtists(albumArtists, albumArtist, artist).join('; ') || 'Unknown Artist'
 }
 
 // ---------------------------------------------------------------------------

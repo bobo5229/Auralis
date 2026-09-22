@@ -7,6 +7,7 @@ import type {
   MetadataRefreshWorkerMessage,
 } from './metadataRefreshTypes'
 import { writeAudioTags } from './audioTagWriteService'
+import { normalizeEditableReleaseDate, normalizeEditableYear } from './editableMetadataValidation'
 import { assertMetadataFingerprint, readStableMetadata } from './readStableMetadata'
 import { verifyWrittenMetadata } from './verifyWrittenMetadata'
 import { logger } from '../../logging/logger'
@@ -48,6 +49,10 @@ export class MetadataRefreshService {
   }
 
   /** True while a metadata refresh worker job is running. */
+  hasActiveArtworkWrites(): boolean {
+    return this.hasActiveJob() || this.writingTracks.size > 0
+  }
+
   hasActiveJob(): boolean {
     return this.activeJobId !== null
   }
@@ -344,6 +349,8 @@ export class MetadataRefreshService {
   }
 
   async updateTrackMetadata(metadata: EditableTrackMetadata) {
+    normalizeEditableReleaseDate(metadata.releaseDate)
+    normalizeEditableYear(metadata.year)
     const filePath = this.repository.getTrackFilePath(metadata.trackId)
 
     if (!filePath) {
@@ -361,8 +368,12 @@ export class MetadataRefreshService {
     try {
       this.onTagWriteSuccess?.(filePath)
       await writeAudioTags(filePath, metadata)
-      const result = await readStableMetadata(metadata.trackId, filePath, this.artworkCacheDir)
-      verifyWrittenMetadata(metadata, result)
+      const result = await readStableMetadata(
+        metadata.trackId,
+        filePath,
+        this.artworkCacheDir,
+        (actual) => verifyWrittenMetadata(metadata, actual),
+      )
       await assertMetadataFingerprint(result)
       if (this.trackGenerations.get(metadata.trackId) !== generation)
         throw new Error('Tag write became stale')

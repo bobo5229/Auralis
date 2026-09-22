@@ -31,18 +31,18 @@ export interface NavigationCurrentState {
 }
 
 export class PlaybackNavigationSession {
-  private queuedNextTrackId: number | null = null
+  private queuedTrackIds: number[] = []
   private albumShuffleContext: AlbumShuffleContext = null
   private shuffleTrackPool: PlaybackTrack[] | null = null
   private shuffleCycle: ShuffleCycle | null | undefined = undefined
   private readonly history = new PlaybackHistory()
 
   getQueuedNextTrackId(): number | null {
-    return this.queuedNextTrackId
+    return this.queuedTrackIds[0] ?? null
   }
 
   setQueuedNextTrackId(id: number | null): void {
-    this.queuedNextTrackId = id
+    this.queuedTrackIds = id === null ? [] : [id]
   }
 
   getAlbumShuffleContext(): AlbumShuffleContext {
@@ -93,7 +93,7 @@ export class PlaybackNavigationSession {
   }
 
   resetForTrackSwitch(options?: { shufflePool?: PlaybackTrack[]; shuffleCycle?: boolean }): void {
-    this.queuedNextTrackId = null
+    this.queuedTrackIds = []
     this.albumShuffleContext = null
     this.shuffleTrackPool = options?.shufflePool ?? null
     this.shuffleCycle = options?.shuffleCycle ? null : undefined
@@ -106,7 +106,7 @@ export class PlaybackNavigationSession {
   ): { queue: PlaybackTrack[]; currentIndex: number; queuedTrackId: number } | null {
     const insertion = buildSingleTrackInsertion(currentQueue, currentTrackId, track)
     if (insertion) {
-      this.queuedNextTrackId = insertion.queuedTrackId
+      this.queuedTrackIds = [track.id, ...this.queuedTrackIds.filter((id) => id !== track.id)]
     }
     return insertion
   }
@@ -118,7 +118,14 @@ export class PlaybackNavigationSession {
   ): { queue: PlaybackTrack[]; currentIndex: number; queuedTrackId: number } | null {
     const insertion = buildMultiTrackInsertion(currentQueue, currentTrackId, tracks)
     if (insertion) {
-      this.queuedNextTrackId = insertion.queuedTrackId
+      const insertedIds = [...new Set(tracks.map((track) => track.id))].filter(
+        (id) => id !== currentTrackId,
+      )
+      const inserted = new Set(insertedIds)
+      this.queuedTrackIds = [
+        ...insertedIds,
+        ...this.queuedTrackIds.filter((id) => !inserted.has(id)),
+      ]
     }
     return insertion
   }
@@ -141,9 +148,7 @@ export class PlaybackNavigationSession {
 
     this.history.removeTracks(missingIds)
 
-    if (this.queuedNextTrackId !== null && missingIds.has(this.queuedNextTrackId)) {
-      this.queuedNextTrackId = null
-    }
+    this.queuedTrackIds = this.queuedTrackIds.filter((id) => !missingIds.has(id))
 
     return { currentTrackMissing }
   }
@@ -157,8 +162,8 @@ export class PlaybackNavigationSession {
       this.pushHistory(currentTrack, plan.track.id, currentQueue)
     }
     if (plan.nextShuffleCycle) this.shuffleCycle = plan.nextShuffleCycle
-    if (plan.consumeQueued) {
-      this.queuedNextTrackId = null
+    if (plan.consumeQueued && this.getQueuedNextTrackId() === plan.track.id) {
+      this.queuedTrackIds.shift()
     }
     if (plan.nextAlbumShuffleContext !== undefined) {
       this.albumShuffleContext = plan.nextAlbumShuffleContext
@@ -177,7 +182,7 @@ export class PlaybackNavigationSession {
       queue: currentState.queue,
       currentIndex: currentState.currentIndex,
       playbackMode: currentState.playbackMode,
-      queuedNextTrackId: this.queuedNextTrackId,
+      queuedNextTrackId: this.getQueuedNextTrackId(),
       albumShuffleContext: this.albumShuffleContext,
       shuffleTrackPool: this.shuffleTrackPool,
       shuffleCycle: this.shuffleCycle,
@@ -191,7 +196,7 @@ export class PlaybackNavigationSession {
     currentIndex: number
     playbackMode: PlaybackMode
   }): PlaybackPreviousDecision {
-    this.queuedNextTrackId = null
+    this.queuedTrackIds = []
 
     if (currentState.playbackMode === 'shuffle' || currentState.playbackMode === 'album-shuffle') {
       const entry = this.history.pop()
@@ -221,7 +226,7 @@ export class PlaybackNavigationSession {
   }
 
   clear(): void {
-    this.queuedNextTrackId = null
+    this.queuedTrackIds = []
     this.albumShuffleContext = null
     this.shuffleTrackPool = null
     this.shuffleCycle = undefined

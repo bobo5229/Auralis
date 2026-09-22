@@ -248,6 +248,10 @@ function onContextMenu(event: MouseEvent): void {
   overflow: hidden;
 }
 
+.album-card--perspective .album-card-meta {
+  margin-inline: 6%;
+}
+
 .album-card-title,
 .album-card-artist,
 .album-card-year {

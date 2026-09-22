@@ -49,11 +49,3 @@ export function getOklabDistance(a: OklabColor, b: OklabColor): number {
 export function getOklabChroma(color: OklabColor): number {
   return Math.sqrt(color.a * color.a + color.b * color.b)
 }
-
-export function mixRgb(from: RgbColor, to: RgbColor, progress: number): RgbColor {
-  return {
-    r: from.r + (to.r - from.r) * progress,
-    g: from.g + (to.g - from.g) * progress,
-    b: from.b + (to.b - from.b) * progress,
-  }
-}

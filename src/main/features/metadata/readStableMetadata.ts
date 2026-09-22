@@ -1,5 +1,5 @@
 import { stat } from 'node:fs/promises'
-import { parseFile } from 'music-metadata'
+import { parseFile, type IAudioMetadata } from 'music-metadata'
 import {
   normalizeMetadata,
   normalizeIdentityText,
@@ -28,31 +28,12 @@ export async function assertMetadataFingerprint(
   }
 }
 
-function stringifySnapshot(value: unknown): string | null {
-  const seen = new WeakSet<object>()
-  try {
-    return JSON.stringify(value, (key, nested: unknown) => {
-      if (typeof nested === 'bigint') return nested.toString()
-      if (nested instanceof Uint8Array)
-        return key === 'data'
-          ? { redacted: true, byteLength: nested.byteLength }
-          : Array.from(nested)
-      if (nested && typeof nested === 'object') {
-        if (seen.has(nested)) return '[Circular]'
-        seen.add(nested)
-      }
-      return nested
-    })
-  } catch {
-    return null
-  }
-}
-
 /** One retry for a changing file; tags and signature always use the same stable fingerprint. */
 export async function readStableMetadata(
   trackId: number,
   filePath: string,
   artworkCacheDir: string,
+  verifyTags?: (metadata: IAudioMetadata) => void,
 ): Promise<RefreshedTrackMetadata> {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -79,6 +60,9 @@ export async function readStableMetadata(
           )
         : null
       await assertMetadataFingerprint(fingerprint)
+      // User edits verify the parsed tags locally; refresh results only carry
+      // fields consumed by the repository, without serialized tag snapshots.
+      verifyTags?.(metadata)
       return {
         ...normalized,
         ...fingerprint,
@@ -91,8 +75,6 @@ export async function readStableMetadata(
           normalized.durationSeconds,
           before.size,
         ),
-        rawCommonJson: stringifySnapshot(metadata.common) ?? '{}',
-        rawNativeJson: stringifySnapshot(metadata.native),
       }
     } catch (error) {
       if (!(error instanceof MetadataFileChangedError) || attempt === 1) throw error

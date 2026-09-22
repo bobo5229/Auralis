@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, toRef } from 'vue'
+import { onBeforeUnmount, onMounted, ref, toRef, watchPostEffect } from 'vue'
+import { animateRankingUnderline } from '@renderer/shared/animation/motion'
 import { auralis } from '@renderer/shared/ipc/client'
 import RankingRecordShelf from './RankingRecordShelf.vue'
 import RankingTrackRibbons from './RankingTrackRibbons.vue'
@@ -41,6 +42,48 @@ const {
 } = useArchiveRanking(selectedYear, {
   getListeningRanking: (params) => auralis.archive.getListeningRanking(params),
 })
+const rangesElement = ref<HTMLElement | null>(null)
+const rangeUnderline = ref<HTMLElement | null>(null)
+
+watchPostEffect((onCleanup) => {
+  const ranges = rangesElement.value
+  const underline = rangeUnderline.value
+  const selectedRange = rankingRange.value
+  if (!ranges || !underline) return
+  const button = ranges.querySelector<HTMLElement>(`[data-range="${selectedRange}"]`)
+  if (!button) return
+
+  const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  let cancelAnimation = (): void => {}
+  const positionUnderline = (animate: boolean): void => {
+    cancelAnimation()
+    const width = 12
+    const left = button.offsetLeft + (button.offsetWidth - width) / 2
+    cancelAnimation = animateRankingUnderline(
+      underline,
+      left,
+      width,
+      !animate || preference.matches,
+    )
+  }
+  positionUnderline(true)
+
+  let previousWidth = ranges.clientWidth
+  const resizeObserver = new ResizeObserver(() => {
+    if (ranges.clientWidth === previousWidth) return
+    previousWidth = ranges.clientWidth
+    positionUnderline(false)
+  })
+  const handlePreferenceChange = (): void => positionUnderline(false)
+  resizeObserver.observe(ranges)
+  preference.addEventListener('change', handlePreferenceChange)
+  onCleanup(() => {
+    cancelAnimation()
+    resizeObserver.disconnect()
+    preference.removeEventListener('change', handlePreferenceChange)
+  })
+})
+
 function handleDocumentPointerDown(event: PointerEvent): void {
   const target = event.target
   if (!(target instanceof Element)) return
@@ -57,20 +100,25 @@ defineExpose({ refresh: loadListeningRanking })
   <section v-if="visible" class="archive-ranking">
     <div class="archive-ranking-heading">
       <div>
-        <span class="archive-section-kicker">Replay Index</span>
         <h2>听歌排行</h2>
-        <p>{{ rankingPeriodLabel }} · {{ rankingTarget === 'track' ? '单曲榜' : '专辑榜' }}</p>
       </div>
-      <div class="archive-ranking-ranges" aria-label="切换排行范围">
+      <div ref="rangesElement" class="archive-ranking-ranges" aria-label="切换排行范围">
         <button
           v-for="range in rankingRanges"
           :key="range.value"
           type="button"
           :class="{ 'is-active': rankingRange === range.value }"
+          :data-range="range.value"
+          :aria-pressed="rankingRange === range.value"
           @click="setRankingRange(range.value)"
         >
           {{ range.label }}
         </button>
+        <span
+          ref="rangeUnderline"
+          class="archive-ranking-range-underline"
+          aria-hidden="true"
+        ></span>
       </div>
     </div>
 

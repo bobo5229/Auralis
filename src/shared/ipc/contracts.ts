@@ -74,6 +74,26 @@ export interface SystemMediaPlaybackState {
 
 export type SystemMediaCommand = 'previous' | 'toggle-play-pause' | 'next'
 
+// Closed capabilities: no renderer-supplied paths, mpv properties or command strings.
+export type NativePlaybackCommand = { session: number } & (
+  | { action: 'start'; trackId: number; volume: number; muted: boolean }
+  | { action: 'next'; trackId: number; trimDigitalSilence: boolean }
+  | { action: 'pause' | 'resume' | 'stop' | 'cancel-next' }
+  | { action: 'seek'; time: number }
+  | { action: 'volume'; volume: number; muted: boolean }
+)
+
+export interface NativePlaybackEvent {
+  session: number
+  kind: 'state' | 'boundary' | 'ended' | 'error'
+  trackId: number | null
+  currentTime: number
+  duration: number
+  isPlaying: boolean
+  buffering: boolean
+  detail?: string
+}
+
 export type MiniPlayerWindowMode = 'normal' | 'mini'
 export type MiniPlayerPopoverDirection = 'above' | 'below'
 
@@ -103,6 +123,7 @@ export interface IpcSendContract {
 }
 
 export interface IpcEventContract {
+  'playback:native-event': NativePlaybackEvent
   'system-media:command': SystemMediaCommand
   'window:mini-player-state-changed': MiniPlayerWindowState
   'library:scan-progress': LibraryScanProgress
@@ -131,6 +152,14 @@ export interface DatabaseRestoreBackupResult {
 }
 
 export interface IpcInvokeContract {
+  'playback:native-availability': {
+    request: void
+    response: { available: boolean; reason?: string }
+  }
+  'playback:native-command': {
+    request: NativePlaybackCommand
+    response: { accepted: boolean }
+  }
   'database:export-backup': {
     request: void
     response: DatabaseExportBackupResult

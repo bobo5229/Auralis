@@ -148,6 +148,7 @@ h2 {
     serif;
 }
 .cd-track-panel .cd-mode {
+  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 11px;
   padding: 4px 0 4px 8px;
   border: 0;

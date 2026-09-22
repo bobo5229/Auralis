@@ -13,6 +13,7 @@ export type LyricsStatus = 'no-track' | 'loading' | 'empty' | 'plain' | 'lrc'
 const playback = usePlayback()
 
 const status = ref<LyricsStatus>('no-track')
+const loadFailed = ref(false)
 const rawLyrics = ref<string | null>(null)
 const parsedLines = ref<LyricLine[]>([])
 
@@ -56,6 +57,7 @@ const preludeLitDotCount = computed(() => {
 })
 
 function reset(): void {
+  loadFailed.value = false
   status.value = 'no-track'
   rawLyrics.value = null
   parsedLines.value = []
@@ -64,6 +66,7 @@ function reset(): void {
 async function fetchLyrics(trackId: number): Promise<void> {
   const requestToken = ++fetchRequestToken
   status.value = 'loading'
+  loadFailed.value = false
   rawLyrics.value = null
   parsedLines.value = []
 
@@ -99,6 +102,7 @@ async function fetchLyrics(trackId: number): Promise<void> {
     if (requestToken !== fetchRequestToken || playback.state.currentTrackId !== trackId) {
       return
     }
+    loadFailed.value = true
     status.value = 'empty'
   }
 }
@@ -135,6 +139,7 @@ auralis.library.onChanged((event) => {
 export function useTrackLyrics() {
   return {
     status,
+    loadFailed,
     rawLyrics,
     parsedLines,
     activeIndex,

@@ -242,8 +242,19 @@
   },
   "albums": {
     "cd": {
+      "nowPlaying": "Now Playing",
+      "paused": "Paused",
       "tracks": "曲目",
       "returnToBrowse": "返回 CD 浏览",
+      "lyrics": {
+        "label": "当前歌曲歌词",
+        "instrumental": "该曲目为无歌词的纯音乐"
+      },
+      "surface": {
+        "label": "盘面质感",
+        "cd": "CD 质感",
+        "vinyl": "黑胶质感"
+      },
       "modes": {
         "repeat-all": "专辑循环",
         "shuffle": "随机循环",
@@ -251,9 +262,9 @@
       },
       "information": "专辑资料",
       "trackCount": "{count} 首",
-      "artist": "专辑艺术家",
-      "releaseDate": "发行日期",
-      "copyright": "版权信息",
+      "artist": "Album Artist",
+      "releaseDate": "Release Date",
+      "copyright": "Copyright",
       "title": "CD 浏览",
       "stage": "专辑光盘展示区，可用左右方向键或滑动切换",
       "hint": "方向键或左右滑动切换",

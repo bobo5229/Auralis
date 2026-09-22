@@ -1,17 +1,12 @@
 import {
   formatDelimitedParts,
   formatDelimitedValues,
-  isMultiValue,
   splitDelimitedValues,
 } from './formatDelimitedValues'
 
 /** Parse multi-value genre for matching / aggregation (not for display). */
 export function splitGenreValues(value: string | null | undefined): string[] {
   return splitDelimitedValues(value)
-}
-
-export function isMultiValueGenre(value: string | null | undefined): boolean {
-  return isMultiValue(value)
 }
 
 /**

@@ -17,6 +17,7 @@ import type { PlaybackDependencies } from './playbackDependencies'
 
 const VOLUME_KEY = 'auralis-volume'
 const GAPLESS_PLAYBACK_KEY = 'auralis-gapless-playback-enabled'
+const DIGITAL_SILENCE_KEY = 'auralis-skip-boundary-digital-silence'
 
 function clampVolume(value: number): number {
   return Math.min(1, Math.max(0, value))
@@ -25,6 +26,7 @@ function clampVolume(value: number): number {
 export interface PlaybackPublicApi {
   readonly state: PlaybackState
   readonly gaplessPlaybackEnabled: Readonly<Ref<boolean>>
+  readonly skipDigitalSilenceEnabled: Readonly<Ref<boolean>>
   readonly isPlaybackPending: Readonly<Ref<boolean>>
   selectTrack(trackId: number): void
   playTrackFromQueue(
@@ -41,6 +43,7 @@ export interface PlaybackPublicApi {
   insertTracksAfterCurrent(tracks: PlaybackTrack[]): void
   setPlaybackMode(mode: PlaybackMode): void
   setGaplessPlaybackEnabled(enabled: boolean): void
+  setSkipDigitalSilenceEnabled(enabled: boolean): void
   togglePlayPause(): Promise<void>
   play(): Promise<void>
   pause(): void
@@ -71,6 +74,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   const gaplessPlaybackEnabled = ref(readPersistedGaplessPlayback())
+  const skipDigitalSilenceEnabled = ref(deps.storage.getItem(DIGITAL_SILENCE_KEY) === 'true')
   const playbackPending = ref(false)
   const readonlyPlaybackPending = readonly(playbackPending)
   const readonlyGaplessPlaybackEnabled = readonly(gaplessPlaybackEnabled)
@@ -286,7 +290,8 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
       const scheduled = await audioRuntime.scheduleNext(plan.track.id, url.url, {
         decodeProbe: url.decodeProbe,
-        trimBoundarySilence: isSameAlbumBoundary(state.currentTrack, plan.track),
+        trimBoundarySilence:
+          skipDigitalSilenceEnabled.value && isSameAlbumBoundary(state.currentTrack, plan.track),
       })
       if (!isCurrentGaplessPrefetch(generation, fromTrackId)) {
         if (scheduled) audioRuntime.cancelScheduledNext()
@@ -358,7 +363,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       state.duration = snapshot.duration
       state.currentTime = snapshot.currentTime
       effectivePlayTracker.start(trackId)
-      if (snapshot.kind === 'gapless') {
+      if (snapshot.kind === 'gapless' || snapshot.kind === 'mpv') {
         void refreshGaplessNext(trackId)
       }
     } catch (err) {
@@ -452,7 +457,11 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     invalidateGaplessTransition()
     state.playbackMode = mode
     navigationSession.setMode(mode)
-    if (audioRuntime.getSnapshot().kind === 'gapless' && state.currentTrackId && state.isPlaying) {
+    if (
+      ['gapless', 'mpv'].includes(audioRuntime.getSnapshot().kind) &&
+      state.currentTrackId &&
+      state.isPlaying
+    ) {
       void refreshGaplessNext(state.currentTrackId)
     }
   }
@@ -468,9 +477,20 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       return
     }
 
-    if (audioRuntime.getSnapshot().kind === 'gapless' && state.currentTrackId && state.isPlaying) {
+    if (
+      ['gapless', 'mpv'].includes(audioRuntime.getSnapshot().kind) &&
+      state.currentTrackId &&
+      state.isPlaying
+    ) {
       void refreshGaplessNext(state.currentTrackId)
     }
+  }
+
+  function setSkipDigitalSilenceEnabled(enabled: boolean): void {
+    skipDigitalSilenceEnabled.value = enabled
+    deps.storage.setItem(DIGITAL_SILENCE_KEY, String(enabled))
+    invalidateGaplessTransition()
+    if (state.currentTrackId && state.isPlaying) void refreshGaplessNext(state.currentTrackId)
   }
 
   async function playTrackFromQueue(
@@ -511,7 +531,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
     state.queue = insertion.queue
     state.currentIndex = insertion.currentIndex
-    if (audioRuntime.getSnapshot().kind === 'gapless' && state.currentTrackId) {
+    if (['gapless', 'mpv'].includes(audioRuntime.getSnapshot().kind) && state.currentTrackId) {
       void refreshGaplessNext(state.currentTrackId)
     }
   }
@@ -528,7 +548,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
     state.queue = insertion.queue
     state.currentIndex = insertion.currentIndex
-    if (audioRuntime.getSnapshot().kind === 'gapless' && state.currentTrackId) {
+    if (['gapless', 'mpv'].includes(audioRuntime.getSnapshot().kind) && state.currentTrackId) {
       void refreshGaplessNext(state.currentTrackId)
     }
   }
@@ -550,7 +570,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         return
       }
 
-      if (snapshot.kind === 'gapless' && state.currentTrackId) {
+      if (['gapless', 'mpv'].includes(snapshot.kind) && state.currentTrackId) {
         void refreshGaplessNext(state.currentTrackId)
       }
     } catch (err) {
@@ -635,7 +655,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     effectivePlayTracker.beginSeekingWithFallback()
     invalidateGaplessTransition()
     void audioRuntime.seek(nextTime).then(() => {
-      if (snapshot.kind === 'gapless' && state.currentTrackId) {
+      if (['gapless', 'mpv'].includes(snapshot.kind) && state.currentTrackId) {
         void refreshGaplessNext(state.currentTrackId)
       }
     })
@@ -728,7 +748,11 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     state.currentIndex = state.currentTrackId
       ? state.queue.findIndex((track) => track.id === state.currentTrackId)
       : -1
-    if (audioRuntime.getSnapshot().kind === 'gapless' && state.currentTrackId && state.isPlaying) {
+    if (
+      ['gapless', 'mpv'].includes(audioRuntime.getSnapshot().kind) &&
+      state.currentTrackId &&
+      state.isPlaying
+    ) {
       void refreshGaplessNext(state.currentTrackId)
     }
   }
@@ -751,6 +775,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   const api: PlaybackPublicApi = {
     state,
     gaplessPlaybackEnabled: readonlyGaplessPlaybackEnabled,
+    skipDigitalSilenceEnabled: readonly(skipDigitalSilenceEnabled),
     isPlaybackPending: readonlyPlaybackPending,
     selectTrack,
     playTrackFromQueue,
@@ -758,6 +783,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     insertTracksAfterCurrent,
     setPlaybackMode,
     setGaplessPlaybackEnabled,
+    setSkipDigitalSilenceEnabled,
     togglePlayPause,
     play,
     pause,

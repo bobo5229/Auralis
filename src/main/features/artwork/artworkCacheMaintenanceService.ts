@@ -78,7 +78,7 @@ export class ArtworkCacheMaintenanceService {
     }
 
     this.state = 'collecting-garbage'
-    await this.garbageCollector.collectGarbage()
+    await this.garbageCollector.collectGarbage(() => !this.isWriterBusy())
   }
 
   private runGuarded(run: () => Promise<void>): Promise<void> {

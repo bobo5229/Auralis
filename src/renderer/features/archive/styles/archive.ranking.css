@@ -1,14 +1,3 @@
-.archive-section-kicker {
-  display: block;
-  color: var(--auralis-sidebar-active-indicator);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  line-height: 1;
-  margin-bottom: 8px;
-}
-
 .archive-ranking-heading,
 .archive-ranking-toolbar {
   display: flex;
@@ -32,13 +21,48 @@
   padding: 0;
 }
 
-.archive-ranking-heading p {
-  margin-top: 6px;
-  color: var(--auralis-text-muted);
-  font-size: 12px;
+.archive-ranking-ranges {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px;
 }
 
-.archive-ranking-ranges,
+.archive-ranking-range-underline {
+  position: absolute;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--auralis-text);
+  pointer-events: none;
+}
+
+.archive-ranking-ranges button {
+  height: 28px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  transition: color 150ms ease;
+}
+
+.archive-ranking-ranges button:hover,
+.archive-ranking-ranges button.is-active,
+.archive-ranking-ranges button:focus-visible {
+  color: var(--auralis-text);
+}
+
+.archive-ranking-ranges button:focus-visible {
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 .archive-ranking-targets {
   display: inline-flex;
   align-items: center;
@@ -49,7 +73,6 @@
   background: color-mix(in srgb, var(--auralis-main-bg) 44%, transparent);
 }
 
-.archive-ranking-ranges button,
 .archive-ranking-targets button,
 .archive-ranking-period > button,
 .archive-ranking-period-menu button {
@@ -60,7 +83,6 @@
   transition: all 150ms ease;
 }
 
-.archive-ranking-ranges button,
 .archive-ranking-targets button {
   height: 28px;
   padding: 0 12px;
@@ -75,7 +97,6 @@
   padding: 0;
 }
 
-.archive-ranking-ranges button:hover,
 .archive-ranking-targets button:hover,
 .archive-ranking-period > button:hover,
 .archive-ranking-period-menu button:hover {
@@ -83,7 +104,6 @@
   color: var(--auralis-text);
 }
 
-.archive-ranking-ranges button.is-active,
 .archive-ranking-targets button.is-active,
 .archive-ranking-period-menu button.is-active {
   background: var(--auralis-sidebar-active-indicator);

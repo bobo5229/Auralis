@@ -5,7 +5,7 @@ type StartOptions = { preferGapless: boolean; decodeProbe?: AudioDecodeProbe | n
 type NextOptions = { trimBoundarySilence: boolean; decodeProbe?: AudioDecodeProbe | null }
 
 export interface PlaybackAudioSnapshot {
-  kind: 'html-audio' | 'gapless' | 'idle'
+  kind: 'html-audio' | 'gapless' | 'mpv' | 'idle'
   trackId: number | null
   currentTime: number
   duration: number

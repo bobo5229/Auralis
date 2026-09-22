@@ -37,7 +37,7 @@ describe('smart playlist builder and service integration', () => {
             { getById: () => playlist } as unknown as ConstructorParameters<
               typeof SmartPlaylistService
             >[0],
-            { getAll: () => tracks } as unknown as ConstructorParameters<
+            { getAll: () => tracks, getChangeToken: () => '0' } as unknown as ConstructorParameters<
               typeof SmartPlaylistService
             >[1],
           )

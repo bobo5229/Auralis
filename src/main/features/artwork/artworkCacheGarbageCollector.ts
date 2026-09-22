@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3'
-import type { Dirent } from 'node:fs'
-import { readdir, stat, unlink } from 'node:fs/promises'
+import { unlinkSync, type Dirent } from 'node:fs'
+import { readdir, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { logger } from '@main/logging/logger'
 import { isCacheFileName } from './artworkCachePolicy'
@@ -58,7 +58,9 @@ export class ArtworkCacheGarbageCollector {
     return new Set(rows.map((row) => row.key))
   }
 
-  async collectGarbage(): Promise<ArtworkCacheGarbageCollectionSummary> {
+  async collectGarbage(
+    canCollect: () => boolean = () => true,
+  ): Promise<ArtworkCacheGarbageCollectionSummary> {
     if (this.running) {
       return {
         orphanFileCount: 0,
@@ -75,6 +77,18 @@ export class ArtworkCacheGarbageCollector {
 
     try {
       const referenced = this.collectReferencedKeys()
+      const hasReference = this.db.prepare(`
+        SELECT 1 FROM albums WHERE artwork_cache_key = ?
+        UNION ALL SELECT 1 FROM track_metadata WHERE artwork_cache_key = ? LIMIT 1
+      `)
+      const deleteIfUnreferenced = this.db.transaction((name: string, path: string) => {
+        if (!canCollect() || hasReference.get(name, name)) return false
+        // No await between the final reference check and deletion. The write lock
+        // excludes database writers; the maintenance gate also protects files
+        // produced by workers whose references have not been committed yet.
+        unlinkSync(path)
+        return true
+      })
       let entries: Dirent[]
 
       try {
@@ -125,9 +139,11 @@ export class ArtworkCacheGarbageCollector {
         }
 
         try {
-          await unlink(filePath)
-          bytesReclaimed += size
-          orphanFileCount += 1
+          if (!canCollect()) continue
+          if (deleteIfUnreferenced.immediate(entry.name, filePath)) {
+            bytesReclaimed += size
+            orphanFileCount += 1
+          }
         } catch (error) {
           // One failing file must not abort the whole sweep (§11.3).
           logger.warn(

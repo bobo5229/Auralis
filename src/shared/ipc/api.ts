@@ -87,6 +87,11 @@ export interface AuralisApi {
     ) => Result<'lyrics:get-by-track-id'>
   }
   playback: {
+    nativeAvailability: () => Result<'playback:native-availability'>
+    nativeCommand: (request: Req<'playback:native-command'>) => Result<'playback:native-command'>
+    onNativeEvent: (
+      callback: (event: IpcEventPayload<'playback:native-event'>) => void,
+    ) => () => void
     getAudioUrl: (
       trackId: Req<'playback:get-audio-url'>['trackId'],
     ) => Result<'playback:get-audio-url'>

@@ -122,6 +122,14 @@ function compareLibraryTracks(left: TrackListItem, right: TrackListItem): number
 }
 
 export class TrackRepository extends BaseRepository {
+  getChangeToken(): string {
+    // total_changes covers this connection; data_version covers worker connections.
+    const version = this.db
+      .prepare('SELECT total_changes() AS local, data_version AS external FROM pragma_data_version')
+      .get() as { local: number; external: number }
+    return `${version.local}:${version.external}`
+  }
+
   getFilePathById(trackId: number): string | null {
     const row = this.db
       .prepare(`SELECT file_path AS filePath FROM tracks WHERE id = ?`)

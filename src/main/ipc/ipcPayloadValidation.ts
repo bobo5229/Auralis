@@ -98,6 +98,23 @@ function finiteNumber(options: { min?: number; max?: number; integer?: boolean }
 }
 
 const positiveId = finiteNumber({ integer: true, min: 1 })
+const nativePlaybackCommand: Validator = (value, path, context) => {
+  const action = (value as { action?: unknown } | null)?.action
+  const fields: Record<string, ShapeField> = {
+    session: field(finiteNumber({ integer: true, min: 0 })),
+    action: field(
+      enumValue(['start', 'next', 'pause', 'resume', 'stop', 'cancel-next', 'seek', 'volume']),
+    ),
+  }
+  if (action === 'start' || action === 'next') fields.trackId = field(positiveId)
+  if (action === 'start' || action === 'volume') {
+    fields.volume = field(finiteNumber({ min: 0, max: 1 }))
+    fields.muted = field(booleanValue)
+  }
+  if (action === 'next') fields.trimDigitalSilence = field(booleanValue)
+  if (action === 'seek') fields.time = field(finiteNumber({ min: 0, max: 604800 }))
+  objectShape(fields)(value, path, context)
+}
 const positiveLimit = finiteNumber({ integer: true, min: 1, max: MAX_ID_LIST_LENGTH })
 const archiveYear = finiteNumber({ integer: true })
 const metadataYear = finiteNumber({ integer: true })
@@ -366,6 +383,8 @@ export const domainIpcPayloadPolicies = {
   ),
   [ipcChannels.lyrics.getByTrackId]: required(idPayload('trackId')),
   [ipcChannels.playback.getAudioUrl]: required(idPayload('trackId')),
+  [ipcChannels.playback.nativeAvailability]: voidPayload(),
+  [ipcChannels.playback.nativeCommand]: required(nativePlaybackCommand),
   [ipcChannels.playback.getRandomTrack]: optional(
     objectShape({ excludeTrackId: field(positiveId, true) }),
   ),

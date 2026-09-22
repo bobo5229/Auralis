@@ -175,6 +175,20 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
       if (loadFailures.length > 0) throw new Error(loadFailures.join('\n'))
     })
 
+    await record('native playback preload and IPC reject invalid capabilities', async () => {
+      const result = await mainWindow.webContents.executeJavaScript(`(async () => {
+        const playback = window.auralis.playback
+        const availability = await playback.nativeAvailability()
+        const unsubscribe = playback.onNativeEvent(() => {})
+        unsubscribe()
+        let rejected = false
+        try { await playback.nativeCommand({ action: 'run', session: 1, command: ['quit'] }) }
+        catch { rejected = true }
+        return typeof availability.available === 'boolean' && rejected
+      })()`)
+      if (!result) throw new Error('Native playback capability check failed')
+    })
+
     await record('legacy visual-style preference does not affect startup', async () => {
       const restoredState = (await mainWindow.webContents.executeJavaScript(
         `window.auralis.window.restoreFromMiniPlayer()`,

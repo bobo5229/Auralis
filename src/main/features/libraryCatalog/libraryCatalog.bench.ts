@@ -49,6 +49,21 @@ function walkClonedSnapshot(pageSize: number): number {
 }
 
 describe('main-process library snapshot (100,000 tracks)', () => {
+  const reusable = new LibraryCatalogSnapshotStore(
+    () => tracks.slice(),
+    Date.now,
+    () => 'unchanged',
+  )
+  reusable.getPage({ refresh: true })
+  bench(
+    'reuse unchanged snapshot for another consumer',
+    () => {
+      const page = reusable.getPage({ refresh: true, limit: 5000 })
+      if (page.totalTracks !== SIZE) throw new Error('Incomplete shared snapshot')
+    },
+    BENCHMARK_OPTIONS,
+  )
+
   beforeAll(() => {
     if (typeof global.gc !== 'function') return
     global.gc()

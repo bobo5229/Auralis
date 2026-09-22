@@ -336,9 +336,10 @@ function isRecentAddedSmartPlaylist(playlist: SmartPlaylist): boolean {
 export class SmartPlaylistService {
   /**
    * Brief in-process cache of getAll() tracks.
-   * Invalidation: TTL only (no library-change hook wired here). Clear via clearTrackListCache().
+   * Database revisions invalidate this cache before an immediate post-change refresh.
    */
-  private trackListCache: { tracks: TrackListItem[]; expiresAt: number } | null = null
+  private trackListCache: { tracks: TrackListItem[]; expiresAt: number; revision: string } | null =
+    null
 
   constructor(
     private readonly smartPlaylistRepository: SmartPlaylistRepository,
@@ -405,7 +406,12 @@ export class SmartPlaylistService {
    */
   private getTracksCached(): TrackListItem[] {
     const now = Date.now()
-    if (this.trackListCache && this.trackListCache.expiresAt > now) {
+    const revision = this.trackRepository.getChangeToken()
+    if (
+      this.trackListCache &&
+      this.trackListCache.expiresAt > now &&
+      this.trackListCache.revision === revision
+    ) {
       return this.trackListCache.tracks
     }
 
@@ -413,6 +419,7 @@ export class SmartPlaylistService {
     this.trackListCache = {
       tracks,
       expiresAt: now + TRACK_LIST_CACHE_TTL_MS,
+      revision,
     }
     return tracks
   }

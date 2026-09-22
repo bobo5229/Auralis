@@ -25,9 +25,6 @@
  * {@link formatDelimitedParts} (or renderer `formatGenre` / `formatArtist`).
  */
 
-/** Preferred join when writing multi-value fields back to storage. */
-export const DELIMITED_VALUE_JOIN = '; '
-
 /**
  * Split multi-value metadata into atomic labels (order preserved, no empty parts).
  * Example: `"Jazz; Soul"` and `"Jazz, Soul"` → `["Jazz", "Soul"]`.
@@ -60,15 +57,6 @@ export function formatDelimitedParts(parts: readonly string[]): string {
  */
 export function formatDelimitedValues(value: string | null | undefined): string {
   return formatDelimitedParts(splitDelimitedValues(value))
-}
-
-/**
- * Join atomic labels for storage (primary separator `"; "`).
- */
-export function joinDelimitedValues(parts: readonly string[]): string | null {
-  const cleaned = parts.map((part) => part.trim()).filter(Boolean)
-  if (cleaned.length === 0) return null
-  return cleaned.join(DELIMITED_VALUE_JOIN)
 }
 
 export function normalizeDelimitedValue(value: string): string {

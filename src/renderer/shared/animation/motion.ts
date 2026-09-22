@@ -1,4 +1,4 @@
-import { animate, type AnimationOptionsWithOverrides, type ElementOrSelector } from '@motionone/dom'
+import { animate } from '@motionone/dom'
 import type { AnimationControls } from '@motionone/types'
 
 /** A compositor-only playback marker; paused/reduced motion keeps a static line. */
@@ -140,10 +140,6 @@ export function animateProgress(
   }
 }
 
-export function animateTilt(target: HTMLElement, transform: string): AnimationControls {
-  return animate(target, { transform }, { duration: 0.22, easing: [0.2, 0.65, 0.3, 1] })
-}
-
 export function animateTrashLid(
   target: SVGGElement,
   open: boolean,
@@ -163,6 +159,39 @@ export function animateTrashLid(
     200,
     (progress) => update(from + (to - from) * (1 - Math.pow(1 - progress, 3))),
     () => update(to),
+  )
+}
+
+/** The leading edge moves first; the trailing edge catches up like a sticky line. */
+export function animateRankingUnderline(
+  target: HTMLElement,
+  left: number,
+  width: number,
+  reducedMotion: boolean,
+): () => void {
+  const fromLeft = Number.parseFloat(target.style.left)
+  const fromRight = fromLeft + Number.parseFloat(target.style.width)
+  const paint = (start: number, end: number): void => {
+    target.style.left = `${start}px`
+    target.style.width = `${end - start}px`
+  }
+  const finish = (): void => paint(left, left + width)
+  if (reducedMotion || !Number.isFinite(fromRight)) {
+    finish()
+    return () => {}
+  }
+  const movingRight = left + width / 2 >= (fromLeft + fromRight) / 2
+  return animateProgress(
+    420,
+    (progress) => {
+      const leading = 1 - Math.pow(1 - progress, 4)
+      const trailing = progress * progress * (3 - 2 * progress)
+      paint(
+        fromLeft + (left - fromLeft) * (movingRight ? trailing : leading),
+        fromRight + (left + width - fromRight) * (movingRight ? leading : trailing),
+      )
+    },
+    finish,
   )
 }
 
@@ -220,19 +249,4 @@ export function animateFrames(update: (seconds: number) => boolean): () => void 
     stopped = true
     cancelAnimationFrame(frame)
   }
-}
-
-export function fadeIn(
-  target: ElementOrSelector,
-  options: AnimationOptionsWithOverrides = {},
-): AnimationControls {
-  return animate(
-    target,
-    { opacity: [0, 1], transform: ['translateY(8px)', 'translateY(0)'] },
-    {
-      duration: 0.28,
-      easing: 'ease-out',
-      ...options,
-    },
-  )
 }

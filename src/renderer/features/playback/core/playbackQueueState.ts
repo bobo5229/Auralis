@@ -94,7 +94,12 @@ export function insertTracksAfterCurrent(
 ): QueueInsertionResult | null {
   const insertIds = new Set(tracks.map((track) => track.id))
   insertIds.delete(currentTrackId)
-  const filtered = tracks.filter((track) => insertIds.has(track.id))
+  const seen = new Set<number>()
+  const filtered = tracks.filter((track) => {
+    if (!insertIds.has(track.id) || seen.has(track.id)) return false
+    seen.add(track.id)
+    return true
+  })
   if (filtered.length === 0) return null
 
   const withoutInserted = queue.filter((track) => !insertIds.has(track.id))

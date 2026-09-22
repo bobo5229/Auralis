@@ -13,12 +13,21 @@ const smooth = (value: number): number => {
 }
 const mix = (from: number, to: number, progress: number): number => from + (to - from) * progress
 
-/** All nodes/textures are prepared by the owner before this clock starts. */
+export interface CdStartupFrame {
+  visible: readonly number[]
+  /** Next disc to enter, while its slot opacity is still 0. */
+  upcoming: number | null
+  /** False once the fast slide has started. */
+  gather: boolean
+}
+
+/** Motion is unchanged. The owner promotes layers and freezes cover textures. */
 export function playCdStartup(
   pool: ReadonlyMap<number, CdStartupDisc>,
   count: number,
   dimensions: () => { width: number; height: number },
   complete: () => void,
+  prepare?: (frame: CdStartupFrame) => void,
 ): () => void {
   // A small catalog unfolds without manufacturing duplicate albums.
   const travel = count >= 4 ? 9 : 0
@@ -39,6 +48,14 @@ export function playCdStartup(
     const slide = Math.max(0, Math.min(1, (elapsed - 1550) / 2850))
     const position = -travel + travel * smooth(slide)
     const slots = cdSlots(position, count)
+    const lead = slots.length ? Math.max(...slots) + 1 : null
+    // Promote and freeze textures before this frame writes opacity, so a disc
+    // never fades in on a layer or a cover that arrives halfway through.
+    prepare?.({
+      visible: slots,
+      upcoming: lead !== null && pool.has(lead) ? lead : null,
+      gather: elapsed < 1550,
+    })
     for (const index of previousSlots) {
       if (!slots.includes(index)) pool.get(index)!.slot.style.opacity = '0'
     }
@@ -67,7 +84,7 @@ export function playCdStartup(
       node.slot.style.zIndex = String(layer + 1)
       node.slot.style.transform = `translate3d(${cx - size / 2}px, ${cy - size / 2}px, 0) scale(${size / 400})`
       node.disc.style.transform = `perspective(1100px) rotateZ(${turn + sway}deg) rotateY(${tilt + sway * 0.62}deg) rotateX(9deg)`
-      node.vinyl.style.opacity = String(1 - reveal)
+      if (node.vinyl) node.vinyl.style.opacity = String(1 - reveal)
     })
     previousSlots = slots
     if (elapsed < 4500) return true

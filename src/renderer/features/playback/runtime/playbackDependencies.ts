@@ -4,6 +4,7 @@ import type { AlbumShuffleContext } from '../core/playbackQueueState'
 import type { PlaybackAudioCallbacks, PlaybackAudioRuntime } from '../audio/playbackAudioRuntime'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import { createNativePlaybackRuntime } from '../audio/nativePlaybackRuntime'
 
 export interface PlaybackStorage {
   getItem(key: string): string | null
@@ -46,6 +47,14 @@ export interface PlaybackDependencies {
 
 export function createBrowserPlaybackDependencies(): PlaybackDependencies {
   return {
+    createAudioRuntime: (callbacks) =>
+      createNativePlaybackRuntime(callbacks, auralis.playback, (cause) =>
+        rendererDiagnostics.warn({
+          scope: 'playback.native',
+          message: 'Native playback warning',
+          cause,
+        }),
+      ),
     getAudioUrl: (trackId) => auralis.playback.getAudioUrl(trackId),
     getRandomTrack: (excludeTrackId) =>
       auralis.playback.getRandomTrack(excludeTrackId) as Promise<PlaybackTrack | null | undefined>,

@@ -321,8 +321,6 @@ describe('metadataRefreshRepository artwork upsert rules', () => {
       artworkCacheKey,
       isrc: null,
       metadataSignature: 'sig',
-      rawCommonJson: '{}',
-      rawNativeJson: null,
     }
   }
 

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MetadataRefreshService } from './metadataRefreshService'
 import type { MetadataRefreshRepository } from '../../repositories/metadataRefreshRepository'
 import type { MetadataRefreshWorkerResult } from './metadataRefreshTypes'
-import { assertMetadataFingerprint } from './readStableMetadata'
+import { assertMetadataFingerprint, readStableMetadata } from './readStableMetadata'
 import { writeAudioTags } from './audioTagWriteService'
 
 const workers = vi.hoisted(() => [] as EventEmitter[])
@@ -73,6 +73,28 @@ beforeEach(() => {
 })
 
 describe('metadata result acceptance', () => {
+  it.each(['2025-02-31', '2025-04-31', '2025-13', '2025-00-01'])(
+    'rejects %s before touching the audio file',
+    async (releaseDate) => {
+      const { service, repo } = setup()
+      await expect(
+        service.updateTrackMetadata({
+          trackId: 1,
+          title: null,
+          artistDisplay: null,
+          albumTitle: null,
+          albumArtistDisplay: null,
+          genreDisplay: null,
+          year: 2025,
+          releaseDate,
+        }),
+      ).rejects.toThrow('Release Date')
+      expect(writeAudioTags).not.toHaveBeenCalled()
+      expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
+      expect(workers).toHaveLength(0)
+    },
+  )
+
   it('publishes missing tracks immediately even if the worker later fails', async () => {
     const { service, repo, send } = setup()
     service.refreshTrack(1)
@@ -191,12 +213,21 @@ describe('metadata result acceptance', () => {
   })
   it('a user write invalidates an already-parsed worker result and queues failed-write reconciliation', async () => {
     const { service, repo } = setup()
+    vi.mocked(readStableMetadata).mockRejectedValueOnce(new Error('Written tags do not match'))
     const gate = deferred<void>()
     vi.mocked(writeAudioTags).mockReturnValueOnce(gate.promise)
     service.refreshTrack(1)
-    const save = service.updateTrackMetadata({ trackId: 1 } as Parameters<
-      typeof service.updateTrackMetadata
-    >[0])
+    const save = service.updateTrackMetadata({
+      trackId: 1,
+      title: null,
+      artistDisplay: null,
+      albumTitle: null,
+      albumArtistDisplay: null,
+      genreDisplay: null,
+      year: null,
+      releaseDate: null,
+    })
+    expect(service.hasActiveArtworkWrites()).toBe(true)
     const rejected = expect(save).rejects.toThrow()
     workers[0].emit('message', { type: 'result', payload })
     workers[0].emit('message', { type: 'complete' })

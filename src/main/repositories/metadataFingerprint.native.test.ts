@@ -62,8 +62,6 @@ function result(patch: Partial<RefreshedTrackMetadata> = {}): RefreshedTrackMeta
     artworkCacheKey: null,
     isrc: null,
     metadataSignature: 'sig',
-    rawCommonJson: '{}',
-    rawNativeJson: null,
     ...patch,
   }
 }
@@ -188,6 +186,25 @@ describe('metadata fingerprint transactions', () => {
 })
 
 describe('isolated FFmpeg tag write and stable readback', () => {
+  it('leaves file bytes and database unchanged when a date is invalid', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'auralis-invalid-tag-'))
+    roots.push(root)
+    const filePath = join(root, 'sample.flac')
+    const original = Buffer.from('file must never be opened by the tag writer')
+    await writeFile(filePath, original)
+    const { db, repo } = setup(filePath)
+    const service = new MetadataRefreshService(repo, root, vi.fn())
+    const suppress = vi.fn()
+    service.setTagWriteSuccessHandler(suppress)
+    await expect(
+      service.updateTrackMetadata({ ...edit, releaseDate: '2025-02-31' }),
+    ).rejects.toThrow('Release Date')
+    expect(await readFile(filePath)).toEqual(original)
+    expect(stored(db)).toMatchObject({ title: 'Old', size: 10, mtime: 100 })
+    expect(db.prepare('SELECT * FROM track_metadata').all()).toEqual([])
+    expect(suppress).not.toHaveBeenCalled()
+  })
+
   it('preserves an external update made while FFmpeg was preparing replacement tags', async () => {
     const root = await mkdtemp(join(tmpdir(), 'auralis-tag-external-'))
     roots.push(root)
