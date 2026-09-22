@@ -4,10 +4,10 @@
 
 多阶段项目的总方案、基线、交付和审查材料保持在同一目录，避免拆散阶段之间的上下文。
 
-| 项目         | 主要入口                                                                                                                                                             |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 手稿皮肤（归档） | [总体技术方案](library-manuscript-skin-mvp/TECHDOC.md)、[交付路线图](library-manuscript-skin-mvp/DELIVERY-ROADMAP.md)、[阶段材料](../CATALOG.md#手稿皮肤)        |
-| 曲库页面编排 | [技术方案](library-page-orchestration/TECHDOC.md)、[实现报告](library-page-orchestration/IMPLEMENTATION-REPORT.md)、[审查记录](library-page-orchestration/REVIEW.md) |
+| 项目             | 主要入口                                                                                                                                                             |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 手稿皮肤（归档） | [总体技术方案](library-manuscript-skin-mvp/TECHDOC.md)、[交付路线图](library-manuscript-skin-mvp/DELIVERY-ROADMAP.md)、[阶段材料](../CATALOG.md#手稿皮肤)            |
+| 曲库页面编排     | [技术方案](library-page-orchestration/TECHDOC.md)、[实现报告](library-page-orchestration/IMPLEMENTATION-REPORT.md)、[审查记录](library-page-orchestration/REVIEW.md) |
 
 ## 阶段材料怎么读
 
