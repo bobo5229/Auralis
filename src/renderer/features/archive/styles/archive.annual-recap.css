@@ -1,0 +1,517 @@
+.archive-section-kicker {
+  display: block;
+  color: var(--auralis-sidebar-active-indicator);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.archive-annual-recap-entry {
+  display: inline-flex;
+  height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid var(--archive-panel-border);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--auralis-main-bg) 46%, transparent);
+  color: var(--auralis-sidebar-active-indicator);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: all 200ms ease;
+}
+
+.archive-annual-recap-entry:hover {
+  border-color: var(--auralis-sidebar-active-indicator);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 20%, transparent);
+}
+
+.archive-annual-recap-backdrop {
+  position: fixed;
+  z-index: 115;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inset: 0;
+  padding: 28px;
+  background: rgba(12, 16, 20, 0.65);
+  backdrop-filter: blur(8px);
+  animation: archive-reset-backdrop-in 240ms ease both;
+}
+.archive-annual-recap-dialog {
+  display: flex;
+  width: min(980px, calc(100vw - 56px));
+  max-height: min(760px, calc(100vh - 72px));
+  overflow: hidden;
+  flex-direction: column;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 80%, transparent);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.35);
+  color: var(--auralis-text);
+  -webkit-backdrop-filter: blur(30px) saturate(160%);
+  backdrop-filter: blur(30px) saturate(160%);
+  animation: archive-reset-dialog-in 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.archive-annual-recap-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 26px 28px 18px;
+  border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
+}
+
+.archive-annual-recap-header h2 {
+  color: var(--auralis-text);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.12;
+}
+
+.archive-annual-recap-header p {
+  margin-top: 8px;
+  color: var(--auralis-text-muted);
+  font-size: 13px;
+}
+
+.archive-annual-recap-header button {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 99px;
+  color: var(--auralis-text-muted);
+  transition: all 150ms ease;
+}
+
+.archive-annual-recap-header button:hover {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+  transform: rotate(90deg);
+}
+
+.archive-annual-recap-content {
+  position: relative;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 22px 28px 18px;
+}
+
+.archive-annual-recap-ticket {
+  min-width: 0;
+}
+
+.archive-annual-recap-page {
+  display: flex;
+  min-height: 468px;
+  flex-direction: column;
+  padding: 24px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 60%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
+}
+
+.archive-annual-recap-page--cover {
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 82% 18%,
+      color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent),
+      transparent 35%
+    ),
+    color-mix(in srgb, var(--auralis-sidebar-bg) 60%, transparent);
+}
+
+.archive-annual-recap-page--cover h3 {
+  margin-top: 12px;
+  color: var(--auralis-text);
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.archive-annual-recap-page--cover p {
+  max-width: 360px;
+  margin-top: 14px;
+  color: var(--auralis-text-muted);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.archive-annual-recap-page--cover strong {
+  margin-top: 42px;
+  color: var(--auralis-text);
+  font-size: 56px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  background: linear-gradient(
+    135deg,
+    var(--auralis-text) 40%,
+    var(--auralis-sidebar-active-indicator)
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.archive-annual-recap-page--cover small {
+  margin-top: 12px;
+  color: var(--auralis-text-faint);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.archive-annual-recap-stats span,
+.archive-annual-recap-timeline span {
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.archive-annual-recap-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.archive-annual-recap-stats--paged {
+  flex: 1;
+  align-content: center;
+}
+
+.archive-annual-recap-stats > div {
+  min-width: 0;
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 40%, transparent);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.archive-annual-recap-stats strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 12px;
+  color: var(--auralis-text);
+  font-size: 32px;
+  font-weight: 800;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-annual-recap-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.archive-annual-recap-section-heading > span {
+  color: var(--auralis-text);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.archive-annual-recap-section-heading small {
+  color: var(--auralis-text-faint);
+  font-size: 11px;
+}
+
+.archive-annual-recap-list {
+  display: grid;
+  gap: 6px;
+  list-style: none;
+}
+
+.archive-annual-recap-list li {
+  display: grid;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  grid-template-columns: 28px 38px minmax(0, 1fr) auto;
+  transition: all 150ms ease;
+}
+
+.archive-annual-recap-list li:hover {
+  background: color-mix(in srgb, var(--auralis-control-hover-bg) 74%, transparent);
+  border-color: color-mix(in srgb, var(--auralis-text) 5%, transparent);
+}
+
+.archive-annual-recap-rank,
+.archive-annual-recap-list li small {
+  color: var(--auralis-text-faint);
+  font-size: 10px;
+}
+
+.archive-annual-recap-artwork {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--auralis-control-hover-bg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--auralis-text-faint);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.archive-annual-recap-artwork img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.archive-annual-recap-list li strong {
+  overflow: hidden;
+  color: var(--auralis-text);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-annual-recap-list li > div:last-child {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--auralis-text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.archive-annual-recap-empty,
+.archive-annual-recap-loading {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  color: var(--auralis-text-muted);
+  font-size: 13px;
+}
+
+.archive-annual-recap-timeline {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.archive-annual-recap-timeline div {
+  min-width: 0;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 40%, transparent);
+}
+
+.archive-annual-recap-timeline strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 8px;
+  color: var(--auralis-text);
+  font-size: 17px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.archive-annual-recap-bars {
+  display: grid;
+  height: 128px;
+  align-items: end;
+  gap: 8px;
+  margin-top: 20px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+.archive-annual-recap-bars div {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  align-items: center;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.archive-annual-recap-bars div > span {
+  display: block;
+  width: 100%;
+  border-radius: 999px 999px 4px 4px;
+  background: linear-gradient(
+    0deg,
+    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 48%, transparent),
+    var(--auralis-sidebar-active-indicator)
+  );
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 30%, transparent);
+}
+
+.archive-annual-recap-bars small {
+  color: var(--auralis-text-faint);
+  font-size: 10px;
+}
+
+.archive-annual-recap-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 28px 22px;
+}
+
+.archive-annual-recap-footer > button {
+  height: 34px;
+  min-width: 74px;
+  padding: 0 14px;
+  border-radius: 17px;
+  background: var(--auralis-control-hover-bg);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  color: var(--auralis-text);
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 150ms ease;
+}
+
+.archive-annual-recap-footer > button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--auralis-text) 11%, transparent);
+  transform: translateY(-1px);
+}
+
+.archive-annual-recap-footer > button:disabled {
+  cursor: default;
+  opacity: 0.34;
+}
+
+.archive-annual-recap-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.archive-annual-recap-dots button {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auralis-text) 20%, transparent);
+  transition:
+    width 180ms ease,
+    background-color 180ms ease;
+}
+
+.archive-annual-recap-dots button.is-active {
+  width: 22px;
+  background: var(--auralis-sidebar-active-indicator);
+}
+
+.archive-annual-recap-page-enter-active,
+.archive-annual-recap-page-leave-active {
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.archive-annual-recap-page-enter-from {
+  opacity: 0;
+  transform: translateX(18px);
+}
+
+.archive-annual-recap-page-leave-to {
+  opacity: 0;
+  transform: translateX(-18px);
+}
+
+@keyframes archive-reset-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes archive-reset-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (max-width: 900px) {
+  .archive-annual-recap-dialog {
+    width: calc(100vw - 36px);
+    max-height: calc(100vh - 52px);
+  }
+
+  .archive-annual-recap-timeline {
+    grid-template-columns: 1fr;
+  }
+
+  .archive-annual-recap-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .archive-annual-recap-backdrop {
+    padding: 14px;
+  }
+
+  .archive-annual-recap-header,
+  .archive-annual-recap-content {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .archive-annual-recap-page {
+    min-height: 430px;
+    padding: 18px;
+  }
+
+  .archive-annual-recap-page--cover h3 {
+    font-size: 34px;
+  }
+
+  .archive-annual-recap-page--cover strong {
+    font-size: 40px;
+  }
+
+  .archive-annual-recap-footer {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .archive-annual-recap-stats,
+  .archive-annual-recap-bars {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .archive-annual-recap-bars {
+    height: auto;
+  }
+
+  .archive-annual-recap-bars div {
+    height: 84px;
+  }
+}

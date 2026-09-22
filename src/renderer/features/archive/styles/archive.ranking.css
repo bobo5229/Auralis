@@ -1,0 +1,393 @@
+.archive-section-kicker {
+  display: block;
+  color: var(--auralis-sidebar-active-indicator);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.archive-ranking-heading,
+.archive-ranking-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.archive-ranking-heading h2 {
+  color: var(--auralis-text);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.archive-state--error {
+  color: var(--auralis-text);
+}
+.archive-ranking {
+  margin-top: 32px;
+  padding: 0;
+}
+
+.archive-ranking-heading p {
+  margin-top: 6px;
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+}
+
+.archive-ranking-ranges,
+.archive-ranking-targets {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px;
+  border: 1px solid var(--archive-panel-border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--auralis-main-bg) 44%, transparent);
+}
+
+.archive-ranking-ranges button,
+.archive-ranking-targets button,
+.archive-ranking-period > button,
+.archive-ranking-period-menu button {
+  border-radius: 8px;
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 150ms ease;
+}
+
+.archive-ranking-ranges button,
+.archive-ranking-targets button {
+  height: 28px;
+  padding: 0 12px;
+}
+
+.archive-ranking-targets button {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.archive-ranking-ranges button:hover,
+.archive-ranking-targets button:hover,
+.archive-ranking-period > button:hover,
+.archive-ranking-period-menu button:hover {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
+.archive-ranking-ranges button.is-active,
+.archive-ranking-targets button.is-active,
+.archive-ranking-period-menu button.is-active {
+  background: var(--auralis-sidebar-active-indicator);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.archive-ranking-toolbar {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--auralis-text) 7%, transparent);
+}
+
+.archive-ranking-period {
+  position: relative;
+}
+
+.archive-ranking-period > button {
+  display: inline-flex;
+  height: 38px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--archive-panel-border);
+  background: color-mix(in srgb, var(--auralis-main-bg) 44%, transparent);
+}
+
+.archive-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  background: rgba(0, 0, 0, 0.24);
+  transition: opacity 220ms ease;
+}
+
+.archive-picker-fade-enter-from,
+.archive-picker-fade-leave-to {
+  opacity: 0;
+}
+
+.archive-ranking-picker {
+  position: fixed;
+  z-index: 10000;
+  transform: translate(-100%, -100%);
+  min-width: 240px;
+  padding: 14px;
+  border: none;
+  border-radius: 18px;
+  background: var(--auralis-frosted-surface-bg);
+  box-shadow: none;
+  -webkit-backdrop-filter: var(--auralis-frosted-surface-filter);
+  backdrop-filter: var(--auralis-frosted-surface-filter);
+  color: #f3eee6;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .archive-ranking-picker {
+    background: #1f2228;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+.archive-ranking-picker button:focus-visible {
+  outline: 2px solid #e1ddd6;
+  outline-offset: -2px;
+}
+
+.picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  color: var(--auralis-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.picker-header button {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #f3eee6;
+  transition: all 150ms ease;
+}
+
+.picker-header button:hover:not(:disabled) {
+  background: transparent;
+  color: #afb4bc;
+}
+
+.picker-header button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.picker-calendar {
+  padding: 2px 0;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 6px;
+  color: var(--auralis-text-faint);
+  font-size: 10px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+
+.calendar-grid button {
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--auralis-text);
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 120ms ease;
+}
+
+.calendar-grid button:not(.is-empty):not(:disabled):hover {
+  background: color-mix(in srgb, var(--auralis-text) 7%, transparent);
+}
+
+.calendar-grid button.is-empty {
+  cursor: default;
+}
+
+.calendar-grid button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.calendar-grid button.is-today {
+  color: #f3eee6;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.calendar-grid button.is-selected {
+  background: #e1ddd6;
+  color: #111214;
+  font-weight: 800;
+  box-shadow: none;
+}
+
+.calendar-grid button.is-selected:not(:disabled):hover {
+  background: #afb4bc;
+}
+.picker-week-list {
+  display: grid;
+  max-height: 240px;
+  gap: 3px;
+  overflow-y: auto;
+  padding: 2px 0;
+  scrollbar-color: color-mix(in srgb, var(--auralis-text) 20%, transparent) transparent;
+  scrollbar-width: thin;
+}
+
+.picker-week-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.picker-week-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.picker-week-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--auralis-text) 20%, transparent);
+}
+
+.picker-week-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--auralis-text);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  transition: all 120ms ease;
+}
+
+.picker-week-list button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--auralis-text) 7%, transparent);
+}
+
+.picker-week-list button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.picker-week-list button.is-current {
+  font-weight: 700;
+}
+
+.picker-week-list .week-date-range {
+  margin-left: auto;
+  color: var(--auralis-text-faint);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.picker-list {
+  display: grid;
+  min-width: 160px;
+  gap: 3px;
+  padding: 2px 0;
+}
+
+.picker-list button {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  transition: all 150ms ease;
+}
+
+.picker-list button:hover {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
+.picker-list button.is-active,
+.picker-week-list button.is-active {
+  background: #e1ddd6;
+  color: #111214;
+}
+
+.picker-list button.is-active:hover,
+.picker-week-list button.is-active:hover:not(:disabled) {
+  background: #afb4bc;
+}
+
+.picker-week-list button.is-active .week-date-range {
+  color: inherit;
+}
+.picker-today-btn {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 0;
+  border-radius: 8px;
+  color: #f3eee6;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  transition: background-color 150ms ease;
+}
+
+.picker-today-btn:hover {
+  background: transparent;
+  color: #afb4bc;
+}
+
+.archive-ranking-state {
+  display: flex;
+  min-height: 180px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 14px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 7%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--auralis-main-bg) 38%, transparent);
+  color: var(--auralis-text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .archive-ranking-heading,
+  .archive-ranking-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .archive-ranking-ranges {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 640px) {
+  .archive-ranking-meta {
+    display: none;
+  }
+}

@@ -1,0 +1,149 @@
+.archive-reset-backdrop {
+  position: fixed;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inset: 0;
+  padding: 20px;
+  background: rgba(12, 16, 20, 0.5);
+  backdrop-filter: blur(6px);
+  animation: archive-reset-backdrop-in 180ms ease both;
+}
+.archive-reset-dialog {
+  width: min(430px, calc(100vw - 40px));
+  padding: 28px;
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 10%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--auralis-dialog-bg) 80%, transparent);
+  backdrop-filter: blur(25px);
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.32);
+  color: var(--auralis-text);
+  animation: archive-reset-dialog-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.archive-reset-dialog h2 {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.archive-reset-dialog > p {
+  margin-top: 12px;
+  color: var(--auralis-text-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.archive-reset-dialog .archive-reset-error {
+  color: #d94a4a;
+}
+
+.archive-reset-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.archive-reset-buttons button {
+  width: 82px;
+  min-width: 82px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 17px;
+  background: var(--auralis-control-hover-bg);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 5%, transparent);
+  color: var(--auralis-text);
+  font-size: 12px;
+  font-weight: 700;
+  transition: all 150ms ease;
+}
+
+.archive-reset-buttons button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--auralis-text) 11%, transparent);
+}
+
+.archive-reset-buttons button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.archive-reset-buttons .archive-reset-confirm {
+  position: relative;
+  overflow: hidden;
+  background: #d94a4a;
+  color: #fff;
+  border: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.archive-reset-buttons .archive-reset-confirm::before {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.28);
+  content: '';
+  inset: 0;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.archive-reset-buttons .archive-reset-confirm.is-holding::before {
+  animation: archive-reset-hold-fill 3s linear forwards;
+}
+
+.archive-reset-buttons .archive-reset-confirm span {
+  position: relative;
+  z-index: 1;
+}
+
+.archive-reset-confirm-wrap {
+  position: relative;
+  width: 82px;
+}
+
+.archive-reset-hint {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 50%;
+  color: var(--auralis-text-faint);
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -2px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+  white-space: nowrap;
+}
+
+.archive-reset-confirm-wrap:hover .archive-reset-hint,
+.archive-reset-confirm-wrap:focus-within .archive-reset-hint {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.archive-reset-buttons .archive-reset-confirm:hover:not(:disabled) {
+  background: #bf3030;
+}
+
+@keyframes archive-reset-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes archive-reset-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@keyframes archive-reset-hold-fill {
+  to {
+    transform: scaleX(1);
+  }
+}
