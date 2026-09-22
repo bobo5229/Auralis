@@ -13,6 +13,7 @@ import {
   type PlaybackTransitionPlan,
   type PlaybackTransitionSource,
   type PlaybackTransitionState,
+  type ShuffleCycle,
 } from './playbackTransitionPlanner'
 
 export type PlaybackPreviousDecision =
@@ -33,6 +34,7 @@ export class PlaybackNavigationSession {
   private queuedNextTrackId: number | null = null
   private albumShuffleContext: AlbumShuffleContext = null
   private shuffleTrackPool: PlaybackTrack[] | null = null
+  private shuffleCycle: ShuffleCycle | null | undefined = undefined
   private readonly history = new PlaybackHistory()
 
   getQueuedNextTrackId(): number | null {
@@ -68,6 +70,7 @@ export class PlaybackNavigationSession {
       queue: currentQueue,
       albumShuffleContext: this.albumShuffleContext,
       shuffleTrackPool: this.shuffleTrackPool,
+      shuffleCycle: this.shuffleCycle,
     })
   }
 
@@ -80,6 +83,7 @@ export class PlaybackNavigationSession {
   }
 
   setMode(mode: PlaybackMode): void {
+    if (this.shuffleCycle !== undefined) this.shuffleCycle = null
     if (mode !== 'album-shuffle') {
       this.albumShuffleContext = null
     }
@@ -88,10 +92,11 @@ export class PlaybackNavigationSession {
     }
   }
 
-  resetForTrackSwitch(options?: { shufflePool?: PlaybackTrack[] }): void {
+  resetForTrackSwitch(options?: { shufflePool?: PlaybackTrack[]; shuffleCycle?: boolean }): void {
     this.queuedNextTrackId = null
     this.albumShuffleContext = null
     this.shuffleTrackPool = options?.shufflePool ?? null
+    this.shuffleCycle = options?.shuffleCycle ? null : undefined
   }
 
   insertSingleTrack(
@@ -151,6 +156,7 @@ export class PlaybackNavigationSession {
     if (plan.recordHistory) {
       this.pushHistory(currentTrack, plan.track.id, currentQueue)
     }
+    if (plan.nextShuffleCycle) this.shuffleCycle = plan.nextShuffleCycle
     if (plan.consumeQueued) {
       this.queuedNextTrackId = null
     }
@@ -174,6 +180,7 @@ export class PlaybackNavigationSession {
       queuedNextTrackId: this.queuedNextTrackId,
       albumShuffleContext: this.albumShuffleContext,
       shuffleTrackPool: this.shuffleTrackPool,
+      shuffleCycle: this.shuffleCycle,
     }
 
     return resolvePlaybackAdvance(plannerState, source, trigger, random)
@@ -191,6 +198,7 @@ export class PlaybackNavigationSession {
       if (entry) {
         this.albumShuffleContext = entry.albumShuffleContext
         this.shuffleTrackPool = entry.shuffleTrackPool
+        this.shuffleCycle = entry.shuffleCycle
         return { kind: 'restore-history', entry }
       }
     }
@@ -216,6 +224,7 @@ export class PlaybackNavigationSession {
     this.queuedNextTrackId = null
     this.albumShuffleContext = null
     this.shuffleTrackPool = null
+    this.shuffleCycle = undefined
     this.history.clear()
   }
 }

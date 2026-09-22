@@ -1,4 +1,5 @@
 import type { PlaybackTrack } from '../types'
+import type { ShuffleCycle } from './playbackTransitionPlanner'
 
 const DEFAULT_HISTORY_LIMIT = 100
 
@@ -12,6 +13,7 @@ export interface PlaybackHistoryContext {
   queue: PlaybackTrack[]
   albumShuffleContext: AlbumShuffleContext
   shuffleTrackPool: PlaybackTrack[] | null
+  shuffleCycle?: ShuffleCycle | null
 }
 
 export interface PlaybackHistoryEntry extends PlaybackHistoryContext {

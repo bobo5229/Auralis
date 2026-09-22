@@ -40,6 +40,7 @@ class TestElement extends EventTarget {
 }
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.clearAllMocks()
   vi.restoreAllMocks()
@@ -55,7 +56,7 @@ describe('CD stage lifetime', () => {
     advance(600)
     expect(clock.running).toBe(false)
   }
-  function setup(count: number) {
+  function setup(count: number, focusChange?: (progress: number, settled: boolean) => void) {
     const disconnect = vi.fn()
     const media = Object.assign(new EventTarget(), { matches: false })
     vi.stubGlobal('window', new EventTarget())
@@ -75,13 +76,23 @@ describe('CD stage lifetime', () => {
     const stage = new TestElement()
     const select = vi.fn()
     const approach = vi.fn()
-    const controller = createCdStage(stage as unknown as HTMLElement, select, approach)
+    const rapid = vi.fn()
+    const controller = createCdStage(
+      stage as unknown as HTMLElement,
+      select,
+      approach,
+      undefined,
+      rapid,
+      focusChange
+        ? { geometry: () => ({ cx: 600, cy: 360, rightBoundary: 940 }), change: focusChange }
+        : undefined,
+    )
     const albums = Array.from({ length: count }, (_, index) => ({
       key: String(index),
       artworkUrl: null,
     }))
     controller.setAlbums(albums)
-    return { stage, select, approach, controller, disconnect, albums, media, document }
+    return { stage, select, approach, rapid, controller, disconnect, albums, media, document }
   }
 
   function discAt(stage: TestElement, index: number): TestElement {
@@ -89,6 +100,48 @@ describe('CD stage lifetime', () => {
     if (!slot) throw new Error(`Missing disc at layer ${index}`)
     return slot.children[0].children[0]
   }
+
+  it('focuses only the resting centre and restores the same discs without changing selection', () => {
+    const change = vi.fn()
+    const { stage, document, controller, select } = setup(8, change)
+    const original = stage.children.map((node) => node.style.transform)
+    const discs = [...stage.children]
+    tap(stage, document, discAt(stage, 3))
+    advance(20)
+    controller.navigate(1)
+    settle()
+    expect(change).toHaveBeenLastCalledWith(1, true)
+    expect(stage.children[0].style.opacity).toBe('0')
+    expect(stage.children[2].style.transform).not.toBe(original[2])
+    expect(select).toHaveBeenCalledTimes(1)
+    controller.setFocused(false)
+    settle()
+    expect(change).toHaveBeenLastCalledWith(0, true)
+    expect(stage.children).toEqual(discs)
+    expect(stage.children.map((node) => node.style.transform)).toEqual(original)
+    controller.dispose()
+  })
+
+  it('supports focus reversal, reduced motion, catalog refresh and disposal', () => {
+    const change = vi.fn()
+    const { controller, media, albums } = setup(8, change)
+    controller.setFocused(true)
+    advance(12)
+    controller.setFocused(false)
+    settle()
+    expect(change).toHaveBeenLastCalledWith(0, true)
+    media.matches = true
+    controller.setFocused(true)
+    expect(change).toHaveBeenLastCalledWith(1, true)
+    expect(clock.running).toBe(false)
+    controller.setAlbums(albums)
+    expect(change).toHaveBeenLastCalledWith(0, true)
+    media.matches = false
+    controller.setFocused(true)
+    controller.dispose()
+    expect(clock.running).toBe(false)
+    expect(change).toHaveBeenLastCalledWith(0, true)
+  })
 
   function pointerEvent(
     type: string,
@@ -119,8 +172,8 @@ describe('CD stage lifetime', () => {
     stage.dispatchEvent(pointerEvent('pointerup', stage, options))
   }
 
-  it('retargets without jumping and reports only the latest delayed target', () => {
-    const { stage, select, approach, controller } = setup(8)
+  it('retargets without jumping and suppresses intermediate information until settling', () => {
+    const { stage, select, approach, rapid, controller } = setup(8)
     controller.navigate(1)
     advance(12)
     const before = stage.children.map((node) => node.style.transform)
@@ -130,9 +183,97 @@ describe('CD stage lifetime', () => {
     controller.navigate(-1)
     advance(20)
     expect(approach).not.toHaveBeenCalled()
+    expect(rapid).toHaveBeenCalledExactlyOnceWith(true)
     settle()
-    expect(approach).toHaveBeenCalledExactlyOnceWith(1)
+    expect(approach).not.toHaveBeenCalled()
+    expect(rapid.mock.calls).toEqual([[true], [false]])
     expect(select).toHaveBeenLastCalledWith(1)
+    controller.dispose()
+  })
+
+  it('prepares a bounded startup pool and hands off existing final nodes without allocating during motion', async () => {
+    const { stage, albums, controller, select } = setup(20)
+    controller.setAlbums(albums, true)
+    expect(stage.children).toHaveLength(13)
+    const prepared = [...stage.children]
+    await Promise.resolve()
+    controller.navigate(1)
+    for (let frame = 0; frame < 260; frame++) {
+      advance(1)
+      expect(stage.children).toEqual(prepared)
+      expect(
+        stage.children.filter((node) => Number(node.style.opacity) > 0).length,
+      ).toBeLessThanOrEqual(4)
+    }
+    settle()
+    expect(stage.children).toHaveLength(4)
+    expect(stage.children.every((node) => prepared.includes(node))).toBe(true)
+    expect(stage.children.every((node) => node.style.willChange === '')).toBe(true)
+    expect(select).toHaveBeenLastCalledWith(0)
+    controller.navigate(1)
+    settle()
+    expect(select).toHaveBeenLastCalledWith(1)
+    controller.dispose()
+  })
+
+  it('cancels pending startup on catalog replacement and disposal', async () => {
+    const { stage, albums, controller } = setup(8)
+    controller.setAlbums(albums, true)
+    controller.setAlbums(albums.slice(0, 2))
+    await Promise.resolve()
+    expect(stage.children).toHaveLength(2)
+    expect(stage.children.every((node) => node.style.opacity === '1')).toBe(true)
+    controller.setAlbums(albums, true)
+    controller.dispose()
+    await Promise.resolve()
+    expect(stage.children).toHaveLength(0)
+  })
+
+  it('bounds cover preparation and does not insert late images during rapid motion', async () => {
+    vi.useFakeTimers()
+    const { stage, albums, controller } = setup(8)
+    const finishDecode: Array<() => void> = []
+    vi.stubGlobal(
+      'Image',
+      class extends TestElement {
+        decode(): Promise<void> {
+          return new Promise((resolve) => finishDecode.push(resolve))
+        }
+      },
+    )
+    controller.setAlbums(
+      albums.map((album) => ({ ...album, artworkUrl: `cover:${album.key}` })),
+      true,
+    )
+    const artLayers = stage.children.map((slot) => slot.children[0].children[0].children[0])
+    expect(artLayers.every((art) => art.children.length === 1)).toBe(true)
+    vi.advanceTimersByTime(1200)
+    expect(artLayers.every((art) => art.children.length === 0)).toBe(true)
+    advance(150)
+    const before = stage.children.map((node) => node.style.transform)
+    finishDecode.forEach((resolve) => resolve())
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(stage.children.map((node) => node.style.transform)).toEqual(before)
+    expect(artLayers.every((art) => art.children.length === 0)).toBe(true)
+    controller.dispose()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('skips startup for reduced motion and unfolds small catalogs without duplicates', async () => {
+    const { stage, albums, controller, media } = setup(3)
+    media.matches = true
+    controller.setAlbums(albums, true)
+    expect(stage.children).toHaveLength(2)
+    media.matches = false
+    controller.setAlbums(albums, true)
+    expect(stage.children).toHaveLength(2)
+    await Promise.resolve()
+    advance(100)
+    media.matches = true
+    media.dispatchEvent(new Event('change'))
+    expect(clock.running).toBe(false)
+    expect(stage.children.every((node) => node.style.opacity === '1')).toBe(true)
     controller.dispose()
   })
 
@@ -183,12 +324,48 @@ describe('CD stage lifetime', () => {
       expect(stage.children).toHaveLength(4)
     }
     expect(clock.running).toBe(false)
-    expect(select).toHaveBeenLastCalledWith(3)
+    expect(select).toHaveBeenLastCalledWith(4)
     controller.navigate(-1)
     controller.dispose()
     expect(clock.cancel).toHaveBeenCalled()
     expect(disconnect).toHaveBeenCalledOnce()
     expect(stage.children).toHaveLength(0)
+  })
+
+  it('drops the forward backlog on reversal and restores information on cancellation', () => {
+    const { controller, select, rapid, approach, albums, media } = setup(40)
+    for (let index = 0; index < 20; index++) controller.navigate(1)
+    advance(30)
+    controller.navigate(-1)
+    settle()
+    expect(select.mock.lastCall![0]).toBeLessThan(5)
+    expect(approach).not.toHaveBeenCalled()
+    expect(rapid.mock.calls).toEqual([[true], [false]])
+    controller.navigate(1)
+    controller.navigate(1)
+    expect(rapid).toHaveBeenLastCalledWith(true)
+    controller.setAlbums(albums)
+    expect(rapid).toHaveBeenLastCalledWith(false)
+    controller.navigate(1)
+    controller.navigate(1)
+    media.matches = true
+    media.dispatchEvent(new Event('change'))
+    expect(rapid).toHaveBeenLastCalledWith(false)
+    expect(clock.running).toBe(false)
+    controller.dispose()
+  })
+
+  it('does not hide information for invalid small-catalog inputs or reduced motion', () => {
+    const { controller, rapid, media } = setup(2)
+    controller.navigate(1)
+    controller.navigate(1)
+    expect(rapid).not.toHaveBeenCalled()
+    settle()
+    media.matches = true
+    controller.navigate(-1)
+    controller.navigate(1)
+    expect(rapid).not.toHaveBeenCalled()
+    controller.dispose()
   })
 
   it('assigns distinct disc-plane angles and retains them through movement and refresh', () => {

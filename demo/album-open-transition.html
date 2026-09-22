@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>更多作品 · 封面衔接动效</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #111214;
+        color: #f3eee6;
+        font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+      }
+      button:focus-visible {
+        outline: 2px solid #e1ddd6;
+        outline-offset: 5px;
+      }
+      .ambient {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        background: radial-gradient(ellipse at 20% 12%, var(--tint), transparent 75%);
+        transition: opacity 460ms ease;
+      }
+      main {
+        max-width: 1180px;
+        margin: auto;
+        padding: 32px 48px 72px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        color: #afb4bc;
+        margin-bottom: 44px;
+        font-size: 13px;
+      }
+      header button {
+        background: none;
+        border: 0;
+        padding: 8px 0;
+      }
+      .hero {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 40px;
+        align-items: center;
+      }
+      #cover {
+        width: 240px;
+        height: 240px;
+        object-fit: cover;
+        border-radius: 18px;
+        display: block;
+        box-shadow: 0 18px 50px #0003;
+      }
+      .genre {
+        display: inline-block;
+        border: 1px solid #f3eee630;
+        border-radius: 20px;
+        padding: 3px 12px;
+        color: #e1ddd6;
+        font-size: 12px;
+      }
+      h1 {
+        font-family: Georgia, 'Microsoft YaHei', serif;
+        font-size: clamp(32px, 4vw, 52px);
+        margin: 14px 0;
+      }
+      .artist {
+        font-size: 19px;
+        font-weight: 600;
+      }
+      .muted {
+        color: #afb4bc;
+        font-weight: 400;
+      }
+      .stats {
+        color: #afb4bc;
+        font-size: 13px;
+        margin: 22px 0;
+      }
+      .stats strong {
+        color: #f3eee6;
+        margin: 0 22px 0 9px;
+      }
+      .play {
+        border: 0;
+        border-radius: 30px;
+        background: #e1ddd624;
+        padding: 12px 34px;
+        font-weight: 600;
+      }
+      .tracks {
+        margin: 38px 0 48px;
+      }
+      .track {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        border-bottom: 1px solid #e1ddd60d;
+        padding: 17px 0;
+        font-size: 14px;
+      }
+      .track span:first-child {
+        color: #9299a3;
+        width: 20px;
+      }
+      .track time {
+        margin-left: auto;
+        color: #afb4bc;
+      }
+      .more {
+        border-top: 1px solid #e1ddd619;
+        padding-top: 24px;
+      }
+      h2 {
+        font-size: 19px;
+        margin: 0 0 22px;
+      }
+      .gallery {
+        display: flex;
+        gap: 22px;
+      }
+      .album {
+        width: 155px;
+        padding: 0;
+        border: 0;
+        background: none;
+        text-align: left;
+      }
+      .album img {
+        width: 100%;
+        aspect-ratio: 1;
+        object-fit: cover;
+        border-radius: 12px;
+        display: block;
+        transition: transform 200ms ease;
+      }
+      .album:hover img {
+        transform: translateY(-5px);
+      }
+      .album strong {
+        display: block;
+        margin: 12px 0 5px;
+        font-size: 14px;
+      }
+      .album small {
+        color: #9299a3;
+      }
+      .flying-cover {
+        position: fixed;
+        z-index: 10;
+        object-fit: cover;
+        pointer-events: none;
+        margin: 0;
+      }
+      .hint {
+        font-size: 12px;
+        color: #9299a3;
+      }
+      @media (max-width: 650px) {
+        main {
+          padding: 24px;
+        }
+        .hero {
+          grid-template-columns: 135px 1fr;
+          gap: 22px;
+        }
+        #cover {
+          width: 135px;
+          height: 135px;
+          border-radius: 14px;
+        }
+        h1 {
+          font-size: 28px;
+        }
+        .stats {
+          margin: 12px 0;
+        }
+        .gallery {
+          gap: 14px;
+        }
+        .album {
+          flex: 1;
+          min-width: 0;
+        }
+        header {
+          margin-bottom: 28px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="ambient" id="ambientA"></div>
+    <div class="ambient" id="ambientB" style="opacity: 0"></div>
+    <main>
+      <header>
+        <button id="reset">← 返回初始专辑</button
+        ><span class="hint">封面衔接 Demo · 点击下方作品</span>
+      </header>
+      <section class="hero">
+        <img id="cover" alt="当前作品封面" />
+        <div id="info"></div>
+      </section>
+      <section class="tracks" id="tracks"></section>
+      <section class="more">
+        <h2>演示艺术家 的更多作品</h2>
+        <div class="gallery" id="gallery"></div>
+      </section>
+    </main>
+    <script src="ranking-record-shelf-data.js"></script>
+    <script>
+      const albums = [
+        {
+          title: '午后漫游',
+          year: 2024,
+          tint: '#665644',
+          tracks: ['午后漫游', '慢慢经过', '写给明天'],
+        },
+        {
+          title: '花与远方',
+          year: 2021,
+          tint: '#3b555d',
+          tracks: ['花与远方', '无人之境', '风的方向'],
+        },
+        {
+          title: '落日来信',
+          year: 2022,
+          tint: '#72513d',
+          tracks: ['落日来信', '橘色天空', '最后一班车'],
+        },
+        {
+          title: '夜色之间',
+          year: 2023,
+          tint: '#43475c',
+          tracks: ['夜色之间', '微光', '再次相遇'],
+        },
+      ].map((album, index) => ({ ...album, image: window.rankingCovers[index] }))
+      const cover = document.querySelector('#cover')
+      const info = document.querySelector('#info')
+      const tracks = document.querySelector('#tracks')
+      const gallery = document.querySelector('#gallery')
+      const backgrounds = [document.querySelector('#ambientA'), document.querySelector('#ambientB')]
+      let current = 0,
+        busy = false,
+        backgroundIndex = 0
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)')
+      function render(index) {
+        current = index
+        const album = albums[index]
+        cover.src = album.image
+        cover.alt = album.title
+        info.innerHTML = `<span class="genre">Indie Pop</span><h1>${album.title}</h1><div class="artist">演示艺术家 <span class="muted"> · ${album.year}年</span></div><div class="stats">曲目<strong>3</strong>总长<strong>11分28秒</strong></div><button class="play" type="button">▶ 播放</button>`
+        tracks.innerHTML = album.tracks
+          .map(
+            (title, i) =>
+              `<div class="track"><span>0${i + 1}</span><strong>${title}</strong><time>${['3:42', '4:06', '3:40'][i]}</time></div>`,
+          )
+          .join('')
+        gallery.replaceChildren()
+        albums.forEach((item, i) => {
+          if (i === index) return
+          const button = document.createElement('button')
+          button.className = 'album'
+          button.innerHTML = `<img src="${item.image}" alt=""><strong>${item.title}</strong><small>${item.year}年</small>`
+          button.setAttribute('aria-label', `打开 ${item.title}`)
+          button.onclick = () => openAlbum(i, button.querySelector('img'))
+          gallery.append(button)
+        })
+      }
+      async function openAlbum(index, source) {
+        if (busy || index === current) return
+        busy = true
+        let clone
+        try {
+          const duration = reduced.matches ? 120 : 420
+          if (!reduced.matches) {
+            const from = source.getBoundingClientRect()
+            clone = source.cloneNode()
+            clone.className = 'flying-cover'
+            Object.assign(clone.style, {
+              left: `${from.left}px`,
+              top: `${from.top}px`,
+              width: `${from.width}px`,
+              height: `${from.height}px`,
+              borderRadius: '12px',
+            })
+            document.body.append(clone)
+            source.style.visibility = 'hidden'
+          }
+          await Promise.all(
+            [info, tracks, cover, gallery].map(
+              (el) =>
+                el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 100, fill: 'forwards' })
+                  .finished,
+            ),
+          )
+          render(index)
+          const nextBackground = 1 - backgroundIndex
+          backgrounds[nextBackground].style.setProperty('--tint', albums[index].tint)
+          backgrounds[nextBackground].style.opacity = '1'
+          backgrounds[backgroundIndex].style.opacity = '0'
+          backgroundIndex = nextBackground
+          let flight = Promise.resolve()
+          if (clone) {
+            const to = cover.getBoundingClientRect()
+            flight = clone.animate(
+              [
+                {},
+                {
+                  left: `${to.left}px`,
+                  top: `${to.top}px`,
+                  width: `${to.width}px`,
+                  height: `${to.height}px`,
+                  borderRadius: getComputedStyle(cover).borderRadius,
+                },
+              ],
+              { duration, easing: 'cubic-bezier(.22,.75,.2,1)', fill: 'forwards' },
+            ).finished
+          }
+          const fades = [info, tracks, gallery].map((el, i) => {
+            el.getAnimations().forEach((a) => a.cancel())
+            return el.animate(
+              [
+                { opacity: 0, transform: reduced.matches ? 'none' : 'translateY(8px)' },
+                { opacity: 1, transform: 'none' },
+              ],
+              {
+                duration: reduced.matches ? 120 : 240,
+                delay: reduced.matches ? 0 : 130 + i * 35,
+                fill: 'both',
+              },
+            ).finished
+          })
+          await Promise.all([flight, ...fades])
+        } finally {
+          ;[info, tracks, cover, gallery].forEach((el) =>
+            el.getAnimations().forEach((a) => a.cancel()),
+          )
+          clone?.remove()
+          busy = false
+        }
+      }
+      document.querySelector('#reset').onclick = () => {
+        if (busy) return
+        render(0)
+        backgrounds[backgroundIndex].style.setProperty('--tint', albums[0].tint)
+      }
+      backgrounds[0].style.setProperty('--tint', albums[0].tint)
+      render(0)
+      albums.forEach((album) => {
+        const image = new Image()
+        image.src = album.image
+      })
+    </script>
+  </body>
+</html>

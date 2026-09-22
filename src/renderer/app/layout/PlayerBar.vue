@@ -374,7 +374,10 @@ function handleNext(): void {
       ></div>
 
       <div class="player-bar-row">
-        <div class="transport-controls">
+        <div
+          class="transport-controls"
+          :class="{ 'transport-controls--empty': !playback.state.currentTrack }"
+        >
           <button
             class="transport-control"
             type="button"

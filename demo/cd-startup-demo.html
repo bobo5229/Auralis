@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auralis · CD 启动动画</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #eeeeec; color: #292929; font: 13px 'Segoe UI', 'Microsoft YaHei', sans-serif; }
+    .page { height: 100dvh; overflow: hidden; position: relative; }
+    .stage { position: absolute; inset: 56px 0 78px; }
+    .position { position: absolute; width: 400px; height: 400px; transform-origin: 0 0; }
+    .disc { width: 100%; height: 100%; position: relative; border-radius: 50%; background: #151515; mask-image: radial-gradient(circle, transparent 0 6.8%, black 7.1%); box-shadow: inset 0 0 0 2px #777; }
+    .vinyl { position: absolute; inset: 2px; border-radius: 50%; background: repeating-radial-gradient(circle, #171717 0 1px, #292929 1.4px 1.8px, #131313 2.2px 3px); }
+    .vinyl::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: conic-gradient(from 25deg, transparent, #ffffff18, transparent 22%, #0008 40%, #ffffff20 58%, transparent 75%); }
+    .art { position: absolute; inset: 4px; border-radius: 50%; overflow: hidden; opacity: 0; background: #8e8276; }
+    .art img { width: 100%; height: 100%; object-fit: cover; }
+    .disc::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; box-shadow: inset 0 0 0 2px #9998; background: linear-gradient(120deg,#fff2,transparent 35%,#0001 70%,#fff2); }
+    .label { position: absolute; inset: 36%; border-radius: 50%; background: radial-gradient(circle, #333 0 40%, #1e1e1e 41% 68%, #444 70%, #202020 73%); }
+    .hub { position: absolute; inset: 37.5%; border-radius: 50%; opacity: 0; background: conic-gradient(#bdc1c6,#e2e4e4,#a0a6b1,#ccd5d8,#eeece8,#989da6,#bdc1c6); box-shadow: 0 0 0 2px #eeeeee70, 0 0 0 7px #b7b7b744,inset 0 0 0 3px #888b9290; }
+    .hub::after { content: ''; position: absolute; inset: 14%; border-radius: 50%; border: 5px solid #f8f8f890; box-shadow: 0 0 0 2px #6c747b60; }
+    .info { position: absolute; left: 32px; top: 65px; width: 300px; opacity: 0; pointer-events: none; }
+    h1 { font: italic 32px Georgia,serif; font-weight: 400; margin: 0 0 18px; }
+    .row { border-top: 1px solid #aaa9a3; padding: 10px 0; display: flex; justify-content: space-between; gap: 12px; }
+    .row span { color: #77766e; font-size: 11px; }
+    .row b { font: 13px Georgia,serif; }
+    footer { position: absolute; inset: auto 26px 20px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+    .hint { color: #787870; letter-spacing: .05em; }
+    .buttons { display: flex; gap: 8px; }
+    button { color: inherit; border: 1px solid #bdbdb9; background: #eeeeec; padding: 10px 14px; border-radius: 3px; cursor: pointer; font: inherit; }
+    button:hover { background: #e1e1de; }
+    button:focus-visible { outline: 2px solid #555; outline-offset: 3px; }
+    .review { opacity: 0; pointer-events: none; transition: opacity 180ms; }
+    .page:hover .review, .page:focus-within .review, .page.ready .review { opacity: 1; pointer-events: auto; }
+    @media(max-width:600px) { .info { width: 235px; left: 20px; } h1 { font-size: 26px; } footer { inset-inline: 16px; } .hint { display:none; } .buttons { flex-wrap:wrap; } }
+  </style>
+</head>
+<body>
+  <main class="page" id="page">
+    <div class="stage" id="stage" aria-hidden="true"></div>
+    <aside class="info" id="info"><h1>Collected Moments</h1><div class="row"><span>专辑艺术家</span><b>Auralis / Demo Collection</b></div><div class="row"><span>发行日期</span><b>2026</b></div><div class="row"><span>版权信息</span><b>启动动效 · 示例封面</b></div></aside>
+    <footer><span class="hint review" id="status" role="status">启动动画</span><div class="buttons review"><button id="replay">重播</button><button id="slow" aria-pressed="false">慢速观看</button><button id="skip">跳过动画</button></div></footer>
+  </main>
+  <script src="cd-startup-assets.js"></script>
+  <script>
+    const page = document.getElementById('page');
+    const stage = document.getElementById('stage');
+    const info = document.getElementById('info');
+    const status = document.getElementById('status');
+    const media = matchMedia('(prefers-reduced-motion: reduce)');
+    const nodes = new Map();
+    const orientations = Array.from({length: 32}, () => Math.random() * 360);
+    let offsets = [], frame = 0, started = 0, elapsed = 0, previous = 0, slow = false, done = false;
+    const END = 4500, SLIDE_START = 1550, SLIDE_DURATION = 2850, TRAVEL = 9;
+    const clamp = value => Math.max(0, Math.min(1, value));
+    const smooth = value => { const t = clamp(value); return t*t*t*(10+t*(-15+6*t)); };
+    const mix = (a,b,t) => a+(b-a)*t;
+    function disc(index) {
+      if (nodes.has(index)) return nodes.get(index);
+      const slot = document.createElement('div'); slot.className = 'position';
+      slot.innerHTML = '<div class="disc"><div class="vinyl"></div><div class="art"><img alt=""></div><div class="label"></div><div class="hub"></div></div>';
+      const parts = {slot, disc:slot.firstElementChild, art:slot.querySelector('.art'), hub:slot.querySelector('.hub'), label:slot.querySelector('.label')};
+      const key = ((index % SAMPLE_COVERS.length)+SAMPLE_COVERS.length)%SAMPLE_COVERS.length;
+      const img = slot.querySelector('img'); img.src = SAMPLE_COVERS[key]; img.decoding = 'async';
+      parts.art.style.transform = `rotate(${orientations[((index%32)+32)%32]}deg)`;
+      stage.append(slot); nodes.set(index,parts); return parts;
+    }
+    function draw(ms) {
+      const w = stage.clientWidth, h = stage.clientHeight;
+      const slide = clamp((ms-SLIDE_START)/SLIDE_DURATION);
+      const position = TRAVEL*smooth(slide);
+      const slots = cdSlots(position,32);
+      for (const [key,node] of nodes) if (!slots.includes(key)) { node.slot.remove(); nodes.delete(key); }
+      const reveal = smooth((slide-.26)/.46);
+      for (const [layer,index] of slots.entries()) {
+        const node = disc(index), t = index-position, pose = cdPose(t,w,h);
+        let x=pose.cx,y=pose.cy,size=pose.size,tilt=pose.tilt,turn=pose.turn;
+        let opacity = smooth(Math.min((t+2.5)*2,(1.5-t)*2));
+        if (ms < SLIDE_START) {
+          const seed = offsets[index+2];
+          const appear = smooth((ms-200-layer*55)/330);
+          const spread = smooth((ms-650-seed.delay)/(760-seed.delay));
+          const arc = Math.sin(Math.PI*spread);
+          x=mix(w*.5+seed.x,pose.cx,spread)+seed.arcX*arc;
+          y=mix(h*.49+seed.y,pose.cy,spread)+seed.arcY*arc;
+          size=mix(Math.min(w*.28,h*.43)*(1+layer*.025),pose.size,spread)*(0.94+.06*appear);
+          tilt=mix(-15+seed.tilt,pose.tilt,spread);
+          turn=mix(seed.turn,pose.turn,spread)+seed.sway*arc;
+          opacity*=appear;
+        }
+        node.slot.style.opacity=opacity;
+        node.slot.style.zIndex=layer+1;
+        node.slot.style.transform=`translate3d(${x-size/2}px,${y-size/2}px,0) scale(${size/400})`;
+        const sway = Math.sin(slide*Math.PI*14)*Math.sin(slide*Math.PI)*1.15;
+        node.disc.style.transform=`perspective(1100px) rotateZ(${turn+sway}deg) rotateY(${tilt+sway*.62}deg) rotateX(9deg)`;
+        node.art.style.opacity=reveal; node.hub.style.opacity=reveal; node.label.style.opacity=1-reveal;
+      }
+      const textFade=smooth((ms-3850)/650);
+      info.style.opacity=textFade; info.style.transform=`translateY(${(1-textFade)*7}px)`;
+      status.textContent=ms<650?'中心叠放':ms<SLIDE_START?'随机展开':ms<3200?'快速翻动 · 封面接入':ms<END?'减速落定':'浏览就绪 · 启动动画结束';
+    }
+    function tick(now) {
+      elapsed+=(now-previous)*(slow?.4:1); previous=now;
+      draw(Math.min(elapsed,END));
+      if(elapsed<END) frame=requestAnimationFrame(tick);
+      else { done=true; page.classList.add('ready'); frame=0; }
+    }
+    function finish() { cancelAnimationFrame(frame);frame=0; elapsed=END;done=true;draw(END);page.classList.add('ready'); }
+    function replay() {
+      cancelAnimationFrame(frame); nodes.forEach(node=>node.slot.remove());nodes.clear();
+      offsets=Array.from({length:4},(_,i)=>({x:(i-1.5)*13+(Math.random()-.5)*14,y:(i-1.5)*-9,tilt:(Math.random()-.5)*10,turn:(Math.random()-.5)*36,arcX:(Math.random()-.5)*90,arcY:-30-Math.random()*70,sway:(Math.random()-.5)*12,delay:Math.random()*110}));
+      elapsed=0;done=false;page.classList.remove('ready');
+      if(media.matches) return finish();
+      started=previous=performance.now();draw(0);frame=requestAnimationFrame(tick);
+    }
+    document.getElementById('replay').addEventListener('click',replay);
+    document.getElementById('slow').addEventListener('click',event=>{slow=!slow;event.target.setAttribute('aria-pressed',String(slow));event.target.textContent=slow?'恢复正常速度':'慢速观看';replay();});
+    document.getElementById('skip').addEventListener('click',finish);
+    addEventListener('keydown',event=>{if(event.key==='Escape')finish();});
+    addEventListener('resize',()=>draw(done?END:elapsed));
+    document.addEventListener('visibilitychange',()=>{previous=performance.now();});
+    media.addEventListener('change',()=>{if(media.matches)finish();});
+    addEventListener('pagehide',()=>cancelAnimationFrame(frame));
+    // Decode the existing local demo covers before the one-shot transition.
+    Promise.all(SAMPLE_COVERS.map(src=>{const img=new Image();img.src=src;return img.decode().catch(()=>{});})).then(replay);
+  </script>
+</body>
+</html>

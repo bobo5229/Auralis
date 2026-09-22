@@ -31,6 +31,62 @@ describe('PlaybackNavigationSession', () => {
     session = new PlaybackNavigationSession()
   })
 
+  it('plays complete nonrepeating scoped rounds, changes seeds, and does not consume prefetches', async () => {
+    const queue = [track(1), track(2), track(3), track(4)]
+    session.resetForTrackSwitch({ shufflePool: queue, shuffleCycle: true })
+    const source = dummySource()
+    let current = queue[0]
+    const played = [current.id]
+    const seeds: number[] = []
+    for (let i = 0; i < 11; i++) {
+      const state = {
+        queue,
+        currentIndex: queue.indexOf(current),
+        currentTrackId: current.id,
+        currentTrack: current,
+        playbackMode: 'shuffle' as const,
+      }
+      const prefetched = await session.resolveAdvance(state, source, 'gapless-prefetch', () => 0.5)
+      const next = await session.resolveAdvance(state, source, 'natural-ended', () => 0.5)
+      expect(next).toEqual(prefetched)
+      if (next.kind !== 'play') throw new Error('Missing next track')
+      seeds.push(next.plan.nextShuffleCycle!.seed)
+      session.applyPlan(next.plan, current, queue)
+      current = next.plan.track
+      played.push(current.id)
+    }
+    for (let i = 0; i < 12; i += 4) expect([...played.slice(i, i + 4)].sort()).toEqual([1, 2, 3, 4])
+    expect(seeds[3]).not.toBe(seeds[2])
+    expect(seeds[7]).not.toBe(seeds[6])
+    expect(source.getRandomTrack).not.toHaveBeenCalled()
+  })
+
+  it('repeats a one-track scoped album and stops a sequential album at its last track', async () => {
+    const queue = [track(1)]
+    session.resetForTrackSwitch({ shufflePool: queue, shuffleCycle: true })
+    const state = {
+      queue,
+      currentIndex: 0,
+      currentTrackId: 1,
+      currentTrack: queue[0],
+      playbackMode: 'shuffle' as const,
+    }
+    const next = await session.resolveAdvance(state, dummySource(), 'natural-ended')
+    expect(next.kind === 'play' && next.plan.track.id).toBe(1)
+    session.setMode('sequential')
+    expect(
+      await session.resolveAdvance(
+        { ...state, playbackMode: 'sequential' },
+        dummySource(),
+        'natural-ended',
+      ),
+    ).toEqual({ kind: 'stop', resetTime: true })
+    session.resetForTrackSwitch()
+    const source = dummySource()
+    await session.resolveAdvance(state, source, 'manual-next')
+    expect(source.getRandomTrack).toHaveBeenCalledWith(1)
+  })
+
   it('manages queuedNextTrackId via insertion and consumption', () => {
     const queue = [track(1), track(2)]
     const result = session.insertSingleTrack(queue, 1, track(3))

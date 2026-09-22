@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { useVirtualizer } from '@tanstack/vue-virtual'
-import { useRouter } from 'vue-router'
+import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, ref, watch } from 'vue'
+import { observeElementOffset, observeElementRect, useVirtualizer } from '@tanstack/vue-virtual'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -9,10 +9,11 @@ import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagno
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { normalizeSearchText } from '@renderer/features/library/utils/normalizeSearchText'
 import { prefetchArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
-import { invalidateAlbumDetailSnapshot, writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
+import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumCard from '../components/AlbumCard.vue'
 import type { AlbumSummary } from '../types'
-import { groupAlbums, moreAlbumsByArtist } from '../utils/albumGrouping'
+import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
+import { useAlbumCatalog } from '../composables/useAlbumCatalog'
 import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
 
 /**
@@ -45,12 +46,31 @@ function readDisplayMode(): AlbumDisplayMode {
   return localStorage.getItem(ALBUM_DISPLAY_MODE_KEY) === 'perspective' ? 'perspective' : 'grid'
 }
 
-const tracks = shallowRef<TrackListItem[]>([])
+defineOptions({ name: 'AlbumsPage' })
+const props = withDefaults(defineProps<{ isTransitioning?: boolean }>(), {
+  isTransitioning: false,
+})
+const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const playback = usePlayback()
-const isLoading = ref(true)
-const loadError = ref<string | null>(null)
+const isPageActive = ref(false)
+const canRefresh = computed(
+  () => isPageActive.value && route.name === 'albums' && !props.isTransitioning,
+)
+const {
+  tracks,
+  isLoading,
+  error: catalogError,
+  refresh: loadAlbums,
+} = useAlbumCatalog(auralis.library, canRefresh, (cause) =>
+  rendererDiagnostics.error({
+    scope: 'albums.catalog',
+    message: 'Failed to load albums',
+    cause,
+  }),
+)
+const loadError = computed(() => (catalogError.value ? t('albums.status.loadError') : null))
 const scrollRef = ref<HTMLElement | null>(null)
 const columnCount = ref(4)
 const rowHeight = ref(DEFAULT_ROW_HEIGHT)
@@ -70,9 +90,8 @@ let lastSearchQuery = ''
 let lastMatchedAlbumIndex = -1
 let searchHighlightTimeout: ReturnType<typeof setTimeout> | null = null
 let resizeObserver: ResizeObserver | null = null
-let unsubscribeChanged: (() => void) | null = null
-let restoreScrollFrame: number | null = null
 let isPageUnmounted = false
+let savedScrollTop = Number(sessionStorage.getItem(ALBUMS_SCROLL_TOP_KEY)) || 0
 
 const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
 const isSearchZoneHovered = computed(() => isTopZoneHovered.value || isSearchBarHovered.value)
@@ -104,7 +123,8 @@ watch(searchQuery, (query) => {
   }
 })
 
-const albums = computed<AlbumSummary[]>(() => groupAlbums(tracks.value))
+const catalogIndex = computed(() => getAlbumCatalogIndex(tracks.value))
+const albums = computed<AlbumSummary[]>(() => catalogIndex.value.albums)
 
 let idlePalettePrefetchHandle: number | null = null
 let idlePalettePrefetchMode: 'idle' | 'timeout' | null = null
@@ -120,7 +140,7 @@ function cancelIdlePalettePrefetch(): void {
 function prefetchVisibleAlbumPalettes(): void {
   idlePalettePrefetchHandle = null
   idlePalettePrefetchMode = null
-  if (isPageUnmounted) return
+  if (isPageUnmounted || !canRefresh.value) return
   for (const virtualRow of rowVirtualizer.value.getVirtualItems()) {
     const row = albumRows.value[virtualRow.index]
     if (!row) continue
@@ -130,6 +150,7 @@ function prefetchVisibleAlbumPalettes(): void {
 
 function scheduleIdlePalettePrefetch(): void {
   cancelIdlePalettePrefetch()
+  if (!canRefresh.value) return
   if (typeof window.requestIdleCallback === 'function') {
     idlePalettePrefetchMode = 'idle'
     idlePalettePrefetchHandle = window.requestIdleCallback(prefetchVisibleAlbumPalettes, {
@@ -149,7 +170,7 @@ function seedAlbumDetailSnapshot(album: AlbumSummary): void {
     artworkCacheKey: album.artworkCacheKey,
     releaseDate: album.releaseDate,
     tracks: album.tracks,
-    moreAlbums: moreAlbumsByArtist(albums.value, album.albumArtist, album.title),
+    moreAlbums: catalogIndex.value.moreAlbums(album.albumArtist, album.title),
     catalogTracks: tracks.value,
   })
 }
@@ -163,21 +184,31 @@ const albumRows = computed(() => {
   return rows
 })
 
-const rowVirtualizer = useVirtualizer(
+const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(
   computed(() => ({
     count: albumRows.value.length,
     getScrollElement: () => scrollRef.value,
     estimateSize: () => rowHeight.value,
     overscan: 2,
+    // KeepAlive moves this element to a detached tree. Ignore its zero geometry
+    // and scroll resets so cached rows survive the complete leave/enter motion.
+    observeElementRect: (instance, callback) =>
+      observeElementRect(instance, (rect) => {
+        if (instance.scrollElement?.isConnected && rect.width > 0 && rect.height > 0) callback(rect)
+      }),
+    observeElementOffset: (instance, callback) =>
+      observeElementOffset(instance, (offset, scrolling) => {
+        if (instance.scrollElement?.isConnected) callback(offset, scrolling)
+      }),
   })),
 )
 
 const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalHeight = computed(() => rowVirtualizer.value.getTotalSize())
 
-function updateAdaptiveGrid(): void {
+function updateAdaptiveGrid(): boolean {
   const container = scrollRef.value
-  if (!container) return
+  if (!container?.isConnected || container.clientWidth === 0) return false
 
   const availableWidth = Math.max(0, container.clientWidth - GRID_PADDING_X)
 
@@ -191,59 +222,42 @@ function updateAdaptiveGrid(): void {
     cardWidth = Math.max(1, (availableWidth - COLUMN_GAP * (cols - 1)) / cols)
   }
 
-  columnCount.value = cols
-  rowHeight.value = cardWidth + CARD_METADATA_HEIGHT + ROW_GAP
-  rowVirtualizer.value.measure()
+  const nextRowHeight = cardWidth + CARD_METADATA_HEIGHT + ROW_GAP
+  if (columnCount.value !== cols || rowHeight.value !== nextRowHeight) {
+    columnCount.value = cols
+    rowHeight.value = nextRowHeight
+    rowVirtualizer.value.measure()
+    return true
+  }
+  return false
 }
 
-function restoreScrollPosition(): void {
+async function connectGrid(): Promise<void> {
   const container = scrollRef.value
-  if (!container) return
-
-  const storedScrollTop = Number(sessionStorage.getItem(ALBUMS_SCROLL_TOP_KEY))
-  if (!Number.isFinite(storedScrollTop) || storedScrollTop <= 0) return
-
-  container.scrollTop = storedScrollTop
-  rowVirtualizer.value.measure()
-}
-
-async function reloadAlbums(): Promise<void> {
-  const nextTracks = await auralis.library.getTracks()
-  if (isPageUnmounted) return
-  tracks.value = nextTracks
-  scheduleIdlePalettePrefetch()
-}
-
-async function loadAlbums(): Promise<void> {
-  isLoading.value = true
-  loadError.value = null
-  try {
-    await reloadAlbums()
-  } catch (error) {
-    if (!isPageUnmounted) {
-      rendererDiagnostics.error({
-        scope: 'albums.catalog',
-        message: 'Failed to load albums',
-        cause: error,
-      })
-      loadError.value = t('albums.status.loadError')
-    }
-  } finally {
-    if (!isPageUnmounted) isLoading.value = false
-  }
-
-  if (isPageUnmounted || loadError.value) return
-  await nextTick()
-  updateAdaptiveGrid()
+  if (!container?.isConnected || !isPageActive.value) return
+  // A resize while hidden can change total height. Commit that geometry before
+  // restoring the offset, without waiting for another animation frame.
+  if (updateAdaptiveGrid()) await nextTick()
+  if (isPageUnmounted || !isPageActive.value || scrollRef.value !== container) return
   resizeObserver?.disconnect()
-  if (scrollRef.value) {
-    resizeObserver = new ResizeObserver(updateAdaptiveGrid)
-    resizeObserver.observe(scrollRef.value)
-  }
-  if (restoreScrollFrame !== null) cancelAnimationFrame(restoreScrollFrame)
-  restoreScrollFrame = requestAnimationFrame(restoreScrollPosition)
+  resizeObserver = new ResizeObserver(updateAdaptiveGrid)
+  resizeObserver.observe(container)
+  // Activation hooks run before paint; no next-frame jump during the transition.
+  if (Number.isFinite(savedScrollTop)) container.scrollTop = savedScrollTop
   scheduleIdlePalettePrefetch()
 }
+
+watch(isLoading, async (loading) => {
+  if (!loading) {
+    await nextTick()
+    if (!isPageUnmounted) void connectGrid()
+  }
+})
+
+watch(canRefresh, (allowed) => {
+  if (allowed) scheduleIdlePalettePrefetch()
+  else cancelIdlePalettePrefetch()
+})
 
 function setDisplayMode(mode: AlbumDisplayMode): void {
   displayMode.value = mode
@@ -418,40 +432,37 @@ function openAlbum(album: AlbumSummary): void {
   })
 }
 
-onMounted(async () => {
+onActivated(() => {
+  isPageActive.value = true
   document.addEventListener('pointerdown', onDocumentPointerDown)
-  await loadAlbums()
-  if (isPageUnmounted) return
+  void connectGrid()
+})
 
-  unsubscribeChanged = auralis.library.onChanged((event) => {
-    // Play-count ticks must not full-reload album summaries
-    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
-    invalidateAlbumDetailSnapshot()
-    void reloadAlbums().catch((error) => {
-      rendererDiagnostics.error({
-        scope: 'albums.catalog',
-        message: 'Failed to refresh albums',
-        cause: error,
-      })
-    })
-  })
+onBeforeRouteLeave(() => {
+  if (scrollRef.value) savedScrollTop = scrollRef.value.scrollTop
+  closeContextMenu()
+})
+
+function disconnectPage(): void {
+  isPageActive.value = false
+  document.removeEventListener('pointerdown', onDocumentPointerDown)
+  resizeObserver?.disconnect()
+  cancelIdlePalettePrefetch()
+}
+
+onDeactivated(() => {
+  disconnectPage()
+  sessionStorage.setItem(ALBUMS_SCROLL_TOP_KEY, String(savedScrollTop))
 })
 
 onBeforeUnmount(() => {
   isPageUnmounted = true
-  document.removeEventListener('pointerdown', onDocumentPointerDown)
-  if (scrollRef.value) {
-    sessionStorage.setItem(ALBUMS_SCROLL_TOP_KEY, String(scrollRef.value.scrollTop))
-  }
-  if (restoreScrollFrame !== null) {
-    cancelAnimationFrame(restoreScrollFrame)
-  }
+  if (isPageActive.value && scrollRef.value) savedScrollTop = scrollRef.value.scrollTop
+  disconnectPage()
+  sessionStorage.setItem(ALBUMS_SCROLL_TOP_KEY, String(savedScrollTop))
   if (searchHighlightTimeout) {
     clearTimeout(searchHighlightTimeout)
   }
-  resizeObserver?.disconnect()
-  unsubscribeChanged?.()
-  cancelIdlePalettePrefetch()
 })
 </script>
 

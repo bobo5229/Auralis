@@ -1891,9 +1891,7 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   z-index: 9990;
-  background: rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(12px) saturate(130%);
-  -webkit-backdrop-filter: blur(12px) saturate(130%);
+  background: rgba(0, 0, 0, 0.24);
   transition: opacity 220ms ease;
 }
 
@@ -1908,14 +1906,26 @@ onBeforeUnmount(() => {
   transform: translate(-100%, -100%);
   min-width: 240px;
   padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 16%, transparent);
+  border: none;
   border-radius: 18px;
-  background: color-mix(in srgb, var(--auralis-dialog-bg) 96%, #000);
-  box-shadow:
-    0 32px 80px rgba(0, 0, 0, 0.8),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  background: var(--auralis-frosted-surface-bg);
+  box-shadow: none;
+  -webkit-backdrop-filter: var(--auralis-frosted-surface-filter);
+  backdrop-filter: var(--auralis-frosted-surface-filter);
+  color: #f3eee6;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .archive-ranking-picker {
+    background: #1f2228;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+.archive-ranking-picker button:focus-visible {
+  outline: 2px solid #e1ddd6;
+  outline-offset: -2px;
 }
 
 .picker-header {
@@ -1937,13 +1947,13 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  color: var(--auralis-text-muted);
+  color: #f3eee6;
   transition: all 150ms ease;
 }
 
 .picker-header button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
-  color: var(--auralis-text);
+  background: transparent;
+  color: #afb4bc;
 }
 
 .picker-header button:disabled {
@@ -1999,20 +2009,21 @@ onBeforeUnmount(() => {
 }
 
 .calendar-grid button.is-today {
-  color: var(--auralis-archive-accent);
+  color: #f3eee6;
   font-weight: 800;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--auralis-archive-accent) 40%, transparent);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .calendar-grid button.is-selected {
-  background: linear-gradient(
-    135deg,
-    var(--auralis-archive-accent) 0%,
-    color-mix(in srgb, var(--auralis-archive-accent) 80%, #000) 100%
-  );
-  color: #ffffff;
+  background: #e1ddd6;
+  color: #111214;
   font-weight: 800;
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--auralis-archive-accent) 45%, transparent);
+  box-shadow: none;
+}
+
+.calendar-grid button.is-selected:not(:disabled):hover {
+  background: #afb4bc;
 }
 
 /* Week list */
@@ -2062,16 +2073,8 @@ onBeforeUnmount(() => {
   cursor: default;
 }
 
-.picker-week-list button.is-active,
 .picker-week-list button.is-current {
-  background: linear-gradient(
-    135deg,
-    var(--auralis-archive-accent) 0%,
-    color-mix(in srgb, var(--auralis-archive-accent) 80%, #000) 100%
-  );
-  color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--auralis-archive-accent) 40%, transparent);
 }
 
 .picker-week-list .week-date-range {
@@ -2106,9 +2109,19 @@ onBeforeUnmount(() => {
   color: var(--auralis-text);
 }
 
-.picker-list button.is-active {
-  background: var(--auralis-sidebar-active-indicator);
-  color: #fff;
+.picker-list button.is-active,
+.picker-week-list button.is-active {
+  background: #e1ddd6;
+  color: #111214;
+}
+
+.picker-list button.is-active:hover,
+.picker-week-list button.is-active:hover:not(:disabled) {
+  background: #afb4bc;
+}
+
+.picker-week-list button.is-active .week-date-range {
+  color: inherit;
 }
 
 /* "回到今天" / "回到本周" button */
@@ -2118,7 +2131,7 @@ onBeforeUnmount(() => {
   margin-top: 8px;
   padding: 7px 0;
   border-radius: 8px;
-  color: var(--auralis-sidebar-active-indicator);
+  color: #f3eee6;
   font-size: 11px;
   font-weight: 700;
   text-align: center;
@@ -2126,7 +2139,8 @@ onBeforeUnmount(() => {
 }
 
 .picker-today-btn:hover {
-  background: var(--auralis-control-hover-bg);
+  background: transparent;
+  color: #afb4bc;
 }
 
 .archive-ranking-state {

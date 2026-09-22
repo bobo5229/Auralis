@@ -10,11 +10,12 @@ import {
   type AlbumDetailSnapshot,
 } from '../albumDetailSnapshot'
 import type { AlbumSummary } from '../types'
-import { groupAlbums, moreAlbumsByArtist, selectAlbumTracks } from '../utils/albumGrouping'
+import { moreAlbumsByArtist } from '../utils/albumGrouping'
+import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
 import { albumIdentityKey } from '../utils/albumIdentity'
 
 export type AlbumDetailLoadState = 'loading' | 'ready' | 'not-found' | 'error'
-export { selectAlbumTracks }
+export { selectAlbumTracks } from '../utils/albumGrouping'
 
 type AlbumDetailLibraryClient = Pick<AuralisApi['library'], 'getAlbumDetail' | 'onChanged'>
 
@@ -71,21 +72,19 @@ export function useAlbumDetailTracks({
   )
   const previewArtworkCacheKey = ref<string | null>(initialSnapshot?.artworkCacheKey ?? null)
   const previewReleaseDate = ref<string | null>(initialSnapshot?.releaseDate ?? null)
-  const loadState = shallowRef<AlbumDetailLoadState>(
-    selectAlbumTracks(tracks.value, albumArtist.value, albumTitle.value).length > 0
-      ? 'ready'
-      : 'loading',
-  )
   let hasCatalogSnapshot = snapshotHasCatalog(initialSnapshot)
   const albumTracks = computed(() =>
-    selectAlbumTracks(tracks.value, albumArtist.value, albumTitle.value),
+    getAlbumCatalogIndex(tracks.value).selectTracks(albumArtist.value, albumTitle.value),
+  )
+  const loadState = shallowRef<AlbumDetailLoadState>(
+    albumTracks.value.length > 0 ? 'ready' : 'loading',
   )
   const moreAlbums = computed(() => {
     if (!hasCatalogSnapshot && storedMoreAlbums.value.length > 0) {
       return moreAlbumsByArtist(storedMoreAlbums.value, albumArtist.value, albumTitle.value)
     }
 
-    return moreAlbumsByArtist(groupAlbums(tracks.value), albumArtist.value, albumTitle.value)
+    return getAlbumCatalogIndex(tracks.value).moreAlbums(albumArtist.value, albumTitle.value)
   })
 
   let disposed = false

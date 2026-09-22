@@ -30,7 +30,12 @@ export interface PlaybackPublicApi {
   playTrackFromQueue(
     queue: PlaybackTrack[],
     trackId: number,
-    options?: { shufflePool?: PlaybackTrack[] },
+    options?: {
+      shufflePool?: PlaybackTrack[]
+      shuffleCycle?: boolean
+      playbackMode?: PlaybackMode
+      replaceHistory?: boolean
+    },
   ): Promise<void>
   insertTrackAfterCurrent(track: PlaybackTrack): void
   insertTracksAfterCurrent(tracks: PlaybackTrack[]): void
@@ -311,7 +316,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     trackId: number,
     options?: {
       recordHistory?: boolean
-      resetShuffleContext?: { shufflePool?: PlaybackTrack[] }
+      resetShuffleContext?: { shufflePool?: PlaybackTrack[]; shuffleCycle?: boolean }
     },
   ): Promise<void> {
     const index = queue.findIndex((t) => t.id === trackId)
@@ -462,11 +467,26 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   async function playTrackFromQueue(
     queue: PlaybackTrack[],
     trackId: number,
-    options?: { shufflePool?: PlaybackTrack[] },
+    options?: {
+      shufflePool?: PlaybackTrack[]
+      shuffleCycle?: boolean
+      playbackMode?: PlaybackMode
+      replaceHistory?: boolean
+    },
   ): Promise<void> {
+    if (!queue.some((track) => track.id === trackId)) return
+    if (options?.replaceHistory) navigationSession.clearHistory()
+    if (options?.playbackMode) {
+      invalidateGaplessTransition()
+      state.playbackMode = options.playbackMode
+      navigationSession.setMode(options.playbackMode)
+    }
     await playTrackFromResolvedQueue(queue, trackId, {
-      recordHistory: true,
-      resetShuffleContext: { shufflePool: options?.shufflePool },
+      recordHistory: !options?.replaceHistory,
+      resetShuffleContext: {
+        shufflePool: options?.shufflePool,
+        shuffleCycle: options?.shuffleCycle,
+      },
     })
   }
 

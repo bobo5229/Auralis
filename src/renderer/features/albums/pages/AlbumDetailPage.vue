@@ -18,6 +18,7 @@ import AlbumDetailTrackList from '../components/AlbumDetailTrackList.vue'
 import type { AlbumSummary } from '../types'
 import { useAlbumDetailTracks } from '../composables/useAlbumDetailTracks'
 import { albumHeroTintStyle, resolveAlbumHeroTint } from '../utils/albumHeroTint'
+import { createAlbumArtworkTransition } from '@renderer/shared/animation/motion'
 
 const props = withDefaults(
   defineProps<{
@@ -43,6 +44,8 @@ let detailScrollTarget: HTMLElement | null = null
 let modernEffectsBound = false
 let modernEffectsActivationGeneration = 0
 let isPageUnmounted = false
+let artworkTransition: ReturnType<typeof createAlbumArtworkTransition> | null = null
+const isOpeningWork = ref(false)
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
 const MAX_COVER_TILT_DEGREES = 12
 
@@ -331,8 +334,16 @@ function goBack(): void {
   void router.push({ name: 'albums' })
 }
 
-function openAlbum(album: AlbumSummary): void {
+async function openAlbum(album: AlbumSummary, event: MouseEvent): Promise<void> {
+  if (isOpeningWork.value) return
   if (album.albumArtist === albumArtist.value && album.title === albumTitle.value) return
+
+  const source = (event.currentTarget as HTMLElement).querySelector<HTMLElement>(
+    '.album-more-gallery-cover',
+  )
+  const content = detailRootRef.value?.querySelector<HTMLElement>('.album-detail-wrapper')
+  isOpeningWork.value = true
+  if (source && content) artworkTransition = createAlbumArtworkTransition(source, content)
 
   prefetchArtworkPalette(album.artworkCacheKey)
   writeAlbumDetailSnapshot({
@@ -345,13 +356,27 @@ function openAlbum(album: AlbumSummary): void {
     catalogTracks: tracks.value.length > albumTracks.value.length ? tracks.value : null,
   })
 
-  void router.push({
-    name: 'album-detail',
-    query: {
-      artist: album.albumArtist,
-      title: album.title,
-    },
-  })
+  try {
+    await artworkTransition?.ready
+    if (isPageUnmounted) return
+    const failure = await router.push({
+      name: 'album-detail',
+      query: {
+        artist: album.albumArtist,
+        title: album.title,
+      },
+    })
+    if (failure) {
+      artworkTransition?.cancel()
+      artworkTransition = null
+      isOpeningWork.value = false
+    }
+  } catch (error) {
+    artworkTransition?.cancel()
+    artworkTransition = null
+    isOpeningWork.value = false
+    throw error
+  }
 }
 
 function showSearchResultHighlight(): void {
@@ -598,6 +623,18 @@ watch(
     if (wasEffectsActive && isEffectsActive.value) showSearchResultHighlight()
     void refreshMoreAlbumsScrollState()
     if (isEffectsActive.value) void enableModernEffects()
+    const transition = artworkTransition
+    if (transition) {
+      const cover = coverStageRef.value?.querySelector<HTMLElement>('.album-hero-cover')
+      const content = detailRootRef.value?.querySelector<HTMLElement>('.album-detail-wrapper')
+      try {
+        if (cover && content && hasRenderableData.value) await transition.finish(cover, content)
+        else transition.cancel()
+      } finally {
+        if (artworkTransition === transition) artworkTransition = null
+        isOpeningWork.value = false
+      }
+    } else isOpeningWork.value = false
   },
 )
 
@@ -616,6 +653,8 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   isPageUnmounted = true
+  artworkTransition?.cancel()
+  artworkTransition = null
   disposeAlbumTracks()
   disableModernEffects()
   if (highlightTimeout) clearTimeout(highlightTimeout)
@@ -821,7 +860,8 @@ onBeforeUnmount(() => {
               :aria-label="
                 t('albums.detail.openAlbumAria', { title: formatDisplayAlbumTitle(album.title) })
               "
-              @click="openAlbum(album)"
+              :disabled="isOpeningWork"
+              @click="openAlbum(album, $event)"
             >
               <div class="album-more-gallery-cover">
                 <img
@@ -1496,6 +1536,7 @@ onBeforeUnmount(() => {
   overflow-y: hidden;
   padding: 12px var(--gallery-inline-padding) 16px;
   margin-top: -4px;
+  margin-inline: calc(-1 * var(--gallery-inline-padding));
   scroll-snap-type: x proximity;
   /* Keep the first card snapped at scrollLeft = 0, including its inset. */
   scroll-padding-inline: var(--gallery-inline-padding);

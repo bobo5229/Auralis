@@ -1,5 +1,6 @@
 import { animateFrames, animateTilt } from '@renderer/shared/animation/motion'
-import { cdAlbumIndex, cdPose, cdSlots } from './cdGeometry'
+import { cdAlbumIndex, cdPose, cdSlots, cdProjectedDiscOutline } from './cdGeometry'
+import { playCdStartup } from './cdStartup'
 
 export interface CdAlbum {
   key: string
@@ -12,6 +13,8 @@ interface DiscNode {
   slot: HTMLDivElement
   disc: HTMLDivElement
   hoverPlane: HTMLDivElement
+  image?: HTMLImageElement
+  vinyl?: HTMLDivElement
   tiltAnimation?: ReturnType<typeof animateTilt>
 }
 
@@ -29,6 +32,8 @@ const POSITION_STIFFNESS = 110
 const SWAY_STIFFNESS = 100
 const SWAY_DAMPING = 14.4
 const INFO_DELAY_SECONDS = 0.4
+const RAPID_INPUT_SECONDS = 0.25
+const MAX_BROWSE_SPEED = 6
 
 interface InertialMove {
   position: number
@@ -43,6 +48,12 @@ export function createCdStage(
   stage: HTMLElement,
   onSelect: (index: number) => void,
   onApproach?: (index: number) => void,
+  onStartup?: (running: boolean) => void,
+  onRapidBrowse?: (running: boolean) => void,
+  focusOptions?: {
+    geometry: () => { cx: number; cy: number; rightBoundary: number }
+    change: (progress: number, settled: boolean) => void
+  },
 ) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
   const listeners = new AbortController()
@@ -60,6 +71,73 @@ export function createCdStage(
   let cancelAnimation: (() => void) | null = null
   let hovered: DiscNode | null = null
   let pointer: StagePointer | null = null
+  let rapid = false
+  let startup = false
+  let startupGeneration = 0
+  let preparationTimer: ReturnType<typeof setTimeout> | undefined
+  let width = stage.clientWidth
+  let height = stage.clientHeight
+  let focusProgress = 0
+  let focusTarget = 0
+  let focusMoving = false
+  let focusGeometry = { cx: 0, cy: 0, size: 0 }
+
+  function measureFocus(): void {
+    if (!focusOptions) return
+    const target = focusOptions.geometry()
+    const pose = cdPose(0, width, height)
+    const right = Math.max(...cdProjectedDiscOutline(pose).map((point) => point.x)) - pose.cx
+    const scale = Math.min(
+      1.08,
+      Math.max(0, target.rightBoundary - target.cx - 32) / Math.max(1, right),
+    )
+    focusGeometry = { cx: target.cx, cy: target.cy, size: pose.size * scale }
+  }
+
+  function setFocused(open: boolean): void {
+    if (!focusOptions || startup || active || !albums.length || Number(open) === focusTarget) return
+    cancelAnimation?.()
+    resetHover()
+    pointer = null
+    measureFocus()
+    focusTarget = Number(open)
+    const from = focusProgress
+    focusMoving = true
+    focusOptions.change(open ? Math.max(from, 0.0001) : from, false)
+    const finish = (): void => {
+      focusProgress = focusTarget
+      focusMoving = false
+      cancelAnimation = null
+      render(selected)
+      for (const node of nodes.values()) {
+        node.slot.style.willChange = ''
+        node.disc.style.willChange = ''
+      }
+      focusOptions.change(focusProgress, true)
+    }
+    if (reducedMotion.matches) {
+      finish()
+      return
+    }
+    for (const node of nodes.values()) {
+      node.slot.style.willChange = 'transform, opacity'
+      node.disc.style.willChange = 'transform'
+    }
+    let elapsed = 0
+    const duration = Math.max(0.18, (open ? 0.88 : 0.72) * Math.abs(focusTarget - from))
+    cancelAnimation = animateFrames((seconds) => {
+      elapsed += seconds
+      const p = Math.min(1, elapsed / duration)
+      const eased = p * p * p * (10 + p * (-15 + 6 * p))
+      focusProgress = from + (focusTarget - from) * eased
+      const wobble = Math.sin(p * Math.PI * 7) * Math.sin(p * Math.PI) * (1 - p) ** 1.3 * 2.8
+      render(selected, wobble)
+      focusOptions.change(focusProgress, false)
+      if (p < 1) return true
+      finish()
+      return false
+    })
+  }
 
   function tilt(node: DiscNode, transform: string): void {
     node.tiltAnimation?.stop()
@@ -109,13 +187,15 @@ export function createCdStage(
     art.className = 'cd-art'
     // Rotate inside the disc plane, leaving its silhouette, lighting and path intact.
     art.style.transform = `rotate(${angle}deg)`
+    let image: HTMLImageElement | undefined
     if (album.artworkUrl) {
-      const image = new Image()
+      image = new Image()
       image.alt = ''
       image.decoding = 'async'
       image.draggable = false
       image.src = album.artworkUrl
-      image.addEventListener('error', () => image.remove(), { once: true })
+      const artwork = image
+      image.addEventListener('error', () => artwork.remove(), { once: true })
       art.append(image)
     }
     const hub = document.createElement('div')
@@ -124,7 +204,7 @@ export function createCdStage(
     hoverPlane.append(disc)
     slot.append(hoverPlane)
     stage.append(slot)
-    const node = { index, albumKey: album.key, slot, disc, hoverPlane }
+    const node = { index, albumKey: album.key, slot, disc, hoverPlane, image }
     nodes.set(index, node)
     discNodes.set(disc, node)
     return node
@@ -139,35 +219,137 @@ export function createCdStage(
         nodes.delete(index)
       }
     }
-    const width = stage.clientWidth
-    const height = stage.clientHeight
-    const sceneWidth = Math.max(width, Math.min(760, height * 1.25))
-    const sceneHeight = Math.min(height, sceneWidth * 0.57)
-    const offsetX = (width - sceneWidth) / 2
-    const offsetY = (height - sceneHeight) / 2
     slots.forEach((index, layer) => {
       const node = nodes.get(index) ?? createDisc(index)
       const t = index - position
-      const pose = cdPose(t)
-      const size = sceneWidth * pose.size
+      const pose = cdPose(t, width, height)
+      const central = index === selected
+      if (central && focusProgress > 0) {
+        pose.cx += (focusGeometry.cx - pose.cx) * focusProgress
+        pose.cy += (focusGeometry.cy - pose.cy) * focusProgress
+        pose.size += (focusGeometry.size - pose.size) * focusProgress
+      }
       const edge = Math.max(0, Math.min(1, (t + 2.5) * 2, (1.5 - t) * 2))
-      node.slot.style.opacity = String(edge * edge * (3 - 2 * edge))
-      node.slot.style.transform = `translate3d(${offsetX + pose.x * sceneWidth - size / 2}px, ${offsetY + pose.y * sceneHeight - size / 2}px, 0) scale(${size / 400})`
-      node.slot.style.zIndex = String(layer + 1)
-      // The resting centre disc has no selection action. During motion the pending
-      // target likewise remains a no-op, while every other visible instance can retarget.
-      node.disc.style.cursor = index === (active?.target ?? selected) ? 'default' : 'pointer'
+      const fade = Math.min(1, focusProgress / 0.8)
+      node.slot.style.opacity = String(
+        edge * edge * (3 - 2 * edge) * (central ? 1 : 1 - fade * fade * (3 - 2 * fade)),
+      )
+      node.slot.style.transform = `translate3d(${pose.cx - pose.size / 2}px, ${pose.cy - pose.size / 2}px, 0) scale(${pose.size / 400})`
+      node.slot.style.zIndex = String(central && focusProgress > 0 ? 5 : layer + 1)
+      node.disc.style.pointerEvents =
+        focusMoving || (focusProgress > 0 && !central) ? 'none' : 'auto'
+      // The resting centre opens focus; a pending target during browsing remains a no-op.
+      node.disc.style.cursor =
+        focusProgress > 0 || (!focusOptions && index === (active?.target ?? selected))
+          ? 'default'
+          : 'pointer'
       node.disc.style.transform = `perspective(1100px) rotateZ(${pose.turn + angle}deg) rotateY(${pose.tilt + angle * 0.62}deg) rotateX(${9 + angle * 0.28}deg)`
     })
   }
 
   function stop(): void {
+    if (focusProgress || focusMoving) {
+      focusProgress = focusTarget = 0
+      focusMoving = false
+      focusOptions?.change(0, true)
+      for (const node of nodes.values()) {
+        node.slot.style.willChange = ''
+        node.disc.style.willChange = ''
+      }
+    }
+    if (rapid) {
+      rapid = false
+      onRapidBrowse?.(false)
+    }
+    ++startupGeneration
+    clearTimeout(preparationTimer)
+    preparationTimer = undefined
+    if (startup) {
+      startup = false
+      for (const node of nodes.values()) {
+        node.vinyl?.remove()
+        node.vinyl = undefined
+        node.slot.style.willChange = ''
+        node.disc.style.willChange = ''
+      }
+      onStartup?.(false)
+    }
     cancelAnimation?.()
     cancelAnimation = null
     active = null
     swayAngle = 0
     swayVelocity = 0
     resetHover()
+  }
+
+  function beginStartup(): void {
+    startup = true
+    onStartup?.(true)
+    const generation = ++startupGeneration
+    const travel = albums.length >= 4 ? 9 : 0
+    const first = travel ? -travel - 2 : 0
+    const last = travel ? 1 : Math.min(1, albums.length - 1)
+    const readyImages = new Set<HTMLImageElement>()
+    const decoding: Promise<void>[] = []
+    // Bounded pool: at most 13 nodes, only four visible. Nothing is allocated,
+    // reparented or assigned a new image source during the rapid passage.
+    for (let index = first; index <= last; index++) {
+      const node = createDisc(index)
+      node.slot.style.opacity = '0'
+      node.slot.style.willChange = 'transform, opacity'
+      node.disc.style.willChange = 'transform'
+      const vinyl = document.createElement('div')
+      vinyl.className = 'cd-startup-vinyl'
+      node.disc.append(vinyl)
+      node.vinyl = vinyl
+      if (node.image) {
+        const image = node.image
+        decoding.push(
+          image.decode().then(
+            () => {
+              readyImages.add(image)
+            },
+            () => {},
+          ),
+        )
+      }
+    }
+    let prepared = false
+    const start = (): void => {
+      if (prepared || generation !== startupGeneration) return
+      prepared = true
+      clearTimeout(preparationTimer)
+      preparationTimer = undefined
+      // A slow/broken cover gets the existing metal fallback, never a late
+      // image upload halfway through the fast animation.
+      for (const node of nodes.values()) {
+        if (node.image && !readyImages.has(node.image)) node.image.remove()
+      }
+      const pool = new Map(
+        Array.from(nodes, ([index, node]) => [
+          index,
+          {
+            slot: node.slot,
+            disc: node.disc,
+            vinyl: node.vinyl!,
+          },
+        ]),
+      )
+      cancelAnimation = playCdStartup(
+        pool,
+        albums.length,
+        () => ({ width, height }),
+        () => {
+          cancelAnimation = null
+          stop()
+          selected = 0
+          render(selected)
+          onSelect(selected)
+        },
+      )
+    }
+    preparationTimer = setTimeout(start, 1200)
+    void Promise.all(decoding).then(start)
   }
 
   function dampingRatio(target: number, currentPosition: number, velocity: number): number {
@@ -187,7 +369,10 @@ export function createCdStage(
     const acceleration =
       (active.target - active.position) * POSITION_STIFFNESS -
       2 * active.dampingRatio * Math.sqrt(POSITION_STIFFNESS) * active.velocity
-    active.velocity += acceleration * seconds
+    active.velocity = Math.max(
+      -MAX_BROWSE_SPEED,
+      Math.min(MAX_BROWSE_SPEED, active.velocity + acceleration * seconds),
+    )
     active.position += active.velocity * seconds
     const swayAcceleration = -SWAY_STIFFNESS * swayAngle - SWAY_DAMPING * swayVelocity
     swayVelocity += swayAcceleration * seconds
@@ -195,6 +380,7 @@ export function createCdStage(
     render(active.position, swayAngle)
     // Each retarget restarts only the label delay, never the disc's momentum.
     if (
+      !rapid &&
       !active.infoTriggered &&
       active.elapsed >= INFO_DELAY_SECONDS &&
       Math.abs(active.target - active.position) < 0.5
@@ -215,10 +401,15 @@ export function createCdStage(
     swayVelocity = 0
     render(selected)
     onSelect(cdAlbumIndex(selected, albums.length))
+    if (rapid) {
+      rapid = false
+      onRapidBrowse?.(false)
+    }
     return false
   }
 
   function moveToPosition(target: number): void {
+    if (startup || focusProgress > 0 || focusMoving) return
     if (!albums.length || target === (active?.target ?? selected)) return
     const direction = Math.sign(target - (active?.target ?? selected))
     resetHover()
@@ -230,6 +421,12 @@ export function createCdStage(
       return
     }
     if (active) {
+      // Once entered, suppression lasts until physical settling, not a timeout
+      // after the last click. Invalid/no-op inputs never enter this mode.
+      if (!rapid && active.elapsed <= RAPID_INPUT_SECONDS) {
+        rapid = true
+        onRapidBrowse?.(true)
+      }
       active.target = target
       active.dampingRatio = dampingRatio(target, active.position, active.velocity)
       active.elapsed = 0
@@ -250,11 +447,15 @@ export function createCdStage(
 
   function navigate(direction: number): void {
     if (albums.length < 2) return
-    const target = (active?.target ?? selected) + direction
+    // Reversing discards the forward backlog and aims immediately behind/ahead
+    // of the current position, preserving velocity for smooth braking.
+    const target =
+      active && direction * (active.target - active.position) < 0
+        ? direction > 0
+          ? Math.floor(active.position) + 1
+          : Math.ceil(active.position) - 1
+        : (active?.target ?? selected) + direction
     if (albums.length < 4 && (target < 0 || target >= albums.length)) return
-    // Buttons and keys remain bounded against repeated input; direct disc selection
-    // intentionally bypasses this relative guard because it names a visible instance.
-    if (Math.abs(target - selected) > 3) return
     moveToPosition(target)
   }
 
@@ -291,6 +492,8 @@ export function createCdStage(
         event.buttons ||
         pointer ||
         active ||
+        focusMoving ||
+        startup ||
         reducedMotion.matches
       ) {
         resetHover()
@@ -313,7 +516,8 @@ export function createCdStage(
   stage.addEventListener(
     'pointerdown',
     (event) => {
-      if (!event.isPrimary || event.button !== 0) return
+      if (startup || focusMoving || focusProgress > 0 || !event.isPrimary || event.button !== 0)
+        return
       resetHover()
       stage.focus({ preventScroll: true })
       const node = nodeFromEvent(event)
@@ -349,7 +553,8 @@ export function createCdStage(
         albums[cdAlbumIndex(pressed.node.index, albums.length)]?.key !== pressed.node.albumKey
       )
         return
-      moveToPosition(pressed.node.index)
+      if (!active && pressed.node.index === selected && focusOptions) setFocused(true)
+      else moveToPosition(pressed.node.index)
     },
     options,
   )
@@ -364,6 +569,7 @@ export function createCdStage(
     'change',
     () => {
       const target = active?.target ?? selected
+      const wasFocused = focusTarget === 1
       stop()
       for (const node of nodes.values()) {
         node.tiltAnimation?.cancel()
@@ -372,18 +578,23 @@ export function createCdStage(
       selected = target
       render(selected)
       if (albums.length) onSelect(cdAlbumIndex(selected, albums.length))
+      if (wasFocused) setFocused(true)
     },
     options,
   )
   const observer = new ResizeObserver(() => {
+    width = stage.clientWidth
+    height = stage.clientHeight
+    if (focusProgress > 0 || focusMoving) measureFocus()
     resetHover()
-    if (!active) render(selected)
+    if (!active && !startup) render(selected)
   })
   observer.observe(stage)
 
   return {
     navigate,
-    setAlbums(next: readonly CdAlbum[]): void {
+    setFocused,
+    setAlbums(next: readonly CdAlbum[], intro = false): void {
       const key = albums.length ? albums[cdAlbumIndex(selected, albums.length)].key : null
       stop()
       pointer = null
@@ -398,8 +609,9 @@ export function createCdStage(
         0,
         albums.findIndex((album) => album.key === key),
       )
-      render(selected)
       onSelect(selected)
+      if (intro && albums.length && !reducedMotion.matches) beginStartup()
+      else render(selected)
     },
     dispose(): void {
       stop()

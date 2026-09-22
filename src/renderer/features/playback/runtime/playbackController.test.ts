@@ -83,6 +83,38 @@ describe('playbackController unit tests with injected dependencies', () => {
     expect(controller.api.state.playbackMode).toBe('shuffle')
   })
 
+  it('replaces the queue and history with the chosen CD album and keeps shuffle inside it', async () => {
+    const controller = createPlaybackController(deps)
+    const tracks: PlaybackTrack[] = [1, 2, 3, 9].map((id) => ({
+      id,
+      title: String(id),
+      artist: 'A',
+      albumArtist: 'A',
+      album: 'CD',
+      artworkCacheKey: null,
+      durationSeconds: 10,
+    }))
+    await controller.api.playTrackFromQueue([tracks[3]], 9)
+    const album = tracks.slice(0, 3)
+    await controller.api.playTrackFromQueue(album, 2, {
+      shufflePool: album,
+      shuffleCycle: true,
+      playbackMode: 'shuffle',
+      replaceHistory: true,
+    })
+    expect(controller.api.state.queue.map((track) => track.id)).toEqual([1, 2, 3])
+    const round = [controller.api.state.currentTrackId]
+    await controller.api.playNext()
+    round.push(controller.api.state.currentTrackId)
+    await controller.api.playNext()
+    round.push(controller.api.state.currentTrackId)
+    expect(round.sort()).toEqual([1, 2, 3])
+    for (let i = 0; i < 5; i++) await controller.api.playPrevious()
+    expect(controller.api.state.currentTrackId).not.toBe(9)
+    expect(deps.getRandomTrack).not.toHaveBeenCalled()
+    controller.dispose()
+  })
+
   it('allows safe multiple dispose calls (idempotence)', () => {
     const controller = createPlaybackController(deps)
     expect(() => {

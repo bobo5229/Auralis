@@ -1,11 +1,158 @@
-export function cdPose(t: number) {
-  return {
-    x: 0.52 + 0.2825 * t + (t < 0 ? 0.0275 : 0.1325) * t * t,
-    y: 0.55 - 0.22 * t - 0.065 * t * t,
-    size: 0.41 * Math.pow(1.24, t),
-    tilt: -42 + 3 * t,
-    turn: 24 - 2 * t,
+export interface CdPose {
+  x: number
+  y: number
+  cx: number
+  cy: number
+  size: number
+  tilt: number
+  turn: number
+}
+
+export interface CdPoint {
+  x: number
+  y: number
+}
+
+const DISC_BASE_SIZE = 400
+const DISC_RADIUS = DISC_BASE_SIZE / 2
+const DISC_PERSPECTIVE = 1100
+const DISC_X_TILT = 9
+const SIZE_LOG_RATE = Math.log(1.2)
+const SIZE_ANCHORS = [
+  { t: -2, log: -2 * SIZE_LOG_RATE + 0.048, slope: 0.03 },
+  { t: -1, log: -SIZE_LOG_RATE + 0.012 + Math.log(0.88), slope: 0.03 },
+  { t: 0, log: Math.log(1.1), slope: 0.14 },
+  { t: 1, log: SIZE_LOG_RATE, slope: SIZE_LOG_RATE },
+]
+
+function discSizeScale(t: number): number {
+  const first = SIZE_ANCHORS[0]
+  if (t <= first.t) return Math.exp(first.log + (t - first.t) * first.slope)
+  if (t >= 1) return Math.exp(SIZE_LOG_RATE * t)
+  const index = Math.floor(t) + 2
+  const start = SIZE_ANCHORS[index]
+  const end = SIZE_ANCHORS[index + 1]
+  const u = t - start.t
+  // Hermite interpolation in log space preserves positive, smoothly changing
+  // sizes through every slot, including during rapid browsing and startup.
+  return Math.exp(
+    (2 * u ** 3 - 3 * u ** 2 + 1) * start.log +
+      (u ** 3 - 2 * u ** 2 + u) * start.slope +
+      (-2 * u ** 3 + 3 * u ** 2) * end.log +
+      (u ** 3 - u ** 2) * end.slope,
+  )
+}
+
+export function cdPose(t: number, width?: number, height?: number): CdPose {
+  const w = typeof width === 'number' && width > 10 ? width : 1400
+  const h = typeof height === 'number' && height > 10 ? height : 700
+
+  // 1. 基准尺寸：同时受可用高度与宽度约束，避免随宽度过度放大
+  // 中心盘放大 10% 后，透视可见高度约为内容区高度的 60%。
+  const baseD = Math.min(h * 0.6, w * 0.38)
+  // Keep the outer slots' sizes; reduce the frontal near-left disc by 12%
+  // and enlarge the selected disc by 10% to strengthen its projected area.
+  const size = baseD * discSizeScale(t)
+  // The left discs face the viewer more directly to retain a real contour
+  // overlap while their centres open towards the clipping edge. Its added curve
+  // and first derivative are both zero at the centre anchor.
+  const leftTiltCurve =
+    t < 0 ? 63.5333333333 * t * t + 39.8 * t * t * t + 6.2666666667 * t * t * t * t : 0
+  const tilt = -42 + 3 * t + leftTiltCurve
+  const turn = 24 - 2 * t
+
+  // 2. 中心盘盘心锚点（内容区宽度的 53.5%、高度的 59.5%）
+  const cx0 = 0.535 * w
+  const cy0 = 0.595 * h
+
+  // 3. 水平位移 dx(t)：右段为放大后的中心盘留出间隙。左段由 -1、-2 两个盘心锚点
+  //    反解三次曲线，并让 t=0 的一阶速度与右段完全相同。
+  let dx: number
+  if (t < 0) {
+    const spanRight = 0.92 * baseD + 0.035 * w
+    // Match spacing to the smaller projected discs rather than stretching to
+    // the viewport edge, which would disconnect the chain in wide windows.
+    const nearOffset = 0.76 * baseD
+    const farOffset = 1.46 * baseD
+    const delta = spanRight - nearOffset
+    const cubic = (farOffset - 2 * spanRight + 4 * delta) / 4
+    const quadratic = delta + cubic
+    // The extra term leaves -2, -1 and 0 untouched, but keeps the fading tail
+    // moving rightward through t=-2.5 rather than folding back before recycling.
+    const tailBasisSlope = -16.25 // d/dt [t²(t+1)(t+2)] at t=-2.5
+    const tailSlope = spanRight * 0.15
+    const tailAtEdge = spanRight - 5 * quadratic + 18.75 * cubic
+    const tail = (tailSlope - tailAtEdge) / tailBasisSlope
+    dx = spanRight * t + quadratic * t * t + cubic * t * t * t + tail * t * t * (t + 1) * (t + 2)
+  } else {
+    const spanRight = 0.92 * baseD + 0.035 * w
+    dx = spanRight * t
   }
+
+  // 4. 垂直位移 dy(t)：保留左下整数锚点的底留白，并与右段一阶相接。
+  let dy: number
+  if (t < 0) {
+    const linear = -0.42 * baseD
+    const nearRise = 0.168 * baseD
+    const farRise = 0.23 * baseD
+    const delta = nearRise + linear
+    const cubic = (4 * nearRise + 2 * linear - farRise) / 4
+    const quadratic = delta + cubic
+    dy = linear * t + quadratic * t * t + cubic * t * t * t
+  } else {
+    dy = -0.42 * baseD * t
+  }
+
+  const cx = cx0 + dx
+  const cy = cy0 + dy
+
+  return {
+    x: cx,
+    y: cy,
+    cx,
+    cy,
+    size,
+    tilt,
+    turn,
+  }
+}
+
+/**
+ * Samples the static outer contour after the same nested CSS transforms used by
+ * the stage: 400px disc around its centre, rotateX → rotateY → rotateZ →
+ * perspective(1100px), followed by the slot's outer scale.
+ */
+export function cdProjectedDiscOutline(pose: CdPose, samples = 128): CdPoint[] {
+  const radians = Math.PI / 180
+  const xTilt = DISC_X_TILT * radians
+  const yTilt = pose.tilt * radians
+  const zTurn = pose.turn * radians
+  const scale = pose.size / DISC_BASE_SIZE
+  const cosX = Math.cos(xTilt)
+  const sinX = Math.sin(xTilt)
+  const cosY = Math.cos(yTilt)
+  const sinY = Math.sin(yTilt)
+  const cosZ = Math.cos(zTurn)
+  const sinZ = Math.sin(zTurn)
+
+  return Array.from({ length: samples }, (_, index) => {
+    const angle = (index / samples) * Math.PI * 2
+    const sourceX = Math.cos(angle) * DISC_RADIUS
+    const sourceY = Math.sin(angle) * DISC_RADIUS
+    const afterX = sourceX
+    const afterY = sourceY * cosX
+    const afterZ = sourceY * sinX
+    const turnedX = afterX * cosY + afterZ * sinY
+    const turnedY = afterY
+    const turnedZ = -afterX * sinY + afterZ * cosY
+    const rotatedX = turnedX * cosZ - turnedY * sinZ
+    const rotatedY = turnedX * sinZ + turnedY * cosZ
+    const perspectiveScale = 1 / (1 - turnedZ / DISC_PERSPECTIVE)
+    return {
+      x: pose.cx + rotatedX * perspectiveScale * scale,
+      y: pose.cy + rotatedY * perspectiveScale * scale,
+    }
+  })
 }
 
 export function cdSlots(position: number, count: number): number[] {

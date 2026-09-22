@@ -1,6 +1,121 @@
 import { animate, type AnimationOptionsWithOverrides, type ElementOrSelector } from '@motionone/dom'
 import type { AnimationControls } from '@motionone/types'
 
+/** A compositor-only playback marker; paused/reduced motion keeps a static line. */
+export function animatePlaybackUnderline(target: HTMLElement, playing: boolean): () => void {
+  const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const title = target.parentElement
+  let animation: Animation | undefined
+  const update = (): void => {
+    const elapsed = animation?.currentTime
+    animation?.cancel()
+    animation = undefined
+    // Read geometry only when the title/marker resizes, never on animation frames.
+    const distance = Math.max(0, (title?.clientWidth ?? 0) - target.getBoundingClientRect().width)
+    if (playing && !preference.matches && distance > 0) {
+      animation = target.animate(
+        [{ transform: 'translateX(0)' }, { transform: `translateX(${distance}px)` }],
+        { duration: 1400, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' },
+      )
+      if (typeof elapsed === 'number') animation.currentTime = elapsed
+    }
+  }
+  const resizeObserver = new ResizeObserver(update)
+  if (title) resizeObserver.observe(title)
+  resizeObserver.observe(target)
+  update()
+  preference.addEventListener('change', update)
+  return () => {
+    animation?.cancel()
+    resizeObserver.disconnect()
+    preference.removeEventListener('change', update)
+  }
+}
+
+/** Carry a gallery cover into its destination without retaining route DOM. */
+export function createAlbumArtworkTransition(source: HTMLElement, content: HTMLElement) {
+  const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const reducedMotion = motionPreference.matches
+  const animations: Animation[] = []
+  let stopped = false
+  let destination: HTMLElement | null = null
+  let previousVisibility = ''
+  const rect = source.getBoundingClientRect()
+  const cover = source.cloneNode(true) as HTMLElement
+  cover.setAttribute('aria-hidden', 'true')
+  Object.assign(cover.style, {
+    position: 'fixed',
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+    margin: '0',
+    borderRadius: getComputedStyle(source).borderRadius,
+    overflow: 'hidden',
+    pointerEvents: 'none',
+    zIndex: '1001',
+    transform: 'none',
+  })
+  if (!reducedMotion) document.body.append(cover)
+  const run = (element: HTMLElement, frames: Keyframe[], options: KeyframeAnimationOptions) => {
+    const animation = element.animate(frames, options)
+    animations.push(animation)
+    return animation.finished.catch((error: unknown) => {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) throw error
+    })
+  }
+  const cancel = (): void => {
+    stopped = true
+    animations.forEach((animation) => animation.cancel())
+    cover.remove()
+    if (destination) destination.style.visibility = previousVisibility
+    window.removeEventListener('resize', cancel)
+    motionPreference.removeEventListener('change', cancel)
+  }
+  window.addEventListener('resize', cancel)
+  motionPreference.addEventListener('change', cancel)
+  const ready = run(content, [{ opacity: 1 }, { opacity: 0 }], { duration: 100, fill: 'forwards' })
+  return {
+    ready,
+    cancel,
+    async finish(target: HTMLElement, nextContent: HTMLElement): Promise<void> {
+      if (stopped) return
+      destination = target
+      previousVisibility = target.style.visibility
+      if (!reducedMotion) target.style.visibility = 'hidden'
+      animations.forEach((animation) => animation.cancel())
+      const to = target.getBoundingClientRect()
+      try {
+        await Promise.all([
+          reducedMotion
+            ? Promise.resolve()
+            : run(
+                cover,
+                [
+                  {},
+                  {
+                    left: `${to.left}px`,
+                    top: `${to.top}px`,
+                    width: `${to.width}px`,
+                    height: `${to.height}px`,
+                    borderRadius: getComputedStyle(target).borderRadius,
+                  },
+                ],
+                { duration: 420, easing: 'cubic-bezier(.22,.75,.2,1)', fill: 'forwards' },
+              ),
+          run(nextContent, [{ opacity: 0 }, { opacity: 1 }], {
+            duration: reducedMotion ? 120 : 240,
+            delay: reducedMotion ? 0 : 130,
+            fill: 'both',
+          }),
+        ])
+      } finally {
+        cancel()
+      }
+    },
+  }
+}
+
 /** A cancellable frame clock for coordinated geometry (no Vue render per frame). */
 export function animateProgress(
   duration: number,

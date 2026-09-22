@@ -5,7 +5,11 @@ import { useRouter } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
-import { groupAlbums } from '../utils/albumGrouping'
+import { groupAlbums, selectAlbumTracks } from '../utils/albumGrouping'
+import type { TrackListItem } from '@shared/types/libraryScan'
+import type { PlaybackMode } from '@renderer/features/playback/types'
+import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import CdTrackList from '../components/CdTrackList.vue'
 import { createCdStage, type CdAlbum } from '../utils/cdStageController'
 import { animateProgress } from '@renderer/shared/animation/motion'
 
@@ -15,14 +19,89 @@ interface CdAlbumInfo extends CdAlbum {
   releaseDate: string | null
   trackCount: number
   copyright: string | null
+  tracks: TrackListItem[]
 }
 
 const { t } = useI18n()
 const router = useRouter()
+const playback = usePlayback()
+const pageRef = ref<HTMLElement | null>(null)
+const trackPanelRef = ref<HTMLElement | null>(null)
+const controlsRef = ref<HTMLElement | null>(null)
+const focused = ref(false)
+const focusSettled = ref(false)
+const cdMode = ref<PlaybackMode>('repeat-all')
+let queueOwned = false
+let ownedIds: number[] = []
+const focusedAlbum = computed(() => albumInfo.value[selected.value] ?? null)
+
+watch(
+  () => playback.state.queue,
+  (queue) => {
+    if (
+      queue.length !== ownedIds.length ||
+      queue.some((track, index) => track.id !== ownedIds[index])
+    )
+      queueOwned = false
+  },
+)
+function playCdTrack(id: number): void {
+  const tracks = focusedAlbum.value?.tracks
+  if (!tracks?.some((track) => track.id === id)) return
+  ownedIds = tracks.map((track) => track.id)
+  queueOwned = true
+  void playback.playTrackFromQueue(tracks, id, {
+    shufflePool: tracks,
+    shuffleCycle: true,
+    playbackMode: cdMode.value,
+    replaceHistory: true,
+  })
+}
+function cycleMode(): void {
+  const modes: PlaybackMode[] = ['repeat-all', 'shuffle', 'sequential']
+  cdMode.value = modes[(modes.indexOf(cdMode.value) + 1) % modes.length]
+  const tracks = focusedAlbum.value?.tracks ?? []
+  if (
+    queueOwned &&
+    tracks.length === ownedIds.length &&
+    tracks.every((track, index) => track.id === ownedIds[index])
+  ) {
+    playback.setPlaybackMode(cdMode.value)
+  }
+}
+function back(): void {
+  if (focused.value) controller?.setFocused(false)
+  else void router.push({ name: 'albums' })
+}
+function focusChange(progress: number, settled: boolean): void {
+  const wasFocused = focused.value
+  focused.value = progress > 0 || !settled
+  focusSettled.value = progress === 1 && settled
+  if (!wasFocused && focused.value) settleInfo()
+  const p = Math.max(0, Math.min(1, (progress - 0.72) / 0.28))
+  const reveal = p * p * p * (10 + p * (-15 + 6 * p))
+  if (trackPanelRef.value) {
+    trackPanelRef.value.style.opacity = String(reveal)
+    trackPanelRef.value.style.transform = `translateX(${(1 - reveal) * 16}px)`
+    trackPanelRef.value.style.visibility = reveal > 0 ? 'visible' : 'hidden'
+  }
+  if (controlsRef.value) controlsRef.value.style.opacity = String(1 - Math.min(1, progress / 0.5))
+  if (settled && !disposed) {
+    if (progress === 1)
+      void nextTick(() => {
+        if (!disposed && focusSettled.value)
+          trackPanelRef.value?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true })
+      })
+    else stageRef.value?.focus({ preventScroll: true })
+  }
+}
 const stageRef = ref<HTMLElement | null>(null)
 const infoRef = ref<HTMLElement | null>(null)
 const albumInfo = shallowRef<CdAlbumInfo[]>([])
 const loading = ref(true)
+const starting = ref(false)
+const infoSuppressed = ref(false)
+let startupPlayed = false
 const failed = ref(false)
 const count = ref(0)
 const selected = ref(0)
@@ -60,10 +139,13 @@ async function loadAlbums(): Promise<void> {
         releaseDate: album.releaseDate?.trim() || null,
         trackCount: album.tracks.length,
         copyright: album.tracks.find((track) => track.copyright?.trim())?.copyright?.trim() || null,
+        tracks: selectAlbumTracks(album.tracks, album.albumArtist, album.title),
       }))
       albumInfo.value = albums
       count.value = albums.length
-      controller?.setAlbums(albums)
+      const intro = !startupPlayed && albums.length > 0
+      if (intro) startupPlayed = true
+      controller?.setAlbums(albums, intro)
     } while (refreshPending && !disposed)
   } catch (error) {
     if (!disposed) {
@@ -85,11 +167,24 @@ async function loadAlbums(): Promise<void> {
 }
 
 function navigate(direction: number): void {
-  if (!loading.value && !failed.value) controller?.navigate(direction)
+  if (!loading.value && !failed.value && !starting.value && !focused.value)
+    controller?.navigate(direction)
 }
 
 function onKeydown(event: KeyboardEvent): void {
   if (event.ctrlKey || event.metaKey || event.altKey) return
+  if (event.key === 'Escape' && focused.value) {
+    event.preventDefault()
+    event.stopPropagation()
+    back()
+    return
+  }
+  if (focused.value) return
+  if (event.key === 'Enter' && event.target === stageRef.value) {
+    event.preventDefault()
+    controller?.setFocused(true)
+    return
+  }
   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
   event.preventDefault()
   event.stopPropagation()
@@ -130,10 +225,21 @@ function runInfoPhase(duration: number, update: (progress: number) => void): Pro
   })
 }
 
-async function transitionInfo(album: CdAlbumInfo | null): Promise<void> {
+async function transitionInfo(album: CdAlbumInfo | null, entering = false): Promise<void> {
   const generation = ++infoGeneration
   cancelInfoAnimation?.()
   cancelInfoAnimation = null
+  if (entering && album && !reducedMotion.matches) {
+    clearInfoStyles()
+    setInfoText(0, 4)
+    displayedAlbum.value = album
+    await nextTick()
+    if (disposed || generation !== infoGeneration || infoSuppressed.value) return
+    setInfoText(0, 4)
+    if (!(await runInfoPhase(240, (progress) => setInfoText(progress, 4 * (1 - progress))))) return
+    if (!disposed && generation === infoGeneration) clearInfoStyles()
+    return
+  }
   const rows = infoRows()
   const oldHeights = rows.map((row) => row.getBoundingClientRect().height)
   if (!album || !displayedAlbum.value || !infoRef.value || reducedMotion.matches) {
@@ -176,8 +282,8 @@ async function transitionInfo(album: CdAlbumInfo | null): Promise<void> {
   if (!disposed && generation === infoGeneration) clearInfoStyles()
 }
 
-watch(currentAlbum, (album) => {
-  void transitionInfo(album)
+watch([currentAlbum, infoSuppressed], ([album, suppressed], [, wasSuppressed]) => {
+  if (!suppressed) void transitionInfo(album, wasSuppressed)
 })
 
 function settleInfo(): void {
@@ -186,6 +292,16 @@ function settleInfo(): void {
   cancelInfoAnimation = null
   clearInfoStyles()
   displayedAlbum.value = currentAlbum.value
+}
+
+function setRapidBrowse(running: boolean): void {
+  if (running) {
+    ++infoGeneration
+    cancelInfoAnimation?.()
+    cancelInfoAnimation = null
+    clearInfoStyles()
+  }
+  infoSuppressed.value = running
 }
 
 onMounted(() => {
@@ -200,6 +316,23 @@ onMounted(() => {
     },
     (index) => {
       infoSelected.value = index
+    },
+    (running) => {
+      starting.value = running
+    },
+    setRapidBrowse,
+    {
+      geometry: () => {
+        const stage = stageRef.value!.getBoundingClientRect()
+        const page = pageRef.value!.getBoundingClientRect()
+        // offsetLeft is unaffected by the panel's entry transform.
+        return {
+          cx: page.left + page.width / 2 - stage.left,
+          cy: page.top + page.height / 2 - stage.top,
+          rightBoundary: trackPanelRef.value!.offsetLeft,
+        }
+      },
+      change: focusChange,
     },
   )
   stageRef.value.focus({ preventScroll: true })
@@ -222,14 +355,20 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="cd-page" :aria-label="t('albums.cd.title')" @keydown="onKeydown">
+  <section
+    ref="pageRef"
+    class="cd-page"
+    :class="{ 'cd-page--starting': starting, 'cd-page--focused': focused }"
+    :aria-label="t('albums.cd.title')"
+    @keydown="onKeydown"
+  >
     <header class="cd-header">
       <button
         type="button"
         class="cd-back"
-        :aria-label="t('albums.detail.returnToAlbums')"
-        :title="t('albums.detail.returnToAlbums')"
-        @click="router.push({ name: 'albums' })"
+        :aria-label="t(focused ? 'albums.cd.returnToBrowse' : 'albums.detail.returnToAlbums')"
+        :title="t(focused ? 'albums.cd.returnToBrowse' : 'albums.detail.returnToAlbums')"
+        @click="back"
       >
         <span class="i-lucide-arrow-left" aria-hidden="true"></span>
       </button>
@@ -239,6 +378,8 @@ onBeforeUnmount(() => {
         v-if="displayedAlbum && !loading && !failed"
         ref="infoRef"
         class="cd-info"
+        :class="{ 'cd-info--suppressed': infoSuppressed }"
+        :aria-hidden="infoSuppressed"
         :aria-label="t('albums.cd.information')"
       >
         <div class="cd-info-title-row">
@@ -269,8 +410,29 @@ onBeforeUnmount(() => {
         tabindex="0"
         role="region"
         :aria-label="t('albums.cd.stage')"
-        :aria-busy="loading"
+        :aria-busy="loading || starting"
       ></div>
+      <section
+        ref="trackPanelRef"
+        class="cd-tracks"
+        :inert="!focusSettled"
+        :aria-hidden="!focused"
+        :aria-label="t('albums.cd.tracks')"
+      >
+        <CdTrackList
+          v-if="focused && focusedAlbum"
+          :tracks="focusedAlbum.tracks"
+          :album-artist="focusedAlbum.artist"
+          :mode="cdMode"
+          :current-track-id="playback.state.currentTrackId"
+          :is-playing="playback.state.isPlaying"
+          @play="playCdTrack"
+          @mode="cycleMode"
+        />
+        <p v-if="playback.state.error" class="cd-playback-error" role="alert">
+          {{ playback.state.error }}
+        </p>
+      </section>
       <div v-if="loading || failed || !count" class="cd-status" role="status">
         <template v-if="failed">
           <p>{{ t('albums.status.loadError') }}</p>
@@ -279,21 +441,13 @@ onBeforeUnmount(() => {
         <p v-else>{{ t(loading ? 'albums.status.loading' : 'albums.status.empty') }}</p>
       </div>
     </div>
-    <footer class="cd-controls">
+    <footer ref="controlsRef" class="cd-controls" :inert="starting || focused">
       <span class="cd-hint">{{ t('albums.cd.hint') }}</span>
       <div class="cd-actions">
-        <button
-          type="button"
-          :disabled="loading || failed || count < 2 || (count < 4 && selected === 0)"
-          @click="navigate(-1)"
-        >
+        <button type="button" :disabled="loading || failed || count < 2" @click="navigate(-1)">
           <span class="i-lucide-arrow-left" aria-hidden="true"></span>{{ t('albums.cd.previous') }}
         </button>
-        <button
-          type="button"
-          :disabled="loading || failed || count < 2 || (count < 4 && selected === count - 1)"
-          @click="navigate(1)"
-        >
+        <button type="button" :disabled="loading || failed || count < 2" @click="navigate(1)">
           {{ t('albums.cd.next') }}<span class="i-lucide-arrow-right" aria-hidden="true"></span>
         </button>
       </div>
@@ -305,6 +459,77 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.cd-tracks {
+  position: absolute;
+  right: 32px;
+  top: 20%;
+  bottom: 32px;
+  width: min(320px, 23vw);
+  min-height: 0;
+  min-width: 0;
+  z-index: 6;
+  opacity: 0;
+  visibility: hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color-scheme: light;
+}
+.cd-tracks :deep(.cd-track-panel) {
+  flex: 1 1 0;
+  min-height: 0;
+}
+.cd-playback-error {
+  flex: 0 0 auto;
+  font-size: 11px;
+  color: #8c4034;
+}
+@media (max-width: 800px) {
+  .cd-tracks {
+    right: 20px;
+    width: 24vw;
+  }
+}
+.cd-info--suppressed {
+  visibility: hidden;
+  pointer-events: none;
+}
+.cd-info,
+.cd-controls {
+  transition: opacity 300ms ease;
+}
+.cd-page--starting .cd-info,
+.cd-page--starting .cd-controls {
+  opacity: 0;
+  pointer-events: none;
+  transition: none;
+}
+.cd-stage :deep(.cd-startup-vinyl) {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  border-radius: 50%;
+  pointer-events: none;
+  will-change: opacity;
+  background:
+    radial-gradient(circle, #272727 0 15%, transparent 15.5%),
+    conic-gradient(
+      from 25deg,
+      transparent,
+      #ffffff18,
+      transparent 22%,
+      #0008 40%,
+      #ffffff20 58%,
+      transparent 75%
+    ),
+    repeating-radial-gradient(circle, #171717 0 1px, #292929 1.4px 1.8px, #131313 2.2px 3px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cd-info,
+  .cd-controls {
+    transition: none;
+  }
+}
 /* The approved light CD canvas is local to this page, independent of app theme. */
 .cd-page {
   --auralis-playbar-safe-area: 0px;
@@ -366,7 +591,7 @@ onBeforeUnmount(() => {
   top: 8px;
   left: 32px;
   z-index: 5;
-  width: min(320px, calc(100% - 64px));
+  width: min(320px, 29vw);
   max-height: 44%;
   overflow-y: auto;
   scrollbar-width: thin;
@@ -437,7 +662,7 @@ onBeforeUnmount(() => {
 @container (max-width: 600px) {
   .cd-info {
     left: 24px;
-    width: min(280px, calc(100% - 48px));
+    width: min(280px, 29vw);
   }
   .cd-info-title {
     font-size: 26px;
@@ -446,16 +671,15 @@ onBeforeUnmount(() => {
 .cd-stage {
   position: absolute;
   inset: 0;
-  /* Reserve the maximum label envelope, independent of the selected album. */
-  top: calc(14% + 28px);
-  /* Discs can extend above the stage; the page owns the outer clipping edge. */
+  /* Discs can extend beyond the stage; the page owns the outer clipping edge. */
   overflow: visible;
   touch-action: pan-y;
   user-select: none;
   outline: none;
 }
 .cd-stage:focus-visible {
-  box-shadow: inset 0 0 0 2px #888;
+  outline: none;
+  box-shadow: none;
 }
 .cd-stage--unavailable {
   visibility: hidden;
@@ -482,8 +706,35 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 .cd-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: #62625f;
   font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+.cd-hint::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: transparent;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease;
+}
+.cd-page:has(.cd-stage:focus-visible) .cd-hint {
+  color: #383835;
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+.cd-page:has(.cd-stage:focus-visible) .cd-hint::before {
+  background: #767670;
 }
 .cd-stage :deep(.cd-position) {
   position: absolute;

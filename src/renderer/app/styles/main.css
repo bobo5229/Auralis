@@ -1287,6 +1287,11 @@ input {
   opacity: 0.75;
 }
 
+.player-bar .transport-controls--empty .transport-control {
+  color: #656463;
+  opacity: 1;
+}
+
 .track-progress {
   height: 3px;
   border-radius: 99px;

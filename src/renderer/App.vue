@@ -26,10 +26,13 @@ let unsubscribeMiniPlayerWindowState: (() => void) | null = null
 const previousRouteName = ref(route.name)
 /** Albums ➔ AlbumDetail 专属进入过渡标记；在 beforeEach 提早设为 true，并在 after-enter/cancelled 时复位 */
 const isAlbumDetailEntering = ref(false)
+const isAlbumRouteTransitioning = ref(false)
 
 const removeBeforeEach = router.beforeEach((to, from) => {
   previousRouteName.value = from.name
   isAlbumDetailEntering.value = to.name === 'album-detail' && from.name === 'albums'
+  isAlbumRouteTransitioning.value =
+    isAlbumDetailEntering.value || (to.name === 'albums' && from.name === 'album-detail')
 })
 
 onMounted(() => {
@@ -77,10 +80,12 @@ const transitionName = computed(() => {
 
 function onTransitionAfterEnter(): void {
   isAlbumDetailEntering.value = false
+  isAlbumRouteTransitioning.value = false
 }
 
 function onTransitionEnterCancelled(): void {
   isAlbumDetailEntering.value = false
+  isAlbumRouteTransitioning.value = false
 }
 </script>
 
@@ -117,13 +122,19 @@ function onTransitionEnterCancelled(): void {
             @after-enter="onTransitionAfterEnter"
             @enter-cancelled="onTransitionEnterCancelled"
           >
-            <component
-              :is="Component"
-              :key="String(viewRoute.name)"
-              v-bind="
-                viewRoute.name === 'album-detail' ? { isEntering: isAlbumDetailEntering } : {}
-              "
-            />
+            <KeepAlive include="AlbumsPage" :max="1">
+              <component
+                :is="Component"
+                :key="String(viewRoute.name)"
+                v-bind="
+                  viewRoute.name === 'album-detail'
+                    ? { isEntering: isAlbumDetailEntering }
+                    : viewRoute.name === 'albums'
+                      ? { isTransitioning: isAlbumRouteTransitioning }
+                      : {}
+                "
+              />
+            </KeepAlive>
           </Transition>
         </RouterView>
       </main>

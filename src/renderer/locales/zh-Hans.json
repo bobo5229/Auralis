@@ -242,6 +242,13 @@
   },
   "albums": {
     "cd": {
+      "tracks": "曲目",
+      "returnToBrowse": "返回 CD 浏览",
+      "modes": {
+        "repeat-all": "专辑循环",
+        "shuffle": "随机循环",
+        "sequential": "顺序播放"
+      },
       "information": "专辑资料",
       "trackCount": "{count} 首",
       "artist": "专辑艺术家",
@@ -287,8 +294,8 @@
       },
       "unknownYear": "年份未知",
       "unknownTitle": "未命名曲目",
-      "moreAlbumsTitle": "{artist} 的更多专辑",
-      "moreAlbumsAria": "{artist} 的更多专辑",
+      "moreAlbumsTitle": "{artist} 的更多作品",
+      "moreAlbumsAria": "{artist} 的更多作品",
       "openAlbumAria": "打开专辑 {title}",
       "coverAlt": "{title} 的封面",
       "heroAria": "{title} 的专辑封面与详情",
