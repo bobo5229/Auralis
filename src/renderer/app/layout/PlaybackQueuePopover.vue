@@ -11,7 +11,6 @@ import {
 } from '@renderer/app/utils/playerOverlayFocus'
 import type { PlaybackTrack } from '@renderer/features/playback/types'
 
-defineProps<{}>()
 const emit = defineEmits<{ close: [] }>()
 const element = ref<HTMLElement | null>(null)
 

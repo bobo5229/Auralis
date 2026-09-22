@@ -102,7 +102,11 @@ async function decodeEdges(track) {
     })
     child.once('close', (code) => {
       clearTimeout(timer)
-      code === 0 ? resolve() : reject(Error(diagnostic))
+      if (code === 0) {
+        resolve()
+      } else {
+        reject(Error(diagnostic))
+      }
     })
   })
   const stride = track.channels * 4
@@ -239,8 +243,13 @@ const report = {
     'Every channel equals zero in decoded float32 PCM; six-second edge scan, no amplitude threshold.',
   experimentalSelectionCapMs: 100,
   tracks: tracks.map((track, i) => {
-    const { head, tail, ...metrics } = decoded[i]
-    return { ...track, ...metrics }
+    const { decodedFrames, headZeroFrames, tailZeroFrames } = decoded[i]
+    return {
+      ...track,
+      decodedFrames,
+      headZeroFrames,
+      tailZeroFrames,
+    }
   }),
   boundaries,
   auditions,
