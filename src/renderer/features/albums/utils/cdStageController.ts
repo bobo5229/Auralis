@@ -1,5 +1,6 @@
-import { animateFrames, animateTilt } from '@renderer/shared/animation/motion'
+import { animateFrames } from '@renderer/shared/animation/motion'
 import { cdAlbumIndex, cdPose, cdSlots, cdProjectedDiscOutline } from './cdGeometry'
+import { cdPlaybackWavePath, cdPlaybackWaveSeed } from './cdPlaybackWave'
 import { playCdStartup } from './cdStartup'
 
 export interface CdAlbum {
@@ -12,10 +13,23 @@ interface DiscNode {
   albumKey: string
   slot: HTMLDivElement
   disc: HTMLDivElement
+  art: HTMLDivElement
   hoverPlane: HTMLDivElement
+  waveRing?: SVGSVGElement
+  waveTrack?: SVGPathElement
+  sidewall?: SVGSVGElement
+  sidewallBands?: SVGPathElement[]
+  shadow?: SVGSVGElement
+  shadowPath?: SVGPathElement
+  waveProgress?: SVGPathElement
+  wavePaths?: SVGPathElement[]
+  waveSeed: number
   image?: HTMLImageElement
+  artwork: 'idle' | 'decoding' | 'shown' | 'dropped'
   vinyl?: HTMLDivElement
-  tiltAnimation?: ReturnType<typeof animateTilt>
+  tilt: { x: number; y: number; targetX: number; targetY: number }
+  cancelTiltAnimation?: () => void
+  cancelSpinAnimation?: () => void
 }
 
 interface StagePointer {
@@ -34,6 +48,7 @@ const SWAY_DAMPING = 14.4
 const INFO_DELAY_SECONDS = 0.4
 const RAPID_INPUT_SECONDS = 0.25
 const MAX_BROWSE_SPEED = 6
+const RING_DRAW_DURATION_SECONDS = 3
 
 interface InertialMove {
   position: number
@@ -42,6 +57,13 @@ interface InertialMove {
   dampingRatio: number
   elapsed: number
   infoTriggered: boolean
+}
+
+export interface CdPlaybackRingState {
+  visible: boolean
+  playing: boolean
+  progress: number
+  accent: string
 }
 
 export function createCdStage(
@@ -53,6 +75,7 @@ export function createCdStage(
   focusOptions?: {
     geometry: () => { cx: number; cy: number; rightBoundary: number }
     change: (progress: number, settled: boolean) => void
+    togglePlayback?: () => void
   },
 ) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
@@ -75,12 +98,125 @@ export function createCdStage(
   let startup = false
   let startupGeneration = 0
   let preparationTimer: ReturnType<typeof setTimeout> | undefined
+  let startupOrigin = 0
+  const readyImages = new Set<HTMLImageElement>()
+  const decodeQueue: DiscNode[] = []
+  let decodesInFlight = 0
   let width = stage.clientWidth
   let height = stage.clientHeight
   let focusProgress = 0
   let focusTarget = 0
   let focusMoving = false
   let focusGeometry = { cx: 0, cy: 0, size: 0 }
+  // Focus-only, page-instance memory; never applied to the browsing poses.
+  let focusRotation = { x: 9, y: -42 }
+  let rotationPointer: {
+    id: number
+    x: number
+    y: number
+    startX: number
+    startY: number
+    moved: boolean
+  } | null = null
+  let artworkClick: {
+    node: DiscNode
+    x: number
+    y: number
+    timer: ReturnType<typeof setTimeout>
+  } | null = null
+  let rotationContextMenu = false
+  let playback: CdPlaybackRingState = {
+    visible: false,
+    playing: false,
+    progress: 0,
+    accent: '#62625b',
+  }
+  let cancelWaveAnimation: (() => void) | null = null
+  let waveElapsed = 0
+  let waveFrameElapsed = 0
+  let ringDrawElapsed = 0
+  let ringDrawSettled = false
+
+  function stopWaveAnimation(): void {
+    cancelWaveAnimation?.()
+    cancelWaveAnimation = null
+    waveFrameElapsed = 0
+  }
+
+  function syncPlaybackRing(): void {
+    const activeNode =
+      playback.visible && focusProgress === 1 && !focusMoving ? nodes.get(selected) : undefined
+    for (const node of nodes.values()) {
+      if (!node.waveRing || !node.waveProgress) continue
+      const visible = node === activeNode
+      node.waveRing.style.opacity = visible ? '1' : '0'
+      node.waveProgress.style.stroke = playback.accent
+      node.waveProgress.setAttribute('stroke-dashoffset', String(1 - playback.progress))
+      if (!visible) {
+        node.waveTrack?.setAttribute('stroke-dashoffset', '1')
+      }
+    }
+    if (!activeNode) {
+      stopWaveAnimation()
+      ringDrawElapsed = 0
+      ringDrawSettled = false
+      return
+    }
+    if (reducedMotion.matches) {
+      ringDrawSettled = true
+      activeNode.waveTrack?.setAttribute('stroke-dashoffset', '0')
+    } else if (ringDrawSettled) {
+      activeNode.waveTrack?.setAttribute('stroke-dashoffset', '0')
+    }
+
+    const needsDraw = !ringDrawSettled && !reducedMotion.matches
+    const needsPulse = Boolean(activeNode.wavePaths && playback.playing && !reducedMotion.matches)
+
+    if (!needsDraw && !needsPulse) {
+      stopWaveAnimation()
+      return
+    }
+    if (cancelWaveAnimation) return
+
+    cancelWaveAnimation = animateFrames((seconds) => {
+      const node = nodes.get(selected)
+      if (!node || !playback.visible || focusProgress !== 1 || focusMoving) {
+        cancelWaveAnimation = null
+        return false
+      }
+
+      // 1. Advance the 3-second ease-out draw animation (continues regardless of pause)
+      if (!ringDrawSettled && !reducedMotion.matches) {
+        ringDrawElapsed += seconds
+        const p = Math.min(1, ringDrawElapsed / RING_DRAW_DURATION_SECONDS)
+        const eased = 1 - (1 - p) ** 3
+        node.waveTrack?.setAttribute('stroke-dashoffset', String(1 - eased))
+        if (p >= 1 || ringDrawElapsed >= RING_DRAW_DURATION_SECONDS - 1e-4) {
+          ringDrawSettled = true
+          node.waveTrack?.setAttribute('stroke-dashoffset', '0')
+        }
+      }
+
+      // 2. If drawing is done and either paused or reduced-motion, halt the animation loop
+      if (ringDrawSettled && (!playback.playing || reducedMotion.matches)) {
+        cancelWaveAnimation = null
+        return false
+      }
+
+      // 3. Throttle continuous playback waveform pulsation to 30fps
+      if (playback.playing && !reducedMotion.matches) {
+        waveElapsed += seconds
+        waveFrameElapsed += seconds
+        if (waveFrameElapsed >= 1 / 30) {
+          waveFrameElapsed %= 1 / 30
+          const path = cdPlaybackWavePath(node.waveSeed, waveElapsed, true)
+          node.wavePaths?.forEach((element) => element.setAttribute('d', path))
+        }
+      }
+
+      return true
+    })
+  }
 
   function measureFocus(): void {
     if (!focusOptions) return
@@ -97,7 +233,18 @@ export function createCdStage(
   function setFocused(open: boolean): void {
     if (!focusOptions || startup || active || !albums.length || Number(open) === focusTarget) return
     cancelAnimation?.()
+    cancelArtworkClick()
+    endRotation()
     resetHover()
+    stopWaveAnimation()
+    ringDrawElapsed = 0
+    ringDrawSettled = false
+    for (const node of nodes.values()) {
+      node.cancelTiltAnimation?.()
+      node.cancelTiltAnimation = undefined
+      node.tilt = { x: 0, y: 0, targetX: 0, targetY: 0 }
+      node.hoverPlane.style.transform = neutralTilt
+    }
     pointer = null
     measureFocus()
     focusTarget = Number(open)
@@ -139,24 +286,208 @@ export function createCdStage(
     })
   }
 
-  function tilt(node: DiscNode, transform: string): void {
-    node.tiltAnimation?.stop()
-    if (reducedMotion.matches) node.hoverPlane.style.transform = transform
-    else node.tiltAnimation = animateTilt(node.hoverPlane, transform)
+  function tilt(node: DiscNode, x: number, y: number): void {
+    const state = node.tilt
+    state.targetX = x
+    state.targetY = y
+    if (reducedMotion.matches) {
+      node.cancelTiltAnimation?.()
+      node.cancelTiltAnimation = undefined
+      state.x = state.y = 0
+      node.hoverPlane.style.transform = neutralTilt
+      return
+    }
+    // Retarget the running follower instead of restarting a transition on every move.
+    if (node.cancelTiltAnimation) return
+    node.cancelTiltAnimation = animateFrames((seconds) => {
+      const blend = 1 - Math.exp(-18 * seconds)
+      state.x += (state.targetX - state.x) * blend
+      state.y += (state.targetY - state.y) * blend
+      const settled =
+        Math.abs(state.targetX - state.x) < 0.005 && Math.abs(state.targetY - state.y) < 0.005
+      if (settled) {
+        state.x = state.targetX
+        state.y = state.targetY
+        node.cancelTiltAnimation = undefined
+      }
+      node.hoverPlane.style.transform = `perspective(1100px) rotateX(${state.x}deg) rotateY(${state.y}deg)`
+      return !settled
+    })
   }
 
   function resetHover(): void {
-    if (hovered) tilt(hovered, neutralTilt)
+    if (hovered) tilt(hovered, 0, 0)
     hovered = null
   }
 
   function removeNode(node: DiscNode): void {
-    node.tiltAnimation?.cancel()
+    node.cancelTiltAnimation?.()
+    node.cancelSpinAnimation?.()
     if (hovered === node) hovered = null
     node.slot.remove()
   }
 
-  function createDisc(index: number): DiscNode {
+  function releaseStartupImage(node: DiscNode): void {
+    const image = node.image
+    node.image = undefined
+    node.artwork = 'dropped'
+    if (!image) return
+    image.remove()
+    image.src = ''
+  }
+
+  function showStartupImage(node: DiscNode): void {
+    if (!node.image || node.artwork === 'shown' || node.artwork === 'dropped') return
+    if (!readyImages.has(node.image)) return
+    node.art.append(node.image)
+    node.artwork = 'shown'
+  }
+
+  function beginDecode(node: DiscNode): Promise<void> | null {
+    if (!node.image || node.artwork !== 'idle') return null
+    const album = albums[cdAlbumIndex(node.index, albums.length)]
+    if (!album?.artworkUrl) {
+      releaseStartupImage(node)
+      return Promise.resolve()
+    }
+    node.artwork = 'decoding'
+    const image = node.image
+    const generation = startupGeneration
+    image.src = album.artworkUrl
+    return image.decode().then(
+      () => {
+        if (generation === startupGeneration && node.artwork === 'decoding') readyImages.add(image)
+      },
+      () => {
+        if (generation === startupGeneration && node.artwork === 'decoding')
+          releaseStartupImage(node)
+      },
+    )
+  }
+
+  function pumpDecode(): void {
+    while (decodesInFlight < 2 && decodeQueue.length) {
+      const node = decodeQueue.shift()
+      if (!node || node.artwork !== 'idle') continue
+      decodesInFlight += 1
+      const generation = startupGeneration
+      void beginDecode(node)?.finally(() => {
+        decodesInFlight = Math.max(0, decodesInFlight - 1)
+        if (generation === startupGeneration) pumpDecode()
+      })
+    }
+  }
+
+  function enqueueDecode(node: DiscNode): void {
+    if (node.artwork !== 'idle' || !node.image || decodeQueue.includes(node)) return
+    decodeQueue.push(node)
+    pumpDecode()
+  }
+
+  function promoteStartupDisc(node: DiscNode): void {
+    node.slot.style.willChange = 'transform, opacity'
+    node.disc.style.willChange = 'transform'
+    if (node.vinyl) return
+    const vinyl = document.createElement('div')
+    vinyl.className = 'cd-startup-vinyl'
+    node.disc.append(vinyl)
+    node.vinyl = vinyl
+  }
+
+  function prepareStartupFrame(
+    visible: readonly number[],
+    upcoming: number | null,
+    gather: boolean,
+  ): void {
+    const shown = new Set(visible)
+    for (const index of shown) {
+      const node = nodes.get(index)
+      if (!node) continue
+      promoteStartupDisc(node)
+      if (node.artwork === 'shown' || node.artwork === 'dropped') continue
+      if (node.image && readyImages.has(node.image)) showStartupImage(node)
+      else releaseStartupImage(node)
+    }
+    if (upcoming !== null) {
+      const node = nodes.get(upcoming)
+      if (node) {
+        promoteStartupDisc(node)
+        showStartupImage(node)
+        if (gather && node.artwork === 'idle') enqueueDecode(node)
+      }
+    }
+    const earliest = shown.size ? Math.min(...shown) : Number.POSITIVE_INFINITY
+    for (const [index, node] of nodes) {
+      if (index >= earliest) continue
+      node.slot.style.willChange = ''
+      node.disc.style.willChange = ''
+      node.vinyl?.remove()
+      node.vinyl = undefined
+      if (node.artwork !== 'shown') releaseStartupImage(node)
+      else if (node.image) {
+        node.image.remove()
+        node.image.src = ''
+        node.image = undefined
+        node.artwork = 'dropped'
+      }
+    }
+    if (gather) pumpDecode()
+    else decodeQueue.length = 0
+  }
+
+  function ensureDiscChrome(node: DiscNode): void {
+    if (node.waveRing) return
+    const album = albums[cdAlbumIndex(node.index, albums.length)]
+    const waveRing = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    waveRing.classList.add('cd-wave-ring')
+    waveRing.setAttribute('viewBox', '-28 -28 456 456')
+    waveRing.setAttribute('aria-hidden', 'true')
+    const waveTrack = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    waveTrack.classList.add('cd-wave-track')
+    waveTrack.setAttribute('pathLength', '1')
+    waveTrack.setAttribute('stroke-dasharray', '1')
+    waveTrack.setAttribute('stroke-dashoffset', '1')
+    const waveProgress = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    waveProgress.classList.add('cd-wave-progress')
+    waveProgress.setAttribute('pathLength', '1')
+    waveProgress.setAttribute('stroke-dasharray', '1')
+    waveProgress.setAttribute('stroke-dashoffset', '1')
+    const waveSeed = cdPlaybackWaveSeed(album.key)
+    const wavePath = cdPlaybackWavePath(waveSeed)
+    waveTrack.setAttribute('d', wavePath)
+    waveProgress.setAttribute('d', wavePath)
+    waveRing.append(waveTrack, waveProgress)
+    const sidewall = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    sidewall.classList.add('cd-sidewall')
+    sidewall.setAttribute('viewBox', '0 0 400 400')
+    sidewall.setAttribute('aria-hidden', 'true')
+    const sidewallBands = ['#d9dddf', '#777e83', '#a4aaae'].map((color) => {
+      const band = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      band.setAttribute('fill', color)
+      sidewall.append(band)
+      return band
+    })
+    node.hoverPlane.append(waveRing, sidewall)
+    const shadow = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    shadow.classList.add('cd-disc-shadow')
+    shadow.setAttribute('viewBox', '0 0 400 400')
+    shadow.setAttribute('aria-hidden', 'true')
+    shadow.style.opacity = '0'
+    const shadowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+    shadow.append(shadowPath)
+    node.slot.append(shadow)
+    node.waveRing = waveRing
+    node.waveTrack = waveTrack
+    node.sidewall = sidewall
+    node.sidewallBands = sidewallBands
+    node.shadow = shadow
+    node.shadowPath = shadowPath
+    node.waveProgress = waveProgress
+    node.wavePaths = [waveTrack, waveProgress]
+    node.waveSeed = waveSeed
+  }
+
+  function createDisc(index: number, startupDisc = false): DiscNode {
     const album = albums[cdAlbumIndex(index, albums.length)]
     let angle = artworkAngles.get(album.key)
     if (angle === undefined) {
@@ -187,27 +518,106 @@ export function createCdStage(
     art.className = 'cd-art'
     // Rotate inside the disc plane, leaving its silhouette, lighting and path intact.
     art.style.transform = `rotate(${angle}deg)`
-    let image: HTMLImageElement | undefined
-    if (album.artworkUrl) {
-      image = new Image()
-      image.alt = ''
-      image.decoding = 'async'
-      image.draggable = false
-      image.src = album.artworkUrl
-      const artwork = image
-      image.addEventListener('error', () => artwork.remove(), { once: true })
-      art.append(image)
-    }
     const hub = document.createElement('div')
     hub.className = 'cd-hub'
     disc.append(art, hub)
     hoverPlane.append(disc)
+    // The shadow stays beside the tilted plane and is added with the other chrome.
     slot.append(hoverPlane)
     stage.append(slot)
-    const node = { index, albumKey: album.key, slot, disc, hoverPlane, image }
+    const node: DiscNode = {
+      index,
+      albumKey: album.key,
+      slot,
+      disc,
+      art,
+      hoverPlane,
+      waveSeed: cdPlaybackWaveSeed(album.key),
+      artwork: 'idle',
+      tilt: { x: 0, y: 0, targetX: 0, targetY: 0 },
+    }
+    if (album.artworkUrl) {
+      const image = new Image()
+      image.alt = ''
+      image.decoding = 'async'
+      image.draggable = false
+      image.addEventListener(
+        'error',
+        () => {
+          if (node.artwork === 'shown') image.remove()
+          else if (node.artwork !== 'dropped') releaseStartupImage(node)
+        },
+        { once: true },
+      )
+      node.image = image
+      if (!startupDisc) {
+        image.src = album.artworkUrl
+        art.append(image)
+        node.artwork = 'shown'
+      }
+    }
+    if (!startupDisc) ensureDiscChrome(node)
     nodes.set(index, node)
     discNodes.set(disc, node)
     return node
+  }
+
+  function renderDiscDepth(node: DiscNode, x: number, y: number, z: number, visible: number): void {
+    if (!node.sidewall || !node.shadow || !node.shadowPath || !node.sidewallBands) return
+    node.sidewall.style.opacity = String(visible)
+    node.shadow.style.opacity = String(visible * 0.12)
+    if (!visible) return
+    const radians = Math.PI / 180
+    const cx = Math.cos(x * radians),
+      sx = Math.sin(x * radians)
+    const cy = Math.cos(y * radians),
+      sy = Math.sin(y * radians)
+    const cz = Math.cos(z * radians),
+      sz = Math.sin(z * radians)
+    // Project an actual shallow cylinder with the same X -> Y -> Z -> perspective
+    // transform as the face. Only camera-facing walls are drawn, never the far rim.
+    const project = (angle: number, depth: number): string => {
+      const px = Math.cos(angle) * 200
+      const py = Math.sin(angle) * 200
+      const ry = py * cx + depth * sx
+      const rz = py * sx - depth * cx
+      const rx = px * cy + rz * sy
+      const zoom = 1100 / (1100 - (-px * sy + rz * cy))
+      return `${(200 + (rx * cz - ry * sz) * zoom).toFixed(3)},${(200 + (rx * sz + ry * cz) * zoom).toFixed(3)}`
+    }
+    const depths = [0, 0.7, 3.4, 4.2]
+    const paths = ['', '', '']
+    const amplitude = Math.hypot(sy, sx * cy)
+    // Cast the rotated rim onto a fixed plane behind all allowed disc poses.
+    // A fixed upper-left light produces down-right rays; this is not a tilted
+    // drop-shadow of the whole group (which would also shadow lyrics/the wave).
+    const groundDepth = 240
+    const groundZoom = 1100 / (1100 + groundDepth)
+    const shadowPoints = Array.from({ length: 128 }, (_, index) => {
+      const angle = (index / 128) * Math.PI * 2
+      const px = Math.cos(angle) * 200
+      const py = Math.sin(angle) * 200
+      const rx = px * cy + py * sx * sy
+      const ry = py * cx
+      const depth = -px * sy + py * sx * cy
+      const distance = groundDepth + depth
+      const shadowX = 200 + (rx * cz - ry * sz + distance * 0.18) * groundZoom
+      const shadowY = 200 + (rx * sz + ry * cz + distance * 0.25) * groundZoom
+      return `${shadowX.toFixed(3)},${shadowY.toFixed(3)}`
+    })
+    node.shadowPath.setAttribute('d', `M${shadowPoints.join('L')}Z`)
+    node.shadow.style.filter = `blur(${(9 + amplitude * 5).toFixed(2)}px)`
+    if (amplitude > 200 / 1100) {
+      const center = Math.atan2(sx * cy, -sy)
+      const halfArc = Math.acos(200 / (1100 * amplitude))
+      const angles = Array.from({ length: 65 }, (_, i) => center - halfArc + (i / 64) * halfArc * 2)
+      for (let band = 0; band < paths.length; band++) {
+        const front = angles.map((angle) => project(angle, depths[band]))
+        const back = angles.map((angle) => project(angle, depths[band + 1])).reverse()
+        paths[band] = `M${front.join('L')}L${back.join('L')}Z`
+      }
+    }
+    node.sidewallBands.forEach((band, index) => band.setAttribute('d', paths[index]))
   }
 
   function render(nextPosition: number, angle = 0): void {
@@ -221,9 +631,11 @@ export function createCdStage(
     }
     slots.forEach((index, layer) => {
       const node = nodes.get(index) ?? createDisc(index)
+      ensureDiscChrome(node)
       const t = index - position
       const pose = cdPose(t, width, height)
       const central = index === selected
+      node.slot.setAttribute('data-selected', String(central))
       if (central && focusProgress > 0) {
         pose.cx += (focusGeometry.cx - pose.cx) * focusProgress
         pose.cy += (focusGeometry.cy - pose.cy) * focusProgress
@@ -240,14 +652,37 @@ export function createCdStage(
         focusMoving || (focusProgress > 0 && !central) ? 'none' : 'auto'
       // The resting centre opens focus; a pending target during browsing remains a no-op.
       node.disc.style.cursor =
-        focusProgress > 0 || (!focusOptions && index === (active?.target ?? selected))
-          ? 'default'
-          : 'pointer'
-      node.disc.style.transform = `perspective(1100px) rotateZ(${pose.turn + angle}deg) rotateY(${pose.tilt + angle * 0.62}deg) rotateX(${9 + angle * 0.28}deg)`
+        central && focusProgress === 1
+          ? rotationPointer
+            ? 'grabbing'
+            : 'grab'
+          : focusProgress > 0 || (!focusOptions && index === (active?.target ?? selected))
+            ? 'default'
+            : 'pointer'
+      const rotationBlend = central ? focusProgress : 0
+      const rotationX = 9 + (focusRotation.x - 9) * rotationBlend
+      const rotationY = pose.tilt + (focusRotation.y - pose.tilt) * rotationBlend
+      const transform = `perspective(1100px) rotateZ(${pose.turn + angle}deg) rotateY(${rotationY + angle * 0.62}deg) rotateX(${rotationX + angle * 0.28}deg)`
+      node.disc.style.transform = transform
+      if (node.waveRing) node.waveRing.style.transform = transform
+      renderDiscDepth(
+        node,
+        rotationX + angle * 0.28,
+        rotationY + angle * 0.62,
+        pose.turn + angle,
+        rotationBlend,
+      )
     })
+    syncPlaybackRing()
   }
 
   function stop(): void {
+    cancelArtworkClick()
+    for (const node of nodes.values()) {
+      node.cancelSpinAnimation?.()
+      node.cancelSpinAnimation = undefined
+    }
+    endRotation()
     if (focusProgress || focusMoving) {
       focusProgress = focusTarget = 0
       focusMoving = false
@@ -266,11 +701,14 @@ export function createCdStage(
     preparationTimer = undefined
     if (startup) {
       startup = false
+      decodeQueue.length = 0
+      readyImages.clear()
       for (const node of nodes.values()) {
         node.vinyl?.remove()
         node.vinyl = undefined
         node.slot.style.willChange = ''
         node.disc.style.willChange = ''
+        if (node.artwork === 'idle' || node.artwork === 'decoding') releaseStartupImage(node)
       }
       onStartup?.(false)
     }
@@ -280,58 +718,63 @@ export function createCdStage(
     swayAngle = 0
     swayVelocity = 0
     resetHover()
+    stopWaveAnimation()
+    ringDrawElapsed = 0
+    ringDrawSettled = false
   }
 
   function beginStartup(): void {
     startup = true
     onStartup?.(true)
     const generation = ++startupGeneration
+    readyImages.clear()
+    decodeQueue.length = 0
+    decodesInFlight = 0
     const travel = albums.length >= 4 ? 9 : 0
+    startupOrigin = travel ? -travel : 0
     const first = travel ? -travel - 2 : 0
     const last = travel ? 1 : Math.min(1, albums.length - 1)
-    const readyImages = new Set<HTMLImageElement>()
-    const decoding: Promise<void>[] = []
-    // Bounded pool: at most 13 nodes, only four visible. Nothing is allocated,
-    // reparented or assigned a new image source during the rapid passage.
+    // Bounded pool: at most 13 nodes, only four visible. Covers, vinyl paint
+    // and compositor layers are attached in appearance order before fade-in.
     for (let index = first; index <= last; index++) {
-      const node = createDisc(index)
+      const node = createDisc(index, true)
       node.slot.style.opacity = '0'
-      node.slot.style.willChange = 'transform, opacity'
-      node.disc.style.willChange = 'transform'
-      const vinyl = document.createElement('div')
-      vinyl.className = 'cd-startup-vinyl'
-      node.disc.append(vinyl)
-      node.vinyl = vinyl
-      if (node.image) {
-        const image = node.image
-        decoding.push(
-          image.decode().then(
-            () => {
-              readyImages.add(image)
-            },
-            () => {},
-          ),
-        )
-      }
     }
+    const initial = cdSlots(startupOrigin, albums.length)
+    const opening = initial
+      .map((index) => nodes.get(index))
+      .filter((node): node is DiscNode => Boolean(node))
+    for (const node of opening) {
+      promoteStartupDisc(node)
+    }
+    const lead = initial.length ? Math.max(...initial) + 1 : null
+    if (lead !== null && nodes.has(lead)) promoteStartupDisc(nodes.get(lead)!)
     let prepared = false
     const start = (): void => {
       if (prepared || generation !== startupGeneration) return
       prepared = true
       clearTimeout(preparationTimer)
       preparationTimer = undefined
-      // A slow/broken cover gets the existing metal fallback, never a late
-      // image upload halfway through the fast animation.
-      for (const node of nodes.values()) {
-        if (node.image && !readyImages.has(node.image)) node.image.remove()
+      for (const node of opening) {
+        if (node.artwork === 'shown' || node.artwork === 'dropped') continue
+        if (node.image && readyImages.has(node.image)) showStartupImage(node)
+        else releaseStartupImage(node)
       }
+      for (let index = first; index <= last; index++) {
+        if (initial.includes(index)) continue
+        const node = nodes.get(index)
+        if (node) decodeQueue.push(node)
+      }
+      pumpDecode()
       const pool = new Map(
         Array.from(nodes, ([index, node]) => [
           index,
           {
             slot: node.slot,
             disc: node.disc,
-            vinyl: node.vinyl!,
+            get vinyl() {
+              return node.vinyl!
+            },
           },
         ]),
       )
@@ -346,10 +789,18 @@ export function createCdStage(
           render(selected)
           onSelect(selected)
         },
+        ({ visible, upcoming, gather }) => {
+          if (generation !== startupGeneration) return
+          prepareStartupFrame(visible, upcoming, gather)
+        },
       )
     }
     preparationTimer = setTimeout(start, 1200)
-    void Promise.all(decoding).then(start)
+    const openingDecodes = opening.flatMap((node) => {
+      const job = beginDecode(node)
+      return job ? [job] : []
+    })
+    void Promise.all(openingDecodes).then(start)
   }
 
   function dampingRatio(target: number, currentPosition: number, velocity: number): number {
@@ -478,9 +929,125 @@ export function createCdStage(
     return nodeFromTarget(target)
   }
 
+  function endRotation(): void {
+    const pressed = rotationPointer
+    rotationPointer = null
+    if (!pressed) return
+    if (stage.hasPointerCapture(pressed.id)) stage.releasePointerCapture(pressed.id)
+    const node = nodes.get(selected)
+    if (node) node.disc.style.cursor = focusProgress === 1 ? 'grab' : 'default'
+  }
+
+  function cancelArtworkClick(): void {
+    if (artworkClick) clearTimeout(artworkClick.timer)
+    artworkClick = null
+  }
+
+  function setArtworkAngle(node: DiscNode, angle: number): void {
+    artworkAngles.set(node.albumKey, angle)
+    for (const item of nodes.values()) {
+      if (item.albumKey === node.albumKey) item.art.style.transform = `rotate(${angle}deg)`
+    }
+  }
+
+  function spinArtwork(node: DiscNode, upright = false): void {
+    node.cancelSpinAnimation?.()
+    node.cancelSpinAnimation = undefined
+    const from = artworkAngles.get(node.albumKey) ?? 0
+    const radians = Math.PI / 180
+    const x = focusRotation.x * radians
+    const y = focusRotation.y * radians
+    const z = cdPose(0, width, height).turn * radians
+    // The artwork's up vector is (sin(a), -cos(a)). Invert the projected
+    // face's horizontal row so that vector points straight up on screen.
+    // Perspective divides both coordinates by the same positive w, so it
+    // does not change the direction of this line through the disc centre.
+    const horizontalX = Math.cos(z) * Math.cos(y)
+    const horizontalY = Math.cos(z) * Math.sin(y) * Math.sin(x) - Math.sin(z) * Math.cos(x)
+    const uprightAngle = Math.atan2(horizontalY, horizontalX) / radians
+    const delta = upright
+      ? ((((uprightAngle - from + 180) % 360) + 360) % 360) - 180
+      : 390 + Math.floor(Math.random() * 300)
+    const to = from + delta
+    const finish = (): void => {
+      setArtworkAngle(node, ((to % 360) + 360) % 360)
+      node.cancelSpinAnimation = undefined
+    }
+    if (reducedMotion.matches || Math.abs(delta) < 0.01) {
+      finish()
+      return
+    }
+    let elapsed = 0
+    const duration = upright ? 0.55 : 1.45
+    node.cancelSpinAnimation = animateFrames((seconds) => {
+      elapsed += seconds
+      const p = Math.min(1, elapsed / duration)
+      // Start gently, then coast to the random resting angle without a transform jump.
+      const eased = p * p * p * (10 + p * (-15 + 6 * p))
+      setArtworkAngle(node, from + delta * eased)
+      if (p < 1) return true
+      finish()
+      return false
+    })
+  }
+
+  function clickArtwork(node: DiscNode, x: number, y: number): void {
+    if (artworkClick?.node === node && Math.hypot(x - artworkClick.x, y - artworkClick.y) <= 8) {
+      cancelArtworkClick()
+      spinArtwork(node, true)
+      return
+    }
+    cancelArtworkClick()
+    artworkClick = {
+      node,
+      x,
+      y,
+      timer: setTimeout(() => {
+        artworkClick = null
+        if (focusProgress !== 1 || focusMoving || nodes.get(selected) !== node) return
+        spinArtwork(node)
+      }, 320),
+    }
+  }
+
+  function cancelRotation(): void {
+    cancelArtworkClick()
+    endRotation()
+  }
+
   stage.addEventListener(
     'pointermove',
     (event) => {
+      if (rotationPointer?.id === event.pointerId) {
+        if (!(event.buttons & 2)) {
+          cancelRotation()
+          return
+        }
+        if (!rotationPointer.moved) {
+          if (
+            Math.hypot(
+              event.clientX - rotationPointer.startX,
+              event.clientY - rotationPointer.startY,
+            ) <= 6
+          )
+            return
+          rotationPointer.moved = true
+          cancelArtworkClick()
+        }
+        const dx = event.clientX - rotationPointer.x
+        const dy = event.clientY - rotationPointer.y
+        rotationPointer.x = event.clientX
+        rotationPointer.y = event.clientY
+        // Undo the disc's in-plane turn so dragging follows screen directions.
+        const turn = (cdPose(0, width, height).turn * Math.PI) / 180
+        const x = focusRotation.x - (dy * Math.cos(turn) - dx * Math.sin(turn)) * 0.25
+        const y = focusRotation.y + (dx * Math.cos(turn) + dy * Math.sin(turn)) * 0.25
+        const limit = Math.min(1, 75 / Math.max(1, Math.hypot(x, y)))
+        focusRotation = { x: x * limit, y: y * limit }
+        render(selected)
+        event.preventDefault()
+        return
+      }
       if (pointer?.id === event.pointerId) {
         if (Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y) > 6) {
           pointer.moved = true
@@ -492,6 +1059,7 @@ export function createCdStage(
         event.buttons ||
         pointer ||
         active ||
+        focusProgress > 0 ||
         focusMoving ||
         startup ||
         reducedMotion.matches
@@ -499,7 +1067,7 @@ export function createCdStage(
         resetHover()
         return
       }
-      const node = event.target ? discNodes.get(event.target) : undefined
+      const node = nodeFromEvent(event)
       if (node !== hovered) resetHover()
       if (!node) return
       hovered = node
@@ -507,15 +1075,79 @@ export function createCdStage(
       const clamp = (value: number): number => Math.max(-1, Math.min(1, value))
       const x = clamp(((event.clientX - rect.left) / rect.width) * 2 - 1)
       const y = clamp(((event.clientY - rect.top) / rect.height) * 2 - 1)
-      tilt(node, `perspective(1100px) rotateX(${-y * 4}deg) rotateY(${x * 4}deg)`)
+      tilt(node, -y * 4, x * 4)
     },
     options,
   )
   stage.addEventListener('pointerleave', resetHover, options)
+  stage.addEventListener(
+    'dblclick',
+    (event) => {
+      if (
+        event.button !== 0 ||
+        focusProgress !== 1 ||
+        focusMoving ||
+        startup ||
+        rotationPointer ||
+        nodeFromEvent(event)?.index !== selected
+      )
+        return
+      event.preventDefault()
+      focusOptions?.togglePlayback?.()
+    },
+    options,
+  )
   window.addEventListener('blur', resetHover, options)
+  window.addEventListener('blur', cancelRotation, options)
+  stage.addEventListener(
+    'lostpointercapture',
+    () => {
+      if (rotationPointer) cancelRotation()
+    },
+    options,
+  )
+  stage.addEventListener(
+    'contextmenu',
+    (event) => {
+      if (
+        rotationContextMenu ||
+        rotationPointer ||
+        (focusProgress > 0 && nodeFromEvent(event)?.index === selected)
+      ) {
+        event.preventDefault()
+        rotationContextMenu = false
+      }
+    },
+    options,
+  )
   stage.addEventListener(
     'pointerdown',
     (event) => {
+      rotationContextMenu = false
+      if (
+        focusProgress === 1 &&
+        !focusMoving &&
+        !startup &&
+        !rotationPointer &&
+        event.isPrimary &&
+        event.button === 2 &&
+        nodeFromEvent(event)?.index === selected
+      ) {
+        event.preventDefault()
+        rotationContextMenu = true
+        stage.focus({ preventScroll: true })
+        rotationPointer = {
+          id: event.pointerId,
+          x: event.clientX,
+          y: event.clientY,
+          startX: event.clientX,
+          startY: event.clientY,
+          moved: false,
+        }
+        stage.setPointerCapture(event.pointerId)
+        render(selected)
+        return
+      }
       if (startup || focusMoving || focusProgress > 0 || !event.isPrimary || event.button !== 0)
         return
       resetHover()
@@ -535,6 +1167,21 @@ export function createCdStage(
   stage.addEventListener(
     'pointerup',
     (event) => {
+      if (rotationPointer?.id === event.pointerId) {
+        const pressed = rotationPointer
+        endRotation()
+        const node = nodes.get(selected)
+        if (
+          event.button === 2 &&
+          !pressed.moved &&
+          node &&
+          Math.hypot(event.clientX - pressed.startX, event.clientY - pressed.startY) <= 6 &&
+          nodeAtPoint(event.clientX, event.clientY) === node
+        ) {
+          clickArtwork(node, event.clientX, event.clientY)
+        } else cancelArtworkClick()
+        return
+      }
       if (!pointer || event.pointerId !== pointer.id) return
       const pressed = pointer
       const dx = event.clientX - pointer.x
@@ -561,6 +1208,7 @@ export function createCdStage(
   stage.addEventListener(
     'pointercancel',
     () => {
+      cancelRotation()
       pointer = null
     },
     options,
@@ -572,7 +1220,9 @@ export function createCdStage(
       const wasFocused = focusTarget === 1
       stop()
       for (const node of nodes.values()) {
-        node.tiltAnimation?.cancel()
+        node.cancelTiltAnimation?.()
+        node.cancelTiltAnimation = undefined
+        node.tilt = { x: 0, y: 0, targetX: 0, targetY: 0 }
         node.hoverPlane.style.transform = neutralTilt
       }
       selected = target
@@ -594,6 +1244,13 @@ export function createCdStage(
   return {
     navigate,
     setFocused,
+    setPlayback(next: CdPlaybackRingState): void {
+      playback = {
+        ...next,
+        progress: Math.max(0, Math.min(1, Number.isFinite(next.progress) ? next.progress : 0)),
+      }
+      syncPlaybackRing()
+    },
     setAlbums(next: readonly CdAlbum[], intro = false): void {
       const key = albums.length ? albums[cdAlbumIndex(selected, albums.length)].key : null
       stop()
@@ -615,6 +1272,7 @@ export function createCdStage(
     },
     dispose(): void {
       stop()
+      focusRotation = { x: 9, y: -42 }
       pointer = null
       listeners.abort()
       observer.disconnect()
@@ -622,6 +1280,7 @@ export function createCdStage(
       nodes.clear()
       albums = []
       artworkAngles.clear()
+      stopWaveAnimation()
     },
   }
 }

@@ -15,19 +15,30 @@ vi.mock('@renderer/shared/animation/motion', () => ({
       clock.cancel()
     }
   },
-  animateTilt: () => ({ stop: vi.fn(), cancel: vi.fn() }),
 }))
 
 // Small DOM substitute: these tests cover controller state/lifetime, not visuals.
 class TestElement extends EventTarget {
+  src = ''
   style = {} as CSSStyleDeclaration
   children: TestElement[] = []
   parent: TestElement | null = null
+  attributes = new Map<string, string>()
+  classList = { add: vi.fn() }
   clientWidth = 1200
   clientHeight = 700
-  setAttribute(): void {}
+  setAttribute(name: string, value: string): void {
+    this.attributes.set(name, value)
+  }
   focus(): void {}
+  getBoundingClientRect(): DOMRect {
+    return { left: 0, top: 0, width: 400, height: 400 } as DOMRect
+  }
   setPointerCapture(): void {}
+  hasPointerCapture(): boolean {
+    return true
+  }
+  releasePointerCapture(): void {}
   append(...children: TestElement[]): void {
     for (const child of children) {
       child.parent = this
@@ -56,13 +67,18 @@ describe('CD stage lifetime', () => {
     advance(600)
     expect(clock.running).toBe(false)
   }
-  function setup(count: number, focusChange?: (progress: number, settled: boolean) => void) {
+  function setup(
+    count: number,
+    focusChange?: (progress: number, settled: boolean) => void,
+    togglePlayback?: () => void,
+  ) {
     const disconnect = vi.fn()
     const media = Object.assign(new EventTarget(), { matches: false })
     vi.stubGlobal('window', new EventTarget())
     vi.stubGlobal('matchMedia', () => media)
     const document = {
       createElement: () => new TestElement(),
+      createElementNS: () => new TestElement(),
       elementFromPoint: vi.fn(() => null as TestElement | null),
     }
     vi.stubGlobal('document', document)
@@ -84,7 +100,11 @@ describe('CD stage lifetime', () => {
       undefined,
       rapid,
       focusChange
-        ? { geometry: () => ({ cx: 600, cy: 360, rightBoundary: 940 }), change: focusChange }
+        ? {
+            geometry: () => ({ cx: 600, cy: 360, rightBoundary: 940 }),
+            change: focusChange,
+            togglePlayback,
+          }
         : undefined,
     )
     const albums = Array.from({ length: count }, (_, index) => ({
@@ -143,12 +163,37 @@ describe('CD stage lifetime', () => {
     expect(change).toHaveBeenLastCalledWith(0, true)
   })
 
+  it('shows, advances and pauses the focused playback wave', () => {
+    const change = vi.fn()
+    const { stage, controller } = setup(8, change)
+    controller.setFocused(true)
+    settle()
+    const selectedSlot = stage.children.find((node) => node.style.zIndex === '5')!
+    const waveRing = selectedSlot.children[0].children[1]
+    const progressPath = waveRing.children[1]
+
+    controller.setPlayback({ visible: true, playing: false, progress: 0.25, accent: '#123456' })
+    expect(waveRing.style.opacity).toBe('1')
+    expect(progressPath.attributes.get('stroke-dashoffset')).toBe('0.75')
+    expect(progressPath.style.stroke).toBe('#123456')
+    advance(180)
+    expect(clock.running).toBe(false)
+    const stillPath = progressPath.attributes.get('d')
+
+    controller.setPlayback({ visible: true, playing: true, progress: 0.25, accent: '#123456' })
+    advance(4)
+    expect(progressPath.attributes.get('d')).not.toBe(stillPath)
+    controller.setPlayback({ visible: true, playing: false, progress: 0.25, accent: '#123456' })
+    expect(clock.running).toBe(false)
+    controller.dispose()
+  })
+
   function pointerEvent(
     type: string,
     target: TestElement,
     options: Partial<PointerEvent> = {},
   ): Event {
-    const event = new Event(type)
+    const event = new Event(type, { cancelable: true })
     Object.assign(event, {
       pointerId: 1,
       isPrimary: true,
@@ -171,6 +216,284 @@ describe('CD stage lifetime', () => {
     document.elementFromPoint.mockReturnValue(disc)
     stage.dispatchEvent(pointerEvent('pointerup', stage, options))
   }
+
+  it('toggles playback only for left double-clicks on the settled focused disc', () => {
+    const toggle = vi.fn()
+    const { stage, controller } = setup(8, vi.fn(), toggle)
+    const disc = discAt(stage, 3)
+    const doubleClick = (target = disc, button = 0): void => {
+      stage.dispatchEvent(pointerEvent('dblclick', target, { button }))
+    }
+    doubleClick()
+    controller.setFocused(true)
+    doubleClick()
+    settle()
+    doubleClick(stage)
+    doubleClick(disc, 2)
+    expect(toggle).not.toHaveBeenCalled()
+    doubleClick()
+    expect(toggle).toHaveBeenCalledTimes(1)
+    doubleClick()
+    expect(toggle).toHaveBeenCalledTimes(2)
+    controller.setFocused(false)
+    doubleClick()
+    settle()
+    doubleClick()
+    controller.dispose()
+    doubleClick()
+    expect(toggle).toHaveBeenCalledTimes(2)
+  })
+
+  it('rotates only in focus, couples the ring, retains angles and leaves browsing unchanged', () => {
+    const { stage, controller, media } = setup(8, vi.fn())
+    media.matches = true
+    const disc = discAt(stage, 3)
+    const ring = disc.parent!.children[1]
+    const sidewall = disc.parent!.children[2]
+    const shadow = disc.parent!.parent!.children[1]
+    const initial = disc.style.transform
+    expect(sidewall.style.opacity).toBe('0')
+    expect(shadow.style.opacity).toBe('0')
+    const drag = (): void => {
+      stage.dispatchEvent(pointerEvent('pointerdown', disc, { button: 2 }))
+      stage.dispatchEvent(
+        pointerEvent('pointermove', stage, { buttons: 2, clientX: 180, clientY: 140 }),
+      )
+      stage.dispatchEvent(pointerEvent('pointerup', stage, { button: 2 }))
+    }
+    drag()
+    expect(disc.style.transform).toBe(initial)
+    controller.setFocused(true)
+    expect(sidewall.style.opacity).toBe('1')
+    const initialEdge = sidewall.children[0].attributes.get('d')
+    const initialShadow = shadow.children[0].attributes.get('d')
+    expect(shadow.style.opacity).toBe('0.12')
+    expect(initialShadow).toMatch(/^M/)
+    expect(shadow.style.transform).toBeUndefined()
+    expect(initialEdge).toMatch(/^M/)
+    drag()
+    const rotated = disc.style.transform
+    expect(rotated).not.toBe(initial)
+    expect(ring.style.transform).toBe(rotated)
+    expect(sidewall.children[0].attributes.get('d')).not.toBe(initialEdge)
+    expect(shadow.children[0].attributes.get('d')).not.toBe(initialShadow)
+    expect(shadow.children[0].attributes.get('d')).not.toMatch(/NaN|Infinity/)
+    expect(shadow.style.filter).toMatch(/^blur\(/)
+    expect(sidewall.children.every((band) => !/NaN|Infinity/.test(band.attributes.get('d')!))).toBe(
+      true,
+    )
+    const menu = pointerEvent('contextmenu', stage)
+    stage.dispatchEvent(menu)
+    expect(menu.defaultPrevented).toBe(true)
+    media.matches = false
+    stage.dispatchEvent(
+      pointerEvent('pointermove', disc, { pointerType: 'mouse', buttons: 0, clientX: 350 }),
+    )
+    expect(clock.running).toBe(false)
+    expect(disc.parent!.style.transform).toBe('perspective(1100px) rotateX(0deg) rotateY(0deg)')
+    controller.setFocused(false)
+    settle()
+    expect(disc.style.transform).toBe(initial)
+    expect(sidewall.style.opacity).toBe('0')
+    expect(shadow.style.opacity).toBe('0')
+    controller.setFocused(true)
+    settle()
+    expect(disc.style.transform).toBe(rotated)
+    controller.dispose()
+    const fresh = setup(8, vi.fn())
+    fresh.media.matches = true
+    fresh.controller.setFocused(true)
+    expect(discAt(fresh.stage, 5).style.transform).toBe(initial)
+    fresh.controller.dispose()
+  })
+
+  it('bounds focus rotation and ends dragging on cancellation, blur and capture loss', () => {
+    const { stage, controller, media } = setup(8, vi.fn())
+    media.matches = true
+    controller.setFocused(true)
+    const disc = discAt(stage, 5)
+    for (const stop of ['pointercancel', 'lostpointercapture', 'blur']) {
+      stage.dispatchEvent(pointerEvent('pointerdown', disc, { button: 2 }))
+      stage.dispatchEvent(
+        pointerEvent('pointermove', stage, { buttons: 2, clientX: 10000, clientY: -10000 }),
+      )
+      const transform = disc.style.transform
+      const x = Number(transform.match(/rotateX\(([-\d.]+)deg\)/)![1])
+      const y = Number(transform.match(/rotateY\(([-\d.]+)deg\)/)![1])
+      expect(Math.hypot(x, y)).toBeLessThanOrEqual(75.000001)
+      if (stop === 'blur') window.dispatchEvent(new Event(stop))
+      else stage.dispatchEvent(new Event(stop))
+      stage.dispatchEvent(
+        pointerEvent('pointermove', stage, { buttons: 2, clientX: 0, clientY: 0 }),
+      )
+      expect(disc.style.transform).toBe(transform)
+      expect(disc.style.cursor).toBe('grab')
+    }
+    controller.dispose()
+  })
+
+  function expectScreenUpright(disc: TestElement): void {
+    const radians = Math.PI / 180
+    const rotation = (axis: string): number =>
+      Number(disc.style.transform.match(new RegExp(`rotate${axis}\\(([-\\d.]+)deg\\)`))![1]) *
+      radians
+    const x = rotation('X'),
+      y = rotation('Y'),
+      z = rotation('Z')
+    const a = Number(disc.children[0].style.transform.match(/rotate\(([-\d.]+)deg\)/)![1]) * radians
+    const ux = Math.sin(a),
+      uy = -Math.cos(a)
+    const rx = ux * Math.cos(y) + uy * Math.sin(x) * Math.sin(y)
+    const ry = uy * Math.cos(x)
+    expect(rx * Math.cos(z) - ry * Math.sin(z)).toBeCloseTo(0, 8)
+    expect(rx * Math.sin(z) + ry * Math.cos(z)).toBeLessThan(0)
+  }
+
+  it('randomizes artwork on right click, straightens on double click and excludes dragging', () => {
+    vi.useFakeTimers()
+    const { stage, controller, media, document } = setup(8, vi.fn())
+    media.matches = true
+    controller.setFocused(true)
+    const disc = discAt(stage, 5)
+    const art = disc.children[0]
+    const pose = disc.style.transform
+    const initial = art.style.transform
+    const click = (): void => tap(stage, document, disc, { button: 2 })
+    click()
+    expect(art.style.transform).toBe(initial)
+    vi.advanceTimersByTime(320)
+    expect(art.style.transform).not.toBe(initial)
+    expect(disc.style.transform).toBe(pose)
+    const random = art.style.transform
+    click()
+    vi.advanceTimersByTime(100)
+    click()
+    expectScreenUpright(disc)
+    const upright = art.style.transform
+    vi.advanceTimersByTime(500)
+    expect(art.style.transform).toBe(upright)
+    expect(random).not.toBe(initial)
+    stage.dispatchEvent(pointerEvent('pointerdown', disc, { button: 2 }))
+    stage.dispatchEvent(pointerEvent('pointermove', stage, { buttons: 2, clientX: 180 }))
+    stage.dispatchEvent(pointerEvent('pointermove', stage, { buttons: 2, clientX: 100 }))
+    stage.dispatchEvent(pointerEvent('pointerup', stage, { button: 2 }))
+    vi.advanceTimersByTime(500)
+    expect(art.style.transform).toBe(upright)
+    click()
+    controller.setFocused(false)
+    vi.advanceTimersByTime(500)
+    expect(art.style.transform).toBe(upright)
+    controller.setFocused(true)
+    click()
+    controller.dispose()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('spins continuously to a random angle and smoothly returns upright', () => {
+    vi.useFakeTimers()
+    const { stage, controller, media, document } = setup(8, vi.fn())
+    media.matches = true
+    controller.setFocused(true)
+    media.matches = false
+    const disc = discAt(stage, 5)
+    const art = disc.children[0]
+    const pose = disc.style.transform
+    const angle = (): number => Number(art.style.transform.match(/rotate\(([-\d.]+)deg\)/)![1])
+    const initial = angle()
+    const click = (): void => tap(stage, document, disc, { button: 2 })
+    click()
+    vi.advanceTimersByTime(320)
+    expect(angle()).toBe(initial)
+    advance(10)
+    const early = angle()
+    expect(early).toBeGreaterThan(initial)
+    advance(20)
+    expect(angle()).toBeGreaterThan(early)
+    expect(disc.style.transform).toBe(pose)
+    settle()
+    const resting = angle()
+    click()
+    click()
+    expect(angle()).toBe(resting)
+    advance(10)
+    expect(angle()).not.toBe(resting)
+    settle()
+    expectScreenUpright(disc)
+    // Recompute compensation after changing the perspective, not just the default pose.
+    stage.dispatchEvent(pointerEvent('pointerdown', disc, { button: 2 }))
+    stage.dispatchEvent(
+      pointerEvent('pointermove', stage, { buttons: 2, clientX: 280, clientY: 30 }),
+    )
+    stage.dispatchEvent(pointerEvent('pointerup', stage, { button: 2, clientX: 280, clientY: 30 }))
+    click()
+    click()
+    settle()
+    expectScreenUpright(disc)
+    click()
+    vi.advanceTimersByTime(320)
+    advance(5)
+    controller.dispose()
+    expect(clock.running).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('continuously follows mouse position on the same disc and returns to neutral', () => {
+    const { stage, controller } = setup(8)
+    const disc = discAt(stage, 3)
+    const plane = disc.parent!
+    const move = (clientX: number, clientY: number): void => {
+      stage.dispatchEvent(
+        pointerEvent('pointermove', disc, { pointerType: 'mouse', buttons: 0, clientX, clientY }),
+      )
+    }
+    move(50, 50)
+    advance(4)
+    const first = plane.style.transform
+    const follower = clock.update
+    move(350, 350)
+    expect(clock.update).toBe(follower)
+    expect(plane.style.transform).toBe(first)
+    advance(4)
+    expect(plane.style.transform).not.toBe(first)
+    settle()
+    expect(plane.style.transform).toBe('perspective(1100px) rotateX(-3deg) rotateY(3deg)')
+
+    move(200, 200)
+    settle()
+    expect(plane.style.transform).toBe('perspective(1100px) rotateX(0deg) rotateY(0deg)')
+    move(350, 50)
+    settle()
+    expect(plane.style.transform).toBe('perspective(1100px) rotateX(3deg) rotateY(3deg)')
+    stage.dispatchEvent(new Event('pointerleave'))
+    advance(1)
+    expect(plane.style.transform).not.toBe('perspective(1100px) rotateX(0deg) rotateY(0deg)')
+    settle()
+    expect(plane.style.transform).toBe('perspective(1100px) rotateX(0deg) rotateY(0deg)')
+    controller.dispose()
+  })
+
+  it('stops hover following for reduced motion and disposal', () => {
+    const { stage, controller, media } = setup(8)
+    const disc = discAt(stage, 3)
+    const move = (): void => {
+      stage.dispatchEvent(pointerEvent('pointermove', disc, { pointerType: 'mouse', buttons: 0 }))
+    }
+    move()
+    advance(2)
+    media.matches = true
+    media.dispatchEvent(new Event('change'))
+    expect(clock.running).toBe(false)
+    expect(disc.parent!.style.transform).toBe('perspective(1100px) rotateX(0deg) rotateY(0deg)')
+    move()
+    expect(clock.running).toBe(false)
+    media.matches = false
+    move()
+    advance(2)
+    controller.dispose()
+    expect(clock.running).toBe(false)
+    move()
+    expect(clock.running).toBe(false)
+  })
 
   it('retargets without jumping and suppresses intermediate information until settling', () => {
     const { stage, select, approach, rapid, controller } = setup(8)
@@ -197,6 +520,10 @@ describe('CD stage lifetime', () => {
     expect(stage.children).toHaveLength(13)
     const prepared = [...stage.children]
     await Promise.resolve()
+    expect(
+      stage.children.filter((node) => node.style.willChange === 'transform, opacity'),
+    ).toHaveLength(5)
+    expect(stage.children.every((node) => node.children[0].children.length === 1)).toBe(true)
     controller.navigate(1)
     for (let frame = 0; frame < 260; frame++) {
       advance(1)
@@ -204,11 +531,17 @@ describe('CD stage lifetime', () => {
       expect(
         stage.children.filter((node) => Number(node.style.opacity) > 0).length,
       ).toBeLessThanOrEqual(4)
+      expect(
+        stage.children.filter((node) => node.style.willChange === 'transform, opacity').length,
+      ).toBeLessThanOrEqual(5)
+      expect(stage.children.every((node) => node.children[0].children.length === 1)).toBe(true)
     }
     settle()
     expect(stage.children).toHaveLength(4)
     expect(stage.children.every((node) => prepared.includes(node))).toBe(true)
     expect(stage.children.every((node) => node.style.willChange === '')).toBe(true)
+    expect(stage.children.every((node) => node.children.length === 2)).toBe(true)
+    expect(stage.children.every((node) => node.children[0].children.length === 3)).toBe(true)
     expect(select).toHaveBeenLastCalledWith(0)
     controller.navigate(1)
     settle()
@@ -246,7 +579,7 @@ describe('CD stage lifetime', () => {
       true,
     )
     const artLayers = stage.children.map((slot) => slot.children[0].children[0].children[0])
-    expect(artLayers.every((art) => art.children.length === 1)).toBe(true)
+    expect(artLayers.every((art) => art.children.length === 0)).toBe(true)
     vi.advanceTimersByTime(1200)
     expect(artLayers.every((art) => art.children.length === 0)).toBe(true)
     advance(150)
@@ -258,6 +591,42 @@ describe('CD stage lifetime', () => {
     expect(artLayers.every((art) => art.children.length === 0)).toBe(true)
     controller.dispose()
     expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('mounts a cover only when it decoded before that disc is shown', async () => {
+    const resolvers = new Map<string, () => void>()
+    vi.stubGlobal(
+      'Image',
+      class extends TestElement {
+        decode(): Promise<void> {
+          return new Promise((resolve) => {
+            resolvers.set(this.src, resolve)
+          })
+        }
+      },
+    )
+    const { stage, albums, controller } = setup(20)
+    controller.setAlbums(
+      albums.map((album) => ({ ...album, artworkUrl: `cover:${album.key}` })),
+      true,
+    )
+    expect(resolvers.size).toBe(4)
+    resolvers.forEach((resolve) => resolve())
+    for (let step = 0; step < 6; step++) await Promise.resolve()
+    const artOf = (slot: TestElement): TestElement => slot.children[0].children[0].children[0]
+    expect(stage.children.filter((slot) => artOf(slot).children.length === 1)).toHaveLength(4)
+    expect(resolvers.size).toBe(6)
+    for (let frame = 0; frame < 180; frame++) advance(1)
+    const exposed = stage.children.filter(
+      (slot) => Number(slot.style.opacity) > 0 && artOf(slot).children.length === 0,
+    )
+    expect(exposed.length).toBeGreaterThan(0)
+    resolvers.forEach((resolve) => resolve())
+    await Promise.resolve()
+    await Promise.resolve()
+    advance(3)
+    for (const slot of exposed) expect(artOf(slot).children.length).toBe(0)
+    controller.dispose()
   })
 
   it('skips startup for reduced motion and unfolds small catalogs without duplicates', async () => {
@@ -497,6 +866,101 @@ describe('CD stage lifetime', () => {
     tap(stage, document, discAt(stage, 4))
     expect(clock.running).toBe(false)
     expect(select).toHaveBeenCalledExactlyOnceWith(1)
+    controller.dispose()
+  })
+
+  it('draws playback wave ring over 3 seconds with ease-out curve and resists pause', () => {
+    const change = vi.fn()
+    const { stage, controller } = setup(8, change)
+    controller.setFocused(true)
+    settle()
+    expect(change).toHaveBeenLastCalledWith(1, true)
+
+    const selectedSlot = stage.children.find(
+      (node) => node.attributes.get('data-selected') === 'true',
+    )!
+    const hoverPlane = selectedSlot.children[0]
+    const waveRing = hoverPlane.children[1]
+    const waveTrack = waveRing.children[0]
+    const waveProgress = waveRing.children[1]
+
+    // Initially stroke-dashoffset is 1 (hidden)
+    expect(waveTrack.attributes.get('stroke-dashoffset')).toBe('1')
+
+    // Start playback: triggers 3-second ease-out draw animation
+    controller.setPlayback({ visible: true, playing: true, progress: 0.05, accent: '#62625b' })
+    expect(clock.running).toBe(true)
+    expect(waveRing.style.opacity).toBe('1')
+    expect(waveProgress.attributes.get('stroke-dashoffset')).toBe('0.95')
+
+    // Advance 1.5 seconds (90 frames at 60fps) -> p = 0.5, eased = 1 - (1 - 0.5)^3 = 0.875
+    advance(90)
+    const midOffset = Number(waveTrack.attributes.get('stroke-dashoffset'))
+    expect(midOffset).toBeCloseTo(0.125, 2)
+
+    // Advance another 1.5 seconds (90 frames) -> p = 1.0, fully closed at 3 seconds
+    advance(90)
+    expect(waveTrack.attributes.get('stroke-dashoffset')).toBe('0')
+
+    controller.dispose()
+  })
+
+  it('completes the 3-second draw even if paused, and preserves progress across track switches', () => {
+    const change = vi.fn()
+    const { stage, controller } = setup(8, change)
+    controller.setFocused(true)
+    settle()
+
+    const selectedSlot = stage.children.find(
+      (node) => node.attributes.get('data-selected') === 'true',
+    )!
+    const waveRing = selectedSlot.children[0].children[1]
+    const waveTrack = waveRing.children[0]
+
+    // Start playback in paused state (playing: false)
+    controller.setPlayback({ visible: true, playing: false, progress: 0, accent: '#62625b' })
+    expect(clock.running).toBe(true)
+
+    // Advance 1 second (60 frames) -> p = 1/3, eased = 1 - (2/3)^3 = 19/27 ≈ 0.7037
+    advance(60)
+    const offsetAfter1s = Number(waveTrack.attributes.get('stroke-dashoffset'))
+    expect(offsetAfter1s).toBeCloseTo(1 - 19 / 27, 2)
+
+    // Switch track midway within the 3 seconds: does not reset draw progress
+    controller.setPlayback({ visible: true, playing: false, progress: 0.02, accent: '#888888' })
+    expect(Number(waveTrack.attributes.get('stroke-dashoffset'))).toBeCloseTo(offsetAfter1s, 2)
+
+    // Complete the remaining 2 seconds (120 frames)
+    advance(120)
+    expect(waveTrack.attributes.get('stroke-dashoffset')).toBe('0')
+    // Since playing is false, animation halts after 3 seconds drawing finishes
+    expect(clock.running).toBe(false)
+
+    // Exiting focus resets draw progress
+    controller.setFocused(false)
+    settle()
+    expect(waveTrack.attributes.get('stroke-dashoffset')).toBe('1')
+
+    controller.dispose()
+  })
+
+  it('immediately settles wave ring drawing when reduced motion is preferred', () => {
+    const change = vi.fn()
+    const { stage, controller, media } = setup(8, change)
+    media.matches = true
+    controller.setFocused(true)
+    settle()
+
+    const selectedSlot = stage.children.find(
+      (node) => node.attributes.get('data-selected') === 'true',
+    )!
+    const waveRing = selectedSlot.children[0].children[1]
+    const waveTrack = waveRing.children[0]
+
+    controller.setPlayback({ visible: true, playing: false, progress: 0, accent: '#62625b' })
+    // Directly settled to 0 without 3-second drawing animation
+    expect(waveTrack.attributes.get('stroke-dashoffset')).toBe('0')
+
     controller.dispose()
   })
 })
