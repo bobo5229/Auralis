@@ -11,7 +11,7 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type Database from 'better-sqlite3'
 import {
   applyStagedRestoreIfExists,
@@ -106,7 +106,7 @@ describe('databaseBackupService', () => {
   })
 
   describe('exportDatabaseBackup', () => {
-    it('checkpoints WAL and exports consistent backup file to selected location', async () => {
+    it('exports a consistent backup file to the selected location', async () => {
       const dbPath = join(tempDir, 'auralis.sqlite')
       const db = openDb(dbPath)
       db.pragma('journal_mode = WAL')
@@ -139,6 +139,59 @@ describe('databaseBackupService', () => {
         title: string
       }
       expect(track.title).toBe('Track A')
+    })
+
+    it('includes committed WAL rows even when another reader prevents checkpointing', async () => {
+      const dbPath = join(tempDir, 'wal.sqlite')
+      const db = openDb(dbPath)
+      db.pragma('journal_mode = WAL')
+      db.pragma('busy_timeout = 0')
+      migrateDatabase(db)
+      db.prepare("INSERT INTO tracks (file_path, title) VALUES ('a.flac', 'A')").run()
+      db.pragma('wal_checkpoint(TRUNCATE)')
+      const reader = openDb(dbPath, { readonly: true })
+      reader.exec('BEGIN')
+      reader.prepare('SELECT * FROM tracks').all()
+      db.prepare("INSERT INTO tracks (file_path, title) VALUES ('b.flac', 'B')").run()
+      expect(db.pragma('wal_checkpoint(TRUNCATE)')).toMatchObject([{ busy: 1 }])
+
+      const targetPath = join(tempDir, 'wal.backup')
+      const result = await exportDatabaseBackup({
+        db,
+        databasePath: dbPath,
+        showSaveDialog: async () => ({ canceled: false, filePath: targetPath }),
+      })
+      expect(result.status).toBe('saved')
+      const backup = openDb(targetPath, { readonly: true })
+      expect(backup.prepare('SELECT title FROM tracks ORDER BY id').pluck().all()).toEqual([
+        'A',
+        'B',
+      ])
+      expect(backup.pragma('quick_check', { simple: true })).toBe('ok')
+      reader.exec('ROLLBACK')
+    })
+
+    it('keeps a previous export and cleans the partial file when backup fails', async () => {
+      const dbPath = join(tempDir, 'source.sqlite')
+      const db = openDb(dbPath)
+      const targetPath = join(tempDir, 'existing.backup')
+      const previous = openDb(targetPath)
+      previous.exec("CREATE TABLE marker (value TEXT); INSERT INTO marker VALUES ('keep')")
+      previous.close()
+      vi.spyOn(db, 'backup').mockImplementationOnce(async (filename) => {
+        writeFileSync(filename, 'partial')
+        throw new Error('simulated backup failure')
+      })
+      const result = await exportDatabaseBackup({
+        db,
+        databasePath: dbPath,
+        showSaveDialog: async () => ({ canceled: false, filePath: targetPath }),
+      })
+      expect(result).toMatchObject({ status: 'failed', error: 'simulated backup failure' })
+      expect(openDb(targetPath).prepare('SELECT value FROM marker').pluck().get()).toBe('keep')
+      expect(
+        readdirSync(tempDir).filter((name) => name.startsWith('existing.backup.tmp-')),
+      ).toEqual([])
     })
 
     it('returns cancelled status when user cancels dialog', async () => {

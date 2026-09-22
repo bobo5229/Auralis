@@ -48,6 +48,85 @@ describe('playbackController unit tests with injected dependencies', () => {
     }
   })
 
+  it.each(['pause', 'toggle', 'manual', 'previous', 'dispose'] as const)(
+    'ignores a late random next result after %s',
+    async (action) => {
+      let resolveNext!: (track: PlaybackTrack) => void
+      vi.mocked(deps.getRandomTrack).mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveNext = resolve
+        }),
+      )
+      const tracks: PlaybackTrack[] = [1, 2, 3].map((id) => ({
+        id,
+        title: String(id),
+        artist: 'A',
+        album: 'Album',
+        albumArtist: 'A',
+        durationSeconds: 120,
+        artworkCacheKey: null,
+      }))
+      const controller = createPlaybackController(deps)
+      const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
+      await controller.api.playTrackFromQueue(tracks, 1, { playbackMode: 'shuffle' })
+      // The injected runtime does not emit playing callbacks automatically.
+      controller.api.state.isPlaying = true
+      const pending = controller.api.playNext()
+      expect(controller.api.isPlaybackPending.value).toBe(true)
+      if (action === 'pause') controller.api.pause()
+      if (action === 'toggle') await controller.api.togglePlayPause()
+      if (action === 'manual') await controller.api.playTrackFromQueue(tracks, 3)
+      if (action === 'previous') await controller.api.playPrevious()
+      if (action === 'dispose') controller.dispose()
+      resolveNext(tracks[1])
+      await pending
+      expect(controller.api.state.currentTrackId).toBe(action === 'manual' ? 3 : 1)
+      expect(runtime.start).toHaveBeenCalledTimes(action === 'manual' ? 2 : 1)
+      expect(controller.api.isPlaybackPending.value).toBe(false)
+      if (action === 'pause' || action === 'toggle')
+        expect(controller.api.state.isPlaying).toBe(false)
+      controller.dispose()
+    },
+  )
+
+  it('ignores a superseded next failure without unlocking the latest selection', async () => {
+    let rejectOld!: (error: Error) => void
+    let resolveNew!: (track: PlaybackTrack) => void
+    vi.mocked(deps.getRandomTrack)
+      .mockReturnValueOnce(
+        new Promise((_resolve, reject) => {
+          rejectOld = reject
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveNew = resolve
+        }),
+      )
+    const track: PlaybackTrack = {
+      id: 1,
+      title: 'Song',
+      artist: 'A',
+      album: 'Album',
+      albumArtist: 'A',
+      durationSeconds: 120,
+      artworkCacheKey: null,
+    }
+    const controller = createPlaybackController(deps)
+    await controller.api.playTrackFromQueue([track], 1, { playbackMode: 'shuffle' })
+    const old = controller.api.playNext()
+    const latest = controller.api.playNext()
+    rejectOld(new Error('old selection failed'))
+    await old
+    expect(controller.api.state.error).toBeNull()
+    expect(controller.api.isPlaybackPending.value).toBe(true)
+    resolveNew({ ...track, id: 2 })
+    await latest
+    expect(controller.api.state.currentTrackId).toBe(2)
+    expect(controller.api.isPlaybackPending.value).toBe(false)
+    controller.dispose()
+  })
+
   it('initializes with default volume and gapless settings from storage', () => {
     storageMap.set('auralis-volume', '0.6')
     storageMap.set('auralis-gapless-playback-enabled', 'true')
@@ -185,5 +264,75 @@ describe('playbackController unit tests with injected dependencies', () => {
 
     controller.api.clearError()
     expect(controller.api.state.error).toBeNull()
+  })
+
+  it('cancels a pending audio URL on pause and allows an explicit play retry', async () => {
+    let resolveUrl!: (value: { url: string }) => void
+    vi.mocked(deps.getAudioUrl).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveUrl = resolve
+      }),
+    )
+    const controller = createPlaybackController(deps)
+    const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
+    const track: PlaybackTrack = {
+      id: 1,
+      title: 'Song',
+      artist: 'Artist',
+      album: 'Album',
+      albumArtist: 'Artist',
+      durationSeconds: 120,
+      artworkCacheKey: null,
+    }
+    const pending = controller.api.playTrackFromQueue([track], 1)
+    expect(controller.api.isPlaybackPending.value).toBe(true)
+    controller.api.pause()
+    expect(controller.api.isPlaybackPending.value).toBe(false)
+    resolveUrl({ url: 'audio://cancelled' })
+    await pending
+    expect(runtime.start).not.toHaveBeenCalled()
+    expect(controller.api.state.isPlaying).toBe(false)
+    expect(controller.api.state.currentTrackId).toBe(1)
+
+    await controller.api.play()
+    expect(runtime.start).toHaveBeenCalledWith(1, 'audio://1', expect.any(Object))
+    controller.dispose()
+  })
+
+  it('ignores a cancelled URL failure without unlocking a newer playback request', async () => {
+    let rejectOld!: (error: Error) => void
+    let resolveNew!: (value: { url: string }) => void
+    vi.mocked(deps.getAudioUrl)
+      .mockReturnValueOnce(
+        new Promise((_resolve, reject) => {
+          rejectOld = reject
+        }),
+      )
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveNew = resolve
+        }),
+      )
+    const controller = createPlaybackController(deps)
+    const track: PlaybackTrack = {
+      id: 1,
+      title: 'Song',
+      artist: 'Artist',
+      album: 'Album',
+      albumArtist: 'Artist',
+      durationSeconds: 120,
+      artworkCacheKey: null,
+    }
+    const old = controller.api.playTrackFromQueue([track], 1)
+    controller.api.pause()
+    const newer = controller.api.play()
+    rejectOld(new Error('cancelled URL failed'))
+    await old
+    expect(controller.api.state.error).toBeNull()
+    expect(controller.api.isPlaybackPending.value).toBe(true)
+    resolveNew({ url: 'audio://new' })
+    await newer
+    expect(controller.api.isPlaybackPending.value).toBe(false)
+    controller.dispose()
   })
 })

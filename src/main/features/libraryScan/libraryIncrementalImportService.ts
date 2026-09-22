@@ -14,6 +14,7 @@ import type { TrackRepository } from '../../repositories/trackRepository'
 import type { ScannedTrack } from '@shared/types/libraryScan'
 
 const MAX_STABILITY_RETRIES = 5
+const IMPORT_BATCH_SIZE = 32
 
 export interface ImportFailure {
   filePath: string
@@ -53,54 +54,63 @@ export class LibraryIncrementalImportService {
   private async doImport(filePaths: string[]): Promise<ImportResult> {
     const result: ImportResult = { imported: [], unstable: [], failed: [] }
 
-    for (const filePath of filePaths) {
-      const stable = await this.waitForStability(filePath)
+    const uniquePaths = [...new Set(filePaths)]
+    const recordFailure = (filePath: string, error: unknown) => {
+      const reason = error instanceof Error ? error.message : 'Unable to import audio file'
+      result.failed.push({ filePath, reason })
+      logger.warn({ filePath, reason }, 'Incremental import failed for file')
+    }
 
-      if (!stable) {
-        result.unstable.push(filePath)
-        continue
+    for (let offset = 0; offset < uniquePaths.length; offset += IMPORT_BATCH_SIZE) {
+      const batch = uniquePaths.slice(offset, offset + IMPORT_BATCH_SIZE)
+      // Overlap the stability delays; keep parsing serial to bound artwork memory.
+      const stable = await Promise.all(batch.map((filePath) => this.waitForStability(filePath)))
+      const additions: ScannedTrack[] = []
+      const relocatedIds: number[] = []
+      const relocatedPaths: string[] = []
+      for (const [index, filePath] of batch.entries()) {
+        if (!stable[index]) {
+          result.unstable.push(filePath)
+          continue
+        }
+
+        try {
+          const { track } = await this.parseAndNormalize(filePath)
+          const match = tryRelocateMissingCandidate(this.trackRepository, track)
+          if (match && this.trackRepository.relocateTrack(match.candidate.trackId, track)) {
+            result.imported.push(filePath)
+            relocatedIds.push(match.candidate.trackId)
+            relocatedPaths.push(filePath)
+          } else {
+            // Includes a failed relocation due to an occupied path / UNIQUE race.
+            additions.push(track)
+          }
+        } catch (error) {
+          recordFailure(filePath, error)
+        }
       }
 
-      try {
-        const { track } = await this.parseAndNormalize(filePath)
-        const match = tryRelocateMissingCandidate(this.trackRepository, track)
-
-        if (match) {
-          const relocated = this.trackRepository.relocateTrack(match.candidate.trackId, track)
-
-          if (relocated) {
-            result.imported.push(filePath)
-
-            this.sendToRenderer('library:changed', {
-              reason: 'track-relocated',
-              trackIds: [match.candidate.trackId],
-              filePaths: [filePath],
-            })
-          } else {
-            // Path occupied / UNIQUE race — fall back to path upsert.
-            this.trackRepository.upsertMany([track])
-            result.imported.push(filePath)
-
-            this.sendToRenderer('library:changed', {
-              reason: 'track-added',
-              trackIds: [],
-              filePaths: [filePath],
-            })
-          }
-        } else {
-          this.trackRepository.upsertMany([track])
-          result.imported.push(filePath)
-
-          this.sendToRenderer('library:changed', {
-            reason: 'track-added',
-            trackIds: [],
-            filePaths: [filePath],
-          })
+      if (relocatedIds.length) {
+        this.sendToRenderer('library:changed', {
+          reason: 'track-relocated',
+          trackIds: relocatedIds,
+          filePaths: relocatedPaths,
+        })
+      }
+      if (additions.length) {
+        try {
+          this.trackRepository.upsertMany(additions)
+        } catch (error) {
+          for (const track of additions) recordFailure(track.filePath, error)
+          continue
         }
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : 'Unable to parse audio file'
-        result.failed.push({ filePath, reason })
-        logger.warn({ filePath, reason }, 'Incremental import failed for file')
+        const addedPaths = additions.map((track) => track.filePath)
+        result.imported.push(...addedPaths)
+        this.sendToRenderer('library:changed', {
+          reason: 'track-added',
+          trackIds: [],
+          filePaths: addedPaths,
+        })
       }
     }
 

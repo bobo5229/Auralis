@@ -1,6 +1,6 @@
 import { parentPort, workerData } from 'node:worker_threads'
 import { cpus } from 'node:os'
-import { basename, dirname, join, parse } from 'node:path'
+import { dirname, join } from 'node:path'
 import { readFile, readdir, stat } from 'node:fs/promises'
 import { parseFile } from 'music-metadata'
 import { isSupportedAudioFile } from './audioFileFilter'
@@ -12,7 +12,7 @@ import {
   normalizeIdentityText,
   buildMetadataSignature,
 } from '../metadata/metadataNormalizer'
-import { resolveLyricsForFile } from '../metadata/resolveLyricsForFile'
+import { getLyricsSidecarFingerprint, readLyricsSnapshot } from '../metadata/resolveLyricsForFile'
 import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './libraryScanTypes'
 import type {
   AlbumArtworkPatch,
@@ -176,7 +176,7 @@ async function createScannedTrack(
   const cachedAlbumKey = albumKey ? albumArtworkCache.get(albumKey) : undefined
   const artworkCacheKey =
     resolvedArtworkKey ?? cachedAlbumKey ?? (await resolveArtwork(filePath, metadata))
-  const lyrics = await resolveLyricsForFile(filePath, metadata)
+  const { lyrics, lyricsSidecarFingerprint } = await readLyricsSnapshot(filePath, metadata)
   const identity = normalizeIdentityText(metadata)
 
   if (albumKey && artworkCacheKey) {
@@ -201,6 +201,7 @@ async function createScannedTrack(
     artworkCacheKey,
     lyricsText: lyrics?.text ?? null,
     lyricsFormat: lyrics?.format ?? null,
+    lyricsSidecarFingerprint,
     isrc: identity.isrc,
     metadataSignature: buildMetadataSignature(
       identity,
@@ -246,26 +247,27 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
   const knownFile = knownFiles.get(filePath)
   const fileUnchanged =
     knownFile && knownFile.fileSize === fileSize && knownFile.fileMtimeMs === fileMtimeMs
-  const lyricsChecked =
-    knownFile?.lyricsCheckedMtimeMs !== null && knownFile?.lyricsCheckedMtimeMs === fileMtimeMs
-  const needsLyricsBackfill = Boolean(fileUnchanged && knownFile && !lyricsChecked)
   const metadataChecked =
     knownFile?.metadataCheckedMtimeMs !== null && knownFile?.metadataCheckedMtimeMs === fileMtimeMs
   const needsMetadataBackfill = Boolean(fileUnchanged && knownFile && !metadataChecked)
 
-  // Skip completely: file unchanged, album already has a CURRENT (v2) artwork
-  // key, and lyrics were checked for this mtime. A legacy key still requires
-  // the lightweight upgrade path below (TechDoc §7.1).
-  if (
-    fileUnchanged &&
-    isCurrentArtworkCacheKey(knownFile.artworkCacheKey) &&
-    !needsLyricsBackfill &&
-    !needsMetadataBackfill
-  ) {
-    return { kind: 'skip' }
-  }
-
   try {
+    const lyricsChecked =
+      knownFile?.lyricsCheckedMtimeMs === fileMtimeMs &&
+      knownFile.lyricsSidecarFingerprint === (await getLyricsSidecarFingerprint(filePath))
+    const needsLyricsBackfill = Boolean(fileUnchanged && !lyricsChecked)
+
+    // Audio and sidecar fingerprints are independent. Old rows without a
+    // sidecar fingerprint get one lyrics backfill before the fast path applies.
+    if (
+      fileUnchanged &&
+      isCurrentArtworkCacheKey(knownFile.artworkCacheKey) &&
+      !needsLyricsBackfill &&
+      !needsMetadataBackfill
+    ) {
+      return { kind: 'skip' }
+    }
+
     if (!fileUnchanged || needsMetadataBackfill) {
       const dirCoverKey = await resolveDirectoryCover(filePath)
       let knownAlbumArtworkKey: string | null | undefined = dirCoverKey ?? undefined
@@ -326,6 +328,7 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
       // Cache miss or lyrics backfill: parse file once and reuse metadata for both tasks.
       const dirCoverKey = await resolveDirectoryCover(filePath)
       const hasKnownKey =
+        isCurrentArtworkCacheKey(knownFile.artworkCacheKey) ||
         dirCoverKey !== null ||
         (albumKey !== null && albumArtworkCache.get(albumKey!) !== undefined)
       const skipCovers = Boolean(hasKnownKey)
@@ -333,12 +336,13 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
       const metadata = await parseFile(filePath, { duration: false, skipCovers })
 
       if (needsLyricsBackfill) {
-        const lyrics = await resolveLyricsForFile(filePath, metadata)
+        const { lyrics, lyricsSidecarFingerprint } = await readLyricsSnapshot(filePath, metadata)
         lyricsPatch = {
           filePath,
           lyricsText: lyrics?.text ?? null,
           lyricsFormat: lyrics?.format ?? null,
           lyricsCheckedMtimeMs: fileMtimeMs,
+          lyricsSidecarFingerprint,
         }
       }
 
@@ -383,40 +387,9 @@ async function readTrack(filePath: string): Promise<ReadTrackResult> {
       },
     })
 
-    if (fileUnchanged) {
-      return { kind: 'skip' }
-    }
-
-    const fallbackTitle = parse(filePath).name || basename(filePath)
-
-    return {
-      kind: 'track',
-      track: {
-        filePath,
-        fileSize,
-        fileMtimeMs,
-        title: fallbackTitle,
-        artist: 'Unknown Artist',
-        album: 'Unknown Album',
-        albumArtist: 'Unknown Artist',
-        trackNo: null,
-        discNo: null,
-        durationSeconds: null,
-        year: null,
-        releaseDate: null,
-        copyright: null,
-        genre: null,
-        artworkCacheKey: null,
-        lyricsText: null,
-        lyricsFormat: null,
-        isrc: null,
-        metadataSignature: buildMetadataSignature(
-          { title: fallbackTitle, artist: 'Unknown Artist', album: 'Unknown Album', isrc: null },
-          null,
-          fileSize,
-        ),
-      },
-    }
+    // Never persist a failed read as checked metadata, including for new files.
+    // Leaving the stored fingerprint untouched guarantees a full retry next scan.
+    return { kind: 'skip' }
   }
 
   return { kind: 'skip' }

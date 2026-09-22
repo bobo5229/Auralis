@@ -3,8 +3,10 @@ import { createRequire } from 'node:module'
 import type { Worker, WorkerOptions } from 'node:worker_threads'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type Database from 'better-sqlite3'
+import type { BrowserWindow } from 'electron'
 import { migrateDatabase } from '@main/database/schema'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
+import { TrackRepository } from '@main/repositories/trackRepository'
 import type { LibraryScanWorkerMessage } from './libraryScanTypes'
 import { LibraryScanService, type LibraryScanWorkerFactory } from './libraryScanService'
 
@@ -25,6 +27,7 @@ function createHarness(): {
   worker: FakeWorker
   rootId: number
   workerOptions: () => WorkerOptions | null
+  send: ReturnType<typeof vi.fn>
 } {
   const db = new DatabaseCtor(':memory:')
   databases.push(db)
@@ -36,7 +39,10 @@ function createHarness(): {
     capturedOptions = options
     return worker as unknown as Worker
   }
-  const service = new LibraryScanService(db, 'C:\\Cache', createWorker, () => [])
+  const send = vi.fn()
+  const service = new LibraryScanService(db, 'C:\\Cache', createWorker, () => [
+    { webContents: { isDestroyed: () => false, send } } as unknown as BrowserWindow,
+  ])
 
   return {
     db,
@@ -44,6 +50,7 @@ function createHarness(): {
     worker,
     rootId: root.id,
     workerOptions: () => capturedOptions,
+    send,
   }
 }
 
@@ -56,6 +63,115 @@ afterEach(() => {
 })
 
 describe('LibraryScanService worker lifecycle', () => {
+  it('preserves stored metadata after a failed read and commits a later retry with its sidecar fingerprint', async () => {
+    const { db, service, worker, rootId } = createHarness()
+    const repo = new TrackRepository(db)
+    const track = {
+      filePath: 'C:\\Music\\song.flac',
+      fileSize: 100,
+      fileMtimeMs: 100,
+      title: 'Original',
+      artist: 'Artist',
+      album: 'Album',
+      albumArtist: 'Artist',
+      trackNo: 1,
+      discNo: 1,
+      durationSeconds: 180,
+      year: null,
+      releaseDate: null,
+      copyright: null,
+      genre: null,
+      artworkCacheKey: null,
+      lyricsText: 'original lyrics',
+      lyricsFormat: 'plain' as const,
+      lyricsSidecarFingerprint: '[null,null]',
+      isrc: null,
+      metadataSignature: 'original',
+    }
+    repo.upsertMany([track])
+    const { jobId } = await service.startScan(rootId)
+    emitWorkerMessage(worker, {
+      type: 'failure',
+      payload: { jobId, filePath: track.filePath, reason: 'EBUSY' },
+    })
+    emitWorkerMessage(worker, {
+      type: 'complete',
+      payload: {
+        foundFilePaths: [track.filePath],
+        unreadableDirectoryPaths: [],
+      },
+    })
+    expect(repo.getAll()[0]).toMatchObject({ title: 'Original', durationSeconds: 180 })
+    expect(repo.getKnownFiles()[0]).toMatchObject({
+      fileSize: 100,
+      fileMtimeMs: 100,
+      metadataCheckedMtimeMs: 100,
+    })
+    expect(repo.getLyricsByTrackId(1)?.lyricsText).toBe('original lyrics')
+
+    await service.startScan(rootId)
+    emitWorkerMessage(worker, {
+      type: 'tracks',
+      payload: [
+        {
+          ...track,
+          title: 'Updated',
+          fileSize: 200,
+          fileMtimeMs: 200,
+          lyricsSidecarFingerprint: '[[20,200],null]',
+        },
+      ],
+    })
+    expect(repo.getAll()).toHaveLength(1)
+    expect(repo.getAll()[0]).toMatchObject({ id: 1, title: 'Updated' })
+    expect(repo.getKnownFiles()[0]).toMatchObject({
+      fileMtimeMs: 200,
+      metadataCheckedMtimeMs: 200,
+      lyricsSidecarFingerprint: '[[20,200],null]',
+    })
+    await service.cancelScan(2)
+  })
+
+  it('persists a sidecar deletion and clears lyrics in both storage layers', async () => {
+    const { db, service, worker, rootId, send } = createHarness()
+    db.prepare(
+      `INSERT INTO tracks (id, file_path, lyrics_text, lyrics_format, file_mtime_ms)
+      VALUES (1, ?, 'old sidecar', 'lrc', 100)`,
+    ).run('C:\\Music\\song.flac')
+    db.exec(`INSERT INTO track_metadata (track_id, lyrics_text, lyrics_format, source)
+      VALUES (1, 'old sidecar', 'lrc', 'user_edit')`)
+    await service.startScan(rootId)
+    emitWorkerMessage(worker, {
+      type: 'trackLyrics',
+      payload: [
+        {
+          filePath: 'C:\\Music\\song.flac',
+          lyricsText: null,
+          lyricsFormat: null,
+          lyricsCheckedMtimeMs: 100,
+          lyricsSidecarFingerprint: '[null,null]',
+        },
+      ],
+    })
+    const repo = new TrackRepository(db)
+    expect(repo.getKnownFiles()[0]).toMatchObject({
+      lyricsCheckedMtimeMs: 100,
+      lyricsSidecarFingerprint: '[null,null]',
+    })
+    expect(repo.getLyricsByTrackId(1)?.lyricsText).toBeNull()
+    expect(
+      db.prepare('SELECT lyrics_text FROM track_metadata WHERE track_id = 1').pluck().get(),
+    ).toBeNull()
+    expect(db.prepare('SELECT source FROM track_metadata WHERE track_id = 1').pluck().get()).toBe(
+      'user_edit',
+    )
+    expect(send).toHaveBeenCalledWith('library:changed', {
+      reason: 'metadata-refresh',
+      trackIds: [1],
+      filePaths: ['C:\\Music\\song.flac'],
+    })
+    await service.cancelScan(1)
+  })
   it('starts one worker and persists progress through completion', async () => {
     const { db, service, worker, rootId, workerOptions } = createHarness()
     const onStart = vi.fn()

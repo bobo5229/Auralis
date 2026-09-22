@@ -375,51 +375,60 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   // --- Mode-aware advance ---
 
   async function advanceTrack(trigger: PlaybackAdvanceTrigger): Promise<void> {
-    const decision = await navigationSession.resolveAdvance(
-      {
-        queue: state.queue,
-        currentIndex: state.currentIndex,
-        currentTrackId: state.currentTrackId,
-        currentTrack: state.currentTrack,
-        playbackMode: state.playbackMode,
-      },
-      transitionSource,
-      trigger,
-    )
+    const pendingToken = beginPlaybackRequest()
+    try {
+      const decision = await navigationSession.resolveAdvance(
+        {
+          queue: state.queue,
+          currentIndex: state.currentIndex,
+          currentTrackId: state.currentTrackId,
+          currentTrack: state.currentTrack,
+          playbackMode: state.playbackMode,
+        },
+        transitionSource,
+        trigger,
+      )
+      if (!isCurrentPlaybackRequest(pendingToken)) return
 
-    if (decision.kind === 'noop') {
-      return
-    }
-
-    if (decision.kind === 'stop') {
-      effectivePlayTracker.end()
-      audioRuntime.pause()
-      state.isPlaying = false
-      if (decision.resetTime) {
-        state.currentTime = 0
-      }
-      return
-    }
-
-    if (decision.kind === 'play') {
-      const plan = decision.plan
-      const snapshot = audioRuntime.getSnapshot()
-      if (
-        state.playbackMode === 'repeat-one' &&
-        trigger === 'natural-ended' &&
-        snapshot.kind === 'html-audio'
-      ) {
-        effectivePlayTracker.start(state.currentTrackId!)
-        await audioRuntime.seek(0)
-        state.currentTime = 0
-        await audioRuntime.resume()
+      if (decision.kind === 'noop') {
         return
       }
 
-      navigationSession.applyPlan(plan, state.currentTrack, state.queue)
-      await playTrackFromResolvedQueue(plan.queue, plan.track.id, {
-        recordHistory: false,
-      })
+      if (decision.kind === 'stop') {
+        effectivePlayTracker.end()
+        audioRuntime.pause()
+        state.isPlaying = false
+        if (decision.resetTime) {
+          state.currentTime = 0
+        }
+        return
+      }
+
+      if (decision.kind === 'play') {
+        const plan = decision.plan
+        const snapshot = audioRuntime.getSnapshot()
+        if (
+          state.playbackMode === 'repeat-one' &&
+          trigger === 'natural-ended' &&
+          snapshot.kind === 'html-audio'
+        ) {
+          effectivePlayTracker.start(state.currentTrackId!)
+          await audioRuntime.seek(0)
+          if (!isCurrentPlaybackRequest(pendingToken)) return
+          state.currentTime = 0
+          await audioRuntime.resume()
+          return
+        }
+
+        navigationSession.applyPlan(plan, state.currentTrack, state.queue)
+        await playTrackFromResolvedQueue(plan.queue, plan.track.id, {
+          recordHistory: false,
+        })
+      }
+    } catch (err) {
+      if (isCurrentPlaybackRequest(pendingToken)) setPlaybackError(err)
+    } finally {
+      finishPlaybackRequest(pendingToken)
     }
   }
 
@@ -556,14 +565,14 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   async function togglePlayPause(): Promise<void> {
-    if (!state.currentTrack || playbackPending.value) return
+    if (!state.currentTrack) return
 
     if (state.isPlaying) {
-      invalidateGaplessTransition()
-      audioRuntime.pause()
+      pause()
       return
     }
 
+    if (playbackPending.value) return
     await resumeCurrentTrack(state.currentTrack)
   }
 
@@ -573,11 +582,14 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   function pause(): void {
+    invalidatePlaybackRequest()
     invalidateGaplessTransition()
     audioRuntime.pause()
+    state.isPlaying = false
   }
 
   async function playPrevious(): Promise<void> {
+    invalidatePlaybackRequest()
     const decision = navigationSession.resolvePrevious({
       queue: state.queue,
       currentIndex: state.currentIndex,

@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+import { randomUUID } from 'node:crypto'
 import {
   closeSync,
   copyFileSync,
@@ -100,11 +101,12 @@ export interface ExportBackupOptions {
 }
 
 /**
- * Truncates WAL and exports a consistent .backup copy of the database.
+ * Exports a consistent SQLite snapshot, including committed data still in WAL.
  */
 export async function exportDatabaseBackup(
   options: ExportBackupOptions,
 ): Promise<DatabaseExportBackupResult> {
+  let tempTargetPath: string | null = null
   try {
     const { db, databasePath, showSaveDialog } = options
     if (!showSaveDialog) {
@@ -124,14 +126,13 @@ export async function exportDatabaseBackup(
 
     const targetPath = dialogResult.filePath
 
-    // Checkpoint active WAL to write all transactions into the primary db file before copying.
-    db.pragma('wal_checkpoint(TRUNCATE)')
-
     const targetDir = dirname(targetPath)
     mkdirSync(targetDir, { recursive: true })
 
-    const tempTargetPath = `${targetPath}.tmp-${Date.now()}`
-    copyFileSync(databasePath, tempTargetPath)
+    tempTargetPath = `${targetPath}.tmp-${randomUUID()}`
+    // A reader can prevent checkpoint completion without throwing. SQLite's
+    // backup API reads a consistent database snapshot directly, including WAL.
+    await db.backup(tempTargetPath)
     renameSync(tempTargetPath, targetPath)
 
     logger.info({ databasePath, targetPath }, 'Exported database backup successfully')
@@ -140,6 +141,14 @@ export async function exportDatabaseBackup(
     const errorMsg = error instanceof Error ? error.message : String(error)
     logger.error({ error, databasePath: options.databasePath }, 'Failed to export database backup')
     return { status: 'failed', error: errorMsg }
+  } finally {
+    if (tempTargetPath && existsSync(tempTargetPath)) {
+      try {
+        unlinkSync(tempTargetPath)
+      } catch (error) {
+        logger.warn({ error, tempTargetPath }, 'Failed to remove incomplete export backup')
+      }
+    }
   }
 }
 

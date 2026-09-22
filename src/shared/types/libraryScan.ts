@@ -68,6 +68,7 @@ export interface ScannedTrack {
   artworkCacheKey: string | null
   lyricsText: string | null
   lyricsFormat: LyricsFormat | null
+  lyricsSidecarFingerprint?: string | null
   isrc: string | null
   metadataSignature: string
 }
@@ -109,6 +110,7 @@ export interface TrackLyricsPatch {
   lyricsText: string | null
   lyricsFormat: LyricsFormat | null
   lyricsCheckedMtimeMs: number
+  lyricsSidecarFingerprint?: string | null
 }
 
 export interface SelectLibraryRootResult {

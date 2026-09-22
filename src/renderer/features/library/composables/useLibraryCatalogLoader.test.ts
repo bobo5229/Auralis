@@ -1,5 +1,5 @@
 import { ref, shallowRef } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { LibraryTrackPage } from '@shared/types/libraryCatalog'
 import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
@@ -114,6 +114,49 @@ function createLoader(overrides?: {
 }
 
 describe('useLibraryCatalogLoader', () => {
+  afterEach(() => vi.useRealTimers())
+
+  it('coalesces spaced imports and flushes the final change', async () => {
+    vi.useFakeTimers()
+    const { loader, getTrackPage, emitLibraryChanged, dispose } = createLoader()
+    loader.subscribeLibraryEvents()
+    for (let i = 0; i < 3; i++) {
+      await emitLibraryChanged('track-added')
+      await vi.advanceTimersByTimeAsync(800)
+    }
+    expect(getTrackPage).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(200)
+    expect(getTrackPage).toHaveBeenCalledOnce()
+    dispose()
+  })
+
+  it('refreshes during continuous imports and cancels pending timers on dispose', async () => {
+    vi.useFakeTimers()
+    const { loader, getTrackPage, emitLibraryChanged, dispose } = createLoader()
+    loader.subscribeLibraryEvents()
+    for (let i = 0; i < 4; i++) {
+      await emitLibraryChanged('track-relocated')
+      await vi.advanceTimersByTimeAsync(800)
+    }
+    expect(getTrackPage).toHaveBeenCalledOnce()
+    await emitLibraryChanged('track-added')
+    dispose()
+    await vi.runAllTimersAsync()
+    expect(getTrackPage).toHaveBeenCalledOnce()
+  })
+
+  it('keeps missing-track refresh immediate and absorbs a pending import refresh', async () => {
+    vi.useFakeTimers()
+    const { loader, getTrackPage, emitLibraryChanged, dispose } = createLoader()
+    loader.subscribeLibraryEvents()
+    await emitLibraryChanged('track-added')
+    await emitLibraryChanged('track-missing')
+    expect(getTrackPage).toHaveBeenCalledOnce()
+    await vi.runAllTimersAsync()
+    expect(getTrackPage).toHaveBeenCalledOnce()
+    dispose()
+  })
+
   it('keeps a complete prior snapshot and identity visible after a failed reload', async () => {
     const getTrackPage = vi
       .fn()

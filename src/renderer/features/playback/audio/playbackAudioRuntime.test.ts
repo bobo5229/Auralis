@@ -327,4 +327,37 @@ describe('PlaybackAudioRuntime', () => {
     expect(snapshot.kind).toBe('gapless')
     expect(snapshot.trackId).toBe(2)
   })
+
+  it.each([true, false])(
+    'pause cancels pending gapless startup and fallback (late result: %s)',
+    async (started) => {
+      let settle!: (value: boolean) => void
+      const { GaplessAudioEngine } = await import('./gaplessAudioEngine')
+      vi.spyOn(GaplessAudioEngine.prototype, 'start').mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            settle = resolve
+          }),
+      )
+      const runtime = createPlaybackAudioRuntime(callbacks, {
+        audio: testAudio as unknown as HTMLAudioElement,
+      })
+      const pending = runtime.start(1, 'audio://cancelled', { preferGapless: true })
+      runtime.pause()
+      settle(started)
+      await pending
+      expect(runtime.getSnapshot()).toMatchObject({ kind: 'idle', trackId: null, isPlaying: false })
+      expect(testAudio.src).toBe('')
+      expect(testAudio.paused).toBe(true)
+      expect(callbacks.onPlayingChange).not.toHaveBeenCalledWith(true)
+
+      await runtime.start(1, 'audio://retry', { preferGapless: false })
+      expect(runtime.getSnapshot()).toMatchObject({
+        kind: 'html-audio',
+        trackId: 1,
+        isPlaying: true,
+      })
+      runtime.dispose()
+    },
+  )
 })

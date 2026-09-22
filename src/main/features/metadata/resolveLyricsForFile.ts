@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
 import { extname } from 'node:path'
 import type { IAudioMetadata } from 'music-metadata'
 import { resolveLyrics } from './metadataNormalizer'
@@ -20,10 +20,39 @@ function classifyLyrics(text: string): ResolvedLyrics | null {
   }
 }
 
-async function readLocalLyrics(filePath: string): Promise<ResolvedLyrics | null> {
+function sidecarCandidates(filePath: string): string[] {
   const extension = extname(filePath)
   const basePath = extension ? filePath.slice(0, -extension.length) : filePath
-  const candidates = [`${basePath}.lrc`, `${basePath}.LRC`]
+  return [`${basePath}.lrc`, `${basePath}.LRC`]
+}
+
+/** Includes absence, so adding or removing a sidecar invalidates the scan cache. */
+export async function getLyricsSidecarFingerprint(filePath: string): Promise<string> {
+  const fingerprints = await Promise.all(
+    sidecarCandidates(filePath).map(async (candidate) => {
+      try {
+        const file = await stat(candidate)
+        return [file.size, file.mtimeMs]
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+        throw error
+      }
+    }),
+  )
+  return JSON.stringify(fingerprints)
+}
+
+export async function readLyricsSnapshot(filePath: string, metadata: IAudioMetadata) {
+  const lyricsSidecarFingerprint = await getLyricsSidecarFingerprint(filePath)
+  const lyrics = await resolveLyricsForFile(filePath, metadata)
+  if (lyricsSidecarFingerprint !== (await getLyricsSidecarFingerprint(filePath))) {
+    throw new Error('Lyrics sidecar changed while being read')
+  }
+  return { lyrics, lyricsSidecarFingerprint }
+}
+
+async function readLocalLyrics(filePath: string): Promise<ResolvedLyrics | null> {
+  const candidates = sidecarCandidates(filePath)
 
   for (const candidate of candidates) {
     try {

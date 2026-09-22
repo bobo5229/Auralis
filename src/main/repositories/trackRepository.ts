@@ -20,6 +20,7 @@ export interface KnownTrackFile {
   artworkCacheKey: string | null
   lyricsFormat: string | null
   lyricsCheckedMtimeMs: number | null
+  lyricsSidecarFingerprint?: string | null
   metadataCheckedMtimeMs: number | null
 }
 
@@ -283,6 +284,7 @@ export class TrackRepository extends BaseRepository {
                 a.artwork_cache_key AS artworkCacheKey,
                 t.lyrics_format AS lyricsFormat,
                 t.lyrics_checked_mtime_ms AS lyricsCheckedMtimeMs,
+                t.lyrics_sidecar_fingerprint AS lyricsSidecarFingerprint,
                 t.metadata_checked_mtime_ms AS metadataCheckedMtimeMs
          FROM tracks t
          LEFT JOIN albums a ON t.album = a.title AND t.album_artist = a.artist`,
@@ -314,6 +316,7 @@ export class TrackRepository extends BaseRepository {
         lyrics_text,
         lyrics_format,
         lyrics_checked_mtime_ms,
+        lyrics_sidecar_fingerprint,
         metadata_checked_mtime_ms,
         isrc,
         metadata_signature,
@@ -321,7 +324,7 @@ export class TrackRepository extends BaseRepository {
         missing_since,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
       ON CONFLICT(file_path) DO UPDATE SET
         file_size = excluded.file_size,
         file_mtime_ms = excluded.file_mtime_ms,
@@ -339,6 +342,7 @@ export class TrackRepository extends BaseRepository {
         lyrics_text = excluded.lyrics_text,
         lyrics_format = excluded.lyrics_format,
         lyrics_checked_mtime_ms = excluded.lyrics_checked_mtime_ms,
+        lyrics_sidecar_fingerprint = excluded.lyrics_sidecar_fingerprint,
         metadata_checked_mtime_ms = excluded.metadata_checked_mtime_ms,
         isrc = excluded.isrc,
         metadata_signature = excluded.metadata_signature,
@@ -379,6 +383,7 @@ export class TrackRepository extends BaseRepository {
           track.lyricsText,
           track.lyricsFormat,
           track.fileMtimeMs,
+          track.lyricsSidecarFingerprint ?? null,
           track.fileMtimeMs,
           track.isrc,
           track.metadataSignature,
@@ -430,13 +435,27 @@ export class TrackRepository extends BaseRepository {
       SET lyrics_text = ?,
           lyrics_format = ?,
           lyrics_checked_mtime_ms = ?,
+          lyrics_sidecar_fingerprint = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE file_path = ?
     `)
 
+    const updateDisplay = this.db.prepare(`
+      UPDATE track_metadata SET lyrics_text = ?, lyrics_format = ?, refreshed_at = CURRENT_TIMESTAMP
+      WHERE track_id = (SELECT id FROM tracks WHERE file_path = ?)
+    `)
+
     const batch = this.db.transaction((patches: TrackLyricsPatch[]) => {
       for (const patch of patches) {
-        update.run(patch.lyricsText, patch.lyricsFormat, patch.lyricsCheckedMtimeMs, patch.filePath)
+        update.run(
+          patch.lyricsText,
+          patch.lyricsFormat,
+          patch.lyricsCheckedMtimeMs,
+          patch.lyricsSidecarFingerprint ?? null,
+          patch.filePath,
+        )
+        // Display metadata can also hold lyrics; clearing a sidecar must clear both.
+        updateDisplay.run(patch.lyricsText, patch.lyricsFormat, patch.filePath)
       }
     })
 
@@ -676,6 +695,7 @@ export class TrackRepository extends BaseRepository {
                availability = 'available',
                missing_since = NULL,
                lyrics_checked_mtime_ms = ?,
+               lyrics_sidecar_fingerprint = NULL,
                metadata_checked_mtime_ms = ?,
                updated_at = CURRENT_TIMESTAMP
            WHERE id = ?`,

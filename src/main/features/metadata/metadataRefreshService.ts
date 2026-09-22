@@ -208,6 +208,7 @@ export class MetadataRefreshService {
             this.repository.getTrackFilePath(f.trackId) === f.filePath
           ) {
             this.repository.markTrackMissing(f.trackId)
+            this.pushChanged([f.trackId], 'track-missing')
           } else {
             this.repository.addFailure(f.jobId, f.trackId, f.filePath, f.reason)
           }
@@ -315,7 +316,10 @@ export class MetadataRefreshService {
     return job?.scope === 'file-change' ? 'file-change' : 'metadata-refresh'
   }
 
-  private pushChanged(trackIds: number[], reason: 'metadata-refresh' | 'file-change'): void {
+  private pushChanged(
+    trackIds: number[],
+    reason: 'metadata-refresh' | 'file-change' | 'track-missing',
+  ): void {
     this.sendToRenderer('library:changed', {
       trackIds: [...new Set(trackIds)],
       filePaths: [],

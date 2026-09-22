@@ -571,6 +571,8 @@ export class MetadataRefreshRepository extends BaseRepository {
   }
 
   updateTrackMetadata(result: RefreshedTrackMetadata): void {
+    // These results do not carry a stable sidecar snapshot. Invalidate that
+    // derived scan fingerprint so the next scan verifies the current .lrc.
     // Full file_tag write — skipped when user_edit must be preserved.
     const upsertTrackMetadata = this.db.prepare(`
       INSERT INTO track_metadata (
@@ -627,6 +629,7 @@ export class MetadataRefreshRepository extends BaseRepository {
           file_size = ?,
           file_mtime_ms = ?,
           lyrics_checked_mtime_ms = ?,
+          lyrics_sidecar_fingerprint = NULL,
           metadata_checked_mtime_ms = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND file_path = ?
@@ -652,6 +655,7 @@ export class MetadataRefreshRepository extends BaseRepository {
           file_size = ?,
           file_mtime_ms = ?,
           lyrics_checked_mtime_ms = ?,
+          lyrics_sidecar_fingerprint = NULL,
           metadata_checked_mtime_ms = ?,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND file_path = ?
@@ -834,6 +838,7 @@ export class MetadataRefreshRepository extends BaseRepository {
          SET lyrics_text = ?,
              lyrics_format = ?,
              lyrics_checked_mtime_ms = ?,
+             lyrics_sidecar_fingerprint = NULL,
              updated_at = CURRENT_TIMESTAMP
          WHERE id = ? AND file_path = ?`,
         )

@@ -262,6 +262,13 @@ export function createPlaybackAudioRuntime(
   }
 
   function pause(): void {
+    // A pending gapless start has not selected a backend yet. Cancel it as
+    // well as its HTMLAudio fallback; pausing an idle backend alone is a no-op.
+    if (activeBackend === 'idle') {
+      clear()
+      return
+    }
+    activeSessionId += 1
     if (activeBackend === 'gapless') {
       gaplessEngine.pause()
       return

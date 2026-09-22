@@ -72,6 +72,29 @@ export function useLibraryCatalogLoader(options: {
   let committedScope: LibraryRouteScope | null = null
   let unsubscribeChanged: (() => void) | null = null
   let unsubscribeScanProgress: (() => void) | null = null
+  let importRefreshTimer: ReturnType<typeof setTimeout> | null = null
+  let importRefreshDeadline: ReturnType<typeof setTimeout> | null = null
+
+  function clearImportRefresh(): void {
+    if (importRefreshTimer !== null) clearTimeout(importRefreshTimer)
+    if (importRefreshDeadline !== null) clearTimeout(importRefreshDeadline)
+    importRefreshTimer = null
+    importRefreshDeadline = null
+  }
+
+  function flushImportRefresh(): void {
+    clearImportRefresh()
+    if (options.isDisposed()) return
+    catalogClient.invalidate()
+    void loadLibraryData('background')
+  }
+
+  function scheduleImportRefresh(): void {
+    if (importRefreshTimer !== null) clearTimeout(importRefreshTimer)
+    importRefreshTimer = setTimeout(flushImportRefresh, 1000)
+    // Continuous imports must still become visible without waiting for the last file.
+    importRefreshDeadline ??= setTimeout(flushImportRefresh, 3000)
+  }
 
   function isCurrentLibraryRequest(generation: number, scope: LibraryRouteScope): boolean {
     return (
@@ -237,12 +260,19 @@ export function useLibraryCatalogLoader(options: {
   function subscribeLibraryEvents(): void {
     unsubscribeChanged = options.onLibraryChanged(async (event) => {
       if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
+      if (options.isDisposed()) return
+      if (event.reason === 'track-added' || event.reason === 'track-relocated') {
+        scheduleImportRefresh()
+        return
+      }
+      clearImportRefresh()
       catalogClient.invalidate()
       await loadLibraryData('background')
     })
 
     unsubscribeScanProgress = options.onScanProgress(async (progress) => {
       if (progress.status === 'completed') {
+        clearImportRefresh()
         catalogClient.invalidate()
         await loadLibraryData('background')
       }
@@ -250,6 +280,7 @@ export function useLibraryCatalogLoader(options: {
   }
 
   function dispose(): void {
+    clearImportRefresh()
     coordinator.invalidate()
     unsubscribeChanged?.()
     unsubscribeScanProgress?.()

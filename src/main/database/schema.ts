@@ -597,6 +597,11 @@ const migrations = [
       LEFT JOIN track_play_stats ps ON ps.track_id = t.id;
     `,
   },
+  {
+    id: 22,
+    name: 'lyrics_sidecar_fingerprint',
+    sql: `ALTER TABLE tracks ADD COLUMN lyrics_sidecar_fingerprint TEXT;`,
+  },
 ] as const
 
 function resolveBackupsDir(databasePath?: string, customBackupsDir?: string): string | undefined {

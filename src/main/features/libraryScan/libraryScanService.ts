@@ -320,6 +320,12 @@ export class LibraryScanService {
 
     if (message.type === 'trackLyrics') {
       this.trackRepository.patchLyrics(message.payload)
+      const filePaths = message.payload.map((patch) => patch.filePath)
+      this.publishChanged(
+        'metadata-refresh',
+        this.trackRepository.getTrackIdsByFilePaths(filePaths),
+        filePaths,
+      )
       return
     }
 
@@ -478,7 +484,12 @@ export class LibraryScanService {
   }
 
   private publishChanged(
-    reason: 'track-added' | 'track-missing' | 'track-restored' | 'track-relocated',
+    reason:
+      | 'track-added'
+      | 'track-missing'
+      | 'track-restored'
+      | 'track-relocated'
+      | 'metadata-refresh',
     trackIds: number[],
     filePaths: string[] = [],
   ): void {

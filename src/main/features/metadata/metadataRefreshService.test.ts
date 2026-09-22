@@ -73,6 +73,49 @@ beforeEach(() => {
 })
 
 describe('metadata result acceptance', () => {
+  it('publishes missing tracks immediately even if the worker later fails', async () => {
+    const { service, repo, send } = setup()
+    service.refreshTrack(1)
+    workers[0].emit('message', {
+      type: 'failure',
+      payload: { jobId: 1, trackId: 1, filePath: 'isolated.flac', reason: 'ENOENT' },
+    })
+    await vi.waitFor(() => expect(repo.markTrackMissing).toHaveBeenCalledWith(1))
+    expect(send).toHaveBeenCalledWith('library:changed', {
+      reason: 'track-missing',
+      trackIds: [1],
+      filePaths: [],
+    })
+    workers[0].emit('error', new Error('worker failed'))
+    await vi.waitFor(() => expect(service.hasActiveJob()).toBe(false))
+    expect(send.mock.calls.filter(([channel]) => channel === 'library:changed')).toHaveLength(1)
+  })
+
+  it.each(['path', 'job', 'write-failure'] as const)(
+    'does not publish missing state after a %s mismatch or failure',
+    async (failure) => {
+      const { service, repo, send } = setup()
+      service.refreshTrack(1)
+      if (failure === 'path') repo.getTrackFilePath.mockReturnValue('moved.flac')
+      if (failure === 'write-failure')
+        repo.markTrackMissing.mockImplementation(() => {
+          throw new Error('SQL failure')
+        })
+      workers[0].emit('message', {
+        type: 'failure',
+        payload: {
+          jobId: failure === 'job' ? 2 : 1,
+          trackId: 1,
+          filePath: 'isolated.flac',
+          reason: 'ENOENT',
+        },
+      })
+      workers[0].emit('message', { type: 'complete' })
+      await vi.waitFor(() => expect(service.hasActiveJob()).toBe(false))
+      expect(send.mock.calls.some(([channel]) => channel === 'library:changed')).toBe(false)
+    },
+  )
+
   it('serializes complete/exit behind stat and commit', async () => {
     const { service, repo, send } = setup()
     const gate = deferred<void>()
