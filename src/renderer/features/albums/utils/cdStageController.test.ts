@@ -163,6 +163,43 @@ describe('CD stage lifetime', () => {
     expect(change).toHaveBeenLastCalledWith(0, true)
   })
 
+  it('fades a requested album in at its final focused pose', () => {
+    const change = vi.fn()
+    const { stage, controller, albums, select } = setup(8, change)
+    controller.setAlbums(albums, false, albums[5].key)
+    expect(select).toHaveBeenLastCalledWith(5)
+    controller.setFocused(true, 'fade')
+    const selectedSlot = stage.children.find(
+      (node) => node.attributes.get('data-selected') === 'true',
+    )!
+    const focusedTransform = selectedSlot.style.transform
+    expect(selectedSlot.style.opacity).toBe('0')
+    expect(change).toHaveBeenLastCalledWith(1, false)
+    advance(12)
+    expect(Number(selectedSlot.style.opacity)).toBeGreaterThan(0)
+    expect(Number(selectedSlot.style.opacity)).toBeLessThan(1)
+    expect(selectedSlot.style.transform).toBe(focusedTransform)
+    settle()
+    expect(selectedSlot.style.opacity).toBe('1')
+    expect(change).toHaveBeenLastCalledWith(1, true)
+    controller.dispose()
+  })
+
+  it('cleans up a direct focus fade when the user leaves before it finishes', () => {
+    const change = vi.fn()
+    const { stage, controller } = setup(8, change)
+    controller.setFocused(true, 'fade')
+    advance(8)
+    controller.setFocused(false)
+    settle()
+    const selectedSlot = stage.children.find(
+      (node) => node.attributes.get('data-selected') === 'true',
+    )!
+    expect(selectedSlot.style.opacity).toBe('1')
+    expect(change).toHaveBeenLastCalledWith(0, true)
+    controller.dispose()
+  })
+
   it('shows, advances and pauses the focused playback wave', () => {
     const change = vi.fn()
     const { stage, controller } = setup(8, change)

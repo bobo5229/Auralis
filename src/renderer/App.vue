@@ -8,6 +8,7 @@ import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
 import MiniPlayer from './app/layout/MiniPlayer.vue'
 import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
+import { useShellFluidBackground } from '@renderer/features/appearance/composables/useShellFluidBackground'
 import { useDesktopLyricsSync } from '@renderer/features/lyrics/composables/useDesktopLyricsSync'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -16,6 +17,7 @@ import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 
 const route = useRoute()
 const playback = usePlayback()
+const { shellFluidBackgroundEnabled } = useShellFluidBackground()
 useSystemMediaIntegration()
 useDesktopLyricsSync()
 const { displayMode, onMiniPlayerWindowStateChanged, syncMiniPlayerWindowState } =
@@ -59,7 +61,11 @@ const artworkUrl = computed(() =>
   getArtworkUrl(playback.state.currentTrack?.artworkCacheKey ?? null),
 )
 const shouldRenderShellArtwork = computed(
-  () => displayMode.value === 'normal' && !isCdAlbums.value && artworkUrl.value !== null,
+  () =>
+    shellFluidBackgroundEnabled.value &&
+    displayMode.value === 'normal' &&
+    !isCdAlbums.value &&
+    artworkUrl.value !== null,
 )
 
 /**

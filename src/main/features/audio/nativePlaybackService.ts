@@ -92,7 +92,13 @@ export class NativePlaybackService {
       this.session = request.session
       this.lifetime = new AbortController()
       const signal = this.lifetime.signal
-      const path = await this.options.resolveTrack(request.trackId)
+      let path: string
+      try {
+        path = await this.options.resolveTrack(request.trackId)
+      } catch (error) {
+        if (signal.aborted) return { accepted: false }
+        throw error
+      }
       if (signal.aborted) return { accepted: false }
       this.path = path
       this.paused = false
@@ -106,17 +112,23 @@ export class NativePlaybackService {
         isPlaying: false,
         buffering: false,
       }
-      const client = await openMpvClient(
-        this.options.mpvPath,
-        (event) => {
-          if (!signal.aborted) this.onEvent(event, request.session)
-        },
-        (error) => {
-          if (!signal.aborted) this.failure(error)
-        },
-        signal,
-        this.options.mpvArgs,
-      )
+      let client: MpvClient
+      try {
+        client = await openMpvClient(
+          this.options.mpvPath,
+          (event) => {
+            if (!signal.aborted) this.onEvent(event, request.session)
+          },
+          (error) => {
+            if (!signal.aborted) this.failure(error)
+          },
+          signal,
+          this.options.mpvArgs,
+        )
+      } catch (error) {
+        if (signal.aborted) return { accepted: false }
+        throw error
+      }
       if (signal.aborted) {
         client.close()
         return { accepted: false }
@@ -153,7 +165,8 @@ export class NativePlaybackService {
         })
         return { accepted: !signal.aborted }
       } catch (error) {
-        if (!signal.aborted) this.failure(error instanceof Error ? error : new Error(String(error)))
+        if (signal.aborted) return { accepted: false }
+        this.failure(error instanceof Error ? error : new Error(String(error)))
         throw error
       }
     }
@@ -170,31 +183,37 @@ export class NativePlaybackService {
       this.scan.abort()
     }
     const client = this.client
+    const isCurrent = () => request.session === this.session && client === this.client
     return this.enqueue(async () => {
-      if (request.session !== this.session || client !== this.client) return { accepted: false }
-      switch (request.action) {
-        case 'cancel-next':
-          await this.cancelNext(client)
-          break
-        case 'pause':
-          await client.command('set_property', 'pause', true)
-          this.paused = true
-          this.publish()
-          break
-        case 'resume':
-          await client.command('set_property', 'pause', false)
-          this.paused = false
-          this.publish()
-          break
-        case 'seek':
-          await client.command('seek', request.time, 'absolute+exact')
-          break
-        case 'volume':
-          await client.command('set_property', 'volume', request.volume * 100)
-          await client.command('set_property', 'mute', request.muted)
-          break
+      if (!isCurrent()) return { accepted: false }
+      try {
+        switch (request.action) {
+          case 'cancel-next':
+            await this.cancelNext(client)
+            break
+          case 'pause':
+            await client.command('set_property', 'pause', true)
+            this.paused = true
+            this.publish()
+            break
+          case 'resume':
+            await client.command('set_property', 'pause', false)
+            this.paused = false
+            this.publish()
+            break
+          case 'seek':
+            await client.command('seek', request.time, 'absolute+exact')
+            break
+          case 'volume':
+            await client.command('set_property', 'volume', request.volume * 100)
+            await client.command('set_property', 'mute', request.muted)
+            break
+        }
+        return { accepted: true }
+      } catch (error) {
+        if (!isCurrent()) return { accepted: false }
+        throw error
       }
-      return { accepted: true }
     })
   }
 
@@ -237,10 +256,12 @@ export class NativePlaybackService {
         this.snapshot.duration - this.snapshot.currentTime < 1
       )
         return { accepted: false }
-      await this.cancelNext(client)
-      if (!isCurrent() || this.enteringNext) return { accepted: false }
-      this.next = { id: request.trackId, path: nextPath }
+      let scheduled = false
       try {
+        await this.cancelNext(client)
+        if (!isCurrent() || this.enteringNext) return { accepted: false }
+        this.next = { id: request.trackId, path: nextPath }
+        scheduled = true
         await client.command(
           'loadfile',
           nextPath,
@@ -253,7 +274,14 @@ export class NativePlaybackService {
         }
         return { accepted: true }
       } catch (error) {
-        await this.cancelNext(client)
+        if (!isCurrent()) return { accepted: false }
+        if (scheduled) {
+          try {
+            await this.cancelNext(client)
+          } catch {
+            // Prefer the original schedule failure over cleanup noise.
+          }
+        }
         throw error
       }
     })
@@ -281,7 +309,7 @@ export class NativePlaybackService {
       if (this.loaded) this.publish()
     } else if (event.event === 'file-loaded') {
       void this.fileLoaded(session).catch((error: Error) => {
-        if (session === this.session) this.failure(error)
+        if (session === this.session && this.client) this.failure(error)
       })
     } else if (event.event === 'end-file' && event.reason === 'error') {
       this.failure(new Error(`mpv could not decode audio: ${event.error ?? 'unknown error'}`))
@@ -295,11 +323,18 @@ export class NativePlaybackService {
   private async fileLoaded(session: number): Promise<void> {
     const client = this.client
     if (!client) return
-    const [duration, position] = await Promise.all([
-      client.command('get_property', 'duration'),
-      client.command('get_property', 'time-pos'),
-    ])
+    let properties: [unknown, unknown]
+    try {
+      properties = await Promise.all([
+        client.command('get_property', 'duration'),
+        client.command('get_property', 'time-pos'),
+      ])
+    } catch (error) {
+      if (session !== this.session || client !== this.client) return
+      throw error
+    }
     if (session !== this.session || client !== this.client) return
+    const [duration, position] = properties
     const boundary = this.loaded
     if (boundary) {
       const next = this.enteringNext ?? this.next

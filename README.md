@@ -60,7 +60,7 @@ diagnostics are emitted through Pino after local paths and URLs are redacted.
 - Pino logging in the main process
 - Vitest, vue-tsc, ESLint, and Prettier
 
-Node.js `>=20.19.0` is required.
+Node.js `>=22.13.0` is required.
 
 ## Project Layout
 

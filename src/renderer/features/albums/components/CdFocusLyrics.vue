@@ -6,6 +6,15 @@ import { useTrackLyrics } from '@renderer/features/lyrics/composables/useTrackLy
 import { useReducedMotion } from '@renderer/features/lyrics/composables/useReducedMotion'
 import { animateProgress } from '@renderer/shared/animation/motion'
 import { cdLyricsPlacement, type LyricsRect } from '../utils/cdLyricsPlacement'
+import {
+  calculateCentrifugalRadius,
+  calculateOrbitOffset,
+  calculateSpacingExpand,
+  calculateStaggerOpacities,
+  pickLyricsExitAnimation,
+  LYRICS_EXIT_DURATIONS,
+  type LyricsExitAnimation,
+} from '../utils/cdLyricsExitAnimation'
 
 const props = defineProps<{
   active: boolean
@@ -30,6 +39,23 @@ const depthSamples = shallowRef<{ distance: number; scale: number }[]>([])
 const glyphMetrics = shallowRef<{ text: string; width: number }[]>([])
 const displayedText = ref('')
 const textOpacity = ref(0)
+const startOffset = ref('50%')
+const extraSpacing = ref(0)
+const radialOffset = ref(0)
+const glyphOpacities = shallowRef<number[]>([])
+let lastExitAnimation: LyricsExitAnimation | null = null
+let lastLineChangeTime = 0
+
+function resetExitAnimationStyles(): void {
+  const hadRadialOffset = radialOffset.value !== 0
+  startOffset.value = '50%'
+  extraSpacing.value = 0
+  radialOffset.value = 0
+  glyphOpacities.value = []
+  if (hadRadialOffset) {
+    projectArc()
+  }
+}
 const placement = shallowRef<LyricsRect | null>(null)
 const showEmpty = ref(false)
 const emptyOpacity = ref(1)
@@ -118,7 +144,8 @@ function projectArc(): void {
   const points = Array.from({ length: 97 }, (_, index) => {
     const offset = -60 + (index / 96) * 120
     // Reversed glyphs extend toward the disc; move their baseline out by one em.
-    return project(arcCenter + (arcReversed ? -offset : offset), arcReversed ? 276 : 252)
+    const baseRadius = (arcReversed ? 276 : 252) + radialOffset.value
+    return project(arcCenter + (arcReversed ? -offset : offset), baseRadius)
   })
   let distance = 0
   depthSamples.value = points.map((point, index) => {
@@ -196,16 +223,18 @@ watch(
     onCleanup(() => {
       cancelled = true
       cancelAnimation?.()
+      resetExitAnimationStyles()
     })
     const reveal = async (): Promise<void> => {
+      resetExitAnimationStyles()
       textOpacity.value = 0
       if (
         line &&
         host &&
-        (line !== previous[0] ||
-          host !== previous[1] ||
-          trackId !== previous[3] ||
-          lineIndex !== previous[5])
+        (line !== previous?.[0] ||
+          host !== previous?.[1] ||
+          trackId !== previous?.[3] ||
+          lineIndex !== previous?.[5])
       ) {
         // Select anywhere around the disc, at least 60 degrees from the previous arc.
         // Change only after the old line fades; hover and resize retain this position.
@@ -236,17 +265,55 @@ watch(
         },
       )
     }
-    if (!host || reduced || trackId !== previous[3] || !displayedText.value) {
+
+    const now = performance.now()
+    const isRapidSeek = now - lastLineChangeTime < 80
+    lastLineChangeTime = now
+
+    if (!host || reduced || trackId !== previous?.[3] || !displayedText.value || isRapidSeek) {
+      resetExitAnimationStyles()
       await reveal()
       return
     }
-    const from = textOpacity.value
+
+    const anim = pickLyricsExitAnimation(lastExitAnimation)
+    lastExitAnimation = anim
+    const duration = LYRICS_EXIT_DURATIONS[anim]
+    const fromOpacity = textOpacity.value
+    const glyphCount = Array.from(displayedText.value).length
+    const driftDirection: 1 | -1 = Math.random() < 0.5 ? -1 : 1
+
     cancelAnimation = animateProgress(
-      140,
+      duration,
       (p) => {
-        textOpacity.value = from * (1 - p)
+        switch (anim) {
+          case 'orbit-drift':
+            textOpacity.value = fromOpacity * (1 - p)
+            startOffset.value = calculateOrbitOffset(driftDirection, p)
+            break
+          case 'stagger-dissolve':
+            textOpacity.value = 1
+            glyphOpacities.value = calculateStaggerOpacities(glyphCount, p).map(
+              (o) => o * fromOpacity,
+            )
+            break
+          case 'centrifugal-drift':
+            textOpacity.value = fromOpacity * (1 - p)
+            radialOffset.value = calculateCentrifugalRadius(p)
+            projectArc()
+            break
+          case 'spacing-expand':
+            textOpacity.value = fromOpacity * (1 - p)
+            extraSpacing.value = calculateSpacingExpand(fontSize.value, p)
+            break
+          case 'classic-fade':
+          default:
+            textOpacity.value = fromOpacity * (1 - p)
+            break
+        }
       },
       () => {
+        resetExitAnimationStyles()
         void reveal()
       },
     )
@@ -292,7 +359,10 @@ watch(
   { immediate: true },
 )
 
-onBeforeUnmount(motion.dispose)
+onBeforeUnmount(() => {
+  motion.dispose()
+  resetExitAnimationStyles()
+})
 </script>
 
 <template>
@@ -304,7 +374,6 @@ onBeforeUnmount(motion.dispose)
       role="img"
       :aria-label="currentLine || t('albums.cd.lyrics.label')"
     >
-      <title>{{ currentLine }}</title>
       <defs>
         <path :id="arcId" :d="arcPath" />
       </defs>
@@ -319,15 +388,16 @@ onBeforeUnmount(motion.dispose)
       <text
         text-anchor="middle"
         :font-size="fontSize"
-        :letter-spacing="fontSize / 30"
+        :letter-spacing="fontSize / 30 + extraSpacing"
         :fill-opacity="textOpacity"
       >
-        <textPath :href="`#${arcId}`" startOffset="50%">
+        <textPath :href="`#${arcId}`" :startOffset="startOffset">
           <tspan
             v-for="(glyph, index) in glyphs"
             :key="index"
             :font-size="glyph.size"
             :letter-spacing="glyph.size / 30"
+            :fill-opacity="glyphOpacities[index] ?? undefined"
             xml:space="preserve"
           >
             {{ glyph.text }}

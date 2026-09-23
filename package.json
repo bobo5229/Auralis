@@ -84,7 +84,7 @@
     "vue-tsc": "^2.2.8"
   },
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.13.0"
   },
   "build": {
     "appId": "com.bobo.auralis",

@@ -26,11 +26,11 @@
 
 ## 运行环境与开发入口
 
-- Node.js 不低于 20.19.0；Electron、better-sqlite3 的实际版本以 `package.json` 为准，不随意升级。
+- Node.js 不低于 22.13.0；Electron、better-sqlite3 的实际版本以 `package.json` 为准，不随意升级。
 - 安装依赖：`npm.cmd install --cache .npm-cache`；不要为文档或样式小改动重新安装依赖。
 - 重新安装依赖或变更 Electron 后，启动前执行 `npm.cmd run rebuild:native`，匹配 Electron ABI。
 - 开发启动：`npm.cmd run dev`；已有构建预览：`npm.cmd run preview`。
-- 格式化只针对本次文件；`npm.cmd run format` 会写入整个仓库，不作为日常小改动的默认步骤。
+- 格式化只针对本次文件；`npm.cmd run format` 会写入整个仓库，不作为日常小改动的默认步骤。提交前是否检查格式按 [风险分级验收](validation.md) 选择，不默认运行全仓 `format:check`。
 - 测试和构建选择见 [风险分级验收](validation.md)，发布步骤见 [Git 与发布](git-release.md)。
 
 以上命令是工具入口，不是每次任务都必须依次执行的清单。

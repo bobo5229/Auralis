@@ -282,11 +282,11 @@ function emitPeakClick(event: MouseEvent | KeyboardEvent): void {
   --liner-bg-right: rgba(31, 28, 25, 0.85);
   --liner-text-primary: #f5ede6;
   --liner-text-secondary: #8c8278;
-  --liner-accent: #4f8cff;
+  --liner-accent: #8fa7bb;
   --liner-border: 1px solid rgba(255, 255, 255, 0.08);
   --liner-dash-color: rgba(255, 255, 255, 0.12);
-  --liner-stamp-color: #4f8cff;
-  --liner-stamp-border: 1.5px solid rgba(79, 140, 255, 0.6);
+  --liner-stamp-color: #8fa7bb;
+  --liner-stamp-border: 1.5px solid rgba(143, 167, 187, 0.6);
   --liner-barcode-ink: rgba(245, 237, 230, 0.7);
   --liner-notch-bg: var(--auralis-bg, #121212);
   --liner-shadow: 0 20px 48px rgba(0, 0, 0, 0.55);
@@ -354,14 +354,14 @@ function emitPeakClick(event: MouseEvent | KeyboardEvent): void {
 }
 
 .editorial-liner-notes[data-theme='modern'] .narrative-recap-btn {
-  border: 1px solid rgba(79, 140, 255, 0.4);
-  color: #4f8cff;
-  background: rgba(79, 140, 255, 0.08);
+  border: 1px solid rgba(143, 167, 187, 0.4);
+  color: #8fa7bb;
+  background: rgba(143, 167, 187, 0.08);
 }
 
 .editorial-liner-notes[data-theme='modern'] .narrative-recap-btn:hover {
-  background: rgba(79, 140, 255, 0.2);
-  border-color: #4f8cff;
+  background: rgba(143, 167, 187, 0.2);
+  border-color: #8fa7bb;
   transform: translateY(-1px);
 }
 
@@ -527,7 +527,7 @@ function emitPeakClick(event: MouseEvent | KeyboardEvent): void {
 }
 
 .editorial-liner-notes[data-theme='modern'] .inspection-stamp {
-  box-shadow: 0 0 10px rgba(79, 140, 255, 0.2);
+  box-shadow: 0 0 10px rgba(143, 167, 187, 0.2);
 }
 
 .stamp-inner {
@@ -631,7 +631,7 @@ function emitPeakClick(event: MouseEvent | KeyboardEvent): void {
 }
 
 .editorial-liner-notes[data-theme='modern'] .receipt-row--clickable:hover {
-  background-color: rgba(79, 140, 255, 0.12);
+  background-color: rgba(143, 167, 187, 0.12);
 }
 
 .receipt-row--clickable:focus-visible {
@@ -668,7 +668,12 @@ function emitPeakClick(event: MouseEvent | KeyboardEvent): void {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(79, 140, 255, 0.3) 50%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(143, 167, 187, 0.3) 50%,
+    transparent 100%
+  );
   transform: translateX(-100%);
   pointer-events: none;
 }

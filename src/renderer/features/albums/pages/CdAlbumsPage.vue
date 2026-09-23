@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import { groupAlbums, selectAlbumTracks } from '../utils/albumGrouping'
+import { albumIdentityKey } from '../utils/albumIdentity'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -14,7 +15,7 @@ import { useArtworkPalette } from '@renderer/features/playback/composables/useAr
 import CdTrackList from '../components/CdTrackList.vue'
 import CdFocusLyrics from '../components/CdFocusLyrics.vue'
 import { createCdStage, type CdAlbum } from '../utils/cdStageController'
-import { animateProgress } from '@renderer/shared/animation/motion'
+import { animatePlaybackTextShimmer, animateProgress } from '@renderer/shared/animation/motion'
 
 interface CdAlbumInfo extends CdAlbum {
   title: string
@@ -26,7 +27,12 @@ interface CdAlbumInfo extends CdAlbum {
 }
 
 const { t } = useI18n()
+const route = useRoute()
 const router = useRouter()
+const requestedAlbumKey =
+  typeof route.query.artist === 'string' && typeof route.query.title === 'string'
+    ? albumIdentityKey(route.query.artist, route.query.title)
+    : null
 const playback = usePlayback()
 const pageRef = ref<HTMLElement | null>(null)
 const trackPanelRef = ref<HTMLElement | null>(null)
@@ -113,14 +119,7 @@ function focusChange(progress: number, settled: boolean): void {
     trackPanelRef.value.style.visibility = reveal > 0 ? 'visible' : 'hidden'
   }
   if (controlsRef.value) controlsRef.value.style.opacity = String(1 - Math.min(1, progress / 0.5))
-  if (settled && !disposed) {
-    if (progress === 1)
-      void nextTick(() => {
-        if (!disposed && focusSettled.value)
-          trackPanelRef.value?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true })
-      })
-    else stageRef.value?.focus({ preventScroll: true })
-  }
+  if (settled && !disposed && progress !== 1) stageRef.value?.focus({ preventScroll: true })
 }
 const stageRef = ref<HTMLElement | null>(null)
 const infoRef = ref<HTMLElement | null>(null)
@@ -135,8 +134,7 @@ const currentAlbum = computed(() => albumInfo.value[infoSelected.value] ?? null)
 const displayedAlbum = shallowRef<CdAlbumInfo | null>(null)
 const browsingPlayback = computed(() => {
   const track = playback.state.currentTrack
-  if (focused.value || !track || displayedAlbum.value?.tracks.some((item) => item.id === track.id))
-    return null
+  if (focused.value || !track) return null
   const title = track.title?.trim() || t('albums.detail.unknownTitle')
   const artist = formatArtist(track.artist)
   return {
@@ -145,6 +143,26 @@ const browsingPlayback = computed(() => {
     album: track.album?.trim() ?? '',
   }
 })
+const browsingPlaybackProgress = computed(() => {
+  const duration = playback.state.duration
+  const currentTime = playback.state.currentTime
+  if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(currentTime)) return 0
+  return Math.min(1, Math.max(0, currentTime / duration))
+})
+const browsingPlaybackProgressPath = [
+  'M 2 6.2 C 18 6.4, 22 4.8, 39 5.1',
+  'C 55 5.4, 61 7, 78 6.4 C 96 5.6, 102 4.4, 119 5',
+  'C 135 5.7, 144 6.9, 160 6.1 C 178 5.2, 182 4.7, 198 5.4',
+  'C 214 6.2, 226 6.7, 238 5.7',
+].join(' ')
+const browsingPlaybackLabelRef = ref<HTMLElement | null>(null)
+watch(
+  [browsingPlaybackLabelRef, () => playback.state.isPlaying],
+  ([label, isPlaying], _, onCleanup) => {
+    if (label && isPlaying) onCleanup(animatePlaybackTextShimmer(label))
+  },
+  { flush: 'post', immediate: true },
+)
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 let vinylBlend = 0
 let cancelSurfaceAnimation: (() => void) | null = null
@@ -300,8 +318,11 @@ async function loadAlbums(): Promise<void> {
       albumInfo.value = albums
       count.value = albums.length
       const intro = !startupPlayed && albums.length > 0
+      const targetKey =
+        intro && albums.some((album) => album.key === requestedAlbumKey) ? requestedAlbumKey : null
       if (intro) startupPlayed = true
-      controller?.setAlbums(albums, intro)
+      controller?.setAlbums(albums, intro && !targetKey, targetKey ?? undefined)
+      if (targetKey) controller?.setFocused(true, 'fade')
     } while (refreshPending && !disposed)
   } catch (error) {
     if (!disposed) {
@@ -530,7 +551,6 @@ onBeforeUnmount(() => {
         type="button"
         class="cd-back"
         :aria-label="t(focused ? 'albums.cd.returnToBrowse' : 'albums.detail.returnToAlbums')"
-        :title="t(focused ? 'albums.cd.returnToBrowse' : 'albums.detail.returnToAlbums')"
         @click="back"
       >
         <span class="i-lucide-arrow-left" aria-hidden="true"></span>
@@ -584,19 +604,47 @@ onBeforeUnmount(() => {
             <dd dir="auto">{{ displayedAlbum.copyright }}</dd>
           </div>
         </dl>
-        <p
-          v-if="browsingPlayback"
-          class="cd-browsing-playback"
-          role="status"
-          :title="`${browsingPlayback.label} ${browsingPlayback.song} ${browsingPlayback.album}`"
-        >
-          <span class="cd-browsing-playback-label">{{ browsingPlayback.label }}</span>
-          <span class="cd-browsing-playback-song" dir="auto">{{ browsingPlayback.song }}</span>
-          <span v-if="browsingPlayback.album" class="cd-browsing-playback-album" dir="auto">{{
-            browsingPlayback.album
-          }}</span>
-        </p>
       </aside>
+      <p
+        v-if="browsingPlayback && displayedAlbum && !loading && !failed && !infoSuppressed"
+        class="cd-browsing-playback"
+        role="status"
+      >
+        <span
+          ref="browsingPlaybackLabelRef"
+          class="cd-browsing-playback-label"
+          :class="{ 'cd-browsing-playback-label--playing': playback.state.isPlaying }"
+        >
+          {{ browsingPlayback.label }}
+        </span>
+        <span class="cd-browsing-playback-song" dir="auto">{{ browsingPlayback.song }}</span>
+        <span v-if="browsingPlayback.album" class="cd-browsing-playback-album" dir="auto">{{
+          browsingPlayback.album
+        }}</span>
+        <svg
+          class="cd-browsing-playback-progress"
+          viewBox="0 0 240 12"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path
+            :d="browsingPlaybackProgressPath"
+            fill="none"
+            stroke="#aaa9a3"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
+          <path
+            :d="browsingPlaybackProgressPath"
+            pathLength="100"
+            :stroke-dasharray="`${browsingPlaybackProgress * 100} 100`"
+            fill="none"
+            stroke="#585753"
+            stroke-width="1.7"
+            stroke-linecap="round"
+          />
+        </svg>
+      </p>
       <div
         ref="stageRef"
         class="cd-stage"
@@ -870,38 +918,95 @@ onBeforeUnmount(() => {
   margin: 0;
 }
 .cd-browsing-playback {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  box-sizing: border-box;
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 28px 0 8px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #aaa9a3;
+  flex-direction: column;
+  transform: translateX(-50%);
+  width: 240px;
+  max-width: 100%;
+  z-index: 4;
+  align-items: stretch;
+  gap: 2px;
+  margin: 0;
   font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.3;
   color: #42423d;
   white-space: nowrap;
+  pointer-events: none;
 }
 .cd-browsing-playback-label {
+  position: relative;
+  align-self: center;
+  width: fit-content;
+  max-width: 100%;
   flex: 0 0 auto;
-  font-size: 12px;
+  margin-bottom: 14px;
+  font-size: 18px;
   font-style: italic;
+  text-align: center;
   color: #85857d;
 }
-.cd-browsing-playback-song,
+.cd-browsing-playback-label--playing {
+  background: linear-gradient(
+    100deg,
+    #85857d 0%,
+    #85857d 46%,
+    #71716b 48.5%,
+    #585753 49.5%,
+    #585753 50.5%,
+    #71716b 51.5%,
+    #85857d 54%,
+    #85857d 100%
+  );
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  background-repeat: no-repeat;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cd-browsing-playback-label--playing {
+    background: none;
+    color: #85857d;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+.cd-browsing-playback-song {
+  width: 100%;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
 .cd-browsing-playback-album {
+  width: 100%;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.cd-browsing-playback-song {
-  flex: 0 1 auto;
-}
-.cd-browsing-playback-album {
-  flex: 0 4 auto;
-  max-width: 30%;
+  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 14px;
+  font-weight: 400;
+  font-style: italic;
+  font-synthesis: none;
+  line-height: 1.25;
+  text-align: center;
   color: #6f6f67;
+}
+.cd-browsing-playback-progress {
+  display: block;
+  flex: none;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin-top: 4px;
+  overflow: visible;
 }
 .cd-info-row {
   box-sizing: border-box;

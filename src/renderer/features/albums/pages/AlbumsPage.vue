@@ -365,7 +365,7 @@ function closeContextMenu(): void {
 
 function openContextMenu(album: AlbumSummary, event: MouseEvent): void {
   const menuWidth = 220
-  const menuHeight = 190
+  const menuHeight = 235
   const x = Math.min(event.clientX, window.innerWidth - menuWidth - 8)
   const y = Math.min(event.clientY, window.innerHeight - menuHeight - 8)
 
@@ -432,6 +432,16 @@ function openAlbum(album: AlbumSummary): void {
       artist: album.albumArtist,
       title: album.title,
     },
+  })
+}
+
+function openContextAlbumInCd(): void {
+  const album = contextMenu.value?.album
+  closeContextMenu()
+  if (!album) return
+  void router.push({
+    name: 'cd-albums',
+    query: { artist: album.albumArtist, title: album.title },
   })
 }
 
@@ -578,6 +588,11 @@ onBeforeUnmount(() => {
           <button class="library-context-menu-item" type="button" @click="playContextAlbum">
             <span class="i-lucide-play"></span>
             <span>{{ t('albums.contextMenu.play', { title: contextMenu.album.title }) }}</span>
+          </button>
+          <div class="library-context-menu-separator"></div>
+          <button class="library-context-menu-item" type="button" @click="openContextAlbumInCd">
+            <span class="i-lucide-disc"></span>
+            <span>{{ t('albums.contextMenu.openInCd') }}</span>
           </button>
           <div class="library-context-menu-separator"></div>
           <button

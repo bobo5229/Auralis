@@ -107,6 +107,7 @@ export function createCdStage(
   let focusProgress = 0
   let focusTarget = 0
   let focusMoving = false
+  let directFocusOpacity = 1
   let focusGeometry = { cx: 0, cy: 0, size: 0 }
   // Focus-only, page-instance memory; never applied to the browsing poses.
   let focusRotation = { x: 9, y: -42 }
@@ -230,7 +231,7 @@ export function createCdStage(
     focusGeometry = { cx: target.cx, cy: target.cy, size: pose.size * scale }
   }
 
-  function setFocused(open: boolean): void {
+  function setFocused(open: boolean, entrance: 'motion' | 'fade' = 'motion'): void {
     if (!focusOptions || startup || active || !albums.length || Number(open) === focusTarget) return
     cancelAnimation?.()
     cancelArtworkClick()
@@ -249,11 +250,10 @@ export function createCdStage(
     measureFocus()
     focusTarget = Number(open)
     const from = focusProgress
-    focusMoving = true
-    focusOptions.change(open ? Math.max(from, 0.0001) : from, false)
     const finish = (): void => {
       focusProgress = focusTarget
       focusMoving = false
+      directFocusOpacity = 1
       cancelAnimation = null
       render(selected)
       for (const node of nodes.values()) {
@@ -262,6 +262,32 @@ export function createCdStage(
       }
       focusOptions.change(focusProgress, true)
     }
+    if (open && entrance === 'fade') {
+      focusProgress = 1
+      focusMoving = true
+      directFocusOpacity = reducedMotion.matches ? 1 : 0
+      render(selected)
+      focusOptions.change(1, false)
+      if (reducedMotion.matches) {
+        finish()
+        return
+      }
+      const node = nodes.get(selected)
+      if (node) node.slot.style.willChange = 'opacity'
+      let elapsed = 0
+      cancelAnimation = animateFrames((seconds) => {
+        elapsed += seconds
+        const progress = Math.min(1, elapsed / 0.48)
+        directFocusOpacity = 1 - (1 - progress) ** 3
+        if (node) node.slot.style.opacity = String(directFocusOpacity)
+        if (progress < 1) return true
+        finish()
+        return false
+      })
+      return
+    }
+    focusMoving = true
+    focusOptions.change(open ? Math.max(from, 0.0001) : from, false)
     if (reducedMotion.matches) {
       finish()
       return
@@ -643,8 +669,12 @@ export function createCdStage(
       }
       const edge = Math.max(0, Math.min(1, (t + 2.5) * 2, (1.5 - t) * 2))
       const fade = Math.min(1, focusProgress / 0.8)
+      const centralOpacity = directFocusOpacity + (1 - directFocusOpacity) * (1 - focusProgress)
       node.slot.style.opacity = String(
-        edge * edge * (3 - 2 * edge) * (central ? 1 : 1 - fade * fade * (3 - 2 * fade)),
+        edge *
+          edge *
+          (3 - 2 * edge) *
+          (central ? centralOpacity : 1 - fade * fade * (3 - 2 * fade)),
       )
       node.slot.style.transform = `translate3d(${pose.cx - pose.size / 2}px, ${pose.cy - pose.size / 2}px, 0) scale(${pose.size / 400})`
       node.slot.style.zIndex = String(central && focusProgress > 0 ? 5 : layer + 1)
@@ -714,6 +744,7 @@ export function createCdStage(
     }
     cancelAnimation?.()
     cancelAnimation = null
+    directFocusOpacity = 1
     active = null
     swayAngle = 0
     swayVelocity = 0
@@ -1251,8 +1282,9 @@ export function createCdStage(
       }
       syncPlaybackRing()
     },
-    setAlbums(next: readonly CdAlbum[], intro = false): void {
-      const key = albums.length ? albums[cdAlbumIndex(selected, albums.length)].key : null
+    setAlbums(next: readonly CdAlbum[], intro = false, targetKey?: string): void {
+      const key =
+        targetKey ?? (albums.length ? albums[cdAlbumIndex(selected, albums.length)].key : null)
       stop()
       pointer = null
       for (const node of nodes.values()) removeNode(node)

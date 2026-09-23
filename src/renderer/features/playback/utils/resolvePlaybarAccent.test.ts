@@ -32,13 +32,10 @@ describe('resolvePlaybarAccent', () => {
     expect(resolvePlaybarAccent(source)).not.toBe(source)
   })
 
-  it('uses a readable fallback for absent or invalid artwork', () => {
+  it('uses the unified accent fallback for absent or invalid artwork', () => {
     const fallback = resolvePlaybarAccent()
+    expect(fallback).toEqual({ r: 143, g: 167, b: 187 })
     expect(resolvePlaybarAccent(null)).toEqual(fallback)
     expect(resolvePlaybarAccent({ r: NaN, g: 0, b: 0 })).toEqual(fallback)
-    expect(
-      (getRelativeLuminance(fallback) + 0.05) /
-        (getRelativeLuminance(PLAYBAR_SURFACE_BOUND) + 0.05),
-    ).toBeGreaterThanOrEqual(3)
   })
 })

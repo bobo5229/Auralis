@@ -93,6 +93,7 @@
 
 ### shell：应用外壳
 
+- [全局浅色配色预设](topics/shell/light-theme-color-presets.md)
 - [主窗口改用 Electron 原生标题栏方案](topics/shell/plan-native-window-chrome.md)
 - [Sidebar 品牌区：仅保留「Auralis」完整显示](topics/shell/plan-sidebar-brand-auralis-only.md)
 - [Sidebar 品牌区方案 A：品牌与工具分行](topics/shell/plan-sidebar-brand-two-row-header.md)

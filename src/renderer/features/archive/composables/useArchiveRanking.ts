@@ -38,10 +38,9 @@ export const archiveRankingRanges: Array<{ value: ListeningRankingRange; label: 
 export const archiveRankingTargets: Array<{
   value: ListeningRankingTarget
   label: string
-  icon: string
 }> = [
-  { value: 'track', label: '单曲', icon: 'i-lucide-music-2' },
-  { value: 'album', label: '专辑', icon: 'i-lucide-disc-3' },
+  { value: 'track', label: '单曲' },
+  { value: 'album', label: '专辑' },
 ]
 
 export function formatArchiveDateKey(date: Date): string {

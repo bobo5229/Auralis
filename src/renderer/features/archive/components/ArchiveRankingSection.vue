@@ -44,6 +44,8 @@ const {
 })
 const rangesElement = ref<HTMLElement | null>(null)
 const rangeUnderline = ref<HTMLElement | null>(null)
+const targetsElement = ref<HTMLElement | null>(null)
+const targetUnderline = ref<HTMLElement | null>(null)
 
 watchPostEffect((onCleanup) => {
   const ranges = rangesElement.value
@@ -76,6 +78,52 @@ watchPostEffect((onCleanup) => {
   })
   const handlePreferenceChange = (): void => positionUnderline(false)
   resizeObserver.observe(ranges)
+  preference.addEventListener('change', handlePreferenceChange)
+  onCleanup(() => {
+    cancelAnimation()
+    resizeObserver.disconnect()
+    preference.removeEventListener('change', handlePreferenceChange)
+  })
+})
+
+watchPostEffect((onCleanup) => {
+  const targets = targetsElement.value
+  const underline = targetUnderline.value
+  const selectedTarget = rankingTarget.value
+  if (!targets || !underline) return
+  const button = targets.querySelector<HTMLElement>(`[data-target="${selectedTarget}"]`)
+  if (!button) return
+
+  const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  let cancelAnimation = (): void => {}
+  const positionUnderline = (animate: boolean): void => {
+    cancelAnimation()
+    cancelAnimation = animateRankingUnderline(
+      underline,
+      button.offsetLeft,
+      button.offsetWidth,
+      !animate || preference.matches,
+    )
+  }
+  positionUnderline(true)
+
+  const readTargetGeometry = (): number[] => [
+    targets.clientWidth,
+    ...Array.from(targets.querySelectorAll('button')).flatMap((targetButton) => [
+      targetButton.offsetLeft,
+      targetButton.offsetWidth,
+    ]),
+  ]
+  let previousGeometry = readTargetGeometry()
+  const resizeObserver = new ResizeObserver(() => {
+    const nextGeometry = readTargetGeometry()
+    if (nextGeometry.every((value, index) => value === previousGeometry[index])) return
+    previousGeometry = nextGeometry
+    positionUnderline(false)
+  })
+  resizeObserver.observe(targets)
+  targets.querySelectorAll('button').forEach((targetButton) => resizeObserver.observe(targetButton))
+  const handlePreferenceChange = (): void => positionUnderline(false)
   preference.addEventListener('change', handlePreferenceChange)
   onCleanup(() => {
     cancelAnimation()
@@ -123,18 +171,25 @@ defineExpose({ refresh: loadListeningRanking })
     </div>
 
     <div class="archive-ranking-toolbar">
-      <div class="archive-ranking-targets" aria-label="切换排行类型">
+      <div ref="targetsElement" class="archive-ranking-targets" aria-label="切换排行类型">
         <button
           v-for="target in rankingTargets"
           :key="target.value"
           type="button"
           :class="{ 'is-active': rankingTarget === target.value }"
+          :data-target="target.value"
+          :aria-pressed="rankingTarget === target.value"
           :aria-label="`切换到${target.label}榜`"
           :title="target.label"
           @click="setRankingTarget(target.value)"
         >
-          <span :class="`${target.icon} h-4 w-4`"></span>
+          {{ target.label }}
         </button>
+        <span
+          ref="targetUnderline"
+          class="archive-ranking-target-underline"
+          aria-hidden="true"
+        ></span>
       </div>
 
       <div class="archive-ranking-period" data-ranking-period-control>

@@ -399,8 +399,8 @@ onBeforeUnmount(() => {
   --auralis-text-muted: rgba(246, 242, 234, 0.62);
   --auralis-text-disabled: rgba(246, 242, 234, 0.28);
   --auralis-progress-track: rgba(246, 242, 234, 0.24);
-  --auralis-progress-fill: #e1ddd6;
-  --auralis-volume-fill: #e1ddd6;
+  --auralis-progress-fill: #8fa7bb;
+  --auralis-volume-fill: #8fa7bb;
   --auralis-artwork-placeholder-bg: rgba(246, 242, 234, 0.12);
   --fullscreen-lyrics-left-bleed: clamp(32px, 2.6vw, 56px);
 

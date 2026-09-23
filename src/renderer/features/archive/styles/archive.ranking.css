@@ -64,13 +64,10 @@
 }
 
 .archive-ranking-targets {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px;
-  border: 1px solid var(--archive-panel-border);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--auralis-main-bg) 44%, transparent);
+  gap: 16px;
 }
 
 .archive-ranking-targets button,
@@ -84,27 +81,45 @@
 }
 
 .archive-ranking-targets button {
-  height: 28px;
-  padding: 0 12px;
-}
-
-.archive-ranking-targets button {
+  position: relative;
   display: inline-flex;
-  width: 30px;
   height: 30px;
   align-items: center;
   justify-content: center;
   padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transition: color 150ms ease;
 }
 
-.archive-ranking-targets button:hover,
+.archive-ranking-targets button:hover {
+  background: transparent;
+  color: var(--auralis-text);
+  box-shadow: none;
+}
+
 .archive-ranking-period > button:hover,
 .archive-ranking-period-menu button:hover {
   background: var(--auralis-control-hover-bg);
   color: var(--auralis-text);
 }
 
-.archive-ranking-targets button.is-active,
+.archive-ranking-targets button.is-active {
+  color: var(--auralis-text);
+  box-shadow: none;
+}
+
+.archive-ranking-target-underline {
+  position: absolute;
+  bottom: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--auralis-text);
+  pointer-events: none;
+}
+
 .archive-ranking-period-menu button.is-active {
   background: var(--auralis-sidebar-active-indicator);
   color: #fff;
@@ -169,7 +184,7 @@
 }
 
 .archive-ranking-picker button:focus-visible {
-  outline: 2px solid #e1ddd6;
+  outline: 2px solid #8fa7bb;
   outline-offset: -2px;
 }
 
@@ -259,14 +274,14 @@
 }
 
 .calendar-grid button.is-selected {
-  background: #e1ddd6;
+  background: #8fa7bb;
   color: #111214;
   font-weight: 800;
   box-shadow: none;
 }
 
 .calendar-grid button.is-selected:not(:disabled):hover {
-  background: #afb4bc;
+  background: #a3bbc9;
 }
 .picker-week-list {
   display: grid;
@@ -350,13 +365,13 @@
 
 .picker-list button.is-active,
 .picker-week-list button.is-active {
-  background: #e1ddd6;
+  background: #8fa7bb;
   color: #111214;
 }
 
 .picker-list button.is-active:hover,
 .picker-week-list button.is-active:hover:not(:disabled) {
-  background: #afb4bc;
+  background: #a3bbc9;
 }
 
 .picker-week-list button.is-active .week-date-range {

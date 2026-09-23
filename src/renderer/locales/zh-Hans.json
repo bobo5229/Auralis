@@ -62,6 +62,9 @@
     "appearance": {
       "language": "界面语言",
       "languageDescription": "选择应用界面显示的语言。",
+      "fluidBackground": "流光背景",
+      "fluidBackgroundAriaOn": "流光背景，当前已开启",
+      "fluidBackgroundAriaOff": "流光背景，当前已关闭",
       "playerBarMaterial": "播放栏材质",
       "playerBarMaterialDescription": "选择播放栏跟随专辑封面取色，或使用更通透的 Liquid Glass 效果。",
       "playerBarMaterialOption": {
@@ -326,6 +329,7 @@
     "contextMenu": {
       "locateCurrent": "定位到当前专辑",
       "play": "播放「{title}」",
+      "openInCd": "在「CD 浏览」中打开",
       "insert": "插播「{title}」",
       "switchToPerspective": "切换到透视封面视图",
       "switchToGrid": "切换到常规封面视图"

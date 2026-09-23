@@ -32,6 +32,30 @@ export function animatePlaybackUnderline(target: HTMLElement, playing: boolean):
   }
 }
 
+/** Sweep a graphite text fill while playback is active, respecting reduced motion. */
+export function animatePlaybackTextShimmer(target: HTMLElement): () => void {
+  const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  let animation: Animation | undefined
+  const update = (): void => {
+    const elapsed = animation?.currentTime
+    animation?.cancel()
+    animation = undefined
+    if (preference.matches) return
+    animation = target.animate([{ backgroundPosition: '100% 0' }, { backgroundPosition: '0% 0' }], {
+      duration: 2200,
+      iterations: Infinity,
+      easing: 'linear',
+    })
+    if (typeof elapsed === 'number') animation.currentTime = elapsed
+  }
+  preference.addEventListener('change', update)
+  update()
+  return () => {
+    animation?.cancel()
+    preference.removeEventListener('change', update)
+  }
+}
+
 /** Carry a gallery cover into its destination without retaining route DOM. */
 export function createAlbumArtworkTransition(source: HTMLElement, content: HTMLElement) {
   const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')

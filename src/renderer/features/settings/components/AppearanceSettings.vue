@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { useShellFluidBackground } from '@renderer/features/appearance/composables/useShellFluidBackground'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 
 const { t } = useI18n()
+const { shellFluidBackgroundEnabled, setShellFluidBackgroundEnabled } = useShellFluidBackground()
 const {
   gaplessPlaybackEnabled,
   setGaplessPlaybackEnabled,
@@ -14,6 +16,26 @@ const {
 <template>
   <section class="settings-section">
     <div class="settings-list">
+      <div class="settings-row">
+        <div>
+          <strong>{{ t('settings.appearance.fluidBackground') }}</strong>
+        </div>
+        <button
+          type="button"
+          class="settings-switch"
+          role="switch"
+          :aria-checked="shellFluidBackgroundEnabled"
+          :aria-label="
+            shellFluidBackgroundEnabled
+              ? t('settings.appearance.fluidBackgroundAriaOn')
+              : t('settings.appearance.fluidBackgroundAriaOff')
+          "
+          :class="{ 'is-enabled': shellFluidBackgroundEnabled }"
+          @click="setShellFluidBackgroundEnabled(!shellFluidBackgroundEnabled)"
+        >
+          <span class="settings-switch-thumb" aria-hidden="true"></span>
+        </button>
+      </div>
       <div class="settings-row">
         <div>
           <strong>{{ t('settings.playback.gapless') }}</strong>

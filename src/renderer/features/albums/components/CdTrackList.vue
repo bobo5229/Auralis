@@ -85,16 +85,14 @@ watch(
           <span class="cd-track-number">{{ row.track.trackNo ?? '' }}</span>
           <span class="cd-track-detail">
             <span class="cd-track-title-wrap">
-              <span class="cd-track-title" :title="row.title" dir="auto">{{ row.title }}</span>
+              <span class="cd-track-title" dir="auto">{{ row.title }}</span>
               <span
                 v-if="row.track.id === currentTrackId"
                 class="cd-playing-line"
                 aria-hidden="true"
               ></span>
             </span>
-            <span v-if="row.artist" class="cd-track-artist" :title="row.artist" dir="auto">{{
-              row.artist
-            }}</span>
+            <span v-if="row.artist" class="cd-track-artist" dir="auto">{{ row.artist }}</span>
           </span>
         </button>
       </template>
@@ -152,7 +150,14 @@ h2 {
   font-size: 11px;
   padding: 4px 0 4px 8px;
   border: 0;
+  background: transparent;
+  box-shadow: none;
   color: #62625b;
+}
+.cd-track-panel .cd-mode:hover {
+  background: transparent;
+  box-shadow: none;
+  color: #292929;
 }
 .cd-track-scroll {
   flex: 1 1 0;

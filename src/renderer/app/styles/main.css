@@ -93,7 +93,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* Modern theme tokens: static shell uses warm black and restrained gold. */
+  /* Modern theme tokens: warm black shell; fixed interactive accents are unified slate. */
   --auralis-bg: #0c0b0a;
   --auralis-main-bg: #12110f;
   --auralis-dialog-bg: #1f1c18;
@@ -110,18 +110,18 @@
   --auralis-text-disabled: rgba(183, 174, 162, 0.35);
   --auralis-control-bg: var(--auralis-surface-raised);
   --auralis-control-hover-bg: rgba(232, 220, 198, 0.08);
-  --auralis-control-active-bg: rgba(201, 177, 132, 0.14);
-  --auralis-control-primary-bg: #c9b184;
+  --auralis-control-active-bg: rgba(143, 167, 187, 0.14);
+  --auralis-control-primary-bg: #8fa7bb;
   --auralis-control-primary-text: #0c0b0a;
-  --auralis-focus-ring: #e8d7b0;
+  --auralis-focus-ring: #8fa7bb;
   --auralis-danger: #c96a55;
   --auralis-success: #8aa36a;
-  --auralis-artwork-accent-fallback: #9e8558;
+  --auralis-artwork-accent-fallback: #8fa7bb;
   --auralis-artwork-background-fallback: #0e0d0b;
   --auralis-surface-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
   --auralis-progress-track: rgba(232, 220, 198, 0.08);
-  --auralis-progress-fill: #e1ddd6;
-  --auralis-volume-fill: #e1ddd6;
+  --auralis-progress-fill: #8fa7bb;
+  --auralis-volume-fill: #8fa7bb;
   --auralis-artwork-placeholder-bg: rgba(232, 220, 198, 0.12);
 
   /* Playbar safe area — modern floating island: 64px height + 36px bottom gap */
@@ -146,20 +146,20 @@
   --auralis-song-row-bg: transparent;
   --auralis-song-row-alt-bg: rgba(232, 220, 198, 0.014);
   --auralis-song-row-border: rgba(232, 220, 198, 0.08);
-  --auralis-song-row-now-playing-bg: rgba(201, 177, 132, 0.12);
-  --auralis-song-row-now-playing-title: #e8d7b0;
-  --auralis-song-row-now-playing-artist: #c9b184;
-  --auralis-song-row-now-playing-duration: #9e8558;
+  --auralis-song-row-now-playing-bg: rgba(143, 167, 187, 0.12);
+  --auralis-song-row-now-playing-title: #8fa7bb;
+  --auralis-song-row-now-playing-artist: #8fa7bb;
+  --auralis-song-row-now-playing-duration: #8fa7bb;
 
   /* Lyrics tokens */
-  --auralis-lyrics-active: #e8d7b0;
+  --auralis-lyrics-active: #8fa7bb;
   --auralis-lyrics-inactive: #515152;
 
   /* Sidebar active state */
-  --auralis-sidebar-active-bg: rgba(201, 177, 132, 0.12);
-  --auralis-sidebar-active-indicator: #c9b184;
-  --auralis-sidebar-active-icon: #e8d7b0;
-  --auralis-sidebar-active-text: #e8d7b0;
+  --auralis-sidebar-active-bg: rgba(143, 167, 187, 0.12);
+  --auralis-sidebar-active-indicator: #8fa7bb;
+  --auralis-sidebar-active-icon: #8fa7bb;
+  --auralis-sidebar-active-text: #8fa7bb;
 
   /* Search bar */
   --auralis-search-bg: rgba(31, 28, 24, 0.72);
@@ -222,23 +222,23 @@
   --auralis-text-disabled: rgba(175, 180, 188, 0.35);
   --auralis-control-bg: var(--auralis-surface-raised);
   --auralis-control-hover-bg: rgba(225, 221, 214, 0.06);
-  --auralis-control-active-bg: rgba(225, 221, 214, 0.1);
-  --auralis-control-primary-bg: #e1ddd6;
+  --auralis-control-active-bg: rgba(143, 167, 187, 0.1);
+  --auralis-control-primary-bg: #8fa7bb;
   --auralis-control-primary-text: #111214;
-  --auralis-focus-ring: #e1ddd6;
+  --auralis-focus-ring: #8fa7bb;
   --auralis-progress-track: rgba(225, 221, 214, 0.08);
   --auralis-artwork-placeholder-bg: rgba(225, 221, 214, 0.12);
   --auralis-song-row-alt-bg: rgba(225, 221, 214, 0.014);
   --auralis-song-row-border: rgba(225, 221, 214, 0.08);
-  --auralis-song-row-now-playing-bg: rgba(225, 221, 214, 0.1);
-  --auralis-song-row-now-playing-title: #e1ddd6;
+  --auralis-song-row-now-playing-bg: rgba(143, 167, 187, 0.1);
+  --auralis-song-row-now-playing-title: #8fa7bb;
   --auralis-song-row-now-playing-artist: #afb4bc;
   --auralis-song-row-now-playing-duration: #9299a3;
-  --auralis-lyrics-active: #e1ddd6;
-  --auralis-sidebar-active-bg: rgba(225, 221, 214, 0.1);
-  --auralis-sidebar-active-indicator: #e1ddd6;
-  --auralis-sidebar-active-icon: #e1ddd6;
-  --auralis-sidebar-active-text: #e1ddd6;
+  --auralis-lyrics-active: #8fa7bb;
+  --auralis-sidebar-active-bg: rgba(143, 167, 187, 0.1);
+  --auralis-sidebar-active-indicator: #8fa7bb;
+  --auralis-sidebar-active-icon: #8fa7bb;
+  --auralis-sidebar-active-text: #8fa7bb;
   --auralis-search-bg: rgba(32, 35, 40, 0.72);
   --auralis-search-border: rgba(225, 221, 214, 0.1);
   --auralis-context-menu-bg: rgba(32, 35, 40, 0.9);
@@ -326,16 +326,16 @@ input {
   --auralis-text-disabled: rgba(183, 174, 162, 0.35);
   --auralis-control-bg: var(--auralis-surface-raised);
   --auralis-control-hover-bg: rgba(232, 220, 198, 0.08);
-  --auralis-control-active-bg: rgba(201, 177, 132, 0.14);
-  --auralis-control-primary-bg: #c9b184;
+  --auralis-control-active-bg: rgba(143, 167, 187, 0.14);
+  --auralis-control-primary-bg: #8fa7bb;
   --auralis-control-primary-text: #0c0b0a;
-  --auralis-focus-ring: #e8d7b0;
+  --auralis-focus-ring: #8fa7bb;
   --auralis-progress-track: rgba(232, 220, 198, 0.08);
   --auralis-artwork-placeholder-bg: rgba(232, 220, 198, 0.12);
-  --auralis-sidebar-active-bg: rgba(201, 177, 132, 0.12);
-  --auralis-sidebar-active-indicator: #c9b184;
-  --auralis-sidebar-active-icon: #e8d7b0;
-  --auralis-sidebar-active-text: #e8d7b0;
+  --auralis-sidebar-active-bg: rgba(143, 167, 187, 0.12);
+  --auralis-sidebar-active-indicator: #8fa7bb;
+  --auralis-sidebar-active-icon: #8fa7bb;
+  --auralis-sidebar-active-text: #8fa7bb;
   --playbar-album-layer-opacity: 0.12;
   --auralis-text-muted: #e1ddd6;
   --auralis-text-faint: #e1ddd6;
@@ -1474,7 +1474,7 @@ input[type='range'].volume-overlay-slider {
 
 ::selection {
   color: #f6f2ea;
-  background: rgba(201, 177, 132, 0.28);
+  background: rgba(143, 167, 187, 0.28);
 }
 
 ::-webkit-scrollbar {
@@ -1548,27 +1548,6 @@ input[type='range'].volume-overlay-slider {
     border-color 0.3s ease,
     box-shadow 0.3s ease,
     background 0.3s ease;
-}
-
-.app-sidebar::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  /* 利用项目主题蓝，营造背景流体光感 */
-  background:
-    radial-gradient(
-      circle at 0% 0%,
-      color-mix(in srgb, var(--auralis-sidebar-active-indicator) 15%, transparent) 0%,
-      transparent 75%
-    ),
-    radial-gradient(
-      circle at 100% 100%,
-      color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent) 0%,
-      transparent 75%
-    );
-  opacity: 0.9;
-  pointer-events: none;
 }
 
 .sidebar-header {

@@ -29,7 +29,7 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 - 构建：electron-vite/Vite；安装包由 electron-builder 生成。
 - 质量检查：Vitest（Node 普通测试与 Electron ABI 原生测试）、vue-tsc、TypeScript、ESLint、
   Prettier，以及 Library 视觉作用域静态检查。
-- Node.js：`package.json` 要求 `>=20.19.0`。
+- Node.js：`package.json` 要求 `>=22.13.0`。
 - 发布目标：当前 electron-builder 配置 Windows x64 的 NSIS 安装包与 portable 包。
 
 `better-sqlite3` 必须与 Electron ABI 匹配；安装依赖或改变 Electron 版本后，

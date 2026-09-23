@@ -12,7 +12,7 @@
 | [library：曲库](../CATALOG.md#library曲库)         | 歌曲列表滚动、播放后视口恢复、初次扫描性能优化            |
 | [metadata：元数据](../CATALOG.md#metadata元数据)   | 流派分隔及原子复合名称                                    |
 | [playback：播放](../CATALOG.md#playback播放界面)   | 播放编排架构、PlayerBar、全屏背景、桌面歌词与迷你模式同步 |
-| [shell：应用外壳](../CATALOG.md#shell应用外壳)     | 主窗口标题栏、Sidebar 导航性能、品牌与工具区、界面语言    |
+| [shell：应用外壳](../CATALOG.md#shell应用外壳)     | 主窗口标题栏、Sidebar、浅色配色预设、品牌与工具区、界面语言 |
 
 多阶段手稿皮肤和曲库页面编排材料见[项目档案](../projects/README.md)；早期同主题资料仍保留在[历史批次](../history/README.md)。
 
@@ -28,5 +28,8 @@
   记录当前移植与上游示意图的视觉偏差、待验证根因和分阶段修复门槛；文档不代表修复已经实施或通过视觉验收。
 - [PlayerBar 与播放队列浮层材质统一](playback/TECHDOC-playerbar-queue-surface-unification-2026-09-06.md)
   规定两者共享材质语言但保留浮层几何与 elevation，并限定实现范围和视觉验收矩阵。
+- [全局浅色配色预设](shell/light-theme-color-presets.md) 以 CD 浏览页为视觉依据，整理浅色 token
+  建议值与现有 `--auralis-*` 映射；文档本身不代表已切换主题或已改代码。深色阶段背景见
+  [播放器主题配色审计报告](../播放器主题配色审计报告.md)。
 
 以上仅列出已知关系与歧义，不替每篇文档重判状态。开始实际工作前，先确认用户本次范围，再核对源码与对应方案。

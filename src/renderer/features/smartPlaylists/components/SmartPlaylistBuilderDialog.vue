@@ -464,7 +464,7 @@ button:disabled {
 }
 button:focus-visible,
 input:focus-visible {
-  outline: 2px solid #e1ddd6;
+  outline: 2px solid #8fa7bb;
   outline-offset: 3px;
 }
 .playlist-builder {
@@ -532,8 +532,8 @@ input[type='checkbox'] {
   background: transparent;
 }
 input[type='checkbox']:checked {
-  background: #e1ddd6;
-  border-color: #e1ddd6;
+  background: #8fa7bb;
+  border-color: #8fa7bb;
 }
 input[type='checkbox']:checked::after {
   content: '';
@@ -544,7 +544,7 @@ input[type='checkbox']:checked::after {
   transform: translateY(-1px) rotate(-45deg);
 }
 .choice:has(:checked) {
-  background: #e1ddd61a;
+  background: #8fa7bb1a;
 }
 .choice:hover {
   background: #e1ddd60f;
@@ -581,7 +581,7 @@ input[type='checkbox']:checked::after {
   white-space: nowrap;
 }
 .switch button[aria-pressed='true'] {
-  background: #e1ddd619;
+  background: #8fa7bb19;
   color: var(--text);
 }
 .switch button:hover:not(:disabled) {
@@ -806,7 +806,7 @@ input[type='checkbox']:checked::after {
 }
 .primary {
   margin-left: auto;
-  background: #e1ddd6;
+  background: #8fa7bb;
   color: #111214;
   padding: 11px 20px;
   border-radius: 20px;
@@ -819,7 +819,7 @@ input[type='checkbox']:checked::after {
   background: #e1ddd60d;
 }
 .primary:hover:not(:disabled) {
-  background: #f3eee6;
+  background: #a3bbc9;
 }
 .name {
   width: 240px;
@@ -836,7 +836,7 @@ input[type='checkbox']:checked::after {
 }
 .name:focus-visible {
   outline: none;
-  background: #e1ddd614;
+  background: #8fa7bb14;
 }
 .status {
   margin: 0;

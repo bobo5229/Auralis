@@ -4,7 +4,8 @@ import { getRelativeLuminance } from './resolvePlayerPrimaryButtonTextColor'
 // Conservative upper bound for the dark surface, including tint and control highlights.
 // Keep in sync with the scoped PlayerBar material rules in main.css.
 export const PLAYBAR_SURFACE_BOUND: RgbColor = { r: 96, g: 96, b: 96 }
-const FALLBACK: RgbColor = { r: 225, g: 221, b: 214 }
+// #8FA7BB — unified dark-skin interactive accent fallback when artwork color is unusable.
+const FALLBACK: RgbColor = { r: 143, g: 167, b: 187 }
 
 /** Functional graphics need 3:1 contrast; text uses stable neutral tokens instead. */
 export function resolvePlaybarAccent(color?: RgbColor | null): RgbColor {

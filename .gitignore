@@ -133,6 +133,7 @@ docs/topics/metadata/*
 !docs/topics/metadata/TECHDOC-refresh-file-fingerprint-2026-09-21.md
 !docs/topics/shell/
 docs/topics/shell/*
+!docs/topics/shell/light-theme-color-presets.md
 !docs/topics/shell/techdoc-sidebar-first-navigation-warmup.md
 !docs/topics/playback/
 docs/topics/playback/*

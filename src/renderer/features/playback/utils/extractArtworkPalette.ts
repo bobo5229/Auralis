@@ -18,15 +18,18 @@ const MIN_WEIGHT = 0.015
 const MERGE_DISTANCE = 0.035
 const MIN_ACCENT_DISTANCE = 0.05
 
+const FALLBACK_ACCENT_RGB: RgbColor = { r: 143, g: 167, b: 187 }
+const FALLBACK_ACCENT_OKLAB = rgbToOklab(FALLBACK_ACCENT_RGB)
+
 export const FALLBACK_PALETTE: ArtworkPalette = {
   key: 'fallback',
   background: { r: 14, g: 17, b: 23 },
   accents: [
     {
-      rgb: { r: 64, g: 92, b: 128 },
-      oklab: rgbToOklab({ r: 64, g: 92, b: 128 }),
+      rgb: FALLBACK_ACCENT_RGB,
+      oklab: FALLBACK_ACCENT_OKLAB,
       weight: 1,
-      chroma: 0.073,
+      chroma: getOklabChroma(FALLBACK_ACCENT_OKLAB),
     },
   ],
   textTone: 'light',
