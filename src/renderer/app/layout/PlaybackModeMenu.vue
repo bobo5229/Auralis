@@ -95,19 +95,25 @@ onUnmounted(() => {
     role="menu"
     :aria-label="t('player.mode')"
   >
-    <button
-      v-for="(mode, index) in modes"
-      :key="mode.id"
-      class="playback-mode-item"
-      :class="{ 'playback-mode-item-active': currentMode === mode.id }"
-      type="button"
-      role="menuitem"
-      :tabindex="resolveModeMenuItemTabIndex(focusedIndex, index)"
-      @click="handleSelect(mode.id)"
-    >
-      <span class="h-4 w-4" :class="mode.icon" />
-      <span>{{ mode.label }}</span>
-      <span v-if="currentMode === mode.id" class="playback-mode-check i-lucide-check" />
-    </button>
+    <template v-for="(mode, index) in modes" :key="mode.id">
+      <button
+        class="playback-mode-item"
+        :class="{
+          'playback-mode-item-active': currentMode === mode.id,
+          'playback-mode-item-first': index === 0,
+          'playback-mode-item-middle': index > 0 && index < modes.length - 1,
+          'playback-mode-item-last': index === modes.length - 1,
+        }"
+        type="button"
+        role="menuitem"
+        :tabindex="resolveModeMenuItemTabIndex(focusedIndex, index)"
+        @click="handleSelect(mode.id)"
+      >
+        <span class="h-4 w-4" :class="mode.icon" />
+        <span>{{ mode.label }}</span>
+        <span v-if="currentMode === mode.id" class="playback-mode-check i-lucide-check" />
+      </button>
+      <div v-if="index < modes.length - 1" class="playback-mode-divider" role="separator" />
+    </template>
   </div>
 </template>

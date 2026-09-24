@@ -74,6 +74,7 @@ export class PlaylistRepository extends BaseRepository {
                 d.disc_no AS discNo,
                 d.release_date AS releaseDate,
                 d.copyright,
+                d.composer,
                 d.duration_seconds AS durationSeconds,
                 d.artwork_cache_key AS artworkCacheKey,
                 d.genre,

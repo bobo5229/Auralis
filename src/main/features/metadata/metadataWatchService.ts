@@ -560,6 +560,7 @@ export class MetadataWatchService {
         year: normalized.year,
         releaseDate: normalized.releaseDate,
         copyright: normalized.copyright,
+        composer: normalized.composer,
         genre: normalized.genre,
         artworkCacheKey: null,
         lyricsText: lyrics?.text ?? null,

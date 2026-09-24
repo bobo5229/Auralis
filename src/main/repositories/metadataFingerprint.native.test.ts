@@ -55,6 +55,7 @@ function result(patch: Partial<RefreshedTrackMetadata> = {}): RefreshedTrackMeta
     year: 2026,
     releaseDate: '2026',
     copyright: null,
+    composer: null,
     genres: ['Pop'],
     genre: 'Pop',
     lyricsText: 'new lyrics',

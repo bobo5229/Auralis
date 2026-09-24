@@ -15,6 +15,7 @@ function createTrack(id: number, title = `Track ${id}`): TrackListItem {
     discNo: null,
     releaseDate: null,
     copyright: null,
+    composer: null,
     durationSeconds: null,
     artworkCacheKey: null,
     genre: null,

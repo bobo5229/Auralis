@@ -80,9 +80,13 @@ export default defineConfig({
     'queue-item-subtitle': 'truncate text-xs text-[var(--auralis-text-muted)]',
     'queue-empty': 'flex h-28 items-center justify-center text-sm text-[var(--auralis-text-faint)]',
     'playback-mode-menu':
-      'absolute bottom-[calc(100%+30px)] right-[calc(100%-84px)] z-[70] w-52 overflow-hidden rounded-[24px] border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] p-2 shadow-[var(--auralis-playbar-shadow)]',
+      'absolute bottom-[calc(100%+30px)] right-[calc(100%-84px)] z-[70] w-52 overflow-hidden rounded-[24px] border border-[var(--auralis-playbar-border)] bg-[var(--auralis-playbar-bg)] shadow-[var(--auralis-playbar-shadow)]',
     'playback-mode-item':
-      'flex h-9 w-full items-center gap-2 rounded-xl px-2 text-left text-sm text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
+      'flex h-9 w-full items-center gap-2 px-4 text-left text-sm text-[var(--auralis-text-muted)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)] focus-visible:bg-[var(--auralis-control-hover-bg)] focus-visible:text-[var(--auralis-text)]',
+    'playback-mode-item-first': 'rounded-t-[24px]',
+    'playback-mode-item-middle': 'rounded-none',
+    'playback-mode-item-last': 'rounded-b-[24px]',
+    'playback-mode-divider': 'h-px w-full bg-[var(--auralis-playbar-border)]',
     'playback-mode-item-active': '',
     'playback-mode-check': 'ml-auto h-4 w-4',
     'album-cover-group':

@@ -24,6 +24,7 @@ function track(id: number, patch: Partial<TrackListItem> = {}): TrackListItem {
     discNo: 1,
     releaseDate: null,
     copyright: null,
+    composer: null,
     durationSeconds: 180,
     artworkCacheKey: null,
     genre: null,

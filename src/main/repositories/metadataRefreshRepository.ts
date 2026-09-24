@@ -44,6 +44,7 @@ export interface RefreshedTrackMetadata {
   year: number | null
   releaseDate: string | null
   copyright: string | null
+  composer: string | null
   genres: string[]
   genre: string | null
   lyricsText: string | null
@@ -559,6 +560,7 @@ export class MetadataRefreshRepository extends BaseRepository {
           disc_no = ?,
           duration_seconds = ?,
           copyright = ?,
+          composer = ?,
           lyrics_text = ?,
           lyrics_format = ?,
           isrc = ?,
@@ -584,6 +586,7 @@ export class MetadataRefreshRepository extends BaseRepository {
           year = ?,
           release_date = ?,
           copyright = ?,
+          composer = ?,
           genre = ?,
           lyrics_text = ?,
           lyrics_format = ?,
@@ -682,6 +685,7 @@ export class MetadataRefreshRepository extends BaseRepository {
           metadata.discNo,
           metadata.durationSeconds,
           metadata.copyright,
+          metadata.composer,
           metadata.lyricsText,
           metadata.lyricsFormat,
           metadata.isrc,
@@ -721,6 +725,7 @@ export class MetadataRefreshRepository extends BaseRepository {
         metadata.year,
         metadata.releaseDate,
         metadata.copyright,
+        metadata.composer,
         genreDisplay,
         metadata.lyricsText,
         metadata.lyricsFormat,

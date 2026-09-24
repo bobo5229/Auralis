@@ -65,6 +65,7 @@ function createTrack(index: number): TrackListItem {
     discNo: index % 97 === 0 ? null : (index % 2) + 1,
     releaseDate: albumIndex % 11 === 0 ? null : `${1980 + (albumIndex % 47)}-01-01`,
     copyright: index % 19 === 0 ? null : `Copyright ${1980 + (albumIndex % 47)}`,
+    composer: null,
     durationSeconds: index % 23 === 0 ? null : 120 + (index % 360),
     artworkCacheKey: albumIndex % 9 === 0 ? null : `artwork-${albumIndex}`,
     genre: index % 10 === 0 ? null : ['流行', 'Electronic', 'Jazz 2'][index % 3],

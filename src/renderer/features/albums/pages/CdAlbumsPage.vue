@@ -17,6 +17,7 @@ import CdFocusLyrics from '../components/CdFocusLyrics.vue'
 import { createCdStage, type CdAlbum } from '../utils/cdStageController'
 import { useCdCanvasTheme } from '../composables/useCdCanvasTheme'
 import { formatCdAccent } from '../utils/cdAccent'
+import { presentCdTrackComposers } from '../utils/cdTrackComposers'
 import { animatePlaybackTextShimmer, animateProgress } from '@renderer/shared/animation/motion'
 
 interface CdAlbumInfo extends CdAlbum {
@@ -54,6 +55,17 @@ const selected = ref(0)
 let queueOwned = false
 let ownedIds: number[] = []
 const focusedAlbum = computed(() => albumInfo.value[selected.value] ?? null)
+const composerExpanded = ref(false)
+const focusedComposer = computed(() => {
+  if (!focusSettled.value || displayedAlbum.value?.key !== focusedAlbum.value?.key) return null
+  const trackId = playback.state.currentTrackId
+  if (trackId === null) return null
+  const track = focusedAlbum.value?.tracks.find((item) => item.id === trackId)
+  return presentCdTrackComposers(track?.composer)
+})
+watch([() => playback.state.currentTrackId, selected, focused], () => {
+  composerExpanded.value = false
+})
 const browsingPlaybackAlbumIndex = computed(() => {
   const trackId = playback.state.currentTrackId
   if (trackId === null) return -1
@@ -662,7 +674,7 @@ onBeforeUnmount(() => {
         <dl class="cd-info-fields">
           <div class="cd-info-row">
             <dt>{{ t('albums.cd.artist') }}</dt>
-            <dd dir="auto">{{ displayedAlbum.artist }}</dd>
+            <dd dir="auto">{{ formatArtist(displayedAlbum.artist) }}</dd>
           </div>
           <div v-if="displayedAlbum.releaseDate" class="cd-info-row">
             <dt>{{ t('albums.cd.releaseDate') }}</dt>
@@ -671,6 +683,35 @@ onBeforeUnmount(() => {
           <div v-if="displayedAlbum.copyright" class="cd-info-row cd-info-copyright">
             <dt>{{ t('albums.cd.copyright') }}</dt>
             <dd dir="auto">{{ displayedAlbum.copyright }}</dd>
+          </div>
+          <div v-if="focusedComposer" class="cd-info-row cd-info-composer">
+            <dt>{{ t('albums.cd.composer.label') }}</dt>
+            <dd dir="auto">
+              <span
+                v-for="(name, index) in composerExpanded
+                  ? focusedComposer.names
+                  : focusedComposer.visible"
+                :key="`${index}-${name}`"
+                class="cd-composer-name"
+              >
+                {{ name }}
+              </span>
+              <button
+                v-if="focusedComposer.overflow"
+                type="button"
+                class="cd-composer-toggle"
+                :aria-expanded="composerExpanded"
+                :aria-label="
+                  composerExpanded
+                    ? t('albums.cd.composer.collapse')
+                    : t('albums.cd.composer.expand')
+                "
+                @click="composerExpanded = !composerExpanded"
+              >
+                <span v-if="composerExpanded" class="i-lucide-arrow-up" aria-hidden="true"></span>
+                <template v-else>{{ `+${focusedComposer.overflow}` }}</template>
+              </button>
+            </dd>
           </div>
         </dl>
       </aside>
@@ -718,8 +759,8 @@ onBeforeUnmount(() => {
           type="button"
           class="cd-browsing-playback-album"
           :disabled="browsingPlaybackAlbumIndex < 0"
-          @click="focusBrowsingPlaybackAlbum"
           dir="auto"
+          @click="focusBrowsingPlaybackAlbum"
         >
           {{ browsingPlayback.album }}
         </button>
@@ -1219,6 +1260,26 @@ onBeforeUnmount(() => {
 }
 .cd-info-copyright dd {
   font-size: 13px;
+}
+.cd-page .cd-composer-toggle {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cd-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.cd-composer-name {
+  display: block;
+}
+.cd-page .cd-composer-toggle:hover:not(:disabled) {
+  background: transparent;
+  color: var(--cd-text);
 }
 @container (max-width: 600px) {
   .cd-info {

@@ -67,6 +67,7 @@ const TRACK_LIST_ITEM_COLUMNS = `id, title, artist, album,
                 disc_no AS discNo,
                 release_date AS releaseDate,
                 copyright,
+                composer,
                 duration_seconds AS durationSeconds,
                 artwork_cache_key AS artworkCacheKey,
                 genre,
@@ -320,6 +321,7 @@ export class TrackRepository extends BaseRepository {
         year,
         release_date,
         copyright,
+        composer,
         genre,
         lyrics_text,
         lyrics_format,
@@ -332,7 +334,7 @@ export class TrackRepository extends BaseRepository {
         missing_since,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
       ON CONFLICT(file_path) DO UPDATE SET
         file_size = excluded.file_size,
         file_mtime_ms = excluded.file_mtime_ms,
@@ -346,6 +348,7 @@ export class TrackRepository extends BaseRepository {
         year = excluded.year,
         release_date = excluded.release_date,
         copyright = excluded.copyright,
+        composer = excluded.composer,
         genre = excluded.genre,
         lyrics_text = excluded.lyrics_text,
         lyrics_format = excluded.lyrics_format,
@@ -387,6 +390,7 @@ export class TrackRepository extends BaseRepository {
           track.year,
           track.releaseDate,
           track.copyright,
+          track.composer,
           track.genre,
           track.lyricsText,
           track.lyricsFormat,
@@ -695,6 +699,7 @@ export class TrackRepository extends BaseRepository {
                year = ?,
                release_date = ?,
                copyright = ?,
+               composer = ?,
                genre = ?,
                lyrics_text = ?,
                lyrics_format = ?,
@@ -722,6 +727,7 @@ export class TrackRepository extends BaseRepository {
           scannedTrack.year,
           scannedTrack.releaseDate,
           scannedTrack.copyright,
+          scannedTrack.composer,
           scannedTrack.genre,
           scannedTrack.lyricsText,
           scannedTrack.lyricsFormat,

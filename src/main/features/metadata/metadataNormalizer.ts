@@ -17,6 +17,8 @@ export interface NormalizedMetadata {
   year: number | null
   releaseDate: string | null
   copyright: string | null
+  composers: string[]
+  composer: string | null
   genres: string[]
   genre: string | null
   lyricsText: string | null
@@ -97,6 +99,7 @@ const LRC_TIMESTAMP = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/
 
 const NATIVE_LYRICS_KEYS = new Set(['USLT', 'SYLT', 'LYR', 'LYRI', 'LYRICS', 'UNSYNCEDLYRICS'])
 const NATIVE_GENRE_KEYS = new Set(['GEN', 'GNRE', 'GENRE'])
+const NATIVE_COMPOSER_KEYS = new Set(['TCOM', 'TCM', 'COMPOSER', 'WRT'])
 
 type NativeTag = { id: string; value: unknown }
 
@@ -143,6 +146,12 @@ function isNativeGenreTag(id: string): boolean {
   return NATIVE_GENRE_KEYS.has(normalized) || normalized.endsWith('GENRE')
 }
 
+function isNativeComposerTag(id: string): boolean {
+  const normalized = id.replace(/[^a-zA-Z]/g, '').toUpperCase()
+
+  return NATIVE_COMPOSER_KEYS.has(normalized) || normalized.endsWith('COMPOSER')
+}
+
 export function resolveLyrics(
   metadata: IAudioMetadata,
 ): { text: string; format: 'lrc' | 'plain' } | null {
@@ -184,6 +193,20 @@ export function resolveGenres(metadata: IAudioMetadata): string[] {
   }
 
   return uniqueValues(candidates.map((value) => value.trim()).filter(Boolean))
+}
+
+export function resolveComposers(metadata: IAudioMetadata): string[] {
+  const candidates = [...getTextValuesFromUnknown(metadata.common.composer)]
+
+  for (const tags of getNativeTagGroups(metadata)) {
+    for (const tag of tags) {
+      if (!isNativeComposerTag(tag.id)) continue
+
+      candidates.push(...getTextValuesFromUnknown(tag.value))
+    }
+  }
+
+  return uniqueValues(cleanTextValues(candidates))
 }
 
 // ---------------------------------------------------------------------------
@@ -270,6 +293,7 @@ export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): 
   const albumArtistDisplay = albumArtists.join('; ') || 'Unknown Artist'
   const albumTitle = common.album || 'Unknown Album'
   const genres = resolveGenres(metadata)
+  const composers = resolveComposers(metadata)
 
   return {
     title:
@@ -288,6 +312,8 @@ export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): 
     year: getYear(common.year, common.date),
     releaseDate: common.date ?? null,
     copyright: common.copyright?.trim() || null,
+    composers,
+    composer: composers.join('; ') || null,
     genres,
     // Storage prefers "; "; UI display always goes through formatDelimitedValues → A & B
     genre: genres.join('; ') || null,

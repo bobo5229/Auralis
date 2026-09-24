@@ -314,6 +314,7 @@ describe('metadataRefreshRepository artwork upsert rules', () => {
       year: 2026,
       releaseDate: '2026',
       copyright: null,
+      composer: null,
       genres: [],
       genre: null,
       lyricsText: null,

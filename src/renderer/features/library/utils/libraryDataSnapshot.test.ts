@@ -19,6 +19,7 @@ function createTrack(id: number): TrackListItem {
     discNo: null,
     releaseDate: null,
     copyright: null,
+    composer: null,
     durationSeconds: null,
     artworkCacheKey: null,
     genre: null,

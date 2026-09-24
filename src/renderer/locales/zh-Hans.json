@@ -252,6 +252,12 @@
       "paused": "Paused",
       "tracks": "曲目",
       "returnToBrowse": "返回 CD 浏览",
+      "composer": {
+        "label": "Composer",
+        "more": "还有 {count} 位作曲家",
+        "expand": "显示全部作曲家",
+        "collapse": "收起作曲家名单"
+      },
       "lyrics": {
         "label": "当前歌曲歌词",
         "instrumental": "该曲目为无歌词的纯音乐"

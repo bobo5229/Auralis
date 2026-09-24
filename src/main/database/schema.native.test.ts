@@ -2,6 +2,7 @@ import { createRequire } from 'node:module'
 import { afterEach, describe, expect, it } from 'vitest'
 import type Database from 'better-sqlite3'
 import { migrateDatabase } from './schema'
+import { migrations } from './schemaMigrations'
 
 const nodeRequire = createRequire(import.meta.url)
 const DatabaseCtor = nodeRequire('better-sqlite3') as unknown as new (
@@ -36,9 +37,9 @@ describe('migrateDatabase', () => {
       .all() as string[]
 
     expect(migrations.map(({ id }) => id)).toEqual(
-      Array.from({ length: 22 }, (_, index) => index + 1),
+      Array.from({ length: 23 }, (_, index) => index + 1),
     )
-    expect(migrations.at(-1)?.name).toBe('lyrics_sidecar_fingerprint')
+    expect(migrations.at(-1)?.name).toBe('add_composer_to_tracks')
     expect(objects).toEqual(
       expect.arrayContaining([
         'tracks',
@@ -108,9 +109,45 @@ describe('migrateDatabase', () => {
       availability: 'available',
       playCount: 0,
     })
-    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(22)
+    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(23)
     expect(
       db.prepare('SELECT lyrics_sidecar_fingerprint FROM tracks WHERE id = 7').pluck().get(),
+    ).toBeNull()
+    expect(db.prepare('SELECT composer FROM tracks WHERE id = 7').pluck().get()).toBeNull()
+  })
+
+  it('adds composer and clears metadata fingerprints so existing tracks refresh', () => {
+    const db = createDatabase()
+    db.exec(`
+      CREATE TABLE schema_migrations (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+    `)
+    const insertMigration = db.prepare('INSERT INTO schema_migrations (id, name) VALUES (?, ?)')
+    for (const migration of migrations) {
+      if (migration.id > 22) break
+      db.exec(migration.sql)
+      insertMigration.run(migration.id, migration.name)
+    }
+    db.prepare(
+      `INSERT INTO tracks (id, file_path, title, metadata_checked_mtime_ms)
+       VALUES (1, 'C:\\Music\\old.flac', 'Old', 12345)`,
+    ).run()
+
+    migrateDatabase(db)
+
+    const row = db
+      .prepare(
+        `SELECT composer, metadata_checked_mtime_ms AS checked
+         FROM tracks WHERE id = 1`,
+      )
+      .get() as { composer: string | null; checked: number | null }
+
+    expect(row).toEqual({ composer: null, checked: null })
+    expect(
+      db.prepare('SELECT composer FROM library_track_display WHERE id = 1').pluck().get(),
     ).toBeNull()
   })
 })

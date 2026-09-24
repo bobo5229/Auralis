@@ -197,6 +197,7 @@ async function createScannedTrack(
     year: normalized.year,
     releaseDate: normalized.releaseDate,
     copyright: normalized.copyright,
+    composer: normalized.composer,
     genre: normalized.genre,
     artworkCacheKey,
     lyricsText: lyrics?.text ?? null,

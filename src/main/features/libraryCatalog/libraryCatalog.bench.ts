@@ -22,6 +22,7 @@ function createTrack(index: number): TrackListItem {
     discNo: 1,
     releaseDate: '2026-01-01',
     copyright: null,
+    composer: null,
     durationSeconds: 180,
     artworkCacheKey: `artwork-${albumIndex}`,
     genre: 'Benchmark',

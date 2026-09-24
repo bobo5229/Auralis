@@ -80,6 +80,7 @@ describe('LibraryScanService worker lifecycle', () => {
       year: null,
       releaseDate: null,
       copyright: null,
+      composer: null,
       genre: null,
       artworkCacheKey: null,
       lyricsText: 'original lyrics',
