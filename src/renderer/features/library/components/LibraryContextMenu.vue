@@ -22,7 +22,6 @@ const props = defineProps<{
   playlistLoading: boolean
   playlistLoadError: string | null
   creatingPlaylist: boolean
-  refreshing: boolean
 }>()
 
 const emit = defineEmits<{
@@ -34,7 +33,6 @@ const emit = defineEmits<{
   (e: 'createPlaylist'): void
   (e: 'editMetadata'): void
   (e: 'switchView', mode: LibraryViewMode): void
-  (e: 'refresh'): void
 }>()
 
 const { t } = useI18n()
@@ -129,15 +127,6 @@ const menuItems = computed<MenuItemDef[]>(() => {
     action: () => {
       const targetMode: LibraryViewMode = props.currentViewMode === 'flat' ? 'cover' : 'flat'
       emit('switchView', targetMode)
-      emit('close')
-    },
-  })
-
-  list.push({
-    id: 'refresh',
-    disabled: props.refreshing,
-    action: () => {
-      emit('refresh')
       emit('close')
     },
   })
@@ -692,25 +681,6 @@ onBeforeUnmount(() => {
                   : t('library.contextMenu.switchToFlat')
               }}
             </span>
-          </button>
-
-          <div class="library-context-menu-separator" role="separator"></div>
-
-          <!-- 刷新曲库 -->
-          <button
-            class="library-context-menu-item"
-            type="button"
-            role="menuitem"
-            data-context-main-item
-            :disabled="refreshing"
-            :tabindex="activeIndex === 6 ? 0 : -1"
-            @click="activateMainItem(6)"
-            @mouseenter="activeIndex = 6"
-          >
-            <span class="i-lucide-refresh-cw" :class="{ 'animate-spin': refreshing }"></span>
-            <span class="library-context-menu-text truncate">{{
-              t('library.contextMenu.refresh')
-            }}</span>
           </button>
 
           <!-- 歌单添加成功反馈（位于主菜单根部，子菜单关闭后依然保留并朗读） -->

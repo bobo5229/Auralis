@@ -30,6 +30,7 @@
 | 新建模块、调整源码组织、跨层调用、IPC、主进程服务或日志 | [架构与 IPC](docs/rules/architecture.md)      |
 | 曲库分页、快照、搜索消费者、数据库迁移或扫描            | [曲库与数据](docs/rules/library-data.md)      |
 | Renderer 页面、组件、样式、播放界面、视觉状态或窗口几何 | [Renderer 视觉与交互](docs/rules/renderer.md) |
+| 输出供其他会话或 Agent 执行的施工提示词             | [施工提示词写法](docs/rules/handoff-prompts.md)  |
 | 修改代码、配置或文档，准备选择验收方式                  | [风险分级验收](docs/rules/validation.md)      |
 | 用户要求提交、推送、合并、PR、打包或发布                | [Git 与发布](docs/rules/git-release.md)       |
 

@@ -34,11 +34,8 @@ export function useLibraryContextMenu(options: {
   listSidebarItems: () => Promise<SidebarPlaylistItem[]>
   createPlaylist: () => Promise<{ id: number; name: string }>
   addTracksToPlaylist: (playlistId: number, trackIds: number[]) => Promise<unknown>
-  getLibraryRoots: () => Promise<ReadonlyArray<{ id: number }>>
-  startLibraryScan: (rootId: number) => Promise<unknown>
 }) {
   const contextMenu = ref<LibraryContextMenuState | null>(null)
-  const isStartingLibraryRefresh = ref(false)
   const regularPlaylistItems = ref<SidebarPlaylistItem[]>([])
   const addToPlaylistFeedback = ref<{ playlistId: number; message: string } | null>(null)
   const isCreatingPlaylistFromMenu = ref(false)
@@ -261,22 +258,6 @@ export function useLibraryContextMenu(options: {
     }
   }
 
-  async function onRefreshLibrary(): Promise<void> {
-    if (isStartingLibraryRefresh.value) return
-
-    closeContextMenu()
-    isStartingLibraryRefresh.value = true
-
-    try {
-      const roots = await options.getLibraryRoots()
-      const activeRoot = roots[0]
-      if (!activeRoot) return
-      await options.startLibraryScan(activeRoot.id)
-    } finally {
-      isStartingLibraryRefresh.value = false
-    }
-  }
-
   function dispose(): void {
     clearAddToPlaylistFeedback()
   }
@@ -291,7 +272,6 @@ export function useLibraryContextMenu(options: {
     playlistLoading,
     playlistLoadError,
     isCreatingPlaylistFromMenu,
-    isStartingLibraryRefresh,
     closeContextMenu,
     onOpenContextMenu,
     onOpenAlbumArtworkContextMenu,
@@ -301,7 +281,6 @@ export function useLibraryContextMenu(options: {
     onLocateCurrentTrack,
     onAddContextTracksToPlaylist,
     onCreatePlaylistAndAddContextTracks,
-    onRefreshLibrary,
     loadRegularPlaylistItems,
     dispose,
   }

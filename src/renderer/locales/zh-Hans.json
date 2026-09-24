@@ -31,7 +31,10 @@
       "facetsPanel": "筛选面板",
       "miniPlayer": "迷你播放器",
       "miniPlayerAction": "切换到迷你播放器",
-      "settings": "设置"
+      "settings": "设置",
+      "refresh": "刷新曲库",
+      "refreshAction": "刷新曲库",
+      "refreshBusy": "正在刷新曲库"
     }
   },
   "facets": {
@@ -258,6 +261,10 @@
         "cd": "CD 质感",
         "vinyl": "黑胶质感"
       },
+      "theme": {
+        "toLight": "切换到浅色",
+        "toDark": "切换到深色"
+      },
       "modes": {
         "repeat-all": "专辑循环",
         "shuffle": "随机循环",
@@ -366,7 +373,6 @@
       "editMetadata": "编辑元数据",
       "switchToCover": "切换到封面视图",
       "switchToFlat": "切换到平铺视图",
-      "refresh": "刷新曲库",
       "noPlaylists": "暂无可添加的歌单",
       "playlistLoading": "正在加载歌单…",
       "playlistLoadError": "加载歌单失败",

@@ -163,6 +163,40 @@ describe('CD stage lifetime', () => {
     expect(change).toHaveBeenLastCalledWith(0, true)
   })
 
+  it('selects and focuses a requested album with reduced motion', () => {
+    const change = vi.fn()
+    const { controller, media, select } = setup(8, change)
+    media.matches = true
+
+    controller.focusAlbum(5)
+
+    expect(select).toHaveBeenLastCalledWith(5)
+    expect(change).toHaveBeenLastCalledWith(1, true)
+    controller.dispose()
+  })
+
+  it('directly fades a requested album into focus', () => {
+    const change = vi.fn()
+    const { stage, controller, select } = setup(8, change)
+    controller.focusAlbum(5)
+
+    expect(select).toHaveBeenLastCalledWith(5)
+    expect(change).toHaveBeenLastCalledWith(1, false)
+    const selectedSlot = stage.children.find(
+      (node) => node.attributes.get('data-selected') === 'true',
+    )!
+    const focusedTransform = selectedSlot.style.transform
+    expect(selectedSlot.style.opacity).toBe('0')
+    advance(12)
+    expect(Number(selectedSlot.style.opacity)).toBeGreaterThan(0)
+    expect(Number(selectedSlot.style.opacity)).toBeLessThan(1)
+    expect(selectedSlot.style.transform).toBe(focusedTransform)
+    settle()
+    expect(change).toHaveBeenLastCalledWith(1, true)
+    expect(selectedSlot.style.opacity).toBe('1')
+    controller.dispose()
+  })
+
   it('fades a requested album in at its final focused pose', () => {
     const change = vi.fn()
     const { stage, controller, albums, select } = setup(8, change)

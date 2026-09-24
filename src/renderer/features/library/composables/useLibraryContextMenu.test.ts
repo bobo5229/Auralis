@@ -69,8 +69,6 @@ function createMenu() {
   ])
   const createPlaylistApi = vi.fn(async () => ({ id: 11, name: 'New' }))
   const addTracksToPlaylist = vi.fn(async () => undefined)
-  const getLibraryRoots = vi.fn(async () => [{ id: 4 }])
-  const startLibraryScan = vi.fn(async () => undefined)
   const dispatchEvent = vi.fn()
 
   vi.stubGlobal(
@@ -109,8 +107,6 @@ function createMenu() {
     listSidebarItems,
     createPlaylist: createPlaylistApi,
     addTracksToPlaylist,
-    getLibraryRoots,
-    startLibraryScan,
   })
 
   return {
@@ -129,7 +125,6 @@ function createMenu() {
     onTrackActivated,
     listSidebarItems,
     addTracksToPlaylist,
-    startLibraryScan,
     dispatchEvent,
   }
 }
@@ -215,15 +210,5 @@ describe('useLibraryContextMenu', () => {
 
     vi.advanceTimersByTime(1200)
     expect(menu.contextMenu.value).toBeNull()
-  })
-
-  it('starts a library scan from the first root', async () => {
-    const { menu, startLibraryScan } = createMenu()
-    menu.onOpenContextMenu(1, createMouseEvent())
-    await menu.onRefreshLibrary()
-
-    expect(startLibraryScan).toHaveBeenCalledWith(4)
-    expect(menu.contextMenu.value).toBeNull()
-    expect(menu.isStartingLibraryRefresh.value).toBe(false)
   })
 })

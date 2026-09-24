@@ -1556,7 +1556,7 @@ input[type='range'].volume-overlay-slider {
   background: transparent;
 }
 
-/* Left-aligned Brand on first row; 3-column equal tools on second row. */
+/* Left-aligned Brand on first row; 4-column equal tools on second row. */
 .sidebar-header-main {
   display: flex;
   width: 100%;
@@ -1650,17 +1650,18 @@ input[type='range'].volume-overlay-slider {
   transition-duration: 400ms;
 }
 
-/* Equal grid tool row */
+/* Evenly spaced tool row */
 .sidebar-tools-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
   width: 100%;
 }
 
 .sidebar-tool-button {
   display: inline-flex;
-  width: 100%;
+  width: 32px;
+  flex: 0 0 32px;
   height: 32px;
   align-items: center;
   justify-content: center;
@@ -1686,6 +1687,12 @@ input[type='range'].volume-overlay-slider {
 .sidebar-tool-button:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: 1px;
+}
+
+.sidebar-tool-button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+  transform: none;
 }
 
 .sidebar-tool-button > span {

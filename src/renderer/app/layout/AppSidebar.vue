@@ -8,6 +8,7 @@ import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import { useRoute } from 'vue-router'
 import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import SmartPlaylistBuilderDialog from '@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue'
+import { useLibraryScanStart } from '@renderer/features/library/composables/useLibraryScanStart'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -24,6 +25,10 @@ const router = useRouter()
 const playback = usePlayback()
 const { enterMiniPlayer } = usePlayerDisplayMode()
 const isFacetsDialogOpen = ref(false)
+const { isStartingLibraryRefresh, refreshLibrary } = useLibraryScanStart({
+  getLibraryRoots: () => auralis.library.getRoots(),
+  startLibraryScan: (rootId) => auralis.library.startScan(rootId),
+})
 
 const playlistItems = ref<SidebarPlaylistItem[]>([])
 const libraryStats = ref<LibraryStats>({ trackCount: 0, albumCount: 0 })
@@ -511,6 +516,24 @@ onBeforeUnmount(() => {
           >
             <span class="i-lucide-settings"></span>
           </RouterLink>
+          <button
+            class="sidebar-tool-button"
+            type="button"
+            :aria-label="
+              isStartingLibraryRefresh
+                ? t('sidebar.tool.refreshBusy')
+                : t('sidebar.tool.refreshAction')
+            "
+            :title="t('sidebar.tool.refresh')"
+            :disabled="isStartingLibraryRefresh"
+            :aria-busy="isStartingLibraryRefresh"
+            @click="refreshLibrary"
+          >
+            <span
+              class="i-lucide-refresh-cw"
+              :class="{ 'animate-spin': isStartingLibraryRefresh }"
+            ></span>
+          </button>
         </div>
       </div>
     </header>

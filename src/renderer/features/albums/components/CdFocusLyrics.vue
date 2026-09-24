@@ -443,7 +443,7 @@ onBeforeUnmount(() => {
   pointer-events: none;
   text-align: center;
   font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  color: #62625b;
+  color: var(--cd-text-muted, #62625b);
   font-size: 13px;
   line-height: 22px;
 }

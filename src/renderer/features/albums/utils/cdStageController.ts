@@ -941,6 +941,25 @@ export function createCdStage(
     moveToPosition(target)
   }
 
+  function focusAlbum(index: number): void {
+    if (
+      !focusOptions ||
+      startup ||
+      focusProgress > 0 ||
+      focusMoving ||
+      !Number.isInteger(index) ||
+      index < 0 ||
+      index >= albums.length
+    )
+      return
+
+    stop()
+    selected = index
+    render(selected)
+    onSelect(cdAlbumIndex(selected, albums.length))
+    setFocused(true, 'fade')
+  }
+
   function nodeFromTarget(target: EventTarget | null): DiscNode | undefined {
     return target ? discNodes.get(target) : undefined
   }
@@ -1274,6 +1293,7 @@ export function createCdStage(
 
   return {
     navigate,
+    focusAlbum,
     setFocused,
     setPlayback(next: CdPlaybackRingState): void {
       playback = {

@@ -9,6 +9,7 @@ import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
 import MiniPlayer from './app/layout/MiniPlayer.vue'
 import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
 import { useShellFluidBackground } from '@renderer/features/appearance/composables/useShellFluidBackground'
+import { useCdCanvasTheme } from '@renderer/features/albums/composables/useCdCanvasTheme'
 import { useDesktopLyricsSync } from '@renderer/features/lyrics/composables/useDesktopLyricsSync'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -18,6 +19,7 @@ import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 const route = useRoute()
 const playback = usePlayback()
 const { shellFluidBackgroundEnabled } = useShellFluidBackground()
+const { cdCanvasTheme } = useCdCanvasTheme()
 useSystemMediaIntegration()
 useDesktopLyricsSync()
 const { displayMode, onMiniPlayerWindowStateChanged, syncMiniPlayerWindowState } =
@@ -98,12 +100,21 @@ function onTransitionEnterCancelled(): void {
 <template>
   <MiniPlayer v-if="displayMode === 'mini'" />
 
-  <div v-else class="app-window" :class="{ 'is-cd-albums': isCdAlbums }" data-app-shell-root>
+  <div
+    v-else
+    class="app-window"
+    :class="{
+      'is-cd-albums': isCdAlbums,
+      'is-cd-albums-dark': isCdAlbums && cdCanvasTheme === 'dark',
+    }"
+    data-app-shell-root
+  >
     <div
       class="app-shell relative"
       :class="{
         'is-album-detail': isAlbumDetail,
         'is-cd-albums': isCdAlbums,
+        'is-cd-albums-dark': isCdAlbums && cdCanvasTheme === 'dark',
         'has-artwork': shouldRenderShellArtwork,
       }"
     >
@@ -161,6 +172,11 @@ function onTransitionEnterCancelled(): void {
 .app-shell.is-cd-albums {
   grid-template-columns: minmax(0, 1fr) !important;
   background: #eeeeec;
+}
+
+.app-window.is-cd-albums-dark,
+.app-shell.is-cd-albums-dark {
+  background: #2b2d30;
 }
 
 @media (min-width: 1280px) {

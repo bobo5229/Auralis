@@ -110,15 +110,15 @@ button {
   font-size: 13px;
   color: inherit;
   background: transparent;
-  border: 1px solid #bdbdb9;
+  border: 1px solid var(--cd-border, #bdbdb9);
   border-radius: 3px;
   cursor: pointer;
 }
 button:hover {
-  background: #e1e1de;
+  background: var(--cd-hover-bg, #e1e1de);
 }
 button:focus-visible {
-  outline: 2px solid #292929;
+  outline: 2px solid var(--cd-focus-ring, #292929);
   outline-offset: -2px;
 }
 .cd-track-panel {
@@ -136,7 +136,7 @@ button:focus-visible {
   justify-content: space-between;
   gap: 12px;
   padding-bottom: 14px;
-  border-bottom: 1px solid #8e8e88;
+  border-bottom: 1px solid var(--cd-border-strong, #8e8e88);
 }
 h2 {
   margin: 0;
@@ -152,12 +152,12 @@ h2 {
   border: 0;
   background: transparent;
   box-shadow: none;
-  color: #62625b;
+  color: var(--cd-text-muted, #62625b);
 }
 .cd-track-panel .cd-mode:hover {
   background: transparent;
   box-shadow: none;
-  color: #292929;
+  color: var(--cd-text, #292929);
 }
 .cd-track-scroll {
   flex: 1 1 0;
@@ -167,14 +167,14 @@ h2 {
   overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-width: none;
-  color-scheme: light;
+  color-scheme: inherit;
 }
 .cd-track-scroll::-webkit-scrollbar {
   display: none;
 }
 .cd-disc-heading {
   margin: 22px 0 9px;
-  color: #62625b;
+  color: var(--cd-text-muted, #62625b);
   font:
     400 11px Georgia,
     'Auralis Desktop Lyrics SC',
@@ -195,10 +195,10 @@ h2 {
   padding: 0 6px;
 }
 .cd-track-panel .cd-track + .cd-track {
-  border-top-color: #aaa9a333;
+  border-top-color: var(--cd-border-track, #aaa9a333);
 }
 .cd-track-number {
-  color: #77776f;
+  color: var(--cd-text-subtle, #77776f);
   font:
     11px/1.7 Georgia,
     'Auralis Desktop Lyrics SC',
@@ -238,7 +238,7 @@ h2 {
   bottom: 0;
   width: min(18px, 25%);
   height: 1px;
-  background: #62625b;
+  background: var(--cd-text-muted, #62625b);
   pointer-events: none;
 }
 .cd-track-artist {
@@ -246,7 +246,7 @@ h2 {
     11px/1.5 Georgia,
     'Auralis Desktop Lyrics SC',
     serif;
-  color: #77776f;
+  color: var(--cd-text-subtle, #77776f);
 }
 @media (max-width: 800px) {
   .cd-track-heading {

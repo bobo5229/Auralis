@@ -259,7 +259,6 @@ const {
   playlistLoading,
   playlistLoadError,
   isCreatingPlaylistFromMenu,
-  isStartingLibraryRefresh,
   closeContextMenu,
   onOpenContextMenu,
   onOpenAlbumArtworkContextMenu,
@@ -269,7 +268,6 @@ const {
   onLocateCurrentTrack,
   onAddContextTracksToPlaylist,
   onCreatePlaylistAndAddContextTracks,
-  onRefreshLibrary,
   loadRegularPlaylistItems,
   dispose: disposeLibraryContextMenu,
 } = useLibraryContextMenu({
@@ -297,8 +295,6 @@ const {
   listSidebarItems: () => auralis.playlists.listSidebarItems(),
   createPlaylist: () => auralis.playlists.create(),
   addTracksToPlaylist: (playlistId, trackIds) => auralis.playlists.addTracks(playlistId, trackIds),
-  getLibraryRoots: () => auralis.library.getRoots(),
-  startLibraryScan: (rootId) => auralis.library.startScan(rootId),
 })
 
 function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId?: number | null): void {
@@ -718,7 +714,6 @@ onBeforeUnmount(() => {
       :playlist-loading="playlistLoading"
       :playlist-load-error="playlistLoadError"
       :creating-playlist="isCreatingPlaylistFromMenu"
-      :refreshing="isStartingLibraryRefresh"
       @close="closeContextMenu"
       @locate-current="onLocateCurrentTrack"
       @play="onContextMenuPlay"
@@ -727,7 +722,6 @@ onBeforeUnmount(() => {
       @create-playlist="onCreatePlaylistAndAddContextTracks"
       @edit-metadata="onEditMetadataFromContextMenu"
       @switch-view="(mode) => switchLibraryViewMode(mode, contextMenu?.trackId ?? null)"
-      @refresh="onRefreshLibrary"
     />
   </section>
 </template>

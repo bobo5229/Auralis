@@ -141,7 +141,7 @@
     waveFrame = 0
   }
 
-  function coverColor(img) {
+  function sampleCover(img) {
     const canvas = document.createElement('canvas')
     canvas.width = canvas.height = 32
     const context = canvas.getContext('2d', { willReadFrequently: true })
@@ -158,7 +158,63 @@
       buckets.set(key, bucket)
     }
     const dominant = [...buckets.values()].sort((a, b) => b.weight - a.weight)[0]
-    return dominant ? `rgb(${dominant.rgb.map((v) => Math.round(v * 0.8)).join(' ')})` : '#62625b'
+    return dominant ? dominant.rgb.map((value) => Math.round(value)) : null
+  }
+
+  function isDarkTheme() {
+    return byId('page').dataset.theme === 'dark'
+  }
+
+  function rgbFromHsl(h, s, l) {
+    const hue = (p, q, t) => {
+      if (t < 0) t += 1
+      if (t > 1) t -= 1
+      if (t < 1 / 6) return p + (q - p) * 6 * t
+      if (t < 1 / 2) return q
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
+      return p
+    }
+    if (!s) {
+      const gray = Math.round(l * 255)
+      return [gray, gray, gray]
+    }
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+    const p = 2 * l - q
+    return [h + 1 / 3, h, h - 1 / 3].map((channel) => Math.round(hue(p, q, channel) * 255))
+  }
+
+  function hslFromRgb(r, g, b) {
+    r /= 255
+    g /= 255
+    b /= 255
+    const max = Math.max(r, g, b)
+    const min = Math.min(r, g, b)
+    const l = (max + min) / 2
+    const d = max - min
+    if (!d) return [0, 0, l]
+    const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    let h = 0
+    if (max === r) h = (g - b) / d + (g < b ? 6 : 0)
+    else if (max === g) h = (b - r) / d + 2
+    else h = (r - g) / d + 4
+    return [h / 6, s, l]
+  }
+
+  function strokeFromCover(swatch) {
+    if (!swatch) return isDarkTheme() ? '#c5c8ce' : '#62625b'
+    if (!isDarkTheme()) {
+      return `rgb(${swatch.map((value) => Math.round(value * 0.8)).join(' ')})`
+    }
+    let [h, s, l] = hslFromRgb(swatch[0], swatch[1], swatch[2])
+    if (l < 0.5) l = Math.min(0.64, 0.52 + (0.5 - l) * 0.28)
+    if (s > 0.72) s = 0.62
+    return `rgb(${rgbFromHsl(h, s, l).join(' ')})`
+  }
+
+  function applyProgressStrokes() {
+    for (const [index, node] of nodes) {
+      node.progress.style.stroke = strokeFromCover(albums[mod(index)].swatch)
+    }
   }
 
   function updatePlayback() {
@@ -180,7 +236,7 @@
       slot = document.createElement('div')
     slot.className = 'position'
     slot.innerHTML =
-      '<div class="hover"><div class="plane"><button class="disc"><div class="art"><img alt=""></div><div class="hub"></div></button><svg class="wave-ring" viewBox="-28 -28 456 456" aria-hidden="true"><path class="wave-track"/><path class="wave-progress" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/></svg></div></div>'
+      '<div class="hover"><div class="plane"><span class="disc-lift" aria-hidden="true"></span><button class="disc"><div class="art"><img alt=""></div><div class="hub"></div></button><svg class="wave-ring" viewBox="-28 -28 456 456" aria-hidden="true"><path class="wave-track"/><path class="wave-progress" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1"/></svg></div></div>'
     const disc = slot.querySelector('.disc'),
       hover = slot.querySelector('.hover'),
       art = slot.querySelector('.art')
@@ -196,8 +252,8 @@
     img.addEventListener(
       'load',
       () => {
-        album.color ||= coverColor(img)
-        progressPath.style.stroke = album.color
+        album.swatch ||= sampleCover(img)
+        progressPath.style.stroke = strokeFromCover(album.swatch)
       },
       { ...options, once: true },
     )
@@ -455,6 +511,23 @@
     }
     lastTick = now
   }, 100)
+  function setTheme(theme) {
+    byId('page').dataset.theme = theme === 'dark' ? 'dark' : 'light'
+    for (const button of document.querySelectorAll('[data-theme-choice]')) {
+      button.setAttribute('aria-pressed', String(button.dataset.themeChoice === theme))
+    }
+    applyProgressStrokes()
+  }
+  for (const button of document.querySelectorAll('[data-theme-choice]')) {
+    button.addEventListener('click', () => setTheme(button.dataset.themeChoice), options)
+  }
+  const demoParams = new URLSearchParams(location.search)
+  if (demoParams.get('theme') === 'dark') setTheme('dark')
+  const startIndex = Number(demoParams.get('start'))
+  if (Number.isInteger(startIndex) && albums.length > 0) {
+    selected = position = ((startIndex % albums.length) + albums.length) % albums.length
+  }
+
   byId('previous').addEventListener('click', () => navigate(-1), options)
   byId('next').addEventListener('click', () => navigate(1), options)
   byId('mode').addEventListener(
@@ -513,4 +586,9 @@
   updateInfo()
   render()
   byId('back').disabled = true
+  if (demoParams.get('focus') === '1') {
+    goal = 1
+    focus = 1
+    settle()
+  }
 })()

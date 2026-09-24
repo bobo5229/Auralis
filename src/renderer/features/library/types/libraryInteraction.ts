@@ -37,5 +37,4 @@ export interface LibraryContextMenuProps {
   playlistLoading: boolean
   playlistLoadError: string | null
   creatingPlaylist: boolean
-  refreshing: boolean
 }
