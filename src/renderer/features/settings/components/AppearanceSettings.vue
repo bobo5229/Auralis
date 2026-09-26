@@ -50,7 +50,7 @@ onMounted(async () => {
       <div class="settings-group-header">
         <h2 class="settings-group-title">界面</h2>
       </div>
-      <div class="settings-list">
+      <div class="settings-group-card">
         <div class="settings-row">
           <div>
             <strong>{{ t('settings.appearance.theme') }}</strong>
@@ -90,15 +90,19 @@ onMounted(async () => {
             </button>
           </div>
         </div>
-        <div class="settings-row">
+        <div class="settings-row settings-row--with-desc">
           <div>
             <strong>{{ t('settings.appearance.fluidBackground') }}</strong>
+            <span id="appearance-fluid-bg-description">{{
+              t('settings.appearance.fluidBackgroundDescription')
+            }}</span>
           </div>
           <button
             type="button"
             class="settings-switch"
             role="switch"
             :aria-checked="shellFluidBackgroundEnabled"
+            aria-describedby="appearance-fluid-bg-description"
             :aria-label="
               shellFluidBackgroundEnabled
                 ? t('settings.appearance.fluidBackgroundAriaOn')
@@ -117,16 +121,20 @@ onMounted(async () => {
       <div class="settings-group-header">
         <h2 class="settings-group-title">播放</h2>
       </div>
-      <div class="settings-list">
-        <div class="settings-row">
+      <div class="settings-group-card">
+        <div class="settings-row settings-row--with-desc">
           <div>
             <strong>{{ t('settings.playback.gapless') }}</strong>
+            <span id="gapless-playback-description">{{
+              t('settings.playback.gaplessDescription')
+            }}</span>
           </div>
           <button
             type="button"
             class="settings-switch"
             role="switch"
             :aria-checked="gaplessPlaybackEnabled"
+            aria-describedby="gapless-playback-description"
             :aria-label="
               gaplessPlaybackEnabled
                 ? t('settings.playback.gaplessAriaOn')
@@ -138,7 +146,7 @@ onMounted(async () => {
             <span class="settings-switch-thumb" aria-hidden="true"></span>
           </button>
         </div>
-        <div class="settings-row">
+        <div class="settings-row settings-row--with-desc">
           <div>
             <strong>跳过边界数字静音</strong>
             <span id="digital-silence-description">
@@ -162,7 +170,7 @@ onMounted(async () => {
             <span class="settings-switch-thumb" aria-hidden="true"></span>
           </button>
         </div>
-        <div class="settings-row">
+        <div class="settings-row settings-row--with-desc">
           <div>
             <strong>柔和过渡</strong>
             <span id="soft-transition-description">

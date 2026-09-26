@@ -76,6 +76,7 @@
       "language": "界面语言",
       "languageDescription": "选择应用界面显示的语言。",
       "fluidBackground": "流光背景",
+      "fluidBackgroundDescription": "让专辑色彩进入应用背景。",
       "fluidBackgroundAriaOn": "流光背景，当前已开启",
       "fluidBackgroundAriaOff": "流光背景，当前已关闭",
       "playerBarMaterial": "播放栏材质",
@@ -87,7 +88,7 @@
     },
     "playback": {
       "gapless": "无缝播放",
-      "gaplessDescription": "提前准备下一首，减少曲目切换产生的额外间隙，保留音频原有静音",
+      "gaplessDescription": "减少连续曲目切换时的间隙。",
       "gaplessAriaOn": "无缝播放，当前已开启",
       "gaplessAriaOff": "无缝播放，当前已关闭"
     },
