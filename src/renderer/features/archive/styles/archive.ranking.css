@@ -172,19 +172,19 @@
   box-shadow: none;
   -webkit-backdrop-filter: var(--auralis-frosted-surface-filter);
   backdrop-filter: var(--auralis-frosted-surface-filter);
-  color: #f3eee6;
+  color: var(--auralis-text);
 }
 
 @media (prefers-reduced-transparency: reduce) {
   .archive-ranking-picker {
-    background: #1f2228;
+    background: var(--auralis-dialog-bg);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 }
 
 .archive-ranking-picker button:focus-visible {
-  outline: 2px solid #8fa7bb;
+  outline: 2px solid var(--auralis-focus-ring);
   outline-offset: -2px;
 }
 
@@ -207,13 +207,13 @@
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  color: #f3eee6;
+  color: var(--auralis-text);
   transition: all 150ms ease;
 }
 
 .picker-header button:hover:not(:disabled) {
   background: transparent;
-  color: #afb4bc;
+  color: var(--auralis-text-muted);
 }
 
 .picker-header button:disabled {
@@ -267,21 +267,21 @@
 }
 
 .calendar-grid button.is-today {
-  color: #f3eee6;
+  color: var(--auralis-text);
   font-weight: 800;
   text-decoration: underline;
   text-underline-offset: 4px;
 }
 
 .calendar-grid button.is-selected {
-  background: #8fa7bb;
-  color: #111214;
+  background: var(--auralis-control-primary-bg);
+  color: var(--auralis-control-primary-text);
   font-weight: 800;
   box-shadow: none;
 }
 
 .calendar-grid button.is-selected:not(:disabled):hover {
-  background: #a3bbc9;
+  background: color-mix(in srgb, var(--auralis-control-primary-bg) 88%, #fff);
 }
 .picker-week-list {
   display: grid;
@@ -365,13 +365,13 @@
 
 .picker-list button.is-active,
 .picker-week-list button.is-active {
-  background: #8fa7bb;
-  color: #111214;
+  background: var(--auralis-control-primary-bg);
+  color: var(--auralis-control-primary-text);
 }
 
 .picker-list button.is-active:hover,
 .picker-week-list button.is-active:hover:not(:disabled) {
-  background: #a3bbc9;
+  background: color-mix(in srgb, var(--auralis-control-primary-bg) 88%, #fff);
 }
 
 .picker-week-list button.is-active .week-date-range {
@@ -383,7 +383,7 @@
   margin-top: 8px;
   padding: 7px 0;
   border-radius: 8px;
-  color: #f3eee6;
+  color: var(--auralis-text);
   font-size: 11px;
   font-weight: 700;
   text-align: center;
@@ -392,20 +392,7 @@
 
 .picker-today-btn:hover {
   background: transparent;
-  color: #afb4bc;
-}
-
-.archive-ranking-state {
-  display: flex;
-  min-height: 180px;
-  align-items: center;
-  justify-content: center;
-  margin-top: 14px;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 7%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--auralis-main-bg) 38%, transparent);
   color: var(--auralis-text-muted);
-  font-size: 13px;
 }
 
 @media (max-width: 900px) {

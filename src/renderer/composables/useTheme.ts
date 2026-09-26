@@ -1,10 +1,5 @@
 import { computed, ref } from 'vue'
 
-/**
- * Theme API is kept as a shell so additional modes can return later.
- * Product currently ships dark-only: light is accepted by the type system
- * but always coerced to dark.
- */
 export type ThemeMode = 'light' | 'dark'
 
 export type ThemeTransitionOrigin = {
@@ -12,35 +7,55 @@ export type ThemeTransitionOrigin = {
   y: number
 }
 
-const THEME_STORAGE_KEY = 'auralis-theme'
-/** Only mode applied while the app is dark-only. */
-const FORCED_THEME: ThemeMode = 'dark'
-const DEFAULT_THEME: ThemeMode = FORCED_THEME
+export const THEME_STORAGE_KEY = 'auralis-theme'
+export const DEFAULT_THEME: ThemeMode = 'dark'
 
 const theme = ref<ThemeMode>(DEFAULT_THEME)
 const isThemeTransitioning = ref(false)
 
-function isThemeMode(value: string | null): value is ThemeMode {
+export function isThemeMode(value: unknown): value is ThemeMode {
   return value === 'light' || value === 'dark'
 }
 
-function resolveTheme(requested?: ThemeMode | null): ThemeMode {
-  void requested
-  // Dark-only: ignore stored/requested light until multi-theme returns.
-  return FORCED_THEME
+export function resolveTheme(requested?: ThemeMode | null): ThemeMode {
+  if (requested && isThemeMode(requested)) {
+    return requested
+  }
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem(THEME_STORAGE_KEY)
+      if (isThemeMode(stored)) {
+        return stored
+      }
+    }
+  } catch {
+    // Ignore storage access errors in restricted/headless contexts
+  }
+
+  return DEFAULT_THEME
 }
 
 function commitTheme(nextTheme: ThemeMode): void {
-  const resolved = resolveTheme(nextTheme)
+  const resolved = isThemeMode(nextTheme) ? nextTheme : DEFAULT_THEME
   theme.value = resolved
-  document.documentElement.dataset.theme = resolved
-  document.documentElement.style.colorScheme = 'dark'
-  localStorage.setItem(THEME_STORAGE_KEY, resolved)
+
+  if (typeof document !== 'undefined' && document.documentElement) {
+    document.documentElement.dataset.theme = resolved
+    document.documentElement.style.colorScheme = resolved
+  }
+
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(THEME_STORAGE_KEY, resolved)
+    }
+  } catch {
+    // Ignore storage errors
+  }
 }
 
 /**
- * Apply theme. While dark-only, non-dark values are coerced to dark and
- * animations are skipped (no visual mode change).
+ * Apply theme immediately and persist to local storage.
  */
 async function setTheme(
   nextTheme: ThemeMode,
@@ -52,38 +67,50 @@ async function setTheme(
   void options
   if (isThemeTransitioning.value) return
 
-  const resolved = resolveTheme(nextTheme)
-  if (theme.value === resolved && document.documentElement.dataset.theme === resolved) {
+  const resolved = isThemeMode(nextTheme) ? nextTheme : DEFAULT_THEME
+  if (
+    theme.value === resolved &&
+    (typeof document === 'undefined' || document.documentElement?.dataset.theme === resolved)
+  ) {
     return
   }
 
   commitTheme(resolved)
 }
 
-/** Kept for API compatibility; dark-only so this is a no-op. */
+function toggleTheme(): Promise<void> {
+  const next: ThemeMode = theme.value === 'dark' ? 'light' : 'dark'
+  return setTheme(next)
+}
+
 function toggleThemeFromElement(trigger: HTMLElement): void {
   void trigger
-  void setTheme(FORCED_THEME)
+  void toggleTheme()
 }
 
 function initTheme(): void {
-  // Drop stale light preference so storage cannot reintroduce light later.
-  const storedTheme = localStorage.getItem(THEME_STORAGE_KEY)
-  if (storedTheme !== null && isThemeMode(storedTheme) && storedTheme !== FORCED_THEME) {
-    localStorage.removeItem(THEME_STORAGE_KEY)
+  let stored: string | null = null
+  try {
+    if (typeof localStorage !== 'undefined') {
+      stored = localStorage.getItem(THEME_STORAGE_KEY)
+    }
+  } catch {
+    stored = null
   }
-  commitTheme(DEFAULT_THEME)
+
+  const initialTheme: ThemeMode = isThemeMode(stored) ? stored : DEFAULT_THEME
+  commitTheme(initialTheme)
 }
 
 export function useTheme() {
   return {
     theme,
     isDark: computed(() => theme.value === 'dark'),
-    nextThemeLabel: computed(() => 'Dark theme'),
+    nextThemeLabel: computed(() => (theme.value === 'dark' ? 'Light theme' : 'Dark theme')),
     isThemeTransitioning,
     initTheme,
     setTheme,
     toggleThemeFromElement,
-    toggleTheme: () => setTheme(FORCED_THEME),
+    toggleTheme,
   }
 }

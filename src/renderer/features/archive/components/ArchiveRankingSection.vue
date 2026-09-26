@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref, toRef, watchPostEffect } from 'vue'
 import { animateRankingUnderline } from '@renderer/shared/animation/motion'
 import { auralis } from '@renderer/shared/ipc/client'
+import MainPageStatus from '@renderer/app/layout/MainPageStatus.vue'
 import RankingRecordShelf from './RankingRecordShelf.vue'
 import RankingTrackRibbons from './RankingTrackRibbons.vue'
 import { useArchiveRanking } from '../composables/useArchiveRanking'
@@ -199,15 +200,27 @@ defineExpose({ refresh: loadListeningRanking })
       </div>
     </div>
 
-    <div v-if="isRankingLoading && !listeningRanking" class="archive-ranking-state">
-      正在整理排行…
-    </div>
-    <div v-else-if="rankingError" class="archive-ranking-state archive-state--error">
-      {{ rankingError }}
-    </div>
-    <div v-else-if="!listeningRanking?.items.length" class="archive-ranking-state">
-      暂无排行数据
-    </div>
+    <MainPageStatus
+      v-if="isRankingLoading && !listeningRanking"
+      kind="loading"
+      title="正在整理排行…"
+      compact
+    />
+    <MainPageStatus
+      v-else-if="rankingError"
+      kind="error"
+      :title="rankingError"
+      action-label="重试"
+      compact
+      @action="loadListeningRanking"
+    />
+    <MainPageStatus
+      v-else-if="!listeningRanking?.items.length"
+      kind="empty"
+      title="暂无排行数据"
+      icon="i-lucide-chart-no-axes-column"
+      compact
+    />
     <RankingRecordShelf
       v-else-if="rankingTarget === 'album'"
       :key="rankingTarget"

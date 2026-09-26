@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { resolveMenuNavigationIndex } from '@renderer/app/utils/menuKeyboardNavigation'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type {
   LibraryContextMenuAnchor,
@@ -337,25 +338,10 @@ function handleMainMenuKeyDown(e: KeyboardEvent): void {
   const enabled = enabledMenuIndices.value
   if (enabled.length === 0) return
 
-  const currentPos = enabled.indexOf(activeIndex.value)
-
-  if (e.key === 'ArrowDown') {
+  const nextIndex = resolveMenuNavigationIndex(e.key, activeIndex.value, enabled)
+  if (nextIndex !== null) {
     e.preventDefault()
-    const nextPos = (currentPos + 1) % enabled.length
-    activeIndex.value = enabled[nextPos]
-    nextTick(() => focusActiveItem())
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    const prevPos = (currentPos - 1 + enabled.length) % enabled.length
-    activeIndex.value = enabled[prevPos]
-    nextTick(() => focusActiveItem())
-  } else if (e.key === 'Home') {
-    e.preventDefault()
-    activeIndex.value = enabled[0]
-    nextTick(() => focusActiveItem())
-  } else if (e.key === 'End') {
-    e.preventDefault()
-    activeIndex.value = enabled[enabled.length - 1]
+    activeIndex.value = nextIndex
     nextTick(() => focusActiveItem())
   } else if (e.key === 'ArrowRight') {
     const item = menuItems.value[activeIndex.value]

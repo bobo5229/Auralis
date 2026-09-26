@@ -393,6 +393,42 @@ onUnmounted(() => {
 }
 
 .mini-player-canvas {
+  color-scheme: dark;
+
+  /* 保留原有暖深色配色，包含封面加载兜底和子面板材质。 */
+  --auralis-bg: #0c0b0a;
+  --auralis-surface-raised: #1f1c18;
+  --auralis-surface-floating: #27231e;
+  --auralis-border-subtle: rgba(232, 220, 198, 0.08);
+  --auralis-border-strong: rgba(232, 220, 198, 0.14);
+  --auralis-surface-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
+  --auralis-context-menu-bg: rgba(31, 28, 24, 0.9);
+  --auralis-context-menu-border: rgba(232, 220, 198, 0.1);
+  --auralis-context-menu-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+
+  /* 文字 */
+  --auralis-text: #f3eee6;
+  --auralis-text-muted: #b7aea2;
+  --auralis-text-subtle: #7d756b;
+  --auralis-text-faint: rgba(125, 117, 107, 0.68);
+  --auralis-text-disabled: rgba(183, 174, 162, 0.35);
+
+  /* 控件与状态 */
+  --auralis-control-bg: var(--auralis-surface-raised);
+  --auralis-control-hover-bg: rgba(232, 220, 198, 0.08);
+  --auralis-control-active-bg: rgba(143, 167, 187, 0.14);
+  --auralis-control-primary-bg: #8fa7bb;
+  --auralis-control-primary-text: #0c0b0a;
+  --auralis-focus-ring: #8fa7bb;
+  --auralis-danger: #c96a55;
+  --auralis-success: #8aa36a;
+  --auralis-artwork-accent-fallback: #8fa7bb;
+  --auralis-artwork-background-fallback: #0e0d0b;
+  --auralis-artwork-placeholder-bg: rgba(232, 220, 198, 0.12);
+  --auralis-progress-track: rgba(232, 220, 198, 0.08);
+  --auralis-progress-fill: #8fa7bb;
+  --auralis-volume-fill: #8fa7bb;
+
   display: flex;
   gap: var(--mini-popover-gap, 10px);
   pointer-events: none;
@@ -962,5 +998,13 @@ onUnmounted(() => {
     background: rgb(22 24 28 / 0.88) !important;
     border-color: rgb(255 255 255 / 0.28);
   }
+}
+
+:global(.mini-player-root .tooltip-overlay) {
+  color-scheme: dark;
+  --auralis-border-subtle: rgba(255, 255, 255, 0.1);
+  --auralis-surface-floating: #1e1f22;
+  --auralis-surface-shadow: 0 4px 16px rgb(0 0 0 / 0.22);
+  --auralis-text: #eeeeef;
 }
 </style>

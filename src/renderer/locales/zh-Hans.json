@@ -69,6 +69,10 @@
       "aboutDescription": "版本与本地数据位置"
     },
     "appearance": {
+      "theme": "主题",
+      "themeDescription": "选择应用界面为深色或浅色外观。",
+      "themeDark": "深色",
+      "themeLight": "浅色",
       "language": "界面语言",
       "languageDescription": "选择应用界面显示的语言。",
       "fluidBackground": "流光背景",

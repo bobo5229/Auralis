@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { auralis } from '@renderer/shared/ipc/client'
+import MainPageStatus from '@renderer/app/layout/MainPageStatus.vue'
 import ArchiveDailyDetailDialog from '../components/ArchiveDailyDetailDialog.vue'
 import ArchiveAnnualRecapDialog from '../components/ArchiveAnnualRecapDialog.vue'
 import ArchiveRankingSection from '../components/ArchiveRankingSection.vue'
@@ -72,63 +73,76 @@ onBeforeUnmount(() => unsubscribeLibraryChanged?.())
 </script>
 
 <template>
-  <section class="archive-page content-frame">
-    <div class="archive-heatmap-card">
-      <div class="archive-card-heading">
-        <div>
-          <span class="archive-section-kicker">Calendar</span>
-          <h2>音乐日历</h2>
-          <button
-            v-if="!isLoading && !errorMessage"
-            type="button"
-            class="archive-recap-entry"
-            @click="annualRecap?.open()"
-          >
-            年度总结
-          </button>
-        </div>
-        <div class="archive-legend" aria-label="播放次数颜色图例">
-          <span>少</span>
-          <i v-for="level in 5" :key="level" :class="`heat-level-${level - 1}`"></i>
-          <span>多</span>
-        </div>
-      </div>
-
-      <div v-if="isLoading" class="archive-state">正在读取听歌记录…</div>
-      <div v-else-if="errorMessage" class="archive-state archive-state--error">
-        {{ errorMessage }}
-      </div>
-      <div v-else class="archive-heatmap-scroll">
-        <div class="archive-heatmap-layout">
-          <div class="archive-month-spacer"></div>
-          <div class="archive-months">
-            <span
-              v-for="month in monthMarkers"
-              :key="month.label"
-              :style="{ gridColumn: month.column }"
-              >{{ month.label }}</span
-            >
+  <section class="main-page-frame">
+    <div class="archive-page main-page-scroll">
+      <div class="archive-content">
+        <div class="archive-heatmap-card">
+          <div class="archive-card-heading">
+            <div>
+              <span class="archive-section-kicker">Calendar</span>
+              <h2>音乐日历</h2>
+              <button
+                v-if="!isLoading && !errorMessage"
+                type="button"
+                class="archive-recap-entry"
+                @click="annualRecap?.open()"
+              >
+                年度总结
+              </button>
+            </div>
+            <div class="archive-legend" aria-label="播放次数颜色图例">
+              <span>少</span>
+              <i v-for="level in 5" :key="level" :class="`heat-level-${level - 1}`"></i>
+              <span>多</span>
+            </div>
           </div>
 
-          <div class="archive-weekdays">
-            <span v-for="weekday in weekdayOrder" :key="weekday">{{ weekday }}</span>
-          </div>
-          <div class="archive-days" role="grid" :aria-label="`${selectedYear}年听歌热力图`">
-            <button
-              v-for="day in calendarDays"
-              :key="day.date"
-              v-tooltip.data="calendarTooltip(day)"
-              type="button"
-              class="archive-day"
-              :class="[`heat-level-${day.level}`, { 'archive-day--future': day.isFuture }]"
-              :aria-label="`${day.label}，${day.isFuture ? '未来日期' : `播放了${formatMinutes(day.durationSeconds)}`}`"
-              @click="openDailyDetail($event, day)"
-            ></button>
+          <MainPageStatus v-if="isLoading" kind="loading" title="正在读取听歌记录…" compact />
+          <MainPageStatus
+            v-else-if="errorMessage"
+            kind="error"
+            :title="errorMessage"
+            action-label="重试"
+            compact
+            @action="loadHeatmap"
+          />
+          <div v-else class="archive-heatmap-scroll">
+            <div class="archive-heatmap-layout">
+              <div class="archive-month-spacer"></div>
+              <div class="archive-months">
+                <span
+                  v-for="month in monthMarkers"
+                  :key="month.label"
+                  :style="{ gridColumn: month.column }"
+                  >{{ month.label }}</span
+                >
+              </div>
+
+              <div class="archive-weekdays">
+                <span v-for="weekday in weekdayOrder" :key="weekday">{{ weekday }}</span>
+              </div>
+              <div class="archive-days" role="grid" :aria-label="`${selectedYear}年听歌热力图`">
+                <button
+                  v-for="day in calendarDays"
+                  :key="day.date"
+                  v-tooltip.data="calendarTooltip(day)"
+                  type="button"
+                  class="archive-day"
+                  :class="[`heat-level-${day.level}`, { 'archive-day--future': day.isFuture }]"
+                  :aria-label="`${day.label}，${day.isFuture ? '未来日期' : `播放了${formatMinutes(day.durationSeconds)}`}`"
+                  @click="openDailyDetail($event, day)"
+                ></button>
+              </div>
+            </div>
           </div>
         </div>
+        <ArchiveRankingSection
+          ref="rankingSection"
+          :year="selectedYear"
+          :visible="heatmap !== null"
+        />
       </div>
     </div>
-    <ArchiveRankingSection ref="rankingSection" :year="selectedYear" :visible="heatmap !== null" />
     <Teleport to="body">
       <div class="archive-overlay">
         <ArchiveDailyDetailDialog
@@ -169,12 +183,14 @@ onBeforeUnmount(() => unsubscribeLibraryChanged?.())
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
-  scrollbar-width: none;
+  padding-top: var(--main-page-inset-top);
   padding-bottom: calc(var(--auralis-playbar-safe-area) + 40px);
 }
 
-.archive-page::-webkit-scrollbar {
-  display: none;
+.archive-content {
+  width: 100%;
+  max-width: 80rem;
+  margin-inline: auto;
 }
 
 .archive-section-kicker {
@@ -288,19 +304,6 @@ onBeforeUnmount(() => unsubscribeLibraryChanged?.())
   width: 12px;
   height: 12px;
   border-radius: 3px;
-}
-
-.archive-state {
-  display: flex;
-  min-height: 160px;
-  align-items: center;
-  justify-content: center;
-  color: var(--auralis-text-muted);
-  font-size: 13px;
-}
-
-.archive-state--error {
-  color: var(--auralis-text);
 }
 
 .archive-heatmap-scroll {

@@ -300,6 +300,40 @@ function emitPeakClick(event: MouseEvent | KeyboardEvent): void {
   -webkit-backdrop-filter: blur(28px);
 }
 
+/* Light theme tokens */
+:is([data-theme='light'] .editorial-liner-notes, :root[data-theme='light'] .editorial-liner-notes) {
+  --liner-bg-left: rgba(247, 247, 244, 0.88);
+  --liner-bg-right: rgba(231, 231, 228, 0.85);
+  --liner-text-primary: var(--auralis-text);
+  --liner-text-secondary: var(--auralis-text-muted);
+  --liner-accent: var(--auralis-control-primary-bg);
+  --liner-border: 1px solid var(--auralis-border-subtle);
+  --liner-dash-color: var(--auralis-border-subtle);
+  --liner-stamp-color: var(--auralis-sidebar-active-text);
+  --liner-stamp-border: 1.5px solid rgba(79, 98, 82, 0.5);
+  --liner-barcode-ink: rgba(41, 43, 41, 0.7);
+  --liner-notch-bg: var(--auralis-bg);
+  --liner-shadow: 0 16px 40px rgba(41, 43, 41, 0.08), 0 2px 6px rgba(41, 43, 41, 0.04);
+  --liner-shadow-hover: 0 24px 50px rgba(41, 43, 41, 0.12), 0 4px 10px rgba(41, 43, 41, 0.06);
+}
+
+:is(
+  [data-theme='light'] .editorial-liner-notes .narrative-recap-btn,
+  :root[data-theme='light'] .editorial-liner-notes .narrative-recap-btn
+) {
+  border: 1px solid rgba(79, 98, 82, 0.3);
+  color: var(--auralis-sidebar-active-text);
+  background: var(--auralis-sidebar-active-bg);
+}
+
+:is(
+  [data-theme='light'] .editorial-liner-notes .narrative-recap-btn:hover,
+  :root[data-theme='light'] .editorial-liner-notes .narrative-recap-btn:hover
+) {
+  background: var(--auralis-sidebar-active-hover-bg);
+  border-color: var(--auralis-sidebar-active-text);
+}
+
 .editorial-liner-notes {
   box-shadow: var(--liner-shadow);
 }

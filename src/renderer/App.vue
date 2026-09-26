@@ -202,8 +202,8 @@ function onTransitionEnterCancelled(): void {
 
 .app-shell-bg-overlay {
   z-index: 1;
-  background: color-mix(in srgb, #0c0b0a 65%, transparent);
-  backdrop-filter: blur(20px) saturate(1.45) contrast(1.02);
-  -webkit-backdrop-filter: blur(20px) saturate(1.45) contrast(1.02);
+  background: var(--auralis-shell-overlay-bg, color-mix(in srgb, #0c0b0a 65%, transparent));
+  backdrop-filter: var(--auralis-overlay-blur, blur(20px) saturate(1.45) contrast(1.02));
+  -webkit-backdrop-filter: var(--auralis-overlay-blur, blur(20px) saturate(1.45) contrast(1.02));
 }
 </style>

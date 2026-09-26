@@ -20,9 +20,11 @@ import { usePlayerBarIslandMetrics } from './playerBar/usePlayerBarIslandMetrics
 import { shouldOverflowModernUtilities } from '@renderer/features/playback/utils/modernPlayerBarLayout'
 import { resolvePlaybarAccent } from '@renderer/features/playback/utils/resolvePlaybarAccent'
 import { animateFrames } from '@renderer/shared/animation/motion'
+import { useTheme } from '@renderer/composables/useTheme'
 
 const playback = usePlayback()
 const { t } = useI18n()
+const { isDark } = useTheme()
 const { displayMode } = usePlayerDisplayMode()
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 // Fullscreen and Miniplayer own their visual pipelines. The hidden PlayerBar
@@ -64,6 +66,7 @@ const previousAlbumTintStyle = computed<CSSProperties>(() => ({
 const albumAccentColor = computed(() => {
   const primaryColor = resolvePlaybarAccent(
     playback.state.currentTrack ? albumPalette.value?.accents[0]?.rgb : null,
+    isDark.value,
   )
   return `rgb(${primaryColor.r} ${primaryColor.g} ${primaryColor.b})`
 })

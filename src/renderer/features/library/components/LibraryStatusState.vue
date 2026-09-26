@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { computed } from 'vue'
+import MainPageStatus from '@renderer/app/layout/MainPageStatus.vue'
 import type { LibraryStatusKind } from '../types/libraryInteraction'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     kind: LibraryStatusKind
     query?: string
@@ -20,104 +22,53 @@ withDefaults(
   },
 )
 
-defineEmits<{
+const emit = defineEmits<{
   openSettings: []
   clearSearch: []
   retry: []
 }>()
 
 const { t } = useI18n()
+const statusKind = computed(() => {
+  if (props.kind === 'loading' || props.kind === 'scanning') return 'loading'
+  return props.kind === 'error' ? 'error' : 'empty'
+})
+const title = computed(() => {
+  if (statusKind.value === 'loading') return t('library.status.loading')
+  if (props.kind === 'error') return props.errorMessage || t('library.status.loadError')
+  if (props.kind === 'no-search-match') return t('library.search.notFound')
+  return t(
+    props.isSmartPlaylist
+      ? 'library.status.emptySmartPlaylist'
+      : props.isPlaylist
+        ? 'library.status.emptyPlaylist'
+        : 'library.status.emptyAll',
+  )
+})
+const actionLabel = computed(() => {
+  if (props.kind === 'error') return t('library.status.retry')
+  if (props.kind === 'no-search-match') return t('library.search.clearSearch')
+  if (props.kind === 'empty' && !props.isPlaylist && !props.isSmartPlaylist) {
+    return t('settings.musicLibrary.addFolder')
+  }
+  return ''
+})
+
+function onAction(): void {
+  if (props.kind === 'error') emit('retry')
+  else if (props.kind === 'no-search-match') emit('clearSearch')
+  else emit('openSettings')
+}
 </script>
 
 <template>
-  <div
-    class="library-status-state flex flex-1 flex-col items-center justify-center p-8 text-center select-none"
-    role="status"
-    aria-live="polite"
-  >
-    <!-- Loading / Scanning state -->
-    <template v-if="kind === 'loading' || kind === 'scanning'">
-      <span
-        class="i-lucide-loader-2 mb-3 text-2xl text-[var(--auralis-text-muted)] animate-spin"
-      ></span>
-      <h3 class="status-title text-base font-semibold text-[var(--auralis-text)]">
-        {{ t('library.status.loading') }}
-      </h3>
-      <p
-        v-if="scanProgressText"
-        class="status-subtitle mt-1.5 max-w-md text-xs text-[var(--auralis-text-muted)]"
-      >
-        {{ scanProgressText }}
-      </p>
-    </template>
-
-    <!-- Empty state -->
-    <template v-else-if="kind === 'empty'">
-      <div
-        class="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--auralis-control-hover-bg)]"
-      >
-        <span class="i-lucide-music-4 text-2xl text-[var(--auralis-text-muted)]"></span>
-      </div>
-
-      <h3 class="status-title text-base font-semibold text-[var(--auralis-text)]">
-        {{
-          isSmartPlaylist
-            ? t('library.status.emptySmartPlaylist')
-            : isPlaylist
-              ? t('library.status.emptyPlaylist')
-              : t('library.status.emptyAll')
-        }}
-      </h3>
-
-      <button
-        v-if="!isPlaylist && !isSmartPlaylist"
-        class="status-action-btn mt-4 inline-flex items-center gap-2 rounded-md bg-[var(--auralis-control-hover-bg)] px-3.5 py-1.5 text-xs font-semibold text-[var(--auralis-text)] transition hover:bg-[var(--auralis-border-subtle)]"
-        type="button"
-        @click="$emit('openSettings')"
-      >
-        <span class="i-lucide-folder-plus text-sm"></span>
-        {{ t('settings.musicLibrary.addFolder') }}
-      </button>
-    </template>
-
-    <!-- Error state -->
-    <template v-else-if="kind === 'error'">
-      <div
-        class="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-500"
-      >
-        <span class="i-lucide-alert-circle text-2xl"></span>
-      </div>
-      <h3 class="status-title text-base font-semibold text-[var(--auralis-text)]">
-        {{ errorMessage || t('library.status.loadError') }}
-      </h3>
-      <button
-        class="status-action-btn mt-4 inline-flex items-center gap-2 rounded-md bg-[var(--auralis-control-hover-bg)] px-3.5 py-1.5 text-xs font-semibold text-[var(--auralis-text)] transition hover:bg-[var(--auralis-border-subtle)]"
-        type="button"
-        @click="$emit('retry')"
-      >
-        <span class="i-lucide-refresh-cw text-sm"></span>
-        {{ t('library.status.retry') }}
-      </button>
-    </template>
-
-    <!-- No search match state -->
-    <template v-else-if="kind === 'no-search-match'">
-      <div
-        class="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--auralis-control-hover-bg)]"
-      >
-        <span class="i-lucide-search-x text-2xl text-[var(--auralis-text-muted)]"></span>
-      </div>
-      <h3 class="status-title text-base font-semibold text-[var(--auralis-text)]">
-        {{ t('library.search.notFound') }}
-      </h3>
-      <button
-        class="status-action-btn mt-4 inline-flex items-center gap-2 rounded-md bg-[var(--auralis-control-hover-bg)] px-3.5 py-1.5 text-xs font-semibold text-[var(--auralis-text)] transition hover:bg-[var(--auralis-border-subtle)]"
-        type="button"
-        @click="$emit('clearSearch')"
-      >
-        <span class="i-lucide-x text-sm"></span>
-        {{ t('library.search.clearSearch') }}
-      </button>
-    </template>
-  </div>
+  <MainPageStatus
+    class="library-status-state"
+    :kind="statusKind"
+    :title="title"
+    :description="statusKind === 'loading' ? scanProgressText : ''"
+    :action-label="actionLabel"
+    :icon="kind === 'no-search-match' ? 'i-lucide-search-x' : 'i-lucide-music-4'"
+    @action="onAction"
+  />
 </template>

@@ -6,6 +6,8 @@ import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import MainPageStatus from '@renderer/app/layout/MainPageStatus.vue'
+import { resolveMenuNavigationIndex } from '@renderer/app/utils/menuKeyboardNavigation'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { isLibrarySearchBarHovered } from '@renderer/features/library/utils/librarySearchHover'
 import { normalizeSearchText } from '@renderer/features/library/utils/normalizeSearchText'
@@ -78,6 +80,8 @@ const columnCount = ref(4)
 const rowHeight = ref(DEFAULT_ROW_HEIGHT)
 const displayMode = ref<AlbumDisplayMode>(readDisplayMode())
 const contextMenu = ref<AlbumContextMenuState | null>(null)
+const contextMenuRef = ref<HTMLElement | null>(null)
+let contextMenuTrigger: HTMLElement | null = null
 const searchQuery = ref('')
 const isSearchFocused = ref(false)
 const isSearchZoneHovered = ref(false)
@@ -326,6 +330,19 @@ function locateNextSearchResult(): void {
 }
 
 function onSearchKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    if (searchQuery.value !== '') {
+      searchQuery.value = ''
+      highlightedAlbumKey.value = null
+      if (searchHighlightTimeout) clearTimeout(searchHighlightTimeout)
+      searchHighlightTimeout = null
+    } else {
+      isSearchFocused.value = false
+      searchInputRef.value?.blur()
+    }
+    return
+  }
   if (event.key !== 'Enter') return
   event.preventDefault()
   locateNextSearchResult()
@@ -360,10 +377,42 @@ function onDocumentPointerDown(event: PointerEvent): void {
 }
 
 function closeContextMenu(): void {
+  if (contextMenuRef.value?.contains(document.activeElement) && contextMenuTrigger?.isConnected) {
+    contextMenuTrigger.focus({ preventScroll: true })
+  }
   contextMenu.value = null
 }
 
+function onContextMenuKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape' || event.key === 'Tab') {
+    event.preventDefault()
+    event.stopPropagation()
+    closeContextMenu()
+    return
+  }
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.stopPropagation()
+    return
+  }
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+  const items = Array.from(
+    contextMenuRef.value?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ??
+      [],
+  )
+  if (!items.length) return
+  event.preventDefault()
+  event.stopPropagation()
+  const current = items.findIndex((item) => item === document.activeElement)
+  const next = resolveMenuNavigationIndex(
+    event.key,
+    current,
+    items.map((_, index) => index),
+  )
+  if (next !== null) items[next]?.focus()
+}
+
 function openContextMenu(album: AlbumSummary, event: MouseEvent): void {
+  contextMenuTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
   const menuWidth = 220
   const menuHeight = 235
   const x = Math.min(event.clientX, window.innerWidth - menuWidth - 8)
@@ -374,6 +423,15 @@ function openContextMenu(album: AlbumSummary, event: MouseEvent): void {
     x: Math.max(8, x),
     y: Math.max(8, y),
   }
+  const menu = contextMenu.value
+  void nextTick(() => {
+    const element = contextMenuRef.value
+    if (!element || contextMenu.value !== menu) return
+    const bounds = element.getBoundingClientRect()
+    menu.x = Math.max(8, Math.min(event.clientX, window.innerWidth - bounds.width - 8))
+    menu.y = Math.max(8, Math.min(event.clientY, window.innerHeight - bounds.height - 8))
+    element.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus()
+  })
 }
 
 function locateCurrentAlbum(): void {
@@ -457,6 +515,8 @@ onBeforeRouteLeave(() => {
 })
 
 function disconnectPage(): void {
+  closeContextMenu()
+  contextMenuTrigger = null
   isPageActive.value = false
   document.removeEventListener('pointerdown', onDocumentPointerDown)
   resizeObserver?.disconnect()
@@ -481,7 +541,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    class="albums-page relative flex h-full min-h-0 flex-col"
+    class="albums-page main-page-frame relative"
     @mousemove="onAlbumsMouseMove"
     @mouseleave="onAlbumsMouseLeave"
   >
@@ -507,32 +567,37 @@ onBeforeUnmount(() => {
               @blur="isSearchFocused = false"
               @keydown="onSearchKeydown"
             />
+            <span
+              v-if="searchOutcome !== 'idle'"
+              class="library-search-outcome ml-auto shrink-0 select-none text-xs tabular-nums"
+              :class="
+                searchOutcome === 'not-found' ? 'text-red-500' : 'text-[var(--auralis-text-muted)]'
+              "
+              role="status"
+              aria-live="polite"
+            >
+              {{ searchFeedback }}
+            </span>
           </div>
         </div>
       </Transition>
-      <p v-if="hasSearchQuery" class="albums-search-feedback" aria-live="polite">
-        {{ searchFeedback }}
-      </p>
     </div>
 
-    <div v-if="isLoading" class="albums-status-state flex flex-1 items-center justify-center">
-      <p>{{ t('albums.status.loading') }}</p>
-    </div>
-
-    <div v-else-if="loadError" class="albums-status-state flex flex-1 items-center justify-center">
-      <div class="albums-status-content">
-        <p>{{ loadError }}</p>
-        <button type="button" @click="loadAlbums">{{ t('albums.status.retry') }}</button>
-      </div>
-    </div>
+    <MainPageStatus v-if="isLoading" kind="loading" :title="t('albums.status.loading')" />
+    <MainPageStatus
+      v-else-if="loadError"
+      kind="error"
+      :title="loadError"
+      :action-label="t('albums.status.retry')"
+      @action="loadAlbums"
+    />
 
     <template v-else>
-      <!-- 统一水平内边距容器：Header 与网格物理像素对齐 -->
       <div class="albums-page-body">
         <div
           v-if="albums.length > 0"
           ref="scrollRef"
-          class="albums-scroll"
+          class="albums-scroll main-page-scroll"
           :class="{ 'albums-scroll--perspective': displayMode === 'perspective' }"
         >
           <div
@@ -564,35 +629,53 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-else class="albums-status-state flex flex-1 items-center justify-center">
-          <p>{{ t('albums.status.empty') }}</p>
-        </div>
+        <MainPageStatus
+          v-else
+          kind="empty"
+          icon="i-lucide-disc-3"
+          :title="t('albums.status.empty')"
+        />
       </div>
     </template>
 
     <Teleport to="body">
       <div v-if="contextMenu" class="albums-overlay fixed inset-0 z-[60]" @click="closeContextMenu">
         <div
+          ref="contextMenuRef"
           class="library-context-menu frosted-context-menu fixed w-55"
+          role="menu"
+          :aria-label="t('nav.albums')"
           :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
           @click.stop
+          @keydown="onContextMenuKeydown"
         >
           <button
             class="library-context-menu-item"
             type="button"
             :disabled="!playback.state.currentTrackId"
+            role="menuitem"
             @click="locateCurrentAlbum"
           >
             <span class="i-lucide-locate-fixed"></span>
             <span>{{ t('albums.contextMenu.locateCurrent') }}</span>
           </button>
           <div class="library-context-menu-separator"></div>
-          <button class="library-context-menu-item" type="button" @click="playContextAlbum">
+          <button
+            class="library-context-menu-item"
+            role="menuitem"
+            type="button"
+            @click="playContextAlbum"
+          >
             <span class="i-lucide-play"></span>
             <span>{{ t('albums.contextMenu.play', { title: contextMenu.album.title }) }}</span>
           </button>
           <div class="library-context-menu-separator"></div>
-          <button class="library-context-menu-item" type="button" @click="openContextAlbumInCd">
+          <button
+            class="library-context-menu-item"
+            role="menuitem"
+            type="button"
+            @click="openContextAlbumInCd"
+          >
             <span class="i-lucide-disc"></span>
             <span>{{ t('albums.contextMenu.openInCd') }}</span>
           </button>
@@ -601,6 +684,7 @@ onBeforeUnmount(() => {
             class="library-context-menu-item"
             type="button"
             :disabled="!playback.state.currentTrackId"
+            role="menuitem"
             @click="insertContextAlbum"
           >
             <span class="i-lucide-list-plus"></span>
@@ -610,6 +694,7 @@ onBeforeUnmount(() => {
           <button
             class="library-context-menu-item"
             type="button"
+            role="menuitem"
             @click="toggleDisplayModeFromContextMenu"
           >
             <span
@@ -630,44 +715,11 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* 与网格共用同一水平内边距，消除 Header / 卡片列左右不对齐 */
 .albums-page-body {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  padding: 0 32px;
-}
-
-.albums-status-state {
-  color: var(--auralis-text-faint);
-  font-size: 14px;
-}
-
-.albums-status-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.albums-status-content p {
-  margin: 0;
-}
-
-.albums-status-content button {
-  min-height: 32px;
-  padding: 0 14px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 10px;
-  background: var(--auralis-control-hover-bg);
-  color: var(--auralis-text);
-  cursor: pointer;
-}
-
-.albums-status-content button:focus-visible {
-  outline: 2px solid var(--auralis-progress-fill);
-  outline-offset: 2px;
 }
 
 .albums-scroll {
@@ -676,13 +728,8 @@ onBeforeUnmount(() => {
   overflow-x: hidden;
   overflow-y: auto;
   /* 首行与 Header 之间的呼吸区；避免元信息/3D 上沿贴死 */
-  padding-top: 12px;
+  padding-top: var(--main-page-inset-top);
   padding-bottom: var(--auralis-playbar-safe-area);
-}
-
-/* 3D 模式额外顶缓冲，避免首行侧倾投影被 Header 下沿裁切 */
-.albums-scroll--perspective {
-  padding-top: 12px;
 }
 
 .albums-grid-row {

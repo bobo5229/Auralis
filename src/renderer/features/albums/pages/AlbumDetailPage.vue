@@ -784,13 +784,13 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  color: #f4f1ea;
+  color: var(--auralis-text);
 }
 
 .album-detail-skeleton-block,
 .album-detail-skeleton-line,
 .album-detail-skeleton-track {
-  background: rgba(255, 255, 255, 0.06);
+  background: color-mix(in srgb, var(--auralis-text) 6%, transparent);
 }
 
 .album-detail-skeleton-line {
@@ -839,7 +839,7 @@ onBeforeUnmount(() => {
   padding-bottom: 6px;
   box-sizing: border-box;
   max-width: 100%;
-  color: #ffffff;
+  color: var(--auralis-text);
   font-family: 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
   font-size: clamp(24px, 2.8vw, 38px);
   font-weight: 800;
@@ -861,14 +861,14 @@ onBeforeUnmount(() => {
   font-size: 17px;
   font-weight: 650;
   line-height: 1.4;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--auralis-text);
 }
 
 .album-hero-artist-btn {
   background: transparent;
   border: none;
   padding: 0;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--auralis-text);
   font-size: 17px;
   font-weight: 650;
   cursor: pointer;
@@ -881,18 +881,18 @@ onBeforeUnmount(() => {
 }
 
 .album-hero-artist-btn:hover {
-  color: #ffffff;
+  color: var(--auralis-sidebar-active-indicator, var(--auralis-text));
   text-decoration: underline;
 }
 
 .album-hero-artist-text {
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--auralis-text);
   font-size: 17px;
   font-weight: 650;
 }
 
 .album-hero-artist-dot {
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--auralis-text-muted);
   user-select: none;
 }
 
@@ -974,9 +974,9 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.95);
+  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--auralis-text) 18%, transparent);
+  color: var(--auralis-text);
   font-size: 15px;
   font-weight: 650;
   backdrop-filter: blur(16px);
@@ -986,9 +986,9 @@ onBeforeUnmount(() => {
 }
 
 .album-hero-shuffle-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.32);
-  color: #ffffff;
+  background: color-mix(in srgb, var(--auralis-text) 15%, transparent);
+  border-color: color-mix(in srgb, var(--auralis-text) 32%, transparent);
+  color: var(--auralis-text);
   transform: translateY(-1px);
 }
 
@@ -1026,7 +1026,7 @@ onBeforeUnmount(() => {
 }
 
 .album-hero-metric-value {
-  color: #ffffff;
+  color: var(--auralis-text);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: -0.01em;

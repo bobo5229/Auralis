@@ -311,7 +311,7 @@ onBeforeUnmount(() => {
   --step: 155px;
   overflow: clip;
   scrollbar-width: thin;
-  scrollbar-color: #42464e transparent;
+  scrollbar-color: var(--auralis-scrollbar-thumb, #42464e) transparent;
   overscroll-behavior-x: contain;
 }
 .rack {

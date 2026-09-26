@@ -514,9 +514,11 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    class="library-page relative flex h-full min-h-0 flex-col"
+    class="library-page main-page-frame relative"
     :data-library-surface="librarySurfaceKind ?? undefined"
     :style="LIBRARY_LAYOUT_CSS_VARS"
+    @mousemove="onLibraryListMouseMove($event)"
+    @mouseleave="onLibraryListMouseLeave()"
   >
     <div
       v-if="initialLoadError && pageIdentity"
@@ -547,9 +549,7 @@ onBeforeUnmount(() => {
 
     <div
       v-else
-      class="library-list-shell relative flex min-h-0 flex-1 flex-col overflow-hidden"
-      @mousemove="onLibraryListMouseMove($event)"
-      @mouseleave="onLibraryListMouseLeave()"
+      class="library-list-shell flex min-h-0 flex-1 flex-col overflow-hidden"
       @keydown="onListShellKeyDown"
     >
       <div class="library-search-zone">
@@ -607,8 +607,7 @@ onBeforeUnmount(() => {
       <div
         ref="scrollRef"
         tabindex="-1"
-        class="library-list-scroll flex-1 overflow-auto pb-[var(--auralis-playbar-safe-area)] outline-none"
-        :class="{ 'xl:[scrollbar-gutter:stable]': librarySurfaceKind === 'playlist' }"
+        class="library-list-scroll main-page-scroll flex-1 overflow-auto pb-[var(--auralis-playbar-safe-area)] outline-none"
       >
         <Transition name="library-view-fade" mode="out-in" @enter="onLibraryViewEnter">
           <div :key="libraryViewMode" class="min-h-full">

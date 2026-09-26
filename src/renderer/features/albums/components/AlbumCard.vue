@@ -164,7 +164,7 @@ function onContextMenu(event: MouseEvent): void {
   overflow: hidden;
   border-radius: inherit;
   background: var(--auralis-artwork-placeholder-bg);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--auralis-surface-shadow, 0 10px 24px rgba(0, 0, 0, 0.28));
   transform: rotateY(0deg) rotateX(0deg) scale(1);
   transform-style: preserve-3d;
   transition:

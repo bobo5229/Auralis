@@ -554,11 +554,7 @@ onBeforeUnmount(() => {
 
 .primary-button {
   color: var(--auralis-control-primary-text);
-  background: linear-gradient(
-    135deg,
-    var(--auralis-sidebar-active-indicator) 20%,
-    var(--auralis-sidebar-active-text)
-  );
+  background: var(--auralis-control-primary-bg);
   box-shadow:
     0 4px 12px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 25%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.25);

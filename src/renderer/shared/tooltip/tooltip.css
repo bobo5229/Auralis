@@ -7,12 +7,12 @@
   max-height: calc(100vh - 16px);
   overflow: auto;
   padding: 6px 9px;
-  border: 1px solid rgb(255 255 255 / 0.1);
+  border: 1px solid var(--auralis-border-subtle, rgb(255 255 255 / 0.1));
   border-radius: 6px;
-  background: rgb(30 31 34 / 0.94);
+  background: color-mix(in srgb, var(--auralis-surface-floating, #282c32) 94%, transparent);
   backdrop-filter: blur(12px);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 0.22);
-  color: #eeeeef;
+  box-shadow: var(--auralis-surface-shadow, 0 4px 16px rgb(0 0 0 / 0.22));
+  color: var(--auralis-text, #eeeeef);
   font-family: inherit;
   font-size: 12px;
   font-weight: 400;
