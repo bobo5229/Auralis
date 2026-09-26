@@ -13,26 +13,22 @@ const sections = computed<
   Array<{
     id: SettingsSection
     label: string
-    description: string
     icon: string
   }>
 >(() => [
   {
     id: 'appearance',
     label: t('settings.nav.appearance'),
-    description: t('settings.nav.appearanceDescription'),
     icon: 'i-lucide-palette',
   },
   {
     id: 'library',
     label: t('settings.nav.library'),
-    description: t('settings.nav.libraryDescription'),
     icon: 'i-lucide-library',
   },
   {
     id: 'about',
     label: t('settings.nav.about'),
-    description: t('settings.nav.aboutDescription'),
     icon: 'i-lucide-info',
   },
 ])
@@ -53,14 +49,11 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
           :key="section.id"
           type="button"
           :class="{ 'is-active': selectedSection === section.id }"
+          :aria-current="selectedSection === section.id ? 'true' : undefined"
           @click="selectedSection = section.id"
         >
-          <span class="settings-nav-icon" :class="section.icon"></span>
-          <span class="settings-nav-copy">
-            <strong>{{ section.label }}</strong>
-            <small>{{ section.description }}</small>
-          </span>
-          <span class="i-lucide-chevron-right settings-nav-chevron"></span>
+          <span class="settings-nav-icon" :class="section.icon" aria-hidden="true"></span>
+          <span class="settings-nav-label">{{ section.label }}</span>
         </button>
       </nav>
 
@@ -102,138 +95,90 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
 }
 
 .settings-nav {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   position: sticky;
   top: 24px;
 }
 
-/* Nav Item card redesign */
+/* Nav Item - restrained desktop inspector style without card aesthetics */
 .settings-nav button {
-  display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) 14px;
-  gap: 10px;
+  display: flex;
   align-items: center;
+  gap: 10px;
   width: 100%;
-  padding: 12px 14px;
-  border: 1px solid transparent;
-  border-radius: 14px;
+  min-height: 38px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
   color: var(--auralis-text-muted);
-  background: rgba(255, 255, 255, 0.015);
+  background: transparent;
   text-align: left;
   cursor: pointer;
   position: relative;
-  overflow: hidden;
-  transition: all 250ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  user-select: none;
+  transition:
+    color 140ms ease,
+    background-color 140ms ease;
 }
 
 .settings-nav button:hover {
   color: var(--auralis-text);
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent);
-  border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
-  transform: translateX(3px);
+  background: color-mix(in srgb, var(--auralis-text) 4%, transparent);
+}
+
+.settings-nav button:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
 }
 
 .settings-nav button.is-active {
-  background: linear-gradient(
-    95deg,
-    color-mix(in srgb, var(--auralis-sidebar-active-bg) 85%, transparent),
-    color-mix(in srgb, var(--auralis-sidebar-active-bg) 60%, transparent)
-  ) !important;
-  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 35%, transparent) !important;
-  color: var(--auralis-sidebar-active-text) !important;
-  box-shadow:
-    0 4px 14px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.15);
-  font-weight: 700;
+  color: var(--auralis-text);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent);
 }
 
-/* Active indicator vertical line */
+/* Restrained short vertical accent indicator */
 .settings-nav button.is-active::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 25%;
-  height: 50%;
-  width: 3px;
-  border-radius: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.5px;
+  height: 16px;
+  border-radius: 0 2px 2px 0;
   background: var(--auralis-sidebar-active-indicator);
-  box-shadow: 0 0 8px var(--auralis-sidebar-active-indicator);
-}
-
-/* Shimmer Sweep Effect */
-.settings-nav button.is-active::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 50%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 15%, transparent),
-    transparent
-  );
-  transform: skewX(-20deg);
-  pointer-events: none;
-  animation: settings-nav-shimmer 5s infinite linear;
-}
-
-@keyframes settings-nav-shimmer {
-  0% {
-    left: -150%;
-  }
-  25% {
-    left: 150%;
-  }
-  100% {
-    left: 150%;
-  }
 }
 
 .settings-nav-icon {
-  width: 17px;
-  height: 17px;
-  margin: auto;
-  transition: transform 0.2s ease;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: inherit;
+  opacity: 0.75;
+  transition: opacity 140ms ease;
 }
 
-.settings-nav button:hover .settings-nav-icon {
-  transform: scale(1.1);
+.settings-nav button:hover .settings-nav-icon,
+.settings-nav button.is-active .settings-nav-icon {
+  opacity: 1;
 }
 
-.settings-nav-copy {
-  display: grid;
-  gap: 3px;
+.settings-nav button.is-active .settings-nav-icon {
+  color: var(--auralis-sidebar-active-indicator);
+}
+
+.settings-nav-label {
   min-width: 0;
-}
-
-.settings-nav-copy strong {
   font-size: 13px;
-  font-weight: 700;
-}
-
-.settings-nav-copy small {
-  overflow: hidden;
-  color: var(--auralis-text-subtle);
-  font-size: 10px;
   font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
+  color: inherit;
 }
 
-.settings-nav-chevron {
-  width: 13px;
-  height: 13px;
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: all 200ms ease;
-}
-
-.settings-nav button.is-active .settings-nav-chevron {
-  opacity: 0.65;
-  transform: translateX(0);
+.settings-nav button.is-active .settings-nav-label {
+  font-weight: 600;
 }
 
 .settings-content {
@@ -251,23 +196,28 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
   }
 
   .settings-nav {
-    display: flex;
+    flex-direction: row;
     position: static;
-    gap: 7px;
+    gap: 6px;
     overflow-x: auto;
     padding-bottom: 4px;
   }
 
   .settings-nav button {
-    display: flex;
     flex: 1 0 auto;
     width: auto;
-    padding: 10px 14px;
+    justify-content: center;
+    padding: 8px 14px;
   }
 
-  .settings-nav-copy small,
-  .settings-nav-chevron {
-    display: none;
+  .settings-nav button.is-active::before {
+    left: 50%;
+    top: auto;
+    bottom: 0;
+    width: 20px;
+    height: 2.5px;
+    transform: translateX(-50%);
+    border-radius: 2px 2px 0 0;
   }
 }
 
@@ -287,16 +237,8 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
 
 @media (prefers-reduced-motion: reduce) {
   .settings-nav button,
-  .settings-nav button:hover,
-  .settings-nav-icon,
-  .settings-nav-chevron {
+  .settings-nav-icon {
     transition: none;
-    transform: none;
-  }
-
-  .settings-nav button.is-active::after {
-    animation: none;
-    content: none;
   }
 }
 </style>

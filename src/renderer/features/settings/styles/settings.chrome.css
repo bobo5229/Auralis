@@ -60,49 +60,67 @@
   font-weight: 600;
 }
 
+/* Settings Group & Section Title */
+.settings-page .settings-group {
+  margin-bottom: 42px;
+}
+
+.settings-page .settings-group:last-child {
+  margin-bottom: 0;
+}
+
+.settings-page .settings-group-header {
+  margin-bottom: 6px;
+}
+
+.settings-page .settings-group-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--auralis-text-muted);
+  user-select: none;
+}
+
 .settings-page .settings-list {
-  overflow: hidden;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 48%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.02);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .settings-page .settings-row {
   display: flex;
-  gap: 24px;
+  gap: 28px;
   align-items: center;
   justify-content: space-between;
-  min-height: 72px;
-  padding: 0 20px;
-  transition: background-color 0.2s ease;
-}
-
-.settings-page .settings-row:hover {
-  background: color-mix(in srgb, var(--auralis-text) 1.5%, transparent);
+  padding: 20px 0;
+  background: transparent;
 }
 
 .settings-page .settings-row + .settings-row {
-  border-top: 1px solid var(--auralis-border-subtle);
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 45%, transparent);
 }
 
 .settings-page .settings-row > div {
   display: grid;
   min-width: 0;
-  gap: 4px;
+  gap: 3px;
 }
 
 .settings-page .settings-row > div > strong {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--auralis-text);
 }
 
 .settings-page .settings-row > div > span {
   color: var(--auralis-text-subtle);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  max-width: 540px;
 }
 
 .settings-page .settings-row > .settings-segmented-control {
@@ -173,8 +191,13 @@
     box-shadow 180ms ease;
 }
 
-.settings-page .settings-switch:hover {
+.settings-page .settings-switch:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--auralis-text) 25%, transparent);
+}
+
+.settings-page .settings-switch:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
 }
 
 .settings-page .settings-switch:focus-visible {
