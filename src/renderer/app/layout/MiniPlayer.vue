@@ -422,12 +422,52 @@ onUnmounted(() => {
   --auralis-focus-ring: #8fa7bb;
   --auralis-danger: #c96a55;
   --auralis-success: #8aa36a;
-  --auralis-artwork-accent-fallback: #8fa7bb;
+  --auralis-artwork-accent-fallback: var(--auralis-player-default-accent-dark);
+  --auralis-player-static-accent: var(--auralis-artwork-accent-fallback);
+  --auralis-player-control-active-text: #8fa7bb;
   --auralis-artwork-background-fallback: #0e0d0b;
   --auralis-artwork-placeholder-bg: rgba(232, 220, 198, 0.12);
   --auralis-progress-track: rgba(232, 220, 198, 0.08);
   --auralis-progress-fill: #8fa7bb;
   --auralis-volume-fill: #8fa7bb;
+
+  /* 迷你专用控件、材质与浮层变量 */
+  --auralis-mini-primary-text: #121214;
+  --auralis-mini-option-hover-bg: rgb(255 255 255 / 0.08);
+  --auralis-mini-option-active-bg: var(--auralis-mini-option-hover-bg);
+  --auralis-mini-icon-hover-bg: rgb(255 255 255 / 0.12);
+  --auralis-mini-icon-active-bg: var(--auralis-mini-icon-hover-bg);
+  --auralis-mini-cover-shadow:
+    0 0 0 1px rgb(255 255 255 / 0.1) inset, 0 14px 32px rgb(0 0 0 / 0.32);
+  --auralis-mini-cover-playing-shadow:
+    0 0 0 2px color-mix(in srgb, var(--auralis-active-album-accent) 78%, white),
+    0 0 0 7px color-mix(in srgb, var(--auralis-active-album-accent) 16%, transparent),
+    0 18px 40px rgb(0 0 0 / 0.38);
+  --auralis-mini-cover-focus-color: color-mix(
+    in srgb,
+    var(--auralis-active-album-accent) 70%,
+    white
+  );
+  --auralis-mini-contrast-surface: rgb(22 24 28 / 0.88);
+  --auralis-mini-contrast-border: rgb(255 255 255 / 0.28);
+  --auralis-mini-artwork-scrim:
+    linear-gradient(
+      180deg,
+      rgb(8 10 14 / 0.18) 0%,
+      rgb(8 10 14 / 0.08) 38%,
+      rgb(8 10 14 / 0.72) 100%
+    ),
+    radial-gradient(ellipse 90% 55% at 50% 18%, rgb(0 0 0 / 0.05), transparent 70%);
+  --auralis-mini-primary-playing-shadow:
+    0 1.5px 0 rgb(255 255 255 / 0.5) inset, 0 -1.5px 0 rgb(0 0 0 / 0.28) inset,
+    0 0 0 1px color-mix(in srgb, var(--auralis-active-album-accent) 35%, black) inset,
+    0 0 0 4px color-mix(in srgb, var(--auralis-active-album-accent) 22%, transparent),
+    0 10px 24px color-mix(in srgb, var(--auralis-active-album-accent) 28%, rgb(0 0 0 / 0.4));
+  --auralis-mini-primary-playing-hover-shadow:
+    0 2px 0 rgb(255 255 255 / 0.58) inset, 0 -1px 0 rgb(0 0 0 / 0.22) inset,
+    0 0 0 1px color-mix(in srgb, var(--auralis-active-album-accent) 30%, black) inset,
+    0 0 0 5px color-mix(in srgb, var(--auralis-active-album-accent) 28%, transparent),
+    0 12px 28px color-mix(in srgb, var(--auralis-active-album-accent) 32%, rgb(0 0 0 / 0.42));
 
   display: flex;
   gap: var(--mini-popover-gap, 10px);
@@ -483,14 +523,7 @@ onUnmounted(() => {
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background:
-    linear-gradient(
-      180deg,
-      rgb(8 10 14 / 0.18) 0%,
-      rgb(8 10 14 / 0.08) 38%,
-      rgb(8 10 14 / 0.72) 100%
-    ),
-    radial-gradient(ellipse 90% 55% at 50% 18%, rgb(0 0 0 / 0.05), transparent 70%);
+  background: var(--auralis-mini-artwork-scrim);
 }
 
 .mini-drag-region {
@@ -555,24 +588,19 @@ onUnmounted(() => {
   overflow: hidden;
   border-radius: 18px;
   background: var(--auralis-surface-raised);
-  color: var(--auralis-text-faint, #a0a0a5);
+  color: var(--auralis-text-faint);
   cursor: pointer;
-  box-shadow:
-    0 0 0 1px rgb(255 255 255 / 0.1) inset,
-    0 14px 32px rgb(0 0 0 / 0.32);
+  box-shadow: var(--auralis-mini-cover-shadow);
   transition: box-shadow 0.3s ease;
 }
 
 .mini-cover:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--auralis-active-album-accent) 70%, white);
+  outline: 2px solid var(--auralis-mini-cover-focus-color);
   outline-offset: 3px;
 }
 
 .mini-cover--playing {
-  box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--auralis-active-album-accent) 78%, white),
-    0 0 0 7px color-mix(in srgb, var(--auralis-active-album-accent) 16%, transparent),
-    0 18px 40px rgb(0 0 0 / 0.38);
+  box-shadow: var(--auralis-mini-cover-playing-shadow);
 }
 
 .mini-cover img {
@@ -646,7 +674,7 @@ onUnmounted(() => {
 .mini-time-row {
   display: flex;
   justify-content: space-between;
-  color: var(--auralis-text-faint, #9a9aa0);
+  color: var(--auralis-text-faint);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
@@ -827,14 +855,14 @@ onUnmounted(() => {
   transform: rotate(180deg);
 }
 
-.mini-icon-button:hover,
-.mini-icon-button--active {
+.mini-icon-button:hover {
   color: var(--auralis-text);
-  background: rgb(255 255 255 / 0.12);
+  background: var(--auralis-mini-icon-hover-bg);
 }
 
 .mini-icon-button--active {
   color: var(--auralis-active-album-accent);
+  background: var(--auralis-mini-icon-active-bg);
 }
 
 .mini-icon-button:active,
@@ -843,11 +871,58 @@ onUnmounted(() => {
 }
 
 .mini-play-button {
+  --auralis-mini-primary-sweep: linear-gradient(
+    var(--metal-sweep-angle, 118deg),
+    transparent 28%,
+    rgb(255 255 255 / 0.06) 40%,
+    rgb(255 255 255 / 0.62) 50%,
+    rgb(255 255 255 / 0.1) 60%,
+    transparent 72%
+  );
+  --auralis-mini-primary-playing-bg:
+    radial-gradient(
+      ellipse var(--metal-hi-w, 125%) var(--metal-hi-h, 90%) at var(--metal-hi-x, 28%)
+        var(--metal-hi-y, 16%),
+      rgb(255 255 255 / 0.58),
+      transparent 40%
+    ),
+    radial-gradient(
+      ellipse var(--metal-lo-w, 95%) var(--metal-lo-h, 80%) at var(--metal-lo-x, 78%)
+        var(--metal-lo-y, 78%),
+      rgb(0 0 0 / 0.28),
+      transparent 52%
+    ),
+    linear-gradient(
+      var(--metal-body-angle, 155deg),
+      color-mix(in srgb, var(--auralis-active-album-accent) 42%, white) 0%,
+      var(--auralis-active-album-accent) 46%,
+      color-mix(in srgb, var(--auralis-active-album-accent) 48%, black) 100%
+    );
+  --auralis-mini-primary-playing-hover-bg:
+    radial-gradient(
+      ellipse calc(var(--metal-hi-w, 125%) + 8%) calc(var(--metal-hi-h, 90%) + 6%) at
+        var(--metal-hi-hover-x, 32%) var(--metal-hi-hover-y, 12%),
+      rgb(255 255 255 / 0.72),
+      transparent 42%
+    ),
+    radial-gradient(
+      ellipse var(--metal-lo-w, 95%) var(--metal-lo-h, 80%) at var(--metal-lo-hover-x, 80%)
+        var(--metal-lo-hover-y, 80%),
+      rgb(0 0 0 / 0.22),
+      transparent 52%
+    ),
+    linear-gradient(
+      var(--metal-body-angle, 155deg),
+      color-mix(in srgb, var(--auralis-active-album-accent) 38%, white) 0%,
+      color-mix(in srgb, var(--auralis-active-album-accent) 88%, white) 38%,
+      var(--auralis-active-album-accent) 55%,
+      color-mix(in srgb, var(--auralis-active-album-accent) 52%, black) 100%
+    );
   isolation: isolate;
   width: 54px;
   height: 54px;
   border-radius: 50%;
-  color: #121214;
+  color: var(--auralis-mini-primary-text);
   background: var(--auralis-text);
   box-shadow: var(--auralis-surface-shadow);
   overflow: visible;
@@ -872,14 +947,7 @@ onUnmounted(() => {
   border-radius: inherit;
   pointer-events: none;
   opacity: 0;
-  background: linear-gradient(
-    var(--metal-sweep-angle, 118deg),
-    transparent 28%,
-    rgb(255 255 255 / 0.06) 40%,
-    rgb(255 255 255 / 0.62) 50%,
-    rgb(255 255 255 / 0.1) 60%,
-    transparent 72%
-  );
+  background: var(--auralis-mini-primary-sweep);
   background-size: 240% 240%;
   background-position: var(--metal-sweep-from, 130%) 45%;
   mix-blend-mode: soft-light;
@@ -893,32 +961,9 @@ onUnmounted(() => {
  * Highlight / dark / body angle come from CSS vars, reshuffled on mouseleave.
  */
 .mini-player--playing .mini-play-button {
-  color: #121214;
-  background:
-    radial-gradient(
-      ellipse var(--metal-hi-w, 125%) var(--metal-hi-h, 90%) at var(--metal-hi-x, 28%)
-        var(--metal-hi-y, 16%),
-      rgb(255 255 255 / 0.58),
-      transparent 40%
-    ),
-    radial-gradient(
-      ellipse var(--metal-lo-w, 95%) var(--metal-lo-h, 80%) at var(--metal-lo-x, 78%)
-        var(--metal-lo-y, 78%),
-      rgb(0 0 0 / 0.28),
-      transparent 52%
-    ),
-    linear-gradient(
-      var(--metal-body-angle, 155deg),
-      color-mix(in srgb, var(--auralis-active-album-accent) 42%, white) 0%,
-      var(--auralis-active-album-accent) 46%,
-      color-mix(in srgb, var(--auralis-active-album-accent) 48%, black) 100%
-    );
-  box-shadow:
-    0 1.5px 0 rgb(255 255 255 / 0.5) inset,
-    0 -1.5px 0 rgb(0 0 0 / 0.28) inset,
-    0 0 0 1px color-mix(in srgb, var(--auralis-active-album-accent) 35%, black) inset,
-    0 0 0 4px color-mix(in srgb, var(--auralis-active-album-accent) 22%, transparent),
-    0 10px 24px color-mix(in srgb, var(--auralis-active-album-accent) 28%, rgb(0 0 0 / 0.4));
+  color: var(--auralis-mini-primary-text);
+  background: var(--auralis-mini-primary-playing-bg);
+  box-shadow: var(--auralis-mini-primary-playing-shadow);
   transition:
     color 0.14s ease,
     background 0.35s ease,
@@ -927,32 +972,8 @@ onUnmounted(() => {
 }
 
 .mini-player--playing .mini-play-button:hover {
-  background:
-    radial-gradient(
-      ellipse calc(var(--metal-hi-w, 125%) + 8%) calc(var(--metal-hi-h, 90%) + 6%) at
-        var(--metal-hi-hover-x, 32%) var(--metal-hi-hover-y, 12%),
-      rgb(255 255 255 / 0.72),
-      transparent 42%
-    ),
-    radial-gradient(
-      ellipse var(--metal-lo-w, 95%) var(--metal-lo-h, 80%) at var(--metal-lo-hover-x, 80%)
-        var(--metal-lo-hover-y, 80%),
-      rgb(0 0 0 / 0.22),
-      transparent 52%
-    ),
-    linear-gradient(
-      var(--metal-body-angle, 155deg),
-      color-mix(in srgb, var(--auralis-active-album-accent) 38%, white) 0%,
-      color-mix(in srgb, var(--auralis-active-album-accent) 88%, white) 38%,
-      var(--auralis-active-album-accent) 55%,
-      color-mix(in srgb, var(--auralis-active-album-accent) 52%, black) 100%
-    );
-  box-shadow:
-    0 2px 0 rgb(255 255 255 / 0.58) inset,
-    0 -1px 0 rgb(0 0 0 / 0.22) inset,
-    0 0 0 1px color-mix(in srgb, var(--auralis-active-album-accent) 30%, black) inset,
-    0 0 0 5px color-mix(in srgb, var(--auralis-active-album-accent) 28%, transparent),
-    0 12px 28px color-mix(in srgb, var(--auralis-active-album-accent) 32%, rgb(0 0 0 / 0.42));
+  background: var(--auralis-mini-primary-playing-hover-bg);
+  box-shadow: var(--auralis-mini-primary-playing-hover-shadow);
 }
 
 .mini-player--playing .mini-play-button:hover::before {
@@ -995,8 +1016,8 @@ onUnmounted(() => {
 @media (prefers-contrast: more) {
   /* High contrast: need a plate so icons stay legible */
   .mini-actions-glass {
-    background: rgb(22 24 28 / 0.88) !important;
-    border-color: rgb(255 255 255 / 0.28);
+    background: var(--auralis-mini-contrast-surface) !important;
+    border-color: var(--auralis-mini-contrast-border);
   }
 }
 

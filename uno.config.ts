@@ -1,7 +1,19 @@
 import { defineConfig, presetIcons, presetUno } from 'unocss'
+import {
+  PLAYER_DEFAULT_ACCENT_DARK,
+  PLAYER_DEFAULT_ACCENT_LIGHT,
+} from './src/renderer/features/playback/utils/playerColorDefaults'
 
 export default defineConfig({
   presets: [presetUno(), presetIcons()],
+  preflights: [
+    {
+      getCSS: () => `:root {
+  --auralis-player-default-accent-dark: rgb(${PLAYER_DEFAULT_ACCENT_DARK.r} ${PLAYER_DEFAULT_ACCENT_DARK.g} ${PLAYER_DEFAULT_ACCENT_DARK.b});
+  --auralis-player-default-accent-light: rgb(${PLAYER_DEFAULT_ACCENT_LIGHT.r} ${PLAYER_DEFAULT_ACCENT_LIGHT.g} ${PLAYER_DEFAULT_ACCENT_LIGHT.b});
+}`,
+    },
+  ],
   theme: {
     colors: {
       ink: '#1f2528',
@@ -51,7 +63,7 @@ export default defineConfig({
       'inline-flex items-center justify-center rounded p-2 text-[var(--auralis-text-muted)] transition shadow-none hover:text-[var(--auralis-text)] hover:shadow-none',
     'player-control-primary':
       'inline-flex items-center justify-center rounded-full p-3 text-[var(--auralis-text)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
-    'player-control-active': 'text-[var(--auralis-sidebar-active-text)]',
+    'player-control-active': 'text-[var(--auralis-player-control-active-text)]',
     'song-row':
       'grid h-[var(--library-flat-row-height)] grid-cols-[var(--library-flat-artwork-size)_minmax(0,1fr)_300px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer',
     'song-cover':

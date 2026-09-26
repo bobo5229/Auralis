@@ -1,5 +1,6 @@
 import type { ArtworkPalette, OklabColor, PaletteColor, RgbColor } from '../types'
 import { getOklabChroma, getOklabDistance, oklabToRgb, rgbToOklab } from './colorSpace'
+import { PLAYER_DEFAULT_ACCENT_DARK } from './playerColorDefaults'
 
 interface Sample {
   rgb: RgbColor
@@ -18,7 +19,7 @@ const MIN_WEIGHT = 0.015
 const MERGE_DISTANCE = 0.035
 const MIN_ACCENT_DISTANCE = 0.05
 
-const FALLBACK_ACCENT_RGB: RgbColor = { r: 143, g: 167, b: 187 }
+const FALLBACK_ACCENT_RGB: RgbColor = PLAYER_DEFAULT_ACCENT_DARK
 const FALLBACK_ACCENT_OKLAB = rgbToOklab(FALLBACK_ACCENT_RGB)
 
 export const FALLBACK_PALETTE: ArtworkPalette = {

@@ -403,6 +403,8 @@ onBeforeUnmount(() => {
   --auralis-volume-fill: #8fa7bb;
   --auralis-artwork-placeholder-bg: rgba(246, 242, 234, 0.12);
   --fullscreen-lyrics-left-bleed: clamp(32px, 2.6vw, 56px);
+  --auralis-fullscreen-bg: #15181d;
+  --auralis-fullscreen-lyrics-glow: rgba(255, 255, 255, 0.42);
 
   position: fixed;
   inset: 0;
@@ -412,7 +414,7 @@ onBeforeUnmount(() => {
   gap: clamp(46px, 6vw, 112px);
   padding: clamp(64px, 10vh, 110px) clamp(70px, 10vw, 176px);
   color: var(--auralis-text);
-  background: #15181d;
+  background: var(--auralis-fullscreen-bg);
   overflow: hidden;
 }
 
@@ -773,7 +775,7 @@ onBeforeUnmount(() => {
   box-shadow:
     0 0 0.18em currentColor,
     0 0 0.42em currentColor,
-    0 0 0.72em rgba(255, 255, 255, 0.42);
+    0 0 0.72em var(--auralis-fullscreen-lyrics-glow);
   opacity: 1;
   transform: scale(1);
 }

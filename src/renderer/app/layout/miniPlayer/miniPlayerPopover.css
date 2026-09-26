@@ -4,10 +4,9 @@
   overflow: hidden;
   box-sizing: border-box;
   max-height: 300px;
-  border: 1px solid
-    color-mix(in srgb, var(--auralis-border-subtle, rgb(127 127 127 / 0.28)) 80%, transparent);
+  border: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 80%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--auralis-surface-floating, #1c1e22) 94%, black);
+  background: color-mix(in srgb, var(--auralis-surface-floating) 94%, black);
   box-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset;
   color: var(--auralis-text);
   pointer-events: auto;
@@ -27,14 +26,7 @@
 
 .mini-popover-scrim {
   z-index: 1;
-  background:
-    linear-gradient(
-      180deg,
-      rgb(8 10 14 / 0.18) 0%,
-      rgb(8 10 14 / 0.08) 38%,
-      rgb(8 10 14 / 0.72) 100%
-    ),
-    radial-gradient(ellipse 90% 55% at 50% 18%, rgb(0 0 0 / 0.05), transparent 70%);
+  background: var(--auralis-mini-artwork-scrim);
 }
 
 .mini-mode-option,
@@ -75,7 +67,7 @@
 
 .mini-empty {
   padding: 28px;
-  color: var(--auralis-text-faint, #949499);
+  color: var(--auralis-text-faint);
   text-align: center;
   font-size: 12px;
 }
@@ -90,7 +82,7 @@
 .mini-queue-section-label {
   flex: none;
   padding: 4px 15px 5px;
-  color: var(--auralis-text-faint, #949499);
+  color: var(--auralis-text-faint);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -115,11 +107,15 @@
 }
 
 .mini-queue-item:hover,
-.mini-mode-option:hover,
+.mini-mode-option:hover {
+  color: var(--auralis-text);
+  background: var(--auralis-mini-option-hover-bg);
+}
+
 .mini-queue-item--active,
 .mini-mode-option--active {
   color: var(--auralis-text);
-  background: rgb(255 255 255 / 0.08);
+  background: var(--auralis-mini-option-active-bg);
 }
 
 .mini-queue-item:focus-visible {
@@ -142,8 +138,8 @@
   place-items: center;
   overflow: hidden;
   border-radius: 8px;
-  background: var(--auralis-surface-raised, #34363a);
-  color: var(--auralis-text-faint, #a0a0a5);
+  background: var(--auralis-surface-raised);
+  color: var(--auralis-text-faint);
 }
 
 .mini-queue-cover img {
@@ -218,7 +214,7 @@
   background: linear-gradient(
     to top,
     var(--auralis-active-album-accent, var(--auralis-artwork-accent-fallback)) 0 var(--mini-volume),
-    var(--auralis-progress-track, rgb(255 255 255 / 0.18)) var(--mini-volume) 100%
+    var(--auralis-progress-track) var(--mini-volume) 100%
   );
   outline: none;
 }
@@ -251,7 +247,7 @@
 }
 
 .mini-volume-button:hover {
-  background: rgb(255 255 255 / 0.08);
+  background: var(--auralis-mini-option-hover-bg);
   color: var(--auralis-text);
 }
 
