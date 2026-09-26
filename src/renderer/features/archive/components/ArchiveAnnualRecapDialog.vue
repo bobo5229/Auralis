@@ -332,7 +332,8 @@ defineExpose({ open: openAnnualRecap, refreshIfOpen, clearRankings: clearAnnualR
               <div
                 v-for="bar in annualRecapMetrics.monthBars"
                 :key="bar.month"
-                :title="`${bar.month}月 · ${bar.playCount} 次`"
+                v-tooltip.data="`${bar.month}月 · ${bar.playCount} 次`"
+                tabindex="0"
               >
                 <span :style="{ height: `${bar.height}%` }"></span>
                 <small>{{ bar.month }}月</small>

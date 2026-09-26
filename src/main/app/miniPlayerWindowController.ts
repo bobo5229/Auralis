@@ -5,6 +5,7 @@ import {
   type MiniPlayerBodySize,
 } from '@shared/constants/miniPlayer'
 import { ipcChannels } from '@shared/ipc/channels'
+import { sendRendererEvent } from '@main/ipc/rendererEvents'
 import type { MiniPlayerPopoverDirection, MiniPlayerWindowState } from '@shared/ipc/contracts'
 import {
   isScreenOccupying,
@@ -37,18 +38,6 @@ export interface MiniPlayerWindowControllerOptions {
   unmaximizeTimeoutMs?: number
   boundsRetryDelayMs?: number
 }
-
-const MAIN_WINDOW_TITLE_BAR_OVERLAY = {
-  color: '#00000000',
-  symbolColor: '#e1ddd6',
-  height: 36,
-} as const
-
-const MINI_PLAYER_TITLE_BAR_OVERLAY = {
-  color: '#00000000',
-  symbolColor: '#00000000',
-  height: 0,
-} as const
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -197,7 +186,6 @@ export class MiniPlayerWindowController {
     this.window.setMaximizable(preferences.maximizable)
     this.window.setFullScreenable(preferences.fullscreenable)
     this.window.setHasShadow(preferences.hasShadow)
-    this.window.setTitleBarOverlay(MAIN_WINDOW_TITLE_BAR_OVERLAY)
     this.window.setMinimumSize(0, 0)
     this.window.setMaximumSize(
       Math.max(preferences.bounds.width, UNLOCK_MAX_SIZE),
@@ -285,7 +273,7 @@ export class MiniPlayerWindowController {
   private emitState(): MiniPlayerWindowState {
     const state = this.getState()
     if (!this.window.isDestroyed() && !this.window.webContents.isDestroyed()) {
-      this.window.webContents.send(ipcChannels.window.miniPlayerStateChanged, state)
+      sendRendererEvent(this.window.webContents, ipcChannels.window.miniPlayerStateChanged, state)
     }
     return state
   }
@@ -362,7 +350,6 @@ export class MiniPlayerWindowController {
       return this.restore()
     }
 
-    this.window.setTitleBarOverlay(MINI_PLAYER_TITLE_BAR_OVERLAY)
     this.window.setAlwaysOnTop(true, 'floating')
     this.window.moveTop()
     this.miniCommitted = true

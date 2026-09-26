@@ -67,6 +67,9 @@ function onKeyDown(event: KeyboardEvent): void {
   <div
     class="song-row w-full items-center select-none cursor-pointer"
     :class="{
+      'song-row--even': index % 2 === 0,
+      'song-row--odd': index % 2 !== 0,
+      'song-row--alt': index % 2 !== 0,
       'song-row--playing': nowPlaying,
       'song-row--selected': selected,
     }"
@@ -100,14 +103,20 @@ function onKeyDown(event: KeyboardEvent): void {
       />
       <span v-else class="i-lucide-music text-sm text-[var(--auralis-text-disabled)]"></span>
     </div>
-    <div class="song-title min-w-0" :title="titleDisplay.text">
-      <span class="song-title-main block truncate">{{ titleDisplay.text }}</span>
+    <div class="song-title min-w-0">
+      <span v-tooltip.overflow="titleDisplay.text" class="song-title-main block truncate">{{
+        titleDisplay.text
+      }}</span>
     </div>
-    <div class="song-artist min-w-0" :title="artistDisplay.text">
-      <span class="block truncate">{{ artistDisplay.text }}</span>
+    <div class="song-artist min-w-0">
+      <span v-tooltip.overflow="artistDisplay.text" class="block truncate">{{
+        artistDisplay.text
+      }}</span>
     </div>
-    <div class="song-album min-w-0" :title="track.album ?? undefined">
-      <span class="block truncate text-right">{{ track.album }}</span>
+    <div class="song-album min-w-0">
+      <span v-tooltip.overflow="track.album" class="block truncate text-right">{{
+        track.album
+      }}</span>
     </div>
     <div class="song-duration min-w-0 text-right tabular-nums">
       {{ formatDuration(track.durationSeconds) }}

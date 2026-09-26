@@ -245,18 +245,6 @@ function createApi(): AuralisApi {
       updateThumbarState: vi.fn(),
       onCommand: vi.fn(),
     },
-    desktopLyrics: {
-      toggle: vi.fn(),
-      isVisible: vi.fn(),
-      setSuppressed: vi.fn(),
-      toggleMousePassthrough: vi.fn(),
-      isMousePassthroughEnabled: vi.fn(),
-      update: vi.fn(),
-      onUpdate: vi.fn(),
-      onVisibilityChanged: vi.fn(),
-      onMousePassthroughChanged: vi.fn(),
-      ready: vi.fn(),
-    },
     archive: {
       getListeningHeatmap: vi.fn(),
       getDailyListeningDetail: vi.fn(),
@@ -278,6 +266,9 @@ function createApi(): AuralisApi {
       onRefreshProgress: vi.fn(),
     },
     window: {
+      control: vi.fn(),
+      getMaximized: vi.fn(),
+      onMaximizedChanged: vi.fn(),
       enterMiniPlayer: vi.fn(),
       restoreFromMiniPlayer: vi.fn(),
       getMiniPlayerState: vi.fn(),
@@ -382,6 +373,30 @@ describe('usePlayback foreground request state', () => {
     const second = usePlayback()
 
     expect(second).toBe(first)
+  })
+
+  it('retains the CD queue session when a later view obtains the player', async () => {
+    vi.resetModules()
+    const { usePlayback } = await import('./usePlayback')
+    const firstView = usePlayback()
+    await firstView.playTrackFromQueue([track(1), track(2)], 1, { source: 'cd' })
+    const session = firstView.queueSession.value
+    firstView.state.currentTime = 35
+
+    const returnedView = usePlayback()
+    expect(returnedView.queueSession.value).toBe(session)
+    expect(returnedView.queueSession.value?.source).toBe('cd')
+    expect(returnedView.state.currentTime).toBe(35)
+    expect(
+      returnedView.replaceCurrentPlaybackQueue({
+        expectedSessionId: session!.id,
+        expectedTrackId: 1,
+        expectedQueueTrackIds: [1, 2],
+        queue: [track(1)],
+        playbackMode: 'repeat-all',
+      }),
+    ).toBe(true)
+    expect(returnedView.state.currentTime).toBe(35)
   })
 
   it('does not invoke playback while there is no current track', async () => {

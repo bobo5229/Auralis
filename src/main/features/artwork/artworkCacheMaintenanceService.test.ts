@@ -34,6 +34,43 @@ function fakeGate(overrides: Partial<{ scan: boolean; refresh: boolean; import: 
 }
 
 describe('ArtworkCacheMaintenanceService', () => {
+  it('cancels delayed startup and refuses new work after shutdown', async () => {
+    vi.useFakeTimers()
+    try {
+      const migration = fakeMigration()
+      const service = new ArtworkCacheMaintenanceService(migration, fakeCollector(), fakeGate())
+      service.scheduleStartupMaintenance()
+      await service.shutdown()
+      await vi.runAllTimersAsync()
+      await service.runStartupMaintenance()
+      expect(migration.runMigration).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('waits for an active migration and skips follow-up garbage collection', async () => {
+    let finish!: () => void
+    const migration = fakeMigration({
+      runMigration: () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        }),
+    })
+    const collector = fakeCollector()
+    const service = new ArtworkCacheMaintenanceService(migration, collector, fakeGate())
+    const run = service.runStartupMaintenance()
+    let stopped = false
+    const shutdown = service.shutdown().then(() => {
+      stopped = true
+    })
+    await Promise.resolve()
+    expect(stopped).toBe(false)
+    finish()
+    await Promise.all([run, shutdown])
+    expect(collector.collectGarbage).not.toHaveBeenCalled()
+  })
+
   it('runs migration then garbage collection on startup when legacy keys exist', async () => {
     const migration = fakeMigration()
     const collector = fakeCollector()

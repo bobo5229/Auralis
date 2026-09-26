@@ -19,6 +19,12 @@ export const router = createRouter({
     },
     { path: '/albums', name: 'albums', component: routeLoaders.albums, meta: { title: 'Albums' } },
     {
+      path: '/albums/cd/index',
+      name: 'cd-album-index',
+      component: routeLoaders.cdAlbumIndex,
+      meta: { title: 'CD Album Index' },
+    },
+    {
       path: '/albums/cd',
       name: 'cd-albums',
       component: routeLoaders.cdAlbums,

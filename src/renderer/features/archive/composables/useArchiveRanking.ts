@@ -91,6 +91,7 @@ export function useArchiveRanking(
   const showRankingPicker = ref(false)
   const pickerPos = ref({ top: 0, left: 0 })
   let rankingRequestId = 0
+  let loadedRankingParamsKey: string | null = null
 
   const maxRankingMonth = computed(() =>
     rankingYear.value === currentYear ? now().getMonth() + 1 : 12,
@@ -191,19 +192,26 @@ export function useArchiveRanking(
 
   async function loadListeningRanking(): Promise<void> {
     normalizeRankingPeriod()
+    const params = buildRankingParams()
+    const paramsKey = JSON.stringify(params)
     const requestId = ++rankingRequestId
+    // Keep the current shelf mounted only while refreshing the same period and target.
+    if (paramsKey !== loadedRankingParamsKey) listeningRanking.value = null
     isRankingLoading.value = true
     rankingError.value = null
 
     try {
-      const result = await getListeningRanking(buildRankingParams())
-      if (requestId === rankingRequestId) listeningRanking.value = result
+      const result = await getListeningRanking(params)
+      if (requestId === rankingRequestId) {
+        listeningRanking.value = result
+        loadedRankingParamsKey = paramsKey
+      }
     } catch (error) {
       if (requestId === rankingRequestId) {
         rendererDiagnostics.error({
           scope: 'archive.ranking',
           message: 'Failed to load listening ranking',
-          context: buildRankingParams(),
+          context: params,
           cause: error,
         })
         rankingError.value = '无法读取听歌排行'

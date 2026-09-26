@@ -190,10 +190,10 @@ watch(currentIndex, () => {
         @input="emit('setVolume', Number(($event.target as HTMLInputElement).value))"
       />
       <button
+        v-tooltip="isMuted ? t('player.unmute') : t('player.mute')"
         class="mini-volume-button"
         type="button"
         :aria-label="isMuted ? t('player.unmute') : t('player.mute')"
-        :data-tooltip="isMuted ? t('player.unmute') : t('player.mute')"
         @click="emit('toggleMute')"
       >
         <span class="h-4 w-4" :class="volumeIcon" />

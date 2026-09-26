@@ -13,6 +13,7 @@ import { ArtworkCacheMigrationService } from '@main/features/artwork/artworkCach
 import { isPathUnderAnyRoot } from '@main/features/audio/audioPathGuard'
 import { probeAudioDecode } from '@main/features/audio/audioDecodeProbe'
 import { NativePlaybackService } from '@main/features/audio/nativePlaybackService'
+import { resolveAudioRuntimePaths } from '@main/features/audio/audioRuntimePaths'
 import { isPlayableAudioExtension, buildAudioTrackUrl } from '@main/features/audio/audioProtocol'
 import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
 import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
@@ -36,6 +37,7 @@ import { registerLibraryIpcHandlers } from './registerLibraryIpcHandlers'
 import { registerMetadataIpcHandlers } from './registerMetadataIpcHandlers'
 import { registerPlaybackArchiveIpcHandlers } from './registerPlaybackArchiveIpcHandlers'
 import { registerPlaylistIpcHandlers } from './registerPlaylistIpcHandlers'
+import { createRendererEventSender } from './rendererEvents'
 import {
   createTrustedMainWindowSourcePolicy,
   createValidatedIpcRegistrar,
@@ -55,7 +57,16 @@ function isMissingFileError(error: unknown): boolean {
   return code === 'ENOENT' || code === 'ENOTDIR'
 }
 
-export function registerIpcHandlers(db: Database.Database, artworkCacheDir: string): void {
+export function registerIpcHandlers(
+  db: Database.Database,
+  artworkCacheDir: string,
+): { shutdown(): Promise<void> } {
+  const sendToRenderer = createRendererEventSender(() => BrowserWindow.getAllWindows())
+  const audioPaths = resolveAudioRuntimePaths({
+    isPackaged: app.isPackaged,
+    appPath: app.getAppPath(),
+    resourcesPath: process.resourcesPath,
+  })
   const libraryService = new LibraryService(new LibraryRepository(db), new TrackRepository(db))
   const libraryScanService = new LibraryScanService(db, artworkCacheDir)
   const trackRepository = new TrackRepository(db)
@@ -63,28 +74,14 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   const metadataRefreshService = new MetadataRefreshService(
     new MetadataRefreshRepository(db),
     artworkCacheDir,
-    (channel, data) => {
-      for (const win of BrowserWindow.getAllWindows()) {
-        win.webContents.send(channel, data)
-      }
-    },
+    sendToRenderer,
+    audioPaths.ffmpegPath,
   )
   const incrementalImportService = new LibraryIncrementalImportService(
     trackRepository,
     artworkCacheDir,
-    (channel, data) => {
-      for (const win of BrowserWindow.getAllWindows()) {
-        win.webContents.send(channel, data)
-      }
-    },
+    sendToRenderer,
   )
-  const sendToRenderer = (channel: string, data: unknown) => {
-    for (const win of BrowserWindow.getAllWindows()) {
-      if (!win.webContents.isDestroyed()) {
-        win.webContents.send(channel, data)
-      }
-    }
-  }
 
   const notifyLibraryChanged = (data: {
     reason: 'play-stats-updated' | 'play-stats-reset'
@@ -192,13 +189,8 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   })
 
   metadataWatchService.start()
-  const audioBinDirectory = app.isPackaged
-    ? join(process.resourcesPath, 'audio')
-    : join(app.getAppPath(), 'resources/audio')
-  const mpvPath = join(audioBinDirectory, 'mpv.exe')
   const nativePlayback = new NativePlaybackService({
-    mpvPath,
-    ffmpegPath: join(audioBinDirectory, 'ffmpeg.exe'),
+    ...audioPaths,
     resolveTrack: async (trackId) => {
       // Reuse the same catalog, extension, root and file checks as audio://.
       if (!(await getAudioUrl(trackId))) throw new Error('Audio file is unavailable')
@@ -207,14 +199,14 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
       return path
     },
     emit: (event) => sendToRenderer(ipcChannels.playback.nativeEvent, event),
-    warn: (error) =>
-      logger.warn({ error }, 'Digital silence scan skipped; preserving original audio'),
+    warn: (error) => logger.warn({ error }, 'Digital silence boundary optimization failed'),
+    onBoundaryStatus: (event) => logger.debug(event, 'Digital silence boundary analysis'),
   })
   const nativeOwners = new WeakSet<Electron.WebContents>()
-  electronIpcRegistrar.handle(ipcChannels.playback.nativeAvailability, () => ({
-    available: existsSync(mpvPath),
-    ...(!existsSync(mpvPath) ? { reason: 'mpv runtime is not installed' } : {}),
-  }))
+  electronIpcRegistrar.handle(ipcChannels.playback.nativeAvailability, () => {
+    const available = existsSync(audioPaths.mpvPath)
+    return { available, ...(!available ? { reason: 'mpv runtime is not installed' } : {}) }
+  })
   electronIpcRegistrar.handle(ipcChannels.playback.nativeCommand, (event, request) => {
     if (!nativeOwners.has(event.sender)) {
       nativeOwners.add(event.sender)
@@ -225,10 +217,6 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
       event.sender.on('render-process-gone', () => nativePlayback.dispose())
     }
     return nativePlayback.command(request)
-  })
-  app.on('before-quit', () => {
-    nativePlayback.dispose()
-    metadataWatchService.stop()
   })
 
   electronIpcRegistrar.handle(ipcChannels.app.getInfo, () => ({
@@ -268,6 +256,34 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
   electronIpcRegistrar.handle(ipcChannels.window.enterMiniPlayer, (event) =>
     getInvokingMiniPlayerController(event).enter(),
   )
+  electronIpcRegistrar.handle(ipcChannels.window.getMaximized, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window || getInvokingMiniPlayerController(event).getState().mode !== 'normal') {
+      throw new Error('Main window controls are unavailable.')
+    }
+    return { isMaximized: window.isMaximized() }
+  })
+  electronIpcRegistrar.handle(ipcChannels.window.control, (event, payload) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window || getInvokingMiniPlayerController(event).getState().mode !== 'normal') {
+      throw new Error('Main window controls are unavailable.')
+    }
+    switch (payload.action) {
+      case 'minimize':
+        window.minimize()
+        break
+      case 'toggle-maximize':
+        if (window.isMaximized()) window.unmaximize()
+        else window.maximize()
+        break
+      case 'close':
+        setImmediate(() => {
+          if (!window.isDestroyed()) window.close()
+        })
+        break
+    }
+    return { isMaximized: window.isMaximized() }
+  })
   electronIpcRegistrar.handle(ipcChannels.window.restoreFromMiniPlayer, (event) =>
     getInvokingMiniPlayerController(event).restore(),
   )
@@ -299,4 +315,27 @@ export function registerIpcHandlers(db: Database.Database, artworkCacheDir: stri
     notifyLibraryChanged,
   })
   registerMetadataIpcHandlers(electronIpcRegistrar, { metadataRefreshService })
+
+  return {
+    async shutdown() {
+      // Stop producers immediately, and keep SQLite open while accepted work drains.
+      const producers = await Promise.allSettled([
+        electronIpcRegistrar.shutdown(),
+        metadataWatchService.stop(),
+        artworkMaintenanceService.shutdown(),
+        Promise.resolve().then(() => nativePlayback.dispose()),
+      ])
+      const workers = await Promise.allSettled([
+        libraryScanService.shutdown(),
+        metadataRefreshService.shutdown(),
+      ])
+      const failures = [...producers, ...workers].filter((result) => result.status === 'rejected')
+      if (failures.length > 0) {
+        throw new AggregateError(
+          failures.map((result) => result.reason),
+          'Service shutdown failed',
+        )
+      }
+    },
+  }
 }

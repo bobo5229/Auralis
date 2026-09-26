@@ -16,13 +16,15 @@
 ## 代码组织
 
 - 业务代码使用 TypeScript；Vue 使用 Composition API 与 `<script setup lang="ts">`。
-- 遵守现有 Prettier 配置：无分号、单引号、每行 100 字符。
+- 格式遵守项目现有 Prettier 配置。
 - 避免 `any`，确有必要时说明原因。
 - 使用 feature-first 组织，避免新建宽泛的 `components/`、`utils/` 杂物目录。
 - 路径别名为 `@main`、`@renderer`、`@shared`。
 - 主进程日志通过 `src/main/logging/logger.ts` 中的 Pino；Renderer 不使用 Pino。
 - 不绕过根目录的数据分层边界。元数据解析、封面生成、扫描、搜索索引不能直接放到 UI；
   昂贵的图片或颜色计算复用现有 Worker/canvas 流程，不进入渲染循环。
+- 业务约束放在现有业务实现中。仅当业务复杂度、跨 Repository 编排、事务协调或独立生命周期
+  需要时引入 Service，不为单个简单判断新增一层。
 
 ## Typed IPC
 
@@ -40,7 +42,7 @@ Dependency interface 或中间 Router。
 | `src/preload/index.ts`                                 | 显式 capability；不暴露 `ipcRenderer` 或 generic `invoke(channel)`              |
 | `src/main/ipc/registerIpcHandlers.ts`                  | Main composition root：装配依赖、注册 IPC                                       |
 | 保留的 domain registrar                                | 仅 Library / Playlist / PlaybackArchive / Metadata                              |
-| `validatedIpcRegistrar.ts` + `ipcPayloadValidation.ts` | sender 信任 + payload 结构/资源安全；业务合法性在 Service                       |
+| `validatedIpcRegistrar.ts` + `ipcPayloadValidation.ts` | sender 信任 + payload 结构与资源安全校验                                        |
 
 新增或修改通道时，更新通道名、contract、preload 显式方法和 composition root / 已有 registrar
 的注册。payload 校验覆盖必须与通道一致，不能只改 TypeScript 类型就假设输入安全。具体注册点

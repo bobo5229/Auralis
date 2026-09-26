@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <!-- App icon: Sidebar brand mark style + Lucide audio-waveform (ISC) -->
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3A3A3C"/>
+      <stop offset="100%" stop-color="#1C1C1E"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="200" y1="80" x2="720" y2="640" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="55%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded plate (~sidebar brand-mark proportions) -->
+  <rect x="48" y="48" width="928" height="928" rx="272" fill="url(#plate)"/>
+  <rect x="48" y="48" width="928" height="928" rx="272" fill="url(#sheen)"/>
+  <rect
+    x="48"
+    y="48"
+    width="928"
+    height="928"
+    rx="272"
+    fill="none"
+    stroke="#4D8FFF"
+    stroke-opacity="0.28"
+    stroke-width="12"
+  />
+
+  <!--
+    Lucide Icons: audio-waveform
+    https://lucide.dev/icons/audio-waveform
+    License: ISC — https://lucide.dev/license
+    Body path kept intact; only scaled and recolored to brand blue.
+  -->
+  <g
+    transform="translate(512 512) scale(26) translate(-12 -12)"
+    fill="none"
+    stroke="#2563EB"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
+    <path d="M2 13a2 2 0 0 0 2-2V7a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0V4a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0v-4a2 2 0 0 1 2-2"/>
+  </g>
+</svg>

@@ -7,7 +7,7 @@ import { parseFile } from 'music-metadata'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 
 const FFMPEG_NOT_FOUND_MESSAGE =
-  'Unable to write audio tags because FFmpeg is not available on this computer.'
+  'Unable to write audio tags because the bundled FFmpeg runtime is unavailable.'
 
 function normalizeTagValue(value: string | null): string {
   return value?.trim() ?? ''
@@ -53,9 +53,9 @@ async function readEmbeddedPicture(
   }
 }
 
-async function runFfmpegProcess(arguments_: string[]): Promise<void> {
+async function runFfmpegProcess(ffmpegPath: string, arguments_: string[]): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const process = spawn('ffmpeg', arguments_, {
+    const process = spawn(ffmpegPath, arguments_, {
       windowsHide: true,
       stdio: ['ignore', 'ignore', 'pipe'],
     })
@@ -88,8 +88,9 @@ async function remuxWithTags(
   inputPath: string,
   outputPath: string,
   metadata: EditableTrackMetadata,
+  ffmpegPath: string,
 ): Promise<void> {
-  await runFfmpegProcess([
+  await runFfmpegProcess(ffmpegPath, [
     '-hide_banner',
     '-loglevel',
     'error',
@@ -115,8 +116,9 @@ async function remuxWithCover(
   coverPath: string,
   outputPath: string,
   metadata: EditableTrackMetadata,
+  ffmpegPath: string,
 ): Promise<void> {
-  await runFfmpegProcess([
+  await runFfmpegProcess(ffmpegPath, [
     '-hide_banner',
     '-loglevel',
     'error',
@@ -181,6 +183,7 @@ async function replaceOriginalFile(
 export async function writeAudioTags(
   filePath: string,
   metadata: EditableTrackMetadata,
+  ffmpegPath: string,
 ): Promise<void> {
   const originalFingerprint = await stat(filePath)
   const extension = extname(filePath)
@@ -195,7 +198,7 @@ export async function writeAudioTags(
 
   try {
     const picture = await readEmbeddedPicture(filePath)
-    await remuxWithTags(filePath, outputPath, metadata)
+    await remuxWithTags(filePath, outputPath, metadata, ffmpegPath)
 
     let taggedPath = outputPath
     if (picture) {
@@ -205,7 +208,7 @@ export async function writeAudioTags(
       )
       await writeFile(coverPath, picture.data)
       try {
-        await remuxWithCover(outputPath, coverPath, coveredPath, metadata)
+        await remuxWithCover(outputPath, coverPath, coveredPath, metadata, ffmpegPath)
         taggedPath = coveredPath
       } catch {
         // Keep the tagged remux if re-attaching the cover fails; the library

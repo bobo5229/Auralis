@@ -61,18 +61,6 @@ export const ipcChannels = {
     updateThumbarState: 'system-media:update-thumbar-state',
     command: 'system-media:command',
   },
-  desktopLyrics: {
-    toggle: 'desktop-lyrics:toggle',
-    isVisible: 'desktop-lyrics:is-visible',
-    setSuppressed: 'desktop-lyrics:set-suppressed',
-    toggleMousePassthrough: 'desktop-lyrics:toggle-mouse-passthrough',
-    isMousePassthroughEnabled: 'desktop-lyrics:is-mouse-passthrough-enabled',
-    update: 'desktop-lyrics:update',
-    changed: 'desktop-lyrics:changed',
-    visibilityChanged: 'desktop-lyrics:visibility-changed',
-    mousePassthroughChanged: 'desktop-lyrics:mouse-passthrough-changed',
-    ready: 'desktop-lyrics:ready',
-  },
   archive: {
     getListeningHeatmap: 'archive:get-listening-heatmap',
     getDailyListeningDetail: 'archive:get-daily-listening-detail',
@@ -94,6 +82,9 @@ export const ipcChannels = {
     refreshProgress: 'metadata:refresh-progress',
   },
   window: {
+    control: 'window:control',
+    getMaximized: 'window:get-maximized',
+    maximizedChanged: 'window:maximized-changed',
     enterMiniPlayer: 'window:enter-mini-player',
     restoreFromMiniPlayer: 'window:restore-from-mini-player',
     getMiniPlayerState: 'window:get-mini-player-state',

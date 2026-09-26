@@ -1,5 +1,4 @@
 import { app, BrowserWindow, type WebContents } from 'electron'
-import { disposeDesktopLyricsWindow } from '../desktopLyricsWindow'
 
 interface SmokeCheck {
   name: string
@@ -38,15 +37,6 @@ interface MiniPlayerProbe {
   restored: string
 }
 
-interface DesktopLyricsBridgeProbe {
-  apiExists: boolean
-  onlyDesktopLyrics: boolean
-  canSubscribe: boolean
-  canToggleLock: boolean
-  canSubscribeLock: boolean
-  exposesFullAppApi: boolean
-}
-
 const CHECK_TIMEOUT_MS = 10_000
 const SUITE_TIMEOUT_MS = 35_000
 const POLL_INTERVAL_MS = 25
@@ -54,6 +44,24 @@ const SMOKE_RESULT_PREFIX = 'AURALIS_SMOKE_RESULT '
 
 function describeError(error: unknown): string {
   return error instanceof Error ? error.stack || error.message : String(error)
+}
+
+function assertPlayerBarBottomGap(probe: {
+  bottomDistance: number | null
+  bottomGap: number
+}): void {
+  if (!Number.isFinite(probe.bottomGap) || probe.bottomGap <= 0) {
+    throw new Error('PlayerBar bottom-gap token must be a positive pixel value')
+  }
+  if (
+    probe.bottomDistance === null ||
+    !Number.isFinite(probe.bottomDistance) ||
+    Math.abs(probe.bottomDistance - probe.bottomGap) > 2
+  ) {
+    throw new Error(
+      `PlayerBar bottom distance expected ~${probe.bottomGap}px, received: ${String(probe.bottomDistance)}`,
+    )
+  }
 }
 
 function delay(milliseconds: number): Promise<void> {
@@ -222,6 +230,34 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
       }
     })
 
+    await record('custom window controls toggle maximized state', async () => {
+      const controlsMounted = await mainWindow.webContents.executeJavaScript(`(() => {
+        return ['close', 'minimize', 'maximize'].every((action) =>
+          document.querySelector('.window-traffic-light--' + action)
+        )
+      })()`)
+      if (!controlsMounted) throw new Error('Main window traffic lights are missing')
+
+      const originalMaximized = mainWindow.isMaximized()
+      const originalHeight = (await mainWindow.webContents.executeJavaScript(
+        `window.innerHeight`,
+      )) as number
+      await mainWindow.webContents.executeJavaScript(
+        `document.querySelector('.window-traffic-light--maximize').click()`,
+      )
+      await waitFor('custom maximize button', () => mainWindow.isMaximized() !== originalMaximized)
+      await mainWindow.webContents.executeJavaScript(
+        `document.querySelector('.window-traffic-light--maximize').click()`,
+      )
+      await waitFor('custom restore button', () => mainWindow.isMaximized() === originalMaximized)
+      await waitFor('restored renderer viewport', async () => {
+        const height = (await mainWindow.webContents.executeJavaScript(
+          `window.innerHeight`,
+        )) as number
+        return height === originalHeight
+      })
+    })
+
     await record('playerbar layout contract holds at idle startup', async () => {
       const probe = (await mainWindow.webContents.executeJavaScript(
         `(async () => {
@@ -280,6 +316,7 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
             } : null,
             inViewport,
             bottomDistance: rect ? window.innerHeight - rect.bottom : null,
+            bottomGap: Number.parseFloat(style?.getPropertyValue('--auralis-player-bottom-gap') ?? ''),
             horizontalIntersection: Boolean(rect) && rect.right > 0 && rect.left < window.innerWidth,
             viewportWidth: window.innerWidth,
             viewportHeight: window.innerHeight,
@@ -310,6 +347,7 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
         } | null
         inViewport: boolean
         bottomDistance: number | null
+        bottomGap: number
         horizontalIntersection: boolean
         viewportWidth: number
         viewportHeight: number
@@ -339,11 +377,7 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
       if (!probe.inViewport) {
         throw new Error(`PlayerBar is outside viewport: ${JSON.stringify(probe.rect)}`)
       }
-      if (probe.bottomDistance === null || Math.abs(probe.bottomDistance - 36) > 2) {
-        throw new Error(
-          `PlayerBar bottom distance expected ~36px, received: ${String(probe.bottomDistance)}`,
-        )
-      }
+      assertPlayerBarBottomGap(probe)
       if (!probe.primaryButtonMounted || !probe.primaryButtonDisabled) {
         throw new Error('Expected idle transport primary button to be present and disabled')
       }
@@ -462,6 +496,7 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
               position: style?.position,
               inViewport,
               bottomDistance: rect ? window.innerHeight - rect.bottom : null,
+              bottomGap: Number.parseFloat(style?.getPropertyValue('--auralis-player-bottom-gap') ?? ''),
             }
           })()`,
           true,
@@ -470,15 +505,12 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
           position?: string
           inViewport: boolean
           bottomDistance: number | null
+          bottomGap: number
         }
         if (!probe.mounted || probe.position !== 'fixed' || !probe.inViewport) {
           throw new Error(`PlayerBar layout degraded after window resize: ${JSON.stringify(probe)}`)
         }
-        if (probe.bottomDistance === null || Math.abs(probe.bottomDistance - 36) > 2) {
-          throw new Error(
-            `PlayerBar bottom distance after resize expected ~36px, received: ${String(probe.bottomDistance)}`,
-          )
-        }
+        assertPlayerBarBottomGap(probe)
       } finally {
         mainWindow.setBounds(originalBounds)
         await delay(100)
@@ -565,6 +597,7 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
             inViewport,
             bottomDistance: rect ? window.innerHeight - rect.bottom : null,
             islandMounted: Boolean(island),
+            bottomGap: Number.parseFloat(style?.getPropertyValue('--auralis-player-bottom-gap') ?? ''),
             islandPointerEvents: islandStyle?.pointerEvents,
           }
         })()`,
@@ -576,6 +609,7 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
         inViewport: boolean
         bottomDistance: number | null
         islandMounted: boolean
+        bottomGap: number
         islandPointerEvents?: string
       }
       if (!probe.mounted || probe.position !== 'fixed' || !probe.inViewport) {
@@ -588,104 +622,8 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
           `PlayerBar island pointer-events degraded after miniplayer restoration: ${String(probe.islandPointerEvents)}`,
         )
       }
+      assertPlayerBarBottomGap(probe)
     })
-
-    let desktopLyricsWindow: BrowserWindow | undefined
-    await record('desktop lyrics window loads its restricted preload', async () => {
-      const toggleResult = (await mainWindow.webContents.executeJavaScript(
-        `window.auralis.desktopLyrics.toggle()`,
-        true,
-      )) as { visible?: boolean }
-      if (!toggleResult.visible) throw new Error('Desktop lyrics did not become visible')
-
-      await waitFor('desktop lyrics BrowserWindow', () => {
-        desktopLyricsWindow = BrowserWindow.getAllWindows().find(
-          (window) =>
-            window !== mainWindow && window.webContents.getURL().includes('desktopLyrics=1'),
-        )
-        return Boolean(desktopLyricsWindow)
-      })
-      await waitFor('desktop lyrics did-finish-load', () =>
-        Boolean(desktopLyricsWindow && finishedLoads.has(desktopLyricsWindow.webContents)),
-      )
-
-      const bridgeProbe = (await desktopLyricsWindow!.webContents.executeJavaScript(
-        `(() => {
-          const api = window.auralis
-          return {
-            apiExists: typeof api === 'object',
-            onlyDesktopLyrics: JSON.stringify(Object.keys(api || {})) === '["desktopLyrics"]',
-            canSubscribe: typeof api?.desktopLyrics?.onUpdate === 'function',
-            canToggleLock: typeof api?.desktopLyrics?.toggleMousePassthrough === 'function',
-            canSubscribeLock: typeof api?.desktopLyrics?.onMousePassthroughChanged === 'function',
-            exposesFullAppApi: typeof api?.app === 'object'
-          }
-        })()`,
-        true,
-      )) as DesktopLyricsBridgeProbe
-
-      if (
-        !bridgeProbe.apiExists ||
-        !bridgeProbe.onlyDesktopLyrics ||
-        !bridgeProbe.canSubscribe ||
-        !bridgeProbe.canToggleLock ||
-        !bridgeProbe.canSubscribeLock ||
-        bridgeProbe.exposesFullAppApi
-      ) {
-        throw new Error(`Desktop lyrics bridge is not restricted: ${JSON.stringify(bridgeProbe)}`)
-      }
-    })
-
-    await record('desktop lyrics bridge receives an update', async () => {
-      if (!desktopLyricsWindow) throw new Error('Desktop lyrics window is missing')
-      await desktopLyricsWindow.webContents.executeJavaScript(
-        `(() => {
-          globalThis.__auralisSmokeLyrics = null
-          globalThis.__auralisSmokeUnsubscribe = window.auralis.desktopLyrics.onUpdate((payload) => {
-            globalThis.__auralisSmokeLyrics = payload.currentLine
-            globalThis.__auralisSmokeUnsubscribe?.()
-          })
-          return true
-        })()`,
-        true,
-      )
-
-      const updated = (await mainWindow.webContents.executeJavaScript(
-        `window.auralis.desktopLyrics.update({
-          trackId: 1,
-          title: 'Smoke title',
-          artist: 'Smoke artist',
-          currentLine: 'Smoke current line',
-          nextLine: 'Smoke next line',
-          status: 'plain',
-          isPlaying: true
-        })`,
-        true,
-      )) as { ok?: boolean }
-      if (!updated.ok) throw new Error('Desktop lyrics update IPC failed')
-
-      await waitFor('desktop lyrics preload update', async () => {
-        const line = (await desktopLyricsWindow!.webContents.executeJavaScript(
-          `globalThis.__auralisSmokeLyrics`,
-          true,
-        )) as string | null
-        return line === 'Smoke current line'
-      })
-    })
-
-    await record(
-      'desktop lyrics window is destroyed on dispose without lingering windows',
-      async () => {
-        disposeDesktopLyricsWindow()
-        await waitFor(
-          'desktop lyrics window destruction',
-          () =>
-            !BrowserWindow.getAllWindows().some((window) =>
-              window.webContents.getURL().includes('desktopLyrics=1'),
-            ),
-        )
-      },
-    )
 
     await record('no main-frame load or renderer failure occurred', () => {
       if (loadFailures.length > 0) throw new Error(loadFailures.join('\n'))
@@ -709,6 +647,8 @@ export async function runElectronSmokeTest(mainWindow: BrowserWindow): Promise<n
   }
 
   process.stdout.write(`${SMOKE_RESULT_PREFIX}${JSON.stringify(result)}\n`)
-  app.exit(result.ok ? 0 : 1)
+  // Exercise service shutdown on both outcomes while preserving a failing exit code.
+  if (!result.ok) app.once('will-quit', () => app.exit(1))
+  app.quit()
   return new Promise<never>(() => undefined)
 }

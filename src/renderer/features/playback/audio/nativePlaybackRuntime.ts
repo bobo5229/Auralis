@@ -137,6 +137,7 @@ export function createNativePlaybackRuntime(
         session,
         trackId,
         trimDigitalSilence: options.trimBoundarySilence,
+        softTransition: options.softTransition === true,
       })
       return session === requestSession && result.accepted
     },

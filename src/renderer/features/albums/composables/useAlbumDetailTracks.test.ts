@@ -38,7 +38,7 @@ function createLibraryClient() {
   let changedListener: LibraryChangedListener | null = null
   const unsubscribe = vi.fn()
   const getAlbumDetail = vi.fn(
-    async (): Promise<AlbumDetailResult> => ({ tracks: [], moreAlbums: [] }),
+    async (): Promise<AlbumDetailResult> => ({ tracks: [], moreAlbums: [], genreAlbums: [] }),
   )
   const onChanged = vi.fn((listener: LibraryChangedListener) => {
     changedListener = listener
@@ -97,6 +97,90 @@ describe('selectAlbumTracks', () => {
 })
 
 describe('useAlbumDetailTracks', () => {
+  it('derives genre fallback from a catalog snapshot without IPC and gives artist siblings priority', async () => {
+    const current = createTrack(1, { genre: 'Jazz' })
+    const other = createTrack(2, { albumArtist: 'Other Artist', album: 'Other', genre: 'jazz' })
+    const snapshot = {
+      albumArtist: 'Artist',
+      albumTitle: 'Album',
+      artworkCacheKey: null,
+      releaseDate: null,
+      tracks: [current],
+      moreAlbums: [],
+      catalogTracks: [current, other],
+    }
+    writeAlbumDetailSnapshot(snapshot)
+    const library = createLibraryClient()
+    const detail = useAlbumDetailTracks({
+      albumArtist: ref('Artist'),
+      albumTitle: ref('Album'),
+      library: library.client,
+    })
+    await detail.initialize()
+    expect(detail.genreAlbums.value.map((album) => album.title)).toEqual(['Other'])
+    expect(library.getAlbumDetail).not.toHaveBeenCalled()
+
+    writeAlbumDetailSnapshot({
+      ...snapshot,
+      catalogTracks: [...snapshot.catalogTracks, createTrack(3, { album: 'Sibling' })],
+    })
+    await detail.ensureCurrentAlbum()
+    expect(detail.moreAlbums.value.map((album) => album.title)).toEqual(['Sibling'])
+    expect(detail.genreAlbums.value).toEqual([])
+    detail.dispose()
+  })
+
+  it('loads missing genre candidates for a track-only preview and does not leak them across artists', async () => {
+    const current = createTrack(1, { genre: 'Jazz' })
+    writeAlbumDetailSnapshot({
+      albumArtist: 'Artist',
+      albumTitle: 'Album',
+      artworkCacheKey: null,
+      releaseDate: null,
+      tracks: [current],
+      moreAlbums: [],
+      catalogTracks: null,
+    })
+    const library = createLibraryClient()
+    const candidate = {
+      title: 'Other',
+      albumArtist: 'Other Artist',
+      releaseDate: null,
+      artworkCacheKey: null,
+    }
+    library.getAlbumDetail.mockResolvedValue({
+      tracks: [current],
+      moreAlbums: [],
+      genreAlbums: [candidate],
+    })
+    const artist = ref('Artist')
+    const title = ref('Album')
+    const detail = useAlbumDetailTracks({
+      albumArtist: artist,
+      albumTitle: title,
+      library: library.client,
+    })
+    expect(detail.loadState.value).toBe('ready')
+    await detail.initialize()
+    expect(library.getAlbumDetail).toHaveBeenCalledOnce()
+    expect(detail.genreAlbums.value.map((album) => album.title)).toEqual(['Other'])
+    await detail.ensureCurrentAlbum()
+    expect(library.getAlbumDetail).toHaveBeenCalledOnce()
+
+    artist.value = 'Other Artist'
+    title.value = 'Other'
+    expect(detail.genreAlbums.value).toEqual([])
+    library.getAlbumDetail.mockResolvedValue({
+      tracks: [createTrack(2, { albumArtist: 'Other Artist', album: 'Other', genre: null })],
+      moreAlbums: [],
+      genreAlbums: [],
+    })
+    await detail.ensureCurrentAlbum()
+    expect(detail.genreAlbums.value).toEqual([])
+    expect(detail.loadState.value).toBe('ready')
+    detail.dispose()
+  })
+
   it('hydrates synchronously from a matching snapshot and skips IPC', async () => {
     writeAlbumDetailSnapshot({
       albumArtist: 'Artist',
@@ -122,7 +206,11 @@ describe('useAlbumDetailTracks', () => {
     await detail.initialize()
     expect(library.getAlbumDetail).not.toHaveBeenCalled()
 
-    library.getAlbumDetail.mockResolvedValue({ tracks: [createTrack(1)], moreAlbums: [] })
+    library.getAlbumDetail.mockResolvedValue({
+      tracks: [createTrack(1)],
+      moreAlbums: [],
+      genreAlbums: [],
+    })
     library.emit({ reason: 'metadata-refresh', trackIds: [1], filePaths: [] })
     expect(library.getAlbumDetail).toHaveBeenCalledTimes(1)
   })
@@ -131,6 +219,7 @@ describe('useAlbumDetailTracks', () => {
     const library = createLibraryClient()
     library.getAlbumDetail.mockResolvedValue({
       tracks: [createTrack(1)],
+      genreAlbums: [],
       moreAlbums: [
         {
           title: 'Other',
@@ -176,12 +265,12 @@ describe('useAlbumDetailTracks', () => {
 
     const firstReload = detail.reloadTracks({ background: true })
     const secondReload = detail.reloadTracks({ background: true })
-    second.resolve({ tracks: [createTrack(2)], moreAlbums: [] })
+    second.resolve({ tracks: [createTrack(2)], moreAlbums: [], genreAlbums: [] })
 
     await expect(secondReload).resolves.toBe(true)
     expect(detail.tracks.value.map((track) => track.id)).toEqual([2])
 
-    first.resolve({ tracks: [createTrack(1)], moreAlbums: [] })
+    first.resolve({ tracks: [createTrack(1)], moreAlbums: [], genreAlbums: [] })
     await expect(firstReload).resolves.toBe(false)
     expect(detail.tracks.value.map((track) => track.id)).toEqual([2])
   })
@@ -189,7 +278,11 @@ describe('useAlbumDetailTracks', () => {
   it('debounces play-stat changes but reloads other library changes immediately', async () => {
     vi.useFakeTimers()
     const library = createLibraryClient()
-    library.getAlbumDetail.mockResolvedValue({ tracks: [createTrack(1)], moreAlbums: [] })
+    library.getAlbumDetail.mockResolvedValue({
+      tracks: [createTrack(1)],
+      moreAlbums: [],
+      genreAlbums: [],
+    })
     const detail = useAlbumDetailTracks({
       albumArtist: ref('Artist'),
       albumTitle: ref('Album'),
@@ -217,7 +310,7 @@ describe('useAlbumDetailTracks', () => {
   it('preserves an existing ready snapshot after a failed background reload', async () => {
     const library = createLibraryClient()
     library.getAlbumDetail
-      .mockResolvedValueOnce({ tracks: [createTrack(1)], moreAlbums: [] })
+      .mockResolvedValueOnce({ tracks: [createTrack(1)], moreAlbums: [], genreAlbums: [] })
       .mockRejectedValueOnce(new Error('fail'))
     const detail = useAlbumDetailTracks({
       albumArtist: ref('Artist'),
@@ -237,7 +330,7 @@ describe('useAlbumDetailTracks', () => {
     const library = createLibraryClient()
     library.getAlbumDetail
       .mockRejectedValueOnce(new Error('fail'))
-      .mockResolvedValue({ tracks: [createTrack(1)], moreAlbums: [] })
+      .mockResolvedValue({ tracks: [createTrack(1)], moreAlbums: [], genreAlbums: [] })
     const detail = useAlbumDetailTracks({
       albumArtist: ref('Artist'),
       albumTitle: ref('Album'),

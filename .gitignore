@@ -10,7 +10,9 @@ out
 release/
 release-gapless-v2/
 build/
-resources/
+
+# Resource sources are tracked; audio executables are staged locally.
+resources/audio/*.exe
 
 # Electron native modules cache
 .npm-cache/
@@ -116,6 +118,8 @@ docs/projects/*
 !docs/projects/README.md
 !docs/projects/library-manuscript-skin-mvp/
 !docs/projects/library-manuscript-skin-mvp/**
+!docs/projects/library-page-orchestration/
+!docs/projects/library-page-orchestration/**
 !docs/history/
 docs/history/*
 !docs/history/README.md
@@ -124,6 +128,9 @@ docs/topics/*
 !docs/topics/albums/
 docs/topics/albums/*
 !docs/topics/albums/techdoc-album-detail-local-catalog-fallback-gallery.md
+!docs/topics/albums/PRD-cd-album-cover-index-2026-09-25.md
+!docs/topics/albums/TECHDOC-cd-album-cover-index-2026-09-25.md
+!docs/topics/albums/TECHDOC-cd-catalog-sequential-playback-2026-09-26.md
 !docs/topics/README.md
 !docs/topics/library/
 docs/topics/library/*
@@ -153,8 +160,6 @@ docs/reviews/*
 !docs/handoffs/
 docs/handoffs/*
 !docs/handoffs/HANDOFF-remaining-work-2026-08-28.md
-!docs/library-page-orchestration/
-!docs/library-page-orchestration/**
 
 # Performance traces
 artifacts/
@@ -168,8 +173,8 @@ issues/
 # Release media session
 release-media-session/
 
-# UI prototypes / design exploration
-test/
+# Local-only UI prototypes / design exploration
+demo/local/
 
 # TypeScript and project-specific caches
 *.tsbuildinfo

@@ -11,7 +11,7 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 
 主要能力包括添加并扫描本地音乐目录，提取和编辑音频标签、封面与歌词，
 浏览曲目、专辑、普通/智能播放列表，本地播放并记录收听历史，
-通过 Archive 回顾统计，以及显示应用内歌词和独立桌面歌词。
+通过 Archive 回顾统计，以及显示应用内歌词。
 
 隐私与耐久性是产品方向：音乐文件和数据库留在本机，当前没有账号系统、
 遥测、在线推荐或云同步。
@@ -21,7 +21,7 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 - 桌面容器：Electron 38，主进程运行于 Node.js，界面运行于 Chromium。
 - 语言：TypeScript 5.7；Vue 文件使用 Vue 3 Composition API 和 `<script setup>`。
 - UI：Vue 3、Vue Router、UnoCSS、Motion One、TanStack Virtual。
-- 视觉与歌词：PixiJS、`@applemusic-like-lyrics/core`、OpenCC JS。
+- 视觉与歌词：PixiJS、`@applemusic-like-lyrics/core`。
 - 数据库：SQLite，通过同步原生模块 `better-sqlite3` 访问。
 - 元数据：`music-metadata`，耗时扫描和刷新运行在 Node worker thread。
 - 日志与诊断：主进程使用 Pino（开发环境 `debug`、生产环境 `info`）；Renderer 使用仅写入本地
@@ -66,20 +66,20 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 
 - Electron 主进程入口：`src/main/index.ts`
 - 主窗口创建：`src/main/app/createWindow.ts`
-- 桌面歌词窗口：`src/main/app/desktopLyricsWindow.ts`
-- 主窗口/桌面歌词 preload：`src/preload/index.ts`、`src/preload/desktopLyrics.ts`
+- 主窗口 preload：`src/preload/index.ts`
 - renderer HTML 入口：`src/renderer/index.html`
 - Vue 启动入口：`src/renderer/main.ts`
 - 主 Vue 应用：`src/renderer/App.vue`
-- 桌面歌词 Vue 应用：`src/renderer/DesktopLyricsApp.vue`
 - 顶层路由注册：`src/renderer/app/router/index.ts`
 - IPC handler 注册/依赖组装：`src/main/ipc/registerIpcHandlers.ts`
 - 全库扫描 worker：`src/main/features/libraryScan/libraryScanWorker.ts`
 - 元数据刷新 worker：`src/main/features/metadata/metadataRefreshWorker.ts`
 
-启动时，`src/main/index.ts` 设置开发数据目录和 GPU 开关，注册桌面歌词 IPC，
+启动时，`src/main/index.ts` 设置开发数据目录和 GPU 开关，
 等待 Electron ready，随后注册封面/音频协议、初始化并迁移数据库、注册业务 IPC，
-最后创建窗口。退出前会关闭 SQLite。
+最后创建窗口。退出由 `src/main/app/appShutdown.ts` 统一协调：先拒绝新的 IPC 请求、
+停止目录监听与缓存维护，等待已接收的请求和文件写入完成，再停止扫描/刷新 Worker 并排空
+消息处理，最后关闭 SQLite 和日志。停止失败时保留资源，允许后续退出请求重试。
 
 ## 5. 核心模块与依赖方向
 
@@ -95,17 +95,18 @@ Vue UI -> preload typed API -> Electron IPC handler -> Service -> Repository -> 
 ### 5.1 跨进程合约
 
 - IPC channel 常量：`src/shared/ipc/channels.ts`
-- 请求和响应映射：`src/shared/ipc/contracts.ts`
+- 请求、响应和事件映射：`src/shared/ipc/contracts.ts`
+- 主进程事件发送：`src/main/ipc/rendererEvents.ts`，复用事件契约约束 channel 与 payload。
 - renderer 可见 API：`src/shared/ipc/api.ts`
-- preload 实现：`src/preload/index.ts`、`src/preload/desktopLyrics.ts`
+- preload 实现：`src/preload/index.ts`
 - renderer 端调用辅助：`src/renderer/shared/ipc/client.ts`
 
 新增或修改 IPC 时，必须同步维护 channels、contracts、api、preload 和 handler。
 renderer 不得绕过 `window.auralis` 直接使用 Electron 能力。
 
-主窗口与桌面歌词窗口均启用 `contextIsolation`、`webSecurity` 和 Electron sandbox，并关闭
-Node integration。preload 构建为自包含的 CommonJS `index.cjs` 与 `desktopLyrics.cjs`；桌面歌词
-只暴露自身所需的最小订阅 API。`src/main/app/webContentsSecurity.ts` 拒绝新窗口、webview 和权限
+主窗口启用 `contextIsolation`、`webSecurity` 和 Electron sandbox，并关闭
+Node integration。preload 构建为自包含的 CommonJS `index.cjs`。
+`src/main/app/webContentsSecurity.ts` 拒绝新窗口、webview 和权限
 请求，并阻止偏离已配置 renderer 入口的导航与重定向。
 
 ### 5.2 主进程业务层
@@ -123,6 +124,10 @@ Node integration。preload 构建为自包含的 CommonJS `index.cjs` 与 `deskt
 - 歌词解析：`src/main/features/metadata/resolveLyricsForFile.ts`
 - 封面解析与缓存：`src/main/features/artwork/`
 - 音频协议与路径校验：`src/main/features/audio/`
+
+播放与标签写回通过 `src/main/features/audio/audioRuntimePaths.ts` 共用音频工具路径：
+开发时使用 `resources/audio/`，打包后使用应用资源目录下的 `audio/`。标签写回显式接收
+随应用提供的 FFmpeg 路径；缺失时报告错误，不依赖系统 PATH。
 
 ### 5.3 数据访问层
 
@@ -146,11 +151,10 @@ service 和 watcher，并把它们绑定到 typed IPC。业务规则不应继续
 - 跨 feature 的 UI 工具：`src/renderer/shared/`
 - UI 语言（简/繁/英）：`src/renderer/i18n/`（vue-i18n 实例）+ `src/renderer/locales/`（`zh-Hans` 唯一手写源、`en` 人工、`zh-Hant` 由 `scripts/generate-zh-hant.mjs` s2tw 生成）+ `src/renderer/composables/useLocale.ts`（localStorage 持久化与热切换，键 `auralis-locale`）
 
-主窗口使用操作系统原生窗口框架（`frame: true` + `transparent: false`），Windows 原生提供
-标题栏及最小化、最大化 / 还原、关闭按钮，Renderer 不再绘制主窗口控制按钮或主壳拖拽区。
+主窗口使用不透明的无框窗口（`frame: false` + `transparent: false`）。主界面左侧边栏顶部
+显示自绘红绿灯窗口按钮，CD 视图暂时在右上角显示同一组按钮；窗口操作经过类型化 IPC。
 客户区壳底与内描边仍可跟随当前曲专辑色板（`--auralis-window-chrome-*`），无曲时回退主题
-token。Miniplayer 当前复用同一主 `BrowserWindow`，因此也继承原生窗口框架；桌面歌词仍是
-独立无框透明窗口，保留自身 drag / no-drag 区域。
+token。Miniplayer 复用同一主 `BrowserWindow`，保持独立的无标题栏布局。
 
 播放视觉链路以 `src/renderer/features/playback/composables/usePlayback.ts` 为唯一状态源：
 其内部采用分层架构编排（`usePlayback` 稳定单例门面 -> `PlaybackController` 唯一状态编排者 ->
@@ -313,7 +317,7 @@ npm.cmd run lint
 - renderer 禁止直接访问 SQLite、Node 文件系统、元数据解析或扫描逻辑。
 - 数据主路径保持 `Repository -> Service -> Typed IPC -> UI`。
 - preload 必须使用 context bridge；不要开启 renderer 的 Node integration。
-- 主窗口与桌面歌词窗口必须保持 sandbox；preload 保持自包含 CommonJS 输出和最小暴露面。
+- 主窗口必须保持 sandbox；preload 保持自包含 CommonJS 输出和最小暴露面。
 - 所有 renderer 窗口必须复用导航、权限、新窗口和 webview 拒绝策略。
 - 跨进程数据必须有 shared 类型，不能用未声明的字符串 channel 或 `any` 漂移。
 - SQL 留在 repositories/schema；业务规则留在 services/features；handler 只做适配和组装。
@@ -335,12 +339,12 @@ npm.cmd run lint
   为准。
 - `.gitignore` 默认忽略 `docs/` 下的详细资料，仅通过精确例外跟踪规则、架构说明、导航、手稿皮肤项目档案、
   选定专题/评审/交接文档；新增正式文档需明确决定是否跟踪。
-- 主窗和桌面歌词窗已启用 sandbox、context isolation、`webSecurity` 与统一导航/权限策略；安全
+- 主窗已启用 sandbox、context isolation、`webSecurity` 与统一导航/权限策略；安全
   边界仍依赖 preload、typed IPC 和自定义媒体协议的输入校验，新增能力时必须同步扩展相应测试，
   不能假设 renderer 内容可信。
-- 主窗口使用操作系统原生边框和标题栏（`frame: true`、`transparent: false`）；不要根据历史
-  无框窗口设计文档重新引入 Renderer 自绘窗口控件或主壳拖拽区。桌面歌词仍是独立无框透明
-  窗口。启动仍依赖 renderer ready 与 fallback，需验证白屏、崩溃和加载失败路径。
+- 主窗口使用不透明的无框窗口（`frame: false`、`transparent: false`）；窗口按钮和拖拽区
+  位于主界面外壳，最小化、最大化 / 还原和关闭通过类型化 IPC 调用主进程。
+  启动仍依赖 renderer ready 与 fallback，需验证白屏、崩溃和加载失败路径。
 - 全局流体背景、播放器玻璃层、歌词磨砂层和页面局部样式共同叠加；改动 z-index、
   backdrop-filter、透明度或网格尺寸时，必须同时检查明暗主题、GPU 占用和低动态模式。
 - Renderer 的业务错误已接入本地结构化诊断；新增诊断必须继续经过字段限制与脱敏，不能直接

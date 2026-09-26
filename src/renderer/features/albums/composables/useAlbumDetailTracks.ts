@@ -10,7 +10,8 @@ import {
   type AlbumDetailSnapshot,
 } from '../albumDetailSnapshot'
 import type { AlbumSummary } from '../types'
-import { moreAlbumsByArtist } from '../utils/albumGrouping'
+import { moreAlbumsByArtist, moreAlbumsByGenre } from '../utils/albumGrouping'
+import { splitDelimitedValues } from '@shared/utils/delimitedValues'
 import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
 import { albumIdentityKey } from '../utils/albumIdentity'
 
@@ -30,6 +31,7 @@ interface UseAlbumDetailTracksResult {
   tracks: Ref<TrackListItem[]>
   albumTracks: ComputedRef<TrackListItem[]>
   moreAlbums: ComputedRef<AlbumSummary[]>
+  genreAlbums: ComputedRef<AlbumSummary[]>
   previewArtworkCacheKey: Ref<string | null>
   previewReleaseDate: Ref<string | null>
   loadState: Ref<AlbumDetailLoadState>
@@ -70,6 +72,12 @@ export function useAlbumDetailTracks({
   const storedMoreAlbums = shallowRef<AlbumSummary[]>(
     initialSnapshot && !snapshotHasCatalog(initialSnapshot) ? initialSnapshot.moreAlbums : [],
   )
+  const storedGenreAlbums = shallowRef<AlbumSummary[]>(initialSnapshot?.genreAlbums ?? [])
+  const storedAlbumKey = ref(
+    initialSnapshot
+      ? albumIdentityKey(initialSnapshot.albumArtist, initialSnapshot.albumTitle)
+      : '',
+  )
   const previewArtworkCacheKey = ref<string | null>(initialSnapshot?.artworkCacheKey ?? null)
   const previewReleaseDate = ref<string | null>(initialSnapshot?.releaseDate ?? null)
   let hasCatalogSnapshot = snapshotHasCatalog(initialSnapshot)
@@ -86,6 +94,20 @@ export function useAlbumDetailTracks({
 
     return getAlbumCatalogIndex(tracks.value).moreAlbums(albumArtist.value, albumTitle.value)
   })
+  const genreAlbums = computed(() => {
+    if (moreAlbums.value.length > 0 || albumTracks.value.length === 0) return []
+    if (hasCatalogSnapshot) {
+      return moreAlbumsByGenre(
+        getAlbumCatalogIndex(tracks.value).albums,
+        albumTracks.value,
+        albumArtist.value,
+        albumTitle.value,
+      )
+    }
+    return storedAlbumKey.value === albumIdentityKey(albumArtist.value, albumTitle.value)
+      ? storedGenreAlbums.value
+      : []
+  })
 
   let disposed = false
   let loadGeneration = 0
@@ -97,6 +119,8 @@ export function useAlbumDetailTracks({
   }
 
   function applySnapshot(snapshot: AlbumDetailSnapshot): void {
+    storedGenreAlbums.value = snapshot.genreAlbums ?? []
+    storedAlbumKey.value = albumIdentityKey(snapshot.albumArtist, snapshot.albumTitle)
     previewArtworkCacheKey.value = snapshot.artworkCacheKey
     previewReleaseDate.value = snapshot.releaseDate
 
@@ -157,6 +181,7 @@ export function useAlbumDetailTracks({
         result.tracks.find((track) => track.releaseDate)?.releaseDate ?? previewReleaseDate.value,
       tracks: result.tracks,
       moreAlbums: result.moreAlbums.map(toAlbumSummary),
+      genreAlbums: result.genreAlbums.map(toAlbumSummary),
       catalogTracks: hasCatalogSnapshot ? tracks.value : null,
     })
   }
@@ -205,6 +230,8 @@ export function useAlbumDetailTracks({
 
       mergeAlbumTracks(result.tracks)
       if (!hasCatalogSnapshot) storedMoreAlbums.value = result.moreAlbums.map(toAlbumSummary)
+      storedGenreAlbums.value = result.genreAlbums.map(toAlbumSummary)
+      storedAlbumKey.value = albumIdentityKey(albumArtist.value, albumTitle.value)
       previewArtworkCacheKey.value =
         result.tracks.find((track) => track.artworkCacheKey)?.artworkCacheKey ??
         previewArtworkCacheKey.value
@@ -226,7 +253,15 @@ export function useAlbumDetailTracks({
   }
 
   async function ensureCurrentAlbum(): Promise<void> {
-    if (syncToCurrentAlbum()) return
+    if (syncToCurrentAlbum()) {
+      const snapshot = readAlbumDetailSnapshot(albumArtist.value, albumTitle.value)
+      const needsGenreAlbums =
+        !hasCatalogSnapshot &&
+        moreAlbums.value.length === 0 &&
+        snapshot?.genreAlbums === undefined &&
+        albumTracks.value.some((track) => splitDelimitedValues(track.genre).length > 0)
+      if (!needsGenreAlbums) return
+    }
     await reloadTracks()
   }
 
@@ -250,6 +285,7 @@ export function useAlbumDetailTracks({
       }
       hasCatalogSnapshot = false
       storedMoreAlbums.value = []
+      storedGenreAlbums.value = []
       invalidateAlbumDetailSnapshot()
       void reloadTracks({ background: true })
     })
@@ -273,6 +309,7 @@ export function useAlbumDetailTracks({
     tracks,
     albumTracks,
     moreAlbums,
+    genreAlbums,
     previewArtworkCacheKey,
     previewReleaseDate,
     loadState,

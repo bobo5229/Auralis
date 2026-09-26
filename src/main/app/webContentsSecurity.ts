@@ -29,9 +29,9 @@ function normalizePathname(url: URL): string | null {
 }
 
 /**
- * Renderer routes use hashes and the desktop-lyrics surface uses a query flag.
- * Both are same-document changes, so only the scheme, authority and entry path
- * need to match the configured renderer entry.
+ * Renderer routes use hashes and query flags. Both are same-document changes,
+ * so only the scheme, authority and entry path need to match the configured
+ * renderer entry.
  */
 export function isTrustedRendererUrl(candidate: string, rendererEntry: string): boolean {
   const candidateUrl = toUrl(candidate)

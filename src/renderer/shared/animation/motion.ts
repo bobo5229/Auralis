@@ -1,6 +1,23 @@
 import { animate } from '@motionone/dom'
 import type { AnimationControls } from '@motionone/types'
 
+/** A quiet tooltip fade, with no movement and no animation under reduced motion. */
+export function animateTooltipOpacity(target: HTMLElement, visible: boolean): () => void {
+  const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  target.style.opacity = visible ? '1' : '0'
+  if (preference.matches) return () => {}
+  const animation = target.animate([{ opacity: visible ? 0 : 1 }, { opacity: visible ? 1 : 0 }], {
+    duration: 100,
+    easing: 'ease-out',
+  })
+  const stop = (): void => animation.cancel()
+  preference.addEventListener('change', stop)
+  return () => {
+    stop()
+    preference.removeEventListener('change', stop)
+  }
+}
+
 /** A compositor-only playback marker; paused/reduced motion keeps a static line. */
 export function animatePlaybackUnderline(target: HTMLElement, playing: boolean): () => void {
   const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -255,6 +272,16 @@ export function animateRankingRecord(
     },
     { duration: reducedMotion ? 0 : 0.62, easing: [0.18, 0.85, 0.2, 1] },
   )
+}
+
+/** A small tactile press that leaves the disc's tilt and artwork rotation intact. */
+export function animateCdPress(target: HTMLElement, reducedMotion: boolean): () => void {
+  if (reducedMotion) return () => {}
+  const animation = target.animate(
+    [{ scale: '1' }, { scale: '0.98', offset: 0.35 }, { scale: '1' }],
+    { duration: 220, easing: 'ease-in-out' },
+  )
+  return () => animation.cancel()
 }
 
 /** Cancellable physics clock; return false once all motion has settled. */

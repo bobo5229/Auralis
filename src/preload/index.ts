@@ -124,19 +124,6 @@ export const auralisApi: AuralisApi = {
     updateThumbarState: (state) => send(ipcChannels.systemMedia.updateThumbarState, state),
     onCommand: (callback) => on(ipcChannels.systemMedia.command, callback),
   },
-  desktopLyrics: {
-    toggle: () => invoke(ipcChannels.desktopLyrics.toggle),
-    isVisible: () => invoke(ipcChannels.desktopLyrics.isVisible),
-    setSuppressed: (suppressed) => invoke(ipcChannels.desktopLyrics.setSuppressed, { suppressed }),
-    toggleMousePassthrough: () => invoke(ipcChannels.desktopLyrics.toggleMousePassthrough),
-    isMousePassthroughEnabled: () => invoke(ipcChannels.desktopLyrics.isMousePassthroughEnabled),
-    update: (payload) => invoke(ipcChannels.desktopLyrics.update, payload),
-    onUpdate: (callback) => on(ipcChannels.desktopLyrics.changed, callback),
-    onVisibilityChanged: (callback) => on(ipcChannels.desktopLyrics.visibilityChanged, callback),
-    onMousePassthroughChanged: (callback) =>
-      on(ipcChannels.desktopLyrics.mousePassthroughChanged, callback),
-    ready: () => send(ipcChannels.desktopLyrics.ready),
-  },
   archive: {
     getListeningHeatmap: (year) => invoke(ipcChannels.archive.getListeningHeatmap, { year }),
     getDailyListeningDetail: (date) =>
@@ -162,6 +149,9 @@ export const auralisApi: AuralisApi = {
     onRefreshProgress: (callback) => on(ipcChannels.metadata.refreshProgress, callback),
   },
   window: {
+    control: (action) => invoke(ipcChannels.window.control, { action }),
+    getMaximized: () => invoke(ipcChannels.window.getMaximized),
+    onMaximizedChanged: (callback) => on(ipcChannels.window.maximizedChanged, callback),
     enterMiniPlayer: () => invoke(ipcChannels.window.enterMiniPlayer),
     restoreFromMiniPlayer: () => invoke(ipcChannels.window.restoreFromMiniPlayer),
     getMiniPlayerState: () => invoke(ipcChannels.window.getMiniPlayerState),

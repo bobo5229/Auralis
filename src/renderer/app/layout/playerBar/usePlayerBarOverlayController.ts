@@ -1,6 +1,6 @@
 import { computed, ref, type Ref } from 'vue'
 
-export type PlayerBarOverlayId = 'queue' | 'mode' | 'overflow' | 'volume' | 'desktopLyricsLock'
+export type PlayerBarOverlayId = 'queue' | 'mode' | 'overflow' | 'volume'
 export type PlayerBarToggleOverlayId = Exclude<PlayerBarOverlayId, 'volume'>
 
 export interface PlayerBarVolumeOverlayPort {
@@ -18,7 +18,6 @@ export function usePlayerBarOverlayController(volume: PlayerBarVolumeOverlayPort
   const isQueueOpen = computed(() => activePanelState.value === 'queue')
   const isModeMenuOpen = computed(() => activePanelState.value === 'mode')
   const isOverflowOpen = computed(() => activePanelState.value === 'overflow')
-  const isDesktopLyricsLockOpen = computed(() => activePanelState.value === 'desktopLyricsLock')
   const isVolumeOpen = computed(() => volume.open.value)
 
   function toggle(target: PlayerBarToggleOverlayId): void {
@@ -79,7 +78,6 @@ export function usePlayerBarOverlayController(volume: PlayerBarVolumeOverlayPort
     isQueueOpen,
     isModeMenuOpen,
     isOverflowOpen,
-    isDesktopLyricsLockOpen,
     isVolumeOpen,
     toggle,
     activateVolume,

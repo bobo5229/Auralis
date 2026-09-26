@@ -15,4 +15,5 @@ export interface AlbumDetailSummary {
 export interface AlbumDetailResult {
   tracks: TrackListItem[]
   moreAlbums: AlbumDetailSummary[]
+  genreAlbums: AlbumDetailSummary[]
 }

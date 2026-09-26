@@ -21,6 +21,7 @@ import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryViewMode } from '../types/libraryInteraction'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { createLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
+import { getAlbumCoverDiscHeadingCount } from '../utils/albumCoverDiscHeadings'
 import { resolveLibrarySurfaceKind } from '../utils/librarySurface'
 import type { LibraryRouteScope } from '../utils/libraryRouteScope'
 import {
@@ -101,7 +102,11 @@ const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
 
 function getAlbumGroupSize(group: LibraryAlbumGroup): number {
-  return getAlbumGroupEstimatedHeight(group.tracks.length, Boolean(group.releaseDate))
+  return getAlbumGroupEstimatedHeight(
+    group.tracks.length,
+    Boolean(group.releaseDate),
+    getAlbumCoverDiscHeadingCount(group.tracks),
+  )
 }
 
 const libraryCatalogViewIndex = computed(() =>
@@ -442,6 +447,7 @@ const {
   readPersistedViewMode,
   onSnapshotCommitted: (snapshot) => {
     resetMatchCursor()
+    searchOutcome.value = { kind: 'idle' }
     ensureKeyboardFocusTrackId()
     scheduleLibrarySearchIndex(snapshot.tracks)
   },
@@ -547,51 +553,53 @@ onBeforeUnmount(() => {
       @keydown="onListShellKeyDown"
     >
       <div class="library-search-zone">
-        <Transition name="search-bar">
-          <div
-            v-if="shouldRenderSearchBar"
-            ref="searchRootRef"
-            class="library-search-bar"
-            @pointerdown="onSearchBarPointerDown"
-          >
-            <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
-            <input
-              ref="searchInputRef"
-              v-model="searchQuery"
-              type="text"
-              class="library-search-input"
-              :placeholder="t('library.search.placeholder')"
-              :aria-label="t('library.search.ariaLabel')"
-              spellcheck="false"
-              @focus="onSearchInputFocus"
-              @blur="onSearchInputBlur"
-              @keydown="onSearchKeydown"
-            />
-            <span
-              v-if="searchOutcome.kind !== 'idle'"
-              class="library-search-outcome ml-auto text-xs tabular-nums text-[var(--auralis-text-muted)] select-none shrink-0"
-              role="status"
-              aria-live="polite"
+        <Transition name="search-overlay" :duration="160">
+          <div v-if="shouldRenderSearchBar" class="library-search-overlay">
+            <div class="library-search-backdrop" aria-hidden="true"></div>
+            <div
+              ref="searchRootRef"
+              class="library-search-bar"
+              @pointerdown="onSearchBarPointerDown"
             >
-              <template v-if="searchOutcome.kind === 'matched'">
-                {{
-                  searchOutcome.wrapped
-                    ? t('library.search.wrapped', {
-                        index: searchOutcome.index,
-                        total: searchOutcome.total,
-                      })
-                    : t('library.search.matched', {
-                        index: searchOutcome.index,
-                        total: searchOutcome.total,
-                      })
-                }}
-              </template>
-              <template v-else-if="searchOutcome.kind === 'not-found'">
-                <span class="text-red-500 font-medium">
-                  {{ t('library.search.notFound') }}
-                </span>
-              </template>
-            </span>
+              <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
+              <input
+                ref="searchInputRef"
+                v-model="searchQuery"
+                type="text"
+                class="library-search-input"
+                :placeholder="t('library.search.placeholder')"
+                :aria-label="t('library.search.ariaLabel')"
+                spellcheck="false"
+                @focus="onSearchInputFocus"
+                @blur="onSearchInputBlur"
+                @keydown="onSearchKeydown"
+              />
+              <span
+                v-if="searchOutcome.kind !== 'idle'"
+                class="library-search-outcome ml-auto text-xs tabular-nums text-[var(--auralis-text-muted)] select-none shrink-0"
+                role="status"
+                aria-live="polite"
+              >
+                <template v-if="searchOutcome.kind === 'matched'">
+                  {{
+                    searchOutcome.wrapped
+                      ? t('library.search.wrapped', {
+                          index: searchOutcome.index,
+                          total: searchOutcome.total,
+                        })
+                      : t('library.search.matched', {
+                          index: searchOutcome.index,
+                          total: searchOutcome.total,
+                        })
+                  }}
+                </template>
+                <template v-else-if="searchOutcome.kind === 'not-found'">
+                  <span class="text-red-500 font-medium">
+                    {{ t('library.search.notFound') }}
+                  </span>
+                </template>
+              </span>
+            </div>
           </div>
         </Transition>
       </div>

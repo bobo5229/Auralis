@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { fileURLToPath } from 'node:url'
 import type Database from 'better-sqlite3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { migrateDatabase } from '../database/schema'
@@ -12,6 +13,7 @@ import { MetadataRefreshRepository, type RefreshedTrackMetadata } from './metada
 import { resolveWatchRefreshPaths } from '../features/metadata/metadataFileChangeFilter'
 import { MetadataRefreshService } from '../features/metadata/metadataRefreshService'
 import { readStableMetadata } from '../features/metadata/readStableMetadata'
+import { resolveAudioRuntimePaths } from '../features/audio/audioRuntimePaths'
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
@@ -23,6 +25,11 @@ const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as new (
 ) => Database.Database
 const databases: Database.Database[] = []
 const roots: string[] = []
+const { ffmpegPath } = resolveAudioRuntimePaths({
+  isPackaged: false,
+  appPath: fileURLToPath(new URL('../../../', import.meta.url)),
+  resourcesPath: '',
+})
 const path = 'C:\\isolated\\song.flac'
 function setup(filePath = path) {
   const db = new DatabaseCtor(':memory:')
@@ -194,7 +201,7 @@ describe('isolated FFmpeg tag write and stable readback', () => {
     const original = Buffer.from('file must never be opened by the tag writer')
     await writeFile(filePath, original)
     const { db, repo } = setup(filePath)
-    const service = new MetadataRefreshService(repo, root, vi.fn())
+    const service = new MetadataRefreshService(repo, root, vi.fn(), ffmpegPath)
     const suppress = vi.fn()
     service.setTagWriteSuccessHandler(suppress)
     await expect(
@@ -211,7 +218,7 @@ describe('isolated FFmpeg tag write and stable readback', () => {
     roots.push(root)
     const filePath = join(root, 'sample.flac')
     await promisify(execFile)(
-      'ffmpeg',
+      ffmpegPath,
       [
         '-hide_banner',
         '-loglevel',
@@ -233,7 +240,7 @@ describe('isolated FFmpeg tag write and stable readback', () => {
       await originalCopy(source, target, mode)
     })
     const { db, repo } = setup(filePath)
-    const service = new MetadataRefreshService(repo, root, vi.fn())
+    const service = new MetadataRefreshService(repo, root, vi.fn(), ffmpegPath)
     vi.spyOn(service, 'refreshTracksFromFileChanges').mockReturnValue({ jobId: 999 })
     await expect(service.updateTrackMetadata(edit)).rejects.toThrow('changed during tag writing')
     expect(await readFile(filePath, 'utf8')).toBe('external replacement')
@@ -246,7 +253,7 @@ describe('isolated FFmpeg tag write and stable readback', () => {
       roots.push(root)
       const filePath = join(root, `sample.${extension}`)
       await promisify(execFile)(
-        'ffmpeg',
+        ffmpegPath,
         [
           '-hide_banner',
           '-loglevel',
@@ -260,7 +267,7 @@ describe('isolated FFmpeg tag write and stable readback', () => {
         { windowsHide: true },
       )
       const { db, repo } = setup(filePath)
-      const service = new MetadataRefreshService(repo, root, vi.fn())
+      const service = new MetadataRefreshService(repo, root, vi.fn(), ffmpegPath)
       const suppress = vi.fn()
       service.setTagWriteSuccessHandler(suppress)
       const reconcile = vi
@@ -300,7 +307,7 @@ describe('isolated FFmpeg tag write and stable readback', () => {
     const filePath = join(root, 'corrupt.flac')
     await writeFile(filePath, 'invalid audio', 'utf8')
     const { db, repo } = setup(filePath)
-    const service = new MetadataRefreshService(repo, root, vi.fn())
+    const service = new MetadataRefreshService(repo, root, vi.fn(), ffmpegPath)
     const reconcile = vi
       .spyOn(service, 'refreshTracksFromFileChanges')
       .mockReturnValue({ jobId: 999 })

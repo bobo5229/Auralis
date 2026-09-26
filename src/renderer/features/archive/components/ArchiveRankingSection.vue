@@ -180,7 +180,6 @@ defineExpose({ refresh: loadListeningRanking })
           :data-target="target.value"
           :aria-pressed="rankingTarget === target.value"
           :aria-label="`切换到${target.label}榜`"
-          :title="target.label"
           @click="setRankingTarget(target.value)"
         >
           {{ target.label }}
@@ -200,7 +199,9 @@ defineExpose({ refresh: loadListeningRanking })
       </div>
     </div>
 
-    <div v-if="isRankingLoading" class="archive-ranking-state">正在整理排行…</div>
+    <div v-if="isRankingLoading && !listeningRanking" class="archive-ranking-state">
+      正在整理排行…
+    </div>
     <div v-else-if="rankingError" class="archive-ranking-state archive-state--error">
       {{ rankingError }}
     </div>
@@ -225,6 +226,7 @@ defineExpose({ refresh: loadListeningRanking })
         >
           <div
             class="archive-ranking-picker"
+            data-ranking-period-control
             :style="{
               top: `${pickerPos.top}px`,
               left: `${pickerPos.left}px`,

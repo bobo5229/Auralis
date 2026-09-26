@@ -59,10 +59,53 @@ function emitWorkerMessage(worker: FakeWorker, message: LibraryScanWorkerMessage
 }
 
 afterEach(() => {
-  for (const db of databases.splice(0)) db.close()
+  for (const db of databases.splice(0)) if (db.open) db.close()
 })
 
 describe('LibraryScanService worker lifecycle', () => {
+  it('retains the active worker when termination fails so shutdown can retry', async () => {
+    const { service, worker, rootId } = createHarness()
+    const { jobId } = await service.startScan(rootId)
+    worker.terminate.mockRejectedValueOnce(new Error('termination failed'))
+    await expect(service.shutdown()).rejects.toThrow('termination failed')
+    expect(service.isScanActive()).toBe(true)
+    await service.shutdown()
+    expect(worker.terminate).toHaveBeenCalledTimes(2)
+    expect(service.getScanStatus(jobId)?.status).toBe('canceled')
+  })
+
+  it('shuts down an active scan and ignores late errors after the database closes', async () => {
+    const { service, worker, rootId, db } = createHarness()
+    const { jobId } = await service.startScan(rootId)
+    await service.shutdown()
+    expect(service.getScanStatus(jobId)?.status).toBe('canceled')
+    expect(worker.terminate).toHaveBeenCalledOnce()
+    await expect(service.startScan(rootId)).rejects.toThrow('shutting down')
+    db.close()
+    expect(() => worker.emit('error', new Error('late failure'))).not.toThrow()
+    worker.emit('exit', 1)
+    await new Promise<void>((resolve) => setImmediate(resolve))
+  })
+
+  it('waits for scan preparation without starting a worker during shutdown', async () => {
+    const { service, worker, rootId, workerOptions } = createHarness()
+    let release!: () => void
+    service.setScanLifecycleHooks({
+      onStart: () =>
+        new Promise<void>((resolve) => {
+          release = resolve
+        }),
+    })
+    const start = service.startScan(rootId)
+    const interrupted = expect(start).rejects.toThrow('shutdown')
+    const shutdown = service.shutdown()
+    release()
+    await Promise.all([interrupted, shutdown])
+    expect(workerOptions()).toBeNull()
+    expect(worker.terminate).not.toHaveBeenCalled()
+    expect(service.isScanActive()).toBe(false)
+  })
+
   it('preserves stored metadata after a failed read and commits a later retry with its sidecar fingerprint', async () => {
     const { db, service, worker, rootId } = createHarness()
     const repo = new TrackRepository(db)

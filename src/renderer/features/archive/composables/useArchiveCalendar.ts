@@ -127,6 +127,7 @@ export function useArchiveCalendar(selectedYear: Ref<number>) {
     isLoading.value = false
   }
   return {
+    heatmap,
     isLoading,
     errorMessage,
     weekdayOrder,

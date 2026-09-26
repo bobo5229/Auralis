@@ -12,11 +12,13 @@ describe('library layout geometry contract', () => {
       flatArtworkSize: 44,
       coverArtworkSize: 250,
       coverTrackRowHeight: 40,
+      coverDiscHeadingHeight: 24,
       coverPanelPaddingBlockSide: 10,
       coverGroupPaddingBlockSide: 28,
     })
     expect(LIBRARY_LAYOUT_CSS_VARS['--library-flat-row-height']).toBe('44px')
     expect(LIBRARY_LAYOUT_CSS_VARS['--library-cover-track-row-height']).toBe('40px')
+    expect(LIBRARY_LAYOUT_CSS_VARS['--library-cover-disc-heading-height']).toBe('24px')
     expect(LIBRARY_LAYOUT_CSS_VARS['--library-cover-artwork-size']).toBe('250px')
   })
 
@@ -24,5 +26,6 @@ describe('library layout geometry contract', () => {
     expect(getAlbumGroupEstimatedHeight(1, false)).toBe(359)
     expect(getAlbumGroupEstimatedHeight(1, true)).toBe(379)
     expect(getAlbumGroupEstimatedHeight(10, true)).toBe(479)
+    expect(getAlbumGroupEstimatedHeight(10, true, 2)).toBe(527)
   })
 })

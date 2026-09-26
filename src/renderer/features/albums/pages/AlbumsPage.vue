@@ -7,6 +7,7 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { isLibrarySearchBarHovered } from '@renderer/features/library/utils/librarySearchHover'
 import { normalizeSearchText } from '@renderer/features/library/utils/normalizeSearchText'
 import { prefetchArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
@@ -79,8 +80,7 @@ const displayMode = ref<AlbumDisplayMode>(readDisplayMode())
 const contextMenu = ref<AlbumContextMenuState | null>(null)
 const searchQuery = ref('')
 const isSearchFocused = ref(false)
-const isTopZoneHovered = ref(false)
-const isSearchBarHovered = ref(false)
+const isSearchZoneHovered = ref(false)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchRootRef = ref<HTMLElement | null>(null)
 const highlightedAlbumKey = ref<string | null>(null)
@@ -95,7 +95,6 @@ let isPageUnmounted = false
 let savedScrollTop = Number(sessionStorage.getItem(ALBUMS_SCROLL_TOP_KEY)) || 0
 
 const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
-const isSearchZoneHovered = computed(() => isTopZoneHovered.value || isSearchBarHovered.value)
 const shouldRenderSearchBar = computed(
   () => isSearchZoneHovered.value || isSearchFocused.value || hasSearchQuery.value,
 )
@@ -116,12 +115,20 @@ const searchFeedback = computed(() => {
   return ''
 })
 
-watch(searchQuery, (query) => {
-  if (!query.trim()) {
-    searchOutcome.value = 'idle'
-    lastSearchQuery = ''
-    lastMatchedAlbumIndex = -1
-  }
+function resetSearchOutcome(): void {
+  searchOutcome.value = 'idle'
+  searchMatchPosition.value = 0
+  searchMatchTotal.value = 0
+  lastSearchQuery = ''
+  lastMatchedAlbumIndex = -1
+}
+
+watch(searchQuery, () => {
+  resetSearchOutcome()
+})
+
+watch(tracks, () => {
+  resetSearchOutcome()
 })
 
 const catalogIndex = computed(() => getAlbumCatalogIndex(tracks.value))
@@ -325,26 +332,20 @@ function onSearchKeydown(event: KeyboardEvent): void {
 }
 
 function onAlbumsMouseMove(event: MouseEvent): void {
-  const containerRect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const relativeY = event.clientY - containerRect.top
-  isTopZoneHovered.value = relativeY >= 0 && relativeY <= 48
+  const currentTarget = event.currentTarget as HTMLElement | null
+  if (!currentTarget) return
 
   const bar = searchRootRef.value
-  if (bar) {
-    const barRect = bar.getBoundingClientRect()
-    isSearchBarHovered.value =
-      event.clientX >= barRect.left &&
-      event.clientX <= barRect.right &&
-      event.clientY >= barRect.top &&
-      event.clientY <= barRect.bottom
-  } else {
-    isSearchBarHovered.value = false
-  }
+  isSearchZoneHovered.value = isLibrarySearchBarHovered(
+    event.clientX,
+    event.clientY,
+    currentTarget.getBoundingClientRect(),
+    bar ? bar.getBoundingClientRect() : null,
+  )
 }
 
 function onAlbumsMouseLeave(): void {
-  isTopZoneHovered.value = false
-  isSearchBarHovered.value = false
+  isSearchZoneHovered.value = false
 }
 
 function onDocumentPointerDown(event: PointerEvent): void {
@@ -354,8 +355,7 @@ function onDocumentPointerDown(event: PointerEvent): void {
 
   isSearchFocused.value = false
   if (!hasSearchQuery.value) {
-    isTopZoneHovered.value = false
-    isSearchBarHovered.value = false
+    isSearchZoneHovered.value = false
   }
 }
 
@@ -486,26 +486,28 @@ onBeforeUnmount(() => {
     @mouseleave="onAlbumsMouseLeave"
   >
     <div class="library-search-zone">
-      <Transition name="search-bar">
-        <div
-          v-if="shouldRenderSearchBar"
-          ref="searchRootRef"
-          class="library-search-bar"
-          @pointerdown="searchInputRef?.focus()"
-        >
-          <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
-          <input
-            ref="searchInputRef"
-            v-model="searchQuery"
-            type="text"
-            class="library-search-input"
-            :placeholder="t('albums.search.placeholder')"
-            :aria-label="t('albums.search.ariaLabel')"
-            spellcheck="false"
-            @focus="isSearchFocused = true"
-            @blur="isSearchFocused = false"
-            @keydown="onSearchKeydown"
-          />
+      <Transition name="search-overlay" :duration="160">
+        <div v-if="shouldRenderSearchBar" class="library-search-overlay">
+          <div class="library-search-backdrop" aria-hidden="true"></div>
+          <div
+            ref="searchRootRef"
+            class="library-search-bar"
+            @pointerdown="searchInputRef?.focus()"
+          >
+            <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
+            <input
+              ref="searchInputRef"
+              v-model="searchQuery"
+              type="text"
+              class="library-search-input"
+              :placeholder="t('albums.search.placeholder')"
+              :aria-label="t('albums.search.ariaLabel')"
+              spellcheck="false"
+              @focus="isSearchFocused = true"
+              @blur="isSearchFocused = false"
+              @keydown="onSearchKeydown"
+            />
+          </div>
         </div>
       </Transition>
       <p v-if="hasSearchQuery" class="albums-search-feedback" aria-live="polite">

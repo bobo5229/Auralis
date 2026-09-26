@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import type { AlbumSummary } from '../types'
 import { formatAlbumYear } from '../utils/formatAlbumYear'
+import { albumGalleryCapacity, updateRandomAlbumOrder } from '../utils/albumGalleryLayout'
 
 const props = defineProps<{
   albums: AlbumSummary[]
   artistLabel: string
+  genreLabel: string
   effectsActive: boolean
   opening: boolean
+  singleRow?: boolean
 }>()
 const emit = defineEmits<{ open: [album: AlbumSummary, event: MouseEvent] }>()
 const { t, locale } = useI18n()
@@ -19,6 +22,33 @@ let isPageUnmounted = false
 const isMoreScrolledToStart = ref(true)
 const isMoreScrolledToEnd = ref(false)
 const isMoreScrollable = ref(false)
+const rowCapacity = ref(0)
+const randomOrder = shallowRef<string[]>([])
+const galleryTitle = computed(() =>
+  props.singleRow
+    ? t('albums.detail.genreAlbumsTitle', { genre: props.genreLabel })
+    : t('albums.detail.moreAlbumsTitle', { artist: props.artistLabel }),
+)
+const visibleAlbums = computed(() => {
+  if (!props.singleRow) return props.albums
+  const byKey = new Map(props.albums.map((album) => [album.key, album]))
+  return randomOrder.value.slice(0, rowCapacity.value).flatMap((key) => {
+    const album = byKey.get(key)
+    return album ? [album] : []
+  })
+})
+
+watch(
+  [() => props.singleRow, () => props.albums],
+  () => {
+    if (!props.singleRow) return
+    randomOrder.value = updateRandomAlbumOrder(
+      randomOrder.value,
+      props.albums.map((album) => album.key),
+    )
+  },
+  { immediate: true },
+)
 
 function resetMoreAlbumsScrollState(): void {
   isMoreScrolledToStart.value = true
@@ -28,6 +58,17 @@ function resetMoreAlbumsScrollState(): void {
 
 function updateMoreAlbumsScrollState(scroller: HTMLElement | null): void {
   if (!scroller) return
+  if (props.singleRow) {
+    const style = getComputedStyle(scroller)
+    rowCapacity.value = albumGalleryCapacity(
+      scroller.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+      parseFloat(style.getPropertyValue('--gallery-card-width')),
+      parseFloat(style.columnGap),
+    )
+    scroller.scrollLeft = 0
+    resetMoreAlbumsScrollState()
+    return
+  }
   const maxScroll = scroller.scrollWidth - scroller.clientWidth
   isMoreScrollable.value = maxScroll > 1
   if (!isMoreScrollable.value) {
@@ -66,6 +107,7 @@ async function refreshMoreAlbumsScrollState(): Promise<void> {
 
 /** Map vertical wheel to horizontal scroll for 'More Albums' section with boundary pass-through. */
 function onMoreAlbumsWheel(event: WheelEvent): void {
+  if (props.singleRow) return
   const scroller = event.currentTarget as HTMLElement
   if (scroller.scrollWidth <= scroller.clientWidth + 1) return
 
@@ -88,8 +130,22 @@ function formatAlbumYearLabel(value: string | null): string {
   return formatAlbumYear(value, locale.value, t('albums.detail.unknownYear'))
 }
 watch(
+  [moreAlbumsScrollerRef, () => props.effectsActive],
+  ([scroller, effectsActive], _previous, onCleanup) => {
+    if (!scroller || !effectsActive) return
+
+    const observer = new ResizeObserver(() => {
+      if (!isPageUnmounted) updateMoreAlbumsScrollState(scroller)
+    })
+    observer.observe(scroller)
+    onCleanup(() => observer.disconnect())
+  },
+  { immediate: true, flush: 'post' },
+)
+watch(
   [
     () => props.effectsActive,
+    () => props.singleRow,
     () => props.albums.map((album) => album.key).join('\u0001'),
     moreAlbumsScrollerRef,
   ],
@@ -104,12 +160,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section
-    class="album-more-gallery"
-    :aria-label="t('albums.detail.moreAlbumsAria', { artist: artistLabel })"
-  >
+  <section class="album-more-gallery" :aria-label="galleryTitle">
     <h2 class="album-more-gallery-title">
-      {{ t('albums.detail.moreAlbumsTitle', { artist: artistLabel }) }}
+      {{ galleryTitle }}
     </h2>
     <div
       ref="moreAlbumsScrollerRef"
@@ -118,12 +171,13 @@ onBeforeUnmount(() => {
         'is-at-start': isMoreScrolledToStart,
         'is-at-end': isMoreScrolledToEnd,
         'is-unscrollable': !isMoreScrollable,
+        'is-single-row': singleRow,
       }"
       @scroll="onMoreAlbumsScroll"
       @wheel="onMoreAlbumsWheel"
     >
       <button
-        v-for="album in albums"
+        v-for="album in visibleAlbums"
         :key="album.key"
         type="button"
         class="album-more-gallery-card"

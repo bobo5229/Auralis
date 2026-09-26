@@ -2,10 +2,6 @@ import { app, BrowserWindow } from 'electron'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { createWindow } from './app/createWindow'
-import {
-  disposeDesktopLyricsWindow,
-  registerDesktopLyricsIpcHandlers,
-} from './app/desktopLyricsWindow'
 import { closeDatabase, initializeDatabase } from './database/connection'
 import { registerIpcHandlers } from './ipc/registerIpcHandlers'
 import { ensureArtworkCacheDir } from './features/artwork/artworkCache'
@@ -21,6 +17,8 @@ import { installMainProcessDiagnostics } from './logging/mainProcessDiagnostics'
 import { ipcChannels } from '@shared/ipc/channels'
 import { configureElectronSmokeEnvironment } from './app/smoke/electronSmokeEnvironment'
 import { runElectronSmokeTest } from './app/smoke/runElectronSmokeTest'
+import { createAppShutdownHandler } from './app/appShutdown'
+import { createRendererEventSender } from './ipc/rendererEvents'
 
 // Custom media scheme privileges must be registered before app.ready (single call).
 registerPrivilegedMediaSchemes()
@@ -102,43 +100,45 @@ initializeLogger({
   persistToFile: app.isPackaged,
 })
 const mainProcessDiagnostics = installMainProcessDiagnostics({ app, process, logger })
+let runtime: ReturnType<typeof registerIpcHandlers> | undefined
+let shuttingDown = false
 
 void app
   .whenReady()
   .then(() => {
+    if (shuttingDown) return
     const artworkCacheDir = ensureArtworkCacheDir(app.getPath('userData'))
     registerArtworkProtocol(artworkCacheDir)
     const db = initializeDatabase()
     const trackRepository = new TrackRepository(db)
     const libraryRootRepository = new LibraryRootRepository(db)
+    const sendToRenderer = createRendererEventSender(() => BrowserWindow.getAllWindows())
 
     registerAudioProtocol({
-      getFilePathByTrackId: (trackId) => trackRepository.getFilePathById(trackId),
-      getLibraryRootPaths: () => libraryRootRepository.list().map((root) => root.path),
+      getFilePathByTrackId: (trackId) =>
+        shuttingDown ? null : trackRepository.getFilePathById(trackId),
+      getLibraryRootPaths: () =>
+        shuttingDown ? [] : libraryRootRepository.list().map((root) => root.path),
       onFileMissing: (_trackId, filePath) => {
+        if (shuttingDown) return
         const trackIds = trackRepository.markMissingByFilePaths([filePath])
         if (trackIds.length === 0) return
-        for (const window of BrowserWindow.getAllWindows()) {
-          if (!window.webContents.isDestroyed()) {
-            window.webContents.send(ipcChannels.library.changed, {
-              reason: 'track-missing',
-              trackIds,
-              filePaths: [filePath],
-            })
-          }
-        }
+        sendToRenderer(ipcChannels.library.changed, {
+          reason: 'track-missing',
+          trackIds,
+          filePaths: [filePath],
+        })
       },
     })
 
-    registerIpcHandlers(db, artworkCacheDir)
-    registerDesktopLyricsIpcHandlers()
+    runtime = registerIpcHandlers(db, artworkCacheDir)
     const mainWindow = createWindow()
 
     if (isElectronSmokeTest) {
       void runElectronSmokeTest(mainWindow)
     } else {
       app.on('activate', () => {
-        createWindow()
+        if (!shuttingDown) createWindow()
       })
     }
   })
@@ -150,10 +150,21 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('before-quit', () => {
-  disposeDesktopLyricsWindow()
-  closeDatabase()
-  logger.info('Auralis shutdown complete')
-  mainProcessDiagnostics.dispose()
-  shutdownLogger()
-})
+app.on(
+  'before-quit',
+  createAppShutdownHandler({
+    shutdownServices: async () => {
+      shuttingDown = true
+      await runtime?.shutdown()
+    },
+    closeResources: () => {
+      closeDatabase()
+      logger.info('Auralis shutdown complete')
+      mainProcessDiagnostics.dispose()
+      shutdownLogger()
+    },
+    quit: () => app.quit(),
+    reportError: (error) =>
+      logger.error({ error }, 'Unable to finish shutdown; resources remain open'),
+  }),
+)

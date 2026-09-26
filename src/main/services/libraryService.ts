@@ -6,6 +6,7 @@ import { TrackRepository } from '@main/repositories/trackRepository'
 import { LibraryCatalogSnapshotStore } from '@main/features/libraryCatalog/libraryCatalogSnapshotStore'
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
+import { splitDelimitedValues } from '@shared/utils/delimitedValues'
 
 export class LibraryService {
   private readonly catalogSnapshotStore: LibraryCatalogSnapshotStore
@@ -34,12 +35,25 @@ export class LibraryService {
   }
 
   getAlbumDetail(request: AlbumDetailRequest): AlbumDetailResult {
+    const tracks = this.trackRepository.getAlbumDetailTracks(
+      request.albumArtist,
+      request.albumTitle,
+    )
+    const moreAlbums =
+      request.albumArtist === 'Unknown Artist'
+        ? []
+        : this.trackRepository.getArtistAlbumSummaries(request.albumArtist, request.albumTitle)
     return {
-      tracks: this.trackRepository.getAlbumDetailTracks(request.albumArtist, request.albumTitle),
-      moreAlbums: this.trackRepository.getArtistAlbumSummaries(
-        request.albumArtist,
-        request.albumTitle,
-      ),
+      tracks,
+      moreAlbums,
+      genreAlbums:
+        moreAlbums.length === 0
+          ? this.trackRepository.getGenreAlbumSummaries(
+              tracks.flatMap((track) => splitDelimitedValues(track.genre)),
+              request.albumArtist,
+              request.albumTitle,
+            )
+          : [],
     }
   }
 

@@ -99,6 +99,20 @@ export class PlaybackNavigationSession {
     this.shuffleCycle = options?.shuffleCycle ? null : undefined
   }
 
+  resetQueueContext(options?: {
+    mode?: PlaybackMode
+    shufflePool?: PlaybackTrack[]
+    shuffleCycle?: boolean
+  }): void {
+    this.queuedTrackIds = []
+    this.albumShuffleContext = null
+    this.shuffleTrackPool = options?.shufflePool ?? null
+    this.shuffleCycle = options?.shuffleCycle ? null : undefined
+    if (options?.mode) {
+      this.setMode(options.mode)
+    }
+  }
+
   insertSingleTrack(
     currentQueue: PlaybackTrack[],
     currentTrackId: number,

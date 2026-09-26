@@ -2,14 +2,35 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
-import { groupAlbums, selectAlbumTracks } from '../utils/albumGrouping'
+import { splitDelimitedValues } from '@renderer/features/library/utils/formatDelimitedValues'
+import {
+  formatPlaybackClock,
+  PLAYBACK_CLOCK_EMPTY,
+} from '@renderer/features/playback/utils/formatPlaybackClock'
+import { selectAlbumTracks } from '../utils/albumGrouping'
+import { cdAlbumCatalogSession } from '../composables/cdAlbumCatalogSession'
+import {
+  cdFocusBackTarget,
+  isCdAlbumIndexSource,
+  shouldShowCdFocusedPlayback,
+} from '../utils/cdAlbumIndex'
+import { clearCdIndexReturn } from '../utils/cdAlbumIndexReturn'
+import {
+  moveSurfaceIndicator as moveSurfaceIndicatorAnimation,
+  resetSurfaceIndicator,
+  type CdSurfaceIndicatorMotionState,
+} from '../utils/cdSurfaceIndicator'
+import CdViewSwitch from '../components/CdViewSwitch.vue'
 import { albumIdentityKey } from '../utils/albumIdentity'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import type { PlaybackMode } from '@renderer/features/playback/types'
+import {
+  buildCdPlaybackPlan,
+  getNextCdPlaybackMode,
+  type CdPlaybackMode,
+} from '../utils/cdPlaybackQueue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import CdTrackList from '../components/CdTrackList.vue'
@@ -36,6 +57,8 @@ const requestedAlbumKey =
   typeof route.query.artist === 'string' && typeof route.query.title === 'string'
     ? albumIdentityKey(route.query.artist, route.query.title)
     : null
+const fromIndex = computed(() => isCdAlbumIndexSource(route.query.from))
+const fromIndexViewSwitch = route.query.entry === 'index'
 const playback = usePlayback()
 const { cdCanvasTheme, setCdCanvasTheme } = useCdCanvasTheme()
 const themeToggleLabel = computed(() =>
@@ -44,27 +67,22 @@ const themeToggleLabel = computed(() =>
 const pageRef = ref<HTMLElement | null>(null)
 const trackPanelRef = ref<HTMLElement | null>(null)
 const controlsRef = ref<HTMLElement | null>(null)
+const focusedPlaybackFrameRef = ref<HTMLElement | null>(null)
 const focused = ref(false)
 const focusSettled = ref(false)
-const cdMode = ref<PlaybackMode>('repeat-all')
+const cdMode = ref<CdPlaybackMode>('catalog-sequential')
 const discSurface = ref<'cd' | 'vinyl'>('cd')
 const surfaceSwitchRef = ref<HTMLElement | null>(null)
 const surfaceIndicatorRef = ref<HTMLElement | null>(null)
 const albumInfo = shallowRef<CdAlbumInfo[]>([])
 const selected = ref(0)
-let queueOwned = false
-let ownedIds: number[] = []
 const focusedAlbum = computed(() => albumInfo.value[selected.value] ?? null)
-const composerExpanded = ref(false)
 const focusedComposer = computed(() => {
   if (!focusSettled.value || displayedAlbum.value?.key !== focusedAlbum.value?.key) return null
   const trackId = playback.state.currentTrackId
   if (trackId === null) return null
   const track = focusedAlbum.value?.tracks.find((item) => item.id === trackId)
   return presentCdTrackComposers(track?.composer)
-})
-watch([() => playback.state.currentTrackId, selected, focused], () => {
-  composerExpanded.value = false
 })
 const browsingPlaybackAlbumIndex = computed(() => {
   const trackId = playback.state.currentTrackId
@@ -89,43 +107,56 @@ const ringAccent = computed(() => {
   return formatCdAccent(rgb, cdCanvasTheme.value === 'dark')
 })
 
-watch(
-  () => playback.state.queue,
-  (queue) => {
-    if (
-      queue.length !== ownedIds.length ||
-      queue.some((track, index) => track.id !== ownedIds[index])
-    )
-      queueOwned = false
-  },
-)
 function playCdTrack(id: number): void {
   const tracks = focusedAlbum.value?.tracks
   if (!tracks?.some((track) => track.id === id)) return
-  ownedIds = tracks.map((track) => track.id)
-  queueOwned = true
-  void playback.playTrackFromQueue(tracks, id, {
-    shufflePool: tracks,
-    shuffleCycle: true,
-    playbackMode: cdMode.value,
+  const plan = buildCdPlaybackPlan(albumInfo.value, id, cdMode.value)
+  if (!plan) return
+  void playback.playTrackFromQueue(plan.queue, id, {
+    source: 'cd',
+    shufflePool: plan.shufflePool,
+    shuffleCycle: plan.shuffleCycle,
+    playbackMode: plan.playbackMode,
     replaceHistory: true,
   })
 }
 function cycleMode(): void {
-  const modes: PlaybackMode[] = ['repeat-all', 'shuffle', 'sequential']
-  cdMode.value = modes[(modes.indexOf(cdMode.value) + 1) % modes.length]
-  const tracks = focusedAlbum.value?.tracks ?? []
-  if (
-    queueOwned &&
-    tracks.length === ownedIds.length &&
-    tracks.every((track, index) => track.id === ownedIds[index])
-  ) {
-    playback.setPlaybackMode(cdMode.value)
+  cdMode.value = getNextCdPlaybackMode(cdMode.value)
+  const currentTrackId = playback.state.currentTrackId
+  const session = playback.queueSession.value
+  if (currentTrackId === null || session?.source !== 'cd') {
+    return
   }
+  const plan = buildCdPlaybackPlan(albumInfo.value, currentTrackId, cdMode.value)
+  if (!plan) {
+    return
+  }
+  playback.replaceCurrentPlaybackQueue({
+    expectedSessionId: session.id,
+    expectedTrackId: currentTrackId,
+    expectedQueueTrackIds: playback.state.queue.map((track) => track.id),
+    queue: plan.queue,
+    playbackMode: plan.playbackMode,
+    shufflePool: plan.shufflePool,
+    shuffleCycle: plan.shuffleCycle,
+  })
 }
+function returnToBrowse(): void {
+  controller?.setFocused(false)
+}
+
+function returnToIndex(): void {
+  void router.push({ name: 'cd-album-index' })
+}
+
 function back(): void {
-  if (focused.value) controller?.setFocused(false)
-  else void router.push({ name: 'albums' })
+  const target = cdFocusBackTarget(focused.value)
+  if (target === 'browse') {
+    returnToBrowse()
+    return
+  }
+  clearCdIndexReturn()
+  void router.push({ name: 'albums' })
 }
 function focusBrowsingPlaybackAlbum(): void {
   if (browsingPlaybackAlbumIndex.value < 0 || loading.value || starting.value || focused.value)
@@ -150,6 +181,7 @@ function focusChange(progress: number, settled: boolean): void {
 }
 const stageRef = ref<HTMLElement | null>(null)
 const infoRef = ref<HTMLElement | null>(null)
+let infoResizeObserver: ResizeObserver | null = null
 const loading = ref(true)
 const starting = ref(false)
 const infoSuppressed = ref(false)
@@ -159,9 +191,12 @@ const count = ref(0)
 const infoSelected = ref(0)
 const currentAlbum = computed(() => albumInfo.value[infoSelected.value] ?? null)
 const displayedAlbum = shallowRef<CdAlbumInfo | null>(null)
-const browsingPlayback = computed(() => {
+const displayedCopyrightValues = computed(() =>
+  splitDelimitedValues(displayedAlbum.value?.copyright),
+)
+const playbackInformation = computed(() => {
   const track = playback.state.currentTrack
-  if (focused.value || !track) return null
+  if (!track) return null
   const title = track.title?.trim() || t('albums.detail.unknownTitle')
   const artist = formatArtist(track.artist)
   return {
@@ -170,6 +205,33 @@ const browsingPlayback = computed(() => {
     album: track.album?.trim() ?? '',
   }
 })
+const browsingPlayback = computed(() => (focused.value ? null : playbackInformation.value))
+const browsingPlaybackCurrentTime = computed(() => formatPlaybackClock(playback.state.currentTime))
+const browsingPlaybackDuration = computed(() =>
+  playback.state.duration > 0 ? formatPlaybackClock(playback.state.duration) : PLAYBACK_CLOCK_EMPTY,
+)
+const focusedPlaybackIdentity = computed(() => {
+  const track = playback.state.currentTrack
+  const album = focusedAlbum.value
+  if (
+    !shouldShowCdFocusedPlayback(
+      focused.value,
+      focusSettled.value,
+      loading.value,
+      failed.value,
+      track,
+      album,
+    ) ||
+    !track ||
+    !album
+  ) {
+    return null
+  }
+  return `${album.key}\u0000${track.id}`
+})
+const focusedPlayback = computed(() =>
+  focusedPlaybackIdentity.value === null ? null : playbackInformation.value,
+)
 const browsingPlaybackProgress = computed(() => {
   const duration = playback.state.duration
   const currentTime = playback.state.currentTime
@@ -184,18 +246,71 @@ const browsingPlaybackProgressPath = [
 ].join(' ')
 const browsingPlaybackLabelRef = ref<HTMLElement | null>(null)
 const browsingPlaybackRef = ref<HTMLElement | null>(null)
+const focusedPlaybackInfoVisible = ref(false)
+let focusedPlaybackInfoTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearFocusedPlaybackInfoTimer(): void {
+  if (focusedPlaybackInfoTimer !== null) {
+    clearTimeout(focusedPlaybackInfoTimer)
+    focusedPlaybackInfoTimer = null
+  }
+}
+
+function showFocusedPlaybackInfo(duration: number | null): void {
+  const identity = focusedPlaybackIdentity.value
+  if (identity === null) return
+  clearFocusedPlaybackInfoTimer()
+  focusedPlaybackInfoVisible.value = true
+  if (duration === null) return
+  focusedPlaybackInfoTimer = setTimeout(() => {
+    focusedPlaybackInfoTimer = null
+    if (!disposed && focusedPlaybackIdentity.value === identity) {
+      focusedPlaybackInfoVisible.value = false
+    }
+  }, duration)
+}
+
+function toggleFocusedPlaybackInfo(): void {
+  if (focusedPlaybackInfoVisible.value) {
+    clearFocusedPlaybackInfoTimer()
+    focusedPlaybackInfoVisible.value = false
+    return
+  }
+  showFocusedPlaybackInfo(null)
+}
+
+watch(focusedPlaybackIdentity, async (identity) => {
+  clearFocusedPlaybackInfoTimer()
+  if (identity === null) {
+    focusedPlaybackInfoVisible.value = false
+    return
+  }
+  focusedPlaybackInfoVisible.value = false
+  await nextTick()
+  if (!disposed && focusedPlaybackIdentity.value === identity) {
+    if (reducedMotion.matches) {
+      showFocusedPlaybackInfo(4_000)
+    } else {
+      focusedPlaybackFrameRef.value?.getBoundingClientRect()
+      showFocusedPlaybackInfo(4_000)
+    }
+  }
+})
+
 watch(
   [browsingPlaybackLabelRef, () => playback.state.isPlaying],
-  ([label, isPlaying], _, onCleanup) => {
-    if (label && isPlaying) onCleanup(animatePlaybackTextShimmer(label))
+  ([browsingLabel, isPlaying], _, onCleanup) => {
+    if (browsingLabel && isPlaying) onCleanup(animatePlaybackTextShimmer(browsingLabel))
   },
   { flush: 'post', immediate: true },
 )
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 let vinylBlend = 0
 let cancelSurfaceAnimation: (() => void) | null = null
-let cancelIndicatorAnimation: (() => void) | null = null
-let indicatorEdges: { left: number; right: number } | null = null
+const surfaceIndicatorMotion: CdSurfaceIndicatorMotionState = {
+  edges: null,
+  cancelAnimation: null,
+}
 let cancelInfoAnimation: (() => void) | null = null
 let cancelBrowsingPlaybackAnimation: (() => void) | null = null
 let infoGeneration = 0
@@ -289,46 +404,16 @@ function onMotionPreferenceChange(): void {
 }
 
 function moveSurfaceIndicator(animate: boolean): void {
-  cancelIndicatorAnimation?.()
-  cancelIndicatorAnimation = null
   const group = surfaceSwitchRef.value
   const line = surfaceIndicatorRef.value
   const button = group?.querySelector<HTMLElement>('button[aria-pressed="true"]')
-  if (!group || !line || !button) return
-  const groupRect = group.getBoundingClientRect()
-  const buttonRect = button.getBoundingClientRect()
-  const target = {
-    left: buttonRect.left - groupRect.left,
-    right: buttonRect.right - groupRect.left,
-  }
-  const draw = (left: number, right: number): void => {
-    indicatorEdges = { left, right }
-    line.style.transform = `translateX(${left}px)`
-    line.style.width = `${right - left}px`
-  }
-  if (!animate || reducedMotion.matches || !indicatorEdges) {
-    draw(target.left, target.right)
-    return
-  }
-  const from = { ...indicatorEdges }
-  const movingRight = target.left + target.right > from.left + from.right
-  cancelIndicatorAnimation = animateProgress(
-    440,
-    (progress) => {
-      // The leading edge reaches out first; the trailing edge releases a little later.
-      const lead = 1 - (1 - progress) ** 3
-      const delayed = Math.max(0, (progress - 0.18) / 0.82)
-      const trail = delayed * delayed * (3 - 2 * delayed)
-      draw(
-        from.left + (target.left - from.left) * (movingRight ? trail : lead),
-        from.right + (target.right - from.right) * (movingRight ? lead : trail),
-      )
-    },
-    () => {
-      draw(target.left, target.right)
-      cancelIndicatorAnimation = null
-    },
-  )
+  moveSurfaceIndicatorAnimation(surfaceIndicatorMotion, {
+    group,
+    line,
+    targetButton: button ?? null,
+    animate,
+    reducedMotion: reducedMotion.matches,
+  })
 }
 
 watch(discSurface, () => moveSurfaceIndicator(true), { flush: 'post' })
@@ -341,9 +426,7 @@ watch(
     observer.observe(element)
     onCleanup(() => {
       observer.disconnect()
-      cancelIndicatorAnimation?.()
-      cancelIndicatorAnimation = null
-      indicatorEdges = null
+      resetSurfaceIndicator(surfaceIndicatorMotion)
     })
   },
   { flush: 'post' },
@@ -382,10 +465,10 @@ async function loadAlbums(): Promise<void> {
   try {
     do {
       refreshPending = false
-      const tracks = await auralis.library.getTracks()
+      const catalogAlbums = await cdAlbumCatalogSession.load()
       if (disposed) return
       // Only publish a complete catalog; reuse the exact ordering of AlbumsPage.
-      const albums = groupAlbums(tracks).map((album) => ({
+      const albums = catalogAlbums.map((album) => ({
         key: album.key,
         artworkUrl: getArtworkUrl(album.artworkCacheKey),
         title: album.title,
@@ -401,7 +484,11 @@ async function loadAlbums(): Promise<void> {
       const targetKey =
         intro && albums.some((album) => album.key === requestedAlbumKey) ? requestedAlbumKey : null
       if (intro) startupPlayed = true
-      controller?.setAlbums(albums, intro && !targetKey, targetKey ?? undefined)
+      controller?.setAlbums(
+        albums,
+        intro && !targetKey && !fromIndexViewSwitch,
+        targetKey ?? undefined,
+      )
       if (targetKey) controller?.setFocused(true, 'fade')
     } while (refreshPending && !disposed)
   } catch (error) {
@@ -461,12 +548,41 @@ function setInfoText(opacity: number, shift: number): void {
   })
 }
 
+function snapInfoDivider(row: HTMLElement, edge: 'top' | 'bottom', pixelRatio: number): void {
+  const bounds = row.getBoundingClientRect()
+  const borderProperty = edge === 'top' ? 'borderTopWidth' : 'borderBottomWidth'
+  const borderWidth = Number.parseFloat(window.getComputedStyle(row)[borderProperty]) || 0
+  const height = 1 / pixelRatio
+  const lineTop = edge === 'top' ? bounds.top + borderWidth : bounds.bottom - borderWidth - height
+  const snappedTop = Math.round(lineTop * pixelRatio) / pixelRatio
+  row.style.setProperty('--cd-info-divider-height', `${height}px`)
+  row.style.setProperty('--cd-info-divider-offset', `${snappedTop - lineTop}px`)
+}
+
+function syncInfoDividerPixelGrid(): void {
+  const info = infoRef.value
+  if (!info) return
+
+  const pixelRatio = window.devicePixelRatio || 1
+  const titleRow = info.querySelector<HTMLElement>('.cd-info-title-row')
+  if (titleRow) snapInfoDivider(titleRow, 'bottom', pixelRatio)
+
+  const rows = Array.from(info.querySelectorAll<HTMLElement>('.cd-info-row'))
+  rows.slice(1).forEach((row) => snapInfoDivider(row, 'top', pixelRatio))
+}
+
+function setInfoDividers(progress: number): void {
+  infoRef.value?.style.setProperty('--cd-info-divider-progress', String(progress))
+  syncInfoDividerPixelGrid()
+}
+
 function clearInfoStyles(): void {
   infoRows().forEach((row) => {
     row.style.height = ''
     row.style.overflow = ''
   })
   setInfoText(1, 0)
+  setInfoDividers(1)
 }
 
 function runInfoPhase(duration: number, update: (progress: number) => void): Promise<boolean> {
@@ -489,11 +605,18 @@ async function transitionInfo(album: CdAlbumInfo | null, entering = false): Prom
   if (entering && album && !reducedMotion.matches) {
     clearInfoStyles()
     setInfoText(0, 4)
+    setInfoDividers(0)
     displayedAlbum.value = album
     await nextTick()
     if (disposed || generation !== infoGeneration || infoSuppressed.value) return
     setInfoText(0, 4)
-    if (!(await runInfoPhase(240, (progress) => setInfoText(progress, 4 * (1 - progress))))) return
+    if (
+      !(await runInfoPhase(240, (progress) => {
+        setInfoText(progress, 4 * (1 - progress))
+        setInfoDividers(progress)
+      }))
+    )
+      return
     if (!disposed && generation === infoGeneration) clearInfoStyles()
     return
   }
@@ -505,8 +628,14 @@ async function transitionInfo(album: CdAlbumInfo | null, entering = false): Prom
     return
   }
   const opacity = Number(infoRef.value.querySelector<HTMLElement>('h1')?.style.opacity || 1)
+  const dividerProgress = Number(
+    infoRef.value.style.getPropertyValue('--cd-info-divider-progress') || 1,
+  )
   if (
-    !(await runInfoPhase(100, (progress) => setInfoText(opacity * (1 - progress), -4 * progress)))
+    !(await runInfoPhase(100, (progress) => {
+      setInfoText(opacity * (1 - progress), -4 * progress)
+      setInfoDividers(dividerProgress * (1 - progress))
+    }))
   )
     return
   if (disposed || generation !== infoGeneration) return
@@ -518,6 +647,7 @@ async function transitionInfo(album: CdAlbumInfo | null, entering = false): Prom
   // only the label's rows. The CD stage never participates in this layout change.
   clearInfoStyles()
   setInfoText(0, 4)
+  setInfoDividers(0)
   const nextRows = infoRows()
   const nextHeights = nextRows.map((row) => row.getBoundingClientRect().height)
   nextRows.forEach((row, index) => {
@@ -533,6 +663,7 @@ async function transitionInfo(album: CdAlbumInfo | null, entering = false): Prom
       })
       const fade = Math.min(1, Math.max(0, (progress - 0.2) / 0.8))
       setInfoText(fade, 4 * (1 - fade))
+      setInfoDividers(fade)
     }))
   )
     return
@@ -542,6 +673,16 @@ async function transitionInfo(album: CdAlbumInfo | null, entering = false): Prom
 watch([currentAlbum, infoSuppressed], ([album, suppressed], [, wasSuppressed]) => {
   if (!suppressed) void transitionInfo(album, wasSuppressed)
 })
+watch(
+  infoRef,
+  (element, previous) => {
+    if (previous) infoResizeObserver?.unobserve(previous)
+    if (element) infoResizeObserver?.observe(element)
+    syncInfoDividerPixelGrid()
+  },
+  { flush: 'post' },
+)
+watch([displayedAlbum, focusedComposer], syncInfoDividerPixelGrid, { flush: 'post' })
 
 function settleInfo(): void {
   ++infoGeneration
@@ -563,6 +704,9 @@ function setRapidBrowse(running: boolean): void {
 
 onMounted(() => {
   if (!stageRef.value) return
+  infoResizeObserver = new ResizeObserver(syncInfoDividerPixelGrid)
+  if (infoRef.value) infoResizeObserver.observe(infoRef.value)
+  syncInfoDividerPixelGrid()
   reducedMotion.addEventListener('change', onMotionPreferenceChange)
   window.addEventListener('resize', settleInfo)
   controller = createCdStage(
@@ -591,15 +735,15 @@ onMounted(() => {
       },
       change: focusChange,
       togglePlayback: () => {
-        if (ringTrackMatches.value && !loading.value && !failed.value)
-          void playback.togglePlayPause()
+        if (!ringTrackMatches.value || loading.value || failed.value) return false
+        void playback.togglePlayPause()
+        return true
       },
     },
   )
   syncPlaybackRing()
   stageRef.value.focus({ preventScroll: true })
-  unsubscribe = auralis.library.onChanged((event) => {
-    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
+  unsubscribe = cdAlbumCatalogSession.subscribe(() => {
     void loadAlbums()
   })
   void loadAlbums()
@@ -607,7 +751,15 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   disposed = true
+  clearFocusedPlaybackInfoTimer()
+  infoResizeObserver?.disconnect()
+  infoResizeObserver = null
   unsubscribe?.()
+  const routeName = router.currentRoute.value.name
+  if (routeName !== 'cd-albums' && routeName !== 'cd-album-index') {
+    cdAlbumCatalogSession.clear()
+    clearCdIndexReturn()
+  }
   settleInfo()
   cancelSurfaceAnimation?.()
   cancelSurfaceAnimation = null
@@ -622,20 +774,39 @@ onBeforeUnmount(() => {
   <section
     ref="pageRef"
     class="cd-page"
-    :class="{ 'cd-page--starting': starting, 'cd-page--focused': focused }"
+    :class="{
+      'cd-page--loading': loading && !count && !failed,
+      'cd-page--starting': starting,
+      'cd-page--focused': focused,
+    }"
     :data-theme="cdCanvasTheme"
     :aria-label="t('albums.cd.title')"
     @keydown="onKeydown"
   >
     <header class="cd-header">
+      <nav
+        v-if="focused && fromIndex"
+        class="cd-focus-nav"
+        :aria-label="t('albums.cd.returnToBrowse')"
+      >
+        <button type="button" class="cd-focus-nav-button" @click="returnToBrowse">
+          {{ t('albums.cd.focusReturnBrowse') }}
+        </button>
+        <span class="cd-focus-nav-separator" aria-hidden="true">/</span>
+        <button type="button" class="cd-focus-nav-button" @click="returnToIndex">
+          {{ t('albums.cd.focusReturnIndex') }}
+        </button>
+      </nav>
       <button
+        v-else
         type="button"
         class="cd-back"
         :aria-label="t(focused ? 'albums.cd.returnToBrowse' : 'albums.detail.returnToAlbums')"
         @click="back"
       >
-        <span class="i-lucide-arrow-left" aria-hidden="true"></span>
+        <span :class="focused ? 'i-lucide-chevron-left' : 'i-lucide-x'" aria-hidden="true"></span>
       </button>
+      <CdViewSwitch v-if="!focused && !starting" current="browse" />
       <div
         v-if="focused"
         ref="surfaceSwitchRef"
@@ -682,40 +853,31 @@ onBeforeUnmount(() => {
           </div>
           <div v-if="displayedAlbum.copyright" class="cd-info-row cd-info-copyright">
             <dt>{{ t('albums.cd.copyright') }}</dt>
-            <dd dir="auto">{{ displayedAlbum.copyright }}</dd>
+            <dd dir="auto">
+              <span
+                v-for="(value, index) in displayedCopyrightValues"
+                :key="`${index}-${value}`"
+                class="cd-info-copyright-value"
+              >
+                {{ value }}
+              </span>
+            </dd>
           </div>
           <div v-if="focusedComposer" class="cd-info-row cd-info-composer">
             <dt>{{ t('albums.cd.composer.label') }}</dt>
             <dd dir="auto">
               <span
-                v-for="(name, index) in composerExpanded
-                  ? focusedComposer.names
-                  : focusedComposer.visible"
+                v-for="(name, index) in focusedComposer"
                 :key="`${index}-${name}`"
                 class="cd-composer-name"
               >
                 {{ name }}
               </span>
-              <button
-                v-if="focusedComposer.overflow"
-                type="button"
-                class="cd-composer-toggle"
-                :aria-expanded="composerExpanded"
-                :aria-label="
-                  composerExpanded
-                    ? t('albums.cd.composer.collapse')
-                    : t('albums.cd.composer.expand')
-                "
-                @click="composerExpanded = !composerExpanded"
-              >
-                <span v-if="composerExpanded" class="i-lucide-arrow-up" aria-hidden="true"></span>
-                <template v-else>{{ `+${focusedComposer.overflow}` }}</template>
-              </button>
             </dd>
           </div>
         </dl>
       </aside>
-      <p
+      <div
         v-if="
           browsingPlayback && displayedAlbum && !loading && !failed && !starting && !infoSuppressed
         "
@@ -723,37 +885,46 @@ onBeforeUnmount(() => {
         class="cd-browsing-playback"
         role="status"
       >
-        <span
+        <button
           ref="browsingPlaybackLabelRef"
+          type="button"
           class="cd-browsing-playback-label"
           :class="{ 'cd-browsing-playback-label--playing': playback.state.isPlaying }"
+          :aria-label="t(playback.state.isPlaying ? 'player.pause' : 'player.play')"
+          @click="playback.togglePlayPause()"
         >
           {{ browsingPlayback.label }}
-        </span>
+        </button>
         <span class="cd-browsing-playback-song" dir="auto">{{ browsingPlayback.song }}</span>
-        <svg
-          class="cd-browsing-playback-progress"
-          viewBox="0 0 240 12"
-          aria-hidden="true"
-          focusable="false"
-        >
-          <path
-            :d="browsingPlaybackProgressPath"
-            fill="none"
-            stroke="var(--cd-border-row)"
-            stroke-width="1.4"
-            stroke-linecap="round"
-          />
-          <path
-            :d="browsingPlaybackProgressPath"
-            pathLength="100"
-            :stroke-dasharray="`${browsingPlaybackProgress * 100} 100`"
-            fill="none"
-            stroke="var(--cd-progress-fill)"
-            stroke-width="1.7"
-            stroke-linecap="round"
-          />
-        </svg>
+        <div class="cd-browsing-playback-timeline">
+          <span class="cd-browsing-playback-time" dir="ltr">{{ browsingPlaybackCurrentTime }}</span>
+          <svg
+            class="cd-browsing-playback-progress"
+            viewBox="0 0 240 12"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path
+              :d="browsingPlaybackProgressPath"
+              fill="none"
+              stroke="var(--cd-border-row)"
+              stroke-width="1.4"
+              stroke-linecap="round"
+            />
+            <path
+              :d="browsingPlaybackProgressPath"
+              pathLength="100"
+              :stroke-dasharray="`${browsingPlaybackProgress * 100} 100`"
+              fill="none"
+              stroke="var(--cd-progress-fill)"
+              stroke-width="1.7"
+              stroke-linecap="round"
+            />
+          </svg>
+          <span class="cd-browsing-playback-time cd-browsing-playback-time--duration" dir="ltr">{{
+            browsingPlaybackDuration
+          }}</span>
+        </div>
         <button
           v-if="browsingPlayback.album"
           type="button"
@@ -764,7 +935,7 @@ onBeforeUnmount(() => {
         >
           {{ browsingPlayback.album }}
         </button>
-      </p>
+      </div>
       <div
         ref="stageRef"
         class="cd-stage"
@@ -802,6 +973,60 @@ onBeforeUnmount(() => {
         :information="infoRef"
         :tracks="trackPanelRef"
       />
+      <div
+        v-if="focusedPlayback"
+        ref="focusedPlaybackFrameRef"
+        class="cd-focused-playback"
+        :class="{ 'cd-focused-playback--expanded': focusedPlaybackInfoVisible }"
+      >
+        <button
+          type="button"
+          class="cd-focused-playback-handle"
+          :aria-label="t('playback.nowPlaying')"
+          :aria-expanded="focusedPlaybackInfoVisible"
+          @click="toggleFocusedPlaybackInfo"
+        >
+          <span
+            class="cd-focused-playback-chevron i-lucide-chevron-right h-4 w-4"
+            aria-hidden="true"
+          ></span>
+        </button>
+        <Transition name="cd-focused-playback-fade" appear>
+          <div
+            v-if="focusedPlaybackInfoVisible"
+            class="cd-focused-playback-info"
+            :aria-hidden="!focusedPlaybackInfoVisible"
+            role="status"
+          >
+            <span class="cd-browsing-playback-song" dir="auto">{{ focusedPlayback.song }}</span>
+            <span class="cd-focused-playback-album" dir="auto">{{ focusedPlayback.album }}</span>
+            <svg
+              class="cd-browsing-playback-progress cd-focused-playback-progress"
+              viewBox="1.15 3.4 237.7 4.6"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                :d="browsingPlaybackProgressPath"
+                fill="none"
+                stroke="var(--cd-border-row)"
+                stroke-width="1.4"
+                stroke-linecap="round"
+              />
+              <path
+                :d="browsingPlaybackProgressPath"
+                pathLength="100"
+                :stroke-dasharray="`${browsingPlaybackProgress * 100} 100`"
+                fill="none"
+                stroke="var(--cd-progress-fill)"
+                stroke-width="1.7"
+                stroke-linecap="round"
+              />
+            </svg>
+          </div>
+        </Transition>
+      </div>
       <div v-if="loading || failed || !count" class="cd-status" role="status">
         <template v-if="failed">
           <p>{{ t('albums.status.loadError') }}</p>
@@ -811,14 +1036,6 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <footer ref="controlsRef" class="cd-controls" :inert="starting || focused">
-      <div class="cd-actions">
-        <button type="button" :disabled="loading || failed || count < 2" @click="navigate(-1)">
-          <span class="i-lucide-arrow-left" aria-hidden="true"></span>{{ t('albums.cd.previous') }}
-        </button>
-        <button type="button" :disabled="loading || failed || count < 2" @click="navigate(1)">
-          {{ t('albums.cd.next') }}<span class="i-lucide-arrow-right" aria-hidden="true"></span>
-        </button>
-      </div>
       <span class="sr-only" role="status" aria-live="polite">
         {{ count ? t('albums.cd.position', { index: selected + 1, total: count }) : '' }}
       </span>
@@ -826,7 +1043,6 @@ onBeforeUnmount(() => {
     <button
       type="button"
       class="cd-theme-toggle"
-      :title="themeToggleLabel"
       :aria-label="themeToggleLabel"
       @click="toggleCdCanvasTheme"
     >
@@ -837,6 +1053,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.cd-page--loading > * {
+  visibility: hidden;
+}
 .cd-tracks {
   position: absolute;
   right: 32px;
@@ -1076,6 +1295,46 @@ onBeforeUnmount(() => {
   border-color: transparent;
   -webkit-app-region: no-drag;
 }
+.cd-focus-nav {
+  grid-column: 1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  -webkit-app-region: no-drag;
+}
+.cd-page .cd-focus-nav-button {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cd-text-muted);
+  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cd-page .cd-focus-nav-button:hover:not(:disabled) {
+  background: transparent;
+  box-shadow: none;
+  color: var(--cd-text);
+}
+.cd-page .cd-focus-nav-button:focus-visible {
+  outline: 2px solid var(--cd-focus-ring);
+  outline-offset: 3px;
+}
+.cd-focus-nav-separator {
+  color: var(--cd-text-muted);
+  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+  user-select: none;
+  pointer-events: none;
+}
 .cd-info {
   position: absolute;
   top: 8px;
@@ -1088,13 +1347,34 @@ onBeforeUnmount(() => {
   color-scheme: inherit;
 }
 .cd-info-title-row {
+  position: relative;
   box-sizing: border-box;
   min-height: 0;
   display: flex;
   align-items: flex-end;
   gap: 16px;
   padding-bottom: 14px;
-  border-bottom: 1px solid var(--cd-border-strong);
+  border-bottom: 1px solid transparent;
+}
+.cd-info-title-row::after,
+.cd-info-row + .cd-info-row::before {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: var(--cd-info-divider-height, 1px);
+  content: '';
+  opacity: var(--cd-info-divider-progress, 1);
+  transform: translateY(var(--cd-info-divider-offset, 0px))
+    scaleX(var(--cd-info-divider-progress, 1));
+  transform-origin: left center;
+  pointer-events: none;
+  background: var(--cd-border-row);
+}
+.cd-info-title-row::after {
+  bottom: 0;
+}
+.cd-info-row + .cd-info-row::before {
+  top: 0;
 }
 .cd-info-title {
   flex: 1;
@@ -1122,7 +1402,7 @@ onBeforeUnmount(() => {
 }
 .cd-browsing-playback {
   position: absolute;
-  top: 8px;
+  top: 88px;
   left: 50%;
   box-sizing: border-box;
   display: flex;
@@ -1141,19 +1421,155 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   pointer-events: none;
 }
-.cd-browsing-playback-label {
+.cd-focused-playback {
+  --cd-focused-playback-info-width: min(
+    356px,
+    max(0px, calc(31cqw - 24px)),
+    max(0px, calc(32cqw - 84px))
+  );
+  position: absolute;
+  left: 0;
+  bottom: 32px;
+  z-index: 7;
+  box-sizing: border-box;
+  width: 24px;
+  height: 60px;
+  overflow: hidden;
+  border: 1px solid var(--cd-border-row);
+  border-left: 0;
+  pointer-events: none;
+  transition: width 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cd-focused-playback--expanded {
+  width: calc(var(--cd-focused-playback-info-width) + 48px);
+}
+.cd-focused-playback-chevron {
+  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cd-focused-playback--expanded .cd-focused-playback-chevron {
+  transform: rotate(180deg);
+}
+.cd-page .cd-focused-playback-handle {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60px;
+  box-sizing: border-box;
+  width: 24px;
+  min-width: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--cd-text-muted);
+  pointer-events: auto;
+}
+.cd-page .cd-focused-playback-handle:hover:not(:disabled) {
+  background: transparent;
+  box-shadow: none;
+  color: var(--cd-text);
+}
+.cd-page .cd-focused-playback-handle:focus-visible {
+  outline-offset: 2px;
+}
+.cd-focused-playback-info {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 17px 15px 5px;
+  align-content: space-between;
+  height: 60px;
+  padding: 8px 0;
+  /* Keep the left column clear of the focused disc as the canvas narrows. */
+  width: var(--cd-focused-playback-info-width);
+  min-width: 0;
+  margin: 0;
+  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  color: var(--cd-text-browsing);
+  pointer-events: none;
+}
+.cd-focused-playback-fade-enter-active,
+.cd-focused-playback-fade-leave-active {
+  transition: opacity 180ms ease;
+}
+.cd-focused-playback-fade-enter-active {
+  transition: opacity 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cd-focused-playback-fade-enter-from,
+.cd-focused-playback-fade-leave-to {
+  opacity: 0;
+}
+.cd-focused-playback-info .cd-browsing-playback-song {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 17px;
+  line-height: 17px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 14px;
+}
+.cd-focused-playback-album {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 15px;
+  line-height: 15px;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-size: 13px;
+  font-weight: 400;
+  font-style: italic;
+  font-synthesis: none;
+  text-align: center;
+  color: var(--cd-text-album);
+}
+.cd-focused-playback-info .cd-browsing-playback-progress {
+  display: block;
+  width: 72%;
+  height: 5px;
+  justify-self: center;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+.cd-page .cd-browsing-playback-label {
   position: relative;
   align-self: center;
   width: fit-content;
   max-width: 100%;
   flex: 0 0 auto;
   margin-bottom: 6px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   font-size: 18px;
   font-style: italic;
   text-align: center;
   color: var(--cd-text-faint);
+  pointer-events: auto;
 }
-.cd-browsing-playback-label--playing {
+.cd-page .cd-browsing-playback-label:hover:not(:disabled) {
+  background: transparent;
+}
+.cd-page .cd-browsing-playback-label--playing,
+.cd-page .cd-browsing-playback-label--playing:hover:not(:disabled) {
   background: linear-gradient(
     100deg,
     var(--cd-shimmer-a) 0%,
@@ -1174,11 +1590,56 @@ onBeforeUnmount(() => {
   -webkit-text-fill-color: transparent;
 }
 @media (prefers-reduced-motion: reduce) {
-  .cd-browsing-playback-label--playing {
+  .cd-page .cd-browsing-playback-label--playing,
+  .cd-page .cd-browsing-playback-label--playing:hover:not(:disabled) {
     background: none;
     color: var(--cd-text-faint);
     -webkit-text-fill-color: currentColor;
   }
+  .cd-focused-playback-fade-enter-active,
+  .cd-focused-playback-fade-leave-active {
+    transition: none;
+  }
+  .cd-focused-playback {
+    transition: none;
+  }
+  .cd-focused-playback-chevron {
+    transition: none;
+  }
+}
+.cd-browsing-playback-timeline {
+  position: relative;
+  left: 50%;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 240px) max-content;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: min(360px, calc(100cqw - 32px));
+  height: 16px;
+  transform: translateX(-50%);
+  line-height: 16px;
+}
+.cd-browsing-playback-time {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cd-text-muted);
+  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.cd-browsing-playback-time--duration {
+  text-align: right;
+}
+.cd-browsing-playback-timeline .cd-browsing-playback-progress {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
 }
 .cd-browsing-playback-song {
   width: 100%;
@@ -1200,7 +1661,7 @@ onBeforeUnmount(() => {
   pointer-events: auto;
   cursor: pointer;
   font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 400;
   font-style: italic;
   font-synthesis: none;
@@ -1232,6 +1693,7 @@ onBeforeUnmount(() => {
   overflow: visible;
 }
 .cd-info-row {
+  position: relative;
   box-sizing: border-box;
   min-height: 0;
   display: grid;
@@ -1241,7 +1703,7 @@ onBeforeUnmount(() => {
   padding: 11px 0;
 }
 .cd-info-row + .cd-info-row {
-  border-top: 1px solid var(--cd-border-row);
+  border-top: 1px solid transparent;
 }
 .cd-info-row dt {
   font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
@@ -1261,30 +1723,24 @@ onBeforeUnmount(() => {
 .cd-info-copyright dd {
   font-size: 13px;
 }
-.cd-page .cd-composer-toggle {
-  display: flex;
-  width: fit-content;
-  align-items: center;
-  justify-content: center;
-  margin: 4px 0 0 auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--cd-text-muted);
-  font: inherit;
-  cursor: pointer;
+.cd-info-copyright-value {
+  display: block;
 }
 .cd-composer-name {
   display: block;
-}
-.cd-page .cd-composer-toggle:hover:not(:disabled) {
-  background: transparent;
-  color: var(--cd-text);
 }
 @container (max-width: 600px) {
   .cd-info {
     left: 24px;
     width: min(300px, 31vw);
+  }
+  .cd-focused-playback {
+    left: 0;
+    --cd-focused-playback-info-width: min(
+      276px,
+      max(0px, calc(31cqw - 24px)),
+      max(0px, calc(32cqw - 84px))
+    );
   }
   .cd-info-title {
     font-size: 28px;
@@ -1350,10 +1806,6 @@ onBeforeUnmount(() => {
   animation-duration: 260ms;
   animation-timing-function: ease-in-out;
   mix-blend-mode: normal;
-}
-.cd-actions {
-  display: flex;
-  gap: 8px;
 }
 .cd-stage :deep(.cd-position) {
   position: absolute;

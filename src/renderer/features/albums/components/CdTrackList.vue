@@ -2,13 +2,14 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
+import type { CdPlaybackMode } from '../utils/cdPlaybackQueue'
 import { formatArtist, splitArtistValues } from '@renderer/features/library/utils/formatArtist'
 import { animatePlaybackUnderline } from '@renderer/shared/animation/motion'
 
 const props = defineProps<{
   tracks: TrackListItem[]
   albumArtist: string
-  mode: string
+  mode: CdPlaybackMode
   currentTrackId: number | null
   isPlaying: boolean
 }>()
@@ -60,14 +61,17 @@ watch(
     <div class="cd-track-heading">
       <h2>{{ t('albums.cd.tracks') }}</h2>
       <button type="button" class="cd-mode" @click="emit('mode')">
-        {{ t(`albums.cd.modes.${mode}`) }}
+        <span class="cd-mode-label">{{ t(`albums.cd.modes.${mode}`) }}</span>
         <span
+          class="cd-mode-icon"
           :class="
-            mode === 'shuffle'
-              ? 'i-lucide-shuffle'
-              : mode === 'sequential'
-                ? 'i-lucide-arrow-right'
-                : 'i-lucide-repeat'
+            mode === 'catalog-sequential'
+              ? 'i-lucide-disc-3'
+              : mode === 'shuffle'
+                ? 'i-lucide-shuffle'
+                : mode === 'sequential'
+                  ? 'i-lucide-arrow-right'
+                  : 'i-lucide-repeat'
           "
           aria-hidden="true"
         ></span>
@@ -146,13 +150,25 @@ h2 {
     serif;
 }
 .cd-track-panel .cd-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 11px;
+  line-height: 16px;
   padding: 4px 0 4px 8px;
   border: 0;
   background: transparent;
   box-shadow: none;
   color: var(--cd-text-muted, #62625b);
+}
+.cd-mode-label {
+  display: block;
+  line-height: 16px;
+}
+.cd-mode-icon {
+  display: block;
+  flex: 0 0 16px;
 }
 .cd-track-panel .cd-mode:hover {
   background: transparent;

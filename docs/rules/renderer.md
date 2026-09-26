@@ -5,20 +5,22 @@
 
 ## 窗口与界面边界
 
-- 主窗口使用系统原生边框和标题栏：`frame: true`、`transparent: false`。
-  不得恢复 Renderer 自绘的主窗口控制按钮或主 shell 拖拽区域。
+以下窗口形态、按钮位置和视觉模式描述当前实现；有明确设计变更时按任务调整，其他行为保持稳定。
+
+- 主窗口使用不透明的无框窗口：`frame: false`、`transparent: false`。普通主界面在
+  左侧边栏顶部显示自绘红绿灯窗口按钮；CD 视图暂时在右上角显示同一组按钮。
+  窗口操作经过类型化 Preload/IPC，迷你播放器保持独立布局。
 - Playbar / PlayerBar 是主页面底部常驻播放栏，核心文件为
   `src/renderer/app/layout/PlayerBar.vue` 和 `TrackProgressInfo.vue`。
 - Miniplayer 由 `MiniPlayer.vue`、`miniPlayerWindowController.ts` 控制，复用主 BrowserWindow，
   但 UI 与行为独立。改 Playbar 不得误改 Miniplayer，反之亦然；窗口配置自然影响两者。
-- 桌面歌词是独立 frameless window，保留自身 drag/no-drag 区域。
 
 ## 状态与实现来源
 
 - 播放视觉状态来自现有 playback composable，不建立第二套 player store。
-- 应用只提供 modern 视觉；当前 PlayerBar 及其浮层固定使用深色磨砂材质，不读取历史 material 偏好。
+- 当前应用提供 modern 视觉；PlayerBar 及其浮层使用深色磨砂材质，不读取历史 material 偏好。
   液态玻璃保留在 `LiquidGlassPanel.vue` 和 `useLiquidGlassRefraction` 中供其他界面复用。
-  主题可用模式以 `useTheme.ts` 为准；当前为 dark-only。
+  主题可用模式以 `src/renderer/composables/useTheme.ts` 为准。
 - 页面 presentation 根据显式 Vue Router route name 解析，不能根据路径前缀推断。
 - 样式优先使用 UnoCSS；主题颜色和稳定布局 shortcut 位于 `uno.config.ts`。
 - 新动画通过 `src/renderer/shared/animation/motion.ts` 封装，尊重 `prefers-reduced-motion`，
@@ -40,10 +42,10 @@
 
 ## 交互与几何不变量
 
-- 风格切换保留选择、播放队列、搜索、右键菜单、元数据、歌词状态和懒加载行为；
+- 视觉调整保留选择、播放队列、搜索、右键菜单、元数据、歌词状态和懒加载行为；
   图片保持 `decoding='async'`。
-- 虚拟列表几何保持一致，修改时 CSS 和 virtualizer estimate 必须同步：平铺行 44px、
-  封面轨道 40px、封面 250px、轨道面板垂直 padding 合计 20px、专辑组垂直 padding 合计 56px。
+- 虚拟列表布局指标统一由 `src/renderer/features/library/constants/libraryLayoutMetrics.ts`
+  维护；CSS 与 virtualizer estimate 共同消费这些指标，修改后保持实际几何与估算高度一致。
 - PlayerBar 保持现代悬浮岛几何；音量控制在栏内横向展开，左边缘保持固定，右端扩展受可用空间限制。
 
 检查哪些状态、主题和断点由 [风险分级验收](validation.md) 决定，不因加载本文而全量回归。

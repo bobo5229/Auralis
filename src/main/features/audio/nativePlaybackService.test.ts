@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
@@ -7,6 +7,7 @@ import { basename, dirname, join, resolve, sep } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import type { NativePlaybackEvent } from '@shared/ipc/contracts'
 import { NativePlaybackService } from './nativePlaybackService'
+import { DigitalSilenceAnalyzer, type DigitalBoundary } from './digitalSilence'
 
 const mpvPath = resolve('resources/audio/mpv.exe')
 const ffmpegPath = resolve('resources/audio/ffmpeg.exe')
@@ -17,6 +18,8 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
   let directory: string
   const events: NativePlaybackEvent[] = []
   const services: NativePlaybackService[] = []
+  const boundaryStatuses: string[] = []
+  const warnings: unknown[] = []
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), 'auralis-mpv-test-'))
     for (const rate of [44100, 48000, 96000])
@@ -69,6 +72,9 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
   afterEach(() => {
     services.splice(0).forEach((service) => service.dispose())
     events.length = 0
+    boundaryStatuses.length = 0
+    warnings.length = 0
+    vi.restoreAllMocks()
   })
   function create(args: string[], rate = 48000) {
     const service = new NativePlaybackService({
@@ -80,9 +86,8 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
         return join(directory, `${rate}-${id}.flac`)
       },
       emit: (event) => events.push(event),
-      warn: (error) => {
-        throw error
-      },
+      onBoundaryStatus: ({ status }) => boundaryStatuses.push(status),
+      warn: (error) => warnings.push(error),
     })
     services.push(service)
     return service
@@ -128,6 +133,7 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
       expect(
         await service.command({ action: 'next', session: 1, trackId: 2, trimDigitalSilence: true }),
       ).toEqual({ accepted: true })
+      await waitFor(() => boundaryStatuses.includes('applied'))
       await service.command({ action: 'resume', session: 1 })
       await waitFor(() => events.some((event) => event.kind === 'ended'))
       service.dispose()
@@ -150,6 +156,51 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
         firstDifference: expected.length,
       })
       expect(actual.equals(expected)).toBe(true)
+      expect(warnings).toEqual([])
+    },
+    15000,
+  )
+  it.each(['late', 'failed'] as const)(
+    'keeps all original PCM when analysis is %s',
+    async (reason) => {
+      let resolveAnalysis!: (boundary: DigitalBoundary | null) => void
+      let rejectAnalysis!: (error: Error) => void
+      const analysis = new Promise<DigitalBoundary | null>((resolve, reject) => {
+        resolveAnalysis = resolve
+        rejectAnalysis = reject
+      })
+      vi.spyOn(DigitalSilenceAnalyzer.prototype, 'boundary').mockReturnValueOnce(analysis)
+      const pcm = join(directory, `ordinary-${reason}.pcm`)
+      const service = create([
+        '--ao=pcm',
+        '--ao-pcm-waveheader=no',
+        `--ao-pcm-file=${pcm}`,
+        '--audio-format=s16',
+        '--pause=yes',
+      ])
+      await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
+      expect(
+        await service.command({ action: 'next', session: 1, trackId: 2, trimDigitalSilence: true }),
+      ).toEqual({ accepted: true })
+      if (reason === 'failed') {
+        rejectAnalysis(new Error('scan timed out'))
+        await waitFor(() => boundaryStatuses.includes('failed'))
+      }
+      await service.command({ action: 'resume', session: 1 })
+      await waitFor(() => events.some((event) => event.kind === 'ended'))
+      if (reason === 'late') {
+        resolveAnalysis({ start: 1984 / 48000, end: (48000 * 4 - 192) / 48000 })
+        await waitFor(() => boundaryStatuses.includes('cancelled'))
+      }
+      service.dispose()
+      await delay(100)
+      const expected = Buffer.concat([
+        await readFile(join(directory, '48000-1.raw')),
+        await readFile(join(directory, '48000-2.raw')),
+      ])
+      expect((await readFile(pcm)).equals(expected)).toBe(true)
+      expect(events.filter((event) => event.kind === 'boundary')).toHaveLength(1)
+      expect(warnings).toHaveLength(reason === 'failed' ? 1 : 0)
     },
     15000,
   )
@@ -173,6 +224,7 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
         ],
         resolveTrack: async (id) => report.files[id - 1].path,
         emit: (event) => events.push(event),
+        onBoundaryStatus: ({ status }) => boundaryStatuses.push(status),
         warn: (error) => {
           throw error
         },
@@ -182,6 +234,7 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
       expect(
         await service.command({ action: 'next', session: 1, trackId: 2, trimDigitalSilence: true }),
       ).toEqual({ accepted: true })
+      await waitFor(() => boundaryStatuses.includes('applied'))
       await service.command({ action: 'resume', session: 1 })
       await waitFor(() => events.some((event) => event.kind === 'ended'), 30000)
       service.dispose()

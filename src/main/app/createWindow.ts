@@ -2,10 +2,10 @@ import { BrowserWindow, app, ipcMain } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
-import { disposeDesktopLyricsWindow } from './desktopLyricsWindow'
 import { MiniPlayerWindowController } from './miniPlayerWindowController'
 import { createWindowsThumbarController } from './windowsThumbarController'
 import { secureRendererWindow } from './webContentsSecurity'
+import { sendRendererEvent } from '@main/ipc/rendererEvents'
 
 function resolveAppIconPath(): string | undefined {
   const candidates = [
@@ -28,14 +28,8 @@ export function createWindow(): BrowserWindow {
     title: 'Auralis',
     backgroundColor: '#0c0b0a',
     transparent: false,
-    frame: true,
+    frame: false,
     show: false,
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#00000000',
-      symbolColor: '#e1ddd6',
-      height: 36,
-    },
     ...(icon ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
@@ -54,6 +48,16 @@ export function createWindow(): BrowserWindow {
 
   new MiniPlayerWindowController(window)
   const disposeThumbarController = createWindowsThumbarController(window)
+
+  const notifyMaximizedChanged = (): void => {
+    if (!window.webContents.isDestroyed()) {
+      sendRendererEvent(window.webContents, ipcChannels.window.maximizedChanged, {
+        isMaximized: window.isMaximized(),
+      })
+    }
+  }
+  window.on('maximize', notifyMaximizedChanged)
+  window.on('unmaximize', notifyMaximizedChanged)
 
   let didShow = false
 
@@ -84,7 +88,6 @@ export function createWindow(): BrowserWindow {
     clearTimeout(readyTimeout)
     ipcMain.removeListener(ipcChannels.app.rendererReady, handleRendererReady)
     disposeThumbarController()
-    disposeDesktopLyricsWindow()
   })
 
   window.webContents.once('render-process-gone', showWindow)

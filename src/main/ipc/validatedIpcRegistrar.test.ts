@@ -33,6 +33,41 @@ function createEvent(sender = createSender()): IpcMainInvokeEvent {
 }
 
 describe('validated IPC registrar', () => {
+  it.each(['resolve', 'reject'] as const)(
+    'blocks new work and drains a request that will %s',
+    async (outcome) => {
+      let finish!: () => void
+      const request = new Promise<{ status: 'cancelled' }>((resolve, reject) => {
+        finish = () =>
+          outcome === 'resolve'
+            ? resolve({ status: 'cancelled' })
+            : reject(new Error('write failed'))
+      })
+      let invoke!: (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown
+      const registrar = createValidatedIpcRegistrar({
+        register: (_channel, listener) => {
+          invoke = listener
+        },
+        isTrustedSender: () => true,
+      })
+      const listener = vi.fn(() => request)
+      registrar.handle('database:export-backup', listener)
+      const accepted = invoke(createEvent())
+      expect(accepted).toBe(request)
+      let drained = false
+      const shutdown = registrar.shutdown().then(() => {
+        drained = true
+      })
+      expect(() => invoke(createEvent())).toThrow('shutting down')
+      await Promise.resolve()
+      expect(drained).toBe(false)
+      finish()
+      await shutdown
+      expect(listener).toHaveBeenCalledOnce()
+      await registrar.shutdown()
+    },
+  )
+
   it('checks sender and payload before invoking the domain listener', () => {
     let rawListener: ((event: IpcMainInvokeEvent, ...args: unknown[]) => unknown) | undefined
     const domainListener = vi.fn(() => ({ jobId: 7 }))

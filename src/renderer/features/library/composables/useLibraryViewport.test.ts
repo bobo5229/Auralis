@@ -4,7 +4,7 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import { LIBRARY_LAYOUT_METRICS } from '../constants/libraryLayoutMetrics'
 import { useLibraryViewport } from './useLibraryViewport'
 
-function createTrack(id: number): TrackListItem {
+function createTrack(id: number, patch: Partial<TrackListItem> = {}): TrackListItem {
   return {
     id,
     title: `Track ${id}`,
@@ -23,6 +23,7 @@ function createTrack(id: number): TrackListItem {
     playCount: 0,
     lastPlayedAt: null,
     createdAt: '2026-08-28T00:00:00.000Z',
+    ...patch,
   }
 }
 
@@ -49,6 +50,8 @@ function createViewport(options?: {
   tracks?: TrackListItem[]
   scrollTop?: number
   isCoverView?: boolean
+  albumGroupStartOffset?: number
+  virtualAlbumGroups?: Array<{ index: number; end: number }>
 }) {
   const sourceTracks = options?.tracks ?? [createTrack(1), createTrack(2), createTrack(3)]
   const tracks = ref(sourceTracks)
@@ -67,13 +70,13 @@ function createViewport(options?: {
     return {
       trackIndexById,
       albumGroupIndexByTrackId,
-      albumGroupStartOffsets: [0],
+      albumGroupStartOffsets: [options?.albumGroupStartOffset ?? 0],
       trackById,
     }
   })
-  const albumGroups = computed(() => [{ firstTrackIndex: 0 }])
+  const albumGroups = computed(() => [{ firstTrackIndex: 0, tracks: tracks.value }])
   const virtualAlbumGroups: ComputedRef<ReadonlyArray<{ index: number; end: number }>> = computed(
-    () => [{ index: 0, end: 400 }],
+    () => options?.virtualAlbumGroups ?? [{ index: 0, end: 400 }],
   )
 
   const viewport = useLibraryViewport({
@@ -162,5 +165,110 @@ describe('useLibraryViewport', () => {
     await pending
 
     expect(scrollElement.scrollTop).toBe(80)
+  })
+
+  it('positions a late search hit within an unmounted long cover album', async () => {
+    const tracks = Array.from({ length: 20 }, (_, index) => createTrack(index + 1))
+    const { viewport, scrollElement } = createViewport({
+      tracks,
+      isCoverView: true,
+      albumGroupStartOffset: 4_000,
+      virtualAlbumGroups: [],
+    })
+
+    await viewport.scrollToTrackIndex(19)
+
+    expect(scrollElement.scrollTop).toBe(4_683)
+    const targetRowTop =
+      16 +
+      4_000 +
+      LIBRARY_LAYOUT_METRICS.coverGroupPaddingBlockSide +
+      LIBRARY_LAYOUT_METRICS.coverPanelBorderWidth +
+      LIBRARY_LAYOUT_METRICS.coverPanelPaddingBlockSide +
+      19 * LIBRARY_LAYOUT_METRICS.coverTrackRowHeight
+    expect(targetRowTop - scrollElement.scrollTop).toBe(132)
+  })
+
+  it('includes Disc 1 and Disc 2 headings when positioning a Disc 2 search hit', async () => {
+    const tracks = Array.from({ length: 16 }, (_, index) =>
+      createTrack(index + 1, { discNo: index < 8 ? 1 : 2 }),
+    )
+    const { viewport, scrollElement } = createViewport({
+      tracks,
+      isCoverView: true,
+      albumGroupStartOffset: 8_000,
+      virtualAlbumGroups: [],
+    })
+
+    await viewport.scrollToTrackIndex(8)
+
+    expect(scrollElement.scrollTop).toBe(8_291)
+    const targetRowTop =
+      16 +
+      8_000 +
+      LIBRARY_LAYOUT_METRICS.coverGroupPaddingBlockSide +
+      LIBRARY_LAYOUT_METRICS.coverPanelBorderWidth +
+      LIBRARY_LAYOUT_METRICS.coverPanelPaddingBlockSide +
+      8 * LIBRARY_LAYOUT_METRICS.coverTrackRowHeight +
+      2 * LIBRARY_LAYOUT_METRICS.coverDiscHeadingHeight
+    expect(targetRowTop - scrollElement.scrollTop).toBe(132)
+  })
+
+  it('keeps flat-view search positioning on the existing 44px track geometry', async () => {
+    const tracks = Array.from({ length: 16 }, (_, index) => createTrack(index + 1))
+    const { viewport, scrollElement } = createViewport({ tracks })
+
+    await viewport.scrollToTrackIndex(10)
+
+    const targetRowTop = 10 * LIBRARY_LAYOUT_METRICS.flatRowHeight + 16
+    expect(scrollElement.scrollTop).toBe(324)
+    expect(targetRowTop - scrollElement.scrollTop).toBe(132)
+  })
+
+  it('keeps cover playback positioning at the album group start', async () => {
+    const tracks = Array.from({ length: 16 }, (_, index) => createTrack(index + 1))
+    const { viewport, scrollElement } = createViewport({
+      tracks,
+      isCoverView: true,
+      albumGroupStartOffset: 4_000,
+    })
+
+    await viewport.scrollToTrackById(16)
+
+    expect(scrollElement.scrollTop).toBe(3_884)
+  })
+
+  it('does not scroll when search request becomes invalid during nextTick or rAF wait', async () => {
+    const tracks = Array.from({ length: 16 }, (_, index) => createTrack(index + 1))
+    const { viewport, scrollElement } = createViewport({ tracks, scrollTop: 50 })
+
+    let isCurrent = true
+    const scrollPromise = viewport.scrollToTrackIndex(5, () => isCurrent)
+    // Invalidate request while deferred
+    isCurrent = false
+    await scrollPromise
+
+    expect(scrollElement.scrollTop).toBe(50)
+  })
+
+  it('does not scroll when user scrolls during scrollToTrackIndex deferred wait', async () => {
+    const tracks = Array.from({ length: 16 }, (_, index) => createTrack(index + 1))
+    const { viewport, scrollElement } = createViewport({ tracks, scrollTop: 50 })
+
+    const scrollPromise = viewport.scrollToTrackIndex(5, () => true)
+    // User scrolls during deferred wait
+    viewport.onUserScrollInput()
+    await scrollPromise
+
+    expect(scrollElement.scrollTop).toBe(50)
+  })
+
+  it('positions correctly when search request remains valid and user does not scroll', async () => {
+    const tracks = Array.from({ length: 16 }, (_, index) => createTrack(index + 1))
+    const { viewport, scrollElement } = createViewport({ tracks, scrollTop: 50 })
+
+    await viewport.scrollToTrackIndex(5, () => true)
+
+    expect(scrollElement.scrollTop).toBe(104)
   })
 })

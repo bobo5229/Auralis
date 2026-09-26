@@ -3,19 +3,12 @@ import '@unocss/reset/tailwind.css'
 import 'virtual:uno.css'
 import './app/styles/main.css'
 import { useTheme } from './composables/useTheme'
+import { tooltipPlugin } from './shared/tooltip/tooltip'
 
 const { initTheme } = useTheme()
 initTheme()
 
 async function bootstrap(): Promise<void> {
-  const isDesktopLyricsWindow = new URLSearchParams(window.location.search).has('desktopLyrics')
-
-  if (isDesktopLyricsWindow) {
-    const { default: DesktopLyricsApp } = await import('./DesktopLyricsApp.vue')
-    createApp(DesktopLyricsApp).mount('#app')
-    return
-  }
-
   const [{ default: App }, { router }, { auralis }] = await Promise.all([
     import('./App.vue'),
     import('./app/router'),
@@ -27,6 +20,7 @@ async function bootstrap(): Promise<void> {
   localStorage.removeItem('auralis-locale')
 
   const app = createApp(App)
+  app.use(tooltipPlugin)
   app.use(i18n)
   app.use(router)
   await router.isReady()

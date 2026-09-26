@@ -1,6 +1,7 @@
 import { nextTick, ref, watch, type Ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { LIBRARY_LAYOUT_METRICS } from '../constants/libraryLayoutMetrics'
+import { getAlbumCoverTrackDiscHeadings } from '../utils/albumCoverDiscHeadings'
 import { resolveFirstVisibleTrackIndex } from '../utils/libraryFirstVisibleTrack'
 import {
   resolveLibraryViewportRestoreAction,
@@ -27,7 +28,12 @@ export function useLibraryViewport(options: {
       trackById: ReadonlyMap<number, TrackListItem>
     }
   }
-  albumGroups: { readonly value: ReadonlyArray<{ firstTrackIndex: number }> }
+  albumGroups: {
+    readonly value: ReadonlyArray<{
+      firstTrackIndex: number
+      tracks: readonly Pick<TrackListItem, 'id' | 'discNo'>[]
+    }>
+  }
   virtualAlbumGroups: { readonly value: ReadonlyArray<{ index: number; end: number }> }
   currentTrackId: () => number | null
   selectedTrackId: () => number | null
@@ -119,6 +125,40 @@ export function useLibraryViewport(options: {
     return true
   }
 
+  function scrollSearchResultTrackToRatio(targetTrackId: number): boolean {
+    const container = options.scrollRef.value
+    if (!container) return false
+    if (!options.isCoverView.value) return scrollRenderedTrackToRatio(targetTrackId)
+
+    const targetGroupIndex = options.derivedIndex.value.albumGroupIndexByTrackId.get(targetTrackId)
+    if (targetGroupIndex === undefined) return false
+
+    const targetGroup = options.albumGroups.value[targetGroupIndex]
+    const targetGroupOffset = options.derivedIndex.value.albumGroupStartOffsets[targetGroupIndex]
+    if (!targetGroup || targetGroupOffset === undefined) return false
+
+    const targetTrackIndex = targetGroup.tracks.findIndex((track) => track.id === targetTrackId)
+    if (targetTrackIndex < 0) return false
+
+    const discHeadingCountThroughTarget = getAlbumCoverTrackDiscHeadings(targetGroup.tracks)
+      .slice(0, targetTrackIndex + 1)
+      .filter((discNumber) => discNumber !== null).length
+    const targetTrackOffset =
+      targetGroupOffset +
+      LIBRARY_LAYOUT_METRICS.coverGroupPaddingBlockSide +
+      LIBRARY_LAYOUT_METRICS.coverPanelBorderWidth +
+      LIBRARY_LAYOUT_METRICS.coverPanelPaddingBlockSide +
+      targetTrackIndex * LIBRARY_LAYOUT_METRICS.coverTrackRowHeight +
+      discHeadingCountThroughTarget * LIBRARY_LAYOUT_METRICS.coverDiscHeadingHeight
+
+    container.scrollTop = Math.max(
+      0,
+      targetTrackOffset + LIBRARY_TOP_INSET - container.clientHeight * SCROLL_POSITION_RATIO,
+    )
+    scheduleFirstVisibleTrackIndexUpdate()
+    return true
+  }
+
   function scrollRenderedTrackToTop(targetTrackId: number): boolean {
     const container = options.scrollRef.value
     if (!container) return false
@@ -151,6 +191,7 @@ export function useLibraryViewport(options: {
     targetTrackId: number,
     isRequestCurrent?: () => boolean,
     startGeneration: number = captureScrollGeneration(),
+    scrollTarget: (trackId: number) => boolean = scrollRenderedTrackToRatio,
   ): Promise<void> {
     await nextTick()
     if (isRequestCurrent && !isRequestCurrent()) return
@@ -158,13 +199,21 @@ export function useLibraryViewport(options: {
     await new Promise((resolve) => window.requestAnimationFrame(resolve))
     if (isRequestCurrent && !isRequestCurrent()) return
     if (isScrollInputCancelled(startGeneration)) return
-    scrollRenderedTrackToRatio(targetTrackId)
+    scrollTarget(targetTrackId)
   }
 
-  async function scrollToTrackIndex(index: number): Promise<void> {
+  async function scrollToTrackIndex(
+    index: number,
+    isRequestCurrent?: () => boolean,
+  ): Promise<void> {
     const track = options.tracks.value[index]
     if (!track) return
-    await scrollToTrackById(track.id)
+    await scrollToTrackById(
+      track.id,
+      isRequestCurrent,
+      captureScrollGeneration(),
+      scrollSearchResultTrackToRatio,
+    )
   }
 
   async function scrollToPlaybackTrack(isRequestCurrent?: () => boolean): Promise<void> {

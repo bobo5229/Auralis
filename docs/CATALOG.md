@@ -3,7 +3,7 @@
 [返回文档入口](README.md)
 
 按用途、产品主题与项目阶段组织；日期目录只在历史批次中保留，不使用 Windows 创建时间排序。
-本地目录截至 2026-08-29 共收录 166 份 Markdown / HTML 文件，包含入口和本索引自身。
+独立 HTML 原型统一见[原型目录](../demo/README.md)；本页保留文档分类与历史演示入口。
 
 索引同时包含共享文档和本地研究资料；Git 检出不保证全部目标存在，缺资料不等于已删除。
 当前忽略策略以仓库 `.gitignore` 为准；目录归类和收录不代表文件已提交或已同步。
@@ -28,6 +28,7 @@
 - [曲库与数据](rules/library-data.md)
 - [Renderer 视觉与交互](rules/renderer.md)
 - [风险分级验收](rules/validation.md)
+- [施工提示词写法](rules/handoff-prompts.md)
 
 ## 主题方案
 
@@ -35,6 +36,13 @@
 
 ### albums：专辑
 
+- [PRD：CD 专辑封面索引页](topics/albums/PRD-cd-album-cover-index-2026-09-25.md)
+- [TECHDOC：CD 专辑封面索引页](topics/albums/TECHDOC-cd-album-cover-index-2026-09-25.md)
+- [TECHDOC：CD 目录全量顺序播放](topics/albums/TECHDOC-cd-catalog-sequential-playback-2026-09-26.md)
+- [TECHDOC：CD 聚焦状态与双目标返回](topics/albums/TECHDOC-cd-focus-return-navigation-2026-09-25.md)
+- [PRD：专辑详情页 Banner 模块视觉与交互重构](topics/albums/PRD：专辑详情页%20Banner%20模块视觉与交互重构.md)
+- [TECHDOC：专辑详情页进入非对称过渡](topics/albums/techdoc-album-detail-enter-transition-motion.md)
+- [TECHDOC：专辑列表虚拟行定位与视觉动效解耦](topics/albums/techdoc-albums-virtual-row-transition-fix.md)
 - [TECHDOC：专辑详情页本地分类兜底画廊](topics/albums/techdoc-album-detail-local-catalog-fallback-gallery.md)
 - [专辑详情页重构 MVP 实施计划 (Album Detail Page Redesign MVP Plan)](topics/albums/2026-07-25-album-detail-redesign-plan.md)
 - [产品需求文档 (PRD)：专辑详情页退出景深沉降过渡](topics/albums/prd-album-detail-exit-transition.md)
@@ -51,6 +59,8 @@
 
 ### archive：音乐归档
 
+- [PRD：年度摘要实体票根档案](topics/archive/PRD：Archive%20页面年度摘要“实体票根档案（Editorial%20Liner%20Notes）”模块.MD)
+- [TECHDOC：年度摘要实体票根档案](topics/archive/techdoc-archive-editorial-liner-notes.md)
 - [产品需求文档 (PRD)：声迹页面黑胶封套抽盘交互式年度摘要](topics/archive/prd-archive-annual-vinyl-jacket-summary.md)
 - [PRD: 声迹页面“Music DNA 音乐基因与风格图谱”模块](topics/archive/prd-archive-music-dna-spectrum.md)
 - [技术架构文档 (TECHDOC)：声迹页面黑胶封套抽盘交互式年度摘要实现方案](topics/archive/techdoc-archive-annual-vinyl-jacket-summary.md)
@@ -76,6 +86,9 @@
 
 ### playback：播放界面
 
+- [FullscreenPlayerOverlay 职责拆分技术设计](topics/playback/TECHDOC-fullscreen-player-overlay-refactor-2026-08-30.md)
+- [MiniPlayer 脚本职责拆分技术设计](topics/playback/TECHDOC-mini-player-script-refactor-2026-08-30.md)
+- [PlayerBar 浮层控制器重构技术设计](topics/playback/TECHDOC-player-bar-overlay-controller-2026-08-30.md)
 - [TECHDOC：无缝播放解码前的内存预算与回退](topics/playback/TECHDOC-gapless-memory-budget-2026-09-21.md)
 - [TECHDOC：PlayerBar 与播放队列浮层材质统一](topics/playback/TECHDOC-playerbar-queue-surface-unification-2026-09-06.md)
 - [TECHDOC：modern PlayerBar Liquid Glass 视觉保真修复](topics/playback/TECHDOC-playerbar-liquid-glass-visual-fidelity-2026-09-05.md)
@@ -105,6 +118,24 @@
 - [UI 界面语言：简 / 繁 / 英 TECHDOC](topics/shell/techdoc-ui-locale-zh-hans-hant-en.md)
 
 ## 项目档案
+
+### 架构减重
+
+以下为同一轮项目的方案和阶段提示词，按 Phase 顺序阅读。原文状态对应当时的工作快照。
+
+- [目标架构与 Phase 1 IPC 重构方案](projects/architecture-simplification/Auralis%20目标架构与%20Phase%201%20IPC%20重构方案.md)
+- [Phase 2：PlaybackController 精修提示词](projects/architecture-simplification/Auralis%20Phase%202%20PlaybackController%20精修提示词.md)
+- [Phase 3：Renderer 大组件减重提示词](projects/architecture-simplification/Auralis%20Phase%203%20Renderer%20大组件减重提示词.md)
+- [Phase 4：Gate Review 提示词](projects/architecture-simplification/Auralis%20Phase%204%20Gate%20Review%20提示词.md)
+
+### AMDL 接入
+
+- [AMDL 施工阶段计划](projects/amdl-integration/AMDL施工PHASE.md)
+- [AMDL Phase 0 架构确认记录](projects/amdl-integration/Gemini关于Phase0的回复.md)
+
+### 播放栏可见性恢复
+
+- [PlayerBar 可见性恢复技术文档](projects/playerbar-visibility-recovery/TECHDOC.md)
 
 ### 手稿皮肤（已移除，历史归档）
 
@@ -309,6 +340,7 @@
 
 ## 审查记录
 
+- [Auralis 主题与颜色体系审计报告](reviews/播放器主题配色审计报告.md)
 - [桌面歌词窗口生命周期审查](reviews/REVIEW-desktop-lyrics-window-lifecycle.md)
 - [架构 Review 落地修复汇总](reviews/2026-07-17-architecture-review-fixes.md)
 - [专辑列表页 UI 审查与重构优化诊断报告 (Albums Page UI Audit & Optimization Spec)](reviews/2026-07-25-albums-page-ui-audit-fixes.md)
@@ -319,13 +351,15 @@
 
 ## 交接记录
 
+- [2026-09-12：曲库滚动条布局修复提示词](handoffs/20260912修复1.md)
 - [Auralis 剩余优化工作交付文档](handoffs/HANDOFF-remaining-work-2026-08-28.md)
 
 交接记录保留中断位置与当时待办，不构成继续执行授权。
 
 ## 演示
 
-- [Auralis · 动态流光取色实验](demos/apple-music-flow-demo.html)
-- [Auralis · 舞台幕布转场实验](demos/fullscreen-curtain-transition-demo.html)
+- [原型目录与分类](../demo/README.md)
+- [Auralis · 动态流光取色实验](../demo/local/playback/apple-music-flow-demo.html)
+- [Auralis · 舞台幕布转场实验](../demo/local/playback/fullscreen-curtain-transition-demo.html)
 
 HTML 演示是独立探索资料，不代表应用当前外观或实现。

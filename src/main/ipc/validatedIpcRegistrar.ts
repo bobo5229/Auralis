@@ -21,6 +21,10 @@ export interface ValidatedIpcRegistrarOptions {
   isTrustedSender(event: IpcMainInvokeEvent): boolean
 }
 
+export interface ValidatedIpcRegistrar extends IpcHandlerRegistrar {
+  shutdown(): Promise<void>
+}
+
 export class IpcInvokeSourceError extends Error {
   constructor(channel: string) {
     super(`IPC invoke rejected for "${channel}": untrusted sender`)
@@ -30,16 +34,32 @@ export class IpcInvokeSourceError extends Error {
 
 export function createValidatedIpcRegistrar(
   options: ValidatedIpcRegistrarOptions,
-): IpcHandlerRegistrar {
+): ValidatedIpcRegistrar {
+  let stopping = false
+  const pending = new Set<Promise<unknown>>()
   return {
+    async shutdown() {
+      stopping = true
+      while (pending.size > 0) await Promise.allSettled([...pending])
+    },
     handle(channel, listener) {
       options.register(channel, (event, ...args) => {
         if (!options.isTrustedSender(event)) {
           throw new IpcInvokeSourceError(channel)
         }
 
+        if (stopping) throw new Error('Application is shutting down')
+
         const payload = parseDomainIpcPayload(channel as DomainIpcInvokeChannel, args)
-        return listener(event, payload as never)
+        const result = listener(event, payload as never)
+        if (result instanceof Promise) {
+          pending.add(result)
+          void result.then(
+            () => pending.delete(result),
+            () => pending.delete(result),
+          )
+        }
+        return result
       })
     },
   }

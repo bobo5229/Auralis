@@ -12,6 +12,7 @@ import { tryRelocateMissingCandidate } from './trackRelocationMatcher'
 import { logger } from '../../logging/logger'
 import type { TrackRepository } from '../../repositories/trackRepository'
 import type { ScannedTrack } from '@shared/types/libraryScan'
+import type { RendererEventSender } from '@main/ipc/rendererEvents'
 
 const MAX_STABILITY_RETRIES = 5
 const IMPORT_BATCH_SIZE = 32
@@ -33,7 +34,7 @@ export class LibraryIncrementalImportService {
   constructor(
     private readonly trackRepository: TrackRepository,
     private readonly artworkCacheDir: string,
-    private readonly sendToRenderer: (channel: string, data: unknown) => void,
+    private readonly sendToRenderer: RendererEventSender,
   ) {}
 
   /** True while an import pass is in flight (used to gate cache GC). */

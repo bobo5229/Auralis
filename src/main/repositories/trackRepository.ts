@@ -8,6 +8,7 @@ import type {
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto } from '@shared/types/playback'
 import type { AlbumDetailSummary } from '@shared/types/albumDetail'
+import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'
 import type { NormalizedIdentity } from '@main/features/metadata/metadataNormalizer'
 import { BaseRepository } from './baseRepository'
 
@@ -280,6 +281,45 @@ export class TrackRepository extends BaseRepository {
            title COLLATE NOCASE ASC`,
       )
       .all(albumArtist, excludeAlbumTitle) as AlbumDetailSummary[]
+  }
+
+  getGenreAlbumSummaries(
+    genres: string[],
+    excludeArtist: string,
+    excludeTitle: string,
+  ): AlbumDetailSummary[] {
+    const genreKeys = new Set(genres.map(normalizeDelimitedValue).filter(Boolean))
+    if (genreKeys.size === 0) return []
+
+    const albums = this.db
+      .prepare(
+        `SELECT
+            ${albumArtistIdentityExpr} AS albumArtist,
+            ${albumTitleIdentityExpr} AS title,
+            MIN(release_date) AS releaseDate,
+            MIN(NULLIF(artwork_cache_key, '')) AS artworkCacheKey,
+            json_group_array(DISTINCT genre) AS genres
+         FROM library_track_display
+         WHERE availability = 'available'
+           AND NOT (${albumArtistIdentityExpr} = ? AND ${albumTitleIdentityExpr} = ?)
+         GROUP BY ${albumArtistIdentityExpr}, ${albumTitleIdentityExpr}`,
+      )
+      .all(excludeArtist, excludeTitle) as (AlbumDetailSummary & { genres: string })[]
+
+    return albums
+      .filter((album) =>
+        (JSON.parse(album.genres) as (string | null)[]).some((value) =>
+          splitDelimitedValues(value).some((genre) =>
+            genreKeys.has(normalizeDelimitedValue(genre)),
+          ),
+        ),
+      )
+      .map((album) => ({
+        albumArtist: album.albumArtist,
+        title: album.title,
+        releaseDate: album.releaseDate,
+        artworkCacheKey: album.artworkCacheKey,
+      }))
   }
 
   getKnownFiles(): KnownTrackFile[] {

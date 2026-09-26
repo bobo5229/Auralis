@@ -271,7 +271,7 @@ onBeforeUnmount(() => {
         </div>
         <div class="folder-copy">
           <span>{{ t('settings.library.currentFolder') }}</span>
-          <strong :title="activeRoot?.path">{{
+          <strong v-tooltip.overflow="activeRoot?.path">{{
             activeRoot?.path ?? t('settings.library.noFolderSelected')
           }}</strong>
           <small>{{

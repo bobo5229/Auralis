@@ -2,6 +2,7 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import { bench, beforeAll, describe } from 'vitest'
 import { getAlbumGroupEstimatedHeight } from '../constants/libraryLayoutMetrics'
+import { getAlbumCoverDiscHeadingCount } from '../utils/albumCoverDiscHeadings'
 import { createLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
 import { createLibraryDerivedIndex, type LibraryDerivedGroup } from '../utils/libraryDerivedIndex'
 import { createLibrarySearchIndex } from '../utils/librarySearchIndex'
@@ -109,7 +110,11 @@ function createFixture(size: number): LibraryBenchmarkFixture {
 }
 
 function getAlbumGroupSize(group: BenchmarkAlbumGroup): number {
-  return getAlbumGroupEstimatedHeight(group.tracks.length, Boolean(group.releaseDate))
+  return getAlbumGroupEstimatedHeight(
+    group.tracks.length,
+    Boolean(group.releaseDate),
+    getAlbumCoverDiscHeadingCount(group.tracks),
+  )
 }
 
 function createClonedPage(

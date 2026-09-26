@@ -76,20 +76,20 @@ function onKeyDown(event: KeyboardEvent): void {
     </span>
     <div class="min-w-0 flex flex-col justify-center overflow-hidden max-h-full">
       <span
+        v-tooltip.overflow="track.title"
         class="cover-track-title truncate text-sm font-bold leading-5 text-[var(--auralis-text)]"
-        :title="track.title ?? undefined"
         >{{ track.title ?? '' }}</span
       >
       <span
         v-if="isMultiValueArtist(track.artist)"
+        v-tooltip.overflow="formatArtist(track.artist)"
         class="cover-track-artist-line truncate text-xs font-bold leading-[14px] text-[var(--auralis-text-faint)]"
-        :title="track.artist ?? undefined"
         >{{ formatArtist(track.artist) }}</span
       >
     </div>
     <span
+      v-tooltip.overflow="formatGenre(track.genre)"
       class="cover-track-genre truncate text-right font-bold text-xs text-[var(--auralis-text-muted)] min-w-0"
-      :title="formatGenre(track.genre) || undefined"
       >{{ formatGenre(track.genre) }}</span
     >
     <span class="text-right text-xs font-bold text-[var(--auralis-text-muted)] tabular-nums">{{

@@ -1,4 +1,10 @@
 {
+  "windowControls": {
+    "close": "关闭窗口",
+    "minimize": "最小化窗口",
+    "maximize": "最大化窗口",
+    "restore": "还原窗口"
+  },
   "nav": {
     "songs": "歌曲",
     "albums": "专辑",
@@ -77,7 +83,7 @@
     },
     "playback": {
       "gapless": "无缝播放",
-      "gaplessDescription": "提前解码下一首，并在同专辑曲目交界处跳过可识别的数字静音",
+      "gaplessDescription": "提前准备下一首，减少曲目切换产生的额外间隙，保留音频原有静音",
       "gaplessAriaOn": "无缝播放，当前已开启",
       "gaplessAriaOff": "无缝播放，当前已关闭"
     },
@@ -207,23 +213,6 @@
       "repeat-one": "单曲",
       "shuffle": "随机",
       "album-shuffle": "专辑"
-    },
-    "desktopLyrics": {
-      "menu": "桌面歌词",
-      "titleToggle": "显示或隐藏桌面歌词",
-      "lockPopoverTitle": "桌面歌词锁定",
-      "lockedLabel": "锁定",
-      "unlockedLabel": "解锁 / 可拖动",
-      "lockMenu": "锁定",
-      "unlockMenu": "解锁",
-      "ariaLockOn": "桌面歌词已锁定，点击解锁以便拖动",
-      "ariaLockOff": "桌面歌词未锁定，点击锁定",
-      "titleLockOn": "解锁以拖动窗口",
-      "titleLockOff": "锁定桌面歌词",
-      "lockedToast": "桌面歌词已锁定",
-      "unlockedToast": "桌面歌词已解锁",
-      "toastOn": "桌面歌词已开启",
-      "toastOff": "桌面歌词已关闭"
     }
   },
   "fullscreen": {
@@ -252,6 +241,20 @@
       "paused": "Paused",
       "tracks": "曲目",
       "returnToBrowse": "返回 CD 浏览",
+      "returnToIndex": "返回封面检索",
+      "focusReturnBrowse": "CD 浏览",
+      "focusReturnIndex": "专辑检索",
+      "view": {
+        "label": "浏览方式",
+        "browse": "光盘浏览",
+        "index": "封面检索"
+      },
+      "indexPage": {
+        "title": "封面检索",
+        "letters": "字母索引",
+        "missingDate": "—",
+        "openAlbum": "查看专辑 {title}"
+      },
       "composer": {
         "label": "Composer",
         "more": "还有 {count} 位作曲家",
@@ -272,6 +275,7 @@
         "toDark": "切换到深色"
       },
       "modes": {
+        "catalog-sequential": "全库顺序",
         "repeat-all": "专辑循环",
         "shuffle": "随机循环",
         "sequential": "顺序播放"
@@ -322,6 +326,7 @@
       "unknownYear": "年份未知",
       "unknownTitle": "未命名曲目",
       "moreAlbumsTitle": "{artist} 的更多作品",
+      "genreAlbumsTitle": "{genre} 的更多作品",
       "moreAlbumsAria": "{artist} 的更多作品",
       "openAlbumAria": "打开专辑 {title}",
       "coverAlt": "{title} 的封面",

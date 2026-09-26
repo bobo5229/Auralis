@@ -46,6 +46,7 @@ defineExpose({ open: openResetConfirmation })
         <button type="button" :disabled="isResetting" @click="closeResetConfirmation">取消</button>
         <div class="archive-reset-confirm-wrap">
           <button
+            v-tooltip="isResetting ? undefined : '按住 3 秒重置'"
             type="button"
             class="archive-reset-confirm"
             :class="{ 'is-holding': isHoldingReset }"
@@ -62,7 +63,6 @@ defineExpose({ open: openResetConfirmation })
           >
             <span>{{ isResetting ? '重置中…' : '重置' }}</span>
           </button>
-          <span v-if="!isResetting" class="archive-reset-hint">按住 3 秒重置</span>
         </div>
       </div>
     </section>

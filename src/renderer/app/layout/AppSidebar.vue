@@ -486,16 +486,15 @@ onBeforeUnmount(() => {
             class="sidebar-tool-button"
             type="button"
             :aria-label="t('sidebar.tool.facetsPanel')"
-            :title="t('sidebar.tool.facets')"
             @click="isFacetsDialogOpen = true"
           >
             <span class="i-lucide-list-filter"></span>
           </button>
           <button
+            v-tooltip="t('sidebar.tool.miniPlayer')"
             class="sidebar-tool-button"
             type="button"
             :aria-label="t('sidebar.tool.miniPlayerAction')"
-            :title="t('sidebar.tool.miniPlayer')"
             @click="enterMiniPlayer"
           >
             <span class="i-lucide-panel-top-close"></span>
@@ -505,7 +504,6 @@ onBeforeUnmount(() => {
             class="sidebar-tool-button"
             :class="{ 'sidebar-tool-button-active': activePath === '/settings' }"
             :aria-label="t('sidebar.tool.settings')"
-            :title="t('sidebar.tool.settings')"
             :draggable="false"
             @dragstart.prevent
             @pointerenter="onRouteIntent('settings')"
@@ -524,7 +522,6 @@ onBeforeUnmount(() => {
                 ? t('sidebar.tool.refreshBusy')
                 : t('sidebar.tool.refreshAction')
             "
-            :title="t('sidebar.tool.refresh')"
             :disabled="isStartingLibraryRefresh"
             :aria-busy="isStartingLibraryRefresh"
             @click="refreshLibrary"
@@ -577,7 +574,6 @@ onBeforeUnmount(() => {
           <button
             class="smart-playlist-add-button"
             type="button"
-            :title="t('sidebar.newPlaylist')"
             :aria-label="t('sidebar.newPlaylist')"
             @click="openCreateMenu"
           >

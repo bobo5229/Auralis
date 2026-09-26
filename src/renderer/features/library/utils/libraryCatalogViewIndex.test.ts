@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { TrackListItem } from '@shared/types/libraryScan'
+import { getAlbumGroupEstimatedHeight } from '../constants/libraryLayoutMetrics'
+import { getAlbumCoverDiscHeadingCount } from './albumCoverDiscHeadings'
 import { createLibraryCatalogViewIndex } from './libraryCatalogViewIndex'
 
 function createTrack(id: number, patch: Partial<TrackListItem> = {}): TrackListItem {
@@ -64,5 +66,31 @@ describe('createLibraryCatalogViewIndex', () => {
     expect(result.trackIndexById.get(7)).toBe(0)
     expect(result.trackById.get(7)).toBe(first)
     expect(result.albumGroupIndexByTrackId.get(7)).toBe(0)
+  })
+
+  it('includes disc headings in cumulative offsets for long cover lists', () => {
+    const tracks = Array.from({ length: 120 * 8 }, (_, index) => {
+      const groupIndex = Math.floor(index / 8)
+      const trackIndex = index % 8
+      const discNo =
+        groupIndex % 3 === 0 ? (trackIndex < 4 ? 1 : 2) : groupIndex % 3 === 1 ? 2 : null
+
+      return createTrack(index + 1, {
+        album: `Album ${groupIndex}`,
+        albumArtist: 'Artist',
+        discNo,
+      })
+    })
+    const result = createLibraryCatalogViewIndex(tracks, (group) =>
+      getAlbumGroupEstimatedHeight(
+        group.tracks.length,
+        Boolean(group.releaseDate),
+        getAlbumCoverDiscHeadingCount(group.tracks),
+      ),
+    )
+
+    expect(result.albumGroups).toHaveLength(120)
+    expect(result.albumGroupStartOffsets[99]).toBe(41_085)
+    expect(result.albumGroupStartOffsets[119]).toBe(49_401)
   })
 })

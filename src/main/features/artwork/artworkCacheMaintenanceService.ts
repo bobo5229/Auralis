@@ -20,6 +20,8 @@ export interface ArtworkMaintenanceGate {
 export class ArtworkCacheMaintenanceService {
   private state: ArtworkMaintenanceState = 'idle'
   private activeRun: Promise<void> | null = null
+  private stopped = false
+  private startupTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(
     private readonly migration: ArtworkCacheMigrationService,
@@ -41,11 +43,21 @@ export class ArtworkCacheMaintenanceService {
 
   /** Deferred startup maintenance — never blocks window first display (§10.1). */
   scheduleStartupMaintenance(delayMs = 2000): void {
-    setTimeout(() => {
+    if (this.stopped) return
+    if (this.startupTimer) clearTimeout(this.startupTimer)
+    this.startupTimer = setTimeout(() => {
+      this.startupTimer = null
       void this.runStartupMaintenance().catch((error) => {
         logger.error({ error }, 'Scheduled artwork cache maintenance failed')
       })
     }, delayMs)
+  }
+
+  async shutdown(): Promise<void> {
+    this.stopped = true
+    if (this.startupTimer) clearTimeout(this.startupTimer)
+    this.startupTimer = null
+    await this.activeRun
   }
 
   /** Migrate legacy keys when present, then GC once the migration committed. */
@@ -72,16 +84,17 @@ export class ArtworkCacheMaintenanceService {
   private async collectGarbageInternal(): Promise<void> {
     // The reference set is re-queried inside the collector; bail out if a
     // writer started while the migration was running (§11.2).
-    if (this.isWriterBusy()) {
+    if (this.stopped || this.isWriterBusy()) {
       logger.info('Skipping artwork cache garbage collection: a writer task is active')
       return
     }
 
     this.state = 'collecting-garbage'
-    await this.garbageCollector.collectGarbage(() => !this.isWriterBusy())
+    await this.garbageCollector.collectGarbage(() => !this.stopped && !this.isWriterBusy())
   }
 
   private runGuarded(run: () => Promise<void>): Promise<void> {
+    if (this.stopped) return Promise.resolve()
     if (this.activeRun) {
       return this.activeRun
     }

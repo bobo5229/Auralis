@@ -9,8 +9,6 @@ import TrackProgressInfo from './TrackProgressInfo.vue'
 import PlaybackQueuePopover from './PlaybackQueuePopover.vue'
 import PlaybackModeMenu from './PlaybackModeMenu.vue'
 import PlayerVolumeControl from './PlayerVolumeControl.vue'
-import DesktopLyricsLockPopover from './DesktopLyricsLockPopover.vue'
-import { useDesktopLyricsSync } from '@renderer/features/lyrics/composables/useDesktopLyricsSync'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { isPlayerVisualEffectsActive } from '@renderer/app/utils/playerVisualEffects'
 import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverlayFocus'
@@ -89,14 +87,6 @@ const playerBarStyle = computed(
 // --- Queue popover ---
 const queueButtonRef = ref<HTMLElement | null>(null)
 const queuePopoverRef = ref<HTMLElement | null>(null)
-const {
-  isVisible: isDesktopLyricsVisible,
-  isMousePassthroughEnabled: isDesktopLyricsMousePassthroughEnabled,
-  toggle: toggleDesktopLyricsSession,
-  toggleMousePassthrough: toggleDesktopLyricsMousePassthroughSession,
-} = useDesktopLyricsSync()
-const desktopLyricsToast = ref<string | null>(null)
-let desktopLyricsToastTimer: ReturnType<typeof setTimeout> | null = null
 
 // Modern island: lyrics + mode stay first-class until the island is ≤640px.
 const overflowButtonRef = ref<HTMLElement | null>(null)
@@ -153,9 +143,7 @@ const overlayController = usePlayerBarOverlayController({
   open: computed(() => volumeControlRef.value?.open ?? false),
   dismiss: () => volumeControlRef.value?.dismiss(),
 })
-const { isQueueOpen, isModeMenuOpen, isOverflowOpen, isDesktopLyricsLockOpen } = overlayController
-const desktopLyricsButtonRef = ref<HTMLElement | null>(null)
-const desktopLyricsLockPopoverRef = ref<HTMLElement | null>(null)
+const { isQueueOpen, isModeMenuOpen, isOverflowOpen } = overlayController
 const playerBarHostRef = ref<HTMLElement | null>(null)
 const islandRef = ref<HTMLElement | null>(null)
 
@@ -174,59 +162,6 @@ function toggleQueue(): void {
 function handleQueueClose(): void {
   overlayController.close('queue')
   resolveRestorablePlayerTrigger(queueButtonRef.value)?.focus()
-}
-
-async function toggleDesktopLyrics(): Promise<void> {
-  const result = await toggleDesktopLyricsSession()
-  showDesktopLyricsToast(
-    result.visible ? 'player.desktopLyrics.toastOn' : 'player.desktopLyrics.toastOff',
-  )
-}
-
-function dismissDesktopLyricsToast(): void {
-  desktopLyricsToast.value = null
-  if (desktopLyricsToastTimer) {
-    clearTimeout(desktopLyricsToastTimer)
-    desktopLyricsToastTimer = null
-  }
-}
-
-function toggleDesktopLyricsLockPopover(): void {
-  dismissDesktopLyricsToast()
-  overlayController.toggle('desktopLyricsLock')
-}
-
-function handleDesktopLyricsLockClose(restoreFocus = true): void {
-  overlayController.close('desktopLyricsLock')
-  if (!restoreFocus) return
-  resolveRestorablePlayerTrigger(desktopLyricsButtonRef.value)?.focus()
-}
-
-async function handleDesktopLyricsLockChange(locked: boolean): Promise<void> {
-  if (isDesktopLyricsMousePassthroughEnabled.value !== locked) {
-    await toggleDesktopLyricsMousePassthroughSession()
-    if (!isDesktopLyricsLockOpen.value) {
-      const resultEnabled = isDesktopLyricsMousePassthroughEnabled.value
-      showDesktopLyricsToast(
-        resultEnabled ? 'player.desktopLyrics.lockedToast' : 'player.desktopLyrics.unlockedToast',
-      )
-    }
-  }
-}
-
-function showDesktopLyricsToast(key: string): void {
-  if (isDesktopLyricsLockOpen.value) return
-
-  desktopLyricsToast.value = key
-
-  if (desktopLyricsToastTimer) {
-    clearTimeout(desktopLyricsToastTimer)
-  }
-
-  desktopLyricsToastTimer = setTimeout(() => {
-    desktopLyricsToast.value = null
-    desktopLyricsToastTimer = null
-  }, 1200)
 }
 
 // --- Mode menu ---
@@ -277,13 +212,6 @@ function handleDocumentPointerDown(event: PointerEvent): void {
   if (overflowButtonRef.value?.contains(target) || overflowPanelRef.value?.contains(target)) {
     inside.add('overflow')
   }
-  if (
-    desktopLyricsButtonRef.value?.contains(target) ||
-    desktopLyricsLockPopoverRef.value?.contains(target) ||
-    ((target as Element).closest?.('.desktop-lyrics-lock-popover') ?? false)
-  ) {
-    inside.add('desktopLyricsLock')
-  }
   if (volumeControlRef.value?.el?.contains(target)) {
     inside.add('volume')
   }
@@ -292,7 +220,7 @@ function handleDocumentPointerDown(event: PointerEvent): void {
 
 watch(isUtilitiesOverflow, (collapsed) => {
   if (collapsed) return
-  overlayController.closeMany(['overflow', 'mode', 'desktopLyricsLock'])
+  overlayController.closeMany(['overflow', 'mode'])
 })
 
 watch(
@@ -308,10 +236,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('pointerdown', handleDocumentPointerDown)
-  if (desktopLyricsToastTimer) {
-    clearTimeout(desktopLyricsToastTimer)
-    desktopLyricsToastTimer = null
-  }
   stopAlbumTint()
 })
 
@@ -445,39 +369,6 @@ function handleNext(): void {
             <PlaybackQueuePopover v-if="isQueueOpen" @close="handleQueueClose" />
           </div>
 
-          <div v-if="!isUtilitiesOverflow" class="desktop-lyrics-control-wrap">
-            <button
-              ref="desktopLyricsButtonRef"
-              class="player-control"
-              :class="{
-                'player-control-active': isDesktopLyricsVisible || isDesktopLyricsLockOpen,
-              }"
-              type="button"
-              :aria-label="t('player.desktopLyrics.menu')"
-              :aria-pressed="isDesktopLyricsVisible"
-              :aria-expanded="isDesktopLyricsLockOpen"
-              :title="t('player.desktopLyrics.titleToggle')"
-              @click="toggleDesktopLyrics"
-              @contextmenu.prevent="toggleDesktopLyricsLockPopover"
-            >
-              <span class="playbar-action-icon h-4 w-4 i-lucide-captions" />
-            </button>
-            <div ref="desktopLyricsLockPopoverRef" class="contents">
-              <DesktopLyricsLockPopover
-                v-if="isDesktopLyricsLockOpen"
-                :is-locked="isDesktopLyricsMousePassthroughEnabled"
-                @change="handleDesktopLyricsLockChange"
-                @close="handleDesktopLyricsLockClose"
-              />
-            </div>
-            <div
-              v-if="desktopLyricsToast && !isDesktopLyricsLockOpen"
-              class="player-overlay desktop-lyrics-toast"
-            >
-              {{ t(desktopLyricsToast) }}
-            </div>
-          </div>
-
           <button
             v-if="!isUtilitiesOverflow"
             ref="modeButtonRef"
@@ -512,40 +403,6 @@ function handleNext(): void {
               :aria-label="t('player.more')"
               @keydown.esc="handleOverflowEscape"
             >
-              <div class="desktop-lyrics-control-wrap">
-                <button
-                  class="player-control player-bar-overflow-item"
-                  :class="{
-                    'player-control-active': isDesktopLyricsVisible || isDesktopLyricsLockOpen,
-                  }"
-                  type="button"
-                  role="menuitem"
-                  :aria-label="t('player.desktopLyrics.menu')"
-                  :aria-pressed="isDesktopLyricsVisible"
-                  :aria-expanded="isDesktopLyricsLockOpen"
-                  :title="t('player.desktopLyrics.titleToggle')"
-                  @click="toggleDesktopLyrics"
-                  @contextmenu.prevent="toggleDesktopLyricsLockPopover"
-                >
-                  <span class="playbar-action-icon h-4 w-4 i-lucide-captions" />
-                  <span class="player-bar-overflow-label">{{
-                    t('player.desktopLyrics.menu')
-                  }}</span>
-                </button>
-                <DesktopLyricsLockPopover
-                  v-if="isDesktopLyricsLockOpen"
-                  :is-locked="isDesktopLyricsMousePassthroughEnabled"
-                  @change="handleDesktopLyricsLockChange"
-                  @close="handleDesktopLyricsLockClose"
-                />
-                <div
-                  v-if="desktopLyricsToast && !isDesktopLyricsLockOpen"
-                  class="player-overlay desktop-lyrics-toast"
-                >
-                  {{ t(desktopLyricsToast) }}
-                </div>
-              </div>
-
               <button
                 ref="modeButtonRef"
                 class="player-control player-bar-overflow-item"

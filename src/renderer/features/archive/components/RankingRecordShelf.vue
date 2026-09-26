@@ -137,11 +137,13 @@ function keydown(event: KeyboardEvent, index: number): void {
 }
 watch(
   () => props.items,
-  async () => {
+  async (_nextItems, previousItems) => {
+    const selectedKey = previousItems[selected.value]?.key
+    const nextSelected = items.value.findIndex((item) => item.key === selectedKey)
     controls.forEach((control) => control.cancel())
     controls.clear()
     hovered.value = focused.value = null
-    selected.value = 0
+    selected.value = nextSelected >= 0 ? nextSelected : 0
     failedImages.value = new Set()
     await nextTick()
     if (disposed) return

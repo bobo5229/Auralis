@@ -3,11 +3,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { isTrustedRendererUrl, secureRendererWindow } from './webContentsSecurity'
 
 describe('isTrustedRendererUrl', () => {
-  it('allows hash routes and the desktop lyrics query on the configured dev entry', () => {
+  it('allows hash routes and query flags on the configured dev entry', () => {
     const entry = 'http://127.0.0.1:5173/'
 
     expect(isTrustedRendererUrl('http://127.0.0.1:5173/#/library', entry)).toBe(true)
-    expect(isTrustedRendererUrl('http://127.0.0.1:5173/?desktopLyrics=1', entry)).toBe(true)
+    expect(isTrustedRendererUrl('http://127.0.0.1:5173/?debug=1', entry)).toBe(true)
   })
 
   it('rejects a different origin, credentials, or renderer path', () => {
@@ -22,9 +22,9 @@ describe('isTrustedRendererUrl', () => {
   it('allows only the configured production renderer file', () => {
     const entry = 'D:\\Auralis\\out\\renderer\\index.html'
 
-    expect(
-      isTrustedRendererUrl('file:///D:/Auralis/out/renderer/index.html?desktopLyrics=1', entry),
-    ).toBe(true)
+    expect(isTrustedRendererUrl('file:///D:/Auralis/out/renderer/index.html?debug=1', entry)).toBe(
+      true,
+    )
     expect(isTrustedRendererUrl('file:///D:/Auralis/out/renderer/other.html', entry)).toBe(false)
     expect(isTrustedRendererUrl('https://example.com/index.html', entry)).toBe(false)
   })

@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { router } from './app/router'
 import AppSidebar from './app/layout/AppSidebar.vue'
+import WindowTrafficLights from './app/layout/WindowTrafficLights.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
@@ -10,7 +11,6 @@ import MiniPlayer from './app/layout/MiniPlayer.vue'
 import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
 import { useShellFluidBackground } from '@renderer/features/appearance/composables/useShellFluidBackground'
 import { useCdCanvasTheme } from '@renderer/features/albums/composables/useCdCanvasTheme'
-import { useDesktopLyricsSync } from '@renderer/features/lyrics/composables/useDesktopLyricsSync'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
@@ -21,7 +21,6 @@ const playback = usePlayback()
 const { shellFluidBackgroundEnabled } = useShellFluidBackground()
 const { cdCanvasTheme } = useCdCanvasTheme()
 useSystemMediaIntegration()
-useDesktopLyricsSync()
 const { displayMode, onMiniPlayerWindowStateChanged, syncMiniPlayerWindowState } =
   usePlayerDisplayMode()
 let unsubscribeMiniPlayerWindowState: (() => void) | null = null
@@ -55,8 +54,8 @@ const isAlbumDetail = computed(() => {
   return route.name === 'album-detail'
 })
 
-const isCdAlbums = computed(() => {
-  return route.name === 'cd-albums'
+const isCdCanvas = computed(() => {
+  return route.name === 'cd-albums' || route.name === 'cd-album-index'
 })
 
 const artworkUrl = computed(() =>
@@ -66,7 +65,7 @@ const shouldRenderShellArtwork = computed(
   () =>
     shellFluidBackgroundEnabled.value &&
     displayMode.value === 'normal' &&
-    !isCdAlbums.value &&
+    !isCdCanvas.value &&
     artworkUrl.value !== null,
 )
 
@@ -104,8 +103,8 @@ function onTransitionEnterCancelled(): void {
     v-else
     class="app-window"
     :class="{
-      'is-cd-albums': isCdAlbums,
-      'is-cd-albums-dark': isCdAlbums && cdCanvasTheme === 'dark',
+      'is-cd-albums': isCdCanvas,
+      'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
     }"
     data-app-shell-root
   >
@@ -113,12 +112,17 @@ function onTransitionEnterCancelled(): void {
       class="app-shell relative"
       :class="{
         'is-album-detail': isAlbumDetail,
-        'is-cd-albums': isCdAlbums,
-        'is-cd-albums-dark': isCdAlbums && cdCanvasTheme === 'dark',
+        'is-cd-albums': isCdCanvas,
+        'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
         'has-artwork': shouldRenderShellArtwork,
       }"
     >
-      <div class="wco-drag-region" aria-hidden="true" />
+      <div
+        class="shell-drag-region"
+        :class="{ 'shell-drag-region--cd': isCdCanvas }"
+        aria-hidden="true"
+      />
+      <WindowTrafficLights :cd-canvas="isCdCanvas" />
 
       <FluidArtworkBackground
         v-if="shouldRenderShellArtwork"
@@ -129,7 +133,7 @@ function onTransitionEnterCancelled(): void {
       />
       <div v-if="shouldRenderShellArtwork" class="app-shell-bg-overlay" aria-hidden="true" />
 
-      <AppSidebar v-if="!isCdAlbums" class="relative z-10" />
+      <AppSidebar v-if="!isCdCanvas" class="relative z-10" />
 
       <main class="app-main relative z-10">
         <RouterView v-slot="{ Component, route: viewRoute }">
@@ -156,8 +160,8 @@ function onTransitionEnterCancelled(): void {
         </RouterView>
       </main>
 
-      <NowPlayingPanel v-if="!isCdAlbums" class="relative z-10" />
-      <PlayerBar v-if="!isCdAlbums" />
+      <NowPlayingPanel v-if="!isCdCanvas" class="relative z-10" />
+      <PlayerBar v-if="!isCdCanvas" />
     </div>
     <FullscreenPlayerOverlay />
   </div>

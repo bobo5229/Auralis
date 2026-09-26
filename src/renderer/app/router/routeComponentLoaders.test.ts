@@ -11,6 +11,7 @@ describe('routeComponentLoaders', () => {
     const registry = createRouteLoaderRegistry({ cdAlbums })
     expect(cdAlbums).not.toHaveBeenCalled()
     expect(registry.isWarmableRoute('cd-albums')).toBe(false)
+    expect(registry.isWarmableRoute('cd-album-index')).toBe(false)
     await Promise.all([registry.routeLoaders.cdAlbums(), registry.routeLoaders.cdAlbums()])
     expect(cdAlbums).toHaveBeenCalledTimes(1)
   })

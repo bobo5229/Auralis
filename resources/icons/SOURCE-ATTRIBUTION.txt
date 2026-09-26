@@ -1,0 +1,12 @@
+Auralis app icon glyph source
+=============================
+
+Icon: audio-waveform
+Library: Lucide Icons (https://lucide.dev/icons/audio-waveform)
+Package used in app UI: @iconify-json/lucide (i-lucide-audio-waveform in AppSidebar)
+License: ISC (https://lucide.dev/license)
+
+Files:
+- source-lucide-audio-waveform.svg  — original 24×24 glyph
+- auralis-icon.svg                  — app icon plate + scaled glyph
+- icon.png / icon.ico               — raster exports for electron-builder / Windows

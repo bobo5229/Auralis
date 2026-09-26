@@ -31,7 +31,6 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve('src/preload/index.ts'),
-          desktopLyrics: resolve('src/preload/desktopLyrics.ts'),
         },
         output: {
           // Sandboxed Electron preloads run in a restricted CommonJS environment.

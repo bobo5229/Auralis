@@ -1,6 +1,7 @@
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { AlbumSummary } from '../types'
 import { albumIdentityKey, resolveAlbumArtist, resolveAlbumTitle } from './albumIdentity'
+import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'
 
 export function selectAlbumTracks(
   tracks: TrackListItem[],
@@ -75,5 +76,29 @@ export function moreAlbumsByArtist(
   const currentKey = albumIdentityKey(albumArtist, albumTitle)
   return sortAlbumsByYearThenTitle(
     albums.filter((album) => album.albumArtist === albumArtist && album.key !== currentKey),
+  )
+}
+
+export function moreAlbumsByGenre(
+  albums: AlbumSummary[],
+  currentTracks: TrackListItem[],
+  albumArtist: string,
+  albumTitle: string,
+): AlbumSummary[] {
+  const genres = new Set(
+    currentTracks.flatMap((track) =>
+      splitDelimitedValues(track.genre).map(normalizeDelimitedValue),
+    ),
+  )
+  if (genres.size === 0) return []
+  const currentKey = albumIdentityKey(albumArtist, albumTitle)
+  return albums.filter(
+    (album) =>
+      album.key !== currentKey &&
+      album.tracks.some((track) =>
+        splitDelimitedValues(track.genre).some((genre) =>
+          genres.has(normalizeDelimitedValue(genre)),
+        ),
+      ),
   )
 }

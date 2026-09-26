@@ -76,6 +76,7 @@ export class EffectivePlayTracker {
   }
 
   setBuffering(buffering: boolean): void {
+    if (this.buffering === buffering) return
     this.buffering = buffering
     this.resetSample()
   }

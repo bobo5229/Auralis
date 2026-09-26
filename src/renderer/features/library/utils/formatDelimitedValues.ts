@@ -2,8 +2,8 @@
  * Renderer wrappers for multi-value metadata (artists, genres, …).
  *
  * Rules (see `@shared/utils/delimitedValues`):
- * - Parse: split on `"; "` / `", "` / full-width `；` `，` / `、` — `/` is NOT a separator
- * - Display (read-only UI only): `A & B` / `A, B & C` — never raw separators
+ * - Parse only on the half-width `; ` delimiter
+ * - Display (read-only UI only): `A & B` / `A, B & C`; never show raw `; ` delimiters
  */
 
 import {

@@ -7,13 +7,14 @@ import {
   LibrarySearchIndexBuildStaleError,
 } from '../utils/librarySearchIndex'
 import { scanLibrarySearchIndex, type LibrarySearchRecord } from '../utils/librarySearchScan'
+import { isLibrarySearchBarHovered } from '../utils/librarySearchHover'
 import { normalizeSearchText } from '../utils/normalizeSearchText'
 
 export function useLibrarySearchSession(options: {
   isDisposed: () => boolean
   isLibrarySurface: () => boolean
   isInteractiveTarget: (target: EventTarget | null) => boolean
-  scrollToTrackIndex: (index: number) => Promise<void>
+  scrollToTrackIndex: (index: number, isRequestCurrent?: () => boolean) => Promise<void>
 }): {
   searchQuery: Ref<string>
   isSearchFocused: Ref<boolean>
@@ -39,28 +40,34 @@ export function useLibrarySearchSession(options: {
 } {
   const searchQuery = ref('')
   const isSearchFocused = ref(false)
-  const isTopZoneHovered = ref(false)
-  const isSearchBarHovered = ref(false)
+  const isSearchZoneHovered = ref(false)
   const searchInputRef = ref<HTMLElement | null>(null)
   const searchRootRef = ref<HTMLElement | null>(null)
   const searchOutcome = ref<LibrarySearchOutcome>({ kind: 'idle' })
   let lastSearchQuery = ''
   let lastMatchedTrackIndex = -1
+  let searchScrollRequestId = 0
   let librarySearchIndexGeneration = 0
   let librarySearchIndexPromise: Promise<readonly LibrarySearchRecord[] | null> = Promise.resolve(
     [],
   )
 
-  watch(searchQuery, (q) => {
-    if (!q.trim()) {
+  function cancelPendingSearchScroll(): void {
+    searchScrollRequestId += 1
+  }
+
+  watch(
+    searchQuery,
+    () => {
+      cancelPendingSearchScroll()
       searchOutcome.value = { kind: 'idle' }
       lastSearchQuery = ''
       lastMatchedTrackIndex = -1
-    }
-  })
+    },
+    { flush: 'sync' },
+  )
 
   const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
-  const isSearchZoneHovered = computed(() => isTopZoneHovered.value || isSearchBarHovered.value)
   const shouldRenderSearchBar = computed(
     () => isSearchFocused.value || hasSearchQuery.value || isSearchZoneHovered.value,
   )
@@ -103,6 +110,7 @@ export function useLibrarySearchSession(options: {
   }
 
   async function jumpToNextSearchMatch(): Promise<void> {
+    const requestId = ++searchScrollRequestId
     const query = searchQuery.value.trim()
     if (!query) {
       searchOutcome.value = { kind: 'idle' }
@@ -114,6 +122,7 @@ export function useLibrarySearchSession(options: {
     if (
       searchIndex === null ||
       searchGeneration !== librarySearchIndexGeneration ||
+      requestId !== searchScrollRequestId ||
       query !== searchQuery.value.trim() ||
       options.isDisposed()
     ) {
@@ -143,33 +152,26 @@ export function useLibrarySearchSession(options: {
       wrapped: scanResult.wrapped,
     }
 
-    await options.scrollToTrackIndex(scanResult.targetIndex)
+    await options.scrollToTrackIndex(scanResult.targetIndex, () => {
+      return !options.isDisposed() && requestId === searchScrollRequestId
+    })
   }
 
   function onLibraryListMouseMove(event: MouseEvent): void {
     const currentTarget = event.currentTarget as HTMLElement | null
     if (!currentTarget) return
 
-    const containerRect = currentTarget.getBoundingClientRect()
-    const relativeY = event.clientY - containerRect.top
-    isTopZoneHovered.value = relativeY >= 0 && relativeY <= 48
-
     const bar = searchRootRef.value
-    if (bar) {
-      const barRect = bar.getBoundingClientRect()
-      isSearchBarHovered.value =
-        event.clientX >= barRect.left &&
-        event.clientX <= barRect.right &&
-        event.clientY >= barRect.top &&
-        event.clientY <= barRect.bottom
-    } else {
-      isSearchBarHovered.value = false
-    }
+    isSearchZoneHovered.value = isLibrarySearchBarHovered(
+      event.clientX,
+      event.clientY,
+      currentTarget.getBoundingClientRect(),
+      bar ? bar.getBoundingClientRect() : null,
+    )
   }
 
   function onLibraryListMouseLeave(): void {
-    isTopZoneHovered.value = false
-    isSearchBarHovered.value = false
+    isSearchZoneHovered.value = false
   }
 
   function onSearchBarPointerDown(): void {
@@ -186,12 +188,16 @@ export function useLibrarySearchSession(options: {
   }
 
   function clearSearch(): void {
+    cancelPendingSearchScroll()
     searchQuery.value = ''
     searchOutcome.value = { kind: 'idle' }
   }
 
   function resetMatchCursor(): void {
+    cancelPendingSearchScroll()
+    lastSearchQuery = ''
     lastMatchedTrackIndex = -1
+    searchOutcome.value = { kind: 'idle' }
   }
 
   function onSearchKeydown(event: KeyboardEvent): void {
@@ -220,8 +226,7 @@ export function useLibrarySearchSession(options: {
 
     isSearchFocused.value = false
     if (!hasSearchQuery.value) {
-      isTopZoneHovered.value = false
-      isSearchBarHovered.value = false
+      isSearchZoneHovered.value = false
     }
   }
 
@@ -240,6 +245,7 @@ export function useLibrarySearchSession(options: {
   }
 
   function invalidate(): void {
+    cancelPendingSearchScroll()
     librarySearchIndexGeneration += 1
   }
 

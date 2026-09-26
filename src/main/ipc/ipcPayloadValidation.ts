@@ -15,15 +15,7 @@ const MAX_RULE_NODES = 256
 
 const dangerousPropertyNames = new Set(['__proto__', 'constructor', 'prototype'])
 
-type DesktopLyricsInvokeChannel =
-  | 'desktop-lyrics:toggle'
-  | 'desktop-lyrics:is-visible'
-  | 'desktop-lyrics:set-suppressed'
-  | 'desktop-lyrics:toggle-mouse-passthrough'
-  | 'desktop-lyrics:is-mouse-passthrough-enabled'
-  | 'desktop-lyrics:update'
-
-export type DomainIpcInvokeChannel = Exclude<IpcInvokeChannel, DesktopLyricsInvokeChannel>
+export type DomainIpcInvokeChannel = IpcInvokeChannel
 
 export type IpcPayloadKind = 'void' | 'optional' | 'required'
 
@@ -111,7 +103,10 @@ const nativePlaybackCommand: Validator = (value, path, context) => {
     fields.volume = field(finiteNumber({ min: 0, max: 1 }))
     fields.muted = field(booleanValue)
   }
-  if (action === 'next') fields.trimDigitalSilence = field(booleanValue)
+  if (action === 'next') {
+    fields.trimDigitalSilence = field(booleanValue)
+    fields.softTransition = field(booleanValue, true)
+  }
   if (action === 'seek') fields.time = field(finiteNumber({ min: 0, max: 604800 }))
   objectShape(fields)(value, path, context)
 }
@@ -427,6 +422,10 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.metadata.getTrackMetadata]: required(idPayload('trackId')),
   [ipcChannels.metadata.updateTrackMetadata]: required(editableMetadata),
   [ipcChannels.window.enterMiniPlayer]: voidPayload(),
+  [ipcChannels.window.control]: required(
+    objectShape({ action: field(enumValue(['minimize', 'toggle-maximize', 'close'])) }),
+  ),
+  [ipcChannels.window.getMaximized]: voidPayload(),
   [ipcChannels.window.restoreFromMiniPlayer]: voidPayload(),
   [ipcChannels.window.getMiniPlayerState]: voidPayload(),
   [ipcChannels.window.setMiniPlayerPopover]: required(

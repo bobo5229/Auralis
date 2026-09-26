@@ -625,7 +625,7 @@ onBeforeUnmount(() => {
                     @mouseenter="onPlaylistMouseEnter(idx)"
                   >
                     <span class="i-lucide-list-music"></span>
-                    <span class="library-context-menu-text truncate" :title="pl.name">{{
+                    <span v-tooltip.overflow="pl.name" class="library-context-menu-text truncate">{{
                       pl.name
                     }}</span>
                     <span

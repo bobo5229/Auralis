@@ -12,7 +12,7 @@ on accounts, streaming services, recommendations, or cloud storage.
 - Track, album, playlist, and smart-playlist browsing
 - Local playback, queue management, listening statistics, and gapless playback support
 - Archive views for listening history and rankings
-- In-app, fullscreen, miniplayer, and desktop-lyrics experiences
+- In-app, fullscreen, and miniplayer experiences
 - Simplified Chinese, Traditional Chinese, and English interfaces
 
 Feature status is determined by the current source, routes, and tests. Design documents under
@@ -74,6 +74,9 @@ src/
 
 Generated or local-only directories such as `out/`, `release/`, `data/`, `.electron-home/`,
 `.electron-gyp/`, `.npm-cache/`, and `node_modules/` are not source code.
+
+Standalone UI prototypes are grouped under [demo/](demo/README.md). App icons and the local audio
+runtime setup are documented under [resources/](resources/README.md).
 
 ## Development
 

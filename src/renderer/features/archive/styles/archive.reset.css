@@ -103,28 +103,6 @@
   width: 82px;
 }
 
-.archive-reset-hint {
-  position: absolute;
-  top: calc(100% + 5px);
-  left: 50%;
-  color: var(--auralis-text-faint);
-  font-size: 10px;
-  line-height: 1;
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, -2px);
-  transition:
-    opacity 140ms ease,
-    transform 140ms ease;
-  white-space: nowrap;
-}
-
-.archive-reset-confirm-wrap:hover .archive-reset-hint,
-.archive-reset-confirm-wrap:focus-within .archive-reset-hint {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-
 .archive-reset-buttons .archive-reset-confirm:hover:not(:disabled) {
   background: #bf3030;
 }

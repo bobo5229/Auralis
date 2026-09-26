@@ -1,40 +1,36 @@
 /**
- * Multi-value metadata (genre, artist, …) — single source of truth.
+ * Multi-value metadata parser — single source of truth.
  *
  * ## Parse (storage / tags → list)
- * Split on separators (optional surrounding spaces):
- * - `"; "` / `";"`  — primary separator in this library
- * - `", "` / `","`  — also a multi-value separator (e.g. tags stored as `A, B`)
- * - full-width `，` `；` and enumeration `、`
+ * Split only on the half-width semicolon followed by a half-width space: `"; "`.
  *
  * **`/` is NOT a multi-value separator.** Slash compounds stay atomic, e.g.:
  * - Genre: `R&B/SOUL`, `Hip-hop/Rap`
  * - Artist: `AC/DC`
- * True multi-value tags must use `;` or `,` (e.g. `Rock; Pop`, not `Rock/Pop`).
- * See `docs/topics/metadata/plan-genre-delimiter-atomic-compounds.md`.
+ * True multi-value tags must use `; ` (e.g. `Rock; Pop`, not `Rock, Pop` or `Rock/Pop`).
  *
  * ## Display (list → UI string) — mandatory for all multi-value UI
- * Never show raw separators (`; ` / `, `) in read-only UI.
+ * Never show the raw `; ` delimiter in read-only UI.
  * Always use:
  * - 1 value: `A`
  * - 2 values: `A & B`
  * - 3+ values: `A, B & C` (Oxford-style: commas between head, ` & ` before last)
  *
  * Edit fields may keep the raw stored string; everywhere else that *displays*
- * multi-value genre/artist must go through {@link formatDelimitedValues} /
+ * multi-value fields must go through {@link formatDelimitedValues} /
  * {@link formatDelimitedParts} (or renderer `formatGenre` / `formatArtist`).
  */
 
 /**
  * Split multi-value metadata into atomic labels (order preserved, no empty parts).
- * Example: `"Jazz; Soul"` and `"Jazz, Soul"` → `["Jazz", "Soul"]`.
+ * Example: `"Jazz; Soul"` → `["Jazz", "Soul"]`; `"Jazz, Soul"` stays one value.
  * Slash compounds stay one label: `"R&B/SOUL"` → `["R&B/SOUL"]`.
  */
 export function splitDelimitedValues(value: string | null | undefined): string[] {
   if (!value) return []
 
   return value
-    .split(/[,，;；、]+/)
+    .split('; ')
     .map((part) => part.trim())
     .filter(Boolean)
 }

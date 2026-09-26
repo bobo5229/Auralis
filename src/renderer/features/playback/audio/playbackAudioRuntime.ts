@@ -2,7 +2,11 @@ import { GaplessAudioEngine } from './gaplessAudioEngine'
 import type { AudioDecodeProbe } from '@shared/types/audioDecode'
 
 type StartOptions = { preferGapless: boolean; decodeProbe?: AudioDecodeProbe | null }
-type NextOptions = { trimBoundarySilence: boolean; decodeProbe?: AudioDecodeProbe | null }
+type NextOptions = {
+  trimBoundarySilence: boolean
+  softTransition?: boolean
+  decodeProbe?: AudioDecodeProbe | null
+}
 
 export interface PlaybackAudioSnapshot {
   kind: 'html-audio' | 'gapless' | 'mpv' | 'idle'

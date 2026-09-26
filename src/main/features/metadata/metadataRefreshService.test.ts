@@ -11,6 +11,10 @@ vi.mock('node:worker_threads', async () => {
   const { EventEmitter } = await import('node:events')
   return {
     Worker: class extends EventEmitter {
+      terminate = vi.fn(async () => {
+        this.emit('exit', 1)
+        return 1
+      })
       constructor() {
         super()
         workers.push(this)
@@ -63,6 +67,7 @@ function setup() {
     repo as unknown as MetadataRefreshRepository,
     'cache',
     send,
+    'isolated-bin/ffmpeg.exe',
   )
   return { repo, service, send }
 }
@@ -73,6 +78,62 @@ beforeEach(() => {
 })
 
 describe('metadata result acceptance', () => {
+  it('drains an in-flight fingerprint check before finishing shutdown', async () => {
+    const { service, repo } = setup()
+    const gate = deferred<void>()
+    vi.mocked(assertMetadataFingerprint).mockReturnValueOnce(gate.promise)
+    service.refreshTrack(1)
+    workers[0].emit('message', { type: 'result', payload })
+    await vi.waitFor(() => expect(assertMetadataFingerprint).toHaveBeenCalledOnce())
+    let stopped = false
+    const shutdown = service.shutdown().then(() => {
+      stopped = true
+    })
+    expect(() => service.refreshTrack(1)).toThrow('shutting down')
+    await Promise.resolve()
+    expect(stopped).toBe(false)
+    gate.resolve()
+    await shutdown
+    expect(repo.updateTrackMetadata).not.toHaveBeenCalled()
+    expect(repo.completeJob).toHaveBeenCalledWith(1, expect.stringContaining('shutdown'))
+    repo.completeJob.mockClear()
+    workers[0].emit('message', { type: 'complete' })
+    await Promise.resolve()
+    expect(repo.completeJob).not.toHaveBeenCalled()
+  })
+
+  it('waits for a user file write and its verified database commit', async () => {
+    const { service, repo } = setup()
+    const gate = deferred<void>()
+    vi.mocked(writeAudioTags).mockReturnValueOnce(gate.promise)
+    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
+    const save = service.updateTrackMetadata({
+      trackId: 1,
+      title: null,
+      artistDisplay: null,
+      albumTitle: null,
+      albumArtistDisplay: null,
+      genreDisplay: null,
+      year: null,
+      releaseDate: null,
+    })
+    let stopped = false
+    const shutdown = service.shutdown().then(() => {
+      stopped = true
+    })
+    await Promise.resolve()
+    expect(stopped).toBe(false)
+    expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
+    gate.resolve()
+    await Promise.all([save, shutdown])
+    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
+    expect(writeAudioTags).toHaveBeenCalledWith(
+      'isolated.flac',
+      expect.any(Object),
+      'isolated-bin/ffmpeg.exe',
+    )
+  })
+
   it.each(['2025-02-31', '2025-04-31', '2025-13', '2025-00-01'])(
     'rejects %s before touching the audio file',
     async (releaseDate) => {

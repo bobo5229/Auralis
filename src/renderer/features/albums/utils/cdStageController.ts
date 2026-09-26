@@ -1,4 +1,4 @@
-import { animateFrames } from '@renderer/shared/animation/motion'
+import { animateCdPress, animateFrames } from '@renderer/shared/animation/motion'
 import { cdAlbumIndex, cdPose, cdSlots, cdProjectedDiscOutline } from './cdGeometry'
 import { cdPlaybackWavePath, cdPlaybackWaveSeed } from './cdPlaybackWave'
 import { playCdStartup } from './cdStartup'
@@ -30,6 +30,7 @@ interface DiscNode {
   tilt: { x: number; y: number; targetX: number; targetY: number }
   cancelTiltAnimation?: () => void
   cancelSpinAnimation?: () => void
+  cancelPressAnimation?: () => void
 }
 
 interface StagePointer {
@@ -75,7 +76,7 @@ export function createCdStage(
   focusOptions?: {
     geometry: () => { cx: number; cy: number; rightBoundary: number }
     change: (progress: number, settled: boolean) => void
-    togglePlayback?: () => void
+    togglePlayback?: () => boolean
   },
 ) {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
@@ -241,6 +242,8 @@ export function createCdStage(
     ringDrawElapsed = 0
     ringDrawSettled = false
     for (const node of nodes.values()) {
+      node.cancelPressAnimation?.()
+      node.cancelPressAnimation = undefined
       node.cancelTiltAnimation?.()
       node.cancelTiltAnimation = undefined
       node.tilt = { x: 0, y: 0, targetX: 0, targetY: 0 }
@@ -347,6 +350,7 @@ export function createCdStage(
   }
 
   function removeNode(node: DiscNode): void {
+    node.cancelPressAnimation?.()
     node.cancelTiltAnimation?.()
     node.cancelSpinAnimation?.()
     if (hovered === node) hovered = null
@@ -1133,17 +1137,22 @@ export function createCdStage(
   stage.addEventListener(
     'dblclick',
     (event) => {
+      const node = nodeFromEvent(event)
       if (
         event.button !== 0 ||
         focusProgress !== 1 ||
         focusMoving ||
         startup ||
         rotationPointer ||
-        nodeFromEvent(event)?.index !== selected
+        !node ||
+        node.index !== selected
       )
         return
       event.preventDefault()
-      focusOptions?.togglePlayback?.()
+      if (focusOptions?.togglePlayback?.()) {
+        node.cancelPressAnimation?.()
+        node.cancelPressAnimation = animateCdPress(node.hoverPlane, reducedMotion.matches)
+      }
     },
     options,
   )
@@ -1270,6 +1279,8 @@ export function createCdStage(
       const wasFocused = focusTarget === 1
       stop()
       for (const node of nodes.values()) {
+        node.cancelPressAnimation?.()
+        node.cancelPressAnimation = undefined
         node.cancelTiltAnimation?.()
         node.cancelTiltAnimation = undefined
         node.tilt = { x: 0, y: 0, targetX: 0, targetY: 0 }

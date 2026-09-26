@@ -17,6 +17,7 @@ import type { MetadataRefreshService } from './metadataRefreshService'
 import { resolveWatchRefreshPaths } from './metadataFileChangeFilter'
 import { resolveAudioCandidatesForLyricSidecar } from './lyricSidecarPaths'
 import type { LibraryIncrementalImportService } from '../libraryScan/libraryIncrementalImportService'
+import type { RendererEventSender } from '@main/ipc/rendererEvents'
 import { resolveLyricsForFile } from './resolveLyricsForFile'
 import {
   findUniqueRelocationCandidate,
@@ -75,20 +76,23 @@ export class MetadataWatchService {
   private flushTimer: ReturnType<typeof setTimeout> | null = null
   private missingConfirmationTimer: ReturnType<typeof setTimeout> | null = null
   private flushPaused = false
+  private stopped = false
+  private readonly relocationTimers = new Set<ReturnType<typeof setTimeout>>()
 
   constructor(
     private readonly libraryRootRepository: LibraryRootRepository,
     private readonly trackRepository: TrackRepository,
     private readonly metadataRefreshService: MetadataRefreshService,
     private readonly incrementalImportService: LibraryIncrementalImportService,
-    private readonly sendToRenderer: (channel: string, data: unknown) => void,
+    private readonly sendToRenderer: RendererEventSender,
   ) {}
 
   start(): void {
     this.syncRoots()
   }
 
-  stop(): void {
+  async stop(): Promise<void> {
+    this.stopped = true
     for (const watcher of this.watchers.values()) {
       watcher.close()
     }
@@ -96,7 +100,7 @@ export class MetadataWatchService {
     this.watchers.clear()
     this.statRetries.clear()
     this.suppressRefreshUntil.clear()
-    this.flushPaused = false
+    this.flushPaused = true
 
     if (this.flushTimer) {
       clearTimeout(this.flushTimer)
@@ -107,6 +111,16 @@ export class MetadataWatchService {
       clearTimeout(this.missingConfirmationTimer)
       this.missingConfirmationTimer = null
     }
+    for (const timer of this.relocationTimers) clearTimeout(timer)
+    this.relocationTimers.clear()
+    while (this.activeOperations.size > 0) {
+      await Promise.allSettled([...this.activeOperations])
+    }
+    this.pendingFilePaths.clear()
+    this.pendingMissingFilePaths.clear()
+    this.pendingLyricsIntentPaths.clear()
+    this.deferredFilePaths.clear()
+    this.recentMissingCandidates.clear()
   }
 
   /**
@@ -134,6 +148,7 @@ export class MetadataWatchService {
   }
 
   resumeFlush(): void {
+    if (this.stopped) return
     this.flushPaused = false
     if (this.pendingFilePaths.size > 0) {
       this.scheduleFlush()
@@ -169,6 +184,7 @@ export class MetadataWatchService {
   }
 
   syncRoots(): void {
+    if (this.stopped) return
     const roots = this.libraryRootRepository.list()
     const nextRootPaths = new Set(roots.map((root) => normalize(root.path)))
 
@@ -191,7 +207,7 @@ export class MetadataWatchService {
   private watchRoot(rootPath: string): void {
     try {
       const watcher = watch(rootPath, { recursive: true }, (_eventType, filename) => {
-        if (!filename) {
+        if (this.stopped || !filename) {
           return
         }
 
@@ -234,7 +250,7 @@ export class MetadataWatchService {
   }
 
   private scheduleFlush(delay = WATCH_DEBOUNCE_MS): void {
-    if (this.flushPaused) {
+    if (this.stopped || this.flushPaused) {
       return
     }
 
@@ -249,6 +265,7 @@ export class MetadataWatchService {
   }
 
   private runOperation(operation: () => Promise<void>): void {
+    if (this.stopped) return
     const promise = operation().catch((error) => {
       logger.warn({ error }, 'Metadata watch operation failed')
     })
@@ -285,6 +302,7 @@ export class MetadataWatchService {
 
     // Stat all files to determine existence
     const statResults = await Promise.allSettled(incoming.map((p) => stat(p)))
+    if (this.stopped) return
     const existingEntries: Array<{ filePath: string; size: number; mtimeMs: number }> = []
     const missingPaths: string[] = []
     const transientErrorPaths: string[] = []
@@ -400,7 +418,7 @@ export class MetadataWatchService {
   }
 
   private scheduleMissingConfirmation(): void {
-    if (this.flushPaused) {
+    if (this.stopped || this.flushPaused) {
       return
     }
 
@@ -424,6 +442,7 @@ export class MetadataWatchService {
     // Stat again to confirm files are still missing
     const filePaths = entries.map(([p]) => p)
     const statResults = await Promise.allSettled(filePaths.map((p) => stat(p)))
+    if (this.stopped) return
     const confirmedMissing: string[] = []
     const restoredPaths: string[] = []
     const transientErrorPaths: string[] = []
@@ -488,9 +507,12 @@ export class MetadataWatchService {
   }
 
   private scheduleRelocationExpiry(trackId: number): void {
-    setTimeout(() => {
+    if (this.stopped) return
+    const timer = setTimeout(() => {
+      this.relocationTimers.delete(timer)
       this.recentMissingCandidates.delete(trackId)
     }, RELOCATION_WINDOW_MS)
+    this.relocationTimers.add(timer)
   }
 
   private async importWithRelocationMatch(filePaths: string[]): Promise<void> {

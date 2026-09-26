@@ -306,10 +306,10 @@ onBeforeUnmount(() => {
             </div>
 
             <div class="facets-dialog-actions">
-              <button type="button" :title="t('facets.reset')" @click="clearSelection">
+              <button type="button" :aria-label="t('facets.reset')" @click="clearSelection">
                 <span class="i-lucide-rotate-ccw h-4 w-4"></span>
               </button>
-              <button type="button" :title="t('facets.close')" @click="emit('close')">
+              <button type="button" :aria-label="t('facets.close')" @click="emit('close')">
                 <span class="i-lucide-x h-4 w-4"></span>
               </button>
             </div>

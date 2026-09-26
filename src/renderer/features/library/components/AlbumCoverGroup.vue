@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { formatArtist } from '../utils/formatArtist'
+import {
+  formatAlbumCoverDiscHeading,
+  getAlbumCoverTrackDiscHeadings,
+} from '../utils/albumCoverDiscHeadings'
 import AlbumCoverTrackRow from './AlbumCoverTrackRow.vue'
 
 const props = withDefaults(
@@ -36,6 +40,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const imgError = ref(false)
+const discHeadings = computed(() => getAlbumCoverTrackDiscHeadings(props.group.tracks))
 
 watch(
   () => props.group.artworkCacheKey,
@@ -104,16 +109,13 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 
       <div class="album-cover-meta min-w-0">
         <p
+          v-tooltip.overflow="group.album || t('library.unknownAlbum')"
           class="album-cover-meta-title truncate"
-          :title="group.album || t('library.unknownAlbum')"
         >
           {{ group.album || t('library.unknownAlbum') }}
         </p>
-        <p
-          class="album-cover-meta-line flex items-center justify-between gap-2 min-w-0"
-          :title="formatArtist(group.albumArtist)"
-        >
-          <span class="truncate">
+        <p class="album-cover-meta-line flex items-center justify-between gap-2 min-w-0">
+          <span v-tooltip.overflow="formatArtist(group.albumArtist)" class="truncate">
             {{ formatArtist(group.albumArtist) }}
           </span>
         </p>
@@ -124,21 +126,24 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
     </div>
 
     <div class="album-cover-tracks">
-      <AlbumCoverTrackRow
-        v-for="(track, trackIdx) in group.tracks"
-        :key="track.id"
-        :track="track"
-        :now-playing="nowPlayingTrackId === track.id"
-        :selected="selectedTrackId === track.id"
-        :focused="focusedTrackId === track.id"
-        :index="trackIdx"
-        @select="emit('select', $event)"
-        @play="emit('play', $event)"
-        @focus="emit('focusTrack', $event)"
-        @open-context-menu="
-          (trackId, event, openReason) => emit('openTrackContextMenu', trackId, event, openReason)
-        "
-      />
+      <template v-for="(track, trackIdx) in group.tracks" :key="track.id">
+        <div v-if="discHeadings[trackIdx] !== null" class="cover-disc-heading">
+          {{ formatAlbumCoverDiscHeading(discHeadings[trackIdx]!) }}
+        </div>
+        <AlbumCoverTrackRow
+          :track="track"
+          :now-playing="nowPlayingTrackId === track.id"
+          :selected="selectedTrackId === track.id"
+          :focused="focusedTrackId === track.id"
+          :index="trackIdx"
+          @select="emit('select', $event)"
+          @play="emit('play', $event)"
+          @focus="emit('focusTrack', $event)"
+          @open-context-menu="
+            (trackId, event, openReason) => emit('openTrackContextMenu', trackId, event, openReason)
+          "
+        />
+      </template>
     </div>
   </div>
 </template>
@@ -146,6 +151,20 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 <style scoped>
 .album-cover-meta-date {
   font-weight: 500;
+}
+
+.cover-disc-heading {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  height: var(--library-cover-disc-heading-height);
+  padding-inline: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--auralis-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
 }
 
 /* 左右列顶对齐：组高仍由虚拟列表按 max(封面, 曲目) 分配，面板不随组高 stretch */

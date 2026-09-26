@@ -58,6 +58,56 @@ describe('archive ranking date logic', () => {
 })
 
 describe('useArchiveRanking requests', () => {
+  it('keeps the displayed ranking while refreshing the same query', async () => {
+    let resolveRefresh!: (value: ListeningRanking) => void
+    const params: ListeningRankingParams = { range: 'day', target: 'album', date: '2026-08-24' }
+    const getListeningRanking = vi
+      .fn<(params: ListeningRankingParams) => Promise<ListeningRanking>>()
+      .mockResolvedValueOnce(ranking(params, 'existing'))
+      .mockImplementationOnce(
+        () => new Promise<ListeningRanking>((resolve) => (resolveRefresh = resolve)),
+      )
+    const state = useArchiveRanking(ref(2026), { now: fixedNow, getListeningRanking })
+    state.rankingTarget.value = 'album'
+    await state.loadListeningRanking()
+
+    const displayed = state.listeningRanking.value
+    const refresh = state.loadListeningRanking()
+    expect(state.isRankingLoading.value).toBe(true)
+    expect(state.listeningRanking.value).toBe(displayed)
+
+    resolveRefresh(ranking(params, 'updated'))
+    await refresh
+    expect(state.listeningRanking.value?.items[0].key).toBe('updated')
+    expect(state.isRankingLoading.value).toBe(false)
+  })
+
+  it.each(['period', 'target'] as const)(
+    'clears the previous ranking when changing the %s',
+    async (change) => {
+      let resolveNext!: (value: ListeningRanking) => void
+      const getListeningRanking = vi
+        .fn<(params: ListeningRankingParams) => Promise<ListeningRanking>>()
+        .mockResolvedValueOnce(ranking({ range: 'day', target: 'album' }, 'existing'))
+        .mockImplementationOnce(
+          () => new Promise<ListeningRanking>((resolve) => (resolveNext = resolve)),
+        )
+      const state = useArchiveRanking(ref(2026), { now: fixedNow, getListeningRanking })
+      state.rankingTarget.value = 'album'
+      await state.loadListeningRanking()
+
+      if (change === 'period') state.rankingDate.value = '2026-08-23'
+      else state.rankingTarget.value = 'track'
+      const request = state.loadListeningRanking()
+      expect(state.listeningRanking.value).toBeNull()
+      expect(state.isRankingLoading.value).toBe(true)
+
+      resolveNext(ranking(getListeningRanking.mock.calls[1][0], 'next'))
+      await request
+      expect(state.listeningRanking.value?.items[0].key).toBe('next')
+    },
+  )
+
   it('builds the period-specific month parameters', async () => {
     const getListeningRanking = vi.fn(async (params: ListeningRankingParams) =>
       ranking(params, 'month-result'),

@@ -236,8 +236,8 @@ onUnmounted(() => {
 
       <div class="mini-body">
         <div
+          v-tooltip="t('miniPlayer.doubleClickRestore')"
           class="mini-cover-stage"
-          :title="t('miniPlayer.doubleClickRestore')"
           data-mini-interactive
         >
           <div
@@ -265,7 +265,7 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="mini-meta" data-mini-interactive :title="t('miniPlayer.doubleClickRestore')">
+        <div v-tooltip="t('miniPlayer.doubleClickRestore')" class="mini-meta" data-mini-interactive>
           <strong class="mini-title">{{ currentTrack?.title || 'Auralis' }}</strong>
           <span class="mini-subtitle">
             {{
@@ -300,20 +300,20 @@ onUnmounted(() => {
 
         <div class="mini-transport" data-mini-interactive>
           <button
+            v-tooltip="t('player.previous')"
             class="mini-icon-button mini-icon-button--lg"
             type="button"
             :aria-label="t('player.previous')"
-            :data-tooltip="t('player.previous')"
             @click="playback.playPrevious()"
           >
             <span class="mini-skip-glyph mini-skip-glyph--previous" aria-hidden="true" />
           </button>
           <button
+            v-tooltip="playback.state.isPlaying ? t('player.pause') : t('player.play')"
             class="mini-play-button"
             type="button"
             :style="playButtonMetalStyle"
             :aria-label="playback.state.isPlaying ? t('player.pause') : t('player.play')"
-            :data-tooltip="playback.state.isPlaying ? t('player.pause') : t('player.play')"
             @click="playback.togglePlayPause()"
             @mouseleave="reshuffleMetalLight"
           >
@@ -323,10 +323,10 @@ onUnmounted(() => {
             />
           </button>
           <button
+            v-tooltip="t('player.next')"
             class="mini-icon-button mini-icon-button--lg"
             type="button"
             :aria-label="t('player.next')"
-            :data-tooltip="t('player.next')"
             @click="playback.playNext()"
           >
             <span class="mini-skip-glyph" aria-hidden="true" />
@@ -338,33 +338,33 @@ onUnmounted(() => {
           <LiquidGlassPanel class="mini-actions-glass" :radius="18" :refraction="false">
             <div class="mini-actions" role="toolbar" :aria-label="t('miniPlayer.toolbarAria')">
               <button
+                v-tooltip="t('player.queue')"
                 class="mini-actions-button"
                 :class="{ 'mini-actions-button--active': activePopover === 'queue' }"
                 type="button"
                 :aria-label="t('player.queue')"
-                :data-tooltip="t('player.queue')"
                 data-mini-popover-trigger="queue"
                 @click="togglePopover('queue')"
               >
                 <span class="mini-actions-label">{{ t('miniPlayer.queueShort') }}</span>
               </button>
               <button
+                v-tooltip="t('player.mode')"
                 class="mini-actions-button"
                 :class="{ 'mini-actions-button--active': activePopover === 'mode' }"
                 type="button"
                 :aria-label="t('miniPlayer.modeAria', { mode: modeDockLabel })"
-                :data-tooltip="t('player.mode')"
                 data-mini-popover-trigger="mode"
                 @click="togglePopover('mode')"
               >
                 <span class="mini-actions-label">{{ modeDockLabel }}</span>
               </button>
               <button
+                v-tooltip="t('player.volume')"
                 class="mini-actions-button"
                 :class="{ 'mini-actions-button--active': activePopover === 'volume' }"
                 type="button"
                 :aria-label="volumeDockLabel"
-                :data-tooltip="t('player.volume')"
                 data-mini-popover-trigger="volume"
                 @click="togglePopover('volume')"
               >
@@ -931,36 +931,6 @@ onUnmounted(() => {
 
 .mini-player--playing .mini-play-button:hover {
   filter: none;
-}
-
-/* Tooltips — prefer above on lower controls to stay in window */
-.mini-icon-button[data-tooltip]::after,
-.mini-play-button[data-tooltip]::after {
-  position: absolute;
-  z-index: 20;
-  bottom: calc(100% + 8px);
-  left: 50%;
-  top: auto;
-  padding: 4px 7px;
-  border-radius: 6px;
-  color: white;
-  background: rgb(0 0 0 / 0.82);
-  content: attr(data-tooltip);
-  font-size: 10px;
-  line-height: 1;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-50%) translateY(2px);
-  transition:
-    opacity 0.14s,
-    transform 0.14s;
-}
-
-.mini-icon-button[data-tooltip]:hover::after,
-.mini-play-button[data-tooltip]:hover::after {
-  opacity: 1;
-  transform: translateX(-50%);
 }
 
 @media (prefers-reduced-motion: reduce) {

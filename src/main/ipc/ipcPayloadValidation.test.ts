@@ -18,25 +18,13 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.library.changed,
   ipcChannels.systemMedia.updateThumbarState,
   ipcChannels.systemMedia.command,
-  ipcChannels.desktopLyrics.changed,
-  ipcChannels.desktopLyrics.visibilityChanged,
-  ipcChannels.desktopLyrics.mousePassthroughChanged,
-  ipcChannels.desktopLyrics.ready,
   ipcChannels.metadata.refreshProgress,
   ipcChannels.window.miniPlayerStateChanged,
-])
-
-const externalInvokeChannels = new Set<string>([
-  ipcChannels.desktopLyrics.toggle,
-  ipcChannels.desktopLyrics.isVisible,
-  ipcChannels.desktopLyrics.setSuppressed,
-  ipcChannels.desktopLyrics.toggleMousePassthrough,
-  ipcChannels.desktopLyrics.isMousePassthroughEnabled,
-  ipcChannels.desktopLyrics.update,
+  ipcChannels.window.maximizedChanged,
 ])
 
 const expectedChannels = flattenChannels(ipcChannels)
-  .filter((channel) => !nonInvokeChannels.has(channel) && !externalInvokeChannels.has(channel))
+  .filter((channel) => !nonInvokeChannels.has(channel))
   .sort()
 
 function parse(channel: DomainIpcInvokeChannel, payload?: unknown): unknown {
@@ -55,8 +43,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(59)
-    expect(kinds).toEqual({ void: 20, optional: 6, required: 33 })
+    expect(actualChannels).toHaveLength(61)
+    expect(kinds).toEqual({ void: 21, optional: 6, required: 34 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -80,6 +68,20 @@ describe('domain IPC payload validation coverage', () => {
 })
 
 describe('domain IPC payload validation behavior', () => {
+  it('accepts only a boolean soft-transition flag and never accepts player paths', () => {
+    const payload = { action: 'next', session: 1, trackId: 2, trimDigitalSilence: false }
+    expect(
+      parse(ipcChannels.playback.nativeCommand, { ...payload, softTransition: true }),
+    ).toBeTruthy()
+    expect(parse(ipcChannels.playback.nativeCommand, payload)).toBeTruthy()
+    for (const softTransition of ['true', 2, {}, null])
+      expect(() =>
+        parse(ipcChannels.playback.nativeCommand, { ...payload, softTransition }),
+      ).toThrow(IpcPayloadValidationError)
+    expect(() =>
+      parse(ipcChannels.playback.nativeCommand, { ...payload, path: 'bridge.wav' }),
+    ).toThrow(IpcPayloadValidationError)
+  })
   it('accepts representative valid scalar, nested, optional, and batch payloads', () => {
     expect(
       parse('library:get-track-page', { cursor: 'snapshot:cursor', limit: 1_000, refresh: true }),
@@ -135,6 +137,9 @@ describe('domain IPC payload validation behavior', () => {
       }),
     ).toBeTruthy()
     expect(parse('playlists:add-tracks', { id: 7, trackIds: [1, 2, 3] })).toBeTruthy()
+    expect(parse('window:control', { action: 'toggle-maximize' })).toEqual({
+      action: 'toggle-maximize',
+    })
   })
 
   it.each([
@@ -149,6 +154,7 @@ describe('domain IPC payload validation behavior', () => {
     ['archive:get-listening-ranking', { range: 'quarter', target: 'track' }],
     ['metadata:refresh-missing', { limit: -1 }],
     ['window:set-mini-player-popover', { open: true, direction: 'left', height: 200 }],
+    ['window:control', { action: 'open-devtools' }],
   ] as const)('rejects malformed payload for %s', (channel, payload) => {
     expect(() => parse(channel, payload)).toThrow(IpcPayloadValidationError)
   })

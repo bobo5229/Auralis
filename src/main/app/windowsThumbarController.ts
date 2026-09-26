@@ -6,6 +6,7 @@ import {
   type ThumbarButton,
 } from 'electron'
 import { ipcChannels } from '@shared/ipc/channels'
+import { sendRendererEvent } from '@main/ipc/rendererEvents'
 import type { SystemMediaCommand, SystemMediaPlaybackState } from '@shared/ipc/contracts'
 
 const ICON_SIZE = 16
@@ -78,7 +79,7 @@ export function createWindowsThumbarController(window: BrowserWindow): () => voi
 
   const sendCommand = (command: SystemMediaCommand): void => {
     if (!window.isDestroyed() && !window.webContents.isDestroyed()) {
-      window.webContents.send(ipcChannels.systemMedia.command, command)
+      sendRendererEvent(window.webContents, ipcChannels.systemMedia.command, command)
     }
   }
 

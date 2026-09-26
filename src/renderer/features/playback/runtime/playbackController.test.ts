@@ -138,6 +138,21 @@ describe('playbackController unit tests with injected dependencies', () => {
     expect(controller.api.state.currentIndex).toBe(-1)
   })
 
+  it('defaults soft transitions off and persists changes while invalidating pending playback', () => {
+    const controller = createPlaybackController(deps)
+    const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
+    expect(controller.api.softTransitionEnabled.value).toBe(false)
+    controller.api.setSoftTransitionEnabled(true)
+    expect(storageMap.get('auralis-soft-transition-enabled')).toBe('true')
+    expect(runtime.cancelScheduledNext).toHaveBeenCalled()
+    controller.dispose()
+    const restored = createPlaybackController(deps)
+    expect(restored.api.softTransitionEnabled.value).toBe(true)
+    restored.api.setSoftTransitionEnabled(false)
+    expect(storageMap.get('auralis-soft-transition-enabled')).toBe('false')
+    restored.dispose()
+  })
+
   it('updates volume, persists to storage, and supports mute toggle', () => {
     const controller = createPlaybackController(deps)
     controller.api.setVolume(0.4)
@@ -334,5 +349,204 @@ describe('playbackController unit tests with injected dependencies', () => {
     await newer
     expect(controller.api.isPlaybackPending.value).toBe(false)
     controller.dispose()
+  })
+
+  describe('replaceCurrentPlaybackQueue', () => {
+    function createTracks(ids: number[]): PlaybackTrack[] {
+      return ids.map((id) => ({
+        id,
+        title: `Song ${id}`,
+        artist: 'Artist',
+        album: 'Album',
+        albumArtist: 'Artist',
+        durationSeconds: 120,
+        artworkCacheKey: null,
+      }))
+    }
+
+    it.each([
+      'same-queue',
+      'other-then-same',
+      'new-cd-session',
+      'mode',
+      'insert',
+      'insert-many',
+    ] as const)('rejects the old CD session after %s takes over playback', async (takeover) => {
+      const controller = createPlaybackController(deps)
+      const { api } = controller
+      const tracks = createTracks([1, 2])
+      await api.playTrackFromQueue(tracks, 1, { source: 'cd', playbackMode: 'sequential' })
+      const sessionId = api.queueSession.value!.id
+      expect(api.queueSession.value!.source).toBe('cd')
+
+      if (takeover === 'other-then-same') {
+        await api.playTrackFromQueue(createTracks([9, 10]), 9)
+      }
+      if (takeover === 'same-queue' || takeover === 'other-then-same') {
+        await api.playTrackFromQueue(createTracks([1, 2]), 1)
+        expect(api.queueSession.value!.source).toBe('default')
+      } else if (takeover === 'new-cd-session') {
+        await api.playTrackFromQueue(tracks, 1, { source: 'cd' })
+      } else if (takeover === 'mode') {
+        api.setPlaybackMode('sequential')
+        expect(api.queueSession.value).toBeNull()
+      } else if (takeover === 'insert') {
+        api.insertTrackAfterCurrent(createTracks([3])[0])
+        expect(api.queueSession.value).toBeNull()
+      } else if (takeover === 'insert-many') {
+        api.insertTracksAfterCurrent(createTracks([3, 4]))
+        expect(api.queueSession.value).toBeNull()
+      }
+
+      const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
+      const queue = api.state.queue
+      api.state.currentTime = 42
+      const starts = runtime.start.mock.calls.length
+      const cancellations = runtime.cancelScheduledNext.mock.calls.length
+      const replaced = api.replaceCurrentPlaybackQueue({
+        expectedSessionId: sessionId,
+        expectedTrackId: 1,
+        expectedQueueTrackIds: queue.map((track) => track.id),
+        queue: createTracks([1, 2, 3, 4]),
+        playbackMode: 'repeat-all',
+      })
+
+      expect(replaced).toBe(false)
+      expect(api.state.queue).toBe(queue)
+      expect(api.state.playbackMode).toBe('sequential')
+      expect(api.state.currentTime).toBe(42)
+      expect(runtime.start).toHaveBeenCalledTimes(starts)
+      expect(runtime.cancelScheduledNext).toHaveBeenCalledTimes(cancellations)
+      controller.dispose()
+    })
+
+    it('preserves the CD session through natural advance, pause/resume and queue replacement', async () => {
+      const controller = createPlaybackController(deps)
+      const { api } = controller
+      const runtimeFactory = vi.mocked(deps.createAudioRuntime!)
+      const runtime = runtimeFactory.mock.results[0].value
+      const callbacks = runtimeFactory.mock.calls[0][0]
+      await api.playTrackFromQueue(createTracks([1, 2, 3]), 1, {
+        source: 'cd',
+        playbackMode: 'sequential',
+        replaceHistory: true,
+      })
+      const session = api.queueSession.value
+      callbacks.onEnded(null)
+      await vi.waitFor(() => {
+        expect(api.state.currentTrackId).toBe(2)
+        expect(api.isPlaybackPending.value).toBe(false)
+      })
+      expect(api.queueSession.value).toBe(session)
+
+      api.pause()
+      await api.play()
+      expect(api.queueSession.value).toBe(session)
+      callbacks.onTimeUpdate({ currentTime: 45, duration: 120 })
+      callbacks.onPlayingChange(true)
+      const starts = runtime.start.mock.calls.length
+      const recorded = vi.mocked(deps.recordEffectivePlay).mock.calls.length
+      expect(
+        api.replaceCurrentPlaybackQueue({
+          expectedSessionId: session!.id,
+          expectedTrackId: 2,
+          expectedQueueTrackIds: [1, 2, 3],
+          queue: createTracks([1, 2]),
+          playbackMode: 'repeat-all',
+        }),
+      ).toBe(true)
+      expect(api.queueSession.value).toBe(session)
+      expect(api.state.currentTrackId).toBe(2)
+      expect(api.state.currentIndex).toBe(1)
+      expect(api.state.queue.map((track) => track.id)).toEqual([1, 2])
+      expect(api.state.currentTime).toBe(45)
+      expect(api.state.isPlaying).toBe(true)
+      expect(runtime.start).toHaveBeenCalledTimes(starts)
+      expect(deps.recordEffectivePlay).toHaveBeenCalledTimes(recorded)
+      controller.dispose()
+    })
+
+    it('replaces queue and mode in-place when expectations match', async () => {
+      const controller = createPlaybackController(deps)
+      const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
+      const initialTracks = createTracks([1, 2])
+      await controller.api.playTrackFromQueue(initialTracks, 1, { playbackMode: 'repeat-all' })
+      controller.api.state.isPlaying = true
+      expect(runtime.start).toHaveBeenCalledTimes(1)
+
+      const extendedTracks = createTracks([1, 2, 3, 4])
+      const replaced = controller.api.replaceCurrentPlaybackQueue({
+        expectedSessionId: controller.api.queueSession.value!.id,
+        expectedTrackId: 1,
+        expectedQueueTrackIds: [1, 2],
+        queue: extendedTracks,
+        playbackMode: 'sequential',
+      })
+
+      expect(replaced).toBe(true)
+      expect(controller.api.state.queue.map((t) => t.id)).toEqual([1, 2, 3, 4])
+      expect(controller.api.state.currentIndex).toBe(0)
+      expect(controller.api.state.playbackMode).toBe('sequential')
+      expect(controller.api.state.currentTrackId).toBe(1)
+      // Audio runtime should NOT be restarted
+      expect(runtime.start).toHaveBeenCalledTimes(1)
+      expect(runtime.cancelScheduledNext).toHaveBeenCalled()
+      controller.dispose()
+    })
+
+    it('rejects replacement when expected track ID does not match current track', async () => {
+      const controller = createPlaybackController(deps)
+      const tracks = createTracks([1, 2])
+      await controller.api.playTrackFromQueue(tracks, 1, { playbackMode: 'repeat-all' })
+
+      const replaced = controller.api.replaceCurrentPlaybackQueue({
+        expectedSessionId: controller.api.queueSession.value!.id,
+        expectedTrackId: 2,
+        expectedQueueTrackIds: [1, 2],
+        queue: createTracks([1, 2, 3]),
+        playbackMode: 'sequential',
+      })
+
+      expect(replaced).toBe(false)
+      expect(controller.api.state.queue.map((t) => t.id)).toEqual([1, 2])
+      expect(controller.api.state.playbackMode).toBe('repeat-all')
+      controller.dispose()
+    })
+
+    it('rejects replacement when expected queue IDs do not match current queue', async () => {
+      const controller = createPlaybackController(deps)
+      const tracks = createTracks([1, 2])
+      await controller.api.playTrackFromQueue(tracks, 1, { playbackMode: 'repeat-all' })
+
+      const replaced = controller.api.replaceCurrentPlaybackQueue({
+        expectedSessionId: controller.api.queueSession.value!.id,
+        expectedTrackId: 1,
+        expectedQueueTrackIds: [1, 999],
+        queue: createTracks([1, 2, 3]),
+        playbackMode: 'sequential',
+      })
+
+      expect(replaced).toBe(false)
+      expect(controller.api.state.queue.map((t) => t.id)).toEqual([1, 2])
+      controller.dispose()
+    })
+
+    it('rejects replacement when new queue does not contain the current track', async () => {
+      const controller = createPlaybackController(deps)
+      const tracks = createTracks([1, 2])
+      await controller.api.playTrackFromQueue(tracks, 1, { playbackMode: 'repeat-all' })
+
+      const replaced = controller.api.replaceCurrentPlaybackQueue({
+        expectedSessionId: controller.api.queueSession.value!.id,
+        expectedTrackId: 1,
+        expectedQueueTrackIds: [1, 2],
+        queue: createTracks([3, 4]),
+        playbackMode: 'sequential',
+      })
+
+      expect(replaced).toBe(false)
+      expect(controller.api.state.queue.map((t) => t.id)).toEqual([1, 2])
+      controller.dispose()
+    })
   })
 })

@@ -5,8 +5,10 @@ const clock = vi.hoisted(() => ({
   update: (() => false) as (seconds: number) => boolean,
   running: false,
   cancel: vi.fn(),
+  press: vi.fn(() => vi.fn()),
 }))
 vi.mock('@renderer/shared/animation/motion', () => ({
+  animateCdPress: clock.press,
   animateFrames: (update: typeof clock.update) => {
     clock.update = update
     clock.running = true
@@ -70,7 +72,7 @@ describe('CD stage lifetime', () => {
   function setup(
     count: number,
     focusChange?: (progress: number, settled: boolean) => void,
-    togglePlayback?: () => void,
+    togglePlayback?: () => boolean,
   ) {
     const disconnect = vi.fn()
     const media = Object.assign(new EventTarget(), { matches: false })
@@ -289,7 +291,7 @@ describe('CD stage lifetime', () => {
   }
 
   it('toggles playback only for left double-clicks on the settled focused disc', () => {
-    const toggle = vi.fn()
+    const toggle = vi.fn(() => true)
     const { stage, controller } = setup(8, vi.fn(), toggle)
     const disc = discAt(stage, 3)
     const doubleClick = (target = disc, button = 0): void => {
@@ -302,17 +304,39 @@ describe('CD stage lifetime', () => {
     doubleClick(stage)
     doubleClick(disc, 2)
     expect(toggle).not.toHaveBeenCalled()
+    expect(clock.press).not.toHaveBeenCalled()
     doubleClick()
     expect(toggle).toHaveBeenCalledTimes(1)
+    expect(clock.press).toHaveBeenLastCalledWith(disc.parent, false)
+    const cancelPress = clock.press.mock.results[0].value
     doubleClick()
     expect(toggle).toHaveBeenCalledTimes(2)
+    expect(cancelPress).toHaveBeenCalledOnce()
+    const cancelSecondPress = clock.press.mock.results[1].value
     controller.setFocused(false)
+    expect(cancelSecondPress).toHaveBeenCalledOnce()
     doubleClick()
     settle()
     doubleClick()
     controller.dispose()
     doubleClick()
     expect(toggle).toHaveBeenCalledTimes(2)
+  })
+
+  it('skips press feedback when playback is unavailable and cancels it on disposal', () => {
+    const toggle = vi.fn(() => false)
+    const { stage, controller, media } = setup(8, vi.fn(), toggle)
+    const disc = discAt(stage, 3)
+    media.matches = true
+    controller.setFocused(true)
+    stage.dispatchEvent(pointerEvent('dblclick', disc, { button: 0 }))
+    expect(clock.press).not.toHaveBeenCalled()
+    toggle.mockReturnValue(true)
+    stage.dispatchEvent(pointerEvent('dblclick', disc, { button: 0 }))
+    expect(clock.press).toHaveBeenLastCalledWith(disc.parent, true)
+    const cancelPress = clock.press.mock.results[0].value
+    controller.dispose()
+    expect(cancelPress).toHaveBeenCalledOnce()
   })
 
   it('rotates only in focus, couples the ring, retains angles and leaves browsing unchanged', () => {

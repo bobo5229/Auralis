@@ -109,6 +109,18 @@ function verifyArtifacts(targetDir) {
 
   // 3. 校验 resources 目录及 app.asar
   const resourcesDir = path.join(resolvedDir, 'resources')
+  for (const executable of ['mpv.exe', 'ffmpeg.exe']) {
+    const runtimePath = path.join(resourcesDir, 'audio', executable)
+    const available =
+      fs.existsSync(runtimePath) &&
+      fs.statSync(runtimePath).isFile() &&
+      fs.statSync(runtimePath).size > 0
+    recordCheck(
+      `音频工具 (${executable})`,
+      available,
+      available ? '已随应用打包' : '缺失或为空文件',
+    )
+  }
   const asarPath = path.join(resourcesDir, 'app.asar')
   if (fs.existsSync(asarPath)) {
     const stat = fs.statSync(asarPath)

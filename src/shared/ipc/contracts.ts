@@ -36,7 +36,6 @@ import type {
   SmartPlaylistTrackCount,
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
-import type { DesktopLyricsPayload } from '@shared/types/desktopLyrics'
 import type {
   LibraryTrackPageResponse,
   LibraryTrackPageRequest,
@@ -77,7 +76,7 @@ export type SystemMediaCommand = 'previous' | 'toggle-play-pause' | 'next'
 // Closed capabilities: no renderer-supplied paths, mpv properties or command strings.
 export type NativePlaybackCommand = { session: number } & (
   | { action: 'start'; trackId: number; volume: number; muted: boolean }
-  | { action: 'next'; trackId: number; trimDigitalSilence: boolean }
+  | { action: 'next'; trackId: number; trimDigitalSilence: boolean; softTransition?: boolean }
   | { action: 'pause' | 'resume' | 'stop' | 'cancel-next' }
   | { action: 'seek'; time: number }
   | { action: 'volume'; volume: number; muted: boolean }
@@ -118,7 +117,6 @@ export interface MiniPlayerWindowState {
 
 export interface IpcSendContract {
   'app:renderer-ready': void
-  'desktop-lyrics:ready': void
   'system-media:update-thumbar-state': SystemMediaPlaybackState
 }
 
@@ -126,11 +124,9 @@ export interface IpcEventContract {
   'playback:native-event': NativePlaybackEvent
   'system-media:command': SystemMediaCommand
   'window:mini-player-state-changed': MiniPlayerWindowState
+  'window:maximized-changed': { isMaximized: boolean }
   'library:scan-progress': LibraryScanProgress
   'library:changed': LibraryChangedEvent
-  'desktop-lyrics:changed': DesktopLyricsPayload
-  'desktop-lyrics:visibility-changed': boolean
-  'desktop-lyrics:mouse-passthrough-changed': boolean
   'metadata:refresh-progress': MetadataRefreshProgressEvent
 }
 
@@ -312,30 +308,6 @@ export interface IpcInvokeContract {
     request: { trackId: number; sessionId: string; playedAtIso: string }
     response: { ok: boolean; recorded: boolean }
   }
-  'desktop-lyrics:toggle': {
-    request: void
-    response: { visible: boolean }
-  }
-  'desktop-lyrics:is-visible': {
-    request: void
-    response: { visible: boolean }
-  }
-  'desktop-lyrics:set-suppressed': {
-    request: { suppressed: boolean }
-    response: { ok: boolean }
-  }
-  'desktop-lyrics:toggle-mouse-passthrough': {
-    request: void
-    response: { enabled: boolean }
-  }
-  'desktop-lyrics:is-mouse-passthrough-enabled': {
-    request: void
-    response: { enabled: boolean }
-  }
-  'desktop-lyrics:update': {
-    request: DesktopLyricsPayload
-    response: { ok: boolean }
-  }
   'archive:get-listening-heatmap': {
     request: { year: number }
     response: ListeningHeatmap
@@ -409,6 +381,14 @@ export interface IpcInvokeContract {
   'window:enter-mini-player': {
     request: void
     response: MiniPlayerWindowState
+  }
+  'window:control': {
+    request: { action: 'minimize' | 'toggle-maximize' | 'close' }
+    response: { isMaximized: boolean }
+  }
+  'window:get-maximized': {
+    request: void
+    response: { isMaximized: boolean }
   }
   'window:restore-from-mini-player': {
     request: void

@@ -4,6 +4,7 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import {
   groupAlbums,
   moreAlbumsByArtist,
+  moreAlbumsByGenre,
   selectAlbumTracks,
   sortAlbumsByYearThenTitle,
 } from './albumGrouping'
@@ -92,5 +93,24 @@ describe('moreAlbumsByArtist', () => {
       'B',
       'Orphan',
     ])
+  })
+})
+
+describe('moreAlbumsByGenre', () => {
+  it('matches any atomic genre case-insensitively, deduplicates albums and excludes the current album', () => {
+    const current = createTrack(1, { genre: 'Jazz; R&B/SOUL' })
+    const albums = groupAlbums([
+      current,
+      createTrack(2, { album: 'Other', genre: 'jazz' }),
+      createTrack(3, { album: 'Other', genre: 'R&B/SOUL' }),
+      createTrack(4, { album: 'Slash', genre: 'SOUL' }),
+      createTrack(5, { album: 'Compound', genre: 'R&B/SOUL' }),
+      createTrack(6, { album: 'Missing', genre: null }),
+      createTrack(7, { albumArtist: 'Another Artist', genre: 'Jazz' }),
+    ])
+    expect(
+      moreAlbumsByGenre(albums, [current], 'Artist', 'Album').map((album) => album.title),
+    ).toEqual(['Other', 'Compound', 'Album'])
+    expect(moreAlbumsByGenre(albums, [createTrack(1)], 'Artist', 'Album')).toEqual([])
   })
 })

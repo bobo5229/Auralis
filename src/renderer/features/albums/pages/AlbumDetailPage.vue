@@ -11,6 +11,7 @@ import {
 } from '@renderer/features/playback/composables/useArtworkPalette'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+import { formatDelimitedParts } from '@shared/utils/delimitedValues'
 
 import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumDetailTrackList from '../components/AlbumDetailTrackList.vue'
@@ -49,6 +50,7 @@ const {
   tracks,
   albumTracks,
   moreAlbums: moreAlbumsByArtist,
+  genreAlbums,
   previewArtworkCacheKey,
   previewReleaseDate,
   loadState,
@@ -137,8 +139,12 @@ function onArtistClick(): void {
   void router.push({ name: 'library', query: { q: albumArtist.value } })
 }
 
+const isGenreGallery = computed(() => moreAlbumsByArtist.value.length === 0)
+const galleryAlbums = computed(() =>
+  isGenreGallery.value ? genreAlbums.value : moreAlbumsByArtist.value,
+)
 const showMoreAlbumsSection = computed(
-  () => albumTracks.value.length > 0 && moreAlbumsByArtist.value.length > 0,
+  () => albumTracks.value.length > 0 && galleryAlbums.value.length > 0,
 )
 
 function retryLoad(): void {
@@ -383,32 +389,18 @@ onBeforeUnmount(() => {
 
             <!-- 专辑信息与操作 -->
             <div class="album-hero-content-stage">
-              <!-- Zone 1: 流派 -->
-              <div v-if="albumGenrePills.length > 0" class="album-hero-zone-genres select-none">
-                <div class="album-genre-pills">
-                  <span
-                    v-for="genre in albumGenrePills"
-                    :key="genre"
-                    class="album-genre-pill"
-                    :title="genre"
-                  >
-                    {{ genre }}
-                  </span>
-                </div>
-              </div>
-
-              <!-- Zone 2: 核心文本（纯元数据） -->
+              <!-- 核心文本与专辑元数据 -->
               <div class="album-hero-zone-primary">
                 <div class="album-hero-meta-block">
-                  <h1 class="album-hero-title select-none" :title="displayAlbumTitle">
+                  <h1 v-tooltip.overflow="displayAlbumTitle" class="album-hero-title select-none">
                     {{ displayAlbumTitle }}
                   </h1>
                   <div class="album-hero-artist-row select-text">
                     <button
                       v-if="albumArtist && albumArtist !== 'Unknown Artist'"
+                      v-tooltip.overflow="displayAlbumArtist"
                       type="button"
                       class="album-hero-artist-btn"
-                      :title="displayAlbumArtist"
                       @click="onArtistClick"
                     >
                       {{ displayAlbumArtist }}
@@ -416,11 +408,15 @@ onBeforeUnmount(() => {
                     <span v-else class="album-hero-artist-text">{{ displayAlbumArtist }}</span>
                     <span class="album-hero-artist-dot" aria-hidden="true">·</span>
                     <span class="album-hero-year-text">{{ albumReleaseYear }}</span>
+                    <span v-if="albumGenrePills.length > 0" class="album-hero-genre-group">
+                      <span class="album-hero-artist-dot" aria-hidden="true">·</span>
+                      <span class="album-hero-genre-text">{{ albumGenrePills.join(' / ') }}</span>
+                    </span>
                   </div>
                 </div>
               </div>
 
-              <!-- Zone 3: 专辑信息与收听统计 -->
+              <!-- 专辑信息与收听统计 -->
               <div class="album-hero-zone-metrics select-none">
                 <div class="album-hero-metric-row">
                   <div class="album-hero-metric-item">
@@ -467,7 +463,7 @@ onBeforeUnmount(() => {
 
           <!-- 下半部分：底部脚注层（横跨全宽，完整横向展开，低于按钮与封面底边） -->
           <div v-if="heroLegalLine" class="album-hero-footer-stage select-none">
-            <p class="album-hero-legal-text" :title="heroLegalLine">
+            <p class="album-hero-legal-text">
               {{ heroLegalLine }}
             </p>
           </div>
@@ -489,8 +485,11 @@ onBeforeUnmount(() => {
         <!-- Phase 3: 底部同艺人画廊 -->
         <AlbumMoreGallery
           v-if="showMoreAlbumsSection"
-          :albums="moreAlbumsByArtist"
+          :key="`${albumArtist}\u0000${albumTitle}`"
+          :albums="galleryAlbums"
+          :single-row="isGenreGallery"
           :artist-label="displayAlbumArtist"
+          :genre-label="formatDelimitedParts(albumGenrePills)"
           :effects-active="isEffectsActive"
           :opening="isOpeningWork"
           @open="openAlbum"
@@ -819,37 +818,6 @@ onBeforeUnmount(() => {
   height: 50px;
   border-radius: 12px;
 }
-.album-hero-zone-genres {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.album-genre-pills {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-}
-
-.album-genre-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 10px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid
-    color-mix(in srgb, var(--auralis-album-detail-accent) 35%, rgba(255, 255, 255, 0.16));
-  color: var(--auralis-text);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  line-height: 1.3;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
-}
 .album-hero-zone-primary {
   display: flex;
   align-items: center;
@@ -887,6 +855,7 @@ onBeforeUnmount(() => {
 
 .album-hero-artist-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   font-size: 17px;
@@ -927,10 +896,24 @@ onBeforeUnmount(() => {
   user-select: none;
 }
 
-.album-hero-year-text {
+.album-hero-year-text,
+.album-hero-genre-text {
   font-size: 14px;
   font-weight: 500;
   color: var(--auralis-text-muted);
+}
+
+.album-hero-genre-group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.album-hero-genre-text {
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .album-hero-actions {

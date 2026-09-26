@@ -18,32 +18,55 @@ import type { PlaybackDependencies } from './playbackDependencies'
 const VOLUME_KEY = 'auralis-volume'
 const GAPLESS_PLAYBACK_KEY = 'auralis-gapless-playback-enabled'
 const DIGITAL_SILENCE_KEY = 'auralis-skip-boundary-digital-silence'
+const SOFT_TRANSITION_KEY = 'auralis-soft-transition-enabled'
 
 function clampVolume(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
 
+export interface PlaybackQueueSession {
+  readonly id: number
+  readonly source: 'cd' | 'default'
+}
+
+export interface PlayTrackFromQueueOptions {
+  source?: 'cd'
+  shufflePool?: PlaybackTrack[]
+  shuffleCycle?: boolean
+  playbackMode?: PlaybackMode
+  replaceHistory?: boolean
+}
+
+export interface ReplaceCurrentPlaybackQueueOptions {
+  expectedSessionId: number
+  expectedTrackId: number
+  expectedQueueTrackIds: number[]
+  queue: PlaybackTrack[]
+  playbackMode: PlaybackMode
+  shufflePool?: PlaybackTrack[]
+  shuffleCycle?: boolean
+}
+
 export interface PlaybackPublicApi {
   readonly state: PlaybackState
+  readonly queueSession: Readonly<Ref<PlaybackQueueSession | null>>
   readonly gaplessPlaybackEnabled: Readonly<Ref<boolean>>
   readonly skipDigitalSilenceEnabled: Readonly<Ref<boolean>>
+  readonly softTransitionEnabled: Readonly<Ref<boolean>>
   readonly isPlaybackPending: Readonly<Ref<boolean>>
   selectTrack(trackId: number): void
   playTrackFromQueue(
     queue: PlaybackTrack[],
     trackId: number,
-    options?: {
-      shufflePool?: PlaybackTrack[]
-      shuffleCycle?: boolean
-      playbackMode?: PlaybackMode
-      replaceHistory?: boolean
-    },
+    options?: PlayTrackFromQueueOptions,
   ): Promise<void>
+  replaceCurrentPlaybackQueue(options: ReplaceCurrentPlaybackQueueOptions): boolean
   insertTrackAfterCurrent(track: PlaybackTrack): void
   insertTracksAfterCurrent(tracks: PlaybackTrack[]): void
   setPlaybackMode(mode: PlaybackMode): void
   setGaplessPlaybackEnabled(enabled: boolean): void
   setSkipDigitalSilenceEnabled(enabled: boolean): void
+  setSoftTransitionEnabled(enabled: boolean): void
   togglePlayPause(): Promise<void>
   play(): Promise<void>
   pause(): void
@@ -75,11 +98,14 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
   const gaplessPlaybackEnabled = ref(readPersistedGaplessPlayback())
   const skipDigitalSilenceEnabled = ref(deps.storage.getItem(DIGITAL_SILENCE_KEY) === 'true')
+  const softTransitionEnabled = ref(deps.storage.getItem(SOFT_TRANSITION_KEY) === 'true')
   const playbackPending = ref(false)
   const readonlyPlaybackPending = readonly(playbackPending)
   const readonlyGaplessPlaybackEnabled = readonly(gaplessPlaybackEnabled)
   const playbackRequestGate = createPlaybackRequestGate()
   const navigationSession = new PlaybackNavigationSession()
+  const queueSession = ref<PlaybackQueueSession | null>(null)
+  let nextQueueSessionId = 0
 
   const transitionSource: PlaybackTransitionSource = {
     getRandomTrack: (excludeTrackId) => deps.getRandomTrack(excludeTrackId),
@@ -291,7 +317,9 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       const scheduled = await audioRuntime.scheduleNext(plan.track.id, url.url, {
         decodeProbe: url.decodeProbe,
         trimBoundarySilence:
-          skipDigitalSilenceEnabled.value && isSameAlbumBoundary(state.currentTrack, plan.track),
+          skipDigitalSilenceEnabled.value &&
+          (softTransitionEnabled.value || isSameAlbumBoundary(state.currentTrack, plan.track)),
+        softTransition: softTransitionEnabled.value,
       })
       if (!isCurrentGaplessPrefetch(generation, fromTrackId)) {
         if (scheduled) audioRuntime.cancelScheduledNext()
@@ -454,6 +482,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   function setPlaybackMode(mode: PlaybackMode): void {
+    queueSession.value = null
     invalidateGaplessTransition()
     state.playbackMode = mode
     navigationSession.setMode(mode)
@@ -493,17 +522,22 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     if (state.currentTrackId && state.isPlaying) void refreshGaplessNext(state.currentTrackId)
   }
 
+  function setSoftTransitionEnabled(enabled: boolean): void {
+    if (softTransitionEnabled.value === enabled) return
+    softTransitionEnabled.value = enabled
+    deps.storage.setItem(SOFT_TRANSITION_KEY, String(enabled))
+    invalidateGaplessTransition()
+    if (state.currentTrackId && state.isPlaying) void refreshGaplessNext(state.currentTrackId)
+  }
+
   async function playTrackFromQueue(
     queue: PlaybackTrack[],
     trackId: number,
-    options?: {
-      shufflePool?: PlaybackTrack[]
-      shuffleCycle?: boolean
-      playbackMode?: PlaybackMode
-      replaceHistory?: boolean
-    },
+    options?: PlayTrackFromQueueOptions,
   ): Promise<void> {
     if (!queue.some((track) => track.id === trackId)) return
+    // Explicit playback starts a new session even when the track IDs are unchanged.
+    queueSession.value = { id: ++nextQueueSessionId, source: options?.source ?? 'default' }
     if (options?.replaceHistory) navigationSession.clearHistory()
     if (options?.playbackMode) {
       invalidateGaplessTransition()
@@ -519,6 +553,43 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     })
   }
 
+  function replaceCurrentPlaybackQueue(options: ReplaceCurrentPlaybackQueueOptions): boolean {
+    if (queueSession.value?.id !== options.expectedSessionId) return false
+    if (state.currentTrackId !== options.expectedTrackId) {
+      return false
+    }
+    if (
+      state.queue.length !== options.expectedQueueTrackIds.length ||
+      state.queue.some((track, index) => track.id !== options.expectedQueueTrackIds[index])
+    ) {
+      return false
+    }
+    const newIndex = options.queue.findIndex((track) => track.id === options.expectedTrackId)
+    if (newIndex === -1) {
+      return false
+    }
+
+    invalidateGaplessTransition()
+    state.queue = options.queue
+    state.currentIndex = newIndex
+    state.playbackMode = options.playbackMode
+    navigationSession.resetQueueContext({
+      mode: options.playbackMode,
+      shufflePool: options.shufflePool,
+      shuffleCycle: options.shuffleCycle,
+    })
+
+    if (
+      ['gapless', 'mpv'].includes(audioRuntime.getSnapshot().kind) &&
+      state.currentTrackId &&
+      state.isPlaying
+    ) {
+      void refreshGaplessNext(state.currentTrackId)
+    }
+
+    return true
+  }
+
   function insertTrackAfterCurrent(track: PlaybackTrack): void {
     if (!state.currentTrack || state.currentIndex < 0) return
     const currentQueue = state.queue.length > 0 ? state.queue : [state.currentTrack]
@@ -529,6 +600,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     )
     if (!insertion) return
 
+    queueSession.value = null
     state.queue = insertion.queue
     state.currentIndex = insertion.currentIndex
     if (['gapless', 'mpv'].includes(audioRuntime.getSnapshot().kind) && state.currentTrackId) {
@@ -546,6 +618,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     )
     if (!insertion) return
 
+    queueSession.value = null
     state.queue = insertion.queue
     state.currentIndex = insertion.currentIndex
     if (['gapless', 'mpv'].includes(audioRuntime.getSnapshot().kind) && state.currentTrackId) {
@@ -764,6 +837,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   function dispose(): void {
     if (isDisposed) return
     isDisposed = true
+    queueSession.value = null
     invalidatePlaybackRequest()
     invalidateGaplessTransition()
     effectivePlayTracker.end()
@@ -774,16 +848,20 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
   const api: PlaybackPublicApi = {
     state,
+    queueSession: readonly(queueSession),
     gaplessPlaybackEnabled: readonlyGaplessPlaybackEnabled,
     skipDigitalSilenceEnabled: readonly(skipDigitalSilenceEnabled),
+    softTransitionEnabled: readonly(softTransitionEnabled),
     isPlaybackPending: readonlyPlaybackPending,
     selectTrack,
     playTrackFromQueue,
+    replaceCurrentPlaybackQueue,
     insertTrackAfterCurrent,
     insertTracksAfterCurrent,
     setPlaybackMode,
     setGaplessPlaybackEnabled,
     setSkipDigitalSilenceEnabled,
+    setSoftTransitionEnabled,
     togglePlayPause,
     play,
     pause,

@@ -60,6 +60,22 @@ function setup(available = true) {
 }
 
 describe('native playback renderer adapter', () => {
+  it('passes the explicit soft transition opt-in through the typed native command', async () => {
+    const test = setup()
+    await test.runtime.start(1, 'audio://1', { preferGapless: true })
+    await test.runtime.scheduleNext(2, 'audio://2', {
+      trimBoundarySilence: false,
+      softTransition: true,
+    })
+    expect(test.api.nativeCommand).toHaveBeenLastCalledWith({
+      action: 'next',
+      session: test.lastSession(),
+      trackId: 2,
+      trimDigitalSilence: false,
+      softTransition: true,
+    })
+    test.runtime.dispose()
+  })
   it('accepts native progress and boundary once, ignoring replaced sessions', async () => {
     const test = setup()
     await test.runtime.start(1, 'audio://1', { preferGapless: true })

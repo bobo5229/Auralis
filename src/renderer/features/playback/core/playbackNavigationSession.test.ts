@@ -226,4 +226,26 @@ describe('PlaybackNavigationSession', () => {
       },
     })
   })
+
+  it('resets queue context including queued tracks, contexts, pools, and mode', () => {
+    session.setQueuedNextTrackId(9)
+    session.setAlbumShuffleContext({
+      albumArtist: 'Artist',
+      album: 'Album',
+      tracks: [track(1)],
+    })
+    session.pushHistory(track(1), 2, [track(1), track(2)])
+
+    session.resetQueueContext({
+      mode: 'sequential',
+      shufflePool: [track(1), track(2)],
+      shuffleCycle: true,
+    })
+
+    expect(session.getQueuedNextTrackId()).toBeNull()
+    expect(session.getAlbumShuffleContext()).toBeNull()
+    expect(session.getShuffleTrackPool()?.map((t) => t.id)).toEqual([1, 2])
+    expect(session.popHistory()).toBeNull()
+  })
 })
+

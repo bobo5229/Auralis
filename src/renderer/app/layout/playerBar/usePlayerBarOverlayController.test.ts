@@ -40,7 +40,7 @@ describe('usePlayerBarOverlayController', () => {
   })
 
   it('keeps exactly the last panel across every bidirectional rapid switch', () => {
-    const panels = ['queue', 'mode', 'overflow', 'desktopLyricsLock'] as const
+    const panels = ['queue', 'mode', 'overflow'] as const
 
     for (const first of panels) {
       for (const second of panels) {
@@ -54,19 +54,6 @@ describe('usePlayerBarOverlayController', () => {
         expect(controller.activePanel.value).toBe(first)
       }
     }
-  })
-
-  it('supports desktopLyricsLock panel toggle and computed open state', () => {
-    const { controller } = setup()
-    expect(controller.isDesktopLyricsLockOpen.value).toBe(false)
-
-    controller.toggle('desktopLyricsLock')
-    expect(controller.activePanel.value).toBe('desktopLyricsLock')
-    expect(controller.isDesktopLyricsLockOpen.value).toBe(true)
-
-    controller.toggle('desktopLyricsLock')
-    expect(controller.activePanel.value).toBeNull()
-    expect(controller.isDesktopLyricsLockOpen.value).toBe(false)
   })
 
   it('lets the retreat volume overlay claim exclusivity without duplicating its open state', () => {

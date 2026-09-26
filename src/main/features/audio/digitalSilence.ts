@@ -95,6 +95,11 @@ interface ScanResult {
 
 export class DigitalSilenceAnalyzer {
   private readonly cache = new Map<string, ScanResult>()
+  private readonly pending = new Map<
+    string,
+    { signal: AbortSignal; promise: Promise<ScanResult> }
+  >()
+  private serial: Promise<unknown> = Promise.resolve()
   constructor(private readonly executable: string) {}
 
   async boundary(
@@ -133,6 +138,26 @@ export class DigitalSilenceAnalyzer {
     const key = `${path}\0${before.size}\0${before.mtimeMs}`
     const cached = this.cache.get(key)
     if (cached) return cached
+    const pending = this.pending.get(key)
+    if (pending && !pending.signal.aborted) return pending.promise
+    const work = this.serial.then(() => this.decode(path, channels, signal, before, key))
+    this.pending.set(key, { signal, promise: work })
+    this.serial = work.catch(() => undefined)
+    try {
+      return await work
+    } finally {
+      if (this.pending.get(key)?.promise === work) this.pending.delete(key)
+    }
+  }
+
+  private async decode(
+    path: string,
+    channels: number,
+    signal: AbortSignal,
+    before: { size: number; mtimeMs: number },
+    key: string,
+  ): Promise<ScanResult> {
+    signal.throwIfAborted()
     const counter = new DigitalZeroCounter(channels)
     await new Promise<void>((resolve, reject) => {
       const child = spawn(

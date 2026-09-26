@@ -42,12 +42,7 @@ async function removeSmokeProfile(profilePath) {
 }
 
 async function assertBuildOutputs() {
-  const requiredOutputs = [
-    'out/main/index.js',
-    'out/preload/index.cjs',
-    'out/preload/desktopLyrics.cjs',
-    'out/renderer/index.html',
-  ]
+  const requiredOutputs = ['out/main/index.js', 'out/preload/index.cjs', 'out/renderer/index.html']
   await Promise.all(requiredOutputs.map((path) => access(join(workspaceRoot, path))))
 }
 

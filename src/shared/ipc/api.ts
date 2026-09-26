@@ -112,24 +112,6 @@ export interface AuralisApi {
     updateThumbarState: (state: IpcSendPayload<'system-media:update-thumbar-state'>) => void
     onCommand: (callback: (command: IpcEventPayload<'system-media:command'>) => void) => () => void
   }
-  desktopLyrics: {
-    toggle: () => Result<'desktop-lyrics:toggle'>
-    isVisible: () => Result<'desktop-lyrics:is-visible'>
-    setSuppressed: (
-      suppressed: Req<'desktop-lyrics:set-suppressed'>['suppressed'],
-    ) => Result<'desktop-lyrics:set-suppressed'>
-    toggleMousePassthrough: () => Result<'desktop-lyrics:toggle-mouse-passthrough'>
-    isMousePassthroughEnabled: () => Result<'desktop-lyrics:is-mouse-passthrough-enabled'>
-    update: (payload: Req<'desktop-lyrics:update'>) => Result<'desktop-lyrics:update'>
-    onUpdate: (callback: (payload: IpcEventPayload<'desktop-lyrics:changed'>) => void) => () => void
-    onVisibilityChanged: (
-      callback: (visible: IpcEventPayload<'desktop-lyrics:visibility-changed'>) => void,
-    ) => () => void
-    onMousePassthroughChanged: (
-      callback: (enabled: IpcEventPayload<'desktop-lyrics:mouse-passthrough-changed'>) => void,
-    ) => () => void
-    ready: () => void
-  }
   archive: {
     getListeningHeatmap: (
       year: Req<'archive:get-listening-heatmap'>['year'],
@@ -179,6 +161,11 @@ export interface AuralisApi {
     ) => () => void
   }
   window: {
+    control: (action: Req<'window:control'>['action']) => Result<'window:control'>
+    getMaximized: () => Result<'window:get-maximized'>
+    onMaximizedChanged: (
+      callback: (state: IpcEventPayload<'window:maximized-changed'>) => void,
+    ) => () => void
     enterMiniPlayer: () => Result<'window:enter-mini-player'>
     restoreFromMiniPlayer: () => Result<'window:restore-from-mini-player'>
     getMiniPlayerState: () => Result<'window:get-mini-player-state'>
@@ -191,12 +178,4 @@ export interface AuralisApi {
   }
 }
 
-/** Minimal API exposed only to the desktop lyrics renderer. */
-export interface DesktopLyricsApi {
-  desktopLyrics: Pick<
-    AuralisApi['desktopLyrics'],
-    'onUpdate' | 'ready' | 'toggleMousePassthrough' | 'onMousePassthroughChanged'
-  >
-}
-
-export type RendererApi = AuralisApi | DesktopLyricsApi
+export type RendererApi = AuralisApi

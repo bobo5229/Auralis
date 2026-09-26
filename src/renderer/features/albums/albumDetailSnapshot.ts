@@ -8,6 +8,8 @@ export interface AlbumDetailSnapshot {
   releaseDate: string | null
   tracks: TrackListItem[]
   moreAlbums: AlbumSummary[]
+  /** Absent on navigation previews; populated after a detail query. */
+  genreAlbums?: AlbumSummary[]
   catalogTracks: TrackListItem[] | null
 }
 

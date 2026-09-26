@@ -2,6 +2,7 @@ import {
   createPlaybackController,
   type PlaybackController,
   type PlaybackPublicApi,
+  type ReplaceCurrentPlaybackQueueOptions,
 } from '../runtime/playbackController'
 import { createBrowserPlaybackDependencies } from '../runtime/playbackDependencies'
 
@@ -23,7 +24,7 @@ function getOrCreateController(): PlaybackController {
   return globalController
 }
 
-export type { PlaybackPublicApi }
+export type { PlaybackPublicApi, ReplaceCurrentPlaybackQueueOptions }
 
 export function usePlayback(): PlaybackPublicApi {
   return getOrCreateController().api

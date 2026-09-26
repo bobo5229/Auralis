@@ -17,6 +17,7 @@ import { ScanJobRepository } from '@main/repositories/scanJobRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
 import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './libraryScanTypes'
 import { tryRelocateMissingCandidate } from './trackRelocationMatcher'
+import { createRendererEventSender, type RendererEventSender } from '@main/ipc/rendererEvents'
 
 export type LibraryScanWorkerFactory = (fileName: string, options: WorkerOptions) => Worker
 
@@ -28,9 +29,11 @@ export class LibraryScanService {
   private readonly trackRepository: TrackRepository
   private readonly artworkCacheDir: string
   private readonly createWorker: LibraryScanWorkerFactory
-  private readonly getAllWindows: () => BrowserWindow[]
+  private readonly sendToRenderer: RendererEventSender
   private activeWorker: Worker | null = null
   private activeJobId: number | null = null
+  private stopping = false
+  private readonly pendingStarts = new Set<Promise<{ jobId: number }>>()
   private onScanLifecycle: {
     onStart?: () => void | Promise<void>
     onEnd?: () => void | Promise<void>
@@ -49,7 +52,7 @@ export class LibraryScanService {
     this.trackRepository = new TrackRepository(db)
     this.artworkCacheDir = artworkCacheDir
     this.createWorker = createWorker
-    this.getAllWindows = getAllWindows
+    this.sendToRenderer = createRendererEventSender(getAllWindows)
     this.scanJobRepository.markInterruptedJobs()
   }
 
@@ -103,7 +106,24 @@ export class LibraryScanService {
     return jobId ? this.scanJobRepository.getById(jobId) : this.scanJobRepository.getLatest()
   }
 
-  async startScan(rootId: number): Promise<{ jobId: number }> {
+  startScan(rootId: number): Promise<{ jobId: number }> {
+    if (this.stopping) return Promise.reject(new Error('Library scan service is shutting down'))
+    const request = this.startScanInternal(rootId)
+    this.pendingStarts.add(request)
+    void request.then(
+      () => this.pendingStarts.delete(request),
+      () => this.pendingStarts.delete(request),
+    )
+    return request
+  }
+
+  async shutdown(): Promise<void> {
+    this.stopping = true
+    await Promise.allSettled([...this.pendingStarts])
+    if (this.activeJobId !== null) await this.cancelScan(this.activeJobId)
+  }
+
+  private async startScanInternal(rootId: number): Promise<{ jobId: number }> {
     const activeJob = this.scanJobRepository.getActive()
 
     if (activeJob) {
@@ -138,6 +158,7 @@ export class LibraryScanService {
 
     try {
       await this.onScanLifecycle.onStart?.()
+      if (this.stopping) throw new Error('Library scan interrupted by application shutdown')
       this.startWorker(job.jobId, root.path)
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Failed to prepare library scan'
@@ -164,7 +185,13 @@ export class LibraryScanService {
     const worker = this.activeWorker
     this.activeWorker = null
     this.activeJobId = null
-    await worker.terminate()
+    try {
+      await worker.terminate()
+    } catch (error) {
+      this.activeWorker = worker
+      this.activeJobId = jobId
+      throw error
+    }
     this.scanJobRepository.finish(jobId, 'canceled')
     try {
       await this.onScanLifecycle.onEnd?.()
@@ -229,7 +256,7 @@ export class LibraryScanService {
     }
 
     const settleFailed = (reason: string, error?: unknown): void => {
-      if (terminalSettled) {
+      if (terminalSettled || this.activeWorker !== worker) {
         return
       }
 
@@ -472,15 +499,7 @@ export class LibraryScanService {
   }
 
   private publishProgress(progress: LibraryScanProgress): void {
-    for (const window of this.getAllWindows()) {
-      try {
-        if (!window.webContents.isDestroyed()) {
-          window.webContents.send(ipcChannels.library.scanProgress, progress)
-        }
-      } catch (error) {
-        logger.warn({ error, jobId: progress.jobId }, 'Failed to publish scan progress')
-      }
-    }
+    this.sendToRenderer(ipcChannels.library.scanProgress, progress)
   }
 
   private publishChanged(
@@ -493,18 +512,6 @@ export class LibraryScanService {
     trackIds: number[],
     filePaths: string[] = [],
   ): void {
-    for (const window of this.getAllWindows()) {
-      try {
-        if (!window.webContents.isDestroyed()) {
-          window.webContents.send(ipcChannels.library.changed, {
-            reason,
-            trackIds,
-            filePaths,
-          })
-        }
-      } catch (error) {
-        logger.warn({ error, reason }, 'Failed to publish library change')
-      }
-    }
+    this.sendToRenderer(ipcChannels.library.changed, { reason, trackIds, filePaths })
   }
 }

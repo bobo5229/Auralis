@@ -56,6 +56,20 @@ describe('EffectivePlayTracker', () => {
     expect(recordEffectivePlay).toHaveBeenCalledTimes(1)
   })
 
+  it('counts playback despite repeated unchanged buffering events', () => {
+    duration = 10
+    tracker.start(7)
+
+    for (let tick = 1; tick <= 60; tick += 1) {
+      now += 100
+      tracker.setBuffering(false)
+      if (tick % 10 === 0) tracker.sample()
+      if (tick === 50) expect(recordEffectivePlay).not.toHaveBeenCalled()
+    }
+
+    expect(recordEffectivePlay).toHaveBeenCalledTimes(1)
+  })
+
   it('does not count buffering, seeking, or paused time', () => {
     tracker.start(7)
     tracker.setBuffering(true)

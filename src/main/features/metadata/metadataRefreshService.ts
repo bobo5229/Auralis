@@ -11,6 +11,7 @@ import { normalizeEditableReleaseDate, normalizeEditableYear } from './editableM
 import { assertMetadataFingerprint, readStableMetadata } from './readStableMetadata'
 import { verifyWrittenMetadata } from './verifyWrittenMetadata'
 import { logger } from '../../logging/logger'
+import type { RendererEventSender } from '@main/ipc/rendererEvents'
 
 function getWorkerPath(): string {
   return join(__dirname, 'features/metadata/metadataRefreshWorker.js')
@@ -31,11 +32,15 @@ export class MetadataRefreshService {
   private readonly trackGenerations = new Map<number, number>()
   private readonly writingTracks = new Set<number>()
   private readonly pendingReconciliation = new Set<number>()
+  private stopping = false
+  private readonly pendingMessages = new Set<Promise<void>>()
+  private readonly pendingWrites = new Set<Promise<{ ok: boolean }>>()
 
   constructor(
     private readonly repository: MetadataRefreshRepository,
     private readonly artworkCacheDir: string,
-    private readonly sendToRenderer: (channel: string, data: unknown) => void,
+    private readonly sendToRenderer: RendererEventSender,
+    private readonly ffmpegPath: string,
   ) {
     this.repository.markInterruptedJobs()
   }
@@ -57,7 +62,33 @@ export class MetadataRefreshService {
     return this.activeJobId !== null
   }
 
+  async shutdown(): Promise<void> {
+    this.stopping = true
+    await Promise.allSettled([...this.pendingWrites])
+    const worker = this.activeWorker
+    const jobId = this.activeJobId
+    this.activeWorker = null
+    this.activeJobId = null
+    if (worker) {
+      try {
+        await worker.terminate()
+      } catch (error) {
+        this.activeWorker = worker
+        this.activeJobId = jobId
+        throw error
+      }
+    }
+    while (this.pendingMessages.size > 0) await Promise.allSettled([...this.pendingMessages])
+    if (jobId !== null)
+      this.repository.completeJob(jobId, 'Application shutdown interrupted refresh')
+  }
+
+  private assertRunning(): void {
+    if (this.stopping) throw new Error('Metadata refresh service is shutting down')
+  }
+
   refreshMissingMetadata(limit = 5000): { jobId: number } {
+    this.assertRunning()
     if (this.activeJobId !== null && this.repository.getActiveJob()) {
       throw new Error(`A refresh job is already running (job ${this.activeJobId})`)
     }
@@ -94,6 +125,7 @@ export class MetadataRefreshService {
   }
 
   private refreshTracksForScope(trackIds: number[], scope: string): { jobId: number } {
+    this.assertRunning()
     if (this.activeJobId !== null && this.repository.getActiveJob()) {
       throw new Error(`A refresh job is already running (job ${this.activeJobId})`)
     }
@@ -118,6 +150,7 @@ export class MetadataRefreshService {
   }
 
   refreshLyricsForMissing(limit = 5000): { jobId: number } {
+    this.assertRunning()
     if (this.activeJobId !== null && this.repository.getActiveJob()) {
       throw new Error(`A refresh job is already running (job ${this.activeJobId})`)
     }
@@ -265,6 +298,12 @@ export class MetadataRefreshService {
           this.pushProgress(input.jobId, committed + failed, input.tracks.length, failed, 'failed')
         }
       })
+      const pending = messages
+      this.pendingMessages.add(pending)
+      void pending.then(
+        () => this.pendingMessages.delete(pending),
+        () => this.pendingMessages.delete(pending),
+      )
     }
     worker.on('message', (message: MetadataRefreshWorkerMessage) =>
       enqueue(() => handleMessage(message)),
@@ -348,7 +387,18 @@ export class MetadataRefreshService {
     return this.repository.getEditableTrackMetadata(trackId)
   }
 
-  async updateTrackMetadata(metadata: EditableTrackMetadata) {
+  updateTrackMetadata(metadata: EditableTrackMetadata): Promise<{ ok: boolean }> {
+    if (this.stopping) return Promise.reject(new Error('Metadata refresh service is shutting down'))
+    const request = this.writeTrackMetadata(metadata)
+    this.pendingWrites.add(request)
+    void request.then(
+      () => this.pendingWrites.delete(request),
+      () => this.pendingWrites.delete(request),
+    )
+    return request
+  }
+
+  private async writeTrackMetadata(metadata: EditableTrackMetadata) {
     normalizeEditableReleaseDate(metadata.releaseDate)
     normalizeEditableYear(metadata.year)
     const filePath = this.repository.getTrackFilePath(metadata.trackId)
@@ -367,7 +417,7 @@ export class MetadataRefreshService {
     // the write is still in flight, and a 1200ms flush can start first.
     try {
       this.onTagWriteSuccess?.(filePath)
-      await writeAudioTags(filePath, metadata)
+      await writeAudioTags(filePath, metadata, this.ffmpegPath)
       const result = await readStableMetadata(
         metadata.trackId,
         filePath,
@@ -393,7 +443,7 @@ export class MetadataRefreshService {
   }
 
   private flushReconciliation(): void {
-    if (this.activeJobId !== null) return
+    if (this.stopping || this.activeJobId !== null) return
     const ids = [...this.pendingReconciliation].filter((id) => !this.writingTracks.has(id))
     if (!ids.length) return
     for (const id of ids) this.pendingReconciliation.delete(id)

@@ -9,14 +9,10 @@ import { useArchiveCalendar, type CalendarDay } from '../composables/useArchiveC
 import { useArchiveDailyDetail } from '../composables/useArchiveDailyDetail'
 import { formatArchiveMinutes as formatMinutes } from '../utils/archiveDailyDetailState'
 
-interface HeatmapTooltip {
-  text: string
-  x: number
-  y: number
-}
 const currentYear = new Date().getFullYear()
 const selectedYear = ref(currentYear)
 const {
+  heatmap,
   isLoading,
   errorMessage,
   weekdayOrder,
@@ -38,44 +34,23 @@ const {
 const rankingSection = ref<InstanceType<typeof ArchiveRankingSection> | null>(null)
 const annualRecap = ref<InstanceType<typeof ArchiveAnnualRecapDialog> | null>(null)
 const resetDialog = ref<InstanceType<typeof ArchiveResetDialog> | null>(null)
-const tooltip = ref<HeatmapTooltip | null>(null)
 let unsubscribeLibraryChanged: (() => void) | null = null
 
 function loadHeatmap(): Promise<void> {
-  tooltip.value = null
   return loadCalendar()
 }
-function updateTooltipPosition(event: MouseEvent): void {
-  if (!tooltip.value) return
-  tooltip.value = {
-    ...tooltip.value,
-    x: event.clientX,
-    y: event.clientY,
-  }
-}
-
-function showTooltip(event: MouseEvent | FocusEvent, day: CalendarDay): void {
+function calendarTooltip(day: CalendarDay): string {
   const countLabel = day.isFuture ? '未来日期' : `播放了 ${formatMinutes(day.durationSeconds)}`
-  const targetRect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  tooltip.value = {
-    text: `${day.label} · ${countLabel}`,
-    x: event instanceof MouseEvent ? event.clientX : targetRect.left + targetRect.width / 2,
-    y: event instanceof MouseEvent ? event.clientY : targetRect.top,
-  }
+  return `${day.label} · ${countLabel}`
 }
 
-function hideTooltip(): void {
-  tooltip.value = null
-}
 function openDailyDetail(event: MouseEvent | KeyboardEvent, day: CalendarDay): Promise<void> {
-  if (!day.isFuture) hideTooltip()
   return openDetail(event, day)
 }
 function handleLinerNotesPeakClick(event: MouseEvent | KeyboardEvent): void {
   if (peakDay.value) void openDailyDetail(event, peakDay.value)
 }
 async function handleResetComplete(): Promise<void> {
-  tooltip.value = null
   clearDailyDetail()
   selectedYear.value = currentYear
   annualRecap.value?.clearRankings()
@@ -142,36 +117,20 @@ onBeforeUnmount(() => unsubscribeLibraryChanged?.())
             <button
               v-for="day in calendarDays"
               :key="day.date"
+              v-tooltip.data="calendarTooltip(day)"
               type="button"
               class="archive-day"
               :class="[`heat-level-${day.level}`, { 'archive-day--future': day.isFuture }]"
               :aria-label="`${day.label}，${day.isFuture ? '未来日期' : `播放了${formatMinutes(day.durationSeconds)}`}`"
-              @mouseenter="showTooltip($event, day)"
-              @mousemove="updateTooltipPosition"
-              @mouseleave="hideTooltip"
-              @focus="showTooltip($event, day)"
-              @blur="hideTooltip"
               @click="openDailyDetail($event, day)"
             ></button>
           </div>
         </div>
       </div>
     </div>
-    <ArchiveRankingSection
-      ref="rankingSection"
-      :year="selectedYear"
-      :visible="!isLoading && !errorMessage"
-    />
+    <ArchiveRankingSection ref="rankingSection" :year="selectedYear" :visible="heatmap !== null" />
     <Teleport to="body">
       <div class="archive-overlay">
-        <div
-          v-if="tooltip"
-          class="archive-tooltip"
-          :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }"
-        >
-          {{ tooltip.text }}
-        </div>
-
         <ArchiveDailyDetailDialog
           v-if="detailDialog"
           :dialog="detailDialog"
@@ -472,22 +431,6 @@ onBeforeUnmount(() => unsubscribeLibraryChanged?.())
 .archive-recap-entry:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: 3px;
-}
-
-.archive-tooltip {
-  position: fixed;
-  z-index: 90;
-  padding: 6px 10px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 85%, transparent);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
-  color: var(--auralis-text);
-  font-size: 11px;
-  pointer-events: none;
-  transform: translate(-50%, calc(-100% - 10px));
-  white-space: nowrap;
 }
 
 @media (max-width: 900px) {
