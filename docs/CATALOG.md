@@ -36,6 +36,7 @@
 
 ### albums：专辑
 
+- [TECHDOC：更多作品封面内部悬停反馈](topics/albums/TECHDOC-more-albums-cover-hover-2026-09-27.md)
 - [PRD：CD 专辑封面索引页](topics/albums/PRD-cd-album-cover-index-2026-09-25.md)
 - [TECHDOC：CD 专辑封面索引页](topics/albums/TECHDOC-cd-album-cover-index-2026-09-25.md)
 - [TECHDOC：CD 目录全量顺序播放](topics/albums/TECHDOC-cd-catalog-sequential-playback-2026-09-26.md)
@@ -74,6 +75,11 @@
 
 ### library：曲库
 
+- [TECHDOC：封面视图分割线与设备像素取整](topics/library/TECHDOC-cover-track-divider-pixel-snapping-2026-09-28.md)
+- [TECHDOC：音乐来源行采用路径优先布局](topics/library/TECHDOC-music-source-path-priority-2026-09-28.md)
+- [TECHDOC：歌曲页字重设置](topics/library/TECHDOC-song-font-weight-settings-2026-09-28.md)
+- [TECHDOC：封面视图当前播放曲目的动态音柱](topics/library/TECHDOC-cover-track-playing-indicator-2026-09-28.md)
+
 - [TECHDOC：曲库分页并发加载与快照生命周期](topics/library/TECHDOC-catalog-concurrent-load-2026-09-21.md)
 - [修复 Library 歌曲列表滚动掉帧](topics/library/fix-song-row-scroll-jank.md)
 - [TECHDOC：播放后歌曲列表视口被拽回当前曲](topics/library/techdoc-library-playback-viewport-restore.md)
@@ -86,14 +92,15 @@
 
 ### playback：播放界面
 
+- [历史：TECHDOC：MiniPlayer 弹层可用性与窗口状态同步修复](topics/playback/TECHDOC-miniplayer-geometry-state-fixes-2026-09-28.md)
 - [FullscreenPlayerOverlay 职责拆分技术设计](topics/playback/TECHDOC-fullscreen-player-overlay-refactor-2026-08-30.md)
-- [MiniPlayer 脚本职责拆分技术设计](topics/playback/TECHDOC-mini-player-script-refactor-2026-08-30.md)
+- [历史：MiniPlayer 脚本职责拆分技术设计](topics/playback/TECHDOC-mini-player-script-refactor-2026-08-30.md)
 - [PlayerBar 浮层控制器重构技术设计](topics/playback/TECHDOC-player-bar-overlay-controller-2026-08-30.md)
 - [TECHDOC：无缝播放解码前的内存预算与回退](topics/playback/TECHDOC-gapless-memory-budget-2026-09-21.md)
 - [TECHDOC：PlayerBar 与播放队列浮层材质统一](topics/playback/TECHDOC-playerbar-queue-surface-unification-2026-09-06.md)
 - [TECHDOC：modern PlayerBar Liquid Glass 视觉保真修复](topics/playback/TECHDOC-playerbar-liquid-glass-visual-fidelity-2026-09-05.md)
 - [TECHDOC：`usePlayback` 播放编排拆分](topics/playback/TECHDOC-use-playback-architecture-split-2026-08-30.md)
-- [TECHDOC：迷你模式下桌面歌词必须继续同步](topics/playback/TECHDOC-desktop-lyrics-miniplayer-sync.md)
+- [历史：TECHDOC：迷你模式下桌面歌词必须继续同步](topics/playback/TECHDOC-desktop-lyrics-miniplayer-sync.md)
 - [TECHDOC：桌面歌词窗口不得拖住进程](topics/playback/TECHDOC-desktop-lyrics-window-lifecycle.md)
 - [PRD：全局悬浮播放条交互与空间自适应重构](topics/playback/prd-playerbar-floating-adaptive.md)
 - [TECHDOC：全局悬浮播放条交互与空间自适应重构](topics/playback/techdoc-playerbar-floating-adaptive.md)
@@ -106,6 +113,8 @@
 
 ### shell：应用外壳
 
+- [TECHDOC：主界面歌词面板收起与展开](topics/shell/TECHDOC-collapsible-lyrics-panel-2026-09-28.md)
+- [TECHDOC：深色主题中性黑与霓虹玫红配色](topics/shell/TECHDOC-dark-theme-midnight-rose-2026-09-27.md)
 - [全局浅色配色预设](topics/shell/light-theme-color-presets.md)
 - [主窗口改用 Electron 原生标题栏方案](topics/shell/plan-native-window-chrome.md)
 - [Sidebar 品牌区：仅保留「Auralis」完整显示](topics/shell/plan-sidebar-brand-auralis-only.md)

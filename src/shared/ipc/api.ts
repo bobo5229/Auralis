@@ -166,15 +166,6 @@ export interface AuralisApi {
     onMaximizedChanged: (
       callback: (state: IpcEventPayload<'window:maximized-changed'>) => void,
     ) => () => void
-    enterMiniPlayer: () => Result<'window:enter-mini-player'>
-    restoreFromMiniPlayer: () => Result<'window:restore-from-mini-player'>
-    getMiniPlayerState: () => Result<'window:get-mini-player-state'>
-    setMiniPlayerPopover: (
-      payload: Req<'window:set-mini-player-popover'>,
-    ) => Result<'window:set-mini-player-popover'>
-    onMiniPlayerStateChanged: (
-      callback: (state: IpcEventPayload<'window:mini-player-state-changed'>) => void,
-    ) => () => void
   }
 }
 

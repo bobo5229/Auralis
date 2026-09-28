@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { router } from './app/router'
 import AppSidebar from './app/layout/AppSidebar.vue'
@@ -7,7 +7,6 @@ import WindowTrafficLights from './app/layout/WindowTrafficLights.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
-import MiniPlayer from './app/layout/MiniPlayer.vue'
 import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
 import { useShellFluidBackground } from '@renderer/features/appearance/composables/useShellFluidBackground'
 import { useCdCanvasTheme } from '@renderer/features/albums/composables/useCdCanvasTheme'
@@ -15,15 +14,143 @@ import { useSystemMediaIntegration } from '@renderer/features/playback/composabl
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
+import { useLyricsPanelVisibility } from '@renderer/features/appearance/composables/useLyricsPanelVisibility'
+import { useLyricsPanelLayout, computeLyricsTargetWidth } from './app/layout/useLyricsPanelLayout'
+import { animateLyricsPanelExpansion } from '@renderer/shared/animation/motion'
 
 const route = useRoute()
 const playback = usePlayback()
 const { shellFluidBackgroundEnabled } = useShellFluidBackground()
 const { cdCanvasTheme } = useCdCanvasTheme()
 useSystemMediaIntegration()
-const { displayMode, onMiniPlayerWindowStateChanged, syncMiniPlayerWindowState } =
-  usePlayerDisplayMode()
-let unsubscribeMiniPlayerWindowState: (() => void) | null = null
+const { displayMode } = usePlayerDisplayMode()
+
+const { lyricsPanelExpanded } = useLyricsPanelVisibility()
+const { canDisplayLyricsPanel } = useLyricsPanelLayout()
+
+const shellRef = ref<HTMLElement | null>(null)
+const initialLyricsActive = canDisplayLyricsPanel.value && lyricsPanelExpanded.value
+const lyricsProgress = ref(initialLyricsActive ? 1 : 0)
+const shouldMountLyrics = ref(initialLyricsActive)
+const isLyricsCollapsed = ref(!initialLyricsActive)
+const isLyricsInteractive = ref(initialLyricsActive)
+const lyricsTargetWidthPx = ref(computeLyricsTargetWidth())
+
+let stopLyricsAnimation: (() => void) | null = null
+let animationTarget: boolean | null = null
+let reducedMotionMedia: MediaQueryList | null = null
+
+function cancelLyricsAnimation(): void {
+  stopLyricsAnimation?.()
+  stopLyricsAnimation = null
+}
+
+function applyImmediateState(expanded: boolean): void {
+  cancelLyricsAnimation()
+  animationTarget = null
+  if (expanded) {
+    lyricsProgress.value = 1
+    shouldMountLyrics.value = true
+    isLyricsCollapsed.value = false
+    isLyricsInteractive.value = true
+  } else {
+    lyricsProgress.value = 0
+    shouldMountLyrics.value = false
+    isLyricsCollapsed.value = true
+    isLyricsInteractive.value = false
+  }
+}
+
+async function expandWithAnimation(): Promise<void> {
+  animationTarget = true
+  cancelLyricsAnimation()
+
+  if (reducedMotionMedia?.matches) {
+    applyImmediateState(true)
+    return
+  }
+
+  if (!shouldMountLyrics.value) {
+    shouldMountLyrics.value = true
+    isLyricsCollapsed.value = false
+    isLyricsInteractive.value = false
+    await nextTick()
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    if (animationTarget !== true || !canDisplayLyricsPanel.value) return
+  }
+
+  stopLyricsAnimation = animateLyricsPanelExpansion(
+    lyricsProgress.value,
+    1,
+    Boolean(reducedMotionMedia?.matches),
+    (progress) => {
+      lyricsProgress.value = progress
+    },
+    () => {
+      stopLyricsAnimation = null
+      isLyricsInteractive.value = true
+    },
+  )
+}
+
+function collapseWithAnimation(): void {
+  animationTarget = false
+  cancelLyricsAnimation()
+  isLyricsInteractive.value = false
+
+  if (reducedMotionMedia?.matches) {
+    applyImmediateState(false)
+    return
+  }
+
+  stopLyricsAnimation = animateLyricsPanelExpansion(
+    lyricsProgress.value,
+    0,
+    Boolean(reducedMotionMedia?.matches),
+    (progress) => {
+      lyricsProgress.value = progress
+    },
+    () => {
+      stopLyricsAnimation = null
+      shouldMountLyrics.value = false
+      isLyricsCollapsed.value = true
+    },
+  )
+}
+
+watch(lyricsPanelExpanded, (expanded) => {
+  if (!canDisplayLyricsPanel.value) {
+    applyImmediateState(false)
+    return
+  }
+  if (expanded) {
+    void expandWithAnimation()
+  } else {
+    collapseWithAnimation()
+  }
+})
+
+watch(canDisplayLyricsPanel, (canDisplay) => {
+  cancelLyricsAnimation()
+  animationTarget = null
+  applyImmediateState(canDisplay && lyricsPanelExpanded.value)
+})
+
+function updateLyricsTargetWidth(): void {
+  lyricsTargetWidthPx.value = computeLyricsTargetWidth(shellRef.value?.clientWidth)
+}
+
+function handleReducedMotionChange(): void {
+  if (reducedMotionMedia?.matches && stopLyricsAnimation) {
+    applyImmediateState(lyricsPanelExpanded.value && canDisplayLyricsPanel.value)
+  }
+}
+
+const shellStyle = computed<CSSProperties>(() => ({
+  '--auralis-lyrics-progress': String(lyricsProgress.value),
+  '--auralis-lyrics-target-width': `${lyricsTargetWidthPx.value}px`,
+  '--auralis-lyrics-column-width': `calc(20% * ${lyricsProgress.value})`,
+}))
 
 /** 上一导航来源路由名；在 beforeEach 中更新，供 Transition 在目标路由已切换时仍能判断方向 */
 const previousRouteName = ref(route.name)
@@ -39,15 +166,18 @@ const removeBeforeEach = router.beforeEach((to, from) => {
 })
 
 onMounted(() => {
-  void syncMiniPlayerWindowState()
-  unsubscribeMiniPlayerWindowState = onMiniPlayerWindowStateChanged()
+  reducedMotionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
+  reducedMotionMedia.addEventListener('change', handleReducedMotionChange)
+  window.addEventListener('resize', updateLyricsTargetWidth)
+  updateLyricsTargetWidth()
 })
 
 onBeforeUnmount(() => {
   removeBeforeEach()
   isAlbumDetailEntering.value = false
-  unsubscribeMiniPlayerWindowState?.()
-  unsubscribeMiniPlayerWindowState = null
+  cancelLyricsAnimation()
+  reducedMotionMedia?.removeEventListener('change', handleReducedMotionChange)
+  window.removeEventListener('resize', updateLyricsTargetWidth)
 })
 
 const isAlbumDetail = computed(() => {
@@ -97,10 +227,7 @@ function onTransitionEnterCancelled(): void {
 </script>
 
 <template>
-  <MiniPlayer v-if="displayMode === 'mini'" />
-
   <div
-    v-else
     class="app-window"
     :class="{
       'is-cd-albums': isCdCanvas,
@@ -109,6 +236,7 @@ function onTransitionEnterCancelled(): void {
     data-app-shell-root
   >
     <div
+      ref="shellRef"
       class="app-shell relative"
       :class="{
         'is-album-detail': isAlbumDetail,
@@ -116,6 +244,7 @@ function onTransitionEnterCancelled(): void {
         'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
         'has-artwork': shouldRenderShellArtwork,
       }"
+      :style="shellStyle"
     >
       <div
         class="shell-drag-region"
@@ -160,7 +289,14 @@ function onTransitionEnterCancelled(): void {
         </RouterView>
       </main>
 
-      <NowPlayingPanel v-if="!isCdCanvas" class="relative z-10" />
+      <NowPlayingPanel
+        v-if="!isCdCanvas"
+        class="relative z-10"
+        :should-mount-lyrics="shouldMountLyrics"
+        :is-collapsed="isLyricsCollapsed"
+        :is-interactive="isLyricsInteractive"
+        :target-width-px="lyricsTargetWidthPx"
+      />
       <PlayerBar v-if="!isCdCanvas" />
     </div>
     <FullscreenPlayerOverlay />

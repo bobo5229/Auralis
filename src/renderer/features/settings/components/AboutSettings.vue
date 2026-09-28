@@ -143,6 +143,13 @@ onBeforeUnmount(() => {
         }}</span>
       </div>
 
+      <div class="settings-row">
+        <div>
+          <strong>{{ t('settings.about.interfaceFont') }}</strong>
+          <span>{{ t('settings.about.interfaceFontDescription') }}</span>
+        </div>
+      </div>
+
       <div class="settings-row settings-row--path">
         <div>
           <strong>{{ t('settings.about.databaseLocation') }}</strong>

@@ -16,6 +16,20 @@
 .archive-state--error {
   color: var(--auralis-text);
 }
+
+.archive-ranking-empty :deep(.main-page-status-icon) {
+  width: 26px;
+  height: 26px;
+  border-radius: 0;
+  color: var(--auralis-text-faint);
+  background: transparent;
+}
+
+.archive-ranking-empty :deep(.main-page-status-icon > span) {
+  width: 26px;
+  height: 26px;
+}
+
 .archive-ranking {
   margin-top: 32px;
   padding: 0;

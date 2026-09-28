@@ -178,7 +178,7 @@ describe('useLibraryViewport', () => {
 
     await viewport.scrollToTrackIndex(19)
 
-    expect(scrollElement.scrollTop).toBe(4_683)
+    expect(scrollElement.scrollTop).toBe(4_824)
     const targetRowTop =
       16 +
       4_000 +
@@ -189,7 +189,7 @@ describe('useLibraryViewport', () => {
     expect(targetRowTop - scrollElement.scrollTop).toBe(132)
   })
 
-  it('includes Disc 1 and Disc 2 headings when positioning a Disc 2 search hit', async () => {
+  it('includes only the in-flow Disc 2 heading when positioning a Disc 2 search hit', async () => {
     const tracks = Array.from({ length: 16 }, (_, index) =>
       createTrack(index + 1, { discNo: index < 8 ? 1 : 2 }),
     )
@@ -202,7 +202,7 @@ describe('useLibraryViewport', () => {
 
     await viewport.scrollToTrackIndex(8)
 
-    expect(scrollElement.scrollTop).toBe(8_291)
+    expect(scrollElement.scrollTop).toBe(8_320)
     const targetRowTop =
       16 +
       8_000 +
@@ -210,8 +210,28 @@ describe('useLibraryViewport', () => {
       LIBRARY_LAYOUT_METRICS.coverPanelBorderWidth +
       LIBRARY_LAYOUT_METRICS.coverPanelPaddingBlockSide +
       8 * LIBRARY_LAYOUT_METRICS.coverTrackRowHeight +
-      2 * LIBRARY_LAYOUT_METRICS.coverDiscHeadingHeight
+      LIBRARY_LAYOUT_METRICS.coverDiscHeadingHeight
     expect(targetRowTop - scrollElement.scrollTop).toBe(132)
+  })
+
+  it.each([
+    [0, 3_912],
+    [4, 4_128],
+    [8, 4_344],
+  ])('positions track %i with only preceding in-flow disc headings', async (index, expectedTop) => {
+    const tracks = Array.from({ length: 12 }, (_, trackIndex) =>
+      createTrack(trackIndex + 1, { discNo: Math.floor(trackIndex / 4) + 1 }),
+    )
+    const { viewport, scrollElement } = createViewport({
+      tracks,
+      isCoverView: true,
+      albumGroupStartOffset: 4_000,
+      virtualAlbumGroups: [],
+    })
+
+    await viewport.scrollToTrackIndex(index)
+
+    expect(scrollElement.scrollTop).toBe(expectedTop)
   })
 
   it('keeps flat-view search positioning on the existing 44px track geometry', async () => {

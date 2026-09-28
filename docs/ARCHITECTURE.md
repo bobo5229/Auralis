@@ -154,7 +154,7 @@ service 和 watcher，并把它们绑定到 typed IPC。业务规则不应继续
 主窗口使用不透明的无框窗口（`frame: false` + `transparent: false`）。主界面左侧边栏顶部
 显示自绘红绿灯窗口按钮，CD 视图暂时在右上角显示同一组按钮；窗口操作经过类型化 IPC。
 客户区壳底与内描边仍可跟随当前曲专辑色板（`--auralis-window-chrome-*`），无曲时回退主题
-token。Miniplayer 复用同一主 `BrowserWindow`，保持独立的无标题栏布局。
+token。主窗口在加载 Renderer 前通过 `mainWindowRegistry` 登记身份，关闭后注销；IPC 仅接受已登记主窗口的可信顶层 frame 请求。
 
 播放视觉链路以 `src/renderer/features/playback/composables/usePlayback.ts` 为唯一状态源：
 其内部采用分层架构编排（`usePlayback` 稳定单例门面 -> `PlaybackController` 唯一状态编排者 ->

@@ -3,7 +3,7 @@ import { stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
-import { getMiniPlayerWindowController } from '@main/app/miniPlayerWindowController'
+import { isRegisteredMainWindow } from '@main/app/mainWindowRegistry'
 import { isTrustedRendererUrl } from '@main/app/webContentsSecurity'
 import { getDatabasePath } from '@main/database/connection'
 import { exportDatabaseBackup, stageDatabaseRestore } from '@main/database/databaseBackupService'
@@ -42,15 +42,6 @@ import {
   createTrustedMainWindowSourcePolicy,
   createValidatedIpcRegistrar,
 } from './validatedIpcRegistrar'
-
-function getInvokingMiniPlayerController(event: Electron.IpcMainInvokeEvent) {
-  const window = BrowserWindow.fromWebContents(event.sender)
-  const controller = window ? getMiniPlayerWindowController(window) : undefined
-  if (!controller) {
-    throw new Error('Mini player controls are only available in the main window.')
-  }
-  return controller
-}
 
 function isMissingFileError(error: unknown): boolean {
   const code = (error as NodeJS.ErrnoException | undefined)?.code
@@ -182,8 +173,7 @@ export function registerIpcHandlers(
     register: (channel, listener) => ipcMain.handle(channel, listener),
     isTrustedSender: createTrustedMainWindowSourcePolicy({
       fromWebContents: (sender) => BrowserWindow.fromWebContents(sender),
-      isAllowedWindow: (window) =>
-        Boolean(getMiniPlayerWindowController(window as Electron.BrowserWindow)),
+      isAllowedWindow: (window) => isRegisteredMainWindow(window as Electron.BrowserWindow),
       isTrustedRendererUrl: (url) => isTrustedRendererUrl(url, rendererEntry),
     }),
   })
@@ -253,19 +243,16 @@ export function registerIpcHandlers(
       showOpenDialog: (options) => dialog.showOpenDialog(parentWindow, options),
     })
   })
-  electronIpcRegistrar.handle(ipcChannels.window.enterMiniPlayer, (event) =>
-    getInvokingMiniPlayerController(event).enter(),
-  )
   electronIpcRegistrar.handle(ipcChannels.window.getMaximized, (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)
-    if (!window || getInvokingMiniPlayerController(event).getState().mode !== 'normal') {
+    if (!window || !isRegisteredMainWindow(window)) {
       throw new Error('Main window controls are unavailable.')
     }
     return { isMaximized: window.isMaximized() }
   })
   electronIpcRegistrar.handle(ipcChannels.window.control, (event, payload) => {
     const window = BrowserWindow.fromWebContents(event.sender)
-    if (!window || getInvokingMiniPlayerController(event).getState().mode !== 'normal') {
+    if (!window || !isRegisteredMainWindow(window)) {
       throw new Error('Main window controls are unavailable.')
     }
     switch (payload.action) {
@@ -284,19 +271,6 @@ export function registerIpcHandlers(
     }
     return { isMaximized: window.isMaximized() }
   })
-  electronIpcRegistrar.handle(ipcChannels.window.restoreFromMiniPlayer, (event) =>
-    getInvokingMiniPlayerController(event).restore(),
-  )
-  electronIpcRegistrar.handle(ipcChannels.window.getMiniPlayerState, (event) =>
-    getInvokingMiniPlayerController(event).getState(),
-  )
-  electronIpcRegistrar.handle(ipcChannels.window.setMiniPlayerPopover, (event, payload) =>
-    getInvokingMiniPlayerController(event).setPopover(
-      payload.open,
-      payload.direction,
-      payload.height,
-    ),
-  )
 
   registerLibraryIpcHandlers(electronIpcRegistrar, {
     libraryService,

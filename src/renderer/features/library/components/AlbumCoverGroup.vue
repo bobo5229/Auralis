@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useCoverArtworkCorners } from '@renderer/features/appearance/composables/useCoverArtworkCorners'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
 import { formatArtist } from '../utils/formatArtist'
@@ -39,6 +40,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { coverArtworkRounded } = useCoverArtworkCorners()
 const imgError = ref(false)
 const discHeadings = computed(() => getAlbumCoverTrackDiscHeadings(props.group.tracks))
 
@@ -82,6 +84,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
     <div class="album-cover-aside">
       <div
         class="album-cover-artwork select-none"
+        :class="{ 'album-cover-artwork--square': !coverArtworkRounded }"
         :aria-label="
           t('library.a11y.albumArtwork', {
             album: group.album || t('library.unknownAlbum'),
@@ -114,7 +117,9 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
         >
           {{ group.album || t('library.unknownAlbum') }}
         </p>
-        <p class="album-cover-meta-line flex items-center justify-between gap-2 min-w-0">
+        <p
+          class="album-cover-meta-line album-cover-meta-artist flex items-center justify-between gap-2 min-w-0"
+        >
           <span v-tooltip.overflow="formatArtist(group.albumArtist)" class="truncate">
             {{ formatArtist(group.albumArtist) }}
           </span>
@@ -127,12 +132,17 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 
     <div class="album-cover-tracks">
       <template v-for="(track, trackIdx) in group.tracks" :key="track.id">
-        <div v-if="discHeadings[trackIdx] !== null" class="cover-disc-heading">
+        <div
+          v-if="discHeadings[trackIdx] !== null"
+          class="cover-disc-heading"
+          :class="{ 'cover-disc-heading--first': trackIdx === 0 }"
+        >
           {{ formatAlbumCoverDiscHeading(discHeadings[trackIdx]!) }}
         </div>
         <AlbumCoverTrackRow
           :track="track"
           :now-playing="nowPlayingTrackId === track.id"
+          :is-playing="isPlaying"
           :selected="selectedTrackId === track.id"
           :focused="focusedTrackId === track.id"
           :index="trackIdx"
@@ -149,8 +159,20 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 </template>
 
 <style scoped>
+.album-cover-artwork--square {
+  border-radius: 0;
+}
+
+.album-cover-meta-title {
+  font-weight: var(--auralis-song-cover-album-weight, 700);
+}
+
+.album-cover-meta-artist {
+  font-weight: var(--auralis-song-cover-album-artist-weight, 600);
+}
+
 .album-cover-meta-date {
-  font-weight: 500;
+  font-weight: var(--auralis-song-cover-release-date-weight, 500);
 }
 
 .cover-disc-heading {
@@ -163,32 +185,36 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
   background: rgba(255, 255, 255, 0.045);
   color: var(--auralis-text-muted);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: var(--auralis-song-cover-disc-heading-weight, 700);
   letter-spacing: 0.06em;
 }
 
-/* 左右列顶对齐：组高仍由虚拟列表按 max(封面, 曲目) 分配，面板不随组高 stretch */
+/* 首个 Disc 标题放入组顶部留白，不占曲目列高度。 */
+.cover-disc-heading--first {
+  position: absolute;
+  top: calc(-1 * var(--library-cover-disc-heading-height));
+  left: var(--library-cover-panel-padding-inline-side);
+  right: var(--library-cover-panel-padding-inline-side);
+}
+
+/* 左右列顶对齐：组高仍由虚拟列表按 max(封面, 曲目) 分配，曲目区不随组高 stretch */
 .album-cover-group {
   align-items: start;
 }
 
-/* 复用专辑详情曲目列表面板壳；高度随内容收缩，少曲目时不留空壳。
+/* 曲目直接呈现在页面背景上；容器高度随内容收缩。
  * padding / border-width 消费 libraryLayoutMetrics 注入的 --library-*，
  * 与 getAlbumGroupEstimatedHeight 同一事实源（Phase 6 REVIEW Finding 1）。 */
 .album-cover-tracks {
+  position: relative;
   box-sizing: border-box;
   align-self: start;
   width: 100%;
   height: fit-content;
   min-width: 0;
-  background: var(--auralis-track-list-bg);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: var(--library-cover-panel-border-width) solid var(--auralis-track-list-border);
-  border-radius: 20px;
-  padding: var(--library-cover-panel-padding-block-side);
-  box-shadow:
-    0 12px 36px 0 rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  background: transparent;
+  border: var(--library-cover-panel-border-width) solid transparent;
+  padding: var(--library-cover-panel-padding-block-side)
+    var(--library-cover-panel-padding-inline-side);
 }
 </style>

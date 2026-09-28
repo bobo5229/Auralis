@@ -421,20 +421,10 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.metadata.clearRefreshFailures]: voidPayload(),
   [ipcChannels.metadata.getTrackMetadata]: required(idPayload('trackId')),
   [ipcChannels.metadata.updateTrackMetadata]: required(editableMetadata),
-  [ipcChannels.window.enterMiniPlayer]: voidPayload(),
   [ipcChannels.window.control]: required(
     objectShape({ action: field(enumValue(['minimize', 'toggle-maximize', 'close'])) }),
   ),
   [ipcChannels.window.getMaximized]: voidPayload(),
-  [ipcChannels.window.restoreFromMiniPlayer]: voidPayload(),
-  [ipcChannels.window.getMiniPlayerState]: voidPayload(),
-  [ipcChannels.window.setMiniPlayerPopover]: required(
-    objectShape({
-      open: field(booleanValue),
-      direction: field(enumValue(['above', 'below'])),
-      height: field(finiteNumber({ integer: true, min: 0, max: 4_096 })),
-    }),
-  ),
 } satisfies Record<DomainIpcInvokeChannel, IpcPayloadPolicy>
 
 export function parseDomainIpcPayload(

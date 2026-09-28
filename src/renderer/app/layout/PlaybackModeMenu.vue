@@ -20,11 +20,11 @@ const { t } = useI18n()
 const element = ref<HTMLElement | null>(null)
 
 const modes = computed<Array<{ id: PlaybackMode; label: string; icon: string }>>(() => [
-  { id: 'sequential', label: t('player.modeOption.sequential'), icon: 'i-lucide-list-end' },
-  { id: 'repeat-all', label: t('player.modeOption.repeat-all'), icon: 'i-lucide-repeat' },
-  { id: 'repeat-one', label: t('player.modeOption.repeat-one'), icon: 'i-lucide-repeat-1' },
-  { id: 'shuffle', label: t('player.modeOption.shuffle'), icon: 'i-lucide-shuffle' },
-  { id: 'album-shuffle', label: t('player.modeOption.album-shuffle'), icon: 'i-lucide-disc-3' },
+  { id: 'sequential', label: t('player.modeOption.sequential'), icon: 'i-ph-list-numbers' },
+  { id: 'repeat-all', label: t('player.modeOption.repeat-all'), icon: 'i-ph-repeat' },
+  { id: 'repeat-one', label: t('player.modeOption.repeat-one'), icon: 'i-ph-repeat-once' },
+  { id: 'shuffle', label: t('player.modeOption.shuffle'), icon: 'i-ph-shuffle' },
+  { id: 'album-shuffle', label: t('player.modeOption.album-shuffle'), icon: 'i-ph-vinyl-record' },
 ])
 
 function handleSelect(mode: PlaybackMode): void {
@@ -111,7 +111,7 @@ onUnmounted(() => {
       >
         <span class="h-4 w-4" :class="mode.icon" />
         <span>{{ mode.label }}</span>
-        <span v-if="currentMode === mode.id" class="playback-mode-check i-lucide-check" />
+        <span v-if="currentMode === mode.id" class="playback-mode-check i-ph-check" />
       </button>
       <div v-if="index < modes.length - 1" class="playback-mode-divider" role="separator" />
     </template>

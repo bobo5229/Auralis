@@ -42,7 +42,6 @@ export function registerLibraryIpcHandlers(
   registrar.handle(ipcChannels.library.startScan, (_event, payload: { rootId: number }) =>
     libraryScanService.startScan(payload.rootId),
   )
-
   registrar.handle(ipcChannels.library.cancelScan, (_event, payload: { jobId: number }) =>
     libraryScanService.cancelScan(payload.jobId),
   )

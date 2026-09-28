@@ -269,11 +269,6 @@ function createApi(): AuralisApi {
       control: vi.fn(),
       getMaximized: vi.fn(),
       onMaximizedChanged: vi.fn(),
-      enterMiniPlayer: vi.fn(),
-      restoreFromMiniPlayer: vi.fn(),
-      getMiniPlayerState: vi.fn(),
-      setMiniPlayerPopover: vi.fn(),
-      onMiniPlayerStateChanged: vi.fn(),
     },
   }
 }

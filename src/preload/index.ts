@@ -152,11 +152,6 @@ export const auralisApi: AuralisApi = {
     control: (action) => invoke(ipcChannels.window.control, { action }),
     getMaximized: () => invoke(ipcChannels.window.getMaximized),
     onMaximizedChanged: (callback) => on(ipcChannels.window.maximizedChanged, callback),
-    enterMiniPlayer: () => invoke(ipcChannels.window.enterMiniPlayer),
-    restoreFromMiniPlayer: () => invoke(ipcChannels.window.restoreFromMiniPlayer),
-    getMiniPlayerState: () => invoke(ipcChannels.window.getMiniPlayerState),
-    setMiniPlayerPopover: (payload) => invoke(ipcChannels.window.setMiniPlayerPopover, payload),
-    onMiniPlayerStateChanged: (callback) => on(ipcChannels.window.miniPlayerStateChanged, callback),
   },
 }
 

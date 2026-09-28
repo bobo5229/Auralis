@@ -19,7 +19,6 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.systemMedia.updateThumbarState,
   ipcChannels.systemMedia.command,
   ipcChannels.metadata.refreshProgress,
-  ipcChannels.window.miniPlayerStateChanged,
   ipcChannels.window.maximizedChanged,
 ])
 
@@ -43,8 +42,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(61)
-    expect(kinds).toEqual({ void: 21, optional: 6, required: 34 })
+    expect(actualChannels).toHaveLength(57)
+    expect(kinds).toEqual({ void: 18, optional: 6, required: 33 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -153,7 +152,6 @@ describe('domain IPC payload validation behavior', () => {
     ['archive:get-daily-listening-detail', { date: '02/30/2026' }],
     ['archive:get-listening-ranking', { range: 'quarter', target: 'track' }],
     ['metadata:refresh-missing', { limit: -1 }],
-    ['window:set-mini-player-popover', { open: true, direction: 'left', height: 200 }],
     ['window:control', { action: 'open-devtools' }],
   ] as const)('rejects malformed payload for %s', (channel, payload) => {
     expect(() => parse(channel, payload)).toThrow(IpcPayloadValidationError)

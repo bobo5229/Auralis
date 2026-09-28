@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import { useSongFontWeights } from '@renderer/features/appearance/composables/useSongFontWeights'
 import SongRow from '../components/SongRow.vue'
 import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
@@ -48,6 +49,12 @@ const router = useRouter()
 
 const librarySurfaceKind = computed(() => resolveLibrarySurfaceKind(route.name))
 const isLibrarySurface = computed(() => librarySurfaceKind.value !== null)
+const { songFontWeightStyle } = useSongFontWeights()
+const libraryPageStyle = computed(() =>
+  librarySurfaceKind.value === 'library'
+    ? { ...LIBRARY_LAYOUT_CSS_VARS, ...songFontWeightStyle.value }
+    : LIBRARY_LAYOUT_CSS_VARS,
+)
 
 const pageIdentity = ref<LibraryPageIdentity | null>(null)
 const tracks = shallowRef<TrackListItem[]>([])
@@ -516,7 +523,7 @@ onBeforeUnmount(() => {
   <section
     class="library-page main-page-frame relative"
     :data-library-surface="librarySurfaceKind ?? undefined"
-    :style="LIBRARY_LAYOUT_CSS_VARS"
+    :style="libraryPageStyle"
     @mousemove="onLibraryListMouseMove($event)"
     @mouseleave="onLibraryListMouseLeave()"
   >

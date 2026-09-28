@@ -10,7 +10,7 @@ import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import SmartPlaylistBuilderDialog from '@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue'
 import { useLibraryScanStart } from '@renderer/features/library/composables/useLibraryScanStart'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
+import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { prefetchRouteOnIntent } from '../router/routeWarmup'
@@ -23,7 +23,7 @@ import { animateTrashLid } from '@renderer/shared/animation/motion'
 const route = useRoute()
 const router = useRouter()
 const playback = usePlayback()
-const { enterMiniPlayer } = usePlayerDisplayMode()
+const { sidebarFullHeight } = useSidebarLayout()
 const isFacetsDialogOpen = ref(false)
 const { isStartingLibraryRefresh, refreshLibrary } = useLibraryScanStart({
   getLibraryRoots: () => auralis.library.getRoots(),
@@ -72,10 +72,10 @@ const activePath = ref(route.path)
 const primaryNav = computed<
   Array<{ to: string; label: string; icon: string; routeName?: WarmableRouteName }>
 >(() => [
-  { to: '/', label: t('nav.songs'), icon: 'i-lucide-music', routeName: 'library' },
-  { to: '/albums', label: t('nav.albums'), icon: 'i-lucide-disc-3', routeName: 'albums' },
-  { to: '/albums/cd', label: t('albums.cd.title'), icon: 'i-lucide-disc' },
-  { to: '/archive', label: t('nav.archive'), icon: 'i-lucide-archive', routeName: 'archive' },
+  { to: '/', label: t('nav.songs'), icon: 'i-ph-music-notes', routeName: 'library' },
+  { to: '/albums', label: t('nav.albums'), icon: 'i-ph-vinyl-record', routeName: 'albums' },
+  { to: '/albums/cd', label: t('albums.cd.title'), icon: 'i-ph-disc' },
+  { to: '/archive', label: t('nav.archive'), icon: 'i-ph-archive', routeName: 'archive' },
 ])
 
 function onRouteIntent(routeName?: WarmableRouteName): void {
@@ -117,7 +117,7 @@ function getPlaylistPath(item: SidebarPlaylistItem): string {
 }
 
 function getPlaylistIcon(item: SidebarPlaylistItem): string {
-  return item.kind === 'playlist' ? 'i-lucide-list-music' : 'i-lucide-sparkles'
+  return item.kind === 'playlist' ? 'i-ph-playlist' : 'i-ph-sparkle'
 }
 
 function rememberSidebarModalTrigger(preferred?: HTMLElement | null): void {
@@ -470,12 +470,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside class="app-sidebar">
+  <aside class="app-sidebar" :class="{ 'app-sidebar--full-height': sidebarFullHeight }">
     <header class="sidebar-header">
       <div class="sidebar-header-main">
         <div class="sidebar-brand-left">
           <span class="sidebar-brand-mark" aria-hidden="true">
-            <span class="i-lucide-audio-waveform"></span>
+            <span class="i-ph-waveform"></span>
           </span>
           <div class="sidebar-brand-copy">
             <div class="sidebar-brand-name">AuralisMusic</div>
@@ -488,16 +488,7 @@ onBeforeUnmount(() => {
             :aria-label="t('sidebar.tool.facetsPanel')"
             @click="isFacetsDialogOpen = true"
           >
-            <span class="i-lucide-list-filter"></span>
-          </button>
-          <button
-            v-tooltip="t('sidebar.tool.miniPlayer')"
-            class="sidebar-tool-button"
-            type="button"
-            :aria-label="t('sidebar.tool.miniPlayerAction')"
-            @click="enterMiniPlayer"
-          >
-            <span class="i-lucide-panel-top-close"></span>
+            <span class="i-ph-sliders-horizontal"></span>
           </button>
           <RouterLink
             to="/settings"
@@ -512,7 +503,7 @@ onBeforeUnmount(() => {
             @keydown.enter="setPendingActive('/settings')"
             @keydown.space="setPendingActive('/settings')"
           >
-            <span class="i-lucide-settings"></span>
+            <span class="i-ph-gear"></span>
           </RouterLink>
           <button
             class="sidebar-tool-button"
@@ -527,7 +518,7 @@ onBeforeUnmount(() => {
             @click="refreshLibrary"
           >
             <span
-              class="i-lucide-refresh-cw"
+              class="i-ph-arrows-clockwise"
               :class="{ 'animate-spin': isStartingLibraryRefresh }"
             ></span>
           </button>
@@ -577,7 +568,7 @@ onBeforeUnmount(() => {
             :aria-label="t('sidebar.newPlaylist')"
             @click="openCreateMenu"
           >
-            <span class="i-lucide-plus"></span>
+            <span class="i-ph-plus"></span>
           </button>
         </div>
         <RouterLink
@@ -612,7 +603,7 @@ onBeforeUnmount(() => {
           <span class="sidebar-link-count">{{ playlist.trackCount }}</span>
         </RouterLink>
         <div v-if="playlistItems.length === 0" class="smart-playlist-empty">
-          <span class="i-lucide-sparkles"></span>
+          <span class="i-ph-sparkle"></span>
           <span>{{ t('sidebar.playlistsEmpty') }}</span>
         </div>
       </section>
@@ -640,12 +631,12 @@ onBeforeUnmount(() => {
           @click.stop
         >
           <button class="library-context-menu-item" type="button" @click="createRegularPlaylist">
-            <span class="i-lucide-list-music"></span>
+            <span class="i-ph-playlist"></span>
             <span>{{ t('sidebar.newPlaylist') }}</span>
           </button>
           <div class="library-context-menu-separator" role="separator"></div>
           <button class="library-context-menu-item" type="button" @click="openSmartPlaylistBuilder">
-            <span class="i-lucide-sparkles"></span>
+            <span class="i-ph-sparkle"></span>
             <span>{{ t('sidebar.newSmartPlaylist') }}</span>
           </button>
         </div>
@@ -666,7 +657,7 @@ onBeforeUnmount(() => {
           @click.stop
         >
           <button class="library-context-menu-item" type="button" @click="openRenameDialog">
-            <span class="i-lucide-pencil"></span>
+            <span class="i-ph-pencil-simple"></span>
             <span>{{ t('sidebar.rename') }}</span>
           </button>
           <div class="library-context-menu-separator" role="separator"></div>

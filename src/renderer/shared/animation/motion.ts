@@ -49,6 +49,63 @@ export function animatePlaybackUnderline(target: HTMLElement, playing: boolean):
   }
 }
 
+/**
+ * Fixed-height playback bars for the cover track indicator. Each bar keeps a 12px box and
+ * animates `transform: scaleY(...)` from its bottom edge, so no frame touches layout.
+ * Pausing or reduced motion cancels the loops and restores the static 5/10/7px shape.
+ */
+const PLAYBACK_BAR_HEIGHT = 12
+const PLAYBACK_BAR_MIN_HEIGHT = 4
+const PLAYBACK_BAR_SPECS = [
+  { staticHeight: 5, duration: 800, peakOffset: 0.5 },
+  { staticHeight: 10, duration: 1050, peakOffset: 0.3 },
+  { staticHeight: 7, duration: 900, peakOffset: 0.7 },
+] as const
+
+export function animatePlaybackBars(bars: readonly HTMLElement[], playing: boolean): () => void {
+  if (bars.length === 0) return () => {}
+  const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const animations: Animation[] = []
+  const toScale = (height: number): string => `scaleY(${(height / PLAYBACK_BAR_HEIGHT).toFixed(3)})`
+  const specFor = (index: number): (typeof PLAYBACK_BAR_SPECS)[number] =>
+    PLAYBACK_BAR_SPECS[index % PLAYBACK_BAR_SPECS.length]!
+  const paintStaticShape = (): void => {
+    bars.forEach((bar, index) => {
+      bar.style.transform = toScale(specFor(index).staticHeight)
+    })
+  }
+  const stopLoops = (): void => {
+    animations.forEach((animation) => animation.cancel())
+    animations.length = 0
+  }
+  const startLoops = (): void => {
+    bars.forEach((bar, index) => {
+      const spec = specFor(index)
+      animations.push(
+        bar.animate(
+          [
+            { transform: toScale(PLAYBACK_BAR_MIN_HEIGHT), offset: 0 },
+            { transform: toScale(PLAYBACK_BAR_HEIGHT), offset: spec.peakOffset },
+            { transform: toScale(PLAYBACK_BAR_MIN_HEIGHT), offset: 1 },
+          ],
+          { duration: spec.duration, easing: 'ease-in-out', iterations: Infinity },
+        ),
+      )
+    })
+  }
+  const update = (): void => {
+    stopLoops()
+    paintStaticShape()
+    if (playing && !preference.matches) startLoops()
+  }
+  preference.addEventListener('change', update)
+  update()
+  return () => {
+    stopLoops()
+    preference.removeEventListener('change', update)
+  }
+}
+
 /** Sweep a graphite text fill while playback is active, respecting reduced motion. */
 export function animatePlaybackTextShimmer(target: HTMLElement): () => void {
   const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -300,4 +357,36 @@ export function animateFrames(update: (seconds: number) => boolean): () => void 
     stopped = true
     cancelAnimationFrame(frame)
   }
+}
+
+export const LYRICS_PANEL_ANIMATION_DURATION_MS = 200
+
+/**
+ * Coordinated expansion / collapse animation for the shell lyrics column and playbar right offset.
+ * Uses a gentle cubic deceleration curve and resolves immediately when reduced motion is preferred.
+ */
+export function animateLyricsPanelExpansion(
+  from: number,
+  to: number,
+  reducedMotion: boolean,
+  onProgress: (progress: number) => void,
+  onComplete: () => void,
+): () => void {
+  if (reducedMotion || from === to) {
+    onProgress(to)
+    onComplete()
+    return () => {}
+  }
+
+  return animateProgress(
+    LYRICS_PANEL_ANIMATION_DURATION_MS,
+    (progress) => {
+      const eased = 1 - Math.pow(1 - progress, 3)
+      onProgress(from + (to - from) * eased)
+    },
+    () => {
+      onProgress(to)
+      onComplete()
+    },
+  )
 }

@@ -25,7 +25,7 @@ function setShellFluidBackgroundEnabled(enabled: boolean): void {
 
 /**
  * Shared preference for the main-window shell fluid artwork layer.
- * Does not gate PlayerBar tint, fullscreen, mini player, or CD browse.
+ * Does not gate PlayerBar tint, fullscreen, or CD browse.
  */
 export function useShellFluidBackground() {
   return {

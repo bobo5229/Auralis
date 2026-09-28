@@ -4,13 +4,11 @@ import {
   MODERN_PLAYER_BAR_COLUMN_INSET_PX,
   MODERN_PLAYER_BAR_HEIGHT_PX,
   MODERN_PLAYER_BAR_MAX_WIDTH_PX,
-  MODERN_PLAYER_BAR_SUBTITLE_COLLAPSE_MAX_PX,
   MODERN_PLAYER_BAR_UTILITIES_OVERFLOW_MAX_PX,
   MODERN_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX,
   resolveModernPlayerBarIslandWidthPx,
   resolveModernPlayerBarSafeAreaPx,
   shouldCollapseModernInlineVolume,
-  shouldHideModernSubtitle,
   shouldOverflowModernUtilities,
 } from './modernPlayerBarLayout'
 
@@ -18,7 +16,7 @@ describe('modernPlayerBarLayout', () => {
   it('encodes the floating-island geometry contract', () => {
     expect(MODERN_PLAYER_BAR_HEIGHT_PX).toBe(64)
     expect(MODERN_PLAYER_BAR_BOTTOM_GAP_PX).toBe(24)
-    expect(MODERN_PLAYER_BAR_MAX_WIDTH_PX).toBe(780)
+    expect(MODERN_PLAYER_BAR_MAX_WIDTH_PX).toBe(700)
     expect(MODERN_PLAYER_BAR_COLUMN_INSET_PX).toBe(32)
     expect(resolveModernPlayerBarSafeAreaPx()).toBe(
       MODERN_PLAYER_BAR_HEIGHT_PX + MODERN_PLAYER_BAR_BOTTOM_GAP_PX,
@@ -29,8 +27,9 @@ describe('modernPlayerBarLayout', () => {
   it('caps the island at the max width and keeps 32px side gaps', () => {
     expect(resolveModernPlayerBarIslandWidthPx(1000)).toBe(MODERN_PLAYER_BAR_MAX_WIDTH_PX)
     expect(resolveModernPlayerBarIslandWidthPx(844)).toBe(MODERN_PLAYER_BAR_MAX_WIDTH_PX)
-    expect(resolveModernPlayerBarIslandWidthPx(800)).toBe(
-      800 - MODERN_PLAYER_BAR_COLUMN_INSET_PX * 2,
+    expect(resolveModernPlayerBarIslandWidthPx(800)).toBe(MODERN_PLAYER_BAR_MAX_WIDTH_PX)
+    expect(resolveModernPlayerBarIslandWidthPx(700)).toBe(
+      700 - MODERN_PLAYER_BAR_COLUMN_INSET_PX * 2,
     )
     expect(resolveModernPlayerBarIslandWidthPx(0)).toBe(0)
     expect(resolveModernPlayerBarIslandWidthPx(Number.NaN)).toBe(0)
@@ -45,13 +44,6 @@ describe('modernPlayerBarLayout', () => {
       false,
     )
     expect(MODERN_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX).toBe(800)
-  })
-
-  it('hides the subtitle at or below 720px', () => {
-    expect(shouldHideModernSubtitle(MODERN_PLAYER_BAR_SUBTITLE_COLLAPSE_MAX_PX)).toBe(true)
-    expect(shouldHideModernSubtitle(MODERN_PLAYER_BAR_SUBTITLE_COLLAPSE_MAX_PX - 1)).toBe(true)
-    expect(shouldHideModernSubtitle(MODERN_PLAYER_BAR_SUBTITLE_COLLAPSE_MAX_PX + 1)).toBe(false)
-    expect(MODERN_PLAYER_BAR_SUBTITLE_COLLAPSE_MAX_PX).toBe(720)
   })
 
   it('moves lyrics and mode behind overflow at or below 640px', () => {

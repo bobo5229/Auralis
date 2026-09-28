@@ -2,7 +2,7 @@ import { BrowserWindow, app, ipcMain } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
-import { MiniPlayerWindowController } from './miniPlayerWindowController'
+import { registerMainWindow } from './mainWindowRegistry'
 import { createWindowsThumbarController } from './windowsThumbarController'
 import { secureRendererWindow } from './webContentsSecurity'
 import { sendRendererEvent } from '@main/ipc/rendererEvents'
@@ -46,7 +46,7 @@ export function createWindow(): BrowserWindow {
     : join(__dirname, '../renderer/index.html')
   secureRendererWindow(window, rendererEntry)
 
-  new MiniPlayerWindowController(window)
+  registerMainWindow(window)
   const disposeThumbarController = createWindowsThumbarController(window)
 
   const notifyMaximizedChanged = (): void => {

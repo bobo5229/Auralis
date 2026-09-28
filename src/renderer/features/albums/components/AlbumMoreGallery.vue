@@ -187,23 +187,30 @@ onBeforeUnmount(() => {
         :disabled="opening"
         @click="emit('open', album, $event)"
       >
-        <div class="album-more-gallery-cover">
-          <img
-            v-if="getArtworkUrl(album.artworkCacheKey)"
-            :src="getArtworkUrl(album.artworkCacheKey)!"
-            :alt="t('albums.detail.coverAlt', { title: formatDisplayAlbumTitle(album.title) })"
-            class="h-full w-full object-cover"
-            loading="lazy"
-            decoding="async"
-            draggable="false"
-          />
-          <div
-            v-else
-            class="flex h-full w-full items-center justify-center bg-[var(--auralis-artwork-placeholder-bg)]"
-            aria-hidden="true"
-          >
-            <span class="i-lucide-disc-3 h-10 w-10 text-[var(--auralis-text-disabled)]"></span>
+        <div class="album-more-gallery-visual">
+          <div class="album-more-gallery-cover">
+            <img
+              v-if="getArtworkUrl(album.artworkCacheKey)"
+              :src="getArtworkUrl(album.artworkCacheKey)!"
+              :alt="t('albums.detail.coverAlt', { title: formatDisplayAlbumTitle(album.title) })"
+              class="album-more-gallery-image h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+              draggable="false"
+            />
+            <div
+              v-else
+              class="album-more-gallery-placeholder flex h-full w-full items-center justify-center bg-[var(--auralis-artwork-placeholder-bg)]"
+              aria-hidden="true"
+            >
+              <span
+                class="album-more-gallery-placeholder-icon i-lucide-disc-3 h-10 w-10 text-[var(--auralis-text-disabled)]"
+              ></span>
+            </div>
           </div>
+          <span class="album-more-gallery-hint" aria-hidden="true">
+            <span class="album-more-gallery-hint-icon i-lucide-arrow-right"></span>
+          </span>
         </div>
         <div class="album-more-gallery-meta">
           <p class="album-more-gallery-album-title">

@@ -27,8 +27,6 @@ export function useAlbumCoverTracking(
     stage.style.removeProperty('--detail-cover-rotate-y')
     stage.style.removeProperty('--detail-cover-shift-x')
     stage.style.removeProperty('--detail-cover-shift-y')
-    stage.style.removeProperty('--detail-cover-shadow-x')
-    stage.style.removeProperty('--detail-cover-shadow-y')
   }
 
   function renderCoverTracking(): void {
@@ -51,8 +49,6 @@ export function useAlbumCoverTracking(
     stage.style.setProperty('--detail-cover-rotate-y', `${xRatio * MAX_COVER_TILT_DEGREES}deg`)
     stage.style.setProperty('--detail-cover-shift-x', `${xRatio * 5}px`)
     stage.style.setProperty('--detail-cover-shift-y', `${yRatio * 5}px`)
-    stage.style.setProperty('--detail-cover-shadow-x', `${-xRatio * 12}px`)
-    stage.style.setProperty('--detail-cover-shadow-y', `${18 - yRatio * 10}px`)
   }
 
   function scheduleCoverTracking(): void {

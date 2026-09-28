@@ -1,26 +1,13 @@
 .album-more-gallery {
   --gallery-card-width: 144px;
   margin-top: 36px;
-  margin-right: 0;
-  margin-left: 0;
-  padding: 0 0 16px;
+  margin-inline: 0;
+  min-width: 0;
+  padding: 24px var(--album-detail-inline-padding, 32px);
   border-top: none;
-  background: transparent;
+  background: var(--auralis-album-detail-more-bg);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-}
-
-.album-more-gallery::before {
-  content: '';
-  display: block;
-  height: 1px;
-  margin-bottom: 24px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--auralis-text) 16%, transparent) 0%,
-    color-mix(in srgb, var(--auralis-text) 4%, transparent) 70%,
-    transparent 100%
-  );
 }
 
 .album-more-gallery-title {
@@ -113,22 +100,106 @@
   box-shadow: none;
 }
 
+.album-more-gallery-card:disabled {
+  cursor: default;
+}
+
+.album-more-gallery-card:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 4px;
+  border-radius: 14px;
+}
+
+.album-more-gallery-visual {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+}
+
 .album-more-gallery-cover {
+  width: 100%;
+  height: 100%;
   aspect-ratio: 1;
   overflow: hidden;
   border-radius: 14px;
   background: var(--auralis-artwork-placeholder-bg);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-  transition:
-    transform 0.35s cubic-bezier(0.25, 1, 0.5, 1),
-    box-shadow 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+  box-shadow: none;
 }
 
-.album-more-gallery-card:hover .album-more-gallery-cover {
-  transform: translateY(-6px) scale(1.03);
-  box-shadow:
-    0 16px 36px rgba(0, 0, 0, 0.5),
-    0 0 20px color-mix(in srgb, var(--auralis-album-detail-accent) 35%, transparent);
+.album-more-gallery-image {
+  transform: scale(1);
+  filter: brightness(1);
+  transform-origin: center center;
+  transition:
+    transform 200ms cubic-bezier(0.25, 1, 0.5, 1),
+    filter 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.album-more-gallery-placeholder {
+  filter: brightness(1);
+  transition: filter 200ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.album-more-gallery-placeholder-icon {
+  flex-shrink: 0;
+}
+
+.album-more-gallery-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--auralis-surface-floating) 88%, transparent);
+  color: var(--auralis-text);
+  border: 1px solid var(--auralis-border-subtle);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms cubic-bezier(0.25, 1, 0.5, 1);
+  z-index: 2;
+}
+
+.album-more-gallery-hint-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+@media (hover: hover) {
+  .album-more-gallery-card:not(:disabled):hover .album-more-gallery-image {
+    transform: scale(1.018);
+    filter: brightness(0.94);
+  }
+
+  .album-more-gallery-card:not(:disabled):hover .album-more-gallery-placeholder {
+    filter: brightness(0.94);
+  }
+
+  .album-more-gallery-card:not(:disabled):hover .album-more-gallery-hint {
+    opacity: 1;
+  }
+}
+
+.album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-image {
+  transform: scale(1.018);
+  filter: brightness(0.94);
+}
+
+.album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-placeholder {
+  filter: brightness(0.94);
+}
+
+.album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-hint {
+  opacity: 1;
 }
 
 .album-more-gallery-meta {
@@ -154,11 +225,20 @@
 
 @media (prefers-reduced-motion: reduce) {
   .album-more-gallery-scroller,
-  .album-more-gallery-cover {
+  .album-more-gallery-cover,
+  .album-more-gallery-image,
+  .album-more-gallery-placeholder,
+  .album-more-gallery-hint {
     transition: none;
   }
 
-  .album-more-gallery-card:hover .album-more-gallery-cover {
+  @media (hover: hover) {
+    .album-more-gallery-card:not(:disabled):hover .album-more-gallery-image {
+      transform: none;
+    }
+  }
+
+  .album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-image {
     transform: none;
   }
 }

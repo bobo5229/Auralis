@@ -93,28 +93,6 @@ export interface NativePlaybackEvent {
   detail?: string
 }
 
-export type MiniPlayerWindowMode = 'normal' | 'mini'
-export type MiniPlayerPopoverDirection = 'above' | 'below'
-
-/** Cover-first body metrics for the mini-player plaque (no popover). */
-export interface MiniPlayerBodySize {
-  coverSize: number
-  width: number
-  height: number
-}
-
-export interface MiniPlayerWindowState {
-  mode: MiniPlayerWindowMode
-  /** Active body size (cover-driven). Always present for layout sync. */
-  body: MiniPlayerBodySize
-  popover: {
-    open: boolean
-    direction: MiniPlayerPopoverDirection
-    height: number
-  }
-  suggestedPopoverDirection: MiniPlayerPopoverDirection
-}
-
 export interface IpcSendContract {
   'app:renderer-ready': void
   'system-media:update-thumbar-state': SystemMediaPlaybackState
@@ -123,7 +101,6 @@ export interface IpcSendContract {
 export interface IpcEventContract {
   'playback:native-event': NativePlaybackEvent
   'system-media:command': SystemMediaCommand
-  'window:mini-player-state-changed': MiniPlayerWindowState
   'window:maximized-changed': { isMaximized: boolean }
   'library:scan-progress': LibraryScanProgress
   'library:changed': LibraryChangedEvent
@@ -378,10 +355,6 @@ export interface IpcInvokeContract {
     request: EditableTrackMetadata
     response: { ok: boolean }
   }
-  'window:enter-mini-player': {
-    request: void
-    response: MiniPlayerWindowState
-  }
   'window:control': {
     request: { action: 'minimize' | 'toggle-maximize' | 'close' }
     response: { isMaximized: boolean }
@@ -389,18 +362,6 @@ export interface IpcInvokeContract {
   'window:get-maximized': {
     request: void
     response: { isMaximized: boolean }
-  }
-  'window:restore-from-mini-player': {
-    request: void
-    response: MiniPlayerWindowState
-  }
-  'window:get-mini-player-state': {
-    request: void
-    response: MiniPlayerWindowState
-  }
-  'window:set-mini-player-popover': {
-    request: { open: boolean; direction: MiniPlayerPopoverDirection; height: number }
-    response: MiniPlayerWindowState
   }
 }
 

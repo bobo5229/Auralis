@@ -216,9 +216,10 @@ defineExpose({ refresh: loadListeningRanking })
     />
     <MainPageStatus
       v-else-if="!listeningRanking?.items.length"
+      class="archive-ranking-empty"
       kind="empty"
       title="暂无排行数据"
-      icon="i-lucide-chart-no-axes-column"
+      icon="i-ph-list-numbers"
       compact
     />
     <RankingRecordShelf

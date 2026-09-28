@@ -12,7 +12,7 @@ on accounts, streaming services, recommendations, or cloud storage.
 - Track, album, playlist, and smart-playlist browsing
 - Local playback, queue management, listening statistics, and gapless playback support
 - Archive views for listening history and rankings
-- In-app, fullscreen, and miniplayer experiences
+- In-app and fullscreen player experiences
 - Simplified Chinese, Traditional Chinese, and English interfaces
 
 Feature status is determined by the current source, routes, and tests. Design documents under

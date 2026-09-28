@@ -94,6 +94,7 @@ vite.config.ts.timestamp-*
 .worktrees/
 .claude/
 .agents/
+.agentboard/
 .mimocode/
 .zcode/
 .reasonix/
@@ -135,6 +136,8 @@ docs/topics/albums/*
 !docs/topics/library/
 docs/topics/library/*
 !docs/topics/library/TECHDOC-catalog-concurrent-load-2026-09-21.md
+!docs/topics/library/TECHDOC-cover-track-divider-pixel-snapping-2026-09-28.md
+!docs/topics/library/TECHDOC-music-source-path-priority-2026-09-28.md
 !docs/topics/metadata/
 docs/topics/metadata/*
 !docs/topics/metadata/TECHDOC-refresh-file-fingerprint-2026-09-21.md

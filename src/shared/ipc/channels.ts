@@ -85,10 +85,5 @@ export const ipcChannels = {
     control: 'window:control',
     getMaximized: 'window:get-maximized',
     maximizedChanged: 'window:maximized-changed',
-    enterMiniPlayer: 'window:enter-mini-player',
-    restoreFromMiniPlayer: 'window:restore-from-mini-player',
-    getMiniPlayerState: 'window:get-mini-player-state',
-    setMiniPlayerPopover: 'window:set-mini-player-popover',
-    miniPlayerStateChanged: 'window:mini-player-state-changed',
   },
 } as const

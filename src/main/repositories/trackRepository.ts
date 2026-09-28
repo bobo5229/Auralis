@@ -113,9 +113,20 @@ function compareNullableNumber(left: number | null, right: number | null): numbe
   return left - right
 }
 
+function compareLibraryAlbumArtists(left: string | null, right: string | null): number {
+  if (left !== null && right !== null) {
+    const leftStartsWithDigit = /^\p{Decimal_Number}/u.test(left.trimStart())
+    const rightStartsWithDigit = /^\p{Decimal_Number}/u.test(right.trimStart())
+    if (leftStartsWithDigit !== rightStartsWithDigit) {
+      return leftStartsWithDigit ? 1 : -1
+    }
+  }
+  return compareNullableText(left, right)
+}
+
 function compareLibraryTracks(left: TrackListItem, right: TrackListItem): number {
   return (
-    compareNullableText(left.albumArtist, right.albumArtist) ||
+    compareLibraryAlbumArtists(left.albumArtist, right.albumArtist) ||
     compareNullableText(left.releaseDate, right.releaseDate) ||
     compareNullableNumber(left.discNo, right.discNo) ||
     compareNullableNumber(left.trackNo, right.trackNo) ||

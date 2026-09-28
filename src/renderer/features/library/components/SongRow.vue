@@ -40,6 +40,11 @@ watch(
   () => (imgError.value = false),
 )
 
+function onClick(event: MouseEvent): void {
+  ;(event.currentTarget as HTMLElement | null)?.focus({ preventScroll: true })
+  emit('focus', props.track.id)
+}
+
 function onKeyDown(event: KeyboardEvent): void {
   if (event.key === ' ') {
     event.preventDefault()
@@ -85,7 +90,7 @@ function onKeyDown(event: KeyboardEvent): void {
         artist: artistDisplay.text,
       })
     "
-    @click="emit('select', track.id)"
+    @click="onClick"
     @dblclick="emit('play', track.id)"
     @contextmenu.prevent="emit('openContextMenu', track.id, $event, 'pointer')"
     @keydown="onKeyDown"
@@ -123,3 +128,21 @@ function onKeyDown(event: KeyboardEvent): void {
     </div>
   </div>
 </template>
+
+<style scoped>
+.song-title {
+  font-weight: var(--auralis-song-list-title-weight, 700);
+}
+
+.song-artist {
+  font-weight: var(--auralis-song-list-artist-weight, 600);
+}
+
+.song-album {
+  font-weight: var(--auralis-song-list-album-weight, 600);
+}
+
+.song-duration {
+  font-weight: var(--auralis-song-list-duration-weight, 400);
+}
+</style>

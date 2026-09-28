@@ -18,15 +18,8 @@ const { t } = useI18n()
 
 defineExpose({ element })
 
-const {
-  currentTrack,
-  currentIndex,
-  upcomingTracks,
-  isQueueEmpty,
-  totalCount,
-  playTrack,
-  isActive,
-} = usePlaybackQueue()
+const { currentTrack, currentIndex, upcomingTracks, isQueueEmpty, playTrack, isActive } =
+  usePlaybackQueue()
 
 const scrollRef = ref<HTMLElement | null>(null)
 const artworkErrorIds = ref<Set<number>>(new Set())
@@ -112,9 +105,6 @@ onUnmounted(() => {
   >
     <div class="queue-popover-header">
       <span class="queue-popover-title">{{ t('player.queue') }}</span>
-      <span v-if="!isQueueEmpty" class="queue-popover-count">{{
-        t('player.queueCount', { count: totalCount })
-      }}</span>
     </div>
 
     <div v-if="isQueueEmpty" class="queue-empty">{{ t('player.queueEmpty') }}</div>
@@ -141,7 +131,7 @@ onUnmounted(() => {
             @error="onArtworkError(currentTrack.id)"
           />
           <div v-else class="flex h-full w-full items-center justify-center">
-            <span class="h-5 w-5 i-lucide-music text-[var(--auralis-text-faint)]" />
+            <span class="h-5 w-5 i-ph-music-notes text-[var(--auralis-text-faint)]" />
           </div>
         </div>
         <div class="min-w-0 flex-1">
@@ -183,7 +173,7 @@ onUnmounted(() => {
               @error="onArtworkError(track.id)"
             />
             <div v-else class="flex h-full w-full items-center justify-center">
-              <span class="h-5 w-5 i-lucide-music text-[var(--auralis-text-faint)]" />
+              <span class="h-5 w-5 i-ph-music-notes text-[var(--auralis-text-faint)]" />
             </div>
           </div>
           <div class="min-w-0 flex-1">

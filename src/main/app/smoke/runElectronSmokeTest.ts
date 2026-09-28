@@ -26,15 +26,7 @@ interface RouteProbe {
 }
 
 interface StartupPresentationProbe {
-  mode: 'normal' | 'mini'
   shellMounted: boolean
-  miniMounted: boolean
-}
-
-interface MiniPlayerProbe {
-  entered: string
-  observed: string
-  restored: string
 }
 
 const CHECK_TIMEOUT_MS = 10_000
@@ -107,24 +99,12 @@ async function waitForStartupPresentation(
       const deadline = Date.now() + ${CHECK_TIMEOUT_MS}
       while (Date.now() < deadline) {
         const shellMounted = Boolean(document.querySelector('[data-app-shell-root]'))
-        const miniMounted = Boolean(document.querySelector('.mini-player-canvas'))
-        if (shellMounted || miniMounted) {
-          const state = await window.auralis.window.getMiniPlayerState()
-          const mode = state.mode === 'mini' ? 'mini' : 'normal'
-          const presentationMatchesMode =
-            (mode === 'mini' && miniMounted) || (mode === 'normal' && shellMounted)
-          if (presentationMatchesMode) {
-            return { mode, shellMounted, miniMounted }
-          }
-        }
+        if (shellMounted) return { shellMounted }
         await new Promise((resolve) => setTimeout(resolve, ${POLL_INTERVAL_MS}))
       }
 
-      const state = await window.auralis.window.getMiniPlayerState()
       return {
-        mode: state.mode === 'mini' ? 'mini' : 'normal',
         shellMounted: Boolean(document.querySelector('[data-app-shell-root]')),
-        miniMounted: Boolean(document.querySelector('.mini-player-canvas')),
       }
     })()`,
     true,
@@ -198,16 +178,6 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
     })
 
     await record('legacy visual-style preference does not affect startup', async () => {
-      const restoredState = (await mainWindow.webContents.executeJavaScript(
-        `window.auralis.window.restoreFromMiniPlayer()`,
-        true,
-      )) as { mode?: string }
-      if (restoredState.mode !== 'normal') {
-        throw new Error(
-          `Expected a normal main window before reload, received ${JSON.stringify(restoredState)}`,
-        )
-      }
-
       await mainWindow.webContents.executeJavaScript(
         `localStorage.setItem('auralis-visual-style', 'manuscript')`,
         true,
@@ -218,12 +188,7 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
         finishedLoads.has(mainWindow.webContents),
       )
       const presentation = await waitForStartupPresentation(mainWindow)
-      if (
-        presentation.mode !== 'normal' ||
-        !presentation.shellMounted ||
-        presentation.miniMounted ||
-        loadFailures.length > 0
-      ) {
+      if (!presentation.shellMounted || loadFailures.length > 0) {
         throw new Error(
           `Legacy visual-style preference prevented the modern shell from mounting: ${JSON.stringify(presentation)}`,
         )
@@ -267,7 +232,8 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
           const island = document.querySelector('.player-bar-island')
           const islandStyle = island ? getComputedStyle(island) : null
           const primaryBtn = document.querySelector('.transport-control-primary')
-          const queueBtn = document.querySelector('.playback-actions button.player-control')
+          const queueButtons = document.querySelectorAll('[data-testid="player-queue-button"]')
+          const queueBtn = queueButtons.length === 1 ? queueButtons[0] : null
 
           const inViewport = Boolean(rect) &&
             rect.width > 0 &&
@@ -305,6 +271,7 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
             islandPointerEvents: islandStyle?.pointerEvents ?? null,
             primaryButtonMounted: Boolean(primaryBtn),
             primaryButtonDisabled: Boolean(primaryBtn && 'disabled' in primaryBtn && primaryBtn.disabled),
+            queueButtonMatchCount: queueButtons.length,
             clickVerification,
             rect: rect ? {
               top: rect.top,
@@ -336,6 +303,7 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
         islandPointerEvents: string | null
         primaryButtonMounted: boolean
         primaryButtonDisabled: boolean
+        queueButtonMatchCount: number
         clickVerification: boolean
         rect: {
           top: number
@@ -380,6 +348,11 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
       assertPlayerBarBottomGap(probe)
       if (!probe.primaryButtonMounted || !probe.primaryButtonDisabled) {
         throw new Error('Expected idle transport primary button to be present and disabled')
+      }
+      if (probe.queueButtonMatchCount !== 1) {
+        throw new Error(
+          `Expected one PlayerBar queue button test target, received: ${probe.queueButtonMatchCount}`,
+        )
       }
       if (!probe.clickVerification) {
         throw new Error(
@@ -555,27 +528,32 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
       }
     })
 
-    await record('miniplayer enters and restores through the real preload', async () => {
-      const probe = (await mainWindow.webContents.executeJavaScript(
-        `(async () => {
-          const entered = await window.auralis.window.enterMiniPlayer()
-          const observed = await window.auralis.window.getMiniPlayerState()
-          const restored = await window.auralis.window.restoreFromMiniPlayer()
-          return {
-            entered: entered.mode,
-            observed: observed.mode,
-            restored: restored.mode
-          }
-        })()`,
-        true,
-      )) as MiniPlayerProbe
-
-      if (probe.entered !== 'mini' || probe.observed !== 'mini' || probe.restored !== 'normal') {
-        throw new Error(`Unexpected miniplayer transition: ${JSON.stringify(probe)}`)
-      }
+    await record('removed presentation APIs are absent from the real preload', async () => {
+      const absent = await mainWindow.webContents.executeJavaScript(`(() => {
+        const retired = ['enterMiniPlayer', 'restoreFromMiniPlayer', 'getMiniPlayerState',
+          'setMiniPlayerPopover', 'onMiniPlayerStateChanged']
+        return retired.every((key) => !(key in window.auralis.window))
+      })()`)
+      if (!absent) throw new Error('Retired presentation APIs remain exposed')
     })
 
-    await record('playerbar layout contract holds after restoring from miniplayer', async () => {
+    await record('registered main window retains library IPC and three sidebar tools', async () => {
+      const valid = await mainWindow.webContents.executeJavaScript(`(async () => {
+        const roots = await window.auralis.library.getRoots()
+        const tracks = await window.auralis.library.getTracks()
+        const toolbar = document.querySelector('.sidebar-tools-grid')
+        const tools = toolbar ? [...toolbar.children] : []
+        return Array.isArray(roots) && Array.isArray(tracks) && tools.length === 3 &&
+          tools.every((el) => {
+            const rect = el.getBoundingClientRect()
+            return rect.width > 0 && rect.height > 0 && rect.left >= 0 &&
+              rect.right <= window.innerWidth
+          })
+      })()`)
+      if (!valid) throw new Error('Library IPC or sidebar tools are unavailable')
+    })
+
+    await record('playerbar layout contract holds after window operations', async () => {
       const probe = (await mainWindow.webContents.executeJavaScript(
         `(() => {
           const el = document.querySelector('.player-bar')
@@ -614,12 +592,12 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
       }
       if (!probe.mounted || probe.position !== 'fixed' || !probe.inViewport) {
         throw new Error(
-          `PlayerBar layout degraded after miniplayer restoration: ${JSON.stringify(probe)}`,
+          `PlayerBar layout degraded after window operations: ${JSON.stringify(probe)}`,
         )
       }
       if (probe.islandPointerEvents !== 'auto') {
         throw new Error(
-          `PlayerBar island pointer-events degraded after miniplayer restoration: ${String(probe.islandPointerEvents)}`,
+          `PlayerBar island pointer-events degraded after window operations: ${String(probe.islandPointerEvents)}`,
         )
       }
       assertPlayerBarBottomGap(probe)

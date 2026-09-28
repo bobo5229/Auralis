@@ -17,17 +17,20 @@ import {
   type PlayerBarOverlayId,
 } from './playerBar/usePlayerBarOverlayController'
 import { usePlayerBarIslandMetrics } from './playerBar/usePlayerBarIslandMetrics'
+import { usePlayerBarResponsiveFocus } from './playerBar/usePlayerBarResponsiveFocus'
 import { shouldOverflowModernUtilities } from '@renderer/features/playback/utils/modernPlayerBarLayout'
 import { resolvePlaybarAccent } from '@renderer/features/playback/utils/resolvePlaybarAccent'
 import { animateFrames } from '@renderer/shared/animation/motion'
 import { useTheme } from '@renderer/composables/useTheme'
+import { useLyricsPanelVisibility } from '@renderer/features/appearance/composables/useLyricsPanelVisibility'
+import { useLyricsPanelLayout } from './useLyricsPanelLayout'
 
 const playback = usePlayback()
 const { t } = useI18n()
 const { isDark } = useTheme()
 const { displayMode } = usePlayerDisplayMode()
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
-// Fullscreen and Miniplayer own their visual pipelines. The hidden PlayerBar
+// Fullscreen owns its visual pipeline. The hidden PlayerBar
 // must not decode artwork, paint canvases, or start palette work.
 const isNormalPlayerDisplay = computed(() => displayMode.value === 'normal')
 const paletteEnabled = computed(() => isPlayerVisualEffectsActive(displayMode.value))
@@ -82,8 +85,12 @@ const primaryPlaybackLabel = computed(() => {
 const playerBarStyle = computed(
   () =>
     ({
-      '--auralis-active-album-tint': activeAlbumTint.value ?? 'transparent',
-      '--auralis-active-album-accent': albumAccentColor.value,
+      '--auralis-active-album-tint': isDark.value
+        ? 'transparent'
+        : (activeAlbumTint.value ?? 'transparent'),
+      '--auralis-active-album-accent': isDark.value
+        ? 'var(--auralis-theme-accent, #f472b6)'
+        : albumAccentColor.value,
     }) as CSSProperties,
 )
 
@@ -167,6 +174,22 @@ function handleQueueClose(): void {
   resolveRestorablePlayerTrigger(queueButtonRef.value)?.focus()
 }
 
+// --- Lyrics toggle ---
+const { lyricsPanelExpanded, setLyricsPanelExpanded } = useLyricsPanelVisibility()
+const { canDisplayLyricsPanel } = useLyricsPanelLayout()
+const lyricsButtonRef = ref<HTMLElement | null>(null)
+const overflowLyricsButtonRef = ref<HTMLElement | null>(null)
+
+function toggleLyrics(): void {
+  setLyricsPanelExpanded(!lyricsPanelExpanded.value)
+}
+
+function handleOverflowToggleLyrics(): void {
+  setLyricsPanelExpanded(!lyricsPanelExpanded.value)
+  closeOverflow()
+  resolveRestorablePlayerTrigger(overflowButtonRef.value)?.focus()
+}
+
 // --- Mode menu ---
 const modeButtonRef = ref<HTMLElement | null>(null)
 const modeMenuRef = ref<HTMLElement | null>(null)
@@ -221,9 +244,17 @@ function handleDocumentPointerDown(event: PointerEvent): void {
   overlayController.dismissOutside(inside)
 }
 
-watch(isUtilitiesOverflow, (collapsed) => {
-  if (collapsed) return
-  overlayController.closeMany(['overflow', 'mode'])
+usePlayerBarResponsiveFocus({
+  overflow: isUtilitiesOverflow,
+  lyricsAvailable: canDisplayLyricsPanel,
+  enabled: isNormalPlayerDisplay,
+  lyricsButton: lyricsButtonRef,
+  overflowLyricsButton: overflowLyricsButtonRef,
+  modeButton: modeButtonRef,
+  overflowButton: overflowButtonRef,
+  overflowPanel: overflowPanelRef,
+  queueButton: queueButtonRef,
+  closeOverflowPanels: () => overlayController.closeMany(['overflow', 'mode']),
 })
 
 watch(
@@ -246,16 +277,16 @@ onUnmounted(() => {
 const playbackModeIconClass = computed(() => {
   switch (playback.state.playbackMode) {
     case 'repeat-all':
-      return 'i-lucide-repeat'
+      return 'i-ph-repeat'
     case 'repeat-one':
-      return 'i-lucide-repeat-1'
+      return 'i-ph-repeat-once'
     case 'shuffle':
-      return 'i-lucide-shuffle'
+      return 'i-ph-shuffle'
     case 'album-shuffle':
-      return 'i-lucide-disc-3'
+      return 'i-ph-vinyl-record'
     case 'sequential':
     default:
-      return 'i-lucide-list-end'
+      return 'i-ph-list-numbers'
   }
 })
 
@@ -326,17 +357,13 @@ function handleNext(): void {
             :aria-busy="isPrimaryPlaybackPending ? 'true' : undefined"
             @click="handlePlayPause"
           >
-            <span v-if="isPrimaryPlaybackPending" class="h-6 w-6 i-lucide-loader-circle" />
-            <svg v-else class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <template v-if="playback.state.isPlaying">
-                <rect x="6" y="4" width="4" height="16" rx="1" />
-                <rect x="14" y="4" width="4" height="16" rx="1" />
-              </template>
-              <path
-                v-else
-                d="M7 4.8c0-1.1 1.2-1.8 2.2-1.2l11 7.2c.9.6.9 1.8 0 2.4l-11 7.2C8.2 21 7 20.3 7 19.2V4.8Z"
-              />
-            </svg>
+            <span v-if="isPrimaryPlaybackPending" class="h-6 w-6 i-ph-spinner-gap" />
+            <span
+              v-else
+              class="h-6 w-6"
+              :class="playback.state.isPlaying ? 'i-ph-pause-fill' : 'i-ph-play-fill'"
+              aria-hidden="true"
+            />
           </button>
           <button
             class="transport-control"
@@ -357,15 +384,29 @@ function handleNext(): void {
 
         <div class="playback-actions">
           <button
+            v-if="!isUtilitiesOverflow"
+            ref="modeButtonRef"
+            class="player-bar-control"
+            :class="{ 'player-bar-control-active': isModeMenuOpen }"
+            type="button"
+            :aria-label="t('player.mode')"
+            :aria-expanded="isModeMenuOpen"
+            @click="toggleModeMenu"
+          >
+            <span class="playbar-action-icon h-5 w-5" :class="playbackModeIconClass" />
+          </button>
+
+          <button
             ref="queueButtonRef"
-            class="player-control"
-            :class="{ 'player-control-active': isQueueOpen }"
+            class="player-bar-control"
+            :class="{ 'player-bar-control-active': isQueueOpen }"
+            data-testid="player-queue-button"
             type="button"
             :aria-label="t('player.queue')"
             :aria-expanded="isQueueOpen"
             @click="toggleQueue"
           >
-            <span class="playbar-action-icon h-4 w-4 i-lucide-list-music" />
+            <span class="playbar-action-icon h-5 w-5 i-ph-playlist" />
           </button>
 
           <div ref="queuePopoverRef" class="contents">
@@ -373,29 +414,33 @@ function handleNext(): void {
           </div>
 
           <button
-            v-if="!isUtilitiesOverflow"
-            ref="modeButtonRef"
-            class="player-control"
-            :class="{ 'player-control-active': isModeMenuOpen }"
+            v-if="canDisplayLyricsPanel && !isUtilitiesOverflow"
+            ref="lyricsButtonRef"
+            class="player-bar-control"
+            data-testid="player-lyrics-button"
             type="button"
-            :aria-label="t('player.mode')"
-            :aria-expanded="isModeMenuOpen"
-            @click="toggleModeMenu"
+            aria-controls="now-playing-panel"
+            :aria-expanded="lyricsPanelExpanded"
+            :aria-label="
+              lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')
+            "
+            :title="lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')"
+            @click="toggleLyrics"
           >
-            <span class="playbar-action-icon h-4 w-4" :class="playbackModeIconClass" />
+            <span class="playbar-action-icon h-5 w-5 i-ph-text-align-left" aria-hidden="true" />
           </button>
 
           <div v-if="isUtilitiesOverflow" class="player-bar-overflow">
             <button
               ref="overflowButtonRef"
-              class="player-control"
-              :class="{ 'player-control-active': isOverflowOpen || isModeMenuOpen }"
+              class="player-bar-control"
+              :class="{ 'player-bar-control-active': isOverflowOpen || isModeMenuOpen }"
               type="button"
               :aria-label="t('player.more')"
               :aria-expanded="isOverflowOpen"
               @click="toggleOverflow"
             >
-              <span class="playbar-action-icon h-4 w-4 i-lucide-more-horizontal" />
+              <span class="playbar-action-icon h-4 w-4 i-ph-dots-three" />
             </button>
 
             <div
@@ -408,8 +453,8 @@ function handleNext(): void {
             >
               <button
                 ref="modeButtonRef"
-                class="player-control player-bar-overflow-item"
-                :class="{ 'player-control-active': isModeMenuOpen }"
+                class="player-bar-control player-bar-overflow-item"
+                :class="{ 'player-bar-control-active': isModeMenuOpen }"
                 type="button"
                 role="menuitem"
                 :aria-label="t('player.mode')"
@@ -418,6 +463,30 @@ function handleNext(): void {
               >
                 <span class="playbar-action-icon h-4 w-4" :class="playbackModeIconClass" />
                 <span class="player-bar-overflow-label">{{ t('player.mode') }}</span>
+              </button>
+
+              <button
+                v-if="canDisplayLyricsPanel"
+                ref="overflowLyricsButtonRef"
+                class="player-bar-control player-bar-overflow-item"
+                type="button"
+                role="menuitemcheckbox"
+                :aria-checked="lyricsPanelExpanded"
+                :aria-label="
+                  lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')
+                "
+                :title="lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')"
+                @click="handleOverflowToggleLyrics"
+              >
+                <span class="playbar-action-icon h-4 w-4 i-ph-text-align-left" aria-hidden="true" />
+                <span class="player-bar-overflow-label">{{
+                  lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')
+                }}</span>
+                <span
+                  v-if="lyricsPanelExpanded"
+                  class="ml-auto h-4 w-4 i-ph-check"
+                  aria-hidden="true"
+                />
               </button>
             </div>
           </div>

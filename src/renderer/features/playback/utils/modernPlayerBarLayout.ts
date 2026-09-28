@@ -7,13 +7,11 @@ export const MODERN_PLAYER_BAR_HEIGHT_PX = 64
 /** Bottom gap under the floating island (px). Safe area = height + gap. */
 export const MODERN_PLAYER_BAR_BOTTOM_GAP_PX = 24
 
-export const MODERN_PLAYER_BAR_MAX_WIDTH_PX = 780
+export const MODERN_PLAYER_BAR_MAX_WIDTH_PX = 700
 
 export const MODERN_PLAYER_BAR_COLUMN_INSET_PX = 32
 
 export const MODERN_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX = 800
-
-export const MODERN_PLAYER_BAR_SUBTITLE_COLLAPSE_MAX_PX = 720
 
 export const MODERN_PLAYER_BAR_UTILITIES_OVERFLOW_MAX_PX = 640
 
@@ -34,10 +32,6 @@ export function resolveModernPlayerBarIslandWidthPx(mainColumnInlineSizePx: numb
 
 export function shouldCollapseModernInlineVolume(islandInlineSizePx: number): boolean {
   return islandInlineSizePx <= MODERN_PLAYER_BAR_VOLUME_COLLAPSE_MAX_PX
-}
-
-export function shouldHideModernSubtitle(islandInlineSizePx: number): boolean {
-  return islandInlineSizePx <= MODERN_PLAYER_BAR_SUBTITLE_COLLAPSE_MAX_PX
 }
 
 export function shouldOverflowModernUtilities(islandInlineSizePx: number): boolean {

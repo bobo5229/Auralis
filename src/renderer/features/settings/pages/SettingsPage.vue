@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppearanceSettings from '../components/AppearanceSettings.vue'
+import PlaybackSettings from '../components/PlaybackSettings.vue'
 import AboutSettings from '../components/AboutSettings.vue'
 import MusicLibrarySettings from '../components/MusicLibrarySettings.vue'
 import { DEFAULT_SETTINGS_SECTION, type SettingsSection } from '../utils/settingsSections'
@@ -22,6 +23,11 @@ const sections = computed<
     icon: 'i-lucide-palette',
   },
   {
+    id: 'playback',
+    label: t('settings.nav.playback'),
+    icon: 'i-lucide-play',
+  },
+  {
     id: 'library',
     label: t('settings.nav.library'),
     icon: 'i-lucide-library',
@@ -37,7 +43,7 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
 </script>
 
 <template>
-  <section class="settings-page">
+  <section class="settings-page main-page-scroll">
     <header class="settings-header">
       <h1>{{ t('settings.title') }}</h1>
     </header>
@@ -59,6 +65,7 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
 
       <main class="settings-content">
         <AppearanceSettings v-if="selectedSection === 'appearance'" />
+        <PlaybackSettings v-else-if="selectedSection === 'playback'" />
         <MusicLibrarySettings v-else-if="selectedSection === 'library'" />
         <AboutSettings v-else />
       </main>
@@ -68,10 +75,14 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
 
 <style scoped>
 .settings-page {
+  box-sizing: border-box;
   width: min(1120px, 100%);
-  min-height: 100%;
+  height: 100%;
+  min-height: 0;
   margin: 0 auto;
   padding: 38px 36px var(--auralis-playbar-safe-area);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .settings-header {

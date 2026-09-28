@@ -140,8 +140,9 @@ export function useLibraryViewport(options: {
     const targetTrackIndex = targetGroup.tracks.findIndex((track) => track.id === targetTrackId)
     if (targetTrackIndex < 0) return false
 
+    // 首个 Disc 标题位于组顶部留白，仅累计后续标题的实际占位。
     const discHeadingCountThroughTarget = getAlbumCoverTrackDiscHeadings(targetGroup.tracks)
-      .slice(0, targetTrackIndex + 1)
+      .slice(1, targetTrackIndex + 1)
       .filter((discNumber) => discNumber !== null).length
     const targetTrackOffset =
       targetGroupOffset +

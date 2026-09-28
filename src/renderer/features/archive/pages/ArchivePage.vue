@@ -79,7 +79,6 @@ onBeforeUnmount(() => unsubscribeLibraryChanged?.())
         <div class="archive-heatmap-card">
           <div class="archive-card-heading">
             <div>
-              <span class="archive-section-kicker">Calendar</span>
               <h2>音乐日历</h2>
               <button
                 v-if="!isLoading && !errorMessage"
@@ -89,11 +88,6 @@ onBeforeUnmount(() => unsubscribeLibraryChanged?.())
               >
                 年度总结
               </button>
-            </div>
-            <div class="archive-legend" aria-label="播放次数颜色图例">
-              <span>少</span>
-              <i v-for="level in 5" :key="level" :class="`heat-level-${level - 1}`"></i>
-              <span>多</span>
             </div>
           </div>
 
@@ -132,6 +126,9 @@ onBeforeUnmount(() => unsubscribeLibraryChanged?.())
                   :aria-label="`${day.label}，${day.isFuture ? '未来日期' : `播放了${formatMinutes(day.durationSeconds)}`}`"
                   @click="openDailyDetail($event, day)"
                 ></button>
+              </div>
+              <div class="archive-legend" aria-label="播放次数颜色图例">
+                <i v-for="level in 5" :key="level" :class="`heat-level-${level - 1}`"></i>
               </div>
             </div>
           </div>
@@ -191,17 +188,6 @@ onBeforeUnmount(() => unsubscribeLibraryChanged?.())
   width: 100%;
   max-width: 80rem;
   margin-inline: auto;
-}
-
-.archive-section-kicker {
-  display: block;
-  color: var(--auralis-sidebar-active-indicator);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  line-height: 1;
-  margin-bottom: 8px;
 }
 
 .archive-card-heading,
@@ -289,15 +275,14 @@ onBeforeUnmount(() => unsubscribeLibraryChanged?.())
 }
 
 .archive-legend {
+  grid-column: 1;
+  grid-row: 3;
   display: flex;
   align-items: center;
+  justify-self: start;
+  margin-top: 8px;
   gap: 6px;
-  color: var(--auralis-text-faint);
-  font-size: 11px;
   white-space: nowrap;
-  background: color-mix(in srgb, var(--auralis-text) 4%, transparent);
-  padding: 4px 10px;
-  border-radius: 12px;
 }
 
 .archive-legend i {

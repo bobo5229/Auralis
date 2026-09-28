@@ -90,7 +90,7 @@ describe('createLibraryCatalogViewIndex', () => {
     )
 
     expect(result.albumGroups).toHaveLength(120)
-    expect(result.albumGroupStartOffsets[99]).toBe(41_085)
-    expect(result.albumGroupStartOffsets[119]).toBe(49_401)
+    expect(result.albumGroupStartOffsets[99]).toBe(38_115)
+    expect(result.albumGroupStartOffsets[119]).toBe(45_823)
   })
 })

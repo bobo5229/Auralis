@@ -4,10 +4,12 @@ import { useI18n } from 'vue-i18n'
 import type { IpcRequest } from '@shared/ipc/contracts'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 
 defineProps<{ cdCanvas?: boolean }>()
 
 const { t } = useI18n()
+const { sidebarFullHeight } = useSidebarLayout()
 const isMaximized = ref(false)
 let unsubscribe: (() => void) | null = null
 let mounted = false
@@ -52,7 +54,13 @@ async function control(action: IpcRequest<'window:control'>['action']): Promise<
 </script>
 
 <template>
-  <div class="window-traffic-lights" :class="{ 'window-traffic-lights--cd': cdCanvas }">
+  <div
+    class="window-traffic-lights"
+    :class="{
+      'window-traffic-lights--cd': cdCanvas,
+      'window-traffic-lights--full-height': sidebarFullHeight && !cdCanvas,
+    }"
+  >
     <button
       class="window-traffic-light window-traffic-light--close"
       type="button"
@@ -93,6 +101,11 @@ async function control(action: IpcRequest<'window:control'>['action']): Promise<
   align-items: center;
   gap: 1px;
   -webkit-app-region: no-drag;
+}
+
+.window-traffic-lights--full-height {
+  top: calc(20px - var(--auralis-shell-edge-gap));
+  left: calc(24px - var(--auralis-shell-edge-gap));
 }
 
 .window-traffic-lights--cd {

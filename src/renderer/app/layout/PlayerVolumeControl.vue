@@ -21,20 +21,20 @@ const {
 
 const volumeIconClass = computed(() => {
   if (playback.state.isMuted) {
-    return 'i-lucide-volume-x'
+    return 'i-ph-speaker-slash'
   }
 
   const volume = playback.state.volume
 
   if (volume <= 0) {
-    return 'i-lucide-volume-x'
+    return 'i-ph-speaker-slash'
   }
 
   if (volume <= 0.4) {
-    return 'i-lucide-volume-1'
+    return 'i-ph-speaker-low'
   }
 
-  return 'i-lucide-volume-2'
+  return 'i-ph-speaker-high'
 })
 
 const volumeSliderStyle = computed(() => {
@@ -91,14 +91,14 @@ defineExpose({
   >
     <button
       ref="muteButtonRef"
-      class="player-control"
-      :class="{ 'player-control-active': isVolumeOverlayOpen }"
+      class="player-bar-control"
+      :class="{ 'player-bar-control-active': isVolumeOverlayOpen }"
       type="button"
       :aria-label="t('player.volume')"
       :aria-expanded="isVolumeOverlayOpen"
       @click="handleVolumeButtonClick"
     >
-      <span class="playbar-action-icon h-4 w-4" :class="volumeIconClass" />
+      <span class="playbar-action-icon h-5 w-5" :class="volumeIconClass" />
     </button>
     <div
       class="volume-inline-reveal"

@@ -10,7 +10,7 @@ describe('tooltip geometry', () => {
     expect(isTooltipTextClipped({ ...box, clientWidth: 0, clientHeight: 0 })).toBe(false)
   })
 
-  it('flips below top-edge anchors and stays inside small mini-player windows', () => {
+  it('flips below top-edge anchors and stays inside small viewports', () => {
     const viewport = { width: 320, height: 240 }
     const size = { width: 180, height: 32 }
     expect(placeTooltip({ left: 0, right: 20, top: 0, bottom: 20 }, size, viewport)).toEqual({

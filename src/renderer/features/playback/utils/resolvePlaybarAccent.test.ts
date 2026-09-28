@@ -58,9 +58,9 @@ describe('resolvePlaybarAccent', () => {
     }
   })
 
-  it('uses the sage green fallback for absent or invalid artwork in light mode', () => {
+  it('uses the grey rose fallback for absent or invalid artwork in light mode', () => {
     const fallback = resolvePlaybarAccent(null, false)
-    expect(fallback).toEqual({ r: 120, g: 135, b: 121 })
+    expect(fallback).toEqual({ r: 163, g: 79, b: 112 })
     expect(resolvePlaybarAccent(undefined, false)).toEqual(fallback)
     expect(resolvePlaybarAccent({ r: NaN, g: 0, b: 0 }, false)).toEqual(fallback)
   })

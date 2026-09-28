@@ -14,6 +14,10 @@
 | `local/playback/`  | [动态流光](local/playback/apple-music-flow-demo.html)、[幕布转场](local/playback/fullscreen-curtain-transition-demo.html)                                          |
 | `local/shell/`     | 主题切换转场草稿                                                                                                                                                   |
 
+中文字体对照：[MiSans / HarmonyOS Sans SC / 思源黑体](local/shell/chinese-fonts.html)，支持深浅主题和自定义文字。
+
 `local/` 收纳原 `test/` 和 `docs/demos/` 中的本地资料，继续由 Git 忽略；其他主题目录
 用于共享原型。新原型沿用对应主题目录。关联脚本随原型放置，跨主题共享素材通过相对路径引用。
 部分旧原型使用在线示例图片，离线时这些图片可能不可用。
+
+浅色强调色对照：[灰玫瑰 / 酒红 / 灰紫 / 当前鼠尾草](local/shell/light-accent-colors.html)，沿用当前播放器浅色底色。

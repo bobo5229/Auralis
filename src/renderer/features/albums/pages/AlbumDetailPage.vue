@@ -66,16 +66,8 @@ const {
 const hasRenderableData = computed(() => loadState.value === 'ready')
 const isEffectsActive = computed(() => hasRenderableData.value && !props.isEntering)
 useAlbumCoverTracking(detailRootRef, coverStageRef, isEffectsActive)
-const {
-  albumGenrePills,
-  metricsTrackCount,
-  metricsTotalDuration,
-  metricsPlaysLabel,
-  metricsTotalTime,
-  heroLegalLine,
-  albumReleaseYear,
-  albumDiscGroups,
-} = useAlbumDetailPresentation(albumTracks, previewReleaseDate)
+const { albumGenrePills, heroLegalLine, albumReleaseYear, albumDiscGroups } =
+  useAlbumDetailPresentation(albumTracks, previewReleaseDate)
 const displayAlbumArtist = computed(() =>
   albumArtist.value === 'Unknown Artist'
     ? t('library.unknownArtist')
@@ -416,46 +408,20 @@ onBeforeUnmount(() => {
                 </div>
               </div>
 
-              <!-- 专辑信息与收听统计 -->
-              <div class="album-hero-zone-metrics select-none">
-                <div class="album-hero-metric-row">
-                  <div class="album-hero-metric-item">
-                    <span class="album-hero-metric-label">{{
-                      t('albums.detail.metrics.tracks')
-                    }}</span>
-                    <span class="album-hero-metric-value">{{ metricsTrackCount }}</span>
-                  </div>
-                  <div class="album-hero-metric-item">
-                    <span class="album-hero-metric-label">{{
-                      t('albums.detail.metrics.duration')
-                    }}</span>
-                    <span class="album-hero-metric-value">{{ metricsTotalDuration }}</span>
-                  </div>
-                </div>
-                <div class="album-hero-metric-row">
-                  <div class="album-hero-metric-item">
-                    <span class="album-hero-metric-label">{{
-                      t('albums.detail.metrics.plays')
-                    }}</span>
-                    <span class="album-hero-metric-value">{{ metricsPlaysLabel }}</span>
-                  </div>
-                  <div class="album-hero-metric-item">
-                    <span class="album-hero-metric-label">{{
-                      t('albums.detail.metrics.listened')
-                    }}</span>
-                    <span class="album-hero-metric-value">{{ metricsTotalTime }}</span>
-                  </div>
-                </div>
-              </div>
               <!-- 专辑播放操作 -->
               <div class="album-hero-actions">
                 <button class="album-hero-play-btn" type="button" @click="playAlbum">
-                  <span class="i-lucide-play h-5 w-5 fill-current" aria-hidden="true"></span>
+                  <span class="i-lucide-play h-4 w-4" aria-hidden="true"></span>
                   <span>{{ t('albums.detail.play') }}</span>
                 </button>
-                <button class="album-hero-shuffle-btn" type="button" @click="playAlbumShuffle">
-                  <span class="i-lucide-shuffle h-[18px] w-[18px]" aria-hidden="true"></span>
-                  <span>{{ t('albums.detail.shuffle') }}</span>
+                <button
+                  v-tooltip="t('albums.detail.shuffle')"
+                  class="album-hero-shuffle-btn"
+                  type="button"
+                  :aria-label="t('albums.detail.shuffle')"
+                  @click="playAlbumShuffle"
+                >
+                  <span class="i-lucide-shuffle h-4 w-4" aria-hidden="true"></span>
                 </button>
               </div>
             </div>
@@ -522,7 +488,6 @@ onBeforeUnmount(() => {
             <div class="album-hero-content-stage">
               <div class="album-detail-skeleton-line album-detail-skeleton-line--title"></div>
               <div class="album-detail-skeleton-line album-detail-skeleton-line--meta"></div>
-              <div class="album-detail-skeleton-line album-detail-skeleton-line--metrics"></div>
             </div>
           </div>
         </section>
@@ -571,8 +536,9 @@ onBeforeUnmount(() => {
 }
 
 .album-detail-scroll-wrapper {
+  --album-detail-inline-padding: 32px;
   min-height: 0;
-  padding: var(--auralis-shell-edge-gap) 32px calc(var(--auralis-playbar-safe-area) + 40px);
+  padding: var(--auralis-shell-edge-gap) 0 calc(var(--auralis-playbar-safe-area) + 40px);
 }
 
 .album-detail-back {
@@ -583,6 +549,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 4px;
   margin-bottom: 12px;
+  margin-inline-start: var(--album-detail-inline-padding);
   padding: 0;
   border: none;
   border-radius: 0;
@@ -617,13 +584,19 @@ onBeforeUnmount(() => {
   gap: 28px;
   min-width: 0;
 }
+
+.album-hero-billboard,
+.album-body-grid {
+  margin-inline: var(--album-detail-inline-padding);
+}
+
 .album-hero-billboard {
-  --album-hero-cover-size: 176px;
+  --album-hero-cover-size: 240px;
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  width: 100%;
+  gap: 20px;
+  width: auto;
   padding: 24px 0 12px;
   isolation: isolate;
 }
@@ -700,8 +673,8 @@ onBeforeUnmount(() => {
   width: 100%;
   min-height: var(--album-hero-cover-size);
   grid-template-columns: var(--album-hero-cover-size) minmax(0, 1fr);
-  column-gap: 32px;
-  align-items: start;
+  column-gap: 36px;
+  align-items: center;
 }
 
 .album-hero-cover-container {
@@ -709,26 +682,11 @@ onBeforeUnmount(() => {
   --detail-cover-rotate-y: 0deg;
   --detail-cover-shift-x: 0px;
   --detail-cover-shift-y: 0px;
-  --detail-cover-shadow-x: 0px;
-  --detail-cover-shadow-y: 18px;
   position: relative;
   z-index: 1;
   width: var(--album-hero-cover-size);
   height: var(--album-hero-cover-size);
   perspective: 900px;
-}
-
-.album-hero-cover-container::before {
-  position: absolute;
-  inset: 6%;
-  border-radius: 16px;
-  background: rgba(0, 0, 0, 0.4);
-  content: '';
-  filter: blur(18px);
-  pointer-events: none;
-  transform: translate3d(var(--detail-cover-shadow-x), var(--detail-cover-shadow-y), -20px);
-  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
 }
 
 .album-hero-cover-container::after {
@@ -743,16 +701,8 @@ onBeforeUnmount(() => {
   opacity: 0;
   pointer-events: none;
   z-index: -1;
-  transform: translate3d(
-      calc(var(--detail-cover-shadow-x) * 1.2),
-      calc(var(--detail-cover-shadow-y) * 1.2),
-      -30px
-    )
-    scale(0.95);
-  transition:
-    transform 140ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 0.3s;
-  will-change: transform;
+  transform: translate3d(0, 21.6px, -30px) scale(0.95);
+  transition: opacity 0.3s;
 }
 
 .album-hero-cover-container--effects-active::after {
@@ -767,9 +717,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   border-radius: 16px;
   background: var(--auralis-artwork-placeholder-bg);
-  box-shadow:
-    0 16px 40px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
   transform: translate3d(var(--detail-cover-shift-x), var(--detail-cover-shift-y), 0)
     rotateX(var(--detail-cover-rotate-x)) rotateY(var(--detail-cover-rotate-y));
   transform-style: preserve-3d;
@@ -783,7 +731,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
   color: var(--auralis-text);
 }
 
@@ -806,12 +754,6 @@ onBeforeUnmount(() => {
   width: min(240px, 48%);
   height: 16px;
   margin-top: 10px;
-}
-
-.album-detail-skeleton-line--metrics {
-  width: min(180px, 36%);
-  height: 14px;
-  margin-top: 18px;
 }
 
 .album-detail-skeleton-track {
@@ -922,62 +864,24 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
-.album-hero-play-btn {
-  display: inline-flex;
-  width: fit-content;
-  min-width: 124px;
-  height: 48px;
-  padding: 0 24px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: none;
-  border-radius: 999px;
-  background: linear-gradient(
-    135deg,
-    var(--auralis-album-detail-accent) 0%,
-    color-mix(in srgb, var(--auralis-album-detail-accent) 75%, #000) 100%
-  );
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 750;
-  letter-spacing: 0.02em;
-  box-shadow:
-    0 8px 24px color-mix(in srgb, var(--auralis-album-detail-accent) 50%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  transition: all 0.22s cubic-bezier(0.25, 0.8, 0.25, 1);
-  cursor: pointer;
-}
-
-.album-hero-play-btn:hover {
-  transform: translateY(-2px) scale(1.02);
-  filter: brightness(1.1);
-  box-shadow:
-    0 12px 28px color-mix(in srgb, var(--auralis-album-detail-accent) 60%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-
-.album-hero-play-btn:active {
-  transform: translateY(1px) scale(0.98);
-}
-
+.album-hero-play-btn,
 .album-hero-shuffle-btn {
   display: inline-flex;
   width: fit-content;
-  min-width: 112px;
-  height: 48px;
-  padding: 0 20px;
+  min-width: 96px;
+  height: 40px;
+  padding: 0 16px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
   border: 1px solid color-mix(in srgb, var(--auralis-text) 18%, transparent);
   color: var(--auralis-text);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 650;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -985,6 +889,14 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
+.album-hero-shuffle-btn {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.album-hero-play-btn:hover,
 .album-hero-shuffle-btn:hover {
   background: color-mix(in srgb, var(--auralis-text) 15%, transparent);
   border-color: color-mix(in srgb, var(--auralis-text) 32%, transparent);
@@ -992,46 +904,9 @@ onBeforeUnmount(() => {
   transform: translateY(-1px);
 }
 
+.album-hero-play-btn:active,
 .album-hero-shuffle-btn:active {
   transform: translateY(0);
-}
-.album-hero-zone-metrics {
-  margin-top: 6px;
-  display: grid;
-  grid-template-columns: repeat(4, max-content);
-  gap: 12px;
-  max-width: 100%;
-}
-
-.album-hero-metric-row {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  align-items: center;
-}
-
-.album-hero-metric-item {
-  display: grid;
-  grid-column: span 2;
-  grid-template-columns: subgrid;
-  align-items: center;
-  line-height: 1;
-}
-
-.album-hero-metric-label {
-  color: var(--auralis-text-muted);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.2px;
-}
-
-.album-hero-metric-value {
-  color: var(--auralis-text);
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 .album-hero-footer-stage {
   position: relative;
@@ -1063,13 +938,13 @@ onBeforeUnmount(() => {
 
 @media (max-width: 959px) {
   .album-hero-billboard {
-    --album-hero-cover-size: 160px;
+    --album-hero-cover-size: 200px;
     padding: 20px 0 12px;
-    gap: 14px;
+    gap: 18px;
   }
 
   .album-hero-main-stage {
-    column-gap: 20px;
+    column-gap: 24px;
   }
 
   .album-body-grid {
@@ -1098,7 +973,6 @@ onBeforeUnmount(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .album-hero-cover,
-  .album-hero-cover-container::before,
   .album-hero-cover-container::after {
     transform: none !important;
     transition: none !important;

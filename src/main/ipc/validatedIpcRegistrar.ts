@@ -85,7 +85,7 @@ export interface TrustedMainWindowSourceOptions {
 
 /**
  * Trust only top-frame invokes from a live BrowserWindow that the composition root
- * recognizes as an Auralis main/miniplayer window and whose current URL is the
+ * recognizes as a registered Auralis main window and whose current URL is the
  * configured renderer entry. The injected boundaries keep this policy unit-testable.
  */
 export function createTrustedMainWindowSourcePolicy(
