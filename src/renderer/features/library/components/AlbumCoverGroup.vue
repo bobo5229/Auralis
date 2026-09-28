@@ -40,7 +40,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const { coverArtworkRounded } = useCoverArtworkCorners()
+const { coverArtworkRounded, coverArtworkRadius } = useCoverArtworkCorners()
 const imgError = ref(false)
 const discHeadings = computed(() => getAlbumCoverTrackDiscHeadings(props.group.tracks))
 
@@ -84,7 +84,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
     <div class="album-cover-aside">
       <div
         class="album-cover-artwork select-none"
-        :class="{ 'album-cover-artwork--square': !coverArtworkRounded }"
+        :style="{ borderRadius: coverArtworkRounded ? `${coverArtworkRadius}px` : '0px' }"
         :aria-label="
           t('library.a11y.albumArtwork', {
             album: group.album || t('library.unknownAlbum'),
@@ -159,10 +159,6 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 </template>
 
 <style scoped>
-.album-cover-artwork--square {
-  border-radius: 0;
-}
-
 .album-cover-meta-title {
   font-weight: var(--auralis-song-cover-album-weight, 700);
 }

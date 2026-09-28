@@ -83,6 +83,12 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
   padding: 38px 36px var(--auralis-playbar-safe-area);
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
+}
+
+.settings-page::-webkit-scrollbar {
+  display: none;
 }
 
 .settings-header {

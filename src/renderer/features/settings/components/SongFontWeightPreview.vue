@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { useSongFontWeights } from '@renderer/features/appearance/composables/useSongFontWeights'
+import { useCoverArtworkCorners } from '@renderer/features/appearance/composables/useCoverArtworkCorners'
 import type { SongFontWeightView } from '@renderer/features/appearance/constants/songFontWeights'
 
 defineProps<{
@@ -9,6 +10,8 @@ defineProps<{
 
 const { t } = useI18n()
 const { songFontWeightStyle } = useSongFontWeights()
+const { coverArtworkRounded, coverArtworkRadius } = useCoverArtworkCorners()
+const previewBrand = 'Auralis'
 </script>
 
 <template>
@@ -18,15 +21,15 @@ const { songFontWeightStyle } = useSongFontWeights()
         <span class="i-lucide-music text-sm text-[var(--auralis-text-disabled)]"></span>
       </div>
       <span class="song-font-preview-list-title truncate text-sm text-[var(--auralis-text)]">{{
-        t('settings.appearance.songFontWeight.sample.title')
+        previewBrand
       }}</span>
       <span
         class="song-font-preview-list-artist truncate text-xs text-[var(--auralis-text-muted)]"
-        >{{ t('settings.appearance.songFontWeight.sample.artist') }}</span
+        >{{ previewBrand }}</span
       >
       <span
         class="song-font-preview-list-album truncate text-right text-xs text-[var(--auralis-text-subtle)]"
-        >{{ t('settings.appearance.songFontWeight.sample.album') }}</span
+        >{{ previewBrand }}</span
       >
       <span
         class="song-font-preview-list-duration text-right text-sm text-[var(--auralis-text-faint)] tabular-nums"
@@ -36,15 +39,19 @@ const { songFontWeightStyle } = useSongFontWeights()
 
     <div v-else class="song-font-preview-cover">
       <div class="song-font-preview-aside">
-        <div class="song-font-preview-artwork" aria-hidden="true">
+        <div
+          class="song-font-preview-artwork"
+          :style="{ borderRadius: coverArtworkRounded ? `${coverArtworkRadius}px` : '0px' }"
+          aria-hidden="true"
+        >
           <span class="i-lucide-music text-3xl text-[var(--auralis-text-disabled)]"></span>
         </div>
         <div class="song-font-preview-meta">
           <p class="song-font-preview-album truncate">
-            {{ t('settings.appearance.songFontWeight.sample.album') }}
+            {{ previewBrand }}
           </p>
           <p class="song-font-preview-album-artist truncate">
-            {{ t('settings.appearance.songFontWeight.sample.albumArtist') }}
+            {{ previewBrand }}
           </p>
           <p class="song-font-preview-release-date truncate">
             {{ t('settings.appearance.songFontWeight.sample.releaseDate') }}
@@ -52,9 +59,7 @@ const { songFontWeightStyle } = useSongFontWeights()
         </div>
       </div>
       <div class="song-font-preview-tracks">
-        <div class="song-font-preview-disc">
-          {{ t('settings.appearance.songFontWeight.sample.discHeading') }}
-        </div>
+        <div class="song-font-preview-disc">Disc 01</div>
         <div class="song-font-preview-track">
           <span
             class="song-font-preview-track-number text-center text-xs text-[var(--auralis-text-muted)] tabular-nums"
@@ -63,16 +68,16 @@ const { songFontWeightStyle } = useSongFontWeights()
           <span class="min-w-0">
             <span
               class="song-font-preview-cover-title block truncate text-sm leading-5 text-[var(--auralis-text)]"
-              >{{ t('settings.appearance.songFontWeight.sample.title') }}</span
+              >{{ previewBrand }}</span
             >
             <span
               class="song-font-preview-cover-artist block truncate text-xs leading-[18px] text-[var(--auralis-text-faint)]"
-              >{{ t('settings.appearance.songFontWeight.sample.artist') }}</span
+              >{{ previewBrand }}</span
             >
           </span>
           <span
             class="song-font-preview-genre truncate text-right text-xs text-[var(--auralis-text-muted)]"
-            >{{ t('settings.appearance.songFontWeight.sample.genre') }}</span
+            >{{ previewBrand }}</span
           >
           <span
             class="song-font-preview-cover-duration text-right text-xs text-[var(--auralis-text-muted)] tabular-nums"

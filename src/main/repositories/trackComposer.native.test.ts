@@ -110,15 +110,10 @@ describe('track composer persistence', () => {
   })
 
   it('reads composer through library_track_display after a metadata refresh', () => {
-    const { db, tracks, refresh } = setup()
+    const { tracks, refresh } = setup()
     tracks.upsertMany([scanned({ composer: null })])
     const existing = tracks.getAll()[0]
     expect(existing.composer).toBeNull()
-    db.prepare('UPDATE tracks SET metadata_checked_mtime_ms = NULL WHERE id = ?').run(existing.id)
-    expect(refresh.getTracksWithMissingMetadata(10).map((row) => row.trackId)).toEqual([
-      existing.id,
-    ])
-
     refresh.updateTrackMetadata(
       refreshed(existing.id, 'C:\\Music\\song.flac', {
         composer: 'A; B; C',
@@ -126,6 +121,5 @@ describe('track composer persistence', () => {
     )
 
     expect(tracks.getAll()[0].composer).toBe('A; B; C')
-    expect(refresh.getTracksWithMissingMetadata(10)).toEqual([])
   })
 })

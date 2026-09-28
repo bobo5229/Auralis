@@ -233,6 +233,10 @@
   transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+[data-theme='light'] .settings-page .settings-switch:not(.is-enabled) .settings-switch-thumb {
+  background: #ffffff;
+}
+
 .settings-page .settings-switch.is-enabled .settings-switch-thumb {
   transform: translateX(16px);
   background: #ffffff;

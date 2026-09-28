@@ -419,51 +419,6 @@ export class MetadataRefreshRepository extends BaseRepository {
     return row ?? null
   }
 
-  getTracksWithMissingMetadata(limit: number): TrackForMetadataRefresh[] {
-    return this.db
-      .prepare(
-        `SELECT id AS trackId, file_path AS filePath
-         FROM tracks
-         WHERE availability = 'available'
-           AND (
-             metadata_checked_mtime_ms IS NULL
-             OR lyrics_checked_mtime_ms IS NULL
-              OR title IS NULL
-              OR title = ''
-              OR title = 'Unknown Title'
-              OR artist IS NULL
-              OR artist = ''
-              OR artist = 'Unknown Artist'
-              OR album IS NULL
-              OR album = ''
-              OR album = 'Unknown Album'
-              OR album_artist IS NULL
-              OR album_artist = ''
-              OR album_artist = 'Unknown Artist'
-              OR (
-                lyrics_format = 'plain'
-                AND lyrics_text IS NOT NULL
-                AND (
-                  lower(file_path) LIKE '%.m4a'
-                  OR lower(file_path) LIKE '%.mp4'
-                  OR lower(file_path) LIKE '%.aac'
-                )
-              )
-              OR (
-                genre IS NULL
-                AND (
-                  lower(file_path) LIKE '%.m4a'
-                  OR lower(file_path) LIKE '%.mp4'
-                  OR lower(file_path) LIKE '%.aac'
-                )
-              )
-            )
-         ORDER BY id ASC
-         LIMIT ?`,
-      )
-      .all(clampLimit(limit)) as TrackForMetadataRefresh[]
-  }
-
   getTracksWithMissingLyrics(limit: number): TrackForMetadataRefresh[] {
     return this.db
       .prepare(

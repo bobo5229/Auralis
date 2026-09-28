@@ -18,16 +18,8 @@ const currentProgress = ref<LibraryScanProgress | null>(null)
 const isLoading = ref(false)
 const operationError = ref<string | null>(null)
 const unsubscribe = ref<(() => void) | null>(null)
-const refreshJobId = ref<number | null>(null)
-const refreshStatus = ref<{
-  status: string
-  totalTracks: number
-  processedTracks: number
-  failedTracks: number
-} | null>(null)
 const refreshFailures = ref<MetadataRefreshFailure[]>([])
 const refreshErrorMessage = ref<string | null>(null)
-const isRefreshing = ref(false)
 const isClearingRefreshFailures = ref(false)
 const showRefreshFailures = ref(false)
 const isMounted = ref(false)
@@ -117,33 +109,6 @@ const libraryMetaText = computed(() => {
   }
 
   return parts.join(' · ')
-})
-const refreshProgressPercent = computed(() => {
-  if (!refreshStatus.value || refreshStatus.value.totalTracks === 0) return 0
-
-  return Math.min(
-    100,
-    Math.round((refreshStatus.value.processedTracks / refreshStatus.value.totalTracks) * 100),
-  )
-})
-const refreshStatusLabel = computed(() => {
-  if (!refreshStatus.value) return ''
-
-  if (refreshStatus.value.status === 'completed') {
-    return t('settings.library.refreshCompleted', {
-      updated: refreshStatus.value.processedTracks,
-      failed: refreshStatus.value.failedTracks,
-    })
-  }
-
-  if (refreshStatus.value.status === 'failed') {
-    return t('settings.library.refreshFailed')
-  }
-
-  return t('settings.library.refreshProcessing', {
-    processed: refreshStatus.value.processedTracks,
-    total: refreshStatus.value.totalTracks,
-  })
 })
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -239,24 +204,6 @@ async function cancelScan(): Promise<void> {
   }
 }
 
-async function refreshMissingMetadata(): Promise<void> {
-  if (isRefreshing.value) return
-
-  isRefreshing.value = true
-  refreshStatus.value = null
-  refreshErrorMessage.value = null
-
-  try {
-    const result = await auralis.metadata.refreshMissing()
-    if (!isMounted.value) return
-    refreshJobId.value = result.jobId
-  } catch (error) {
-    if (!isMounted.value) return
-    refreshErrorMessage.value = getErrorMessage(error, t('settings.library.errors.startRefresh'))
-    isRefreshing.value = false
-  }
-}
-
 onMounted(async () => {
   isMounted.value = true
 
@@ -275,15 +222,7 @@ onMounted(async () => {
   })
 
   unsubscribeRefresh.value = auralis.metadata.onRefreshProgress(async (progress) => {
-    refreshStatus.value = {
-      status: progress.status,
-      totalTracks: progress.totalTracks,
-      processedTracks: progress.processedTracks,
-      failedTracks: progress.failedTracks,
-    }
-
     if (progress.status === 'completed' || progress.status === 'failed') {
-      isRefreshing.value = false
       const failures = await auralis.metadata.listRefreshFailures()
       if (isMounted.value) refreshFailures.value = failures
     }
@@ -377,53 +316,16 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- 资料库维护 Section -->
-    <div class="settings-group">
+    <div v-if="refreshFailures.length > 0 || refreshErrorMessage" class="settings-group">
       <div class="settings-group-header">
-        <h2 class="settings-group-title">{{ t('settings.library.maintenanceSection') }}</h2>
+        <h2 class="settings-group-title">{{ t('settings.library.failureRecords') }}</h2>
       </div>
       <div class="settings-group-card">
-        <div class="settings-row settings-row--with-desc">
-          <div>
-            <strong>{{ t('settings.library.fillMissing') }}</strong>
-            <span>{{ t('settings.library.maintenanceDescription') }}</span>
-          </div>
-          <button
-            type="button"
-            class="settings-button"
-            :disabled="isRefreshing || isScanning || !activeRoot"
-            @click="refreshMissingMetadata"
-          >
-            <span
-              v-if="isRefreshing"
-              class="scan-spinner i-lucide-loader-circle"
-              aria-hidden="true"
-            ></span>
-            {{ isRefreshing ? t('settings.library.maintaining') : t('settings.library.runAction') }}
-          </button>
-        </div>
-
-        <!-- 维护进行中进度条 -->
-        <div v-if="refreshStatus" class="library-refresh-inline">
-          <div class="refresh-status-header">
-            <span>{{ refreshStatusLabel }}</span>
-            <strong>{{ refreshProgressPercent }}%</strong>
-          </div>
-          <div class="settings-progress-track">
-            <div
-              class="settings-progress-fill"
-              :style="{ width: `${refreshProgressPercent}%` }"
-            ></div>
-          </div>
-        </div>
-
-        <!-- 维护错误提示 -->
         <div v-if="refreshErrorMessage" class="library-error-row">
           <span class="i-lucide-circle-alert" aria-hidden="true"></span>
           <span>{{ refreshErrorMessage }}</span>
         </div>
 
-        <!-- 失败记录折叠列表 -->
         <div v-if="refreshFailures.length > 0" class="failure-section">
           <button
             type="button"
@@ -684,27 +586,6 @@ onBeforeUnmount(() => {
   color: var(--auralis-text-muted);
 }
 
-/* 维护进度内联模块 */
-.library-refresh-inline {
-  padding: 10px 16px 12px;
-  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
-}
-
-.refresh-status-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 8px;
-  font-size: 11px;
-  color: var(--auralis-text-subtle);
-}
-
-.refresh-status-header strong {
-  color: var(--auralis-text-muted);
-  font-weight: 600;
-}
-
 /* 紧凑平滑进度条 */
 .settings-progress-track {
   height: 4px;
@@ -730,6 +611,11 @@ onBeforeUnmount(() => {
   color: #c2675b;
   font-size: 11px;
   background: color-mix(in srgb, #c2675b 6%, transparent);
+}
+
+.settings-group-card > .library-error-row:first-child,
+.settings-group-card > .failure-section:first-child {
+  border-top: 0;
 }
 
 .library-error-row span.i-lucide-circle-alert {

@@ -72,7 +72,6 @@ export const ipcChannels = {
   metadata: {
     refreshTrack: 'metadata:refresh-track',
     refreshTracks: 'metadata:refresh-tracks',
-    refreshMissing: 'metadata:refresh-missing',
     refreshLyricsMissing: 'metadata:refresh-lyrics-missing',
     getRefreshStatus: 'metadata:get-refresh-status',
     listRefreshFailures: 'metadata:list-refresh-failures',

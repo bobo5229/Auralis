@@ -256,7 +256,6 @@ function createApi(): AuralisApi {
     metadata: {
       refreshTrack: vi.fn(),
       refreshTracks: vi.fn(),
-      refreshMissing: vi.fn(),
       refreshLyricsMissing: vi.fn(),
       getRefreshStatus: vi.fn(),
       listRefreshFailures: vi.fn(),

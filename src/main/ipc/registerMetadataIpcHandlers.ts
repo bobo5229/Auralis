@@ -7,7 +7,6 @@ type MetadataOperations = Pick<
   MetadataRefreshService,
   | 'refreshTrack'
   | 'refreshTracks'
-  | 'refreshMissingMetadata'
   | 'refreshLyricsForMissing'
   | 'getJobStatus'
   | 'listFailures'
@@ -31,9 +30,6 @@ export function registerMetadataIpcHandlers(
   )
   registrar.handle(ipcChannels.metadata.refreshTracks, (_event, payload: { trackIds: number[] }) =>
     metadataRefreshService.refreshTracks(payload.trackIds),
-  )
-  registrar.handle(ipcChannels.metadata.refreshMissing, (_event, payload?: { limit?: number }) =>
-    metadataRefreshService.refreshMissingMetadata(payload?.limit),
   )
   registrar.handle(
     ipcChannels.metadata.refreshLyricsMissing,

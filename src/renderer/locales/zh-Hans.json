@@ -73,10 +73,11 @@
       "themeDescription": "选择应用界面为深色或浅色外观。",
       "themeDark": "深色",
       "themeLight": "浅色",
-      "sidebarFullHeight": "全高侧边栏",
+      "sidebarLayout": "侧边栏布局",
+      "sidebarLayoutDescription": "悬浮布局与窗口边缘留白；全高布局贴齐左侧并占满窗口高度。",
+      "sidebarFloating": "悬浮",
+      "sidebarFullHeightOption": "全高",
       "coverArtworkRounded": "封面圆角",
-      "coverArtworkRoundedDescription": "在歌曲和歌单的封面视图中使用圆角封面，关闭后使用直角。",
-      "sidebarFullHeightDescription": "侧边栏占满窗口高度并贴齐左侧，关闭后使用悬浮布局。",
       "language": "界面语言",
       "languageDescription": "选择应用界面显示的语言。",
       "fluidBackground": "流光背景",
@@ -84,12 +85,15 @@
       "fluidBackgroundAriaOn": "流光背景，当前已开启",
       "fluidBackgroundAriaOff": "流光背景，当前已关闭",
       "songFontWeight": {
-        "title": "歌曲页字重",
+        "title": "歌曲页参数",
         "listView": "列表视图",
         "coverView": "封面视图",
-        "viewGroup": "歌曲页字重视图",
+        "viewGroup": "歌曲页参数视图",
+        "coverSection": "封面",
+        "coverRadius": "圆角弧度",
+        "weightSection": "字重",
         "resetView": "恢复默认参数",
-        "resetStatus": "已恢复当前视图的默认字重",
+        "resetStatus": "已恢复当前视图的默认参数",
         "persistFailed": "本次调整已生效，保存失败，重启后可能恢复",
         "preview": "效果预览",
         "fields": {
@@ -137,7 +141,6 @@
     },
     "library": {
       "sourceSection": "音乐来源",
-      "maintenanceSection": "资料库维护",
       "currentFolder": "音乐文件夹",
       "noFolderSelected": "尚未选择音乐文件夹",
       "lastScanned": "上次扫描 {time}",
@@ -165,15 +168,6 @@
         "unknown": "未知状态"
       },
       "neverScanned": "从未扫描",
-      "maintenanceTitle": "元数据维护",
-      "maintenanceDescription": "补全缺失的标题、艺术家、歌词和封面。",
-      "maintaining": "正在维护…",
-      "fillMissing": "补全缺失信息",
-      "runAction": "运行",
-      "refreshCompleted": "已完成 · 更新 {updated} 首，失败 {failed} 首",
-      "refreshFailed": "元数据维护失败",
-      "refreshProcessing": "正在处理 {processed} / {total}",
-      "failuresHeading": "最近有文件未能完成元数据维护",
       "failuresSummary": "{count} 个文件未完成元数据维护",
       "failureRecords": "失败记录",
       "clearing": "正在清除…",
@@ -186,8 +180,7 @@
         "clearFailures": "无法清除失败记录",
         "selectFolder": "无法选择音乐文件夹",
         "startScan": "无法开始扫描",
-        "cancelScan": "无法取消扫描",
-        "startRefresh": "无法开始元数据维护"
+        "cancelScan": "无法取消扫描"
       }
     },
     "about": {

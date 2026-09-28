@@ -1,6 +1,22 @@
 @import './harmony-fonts.css';
 
-/* 英文和数字使用 Plus Jakarta Sans，中文使用 HarmonyOS Sans SC。 */
+/* 数字使用系统 Georgia，英文使用 Plus Jakarta Sans，中文使用 HarmonyOS Sans SC。 */
+@font-face {
+  font-family: 'Auralis Numerals';
+  src: local('Georgia');
+  font-weight: 400;
+  font-style: normal;
+  unicode-range: U+0030-0039;
+}
+
+@font-face {
+  font-family: 'Auralis Numerals';
+  src: local('Georgia Bold');
+  font-weight: 700;
+  font-style: normal;
+  unicode-range: U+0030-0039;
+}
+
 @font-face {
   font-family: 'Plus Jakarta Sans';
   src: url('../../assets/fonts/Plus_Jakarta_Sans/PlusJakartaSans-latin-variable.woff2')
@@ -74,6 +90,7 @@
 /* Common typography and layout tokens on :root */
 :root {
   font-family:
+    'Auralis Numerals',
     'Plus Jakarta Sans',
     'HarmonyOS Sans SC',
     'Arial Unicode MS',
@@ -246,7 +263,7 @@
 
 /* ==========================================================================
    Light Theme Tokens ([data-theme='light'])
-   Warm Neutral Grey & Grey Rose palette
+   Cool Porcelain Grey palette
    ========================================================================== */
 [data-theme='light'] {
   color: var(--auralis-text);
@@ -254,8 +271,8 @@
   color-scheme: light;
 
   /* Theme accent */
-  --auralis-theme-accent: #a34f70;
-  --auralis-theme-accent-soft: #f0e4e9;
+  --auralis-theme-accent: #585b5f;
+  --auralis-theme-accent-soft: #dfe2e5;
   --auralis-theme-accent-soft-hover: color-mix(
     in srgb,
     var(--auralis-theme-accent-soft) 86%,
@@ -263,27 +280,27 @@
   );
 
   /* Foundation & Shell */
-  --auralis-bg: #eeeeec;
-  --auralis-main-bg: #eeeeec;
-  --auralis-dialog-bg: #f7f7f4;
-  --auralis-sidebar-bg: #e7e7e4;
-  --auralis-now-playing-bg: #e7e7e4;
-  --auralis-surface-raised: #e7e7e4;
-  --auralis-surface-floating: #f7f7f4;
-  --auralis-border-subtle: rgba(41, 43, 41, 0.06);
-  --auralis-border-strong: rgba(41, 43, 41, 0.12);
+  --auralis-bg: #f0f1f2;
+  --auralis-main-bg: #f0f1f2;
+  --auralis-dialog-bg: #f8f9fa;
+  --auralis-sidebar-bg: #e7e9eb;
+  --auralis-now-playing-bg: #e7e9eb;
+  --auralis-surface-raised: #e7e9eb;
+  --auralis-surface-floating: #f8f9fa;
+  --auralis-border-subtle: rgba(41, 43, 45, 0.06);
+  --auralis-border-strong: rgba(41, 43, 45, 0.12);
 
   /* Typography */
-  --auralis-text: #292b29;
-  --auralis-text-muted: #565b57;
-  --auralis-text-subtle: #585e5a;
-  --auralis-text-faint: #616763;
-  --auralis-text-disabled: #a8aea9;
+  --auralis-text: #292b2d;
+  --auralis-text-muted: #60656a;
+  --auralis-text-subtle: #64696e;
+  --auralis-text-faint: #686e74;
+  --auralis-text-disabled: #a8adb2;
   --auralis-sidebar-brand-text: var(--auralis-text);
 
   /* Controls & Focus */
   --auralis-control-bg: transparent;
-  --auralis-control-hover-bg: rgba(41, 43, 41, 0.05);
+  --auralis-control-hover-bg: rgba(41, 43, 45, 0.05);
   --auralis-control-active-bg: var(--auralis-theme-accent-soft);
   --auralis-control-primary-bg: var(--auralis-theme-accent);
   --auralis-control-primary-text: #ffffff;
@@ -293,45 +310,45 @@
   --auralis-artwork-accent-fallback: var(--auralis-player-default-accent-light);
   --auralis-player-static-accent: var(--auralis-artwork-accent-fallback);
   --auralis-player-control-active-text: var(--auralis-theme-accent);
-  --auralis-artwork-background-fallback: #e7e7e4;
-  --auralis-surface-shadow: 0 10px 28px rgba(41, 43, 41, 0.08), 0 2px 6px rgba(41, 43, 41, 0.04);
-  --auralis-progress-track: rgba(41, 43, 41, 0.08);
+  --auralis-artwork-background-fallback: #e7e9eb;
+  --auralis-surface-shadow: 0 10px 28px rgba(41, 43, 45, 0.08), 0 2px 6px rgba(41, 43, 45, 0.04);
+  --auralis-progress-track: rgba(41, 43, 45, 0.08);
   --auralis-progress-fill: var(--auralis-theme-accent);
   --auralis-volume-fill: var(--auralis-theme-accent);
-  --auralis-artwork-placeholder-bg: rgba(41, 43, 41, 0.08);
+  --auralis-artwork-placeholder-bg: rgba(41, 43, 45, 0.08);
 
   /* Playbar Island */
-  --auralis-playbar-bg: rgba(247, 247, 244, 0.94);
-  --auralis-frosted-surface-bg: rgba(247, 247, 244, 0.94);
-  --auralis-playbar-border: rgba(41, 43, 41, 0.1);
+  --auralis-playbar-bg: rgba(248, 249, 250, 0.94);
+  --auralis-frosted-surface-bg: rgba(248, 249, 250, 0.94);
+  --auralis-playbar-border: rgba(41, 43, 45, 0.1);
   --auralis-playbar-control-fg: var(--auralis-playbar-control-strong-fg);
-  --auralis-playbar-control-strong-fg: #292b29;
+  --auralis-playbar-control-strong-fg: #292b2d;
   --auralis-playbar-transport-fg: var(--auralis-playbar-control-strong-fg);
   --auralis-playbar-transport-hover-fg: var(--auralis-playbar-control-hover-fg);
   --auralis-playbar-control-hover-fg: #707070;
   --auralis-playbar-control-pressed-fg: var(--auralis-playbar-control-strong-fg);
-  --auralis-playbar-control-disabled-fg: #a8aea9;
+  --auralis-playbar-control-disabled-fg: #a8adb2;
   --auralis-playbar-brand-fg: var(--auralis-player-control-active-text);
   --auralis-playbar-highlight: transparent;
   --auralis-playbar-highlight-soft: transparent;
   --auralis-playbar-lowlight: transparent;
   --auralis-playbar-album-alpha: 0;
   --auralis-playbar-album-saturate: 1.08;
-  --auralis-playbar-shadow: 0 12px 32px rgba(41, 43, 41, 0.08), 0 2px 6px rgba(41, 43, 41, 0.04);
-  --auralis-playbar-reduced-transparency-bg: #f7f7f4;
+  --auralis-playbar-shadow: 0 12px 32px rgba(41, 43, 45, 0.08), 0 2px 6px rgba(41, 43, 45, 0.04);
+  --auralis-playbar-reduced-transparency-bg: #f8f9fa;
 
   /* Song list tokens */
   --auralis-song-row-bg: transparent;
-  --auralis-song-row-alt-bg: rgba(41, 43, 41, 0.025);
-  --auralis-song-row-border: rgba(41, 43, 41, 0.05);
+  --auralis-song-row-alt-bg: rgba(41, 43, 45, 0.025);
+  --auralis-song-row-border: rgba(41, 43, 45, 0.05);
   --auralis-song-row-now-playing-bg: var(--auralis-theme-accent-soft);
   --auralis-song-row-now-playing-title: var(--auralis-theme-accent);
-  --auralis-song-row-now-playing-artist: #565b57;
-  --auralis-song-row-now-playing-duration: #585e5a;
+  --auralis-song-row-now-playing-artist: #60656a;
+  --auralis-song-row-now-playing-duration: #5d6268;
 
   /* Lyrics tokens */
-  --auralis-lyrics-active: #2e2e2e;
-  --auralis-lyrics-inactive: #959b96;
+  --auralis-lyrics-active: #2b2e32;
+  --auralis-lyrics-inactive: #979da4;
 
   /* Sidebar active state */
   --auralis-sidebar-active-bg: var(--auralis-theme-accent-soft);
@@ -342,43 +359,43 @@
   --auralis-sidebar-active-text: var(--auralis-theme-accent);
 
   /* Search bar & overlays */
-  --auralis-search-bg: rgba(247, 247, 244, 0.92);
-  --auralis-search-border: rgba(41, 43, 41, 0.12);
-  --auralis-search-shadow: 0 2px 8px rgba(41, 43, 41, 0.06);
-  --auralis-search-backdrop-bg: rgba(238, 238, 236, 0.7);
-  --auralis-context-menu-bg: #f7f7f4;
-  --auralis-context-menu-border: rgba(41, 43, 41, 0.1);
+  --auralis-search-bg: rgba(248, 249, 250, 0.92);
+  --auralis-search-border: rgba(41, 43, 45, 0.12);
+  --auralis-search-shadow: 0 2px 8px rgba(41, 43, 45, 0.06);
+  --auralis-search-backdrop-bg: rgba(240, 241, 242, 0.7);
+  --auralis-context-menu-bg: #f8f9fa;
+  --auralis-context-menu-border: rgba(41, 43, 45, 0.1);
   --auralis-context-menu-shadow:
-    0 8px 24px rgba(41, 43, 41, 0.08), 0 1px 3px rgba(41, 43, 41, 0.04);
+    0 8px 24px rgba(41, 43, 45, 0.08), 0 1px 3px rgba(41, 43, 45, 0.04);
 
   /* Cover view */
-  --auralis-cover-track-bg: rgba(231, 231, 228, 0.5);
-  --auralis-cover-track-hover-bg: rgba(41, 43, 41, 0.05);
-  --auralis-cover-divider: rgba(41, 43, 41, 0.06);
+  --auralis-cover-track-bg: rgba(231, 233, 235, 0.5);
+  --auralis-cover-track-hover-bg: rgba(41, 43, 45, 0.05);
+  --auralis-cover-divider: rgba(41, 43, 45, 0.06);
   --auralis-cover-track-divider: color-mix(in srgb, #3f4345 50%, var(--auralis-bg));
 
   /* App environment */
-  --auralis-app-bg: #eeeeec;
+  --auralis-app-bg: #f0f1f2;
   --auralis-app-glow-a: transparent;
   --auralis-app-glow-b: transparent;
-  --auralis-album-detail-more-bg: #e7e7e4;
+  --auralis-album-detail-more-bg: #e7e9eb;
   --auralis-overlay-bg: color-mix(in srgb, var(--auralis-bg) 80%, transparent);
-  --auralis-shell-overlay-bg: color-mix(in srgb, #eeeeec 75%, transparent);
-  --auralis-btn-back-bg: rgba(41, 43, 41, 0.04);
-  --auralis-btn-back-border: rgba(41, 43, 41, 0.08);
-  --auralis-btn-back-hover: rgba(41, 43, 41, 0.06);
-  --auralis-stats-panel-bg: rgba(41, 43, 41, 0.03);
-  --auralis-stats-panel-border: rgba(41, 43, 41, 0.06);
-  --auralis-stats-divider: rgba(41, 43, 41, 0.08);
-  --auralis-track-list-bg: rgba(41, 43, 41, 0.02);
-  --auralis-track-list-border: rgba(41, 43, 41, 0.04);
-  --auralis-heat-bar-wrap: rgba(41, 43, 41, 0.06);
-  --auralis-more-card-bg: rgba(41, 43, 41, 0.02);
-  --auralis-more-card-border: rgba(41, 43, 41, 0.04);
+  --auralis-shell-overlay-bg: color-mix(in srgb, #f0f1f2 75%, transparent);
+  --auralis-btn-back-bg: rgba(41, 43, 45, 0.04);
+  --auralis-btn-back-border: rgba(41, 43, 45, 0.08);
+  --auralis-btn-back-hover: rgba(41, 43, 45, 0.06);
+  --auralis-stats-panel-bg: rgba(41, 43, 45, 0.03);
+  --auralis-stats-panel-border: rgba(41, 43, 45, 0.06);
+  --auralis-stats-divider: rgba(41, 43, 45, 0.08);
+  --auralis-track-list-bg: rgba(41, 43, 45, 0.02);
+  --auralis-track-list-border: rgba(41, 43, 45, 0.04);
+  --auralis-heat-bar-wrap: rgba(41, 43, 45, 0.06);
+  --auralis-more-card-bg: rgba(41, 43, 45, 0.02);
+  --auralis-more-card-border: rgba(41, 43, 45, 0.04);
 
   /* Scrollbar & Selection */
-  --auralis-scrollbar-thumb: rgba(41, 43, 41, 0.2);
-  --auralis-scrollbar-thumb-hover: rgba(41, 43, 41, 0.35);
+  --auralis-scrollbar-thumb: rgba(41, 43, 45, 0.2);
+  --auralis-scrollbar-thumb-hover: rgba(41, 43, 45, 0.35);
   --auralis-selection-bg: color-mix(in srgb, var(--auralis-theme-accent) 20%, transparent);
 }
 

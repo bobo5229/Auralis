@@ -126,8 +126,13 @@ function onMoreAlbumsWheel(event: WheelEvent): void {
   }
 }
 
-function formatAlbumYearLabel(value: string | null): string {
-  return formatAlbumYear(value, locale.value, t('albums.detail.unknownYear'))
+function formatAlbumYearParts(value: string | null): { number: string; suffix: string } {
+  const label = formatAlbumYear(value, locale.value, t('albums.detail.unknownYear')).replace(
+    /(\d)年$/,
+    '$1 年',
+  )
+  const match = label.match(/^(\d+)(.*)$/)
+  return match ? { number: match[1], suffix: match[2] } : { number: '', suffix: label }
 }
 watch(
   [moreAlbumsScrollerRef, () => props.effectsActive],
@@ -217,7 +222,10 @@ onBeforeUnmount(() => {
             {{ formatDisplayAlbumTitle(album.title) }}
           </p>
           <p class="album-more-gallery-year">
-            {{ formatAlbumYearLabel(album.releaseDate) }}
+            <template v-for="(part, key) in formatAlbumYearParts(album.releaseDate)" :key="key">
+              <span v-if="key === 'number' && part" class="album-more-gallery-year-number">{{ part }}</span>
+              <span v-else>{{ part }}</span>
+            </template>
           </p>
         </div>
       </button>

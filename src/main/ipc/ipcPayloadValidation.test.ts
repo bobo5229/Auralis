@@ -42,8 +42,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(57)
-    expect(kinds).toEqual({ void: 18, optional: 6, required: 33 })
+    expect(actualChannels).toHaveLength(56)
+    expect(kinds).toEqual({ void: 18, optional: 5, required: 33 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -151,7 +151,6 @@ describe('domain IPC payload validation behavior', () => {
     ['playback:record-effective-play', { trackId: 1, sessionId: 'x', playedAtIso: 'today' }],
     ['archive:get-daily-listening-detail', { date: '02/30/2026' }],
     ['archive:get-listening-ranking', { range: 'quarter', target: 'track' }],
-    ['metadata:refresh-missing', { limit: -1 }],
     ['window:control', { action: 'open-devtools' }],
   ] as const)('rejects malformed payload for %s', (channel, payload) => {
     expect(() => parse(channel, payload)).toThrow(IpcPayloadValidationError)

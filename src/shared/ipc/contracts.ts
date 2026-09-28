@@ -317,10 +317,6 @@ export interface IpcInvokeContract {
     request: { trackIds: number[] }
     response: { jobId: number }
   }
-  'metadata:refresh-missing': {
-    request: { limit?: number }
-    response: { jobId: number }
-  }
   'metadata:refresh-lyrics-missing': {
     request: { limit?: number }
     response: { jobId: number }

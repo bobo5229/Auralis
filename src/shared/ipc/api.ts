@@ -137,9 +137,6 @@ export interface AuralisApi {
     refreshTracks: (
       trackIds: Req<'metadata:refresh-tracks'>['trackIds'],
     ) => Result<'metadata:refresh-tracks'>
-    refreshMissing: (
-      limit?: Req<'metadata:refresh-missing'>['limit'],
-    ) => Result<'metadata:refresh-missing'>
     refreshLyricsMissing: (
       limit?: Req<'metadata:refresh-lyrics-missing'>['limit'],
     ) => Result<'metadata:refresh-lyrics-missing'>

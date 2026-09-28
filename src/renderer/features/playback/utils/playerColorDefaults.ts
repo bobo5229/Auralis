@@ -15,11 +15,11 @@ export const PLAYER_DEFAULT_ACCENT_DARK: PlayerColorRgb = Object.freeze({
 })
 
 /**
- * 播放器浅色主题默认强调色回退值 (#A34F70)
+ * 播放器浅色主题默认强调色回退值 (#585B5F)
  * 供算法 (resolvePlaybarAccent) 与 CSS Preflight (:root) 同源消费
  */
 export const PLAYER_DEFAULT_ACCENT_LIGHT: PlayerColorRgb = Object.freeze({
-  r: 163,
-  g: 79,
-  b: 112,
+  r: 88,
+  g: 91,
+  b: 95,
 })

@@ -87,31 +87,6 @@ export class MetadataRefreshService {
     if (this.stopping) throw new Error('Metadata refresh service is shutting down')
   }
 
-  refreshMissingMetadata(limit = 5000): { jobId: number } {
-    this.assertRunning()
-    if (this.activeJobId !== null && this.repository.getActiveJob()) {
-      throw new Error(`A refresh job is already running (job ${this.activeJobId})`)
-    }
-
-    const tracks = this.repository.getTracksWithMissingMetadata(limit)
-
-    if (tracks.length === 0) {
-      throw new Error('No tracks with missing metadata found')
-    }
-
-    const jobId = this.repository.createJob('missing-metadata', tracks.length)
-    const workerInput: MetadataRefreshWorkerInput = {
-      jobId,
-      tracks,
-      artworkCacheDir: this.artworkCacheDir,
-      writeMode: 'metadata',
-    }
-
-    this.startWorker(workerInput)
-
-    return { jobId }
-  }
-
   refreshTrack(trackId: number): { jobId: number } {
     return this.refreshTracks([trackId])
   }

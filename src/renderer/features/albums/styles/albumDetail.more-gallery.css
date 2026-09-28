@@ -124,6 +124,7 @@
   border-radius: 14px;
   background: var(--auralis-artwork-placeholder-bg);
   box-shadow: none;
+  transition: box-shadow 200ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 .album-more-gallery-image {
@@ -175,6 +176,12 @@
 }
 
 @media (hover: hover) {
+  .album-more-gallery-card:not(:disabled):hover .album-more-gallery-cover {
+    box-shadow:
+      0 4px 10px rgba(0, 0, 0, 0.3),
+      0 0 0 1px color-mix(in srgb, var(--auralis-text) 14%, transparent);
+  }
+
   .album-more-gallery-card:not(:disabled):hover .album-more-gallery-image {
     transform: scale(1.018);
     filter: brightness(0.94);
@@ -187,6 +194,12 @@
   .album-more-gallery-card:not(:disabled):hover .album-more-gallery-hint {
     opacity: 1;
   }
+}
+
+.album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-cover {
+  box-shadow:
+    0 4px 10px rgba(0, 0, 0, 0.3),
+    0 0 0 1px color-mix(in srgb, var(--auralis-text) 14%, transparent);
 }
 
 .album-more-gallery-card:not(:disabled):focus-visible .album-more-gallery-image {
@@ -221,6 +234,10 @@
   margin-top: 4px;
   color: var(--auralis-text-faint);
   font-size: 12px;
+}
+
+.album-more-gallery-year-number {
+  font-size: 13px;
 }
 
 @media (prefers-reduced-motion: reduce) {

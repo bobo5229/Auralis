@@ -208,7 +208,7 @@ onBeforeUnmount(removeListeners)
         :key="option.value"
         role="option"
         class="song-font-weight-option"
-        :class="{ 'is-active': activeIndex === index }"
+        :class="{ 'is-default': option.value === 'default', 'is-active': activeIndex === index }"
         :data-index="index"
         :aria-selected="modelValue === option.value"
         @pointermove="activeIndex = index"
@@ -283,6 +283,9 @@ onBeforeUnmount(removeListeners)
 .song-font-weight-option[aria-selected='true'] {
   color: var(--auralis-sidebar-active-indicator);
   font-weight: 600;
+}
+.song-font-weight-option.is-default {
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 7%, transparent);
 }
 .song-font-weight-option.is-active {
   background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 14%, transparent);

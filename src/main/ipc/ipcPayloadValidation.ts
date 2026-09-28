@@ -408,9 +408,6 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.metadata.refreshTracks]: required(
     objectShape({ trackIds: field(arrayOf(positiveId, { min: 1, max: MAX_ID_LIST_LENGTH })) }),
   ),
-  [ipcChannels.metadata.refreshMissing]: optional(
-    objectShape({ limit: field(positiveLimit, true) }),
-  ),
   [ipcChannels.metadata.refreshLyricsMissing]: optional(
     objectShape({ limit: field(positiveLimit, true) }),
   ),

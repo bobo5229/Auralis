@@ -6,7 +6,7 @@ import { FALLBACK_PALETTE } from './extractArtworkPalette'
 describe('playerColorDefaults', () => {
   it('defines exact RGB values for dark and light accent defaults', () => {
     expect(PLAYER_DEFAULT_ACCENT_DARK).toEqual({ r: 143, g: 167, b: 187 })
-    expect(PLAYER_DEFAULT_ACCENT_LIGHT).toEqual({ r: 163, g: 79, b: 112 })
+    expect(PLAYER_DEFAULT_ACCENT_LIGHT).toEqual({ r: 88, g: 91, b: 95 })
   })
 
   it('freezes the default color objects to prevent runtime mutation', () => {

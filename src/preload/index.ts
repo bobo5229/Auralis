@@ -138,7 +138,6 @@ export const auralisApi: AuralisApi = {
   metadata: {
     refreshTrack: (trackId) => invoke(ipcChannels.metadata.refreshTrack, { trackId }),
     refreshTracks: (trackIds) => invoke(ipcChannels.metadata.refreshTracks, { trackIds }),
-    refreshMissing: (limit) => invoke(ipcChannels.metadata.refreshMissing, { limit }),
     refreshLyricsMissing: (limit) => invoke(ipcChannels.metadata.refreshLyricsMissing, { limit }),
     getRefreshStatus: (jobId) => invoke(ipcChannels.metadata.getRefreshStatus, { jobId }),
     listRefreshFailures: (limit) =>
