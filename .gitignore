@@ -161,6 +161,7 @@ docs/topics/playback/*
 !docs/reviews/
 docs/reviews/*
 !docs/reviews/2026-07-17-architecture-review-fixes.md
+!docs/reviews/2026-09-28-electron-startup-acl-crash.md
 !docs/handoffs/
 docs/handoffs/*
 !docs/handoffs/HANDOFF-remaining-work-2026-08-28.md

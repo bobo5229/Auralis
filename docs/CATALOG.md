@@ -350,6 +350,7 @@
 
 ## 审查记录
 
+- [2026-09-28 Electron 启动崩溃：安装目录 ACL 与沙箱兼容问题](reviews/2026-09-28-electron-startup-acl-crash.md)
 - [Auralis 主题与颜色体系审计报告](reviews/播放器主题配色审计报告.md)
 - [桌面歌词窗口生命周期审查](reviews/REVIEW-desktop-lyrics-window-lifecycle.md)
 - [架构 Review 落地修复汇总](reviews/2026-07-17-architecture-review-fixes.md)
