@@ -181,7 +181,6 @@ function focusChange(progress: number, settled: boolean): void {
 }
 const stageRef = ref<HTMLElement | null>(null)
 const infoRef = ref<HTMLElement | null>(null)
-let infoResizeObserver: ResizeObserver | null = null
 const loading = ref(true)
 const starting = ref(false)
 const infoSuppressed = ref(false)
@@ -548,32 +547,8 @@ function setInfoText(opacity: number, shift: number): void {
   })
 }
 
-function snapInfoDivider(row: HTMLElement, edge: 'top' | 'bottom', pixelRatio: number): void {
-  const bounds = row.getBoundingClientRect()
-  const borderProperty = edge === 'top' ? 'borderTopWidth' : 'borderBottomWidth'
-  const borderWidth = Number.parseFloat(window.getComputedStyle(row)[borderProperty]) || 0
-  const height = 1 / pixelRatio
-  const lineTop = edge === 'top' ? bounds.top + borderWidth : bounds.bottom - borderWidth - height
-  const snappedTop = Math.round(lineTop * pixelRatio) / pixelRatio
-  row.style.setProperty('--cd-info-divider-height', `${height}px`)
-  row.style.setProperty('--cd-info-divider-offset', `${snappedTop - lineTop}px`)
-}
-
-function syncInfoDividerPixelGrid(): void {
-  const info = infoRef.value
-  if (!info) return
-
-  const pixelRatio = window.devicePixelRatio || 1
-  const titleRow = info.querySelector<HTMLElement>('.cd-info-title-row')
-  if (titleRow) snapInfoDivider(titleRow, 'bottom', pixelRatio)
-
-  const rows = Array.from(info.querySelectorAll<HTMLElement>('.cd-info-row'))
-  rows.slice(1).forEach((row) => snapInfoDivider(row, 'top', pixelRatio))
-}
-
 function setInfoDividers(progress: number): void {
   infoRef.value?.style.setProperty('--cd-info-divider-progress', String(progress))
-  syncInfoDividerPixelGrid()
 }
 
 function clearInfoStyles(): void {
@@ -673,17 +648,6 @@ async function transitionInfo(album: CdAlbumInfo | null, entering = false): Prom
 watch([currentAlbum, infoSuppressed], ([album, suppressed], [, wasSuppressed]) => {
   if (!suppressed) void transitionInfo(album, wasSuppressed)
 })
-watch(
-  infoRef,
-  (element, previous) => {
-    if (previous) infoResizeObserver?.unobserve(previous)
-    if (element) infoResizeObserver?.observe(element)
-    syncInfoDividerPixelGrid()
-  },
-  { flush: 'post' },
-)
-watch([displayedAlbum, focusedComposer], syncInfoDividerPixelGrid, { flush: 'post' })
-
 function settleInfo(): void {
   ++infoGeneration
   cancelInfoAnimation?.()
@@ -704,9 +668,6 @@ function setRapidBrowse(running: boolean): void {
 
 onMounted(() => {
   if (!stageRef.value) return
-  infoResizeObserver = new ResizeObserver(syncInfoDividerPixelGrid)
-  if (infoRef.value) infoResizeObserver.observe(infoRef.value)
-  syncInfoDividerPixelGrid()
   reducedMotion.addEventListener('change', onMotionPreferenceChange)
   window.addEventListener('resize', settleInfo)
   controller = createCdStage(
@@ -752,8 +713,6 @@ onMounted(() => {
 onBeforeUnmount(() => {
   disposed = true
   clearFocusedPlaybackInfoTimer()
-  infoResizeObserver?.disconnect()
-  infoResizeObserver = null
   unsubscribe?.()
   const routeName = router.currentRoute.value.name
   if (routeName !== 'cd-albums' && routeName !== 'cd-album-index') {
@@ -832,7 +791,10 @@ onBeforeUnmount(() => {
         v-if="displayedAlbum && !loading && !failed"
         ref="infoRef"
         class="cd-info"
-        :class="{ 'cd-info--suppressed': infoSuppressed }"
+        :class="{
+          'cd-info--suppressed': infoSuppressed,
+          'cd-info--with-composer': focusedComposer,
+        }"
         :aria-hidden="infoSuppressed"
         :aria-label="t('albums.cd.information')"
       >
@@ -1346,6 +1308,10 @@ onBeforeUnmount(() => {
   scrollbar-width: thin;
   color-scheme: inherit;
 }
+.cd-info--with-composer {
+  max-height: none;
+  overflow: visible;
+}
 .cd-info-title-row {
   position: relative;
   box-sizing: border-box;
@@ -1361,17 +1327,20 @@ onBeforeUnmount(() => {
   position: absolute;
   right: 0;
   left: 0;
-  height: var(--cd-info-divider-height, 1px);
+  height: 0;
   content: '';
   opacity: var(--cd-info-divider-progress, 1);
-  transform: translateY(var(--cd-info-divider-offset, 0px))
-    scaleX(var(--cd-info-divider-progress, 1));
+  transform: scaleX(var(--cd-info-divider-progress, 1));
   transform-origin: left center;
   pointer-events: none;
-  background: var(--cd-border-row);
+  border-top: 1px solid var(--cd-border-row);
 }
 .cd-info-title-row::after {
   bottom: 0;
+  border-top: 1px solid #292929;
+}
+.cd-page[data-theme='dark'] .cd-info-title-row::after {
+  border-top-color: #c6c4be;
 }
 .cd-info-row + .cd-info-row::before {
   top: 0;

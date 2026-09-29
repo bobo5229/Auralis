@@ -335,7 +335,7 @@
       "play": "播放",
       "shuffle": "随机播放",
       "tracks": "曲目",
-      "disc": "磟片 {number}",
+      "disc": "Disc {number}",
       "trackCount": {
         "one": "{count} 首曲目",
         "other": "{count} 首曲目"

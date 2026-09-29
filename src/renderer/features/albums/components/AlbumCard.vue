@@ -3,7 +3,11 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
-import { prefetchArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
+import {
+  prefetchArtworkPalette,
+  useArtworkPalette,
+} from '@renderer/features/playback/composables/useArtworkPalette'
+import { resolvePlayerPrimaryButtonTextColor } from '@renderer/features/playback/utils/resolvePlayerPrimaryButtonTextColor'
 import type { AlbumSummary } from '../types'
 
 const props = defineProps<{
@@ -15,9 +19,25 @@ const props = defineProps<{
 const { t } = useI18n()
 const displayAlbumTitle = computed(() => props.album.title)
 const displayAlbumArtist = computed(() => formatArtist(props.album.albumArtist))
+const artworkCacheKey = computed(() => props.album.artworkCacheKey)
+const { palette } = useArtworkPalette(artworkCacheKey, {
+  enabled: computed(() => props.displayMode === 'grid'),
+})
+const playButtonStyle = computed(() => {
+  const color =
+    palette.value.quality !== 'fallback' && palette.value.key === artworkCacheKey.value
+      ? (palette.value.dominant ?? palette.value.accents[0]?.rgb)
+      : null
+  if (!color) return undefined
+  return {
+    '--album-card-play-bg': `rgb(${color.r} ${color.g} ${color.b})`,
+    '--album-card-play-fg': resolvePlayerPrimaryButtonTextColor(color),
+  }
+})
 
 const emit = defineEmits<{
   open: [album: AlbumSummary]
+  play: [album: AlbumSummary]
   openContextMenu: [album: AlbumSummary, event: MouseEvent]
 }>()
 
@@ -73,31 +93,49 @@ function onContextMenu(event: MouseEvent): void {
     :class="[`album-card--${displayMode}`, { 'album-card--highlighted': highlighted }]"
     @pointerenter="prefetchCoverPalette"
   >
-    <!-- cover-stage 锁定 1:1；cover-frame 承载 3D；img 绝对填充 + object-fit:cover 强制裁切 -->
-    <div
-      class="cover-stage"
-      role="button"
-      tabindex="0"
-      :aria-label="t('albums.a11y.openAlbum', { title: displayAlbumTitle })"
-      @click="openAlbum"
-      @contextmenu.prevent="onContextMenu"
-      @keydown.enter="openAlbum"
-      @keydown.space.prevent="openAlbum"
-    >
-      <div class="cover-frame">
-        <img
-          v-if="getArtworkUrl(album.artworkCacheKey) && !imageFailed"
-          :src="getArtworkUrl(album.artworkCacheKey)!"
-          :alt="t('albums.a11y.coverAlt', { title: displayAlbumTitle })"
-          class="cover-img"
-          loading="lazy"
-          decoding="async"
-          draggable="false"
-          @error="imageFailed = true"
-        />
-        <div v-else class="cover-img cover-img--placeholder" aria-hidden="true">
-          <span class="i-lucide-disc-3 h-10 w-10"></span>
+    <div class="album-card-cover">
+      <!-- cover-stage 锁定 1:1；cover-frame 承载 3D；img 绝对填充 + object-fit:cover 强制裁切 -->
+      <div
+        class="cover-stage"
+        role="button"
+        tabindex="0"
+        :aria-label="t('albums.a11y.openAlbum', { title: displayAlbumTitle })"
+        @click="openAlbum"
+        @contextmenu.prevent="onContextMenu"
+        @keydown.enter="openAlbum"
+        @keydown.space.prevent="openAlbum"
+      >
+        <div class="cover-frame">
+          <img
+            v-if="getArtworkUrl(album.artworkCacheKey) && !imageFailed"
+            :src="getArtworkUrl(album.artworkCacheKey)!"
+            :alt="t('albums.a11y.coverAlt', { title: displayAlbumTitle })"
+            class="cover-img"
+            loading="lazy"
+            decoding="async"
+            draggable="false"
+            @error="imageFailed = true"
+          />
+          <div v-else class="cover-img cover-img--placeholder" aria-hidden="true">
+            <span class="i-lucide-disc-3 h-10 w-10"></span>
+          </div>
         </div>
+      </div>
+      <div v-if="displayMode === 'grid'" class="album-card-play-clip">
+        <button
+          type="button"
+          class="album-card-play"
+          :style="playButtonStyle"
+          :aria-label="t('albums.contextMenu.play', { title: displayAlbumTitle })"
+          @click="emit('play', album)"
+          @contextmenu.prevent="onContextMenu"
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path
+              d="M8 5.5c0-.9 1-1.5 1.8-1l10 6.5a1.2 1.2 0 0 1 0 2l-10 6.5c-.8.5-1.8-.1-1.8-1V5.5Z"
+            />
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -106,7 +144,7 @@ function onContextMenu(event: MouseEvent): void {
       <p class="album-card-artist">{{ displayAlbumArtist }}</p>
       <div class="album-card-index-line">
         <span class="album-card-year">
-          <template v-if="album.releaseDate"> {{ album.releaseDate.slice(0, 4) }}年 </template>
+          <template v-if="album.releaseDate"> {{ album.releaseDate.slice(0, 4) }} 年 </template>
           <template v-else>&nbsp;</template>
         </span>
       </div>
@@ -119,6 +157,73 @@ function onContextMenu(event: MouseEvent): void {
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+.album-card-cover {
+  position: relative;
+}
+
+.album-card-play-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+.album-card-play {
+  position: absolute;
+  z-index: 1;
+  bottom: 8px;
+  left: 8px;
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background-color: color-mix(
+    in srgb,
+    var(--album-card-play-bg, var(--auralis-control-primary-bg)) 80%,
+    transparent
+  );
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  color: var(--album-card-play-fg, var(--auralis-control-primary-text));
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(18px);
+  transition:
+    background-color 180ms ease-out,
+    opacity 180ms ease-out,
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer;
+}
+
+.album-card-play svg {
+  width: 26px;
+  height: 26px;
+  transform: translateX(1px);
+}
+
+.album-card--grid .album-card-cover:is(:hover, :focus-within) .album-card-play {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.album-card-play:is(:hover, :focus-visible) {
+  background-color: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--album-card-play-bg, var(--auralis-control-primary-bg)) 88%, white) 92%,
+    transparent
+  );
+}
+
+.album-card-play:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 3px;
 }
 
 .album-card--highlighted .cover-stage {
@@ -174,6 +279,21 @@ function onContextMenu(event: MouseEvent): void {
   will-change: transform;
 }
 
+.album-card--grid .cover-frame::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.28), transparent 58%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease-out;
+  content: '';
+}
+
+.album-card--grid .album-card-cover:is(:hover, :focus-within) .cover-frame::after {
+  opacity: 1;
+}
+
 .cover-img {
   position: absolute;
   inset: 0;
@@ -199,14 +319,6 @@ function onContextMenu(event: MouseEvent): void {
 
 .album-card-missing-artwork {
   font-size: 11px;
-}
-
-.album-card--grid .cover-img {
-  transition: transform 0.35s ease;
-}
-
-.album-card--grid:hover .cover-img {
-  transform: scale(1.04);
 }
 
 /* ── 3D 透视展台：倾斜正方形 frame，img 仍强制 1:1 cover ─ */
@@ -300,13 +412,19 @@ function onContextMenu(event: MouseEvent): void {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .album-card--grid .cover-img,
+  .album-card-play {
+    transition: none;
+  }
+
+  .album-card--grid .cover-frame::after {
+    transition: none;
+  }
+
   .album-card--perspective .cover-frame {
     transition: none !important;
     transform: none !important;
   }
 
-  .album-card--grid:hover .cover-img,
   .album-card--perspective:hover .cover-frame,
   .album-card--perspective:focus-within .cover-frame {
     transform: none !important;

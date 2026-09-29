@@ -3390,15 +3390,10 @@ input[type='range'].volume-overlay-slider {
   color: var(--auralis-lyrics-active);
 }
 
-/* 专辑详情保留自身滚动条规则。 */
+/* 专辑详情保留滚动能力，不占用右侧滚动条宽度。 */
 .album-detail-scroll-wrapper {
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: var(
-      --auralis-scrollbar-thumb,
-      color-mix(in srgb, var(--auralis-text) 22%, transparent)
-    )
-    transparent;
+  scrollbar-gutter: auto;
+  scrollbar-width: none;
 }
 
 .main-page-scroll {
@@ -3414,8 +3409,9 @@ input[type='range'].volume-overlay-slider {
 }
 
 .album-detail-scroll-wrapper::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .main-page-scroll::-webkit-scrollbar {
@@ -3424,26 +3420,8 @@ input[type='range'].volume-overlay-slider {
 }
 
 .main-page-scroll::-webkit-scrollbar-track,
-.main-page-scroll::-webkit-scrollbar-corner,
-.album-detail-scroll-wrapper::-webkit-scrollbar-track,
-.album-detail-scroll-wrapper::-webkit-scrollbar-corner {
+.main-page-scroll::-webkit-scrollbar-corner {
   background: transparent;
-}
-
-.album-detail-scroll-wrapper::-webkit-scrollbar-thumb {
-  background: var(
-    --auralis-scrollbar-thumb,
-    color-mix(in srgb, var(--auralis-text) 22%, transparent)
-  );
-  border: 3px solid transparent;
-  border-radius: 999px;
-}
-
-.album-detail-scroll-wrapper::-webkit-scrollbar-thumb:hover {
-  background: var(
-    --auralis-scrollbar-thumb-hover,
-    color-mix(in srgb, var(--auralis-text) 36%, transparent)
-  );
 }
 
 /* 主页面滚动条共用材质，悬停只高亮。 */

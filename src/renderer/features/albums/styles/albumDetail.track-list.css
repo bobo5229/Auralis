@@ -2,15 +2,6 @@
   min-width: 0;
 }
 
-.album-tracklist-heading {
-  margin: 0 0 12px;
-  color: var(--auralis-text-muted);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
 .album-detail-track-list {
   background: transparent;
   backdrop-filter: none;
@@ -24,10 +15,10 @@
 .album-detail-disc-header {
   padding: 12px 14px 6px;
   color: var(--auralis-text-muted);
+  font-family: var(--auralis-font-disc-heading);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
   user-select: none;
   pointer-events: none;
   opacity: 0.85;

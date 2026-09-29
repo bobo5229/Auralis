@@ -473,6 +473,13 @@ function playContextAlbum(): void {
   void playback.playTrackFromQueue(buildAlbumPlaybackQueue(album), album.tracks[0].id)
 }
 
+function playGridAlbum(album: AlbumSummary): void {
+  const albumTracks = catalogIndex.value.selectTracks(album.albumArtist, album.title)
+  const firstTrack = albumTracks[0]
+  if (!firstTrack) return
+  void playback.playTrackFromQueue(albumTracks, firstTrack.id, { playbackMode: 'sequential' })
+}
+
 function insertContextAlbum(): void {
   const album = contextMenu.value?.album
   closeContextMenu()
@@ -623,6 +630,7 @@ onBeforeUnmount(() => {
                 :highlighted="highlightedAlbumKey === album.key"
                 :catalog-number="virtualRow.index * columnCount + columnIndex + 1"
                 @open="openAlbum"
+                @play="playGridAlbum"
                 @open-context-menu="openContextMenu"
               />
             </div>

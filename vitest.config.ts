@@ -14,7 +14,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     // Component tests mount Vue with a custom renderer in the Node environment.
-    testTransformMode: { web: ['**/SongRow.test.ts'] },
+    testTransformMode: { web: ['**/SongRow.test.ts', '**/AlbumCard.test.ts'] },
     include: ['src/**/*.test.ts'],
     exclude: [...configDefaults.exclude, 'src/**/*.native.test.ts'],
   },

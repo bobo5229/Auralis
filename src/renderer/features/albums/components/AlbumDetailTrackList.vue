@@ -28,11 +28,10 @@ function formatDisplayArtist(artist: string | null | undefined): string {
 
 <template>
   <div class="album-tracklist-panel">
-    <h2 class="album-tracklist-heading">{{ t('albums.detail.tracks') }}</h2>
     <div class="album-detail-track-list">
       <template v-for="group in groups" :key="group.discNo ?? 'single'">
         <div v-if="group.discNo != null" class="album-detail-disc-header" role="presentation">
-          {{ t('albums.detail.disc', { number: group.discNo }) }}
+          {{ t('albums.detail.disc', { number: String(group.discNo).padStart(2, '0') }) }}
         </div>
         <button
           v-for="(track, index) in group.tracks"

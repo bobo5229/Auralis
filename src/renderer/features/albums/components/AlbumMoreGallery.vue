@@ -223,7 +223,9 @@ onBeforeUnmount(() => {
           </p>
           <p class="album-more-gallery-year">
             <template v-for="(part, key) in formatAlbumYearParts(album.releaseDate)" :key="key">
-              <span v-if="key === 'number' && part" class="album-more-gallery-year-number">{{ part }}</span>
+              <span v-if="key === 'number' && part" class="album-more-gallery-year-number">{{
+                part
+              }}</span>
               <span v-else>{{ part }}</span>
             </template>
           </p>
