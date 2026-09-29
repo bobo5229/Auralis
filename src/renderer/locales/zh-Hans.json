@@ -99,13 +99,13 @@
         "persistFailed": "本次调整已生效，保存失败，重启后可能恢复",
         "preview": "效果预览",
         "fields": {
-          "title": "歌曲名称",
-          "artist": "歌曲艺术家",
+          "title": "音轨标题",
+          "artist": "艺术家",
           "album": "专辑名称",
           "albumArtist": "专辑艺术家",
           "releaseDate": "发行日期",
           "trackNumber": "音轨编号",
-          "genre": "音乐流派",
+          "genre": "流派",
           "duration": "歌曲时长",
           "discHeading": "碟片标题"
         },

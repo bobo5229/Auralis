@@ -179,7 +179,7 @@ function onRadiusInput(event: Event): void {
                   aria-labelledby="song-cover-radius-label"
                   @input="onRadiusInput"
                 />
-                <output for="song-cover-radius-input">{{ coverArtworkRadius }}px</output>
+                <output for="song-cover-radius-input">{{ coverArtworkRadius }} px</output>
               </div>
             </div>
           </div>
@@ -366,7 +366,9 @@ function onRadiusInput(event: Event): void {
 
 @media (prefers-reduced-motion: reduce) {
   .song-font-weight-details::details-content {
-    transition: opacity 120ms ease, content-visibility 120ms;
+    transition:
+      opacity 120ms ease,
+      content-visibility 120ms;
   }
 
   .song-font-weight-chevron {
@@ -444,6 +446,14 @@ function onRadiusInput(event: Event): void {
   gap: 10px;
 }
 
+.song-cover-radius-control {
+  --song-cover-radius-fill: var(--auralis-text-muted);
+}
+
+:global([data-theme='dark'] .song-cover-radius-control) {
+  --song-cover-radius-fill: var(--auralis-theme-accent);
+}
+
 .song-cover-radius-control input {
   width: 120px;
   height: 18px;
@@ -459,7 +469,7 @@ function onRadiusInput(event: Event): void {
   border-radius: 999px;
   background: linear-gradient(
     to right,
-    var(--auralis-text-muted) var(--song-cover-radius-progress),
+    var(--song-cover-radius-fill) var(--song-cover-radius-progress),
     color-mix(in srgb, var(--auralis-text) 12%, transparent) var(--song-cover-radius-progress)
   );
 }
@@ -470,7 +480,7 @@ function onRadiusInput(event: Event): void {
   margin-top: -3px;
   appearance: none;
   border-radius: 50%;
-  background: var(--auralis-text-muted);
+  background: var(--song-cover-radius-fill);
 }
 
 .song-cover-radius-control input::-moz-range-track {
@@ -479,7 +489,7 @@ function onRadiusInput(event: Event): void {
   border-radius: 999px;
   background: linear-gradient(
     to right,
-    var(--auralis-text-muted) var(--song-cover-radius-progress),
+    var(--song-cover-radius-fill) var(--song-cover-radius-progress),
     color-mix(in srgb, var(--auralis-text) 12%, transparent) var(--song-cover-radius-progress)
   );
 }
@@ -488,7 +498,7 @@ function onRadiusInput(event: Event): void {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: var(--auralis-text-muted);
+  background: var(--song-cover-radius-fill);
 }
 
 .song-cover-radius-control input:focus-visible {
