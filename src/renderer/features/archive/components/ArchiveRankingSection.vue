@@ -47,6 +47,8 @@ const rangesElement = ref<HTMLElement | null>(null)
 const rangeUnderline = ref<HTMLElement | null>(null)
 const targetsElement = ref<HTMLElement | null>(null)
 const targetUnderline = ref<HTMLElement | null>(null)
+const rankingElement = ref<HTMLElement | null>(null)
+const periodButtonElement = ref<HTMLElement | null>(null)
 
 watchPostEffect((onCleanup) => {
   const ranges = rangesElement.value
@@ -133,6 +135,32 @@ watchPostEffect((onCleanup) => {
   })
 })
 
+watchPostEffect((onCleanup) => {
+  const ranking = rankingElement.value
+  const periodButton = periodButtonElement.value
+  if (rankingTarget.value !== 'album' || !ranking || !periodButton) return
+
+  const positionNavigation = (): void => {
+    const rankingRect = ranking.getBoundingClientRect()
+    const periodRect = periodButton.getBoundingClientRect()
+    ranking.style.setProperty(
+      '--navigation-center-x',
+      `${periodRect.left + periodRect.width / 2 - rankingRect.left}px`,
+    )
+  }
+  const resizeObserver = new ResizeObserver(positionNavigation)
+  resizeObserver.observe(ranking)
+  resizeObserver.observe(periodButton)
+  window.addEventListener('resize', positionNavigation)
+  positionNavigation()
+
+  onCleanup(() => {
+    resizeObserver.disconnect()
+    window.removeEventListener('resize', positionNavigation)
+    ranking.style.removeProperty('--navigation-center-x')
+  })
+})
+
 function handleDocumentPointerDown(event: PointerEvent): void {
   const target = event.target
   if (!(target instanceof Element)) return
@@ -146,7 +174,7 @@ defineExpose({ refresh: loadListeningRanking })
 </script>
 
 <template>
-  <section v-if="visible" class="archive-ranking">
+  <section v-if="visible" ref="rankingElement" class="archive-ranking">
     <div class="archive-ranking-heading">
       <div>
         <h2>听歌排行</h2>
@@ -193,7 +221,7 @@ defineExpose({ refresh: loadListeningRanking })
       </div>
 
       <div class="archive-ranking-period" data-ranking-period-control>
-        <button type="button" @click="toggleRankingPicker($event)">
+        <button ref="periodButtonElement" type="button" @click="toggleRankingPicker($event)">
           <span>{{ rankingPeriodLabel }}</span>
           <span class="i-lucide-chevron-down h-3.5 w-3.5"></span>
         </button>

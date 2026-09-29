@@ -110,10 +110,6 @@ function measureSpacing(): void {
     (first.offsetTop + Math.min(resting.top, pulled.top)) * scale - 16,
   )
   shelf.value?.style.setProperty('--navigation-top', `${navigationTop}px`)
-  shelf.value?.style.setProperty(
-    '--navigation-right',
-    `${(availableWidth - groupWidth * scale) / 2}px`,
-  )
 }
 function navigate(index: number): void {
   const count = items.value.length
@@ -275,11 +271,12 @@ onBeforeUnmount(() => {
 .shelf-navigation {
   position: absolute;
   top: var(--navigation-top, 0px);
-  right: var(--navigation-right, 0px);
+  left: var(--navigation-center-x, 50%);
   z-index: 1;
   display: flex;
   justify-content: flex-end;
   gap: 0;
+  transform: translateX(-50%);
 }
 .shelf-navigation button {
   display: grid;
