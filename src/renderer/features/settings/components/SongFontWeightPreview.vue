@@ -188,6 +188,7 @@ const previewBrand = 'Auralis'
   display: flex;
   box-sizing: border-box;
   align-items: center;
+  font-family: var(--auralis-font-disc-heading);
   height: 24px;
   margin-top: 8px;
   padding-inline: 12px;

@@ -113,6 +113,7 @@
 
 ### shell：应用外壳
 
+- [TECHDOC：Auralis 语义字体体系](topics/shell/TECHDOC-semantic-font-system-2026-09-29.md)
 - [TECHDOC：主界面歌词面板收起与展开](topics/shell/TECHDOC-collapsible-lyrics-panel-2026-09-28.md)
 - [TECHDOC：深色主题中性黑与霓虹玫红配色](topics/shell/TECHDOC-dark-theme-midnight-rose-2026-09-27.md)
 - [全局浅色配色预设](topics/shell/light-theme-color-presets.md)

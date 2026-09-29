@@ -175,6 +175,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
   box-sizing: border-box;
   display: flex;
   align-items: center;
+  font-family: var(--auralis-font-disc-heading);
   height: var(--library-cover-disc-heading-height);
   padding-inline: 12px;
   border-radius: 8px;

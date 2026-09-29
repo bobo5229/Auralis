@@ -21,7 +21,8 @@ const BUDGETS = {
   rendererFonts: {
     name: 'Renderer Fonts',
     maxSingleFileSize: 20 * 1024 * 1024, // 单字体 < 20MB
-    maxTotalSize: 80 * 1024 * 1024, // 总字体 < 80MB
+    // 当前完整中日韩字形的 HarmonyOS Sans 与 GenRyuMin 资源约 100MiB；保留适度增量空间。
+    maxTotalSize: 110 * 1024 * 1024, // 总字体 < 110MB
   },
   mainJs: {
     name: 'Main Process JS',
