@@ -424,7 +424,6 @@ function handleNext(): void {
             :aria-label="
               lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')
             "
-            :title="lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')"
             @click="toggleLyrics"
           >
             <span class="playbar-action-icon h-5 w-5 i-ph-text-align-left" aria-hidden="true" />
@@ -475,7 +474,6 @@ function handleNext(): void {
                 :aria-label="
                   lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')
                 "
-                :title="lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')"
                 @click="handleOverflowToggleLyrics"
               >
                 <span class="playbar-action-icon h-4 w-4 i-ph-text-align-left" aria-hidden="true" />
