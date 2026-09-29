@@ -11,6 +11,7 @@ export default defineConfig({
       getCSS: () => `:root {
   --auralis-player-default-accent-dark: rgb(${PLAYER_DEFAULT_ACCENT_DARK.r} ${PLAYER_DEFAULT_ACCENT_DARK.g} ${PLAYER_DEFAULT_ACCENT_DARK.b});
   --auralis-player-default-accent-light: rgb(${PLAYER_DEFAULT_ACCENT_LIGHT.r} ${PLAYER_DEFAULT_ACCENT_LIGHT.g} ${PLAYER_DEFAULT_ACCENT_LIGHT.b});
+  --auralis-sidebar-rail-width: 72px;
 }`,
     },
   ],
@@ -27,7 +28,7 @@ export default defineConfig({
   shortcuts: {
     'app-window': 'h-screen overflow-hidden text-[var(--auralis-text)]',
     'app-shell':
-      'grid h-full min-h-0 grid-cols-[260px_minmax(0,1fr)] overflow-hidden bg-transparent text-[var(--auralis-text)] xl:grid-cols-[260px_minmax(0,1fr)_var(--auralis-lyrics-column-width,20%)]',
+      'grid h-full min-h-0 grid-cols-[var(--auralis-sidebar-width,260px)_minmax(0,1fr)] overflow-hidden bg-transparent text-[var(--auralis-text)] xl:grid-cols-[var(--auralis-sidebar-width,260px)_minmax(0,1fr)_var(--auralis-lyrics-column-width,20%)]',
     'app-sidebar':
       'flex w-[232px] h-[calc(100%_-_var(--auralis-shell-vertical-gap))] min-h-0 flex-col m-[var(--auralis-shell-edge-gap)_0_var(--auralis-shell-edge-gap)_var(--auralis-shell-edge-gap)] rounded-lg border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
     'app-main': 'min-w-0 min-h-0 overflow-hidden bg-transparent',

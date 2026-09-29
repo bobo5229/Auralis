@@ -8,6 +8,7 @@ interface Entry {
   element: HTMLElement
   text: string
   overflow: boolean
+  right: boolean
   delay: number
 }
 
@@ -92,6 +93,7 @@ export function createTooltipController() {
         width: document.documentElement.clientWidth,
         height: document.documentElement.clientHeight,
       },
+      entry.right ? 'right' : 'above',
     )
     overlay.style.left = `${position.left}px`
     overlay.style.top = `${position.top}px`
@@ -188,12 +190,14 @@ export function createTooltipController() {
       element,
       text: binding.value?.trim() ?? '',
       overflow: Boolean(binding.modifiers.overflow),
+      right: Boolean(binding.modifiers.right),
       delay: binding.modifiers.data ? 150 : binding.modifiers.overflow ? 500 : 600,
     }
     const previous = entries.get(element)
     if (
       previous?.text === entry.text &&
       previous.overflow === entry.overflow &&
+      previous.right === entry.right &&
       previous.delay === entry.delay
     )
       return

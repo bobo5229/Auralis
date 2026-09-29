@@ -23,7 +23,14 @@ import { animateTrashLid } from '@renderer/shared/animation/motion'
 const route = useRoute()
 const router = useRouter()
 const playback = usePlayback()
-const { sidebarFullHeight } = useSidebarLayout()
+const { sidebarFullHeight, sidebarCollapsed, setSidebarCollapsed } = useSidebarLayout()
+/** 收起图标栏仅在全高布局生效；悬浮布局始终展示完整侧栏。 */
+const isRail = computed(() => sidebarFullHeight.value && sidebarCollapsed.value)
+
+function toggleSidebarCollapsed(): void {
+  if (!sidebarFullHeight.value) return
+  setSidebarCollapsed(!sidebarCollapsed.value)
+}
 const isFacetsDialogOpen = ref(false)
 const { isStartingLibraryRefresh, refreshLibrary } = useLibraryScanStart({
   getLibraryRoots: () => auralis.library.getRoots(),
@@ -470,19 +477,65 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside class="app-sidebar" :class="{ 'app-sidebar--full-height': sidebarFullHeight }">
+  <aside
+    class="app-sidebar"
+    :class="{ 'app-sidebar--full-height': sidebarFullHeight, 'app-sidebar--collapsed': isRail }"
+  >
     <header class="sidebar-header">
       <div class="sidebar-header-main">
-        <div class="sidebar-brand-left">
+        <component
+          :is="sidebarFullHeight ? 'button' : 'div'"
+          v-tooltip.right="isRail ? t('sidebar.expand') : ''"
+          class="sidebar-brand-left"
+          :class="{ 'sidebar-brand-toggle': sidebarFullHeight }"
+          v-bind="
+            sidebarFullHeight
+              ? {
+                  type: 'button',
+                  'aria-expanded': !sidebarCollapsed,
+                  'aria-label': sidebarCollapsed ? t('sidebar.expand') : t('sidebar.collapse'),
+                  'aria-controls': 'sidebar-navigation',
+                }
+              : {}
+          "
+          @click="toggleSidebarCollapsed"
+        >
           <span class="sidebar-brand-mark" aria-hidden="true">
             <span class="i-ph-waveform"></span>
           </span>
           <div class="sidebar-brand-copy">
-            <div class="sidebar-brand-name">AuralisMusic</div>
+            <div class="sidebar-brand-name">
+              <span class="sidebar-brand-word sidebar-brand-word--left">
+                Auralis
+                <span class="sidebar-brand-note-anchor" aria-hidden="true">
+                  <svg
+                    class="sidebar-brand-note"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M10 18V4l8-2v6c0 2 1 3 2 4" />
+                    <ellipse cx="7" cy="18" rx="3" ry="2" transform="rotate(-20 7 18)" />
+                  </svg>
+                  <span class="sidebar-brand-particle" style="--dx: -20px; --dy: -9px"></span>
+                  <span class="sidebar-brand-particle" style="--dx: -15px; --dy: 9px"></span>
+                  <span class="sidebar-brand-particle" style="--dx: -5px; --dy: -15px"></span>
+                  <span class="sidebar-brand-particle" style="--dx: 7px; --dy: 13px"></span>
+                  <span class="sidebar-brand-particle" style="--dx: 17px; --dy: -11px"></span>
+                  <span class="sidebar-brand-particle" style="--dx: 21px; --dy: 5px"></span>
+                  <span class="sidebar-brand-particle" style="--dx: 0px; --dy: 16px"></span>
+                </span>
+              </span>
+              <span class="sidebar-brand-word sidebar-brand-word--right">Music</span>
+            </div>
           </div>
-        </div>
+        </component>
         <div class="sidebar-tools-grid" role="toolbar" :aria-label="t('sidebar.toolbarAria')">
           <button
+            v-tooltip.right="isRail ? t('sidebar.tool.facetsPanel') : ''"
             class="sidebar-tool-button"
             type="button"
             :aria-label="t('sidebar.tool.facetsPanel')"
@@ -491,6 +544,7 @@ onBeforeUnmount(() => {
             <span class="i-ph-sliders-horizontal"></span>
           </button>
           <RouterLink
+            v-tooltip.right="isRail ? t('sidebar.tool.settings') : ''"
             to="/settings"
             class="sidebar-tool-button"
             :class="{ 'sidebar-tool-button-active': activePath === '/settings' }"
@@ -506,6 +560,7 @@ onBeforeUnmount(() => {
             <span class="i-ph-gear"></span>
           </RouterLink>
           <button
+            v-tooltip.right="isRail ? t('sidebar.tool.refreshAction') : ''"
             class="sidebar-tool-button"
             type="button"
             :aria-label="
@@ -526,15 +581,17 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <nav class="sidebar-navigation">
+    <nav id="sidebar-navigation" class="sidebar-navigation">
       <section class="sidebar-primary-section">
         <div class="sidebar-section-label">{{ t('sidebar.library') }}</div>
         <RouterLink
           v-for="item in primaryNavItems"
           :key="item.to"
+          v-tooltip.right="isRail ? item.label : ''"
           :to="item.to"
           class="sidebar-link"
           :draggable="false"
+          :aria-label="item.label"
           :class="{
             'sidebar-link-with-count': item.count !== null,
             'sidebar-link-active':
@@ -563,6 +620,7 @@ onBeforeUnmount(() => {
             <div class="sidebar-section-meta">{{ playlistItems.length }}</div>
           </div>
           <button
+            v-tooltip.right="isRail ? t('sidebar.newPlaylist') : ''"
             class="smart-playlist-add-button"
             type="button"
             :aria-label="t('sidebar.newPlaylist')"
@@ -574,10 +632,12 @@ onBeforeUnmount(() => {
         <RouterLink
           v-for="playlist in playlistItems"
           :key="getPlaylistKey(playlist)"
+          v-tooltip.right="isRail ? playlist.name : ''"
           :to="getPlaylistPath(playlist)"
           :data-sidebar-playlist-key="getPlaylistKey(playlist)"
           :draggable="false"
           class="sidebar-link"
+          :aria-label="playlist.name"
           :class="{
             'sidebar-link-with-count': true,
             'sidebar-link-active': activePath === getPlaylistPath(playlist),
@@ -602,7 +662,7 @@ onBeforeUnmount(() => {
           <span class="sidebar-link-label">{{ playlist.name }}</span>
           <span class="sidebar-link-count">{{ playlist.trackCount }}</span>
         </RouterLink>
-        <div v-if="playlistItems.length === 0" class="smart-playlist-empty">
+        <div v-if="playlistItems.length === 0 && !isRail" class="smart-playlist-empty">
           <span class="i-ph-sparkle"></span>
           <span>{{ t('sidebar.playlistsEmpty') }}</span>
         </div>

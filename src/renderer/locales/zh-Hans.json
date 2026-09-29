@@ -32,6 +32,8 @@
     "deletePlaylistTitle": "删除歌单？",
     "deleteSmartPlaylistTitle": "删除智能歌单？",
     "toolbarAria": "侧栏工具",
+    "collapse": "收起侧边栏",
+    "expand": "展开侧边栏",
     "tool": {
       "facets": "筛选",
       "facetsPanel": "筛选面板",

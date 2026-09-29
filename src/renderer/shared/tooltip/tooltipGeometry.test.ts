@@ -32,4 +32,27 @@ describe('tooltip geometry', () => {
       ),
     ).toEqual({ left: 30, top: 8 })
   })
+
+  it('places rail tooltips to the right of the anchor, vertically centered', () => {
+    const viewport = { width: 1280, height: 860 }
+    expect(
+      placeTooltip(
+        { left: 35, right: 69, top: 54, bottom: 88 },
+        { width: 92, height: 33 },
+        viewport,
+        'right',
+      ),
+    ).toEqual({ left: 77, top: 54.5 })
+  })
+
+  it('falls back to above/below when the right side has no room', () => {
+    const viewport = { width: 320, height: 240 }
+    const aboveFallback = placeTooltip(
+      { left: 280, right: 310, top: 40, bottom: 60 },
+      { width: 180, height: 32 },
+      viewport,
+      'right',
+    )
+    expect(aboveFallback).toEqual({ left: 132, top: 68 })
+  })
 })

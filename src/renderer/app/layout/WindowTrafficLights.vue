@@ -9,7 +9,7 @@ import { useSidebarLayout } from '@renderer/features/appearance/composables/useS
 defineProps<{ cdCanvas?: boolean }>()
 
 const { t } = useI18n()
-const { sidebarFullHeight } = useSidebarLayout()
+const { sidebarFullHeight, sidebarCollapsed } = useSidebarLayout()
 const isMaximized = ref(false)
 let unsubscribe: (() => void) | null = null
 let mounted = false
@@ -59,6 +59,7 @@ async function control(action: IpcRequest<'window:control'>['action']): Promise<
     :class="{
       'window-traffic-lights--cd': cdCanvas,
       'window-traffic-lights--full-height': sidebarFullHeight && !cdCanvas,
+      'window-traffic-lights--collapsed': sidebarFullHeight && sidebarCollapsed && !cdCanvas,
     }"
   >
     <button
@@ -106,6 +107,14 @@ async function control(action: IpcRequest<'window:control'>['action']): Promise<
 .window-traffic-lights--full-height {
   top: calc(20px - var(--auralis-shell-edge-gap));
   left: calc(24px - var(--auralis-shell-edge-gap));
+}
+
+.window-traffic-lights--collapsed {
+  left: 5px;
+}
+
+.window-traffic-lights--collapsed .window-traffic-light {
+  width: 20px;
 }
 
 .window-traffic-lights--cd {

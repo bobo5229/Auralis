@@ -9,6 +9,7 @@ import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
 import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
 import { useShellFluidBackground } from '@renderer/features/appearance/composables/useShellFluidBackground'
+import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useCdCanvasTheme } from '@renderer/features/albums/composables/useCdCanvasTheme'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -188,6 +189,12 @@ const isCdCanvas = computed(() => {
   return route.name === 'cd-albums' || route.name === 'cd-album-index'
 })
 
+/** 全高布局下的收起图标栏；驱动 Shell 列宽、播放栏左边界与背景裁切。 */
+const { sidebarFullHeight, sidebarCollapsed } = useSidebarLayout()
+const isSidebarRail = computed(
+  () => sidebarFullHeight.value && sidebarCollapsed.value && !isCdCanvas.value,
+)
+
 const artworkUrl = computed(() =>
   getArtworkUrl(playback.state.currentTrack?.artworkCacheKey ?? null),
 )
@@ -243,6 +250,7 @@ function onTransitionEnterCancelled(): void {
         'is-cd-albums': isCdCanvas,
         'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
         'has-artwork': shouldRenderShellArtwork,
+        'is-sidebar-collapsed': isSidebarRail,
       }"
       :style="shellStyle"
     >
