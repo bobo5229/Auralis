@@ -248,4 +248,3 @@ describe('PlaybackNavigationSession', () => {
     expect(session.popHistory()).toBeNull()
   })
 })
-
