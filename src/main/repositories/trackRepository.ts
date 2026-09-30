@@ -11,6 +11,7 @@ import type { AlbumDetailSummary } from '@shared/types/albumDetail'
 import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'
 import type { NormalizedIdentity } from '@main/features/metadata/metadataNormalizer'
 import { BaseRepository } from './baseRepository'
+import { sortLibraryTracks } from './libraryTrackSort'
 
 export interface KnownTrackFile {
   filePath: string
@@ -89,50 +90,6 @@ const albumTitleIdentityExpr = `CASE
           WHEN NULLIF(album, '') IS NOT NULL THEN album
           ELSE 'Unknown Album'
         END`
-
-const libraryArtistCollator = new Intl.Collator('zh-Hans-u-co-pinyin', {
-  sensitivity: 'base',
-  numeric: true,
-})
-
-function compareNullableText(
-  left: string | null,
-  right: string | null,
-  collator = libraryArtistCollator,
-): number {
-  if (left === right) return 0
-  if (left === null) return 1
-  if (right === null) return -1
-  return collator.compare(left, right)
-}
-
-function compareNullableNumber(left: number | null, right: number | null): number {
-  if (left === right) return 0
-  if (left === null) return -1
-  if (right === null) return 1
-  return left - right
-}
-
-function compareLibraryAlbumArtists(left: string | null, right: string | null): number {
-  if (left !== null && right !== null) {
-    const leftStartsWithDigit = /^\p{Decimal_Number}/u.test(left.trimStart())
-    const rightStartsWithDigit = /^\p{Decimal_Number}/u.test(right.trimStart())
-    if (leftStartsWithDigit !== rightStartsWithDigit) {
-      return leftStartsWithDigit ? 1 : -1
-    }
-  }
-  return compareNullableText(left, right)
-}
-
-function compareLibraryTracks(left: TrackListItem, right: TrackListItem): number {
-  return (
-    compareLibraryAlbumArtists(left.albumArtist, right.albumArtist) ||
-    compareNullableText(left.releaseDate, right.releaseDate) ||
-    compareNullableNumber(left.discNo, right.discNo) ||
-    compareNullableNumber(left.trackNo, right.trackNo) ||
-    left.id - right.id
-  )
-}
 
 export class TrackRepository extends BaseRepository {
   getChangeToken(): string {
@@ -252,7 +209,7 @@ export class TrackRepository extends BaseRepository {
       )
       .all() as TrackListItem[]
 
-    return tracks.sort(compareLibraryTracks)
+    return sortLibraryTracks(tracks)
   }
 
   getAlbumDetailTracks(albumArtist: string, albumTitle: string): TrackListItem[] {
