@@ -36,6 +36,7 @@
 
 ### albums：专辑
 
+- [TECHDOC：歌词面板收起与专辑网格同步过渡](topics/albums/TECHDOC-lyrics-collapse-album-grid-sync-2026-09-30.md)
 - [TECHDOC：更多作品封面内部悬停反馈](topics/albums/TECHDOC-more-albums-cover-hover-2026-09-27.md)
 - [PRD：CD 专辑封面索引页](topics/albums/PRD-cd-album-cover-index-2026-09-25.md)
 - [TECHDOC：CD 专辑封面索引页](topics/albums/TECHDOC-cd-album-cover-index-2026-09-25.md)
@@ -113,8 +114,8 @@
 
 ### shell：应用外壳
 
-- [TECHDOC：Auralis 语义字体体系](topics/shell/TECHDOC-semantic-font-system-2026-09-29.md)
 - [TECHDOC：跟随主题的 Logo 开屏动画](topics/shell/TECHDOC-theme-aware-splash-logo-2026-09-29.md)
+- [TECHDOC：Auralis 语义字体体系](topics/shell/TECHDOC-semantic-font-system-2026-09-29.md)
 - [TECHDOC：主界面歌词面板收起与展开](topics/shell/TECHDOC-collapsible-lyrics-panel-2026-09-28.md)
 - [TECHDOC：深色主题中性黑与霓虹玫红配色](topics/shell/TECHDOC-dark-theme-midnight-rose-2026-09-27.md)
 - [全局浅色配色预设](topics/shell/light-theme-color-presets.md)

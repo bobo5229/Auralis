@@ -418,6 +418,7 @@ function handleNext(): void {
             ref="lyricsButtonRef"
             class="player-bar-control"
             data-testid="player-lyrics-button"
+            data-lyrics-toggle
             type="button"
             aria-controls="now-playing-panel"
             :aria-expanded="lyricsPanelExpanded"
@@ -468,6 +469,7 @@ function handleNext(): void {
                 v-if="canDisplayLyricsPanel"
                 ref="overflowLyricsButtonRef"
                 class="player-bar-control player-bar-overflow-item"
+                data-lyrics-toggle
                 type="button"
                 role="menuitemcheckbox"
                 :aria-checked="lyricsPanelExpanded"

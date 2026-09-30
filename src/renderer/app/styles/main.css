@@ -650,6 +650,20 @@ input {
   --auralis-sidebar-width: var(--auralis-sidebar-rail-width, 72px);
 }
 
+/* 歌词列宽由 rAF 直接驱动，避免 CSS 每帧重新追赶 280ms 的侧边栏过渡。 */
+.app-shell.is-lyrics-resizing {
+  transition: none;
+}
+
+.app-shell.is-album-layout-transitioning > .player-bar {
+  transition: none !important;
+}
+
+.lyrics-layout-playerbar-snapshot {
+  transition: none !important;
+  pointer-events: none !important;
+}
+
 @media (min-width: 1280px) {
   .app-shell:not(.is-cd-albums):not(.is-archive-canvas) {
     grid-template-columns:

@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, ref, watch } from 'vue'
+import {
+  computed,
+  nextTick,
+  onActivated,
+  onBeforeUnmount,
+  onDeactivated,
+  ref,
+  toRef,
+  watch,
+} from 'vue'
 import { observeElementOffset, observeElementRect, useVirtualizer } from '@tanstack/vue-virtual'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -14,27 +23,19 @@ import { normalizeSearchText } from '@renderer/features/library/utils/normalizeS
 import { prefetchArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumCard from '../components/AlbumCard.vue'
+import AlbumGridTransitionLayer, {
+  type AlbumTransitionRect,
+  type AlbumTransitionTarget,
+  type AlbumTransitionVisual,
+} from '../components/AlbumGridTransitionLayer.vue'
 import type { AlbumSummary } from '../types'
 import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
 import { useAlbumCatalog } from '../composables/useAlbumCatalog'
+import { useAlbumGridLayout } from '../composables/useAlbumGridLayout'
 import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
+import { findAlbumTransitionFocusTarget } from '../utils/albumGridTransitionPlan'
+import type { AlbumLayoutTransitionParticipant } from '@renderer/app/layout/lyricsAlbumTransitionCoordinator'
 
-/**
- * 网格行左右阴影缓冲带：须覆盖默认侧倾 -12px 阴影与 hover 转正后的模糊外溢。
- * 须与 .albums-grid-row 的 padding-left/right 之和一致。
- */
-const GRID_PADDING_X = 40
-const COLUMN_GAP = 20
-const ROW_GAP = 28
-const PERSPECTIVE_ROW_GAP = 8
-/** 封面下方固定元信息区：12px margin + 58px 文本块 */
-const CARD_METADATA_HEIGHT = 70
-/** 目标封面边长黄金区间 ~180–200px，用于加密列数 */
-const TARGET_CARD_WIDTH = 190
-const MAX_CARD_WIDTH = 210
-const MIN_COLS = 3
-const MAX_COLS = 6
-const DEFAULT_ROW_HEIGHT = 240
 const ALBUM_DISPLAY_MODE_KEY = 'auralis-albums-display-mode'
 const ALBUMS_SCROLL_TOP_KEY = 'auralis-albums-scroll-top'
 
@@ -51,9 +52,13 @@ function readDisplayMode(): AlbumDisplayMode {
 }
 
 defineOptions({ name: 'AlbumsPage' })
-const props = withDefaults(defineProps<{ isTransitioning?: boolean }>(), {
-  isTransitioning: false,
-})
+const props = withDefaults(
+  defineProps<{ isTransitioning?: boolean; isLayoutResizing?: boolean }>(),
+  {
+    isTransitioning: false,
+    isLayoutResizing: false,
+  },
+)
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
@@ -76,8 +81,6 @@ const {
 )
 const loadError = computed(() => (catalogError.value ? t('albums.status.loadError') : null))
 const scrollRef = ref<HTMLElement | null>(null)
-const columnCount = ref(4)
-const rowHeight = ref(DEFAULT_ROW_HEIGHT)
 const displayMode = ref<AlbumDisplayMode>(readDisplayMode())
 const contextMenu = ref<AlbumContextMenuState | null>(null)
 const contextMenuRef = ref<HTMLElement | null>(null)
@@ -137,6 +140,31 @@ watch(tracks, () => {
 
 const catalogIndex = computed(() => getAlbumCatalogIndex(tracks.value))
 const albums = computed<AlbumSummary[]>(() => catalogIndex.value.albums)
+const {
+  gridWidth,
+  columnCount,
+  rowHeight,
+  update: updateAdaptiveGrid,
+  beginTransition: beginGridTransition,
+  commitTransitionTarget: commitGridTransitionTarget,
+  endTransition: endGridTransition,
+} = useAlbumGridLayout({
+  container: scrollRef,
+  displayMode,
+  isResizing: toRef(props, 'isLayoutResizing'),
+  isActive: isPageActive,
+  albumKeys: computed(() => albums.value.map((album) => album.key)),
+  measure: () => rowVirtualizer.value.measure(),
+})
+const gridContentRef = ref<HTMLElement | null>(null)
+const transitionLayerRef = ref<InstanceType<typeof AlbumGridTransitionLayer> | null>(null)
+const isLayoutTransitionActive = ref(false)
+const emit = defineEmits<{ 'cancel-layout-transition': [] }>()
+let layoutTransitionRevision = 0
+let oldTransitionVisuals: AlbumTransitionVisual[] = []
+let transitionFromViewport: AlbumTransitionRect | null = null
+let savedFocus: { albumKey: string; selector: string } | null = null
+let allowProgrammaticScrollUntil = 0
 
 let idlePalettePrefetchHandle: number | null = null
 let idlePalettePrefetchMode: 'idle' | 'timeout' | null = null
@@ -218,31 +246,225 @@ const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(
 const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalHeight = computed(() => rowVirtualizer.value.getTotalSize())
 
-function updateAdaptiveGrid(): boolean {
+function toTransitionRect(rect: DOMRect): AlbumTransitionRect {
+  return { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
+}
+
+function measureScrollViewport(container: HTMLElement): DOMRect {
+  const rect = container.getBoundingClientRect()
+  return DOMRect.fromRect({
+    x: rect.left + container.clientLeft,
+    y: rect.top + container.clientTop,
+    width: container.clientWidth,
+    height: container.clientHeight,
+  })
+}
+
+function isInsideViewport(rect: DOMRect, viewport: DOMRect): boolean {
+  return (
+    rect.width > 0 &&
+    rect.height > 0 &&
+    rect.right > viewport.left &&
+    rect.left < viewport.right &&
+    rect.bottom > viewport.top &&
+    rect.top < viewport.bottom
+  )
+}
+
+function collectVisibleTransitionVisuals(
+  viewport = scrollRef.value ? measureScrollViewport(scrollRef.value) : undefined,
+): AlbumTransitionVisual[] {
   const container = scrollRef.value
-  if (!container?.isConnected || container.clientWidth === 0) return false
+  if (!container || !viewport) return []
+  return Array.from(container.querySelectorAll<HTMLElement>('.album-card[data-album-key]')).flatMap(
+    (card) => {
+      const rect = card.getBoundingClientRect()
+      if (!isInsideViewport(rect, viewport)) return []
+      const key = card.dataset.albumKey
+      if (!key) return []
+      const opacity = Number.parseFloat(getComputedStyle(card).opacity)
+      return [
+        {
+          key,
+          node: card.cloneNode(true) as HTMLElement,
+          rect: toTransitionRect(rect),
+          opacity: Number.isFinite(opacity) ? opacity : 1,
+        },
+      ]
+    },
+  )
+}
 
-  const availableWidth = Math.max(0, container.clientWidth - GRID_PADDING_X)
+function collectVisibleTransitionTargets(
+  viewport = scrollRef.value ? measureScrollViewport(scrollRef.value) : undefined,
+): AlbumTransitionTarget[] {
+  const container = scrollRef.value
+  if (!container || !viewport) return []
+  return Array.from(container.querySelectorAll<HTMLElement>('.album-card[data-album-key]')).flatMap(
+    (card) => {
+      const rect = card.getBoundingClientRect()
+      if (!isInsideViewport(rect, viewport)) return []
+      const key = card.dataset.albumKey
+      if (!key) return []
+      return [{ key, node: card, rect: toTransitionRect(rect) }]
+    },
+  )
+}
 
-  // 按目标封面宽度 (~190px) 推算列数，并限制在 3~6；卡片过宽时优先加密列
-  let cols = Math.floor((availableWidth + COLUMN_GAP) / (TARGET_CARD_WIDTH + COLUMN_GAP))
-  cols = Math.min(MAX_COLS, Math.max(MIN_COLS, cols))
+function removeTransitionInputListeners(): void {
+  document.removeEventListener('keydown', onTransitionKeydown, true)
+  scrollRef.value?.removeEventListener('wheel', onTransitionWheel)
+  scrollRef.value?.removeEventListener('touchstart', onTransitionTouchStart)
+  scrollRef.value?.removeEventListener('scroll', onTransitionScroll)
+}
 
-  let cardWidth = Math.max(1, (availableWidth - COLUMN_GAP * (cols - 1)) / cols)
-  while (cols < MAX_COLS && cardWidth > MAX_CARD_WIDTH) {
-    cols += 1
-    cardWidth = Math.max(1, (availableWidth - COLUMN_GAP * (cols - 1)) / cols)
+function onTransitionKeydown(event: KeyboardEvent): void {
+  const target = event.target
+  if (target instanceof Element && target.closest('[data-lyrics-toggle]')) return
+  if (
+    [
+      'ArrowUp',
+      'ArrowDown',
+      'ArrowLeft',
+      'ArrowRight',
+      'Home',
+      'End',
+      'PageUp',
+      'PageDown',
+      'Tab',
+      'Enter',
+      ' ',
+    ].includes(event.key)
+  ) {
+    emit('cancel-layout-transition')
+  }
+}
+
+function onTransitionWheel(): void {
+  emit('cancel-layout-transition')
+}
+
+function onTransitionTouchStart(): void {
+  emit('cancel-layout-transition')
+}
+
+function onTransitionScroll(): void {
+  if (Date.now() < allowProgrammaticScrollUntil) return
+  emit('cancel-layout-transition')
+}
+
+function prepareLyricsLayoutTransition(revision: number): boolean {
+  const container = scrollRef.value
+  if (!isPageActive.value || !container?.isConnected || !transitionLayerRef.value) return false
+  const reversing = isLayoutTransitionActive.value
+  const viewport = measureScrollViewport(container)
+  if (reversing) {
+    transitionFromViewport = transitionLayerRef.value.captureViewport()
+    oldTransitionVisuals = transitionLayerRef.value.captureVisuals()
+  } else {
+    const activeElement = document.activeElement
+    if (activeElement instanceof HTMLElement) {
+      const card = activeElement.closest<HTMLElement>('.album-card[data-album-key]')
+      if (card?.dataset.albumKey) {
+        savedFocus = {
+          albumKey: card.dataset.albumKey,
+          selector: activeElement.classList.contains('cover-stage')
+            ? '.cover-stage'
+            : activeElement.classList.contains('album-card-play')
+              ? '.album-card-play'
+              : '.cover-stage',
+        }
+      }
+    }
+    oldTransitionVisuals = collectVisibleTransitionVisuals(viewport)
+    transitionFromViewport = toTransitionRect(viewport)
+    beginGridTransition()
   }
 
-  const rowGap = displayMode.value === 'perspective' ? PERSPECTIVE_ROW_GAP : ROW_GAP
-  const nextRowHeight = cardWidth + CARD_METADATA_HEIGHT + rowGap
-  if (columnCount.value !== cols || rowHeight.value !== nextRowHeight) {
-    columnCount.value = cols
-    rowHeight.value = nextRowHeight
-    rowVirtualizer.value.measure()
-    return true
-  }
-  return false
+  layoutTransitionRevision = revision
+  isLayoutTransitionActive.value = true
+  transitionLayerRef.value.mount(
+    transitionFromViewport ?? toTransitionRect(viewport),
+    transitionFromViewport ?? toTransitionRect(viewport),
+    oldTransitionVisuals,
+    [],
+  )
+  document.addEventListener('keydown', onTransitionKeydown, true)
+  container.addEventListener('wheel', onTransitionWheel, { passive: true })
+  container.addEventListener('touchstart', onTransitionTouchStart, { passive: true })
+  container.addEventListener('scroll', onTransitionScroll, { passive: true })
+  return true
+}
+
+async function commitLyricsLayoutTransition(revision: number): Promise<boolean> {
+  const container = scrollRef.value
+  if (
+    revision !== layoutTransitionRevision ||
+    !isLayoutTransitionActive.value ||
+    !isPageActive.value ||
+    !container?.isConnected
+  )
+    return false
+
+  commitGridTransitionTarget()
+  allowProgrammaticScrollUntil = Date.now() + 100
+  await nextTick()
+  if (
+    revision !== layoutTransitionRevision ||
+    !isLayoutTransitionActive.value ||
+    !isPageActive.value ||
+    scrollRef.value !== container ||
+    !container.isConnected
+  )
+    return false
+
+  await nextTick()
+  if (revision !== layoutTransitionRevision || !container.isConnected) return false
+  const viewport = measureScrollViewport(container)
+  const nextViewport = toTransitionRect(viewport)
+  transitionLayerRef.value?.mount(
+    transitionFromViewport ?? nextViewport,
+    nextViewport,
+    oldTransitionVisuals,
+    collectVisibleTransitionTargets(viewport),
+  )
+  oldTransitionVisuals = []
+  transitionFromViewport = null
+  return true
+}
+
+function renderLyricsLayoutTransition(revision: number, progress: number): void {
+  if (revision === layoutTransitionRevision) transitionLayerRef.value?.renderProgress(progress)
+}
+
+async function finishLyricsLayoutTransition(revision: number): Promise<void> {
+  if (revision !== layoutTransitionRevision) return
+  const container = scrollRef.value
+  transitionLayerRef.value?.clear()
+  oldTransitionVisuals = []
+  transitionFromViewport = null
+  isLayoutTransitionActive.value = false
+  removeTransitionInputListeners()
+  endGridTransition()
+  const focus = savedFocus
+  savedFocus = null
+  await nextTick()
+  if (!focus || !isPageActive.value || !container?.isConnected) return
+  findAlbumTransitionFocusTarget(
+    container.querySelectorAll<HTMLElement>('.album-card[data-album-key]'),
+    focus.albumKey,
+    focus.selector,
+  )?.focus()
+}
+
+function cancelLyricsLayoutTransition(revision: number): void {
+  if (revision !== layoutTransitionRevision) return
+  transitionLayerRef.value?.clear()
+  oldTransitionVisuals = []
+  savedFocus = null
+  isLayoutTransitionActive.value = false
+  removeTransitionInputListeners()
+  endGridTransition()
 }
 
 async function connectGrid(): Promise<void> {
@@ -250,10 +472,10 @@ async function connectGrid(): Promise<void> {
   if (!container?.isConnected || !isPageActive.value) return
   // A resize while hidden can change total height. Commit that geometry before
   // restoring the offset, without waiting for another animation frame.
-  if (updateAdaptiveGrid()) await nextTick()
+  if (updateAdaptiveGrid(false)) await nextTick()
   if (isPageUnmounted || !isPageActive.value || scrollRef.value !== container) return
   resizeObserver?.disconnect()
-  resizeObserver = new ResizeObserver(updateAdaptiveGrid)
+  resizeObserver = new ResizeObserver(() => updateAdaptiveGrid())
   resizeObserver.observe(container)
   // Activation hooks run before paint; no next-frame jump during the transition.
   if (Number.isFinite(savedScrollTop)) container.scrollTop = savedScrollTop
@@ -277,6 +499,14 @@ function setDisplayMode(mode: AlbumDisplayMode): void {
   updateAdaptiveGrid()
   localStorage.setItem(ALBUM_DISPLAY_MODE_KEY, mode)
 }
+
+watch(albums, () => {
+  if (isLayoutTransitionActive.value) emit('cancel-layout-transition')
+})
+
+watch(displayMode, () => {
+  if (isLayoutTransitionActive.value) emit('cancel-layout-transition')
+})
 
 function toggleDisplayModeFromContextMenu(): void {
   setDisplayMode(displayMode.value === 'grid' ? 'perspective' : 'grid')
@@ -517,6 +747,7 @@ onActivated(() => {
 })
 
 onBeforeRouteLeave(() => {
+  if (isLayoutTransitionActive.value) emit('cancel-layout-transition')
   if (scrollRef.value) savedScrollTop = scrollRef.value.scrollTop
   closeContextMenu()
 })
@@ -531,6 +762,7 @@ function disconnectPage(): void {
 }
 
 onDeactivated(() => {
+  cancelLyricsLayoutTransition(layoutTransitionRevision)
   disconnectPage()
   sessionStorage.setItem(ALBUMS_SCROLL_TOP_KEY, String(savedScrollTop))
 })
@@ -538,11 +770,20 @@ onDeactivated(() => {
 onBeforeUnmount(() => {
   isPageUnmounted = true
   if (isPageActive.value && scrollRef.value) savedScrollTop = scrollRef.value.scrollTop
+  cancelLyricsLayoutTransition(layoutTransitionRevision)
   disconnectPage()
   sessionStorage.setItem(ALBUMS_SCROLL_TOP_KEY, String(savedScrollTop))
   if (searchHighlightTimeout) {
     clearTimeout(searchHighlightTimeout)
   }
+})
+
+defineExpose<AlbumLayoutTransitionParticipant>({
+  prepareLyricsLayoutTransition,
+  commitLyricsLayoutTransition,
+  renderLyricsLayoutTransition,
+  finishLyricsLayoutTransition,
+  cancelLyricsLayoutTransition,
 })
 </script>
 
@@ -608,8 +849,15 @@ onBeforeUnmount(() => {
           :class="{ 'albums-scroll--perspective': displayMode === 'perspective' }"
         >
           <div
+            ref="gridContentRef"
             class="relative w-full"
-            :style="{ height: `${totalHeight}px` }"
+            :class="{ 'albums-grid-content--transitioning': isLayoutTransitionActive }"
+            :inert="isLayoutTransitionActive ? true : undefined"
+            :aria-hidden="isLayoutTransitionActive ? 'true' : undefined"
+            :style="{
+              height: `${totalHeight}px`,
+              width: gridWidth === null ? undefined : `${gridWidth}px`,
+            }"
             :aria-label="`${albums.length} albums`"
           >
             <div
@@ -625,6 +873,7 @@ onBeforeUnmount(() => {
               <AlbumCard
                 v-for="(album, columnIndex) in albumRows[virtualRow.index]"
                 :key="album.key"
+                :data-album-key="album.key"
                 :album="album"
                 :display-mode="displayMode"
                 :highlighted="highlightedAlbumKey === album.key"
@@ -645,6 +894,8 @@ onBeforeUnmount(() => {
         />
       </div>
     </template>
+
+    <AlbumGridTransitionLayer ref="transitionLayerRef" />
 
     <Teleport to="body">
       <div v-if="contextMenu" class="albums-overlay fixed inset-0 z-[60]" @click="closeContextMenu">
@@ -748,6 +999,10 @@ onBeforeUnmount(() => {
   /* 行内允许 3D 阴影轻微溢出，避免相邻行互相裁切观感 */
   overflow: visible;
   transition: opacity 0.3s ease;
+}
+
+.albums-grid-content--transitioning {
+  visibility: hidden;
 }
 
 @media (prefers-reduced-motion: reduce) {

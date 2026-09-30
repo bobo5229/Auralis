@@ -132,6 +132,7 @@ docs/topics/albums/*
 !docs/topics/albums/PRD-cd-album-cover-index-2026-09-25.md
 !docs/topics/albums/TECHDOC-cd-album-cover-index-2026-09-25.md
 !docs/topics/albums/TECHDOC-cd-catalog-sequential-playback-2026-09-26.md
+!docs/topics/albums/TECHDOC-lyrics-collapse-album-grid-sync-2026-09-30.md
 !docs/topics/README.md
 !docs/topics/library/
 docs/topics/library/*
@@ -146,8 +147,8 @@ docs/topics/shell/*
 !docs/topics/shell/light-theme-color-presets.md
 !docs/topics/shell/techdoc-sidebar-first-navigation-warmup.md
 !docs/topics/shell/TECHDOC-semantic-font-system-2026-09-29.md
-!docs/topics/playback/
 !docs/topics/shell/TECHDOC-theme-aware-splash-logo-2026-09-29.md
+!docs/topics/playback/
 docs/topics/playback/*
 !docs/topics/playback/TECHDOC-gapless-memory-budget-2026-09-21.md
 !docs/topics/playback/PRD-playerbar-matte-depth-2026-08-29.md
