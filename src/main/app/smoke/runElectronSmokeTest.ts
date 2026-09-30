@@ -1,4 +1,5 @@
 import { app, BrowserWindow, type WebContents } from 'electron'
+import { createWindow } from '../createWindow'
 
 interface SmokeCheck {
   name: string
@@ -601,6 +602,43 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
         )
       }
       assertPlayerBarBottomGap(probe)
+    })
+
+    await record('later windows skip splash and retain the saved light theme', async () => {
+      await mainWindow.webContents.executeJavaScript(
+        `localStorage.setItem('auralis-theme', 'light')`,
+      )
+      const laterWindow = createWindow({ showSplash: false })
+      try {
+        await waitFor('later window did-finish-load', () =>
+          finishedLoads.has(laterWindow.webContents),
+        )
+        await waitFor('later window renderer ready', () =>
+          laterWindow.webContents.executeJavaScript(`window.__auralisAppReady === true`),
+        )
+        const probe = (await laterWindow.webContents.executeJavaScript(`(() => ({
+          search: window.location.search,
+          theme: document.documentElement.dataset.theme,
+          splashPresent: Boolean(document.getElementById('splash')),
+          appInert: document.getElementById('app')?.hasAttribute('inert'),
+        }))()`)) as {
+          search: string
+          theme: string | undefined
+          splashPresent: boolean
+          appInert: boolean | undefined
+        }
+        if (
+          probe.search !== '?splash=0' ||
+          probe.theme !== 'light' ||
+          probe.splashPresent ||
+          probe.appInert ||
+          laterWindow.getBackgroundColor().toLowerCase() !== '#f0f1f2'
+        ) {
+          throw new Error(`Later window startup did not skip splash: ${JSON.stringify(probe)}`)
+        }
+      } finally {
+        laterWindow.destroy()
+      }
     })
 
     await record('no main-frame load or renderer failure occurred', () => {

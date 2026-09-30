@@ -7,6 +7,7 @@ export const ipcChannels = {
     getInfo: 'app:get-info',
     exportDiagnostics: 'app:export-diagnostics',
     rendererReady: 'app:renderer-ready',
+    splashReady: 'app:splash-ready',
   },
   library: {
     getStats: 'library:get-stats',

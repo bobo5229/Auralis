@@ -93,8 +93,16 @@ export interface NativePlaybackEvent {
   detail?: string
 }
 
+/** 开屏就绪通知携带的主题；仅接受枚举值，主进程据此对齐原生底色。 */
+export type SplashScreenTheme = 'light' | 'dark'
+
+export interface SplashScreenReadyPayload {
+  theme: SplashScreenTheme
+}
+
 export interface IpcSendContract {
   'app:renderer-ready': void
+  'app:splash-ready': SplashScreenReadyPayload
   'system-media:update-thumbar-state': SystemMediaPlaybackState
 }
 

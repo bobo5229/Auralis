@@ -2,6 +2,7 @@ import { BrowserWindow, app, ipcMain } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
+import type { SplashScreenReadyPayload, SplashScreenTheme } from '@shared/ipc/contracts'
 import { registerMainWindow } from './mainWindowRegistry'
 import { createWindowsThumbarController } from './windowsThumbarController'
 import { secureRendererWindow } from './webContentsSecurity'
@@ -17,7 +18,8 @@ function resolveAppIconPath(): string | undefined {
   return candidates.find((candidate) => existsSync(candidate))
 }
 
-export function createWindow(): BrowserWindow {
+export function createWindow(options: { showSplash?: boolean } = {}): BrowserWindow {
+  const showSplash = options.showSplash !== false
   const icon = resolveAppIconPath()
 
   const window = new BrowserWindow({
@@ -26,7 +28,9 @@ export function createWindow(): BrowserWindow {
     minWidth: 900,
     minHeight: 620,
     title: 'Auralis',
-    backgroundColor: '#0c0b0a',
+    // 默认深色主题底色，与 main.css 的 --auralis-bg 一致；
+    // 实际主题在收到 app:splash-ready 后、窗口可见前再对齐。
+    backgroundColor: '#121212',
     transparent: false,
     frame: false,
     show: false,
@@ -82,11 +86,32 @@ export function createWindow(): BrowserWindow {
     }
   }
 
+  // 开屏首帧色值，与 public/splash/splash.css 及 main.css 主题 token 一致。
+  const SPLASH_THEME_BACKGROUNDS: Record<SplashScreenTheme, string> = {
+    dark: '#121212',
+    light: '#f0f1f2',
+  }
+
+  // 开屏可绘制信号：仅接受主窗口顶层 frame 的通知；payload 经枚举校验后
+  // 先对齐原生底色再显示窗口，避免浅色主题从深色原生底色闪入。
+  const handleSplashReady = (event: Electron.IpcMainEvent, payload: unknown): void => {
+    if (event.sender !== window.webContents) return
+    if (!event.senderFrame || event.senderFrame !== window.webContents.mainFrame) return
+
+    const theme = (payload as SplashScreenReadyPayload | undefined)?.theme
+    if (theme !== 'light' && theme !== 'dark') return
+
+    window.setBackgroundColor(SPLASH_THEME_BACKGROUNDS[theme])
+    if (showSplash) showWindow()
+  }
+
   ipcMain.on(ipcChannels.app.rendererReady, handleRendererReady)
+  ipcMain.on(ipcChannels.app.splashReady, handleSplashReady)
 
   window.once('closed', () => {
     clearTimeout(readyTimeout)
     ipcMain.removeListener(ipcChannels.app.rendererReady, handleRendererReady)
+    ipcMain.removeListener(ipcChannels.app.splashReady, handleSplashReady)
     disposeThumbarController()
   })
 
@@ -94,9 +119,12 @@ export function createWindow(): BrowserWindow {
   window.webContents.once('did-fail-load', showWindow)
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    window.loadURL(rendererEntry)
+    const url = new URL(rendererEntry)
+    if (!showSplash) url.searchParams.set('splash', '0')
+    window.loadURL(url.toString())
   } else {
-    window.loadFile(rendererEntry)
+    if (showSplash) window.loadFile(rendererEntry)
+    else window.loadFile(rendererEntry, { query: { splash: '0' } })
   }
 
   return window

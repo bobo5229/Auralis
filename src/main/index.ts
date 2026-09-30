@@ -138,7 +138,7 @@ void app
       void runElectronSmokeTest(mainWindow)
     } else {
       app.on('activate', () => {
-        if (!shuttingDown) createWindow()
+        if (!shuttingDown) createWindow({ showSplash: false })
       })
     }
   })

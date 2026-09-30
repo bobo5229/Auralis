@@ -147,6 +147,7 @@ docs/topics/shell/*
 !docs/topics/shell/techdoc-sidebar-first-navigation-warmup.md
 !docs/topics/shell/TECHDOC-semantic-font-system-2026-09-29.md
 !docs/topics/playback/
+!docs/topics/shell/TECHDOC-theme-aware-splash-logo-2026-09-29.md
 docs/topics/playback/*
 !docs/topics/playback/TECHDOC-gapless-memory-budget-2026-09-21.md
 !docs/topics/playback/PRD-playerbar-matte-depth-2026-08-29.md

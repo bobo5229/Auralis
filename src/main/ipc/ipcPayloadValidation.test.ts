@@ -14,6 +14,7 @@ function flattenChannels(value: object): string[] {
 const nonInvokeChannels = new Set<string>([
   ipcChannels.playback.nativeEvent,
   ipcChannels.app.rendererReady,
+  ipcChannels.app.splashReady,
   ipcChannels.library.scanProgress,
   ipcChannels.library.changed,
   ipcChannels.systemMedia.updateThumbarState,

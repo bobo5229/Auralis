@@ -186,6 +186,7 @@ function createApi(): AuralisApi {
       getInfo: vi.fn(),
       exportDiagnostics: vi.fn(),
       rendererReady: vi.fn(),
+      splashReady: vi.fn(),
     },
     library: {
       getStats: vi.fn(),

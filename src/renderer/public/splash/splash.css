@@ -1,0 +1,118 @@
+/*
+ * 开屏首帧样式：独立于应用 bundle，保证波形、光点与文字在首次绘制前即有主题颜色。
+ * 首帧色值与 main.css 的 --auralis-bg / --auralis-theme-accent / --auralis-text
+ * 构成单一维护契约，由 src/renderer/app/splash/splashContract.test.ts 检查两端一致；
+ * 不得引入应用图标 SVG 中的旧品牌蓝色。
+ */
+
+:root,
+[data-theme='dark'] {
+  --splash-bg: #121212;
+  --splash-accent: #f472b6;
+  --splash-text: #f3eee6;
+}
+
+[data-theme='light'] {
+  --splash-bg: #f0f1f2;
+  --splash-accent: #585b5f;
+  --splash-text: #292b2d;
+}
+
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--splash-bg);
+  color: var(--splash-text);
+  opacity: 1;
+}
+
+/* 淡出由开屏控制器加 is-exiting 触发；时长与 SPLASH_FADE_OUT_MS 保持一致。 */
+#splash.is-exiting {
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+#splash-figure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(16px, 4vmin, 32px);
+}
+
+#splash-mark {
+  display: block;
+  width: clamp(96px, 22vmin, 220px);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+/* 复用应用图标的连续波形原始 path d；只换主题强调色，不渲染底板。 */
+#splash-waveform-path {
+  fill: none;
+  stroke: var(--splash-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#splash-dot {
+  fill: var(--splash-text);
+  stroke: var(--splash-bg);
+  stroke-width: 0.45;
+}
+
+/* 文字沿用当前 UI 字体角色：与 typography.css 的 --auralis-font-ui 逐字一致，
+ * 字体资源仍随应用 bundle 加载，加载前按后备顺序显示系统字体。 */
+#splash-brand {
+  font-family:
+    'Auralis Numerals',
+    'Plus Jakarta Sans',
+    'HarmonyOS Sans SC',
+    'Arial Unicode MS',
+    'Nirmala UI',
+    'Microsoft Himalaya',
+    'Leelawadee UI',
+    'Segoe UI Symbol',
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  font-size: clamp(20px, 4.5vmin, 40px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.splash-startup-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Plus Jakarta Sans', 'HarmonyOS Sans SC', sans-serif;
+  text-align: center;
+}
+
+.splash-startup-error strong {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.splash-startup-error span {
+  font-size: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #splash-dot {
+    display: none;
+  }
+
+  #splash.is-exiting {
+    transition: none;
+  }
+}

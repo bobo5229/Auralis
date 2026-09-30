@@ -18,6 +18,7 @@ export interface AuralisApi {
     getInfo: () => Result<'app:get-info'>
     exportDiagnostics: () => Result<'app:export-diagnostics'>
     rendererReady: () => void
+    splashReady: (payload: IpcSendPayload<'app:splash-ready'>) => void
   }
   library: {
     getStats: () => Result<'library:get-stats'>
