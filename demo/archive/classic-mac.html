@@ -1,0 +1,823 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · Macintosh 128K</title>
+    <style>
+      :root {
+        --putty: #d7ceba;
+        --putty-hi: #efe7d4;
+        --putty-mid: #c9c0ab;
+        --putty-lo: #a89f8b;
+        --putty-ink: #6f6758;
+        --seam: #8f8674;
+        --crt-black: #12110f;
+        --studio: #161410;
+        --w: 300px;
+        --h: 425px;
+        --d: 340px;
+        --tilt-x: 22deg;
+        --tilt-y: -28deg;
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--studio);
+        color: #d8d0c0;
+      }
+      body {
+        overflow: hidden;
+        font-family: Palatino, 'Iowan Old Style', 'Songti SC', serif;
+      }
+      .studio {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        perspective: 1600px;
+        background:
+          radial-gradient(70% 50% at 50% 36%, #2a261f 0%, var(--studio) 62%);
+      }
+      .rig {
+        position: relative;
+        width: var(--w);
+        height: var(--h);
+        transform-style: preserve-3d;
+        transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+        transform-origin: 50% 60%;
+      }
+      .mac,
+      .kbd,
+      .mouse {
+        position: absolute;
+        transform-style: preserve-3d;
+      }
+      .mac {
+        inset: 0;
+      }
+      .face {
+        position: absolute;
+        background: var(--putty-mid);
+        backface-visibility: hidden;
+      }
+      .front,
+      .back {
+        width: var(--w);
+        height: var(--h);
+        left: 0;
+        top: 0;
+      }
+      .front {
+        transform: translateZ(calc(var(--d) / 2));
+        background: none;
+        transform-style: preserve-3d;
+      }
+      .front-top,
+      .front-left,
+      .front-right,
+      .front-chin {
+        position: absolute;
+        background: linear-gradient(180deg, var(--putty-hi) 0%, var(--putty) 40%, var(--putty-mid) 100%);
+      }
+      .front-top {
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 9%;
+      }
+      .front-left {
+        left: 0;
+        top: 9%;
+        width: 11%;
+        height: 37%;
+      }
+      .front-right {
+        right: 0;
+        top: 9%;
+        width: 11%;
+        height: 37%;
+      }
+      .front-chin {
+        left: 0;
+        right: 0;
+        top: 46%;
+        bottom: 0;
+        background: linear-gradient(180deg, var(--putty) 0%, var(--putty-mid) 100%);
+      }
+      .back {
+        transform: rotateY(180deg) translateZ(calc(var(--d) / 2));
+        background:
+          linear-gradient(180deg, var(--putty-lo), #8a8270 55%, #7a7262);
+      }
+      .side {
+        width: var(--d);
+        height: var(--h);
+        top: 0;
+        left: calc((var(--w) - var(--d)) / 2);
+      }
+      .left {
+        transform: rotateY(-90deg) translateZ(calc(var(--w) / 2));
+        background: linear-gradient(90deg, var(--putty-hi), var(--putty-mid) 40%, var(--putty-lo));
+      }
+      .right {
+        transform: rotateY(90deg) translateZ(calc(var(--w) / 2));
+        background: linear-gradient(90deg, var(--putty-lo), #9a917e);
+      }
+      .cap {
+        width: var(--w);
+        height: var(--d);
+        left: 0;
+        top: calc((var(--h) - var(--d)) / 2);
+      }
+      .top {
+        transform: rotateX(90deg) translateZ(calc(var(--h) / 2));
+        background: linear-gradient(180deg, var(--putty-hi), var(--putty));
+      }
+      .bottom {
+        transform: rotateX(-90deg) translateZ(calc(var(--h) / 2));
+        background: #8a8170;
+      }
+      .seam-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        right: 28%;
+        background: linear-gradient(180deg, transparent, var(--seam) 8%, var(--seam) 92%, transparent);
+        box-shadow: 1px 0 0 rgba(255, 245, 220, 0.18);
+      }
+      .vents {
+        position: absolute;
+        inset: 42px 22px 90px;
+        background: repeating-linear-gradient(
+          90deg,
+          #5c564a 0 3px,
+          #2e2b26 3px 7px
+        );
+        box-shadow: inset 0 8px 16px rgba(0, 0, 0, 0.45);
+      }
+      .rear-plate {
+        position: absolute;
+        left: 24px;
+        right: 24px;
+        bottom: 28px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px;
+        color: #3f3a32;
+        font-size: 11px;
+        letter-spacing: 0.16em;
+      }
+      .ports {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: 14px;
+        height: 18px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .ports i {
+        display: block;
+        height: 10px;
+        background: #1c1a16;
+        box-shadow: inset 0 1px 2px #000, 0 1px 0 rgba(255, 255, 255, 0.12);
+      }
+      .ports i:nth-child(1) {
+        width: 28px;
+      }
+      .ports i:nth-child(2) {
+        width: 36px;
+      }
+      .ports i:nth-child(3) {
+        width: 22px;
+      }
+      .ports i:nth-child(4) {
+        width: 14px;
+        border-radius: 50%;
+        height: 14px;
+      }
+
+      .handle {
+        position: absolute;
+        left: 28px;
+        right: 28px;
+        bottom: 28px;
+        height: 52px;
+        transform-style: preserve-3d;
+        transform: translateZ(10px);
+        pointer-events: none;
+      }
+      .handle-well {
+        position: absolute;
+        inset: 0;
+        background: #2a261f;
+        box-shadow:
+          inset 0 10px 16px rgba(0, 0, 0, 0.55),
+          inset 0 -6px 10px rgba(0, 0, 0, 0.35);
+        transform: translateZ(-14px);
+      }
+      .handle-bar {
+        position: absolute;
+        left: 10px;
+        right: 10px;
+        top: 14px;
+        height: 22px;
+        background: linear-gradient(180deg, var(--putty-hi), var(--putty-lo));
+        box-shadow:
+          0 8px 10px rgba(0, 0, 0, 0.35),
+          inset 0 1px 0 rgba(255, 255, 255, 0.4);
+        transform: translateZ(10px);
+      }
+
+      .crt-well {
+        position: absolute;
+        left: 11%;
+        right: 11%;
+        top: 9%;
+        height: 37%;
+        padding: 10px 12px 12px;
+        background: #0c0b0a;
+        box-shadow: inset 0 0 0 2px #2e2923;
+        transform: translateZ(-18px);
+        transform-style: preserve-3d;
+      }
+      .crt-wall {
+        position: absolute;
+        background: #070706;
+      }
+      .crt-wall.n {
+        left: 8px;
+        right: 8px;
+        top: 8px;
+        height: 16px;
+        transform: rotateX(-90deg);
+        transform-origin: top;
+      }
+      .crt-wall.s {
+        left: 8px;
+        right: 8px;
+        bottom: 8px;
+        height: 16px;
+        transform: rotateX(90deg);
+        transform-origin: bottom;
+      }
+      .crt-wall.w {
+        top: 8px;
+        bottom: 8px;
+        left: 8px;
+        width: 16px;
+        transform: rotateY(90deg);
+        transform-origin: left;
+      }
+      .crt-wall.e {
+        top: 8px;
+        bottom: 8px;
+        right: 8px;
+        width: 16px;
+        transform: rotateY(-90deg);
+        transform-origin: right;
+      }
+      .crt-glass {
+        position: relative;
+        height: 100%;
+        overflow: hidden;
+        background: #efe9d8;
+        box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.22);
+      }
+      .crt-glass canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated;
+      }
+      .scan {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(rgba(20, 16, 12, 0) 50%, rgba(20, 16, 12, 0.16) 50%);
+        background-size: 100% 2px;
+        opacity: 0.55;
+      }
+      .glare {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(
+          165deg,
+          rgba(255, 255, 255, 0.22) 0%,
+          transparent 32%,
+          transparent 100%
+        );
+      }
+
+      .floppy {
+        position: absolute;
+        left: 38%;
+        width: 42%;
+        top: 64%;
+        height: 14px;
+        transform-style: preserve-3d;
+      }
+      .floppy-lip {
+        position: absolute;
+        inset: 0;
+        background: #1b1915;
+        box-shadow:
+          inset 0 3px 4px #000,
+          0 1px 0 rgba(255, 255, 255, 0.2);
+      }
+      .floppy-depth {
+        position: absolute;
+        left: 2px;
+        right: 2px;
+        top: 3px;
+        height: 18px;
+        background: linear-gradient(#111, #2c2a26);
+        transform: rotateX(-72deg);
+        transform-origin: top;
+      }
+      .apple {
+        position: absolute;
+        left: 18%;
+        top: 62.5%;
+        width: 34px;
+        height: 40px;
+        filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.25));
+      }
+      .dial {
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        right: 28%;
+        bottom: 11%;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 30%, #cfc6b2, #6a6356);
+        box-shadow:
+          inset 0 1px 1px rgba(255, 255, 255, 0.4),
+          0 1px 2px rgba(0, 0, 0, 0.4);
+      }
+      .jack {
+        position: absolute;
+        right: 12%;
+        bottom: 10%;
+        width: 18px;
+        height: 10px;
+        background: #1a1814;
+        border-radius: 1px;
+        box-shadow: inset 0 2px 3px #000;
+      }
+
+      .kbd {
+        --kw: 320px;
+        --kh: 22px;
+        --kd: 108px;
+        width: var(--kw);
+        height: var(--kh);
+        left: calc((var(--w) - var(--kw)) / 2);
+        top: calc(var(--h) + 20px);
+        transform: translateZ(calc(var(--d) / 2 + 78px)) rotateX(-32deg);
+      }
+      .kbd-f,
+      .kbd-bk {
+        width: var(--kw);
+        height: var(--kh);
+        left: 0;
+        top: 0;
+      }
+      .kbd-f {
+        transform: translateZ(calc(var(--kd) / 2));
+        background: linear-gradient(180deg, var(--putty-mid), var(--putty-lo));
+      }
+      .kbd-bk {
+        transform: rotateY(180deg) translateZ(calc(var(--kd) / 2));
+        background: var(--putty-lo);
+      }
+      .kbd-t {
+        width: var(--kw);
+        height: var(--kd);
+        left: 0;
+        top: calc((var(--kh) - var(--kd)) / 2);
+        transform: rotateX(90deg) translateZ(calc(var(--kh) / 2));
+        background: linear-gradient(180deg, var(--putty-hi), var(--putty));
+        padding: 10px 12px;
+        display: grid;
+        gap: 4px;
+        align-content: start;
+      }
+      .kbd-s {
+        width: var(--kd);
+        height: var(--kh);
+        top: 0;
+        left: calc((var(--kw) - var(--kd)) / 2);
+      }
+      .kbd-s.l {
+        transform: rotateY(-90deg) translateZ(calc(var(--kw) / 2));
+        background: var(--putty-hi);
+      }
+      .kbd-s.r {
+        transform: rotateY(90deg) translateZ(calc(var(--kw) / 2));
+        background: var(--putty-lo);
+      }
+      .kbd-row {
+        display: flex;
+        gap: 4px;
+      }
+      .key {
+        height: 13px;
+        flex: 1;
+        background: linear-gradient(180deg, #f3ece0, #c9c0ad);
+        box-shadow:
+          0 1px 0 #8a8272,
+          inset 0 1px 0 rgba(255, 255, 255, 0.7);
+      }
+      .key.space {
+        flex: 4.6;
+      }
+
+      .mouse {
+        --mw: 48px;
+        --mh: 24px;
+        --md: 70px;
+        width: var(--mw);
+        height: var(--mh);
+        left: 338px;
+        top: calc(var(--h) + 22px);
+        transform: translateZ(calc(var(--d) / 2 + 20px));
+      }
+      .mouse-f {
+        width: var(--mw);
+        height: var(--mh);
+        left: 0;
+        top: 0;
+        transform: translateZ(calc(var(--md) / 2));
+        background: var(--putty-lo);
+      }
+      .mouse-t {
+        width: var(--mw);
+        height: var(--md);
+        left: 0;
+        top: calc((var(--mh) - var(--md)) / 2);
+        transform: rotateX(90deg) translateZ(calc(var(--mh) / 2));
+        background: linear-gradient(180deg, #e7dfcc, #c2b9a4);
+      }
+      .mouse-t::after {
+        content: '';
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        top: 8px;
+        height: 24px;
+        border-bottom: 1px solid rgba(80, 70, 55, 0.35);
+      }
+      .mouse-s {
+        width: var(--md);
+        height: var(--mh);
+        top: 0;
+        left: calc((var(--mw) - var(--md)) / 2);
+      }
+      .mouse-s.l {
+        transform: rotateY(-90deg) translateZ(calc(var(--mw) / 2));
+        background: var(--putty-hi);
+      }
+      .mouse-s.r {
+        transform: rotateY(90deg) translateZ(calc(var(--mw) / 2));
+        background: #9a917e;
+      }
+
+      .shadow {
+        position: absolute;
+        left: -80px;
+        right: -120px;
+        top: 390px;
+        height: 90px;
+        background: radial-gradient(ellipse at 50% 40%, rgba(0, 0, 0, 0.5), transparent 68%);
+        transform: rotateX(90deg) translateZ(-40px);
+        pointer-events: none;
+      }
+
+      .caption {
+        position: absolute;
+        left: 36px;
+        bottom: 28px;
+        z-index: 4;
+        pointer-events: none;
+      }
+      .caption strong {
+        display: block;
+        font-size: 22px;
+        font-weight: 400;
+        letter-spacing: 0.08em;
+      }
+      .caption span {
+        display: block;
+        margin-top: 6px;
+        font-size: 13px;
+        letter-spacing: 0.18em;
+        color: #8a8274;
+      }
+      .hint {
+        position: absolute;
+        right: 36px;
+        bottom: 28px;
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        color: #6a6458;
+      }
+
+      @media (max-width: 800px) {
+        .studio {
+          perspective: 1200px;
+        }
+        .rig {
+          transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) scale(0.72);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .rig {
+          transform: rotateX(22deg) rotateY(-28deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="studio" id="studio">
+      <div class="rig" id="rig">
+        <div class="shadow" aria-hidden="true"></div>
+        <div class="mac" aria-label="Macintosh 128K 立体模型">
+          <div class="face front">
+            <div class="front-top"></div>
+            <div class="front-left"></div>
+            <div class="front-right"></div>
+            <div class="front-chin"></div>
+            <div class="crt-well">
+              <div class="crt-wall n"></div>
+              <div class="crt-wall s"></div>
+              <div class="crt-wall w"></div>
+              <div class="crt-wall e"></div>
+              <div class="crt-glass">
+                <canvas id="crt" width="512" height="342"></canvas>
+                <div class="scan"></div>
+                <div class="glare"></div>
+              </div>
+            </div>
+            <svg class="apple" viewBox="0 0 18 22" aria-hidden="true">
+              <defs>
+                <linearGradient id="rb" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#61bb46" />
+                  <stop offset="16%" stop-color="#61bb46" />
+                  <stop offset="16%" stop-color="#fdb827" />
+                  <stop offset="33%" stop-color="#fdb827" />
+                  <stop offset="33%" stop-color="#f5821f" />
+                  <stop offset="50%" stop-color="#f5821f" />
+                  <stop offset="50%" stop-color="#e03a3e" />
+                  <stop offset="66%" stop-color="#e03a3e" />
+                  <stop offset="66%" stop-color="#963d97" />
+                  <stop offset="83%" stop-color="#963d97" />
+                  <stop offset="83%" stop-color="#009ddc" />
+                  <stop offset="100%" stop-color="#009ddc" />
+                </linearGradient>
+                <clipPath id="body">
+                  <path
+                    d="M13.2 6.1c-.8.9-2.1 1.6-3.3 1.5-.2-1.2.4-2.5 1.1-3.3.8-.9 2.2-1.6 3.3-1.6.1 1.3-.4 2.5-1.1 3.4zM16.3 16.4c-.7 1.1-1.4 2.2-2.5 2.2-1.1.1-1.4-.7-2.9-.7s-1.9.7-2.9.7c-1.1 0-1.9-1-2.6-2.1-1.4-2.2-2.5-6.2-1-8.3.7-1.1 1.9-1.8 3.2-1.8 1 0 1.9.7 2.6.7s1.8-.8 3.1-.7c.5 0 2 .2 3 1.6-2.6 1.5-2.2 5.3.2 6.4z"
+                  />
+                </clipPath>
+              </defs>
+              <rect width="18" height="22" fill="url(#rb)" clip-path="url(#body)" />
+            </svg>
+            <div class="floppy" aria-hidden="true">
+              <div class="floppy-lip"></div>
+              <div class="floppy-depth"></div>
+            </div>
+            <div class="dial" aria-hidden="true"></div>
+            <div class="jack" aria-hidden="true"></div>
+          </div>
+          <div class="face back">
+            <div class="vents"></div>
+            <div class="rear-plate"><span></span><span>Macintosh</span></div>
+            <div class="ports" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          </div>
+          <div class="face side left"><span class="seam-line"></span></div>
+          <div class="face side right"><span class="seam-line"></span></div>
+          <div class="face cap top">
+            <div class="handle">
+              <div class="handle-well"></div>
+              <div class="handle-bar"></div>
+            </div>
+          </div>
+          <div class="face cap bottom"></div>
+        </div>
+        <div class="kbd" aria-hidden="true">
+          <div class="face kbd-f"></div>
+          <div class="face kbd-bk"></div>
+          <div class="face kbd-t">
+            <div class="kbd-row">
+              <i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+              ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+              ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i>
+            </div>
+            <div class="kbd-row">
+              <i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+              ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+              ><i class="key"></i><i class="key"></i><i class="key"></i>
+            </div>
+            <div class="kbd-row">
+              <i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+              ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+              ><i class="key"></i><i class="key"></i>
+            </div>
+            <div class="kbd-row"><i class="key space"></i></div>
+          </div>
+          <div class="face kbd-s l"></div>
+          <div class="face kbd-s r"></div>
+        </div>
+        <div class="mouse" aria-hidden="true">
+          <div class="face mouse-f"></div>
+          <div class="face mouse-t"></div>
+          <div class="face mouse-s l"></div>
+          <div class="face mouse-s r"></div>
+        </div>
+      </div>
+      <div class="caption">
+        <strong>Macintosh</strong>
+        <span>128K · 1984</span>
+      </div>
+      <p class="hint">指针环绕机身</p>
+    </div>
+    <script>
+      const FONT = {
+        ' ': '000000000000000000000000000000000000',
+        A: '01101001010010111111001010010100101',
+        C: '0110100101000010000100001001010110',
+        D: '1110100101001010010100101001011100',
+        E: '11111000010000111101000010000111111',
+        F: '11111000010000111101000010000100001',
+        H: '10010100101001011111100101001010010',
+        I: '11111001000010000100001000010011111',
+        L: '10000100001000010000100001000011111',
+        M: '10001110111010110101100011000110001',
+        N: '10001110011010110101100111000110001',
+        P: '11101001010010111001000010000100001',
+        R: '11101001010010111001010010010100101',
+        S: '01111000010000101110000010000111110',
+        T: '11111001000010000100001000010000100',
+        U: '10010100101001010010100101001001110',
+        V: '10010100101001010010100100110000100',
+        W: '10001100011000110101101011101110001',
+        a: '0000001110000010111101001011110',
+        c: '000000111010000100001000001110',
+        d: '0000100001011101001010010101110',
+        e: '000000111010010111111000001110',
+        h: '100001000010110110011001010010',
+        i: '001000000001100000100001000111',
+        k: '1000010000100101010011001010010',
+        l: '11000001000010000100001000011',
+        n: '000001011011001100101001010010',
+        o: '000000111010010100101001001110',
+        r: '000001011011001100001000010000',
+        s: '000000111110000011100000111110',
+        t: '00100011100010000100001000010',
+        u: '000001001010010100101001001110',
+        ':': '00000001000000000010000',
+      }
+      function glyph(ch) {
+        const raw = FONT[ch] || FONT[' ']
+        const cols = 5
+        const rows = Math.ceil(raw.length / cols)
+        const bits = []
+        for (let y = 0; y < 7; y++) {
+          let row = ''
+          for (let x = 0; x < cols; x++) row += raw[y * cols + x] || '0'
+          bits.push(row)
+        }
+        return bits
+      }
+      function text(ctx, str, x, y, color) {
+        ctx.fillStyle = color
+        let cx = x
+        for (const ch of str) {
+          const g = glyph(ch)
+          for (let row = 0; row < g.length; row++) {
+            for (let col = 0; col < g[row].length; col++) {
+              if (g[row][col] === '1') ctx.fillRect(cx + col, y + row, 1, 1)
+            }
+          }
+          cx += 6
+        }
+      }
+      function iconDisk(ctx, x, y) {
+        ctx.fillStyle = '#000'
+        ctx.fillRect(x + 4, y + 2, 24, 28)
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(x + 6, y + 4, 20, 16)
+        ctx.fillRect(x + 10, y + 22, 12, 6)
+        ctx.fillStyle = '#000'
+        ctx.fillRect(x + 16, y + 6, 6, 8)
+      }
+      function iconTrash(ctx, x, y) {
+        ctx.fillStyle = '#000'
+        ctx.fillRect(x + 6, y + 6, 20, 22)
+        ctx.fillRect(x + 4, y + 4, 24, 3)
+        ctx.fillRect(x + 12, y + 1, 8, 3)
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(x + 9, y + 10, 2, 14)
+        ctx.fillRect(x + 15, y + 10, 2, 14)
+        ctx.fillRect(x + 21, y + 10, 2, 14)
+      }
+      function drawCrt() {
+        const canvas = document.getElementById('crt')
+        const ctx = canvas.getContext('2d')
+        ctx.imageSmoothingEnabled = false
+        ctx.fillStyle = '#f3eee0'
+        ctx.fillRect(0, 0, 512, 342)
+        const dither = ctx.createImageData(512, 322)
+        for (let i = 0; i < dither.data.length; i += 4) {
+          const p = i / 4
+          const x = p % 512
+          const y = (p / 512) | 0
+          const on = (x + y) % 2 === 0
+          dither.data[i] = on ? 216 : 243
+          dither.data[i + 1] = on ? 210 : 238
+          dither.data[i + 2] = on ? 194 : 224
+          dither.data[i + 3] = 255
+        }
+        ctx.putImageData(dither, 0, 20)
+        ctx.fillStyle = '#f3eee0'
+        ctx.fillRect(0, 0, 512, 20)
+        ctx.fillStyle = '#111'
+        ctx.fillRect(0, 19, 512, 1)
+        ctx.font = '12px Tahoma, Geneva, sans-serif'
+        ctx.fillText('File   Edit   View   Special', 22, 14)
+        ctx.fillRect(6, 5, 9, 9)
+        ctx.fillStyle = '#f3eee0'
+        ctx.fillRect(8, 7, 5, 5)
+        ctx.fillStyle = '#111'
+        ctx.fillText('12:01', 470, 14)
+        ctx.fillStyle = '#f3eee0'
+        ctx.fillRect(48, 48, 250, 160)
+        ctx.fillStyle = '#111'
+        ctx.fillRect(48, 48, 250, 18)
+        ctx.fillRect(48, 48, 1, 160)
+        ctx.fillRect(297, 48, 1, 160)
+        ctx.fillRect(48, 207, 250, 1)
+        for (let i = 0; i < 8; i++) ctx.fillRect(70 + i * 22, 52, 16, 10)
+        ctx.fillStyle = '#f3eee0'
+        ctx.fillRect(52, 51, 13, 12)
+        ctx.fillStyle = '#111'
+        ctx.fillRect(54, 53, 9, 8)
+        ctx.fillStyle = '#f3eee0'
+        ctx.font = '12px Tahoma, Geneva, sans-serif'
+        ctx.fillText('Untitled', 128, 61)
+        ctx.fillStyle = '#f3eee0'
+        ctx.fillRect(52, 68, 242, 136)
+        ctx.fillStyle = '#111'
+        ctx.fillText('File  Edit  Search  Format', 58, 88)
+        iconDisk(ctx, 430, 40)
+        ctx.fillStyle = '#111'
+        ctx.fillText('Macintosh HD', 408, 78)
+        iconTrash(ctx, 438, 292)
+        ctx.fillStyle = '#111'
+        ctx.fillText('Trash', 440, 330)
+      }
+      drawCrt()
+
+      const rig = document.getElementById('rig')
+      const motion = matchMedia('(prefers-reduced-motion: reduce)')
+      let tx = -28
+      let ty = 22
+      let cx = -28
+      let cy = 22
+      let raf = 0
+      function frame() {
+        raf = 0
+        cx += (tx - cx) * 0.08
+        cy += (ty - cy) * 0.08
+        rig.style.setProperty('--tilt-y', `${cx}deg`)
+        rig.style.setProperty('--tilt-x', `${cy}deg`)
+        if (!motion.matches && (Math.abs(tx - cx) > 0.02 || Math.abs(ty - cy) > 0.02)) {
+          raf = requestAnimationFrame(frame)
+        }
+      }
+      function wake() {
+        if (motion.matches || raf) return
+        raf = requestAnimationFrame(frame)
+      }
+      addEventListener('pointermove', (event) => {
+        if (motion.matches) return
+        const nx = (event.clientX / innerWidth) * 2 - 1
+        const ny = (event.clientY / innerHeight) * 2 - 1
+        tx = -28 + nx * 18
+        ty = 22 - ny * 10
+        wake()
+      })
+    </script>
+  </body>
+</html>

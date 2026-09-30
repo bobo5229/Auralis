@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Auralis · Gateway 2000 交互验证</title>
+  <style>
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#151713;color:#e8e7db;font-family:Tahoma,'Microsoft YaHei',sans-serif}button{font:inherit}button:focus-visible,canvas:focus-visible{outline:2px solid #d5c893;outline-offset:3px}::selection{background:#8d9a87;color:#10130f}
+    body{display:flex;flex-direction:column;min-height:100svh}.topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding:28px clamp(22px,4vw,64px) 0}.topbar h1{margin:0;font-size:clamp(22px,2.7vw,35px);font-weight:500;letter-spacing:.015em}.topbar p{margin:9px 0 0;color:#aeb6a7;font-size:13px;line-height:1.5}.mark{font-size:12px;color:#b8bdaa;letter-spacing:.13em;white-space:nowrap;padding-top:9px}
+    .stage{position:relative;min-height:500px;height:min(72svh,760px);margin-top:6px;overflow:hidden;touch-action:none;cursor:grab;background:radial-gradient(ellipse at 50% 63%,#303b31 0,#202921 38%,#151713 77%)}.stage.dragging{cursor:grabbing}.stage canvas{width:100%;height:100%;display:block}.stage::after{content:'';position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 120px #0b100a70}.loading{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#e8e7db;font-size:14px;letter-spacing:.06em}.loading[hidden]{display:none}.hint{position:absolute;bottom:22px;left:50%;transform:translateX(-50%);padding:8px 12px;background:#151b16cc;color:#d5d9cd;font-size:12px;white-space:nowrap;pointer-events:none}
+    .console{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:20px clamp(22px,4vw,64px) 18px;border-top:1px solid #3c493c}.console p{font-size:13px;color:#b6bfaf;margin:0;line-height:1.5}.console strong{font-weight:500;color:#f4f2e5}.actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px}.actions button{min-height:38px;padding:0 13px;border:1px solid #667366;background:#273129;color:#e7ebdf;cursor:pointer;border-radius:2px}.actions button:hover{background:#3b493b}.actions button[aria-pressed=true]{background:#d0c7a8;border-color:#d0c7a8;color:#1f271e}.credit{padding:0 clamp(22px,4vw,64px) 22px;color:#9ca79a;font-size:11px;line-height:1.5}.credit a{color:#d4d5bd;text-decoration:underline;text-underline-offset:3px}
+    @media(max-width:700px){.topbar{padding-top:20px}.mark{display:none}.stage{height:min(66svh,590px);min-height:410px}.console{display:block;padding-top:14px}.actions{justify-content:flex-start;margin-top:13px}.actions button{min-height:42px}.hint{bottom:12px;max-width:calc(100% - 24px);white-space:normal;text-align:center}}
+  </style>
+</head>
+<body>
+  <header class="topbar"><div><h1>桌面回到 1995</h1><p>Gateway 2000 资产验证 · 拖动机身查看 · 点击屏幕曲目、键盘或电源</p></div><span class="mark">AURALIS / OBJECT STUDY</span></header>
+  <main class="stage" id="stage" aria-label="可旋转的老式电脑三维场景"><div class="loading" id="loading">正在装入电脑模型…</div><div class="hint" id="hint">拖动旋转视角 · 屏幕内容可以点击</div></main>
+  <section class="console" aria-label="演示控制"><p id="status" role="status"><strong>准备就绪</strong> · 屏幕上可选曲，键盘整体可点击</p><div class="actions"><button id="angle" aria-pressed="true">三分之四视角</button><button id="front" aria-pressed="false">正面操作</button><button id="screen" aria-pressed="false">屏幕特写</button><button id="back" aria-pressed="false">查看背面</button><button id="power" aria-pressed="true">关闭电源</button></div></section>
+  <footer class="credit">模型：<a href="https://poly.pizza/m/Bw55oYsbp8" target="_blank" rel="noopener noreferrer">Computer 90s，Charlie</a> · <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noopener noreferrer">CC BY 3.0</a>；演示中增加了动态屏幕与交互区域。3D 渲染：<a href="https://threejs.org/" target="_blank" rel="noopener noreferrer">Three.js</a> · MIT。曲目为演示文本，不播放音频。</footer>
+  <script src="./gateway-2000-demo.bundle.js"></script>
+</body>
+</html>

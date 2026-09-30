@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auralis · 声迹侧栏 Demo · 仪表箱×点唱机</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --void: #030305;
+      --heat-p: #9f40d0;
+      --heat-m: #f72585;
+      --heat-o: #f8961e;
+      --heat-y: #f9c74f;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --dim: #7b8ca5;
+      --iron: #1a1618;
+      --iron-hi: #3a3336;
+      --alum: #c5c8ce;
+      --alum-dk: #8a8e96;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      background: var(--void);
+      color: var(--text);
+      font-family: Rajdhani, "Microsoft YaHei", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(159, 64, 208, 0.12), transparent 55%),
+        radial-gradient(circle at 12% 80%, rgba(247, 37, 133, 0.08), transparent 35%),
+        var(--void);
+    }
+
+    .hud {
+      width: min(1180px, 96vw);
+      height: min(760px, 94vh);
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr) 340px;
+      gap: 18px;
+      padding: 18px;
+    }
+
+    /* ——— LEFT: cast-iron year gauge ——— */
+    .iron-box {
+      position: relative;
+      border-radius: 6px;
+      background:
+        linear-gradient(165deg, #2a2427 0%, #141012 38%, #0c0a0b 100%);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 220, 180, 0.12),
+        inset 0 -18px 28px rgba(0, 0, 0, 0.55),
+        0 18px 40px rgba(0, 0, 0, 0.55),
+        0 0 0 3px #0a0809,
+        0 0 0 5px #3d3532;
+      padding: 22px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .iron-box::before {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border: 1px solid rgba(90, 70, 60, 0.45);
+      border-radius: 3px;
+      pointer-events: none;
+    }
+
+    .screw {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 35% 30%, #9a9088, #3a3430 55%, #1a1614);
+      box-shadow: 0 1px 2px #000, inset 0 1px 0 rgba(255,255,255,.25);
+      z-index: 2;
+    }
+    .screw::after {
+      content: "";
+      position: absolute;
+      left: 3px; right: 3px; top: 6px; height: 2px;
+      background: #1a1614;
+      transform: rotate(28deg);
+    }
+    .screw.tl { top: 8px; left: 8px; }
+    .screw.tr { top: 8px; right: 8px; }
+    .screw.bl { bottom: 8px; left: 8px; }
+    .screw.br { bottom: 8px; right: 8px; }
+
+    .nameplate {
+      margin: 8px 10px 0;
+      padding: 8px 10px 7px;
+      background: linear-gradient(#2e2a22, #1a1814);
+      border: 1px solid #6a5a3a;
+      box-shadow: inset 0 0 8px rgba(0,0,0,.6), 0 1px 0 rgba(249,199,79,.15);
+    }
+    .nameplate .brand {
+      font-family: "Chakra Petch", "Microsoft YaHei", sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      font-size: 15px;
+      color: var(--heat-y);
+    }
+    .nameplate .sub {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      color: var(--dim);
+      margin-top: 2px;
+    }
+
+    .crt-bezel {
+      margin: 4px 10px 0;
+      padding: 10px;
+      background: #0d0c0e;
+      border: 10px solid #2a2224;
+      border-radius: 50%;
+      width: 168px;
+      height: 168px;
+      align-self: center;
+      box-shadow:
+        inset 0 0 20px rgba(159, 64, 208, 0.25),
+        0 0 0 2px #4a3c38,
+        inset 0 8px 12px rgba(255,255,255,.04);
+      position: relative;
+    }
+    .crt-bezel svg { width: 100%; height: 100%; display: block; }
+    .radar-cap {
+      position: absolute;
+      left: 50%;
+      bottom: -6px;
+      transform: translateX(-50%);
+      font-size: 10px;
+      color: var(--dim);
+      white-space: nowrap;
+      font-family: "Microsoft YaHei", Rajdhani, sans-serif;
+      background: #161214;
+      padding: 2px 8px;
+      border: 1px solid #3a3030;
+    }
+
+    .gauges {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 8px 10px 6px;
+    }
+    .gauge-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+    }
+    .gauge-lab {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+    .nixie {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--heat-o);
+      background: #080607;
+      padding: 4px 8px 3px;
+      border: 1px solid #3a2a22;
+      box-shadow: inset 0 0 10px rgba(248, 150, 30, 0.28);
+      min-width: 88px;
+      text-align: right;
+      letter-spacing: 0.08em;
+    }
+    .nixie em {
+      font-style: normal;
+      font-size: 10px;
+      color: var(--heat-y);
+      margin-left: 4px;
+    }
+
+    /* ——— CENTER ——— */
+    .stage {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+    .heat-strip {
+      background: linear-gradient(#121016, #0a090c);
+      border: 1px solid rgba(159, 64, 208, 0.28);
+      padding: 10px 12px;
+    }
+    .heat-strip h2 {
+      font-family: "Chakra Petch", sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.2em;
+      color: var(--heat-p);
+      margin-bottom: 8px;
+    }
+    .weeks {
+      display: grid;
+      grid-template-columns: repeat(26, 1fr);
+      gap: 3px;
+    }
+    .cell {
+      aspect-ratio: 1;
+      background: #1a1520;
+    }
+    .cell.l1 { background: #3a1a4a; }
+    .cell.l2 { background: var(--heat-p); }
+    .cell.l3 { background: var(--heat-m); }
+    .cell.l4 { background: var(--heat-o); }
+
+    .platter {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(247,37,133,.12), transparent 50%),
+        #08070a;
+      border: 1px solid rgba(248, 150, 30, 0.18);
+      position: relative;
+    }
+    .disc {
+      width: min(280px, 55%);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background:
+        repeating-radial-gradient(circle at 50% 50%, #1c1a1e 0 2px, #121014 3px 6px);
+      box-shadow: 0 0 40px rgba(159,64,208,.25), inset 0 0 30px #000;
+      display: grid;
+      place-items: center;
+    }
+    .label {
+      width: 38%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: linear-gradient(145deg, var(--heat-m), var(--heat-p));
+      display: grid;
+      place-items: center;
+      font-family: "Chakra Petch", sans-serif;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      color: #fff;
+    }
+    .year-tag {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 22px;
+      color: var(--heat-y);
+      letter-spacing: 0.16em;
+    }
+
+    /* ——— RIGHT: jukebox tray ——— */
+    .jukebox {
+      display: flex;
+      flex-direction: column;
+      background: linear-gradient(180deg, #d8dbe2 0%, #9ea4ae 18%, #6c717a 100%);
+      border-radius: 10px 10px 6px 6px;
+      box-shadow:
+        0 16px 32px rgba(0,0,0,.5),
+        inset 0 1px 0 rgba(255,255,255,.7);
+      overflow: hidden;
+      min-height: 0;
+    }
+    .lid {
+      height: 42px;
+      background: linear-gradient(#eceef2, #b4b8c0);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      border-bottom: 2px solid #5c6168;
+      font-family: "Chakra Petch", "Microsoft YaHei", sans-serif;
+      font-size: 13px;
+      color: #1c1e24;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+    .led {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #3dff8a;
+      box-shadow: 0 0 8px #3dff8a;
+    }
+    .date-win {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      background: #111;
+      color: var(--heat-o);
+      padding: 3px 8px;
+      border: 1px solid #444;
+    }
+
+    .cards {
+      flex: 1;
+      min-height: 0;
+      background: #1a1c22;
+      margin: 8px;
+      border: 3px solid #4a4e56;
+      box-shadow: inset 0 8px 16px rgba(0,0,0,.55);
+      overflow: auto;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .card {
+      display: grid;
+      grid-template-columns: 44px 1fr auto;
+      gap: 8px;
+      align-items: center;
+      background: linear-gradient(#f4ead4, #e4d4b4);
+      border: 1px solid #8a7a58;
+      padding: 4px;
+      min-height: 52px;
+      box-shadow: 0 1px 0 #fff6;
+    }
+    .cover {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, var(--heat-p), var(--heat-m));
+    }
+    .meta .t {
+      font-family: "Microsoft YaHei", Rajdhani, sans-serif;
+      font-size: 12px;
+      color: #1a1814;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .meta .a {
+      font-size: 10px;
+      color: #5a5040;
+    }
+    .plays {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      color: #3a2010;
+      padding-right: 6px;
+    }
+
+    .exit {
+      height: 18px;
+      margin: 0 18px 10px;
+      background: #0a0a0c;
+      border-radius: 2px;
+      box-shadow: inset 0 4px 6px #000, 0 1px 0 #c8ccd4;
+    }
+  </style>
+</head>
+<body>
+  <div class="hud">
+    <aside class="iron-box" aria-label="铸铁年仪表箱">
+      <span class="screw tl"></span>
+      <span class="screw tr"></span>
+      <span class="screw bl"></span>
+      <span class="screw br"></span>
+      <div class="nameplate">
+        <div class="brand">AURALIS</div>
+        <div class="sub">LOCAL ARCHIVE</div>
+      </div>
+      <div class="crt-bezel">
+        <svg viewBox="0 0 100 100" aria-hidden="true">
+          <circle cx="50" cy="50" r="46" fill="none" stroke="#3a2048" stroke-width="0.6"/>
+          <circle cx="50" cy="50" r="32" fill="none" stroke="#3a2048" stroke-width="0.5"/>
+          <circle cx="50" cy="50" r="18" fill="none" stroke="#3a2048" stroke-width="0.5"/>
+          <line x1="50" y1="4" x2="50" y2="96" stroke="#3a2048" stroke-width="0.4"/>
+          <line x1="4" y1="50" x2="96" y2="50" stroke="#3a2048" stroke-width="0.4"/>
+          <polygon points="50,22 68,58 32,58" fill="rgba(159,64,208,0.18)" stroke="#9f40d0" stroke-width="0.8"/>
+        </svg>
+        <div class="radar-cap">曲风画像暂未接入</div>
+      </div>
+      <div class="gauges">
+        <div class="gauge-row">
+          <span class="gauge-lab">年度播放次数</span>
+          <span class="nixie">1842</span>
+        </div>
+        <div class="gauge-row">
+          <span class="gauge-lab">年度活跃天数</span>
+          <span class="nixie">0096</span>
+        </div>
+        <div class="gauge-row">
+          <span class="gauge-lab">年度听歌时长</span>
+          <span class="nixie">0041<em>H</em></span>
+        </div>
+      </div>
+    </aside>
+
+    <section class="stage">
+      <div class="heat-strip">
+        <h2>2026 · HEATMAP</h2>
+        <div class="weeks" id="weeks"></div>
+      </div>
+      <div class="platter">
+        <div class="year-tag">2026</div>
+        <div class="disc"><div class="label">STAGE</div></div>
+      </div>
+    </section>
+
+    <aside class="jukebox" aria-label="点唱机选曲匣">
+      <div class="lid">
+        <span>当天常听歌曲 · 前十</span>
+        <span class="led" title="READY"></span>
+        <span class="date-win">2026-09-18</span>
+      </div>
+      <div class="cards" id="cards"></div>
+      <div class="exit" title="出卡槽"></div>
+    </aside>
+  </div>
+  <script>
+    const weeks = document.getElementById("weeks");
+    const levels = ["", "l1", "l2", "l3", "l4"];
+    for (let i = 0; i < 26 * 7; i++) {
+      const d = document.createElement("div");
+      d.className = "cell " + (levels[(i * 7) % 5] || "");
+      weeks.appendChild(d);
+    }
+
+    const tracks = [
+      ["夜航星", "逃跑计划", 12],
+      ["起风了", "买辣椒也用券", 11],
+      ["平凡之路", "朴树", 9],
+      ["光年之外", "邓紫棋", 8],
+      ["成都", "赵雷", 7],
+      ["南山南", "马頔", 6],
+      ["理想三旬", "陈鸿宇", 5],
+      ["消愁", "毛不易", 5],
+      ["晴天", "周杰伦", 4],
+      ["后来", "刘若英", 3]
+    ];
+    const hues = ["#9f40d0", "#f72585", "#f8961e", "#f9c74f", "#7b2cbf"];
+    const cards = document.getElementById("cards");
+    tracks.forEach(([t, a, p], i) => {
+      const el = document.createElement("div");
+      el.className = "card";
+      el.innerHTML =
+        '<div class="cover" style="background:' + hues[i % hues.length] + '"></div>' +
+        '<div class="meta"><div class="t">' + t + '</div><div class="a">' + a + "</div></div>" +
+        '<div class="plays">' + p + " 次</div>";
+      cards.appendChild(el);
+    });
+  </script>
+</body>
+</html>

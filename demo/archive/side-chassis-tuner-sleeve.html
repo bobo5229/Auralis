@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Auralis · 声迹侧栏 Demo · 调谐器×内袋</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --violet: #9f40d0;
+      --magenta: #f72585;
+      --orange: #f8961e;
+      --gold: #f9c74f;
+      --page: #0b0c12;
+      --metal: #8a8d96;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(1200px 600px at 50% -10%, rgba(159, 64, 208, 0.18), transparent 55%),
+        radial-gradient(900px 500px at 80% 110%, rgba(247, 37, 133, 0.1), transparent 50%),
+        var(--page);
+      color: #e8e4f0;
+      font-family: "Rajdhani", "Microsoft YaHei", sans-serif;
+    }
+
+    .stage {
+      width: min(1180px, 100%);
+      height: 760px;
+      margin: 24px auto;
+      display: grid;
+      grid-template-columns: 268px 1fr 292px;
+      gap: 22px;
+      padding: 22px 24px 18px;
+    }
+
+    .caption {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-family: "Chakra Petch", "Microsoft YaHei", sans-serif;
+      letter-spacing: 0.14em;
+      font-size: 11px;
+      color: #9aa0b8;
+      text-transform: uppercase;
+    }
+    .caption strong { color: var(--gold); font-weight: 600; }
+
+    /* —— Left: tuner chassis —— */
+    .tuner {
+      position: relative;
+      border-radius: 6px;
+      background:
+        linear-gradient(180deg, #c8ccd4 0%, #9ea4ae 18%, #7c828c 52%, #5d626c 100%);
+      box-shadow:
+        0 18px 40px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -2px 6px rgba(0, 0, 0, 0.35);
+      padding: 14px 12px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow: hidden;
+    }
+    .tuner::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        90deg,
+        transparent 0 2px,
+        rgba(255, 255, 255, 0.035) 2px 3px
+      );
+      pointer-events: none;
+      mix-blend-mode: overlay;
+    }
+    .tuner-screws {
+      position: absolute;
+      inset: 8px;
+      pointer-events: none;
+    }
+    .tuner-screws span {
+      position: absolute;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #eceef2, #6a6f78 55%, #2c3038);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+    }
+    .tuner-screws span:nth-child(1) { top: 0; left: 0; }
+    .tuner-screws span:nth-child(2) { top: 0; right: 0; }
+    .tuner-screws span:nth-child(3) { bottom: 0; left: 0; }
+    .tuner-screws span:nth-child(4) { bottom: 0; right: 0; }
+
+    .brand-plate {
+      margin: 10px 8px 0;
+      background: linear-gradient(180deg, #2a2d36, #14161c);
+      border: 1px solid #3a3e48;
+      border-radius: 2px;
+      padding: 8px 10px 7px;
+      box-shadow: inset 0 0 0 1px rgba(249, 199, 79, 0.12), 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+    .brand-plate .name {
+      font-family: "Chakra Petch", sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      font-size: 15px;
+      color: #f3ead8;
+    }
+    .brand-plate .sub {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      color: var(--gold);
+      margin-top: 2px;
+    }
+
+    .tuning-window {
+      margin: 0 10px;
+      height: 168px;
+      border-radius: 4px;
+      background: #0a0c10;
+      box-shadow:
+        inset 0 8px 18px rgba(0, 0, 0, 0.75),
+        0 1px 0 rgba(255, 255, 255, 0.28);
+      display: grid;
+      place-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .tuning-window::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 28%, transparent 70%, rgba(0, 0, 0, 0.35));
+      pointer-events: none;
+    }
+    .hex-glass {
+      width: 132px;
+      height: 132px;
+      clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+      background:
+        radial-gradient(circle at 50% 50%, rgba(159, 64, 208, 0.22), rgba(10, 12, 16, 0.9) 70%);
+      border: 1px solid rgba(159, 64, 208, 0.45);
+      position: relative;
+      display: grid;
+      place-items: center;
+    }
+    .hex-glass svg { width: 118px; height: 118px; }
+    .radar-note {
+      position: absolute;
+      bottom: 8px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-family: "Microsoft YaHei", sans-serif;
+      font-size: 10px;
+      color: #8d93a8;
+      letter-spacing: 0.08em;
+    }
+
+    .meters {
+      display: grid;
+      gap: 8px;
+      padding: 0 8px 4px;
+    }
+    .meter {
+      background: linear-gradient(180deg, #d4d7de, #a8adb6);
+      border-radius: 3px;
+      padding: 6px 8px 5px;
+      box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(0, 0, 0, 0.25);
+    }
+    .meter-head {
+      display: flex;
+      justify-content: space-between;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      color: #3a3f48;
+    }
+    .meter-face {
+      height: 38px;
+      margin-top: 4px;
+      background: radial-gradient(ellipse at 50% 120%, #1c1a16, #0d0e12);
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+    }
+    .meter-face .ticks {
+      position: absolute;
+      inset: 6px 8px 10px;
+      background:
+        repeating-linear-gradient(90deg, #5a5348 0 1px, transparent 1px 9px);
+      opacity: 0.55;
+      mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    }
+    .needle {
+      position: absolute;
+      left: 50%;
+      bottom: 4px;
+      width: 2px;
+      height: 28px;
+      background: var(--needle);
+      transform-origin: 50% 100%;
+      transform: translateX(-50%) rotate(var(--deg));
+      box-shadow: 0 0 8px var(--needle);
+      border-radius: 1px;
+    }
+    .meter-value {
+      font-family: "Chakra Petch", sans-serif;
+      font-size: 13px;
+      color: #1a1c22;
+      font-weight: 600;
+    }
+    .led {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--led);
+      box-shadow: 0 0 8px var(--led);
+      display: inline-block;
+    }
+
+    /* —— Center —— */
+    .center {
+      display: grid;
+      grid-template-rows: 1fr 210px;
+      gap: 16px;
+      min-width: 0;
+    }
+    .heatmap {
+      border-radius: 10px;
+      background:
+        radial-gradient(ellipse at 50% 0%, rgba(159, 64, 208, 0.18), transparent 50%),
+        linear-gradient(180deg, rgba(16, 12, 28, 0.9), rgba(8, 8, 14, 0.95));
+      border: 1px solid rgba(159, 64, 208, 0.28);
+      box-shadow: 0 0 40px rgba(247, 37, 133, 0.12), inset 0 0 40px rgba(159, 64, 208, 0.08);
+      padding: 16px 18px 14px;
+      display: flex;
+      flex-direction: column;
+    }
+    .heatmap h2 {
+      margin: 0 0 12px;
+      font-family: "Chakra Petch", sans-serif;
+      font-size: 13px;
+      letter-spacing: 0.22em;
+      color: #d9c6f2;
+      font-weight: 500;
+    }
+    .cells {
+      display: grid;
+      grid-template-columns: repeat(31, 1fr);
+      grid-auto-rows: 11px;
+      gap: 3px;
+      flex: 1;
+    }
+    .cells i {
+      display: block;
+      border-radius: 2px;
+      background: rgba(80, 40, 110, 0.35);
+    }
+    .cells i.l1 { background: rgba(159, 64, 208, 0.35); }
+    .cells i.l2 { background: rgba(247, 37, 133, 0.45); }
+    .cells i.l3 { background: rgba(248, 150, 30, 0.7); }
+    .cells i.l4 { background: #f9c74f; box-shadow: 0 0 6px #f9c74f; }
+
+    .platter-wrap {
+      display: grid;
+      place-items: center;
+    }
+    .platter {
+      width: 188px;
+      height: 188px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 50% 50%, #2a1a12 0 18%, #111 19% 22%, #1a1a1c 23% 48%, #0c0c0e 49% 70%, #222 71% 72%, #0a0a0c 73% 100%);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55), 0 0 0 8px #1c1e24, 0 0 0 9px #3a3e48;
+      position: relative;
+    }
+    .platter::after {
+      content: "";
+      position: absolute;
+      inset: 42%;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #c9a227, #7a5a12);
+      box-shadow: inset 0 0 4px #fff6;
+    }
+
+    /* —— Right: inner sleeve —— */
+    .sleeve-bay {
+      background: linear-gradient(180deg, #2a2d34, #15171c);
+      border-radius: 4px;
+      padding: 10px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      display: flex;
+    }
+    .sleeve {
+      flex: 1;
+      background:
+        repeating-linear-gradient(0deg, rgba(90, 70, 40, 0.04) 0 1px, transparent 1px 3px),
+        linear-gradient(180deg, #f3ead8 0%, #e8dcc4 55%, #deceb2 100%);
+      color: #2b2418;
+      border-radius: 2px;
+      position: relative;
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.35),
+        3px 0 0 rgba(40, 30, 18, 0.08);
+      overflow: hidden;
+      padding: 14px 12px 10px;
+      display: flex;
+      flex-direction: column;
+    }
+    .sleeve::before {
+      content: "";
+      position: absolute;
+      top: 0; left: 18%;
+      width: 28%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+      pointer-events: none;
+    }
+    .crease {
+      position: absolute;
+      left: 0; right: 0; top: 46%;
+      height: 1px;
+      background: rgba(80, 60, 30, 0.18);
+      box-shadow: 0 8px 0 rgba(80, 60, 30, 0.06);
+    }
+    .sleeve-header {
+      font-family: "Microsoft YaHei", "Rajdhani", sans-serif;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      border-bottom: 1px dashed #8a7350;
+      padding-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .stamp {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      border: 1px solid #7a5a32;
+      padding: 2px 6px;
+      transform: rotate(-2deg);
+      color: #6a3a22;
+      background: rgba(248, 150, 30, 0.12);
+    }
+    .diecut {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #1a1c22 55%, #3a3228 56% 70%, transparent 71%);
+      box-shadow: inset 0 0 0 1px #c9b896;
+      flex-shrink: 0;
+    }
+    .tracks {
+      list-style: none;
+      margin: 10px 0 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+    }
+    .tracks li {
+      display: grid;
+      grid-template-columns: 18px 28px 1fr auto;
+      gap: 7px;
+      align-items: center;
+      font-size: 11px;
+    }
+    .tracks .n {
+      font-family: "JetBrains Mono", monospace;
+      color: #6b5a3e;
+      font-size: 10px;
+    }
+    .cover {
+      width: 28px;
+      height: 28px;
+      border-radius: 1px;
+      background: linear-gradient(135deg, var(--c1), var(--c2));
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    }
+    .ttl {
+      font-family: "Microsoft YaHei", sans-serif;
+      line-height: 1.15;
+    }
+    .ttl b { font-weight: 600; display: block; font-size: 11px; }
+    .ttl span { color: #6d5c42; font-size: 10px; }
+    .plays {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      color: #5a4630;
+    }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <div class="caption">
+      <span>AURALIS ARCHIVE CANVAS · SIDE CHASSIS</span>
+      <strong>TUNER FACE × INNER SLEEVE</strong>
+    </div>
+
+    <aside class="tuner" aria-label="收音头调谐器">
+      <div class="tuner-screws"><span></span><span></span><span></span><span></span></div>
+      <div class="brand-plate">
+        <div class="name">AURALIS</div>
+        <div class="sub">LOCAL ARCHIVE</div>
+      </div>
+      <div class="tuning-window">
+        <div class="hex-glass">
+          <svg viewBox="0 0 100 100" aria-hidden="true">
+            <polygon points="50,8 88,30 88,70 50,92 12,70 12,30" fill="none" stroke="rgba(159,64,208,0.55)" stroke-width="0.8"/>
+            <circle cx="50" cy="50" r="28" fill="none" stroke="rgba(247,37,133,0.35)" stroke-width="0.6"/>
+            <circle cx="50" cy="50" r="16" fill="none" stroke="rgba(248,150,30,0.4)" stroke-width="0.5"/>
+            <line x1="50" y1="50" x2="72" y2="28" stroke="#f9c74f" stroke-width="0.8"/>
+            <line x1="50" y1="50" x2="30" y2="62" stroke="#f72585" stroke-width="0.6" opacity="0.8"/>
+            <line x1="50" y1="50" x2="68" y2="70" stroke="#9f40d0" stroke-width="0.6" opacity="0.7"/>
+          </svg>
+        </div>
+        <div class="radar-note">曲风画像暂未接入</div>
+      </div>
+      <div class="meters">
+        <div class="meter">
+          <div class="meter-head"><span>PLAYS</span><span class="led" style="--led:#f72585"></span></div>
+          <div class="meter-face">
+            <div class="ticks"></div>
+            <div class="needle" style="--needle:#f72585; --deg:-28deg"></div>
+          </div>
+          <div class="meter-value">1842 plays</div>
+        </div>
+        <div class="meter">
+          <div class="meter-head"><span>ACTIVE DAYS</span><span class="led" style="--led:#f8961e"></span></div>
+          <div class="meter-face">
+            <div class="ticks"></div>
+            <div class="needle" style="--needle:#f8961e; --deg:12deg"></div>
+          </div>
+          <div class="meter-value">96 days</div>
+        </div>
+        <div class="meter">
+          <div class="meter-head"><span>LISTEN TIME</span><span class="led" style="--led:#f9c74f"></span></div>
+          <div class="meter-face">
+            <div class="ticks"></div>
+            <div class="needle" style="--needle:#f9c74f; --deg:36deg"></div>
+          </div>
+          <div class="meter-value">41小时</div>
+        </div>
+      </div>
+    </aside>
+
+    <section class="center">
+      <div class="heatmap">
+        <h2>2026 · HEATMAP</h2>
+        <div class="cells" id="cells"></div>
+      </div>
+      <div class="platter-wrap"><div class="platter" title="vinyl stage"></div></div>
+    </section>
+
+    <aside class="sleeve-bay" aria-label="唱片内袋曲目表">
+      <div class="sleeve">
+        <div class="crease"></div>
+        <div class="sleeve-header">
+          <div>
+            <div class="diecut"></div>
+            <div style="margin-top:8px">当天常听歌曲 · 前十</div>
+          </div>
+          <div class="stamp">2026-09-18</div>
+        </div>
+        <ul class="tracks">
+          <li><span class="n">01</span><span class="cover" style="--c1:#9f40d0;--c2:#3a1060"></span><div class="ttl"><b>Midnight Protocol</b><span>Neon Harbor</span></div><span class="plays">42</span></li>
+          <li><span class="n">02</span><span class="cover" style="--c1:#f72585;--c2:#4a1028"></span><div class="ttl"><b>Glass Arcade</b><span>Violet Static</span></div><span class="plays">31</span></li>
+          <li><span class="n">03</span><span class="cover" style="--c1:#f8961e;--c2:#5a3010"></span><div class="ttl"><b>Afterglow FM</b><span>Palm Circuit</span></div><span class="plays">28</span></li>
+          <li><span class="n">04</span><span class="cover" style="--c1:#f9c74f;--c2:#4a3a10"></span><div class="ttl"><b>Tuner Drift</b><span>Local Archive</span></div><span class="plays">24</span></li>
+          <li><span class="n">05</span><span class="cover" style="--c1:#4cc9f0;--c2:#123048"></span><div class="ttl"><b>Sleeve Notes</b><span>Paper Choir</span></div><span class="plays">19</span></li>
+          <li><span class="n">06</span><span class="cover" style="--c1:#7209b7;--c2:#1a0830"></span><div class="ttl"><b>Hex Window</b><span>Radar Ensemble</span></div><span class="plays">17</span></li>
+          <li><span class="n">07</span><span class="cover" style="--c1:#f72585;--c2:#f8961e"></span><div class="ttl"><b>Needle Park</b><span>Meter Club</span></div><span class="plays">15</span></li>
+          <li><span class="n">08</span><span class="cover" style="--c1:#3a86ff;--c2:#9f40d0"></span><div class="ttl"><b>Inner Groove</b><span>Die-Cut Duo</span></div><span class="plays">12</span></li>
+          <li><span class="n">09</span><span class="cover" style="--c1:#80ed99;--c2:#1b4332"></span><div class="ttl"><b>Warm Off-White</b><span>Fiber Press</span></div><span class="plays">9</span></li>
+          <li><span class="n">10</span><span class="cover" style="--c1:#adb5bd;--c2:#212529"></span><div class="ttl"><b>Last Side</b><span>Exit Slot</span></div><span class="plays">7</span></li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+  <script>
+    const root = document.getElementById("cells");
+    const levels = ["", "l1", "l2", "l3", "l4"];
+    for (let i = 0; i < 31 * 12; i++) {
+      const el = document.createElement("i");
+      const r = Math.random();
+      if (r > 0.92) el.className = "l4";
+      else if (r > 0.78) el.className = "l3";
+      else if (r > 0.55) el.className = "l2";
+      else if (r > 0.28) el.className = "l1";
+      root.appendChild(el);
+    }
+  </script>
+</body>
+</html>

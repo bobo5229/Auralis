@@ -6,7 +6,7 @@
 | 目录               | 内容与入口                                                                                                                                                         |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `albums/`          | [专辑展开](albums/album-open-transition.html)、[CD 聚焦](albums/cd-focus-demo.html)、[CD 动效](albums/cd-motion-demo.html)、[CD 启动](albums/cd-startup-demo.html) |
-| `archive/`         | [唱片排行](archive/ranking-record-shelf.html)、[曲目列表](archive/ranking-track-list.html)、[曲目飘带](archive/ranking-track-ribbons.html)                         |
+| `archive/`         | [听音室](archive/listening-room.html)、[夜井星空](archive/night-well.html)、[Macintosh 128K 立体](archive/classic-mac.html)、[唱片排行](archive/ranking-record-shelf.html)、[曲目列表](archive/ranking-track-list.html)、[曲目飘带](archive/ranking-track-ribbons.html)、[侧栏·仪表箱×点唱机](archive/side-chassis-gauge-jukebox.html)、[侧栏·铭牌×热敏票](archive/side-chassis-plaque-thermal.html)、[侧栏·调谐器×内袋](archive/side-chassis-tuner-sleeve.html) |
 | `playback/`        | [播放栏材质](playback/playbar-liquid-glass-material-demo.html)、[音量浮层](playback/playbar-vertical-volume-popover-demo.html)                                     |
 | `smart-playlists/` | [智能歌单编辑器](smart-playlists/smart-playlist-builder.html)                                                                                                      |
 | `local/albums/`    | [专辑布局方案入口](local/albums/album-layout-index.html)、专辑头部与材质草稿                                                                                       |

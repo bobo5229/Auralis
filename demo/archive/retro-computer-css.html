@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auralis · CSS 3D 老式电脑</title>
+<style>
+  * { box-sizing: border-box; }
+  :root { color-scheme: dark; --phosphor: #a6d5a3; --rx: -12deg; --ry: -28deg; --zoom: 1; }
+  body { margin: 0; background: #161b1b; color: #d4d7ce; font-family: 'Microsoft YaHei', sans-serif; }
+  header { position: absolute; left: 5vw; top: 35px; z-index: 2; pointer-events: none; }
+  h1 { font-size: 21px; font-weight: 500; margin: 0 0 10px; letter-spacing: 2px; }
+  header p { margin: 0; font-size: 12px; color: #929f98; }
+  .scene { height: min(760px, 82svh); min-height: 530px; perspective: 1150px; overflow: hidden; position: relative; touch-action: none; cursor: grab; background: radial-gradient(ellipse at 48% 64%, #303b38, #161b1b 68%); }
+  .scene.dragging { cursor: grabbing; }
+  .anchor { position: absolute; left: 50%; top: 46%; width: 0; height: 0; transform: scale(var(--zoom)); transform-style: preserve-3d; }
+  .rig { position: absolute; width: 300px; height: 380px; left: -150px; top: -190px; transform-style: preserve-3d; transform: rotateX(var(--rx)) rotateY(var(--ry)); }
+  .case, .keyboard { position: absolute; width: 300px; height: 380px; transform-style: preserve-3d; }
+  .face { position: absolute; left: 50%; top: 50%; backface-visibility: hidden; }
+  .front { width: 300px; height: 380px; transform: translate(-50%,-50%) translateZ(125px); background: linear-gradient(115deg,#dfddcb,#c6c4b2); border: 1px solid #dedac7; border-radius: 5px; box-shadow: inset 4px 4px 1px #f0eddb, inset -5px -5px 1px #aca997; padding: 26px 24px; }
+  .back { width: 300px; height: 380px; transform: translate(-50%,-50%) rotateY(180deg) translateZ(125px); background: #b5b4a3; border: 1px solid #969583; border-radius: 4px; padding: 32px; }
+  .left, .right { width: 250px; height: 380px; background: linear-gradient(#c9c8b6,#a3a593); }
+  .left { transform: translate(-50%,-50%) rotateY(-90deg) translateZ(150px); }
+  .right { transform: translate(-50%,-50%) rotateY(90deg) translateZ(150px); background: linear-gradient(100deg,#bebdad,#a1a290); }
+  .top, .bottom { width: 300px; height: 250px; }
+  .top { transform: translate(-50%,-50%) rotateX(90deg) translateZ(190px); background: #e4e1d0; border: 1px solid #eeecdb; }
+  .bottom { transform: translate(-50%,-50%) rotateX(-90deg) translateZ(190px); background: #7e8173; }
+  .vents { height: 100px; margin: 55px 32px 0; background: repeating-linear-gradient(0deg,#656e62 0 3px,#d0d0bc 3px 5px,transparent 5px 10px); border-radius: 2px; }
+  .left .vents, .right .vents { margin-top: 230px; height: 74px; }
+  .handle { width: 118px; height: 26px; margin: 35px auto; border-radius: 4px; background: #8d9282; box-shadow: inset 0 6px 6px #606a5c, 0 2px #faf5df; }
+  .back .vents { margin: 5px 0 35px; height: 120px; }
+  .plate { padding: 13px; background: #a4a795; color: #404c43; font: 10px/1.7 monospace; border: 1px solid #919886; }
+  .ports { display: flex; gap: 16px; margin-top: 25px; }
+  .ports span { width: 35px; height: 14px; background: #333e34; border: 3px solid #878c7e; box-shadow: 0 1px #e0dfc9; }
+  .bezel { padding: 14px; background: #939d8b; border-radius: 17px; box-shadow: inset 5px 6px 9px #626e60, inset -4px -4px 3px #efecd8, 0 1px 0 #f7f0d9; }
+  .screen { position: relative; height: 192px; overflow: hidden; border-radius: 14px / 20px; background: #0b1912; box-shadow: inset 0 0 20px #000; cursor: default; }
+  .screen::after { content: ''; pointer-events: none; position: absolute; inset: 0; border-radius: inherit; background: repeating-linear-gradient(transparent 0 2px,#020a0638 2px 3px),radial-gradient(ellipse at 45% 35%,transparent 35%,#0008); box-shadow: inset 0 0 12px #000; }
+  .screen-content { height: 100%; padding: 14px 12px; color: var(--phosphor); font: 10px/1.5 'Consolas', monospace; text-shadow: 0 0 4px color-mix(in srgb,var(--phosphor) 40%,transparent); transition: opacity 180ms, filter 180ms; }
+  .screen.off .screen-content { opacity: 0; filter: brightness(3) blur(2px); pointer-events: none; }
+  .screen.booting .screen-content { animation: boot 600ms both; }
+  @keyframes boot { 0% { clip-path: inset(49% 0); filter: brightness(4); } 45% { clip-path: inset(47% 0); } 100% { clip-path: inset(0); filter: brightness(1); } }
+  .screen-bar { border-bottom: 1px solid var(--phosphor); padding-bottom: 5px; display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .tracks { display: grid; gap: 2px; }
+  .track { color: inherit; background: none; border: 0; text-align: left; font: inherit; padding: 4px; cursor: pointer; }
+  .track[aria-pressed='true'] { color: #0d2016; background: var(--phosphor); text-shadow: none; }
+  .screen-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; }
+  .play { border: 1px solid var(--phosphor); color: inherit; padding: 3px 7px; background: none; font: inherit; cursor: pointer; }
+  .readout { max-width: 105px; font-size: 9px; }
+  .brand { color: #686e60; text-shadow: 0 1px #f3efda; font: bold 13px 'Arial',sans-serif; letter-spacing: 3px; margin-top: 22px; }
+  .brand small { display: block; font: 8px monospace; letter-spacing: 1px; margin-top: 5px; }
+  .disk { position: absolute; left: 25px; bottom: 34px; width: 158px; height: 9px; background: #3a4138; border-top: 2px solid #929781; box-shadow: 0 2px #ece8d2; }
+  .disk::after { content: ''; position: absolute; right: 15px; top: -5px; width: 27px; height: 15px; background: #343d33; border-radius: 2px; }
+  .power { position: absolute; bottom: 27px; right: 26px; width: 30px; height: 27px; border: 1px solid #8b9380; border-radius: 3px; color: #495746; background: #c7cbb5; box-shadow: inset 1px 1px #f3f0dc, 1px 2px 2px #888f7a; cursor: pointer; }
+  .power:active { box-shadow: inset 1px 2px 3px #7d8774; }
+  .power svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+  .led { position: absolute; right: 36px; bottom: 65px; width: 5px; height: 5px; background: #97c380; box-shadow: 0 0 5px #97c380; border-radius: 50%; }
+  .case.off .led { background: #56624d; box-shadow: none; }
+  .keyboard { width: 360px; height: 22px; left: -30px; top: 358px; transform: translateZ(228px); }
+  .keyboard .front { width: 360px; height: 22px; transform: translate(-50%,-50%) translateZ(65px); padding: 0; border-radius: 2px; }
+  .keyboard .back { width: 360px; height: 22px; transform: translate(-50%,-50%) rotateY(180deg) translateZ(65px); padding: 0; }
+  .keyboard .left, .keyboard .right { width: 130px; height: 22px; }
+  .keyboard .left { transform: translate(-50%,-50%) rotateY(-90deg) translateZ(180px); }
+  .keyboard .right { transform: translate(-50%,-50%) rotateY(90deg) translateZ(180px); }
+  .keyboard .top { width: 360px; height: 130px; transform: translate(-50%,-50%) rotateX(90deg) translateZ(11px); padding: 12px; background: #c7c9b6; }
+  .keys { display: grid; grid-template-columns: repeat(12,1fr); grid-template-rows: repeat(4,23px); gap: 3px; }
+  .key { border: 0; color: #58614f; background: #e4e4cf; border-radius: 2px; font: 8px monospace; box-shadow: inset 1px 1px #f4f3df,inset -2px -3px #a2aa92,0 1px 1px #717d66; cursor: pointer; padding: 0; }
+  .key:active { transform: translateY(2px); box-shadow: inset 1px 1px 2px #929e84; }
+  .key.space { grid-column: span 6; }
+  .key.wide { grid-column: span 3; }
+  .ground { position: absolute; width: 600px; height: 420px; left: -150px; top: 165px; transform: rotateX(90deg) translateZ(-5px); background: radial-gradient(ellipse,#0007,transparent 66%); pointer-events: none; }
+  footer { position: relative; z-index: 3; padding: 0 18px 28px; text-align: center; }
+  .controls { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+  .controls button { border: 1px solid #4f5c54; background: #232d28; color: #ced6ca; border-radius: 3px; padding: 10px 15px; font: 12px 'Microsoft YaHei',sans-serif; cursor: pointer; }
+  .controls button:hover { background: #344238; }
+  button:focus-visible, a:focus-visible { outline: 2px solid #e4c892; outline-offset: 3px; }
+  footer p { font-size: 12px; color: #9daaa0; line-height: 1.9; margin: 16px 0 8px; }
+  footer a { font-size: 11px; color: #9daaa0; }
+  ::selection { background: #778d71; color: #fff; }
+  @media(max-width:650px) { :root { --zoom: .76; } header { top: 22px; } .scene { height: 620px; } }
+  @media(max-width:430px) { :root { --zoom: .61; } .scene { height: 570px; } }
+  @media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<header><h1>AURALIS / 桌面终端</h1><p>米白机身 · 单色荧光屏 · CSS 3D 原型</p></header>
+<main class="scene" aria-label="可拖动旋转的老式电脑">
+  <div class="anchor"><div class="rig">
+    <div class="ground"></div>
+    <div class="case">
+      <div class="face back"><div class="vents"></div><div class="plate">AURALIS PERSONAL TERMINAL<br>MODEL AT–86 / SERIAL 0001<br>INPUT 100–240 V · 50/60 Hz</div><div class="ports"><span></span><span></span><span></span></div></div>
+      <div class="face left"><div class="vents"></div></div><div class="face right"><div class="vents"></div></div>
+      <div class="face top"><div class="handle"></div></div><div class="face bottom"></div>
+      <div class="face front">
+        <div class="bezel"><div class="screen"><div class="screen-content">
+          <div class="screen-bar"><b>AURALIS / OS</b><span>1986</span></div>
+          <div class="tracks" role="group" aria-label="示例曲目">
+            <button class="track" aria-pressed="true">01 &nbsp; NIGHT DRIVE</button>
+            <button class="track" aria-pressed="false">02 &nbsp; AFTERIMAGE</button>
+            <button class="track" aria-pressed="false">03 &nbsp; ANALOG DAYS</button>
+          </div>
+          <div class="screen-footer"><span class="readout" aria-live="polite">READY / TRACK 01</span><button class="play" aria-label="切换模拟播放状态" aria-pressed="false">PLAY</button></div>
+        </div></div></div>
+        <div class="brand">AURALIS<small>PERSONAL TERMINAL / AT–86</small></div><div class="disk"></div><div class="led"></div>
+        <button class="power" aria-label="电脑电源" aria-pressed="true"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2v8M6 5a7 7 0 1 0 8 0"/></svg></button>
+      </div>
+    </div>
+    <div class="keyboard"><div class="face back"></div><div class="face left"></div><div class="face right"></div><div class="face front"></div><div class="face top"><div class="keys" aria-label="交互键盘"></div></div></div>
+  </div></div>
+</main>
+<footer>
+  <div class="controls"><button data-view="-28">三分之四视角</button><button data-view="0">正面操作</button><button data-view="155">查看背面</button><button id="phosphor">切换荧光色</button></div>
+  <p>拖动机身或空白处旋转 · 点击电源开关 · 屏幕可选曲目和模拟播放<br>交互样例，不播放音频；键盘空格键可切换模拟播放。</p>
+  <a href="https://cssanimation.rocks/macplus/" target="_blank" rel="noreferrer">结构思路参考：Mac Plus CSS · 本 demo 独立编写</a>
+</footer>
+<script>
+  const scene = document.querySelector('.scene');
+  const machine = document.querySelector('.case');
+  const screen = document.querySelector('.screen');
+  const content = document.querySelector('.screen-content');
+  const power = document.querySelector('.power');
+  const play = document.querySelector('.play');
+  const readout = document.querySelector('.readout');
+  const tracks = [...document.querySelectorAll('.track')];
+  let rx = -12, ry = -28, drag = null, on = true, playing = false, track = 0, amber = false;
+  let bootTimer;
+  function view() { document.documentElement.style.setProperty('--rx', rx + 'deg'); document.documentElement.style.setProperty('--ry', ry + 'deg'); }
+  function update() { tracks.forEach((b,i)=>b.setAttribute('aria-pressed',String(i===track))); play.textContent = playing ? 'PAUSE' : 'PLAY'; play.setAttribute('aria-pressed',String(playing)); readout.textContent = `${playing ? 'PLAYING' : 'READY'} / TRACK 0${track+1}`; }
+  function togglePlay() { if(on) { playing=!playing; update(); } }
+  tracks.forEach((button,i)=>button.addEventListener('click',()=>{track=i;update();}));
+  play.addEventListener('click',togglePlay);
+  power.addEventListener('click',()=>{
+    on=!on; clearTimeout(bootTimer); machine.classList.toggle('off',!on); screen.classList.toggle('off',!on); content.inert=!on; power.setAttribute('aria-pressed',String(on));
+    screen.classList.remove('booting'); playing=false; update();
+    if(on) { void screen.offsetWidth; screen.classList.add('booting'); bootTimer=setTimeout(()=>screen.classList.remove('booting'),650); }
+  });
+  document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener('click',()=>{ry=Number(button.dataset.view);rx=-12;view();}));
+  document.querySelector('#phosphor').addEventListener('click',()=>{amber=!amber;document.documentElement.style.setProperty('--phosphor',amber?'#efbf75':'#a6d5a3');});
+  scene.addEventListener('pointerdown',event=>{if(event.button!==0||event.target.closest('button,.screen'))return;drag={id:event.pointerId,x:event.clientX,y:event.clientY,rx,ry};scene.setPointerCapture(event.pointerId);scene.classList.add('dragging');});
+  scene.addEventListener('pointermove',event=>{if(!drag||drag.id!==event.pointerId)return;ry=drag.ry+(event.clientX-drag.x)*.45;rx=Math.max(-35,Math.min(15,drag.rx-(event.clientY-drag.y)*.25));view();});
+  function release(event){if(!drag||drag.id!==event.pointerId)return;drag=null;scene.classList.remove('dragging');if(scene.hasPointerCapture(event.pointerId))scene.releasePointerCapture(event.pointerId);}
+  scene.addEventListener('pointerup',release);scene.addEventListener('pointercancel',release);scene.addEventListener('lostpointercapture',release);
+  const labels=['ESC','1','2','3','4','5','6','7','8','9','0','←','TAB','Q','W','E','R','T','Y','U','I','O','P','↵','CTRL','A','S','D','F','G','H','J','K','L','↑','↓'];
+  function key(label,css='') { const button=document.createElement('button');button.className='key '+css;button.textContent=label;button.setAttribute('aria-label',label==='SPACE'?'模拟播放或暂停':`键盘 ${label}`);button.addEventListener('click',()=>{if(!on)return;if(label==='SPACE'||label==='↵')togglePlay();else if(label==='↑'||label==='←'){track=(track+2)%3;update();}else if(label==='↓'){track=(track+1)%3;update();}else readout.textContent=`KEY / ${label}`;});document.querySelector('.keys').append(button); }
+  labels.forEach(label=>key(label));key('SHIFT','wide');key('SPACE','space');key('RETURN','wide');
+  document.addEventListener('keydown',event=>{if(event.code==='Space'&&!event.target.closest('button')){event.preventDefault();togglePlay();}});
+</script>
+</body>
+</html>
