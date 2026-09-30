@@ -39,6 +39,7 @@ const { isStartingLibraryRefresh, refreshLibrary } = useLibraryScanStart({
 
 const playlistItems = ref<SidebarPlaylistItem[]>([])
 const libraryStats = ref<LibraryStats>({ trackCount: 0, albumCount: 0 })
+const createPlaylistButton = ref<HTMLButtonElement | null>(null)
 const createMenu = ref<{ x: number; y: number } | null>(null)
 const playlistContextMenu = ref<{ item: SidebarPlaylistItem; x: number; y: number } | null>(null)
 const renamingPlaylist = ref<SidebarPlaylistItem | null>(null)
@@ -280,8 +281,9 @@ async function loadSidebarStats(): Promise<void> {
   playlistItems.value = items
 }
 
-function openCreateMenu(event: MouseEvent): void {
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+function openCreateMenu(): void {
+  if (!createPlaylistButton.value) return
+  const rect = createPlaylistButton.value.getBoundingClientRect()
   createMenu.value = {
     x: Math.max(8, Math.min(rect.right - 190, window.innerWidth - 198)),
     y: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 124)),
@@ -504,33 +506,7 @@ onBeforeUnmount(() => {
             <span class="i-ph-waveform"></span>
           </span>
           <div class="sidebar-brand-copy">
-            <div class="sidebar-brand-name">
-              <span class="sidebar-brand-word sidebar-brand-word--left">
-                Auralis
-                <span class="sidebar-brand-note-anchor" aria-hidden="true">
-                  <svg
-                    class="sidebar-brand-note"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M10 18V4l8-2v6c0 2 1 3 2 4" />
-                    <ellipse cx="7" cy="18" rx="3" ry="2" transform="rotate(-20 7 18)" />
-                  </svg>
-                  <span class="sidebar-brand-particle" style="--dx: -20px; --dy: -9px"></span>
-                  <span class="sidebar-brand-particle" style="--dx: -15px; --dy: 9px"></span>
-                  <span class="sidebar-brand-particle" style="--dx: -5px; --dy: -15px"></span>
-                  <span class="sidebar-brand-particle" style="--dx: 7px; --dy: 13px"></span>
-                  <span class="sidebar-brand-particle" style="--dx: 17px; --dy: -11px"></span>
-                  <span class="sidebar-brand-particle" style="--dx: 21px; --dy: 5px"></span>
-                  <span class="sidebar-brand-particle" style="--dx: 0px; --dy: 16px"></span>
-                </span>
-              </span>
-              <span class="sidebar-brand-word sidebar-brand-word--right">Music</span>
-            </div>
+            <div class="sidebar-brand-name">AuralisMusic</div>
           </div>
         </component>
         <div class="sidebar-tools-grid" role="toolbar" :aria-label="t('sidebar.toolbarAria')">
@@ -581,7 +557,11 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <nav id="sidebar-navigation" class="sidebar-navigation">
+    <nav
+      id="sidebar-navigation"
+      class="sidebar-navigation"
+      :class="{ 'sidebar-navigation--empty': playlistItems.length === 0 && !isRail }"
+    >
       <section class="sidebar-primary-section">
         <div class="sidebar-section-label">{{ t('sidebar.library') }}</div>
         <RouterLink
@@ -620,6 +600,7 @@ onBeforeUnmount(() => {
             <div class="sidebar-section-meta">{{ playlistItems.length }}</div>
           </div>
           <button
+            ref="createPlaylistButton"
             v-tooltip.right="isRail ? t('sidebar.newPlaylist') : ''"
             class="smart-playlist-add-button"
             type="button"
@@ -663,8 +644,9 @@ onBeforeUnmount(() => {
           <span class="sidebar-link-count">{{ playlist.trackCount }}</span>
         </RouterLink>
         <div v-if="playlistItems.length === 0 && !isRail" class="smart-playlist-empty">
-          <span class="i-ph-sparkle"></span>
-          <span>{{ t('sidebar.playlistsEmpty') }}</span>
+          <button class="sidebar-playlist-empty-action" type="button" @click="openCreateMenu">
+            {{ t('sidebar.createFirstPlaylist') }}
+          </button>
         </div>
       </section>
     </nav>

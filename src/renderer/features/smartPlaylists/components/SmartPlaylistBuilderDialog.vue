@@ -249,7 +249,6 @@ onBeforeUnmount(() => {
       >
         <header>
           <div class="title-lockup">
-            <span class="i-lucide-sparkles" />
             <h1 id="playlist-builder-title">新建智能歌单</h1>
           </div>
           <button class="close" aria-label="关闭" :disabled="saving" @click="close">
@@ -485,9 +484,6 @@ header {
   display: flex;
   gap: 12px;
   align-items: center;
-}
-.title-lockup > span {
-  color: var(--muted);
 }
 h1 {
   margin: 0;
