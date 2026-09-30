@@ -81,13 +81,13 @@ export function useLyricsPanelLayout(options: UseLyricsPanelLayoutOptions = {}) 
     })
   }
 
-  const isCdCanvas = computed(() => {
+  const isStandaloneCanvas = computed(() => {
     const name = String(route?.name ?? '')
-    return name === 'cd-albums' || name === 'cd-album-index'
+    return name === 'cd-albums' || name === 'cd-album-index' || name === 'archive'
   })
 
   const canDisplayLyricsPanel: ComputedRef<boolean> = computed(() => {
-    return isWideScreen.value && displayMode.value === 'normal' && !isCdCanvas.value
+    return isWideScreen.value && displayMode.value === 'normal' && !isStandaloneCanvas.value
   })
 
   return {

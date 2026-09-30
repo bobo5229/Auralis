@@ -22,7 +22,7 @@ export const rawRouteLoaders = {
   cdAlbums: () => import('@renderer/features/albums/pages/CdAlbumsPage.vue'),
   cdAlbumIndex: () => import('@renderer/features/albums/pages/CdAlbumIndexPage.vue'),
   albumDetail: () => import('@renderer/features/albums/pages/AlbumDetailPage.vue'),
-  archive: () => import('@renderer/features/archive/pages/ArchivePage.vue'),
+  archive: () => import('@renderer/features/archive/pages/ArchiveCanvasPage.vue'),
   settings: () => import('@renderer/features/settings/pages/SettingsPage.vue'),
 } as const satisfies Record<string, RouteComponentLoader>
 

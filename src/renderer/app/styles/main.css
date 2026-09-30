@@ -1,5 +1,7 @@
 @import './typography.css';
 @import './harmony-fonts.css';
+@import './archive-fonts.css';
+@import './archive-tokens.css';
 
 /* 数字使用系统 Georgia，英文使用 Plus Jakarta Sans，中文使用 HarmonyOS Sans SC。 */
 @font-face {
@@ -464,7 +466,8 @@
 }
 
 /* 普通窗口的流体背景使用中性回退色；独立播放宿主保留原有配色。 */
-:where([data-theme='dark'], :root:not([data-theme='light'])) .app-window:not(.is-cd-albums) {
+:where([data-theme='dark'], :root:not([data-theme='light']))
+  .app-window:not(.is-cd-albums):not(.is-archive-canvas) {
   --auralis-artwork-background-fallback: #121212;
 }
 
@@ -494,7 +497,7 @@
 }
 
 /* 收起态在窗口按钮下方留出整条可拖拽区域；品牌区自 54px 起。 */
-.app-shell.is-sidebar-collapsed:not(.is-cd-albums) > .shell-drag-region {
+.app-shell.is-sidebar-collapsed:not(.is-cd-albums):not(.is-archive-canvas) > .shell-drag-region {
   top: 0;
   left: 0;
   width: var(--auralis-sidebar-rail-width, 72px);
@@ -643,12 +646,12 @@ input {
   transition: grid-template-columns 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.app-shell.is-sidebar-collapsed:not(.is-cd-albums) {
+.app-shell.is-sidebar-collapsed:not(.is-cd-albums):not(.is-archive-canvas) {
   --auralis-sidebar-width: var(--auralis-sidebar-rail-width, 72px);
 }
 
 @media (min-width: 1280px) {
-  .app-shell:not(.is-cd-albums) {
+  .app-shell:not(.is-cd-albums):not(.is-archive-canvas) {
     grid-template-columns:
       var(--auralis-sidebar-width, 260px) minmax(0, 1fr)
       var(--auralis-lyrics-column-width, 20%);
@@ -1886,11 +1889,11 @@ input[type='range'].volume-overlay-slider {
     box-shadow 280ms ease;
 }
 
-.app-window:not(.is-cd-albums) {
+.app-window:not(.is-cd-albums):not(.is-archive-canvas) {
   background: var(--auralis-window-chrome-bg, var(--auralis-app-background));
 }
 
-.app-shell:not(.is-cd-albums) > .app-main {
+.app-shell:not(.is-cd-albums):not(.is-archive-canvas) > .app-main {
   --main-page-inset-start: 32px;
   --main-page-inset-end: 8px;
   --main-page-inset-top: 16px;
@@ -1906,18 +1909,18 @@ input[type='range'].volume-overlay-slider {
   padding-inline: var(--main-page-inset-start) var(--main-page-inset-end);
 }
 
-.app-shell:not(.is-cd-albums) > .app-shell-bg-fluid,
-.app-shell:not(.is-cd-albums) > .app-shell-bg-overlay {
+.app-shell:not(.is-cd-albums):not(.is-archive-canvas) > .app-shell-bg-fluid,
+.app-shell:not(.is-cd-albums):not(.is-archive-canvas) > .app-shell-bg-overlay {
   /* 与 Shell 左侧列对齐，保持侧栏周围留白为固定底色。 */
   clip-path: inset(0 0 0 var(--auralis-sidebar-width, 260px));
   transition: clip-path 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-shell:not(.is-cd-albums),
-  .app-shell:not(.is-cd-albums) .player-bar,
-  .app-shell:not(.is-cd-albums) > .app-shell-bg-fluid,
-  .app-shell:not(.is-cd-albums) > .app-shell-bg-overlay {
+  .app-shell:not(.is-cd-albums):not(.is-archive-canvas),
+  .app-shell:not(.is-cd-albums):not(.is-archive-canvas) .player-bar,
+  .app-shell:not(.is-cd-albums):not(.is-archive-canvas) > .app-shell-bg-fluid,
+  .app-shell:not(.is-cd-albums):not(.is-archive-canvas) > .app-shell-bg-overlay {
     transition: none;
   }
 }

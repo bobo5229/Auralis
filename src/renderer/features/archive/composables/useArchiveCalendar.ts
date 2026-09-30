@@ -1,4 +1,4 @@
-import { computed, ref, type Ref } from 'vue'
+import { computed, onScopeDispose, ref, type Ref } from 'vue'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import type { AnnualListeningInsights, ListeningHeatmap } from '@shared/types/archive'
@@ -14,7 +14,12 @@ export interface CalendarDay {
   isFuture: boolean
 }
 
-export function useArchiveCalendar(selectedYear: Ref<number>) {
+export function useArchiveCalendar(
+  selectedYear: Ref<number>,
+  options: { loadAnnualInsights?: boolean } = {},
+) {
+  let requestId = 0
+  onScopeDispose(() => ++requestId)
   const heatmap = ref<ListeningHeatmap | null>(null)
   const annualInsights = ref<AnnualListeningInsights | null>(null)
   const annualInsightsError = ref(false)
@@ -96,6 +101,7 @@ export function useArchiveCalendar(selectedYear: Ref<number>) {
     }
   })
   async function loadHeatmap(): Promise<void> {
+    const request = ++requestId
     isLoading.value = true
     errorMessage.value = null
     annualInsights.value = null
@@ -104,12 +110,16 @@ export function useArchiveCalendar(selectedYear: Ref<number>) {
     const year = selectedYear.value
     const [heatmapResult, insightsResult] = await Promise.allSettled([
       auralis.archive.getListeningHeatmap(year),
-      auralis.archive.getAnnualListeningInsights(year),
+      options.loadAnnualInsights === false
+        ? Promise.resolve(null)
+        : auralis.archive.getAnnualListeningInsights(year),
     ])
+    if (request !== requestId || selectedYear.value !== year) return
 
     if (heatmapResult.status === 'fulfilled') {
       heatmap.value = heatmapResult.value
     } else {
+      heatmap.value = null
       rendererDiagnostics.error({
         scope: 'archive.heatmap',
         message: 'Failed to load listening heatmap',

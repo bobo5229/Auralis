@@ -57,6 +57,12 @@ describe('useLyricsPanelLayout', () => {
     mockRoute.name = 'songs'
     expect(layout.canDisplayLyricsPanel.value).toBe(true)
 
+    // Archive canvas hides lyrics and restores availability on return.
+    mockRoute.name = 'archive'
+    expect(layout.canDisplayLyricsPanel.value).toBe(false)
+    mockRoute.name = 'songs'
+    expect(layout.canDisplayLyricsPanel.value).toBe(true)
+
     // Fullscreen hides it
     mockDisplayMode.value = 'fullscreen'
     expect(layout.canDisplayLyricsPanel.value).toBe(false)

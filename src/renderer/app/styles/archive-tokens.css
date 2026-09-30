@@ -1,0 +1,54 @@
+.archive-canvas-page {
+  --archive-font-display: 'Chakra Petch', 'Auralis Archive CJK', sans-serif;
+  --archive-font-data: 'JetBrains Mono', 'Auralis Archive CJK', monospace;
+  --archive-font-ui: 'Rajdhani', 'Auralis Archive CJK', sans-serif;
+
+  --archive-color-bg-void: #030305;
+  --archive-color-bg-base: #07080e;
+  --archive-color-bg-surface: #0a0c10;
+  --archive-color-bg-elevated: #11141c;
+  --archive-color-bg-card: #131720;
+  --archive-color-bg-recessed: #050608;
+
+  --archive-color-border-subtle: rgba(255, 255, 255, 0.05);
+  --archive-color-border-default: rgba(255, 255, 255, 0.08);
+  --archive-color-border-strong: #1e2632;
+  --archive-color-border-control: #334155;
+
+  --archive-color-text-primary: #f8fafc;
+  --archive-color-text-secondary: #94a3b8;
+  --archive-color-text-muted: #7b8ca5;
+
+  --archive-color-heat-0: #14141d;
+  --archive-color-heat-1: #9f40d0;
+  --archive-color-heat-2: #f72585;
+  --archive-color-heat-3: #f8961e;
+  --archive-color-heat-4: #f9c74f;
+
+  --archive-glow-1: 0 0 6px rgba(159, 64, 208, 0.45);
+  --archive-glow-2: 0 0 10px rgba(247, 37, 133, 0.55);
+  --archive-glow-3: 0 0 14px rgba(248, 150, 30, 0.65);
+  --archive-glow-4: 0 0 16px rgba(249, 199, 79, 0.85);
+
+  --archive-color-accent-primary: var(--archive-color-heat-4);
+  --archive-color-accent-secondary: var(--archive-color-heat-2);
+  --archive-color-signal-online: #10b981;
+  --archive-color-signal-warning: #f8961e;
+  --archive-color-projection: #7be2ed;
+
+  /* Compatibility aliases remain scoped to the canvas page during migration. */
+  --bg-void: var(--archive-color-bg-void);
+  --level-0: var(--archive-color-heat-0);
+  --level-1: var(--archive-color-heat-1);
+  --level-2: var(--archive-color-heat-2);
+  --level-3: var(--archive-color-heat-3);
+  --level-4: var(--archive-color-heat-4);
+  --glow-1: var(--archive-glow-1);
+  --glow-2: var(--archive-glow-2);
+  --glow-3: var(--archive-glow-3);
+  --glow-4: var(--archive-glow-4);
+  --text-primary: var(--archive-color-text-primary);
+  --text-secondary: var(--archive-color-text-secondary);
+  --text-muted: var(--archive-color-text-muted);
+  --accent-glow: var(--archive-color-heat-4);
+}

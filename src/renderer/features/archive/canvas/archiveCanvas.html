@@ -1,0 +1,172 @@
+<div class="terminal-container">
+  <div class="crt-overlay"></div>
+
+  <div class="dashboard-layout">
+    <!-- LEFT: TACTICAL AGENT PROFILE & RADAR -->
+    <aside class="panel-profile" aria-label="用户档案与偏好雷达">
+      <div class="tactical-board">
+        <!-- Heavy Spine -->
+        <div class="tactical-spine" aria-hidden="true">
+          <div class="screw top"></div>
+          <div class="screw bottom"></div>
+        </div>
+
+        <!-- Recessed Screen -->
+        <div class="tactical-screen">
+          <div class="profile-header">
+            <div class="avatar-box" aria-hidden="true"></div>
+            <div class="profile-info">
+              <div class="profile-name">&gt; AURALIS</div>
+              <div class="profile-status">LOCAL ARCHIVE</div>
+            </div>
+          </div>
+
+          <div class="radar-container" aria-label="曲风画像暂未接入">
+            <svg class="radar-svg" viewBox="0 0 100 100" role="img">
+              <!-- Spider Web -->
+              <polygon class="radar-grid" points="50,10 84.6,30 84.6,70 50,90 15.4,70 15.4,30" />
+              <polygon
+                class="radar-grid"
+                points="50,23.3 73.1,36.6 73.1,63.3 50,76.6 26.9,63.3 26.9,36.6"
+              />
+              <polygon
+                class="radar-grid"
+                points="50,36.6 61.5,43.3 61.5,56.6 50,63.3 38.5,56.6 38.5,43.3"
+              />
+
+              <!-- Axes -->
+              <line class="radar-axis" x1="50" y1="50" x2="50" y2="10" />
+              <line class="radar-axis" x1="50" y1="50" x2="84.6" y2="30" />
+              <line class="radar-axis" x1="50" y1="50" x2="84.6" y2="70" />
+              <line class="radar-axis" x1="50" y1="50" x2="50" y2="90" />
+              <line class="radar-axis" x1="50" y1="50" x2="15.4" y2="70" />
+              <line class="radar-axis" x1="50" y1="50" x2="15.4" y2="30" />
+
+              <!-- Data Polygon (Synth, Rock, Pop, Classical, Jazz, OST) -->
+
+              <!-- Labels with Enhanced Readability -->
+
+              <text class="radar-label" x="50" y="52" style="font-size: 7px">曲风画像暂未接入</text>
+            </svg>
+          </div>
+
+          <div class="metrics-stack">
+            <div class="metric-row">
+              <span class="metric-label">年度播放次数</span>
+              <span class="metric-value" id="metric-plays">—</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">年度活跃天数</span>
+              <span class="metric-value" id="metric-days">—</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">年度听歌时长</span>
+              <span class="metric-value" id="metric-duration">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER: HEATMAP MATRIX & 3D ALBUM STAGE -->
+    <main class="panel-center">
+      <!-- Matrix Header -->
+      <header class="matrix-header">
+        <h1 class="matrix-title">&gt; 音乐日历</h1>
+        <div class="matrix-hover-info" id="matrix-coords" aria-live="polite">请选择日期</div>
+        <div class="matrix-stats" id="matrix-year"></div>
+      </header>
+
+      <!-- Interactive Heatmap (with Keyboard Navigation Support) -->
+      <div class="heatmap-wrapper">
+        <div id="calendar-status" class="calendar-status" role="status"></div>
+        <div id="calendar-months" class="calendar-months" aria-hidden="true"></div>
+        <div class="heatmap-grid" id="grid" role="group" aria-label="年度听歌活跃度热力图">
+          <!-- Populated via JS -->
+        </div>
+        <div class="matrix-legend" aria-hidden="true">
+          <span>少</span>
+          <div class="legend-box lvl-0"></div>
+          <div class="legend-box lvl-1"></div>
+          <div class="legend-box lvl-2"></div>
+          <div class="legend-box lvl-3"></div>
+          <div class="legend-box lvl-4"></div>
+          <span>多</span>
+        </div>
+      </div>
+
+      <!-- Native 2.5D Canvas Turntable -->
+      <section class="stage-container" aria-labelledby="stage-heading">
+        <div class="stage-heading">
+          <h2 id="stage-heading">当天常听专辑 · 前五</h2>
+          <span id="stage-position">00 / 00</span>
+        </div>
+        <div class="stage-viewport">
+          <div id="stage-status" class="stage-status" role="status"></div>
+          <canvas
+            class="stage-canvas"
+            id="album-stage"
+            tabindex="0"
+            role="group"
+            aria-label="专辑旋转展台"
+            aria-describedby="stage-hint stage-caption"
+            >专辑展台。可拖拽或使用方向键选辑。</canvas
+          >
+        </div>
+        <div class="stage-caption" id="stage-caption" aria-live="polite" aria-atomic="true">
+          <canvas class="stage-caption-face" id="stage-caption-face" aria-hidden="true"></canvas>
+          <p class="stage-album-title" id="stage-title"></p>
+          <span class="stage-album-artist" id="stage-artist"></span>
+        </div>
+        <div class="stage-controls" role="group" aria-label="专辑选择控件">
+          <button class="stage-control" id="stage-prev" type="button" aria-label="上一张专辑">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m10 5-5 5 5 5m5-10-5 5 5 5" /></svg>
+          </button>
+          <div class="stage-selectors" id="stage-selectors"></div>
+          <button class="stage-control" id="stage-next" type="button" aria-label="下一张专辑">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 5 5-5 5m5-10 5 5-5 5" /></svg>
+          </button>
+          <button
+            class="stage-control stage-auto"
+            id="stage-auto"
+            type="button"
+            aria-label="自动旋转开关"
+            aria-pressed="true"
+          >
+            AUTO
+          </button>
+        </div>
+        <p class="stage-hint" id="stage-hint">
+          DRAG TO ROTATE · ← → TO SELECT · SPACE TO TOGGLE AUTO
+        </p>
+      </section>
+    </main>
+
+    <!-- RIGHT: SKEUOMORPHIC DATA FEEDER / LOG INSPECTOR -->
+    <aside class="panel-right" aria-label="数据探针与历史记录">
+      <div class="data-feeder">
+        <!-- Hardware Header -->
+        <div class="feeder-header">
+          <span class="feeder-header-text">当天常听歌曲 · 前十</span>
+          <div class="feeder-led" id="feeder-led" aria-hidden="true"></div>
+        </div>
+
+        <!-- Screen Slot -->
+        <div class="feeder-screen">
+          <div class="inspector-header">
+            <span id="inspector-title">请选择日期</span>
+            <span class="blinking-cursor">_</span>
+          </div>
+          <div class="track-list" id="inspector-content" role="region" aria-live="polite">
+            <div class="standby-text">请选择日期</div>
+          </div>
+        </div>
+
+        <!-- Metal Base Tray -->
+        <div class="feeder-footer">
+          <span class="feeder-footer-text">AURALIS / ARCHIVE TERMINAL</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
