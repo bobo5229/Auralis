@@ -16,6 +16,15 @@ describe('routeComponentLoaders', () => {
     expect(cdAlbums).toHaveBeenCalledTimes(1)
   })
 
+  it('loads the Mac Archive page lazily without adding it to primary warmup', async () => {
+    const archiveMac = vi.fn().mockResolvedValue({ default: { name: 'ArchiveMacPage' } })
+    const registry = createRouteLoaderRegistry({ archiveMac })
+    expect(archiveMac).not.toHaveBeenCalled()
+    expect(registry.isWarmableRoute('archive-mac')).toBe(false)
+    await Promise.all([registry.routeLoaders.archiveMac(), registry.routeLoaders.archiveMac()])
+    expect(archiveMac).toHaveBeenCalledTimes(1)
+  })
+
   it('defines primary warmable routes strictly matching library, albums, archive, and settings', () => {
     expect(PRIMARY_WARMABLE_ROUTES).toEqual(['library', 'albums', 'archive', 'settings'])
   })

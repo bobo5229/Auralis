@@ -1,6 +1,7 @@
 import type { PlayStatsRepository } from '../repositories/playStatsRepository'
 import type {
   AnnualListeningInsights,
+  DailyAlbumStats,
   DailyListeningDetail,
   GenreSpectrumItem,
   ListeningGenreSpectrum,
@@ -114,6 +115,20 @@ export class PlayStatsService {
     }
 
     return this.playStatsRepo.getDailyListeningDetail(date)
+  }
+
+  getDailyAlbumStats(date: string): DailyAlbumStats {
+    if (!isValidDateKey(date)) {
+      throw new Error('Date must use the YYYY-MM-DD format')
+    }
+    if (Number.parseInt(date.slice(0, 4), 10) < 1970) {
+      throw new Error('Date must be on or after 1970-01-01')
+    }
+    if (date > formatDateKey(new Date())) {
+      throw new Error('Date must not be in the future')
+    }
+
+    return { date, items: this.playStatsRepo.getDailyAlbumStats(date) }
   }
 
   getAnnualListeningInsights(year: number): AnnualListeningInsights {

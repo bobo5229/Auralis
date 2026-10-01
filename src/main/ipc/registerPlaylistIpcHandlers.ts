@@ -26,6 +26,8 @@ type SmartPlaylistOperations = Pick<
   | 'getDetail'
   | 'create'
   | 'createFromQuery'
+  | 'createRecentFrequent'
+  | 'updateRecentFrequentDays'
   | 'rename'
   | 'updateViewMode'
   | 'delete'
@@ -59,6 +61,15 @@ export function registerPlaylistIpcHandlers(
   registrar.handle(
     ipcChannels.smartPlaylists.createFromQuery,
     (_event, payload: { query: string }) => smartPlaylistService.createFromQuery(payload.query),
+  )
+  registrar.handle(
+    ipcChannels.smartPlaylists.createRecentFrequent,
+    (_event, payload: { days?: number }) => smartPlaylistService.createRecentFrequent(payload.days),
+  )
+  registrar.handle(
+    ipcChannels.smartPlaylists.updateRecentFrequentDays,
+    (_event, payload: { id: number; days: number }) =>
+      smartPlaylistService.updateRecentFrequentDays(payload.id, payload.days),
   )
   registrar.handle(
     ipcChannels.smartPlaylists.rename,

@@ -22,4 +22,9 @@
   var root = document.documentElement
   root.dataset.theme = theme
   root.style.colorScheme = theme
+  // 强制刷新同样属于 reload，在模块加载前隐藏开屏，避免首帧闪现。
+  var navigation = window.performance.getEntriesByType('navigation')[0]
+  if (navigation && navigation.type === 'reload') {
+    root.dataset.splashSkipped = 'true'
+  }
 })()

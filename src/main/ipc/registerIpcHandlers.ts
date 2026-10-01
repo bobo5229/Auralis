@@ -13,6 +13,8 @@ import { ArtworkCacheMigrationService } from '@main/features/artwork/artworkCach
 import { isPathUnderAnyRoot } from '@main/features/audio/audioPathGuard'
 import { probeAudioDecode } from '@main/features/audio/audioDecodeProbe'
 import { NativePlaybackService } from '@main/features/audio/nativePlaybackService'
+import { PlaybackFileCoordinator } from '@main/features/audio/playbackFileCoordinator'
+import { RendererReadLeaseOwner } from '@main/features/audio/rendererReadLeaseOwner'
 import { resolveAudioRuntimePaths } from '@main/features/audio/audioRuntimePaths'
 import { isPlayableAudioExtension, buildAudioTrackUrl } from '@main/features/audio/audioProtocol'
 import { LibraryIncrementalImportService } from '@main/features/libraryScan/libraryIncrementalImportService'
@@ -62,11 +64,17 @@ export function registerIpcHandlers(
   const libraryScanService = new LibraryScanService(db, artworkCacheDir)
   const trackRepository = new TrackRepository(db)
   const libraryRootRepository = new LibraryRootRepository(db)
+  const playbackFileCoordinator = new PlaybackFileCoordinator({
+    getTrackFilePath: (trackId) => trackRepository.getFilePathById(trackId),
+    getTrackIdsByFilePath: (filePath) => trackRepository.getTrackIdsByPlaybackPath(filePath),
+    sendToRenderer,
+  })
   const metadataRefreshService = new MetadataRefreshService(
     new MetadataRefreshRepository(db),
     artworkCacheDir,
     sendToRenderer,
     audioPaths.ffmpegPath,
+    playbackFileCoordinator,
   )
   const incrementalImportService = new LibraryIncrementalImportService(
     trackRepository,
@@ -188,6 +196,7 @@ export function registerIpcHandlers(
       if (!path) throw new Error('Audio file is unavailable')
       return path
     },
+    coordinator: playbackFileCoordinator,
     emit: (event) => sendToRenderer(ipcChannels.playback.nativeEvent, event),
     warn: (error) => logger.warn({ error }, 'Digital silence boundary optimization failed'),
     onBoundaryStatus: (event) => logger.debug(event, 'Digital silence boundary analysis'),
@@ -207,6 +216,17 @@ export function registerIpcHandlers(
       event.sender.on('render-process-gone', () => nativePlayback.dispose())
     }
     return nativePlayback.command(request)
+  })
+
+  const rendererLeaseOwners = new RendererReadLeaseOwner(playbackFileCoordinator)
+  electronIpcRegistrar.handle(ipcChannels.playback.acquireReadLease, async (event, payload) => {
+    const filePath = trackRepository.getFilePathById(payload.trackId)
+    if (!filePath) throw new Error(`Audio file not found for track ${payload.trackId}`)
+    return rendererLeaseOwners.acquire(event.sender, filePath)
+  })
+  electronIpcRegistrar.handle(ipcChannels.playback.releaseReadLease, (event, payload) => {
+    rendererLeaseOwners.release(event.sender, payload.leaseId)
+    return { ok: true }
   })
 
   electronIpcRegistrar.handle(ipcChannels.app.getInfo, () => ({
@@ -288,10 +308,14 @@ export function registerIpcHandlers(
     getAudioUrl,
     notifyLibraryChanged,
   })
-  registerMetadataIpcHandlers(electronIpcRegistrar, { metadataRefreshService })
+  registerMetadataIpcHandlers(electronIpcRegistrar, {
+    metadataRefreshService,
+    playbackFileCoordinator,
+  })
 
   return {
     async shutdown() {
+      rendererLeaseOwners.dispose()
       // Stop producers immediately, and keep SQLite open while accepted work drains.
       const producers = await Promise.allSettled([
         electronIpcRegistrar.shutdown(),

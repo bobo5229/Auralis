@@ -84,6 +84,10 @@ export const auralisApi: AuralisApi = {
     getDetail: (id) => invoke(ipcChannels.smartPlaylists.getDetail, { id }),
     create: (name, rule) => invoke(ipcChannels.smartPlaylists.create, { name, rule }),
     createFromQuery: (query) => invoke(ipcChannels.smartPlaylists.createFromQuery, { query }),
+    createRecentFrequent: (days) =>
+      invoke(ipcChannels.smartPlaylists.createRecentFrequent, { days }),
+    updateRecentFrequentDays: (id, days) =>
+      invoke(ipcChannels.smartPlaylists.updateRecentFrequentDays, { id, days }),
     rename: (id, name) => invoke(ipcChannels.smartPlaylists.rename, { id, name }),
     updateViewMode: (id, viewMode) =>
       invoke(ipcChannels.smartPlaylists.updateViewMode, { id, viewMode }),
@@ -120,6 +124,8 @@ export const auralisApi: AuralisApi = {
       ),
     getAlbumTracks: (albumKey) => invoke(ipcChannels.playback.getAlbumTracks, { albumKey }),
     recordEffectivePlay: (payload) => invoke(ipcChannels.playback.recordEffectivePlay, payload),
+    acquireReadLease: (trackId) => invoke(ipcChannels.playback.acquireReadLease, { trackId }),
+    releaseReadLease: (leaseId) => invoke(ipcChannels.playback.releaseReadLease, { leaseId }),
   },
   systemMedia: {
     updateThumbarState: (state) => send(ipcChannels.systemMedia.updateThumbarState, state),
@@ -129,6 +135,7 @@ export const auralisApi: AuralisApi = {
     getListeningHeatmap: (year) => invoke(ipcChannels.archive.getListeningHeatmap, { year }),
     getDailyListeningDetail: (date) =>
       invoke(ipcChannels.archive.getDailyListeningDetail, { date }),
+    getDailyAlbumStats: (date) => invoke(ipcChannels.archive.getDailyAlbumStats, { date }),
     getAnnualListeningInsights: (year) =>
       invoke(ipcChannels.archive.getAnnualListeningInsights, { year }),
     getListeningRanking: (params) => invoke(ipcChannels.archive.getListeningRanking, params),
@@ -145,8 +152,10 @@ export const auralisApi: AuralisApi = {
       invoke(ipcChannels.metadata.listRefreshFailures, limit ? { limit } : undefined),
     clearRefreshFailures: () => invoke(ipcChannels.metadata.clearRefreshFailures),
     getTrackMetadata: (trackId) => invoke(ipcChannels.metadata.getTrackMetadata, { trackId }),
+    getTrackEditState: (trackId) => invoke(ipcChannels.metadata.getTrackEditState, { trackId }),
     updateTrackMetadata: (metadata) => invoke(ipcChannels.metadata.updateTrackMetadata, metadata),
     onRefreshProgress: (callback) => on(ipcChannels.metadata.refreshProgress, callback),
+    onTrackEditStateChanged: (callback) => on(ipcChannels.metadata.trackEditStateChanged, callback),
   },
   window: {
     control: (action) => invoke(ipcChannels.window.control, { action }),

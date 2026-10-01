@@ -657,7 +657,7 @@ const isCdCanvas = computed(() => {
   return route.name === 'cd-albums' || route.name === 'cd-album-index'
 })
 
-const isArchiveCanvas = computed(() => route.name === 'archive')
+const isArchiveCanvas = computed(() => route.name === 'archive' || route.name === 'archive-mac')
 const isStandaloneCanvas = computed(() => isCdCanvas.value || isArchiveCanvas.value)
 
 /** 全高布局下的收起图标栏；驱动 Shell 列宽、播放栏左边界与背景裁切。 */

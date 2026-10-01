@@ -243,6 +243,17 @@ const isoTimestamp: Validator = (value, path, context) => {
 }
 
 const smartPlaylistRule: Validator = (value, path, context) => {
+  if (value && typeof value === 'object' && 'preset' in value) {
+    if ((value as { preset: unknown }).preset === 'mostListened') {
+      objectShape({ preset: field(enumValue(['mostListened'])) })(value, path, context)
+      return
+    }
+    objectShape({
+      preset: field(enumValue(['recentFrequent', 'recentPlayed'])),
+      days: field(finiteNumber({ min: 1, integer: true })),
+    })(value, path, context)
+    return
+  }
   let ruleNodes = 0
 
   const countRuleNode = (nodePath: string, depth: number): void => {
@@ -343,6 +354,12 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.smartPlaylists.createFromQuery]: required(
     objectShape({ query: field(stringValue({ min: 1, max: MAX_QUERY_LENGTH })) }),
   ),
+  [ipcChannels.smartPlaylists.createRecentFrequent]: required(
+    objectShape({ days: field(finiteNumber({ min: 1, integer: true }), true) }),
+  ),
+  [ipcChannels.smartPlaylists.updateRecentFrequentDays]: required(
+    objectShape({ id: field(positiveId), days: field(finiteNumber({ min: 1, integer: true })) }),
+  ),
   [ipcChannels.smartPlaylists.rename]: required(namePayload),
   [ipcChannels.smartPlaylists.updateViewMode]: required(viewModePayload),
   [ipcChannels.smartPlaylists.delete]: required(idPayload('id')),
@@ -394,8 +411,13 @@ export const domainIpcPayloadPolicies = {
       playedAtIso: field(isoTimestamp),
     }),
   ),
+  [ipcChannels.playback.acquireReadLease]: required(idPayload('trackId')),
+  [ipcChannels.playback.releaseReadLease]: required(
+    objectShape({ leaseId: field(stringValue({ min: 1, max: 128 })) }),
+  ),
   [ipcChannels.archive.getListeningHeatmap]: required(objectShape({ year: field(archiveYear) })),
   [ipcChannels.archive.getDailyListeningDetail]: required(objectShape({ date: field(dateKey) })),
+  [ipcChannels.archive.getDailyAlbumStats]: required(objectShape({ date: field(dateKey) })),
   [ipcChannels.archive.getAnnualListeningInsights]: required(
     objectShape({ year: field(archiveYear) }),
   ),
@@ -417,6 +439,7 @@ export const domainIpcPayloadPolicies = {
   ),
   [ipcChannels.metadata.clearRefreshFailures]: voidPayload(),
   [ipcChannels.metadata.getTrackMetadata]: required(idPayload('trackId')),
+  [ipcChannels.metadata.getTrackEditState]: required(idPayload('trackId')),
   [ipcChannels.metadata.updateTrackMetadata]: required(editableMetadata),
   [ipcChannels.window.control]: required(
     objectShape({ action: field(enumValue(['minimize', 'toggle-maximize', 'close'])) }),

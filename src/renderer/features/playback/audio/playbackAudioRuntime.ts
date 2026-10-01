@@ -37,6 +37,8 @@ export interface PlaybackAudioCallbacks {
 export interface PlaybackAudioRuntimeOptions {
   audio?: HTMLAudioElement
   gaplessEngine?: GaplessAudioEngine
+  acquireReadLease?: (trackId: number) => Promise<{ leaseId: string }>
+  releaseReadLease?: (leaseId: string) => Promise<unknown> | void
 }
 
 export interface PlaybackAudioRuntime {
@@ -72,13 +74,27 @@ export function createPlaybackAudioRuntime(
   options?: PlaybackAudioRuntimeOptions,
 ): PlaybackAudioRuntime {
   const audio = options?.audio ?? new Audio()
+  const acquireReadLease =
+    options?.acquireReadLease ??
+    (typeof window !== 'undefined' && window.auralis?.playback?.acquireReadLease
+      ? (trackId: number) => window.auralis.playback.acquireReadLease(trackId)
+      : undefined)
+  const releaseReadLease =
+    options?.releaseReadLease ??
+    (typeof window !== 'undefined' && window.auralis?.playback?.releaseReadLease
+      ? (leaseId: string) => window.auralis.playback.releaseReadLease(leaseId)
+      : undefined)
+
   let activeBackend: 'html-audio' | 'gapless' | 'idle' = 'idle'
   let currentTrackId: number | null = null
   let isDisposed = false
+  let htmlAudioLeaseId: string | null = null
 
   const gaplessEngine =
     options?.gaplessEngine ??
     new GaplessAudioEngine({
+      acquireReadLease,
+      releaseReadLease,
       onCurrentEnded: (nextTrackId) => {
         if (activeBackend === 'gapless') {
           if (nextTrackId !== null) {
@@ -161,11 +177,19 @@ export function createPlaybackAudioRuntime(
 
   const onEnded = () => {
     if (activeBackend !== 'html-audio') return
+    if (htmlAudioLeaseId) {
+      releaseReadLease?.(htmlAudioLeaseId)
+      htmlAudioLeaseId = null
+    }
     callbacks.onEnded(null)
   }
 
   const onError = () => {
     if (activeBackend !== 'html-audio') return
+    if (htmlAudioLeaseId) {
+      releaseReadLease?.(htmlAudioLeaseId)
+      htmlAudioLeaseId = null
+    }
     const mediaError = audio.error
     const detail = mediaError
       ? `${describeMediaError(mediaError.code)} (${mediaError.code})`
@@ -196,6 +220,10 @@ export function createPlaybackAudioRuntime(
   let activeSessionId = 0
 
   function clearHtmlAudio(): void {
+    if (htmlAudioLeaseId) {
+      releaseReadLease?.(htmlAudioLeaseId)
+      htmlAudioLeaseId = null
+    }
     audio.pause()
     audio.removeAttribute('src')
     audio.load()
@@ -244,6 +272,20 @@ export function createPlaybackAudioRuntime(
     }
 
     activeBackend = 'html-audio'
+    if (acquireReadLease) {
+      try {
+        const lease = await acquireReadLease(trackId)
+        if (startSessionId !== activeSessionId || isDisposed) {
+          releaseReadLease?.(lease.leaseId)
+          return
+        }
+        htmlAudioLeaseId = lease.leaseId
+      } catch (error) {
+        if (startSessionId !== activeSessionId) return
+        throw error
+      }
+    }
+
     audio.src = url
     audio.currentTime = 0
     try {

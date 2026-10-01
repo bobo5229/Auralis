@@ -35,6 +35,10 @@ watchEffect(() => {
   })
 })
 
+function goToMacArchive(): void {
+  void router.push({ name: 'archive-mac' })
+}
+
 function returnToPlayer(): void {
   const previous = router.options.history.state.back
   if (typeof previous === 'string' && previous.startsWith('/') && previous !== '/archive') {
@@ -74,6 +78,9 @@ onBeforeUnmount(() => {
         <span aria-hidden="true">←</span> 返回
       </button>
       <span class="archive-canvas-name">AURALIS / 声迹</span>
+      <button type="button" class="archive-canvas-mac-btn" @click="goToMacArchive">
+        Mac 声迹预览
+      </button>
       <label class="archive-canvas-year">
         <span>年份</span>
         <select v-model.number="selectedYear" aria-label="听歌记录年份">
@@ -132,6 +139,30 @@ onBeforeUnmount(() => {
   font-weight: 700;
   color: var(--archive-color-text-secondary);
   letter-spacing: 2px;
+}
+.archive-canvas-mac-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--archive-color-border-control);
+  border-radius: 3px;
+  background: var(--archive-color-bg-elevated);
+  color: var(--archive-color-text-primary);
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  font-family: var(--archive-font-ui);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.archive-canvas-mac-btn:hover {
+  border-color: var(--archive-color-accent-primary);
+  color: var(--archive-color-accent-primary);
+}
+.archive-canvas-mac-btn:focus-visible {
+  outline: 2px solid var(--archive-color-accent-primary);
+  outline-offset: 3px;
 }
 .archive-canvas-year {
   margin-left: auto;

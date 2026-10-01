@@ -1,0 +1,132 @@
+.floppy {
+  transform-style: preserve-3d;
+}
+.load-tray {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 100%;
+  height: 7px;
+  transform-style: preserve-3d;
+  transform: translateZ(-49px);
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 260ms;
+}
+.floppy.tray-open .load-tray {
+  transform: translateZ(47px);
+  visibility: visible;
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s;
+}
+.tray-top {
+  position: absolute;
+  left: 0;
+  top: -44.5px;
+  width: 100%;
+  height: 96px;
+  transform: rotateX(90deg) translateZ(3.5px);
+  transform-style: preserve-3d;
+  background: #37383d;
+  box-shadow:
+    inset 0 0 12px #15161c,
+    inset 0 0 0 3px #292a30;
+  backface-visibility: hidden;
+}
+.tray-front {
+  position: absolute;
+  inset: 0;
+  transform: translateZ(48px);
+  background: linear-gradient(#49494e, #28292e);
+  box-shadow: 0 1px 2px #0006;
+}
+.tray-side {
+  position: absolute;
+  top: 0;
+  left: calc((100% - 96px) / 2);
+  width: 96px;
+  height: 7px;
+  background: #222329;
+  backface-visibility: hidden;
+}
+.tray-side.left {
+  transform: rotateY(-90deg) translateZ(calc(var(--tray-width) / 2));
+}
+.tray-side.right {
+  transform: rotateY(90deg) translateZ(calc(var(--tray-width) / 2));
+}
+.tray-top:before,
+.tray-top:after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: #4c4c52;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.tray-top:before {
+  left: 6px;
+}
+.tray-top:after {
+  right: 6px;
+}
+.tray-media {
+  position: absolute;
+  inset: 12%;
+  transform: translateZ(0.7px);
+  transform-style: preserve-3d;
+}
+.tray-media canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  image-rendering: pixelated;
+  box-shadow: 0 2px 5px #0008;
+}
+.floppy.tray-loaded .tray-top {
+  background-image: var(--tray-cover);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 76% 76%;
+}
+.tray-point {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.tray-point.p0 {
+  left: 0;
+  top: 0;
+}
+.tray-point.p1 {
+  right: 0;
+  top: 0;
+}
+.tray-point.p2 {
+  right: 0;
+  bottom: 0;
+}
+.tray-point.p3 {
+  left: 0;
+  bottom: 0;
+}
+.floppy.tray-open .floppy-lip {
+  outline: 1px solid #91c3ae;
+  box-shadow: 0 0 6px #589e7c55;
+}
+.floppy.is-ready .tray-front {
+  background: linear-gradient(#56635d, #303d36);
+}
+@media (prefers-reduced-motion: reduce) {
+  .load-tray,
+  .floppy.tray-open .load-tray {
+    transition: none;
+  }
+}

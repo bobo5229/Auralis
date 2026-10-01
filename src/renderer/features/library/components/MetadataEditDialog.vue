@@ -2,19 +2,24 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { MetadataEditStatus } from '../composables/useLibraryMetadataEditor'
 
 const props = withDefaults(
   defineProps<{
     metadata: EditableTrackMetadata | null
     saving: boolean
     errorMessage: string | null
+    editStatus?: MetadataEditStatus
   }>(),
-  {},
+  {
+    editStatus: 'editable',
+  },
 )
 
 const emit = defineEmits<{
   close: []
   save: [metadata: EditableTrackMetadata]
+  retryStatus: []
 }>()
 
 const { t } = useI18n()
@@ -22,6 +27,45 @@ const { t } = useI18n()
 const dialogRef = ref<HTMLFormElement | null>(null)
 const titleInputRef = ref<HTMLInputElement | null>(null)
 const localError = ref<string | null>(null)
+
+const isEditingDisabled = computed(() => props.saving || props.editStatus !== 'editable')
+
+interface StatusBannerConfig {
+  message: string
+  classes: string
+  icon: string
+}
+
+const statusBanner = computed<StatusBannerConfig | null>(() => {
+  switch (props.editStatus) {
+    case 'checking':
+      return {
+        message: t('library.metadataEditor.status.checking'),
+        classes: 'metadata-dialog-status-banner--info',
+        icon: 'i-lucide-loader-2 animate-spin text-[var(--auralis-text-muted)]',
+      }
+    case 'playback-in-use':
+      return {
+        message: t('library.metadataEditor.status.playbackInUse'),
+        classes: 'metadata-dialog-status-banner--warning',
+        icon: 'i-lucide-disc-3 text-amber-500 shrink-0',
+      }
+    case 'write-in-progress':
+      return {
+        message: t('library.metadataEditor.errors.writeInProgress'),
+        classes: 'metadata-dialog-status-banner--warning',
+        icon: 'i-lucide-loader-2 animate-spin text-amber-500 shrink-0',
+      }
+    case 'query-failed':
+      return {
+        message: t('library.metadataEditor.status.queryFailed'),
+        classes: 'metadata-dialog-status-banner--error',
+        icon: 'i-lucide-alert-circle text-[var(--auralis-danger)] shrink-0',
+      }
+    default:
+      return null
+  }
+})
 
 const yearHasError = computed(
   () => localError.value === t('library.metadataEditor.validation.yearInvalid'),
@@ -52,13 +96,26 @@ watch(
     form.year = metadata?.year === null || metadata?.year === undefined ? '' : String(metadata.year)
     form.releaseDate = metadata?.releaseDate ?? ''
 
-    if (metadata) {
+    if (metadata && !isEditingDisabled.value) {
       nextTick(() => {
         titleInputRef.value?.focus()
       })
     }
   },
   { immediate: true },
+)
+
+watch(
+  () => isEditingDisabled.value,
+  (disabled, wasDisabled) => {
+    if (wasDisabled && !disabled && props.metadata) {
+      if (!dialogRef.value?.contains(document.activeElement)) {
+        nextTick(() => {
+          titleInputRef.value?.focus()
+        })
+      }
+    }
+  },
 )
 
 function normalize(value: string): string | null {
@@ -88,7 +145,7 @@ function validateReleaseDate(value: string): string | null {
 }
 
 function onSave(): void {
-  if (!props.metadata || props.saving) {
+  if (!props.metadata || isEditingDisabled.value) {
     return
   }
 
@@ -187,6 +244,27 @@ function onKeyDown(e: KeyboardEvent): void {
             </button>
           </div>
 
+          <div
+            v-if="statusBanner"
+            class="metadata-dialog-status-banner mb-3.5 flex items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-xs"
+            :class="statusBanner.classes"
+            role="status"
+            aria-live="polite"
+          >
+            <div class="flex items-center gap-2 min-w-0">
+              <span :class="statusBanner.icon" class="text-sm shrink-0"></span>
+              <span class="leading-relaxed">{{ statusBanner.message }}</span>
+            </div>
+            <button
+              v-if="editStatus === 'query-failed'"
+              type="button"
+              class="metadata-dialog-btn-retry ml-auto shrink-0 rounded px-2.5 py-1 text-xs font-semibold"
+              @click="emit('retryStatus')"
+            >
+              {{ t('library.metadataEditor.status.retry') }}
+            </button>
+          </div>
+
           <div class="grid gap-3">
             <label class="metadata-dialog-label grid gap-1 text-xs">
               {{ t('library.metadataEditor.fields.title') }}
@@ -195,7 +273,7 @@ function onKeyDown(e: KeyboardEvent): void {
                 v-model="form.title"
                 class="metadata-dialog-input metadata-input"
                 :placeholder="t('library.metadataEditor.placeholders.title')"
-                :disabled="saving"
+                :disabled="isEditingDisabled"
               />
             </label>
             <label class="metadata-dialog-label grid gap-1 text-xs">
@@ -204,7 +282,7 @@ function onKeyDown(e: KeyboardEvent): void {
                 v-model="form.artistDisplay"
                 class="metadata-dialog-input metadata-input"
                 :placeholder="t('library.metadataEditor.placeholders.artist')"
-                :disabled="saving"
+                :disabled="isEditingDisabled"
               />
             </label>
             <label class="metadata-dialog-label grid gap-1 text-xs">
@@ -213,7 +291,7 @@ function onKeyDown(e: KeyboardEvent): void {
                 v-model="form.albumTitle"
                 class="metadata-dialog-input metadata-input"
                 :placeholder="t('library.metadataEditor.placeholders.album')"
-                :disabled="saving"
+                :disabled="isEditingDisabled"
               />
             </label>
             <label class="metadata-dialog-label grid gap-1 text-xs">
@@ -222,7 +300,7 @@ function onKeyDown(e: KeyboardEvent): void {
                 v-model="form.albumArtistDisplay"
                 class="metadata-dialog-input metadata-input"
                 :placeholder="t('library.metadataEditor.placeholders.albumArtist')"
-                :disabled="saving"
+                :disabled="isEditingDisabled"
               />
             </label>
             <div class="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_112px]">
@@ -232,7 +310,7 @@ function onKeyDown(e: KeyboardEvent): void {
                   v-model="form.genreDisplay"
                   class="metadata-dialog-input metadata-input"
                   :placeholder="t('library.metadataEditor.placeholders.genre')"
-                  :disabled="saving"
+                  :disabled="isEditingDisabled"
                 />
               </label>
               <label class="metadata-dialog-label grid min-w-0 gap-1 text-xs">
@@ -242,7 +320,7 @@ function onKeyDown(e: KeyboardEvent): void {
                   class="metadata-dialog-input metadata-dialog-input--numeric metadata-input"
                   inputmode="numeric"
                   :placeholder="t('library.metadataEditor.placeholders.year')"
-                  :disabled="saving"
+                  :disabled="isEditingDisabled"
                   :aria-invalid="yearHasError ? 'true' : undefined"
                   :aria-describedby="yearHasError ? 'metadata-dialog-error' : undefined"
                 />
@@ -254,7 +332,7 @@ function onKeyDown(e: KeyboardEvent): void {
                 v-model="form.releaseDate"
                 class="metadata-dialog-input metadata-dialog-input--numeric metadata-input"
                 :placeholder="t('library.metadataEditor.placeholders.releaseDate')"
-                :disabled="saving"
+                :disabled="isEditingDisabled"
                 :aria-invalid="releaseDateHasError ? 'true' : undefined"
                 :aria-describedby="releaseDateHasError ? 'metadata-dialog-error' : undefined"
               />
@@ -282,7 +360,7 @@ function onKeyDown(e: KeyboardEvent): void {
             <button
               class="metadata-dialog-btn-primary player-control-primary px-4 py-1.5 text-xs font-semibold"
               type="submit"
-              :disabled="saving"
+              :disabled="isEditingDisabled"
             >
               {{
                 saving
@@ -316,6 +394,46 @@ function onKeyDown(e: KeyboardEvent): void {
 
 .metadata-dialog-header {
   color: var(--auralis-text);
+}
+
+.metadata-dialog-status-banner {
+  box-sizing: border-box;
+  background: var(--auralis-surface-raised);
+  border: 1px solid var(--auralis-border-subtle);
+  color: var(--auralis-text);
+}
+
+.metadata-dialog-status-banner--info {
+  border-color: var(--auralis-border-subtle);
+  background: var(--auralis-surface-raised);
+  color: var(--auralis-text-muted);
+}
+
+.metadata-dialog-status-banner--warning {
+  border-color: color-mix(in srgb, #f59e0b 35%, var(--auralis-border-subtle));
+  background: color-mix(in srgb, #f59e0b 10%, var(--auralis-surface-raised));
+  color: var(--auralis-text);
+}
+
+.metadata-dialog-status-banner--error {
+  border-color: color-mix(in srgb, var(--auralis-danger) 35%, var(--auralis-border-subtle));
+  background: color-mix(in srgb, var(--auralis-danger) 10%, var(--auralis-surface-raised));
+  color: var(--auralis-text);
+}
+
+.metadata-dialog-btn-retry {
+  background: var(--auralis-control-hover-bg);
+  border: 1px solid var(--auralis-border-subtle);
+  color: var(--auralis-text);
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.metadata-dialog-btn-retry:hover {
+  background: var(--auralis-control-active-bg);
+  border-color: var(--auralis-text-muted);
 }
 
 .metadata-dialog-label {

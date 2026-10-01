@@ -32,7 +32,18 @@ export interface SmartPlaylistExpressionRule {
   expression: SmartPlaylistExpression
 }
 
-export type SmartPlaylistRule = LegacySmartPlaylistRule | SmartPlaylistExpressionRule
+export interface RecentFrequentSmartPlaylistRule {
+  preset: 'recentFrequent'
+  /** Rolling calendar days, including today. */
+  days: number
+}
+
+export type SmartPlaylistRule =
+  | LegacySmartPlaylistRule
+  | SmartPlaylistExpressionRule
+  | RecentFrequentSmartPlaylistRule
+  | { preset: 'recentPlayed'; days: number }
+  | { preset: 'mostListened' }
 
 export interface SmartPlaylist {
   id: number

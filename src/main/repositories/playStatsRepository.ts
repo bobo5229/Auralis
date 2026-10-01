@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3'
 import { BaseRepository } from './baseRepository'
 import type {
   AnnualListeningInsights,
+  DailyAlbumStatsItem,
   DailyListeningDetail,
   DailyTopTrack,
   ListeningRankingItem,
@@ -151,6 +152,81 @@ export class PlayStatsRepository extends BaseRepository {
       totalDurationSeconds: summary?.totalDurationSeconds ?? 0,
       tracks,
     }
+  }
+
+  getDailyAlbumStats(date: string): DailyAlbumStatsItem[] {
+    const rows = this.db
+      .prepare(
+        `WITH album_stats AS (
+           SELECT
+             NULLIF(display.album, '') AS title,
+             NULLIF(COALESCE(NULLIF(display.album_artist, ''), display.artist), '') AS artist,
+             MAX(display.artwork_cache_key) AS artworkCacheKey,
+             SUM(stats.play_count) AS playCount,
+             SUM(stats.duration_seconds) AS durationSeconds,
+             MAX(stats.last_played_at) AS lastPlayedAt
+           FROM daily_track_play_stats stats
+           JOIN library_track_display display ON display.id = stats.track_id
+           WHERE stats.play_date = ?
+           GROUP BY
+             NULLIF(display.album, ''),
+             NULLIF(COALESCE(NULLIF(display.album_artist, ''), display.artist), '')
+         ), top_albums AS (
+           SELECT * FROM album_stats
+           ORDER BY
+             playCount DESC,
+             lastPlayedAt DESC,
+             title COLLATE BINARY ASC,
+             artist COLLATE BINARY ASC
+           LIMIT 5
+         )
+         SELECT
+           top_albums.title,
+           top_albums.artist,
+           top_albums.artworkCacheKey,
+           top_albums.playCount,
+           top_albums.durationSeconds,
+           CASE WHEN top_albums.title IS NOT NULL AND top_albums.artist IS NOT NULL AND EXISTS (
+             SELECT 1
+             FROM library_track_display playable
+             WHERE playable.availability = 'available'
+               AND playable.album = top_albums.title
+               AND COALESCE(NULLIF(playable.album_artist, ''), playable.artist) = top_albums.artist
+           ) THEN 1 ELSE 0 END AS canPlay
+         FROM top_albums
+         ORDER BY
+           playCount DESC,
+           lastPlayedAt DESC,
+           title COLLATE BINARY ASC,
+           artist COLLATE BINARY ASC`,
+      )
+      .all(date) as Array<{
+      title: string | null
+      artist: string | null
+      artworkCacheKey: string | null
+      playCount: number
+      durationSeconds: number
+      lastPlayedAt: string | null
+      canPlay: number
+    }>
+
+    return rows.map((row) => {
+      const albumKey =
+        row.title !== null && row.artist !== null
+          ? { album: row.title, albumArtist: row.artist }
+          : null
+
+      return {
+        key: JSON.stringify([row.title, row.artist]),
+        albumKey,
+        title: row.title,
+        artist: row.artist,
+        artworkCacheKey: row.artworkCacheKey,
+        playCount: Number(row.playCount),
+        durationSeconds: Number(row.durationSeconds),
+        canPlay: Number(row.canPlay) === 1,
+      }
+    })
   }
 
   getAnnualListeningInsights(year: number): AnnualListeningInsights {

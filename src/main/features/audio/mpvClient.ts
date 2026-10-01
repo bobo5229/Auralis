@@ -46,6 +46,12 @@ export async function openMpvClient(
     stderr = (stderr + chunk.toString('utf8')).slice(-4096)
   })
   let spawnError: Error | undefined
+  const exited = new Promise<void>((resolve) => {
+    child.once('exit', () => resolve())
+    child.once('error', () => {
+      if (!child.pid) resolve()
+    })
+  })
   child.on('error', (error) => {
     spawnError = error
   })
@@ -61,7 +67,7 @@ export async function openMpvClient(
     }
   >()
   function close() {
-    if (closed) return
+    if (closed) return exited
     closed = true
     signal.removeEventListener('abort', close)
     socket?.destroy()
@@ -71,6 +77,7 @@ export async function openMpvClient(
       item.reject(new Error('mpv closed'))
     }
     pending.clear()
+    return exited
   }
   function fail(error: Error) {
     if (closed) return

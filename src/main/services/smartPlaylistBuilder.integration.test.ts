@@ -48,7 +48,7 @@ describe('smart playlist builder and service integration', () => {
               ?.tracks.map((track) => track.id)
               .sort(),
           )
-          tracks.push(track(6, 'Pop;Rock', 'A;B'))
+          tracks.push(track(6, 'Pop; Rock', 'A; B'))
           service.clearTrackListCache()
           expect(service.getDetail(1)?.tracks.map((track) => track.id)).toContain(6)
         })

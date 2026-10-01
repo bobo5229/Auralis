@@ -32,8 +32,8 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 - Node.js：`package.json` 要求 `>=22.13.0`。
 - 发布目标：当前 electron-builder 配置 Windows x64 的 NSIS 安装包与 portable 包。
 
-`better-sqlite3` 必须与 Electron ABI 匹配；安装依赖或改变 Electron 版本后，
-必须运行 `npm.cmd run rebuild:native`。
+`better-sqlite3` 必须与 Electron ABI 匹配；原生依赖准备与有效状态复用遵循
+[环境与操作](rules/environment.md)。
 
 ## 3. 顶层目录职责
 
@@ -295,16 +295,11 @@ npm.cmd run dist
   封面缓存等需要 `better-sqlite3` 的测试在这里运行，不能用普通 Node ABI 的执行结果替代。
 - `test:library-scope` 检查 Library 视觉样式的所有者作用域，防止跨页面污染。
 
-依赖安装后必须先运行 `npm.cmd run rebuild:native`，确保 `better-sqlite3` 与 Electron 38 ABI
-匹配，再执行完整测试。常规代码变更至少应通过：
+检查范围与独立验收条件统一遵循[风险与验收](rules/validation.md)。以上命令是可用入口，
+不构成每次任务的固定清单；按改动影响选择定向测试、类型检查、lint、构建或实际运行。
+原生测试执行前按[环境与操作](rules/environment.md)确认 ABI 匹配，需要时运行
+`npm.cmd run rebuild:native`。
 
-```text
-npm.cmd test
-npm.cmd run typecheck
-npm.cmd run lint
-```
-
-修改构建配置、入口、IPC、主进程、原生依赖或准备发布时，再运行 `npm.cmd run build`。
 `build` 已经把 `typecheck` 作为前置步骤；CI 因此在完整测试和 lint 后直接运行 `build`，同时
 完成类型检查和生产构建，避免重复执行同一轮类型检查。`lint` 的 pre-script 也会先检查 locale
 键，`build` 的 pre-script 会生成繁体中文资源并再次校验 locale。

@@ -131,8 +131,9 @@ function onContextMenu(event: MouseEvent): void {
           @contextmenu.prevent="onContextMenu"
         >
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <!-- M6 起笔：bbox 中心落在 viewBox 中线；原先 M8 会让三角在 48px 圆里偏右约 2.4px -->
             <path
-              d="M8 5.5c0-.9 1-1.5 1.8-1l10 6.5a1.2 1.2 0 0 1 0 2l-10 6.5c-.8.5-1.8-.1-1.8-1V5.5Z"
+              d="M6 5.5c0-.9 1-1.5 1.8-1l10 6.5a1.2 1.2 0 0 1 0 2l-10 6.5c-.8.5-1.8-.1-1.8-1V5.5Z"
             />
           </svg>
         </button>
@@ -202,8 +203,10 @@ function onContextMenu(event: MouseEvent): void {
 }
 
 .album-card-play svg {
+  display: block;
   width: 26px;
   height: 26px;
+  /* 右向三角视觉质量偏左，相对几何中心右移 1px */
   transform: translateX(1px);
 }
 

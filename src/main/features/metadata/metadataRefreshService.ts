@@ -2,6 +2,7 @@ import { Worker } from 'node:worker_threads'
 import { join } from 'node:path'
 import { MetadataRefreshRepository } from '../../repositories/metadataRefreshRepository'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { UpdateTrackMetadataResult } from '@shared/ipc/contracts'
 import type {
   MetadataRefreshWorkerInput,
   MetadataRefreshWorkerMessage,
@@ -12,6 +13,14 @@ import { assertMetadataFingerprint, readStableMetadata } from './readStableMetad
 import { verifyWrittenMetadata } from './verifyWrittenMetadata'
 import { logger } from '../../logging/logger'
 import type { RendererEventSender } from '@main/ipc/rendererEvents'
+
+export interface MetadataWriteCoordinator {
+  tryAcquireWriteLease: (
+    filePath: string,
+    sourceId?: string,
+  ) => { ok: true; leaseId: string } | Extract<UpdateTrackMetadataResult, { ok: false }>
+  releaseWriteLease: (leaseId: string) => void
+}
 
 function getWorkerPath(): string {
   return join(__dirname, 'features/metadata/metadataRefreshWorker.js')
@@ -34,13 +43,14 @@ export class MetadataRefreshService {
   private readonly pendingReconciliation = new Set<number>()
   private stopping = false
   private readonly pendingMessages = new Set<Promise<void>>()
-  private readonly pendingWrites = new Set<Promise<{ ok: boolean }>>()
+  private readonly pendingWrites = new Set<Promise<UpdateTrackMetadataResult>>()
 
   constructor(
     private readonly repository: MetadataRefreshRepository,
     private readonly artworkCacheDir: string,
     private readonly sendToRenderer: RendererEventSender,
     private readonly ffmpegPath: string,
+    private readonly coordinator?: MetadataWriteCoordinator,
   ) {
     this.repository.markInterruptedJobs()
   }
@@ -362,7 +372,7 @@ export class MetadataRefreshService {
     return this.repository.getEditableTrackMetadata(trackId)
   }
 
-  updateTrackMetadata(metadata: EditableTrackMetadata): Promise<{ ok: boolean }> {
+  updateTrackMetadata(metadata: EditableTrackMetadata): Promise<UpdateTrackMetadataResult> {
     if (this.stopping) return Promise.reject(new Error('Metadata refresh service is shutting down'))
     const request = this.writeTrackMetadata(metadata)
     this.pendingWrites.add(request)
@@ -373,7 +383,9 @@ export class MetadataRefreshService {
     return request
   }
 
-  private async writeTrackMetadata(metadata: EditableTrackMetadata) {
+  private async writeTrackMetadata(
+    metadata: EditableTrackMetadata,
+  ): Promise<UpdateTrackMetadataResult> {
     normalizeEditableReleaseDate(metadata.releaseDate)
     normalizeEditableYear(metadata.year)
     const filePath = this.repository.getTrackFilePath(metadata.trackId)
@@ -384,6 +396,19 @@ export class MetadataRefreshService {
 
     if (this.writingTracks.has(metadata.trackId))
       throw new Error('A tag write is already running for this track')
+
+    let writeLeaseId: string | null = null
+    if (this.coordinator) {
+      const leaseResult = this.coordinator.tryAcquireWriteLease(
+        filePath,
+        `track-${metadata.trackId}`,
+      )
+      if (!leaseResult.ok) {
+        return leaseResult
+      }
+      writeLeaseId = leaseResult.leaseId
+    }
+
     const generation = (this.trackGenerations.get(metadata.trackId) ?? 0) + 1
     this.trackGenerations.set(metadata.trackId, generation)
     this.writingTracks.add(metadata.trackId)
@@ -412,6 +437,9 @@ export class MetadataRefreshService {
       )
       throw error
     } finally {
+      if (writeLeaseId) {
+        this.coordinator?.releaseWriteLease(writeLeaseId)
+      }
       this.writingTracks.delete(metadata.trackId)
       this.flushReconciliation()
     }

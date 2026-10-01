@@ -22,6 +22,8 @@
 
 ## 协作规则
 
+- [施工者规则](rules/implementation.md)
+- [审查者规则](rules/review.md)
 - [架构与 IPC](rules/architecture.md)
 - [环境与操作](rules/environment.md)
 - [Git 与发布](rules/git-release.md)
@@ -36,6 +38,7 @@
 
 ### albums：专辑
 
+- [施工文档：专辑列表页收起歌词动画性能修复](topics/albums/IMPLEMENTATION-lyrics-collapse-performance-fix-2026-10-02.md) — 当前实现诊断、分阶段修复、快照复用、回归与性能验收。
 - [TECHDOC：歌词面板收起与专辑网格同步过渡](topics/albums/TECHDOC-lyrics-collapse-album-grid-sync-2026-09-30.md)
 - [TECHDOC：更多作品封面内部悬停反馈](topics/albums/TECHDOC-more-albums-cover-hover-2026-09-27.md)
 - [PRD：CD 专辑封面索引页](topics/albums/PRD-cd-album-cover-index-2026-09-25.md)
@@ -61,6 +64,13 @@
 
 ### archive：音乐归档
 
+- [Mac 声迹前端分阶段施工文档](topics/archive/TECHDOC-mac-archive-frontend-integration.md) — 临时入口、独立页面、真实统计、舞台与拖放播放，按 Phase/Task 执行。
+
+- [Mac 声迹后端接入施工方案](topics/archive/TECHDOC-mac-archive-backend-integration.md) — 源码审查、每日专辑 Top5 契约、分步施工与验证。
+
+- [Apple II 原型进度记录（2026-10-01）](topics/archive/PROGRESS-apple-ii-demo-2026-10-01.md) — 探索暂停，后续回到 1984 版 Mac；记录实现、验证与性能测量。
+
+- [设计参考：复古未来主义](topics/archive/REFERENCE-retrofuturism-design.md) — 用户提供的原文参考，按需采用，不作为项目强制规范。
 - [PRD：年度摘要实体票根档案](topics/archive/PRD：Archive%20页面年度摘要“实体票根档案（Editorial%20Liner%20Notes）”模块.MD)
 - [TECHDOC：年度摘要实体票根档案](topics/archive/techdoc-archive-editorial-liner-notes.md)
 - [产品需求文档 (PRD)：声迹页面黑胶封套抽盘交互式年度摘要](topics/archive/prd-archive-annual-vinyl-jacket-summary.md)
@@ -88,6 +98,7 @@
 
 ### metadata：元数据
 
+- [TECHDOC：播放器占用歌曲的元数据编辑限制](topics/metadata/TECHDOC-playback-metadata-edit-guard-2026-09-30.md)
 - [TECHDOC：元数据刷新后的文件指纹一致性](topics/metadata/TECHDOC-refresh-file-fingerprint-2026-09-21.md)
 - [流派多值分隔符与原子复合流派方案](topics/metadata/plan-genre-delimiter-atomic-compounds.md)
 
@@ -114,6 +125,7 @@
 
 ### shell：应用外壳
 
+- [TECHDOC：深色模式自定义强调色](topics/shell/TECHDOC-custom-dark-accent-2026-10-02.md) — SketchPicker 接入、本地偏好、显示色与对比度、开屏首帧及定向验收。
 - [TECHDOC：跟随主题的 Logo 开屏动画](topics/shell/TECHDOC-theme-aware-splash-logo-2026-09-29.md)
 - [TECHDOC：Auralis 语义字体体系](topics/shell/TECHDOC-semantic-font-system-2026-09-29.md)
 - [TECHDOC：主界面歌词面板收起与展开](topics/shell/TECHDOC-collapsible-lyrics-panel-2026-09-28.md)

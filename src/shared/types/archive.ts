@@ -59,6 +59,27 @@ export interface ListeningRankingItem {
   durationSeconds: number
 }
 
+export interface ArchiveAlbumKey {
+  albumArtist: string
+  album: string
+}
+
+export interface DailyAlbumStatsItem {
+  key: string
+  albumKey: ArchiveAlbumKey | null
+  title: string | null
+  artist: string | null
+  artworkCacheKey: string | null
+  playCount: number
+  durationSeconds: number
+  canPlay: boolean
+}
+
+export interface DailyAlbumStats {
+  date: string
+  items: DailyAlbumStatsItem[]
+}
+
 export interface ListeningRanking {
   range: ListeningRankingRange
   target: ListeningRankingTarget

@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type {
-  AlbumTransitionTarget,
-  AlbumTransitionVisual,
-} from '../components/AlbumGridTransitionLayer.vue'
+import type { AlbumTransitionTarget, AlbumTransitionVisual } from './albumGridTransitionController'
 import { findAlbumTransitionFocusTarget, planAlbumGridTransition } from './albumGridTransitionPlan'
 
 function rect(left: number, top: number) {

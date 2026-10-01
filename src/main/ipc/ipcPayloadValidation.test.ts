@@ -20,6 +20,7 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.systemMedia.updateThumbarState,
   ipcChannels.systemMedia.command,
   ipcChannels.metadata.refreshProgress,
+  ipcChannels.metadata.trackEditStateChanged,
   ipcChannels.window.maximizedChanged,
 ])
 
@@ -32,6 +33,43 @@ function parse(channel: DomainIpcInvokeChannel, payload?: unknown): unknown {
 }
 
 describe('domain IPC payload validation coverage', () => {
+  it('accepts custom rolling days and rejects intervals or invalid day counts', () => {
+    expect(parse('smart-playlists:create-recent-frequent', {})).toEqual({})
+    expect(parse('smart-playlists:create-recent-frequent', { days: 12 })).toEqual({ days: 12 })
+    expect(parse('smart-playlists:update-recent-frequent-days', { id: 1, days: 365 })).toEqual({
+      id: 1,
+      days: 365,
+    })
+    expect(
+      parse('smart-playlists:create', {
+        name: '最近常听',
+        rule: { preset: 'recentFrequent', days: 30 },
+      }),
+    ).toBeTruthy()
+    for (const days of [0, -1, 1.5, '7', NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() => parse('smart-playlists:create-recent-frequent', { days })).toThrow()
+      expect(() => parse('smart-playlists:update-recent-frequent-days', { id: 1, days })).toThrow()
+      expect(() =>
+        parse('smart-playlists:create', {
+          name: '最近常听',
+          rule: { preset: 'recentFrequent', days },
+        }),
+      ).toThrow()
+    }
+    expect(() =>
+      parse('smart-playlists:create-recent-frequent', {
+        startDate: '2026-01-01',
+        endDate: '2026-02-01',
+      }),
+    ).toThrow()
+    expect(() =>
+      parse('smart-playlists:create', {
+        name: 'Mixed',
+        rule: { preset: 'recentFrequent', days: 30, conditions: [] },
+      }),
+    ).toThrow()
+  })
+
   it('classifies all domain invoke channels exactly once', () => {
     const actualChannels = Object.keys(domainIpcPayloadPolicies).sort()
     const kinds = Object.values(domainIpcPayloadPolicies).reduce<Record<string, number>>(
@@ -43,8 +81,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(56)
-    expect(kinds).toEqual({ void: 18, optional: 5, required: 33 })
+    expect(actualChannels).toHaveLength(62)
+    expect(kinds).toEqual({ void: 18, optional: 5, required: 39 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -151,6 +189,7 @@ describe('domain IPC payload validation behavior', () => {
     ['playback:get-album-tracks', { albumKey: { albumArtist: 'A' } }],
     ['playback:record-effective-play', { trackId: 1, sessionId: 'x', playedAtIso: 'today' }],
     ['archive:get-daily-listening-detail', { date: '02/30/2026' }],
+    ['archive:get-daily-album-stats', { date: '02/30/2026' }],
     ['archive:get-listening-ranking', { range: 'quarter', target: 'track' }],
     ['window:control', { action: 'open-devtools' }],
   ] as const)('rejects malformed payload for %s', (channel, payload) => {
@@ -220,6 +259,28 @@ describe('domain IPC payload validation behavior', () => {
     expect(() =>
       parse('archive:get-listening-heatmap', { year: Number.POSITIVE_INFINITY }),
     ).toThrow(/finite number/)
+  })
+
+  it('validates daily album stats date shape while leaving calendar checks to the service', () => {
+    expect(parse('archive:get-daily-album-stats', { date: '2026-02-28' })).toEqual({
+      date: '2026-02-28',
+    })
+    expect(parse('archive:get-daily-album-stats', { date: '2026-02-30' })).toEqual({
+      date: '2026-02-30',
+    })
+    expect(() => parse('archive:get-daily-album-stats')).toThrow(IpcPayloadValidationError)
+    expect(() => parse('archive:get-daily-album-stats', { date: 20260228 })).toThrow(
+      IpcPayloadValidationError,
+    )
+    expect(() =>
+      parse('archive:get-daily-album-stats', { date: '2026-02-28', unexpected: true }),
+    ).toThrow(IpcPayloadValidationError)
+    expect(() =>
+      parseDomainIpcPayload('archive:get-daily-album-stats', [
+        { date: '2026-02-28' },
+        { date: '2026-02-28' },
+      ]),
+    ).toThrow(IpcPayloadValidationError)
   })
 
   it('keeps smart-playlist resource and enum-shape checks without business pairing', () => {

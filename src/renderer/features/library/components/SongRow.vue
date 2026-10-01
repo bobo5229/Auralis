@@ -15,8 +15,9 @@ const props = withDefaults(
     focused?: boolean
     index: number
     artworkUrl: string | null
+    showPlayCount?: boolean
   }>(),
-  { focused: false },
+  { focused: false, showPlayCount: false },
 )
 
 const emit = defineEmits<{
@@ -33,6 +34,9 @@ const titleDisplay = computed(() =>
 )
 const artistDisplay = computed(() =>
   formatMetadataDisplay(formatArtist(props.track.artist), t('library.missing.artist')),
+)
+const playCountDisplay = computed(() =>
+  t('library.playCount', { count: props.track.playCount.toLocaleString() }),
 )
 
 watch(
@@ -77,6 +81,7 @@ function onKeyDown(event: KeyboardEvent): void {
       'song-row--alt': index % 2 !== 0,
       'song-row--playing': nowPlaying,
       'song-row--selected': selected,
+      'song-row--with-play-count': showPlayCount,
     }"
     :data-track-id="track.id"
     role="button"
@@ -88,7 +93,7 @@ function onKeyDown(event: KeyboardEvent): void {
         index: index + 1,
         title: titleDisplay.text,
         artist: artistDisplay.text,
-      })
+      }) + (showPlayCount ? `，${playCountDisplay}` : '')
     "
     @click="onClick"
     @dblclick="emit('play', track.id)"
@@ -123,6 +128,13 @@ function onKeyDown(event: KeyboardEvent): void {
         track.album
       }}</span>
     </div>
+    <div
+      v-if="showPlayCount"
+      class="song-play-count text-right tabular-nums"
+      :title="playCountDisplay"
+    >
+      {{ playCountDisplay }}
+    </div>
     <div class="song-duration min-w-0 text-right tabular-nums">
       {{ formatDuration(track.durationSeconds) }}
     </div>
@@ -144,5 +156,51 @@ function onKeyDown(event: KeyboardEvent): void {
 
 .song-duration {
   font-weight: var(--auralis-song-list-duration-weight, 400);
+}
+
+.song-row.song-row--with-play-count {
+  grid-template-columns:
+    var(--library-flat-artwork-size) minmax(0, 1.5fr) minmax(0, 0.85fr) minmax(0, 1fr)
+    80px 56px;
+}
+
+.song-play-count {
+  overflow: hidden;
+  color: var(--auralis-text-faint);
+  font-size: 14px;
+  font-weight: var(--auralis-song-list-duration-weight, 400);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@container (max-width: 720px) {
+  .song-row.song-row--with-play-count {
+    grid-template-columns:
+      var(--library-flat-artwork-size) minmax(0, 1.6fr) minmax(0, 0.8fr)
+      minmax(0, 0.6fr) 80px 48px;
+    gap: 8px;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+}
+
+@container (max-width: 560px) {
+  .song-row.song-row--with-play-count {
+    grid-template-columns:
+      var(--library-flat-artwork-size) minmax(0, 1.6fr) minmax(0, 0.8fr)
+      80px 48px;
+  }
+  .song-row--with-play-count .song-album {
+    display: none;
+  }
+}
+
+@container (max-width: 440px) {
+  .song-row.song-row--with-play-count {
+    grid-template-columns: var(--library-flat-artwork-size) minmax(0, 1fr) 80px 48px;
+  }
+  .song-row--with-play-count .song-artist {
+    display: none;
+  }
 }
 </style>

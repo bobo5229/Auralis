@@ -31,6 +31,10 @@
 }
 
 /* 淡出由开屏控制器加 is-exiting 触发；时长与 SPLASH_FADE_OUT_MS 保持一致。 */
+[data-splash-skipped='true'] #splash[role='img'] {
+  display: none;
+}
+
 #splash.is-exiting {
   opacity: 0;
   transition: opacity 300ms ease;

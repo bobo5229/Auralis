@@ -2532,8 +2532,12 @@ input[type='range'].volume-overlay-slider {
   color: var(--auralis-song-row-now-playing-artist);
 }
 
-.song-row--playing .song-duration {
+.song-row--playing :is(.song-duration, .song-play-count) {
   color: var(--auralis-song-row-now-playing-duration);
+}
+
+.library-list-shell--play-count {
+  container-type: inline-size;
 }
 
 .song-row:focus-visible {
@@ -2771,6 +2775,58 @@ input[type='range'].volume-overlay-slider {
   position: relative;
 }
 
+.sidebar-smart-create-submenu {
+  padding-top: 4px;
+  padding-left: 20px;
+}
+
+.sidebar-smart-create-expand-enter-active {
+  overflow: hidden;
+  animation: sidebar-smart-create-expand 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.sidebar-smart-create-expand-leave-active {
+  overflow: hidden;
+  animation: sidebar-smart-create-collapse 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  pointer-events: none;
+}
+
+@keyframes sidebar-smart-create-expand {
+  from {
+    height: 0;
+    padding-top: 0;
+  }
+  to {
+    height: 104px;
+    padding-top: 4px;
+  }
+}
+
+@keyframes sidebar-smart-create-collapse {
+  from {
+    height: 104px;
+    padding-top: 4px;
+  }
+  to {
+    height: 0;
+    padding-top: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-smart-create-expand-enter-active,
+  .sidebar-smart-create-expand-leave-active {
+    animation: none;
+  }
+}
+
+.sidebar-create-error {
+  padding: 4px 12px;
+  color: var(--auralis-danger);
+  font-size: 12px;
+  line-height: 18px;
+}
+
 .playlist-add-submenu {
   position: absolute;
   top: -6px;
@@ -2883,6 +2939,14 @@ input[type='range'].volume-overlay-slider {
   :is(.library-overlay, .albums-overlay, .sidebar-overlay)
   .frosted-context-menu {
   background: var(--auralis-context-menu-bg);
+}
+
+.sidebar-overlay .sidebar-create-menu.frosted-context-menu {
+  background: var(--auralis-context-menu-bg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
 }
 
 :is(.library-overlay, .albums-overlay, .sidebar-overlay)

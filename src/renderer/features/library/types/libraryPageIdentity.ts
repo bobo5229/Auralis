@@ -1,6 +1,14 @@
+import type { SmartPlaylistRule } from '@shared/types/smartPlaylist'
+
 export type LibrarySurfaceKind = 'library' | 'playlist' | 'smart-playlist'
 
 export type LibraryPageIdentity =
   | { kind: 'library' }
   | { kind: 'playlist'; id: number; name: string; membership: 'manual' }
-  | { kind: 'smart-playlist'; id: number; name: string; membership: 'rule-based' }
+  | {
+      kind: 'smart-playlist'
+      id: number
+      name: string
+      membership: 'rule-based'
+      preset?: Extract<SmartPlaylistRule, { preset: string }>['preset']
+    }

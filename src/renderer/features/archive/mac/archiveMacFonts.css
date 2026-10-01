@@ -1,0 +1,11 @@
+@font-face {
+  font-family: 'Auralis Mac Pixel';
+  src: url('@renderer/assets/fonts/archive-mac/AuralisMacPixel.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --mac-font: 'Auralis Mac Pixel', 'Microsoft YaHei', sans-serif;
+}

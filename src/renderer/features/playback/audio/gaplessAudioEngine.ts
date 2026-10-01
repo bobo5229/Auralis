@@ -28,6 +28,8 @@ type EngineOptions = {
   onCurrentEnded: (nextTrackId: number | null) => void
   onPlaybackStateChange: (isPlaying: boolean) => void
   onTimeUpdate: (snapshot: AudioSnapshot) => void
+  acquireReadLease?: (trackId: number) => Promise<{ leaseId: string }>
+  releaseReadLease?: (leaseId: string) => Promise<unknown> | void
 }
 
 type ScheduleNextOptions = {
@@ -101,6 +103,15 @@ export class GaplessAudioEngine {
       this.reportPrepareFallback(trackId, budget.allowed ? 'missing probe' : budget.reason)
       return false
     }
+    let leaseId: string | null = null
+    if (this.options.acquireReadLease) {
+      try {
+        const lease = await this.options.acquireReadLease(trackId)
+        leaseId = lease.leaseId
+      } catch {
+        return false
+      }
+    }
     this.activePreparation = true
     this.reservedBytes = budget.reservationBytes
     const controller = new AbortController()
@@ -151,6 +162,9 @@ export class GaplessAudioEngine {
       }
       return false
     } finally {
+      if (leaseId) {
+        this.options.releaseReadLease?.(leaseId)
+      }
       this.activePreparation = false
       this.reservedBytes = 0
       if (this.abortController === controller) this.abortController = null

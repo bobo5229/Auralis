@@ -23,6 +23,7 @@ export const rawRouteLoaders = {
   cdAlbumIndex: () => import('@renderer/features/albums/pages/CdAlbumIndexPage.vue'),
   albumDetail: () => import('@renderer/features/albums/pages/AlbumDetailPage.vue'),
   archive: () => import('@renderer/features/archive/pages/ArchiveCanvasPage.vue'),
+  archiveMac: () => import('@renderer/features/archive/pages/ArchiveMacPage.vue'),
   settings: () => import('@renderer/features/settings/pages/SettingsPage.vue'),
 } as const satisfies Record<string, RouteComponentLoader>
 
@@ -58,6 +59,7 @@ export function createRouteLoaderRegistry(
     cdAlbumIndex: () => getOrLoad('cdAlbumIndex', loaders.cdAlbumIndex),
     albumDetail: () => getOrLoad('albumDetail', loaders.albumDetail),
     archive: () => getOrLoad('archive', loaders.archive),
+    archiveMac: () => getOrLoad('archiveMac', loaders.archiveMac),
     settings: () => getOrLoad('settings', loaders.settings),
   }
 

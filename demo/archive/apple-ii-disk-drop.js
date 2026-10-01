@@ -1,0 +1,21 @@
+export function mountDiskDrop({frame,stage,getAlbum,feedback,isFocused}){
+ const canvas=document.getElementById('album-stage'),button=document.getElementById('load-disk'),ghost=document.getElementById('disk-ghost');
+ let slots=[],gesture=null,pending=null,sequence=0,hover=-1,playing=null;
+ const command=data=>frame.contentWindow.postMessage({type:'apple-terminal-command',...data},'*');
+ function coordinates(){const b=frame.getBoundingClientRect();return slots.map(s=>({...s,x:b.left+s.x*b.width,y:b.top+s.y*b.height,width:Math.max(38,s.width*b.width)}));}
+ function target(x,y){if(isFocused())return -1;return coordinates().findIndex(s=>s.visible&&Math.abs(x-s.x)<=s.width/2+14&&Math.abs(y-s.y)<=24);}
+ function updateButton(){button.disabled=!getAlbum()||pending||isFocused()||!slots.some(s=>s.visible);}
+ function setHover(i){if(hover===i)return;hover=i;command({action:'disk-hover',drive:i});}
+ function stop(){if(!gesture)return;clearTimeout(gesture.timer);const id=gesture.id;gesture=null;if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);ghost.hidden=true;frame.style.pointerEvents='';setHover(-1);}
+ function cancel(){stop();if(pending){pending=null;command({action:'disk-cancel'});feedback('已取消装入');}updateButton();}
+ function insert(drive,album){if(pending||!album||drive<0)return;pending={token:++sequence,album,drive};command({action:'disk-insert',drive,title:album.title,token:pending.token});feedback(`正在装入 ${album.title}…`);updateButton();}
+ function inCover(e){const p=stage.inspect();if(!p?.settled)return false;const b=canvas.getBoundingClientRect(),x=e.clientX-b.left,y=e.clientY-b.top;let inside=false;for(let i=0,j=p.points.length-1;i<p.points.length;j=i++){const a=p.points[i],c=p.points[j];if((a.y>y)!==(c.y>y)&&x<(c.x-a.x)*(y-a.y)/(c.y-a.y)+a.x)inside=!inside;}return inside;}
+ canvas.addEventListener('pointerdown',e=>{if(e.button!==0||pending||gesture||isFocused()||!getAlbum()||!inCover(e))return;const album=getAlbum(),state=gesture={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,album,active:false};canvas.setPointerCapture(e.pointerId);state.timer=setTimeout(()=>{if(gesture!==state)return;state.active=true;ghost.querySelector('.disk-title').textContent=album.title;ghost.hidden=false;ghost.style.left=`${state.x}px`;ghost.style.top=`${state.y}px`;frame.style.pointerEvents='none';feedback('拖到右侧驱动器的亮起槽口，松手装入');},320);});
+ document.addEventListener('pointermove',e=>{if(!gesture||e.pointerId!==gesture.id)return;gesture.x=e.clientX;gesture.y=e.clientY;if(!gesture.active){if(Math.hypot(e.clientX-gesture.startX,e.clientY-gesture.startY)>10)stop();return;}ghost.style.left=`${e.clientX}px`;ghost.style.top=`${e.clientY}px`;setHover(target(e.clientX,e.clientY));});
+ document.addEventListener('pointerup',e=>{if(!gesture||e.pointerId!==gesture.id)return;const album=gesture.album,active=gesture.active,drive=target(e.clientX,e.clientY);stop();if(active&&drive>=0)insert(drive,album);else if(active)feedback('未装入，软盘已返回舞台');});
+ document.addEventListener('pointercancel',stop);canvas.addEventListener('lostpointercapture',stop);
+ button.onclick=()=>{const drive=slots.findIndex(s=>s.visible);insert(drive,getAlbum());};
+ addEventListener('message',e=>{if(e.source!==frame.contentWindow)return;if(e.data?.type==='apple-drive-anchors'&&Array.isArray(e.data.slots)){slots=e.data.slots.filter(s=>Number.isFinite(s.x)&&Number.isFinite(s.y)&&Number.isFinite(s.width));updateButton();}else if(e.data?.type==='apple-disk-loaded'&&pending?.token===e.data.token){playing={id:pending.album.id,title:pending.album.title,track:1,drive:pending.drive};pending=null;feedback(`演示播放：${playing.title} · 从第 1 首开始`);updateButton();}else if(e.data?.type==='apple-disk-cancelled'&&pending?.token===e.data.token){pending=null;feedback('已取消装入');updateButton();}else if(e.data?.type==='apple-terminal-state'&&e.data.focused)cancel();});
+ addEventListener('keydown',e=>{if(e.key==='Escape')cancel();});addEventListener('blur',cancel);document.addEventListener('visibilitychange',()=>{if(document.hidden)cancel();});addEventListener('resize',cancel);
+ return {cancel,refresh:updateButton,inspect:()=>({slots:coordinates(),dragging:!!gesture?.active,pending:!!pending,playing})};
+}

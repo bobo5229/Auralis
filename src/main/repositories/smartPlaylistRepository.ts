@@ -94,6 +94,52 @@ export class SmartPlaylistRepository extends BaseRepository {
     return this.getById(id)
   }
 
+  updateRule(id: number, rule: SmartPlaylistRule): SmartPlaylist | null {
+    this.db
+      .prepare(
+        `UPDATE smart_playlists SET rule_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+      )
+      .run(JSON.stringify(rule), id)
+    return this.getById(id)
+  }
+
+  getRecentFrequentTrackIds(startDate: string, endDate: string): number[] {
+    const rows = this.db
+      .prepare(
+        `SELECT track_id AS trackId
+       FROM daily_track_play_stats
+       WHERE play_date BETWEEN ? AND ?
+       GROUP BY track_id
+       HAVING SUM(play_count) > 0
+       ORDER BY SUM(play_count) DESC, MAX(julianday(last_played_at)) DESC, track_id ASC`,
+      )
+      .all(startDate, endDate) as Array<{ trackId: number }>
+    return rows.map((row) => row.trackId)
+  }
+
+  getRecentPlayedTrackIds(startDate: string, endDate: string): number[] {
+    const rows = this.db
+      .prepare(
+        `SELECT track_id AS trackId FROM daily_track_play_stats
+       WHERE play_date BETWEEN ? AND ?
+       GROUP BY track_id HAVING SUM(play_count) > 0
+       ORDER BY MAX(julianday(last_played_at)) DESC, track_id ASC`,
+      )
+      .all(startDate, endDate) as Array<{ trackId: number }>
+    return rows.map((row) => row.trackId)
+  }
+
+  getMostListenedTrackIds(): number[] {
+    const rows = this.db
+      .prepare(
+        `SELECT track_id AS trackId FROM track_play_stats
+       WHERE play_count > 0
+       ORDER BY play_count DESC, julianday(last_played_at) DESC, track_id ASC`,
+      )
+      .all() as Array<{ trackId: number }>
+    return rows.map((row) => row.trackId)
+  }
+
   updateViewMode(id: number, viewMode: SmartPlaylistViewMode): SmartPlaylist | null {
     this.db
       .prepare(

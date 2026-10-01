@@ -130,6 +130,17 @@ export class TrackRepository extends BaseRepository {
     return trackIds
   }
 
+  getTrackIdsByPlaybackPath(filePath: string): number[] {
+    const variants = process.platform === 'win32' ? toPathVariants(filePath) : [filePath]
+    const collation = process.platform === 'win32' ? 'COLLATE NOCASE' : ''
+    const rows = this.db
+      .prepare(
+        `SELECT id FROM tracks WHERE file_path ${collation} IN (${variants.map(() => '?').join(', ')})`,
+      )
+      .all(...variants) as Array<{ id: number }>
+    return rows.map((row) => row.id)
+  }
+
   getExistingFilePaths(filePaths: string[]): Set<string> {
     const uniquePaths = [...new Set(filePaths)].filter(Boolean)
 

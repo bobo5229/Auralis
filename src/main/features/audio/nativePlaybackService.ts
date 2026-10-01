@@ -7,10 +7,20 @@ const BOUNDARY_UPDATE_MARGIN_SECONDS = 2
 
 type BoundaryStatus = 'analyzing' | 'unchanged' | 'applied' | 'too-late' | 'cancelled' | 'failed'
 
+export interface PlaybackCoordinator {
+  acquireReadLease: (
+    filePath: string,
+    sourceId: string,
+    signal?: AbortSignal,
+  ) => Promise<{ leaseId: string; version: number }>
+  releaseReadLease: (leaseId: string) => void
+}
+
 interface Options {
   mpvPath: string
   ffmpegPath: string
   resolveTrack: (id: number) => Promise<string>
+  coordinator?: PlaybackCoordinator
   emit: (event: NativePlaybackEvent) => void
   warn: (error: unknown) => void
   onBoundaryStatus?: (event: { trackId: number; status: BoundaryStatus }) => void
@@ -26,7 +36,9 @@ export class NativePlaybackService {
   private session = -1
   private loaded = false
   private path = ''
+  private currentReadLease: string | null = null
   private next: { id: number; path: string } | null = null
+  private nextReadLease: string | null = null
   private enteringNext: { id: number; path: string } | null = null
   private paused = false
   private buffering = false
@@ -74,10 +86,13 @@ export class NativePlaybackService {
     this.release()
   }
 
-  private release(): void {
+  private release(): Promise<void> {
+    const leases = [this.currentReadLease, this.nextReadLease]
+    this.currentReadLease = null
+    this.nextReadLease = null
+    const closed = this.client?.close()
     this.scan.abort()
     this.lifetime.abort()
-    this.client?.close()
     this.client = null
     this.disposeTransition()
     this.deferredNext = null
@@ -89,6 +104,11 @@ export class NativePlaybackService {
     this.nextGeneration++
     this.loadedWaiter?.reject(new Error('Playback replaced'))
     this.loadedWaiter = null
+    // Killing the child requests shutdown; the file becomes writable only once
+    // the process has actually exited and its handles have been released.
+    return Promise.resolve(closed).then(() => {
+      for (const lease of leases) if (lease) this.options.coordinator?.releaseReadLease(lease)
+    })
   }
 
   private disposeTransition(): void {
@@ -97,9 +117,10 @@ export class NativePlaybackService {
     if (previous) void previous.plan.dispose().catch(this.options.warn)
   }
 
-  dispose(): void {
-    this.release()
+  dispose(): Promise<void> {
+    const closed = this.release()
     this.session = -1
+    return closed
   }
 
   private enqueue<T>(work: () => Promise<T>): Promise<T> {
@@ -123,6 +144,21 @@ export class NativePlaybackService {
         throw error
       }
       if (signal.aborted) return { accepted: false }
+      let leaseId: string | null = null
+      if (this.options.coordinator) {
+        try {
+          const lease = await this.options.coordinator.acquireReadLease(path, 'mpv-current', signal)
+          leaseId = lease.leaseId
+        } catch (error) {
+          if (signal.aborted) return { accepted: false }
+          throw error
+        }
+      }
+      if (signal.aborted) {
+        if (leaseId) this.options.coordinator?.releaseReadLease(leaseId)
+        return { accepted: false }
+      }
+      this.currentReadLease = leaseId
       this.path = path
       this.paused = false
       this.buffering = false
@@ -195,8 +231,9 @@ export class NativePlaybackService {
     }
     if (request.action === 'stop') {
       if (request.session < this.session) return { accepted: false }
-      this.release()
+      const closed = this.release()
       this.session = request.session
+      await closed
       return { accepted: true }
     }
     if (request.session !== this.session || !this.client) return { accepted: false }
@@ -259,7 +296,14 @@ export class NativePlaybackService {
       this.next = null
       return
     }
+    const leaseToRelease = this.nextReadLease
     await client.command('playlist-clear')
+    // playlist-clear preserves an item whose decoder has already started.
+    // Its lease must transfer to current playback in fileLoaded instead.
+    if (!this.enteringNext && this.nextReadLease === leaseToRelease && leaseToRelease) {
+      this.options.coordinator?.releaseReadLease(leaseToRelease)
+      this.nextReadLease = null
+    }
     this.next = null
     if (this.transition?.stage === 'queued') this.disposeTransition()
     if (this.loaded && !this.enteringNext)
@@ -286,23 +330,46 @@ export class NativePlaybackService {
       client === this.client &&
       currentPath === this.path
     const nextPath = await this.options.resolveTrack(request.trackId)
+    let leaseId: string | null = null
+    if (this.options.coordinator) {
+      try {
+        const lease = await this.options.coordinator.acquireReadLease(nextPath, 'mpv-next', signal)
+        leaseId = lease.leaseId
+      } catch (error) {
+        if (!isCurrent()) return { accepted: false }
+        throw error
+      }
+    }
+    if (!isCurrent()) {
+      if (leaseId) this.options.coordinator?.releaseReadLease(leaseId)
+      return { accepted: false }
+    }
     const result = await this.enqueue(async () => {
       if (
         !isCurrent() ||
         !this.loaded ||
         this.enteringNext ||
         this.snapshot.duration - this.snapshot.currentTime < 1
-      )
+      ) {
+        if (leaseId) this.options.coordinator?.releaseReadLease(leaseId)
         return { accepted: false }
+      }
       let scheduled = false
       try {
         await this.cancelNext(client)
-        if (!isCurrent() || this.enteringNext) return { accepted: false }
+        if (!isCurrent() || this.enteringNext) {
+          if (leaseId) this.options.coordinator?.releaseReadLease(leaseId)
+          return { accepted: false }
+        }
         this.next = { id: request.trackId, path: nextPath }
+        this.nextReadLease = leaseId
         scheduled = true
         await client.command('loadfile', nextPath, 'append', -1, {})
         return { accepted: isCurrent() }
       } catch (error) {
+        if (leaseId && this.nextReadLease !== leaseId) {
+          this.options.coordinator?.releaseReadLease(leaseId)
+        }
         if (!isCurrent()) return { accepted: false }
         if (scheduled) {
           try {
@@ -557,6 +624,14 @@ export class NativePlaybackService {
       if (event.name === 'idle-active' && event.data === true && this.loaded) {
         this.loaded = false
         this.next = null
+        if (this.currentReadLease) {
+          this.options.coordinator?.releaseReadLease(this.currentReadLease)
+          this.currentReadLease = null
+        }
+        if (this.nextReadLease) {
+          this.options.coordinator?.releaseReadLease(this.nextReadLease)
+          this.nextReadLease = null
+        }
         this.publish('ended')
         return
       }
@@ -585,6 +660,14 @@ export class NativePlaybackService {
     } else if (event.event === 'idle' && this.loaded) {
       this.loaded = false
       this.next = null
+      if (this.currentReadLease) {
+        this.options.coordinator?.releaseReadLease(this.currentReadLease)
+        this.currentReadLease = null
+      }
+      if (this.nextReadLease) {
+        this.options.coordinator?.releaseReadLease(this.nextReadLease)
+        this.nextReadLease = null
+      }
       this.publish('ended')
     }
   }
@@ -626,6 +709,12 @@ export class NativePlaybackService {
       this.next = null
       this.enteringNext = null
       this.nextGeneration++
+      if (this.currentReadLease) {
+        this.options.coordinator?.releaseReadLease(this.currentReadLease)
+        this.currentReadLease = null
+      }
+      this.currentReadLease = this.nextReadLease
+      this.nextReadLease = null
     }
     this.loaded = true
     this.snapshot.duration = typeof duration === 'number' ? duration : 0

@@ -71,14 +71,16 @@ function formatDisplayArtist(artist: string | null | undefined): string {
           <span class="album-detail-track-number" aria-hidden="true">
             <span class="album-detail-track-index">
               {{
-                resolveAlbumTrackPresentation(
-                  track.id,
-                  track.trackNo,
-                  index,
-                  selectedTrackId,
-                  currentTrackId,
-                  highlightedTrackId,
-                ).displayNumber
+                String(
+                  resolveAlbumTrackPresentation(
+                    track.id,
+                    track.trackNo,
+                    index,
+                    selectedTrackId,
+                    currentTrackId,
+                    highlightedTrackId,
+                  ).displayNumber,
+                ).padStart(2, '0')
               }}
             </span>
             <span class="album-detail-track-play-icon i-lucide-play"></span>

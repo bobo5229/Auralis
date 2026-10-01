@@ -38,7 +38,10 @@ export function createSmartPlaylistLibrarySnapshot(
   detail: SmartPlaylistDetail,
 ): LibraryDataSnapshot {
   return {
-    identity: createSmartPlaylistIdentity(detail.playlist.id, detail.playlist.name),
+    identity: {
+      ...createSmartPlaylistIdentity(detail.playlist.id, detail.playlist.name),
+      ...('preset' in detail.playlist.rule ? { preset: detail.playlist.rule.preset } : {}),
+    },
     tracks: detail.tracks,
     viewMode: detail.playlist.viewMode,
   }

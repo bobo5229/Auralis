@@ -47,7 +47,7 @@ function createFakeClient(): FakeClient {
         pending.push({ name, args, resolve, reject })
       })
     },
-    close: () => {
+    close: async () => {
       if (closed) return
       closed = true
       for (const item of pending.splice(0)) item.reject(new Error('mpv closed'))

@@ -1,12 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { existsSync } from 'node:fs'
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve, sep } from 'node:path'
 import { execFileSync } from 'node:child_process'
 import type { NativePlaybackEvent } from '@shared/ipc/contracts'
 import { NativePlaybackService } from './nativePlaybackService'
+import { PlaybackFileCoordinator } from './playbackFileCoordinator'
 import { DigitalSilenceAnalyzer, type DigitalBoundary } from './digitalSilence'
 
 const mpvPath = resolve('resources/audio/mpv.exe')
@@ -257,4 +258,100 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
     },
     45000,
   )
+
+  it('manages coordinator read leases for active playback, preloading, and disposal', async () => {
+    const acquireReadLease = vi.fn(async () => ({
+      leaseId: `mock_lease_${Math.random()}`,
+      version: 1,
+    }))
+    const releaseReadLease = vi.fn()
+    const coordinator = { acquireReadLease, releaseReadLease }
+
+    const track1Path = join(directory, '48000-1.flac')
+    const track2Path = join(directory, '48000-2.flac')
+
+    const service = new NativePlaybackService({
+      mpvPath,
+      ffmpegPath,
+      mpvArgs: ['--ao=null', '--pause=yes'],
+      resolveTrack: async (id) => (id === 1 ? track1Path : track2Path),
+      coordinator,
+      emit: () => {},
+      warn: () => {},
+    })
+    services.push(service)
+
+    // Start track 1
+    const started = await service.command({
+      action: 'start',
+      session: 1,
+      trackId: 1,
+      volume: 1,
+      muted: false,
+    })
+    expect(started.accepted).toBe(true)
+    expect(acquireReadLease).toHaveBeenCalledWith(
+      track1Path,
+      'mpv-current',
+      expect.any(AbortSignal),
+    )
+
+    // Preload track 2
+    const scheduled = await service.command({
+      action: 'next',
+      session: 1,
+      trackId: 2,
+      trimDigitalSilence: false,
+    })
+    expect(scheduled.accepted).toBe(true)
+    expect(acquireReadLease).toHaveBeenCalledWith(track2Path, 'mpv-next', expect.any(AbortSignal))
+
+    // Cancel next
+    await service.command({ action: 'cancel-next', session: 1 })
+    expect(releaseReadLease).toHaveBeenCalledTimes(1)
+
+    // Stop playback
+    await service.command({ action: 'stop', session: 2 })
+    expect(releaseReadLease).toHaveBeenCalledTimes(2)
+
+    service.dispose()
+  })
+
+  it('unlocks the original file after real mpv stop and permits immediate replacement', async () => {
+    const path = join(directory, '48000-1.flac')
+    const backup = `${path}.lease-check`
+    const original = await readFile(path)
+    const coordinator = new PlaybackFileCoordinator({
+      getTrackFilePath: () => path,
+      getTrackIdsByFilePath: () => [1],
+      sendToRenderer: () => {},
+    })
+    const service = new NativePlaybackService({
+      mpvPath,
+      ffmpegPath,
+      mpvArgs: ['--ao=null', '--pause=yes'],
+      resolveTrack: async () => path,
+      coordinator,
+      emit: () => {},
+      warn: () => {},
+    })
+    services.push(service)
+    await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
+    await service.command({ action: 'pause', session: 1 })
+    expect(coordinator.tryAcquireWriteLease(path)).toEqual({ ok: false, reason: 'playback-in-use' })
+    await service.command({ action: 'stop', session: 2 })
+    const write = coordinator.tryAcquireWriteLease(path)
+    if (!write.ok) throw new Error('File remained locked after stop')
+    try {
+      await rename(path, backup)
+      try {
+        await writeFile(path, original)
+      } finally {
+        await rename(backup, path)
+      }
+      expect((await readFile(path)).equals(original)).toBe(true)
+    } finally {
+      coordinator.releaseWriteLease(write.leaseId)
+    }
+  })
 })

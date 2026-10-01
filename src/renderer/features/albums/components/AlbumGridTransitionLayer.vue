@@ -1,193 +1,121 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { planAlbumGridTransition } from '../utils/albumGridTransitionPlan'
-
-export interface AlbumTransitionRect {
-  left: number
-  top: number
-  width: number
-  height: number
-}
-
-export interface AlbumTransitionVisual {
-  key: string
-  node: HTMLElement
-  rect: AlbumTransitionRect
-  opacity: number
-}
-
-export interface AlbumTransitionTarget {
-  key: string
-  node: HTMLElement
-  rect: AlbumTransitionRect
-}
-
-interface TransitionLayerItem {
-  key: string
-  side: 'from' | 'to'
-  element: HTMLElement
-  rect: AlbumTransitionRect
-  opacity: number
-  destination: AlbumTransitionRect | null
-}
+import {
+  createAlbumGridTransitionController,
+  type AlbumGridTransitionLayerHost,
+  type AlbumTransitionRect,
+} from '../utils/albumGridTransitionController'
 
 const rootRef = ref<HTMLElement | null>(null)
-let items: TransitionLayerItem[] = []
-let viewportOrigin = { left: 0, top: 0 }
-let viewportFrom: AlbumTransitionRect = { left: 0, top: 0, width: 0, height: 0 }
-let viewportTo: AlbumTransitionRect = viewportFrom
-let currentViewport: AlbumTransitionRect = viewportFrom
-let viewportUnion = { left: 0, top: 0, right: 0, bottom: 0 }
 
-function sanitizeSnapshot(source: HTMLElement): HTMLElement {
-  const clone = source.cloneNode(true) as HTMLElement
-  clone.removeAttribute('id')
-  clone.querySelectorAll('[id]').forEach((element) => element.removeAttribute('id'))
-  clone.querySelectorAll<HTMLElement>('[tabindex]').forEach((element) => {
-    element.tabIndex = -1
-  })
-  clone.style.width = '100%'
-  clone.style.height = '100%'
-  return clone
-}
-
-function clear(): void {
-  items = []
-  viewportFrom = { left: 0, top: 0, width: 0, height: 0 }
-  viewportTo = viewportFrom
-  currentViewport = viewportFrom
-  viewportUnion = { left: 0, top: 0, right: 0, bottom: 0 }
-  if (!rootRef.value) return
-  rootRef.value.replaceChildren()
-  rootRef.value.style.display = 'none'
-}
-
-function mount(
-  fromViewport: AlbumTransitionRect,
-  toViewport: AlbumTransitionRect,
-  from: readonly AlbumTransitionVisual[],
-  to: readonly AlbumTransitionTarget[],
-): void {
+function requireRoot(): HTMLElement {
   const root = rootRef.value
-  if (!root) return
-  const unionLeft = Math.min(fromViewport.left, toViewport.left)
-  const unionTop = Math.min(fromViewport.top, toViewport.top)
-  const unionRight = Math.max(
-    fromViewport.left + fromViewport.width,
-    toViewport.left + toViewport.width,
-  )
-  const unionBottom = Math.max(
-    fromViewport.top + fromViewport.height,
-    toViewport.top + toViewport.height,
-  )
-  viewportUnion = { left: unionLeft, top: unionTop, right: unionRight, bottom: unionBottom }
-  root.replaceChildren()
-  root.style.left = `${unionLeft}px`
-  root.style.top = `${unionTop}px`
-  root.style.width = `${unionRight - unionLeft}px`
-  root.style.height = `${unionBottom - unionTop}px`
-  root.style.display = 'block'
-  viewportOrigin = { left: unionLeft, top: unionTop }
-  viewportFrom = fromViewport
-  viewportTo = toViewport
+  if (!root?.isConnected) throw new Error('Album grid transition layer is unavailable')
+  return root
+}
 
-  const add = (
-    side: 'from' | 'to',
-    key: string,
-    node: HTMLElement,
-    rect: AlbumTransitionRect,
-    opacity: number,
-    destination: AlbumTransitionRect | null,
-  ): void => {
-    const wrapper = document.createElement('div')
+function sanitizeSnapshot(snapshot: HTMLElement): HTMLElement {
+  // Snapshots are inert, so the hidden grid play control cannot be used in a transition.
+  snapshot.querySelector('.album-card-play-clip')?.remove()
+  const elements = [snapshot, ...snapshot.querySelectorAll<HTMLElement>('*')]
+  for (const element of elements) {
+    element.removeAttribute('id')
+    if (element.hasAttribute('tabindex')) element.tabIndex = -1
+    for (const attribute of Array.from(element.attributes)) {
+      if (/^on/iu.test(attribute.name)) element.removeAttribute(attribute.name)
+    }
+    element.removeAttribute('autofocus')
+    element.removeAttribute('contenteditable')
+  }
+  snapshot.style.width = '100%'
+  snapshot.style.height = '100%'
+  return snapshot
+}
+
+const host: AlbumGridTransitionLayerHost = {
+  reset(): void {
+    const root = rootRef.value
+    if (!root) return
+    root.replaceChildren()
+    root.style.display = 'none'
+  },
+  setBounds(bounds: AlbumTransitionRect): void {
+    const root = requireRoot()
+    Object.assign(root.style, {
+      left: `${bounds.left}px`,
+      top: `${bounds.top}px`,
+      width: `${bounds.width}px`,
+      height: `${bounds.height}px`,
+      display: 'block',
+    })
+  },
+  createItem(options, origin): HTMLElement {
+    const root = requireRoot()
+    const wrapper = root.ownerDocument.createElement('div')
     wrapper.className = 'album-grid-transition-item'
-    wrapper.dataset.albumKey = key
-    wrapper.dataset.side = side
+    wrapper.dataset.albumKey = options.key
+    wrapper.dataset.side = options.side
     wrapper.setAttribute('aria-hidden', 'true')
     wrapper.inert = true
+    const snapshot = options.snapshotOwned
+      ? options.node
+      : sanitizeSnapshot(options.node.cloneNode(true) as HTMLElement)
+    snapshot.style.width = '100%'
+    snapshot.style.height = '100%'
+    wrapper.append(snapshot)
     Object.assign(wrapper.style, {
-      left: `${rect.left - viewportOrigin.left}px`,
-      top: `${rect.top - viewportOrigin.top}px`,
-      width: `${rect.width}px`,
-      height: `${rect.height}px`,
-      opacity: String(opacity),
+      left: `${options.rect.left - origin.left}px`,
+      top: `${options.rect.top - origin.top}px`,
+      width: `${options.rect.width}px`,
+      height: `${options.rect.height}px`,
+      opacity: String(options.opacity),
       transform: 'translate3d(0, 0, 0)',
     })
-    wrapper.append(sanitizeSnapshot(node))
-    root.append(wrapper)
-    items.push({ key, side, element: wrapper, rect, opacity, destination })
-  }
-
-  const plan = planAlbumGridTransition(from, to)
-  for (const visual of plan.from) {
-    add(
-      'from',
-      visual.key,
-      visual.node,
-      visual.rect,
-      Math.max(0, Math.min(1, visual.opacity)),
-      visual.destination,
-    )
-  }
-  for (const target of plan.to) {
-    add('to', target.key, target.node, target.rect, 0, null)
-  }
-  renderProgress(0)
-}
-
-/** Per-frame writes touch only transform and opacity. */
-function renderProgress(progress: number): void {
-  const value = Math.max(0, Math.min(1, progress))
-  currentViewport = {
-    left: viewportFrom.left + (viewportTo.left - viewportFrom.left) * value,
-    top: viewportFrom.top + (viewportTo.top - viewportFrom.top) * value,
-    width: viewportFrom.width + (viewportTo.width - viewportFrom.width) * value,
-    height: viewportFrom.height + (viewportTo.height - viewportFrom.height) * value,
-  }
-  const root = rootRef.value
-  if (root) {
-    root.style.clipPath = `inset(${currentViewport.top - viewportUnion.top}px ${viewportUnion.right - currentViewport.left - currentViewport.width}px ${viewportUnion.bottom - currentViewport.top - currentViewport.height}px ${currentViewport.left - viewportUnion.left}px)`
-  }
-  for (const item of items) {
-    if (item.side === 'from') {
-      const destination = item.destination
-      const dx = destination ? destination.left - item.rect.left : 0
-      const dy = destination ? destination.top - item.rect.top : 0
-      const targetScale =
-        destination && item.rect.width > 0 ? destination.width / item.rect.width : 1
-      const scale = 1 + (targetScale - 1) * value
-      item.element.style.transform = `translate3d(${dx * value}px, ${dy * value}px, 0) scale(${scale})`
-      item.element.style.opacity = String(destination ? item.opacity : item.opacity * (1 - value))
-    } else {
-      item.element.style.opacity = String(value)
+    return wrapper
+  },
+  appendItem(item): void {
+    requireRoot().append(item)
+  },
+  setItemPosition(item, left, top): void {
+    Object.assign(item.style, { left: `${left}px`, top: `${top}px` })
+  },
+  renderViewport(viewport, union): void {
+    requireRoot().style.clipPath = `inset(${viewport.top - union.top}px ${union.left + union.width - viewport.left - viewport.width}px ${union.top + union.height - viewport.top - viewport.height}px ${viewport.left - union.left}px)`
+  },
+  renderItem(item, transform, opacity): void {
+    item.style.transform = transform
+    item.style.opacity = String(opacity)
+  },
+  captureItem(item) {
+    if (!item.isConnected) return null
+    const rect = item.getBoundingClientRect()
+    const snapshot = item.firstElementChild
+    if (!(snapshot instanceof HTMLElement)) return null
+    const opacity = Number.parseFloat(getComputedStyle(item).opacity)
+    return {
+      key: item.dataset.albumKey ?? '',
+      node: snapshot,
+      rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
+      opacity,
+      snapshotOwned: true,
     }
-  }
+  },
+  isConnected(item): boolean {
+    return item.isConnected
+  },
 }
 
-function captureViewport(): AlbumTransitionRect {
-  return { ...currentViewport }
-}
+const controller = createAlbumGridTransitionController(host)
 
-/** Capture the current composited copies when a user reverses the transition. */
-function captureVisuals(): AlbumTransitionVisual[] {
-  return items.flatMap((item) => {
-    const rect = item.element.getBoundingClientRect()
-    const opacity = Number.parseFloat(getComputedStyle(item.element).opacity)
-    if (rect.width <= 0 || rect.height <= 0 || opacity <= 0.001) return []
-    const snapshot = item.element.firstElementChild
-    if (!(snapshot instanceof HTMLElement)) return []
-    return [
-      {
-        key: item.key,
-        node: snapshot.cloneNode(true) as HTMLElement,
-        rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
-        opacity,
-      },
-    ]
-  })
-}
-
-defineExpose({ mount, renderProgress, captureVisuals, captureViewport, clear })
+defineExpose({
+  prepareSources: controller.prepareSources,
+  commitTargets: controller.commitTargets,
+  renderProgress: controller.renderProgress,
+  captureVisuals: controller.captureVisuals,
+  captureViewport: controller.captureViewport,
+  getItemStats: controller.getItemStats,
+  clear: controller.clear,
+})
 </script>
 
 <template>

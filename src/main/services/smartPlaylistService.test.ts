@@ -3,6 +3,33 @@ import type { SmartPlaylistRule } from '@shared/types/smartPlaylist'
 import { assertValidSmartPlaylistRule } from './smartPlaylistService'
 
 describe('assertValidSmartPlaylistRule', () => {
+  it('accepts custom recent frequent days and rejects malformed preset rules', () => {
+    expect(() =>
+      assertValidSmartPlaylistRule({
+        preset: 'recentFrequent',
+        days: 30,
+        startDate: '2026-01-01',
+      } as never),
+    ).toThrow(/预设/)
+    expect(() => assertValidSmartPlaylistRule({ preset: 'recentFrequent', days: 12 })).not.toThrow()
+    expect(() => assertValidSmartPlaylistRule({ preset: 'recentFrequent', days: 0 })).toThrow(
+      /正整数/,
+    )
+    expect(() => assertValidSmartPlaylistRule({ preset: 'unknown', days: 30 } as never)).toThrow(
+      /预设/,
+    )
+    expect(() => assertValidSmartPlaylistRule({ preset: 'recentFrequent' } as never)).toThrow(
+      /正整数/,
+    )
+    expect(() =>
+      assertValidSmartPlaylistRule({
+        preset: 'recentFrequent',
+        days: 30,
+        conditions: [],
+      } as never),
+    ).toThrow(/预设/)
+  })
+
   it('rejects unsupported field and operator combinations', () => {
     expect(() =>
       assertValidSmartPlaylistRule({

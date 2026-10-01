@@ -57,6 +57,10 @@ const libraryPageStyle = computed(() =>
 )
 
 const pageIdentity = ref<LibraryPageIdentity | null>(null)
+const showPlayCount = computed(
+  () =>
+    pageIdentity.value?.kind === 'smart-playlist' && pageIdentity.value.preset === 'mostListened',
+)
 const tracks = shallowRef<TrackListItem[]>([])
 const isLoading = ref(true)
 const scrollRef = ref<HTMLElement | null>(null)
@@ -475,6 +479,10 @@ const metadataEditor = useLibraryMetadataEditor({
   restoreFocus: restoreLibraryFocus,
   isDisposed: () => isPageUnmounted,
   getSaveErrorMessage: () => t('library.metadataEditor.errors.saveFailed'),
+  getPlaybackInUseMessage: () => t('library.metadataEditor.status.playbackInUse'),
+  getQueryFailedMessage: () => t('library.metadataEditor.status.queryFailed'),
+  getTrackEditState: (trackId) => auralis.metadata.getTrackEditState(trackId),
+  onTrackEditStateChanged: (callback) => auralis.metadata.onTrackEditStateChanged(callback),
   logSaveError: (error) =>
     rendererDiagnostics.error({
       scope: 'library.metadata',
@@ -483,9 +491,15 @@ const metadataEditor = useLibraryMetadataEditor({
     }),
 })
 
-const { editingMetadata, isSavingMetadata, metadataEditError } = metadataEditor
+const {
+  editingMetadata,
+  isSavingMetadata,
+  metadataEditError,
+  editStatus: metadataEditStatus,
+} = metadataEditor
 const closeMetadataEditor = metadataEditor.close
 const saveMetadata = metadataEditor.save
+const retryMetadataEditStatus = metadataEditor.retryCheckStatus
 
 onMounted(async () => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
@@ -510,6 +524,7 @@ watch(
 
 onBeforeUnmount(() => {
   isPageUnmounted = true
+  metadataEditor.dispose()
   invalidateLibrarySearchSession()
   disposeLibraryViewport()
   disposeLibraryContextMenu()
@@ -557,6 +572,7 @@ onBeforeUnmount(() => {
     <div
       v-else
       class="library-list-shell flex min-h-0 flex-1 flex-col overflow-hidden"
+      :class="{ 'library-list-shell--play-count': showPlayCount }"
       @keydown="onListShellKeyDown"
     >
       <div class="library-search-zone">
@@ -630,6 +646,7 @@ onBeforeUnmount(() => {
                   v-for="virtualRow in virtualRows"
                   :key="String(virtualRow.key)"
                   :track="tracks[virtualRow.index]"
+                  :show-play-count="showPlayCount"
                   :index="virtualRow.index"
                   :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
                   :is-playing="playback.state.isPlaying"
@@ -704,8 +721,10 @@ onBeforeUnmount(() => {
       :metadata="editingMetadata"
       :saving="isSavingMetadata"
       :error-message="metadataEditError"
+      :edit-status="metadataEditStatus"
       @close="closeMetadataEditor"
       @save="saveMetadata"
+      @retry-status="retryMetadataEditStatus"
     />
 
     <LibraryContextMenu

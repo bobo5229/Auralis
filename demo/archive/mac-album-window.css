@@ -1,0 +1,45 @@
+/* Classic Macintosh window chrome; Fusion Pixel stays deferred until integration. */
+.crt-glass .terminal-ui{inset:22px 9px 9px;background:#fff;color:#111;border:1px solid #111;box-shadow:2px 2px 0 #111;font:9px Arial,'Microsoft YaHei',sans-serif}
+.crt-glass .terminal-title{position:relative;display:flex;justify-content:center;align-items:center;flex:0 0 16px;padding:0 20px;border-bottom:1px solid #111;background:repeating-linear-gradient(to bottom,#fff 0 2px,#111 2px 3px,#fff 3px 4px);color:#111;font: bold 9px Arial,'Microsoft YaHei',sans-serif;line-height:16px}
+.terminal-title>span{background:#fff;padding:0 7px;white-space:nowrap}
+.crt-glass .terminal-title #desktop-return{position:absolute;left:5px;top:3px;width:10px;height:10px;padding:0;border:1px solid #111;background:#fff;box-shadow:0 0 0 2px #fff;border-radius:0}
+.crt-glass .terminal-title #desktop-return:hover{background:#111}
+.crt-glass .date-tools{align-items:center;gap:4px;padding:5px 6px;background:#eee;border-bottom:1px solid #111;flex:0 0 auto}
+.date-tools label{margin-right:2px;font-weight:bold}
+.crt-glass .date-tools select{height:17px;font:9px Arial,'Microsoft YaHei',sans-serif;border:1px solid #111;background:#fff;color:#111;padding:0 2px;box-shadow:1px 1px 0 #111}
+.crt-glass .date-tools button{width:17px;height:17px;padding:0;border:1px solid #111;background:#fff;color:#111;font:bold 10px Arial,sans-serif;box-shadow:1px 1px 0 #111}
+.crt-glass .date-tools button:hover:not(:disabled){background:#111;color:#fff}
+.crt-glass .date-tools button:disabled{opacity:1;color:#888;box-shadow:none;background:#eee}
+.list-heading{display:grid;grid-template-columns:24px minmax(0,1fr) 26px;gap:4px;padding:3px 6px;background:#eee;border-bottom:1px solid #111;font-size:8px;flex:0 0 auto}
+.list-heading span:last-child{text-align:right}
+.crt-glass .album-list{background:#fff;padding:2px 0}
+.crt-glass .album-row{display:grid;grid-template-columns:24px minmax(0,1fr) 26px;gap:4px;padding:2px 6px;border:0;background:#fff;color:#111;font:9px Arial,'Microsoft YaHei',sans-serif;line-height:1.2;box-shadow:none}
+.album-row .rank{font-variant-numeric:tabular-nums;color:inherit}
+.album-row .count{text-align:right;font-variant-numeric:tabular-nums}
+.crt-glass .album-row:hover{background:#ddd;color:#111}
+.crt-glass .album-row[aria-pressed=true],.crt-glass .album-row[aria-pressed=true]:hover{background:#111;color:#fff}
+.crt-glass .screen-status{background:#eee;color:#111;border-top:1px solid #111;padding:1px 6px;font:8px Arial,'Microsoft YaHei',sans-serif;line-height:14px;flex:0 0 auto}
+.terminal-ui button:focus-visible,.terminal-ui select:focus-visible{outline:1px dotted #111;outline-offset:2px}
+.terminal-ui .album-row[aria-pressed=true]:focus-visible{outline-color:#fff;outline-offset:-3px}
+.terminal-ui ::selection{background:#111;color:#fff}
+/* The physical CRT is small: reserve five complete rows before scaling it up. */
+.crt-glass .terminal-ui{inset:13px 7px 6px;font-size:8px}
+.crt-glass .terminal-title{flex-basis:12px;font-size:8px;line-height:12px}
+.crt-glass .terminal-title #desktop-return{top:2px;left:4px;width:8px;height:8px}
+.crt-glass .date-tools{padding:3px 5px;gap:3px;font-size:7px}
+.crt-glass .date-tools select{height:13px;font-size:7px}
+.crt-glass .date-tools button{height:13px;width:13px;font-size:8px}
+.crt-glass .list-heading{padding:1px 5px;font-size:7px;grid-template-columns:20px minmax(0,1fr) 22px}
+.crt-glass .album-row{padding:1px 5px;font-size:8px;grid-template-columns:20px minmax(0,1fr) 22px}
+.crt-glass .screen-status{font-size:7px;line-height:10px;padding:0 5px}
+.date-tools #date[hidden]{display:none}
+.date-picker{position:relative;flex:1;min-width:0}
+.crt-glass .date-tools #date-trigger{display:flex;align-items:center;justify-content:space-between;gap:4px;width:100%;height:13px;padding:0 3px;font:7px Arial,'Microsoft YaHei',sans-serif;text-align:left}
+#date-trigger span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#date-trigger svg{width:6px;height:4px;fill:currentColor;flex-shrink:0}
+.crt-glass .date-tools #date-trigger[aria-expanded=true]{background:#111;color:#fff}
+#date-menu{position:absolute;top:calc(100% + 2px);left:0;right:0;z-index:10;padding:2px 0;border:1px solid #111;background:#fff;box-shadow:2px 2px 0 #111}
+#date-menu[hidden]{display:none}
+.crt-glass .date-tools #date-menu button{display:block;width:100%;height:auto;min-height:15px;padding:2px 4px 2px 12px;border:0;box-shadow:none;background:#fff;color:#111;font:7px Arial,'Microsoft YaHei',sans-serif;text-align:left;white-space:nowrap;position:relative}
+#date-menu button[aria-selected=true]::before{content:'';position:absolute;left:4px;top:5px;width:3px;height:3px;background:currentColor}
+.crt-glass .date-tools #date-menu button:hover,.crt-glass .date-tools #date-menu button:focus{background:#111;color:#fff;outline:none}

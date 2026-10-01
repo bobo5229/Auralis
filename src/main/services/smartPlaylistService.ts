@@ -14,6 +14,12 @@ import type {
   SmartPlaylistViewMode,
 } from '@shared/types/smartPlaylist'
 import { parseSmartPlaylistQuery } from '@shared/smartPlaylists/queryParser'
+import {
+  assertRecentFrequentDays,
+  DEFAULT_RECENT_FREQUENT_DAYS,
+  isRecentFrequentRule,
+  resolveRecentFrequentDateRange,
+} from '@shared/smartPlaylists/recentFrequent'
 import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'
 import { SmartPlaylistRepository } from '@main/repositories/smartPlaylistRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
@@ -44,6 +50,23 @@ function normalizeCondition(condition: SmartPlaylistRuleCondition): SmartPlaylis
 export function assertValidSmartPlaylistRule(rule: SmartPlaylistRule): void {
   if (!rule || typeof rule !== 'object') {
     throw new Error('无效的智能歌单规则')
+  }
+
+  if ('preset' in rule) {
+    if (rule.preset === 'mostListened') {
+      if (Object.keys(rule).some((key) => key !== 'preset')) {
+        throw new Error('无效的智能歌单预设')
+      }
+      return
+    }
+    if (
+      (rule.preset !== 'recentPlayed' && !isRecentFrequentRule(rule)) ||
+      Object.keys(rule).some((key) => key !== 'preset' && key !== 'days')
+    ) {
+      throw new Error('无效的智能歌单预设')
+    }
+    assertRecentFrequentDays(rule.days)
+    return
   }
 
   if (isExpressionRule(rule)) {
@@ -180,6 +203,11 @@ function normalizeExpression(expression: SmartPlaylistExpression): SmartPlaylist
 }
 
 function normalizeRule(rule: SmartPlaylistRule): SmartPlaylistRule {
+  if ('preset' in rule) {
+    return rule.preset === 'mostListened'
+      ? { preset: 'mostListened' }
+      : { preset: rule.preset, days: rule.days }
+  }
   if (isExpressionRule(rule)) {
     return { expression: normalizeExpression(rule.expression) }
   }
@@ -193,6 +221,7 @@ function normalizeRule(rule: SmartPlaylistRule): SmartPlaylistRule {
 }
 
 function canonicalRule(rule: SmartPlaylistRule): string {
+  if ('preset' in rule) return JSON.stringify(normalizeRule(rule))
   if (isExpressionRule(rule)) {
     const canonicalizeExpression = (expression: SmartPlaylistExpression): unknown => {
       if (expression.type === 'predicate') {
@@ -312,6 +341,9 @@ function matchesExpression(track: TrackListItem, expression: SmartPlaylistExpres
 }
 
 function matchesRule(track: TrackListItem, rule: SmartPlaylistRule): boolean {
+  if ('preset' in rule) {
+    throw new Error('播放统计预设必须按播放记录查询')
+  }
   if (isExpressionRule(rule)) return matchesExpression(track, rule.expression)
 
   return rule.conditions.every((condition) => matchesCondition(track, condition))
@@ -352,16 +384,18 @@ export class SmartPlaylistService {
 
   listTrackCounts(): SmartPlaylistTrackCount[] {
     const tracks = this.getTracksCached()
+    const now = new Date()
+    const presetTracks = new Map<string, TrackListItem[]>()
     return this.smartPlaylistRepository.list().map((playlist) => ({
       playlistId: playlist.id,
-      trackCount: tracks.filter((track) => matchesRule(track, playlist.rule)).length,
+      trackCount: this.getPlaylistTracks(playlist, tracks, now, presetTracks).length,
     }))
   }
 
   getDetail(id: number): SmartPlaylistDetail | null {
     const playlist = this.smartPlaylistRepository.getById(id)
     if (!playlist) return null
-    const tracks = this.getTracksCached().filter((track) => matchesRule(track, playlist.rule))
+    const tracks = this.getPlaylistTracks(playlist, this.getTracksCached(), new Date())
 
     return {
       playlist,
@@ -372,6 +406,7 @@ export class SmartPlaylistService {
   }
 
   create(name: string, rule: SmartPlaylistRule): CreateSmartPlaylistResult {
+    assertValidSmartPlaylistRule(rule)
     const normalizedRule = normalizeRule(rule)
     assertValidSmartPlaylistRule(normalizedRule)
     const canonical = canonicalRule(normalizedRule)
@@ -393,6 +428,52 @@ export class SmartPlaylistService {
     const expression = parseSmartPlaylistQuery(query)
     const playlists = this.smartPlaylistRepository.list()
     return this.create(this.getAvailableManualName(playlists), { expression })
+  }
+
+  createRecentFrequent(days = DEFAULT_RECENT_FREQUENT_DAYS): CreateSmartPlaylistResult {
+    return this.create('最近常听', { preset: 'recentFrequent', days })
+  }
+
+  updateRecentFrequentDays(id: number, days: number): SmartPlaylist | null {
+    assertRecentFrequentDays(days)
+    const playlist = this.smartPlaylistRepository.getById(id)
+    if (!playlist) return null
+    if (!isRecentFrequentRule(playlist.rule)) {
+      throw new Error('仅最近常听歌单支持修改时间范围')
+    }
+    return this.smartPlaylistRepository.updateRule(id, { preset: 'recentFrequent', days })
+  }
+
+  private getPlaylistTracks(
+    playlist: SmartPlaylist,
+    tracks: TrackListItem[],
+    now: Date,
+    presetTracks = new Map<string, TrackListItem[]>(),
+  ): TrackListItem[] {
+    if (!('preset' in playlist.rule)) {
+      return tracks.filter((track) => matchesRule(track, playlist.rule))
+    }
+    const rule = playlist.rule
+    const key = canonicalRule(rule)
+    const cached = presetTracks.get(key)
+    if (cached) return cached
+    let ids: number[]
+    if (rule.preset === 'mostListened') {
+      ids = this.smartPlaylistRepository.getMostListenedTrackIds()
+    } else {
+      const { startDate, endDate } = resolveRecentFrequentDateRange(rule.days, now)
+      ids =
+        rule.preset === 'recentPlayed'
+          ? this.smartPlaylistRepository.getRecentPlayedTrackIds(startDate, endDate)
+          : this.smartPlaylistRepository.getRecentFrequentTrackIds(startDate, endDate)
+    }
+    const byId = new Map(tracks.map((track) => [track.id, track]))
+    const result = ids.flatMap((id) => {
+      const track = byId.get(id)
+      return track ? [track] : []
+    })
+    presetTracks.set(key, result)
+    return result
   }
 
   /** Drop the short-lived track list cache (e.g. after a known library mutation if wired). */

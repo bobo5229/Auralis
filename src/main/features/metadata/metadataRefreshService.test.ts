@@ -1,6 +1,6 @@
 import type { EventEmitter } from 'node:events'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MetadataRefreshService } from './metadataRefreshService'
+import { MetadataRefreshService, type MetadataWriteCoordinator } from './metadataRefreshService'
 import type { MetadataRefreshRepository } from '../../repositories/metadataRefreshRepository'
 import type { MetadataRefreshWorkerResult } from './metadataRefreshTypes'
 import { assertMetadataFingerprint, readStableMetadata } from './readStableMetadata'
@@ -44,7 +44,7 @@ function deferred<T>() {
   })
   return { promise, resolve }
 }
-function setup() {
+function setup(coordinator?: MetadataWriteCoordinator) {
   let job = 0
   const repo = {
     markInterruptedJobs: vi.fn(),
@@ -68,6 +68,7 @@ function setup() {
     'cache',
     send,
     'isolated-bin/ffmpeg.exe',
+    coordinator,
   )
   return { repo, service, send }
 }
@@ -300,5 +301,64 @@ describe('metadata result acceptance', () => {
     expect(workers).toHaveLength(2)
     workers[1].emit('message', { type: 'complete' })
     await vi.waitFor(() => expect(service.hasActiveJob()).toBe(false))
+  })
+
+  describe('playback and write coordination', () => {
+    it('returns playback-in-use without calling writeAudioTags, modifying repo, or queuing reconciliation', async () => {
+      const coordinator = {
+        tryAcquireWriteLease: vi.fn(() => ({
+          ok: false as const,
+          reason: 'playback-in-use' as const,
+        })),
+        releaseWriteLease: vi.fn(),
+      }
+      const { service, repo } = setup(coordinator)
+
+      const result = await service.updateTrackMetadata({
+        trackId: 1,
+        title: 'New Title',
+        artistDisplay: null,
+        albumTitle: null,
+        albumArtistDisplay: null,
+        genreDisplay: null,
+        year: null,
+        releaseDate: null,
+      })
+
+      expect(result).toEqual({ ok: false, reason: 'playback-in-use' })
+      expect(coordinator.tryAcquireWriteLease).toHaveBeenCalledWith('isolated.flac', 'track-1')
+      expect(writeAudioTags).not.toHaveBeenCalled()
+      expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
+      expect(repo.updateTrackMetadata).not.toHaveBeenCalled()
+      expect(coordinator.releaseWriteLease).not.toHaveBeenCalled()
+      expect(service.hasActiveArtworkWrites()).toBe(false)
+    })
+
+    it('acquires write lease on success and releases it in finally', async () => {
+      const coordinator = {
+        tryAcquireWriteLease: vi.fn(() => ({ ok: true as const, leaseId: 'lease_test_write' })),
+        releaseWriteLease: vi.fn(),
+      }
+      const { service, repo } = setup(coordinator)
+      vi.mocked(writeAudioTags).mockResolvedValueOnce(undefined as never)
+      vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
+
+      const result = await service.updateTrackMetadata({
+        trackId: 1,
+        title: 'New Title',
+        artistDisplay: null,
+        albumTitle: null,
+        albumArtistDisplay: null,
+        genreDisplay: null,
+        year: null,
+        releaseDate: null,
+      })
+
+      expect(result).toEqual({ ok: true })
+      expect(coordinator.tryAcquireWriteLease).toHaveBeenCalledWith('isolated.flac', 'track-1')
+      expect(writeAudioTags).toHaveBeenCalledOnce()
+      expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
+      expect(coordinator.releaseWriteLease).toHaveBeenCalledWith('lease_test_write')
+    })
   })
 })

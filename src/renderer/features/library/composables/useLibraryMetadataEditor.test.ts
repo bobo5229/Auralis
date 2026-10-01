@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { LibraryRouteScope } from '../utils/libraryRouteScope'
+import type {
+  TrackEditStateChangedEvent,
+  TrackEditStateResult,
+  UpdateTrackMetadataResult,
+} from '@shared/ipc/contracts'
 import {
   useLibraryMetadataEditor,
   type LibraryMetadataRefreshResult,
@@ -20,11 +25,16 @@ const metadata: EditableTrackMetadata = {
 function createEditor(overrides?: {
   scope?: LibraryRouteScope
   refreshResult?: LibraryMetadataRefreshResult
+  getTrackEditState?: (trackId: number) => Promise<TrackEditStateResult>
+  onTrackEditStateChanged?: (callback: (event: TrackEditStateChangedEvent) => void) => () => void
+  updateTrackMetadata?: (
+    metadata: EditableTrackMetadata,
+  ) => Promise<UpdateTrackMetadataResult | unknown>
 }) {
   let scope: LibraryRouteScope = overrides?.scope ?? { kind: 'library' }
   let disposed = false
   const loadTrackMetadata = vi.fn(async () => metadata)
-  const updateTrackMetadata = vi.fn(async () => undefined)
+  const updateTrackMetadata = vi.fn(overrides?.updateTrackMetadata ?? (async () => undefined))
   const refreshLibrary = vi.fn(
     async () => overrides?.refreshResult ?? ('committed' as LibraryMetadataRefreshResult),
   )
@@ -38,6 +48,10 @@ function createEditor(overrides?: {
     restoreFocus,
     isDisposed: () => disposed,
     getSaveErrorMessage: () => 'save failed',
+    getPlaybackInUseMessage: () => 'track in use by player',
+    getQueryFailedMessage: () => 'query failed',
+    getTrackEditState: overrides?.getTrackEditState,
+    onTrackEditStateChanged: overrides?.onTrackEditStateChanged,
     logSaveError,
   })
 
@@ -135,5 +149,157 @@ describe('useLibraryMetadataEditor', () => {
     expect(refreshLibrary).not.toHaveBeenCalled()
     expect(restoreFocus).not.toHaveBeenCalled()
     expect(editor.metadataEditError.value).toBeNull()
+  })
+
+  it('queries edit state on open and updates editStatus', async () => {
+    const getTrackEditState = vi.fn(async () => ({
+      trackId: metadata.trackId,
+      status: 'playback-in-use' as const,
+      version: 1,
+    }))
+    const { editor } = createEditor({ getTrackEditState })
+
+    await editor.open(metadata.trackId)
+
+    expect(getTrackEditState).toHaveBeenCalledWith(metadata.trackId)
+    expect(editor.editStatus.value).toBe('playback-in-use')
+  })
+
+  it('updates editStatus when onTrackEditStateChanged emits for current track', async () => {
+    let listener: ((event: TrackEditStateChangedEvent) => void) | undefined
+    const onTrackEditStateChanged = vi.fn((cb: (event: TrackEditStateChangedEvent) => void) => {
+      listener = cb
+      return () => {
+        listener = undefined
+      }
+    })
+    const getTrackEditState = vi.fn(async () => ({
+      trackId: metadata.trackId,
+      status: 'editable' as const,
+      version: 1,
+    }))
+    const { editor } = createEditor({ getTrackEditState, onTrackEditStateChanged })
+
+    await editor.open(metadata.trackId)
+    expect(editor.editStatus.value).toBe('editable')
+
+    listener?.({ trackId: metadata.trackId, status: 'playback-in-use', version: 2 })
+    expect(editor.editStatus.value).toBe('playback-in-use')
+
+    listener?.({ trackId: metadata.trackId, status: 'editable', version: 3 })
+    expect(editor.editStatus.value).toBe('editable')
+  })
+
+  it('ignores onTrackEditStateChanged events for other tracks', async () => {
+    let listener: ((event: TrackEditStateChangedEvent) => void) | undefined
+    const onTrackEditStateChanged = vi.fn((cb: (event: TrackEditStateChangedEvent) => void) => {
+      listener = cb
+      return () => {}
+    })
+    const getTrackEditState = vi.fn(async () => ({
+      trackId: metadata.trackId,
+      status: 'editable' as const,
+      version: 1,
+    }))
+    const { editor } = createEditor({ getTrackEditState, onTrackEditStateChanged })
+
+    await editor.open(metadata.trackId)
+    expect(editor.editStatus.value).toBe('editable')
+
+    listener?.({ trackId: 9999, status: 'playback-in-use', version: 2 })
+    expect(editor.editStatus.value).toBe('editable')
+  })
+
+  it('ignores out-of-order query responses with lower version than event', async () => {
+    let listener: ((event: TrackEditStateChangedEvent) => void) | undefined
+    const onTrackEditStateChanged = vi.fn((cb: (event: TrackEditStateChangedEvent) => void) => {
+      listener = cb
+      return () => {}
+    })
+    let resolveQuery: (value: TrackEditStateResult) => void
+    const queryPromise = new Promise<TrackEditStateResult>((resolve) => {
+      resolveQuery = resolve
+    })
+    const getTrackEditState = vi.fn(() => queryPromise)
+
+    const { editor } = createEditor({ getTrackEditState, onTrackEditStateChanged })
+
+    const openPromise = editor.open(metadata.trackId)
+
+    // While query is pending, a newer event arrives with version 5 ('playback-in-use')
+    listener?.({ trackId: metadata.trackId, status: 'playback-in-use', version: 5 })
+    expect(editor.editStatus.value).toBe('playback-in-use')
+
+    // Now query resolves with stale version 2 ('editable')
+    resolveQuery!({ trackId: metadata.trackId, status: 'editable', version: 2 })
+    await openPromise
+
+    // Status must remain playback-in-use (version 5 wins over stale version 2)
+    expect(editor.editStatus.value).toBe('playback-in-use')
+  })
+
+  it('prevents save when editStatus is not editable', async () => {
+    const getTrackEditState = vi.fn(async () => ({
+      trackId: metadata.trackId,
+      status: 'playback-in-use' as const,
+      version: 1,
+    }))
+    const { editor, updateTrackMetadata } = createEditor({ getTrackEditState })
+
+    await editor.open(metadata.trackId)
+    expect(editor.editStatus.value).toBe('playback-in-use')
+
+    await editor.save(metadata)
+
+    expect(updateTrackMetadata).not.toHaveBeenCalled()
+    expect(editor.editingMetadata.value).toEqual(metadata)
+  })
+
+  it('handles atomic rejection from updateTrackMetadata for playback-in-use without closing dialog', async () => {
+    const updateTrackMetadata = vi.fn(async () => ({
+      ok: false as const,
+      reason: 'playback-in-use' as const,
+    }))
+    const { editor, refreshLibrary } = createEditor({ updateTrackMetadata })
+
+    await editor.open(metadata.trackId)
+    await editor.save(metadata)
+
+    expect(editor.editStatus.value).toBe('playback-in-use')
+    expect(editor.metadataEditError.value).toBe('track in use by player')
+    expect(editor.editingMetadata.value).toEqual(metadata)
+    expect(editor.isSavingMetadata.value).toBe(false)
+    expect(refreshLibrary).not.toHaveBeenCalled()
+  })
+
+  it('handles query failure by transitioning to query-failed and allows retry', async () => {
+    let shouldFail = true
+    const getTrackEditState = vi.fn(async () => {
+      if (shouldFail) {
+        throw new Error('IPC timeout')
+      }
+      return { trackId: metadata.trackId, status: 'editable' as const, version: 1 }
+    })
+    const { editor } = createEditor({ getTrackEditState })
+
+    await editor.open(metadata.trackId)
+    expect(editor.editStatus.value).toBe('query-failed')
+
+    shouldFail = false
+    await editor.retryCheckStatus()
+    expect(editor.editStatus.value).toBe('editable')
+  })
+
+  it('unsubscribes status events when dialog is closed', async () => {
+    const unsubscribe = vi.fn()
+    const onTrackEditStateChanged = vi.fn(() => unsubscribe)
+    const { editor } = createEditor({ onTrackEditStateChanged })
+
+    await editor.open(metadata.trackId)
+    expect(onTrackEditStateChanged).toHaveBeenCalledOnce()
+    expect(unsubscribe).not.toHaveBeenCalled()
+
+    editor.close()
+    expect(unsubscribe).toHaveBeenCalledOnce()
   })
 })

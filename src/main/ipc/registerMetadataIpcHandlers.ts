@@ -1,6 +1,7 @@
 import { ipcChannels } from '@shared/ipc/channels'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
+import type { PlaybackFileCoordinator } from '@main/features/audio/playbackFileCoordinator'
 import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
 
 type MetadataOperations = Pick<
@@ -17,13 +18,18 @@ type MetadataOperations = Pick<
 
 export interface MetadataIpcDependencies {
   metadataRefreshService: MetadataOperations
+  playbackFileCoordinator: Pick<PlaybackFileCoordinator, 'getTrackState'>
 }
 
 export function registerMetadataIpcHandlers(
   registrar: IpcHandlerRegistrar,
   dependencies: MetadataIpcDependencies,
 ): void {
-  const { metadataRefreshService } = dependencies
+  const { metadataRefreshService, playbackFileCoordinator } = dependencies
+
+  registrar.handle(ipcChannels.metadata.getTrackEditState, (_event, payload: { trackId: number }) =>
+    playbackFileCoordinator.getTrackState(payload.trackId),
+  )
 
   registrar.handle(ipcChannels.metadata.refreshTrack, (_event, payload: { trackId: number }) =>
     metadataRefreshService.refreshTrack(payload.trackId),

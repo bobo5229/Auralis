@@ -14,6 +14,7 @@ type PlayStatsOperations = Pick<
   | 'recordEffectivePlay'
   | 'getListeningHeatmap'
   | 'getDailyListeningDetail'
+  | 'getDailyAlbumStats'
   | 'getAnnualListeningInsights'
   | 'getListeningRanking'
   | 'getListeningGenreSpectrum'
@@ -76,6 +77,11 @@ export function registerPlaybackArchiveIpcHandlers(
   registrar.handle(
     ipcChannels.archive.getDailyListeningDetail,
     (_event, payload: { date: string }) => playStatsService.getDailyListeningDetail(payload.date),
+  )
+  registrar.handle(
+    ipcChannels.archive.getDailyAlbumStats,
+    (_event, payload: { date: Parameters<PlayStatsOperations['getDailyAlbumStats']>[0] }) =>
+      playStatsService.getDailyAlbumStats(payload.date),
   )
   registrar.handle(
     ipcChannels.archive.getAnnualListeningInsights,

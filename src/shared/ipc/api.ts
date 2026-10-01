@@ -48,6 +48,13 @@ export interface AuralisApi {
     createFromQuery: (
       query: Req<'smart-playlists:create-from-query'>['query'],
     ) => Result<'smart-playlists:create-from-query'>
+    createRecentFrequent: (
+      days?: Req<'smart-playlists:create-recent-frequent'>['days'],
+    ) => Result<'smart-playlists:create-recent-frequent'>
+    updateRecentFrequentDays: (
+      id: Req<'smart-playlists:update-recent-frequent-days'>['id'],
+      days: Req<'smart-playlists:update-recent-frequent-days'>['days'],
+    ) => Result<'smart-playlists:update-recent-frequent-days'>
     rename: (
       id: Req<'smart-playlists:rename'>['id'],
       name: Req<'smart-playlists:rename'>['name'],
@@ -108,6 +115,12 @@ export interface AuralisApi {
     recordEffectivePlay: (
       payload: Req<'playback:record-effective-play'>,
     ) => Result<'playback:record-effective-play'>
+    acquireReadLease: (
+      trackId: Req<'playback:acquire-read-lease'>['trackId'],
+    ) => Result<'playback:acquire-read-lease'>
+    releaseReadLease: (
+      leaseId: Req<'playback:release-read-lease'>['leaseId'],
+    ) => Result<'playback:release-read-lease'>
   }
   systemMedia: {
     updateThumbarState: (state: IpcSendPayload<'system-media:update-thumbar-state'>) => void
@@ -120,6 +133,9 @@ export interface AuralisApi {
     getDailyListeningDetail: (
       date: Req<'archive:get-daily-listening-detail'>['date'],
     ) => Result<'archive:get-daily-listening-detail'>
+    getDailyAlbumStats: (
+      date: Req<'archive:get-daily-album-stats'>['date'],
+    ) => Result<'archive:get-daily-album-stats'>
     getAnnualListeningInsights: (
       year: Req<'archive:get-annual-listening-insights'>['year'],
     ) => Result<'archive:get-annual-listening-insights'>
@@ -151,11 +167,17 @@ export interface AuralisApi {
     getTrackMetadata: (
       trackId: Req<'metadata:get-track-metadata'>['trackId'],
     ) => Result<'metadata:get-track-metadata'>
+    getTrackEditState: (
+      trackId: Req<'metadata:get-track-edit-state'>['trackId'],
+    ) => Result<'metadata:get-track-edit-state'>
     updateTrackMetadata: (
       metadata: Req<'metadata:update-track-metadata'>,
     ) => Result<'metadata:update-track-metadata'>
     onRefreshProgress: (
       callback: (progress: IpcEventPayload<'metadata:refresh-progress'>) => void,
+    ) => () => void
+    onTrackEditStateChanged: (
+      callback: (event: IpcEventPayload<'metadata:track-edit-state-changed'>) => void,
     ) => () => void
   }
   window: {

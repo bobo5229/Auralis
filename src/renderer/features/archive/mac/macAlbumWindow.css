@@ -1,0 +1,498 @@
+/* Classic Macintosh Album Statistics Window & Date Picker */
+
+.crt-logic-plane {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 512px;
+  height: 342px;
+  transform-origin: 0 0;
+  pointer-events: none;
+  font-family: var(--mac-font, 'Auralis Mac Pixel', monospace);
+}
+
+.crt-logic-plane * {
+  box-sizing: border-box;
+}
+
+/* CRT Menu Bar at top of logical plane */
+.crt-menu-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: #fff;
+  border-bottom: 1px solid #000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  font-size: 12px;
+  color: #000;
+  user-select: none;
+  pointer-events: auto;
+}
+
+.crt-menu-items {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.crt-menu-apple {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.crt-clock {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+/* CRT Desktop Entries */
+.crt-desktop-icons {
+  position: absolute;
+  inset: 20px 0 0 0;
+  pointer-events: auto;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 40px 20px;
+}
+.crt-entry-status {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 20px;
+  margin: 0;
+  text-align: center;
+  color: #000;
+  font-size: 12px;
+}
+
+.crt-desktop-icon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px dashed transparent;
+  padding: 8px 12px;
+  cursor: pointer;
+  color: #000;
+  font-family: var(--mac-font);
+  font-size: 12px;
+}
+
+.crt-desktop-icon-btn:hover,
+.crt-desktop-icon-btn:focus-visible {
+  border-color: #000;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.crt-desktop-icon-btn[aria-pressed='true'] {
+  background: #000;
+  color: #fff;
+}
+
+.crt-desktop-icon-glyph {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+}
+.crt-desktop-icon-btn[aria-pressed='true'] .crt-desktop-icon-glyph {
+  filter: invert(1);
+}
+.crt-logic-plane {
+  font-synthesis: none;
+}
+.crt-logic-plane ::selection {
+  background: #000;
+  color: #fff;
+}
+.crt-logic-plane button:focus-visible {
+  outline: 1px dashed currentColor;
+  outline-offset: -3px;
+}
+
+/* Classic Macintosh window chrome */
+.terminal-ui {
+  position: absolute;
+  left: 12px;
+  top: 26px;
+  width: 488px;
+  height: 304px;
+  background: #fff;
+  color: #000;
+  border: 1px solid #000;
+  box-shadow: 2px 2px 0 #000;
+  display: none;
+  flex-direction: column;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.mac-album-open .terminal-ui {
+  display: flex;
+}
+
+.mac-album-open .crt-desktop-icons {
+  display: none;
+}
+
+.terminal-title {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex: 0 0 20px;
+  padding: 0 20px;
+  border-bottom: 1px solid #000;
+  background: repeating-linear-gradient(to bottom, #fff 0 2px, #000 2px 3px, #fff 3px 4px);
+  color: #000;
+  font-size: 12px;
+  font-weight: 700;
+  user-select: none;
+}
+
+.terminal-title > span {
+  background: #fff;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+#desktop-return {
+  position: absolute;
+  left: 6px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 1px solid #000;
+  background: #fff;
+  box-shadow: 0 0 0 2px #fff;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+#desktop-return:hover {
+  background: #000;
+}
+
+.date-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: #f0f0f0;
+  border-bottom: 1px solid #000;
+  flex: 0 0 auto;
+}
+
+.date-tools label {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.date-tools button {
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  font-family: var(--mac-font);
+  font-size: 12px;
+  box-shadow: 1px 1px 0 #000;
+  cursor: pointer;
+}
+
+.date-tools button:hover:not(:disabled) {
+  background: #000;
+  color: #fff;
+}
+
+.date-tools button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  box-shadow: none;
+}
+
+.date-picker {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+#date-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  height: 22px;
+  padding: 0 8px;
+  text-align: left;
+}
+
+#date-trigger[aria-expanded='true'] {
+  background: #000;
+  color: #fff;
+}
+
+#date-trigger span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#date-trigger svg {
+  width: 8px;
+  height: 6px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.list-heading {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 52px;
+  gap: 8px;
+  padding: 3px 8px;
+  background: #f0f0f0;
+  border-bottom: 1px solid #000;
+  font-size: 12px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.list-heading span:last-child {
+  text-align: right;
+}
+
+.album-list {
+  flex: 1;
+  min-height: 0;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.album-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 52px;
+  gap: 8px;
+  padding: 4px 8px;
+  border: 0;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fff;
+  color: #000;
+  font-family: var(--mac-font);
+  font-size: 12px;
+  line-height: 18px;
+  box-shadow: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.album-row:hover {
+  background: #e8e8e8;
+}
+
+.album-row[aria-pressed='true'] {
+  background: #000;
+  color: #fff;
+}
+
+.album-row .rank {
+  font-variant-numeric: tabular-nums;
+}
+
+.album-row .row-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.album-row .count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.screen-status {
+  height: 22px;
+  line-height: 22px;
+  padding: 0 8px;
+  background: #f0f0f0;
+  color: #000;
+  border-top: 1px solid #000;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 0 auto;
+}
+
+.album-empty-msg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 20px;
+  color: #555;
+  font-size: 12px;
+}
+
+/* Custom Calendar Popup */
+.mac-date-popup {
+  position: absolute;
+  left: 0;
+  top: 26px;
+  width: 300px;
+  background: #fff;
+  border: 2px solid #000;
+  box-shadow: 3px 3px 0 #000;
+  z-index: 50;
+  padding: 6px;
+}
+
+.mac-date-popup[hidden] {
+  display: none;
+}
+
+.mac-calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #000;
+}
+
+.mac-calendar-year-select {
+  font-family: var(--mac-font);
+  font-size: 12px;
+  height: 22px;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  padding: 0 4px;
+}
+
+.mac-calendar-month-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mac-calendar-month-nav button {
+  height: 20px;
+  width: 20px;
+  padding: 0;
+  font-family: var(--mac-font);
+  font-size: 11px;
+  border: 1px solid #000;
+  background: #fff;
+  color: #000;
+  cursor: pointer;
+}
+
+.mac-calendar-month-nav button:hover {
+  background: #000;
+  color: #fff;
+}
+
+.mac-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+  font-size: 11px;
+}
+
+.mac-calendar-weekday {
+  font-weight: 700;
+  padding: 2px 0;
+  background: #f0f0f0;
+  border-bottom: 1px solid #ccc;
+}
+
+.mac-calendar-cell {
+  height: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #000;
+  font-family: var(--mac-font);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  position: relative;
+}
+
+.mac-calendar-cell:hover:not(:disabled) {
+  border-color: #000;
+  background: #eee;
+}
+
+.mac-calendar-cell.is-selected {
+  background: #000;
+  color: #fff;
+}
+
+.mac-calendar-cell.is-today {
+  font-weight: 700;
+  text-decoration: underline;
+}
+.mac-calendar-year-picker {
+  position: relative;
+}
+.mac-calendar-years {
+  position: absolute;
+  top: 24px;
+  left: 0;
+  z-index: 5;
+  width: 86px;
+  max-height: 156px;
+  overflow-y: auto;
+  border: 1px solid #000;
+  background: #fff;
+}
+.mac-calendar-years button {
+  display: block;
+  width: 100%;
+  box-shadow: none;
+  border: 0;
+  text-align: left;
+}
+.mac-calendar-years button[aria-selected='true'] {
+  background: #000;
+  color: #fff;
+}
+.mac-calendar-status {
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+.album-row,
+.screen-status {
+  flex-shrink: 0;
+}
+
+.mac-calendar-cell.has-plays::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  width: 3px;
+  height: 3px;
+  background: currentColor;
+  border-radius: 50%;
+}
+
+.mac-calendar-cell:disabled {
+  opacity: 0.25;
+  cursor: default;
+}

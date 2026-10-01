@@ -1,0 +1,400 @@
+<div class="archive-mac-shell" id="archive-mac-shell">
+  <canvas id="sky" aria-hidden="true"></canvas>
+  <main class="archive-mac-main">
+    <div class="scene" id="scene">
+      <svg id="cable" aria-hidden="true">
+        <path class="cable-shadow" />
+        <path class="cable-body" />
+        <path class="cable-core" />
+        <path class="signal" />
+      </svg>
+      <div class="studio" id="studio">
+        <div
+          class="rig"
+          id="rig"
+          role="group"
+          tabindex="0"
+          aria-label="Macintosh 128K。双击或按 Enter、空格放大屏幕。"
+        >
+          <div class="shadow" aria-hidden="true"></div>
+          <div class="mac" aria-label="Macintosh 128K 立体模型">
+            <div class="face front">
+              <div class="front-top"></div>
+              <div class="front-left">
+                <button
+                  class="bezel-key"
+                  id="bezel-return"
+                  type="button"
+                  aria-label="返回整机"
+                  tabindex="-1"
+                >
+                  <svg viewBox="0 0 12 12" aria-hidden="true">
+                    <path
+                      d="M9 2.5v4.5H3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.3"
+                      stroke-linecap="square"
+                      stroke-linejoin="miter"
+                    />
+                    <path
+                      d="M5.4 5.4 3.3 7l2.1 1.6"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.3"
+                      stroke-linecap="square"
+                      stroke-linejoin="miter"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div class="front-right">
+                <button
+                  class="bezel-key"
+                  id="bezel-power"
+                  type="button"
+                  aria-label="开机"
+                  aria-pressed="false"
+                  disabled
+                >
+                  <svg viewBox="0 0 12 12" aria-hidden="true">
+                    <path
+                      d="M6 1.8v4.2"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.3"
+                      stroke-linecap="square"
+                    />
+                    <path
+                      d="M3.6 3.4a3.3 3.3 0 1 0 4.8 0"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.3"
+                      stroke-linecap="square"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <div class="front-chin"></div>
+              <div class="crt-well">
+                <div class="crt-wall n"></div>
+                <div class="crt-wall s"></div>
+                <div class="crt-wall w"></div>
+                <div class="crt-wall e"></div>
+                <div class="crt-glass">
+                  <canvas id="crt" width="512" height="342"></canvas>
+                  <div class="crt-blank" id="crt-blank" aria-hidden="true"></div>
+                  <div class="crt-fx" id="crt-fx" aria-hidden="true">
+                    <canvas id="crt-blur-weak" width="512" height="342"></canvas>
+                    <canvas id="crt-blur-strong" width="512" height="342"></canvas>
+                    <canvas id="crt-noise" width="64" height="43"></canvas>
+                  </div>
+                  <div class="scan"></div>
+                  <div class="glare"></div>
+
+                  <!-- Logical 512x342 CRT plane for DOM elements -->
+                  <div class="crt-logic-plane" id="crt-logic-plane">
+                    <!-- Top Menu Bar -->
+                    <div class="crt-menu-bar">
+                      <div class="crt-menu-items">
+                        <span class="crt-menu-apple" aria-hidden="true"
+                          ><svg viewBox="0 0 18 22" width="12" height="16" aria-hidden="true">
+                            <path
+                              fill="currentColor"
+                              d="M13.2 6.1c-.8.9-2.1 1.6-3.3 1.5-.2-1.2.4-2.5 1.1-3.3.8-.9 2.2-1.6 3.3-1.6.1 1.3-.4 2.5-1.1 3.4zM16.3 16.4c-.7 1.1-1.4 2.2-2.5 2.2-1.1.1-1.4-.7-2.9-.7s-1.9.7-2.9.7c-1.1 0-1.9-1-2.6-2.1-1.4-2.2-2.5-6.2-1-8.3.7-1.1 1.9-1.8 3.2-1.8 1 0 1.9.7 2.6.7s1.8-.8 3.1-.7c.5 0 2 .2 3 1.6-2.6 1.5-2.2 5.3.2 6.4z"
+                            /></svg
+                        ></span>
+                        <span>File</span>
+                        <span>Edit</span>
+                        <span>View</span>
+                        <span>Special</span>
+                      </div>
+                      <div class="crt-clock" id="crt-clock">12:00</div>
+                    </div>
+
+                    <!-- 3 Desktop Entry Buttons -->
+                    <div class="crt-desktop-icons" id="crt-desktop-icons">
+                      <button
+                        class="crt-desktop-icon-btn"
+                        type="button"
+                        data-entry="track"
+                        aria-pressed="false"
+                      >
+                        <canvas
+                          class="crt-desktop-icon-glyph"
+                          width="32"
+                          height="32"
+                          data-icon="note"
+                        ></canvas>
+                        <span>单曲</span>
+                      </button>
+                      <button
+                        class="crt-desktop-icon-btn"
+                        type="button"
+                        data-entry="album"
+                        aria-pressed="false"
+                      >
+                        <canvas
+                          class="crt-desktop-icon-glyph"
+                          width="32"
+                          height="32"
+                          data-icon="record"
+                        ></canvas>
+                        <span>专辑</span>
+                      </button>
+                      <button
+                        class="crt-desktop-icon-btn"
+                        type="button"
+                        data-entry="year"
+                        aria-pressed="false"
+                      >
+                        <canvas
+                          class="crt-desktop-icon-glyph"
+                          width="32"
+                          height="32"
+                          data-icon="report"
+                        ></canvas>
+                        <span>年度总结</span>
+                      </button>
+                      <p id="crt-entry-status" class="crt-entry-status" role="status"></p>
+                    </div>
+
+                    <!-- Album Window -->
+                    <div
+                      class="terminal-ui"
+                      id="terminal-ui"
+                      role="region"
+                      aria-label="专辑统计窗口"
+                    >
+                      <div class="terminal-title">
+                        <button
+                          id="desktop-return"
+                          type="button"
+                          aria-label="关闭专辑统计，返回桌面"
+                          title="返回桌面"
+                        ></button>
+                        <span>专辑统计</span>
+                      </div>
+                      <div class="date-tools">
+                        <label for="date-trigger">日期</label>
+                        <button id="day-prev" type="button" aria-label="上一天">&lt;</button>
+                        <div class="date-picker">
+                          <button
+                            id="date-trigger"
+                            type="button"
+                            aria-label="选择统计日期"
+                            aria-haspopup="dialog"
+                            aria-expanded="false"
+                          >
+                            <span>今日</span>
+                            <svg viewBox="0 0 8 5" aria-hidden="true">
+                              <path d="M0 0H8L4 5Z" />
+                            </svg>
+                          </button>
+                          <!-- Month calendar popup -->
+                          <div
+                            class="mac-date-popup"
+                            id="mac-date-popup"
+                            role="dialog"
+                            aria-label="选择统计日期"
+                            hidden
+                          >
+                            <div class="mac-calendar-nav">
+                              <div class="mac-calendar-year-picker">
+                                <button
+                                  type="button"
+                                  id="mac-calendar-year-select"
+                                  aria-label="选择年份"
+                                  aria-haspopup="listbox"
+                                  aria-expanded="false"
+                                ></button>
+                                <div
+                                  id="mac-calendar-years"
+                                  class="mac-calendar-years"
+                                  role="listbox"
+                                  aria-label="历史年份"
+                                  hidden
+                                ></div>
+                              </div>
+                              <div class="mac-calendar-month-nav">
+                                <button type="button" id="mac-cal-prev-month" aria-label="上一月">
+                                  &lt;
+                                </button>
+                                <span id="mac-cal-month-label">10月</span>
+                                <button type="button" id="mac-cal-next-month" aria-label="下一月">
+                                  &gt;
+                                </button>
+                              </div>
+                              <button type="button" id="mac-cal-close" aria-label="关闭日历">
+                                ×
+                              </button>
+                            </div>
+                            <p
+                              class="mac-calendar-status"
+                              id="mac-calendar-status"
+                              role="status"
+                            ></p>
+                            <div class="mac-calendar-grid" id="mac-calendar-grid">
+                              <span class="mac-calendar-weekday">日</span>
+                              <span class="mac-calendar-weekday">一</span>
+                              <span class="mac-calendar-weekday">二</span>
+                              <span class="mac-calendar-weekday">三</span>
+                              <span class="mac-calendar-weekday">四</span>
+                              <span class="mac-calendar-weekday">五</span>
+                              <span class="mac-calendar-weekday">六</span>
+                              <!-- 42 date cells generated dynamically -->
+                            </div>
+                          </div>
+                        </div>
+                        <button id="day-next" type="button" aria-label="下一天">&gt;</button>
+                      </div>
+                      <div class="list-heading" aria-hidden="true">
+                        <span>排名</span>
+                        <span>专辑</span>
+                        <span>次数</span>
+                      </div>
+                      <div class="album-list" id="album-list"></div>
+                      <div class="screen-status" id="screen-status"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <svg class="apple" viewBox="0 0 18 22" aria-hidden="true">
+                <defs>
+                  <linearGradient id="rb" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stop-color="#61bb46" />
+                    <stop offset="16%" stop-color="#61bb46" />
+                    <stop offset="16%" stop-color="#fdb827" />
+                    <stop offset="33%" stop-color="#fdb827" />
+                    <stop offset="33%" stop-color="#f5821f" />
+                    <stop offset="50%" stop-color="#f5821f" />
+                    <stop offset="50%" stop-color="#e03a3e" />
+                    <stop offset="66%" stop-color="#e03a3e" />
+                    <stop offset="66%" stop-color="#963d97" />
+                    <stop offset="83%" stop-color="#963d97" />
+                    <stop offset="83%" stop-color="#009ddc" />
+                    <stop offset="100%" stop-color="#009ddc" />
+                  </linearGradient>
+                  <clipPath id="body-clip">
+                    <path
+                      d="M13.2 6.1c-.8.9-2.1 1.6-3.3 1.5-.2-1.2.4-2.5 1.1-3.3.8-.9 2.2-1.6 3.3-1.6.1 1.3-.4 2.5-1.1 3.4zM16.3 16.4c-.7 1.1-1.4 2.2-2.5 2.2-1.1.1-1.4-.7-2.9-.7s-1.9.7-2.9.7c-1.1 0-1.9-1-2.6-2.1-1.4-2.2-2.5-6.2-1-8.3.7-1.1 1.9-1.8 3.2-1.8 1 0 1.9.7 2.6.7s1.8-.8 3.1-.7c.5 0 2 .2 3 1.6-2.6 1.5-2.2 5.3.2 6.4z"
+                    />
+                  </clipPath>
+                </defs>
+                <rect width="18" height="22" fill="url(#rb)" clip-path="url(#body-clip)" />
+              </svg>
+              <div class="floppy" aria-hidden="true">
+                <div class="floppy-lip"></div>
+                <div class="floppy-depth"></div>
+              </div>
+              <button
+                class="dial"
+                id="body-power"
+                type="button"
+                aria-label="开机"
+                aria-pressed="false"
+              ></button>
+              <div class="jack" aria-hidden="true"></div>
+            </div>
+            <div class="face back">
+              <div class="vents"></div>
+              <div class="rear-plate">
+                <span
+                  ><svg viewBox="0 0 18 22" width="12" height="16" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M13.2 6.1c-.8.9-2.1 1.6-3.3 1.5-.2-1.2.4-2.5 1.1-3.3.8-.9 2.2-1.6 3.3-1.6.1 1.3-.4 2.5-1.1 3.4zM16.3 16.4c-.7 1.1-1.4 2.2-2.5 2.2-1.1.1-1.4-.7-2.9-.7s-1.9.7-2.9.7c-1.1 0-1.9-1-2.6-2.1-1.4-2.2-2.5-6.2-1-8.3.7-1.1 1.9-1.8 3.2-1.8 1 0 1.9.7 2.6.7s1.8-.8 3.1-.7c.5 0 2 .2 3 1.6-2.6 1.5-2.2 5.3.2 6.4z"
+                    /></svg></span
+                ><span>Macintosh</span>
+              </div>
+              <div class="ports" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+            </div>
+            <div class="face side left"><span class="seam-line"></span></div>
+            <div class="face side right"><span class="seam-line"></span></div>
+            <div class="face cap top">
+              <div class="handle">
+                <div class="handle-well"></div>
+                <div class="handle-bar"></div>
+              </div>
+            </div>
+            <div class="face cap bottom"></div>
+          </div>
+          <div class="kbd" aria-hidden="true">
+            <div class="face kbd-f"></div>
+            <div class="face kbd-bk"></div>
+            <div class="face kbd-t">
+              <div class="kbd-row">
+                <i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+                ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+                ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+                ><i class="key"></i><i class="key"></i>
+              </div>
+              <div class="kbd-row">
+                <i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+                ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+                ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+                ><i class="key"></i>
+              </div>
+              <div class="kbd-row">
+                <i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+                ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
+                ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i>
+              </div>
+              <div class="kbd-row"><i class="key space"></i></div>
+            </div>
+            <div class="face kbd-s l"></div>
+            <div class="face kbd-s r"></div>
+          </div>
+          <div class="mouse" aria-hidden="true">
+            <div class="face mouse-f"></div>
+            <div class="face mouse-t"></div>
+            <div class="face mouse-s l"></div>
+            <div class="face mouse-s r"></div>
+          </div>
+        </div>
+        <div class="caption">
+          <strong>Macintosh</strong>
+          <span>128K · 1984</span>
+        </div>
+        <p class="hint">双击 Mac，进入屏幕</p>
+      </div>
+      <p class="mac-instructions">长按拖动旋转 · 双击进入屏幕</p>
+
+      <!-- Stage Host -->
+      <section
+        class="stage-host"
+        id="stage"
+        data-fidelity="device"
+        aria-label="当日 Top 5 专辑舞台"
+      >
+        <div class="stage-container">
+          <canvas
+            id="album-stage"
+            class="stage-source"
+            aria-label="专辑舞台，拖动旋转，方向键切换专辑"
+          ></canvas>
+          <canvas class="stage-output" width="320" height="192" aria-hidden="true"></canvas>
+        </div>
+        <div id="stage-caption" class="stage-caption">
+          <span id="stage-title" class="sr"></span>
+          <span id="stage-artist" class="sr"></span>
+          <canvas id="stage-caption-face" aria-hidden="true"></canvas>
+        </div>
+        <div class="stage-controls">
+          <button id="stage-prev" type="button" aria-label="上一张专辑">&lt;</button>
+          <div id="stage-selectors" class="selectors"></div>
+          <button id="stage-next" type="button" aria-label="下一张专辑">&gt;</button>
+          <button id="stage-auto" type="button"></button>
+          <span id="stage-position" class="position"></span>
+          <button id="load-album" type="button" disabled style="display: none">装入</button>
+        </div>
+        <p class="stage-tip">当日播放排行 · 经典舞台展示</p>
+      </section>
+    </div>
+    <div class="footer">
+      <p id="feedback" role="status">正在准备当日档案…</p>
+      <p id="page-footer-note">每日专辑统计 · 舞台与屏幕双向同步</p>
+    </div>
+  </main>
+  <canvas id="ghost" width="96" height="96" hidden></canvas>
+</div>

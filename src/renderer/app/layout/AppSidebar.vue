@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import type { LibraryStats } from '@shared/types/app'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
+import { DEFAULT_RECENT_PLAYED_DAYS } from '@shared/smartPlaylists/recentFrequent'
 import { useRoute } from 'vue-router'
 import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import SmartPlaylistBuilderDialog from '@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue'
@@ -19,6 +20,7 @@ import { resolveRestorableFocusTarget } from '../utils/sidebarModalFocus'
 import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
 import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
 import { animateTrashLid } from '@renderer/shared/animation/motion'
+import PlaylistIcon from './PlaylistIcon.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -38,9 +40,24 @@ const { isStartingLibraryRefresh, refreshLibrary } = useLibraryScanStart({
 })
 
 const playlistItems = ref<SidebarPlaylistItem[]>([])
+const smartPlaylists = ref<SmartPlaylist[]>([])
+const smartPlaylistKinds = computed(
+  () =>
+    new Map(
+      smartPlaylists.value.map((playlist) => [
+        playlist.id,
+        'preset' in playlist.rule ? playlist.rule.preset : 'custom',
+      ]),
+    ),
+)
 const libraryStats = ref<LibraryStats>({ trackCount: 0, albumCount: 0 })
 const createPlaylistButton = ref<HTMLButtonElement | null>(null)
 const createMenu = ref<{ x: number; y: number } | null>(null)
+const smartCreateTrigger = ref<HTMLButtonElement | null>(null)
+const smartCreatePanel = ref<HTMLElement | null>(null)
+const smartCreateSubmenu = ref(false)
+const creatingPlaybackPreset = ref<'recentPlayed' | 'mostListened' | null>(null)
+const createError = ref('')
 const playlistContextMenu = ref<{ item: SidebarPlaylistItem; x: number; y: number } | null>(null)
 const renamingPlaylist = ref<SidebarPlaylistItem | null>(null)
 const deletingPlaylist = ref<SidebarPlaylistItem | null>(null)
@@ -124,8 +141,12 @@ function getPlaylistPath(item: SidebarPlaylistItem): string {
   return item.kind === 'playlist' ? `/playlists/${item.id}` : `/smart-playlists/${item.id}`
 }
 
-function getPlaylistIcon(item: SidebarPlaylistItem): string {
-  return item.kind === 'playlist' ? 'i-ph-playlist' : 'i-ph-sparkle'
+function getPlaylistIcon(
+  item: SidebarPlaylistItem,
+): 'playlist' | 'recentPlayed' | 'mostListened' | 'custom' {
+  if (item.kind === 'playlist') return 'playlist'
+  const kind = smartPlaylistKinds.value.get(item.id)
+  return kind === 'recentPlayed' || kind === 'mostListened' ? kind : 'custom'
 }
 
 function rememberSidebarModalTrigger(preferred?: HTMLElement | null): void {
@@ -269,29 +290,96 @@ function onPlaylistDoubleClick(item: SidebarPlaylistItem, event: MouseEvent): vo
 }
 
 async function loadSidebarPlaylists(): Promise<void> {
-  playlistItems.value = await auralis.playlists.listSidebarItems()
+  const [items, smart] = await Promise.all([
+    auralis.playlists.listSidebarItems(),
+    auralis.smartPlaylists.list(),
+  ])
+  playlistItems.value = items
+  smartPlaylists.value = smart
 }
 
 async function loadSidebarStats(): Promise<void> {
-  const [stats, items] = await Promise.all([
+  const [stats, items, smart] = await Promise.all([
     auralis.library.getStats(),
     auralis.playlists.listSidebarItems(),
+    auralis.smartPlaylists.list(),
   ])
   libraryStats.value = stats
   playlistItems.value = items
+  smartPlaylists.value = smart
 }
 
 function openCreateMenu(): void {
   if (!createPlaylistButton.value) return
+  smartCreateSubmenu.value = false
+  createError.value = ''
   const rect = createPlaylistButton.value.getBoundingClientRect()
   createMenu.value = {
     x: Math.max(8, Math.min(rect.right - 190, window.innerWidth - 198)),
-    y: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 124)),
+    y: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 184)),
   }
 }
 
 function closeCreateMenu(): void {
+  smartCreateSubmenu.value = false
   createMenu.value = null
+}
+
+function openSmartCreateSubmenu(): void {
+  smartCreateSubmenu.value = true
+}
+
+function toggleSmartCreateSubmenu(): void {
+  smartCreateSubmenu.value = !smartCreateSubmenu.value
+}
+
+async function enterSmartCreateSubmenu(): Promise<void> {
+  openSmartCreateSubmenu()
+  await nextTick()
+  smartCreatePanel.value?.querySelector<HTMLButtonElement>('button')?.focus()
+}
+
+function onSmartCreateSubmenuKeydown(event: KeyboardEvent): void {
+  if (event.key === 'ArrowLeft' || event.key === 'Escape') {
+    event.preventDefault()
+    event.stopPropagation()
+    smartCreateTrigger.value?.focus()
+    smartCreateSubmenu.value = false
+  } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault()
+    const buttons = Array.from(
+      smartCreatePanel.value?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [],
+    )
+    const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
+    buttons[
+      (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
+    ]?.focus()
+  }
+}
+
+async function createPlaybackPreset(preset: 'recentPlayed' | 'mostListened'): Promise<void> {
+  if (creatingPlaybackPreset.value) return
+  creatingPlaybackPreset.value = preset
+  createError.value = ''
+  try {
+    const { playlist } = await auralis.smartPlaylists.create(
+      t(preset === 'recentPlayed' ? 'sidebar.recentPlayed' : 'sidebar.mostListened'),
+      preset === 'recentPlayed' ? { preset, days: DEFAULT_RECENT_PLAYED_DAYS } : { preset },
+    )
+    await loadSidebarPlaylists()
+    window.dispatchEvent(new CustomEvent('auralis-playlists-changed'))
+    closeCreateMenu()
+    await router.push(`/smart-playlists/${playlist.id}`)
+  } catch (cause) {
+    createError.value = t('sidebar.createPlaylistFailed')
+    rendererDiagnostics.warn({
+      scope: 'sidebar.create-playlist',
+      message: 'Failed to create playback preset playlist',
+      cause,
+    })
+  } finally {
+    creatingPlaybackPreset.value = null
+  }
 }
 
 async function createRegularPlaylist(): Promise<void> {
@@ -341,6 +429,11 @@ function cancelDeleteOnOtherClick(event: MouseEvent): void {
 }
 
 function onPlaylistMenuKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && createMenu.value) {
+    closeCreateMenu()
+    createPlaylistButton.value?.focus()
+    return
+  }
   if (event.key !== 'Escape' || !playlistContextMenu.value) return
   const item = playlistContextMenu.value.item
   closePlaylistContextMenu()
@@ -638,7 +731,7 @@ onBeforeUnmount(() => {
           @contextmenu.prevent="openPlaylistContextMenu(playlist, $event)"
         >
           <span class="sidebar-link-icon">
-            <span :class="getPlaylistIcon(playlist)"></span>
+            <PlaylistIcon :kind="getPlaylistIcon(playlist)" />
           </span>
           <span class="sidebar-link-label">{{ playlist.name }}</span>
           <span class="sidebar-link-count">{{ playlist.trackCount }}</span>
@@ -665,7 +758,7 @@ onBeforeUnmount(() => {
     <Teleport to="body">
       <div v-if="createMenu" class="sidebar-overlay fixed inset-0 z-[88]" @click="closeCreateMenu">
         <div
-          class="library-context-menu frosted-context-menu fixed w-48"
+          class="sidebar-create-menu library-context-menu frosted-context-menu fixed w-48"
           :style="{
             left: `${createMenu.x}px`,
             top: `${createMenu.y}px`,
@@ -673,14 +766,72 @@ onBeforeUnmount(() => {
           @click.stop
         >
           <button class="library-context-menu-item" type="button" @click="createRegularPlaylist">
-            <span class="i-ph-playlist"></span>
+            <PlaylistIcon kind="playlist" />
             <span>{{ t('sidebar.newPlaylist') }}</span>
           </button>
           <div class="library-context-menu-separator" role="separator"></div>
-          <button class="library-context-menu-item" type="button" @click="openSmartPlaylistBuilder">
-            <span class="i-ph-sparkle"></span>
-            <span>{{ t('sidebar.newSmartPlaylist') }}</span>
-          </button>
+          <div class="library-context-menu-submenu-root">
+            <button
+              ref="smartCreateTrigger"
+              class="library-context-menu-item"
+              type="button"
+              aria-haspopup="true"
+              :aria-expanded="!!smartCreateSubmenu"
+              aria-controls="sidebar-smart-create-submenu"
+              @click="toggleSmartCreateSubmenu"
+              @keydown.right.prevent="enterSmartCreateSubmenu"
+              @keydown.down.prevent="enterSmartCreateSubmenu"
+            >
+              <span class="i-ph-sparkle" aria-hidden="true"></span>
+              <span class="library-context-menu-text">{{ t('sidebar.newSmartPlaylist') }}</span>
+              <span
+                class="library-context-menu-chevron"
+                :class="smartCreateSubmenu ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                aria-hidden="true"
+              ></span>
+            </button>
+            <Transition name="sidebar-smart-create-expand">
+              <div v-if="smartCreateSubmenu" class="sidebar-smart-create-submenu">
+                <div
+                  id="sidebar-smart-create-submenu"
+                  ref="smartCreatePanel"
+                  @keydown="onSmartCreateSubmenuKeydown"
+                >
+                  <button
+                    class="library-context-menu-item"
+                    type="button"
+                    :disabled="!!creatingPlaybackPreset"
+                    :aria-busy="creatingPlaybackPreset === 'recentPlayed'"
+                    @click="createPlaybackPreset('recentPlayed')"
+                  >
+                    <PlaylistIcon kind="recentPlayed" />
+                    <span>{{ t('sidebar.recentPlayed') }}</span>
+                  </button>
+                  <div class="library-context-menu-separator" role="separator"></div>
+                  <button
+                    class="library-context-menu-item"
+                    type="button"
+                    :disabled="!!creatingPlaybackPreset"
+                    :aria-busy="creatingPlaybackPreset === 'mostListened'"
+                    @click="createPlaybackPreset('mostListened')"
+                  >
+                    <PlaylistIcon kind="mostListened" />
+                    <span>{{ t('sidebar.mostListened') }}</span>
+                  </button>
+                  <div class="library-context-menu-separator" role="separator"></div>
+                  <button
+                    class="library-context-menu-item"
+                    type="button"
+                    @click="openSmartPlaylistBuilder"
+                  >
+                    <PlaylistIcon kind="custom" />
+                    <span>{{ t('sidebar.customSmartPlaylist') }}</span>
+                  </button>
+                </div>
+              </div>
+            </Transition>
+          </div>
+          <p v-if="createError" class="sidebar-create-error" role="alert">{{ createError }}</p>
         </div>
       </div>
 

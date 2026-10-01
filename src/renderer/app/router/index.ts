@@ -43,6 +43,12 @@ export const router = createRouter({
       meta: { title: 'Archive' },
     },
     {
+      path: '/archive/mac',
+      name: 'archive-mac',
+      component: routeLoaders.archiveMac,
+      meta: { title: 'Mac Archive' },
+    },
+    {
       path: '/settings',
       name: 'settings',
       component: routeLoaders.settings,

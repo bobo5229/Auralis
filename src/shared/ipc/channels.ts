@@ -28,6 +28,8 @@ export const ipcChannels = {
     getDetail: 'smart-playlists:get-detail',
     create: 'smart-playlists:create',
     createFromQuery: 'smart-playlists:create-from-query',
+    createRecentFrequent: 'smart-playlists:create-recent-frequent',
+    updateRecentFrequentDays: 'smart-playlists:update-recent-frequent-days',
     rename: 'smart-playlists:rename',
     updateViewMode: 'smart-playlists:update-view-mode',
     delete: 'smart-playlists:delete',
@@ -57,6 +59,8 @@ export const ipcChannels = {
     getRandomAlbumTracks: 'playback:get-random-album-tracks',
     getAlbumTracks: 'playback:get-album-tracks',
     recordEffectivePlay: 'playback:record-effective-play',
+    acquireReadLease: 'playback:acquire-read-lease',
+    releaseReadLease: 'playback:release-read-lease',
   },
   systemMedia: {
     updateThumbarState: 'system-media:update-thumbar-state',
@@ -65,6 +69,7 @@ export const ipcChannels = {
   archive: {
     getListeningHeatmap: 'archive:get-listening-heatmap',
     getDailyListeningDetail: 'archive:get-daily-listening-detail',
+    getDailyAlbumStats: 'archive:get-daily-album-stats',
     getAnnualListeningInsights: 'archive:get-annual-listening-insights',
     getListeningRanking: 'archive:get-listening-ranking',
     getListeningGenreSpectrum: 'archive:get-listening-genre-spectrum',
@@ -78,8 +83,10 @@ export const ipcChannels = {
     listRefreshFailures: 'metadata:list-refresh-failures',
     clearRefreshFailures: 'metadata:clear-refresh-failures',
     getTrackMetadata: 'metadata:get-track-metadata',
+    getTrackEditState: 'metadata:get-track-edit-state',
     updateTrackMetadata: 'metadata:update-track-metadata',
     refreshProgress: 'metadata:refresh-progress',
+    trackEditStateChanged: 'metadata:track-edit-state-changed',
   },
   window: {
     control: 'window:control',

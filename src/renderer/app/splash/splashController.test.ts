@@ -115,6 +115,11 @@ describe('easeInOutCubic', () => {
 })
 
 describe('shouldPlaySplash', () => {
+  it('skips ordinary and cache-bypassing reloads while retaining cold navigation', () => {
+    expect(shouldPlaySplash('', 'reload')).toBe(false)
+    expect(shouldPlaySplash('?splash=1', 'reload')).toBe(false)
+    expect(shouldPlaySplash('', 'navigate')).toBe(true)
+  })
   it('plays for the first window and skips a later window', () => {
     expect(shouldPlaySplash('')).toBe(true)
     expect(shouldPlaySplash('?splash=0')).toBe(false)

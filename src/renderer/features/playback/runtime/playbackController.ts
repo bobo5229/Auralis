@@ -156,6 +156,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   function setPlaybackError(err: unknown): void {
+    effectivePlayTracker.setPlaying(false)
     state.isPlaying = false
     state.error = err instanceof Error ? err.message : String(err)
   }
@@ -164,19 +165,23 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     onTimeUpdate: ({ currentTime, duration }) => {
       state.currentTime = currentTime
       state.duration = duration
+      effectivePlayTracker.updateDuration()
     },
     onDurationChange: (duration) => {
       state.duration = duration
+      effectivePlayTracker.updateDuration()
     },
     onPlayingChange: (isPlaying) => {
       state.isPlaying = isPlaying
+      effectivePlayTracker.setPlaying(isPlaying)
     },
     onEnded: (nextTrackId) => {
+      effectivePlayTracker.end()
       void commitBoundary(nextTrackId).catch(setPlaybackError)
     },
     onError: (error) => {
-      audioRuntime.clear()
       effectivePlayTracker.end()
+      audioRuntime.clear()
       state.isPlaying = false
       state.error = `Audio error: ${error.detail}`
       deps.diagnostics.error({
@@ -210,7 +215,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     isPlaybackCountable: (trackId) => {
       if (trackId !== state.currentTrackId) return false
       const snapshot = audioRuntime.getSnapshot()
-      return snapshot.isPlaying && snapshot.hasCurrentData
+      return snapshot.trackId === trackId && snapshot.isPlaying && snapshot.hasCurrentData
     },
     getDurationSeconds: () => {
       const snapshot = audioRuntime.getSnapshot()
@@ -222,7 +227,9 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
           ? state.currentTrack.durationSeconds
           : 0
 
-      return audioDuration || trackDuration || null
+      return Number.isFinite(audioDuration) && audioDuration > 0
+        ? audioDuration
+        : trackDuration || null
     },
     recordEffectivePlay: (payload) => deps.recordEffectivePlay(payload),
     onRecordError: (error) => {
@@ -358,6 +365,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
     try {
       invalidateGaplessTransition()
+      effectivePlayTracker.end()
       audioRuntime.clear()
 
       if (options?.recordHistory !== false) {
@@ -368,7 +376,6 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         navigationSession.resetForTrackSwitch(options.resetShuffleContext)
       }
 
-      effectivePlayTracker.end()
       commitCurrentTrack(queue[index], queue, 0)
       state.isPlaying = false
 
@@ -628,7 +635,11 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
   async function resumeCurrentTrack(track: PlaybackTrack): Promise<void> {
     const snapshot = audioRuntime.getSnapshot()
-    if (snapshot.kind === 'idle' || snapshot.trackId !== track.id) {
+    if (
+      snapshot.kind === 'idle' ||
+      snapshot.trackId !== track.id ||
+      !effectivePlayTracker.hasSession(track.id)
+    ) {
       await playTrackFromResolvedQueue(getQueueContainingCurrentTrack(track), track.id, {
         recordHistory: false,
       })
@@ -677,6 +688,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   function pause(): void {
     invalidatePlaybackRequest()
     invalidateGaplessTransition()
+    effectivePlayTracker.setPlaying(false)
     audioRuntime.pause()
     state.isPlaying = false
   }
@@ -805,8 +817,8 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     if (currentTrackMissing) {
       invalidatePlaybackRequest()
       invalidateGaplessTransition()
-      audioRuntime.clear()
       effectivePlayTracker.end()
+      audioRuntime.clear()
       state.currentIndex = -1
       state.currentTrack = null
       state.currentTrackId = null
@@ -831,6 +843,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   const unsubscribeLibraryChanged = deps.onLibraryChanged((event) => {
+    if (event.reason === 'play-stats-reset') effectivePlayTracker.discardPendingRecords()
     if (event.reason === 'track-missing') removeMissingTracksFromPlayback(event.trackIds)
   })
 
@@ -840,7 +853,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     queueSession.value = null
     invalidatePlaybackRequest()
     invalidateGaplessTransition()
-    effectivePlayTracker.end()
+    effectivePlayTracker.dispose()
     audioRuntime.dispose()
     unsubscribeLibraryChanged()
     navigationSession.clear()

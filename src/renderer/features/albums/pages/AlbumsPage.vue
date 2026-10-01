@@ -23,11 +23,12 @@ import { normalizeSearchText } from '@renderer/features/library/utils/normalizeS
 import { prefetchArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumCard from '../components/AlbumCard.vue'
-import AlbumGridTransitionLayer, {
-  type AlbumTransitionRect,
-  type AlbumTransitionTarget,
-  type AlbumTransitionVisual,
-} from '../components/AlbumGridTransitionLayer.vue'
+import AlbumGridTransitionLayer from '../components/AlbumGridTransitionLayer.vue'
+import type {
+  AlbumTransitionRect,
+  AlbumTransitionTarget,
+  AlbumTransitionVisual,
+} from '../utils/albumGridTransitionController'
 import type { AlbumSummary } from '../types'
 import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
 import { useAlbumCatalog } from '../composables/useAlbumCatalog'
@@ -161,8 +162,6 @@ const transitionLayerRef = ref<InstanceType<typeof AlbumGridTransitionLayer> | n
 const isLayoutTransitionActive = ref(false)
 const emit = defineEmits<{ 'cancel-layout-transition': [] }>()
 let layoutTransitionRevision = 0
-let oldTransitionVisuals: AlbumTransitionVisual[] = []
-let transitionFromViewport: AlbumTransitionRect | null = null
 let savedFocus: { albumKey: string; selector: string } | null = null
 let allowProgrammaticScrollUntil = 0
 
@@ -286,7 +285,7 @@ function collectVisibleTransitionVisuals(
       return [
         {
           key,
-          node: card.cloneNode(true) as HTMLElement,
+          node: card,
           rect: toTransitionRect(rect),
           opacity: Number.isFinite(opacity) ? opacity : 1,
         },
@@ -355,40 +354,53 @@ function onTransitionScroll(): void {
 
 function prepareLyricsLayoutTransition(revision: number): boolean {
   const container = scrollRef.value
-  if (!isPageActive.value || !container?.isConnected || !transitionLayerRef.value) return false
+  const layer = transitionLayerRef.value
+  if (!isPageActive.value || !container?.isConnected || !layer) return false
   const reversing = isLayoutTransitionActive.value
-  const viewport = measureScrollViewport(container)
-  if (reversing) {
-    transitionFromViewport = transitionLayerRef.value.captureViewport()
-    oldTransitionVisuals = transitionLayerRef.value.captureVisuals()
-  } else {
-    const activeElement = document.activeElement
-    if (activeElement instanceof HTMLElement) {
-      const card = activeElement.closest<HTMLElement>('.album-card[data-album-key]')
-      if (card?.dataset.albumKey) {
-        savedFocus = {
-          albumKey: card.dataset.albumKey,
-          selector: activeElement.classList.contains('cover-stage')
-            ? '.cover-stage'
-            : activeElement.classList.contains('album-card-play')
-              ? '.album-card-play'
-              : '.cover-stage',
+  let gridTransitionBegun = false
+  try {
+    const viewport = measureScrollViewport(container)
+    let fromViewport = toTransitionRect(viewport)
+    let sources: AlbumTransitionVisual[]
+    if (reversing) {
+      fromViewport = layer.captureViewport()
+      sources = layer.captureVisuals()
+    } else {
+      const activeElement = document.activeElement
+      if (activeElement instanceof HTMLElement) {
+        const card = activeElement.closest<HTMLElement>('.album-card[data-album-key]')
+        if (card?.dataset.albumKey) {
+          savedFocus = {
+            albumKey: card.dataset.albumKey,
+            selector: activeElement.classList.contains('cover-stage')
+              ? '.cover-stage'
+              : activeElement.classList.contains('album-card-play')
+                ? '.album-card-play'
+                : '.cover-stage',
+          }
         }
       }
+      sources = collectVisibleTransitionVisuals(viewport)
+      beginGridTransition()
+      gridTransitionBegun = true
     }
-    oldTransitionVisuals = collectVisibleTransitionVisuals(viewport)
-    transitionFromViewport = toTransitionRect(viewport)
-    beginGridTransition()
-  }
 
-  layoutTransitionRevision = revision
-  isLayoutTransitionActive.value = true
-  transitionLayerRef.value.mount(
-    transitionFromViewport ?? toTransitionRect(viewport),
-    transitionFromViewport ?? toTransitionRect(viewport),
-    oldTransitionVisuals,
-    [],
-  )
+    layoutTransitionRevision = revision
+    isLayoutTransitionActive.value = true
+    layer.prepareSources(fromViewport, sources)
+  } catch (error) {
+    layer.clear()
+    isLayoutTransitionActive.value = false
+    savedFocus = null
+    removeTransitionInputListeners()
+    if (reversing || gridTransitionBegun) endGridTransition()
+    rendererDiagnostics.error({
+      scope: 'albums.transition',
+      message: 'Failed to prepare album layout transition',
+      cause: error,
+    })
+    return false
+  }
   document.addEventListener('keydown', onTransitionKeydown, true)
   container.addEventListener('wheel', onTransitionWheel, { passive: true })
   container.addEventListener('touchstart', onTransitionTouchStart, { passive: true })
@@ -398,39 +410,49 @@ function prepareLyricsLayoutTransition(revision: number): boolean {
 
 async function commitLyricsLayoutTransition(revision: number): Promise<boolean> {
   const container = scrollRef.value
+  const layer = transitionLayerRef.value
   if (
     revision !== layoutTransitionRevision ||
     !isLayoutTransitionActive.value ||
     !isPageActive.value ||
-    !container?.isConnected
+    !container?.isConnected ||
+    !layer
   )
     return false
 
-  commitGridTransitionTarget()
-  allowProgrammaticScrollUntil = Date.now() + 100
-  await nextTick()
-  if (
-    revision !== layoutTransitionRevision ||
-    !isLayoutTransitionActive.value ||
-    !isPageActive.value ||
-    scrollRef.value !== container ||
-    !container.isConnected
-  )
-    return false
+  try {
+    commitGridTransitionTarget()
+    allowProgrammaticScrollUntil = Date.now() + 100
+    await nextTick()
+    if (
+      revision !== layoutTransitionRevision ||
+      !isLayoutTransitionActive.value ||
+      !isPageActive.value ||
+      scrollRef.value !== container ||
+      !container.isConnected ||
+      transitionLayerRef.value !== layer
+    )
+      return false
 
-  await nextTick()
-  if (revision !== layoutTransitionRevision || !container.isConnected) return false
-  const viewport = measureScrollViewport(container)
-  const nextViewport = toTransitionRect(viewport)
-  transitionLayerRef.value?.mount(
-    transitionFromViewport ?? nextViewport,
-    nextViewport,
-    oldTransitionVisuals,
-    collectVisibleTransitionTargets(viewport),
-  )
-  oldTransitionVisuals = []
-  transitionFromViewport = null
-  return true
+    await nextTick()
+    if (
+      revision !== layoutTransitionRevision ||
+      !container.isConnected ||
+      transitionLayerRef.value !== layer
+    )
+      return false
+    const viewport = measureScrollViewport(container)
+    layer.commitTargets(toTransitionRect(viewport), collectVisibleTransitionTargets(viewport))
+    return true
+  } catch (error) {
+    layer.clear()
+    rendererDiagnostics.error({
+      scope: 'albums.transition',
+      message: 'Failed to commit album layout transition',
+      cause: error,
+    })
+    return false
+  }
 }
 
 function renderLyricsLayoutTransition(revision: number, progress: number): void {
@@ -441,8 +463,6 @@ async function finishLyricsLayoutTransition(revision: number): Promise<void> {
   if (revision !== layoutTransitionRevision) return
   const container = scrollRef.value
   transitionLayerRef.value?.clear()
-  oldTransitionVisuals = []
-  transitionFromViewport = null
   isLayoutTransitionActive.value = false
   removeTransitionInputListeners()
   endGridTransition()
@@ -460,7 +480,6 @@ async function finishLyricsLayoutTransition(revision: number): Promise<void> {
 function cancelLyricsLayoutTransition(revision: number): void {
   if (revision !== layoutTransitionRevision) return
   transitionLayerRef.value?.clear()
-  oldTransitionVisuals = []
   savedFocus = null
   isLayoutTransitionActive.value = false
   removeTransitionInputListeners()

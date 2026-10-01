@@ -22,6 +22,7 @@ import type {
 } from '@shared/types/playlist'
 import type {
   AnnualListeningInsights,
+  DailyAlbumStats,
   DailyListeningDetail,
   ListeningGenreSpectrum,
   ListeningRanking,
@@ -113,7 +114,26 @@ export interface IpcEventContract {
   'library:scan-progress': LibraryScanProgress
   'library:changed': LibraryChangedEvent
   'metadata:refresh-progress': MetadataRefreshProgressEvent
+  'metadata:track-edit-state-changed': TrackEditStateChangedEvent
 }
+
+export type TrackEditStatus = 'editable' | 'playback-in-use' | 'write-in-progress'
+
+export interface TrackEditStateResult {
+  trackId: number
+  status: TrackEditStatus
+  version: number
+}
+
+export interface TrackEditStateChangedEvent {
+  trackId: number
+  status: TrackEditStatus
+  version: number
+}
+
+export type UpdateTrackMetadataResult =
+  | { ok: true }
+  | { ok: false; reason: 'playback-in-use' | 'write-in-progress' }
 
 export type IpcEventChannel = keyof IpcEventContract
 export type IpcEventPayload<C extends IpcEventChannel> = IpcEventContract[C]
@@ -213,6 +233,14 @@ export interface IpcInvokeContract {
     request: { query: string }
     response: CreateSmartPlaylistResult
   }
+  'smart-playlists:create-recent-frequent': {
+    request: { days?: number }
+    response: CreateSmartPlaylistResult
+  }
+  'smart-playlists:update-recent-frequent-days': {
+    request: { id: number; days: number }
+    response: SmartPlaylist | null
+  }
   'smart-playlists:rename': {
     request: { id: number; name: string }
     response: SmartPlaylist | null
@@ -293,6 +321,14 @@ export interface IpcInvokeContract {
     request: { trackId: number; sessionId: string; playedAtIso: string }
     response: { ok: boolean; recorded: boolean }
   }
+  'playback:acquire-read-lease': {
+    request: { trackId: number }
+    response: { leaseId: string }
+  }
+  'playback:release-read-lease': {
+    request: { leaseId: string }
+    response: { ok: true }
+  }
   'archive:get-listening-heatmap': {
     request: { year: number }
     response: ListeningHeatmap
@@ -300,6 +336,10 @@ export interface IpcInvokeContract {
   'archive:get-daily-listening-detail': {
     request: { date: string }
     response: DailyListeningDetail
+  }
+  'archive:get-daily-album-stats': {
+    request: { date: string }
+    response: DailyAlbumStats
   }
   'archive:get-annual-listening-insights': {
     request: { year: number }
@@ -355,9 +395,13 @@ export interface IpcInvokeContract {
     request: { trackId: number }
     response: EditableTrackMetadata | null
   }
+  'metadata:get-track-edit-state': {
+    request: { trackId: number }
+    response: TrackEditStateResult
+  }
   'metadata:update-track-metadata': {
     request: EditableTrackMetadata
-    response: { ok: boolean }
+    response: UpdateTrackMetadataResult
   }
   'window:control': {
     request: { action: 'minimize' | 'toggle-maximize' | 'close' }

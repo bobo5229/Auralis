@@ -212,6 +212,8 @@ function createApi(): AuralisApi {
       getDetail: vi.fn(),
       create: vi.fn(),
       createFromQuery: vi.fn(),
+      createRecentFrequent: vi.fn(),
+      updateRecentFrequentDays: vi.fn(),
       rename: vi.fn(),
       updateViewMode: vi.fn(),
       delete: vi.fn(),
@@ -241,6 +243,8 @@ function createApi(): AuralisApi {
       getRandomAlbumTracks: vi.fn(),
       getAlbumTracks: vi.fn(),
       recordEffectivePlay: vi.fn(async () => ({ ok: true, recorded: false })),
+      acquireReadLease: vi.fn(async () => ({ ok: true as const, leaseId: 'mock-lease' })),
+      releaseReadLease: vi.fn(async () => ({ ok: true as const })),
     },
     systemMedia: {
       updateThumbarState: vi.fn(),
@@ -249,6 +253,7 @@ function createApi(): AuralisApi {
     archive: {
       getListeningHeatmap: vi.fn(),
       getDailyListeningDetail: vi.fn(),
+      getDailyAlbumStats: vi.fn(),
       getAnnualListeningInsights: vi.fn(),
       getListeningRanking: vi.fn(),
       getListeningGenreSpectrum: vi.fn(),
@@ -263,6 +268,12 @@ function createApi(): AuralisApi {
       clearRefreshFailures: vi.fn(),
       getTrackMetadata: vi.fn(),
       updateTrackMetadata: vi.fn(),
+      getTrackEditState: vi.fn(async (trackId: number) => ({
+        trackId,
+        status: 'editable' as const,
+        version: 1,
+      })),
+      onTrackEditStateChanged: vi.fn(() => () => undefined),
       onRefreshProgress: vi.fn(),
     },
     window: {

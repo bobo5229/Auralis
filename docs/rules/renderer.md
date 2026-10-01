@@ -6,4 +6,4 @@
 
 曲库虚拟列表的 CSS 实际几何必须与 virtualizer 使用的估算高度一致；相关指标集中在 src/renderer/features/library/constants/libraryLayoutMetrics.ts。
 
-细分割线出现视觉粗细差异时，结合原始截图、运行时 `devicePixelRatio` 和实际坐标排查；相同 CSS 尺寸不等于相同物理像素厚度。普通直线优先使用原生 border；需要脱离布局时使用绝对定位伪元素承载边框，保留现有行高和交互隐藏逻辑。非整数缩放下的效果须经实际渲染验证，静态检查不能替代视觉验收。证据、实现及按需验收方法见[封面视图分割线与设备像素取整](../topics/library/TECHDOC-cover-track-divider-pixel-snapping-2026-09-28.md)。
+细线粗细或缩放问题结合原始截图、运行时 `devicePixelRatio` 和实际坐标排查；非整数缩放效果须经实际渲染验证，静态检查不能替代视觉验收。绘制方案与检查方法按需参考[封面视图分割线与设备像素取整](../topics/library/TECHDOC-cover-track-divider-pixel-snapping-2026-09-28.md)。

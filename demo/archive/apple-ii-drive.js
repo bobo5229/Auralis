@@ -1,0 +1,18 @@
+import * as THREE from 'three';
+
+// Add disks without modifying or splitting the downloaded model.
+export function mountDrives({scene,model,camera,reduced,render}){
+ const drives=['disk1_12','disk2_15'].map(name=>{const node=model.getObjectByName(name),b=new THREE.Box3().setFromObject(node),size=b.getSize(new THREE.Vector3());return {name,center:new THREE.Vector3((b.min.x+b.max.x)/2,b.min.y+size.y*.51,b.max.z+.003),width:size.x*.55};}).sort((a,b)=>b.center.y-a.center.y);
+ const diskWidth=drives[0].width*.88,c=document.createElement('canvas');c.width=256;c.height=256;const ctx=c.getContext('2d'),texture=new THREE.CanvasTexture(c);texture.colorSpace=THREE.SRGBColorSpace;
+ const base=new THREE.MeshStandardMaterial({color:0x1d2024,roughness:.85});const label=new THREE.MeshStandardMaterial({map:texture,roughness:.9});
+ const disk=new THREE.Mesh(new THREE.BoxGeometry(diskWidth,.007,diskWidth),[base,base,label,base,base,base]);disk.visible=false;scene.add(disk);
+ const markers=drives.map(d=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(d.width,.006,.003),new THREE.MeshBasicMaterial({color:0xa9dfb0}));mesh.position.copy(d.center);mesh.position.z+=.006;mesh.visible=false;scene.add(mesh);return mesh;});
+ let insertion=null;
+ function labelDisk(title){ctx.fillStyle='#22252b';ctx.fillRect(0,0,256,256);ctx.fillStyle='#d4c9b0';ctx.fillRect(20,25,216,106);ctx.fillStyle='#292c31';ctx.font='bold 17px Arial';ctx.fillText('AURALIS / ALBUM',30,50);ctx.font='16px Arial';ctx.fillText(title.slice(0,23),30,83,196);ctx.fillText('SIDE A / TRACK 01',30,114);ctx.fillStyle='#101216';ctx.fillRect(101,171,54,24);ctx.strokeStyle='#444951';ctx.strokeRect(12,12,232,232);texture.needsUpdate=true;}
+ function cancel(){const previous=insertion;insertion=null;disk.visible=false;markers.forEach(m=>m.visible=false);if(previous)parent.postMessage({type:'apple-disk-cancelled',token:previous.token},'*');render();}
+ function insert(data){if(insertion||!Number.isInteger(data.drive)||!drives[data.drive])return;const d=drives[data.drive];labelDisk(String(data.title||'ALBUM'));markers.forEach(m=>m.visible=false);disk.visible=true;disk.position.copy(d.center);disk.position.z+=diskWidth*.56;insertion={start:performance.now(),drive:data.drive,token:data.token,from:disk.position.z,to:d.center.z-diskWidth*.6};render();}
+ function tick(now){if(!insertion)return false;const state=insertion,t=reduced.matches?1:Math.min(1,(now-state.start)/1100),k=t*t*(3-2*t);disk.position.z=THREE.MathUtils.lerp(state.from,state.to,k);if(t===1){disk.visible=false;insertion=null;parent.postMessage({type:'apple-disk-loaded',token:state.token,drive:state.drive},'*');}return true;}
+ function project(){camera.updateMatrixWorld();const front=new THREE.Vector3(0,0,1);const ray=new THREE.Raycaster();return drives.map(d=>{const point=d.center.clone().project(camera),left=d.center.clone().add(new THREE.Vector3(-d.width/2,0,0)).project(camera),right=d.center.clone().add(new THREE.Vector3(d.width/2,0,0)).project(camera),toward=camera.position.clone().sub(d.center);ray.set(camera.position,toward.clone().negate().normalize());const hit=ray.intersectObject(model,true)[0];return {x:(point.x+1)/2,y:(1-point.y)/2,width:Math.abs(right.x-left.x)/2,visible:toward.clone().normalize().dot(front)>.15&&point.z>=-1&&point.z<=1&&(!hit||hit.distance>=toward.length()-.045)};});}
+ function command(data){if(data.action==='disk-cancel')cancel();else if(data.action==='disk-insert')insert(data);else if(data.action==='disk-hover'){markers.forEach((m,i)=>m.visible=i===data.drive&&!insertion);render();}}
+ return {tick,project,command,get active(){return !!insertion;}};
+}

@@ -162,8 +162,8 @@ function notifySplashReady(theme: SplashTheme): void {
   }
 }
 
-export function shouldPlaySplash(search: string): boolean {
-  return new URLSearchParams(search).get('splash') !== '0'
+export function shouldPlaySplash(search: string, navigationType?: string): boolean {
+  return navigationType !== 'reload' && new URLSearchParams(search).get('splash') !== '0'
 }
 
 export function initSplashController(): void {
@@ -175,7 +175,10 @@ export function initSplashController(): void {
   const dot = document.getElementById('splash-dot') as SVGCircleElement | null
   const appHost = document.getElementById(APP_HOST_ELEMENT_ID)
   if (!appHost) return
-  if (!shouldPlaySplash(window.location.search)) {
+  const navigation = window.performance.getEntriesByType('navigation')[0] as
+    | PerformanceNavigationTiming
+    | undefined
+  if (!shouldPlaySplash(window.location.search, navigation?.type)) {
     splash?.remove()
     appHost.removeAttribute('inert')
     notifySplashReady(readSplashTheme())
