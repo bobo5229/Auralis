@@ -26,7 +26,6 @@ app.whenReady().then(async () => {
     console.log(`[Renderer ${level}]`, message)
   })
 
-
   const outputDir = resolve('.electron-home/archive-mac-preview')
   const htmlPath = resolve('demo/archive/mac-stage-device.html')
   const targetUrl = pathToFileURL(htmlPath).href
@@ -46,7 +45,6 @@ app.whenReady().then(async () => {
   const img1 = await win.webContents.capturePage()
   writeFileSync(join(outputDir, 'baseline-machine.png'), img1.toPNG())
   console.log('Captured baseline-machine.png')
-
 
   // 2. Double click to switch to screen mode
   await win.webContents.executeJavaScript(`
@@ -103,4 +101,3 @@ app.whenReady().then(async () => {
   console.log('All baseline captures complete.')
   app.quit()
 })
-
