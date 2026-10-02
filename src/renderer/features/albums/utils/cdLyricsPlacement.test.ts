@@ -1,5 +1,35 @@
 import { describe, expect, it } from 'vitest'
-import { cdLyricsPlacement, type LyricsRect } from './cdLyricsPlacement'
+import { cdLyricsArcPlacement, cdLyricsPlacement, type LyricsRect } from './cdLyricsPlacement'
+
+describe('CD lyric arc avoidance', () => {
+  const bounds = { left: 0, top: 0, width: 800, height: 600 }
+  const rectangleAt = (angle: number): LyricsRect => {
+    const radians = (angle * Math.PI) / 180
+    return {
+      left: 350 + Math.sin(radians) * 250,
+      top: 250 - Math.cos(radians) * 200,
+      width: 100,
+      height: 100,
+    }
+  }
+
+  it('retains a safe angle across repeated updates', () => {
+    expect(cdLyricsArcPlacement(90, rectangleAt, bounds, [])).toBe(90)
+  })
+
+  it('moves away from the expanded Composer information rectangle', () => {
+    const information = { left: 0, top: 0, width: 300, height: 600 }
+    const angle = cdLyricsArcPlacement(270, rectangleAt, bounds, [information])!
+    expect(angle).not.toBeNull()
+    expect(rectangleAt(angle).left).toBeGreaterThanOrEqual(300)
+    expect(cdLyricsArcPlacement(angle, rectangleAt, bounds, [information])).toBe(angle)
+  })
+
+  it('rejects arcs beyond the viewport and requests fallback when all space is blocked', () => {
+    expect(cdLyricsArcPlacement(0, () => ({ ...bounds, left: -1 }), bounds, [])).toBeNull()
+    expect(cdLyricsArcPlacement(0, rectangleAt, bounds, [bounds])).toBeNull()
+  })
+})
 
 describe('CD lyrics placement', () => {
   it('finds whitespace without overlapping the disc, information or tracks', () => {

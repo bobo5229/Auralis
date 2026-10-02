@@ -1217,7 +1217,7 @@ onBeforeUnmount(() => {
 }
 .cd-page .cd-surface-switch button {
   padding: 6px 0;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   line-height: 20px;
   font-size: 12px;
   font-weight: 400;
@@ -1272,7 +1272,7 @@ onBeforeUnmount(() => {
   border-radius: 0;
   background: transparent;
   color: var(--cd-text-muted);
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 12px;
   font-weight: 400;
   line-height: 20px;
@@ -1290,7 +1290,7 @@ onBeforeUnmount(() => {
 }
 .cd-focus-nav-separator {
   color: var(--cd-text-muted);
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 12px;
   font-weight: 400;
   line-height: 20px;
@@ -1350,7 +1350,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   margin: 0;
   padding-bottom: 3px;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 36px;
   font-weight: 400;
   font-style: italic;
@@ -1361,7 +1361,7 @@ onBeforeUnmount(() => {
 .cd-info-count {
   flex-shrink: 0;
   padding-bottom: 6px;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', serif;
   font-size: 12px;
   white-space: nowrap;
   color: var(--cd-text-count);
@@ -1383,7 +1383,7 @@ onBeforeUnmount(() => {
   align-items: stretch;
   gap: 2px;
   margin: 0;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 16px;
   line-height: 1.3;
   color: var(--cd-text-browsing);
@@ -1460,7 +1460,7 @@ onBeforeUnmount(() => {
   width: var(--cd-focused-playback-info-width);
   min-width: 0;
   margin: 0;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   color: var(--cd-text-browsing);
   pointer-events: none;
 }
@@ -1500,7 +1500,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 13px;
   font-weight: 400;
   font-style: italic;
@@ -1594,7 +1594,7 @@ onBeforeUnmount(() => {
   min-width: 0;
   overflow: hidden;
   color: var(--cd-text-muted);
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   line-height: 16px;
@@ -1629,7 +1629,7 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   pointer-events: auto;
   cursor: pointer;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 16px;
   font-weight: 400;
   font-style: italic;
@@ -1675,14 +1675,14 @@ onBeforeUnmount(() => {
   border-top: 1px solid transparent;
 }
 .cd-info-row dt {
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 12px;
   color: var(--cd-text-muted);
   line-height: 1.7;
 }
 .cd-info-row dd {
   margin: 0;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 14px;
   line-height: 1.5;
   text-align: right;

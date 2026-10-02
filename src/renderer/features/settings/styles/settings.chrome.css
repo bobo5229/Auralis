@@ -4,42 +4,23 @@
   display: flex;
   gap: 14px;
   align-items: center;
-  margin-bottom: 22px;
-  padding: 20px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 65%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.03),
-    inset 0 1px 0 color-mix(in srgb, white 15%, transparent);
+  padding: 16px;
 }
 
 .settings-page .about-logo {
   display: grid;
-  width: 48px;
-  height: 48px;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
   place-items: center;
-  border-radius: 14px;
-  color: var(--auralis-control-primary-text);
-  background: linear-gradient(
-    135deg,
-    var(--auralis-sidebar-active-indicator) 20%,
-    var(--auralis-sidebar-active-text)
-  );
-  box-shadow: 0 4px 14px
-    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 35%, transparent);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-radius: 8px;
+  color: var(--auralis-sidebar-active-text);
+  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
 }
 
 .settings-page .about-logo span {
   width: 22px;
   height: 22px;
-}
-
-.settings-page .about-mark:hover .about-logo {
-  transform: rotate(15deg) scale(1.08);
 }
 
 .settings-page .about-mark > div {
@@ -48,16 +29,140 @@
 }
 
 .settings-page .about-mark strong {
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--auralis-text);
 }
 
 .settings-page .about-mark div span {
   color: var(--auralis-text-subtle);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.settings-page .about-details {
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+.settings-page .about-diagnostics-button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  color: var(--auralis-text-muted);
+  background: transparent;
+  font-family: var(--auralis-font-ui);
   font-size: 11px;
   font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-page .about-diagnostics-button:hover:not(:disabled) {
+  color: var(--auralis-text);
+}
+
+.settings-page .about-diagnostics-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.settings-page .about-diagnostics-button:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
+}
+
+.settings-page .about-settings .settings-value {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.settings-page .about-document {
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+.settings-page .about-document > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 48px;
+  padding: 9px 16px;
+  color: var(--auralis-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  list-style: none;
+  cursor: pointer;
+}
+
+.settings-page .about-document > summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-page .about-document-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+}
+
+.settings-page .about-document-action .i-lucide-chevron-down {
+  width: 16px;
+  height: 16px;
+}
+
+.settings-page .about-document[open] .i-lucide-chevron-down {
+  transform: rotate(180deg);
+}
+
+.settings-page .about-document-content {
+  max-height: 360px;
+  margin: 0;
+  padding: 12px 16px 16px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+  color: var(--auralis-text-subtle);
+  font-family: var(--auralis-font-ui);
+  font-size: 12px;
+  line-height: 1.65;
+  scrollbar-width: thin;
+  scrollbar-color: var(--auralis-text-faint) transparent;
+}
+
+.settings-page .about-document > summary:focus-visible,
+.settings-page .about-document-content:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: -2px;
+}
+
+.settings-page .settings-compact-actions .settings-secondary-button {
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  box-shadow: none;
+  transition:
+    color 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease;
+}
+
+.settings-page .settings-compact-actions .settings-secondary-button:hover:not(:disabled),
+.settings-page .settings-compact-actions .settings-secondary-button:active:not(:disabled) {
+  transform: none;
+}
+
+.settings-page .settings-compact-actions .settings-secondary-button:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
+}
+
+.settings-page .settings-compact-actions .database-path {
+  font-family: var(--auralis-font-ui);
 }
 
 /* Settings Group & Section Title */
@@ -248,7 +353,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   direction: ltr;
-  font-family: monospace;
+  font-family: var(--auralis-font-ui);
   background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
   padding: 4px 8px;
   border-radius: 6px;
@@ -314,12 +419,9 @@
   .settings-page .settings-switch-thumb,
   .settings-page .settings-segmented-option,
   .settings-page .settings-secondary-button,
+  .settings-page .settings-compact-actions .settings-secondary-button,
   .settings-page .about-logo {
     transition: none;
-    transform: none;
-  }
-
-  .settings-page .about-mark:hover .about-logo {
     transform: none;
   }
 }

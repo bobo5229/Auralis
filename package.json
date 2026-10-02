@@ -1,6 +1,6 @@
 {
   "name": "auralis",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A quiet local music archive built with Electron, Vue, TypeScript, and SQLite.",
   "private": true,
   "type": "module",
@@ -57,6 +57,7 @@
     "pinyin-pro": "^3.29.4",
     "sharp": "^0.35.3",
     "vue": "^3.5.13",
+    "vue-color": "3.3.3",
     "vue-i18n": "^11.4.8",
     "vue-router": "^4.5.0"
   },

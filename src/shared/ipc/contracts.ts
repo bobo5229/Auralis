@@ -233,11 +233,11 @@ export interface IpcInvokeContract {
     request: { query: string }
     response: CreateSmartPlaylistResult
   }
-  'smart-playlists:create-recent-frequent': {
+  'smart-playlists:create-recent-added': {
     request: { days?: number }
     response: CreateSmartPlaylistResult
   }
-  'smart-playlists:update-recent-frequent-days': {
+  'smart-playlists:update-recent-added-days': {
     request: { id: number; days: number }
     response: SmartPlaylist | null
   }

@@ -7,5 +7,5 @@
 }
 
 :root {
-  --mac-font: 'Auralis Mac Pixel', 'Microsoft YaHei', sans-serif;
+  --mac-font: var(--auralis-font-latin), 'Auralis Mac Pixel', 'Microsoft YaHei', sans-serif;
 }

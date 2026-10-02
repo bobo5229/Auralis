@@ -34,21 +34,21 @@ function parse(channel: DomainIpcInvokeChannel, payload?: unknown): unknown {
 
 describe('domain IPC payload validation coverage', () => {
   it('accepts custom rolling days and rejects intervals or invalid day counts', () => {
-    expect(parse('smart-playlists:create-recent-frequent', {})).toEqual({})
-    expect(parse('smart-playlists:create-recent-frequent', { days: 12 })).toEqual({ days: 12 })
-    expect(parse('smart-playlists:update-recent-frequent-days', { id: 1, days: 365 })).toEqual({
+    expect(parse('smart-playlists:create-recent-added', {})).toEqual({})
+    expect(parse('smart-playlists:create-recent-added', { days: 30 })).toEqual({ days: 30 })
+    expect(parse('smart-playlists:update-recent-added-days', { id: 1, days: 365 })).toEqual({
       id: 1,
       days: 365,
     })
     expect(
       parse('smart-playlists:create', {
         name: '最近常听',
-        rule: { preset: 'recentFrequent', days: 30 },
+        rule: { preset: 'recentAdded', days: 30 },
       }),
     ).toBeTruthy()
     for (const days of [0, -1, 1.5, '7', NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
-      expect(() => parse('smart-playlists:create-recent-frequent', { days })).toThrow()
-      expect(() => parse('smart-playlists:update-recent-frequent-days', { id: 1, days })).toThrow()
+      expect(() => parse('smart-playlists:create-recent-added', { days })).toThrow()
+      expect(() => parse('smart-playlists:update-recent-added-days', { id: 1, days })).toThrow()
       expect(() =>
         parse('smart-playlists:create', {
           name: '最近常听',
@@ -57,7 +57,7 @@ describe('domain IPC payload validation coverage', () => {
       ).toThrow()
     }
     expect(() =>
-      parse('smart-playlists:create-recent-frequent', {
+      parse('smart-playlists:create-recent-added', {
         startDate: '2026-01-01',
         endDate: '2026-02-01',
       }),

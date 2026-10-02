@@ -79,6 +79,7 @@ function makeStageHarness(reducedMotion = false) {
   }
 
   const fontResolvers: (() => void)[] = []
+  const fontLoads = vi.fn(() => new Promise<void>((resolve) => fontResolvers.push(resolve)))
   const documentStub = {
     hidden: false,
     addEventListener: vi.fn(),
@@ -86,7 +87,7 @@ function makeStageHarness(reducedMotion = false) {
     createElement: (tagName: string) =>
       tagName === 'canvas' ? makeCanvas(placeholderTextCalls) : makeElement(),
     fonts: {
-      load: vi.fn(() => new Promise<void>((resolve) => fontResolvers.push(resolve))),
+      load: fontLoads,
     },
   }
   const windowStub = {
@@ -111,9 +112,9 @@ function makeStageHarness(reducedMotion = false) {
     '--archive-color-border-control': '#334155',
     '--archive-color-text-primary': '#f8fafc',
     '--archive-color-text-secondary': '#94a3b8',
-    '--archive-font-display': "'Chakra Petch', 'Auralis Archive CJK', sans-serif",
-    '--archive-font-data': "'JetBrains Mono', 'Auralis Archive CJK', monospace",
-    '--archive-font-ui': "'Rajdhani', 'Auralis Archive CJK', sans-serif",
+    '--archive-font-display': "'Plus Jakarta Sans', 'Auralis Archive CJK', sans-serif",
+    '--archive-font-data': "'Plus Jakarta Sans', 'Auralis Archive CJK', monospace",
+    '--archive-font-ui': "'Plus Jakarta Sans', 'Auralis Archive CJK', sans-serif",
   }
 
   class ResizeObserverStub {
@@ -137,6 +138,7 @@ function makeStageHarness(reducedMotion = false) {
   return {
     stage: mountArchiveStage(root as unknown as ShadowRoot),
     fontResolvers,
+    fontLoads,
     placeholderTextCalls,
     captionFace,
     captionTextCalls,
@@ -230,6 +232,25 @@ describe('mountArchiveStage hologram lifecycle', () => {
 })
 
 describe('mountArchiveStage font redraw lifecycle', () => {
+  it('loads English, numerals and Chinese through the resolved role families', () => {
+    const { stage, fontLoads } = makeStageHarness()
+    stage.setAlbums([album('Archive 2026 中文专辑名')])
+
+    expect(fontLoads).toHaveBeenCalledWith(
+      "700 28px 'Plus Jakarta Sans', 'Auralis Archive CJK', sans-serif",
+      'Album 2026 中文专辑名',
+    )
+    expect(fontLoads).toHaveBeenCalledWith(
+      "600 18px 'Plus Jakarta Sans', 'Auralis Archive CJK', sans-serif",
+      'Artist 123 暂无封面',
+    )
+    expect(fontLoads).toHaveBeenCalledWith(
+      "700 8px 'Plus Jakarta Sans', 'Auralis Archive CJK', monospace",
+      'Date 2026 · 12 次 · 34 分钟',
+    )
+    stage.dispose()
+  })
+
   it('redraws only the current date after its role fonts load', async () => {
     const { stage, fontResolvers, placeholderTextCalls } = makeStageHarness()
     stage.setAlbums([album('旧日期专辑')])

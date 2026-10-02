@@ -1,5 +1,6 @@
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import { resolveArchiveFontFamily } from '../utils/resolveArchiveFontFamily'
 import type { CoverQuantizeWorkerInput, CoverQuantizeWorkerOutput } from './coverQuantize.worker'
 
 const MAX_LRU_CACHE_SIZE = 24
@@ -9,6 +10,7 @@ const QUANTIZE_STRENGTH = 0.65
 
 export interface CoverPipelineOptions {
   workerFactory?: () => Worker
+  placeholderFontFamily?: string
 }
 
 export class CoverPipeline {
@@ -26,8 +28,13 @@ export class CoverPipeline {
   private taskCounter = 0
   private disposed = false
   private imageCancels = new Set<() => void>()
+  private placeholderFontFamily: string
 
   constructor(options: CoverPipelineOptions = {}) {
+    this.placeholderFontFamily = resolveArchiveFontFamily(
+      options.placeholderFontFamily,
+      "'Plus Jakarta Sans', 'Auralis Mac Pixel', 'Microsoft YaHei', sans-serif",
+    )
     if (options.workerFactory || typeof Worker !== 'undefined') {
       try {
         this.worker = options.workerFactory
@@ -129,7 +136,7 @@ export class CoverPipeline {
 
     if (title) {
       ctx.fillStyle = '#d8dee9'
-      ctx.font = '12px "Auralis Mac Pixel", monospace'
+      ctx.font = `12px ${this.placeholderFontFamily}`
       ctx.textAlign = 'center'
       ctx.fillText(title.slice(0, 6), COVER_SIZE / 2, COVER_SIZE - 12)
     }

@@ -22,7 +22,7 @@ const { persistFailed, songFontWeightChoice, setSongFontWeight, resetSongFontWei
 const { coverArtworkRounded, setCoverArtworkRounded, coverArtworkRadius, setCoverArtworkRadius } =
   useCoverArtworkCorners()
 
-const previewView = ref<SongFontWeightView>('cover')
+const previewView = ref<SongFontWeightView>('list')
 const resetAnnounced = ref(false)
 let resetStatusTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -186,7 +186,7 @@ function onRadiusInput(event: Event): void {
         </Transition>
       </div>
 
-      <h3 class="song-parameters-heading song-parameters-heading--weights">
+      <h3 class="song-parameters-heading">
         {{ t('settings.appearance.songFontWeight.weightSection') }}
       </h3>
       <div class="song-font-weight-rows">
@@ -417,7 +417,7 @@ function onRadiusInput(event: Event): void {
   line-height: 1.35;
 }
 
-.song-parameters-heading--weights {
+.song-cover-options + .song-parameters-heading {
   margin-top: 0;
 }
 

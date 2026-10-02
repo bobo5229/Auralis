@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{ kind: 'playlist' | 'recentPlayed' | 'mostListened' | 'custom' }>()
+defineProps<{ kind: 'playlist' | 'recentPlayed' | 'mostListened' | 'recentAdded' | 'custom' }>()
 </script>
 
 <template>
@@ -8,6 +8,7 @@ defineProps<{ kind: 'playlist' | 'recentPlayed' | 'mostListened' | 'custom' }>()
     :class="{
       'i-ph-playlist': kind === 'playlist',
       'i-lucide-headphones': kind === 'mostListened',
+      'i-lucide-list-plus': kind === 'recentAdded',
       'i-lucide-edit': kind === 'custom',
     }"
     aria-hidden="true"

@@ -3,23 +3,6 @@
 @import './archive-fonts.css';
 @import './archive-tokens.css';
 
-/* 数字使用系统 Georgia，英文使用 Plus Jakarta Sans，中文使用 HarmonyOS Sans SC。 */
-@font-face {
-  font-family: 'Auralis Numerals';
-  src: local('Georgia');
-  font-weight: 400;
-  font-style: normal;
-  unicode-range: U+0030-0039;
-}
-
-@font-face {
-  font-family: 'Auralis Numerals';
-  src: local('Georgia Bold');
-  font-weight: 700;
-  font-style: normal;
-  unicode-range: U+0030-0039;
-}
-
 @font-face {
   font-family: 'Plus Jakarta Sans';
   src: url('../../assets/fonts/Plus_Jakarta_Sans/PlusJakartaSans-latin-variable.woff2')
@@ -129,7 +112,7 @@
   color-scheme: dark;
 
   /* Theme Accent Token */
-  --auralis-theme-accent: #f472b6;
+  --auralis-theme-accent: var(--auralis-dark-accent, #f472b6);
 
   /* Foundation & Shell: default dark surfaces */
   --auralis-bg: #121212;
@@ -151,9 +134,9 @@
   /* Controls & Focus */
   --auralis-control-bg: var(--auralis-surface-raised);
   --auralis-control-hover-bg: rgba(255, 255, 255, 0.06);
-  --auralis-control-active-bg: rgba(244, 114, 182, 0.12);
+  --auralis-control-active-bg: color-mix(in srgb, var(--auralis-theme-accent) 12%, transparent);
   --auralis-control-primary-bg: var(--auralis-theme-accent);
-  --auralis-control-primary-text: #121212;
+  --auralis-control-primary-text: var(--auralis-dark-on-accent, #121212);
   --auralis-focus-ring: var(--auralis-theme-accent);
   --auralis-danger: #c96a55;
   --auralis-success: #8aa36a;
@@ -193,7 +176,11 @@
   --auralis-song-row-bg: transparent;
   --auralis-song-row-alt-bg: rgba(225, 221, 214, 0.035);
   --auralis-song-row-border: rgba(225, 221, 214, 0.08);
-  --auralis-song-row-now-playing-bg: rgba(244, 114, 182, 0.12);
+  --auralis-song-row-now-playing-bg: color-mix(
+    in srgb,
+    var(--auralis-theme-accent) 12%,
+    transparent
+  );
   --auralis-song-row-now-playing-title: var(--auralis-theme-accent);
   --auralis-song-row-now-playing-artist: #afb4bc;
   --auralis-song-row-now-playing-duration: #9299a3;
@@ -203,9 +190,17 @@
   --auralis-lyrics-inactive: #515152;
 
   /* Sidebar active state */
-  --auralis-sidebar-active-bg: rgba(244, 114, 182, 0.12);
-  --auralis-sidebar-active-hover-bg: rgba(244, 114, 182, 0.16);
-  --auralis-sidebar-nav-selected-bg: rgba(244, 114, 182, 0.12);
+  --auralis-sidebar-active-bg: color-mix(in srgb, var(--auralis-theme-accent) 12%, transparent);
+  --auralis-sidebar-active-hover-bg: color-mix(
+    in srgb,
+    var(--auralis-theme-accent) 16%,
+    transparent
+  );
+  --auralis-sidebar-nav-selected-bg: color-mix(
+    in srgb,
+    var(--auralis-theme-accent) 12%,
+    transparent
+  );
   --auralis-sidebar-active-indicator: var(--auralis-theme-accent);
   --auralis-sidebar-active-icon: var(--auralis-theme-accent);
   --auralis-sidebar-active-text: var(--auralis-theme-accent);
@@ -247,7 +242,7 @@
   /* Scrollbar & Selection */
   --auralis-scrollbar-thumb: color-mix(in srgb, var(--auralis-text) 22%, transparent);
   --auralis-scrollbar-thumb-hover: color-mix(in srgb, var(--auralis-text) 36%, transparent);
-  --auralis-selection-bg: rgba(244, 114, 182, 0.28);
+  --auralis-selection-bg: color-mix(in srgb, var(--auralis-theme-accent) 28%, transparent);
 }
 
 /* ==========================================================================
@@ -398,7 +393,7 @@
 ),
 :root:not([data-theme='light'])
   :is(.app-window, .library-overlay, .albums-overlay, .archive-overlay, .sidebar-overlay) {
-  --auralis-theme-accent: #f472b6;
+  --auralis-theme-accent: var(--auralis-dark-accent, #f472b6);
   --auralis-bg: #121212;
   --auralis-main-bg: #121212;
   --auralis-dialog-bg: #202020;
@@ -415,9 +410,9 @@
   --auralis-text-disabled: rgba(175, 180, 188, 0.35);
   --auralis-control-bg: var(--auralis-surface-raised);
   --auralis-control-hover-bg: rgba(255, 255, 255, 0.06);
-  --auralis-control-active-bg: rgba(244, 114, 182, 0.12);
+  --auralis-control-active-bg: color-mix(in srgb, var(--auralis-theme-accent) 12%, transparent);
   --auralis-control-primary-bg: var(--auralis-theme-accent);
-  --auralis-control-primary-text: #121212;
+  --auralis-control-primary-text: var(--auralis-dark-on-accent, #121212);
   --auralis-focus-ring: var(--auralis-theme-accent);
   --auralis-progress-track: rgba(225, 221, 214, 0.08);
   --auralis-progress-fill: var(--auralis-theme-accent);
@@ -426,13 +421,25 @@
   --auralis-song-row-bg: transparent;
   --auralis-song-row-alt-bg: rgba(225, 221, 214, 0.035);
   --auralis-song-row-border: rgba(225, 221, 214, 0.08);
-  --auralis-song-row-now-playing-bg: rgba(244, 114, 182, 0.12);
+  --auralis-song-row-now-playing-bg: color-mix(
+    in srgb,
+    var(--auralis-theme-accent) 12%,
+    transparent
+  );
   --auralis-song-row-now-playing-title: var(--auralis-theme-accent);
   --auralis-song-row-now-playing-artist: #afb4bc;
   --auralis-song-row-now-playing-duration: #9299a3;
-  --auralis-sidebar-active-bg: rgba(244, 114, 182, 0.12);
-  --auralis-sidebar-active-hover-bg: rgba(244, 114, 182, 0.16);
-  --auralis-sidebar-nav-selected-bg: rgba(244, 114, 182, 0.12);
+  --auralis-sidebar-active-bg: color-mix(in srgb, var(--auralis-theme-accent) 12%, transparent);
+  --auralis-sidebar-active-hover-bg: color-mix(
+    in srgb,
+    var(--auralis-theme-accent) 16%,
+    transparent
+  );
+  --auralis-sidebar-nav-selected-bg: color-mix(
+    in srgb,
+    var(--auralis-theme-accent) 12%,
+    transparent
+  );
   --auralis-sidebar-active-indicator: var(--auralis-theme-accent);
   --auralis-sidebar-active-icon: var(--auralis-theme-accent);
   --auralis-sidebar-active-text: var(--auralis-theme-accent);
@@ -535,7 +542,7 @@ input {
 
 /* Scoped dark-player palette preservation */
 :is([data-theme='dark'] .player-bar, :root:not([data-theme='light']) .player-bar) {
-  --auralis-theme-accent: #f472b6;
+  --auralis-theme-accent: var(--auralis-dark-accent, #f472b6);
   --auralis-dialog-bg: #202020;
   --auralis-sidebar-bg: #1a1a1a;
   --auralis-surface-raised: #202020;
@@ -546,13 +553,13 @@ input {
   --auralis-text-disabled: rgba(175, 180, 188, 0.35);
   --auralis-control-bg: var(--auralis-surface-raised);
   --auralis-control-hover-bg: rgba(255, 255, 255, 0.06);
-  --auralis-control-active-bg: rgba(244, 114, 182, 0.12);
+  --auralis-control-active-bg: color-mix(in srgb, var(--auralis-theme-accent) 12%, transparent);
   --auralis-control-primary-bg: var(--auralis-theme-accent);
-  --auralis-control-primary-text: #121212;
+  --auralis-control-primary-text: var(--auralis-dark-on-accent, #121212);
   --auralis-focus-ring: var(--auralis-theme-accent);
   --auralis-progress-track: rgba(255, 255, 255, 0.08);
   --auralis-artwork-placeholder-bg: rgba(255, 255, 255, 0.12);
-  --auralis-sidebar-active-bg: rgba(244, 114, 182, 0.12);
+  --auralis-sidebar-active-bg: color-mix(in srgb, var(--auralis-theme-accent) 12%, transparent);
   --auralis-sidebar-active-indicator: var(--auralis-theme-accent);
   --auralis-sidebar-active-icon: var(--auralis-theme-accent);
   --auralis-sidebar-active-text: var(--auralis-theme-accent);
@@ -2012,8 +2019,7 @@ input[type='range'].volume-overlay-slider {
   height: 20px;
 }
 
-.app-sidebar.app-sidebar--collapsed .sidebar-section-label,
-.app-sidebar.app-sidebar--collapsed .sidebar-section-meta {
+.app-sidebar.app-sidebar--collapsed .sidebar-section-label {
   display: none;
 }
 
@@ -2275,18 +2281,9 @@ input[type='range'].volume-overlay-slider {
 }
 
 .sidebar-section-title .sidebar-section-label {
+  padding-left: 0;
   padding-right: 0;
   padding-bottom: 0;
-}
-
-.sidebar-section-meta {
-  border-radius: 8px;
-  color: var(--auralis-text-faint);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1;
-  background: color-mix(in srgb, var(--auralis-text) 4%, transparent);
-  padding: 2px 6px;
 }
 
 /* Redesigned Links as Light Cards */
@@ -2350,7 +2347,7 @@ input[type='range'].volume-overlay-slider {
   color: var(--auralis-text-faint);
   font-size: 11px;
   font-weight: 700;
-  font-family: 'Outfit', 'Inter', sans-serif;
+  font-family: var(--auralis-font-ui);
   opacity: 0;
   transform: translateX(12px);
   transition:
@@ -2797,14 +2794,14 @@ input[type='range'].volume-overlay-slider {
     padding-top: 0;
   }
   to {
-    height: 104px;
+    height: 140px;
     padding-top: 4px;
   }
 }
 
 @keyframes sidebar-smart-create-collapse {
   from {
-    height: 104px;
+    height: 140px;
     padding-top: 4px;
   }
   to {

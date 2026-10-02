@@ -68,12 +68,26 @@ describe('splash first-frame color contract', () => {
       )
     })
 
-    it(`uses hex color literals in the ${theme} theme`, () => {
-      for (const name of ['--splash-bg', '--splash-accent', '--splash-text']) {
+    it(`uses hex color literals for the static ${theme} splash colors`, () => {
+      const names =
+        theme === 'dark'
+          ? ['--splash-bg', '--splash-text']
+          : ['--splash-bg', '--splash-accent', '--splash-text']
+      for (const name of names) {
         expect(readCustomProperty(block, name)).toMatch(/^#[0-9a-fA-F]{6}$/)
       }
     })
   }
+
+  it('uses the first-frame derived accent in the dark splash with a rose fallback', () => {
+    expect(readCustomProperty(splashDark, '--splash-accent')).toBe(
+      'var(--auralis-dark-accent, #f472b6)',
+    )
+    expect(readCustomProperty(mainDark, '--auralis-theme-accent')).toBe(
+      'var(--auralis-dark-accent, #f472b6)',
+    )
+    expect(themeBootJs).toContain("setProperty('--auralis-dark-accent'")
+  })
 
   it('does not reference the legacy icon blues', () => {
     expect(splashCss).not.toMatch(/#2563eb|#4d8fff/i)
@@ -83,8 +97,16 @@ describe('splash first-frame color contract', () => {
 describe('splash typography contract', () => {
   it('mirrors the --auralis-font-ui stack for the brand text', () => {
     const uiStack = readCustomProperty(typographyCss, '--auralis-font-ui')
+    const latinFont = readCustomProperty(typographyCss, '--auralis-font-latin')
     const brandBlock = extractCssBlock(splashCss, /#splash-brand\s*\{/)
-    expect(readCustomProperty(brandBlock, 'font-family')).toBe(uiStack)
+    expect(readCustomProperty(splashCss, '--auralis-font-latin')).toBe(latinFont)
+    expect(readCustomProperty(splashCss, '--splash-font-ui')).toBe(uiStack)
+    expect(readCustomProperty(brandBlock, 'font-family')).toBe('var(--splash-font-ui)')
+
+    const errorBlock = extractCssBlock(splashCss, /\.splash-startup-error\s*\{/)
+    expect(readCustomProperty(errorBlock, 'font-family')).toBe(
+      "var(--auralis-font-latin), 'HarmonyOS Sans SC', sans-serif",
+    )
   })
 })
 

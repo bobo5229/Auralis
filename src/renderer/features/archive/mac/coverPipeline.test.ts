@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { CoverPipeline } from './coverPipeline'
 
+const canvasFonts: string[] = []
+
 class MockHTMLCanvasElement {
   width = 0
   height = 0
@@ -17,6 +19,7 @@ class MockHTMLCanvasElement {
         return vi.fn()
       },
       set(target, prop, value) {
+        if (prop === 'font') canvasFonts.push(String(value))
         Reflect.set(target, prop, value)
         return true
       },
@@ -81,6 +84,20 @@ describe('CoverPipeline', () => {
     expect(canvas).toBeInstanceOf(HTMLCanvasElement)
     expect(canvas.width).toBe(96)
     expect(canvas.height).toBe(96)
+    pipeline.dispose()
+  })
+
+  it('uses the supplied Latin-first family when drawing a placeholder title', () => {
+    canvasFonts.length = 0
+    const fontFamily = "'Plus Jakarta Sans', 'Auralis Mac Pixel', 'Microsoft YaHei', sans-serif"
+    const pipeline = new CoverPipeline({
+      placeholderFontFamily: fontFamily,
+      workerFactory: () => ({ terminate: vi.fn() }) as unknown as Worker,
+    })
+
+    pipeline.createPlaceholderCanvas('Album 0123')
+
+    expect(canvasFonts).toContain(`12px ${fontFamily}`)
     pipeline.dispose()
   })
 

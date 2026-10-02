@@ -1,6 +1,7 @@
 import { ipcChannels } from '@shared/ipc/channels'
 import type { IpcInvokeChannel } from '@shared/ipc/contracts'
 import { LIBRARY_CATALOG_MAX_PAGE_SIZE } from '@shared/types/libraryCatalog'
+import { assertRecentAddedDays } from '@shared/smartPlaylists/recentAdded'
 
 const MAX_TEXT_LENGTH = 8_192
 const MAX_QUERY_LENGTH = 4_096
@@ -90,6 +91,14 @@ function finiteNumber(options: { min?: number; max?: number; integer?: boolean }
 }
 
 const positiveId = finiteNumber({ integer: true, min: 1 })
+const recentAddedDays: Validator = (value, path, context) => {
+  finiteNumber({ min: 1, integer: true })(value, path, context)
+  try {
+    assertRecentAddedDays(value as number)
+  } catch {
+    fail(path, 'must be 7, 30, 90 or 365 days')
+  }
+}
 const nativePlaybackCommand: Validator = (value, path, context) => {
   const action = (value as { action?: unknown } | null)?.action
   const fields: Record<string, ShapeField> = {
@@ -249,8 +258,12 @@ const smartPlaylistRule: Validator = (value, path, context) => {
       return
     }
     objectShape({
-      preset: field(enumValue(['recentFrequent', 'recentPlayed'])),
-      days: field(finiteNumber({ min: 1, integer: true })),
+      preset: field(enumValue(['recentPlayed', 'recentAdded'])),
+      days: field(
+        (value as { preset: unknown }).preset === 'recentAdded'
+          ? recentAddedDays
+          : finiteNumber({ min: 1, integer: true }),
+      ),
     })(value, path, context)
     return
   }
@@ -354,11 +367,11 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.smartPlaylists.createFromQuery]: required(
     objectShape({ query: field(stringValue({ min: 1, max: MAX_QUERY_LENGTH })) }),
   ),
-  [ipcChannels.smartPlaylists.createRecentFrequent]: required(
-    objectShape({ days: field(finiteNumber({ min: 1, integer: true }), true) }),
+  [ipcChannels.smartPlaylists.createRecentAdded]: required(
+    objectShape({ days: field(recentAddedDays, true) }),
   ),
-  [ipcChannels.smartPlaylists.updateRecentFrequentDays]: required(
-    objectShape({ id: field(positiveId), days: field(finiteNumber({ min: 1, integer: true })) }),
+  [ipcChannels.smartPlaylists.updateRecentAddedDays]: required(
+    objectShape({ id: field(positiveId), days: field(recentAddedDays) }),
   ),
   [ipcChannels.smartPlaylists.rename]: required(namePayload),
   [ipcChannels.smartPlaylists.updateViewMode]: required(viewModePayload),

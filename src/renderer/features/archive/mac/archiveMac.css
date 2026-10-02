@@ -2,7 +2,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  --mac-font: 'Auralis Mac Pixel', 'Microsoft YaHei', sans-serif;
+  --mac-font: var(--auralis-font-latin), 'Auralis Mac Pixel', 'Microsoft YaHei', sans-serif;
   --archive-font-display: var(--mac-font);
   --archive-font-data: var(--mac-font);
   --archive-font-ui: var(--mac-font);

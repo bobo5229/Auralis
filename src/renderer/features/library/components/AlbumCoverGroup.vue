@@ -179,7 +179,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
   height: var(--library-cover-disc-heading-height);
   padding-inline: 12px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.045);
+  background: transparent;
   color: var(--auralis-text-muted);
   font-size: 11px;
   font-weight: var(--auralis-song-cover-disc-heading-weight, 700);

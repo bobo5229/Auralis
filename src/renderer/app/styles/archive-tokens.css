@@ -1,7 +1,7 @@
 .archive-canvas-page {
-  --archive-font-display: 'Chakra Petch', 'Auralis Archive CJK', sans-serif;
-  --archive-font-data: 'JetBrains Mono', 'Auralis Archive CJK', monospace;
-  --archive-font-ui: 'Rajdhani', 'Auralis Archive CJK', sans-serif;
+  --archive-font-display: var(--auralis-font-latin), 'Auralis Archive CJK', sans-serif;
+  --archive-font-data: var(--auralis-font-latin), 'Auralis Archive CJK', monospace;
+  --archive-font-ui: var(--auralis-font-latin), 'Auralis Archive CJK', sans-serif;
 
   --archive-color-bg-void: #030305;
   --archive-color-bg-base: #07080e;

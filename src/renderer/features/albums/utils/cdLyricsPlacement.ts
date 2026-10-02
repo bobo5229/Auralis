@@ -5,6 +5,35 @@ export interface LyricsRect {
   height: number
 }
 
+/** Retain a safe arc; otherwise find the nearest safe angle without wrapping jumps. */
+export function cdLyricsArcPlacement(
+  preferred: number,
+  rectangleAt: (angle: number) => LyricsRect,
+  bounds: LyricsRect,
+  obstacles: LyricsRect[],
+): number | null {
+  const fits = (rect: LyricsRect): boolean =>
+    rect.left >= bounds.left &&
+    rect.top >= bounds.top &&
+    rect.left + rect.width <= bounds.left + bounds.width &&
+    rect.top + rect.height <= bounds.top + bounds.height &&
+    !obstacles.some(
+      (obstacle) =>
+        rect.left < obstacle.left + obstacle.width &&
+        rect.left + rect.width > obstacle.left &&
+        rect.top < obstacle.top + obstacle.height &&
+        rect.top + rect.height > obstacle.top,
+    )
+  if (fits(rectangleAt(preferred))) return preferred
+  for (let distance = 15; distance <= 180; distance += 15) {
+    for (const direction of [1, -1]) {
+      const angle = preferred + distance * direction
+      if (fits(rectangleAt(angle))) return angle
+    }
+  }
+  return null
+}
+
 /** Find an unobstructed rectangle, preferring the lower central whitespace. */
 export function cdLyricsPlacement(bounds: LyricsRect, obstacles: LyricsRect[]): LyricsRect | null {
   const height = 112

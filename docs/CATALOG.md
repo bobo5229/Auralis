@@ -125,6 +125,8 @@
 
 ### shell：应用外壳
 
+- [施工文档：英文与数字字体统一，Georgia 仅用于碟片标题](topics/shell/IMPLEMENTATION-latin-numeral-font-unification-2026-10-02.md) — 顺序分批迁移通用界面、CD、歌词、声迹 DOM 与 Canvas，保留现有中文字体。
+
 - [TECHDOC：深色模式自定义强调色](topics/shell/TECHDOC-custom-dark-accent-2026-10-02.md) — SketchPicker 接入、本地偏好、显示色与对比度、开屏首帧及定向验收。
 - [TECHDOC：跟随主题的 Logo 开屏动画](topics/shell/TECHDOC-theme-aware-splash-logo-2026-09-29.md)
 - [TECHDOC：Auralis 语义字体体系](topics/shell/TECHDOC-semantic-font-system-2026-09-29.md)

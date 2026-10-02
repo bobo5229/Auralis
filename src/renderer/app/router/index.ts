@@ -4,7 +4,13 @@ import { routeLoaders } from './routeComponentLoaders'
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    { path: '/', name: 'library', component: routeLoaders.library, meta: { title: 'Library' } },
+    { path: '/', name: 'home', component: routeLoaders.home, meta: { title: 'Home' } },
+    {
+      path: '/songs',
+      name: 'library',
+      component: routeLoaders.library,
+      meta: { title: 'Library' },
+    },
     {
       path: '/smart-playlists/:id',
       name: 'smart-playlist',

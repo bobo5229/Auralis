@@ -15,6 +15,10 @@ import type {
 } from '@shared/types/smartPlaylist'
 import { parseSmartPlaylistQuery } from '@shared/smartPlaylists/queryParser'
 import {
+  assertRecentAddedDays,
+  DEFAULT_RECENT_ADDED_DAYS,
+} from '@shared/smartPlaylists/recentAdded'
+import {
   assertRecentFrequentDays,
   DEFAULT_RECENT_FREQUENT_DAYS,
   isRecentFrequentRule,
@@ -60,12 +64,15 @@ export function assertValidSmartPlaylistRule(rule: SmartPlaylistRule): void {
       return
     }
     if (
-      (rule.preset !== 'recentPlayed' && !isRecentFrequentRule(rule)) ||
+      (rule.preset !== 'recentPlayed' &&
+        rule.preset !== 'recentAdded' &&
+        !isRecentFrequentRule(rule)) ||
       Object.keys(rule).some((key) => key !== 'preset' && key !== 'days')
     ) {
       throw new Error('无效的智能歌单预设')
     }
-    assertRecentFrequentDays(rule.days)
+    if (rule.preset === 'recentAdded') assertRecentAddedDays(rule.days)
+    else assertRecentFrequentDays(rule.days)
     return
   }
 
@@ -357,6 +364,25 @@ function hasAddedWithinPredicate(expression: SmartPlaylistExpression): boolean {
   return expression.operands.some(hasAddedWithinPredicate)
 }
 
+function sortRecentAddedTracks(tracks: readonly TrackListItem[]): TrackListItem[] {
+  // 首次出现的专辑即最新入库的专辑，与封面视图使用相同的分组键。
+  const albums = new Map<string, TrackListItem[]>()
+  for (const track of [...tracks].sort(compareTracksByCreatedAtDesc)) {
+    const key = `${track.albumArtist || track.artist || ''}\u0000${track.album || ''}`
+    const album = albums.get(key)
+    if (album) album.push(track)
+    else albums.set(key, [track])
+  }
+  return [...albums.values()].flatMap((album) =>
+    album.sort(
+      (left, right) =>
+        (left.discNo ?? 1) - (right.discNo ?? 1) ||
+        (left.trackNo ?? Infinity) - (right.trackNo ?? Infinity) ||
+        compareTracksByCreatedAtDesc(left, right),
+    ),
+  )
+}
+
 function isRecentAddedSmartPlaylist(playlist: SmartPlaylist): boolean {
   return (
     playlist.name.trim() === '最近添加' &&
@@ -399,9 +425,7 @@ export class SmartPlaylistService {
 
     return {
       playlist,
-      tracks: isRecentAddedSmartPlaylist(playlist)
-        ? [...tracks].sort(compareTracksByCreatedAtDesc)
-        : tracks,
+      tracks: isRecentAddedSmartPlaylist(playlist) ? sortRecentAddedTracks(tracks) : tracks,
     }
   }
 
@@ -428,6 +452,20 @@ export class SmartPlaylistService {
     const expression = parseSmartPlaylistQuery(query)
     const playlists = this.smartPlaylistRepository.list()
     return this.create(this.getAvailableManualName(playlists), { expression })
+  }
+
+  createRecentAdded(days = DEFAULT_RECENT_ADDED_DAYS): CreateSmartPlaylistResult {
+    return this.create('最近添加', { preset: 'recentAdded', days })
+  }
+
+  updateRecentAddedDays(id: number, days: number): SmartPlaylist | null {
+    assertRecentAddedDays(days)
+    const playlist = this.smartPlaylistRepository.getById(id)
+    if (!playlist) return null
+    if (!('preset' in playlist.rule) || playlist.rule.preset !== 'recentAdded') {
+      throw new Error('仅最近添加歌单支持修改此时间范围')
+    }
+    return this.smartPlaylistRepository.updateRule(id, { preset: 'recentAdded', days })
   }
 
   createRecentFrequent(days = DEFAULT_RECENT_FREQUENT_DAYS): CreateSmartPlaylistResult {
@@ -457,6 +495,18 @@ export class SmartPlaylistService {
     const key = canonicalRule(rule)
     const cached = presetTracks.get(key)
     if (cached) return cached
+    if (rule.preset === 'recentAdded') {
+      const end = now.getTime()
+      const start = end - rule.days * 86_400_000
+      const result = sortRecentAddedTracks(
+        tracks.filter((track) => {
+          const added = parseTrackCreatedAt(track.createdAt)
+          return added >= start && added <= end
+        }),
+      )
+      presetTracks.set(key, result)
+      return result
+    }
     let ids: number[]
     if (rule.preset === 'mostListened') {
       ids = this.smartPlaylistRepository.getMostListenedTrackIds()

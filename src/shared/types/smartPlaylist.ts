@@ -44,6 +44,7 @@ export type SmartPlaylistRule =
   | RecentFrequentSmartPlaylistRule
   | { preset: 'recentPlayed'; days: number }
   | { preset: 'mostListened' }
+  | { preset: 'recentAdded'; days: number }
 
 export interface SmartPlaylist {
   id: number

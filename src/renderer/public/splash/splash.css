@@ -7,8 +7,13 @@
 
 :root,
 [data-theme='dark'] {
+  --auralis-font-latin: 'Plus Jakarta Sans';
+  --splash-font-ui:
+    var(--auralis-font-latin), 'HarmonyOS Sans SC', 'Arial Unicode MS', 'Nirmala UI',
+    'Microsoft Himalaya', 'Leelawadee UI', 'Segoe UI Symbol', ui-sans-serif, system-ui,
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --splash-bg: #121212;
-  --splash-accent: #f472b6;
+  --splash-accent: var(--auralis-dark-accent, #f472b6);
   --splash-text: #f3eee6;
 }
 
@@ -69,24 +74,9 @@
   stroke-width: 0.45;
 }
 
-/* 文字沿用当前 UI 字体角色：与 typography.css 的 --auralis-font-ui 逐字一致，
- * 字体资源仍随应用 bundle 加载，加载前按后备顺序显示系统字体。 */
+/* 文字在主样式加载前即可解析完整的通用界面字体栈。 */
 #splash-brand {
-  font-family:
-    'Auralis Numerals',
-    'Plus Jakarta Sans',
-    'HarmonyOS Sans SC',
-    'Arial Unicode MS',
-    'Nirmala UI',
-    'Microsoft Himalaya',
-    'Leelawadee UI',
-    'Segoe UI Symbol',
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    sans-serif;
+  font-family: var(--splash-font-ui);
   font-size: clamp(20px, 4.5vmin, 40px);
   font-weight: 700;
   line-height: 1;
@@ -98,7 +88,7 @@
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  font-family: 'Plus Jakarta Sans', 'HarmonyOS Sans SC', sans-serif;
+  font-family: var(--auralis-font-latin), 'HarmonyOS Sans SC', sans-serif;
   text-align: center;
 }
 

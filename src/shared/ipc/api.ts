@@ -48,13 +48,13 @@ export interface AuralisApi {
     createFromQuery: (
       query: Req<'smart-playlists:create-from-query'>['query'],
     ) => Result<'smart-playlists:create-from-query'>
-    createRecentFrequent: (
-      days?: Req<'smart-playlists:create-recent-frequent'>['days'],
-    ) => Result<'smart-playlists:create-recent-frequent'>
-    updateRecentFrequentDays: (
-      id: Req<'smart-playlists:update-recent-frequent-days'>['id'],
-      days: Req<'smart-playlists:update-recent-frequent-days'>['days'],
-    ) => Result<'smart-playlists:update-recent-frequent-days'>
+    createRecentAdded: (
+      days?: Req<'smart-playlists:create-recent-added'>['days'],
+    ) => Result<'smart-playlists:create-recent-added'>
+    updateRecentAddedDays: (
+      id: Req<'smart-playlists:update-recent-added-days'>['id'],
+      days: Req<'smart-playlists:update-recent-added-days'>['days'],
+    ) => Result<'smart-playlists:update-recent-added-days'>
     rename: (
       id: Req<'smart-playlists:rename'>['id'],
       name: Req<'smart-playlists:rename'>['name'],

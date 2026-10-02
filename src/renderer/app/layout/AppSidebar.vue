@@ -6,6 +6,7 @@ import type { LibraryStats } from '@shared/types/app'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import { DEFAULT_RECENT_PLAYED_DAYS } from '@shared/smartPlaylists/recentFrequent'
+import { DEFAULT_RECENT_ADDED_DAYS } from '@shared/smartPlaylists/recentAdded'
 import { useRoute } from 'vue-router'
 import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import SmartPlaylistBuilderDialog from '@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue'
@@ -56,7 +57,7 @@ const createMenu = ref<{ x: number; y: number } | null>(null)
 const smartCreateTrigger = ref<HTMLButtonElement | null>(null)
 const smartCreatePanel = ref<HTMLElement | null>(null)
 const smartCreateSubmenu = ref(false)
-const creatingPlaybackPreset = ref<'recentPlayed' | 'mostListened' | null>(null)
+const creatingPlaybackPreset = ref<'recentPlayed' | 'mostListened' | 'recentAdded' | null>(null)
 const createError = ref('')
 const playlistContextMenu = ref<{ item: SidebarPlaylistItem; x: number; y: number } | null>(null)
 const renamingPlaylist = ref<SidebarPlaylistItem | null>(null)
@@ -95,13 +96,50 @@ const { t } = useI18n()
 const activePath = ref(route.path)
 
 const primaryNav = computed<
-  Array<{ to: string; label: string; icon: string; routeName?: WarmableRouteName }>
+  Array<{
+    to: string
+    label: string
+    icon: string
+    activeIcon: string
+    routeName?: WarmableRouteName
+  }>
 >(() => [
-  { to: '/', label: t('nav.songs'), icon: 'i-ph-music-notes', routeName: 'library' },
-  { to: '/albums', label: t('nav.albums'), icon: 'i-ph-vinyl-record', routeName: 'albums' },
-  { to: '/albums/cd', label: t('albums.cd.title'), icon: 'i-ph-disc' },
-  { to: '/archive', label: t('nav.archive'), icon: 'i-ph-archive', routeName: 'archive' },
+  { to: '/', label: t('nav.home'), icon: 'i-ph-house', activeIcon: 'i-ph-house-fill' },
+  {
+    to: '/songs',
+    label: t('nav.songs'),
+    icon: 'i-ph-music-note',
+    activeIcon: 'i-ph-music-note-fill',
+    routeName: 'library',
+  },
+  {
+    to: '/albums',
+    label: t('nav.albums'),
+    icon: 'i-ph-vinyl-record',
+    activeIcon: 'i-ph-vinyl-record-fill',
+    routeName: 'albums',
+  },
+  {
+    to: '/albums/cd',
+    label: t('albums.cd.title'),
+    icon: 'i-ph-disc',
+    activeIcon: 'i-ph-disc-fill',
+  },
+  {
+    to: '/archive',
+    label: t('nav.archive'),
+    icon: 'i-ph-archive',
+    activeIcon: 'i-ph-archive-fill',
+    routeName: 'archive',
+  },
 ])
+
+function isPrimaryNavActive(path: string): boolean {
+  return (
+    activePath.value === path ||
+    (path === '/albums' && route.name === 'album-detail' && activePath.value === route.path)
+  )
+}
 
 function onRouteIntent(routeName?: WarmableRouteName): void {
   if (routeName) {
@@ -113,7 +151,7 @@ const primaryNavItems = computed(() =>
   primaryNav.value.map((item) => ({
     ...item,
     count:
-      item.to === '/'
+      item.to === '/songs'
         ? libraryStats.value.trackCount
         : item.to === '/albums'
           ? libraryStats.value.albumCount
@@ -143,10 +181,12 @@ function getPlaylistPath(item: SidebarPlaylistItem): string {
 
 function getPlaylistIcon(
   item: SidebarPlaylistItem,
-): 'playlist' | 'recentPlayed' | 'mostListened' | 'custom' {
+): 'playlist' | 'recentPlayed' | 'mostListened' | 'recentAdded' | 'custom' {
   if (item.kind === 'playlist') return 'playlist'
   const kind = smartPlaylistKinds.value.get(item.id)
-  return kind === 'recentPlayed' || kind === 'mostListened' ? kind : 'custom'
+  return kind === 'recentPlayed' || kind === 'mostListened' || kind === 'recentAdded'
+    ? kind
+    : 'custom'
 }
 
 function rememberSidebarModalTrigger(preferred?: HTMLElement | null): void {
@@ -316,7 +356,7 @@ function openCreateMenu(): void {
   const rect = createPlaylistButton.value.getBoundingClientRect()
   createMenu.value = {
     x: Math.max(8, Math.min(rect.right - 190, window.innerWidth - 198)),
-    y: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 184)),
+    y: Math.max(8, Math.min(rect.bottom + 8, window.innerHeight - 220)),
   }
 }
 
@@ -357,15 +397,20 @@ function onSmartCreateSubmenuKeydown(event: KeyboardEvent): void {
   }
 }
 
-async function createPlaybackPreset(preset: 'recentPlayed' | 'mostListened'): Promise<void> {
+async function createPlaybackPreset(
+  preset: 'recentPlayed' | 'mostListened' | 'recentAdded',
+): Promise<void> {
   if (creatingPlaybackPreset.value) return
   creatingPlaybackPreset.value = preset
   createError.value = ''
   try {
-    const { playlist } = await auralis.smartPlaylists.create(
-      t(preset === 'recentPlayed' ? 'sidebar.recentPlayed' : 'sidebar.mostListened'),
-      preset === 'recentPlayed' ? { preset, days: DEFAULT_RECENT_PLAYED_DAYS } : { preset },
-    )
+    const { playlist } =
+      preset === 'recentAdded'
+        ? await auralis.smartPlaylists.createRecentAdded(DEFAULT_RECENT_ADDED_DAYS)
+        : await auralis.smartPlaylists.create(
+            t(preset === 'recentPlayed' ? 'sidebar.recentPlayed' : 'sidebar.mostListened'),
+            preset === 'recentPlayed' ? { preset, days: DEFAULT_RECENT_PLAYED_DAYS } : { preset },
+          )
     await loadSidebarPlaylists()
     window.dispatchEvent(new CustomEvent('auralis-playlists-changed'))
     closeCreateMenu()
@@ -526,7 +571,7 @@ async function confirmDelete(): Promise<void> {
         ),
       )
       if (route.path === getPlaylistPath(deleting)) {
-        await router.push('/')
+        await router.push('/songs')
       }
     }
 
@@ -667,9 +712,7 @@ onBeforeUnmount(() => {
           :aria-label="item.label"
           :class="{
             'sidebar-link-with-count': item.count !== null,
-            'sidebar-link-active':
-              activePath === item.to ||
-              (item.to === '/albums' && route.name === 'album-detail' && activePath === route.path),
+            'sidebar-link-active': isPrimaryNavActive(item.to),
           }"
           @dragstart.prevent
           @pointerenter="onRouteIntent(item.routeName)"
@@ -679,7 +722,7 @@ onBeforeUnmount(() => {
           @keydown.space="setPendingActive(item.to)"
         >
           <span class="sidebar-link-icon">
-            <span :class="item.icon"></span>
+            <span :class="isPrimaryNavActive(item.to) ? item.activeIcon : item.icon"></span>
           </span>
           <span class="sidebar-link-label">{{ item.label }}</span>
           <span v-if="item.count !== null" class="sidebar-link-count">{{ item.count }}</span>
@@ -690,7 +733,6 @@ onBeforeUnmount(() => {
         <div class="smart-playlist-section-header">
           <div class="sidebar-section-title">
             <div class="sidebar-section-label">{{ t('sidebar.playlists') }}</div>
-            <div class="sidebar-section-meta">{{ playlistItems.length }}</div>
           </div>
           <button
             ref="createPlaylistButton"
@@ -817,6 +859,17 @@ onBeforeUnmount(() => {
                   >
                     <PlaylistIcon kind="mostListened" />
                     <span>{{ t('sidebar.mostListened') }}</span>
+                  </button>
+                  <div class="library-context-menu-separator" role="separator"></div>
+                  <button
+                    class="library-context-menu-item"
+                    type="button"
+                    :disabled="!!creatingPlaybackPreset"
+                    :aria-busy="creatingPlaybackPreset === 'recentAdded'"
+                    @click="createPlaybackPreset('recentAdded')"
+                  >
+                    <PlaylistIcon kind="recentAdded" />
+                    <span>{{ t('sidebar.recentAdded') }}</span>
                   </button>
                   <div class="library-context-menu-separator" role="separator"></div>
                   <button

@@ -569,7 +569,7 @@ onBeforeUnmount(() => {
   padding: 8px 0 6px;
   height: 38px;
   box-sizing: border-box;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 18px;
   font-weight: 400;
   line-height: 1.3;
@@ -586,7 +586,7 @@ onBeforeUnmount(() => {
 
 .cd-index-artist {
   margin: 8px 0 0;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 22px;
   font-weight: 400;
   line-height: 1.3;
@@ -635,7 +635,7 @@ onBeforeUnmount(() => {
 .cd-index-title,
 .cd-index-date {
   overflow: hidden;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-weight: 400;
   font-synthesis: none;
   text-overflow: ellipsis;
@@ -667,7 +667,7 @@ onBeforeUnmount(() => {
   gap: 1px;
   container-type: size;
   overflow: hidden;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-weight: 400;
   font-synthesis: none;
   -webkit-app-region: no-drag;

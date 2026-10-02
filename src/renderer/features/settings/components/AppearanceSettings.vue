@@ -2,9 +2,9 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useTheme, type ThemeMode } from '@renderer/composables/useTheme'
-import { useShellFluidBackground } from '@renderer/features/appearance/composables/useShellFluidBackground'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import SongFontWeightSettings from './SongFontWeightSettings.vue'
+import DarkAccentSettings from './DarkAccentSettings.vue'
 
 const { t } = useI18n()
 const { theme, setTheme } = useTheme()
@@ -31,8 +31,6 @@ function selectSidebarLayout(fullHeight: boolean): void {
     floatingSidebarOptionRef.value?.focus()
   }
 }
-
-const { shellFluidBackgroundEnabled, setShellFluidBackgroundEnabled } = useShellFluidBackground()
 </script>
 
 <template>
@@ -81,6 +79,7 @@ const { shellFluidBackgroundEnabled, setShellFluidBackgroundEnabled } = useShell
             </button>
           </div>
         </div>
+        <DarkAccentSettings />
         <div class="settings-row settings-row--with-desc">
           <div>
             <strong>{{ t('settings.appearance.sidebarLayout') }}</strong>
@@ -123,30 +122,6 @@ const { shellFluidBackgroundEnabled, setShellFluidBackgroundEnabled } = useShell
               {{ t('settings.appearance.sidebarFullHeightOption') }}
             </button>
           </div>
-        </div>
-        <div class="settings-row settings-row--with-desc">
-          <div>
-            <strong>{{ t('settings.appearance.fluidBackground') }}</strong>
-            <span id="appearance-fluid-bg-description">{{
-              t('settings.appearance.fluidBackgroundDescription')
-            }}</span>
-          </div>
-          <button
-            type="button"
-            class="settings-switch"
-            role="switch"
-            :aria-checked="shellFluidBackgroundEnabled"
-            aria-describedby="appearance-fluid-bg-description"
-            :aria-label="
-              shellFluidBackgroundEnabled
-                ? t('settings.appearance.fluidBackgroundAriaOn')
-                : t('settings.appearance.fluidBackgroundAriaOff')
-            "
-            :class="{ 'is-enabled': shellFluidBackgroundEnabled }"
-            @click="setShellFluidBackgroundEnabled(!shellFluidBackgroundEnabled)"
-          >
-            <span class="settings-switch-thumb" aria-hidden="true"></span>
-          </button>
         </div>
       </div>
     </div>

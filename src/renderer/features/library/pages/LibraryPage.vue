@@ -465,7 +465,7 @@ const {
   captureViewportRestore: captureLibraryViewportRestore,
   restoreViewportRestore: restoreLibraryViewportRestore,
   scrollToPlaybackTrack,
-  replaceWithLibraryHome: () => router.replace('/'),
+  replaceWithLibraryHome: () => router.replace('/songs'),
   loadErrorMessage: () => t('library.status.loadError'),
   onLibraryChanged: (callback) => auralis.library.onChanged(callback),
   onScanProgress: (callback) => auralis.library.onScanProgress(callback),

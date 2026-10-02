@@ -9,6 +9,7 @@ import type {
 } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import DatabaseMaintenanceSettings from './DatabaseMaintenanceSettings.vue'
 
 const { t } = useI18n()
 
@@ -315,6 +316,8 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
+
+    <DatabaseMaintenanceSettings />
 
     <div v-if="refreshFailures.length > 0 || refreshErrorMessage" class="settings-group">
       <div class="settings-group-header">
@@ -700,7 +703,7 @@ onBeforeUnmount(() => {
 }
 
 .failure-path {
-  font-family: monospace;
+  font-family: var(--auralis-font-ui);
   font-size: 11px;
   color: var(--auralis-text-muted);
   overflow: hidden;

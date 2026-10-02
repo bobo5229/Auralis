@@ -4,6 +4,7 @@ import {
   hologramFrame,
   paintHologram,
 } from './archiveHologram.js'
+import { resolveArchiveFontFamily } from '../utils/resolveArchiveFontFamily'
 
 // Canvas renderer adapted from the supplied demo. Receives data; no IPC or playback access.
 export function mountArchiveStage(root) {
@@ -55,6 +56,8 @@ export function mountArchiveStage(root) {
     const ctx = canvas.getContext('2d')
     const hostStyle = getComputedStyle(root.host)
     const token = (name, fallback) => hostStyle.getPropertyValue(name).trim() || fallback
+    const fontToken = (name, fallback) =>
+      resolveArchiveFontFamily(hostStyle.getPropertyValue(name), fallback)
     const colors = {
       accent: token('--archive-color-accent-secondary', '#f72585'),
       bgCard: token('--archive-color-bg-card', '#20232d'),
@@ -64,9 +67,15 @@ export function mountArchiveStage(root) {
       projection: token('--archive-color-projection', '#7be2ed'),
     }
     const fonts = {
-      display: token('--archive-font-display', "'Chakra Petch', sans-serif"),
-      data: token('--archive-font-data', "'JetBrains Mono', monospace"),
-      ui: token('--archive-font-ui', "'Rajdhani', sans-serif"),
+      display: fontToken(
+        '--archive-font-display',
+        "'Plus Jakarta Sans', 'Auralis Archive CJK', sans-serif",
+      ),
+      data: fontToken(
+        '--archive-font-data',
+        "'Plus Jakarta Sans', 'Auralis Archive CJK', monospace",
+      ),
+      ui: fontToken('--archive-font-ui', "'Plus Jakarta Sans', 'Auralis Archive CJK', sans-serif"),
     }
     let albums = []
     let albumRevision = 0
@@ -219,11 +228,11 @@ export function mountArchiveStage(root) {
     function redrawPlaceholderFonts(revision) {
       if (!document.fonts?.load) return
       void Promise.allSettled([
-        document.fonts.load(`700 28px ${fonts.display}`, '中文专辑名'),
-        document.fonts.load(`600 18px ${fonts.ui}`, '暂无封面'),
-        document.fonts.load(`700 8px ${fonts.data}`, '日期 · 次 · 分钟'),
-        document.fonts.load(`700 18px ${fonts.display}`, '中文专辑名'),
-        document.fonts.load(`600 12px ${fonts.ui}`, '艺术家 · 次'),
+        document.fonts.load(`700 28px ${fonts.display}`, 'Album 2026 中文专辑名'),
+        document.fonts.load(`600 18px ${fonts.ui}`, 'Artist 123 暂无封面'),
+        document.fonts.load(`700 8px ${fonts.data}`, 'Date 2026 · 12 次 · 34 分钟'),
+        document.fonts.load(`700 18px ${fonts.display}`, 'Album 2026 中文专辑名'),
+        document.fonts.load(`600 12px ${fonts.ui}`, 'Artist 123 艺术家 · 12 次'),
       ]).then(() => {
         if (disposed || revision !== albumRevision) return
         albums.forEach((album) => {

@@ -8,7 +8,13 @@
   height: 342px;
   transform-origin: 0 0;
   pointer-events: none;
-  font-family: var(--mac-font, 'Auralis Mac Pixel', monospace);
+  font-family: var(
+    --mac-font,
+    var(--auralis-font-latin),
+    'Auralis Mac Pixel',
+    'Microsoft YaHei',
+    monospace
+  );
 }
 
 .crt-logic-plane * {

@@ -6,6 +6,7 @@ import markup from '../canvas/archiveCanvas.html?raw'
 import styles from '../canvas/archiveCanvas.css?raw'
 import { mountArchiveCanvasView } from '../canvas/archiveCanvasView'
 import { useArchiveCanvasData } from '../composables/useArchiveCanvasData'
+import { resolveArchiveFontFamily } from '../utils/resolveArchiveFontFamily'
 
 const router = useRouter()
 const canvasHost = ref<HTMLElement | null>(null)
@@ -48,9 +49,37 @@ function returnToPlayer(): void {
   }
 }
 
-onMounted(() => {
-  if (!canvasHost.value) return
-  const root = canvasHost.value.attachShadow({ mode: 'open' })
+onMounted(async () => {
+  const host = canvasHost.value
+  if (!host) return
+
+  const hostStyle = getComputedStyle(host)
+  const fonts = {
+    display: resolveArchiveFontFamily(
+      hostStyle.getPropertyValue('--archive-font-display'),
+      "'Plus Jakarta Sans', 'Auralis Archive CJK', sans-serif",
+    ),
+    data: resolveArchiveFontFamily(
+      hostStyle.getPropertyValue('--archive-font-data'),
+      "'Plus Jakarta Sans', 'Auralis Archive CJK', monospace",
+    ),
+    ui: resolveArchiveFontFamily(
+      hostStyle.getPropertyValue('--archive-font-ui'),
+      "'Plus Jakarta Sans', 'Auralis Archive CJK', sans-serif",
+    ),
+  }
+  if (document.fonts?.load) {
+    await Promise.allSettled([
+      document.fonts.load(`700 28px ${fonts.display}`, 'Album 2026 中文专辑名'),
+      document.fonts.load(`600 18px ${fonts.ui}`, 'Artist 123 暂无封面'),
+      document.fonts.load(`700 8px ${fonts.data}`, 'Date 2026 · 12 次 · 34 分钟'),
+      document.fonts.load(`700 18px ${fonts.display}`, 'Album 2026 中文专辑名'),
+      document.fonts.load(`600 12px ${fonts.ui}`, 'Artist 123 艺术家 · 12 次'),
+    ])
+  }
+  if (canvasHost.value !== host) return
+
+  const root = host.attachShadow({ mode: 'open' })
   // Only bundled markup; library text is assigned with textContent by the view adapter.
   root.innerHTML = `<style>${styles}</style>${markup}`
   view.value = mountArchiveCanvasView(root, {

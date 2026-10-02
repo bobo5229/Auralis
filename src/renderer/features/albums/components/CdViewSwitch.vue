@@ -148,7 +148,7 @@ onBeforeUnmount(() => {
 
 .cd-view-switch button {
   padding: 6px 0;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 12px;
   font-weight: 400;
   line-height: 20px;

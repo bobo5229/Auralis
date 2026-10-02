@@ -292,10 +292,11 @@ function emitPeakClick(event: MouseEvent | KeyboardEvent): void {
   --liner-shadow: 0 20px 48px rgba(0, 0, 0, 0.55);
   --liner-shadow-hover: 0 26px 60px rgba(0, 0, 0, 0.68);
   --liner-font-body:
-    'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --liner-font-ui: 'Outfit', 'Inter', system-ui, sans-serif;
-  --liner-font-mono: 'JetBrains Mono', 'Consolas', monospace;
-  --liner-font-number: 'Outfit', 'Inter', system-ui, sans-serif;
+    var(--auralis-font-latin), 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    Roboto, sans-serif;
+  --liner-font-ui: var(--auralis-font-latin), 'Outfit', 'Inter', system-ui, sans-serif;
+  --liner-font-mono: var(--auralis-font-latin), 'JetBrains Mono', 'Consolas', monospace;
+  --liner-font-number: var(--auralis-font-latin), 'Outfit', 'Inter', system-ui, sans-serif;
   backdrop-filter: blur(28px);
   -webkit-backdrop-filter: blur(28px);
 }

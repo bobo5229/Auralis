@@ -17,6 +17,7 @@ export const PRIMARY_WARMABLE_ROUTES: readonly WarmableRouteName[] = [
  * 绝不能在模块顶层 import 任何页面组件，保持页面级代码分割。
  */
 export const rawRouteLoaders = {
+  home: () => import('@renderer/features/home/pages/HomePage.vue'),
   library: () => import('@renderer/features/library/pages/LibraryPage.vue'),
   albums: () => import('@renderer/features/albums/pages/AlbumsPage.vue'),
   cdAlbums: () => import('@renderer/features/albums/pages/CdAlbumsPage.vue'),
@@ -53,6 +54,7 @@ export function createRouteLoaderRegistry(
   }
 
   const routeLoaders = {
+    home: () => getOrLoad('home', loaders.home),
     library: () => getOrLoad('library', loaders.library),
     albums: () => getOrLoad('albums', loaders.albums),
     cdAlbums: () => getOrLoad('cdAlbums', loaders.cdAlbums),

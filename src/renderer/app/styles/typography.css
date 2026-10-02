@@ -4,19 +4,22 @@
  * 字号、字重、行高等仍由各组件或歌曲页参数控制。
  * 声迹字体角色单独定义在 app/styles/archive-tokens.css。 */
 :root {
-  /* 通用界面：根节点继承，覆盖设置、音乐来源路径与常规控件。
-   * 完整字体栈须与 main.css 迁移前的 :root 声明逐字一致；
-   * 混排依赖字形覆盖：ASCII 数字命中 Auralis Numerals，
-   * 英文命中 Plus Jakarta Sans，中文命中 HarmonyOS Sans SC。 */
+  /* 英文与数字共享本地加载的 Plus Jakarta Sans 字体。 */
+  --auralis-font-latin: 'Plus Jakarta Sans';
+
+  /* 通用界面：根节点继承，覆盖设置、音乐来源路径与常规控件。 */
   --auralis-font-ui:
-    'Auralis Numerals', 'Plus Jakarta Sans', 'HarmonyOS Sans SC', 'Arial Unicode MS', 'Nirmala UI',
+    var(--auralis-font-latin), 'HarmonyOS Sans SC', 'Arial Unicode MS', 'Nirmala UI',
     'Microsoft Himalaya', 'Leelawadee UI', 'Segoe UI Symbol', ui-sans-serif, system-ui,
     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  /* 颜色数值：HEX、RGB 输入与显示，数字和字母统一使用现有英文字体。 */
+  --auralis-font-color-value: var(--auralis-font-latin), ui-sans-serif, system-ui, sans-serif;
 
   /* 碟片标题：歌曲封面视图、专辑详情与设置预览共用。 */
   --auralis-font-disc-heading: Georgia, 'HarmonyOS Sans SC', sans-serif;
 
-  /* 桌面歌词：桌面歌词窗口 .desktop-lyrics-lines。 */
-  --auralis-font-desktop-lyrics: 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
-
+  /* 桌面歌词：英文数字优先使用 Plus Jakarta Sans，中文沿用歌词字体。 */
+  --auralis-font-desktop-lyrics:
+    var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
 }

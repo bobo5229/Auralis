@@ -5,7 +5,11 @@ import { usePlayback } from '@renderer/features/playback/composables/usePlayback
 import { useTrackLyrics } from '@renderer/features/lyrics/composables/useTrackLyrics'
 import { useReducedMotion } from '@renderer/features/lyrics/composables/useReducedMotion'
 import { animateProgress } from '@renderer/shared/animation/motion'
-import { cdLyricsPlacement, type LyricsRect } from '../utils/cdLyricsPlacement'
+import {
+  cdLyricsArcPlacement,
+  cdLyricsPlacement,
+  type LyricsRect,
+} from '../utils/cdLyricsPlacement'
 import {
   calculateCentrifugalRadius,
   calculateOrbitOffset,
@@ -28,6 +32,11 @@ const playback = usePlayback()
 const { status, loadFailed, rawLyrics, parsedLines, activeIndex } = useTrackLyrics()
 const motion = useReducedMotion()
 const arcId = `cd-lyric-arc-${useId()}`
+const maskId = `cd-lyric-mask-${useId()}`
+const exclusions = shallowRef<LyricsRect[]>([])
+const arcAvailable = ref(true)
+const relocationOpacity = ref(1)
+let cancelRelocation: (() => void) | undefined
 const target = shallowRef<HTMLElement | null>(null)
 const arcPath = ref('')
 let arcCenter = Math.random() * 360
@@ -57,6 +66,12 @@ function resetExitAnimationStyles(): void {
   }
 }
 const placement = shallowRef<LyricsRect | null>(null)
+const fallbackFontSize = computed(() => {
+  const width = placement.value?.width ?? 0
+  const measuredWidth = glyphMetrics.value.reduce((sum, glyph) => sum + glyph.width, 0)
+  const naturalWidth = (measuredWidth / fontSize.value) * 20 + glyphMetrics.value.length * (20 / 30)
+  return naturalWidth > 0 ? 20 * Math.min(1, Math.max(0, width - 16) / (naturalWidth * 1.08)) : 20
+})
 const showEmpty = ref(false)
 const emptyOpacity = ref(1)
 const notifiedTracks = new Set<number>()
@@ -138,6 +153,66 @@ function projectArc(): void {
     }
     return { x, y, scale }
   }
+  const stageBounds = stage.getBoundingClientRect()
+  const rect = (element: HTMLElement, gap: number): LyricsRect => {
+    const box = element.getBoundingClientRect()
+    return {
+      left: box.left - stageBounds.left - gap,
+      top: box.top - stageBounds.top - gap,
+      width: box.width + gap * 2,
+      height: box.height + gap * 2,
+    }
+  }
+  const bounds = {
+    left: 24,
+    top: 24,
+    width: stage.clientWidth - 48,
+    height: stage.clientHeight - 48,
+  }
+  exclusions.value = [props.information, props.tracks]
+    .filter((element): element is HTMLElement => element !== null)
+    .map((element) => rect(element, 20))
+  placement.value = cdLyricsPlacement(bounds, [rect(disc, 80), ...exclusions.value])
+  fontSize.value = 24 * Math.hypot(transforms[2].matrix.a, transforms[2].matrix.b)
+  const rectangleAt = (center: number): LyricsRect => {
+    const reversed =
+      center === arcCenter && arcReversed !== null
+        ? arcReversed
+        : project(center + 0.5, 252).x < project(center - 0.5, 252).x
+    const points = Array.from({ length: 25 }, (_, index) =>
+      project(center - 60 + index * 5, reversed ? 276 : 252),
+    )
+    // Cover the entire arc and glyph height, including perspective enlargement.
+    const padding = fontSize.value * Math.max(1, ...points.map((point) => 1 / point.scale)) + 2
+    const left = Math.min(...points.map((point) => point.x)) - padding
+    const top = Math.min(...points.map((point) => point.y)) - padding
+    return {
+      left,
+      top,
+      width: Math.max(...points.map((point) => point.x)) + padding - left,
+      height: Math.max(...points.map((point) => point.y)) + padding - top,
+    }
+  }
+  const safeCenter = cdLyricsArcPlacement(arcCenter, rectangleAt, bounds, exclusions.value)
+  arcAvailable.value = safeCenter !== null
+  if (safeCenter !== null && safeCenter !== arcCenter) {
+    arcCenter = safeCenter
+    arcReversed = null
+    cancelRelocation?.()
+    relocationOpacity.value = motion.matches.value ? 1 : 0
+    if (!motion.matches.value) {
+      cancelRelocation = animateProgress(
+        180,
+        (progress) => {
+          relocationOpacity.value = progress
+        },
+        () => {
+          cancelRelocation = undefined
+          relocationOpacity.value = 1
+        },
+      )
+    }
+  }
   // Choose a left-to-right direction after perspective, and keep it for this line
   // so hovering near a vertical tangent cannot repeatedly flip the text.
   arcReversed ??= project(arcCenter + 0.5, 252).x < project(arcCenter - 0.5, 252).x
@@ -157,7 +232,6 @@ function projectArc(): void {
     .map((point, index) => `${index ? 'L' : 'M'}${point.x.toFixed(3)},${point.y.toFixed(3)}`)
     .join(' ')
   viewport.value = `0 0 ${stage.clientWidth} ${stage.clientHeight}`
-  fontSize.value = 24 * Math.hypot(transforms[2].matrix.a, transforms[2].matrix.b)
 }
 
 function measure(): void {
@@ -170,27 +244,16 @@ function measure(): void {
   }
   target.value = stage
   projectArc()
-  const bounds = stage.getBoundingClientRect()
-  const rect = (element: HTMLElement, gap: number): LyricsRect => {
-    const box = element.getBoundingClientRect()
-    return {
-      left: box.left - bounds.left - gap,
-      top: box.top - bounds.top - gap,
-      width: box.width + gap * 2,
-      height: box.height + gap * 2,
-    }
-  }
-  placement.value =
-    props.information && props.tracks
-      ? cdLyricsPlacement(
-          { left: 24, top: 24, width: bounds.width - 48, height: bounds.height - 48 },
-          [rect(disc, 80), rect(props.information, 20), rect(props.tracks, 20)],
-        )
-      : null
 }
 
 watch(
-  [() => props.active, () => props.stage, () => props.information, () => props.tracks],
+  [
+    () => props.active,
+    () => props.stage,
+    () => props.information,
+    () => props.tracks,
+    () => playback.state.currentTrackId,
+  ],
   (_, __, onCleanup) => {
     measure()
     if (!props.active) return
@@ -362,6 +425,7 @@ watch(
 onBeforeUnmount(() => {
   motion.dispose()
   resetExitAnimationStyles()
+  cancelRelocation?.()
 })
 </script>
 
@@ -369,13 +433,25 @@ onBeforeUnmount(() => {
   <Teleport v-if="target" :to="target">
     <svg
       class="cd-lyric-arc"
-      :style="{ fill: props.accent }"
+      :style="{ fill: props.accent, visibility: arcAvailable ? 'visible' : 'hidden' }"
       :viewBox="viewport"
       role="img"
       :aria-label="currentLine || t('albums.cd.lyrics.label')"
     >
       <defs>
         <path :id="arcId" :d="arcPath" />
+        <mask :id="maskId" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse">
+          <rect width="100%" height="100%" fill="white" />
+          <rect
+            v-for="(rect, index) in exclusions"
+            :key="index"
+            :x="rect.left"
+            :y="rect.top"
+            :width="rect.width"
+            :height="rect.height"
+            fill="black"
+          />
+        </mask>
       </defs>
       <text
         ref="measureRef"
@@ -390,6 +466,8 @@ onBeforeUnmount(() => {
         :font-size="fontSize"
         :letter-spacing="fontSize / 30 + extraSpacing"
         :fill-opacity="textOpacity"
+        :opacity="relocationOpacity"
+        :mask="`url(#${maskId})`"
       >
         <textPath :href="`#${arcId}`" :startOffset="startOffset">
           <tspan
@@ -403,6 +481,32 @@ onBeforeUnmount(() => {
             {{ glyph.text }}
           </tspan>
         </textPath>
+      </text>
+    </svg>
+    <svg
+      v-if="!arcAvailable && placement && displayedText"
+      class="cd-lyrics-fallback"
+      :style="{
+        left: `${placement.left}px`,
+        top: `${placement.top}px`,
+        width: `${placement.width}px`,
+        height: `${placement.height}px`,
+        color: props.accent,
+        opacity: textOpacity,
+      }"
+      role="img"
+      :aria-label="displayedText"
+    >
+      <text
+        x="50%"
+        y="50%"
+        dominant-baseline="middle"
+        text-anchor="middle"
+        :font-size="fallbackFontSize"
+        :letter-spacing="fallbackFontSize / 30"
+        fill="currentColor"
+      >
+        {{ displayedText }}
       </text>
     </svg>
   </Teleport>
@@ -429,7 +533,7 @@ onBeforeUnmount(() => {
   height: 100%;
   overflow: visible;
   pointer-events: none;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-weight: 400;
   text-rendering: geometricPrecision;
 }
@@ -442,9 +546,14 @@ onBeforeUnmount(() => {
   justify-content: center;
   pointer-events: none;
   text-align: center;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   color: var(--cd-text-muted, #62625b);
   font-size: 13px;
   line-height: 22px;
+}
+.cd-lyrics-fallback {
+  position: absolute;
+  pointer-events: none;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
 }
 </style>

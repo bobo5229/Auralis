@@ -84,10 +84,9 @@ export const auralisApi: AuralisApi = {
     getDetail: (id) => invoke(ipcChannels.smartPlaylists.getDetail, { id }),
     create: (name, rule) => invoke(ipcChannels.smartPlaylists.create, { name, rule }),
     createFromQuery: (query) => invoke(ipcChannels.smartPlaylists.createFromQuery, { query }),
-    createRecentFrequent: (days) =>
-      invoke(ipcChannels.smartPlaylists.createRecentFrequent, { days }),
-    updateRecentFrequentDays: (id, days) =>
-      invoke(ipcChannels.smartPlaylists.updateRecentFrequentDays, { id, days }),
+    createRecentAdded: (days) => invoke(ipcChannels.smartPlaylists.createRecentAdded, { days }),
+    updateRecentAddedDays: (id, days) =>
+      invoke(ipcChannels.smartPlaylists.updateRecentAddedDays, { id, days }),
     rename: (id, name) => invoke(ipcChannels.smartPlaylists.rename, { id, name }),
     updateViewMode: (id, viewMode) =>
       invoke(ipcChannels.smartPlaylists.updateViewMode, { id, viewMode }),

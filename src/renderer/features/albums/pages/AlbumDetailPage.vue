@@ -782,7 +782,7 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   max-width: 100%;
   color: var(--auralis-text);
-  font-family: 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
   font-size: clamp(24px, 2.8vw, 38px);
   font-weight: 800;
   line-height: 1.22;

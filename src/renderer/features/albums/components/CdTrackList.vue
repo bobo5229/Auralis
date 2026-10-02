@@ -145,7 +145,7 @@ button:focus-visible {
 h2 {
   margin: 0;
   font:
-    400 20px/1.25 Georgia,
+    400 20px/1.25 var(--auralis-font-latin),
     'Auralis Desktop Lyrics SC',
     serif;
 }
@@ -153,7 +153,7 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: Georgia, 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
   font-size: 11px;
   line-height: 16px;
   padding: 4px 0 4px 8px;
@@ -191,10 +191,7 @@ h2 {
 .cd-disc-heading {
   margin: 22px 0 9px;
   color: var(--cd-text-muted, #62625b);
-  font:
-    400 11px Georgia,
-    'Auralis Desktop Lyrics SC',
-    serif;
+  font: 400 11px var(--auralis-font-disc-heading);
   letter-spacing: 0.08em;
 }
 .cd-track-panel .cd-track {
@@ -216,7 +213,7 @@ h2 {
 .cd-track-number {
   color: var(--cd-text-subtle, #77776f);
   font:
-    11px/1.7 Georgia,
+    11px/1.7 var(--auralis-font-latin),
     'Auralis Desktop Lyrics SC',
     serif;
   font-variant-numeric: tabular-nums;
@@ -238,7 +235,7 @@ h2 {
 }
 .cd-track-title {
   font:
-    400 14px/1.5 Georgia,
+    400 14px/1.5 var(--auralis-font-latin),
     'Auralis Desktop Lyrics SC',
     serif;
 }
@@ -259,7 +256,7 @@ h2 {
 }
 .cd-track-artist {
   font:
-    11px/1.5 Georgia,
+    11px/1.5 var(--auralis-font-latin),
     'Auralis Desktop Lyrics SC',
     serif;
   color: var(--cd-text-subtle, #77776f);

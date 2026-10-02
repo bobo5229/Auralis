@@ -166,4 +166,15 @@ describe('useTheme', () => {
     expect(mockStorage.getItem(THEME_STORAGE_KEY)).toBe('dark')
     expect(mockDoc.documentElement.dataset.theme).toBe('dark')
   })
+
+  it('preserves the dark accent preference when switching themes', async () => {
+    mockStorage.setItem('auralis-dark-accent', '#22D3EE')
+    const { initTheme, setTheme } = useTheme()
+    initTheme()
+
+    await setTheme('light')
+    expect(mockStorage.getItem('auralis-dark-accent')).toBe('#22D3EE')
+    await setTheme('dark')
+    expect(mockStorage.getItem('auralis-dark-accent')).toBe('#22D3EE')
+  })
 })

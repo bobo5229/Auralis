@@ -3,6 +3,7 @@ import '@unocss/reset/tailwind.css'
 import 'virtual:uno.css'
 import './app/styles/main.css'
 import { useTheme } from './composables/useTheme'
+import { useDarkAccent } from './features/appearance/composables/useDarkAccent'
 import { tooltipPlugin } from './shared/tooltip/tooltip'
 import {
   APP_FAILED_EVENT,
@@ -13,6 +14,8 @@ import {
 
 const { initTheme } = useTheme()
 initTheme()
+const { initDarkAccent } = useDarkAccent()
+initDarkAccent()
 
 function waitForNextFrame(): Promise<void> {
   if (typeof requestAnimationFrame !== 'function') return Promise.resolve()
@@ -85,6 +88,7 @@ async function bootstrap(): Promise<void> {
   app.use(i18n)
   app.use(router)
   await router.isReady()
+  await router.replace({ name: 'home' })
   app.mount('#app')
   await nextTick()
   // 主界面就绪信号在路由就绪、Vue 挂载并渲染一帧后发出；

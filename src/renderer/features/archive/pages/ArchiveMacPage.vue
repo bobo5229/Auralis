@@ -12,6 +12,7 @@ import { mountArchiveMacView } from '../mac/mountArchiveMacView'
 import { useArchiveMacData } from '../composables/useArchiveMacData'
 import { useArchiveMacPlayback } from '../composables/useArchiveMacPlayback'
 import { CoverPipeline } from '../mac/coverPipeline'
+import { resolveArchiveFontFamily } from '../utils/resolveArchiveFontFamily'
 import type { MacViewController } from '../mac/macViewTypes'
 import type { LibraryChangedReason } from '@shared/ipc/contracts'
 
@@ -20,10 +21,11 @@ const canvasHost = ref<HTMLElement | null>(null)
 const data = useArchiveMacData()
 const macPlayback = useArchiveMacPlayback()
 const view = shallowRef<MacViewController | null>(null)
-const coverPipeline = new CoverPipeline()
 const processedCovers = shallowRef(new Map<string, HTMLCanvasElement>())
 
 let unsubscribe: (() => void) | undefined
+let stopCoverWatch: (() => void) | undefined
+let coverPipeline: CoverPipeline | null = null
 let debounceTimer: number | null = null
 let coverRevision = 0
 let disposed = false
@@ -49,35 +51,6 @@ function returnToArchive(): void {
   }
 }
 
-// Watch data.items to run cover pipeline asynchronously
-watch(
-  () => data.items.value,
-  async (newItems) => {
-    const signature = JSON.stringify(
-      newItems.map((item) => [item.key, item.artworkCacheKey, item.title]),
-    )
-    if (signature === coverSignature) return
-    coverSignature = signature
-    const rev = ++coverRevision
-    processedCovers.value = new Map()
-    const newMap = new Map<string, HTMLCanvasElement>()
-
-    await Promise.all(
-      newItems.map(async (item) => {
-        const canvas = await coverPipeline.getCover(item.artworkCacheKey, rev, item.title)
-        if (rev === coverRevision && !disposed) {
-          newMap.set(item.key, canvas)
-        }
-      }),
-    )
-
-    if (rev === coverRevision && !disposed) {
-      processedCovers.value = newMap
-    }
-  },
-  { immediate: true },
-)
-
 // Sync model to view
 watchEffect(() => {
   view.value?.update({
@@ -102,10 +75,21 @@ watchEffect(() => {
 })
 
 onMounted(async () => {
-  if (!canvasHost.value) return
+  const host = canvasHost.value
+  if (!host) return
+
+  const macFont = resolveArchiveFontFamily(
+    getComputedStyle(host).getPropertyValue('--mac-font'),
+    "'Plus Jakarta Sans', 'Auralis Mac Pixel', 'Microsoft YaHei', sans-serif",
+  )
 
   try {
-    await document.fonts.load('12px "Auralis Mac Pixel"', '专辑统计 Album 0123')
+    if (document.fonts?.load) {
+      await Promise.all([
+        document.fonts.load(`400 12px ${macFont}`, 'Album 0123 专辑统计'),
+        document.fonts.load('400 12px "Auralis Mac Pixel"', '专辑统计'),
+      ])
+    }
   } catch (err) {
     rendererDiagnostics.warn({
       scope: 'archive.mac.page',
@@ -114,9 +98,12 @@ onMounted(async () => {
     })
   }
 
-  if (disposed || !canvasHost.value) return
+  if (disposed || canvasHost.value !== host) return
 
-  const root = canvasHost.value.attachShadow({ mode: 'open' })
+  const pipeline = new CoverPipeline({ placeholderFontFamily: macFont })
+  coverPipeline = pipeline
+
+  const root = host.attachShadow({ mode: 'open' })
   root.innerHTML = `<style>${archiveMacCss}\n${macAlbumWindowCss}\n${loadTrayCss}</style>${markup}`
 
   view.value = mountArchiveMacView(root, {
@@ -128,6 +115,35 @@ onMounted(async () => {
     onRetryDay: (date) => data.retryDay(date),
     onRequestInsert: macPlayback.playAlbum,
   })
+
+  // Wait for the CSS families above before creating fallback canvases or caching them.
+  stopCoverWatch = watch(
+    () => data.items.value,
+    async (newItems) => {
+      const signature = JSON.stringify(
+        newItems.map((item) => [item.key, item.artworkCacheKey, item.title]),
+      )
+      if (signature === coverSignature) return
+      coverSignature = signature
+      const rev = ++coverRevision
+      processedCovers.value = new Map()
+      const newMap = new Map<string, HTMLCanvasElement>()
+
+      await Promise.all(
+        newItems.map(async (item) => {
+          const canvas = await pipeline.getCover(item.artworkCacheKey, rev, item.title)
+          if (rev === coverRevision && !disposed) {
+            newMap.set(item.key, canvas)
+          }
+        }),
+      )
+
+      if (rev === coverRevision && !disposed) {
+        processedCovers.value = newMap
+      }
+    },
+    { immediate: true },
+  )
 
   // Subscribe to library changes
   unsubscribe = auralis.library.onChanged((event) => {
@@ -143,10 +159,11 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   disposed = true
+  stopCoverWatch?.()
   if (debounceTimer !== null) clearTimeout(debounceTimer)
   unsubscribe?.()
   view.value?.dispose()
-  coverPipeline.dispose()
+  coverPipeline?.dispose()
 })
 </script>
 
@@ -169,7 +186,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .archive-mac-page {
-  --mac-font: 'Auralis Mac Pixel', 'Microsoft YaHei', sans-serif;
+  --mac-font: var(--auralis-font-latin), 'Auralis Mac Pixel', 'Microsoft YaHei', sans-serif;
   font-synthesis: none;
   height: 100%;
   min-height: 0;
