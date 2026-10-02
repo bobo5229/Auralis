@@ -79,6 +79,13 @@
     "appearance": {
       "theme": "主题",
       "themeDescription": "选择应用界面为深色或浅色外观。",
+      "reducedMotion": {
+        "title": "减少动态效果",
+        "description": "减少位移、缩放和持续动效。默认跟随系统，也可手动开启。",
+        "system": "跟随系统",
+        "enabled": "开启",
+        "persistFailed": "已应用，本次保存未完成。"
+      },
       "themeDark": "深色",
       "themeLight": "浅色",
       "darkAccent": {

@@ -364,25 +364,23 @@ function onRadiusInput(event: Event): void {
   opacity: 0;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .song-font-weight-details::details-content {
-    transition:
-      opacity 120ms ease,
-      content-visibility 120ms;
-  }
+:where([data-reduced-motion='true']) .song-font-weight-details::details-content {
+  transition:
+    opacity 120ms ease,
+    content-visibility 120ms;
+}
 
-  .song-font-weight-chevron {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) .song-font-weight-chevron {
+  transition: none;
+}
 
-  .song-font-weight-reset-notice-enter-active,
-  .song-font-weight-reset-notice-leave-active {
-    transition: opacity 120ms ease;
-  }
+:where([data-reduced-motion='true']) .song-font-weight-reset-notice-enter-active,
+:where([data-reduced-motion='true']) .song-font-weight-reset-notice-leave-active {
+  transition: opacity 120ms ease;
+}
 
-  .song-font-weight-reset-notice-enter-from {
-    transform: none;
-  }
+:where([data-reduced-motion='true']) .song-font-weight-reset-notice-enter-from {
+  transform: none;
 }
 
 .song-font-weight-reset:hover {
@@ -514,11 +512,9 @@ function onRadiusInput(event: Event): void {
   text-align: right;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .song-cover-radius-reveal-enter-active,
-  .song-cover-radius-reveal-leave-active {
-    transition: opacity 120ms ease;
-  }
+:where([data-reduced-motion='true']) .song-cover-radius-reveal-enter-active,
+:where([data-reduced-motion='true']) .song-cover-radius-reveal-leave-active {
+  transition: opacity 120ms ease;
 }
 
 .song-font-weight-rows {

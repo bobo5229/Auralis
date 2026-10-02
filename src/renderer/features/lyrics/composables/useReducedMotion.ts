@@ -1,5 +1,8 @@
 import { readonly, ref, type Ref } from 'vue'
-import { REDUCED_MOTION_QUERY } from '../utils/lyricsMotion'
+import {
+  createReducedMotionQuery,
+  type MotionQuery,
+} from '@renderer/shared/animation/motionPreference'
 
 export interface UseReducedMotion {
   matches: Readonly<Ref<boolean>>
@@ -8,12 +11,12 @@ export interface UseReducedMotion {
 }
 
 /**
- * Reactive `prefers-reduced-motion` state backed by matchMedia. The query
+ * Reactive effective reduced-motion state (system or in-app preference). The query
  * factory is injectable for node tests; the caller must call `dispose()` on
  * unmount to remove the change listener.
  */
 export function useReducedMotion(
-  createQuery: () => MediaQueryList = () => window.matchMedia(REDUCED_MOTION_QUERY),
+  createQuery: () => MotionQuery = createReducedMotionQuery,
 ): UseReducedMotion {
   const query = createQuery()
   const matches = ref(query.matches)

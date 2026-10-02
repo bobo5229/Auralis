@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, shallowRef, watch, watchEffect } from 'vue'
+import { onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
@@ -10,8 +10,6 @@ import loadTrayCss from '../mac/loadTray.css?raw'
 import '../mac/archiveMacFonts.css'
 import { mountArchiveMacView } from '../mac/mountArchiveMacView'
 import { useArchiveMacData } from '../composables/useArchiveMacData'
-import { useArchiveMacPlayback } from '../composables/useArchiveMacPlayback'
-import { CoverPipeline } from '../mac/coverPipeline'
 import { resolveArchiveFontFamily } from '../utils/resolveArchiveFontFamily'
 import type { MacViewController } from '../mac/macViewTypes'
 import type { LibraryChangedReason } from '@shared/ipc/contracts'
@@ -19,17 +17,11 @@ import type { LibraryChangedReason } from '@shared/ipc/contracts'
 const router = useRouter()
 const canvasHost = ref<HTMLElement | null>(null)
 const data = useArchiveMacData()
-const macPlayback = useArchiveMacPlayback()
 const view = shallowRef<MacViewController | null>(null)
-const processedCovers = shallowRef(new Map<string, HTMLCanvasElement>())
 
 let unsubscribe: (() => void) | undefined
-let stopCoverWatch: (() => void) | undefined
-let coverPipeline: CoverPipeline | null = null
 let debounceTimer: number | null = null
-let coverRevision = 0
 let disposed = false
-let coverSignature = ''
 
 const RELEVANT_REASONS = new Set<LibraryChangedReason>([
   'play-stats-updated',
@@ -42,12 +34,16 @@ const RELEVANT_REASONS = new Set<LibraryChangedReason>([
   'file-change',
 ])
 
-function returnToArchive(): void {
+function returnToPlayer(): void {
   const previous = router.options.history.state.back
-  if (typeof previous === 'string' && previous.startsWith('/') && previous !== '/archive/mac') {
+  if (
+    typeof previous === 'string' &&
+    previous.startsWith('/') &&
+    !/^\/archive(?:[/?#]|$)/.test(previous)
+  ) {
     router.back()
   } else {
-    void router.replace({ name: 'archive' })
+    void router.replace({ name: 'library' })
   }
 }
 
@@ -66,11 +62,6 @@ watchEffect(() => {
     dayError: data.dayError.value,
     items: data.items.value,
     selectedAlbumKey: data.selectedAlbumKey.value,
-    covers: processedCovers.value,
-    canInsert: true,
-    inserting: false,
-    busy: false,
-    playbackMessage: macPlayback.message.value,
   })
 })
 
@@ -100,9 +91,6 @@ onMounted(async () => {
 
   if (disposed || canvasHost.value !== host) return
 
-  const pipeline = new CoverPipeline({ placeholderFontFamily: macFont })
-  coverPipeline = pipeline
-
   const root = host.attachShadow({ mode: 'open' })
   root.innerHTML = `<style>${archiveMacCss}\n${macAlbumWindowCss}\n${loadTrayCss}</style>${markup}`
 
@@ -113,37 +101,7 @@ onMounted(async () => {
     onSelectAlbum: (key) => data.selectAlbum(key),
     onRetryCalendar: () => data.retryCalendar(),
     onRetryDay: (date) => data.retryDay(date),
-    onRequestInsert: macPlayback.playAlbum,
   })
-
-  // Wait for the CSS families above before creating fallback canvases or caching them.
-  stopCoverWatch = watch(
-    () => data.items.value,
-    async (newItems) => {
-      const signature = JSON.stringify(
-        newItems.map((item) => [item.key, item.artworkCacheKey, item.title]),
-      )
-      if (signature === coverSignature) return
-      coverSignature = signature
-      const rev = ++coverRevision
-      processedCovers.value = new Map()
-      const newMap = new Map<string, HTMLCanvasElement>()
-
-      await Promise.all(
-        newItems.map(async (item) => {
-          const canvas = await pipeline.getCover(item.artworkCacheKey, rev, item.title)
-          if (rev === coverRevision && !disposed) {
-            newMap.set(item.key, canvas)
-          }
-        }),
-      )
-
-      if (rev === coverRevision && !disposed) {
-        processedCovers.value = newMap
-      }
-    },
-    { immediate: true },
-  )
 
   // Subscribe to library changes
   unsubscribe = auralis.library.onChanged((event) => {
@@ -159,26 +117,24 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   disposed = true
-  stopCoverWatch?.()
   if (debounceTimer !== null) clearTimeout(debounceTimer)
   unsubscribe?.()
   view.value?.dispose()
-  coverPipeline?.dispose()
 })
 </script>
 
 <template>
-  <section class="archive-mac-page" aria-label="Mac 声迹独立预览">
+  <section class="archive-mac-page" aria-label="Mac 声迹">
     <header class="archive-mac-header">
       <button
         type="button"
         class="archive-mac-back-btn"
-        aria-label="返回声迹画板"
-        @click="returnToArchive"
+        aria-label="返回播放器"
+        @click="returnToPlayer"
       >
         <span aria-hidden="true">←</span> 返回
       </button>
-      <span class="archive-mac-title">AURALIS / MAC 声迹预览</span>
+      <span class="archive-mac-title">AURALIS / 声迹</span>
     </header>
     <div ref="canvasHost" class="archive-mac-host" />
   </section>

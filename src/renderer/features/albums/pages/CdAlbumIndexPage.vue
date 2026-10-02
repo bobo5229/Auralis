@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
@@ -195,10 +196,7 @@ function toggleTheme(): void {
   const transitionDocument = document as Document & {
     startViewTransition?: (update: () => void | Promise<void>) => unknown
   }
-  if (
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
-    !transitionDocument.startViewTransition
-  ) {
+  if (createReducedMotionQuery().matches || !transitionDocument.startViewTransition) {
     setCdCanvasTheme(nextTheme)
     return
   }
@@ -711,14 +709,12 @@ onBeforeUnmount(() => {
   max-height: 80%;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .cd-index-card--return .cd-index-cover {
-    animation: cd-index-return 1s ease forwards;
-  }
+:where([data-reduced-motion='false']) .cd-index-card--return .cd-index-cover {
+  animation: cd-index-return 1s ease forwards;
+}
 
-  .cd-index-cover {
-    transition: box-shadow 160ms ease;
-  }
+:where([data-reduced-motion='false']) .cd-index-cover {
+  transition: box-shadow 160ms ease;
 }
 
 @keyframes cd-index-return {

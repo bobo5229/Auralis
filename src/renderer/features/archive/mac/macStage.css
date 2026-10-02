@@ -1,0 +1,118 @@
+.stage-caption.is-appearing canvas {
+  animation: projection-appear 360ms ease-out;
+}
+@keyframes projection-appear {
+  0%,
+  24%,
+  48% {
+    opacity: 0.15;
+  }
+  12%,
+  36%,
+  100% {
+    opacity: 0.85;
+  }
+}
+:host-context([data-reduced-motion='true']) .stage-caption.is-appearing canvas {
+  animation: none;
+}
+
+/* Stage host */
+.stage-host {
+  position: relative;
+  min-width: 0;
+  align-self: center;
+  z-index: 1;
+}
+.stage-container {
+  position: relative;
+  aspect-ratio: 800 / 480;
+}
+.stage-source,
+.stage-output {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.stage-source {
+  opacity: 1;
+  touch-action: none;
+  cursor: grab;
+}
+.stage-source.is-carrying {
+  cursor: grabbing;
+}
+.stage-output {
+  display: none;
+}
+.stage-caption {
+  height: 46px;
+  margin: 0 15%;
+  perspective: 600px;
+}
+.stage-caption canvas {
+  width: 100%;
+  height: 46px;
+  transform: rotateX(48deg);
+  image-rendering: auto;
+  opacity: 0.85;
+}
+.sr {
+  position: absolute;
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.stage-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.stage-controls button {
+  font-family: var(--mac-font);
+  font-size: 12px;
+  padding: 5px 8px;
+  color: #d5cede;
+  background: #211a2d;
+  border: 1px solid #70617f;
+  cursor: pointer;
+  border-radius: 0;
+}
+.stage-controls button:hover:not(:disabled) {
+  background: #3b2c4e;
+}
+.stage-controls button:focus-visible {
+  outline: 2px solid var(--archive-color-accent-primary);
+  outline-offset: 2px;
+}
+.stage-controls button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.selectors {
+  display: flex;
+  gap: 4px;
+}
+.selectors button[aria-pressed='true'] {
+  background: #543148;
+  border-color: #ff8fc3;
+  color: #fff;
+}
+.position {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.stage-tip {
+  text-align: center;
+  color: #c3b4cf;
+  font-size: 12px;
+  margin: 12px 0 0;
+}
+#stage-auto {
+  display: none;
+}

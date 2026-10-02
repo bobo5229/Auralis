@@ -236,17 +236,22 @@ watch(darkAccent, async () => {
         <button
           ref="triggerRef"
           type="button"
-          class="dark-accent-toggle settings-segmented-option"
+          class="dark-accent-toggle"
           aria-labelledby="dark-accent-label"
           aria-controls="dark-accent-picker-panel"
           :aria-expanded="isOpen"
-          @click="togglePicker"
-        >
-          {{
+          :aria-label="
             isOpen
               ? t('settings.appearance.darkAccent.close')
               : t('settings.appearance.darkAccent.change')
-          }}
+          "
+          @click="togglePicker"
+        >
+          <span
+            class="dark-accent-toggle-chevron"
+            :class="isOpen ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+            aria-hidden="true"
+          ></span>
         </button>
       </div>
     </div>
@@ -341,14 +346,38 @@ watch(darkAccent, async () => {
 }
 
 .dark-accent-toggle {
-  min-height: 32px;
-  color: var(--auralis-text);
-  border: 1px solid var(--auralis-border-subtle);
-  background: var(--auralis-control-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: var(--auralis-text-muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 150ms ease;
 }
 
 .dark-accent-toggle:hover {
-  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+  background: transparent;
+  box-shadow: none;
+}
+
+.dark-accent-toggle:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
+}
+
+.dark-accent-toggle-chevron {
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+  flex-shrink: 0;
 }
 
 .dark-accent-picker-panel {
@@ -378,16 +407,16 @@ watch(darkAccent, async () => {
 
 .dark-accent-preview-row {
   position: relative;
-  display: grid;
-  align-content: start;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .dark-accent-preview-controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
 .dark-accent-preview-icon {
@@ -403,11 +432,12 @@ watch(darkAccent, async () => {
 }
 
 .dark-accent-preview-progress {
+  width: 100%;
   height: 3px;
-  max-width: 180px;
   border-radius: 999px;
   background: var(--auralis-progress-track);
   overflow: hidden;
+  margin-top: 2px;
 }
 
 .dark-accent-preview-progress > span {
@@ -417,7 +447,14 @@ watch(darkAccent, async () => {
   background: var(--dark-accent-preview);
 }
 
-.dark-accent-preview-label,
+.dark-accent-preview-label {
+  align-self: flex-start;
+  color: var(--auralis-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
 .dark-accent-message {
   color: var(--auralis-text-muted);
   font-size: 12px;
@@ -504,8 +541,11 @@ watch(darkAccent, async () => {
   grid-column: 2;
   grid-row: 3;
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 6px;
   flex-wrap: wrap;
-  gap: 10px;
   padding-top: 12px;
   margin: 0;
   padding-left: 0;
@@ -576,18 +616,17 @@ watch(darkAccent, async () => {
 }
 
 .dark-accent-reset {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  min-height: 30px;
-  padding: 0 0 0 10px;
+  align-self: flex-end;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
+  padding: 0;
   color: var(--auralis-text-muted);
   background: transparent;
   font-size: 11px;
   font-weight: 600;
+  line-height: 1.4;
   cursor: pointer;
+  transition: color 150ms ease;
 }
 
 .dark-accent-reset:hover {
@@ -644,11 +683,9 @@ watch(darkAccent, async () => {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .dark-accent-expand-enter-active,
-  .dark-accent-expand-leave-active {
-    transition: opacity 120ms ease;
-  }
+:where([data-reduced-motion='true']) .dark-accent-expand-enter-active,
+:where([data-reduced-motion='true']) .dark-accent-expand-leave-active {
+  transition: opacity 120ms ease;
 }
 
 @media (max-width: 520px) {

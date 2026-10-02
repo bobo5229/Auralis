@@ -1,9 +1,10 @@
+import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { animate } from '@motionone/dom'
 import type { AnimationControls } from '@motionone/types'
 
 /** A quiet tooltip fade, with no movement and no animation under reduced motion. */
 export function animateTooltipOpacity(target: HTMLElement, visible: boolean): () => void {
-  const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const preference = createReducedMotionQuery()
   target.style.opacity = visible ? '1' : '0'
   if (preference.matches) return () => {}
   const animation = target.animate([{ opacity: visible ? 0 : 1 }, { opacity: visible ? 1 : 0 }], {
@@ -20,7 +21,7 @@ export function animateTooltipOpacity(target: HTMLElement, visible: boolean): ()
 
 /** A compositor-only playback marker; paused/reduced motion keeps a static line. */
 export function animatePlaybackUnderline(target: HTMLElement, playing: boolean): () => void {
-  const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const preference = createReducedMotionQuery()
   const title = target.parentElement
   let animation: Animation | undefined
   const update = (): void => {
@@ -64,7 +65,7 @@ const PLAYBACK_BAR_SPECS = [
 
 export function animatePlaybackBars(bars: readonly HTMLElement[], playing: boolean): () => void {
   if (bars.length === 0) return () => {}
-  const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const preference = createReducedMotionQuery()
   const animations: Animation[] = []
   const toScale = (height: number): string => `scaleY(${(height / PLAYBACK_BAR_HEIGHT).toFixed(3)})`
   const specFor = (index: number): (typeof PLAYBACK_BAR_SPECS)[number] =>
@@ -108,7 +109,7 @@ export function animatePlaybackBars(bars: readonly HTMLElement[], playing: boole
 
 /** Sweep a graphite text fill while playback is active, respecting reduced motion. */
 export function animatePlaybackTextShimmer(target: HTMLElement): () => void {
-  const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const preference = createReducedMotionQuery()
   let animation: Animation | undefined
   const update = (): void => {
     const elapsed = animation?.currentTime
@@ -132,7 +133,7 @@ export function animatePlaybackTextShimmer(target: HTMLElement): () => void {
 
 /** Carry a gallery cover into its destination without retaining route DOM. */
 export function createAlbumArtworkTransition(source: HTMLElement, content: HTMLElement) {
-  const motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const motionPreference = createReducedMotionQuery()
   const reducedMotion = motionPreference.matches
   const animations: Animation[] = []
   let stopped = false

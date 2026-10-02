@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -303,7 +304,7 @@ watch(
   },
   { flush: 'post', immediate: true },
 )
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+const reducedMotion = createReducedMotionQuery()
 let vinylBlend = 0
 let cancelSurfaceAnimation: (() => void) | null = null
 const surfaceIndicatorMotion: CdSurfaceIndicatorMotionState = {
@@ -353,10 +354,7 @@ function toggleCdCanvasTheme(): void {
     startViewTransition?: (update: () => void | Promise<void>) => unknown
   }
 
-  if (
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
-    !transitionDocument.startViewTransition
-  ) {
+  if (createReducedMotionQuery().matches || !transitionDocument.startViewTransition) {
     setCdCanvasTheme(nextTheme)
     return
   }
@@ -1099,12 +1097,10 @@ onBeforeUnmount(() => {
     ),
     repeating-radial-gradient(circle, #0e0e0e 0 1px, #2a2a2a 1.4px 1.8px, #0a0a0a 2.2px 3px);
 }
-@media (prefers-reduced-motion: reduce) {
-  .cd-info,
-  .cd-controls,
-  .cd-theme-toggle {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) .cd-info,
+:where([data-reduced-motion='true']) .cd-controls,
+:where([data-reduced-motion='true']) .cd-theme-toggle {
+  transition: none;
 }
 /* CD canvas is local to this page. Light values match the approved demo. */
 .cd-page {
@@ -1558,23 +1554,23 @@ onBeforeUnmount(() => {
   color: transparent;
   -webkit-text-fill-color: transparent;
 }
-@media (prefers-reduced-motion: reduce) {
-  .cd-page .cd-browsing-playback-label--playing,
-  .cd-page .cd-browsing-playback-label--playing:hover:not(:disabled) {
-    background: none;
-    color: var(--cd-text-faint);
-    -webkit-text-fill-color: currentColor;
-  }
-  .cd-focused-playback-fade-enter-active,
-  .cd-focused-playback-fade-leave-active {
-    transition: none;
-  }
-  .cd-focused-playback {
-    transition: none;
-  }
-  .cd-focused-playback-chevron {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) .cd-page .cd-browsing-playback-label--playing,
+:where([data-reduced-motion='true'])
+  .cd-page
+  .cd-browsing-playback-label--playing:hover:not(:disabled) {
+  background: none;
+  color: var(--cd-text-faint);
+  -webkit-text-fill-color: currentColor;
+}
+:where([data-reduced-motion='true']) .cd-focused-playback-fade-enter-active,
+:where([data-reduced-motion='true']) .cd-focused-playback-fade-leave-active {
+  transition: none;
+}
+:where([data-reduced-motion='true']) .cd-focused-playback {
+  transition: none;
+}
+:where([data-reduced-motion='true']) .cd-focused-playback-chevron {
+  transition: none;
 }
 .cd-browsing-playback-timeline {
   position: relative;

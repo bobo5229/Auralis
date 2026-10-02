@@ -414,14 +414,15 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .settings-page .settings-switch,
-  .settings-page .settings-switch-thumb,
-  .settings-page .settings-segmented-option,
-  .settings-page .settings-secondary-button,
-  .settings-page .settings-compact-actions .settings-secondary-button,
-  .settings-page .about-logo {
-    transition: none;
-    transform: none;
-  }
+:where([data-reduced-motion='true']) .settings-page .settings-switch,
+:where([data-reduced-motion='true']) .settings-page .settings-switch-thumb,
+:where([data-reduced-motion='true']) .settings-page .settings-segmented-option,
+:where([data-reduced-motion='true']) .settings-page .settings-secondary-button,
+:where([data-reduced-motion='true'])
+  .settings-page
+  .settings-compact-actions
+  .settings-secondary-button,
+:where([data-reduced-motion='true']) .settings-page .about-logo {
+  transition: none;
+  transform: none;
 }

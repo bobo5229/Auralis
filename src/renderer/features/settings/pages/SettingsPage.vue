@@ -252,10 +252,8 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .settings-nav button,
-  .settings-nav-icon {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) .settings-nav button,
+:where([data-reduced-motion='true']) .settings-nav-icon {
+  transition: none;
 }
 </style>

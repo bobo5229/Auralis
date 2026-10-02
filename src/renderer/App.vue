@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import {
+  createReducedMotionQuery,
+  type MotionQuery,
+} from '@renderer/shared/animation/motionPreference'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { router } from './app/router'
@@ -84,7 +88,7 @@ function finishLyricsResize(): void {
 
 let stopLyricsAnimation: (() => void) | null = null
 let animationTarget: boolean | null = null
-let reducedMotionMedia: MediaQueryList | null = null
+let reducedMotionMedia: MotionQuery | null = null
 
 function cancelLyricsAnimation(): void {
   stopLyricsAnimation?.()
@@ -631,7 +635,7 @@ const removeBeforeEach = router.beforeEach((to, from) => {
 })
 
 onMounted(() => {
-  reducedMotionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
+  reducedMotionMedia = createReducedMotionQuery()
   reducedMotionMedia.addEventListener('change', handleReducedMotionChange)
   window.addEventListener('resize', updateLyricsTargetWidth)
   updateLyricsTargetWidth()
@@ -657,7 +661,7 @@ const isCdCanvas = computed(() => {
   return route.name === 'cd-albums' || route.name === 'cd-album-index'
 })
 
-const isArchiveCanvas = computed(() => route.name === 'archive' || route.name === 'archive-mac')
+const isArchiveCanvas = computed(() => route.name === 'archive' || route.name === 'rhine')
 const isStandaloneCanvas = computed(() => isCdCanvas.value || isArchiveCanvas.value)
 
 /** 全高布局下的收起图标栏；驱动 Shell 列宽、播放栏左边界与背景裁切。 */

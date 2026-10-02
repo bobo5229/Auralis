@@ -43,11 +43,8 @@ jobs:
       - name: Run unit, Electron-native, and visual-scope tests
         run: npm.cmd test
 
-      - name: Build application bundle
+      - name: Build application bundle and check asset budget
         run: npm.cmd run build
-
-      - name: Check build asset budget
-        run: npm.cmd run check:budget
 
       - name: Run Electron smoke test
         run: npm.cmd run smoke:electron

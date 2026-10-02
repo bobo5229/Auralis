@@ -1,7 +1,5 @@
 @import './typography.css';
 @import './harmony-fonts.css';
-@import './archive-fonts.css';
-@import './archive-tokens.css';
 
 @font-face {
   font-family: 'Plus Jakarta Sans';
@@ -1020,23 +1018,24 @@ input {
   line-height: 1;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .player-bar .transport-controls,
-  .player-bar .track-text,
-  .player-bar .playback-actions {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) .player-bar .transport-controls,
+:where([data-reduced-motion='true']) .player-bar .track-text,
+:where([data-reduced-motion='true']) .player-bar .playback-actions {
+  transition: none;
+}
 
-  .volume-control-group[data-volume-open='true'] .volume-overlay {
-    animation: none;
-  }
+:where([data-reduced-motion='true'])
+  .volume-control-group[data-volume-open='true']
+  .volume-overlay {
+  animation: none;
+}
 
+:where([data-reduced-motion='true'])
   input[type='range'].volume-slider::-webkit-slider-runnable-track,
-  input[type='range'].volume-slider::-webkit-slider-thumb,
-  input[type='range'].volume-slider::-moz-range-track,
-  input[type='range'].volume-slider::-moz-range-thumb {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) input[type='range'].volume-slider::-webkit-slider-thumb,
+:where([data-reduced-motion='true']) input[type='range'].volume-slider::-moz-range-track,
+:where([data-reduced-motion='true']) input[type='range'].volume-slider::-moz-range-thumb {
+  transition: none;
 }
 
 .player-bar-glass {
@@ -1308,10 +1307,8 @@ input {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .player-bar .player-bar-glass {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) .player-bar .player-bar-glass {
+  transition: none;
 }
 
 @keyframes playbar-album-tint-fade-out {
@@ -1466,13 +1463,11 @@ input {
   outline-offset: 1px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .desktop-lyrics-lock-popover,
-  .desktop-lyrics-lock-pill,
-  .desktop-lyrics-lock-option {
-    transition: none !important;
-    animation: none !important;
-  }
+:where([data-reduced-motion='true']) .desktop-lyrics-lock-popover,
+:where([data-reduced-motion='true']) .desktop-lyrics-lock-pill,
+:where([data-reduced-motion='true']) .desktop-lyrics-lock-option {
+  transition: none !important;
+  animation: none !important;
 }
 
 @media (prefers-reduced-transparency: reduce) {
@@ -1635,14 +1630,12 @@ input {
   cursor: wait;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .player-bar .transport-control-primary,
-  .player-bar .transport-control-primary:hover:not(:disabled),
-  .player-bar .transport-control-primary:active:not(:disabled),
-  .player-bar .transport-control-primary:disabled {
-    transition: none !important;
-    transform: none !important;
-  }
+:where([data-reduced-motion='true']) .player-bar .transport-control-primary,
+:where([data-reduced-motion='true']) .player-bar .transport-control-primary:hover:not(:disabled),
+:where([data-reduced-motion='true']) .player-bar .transport-control-primary:active:not(:disabled),
+:where([data-reduced-motion='true']) .player-bar .transport-control-primary:disabled {
+  transition: none !important;
+  transform: none !important;
 }
 
 .player-bar .transport-control {
@@ -1937,13 +1930,17 @@ input[type='range'].volume-overlay-slider {
   transition: clip-path 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .app-shell:not(.is-cd-albums):not(.is-archive-canvas),
-  .app-shell:not(.is-cd-albums):not(.is-archive-canvas) .player-bar,
-  .app-shell:not(.is-cd-albums):not(.is-archive-canvas) > .app-shell-bg-fluid,
-  .app-shell:not(.is-cd-albums):not(.is-archive-canvas) > .app-shell-bg-overlay {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) .app-shell:not(.is-cd-albums):not(.is-archive-canvas),
+:where([data-reduced-motion='true'])
+  .app-shell:not(.is-cd-albums):not(.is-archive-canvas)
+  .player-bar,
+:where([data-reduced-motion='true'])
+  .app-shell:not(.is-cd-albums):not(.is-archive-canvas)
+  > .app-shell-bg-fluid,
+:where([data-reduced-motion='true'])
+  .app-shell:not(.is-cd-albums):not(.is-archive-canvas)
+  > .app-shell-bg-overlay {
+  transition: none;
 }
 
 /* Sidebar */
@@ -1998,9 +1995,10 @@ input[type='range'].volume-overlay-slider {
   display: none;
 }
 
-.app-sidebar.app-sidebar--collapsed .sidebar-brand-mark span {
+.app-sidebar.app-sidebar--collapsed .sidebar-brand-waveform {
   width: 20px;
   height: 20px;
+  transform: none;
 }
 
 .app-sidebar.app-sidebar--collapsed .sidebar-tools-grid {
@@ -2090,7 +2088,7 @@ input[type='range'].volume-overlay-slider {
   flex: 0 0 auto;
   align-items: center;
   justify-content: flex-start;
-  gap: 10px;
+  gap: 4px;
 }
 
 .sidebar-brand-mark {
@@ -2100,32 +2098,23 @@ input[type='range'].volume-overlay-slider {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border: 1px solid color-mix(in srgb, var(--auralis-sidebar-active-indicator) 30%, transparent);
-  border-radius: 10px;
   color: var(--auralis-sidebar-active-indicator);
-  background:
-    linear-gradient(135deg, color-mix(in srgb, white 24%, transparent), transparent 60%),
-    color-mix(in srgb, var(--auralis-sidebar-active-bg) 75%, transparent);
-  box-shadow:
-    0 4px 14px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 18%, transparent),
-    inset 0 1px 0 color-mix(in srgb, white 40%, transparent);
-  transition:
-    transform 200ms ease,
-    box-shadow 200ms ease,
-    border-color 200ms ease;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
-.sidebar-brand-mark span {
-  width: 17px;
-  height: 17px;
+.sidebar-brand-waveform {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: inherit;
+  transform: translateY(-1px);
+  transition: opacity 150ms ease;
 }
 
-.sidebar-brand-left:hover .sidebar-brand-mark {
-  transform: scale(1.03);
-  border-color: var(--auralis-sidebar-active-indicator);
-  box-shadow:
-    0 6px 18px color-mix(in srgb, var(--auralis-sidebar-active-indicator) 28%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+.sidebar-brand-left:hover .sidebar-brand-waveform {
+  opacity: 0.92;
 }
 
 .sidebar-brand-copy {
@@ -2810,11 +2799,9 @@ input[type='range'].volume-overlay-slider {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sidebar-smart-create-expand-enter-active,
-  .sidebar-smart-create-expand-leave-active {
-    animation: none;
-  }
+:where([data-reduced-motion='true']) .sidebar-smart-create-expand-enter-active,
+:where([data-reduced-motion='true']) .sidebar-smart-create-expand-leave-active {
+  animation: none;
 }
 
 .sidebar-create-error {
@@ -3203,75 +3190,71 @@ input[type='range'].volume-overlay-slider {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .app-window {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) .app-window {
+  transition: none;
+}
 
-  .sidebar-brand-mark,
-  .sidebar-brand-name,
-  .sidebar-brand-name::after {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) .sidebar-brand-mark,
+:where([data-reduced-motion='true']) .sidebar-brand-waveform,
+:where([data-reduced-motion='true']) .sidebar-brand-name,
+:where([data-reduced-motion='true']) .sidebar-brand-name::after {
+  transition: none;
+}
 
-  .sidebar-brand-left:hover .sidebar-brand-mark {
-    transform: none;
-  }
+:where([data-reduced-motion='true']) .sidebar-brand-name::after {
+  content: none;
+}
 
-  .sidebar-brand-name::after {
-    content: none;
-  }
+:where([data-reduced-motion='true']) .library-view-fade-enter-active,
+:where([data-reduced-motion='true']) .library-view-fade-leave-active {
+  transition-duration: 0ms !important;
+}
 
-  .library-view-fade-enter-active,
-  .library-view-fade-leave-active {
-    transition-duration: 0ms !important;
-  }
+/* Library 搜索层：减少动态效果时瞬时切换 */
 
-  /* Library 搜索层：减少动态效果时瞬时切换 */
-  .search-overlay-enter-active .library-search-backdrop::before,
-  .search-overlay-leave-active .library-search-backdrop::before,
-  .search-overlay-enter-active .library-search-backdrop::after,
-  .search-overlay-leave-active .library-search-backdrop::after,
-  .search-overlay-enter-active .library-search-bar,
-  .search-overlay-leave-active .library-search-bar {
-    transition-duration: 0ms !important;
-  }
+:where([data-reduced-motion='true']) .search-overlay-enter-active .library-search-backdrop::before,
+:where([data-reduced-motion='true']) .search-overlay-leave-active .library-search-backdrop::before,
+:where([data-reduced-motion='true']) .search-overlay-enter-active .library-search-backdrop::after,
+:where([data-reduced-motion='true']) .search-overlay-leave-active .library-search-backdrop::after,
+:where([data-reduced-motion='true']) .search-overlay-enter-active .library-search-bar,
+:where([data-reduced-motion='true']) .search-overlay-leave-active .library-search-bar {
+  transition-duration: 0ms !important;
+}
 
-  .search-overlay-enter-from .library-search-bar,
-  .search-overlay-leave-to .library-search-bar,
-  .search-overlay-enter-to .library-search-bar,
-  .search-overlay-leave-from .library-search-bar {
-    transform: translateX(-50%);
-  }
+:where([data-reduced-motion='true']) .search-overlay-enter-from .library-search-bar,
+:where([data-reduced-motion='true']) .search-overlay-leave-to .library-search-bar,
+:where([data-reduced-motion='true']) .search-overlay-enter-to .library-search-bar,
+:where([data-reduced-motion='true']) .search-overlay-leave-from .library-search-bar {
+  transform: translateX(-50%);
+}
 
-  .album-detail-exit-matrix-leave-active,
-  .album-detail-exit-matrix-enter-active,
-  .album-detail-enter-matrix-leave-active,
-  .album-detail-enter-matrix-enter-active {
-    transition: opacity 300ms ease;
-    will-change: opacity;
-  }
+:where([data-reduced-motion='true']) .album-detail-exit-matrix-leave-active,
+:where([data-reduced-motion='true']) .album-detail-exit-matrix-enter-active,
+:where([data-reduced-motion='true']) .album-detail-enter-matrix-leave-active,
+:where([data-reduced-motion='true']) .album-detail-enter-matrix-enter-active {
+  transition: opacity 300ms ease;
+  will-change: opacity;
+}
 
-  .album-detail-exit-matrix-leave-to,
-  .album-detail-exit-matrix-enter-from,
-  .album-detail-enter-matrix-leave-to,
-  .album-detail-enter-matrix-enter-from {
-    transform: none !important;
-    filter: none !important;
-  }
+:where([data-reduced-motion='true']) .album-detail-exit-matrix-leave-to,
+:where([data-reduced-motion='true']) .album-detail-exit-matrix-enter-from,
+:where([data-reduced-motion='true']) .album-detail-enter-matrix-leave-to,
+:where([data-reduced-motion='true']) .album-detail-enter-matrix-enter-from {
+  transform: none !important;
+  filter: none !important;
+}
 
-  .player-bar-album-tint-previous {
-    animation: none !important;
-  }
+:where([data-reduced-motion='true']) .player-bar-album-tint-previous {
+  animation: none !important;
+}
 
-  .lyric-dot {
-    animation: none !important;
-    opacity: 1 !important;
-  }
+:where([data-reduced-motion='true']) .lyric-dot {
+  animation: none !important;
+  opacity: 1 !important;
+}
 
-  .desktop-lyrics-toast {
-    animation: none !important;
-  }
+:where([data-reduced-motion='true']) .desktop-lyrics-toast {
+  animation: none !important;
 }
 
 /* 右侧歌词面板高亮行使用主题化的歌词活动色。 */

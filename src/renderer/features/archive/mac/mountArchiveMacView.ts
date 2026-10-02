@@ -1,9 +1,8 @@
 import type { MacViewActions, MacViewController, MacViewModel } from './macViewTypes'
-import { mountNightSky, type NightSkyController } from './nightSky'
 import { mountMacDevice, type MacDeviceController } from './macDevice'
-import { mountArchiveStage, type ArchiveStageController } from './macStage'
+import { mountLoadTray } from './loadTray'
+import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { formatArchiveMinutes } from '../utils/archiveDailyDetailState'
-import { mountCoverInteraction } from './coverInteraction'
 
 function formatDateKey(d: Date): string {
   const y = d.getFullYear()
@@ -18,10 +17,6 @@ function parseDateKey(key: string): Date {
 }
 
 export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): MacViewController {
-  const skyCanvas = root.getElementById('sky') as HTMLCanvasElement
-  const stageHost = root.getElementById('stage') as HTMLElement
-  const cableSvg = root.getElementById('cable') as unknown as SVGElement
-  const feedbackEl = root.getElementById('feedback') as HTMLElement
   const albumListEl = root.getElementById('album-list') as HTMLElement
   const screenStatusEl = root.getElementById('screen-status') as HTMLElement
   const desktopReturnBtn = root.getElementById('desktop-return') as HTMLButtonElement
@@ -35,17 +30,11 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
   const calMonthLabel = root.getElementById('mac-cal-month-label') as HTMLElement
   const calCloseBtn = root.getElementById('mac-cal-close') as HTMLButtonElement
   const calGrid = root.getElementById('mac-calendar-grid') as HTMLElement
-  const sceneEl = root.getElementById('scene') as HTMLElement
   const entryStatus = root.getElementById('crt-entry-status') as HTMLElement
 
   let latestModel: MacViewModel | null = null
   let disposed = false
-  let cableRaf = 0
   let isPopupOpen = false
-  let applyingModel = false
-  let stageSignature = ''
-  let stageCovers: (HTMLCanvasElement | null)[] = []
-  let stageDate: string | null = null
   const subscriptions = new AbortController()
   const listenerOptions = { signal: subscriptions.signal }
   const yearMenu = root.getElementById('mac-calendar-years') as HTMLElement
@@ -55,48 +44,13 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
   let popupBrowsingYear = new Date().getFullYear()
   let popupBrowsingMonth = new Date().getMonth()
 
-  // 1. Cable Layout
-  function cableLayout() {
-    if (!cableSvg || !sceneEl || disposed) return
-    const jack = root.querySelector('.jack') as HTMLElement | null
-    const stageContainer = root.querySelector('.stage-container') as HTMLElement | null
-    if (!jack || !stageContainer) return
-
-    const base = sceneEl.getBoundingClientRect()
-    const jRect = jack.getBoundingClientRect()
-    const tRect = stageContainer.getBoundingClientRect()
-
-    const x1 = jRect.left + jRect.width / 2 - base.left
-    const y1 = jRect.top + jRect.height / 2 - base.top
-    const x2 = tRect.left + tRect.width * 0.18 - base.left
-    const y2 = tRect.top + tRect.height * 0.77 - base.top
-
-    const sag = Math.min(base.height - 8, Math.max(y1, y2) + 100)
-    const d = `M${x1} ${y1} C${x1 + 100} ${sag},${x2 - 90} ${sag},${x2} ${y2}`
-    cableSvg.querySelectorAll('path').forEach((p) => p.setAttribute('d', d))
-  }
-
-  function transmitSignal() {
-    const signalPath = cableSvg?.querySelector('.signal')
-    if (!signalPath) return
-    signalPath.classList.remove('sending')
-    // Trigger reflow
-    void signalPath.getBoundingClientRect()
-    signalPath.classList.add('sending')
-  }
-
-  // 2. Mount Night Sky
-  const nightSky: NightSkyController = mountNightSky(skyCanvas)
-
-  // 3. Mount Mac Device
+  const tray = mountLoadTray(
+    root.querySelector<HTMLElement>('.floppy')!,
+    createReducedMotionQuery(),
+  )
   const macDevice: MacDeviceController = mountMacDevice(root, {
-    onGeometryChange: () => cableLayout(),
     onViewTransition: (active) => {
-      if (active) coverInteraction?.cancel()
-      cancelAnimationFrame(cableRaf)
-      cableRaf = 0
-      nightSky.pause(active)
-      if (!active) cableLayout()
+      if (active) tray.cancel()
     },
     onModeChange: (mode) => {
       if (mode === 'machine') {
@@ -106,13 +60,10 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
     onEntrySelected: (id) => {
       if (id === 'album') {
         entryStatus.textContent = ''
-        feedback('已打开专辑统计，日期与舞台保持联动')
       } else if (id === 'track') {
         entryStatus.textContent = '单曲统计尚未开放'
-        feedback('已选中单曲入口，尚未开放')
       } else if (id === 'year') {
         entryStatus.textContent = '年度总结尚未开放'
-        feedback('已选中年度总结入口，尚未开放')
       }
     },
     onDatePopupEsc: () => {
@@ -128,38 +79,7 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
       }
       return false
     },
-    onCancelGesture: () => coverInteraction?.cancel() ?? false,
   })
-
-  // 4. Mount Stage
-  const stageRoot = {
-    host: stageHost,
-    coverDragging: false,
-    getElementById: <T extends HTMLElement = HTMLElement>(id: string) =>
-      root.getElementById(id) as T | null,
-    querySelector: <T extends Element = Element>(s: string) => root.querySelector(s) as T | null,
-    onGeometry: () => cableLayout(),
-    onSelection: (index: number) => {
-      if (applyingModel || !latestModel || !latestModel.items[index]) return
-      const key = latestModel.items[index].key
-      if (key !== latestModel.selectedAlbumKey) {
-        actions.onSelectAlbum(key)
-        transmitSignal()
-      }
-    },
-  }
-  const stage: ArchiveStageController = mountArchiveStage(stageRoot)
-  const coverInteraction = mountCoverInteraction(
-    root,
-    stage,
-    macDevice,
-    feedback,
-    actions.onRequestInsert,
-  )
-
-  function feedback(text: string) {
-    if (feedbackEl) feedbackEl.textContent = text
-  }
 
   // 5. Desktop Return Button inside Album Window Title Bar
   desktopReturnBtn?.addEventListener(
@@ -168,7 +88,6 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
       e.stopPropagation()
       closeDatePopup()
       macDevice.setDesktopPage('desktop')
-      feedback('返回桌面入口')
     },
     listenerOptions,
   )
@@ -433,7 +352,6 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
     const focusedKey = activeRow?.closest<HTMLButtonElement>('.album-row')?.dataset.key
     const previousDate = latestModel?.selectedDate
     latestModel = model
-    coverInteraction?.update(model)
     const todayKey = model.todayKey
     if (!model.years.includes(popupBrowsingYear)) {
       const validDate = parseDateKey(model.selectedDate ?? model.todayKey)
@@ -536,7 +454,6 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
         row.append(rankSpan, nameSpan, countSpan)
         row.onclick = () => {
           actions.onSelectAlbum(item.key)
-          transmitSignal()
         }
         albumListEl.append(row)
       })
@@ -552,89 +469,23 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
       }
     }
 
-    // Sync Stage Albums
-    const stageItems = model.items.map((item) => ({
-      id: item.key,
-      title: item.title || '未知专辑',
-      artist: item.artist || '未知艺术家',
-      playCount: item.playCount,
-      minutes: Math.round(item.durationSeconds / 60),
-      artworkUrl: null,
-      coverCanvas: model.covers?.get(item.key) ?? null,
-    }))
-    const signature = JSON.stringify([model.selectedDate, model.items])
-    const covers = stageItems.map((item) => item.coverCanvas)
-    applyingModel = true
-    if (stageDate !== model.selectedDate) {
-      stage.setAlbums([])
-      stageSignature = ''
-      stageCovers = []
-      stageDate = model.selectedDate
-    }
-    if (signature !== stageSignature || covers.some((cover, i) => cover !== stageCovers[i])) {
-      stage.setAlbums(stageItems)
-      stageSignature = signature
-      stageCovers = covers
-    }
-
-    // Sync selection on stage
-    if (model.selectedAlbumKey) {
-      const idx = model.items.findIndex((it) => it.key === model.selectedAlbumKey)
-      if (idx >= 0) {
-        stage.select(idx)
-      }
-    }
-    applyingModel = false
     if (focusedKey)
       Array.from(albumListEl.querySelectorAll<HTMLButtonElement>('.album-row'))
         .find((row) => row.dataset.key === focusedKey)
         ?.focus()
-
-    // Update feedback
-    if (
-      model.items.length > 0 &&
-      sceneEl.dataset.inserting !== 'true' &&
-      sceneEl.dataset.coverDragging !== 'true'
-    ) {
-      const selected = model.items.find((item) => item.key === model.selectedAlbumKey)
-      feedback(
-        selected && (!selected.canPlay || !selected.albumKey)
-          ? '该专辑当前没有可播放曲目，无法装入'
-          : `${model.selectedDate ?? ''} · Top ${model.items.length} · 长按封面拖入槽口，或选择后按“装入”`,
-      )
-    } else if (!model.items.length && !model.dayLoading && !model.dayError) {
-      feedback(`${model.selectedDate ?? ''} · 当天没有专辑播放记录`)
-    }
-    if (model.playbackMessage && sceneEl.dataset.coverDragging !== 'true') {
-      // Querying and actual playback state survive unrelated calendar/cover updates.
-      if (sceneEl.dataset.inserting !== 'true' || model.playbackMessage.startsWith('正在读取专辑'))
-        feedback(model.playbackMessage)
-    }
 
     if (isPopupOpen) {
       renderPopupCalendar()
     }
   }
 
-  // Initial cable layout and observation
-  cableLayout()
-  const resizeObserver = new ResizeObserver(() => {
-    cableLayout()
-  })
-  resizeObserver.observe(sceneEl)
-  resizeObserver.observe(stageHost)
-
   return {
     update,
     dispose: () => {
       disposed = true
       subscriptions.abort()
-      cancelAnimationFrame(cableRaf)
-      resizeObserver.disconnect()
-      coverInteraction?.dispose()
-      nightSky.dispose()
       macDevice.dispose()
-      stage.dispose()
+      tray.dispose()
     },
   }
 }

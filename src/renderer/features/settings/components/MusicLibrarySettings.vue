@@ -738,13 +738,11 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .scan-spinner {
-    animation: none;
-  }
+:where([data-reduced-motion='true']) .scan-spinner {
+  animation: none;
+}
 
-  .settings-progress-fill {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) .settings-progress-fill {
+  transition: none;
 }
 </style>

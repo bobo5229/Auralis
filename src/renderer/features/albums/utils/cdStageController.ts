@@ -1,3 +1,4 @@
+import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { animateCdPress, animateFrames } from '@renderer/shared/animation/motion'
 import { cdAlbumIndex, cdPose, cdSlots, cdProjectedDiscOutline } from './cdGeometry'
 import { cdPlaybackWavePath, cdPlaybackWaveSeed } from './cdPlaybackWave'
@@ -79,7 +80,7 @@ export function createCdStage(
     togglePlayback?: () => boolean
   },
 ) {
-  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
+  const reducedMotion = createReducedMotionQuery()
   const listeners = new AbortController()
   const options = { signal: listeners.signal }
   const nodes = new Map<number, DiscNode>()

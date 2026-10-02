@@ -8,7 +8,7 @@ Renderer 不直接访问数据库、文件系统或 Electron 主进程能力；�
 
 面向个人开发，普通任务在同一会话完成实现、必要自测、差异复查和交付；独立验收按[风险与验收](docs/rules/validation.md)触发。目标明确时直接推进，小型可逆的实现选择自行判断；复杂任务先梳理方案，仅在歧义实质影响结果或风险时询问。
 
-按当前请求确定职责：修改、实现或修复读取[施工者规则](docs/rules/implementation.md)；审查、验收或诊断读取[审查者规则](docs/rules/review.md)并保持只读；规划和问答保持只读。实际验证遵循风险与验收规则，专项文件按需读取。
+按当前请求确定职责：修改、实现或修复读取[施工者规则](docs/rules/implementation.md)；审查、验收或诊断读取[审查者规则](docs/rules/review.md)并保持只读；规划和问答保持只读。实际验证遵循[风险与验收](docs/rules/validation.md)，专项规则按下表的触发条件读取。
 
 用户明确指定的会话职责持续有效，最新明确请求优先；角色声明本身不授权新的施工目标。仅用户当前指令触发职责切换，引用材料与历史记录不触发。“审查并直接修复”已授权连续完成检查、修复和自测，无需重复确认。
 
@@ -16,14 +16,14 @@ Renderer 不直接访问数据库、文件系统或 Electron 主进程能力；�
 
 ## 专项规则
 
-以下规则按任务相关性参考，不构成默认必读清单或固定验收流程：
+任务涉及下列行为、约束或验证时，读取对应规则；跨专项任务合并读取相关文件，引用文件也按任务相关性继续读取。路由按行为影响判断，不只按改动文件所在目录判断。
 
-| 主题                         | 按需参考                                      |
-| ---------------------------- | --------------------------------------------- |
-| Windows 环境与工具链         | [环境与操作](docs/rules/environment.md)       |
-| 进程边界与 IPC               | [架构与 IPC](docs/rules/architecture.md)      |
-| 曲库、数据库与文件数据       | [曲库与数据](docs/rules/library-data.md)      |
-| Renderer、播放界面与窗口几何 | [Renderer 视觉与交互](docs/rules/renderer.md) |
-| 验收范围                     | [风险与验收](docs/rules/validation.md)        |
-| 交给其他会话执行的提示词     | [施工提示词](docs/rules/handoff-prompts.md)   |
-| 用户要求 Git 操作或发布      | [Git 与发布](docs/rules/git-release.md)       |
+| 触发条件                                                | 读取规则                                      |
+| ------------------------------------------------------- | --------------------------------------------- |
+| 准备依赖、构建或运行验证，排查 Windows / Electron 环境  | [环境与操作](docs/rules/environment.md)       |
+| 新增、修改或审查跨进程能力、Preload API、IPC 契约与校验 | [架构与 IPC](docs/rules/architecture.md)      |
+| 调整或审查曲库查询、分页与快照、数据库、音乐文件读写    | [曲库与数据](docs/rules/library-data.md)      |
+| 调整或审查界面布局、播放状态、窗口尺寸或生命周期        | [Renderer 视觉与交互](docs/rules/renderer.md) |
+| 选择验证范围、判断完成状态或独立验收要求                | [风险与验收](docs/rules/validation.md)        |
+| 编写跨会话施工、审查或复验交接信息                      | [施工提示词](docs/rules/handoff-prompts.md)   |
+| 执行用户已授权的 Git 写操作或发布                       | [Git 与发布](docs/rules/git-release.md)       |

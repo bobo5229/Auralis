@@ -414,23 +414,21 @@ function onContextMenu(event: MouseEvent): void {
   min-height: 1.25em;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .album-card-play {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) .album-card-play {
+  transition: none;
+}
 
-  .album-card--grid .cover-frame::after {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) .album-card--grid .cover-frame::after {
+  transition: none;
+}
 
-  .album-card--perspective .cover-frame {
-    transition: none !important;
-    transform: none !important;
-  }
+:where([data-reduced-motion='true']) .album-card--perspective .cover-frame {
+  transition: none !important;
+  transform: none !important;
+}
 
-  .album-card--perspective:hover .cover-frame,
-  .album-card--perspective:focus-within .cover-frame {
-    transform: none !important;
-  }
+:where([data-reduced-motion='true']) .album-card--perspective:hover .cover-frame,
+:where([data-reduced-motion='true']) .album-card--perspective:focus-within .cover-frame {
+  transform: none !important;
 }
 </style>

@@ -971,17 +971,15 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .album-hero-cover,
-  .album-hero-cover-container::after {
-    transform: none !important;
-    transition: none !important;
-  }
+:where([data-reduced-motion='true']) .album-hero-cover,
+:where([data-reduced-motion='true']) .album-hero-cover-container::after {
+  transform: none !important;
+  transition: none !important;
+}
 
-  .album-hero-play-btn:hover,
-  .album-hero-shuffle-btn:hover,
-  .album-detail-back:hover {
-    transform: none;
-  }
+:where([data-reduced-motion='true']) .album-hero-play-btn:hover,
+:where([data-reduced-motion='true']) .album-hero-shuffle-btn:hover,
+:where([data-reduced-motion='true']) .album-detail-back:hover {
+  transform: none;
 }
 </style>

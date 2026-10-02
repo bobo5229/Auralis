@@ -5,6 +5,7 @@ import './app/styles/main.css'
 import { useTheme } from './composables/useTheme'
 import { useDarkAccent } from './features/appearance/composables/useDarkAccent'
 import { tooltipPlugin } from './shared/tooltip/tooltip'
+import { initMotionPreference } from './shared/animation/motionPreference'
 import {
   APP_FAILED_EVENT,
   APP_HOST_ELEMENT_ID,
@@ -16,6 +17,8 @@ const { initTheme } = useTheme()
 initTheme()
 const { initDarkAccent } = useDarkAccent()
 initDarkAccent()
+const disposeMotionPreference = initMotionPreference()
+if (import.meta.hot) import.meta.hot.dispose(disposeMotionPreference)
 
 function waitForNextFrame(): Promise<void> {
   if (typeof requestAnimationFrame !== 'function') return Promise.resolve()

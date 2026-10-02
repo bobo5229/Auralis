@@ -1,3 +1,4 @@
+import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { nextTick, onScopeDispose, watch, type Ref } from 'vue'
 
 export function useAlbumCoverTracking(
@@ -11,7 +12,7 @@ export function useAlbumCoverTracking(
   let effectsBound = false
   let activationGenerationId = 0
   let disposed = false
-  const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const reducedMotionQuery = createReducedMotionQuery()
   const MAX_COVER_TILT_DEGREES = 12
 
   function resetCoverTracking(): void {

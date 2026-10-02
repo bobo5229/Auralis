@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
-import { expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   DARK_ACCENT_STORAGE_KEY,
   DEFAULT_DARK_ACCENT,
@@ -11,6 +11,7 @@ import { DEFAULT_THEME, THEME_STORAGE_KEY } from '@renderer/composables/useTheme
 const script = readFileSync(new URL('../../public/splash/theme-boot.js', import.meta.url), 'utf8')
 
 interface BootOptions {
+  reducedMotion?: boolean
   values?: Record<string, string>
   failReads?: string[]
   navigationType?: string
@@ -33,6 +34,7 @@ function runBoot(options: BootOptions = {}) {
   runInNewContext(script, {
     document: { documentElement: root },
     window: {
+      matchMedia: () => ({ matches: options.reducedMotion ?? false }),
       localStorage: {
         getItem(key: string) {
           if (failReads.has(key)) throw new Error(`read failed for ${key}`)
@@ -47,6 +49,27 @@ function runBoot(options: BootOptions = {}) {
 
   return { root, styleValues }
 }
+
+describe('boot motion preference', () => {
+  it('applies the saved preference before the main bundle loads', () => {
+    expect(
+      runBoot({ values: { 'auralis-reduced-motion': 'reduce' } }).root.dataset.reducedMotion,
+    ).toBe('true')
+  })
+  it('follows the system for absent, system or invalid stored values', () => {
+    for (const value of [undefined, 'system', 'invalid']) {
+      const values: Record<string, string> = value ? { 'auralis-reduced-motion': value } : {}
+      expect(runBoot({ values, reducedMotion: true }).root.dataset.reducedMotion).toBe('true')
+      expect(runBoot({ values, reducedMotion: false }).root.dataset.reducedMotion).toBe('false')
+    }
+  })
+  it('keeps the system preference when storage cannot be read', () => {
+    expect(
+      runBoot({ failReads: ['auralis-reduced-motion'], reducedMotion: true }).root.dataset
+        .reducedMotion,
+    ).toBe('true')
+  })
+})
 
 function expectAccentVars(styleValues: Map<string, string>, value: unknown): void {
   const expected = resolveDarkAccent(value)

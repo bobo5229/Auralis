@@ -232,19 +232,17 @@
   font-size: 12px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .album-detail-track:hover,
-  .album-detail-track--selected,
-  .album-detail-track--playing {
-    transform: none;
-  }
+:where([data-reduced-motion='true']) .album-detail-track:hover,
+:where([data-reduced-motion='true']) .album-detail-track--selected,
+:where([data-reduced-motion='true']) .album-detail-track--playing {
+  transform: none;
+}
 
-  .album-detail-track-eq i {
-    height: 55%;
-    animation: none;
-  }
+:where([data-reduced-motion='true']) .album-detail-track-eq i {
+  height: 55%;
+  animation: none;
+}
 
-  .album-detail-track--search-highlight {
-    animation: none;
-  }
+:where([data-reduced-motion='true']) .album-detail-track--search-highlight {
+  animation: none;
 }

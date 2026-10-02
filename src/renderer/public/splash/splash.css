@@ -101,12 +101,10 @@
   font-size: 14px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  #splash-dot {
-    display: none;
-  }
+:where([data-reduced-motion='true']) #splash-dot {
+  display: none;
+}
 
-  #splash.is-exiting {
-    transition: none;
-  }
+:where([data-reduced-motion='true']) #splash.is-exiting {
+  transition: none;
 }

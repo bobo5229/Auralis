@@ -2,7 +2,7 @@
  * 全局字体资源的 @font-face 声明保留在 main.css 与 harmony-fonts.css；
  * 声迹字体资源的 @font-face 声明位于 app/styles/archive-fonts.css；
  * 字号、字重、行高等仍由各组件或歌曲页参数控制。
- * 声迹字体角色单独定义在 app/styles/archive-tokens.css。 */
+ * Mac 声迹字体在独立页面中定义。 */
 :root {
   /* 英文与数字共享本地加载的 Plus Jakarta Sans 字体。 */
   --auralis-font-latin: 'Plus Jakarta Sans';

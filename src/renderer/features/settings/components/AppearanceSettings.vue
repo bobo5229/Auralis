@@ -3,12 +3,21 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useTheme, type ThemeMode } from '@renderer/composables/useTheme'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
+import { useMotionPreference } from '@renderer/features/appearance/composables/useMotionPreference'
+import type { MotionPreference } from '@renderer/shared/animation/motionPreference'
 import SongFontWeightSettings from './SongFontWeightSettings.vue'
 import DarkAccentSettings from './DarkAccentSettings.vue'
 
 const { t } = useI18n()
 const { theme, setTheme } = useTheme()
 const { sidebarFullHeight, setSidebarFullHeight } = useSidebarLayout()
+const {
+  motionPreference,
+  persistFailed: motionPersistFailed,
+  setMotionPreference,
+} = useMotionPreference()
+const systemMotionRef = ref<HTMLButtonElement | null>(null)
+const reducedMotionRef = ref<HTMLButtonElement | null>(null)
 const darkOptionRef = ref<HTMLButtonElement | null>(null)
 const lightOptionRef = ref<HTMLButtonElement | null>(null)
 const floatingSidebarOptionRef = ref<HTMLButtonElement | null>(null)
@@ -30,6 +39,11 @@ function selectSidebarLayout(fullHeight: boolean): void {
   } else {
     floatingSidebarOptionRef.value?.focus()
   }
+}
+
+function selectMotionPreference(value: MotionPreference): void {
+  setMotionPreference(value)
+  ;(value === 'system' ? systemMotionRef : reducedMotionRef).value?.focus()
 }
 </script>
 
@@ -80,6 +94,56 @@ function selectSidebarLayout(fullHeight: boolean): void {
           </div>
         </div>
         <DarkAccentSettings />
+        <div class="settings-row settings-row--with-desc">
+          <div>
+            <strong>{{ t('settings.appearance.reducedMotion.title') }}</strong>
+            <span id="appearance-motion-description">{{
+              t('settings.appearance.reducedMotion.description')
+            }}</span>
+            <span v-if="motionPersistFailed" role="status">{{
+              t('settings.appearance.reducedMotion.persistFailed')
+            }}</span>
+          </div>
+          <div
+            class="settings-segmented-control"
+            role="radiogroup"
+            :aria-label="t('settings.appearance.reducedMotion.title')"
+            aria-describedby="appearance-motion-description"
+          >
+            <button
+              ref="systemMotionRef"
+              type="button"
+              class="settings-segmented-option"
+              role="radio"
+              :aria-checked="motionPreference === 'system'"
+              :tabindex="motionPreference === 'system' ? 0 : -1"
+              :class="{ 'is-selected': motionPreference === 'system' }"
+              @click="selectMotionPreference('system')"
+              @keydown.right.prevent="selectMotionPreference('reduce')"
+              @keydown.down.prevent="selectMotionPreference('reduce')"
+              @keydown.home.prevent="selectMotionPreference('system')"
+              @keydown.end.prevent="selectMotionPreference('reduce')"
+            >
+              {{ t('settings.appearance.reducedMotion.system') }}
+            </button>
+            <button
+              ref="reducedMotionRef"
+              type="button"
+              class="settings-segmented-option"
+              role="radio"
+              :aria-checked="motionPreference === 'reduce'"
+              :tabindex="motionPreference === 'reduce' ? 0 : -1"
+              :class="{ 'is-selected': motionPreference === 'reduce' }"
+              @click="selectMotionPreference('reduce')"
+              @keydown.left.prevent="selectMotionPreference('system')"
+              @keydown.up.prevent="selectMotionPreference('system')"
+              @keydown.home.prevent="selectMotionPreference('system')"
+              @keydown.end.prevent="selectMotionPreference('reduce')"
+            >
+              {{ t('settings.appearance.reducedMotion.enabled') }}
+            </button>
+          </div>
+        </div>
         <div class="settings-row settings-row--with-desc">
           <div>
             <strong>{{ t('settings.appearance.sidebarLayout') }}</strong>

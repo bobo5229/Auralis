@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import {
+  createReducedMotionQuery,
+  type MotionQuery,
+} from '@renderer/shared/animation/motionPreference'
 import { computed, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -109,7 +113,7 @@ const volumeControlRef = ref<{
 let volumeReveal = 0
 let volumeVelocity = 0
 let stopVolumeAnimation: (() => void) | undefined
-let reducedMotion: MediaQueryList | undefined
+let reducedMotion: MotionQuery | undefined
 
 function animateVolumeReveal(): void {
   stopVolumeAnimation?.()
@@ -142,7 +146,7 @@ function animateVolumeReveal(): void {
 
 watch(() => volumeControlRef.value?.open ?? false, animateVolumeReveal)
 onMounted(() => {
-  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+  reducedMotion = createReducedMotionQuery()
   reducedMotion.addEventListener('change', animateVolumeReveal)
 })
 onUnmounted(() => {

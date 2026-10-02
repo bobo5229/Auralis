@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import {
+  createReducedMotionQuery,
+  type MotionQuery,
+} from '@renderer/shared/animation/motionPreference'
 import type {
   BackgroundRender as AmllBackgroundRender,
   MeshGradientRenderer as AmllMeshGradientRenderer,
@@ -14,7 +18,7 @@ const props = defineProps<{
 
 const containerRef = ref<HTMLElement | null>(null)
 let background: AmllBackgroundRender<AmllMeshGradientRenderer> | null = null
-let reducedMotionQuery: MediaQueryList | null = null
+let reducedMotionQuery: MotionQuery | null = null
 let albumRequestToken = 0
 let disposed = false
 
@@ -152,7 +156,7 @@ watch(
 
 onMounted(() => {
   disposed = false
-  reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  reducedMotionQuery = createReducedMotionQuery()
   reducedMotionQuery.addEventListener('change', handleReducedMotionChange)
   document.addEventListener('visibilitychange', handleVisibilityChange)
   void initializeBackground()

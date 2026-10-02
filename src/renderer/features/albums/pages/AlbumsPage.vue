@@ -1024,9 +1024,7 @@ defineExpose<AlbumLayoutTransitionParticipant>({
   visibility: hidden;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .albums-grid-row {
-    transition: none !important;
-  }
+:where([data-reduced-motion='true']) .albums-grid-row {
+  transition: none !important;
 }
 </style>

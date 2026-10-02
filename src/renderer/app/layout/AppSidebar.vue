@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import {
+  createReducedMotionQuery,
+  type MotionQuery,
+} from '@renderer/shared/animation/motionPreference'
 import { RouterLink, useRouter } from 'vue-router'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -66,7 +70,7 @@ const isDeletingPlaylist = ref(false)
 const deleteError = ref('')
 const deleteLid = ref<SVGGElement | null>(null)
 let stopDeleteLidAnimation: (() => void) | undefined
-let deleteMotionPreference: MediaQueryList | undefined
+let deleteMotionPreference: MotionQuery | undefined
 
 function updateDeleteLid(): void {
   stopDeleteLidAnimation?.()
@@ -131,6 +135,12 @@ const primaryNav = computed<
     icon: 'i-ph-archive',
     activeIcon: 'i-ph-archive-fill',
     routeName: 'archive',
+  },
+  {
+    to: '/rhine',
+    label: 'Rhine',
+    icon: 'i-ph-cube',
+    activeIcon: 'i-ph-cube-fill',
   },
 ])
 
@@ -592,7 +602,7 @@ async function confirmDelete(): Promise<void> {
 }
 
 onMounted(() => {
-  deleteMotionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  deleteMotionPreference = createReducedMotionQuery()
   deleteMotionPreference.addEventListener('change', updateDeleteLid)
   window.addEventListener('keydown', onPlaylistMenuKeydown)
   void loadSidebarPlaylists()
@@ -641,7 +651,19 @@ onBeforeUnmount(() => {
           @click="toggleSidebarCollapsed"
         >
           <span class="sidebar-brand-mark" aria-hidden="true">
-            <span class="i-ph-waveform"></span>
+            <svg
+              class="sidebar-brand-waveform"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M2 13a2 2 0 0 0 2-2V7a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0V4a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0v-4a2 2 0 0 1 2-2"
+              />
+            </svg>
           </span>
           <div class="sidebar-brand-copy">
             <div class="sidebar-brand-name">AuralisMusic</div>

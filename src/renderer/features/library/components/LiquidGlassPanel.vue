@@ -226,10 +226,8 @@ defineExpose({
   z-index: 1;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .liquid-glass-panel__highlight {
-    display: none;
-  }
+:where([data-reduced-motion='true']) .liquid-glass-panel__highlight {
+  display: none;
 }
 
 @media (prefers-reduced-transparency: reduce) {

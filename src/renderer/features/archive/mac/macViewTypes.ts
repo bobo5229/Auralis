@@ -14,11 +14,6 @@ export interface MacViewModel {
   dayError: string | null
   items: DailyAlbumStatsItem[]
   selectedAlbumKey: string | null
-  covers?: Map<string, HTMLCanvasElement>
-  canInsert?: boolean
-  inserting?: boolean
-  busy?: boolean
-  playbackMessage?: string
 }
 
 export interface MacViewActions {
@@ -28,11 +23,6 @@ export interface MacViewActions {
   onSelectAlbum(key: string): void
   onRetryCalendar(): void
   onRetryDay(date: string): void
-  onRequestInsert(
-    item: DailyAlbumStatsItem,
-    signal: AbortSignal,
-    onSubmitted: () => void,
-  ): Promise<void>
 }
 
 export interface MacViewController {

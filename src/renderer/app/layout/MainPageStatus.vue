@@ -115,9 +115,7 @@ const statusIcon = computed(() => {
   outline-offset: 2px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .main-page-status-spinner {
-    animation: none;
-  }
+:where([data-reduced-motion='true']) .main-page-status-spinner {
+  animation: none;
 }
 </style>

@@ -3,7 +3,7 @@ import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import type { AnnualListeningInsights, ListeningHeatmap } from '@shared/types/archive'
 import type { EditorialLinerNotesData } from '../utils/editorialLinerNotes'
-import { formatArchiveDateKey as formatDateKey } from './useArchiveRanking'
+import { formatArchiveDateKey as formatDateKey } from '../utils/formatArchiveDateKey'
 
 export interface CalendarDay {
   date: string

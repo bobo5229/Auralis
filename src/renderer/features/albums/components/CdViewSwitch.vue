@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import {
+  createReducedMotionQuery,
+  type MotionQuery,
+} from '@renderer/shared/animation/motionPreference'
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -20,7 +24,7 @@ const { t } = useI18n()
 const router = useRouter()
 const switchRef = ref<HTMLElement | null>(null)
 const underlineRef = ref<HTMLElement | null>(null)
-let reducedMotion: MediaQueryList | null = null
+let reducedMotion: MotionQuery | null = null
 let resizeObserver: ResizeObserver | null = null
 const indicatorMotion: CdSurfaceIndicatorMotionState = {
   edges: null,
@@ -85,7 +89,7 @@ function onMotionPreferenceChange(): void {
 onMounted(() => {
   const transition = consumeCdViewSwitchTransition(props.current)
 
-  reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
+  reducedMotion = createReducedMotionQuery()
   reducedMotion.addEventListener('change', onMotionPreferenceChange)
   positionUnderline(transition !== null, transition?.from)
 

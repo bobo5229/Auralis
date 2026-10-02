@@ -43,16 +43,6 @@
   font-family: var(--mac-font);
 }
 
-#sky {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.65;
-}
-
 .archive-mac-main {
   position: relative;
   z-index: 1;
@@ -65,7 +55,7 @@
 .scene {
   position: relative;
   display: grid;
-  grid-template-columns: 48% 52%;
+  grid-template-columns: 1fr;
   flex: 1;
   min-height: 0;
 }
@@ -76,60 +66,9 @@
   height: 100%;
   display: grid;
   place-items: center;
+  padding-bottom: 64px;
   perspective: 1800px;
   background: transparent;
-}
-
-/* Cable SVG */
-#cable {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  overflow: visible;
-  z-index: 0;
-}
-.cable-shadow {
-  stroke: #030305;
-  stroke-width: 10;
-  fill: none;
-}
-.cable-body {
-  stroke: #51425e;
-  stroke-width: 5;
-  fill: none;
-}
-.cable-core {
-  stroke: #92809f;
-  stroke-width: 1;
-  fill: none;
-}
-.signal {
-  stroke: #ff9fcf;
-  stroke-width: 2;
-  fill: none;
-  stroke-dasharray: 8 18;
-  opacity: 0;
-}
-.signal.sending {
-  animation: transmit 0.8s linear;
-}
-@keyframes transmit {
-  0% {
-    opacity: 0;
-    stroke-dashoffset: 120;
-  }
-  15% {
-    opacity: 1;
-  }
-  85% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    stroke-dashoffset: 0;
-  }
 }
 
 /* 3D Rig */
@@ -683,171 +622,15 @@
   position: absolute;
   bottom: 8px;
   left: 0;
-  width: 48%;
+  width: 100%;
   text-align: center;
   color: #c3b4cf;
   font-size: 11px;
   pointer-events: none;
 }
-.stage-caption.is-appearing canvas {
-  animation: projection-appear 360ms ease-out;
-}
-@keyframes projection-appear {
-  0%,
-  24%,
-  48% {
-    opacity: 0.15;
-  }
-  12%,
-  36%,
-  100% {
-    opacity: 0.85;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .stage-caption.is-appearing canvas {
-    animation: none;
-  }
-}
-
-/* Stage host */
-.stage-host {
-  position: relative;
-  min-width: 0;
-  align-self: center;
-  z-index: 1;
-}
-.stage-container {
-  position: relative;
-  aspect-ratio: 800 / 480;
-}
-.stage-source,
-.stage-output {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-.stage-source {
-  opacity: 1;
-  touch-action: none;
-  cursor: grab;
-}
-.stage-source.is-carrying {
-  cursor: grabbing;
-}
-.stage-output {
-  display: none;
-}
-.stage-caption {
-  height: 46px;
-  margin: 0 15%;
-  perspective: 600px;
-}
-.stage-caption canvas {
-  width: 100%;
-  height: 46px;
-  transform: rotateX(48deg);
-  image-rendering: auto;
-  opacity: 0.85;
-}
-.sr {
-  position: absolute;
-  clip-path: inset(50%);
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-.stage-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 14px;
-}
-.stage-controls button {
-  font-family: var(--mac-font);
-  font-size: 12px;
-  padding: 5px 8px;
-  color: #d5cede;
-  background: #211a2d;
-  border: 1px solid #70617f;
-  cursor: pointer;
-  border-radius: 0;
-}
-.stage-controls button:hover:not(:disabled) {
-  background: #3b2c4e;
-}
-.stage-controls button:focus-visible {
-  outline: 2px solid var(--archive-color-accent-primary);
-  outline-offset: 2px;
-}
-.stage-controls button:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-.selectors {
-  display: flex;
-  gap: 4px;
-}
-.selectors button[aria-pressed='true'] {
-  background: #543148;
-  border-color: #ff8fc3;
-  color: #fff;
-}
-.position {
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
-.stage-tip {
-  text-align: center;
-  color: #c3b4cf;
-  font-size: 12px;
-  margin: 12px 0 0;
-}
-#stage-auto {
-  display: none;
-}
-
-.footer {
-  border-top: 1px solid #51425e;
-  padding-top: 10px;
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  justify-content: space-between;
-  z-index: 1;
-}
-.footer p {
-  margin: 0;
-  color: #c3b4cf;
-  font-size: 12px;
-  line-height: 1.6;
-}
-#feedback {
-  color: #f1dbe9;
-}
-
-#ghost {
-  position: fixed;
-  left: 0;
-  top: 0;
-  width: 96px;
-  height: 96px;
-  pointer-events: none;
-  z-index: 50;
-  image-rendering: pixelated;
-  border: 1px solid #f1bbdc;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.6);
-  transform: translate(-50%, -50%);
-}
-#ghost[hidden] {
-  display: none;
-}
-
 /* Screen Focused Mode */
 .is-screen-focused .studio {
+  padding: 0;
   position: absolute;
   inset: 0;
   width: 100%;
@@ -871,9 +654,6 @@
 .is-screen-focused .floppy {
   pointer-events: none;
 }
-.is-screen-focused .stage-host,
-.is-screen-focused #cable,
-.is-screen-focused .footer,
 .is-screen-focused .mac-instructions,
 .is-screen-focused .kbd,
 .is-screen-focused .mouse,
@@ -887,7 +667,7 @@
 
 @media (max-width: 1000px) {
   .scene {
-    grid-template-columns: 48% 52%;
+    grid-template-columns: 1fr;
   }
   .rig {
     --zoom: 0.88;
@@ -902,16 +682,14 @@
     display: none;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .rig.is-transitioning,
-  .kbd,
-  .mouse,
-  .shadow,
-  .caption,
-  .hint,
-  .bezel-key {
-    transition: none;
-  }
+:host-context([data-reduced-motion='true']) .rig.is-transitioning,
+:host-context([data-reduced-motion='true']) .kbd,
+:host-context([data-reduced-motion='true']) .mouse,
+:host-context([data-reduced-motion='true']) .shadow,
+:host-context([data-reduced-motion='true']) .caption,
+:host-context([data-reduced-motion='true']) .hint,
+:host-context([data-reduced-motion='true']) .bezel-key {
+  transition: none;
 }
 
 /* Approved demo anti-aliasing; apply only to physical surfaces, never 3D parents. */

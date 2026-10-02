@@ -130,6 +130,16 @@
   var resolvedAccent = resolveDarkAccent(darkAccent)
 
   var root = document.documentElement
+  var reduceMotion =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  try {
+    reduceMotion =
+      window.localStorage.getItem('auralis-reduced-motion') === 'reduce' || reduceMotion
+  } catch {
+    // 存储不可用时沿用系统动效偏好。
+  }
+  root.dataset.reducedMotion = String(reduceMotion)
   root.dataset.theme = theme
   root.style.colorScheme = theme
   root.style.setProperty('--auralis-dark-accent-source', resolvedAccent.source)

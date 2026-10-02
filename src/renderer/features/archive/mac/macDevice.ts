@@ -1,3 +1,4 @@
+import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 export interface MacDeviceOptions {
   onModeChange?: (mode: 'machine' | 'screen') => void
   onViewTransition?: (active: boolean) => void
@@ -146,7 +147,7 @@ export function mountMacDevice(
   const listeners = new AbortController()
   const listenOptions = { signal: listeners.signal }
 
-  const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const motion = createReducedMotionQuery()
 
   const VIEW_IN_MS = 1100
   const VIEW_OUT_MS = 700
@@ -654,6 +655,19 @@ export function mountMacDevice(
   }
 
   root.addEventListener('keydown', handleKeydown as EventListener, listenOptions)
+  motion.addEventListener(
+    'change',
+    () => {
+      if (motion.matches) {
+        stopRotation()
+        stopDenoise()
+        viewAnimation?.finish()
+      } else {
+        startRotation()
+      }
+    },
+    listenOptions,
+  )
   window.addEventListener('resize', handleResize)
   document.addEventListener('visibilitychange', handleVisibility)
 

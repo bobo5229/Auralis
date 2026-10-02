@@ -124,9 +124,7 @@
 .floppy.is-ready .tray-front {
   background: linear-gradient(#56635d, #303d36);
 }
-@media (prefers-reduced-motion: reduce) {
-  .load-tray,
-  .floppy.tray-open .load-tray {
-    transition: none;
-  }
+:host-context([data-reduced-motion='true']) .load-tray,
+:host-context([data-reduced-motion='true']) .floppy.tray-open .load-tray {
+  transition: none;
 }

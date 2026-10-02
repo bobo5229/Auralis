@@ -10,4 +10,4 @@ The fixed strength 0.65 maps to the library's minimum color-distance threshold
 for dithering: `(1 - strength) * 0.2`; zero selects nearest-color mapping.
 It does not blend original colors back into the output palette.
 
-The worker is built with the player through `npm run build`; it requires no network access.
+The stage and cover pipeline are retained source assets. The Mac-only archive page does not import them, so its production bundle contains no quantization worker. The algorithm requires no network access when reused.

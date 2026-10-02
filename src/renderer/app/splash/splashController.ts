@@ -1,3 +1,4 @@
+import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import type { AuralisApi } from '@shared/ipc/api'
 import {
   APP_FAILED_EVENT,
@@ -186,7 +187,7 @@ export function initSplashController(): void {
   }
   if (!splash || !path) return
 
-  const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+  const reducedMotionQuery = createReducedMotionQuery()
   const stop = startSplashLifecycle({
     isDocumentVisible: () => document.visibilityState === 'visible',
     isAppReady: () => window.__auralisAppReady === true,

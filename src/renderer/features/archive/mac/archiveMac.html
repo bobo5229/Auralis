@@ -1,13 +1,6 @@
 <div class="archive-mac-shell" id="archive-mac-shell">
-  <canvas id="sky" aria-hidden="true"></canvas>
   <main class="archive-mac-main">
     <div class="scene" id="scene">
-      <svg id="cable" aria-hidden="true">
-        <path class="cable-shadow" />
-        <path class="cable-body" />
-        <path class="cable-core" />
-        <path class="signal" />
-      </svg>
       <div class="studio" id="studio">
         <div
           class="rig"
@@ -359,42 +352,6 @@
         <p class="hint">双击 Mac，进入屏幕</p>
       </div>
       <p class="mac-instructions">长按拖动旋转 · 双击进入屏幕</p>
-
-      <!-- Stage Host -->
-      <section
-        class="stage-host"
-        id="stage"
-        data-fidelity="device"
-        aria-label="当日 Top 5 专辑舞台"
-      >
-        <div class="stage-container">
-          <canvas
-            id="album-stage"
-            class="stage-source"
-            aria-label="专辑舞台，拖动旋转，方向键切换专辑"
-          ></canvas>
-          <canvas class="stage-output" width="320" height="192" aria-hidden="true"></canvas>
-        </div>
-        <div id="stage-caption" class="stage-caption">
-          <span id="stage-title" class="sr"></span>
-          <span id="stage-artist" class="sr"></span>
-          <canvas id="stage-caption-face" aria-hidden="true"></canvas>
-        </div>
-        <div class="stage-controls">
-          <button id="stage-prev" type="button" aria-label="上一张专辑">&lt;</button>
-          <div id="stage-selectors" class="selectors"></div>
-          <button id="stage-next" type="button" aria-label="下一张专辑">&gt;</button>
-          <button id="stage-auto" type="button"></button>
-          <span id="stage-position" class="position"></span>
-          <button id="load-album" type="button" disabled style="display: none">装入</button>
-        </div>
-        <p class="stage-tip">当日播放排行 · 经典舞台展示</p>
-      </section>
-    </div>
-    <div class="footer">
-      <p id="feedback" role="status">正在准备当日档案…</p>
-      <p id="page-footer-note">每日专辑统计 · 舞台与屏幕双向同步</p>
     </div>
   </main>
-  <canvas id="ghost" width="96" height="96" hidden></canvas>
 </div>

@@ -1,3 +1,4 @@
+import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 // Entity stage ported from the approved mac-stage-device demo.
 import {
   HOLOGRAM_DURATION,
@@ -97,7 +98,7 @@ export function mountArchiveStage(root) {
       cp = Math.cos(pitch),
       sp = Math.sin(pitch),
       focal = 1300
-    const motion = matchMedia('(prefers-reduced-motion: reduce)')
+    const motion = createReducedMotionQuery()
     const title = root.getElementById('stage-title'),
       artist = root.getElementById('stage-artist')
     const caption = root.getElementById('stage-caption')
