@@ -45,11 +45,7 @@ const statusBanner = computed<StatusBannerConfig | null>(() => {
         icon: 'i-lucide-loader-2 animate-spin text-[var(--auralis-text-muted)]',
       }
     case 'playback-in-use':
-      return {
-        message: t('library.metadataEditor.status.playbackInUse'),
-        classes: 'metadata-dialog-status-banner--warning',
-        icon: 'i-lucide-disc-3 text-amber-500 shrink-0',
-      }
+      return null
     case 'write-in-progress':
       return {
         message: t('library.metadataEditor.errors.writeInProgress'),
@@ -244,8 +240,17 @@ function onKeyDown(e: KeyboardEvent): void {
             </button>
           </div>
 
+          <p
+            v-if="editStatus === 'playback-in-use'"
+            class="metadata-dialog-playback-notice mb-3.5 text-xs leading-relaxed"
+            role="status"
+            aria-live="polite"
+          >
+            {{ t('library.metadataEditor.status.playbackInUse') }}
+          </p>
+
           <div
-            v-if="statusBanner"
+            v-else-if="statusBanner"
             class="metadata-dialog-status-banner mb-3.5 flex items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-xs"
             :class="statusBanner.classes"
             role="status"
@@ -394,6 +399,10 @@ function onKeyDown(e: KeyboardEvent): void {
 
 .metadata-dialog-header {
   color: var(--auralis-text);
+}
+
+.metadata-dialog-playback-notice {
+  color: var(--auralis-danger);
 }
 
 .metadata-dialog-status-banner {

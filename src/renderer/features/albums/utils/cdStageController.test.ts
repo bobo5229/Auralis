@@ -17,6 +17,21 @@ vi.mock('@renderer/shared/animation/motion', () => ({
       clock.cancel()
     }
   },
+  animateProgress: (duration: number, update: (progress: number) => void, complete: () => void) => {
+    let elapsed = 0
+    clock.update = (seconds) => {
+      elapsed += seconds * 1000
+      update(Math.min(1, elapsed / duration))
+      if (elapsed < duration) return true
+      complete()
+      return false
+    }
+    clock.running = true
+    return () => {
+      clock.running = false
+      clock.cancel()
+    }
+  },
 }))
 
 // Small DOM substitute: these tests cover controller state/lifetime, not visuals.
@@ -62,7 +77,9 @@ afterEach(() => {
 describe('CD stage lifetime', () => {
   function advance(frames: number): void {
     for (let index = 0; index < frames && clock.running; index++) {
-      clock.running = clock.update(1 / 60)
+      const update = clock.update
+      const running = update(1 / 60)
+      if (clock.update === update) clock.running = running
     }
   }
   function settle(): void {
@@ -614,10 +631,15 @@ describe('CD stage lifetime', () => {
     controller.setAlbums(albums, true)
     expect(stage.children).toHaveLength(13)
     const prepared = [...stage.children]
-    await Promise.resolve()
+    for (let step = 0; step < 30; step++) await Promise.resolve()
+    expect(stage.children).toHaveLength(14)
+    expect(stage.children.at(-1)?.style.background).toBe('var(--cd-bg-image, none) var(--cd-bg)')
+    expect(stage.children.at(-1)?.style.opacity).toBe('0.999')
+    advance(7)
+    expect(stage.children).toEqual(prepared)
     expect(
       stage.children.filter((node) => node.style.willChange === 'transform, opacity'),
-    ).toHaveLength(5)
+    ).toHaveLength(13)
     expect(stage.children.every((node) => node.children[0].children.length === 1)).toBe(true)
     controller.navigate(1)
     for (let frame = 0; frame < 260; frame++) {
@@ -628,7 +650,7 @@ describe('CD stage lifetime', () => {
       ).toBeLessThanOrEqual(4)
       expect(
         stage.children.filter((node) => node.style.willChange === 'transform, opacity').length,
-      ).toBeLessThanOrEqual(5)
+      ).toBeLessThanOrEqual(13)
       expect(stage.children.every((node) => node.children[0].children.length === 1)).toBe(true)
     }
     settle()
@@ -688,7 +710,8 @@ describe('CD stage lifetime', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it('mounts a cover only when it decoded before that disc is shown', async () => {
+  it('freezes every cover before motion and never inserts a late decode', async () => {
+    vi.useFakeTimers()
     const resolvers = new Map<string, () => void>()
     vi.stubGlobal(
       'Image',
@@ -709,19 +732,47 @@ describe('CD stage lifetime', () => {
     resolvers.forEach((resolve) => resolve())
     for (let step = 0; step < 6; step++) await Promise.resolve()
     const artOf = (slot: TestElement): TestElement => slot.children[0].children[0].children[0]
-    expect(stage.children.filter((slot) => artOf(slot).children.length === 1)).toHaveLength(4)
+    expect(stage.children.filter((slot) => artOf(slot).children.length === 1)).toHaveLength(0)
     expect(resolvers.size).toBe(6)
+    vi.advanceTimersByTime(1200)
+    advance(7)
+    expect(stage.children.filter((slot) => artOf(slot).children.length === 1)).toHaveLength(4)
     for (let frame = 0; frame < 180; frame++) advance(1)
     const exposed = stage.children.filter(
       (slot) => Number(slot.style.opacity) > 0 && artOf(slot).children.length === 0,
     )
     expect(exposed.length).toBeGreaterThan(0)
     resolvers.forEach((resolve) => resolve())
-    await Promise.resolve()
+    for (let step = 0; step < 30; step++) await Promise.resolve()
     await Promise.resolve()
     advance(3)
     for (const slot of exposed) expect(artOf(slot).children.length).toBe(0)
     controller.dispose()
+  })
+
+  it('removes raster preparation on replacement, reduced motion and disposal', async () => {
+    const { stage, albums, controller, media } = setup(20)
+    const prepare = async (): Promise<void> => {
+      controller.setAlbums(albums, true)
+      for (let step = 0; step < 30; step++) await Promise.resolve()
+      advance(3)
+      expect(stage.children).toHaveLength(14)
+    }
+    await prepare()
+    controller.setAlbums(albums.slice(0, 2))
+    expect(stage.children).toHaveLength(2)
+    expect(clock.running).toBe(false)
+    await prepare()
+    media.matches = true
+    media.dispatchEvent(new Event('change'))
+    expect(stage.children).toHaveLength(4)
+    expect(stage.children.every((node) => node.style.opacity === '1')).toBe(true)
+    expect(clock.running).toBe(false)
+    media.matches = false
+    await prepare()
+    controller.dispose()
+    expect(stage.children).toHaveLength(0)
+    expect(clock.running).toBe(false)
   })
 
   it('skips startup for reduced motion and unfolds small catalogs without duplicates', async () => {

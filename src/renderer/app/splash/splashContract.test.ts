@@ -81,10 +81,10 @@ describe('splash first-frame color contract', () => {
 
   it('uses the first-frame derived accent in the dark splash with a rose fallback', () => {
     expect(readCustomProperty(splashDark, '--splash-accent')).toBe(
-      'var(--auralis-dark-accent, #f472b6)',
+      'var(--auralis-dark-accent, #1dd55f)',
     )
     expect(readCustomProperty(mainDark, '--auralis-theme-accent')).toBe(
-      'var(--auralis-dark-accent, #f472b6)',
+      'var(--auralis-dark-accent, #1dd55f)',
     )
     expect(themeBootJs).toContain("setProperty('--auralis-dark-accent'")
   })

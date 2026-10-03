@@ -256,10 +256,6 @@ function playTrack(trackId: number): void {
   void playback.playTrackFromQueue(buildAlbumPlaybackQueue(), trackId)
 }
 
-function selectTrack(trackId: number): void {
-  playback.selectTrack(trackId)
-}
-
 /**
  * 入场动画结束且详情就绪后，再定位搜索命中的曲目。
  */
@@ -443,7 +439,6 @@ onBeforeUnmount(() => {
             :selected-track-id="playback.state.selectedTrackId"
             :current-track-id="playback.state.currentTrackId"
             :highlighted-track-id="highlightedTrackId"
-            @select="selectTrack"
             @play="playTrack"
           />
         </div>

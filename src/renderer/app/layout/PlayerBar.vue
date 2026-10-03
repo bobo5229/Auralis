@@ -93,7 +93,7 @@ const playerBarStyle = computed(
         ? 'transparent'
         : (activeAlbumTint.value ?? 'transparent'),
       '--auralis-active-album-accent': isDark.value
-        ? 'var(--auralis-theme-accent, #f472b6)'
+        ? 'var(--auralis-theme-accent, #1dd55f)'
         : albumAccentColor.value,
     }) as CSSProperties,
 )

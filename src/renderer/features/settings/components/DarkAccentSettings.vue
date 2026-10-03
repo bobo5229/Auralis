@@ -261,9 +261,14 @@ watch(darkAccent, async () => {
         <div class="dark-accent-picker-content">
           <div class="dark-accent-preview-card" :style="previewStyle">
             <div class="dark-accent-preview-row">
-              <span class="dark-accent-preview-label">
-                {{ t('settings.appearance.darkAccent.preview') }}
-              </span>
+              <div class="dark-accent-preview-header">
+                <span class="dark-accent-preview-label">
+                  {{ t('settings.appearance.darkAccent.preview') }}
+                </span>
+                <button type="button" class="dark-accent-reset" @click="resetAccent">
+                  {{ t('settings.appearance.darkAccent.restoreDefault') }}
+                </button>
+              </div>
               <div class="dark-accent-preview-controls">
                 <span class="dark-accent-preview-icon i-lucide-music" aria-hidden="true"></span>
                 <span
@@ -277,9 +282,6 @@ watch(darkAccent, async () => {
                 </span>
               </div>
               <div class="dark-accent-preview-progress" aria-hidden="true"><span></span></div>
-              <button type="button" class="dark-accent-reset" @click="resetAccent">
-                {{ t('settings.appearance.darkAccent.restoreDefault') }}
-              </button>
             </div>
           </div>
 
@@ -397,7 +399,7 @@ watch(darkAccent, async () => {
   z-index: 1;
   grid-column: 2;
   grid-row: 4;
-  align-self: start;
+  align-self: stretch;
   min-width: 0;
   padding: 12px;
   border: 1px solid var(--auralis-border-subtle);
@@ -416,6 +418,13 @@ watch(darkAccent, async () => {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  gap: 16px;
+}
+
+.dark-accent-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 16px;
 }
 
@@ -616,11 +625,10 @@ watch(darkAccent, async () => {
 }
 
 .dark-accent-reset {
-  align-self: flex-end;
   border: 0;
   border-radius: 6px;
   padding: 0;
-  color: var(--auralis-text-muted);
+  color: var(--auralis-danger);
   background: transparent;
   font-size: 11px;
   font-weight: 600;
@@ -630,7 +638,8 @@ watch(darkAccent, async () => {
 }
 
 .dark-accent-reset:hover {
-  color: var(--auralis-text);
+  color: var(--auralis-danger);
+  text-decoration: underline;
 }
 
 .dark-accent-reset:focus-visible {

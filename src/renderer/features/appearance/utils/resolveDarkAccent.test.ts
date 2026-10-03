@@ -17,8 +17,8 @@ describe('dark accent color rules', () => {
     expect(normalizeDarkAccent('rgb(1, 2, 3)')).toBeNull()
   })
 
-  it('minimally lightens default pink for tinted active text and chooses a button foreground', () => {
-    const result = resolveDarkAccent(DEFAULT_DARK_ACCENT)
+  it('minimally lightens pink for tinted active text and chooses a button foreground', () => {
+    const result = resolveDarkAccent('#F472B6')
     expect(result.source).toBe('#F472B6')
     expect(result.display).toBe('#F478B9')
     expect(result.onAccent).toBe('#121212')
@@ -157,10 +157,10 @@ describe('dark accent color rules', () => {
 
       expect(emittedAlpha).toBeCloseTo(0.5, 2)
       expect(pickerResult).toEqual({ valid: false, reason: 'alpha' })
-      expect(color.value.toHexString()).toBe('#f472b6')
+      expect(color.value.toHexString()).toBe('#1dd55f')
       ;(hexInput!.props.onBlur as (event: object) => void)({})
       await nextTick()
-      expect(hexInput!.props.value).toBe('f472b6')
+      expect(hexInput!.props.value).toBe('1dd55f')
     } finally {
       app.unmount()
       vi.unstubAllGlobals()

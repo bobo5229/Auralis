@@ -59,7 +59,7 @@ describe('useDarkAccent', () => {
     const state = useDarkAccent()
     state.initDarkAccent()
 
-    expect(state.darkAccent.value).toBe('#F472B6')
+    expect(state.darkAccent.value).toBe('#1DD55F')
     expect(storage.getItem('auralis-dark-accent')).toBe('rgba(1,2,3,.5)')
     expect(storage.writes).toBe(0)
   })
@@ -115,8 +115,8 @@ describe('useDarkAccent', () => {
     state.setDarkAccent('#818CF8')
     state.resetDarkAccent()
 
-    expect(state.darkAccent.value).toBe('#F472B6')
-    expect(storage.getItem('auralis-dark-accent')).toBe('#F472B6')
+    expect(state.darkAccent.value).toBe('#1DD55F')
+    expect(storage.getItem('auralis-dark-accent')).toBe('#1DD55F')
   })
 
   it('persists an explicit reset when already using the default', async () => {
@@ -124,14 +124,14 @@ describe('useDarkAccent', () => {
     const { useDarkAccent } = await loadComposable(storage)
     useDarkAccent().resetDarkAccent()
 
-    expect(storage.getItem('auralis-dark-accent')).toBe('#F472B6')
+    expect(storage.getItem('auralis-dark-accent')).toBe('#1DD55F')
     expect(storage.writes).toBe(1)
   })
 
   it('defaults for read failures and does not overwrite the inaccessible preference', async () => {
     const storage = createStorage({}, { failReads: true })
     const { useDarkAccent } = await loadComposable(storage)
-    expect(useDarkAccent().darkAccent.value).toBe('#F472B6')
+    expect(useDarkAccent().darkAccent.value).toBe('#1DD55F')
     expect(storage.writes).toBe(0)
   })
 })

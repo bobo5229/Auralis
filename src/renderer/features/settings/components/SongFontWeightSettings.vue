@@ -529,6 +529,7 @@ function onRadiusInput(event: Event): void {
 
 .song-font-weight-preview-block {
   border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+  background: var(--auralis-surface-raised);
   padding: 12px 16px 16px;
 }
 

@@ -27,6 +27,7 @@ import {
   type AlbumLayoutTransitionParticipant,
   type LyricsAlbumTransitionTicket,
 } from './app/layout/lyricsAlbumTransitionCoordinator'
+import { createAlbumDetailEntryTransition } from './app/layout/albumDetailEntryTransition'
 
 const route = useRoute()
 const playback = usePlayback()
@@ -626,10 +627,27 @@ const previousRouteName = ref(route.name)
 /** Albums ➔ AlbumDetail 专属进入过渡标记；在 beforeEach 提早设为 true，并在 after-enter/cancelled 时复位 */
 const isAlbumDetailEntering = ref(false)
 const isAlbumRouteTransitioning = ref(false)
+const isFirstAlbumDetailTransition = ref(false)
+let hasPreparedAlbumDetail = false
+const albumDetailEntryTransition = createAlbumDetailEntryTransition(() => {
+  hasPreparedAlbumDetail = true
+})
+const firstAlbumDetailTransitionHooks = computed(() =>
+  isFirstAlbumDetailTransition.value
+    ? {
+        onBeforeEnter: albumDetailEntryTransition.beforeEnter,
+        onEnter: albumDetailEntryTransition.enter,
+        onLeave: albumDetailEntryTransition.leave,
+        onLeaveCancelled: albumDetailEntryTransition.cancel,
+      }
+    : {},
+)
 
 const removeBeforeEach = router.beforeEach((to, from) => {
+  albumDetailEntryTransition.cancel()
   previousRouteName.value = from.name
   isAlbumDetailEntering.value = to.name === 'album-detail' && from.name === 'albums'
+  isFirstAlbumDetailTransition.value = isAlbumDetailEntering.value && !hasPreparedAlbumDetail
   isAlbumRouteTransitioning.value =
     isAlbumDetailEntering.value || (to.name === 'albums' && from.name === 'album-detail')
 })
@@ -643,6 +661,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   removeBeforeEach()
+  albumDetailEntryTransition.cancel()
   isAlbumDetailEntering.value = false
   void settleAlbumLyricsTransition()
   cancelLyricsAnimation()
@@ -661,7 +680,7 @@ const isCdCanvas = computed(() => {
   return route.name === 'cd-albums' || route.name === 'cd-album-index'
 })
 
-const isArchiveCanvas = computed(() => route.name === 'archive' || route.name === 'rhine')
+const isArchiveCanvas = computed(() => route.name === 'archive')
 const isStandaloneCanvas = computed(() => isCdCanvas.value || isArchiveCanvas.value)
 
 /** 全高布局下的收起图标栏；驱动 Shell 列宽、播放栏左边界与背景裁切。 */
@@ -703,6 +722,7 @@ function onTransitionAfterEnter(): void {
 }
 
 function onTransitionEnterCancelled(): void {
+  albumDetailEntryTransition.cancel()
   isAlbumDetailEntering.value = false
   isAlbumRouteTransitioning.value = false
 }
@@ -722,6 +742,7 @@ watch(displayMode, (mode) => {
 <template>
   <div
     class="app-window"
+    :inert="displayMode === 'fullscreen'"
     :class="{
       'is-cd-albums': isCdCanvas,
       'is-archive-canvas': isArchiveCanvas,
@@ -766,7 +787,8 @@ watch(displayMode, (mode) => {
         <RouterView v-slot="{ Component, route: viewRoute }">
           <Transition
             :name="transitionName ?? undefined"
-            :css="transitionName !== null"
+            :css="transitionName !== null && !isFirstAlbumDetailTransition"
+            v-bind="firstAlbumDetailTransitionHooks"
             @after-enter="onTransitionAfterEnter"
             @enter-cancelled="onTransitionEnterCancelled"
           >

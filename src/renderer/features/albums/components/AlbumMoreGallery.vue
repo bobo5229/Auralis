@@ -214,7 +214,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <span class="album-more-gallery-hint" aria-hidden="true">
-            <span class="album-more-gallery-hint-icon i-lucide-arrow-right"></span>
+            <span class="album-more-gallery-hint-icon i-lucide-chevron-right"></span>
           </span>
         </div>
         <div class="album-more-gallery-meta">

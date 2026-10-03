@@ -1,15 +1,25 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useFullscreenPlayer } from '@renderer/features/playback/composables/useFullscreenPlayer'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatPlaybackSubtitle } from '@renderer/features/playback/utils/formatPlaybackSubtitle'
 import { useTrackLyrics } from '@renderer/features/lyrics/composables/useTrackLyrics'
-import { useFullscreenLyricsViewport } from '@renderer/features/lyrics/composables/useFullscreenLyricsViewport'
+import {
+  FULLSCREEN_LYRICS_FADE_TOP_RATIO,
+  FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO,
+  useFullscreenLyricsViewport,
+} from '@renderer/features/lyrics/composables/useFullscreenLyricsViewport'
 import type { LyricLine } from '@renderer/features/lyrics/types'
 import FluidArtworkBackground from '@renderer/features/playback/components/FluidArtworkBackground.vue'
 import { usePlaybackProgressInteraction } from '@renderer/features/playback/composables/usePlaybackProgressInteraction'
+import { useReducedMotion } from '@renderer/features/lyrics/composables/useReducedMotion'
+import {
+  getPlayerOverlayFocusables,
+  resolvePlayerOverlayKeyAction,
+  resolveRestorablePlayerTrigger,
+} from '../utils/playerOverlayFocus'
 
 const skipPreviousIconUrl = new URL(
   '../../features/playback/assets/skip-previous-rounded.svg',
@@ -35,6 +45,10 @@ const {
 } = useTrackLyrics()
 
 const imgError = ref(false)
+const overlayRef = ref<HTMLElement | null>(null)
+const exitButtonRef = ref<HTMLButtonElement | null>(null)
+const reducedMotion = useReducedMotion()
+let returnFocusTarget: HTMLElement | null = null
 const progressFillRef = ref<HTMLElement | null>(null)
 const lyricsScrollRef = ref<HTMLElement | null>(null)
 const lyricsTrackRef = ref<HTMLElement | null>(null)
@@ -125,6 +139,8 @@ const {
   topPadding: lyricsTopPadding,
   bottomPadding: lyricsBottomPadding,
   pauseAutoFollow: pauseFullscreenLyricAutoFollow,
+  onWheel: handleFullscreenLyricsWheel,
+  onKeydown: handleFullscreenLyricsKeydown,
 } = useFullscreenLyricsViewport({
   scrollRef: lyricsScrollRef,
   trackRef: lyricsTrackRef,
@@ -135,7 +151,13 @@ const {
   isPrelude,
   showPrelude,
   isOpen: isFullscreenPlayerOpen,
+  reducedMotion: reducedMotion.matches,
 })
+
+const lyricsMaskStyle = {
+  '--fullscreen-lyrics-fade-top': `${FULLSCREEN_LYRICS_FADE_TOP_RATIO * 100}%`,
+  '--fullscreen-lyrics-fade-bottom': `${(1 - FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO) * 100}%`,
+}
 
 watch(
   () => playback.state.currentTrackId,
@@ -144,9 +166,48 @@ watch(
   },
 )
 
+watch(
+  isFullscreenPlayerOpen,
+  (isOpen) => {
+    if (isOpen) {
+      const activeElement = document.activeElement
+      if (activeElement instanceof HTMLElement && !overlayRef.value?.contains(activeElement)) {
+        returnFocusTarget = activeElement
+      }
+      void nextTick(() => {
+        if (isFullscreenPlayerOpen.value) exitButtonRef.value?.focus({ preventScroll: true })
+      })
+    } else {
+      void nextTick(() => {
+        if (isFullscreenPlayerOpen.value) return
+        resolveRestorablePlayerTrigger(returnFocusTarget)?.focus({ preventScroll: true })
+        returnFocusTarget = null
+      })
+    }
+  },
+  { flush: 'sync', immediate: true },
+)
+
 function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') {
+  const root = overlayRef.value
+  if (!isFullscreenPlayerOpen.value || !root) return
+  if (event.key !== 'Escape' && event.key !== 'Tab') return
+  const focusables = getPlayerOverlayFocusables(root)
+  const action = resolvePlayerOverlayKeyAction({
+    key: event.key,
+    shiftKey: event.shiftKey,
+    kind: 'queue',
+    focusableCount: focusables.length,
+    activeIndex: focusables.indexOf(document.activeElement as HTMLElement),
+  })
+  if (action.type === 'dismiss') {
+    event.preventDefault()
+    event.stopPropagation()
     closeFullscreenPlayer()
+  } else if (action.type === 'cycle-focus' || action.type === 'keep-root') {
+    event.preventDefault()
+    const target = action.type === 'cycle-focus' ? focusables[action.nextIndex] : root
+    target?.focus({ preventScroll: true })
   }
 }
 
@@ -171,11 +232,12 @@ function handleRepeatClick(): void {
 }
 
 onMounted(() => {
-  window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('keydown', handleKeydown, true)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('keydown', handleKeydown, true)
+  reducedMotion.dispose()
 })
 </script>
 
@@ -184,10 +246,24 @@ onBeforeUnmount(() => {
     <Transition name="fullscreen-player">
       <section
         v-if="isFullscreenPlayerOpen"
+        ref="overlayRef"
         class="fullscreen-player"
+        role="dialog"
+        aria-modal="true"
+        tabindex="-1"
         :aria-label="t('fullscreen.overlayAria')"
       >
         <div class="fullscreen-drag-region" aria-hidden="true" />
+        <button
+          ref="exitButtonRef"
+          class="fullscreen-player-exit"
+          type="button"
+          :aria-label="t('fullscreen.exit')"
+          :title="t('fullscreen.exit')"
+          @click="closeFullscreenPlayer"
+        >
+          <span class="i-lucide-chevron-down h-6 w-6" aria-hidden="true" />
+        </button>
         <FluidArtworkBackground
           :artwork-url="artworkUrl"
           :active="isFullscreenPlayerOpen"
@@ -195,15 +271,18 @@ onBeforeUnmount(() => {
         />
 
         <div class="fullscreen-player-left">
-          <div class="fullscreen-player-artwork">
-            <img
-              v-if="artworkUrl && !imgError"
-              :src="artworkUrl"
-              class="h-full w-full object-cover"
-              @error="imgError = true"
-            />
-            <div v-else class="fullscreen-player-artwork-placeholder">
-              <span class="i-lucide-music h-14 w-14" />
+          <div class="fullscreen-player-artwork-slot">
+            <div class="fullscreen-player-artwork">
+              <img
+                v-if="artworkUrl && !imgError"
+                :src="artworkUrl"
+                alt=""
+                class="h-full w-full object-cover"
+                @error="imgError = true"
+              />
+              <div v-else class="fullscreen-player-artwork-placeholder">
+                <span class="i-lucide-music h-14 w-14" />
+              </div>
             </div>
           </div>
 
@@ -230,7 +309,9 @@ onBeforeUnmount(() => {
               @pointercancel="handleProgressPointerCancel"
               @keydown="handleProgressKeydown"
             >
-              <div ref="progressFillRef" class="fullscreen-player-progress-fill"></div>
+              <div class="fullscreen-player-progress-track">
+                <div ref="progressFillRef" class="fullscreen-player-progress-fill"></div>
+              </div>
             </div>
             <div class="fullscreen-player-time-row">
               <span>{{ currentTimeLabel }}</span>
@@ -243,6 +324,7 @@ onBeforeUnmount(() => {
               <button
                 type="button"
                 :aria-label="t('player.modeOption.shuffle')"
+                :aria-pressed="playback.state.playbackMode === 'shuffle'"
                 :class="{
                   'fullscreen-player-control-active': playback.state.playbackMode === 'shuffle',
                 }"
@@ -341,12 +423,13 @@ onBeforeUnmount(() => {
             v-else-if="fullscreenLyricLines.length > 0"
             ref="lyricsScrollRef"
             class="fullscreen-player-lyrics-scroll"
+            :class="{ 'fullscreen-player-lyrics-plain': lyricsStatus === 'plain' }"
+            :style="lyricsMaskStyle"
             aria-live="polite"
             tabindex="0"
-            @wheel="pauseFullscreenLyricAutoFollow"
-            @pointerdown="pauseFullscreenLyricAutoFollow"
-            @touchstart="pauseFullscreenLyricAutoFollow"
-            @keydown="pauseFullscreenLyricAutoFollow"
+            @wheel="handleFullscreenLyricsWheel"
+            @touchmove="pauseFullscreenLyricAutoFollow"
+            @keydown="handleFullscreenLyricsKeydown"
           >
             <div ref="lyricsTrackRef" class="fullscreen-player-lyrics-track">
               <div :style="{ height: `${lyricsTopPadding}px` }"></div>
@@ -373,10 +456,9 @@ onBeforeUnmount(() => {
                 v-memo="[activeIndex === index, line.text]"
                 class="fullscreen-player-lyric-line"
                 :class="{
-                  'fullscreen-player-lyric-active':
-                    lyricsStatus === 'lrc' ? activeIndex === index : index === 0,
+                  'fullscreen-player-lyric-active': lyricsStatus === 'lrc' && activeIndex === index,
                   'fullscreen-player-lyric-upcoming':
-                    lyricsStatus === 'lrc' ? activeIndex !== index && line.text : index !== 0,
+                    lyricsStatus === 'lrc' && activeIndex !== index && line.text,
                   'fullscreen-player-lyric-empty': !line.text,
                 }"
                 :data-lyric-index="index"
@@ -399,23 +481,53 @@ onBeforeUnmount(() => {
   --auralis-text-muted: rgba(246, 242, 234, 0.62);
   --auralis-text-disabled: rgba(246, 242, 234, 0.28);
   --auralis-progress-track: rgba(246, 242, 234, 0.24);
-  --auralis-progress-fill: #8fa7bb;
-  --auralis-volume-fill: #8fa7bb;
+  --auralis-progress-fill: var(--auralis-fullscreen-slider-fill);
+  --auralis-volume-fill: var(--auralis-fullscreen-slider-fill);
   --auralis-artwork-placeholder-bg: rgba(246, 242, 234, 0.12);
   --fullscreen-lyrics-left-bleed: clamp(32px, 2.6vw, 56px);
   --auralis-fullscreen-bg: #15181d;
   --auralis-fullscreen-lyrics-glow: rgba(255, 255, 255, 0.42);
+  --fullscreen-padding-block: clamp(64px, 10vh, 110px);
+  --fullscreen-content-width: min(32vw, 600px);
+  --fullscreen-lyric-active-scale: 1.23;
 
   position: fixed;
   inset: 0;
   z-index: 1000;
   display: grid;
-  grid-template-columns: minmax(420px, 43vw) minmax(0, 1fr);
-  gap: clamp(46px, 6vw, 112px);
-  padding: clamp(64px, 10vh, 110px) clamp(70px, 10vw, 176px);
+  grid-template-columns: var(--fullscreen-content-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: clamp(80px, 8vw, 160px);
+  padding: var(--fullscreen-padding-block) clamp(48px, 8vw, 176px);
   color: var(--auralis-text);
   background: var(--auralis-fullscreen-bg);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.fullscreen-player-exit {
+  position: fixed;
+  top: 12px;
+  right: 24px;
+  z-index: 102;
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--auralis-text-muted);
+  -webkit-app-region: no-drag;
+}
+
+.fullscreen-player-exit:hover {
+  color: var(--auralis-text);
+  background: var(--auralis-artwork-placeholder-bg);
+}
+
+.fullscreen-player :is(button, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--auralis-text);
+  outline-offset: 4px;
 }
 
 .fullscreen-drag-region {
@@ -437,16 +549,27 @@ onBeforeUnmount(() => {
 .fullscreen-player-left {
   display: flex;
   min-width: 0;
-  width: min(32vw, 600px);
+  min-height: 0;
+  width: var(--fullscreen-content-width);
   flex-direction: column;
   justify-content: center;
-  justify-self: end;
-  transform: translateX(calc(-1 * clamp(104px, 8vw, 176px)));
+}
+
+.fullscreen-player-artwork-slot {
+  /* Flex reserves the actual metadata/control height before shrinking the square cover. */
+  width: 100%;
+  aspect-ratio: 1;
+  min-height: 120px;
+  flex: 0 1 auto;
+  container-type: size;
+  display: flex;
+  align-items: flex-end;
 }
 
 .fullscreen-player-artwork {
-  width: min(32vw, 600px);
+  width: min(100cqw, 100cqh);
   max-width: 100%;
+  flex-shrink: 0;
   aspect-ratio: 1;
   overflow: hidden;
   border-radius: 10px;
@@ -467,7 +590,9 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 18px;
-  margin-top: 22px;
+  margin-top: 18px;
+  flex-shrink: 0;
+  width: 100%;
 }
 
 .fullscreen-player-meta {
@@ -493,19 +618,39 @@ onBeforeUnmount(() => {
   color: var(--auralis-text-muted);
   font-size: clamp(14px, 1.1vw, 19px);
   font-weight: 700;
+  line-height: 1.4;
 }
 
 .fullscreen-player-progress-group {
-  margin-top: 22px;
+  margin-top: 4px;
+  width: 100%;
+  flex-shrink: 0;
 }
 
 .fullscreen-player-progress {
   position: relative;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  cursor: default;
+  border-radius: 8px;
+  touch-action: none;
+}
+
+.fullscreen-player-progress-track {
+  position: relative;
+  width: 100%;
   height: 5px;
   cursor: pointer;
   border-radius: 999px;
   background: var(--auralis-progress-track);
-  touch-action: none;
+}
+
+.fullscreen-player-progress-track::before {
+  content: '';
+  position: absolute;
+  inset: -3px 0;
+  cursor: pointer;
 }
 
 .fullscreen-player-progress-fill {
@@ -520,7 +665,8 @@ onBeforeUnmount(() => {
 .fullscreen-player-time-row {
   display: flex;
   justify-content: space-between;
-  margin-top: 8px;
+  gap: 16px;
+  margin-top: 0;
   color: var(--auralis-text-muted);
   font-size: 13px;
   font-weight: 700;
@@ -531,12 +677,13 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: clamp(18px, 2vw, 30px);
-  margin-top: 18px;
+  gap: clamp(4px, 1vw, 20px);
+  margin-top: 8px;
 }
 
 .fullscreen-player-control-stack {
-  transform: translateY(-16px);
+  width: 100%;
+  flex-shrink: 0;
 }
 
 .fullscreen-player-controls button,
@@ -544,6 +691,10 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+  border-radius: 8px;
   color: var(--auralis-text-muted);
   transition: color 140ms ease;
 }
@@ -633,23 +784,35 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 22px;
+  margin-top: 8px;
   width: 100%;
 }
 
 .fullscreen-player-volume-track {
   position: relative;
-  height: 5px;
+  height: 44px;
   flex: 1;
-  overflow: hidden;
+  border-radius: 8px;
+}
+
+.fullscreen-player-volume-track::before {
+  content: '';
+  position: absolute;
+  top: calc(50% - 2.5px);
+  left: 0;
+  right: 0;
+  height: 5px;
   border-radius: 999px;
   background: var(--auralis-progress-track);
 }
 
 .fullscreen-player-volume-fill {
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
+  top: calc(50% - 2.5px);
+  left: 0;
+  right: 0;
+  height: 5px;
+  border-radius: 999px;
   background: var(--auralis-volume-fill);
   clip-path: inset(0 20% 0 0 round 999px);
   pointer-events: none;
@@ -704,7 +867,6 @@ onBeforeUnmount(() => {
   align-items: stretch;
   padding: 4vh 0;
   overflow: visible;
-  transform: translateX(calc(-1 * clamp(52px, 5.6vw, 124px)));
 }
 
 .fullscreen-player-lyrics-scroll {
@@ -721,11 +883,17 @@ onBeforeUnmount(() => {
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    #000 7%,
-    #000 90%,
+    #000 var(--fullscreen-lyrics-fade-top),
+    #000 var(--fullscreen-lyrics-fade-bottom),
     transparent 100%
   );
-  mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 90%, transparent 100%);
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--fullscreen-lyrics-fade-top),
+    #000 var(--fullscreen-lyrics-fade-bottom),
+    transparent 100%
+  );
 }
 
 .fullscreen-player-lyrics-scroll::-webkit-scrollbar {
@@ -735,7 +903,8 @@ onBeforeUnmount(() => {
 .fullscreen-player-lyrics-track {
   box-sizing: border-box;
   min-height: 100%;
-  padding-right: 18.6992%;
+  /* Reserve exactly the extra width used by the active line's scale. */
+  padding-right: calc(100% - 100% / var(--fullscreen-lyric-active-scale));
   will-change: transform;
 }
 
@@ -788,7 +957,7 @@ onBeforeUnmount(() => {
   color: var(--auralis-text);
   filter: blur(0);
   opacity: 1;
-  transform: scale(1.23);
+  transform: scale(var(--fullscreen-lyric-active-scale));
 }
 
 .fullscreen-player-lyric-upcoming {
@@ -800,6 +969,18 @@ onBeforeUnmount(() => {
 
 .fullscreen-player-lyric-empty {
   min-height: 1.2em;
+}
+
+.fullscreen-player-lyrics-plain .fullscreen-player-lyric-line {
+  color: var(--auralis-text);
+  filter: none;
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+.fullscreen-player-lyrics-plain .fullscreen-player-lyrics-track {
+  padding-right: 0;
 }
 
 .fullscreen-player-lyrics-empty {
@@ -827,7 +1008,10 @@ onBeforeUnmount(() => {
 
 @media (max-width: 900px) {
   .fullscreen-player {
+    --fullscreen-content-width: min(62vw, 320px);
     grid-template-columns: 1fr;
+    grid-template-rows: max-content max-content;
+    align-content: start;
     gap: 28px;
     overflow-y: auto;
     padding: 56px 28px 40px;
@@ -838,22 +1022,38 @@ onBeforeUnmount(() => {
     justify-content: flex-start;
     text-align: center;
     justify-self: center;
-    width: 100%;
-    transform: none;
+    width: var(--fullscreen-content-width);
   }
 
-  .fullscreen-player-artwork {
-    width: min(62vw, 320px);
+  .fullscreen-player-artwork-slot {
+    flex-shrink: 0;
   }
 
   .fullscreen-player-lyrics {
     height: 52vh;
-    transform: none;
   }
 
   .fullscreen-player-meta-row {
-    width: min(62vw, 320px);
     text-align: left;
   }
+}
+
+:where([data-reduced-motion='true']) .fullscreen-player-lyrics-track {
+  will-change: auto;
+}
+
+:where([data-reduced-motion='true']) .fullscreen-player-lyric-line,
+:where([data-reduced-motion='true']) .fullscreen-player-prelude-dot {
+  transition: none;
+}
+
+:where([data-reduced-motion='true']) .fullscreen-player-lyric-active,
+:where([data-reduced-motion='true']) .fullscreen-player-prelude-dot {
+  transform: none;
+}
+
+:where([data-reduced-motion='true']) .fullscreen-player-enter-active,
+:where([data-reduced-motion='true']) .fullscreen-player-leave-active {
+  transition: none;
 }
 </style>

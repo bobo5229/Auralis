@@ -92,6 +92,8 @@
   --auralis-window-chrome-border: var(--auralis-border-strong);
 
   /* Player slider tokens */
+  /* Fullscreen sliders use a neutral fill on their immersive dark surface. */
+  --auralis-fullscreen-slider-fill: #e1e1e1;
   --auralis-player-slider-thumb: #ffffff;
   --auralis-player-progress-thumb-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   --auralis-player-volume-thumb-shadow:
@@ -110,7 +112,7 @@
   color-scheme: dark;
 
   /* Theme Accent Token */
-  --auralis-theme-accent: var(--auralis-dark-accent, #f472b6);
+  --auralis-theme-accent: var(--auralis-dark-accent, #1dd55f);
 
   /* Foundation & Shell: default dark surfaces */
   --auralis-bg: #121212;
@@ -136,7 +138,7 @@
   --auralis-control-primary-bg: var(--auralis-theme-accent);
   --auralis-control-primary-text: var(--auralis-dark-on-accent, #121212);
   --auralis-focus-ring: var(--auralis-theme-accent);
-  --auralis-danger: #c96a55;
+  --auralis-danger: #c95555;
   --auralis-success: #8aa36a;
   --auralis-artwork-accent-fallback: var(--auralis-player-default-accent-dark);
   --auralis-player-static-accent: var(--auralis-artwork-accent-fallback);
@@ -287,7 +289,7 @@
   --auralis-control-primary-bg: var(--auralis-theme-accent);
   --auralis-control-primary-text: #ffffff;
   --auralis-focus-ring: var(--auralis-theme-accent);
-  --auralis-danger: #b84736;
+  --auralis-danger: #b83636;
   --auralis-success: #476e4b;
   --auralis-artwork-accent-fallback: var(--auralis-player-default-accent-light);
   --auralis-player-static-accent: var(--auralis-artwork-accent-fallback);
@@ -391,7 +393,7 @@
 ),
 :root:not([data-theme='light'])
   :is(.app-window, .library-overlay, .albums-overlay, .archive-overlay, .sidebar-overlay) {
-  --auralis-theme-accent: var(--auralis-dark-accent, #f472b6);
+  --auralis-theme-accent: var(--auralis-dark-accent, #1dd55f);
   --auralis-bg: #121212;
   --auralis-main-bg: #121212;
   --auralis-dialog-bg: #202020;
@@ -540,7 +542,7 @@ input {
 
 /* Scoped dark-player palette preservation */
 :is([data-theme='dark'] .player-bar, :root:not([data-theme='light']) .player-bar) {
-  --auralis-theme-accent: var(--auralis-dark-accent, #f472b6);
+  --auralis-theme-accent: var(--auralis-dark-accent, #1dd55f);
   --auralis-dialog-bg: #202020;
   --auralis-sidebar-bg: #1a1a1a;
   --auralis-surface-raised: #202020;
@@ -725,6 +727,11 @@ input {
 
 .player-bar .player-bar-island::before {
   content: none;
+}
+
+:is([data-theme='dark'] .player-bar, :root:not([data-theme='light']) .player-bar)
+  .player-bar-island {
+  border: 1px solid var(--auralis-playbar-border);
 }
 
 .player-bar .player-bar-island {
@@ -2109,7 +2116,6 @@ input[type='range'].volume-overlay-slider {
   height: 20px;
   flex-shrink: 0;
   color: inherit;
-  transform: translateY(-1px);
   transition: opacity 150ms ease;
 }
 
@@ -2318,14 +2324,14 @@ input[type='range'].volume-overlay-slider {
 }
 
 .sidebar-link-icon > span {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
 }
 
 .sidebar-link-label {
   flex: 1;
   overflow: hidden;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -23,8 +23,10 @@ const props = withDefaults(
 
 const playback = usePlayback()
 const { t } = useI18n()
-const { openFullscreenPlayer } = useFullscreenPlayer()
+const { isFullscreenPlayerOpen, openFullscreenPlayer } = useFullscreenPlayer()
 const imgError = ref(false)
+const isRestoredCoverFocus = ref(false)
+let openedFullscreenFromCover = false
 
 const currentTrack = computed(() => playback.state.currentTrack)
 const hasTrack = computed(() => currentTrack.value !== null)
@@ -42,15 +44,27 @@ watch(
   },
 )
 
-function handleCoverClick(): void {
+function handleCoverClick(event: MouseEvent): void {
+  isRestoredCoverFocus.value = false
+  openedFullscreenFromCover = true
+  ;(event.currentTarget as HTMLElement).focus({ preventScroll: true })
   openFullscreenPlayer()
 }
 
 function handleCoverKeydown(event: KeyboardEvent): void {
   if (event.key !== 'Enter' && event.key !== ' ') return
   event.preventDefault()
+  openedFullscreenFromCover = true
   openFullscreenPlayer()
 }
+
+watch(isFullscreenPlayerOpen, (isOpen) => {
+  if (!isOpen && openedFullscreenFromCover) {
+    // 保留恢复后的 Tab 位置，直到焦点离开封面才解除轮廓隐藏。
+    isRestoredCoverFocus.value = true
+    openedFullscreenFromCover = false
+  }
+})
 </script>
 
 <template>
@@ -81,9 +95,11 @@ function handleCoverKeydown(event: KeyboardEvent): void {
           class="track-cover cursor-pointer"
           role="button"
           tabindex="0"
+          :data-fullscreen-focus-restored="isRestoredCoverFocus ? 'true' : undefined"
           :aria-label="t('player.fullscreen')"
           @click="handleCoverClick"
           @keydown="handleCoverKeydown"
+          @blur="isRestoredCoverFocus = false"
         >
           <img
             v-if="getArtworkUrl(currentTrack.artworkCacheKey) && !imgError"
@@ -112,3 +128,9 @@ function handleCoverKeydown(event: KeyboardEvent): void {
     </div>
   </div>
 </template>
+
+<style scoped>
+.track-cover[data-fullscreen-focus-restored='true']:focus-visible {
+  outline: none;
+}
+</style>

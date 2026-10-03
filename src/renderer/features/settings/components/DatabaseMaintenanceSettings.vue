@@ -114,11 +114,10 @@ onBeforeUnmount(() => {
         </div>
         <button
           type="button"
-          class="settings-secondary-button"
+          class="settings-text-button"
           :disabled="!appInfo?.databasePath"
           @click="copyDatabasePath"
         >
-          <span :class="copyState === 'copied' ? 'i-lucide-check' : 'i-lucide-copy'"></span>
           {{
             copyState === 'copied'
               ? t('settings.library.copySuccess')
@@ -136,11 +135,10 @@ onBeforeUnmount(() => {
         </div>
         <button
           type="button"
-          class="settings-secondary-button"
+          class="settings-text-button"
           :disabled="backupState === 'exporting'"
           @click="backupDatabase"
         >
-          <span :class="backupState === 'saved' ? 'i-lucide-check' : 'i-lucide-download'"></span>
           {{ backupButtonLabel() }}
         </button>
       </div>
@@ -152,11 +150,10 @@ onBeforeUnmount(() => {
         </div>
         <button
           type="button"
-          class="settings-secondary-button"
+          class="settings-text-button"
           :disabled="restoreState === 'staging'"
           @click="restoreDatabase"
         >
-          <span :class="restoreState === 'staged' ? 'i-lucide-check' : 'i-lucide-upload'"></span>
           {{ restoreButtonLabel() }}
         </button>
       </div>

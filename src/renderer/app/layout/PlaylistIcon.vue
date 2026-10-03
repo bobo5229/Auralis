@@ -7,7 +7,7 @@ defineProps<{ kind: 'playlist' | 'recentPlayed' | 'mostListened' | 'recentAdded'
     class="playlist-kind-icon"
     :class="{
       'i-ph-playlist': kind === 'playlist',
-      'i-lucide-headphones': kind === 'mostListened',
+      'i-ph-ranking': kind === 'mostListened',
       'i-lucide-list-plus': kind === 'recentAdded',
       'i-lucide-edit': kind === 'custom',
     }"

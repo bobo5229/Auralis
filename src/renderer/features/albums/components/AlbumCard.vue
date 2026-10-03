@@ -210,7 +210,7 @@ function onContextMenu(event: MouseEvent): void {
   transform: translateX(1px);
 }
 
-.album-card--grid .album-card-cover:is(:hover, :focus-within) .album-card-play {
+.album-card--grid .album-card-cover:is(:hover, :has(:focus-visible)) .album-card-play {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
@@ -293,7 +293,7 @@ function onContextMenu(event: MouseEvent): void {
   content: '';
 }
 
-.album-card--grid .album-card-cover:is(:hover, :focus-within) .cover-frame::after {
+.album-card--grid .album-card-cover:is(:hover, :has(:focus-visible)) .cover-frame::after {
   opacity: 1;
 }
 

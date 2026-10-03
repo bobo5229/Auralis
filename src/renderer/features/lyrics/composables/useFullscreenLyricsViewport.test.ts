@@ -90,6 +90,7 @@ describe('useFullscreenLyricsViewport', () => {
     const isPrelude = ref(false)
     const showPrelude = ref(false)
     const isOpen = ref(true)
+    const reducedMotion = ref(false)
     const viewport = useFullscreenLyricsViewport({
       scrollRef,
       trackRef,
@@ -100,6 +101,7 @@ describe('useFullscreenLyricsViewport', () => {
       isPrelude,
       showPrelude,
       isOpen,
+      reducedMotion,
     })
     return {
       container,
@@ -109,6 +111,8 @@ describe('useFullscreenLyricsViewport', () => {
       currentTrackId,
       activeIndex,
       isOpen,
+      reducedMotion,
+      lyricsStatus,
       viewport,
     }
   }
@@ -149,7 +153,7 @@ describe('useFullscreenLyricsViewport', () => {
     expect(track.style.transform).toBe('translate3d(0, -165px, 0)')
   })
 
-  it('pauses auto-follow for manual scrolling and resumes after three seconds', async () => {
+  it('preserves manual reading for eight seconds before resuming auto-follow', async () => {
     vi.useFakeTimers()
     const { container, track, viewport } = setup()
     await flushViewport()
@@ -160,10 +164,98 @@ describe('useFullscreenLyricsViewport', () => {
     expect(track.style.transform).toBe('translate3d(0, 0px, 0)')
 
     container.scrollTop = 90
-    vi.advanceTimersByTime(3000)
+    vi.advanceTimersByTime(7999)
+    expect(viewport.isUserScrolling.value).toBe(true)
+    expect(container.scrollTop).toBe(90)
+    vi.advanceTimersByTime(1)
     expect(viewport.isUserScrolling.value).toBe(false)
     expect(container.scrollTop).toBe(0)
     expect(track.style.transform).toBe('translate3d(0, -60px, 0)')
+  })
+
+  it('ignores navigation and ordinary keys but pauses for scrolling inputs', async () => {
+    vi.useFakeTimers()
+    const { viewport } = setup()
+    await flushViewport()
+    const keyboard = (key: string, ctrlKey = false) => ({
+      key,
+      ctrlKey,
+      altKey: false,
+      metaKey: false,
+    })
+    for (const key of ['Tab', 'Escape', 'Enter', 'a', 'ArrowLeft', 'ArrowRight']) {
+      viewport.onKeydown(keyboard(key))
+      expect(viewport.isUserScrolling.value).toBe(false)
+    }
+    viewport.onKeydown(keyboard('Home', true))
+    viewport.onWheel({ deltaY: 0 })
+    expect(viewport.isUserScrolling.value).toBe(false)
+    viewport.onKeydown(keyboard('PageDown'))
+    expect(viewport.isUserScrolling.value).toBe(true)
+    vi.advanceTimersByTime(7000)
+    viewport.onWheel({ deltaY: 100 })
+    vi.advanceTimersByTime(7000)
+    expect(viewport.isUserScrolling.value).toBe(true)
+    vi.advanceTimersByTime(1000)
+    expect(viewport.isUserScrolling.value).toBe(false)
+    viewport.dispose()
+  })
+
+  it('jumps to the active lyric without animation when reduced motion is enabled', async () => {
+    const { activeIndex, reducedMotion, track } = setup()
+    await flushViewport()
+
+    reducedMotion.value = true
+    activeIndex.value = 1
+    await flushViewport()
+
+    expect(track.style.transform).toBe('translate3d(0, -165px, 0)')
+    expect(track.animate).not.toHaveBeenCalled()
+  })
+
+  it('cancels an in-flight follow animation when reduced motion is enabled', async () => {
+    const { activeIndex, reducedMotion, track, animation } = setup()
+    await flushViewport()
+    activeIndex.value = 1
+    await flushViewport()
+    expect(track.animate).toHaveBeenCalledOnce()
+
+    reducedMotion.value = true
+    await flushViewport()
+
+    expect(animation.cancel).toHaveBeenCalled()
+    expect(track.style.transform).toBe('translate3d(0, -165px, 0)')
+    expect(track.animate).toHaveBeenCalledOnce()
+  })
+
+  it('resets timed follow and preserves manual reading when lyrics become plain text', async () => {
+    const { lyricsStatus, activeIndex, container, track, viewport } = setup()
+    await flushViewport()
+    lyricsStatus.value = 'plain'
+    await flushViewport()
+
+    expect(track.style.transform).toBe('translate3d(0, 0px, 0)')
+    expect(viewport.topPadding.value).toBe(15)
+    expect(viewport.bottomPadding.value).toBe(18)
+    container.scrollTop = 90
+    viewport.pauseAutoFollow()
+    activeIndex.value = 1
+    await flushViewport()
+
+    expect(container.scrollTop).toBe(90)
+    expect(viewport.isUserScrolling.value).toBe(false)
+    expect(track.animate).not.toHaveBeenCalled()
+  })
+
+  it('keeps plain text edge spacing outside the fade after resize', async () => {
+    const { lyricsStatus, viewport } = setup()
+    lyricsStatus.value = 'plain'
+    await flushViewport()
+    FakeResizeObserver.instances[0].emit(800)
+    await flushViewport()
+    expect(viewport.topPadding.value).toBe(64)
+    expect(viewport.bottomPadding.value).toBe(88)
+    viewport.dispose()
   })
 
   it('disconnects while closed, rebinds once on reopen, and cleans resources on dispose', async () => {

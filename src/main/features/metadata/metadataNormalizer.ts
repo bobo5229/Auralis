@@ -1,5 +1,6 @@
 import type { IAudioMetadata } from 'music-metadata'
 import { basename, parse } from 'node:path'
+import { cleanDelimitedValues, joinDelimitedValues } from '@shared/utils/delimitedValues'
 
 export interface NormalizedMetadata {
   title: string
@@ -52,29 +53,8 @@ export function getYear(commonYear: number | undefined, date: string | undefined
 // Multi-value artist / albumArtist
 // ---------------------------------------------------------------------------
 
-function cleanTextValues(values: Array<string | undefined>): string[] {
-  return values
-    .flatMap((value) => (value ? value.split(/\s*;\s*/) : []))
-    .map((value) => value.trim())
-    .filter(Boolean)
-}
-
-function uniqueValues(values: string[]): string[] {
-  const seen = new Set<string>()
-  const result: string[] = []
-
-  for (const value of values) {
-    if (seen.has(value)) continue
-
-    seen.add(value)
-    result.push(value)
-  }
-
-  return result
-}
-
 export function normalizeArtists(artists?: string[], artist?: string): string[] {
-  return uniqueValues(cleanTextValues([...(artists ?? []), artist]))
+  return cleanDelimitedValues([...(artists ?? []), artist])
 }
 
 export function normalizeAlbumArtists(
@@ -82,7 +62,7 @@ export function normalizeAlbumArtists(
   albumArtist?: string,
   artist?: string,
 ): string[] {
-  const normalized = uniqueValues(cleanTextValues([...(albumArtists ?? []), albumArtist]))
+  const normalized = cleanDelimitedValues([...(albumArtists ?? []), albumArtist])
 
   if (normalized.length > 0) {
     return normalized
@@ -192,7 +172,7 @@ export function resolveGenres(metadata: IAudioMetadata): string[] {
     }
   }
 
-  return uniqueValues(candidates.map((value) => value.trim()).filter(Boolean))
+  return cleanDelimitedValues(candidates)
 }
 
 export function resolveComposers(metadata: IAudioMetadata): string[] {
@@ -206,7 +186,7 @@ export function resolveComposers(metadata: IAudioMetadata): string[] {
     }
   }
 
-  return uniqueValues(cleanTextValues(candidates))
+  return cleanDelimitedValues(candidates)
 }
 
 // ---------------------------------------------------------------------------
@@ -250,7 +230,7 @@ function resolveIsrc(metadata: IAudioMetadata): string | null {
 export function normalizeIdentityText(metadata: IAudioMetadata): NormalizedIdentity {
   const common = metadata.common
   const artists = normalizeArtists(common.artists, common.artist)
-  const artist = artists.join('; ') || 'Unknown Artist'
+  const artist = joinDelimitedValues(artists) || 'Unknown Artist'
   const album = common.album || 'Unknown Album'
 
   return {
@@ -288,9 +268,9 @@ export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): 
   const common = metadata.common
   const lyrics = resolveLyrics(metadata)
   const artists = normalizeArtists(common.artists, common.artist)
-  const artistDisplay = artists.join('; ') || 'Unknown Artist'
+  const artistDisplay = joinDelimitedValues(artists) || 'Unknown Artist'
   const albumArtists = normalizeAlbumArtists(common.albumartists, common.albumartist, artistDisplay)
-  const albumArtistDisplay = albumArtists.join('; ') || 'Unknown Artist'
+  const albumArtistDisplay = joinDelimitedValues(albumArtists) || 'Unknown Artist'
   const albumTitle = common.album || 'Unknown Album'
   const genres = resolveGenres(metadata)
   const composers = resolveComposers(metadata)
@@ -313,10 +293,9 @@ export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): 
     releaseDate: common.date ?? null,
     copyright: common.copyright?.trim() || null,
     composers,
-    composer: composers.join('; ') || null,
+    composer: joinDelimitedValues(composers),
     genres,
-    // Storage prefers "; "; UI display always goes through formatDelimitedValues → A & B
-    genre: genres.join('; ') || null,
+    genre: joinDelimitedValues(genres),
     lyricsText: lyrics?.text ?? null,
     lyricsFormat: lyrics?.format ?? null,
     isrc: resolveIsrc(metadata),

@@ -311,6 +311,7 @@
   },
   "fullscreen": {
     "overlayAria": "全屏播放器",
+    "exit": "退出全屏播放器",
     "repeatEnableOne": "开启单曲循环",
     "repeatDisable": "关闭循环",
     "repeatEnableAll": "开启列表循环",
@@ -354,6 +355,12 @@
       "theme": {
         "toLight": "切换到浅色",
         "toDark": "切换到深色"
+      },
+      "background": {
+        "toggle": "背景取色",
+        "turnOn": "开启封面强调色背景",
+        "turnOff": "关闭封面强调色背景",
+        "lightOnly": "仅浅色模式可用"
       },
       "modes": {
         "catalog-sequential": "全库顺序",
@@ -503,13 +510,13 @@
       },
       "status": {
         "checking": "正在检查编辑状态…",
-        "playbackInUse": "此歌曲正由播放器使用，暂时无法修改元数据。请切换到其他歌曲后再试。",
+        "playbackInUse": "歌曲文件被播放器占用，无法修改元数据。",
         "queryFailed": "无法确认编辑状态，请重试。",
         "retry": "重试"
       },
       "errors": {
         "saveFailed": "保存元数据失败",
-        "playbackInUse": "此歌曲正由播放器使用，暂时无法修改元数据。请切换到其他歌曲后再试。",
+        "playbackInUse": "歌曲文件被播放器占用，无法修改元数据。",
         "writeInProgress": "当前文件正在保存中，请稍候。"
       }
     },

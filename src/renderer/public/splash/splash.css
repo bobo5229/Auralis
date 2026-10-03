@@ -13,7 +13,7 @@
     'Microsoft Himalaya', 'Leelawadee UI', 'Segoe UI Symbol', ui-sans-serif, system-ui,
     -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --splash-bg: #121212;
-  --splash-accent: var(--auralis-dark-accent, #f472b6);
+  --splash-accent: var(--auralis-dark-accent, #1dd55f);
   --splash-text: #f3eee6;
 }
 

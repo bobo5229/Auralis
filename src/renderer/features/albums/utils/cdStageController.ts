@@ -100,10 +100,9 @@ export function createCdStage(
   let startup = false
   let startupGeneration = 0
   let preparationTimer: ReturnType<typeof setTimeout> | undefined
+  let preparationCover: HTMLDivElement | undefined
   let startupOrigin = 0
   const readyImages = new Set<HTMLImageElement>()
-  const decodeQueue: DiscNode[] = []
-  let decodesInFlight = 0
   let width = stage.clientWidth
   let height = stage.clientHeight
   let focusProgress = 0
@@ -396,25 +395,6 @@ export function createCdStage(
     )
   }
 
-  function pumpDecode(): void {
-    while (decodesInFlight < 2 && decodeQueue.length) {
-      const node = decodeQueue.shift()
-      if (!node || node.artwork !== 'idle') continue
-      decodesInFlight += 1
-      const generation = startupGeneration
-      void beginDecode(node)?.finally(() => {
-        decodesInFlight = Math.max(0, decodesInFlight - 1)
-        if (generation === startupGeneration) pumpDecode()
-      })
-    }
-  }
-
-  function enqueueDecode(node: DiscNode): void {
-    if (node.artwork !== 'idle' || !node.image || decodeQueue.includes(node)) return
-    decodeQueue.push(node)
-    pumpDecode()
-  }
-
   function promoteStartupDisc(node: DiscNode): void {
     node.slot.style.willChange = 'transform, opacity'
     node.disc.style.willChange = 'transform'
@@ -425,31 +405,10 @@ export function createCdStage(
     node.vinyl = vinyl
   }
 
-  function prepareStartupFrame(
-    visible: readonly number[],
-    upcoming: number | null,
-    gather: boolean,
-  ): void {
-    const shown = new Set(visible)
-    for (const index of shown) {
-      const node = nodes.get(index)
-      if (!node) continue
-      promoteStartupDisc(node)
-      if (node.artwork === 'shown' || node.artwork === 'dropped') continue
-      if (node.image && readyImages.has(node.image)) showStartupImage(node)
-      else releaseStartupImage(node)
-    }
-    if (upcoming !== null) {
-      const node = nodes.get(upcoming)
-      if (node) {
-        promoteStartupDisc(node)
-        showStartupImage(node)
-        if (gather && node.artwork === 'idle') enqueueDecode(node)
-      }
-    }
-    const earliest = shown.size ? Math.min(...shown) : Number.POSITIVE_INFINITY
+  function releasePassedStartupDiscs(visible: readonly number[]): void {
+    const earliest = visible.length ? Math.min(...visible) : Number.POSITIVE_INFINITY
     for (const [index, node] of nodes) {
-      if (index >= earliest) continue
+      if (index >= earliest || !node.vinyl) continue
       node.slot.style.willChange = ''
       node.disc.style.willChange = ''
       node.vinyl?.remove()
@@ -462,8 +421,6 @@ export function createCdStage(
         node.artwork = 'dropped'
       }
     }
-    if (gather) pumpDecode()
-    else decodeQueue.length = 0
   }
 
   function ensureDiscChrome(node: DiscNode): void {
@@ -734,9 +691,10 @@ export function createCdStage(
     ++startupGeneration
     clearTimeout(preparationTimer)
     preparationTimer = undefined
+    preparationCover?.remove()
+    preparationCover = undefined
     if (startup) {
       startup = false
-      decodeQueue.length = 0
       readyImages.clear()
       for (const node of nodes.values()) {
         node.vinyl?.remove()
@@ -764,44 +722,31 @@ export function createCdStage(
     onStartup?.(true)
     const generation = ++startupGeneration
     readyImages.clear()
-    decodeQueue.length = 0
-    decodesInFlight = 0
     const travel = albums.length >= 4 ? 9 : 0
     startupOrigin = travel ? -travel : 0
     const first = travel ? -travel - 2 : 0
     const last = travel ? 1 : Math.min(1, albums.length - 1)
-    // Bounded pool: at most 13 nodes, only four visible. Covers, vinyl paint
-    // and compositor layers are attached in appearance order before fade-in.
+    // Bounded pool: at most 13 nodes, only four visible during motion.
     for (let index = first; index <= last; index++) {
       const node = createDisc(index, true)
       node.slot.style.opacity = '0'
+      promoteStartupDisc(node)
     }
     const initial = cdSlots(startupOrigin, albums.length)
     const opening = initial
       .map((index) => nodes.get(index))
       .filter((node): node is DiscNode => Boolean(node))
-    for (const node of opening) {
-      promoteStartupDisc(node)
-    }
-    const lead = initial.length ? Math.max(...initial) + 1 : null
-    if (lead !== null && nodes.has(lead)) promoteStartupDisc(nodes.get(lead)!)
     let prepared = false
     const start = (): void => {
       if (prepared || generation !== startupGeneration) return
       prepared = true
       clearTimeout(preparationTimer)
       preparationTimer = undefined
-      for (const node of opening) {
+      for (const node of nodes.values()) {
         if (node.artwork === 'shown' || node.artwork === 'dropped') continue
         if (node.image && readyImages.has(node.image)) showStartupImage(node)
         else releaseStartupImage(node)
       }
-      for (let index = first; index <= last; index++) {
-        if (initial.includes(index)) continue
-        const node = nodes.get(index)
-        if (node) decodeQueue.push(node)
-      }
-      pumpDecode()
       const pool = new Map(
         Array.from(nodes, ([index, node]) => [
           index,
@@ -814,29 +759,90 @@ export function createCdStage(
           },
         ]),
       )
-      cancelAnimation = playCdStartup(
-        pool,
-        albums.length,
-        () => ({ width, height }),
-        () => {
-          cancelAnimation = null
-          stop()
-          selected = 0
-          render(selected)
-          onSelect(selected)
-        },
-        ({ visible, upcoming, gather }) => {
-          if (generation !== startupGeneration) return
-          prepareStartupFrame(visible, upcoming, gather)
-        },
-      )
+      const play = (): void => {
+        for (const node of warming) {
+          node.slot.style.opacity = '0'
+          node.vinyl!.style.opacity = '1'
+        }
+        preparationCover?.remove()
+        preparationCover = undefined
+        cancelAnimation = playCdStartup(
+          pool,
+          albums.length,
+          () => ({ width, height }),
+          () => {
+            cancelAnimation = null
+            stop()
+            selected = 0
+            render(selected)
+            onSelect(selected)
+          },
+          ({ visible }) => {
+            if (generation !== startupGeneration) return
+            releasePassedStartupDiscs(visible)
+          },
+        )
+      }
+      // Opacity 0 and decode() do not rasterize the masked disc. Exercise the
+      // actual perspective, mask and translucent vinyl before the clock starts.
+      // Prepare the bounded pool, including every cover orientation, so rapid
+      // slide-in never creates a new vinyl/cover material for the first time.
+      const warming = [...nodes.values()]
+      // A nearly opaque page-coloured cover hides preparation, but remains
+      // translucent so Chromium cannot occlusion-cull the real disc layers.
+      preparationCover = document.createElement('div')
+      preparationCover.className = 'cd-startup-preparation-cover'
+      preparationCover.setAttribute('aria-hidden', 'true')
+      Object.assign(preparationCover.style, {
+        position: 'absolute',
+        inset: '0',
+        zIndex: '100',
+        background: 'var(--cd-bg-image, none) var(--cd-bg)',
+        opacity: '0.999',
+        pointerEvents: 'none',
+      })
+      stage.append(preparationCover)
+      for (const [layer, node] of warming.entries()) {
+        const size = Math.min(width * 0.38, height * 0.6)
+        node.slot.style.transform = `translate3d(${width * 0.5 - size / 2 + layer * 15}px, ${height * 0.49 - size / 2}px, 0) scale(${size / 400})`
+        node.disc.style.transform =
+          'perspective(1100px) rotateZ(24deg) rotateY(-42deg) rotateX(9deg)'
+        node.slot.style.opacity = '0.99'
+        node.vinyl!.style.opacity = '0'
+      }
+      let warmFrames = 0
+      cancelAnimation = animateFrames(() => {
+        if (generation !== startupGeneration) return false
+        if (warmFrames === 2) {
+          for (const node of warming) node.vinyl!.style.opacity = '0.5'
+        }
+        if (warmFrames === 4) {
+          for (const node of warming) {
+            node.vinyl!.style.opacity = '1'
+            node.slot.style.opacity = '1'
+          }
+        }
+        if (++warmFrames < 7) return true
+        play()
+        return false
+      })
     }
     preparationTimer = setTimeout(start, 1200)
     const openingDecodes = opening.flatMap((node) => {
       const job = beginDecode(node)
       return job ? [job] : []
     })
-    void Promise.all(openingDecodes).then(start)
+    const remaining = [...nodes.values()].filter((node) => !opening.includes(node))
+    let decodeIndex = 0
+    const decodeRemaining = async (): Promise<void> => {
+      while (decodeIndex < remaining.length && generation === startupGeneration && !prepared) {
+        const node = remaining[decodeIndex++]
+        await beginDecode(node)
+      }
+    }
+    void Promise.all(openingDecodes)
+      .then(() => Promise.all([decodeRemaining(), decodeRemaining()]))
+      .then(start)
   }
 
   function dampingRatio(target: number, currentPosition: number, velocity: number): number {

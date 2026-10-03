@@ -14,6 +14,7 @@ export interface FullscreenLyricsViewportOptions {
   isPrelude: ReadonlyRef<boolean>
   showPrelude: ReadonlyRef<boolean>
   isOpen: ReadonlyRef<boolean>
+  reducedMotion?: ReadonlyRef<boolean>
 }
 
 const MIN_DURATION_MS = 420
@@ -21,7 +22,11 @@ const MAX_DURATION_MS = 650
 const DURATION_BASE_MS = 380
 const DURATION_PER_PIXEL = 0.65
 const EASING = 'cubic-bezier(0.4, 0, 0.2, 1)'
-const AUTO_FOLLOW_PAUSE_MS = 3000
+const AUTO_FOLLOW_PAUSE_MS = 8000
+export const FULLSCREEN_LYRICS_FOCAL_RATIO = 0.3
+export const FULLSCREEN_LYRICS_FADE_TOP_RATIO = 0.07
+export const FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO = 0.1
+const PLAIN_EDGE_GAP_PX = 8
 
 export function clampFullscreenLyricsScroll(value: number, max: number): number {
   return Math.max(0, Math.min(value, max))
@@ -33,7 +38,7 @@ export function resolveFullscreenLyricsScrollTarget(
   scrollMax: number,
 ): number {
   return clampFullscreenLyricsScroll(
-    metric.offset - containerHeight * 0.3 + metric.height / 2,
+    metric.offset - containerHeight * FULLSCREEN_LYRICS_FOCAL_RATIO + metric.height / 2,
     scrollMax,
   )
 }
@@ -48,8 +53,16 @@ export function resolveFullscreenLyricsAnimationDuration(distance: number): numb
 export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOptions) {
   const containerHeight = ref(0)
   const isUserScrolling = ref(false)
-  const topPadding = computed(() => Math.round(containerHeight.value * 0.3))
-  const bottomPadding = computed(() => Math.round(containerHeight.value * 0.7))
+  const topPadding = computed(() =>
+    options.lyricsStatus.value === 'plain'
+      ? Math.round(containerHeight.value * FULLSCREEN_LYRICS_FADE_TOP_RATIO) + PLAIN_EDGE_GAP_PX
+      : Math.round(containerHeight.value * FULLSCREEN_LYRICS_FOCAL_RATIO),
+  )
+  const bottomPadding = computed(() =>
+    options.lyricsStatus.value === 'plain'
+      ? Math.round(containerHeight.value * FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO) + PLAIN_EDGE_GAP_PX
+      : Math.round(containerHeight.value * (1 - FULLSCREEN_LYRICS_FOCAL_RATIO)),
+  )
   let scrollTimeout: ReturnType<typeof setTimeout> | null = null
   let resizeObserver: ResizeObserver | null = null
   let observedContainer: HTMLElement | null = null
@@ -160,7 +173,7 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
     if (target === null || !container || !track) return
     const targetOffset = -target
 
-    if (behavior === 'auto') {
+    if (behavior === 'auto' || options.reducedMotion?.value) {
       cancelAnimation(false)
       container.scrollTop = 0
       setOffset(targetOffset)
@@ -244,7 +257,7 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
   }
 
   function pauseAutoFollow(): void {
-    if (disposed) return
+    if (disposed || !options.isOpen.value || options.lyricsStatus.value !== 'lrc') return
     const container = options.scrollRef.value
     if (!isUserScrolling.value) {
       const currentOffset = cancelAnimation(true)
@@ -274,6 +287,17 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
     clearMetrics()
   }
 
+  function onWheel(event: Pick<WheelEvent, 'deltaY'>): void {
+    if (event.deltaY !== 0) pauseAutoFollow()
+  }
+
+  function onKeydown(event: Pick<KeyboardEvent, 'key' | 'altKey' | 'ctrlKey' | 'metaKey'>): void {
+    if (event.altKey || event.ctrlKey || event.metaKey) return
+    if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(event.key)) {
+      pauseAutoFollow()
+    }
+  }
+
   function dispose(): void {
     if (disposed) return
     suspend()
@@ -281,12 +305,15 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
   }
 
   watch(options.currentTrackId, resetPosition)
+  watch(options.lyricsStatus, resetPosition)
   watch(
     () => [
       options.activeIndex.value,
       options.isPrelude.value,
       options.lineCount.value,
       options.isOpen.value,
+      options.lyricsStatus.value,
+      options.reducedMotion?.value,
     ],
     () => {
       void nextTick(() => {
@@ -314,6 +341,8 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
     bottomPadding,
     isUserScrolling,
     pauseAutoFollow,
+    onWheel,
+    onKeydown,
     resetPosition,
     refresh,
     dispose,

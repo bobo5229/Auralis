@@ -25,6 +25,7 @@ import {
   type CdSurfaceIndicatorMotionState,
 } from '../utils/cdSurfaceIndicator'
 import CdViewSwitch from '../components/CdViewSwitch.vue'
+import CdBackgroundSwitch from '../components/CdBackgroundSwitch.vue'
 import { albumIdentityKey } from '../utils/albumIdentity'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import {
@@ -38,11 +39,15 @@ import CdTrackList from '../components/CdTrackList.vue'
 import CdFocusLyrics from '../components/CdFocusLyrics.vue'
 import { createCdStage, type CdAlbum } from '../utils/cdStageController'
 import { useCdCanvasTheme } from '../composables/useCdCanvasTheme'
+import { useCdCanvasBackground } from '../composables/useCdCanvasBackground'
+import { useCdCanvasColors } from '../composables/useCdCanvasColors'
+import { resolveCdCanvasBackground } from '../utils/cdCanvasColors'
 import { formatCdAccent } from '../utils/cdAccent'
 import { presentCdTrackComposers } from '../utils/cdTrackComposers'
 import { animatePlaybackTextShimmer, animateProgress } from '@renderer/shared/animation/motion'
 
 interface CdAlbumInfo extends CdAlbum {
+  artworkCacheKey: string | null
   title: string
   artist: string
   releaseDate: string | null
@@ -70,6 +75,10 @@ const trackPanelRef = ref<HTMLElement | null>(null)
 const controlsRef = ref<HTMLElement | null>(null)
 const focusedPlaybackFrameRef = ref<HTMLElement | null>(null)
 const focused = ref(false)
+const { cdCanvasBackgroundEnabled, toggleCdCanvasBackground } = useCdCanvasBackground()
+const canvasBackgroundActive = computed(
+  () => focused.value && cdCanvasTheme.value === 'light' && cdCanvasBackgroundEnabled.value,
+)
 const focusSettled = ref(false)
 const cdMode = ref<CdPlaybackMode>('catalog-sequential')
 const discSurface = ref<'cd' | 'vinyl'>('cd')
@@ -184,6 +193,28 @@ const stageRef = ref<HTMLElement | null>(null)
 const infoRef = ref<HTMLElement | null>(null)
 const loading = ref(true)
 const starting = ref(false)
+const canvasArtworkKey = computed(() => focusedAlbum.value?.artworkCacheKey ?? null)
+const { palette: canvasPalette } = useArtworkPalette(canvasArtworkKey, {
+  enabled: () =>
+    cdCanvasTheme.value === 'light' &&
+    cdCanvasBackgroundEnabled.value &&
+    !loading.value &&
+    !starting.value,
+})
+const canvasBackground = computed(() =>
+  canvasBackgroundActive.value &&
+  canvasArtworkKey.value &&
+  canvasPalette.value.key === canvasArtworkKey.value
+    ? resolveCdCanvasBackground(canvasPalette.value)
+    : null,
+)
+useCdCanvasColors(pageRef, canvasBackground, cdCanvasTheme, () =>
+  ringTrackMatches.value &&
+  ringPalette.value.key === ringArtworkKey.value &&
+  ringPalette.value.quality !== 'fallback'
+    ? (ringPalette.value.accents[0]?.rgb ?? null)
+    : null,
+)
 const infoSuppressed = ref(false)
 let startupPlayed = false
 const failed = ref(false)
@@ -468,6 +499,7 @@ async function loadAlbums(): Promise<void> {
       const albums = catalogAlbums.map((album) => ({
         key: album.key,
         artworkUrl: getArtworkUrl(album.artworkCacheKey),
+        artworkCacheKey: album.artworkCacheKey,
         title: album.title,
         artist: album.albumArtist,
         releaseDate: album.releaseDate?.trim() || null,
@@ -737,6 +769,7 @@ onBeforeUnmount(() => {
       'cd-page--focused': focused,
     }"
     :data-theme="cdCanvasTheme"
+    :data-background-mode="canvasBackgroundActive ? 'accent' : 'default'"
     :aria-label="t('albums.cd.title')"
     @keydown="onKeydown"
   >
@@ -928,7 +961,7 @@ onBeforeUnmount(() => {
       </section>
       <CdFocusLyrics
         :active="focusSettled && ringTrackMatches && !loading && !failed"
-        :accent="ringAccent"
+        accent="var(--cd-lyrics-color)"
         :stage="stageRef"
         :information="infoRef"
         :tracks="trackPanelRef"
@@ -1009,6 +1042,12 @@ onBeforeUnmount(() => {
       <span v-if="cdCanvasTheme === 'dark'" class="i-lucide-sun h-4 w-4" aria-hidden="true"></span>
       <span v-else class="i-lucide-moon h-4 w-4" aria-hidden="true"></span>
     </button>
+    <CdBackgroundSwitch
+      v-if="focused && !starting"
+      :enabled="cdCanvasBackgroundEnabled"
+      :disabled="cdCanvasTheme === 'dark'"
+      @toggle="toggleCdCanvasBackground"
+    />
   </section>
 </template>
 
@@ -1039,7 +1078,7 @@ onBeforeUnmount(() => {
 .cd-playback-error {
   flex: 0 0 auto;
   font-size: 11px;
-  color: #8c4034;
+  color: var(--cd-error, #8c4034);
 }
 @media (max-width: 800px) {
   .cd-tracks {
@@ -1106,6 +1145,7 @@ onBeforeUnmount(() => {
 .cd-page {
   --auralis-playbar-safe-area: 0px;
   --cd-bg: #eeeeec;
+  --cd-bg-image: none;
   --cd-text: #292929;
   --cd-text-muted: #62625b;
   --cd-text-subtle: #77776f;
@@ -1137,13 +1177,14 @@ onBeforeUnmount(() => {
   overflow: hidden;
   position: relative;
   background: var(--cd-bg);
+  background-image: var(--cd-bg-image);
   color: var(--cd-text);
   color-scheme: light;
   view-transition-name: cd-canvas;
 }
 .cd-page[data-theme='dark'] {
   --cd-bg: #2b2d30;
-  background-image: repeating-linear-gradient(
+  --cd-bg-image: repeating-linear-gradient(
     135deg,
     rgba(224, 226, 230, 0.045) 0 1px,
     transparent 1px 7px
@@ -1333,10 +1374,10 @@ onBeforeUnmount(() => {
 }
 .cd-info-title-row::after {
   bottom: 0;
-  border-top: 1px solid #292929;
+  border-top: 1px solid var(--cd-info-title-border, #292929);
 }
 .cd-page[data-theme='dark'] .cd-info-title-row::after {
-  border-top-color: #c6c4be;
+  border-top-color: var(--cd-info-title-border, #c6c4be);
 }
 .cd-info-row + .cd-info-row::before {
   top: 0;

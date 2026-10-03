@@ -58,3 +58,39 @@ export function formatDelimitedValues(value: string | null | undefined): string 
 export function normalizeDelimitedValue(value: string): string {
   return value.trim().toLocaleLowerCase()
 }
+
+/**
+ * Join multi-value metadata into standard storage format ("; ").
+ * Returns null when the list is empty.
+ */
+export function joinDelimitedValues(values: readonly (string | null | undefined)[]): string | null {
+  const cleaned = values.map((val) => val?.trim()).filter((val): val is string => Boolean(val))
+  return cleaned.length > 0 ? cleaned.join('; ') : null
+}
+
+/**
+ * Clean, split on semicolon, and deduplicate a list of raw metadata candidate strings.
+ * Preserves order of first appearance (case-insensitive deduplication).
+ * Handles both native multi-frame entries and semicolon-separated strings.
+ */
+export function cleanDelimitedValues(values: Array<string | undefined | null>): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+
+  for (const raw of values) {
+    if (!raw) continue
+    const parts = raw
+      .split(/\s*;\s*/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+
+    for (const part of parts) {
+      const key = normalizeDelimitedValue(part)
+      if (seen.has(key)) continue
+      seen.add(key)
+      result.push(part)
+    }
+  }
+
+  return result
+}

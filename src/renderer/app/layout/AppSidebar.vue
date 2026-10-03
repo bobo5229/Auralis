@@ -136,12 +136,6 @@ const primaryNav = computed<
     activeIcon: 'i-ph-archive-fill',
     routeName: 'archive',
   },
-  {
-    to: '/rhine',
-    label: 'Rhine',
-    icon: 'i-ph-cube',
-    activeIcon: 'i-ph-cube-fill',
-  },
 ])
 
 function isPrimaryNavActive(path: string): boolean {

@@ -734,6 +734,11 @@ onBeforeUnmount(() => {
       :track-title="contextMenuTrackTitle"
       :album-title="contextMenuAlbumTitle"
       :can-locate-current="Boolean(playback.state.currentTrackId)"
+      :hide-insert="
+        contextMenu?.source === 'track' &&
+        playback.state.currentTrackId != null &&
+        playback.state.currentTrackId === contextMenu?.trackId
+      "
       :can-insert="
         Boolean(
           playback.state.currentTrackId &&

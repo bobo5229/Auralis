@@ -44,7 +44,8 @@
   border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
 }
 
-.settings-page .about-diagnostics-button {
+.settings-page .about-diagnostics-button,
+.settings-page .settings-text-button {
   flex: 0 0 auto;
   min-height: 30px;
   padding: 0;
@@ -58,18 +59,25 @@
   cursor: pointer;
 }
 
-.settings-page .about-diagnostics-button:hover:not(:disabled) {
+.settings-page .about-diagnostics-button:hover:not(:disabled),
+.settings-page .settings-text-button:hover:not(:disabled) {
   color: var(--auralis-text);
 }
 
-.settings-page .about-diagnostics-button:disabled {
+.settings-page .about-diagnostics-button:disabled,
+.settings-page .settings-text-button:disabled {
   opacity: 0.45;
   cursor: default;
 }
 
-.settings-page .about-diagnostics-button:focus-visible {
+.settings-page .about-diagnostics-button:focus-visible,
+.settings-page .settings-text-button:focus-visible {
   outline: 2px solid var(--auralis-sidebar-active-indicator);
   outline-offset: 2px;
+}
+
+.settings-page .settings-text-button {
+  align-self: center;
 }
 
 .settings-page .about-settings .settings-value {
@@ -354,12 +362,8 @@
   white-space: nowrap;
   direction: ltr;
   font-family: var(--auralis-font-ui);
-  background: color-mix(in srgb, var(--auralis-text) 5%, transparent);
-  padding: 4px 8px;
-  border-radius: 6px;
   color: var(--auralis-sidebar-active-text) !important;
   font-size: 11px !important;
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 5%, transparent);
 }
 
 .settings-page .settings-secondary-button {

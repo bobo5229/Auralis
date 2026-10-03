@@ -31,6 +31,7 @@ export interface LibraryContextMenuProps {
   albumTitle: string
   canLocateCurrent: boolean
   canInsert: boolean
+  hideInsert?: boolean
   currentViewMode: LibraryViewMode
   playlists: SidebarPlaylistItem[]
   playlistFeedback: { playlistId: number; message: string } | null

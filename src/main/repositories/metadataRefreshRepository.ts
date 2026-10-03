@@ -4,6 +4,7 @@ import {
   normalizeEditableReleaseDate,
 } from '../features/metadata/editableMetadataValidation'
 import { BaseRepository } from './baseRepository'
+import { splitDelimitedValues } from '@shared/utils/delimitedValues'
 import type Database from 'better-sqlite3'
 import type { EditableTrackMetadata, MetadataRefreshFailure } from '@shared/types/libraryScan'
 
@@ -69,13 +70,6 @@ export function resolveArtworkKeyForUserEdit(
   if (trackMetadataKey) return trackMetadataKey
   if (albumKey) return albumKey
   return null
-}
-
-function splitDisplayValues(value: string): string[] {
-  return value
-    .split(/\s*;\s*/)
-    .map((part) => part.trim())
-    .filter(Boolean)
 }
 
 export class MetadataRefreshRepository extends BaseRepository {
@@ -306,7 +300,7 @@ export class MetadataRefreshRepository extends BaseRepository {
 
       this.replaceTrackArtists(
         item.trackId,
-        artistDisplay ? splitDisplayValues(artistDisplay) : [],
+        artistDisplay ? splitDelimitedValues(artistDisplay) : [],
         'primary',
         this.db.prepare(`
           INSERT INTO artists (name)
@@ -330,7 +324,7 @@ export class MetadataRefreshRepository extends BaseRepository {
       )
       this.replaceTrackArtists(
         item.trackId,
-        albumArtistDisplay ? splitDisplayValues(albumArtistDisplay) : [],
+        albumArtistDisplay ? splitDelimitedValues(albumArtistDisplay) : [],
         'album_artist',
         this.db.prepare(`
           INSERT INTO artists (name)

@@ -1,5 +1,5 @@
 export const DARK_ACCENT_STORAGE_KEY = 'auralis-dark-accent'
-export const DEFAULT_DARK_ACCENT = '#F472B6'
+export const DEFAULT_DARK_ACCENT = '#1DD55F'
 
 export const DARK_ACCENT_PRESETS = [
   '#FB7185',

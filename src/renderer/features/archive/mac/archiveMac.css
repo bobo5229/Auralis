@@ -576,17 +576,6 @@
   background: #9a917e;
 }
 
-.shadow {
-  position: absolute;
-  left: -80px;
-  right: -120px;
-  top: 390px;
-  height: 90px;
-  background: radial-gradient(ellipse at 50% 40%, rgba(0, 0, 0, 0.5), transparent 68%);
-  transform: rotateX(90deg) translateZ(-40px);
-  pointer-events: none;
-}
-
 .caption {
   display: none;
   position: absolute;
@@ -657,7 +646,6 @@
 .is-screen-focused .mac-instructions,
 .is-screen-focused .kbd,
 .is-screen-focused .mouse,
-.is-screen-focused .shadow,
 .is-screen-focused .caption,
 .is-screen-focused .hint {
   visibility: hidden;
@@ -685,7 +673,6 @@
 :host-context([data-reduced-motion='true']) .rig.is-transitioning,
 :host-context([data-reduced-motion='true']) .kbd,
 :host-context([data-reduced-motion='true']) .mouse,
-:host-context([data-reduced-motion='true']) .shadow,
 :host-context([data-reduced-motion='true']) .caption,
 :host-context([data-reduced-motion='true']) .hint,
 :host-context([data-reduced-motion='true']) .bezel-key {

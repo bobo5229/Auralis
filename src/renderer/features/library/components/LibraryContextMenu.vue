@@ -17,6 +17,7 @@ const props = defineProps<{
   albumTitle: string
   canLocateCurrent: boolean
   canInsert: boolean
+  hideInsert?: boolean
   currentViewMode: LibraryViewMode
   playlists: SidebarPlaylistItem[]
   playlistFeedback: { playlistId: number; message: string } | null
@@ -102,7 +103,7 @@ const menuItems = computed<MenuItemDef[]>(() => {
 
   list.push({
     id: 'insert',
-    disabled: !props.canInsert,
+    disabled: !props.canInsert || props.hideInsert,
     action: () => {
       emit('insertAfterCurrent')
       emit('close')
@@ -297,8 +298,9 @@ function focusActiveItem(): void {
     const target = items[subActiveIndex.value]
     target?.focus()
   } else if (menuEl) {
-    const items = menuEl.querySelectorAll<HTMLButtonElement>('[data-context-main-item]')
-    const target = items[activeIndex.value]
+    const target = menuEl.querySelector<HTMLButtonElement>(
+      `[data-context-main-index="${activeIndex.value}"]`,
+    )
     target?.focus()
   }
 }
@@ -470,6 +472,7 @@ onBeforeUnmount(() => {
             type="button"
             role="menuitem"
             data-context-main-item
+            data-context-main-index="0"
             :disabled="!canLocateCurrent"
             :tabindex="activeIndex === 0 ? 0 : -1"
             @click="activateMainItem(0)"
@@ -489,6 +492,7 @@ onBeforeUnmount(() => {
             type="button"
             role="menuitem"
             data-context-main-item
+            data-context-main-index="1"
             :tabindex="activeIndex === 1 ? 0 : -1"
             @click="activateMainItem(1)"
             @mouseenter="activeIndex = 1"
@@ -503,15 +507,18 @@ onBeforeUnmount(() => {
             </span>
           </button>
 
-          <div class="library-context-menu-separator" role="separator"></div>
+          <div v-if="!hideInsert" class="library-context-menu-separator" role="separator"></div>
 
+          <!-- 隐藏项不渲染；菜单逻辑索引保持稳定，焦点按显式索引查找。 -->
           <!-- 插播曲目 / 插播专辑 -->
           <button
+            v-if="!hideInsert"
             class="library-context-menu-item"
             type="button"
             role="menuitem"
             data-context-main-item
-            :disabled="!canInsert"
+            data-context-main-index="2"
+            :disabled="!canInsert || hideInsert"
             :tabindex="activeIndex === 2 ? 0 : -1"
             @click="activateMainItem(2)"
             @mouseenter="activeIndex = 2"
@@ -539,6 +546,7 @@ onBeforeUnmount(() => {
               type="button"
               role="menuitem"
               data-context-main-item
+              data-context-main-index="3"
               aria-haspopup="true"
               :aria-expanded="showSubMenu"
               :tabindex="activeIndex === 3 ? 0 : -1"
@@ -635,6 +643,7 @@ onBeforeUnmount(() => {
             type="button"
             role="menuitem"
             data-context-main-item
+            data-context-main-index="4"
             :tabindex="activeIndex === 4 ? 0 : -1"
             @click="activateMainItem(4)"
             @mouseenter="activeIndex = 4"
@@ -653,6 +662,7 @@ onBeforeUnmount(() => {
             type="button"
             role="menuitem"
             data-context-main-item
+            data-context-main-index="5"
             :tabindex="activeIndex === 5 ? 0 : -1"
             @click="activateMainItem(5)"
             @mouseenter="activeIndex = 5"

@@ -59,6 +59,5 @@ export const router = createRouter({
       component: routeLoaders.settings,
       meta: { title: 'Settings' },
     },
-    { path: '/rhine', name: 'rhine', component: routeLoaders.rhine, meta: { title: 'Rhine' } },
   ],
 })

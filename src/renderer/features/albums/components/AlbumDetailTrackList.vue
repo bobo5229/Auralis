@@ -14,7 +14,6 @@ defineProps<{
 }>()
 
 const emit = defineEmits<{
-  select: [trackId: number]
   play: [trackId: number]
 }>()
 
@@ -65,7 +64,6 @@ function formatDisplayArtist(artist: string | null | undefined): string {
           }"
           :data-track-id="track.id"
           type="button"
-          @click="emit('select', track.id)"
           @dblclick="emit('play', track.id)"
         >
           <span class="album-detail-track-number" aria-hidden="true">
