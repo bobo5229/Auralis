@@ -15,6 +15,8 @@
 | `local/playback/`  | [动态流光](local/playback/apple-music-flow-demo.html)、[幕布转场](local/playback/fullscreen-curtain-transition-demo.html)                                          |
 | `local/shell/`     | 主题切换转场草稿                                                                                                                                                   |
 
+声迹星空交互：[星空与光标](archive/starfield-cursor-demo.html)，离线打开；双击中央圆点进行约 5 秒穿梭（加速 0.6 秒、巡航 3.6 秒、减速 0.8 秒），远处持续补充多色星光，镜头随速度震动；抵达时拖尾收束为星点，保留最终位置并切换星系配色。移动光标产生视差与星点响应，点击背景产生光波。
+
 中文字体对照：[MiSans / HarmonyOS Sans SC / 思源黑体](local/shell/chinese-fonts.html)，支持深浅主题和自定义文字。
 
 `local/` 收纳原 `test/` 和 `docs/demos/` 中的本地资料，继续由 Git 忽略；其他主题目录

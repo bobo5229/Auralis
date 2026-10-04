@@ -9,6 +9,7 @@ import type {
 } from '@applemusic-like-lyrics/core'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import { createArtworkBackgroundSession } from './artworkBackgroundSession'
 
 const props = defineProps<{
   artworkUrl: string | null
@@ -18,9 +19,11 @@ const props = defineProps<{
 
 const containerRef = ref<HTMLElement | null>(null)
 let background: AmllBackgroundRender<AmllMeshGradientRenderer> | null = null
+let session: ReturnType<typeof createArtworkBackgroundSession> | null = null
 let reducedMotionQuery: MotionQuery | null = null
 let albumRequestToken = 0
 let disposed = false
+let contextLost = false
 
 const FALLBACK_ALBUM =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='%230e1117'/%3E%3C/svg%3E"
@@ -41,8 +44,9 @@ function syncRendererState(): void {
 
   background.setStaticMode(reducedMotionQuery?.matches === true)
   background.setFlowSpeed(props.playing ? 1.6 : 0.6)
+  background.setFPS(props.playing ? 60 : 30)
 
-  if (props.active && document.visibilityState === 'visible') {
+  if (!contextLost && props.active && document.visibilityState === 'visible') {
     background.resume()
   } else {
     background.pause()
@@ -50,14 +54,15 @@ function syncRendererState(): void {
 }
 
 async function syncAlbum(): Promise<void> {
-  const currentBackground = background
-  if (!currentBackground) return
+  const currentSession = session
+  if (!currentSession || contextLost || disposed) return
 
   const token = ++albumRequestToken
+  currentSession.cancelPendingAlbum()
   try {
     const image = await loadArtworkImage(props.artworkUrl ?? FALLBACK_ALBUM)
     if (token !== albumRequestToken) return
-    await currentBackground.setAlbum(image)
+    await currentSession.setAlbum(image)
   } catch (error) {
     if (token !== albumRequestToken) return
     rendererDiagnostics.warn({
@@ -67,7 +72,7 @@ async function syncAlbum(): Promise<void> {
     })
     const fallbackImage = await loadArtworkImage(FALLBACK_ALBUM).catch(() => null)
     if (fallbackImage && token === albumRequestToken) {
-      await currentBackground.setAlbum(fallbackImage).catch(() => undefined)
+      await currentSession.setAlbum(fallbackImage).catch(() => undefined)
     }
   }
 }
@@ -78,6 +83,34 @@ function handleVisibilityChange(): void {
 
 function handleReducedMotionChange(): void {
   syncRendererState()
+}
+
+function handleContextLost(event: Event): void {
+  // 允许浏览器恢复上下文；AMLL 自身不会暂停或重建失效的 GPU 资源。
+  event.preventDefault()
+  contextLost = true
+  albumRequestToken += 1
+  session?.cancelPendingAlbum()
+  background?.pause()
+}
+
+function releaseBackground(): void {
+  albumRequestToken += 1
+  const canvas = background?.getElement()
+  canvas?.removeEventListener('webglcontextlost', handleContextLost)
+  canvas?.removeEventListener('webglcontextrestored', handleContextRestored)
+  // 立即退出画面和动画，保留正在提交的资源直到可完整释放。
+  canvas?.remove()
+  session?.dispose()
+  session = null
+  background = null
+}
+
+function handleContextRestored(): void {
+  if (disposed) return
+  releaseBackground()
+  contextLost = false
+  void initializeBackground()
 }
 
 /**
@@ -120,7 +153,10 @@ async function initializeBackground(): Promise<void> {
     if (disposed || !container.isConnected) return
 
     background = createMeshGradientBackground(BackgroundRender, MeshGradientRenderer)
+    session = createArtworkBackgroundSession(background)
     const canvas = background.getElement()
+    canvas.addEventListener('webglcontextlost', handleContextLost)
+    canvas.addEventListener('webglcontextrestored', handleContextRestored)
     canvas.className = 'fluid-artwork-background-canvas'
     canvas.style.position = 'absolute'
     canvas.style.inset = '0'
@@ -132,7 +168,6 @@ async function initializeBackground(): Promise<void> {
     canvas.style.transformOrigin = 'center'
     container.prepend(canvas)
     background.setRenderScale(0.5)
-    background.setFPS(60)
     background.setLowFreqVolume(0)
     syncRendererState()
     await syncAlbum()
@@ -143,8 +178,7 @@ async function initializeBackground(): Promise<void> {
       message: 'Renderer unavailable',
       cause: error,
     })
-    background?.dispose()
-    background = null
+    releaseBackground()
   }
 }
 
@@ -164,11 +198,9 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   disposed = true
-  albumRequestToken += 1
   reducedMotionQuery?.removeEventListener('change', handleReducedMotionChange)
   document.removeEventListener('visibilitychange', handleVisibilityChange)
-  background?.dispose()
-  background = null
+  releaseBackground()
 })
 </script>
 

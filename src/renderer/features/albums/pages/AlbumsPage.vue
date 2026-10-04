@@ -18,12 +18,14 @@ import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagno
 import MainPageStatus from '@renderer/app/layout/MainPageStatus.vue'
 import { resolveMenuNavigationIndex } from '@renderer/app/utils/menuKeyboardNavigation'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { isLibrarySearchBarHovered } from '@renderer/features/library/utils/librarySearchHover'
 import { normalizeSearchText } from '@renderer/features/library/utils/normalizeSearchText'
 import { prefetchArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumCard from '../components/AlbumCard.vue'
 import AlbumGridTransitionLayer from '../components/AlbumGridTransitionLayer.vue'
+import AlbumDropTransitionLayer from '../components/AlbumDropTransitionLayer.vue'
 import type {
   AlbumTransitionRect,
   AlbumTransitionTarget,
@@ -38,19 +40,12 @@ import { findAlbumTransitionFocusTarget } from '../utils/albumGridTransitionPlan
 import { calculateAlbumTransitionRect } from '../utils/albumGridTransitionGeometry'
 import type { AlbumLayoutTransitionParticipant } from '@renderer/app/layout/lyricsAlbumTransitionCoordinator'
 
-const ALBUM_DISPLAY_MODE_KEY = 'auralis-albums-display-mode'
 const ALBUMS_SCROLL_TOP_KEY = 'auralis-albums-scroll-top'
-
-type AlbumDisplayMode = 'grid' | 'perspective'
 
 interface AlbumContextMenuState {
   album: AlbumSummary
   x: number
   y: number
-}
-
-function readDisplayMode(): AlbumDisplayMode {
-  return localStorage.getItem(ALBUM_DISPLAY_MODE_KEY) === 'perspective' ? 'perspective' : 'grid'
 }
 
 defineOptions({ name: 'AlbumsPage' })
@@ -65,6 +60,8 @@ const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 const playback = usePlayback()
+const { displayMode } = usePlayerDisplayMode()
+const hasCurrentTrack = computed(() => Boolean(playback.state.currentTrackId))
 const isPageActive = ref(false)
 const canRefresh = computed(
   () => isPageActive.value && route.name === 'albums' && !props.isTransitioning,
@@ -83,13 +80,16 @@ const {
 )
 const loadError = computed(() => (catalogError.value ? t('albums.status.loadError') : null))
 const scrollRef = ref<HTMLElement | null>(null)
-const displayMode = ref<AlbumDisplayMode>(readDisplayMode())
 const contextMenu = ref<AlbumContextMenuState | null>(null)
 const contextMenuRef = ref<HTMLElement | null>(null)
 let contextMenuTrigger: HTMLElement | null = null
 const searchQuery = ref('')
 const isSearchFocused = ref(false)
 const isSearchZoneHovered = ref(false)
+const isSearchOpen = ref(false)
+const searchTriggerRef = ref<HTMLButtonElement | null>(null)
+let searchReturnFocus: HTMLElement | null = null
+let searchFocusRevision = 0
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchRootRef = ref<HTMLElement | null>(null)
 const highlightedAlbumKey = ref<string | null>(null)
@@ -100,12 +100,17 @@ let lastSearchQuery = ''
 let lastMatchedAlbumIndex = -1
 let searchHighlightTimeout: ReturnType<typeof setTimeout> | null = null
 let resizeObserver: ResizeObserver | null = null
+let gridConnectionRevision = 0
 let isPageUnmounted = false
 let savedScrollTop = Number(sessionStorage.getItem(ALBUMS_SCROLL_TOP_KEY)) || 0
 
 const hasSearchQuery = computed(() => searchQuery.value.trim().length > 0)
 const shouldRenderSearchBar = computed(
-  () => isSearchZoneHovered.value || isSearchFocused.value || hasSearchQuery.value,
+  () =>
+    isSearchOpen.value ||
+    isSearchZoneHovered.value ||
+    isSearchFocused.value ||
+    hasSearchQuery.value,
 )
 const searchFeedback = computed(() => {
   if (searchOutcome.value === 'not-found') return t('albums.search.notFound')
@@ -152,7 +157,6 @@ const {
   endTransition: endGridTransition,
 } = useAlbumGridLayout({
   container: scrollRef,
-  displayMode,
   isResizing: toRef(props, 'isLayoutResizing'),
   isActive: isPageActive,
   albumKeys: computed(() => albums.value.map((album) => album.key)),
@@ -161,6 +165,24 @@ const {
 const gridContentRef = ref<HTMLElement | null>(null)
 const transitionLayerRef = ref<InstanceType<typeof AlbumGridTransitionLayer> | null>(null)
 const isLayoutTransitionActive = ref(false)
+const dropLayerRef = ref<InstanceType<typeof AlbumDropTransitionLayer> | null>(null)
+const isDropActive = ref(false)
+const canDropAlbum = computed(
+  () =>
+    isPageActive.value &&
+    route.name === 'albums' &&
+    displayMode.value === 'normal' &&
+    !props.isTransitioning &&
+    !props.isLayoutResizing &&
+    !isLayoutTransitionActive.value,
+)
+watch(
+  canDropAlbum,
+  (allowed) => {
+    if (!allowed) dropLayerRef.value?.cancel()
+  },
+  { flush: 'sync' },
+)
 const emit = defineEmits<{ 'cancel-layout-transition': [] }>()
 let layoutTransitionRevision = 0
 let savedFocus: { albumKey: string; selector: string } | null = null
@@ -380,6 +402,7 @@ function onTransitionScroll(): void {
 }
 
 function prepareLyricsLayoutTransition(revision: number): boolean {
+  dropLayerRef.value?.cancel()
   const container = scrollRef.value
   const layer = transitionLayerRef.value
   if (!isPageActive.value || !container?.isConnected || !layer) return false
@@ -514,50 +537,51 @@ function cancelLyricsLayoutTransition(revision: number): void {
 }
 
 async function connectGrid(): Promise<void> {
+  const revision = ++gridConnectionRevision
+  resizeObserver?.disconnect()
+  resizeObserver = null
   const container = scrollRef.value
   if (!container?.isConnected || !isPageActive.value) return
   // A resize while hidden can change total height. Commit that geometry before
   // restoring the offset, without waiting for another animation frame.
   if (updateAdaptiveGrid(false)) await nextTick()
-  if (isPageUnmounted || !isPageActive.value || scrollRef.value !== container) return
-  resizeObserver?.disconnect()
-  resizeObserver = new ResizeObserver(() => updateAdaptiveGrid())
+  if (
+    revision !== gridConnectionRevision ||
+    isPageUnmounted ||
+    !isPageActive.value ||
+    scrollRef.value !== container ||
+    !container.isConnected
+  )
+    return
+  resizeObserver = new ResizeObserver(() => {
+    if (revision === gridConnectionRevision && scrollRef.value === container) updateAdaptiveGrid()
+  })
   resizeObserver.observe(container)
   // Activation hooks run before paint; no next-frame jump during the transition.
   if (Number.isFinite(savedScrollTop)) container.scrollTop = savedScrollTop
   scheduleIdlePalettePrefetch()
 }
 
-watch(isLoading, async (loading) => {
-  if (!loading) {
-    await nextTick()
-    if (!isPageUnmounted) void connectGrid()
-  }
-})
+// The v-if can create a new container after an already-loaded empty catalog.
+// Reconnect only for a new element or activation, never for a background refresh.
+watch(
+  scrollRef,
+  (_container, previous) => {
+    if (previous && isPageActive.value) savedScrollTop = previous.scrollTop
+    void connectGrid()
+  },
+  { flush: 'post' },
+)
 
 watch(canRefresh, (allowed) => {
   if (allowed) scheduleIdlePalettePrefetch()
   else cancelIdlePalettePrefetch()
 })
 
-function setDisplayMode(mode: AlbumDisplayMode): void {
-  displayMode.value = mode
-  updateAdaptiveGrid()
-  localStorage.setItem(ALBUM_DISPLAY_MODE_KEY, mode)
-}
-
 watch(albums, () => {
+  dropLayerRef.value?.cancel()
   if (isLayoutTransitionActive.value) emit('cancel-layout-transition')
 })
-
-watch(displayMode, () => {
-  if (isLayoutTransitionActive.value) emit('cancel-layout-transition')
-})
-
-function toggleDisplayModeFromContextMenu(): void {
-  setDisplayMode(displayMode.value === 'grid' ? 'perspective' : 'grid')
-  closeContextMenu()
-}
 
 function doesAlbumMatchSearch(album: AlbumSummary, normalizedQuery: string): boolean {
   if (!normalizedQuery) return false
@@ -605,6 +629,51 @@ function locateNextSearchResult(): void {
   }, 1800)
 }
 
+async function openSearch(): Promise<void> {
+  if (!canRefresh.value || displayMode.value !== 'normal') return
+  const revision = ++searchFocusRevision
+  const activeElement = document.activeElement
+  if (activeElement !== searchInputRef.value) {
+    searchReturnFocus =
+      activeElement instanceof HTMLElement && activeElement !== document.body ? activeElement : null
+  }
+  isSearchOpen.value = true
+  await nextTick()
+  if (revision !== searchFocusRevision || !canRefresh.value || !isSearchOpen.value) return
+  searchInputRef.value?.focus({ preventScroll: true })
+}
+
+function onPageSearchShortcut(event: KeyboardEvent): void {
+  if (
+    event.defaultPrevented ||
+    event.isComposing ||
+    event.altKey ||
+    event.shiftKey ||
+    !(event.ctrlKey || event.metaKey) ||
+    event.key.toLowerCase() !== 'f' ||
+    !canRefresh.value ||
+    displayMode.value !== 'normal' ||
+    contextMenu.value ||
+    isLayoutTransitionActive.value ||
+    document.querySelector('[role="menu"], [role="dialog"]')
+  )
+    return
+  const target = event.target
+  if (
+    target instanceof HTMLElement &&
+    target !== searchInputRef.value &&
+    (target.matches('input, textarea, select') || target.isContentEditable)
+  )
+    return
+  event.preventDefault()
+  void openSearch()
+}
+
+function onSearchBlur(): void {
+  isSearchFocused.value = false
+  isSearchOpen.value = false
+}
+
 function onSearchKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') {
     event.preventDefault()
@@ -614,8 +683,18 @@ function onSearchKeydown(event: KeyboardEvent): void {
       if (searchHighlightTimeout) clearTimeout(searchHighlightTimeout)
       searchHighlightTimeout = null
     } else {
+      const revision = ++searchFocusRevision
+      isSearchOpen.value = false
+      isSearchZoneHovered.value = false
       isSearchFocused.value = false
       searchInputRef.value?.blur()
+      const returnFocus = searchReturnFocus
+      searchReturnFocus = null
+      void nextTick(() => {
+        if (revision !== searchFocusRevision || !canRefresh.value) return
+        const target = returnFocus?.isConnected ? returnFocus : searchTriggerRef.value
+        target?.focus({ preventScroll: true })
+      })
     }
     return
   }
@@ -647,6 +726,8 @@ function onDocumentPointerDown(event: PointerEvent): void {
   if (!(target instanceof Node) || (bar && (bar === target || bar.contains(target)))) return
 
   isSearchFocused.value = false
+  isSearchOpen.value = false
+  searchFocusRevision += 1
   if (!hasSearchQuery.value) {
     isSearchZoneHovered.value = false
   }
@@ -658,6 +739,26 @@ function closeContextMenu(): void {
   }
   contextMenu.value = null
 }
+
+watch(hasCurrentTrack, async (available) => {
+  const menu = contextMenu.value
+  if (!menu) return
+  const focusedElement = document.activeElement
+  const focusedAction =
+    focusedElement instanceof HTMLElement && contextMenuRef.value?.contains(focusedElement)
+      ? focusedElement.dataset.albumMenuAction
+      : undefined
+  const restoreFocus = !available && (focusedAction === 'locate' || focusedAction === 'insert')
+  await nextTick()
+  const element = contextMenuRef.value
+  if (!element || contextMenu.value !== menu || hasCurrentTrack.value !== available) return
+  const bounds = element.getBoundingClientRect()
+  menu.x = Math.max(8, Math.min(menu.x, window.innerWidth - bounds.width - 8))
+  menu.y = Math.max(8, Math.min(menu.y, window.innerHeight - bounds.height - 8))
+  if (restoreFocus) {
+    element.querySelector<HTMLButtonElement>('[data-album-menu-action="play"]')?.focus()
+  }
+})
 
 function onContextMenuKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape' || event.key === 'Tab') {
@@ -678,7 +779,11 @@ function onContextMenuKeydown(event: KeyboardEvent): void {
   if (!items.length) return
   event.preventDefault()
   event.stopPropagation()
-  const current = items.findIndex((item) => item === document.activeElement)
+  const focusedAction =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement.dataset.albumMenuAction
+      : undefined
+  const current = items.findIndex((item) => item.dataset.albumMenuAction === focusedAction)
   const next = resolveMenuNavigationIndex(
     event.key,
     current,
@@ -689,15 +794,11 @@ function onContextMenuKeydown(event: KeyboardEvent): void {
 
 function openContextMenu(album: AlbumSummary, event: MouseEvent): void {
   contextMenuTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
-  const menuWidth = 220
-  const menuHeight = 235
-  const x = Math.min(event.clientX, window.innerWidth - menuWidth - 8)
-  const y = Math.min(event.clientY, window.innerHeight - menuHeight - 8)
 
   contextMenu.value = {
     album,
-    x: Math.max(8, x),
-    y: Math.max(8, y),
+    x: Math.max(8, Math.min(event.clientX, window.innerWidth - 8)),
+    y: Math.max(8, Math.min(event.clientY, window.innerHeight - 8)),
   }
   const menu = contextMenu.value
   void nextTick(() => {
@@ -730,30 +831,47 @@ function locateCurrentAlbum(): void {
   })
 }
 
+function selectAlbumPlaybackTracks(album: AlbumSummary): TrackListItem[] {
+  return catalogIndex.value.selectTracks(album.albumArtist, album.title)
+}
+
 function buildAlbumPlaybackQueue(album: AlbumSummary): TrackListItem[] {
   if (playback.state.playbackMode !== 'sequential') {
-    return album.tracks
+    return selectAlbumPlaybackTracks(album)
   }
 
   const albumIndex = albums.value.findIndex((candidate) => candidate.key === album.key)
-  if (albumIndex < 0) return album.tracks
+  if (albumIndex < 0) return selectAlbumPlaybackTracks(album)
 
-  return albums.value.slice(albumIndex).flatMap((candidate) => candidate.tracks)
+  return albums.value.slice(albumIndex).flatMap(selectAlbumPlaybackTracks)
 }
 
 function playContextAlbum(): void {
   const album = contextMenu.value?.album
   closeContextMenu()
-  if (!album || album.tracks.length === 0) return
+  if (!album) return
+  const firstTrack = selectAlbumPlaybackTracks(album)[0]
+  if (!firstTrack) return
 
-  void playback.playTrackFromQueue(buildAlbumPlaybackQueue(album), album.tracks[0].id)
+  void playback.playTrackFromQueue(buildAlbumPlaybackQueue(album), firstTrack.id)
 }
 
 function playGridAlbum(album: AlbumSummary): void {
-  const albumTracks = catalogIndex.value.selectTracks(album.albumArtist, album.title)
+  const albumTracks = selectAlbumPlaybackTracks(album)
   const firstTrack = albumTracks[0]
   if (!firstTrack) return
   void playback.playTrackFromQueue(albumTracks, firstTrack.id, { playbackMode: 'sequential' })
+}
+
+function playCoverAlbum(album: AlbumSummary): void {
+  dropLayerRef.value?.cancel()
+  playGridAlbum(album)
+}
+
+function dropAlbum(album: AlbumSummary, cover: HTMLElement): void {
+  if (!canDropAlbum.value || isDropActive.value || !album.tracks.length) return
+  closeContextMenu()
+  dropLayerRef.value?.play({ album, cover, onLand: () => playGridAlbum(album) })
 }
 
 function insertContextAlbum(): void {
@@ -761,7 +879,7 @@ function insertContextAlbum(): void {
   closeContextMenu()
   if (!album) return
 
-  playback.insertTracksAfterCurrent(album.tracks)
+  playback.insertTracksAfterCurrent(selectAlbumPlaybackTracks(album))
 }
 
 function openAlbum(album: AlbumSummary): void {
@@ -789,21 +907,34 @@ function openContextAlbumInCd(): void {
 onActivated(() => {
   isPageActive.value = true
   document.addEventListener('pointerdown', onDocumentPointerDown)
+  document.addEventListener('keydown', onPageSearchShortcut)
+  window.addEventListener('resize', closeContextMenu)
   void connectGrid()
 })
 
 onBeforeRouteLeave(() => {
+  dropLayerRef.value?.cancel()
   if (isLayoutTransitionActive.value) emit('cancel-layout-transition')
   if (scrollRef.value) savedScrollTop = scrollRef.value.scrollTop
   closeContextMenu()
 })
 
 function disconnectPage(): void {
+  dropLayerRef.value?.cancel()
   closeContextMenu()
   contextMenuTrigger = null
   isPageActive.value = false
+  isSearchFocused.value = false
+  isSearchOpen.value = false
+  isSearchZoneHovered.value = false
+  searchReturnFocus = null
+  searchFocusRevision += 1
+  gridConnectionRevision += 1
   document.removeEventListener('pointerdown', onDocumentPointerDown)
+  document.removeEventListener('keydown', onPageSearchShortcut)
+  window.removeEventListener('resize', closeContextMenu)
   resizeObserver?.disconnect()
+  resizeObserver = null
   cancelIdlePalettePrefetch()
 }
 
@@ -840,6 +971,18 @@ defineExpose<AlbumLayoutTransitionParticipant>({
     @mouseleave="onAlbumsMouseLeave"
   >
     <div class="library-search-zone">
+      <button
+        ref="searchTriggerRef"
+        type="button"
+        class="albums-search-trigger"
+        :aria-label="t('albums.search.open')"
+        :title="t('albums.search.open')"
+        :aria-expanded="shouldRenderSearchBar"
+        aria-keyshortcuts="Control+f Meta+f"
+        @click="openSearch"
+      >
+        <span class="i-lucide-search" aria-hidden="true"></span>
+      </button>
       <Transition name="search-overlay" :duration="160">
         <div v-if="shouldRenderSearchBar" class="library-search-overlay">
           <div class="library-search-backdrop" aria-hidden="true"></div>
@@ -858,7 +1001,7 @@ defineExpose<AlbumLayoutTransitionParticipant>({
               :aria-label="t('albums.search.ariaLabel')"
               spellcheck="false"
               @focus="isSearchFocused = true"
-              @blur="isSearchFocused = false"
+              @blur="onSearchBlur"
               @keydown="onSearchKeydown"
             />
             <span
@@ -888,12 +1031,7 @@ defineExpose<AlbumLayoutTransitionParticipant>({
 
     <template v-else>
       <div class="albums-page-body">
-        <div
-          v-if="albums.length > 0"
-          ref="scrollRef"
-          class="albums-scroll main-page-scroll"
-          :class="{ 'albums-scroll--perspective': displayMode === 'perspective' }"
-        >
+        <div v-if="albums.length > 0" ref="scrollRef" class="albums-scroll main-page-scroll">
           <div
             ref="gridContentRef"
             class="relative w-full"
@@ -922,11 +1060,12 @@ defineExpose<AlbumLayoutTransitionParticipant>({
                 :key="album.key"
                 :data-album-key="album.key"
                 :album="album"
-                :display-mode="displayMode"
                 :highlighted="highlightedAlbumKey === album.key"
+                :long-press-enabled="canDropAlbum && !isDropActive && album.tracks.length > 0"
                 :catalog-number="virtualRow.index * columnCount + columnIndex + 1"
                 @open="openAlbum"
-                @play="playGridAlbum"
+                @play="playCoverAlbum"
+                @long-press="dropAlbum"
                 @open-context-menu="openContextMenu"
               />
             </div>
@@ -943,6 +1082,7 @@ defineExpose<AlbumLayoutTransitionParticipant>({
     </template>
 
     <AlbumGridTransitionLayer ref="transitionLayerRef" />
+    <AlbumDropTransitionLayer ref="dropLayerRef" @active-change="isDropActive = $event" />
 
     <Teleport to="body">
       <div v-if="contextMenu" class="albums-overlay fixed inset-0 z-[60]" @click="closeContextMenu">
@@ -955,64 +1095,52 @@ defineExpose<AlbumLayoutTransitionParticipant>({
           @click.stop
           @keydown="onContextMenuKeydown"
         >
+          <template v-if="hasCurrentTrack">
+            <button
+              class="library-context-menu-item"
+              type="button"
+              role="menuitem"
+              data-album-menu-action="locate"
+              @click="locateCurrentAlbum"
+            >
+              <span class="i-lucide-locate-fixed"></span>
+              <span>{{ t('albums.contextMenu.locateCurrent') }}</span>
+            </button>
+            <div class="library-context-menu-separator"></div>
+          </template>
           <button
             class="library-context-menu-item"
-            type="button"
-            :disabled="!playback.state.currentTrackId"
-            role="menuitem"
-            @click="locateCurrentAlbum"
-          >
-            <span class="i-lucide-locate-fixed"></span>
-            <span>{{ t('albums.contextMenu.locateCurrent') }}</span>
-          </button>
-          <div class="library-context-menu-separator"></div>
-          <button
-            class="library-context-menu-item"
             role="menuitem"
             type="button"
+            data-album-menu-action="play"
             @click="playContextAlbum"
           >
             <span class="i-lucide-play"></span>
             <span>{{ t('albums.contextMenu.play', { title: contextMenu.album.title }) }}</span>
           </button>
           <div class="library-context-menu-separator"></div>
+          <template v-if="hasCurrentTrack">
+            <button
+              class="library-context-menu-item"
+              type="button"
+              role="menuitem"
+              data-album-menu-action="insert"
+              @click="insertContextAlbum"
+            >
+              <span class="i-lucide-list-plus"></span>
+              <span>{{ t('albums.contextMenu.insert', { title: contextMenu.album.title }) }}</span>
+            </button>
+            <div class="library-context-menu-separator"></div>
+          </template>
           <button
             class="library-context-menu-item"
             role="menuitem"
             type="button"
+            data-album-menu-action="open-in-cd"
             @click="openContextAlbumInCd"
           >
             <span class="i-lucide-disc"></span>
             <span>{{ t('albums.contextMenu.openInCd') }}</span>
-          </button>
-          <div class="library-context-menu-separator"></div>
-          <button
-            class="library-context-menu-item"
-            type="button"
-            :disabled="!playback.state.currentTrackId"
-            role="menuitem"
-            @click="insertContextAlbum"
-          >
-            <span class="i-lucide-list-plus"></span>
-            <span>{{ t('albums.contextMenu.insert', { title: contextMenu.album.title }) }}</span>
-          </button>
-          <div class="library-context-menu-separator"></div>
-          <button
-            class="library-context-menu-item"
-            type="button"
-            role="menuitem"
-            @click="toggleDisplayModeFromContextMenu"
-          >
-            <span
-              :class="displayMode === 'grid' ? 'i-lucide-panels-top-left' : 'i-lucide-grid-2x2'"
-            ></span>
-            <span>
-              {{
-                displayMode === 'grid'
-                  ? t('albums.contextMenu.switchToPerspective')
-                  : t('albums.contextMenu.switchToGrid')
-              }}
-            </span>
           </button>
         </div>
       </div>
@@ -1021,6 +1149,32 @@ defineExpose<AlbumLayoutTransitionParticipant>({
 </template>
 
 <style scoped>
+.albums-search-trigger {
+  position: absolute;
+  top: 8px;
+  right: 20px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 38px;
+  border-radius: 8px;
+  color: var(--auralis-text-muted);
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.albums-search-trigger:hover {
+  color: var(--auralis-text);
+  background: var(--auralis-search-bg);
+}
+
+.albums-search-trigger:focus-visible {
+  outline: 2px solid var(--auralis-text);
+  outline-offset: 2px;
+}
+
 .albums-page-body {
   display: flex;
   flex-direction: column;
@@ -1033,17 +1187,17 @@ defineExpose<AlbumLayoutTransitionParticipant>({
   flex: 1;
   overflow-x: hidden;
   overflow-y: auto;
-  /* 首行与 Header 之间的呼吸区；避免元信息/3D 上沿贴死 */
+  /* 首行与 Header 之间的呼吸区。 */
   padding-top: var(--main-page-inset-top);
   padding-bottom: var(--auralis-playbar-safe-area);
 }
 
 .albums-grid-row {
   box-sizing: border-box;
-  /* 左右 20px 阴影缓冲：默认侧倾 + hover 转正放大后的投影都不再被 overflow:auto 切硬边 */
+  /* 左右 20px 阴影缓冲，避免滚动容器裁切封面投影。 */
   padding-left: 20px;
   padding-right: 20px;
-  /* 行内允许 3D 阴影轻微溢出，避免相邻行互相裁切观感 */
+  /* 行内允许封面阴影溢出，避免相邻行互相裁切。 */
   overflow: visible;
   transition: opacity 0.3s ease;
 }

@@ -383,6 +383,10 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.database.exportBackup]: voidPayload(),
   [ipcChannels.database.restoreBackup]: voidPayload(),
   [ipcChannels.app.getInfo]: voidPayload(),
+  [ipcChannels.app.setLocale]: required(
+    objectShape({ locale: field(enumValue(['zh-Hans', 'en'])) }),
+  ),
+  [ipcChannels.app.claimCdStartupEntry]: voidPayload(),
   [ipcChannels.app.exportDiagnostics]: voidPayload(),
   [ipcChannels.library.getStats]: voidPayload(),
   [ipcChannels.library.selectRoot]: voidPayload(),
@@ -520,6 +524,7 @@ export const domainIpcPayloadPolicies = {
     objectShape({ action: field(enumValue(['minimize', 'toggle-maximize', 'close'])) }),
   ),
   [ipcChannels.window.getMaximized]: voidPayload(),
+  [ipcChannels.window.getVisibility]: voidPayload(),
 } satisfies Record<DomainIpcInvokeChannel, IpcPayloadPolicy>
 
 export function parseDomainIpcPayload(

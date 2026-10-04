@@ -1,0 +1,284 @@
+.award {
+  --award-size: min(220px, 30dvh, 54vw);
+  position: fixed;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  color: #edf5f5;
+  background: transparent;
+  overflow: auto;
+}
+.award:focus {
+  outline: none;
+}
+.award::backdrop {
+  background: rgb(3 10 17 / 0.78);
+}
+.award[open]::backdrop {
+  animation: award-dim 0.5s ease-out both;
+}
+.award-scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  perspective: 1100px;
+}
+.award-object {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--award-size);
+  height: calc(var(--award-size) * 370 / 330);
+  transform: translate(-50%, -50%);
+  perspective: 1000px;
+}
+.award .award-badge {
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+  transform: rotateX(0deg) rotateY(0deg);
+  transition: none;
+}
+.award-object-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -12px;
+  width: 70%;
+  height: 14px;
+  border-radius: 50%;
+  background: #000;
+  filter: blur(9px);
+  opacity: 0.45;
+  transform: translateX(-50%);
+}
+.award-badge .layer,
+.award-badge .award-light,
+.award-back {
+  backface-visibility: hidden;
+}
+.award-side {
+  position: absolute;
+  height: 10px;
+  transform-origin: 0 0;
+  backface-visibility: visible;
+}
+.award-back {
+  position: absolute;
+  inset: 0;
+  transform: translateZ(-1px) rotateY(180deg);
+}
+.award-back svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.award-back-sweep {
+  opacity: 0;
+}
+.award-badge .award-light {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: translateZ(13px);
+  overflow: visible;
+}
+.award-light > path,
+.award-light > circle,
+.award-light rect,
+.award-light ellipse {
+  opacity: 0;
+}
+.award-light .award-ring-trace {
+  fill: none;
+  stroke: #edfff6;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transform: rotate(-90deg);
+  transform-origin: 165px 181px;
+}
+.award-panel {
+  position: absolute;
+  left: 50%;
+  top: calc(50% - var(--award-size) * 0.66);
+  width: min(490px, calc(100vw - 28px));
+  height: calc(var(--award-size) * 1.23 + 228px);
+  transform: translateX(-50%);
+  visibility: hidden;
+  filter: drop-shadow(0 24px 32px #0008);
+}
+.ink-surface {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+.ink-spread {
+  transform-origin: 254px 166px;
+  transform: scale(0);
+}
+.award[data-phase='ink'] .award-panel,
+.award[data-phase='ready'] .award-panel {
+  visibility: visible;
+}
+.award[data-phase='ink'] .ink-spread {
+  animation: ink-bloom 0.9s cubic-bezier(0.3, 0.08, 0.22, 1) both;
+}
+.award[data-phase='ready'] .ink-spread {
+  transform: scale(6.8, 7.2);
+  filter: none;
+}
+.award[data-phase='ready'] .ink-edge {
+  filter: none;
+}
+.award-copy {
+  position: absolute;
+  top: calc(50% + var(--award-size) * 0.56 + 20px);
+  left: 50%;
+  width: min(430px, calc(100vw - 60px));
+  transform: translateX(-50%);
+  text-align: center;
+  visibility: hidden;
+  pointer-events: auto;
+}
+.award[data-phase='ready'] .award-copy {
+  visibility: visible;
+}
+.award-copy h2 {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 500;
+  margin: 0 0 10px;
+}
+.award-copy p {
+  font-size: 14px;
+  line-height: 22px;
+  margin: 0 0 20px;
+  color: #bdcfd8;
+}
+.award-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+.award-actions button {
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  line-height: 20px;
+  padding: 12px 0;
+}
+#award-collect {
+  background: #d8e9e6;
+  color: #15332e;
+  padding: 12px 28px;
+  border-radius: 6px;
+}
+#award-collect:hover {
+  background: #f0fff8;
+}
+#award-again {
+  color: #c2d8e1;
+}
+#award-again:hover {
+  color: white;
+}
+.award-copy small {
+  display: block;
+  font-size: 12px;
+  line-height: 18px;
+  color: #9ab1bf;
+  margin-top: 14px;
+}
+.award[data-phase='ready'] .award-copy > * {
+  animation: award-caption 0.4s ease-out both;
+}
+.award[data-phase='ready'] .award-copy p {
+  animation-delay: 0.08s;
+}
+.award[data-phase='ready'] .award-actions {
+  animation-delay: 0.16s;
+}
+.award[data-phase='ready'] .award-copy small {
+  animation-delay: 0.2s;
+}
+@keyframes award-dim {
+  from {
+    background: rgb(3 10 17 / 0);
+  }
+}
+@keyframes ink-bloom {
+  0% {
+    transform: scale(0.1, 0.08);
+    opacity: 0.3;
+  }
+  35% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(6.8, 7.2);
+    opacity: 1;
+  }
+}
+@keyframes award-caption {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-height: 650px) {
+  .award {
+    --award-size: min(150px, 28dvh, 40vw);
+  }
+  .award-copy {
+    top: calc(50% + var(--award-size) * 0.56 + 12px);
+  }
+  .award-copy h2 {
+    font-size: 18px;
+    line-height: 26px;
+    margin-bottom: 6px;
+  }
+  .award-copy p {
+    margin-bottom: 10px;
+  }
+  .award-copy small {
+    margin-top: 8px;
+  }
+  .award-panel {
+    height: calc(var(--award-size) * 1.23 + 184px);
+  }
+}
+@media (max-height: 480px) {
+  .award {
+    --award-size: min(110px, 25dvh);
+  }
+  .award-copy p {
+    display: none;
+  }
+  .award-panel {
+    height: calc(var(--award-size) * 1.23 + 124px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .award *,
+  .award[open]::backdrop {
+    animation: none !important;
+    transition: none !important;
+  }
+  .award-light {
+    display: none;
+  }
+}

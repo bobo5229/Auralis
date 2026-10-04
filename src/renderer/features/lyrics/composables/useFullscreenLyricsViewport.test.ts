@@ -76,6 +76,23 @@ describe('fullscreen lyrics viewport helpers', () => {
     expect(resolveFullscreenLyricsAnimationDuration(100)).toBe(445)
     expect(resolveFullscreenLyricsAnimationDuration(1000)).toBe(650)
   })
+
+  it('keeps a wrapped active lyric entirely within the clear area', () => {
+    const metric = { offset: 800, height: 238 }
+    for (const scale of [1, 1.23]) {
+      const target = resolveFullscreenLyricsScrollTarget(metric, 442, 2000, scale)
+      const center = metric.offset + metric.height / 2 - target
+      expect(center - (metric.height * scale) / 2).toBeGreaterThanOrEqual(442 * 0.07)
+      expect(center + (metric.height * scale) / 2).toBeLessThanOrEqual(442 * 0.9)
+    }
+  })
+
+  it('starts oversized lyrics below the top fade so manual reading begins with the first line', () => {
+    const metric = { offset: 900, height: 600 }
+    const target = resolveFullscreenLyricsScrollTarget(metric, 442, 2000)
+    const top = metric.offset + metric.height / 2 - target - (metric.height * 1.23) / 2
+    expect(top).toBeCloseTo(442 * 0.07 + 4)
+  })
 })
 
 describe('useFullscreenLyricsViewport', () => {

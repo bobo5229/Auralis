@@ -90,6 +90,7 @@ describe('CD stage lifetime', () => {
     count: number,
     focusChange?: (progress: number, settled: boolean) => void,
     togglePlayback?: () => boolean,
+    targetChange?: (focused: boolean) => void,
   ) {
     const disconnect = vi.fn()
     const media = Object.assign(new EventTarget(), { matches: false })
@@ -124,6 +125,7 @@ describe('CD stage lifetime', () => {
             geometry: () => ({ cx: 600, cy: 360, rightBoundary: 940 }),
             change: focusChange,
             togglePlayback,
+            targetChange,
           }
         : undefined,
     )
@@ -164,10 +166,18 @@ describe('CD stage lifetime', () => {
 
   it('supports focus reversal, reduced motion, catalog refresh and disposal', () => {
     const change = vi.fn()
-    const { controller, media, albums } = setup(8, change)
+    const target = vi.fn()
+    const { controller, media, albums } = setup(8, change, undefined, target)
     controller.setFocused(true)
+    expect(target).toHaveBeenLastCalledWith(true)
     advance(12)
     controller.setFocused(false)
+    expect(target).toHaveBeenLastCalledWith(false)
+    expect(change).not.toHaveBeenLastCalledWith(0, true)
+    controller.setFocused(true)
+    expect(target).toHaveBeenLastCalledWith(true)
+    controller.setFocused(false)
+    expect(target).toHaveBeenLastCalledWith(false)
     settle()
     expect(change).toHaveBeenLastCalledWith(0, true)
     media.matches = true
@@ -175,10 +185,12 @@ describe('CD stage lifetime', () => {
     expect(change).toHaveBeenLastCalledWith(1, true)
     expect(clock.running).toBe(false)
     controller.setAlbums(albums)
+    expect(target).toHaveBeenLastCalledWith(false)
     expect(change).toHaveBeenLastCalledWith(0, true)
     media.matches = false
     controller.setFocused(true)
     controller.dispose()
+    expect(target).toHaveBeenLastCalledWith(false)
     expect(clock.running).toBe(false)
     expect(change).toHaveBeenLastCalledWith(0, true)
   })
@@ -724,8 +736,9 @@ describe('CD stage lifetime', () => {
     ).toHaveLength(13)
     expect(stage.children.every((node) => node.children[0].children.length === 1)).toBe(true)
     controller.navigate(1)
-    for (let frame = 0; frame < 260; frame++) {
+    for (let frame = 0; frame < 180; frame++) {
       advance(1)
+      if (!clock.running) break
       expect(stage.children).toEqual(prepared)
       expect(
         stage.children.filter((node) => Number(node.style.opacity) > 0).length,
@@ -735,6 +748,7 @@ describe('CD stage lifetime', () => {
       ).toBeLessThanOrEqual(13)
       expect(stage.children.every((node) => node.children[0].children.length === 1)).toBe(true)
     }
+    expect(clock.running).toBe(false)
     settle()
     expect(stage.children).toHaveLength(4)
     expect(stage.children.every((node) => prepared.includes(node))).toBe(true)
@@ -819,7 +833,8 @@ describe('CD stage lifetime', () => {
     vi.advanceTimersByTime(1200)
     advance(7)
     expect(stage.children.filter((slot) => artOf(slot).children.length === 1)).toHaveLength(4)
-    for (let frame = 0; frame < 180; frame++) advance(1)
+    for (let frame = 0; frame < 150; frame++) advance(1)
+    expect(clock.running).toBe(true)
     const exposed = stage.children.filter(
       (slot) => Number(slot.style.opacity) > 0 && artOf(slot).children.length === 0,
     )
@@ -828,8 +843,176 @@ describe('CD stage lifetime', () => {
     for (let step = 0; step < 30; step++) await Promise.resolve()
     await Promise.resolve()
     advance(3)
+    expect(clock.running).toBe(true)
     for (const slot of exposed) expect(artOf(slot).children.length).toBe(0)
+    settle()
+    expect(stage.children.every((slot) => artOf(slot).children.length === 1)).toBe(true)
     controller.dispose()
+  })
+
+  it('restores timed-out covers on the existing visible nodes only after startup finishes', async () => {
+    vi.useFakeTimers()
+    const images: TestElement[] = []
+    const finishDecode: Array<() => void> = []
+    vi.stubGlobal(
+      'Image',
+      class extends TestElement {
+        constructor() {
+          super()
+          images.push(this)
+        }
+        decode(): Promise<void> {
+          return new Promise((resolve) => finishDecode.push(resolve))
+        }
+      },
+    )
+    const { stage, albums, controller, media } = setup(8)
+    controller.setAlbums(
+      albums.map((album) => ({ ...album, artworkUrl: `cover:${album.key}` })),
+      true,
+    )
+    const prepared = [...stage.children]
+    const startupImages = [...images]
+    const artOf = (slot: TestElement): TestElement => slot.children[0].children[0].children[0]
+    vi.advanceTimersByTime(1200)
+    advance(150)
+    finishDecode.forEach((resolve) => resolve())
+    for (let step = 0; step < 6; step++) await Promise.resolve()
+    expect(clock.running).toBe(true)
+    expect(prepared.every((slot) => artOf(slot).children.length === 0)).toBe(true)
+    expect(images).toHaveLength(startupImages.length)
+    settle()
+    expect(stage.children).toHaveLength(4)
+    for (const slot of stage.children) {
+      expect(prepared).toContain(slot)
+      expect(artOf(slot).children).toHaveLength(1)
+      expect(artOf(slot).children[0].src).toMatch(/^cover:/)
+      expect(startupImages).not.toContain(artOf(slot).children[0])
+    }
+    // An error from a released request cannot remove its restored replacement.
+    startupImages.forEach((image) => image.dispatchEvent(new Event('error')))
+    expect(stage.children.every((slot) => artOf(slot).children.length === 1)).toBe(true)
+    const failedArt = artOf(stage.children[0])
+    failedArt.children[0].dispatchEvent(new Event('error'))
+    const allocations = images.length
+    media.matches = true
+    media.dispatchEvent(new Event('change'))
+    expect(failedArt.children).toHaveLength(0)
+    expect(images).toHaveLength(allocations)
+    controller.dispose()
+  })
+
+  it.each(['preparation', 'motion'])(
+    'restores pending covers when startup is canceled during %s',
+    async (phase) => {
+      vi.useFakeTimers()
+      const finishDecode: Array<() => void> = []
+      vi.stubGlobal(
+        'Image',
+        class extends TestElement {
+          decode(): Promise<void> {
+            return new Promise((resolve) => finishDecode.push(resolve))
+          }
+        },
+      )
+      const { stage, albums, controller, media } = setup(8)
+      controller.setAlbums(
+        albums.map((album) => ({ ...album, artworkUrl: `cover:${album.key}` })),
+        true,
+      )
+      if (phase === 'motion') {
+        vi.advanceTimersByTime(1200)
+        advance(150)
+      }
+      media.matches = true
+      media.dispatchEvent(new Event('change'))
+      const visible = [...stage.children]
+      expect(visible).toHaveLength(4)
+      const covers = visible.map((slot) => slot.children[0].children[0].children[0].children)
+      expect(
+        covers.every((images) => images.length === 1 && images[0].src.startsWith('cover:')),
+      ).toBe(true)
+      finishDecode.forEach((resolve) => resolve())
+      for (let step = 0; step < 6; step++) await Promise.resolve()
+      expect(stage.children).toEqual(visible)
+      expect(visible.map((slot) => slot.children[0].children[0].children[0].children)).toEqual(
+        covers,
+      )
+      expect(clock.running).toBe(false)
+      expect(vi.getTimerCount()).toBe(0)
+      controller.dispose()
+    },
+  )
+
+  it('does not retry failed or absent startup covers when returning to rest', async () => {
+    const images: TestElement[] = []
+    vi.stubGlobal(
+      'Image',
+      class extends TestElement {
+        constructor() {
+          super()
+          images.push(this)
+        }
+        decode(): Promise<void> {
+          return Promise.reject(new Error('Invalid cover'))
+        }
+      },
+    )
+    const { stage, albums, controller, media } = setup(2)
+    controller.setAlbums([{ ...albums[0], artworkUrl: 'broken:cover' }, albums[1]], true)
+    for (let step = 0; step < 30; step++) await Promise.resolve()
+    settle()
+    expect(images).toHaveLength(1)
+    expect(
+      stage.children.every(
+        (slot) => slot.children[0].children[0].children[0].children.length === 0,
+      ),
+    ).toBe(true)
+    media.matches = true
+    media.dispatchEvent(new Event('change'))
+    expect(images).toHaveLength(1)
+    controller.dispose()
+  })
+
+  it('keeps released startup requests from mutating a replacement catalog or disposed stage', async () => {
+    vi.useFakeTimers()
+    const finishDecode: Array<() => void> = []
+    const images: TestElement[] = []
+    vi.stubGlobal(
+      'Image',
+      class extends TestElement {
+        constructor() {
+          super()
+          images.push(this)
+        }
+        decode(): Promise<void> {
+          return new Promise((resolve) => finishDecode.push(resolve))
+        }
+      },
+    )
+    const { stage, albums, controller } = setup(8)
+    const covered = albums.map((album) => ({ ...album, artworkUrl: `cover:${album.key}` }))
+    controller.setAlbums(covered, true)
+    vi.advanceTimersByTime(1200)
+    advance(7)
+    const released = [...images]
+    controller.setAlbums([{ key: 'replacement', artworkUrl: 'cover:replacement' }])
+    finishDecode.forEach((resolve) => resolve())
+    released.forEach((image) => image.dispatchEvent(new Event('error')))
+    for (let step = 0; step < 6; step++) await Promise.resolve()
+    expect(stage.children).toHaveLength(1)
+    expect(stage.children[0].children[0].children[0].children[0].children[0].src).toBe(
+      'cover:replacement',
+    )
+    controller.setAlbums(covered, true)
+    controller.dispose()
+    const allocations = images.length
+    finishDecode.forEach((resolve) => resolve())
+    for (let step = 0; step < 6; step++) await Promise.resolve()
+    expect(stage.children).toHaveLength(0)
+    expect(images).toHaveLength(allocations)
+    expect(clock.running).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('removes raster preparation on replacement, reduced motion and disposal', async () => {

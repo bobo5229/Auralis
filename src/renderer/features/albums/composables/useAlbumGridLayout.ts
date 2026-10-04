@@ -5,6 +5,7 @@ export const GRID_PADDING_X = 40
 export const COLUMN_GAP = 20
 /** 封面下方固定元信息区：12px margin + 58px 文本块。 */
 const CARD_METADATA_HEIGHT = 70
+const ROW_GAP = 28
 const TARGET_CARD_WIDTH = 190
 const MAX_CARD_WIDTH = 210
 const MIN_COLS = 3
@@ -33,7 +34,6 @@ export function calculateAlbumGridGeometry(input: {
   viewportHeight: number
   paddingTop: number
   paddingBottom: number
-  displayMode: 'grid' | 'perspective'
   albumKeys: readonly string[]
   previous: AlbumGridGeometry | null
   scrollTop: number
@@ -48,8 +48,7 @@ export function calculateAlbumGridGeometry(input: {
     cardWidth = Math.max(1, (availableWidth - COLUMN_GAP * (columnCount - 1)) / columnCount)
   }
 
-  const rowGap = input.displayMode === 'perspective' ? 8 : 28
-  const rowHeight = cardWidth + CARD_METADATA_HEIGHT + rowGap
+  const rowHeight = cardWidth + CARD_METADATA_HEIGHT + ROW_GAP
   const totalHeight = Math.ceil(input.albumKeys.length / columnCount) * rowHeight
   const geometry = { width: input.width, columnCount, cardWidth, rowHeight, totalHeight }
 
@@ -91,7 +90,6 @@ export function calculateAlbumGridGeometry(input: {
 /** Geometry commits are explicit so the transition can submit its target before motion starts. */
 export function useAlbumGridLayout(options: {
   container: Ref<HTMLElement | null>
-  displayMode: Readonly<Ref<'grid' | 'perspective'>>
   isResizing: Readonly<Ref<boolean>>
   isActive: Readonly<Ref<boolean>>
   albumKeys: Readonly<Ref<readonly string[]>>
@@ -135,7 +133,6 @@ export function useAlbumGridLayout(options: {
       viewportHeight: container.clientHeight,
       paddingTop: Number.parseFloat(style.paddingTop) || 0,
       paddingBottom: Number.parseFloat(style.paddingBottom) || 0,
-      displayMode: options.displayMode.value,
       albumKeys: options.albumKeys.value,
       previous,
       scrollTop: container.scrollTop,
@@ -195,6 +192,21 @@ export function useAlbumGridLayout(options: {
   watch(options.isResizing, (resizing) => {
     if (!resizing) void nextTick(() => update())
   })
+  // KeepAlive can reactivate the same element before a queued restore runs.
+  watch(
+    options.isActive,
+    (active) => {
+      if (!active) revision += 1
+    },
+    { flush: 'sync' },
+  )
+  watch(
+    options.container,
+    () => {
+      revision += 1
+    },
+    { flush: 'sync' },
+  )
   onScopeDispose(() => {
     disposed = true
     transitionLocked = false

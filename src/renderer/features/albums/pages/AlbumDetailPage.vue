@@ -16,11 +16,9 @@ import { formatDelimitedParts } from '@shared/utils/delimitedValues'
 import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumDetailTrackList from '../components/AlbumDetailTrackList.vue'
 import AlbumMoreGallery from '../components/AlbumMoreGallery.vue'
-import { useAlbumCoverTracking } from '../composables/useAlbumCoverTracking'
 import { useAlbumDetailPresentation } from '../composables/useAlbumDetailPresentation'
 import type { AlbumSummary } from '../types'
 import { useAlbumDetailTracks } from '../composables/useAlbumDetailTracks'
-import { albumHeroTintStyle, resolveAlbumHeroTint } from '../utils/albumHeroTint'
 import { createAlbumArtworkTransition } from '@renderer/shared/animation/motion'
 
 const props = withDefaults(
@@ -65,8 +63,7 @@ const {
  */
 const hasRenderableData = computed(() => loadState.value === 'ready')
 const isEffectsActive = computed(() => hasRenderableData.value && !props.isEntering)
-useAlbumCoverTracking(detailRootRef, coverStageRef, isEffectsActive)
-const { albumGenrePills, albumHeroGenreLabel, heroLegalLine, albumReleaseYear, albumDiscGroups } =
+const { albumGenrePills, albumHeroGenreLabel, heroLegalLine, albumReleaseDate, albumDiscGroups } =
   useAlbumDetailPresentation(albumTracks, previewReleaseDate)
 const displayAlbumArtist = computed(() =>
   albumArtist.value === 'Unknown Artist'
@@ -105,9 +102,6 @@ const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
 const { palette: albumPalette } = useArtworkPalette(artworkCacheKey, {
   enabled: hasRenderableData,
 })
-const heroTint = computed(() =>
-  resolveAlbumHeroTint(albumPalette.value, artworkCacheKey.value, artworkUrl.value),
-)
 const albumDetailStyle = computed<CSSProperties>(() => {
   const accent = albumPalette.value.accents[0]?.rgb
   const resolvedAccent =
@@ -115,16 +109,8 @@ const albumDetailStyle = computed<CSSProperties>(() => {
       ? 'var(--auralis-artwork-accent-fallback)'
       : `rgb(${accent.r} ${accent.g} ${accent.b})`
 
-  return albumHeroTintStyle(
-    albumPalette.value,
-    artworkCacheKey.value,
-    artworkUrl.value,
-    resolvedAccent,
-  )
+  return { '--auralis-album-detail-accent': resolvedAccent }
 })
-const artworkGlowBackground = computed(() =>
-  artworkUrl.value ? `url("${artworkUrl.value}")` : 'none',
-)
 
 function onArtistClick(): void {
   if (!albumArtist.value || albumArtist.value === 'Unknown Artist') return
@@ -335,25 +321,10 @@ onBeforeUnmount(() => {
           class="album-hero-billboard"
           :aria-label="t('albums.detail.heroAria', { title: displayAlbumTitle })"
         >
-          <div class="album-hero-tint" aria-hidden="true">
-            <div
-              class="album-hero-tint-wash"
-              :class="{ 'album-hero-tint-wash--ready': Boolean(artworkUrl) }"
-            />
-            <div
-              class="album-hero-tint-gradient"
-              :class="{ 'album-hero-tint-gradient--ready': heroTint.hasPaletteTint }"
-            />
-          </div>
-
           <!-- 主内容层：封面与专辑信息、播放操作 -->
           <div class="album-hero-main-stage">
             <!-- 左侧：封面舞台 -->
-            <div
-              ref="coverStageRef"
-              class="album-hero-cover-container"
-              :class="{ 'album-hero-cover-container--effects-active': isEffectsActive }"
-            >
+            <div ref="coverStageRef" class="album-hero-cover-container">
               <div class="album-hero-cover">
                 <img
                   v-if="artworkUrl"
@@ -395,7 +366,7 @@ onBeforeUnmount(() => {
                     </button>
                     <span v-else class="album-hero-artist-text">{{ displayAlbumArtist }}</span>
                     <span class="album-hero-artist-dot" aria-hidden="true">·</span>
-                    <span class="album-hero-year-text">{{ albumReleaseYear }}</span>
+                    <span class="album-hero-date-text">{{ albumReleaseDate }}</span>
                     <span v-if="albumHeroGenreLabel" class="album-hero-genre-group">
                       <span class="album-hero-artist-dot" aria-hidden="true">·</span>
                       <span v-tooltip.overflow="albumHeroGenreLabel" class="album-hero-genre-text">
@@ -602,71 +573,6 @@ onBeforeUnmount(() => {
   isolation: isolate;
 }
 
-.album-hero-tint {
-  position: absolute;
-  top: -48px;
-  left: -64px;
-  width: calc(var(--album-hero-cover-size) + 280px);
-  height: calc(var(--album-hero-cover-size) + 200px);
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-  /* Fade before the scroller clips this layer 32px from its left edge. */
-  -webkit-mask-image:
-    linear-gradient(to right, transparent 48px, #000 128px),
-    radial-gradient(ellipse at 40% 45%, #000 0%, transparent 70%);
-  mask-image:
-    linear-gradient(to right, transparent 48px, #000 128px),
-    radial-gradient(ellipse at 40% 45%, #000 0%, transparent 70%);
-  -webkit-mask-composite: source-in;
-  mask-composite: intersect;
-}
-
-.album-hero-tint-wash,
-.album-hero-tint-gradient {
-  position: absolute;
-  inset: 0;
-}
-
-.album-hero-tint-wash {
-  background-image: var(--album-hero-wash-image);
-  background-position: center;
-  background-size: cover;
-  opacity: 0;
-}
-
-.album-hero-tint-wash--ready {
-  opacity: 0.18;
-}
-
-.album-hero-tint-gradient {
-  opacity: 0;
-  background:
-    radial-gradient(
-      ellipse at 18% 28%,
-      color-mix(in srgb, var(--album-hero-tint-a) 72%, transparent) 0%,
-      transparent 58%
-    ),
-    radial-gradient(
-      ellipse at 86% 18%,
-      color-mix(in srgb, var(--album-hero-tint-b) 58%, transparent) 0%,
-      transparent 52%
-    ),
-    radial-gradient(
-      ellipse at 72% 88%,
-      color-mix(in srgb, var(--album-hero-tint-c) 48%, transparent) 0%,
-      transparent 55%
-    ),
-    linear-gradient(
-      165deg,
-      color-mix(in srgb, var(--album-hero-tint-bg) 88%, #000) 0%,
-      color-mix(in srgb, var(--album-hero-tint-a) 28%, #0c0d10) 100%
-    );
-}
-
-.album-hero-tint-gradient--ready {
-  opacity: 0.32;
-}
 .album-hero-main-stage {
   position: relative;
   z-index: 1;
@@ -679,37 +585,10 @@ onBeforeUnmount(() => {
 }
 
 .album-hero-cover-container {
-  --detail-cover-rotate-x: 0deg;
-  --detail-cover-rotate-y: 0deg;
-  --detail-cover-shift-x: 0px;
-  --detail-cover-shift-y: 0px;
   position: relative;
   z-index: 1;
   width: var(--album-hero-cover-size);
   height: var(--album-hero-cover-size);
-  perspective: 900px;
-}
-
-.album-hero-cover-container::after {
-  position: absolute;
-  inset: 8%;
-  border-radius: 18px;
-  background: none;
-  background-size: cover;
-  background-position: center;
-  content: '';
-  filter: none;
-  opacity: 0;
-  pointer-events: none;
-  z-index: -1;
-  transform: translate3d(0, 21.6px, -30px) scale(0.95);
-  transition: opacity 0.3s;
-}
-
-.album-hero-cover-container--effects-active::after {
-  background: v-bind(artworkGlowBackground);
-  filter: blur(28px) saturate(1.8);
-  opacity: 0.55;
 }
 
 .album-hero-cover {
@@ -719,11 +598,6 @@ onBeforeUnmount(() => {
   border-radius: 16px;
   background: var(--auralis-artwork-placeholder-bg);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  transform: translate3d(var(--detail-cover-shift-x), var(--detail-cover-shift-y), 0)
-    rotateX(var(--detail-cover-rotate-x)) rotateY(var(--detail-cover-rotate-y));
-  transform-style: preserve-3d;
-  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
 }
 
 .album-hero-content-stage {
@@ -839,7 +713,7 @@ onBeforeUnmount(() => {
   user-select: none;
 }
 
-.album-hero-year-text,
+.album-hero-date-text,
 .album-hero-genre-text {
   font-size: 14px;
   font-weight: 500;
@@ -892,8 +766,6 @@ onBeforeUnmount(() => {
 
 /* 播放主按钮：多重斜光拉丝电镀金属质感（以全局强调色为基底动态计算衍生，绝不硬编码） */
 .album-hero-play-btn {
-  position: relative;
-  overflow: hidden;
   background: linear-gradient(
     135deg,
     color-mix(in srgb, #ffffff 38%, var(--auralis-theme-accent)) 0%,
@@ -926,24 +798,6 @@ onBeforeUnmount(() => {
   filter: drop-shadow(0 -0.5px 0 rgba(0, 0, 0, 0.4)) drop-shadow(0 1px 0 rgba(255, 255, 255, 0.65));
 }
 
-/* 高光掠过光刃：带倾角的三次平滑衰减金属反光条带 */
-.album-hero-play-btn::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: linear-gradient(
-    115deg,
-    transparent 0%,
-    transparent 35%,
-    color-mix(in srgb, #ffffff 70%, var(--auralis-theme-accent)) 50%,
-    transparent 65%,
-    transparent 100%
-  );
-  transform: translateX(-160%) skewX(-15deg);
-}
-
 .album-hero-play-btn:hover {
   background: linear-gradient(
     135deg,
@@ -964,12 +818,6 @@ onBeforeUnmount(() => {
   transform: none;
 }
 
-/* 悬停瞬间触发单次利落划过 (0.65s)，鼠标移出后自动静默归位 */
-.album-hero-play-btn:hover::after {
-  transform: translateX(160%) skewX(-15deg);
-  transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
 .album-hero-play-btn:active {
   transform: translateY(0.5px);
   box-shadow:
@@ -977,46 +825,62 @@ onBeforeUnmount(() => {
     0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-/* 随机播放辅助按钮：冷银拉丝电镀金属质感（始终为冷银合金色，不随强调色变动，无掠光动画，保持纯净静止反射） */
+/* 抛光镀铬：窄反射带与明暗边缘，中央亮面保证凹刻图标清晰。 */
 .album-hero-shuffle-btn {
   width: 40px;
   min-width: 40px;
   padding: 0;
   flex-shrink: 0;
   background: linear-gradient(
-    135deg,
-    #e8ebf0 0%,
-    #bcc3cc 24%,
-    #eaedf2 46%,
-    #8c94a0 72%,
-    #b0b7c2 100%
+    160deg,
+    #ffffff 0%,
+    #c8d0d9 16%,
+    #515b65 23%,
+    #9aa4ad 28%,
+    #f9fbfd 34%,
+    #ffffff 46%,
+    #dce2e8 61%,
+    #a0aab4 72%,
+    #49535d 79%,
+    #c5cdd5 85%,
+    #f8fafc 94%,
+    #89939d 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  border: 1px solid #87919b;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.85),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
-    inset 0 0 8px rgba(0, 0, 0, 0.18),
-    0 4px 16px rgba(0, 0, 0, 0.4),
-    0 2px 6px rgba(0, 0, 0, 0.25);
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    inset 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset -1px 0 0 rgba(0, 0, 0, 0.18),
+    0 3px 8px rgba(0, 0, 0, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.28);
   color: #121417;
 }
 
 .album-hero-shuffle-btn:hover {
   background: linear-gradient(
-    135deg,
-    #f5f7fa 0%,
-    #caced6 24%,
+    160deg,
+    #ffffff 0%,
+    #d4dce4 16%,
+    #64707c 23%,
+    #afb9c2 28%,
+    #ffffff 34%,
     #ffffff 46%,
-    #9ca4b0 72%,
-    #c4cad4 100%
+    #e8edf2 61%,
+    #b3bdc7 72%,
+    #5b6773 79%,
+    #d5dde5 85%,
+    #ffffff 94%,
+    #9aa5b0 100%
   );
-  border-color: rgba(255, 255, 255, 0.7);
+  border-color: #a1adb8;
   box-shadow:
     inset 0 1px 0 #ffffff,
-    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
-    inset 0 0 10px rgba(0, 0, 0, 0.12),
-    0 6px 20px rgba(0, 0, 0, 0.45),
-    0 2px 8px rgba(255, 255, 255, 0.15);
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    inset 1px 0 0 rgba(255, 255, 255, 0.65),
+    inset -1px 0 0 rgba(0, 0, 0, 0.15),
+    0 3px 9px rgba(0, 0, 0, 0.32),
+    0 1px 2px rgba(0, 0, 0, 0.28);
   color: #121417;
   transform: none;
 }
@@ -1090,19 +954,9 @@ onBeforeUnmount(() => {
   }
 }
 
-:where([data-reduced-motion='true']) .album-hero-cover,
-:where([data-reduced-motion='true']) .album-hero-cover-container::after {
-  transform: none !important;
-  transition: none !important;
-}
-
 :where([data-reduced-motion='true']) .album-hero-play-btn:hover,
 :where([data-reduced-motion='true']) .album-hero-shuffle-btn:hover,
 :where([data-reduced-motion='true']) .album-detail-back:hover {
   transform: none;
-}
-
-:where([data-reduced-motion='true']) .album-hero-play-btn::after {
-  display: none !important;
 }
 </style>

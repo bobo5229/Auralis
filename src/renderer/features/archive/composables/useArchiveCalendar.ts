@@ -1,3 +1,4 @@
+import { i18n, uiText } from '@renderer/i18n'
 import { computed, onScopeDispose, ref, type Ref } from 'vue'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
@@ -24,8 +25,15 @@ export function useArchiveCalendar(
   const annualInsights = ref<AnnualListeningInsights | null>(null)
   const annualInsightsError = ref(false)
   const isLoading = ref(true)
-  const errorMessage = ref<string | null>(null)
-  const weekdayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  const hasError = ref(false)
+  const errorMessage = computed(() => (hasError.value ? uiText('archive.mac.calendarError') : null))
+  const weekdayNames = computed(() =>
+    Array.from({ length: 7 }, (_, index) =>
+      new Intl.DateTimeFormat(i18n.global.locale.value, { weekday: 'short' }).format(
+        new Date(2026, 0, 4 + index),
+      ),
+    ),
+  )
   function getIntensityLevel(playCount: number): CalendarDay['level'] {
     if (playCount >= 7) return 4
     if (playCount >= 4) return 3
@@ -36,13 +44,17 @@ export function useArchiveCalendar(
 
   const weekdayOrder = computed(() => {
     const firstWeekday = new Date(selectedYear.value, 0, 1).getDay()
-    return Array.from({ length: 7 }, (_, index) => weekdayNames[(firstWeekday + index) % 7])
+    return Array.from({ length: 7 }, (_, index) => weekdayNames.value[(firstWeekday + index) % 7])
   })
 
   const calendarDays = computed<CalendarDay[]>(() => {
     const statsByDate = new Map((heatmap.value?.days ?? []).map((day) => [day.date, day] as const))
     const todayKey = formatDateKey(new Date())
     const daysInYear = new Date(selectedYear.value, 1, 29).getMonth() === 1 ? 366 : 365
+    const dateFormatter = new Intl.DateTimeFormat(i18n.global.locale.value, {
+      month: 'short',
+      day: 'numeric',
+    })
 
     return Array.from({ length: daysInYear }, (_, index) => {
       const date = new Date(selectedYear.value, 0, index + 1)
@@ -52,7 +64,7 @@ export function useArchiveCalendar(
 
       return {
         date: dateKey,
-        label: `${date.getMonth() + 1}月${date.getDate()}日`,
+        label: dateFormatter.format(date),
         playCount,
         durationSeconds: dayStats?.durationSeconds ?? 0,
         level: getIntensityLevel(playCount),
@@ -66,7 +78,9 @@ export function useArchiveCalendar(
 
     return Array.from({ length: 12 }, (_, month) => {
       const marker = {
-        label: `${month + 1}月`,
+        label: new Intl.DateTimeFormat(i18n.global.locale.value, { month: 'short' }).format(
+          new Date(selectedYear.value, month, 1),
+        ),
         column: Math.floor(elapsedDays / 7) + 1,
       }
       elapsedDays += new Date(selectedYear.value, month + 1, 0).getDate()
@@ -103,7 +117,7 @@ export function useArchiveCalendar(
   async function loadHeatmap(): Promise<void> {
     const request = ++requestId
     isLoading.value = true
-    errorMessage.value = null
+    hasError.value = false
     annualInsights.value = null
     annualInsightsError.value = false
 
@@ -125,7 +139,7 @@ export function useArchiveCalendar(
         message: 'Failed to load listening heatmap',
         cause: heatmapResult.reason,
       })
-      errorMessage.value = '无法读取听歌记录'
+      hasError.value = true
     }
 
     if (insightsResult.status === 'fulfilled') {

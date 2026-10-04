@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type {
   TrackEditStateChangedEvent,
@@ -44,7 +44,8 @@ interface UseLibraryMetadataEditorOptions {
 export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOptions) {
   const editingMetadata = ref<EditableTrackMetadata | null>(null)
   const isSavingMetadata = ref(false)
-  const metadataEditError = ref<string | null>(null)
+  const errorMessageSource = shallowRef<(() => string) | null>(null)
+  const metadataEditError = computed(() => errorMessageSource.value?.() ?? null)
   const editStatus = ref<MetadataEditStatus>('checking')
 
   let currentTrackId: number | null = null
@@ -92,7 +93,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     currentTrackId = trackId
     currentVersion = 0
     editStatus.value = options.getTrackEditState ? 'checking' : 'editable'
-    metadataEditError.value = null
+    errorMessageSource.value = null
 
     if (options.onTrackEditStateChanged) {
       unsubscribeStatus = options.onTrackEditStateChanged((event) => {
@@ -127,7 +128,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
         : null)
 
     editingMetadata.value = null
-    metadataEditError.value = null
+    errorMessageSource.value = null
     pendingReturnTarget = null
 
     if (returnTarget) {
@@ -150,7 +151,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     }
 
     isSavingMetadata.value = true
-    metadataEditError.value = null
+    errorMessageSource.value = null
     const saveScope = options.captureRouteScope()
 
     try {
@@ -166,14 +167,12 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
         const rejected = saveResult as { ok: false; reason: string }
         if (rejected.reason === 'playback-in-use') {
           editStatus.value = 'playback-in-use'
-          metadataEditError.value = options.getPlaybackInUseMessage
-            ? options.getPlaybackInUseMessage()
-            : '此歌曲正由播放器使用，暂时无法修改元数据。请切换到其他歌曲后再试。'
+          errorMessageSource.value = options.getPlaybackInUseMessage ?? options.getSaveErrorMessage
         } else if (rejected.reason === 'write-in-progress') {
           editStatus.value = 'write-in-progress'
-          metadataEditError.value = options.getSaveErrorMessage()
+          errorMessageSource.value = options.getSaveErrorMessage
         } else {
-          metadataEditError.value = options.getSaveErrorMessage()
+          errorMessageSource.value = options.getSaveErrorMessage
         }
         return
       }
@@ -208,7 +207,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     } catch (error) {
       options.logSaveError?.(error)
       if (!options.isDisposed()) {
-        metadataEditError.value = options.getSaveErrorMessage()
+        errorMessageSource.value = options.getSaveErrorMessage
       }
     } finally {
       if (!options.isDisposed()) {

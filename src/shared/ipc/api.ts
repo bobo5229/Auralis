@@ -16,6 +16,8 @@ export interface AuralisApi {
   }
   app: {
     getInfo: () => Result<'app:get-info'>
+    setLocale: (locale: Req<'app:set-locale'>['locale']) => Result<'app:set-locale'>
+    claimCdStartupEntry: () => Result<'app:claim-cd-startup-entry'>
     exportDiagnostics: () => Result<'app:export-diagnostics'>
     rendererReady: () => void
     splashReady: (payload: IpcSendPayload<'app:splash-ready'>) => void
@@ -189,6 +191,10 @@ export interface AuralisApi {
   window: {
     control: (action: Req<'window:control'>['action']) => Result<'window:control'>
     getMaximized: () => Result<'window:get-maximized'>
+    getVisibility: () => Result<'window:get-visibility'>
+    onVisibilityChanged: (
+      callback: (state: IpcEventPayload<'window:visibility-changed'>) => void,
+    ) => () => void
     onMaximizedChanged: (
       callback: (state: IpcEventPayload<'window:maximized-changed'>) => void,
     ) => () => void

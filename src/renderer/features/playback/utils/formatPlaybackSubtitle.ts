@@ -1,5 +1,6 @@
 import type { PlaybackTrack } from '../types'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+import { uiText } from '@renderer/i18n'
 
 export function formatPlaybackSubtitle(track: PlaybackTrack, separator = '-'): string {
   const aa = formatArtist(track.albumArtist)
@@ -11,5 +12,5 @@ export function formatPlaybackSubtitle(track: PlaybackTrack, separator = '-'): s
   if (aa) return aa
   if (a) return a
   if (al) return al
-  return 'Unknown Artist'
+  return uiText('player.unknownArtist')
 }

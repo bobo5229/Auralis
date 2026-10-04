@@ -1,23 +1,26 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import markup from '../mac/archiveMac.html?raw'
 import archiveMacCss from '../mac/archiveMac.css?raw'
 import macAlbumWindowCss from '../mac/macAlbumWindow.css?raw'
-import loadTrayCss from '../mac/loadTray.css?raw'
 import '../mac/archiveMacFonts.css'
 import { mountArchiveMacView } from '../mac/mountArchiveMacView'
 import { useArchiveMacData } from '../composables/useArchiveMacData'
 import { resolveArchiveFontFamily } from '../utils/resolveArchiveFontFamily'
 import type { MacViewController } from '../mac/macViewTypes'
 import type { LibraryChangedReason } from '@shared/ipc/contracts'
+import { archiveSceneSession } from '../mac/archiveSceneSession'
 
 const router = useRouter()
+const { t, locale } = useI18n()
 const canvasHost = ref<HTMLElement | null>(null)
 const data = useArchiveMacData()
 const view = shallowRef<MacViewController | null>(null)
+const sceneReady = ref(false)
 
 let unsubscribe: (() => void) | undefined
 let debounceTimer: number | null = null
@@ -50,6 +53,7 @@ function returnToPlayer(): void {
 // Sync model to view
 watchEffect(() => {
   view.value?.update({
+    locale: locale.value as 'zh-Hans' | 'en',
     selectedYear: data.selectedYear.value,
     browsingYear: data.browsingYear.value,
     todayKey: data.todayKey.value,
@@ -68,6 +72,13 @@ watchEffect(() => {
 onMounted(async () => {
   const host = canvasHost.value
   if (!host) return
+
+  if (archiveSceneSession.date) {
+    const key = archiveSceneSession.albumKey
+    await data.selectDate(archiveSceneSession.date)
+    if (disposed) return
+    if (key) data.selectAlbum(key)
+  }
 
   const macFont = resolveArchiveFontFamily(
     getComputedStyle(host).getPropertyValue('--mac-font'),
@@ -92,9 +103,12 @@ onMounted(async () => {
   if (disposed || canvasHost.value !== host) return
 
   const root = host.attachShadow({ mode: 'open' })
-  root.innerHTML = `<style>${archiveMacCss}\n${macAlbumWindowCss}\n${loadTrayCss}</style>${markup}`
+  root.innerHTML = `<style>${archiveMacCss}\n${macAlbumWindowCss}</style>${markup}`
 
   view.value = mountArchiveMacView(root, {
+    onSceneReadyChange: (ready) => {
+      sceneReady.value = ready
+    },
     onSelectYear: (year) => data.selectYear(year),
     onBrowseYear: (year) => data.browseYear(year),
     onSelectDate: (date) => void data.selectDate(date),
@@ -116,6 +130,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  archiveSceneSession.date = data.selectedDate.value
+  archiveSceneSession.albumKey = data.selectedAlbumKey.value
   disposed = true
   if (debounceTimer !== null) clearTimeout(debounceTimer)
   unsubscribe?.()
@@ -124,17 +140,34 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="archive-mac-page" aria-label="Mac 声迹">
+  <section class="archive-mac-page" :aria-label="t('archive.mac.pageAria')">
     <header class="archive-mac-header">
       <button
         type="button"
         class="archive-mac-back-btn"
-        aria-label="返回播放器"
+        :aria-label="t('archive.mac.backAria')"
         @click="returnToPlayer"
       >
-        <span aria-hidden="true">←</span> 返回
+        <span aria-hidden="true">←</span> {{ t('archive.mac.back') }}
       </button>
-      <span class="archive-mac-title">AURALIS / 声迹</span>
+      <span class="archive-mac-title">AURALIS / {{ t('archive.title') }}</span>
+      <button
+        v-if="sceneReady"
+        type="button"
+        class="archive-mac-back-btn archive-mac-intro-btn"
+        @click="view?.returnToIntro()"
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true">
+          <path
+            d="M4 6H1.5V3.5M1.5 6A6 6 0 1 1 2 11"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        {{ t('archive.mac.backToIntro') }}
+      </button>
     </header>
     <div ref="canvasHost" class="archive-mac-host" />
   </section>
@@ -144,6 +177,7 @@ onBeforeUnmount(() => {
 .archive-mac-page {
   --mac-font: var(--auralis-font-latin), 'Auralis Mac Pixel', 'Microsoft YaHei', sans-serif;
   font-synthesis: none;
+  position: relative;
   height: 100%;
   min-height: 0;
   display: flex;
@@ -153,12 +187,14 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 .archive-mac-header {
-  flex: 0 0 54px;
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 3;
+  height: 54px;
   display: flex;
   align-items: center;
   gap: 20px;
   padding: 12px 124px 0 28px;
-  border-bottom: 1px solid rgba(112, 97, 127, 0.35);
   font-family: var(--mac-font, sans-serif);
   font-size: 12px;
   -webkit-app-region: drag;
@@ -170,10 +206,10 @@ onBeforeUnmount(() => {
   gap: 8px;
   min-height: 30px;
   padding: 0 12px;
-  border: 1px solid #70617f;
+  border: 1px solid #8acbd538;
   border-radius: 3px;
-  background: #211a2d;
-  color: #c3b4cf;
+  background: transparent;
+  color: #b5d2d7;
   cursor: pointer;
   -webkit-app-region: no-drag;
   font-family: var(--mac-font, sans-serif);
@@ -181,12 +217,18 @@ onBeforeUnmount(() => {
   letter-spacing: 0.5px;
 }
 .archive-mac-back-btn:hover {
-  border-color: #ff8fc3;
-  color: #ff8fc3;
+  border-color: #9aefe7;
+  color: #9aefe7;
 }
 .archive-mac-back-btn:focus-visible {
-  outline: 2px solid #ff8fc3;
+  outline: 2px solid #9aefe7;
   outline-offset: 2px;
+}
+.archive-mac-intro-btn {
+  margin-left: auto;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  white-space: nowrap;
 }
 .archive-mac-title {
   font-weight: 400;
@@ -197,5 +239,15 @@ onBeforeUnmount(() => {
   flex: 1;
   min-height: 0;
   width: 100%;
+}
+@media (max-width: 600px) {
+  .archive-mac-header {
+    height: 42px;
+    gap: 12px;
+    padding-top: 0;
+  }
+  .archive-mac-title {
+    display: none;
+  }
 }
 </style>

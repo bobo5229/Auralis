@@ -11,7 +11,7 @@ import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import DatabaseMaintenanceSettings from './DatabaseMaintenanceSettings.vue'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const roots = ref<LibraryRoot[]>([])
 const scanStatus = ref<LibraryScanStatus | null>(null)
@@ -25,6 +25,7 @@ const isClearingRefreshFailures = ref(false)
 const showRefreshFailures = ref(false)
 const isMounted = ref(false)
 const unsubscribeRefresh = ref<(() => void) | null>(null)
+let scanStatusRevision = 0
 
 const activeRoot = computed(() => roots.value[0] ?? null)
 const isScanning = computed(() => scanStatus.value?.status === 'scanning')
@@ -84,7 +85,7 @@ const lastScannedLabel = computed(() => {
   const date = new Date(activeRoot.value.lastScannedAt)
   if (Number.isNaN(date.getTime())) return activeRoot.value.lastScannedAt
 
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(locale.value, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -123,22 +124,29 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 async function loadLibraryState(): Promise<void> {
   try {
-    const [nextRoots, nextScanStatus, nextFailures] = await Promise.all([
+    const [nextRoots, , nextFailures] = await Promise.all([
       auralis.library.getRoots(),
-      auralis.library.getScanStatus(),
+      refreshScanStatus(),
       auralis.metadata.listRefreshFailures(),
     ])
 
     if (!isMounted.value) return
 
     roots.value = nextRoots
-    scanStatus.value = nextScanStatus
     refreshFailures.value = nextFailures
   } catch (error) {
     if (isMounted.value) {
-      operationError.value = getErrorMessage(error, t('settings.library.errors.loadState'))
+      operationError.value = getErrorMessage(error, 'settings.library.errors.loadState')
     }
   }
+}
+
+async function refreshScanStatus(jobId?: number): Promise<void> {
+  const revision = ++scanStatusRevision
+  const nextStatus = await auralis.library.getScanStatus(jobId)
+  if (!isMounted.value || revision !== scanStatusRevision) return
+  scanStatus.value = nextStatus
+  if (currentProgress.value?.jobId !== nextStatus?.jobId) currentProgress.value = null
 }
 
 async function clearRefreshFailures(): Promise<void> {
@@ -151,7 +159,7 @@ async function clearRefreshFailures(): Promise<void> {
     refreshFailures.value = []
     showRefreshFailures.value = false
   } catch (error) {
-    refreshErrorMessage.value = getErrorMessage(error, t('settings.library.errors.clearFailures'))
+    refreshErrorMessage.value = getErrorMessage(error, 'settings.library.errors.clearFailures')
   } finally {
     isClearingRefreshFailures.value = false
   }
@@ -166,11 +174,11 @@ async function chooseFolder(): Promise<void> {
 
     if (!result.canceled && result.root) {
       roots.value = [result.root]
-      scanStatus.value = await auralis.library.getScanStatus()
       currentProgress.value = null
+      await refreshScanStatus()
     }
   } catch (error) {
-    operationError.value = getErrorMessage(error, t('settings.library.errors.selectFolder'))
+    operationError.value = getErrorMessage(error, 'settings.library.errors.selectFolder')
   } finally {
     isLoading.value = false
   }
@@ -179,17 +187,21 @@ async function chooseFolder(): Promise<void> {
 async function startScan(): Promise<void> {
   if (!activeRoot.value) return
 
+  const hadFocus = document.activeElement === scanActionButton.value
   isLoading.value = true
   operationError.value = null
 
   try {
     const result = await auralis.library.startScan(activeRoot.value.id)
-    scanStatus.value = await auralis.library.getScanStatus(result.jobId)
     currentProgress.value = null
+    await refreshScanStatus(result.jobId)
   } catch (error) {
-    operationError.value = getErrorMessage(error, t('settings.library.errors.startScan'))
+    operationError.value = getErrorMessage(error, 'settings.library.errors.startScan')
   } finally {
     isLoading.value = false
+    if (hadFocus && document.activeElement === document.body) {
+      await focusAction(isScanning.value ? cancelScanButton : scanActionButton)
+    }
   }
 }
 
@@ -199,9 +211,9 @@ async function cancelScan(): Promise<void> {
   operationError.value = null
   try {
     await auralis.library.cancelScan(scanStatus.value.jobId)
-    scanStatus.value = await auralis.library.getScanStatus(scanStatus.value.jobId)
+    await refreshScanStatus(scanStatus.value.jobId)
   } catch (error) {
-    operationError.value = getErrorMessage(error, t('settings.library.errors.cancelScan'))
+    operationError.value = getErrorMessage(error, 'settings.library.errors.cancelScan')
   }
 }
 
@@ -209,23 +221,35 @@ onMounted(async () => {
   isMounted.value = true
 
   unsubscribe.value = auralis.library.onScanProgress(async (progress) => {
-    if (!scanStatus.value || scanStatus.value.jobId === progress.jobId) {
+    if (scanStatus.value && progress.jobId < scanStatus.value.jobId) return
+    try {
       currentProgress.value = progress
-      const nextScanStatus = await auralis.library.getScanStatus(progress.jobId)
-      if (!isMounted.value) return
-      scanStatus.value = nextScanStatus
-    }
+      if (scanStatus.value?.jobId === progress.jobId) {
+        scanStatus.value = { ...scanStatus.value, ...progress }
+      }
+      await refreshScanStatus(progress.jobId)
 
-    if (progress.status === 'completed') {
-      const nextRoots = await auralis.library.getRoots()
-      if (isMounted.value) roots.value = nextRoots
+      if (progress.status === 'completed') {
+        const nextRoots = await auralis.library.getRoots()
+        if (isMounted.value && scanStatus.value?.jobId === progress.jobId) roots.value = nextRoots
+      }
+    } catch (error) {
+      if (isMounted.value) {
+        operationError.value = getErrorMessage(error, 'settings.library.errors.loadState')
+      }
     }
   })
 
   unsubscribeRefresh.value = auralis.metadata.onRefreshProgress(async (progress) => {
     if (progress.status === 'completed' || progress.status === 'failed') {
-      const failures = await auralis.metadata.listRefreshFailures()
-      if (isMounted.value) refreshFailures.value = failures
+      try {
+        const failures = await auralis.metadata.listRefreshFailures()
+        if (isMounted.value) refreshFailures.value = failures
+      } catch (error) {
+        if (isMounted.value) {
+          refreshErrorMessage.value = getErrorMessage(error, 'settings.library.errors.loadState')
+        }
+      }
     }
   })
 
@@ -299,20 +323,35 @@ onBeforeUnmount(() => {
             </div>
             <div class="library-scan-actions">
               <span class="scan-percent">{{ progressPercent }}%</span>
-              <button type="button" class="settings-button-link" @click="cancelScan">
+              <button
+                ref="cancelScanButton"
+                type="button"
+                class="settings-button-link"
+                @click="cancelScan"
+              >
                 {{ t('settings.library.cancel') }}
               </button>
             </div>
           </div>
-          <div class="settings-progress-track">
-            <div class="settings-progress-fill" :style="{ width: `${progressPercent}%` }"></div>
+          <div
+            class="settings-progress-track"
+            role="progressbar"
+            :aria-label="t('settings.library.scanningTitle')"
+            :aria-valuenow="progressPercent"
+            :aria-valuemin="0"
+            :aria-valuemax="100"
+          >
+            <div
+              class="settings-progress-fill"
+              :style="{ transform: `scaleX(${progressPercent / 100})` }"
+            ></div>
           </div>
         </div>
 
         <!-- 错误提示 -->
-        <div v-if="operationError" class="library-error-row">
+        <div v-if="operationError" class="library-error-row" role="alert">
           <span class="i-lucide-circle-alert" aria-hidden="true"></span>
-          <span>{{ operationError }}</span>
+          <span>{{ t(operationError) }}</span>
         </div>
       </div>
     </div>
@@ -324,9 +363,9 @@ onBeforeUnmount(() => {
         <h2 class="settings-group-title">{{ t('settings.library.failureRecords') }}</h2>
       </div>
       <div class="settings-group-card">
-        <div v-if="refreshErrorMessage" class="library-error-row">
+        <div v-if="refreshErrorMessage" class="library-error-row" role="alert">
           <span class="i-lucide-circle-alert" aria-hidden="true"></span>
-          <span>{{ refreshErrorMessage }}</span>
+          <span>{{ t(refreshErrorMessage) }}</span>
         </div>
 
         <div v-if="refreshFailures.length > 0" class="failure-section">
@@ -373,7 +412,10 @@ onBeforeUnmount(() => {
                       })
                     }}
                   </span>
-                  <span class="failure-reason">{{ failure.reason }}</span>
+                  <details class="failure-reason">
+                    <summary>{{ t('settings.library.failureDetails') }}</summary>
+                    <span>{{ failure.reason }}</span>
+                  </details>
                 </div>
                 <span class="failure-meta">
                   {{ t('settings.library.jobPrefix', { id: failure.jobId }) }} ·
@@ -572,7 +614,7 @@ onBeforeUnmount(() => {
 }
 
 .scan-failed {
-  color: #c76d5f;
+  color: var(--auralis-danger);
   white-space: nowrap;
 }
 
@@ -601,7 +643,8 @@ onBeforeUnmount(() => {
   height: 100%;
   border-radius: 2px;
   background: var(--auralis-sidebar-active-indicator);
-  transition: width 200ms ease;
+  transform-origin: left center;
+  transition: transform 200ms ease;
 }
 
 /* 错误提示行 */
@@ -611,9 +654,9 @@ onBeforeUnmount(() => {
   gap: 6px;
   padding: 8px 16px;
   border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
-  color: #c2675b;
+  color: var(--auralis-danger);
   font-size: 11px;
-  background: color-mix(in srgb, #c2675b 6%, transparent);
+  background: color-mix(in srgb, var(--auralis-danger) 6%, transparent);
 }
 
 .settings-group-card > .library-error-row:first-child,

@@ -1,4 +1,5 @@
 import { ipcChannels } from '@shared/ipc/channels'
+import { getNativeUiMessages } from '@main/app/uiLocale'
 import type { PlaylistViewMode, SidebarPlaylistKind } from '@shared/types/playlist'
 import type { SmartPlaylistRule, SmartPlaylistViewMode } from '@shared/types/smartPlaylist'
 import type { PlaylistService } from '@main/services/playlistService'
@@ -64,7 +65,8 @@ export function registerPlaylistIpcHandlers(
   )
   registrar.handle(
     ipcChannels.smartPlaylists.createRecentAdded,
-    (_event, payload: { days?: number }) => smartPlaylistService.createRecentAdded(payload.days),
+    (_event, payload: { days?: number }) =>
+      smartPlaylistService.createRecentAdded(payload.days, getNativeUiMessages().recentAdded),
   )
   registrar.handle(
     ipcChannels.smartPlaylists.updateRecentAddedDays,
@@ -96,7 +98,9 @@ export function registerPlaylistIpcHandlers(
   registrar.handle(ipcChannels.playlists.getDetail, (_event, payload: { id: number }) =>
     playlistService.getDetail(payload.id),
   )
-  registrar.handle(ipcChannels.playlists.create, () => playlistService.create())
+  registrar.handle(ipcChannels.playlists.create, () =>
+    playlistService.create(getNativeUiMessages().newPlaylist),
+  )
   registrar.handle(ipcChannels.playlists.rename, (_event, payload: { id: number; name: string }) =>
     playlistService.rename(payload.id, payload.name),
   )

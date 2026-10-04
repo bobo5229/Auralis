@@ -8,13 +8,13 @@ const { t } = useI18n()
 
 <template>
   <button
-    v-tooltip="
+    v-tooltip.feedback="
       t(
         disabled
           ? 'albums.cd.background.lightOnly'
           : enabled
-            ? 'albums.cd.background.turnOff'
-            : 'albums.cd.background.turnOn',
+            ? 'albums.cd.background.enabled'
+            : 'albums.cd.background.disabled',
       )
     "
     type="button"
@@ -24,8 +24,8 @@ const { t } = useI18n()
     :disabled="disabled"
     @click="!props.disabled && emit('toggle')"
   >
-    <span class="cd-background-icon" aria-hidden="true">
-      <span class="i-lucide-palette h-4 w-4"></span>
+    <span class="cd-background-icon cd-control-icon" aria-hidden="true">
+      <span class="i-lucide-palette cd-background-glyph"></span>
       <svg v-if="!enabled" class="cd-background-off" viewBox="0 0 16 16" fill="none">
         <path d="M1 1L15 15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
       </svg>
@@ -54,15 +54,16 @@ const { t } = useI18n()
 }
 .cd-background-icon {
   position: relative;
-  display: inline-flex;
-  width: 16px;
-  height: 16px;
+}
+.cd-background-glyph {
+  width: 100%;
+  height: 100%;
 }
 .cd-background-off {
   position: absolute;
   inset: 0;
-  width: 16px;
-  height: 16px;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 .cd-background-toggle[aria-pressed='true'],

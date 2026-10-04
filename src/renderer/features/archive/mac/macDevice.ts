@@ -1,68 +1,82 @@
+import { uiText } from '@renderer/i18n'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
-import musicIcon from './icons/music.svg?raw'
-import albumIcon from './icons/album.svg?raw'
-import chartIcon from './icons/chart.svg?raw'
-export interface MacDeviceOptions {
-  onModeChange?: (mode: 'machine' | 'screen') => void
-  onViewTransition?: (active: boolean) => void
-  onGeometryChange?: () => void
-  onEntrySelected?: (entryId: 'track' | 'album' | 'year') => void
-  onDatePopupEsc?: () => boolean
-  onCancelGesture?: () => boolean
-}
+import { createArchiveStarfield } from './archiveStarfield'
+import { archiveSceneSession } from './archiveSceneSession'
 
+export interface MacDeviceOptions {
+  onTransition?: () => void
+  onReturnToIntro?: () => void
+  onSceneReadyChange?: (ready: boolean) => void
+  onPopupEscape?: () => boolean
+}
 export interface MacDeviceController {
-  setMode(mode: 'machine' | 'screen'): void
-  getMode(): 'machine' | 'screen'
-  setBusy(busy: boolean): void
-  setDesktopPage(page: 'desktop' | 'album'): void
-  powerOn(): void
-  powerOnMachine(): void
-  inspect(): Record<string, unknown>
-  drawCrt(): void
+  setVisible(visible: boolean): void
+  enter(): void
+  returnToIntro(): void
+  refreshLocale(): void
   dispose(): void
 }
 
-const ENTRY_ICONS: Record<string, string> = {
-  music: musicIcon,
-  album: albumIcon,
-  chart: chartIcon,
+const DURATION = 1.4
+const ACCELERATION = 0.25
+const BRAKING = 0.4
+const CRUISE = 8
+const READY_YAW = 23
+const STAR_FRAME_MS = 1000 / 60
+const smooth = (p: number) => {
+  const t = Math.max(0, Math.min(1, p))
+  return t * t * (3 - 2 * t)
+}
+const lerp = (a: number, b: number, p: number) => a + (b - a) * p
+
+// Integrate the speed curve exactly so distance is independent of refresh rate.
+function travelDistance(age: number) {
+  const integral = (p: number) => p ** 3 - p ** 4 / 2
+  if (age < ACCELERATION) return CRUISE * ACCELERATION * integral(age / ACCELERATION)
+  const brakeAt = DURATION - BRAKING
+  if (age <= brakeAt) return CRUISE * (ACCELERATION / 2 + age - ACCELERATION)
+  const t = Math.min(BRAKING, age - brakeAt)
+  return CRUISE * (ACCELERATION / 2 + brakeAt - ACCELERATION + t - BRAKING * integral(t / BRAKING))
 }
 
 export function mountMacDevice(
   root: ShadowRoot,
   options: MacDeviceOptions = {},
 ): MacDeviceController {
-  const crt = root.getElementById('crt') as HTMLCanvasElement
-  const crtLogicPlane = root.getElementById('crt-logic-plane') as HTMLElement
-  const shell = root.getElementById('archive-mac-shell') as HTMLElement
-  const studio = root.getElementById('studio') as HTMLElement
-  const rig = root.getElementById('rig') as HTMLElement
-  const glass = root.querySelector('.crt-glass') as HTMLElement
-  const well = root.querySelector('.crt-well') as HTMLElement
-  const crtBlank = root.getElementById('crt-blank') as HTMLElement
-  const bezelReturn = root.getElementById('bezel-return') as HTMLButtonElement
-  const bezelPower = root.getElementById('bezel-power') as HTMLButtonElement
-  const bodyPower = root.getElementById('body-power') as HTMLButtonElement
-  const entryButtons = root.querySelectorAll<HTMLButtonElement>('.crt-desktop-icon-btn')
-  const crtClock = root.getElementById('crt-clock') as HTMLElement
-  const crtFx = root.getElementById('crt-fx') as HTMLElement
-  const noise = root.getElementById('crt-noise') as HTMLCanvasElement
+  const shell = root.getElementById('archive-mac-shell')!
+  const rig = root.getElementById('rig')!
+  const glass = root.querySelector<HTMLElement>('.crt-glass')!
+  const plane = root.getElementById('crt-logic-plane')!
+  const projection = root.getElementById('hologram')!
+  const scene = root.querySelector<HTMLElement>('.archive-mac-main')!
+  const glow = root.querySelector<HTMLElement>('.archive-galaxy-glow')!
+  const canvas = root.getElementById('archive-stars') as HTMLCanvasElement
+  const sky = createArchiveStarfield(canvas)
   const listeners = new AbortController()
-  const listenOptions = { signal: listeners.signal }
-
+  const signal = listeners.signal
   const motion = createReducedMotionQuery()
-
-  const VIEW_IN_MS = 1100
-  const VIEW_OUT_MS = 700
-  let mode: 'machine' | 'screen' = 'machine'
-  let desktopPage: 'desktop' | 'album' = 'desktop'
-  let crtPowered = true // Boot powered on for preview
-  let selectedEntry: 'track' | 'album' | 'year' | null = null
-  let entriesReady = false
-  let operationBusy = false
+  let state: 'intro' | 'travel' | 'ready' = archiveSceneSession.entered ? 'ready' : 'intro'
+  let age = 0
+  let yaw = READY_YAW
   let pitch = -8
-  let yaw = -23
+  let initialYaw = yaw
+  let targetYaw = yaw
+  let width = 1
+  let height = 1
+  let raf = 0
+  let previous: number | null = null
+  let starFrameAt: number | null = null
+  let starElapsed = 0
+  let starDistance = 0
+  let initialScale = 1
+  let finalScale = 1
+  let finalX = 0
+  let finalY = 0
+  let disposed = false
+  let windowVisible = true
+  const isVisible = () => windowVisible && !document.hidden
+  let suppressDoubleClickUntil = 0
+  let clockTimer: ReturnType<typeof setTimeout> | undefined
   let drag: {
     id: number
     x: number
@@ -71,514 +85,379 @@ export function mountMacDevice(
     pitch: number
     moved: boolean
   } | null = null
+  const pointer = { x: 0, y: 0, tx: 0, ty: 0, strength: 0, inside: false }
 
-  let transitionGen = 0
-  let viewAnimation: Animation | null = null
-  let suppressDoubleClickUntil = 0
-  let clockTimer: number | null = null
-  let disposed = false
-  let transitionRaf = 0
-  let denoiseAnimation: Animation | null = null
-  let noiseAnimation: Animation | null = null
-  let noiseRaf = 0
-
-  // Precompute tiny noise tiles once. Zoom only composites the DOM plane and fades noise.
-  const noiseContext = noise.getContext('2d')
-  const noiseTiles = Array.from({ length: 6 }, () => {
-    const tile = noiseContext?.createImageData(64, 43)
-    if (tile)
-      for (let i = 0; i < tile.data.length; i += 4) {
-        const v = Math.floor(Math.random() * 256)
-        tile.data.set([v, v, v, 255], i)
-      }
-    return tile
-  })
-  function stopDenoise() {
-    cancelAnimationFrame(noiseRaf)
-    noiseRaf = 0
-    denoiseAnimation?.cancel()
-    noiseAnimation?.cancel()
-    denoiseAnimation = noiseAnimation = null
-    crtFx.style.opacity = '0'
-  }
-  function startDenoise(duration = VIEW_IN_MS) {
-    stopDenoise()
-    if (motion.matches || disposed) return
-    denoiseAnimation = crtLogicPlane.animate(
-      [
-        { filter: 'blur(5px)', opacity: 0.35 },
-        { filter: 'blur(2px)', opacity: 0.7, offset: 0.55 },
-        { filter: 'blur(0px)', opacity: 1 },
-      ],
-      { duration, easing: 'ease-out' },
+  function syncState(focus = false) {
+    shell.dataset.scene = state
+    plane.setAttribute('aria-hidden', String(state !== 'ready'))
+    projection.inert = state !== 'ready'
+    projection.setAttribute('aria-hidden', String(state !== 'ready'))
+    rig.setAttribute('aria-busy', String(state === 'travel'))
+    rig.setAttribute('role', state === 'ready' ? 'group' : 'button')
+    rig.setAttribute(
+      'aria-label',
+      uiText(state === 'ready' ? 'archive.mac.reader' : 'archive.mac.enter'),
     )
-    noiseAnimation = crtFx.animate([{ opacity: 0.8 }, { opacity: 0 }], {
-      duration,
-      easing: 'ease-out',
-    })
-    const start = performance.now()
-    let lastTile = -1
-    const frame = (time: number) => {
-      if (disposed || time - start >= duration) {
-        stopDenoise()
-        return
-      }
-      const index = Math.floor((time - start) / 70) % noiseTiles.length
-      if (index !== lastTile && noiseTiles[index]) {
-        noiseContext?.putImageData(noiseTiles[index]!, 0, 0)
-        lastTile = index
-      }
-      noiseRaf = requestAnimationFrame(frame)
-    }
-    noiseRaf = requestAnimationFrame(frame)
+    if (focus && state === 'ready')
+      root.getElementById('date-trigger')?.focus({ preventScroll: true })
+    options.onSceneReadyChange?.(state === 'ready')
   }
-
-  root.querySelectorAll<HTMLElement>('.crt-desktop-icon-glyph').forEach((glyph) => {
-    const icon = ENTRY_ICONS[glyph.dataset.icon ?? '']
-    if (icon) glyph.innerHTML = icon
-  })
-
-  function updateClock() {
-    if (!crtClock) return
-    const now = new Date()
-    const hh = String(now.getHours()).padStart(2, '0')
-    const mm = String(now.getMinutes()).padStart(2, '0')
-    crtClock.textContent = `${hh}:${mm}`
-    const msUntilNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds()
-    if (clockTimer) window.clearTimeout(clockTimer)
-    clockTimer = window.setTimeout(updateClock, Math.max(1000, msUntilNextMinute))
+  function finish() {
+    state = 'ready'
+    age = DURATION
+    yaw = targetYaw
+    pitch = -8
+    archiveSceneSession.entered = true
+    syncState(true)
   }
-  updateClock()
-
-  function updateLogicPlaneScale() {
-    if (!glass || !crtLogicPlane) return
-    const glassStyle = getComputedStyle(glass)
-    const gw =
-      Number.parseFloat(glassStyle.width) -
-      Number.parseFloat(glassStyle.borderLeftWidth) -
-      Number.parseFloat(glassStyle.borderRightWidth)
-    const gh =
-      Number.parseFloat(glassStyle.height) -
-      Number.parseFloat(glassStyle.borderTopWidth) -
-      Number.parseFloat(glassStyle.borderBottomWidth)
-    const scale = Math.min(gw / 512, gh / 342)
-    const x = (gw - 512 * scale) / 2
-    const y = (gh - 342 * scale) / 2
-    crtLogicPlane.style.transform = `translate(${x}px, ${y}px) scale(${scale})`
-  }
-
-  function layout() {
-    if (!rig || !glass || !well || !studio) return
-    const focused = mode === 'screen'
-    const frontW = rig.offsetWidth
-    const depth = Number.parseFloat(getComputedStyle(rig).getPropertyValue('--d'))
-    const hostW = studio.clientWidth || window.innerWidth
-    const hostH = studio.clientHeight || window.innerHeight
-
-    let scale = focused
-      ? Math.min((hostW - 48) / frontW, (hostH - 40) / glass.offsetHeight)
-      : Math.min((studio.clientWidth - 48) / 560, (studio.clientHeight - 36) / 620, 1.15)
-
-    if (focused) {
-      const dpr = window.devicePixelRatio || 1
-      scale = Math.max(
-        1 / glass.offsetWidth,
-        Math.floor(glass.offsetWidth * scale * dpr) / (glass.offsetWidth * dpr),
-      )
-    }
-
-    const centerX = well.offsetLeft + glass.offsetLeft + glass.offsetWidth / 2
-    const centerY = well.offsetTop + glass.offsetTop + glass.offsetHeight / 2
-
-    rig.style.setProperty('--zoom', String(scale))
-    // Match the demo's 19% left inset while reserving room for manual rotation.
-    const machineCenterX = Math.max(24 + 280 * scale, hostW * 0.19 + (frontW * scale) / 2)
-    rig.style.setProperty(
-      '--move-x',
-      `${focused ? (frontW / 2 - centerX) * scale : machineCenterX - hostW / 2}px`,
-    )
-    rig.style.setProperty(
-      '--move-y',
-      `${focused ? (rig.offsetHeight / 2 - centerY) * scale : -42}px`,
-    )
-    rig.style.setProperty('--move-z', `${focused ? -(depth / 2 + 1) * scale : 0}px`)
-    rig.style.setProperty('--tilt-x', `${focused ? 0 : pitch}deg`)
-    rig.style.setProperty('--tilt-y', `${yaw}deg`)
-
-    updateLogicPlaneScale()
-  }
-
-  function drawCrt() {
-    if (!crt) return
-    const c = crt.getContext('2d')
-    if (!c) return
-    c.fillStyle = '#f3eee0'
-    c.fillRect(0, 0, 512, 342)
-
-    // Dot grid pattern
-    c.fillStyle = '#dbd6c6'
-    for (let y = 0; y < 342; y += 4) {
-      for (let x = 0; x < 512; x += 4) {
-        c.fillRect(x, y, 1, 1)
-      }
-    }
-  }
-
-  function setBlank(val: number) {
-    if (crtBlank) crtBlank.style.opacity = String(val)
-  }
-
-  function syncBezel() {
-    if (bezelReturn) {
-      bezelReturn.disabled = mode !== 'screen'
-      bezelReturn.tabIndex = mode === 'screen' ? 0 : -1
-    }
-    if (bezelPower) {
-      bezelPower.disabled = mode !== 'screen' || crtPowered
-      bezelPower.setAttribute('aria-pressed', String(crtPowered))
-    }
-    if (bodyPower) {
-      bodyPower.disabled = mode !== 'machine'
-      bodyPower.setAttribute('aria-pressed', String(crtPowered))
-    }
-  }
-
-  function setEntriesReady(ready: boolean) {
-    entriesReady = ready
-    crtLogicPlane.inert = mode !== 'screen' || !ready
-    entryButtons.forEach((btn) => {
-      btn.disabled = !ready
-    })
-  }
-
-  function setDesktopPage(page: 'desktop' | 'album') {
-    desktopPage = page
-    if (glass) {
-      glass.classList.toggle('mac-album-open', page === 'album')
-    }
-    selectedEntry = page === 'album' ? 'album' : null
-    entryButtons.forEach((btn) => {
-      btn.setAttribute('aria-pressed', String(btn.dataset.entry === selectedEntry))
-    })
-  }
-
-  function selectEntry(id: 'track' | 'album' | 'year') {
-    setDesktopPage(id === 'album' ? 'album' : 'desktop')
-    selectedEntry = id
-    entryButtons.forEach((btn) => {
-      btn.setAttribute('aria-pressed', String(btn.dataset.entry === id))
-    })
-    options.onEntrySelected?.(id)
-  }
-
-  function setMode(next: 'machine' | 'screen') {
-    if (mode === next || disposed) return
+  function enter() {
+    if (state !== 'intro' || disposed) return
     endDrag()
-    const before = getComputedStyle(rig).transform
-    const gen = ++transitionGen
-    cancelAnimationFrame(transitionRaf)
-    stopDenoise()
-    viewAnimation?.cancel()
-    viewAnimation = null
-
-    options.onViewTransition?.(true)
-    mode = next
-    if (next === 'machine') pitch = -8
-    yaw = Math.round(yaw / 360) * 360 + (next === 'machine' ? -23 : 0)
-
-    rig.classList.add('is-transitioning')
-    shell.classList.toggle('is-screen-focused', next === 'screen')
-    studio.classList.toggle('screen-mode', next === 'screen')
-    options.onModeChange?.(next)
-    rig.tabIndex = next === 'screen' ? -1 : 0
-
-    if (next === 'screen' && motion.matches) crtPowered = true
-    setEntriesReady(false)
-    if (next === 'screen') drawCrt()
-    setBlank(crtPowered ? 0 : 1)
-    layout()
-    const after = getComputedStyle(rig).transform
-
-    syncBezel()
-    if (next === 'screen') bezelReturn?.focus({ preventScroll: true })
-    else rig.focus({ preventScroll: true })
-
-    const duration = motion.matches ? 0 : next === 'screen' ? VIEW_IN_MS : VIEW_OUT_MS
-    const followTick = () => {
-      options.onGeometryChange?.()
-      transitionRaf = requestAnimationFrame(followTick)
-    }
-    transitionRaf = requestAnimationFrame(followTick)
-    if (next === 'screen') startDenoise(duration)
-
-    const animation = rig.animate([{ transform: before }, { transform: after }], {
-      duration,
-      easing: next === 'screen' ? 'cubic-bezier(0.4, 0, 0.2, 1)' : 'cubic-bezier(0.16, 1, 0.3, 1)',
-    })
-    viewAnimation = animation
-
-    animation.finished
-      .then(() => {
-        if (disposed || gen !== transitionGen) return
-        cancelAnimationFrame(transitionRaf)
-        transitionRaf = 0
-        options.onGeometryChange?.()
-        if (gen !== transitionGen || viewAnimation !== animation) return
-        viewAnimation = null
-        rig.classList.remove('is-transitioning')
-        options.onViewTransition?.(false)
-
-        if (next === 'screen') {
-          crtPowered = true
-          setBlank(0)
-          syncBezel()
-          setEntriesReady(true)
-        } else {
-          setBlank(crtPowered ? 0 : 1)
-          syncBezel()
-        }
-      })
-      .catch(() => {
-        if (gen === transitionGen) cancelAnimationFrame(transitionRaf)
-      })
+    options.onTransition?.()
+    initialYaw = yaw
+    targetYaw = yaw + ((((READY_YAW - yaw + 540) % 360) + 360) % 360) - 180
+    age = 0
+    state = 'travel'
+    if (motion.matches) finish()
+    syncState()
+    draw(0, 0)
+    start()
   }
-
-  function endDrag(event?: PointerEvent) {
-    if (!drag || (event && event.pointerId !== drag.id)) return
+  function cancel() {
+    if (state !== 'travel') return
+    state = 'intro'
+    age = 0
+    yaw = initialYaw
+    resetSky()
+    syncState()
+    rig.focus({ preventScroll: true })
+    draw(0, 0)
+  }
+  function returnToIntro() {
+    if (state !== 'ready' || disposed) return
+    endDrag()
+    options.onReturnToIntro?.()
+    state = 'intro'
+    age = 0
+    yaw = initialYaw = targetYaw = READY_YAW
+    pitch = -8
+    suppressDoubleClickUntil = 0
+    pointer.x = pointer.tx = width / 2
+    pointer.y = pointer.ty = height / 2
+    pointer.inside = false
+    pointer.strength = 0
+    resetSky()
+    archiveSceneSession.entered = false
+    syncState()
+    rig.focus({ preventScroll: true })
+    draw(0, 0)
+    start()
+  }
+  function progress() {
+    return state === 'ready' ? 1 : state === 'intro' ? 0 : age / DURATION
+  }
+  function speed() {
+    return state === 'travel'
+      ? CRUISE * smooth(age / ACCELERATION) * (1 - smooth((age - DURATION + BRAKING) / BRAKING))
+      : 0
+  }
+  function resetSky() {
+    starFrameAt = null
+    starElapsed = starDistance = 0
+    sky.reset()
+  }
+  function drawPose() {
+    const p = progress()
+    const pose = smooth(p)
+    const energy = speed() / CRUISE
+    const x = lerp(width / 2, finalX, pose) - width / 2
+    const y = lerp(height * 0.44, finalY, pose) - height / 2
+    const zoom = lerp(initialScale, finalScale, pose)
+    const tiltX = lerp(pitch, -8, state === 'travel' ? pose : 0)
+    const tiltY = state === 'travel' ? lerp(initialYaw, targetYaw, pose) : yaw
+    // Animate the rig itself rather than invalidating inherited variables on every face.
+    rig.style.transform = `translate3d(${x}px, ${y}px, 0) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale3d(${zoom}, ${zoom}, ${zoom})`
+    // Disk flight reads these values only in the settled reading scene.
+    if (state === 'ready') {
+      rig.style.setProperty('--zoom', String(zoom))
+      rig.style.setProperty('--tilt-x', `${tiltX}deg`)
+      rig.style.setProperty('--tilt-y', `${tiltY}deg`)
+    }
+    const shake = motion.matches ? 0 : energy * Math.min(2.8, width * 0.004)
+    const cameraX = shake * (Math.sin(age * 67) * 0.7 + Math.sin(age * 109) * 0.3)
+    const cameraY = shake * Math.sin(age * 83) * 0.7
+    const camera = `translate(${cameraX}px, ${cameraY}px)`
+    canvas.style.transform = camera
+    scene.style.transform = camera
+    glow.style.opacity = String(smooth((p - 0.15) / 0.75))
+    const visible = smooth((p - 0.72) / 0.28)
+    projection.style.opacity = String(visible)
+    projection.style.transform = `translateY(${(1 - visible) * 18}px)`
+  }
+  function drawSky(dt: number, distance: number, time?: number) {
+    if (disposed || !isVisible()) return
+    starElapsed += dt
+    starDistance += distance
+    if (time !== undefined) {
+      if (starFrameAt !== null) {
+        const elapsed = time - starFrameAt
+        // Preserve cadence on 120/144/240 Hz displays, including timestamp rounding.
+        if (elapsed + 0.1 < STAR_FRAME_MS) return
+        starFrameAt += Math.max(1, Math.floor((elapsed + 0.1) / STAR_FRAME_MS)) * STAR_FRAME_MS
+      } else starFrameAt = time
+    }
+    sky.draw({
+      dt: starElapsed,
+      distance: starDistance,
+      speed: speed(),
+      blend: smooth((progress() - 0.15) / 0.75),
+      pointerX: pointer.x,
+      pointerY: pointer.y,
+      pointerStrength: pointer.strength,
+      reduced: motion.matches,
+    })
+    starElapsed = starDistance = 0
+  }
+  function draw(dt: number, distance: number) {
+    drawPose()
+    drawSky(dt, distance)
+  }
+  function frame(time: number) {
+    raf = 0
+    if (disposed || !isVisible() || motion.matches) return
+    const dt = previous !== null ? Math.min((time - previous) / 1000, 0.064) : 0
+    previous = time
+    const poseChanged = state !== 'ready'
+    let distance = 0
+    if (state === 'intro' && !drag) yaw = (yaw + dt * 11) % 360
+    if (state === 'travel') {
+      const oldDistance = travelDistance(age)
+      age = Math.min(DURATION, age + dt)
+      distance = travelDistance(age) - oldDistance
+      if (age >= DURATION) finish()
+    }
+    const follow = 1 - Math.exp(-dt * 9)
+    pointer.x += (pointer.tx - pointer.x) * follow
+    pointer.y += (pointer.ty - pointer.y) * follow
+    pointer.strength += ((pointer.inside ? 1 : 0) - pointer.strength) * follow
+    if (poseChanged) drawPose()
+    drawSky(dt, distance, time)
+    raf = requestAnimationFrame(frame)
+  }
+  function start() {
+    if (!raf && !disposed && !motion.matches && isVisible()) {
+      previous = null
+      starFrameAt = null
+      raf = requestAnimationFrame(frame)
+    }
+  }
+  function resize() {
+    if (disposed || !isVisible()) return
+    width = Math.max(1, shell.clientWidth)
+    height = Math.max(1, shell.clientHeight)
+    const narrow = width < 780
+    initialScale = Math.min(width / 1000, height / 950, 0.5)
+    finalScale = narrow
+      ? Math.min((width * 0.88) / 420, 0.95)
+      : Math.min((width * 0.46) / 430, (height - 80) / 460, 1.8)
+    finalX = width * (narrow ? 0.46 : 0.255)
+    finalY = narrow ? finalScale * 220 + 20 : height * 0.48
+    shell.style.setProperty('--mac-space', `${finalScale * 440 + 32}px`)
+    sky.resize(width, height)
+    const scale = Math.min(glass.clientWidth / crt.width, glass.clientHeight / crt.height)
+    plane.style.transform = `translate(${(glass.clientWidth - crt.width * scale) / 2}px, ${(glass.clientHeight - crt.height * scale) / 2}px) scale(${scale})`
+    if (!pointer.inside) {
+      pointer.x = pointer.tx = width / 2
+      pointer.y = pointer.ty = height / 2
+    }
+    draw(0, 0)
+  }
+  function endDrag() {
+    if (!drag) return
     const ended = drag
     drag = null
     rig.classList.remove('is-dragging')
     if (rig.hasPointerCapture(ended.id)) rig.releasePointerCapture(ended.id)
     if (ended.moved) suppressDoubleClickUntil = performance.now() + 400
   }
-
-  // Pointer & Double Click Interactions on Rig
   rig.addEventListener(
     'dblclick',
-    (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      if (
-        !target.closest('button, select, .terminal-ui, .floppy') &&
-        event.button === 0 &&
-        performance.now() >= suppressDoubleClickUntil
-      ) {
-        event.preventDefault()
-        setMode('screen')
-      }
+    (event) => {
+      if (event.button !== 0 || performance.now() < suppressDoubleClickUntil) return
+      event.preventDefault()
+      enter()
     },
-    listenOptions,
+    { signal },
   )
-
   rig.addEventListener(
     'pointerdown',
-    (event: PointerEvent) => {
-      const target = event.target as HTMLElement
-      if (
-        event.button !== 0 ||
-        mode !== 'machine' ||
-        operationBusy ||
-        Boolean(viewAnimation) ||
-        drag ||
-        target.closest('button, select, .terminal-ui, .floppy')
-      )
-        return
-      drag = {
-        id: event.pointerId,
-        x: event.clientX,
-        y: event.clientY,
-        yaw,
-        pitch,
-        moved: false,
-      }
+    (event) => {
+      if (event.button !== 0 || state !== 'intro' || drag) return
+      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, yaw, pitch, moved: false }
       rig.setPointerCapture(event.pointerId)
-      rig.classList.add('is-dragging')
+      rig.focus({ preventScroll: true })
       event.preventDefault()
     },
-    listenOptions,
+    { signal },
   )
-
   rig.addEventListener(
     'pointermove',
-    (event: PointerEvent) => {
-      if (!drag || event.pointerId !== drag.id) return
-      const dx = event.clientX - drag.x
-      const dy = event.clientY - drag.y
+    (event) => {
+      if (!drag || drag.id !== event.pointerId) return
+      const dx = event.clientX - drag.x,
+        dy = event.clientY - drag.y
       if (!drag.moved && Math.hypot(dx, dy) < 4) return
       drag.moved = true
+      rig.classList.add('is-dragging')
       yaw = drag.yaw + dx * 0.45
-      // The replacement chassis has no underside; keep the camera above its base.
-      pitch = Math.max(-45, Math.min(-4, drag.pitch - dy * 0.3))
-      rig.style.setProperty('--tilt-y', `${yaw}deg`)
-      rig.style.setProperty('--tilt-x', `${pitch}deg`)
-      options.onGeometryChange?.()
+      pitch = Math.max(-40, Math.min(-4, drag.pitch - dy * 0.3))
+      drawPose()
     },
-    listenOptions,
+    { signal },
   )
-
-  rig.addEventListener('pointerup', endDrag, listenOptions)
-  rig.addEventListener('pointercancel', endDrag, listenOptions)
-  rig.addEventListener('lostpointercapture', endDrag, listenOptions)
-
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture'])
+    rig.addEventListener(type, endDrag, { signal })
   rig.addEventListener(
     'keydown',
-    (event: KeyboardEvent) => {
+    (event) => {
       if (event.target !== rig) return
-      if (event.key === 'Enter' || event.key === ' ') {
+      if ((event.key === 'Enter' || event.key === ' ') && !event.repeat) {
         event.preventDefault()
-        setMode('screen')
+        enter()
       }
     },
-    listenOptions,
+    { signal },
   )
-
-  // Entry buttons
-  entryButtons.forEach((btn) => {
-    btn.addEventListener(
-      'click',
-      (e) => {
-        e.stopPropagation()
-        const entryId = btn.dataset.entry as 'track' | 'album' | 'year'
-        if (entryId) selectEntry(entryId)
-      },
-      listenOptions,
-    )
-  })
-
-  // Bezel buttons
-  bezelReturn.addEventListener(
-    'click',
-    (e) => {
-      e.stopPropagation()
-      setMode('machine')
+  root.addEventListener(
+    'keydown',
+    (event) => {
+      const key = event as KeyboardEvent
+      if (key.key !== 'Escape') return
+      if (options.onPopupEscape?.() || state === 'travel') {
+        key.preventDefault()
+        key.stopPropagation()
+        cancel()
+      }
     },
-    listenOptions,
+    { signal },
   )
-  bezelPower.addEventListener(
-    'click',
-    (e) => {
-      e.stopPropagation()
-      crtPowered = true
-      setBlank(0)
-      syncBezel()
-      startDenoise()
+  shell.addEventListener(
+    'pointermove',
+    (event) => {
+      const bounds = shell.getBoundingClientRect()
+      pointer.tx = event.clientX - bounds.left
+      pointer.ty = event.clientY - bounds.top
+      pointer.inside = !(event.target as Element).closest('.hologram, .rig')
+      if (motion.matches) {
+        pointer.x = pointer.tx
+        pointer.y = pointer.ty
+        pointer.strength = pointer.inside ? 1 : 0
+        draw(0, 0)
+      }
     },
-    listenOptions,
+    { signal },
   )
-  bodyPower.addEventListener(
-    'click',
-    (e) => {
-      e.stopPropagation()
-      crtPowered = true
-      drawCrt()
-      setBlank(0)
-      syncBezel()
-      startDenoise()
+  shell.addEventListener(
+    'pointerleave',
+    () => {
+      pointer.inside = false
+      if (motion.matches) {
+        pointer.strength = 0
+        draw(0, 0)
+      }
     },
-    listenOptions,
+    { signal },
   )
-
-  // Keyboard navigation & Esc handling
-  const handleKeydown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') {
-      // Priority 1: Date popup closes
-      if (options.onDatePopupEsc?.()) {
-        event.preventDefault()
-        event.stopPropagation()
+  shell.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (
+        event.button ||
+        state === 'travel' ||
+        motion.matches ||
+        (event.target as Element).closest('.hologram, .rig')
+      )
         return
-      }
-      // Priority 2: Cancel pending drag or insertion
-      if (options.onCancelGesture?.()) {
-        event.preventDefault()
-        event.stopPropagation()
-        return
-      }
-      // Priority 3: Exit screen focus back to machine
-      if (mode === 'screen') {
-        event.preventDefault()
-        event.stopPropagation()
-        setMode('machine')
-      }
-    }
+      const bounds = shell.getBoundingClientRect()
+      sky.pulse(event.clientX - bounds.left, event.clientY - bounds.top)
+    },
+    { signal },
+  )
+  function updateClock() {
+    const now = new Date()
+    root.getElementById('crt-clock')!.textContent =
+      `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    clearTimeout(clockTimer)
+    if (!disposed && isVisible())
+      clockTimer = setTimeout(updateClock, (60 - now.getSeconds()) * 1000)
   }
-
-  const handleResize = () => {
+  function suspend() {
+    cancelAnimationFrame(raf)
+    raf = 0
+    previous = null
+    starFrameAt = null
     endDrag()
-    layout()
+    clearTimeout(clockTimer)
   }
-
-  const handleVisibility = () => {
-    if (!document.hidden) {
+  function syncVisibility() {
+    if (disposed) return
+    if (!isVisible()) suspend()
+    else {
       updateClock()
-      layout()
+      resize()
+      start()
     }
   }
-
-  root.addEventListener('keydown', handleKeydown as EventListener, listenOptions)
+  document.addEventListener('visibilitychange', syncVisibility, { signal })
+  window.addEventListener('blur', endDrag, { signal })
+  window.addEventListener('resize', resize, { signal })
   motion.addEventListener(
     'change',
     () => {
       if (motion.matches) {
-        stopDenoise()
-        viewAnimation?.finish()
-      }
+        suspend()
+        if (state === 'travel') finish()
+        draw(0, 0)
+        updateClock()
+      } else start()
     },
-    listenOptions,
+    { signal },
   )
-  window.addEventListener('resize', handleResize)
-  document.addEventListener('visibilitychange', handleVisibility)
-
-  const resizeObserver = new ResizeObserver(() => {
-    if (mode === 'machine' && !drag && !viewAnimation) layout()
-  })
-  resizeObserver.observe(studio)
-
-  drawCrt()
-  layout()
-  syncBezel()
-  setEntriesReady(false)
-
+  const observer = new ResizeObserver(resize)
+  observer.observe(shell)
+  const crt = root.getElementById('crt') as HTMLCanvasElement
+  const ctx = crt.getContext('2d')
+  if (ctx) {
+    ctx.fillStyle = '#d6dfca'
+    ctx.fillRect(0, 0, crt.width, crt.height)
+    ctx.fillStyle = '#a2b89e'
+    for (let y = 0; y < crt.height; y += 4)
+      for (let x = 0; x < crt.width; x += 4) ctx.fillRect(x, y, 1, 1)
+  }
+  syncState()
+  updateClock()
+  resize()
+  start()
   return {
-    setMode,
-    getMode: () => mode,
-    setBusy: (busy: boolean) => {
-      operationBusy = busy
-      if (operationBusy) endDrag()
+    setVisible(visible) {
+      if (windowVisible === visible) return
+      windowVisible = visible
+      syncVisibility()
     },
-    setDesktopPage,
-    powerOn: () => {
-      crtPowered = true
-      setBlank(0)
-      syncBezel()
+    enter,
+    returnToIntro,
+    refreshLocale() {
+      rig.setAttribute(
+        'aria-label',
+        uiText(state === 'ready' ? 'archive.mac.reader' : 'archive.mac.enter'),
+      )
     },
-    powerOnMachine: () => {
-      crtPowered = true
-      drawCrt()
-      setBlank(0)
-      syncBezel()
-    },
-    inspect: () => ({
-      mode,
-      yaw,
-      pitch,
-      powered: crtPowered,
-      entriesReady,
-      busy: Boolean(viewAnimation),
-      operationBusy,
-      desktopPage,
-    }),
-    drawCrt,
-    dispose: () => {
+    dispose() {
       disposed = true
+      suspend()
       listeners.abort()
-      endDrag()
-      stopDenoise()
-      cancelAnimationFrame(transitionRaf)
-      if (clockTimer) window.clearTimeout(clockTimer)
-      transitionGen++
-      viewAnimation?.cancel()
-      resizeObserver.disconnect()
-      window.removeEventListener('resize', handleResize)
-      document.removeEventListener('visibilitychange', handleVisibility)
+      observer.disconnect()
+      sky.dispose()
     },
   }
 }

@@ -27,7 +27,7 @@ const emit = defineEmits<{
   openContextMenu: [trackId: number, event: MouseEvent, openReason?: 'pointer' | 'keyboard']
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const imgError = ref(false)
 const titleDisplay = computed(() =>
   formatMetadataDisplay(props.track.title, t('library.missing.title')),
@@ -36,7 +36,11 @@ const artistDisplay = computed(() =>
   formatMetadataDisplay(formatArtist(props.track.artist), t('library.missing.artist')),
 )
 const playCountDisplay = computed(() =>
-  t('library.playCount', { count: props.track.playCount.toLocaleString() }),
+  t(
+    'library.playCount',
+    { count: props.track.playCount.toLocaleString(locale.value) },
+    { plural: props.track.playCount },
+  ),
 )
 
 watch(
@@ -44,12 +48,8 @@ watch(
   () => (imgError.value = false),
 )
 
-function onClick(event: MouseEvent): void {
-  ;(event.currentTarget as HTMLElement | null)?.focus({ preventScroll: true })
-  emit('focus', props.track.id)
-}
-
 function onKeyDown(event: KeyboardEvent): void {
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
   if (event.key === ' ') {
     event.preventDefault()
     emit('select', props.track.id)
@@ -95,7 +95,6 @@ function onKeyDown(event: KeyboardEvent): void {
         artist: artistDisplay.text,
       }) + (showPlayCount ? `，${playCountDisplay}` : '')
     "
-    @click="onClick"
     @dblclick="emit('play', track.id)"
     @contextmenu.prevent="emit('openContextMenu', track.id, $event, 'pointer')"
     @keydown="onKeyDown"
@@ -135,7 +134,10 @@ function onKeyDown(event: KeyboardEvent): void {
     >
       {{ playCountDisplay }}
     </div>
-    <div class="song-duration min-w-0 text-right tabular-nums">
+    <div
+      v-tooltip.overflow="formatDuration(track.durationSeconds)"
+      class="song-duration min-w-0 truncate text-right tabular-nums"
+    >
       {{ formatDuration(track.durationSeconds) }}
     </div>
   </div>
@@ -144,18 +146,26 @@ function onKeyDown(event: KeyboardEvent): void {
 <style scoped>
 .song-title {
   font-weight: var(--auralis-song-list-title-weight, 700);
+  font-size: var(--auralis-song-list-title-size, 14px);
+  line-height: max(20px, 1.2em);
 }
 
 .song-artist {
   font-weight: var(--auralis-song-list-artist-weight, 600);
+  font-size: var(--auralis-song-list-artist-size, 12px);
+  line-height: max(16px, 1.2em);
 }
 
 .song-album {
   font-weight: var(--auralis-song-list-album-weight, 600);
+  font-size: var(--auralis-song-list-album-size, 12px);
+  line-height: max(16px, 1.2em);
 }
 
 .song-duration {
   font-weight: var(--auralis-song-list-duration-weight, 400);
+  font-size: var(--auralis-song-list-duration-size, 12px);
+  line-height: max(16px, 1.2em);
 }
 
 .song-row.song-row--with-play-count {
@@ -167,7 +177,7 @@ function onKeyDown(event: KeyboardEvent): void {
 .song-play-count {
   overflow: hidden;
   color: var(--auralis-text-faint);
-  font-size: 14px;
+  font-size: inherit;
   font-weight: var(--auralis-song-list-duration-weight, 400);
   white-space: nowrap;
   text-overflow: ellipsis;

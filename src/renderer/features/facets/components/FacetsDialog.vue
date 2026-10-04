@@ -532,13 +532,19 @@ onBeforeUnmount(() => {
   background: var(--auralis-control-hover-bg);
 }
 
-.facet-option-active {
-  color: var(--auralis-sidebar-active-text);
-  background: var(--auralis-sidebar-active-bg);
+.facet-option-active,
+.facet-option-active:hover {
+  color: var(--auralis-control-primary-text);
+  background: var(--auralis-theme-accent);
 }
 
 .facet-option-active span:last-child {
-  color: var(--auralis-sidebar-active-icon);
+  color: var(--auralis-control-primary-text);
+}
+
+.facet-option-active:focus-visible {
+  outline: 2px solid var(--auralis-control-primary-text);
+  outline-offset: -2px;
 }
 
 .facets-dialog-fade-enter-active,

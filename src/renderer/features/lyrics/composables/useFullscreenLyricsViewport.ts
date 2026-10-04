@@ -26,7 +26,9 @@ const AUTO_FOLLOW_PAUSE_MS = 8000
 export const FULLSCREEN_LYRICS_FOCAL_RATIO = 0.3
 export const FULLSCREEN_LYRICS_FADE_TOP_RATIO = 0.07
 export const FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO = 0.1
+export const FULLSCREEN_LYRICS_ACTIVE_SCALE = 1.23
 const PLAIN_EDGE_GAP_PX = 8
+const ACTIVE_EDGE_GAP_PX = 4
 
 export function clampFullscreenLyricsScroll(value: number, max: number): number {
   return Math.max(0, Math.min(value, max))
@@ -36,11 +38,21 @@ export function resolveFullscreenLyricsScrollTarget(
   metric: LyricMetric,
   containerHeight: number,
   scrollMax: number,
+  scale = FULLSCREEN_LYRICS_ACTIVE_SCALE,
 ): number {
-  return clampFullscreenLyricsScroll(
-    metric.offset - containerHeight * FULLSCREEN_LYRICS_FOCAL_RATIO + metric.height / 2,
-    scrollMax,
+  const visibleHalfHeight = (metric.height * scale) / 2
+  const firstClearCenter =
+    containerHeight * FULLSCREEN_LYRICS_FADE_TOP_RATIO + ACTIVE_EDGE_GAP_PX + visibleHalfHeight
+  const lastClearCenter =
+    containerHeight * (1 - FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO) -
+    ACTIVE_EDGE_GAP_PX -
+    visibleHalfHeight
+  // Keep fitting lines clear of both fades. Oversized lines start at the top for manual reading.
+  const center = Math.max(
+    firstClearCenter,
+    Math.min(containerHeight * FULLSCREEN_LYRICS_FOCAL_RATIO, lastClearCenter),
   )
+  return clampFullscreenLyricsScroll(metric.offset + metric.height / 2 - center, scrollMax)
 }
 
 export function resolveFullscreenLyricsAnimationDuration(distance: number): number {
@@ -155,14 +167,20 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
 
   function computeTarget(): number | null {
     if (!options.scrollRef.value) return null
+    const scale = options.reducedMotion?.value ? 1 : FULLSCREEN_LYRICS_ACTIVE_SCALE
     if (options.isPrelude.value) {
       if (!preludeMetric) return 0
-      return resolveFullscreenLyricsScrollTarget(preludeMetric, containerHeight.value, scrollMax)
+      return resolveFullscreenLyricsScrollTarget(
+        preludeMetric,
+        containerHeight.value,
+        scrollMax,
+        scale,
+      )
     }
     if (options.lyricsStatus.value !== 'lrc' || options.activeIndex.value < 0) return null
     const metric = lineMetrics[options.activeIndex.value]
     if (!metric) return null
-    return resolveFullscreenLyricsScrollTarget(metric, containerHeight.value, scrollMax)
+    return resolveFullscreenLyricsScrollTarget(metric, containerHeight.value, scrollMax, scale)
   }
 
   function updateTarget(behavior: ScrollBehavior = 'smooth'): void {

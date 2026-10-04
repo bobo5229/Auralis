@@ -15,6 +15,7 @@
     "playlists": "歌单",
     "createFirstPlaylist": "创建第一张歌单",
     "playlistNameRequired": "名称不能为空",
+    "renameFailed": "重命名失败，请重试",
     "newPlaylist": "新建歌单",
     "newSmartPlaylist": "新建智能歌单",
     "recentPlayed": "最近播放",
@@ -46,7 +47,9 @@
       "refresh": "刷新曲库",
       "refreshAction": "刷新曲库",
       "refreshBusy": "正在刷新曲库"
-    }
+    },
+    "confirmDelete": "确认删除",
+    "deleteFailed": "删除失败，请重试"
   },
   "facets": {
     "title": "筛选",
@@ -131,6 +134,10 @@
         "coverSection": "封面",
         "coverRadius": "圆角弧度",
         "weightSection": "字重",
+        "typographySection": "字体",
+        "sizeLabel": "字号",
+        "increaseSize": "增大{field}字号",
+        "decreaseSize": "减小{field}字号",
         "resetView": "恢复默认参数",
         "resetStatus": "已恢复当前视图的默认参数",
         "persistFailed": "本次调整已生效，保存失败，重启后可能恢复",
@@ -163,20 +170,30 @@
           "genre": "民谣 Folk",
           "duration": "4:12",
           "discHeading": "Disc 01"
-        }
+        },
+        "expand": "展开",
+        "collapse": "收起"
       },
       "playerBarMaterial": "播放栏材质",
       "playerBarMaterialDescription": "选择播放栏跟随专辑封面取色，或使用更通透的 Liquid Glass 效果。",
       "playerBarMaterialOption": {
         "coverTint": "封面取色",
         "liquidGlass": "Liquid Glass"
-      }
+      },
+      "interface": "界面",
+      "languagePersistFailed": "语言已切换，但未能保存。重启后可能恢复，请重试。",
+      "languageSyncFailed": "语言已切换，原生控件同步失败，请重试。"
     },
     "playback": {
       "gapless": "无缝播放",
       "gaplessDescription": "减少连续曲目切换时的间隙。",
       "gaplessAriaOn": "无缝播放，当前已开启",
-      "gaplessAriaOff": "无缝播放，当前已关闭"
+      "gaplessAriaOff": "无缝播放，当前已关闭",
+      "digitalSilence": "跳过边界数字静音",
+      "digitalSilenceDescription": "移除连续专辑曲目间极短的数字静音。",
+      "nativeUnavailable": "当前原生播放不可用。",
+      "softTransition": "柔和过渡",
+      "softTransitionDescription": "普通换曲时交叉淡化 2 秒。"
     },
     "library": {
       "maintenanceSection": "资料库维护",
@@ -241,7 +258,8 @@
         "selectFolder": "无法选择音乐文件夹",
         "startScan": "无法开始扫描",
         "cancelScan": "无法取消扫描"
-      }
+      },
+      "failureDetails": "诊断详情"
     },
     "about": {
       "productSection": "产品信息",
@@ -350,16 +368,21 @@
         "vinyl": "黑胶质感"
       },
       "theme": {
+        "light": "浅色模式",
+        "dark": "深色模式",
         "toLight": "切换到浅色",
         "toDark": "切换到深色"
       },
       "background": {
+        "enabled": "取色开启",
+        "disabled": "取色关闭",
         "toggle": "背景取色",
         "turnOn": "开启封面强调色背景",
         "turnOff": "关闭封面强调色背景",
         "lightOnly": "仅浅色模式可用"
       },
       "progress": {
+        "current": "{style}进度",
         "wave": "波浪",
         "comet": "彗星余晖",
         "switchTo": "切换为{style}进度"
@@ -373,10 +396,9 @@
         "motionDisabled": "动效已关闭"
       },
       "vibration": {
+        "disabled": "振动关闭",
         "turnOn": "开启低频振动并隐藏歌词",
         "turnOff": "关闭低频振动并恢复歌词",
-        "enabledHint": "{action} · {style}（右键切换模式）",
-        "disabledHint": "{action}（左键或右键）",
         "smooth": "柔和起伏",
         "elastic": "弹性回落"
       },
@@ -403,7 +425,7 @@
       "play": "播放",
       "shuffle": "随机播放",
       "tracks": "曲目",
-      "disc": "Disc {number}",
+      "disc": "第 {number} 碟",
       "trackCount": {
         "one": "{count} 首曲目",
         "other": "{count} 首曲目"
@@ -430,6 +452,7 @@
         "hours": "听过 {count} 次 · 约 {hours} 小时"
       },
       "unknownYear": "年份未知",
+      "unknownDate": "日期未知",
       "unknownTitle": "未命名曲目",
       "moreAlbumsTitle": "{artist} 的更多作品",
       "genreAlbumsTitle": "{genre} 的更多作品",
@@ -445,6 +468,7 @@
     },
     "search": {
       "ariaLabel": "搜索专辑和专辑艺术家",
+      "open": "搜索专辑",
       "placeholder": "搜索专辑、专辑艺术家",
       "matched": "定位到 {index} / {total}",
       "wrapped": "已回到开头（{index} / {total}）",
@@ -454,9 +478,7 @@
       "locateCurrent": "定位到当前专辑",
       "play": "播放「{title}」",
       "openInCd": "在「CD 浏览」中打开",
-      "insert": "插播「{title}」",
-      "switchToPerspective": "切换到透视封面视图",
-      "switchToGrid": "切换到常规封面视图"
+      "insert": "插播「{title}」"
     },
     "status": {
       "loading": "正在读取专辑目录…",
@@ -466,8 +488,10 @@
     },
     "a11y": {
       "openAlbum": "打开专辑 {title}",
+      "longPressPlay": "长按封面播放整张专辑，也可按 Shift+Enter 触发",
       "coverAlt": "{title} 的封面"
-    }
+    },
+    "year": "{year} 年"
   },
   "library": {
     "playCount": "{count} 次",
@@ -579,6 +603,88 @@
       "receiptTotalDuration": "TOTAL DURATION",
       "receiptDailyAverage": "DAILY AVERAGE",
       "receiptPeakLog": "PEAK LOG"
+    },
+    "mac": {
+      "pageAria": "Mac 声迹",
+      "backAria": "返回播放器",
+      "back": "返回",
+      "backToIntro": "返回星空",
+      "enter": "进入声迹。双击或按 Enter、空格。",
+      "model": "大屏 Macintosh 概念模型",
+      "reader": "Macintosh 128K，专辑软盘读取器",
+      "loadedAlbum": "已载入专辑",
+      "noDisk": "未载入软盘",
+      "plays": "播放次数",
+      "duration": "聆听时长",
+      "collection": "悬浮软盘收藏",
+      "albums": "听过的专辑",
+      "date": "日期",
+      "previousDay": "上一天",
+      "nextDay": "下一天",
+      "chooseDate": "选择统计日期",
+      "today": "今日",
+      "todayDate": "今日 {date}",
+      "chooseYear": "选择年份",
+      "years": "历史年份",
+      "previousMonth": "上一月",
+      "nextMonth": "下一月",
+      "closeCalendar": "关闭日历",
+      "topAlbums": "当日最常听",
+      "disks": "专辑软盘",
+      "insert": "插入 Mac",
+      "eject": "退盘",
+      "loaded": "已载入",
+      "returned": "软盘已退回",
+      "loadedTitle": "已载入 {title}",
+      "insertAria": "{title}，双击或按 Enter 插入 Mac",
+      "albumCount": "{count} 张",
+      "chooseDateHint": "请选择日期",
+      "calendarLoading": "正在读取日期记录…",
+      "dayLoading": "正在读取当天专辑…",
+      "loading": "读取中…",
+      "failed": "读取失败",
+      "empty": "当天没有专辑播放记录",
+      "noRecords": "无记录",
+      "retained": "{error} · 保留上次记录",
+      "calendarError": "无法读取听歌记录",
+      "refreshError": "刷新失败",
+      "dayError": "无法读取当天专辑",
+      "lessThanMinute": "不到 1 分钟"
     }
+  },
+  "smartBuilder": {
+    "title": "新建智能歌单",
+    "defaultName": "我的智能歌单",
+    "genre": "流派",
+    "artist": "艺术家",
+    "chooseSingle": "请选择流派或艺术家",
+    "chooseGroups": "请选择每个条件组的具体值",
+    "groupEmpty": "条件组内无匹配，无法创建",
+    "noIntersection": "各条件组之间没有交集，无法创建",
+    "loadError": "曲库加载失败，请重试",
+    "noMatches": "当前条件没有匹配歌曲，请调整后重试",
+    "createError": "创建失败，请重试",
+    "loading": "正在读取曲库…",
+    "betweenGroups": "组间关系",
+    "betweenGroupsAria": "不同维度之间的关系",
+    "single": "单选",
+    "andAll": "和 · 同时满足",
+    "orAny": "或 · 满足任一",
+    "matchCount": "{count} 首匹配",
+    "unselected": "未选择",
+    "withinGroup": "组内关系",
+    "withinGroupAria": "{field}组内关系",
+    "and": "和",
+    "or": "或",
+    "selected": "已选{field}",
+    "remove": "移除 {value}",
+    "clear": "清空",
+    "search": "检索{field}",
+    "clearSearch": "清除{field}检索",
+    "more": "显示更多（{count}）",
+    "noValues": "没有找到相应的值",
+    "resultCount": "匹配歌曲 {count} 首",
+    "creating": "正在创建…",
+    "create": "创建歌单"
   }
 }

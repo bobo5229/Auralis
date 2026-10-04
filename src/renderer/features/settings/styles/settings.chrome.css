@@ -266,8 +266,7 @@
   cursor: pointer;
   transition:
     color 180ms ease,
-    background-color 180ms ease,
-    box-shadow 180ms ease;
+    background-color 180ms ease;
 }
 
 .settings-page .settings-segmented-option:hover {
@@ -280,10 +279,8 @@
 }
 
 .settings-page .settings-segmented-option.is-selected {
-  color: var(--auralis-text);
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--auralis-sidebar-active-indicator) 30%, transparent);
+  color: var(--auralis-control-primary-text);
+  background: var(--auralis-theme-accent);
 }
 
 .settings-page .settings-value {

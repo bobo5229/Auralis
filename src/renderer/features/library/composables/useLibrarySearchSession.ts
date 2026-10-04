@@ -237,6 +237,15 @@ export function useLibrarySearchSession(options: {
 
   function onWindowKeyDown(event: KeyboardEvent): void {
     if (
+      event.defaultPrevented ||
+      event.isComposing ||
+      event.keyCode === 229 ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey
+    )
+      return
+    if (
       options.isLibrarySurface() &&
       event.key === '/' &&
       !options.isInteractiveTarget(event.target)

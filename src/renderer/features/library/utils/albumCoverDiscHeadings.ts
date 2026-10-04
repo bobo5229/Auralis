@@ -1,3 +1,5 @@
+import { uiText } from '@renderer/i18n'
+
 interface DiscNumberedTrack {
   discNo: number | null
 }
@@ -24,5 +26,5 @@ export function getAlbumCoverTrackDiscHeadings(
 }
 
 export function formatAlbumCoverDiscHeading(discNumber: number): string {
-  return `Disc ${String(discNumber).padStart(2, '0')}`
+  return uiText('albums.detail.disc', { number: String(discNumber).padStart(2, '0') })
 }

@@ -215,7 +215,7 @@
 
 .album-detail-track-duration {
   color: var(--auralis-text-faint);
-  font-size: 12px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -230,7 +230,7 @@
 
 .album-detail-track-title {
   font-size: 14px;
-  font-weight: 650;
+  font-weight: 700;
 }
 
 .album-detail-track-artist {

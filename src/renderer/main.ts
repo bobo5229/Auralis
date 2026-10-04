@@ -1,4 +1,6 @@
 import { createApp, nextTick } from 'vue'
+import { initialUiLocale } from './i18n/preference'
+import { nativeUiMessages } from '@shared/uiLocale'
 import '@unocss/reset/tailwind.css'
 import 'virtual:uno.css'
 import './app/styles/main.css'
@@ -56,9 +58,11 @@ function showStartupFailure(error: unknown): void {
   const message = document.createElement('div')
   message.className = 'splash-startup-error'
   const title = document.createElement('strong')
-  title.textContent = 'Auralis 启动失败'
+  const messages = nativeUiMessages[initialUiLocale()]
+  document.documentElement.lang = initialUiLocale()
+  title.textContent = messages.startupTitle
   const description = document.createElement('span')
-  description.textContent = '请关闭应用后重试。'
+  description.textContent = messages.startupRetry
   message.append(title, description)
   splash.replaceChildren(message)
   document.body.append(splash)
@@ -74,20 +78,14 @@ function showStartupFailure(error: unknown): void {
 }
 
 async function bootstrap(): Promise<void> {
-  // 清理旧偏好属于维护操作，存储不可用时仍继续启动主界面。
-  try {
-    localStorage.removeItem('auralis-locale')
-  } catch {
-    // 受限上下文中的 localStorage 可能不可用。
-  }
-
   const [{ default: App }, { router }, { auralis }] = await Promise.all([
     import('./App.vue'),
     import('./app/router'),
     import('./shared/ipc/client'),
   ])
 
-  const { i18n } = await import('./i18n')
+  const { i18n, initUiLocale } = await import('./i18n')
+  initUiLocale((locale) => auralis.app.setLocale(locale))
 
   const app = createApp(App)
   app.use(tooltipPlugin)

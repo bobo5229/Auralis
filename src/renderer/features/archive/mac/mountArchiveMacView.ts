@@ -1,8 +1,9 @@
+import { uiText, i18n } from '@renderer/i18n'
 import type { MacViewActions, MacViewController, MacViewModel } from './macViewTypes'
 import { mountMacDevice, type MacDeviceController } from './macDevice'
-import { mountLoadTray } from './loadTray'
-import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
-import { formatArchiveMinutes } from '../utils/archiveDailyDetailState'
+import { mountArchiveDisks } from './archiveDisks'
+import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
+import { observeWindowVisibility } from '@renderer/shared/animation/windowVisibility'
 
 function formatDateKey(d: Date): string {
   const y = d.getFullYear()
@@ -19,7 +20,6 @@ function parseDateKey(key: string): Date {
 export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): MacViewController {
   const albumListEl = root.getElementById('album-list') as HTMLElement
   const screenStatusEl = root.getElementById('screen-status') as HTMLElement
-  const desktopReturnBtn = root.getElementById('desktop-return') as HTMLButtonElement
   const dayPrevBtn = root.getElementById('day-prev') as HTMLButtonElement
   const dayNextBtn = root.getElementById('day-next') as HTMLButtonElement
   const dateTrigger = root.getElementById('date-trigger') as HTMLButtonElement
@@ -30,8 +30,7 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
   const calMonthLabel = root.getElementById('mac-cal-month-label') as HTMLElement
   const calCloseBtn = root.getElementById('mac-cal-close') as HTMLButtonElement
   const calGrid = root.getElementById('mac-calendar-grid') as HTMLElement
-  const entryStatus = root.getElementById('crt-entry-status') as HTMLElement
-
+  const controls = root.getElementById('disk-controls')!
   let latestModel: MacViewModel | null = null
   let disposed = false
   let isPopupOpen = false
@@ -40,33 +39,35 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
   const yearMenu = root.getElementById('mac-calendar-years') as HTMLElement
   const calendarStatus = root.getElementById('mac-calendar-status') as HTMLElement
 
+  function refreshStaticLocale(): void {
+    root.querySelectorAll<HTMLElement>('[data-i18n]').forEach((node) => {
+      node.textContent = uiText(node.dataset.i18n!)
+    })
+    root.querySelectorAll<HTMLElement>('[data-i18n-aria]').forEach((node) => {
+      node.setAttribute('aria-label', uiText(node.dataset.i18nAria!))
+    })
+    root.querySelectorAll<HTMLElement>('[data-weekday]').forEach((node) => {
+      node.textContent = new Intl.DateTimeFormat(i18n.global.locale.value, {
+        weekday: 'narrow',
+      }).format(new Date(2026, 0, 4 + Number(node.dataset.weekday)))
+    })
+  }
+
   // Calendar popup month navigation state (separated from selectedDate)
   let popupBrowsingYear = new Date().getFullYear()
   let popupBrowsingMonth = new Date().getMonth()
 
-  const tray = mountLoadTray(
-    root.querySelector<HTMLElement>('.floppy')!,
-    createReducedMotionQuery(),
-  )
+  const disks = mountArchiveDisks(root, actions.onSelectAlbum, renderArtwork)
   const macDevice: MacDeviceController = mountMacDevice(root, {
-    onViewTransition: (active) => {
-      if (active) tray.cancel()
+    onSceneReadyChange: actions.onSceneReadyChange,
+    onTransition: () => {
+      closeDatePopup()
     },
-    onModeChange: (mode) => {
-      if (mode === 'machine') {
-        closeDatePopup()
-      }
+    onReturnToIntro: () => {
+      closeDatePopup()
+      disks.reset()
     },
-    onEntrySelected: (id) => {
-      if (id === 'album') {
-        entryStatus.textContent = ''
-      } else if (id === 'track') {
-        entryStatus.textContent = '单曲统计尚未开放'
-      } else if (id === 'year') {
-        entryStatus.textContent = '年度总结尚未开放'
-      }
-    },
-    onDatePopupEsc: () => {
+    onPopupEscape: () => {
       if (!yearMenu.hidden) {
         yearMenu.hidden = true
         yearSelect.setAttribute('aria-expanded', 'false')
@@ -81,16 +82,10 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
     },
   })
 
-  // 5. Desktop Return Button inside Album Window Title Bar
-  desktopReturnBtn?.addEventListener(
-    'click',
-    (e) => {
-      e.stopPropagation()
-      closeDatePopup()
-      macDevice.setDesktopPage('desktop')
-    },
-    listenerOptions,
-  )
+  const stopVisibility = observeWindowVisibility((visible) => {
+    macDevice.setVisible(visible)
+    disks.setVisible(visible)
+  })
 
   // 6. Day Prev / Next Buttons
   dayPrevBtn?.addEventListener(
@@ -218,25 +213,62 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
     listenerOptions,
   )
 
+  function placeholder(): HTMLElement {
+    const node = document.createElement('span')
+    node.className = 'artwork-placeholder'
+    node.setAttribute('aria-hidden', 'true')
+    return node
+  }
+
+  function renderArtwork(container: HTMLElement, key: string | null): void {
+    const url = getArtworkUrl(key)
+    container.replaceChildren()
+    if (!url) {
+      container.append(placeholder())
+      return
+    }
+    const img = document.createElement('img')
+    img.alt = ''
+    img.draggable = false
+    img.decoding = 'async'
+    img.addEventListener(
+      'error',
+      () => {
+        if (img.parentElement === container) container.replaceChildren(placeholder())
+      },
+      { once: true },
+    )
+    img.src = url
+    container.append(img)
+  }
+
   function renderPopupCalendar() {
     if (!latestModel) return
     const focusedDate = (root.activeElement as HTMLElement | null)?.dataset.date
+    const focusedYear = (root.activeElement as HTMLElement | null)?.dataset.year
     const todayKey = latestModel.todayKey
-    calMonthLabel.textContent = `${popupBrowsingMonth + 1}月`
+    calMonthLabel.textContent = new Intl.DateTimeFormat(i18n.global.locale.value, {
+      month: 'short',
+    }).format(new Date(popupBrowsingYear, popupBrowsingMonth, 1))
 
     const minYear = Math.min(...latestModel.years)
     calPrevMonthBtn.disabled = popupBrowsingYear <= minYear && popupBrowsingMonth === 0
     calNextMonthBtn.disabled =
       `${popupBrowsingYear}-${String(popupBrowsingMonth + 1).padStart(2, '0')}` >=
       todayKey.slice(0, 7)
-    yearSelect.textContent = `${popupBrowsingYear}年`
+    yearSelect.textContent = new Intl.DateTimeFormat(i18n.global.locale.value, {
+      year: 'numeric',
+    }).format(new Date(popupBrowsingYear, 0, 1))
     yearMenu.replaceChildren()
     latestModel.years.forEach((y) => {
       const opt = document.createElement('button')
       opt.type = 'button'
       opt.setAttribute('role', 'option')
       opt.setAttribute('aria-selected', String(y === popupBrowsingYear))
-      opt.textContent = `${y}年`
+      opt.dataset.year = String(y)
+      opt.textContent = new Intl.DateTimeFormat(i18n.global.locale.value, {
+        year: 'numeric',
+      }).format(new Date(y, 0, 1))
       opt.addEventListener('click', () => {
         popupBrowsingYear = y
         const today = parseDateKey(latestModel!.todayKey)
@@ -258,11 +290,12 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
       const retry = document.createElement('button')
       retry.type = 'button'
       retry.className = 'mac-retry-button'
-      retry.textContent = '重试'
+      retry.id = 'calendar-retry'
+      retry.textContent = uiText('albums.status.retry')
       retry.onclick = actions.onRetryCalendar
       calendarStatus.append(retry)
     } else if (latestModel.calendarLoading) {
-      calendarStatus.textContent = '正在读取日期记录…'
+      calendarStatus.textContent = uiText('archive.mac.calendarLoading')
     }
     calendarStatus.hidden = !latestModel.calendarError && !latestModel.calendarLoading
 
@@ -291,7 +324,14 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
       btn.className = 'mac-calendar-cell'
       btn.textContent = String(dayNum)
       btn.dataset.date = dateStr
-      btn.setAttribute('aria-label', dateStr)
+      btn.setAttribute(
+        'aria-label',
+        new Intl.DateTimeFormat(i18n.global.locale.value, {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }).format(parseDateKey(dateStr)),
+      )
       btn.setAttribute('aria-selected', String(dateStr === latestModel.selectedDate))
 
       const isFuture = dateStr > todayKey
@@ -320,6 +360,8 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
 
       calGrid.append(btn)
     }
+    if (focusedYear)
+      yearMenu.querySelector<HTMLButtonElement>(`[data-year='${focusedYear}']`)?.focus()
     if (focusedDate)
       calGrid.querySelector<HTMLButtonElement>(`[data-date='${focusedDate}']`)?.focus()
   }
@@ -349,10 +391,16 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
   // 8. Update View with Model
   function update(model: MacViewModel): void {
     if (disposed) return
-    const activeRow = root.activeElement as HTMLElement | null
-    const focusedKey = activeRow?.closest<HTMLButtonElement>('.album-row')?.dataset.key
+    const focusedId = (root.activeElement as HTMLElement | null)?.id
+    const previousLocale = latestModel?.locale
     const previousDate = latestModel?.selectedDate
     latestModel = model
+    refreshStaticLocale()
+    macDevice.refreshLocale()
+    controls.hidden = !model.items.length
+    root.getElementById('projection-count')!.textContent = model.items.length
+      ? uiText('archive.mac.albumCount', { count: model.items.length })
+      : ''
     const todayKey = model.todayKey
     if (!model.years.includes(popupBrowsingYear)) {
       const validDate = parseDateKey(model.selectedDate ?? model.todayKey)
@@ -368,11 +416,18 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
     // Update Date Trigger Text
     if (dateTrigger) {
       const span = dateTrigger.querySelector('span')
+      const formattedDate = model.selectedDate
+        ? new Intl.DateTimeFormat(i18n.global.locale.value, {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+          }).format(parseDateKey(model.selectedDate))
+        : ''
       if (span) {
         span.textContent =
           model.selectedDate === todayKey
-            ? `今日 ${model.selectedDate}`
-            : (model.selectedDate ?? '请选择日期')
+            ? uiText('archive.mac.todayDate', { date: formattedDate })
+            : formattedDate || uiText('archive.mac.chooseDateHint')
       }
     }
 
@@ -388,14 +443,16 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
     }
 
     // Update Album List
-    albumListEl.replaceChildren()
+    disks.update(model.items, model.selectedAlbumKey, model.selectedDate)
+    if (previousLocale !== model.locale) disks.refreshLocale()
+    if (!model.items.length) albumListEl.replaceChildren()
 
     if (model.dayLoading && !model.items.length) {
       const loadingDiv = document.createElement('div')
       loadingDiv.className = 'album-empty-msg'
-      loadingDiv.textContent = '正在读取当天专辑…'
+      loadingDiv.textContent = uiText('archive.mac.dayLoading')
       albumListEl.append(loadingDiv)
-      screenStatusEl.textContent = '读取中…'
+      screenStatusEl.textContent = uiText('archive.mac.loading')
     } else if (
       (model.dayError || (!model.selectedDate && model.calendarError)) &&
       !model.items.length
@@ -407,81 +464,44 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
       const retryBtn = document.createElement('button')
       retryBtn.type = 'button'
       retryBtn.className = 'mac-retry-button'
-      retryBtn.textContent = '重试'
+      retryBtn.id = 'day-retry'
+      retryBtn.textContent = uiText('albums.status.retry')
       retryBtn.onclick = () => {
         if (model.selectedDate) actions.onRetryDay(model.selectedDate)
         else actions.onRetryCalendar()
       }
       errorDiv.append(retryBtn)
       albumListEl.append(errorDiv)
-      screenStatusEl.textContent = '读取失败'
+      screenStatusEl.textContent = uiText('archive.mac.failed')
     } else if (model.items.length === 0) {
       const emptyDiv = document.createElement('div')
       emptyDiv.className = 'album-empty-msg'
-      emptyDiv.textContent = '当天没有专辑播放记录'
+      emptyDiv.textContent = uiText('archive.mac.empty')
       albumListEl.append(emptyDiv)
-      screenStatusEl.textContent = '无记录'
+      screenStatusEl.textContent = uiText('archive.mac.noRecords')
     } else {
-      model.items.forEach((item, index) => {
-        const row = document.createElement('button')
-        row.className = 'album-row'
-        row.type = 'button'
-        row.dataset.key = item.key
-        row.title = `${item.title || '未知专辑'} — ${item.artist || '未知艺术家'}`
-        const isSelected = item.key === model.selectedAlbumKey
-        row.setAttribute('aria-pressed', String(isSelected))
-        row.setAttribute(
-          'aria-label',
-          `${index + 1} ${item.title || '未知专辑'}，${item.artist || '未知艺术家'}，${item.playCount}次`,
-        )
-
-        const rankSpan = document.createElement('span')
-        rankSpan.className = 'rank'
-        rankSpan.textContent = String(index + 1).padStart(2, '0')
-
-        const nameSpan = document.createElement('span')
-        nameSpan.className = 'row-name'
-        nameSpan.textContent = item.title || '未知专辑'
-
-        const countSpan = document.createElement('span')
-        countSpan.className = 'count'
-        countSpan.textContent = String(item.playCount)
-
-        row.append(rankSpan, nameSpan, countSpan)
-        row.onclick = () => {
-          actions.onSelectAlbum(item.key)
-        }
-        albumListEl.append(row)
-      })
-
       // Update Screen Status Bar
-      const selectedItem =
-        model.items.find((it) => it.key === model.selectedAlbumKey) || model.items[0]
-      if (selectedItem) {
-        const mins = formatArchiveMinutes(selectedItem.durationSeconds)
-        screenStatusEl.textContent = model.dayError
-          ? `${model.dayError} · 保留上次记录`
-          : `${selectedItem.artist || '未知艺术家'} / ${selectedItem.playCount} 次 / ${mins}`
-      }
+      screenStatusEl.textContent = model.dayError
+        ? uiText('archive.mac.retained', { error: model.dayError })
+        : ''
     }
-
-    if (focusedKey)
-      Array.from(albumListEl.querySelectorAll<HTMLButtonElement>('.album-row'))
-        .find((row) => row.dataset.key === focusedKey)
-        ?.focus()
 
     if (isPopupOpen) {
       renderPopupCalendar()
     }
+    if (focusedId && !root.activeElement)
+      root.getElementById(focusedId)?.focus({ preventScroll: true })
   }
 
   return {
     update,
+    returnToIntro: () => macDevice.returnToIntro(),
     dispose: () => {
       disposed = true
       subscriptions.abort()
+      stopVisibility()
       macDevice.dispose()
-      tray.dispose()
+      disks.dispose()
     },
   }
 }

@@ -9,20 +9,19 @@ import {
 } from '@renderer/features/playback/composables/useArtworkPalette'
 import { resolvePlayerPrimaryButtonTextColor } from '@renderer/features/playback/utils/resolvePlayerPrimaryButtonTextColor'
 import type { AlbumSummary } from '../types'
+import { useAlbumCoverLongPress } from '../composables/useAlbumCoverLongPress'
 
 const props = defineProps<{
   album: AlbumSummary
-  displayMode: 'grid' | 'perspective'
   highlighted?: boolean
+  longPressEnabled?: boolean
 }>()
 
 const { t } = useI18n()
 const displayAlbumTitle = computed(() => props.album.title)
 const displayAlbumArtist = computed(() => formatArtist(props.album.albumArtist))
 const artworkCacheKey = computed(() => props.album.artworkCacheKey)
-const { palette } = useArtworkPalette(artworkCacheKey, {
-  enabled: computed(() => props.displayMode === 'grid'),
-})
+const { palette } = useArtworkPalette(artworkCacheKey)
 const playButtonStyle = computed(() => {
   const color =
     palette.value.quality !== 'fallback' && palette.value.key === artworkCacheKey.value
@@ -39,7 +38,15 @@ const emit = defineEmits<{
   open: [album: AlbumSummary]
   play: [album: AlbumSummary]
   openContextMenu: [album: AlbumSummary, event: MouseEvent]
+  longPress: [album: AlbumSummary, cover: HTMLElement]
 }>()
+
+const longPress = useAlbumCoverLongPress(
+  computed(() => Boolean(props.longPressEnabled)),
+  (cover) => emit('longPress', props.album, cover),
+)
+const { holding } = longPress
+watch(() => props.album.key, longPress.cancel)
 
 const imageFailed = ref(false)
 const cardRootRef = ref<HTMLElement | null>(null)
@@ -77,11 +84,25 @@ onBeforeUnmount(() => {
   visibilityObserver = null
 })
 
-function openAlbum(): void {
+function openAlbum(event?: MouseEvent): void {
+  if (longPress.consumeClick(event)) return
   emit('open', props.album)
 }
 
+function onCoverKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  if (event.repeat) return
+  longPress.cancel()
+  if (event.key === 'Enter' && event.shiftKey && props.longPressEnabled) {
+    emit('longPress', props.album, event.currentTarget as HTMLElement)
+  } else emit('open', props.album)
+}
+
 function onContextMenu(event: MouseEvent): void {
+  longPress.cancel()
+  const isCover = (event.currentTarget as HTMLElement | null)?.classList?.contains('cover-stage')
+  if (isCover && longPress.consumeClick(event)) return
   emit('openContextMenu', props.album, event)
 }
 </script>
@@ -90,20 +111,23 @@ function onContextMenu(event: MouseEvent): void {
   <article
     ref="cardRootRef"
     class="album-card min-w-0"
-    :class="[`album-card--${displayMode}`, { 'album-card--highlighted': highlighted }]"
+    :class="{ 'album-card--highlighted': highlighted }"
     @pointerenter="prefetchCoverPalette"
   >
     <div class="album-card-cover">
-      <!-- cover-stage 锁定 1:1；cover-frame 承载 3D；img 绝对填充 + object-fit:cover 强制裁切 -->
+      <!-- cover-stage 锁定 1:1；img 绝对填充并通过 object-fit:cover 裁切 -->
       <div
         class="cover-stage"
+        :class="{ 'cover-stage--holding': holding }"
         role="button"
         tabindex="0"
         :aria-label="t('albums.a11y.openAlbum', { title: displayAlbumTitle })"
+        :aria-description="longPressEnabled ? t('albums.a11y.longPressPlay') : undefined"
+        @pointerdown="longPress.start"
+        @dragstart.prevent
         @click="openAlbum"
         @contextmenu.prevent="onContextMenu"
-        @keydown.enter="openAlbum"
-        @keydown.space.prevent="openAlbum"
+        @keydown="onCoverKeydown"
       >
         <div class="cover-frame">
           <img
@@ -121,7 +145,7 @@ function onContextMenu(event: MouseEvent): void {
           </div>
         </div>
       </div>
-      <div v-if="displayMode === 'grid'" class="album-card-play-clip">
+      <div class="album-card-play-clip">
         <button
           type="button"
           class="album-card-play"
@@ -145,7 +169,9 @@ function onContextMenu(event: MouseEvent): void {
       <p class="album-card-artist">{{ displayAlbumArtist }}</p>
       <div class="album-card-index-line">
         <span class="album-card-year">
-          <template v-if="album.releaseDate"> {{ album.releaseDate.slice(0, 4) }} 年 </template>
+          <template v-if="album.releaseDate">
+            {{ t('albums.year', { year: album.releaseDate.slice(0, 4) }) }}
+          </template>
           <template v-else>&nbsp;</template>
         </span>
       </div>
@@ -210,7 +236,7 @@ function onContextMenu(event: MouseEvent): void {
   transform: translateX(1px);
 }
 
-.album-card--grid .album-card-cover:is(:hover, :has(:focus-visible)) .album-card-play {
+.album-card-cover:is(:hover, :has(:focus-visible)) .album-card-play {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
@@ -257,7 +283,33 @@ function onContextMenu(event: MouseEvent): void {
   background: transparent;
   cursor: pointer;
   outline: none;
-  perspective: 800px;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.cover-stage--holding::after {
+  position: absolute;
+  inset: -3px;
+  border: 2px solid var(--auralis-focus-ring);
+  border-radius: 15px;
+  pointer-events: none;
+  content: '';
+  animation: album-cover-hold 500ms ease-out forwards;
+}
+
+@keyframes album-cover-hold {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.8;
+  }
+}
+
+:where([data-reduced-motion='true']) .cover-stage--holding::after {
+  animation: none;
+  opacity: 0.6;
 }
 
 .cover-stage:focus-visible {
@@ -273,16 +325,9 @@ function onContextMenu(event: MouseEvent): void {
   border-radius: inherit;
   background: var(--auralis-artwork-placeholder-bg);
   box-shadow: var(--auralis-surface-shadow, 0 10px 24px rgba(0, 0, 0, 0.28));
-  transform: rotateY(0deg) rotateX(0deg) scale(1);
-  transform-style: preserve-3d;
-  transition:
-    transform 0.45s cubic-bezier(0.34, 1.25, 0.64, 1),
-    box-shadow 0.45s cubic-bezier(0.34, 1.25, 0.64, 1),
-    inset 0.45s cubic-bezier(0.34, 1.25, 0.64, 1);
-  will-change: transform;
 }
 
-.album-card--grid .cover-frame::after {
+.cover-frame::after {
   position: absolute;
   z-index: 1;
   inset: 0;
@@ -293,7 +338,7 @@ function onContextMenu(event: MouseEvent): void {
   content: '';
 }
 
-.album-card--grid .album-card-cover:is(:hover, :has(:focus-visible)) .cover-frame::after {
+.album-card-cover:is(:hover, :has(:focus-visible)) .cover-frame::after {
   opacity: 1;
 }
 
@@ -324,34 +369,6 @@ function onContextMenu(event: MouseEvent): void {
   font-size: 11px;
 }
 
-/* ── 3D 透视展台：倾斜正方形 frame，img 仍强制 1:1 cover ─ */
-.album-card--perspective .cover-stage {
-  overflow: visible;
-  background: transparent;
-  box-shadow: none;
-  perspective: 800px;
-}
-
-.album-card--perspective .cover-frame {
-  /* 等距内缩保持正方形，并为投影留边 */
-  inset: 6%;
-  border-radius: 10px;
-  transform: rotateY(-18deg) rotateX(8deg) scale(0.92);
-  transform-style: preserve-3d;
-  box-shadow:
-    -10px 14px 24px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-.album-card--perspective:hover .cover-frame,
-.album-card--perspective:focus-within .cover-frame {
-  /* 转正并放大：阴影改为居中下投，避免 -x 偏移 + blur 再次顶穿左侧裁切线 */
-  transform: rotateY(0deg) rotateX(0deg) scale(1);
-  box-shadow:
-    0 16px 28px rgba(0, 0, 0, 0.48),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
 /* ── 元信息：固定高度 + 单行省略，全场卡片物理高度一致 ─ */
 .album-card-meta {
   display: flex;
@@ -361,10 +378,6 @@ function onContextMenu(event: MouseEvent): void {
   margin-top: 12px;
   min-width: 0;
   overflow: hidden;
-}
-
-.album-card--perspective .album-card-meta {
-  margin-inline: 6%;
 }
 
 .album-card-title,
@@ -418,17 +431,7 @@ function onContextMenu(event: MouseEvent): void {
   transition: none;
 }
 
-:where([data-reduced-motion='true']) .album-card--grid .cover-frame::after {
+:where([data-reduced-motion='true']) .cover-frame::after {
   transition: none;
-}
-
-:where([data-reduced-motion='true']) .album-card--perspective .cover-frame {
-  transition: none !important;
-  transform: none !important;
-}
-
-:where([data-reduced-motion='true']) .album-card--perspective:hover .cover-frame,
-:where([data-reduced-motion='true']) .album-card--perspective:focus-within .cover-frame {
-  transform: none !important;
 }
 </style>

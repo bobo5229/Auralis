@@ -72,6 +72,7 @@ function onArtworkContextMenu(event: MouseEvent): void {
 }
 
 function onArtworkKeyDown(event: KeyboardEvent): void {
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
   if (
     event.key === 'Enter' ||
     event.key === ' ' ||
@@ -97,6 +98,9 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
     <div class="album-cover-aside" :class="{ 'album-cover-aside--sticky': canStickAside }">
       <div
         class="album-cover-artwork select-none"
+        tabindex="0"
+        role="button"
+        aria-haspopup="menu"
         :style="{ borderRadius: coverArtworkRounded ? `${coverArtworkRadius}px` : '0px' }"
         :aria-label="
           t('library.a11y.albumArtwork', {
@@ -173,16 +177,27 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 </template>
 
 <style scoped>
+.album-cover-artwork:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 3px;
+}
+
 .album-cover-meta-title {
   font-weight: var(--auralis-song-cover-album-weight, 700);
+  font-size: var(--auralis-song-cover-album-size, 16px);
+  line-height: 20px;
 }
 
 .album-cover-meta-artist {
   font-weight: var(--auralis-song-cover-album-artist-weight, 600);
+  font-size: var(--auralis-song-cover-album-artist-size, 12px);
+  line-height: 20px;
 }
 
 .album-cover-meta-date {
   font-weight: var(--auralis-song-cover-release-date-weight, 500);
+  font-size: var(--auralis-song-cover-release-date-size, 12px);
+  line-height: 20px;
 }
 
 .cover-disc-heading {
@@ -195,8 +210,9 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
   border-radius: 8px;
   background: transparent;
   color: var(--auralis-text-muted);
-  font-size: 11px;
   font-weight: var(--auralis-song-cover-disc-heading-weight, 700);
+  font-size: var(--auralis-song-cover-disc-heading-size, 11px);
+  line-height: 24px;
   letter-spacing: 0.06em;
 }
 

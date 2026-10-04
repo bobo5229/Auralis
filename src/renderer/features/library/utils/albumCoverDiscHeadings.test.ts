@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import { i18n } from '@renderer/i18n'
 import {
   formatAlbumCoverDiscHeading,
   getAlbumCoverDiscHeadingCount,
@@ -6,6 +7,9 @@ import {
 } from './albumCoverDiscHeadings'
 
 describe('album cover disc headings', () => {
+  afterEach(() => {
+    i18n.global.locale.value = 'zh-Hans'
+  })
   it('keeps a single disc unlabelled and treats missing disc numbers as disc 1', () => {
     const tracks = [{ discNo: null }, { discNo: 1 }, { discNo: null }]
 
@@ -34,7 +38,10 @@ describe('album cover disc headings', () => {
     expect(getAlbumCoverTrackDiscHeadings(playlistTracks)).toEqual([null, null, null])
   })
 
-  it('formats headings as Disc followed by a two-digit number', () => {
+  it('localizes headings while retaining the same padded disc number', () => {
+    expect(formatAlbumCoverDiscHeading(1)).toBe('第 01 碟')
+    expect(formatAlbumCoverDiscHeading(12)).toBe('第 12 碟')
+    i18n.global.locale.value = 'en'
     expect(formatAlbumCoverDiscHeading(1)).toBe('Disc 01')
     expect(formatAlbumCoverDiscHeading(12)).toBe('Disc 12')
   })

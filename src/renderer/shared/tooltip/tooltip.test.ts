@@ -108,8 +108,8 @@ describe('shared tooltip lifecycle', async () => {
     )
     return element
   }
-  function dispatch(type: string, target: TestElement, props: Record<string, unknown> = {}): void {
-    const event = new Event(type)
+  function dispatch(type: string, target: TestElement, props: Record<string, unknown> = {}): Event {
+    const event = new Event(type, { cancelable: true })
     for (const [key, value] of Object.entries({
       target,
       pointerType: 'mouse',
@@ -119,6 +119,7 @@ describe('shared tooltip lifecycle', async () => {
       Object.defineProperty(event, key, { value })
     }
     doc.dispatchEvent(event)
+    return event
   }
   function visible(): TestElement | undefined {
     return doc.body.children.find(
@@ -230,6 +231,58 @@ describe('shared tooltip lifecycle', async () => {
     element.focusVisible = false
     dispatch('focusin', element)
     await vi.advanceTimersByTimeAsync(1000)
+    expect(visible()).toBeUndefined()
+  })
+
+  it('announces the updated state immediately after an opted-in click, then dismisses it', async () => {
+    const element = mount('Off', { feedback: true })
+    dispatch('click', element)
+    controller.directive.updated?.(
+      element as unknown as HTMLElement,
+      binding('On', { feedback: true }),
+      createVNode('button') as VNode<HTMLElement, HTMLElement>,
+      createVNode('button') as VNode<HTMLElement, HTMLElement>,
+    )
+    await vi.advanceTimersByTimeAsync(0)
+    expect(visible()?.textContent).toBe('On')
+    dispatch('pointerover', element)
+    await vi.advanceTimersByTimeAsync(1900)
+    expect(visible()).toBeUndefined()
+  })
+
+  it('shows right-click feedback only for opted-in controls and preserves other context menus', async () => {
+    const ordinary = mount('Ordinary')
+    expect(dispatch('contextmenu', ordinary).defaultPrevented).toBe(false)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(visible()).toBeUndefined()
+    const control = mount('Elastic', { feedback: true })
+    expect(dispatch('contextmenu', control).defaultPrevented).toBe(true)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(visible()?.textContent).toBe('Elastic')
+  })
+
+  it('refreshes asynchronous feedback without hiding it or creating another overlay', async () => {
+    const element = mount('Light', { feedback: true })
+    dispatch('click', element)
+    await vi.advanceTimersByTimeAsync(0)
+    const overlay = visible()
+    controller.directive.updated?.(
+      element as unknown as HTMLElement,
+      binding('Dark', { feedback: true }),
+      createVNode('button') as VNode<HTMLElement, HTMLElement>,
+      createVNode('button') as VNode<HTMLElement, HTMLElement>,
+    )
+    expect(visible()).toBe(overlay)
+    expect(visible()?.textContent).toBe('Dark')
+    dispatch('pointerdown', element)
+    expect(visible()).toBeUndefined()
+  })
+
+  it('does not show queued click feedback after the plugin is disposed', async () => {
+    const element = mount('Feedback', { feedback: true })
+    dispatch('click', element)
+    controller.dispose()
+    await vi.advanceTimersByTimeAsync(0)
     expect(visible()).toBeUndefined()
   })
 

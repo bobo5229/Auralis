@@ -4,6 +4,9 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
 import { isRegisteredMainWindow } from '@main/app/mainWindowRegistry'
+import { getWindowVisibility } from '@main/app/windowVisibility'
+import { claimCdStartupEntry } from '@main/app/cdStartupSession'
+import { getNativeUiMessages, setNativeUiLocale } from '@main/app/uiLocale'
 import { isTrustedRendererUrl } from '@main/app/webContentsSecurity'
 import { getDatabasePath } from '@main/database/connection'
 import { exportDatabaseBackup, stageDatabaseRestore } from '@main/database/databaseBackupService'
@@ -256,6 +259,10 @@ export function registerIpcHandlers(
     return { ok: true }
   })
 
+  electronIpcRegistrar.handle(ipcChannels.app.claimCdStartupEntry, claimCdStartupEntry)
+  electronIpcRegistrar.handle(ipcChannels.app.setLocale, (_event, payload) => {
+    setNativeUiLocale(payload.locale)
+  })
   electronIpcRegistrar.handle(ipcChannels.app.getInfo, () => ({
     name: 'Auralis',
     version: app.getVersion(),
@@ -278,7 +285,15 @@ export function registerIpcHandlers(
     return exportDatabaseBackup({
       db,
       databasePath: getDatabasePath(),
-      showSaveDialog: (options) => dialog.showSaveDialog(parentWindow, options),
+      showSaveDialog: (options) =>
+        dialog.showSaveDialog(parentWindow, {
+          ...options,
+          title: getNativeUiMessages().exportBackup,
+          filters: options.filters?.map((filter) => ({
+            ...filter,
+            name: getNativeUiMessages().backupFilter,
+          })),
+        }),
     })
   })
   electronIpcRegistrar.handle(ipcChannels.database.restoreBackup, async (event) => {
@@ -287,7 +302,15 @@ export function registerIpcHandlers(
 
     return stageDatabaseRestore({
       currentDbPath: getDatabasePath(),
-      showOpenDialog: (options) => dialog.showOpenDialog(parentWindow, options),
+      showOpenDialog: (options) =>
+        dialog.showOpenDialog(parentWindow, {
+          ...options,
+          title: getNativeUiMessages().restoreBackup,
+          filters: options.filters?.map((filter) => ({
+            ...filter,
+            name: getNativeUiMessages().backupFilter,
+          })),
+        }),
     })
   })
   electronIpcRegistrar.handle(ipcChannels.window.getMaximized, (event) => {
@@ -296,6 +319,13 @@ export function registerIpcHandlers(
       throw new Error('Main window controls are unavailable.')
     }
     return { isMaximized: window.isMaximized() }
+  })
+  electronIpcRegistrar.handle(ipcChannels.window.getVisibility, (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    if (!window || !isRegisteredMainWindow(window)) {
+      throw new Error('Main window visibility is unavailable.')
+    }
+    return getWindowVisibility(window)
   })
   electronIpcRegistrar.handle(ipcChannels.window.control, (event, payload) => {
     const window = BrowserWindow.fromWebContents(event.sender)

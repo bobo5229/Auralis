@@ -657,12 +657,12 @@ input {
   --auralis-sidebar-width: var(--auralis-sidebar-rail-width, 60px);
 }
 
-/* 歌词列宽由 rAF 直接驱动，避免 CSS 每帧重新追赶 280ms 的侧边栏过渡。 */
+/* 歌词动效自行协调布局终点，避免叠加侧边栏的列宽过渡。 */
 .app-shell.is-lyrics-resizing {
   transition: none;
 }
 
-.app-shell.is-album-layout-transitioning > .player-bar {
+.app-shell.is-lyrics-resizing > .player-bar {
   transition: none !important;
 }
 
@@ -1177,20 +1177,23 @@ input {
 
 .player-bar .queue-item-active,
 .player-bar .queue-item-active:hover {
-  background: var(--auralis-control-active-bg);
+  background: var(--auralis-theme-accent);
+  color: var(--auralis-control-primary-text);
 }
 
-.player-bar .queue-item-active .queue-item-title {
-  color: var(--auralis-text);
-}
-
-.player-bar .queue-item-active .queue-item-subtitle {
-  color: var(--auralis-text-muted);
+.player-bar .queue-item-active .queue-item-title,
+.player-bar .queue-item-active .queue-item-subtitle,
+.player-bar .queue-item-active .queue-item-cover span {
+  color: var(--auralis-control-primary-text);
 }
 
 .player-bar .queue-item:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: -2px;
+}
+
+.player-bar .queue-item-active:focus-visible {
+  outline-color: var(--auralis-control-primary-text);
 }
 
 .queue-popover-scroll::-webkit-scrollbar {
@@ -2121,13 +2124,19 @@ input[type='range'].volume-overlay-slider {
   flex: 0 0 auto;
   align-items: center;
   justify-content: flex-start;
-  gap: 4px;
+  gap: 0;
   overflow: hidden;
+}
+
+.app-sidebar:not(.app-sidebar--collapsed) .sidebar-brand-left {
+  /* Align the logo box with navigation icons: margin + border + padding - header inset. */
+  padding-left: calc(10px + 1px + 12px - 16px);
 }
 
 .sidebar-brand-mark {
   display: inline-flex;
-  width: 34px;
+  /* Logo occupies the initial A; the rail keeps its wider centered mark above. */
+  width: 20px;
   height: 34px;
   flex: 0 0 auto;
   align-items: center;
@@ -2227,10 +2236,10 @@ input[type='range'].volume-overlay-slider {
   height: 15px;
 }
 
-.sidebar-tool-button-active {
-  /* 与 hover 一致的极轻 Hover Glow，避免亮块从无壳行里爆出来 */
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 12%, transparent);
-  color: var(--auralis-sidebar-active-indicator);
+.sidebar-tool-button-active,
+.sidebar-tool-button-active:hover {
+  background: var(--auralis-theme-accent);
+  color: var(--auralis-control-primary-text);
 }
 
 .sidebar-navigation {
@@ -2275,7 +2284,8 @@ input[type='range'].volume-overlay-slider {
   padding: 0 16px 8px;
   padding-left: 24px;
   color: var(--auralis-text-faint);
-  font-size: 14px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2321,6 +2331,10 @@ input[type='range'].volume-overlay-slider {
 .sidebar-link:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: -2px;
+}
+
+.sidebar-link-active:focus-visible {
+  outline-color: var(--auralis-control-primary-text);
 }
 
 .sidebar-link-icon {
@@ -2380,14 +2394,14 @@ input[type='range'].volume-overlay-slider {
 }
 
 .sidebar-link-active:hover .sidebar-link-count {
-  color: var(--auralis-sidebar-active-text) !important;
+  color: var(--auralis-control-primary-text) !important;
 }
 
-/* 选中导航项使用语义底色变量。 */
+/* 与播放器曲目选中态共享实色强调背景及其前景色。 */
 .sidebar-link-active {
-  background: var(--auralis-sidebar-nav-selected-bg) !important;
+  background: var(--auralis-theme-accent) !important;
   border: 1px solid transparent !important;
-  color: var(--auralis-sidebar-active-text) !important;
+  color: var(--auralis-control-primary-text) !important;
   box-shadow: none;
   font-weight: 700;
   position: relative;
@@ -2395,12 +2409,12 @@ input[type='range'].volume-overlay-slider {
 }
 
 .sidebar-link-active .sidebar-link-icon {
-  color: var(--auralis-sidebar-active-icon) !important;
+  color: var(--auralis-control-primary-text) !important;
   transform: scale(1.05);
 }
 
 .sidebar-link-active:hover {
-  background: var(--auralis-sidebar-active-hover-bg, var(--auralis-sidebar-active-bg)) !important;
+  background: var(--auralis-theme-accent) !important;
   border-color: transparent !important;
 }
 

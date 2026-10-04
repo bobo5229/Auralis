@@ -2,6 +2,7 @@ import { onScopeDispose, watch } from 'vue'
 import { auralis } from '@renderer/shared/ipc/client'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { usePlayback } from './usePlayback'
+import { uiText } from '@renderer/i18n'
 
 let isInitialized = false
 
@@ -137,7 +138,7 @@ export function useSystemMediaIntegration(): void {
       const track = playback.state.currentTrack
       return [
         track?.id ?? null,
-        track?.title ?? null,
+        track ? track.title?.trim() || uiText('player.unknownTrack') : null,
         track?.artist ?? null,
         track?.album ?? null,
         track?.artworkCacheKey ?? null,
@@ -155,7 +156,7 @@ export function useSystemMediaIntegration(): void {
       }
 
       const base: MediaMetadataInit = {
-        title: title?.trim() || '未知标题',
+        title: title ?? '',
         artist: artist?.trim() || '',
         album: album?.trim() || '',
       }

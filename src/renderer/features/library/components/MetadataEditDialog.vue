@@ -65,10 +65,10 @@ const statusBanner = computed<StatusBannerConfig | null>(() => {
 })
 
 const yearHasError = computed(
-  () => localError.value === t('library.metadataEditor.validation.yearInvalid'),
+  () => localError.value === 'library.metadataEditor.validation.yearInvalid',
 )
 const releaseDateHasError = computed(
-  () => localError.value === t('library.metadataEditor.validation.dateInvalid'),
+  () => localError.value === 'library.metadataEditor.validation.dateInvalid',
 )
 
 const form = reactive({
@@ -127,18 +127,18 @@ function validateReleaseDate(value: string): string | null {
   const match = value.match(/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/)
 
   if (!match) {
-    return t('library.metadataEditor.validation.dateInvalid')
+    return 'library.metadataEditor.validation.dateInvalid'
   }
 
   const month = match[2] ? Number.parseInt(match[2], 10) : null
   const day = match[3] ? Number.parseInt(match[3], 10) : null
 
   if (month !== null && (month < 1 || month > 12)) {
-    return t('library.metadataEditor.validation.dateInvalid')
+    return 'library.metadataEditor.validation.dateInvalid'
   }
 
   if (day !== null && (day < 1 || day > 31)) {
-    return t('library.metadataEditor.validation.dateInvalid')
+    return 'library.metadataEditor.validation.dateInvalid'
   }
 
   return null
@@ -153,7 +153,7 @@ function onSave(): void {
   const releaseDate = normalize(form.releaseDate)
 
   if (yearText && !/^\d{1,4}$/.test(yearText)) {
-    localError.value = t('library.metadataEditor.validation.yearInvalid')
+    localError.value = 'library.metadataEditor.validation.yearInvalid'
     return
   }
 
@@ -338,7 +338,7 @@ useOverlayFocusTrap({
             class="mt-3 auralis-type-caption text-red-600 font-medium"
             role="alert"
           >
-            {{ localError || errorMessage }}
+            {{ localError ? t(localError) : errorMessage }}
           </p>
 
           <div class="mt-5 flex justify-end gap-2">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   getPlayerModeMenuItems,
@@ -75,16 +75,11 @@ function handleKeydown(event: KeyboardEvent): void {
 }
 
 onMounted(() => {
-  document.addEventListener('keydown', handleKeydown)
   // 打开后聚焦当前模式并使其成为唯一 tab 停靠点（TECHDOC §8.2）。
   const currentIndex = modes.value.findIndex((mode) => mode.id === props.currentMode)
   const initialIndex = currentIndex >= 0 ? currentIndex : 0
   focusedIndex.value = initialIndex
   getMenuItems()[initialIndex]?.focus()
-})
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -94,6 +89,7 @@ onUnmounted(() => {
     class="player-overlay playback-mode-menu"
     role="menu"
     :aria-label="t('player.mode')"
+    @keydown="handleKeydown"
   >
     <template v-for="(mode, index) in modes" :key="mode.id">
       <button
@@ -105,13 +101,19 @@ onUnmounted(() => {
           'playback-mode-item-last': index === modes.length - 1,
         }"
         type="button"
-        role="menuitem"
+        role="menuitemradio"
+        :aria-checked="currentMode === mode.id"
         :tabindex="resolveModeMenuItemTabIndex(focusedIndex, index)"
+        @focus="focusedIndex = index"
         @click="handleSelect(mode.id)"
       >
-        <span class="h-4 w-4" :class="mode.icon" />
+        <span class="h-4 w-4" :class="mode.icon" aria-hidden="true" />
         <span>{{ mode.label }}</span>
-        <span v-if="currentMode === mode.id" class="playback-mode-check i-ph-check" />
+        <span
+          v-if="currentMode === mode.id"
+          class="playback-mode-check i-ph-check"
+          aria-hidden="true"
+        />
       </button>
       <div v-if="index < modes.length - 1" class="playback-mode-divider" role="separator" />
     </template>

@@ -1,0 +1,21 @@
+.cd-canvas-fade-enter-active {
+  transition: opacity 240ms ease-out;
+}
+.cd-canvas-fade-leave-active {
+  transition: opacity 180ms ease-out;
+  pointer-events: none;
+}
+.cd-canvas-fade-enter-from,
+.cd-canvas-fade-leave-to {
+  opacity: 0;
+}
+:where([data-reduced-motion='true']) .cd-canvas-fade-enter-active,
+:where([data-reduced-motion='true']) .cd-canvas-fade-leave-active {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cd-canvas-fade-enter-active,
+  .cd-canvas-fade-leave-active {
+    transition: none;
+  }
+}

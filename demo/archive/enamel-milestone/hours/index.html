@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>聆听时光 · 珐琅徽章资产</title>
+    <link rel="stylesheet" href="gallery.css" />
+  </head>
+  <body>
+    <header><a href="../index.html">返回徽章工坊</a><span>Auralis · 静态资产提案</span></header>
+    <main>
+      <div class="introduction">
+        <div>
+          <h1>聆听时光</h1>
+          <p>从第一段音轨，到一张珍藏唱片。<br />四枚珐琅，收藏不同长度的陪伴。</p>
+        </div>
+        <div class="background-control" role="group" aria-label="预览背景">
+          <button type="button" data-background="dark" aria-pressed="true">深色底</button>
+          <button type="button" data-background="light" aria-pressed="false">浅色底</button>
+        </div>
+      </div>
+      <div class="state-toolbar">
+        <div class="background-control" role="group" aria-label="徽章状态">
+          <button type="button" data-state="unlit" aria-pressed="false">未点亮</button>
+          <button type="button" data-state="lit" aria-pressed="true">已点亮</button>
+        </div>
+        <p id="state-note" aria-live="polite">已点亮 · 珐琅与专属图案</p>
+        <a id="template-download" href="assets/hours-unlit-template.svg" download hidden
+          >下载空白模板</a
+        >
+      </div>
+      <section class="collection" aria-label="小时里程碑徽章">
+        <article>
+          <a class="asset" href="assets/hours-10.svg" aria-label="打开 10 小时初响 SVG"
+            ><img
+              src="assets/hours-10.svg"
+              width="330"
+              height="370"
+              alt="青蓝珐琅徽章，唱针落在刻有 10 的唱片上"
+          /></a>
+          <h2>初响 <span>10 小时</span></h2>
+          <p>唱针落下，第一段音轨开始。</p>
+          <div class="downloads">
+            <a href="assets/hours-10.svg" download>下载 SVG</a
+            ><a href="assets/hours-10@2x.png" download>透明 PNG</a>
+          </div>
+        </article>
+        <article>
+          <a class="asset" href="assets/hours-100.svg" aria-label="打开 100 小时成章 SVG"
+            ><img
+              src="assets/hours-100.svg"
+              width="330"
+              height="370"
+              alt="深海蓝珐琅徽章，完整虹彩环围绕 100 金属浮雕"
+          /></a>
+          <h2>成章 <span>100 小时</span></h2>
+          <p>唱片年轮，被完整的虹彩环珍藏。</p>
+          <div class="downloads">
+            <a href="assets/hours-100.svg" download>下载 SVG</a
+            ><a href="assets/hours-100@2x.png" download>透明 PNG</a>
+          </div>
+        </article>
+        <article>
+          <a class="asset" href="assets/hours-500.svg" aria-label="打开 500 小时共鸣 SVG"
+            ><img
+              src="assets/hours-500.svg"
+              width="330"
+              height="370"
+              alt="孔雀绿珐琅徽章，交织声波与虹彩嵌饰环绕 500"
+          /></a>
+          <h2>共鸣 <span>500 小时</span></h2>
+          <p>两组声波交织，在交汇处留下光。</p>
+          <div class="downloads">
+            <a href="assets/hours-500.svg" download>下载 SVG</a
+            ><a href="assets/hours-500@2x.png" download>透明 PNG</a>
+          </div>
+        </article>
+        <article>
+          <a class="asset" href="assets/hours-1000.svg" aria-label="打开 1000 小时久伴 SVG"
+            ><img
+              src="assets/hours-1000.svg"
+              width="330"
+              height="370"
+              alt="靛紫珐琅徽章，唱片收入刻有 1000 的收藏套中"
+          /></a>
+          <h2>久伴 <span>1000 小时</span></h2>
+          <p>一张珍藏唱片，收进专属唱片套。</p>
+          <div class="downloads">
+            <a href="assets/hours-1000.svg" download>下载 SVG</a
+            ><a href="assets/hours-1000@2x.png" download>透明 PNG</a>
+          </div>
+        </article>
+      </section>
+      <section class="miniatures" aria-labelledby="small-title">
+        <div>
+          <h2 id="small-title">放进收藏里</h2>
+          <p>96 px 实际尺寸预览</p>
+        </div>
+        <div class="small-badges">
+          <img src="assets/hours-10.svg" width="96" height="108" alt="10 小时小尺寸预览" />
+          <img src="assets/hours-100.svg" width="96" height="108" alt="100 小时小尺寸预览" />
+          <img src="assets/hours-500.svg" width="96" height="108" alt="500 小时小尺寸预览" />
+          <img src="assets/hours-1000.svg" width="96" height="108" alt="1000 小时小尺寸预览" />
+        </div>
+      </section>
+    </main>
+    <footer>
+      <span>透明背景 · 矢量字形 · SVG / 660 × 740 PNG</span
+      ><span>门槛与名称为设计提案，尚未接入播放器。</span>
+    </footer>
+    <script src="gallery.js"></script>
+  </body>
+</html>

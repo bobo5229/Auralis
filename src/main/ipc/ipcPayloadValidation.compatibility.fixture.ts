@@ -2,6 +2,7 @@ import type { DomainIpcInvokeChannel } from './ipcPayloadValidation'
 
 /** Representative payloads for every non-void channel; tests assert coverage. */
 export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> = {
+  'app:set-locale': { locale: 'en' },
   'library:start-scan': { rootId: 1 },
   'library:cancel-scan': { jobId: 1 },
   'library:get-scan-status': { jobId: 1 },

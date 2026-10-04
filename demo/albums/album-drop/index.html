@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 长按专辑落盘</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script src="./demo.js" defer></script>
+  </head>
+  <body>
+    <div class="scene" id="scene">
+      <aside class="sidebar">
+        <div class="brand">Auralis<span>本地音乐收藏</span></div>
+        <nav aria-label="主导航">
+          <div class="nav-item"><span data-icon="music"></span>全部歌曲</div>
+          <div class="nav-item selected"><span data-icon="disc"></span>专辑</div>
+          <div class="nav-item"><span data-icon="archive"></span>收藏回顾</div>
+        </nav>
+        <div class="sidebar-bottom"><span data-icon="settings"></span>设置</div>
+      </aside>
+      <main>
+        <header>
+          <div class="heading">
+            <h1>专辑</h1>
+            <p>长按任一封面，让 CD 落入 Playbar</p>
+          </div>
+          <div class="preview-controls" aria-label="预览设置">
+            <select id="direction" aria-label="CD 抽出方向">
+              <option value="auto">自动选边</option>
+              <option value="left">向左抽出</option>
+              <option value="right">向右抽出</option>
+            </select>
+            <select id="speed" aria-label="动效速度">
+              <option value="1">正常速度</option>
+              <option value="1.65">慢放</option>
+            </select>
+            <button class="reset" id="reset" type="button">重置</button>
+          </div>
+        </header>
+        <div class="album-grid" id="album-grid"></div>
+        <footer>
+          <span id="hint" role="status">长按 500ms · 松手前可取消 · Esc 取消动效</span>
+          <label><input id="reduce-motion" type="checkbox" />减少动效</label>
+          <span>演示专辑 / 合成试听音</span>
+        </footer>
+      </main>
+    </div>
+    <div class="scrim" aria-hidden="true"></div>
+    <div class="motion-stage" id="motion-stage" aria-hidden="true"></div>
+    <div class="playbar-host">
+      <section class="playbar" id="playbar" aria-label="Playbar">
+        <div class="transport">
+          <button id="previous" class="icon-button" type="button" aria-label="上一首" disabled>
+            <span data-icon="previous"></span>
+          </button>
+          <button id="play-pause" class="primary-button" type="button" aria-label="播放" disabled>
+            <span data-icon="play"></span>
+          </button>
+          <button id="next" class="icon-button" type="button" aria-label="下一首" disabled>
+            <span data-icon="next"></span>
+          </button>
+        </div>
+        <div class="track-info">
+          <div class="track-top">
+            <div class="track-cover" id="track-cover"><span data-icon="disc"></span></div>
+            <div class="track-label">
+              <div class="track-title" id="track-title">尚未播放</div>
+              <div class="track-subtitle" id="track-subtitle">长按专辑封面开始整张播放</div>
+            </div>
+          </div>
+          <div class="progress-row">
+            <span id="elapsed">0:00</span>
+            <input
+              id="progress"
+              type="range"
+              min="0"
+              max="18"
+              step="0.05"
+              value="0"
+              aria-label="播放进度"
+              disabled
+            />
+            <span id="duration">0:00</span>
+          </div>
+        </div>
+        <div class="utilities">
+          <button
+            class="icon-button"
+            id="queue-toggle"
+            type="button"
+            aria-label="播放队列"
+            aria-expanded="false"
+          >
+            <span data-icon="queue"></span>
+          </button>
+          <button class="icon-button" id="mute" type="button" aria-label="静音">
+            <span data-icon="volume"></span>
+          </button>
+        </div>
+        <div id="queue-panel" class="queue-panel" hidden></div>
+      </section>
+    </div>
+  </body>
+</html>

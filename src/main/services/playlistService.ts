@@ -67,12 +67,12 @@ export class PlaylistService {
     }
   }
 
-  create(): Playlist {
+  create(defaultName = '新建歌单'): Playlist {
     const allNames = [
       ...this.playlistRepository.list().map((playlist) => playlist.name),
       ...this.smartPlaylistRepository.list().map((playlist) => playlist.name),
     ]
-    const name = this.getAvailableName('新建歌单', allNames)
+    const name = this.getAvailableName(defaultName, allNames)
     return this.playlistRepository.create(name, this.getNextSortOrder())
   }
 

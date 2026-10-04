@@ -79,7 +79,9 @@ watch(
     </div>
     <div ref="scrollRef" class="cd-track-scroll" tabindex="0" :aria-label="t('albums.cd.tracks')">
       <template v-for="row in rows" :key="row.track.id">
-        <h3 v-if="row.disc" class="cd-disc-heading">Disc {{ row.disc }}</h3>
+        <h3 v-if="row.disc" class="cd-disc-heading">
+          {{ t('albums.detail.disc', { number: row.disc }) }}
+        </h3>
         <button
           type="button"
           class="cd-track"
@@ -212,7 +214,7 @@ h2 {
   border-top-color: var(--cd-border-track, #aaa9a333);
 }
 .cd-track-number {
-  color: var(--cd-text-subtle, #77776f);
+  color: var(--cd-text-subtle, #64645d);
   font: var(--cd-type-weight)
     var(--cd-type-track-number-size)/var(--cd-type-track-number-line-height) var(--cd-font-number);
   font-variant-numeric: lining-nums tabular-nums;
@@ -254,7 +256,7 @@ h2 {
 .cd-track-artist {
   font: var(--cd-type-weight)
     var(--cd-type-track-artist-size)/var(--cd-type-track-artist-line-height) var(--cd-font-display);
-  color: var(--cd-text-subtle, #77776f);
+  color: var(--cd-text-subtle, #64645d);
 }
 @media (max-width: 800px) {
   .cd-track-heading {

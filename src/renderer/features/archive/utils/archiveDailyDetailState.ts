@@ -1,3 +1,5 @@
+import { uiText, i18n } from '@renderer/i18n'
+
 export type ArchiveDailyDetailView = 'loading' | 'error' | 'tracks' | 'empty'
 
 export interface ArchiveDailyDetailDialogModel {
@@ -9,8 +11,10 @@ export interface ArchiveDailyDetailDialogModel {
 }
 
 export function formatArchiveMinutes(durationSeconds: number): string {
-  if (durationSeconds > 0 && durationSeconds < 60) return '不到 1 分钟'
-  return `${Math.round(durationSeconds / 60)} 分钟`
+  if (durationSeconds > 0 && durationSeconds < 60) return uiText('archive.mac.lessThanMinute')
+  return uiText('albums.detail.metrics.minutesUnit', {
+    minutes: Math.round(durationSeconds / 60).toLocaleString(i18n.global.locale.value),
+  })
 }
 
 export function resolveArchiveDailyDetailView(

@@ -2,13 +2,13 @@ import { computed, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { formatGenreParts, splitGenreValues } from '@renderer/features/library/utils/formatGenre'
-import { formatAlbumYear } from '../utils/formatAlbumYear'
+import { formatAlbumReleaseDate } from '../utils/formatAlbumReleaseDate'
 
 export function useAlbumDetailPresentation(
   albumTracks: Readonly<Ref<TrackListItem[]>>,
   previewReleaseDate: Readonly<Ref<string | null>>,
 ) {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const releaseDate = computed(
     () =>
       albumTracks.value.find((track) => track.releaseDate)?.releaseDate ?? previewReleaseDate.value,
@@ -54,7 +54,7 @@ export function useAlbumDetailPresentation(
   function formatMetricsDuration(seconds: number): string {
     const totalSeconds = Math.max(0, Math.floor(seconds))
     const minutes = Math.floor(totalSeconds / 60)
-    return `${minutes}分${totalSeconds % 60}秒`
+    return t('albums.detail.duration.minutes', { minutes, seconds: totalSeconds % 60 })
   }
 
   const metricsTrackCount = computed(() => albumTracks.value.length)
@@ -102,19 +102,14 @@ export function useAlbumDetailPresentation(
   })
 
   /**
-   * Hero 法律附录：版权 + 完整发行日（有则拼接）。
+   * Hero 法律附录：仅显示版权，发行日期由右侧元数据展示。
    * 无真实数据时不渲染，绝不写「未知」占位。
    */
   const heroLegalLine = computed(() => {
-    const parts: string[] = []
-    const copyrightText = copyright.value?.trim()
-    const dateText = releaseDate.value?.trim()
-    if (copyrightText) parts.push(copyrightText)
-    if (dateText) parts.push(dateText)
-    return parts.length > 0 ? parts.join(' · ') : null
+    return copyright.value?.trim() || null
   })
-  const albumReleaseYear = computed(() =>
-    formatAlbumYear(releaseDate.value, locale.value, t('albums.detail.unknownYear')),
+  const albumReleaseDate = computed(() =>
+    formatAlbumReleaseDate(releaseDate.value, t('albums.detail.unknownDate')),
   )
   /**
    * 多碟分组：至少两个不同有效 discNo（null 视为 1）时才分组并显示 Disc 头。
@@ -150,7 +145,7 @@ export function useAlbumDetailPresentation(
     metricsPlaysLabel,
     metricsTotalTime,
     heroLegalLine,
-    albumReleaseYear,
+    albumReleaseDate,
     albumDiscGroups,
   }
 }

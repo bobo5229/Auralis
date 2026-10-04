@@ -59,7 +59,9 @@ export const auralisApi: AuralisApi = {
     restoreBackup: () => invoke(ipcChannels.database.restoreBackup),
   },
   app: {
+    setLocale: (locale) => invoke(ipcChannels.app.setLocale, { locale }),
     getInfo: () => invoke(ipcChannels.app.getInfo),
+    claimCdStartupEntry: () => invoke(ipcChannels.app.claimCdStartupEntry),
     exportDiagnostics: () => invoke(ipcChannels.app.exportDiagnostics),
     rendererReady: () => send(ipcChannels.app.rendererReady),
     splashReady: (payload) => send(ipcChannels.app.splashReady, payload),
@@ -161,6 +163,8 @@ export const auralisApi: AuralisApi = {
   window: {
     control: (action) => invoke(ipcChannels.window.control, { action }),
     getMaximized: () => invoke(ipcChannels.window.getMaximized),
+    getVisibility: () => invoke(ipcChannels.window.getVisibility),
+    onVisibilityChanged: (callback) => on(ipcChannels.window.visibilityChanged, callback),
     onMaximizedChanged: (callback) => on(ipcChannels.window.maximizedChanged, callback),
   },
 }

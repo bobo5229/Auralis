@@ -1,4 +1,5 @@
 import type { AppInfo, LibraryStats } from '@shared/types/app'
+import type { UiLocale } from '@shared/uiLocale'
 import type { PlaybackSpectrumFrame, SpectrumSubscription } from '@shared/types/playbackSpectrum'
 import type { AudioResource } from '@shared/types/audioDecode'
 import type {
@@ -113,6 +114,7 @@ export interface IpcEventContract {
   'playback:native-event': NativePlaybackEvent
   'system-media:command': SystemMediaCommand
   'window:maximized-changed': { isMaximized: boolean }
+  'window:visibility-changed': { isVisible: boolean }
   'library:scan-progress': LibraryScanProgress
   'library:changed': LibraryChangedEvent
   'metadata:refresh-progress': MetadataRefreshProgressEvent
@@ -178,6 +180,14 @@ export interface IpcInvokeContract {
   'app:get-info': {
     request: void
     response: AppInfo
+  }
+  'app:set-locale': {
+    request: { locale: UiLocale }
+    response: void
+  }
+  'app:claim-cd-startup-entry': {
+    request: void
+    response: { firstEntry: boolean }
   }
   'app:export-diagnostics': {
     request: void
@@ -416,6 +426,10 @@ export interface IpcInvokeContract {
   'window:get-maximized': {
     request: void
     response: { isMaximized: boolean }
+  }
+  'window:get-visibility': {
+    request: void
+    response: IpcEventPayload<'window:visibility-changed'>
   }
 }
 

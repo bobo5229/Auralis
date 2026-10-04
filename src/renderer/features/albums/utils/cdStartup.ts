@@ -13,6 +13,11 @@ const smooth = (value: number): number => {
 }
 const mix = (from: number, to: number, progress: number): number => from + (to - from) * progress
 
+const OPENING_DURATION_MS = 950
+const SLIDE_DURATION_MS = 1750
+const SETTLE_DURATION_MS = 100
+const STARTUP_DURATION_MS = OPENING_DURATION_MS + SLIDE_DURATION_MS + SETTLE_DURATION_MS
+
 export interface CdStartupFrame {
   visible: readonly number[]
 }
@@ -38,11 +43,11 @@ export function playCdStartup(
   }))
   let previousSlots: number[] = []
   return animateProgress(
-    4500,
+    STARTUP_DURATION_MS,
     (progress) => {
-      const elapsed = progress * 4500
+      const elapsed = progress * STARTUP_DURATION_MS
       const { width, height } = dimensions()
-      const slide = Math.max(0, Math.min(1, (elapsed - 1550) / 2850))
+      const slide = Math.max(0, Math.min(1, (elapsed - OPENING_DURATION_MS) / SLIDE_DURATION_MS))
       const position = -travel + travel * smooth(slide)
       const slots = cdSlots(position, count)
       prepare?.({ visible: slots })
@@ -56,10 +61,12 @@ export function playCdStartup(
         const pose = cdPose(t, width, height)
         let { cx, cy, size, tilt, turn } = pose
         let opacity = smooth(Math.min((t + 2.5) * 2, (1.5 - t) * 2))
-        if (elapsed < 1550) {
+        if (elapsed < OPENING_DURATION_MS) {
           const seed = seeds[layer]
-          const appear = smooth((elapsed - 200 - layer * 55) / 330)
-          const spread = smooth((elapsed - 650 - seed.delay) / (760 - seed.delay))
+          // Retain the original unfold choreography while accelerating all its offsets together.
+          const openingElapsed = (elapsed / OPENING_DURATION_MS) * 1550
+          const appear = smooth((openingElapsed - 200 - layer * 55) / 330)
+          const spread = smooth((openingElapsed - 650 - seed.delay) / (760 - seed.delay))
           const arc = Math.sin(Math.PI * spread)
           cx = mix(width * 0.5 + seed.x, cx, spread) + seed.arcX * arc
           cy = mix(height * 0.49 + seed.y, cy, spread) + seed.arcY * arc

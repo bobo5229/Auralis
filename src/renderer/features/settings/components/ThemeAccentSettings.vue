@@ -132,8 +132,13 @@ function syncPickerAccessibility(): void {
 
   host.querySelectorAll<HTMLInputElement>('.vc-input-input').forEach((input) => {
     const originalLabel = input.getAttribute('aria-label')?.toLowerCase()
-    const key = originalLabel ? inputLabelKeys[originalLabel] : undefined
-    if (key) input.setAttribute('aria-label', t(`settings.appearance.accent.${key}`))
+    const key =
+      input.getAttribute('data-accent-label-key') ??
+      (originalLabel ? inputLabelKeys[originalLabel] : undefined)
+    if (key) {
+      input.setAttribute('data-accent-label-key', key)
+      input.setAttribute('aria-label', t(`settings.appearance.accent.${key}`))
+    }
   })
 
   host.querySelectorAll<HTMLElement>('[role="slider"]').forEach((slider) => {
@@ -156,8 +161,11 @@ function syncPickerAccessibility(): void {
       return
     }
 
-    const key = inputLabelKeys[originalLabel]
-    if (key) slider.setAttribute('aria-label', t(`settings.appearance.accent.${key}`))
+    const key = slider.getAttribute('data-accent-label-key') ?? inputLabelKeys[originalLabel]
+    if (key) {
+      slider.setAttribute('data-accent-label-key', key)
+      slider.setAttribute('aria-label', t(`settings.appearance.accent.${key}`))
+    }
   })
 
   syncCurrentColorAccessibility(host)
@@ -168,6 +176,10 @@ function syncCurrentColorAccessibility(host = pickerHostRef.value): void {
 
   const saturationSlider = host.querySelector<HTMLElement>('.vc-saturation-slider [role="slider"]')
   if (saturationSlider) {
+    saturationSlider.setAttribute(
+      'aria-label',
+      t('settings.appearance.accent.saturationBrightnessSlider'),
+    )
     const hsv = tinycolor(activeAccent.value).toHsv()
     saturationSlider.setAttribute('aria-valuenow', hsv.s.toFixed(2))
     saturationSlider.setAttribute(
@@ -364,6 +376,7 @@ watch(activeAccent, async () => {
 
 <style scoped>
 .dark-accent-settings {
+  container: accent-settings / inline-size;
   font-family: var(--auralis-font-ui);
 }
 
@@ -708,7 +721,7 @@ watch(activeAccent, async () => {
   opacity: 0;
 }
 
-@media (max-width: 760px) {
+@container accent-settings (max-width: 620px) {
   .dark-accent-picker-content {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -743,7 +756,7 @@ watch(activeAccent, async () => {
   transition: opacity 120ms ease;
 }
 
-@media (max-width: 520px) {
+@container accent-settings (max-width: 360px) {
   .dark-accent-settings-row {
     align-items: flex-start;
   }

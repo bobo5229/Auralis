@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { ref } from 'vue'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { LibraryRouteScope } from '../utils/libraryRouteScope'
 import type {
@@ -30,6 +31,7 @@ function createEditor(overrides?: {
   updateTrackMetadata?: (
     metadata: EditableTrackMetadata,
   ) => Promise<UpdateTrackMetadataResult | unknown>
+  getSaveErrorMessage?: () => string
 }) {
   let scope: LibraryRouteScope = overrides?.scope ?? { kind: 'library' }
   let disposed = false
@@ -47,7 +49,7 @@ function createEditor(overrides?: {
     refreshLibrary,
     restoreFocus,
     isDisposed: () => disposed,
-    getSaveErrorMessage: () => 'save failed',
+    getSaveErrorMessage: overrides?.getSaveErrorMessage ?? (() => 'save failed'),
     getPlaybackInUseMessage: () => 'track in use by player',
     getQueryFailedMessage: () => 'query failed',
     getTrackEditState: overrides?.getTrackEditState,
@@ -72,6 +74,22 @@ function createEditor(overrides?: {
 }
 
 describe('useLibraryMetadataEditor', () => {
+  it('refreshes an existing error after a language change without repeating the save', async () => {
+    const language = ref('zh-Hans')
+    const { editor, updateTrackMetadata } = createEditor({
+      updateTrackMetadata: async () => {
+        throw new Error('technical detail')
+      },
+      getSaveErrorMessage: () => (language.value === 'en' ? 'Could not save' : '保存失败'),
+    })
+    await editor.open(metadata.trackId)
+    await editor.save(metadata)
+    expect(editor.metadataEditError.value).toBe('保存失败')
+    language.value = 'en'
+    expect(editor.metadataEditError.value).toBe('Could not save')
+    expect(updateTrackMetadata).toHaveBeenCalledOnce()
+    expect(editor.editingMetadata.value?.title).toBe('A Song')
+  })
   it('opens metadata and restores the handed-off menu target when closed', async () => {
     const { editor, loadTrackMetadata, restoreFocus } = createEditor()
     const menuTarget = {

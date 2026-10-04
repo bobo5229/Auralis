@@ -1,7 +1,9 @@
 import type { DailyAlbumStatsItem } from '@shared/types/archive'
+import type { UiLocale } from '@shared/uiLocale'
 import type { CalendarDay } from '../composables/useArchiveCalendar'
 
 export interface MacViewModel {
+  locale?: UiLocale
   selectedYear: number
   browsingYear: number
   todayKey: string
@@ -17,6 +19,7 @@ export interface MacViewModel {
 }
 
 export interface MacViewActions {
+  onSceneReadyChange(ready: boolean): void
   onSelectYear(year: number): void
   onBrowseYear(year: number): void
   onSelectDate(date: string): void
@@ -27,5 +30,6 @@ export interface MacViewActions {
 
 export interface MacViewController {
   update(model: MacViewModel): void
+  returnToIntro(): void
   dispose(): void
 }

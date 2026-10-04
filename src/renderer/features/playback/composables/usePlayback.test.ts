@@ -183,6 +183,8 @@ function createApi(): AuralisApi {
       restoreBackup: vi.fn(),
     },
     app: {
+      setLocale: vi.fn(async () => undefined),
+      claimCdStartupEntry: vi.fn(async () => ({ firstEntry: true })),
       getInfo: vi.fn(),
       exportDiagnostics: vi.fn(),
       rendererReady: vi.fn(),
@@ -279,6 +281,8 @@ function createApi(): AuralisApi {
       onRefreshProgress: vi.fn(),
     },
     window: {
+      getVisibility: vi.fn().mockResolvedValue({ isVisible: true }),
+      onVisibilityChanged: vi.fn().mockReturnValue(() => {}),
       control: vi.fn(),
       getMaximized: vi.fn(),
       onMaximizedChanged: vi.fn(),

@@ -25,8 +25,9 @@ const playback = usePlayback()
 const { t } = useI18n()
 const { isFullscreenPlayerOpen, openFullscreenPlayer } = useFullscreenPlayer()
 const imgError = ref(false)
-const isRestoredCoverFocus = ref(false)
+const restoredCoverFocus = ref<'pointer' | 'keyboard' | null>(null)
 let openedFullscreenFromCover = false
+let openedFullscreenUsingKeyboard = false
 
 const currentTrack = computed(() => playback.state.currentTrack)
 const hasTrack = computed(() => currentTrack.value !== null)
@@ -45,8 +46,9 @@ watch(
 )
 
 function handleCoverClick(event: MouseEvent): void {
-  isRestoredCoverFocus.value = false
+  restoredCoverFocus.value = null
   openedFullscreenFromCover = true
+  openedFullscreenUsingKeyboard = event.detail === 0
   ;(event.currentTarget as HTMLElement).focus({ preventScroll: true })
   openFullscreenPlayer()
 }
@@ -54,14 +56,16 @@ function handleCoverClick(event: MouseEvent): void {
 function handleCoverKeydown(event: KeyboardEvent): void {
   if (event.key !== 'Enter' && event.key !== ' ') return
   event.preventDefault()
+  restoredCoverFocus.value = null
   openedFullscreenFromCover = true
+  openedFullscreenUsingKeyboard = true
   openFullscreenPlayer()
 }
 
 watch(isFullscreenPlayerOpen, (isOpen) => {
   if (!isOpen && openedFullscreenFromCover) {
-    // 保留恢复后的 Tab 位置，直到焦点离开封面才解除轮廓隐藏。
-    isRestoredCoverFocus.value = true
+    // 鼠标返回时隐藏轮廓；键盘进入全屏时保留可见焦点。
+    restoredCoverFocus.value = openedFullscreenUsingKeyboard ? 'keyboard' : 'pointer'
     openedFullscreenFromCover = false
   }
 })
@@ -96,11 +100,11 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
           data-player-bar-artwork
           role="button"
           tabindex="0"
-          :data-fullscreen-focus-restored="isRestoredCoverFocus ? 'true' : undefined"
+          :data-fullscreen-focus-restored="restoredCoverFocus ?? undefined"
           :aria-label="t('player.fullscreen')"
           @click="handleCoverClick"
           @keydown="handleCoverKeydown"
-          @blur="isRestoredCoverFocus = false"
+          @blur="restoredCoverFocus = null"
         >
           <img
             v-if="getArtworkUrl(currentTrack.artworkCacheKey) && !imgError"
@@ -114,7 +118,7 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
           </div>
         </div>
         <div class="track-text">
-          <div class="track-title">{{ currentTrack.title || 'Unknown Title' }}</div>
+          <div class="track-title">{{ currentTrack.title || t('player.unknownTrack') }}</div>
           <div class="track-subtitle">
             {{ formatPlaybackSubtitle(currentTrack, '—') }}
           </div>
@@ -131,7 +135,12 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
 </template>
 
 <style scoped>
-.track-cover[data-fullscreen-focus-restored='true']:focus-visible {
+.track-cover[data-fullscreen-focus-restored='pointer']:focus-visible {
   outline: none;
+}
+
+.track-cover[data-fullscreen-focus-restored='keyboard']:focus {
+  outline: 2px solid var(--auralis-active-album-accent, var(--auralis-player-static-accent));
+  outline-offset: 2px;
 }
 </style>

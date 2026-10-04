@@ -454,8 +454,11 @@ export class SmartPlaylistService {
     return this.create(this.getAvailableManualName(playlists), { expression })
   }
 
-  createRecentAdded(days = DEFAULT_RECENT_ADDED_DAYS): CreateSmartPlaylistResult {
-    return this.create('最近添加', { preset: 'recentAdded', days })
+  createRecentAdded(
+    days = DEFAULT_RECENT_ADDED_DAYS,
+    defaultName = '最近添加',
+  ): CreateSmartPlaylistResult {
+    return this.create(defaultName, { preset: 'recentAdded', days })
   }
 
   updateRecentAddedDays(id: number, days: number): SmartPlaylist | null {

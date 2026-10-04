@@ -63,18 +63,19 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
         </button>
       </nav>
 
-      <main class="settings-content">
+      <div class="settings-content">
         <AppearanceSettings v-if="selectedSection === 'appearance'" />
         <PlaybackSettings v-else-if="selectedSection === 'playback'" />
         <MusicLibrarySettings v-else-if="selectedSection === 'library'" />
         <AboutSettings v-else />
-      </main>
+      </div>
     </div>
   </section>
 </template>
 
 <style scoped>
 .settings-page {
+  container: settings-page / inline-size;
   box-sizing: border-box;
   width: min(1120px, 100%);
   height: 100%;
@@ -151,21 +152,8 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
 }
 
 .settings-nav button.is-active {
-  color: var(--auralis-text);
-  background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 8%, transparent);
-}
-
-/* Restrained short vertical accent indicator */
-.settings-nav button.is-active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 2.5px;
-  height: 16px;
-  border-radius: 0 2px 2px 0;
-  background: var(--auralis-sidebar-active-indicator);
+  color: var(--auralis-control-primary-text);
+  background: var(--auralis-theme-accent);
 }
 
 .settings-nav-icon {
@@ -180,10 +168,6 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
 .settings-nav button:hover .settings-nav-icon,
 .settings-nav button.is-active .settings-nav-icon {
   opacity: 1;
-}
-
-.settings-nav button.is-active .settings-nav-icon {
-  color: var(--auralis-sidebar-active-indicator);
 }
 
 .settings-nav-label {
@@ -206,7 +190,9 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
   .settings-page {
     padding: 28px 24px var(--auralis-playbar-safe-area);
   }
+}
 
+@container settings-page (max-width: 760px) {
   .settings-layout {
     grid-template-columns: 1fr;
     gap: 26px;
@@ -225,16 +211,6 @@ const selectedSection = ref<SettingsSection>(DEFAULT_SETTINGS_SECTION)
     width: auto;
     justify-content: center;
     padding: 8px 14px;
-  }
-
-  .settings-nav button.is-active::before {
-    left: 50%;
-    top: auto;
-    bottom: 0;
-    width: 20px;
-    height: 2.5px;
-    transform: translateX(-50%);
-    border-radius: 2px 2px 0 0;
   }
 }
 

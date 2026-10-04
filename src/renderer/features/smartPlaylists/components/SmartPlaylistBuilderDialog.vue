@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useDefaultPlaylistName } from '../utils/useDefaultPlaylistName'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -17,12 +19,20 @@ import {
 const props = defineProps<{ open: boolean; trigger: HTMLElement | null }>()
 const emit = defineEmits<{ close: []; created: [playlist: SmartPlaylist] }>()
 const fields: BuilderField[] = ['genre', 'artist']
-const labels = { genre: '流派', artist: '艺术家' }
+const { t } = useI18n()
+const labels = computed(() => ({
+  genre: t('smartBuilder.genre'),
+  artist: t('smartBuilder.artist'),
+}))
 const icons = { genre: 'i-lucide-list-filter', artist: 'i-lucide-user-round' }
 const state = ref(newBuilderState())
 const mode = ref<'single' | 'and' | 'or'>('single')
 const lastSelectedField = ref<BuilderField>('genre')
-const name = ref('我的智能歌单')
+const {
+  name,
+  nameEdited,
+  reset: resetName,
+} = useDefaultPlaylistName(() => t('smartBuilder.defaultName'))
 const queries = ref({ genre: '', artist: '' })
 const limits = ref({ genre: 100, artist: 100 })
 const tracks = shallowRef<TrackListItem[]>([])
@@ -90,11 +100,11 @@ function label(field: BuilderField, value: string): string {
 }
 const notice = computed(() => {
   if (!result.value.complete)
-    return mode.value === 'single' ? '请选择流派或艺术家' : '请选择每个条件组的具体值'
+    return t(mode.value === 'single' ? 'smartBuilder.chooseSingle' : 'smartBuilder.chooseGroups')
   if (result.value.ids.size) return ''
   return result.value.groups.some((group) => group.ids.size === 0)
-    ? '条件组内无匹配，无法创建'
-    : '各条件组之间没有交集，无法创建'
+    ? t('smartBuilder.groupEmpty')
+    : t('smartBuilder.noIntersection')
 })
 function groupCount(field: BuilderField): number {
   return result.value.groups.find((group) => group.field === field)?.ids.size ?? 0
@@ -133,7 +143,7 @@ async function load(): Promise<void> {
         if (token === generation && props.open && !disposed) tracks.value = [...snapshot.tracks]
       } catch (cause) {
         if (disposed || !props.open || token !== generation) continue
-        loadError.value = '曲库加载失败，请重试'
+        loadError.value = 'smartBuilder.loadError'
         rendererDiagnostics.warn({
           scope: 'sidebar.smart-playlist-builder',
           message: 'Failed to load builder catalog',
@@ -159,7 +169,7 @@ watch(
     state.value = newBuilderState()
     mode.value = 'single'
     lastSelectedField.value = 'genre'
-    name.value = '我的智能歌单'
+    resetName()
     queries.value = { genre: '', artist: '' }
     limits.value = { genre: 100, artist: 100 }
     saveError.value = ''
@@ -198,7 +208,7 @@ async function create(): Promise<void> {
     if (disposed || !props.open || loadError.value) return
     const current = evaluateBuilder(ruleState.value, indexBuilderTracks(tracks.value))
     if (!current.complete || !current.ids.size) {
-      saveError.value = '当前条件没有匹配歌曲，请调整后重试'
+      saveError.value = 'smartBuilder.noMatches'
       return
     }
     const created = await auralis.smartPlaylists.create(
@@ -210,7 +220,7 @@ async function create(): Promise<void> {
     emit('created', created.playlist)
     emit('close')
   } catch (cause) {
-    saveError.value = '创建失败，请重试'
+    saveError.value = 'smartBuilder.createError'
     rendererDiagnostics.warn({
       scope: 'sidebar.smart-playlist-builder',
       message: 'Failed to create smart playlist',
@@ -249,32 +259,35 @@ onBeforeUnmount(() => {
       >
         <header>
           <div class="title-lockup">
-            <h1 id="playlist-builder-title">新建智能歌单</h1>
+            <h1 id="playlist-builder-title">{{ t('smartBuilder.title') }}</h1>
           </div>
-          <button class="close" aria-label="关闭" :disabled="saving" @click="close">
+          <button class="close" :aria-label="t('facets.close')" :disabled="saving" @click="close">
             <span class="i-lucide-x" />
           </button>
         </header>
         <div class="stage">
-          <p v-if="loading" class="notice neutral" role="status">正在读取曲库…</p>
+          <p v-if="loading" class="notice neutral" role="status">{{ t('smartBuilder.loading') }}</p>
           <p v-if="loadError" class="notice" role="alert">
-            {{ loadError }} <button :disabled="loading || saving" @click="load">重试</button>
+            {{ t(loadError) }}
+            <button :disabled="loading || saving" @click="load">
+              {{ t('albums.status.retry') }}
+            </button>
           </p>
           <fieldset :disabled="saving || loading || !!loadError" class="controls">
             <div class="relation outer">
-              <span class="label">组间关系</span>
-              <div class="switch" role="group" aria-label="不同维度之间的关系">
+              <span class="label">{{ t('smartBuilder.betweenGroups') }}</span>
+              <div class="switch" role="group" :aria-label="t('smartBuilder.betweenGroupsAria')">
                 <button
                   type="button"
                   :aria-pressed="mode === 'single'"
                   @click="selectMode('single')"
                 >
-                  单选
+                  {{ t('smartBuilder.single') }}
                 </button>
                 <button type="button" :aria-pressed="mode === 'and'" @click="selectMode('and')">
-                  和 · 同时满足</button
+                  {{ t('smartBuilder.andAll') }}</button
                 ><button type="button" :aria-pressed="mode === 'or'" @click="selectMode('or')">
-                  或 · 满足任一
+                  {{ t('smartBuilder.orAny') }}
                 </button>
               </div>
             </div>
@@ -293,54 +306,60 @@ onBeforeUnmount(() => {
                     class="badge"
                     :class="{ empty: state.groups[field].values.length && !groupCount(field) }"
                     >{{
-                      state.groups[field].values.length ? `${groupCount(field)} 首匹配` : '未选择'
+                      state.groups[field].values.length
+                        ? t('smartBuilder.matchCount', { count: groupCount(field) })
+                        : t('smartBuilder.unselected')
                     }}</span
                   >
                 </div>
                 <div class="relation">
-                  <span class="label">组内关系</span>
-                  <div class="switch" role="group" :aria-label="`${labels[field]}组内关系`">
+                  <span class="label">{{ t('smartBuilder.withinGroup') }}</span>
+                  <div
+                    class="switch"
+                    role="group"
+                    :aria-label="t('smartBuilder.withinGroupAria', { field: labels[field] })"
+                  >
                     <button
                       :aria-pressed="state.groups[field].relation === 'and'"
                       @click="state.groups[field].relation = 'and'"
                     >
-                      和</button
+                      {{ t('smartBuilder.and') }}</button
                     ><button
                       :aria-pressed="state.groups[field].relation === 'or'"
                       @click="state.groups[field].relation = 'or'"
                     >
-                      或
+                      {{ t('smartBuilder.or') }}
                     </button>
                   </div>
                 </div>
                 <div
                   v-if="state.groups[field].values.length"
                   class="selected-values"
-                  :aria-label="`已选${labels[field]}`"
+                  :aria-label="t('smartBuilder.selected', { field: labels[field] })"
                 >
                   <button
                     v-for="value in state.groups[field].values"
                     :key="value"
                     class="chip"
-                    :aria-label="`移除 ${label(field, value)}`"
+                    :aria-label="t('smartBuilder.remove', { value: label(field, value) })"
                     @click="remove(field, value)"
                   >
                     <span>{{ label(field, value) }}</span
                     ><span class="i-lucide-x" /></button
                   ><button class="clear-group" @click="state.groups[field].values = []">
-                    清空
+                    {{ t('smartBuilder.clear') }}
                   </button>
                 </div>
                 <div class="search-wrap">
                   <span class="i-lucide-search" /><input
                     v-model="queries[field]"
                     class="search"
-                    :placeholder="`检索${labels[field]}`"
-                    :aria-label="`检索${labels[field]}`"
+                    :placeholder="t('smartBuilder.search', { field: labels[field] })"
+                    :aria-label="t('smartBuilder.search', { field: labels[field] })"
                   /><button
                     v-if="queries[field]"
                     class="clear-search"
-                    :aria-label="`清除${labels[field]}检索`"
+                    :aria-label="t('smartBuilder.clearSearch', { field: labels[field] })"
                     @click="queries[field] = ''"
                   >
                     <span class="i-lucide-x" />
@@ -363,10 +382,12 @@ onBeforeUnmount(() => {
                     class="more"
                     @click="limits[field] += 100"
                   >
-                    显示更多（{{ filtered[field].length - limits[field] }}）
+                    {{ t('smartBuilder.more', { count: filtered[field].length - limits[field] }) }}
                   </button>
                 </div>
-                <p v-if="!filtered[field].length" class="notice neutral">没有找到相应的值</p>
+                <p v-if="!filtered[field].length" class="notice neutral">
+                  {{ t('smartBuilder.noValues') }}
+                </p>
               </fieldset>
             </div>
           </fieldset>
@@ -375,24 +396,23 @@ onBeforeUnmount(() => {
           <input
             v-model="name"
             class="name"
-            aria-label="歌单名称"
-            placeholder="歌单名称"
+            :aria-label="t('sidebar.playlistName')"
+            :placeholder="t('sidebar.playlistName')"
             maxlength="80"
             :disabled="saving"
+            @input="nameEdited = true"
           />
           <div class="match-summary" role="status" aria-live="polite">
-            <span
-              >匹配歌曲 <strong>{{ result.ids.size }}</strong> 首</span
-            >
+            <span>{{ t('smartBuilder.resultCount', { count: result.ids.size }) }}</span>
             <span v-if="notice" class="match-notice" :class="{ neutral: !result.complete }">
               {{ notice }}
             </span>
           </div>
           <button class="primary" :disabled="!canCreate" @click="create">
-            {{ saving ? '正在创建…' : '创建歌单' }}
+            {{ t(saving ? 'smartBuilder.creating' : 'smartBuilder.create') }}
           </button>
         </div>
-        <p v-if="saveError" class="status" role="alert">{{ saveError }}</p>
+        <p v-if="saveError" class="status" role="alert">{{ t(saveError) }}</p>
       </section>
     </div>
   </Teleport>

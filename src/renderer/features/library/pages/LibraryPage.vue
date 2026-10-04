@@ -8,6 +8,7 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { useSongFontWeights } from '@renderer/features/appearance/composables/useSongFontWeights'
+import { useSongFontSizes } from '@renderer/features/appearance/composables/useSongFontSizes'
 import SongRow from '../components/SongRow.vue'
 import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
@@ -51,9 +52,10 @@ const router = useRouter()
 const librarySurfaceKind = computed(() => resolveLibrarySurfaceKind(route.name))
 const isLibrarySurface = computed(() => librarySurfaceKind.value !== null)
 const { songFontWeightStyle } = useSongFontWeights()
+const { songFontSizeStyle } = useSongFontSizes()
 const libraryPageStyle = computed(() =>
   librarySurfaceKind.value === 'library'
-    ? { ...LIBRARY_LAYOUT_CSS_VARS, ...songFontWeightStyle.value }
+    ? { ...LIBRARY_LAYOUT_CSS_VARS, ...songFontWeightStyle.value, ...songFontSizeStyle.value }
     : LIBRARY_LAYOUT_CSS_VARS,
 )
 
@@ -411,6 +413,8 @@ async function moveKeyboardFocus(direction: LibraryKeyboardMoveDirection): Promi
 }
 
 function onListShellKeyDown(event: KeyboardEvent): void {
+  // 曲目行已经处理的 Enter/Space 不再冒泡触发第二次播放或选择。
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
   if (isInteractiveTarget(event.target)) return
   if (contextMenu.value !== null || editingMetadata.value !== null) return
 

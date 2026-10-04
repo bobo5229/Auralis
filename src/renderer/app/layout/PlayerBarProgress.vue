@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { resolveProgressSeekStepSeconds } from '@renderer/features/playback/utils/progressSeekStep'
 import { subscribeVisualFrame } from '@renderer/features/playback/utils/visualFrameScheduler'
 
@@ -14,6 +15,7 @@ const props = withDefaults(
 )
 
 const playback = usePlayback()
+const { displayMode } = usePlayerDisplayMode()
 const { t } = useI18n()
 const isDraggingProgress = ref(false)
 const draggingProgressRatio = ref<number | null>(null)
@@ -22,6 +24,8 @@ const progressRootRef = ref<HTMLElement | null>(null)
 let progressFrameUnsubscribe: (() => void) | null = null
 let progressAnchorTime = 0
 let progressAnchorAt = 0
+let activePointerId: number | null = null
+let draggingTrackId: number | null = null
 
 const hasSeekableTrack = computed(
   () => Boolean(playback.state.currentTrack) && playback.state.duration > 0 && props.interactive,
@@ -42,6 +46,7 @@ const progressRatio = computed(() => {
 const progressValueNow = computed(() => Math.round(progressRatio.value * 100))
 
 function renderVisualProgress(now: number): void {
+  if (displayMode.value !== 'normal') return
   const fill = progressFillRef.value
   if (!fill) return
 
@@ -69,7 +74,7 @@ function syncProgressAnchor(): void {
 function syncProgressFrameSubscription(): void {
   // Empty / no-track: never subscribe to the visual frame loop (no fake scrub animation).
   const shouldAnimate = Boolean(
-    playback.state.currentTrack && playback.state.isPlaying && playback.state.duration > 0,
+    displayMode.value === 'normal' && hasSeekableTrack.value && playback.state.isPlaying,
   )
   if (shouldAnimate) {
     if (!progressFrameUnsubscribe) {
@@ -82,23 +87,36 @@ function syncProgressFrameSubscription(): void {
   syncProgressAnchor()
 }
 
+watch(() => playback.state.currentTrackId, cancelDraggingProgress, { flush: 'sync' })
+
 watch(
-  () => playback.state.currentTrackId,
+  () => [hasSeekableTrack.value, displayMode.value],
   () => {
-    nextTick(() => syncProgressFrameSubscription())
+    if (!hasSeekableTrack.value || displayMode.value !== 'normal') cancelDraggingProgress()
   },
+  { flush: 'sync' },
 )
 
 watch(
-  () => [playback.state.currentTime, playback.state.duration, playback.state.isPlaying],
+  () => [
+    playback.state.currentTrackId,
+    playback.state.currentTime,
+    playback.state.duration,
+    playback.state.isPlaying,
+    hasSeekableTrack.value,
+    displayMode.value,
+  ],
   () => syncProgressFrameSubscription(),
 )
 
 onMounted(() => {
   syncProgressFrameSubscription()
+  window.addEventListener('blur', cancelDraggingProgress)
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('blur', cancelDraggingProgress)
+  cancelDraggingProgress()
   progressFrameUnsubscribe?.()
   progressFrameUnsubscribe = null
 })
@@ -119,51 +137,55 @@ function updateDraggingProgressFromPointer(event: PointerEvent): void {
 }
 
 function commitDraggingProgress(): void {
-  if (draggingProgressRatio.value === null) return
+  if (
+    draggingProgressRatio.value === null ||
+    draggingTrackId !== playback.state.currentTrackId ||
+    !hasSeekableTrack.value
+  )
+    return
   playback.seekByRatio(draggingProgressRatio.value)
 }
 
 function handleProgressPointerDown(event: PointerEvent): void {
-  if (!hasSeekableTrack.value) return
+  if (!hasSeekableTrack.value || displayMode.value !== 'normal' || event.button !== 0) return
+  if (activePointerId !== null) return
 
   const target = event.currentTarget as HTMLElement
   isDraggingProgress.value = true
+  activePointerId = event.pointerId
+  draggingTrackId = playback.state.currentTrackId
   target.setPointerCapture(event.pointerId)
   event.preventDefault()
   updateDraggingProgressFromPointer(event)
 }
 
 function handleProgressPointerMove(event: PointerEvent): void {
-  if (!isDraggingProgress.value) return
+  if (!isDraggingProgress.value || activePointerId !== event.pointerId) return
   updateDraggingProgressFromPointer(event)
 }
 
 function handleProgressPointerUp(event: PointerEvent): void {
-  if (!isDraggingProgress.value) return
+  if (!isDraggingProgress.value || activePointerId !== event.pointerId) return
 
   updateDraggingProgressFromPointer(event)
   commitDraggingProgress()
-  const target = event.currentTarget as HTMLElement
+  cancelDraggingProgress()
+}
 
-  if (target.hasPointerCapture(event.pointerId)) {
-    target.releasePointerCapture(event.pointerId)
-  }
-
+function cancelDraggingProgress(): void {
+  const pointerId = activePointerId
+  activePointerId = null
+  draggingTrackId = null
   isDraggingProgress.value = false
   draggingProgressRatio.value = null
+  if (pointerId !== null && progressRootRef.value?.hasPointerCapture(pointerId)) {
+    progressRootRef.value.releasePointerCapture(pointerId)
+  }
   syncProgressAnchor()
 }
 
 function handleProgressPointerCancel(event: PointerEvent): void {
-  const target = event.currentTarget as HTMLElement
-
-  if (target.hasPointerCapture(event.pointerId)) {
-    target.releasePointerCapture(event.pointerId)
-  }
-
-  isDraggingProgress.value = false
-  draggingProgressRatio.value = null
-  syncProgressAnchor()
+  if (activePointerId === event.pointerId) cancelDraggingProgress()
 }
 
 function handleProgressKeydown(event: KeyboardEvent): void {
@@ -200,6 +222,7 @@ function handleProgressKeydown(event: KeyboardEvent): void {
     @pointermove="handleProgressPointerMove"
     @pointerup="handleProgressPointerUp"
     @pointercancel="handleProgressPointerCancel"
+    @lostpointercapture="handleProgressPointerCancel"
     @keydown="handleProgressKeydown"
   >
     <div ref="progressFillRef" class="track-progress-fill"></div>

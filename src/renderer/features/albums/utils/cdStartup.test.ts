@@ -7,7 +7,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-it('samples real elapsed time across long frames and finishes at 4500ms', () => {
+it('samples real elapsed time across long frames and finishes at 2800ms', () => {
   vi.spyOn(performance, 'now').mockReturnValue(0)
   const pending = new Map<number, FrameRequestCallback>()
   let id = 0
@@ -33,10 +33,12 @@ it('samples real elapsed time across long frames and finishes at 4500ms', () => 
   }
   frame(16)
   // Jump across stalled frames to the midpoint of the slide (position -4.5).
-  frame(2975)
+  frame(1825)
   expect(prepare).toHaveBeenLastCalledWith({ visible: cdSlots(-4.5, 30) })
   expect(complete).not.toHaveBeenCalled()
-  frame(4500)
+  frame(2799)
+  expect(complete).not.toHaveBeenCalled()
+  frame(2800)
   const pose = cdPose(0, 1200, 700)
   expect(pool.get(0)!.slot.style.transform).toBe(
     `translate3d(${pose.cx - pose.size / 2}px, ${pose.cy - pose.size / 2}px, 0) scale(${pose.size / 400})`,

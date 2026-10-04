@@ -24,6 +24,7 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.metadata.refreshProgress,
   ipcChannels.metadata.trackEditStateChanged,
   ipcChannels.window.maximizedChanged,
+  ipcChannels.window.visibilityChanged,
 ])
 
 const expectedChannels = flattenChannels(ipcChannels)
@@ -35,6 +36,21 @@ function parse(channel: DomainIpcInvokeChannel, payload?: unknown): unknown {
 }
 
 describe('domain IPC payload validation coverage', () => {
+  it('accepts only supported UI locale values without expanding the payload shape', () => {
+    expect(parse('app:set-locale', { locale: 'zh-Hans' })).toEqual({ locale: 'zh-Hans' })
+    expect(parse('app:set-locale', { locale: 'en' })).toEqual({ locale: 'en' })
+    for (const payload of [
+      undefined,
+      {},
+      { locale: 'zh-Hant' },
+      { locale: 'EN' },
+      { locale: null },
+      { locale: ['en'] },
+      { locale: 'en', path: 'unexpected' },
+    ]) {
+      expect(() => parse('app:set-locale', payload)).toThrow(IpcPayloadValidationError)
+    }
+  })
   it.each(Object.keys(domainIpcPayloadPolicies) as DomainIpcInvokeChannel[])(
     'accepts a representative payload without cloning or coercing it for %s',
     (channel) => {
@@ -97,8 +113,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(63)
-    expect(kinds).toEqual({ void: 18, optional: 5, required: 40 })
+    expect(actualChannels).toHaveLength(66)
+    expect(kinds).toEqual({ void: 20, optional: 5, required: 41 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {

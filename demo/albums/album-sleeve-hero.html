@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 唱片封套 Hero</title>
+    <link rel="stylesheet" href="../../src/renderer/app/styles/main.css" />
+    <link rel="stylesheet" href="album-sleeve-hero.css" />
+    <link rel="stylesheet" href="album-sleeve-controls.css" />
+    <script src="album-sleeve-hero.js" defer></script>
+  </head>
+  <body>
+    <button class="theme-toggle" type="button" aria-label="切换到浅色主题" title="切换主题">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" />
+      </svg>
+    </button>
+
+    <main>
+      <section class="scroll-scene" aria-labelledby="album-title">
+        <div class="hero">
+          <header class="hero-heading">
+            <h1 id="album-title">Feel My Rhythm</h1>
+          </header>
+
+          <div class="hero-composition">
+            <div
+              class="package"
+              role="img"
+              aria-label="撕开封套，唱片从 Red Velvet 专辑封面背后向上露出"
+            >
+              <div class="record" aria-hidden="true">
+                <div class="record-label">
+                  <img src="assets/album-sleeve-cover.webp" alt="" />
+                  <span class="record-hole"></span>
+                </div>
+              </div>
+              <div class="sleeve" aria-hidden="true">
+                <img class="sleeve-art" src="assets/album-sleeve-cover.webp" alt="" />
+                <div class="sealed-edge"></div>
+                <svg class="torn-edge" viewBox="0 0 360 14" preserveAspectRatio="none">
+                  <path
+                    id="tear-profile"
+                    d="M0 0H360V7L352 8 346 5 337 9 329 7 316 10 306 6 298 8 288 4 278 8 268 6 259 11 250 8 239 10 231 5 220 8 211 6 201 9 192 5 183 8 175 7 166 11 155 6 146 8 136 5 127 9 119 6 110 10 102 7 91 9 82 5 74 8 62 6 54 10 44 7 36 9 28 5 19 8 10 6 0 9Z"
+                  />
+                </svg>
+              </div>
+              <svg
+                class="opening-strip"
+                viewBox="0 0 360 14"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <use href="#tear-profile" />
+              </svg>
+            </div>
+
+            <div class="album-information">
+              <div class="metadata">
+                <p class="artist">Red Velvet</p>
+                <p class="release-date">2022</p>
+              </div>
+              <div class="album-hero-actions">
+                <button class="album-hero-play-btn" type="button" title="播放按钮样式预览">
+                  <span class="album-hero-engraved-icon" aria-hidden="true">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="m8 5 12 7-12 7V5Z" />
+                    </svg>
+                  </span>
+                  <span class="album-hero-engraved-label">播放</span>
+                </button>
+                <button
+                  class="album-hero-shuffle-btn"
+                  type="button"
+                  aria-label="随机播放"
+                  title="随机播放按钮样式预览"
+                >
+                  <span class="album-hero-engraved-icon" aria-hidden="true">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path
+                        d="m18 14 4 4-4 4M18 2l4 4-4 4M2 18h2.5a6 6 0 0 0 5-3l5-8a6 6 0 0 1 5-3H22M2 6h2.5a6 6 0 0 1 5 3l5 8a6 6 0 0 0 5 3H22"
+                      />
+                    </svg>
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <p class="scroll-hint">
+            <svg
+              class="scroll-arrow"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M12 4v16m-6-6 6 6 6-6" /></svg
+            ><span class="scroll-stage-label">向下滚动，撕开封口</span>
+          </p>
+        </div>
+      </section>
+      <section class="track-section" aria-labelledby="tracks-title">
+        <h2 id="tracks-title">曲目列表</h2>
+        <ol class="demo-tracks" aria-label="示意曲目">
+          <li><span>01</span><span>示意曲目 01</span></li>
+          <li><span>02</span><span>示意曲目 02</span></li>
+          <li><span>03</span><span>示意曲目 03</span></li>
+          <li><span>04</span><span>示意曲目 04</span></li>
+          <li><span>05</span><span>示意曲目 05</span></li>
+        </ol>
+      </section>
+    </main>
+  </body>
+</html>

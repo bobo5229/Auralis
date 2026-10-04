@@ -541,35 +541,3 @@ export function animateFrames(update: (seconds: number) => boolean): () => void 
     cancelAnimationFrame(frame)
   }
 }
-
-export const LYRICS_PANEL_ANIMATION_DURATION_MS = 200
-
-/**
- * Coordinated expansion / collapse animation for the shell lyrics column and playbar right offset.
- * Uses a gentle cubic deceleration curve and resolves immediately when reduced motion is preferred.
- */
-export function animateLyricsPanelExpansion(
-  from: number,
-  to: number,
-  reducedMotion: boolean,
-  onProgress: (progress: number) => void,
-  onComplete: () => void,
-): () => void {
-  if (reducedMotion || from === to) {
-    onProgress(to)
-    onComplete()
-    return () => {}
-  }
-
-  return animateProgress(
-    LYRICS_PANEL_ANIMATION_DURATION_MS,
-    (progress) => {
-      const eased = 1 - Math.pow(1 - progress, 3)
-      onProgress(from + (to - from) * eased)
-    },
-    () => {
-      onProgress(to)
-      onComplete()
-    },
-  )
-}

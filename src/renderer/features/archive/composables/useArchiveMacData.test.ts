@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick } from 'vue'
+import { i18n } from '@renderer/i18n'
+import { auralis } from '@renderer/shared/ipc/client'
 import { useArchiveMacData } from './useArchiveMacData'
 import type { DailyAlbumStats } from '@shared/types/archive'
 
@@ -35,6 +37,9 @@ vi.mock('@renderer/shared/ipc/client', () => ({
 
 describe('useArchiveMacData', () => {
   const fakeNow = () => new Date(2026, 9, 1, 12, 0, 0) // 2026-10-01
+  afterEach(() => {
+    i18n.global.locale.value = 'zh-Hans'
+  })
 
   it('initializes with today and loads initial stats', async () => {
     const mockStats = vi.fn().mockResolvedValue({
@@ -70,6 +75,22 @@ describe('useArchiveMacData', () => {
     expect(data.selectedAlbumKey.value).toBe('item-1')
     expect(data.dayLoading.value).toBe(false)
     expect(data.dayError.value).toBeNull()
+
+    const items = data.items.value
+    const heatmapRequests = vi.mocked(auralis.archive.getListeningHeatmap).mock.calls.length
+    const dailyRequests = mockStats.mock.calls.length
+    i18n.global.locale.value = 'en'
+    await nextTick()
+    expect(data.calendarDays.value[0].label).toBe('Jan 1')
+    expect(data.selectedDate.value).toBe('2026-10-01')
+    expect(data.selectedAlbumKey.value).toBe('item-1')
+    expect(data.items.value).toBe(items)
+    expect(data.items.value[0].title).toBe('Album 1')
+    expect(mockStats).toHaveBeenCalledTimes(dailyRequests)
+    expect(auralis.archive.getListeningHeatmap).toHaveBeenCalledTimes(heatmapRequests)
+    i18n.global.locale.value = 'zh-Hans'
+    await nextTick()
+    expect(data.calendarDays.value[0].label).toContain('1月')
 
     scope.stop()
   })
@@ -133,6 +154,12 @@ describe('useArchiveMacData', () => {
     await new Promise((r) => setTimeout(r, 10))
 
     expect(data.dayError.value).toBe('无法读取当天专辑')
+    const failedRequests = mockStats.mock.calls.length
+    i18n.global.locale.value = 'en'
+    await nextTick()
+    expect(data.dayError.value).toBe('Could not load albums for this day')
+    expect(mockStats).toHaveBeenCalledTimes(failedRequests)
+    i18n.global.locale.value = 'zh-Hans'
     expect(data.items.value).toEqual([])
 
     // Retry

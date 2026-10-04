@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { computed, ref, type Ref } from 'vue'
 import type {
   LibraryTrackPageResponse,
   LibraryTrackPageRequest,
@@ -68,7 +68,10 @@ export function useLibraryCatalogLoader(options: {
 }) {
   const coordinator = new LibraryRequestCoordinator()
   const catalogClient = options.catalogClient ?? new SharedLibraryCatalogLoad(options.getTrackPage)
-  const initialLoadError = ref<string | null>(null)
+  const hasInitialLoadError = ref(false)
+  const initialLoadError = computed(() =>
+    hasInitialLoadError.value ? options.loadErrorMessage() : null,
+  )
   let committedScope: LibraryRouteScope | null = null
   let unsubscribeChanged: (() => void) | null = null
   let unsubscribeScanProgress: (() => void) | null = null
@@ -171,7 +174,7 @@ export function useLibraryCatalogLoader(options: {
 
     if (isForeground && isRequestCurrent()) {
       options.isLoading.value = !hasPreviousSnapshot
-      initialLoadError.value = null
+      hasInitialLoadError.value = false
       if (!hasPreviousSnapshot) options.pageIdentity.value = null
     }
 
@@ -186,7 +189,7 @@ export function useLibraryCatalogLoader(options: {
 
       commitLibrarySnapshot(snapshot)
       committedScope = scope
-      initialLoadError.value = null
+      hasInitialLoadError.value = false
 
       if (viewportCapture) {
         await options.restoreViewportRestore(viewportCapture, isRequestCurrent)
@@ -197,7 +200,7 @@ export function useLibraryCatalogLoader(options: {
       return isRequestCurrent() ? 'committed' : 'stale'
     } catch (error) {
       if (!isRequestCurrent()) return 'stale'
-      initialLoadError.value = options.loadErrorMessage()
+      hasInitialLoadError.value = true
 
       if (isForeground) {
         rendererDiagnostics.error({
@@ -205,7 +208,7 @@ export function useLibraryCatalogLoader(options: {
           message: 'Initial library load failed',
           cause: error,
         })
-        initialLoadError.value = options.loadErrorMessage()
+        hasInitialLoadError.value = true
       } else {
         rendererDiagnostics.error({
           scope: 'library.catalog',

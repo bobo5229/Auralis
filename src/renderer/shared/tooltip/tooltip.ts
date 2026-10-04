@@ -1,4 +1,4 @@
-import type { DirectiveBinding, ObjectDirective, Plugin } from 'vue'
+import { nextTick, type DirectiveBinding, type ObjectDirective, type Plugin } from 'vue'
 import { animateTooltipOpacity } from '@renderer/shared/animation/motion'
 import { isTooltipTextClipped } from './tooltipGeometry'
 import { startFloatingPosition } from '../floating/floatingPosition'
@@ -11,6 +11,7 @@ interface Entry {
   overflow: boolean
   right: boolean
   delay: number
+  feedback: boolean
 }
 
 let nextTooltipId = 0
@@ -28,6 +29,8 @@ export function createTooltipController() {
   let cancelAnimation = (): void => {}
   let observer: MutationObserver | null = null
   let positioning: ReturnType<typeof startFloatingPosition> | undefined
+  let feedbackShowing = false
+  let disposed = false
 
   function clearTimers(): void {
     clearTimeout(showTimer)
@@ -42,6 +45,7 @@ export function createTooltipController() {
     positioning = undefined
     observer?.disconnect()
     active = null
+    feedbackShowing = false
     if (describedElement) {
       const tokens = (describedElement.getAttribute('aria-describedby') ?? '')
         .split(/\s+/)
@@ -113,20 +117,29 @@ export function createTooltipController() {
     })
   }
 
-  function request(entry: Entry): void {
+  function request(entry: Entry, feedback = false): void {
+    if (!feedback && active === entry && (showTimer !== undefined || describedElement)) {
+      if (!feedbackShowing) clearTimeout(hideTimer)
+      return
+    }
     clearTimeout(hideTimer)
-    if (active === entry && (showTimer !== undefined || describedElement)) return
     dismiss(true)
     if (!eligible(entry)) return
     active = entry
+    feedbackShowing = feedback
     observer ??= new MutationObserver(() => {
       if (active && !active.element.isConnected) dismiss(true)
     })
     observer.observe(document.body, { childList: true, subtree: true })
-    showTimer = setTimeout(() => {
-      showTimer = undefined
+    if (feedback) {
       show(entry)
-    }, entry.delay)
+      hideTimer = setTimeout(() => dismiss(), 1800)
+    } else {
+      showTimer = setTimeout(() => {
+        showTimer = undefined
+        show(entry)
+      }, entry.delay)
+    }
   }
 
   function entryAt(target: EventTarget | null): Entry | undefined {
@@ -170,6 +183,17 @@ export function createTooltipController() {
     if (active && entryAt(event.relatedTarget) !== active) dismiss()
   }
 
+  // Opt-in controls announce the updated state after their Vue handlers have run.
+  async function onAction(event: MouseEvent): Promise<void> {
+    const entry = entryAt(event.target)
+    if (!entry?.feedback) return
+    if (event.type === 'contextmenu') event.preventDefault()
+    await nextTick()
+    if (disposed) return
+    const updated = entries.get(entry.element)
+    if (updated?.feedback) request(updated, true)
+  }
+
   function onKeyDown(event: KeyboardEvent): void {
     if (event.key !== 'Escape' || !active) return
     dismiss(true)
@@ -187,6 +211,8 @@ export function createTooltipController() {
   document.addEventListener('keydown', onKeyDown, true)
   document.addEventListener('pointerdown', dismissImmediately, true)
   document.addEventListener('click', dismissImmediately, true)
+  document.addEventListener('click', onAction)
+  document.addEventListener('contextmenu', onAction)
   document.addEventListener('scroll', onScroll, true)
   window.addEventListener('resize', dismissImmediately)
   window.addEventListener('blur', dismissImmediately)
@@ -198,18 +224,28 @@ export function createTooltipController() {
       overflow: Boolean(binding.modifiers.overflow),
       right: Boolean(binding.modifiers.right),
       delay: binding.modifiers.data ? 150 : binding.modifiers.overflow ? 500 : 600,
+      feedback: Boolean(binding.modifiers.feedback),
     }
     const previous = entries.get(element)
     if (
       previous?.text === entry.text &&
       previous.overflow === entry.overflow &&
       previous.right === entry.right &&
-      previous.delay === entry.delay
+      previous.delay === entry.delay &&
+      previous.feedback === entry.feedback
     )
       return
-    if (active?.element === element) dismiss(true)
     entries.set(element, entry)
     element.setAttribute('data-auralis-tooltip', '')
+    if (active?.element === element) {
+      if (feedbackShowing && eligible(entry)) {
+        // Async updates (such as theme view transitions) refresh the visible result.
+        active = entry
+        if (overlay) overlay.textContent = entry.text
+        clearTimeout(hideTimer)
+        hideTimer = setTimeout(() => dismiss(), 1800)
+      } else dismiss(true)
+    }
   }
 
   const directive: ObjectDirective<HTMLElement, TooltipText> = {
@@ -225,6 +261,7 @@ export function createTooltipController() {
   return {
     directive,
     dispose(): void {
+      disposed = true
       dismiss(true)
       overlay?.remove()
       overlay = null
@@ -235,6 +272,8 @@ export function createTooltipController() {
       document.removeEventListener('keydown', onKeyDown, true)
       document.removeEventListener('pointerdown', dismissImmediately, true)
       document.removeEventListener('click', dismissImmediately, true)
+      document.removeEventListener('click', onAction)
+      document.removeEventListener('contextmenu', onAction)
       document.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('resize', dismissImmediately)
       window.removeEventListener('blur', dismissImmediately)

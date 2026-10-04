@@ -60,6 +60,37 @@ const tracks = [createTrack(1, 'Alpha'), createTrack(2, 'Beta'), createTrack(3, 
 
 describe('useLibrarySearchSession', () => {
   it.each([
+    { isComposing: true },
+    { keyCode: 229 },
+    { ctrlKey: true },
+    { metaKey: true },
+    { altKey: true },
+    { defaultPrevented: true },
+  ])('does not take focus for an IME, modified or handled slash: %j', async (flags) => {
+    const { session } = createSession()
+    const focus = vi.fn()
+    session.searchInputRef.value = { focus } as unknown as HTMLElement
+    const event = { key: '/', preventDefault: vi.fn(), ...flags } as unknown as KeyboardEvent
+    session.onWindowKeyDown(event)
+    await nextTick()
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(focus).not.toHaveBeenCalled()
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+  })
+
+  it('still opens and focuses search with an unmodified slash', async () => {
+    const { session } = createSession()
+    const focus = vi.fn()
+    session.searchInputRef.value = { focus } as unknown as HTMLElement
+    const event = createKeydown('/')
+    session.onWindowKeyDown(event)
+    await nextTick()
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(focus).toHaveBeenCalledOnce()
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+  })
+
+  it.each([
     ['Enter', true, 13],
     ['Escape', true, 27],
     ['Enter', false, 229],

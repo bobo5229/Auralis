@@ -40,10 +40,23 @@ export function useLibraryContextMenu(options: {
   // 菜单选中态只在菜单打开期间生效，不写入播放器的持久选择。
   const highlightedTrackId = computed(() => contextMenu.value?.trackId ?? options.selectedTrackId())
   const regularPlaylistItems = ref<SidebarPlaylistItem[]>([])
-  const addToPlaylistFeedback = ref<{ playlistId: number; message: string } | null>(null)
+  const feedbackSource = ref<{ playlistId: number; name: string } | null>(null)
+  const addToPlaylistFeedback = computed(() =>
+    feedbackSource.value
+      ? {
+          playlistId: feedbackSource.value.playlistId,
+          message: options.t('library.contextMenu.addedSuccess', {
+            name: feedbackSource.value.name,
+          }),
+        }
+      : null,
+  )
   const isCreatingPlaylistFromMenu = ref(false)
   const playlistLoading = ref(false)
-  const playlistLoadError = ref<string | null>(null)
+  const playlistLoadFailed = ref(false)
+  const playlistLoadError = computed(() =>
+    playlistLoadFailed.value ? options.t('library.contextMenu.playlistLoadError') : null,
+  )
   let addToPlaylistFeedbackTimer: number | null = null
 
   const contextMenuAnchor = computed<LibraryContextMenuAnchor>(() => ({
@@ -70,7 +83,7 @@ export function useLibraryContextMenu(options: {
       window.clearTimeout(addToPlaylistFeedbackTimer)
       addToPlaylistFeedbackTimer = null
     }
-    addToPlaylistFeedback.value = null
+    feedbackSource.value = null
   }
 
   function closeContextMenu(handoffTarget?: 'metadata-dialog' | 'view-switch'): void {
@@ -96,7 +109,7 @@ export function useLibraryContextMenu(options: {
 
   async function loadRegularPlaylistItems(): Promise<void> {
     playlistLoading.value = true
-    playlistLoadError.value = null
+    playlistLoadFailed.value = false
     try {
       const items = await options.listSidebarItems()
       regularPlaylistItems.value = items.filter((item) => item.kind === 'playlist')
@@ -106,8 +119,7 @@ export function useLibraryContextMenu(options: {
         message: 'Failed to load playlists',
         cause: error,
       })
-      playlistLoadError.value =
-        error instanceof Error ? error.message : options.t('library.contextMenu.playlistLoadError')
+      playlistLoadFailed.value = true
     } finally {
       playlistLoading.value = false
     }
@@ -225,9 +237,9 @@ export function useLibraryContextMenu(options: {
   ): Promise<void> {
     await options.addTracksToPlaylist(playlistId, trackIds)
     window.dispatchEvent(new CustomEvent(LIBRARY_PLAYLISTS_CHANGED_EVENT))
-    addToPlaylistFeedback.value = {
+    feedbackSource.value = {
       playlistId,
-      message: options.t('library.contextMenu.addedSuccess', { name: playlistName }),
+      name: playlistName,
     }
 
     if (addToPlaylistFeedbackTimer !== null) {

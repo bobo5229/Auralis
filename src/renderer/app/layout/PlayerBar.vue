@@ -320,7 +320,7 @@ function handleNext(): void {
     :style="playerBarStyle"
   >
     <!-- Modern floating island: chrome lives on the island, not the host. -->
-    <div ref="islandRef" class="player-bar-island">
+    <div ref="islandRef" class="player-bar-island" data-playbar-drop-target>
       <div class="player-bar-glass" aria-hidden="true"></div>
       <div
         v-if="paletteEnabled && previousAlbumTint"
@@ -365,7 +365,7 @@ function handleNext(): void {
             <span
               v-else
               class="h-6 w-6"
-              :class="playback.state.isPlaying ? 'i-ph-pause-fill' : 'i-ph-play-fill'"
+              :class="playback.state.isPlaying ? 'i-ph-music-note-fill' : 'i-ph-play-fill'"
               aria-hidden="true"
             />
           </button>

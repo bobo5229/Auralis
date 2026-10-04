@@ -1,3 +1,4 @@
+import { uiText } from '@renderer/i18n'
 import { computed, onScopeDispose, ref, watch } from 'vue'
 import type { DailyAlbumStats, DailyAlbumStatsItem } from '@shared/types/archive'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -45,7 +46,8 @@ export function useArchiveMacData(dependencies: ArchiveMacDataDependencies = {})
   const items = ref<DailyAlbumStatsItem[]>([])
   const selectedAlbumKey = ref<string | null>(null)
   const dayLoading = ref(false)
-  const dayError = ref<string | null>(null)
+  const dayErrorKey = ref<string | null>(null)
+  const dayError = computed(() => (dayErrorKey.value ? uiText(dayErrorKey.value) : null))
 
   let yearRequestToken = 0
   let dayRequestToken = 0
@@ -139,7 +141,7 @@ export function useArchiveMacData(dependencies: ArchiveMacDataDependencies = {})
   async function readDay(date: string, preserveSelection = false): Promise<void> {
     const token = ++dayRequestToken
     dayLoading.value = true
-    dayError.value = null
+    dayErrorKey.value = null
     try {
       const result = await fetchStats(date)
       if (token !== dayRequestToken || disposed || selectedDate.value !== date) return
@@ -151,7 +153,7 @@ export function useArchiveMacData(dependencies: ArchiveMacDataDependencies = {})
       dayLoading.value = false
     } catch {
       if (token !== dayRequestToken || disposed) return
-      dayError.value = preserveSelection ? '刷新失败' : '无法读取当天专辑'
+      dayErrorKey.value = preserveSelection ? 'archive.mac.refreshError' : 'archive.mac.dayError'
       dayLoading.value = false
     }
   }
@@ -167,7 +169,7 @@ export function useArchiveMacData(dependencies: ArchiveMacDataDependencies = {})
     selectedDate.value = null
     items.value = []
     selectedAlbumKey.value = null
-    dayError.value = null
+    dayErrorKey.value = null
     dayLoading.value = true
     chooseYearDefault = true
     pendingDefaultYear = year

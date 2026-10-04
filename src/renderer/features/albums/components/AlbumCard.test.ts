@@ -68,7 +68,7 @@ function findByClass(root: TestNode, className: string): TestNode | undefined {
   return undefined
 }
 
-function mountCard(displayMode: 'grid' | 'perspective') {
+function mountCard() {
   const open = vi.fn()
   const play = vi.fn()
   const openContextMenu = vi.fn()
@@ -77,7 +77,6 @@ function mountCard(displayMode: 'grid' | 'perspective') {
     render: () =>
       h(AlbumCard, {
         album,
-        displayMode,
         onOpen: open,
         onPlay: play,
         onOpenContextMenu: openContextMenu,
@@ -90,7 +89,7 @@ function mountCard(displayMode: 'grid' | 'perspective') {
 
 describe('AlbumCard play control', () => {
   it('uses the cover dominant color and plays without opening the album', () => {
-    const card = mountCard('grid')
+    const card = mountCard()
     const playClip = findByClass(card.root, 'album-card-play-clip')
     const playButton = findByClass(card.root, 'album-card-play')
     const cover = findByClass(card.root, 'cover-stage')
@@ -110,10 +109,5 @@ describe('AlbumCard play control', () => {
     ;(playButton?.props.onContextmenu as (event: object) => void)(contextEvent)
     expect(contextEvent.preventDefault).toHaveBeenCalledOnce()
     expect(card.openContextMenu).toHaveBeenCalledExactlyOnceWith(album, contextEvent)
-  })
-
-  it('leaves the perspective mode without a play button', () => {
-    const card = mountCard('perspective')
-    expect(findByClass(card.root, 'album-card-play')).toBeUndefined()
   })
 })

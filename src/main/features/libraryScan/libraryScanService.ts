@@ -1,4 +1,5 @@
 import { BrowserWindow, dialog } from 'electron'
+import { getNativeUiMessages } from '@main/app/uiLocale'
 import { Worker, type WorkerOptions } from 'node:worker_threads'
 import { join, win32 } from 'node:path'
 import type Database from 'better-sqlite3'
@@ -93,7 +94,7 @@ export class LibraryScanService {
     const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     const result = await dialog.showOpenDialog(window, {
       properties: ['openDirectory'],
-      title: 'Choose Music Library Folder',
+      title: getNativeUiMessages().selectFolder,
     })
 
     if (result.canceled || !result.filePaths[0]) {

@@ -57,7 +57,11 @@ describe('useAlbumDetailPresentation', () => {
     const tracks = ref([track(1, { durationSeconds: 61, playCount: 1 })])
     const state = useAlbumDetailPresentation(tracks, ref(null))
     expect(state.metricsTrackCount.value).toBe(1)
-    expect(state.metricsTotalDuration.value).toBe('1\u52061\u79d2')
+    expect(JSON.parse(state.metricsTotalDuration.value)).toEqual({
+      key: 'albums.detail.duration.minutes',
+      minutes: 1,
+      seconds: 1,
+    })
     expect(JSON.parse(state.metricsPlaysLabel.value)).toEqual({
       key: 'albums.detail.metrics.playsUnitOne',
       count: 1,
@@ -95,17 +99,32 @@ describe('useAlbumDetailPresentation', () => {
     expect(state.albumDiscGroups.value).toEqual([])
   })
 
-  it('uses preview dates and removes the legal line when metadata and preview are empty', () => {
+  it('formats release dates as year-month-day and keeps only copyright in the legal line', () => {
     const tracks = ref([track(1, { copyright: ' Example ' })])
     const preview = ref<string | null>('2025-08-01')
     const state = useAlbumDetailPresentation(tracks, preview)
-    expect(state.albumReleaseYear.value).toBe('2025')
-    expect(state.heroLegalLine.value).toBe('Example \u00b7 2025-08-01')
+    expect(state.albumReleaseDate.value).toBe('2025-08-01')
+    expect(state.heroLegalLine.value).toBe('Example')
     tracks.value = [track(1, { releaseDate: '2026-09-22' })]
-    expect(state.albumReleaseYear.value).toBe('2026')
+    expect(state.albumReleaseDate.value).toBe('2026-09-22')
+    expect(state.heroLegalLine.value).toBeNull()
     tracks.value = []
     preview.value = null
     expect(state.heroLegalLine.value).toBeNull()
-    expect(JSON.parse(state.albumReleaseYear.value).key).toBe('albums.detail.unknownYear')
+    expect(JSON.parse(state.albumReleaseDate.value).key).toBe('albums.detail.unknownDate')
+  })
+
+  it('preserves partial dates and rejects dates that do not exist', () => {
+    const preview = ref<string | null>('2006')
+    const state = useAlbumDetailPresentation(ref([]), preview)
+    expect(state.albumReleaseDate.value).toBe('2006')
+    preview.value = '2006-08'
+    expect(state.albumReleaseDate.value).toBe('2006-08')
+    preview.value = '2024-02-29'
+    expect(state.albumReleaseDate.value).toBe('2024-02-29')
+    for (const date of ['2025-02-29', '2026-13-01', '2026-04-31', 'invalid']) {
+      preview.value = date
+      expect(JSON.parse(state.albumReleaseDate.value).key).toBe('albums.detail.unknownDate')
+    }
   })
 })

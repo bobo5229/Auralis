@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { animatePlaybackBars } from '@renderer/shared/animation/motion'
 import { formatDuration } from '../utils/formatDuration'
 import { formatArtist, isMultiValueArtist } from '../utils/formatArtist'
 import { formatGenre } from '../utils/formatGenre'
+import { formatMetadataDisplay } from '../utils/formatMetadataDisplay'
 
 const props = withDefaults(
   defineProps<{
@@ -27,6 +28,9 @@ const emit = defineEmits<{
   openContextMenu: [trackId: number, event: MouseEvent, openReason?: 'pointer' | 'keyboard']
 }>()
 const { t } = useI18n()
+const titleDisplay = computed(() =>
+  formatMetadataDisplay(props.track.title, t('library.missing.title')),
+)
 const barsRef = ref<HTMLElement | null>(null)
 
 // 仅当前曲目行存在音柱 DOM 时注册动画资源；每次依赖变化先执行上一次的清理函数。
@@ -43,6 +47,7 @@ watch(
 )
 
 function onKeyDown(event: KeyboardEvent): void {
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
   if (event.key === ' ') {
     event.preventDefault()
     emit('select', props.track.id)
@@ -81,11 +86,10 @@ function onKeyDown(event: KeyboardEvent): void {
     :aria-label="
       t('library.a11y.songRow', {
         index: index + 1,
-        title: track.title ?? '',
+        title: titleDisplay.text,
         artist: track.artist ?? '',
       })
     "
-    @click="emit('select', track.id)"
     @dblclick="emit('play', track.id)"
     @contextmenu.prevent="emit('openContextMenu', track.id, $event, 'pointer')"
     @keydown="onKeyDown"
@@ -106,11 +110,11 @@ function onKeyDown(event: KeyboardEvent): void {
         <span class="cover-track-bars__bar"></span>
       </span>
     </span>
-    <div class="min-w-0 flex flex-col overflow-hidden max-h-full">
+    <div class="cover-track-info min-w-0 flex flex-col overflow-hidden max-h-full">
       <span
-        v-tooltip.overflow="track.title"
+        v-tooltip.overflow="titleDisplay.text"
         class="cover-track-title truncate text-sm leading-5 text-[var(--auralis-text)]"
-        >{{ track.title ?? '' }}</span
+        >{{ titleDisplay.text }}</span
       >
       <span
         v-if="isMultiValueArtist(track.artist)"
@@ -125,7 +129,8 @@ function onKeyDown(event: KeyboardEvent): void {
       >{{ formatGenre(track.genre) }}</span
     >
     <span
-      class="cover-track-duration text-right text-xs text-[var(--auralis-text-muted)] tabular-nums"
+      v-tooltip.overflow="formatDuration(track.durationSeconds)"
+      class="cover-track-duration min-w-0 truncate text-right text-xs text-[var(--auralis-text-muted)] tabular-nums"
       >{{ formatDuration(track.durationSeconds) }}</span
     >
   </div>
@@ -136,22 +141,32 @@ function onKeyDown(event: KeyboardEvent): void {
 <style scoped>
 .cover-track-number {
   font-weight: var(--auralis-song-cover-track-number-weight, 400);
+  font-size: var(--auralis-song-cover-track-number-size, 12px);
+  line-height: max(16px, 1.2em);
 }
 
 .cover-track-title {
   font-weight: var(--auralis-song-cover-title-weight, 500);
+  font-size: var(--auralis-song-cover-title-size, 14px);
+  line-height: max(20px, 1.2em);
 }
 
 .cover-track-artist-line {
   font-weight: var(--auralis-song-cover-artist-weight, 400);
+  font-size: var(--auralis-song-cover-artist-size, 12px);
+  line-height: max(18px, 1.2em);
 }
 
 .cover-track-genre {
   font-weight: var(--auralis-song-cover-genre-weight, 400);
+  font-size: var(--auralis-song-cover-genre-size, 12px);
+  line-height: max(16px, 1.2em);
 }
 
 .cover-track-duration {
   font-weight: var(--auralis-song-cover-duration-weight, 400);
+  font-size: var(--auralis-song-cover-duration-size, 12px);
+  line-height: max(16px, 1.2em);
 }
 
 .cover-track-row {
@@ -159,11 +174,28 @@ function onKeyDown(event: KeyboardEvent): void {
   align-items: center;
 }
 
-.cover-track-row--single-line {
+.cover-track-row--single-line,
+.app-shell.is-lyrics-collapsed .cover-track-row:not(.cover-track-row--single-line) {
   /* 单行文字共用基线，按内容高度形成一组，再在完整行框中整体居中。 */
   grid-template-rows: max-content;
   align-content: center;
   align-items: first baseline;
+}
+
+/* 右侧面板收起时，多值艺术家与标题并排；各自省略，保持曲目行的固定高度。 */
+.app-shell.is-lyrics-collapsed
+  .cover-track-row:not(.cover-track-row--single-line)
+  .cover-track-info {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.app-shell.is-lyrics-collapsed
+  .cover-track-row:not(.cover-track-row--single-line)
+  :is(.cover-track-title, .cover-track-artist-line) {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .cover-track-index {

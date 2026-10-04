@@ -1,0 +1,56 @@
+[
+  {
+    "file": "endlessness.jpg",
+    "title": "Endlessness",
+    "artist": "Nala Sinephro",
+    "source": "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/98/b8/46/98b84638-476a-ea68-151f-e844017594de/5056614798067.png/1000x1000bb.jpg",
+    "album": "https://music.apple.com/us/album/endlessness/1752836259?uo=4",
+    "retrieved": "2026-10-05",
+    "bytes": 135273
+  },
+  {
+    "file": "windswept-adan.jpg",
+    "title": "Windswept Adan",
+    "artist": "Ichiko Aoba",
+    "source": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/fa/fa/0d/fafa0dd1-dda3-0b1d-077e-8ed879031092/143997.jpg/1000x1000bb.jpg",
+    "album": "https://music.apple.com/us/album/windswept-adan/1714304663?uo=4",
+    "retrieved": "2026-10-05",
+    "bytes": 155681
+  },
+  {
+    "file": "async.jpg",
+    "title": "async",
+    "artist": "Ryuichi Sakamoto",
+    "source": "https://is1-ssl.mzstatic.com/image/thumb/Music123/v4/82/e0/7b/82e07b9a-1d98-bbf4-d1e2-fb94312bbea2/731383683060.jpg/1000x1000bb.jpg",
+    "album": "https://music.apple.com/us/album/async/1507014129?uo=4",
+    "retrieved": "2026-10-05",
+    "bytes": 161424
+  },
+  {
+    "file": "a-la-sala.jpg",
+    "title": "A LA SALA",
+    "artist": "Khruangbin",
+    "source": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/4b/82/45/4b82450e-4547-166f-aced-7d7f85b67d4b/43543.jpg/1000x1000bb.jpg",
+    "album": "https://music.apple.com/us/album/a-la-sala/1721004325?uo=4",
+    "retrieved": "2026-10-05",
+    "bytes": 256131
+  },
+  {
+    "file": "waltz-for-debby.jpg",
+    "title": "Waltz for Debby (Remastered) [Live]",
+    "artist": "Bill Evans Trio",
+    "source": "https://is1-ssl.mzstatic.com/image/thumb/Music126/v4/74/90/e4/7490e4c9-1fdf-69b8-6f5c-309fba19b5ac/09CMGIM01610.rgb.jpg/1000x1000bb.jpg",
+    "album": "https://music.apple.com/us/album/waltz-for-debby-remastered-live/1440747830?uo=4",
+    "retrieved": "2026-10-05",
+    "bytes": 185252
+  },
+  {
+    "file": "untourable-album.jpg",
+    "title": "Untourable Album",
+    "artist": "Men I Trust",
+    "source": "https://is1-ssl.mzstatic.com/image/thumb/Music116/v4/9a/9a/31/9a9a31b8-9667-188c-ff8f-d7b73f2aa9a9/artwork.jpg/1000x1000bb.jpg",
+    "album": "https://music.apple.com/us/album/untourable-album/1720804300?uo=4",
+    "retrieved": "2026-10-05",
+    "bytes": 271302
+  }
+]

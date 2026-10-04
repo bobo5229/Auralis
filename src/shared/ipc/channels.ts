@@ -5,6 +5,8 @@ export const ipcChannels = {
   },
   app: {
     getInfo: 'app:get-info',
+    setLocale: 'app:set-locale',
+    claimCdStartupEntry: 'app:claim-cd-startup-entry',
     exportDiagnostics: 'app:export-diagnostics',
     rendererReady: 'app:renderer-ready',
     splashReady: 'app:splash-ready',
@@ -94,5 +96,7 @@ export const ipcChannels = {
     control: 'window:control',
     getMaximized: 'window:get-maximized',
     maximizedChanged: 'window:maximized-changed',
+    getVisibility: 'window:get-visibility',
+    visibilityChanged: 'window:visibility-changed',
   },
 } as const

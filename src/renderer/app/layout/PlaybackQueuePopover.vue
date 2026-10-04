@@ -83,7 +83,7 @@ useOverlayFocusTrap({
               getArtworkUrl(currentTrack.artworkCacheKey) && !artworkErrorIds.has(currentTrack.id)
             "
             :src="getArtworkUrl(currentTrack.artworkCacheKey)!"
-            :alt="currentTrack.title || 'Unknown Title'"
+            :alt="currentTrack.title || t('player.unknownTrack')"
             class="h-full w-full object-cover"
             loading="lazy"
             decoding="async"
@@ -96,7 +96,7 @@ useOverlayFocusTrap({
         </div>
         <div class="min-w-0 flex-1">
           <div class="queue-item-title">
-            {{ currentTrack.title || 'Unknown Title' }}
+            {{ currentTrack.title || t('player.unknownTrack') }}
           </div>
           <div class="queue-item-subtitle">
             {{ formatSubtitle(currentTrack) }}
@@ -125,7 +125,7 @@ useOverlayFocusTrap({
             <img
               v-if="getArtworkUrl(track.artworkCacheKey) && !artworkErrorIds.has(track.id)"
               :src="getArtworkUrl(track.artworkCacheKey)!"
-              :alt="track.title || 'Unknown Title'"
+              :alt="track.title || t('player.unknownTrack')"
               class="h-full w-full object-cover"
               loading="lazy"
               decoding="async"
@@ -137,7 +137,7 @@ useOverlayFocusTrap({
             </div>
           </div>
           <div class="min-w-0 flex-1">
-            <div class="queue-item-title">{{ track.title || 'Unknown Title' }}</div>
+            <div class="queue-item-title">{{ track.title || t('player.unknownTrack') }}</div>
             <div class="queue-item-subtitle">{{ formatSubtitle(track) }}</div>
           </div>
         </button>

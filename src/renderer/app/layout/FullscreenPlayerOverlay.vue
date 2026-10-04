@@ -9,6 +9,7 @@ import { useTrackLyrics } from '@renderer/features/lyrics/composables/useTrackLy
 import {
   FULLSCREEN_LYRICS_FADE_TOP_RATIO,
   FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO,
+  FULLSCREEN_LYRICS_ACTIVE_SCALE,
   useFullscreenLyricsViewport,
 } from '@renderer/features/lyrics/composables/useFullscreenLyricsViewport'
 import type { LyricLine } from '@renderer/features/lyrics/types'
@@ -93,9 +94,11 @@ const lyricsTrackRef = ref<HTMLElement | null>(null)
 const artworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 watch(artworkCacheKey, () => activeTransition?.finish())
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
-const title = computed(() => playback.state.currentTrack?.title || 'Unknown Title')
+const title = computed(() => playback.state.currentTrack?.title || t('player.unknownTrack'))
 const subtitle = computed(() =>
-  playback.state.currentTrack ? formatPlaybackSubtitle(playback.state.currentTrack) : 'No track',
+  playback.state.currentTrack
+    ? formatPlaybackSubtitle(playback.state.currentTrack)
+    : t('player.unknownTrack'),
 )
 
 const currentTimeLabel = computed(() => formatTime(playback.state.currentTime))
@@ -195,6 +198,7 @@ const {
 const lyricsMaskStyle = {
   '--fullscreen-lyrics-fade-top': `${FULLSCREEN_LYRICS_FADE_TOP_RATIO * 100}%`,
   '--fullscreen-lyrics-fade-bottom': `${(1 - FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO) * 100}%`,
+  '--fullscreen-lyric-active-scale': FULLSCREEN_LYRICS_ACTIVE_SCALE,
 }
 
 watch(
@@ -284,6 +288,7 @@ onBeforeUnmount(() => {
           <span class="i-lucide-chevron-down h-6 w-6" aria-hidden="true" />
         </button>
         <FluidArtworkBackground
+          class="fullscreen-player-background"
           :artwork-url="artworkUrl"
           :active="isFullscreenPlayerOpen"
           :playing="playback.state.isPlaying"
@@ -437,7 +442,7 @@ onBeforeUnmount(() => {
 
         <div class="fullscreen-player-lyrics">
           <div v-if="lyricsStatus === 'loading'" class="fullscreen-player-lyrics-empty">
-            Loading lyrics...
+            {{ t('player.lyricsLoading') }}
           </div>
           <div
             v-else-if="fullscreenLyricLines.length > 0"
@@ -509,7 +514,7 @@ onBeforeUnmount(() => {
   --auralis-fullscreen-lyrics-glow: rgba(255, 255, 255, 0.42);
   --fullscreen-padding-block: clamp(64px, 10vh, 110px);
   --fullscreen-content-width: min(32vw, 600px);
-  --fullscreen-lyric-active-scale: 1.23;
+  --auralis-fullscreen-background-brightness: 0.4;
 
   position: fixed;
   inset: 0;
@@ -540,6 +545,10 @@ onBeforeUnmount(() => {
   -webkit-app-region: no-drag;
 }
 
+.fullscreen-player-background {
+  filter: brightness(var(--auralis-fullscreen-background-brightness));
+}
+
 .fullscreen-player-exit:hover {
   color: var(--auralis-text);
 }
@@ -547,6 +556,16 @@ onBeforeUnmount(() => {
 .fullscreen-player :is(button, input, [tabindex]):focus-visible {
   outline: 2px solid var(--auralis-text);
   outline-offset: 4px;
+}
+
+/* The scroll mask also clips outlines, so draw keyboard focus on its unmasked parent. */
+.fullscreen-player-lyrics:has(.fullscreen-player-lyrics-scroll:focus-visible) {
+  outline: 2px solid var(--auralis-text);
+  outline-offset: 4px;
+}
+
+.fullscreen-player .fullscreen-player-lyrics-scroll:focus-visible {
+  outline: none;
 }
 
 .fullscreen-drag-region {
@@ -1011,7 +1030,6 @@ onBeforeUnmount(() => {
   color: var(--auralis-text-muted);
   font-size: clamp(21px, 2.15vw, 34px);
   font-weight: 800;
-  opacity: 0.42;
   text-align: center;
 }
 

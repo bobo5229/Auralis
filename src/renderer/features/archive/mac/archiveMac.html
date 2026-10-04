@@ -1,78 +1,26 @@
-<div class="archive-mac-shell" id="archive-mac-shell">
+<div class="archive-mac-shell" id="archive-mac-shell" data-scene="intro">
+  <div class="archive-galaxy-glow" aria-hidden="true"></div>
+  <canvas class="archive-stars" id="archive-stars" aria-hidden="true"></canvas>
   <main class="archive-mac-main">
     <div class="scene" id="scene">
       <div class="studio" id="studio">
         <div
           class="rig"
           id="rig"
-          role="group"
+          role="button"
           tabindex="0"
-          aria-label="Macintosh 128K。双击或按 Enter、空格放大屏幕。"
+          data-i18n-aria="archive.mac.enter"
+          aria-label="进入声迹。双击或按 Enter、空格。"
         >
-          <div class="mac" aria-label="Macintosh 128K 立体模型">
+          <div class="mac" data-i18n-aria="archive.mac.model" aria-label="大屏 Macintosh 概念模型">
             <div class="face front">
-              <button
-                class="bezel-key"
-                id="bezel-return"
-                type="button"
-                aria-label="返回整机"
-                tabindex="-1"
-              >
-                <svg viewBox="0 0 12 12" aria-hidden="true">
-                  <path
-                    d="M9 2.5v4.5H3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.3"
-                    stroke-linecap="square"
-                    stroke-linejoin="miter"
-                  />
-                  <path
-                    d="M5.4 5.4 3.3 7l2.1 1.6"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.3"
-                    stroke-linecap="square"
-                    stroke-linejoin="miter"
-                  />
-                </svg>
-              </button>
-              <button
-                class="bezel-key"
-                id="bezel-power"
-                type="button"
-                aria-label="开机"
-                aria-pressed="false"
-                disabled
-              >
-                <svg viewBox="0 0 12 12" aria-hidden="true">
-                  <path
-                    d="M6 1.8v4.2"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.3"
-                    stroke-linecap="square"
-                  />
-                  <path
-                    d="M3.6 3.4a3.3 3.3 0 1 0 4.8 0"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.3"
-                    stroke-linecap="square"
-                  />
-                </svg>
-              </button>
               <div class="crt-well">
                 <div class="crt-glass">
-                  <canvas id="crt" width="512" height="342"></canvas>
-                  <div class="crt-blank" id="crt-blank" aria-hidden="true"></div>
-                  <div class="crt-fx" id="crt-fx" aria-hidden="true">
-                    <canvas id="crt-noise" width="64" height="43"></canvas>
-                  </div>
+                  <canvas id="crt" width="512" height="544"></canvas>
                   <div class="scan"></div>
                   <div class="glare"></div>
 
-                  <!-- Logical 512x342 CRT plane for DOM elements -->
+                  <!-- Logical 512x544 CRT plane for the taller screen -->
                   <div class="crt-logic-plane" id="crt-logic-plane">
                     <!-- Top Menu Bar -->
                     <div class="crt-menu-bar">
@@ -92,147 +40,40 @@
                       <div class="crt-clock" id="crt-clock">12:00</div>
                     </div>
 
-                    <!-- 3 Desktop Entry Buttons -->
-                    <div class="crt-desktop-icons" id="crt-desktop-icons">
-                      <button
-                        class="crt-desktop-icon-btn"
-                        type="button"
-                        data-entry="track"
-                        aria-pressed="false"
-                      >
-                        <span
-                          class="crt-desktop-icon-glyph"
-                          aria-hidden="true"
-                          data-icon="music"
-                        ></span>
-                        <span>单曲</span>
-                      </button>
-                      <button
-                        class="crt-desktop-icon-btn"
-                        type="button"
-                        data-entry="album"
-                        aria-pressed="false"
-                      >
-                        <span
-                          class="crt-desktop-icon-glyph"
-                          aria-hidden="true"
-                          data-icon="album"
-                        ></span>
-                        <span>专辑</span>
-                      </button>
-                      <button
-                        class="crt-desktop-icon-btn"
-                        type="button"
-                        data-entry="year"
-                        aria-pressed="false"
-                      >
-                        <span
-                          class="crt-desktop-icon-glyph"
-                          aria-hidden="true"
-                          data-icon="chart"
-                        ></span>
-                        <span>年度总结</span>
-                      </button>
-                      <p id="crt-entry-status" class="crt-entry-status" role="status"></p>
-                    </div>
-
-                    <!-- Album Window -->
-                    <div
-                      class="terminal-ui"
-                      id="terminal-ui"
-                      role="region"
-                      aria-label="专辑统计窗口"
+                    <section
+                      class="crt-preview"
+                      id="crt-record"
+                      data-loaded="false"
+                      data-i18n-aria="archive.mac.loadedAlbum"
+                      aria-label="已载入专辑"
+                      aria-live="polite"
+                      aria-atomic="true"
                     >
-                      <div class="terminal-title">
-                        <button
-                          id="desktop-return"
-                          type="button"
-                          aria-label="关闭专辑统计，返回桌面"
-                          title="返回桌面"
-                        ></button>
-                        <span>专辑统计</span>
+                      <div class="crt-record-date" id="crt-record-date"></div>
+                      <div class="crt-idle">
+                        <strong data-i18n="archive.title">声迹</strong
+                        ><span data-i18n="archive.mac.noDisk">未载入软盘</span>
                       </div>
-                      <div class="date-tools">
-                        <label for="date-trigger">日期</label>
-                        <button id="day-prev" type="button" aria-label="上一天">&lt;</button>
-                        <div class="date-picker">
-                          <button
-                            id="date-trigger"
-                            type="button"
-                            aria-label="选择统计日期"
-                            aria-haspopup="dialog"
-                            aria-expanded="false"
-                          >
-                            <span>今日</span>
-                            <svg viewBox="0 0 8 5" aria-hidden="true">
-                              <path d="M0 0H8L4 5Z" />
-                            </svg>
-                          </button>
-                          <!-- Month calendar popup -->
-                          <div
-                            class="mac-date-popup"
-                            id="mac-date-popup"
-                            role="dialog"
-                            aria-label="选择统计日期"
-                            hidden
-                          >
-                            <div class="mac-calendar-nav">
-                              <div class="mac-calendar-year-picker">
-                                <button
-                                  type="button"
-                                  id="mac-calendar-year-select"
-                                  aria-label="选择年份"
-                                  aria-haspopup="listbox"
-                                  aria-expanded="false"
-                                ></button>
-                                <div
-                                  id="mac-calendar-years"
-                                  class="mac-calendar-years"
-                                  role="listbox"
-                                  aria-label="历史年份"
-                                  hidden
-                                ></div>
-                              </div>
-                              <div class="mac-calendar-month-nav">
-                                <button type="button" id="mac-cal-prev-month" aria-label="上一月">
-                                  &lt;
-                                </button>
-                                <span id="mac-cal-month-label">10月</span>
-                                <button type="button" id="mac-cal-next-month" aria-label="下一月">
-                                  &gt;
-                                </button>
-                              </div>
-                              <button type="button" id="mac-cal-close" aria-label="关闭日历">
-                                ×
-                              </button>
-                            </div>
-                            <p
-                              class="mac-calendar-status"
-                              id="mac-calendar-status"
-                              role="status"
-                            ></p>
-                            <div class="mac-calendar-grid" id="mac-calendar-grid">
-                              <span class="mac-calendar-weekday">日</span>
-                              <span class="mac-calendar-weekday">一</span>
-                              <span class="mac-calendar-weekday">二</span>
-                              <span class="mac-calendar-weekday">三</span>
-                              <span class="mac-calendar-weekday">四</span>
-                              <span class="mac-calendar-weekday">五</span>
-                              <span class="mac-calendar-weekday">六</span>
-                              <!-- 42 date cells generated dynamically -->
-                            </div>
+                      <div class="crt-record-content">
+                        <div class="crt-record-heading">
+                          <div class="crt-preview-art" id="crt-preview-art"></div>
+                          <div class="crt-record-text">
+                            <h2 id="crt-preview-title"></h2>
+                            <p id="crt-preview-artist"></p>
                           </div>
                         </div>
-                        <button id="day-next" type="button" aria-label="下一天">&gt;</button>
+                        <dl class="crt-record-stats">
+                          <div>
+                            <dt data-i18n="archive.mac.plays">播放次数</dt>
+                            <dd id="crt-record-plays"></dd>
+                          </div>
+                          <div>
+                            <dt data-i18n="archive.mac.duration">聆听时长</dt>
+                            <dd id="crt-record-duration"></dd>
+                          </div>
+                        </dl>
                       </div>
-                      <div class="list-heading" aria-hidden="true">
-                        <span>排名</span>
-                        <span>专辑</span>
-                        <span>次数</span>
-                      </div>
-                      <div class="album-list" id="album-list"></div>
-                      <div class="screen-status" id="screen-status"></div>
-                    </div>
+                    </section>
                   </div>
                 </div>
               </div>
@@ -240,13 +81,7 @@
               <div class="floppy" aria-hidden="true"></div>
               <span class="drive-led" aria-hidden="true"></span>
               <span class="hardware-name">Macintosh<span>PERSONAL COMPUTER / 128K</span></span>
-              <button
-                class="dial"
-                id="body-power"
-                type="button"
-                aria-label="开机"
-                aria-pressed="false"
-              ></button>
+              <span class="dial" aria-hidden="true"></span>
               <span class="shell-foot" aria-hidden="true"></span>
             </div>
             <div class="face back">
@@ -277,19 +112,142 @@
               <span class="carry-handle"></span><span class="top-seam"></span>
             </div>
           </div>
-          <div class="kbd" aria-hidden="true">
-            <div class="keyboard-keys">
-              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
-              ><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
-              ><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
-              ><i></i><i></i><i></i><i></i><i></i><i></i>
-            </div>
-            <span class="keyboard-space"></span><span class="keyboard-corner"></span>
-          </div>
-          <div class="mouse-cord" aria-hidden="true"></div>
-          <div class="mouse" aria-hidden="true"><span></span></div>
         </div>
       </div>
     </div>
   </main>
+  <section
+    class="hologram"
+    id="hologram"
+    data-i18n-aria="archive.mac.collection"
+    aria-label="悬浮软盘收藏"
+    aria-hidden="true"
+    inert
+  >
+    <div class="hologram-plane">
+      <header class="hologram-header">
+        <h1 data-i18n="archive.mac.albums">听过的专辑</h1>
+        <div class="date-tools">
+          <label for="date-trigger" data-i18n="archive.mac.date">日期</label>
+          <button
+            id="day-prev"
+            type="button"
+            data-i18n-aria="archive.mac.previousDay"
+            aria-label="上一天"
+          >
+            &lt;
+          </button>
+          <div class="date-picker">
+            <button
+              id="date-trigger"
+              type="button"
+              data-i18n-aria="archive.mac.chooseDate"
+              aria-label="选择统计日期"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+            >
+              <span data-i18n="archive.mac.today">今日</span>
+              <svg viewBox="0 0 8 5" aria-hidden="true">
+                <path d="M0 0H8L4 5Z" />
+              </svg>
+            </button>
+            <!-- Month calendar popup -->
+            <div
+              class="mac-date-popup"
+              id="mac-date-popup"
+              role="dialog"
+              data-i18n-aria="archive.mac.chooseDate"
+              aria-label="选择统计日期"
+              hidden
+            >
+              <div class="mac-calendar-nav">
+                <div class="mac-calendar-year-picker">
+                  <button
+                    type="button"
+                    id="mac-calendar-year-select"
+                    data-i18n-aria="archive.mac.chooseYear"
+                    aria-label="选择年份"
+                    aria-haspopup="listbox"
+                    aria-expanded="false"
+                  ></button>
+                  <div
+                    id="mac-calendar-years"
+                    class="mac-calendar-years"
+                    role="listbox"
+                    data-i18n-aria="archive.mac.years"
+                    aria-label="历史年份"
+                    hidden
+                  ></div>
+                </div>
+                <div class="mac-calendar-month-nav">
+                  <button
+                    type="button"
+                    id="mac-cal-prev-month"
+                    data-i18n-aria="archive.mac.previousMonth"
+                    aria-label="上一月"
+                  >
+                    &lt;
+                  </button>
+                  <span id="mac-cal-month-label">10月</span>
+                  <button
+                    type="button"
+                    id="mac-cal-next-month"
+                    data-i18n-aria="archive.mac.nextMonth"
+                    aria-label="下一月"
+                  >
+                    &gt;
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  id="mac-cal-close"
+                  data-i18n-aria="archive.mac.closeCalendar"
+                  aria-label="关闭日历"
+                >
+                  ×
+                </button>
+              </div>
+              <p class="mac-calendar-status" id="mac-calendar-status" role="status"></p>
+              <div class="mac-calendar-grid" id="mac-calendar-grid">
+                <span class="mac-calendar-weekday" data-weekday="0">日</span>
+                <span class="mac-calendar-weekday" data-weekday="1">一</span>
+                <span class="mac-calendar-weekday" data-weekday="2">二</span>
+                <span class="mac-calendar-weekday" data-weekday="3">三</span>
+                <span class="mac-calendar-weekday" data-weekday="4">四</span>
+                <span class="mac-calendar-weekday" data-weekday="5">五</span>
+                <span class="mac-calendar-weekday" data-weekday="6">六</span>
+                <!-- 42 date cells generated dynamically -->
+              </div>
+            </div>
+          </div>
+          <button
+            id="day-next"
+            type="button"
+            data-i18n-aria="archive.mac.nextDay"
+            aria-label="下一天"
+          >
+            &gt;
+          </button>
+        </div>
+      </header>
+      <div class="projection-body">
+        <div class="disk-caption">
+          <span data-i18n="archive.mac.topAlbums">当日最常听</span
+          ><span id="projection-count"></span>
+        </div>
+        <div
+          class="disk-deck"
+          id="album-list"
+          data-i18n-aria="archive.mac.disks"
+          aria-label="专辑软盘"
+        ></div>
+        <div class="disk-actions" id="disk-controls">
+          <button id="disk-insert" type="button" data-i18n="archive.mac.insert">插入 Mac</button>
+          <button id="disk-eject" type="button" hidden data-i18n="archive.mac.eject">退盘</button>
+        </div>
+        <p class="screen-status" id="screen-status" role="status"></p>
+        <p class="disk-status" id="disk-status" role="status"></p>
+      </div>
+    </div>
+  </section>
 </div>
