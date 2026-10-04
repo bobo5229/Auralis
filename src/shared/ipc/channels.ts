@@ -51,6 +51,8 @@ export const ipcChannels = {
     getByTrackId: 'lyrics:get-by-track-id',
   },
   playback: {
+    spectrumSubscribe: 'playback:spectrum-subscribe',
+    spectrumFrame: 'playback:spectrum-frame',
     nativeAvailability: 'playback:native-availability',
     nativeCommand: 'playback:native-command',
     nativeEvent: 'playback:native-event',

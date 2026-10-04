@@ -1,0 +1,224 @@
+:root {
+  color: #292829;
+  background: #eeeeec;
+  font-family: system-ui, sans-serif;
+  color-scheme: light;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  width: min(1120px, calc(100% - 64px));
+  margin: 36px auto;
+}
+h1 {
+  font-size: 28px;
+  font-weight: 500;
+  margin: 0 0 10px;
+}
+header p,
+section p,
+.note {
+  color: #625b60;
+  line-height: 1.6;
+}
+header p {
+  margin: 0 0 22px;
+}
+button {
+  font: inherit;
+  color: inherit;
+  padding: 8px 0;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  cursor: pointer;
+}
+button.selected,
+button[aria-pressed='true'] {
+  border-bottom-color: #884362;
+}
+button:hover {
+  color: #884362;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid #884362;
+  outline-offset: 4px;
+}
+.tracks,
+.controls,
+.settings {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.comparison {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 28px;
+  margin: 16px 0 28px;
+}
+section {
+  min-width: 0;
+}
+h2 {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0 0 6px;
+}
+section p {
+  font-size: 14px;
+  margin: 0;
+}
+.scene {
+  height: 290px;
+  perspective: 1000px;
+  display: grid;
+  place-items: center;
+}
+.pose {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  transform: rotateZ(-22deg) rotateX(50deg);
+  transform-style: preserve-3d;
+}
+.disc {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+.rest-outline {
+  position: absolute;
+  inset: -2px;
+  border: 1px dashed #6a6066;
+  border-radius: 50%;
+}
+.face {
+  position: absolute;
+  inset: 9px;
+  border: 3px solid #c7c5c5;
+  border-radius: 50%;
+  background: #d9409a;
+  box-shadow:
+    0 5px 0 #87858a,
+    0 18px 28px #34303530;
+}
+.rim,
+.disc-title {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.rim path {
+  fill: none;
+  stroke: #a68295;
+  stroke-width: 1.2;
+}
+.disc-title text {
+  fill: #43162e;
+  font-family: Georgia, serif;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+.hub {
+  position: absolute;
+  width: 28%;
+  height: 28%;
+  left: 36%;
+  top: 36%;
+  display: grid;
+  place-items: center;
+  border: 3px solid #9a9da3;
+  border-radius: 50%;
+  background: conic-gradient(#c7ced4, #f2f4f3, #abb4bd, #ebeded, #c7ced4);
+  box-shadow: 0 0 0 4px #ecedee70;
+}
+.hole {
+  width: 34%;
+  height: 34%;
+  border-radius: 50%;
+  background: #eeeeec;
+}
+.settings {
+  border-top: 1px solid #d2cccf;
+  padding-top: 20px;
+}
+.settings label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+.strength input {
+  width: 190px;
+}
+output,
+.time {
+  font-variant-numeric: tabular-nums;
+}
+output {
+  min-width: 44px;
+}
+input {
+  accent-color: #884362;
+  cursor: pointer;
+}
+.note {
+  font-size: 13px;
+  max-width: 80ch;
+  margin: 16px 0 24px;
+}
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 14px;
+}
+.progress input {
+  flex: 1;
+  min-width: 0;
+}
+.controls {
+  margin-top: 14px;
+}
+.controls span {
+  color: #625b60;
+  font-size: 13px;
+}
+.time {
+  margin-left: auto;
+}
+::selection {
+  color: white;
+  background: #884362;
+}
+@media (max-width: 760px) {
+  main {
+    width: calc(100% - 32px);
+    margin: 24px auto;
+  }
+  .comparison {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .scene {
+    height: 250px;
+  }
+  .tracks,
+  .settings,
+  .controls {
+    gap: 16px;
+  }
+}

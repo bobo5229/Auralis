@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import '../styles/cdTypography.css'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -26,6 +27,7 @@ import {
 } from '../utils/cdSurfaceIndicator'
 import CdViewSwitch from '../components/CdViewSwitch.vue'
 import CdBackgroundSwitch from '../components/CdBackgroundSwitch.vue'
+import CdSpectrumPreview from '../components/CdSpectrumPreview.vue'
 import { albumIdentityKey } from '../utils/albumIdentity'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import {
@@ -34,12 +36,17 @@ import {
   type CdPlaybackMode,
 } from '../utils/cdPlaybackQueue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { usePlaybackSpectrum } from '@renderer/features/playback/composables/usePlaybackSpectrum'
+import type { PlaybackSpectrumFrame } from '@shared/types/playbackSpectrum'
+import { createCdVibrationMotion } from '../utils/cdVibrationMotion'
+import { useCdVibration } from '../composables/useCdVibration'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import CdTrackList from '../components/CdTrackList.vue'
 import CdFocusLyrics from '../components/CdFocusLyrics.vue'
 import { createCdStage, type CdAlbum } from '../utils/cdStageController'
 import { useCdCanvasTheme } from '../composables/useCdCanvasTheme'
 import { useCdCanvasBackground } from '../composables/useCdCanvasBackground'
+import { useCdProgressStyle } from '../composables/useCdProgressStyle'
 import { useCdCanvasColors } from '../composables/useCdCanvasColors'
 import { resolveCdCanvasBackground } from '../utils/cdCanvasColors'
 import { formatCdAccent } from '../utils/cdAccent'
@@ -76,6 +83,32 @@ const controlsRef = ref<HTMLElement | null>(null)
 const focusedPlaybackFrameRef = ref<HTMLElement | null>(null)
 const focused = ref(false)
 const { cdCanvasBackgroundEnabled, toggleCdCanvasBackground } = useCdCanvasBackground()
+const { cdProgressStyle, toggleCdProgressStyle } = useCdProgressStyle()
+const { cdVibrationEnabled, toggleCdVibration, cdVibrationStyle, setCdVibrationStyle } =
+  useCdVibration()
+const vibrationToggleLabel = computed(() =>
+  t(cdVibrationEnabled.value ? 'albums.cd.vibration.turnOff' : 'albums.cd.vibration.turnOn'),
+)
+const vibrationTooltip = computed(() =>
+  cdVibrationEnabled.value
+    ? t('albums.cd.vibration.enabledHint', {
+        action: vibrationToggleLabel.value,
+        style: t(`albums.cd.vibration.${cdVibrationStyle.value}`),
+      })
+    : t('albums.cd.vibration.disabledHint', { action: vibrationToggleLabel.value }),
+)
+function handleVibrationContextMenu(): void {
+  if (!cdVibrationEnabled.value) {
+    toggleCdVibration()
+    return
+  }
+  setCdVibrationStyle(cdVibrationStyle.value === 'smooth' ? 'elastic' : 'smooth')
+}
+const progressToggleLabel = computed(() =>
+  t('albums.cd.progress.switchTo', {
+    style: t(`albums.cd.progress.${cdProgressStyle.value === 'wave' ? 'comet' : 'wave'}`),
+  }),
+)
 const canvasBackgroundActive = computed(
   () => focused.value && cdCanvasTheme.value === 'light' && cdCanvasBackgroundEnabled.value,
 )
@@ -336,6 +369,7 @@ watch(
   { flush: 'post', immediate: true },
 )
 const reducedMotion = createReducedMotionQuery()
+const motionReduced = ref(reducedMotion.matches)
 let vinylBlend = 0
 let cancelSurfaceAnimation: (() => void) | null = null
 const surfaceIndicatorMotion: CdSurfaceIndicatorMotionState = {
@@ -350,6 +384,31 @@ let unsubscribe: (() => void) | null = null
 let disposed = false
 let inFlight = false
 let refreshPending = false
+const spectrumFrame = shallowRef<PlaybackSpectrumFrame | null>(null)
+const vibration = createCdVibrationMotion(
+  (offset) => controller?.setVibrationOffset(offset),
+  () => cdVibrationStyle.value,
+)
+const spectrumActive = computed(
+  () =>
+    focusSettled.value &&
+    ringTrackMatches.value &&
+    !loading.value &&
+    !failed.value &&
+    !motionReduced.value &&
+    (cdVibrationEnabled.value || route.query.spectrum === '1'),
+)
+usePlaybackSpectrum({
+  enabled: spectrumActive,
+  onFrame(frame) {
+    if (route.query.spectrum === '1') spectrumFrame.value = frame
+    if (cdVibrationEnabled.value && spectrumActive.value) vibration.receive(frame)
+    else vibration.stop()
+  },
+})
+watch([cdVibrationEnabled, spectrumActive, cdVibrationStyle], () => vibration.stop(), {
+  flush: 'sync',
+})
 
 watch(
   browsingPlaybackRef,
@@ -421,6 +480,7 @@ function setDiscSurface(surface: 'cd' | 'vinyl'): void {
 }
 
 function onMotionPreferenceChange(): void {
+  motionReduced.value = reducedMotion.matches
   settleInfo()
   if (reducedMotion.matches) {
     cancelBrowsingPlaybackAnimation?.()
@@ -466,7 +526,8 @@ function syncPlaybackRing(): void {
     visible: focusSettled.value && ringTrackMatches.value,
     playing: playback.state.isPlaying,
     progress: Number.isFinite(duration) && duration > 0 ? playback.state.currentTime / duration : 0,
-    accent: ringAccent.value,
+    accent: `var(--cd-wave-accent, ${ringAccent.value})`,
+    style: cdProgressStyle.value,
   })
 }
 
@@ -478,6 +539,7 @@ watch(
     () => playback.state.currentTime,
     () => playback.state.duration,
     ringAccent,
+    cdProgressStyle,
   ],
   syncPlaybackRing,
 )
@@ -742,6 +804,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   disposed = true
+  vibration.stop()
   clearFocusedPlaybackInfoTimer()
   unsubscribe?.()
   const routeName = router.currentRoute.value.name
@@ -842,7 +905,7 @@ onBeforeUnmount(() => {
           </div>
           <div v-if="displayedAlbum.releaseDate" class="cd-info-row">
             <dt>{{ t('albums.cd.releaseDate') }}</dt>
-            <dd>{{ displayedAlbum.releaseDate }}</dd>
+            <dd class="cd-info-date">{{ displayedAlbum.releaseDate }}</dd>
           </div>
           <div v-if="displayedAlbum.copyright" class="cd-info-row cd-info-copyright">
             <dt>{{ t('albums.cd.copyright') }}</dt>
@@ -960,6 +1023,7 @@ onBeforeUnmount(() => {
         </p>
       </section>
       <CdFocusLyrics
+        v-if="!cdVibrationEnabled"
         :active="focusSettled && ringTrackMatches && !loading && !failed"
         accent="var(--cd-lyrics-color)"
         :stage="stageRef"
@@ -1048,6 +1112,30 @@ onBeforeUnmount(() => {
       :disabled="cdCanvasTheme === 'dark'"
       @toggle="toggleCdCanvasBackground"
     />
+    <button
+      v-if="focused && !starting"
+      v-tooltip="progressToggleLabel"
+      type="button"
+      class="cd-progress-toggle"
+      :aria-label="progressToggleLabel"
+      :data-progress-style="cdProgressStyle"
+      @click="toggleCdProgressStyle"
+    >
+      <span class="i-lucide-audio-lines h-4 w-4" aria-hidden="true"></span>
+    </button>
+    <CdSpectrumPreview v-if="route.query.spectrum === '1'" :frame="spectrumFrame" />
+    <button
+      v-if="focused && !starting"
+      v-tooltip="vibrationTooltip"
+      type="button"
+      class="cd-vibration-toggle"
+      :aria-label="vibrationToggleLabel"
+      :aria-pressed="cdVibrationEnabled"
+      @click="toggleCdVibration"
+      @contextmenu.prevent="handleVibrationContextMenu"
+    >
+      <span class="i-lucide-vibrate h-4 w-4" aria-hidden="true"></span>
+    </button>
   </section>
 </template>
 
@@ -1077,7 +1165,8 @@ onBeforeUnmount(() => {
 }
 .cd-playback-error {
   flex: 0 0 auto;
-  font-size: 11px;
+  font-size: var(--cd-type-error-size);
+  line-height: var(--cd-type-error-line-height);
   color: var(--cd-error, #8c4034);
 }
 @media (max-width: 800px) {
@@ -1225,7 +1314,8 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 8px;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--cd-type-action-size);
+  line-height: var(--cd-type-action-line-height);
   color: inherit;
   border: 1px solid var(--cd-border);
   background: transparent;
@@ -1254,9 +1344,9 @@ onBeforeUnmount(() => {
 }
 .cd-page .cd-surface-switch button {
   padding: 6px 0;
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  line-height: 20px;
-  font-size: 12px;
+  font-family: var(--cd-font-text);
+  line-height: var(--cd-type-nav-line-height);
+  font-size: var(--cd-type-nav-size);
   font-weight: 400;
   border: 0;
   border-radius: 0;
@@ -1309,10 +1399,10 @@ onBeforeUnmount(() => {
   border-radius: 0;
   background: transparent;
   color: var(--cd-text-muted);
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 12px;
+  font-family: var(--cd-font-text);
+  font-size: var(--cd-type-nav-size);
   font-weight: 400;
-  line-height: 20px;
+  line-height: var(--cd-type-nav-line-height);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -1327,10 +1417,10 @@ onBeforeUnmount(() => {
 }
 .cd-focus-nav-separator {
   color: var(--cd-text-muted);
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 12px;
+  font-family: var(--cd-font-text);
+  font-size: var(--cd-type-nav-size);
   font-weight: 400;
-  line-height: 20px;
+  line-height: var(--cd-type-nav-line-height);
   user-select: none;
   pointer-events: none;
 }
@@ -1387,21 +1477,22 @@ onBeforeUnmount(() => {
   min-width: 0;
   margin: 0;
   padding-bottom: 3px;
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 36px;
+  font-family: var(--cd-font-display);
+  font-size: var(--cd-type-title-size);
   font-weight: 400;
   font-style: italic;
   font-synthesis: none;
-  line-height: 1.25;
+  line-height: var(--cd-type-title-line-height);
   overflow-wrap: anywhere;
 }
 .cd-info-count {
   flex-shrink: 0;
   padding-bottom: 6px;
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', serif;
-  font-size: 12px;
+  font-family: var(--cd-font-number);
+  font-size: var(--cd-type-count-size);
   white-space: nowrap;
   color: var(--cd-text-count);
+  line-height: var(--cd-type-count-line-height);
 }
 .cd-info-fields {
   margin: 0;
@@ -1420,9 +1511,9 @@ onBeforeUnmount(() => {
   align-items: stretch;
   gap: 2px;
   margin: 0;
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 16px;
-  line-height: 1.3;
+  font-family: var(--cd-font-display);
+  font-size: var(--cd-type-playback-size);
+  line-height: var(--cd-type-playback-line-height);
   color: var(--cd-text-browsing);
   white-space: nowrap;
   pointer-events: none;
@@ -1489,7 +1580,7 @@ onBeforeUnmount(() => {
   box-sizing: border-box;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 17px 15px 5px;
+  grid-template-rows: var(--cd-type-focus-rows);
   align-content: space-between;
   height: 60px;
   padding: 8px 0;
@@ -1497,7 +1588,7 @@ onBeforeUnmount(() => {
   width: var(--cd-focused-playback-info-width);
   min-width: 0;
   margin: 0;
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--cd-font-display);
   color: var(--cd-text-browsing);
   pointer-events: none;
 }
@@ -1516,29 +1607,30 @@ onBeforeUnmount(() => {
   display: block;
   width: 100%;
   min-width: 0;
-  height: 17px;
-  line-height: 17px;
+  height: var(--cd-type-focus-song-line-height);
+  line-height: var(--cd-type-focus-song-line-height);
   margin: 0;
   padding: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: center;
-  font-size: 14px;
+  font-size: var(--cd-type-focus-song-size);
+  font-family: var(--cd-font-display);
 }
 .cd-focused-playback-album {
   display: block;
   width: 100%;
   min-width: 0;
-  height: 15px;
-  line-height: 15px;
+  height: var(--cd-type-focus-album-line-height);
+  line-height: var(--cd-type-focus-album-line-height);
   margin: 0;
   padding: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 13px;
+  font-family: var(--cd-font-display);
+  font-size: var(--cd-type-focus-album-size);
   font-weight: 400;
   font-style: italic;
   font-synthesis: none;
@@ -1565,11 +1657,13 @@ onBeforeUnmount(() => {
   border: 0;
   border-radius: 0;
   background: transparent;
-  font-size: 18px;
+  font-size: var(--cd-type-playing-size);
   font-style: italic;
   text-align: center;
   color: var(--cd-text-faint);
   pointer-events: auto;
+  font-family: var(--cd-font-display);
+  line-height: var(--cd-type-playing-line-height);
 }
 .cd-page .cd-browsing-playback-label:hover:not(:disabled) {
   background: transparent;
@@ -1625,16 +1719,16 @@ onBeforeUnmount(() => {
   max-width: min(360px, calc(100cqw - 32px));
   height: 16px;
   transform: translateX(-50%);
-  line-height: 16px;
+  line-height: var(--cd-type-time-line-height);
 }
 .cd-browsing-playback-time {
   min-width: 0;
   overflow: hidden;
   color: var(--cd-text-muted);
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 12px;
+  font-family: var(--cd-font-number);
+  font-size: var(--cd-type-time-size);
   font-variant-numeric: tabular-nums;
-  line-height: 16px;
+  line-height: var(--cd-type-time-line-height);
   white-space: nowrap;
 }
 .cd-browsing-playback-time--duration {
@@ -1666,12 +1760,12 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   pointer-events: auto;
   cursor: pointer;
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 16px;
+  font-family: var(--cd-font-display);
+  font-size: var(--cd-type-playback-size);
   font-weight: 400;
   font-style: italic;
   font-synthesis: none;
-  line-height: 1.25;
+  line-height: var(--cd-type-playback-album-line-height);
   text-align: center;
   color: var(--cd-text-album);
 }
@@ -1712,22 +1806,24 @@ onBeforeUnmount(() => {
   border-top: 1px solid transparent;
 }
 .cd-info-row dt {
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 12px;
+  font-family: var(--cd-font-text);
+  font-size: var(--cd-type-label-size);
   color: var(--cd-text-muted);
-  line-height: 1.7;
+  line-height: var(--cd-type-label-line-height);
 }
 .cd-info-row dd {
   margin: 0;
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 14px;
-  line-height: 1.5;
+  font-family: var(--cd-font-display);
+  font-size: var(--cd-type-value-size);
+  line-height: var(--cd-type-value-line-height);
   text-align: right;
   overflow-wrap: anywhere;
   white-space: pre-line;
 }
 .cd-info-copyright dd {
-  font-size: 13px;
+  font-size: var(--cd-type-fine-size);
+  font-family: var(--cd-font-text);
+  line-height: var(--cd-type-fine-line-height);
 }
 .cd-info-copyright-value {
   display: block;
@@ -1749,7 +1845,9 @@ onBeforeUnmount(() => {
     );
   }
   .cd-info-title {
-    font-size: 28px;
+    font-size: var(--cd-type-title-compact-size);
+    font-family: var(--cd-font-display);
+    line-height: var(--cd-type-title-line-height);
   }
 }
 .cd-stage {
@@ -1777,7 +1875,9 @@ onBeforeUnmount(() => {
   justify-content: center;
   flex-direction: column;
   gap: 12px;
-  font-size: 14px;
+  font-size: var(--cd-type-status-size);
+  line-height: var(--cd-type-status-line-height);
+  font-family: var(--cd-font-text);
 }
 .cd-controls {
   display: flex;
@@ -1802,6 +1902,45 @@ onBeforeUnmount(() => {
   color: var(--cd-text);
   background: transparent;
   box-shadow: none;
+}
+.cd-page .cd-background-toggle,
+.cd-page .cd-vibration-toggle,
+.cd-page .cd-progress-toggle {
+  padding: 0;
+  color: var(--cd-text-muted);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.cd-page .cd-background-toggle[aria-pressed='true'],
+.cd-page .cd-vibration-toggle[aria-pressed='true'] {
+  color: var(--cd-text);
+}
+.cd-page .cd-background-toggle:hover:not(:disabled),
+.cd-page .cd-vibration-toggle:hover:not(:disabled),
+.cd-page .cd-progress-toggle:hover:not(:disabled) {
+  color: var(--cd-text);
+  background: transparent;
+  box-shadow: none;
+}
+.cd-page .cd-progress-toggle {
+  position: absolute;
+  left: 120px;
+  bottom: 24px;
+  z-index: 8;
+  width: 32px;
+  height: 32px;
+  -webkit-app-region: no-drag;
+}
+.cd-page .cd-vibration-toggle {
+  position: absolute;
+  left: 168px;
+  bottom: 24px;
+  z-index: 8;
+  width: 32px;
+  height: 32px;
+  -webkit-app-region: no-drag;
 }
 :global(::view-transition-group(cd-canvas)) {
   animation-duration: 260ms;
@@ -2048,5 +2187,21 @@ onBeforeUnmount(() => {
     left: 16px;
     bottom: 16px;
   }
+  .cd-page .cd-progress-toggle {
+    left: 112px;
+    bottom: 16px;
+  }
+  .cd-page .cd-vibration-toggle {
+    left: 160px;
+    bottom: 16px;
+  }
+}
+.cd-info-row .cd-info-date {
+  font-family: var(--cd-font-number);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.cd-info-count,
+.cd-browsing-playback-time {
+  font-variant-numeric: lining-nums tabular-nums;
 }
 </style>

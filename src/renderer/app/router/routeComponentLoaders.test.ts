@@ -6,12 +6,12 @@ import {
 } from './routeComponentLoaders'
 
 describe('routeComponentLoaders', () => {
-  it('loads the home page lazily and shares concurrent requests', async () => {
-    const home = vi.fn().mockResolvedValue({ default: { name: 'HomePage' } })
-    const registry = createRouteLoaderRegistry({ home })
-    expect(home).not.toHaveBeenCalled()
-    await Promise.all([registry.routeLoaders.home(), registry.routeLoaders.home()])
-    expect(home).toHaveBeenCalledTimes(1)
+  it('loads the library page lazily and shares concurrent requests', async () => {
+    const library = vi.fn().mockResolvedValue({ default: { name: 'LibraryPage' } })
+    const registry = createRouteLoaderRegistry({ library })
+    expect(library).not.toHaveBeenCalled()
+    await Promise.all([registry.routeLoaders.library(), registry.routeLoaders.library()])
+    expect(library).toHaveBeenCalledTimes(1)
   })
   it('loads the CD page lazily without adding it to primary warmup', async () => {
     const cdAlbums = vi.fn().mockResolvedValue({ default: { name: 'CdAlbumsPage' } })

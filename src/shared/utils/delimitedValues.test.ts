@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   cleanDelimitedValues,
+  canonicalizeDelimitedValues,
   formatDelimitedParts,
   formatDelimitedValues,
   joinDelimitedValues,
@@ -9,9 +10,32 @@ import {
 } from './delimitedValues'
 
 describe('delimitedValues', () => {
+  describe('canonicalizeDelimitedValues', () => {
+    it('cleans and deduplicates values without interpreting literal punctuation', () => {
+      expect(canonicalizeDelimitedValues(' Pop;  ; pop; R&B/Soul; Hip-Hop/Rap ')).toBe(
+        'Pop; R&B/Soul; Hip-Hop/Rap',
+      )
+      expect(canonicalizeDelimitedValues('Tyler, The Creator; AC/DC')).toBe(
+        'Tyler, The Creator; AC/DC',
+      )
+      expect(canonicalizeDelimitedValues('A;B')).toBe('A;B')
+      expect(canonicalizeDelimitedValues(' ; ')).toBeNull()
+    })
+  })
   describe('splitDelimitedValues', () => {
     it('splits on half-width semicolon followed by space', () => {
       expect(splitDelimitedValues('Jazz; Soul; Funk')).toEqual(['Jazz', 'Soul', 'Funk'])
+    })
+
+    it.each(['A;B', 'A；B', 'A;\tB', 'A;\nB', 'A;\u00a0B', 'A & B'])(
+      'keeps %s as one value',
+      (value) => {
+        expect(splitDelimitedValues(value)).toEqual([value])
+      },
+    )
+
+    it('trims labels and removes empty parts after splitting', () => {
+      expect(splitDelimitedValues('  A;  ; B  ')).toEqual(['A', 'B'])
     })
 
     it('returns empty array for falsy or empty input', () => {
@@ -45,10 +69,19 @@ describe('delimitedValues', () => {
   })
 
   describe('cleanDelimitedValues', () => {
-    it('flattens multiple candidates and splits on semicolon', () => {
+    it('flattens multiple candidates and splits only on "; "', () => {
       expect(cleanDelimitedValues(['Cantopop; Live'])).toEqual(['Cantopop', 'Live'])
-      expect(cleanDelimitedValues(['Cantopop;Live'])).toEqual(['Cantopop', 'Live'])
+      expect(cleanDelimitedValues(['Cantopop;Live'])).toEqual(['Cantopop;Live'])
       expect(cleanDelimitedValues(['Cantopop', 'Live'])).toEqual(['Cantopop', 'Live'])
+    })
+
+    it('keeps literal separators atomic while deduplicating native entries', () => {
+      expect(cleanDelimitedValues([' A;B; C ', 'a;b', 'c', 'A；B', 'A;\tB'])).toEqual([
+        'A;B',
+        'C',
+        'A；B',
+        'A;\tB',
+      ])
     })
 
     it('preserves literal commas and slashes', () => {

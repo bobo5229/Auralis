@@ -1,5 +1,57 @@
 import { describe, expect, it } from 'vitest'
-import { cdLyricsArcPlacement, cdLyricsPlacement, type LyricsRect } from './cdLyricsPlacement'
+import {
+  cdLyricsArcPlacement,
+  cdLyricsOccupiedArcBounds,
+  cdLyricsPlacement,
+  type LyricsRect,
+} from './cdLyricsPlacement'
+
+describe('CD lyric occupied arc bounds', () => {
+  const points = Array.from({ length: 97 }, (_, index) => {
+    const angle = ((-60 + (index / 96) * 120) * Math.PI) / 180
+    return { x: 500 + Math.sin(angle) * 300, y: 400 - Math.cos(angle) * 300, scale: 1 }
+  })
+  it('keeps a short line on the disc when only unused path ends cross the side panels', () => {
+    const bounds = { left: 0, top: 0, width: 1000, height: 800 }
+    const panels = [
+      { left: 0, top: 0, width: 300, height: 800 },
+      { left: 700, top: 0, width: 300, height: 800 },
+    ]
+    const occupied = cdLyricsOccupiedArcBounds(points, 180, 15, 24)
+    expect(cdLyricsArcPlacement(0, () => occupied, bounds, panels)).toBe(0)
+    expect(
+      cdLyricsArcPlacement(
+        0,
+        () => ({ left: 240, top: 70, width: 520, height: 230 }),
+        bounds,
+        panels,
+      ),
+    ).toBeNull()
+  })
+  it('continues rejecting actual text collisions for long lines', () => {
+    const rect = cdLyricsOccupiedArcBounds(points, 600, 40, 24)
+    expect(rect.width).toBeGreaterThan(500)
+    expect(
+      cdLyricsArcPlacement(0, () => rect, { left: 0, top: 0, width: 1000, height: 800 }, [
+        { left: 0, top: 0, width: 300, height: 800 },
+      ]),
+    ).toBeNull()
+  })
+  it('includes perspective enlargement and bounds centered glyphs on both path directions', () => {
+    const normal = cdLyricsOccupiedArcBounds(points, 180, 15, 24)
+    const enlarged = cdLyricsOccupiedArcBounds(
+      points.map((point) => ({ ...point, scale: 1.8 })),
+      180,
+      15,
+      24,
+    )
+    expect(enlarged.width).toBeGreaterThan(normal.width)
+    expect(enlarged.height).toBeGreaterThan(normal.height)
+    const reversed = cdLyricsOccupiedArcBounds([...points].reverse(), 180, 15, 24)
+    expect(reversed.left).toBeCloseTo(normal.left)
+    expect(reversed.width).toBeCloseTo(normal.width)
+  })
+})
 
 describe('CD lyric arc avoidance', () => {
   const bounds = { left: 0, top: 0, width: 800, height: 600 }

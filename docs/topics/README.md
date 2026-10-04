@@ -18,6 +18,9 @@
 
 ## 已知关系与待核实事项
 
+- [歌曲改名与移动后的路径找回](library/TECHDOC-track-path-relocation-2026-10-04.md)记录唯一匹配时保留歌曲身份及关联数据的处理方案、扫描与监听实现和验证范围。
+- [确认删除文件后的曲库清理](library/TECHDOC-deleted-track-cleanup-2026-10-04.md)记录全量扫描后移除曲库与歌单记录、保留收听历史的实现、验证与实际清理；独立复验通过，真实库已移除 24 条缺失记录。
+- [当前曲库流派上层统计](metadata/REPORT-genre-upper-classification-2026-10-04.md)列出清理后 4,131 首歌曲、57 个原流派的上层统计与映射草案，原流派保留；分类与界面尚未实施。
 - [音乐来源路径优先布局](library/TECHDOC-music-source-path-priority-2026-09-28.md)记录已确认的 B 方案及正式页面接入、状态与验收要求；待实施。
 - [歌曲页字重设置](library/TECHDOC-song-font-weight-settings-2026-09-28.md)记录已确认的总折叠项、两种视图独立字重、即时预览和本地持久化方案；应用实现待开发。
 - [历史：MiniPlayer 弹层可用性与窗口状态同步修复](playback/TECHDOC-miniplayer-geometry-state-fixes-2026-09-28.md)记录弹层裁切、状态乱序、开关失配和极小工作区越界的修复方案与定向验收；迷你播放器已于 2026-09-28 移除。

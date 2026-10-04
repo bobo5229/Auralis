@@ -8,6 +8,8 @@
   height: 342px;
   transform-origin: 0 0;
   pointer-events: none;
+  z-index: 1;
+  color-scheme: light;
   font-family: var(
     --mac-font,
     var(--auralis-font-latin),
@@ -105,10 +107,14 @@
 .crt-desktop-icon-glyph {
   width: 32px;
   height: 32px;
-  image-rendering: pixelated;
+  display: grid;
+  place-items: center;
 }
-.crt-desktop-icon-btn[aria-pressed='true'] .crt-desktop-icon-glyph {
-  filter: invert(1);
+.crt-desktop-icon-glyph svg {
+  display: block;
+  width: 24px;
+  height: 24px;
+  shape-rendering: crispEdges;
 }
 .crt-logic-plane {
   font-synthesis: none;
@@ -201,7 +207,10 @@
   font-size: 12px;
 }
 
-.date-tools button {
+.date-tools > button,
+.date-picker > button,
+.mac-calendar-nav button,
+.mac-retry-button {
   height: 22px;
   padding: 0 6px;
   border: 1px solid #000;
@@ -209,16 +218,23 @@
   color: #000;
   font-family: var(--mac-font);
   font-size: 12px;
+  line-height: 18px;
   box-shadow: 1px 1px 0 #000;
   cursor: pointer;
 }
 
-.date-tools button:hover:not(:disabled) {
+.date-tools > button:hover:not(:disabled),
+.date-picker > button:hover:not(:disabled),
+.mac-calendar-nav button:hover:not(:disabled),
+.mac-retry-button:hover:not(:disabled) {
   background: #000;
   color: #fff;
 }
 
-.date-tools button:disabled {
+.date-tools > button:disabled,
+.date-picker > button:disabled,
+.mac-calendar-nav button:disabled,
+.mac-retry-button:disabled {
   opacity: 0.45;
   cursor: default;
   box-shadow: none;
@@ -348,6 +364,10 @@
   color: #555;
   font-size: 12px;
 }
+.album-empty-msg.is-error {
+  flex-direction: column;
+  gap: 8px;
+}
 
 /* Custom Calendar Popup */
 .mac-date-popup {
@@ -376,13 +396,7 @@
   border-bottom: 1px solid #000;
 }
 
-.mac-calendar-year-select {
-  font-family: var(--mac-font);
-  font-size: 12px;
-  height: 22px;
-  border: 1px solid #000;
-  background: #fff;
-  color: #000;
+#mac-calendar-year-select {
   padding: 0 4px;
 }
 
@@ -402,11 +416,6 @@
   background: #fff;
   color: #000;
   cursor: pointer;
-}
-
-.mac-calendar-month-nav button:hover {
-  background: #000;
-  color: #fff;
 }
 
 .mac-calendar-grid {
@@ -440,7 +449,7 @@
   position: relative;
 }
 
-.mac-calendar-cell:hover:not(:disabled) {
+.mac-calendar-cell:hover:not(:disabled):not(.is-selected) {
   border-color: #000;
   background: #eee;
 }

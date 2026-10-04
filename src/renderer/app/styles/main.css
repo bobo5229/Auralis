@@ -255,11 +255,11 @@
   color-scheme: light;
 
   /* Theme accent */
-  --auralis-theme-accent: #585b5f;
-  --auralis-theme-accent-soft: #dfe2e5;
+  --auralis-theme-accent: var(--auralis-light-accent, #585b5f);
+  --auralis-theme-accent-soft: var(--auralis-light-accent-soft, #dfe2e5);
   --auralis-theme-accent-soft-hover: color-mix(
     in srgb,
-    var(--auralis-theme-accent-soft) 86%,
+    var(--auralis-theme-accent-soft) 90%,
     var(--auralis-theme-accent)
   );
 
@@ -287,7 +287,7 @@
   --auralis-control-hover-bg: rgba(41, 43, 45, 0.05);
   --auralis-control-active-bg: var(--auralis-theme-accent-soft);
   --auralis-control-primary-bg: var(--auralis-theme-accent);
-  --auralis-control-primary-text: #ffffff;
+  --auralis-control-primary-text: var(--auralis-light-on-accent, #ffffff);
   --auralis-focus-ring: var(--auralis-theme-accent);
   --auralis-danger: #b83636;
   --auralis-success: #476e4b;
@@ -507,7 +507,7 @@
 .app-shell.is-sidebar-collapsed:not(.is-cd-albums):not(.is-archive-canvas) > .shell-drag-region {
   top: 0;
   left: 0;
-  width: var(--auralis-sidebar-rail-width, 72px);
+  width: var(--auralis-sidebar-rail-width, 60px);
   height: 54px;
 }
 
@@ -654,7 +654,7 @@ input {
 }
 
 .app-shell.is-sidebar-collapsed:not(.is-cd-albums):not(.is-archive-canvas) {
-  --auralis-sidebar-width: var(--auralis-sidebar-rail-width, 72px);
+  --auralis-sidebar-width: var(--auralis-sidebar-rail-width, 60px);
 }
 
 /* 歌词列宽由 rAF 直接驱动，避免 CSS 每帧重新追赶 280ms 的侧边栏过渡。 */
@@ -1563,8 +1563,16 @@ input {
 }
 
 .player-bar .track-cover:hover {
+  transform: scale(1.08);
+  opacity: 1;
+}
+
+:where([data-reduced-motion='true']) .player-bar .track-cover {
+  transition: none;
+}
+
+:where([data-reduced-motion='true']) .player-bar .track-cover:hover {
   transform: none;
-  opacity: 0.85;
 }
 
 .player-bar input[type='range'].volume-slider::-webkit-slider-thumb {
@@ -1994,15 +2002,32 @@ input[type='range'].volume-overlay-slider {
   padding-inline: 10px;
 }
 
+.app-sidebar.app-sidebar--collapsed .sidebar-brand-mark {
+  width: 34px;
+}
+
 .app-sidebar.app-sidebar--collapsed .sidebar-brand-left {
+  position: relative;
   justify-content: center;
+  gap: 0;
 }
 
 .app-sidebar.app-sidebar--collapsed .sidebar-brand-copy {
-  display: none;
+  position: absolute;
+  left: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-10px);
+  clip-path: inset(0 100% 0 0);
+  pointer-events: none;
+  transition:
+    opacity 120ms ease-out,
+    transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    clip-path 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s 180ms;
 }
 
-.app-sidebar.app-sidebar--collapsed .sidebar-brand-waveform {
+.app-sidebar.app-sidebar--collapsed .sidebar-brand-symbol {
   width: 20px;
   height: 20px;
   transform: none;
@@ -2010,6 +2035,7 @@ input[type='range'].volume-overlay-slider {
 
 .app-sidebar.app-sidebar--collapsed .sidebar-tools-grid {
   flex-direction: column;
+  align-items: center;
   gap: 4px;
 }
 
@@ -2096,6 +2122,7 @@ input[type='range'].volume-overlay-slider {
   align-items: center;
   justify-content: flex-start;
   gap: 4px;
+  overflow: hidden;
 }
 
 .sidebar-brand-mark {
@@ -2111,59 +2138,43 @@ input[type='range'].volume-overlay-slider {
   box-shadow: none;
 }
 
-.sidebar-brand-waveform {
+.sidebar-brand-symbol {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
   color: inherit;
-  transition: opacity 150ms ease;
-}
-
-.sidebar-brand-left:hover .sidebar-brand-waveform {
-  opacity: 0.92;
 }
 
 .sidebar-brand-copy {
   min-width: 0;
   flex: 0 0 auto;
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+  clip-path: inset(0);
+  transition:
+    opacity 180ms ease-out 60ms,
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1) 40ms,
+    clip-path 220ms cubic-bezier(0.16, 1, 0.3, 1) 40ms,
+    visibility 0s;
 }
 
 .sidebar-brand-name {
-  position: relative;
-  color: var(--auralis-sidebar-brand-text, color-mix(in srgb, #ffffff 88%, transparent));
+  --sidebar-brand-ink: var(
+    --auralis-sidebar-brand-text,
+    color-mix(in srgb, #ffffff 88%, transparent)
+  );
+  --sidebar-brand-echo: color-mix(
+    in srgb,
+    var(--sidebar-brand-ink) 55%,
+    var(--auralis-sidebar-active-indicator)
+  );
+  color: var(--sidebar-brand-ink);
   font-size: 18px;
   font-weight: 800;
   line-height: 22px;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: color 200ms ease;
-}
-
-.sidebar-brand-name::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2px;
-  background: var(--auralis-sidebar-active-indicator);
-  transform: scaleX(0);
-  transform-origin: left center;
-  pointer-events: none;
-  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.sidebar-brand-left:hover .sidebar-brand-name {
-  color: color-mix(
-    in srgb,
-    var(--auralis-sidebar-brand-text, #ffffff) 88%,
-    var(--auralis-sidebar-active-indicator)
-  );
-}
-
-.sidebar-brand-left:hover .sidebar-brand-name::after {
-  transform: scaleX(1);
-  transition-duration: 400ms;
 }
 
 /* Evenly spaced tool row */
@@ -2262,8 +2273,9 @@ input[type='range'].volume-overlay-slider {
 
 .sidebar-section-label {
   padding: 0 16px 8px;
+  padding-left: 24px;
   color: var(--auralis-text-faint);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2323,7 +2335,7 @@ input[type='range'].volume-overlay-slider {
     transform 200ms ease;
 }
 
-.sidebar-link-icon > span {
+.sidebar-link .sidebar-link-icon > span {
   width: 18px;
   height: 18px;
 }
@@ -2401,6 +2413,7 @@ input[type='range'].volume-overlay-slider {
   align-items: center;
   justify-content: space-between;
   padding: 16px 16px 8px;
+  padding-left: 24px;
 }
 
 .smart-playlist-add-button {
@@ -2409,7 +2422,9 @@ input[type='range'].volume-overlay-slider {
   height: 22px;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: var(--auralis-text-faint);
   transition: all 150ms ease;
 }
@@ -2420,7 +2435,6 @@ input[type='range'].volume-overlay-slider {
 }
 
 .smart-playlist-add-button:hover {
-  background: var(--auralis-control-hover-bg);
   color: var(--auralis-text);
   transform: scale(1.08);
 }
@@ -2492,49 +2506,45 @@ input[type='range'].volume-overlay-slider {
   background-color: var(--auralis-control-hover-bg);
 }
 
-.song-row--selected {
-  background-color: var(--auralis-control-active-bg);
+/* 与专辑详情页共用主题色及其对比色；hover 保持选中/播放高亮。 */
+.song-row:is(.song-row--selected, .song-row--playing),
+.song-row:is(.song-row--selected, .song-row--playing):hover,
+.cover-track-row:is([aria-pressed='true'], .cover-track-row--playing),
+.cover-track-row:is([aria-pressed='true'], .cover-track-row--playing):hover {
+  background-color: var(--auralis-theme-accent);
+  color: var(--auralis-control-primary-text);
+  border-radius: 12px;
+  border-color: transparent;
 }
 
-.song-row--selected:hover {
-  background-color: color-mix(
-    in srgb,
-    var(--auralis-control-active-bg) 80%,
-    var(--auralis-control-hover-bg)
-  );
-}
-
-.song-row--playing {
-  background-color: var(--auralis-song-row-now-playing-bg);
-}
-
-.song-row--playing:hover {
-  background-color: color-mix(
-    in srgb,
-    var(--auralis-song-row-now-playing-bg) 80%,
-    var(--auralis-control-hover-bg)
-  );
-}
-
-.song-row--playing :is(.song-title, .song-title-main) {
-  color: var(--auralis-song-row-now-playing-title);
-}
-
-.song-row--playing .song-artist {
-  color: var(--auralis-song-row-now-playing-artist);
-}
-
-.song-row--playing :is(.song-duration, .song-play-count) {
-  color: var(--auralis-song-row-now-playing-duration);
+.song-row:is(.song-row--selected, .song-row--playing)
+  :is(.song-title, .song-title-main, .song-artist, .song-album, .song-duration, .song-play-count),
+.song-row:is(.song-row--selected, .song-row--playing) .song-cover > span,
+.cover-track-row:is([aria-pressed='true'], .cover-track-row--playing)
+  :is(
+    .cover-track-number,
+    .cover-track-title,
+    .cover-track-artist-line,
+    .cover-track-genre,
+    .cover-track-duration,
+    .cover-track-bars
+  ) {
+  color: var(--auralis-control-primary-text);
 }
 
 .library-list-shell--play-count {
   container-type: inline-size;
 }
 
-.song-row:focus-visible {
+.song-row:focus-visible,
+.cover-track-row:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: -2px;
+}
+
+.song-row:is(.song-row--selected, .song-row--playing):focus-visible,
+.cover-track-row:is([aria-pressed='true'], .cover-track-row--playing):focus-visible {
+  outline-color: var(--auralis-control-primary-text);
 }
 
 /* Library search bar */
@@ -2649,6 +2659,11 @@ input[type='range'].volume-overlay-slider {
   color: var(--auralis-text);
 }
 
+.library-page .library-search-bar {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .library-search-input::placeholder {
   color: var(--auralis-text-faint);
 }
@@ -2708,8 +2723,8 @@ input[type='range'].volume-overlay-slider {
   border-radius: 14px;
   padding: 4px 12px;
   color: var(--auralis-text);
-  font-size: 14px;
-  line-height: 20px;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
   text-align: left;
   transition:
     background-color 140ms ease,
@@ -2813,8 +2828,8 @@ input[type='range'].volume-overlay-slider {
 .sidebar-create-error {
   padding: 4px 12px;
   color: var(--auralis-danger);
-  font-size: 12px;
-  line-height: 18px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
 }
 
 .playlist-add-submenu {
@@ -2971,7 +2986,8 @@ input[type='range'].volume-overlay-slider {
 
 .smart-playlist-dialog h2 {
   margin: 0 0 16px;
-  font-size: 16px;
+  font-size: var(--auralis-type-section-size);
+  line-height: var(--auralis-type-section-line-height);
   font-weight: 700;
 }
 
@@ -2984,13 +3000,14 @@ input[type='range'].volume-overlay-slider {
   outline: none;
   color: var(--auralis-text);
   background: var(--auralis-control-bg);
-  font-size: 14px;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
 }
 
 .smart-playlist-dialog textarea {
   min-height: 96px;
   resize: vertical;
-  line-height: 1.5;
+  line-height: var(--auralis-type-control-line-height);
 }
 
 .smart-playlist-dialog input:focus,
@@ -3001,7 +3018,8 @@ input[type='range'].volume-overlay-slider {
 .smart-playlist-dialog-error {
   margin: 6px 0 0;
   color: var(--auralis-danger);
-  font-size: 12px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
 }
 
 .smart-playlist-dialog-actions {
@@ -3017,7 +3035,8 @@ input[type='range'].volume-overlay-slider {
   border-radius: 6px;
   color: var(--auralis-text-muted);
   background: transparent;
-  font-size: 13px;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
 }
 
 .smart-playlist-dialog-actions button:hover {
@@ -3201,14 +3220,17 @@ input[type='range'].volume-overlay-slider {
 }
 
 :where([data-reduced-motion='true']) .sidebar-brand-mark,
-:where([data-reduced-motion='true']) .sidebar-brand-waveform,
+:where([data-reduced-motion='true']) .sidebar-brand-symbol,
+:where([data-reduced-motion='true']) .sidebar-brand-copy,
 :where([data-reduced-motion='true']) .sidebar-brand-name,
-:where([data-reduced-motion='true']) .sidebar-brand-name::after {
+:where([data-reduced-motion='true']) .sidebar-brand-letter {
   transition: none;
 }
 
-:where([data-reduced-motion='true']) .sidebar-brand-name::after {
-  content: none;
+:where([data-reduced-motion='true'])
+  .sidebar-brand-left:is(:hover, :focus-visible)
+  .sidebar-brand-name {
+  color: var(--sidebar-brand-echo);
 }
 
 :where([data-reduced-motion='true']) .library-view-fade-enter-active,

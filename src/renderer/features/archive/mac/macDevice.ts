@@ -1,4 +1,7 @@
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
+import musicIcon from './icons/music.svg?raw'
+import albumIcon from './icons/album.svg?raw'
+import chartIcon from './icons/chart.svg?raw'
 export interface MacDeviceOptions {
   onModeChange?: (mode: 'machine' | 'screen') => void
   onViewTransition?: (active: boolean) => void
@@ -20,109 +23,10 @@ export interface MacDeviceController {
   dispose(): void
 }
 
-const ENTRY_ICONS: Record<string, string[]> = {
-  note: [
-    '00000000',
-    '00000000',
-    '00000000',
-    '00000000',
-    '000000c0',
-    '00000740',
-    '000078c0',
-    '00038740',
-    '000c7840',
-    '000b8040',
-    '0009c040',
-    '0008e040',
-    '00087040',
-    '00083840',
-    '00081c40',
-    '00080e40',
-    '00080740',
-    '000803c0',
-    '000801c0',
-    '000800c0',
-    '001c0040',
-    '003e0040',
-    '007f0040',
-    '00ff8040',
-    '00ff8000',
-    '007f0000',
-    '003e0000',
-    '001c0000',
-    '00000000',
-    '00000000',
-    '00000000',
-    '00000000',
-  ],
-  record: [
-    '00000000',
-    '00000000',
-    '0007e000',
-    '003ffc00',
-    '00ffff00',
-    '01ffff80',
-    '03ffffc0',
-    '07ffff00',
-    '0ff3ffe0',
-    '0fe007f0',
-    '1fc003f8',
-    '1f8181f8',
-    '3f03c0fc',
-    '3e03c07c',
-    '3e01807c',
-    '3e00007c',
-    '3e00007c',
-    '3e01807c',
-    '3e03c07c',
-    '3f03c0fc',
-    '1f8181f8',
-    '1fc003f8',
-    '0fe007f0',
-    '0ff3ffe0',
-    '07ffff00',
-    '03ffffc0',
-    '01ffff80',
-    '00ffff00',
-    '003ffc00',
-    '0007e000',
-    '00000000',
-    '00000000',
-  ],
-  report: [
-    '00000000',
-    '00000000',
-    '01fffc00',
-    '01fffc00',
-    '01e03c00',
-    '01e03c00',
-    '01e03c00',
-    '01e03c00',
-    '01ffff00',
-    '01ffff00',
-    '01e00300',
-    '01e00300',
-    '01e7e300',
-    '01e7e300',
-    '01e00300',
-    '01e00300',
-    '01e3c300',
-    '01e3c300',
-    '01e00300',
-    '01e00300',
-    '01e18300',
-    '01e18300',
-    '01e00300',
-    '01e00300',
-    '01ffff00',
-    '01ffff00',
-    '01fffe00',
-    '00000000',
-    '00000000',
-    '00000000',
-    '00000000',
-    '00000000',
-  ],
+const ENTRY_ICONS: Record<string, string> = {
+  music: musicIcon,
+  album: albumIcon,
+  chart: chartIcon,
 }
 
 export function mountMacDevice(
@@ -157,8 +61,8 @@ export function mountMacDevice(
   let selectedEntry: 'track' | 'album' | 'year' | null = null
   let entriesReady = false
   let operationBusy = false
-  let pitch = -16
-  let yaw = -32
+  let pitch = -8
+  let yaw = -23
   let drag: {
     id: number
     x: number
@@ -168,9 +72,6 @@ export function mountMacDevice(
     moved: boolean
   } | null = null
 
-  let lastTime = 0
-  let pauseUntil = 0
-  let raf = 0
   let transitionGen = 0
   let viewAnimation: Animation | null = null
   let suppressDoubleClickUntil = 0
@@ -232,27 +133,9 @@ export function mountMacDevice(
     noiseRaf = requestAnimationFrame(frame)
   }
 
-  function drawIcon(canvas: HTMLCanvasElement, iconName: string) {
-    const c = canvas.getContext('2d')
-    const pattern = ENTRY_ICONS[iconName]
-    if (!c || !pattern) return
-    c.clearRect(0, 0, 32, 32)
-    c.fillStyle = '#000'
-    for (let r = 0; r < 32; r++) {
-      const hex = pattern[r]
-      const bits = parseInt(hex, 16)
-      for (let col = 0; col < 32; col++) {
-        if (bits & (1 << (31 - col))) {
-          c.fillRect(col, r, 1, 1)
-        }
-      }
-    }
-  }
-
-  // Draw desktop icon glyphs
-  root.querySelectorAll<HTMLCanvasElement>('.crt-desktop-icon-glyph').forEach((iconCanvas) => {
-    const iconName = iconCanvas.dataset.icon
-    if (iconName) drawIcon(iconCanvas, iconName)
+  root.querySelectorAll<HTMLElement>('.crt-desktop-icon-glyph').forEach((glyph) => {
+    const icon = ENTRY_ICONS[glyph.dataset.icon ?? '']
+    if (icon) glyph.innerHTML = icon
   })
 
   function updateClock() {
@@ -269,24 +152,32 @@ export function mountMacDevice(
 
   function updateLogicPlaneScale() {
     if (!glass || !crtLogicPlane) return
-    const gw = glass.clientWidth || 512
-    const gh = glass.clientHeight || 342
-    const sx = gw / 512
-    const sy = gh / 342
-    crtLogicPlane.style.transform = `scale(${sx}, ${sy})`
+    const glassStyle = getComputedStyle(glass)
+    const gw =
+      Number.parseFloat(glassStyle.width) -
+      Number.parseFloat(glassStyle.borderLeftWidth) -
+      Number.parseFloat(glassStyle.borderRightWidth)
+    const gh =
+      Number.parseFloat(glassStyle.height) -
+      Number.parseFloat(glassStyle.borderTopWidth) -
+      Number.parseFloat(glassStyle.borderBottomWidth)
+    const scale = Math.min(gw / 512, gh / 342)
+    const x = (gw - 512 * scale) / 2
+    const y = (gh - 342 * scale) / 2
+    crtLogicPlane.style.transform = `translate(${x}px, ${y}px) scale(${scale})`
   }
 
   function layout() {
     if (!rig || !glass || !well || !studio) return
     const focused = mode === 'screen'
-    const chromeX = well.offsetLeft + glass.offsetLeft
-    const frontW = glass.offsetWidth + chromeX * 2
+    const frontW = rig.offsetWidth
+    const depth = Number.parseFloat(getComputedStyle(rig).getPropertyValue('--d'))
     const hostW = studio.clientWidth || window.innerWidth
     const hostH = studio.clientHeight || window.innerHeight
 
     let scale = focused
       ? Math.min((hostW - 48) / frontW, (hostH - 40) / glass.offsetHeight)
-      : Math.min((studio.clientWidth - 24) / 660, (studio.clientHeight - 24) / 760, 1)
+      : Math.min((studio.clientWidth - 48) / 560, (studio.clientHeight - 36) / 620, 1.15)
 
     if (focused) {
       const dpr = window.devicePixelRatio || 1
@@ -300,12 +191,17 @@ export function mountMacDevice(
     const centerY = well.offsetTop + glass.offsetTop + glass.offsetHeight / 2
 
     rig.style.setProperty('--zoom', String(scale))
-    rig.style.setProperty('--move-x', `${focused ? (rig.offsetWidth / 2 - centerX) * scale : 0}px`)
+    // Match the demo's 19% left inset while reserving room for manual rotation.
+    const machineCenterX = Math.max(24 + 280 * scale, hostW * 0.19 + (frontW * scale) / 2)
+    rig.style.setProperty(
+      '--move-x',
+      `${focused ? (frontW / 2 - centerX) * scale : machineCenterX - hostW / 2}px`,
+    )
     rig.style.setProperty(
       '--move-y',
-      `${focused ? (rig.offsetHeight / 2 - centerY) * scale : -12}px`,
+      `${focused ? (rig.offsetHeight / 2 - centerY) * scale : -42}px`,
     )
-    rig.style.setProperty('--move-z', `${focused ? -170 * scale : 0}px`)
+    rig.style.setProperty('--move-z', `${focused ? -(depth / 2 + 1) * scale : 0}px`)
     rig.style.setProperty('--tilt-x', `${focused ? 0 : pitch}deg`)
     rig.style.setProperty('--tilt-y', `${yaw}deg`)
 
@@ -335,54 +231,24 @@ export function mountMacDevice(
   function syncBezel() {
     if (bezelReturn) {
       bezelReturn.disabled = mode !== 'screen'
+      bezelReturn.tabIndex = mode === 'screen' ? 0 : -1
     }
     if (bezelPower) {
       bezelPower.disabled = mode !== 'screen' || crtPowered
       bezelPower.setAttribute('aria-pressed', String(crtPowered))
     }
     if (bodyPower) {
+      bodyPower.disabled = mode !== 'machine'
       bodyPower.setAttribute('aria-pressed', String(crtPowered))
     }
   }
 
   function setEntriesReady(ready: boolean) {
     entriesReady = ready
+    crtLogicPlane.inert = mode !== 'screen' || !ready
     entryButtons.forEach((btn) => {
       btn.disabled = !ready
     })
-  }
-
-  function frame(time: number) {
-    if (disposed) return
-    const elapsed = lastTime ? Math.min(time - lastTime, 250) : 0
-    lastTime = time
-    if (time >= pauseUntil) {
-      yaw += (elapsed * 360) / 60000
-      rig.style.setProperty('--tilt-y', `${yaw}deg`)
-      options.onGeometryChange?.()
-    }
-    raf = requestAnimationFrame(frame)
-  }
-
-  function stopRotation() {
-    cancelAnimationFrame(raf)
-    raf = 0
-    lastTime = 0
-  }
-
-  function startRotation() {
-    if (
-      disposed ||
-      mode !== 'machine' ||
-      operationBusy ||
-      drag ||
-      Boolean(viewAnimation) ||
-      motion.matches ||
-      document.hidden ||
-      raf
-    )
-      return
-    raf = requestAnimationFrame(frame)
   }
 
   function setDesktopPage(page: 'desktop' | 'album') {
@@ -408,7 +274,6 @@ export function mountMacDevice(
   function setMode(next: 'machine' | 'screen') {
     if (mode === next || disposed) return
     endDrag()
-    stopRotation()
     const before = getComputedStyle(rig).transform
     const gen = ++transitionGen
     cancelAnimationFrame(transitionRaf)
@@ -418,8 +283,8 @@ export function mountMacDevice(
 
     options.onViewTransition?.(true)
     mode = next
-    if (next === 'machine') pitch = -16
-    yaw = Math.round(yaw / 360) * 360 + (next === 'machine' ? -32 : 0)
+    if (next === 'machine') pitch = -8
+    yaw = Math.round(yaw / 360) * 360 + (next === 'machine' ? -23 : 0)
 
     rig.classList.add('is-transitioning')
     shell.classList.toggle('is-screen-focused', next === 'screen')
@@ -434,6 +299,7 @@ export function mountMacDevice(
     layout()
     const after = getComputedStyle(rig).transform
 
+    syncBezel()
     if (next === 'screen') bezelReturn?.focus({ preventScroll: true })
     else rig.focus({ preventScroll: true })
 
@@ -450,7 +316,6 @@ export function mountMacDevice(
       easing: next === 'screen' ? 'cubic-bezier(0.4, 0, 0.2, 1)' : 'cubic-bezier(0.16, 1, 0.3, 1)',
     })
     viewAnimation = animation
-    syncBezel()
 
     animation.finished
       .then(() => {
@@ -471,7 +336,6 @@ export function mountMacDevice(
         } else {
           setBlank(crtPowered ? 0 : 1)
           syncBezel()
-          startRotation()
         }
       })
       .catch(() => {
@@ -486,8 +350,6 @@ export function mountMacDevice(
     rig.classList.remove('is-dragging')
     if (rig.hasPointerCapture(ended.id)) rig.releasePointerCapture(ended.id)
     if (ended.moved) suppressDoubleClickUntil = performance.now() + 400
-    pauseUntil = performance.now() + 1500
-    startRotation()
   }
 
   // Pointer & Double Click Interactions on Rig
@@ -520,7 +382,6 @@ export function mountMacDevice(
         target.closest('button, select, .terminal-ui, .floppy')
       )
         return
-      stopRotation()
       drag = {
         id: event.pointerId,
         x: event.clientX,
@@ -545,7 +406,8 @@ export function mountMacDevice(
       if (!drag.moved && Math.hypot(dx, dy) < 4) return
       drag.moved = true
       yaw = drag.yaw + dx * 0.45
-      pitch = Math.max(-55, Math.min(35, drag.pitch - dy * 0.3))
+      // The replacement chassis has no underside; keep the camera above its base.
+      pitch = Math.max(-45, Math.min(-4, drag.pitch - dy * 0.3))
       rig.style.setProperty('--tilt-y', `${yaw}deg`)
       rig.style.setProperty('--tilt-x', `${pitch}deg`)
       options.onGeometryChange?.()
@@ -645,12 +507,9 @@ export function mountMacDevice(
   }
 
   const handleVisibility = () => {
-    if (document.hidden) {
-      stopRotation()
-    } else {
+    if (!document.hidden) {
       updateClock()
       layout()
-      startRotation()
     }
   }
 
@@ -659,11 +518,8 @@ export function mountMacDevice(
     'change',
     () => {
       if (motion.matches) {
-        stopRotation()
         stopDenoise()
         viewAnimation?.finish()
-      } else {
-        startRotation()
       }
     },
     listenOptions,
@@ -679,19 +535,14 @@ export function mountMacDevice(
   drawCrt()
   layout()
   syncBezel()
-  startRotation()
+  setEntriesReady(false)
 
   return {
     setMode,
     getMode: () => mode,
     setBusy: (busy: boolean) => {
       operationBusy = busy
-      if (operationBusy) {
-        endDrag()
-        stopRotation()
-      } else {
-        startRotation()
-      }
+      if (operationBusy) endDrag()
     },
     setDesktopPage,
     powerOn: () => {
@@ -720,7 +571,6 @@ export function mountMacDevice(
       disposed = true
       listeners.abort()
       endDrag()
-      stopRotation()
       stopDenoise()
       cancelAnimationFrame(transitionRaf)
       if (clockTimer) window.clearTimeout(clockTimer)

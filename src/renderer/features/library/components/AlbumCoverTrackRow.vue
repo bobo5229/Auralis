@@ -15,6 +15,7 @@ const props = withDefaults(
     selected?: boolean
     focused?: boolean
     index?: number
+    discEnd?: boolean
   }>(),
   { isPlaying: false, selected: false, focused: false, index: 0 },
 )
@@ -66,10 +67,11 @@ function onKeyDown(event: KeyboardEvent): void {
 
 <template>
   <div
-    class="cover-track-row"
+    class="cover-track-row auralis-track-row-divider"
     :class="{
       'cover-track-row--playing': nowPlaying,
       'cover-track-row--single-line': !isMultiValueArtist(track.artist),
+      'cover-track-row--disc-end': discEnd,
     }"
     :data-track-id="track.id"
     role="button"
@@ -128,6 +130,8 @@ function onKeyDown(event: KeyboardEvent): void {
     >
   </div>
 </template>
+
+<style scoped src="../../../shared/styles/trackRowDivider.css"></style>
 
 <style scoped>
 .cover-track-number {
@@ -212,21 +216,16 @@ function onKeyDown(event: KeyboardEvent): void {
 }
 
 .cover-track-row::before,
+.cover-track-row--disc-end::after,
 .cover-track-row:last-child::after {
   content: '';
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  /* 使用边框的设备像素取整，避免非整数缩放下实心矩形出现粗细差异。 */
-  height: 0;
-  border-top: 1px solid var(--auralis-cover-track-divider);
-  pointer-events: none;
 }
 
 .cover-track-row::before {
   top: 0;
 }
 
+.cover-track-row--disc-end::after,
 .cover-track-row:last-child::after {
   bottom: 0;
 }

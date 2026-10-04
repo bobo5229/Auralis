@@ -31,6 +31,72 @@ function displayArtwork(db: Database.Database, trackId: number): string | null {
 }
 
 describe('updateUserEditedMetadata artwork', () => {
+  it('stores one canonical list in both layers and keeps user values on later file refresh', () => {
+    const db = createDatabase()
+    const filePath = 'C:\\isolated\\multivalue.flac'
+    db.prepare(
+      "INSERT INTO tracks (id,file_path,title,artist,album,album_artist) VALUES (1,?,'Title','Old','Album','Old')",
+    ).run(filePath)
+    const repo = new MetadataRefreshRepository(db)
+    repo.updateUserEditedMetadata({
+      trackId: 1,
+      title: 'Title',
+      artistDisplay: ' AC/DC; Tyler, The Creator; ac/dc ',
+      albumTitle: 'Album',
+      albumArtistDisplay: ' First; Second; first ',
+      genreDisplay: 'Pop; pop; Live',
+      year: null,
+      releaseDate: null,
+    })
+    const fields = () =>
+      db.prepare('SELECT artist,album_artist,genre FROM library_track_display WHERE id=1').get()
+    const expected = {
+      artist: 'AC/DC; Tyler, The Creator',
+      album_artist: 'First; Second',
+      genre: 'Pop; Live',
+    }
+    expect(fields()).toEqual(expected)
+    expect(db.prepare('SELECT artist,album_artist,genre FROM tracks WHERE id=1').get()).toEqual(
+      expected,
+    )
+    repo.updateTrackMetadata({
+      trackId: 1,
+      sourceFilePath: filePath,
+      fileSize: 10,
+      fileMtimeMs: 100,
+      title: 'File title',
+      artists: ['Other'],
+      artistDisplay: 'Other',
+      artist: 'Other',
+      albumTitle: 'Other Album',
+      album: 'Other Album',
+      albumArtists: ['Other'],
+      albumArtistDisplay: 'Other',
+      albumArtist: 'Other',
+      trackNo: 1,
+      discNo: 1,
+      durationSeconds: 1,
+      year: null,
+      releaseDate: null,
+      copyright: ' Label; label; Other ',
+      composer: ' A/B; C; a/b ',
+      genres: ['Rock'],
+      genre: 'Rock',
+      lyricsText: null,
+      lyricsFormat: null,
+      artworkCacheKey: null,
+      isrc: null,
+      metadataSignature: 'test',
+    })
+    expect(fields()).toEqual(expected)
+    expect(db.prepare('SELECT source FROM track_metadata WHERE track_id=1').get()).toEqual({
+      source: 'user_edit',
+    })
+    expect(db.prepare('SELECT composer,copyright FROM tracks WHERE id=1').get()).toEqual({
+      composer: 'A/B; C',
+      copyright: 'Label; Other',
+    })
+  })
   it('keeps album artwork visible after a genre-only user edit', () => {
     const db = createDatabase()
     db.prepare(

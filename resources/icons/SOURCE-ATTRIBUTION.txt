@@ -1,12 +1,24 @@
-Auralis app icon glyph source
-=============================
+Auralis brand mark source
+========================
 
-Icon: audio-waveform
-Library: Lucide Icons (https://lucide.dev/icons/audio-waveform)
-Package used in app UI: @iconify-json/lucide (i-lucide-audio-waveform in AppSidebar)
-License: ISC (https://lucide.dev/license)
+Current mark: Resonance A / 共鸣 A
+Original Auralis brand geometry, selected on 2026-10-04.
+The A contour and waveform crossbar are not derived from a third-party icon.
 
 Files:
-- source-lucide-audio-waveform.svg  — original 24×24 glyph
-- auralis-icon.svg                  — app icon plate + scaled glyph
-- icon.png / icon.ico               — raster exports for electron-builder / Windows
+- auralis-mark.svg   — canonical 64×64 monochrome vector
+- auralis-icon.svg   — generated app icon plate + brand mark
+- icon.png           — 1024×1024 raster export
+- icon.ico           — 16/24/32/48/64/128/256px Windows export
+
+Regenerate exports from the repository root:
+  node scripts/export-app-icon.mjs
+
+The sidebar and splash mirror the two canonical paths; splashContract.test.ts
+checks their geometry against auralis-mark.svg and auralis-icon.svg.
+
+Legacy reference retained:
+- source-lucide-audio-waveform.svg — original 24×24 Lucide audio-waveform glyph
+- Library: Lucide Icons (https://lucide.dev/icons/audio-waveform)
+- License: ISC (https://lucide.dev/license)
+This legacy glyph is no longer used by the Auralis brand mark or app icon.

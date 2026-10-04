@@ -10,6 +10,10 @@ import {
   getAlbumCoverTrackDiscHeadings,
 } from '../utils/albumCoverDiscHeadings'
 import AlbumCoverTrackRow from './AlbumCoverTrackRow.vue'
+import {
+  getAlbumCoverColumnHeight,
+  LIBRARY_LAYOUT_METRICS,
+} from '../constants/libraryLayoutMetrics'
 
 const props = withDefaults(
   defineProps<{
@@ -18,12 +22,14 @@ const props = withDefaults(
     isPlaying?: boolean
     selectedTrackId?: number | null
     focusedTrackId?: number | null
+    viewportHeight?: number
   }>(),
   {
     nowPlayingTrackId: null,
     isPlaying: false,
     selectedTrackId: null,
     focusedTrackId: null,
+    viewportHeight: 0,
   },
 )
 
@@ -43,6 +49,13 @@ const { t } = useI18n()
 const { coverArtworkRounded, coverArtworkRadius } = useCoverArtworkCorners()
 const imgError = ref(false)
 const discHeadings = computed(() => getAlbumCoverTrackDiscHeadings(props.group.tracks))
+// 可用高度已扣除播放栏安全区；低窗口中恢复正常滚动，确保说明可见。
+const canStickAside = computed(
+  () =>
+    props.viewportHeight >=
+    getAlbumCoverColumnHeight(Boolean(props.group.releaseDate)) +
+      LIBRARY_LAYOUT_METRICS.coverStickyTopInset,
+)
 
 watch(
   () => props.group.artworkCacheKey,
@@ -81,7 +94,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 
 <template>
   <div class="album-cover-group relative" :data-album-key="group.key">
-    <div class="album-cover-aside">
+    <div class="album-cover-aside" :class="{ 'album-cover-aside--sticky': canStickAside }">
       <div
         class="album-cover-artwork select-none"
         :style="{ borderRadius: coverArtworkRounded ? `${coverArtworkRadius}px` : '0px' }"
@@ -146,6 +159,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
           :selected="selectedTrackId === track.id"
           :focused="focusedTrackId === track.id"
           :index="trackIdx"
+          :disc-end="trackIdx === group.tracks.length - 1 || discHeadings[trackIdx + 1] != null"
           @select="emit('select', $event)"
           @play="emit('play', $event)"
           @focus="emit('focusTrack', $event)"
@@ -197,6 +211,13 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 /* 左右列顶对齐：组高仍由虚拟列表按 max(封面, 曲目) 分配，曲目区不随组高 stretch */
 .album-cover-group {
   align-items: start;
+}
+
+/* 原生吸顶保留正常占位，并由当前专辑组的内容边界限制移动范围。 */
+.album-cover-aside--sticky {
+  position: sticky;
+  top: var(--library-cover-sticky-top-inset);
+  align-self: start;
 }
 
 /* 曲目直接呈现在页面背景上；容器高度随内容收缩。

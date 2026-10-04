@@ -69,22 +69,16 @@ export function joinDelimitedValues(values: readonly (string | null | undefined)
 }
 
 /**
- * Clean, split on semicolon, and deduplicate a list of raw metadata candidate strings.
+ * Clean, split only on "; ", and deduplicate raw metadata candidate strings.
  * Preserves order of first appearance (case-insensitive deduplication).
- * Handles both native multi-frame entries and semicolon-separated strings.
+ * Handles both native multi-frame entries and strings separated by "; ".
  */
 export function cleanDelimitedValues(values: Array<string | undefined | null>): string[] {
   const seen = new Set<string>()
   const result: string[] = []
 
   for (const raw of values) {
-    if (!raw) continue
-    const parts = raw
-      .split(/\s*;\s*/)
-      .map((part) => part.trim())
-      .filter(Boolean)
-
-    for (const part of parts) {
+    for (const part of splitDelimitedValues(raw)) {
       const key = normalizeDelimitedValue(part)
       if (seen.has(key)) continue
       seen.add(key)
@@ -93,4 +87,9 @@ export function cleanDelimitedValues(values: Array<string | undefined | null>): 
   }
 
   return result
+}
+
+/** Canonical storage form for one raw multi-value field; preserves literal punctuation. */
+export function canonicalizeDelimitedValues(value: string | null | undefined): string | null {
+  return joinDelimitedValues(cleanDelimitedValues([value]))
 }

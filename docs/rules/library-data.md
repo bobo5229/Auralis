@@ -6,4 +6,6 @@ All Songs 使用按排序生成的完整曲库快照。分页游标不透明且�
 
 迁移定义位于 src/main/database/schemaMigrations.ts，由 src/main/database/schema.ts 顺序执行。
 
+多值元数据先在主进程文件读取层按格式与字段解码为值列表，再统一清洗并使用 `; ` 存入数据库与 IPC 字符串。通用拆分器和编辑输入只按 `; ` 拆分；ID3v2.3 的流派 `TCON` 兼容 foobar2000 使用单独半角分号的编码，将 `Live;Cantopop` 解码为两个流派。此兼容处理限定于该格式与字段，其他字段和格式沿用各自规则。详见[多值元数据统一处理规则](../topics/metadata/TECHDOC-multivalue-metadata-2026-10-03.md)。
+
 涉及可能损坏真实曲库、数据库或音乐文件的改动，应限定隔离数据或具备匹配影响的恢复方案；破坏性验证不得使用用户真实曲库或音乐文件。原生数据库模块的验证必须匹配 Electron ABI，纯 Node 验证不能替代。

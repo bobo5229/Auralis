@@ -11,74 +11,62 @@
         >
           <div class="mac" aria-label="Macintosh 128K 立体模型">
             <div class="face front">
-              <div class="front-top"></div>
-              <div class="front-left">
-                <button
-                  class="bezel-key"
-                  id="bezel-return"
-                  type="button"
-                  aria-label="返回整机"
-                  tabindex="-1"
-                >
-                  <svg viewBox="0 0 12 12" aria-hidden="true">
-                    <path
-                      d="M9 2.5v4.5H3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.3"
-                      stroke-linecap="square"
-                      stroke-linejoin="miter"
-                    />
-                    <path
-                      d="M5.4 5.4 3.3 7l2.1 1.6"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.3"
-                      stroke-linecap="square"
-                      stroke-linejoin="miter"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <div class="front-right">
-                <button
-                  class="bezel-key"
-                  id="bezel-power"
-                  type="button"
-                  aria-label="开机"
-                  aria-pressed="false"
-                  disabled
-                >
-                  <svg viewBox="0 0 12 12" aria-hidden="true">
-                    <path
-                      d="M6 1.8v4.2"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.3"
-                      stroke-linecap="square"
-                    />
-                    <path
-                      d="M3.6 3.4a3.3 3.3 0 1 0 4.8 0"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.3"
-                      stroke-linecap="square"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <div class="front-chin"></div>
+              <button
+                class="bezel-key"
+                id="bezel-return"
+                type="button"
+                aria-label="返回整机"
+                tabindex="-1"
+              >
+                <svg viewBox="0 0 12 12" aria-hidden="true">
+                  <path
+                    d="M9 2.5v4.5H3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.3"
+                    stroke-linecap="square"
+                    stroke-linejoin="miter"
+                  />
+                  <path
+                    d="M5.4 5.4 3.3 7l2.1 1.6"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.3"
+                    stroke-linecap="square"
+                    stroke-linejoin="miter"
+                  />
+                </svg>
+              </button>
+              <button
+                class="bezel-key"
+                id="bezel-power"
+                type="button"
+                aria-label="开机"
+                aria-pressed="false"
+                disabled
+              >
+                <svg viewBox="0 0 12 12" aria-hidden="true">
+                  <path
+                    d="M6 1.8v4.2"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.3"
+                    stroke-linecap="square"
+                  />
+                  <path
+                    d="M3.6 3.4a3.3 3.3 0 1 0 4.8 0"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.3"
+                    stroke-linecap="square"
+                  />
+                </svg>
+              </button>
               <div class="crt-well">
-                <div class="crt-wall n"></div>
-                <div class="crt-wall s"></div>
-                <div class="crt-wall w"></div>
-                <div class="crt-wall e"></div>
                 <div class="crt-glass">
                   <canvas id="crt" width="512" height="342"></canvas>
                   <div class="crt-blank" id="crt-blank" aria-hidden="true"></div>
                   <div class="crt-fx" id="crt-fx" aria-hidden="true">
-                    <canvas id="crt-blur-weak" width="512" height="342"></canvas>
-                    <canvas id="crt-blur-strong" width="512" height="342"></canvas>
                     <canvas id="crt-noise" width="64" height="43"></canvas>
                   </div>
                   <div class="scan"></div>
@@ -112,12 +100,11 @@
                         data-entry="track"
                         aria-pressed="false"
                       >
-                        <canvas
+                        <span
                           class="crt-desktop-icon-glyph"
-                          width="32"
-                          height="32"
-                          data-icon="note"
-                        ></canvas>
+                          aria-hidden="true"
+                          data-icon="music"
+                        ></span>
                         <span>单曲</span>
                       </button>
                       <button
@@ -126,12 +113,11 @@
                         data-entry="album"
                         aria-pressed="false"
                       >
-                        <canvas
+                        <span
                           class="crt-desktop-icon-glyph"
-                          width="32"
-                          height="32"
-                          data-icon="record"
-                        ></canvas>
+                          aria-hidden="true"
+                          data-icon="album"
+                        ></span>
                         <span>专辑</span>
                       </button>
                       <button
@@ -140,12 +126,11 @@
                         data-entry="year"
                         aria-pressed="false"
                       >
-                        <canvas
+                        <span
                           class="crt-desktop-icon-glyph"
-                          width="32"
-                          height="32"
-                          data-icon="report"
-                        ></canvas>
+                          aria-hidden="true"
+                          data-icon="chart"
+                        ></span>
                         <span>年度总结</span>
                       </button>
                       <p id="crt-entry-status" class="crt-entry-status" role="status"></p>
@@ -251,34 +236,10 @@
                   </div>
                 </div>
               </div>
-              <svg class="apple" viewBox="0 0 18 22" aria-hidden="true">
-                <defs>
-                  <linearGradient id="rb" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stop-color="#61bb46" />
-                    <stop offset="16%" stop-color="#61bb46" />
-                    <stop offset="16%" stop-color="#fdb827" />
-                    <stop offset="33%" stop-color="#fdb827" />
-                    <stop offset="33%" stop-color="#f5821f" />
-                    <stop offset="50%" stop-color="#f5821f" />
-                    <stop offset="50%" stop-color="#e03a3e" />
-                    <stop offset="66%" stop-color="#e03a3e" />
-                    <stop offset="66%" stop-color="#963d97" />
-                    <stop offset="83%" stop-color="#963d97" />
-                    <stop offset="83%" stop-color="#009ddc" />
-                    <stop offset="100%" stop-color="#009ddc" />
-                  </linearGradient>
-                  <clipPath id="body-clip">
-                    <path
-                      d="M13.2 6.1c-.8.9-2.1 1.6-3.3 1.5-.2-1.2.4-2.5 1.1-3.3.8-.9 2.2-1.6 3.3-1.6.1 1.3-.4 2.5-1.1 3.4zM16.3 16.4c-.7 1.1-1.4 2.2-2.5 2.2-1.1.1-1.4-.7-2.9-.7s-1.9.7-2.9.7c-1.1 0-1.9-1-2.6-2.1-1.4-2.2-2.5-6.2-1-8.3.7-1.1 1.9-1.8 3.2-1.8 1 0 1.9.7 2.6.7s1.8-.8 3.1-.7c.5 0 2 .2 3 1.6-2.6 1.5-2.2 5.3.2 6.4z"
-                    />
-                  </clipPath>
-                </defs>
-                <rect width="18" height="22" fill="url(#rb)" clip-path="url(#body-clip)" />
-              </svg>
-              <div class="floppy" aria-hidden="true">
-                <div class="floppy-lip"></div>
-                <div class="floppy-depth"></div>
-              </div>
+              <div class="heritage-mark" aria-hidden="true"><span>a</span></div>
+              <div class="floppy" aria-hidden="true"></div>
+              <span class="drive-led" aria-hidden="true"></span>
+              <span class="hardware-name">Macintosh<span>PERSONAL COMPUTER / 128K</span></span>
               <button
                 class="dial"
                 id="body-power"
@@ -286,71 +247,49 @@
                 aria-label="开机"
                 aria-pressed="false"
               ></button>
-              <div class="jack" aria-hidden="true"></div>
+              <span class="shell-foot" aria-hidden="true"></span>
             </div>
             <div class="face back">
-              <div class="vents"></div>
-              <div class="rear-plate">
-                <span
-                  ><svg viewBox="0 0 18 22" width="12" height="16" aria-hidden="true">
-                    <path
-                      fill="currentColor"
-                      d="M13.2 6.1c-.8.9-2.1 1.6-3.3 1.5-.2-1.2.4-2.5 1.1-3.3.8-.9 2.2-1.6 3.3-1.6.1 1.3-.4 2.5-1.1 3.4zM16.3 16.4c-.7 1.1-1.4 2.2-2.5 2.2-1.1.1-1.4-.7-2.9-.7s-1.9.7-2.9.7c-1.1 0-1.9-1-2.6-2.1-1.4-2.2-2.5-6.2-1-8.3.7-1.1 1.9-1.8 3.2-1.8 1 0 1.9.7 2.6.7s1.8-.8 3.1-.7c.5 0 2 .2 3 1.6-2.6 1.5-2.2 5.3.2 6.4z"
-                    /></svg></span
-                ><span>Macintosh</span>
+              <span class="rear-screw screw-tl"></span><span class="rear-screw screw-tr"></span
+              ><span class="rear-screw screw-bl"></span><span class="rear-screw screw-br"></span>
+              <div class="rear-vent-bank"><span></span><span></span></div>
+              <div class="rear-identity">Macintosh<span>MODEL 128K / 1984</span></div>
+              <div class="rear-panel">
+                <div class="rear-power">
+                  <i class="power-rocker"></i><i class="power-socket"></i><small>POWER</small>
+                </div>
+                <div class="rear-connectors">
+                  <span class="rear-port serial-port"><i></i><small>SERIAL</small></span
+                  ><span class="rear-port disk-port"><i></i><small>DISK</small></span
+                  ><span class="rear-port audio-port"><i></i><small>AUDIO</small></span>
+                </div>
               </div>
-              <div class="ports" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
             </div>
-            <div class="face side left"><span class="seam-line"></span></div>
-            <div class="face side right"><span class="seam-line"></span></div>
+            <div class="face side left">
+              <div class="side-vent"></div>
+              <span class="side-seam"></span>
+            </div>
+            <div class="face side right">
+              <div class="side-vent"></div>
+              <span class="side-seam"></span>
+            </div>
             <div class="face cap top">
-              <div class="handle">
-                <div class="handle-well"></div>
-                <div class="handle-bar"></div>
-              </div>
+              <span class="carry-handle"></span><span class="top-seam"></span>
             </div>
-            <div class="face cap bottom"></div>
           </div>
           <div class="kbd" aria-hidden="true">
-            <div class="face kbd-f"></div>
-            <div class="face kbd-bk"></div>
-            <div class="face kbd-t">
-              <div class="kbd-row">
-                <i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
-                ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
-                ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
-                ><i class="key"></i><i class="key"></i>
-              </div>
-              <div class="kbd-row">
-                <i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
-                ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
-                ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
-                ><i class="key"></i>
-              </div>
-              <div class="kbd-row">
-                <i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
-                ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i
-                ><i class="key"></i><i class="key"></i><i class="key"></i><i class="key"></i>
-              </div>
-              <div class="kbd-row"><i class="key space"></i></div>
+            <div class="keyboard-keys">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
+              ><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
+              ><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i
+              ><i></i><i></i><i></i><i></i><i></i><i></i>
             </div>
-            <div class="face kbd-s l"></div>
-            <div class="face kbd-s r"></div>
+            <span class="keyboard-space"></span><span class="keyboard-corner"></span>
           </div>
-          <div class="mouse" aria-hidden="true">
-            <div class="face mouse-f"></div>
-            <div class="face mouse-t"></div>
-            <div class="face mouse-s l"></div>
-            <div class="face mouse-s r"></div>
-          </div>
+          <div class="mouse-cord" aria-hidden="true"></div>
+          <div class="mouse" aria-hidden="true"><span></span></div>
         </div>
-        <div class="caption">
-          <strong>Macintosh</strong>
-          <span>128K · 1984</span>
-        </div>
-        <p class="hint">双击 Mac，进入屏幕</p>
       </div>
-      <p class="mac-instructions">长按拖动旋转 · 双击进入屏幕</p>
     </div>
   </main>
 </div>

@@ -73,7 +73,7 @@ export default defineConfig({
     'song-title': 'text-sm truncate pl-1.5',
     'song-artist': 'text-xs text-[var(--auralis-text-muted)] truncate pl-2',
     'song-album': 'text-xs text-[var(--auralis-text-subtle)] truncate text-right',
-    'song-duration': 'text-sm text-[var(--auralis-text-faint)] text-right tabular-nums',
+    'song-duration': 'text-xs text-[var(--auralis-text-faint)] text-right tabular-nums',
     'metadata-input':
       'h-9 w-full min-w-0 rounded border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] px-3 text-sm text-[var(--auralis-text)] transition focus:border-[var(--auralis-text-faint)]',
     'volume-slider':
@@ -104,7 +104,7 @@ export default defineConfig({
     'playback-mode-item-active': '',
     'playback-mode-check': 'ml-auto h-4 w-4',
     'album-cover-group':
-      'grid grid-cols-[var(--library-cover-artwork-size)_minmax(0,1fr)] gap-x-12 border-b-[length:var(--library-cover-group-border-width)] border-[var(--auralis-cover-divider)] py-[var(--library-cover-group-padding-block-side)]',
+      'grid grid-cols-[var(--library-cover-artwork-size)_minmax(0,1fr)] gap-x-4 border-b-[length:var(--library-cover-group-border-width)] border-[var(--auralis-cover-divider)] py-[var(--library-cover-group-padding-block-side)]',
     'album-cover-aside': 'w-[var(--library-cover-artwork-size)]',
     'album-cover-artwork':
       'w-[var(--library-cover-artwork-size)] h-[var(--library-cover-artwork-size)] rounded-lg overflow-hidden bg-[var(--auralis-artwork-placeholder-bg)]',

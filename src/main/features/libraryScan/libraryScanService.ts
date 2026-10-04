@@ -1,6 +1,6 @@
 import { BrowserWindow, dialog } from 'electron'
 import { Worker, type WorkerOptions } from 'node:worker_threads'
-import { join } from 'node:path'
+import { join, win32 } from 'node:path'
 import type Database from 'better-sqlite3'
 import { ipcChannels } from '@shared/ipc/channels'
 import type {
@@ -15,11 +15,26 @@ import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { ScanFailureRepository } from '@main/repositories/scanFailureRepository'
 import { ScanJobRepository } from '@main/repositories/scanJobRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
+import { MissingTrackCleanupRepository } from '@main/repositories/missingTrackCleanupRepository'
 import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './libraryScanTypes'
-import { tryRelocateMissingCandidate } from './trackRelocationMatcher'
+import { findUniqueRelocations } from './trackRelocationMatcher'
 import { createRendererEventSender, type RendererEventSender } from '@main/ipc/rendererEvents'
 
 export type LibraryScanWorkerFactory = (fileName: string, options: WorkerOptions) => Worker
+
+interface ImportedTracks {
+  addedPaths: string[]
+  relocatedIds: number[]
+  relocatedPaths: string[]
+}
+
+function isUnderDirectory(filePath: string, directory: string): boolean {
+  const relative = win32.relative(directory, filePath)
+  return (
+    relative === '' ||
+    (relative !== '..' && !relative.startsWith('..\\') && !win32.isAbsolute(relative))
+  )
+}
 
 export class LibraryScanService {
   private readonly db: Database.Database
@@ -32,6 +47,8 @@ export class LibraryScanService {
   private readonly sendToRenderer: RendererEventSender
   private activeWorker: Worker | null = null
   private activeJobId: number | null = null
+  private readonly pendingNewTracks = new Map<string, ScannedTrack>()
+  private scanHadFailures = false
   private stopping = false
   private readonly pendingStarts = new Set<Promise<{ jobId: number }>>()
   private onScanLifecycle: {
@@ -154,6 +171,8 @@ export class LibraryScanService {
     }
 
     const job = this.scanJobRepository.create(root.id)
+    this.pendingNewTracks.clear()
+    this.scanHadFailures = false
     this.activeJobId = job.jobId
 
     try {
@@ -193,6 +212,7 @@ export class LibraryScanService {
       throw error
     }
     this.scanJobRepository.finish(jobId, 'canceled')
+    this.pendingNewTracks.clear()
     try {
       await this.onScanLifecycle.onEnd?.()
     } catch (error) {
@@ -250,6 +270,7 @@ export class LibraryScanService {
         this.activeWorker = null
       }
       if (this.activeJobId === jobId) {
+        this.pendingNewTracks.clear()
         this.activeJobId = null
         void endLifecycle()
       }
@@ -325,6 +346,7 @@ export class LibraryScanService {
   private handleWorkerMessage(message: LibraryScanWorkerMessage, workerJobId: number): void {
     if (message.type === 'progress') {
       const progress = message.payload
+      if (progress.failedFiles > 0) this.scanHadFailures = true
       this.scanJobRepository.updateProgress(
         progress.jobId,
         progress.totalFiles,
@@ -336,7 +358,16 @@ export class LibraryScanService {
     }
 
     if (message.type === 'tracks') {
-      this.upsertOrRelocateTracks(message.payload)
+      // New paths wait until the complete inventory can distinguish moves from copies.
+      const knownPaths = this.trackRepository.getExistingFilePaths(
+        message.payload.map((track) => track.filePath),
+      )
+      const knownTracks: ScannedTrack[] = []
+      for (const track of message.payload) {
+        if (knownPaths.has(track.filePath)) knownTracks.push(track)
+        else this.pendingNewTracks.set(track.filePath, track)
+      }
+      this.trackRepository.upsertMany(knownTracks)
       return
     }
 
@@ -357,6 +388,7 @@ export class LibraryScanService {
     }
 
     if (message.type === 'failure') {
+      this.scanHadFailures = true
       this.scanFailureRepository.insertMany([message.payload])
       return
     }
@@ -399,16 +431,47 @@ export class LibraryScanService {
           message.payload.unreadableDirectoryPaths,
         )
 
+        const candidates = this.trackRepository
+          .getMissingCandidates()
+          .filter(
+            (candidate) =>
+              isUnderDirectory(candidate.filePath, root.path) &&
+              !message.payload.unreadableDirectoryPaths.some((directory) =>
+                isUnderDirectory(candidate.filePath, directory),
+              ),
+          )
+        const imported = this.upsertOrRelocateTracks(
+          [...this.pendingNewTracks.values()],
+          candidates,
+        )
+
+        const removedIds =
+          !this.scanHadFailures &&
+          status.failedFiles === 0 &&
+          message.payload.unreadableDirectoryPaths.length === 0
+            ? new MissingTrackCleanupRepository(this.db).removeConfirmedMissing(root.path)
+            : []
+
         if (!this.scanJobRepository.finish(workerJobId, 'completed')) {
           throw new Error(`Scan job was no longer active while completing: ${workerJobId}`)
         }
 
-        return { status, restoredIds, missingIds }
+        const relocated = new Set(imported.relocatedIds)
+        return {
+          status,
+          restoredIds,
+          missingIds: [
+            ...new Set([...missingIds.filter((id) => !relocated.has(id)), ...removedIds]),
+          ],
+          imported,
+        }
       })()
 
       if (!result) {
         return
       }
+
+      this.publishImportedTracks(result.imported)
 
       if (result.restoredIds.length > 0) {
         this.publishChanged('track-restored', result.restoredIds, message.payload.foundFilePaths)
@@ -430,50 +493,51 @@ export class LibraryScanService {
     }
   }
 
-  private upsertOrRelocateTracks(tracks: ScannedTrack[]): void {
+  private upsertOrRelocateTracks(
+    tracks: ScannedTrack[],
+    candidates: ReturnType<TrackRepository['getMissingCandidates']>,
+  ): ImportedTracks {
     const newTracks: ScannedTrack[] = []
     const relocatedIds: number[] = []
+    const relocatedPaths: string[] = []
+    const matches = findUniqueRelocations(candidates, tracks)
+    for (const track of tracks) {
+      try {
+        const match = matches.get(track.filePath)
 
-    const hasMissing = this.trackRepository.hasMissingTracks()
+        if (match) {
+          const relocated = this.trackRepository.relocateTrack(match.trackId, track, match.filePath)
 
-    if (!hasMissing) {
-      newTracks.push(...tracks)
-    } else {
-      for (const track of tracks) {
-        try {
-          const match = tryRelocateMissingCandidate(this.trackRepository, track)
-
-          if (match) {
-            const relocated = this.trackRepository.relocateTrack(match.candidate.trackId, track)
-
-            if (relocated) {
-              relocatedIds.push(match.candidate.trackId)
-            } else {
-              // Path occupied or constraint race — fall back to path upsert.
-              newTracks.push(track)
-            }
+          if (relocated) {
+            relocatedIds.push(match.trackId)
+            relocatedPaths.push(track.filePath)
           } else {
+            // Path occupied or constraint race — fall back to path upsert.
             newTracks.push(track)
           }
-        } catch (error) {
-          logger.warn(
-            { error, filePath: track.filePath },
-            'Failed to relocate/upsert scanned track; trying upsert fallback',
-          )
+        } else {
           newTracks.push(track)
         }
+      } catch (error) {
+        this.scanHadFailures = true
+        logger.warn(
+          { error, filePath: track.filePath },
+          'Failed to relocate/upsert scanned track; trying upsert fallback',
+        )
+        newTracks.push(track)
       }
     }
-
+    let addedPaths: string[] = []
     if (newTracks.length > 0) {
       const newTrackPaths = newTracks.map((track) => track.filePath)
       const existingPaths = this.trackRepository.getExistingFilePaths(newTrackPaths)
-      const addedPaths = newTrackPaths.filter((filePath) => !existingPaths.has(filePath))
+      addedPaths = newTrackPaths.filter((filePath) => !existingPaths.has(filePath))
 
       try {
         this.trackRepository.upsertMany(newTracks)
       } catch (error) {
         // One bad row must not drop the whole batch — retry per track.
+        this.scanHadFailures = true
         logger.warn({ error, count: newTracks.length }, 'Batch upsert failed; retrying per track')
         for (const track of newTracks) {
           try {
@@ -487,14 +551,22 @@ export class LibraryScanService {
         }
       }
 
-      if (addedPaths.length > 0) {
-        const addedIds = this.trackRepository.getTrackIdsByFilePaths(addedPaths)
-        this.publishChanged('track-added', addedIds, addedPaths)
-      }
+      const committedPaths = this.trackRepository.getExistingFilePaths(addedPaths)
+      addedPaths = addedPaths.filter((path) => committedPaths.has(path))
     }
+    return { addedPaths, relocatedIds, relocatedPaths }
+  }
 
-    if (relocatedIds.length > 0) {
-      this.publishChanged('track-relocated', relocatedIds)
+  private publishImportedTracks(result: ImportedTracks): void {
+    if (result.addedPaths.length > 0) {
+      this.publishChanged(
+        'track-added',
+        this.trackRepository.getTrackIdsByFilePaths(result.addedPaths),
+        result.addedPaths,
+      )
+    }
+    if (result.relocatedIds.length > 0) {
+      this.publishChanged('track-relocated', result.relocatedIds, result.relocatedPaths)
     }
   }
 

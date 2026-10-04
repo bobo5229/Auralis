@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import '../styles/cdTypography.css'
 import {
   createReducedMotionQuery,
   type MotionQuery,
@@ -152,10 +153,10 @@ onBeforeUnmount(() => {
 
 .cd-view-switch button {
   padding: 6px 0;
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 12px;
+  font-family: var(--cd-font-text);
+  font-size: var(--cd-type-nav-size);
   font-weight: 400;
-  line-height: 20px;
+  line-height: var(--cd-type-nav-line-height);
   color: var(--cd-text-muted);
   background: transparent;
   border: 0;

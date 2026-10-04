@@ -119,13 +119,15 @@ defineExpose({
 </script>
 
 <template>
-  <div
-    ref="rootRef"
-    class="album-grid-transition-layer"
-    aria-hidden="true"
-    inert
-    style="display: none"
-  />
+  <Teleport to="body">
+    <div
+      ref="rootRef"
+      class="album-grid-transition-layer"
+      aria-hidden="true"
+      inert
+      style="display: none"
+    />
+  </Teleport>
 </template>
 
 <style>

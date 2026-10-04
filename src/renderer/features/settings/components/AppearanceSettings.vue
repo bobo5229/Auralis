@@ -6,7 +6,7 @@ import { useSidebarLayout } from '@renderer/features/appearance/composables/useS
 import { useMotionPreference } from '@renderer/features/appearance/composables/useMotionPreference'
 import type { MotionPreference } from '@renderer/shared/animation/motionPreference'
 import SongFontWeightSettings from './SongFontWeightSettings.vue'
-import DarkAccentSettings from './DarkAccentSettings.vue'
+import ThemeAccentSettings from './ThemeAccentSettings.vue'
 
 const { t } = useI18n()
 const { theme, setTheme } = useTheme()
@@ -93,7 +93,7 @@ function selectMotionPreference(value: MotionPreference): void {
             </button>
           </div>
         </div>
-        <DarkAccentSettings />
+        <ThemeAccentSettings />
         <div class="settings-row settings-row--with-desc">
           <div>
             <strong>{{ t('settings.appearance.reducedMotion.title') }}</strong>

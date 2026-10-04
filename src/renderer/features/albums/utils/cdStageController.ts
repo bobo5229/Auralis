@@ -2,7 +2,11 @@ import { createReducedMotionQuery } from '@renderer/shared/animation/motionPrefe
 import { animateCdPress, animateFrames } from '@renderer/shared/animation/motion'
 import { cdAlbumIndex, cdPose, cdSlots, cdProjectedDiscOutline } from './cdGeometry'
 import { cdPlaybackWavePath, cdPlaybackWaveSeed } from './cdPlaybackWave'
+import { createCdCometRing } from './cdCometRing'
+import type { CdProgressStyle } from '../composables/useCdProgressStyle'
 import { playCdStartup } from './cdStartup'
+import { CD_VIBRATION_MAX_PX } from './cdVibrationMotion'
+import { cdVibrationProjection } from './cdVibrationProjection'
 
 export interface CdAlbum {
   key: string
@@ -13,6 +17,9 @@ interface DiscNode {
   index: number
   albumKey: string
   slot: HTMLDivElement
+  positionTransform: string
+  poseScale: number
+  rotation: { x: number; y: number; z: number }
   disc: HTMLDivElement
   art: HTMLDivElement
   hoverPlane: HTMLDivElement
@@ -24,6 +31,7 @@ interface DiscNode {
   shadowPath?: SVGPathElement
   waveProgress?: SVGPathElement
   wavePaths?: SVGPathElement[]
+  comet?: ReturnType<typeof createCdCometRing>
   waveSeed: number
   image?: HTMLImageElement
   artwork: 'idle' | 'decoding' | 'shown' | 'dropped'
@@ -66,6 +74,7 @@ export interface CdPlaybackRingState {
   playing: boolean
   progress: number
   accent: string
+  style?: CdProgressStyle
 }
 
 export function createCdStage(
@@ -84,6 +93,23 @@ export function createCdStage(
   const listeners = new AbortController()
   const options = { signal: listeners.signal }
   const nodes = new Map<number, DiscNode>()
+  let vibratingNode: DiscNode | undefined
+  let vibrationOffset = 0
+  function applyVibration(node: DiscNode): void {
+    const p = cdVibrationProjection(
+      node.rotation.x,
+      node.rotation.y,
+      node.rotation.z,
+      vibrationOffset,
+      node.poseScale,
+    )
+    node.slot.style.transform = `${node.positionTransform} translate3d(${p.x}px, ${p.y}px, 0) scale(${p.zoom})`
+  }
+  function clearVibration(): void {
+    if (vibratingNode) vibratingNode.slot.style.transform = vibratingNode.positionTransform
+    vibratingNode = undefined
+    vibrationOffset = 0
+  }
   const discNodes = new WeakMap<EventTarget, DiscNode>()
   // Session-local orientations survive DOM recycling and catalog refreshes.
   const artworkAngles = new Map<string, number>()
@@ -149,9 +175,20 @@ export function createCdStage(
     const activeNode =
       playback.visible && focusProgress === 1 && !focusMoving ? nodes.get(selected) : undefined
     for (const node of nodes.values()) {
-      if (!node.waveRing || !node.waveProgress) continue
+      if (!node.waveRing || !node.waveProgress || !node.waveTrack) continue
       const visible = node === activeNode
       node.waveRing.style.opacity = visible ? '1' : '0'
+      const comet = playback.style === 'comet'
+      node.waveTrack.style.display = comet ? 'none' : ''
+      node.waveProgress.style.display = comet ? 'none' : ''
+      if (visible && comet && !node.comet) {
+        node.comet = createCdCometRing(node.waveRing)
+        node.comet.paint(waveElapsed)
+      }
+      if (node.comet) {
+        node.comet.root.style.display = comet ? '' : 'none'
+        if (visible && comet) node.comet.setProgress(playback.progress, playback.accent)
+      }
       node.waveProgress.style.stroke = playback.accent
       node.waveProgress.setAttribute('stroke-dashoffset', String(1 - playback.progress))
       if (!visible) {
@@ -162,6 +199,33 @@ export function createCdStage(
       stopWaveAnimation()
       ringDrawElapsed = 0
       ringDrawSettled = false
+      return
+    }
+    // Decorative loops stop while hidden; the playback clock still supplies progress.
+    if (document.hidden) {
+      stopWaveAnimation()
+      return
+    }
+    if (playback.style === 'comet') {
+      if (!playback.playing || reducedMotion.matches) {
+        stopWaveAnimation()
+        return
+      }
+      if (cancelWaveAnimation) return
+      cancelWaveAnimation = animateFrames((seconds) => {
+        const node = nodes.get(selected)
+        if (!node?.comet || !playback.visible || focusProgress !== 1 || focusMoving) {
+          cancelWaveAnimation = null
+          return false
+        }
+        waveElapsed += seconds
+        waveFrameElapsed += seconds
+        if (waveFrameElapsed >= 1 / 30) {
+          waveFrameElapsed %= 1 / 30
+          node.comet.paint(waveElapsed)
+        }
+        return true
+      })
       return
     }
     if (reducedMotion.matches) {
@@ -234,6 +298,7 @@ export function createCdStage(
 
   function setFocused(open: boolean, entrance: 'motion' | 'fade' = 'motion'): void {
     if (!focusOptions || startup || active || !albums.length || Number(open) === focusTarget) return
+    clearVibration()
     cancelAnimation?.()
     cancelArtworkClick()
     endRotation()
@@ -517,6 +582,9 @@ export function createCdStage(
       index,
       albumKey: album.key,
       slot,
+      positionTransform: '',
+      poseScale: 1,
+      rotation: { x: 0, y: 0, z: 0 },
       disc,
       art,
       hoverPlane,
@@ -638,7 +706,9 @@ export function createCdStage(
           (3 - 2 * edge) *
           (central ? centralOpacity : 1 - fade * fade * (3 - 2 * fade)),
       )
-      node.slot.style.transform = `translate3d(${pose.cx - pose.size / 2}px, ${pose.cy - pose.size / 2}px, 0) scale(${pose.size / 400})`
+      node.poseScale = pose.size / 400
+      node.positionTransform = `translate3d(${pose.cx - pose.size / 2}px, ${pose.cy - pose.size / 2}px, 0) scale(${node.poseScale})`
+      node.slot.style.transform = node.positionTransform
       node.slot.style.zIndex = String(central && focusProgress > 0 ? 5 : layer + 1)
       node.disc.style.pointerEvents =
         focusMoving || (focusProgress > 0 && !central) ? 'none' : 'auto'
@@ -655,6 +725,12 @@ export function createCdStage(
       const rotationX = 9 + (focusRotation.x - 9) * rotationBlend
       const rotationY = pose.tilt + (focusRotation.y - pose.tilt) * rotationBlend
       const transform = `perspective(1100px) rotateZ(${pose.turn + angle}deg) rotateY(${rotationY + angle * 0.62}deg) rotateX(${rotationX + angle * 0.28}deg)`
+      node.rotation = {
+        x: rotationX + angle * 0.28,
+        y: rotationY + angle * 0.62,
+        z: pose.turn + angle,
+      }
+      if (node === vibratingNode) applyVibration(node)
       node.disc.style.transform = transform
       if (node.waveRing) node.waveRing.style.transform = transform
       renderDiscDepth(
@@ -669,6 +745,7 @@ export function createCdStage(
   }
 
   function stop(): void {
+    clearVibration()
     cancelArtworkClick()
     for (const node of nodes.values()) {
       node.cancelSpinAnimation?.()
@@ -1300,6 +1377,7 @@ export function createCdStage(
     },
     options,
   )
+  document.addEventListener('visibilitychange', syncPlaybackRing, options)
   const observer = new ResizeObserver(() => {
     width = stage.clientWidth
     height = stage.clientHeight
@@ -1313,7 +1391,27 @@ export function createCdStage(
     navigate,
     focusAlbum,
     setFocused,
+    setVibrationOffset(offset: number): void {
+      const node =
+        focusProgress === 1 &&
+        !focusMoving &&
+        !startup &&
+        !reducedMotion.matches &&
+        !document.hidden
+          ? nodes.get(selected)
+          : undefined
+      if (vibratingNode !== node || !offset) clearVibration()
+      if (!node || !Number.isFinite(offset) || !offset) return
+      vibratingNode = node
+      vibrationOffset = Math.max(-CD_VIBRATION_MAX_PX * 0.12, Math.min(CD_VIBRATION_MAX_PX, offset))
+      applyVibration(node)
+    },
     setPlayback(next: CdPlaybackRingState): void {
+      if ((next.style ?? 'wave') !== (playback.style ?? 'wave')) {
+        stopWaveAnimation()
+        ringDrawElapsed = 0
+        ringDrawSettled = false
+      }
       playback = {
         ...next,
         progress: Math.max(0, Math.min(1, Number.isFinite(next.progress) ? next.progress : 0)),

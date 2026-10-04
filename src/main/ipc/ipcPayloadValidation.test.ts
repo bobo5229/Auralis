@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ipcChannels } from '@shared/ipc/channels'
+import { validIpcPayloads } from './ipcPayloadValidation.compatibility.fixture'
 import {
   domainIpcPayloadPolicies,
   IpcPayloadValidationError,
@@ -12,6 +13,7 @@ function flattenChannels(value: object): string[] {
 }
 
 const nonInvokeChannels = new Set<string>([
+  ipcChannels.playback.spectrumFrame,
   ipcChannels.playback.nativeEvent,
   ipcChannels.app.rendererReady,
   ipcChannels.app.splashReady,
@@ -33,6 +35,20 @@ function parse(channel: DomainIpcInvokeChannel, payload?: unknown): unknown {
 }
 
 describe('domain IPC payload validation coverage', () => {
+  it.each(Object.keys(domainIpcPayloadPolicies) as DomainIpcInvokeChannel[])(
+    'accepts a representative payload without cloning or coercing it for %s',
+    (channel) => {
+      const policy = domainIpcPayloadPolicies[channel]
+      if (policy.kind === 'void') {
+        expect(parseDomainIpcPayload(channel, [])).toBeUndefined()
+      } else {
+        expect(Object.hasOwn(validIpcPayloads, channel)).toBe(true)
+        const payload = structuredClone(validIpcPayloads[channel])
+        expect(parse(channel, payload)).toBe(payload)
+        expect(payload).toEqual(validIpcPayloads[channel])
+      }
+    },
+  )
   it('accepts custom rolling days and rejects intervals or invalid day counts', () => {
     expect(parse('smart-playlists:create-recent-added', {})).toEqual({})
     expect(parse('smart-playlists:create-recent-added', { days: 30 })).toEqual({ days: 30 })
@@ -81,8 +97,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(62)
-    expect(kinds).toEqual({ void: 18, optional: 5, required: 39 })
+    expect(actualChannels).toHaveLength(63)
+    expect(kinds).toEqual({ void: 18, optional: 5, required: 40 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -105,7 +121,159 @@ describe('domain IPC payload validation coverage', () => {
   })
 })
 
+describe('IPC schema security and resource compatibility', () => {
+  it('keeps own non-enumerable data properties and rejects hidden unknown fields', () => {
+    const payload = Object.create(null, { rootId: { value: 1 } })
+    expect(parse('library:start-scan', payload)).toBe(payload)
+    Object.defineProperty(payload, 'secret-field', { value: 'sensitive-value' })
+    expect(() => parse('library:start-scan', payload)).toThrow(/unexpected property/)
+  })
+
+  it.each([
+    ['playback:native-command', 'action', { session: 0 }, 'start'],
+    ['smart-playlists:create', 'preset', {}, 'mostListened'],
+  ] as const)(
+    'rejects discriminator accessors without executing them for %s',
+    (channel, key, rest, value) => {
+      let calls = 0
+      const object = { ...rest }
+      Object.defineProperty(object, key, {
+        enumerable: true,
+        get: () => {
+          calls++
+          return value
+        },
+      })
+      const payload = channel === 'smart-playlists:create' ? { name: 'Name', rule: object } : object
+      expect(() => parse(channel, payload)).toThrow(/data property/)
+      expect(calls).toBe(0)
+    },
+  )
+
+  it('rejects sparse and custom-prototype arrays, before accepting any inherited element', () => {
+    const sparse = new Array(1)
+    expect(() => parse('metadata:refresh-tracks', { trackIds: sparse })).toThrow(/must be present/)
+    const custom = [1]
+    Object.setPrototypeOf(custom, Object.create(Array.prototype))
+    expect(() => parse('metadata:refresh-tracks', { trackIds: custom })).toThrow(/plain array/)
+  })
+
+  it('rejects oversized arrays before reading their elements', () => {
+    const ids = new Array(10001)
+    Object.defineProperty(ids, 0, {
+      get: () => {
+        throw new Error('element must not be read')
+      },
+    })
+    expect(() => parse('metadata:refresh-tracks', { trackIds: ids })).toThrow(/invalid item count/)
+  })
+
+  it('preserves aggregate UTF-16 string accounting at its exact boundary', () => {
+    const conditions = Array.from({ length: 32 }, () => ({
+      field: 'genre',
+      value: 'x'.repeat(8192),
+    }))
+    conditions[31].value = 'x'.repeat(8191)
+    const payload = { name: 'n', rule: { conditions } }
+    expect(parse('smart-playlists:create', payload)).toBe(payload)
+    conditions[31].value += 'x'
+    expect(() => parse('smart-playlists:create', payload)).toThrow(/aggregate string size limit/)
+    conditions[31].value = '😀'.repeat(4095) + 'x'
+    expect(parse('smart-playlists:create', payload)).toBe(payload)
+  })
+
+  it('keeps the structural node budget and resets counters between invokes', () => {
+    const validate = domainIpcPayloadPolicies['library:start-scan'].validator!
+    const context = { nodes: 49998, stringUnits: 0 }
+    validate({ rootId: 1 }, 'payload', context)
+    expect(context.nodes).toBe(50000)
+    expect(() => validate({ rootId: 1 }, 'payload', { nodes: 49999, stringUnits: 0 })).toThrow(
+      /structural size limit/,
+    )
+    expect(parse('library:start-scan', { rootId: 1 })).toEqual({ rootId: 1 })
+  })
+
+  it('keeps both exact recursive-rule boundaries and rejects cycles', () => {
+    const leaf = { type: 'predicate', field: 'genre', operator: 'has', value: 'Ambient' }
+    let expression: object = leaf
+    for (let i = 1; i < 16; i++) expression = { type: 'and', operands: [expression] }
+    expect(parse('smart-playlists:create', { name: 'Name', rule: { expression } })).toBeTruthy()
+    expect(() =>
+      parse('smart-playlists:create', {
+        name: 'Name',
+        rule: { expression: { type: 'and', operands: [expression] } },
+      }),
+    ).toThrow(/depth limit/)
+    const node: { type: string; operands: object[] } = { type: 'and', operands: [] }
+    node.operands.push(node)
+    expect(() =>
+      parse('smart-playlists:create', { name: 'Name', rule: { expression: node } }),
+    ).toThrow(/depth limit/)
+    const branch = (count: number) => ({
+      type: 'and',
+      operands: Array.from({ length: count }, () => ({ ...leaf })),
+    })
+    const root = { type: 'and', operands: [branch(64), branch(64), branch(64), branch(59)] }
+    expect(
+      parse('smart-playlists:create', { name: 'Name', rule: { expression: root } }),
+    ).toBeTruthy()
+    root.operands[3].operands.push({ ...leaf })
+    expect(() =>
+      parse('smart-playlists:create', { name: 'Name', rule: { expression: root } }),
+    ).toThrow(/rule node limit/)
+  })
+
+  it('does not leak payload values, unexpected keys, or accessor exceptions in validation errors', () => {
+    const cases = [
+      { rootId: 'sensitive-value' },
+      { rootId: 1, 'sensitive-field': 'sensitive-value' },
+      new Proxy(
+        {},
+        {
+          ownKeys: () => {
+            throw new Error('sensitive-value')
+          },
+        },
+      ),
+    ]
+    for (const payload of cases) {
+      try {
+        parse('library:start-scan', payload)
+        throw new Error('Expected rejection')
+      } catch (error) {
+        expect(error).toBeInstanceOf(IpcPayloadValidationError)
+        expect((error as Error).message).not.toMatch(/sensitive-value|sensitive-field/)
+      }
+    }
+  })
+})
+
 describe('domain IPC payload validation behavior', () => {
+  it('accepts a bounded spectrum subscription and rejects paths and decoder options', () => {
+    const request = {
+      subscriptionId: 1,
+      revision: 2,
+      enabled: true,
+      trackId: 3,
+      currentTime: 1.5,
+      isPlaying: true,
+    }
+    expect(parse(ipcChannels.playback.spectrumSubscribe, request)).toEqual(request)
+    for (const extra of [{ path: 'secret.m4a' }, { ffmpegArgs: ['-i'] }, { bands: 100000 }])
+      expect(() =>
+        parse(ipcChannels.playback.spectrumSubscribe, { ...request, ...extra }),
+      ).toThrow()
+    for (const patch of [
+      { trackId: -1 },
+      { currentTime: NaN },
+      { currentTime: 604801 },
+      { enabled: 'true' },
+      { revision: 0.1 },
+    ])
+      expect(() =>
+        parse(ipcChannels.playback.spectrumSubscribe, { ...request, ...patch }),
+      ).toThrow()
+  })
   it('accepts only a boolean soft-transition flag and never accepts player paths', () => {
     const payload = { action: 'next', session: 1, trackId: 2, trimDigitalSilence: false }
     expect(

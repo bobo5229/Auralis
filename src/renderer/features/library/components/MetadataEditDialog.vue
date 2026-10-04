@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { MetadataEditStatus } from '../composables/useLibraryMetadataEditor'
 
@@ -105,7 +106,10 @@ watch(
   () => isEditingDisabled.value,
   (disabled, wasDisabled) => {
     if (wasDisabled && !disabled && props.metadata) {
-      if (!dialogRef.value?.contains(document.activeElement)) {
+      if (
+        !dialogRef.value?.contains(document.activeElement) ||
+        document.activeElement === dialogRef.value
+      ) {
         nextTick(() => {
           titleInputRef.value?.focus()
         })
@@ -182,51 +186,35 @@ function onClose(): void {
   emit('close')
 }
 
-function onKeyDown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') {
-    e.preventDefault()
-    onClose()
-    return
-  }
-
-  if (e.key === 'Tab' && dialogRef.value) {
-    const focusables = dialogRef.value.querySelectorAll<HTMLElement>(
-      'input:not(:disabled), button:not(:disabled)',
-    )
-    if (focusables.length === 0) return
-
-    const first = focusables[0]
-    const last = focusables[focusables.length - 1]
-
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault()
-      last.focus()
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault()
-      first.focus()
-    }
-  }
-}
+useOverlayFocusTrap({
+  isOpen: () => props.metadata !== null,
+  container: dialogRef,
+  initialFocus: () =>
+    !isEditingDisabled.value ? (titleInputRef.value ?? undefined) : (dialogRef.value ?? undefined),
+  canDismiss: () => !props.saving,
+  onEscape: onClose,
+})
 </script>
 
 <template>
   <Teleport to="body">
     <div v-if="metadata" class="library-overlay" data-library-overlay="metadata-dialog">
-      <div
-        class="fixed inset-0 z-[70] flex items-center justify-center p-4 library-dialog-scrim"
-        @keydown="onKeyDown"
-      >
+      <div class="fixed inset-0 z-[70] flex items-center justify-center p-4 library-dialog-scrim">
         <form
           ref="dialogRef"
           class="metadata-dialog-panel w-full max-w-xl rounded-lg p-5 shadow-xl select-none"
           role="dialog"
+          tabindex="-1"
           aria-modal="true"
           aria-labelledby="metadata-dialog-title"
           :aria-describedby="localError || errorMessage ? 'metadata-dialog-error' : undefined"
           @submit.prevent="onSave"
         >
           <div class="mb-4 flex items-center justify-between">
-            <h2 id="metadata-dialog-title" class="metadata-dialog-header text-base font-semibold">
+            <h2
+              id="metadata-dialog-title"
+              class="metadata-dialog-header auralis-type-section font-semibold"
+            >
               {{ t('library.metadataEditor.title') }}
             </h2>
             <button
@@ -242,7 +230,7 @@ function onKeyDown(e: KeyboardEvent): void {
 
           <p
             v-if="editStatus === 'playback-in-use'"
-            class="metadata-dialog-playback-notice mb-3.5 text-xs leading-relaxed"
+            class="metadata-dialog-playback-notice mb-3.5 auralis-type-caption"
             role="status"
             aria-live="polite"
           >
@@ -251,19 +239,19 @@ function onKeyDown(e: KeyboardEvent): void {
 
           <div
             v-else-if="statusBanner"
-            class="metadata-dialog-status-banner mb-3.5 flex items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-xs"
+            class="metadata-dialog-status-banner mb-3.5 flex items-center justify-between gap-2.5 rounded-lg px-3 py-2 auralis-type-caption"
             :class="statusBanner.classes"
             role="status"
             aria-live="polite"
           >
             <div class="flex items-center gap-2 min-w-0">
               <span :class="statusBanner.icon" class="text-sm shrink-0"></span>
-              <span class="leading-relaxed">{{ statusBanner.message }}</span>
+              <span>{{ statusBanner.message }}</span>
             </div>
             <button
               v-if="editStatus === 'query-failed'"
               type="button"
-              class="metadata-dialog-btn-retry ml-auto shrink-0 rounded px-2.5 py-1 text-xs font-semibold"
+              class="metadata-dialog-btn-retry ml-auto shrink-0 rounded px-2.5 py-1 auralis-type-control font-semibold"
               @click="emit('retryStatus')"
             >
               {{ t('library.metadataEditor.status.retry') }}
@@ -271,7 +259,7 @@ function onKeyDown(e: KeyboardEvent): void {
           </div>
 
           <div class="grid gap-3">
-            <label class="metadata-dialog-label grid gap-1 text-xs">
+            <label class="metadata-dialog-label grid gap-1 auralis-type-control">
               {{ t('library.metadataEditor.fields.title') }}
               <input
                 ref="titleInputRef"
@@ -281,7 +269,7 @@ function onKeyDown(e: KeyboardEvent): void {
                 :disabled="isEditingDisabled"
               />
             </label>
-            <label class="metadata-dialog-label grid gap-1 text-xs">
+            <label class="metadata-dialog-label grid gap-1 auralis-type-control">
               {{ t('library.metadataEditor.fields.artist') }}
               <input
                 v-model="form.artistDisplay"
@@ -290,7 +278,7 @@ function onKeyDown(e: KeyboardEvent): void {
                 :disabled="isEditingDisabled"
               />
             </label>
-            <label class="metadata-dialog-label grid gap-1 text-xs">
+            <label class="metadata-dialog-label grid gap-1 auralis-type-control">
               {{ t('library.metadataEditor.fields.album') }}
               <input
                 v-model="form.albumTitle"
@@ -299,7 +287,7 @@ function onKeyDown(e: KeyboardEvent): void {
                 :disabled="isEditingDisabled"
               />
             </label>
-            <label class="metadata-dialog-label grid gap-1 text-xs">
+            <label class="metadata-dialog-label grid gap-1 auralis-type-control">
               {{ t('library.metadataEditor.fields.albumArtist') }}
               <input
                 v-model="form.albumArtistDisplay"
@@ -309,7 +297,7 @@ function onKeyDown(e: KeyboardEvent): void {
               />
             </label>
             <div class="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_112px]">
-              <label class="metadata-dialog-label grid min-w-0 gap-1 text-xs">
+              <label class="metadata-dialog-label grid min-w-0 gap-1 auralis-type-control">
                 {{ t('library.metadataEditor.fields.genre') }}
                 <input
                   v-model="form.genreDisplay"
@@ -318,7 +306,7 @@ function onKeyDown(e: KeyboardEvent): void {
                   :disabled="isEditingDisabled"
                 />
               </label>
-              <label class="metadata-dialog-label grid min-w-0 gap-1 text-xs">
+              <label class="metadata-dialog-label grid min-w-0 gap-1 auralis-type-control">
                 {{ t('library.metadataEditor.fields.year') }}
                 <input
                   v-model="form.year"
@@ -331,7 +319,7 @@ function onKeyDown(e: KeyboardEvent): void {
                 />
               </label>
             </div>
-            <label class="metadata-dialog-label grid gap-1 text-xs">
+            <label class="metadata-dialog-label grid gap-1 auralis-type-control">
               {{ t('library.metadataEditor.fields.releaseDate') }}
               <input
                 v-model="form.releaseDate"
@@ -347,7 +335,7 @@ function onKeyDown(e: KeyboardEvent): void {
           <p
             v-if="localError || errorMessage"
             id="metadata-dialog-error"
-            class="mt-3 text-xs text-red-600 font-medium"
+            class="mt-3 auralis-type-caption text-red-600 font-medium"
             role="alert"
           >
             {{ localError || errorMessage }}
@@ -355,7 +343,7 @@ function onKeyDown(e: KeyboardEvent): void {
 
           <div class="mt-5 flex justify-end gap-2">
             <button
-              class="metadata-dialog-btn-secondary player-control px-4 py-1.5 text-xs font-semibold"
+              class="metadata-dialog-btn-secondary player-control px-4 py-1.5 auralis-type-control font-semibold"
               type="button"
               :disabled="saving"
               @click="onClose"
@@ -363,7 +351,7 @@ function onKeyDown(e: KeyboardEvent): void {
               {{ t('library.metadataEditor.actions.cancel') }}
             </button>
             <button
-              class="metadata-dialog-btn-primary player-control-primary px-4 py-1.5 text-xs font-semibold"
+              class="metadata-dialog-btn-primary player-control-primary px-4 py-1.5 auralis-type-control font-semibold"
               type="submit"
               :disabled="isEditingDisabled"
             >
@@ -450,6 +438,8 @@ function onKeyDown(e: KeyboardEvent): void {
 }
 
 .metadata-dialog-input {
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
   box-sizing: border-box;
   width: 100%;
   background: var(--auralis-search-bg);

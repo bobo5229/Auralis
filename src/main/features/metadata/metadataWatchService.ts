@@ -2,34 +2,20 @@ import { watch } from 'node:fs'
 import type { FSWatcher } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { extname, join, normalize } from 'node:path'
-import { parseFile } from 'music-metadata'
 import { isSupportedAudioFile } from '@main/features/libraryScan/audioFileFilter'
-import {
-  normalizeIdentityText,
-  normalizeMetadata,
-  buildMetadataSignature,
-} from '@main/features/metadata/metadataNormalizer'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
-import type { MissingTrackCandidate } from '@main/repositories/trackRepository'
 import { logger } from '@main/logging/logger'
 import type { MetadataRefreshService } from './metadataRefreshService'
 import { resolveWatchRefreshPaths } from './metadataFileChangeFilter'
 import { resolveAudioCandidatesForLyricSidecar } from './lyricSidecarPaths'
 import type { LibraryIncrementalImportService } from '../libraryScan/libraryIncrementalImportService'
 import type { RendererEventSender } from '@main/ipc/rendererEvents'
-import { resolveLyricsForFile } from './resolveLyricsForFile'
-import {
-  findUniqueRelocationCandidate,
-  type FileIdentity,
-} from '@main/features/libraryScan/trackRelocationMatcher'
-
 const WATCH_DEBOUNCE_MS = 1200
 const RETRY_AFTER_ACTIVE_JOB_MS = 5000
 const UNSTABLE_RETRY_DELAY_MS = 3000
 const MAX_UNSTABLE_RETRIES = 40 // ~2 min total (40 * 3s)
 const MISSING_CONFIRM_DELAY_MS = 5000
-const RELOCATION_WINDOW_MS = 60000
 const MAX_STAT_RETRIES = 10
 /** Suppress watch-triggered metadata refresh after a successful user tag write. */
 const TAG_WRITE_REFRESH_SUPPRESS_MS = 8000
@@ -67,7 +53,6 @@ export class MetadataWatchService {
   private readonly inFlightFilePaths = new Set<string>()
   private readonly deferredFilePaths = new Set<string>()
   private readonly pendingMissingFilePaths = new Map<string, number>()
-  private readonly recentMissingCandidates = new Map<number, MissingTrackCandidate>()
   private readonly statRetries = new Map<string, number>()
   /** filePath → suppress refresh until epoch ms */
   private readonly suppressRefreshUntil = new Map<string, number>()
@@ -77,7 +62,6 @@ export class MetadataWatchService {
   private missingConfirmationTimer: ReturnType<typeof setTimeout> | null = null
   private flushPaused = false
   private stopped = false
-  private readonly relocationTimers = new Set<ReturnType<typeof setTimeout>>()
 
   constructor(
     private readonly libraryRootRepository: LibraryRootRepository,
@@ -111,8 +95,6 @@ export class MetadataWatchService {
       clearTimeout(this.missingConfirmationTimer)
       this.missingConfirmationTimer = null
     }
-    for (const timer of this.relocationTimers) clearTimeout(timer)
-    this.relocationTimers.clear()
     while (this.activeOperations.size > 0) {
       await Promise.allSettled([...this.activeOperations])
     }
@@ -120,7 +102,6 @@ export class MetadataWatchService {
     this.pendingMissingFilePaths.clear()
     this.pendingLyricsIntentPaths.clear()
     this.deferredFilePaths.clear()
-    this.recentMissingCandidates.clear()
   }
 
   /**
@@ -392,7 +373,7 @@ export class MetadataWatchService {
 
       // New tracks: import with relocation matching
       if (newFilePaths.length > 0) {
-        await this.importWithRelocationMatch(newFilePaths)
+        await this.importWithRetry(newFilePaths)
       }
     }
 
@@ -479,10 +460,6 @@ export class MetadataWatchService {
 
       if (restoredIds.length > 0) {
         this.sendChanged('track-restored', restoredIds, restoredPaths)
-
-        for (const trackId of restoredIds) {
-          this.recentMissingCandidates.delete(trackId)
-        }
       }
     }
 
@@ -491,136 +468,13 @@ export class MetadataWatchService {
       const missingIds = this.trackRepository.markMissingByFilePaths(confirmedMissing)
 
       if (missingIds.length > 0) {
-        // Store recent candidates for relocation matching
-        const candidates = this.trackRepository.getMissingCandidates()
-
-        for (const candidate of candidates) {
-          if (missingIds.includes(candidate.trackId)) {
-            this.recentMissingCandidates.set(candidate.trackId, candidate)
-            this.scheduleRelocationExpiry(candidate.trackId)
-          }
-        }
-
         this.sendChanged('track-missing', missingIds, confirmedMissing)
       }
     }
   }
 
-  private scheduleRelocationExpiry(trackId: number): void {
-    if (this.stopped) return
-    const timer = setTimeout(() => {
-      this.relocationTimers.delete(timer)
-      this.recentMissingCandidates.delete(trackId)
-    }, RELOCATION_WINDOW_MS)
-    this.relocationTimers.add(timer)
-  }
-
-  private async importWithRelocationMatch(filePaths: string[]): Promise<void> {
-    for (const filePath of filePaths) {
-      this.inFlightFilePaths.add(filePath)
-    }
-
-    const relocatedTrackIds: number[] = []
-    const relocatedFilePaths: string[] = []
-    const unmatchedPaths: string[] = []
-
-    for (const filePath of filePaths) {
-      try {
-        const matched = await this.matchRecentCandidate(filePath)
-
-        if (matched) {
-          this.recentMissingCandidates.delete(matched.trackId)
-          relocatedTrackIds.push(matched.trackId)
-          relocatedFilePaths.push(filePath)
-          this.releaseInFlight(filePath)
-        } else {
-          unmatchedPaths.push(filePath)
-        }
-      } catch {
-        unmatchedPaths.push(filePath)
-      }
-    }
-
-    // Send relocated event
-    if (relocatedTrackIds.length > 0) {
-      this.sendChanged('track-relocated', relocatedTrackIds, relocatedFilePaths)
-    }
-
-    // Import unmatched files via normal import (includes DB matching)
-    if (unmatchedPaths.length > 0) {
-      await this.importWithRetry(unmatchedPaths)
-    } else {
-      // All relocated, release in-flight for relocated paths
-      for (const filePath of relocatedFilePaths) {
-        this.releaseInFlight(filePath)
-      }
-    }
-  }
-
-  private async matchRecentCandidate(filePath: string): Promise<MissingTrackCandidate | null> {
-    if (this.recentMissingCandidates.size === 0) return null
-
-    try {
-      const metadata = await parseFile(filePath, { duration: true })
-      const identity = normalizeIdentityText(metadata)
-      const fileStat = await stat(filePath)
-      const normalized = normalizeMetadata(metadata, filePath)
-      const lyrics = await resolveLyricsForFile(filePath, metadata)
-      const signature = buildMetadataSignature(identity, normalized.durationSeconds, fileStat.size)
-
-      const scannedTrack = {
-        filePath,
-        fileSize: fileStat.size,
-        fileMtimeMs: fileStat.mtimeMs,
-        title: normalized.title,
-        artist: normalized.artist,
-        album: normalized.album,
-        albumArtist: normalized.albumArtist,
-        trackNo: normalized.trackNo,
-        discNo: normalized.discNo,
-        durationSeconds: normalized.durationSeconds,
-        year: normalized.year,
-        releaseDate: normalized.releaseDate,
-        copyright: normalized.copyright,
-        composer: normalized.composer,
-        genre: normalized.genre,
-        artworkCacheKey: null,
-        lyricsText: lyrics?.text ?? null,
-        lyricsFormat: lyrics?.format ?? null,
-        isrc: identity.isrc,
-        metadataSignature: signature,
-      }
-
-      const fileIdentity: FileIdentity = {
-        title: normalized.title,
-        artist: normalized.artist,
-        album: normalized.album,
-        isrc: identity.isrc,
-        durationSeconds: normalized.durationSeconds,
-        fileSize: fileStat.size,
-      }
-
-      const candidates = [...this.recentMissingCandidates.values()]
-      const match = findUniqueRelocationCandidate(candidates, fileIdentity)
-      if (match) {
-        const relocated = this.trackRepository.relocateTrack(match.trackId, scannedTrack)
-        if (!relocated) {
-          logger.warn(
-            { filePath, trackId: match.trackId },
-            'Relocation skipped due to path occupancy or UNIQUE conflict',
-          )
-          return null
-        }
-        return match
-      }
-    } catch (error) {
-      logger.debug({ error, filePath }, 'Failed to match recent candidate')
-    }
-
-    return null
-  }
-
   private async importWithRetry(filePaths: string[]): Promise<void> {
+    for (const filePath of filePaths) this.inFlightFilePaths.add(filePath)
     try {
       const result = await this.incrementalImportService.importFiles(filePaths)
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { pointReference, startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
 import { resolveMenuNavigationIndex } from '@renderer/app/utils/menuKeyboardNavigation'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type {
@@ -42,11 +43,11 @@ const { t } = useI18n()
 const menuRef = ref<HTMLElement | null>(null)
 const subMenuRef = ref<HTMLElement | null>(null)
 
-const menuX = ref(0)
-const menuY = ref(0)
+const playlistButtonRef = ref<HTMLElement | null>(null)
+let menuPosition: ReturnType<typeof startFloatingPosition> | undefined
+let subMenuPosition: ReturnType<typeof startFloatingPosition> | undefined
 const showSubMenu = ref(false)
 const subMenuFlipsLeft = ref(false)
-const subMenuMaxHeight = ref<number | undefined>(undefined)
 
 /** 子菜单延迟关闭定时器（悬停切换专用） */
 let subMenuCloseTimer: ReturnType<typeof setTimeout> | undefined
@@ -140,8 +141,6 @@ const enabledMenuIndices = computed(() =>
   menuItems.value.map((item, idx) => (item.disabled ? -1 : idx)).filter((idx) => idx !== -1),
 )
 
-const subMenuFlipsUp = ref(false)
-
 interface SubMenuItemDef {
   id: string
   type: 'create' | 'playlist'
@@ -189,65 +188,6 @@ const enabledSubMenuIndices = computed(() =>
   subMenuItems.value.map((item, idx) => (item.disabled ? -1 : idx)).filter((idx) => idx !== -1),
 )
 
-function updateSubMenuGeometry(): void {
-  if (!props.open || !showSubMenu.value) return
-
-  nextTick(() => {
-    const subMenuEl = subMenuRef.value
-    if (!subMenuEl) return
-
-    const margin = 8
-    const parentEl = subMenuEl.parentElement
-    const parentRect = parentEl?.getBoundingClientRect()
-
-    const itemTop = parentRect ? parentRect.top : menuY.value + 110
-    const itemBottom = parentRect ? parentRect.bottom : menuY.value + 142
-
-    const spaceBelow = window.innerHeight - itemTop - margin
-    const spaceAbove = itemBottom - margin
-
-    if (spaceBelow < 200 && spaceAbove > spaceBelow) {
-      subMenuFlipsUp.value = true
-      subMenuMaxHeight.value = Math.max(120, Math.min(spaceAbove, window.innerHeight - margin * 2))
-    } else {
-      subMenuFlipsUp.value = false
-      subMenuMaxHeight.value = Math.max(120, Math.min(spaceBelow, window.innerHeight - margin * 2))
-    }
-  })
-}
-
-function updatePosition(): void {
-  if (!props.open) return
-
-  const margin = 8
-  const defaultWidth = 240
-  const defaultHeight = 320
-
-  const menuEl = menuRef.value
-  const width = menuEl ? menuEl.getBoundingClientRect().width : defaultWidth
-  const height = menuEl ? menuEl.getBoundingClientRect().height : defaultHeight
-
-  const maxX = window.innerWidth - width - margin
-  const maxY = window.innerHeight - height - margin
-
-  menuX.value = Math.max(margin, Math.min(props.anchor.clientX, maxX))
-  menuY.value = Math.max(margin, Math.min(props.anchor.clientY, maxY))
-
-  // Submenu position check
-  const subWidth = 220
-  if (menuX.value + width + subWidth > window.innerWidth - margin) {
-    subMenuFlipsLeft.value = true
-  } else {
-    subMenuFlipsLeft.value = false
-  }
-
-  if (showSubMenu.value) {
-    updateSubMenuGeometry()
-  } else {
-    subMenuMaxHeight.value = Math.max(160, window.innerHeight - 32)
-  }
-}
-
 watch(
   () => [
     props.open,
@@ -259,7 +199,9 @@ watch(
   ],
   () => {
     if (props.open && showSubMenu.value) {
-      updateSubMenuGeometry()
+      nextTick(() => {
+        void subMenuPosition?.update()
+      })
       if (!enabledSubMenuIndices.value.includes(subActiveIndex.value)) {
         subActiveIndex.value = enabledSubMenuIndices.value[0] ?? 0
         if (isSubMenuFocused.value) {
@@ -272,21 +214,78 @@ watch(
 )
 
 watch(
-  () => [props.open, props.anchor.clientX, props.anchor.clientY],
+  [() => props.open, () => props.anchor.clientX, () => props.anchor.clientY],
   () => {
-    if (props.open) {
-      showSubMenu.value = false
-      isSubMenuFocused.value = false
-      activeIndex.value = enabledMenuIndices.value[0] ?? 0
-      subActiveIndex.value = enabledSubMenuIndices.value[0] ?? 0
-
-      nextTick(() => {
-        updatePosition()
-        focusActiveItem()
-      })
-    }
+    menuPosition?.dispose()
+    subMenuPosition?.dispose()
+    showSubMenu.value = false
+    isSubMenuFocused.value = false
+    activeIndex.value = enabledMenuIndices.value[0] ?? 0
+    subActiveIndex.value = enabledSubMenuIndices.value[0] ?? 0
   },
-  { immediate: true },
+  { immediate: true, flush: 'sync' },
+)
+
+watch(
+  [menuRef, () => props.open, () => props.anchor.clientX, () => props.anchor.clientY],
+  (_values, _previous, onCleanup) => {
+    if (!props.open || !menuRef.value) return
+    const session = startFloatingPosition({
+      reference: pointReference(props.anchor.clientX, props.anchor.clientY),
+      floating: menuRef.value,
+      profile: 'point-menu',
+      onError: () => emit('close'),
+      onPosition: (_result, first) => {
+        if (first) focusActiveItem()
+        void subMenuPosition?.update()
+      },
+    })
+    menuPosition = session
+    onCleanup(session.dispose)
+  },
+  { flush: 'post' },
+)
+
+watch(
+  showSubMenu,
+  (open) => {
+    if (open) return
+    const hadSubMenuFocus = subMenuRef.value?.contains(document.activeElement)
+    isSubMenuFocused.value = false
+    subMenuPosition?.dispose()
+    subMenuPosition = undefined
+    if (subMenuCloseTimer) clearTimeout(subMenuCloseTimer)
+    subMenuCloseTimer = undefined
+    if (hadSubMenuFocus)
+      nextTick(() => {
+        if (props.open) focusActiveItem()
+      })
+  },
+  { flush: 'sync' },
+)
+
+watch(
+  [subMenuRef, playlistButtonRef, showSubMenu, () => props.open],
+  (_values, _previous, onCleanup) => {
+    if (!props.open || !showSubMenu.value || !subMenuRef.value || !playlistButtonRef.value) return
+    const session = startFloatingPosition({
+      reference: playlistButtonRef.value,
+      floating: subMenuRef.value,
+      profile: 'submenu',
+      onError: () => {
+        showSubMenu.value = false
+        isSubMenuFocused.value = false
+        focusActiveItem()
+      },
+      onPosition: (result, first) => {
+        subMenuFlipsLeft.value = result.placement.startsWith('left')
+        if (first && isSubMenuFocused.value) focusActiveItem()
+      },
+    })
+    subMenuPosition = session
+    onCleanup(session.dispose)
+  },
+  { flush: 'post' },
 )
 
 function focusActiveItem(): void {
@@ -294,6 +293,7 @@ function focusActiveItem(): void {
   const subMenuEl = subMenuRef.value
 
   if (isSubMenuFocused.value && subMenuEl) {
+    if (subMenuEl.style.visibility === 'hidden') return
     const items = subMenuEl.querySelectorAll<HTMLButtonElement>('[data-context-sub-item]')
     const target = items[subActiveIndex.value]
     target?.focus()
@@ -437,20 +437,10 @@ function onBackdropClick(): void {
   emit('close')
 }
 
-// Window resize listener
-function onWindowResize(): void {
-  if (props.open) {
-    updatePosition()
-  }
-}
-
-window.addEventListener('resize', onWindowResize)
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', onWindowResize)
-  if (subMenuCloseTimer) {
-    clearTimeout(subMenuCloseTimer)
-    subMenuCloseTimer = undefined
-  }
+  menuPosition?.dispose()
+  subMenuPosition?.dispose()
+  if (subMenuCloseTimer) clearTimeout(subMenuCloseTimer)
 })
 </script>
 
@@ -461,7 +451,7 @@ onBeforeUnmount(() => {
         <div
           ref="menuRef"
           class="library-context-menu-root library-context-menu-main-panel library-context-menu-panel frosted-context-menu fixed z-[61] w-58 p-1 select-none"
-          :style="{ left: `${menuX}px`, top: `${menuY}px` }"
+          style="visibility: hidden; overflow: auto"
           role="menu"
           :aria-label="t('library.contextMenu.ariaLabel')"
           @click.stop
@@ -542,6 +532,7 @@ onBeforeUnmount(() => {
             @mouseleave="onPlaylistMenuMouseLeave"
           >
             <button
+              ref="playlistButtonRef"
               class="library-context-menu-item"
               type="button"
               role="menuitem"
@@ -562,77 +553,6 @@ onBeforeUnmount(() => {
                 :class="{ 'rotate-180': subMenuFlipsLeft }"
               ></span>
             </button>
-
-            <!-- 子菜单 -->
-            <div
-              v-if="showSubMenu"
-              ref="subMenuRef"
-              class="library-context-menu-sub-panel library-context-menu-panel frosted-context-menu absolute z-[62] w-52 p-1"
-              :class="[
-                subMenuFlipsLeft ? 'right-full mr-1' : 'left-full ml-1',
-                subMenuFlipsUp ? 'bottom-0' : 'top-0',
-              ]"
-              :style="{ maxHeight: subMenuMaxHeight ? `${subMenuMaxHeight}px` : undefined }"
-              role="menu"
-              :aria-label="t('library.contextMenu.addToPlaylist')"
-              @mouseenter="onPlaylistMenuMouseEnter"
-            >
-              <!-- 新建歌单 -->
-              <button
-                class="library-context-menu-item"
-                type="button"
-                role="menuitem"
-                data-context-sub-item
-                :disabled="creatingPlaylist"
-                :tabindex="isSubMenuFocused && subActiveIndex === 0 ? 0 : -1"
-                @click="onCreatePlaylistClick"
-                @mouseenter="onCreatePlaylistMouseEnter"
-              >
-                <span class="i-lucide-plus"></span>
-                <span class="library-context-menu-text truncate">{{
-                  t('library.contextMenu.createPlaylist')
-                }}</span>
-              </button>
-
-              <div class="library-context-menu-separator" role="separator"></div>
-
-              <!-- 歌单列表 -->
-              <div v-if="playlistLoading" class="px-3 py-2 text-xs opacity-60">
-                {{ t('library.contextMenu.playlistLoading') }}
-              </div>
-              <div v-else-if="playlistLoadError" class="px-3 py-2 text-xs text-red-500">
-                {{ t('library.contextMenu.playlistLoadError') }}
-              </div>
-              <div v-else-if="playlists.length === 0" class="px-3 py-2 text-xs opacity-60">
-                {{ t('library.contextMenu.noPlaylists') }}
-              </div>
-              <template v-else>
-                <template v-for="(pl, idx) in playlists" :key="pl.id">
-                  <div v-if="idx > 0" class="library-context-menu-separator" role="separator"></div>
-                  <button
-                    class="library-context-menu-item"
-                    type="button"
-                    role="menuitem"
-                    data-context-sub-item
-                    :tabindex="isSubMenuFocused && subActiveIndex === idx + 1 ? 0 : -1"
-                    @click="onAddToPlaylistClick(pl)"
-                    @mouseenter="onPlaylistMouseEnter(idx)"
-                  >
-                    <span class="i-lucide-list-music"></span>
-                    <span v-tooltip.overflow="pl.name" class="library-context-menu-text truncate">{{
-                      pl.name
-                    }}</span>
-                    <span
-                      v-if="playlistFeedback && playlistFeedback.playlistId === pl.id"
-                      class="library-context-menu-chevron text-[10px] text-green-600 font-bold"
-                      aria-live="polite"
-                    >
-                      ✓
-                    </span>
-                  </button>
-                </template>
-              </template>
-            </div>
           </div>
 
           <div class="library-context-menu-separator" role="separator"></div>
@@ -683,13 +603,84 @@ onBeforeUnmount(() => {
           <template v-if="playlistFeedback">
             <div class="library-context-menu-separator" role="separator"></div>
             <div
-              class="flex items-center gap-2 px-3 py-1.5 text-xs text-emerald-500 font-medium select-none"
+              class="flex items-center gap-2 px-3 py-1.5 auralis-type-caption text-emerald-500 font-medium select-none"
               role="status"
               aria-live="polite"
             >
               <span class="i-lucide-check text-sm shrink-0"></span>
               <span class="truncate">{{ playlistFeedback.message }}</span>
             </div>
+          </template>
+        </div>
+        <!-- 子菜单 -->
+        <div
+          v-if="showSubMenu"
+          ref="subMenuRef"
+          class="library-context-menu-sub-panel library-context-menu-panel frosted-context-menu fixed z-[62] w-52 p-1"
+          style="visibility: hidden; overflow: auto"
+          role="menu"
+          :aria-label="t('library.contextMenu.addToPlaylist')"
+          @mouseenter="onPlaylistMenuMouseEnter"
+          @mouseleave="onPlaylistMenuMouseLeave"
+          @click.stop
+        >
+          <!-- 新建歌单 -->
+          <button
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            data-context-sub-item
+            :disabled="creatingPlaylist"
+            :tabindex="isSubMenuFocused && subActiveIndex === 0 ? 0 : -1"
+            @click="onCreatePlaylistClick"
+            @mouseenter="onCreatePlaylistMouseEnter"
+          >
+            <span class="i-lucide-plus"></span>
+            <span class="library-context-menu-text truncate">{{
+              t('library.contextMenu.createPlaylist')
+            }}</span>
+          </button>
+
+          <div class="library-context-menu-separator" role="separator"></div>
+
+          <!-- 歌单列表 -->
+          <div v-if="playlistLoading" class="px-3 py-2 auralis-type-caption opacity-60">
+            {{ t('library.contextMenu.playlistLoading') }}
+          </div>
+          <div v-else-if="playlistLoadError" class="px-3 py-2 auralis-type-caption text-red-500">
+            {{ t('library.contextMenu.playlistLoadError') }}
+          </div>
+          <div
+            v-else-if="playlists.length === 0"
+            class="px-3 py-2 auralis-type-caption text-[var(--auralis-text-muted)]"
+          >
+            {{ t('library.contextMenu.noPlaylists') }}
+          </div>
+          <template v-else>
+            <template v-for="(pl, idx) in playlists" :key="pl.id">
+              <div v-if="idx > 0" class="library-context-menu-separator" role="separator"></div>
+              <button
+                class="library-context-menu-item"
+                type="button"
+                role="menuitem"
+                data-context-sub-item
+                :tabindex="isSubMenuFocused && subActiveIndex === idx + 1 ? 0 : -1"
+                @click="onAddToPlaylistClick(pl)"
+                @mouseenter="onPlaylistMouseEnter(idx)"
+              >
+                <span class="i-lucide-list-music"></span>
+                <span v-tooltip.overflow="pl.name" class="library-context-menu-text truncate">{{
+                  pl.name
+                }}</span>
+                <span
+                  v-if="playlistFeedback && playlistFeedback.playlistId === pl.id"
+                  class="library-context-menu-chevron text-[10px] text-green-600 font-bold"
+                  aria-live="polite"
+                >
+                  ✓
+                </span>
+              </button>
+            </template>
           </template>
         </div>
       </div>

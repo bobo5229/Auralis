@@ -647,4 +647,46 @@ export const migrations = [
       LEFT JOIN track_play_stats ps ON ps.track_id = t.id;
     `,
   },
+  {
+    id: 24,
+    name: 'preserve_listening_history_after_track_removal',
+    sql: `
+      CREATE TABLE removed_track_history (
+        id INTEGER PRIMARY KEY,
+        title TEXT,
+        artist TEXT,
+        album TEXT,
+        album_artist TEXT,
+        genre TEXT,
+        artwork_cache_key TEXT,
+        source_file_path TEXT NOT NULL,
+        play_count INTEGER NOT NULL DEFAULT 0,
+        last_played_at TEXT,
+        removed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        recovery_json TEXT NOT NULL
+      );
+      CREATE TABLE removed_daily_track_play_stats (
+        play_date TEXT NOT NULL,
+        track_id INTEGER NOT NULL,
+        play_count INTEGER NOT NULL DEFAULT 0,
+        duration_seconds REAL NOT NULL DEFAULT 0,
+        last_played_at TEXT,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY(play_date, track_id),
+        FOREIGN KEY(track_id) REFERENCES removed_track_history(id) ON DELETE CASCADE
+      );
+      CREATE VIEW listening_track_display AS
+        SELECT id,title,artist,album,album_artist,genre,artwork_cache_key FROM library_track_display
+        UNION ALL
+        SELECT id,title,artist,album,album_artist,genre,artwork_cache_key FROM removed_track_history;
+      CREATE VIEW listening_daily_track_play_stats AS
+        SELECT * FROM daily_track_play_stats
+        UNION ALL
+        SELECT * FROM removed_daily_track_play_stats;
+      CREATE TRIGGER prevent_removed_track_id_reuse
+        AFTER INSERT ON tracks
+        WHEN EXISTS(SELECT 1 FROM removed_track_history WHERE id=NEW.id)
+        BEGIN SELECT RAISE(ABORT, 'Track ID is reserved by listening history'); END;
+    `,
+  },
 ] as const

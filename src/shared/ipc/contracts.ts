@@ -1,4 +1,5 @@
 import type { AppInfo, LibraryStats } from '@shared/types/app'
+import type { PlaybackSpectrumFrame, SpectrumSubscription } from '@shared/types/playbackSpectrum'
 import type { AudioResource } from '@shared/types/audioDecode'
 import type {
   LibraryRoot,
@@ -108,6 +109,7 @@ export interface IpcSendContract {
 }
 
 export interface IpcEventContract {
+  'playback:spectrum-frame': PlaybackSpectrumFrame
   'playback:native-event': NativePlaybackEvent
   'system-media:command': SystemMediaCommand
   'window:maximized-changed': { isMaximized: boolean }
@@ -153,6 +155,10 @@ export interface DatabaseRestoreBackupResult {
 }
 
 export interface IpcInvokeContract {
+  'playback:spectrum-subscribe': {
+    request: SpectrumSubscription
+    response: { accepted: boolean }
+  }
   'playback:native-availability': {
     request: void
     response: { available: boolean; reason?: string }

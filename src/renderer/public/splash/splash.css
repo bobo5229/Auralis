@@ -1,5 +1,5 @@
 /*
- * 开屏首帧样式：独立于应用 bundle，保证波形、光点与文字在首次绘制前即有主题颜色。
+ * 开屏首帧样式：独立于应用 bundle，保证品牌图形与文字在首次绘制前即有主题颜色。
  * 首帧色值与 main.css 的 --auralis-bg / --auralis-theme-accent / --auralis-text
  * 构成单一维护契约，由 src/renderer/app/splash/splashContract.test.ts 检查两端一致；
  * 不得引入应用图标 SVG 中的旧品牌蓝色。
@@ -19,7 +19,7 @@
 
 [data-theme='light'] {
   --splash-bg: #f0f1f2;
-  --splash-accent: #585b5f;
+  --splash-accent: var(--auralis-light-accent, #585b5f);
   --splash-text: #292b2d;
 }
 
@@ -59,19 +59,21 @@
   aspect-ratio: 1;
 }
 
-/* 复用应用图标的连续波形原始 path d；只换主题强调色，不渲染底板。 */
-#splash-waveform-path {
+/* 标准路径用于最终定格；两段辅助路径只用于向上成形的过程。 */
+.splash-brand-stroke {
   fill: none;
   stroke: var(--splash-accent);
-  stroke-width: 2;
+  stroke-width: 7.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-#splash-dot {
-  fill: var(--splash-text);
-  stroke: var(--splash-bg);
-  stroke-width: 0.45;
+#splash-resonance-path {
+  stroke-width: 6.5;
+}
+
+.splash-forming-leg {
+  opacity: 0;
 }
 
 /* 文字在主样式加载前即可解析完整的通用界面字体栈。 */
@@ -99,10 +101,6 @@
 
 .splash-startup-error span {
   font-size: 14px;
-}
-
-:where([data-reduced-motion='true']) #splash-dot {
-  display: none;
 }
 
 :where([data-reduced-motion='true']) #splash.is-exiting {

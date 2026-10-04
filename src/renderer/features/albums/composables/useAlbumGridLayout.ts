@@ -1,8 +1,8 @@
 import { nextTick, onScopeDispose, ref, watch, type Ref } from 'vue'
 
 /** 与 .albums-grid-row 的左右阴影缓冲 padding 之和保持一致。 */
-const GRID_PADDING_X = 40
-const COLUMN_GAP = 20
+export const GRID_PADDING_X = 40
+export const COLUMN_GAP = 20
 /** 封面下方固定元信息区：12px margin + 58px 文本块。 */
 const CARD_METADATA_HEIGHT = 70
 const TARGET_CARD_WIDTH = 190

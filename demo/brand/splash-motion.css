@@ -1,0 +1,298 @@
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('../../src/renderer/assets/fonts/Plus_Jakarta_Sans/PlusJakartaSans-latin-variable.woff2')
+    format('woff2');
+  font-weight: 200 800;
+  font-display: swap;
+}
+:root {
+  color-scheme: dark;
+  --background: #121212;
+  --text: #f3eee6;
+  --muted: #afb4bc;
+  --line: #393b3d;
+  --accent: #1dd55f;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+  --background: #f0f1f2;
+  --text: #292b2d;
+  --muted: #60656a;
+  --line: #ced1d4;
+  --accent: #585b5f;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--auralis-font-ui);
+  font-size: var(--auralis-type-body-size);
+  line-height: var(--auralis-type-body-line-height);
+}
+html {
+  scrollbar-color: var(--muted) var(--background);
+}
+::selection {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+main {
+  max-width: 1120px;
+  margin: auto;
+  padding: 36px 48px 24px;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+h1 {
+  margin: 0;
+  font-size: var(--auralis-type-page-size);
+  line-height: var(--auralis-type-page-line-height);
+  font-weight: 650;
+}
+header p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+fieldset {
+  display: flex;
+  gap: 2px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+fieldset label {
+  position: relative;
+  cursor: pointer;
+}
+fieldset input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+fieldset span {
+  display: block;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: var(--auralis-type-control-size);
+}
+fieldset input:checked + span {
+  background: var(--text);
+  color: var(--background);
+}
+fieldset label:hover span {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: clamp(320px, 54vh, 530px);
+  margin-top: 28px;
+  border-block: 1px solid var(--line);
+}
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+#mark {
+  display: block;
+  width: clamp(120px, 19vmin, 180px);
+  aspect-ratio: 1;
+  overflow: visible;
+}
+#mark path {
+  stroke: var(--accent);
+  stroke-width: 7.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#left-leg,
+#right-leg {
+  opacity: 0;
+}
+#wave {
+  stroke-width: 6.5;
+}
+/* Match the production splash lettering; demo controls use semantic type sizes. */
+#wordmark {
+  font-size: clamp(24px, 4vmin, 32px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+.stage-caption {
+  position: absolute;
+  bottom: 18px;
+  left: 0;
+  color: var(--muted);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+.playback {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding-top: 24px;
+  flex-wrap: wrap;
+}
+button,
+select {
+  color: inherit;
+  font: inherit;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  cursor: pointer;
+}
+button {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  padding: 9px 14px;
+  min-height: 42px;
+}
+button:hover {
+  border-color: var(--text);
+}
+button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+}
+.speed,
+.motion {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+.speed {
+  color: var(--muted);
+}
+select {
+  background: var(--background);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 5px 0;
+}
+.motion {
+  cursor: pointer;
+}
+input {
+  accent-color: var(--accent);
+}
+.motion input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+output {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--auralis-type-caption-size);
+  font-variant-numeric: tabular-nums;
+}
+.timeline {
+  margin-top: 21px;
+}
+input[type='range'] {
+  display: block;
+  width: 100%;
+  margin: 0;
+  height: 26px;
+  cursor: pointer;
+}
+.beats {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+.note {
+  margin: 23px 0 0;
+  color: var(--muted);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 28px;
+  color: var(--muted);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+a {
+  color: inherit;
+  text-underline-offset: 5px;
+}
+a:hover {
+  color: var(--text);
+}
+:focus-visible,
+fieldset input:focus-visible + span {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+@media (max-width: 600px) {
+  main {
+    padding: 24px 20px;
+  }
+  header {
+    gap: 12px;
+    align-items: flex-start;
+  }
+  header p {
+    max-width: 13em;
+  }
+  .stage {
+    height: 340px;
+    margin-top: 22px;
+  }
+  .playback {
+    gap: 18px;
+  }
+  .motion {
+    flex-basis: 70%;
+  }
+  .note {
+    max-width: 30em;
+  }
+}

@@ -1,7 +1,7 @@
 import { computed, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { splitGenreValues } from '@renderer/features/library/utils/formatGenre'
+import { formatGenreParts, splitGenreValues } from '@renderer/features/library/utils/formatGenre'
 import { formatAlbumYear } from '../utils/formatAlbumYear'
 
 export function useAlbumDetailPresentation(
@@ -48,8 +48,9 @@ export function useAlbumDetailPresentation(
     )
   }
 
-  /** 提取所有流派胶囊，去重并按频次与先后顺序排列 */
+  /** 提取全部流派，去重并按包含该流派的曲目数量排序，同频次保留首次出现顺序。 */
   const albumGenrePills = computed<string[]>(() => collectGenreCounts().map((genre) => genre.label))
+  const albumHeroGenreLabel = computed(() => formatGenreParts(albumGenrePills.value.slice(0, 2)))
   function formatMetricsDuration(seconds: number): string {
     const totalSeconds = Math.max(0, Math.floor(seconds))
     const minutes = Math.floor(totalSeconds / 60)
@@ -143,6 +144,7 @@ export function useAlbumDetailPresentation(
   })
   return {
     albumGenrePills,
+    albumHeroGenreLabel,
     metricsTrackCount,
     metricsTotalDuration,
     metricsPlaysLabel,

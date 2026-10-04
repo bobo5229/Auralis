@@ -8,12 +8,7 @@ const { t } = useI18n()
 
 <template>
   <button
-    type="button"
-    class="cd-background-toggle"
-    :aria-label="t('albums.cd.background.toggle')"
-    :aria-pressed="enabled"
-    :disabled="disabled"
-    :title="
+    v-tooltip="
       t(
         disabled
           ? 'albums.cd.background.lightOnly'
@@ -22,6 +17,11 @@ const { t } = useI18n()
             : 'albums.cd.background.turnOn',
       )
     "
+    type="button"
+    class="cd-background-toggle"
+    :aria-label="t('albums.cd.background.toggle')"
+    :aria-pressed="enabled"
+    :disabled="disabled"
     @click="!props.disabled && emit('toggle')"
   >
     <span class="cd-background-icon" aria-hidden="true">

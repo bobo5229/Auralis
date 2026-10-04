@@ -1,0 +1,1176 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 碟片进度轨道扩展形态</title>
+    <style>
+      @font-face {
+        font-family: 'Auralis Serif';
+        src: url('../../src/renderer/assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-R.woff2')
+          format('woff2');
+        font-display: swap;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      :root {
+        --played-color: #a82365;
+        --disc-color: #d52c85;
+        --remaining-color: #aaa9a3;
+        --remaining-subtle: #d6d5cf;
+      }
+      body {
+        margin: 0;
+        background: #eeeeec;
+        color: #292929;
+        font:
+          14px 'Segoe UI',
+          'Microsoft YaHei',
+          sans-serif;
+      }
+      ::selection {
+        background: #ebc0d5;
+        color: #292929;
+      }
+      main {
+        max-width: 1640px;
+        margin: auto;
+        padding: 40px 40px 48px;
+      }
+      header {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid #aaa9a3;
+      }
+      .header-title-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+      h1 {
+        margin: 0;
+        font:
+          32px 'Auralis Serif',
+          Georgia,
+          serif;
+        letter-spacing: 0.5px;
+      }
+      .header-desc {
+        margin: 0;
+        color: #62625b;
+        font-size: 13px;
+      }
+      /* 交互控制栏 */
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 12px 18px;
+        background: #e4e4e0;
+        border: 1px solid #cecec8;
+        border-radius: 8px;
+        flex-wrap: wrap;
+      }
+      .tool-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .ctrl-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        background: #f7f7f5;
+        border: 1px solid #aaa9a3;
+        border-radius: 4px;
+        color: #292929;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        user-select: none;
+      }
+      .ctrl-btn:hover {
+        background: #ffffff;
+        border-color: #62625b;
+      }
+      .ctrl-btn.active {
+        background: #292929;
+        color: #ffffff;
+        border-color: #292929;
+      }
+      .slider-container {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 280px;
+      }
+      .slider-container label {
+        font-size: 12px;
+        color: #62625b;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      input[type='range'] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 4px;
+        background: #aaa9a3;
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+      }
+      input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--played-color);
+        box-shadow: 0 0 0 2px #fff;
+        cursor: pointer;
+        transition: transform 0.1s ease;
+      }
+      input[type='range']::-webkit-slider-thumb:hover {
+        transform: scale(1.2);
+      }
+      .theme-swatches {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .theme-btn {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        cursor: pointer;
+        padding: 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        transition: transform 0.15s ease, border-color 0.15s ease;
+      }
+      .theme-btn:hover {
+        transform: scale(1.15);
+      }
+      .theme-btn.active {
+        border-color: #292929;
+        transform: scale(1.15);
+      }
+
+      /* 栅格展示区 */
+      .comparison {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 36px 32px;
+        margin-top: 36px;
+      }
+      figure {
+        margin: 0;
+        min-width: 0;
+        background: #f7f7f4;
+        border: 1px solid #d5d5cf;
+        border-radius: 6px;
+        padding: 16px 20px 24px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+      }
+      .stage {
+        display: grid;
+        place-items: center;
+        overflow: clip;
+        height: clamp(280px, 30vw, 420px);
+        perspective: 1100px;
+        border-radius: 4px;
+        background: #ededeb;
+      }
+      .plane {
+        position: relative;
+        width: 100%;
+        max-width: 380px;
+        aspect-ratio: 1;
+        transform: rotateZ(-24deg) rotateY(26deg) rotateX(32deg);
+        transition: transform 0.4s cubic-bezier(0.2, 0, 0, 1);
+        cursor: pointer;
+      }
+      .plane.flat {
+        transform: rotateZ(0deg) rotateY(0deg) rotateX(0deg);
+      }
+      .disc {
+        position: absolute;
+        inset: 16%;
+        border-radius: 50%;
+        background: var(--disc-color);
+        box-shadow:
+          0 0 0 2px #858586,
+          inset 0 0 0 3px #dadbd5,
+          14px 22px 22px #29292918;
+        mask-image: radial-gradient(circle, transparent 0 6.8%, #000 7.1%);
+        transition: background 0.3s ease;
+      }
+      .disc::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: linear-gradient(120deg, #fff3, transparent 30%, #0001 65%, #fff2);
+        box-shadow:
+          inset 1px 1px 0 2px #ffffff80,
+          inset -2px -2px 0 3px #42424280;
+      }
+      .hub {
+        position: absolute;
+        width: 25%;
+        height: 25%;
+        left: 37.5%;
+        top: 37.5%;
+        border-radius: 50%;
+        background: conic-gradient(
+          from 30deg,
+          #bdc1c6,
+          #e2e4e4,
+          #a0a6b1,
+          #ccd5d8,
+          #eeece8,
+          #989da6,
+          #bdc1c6
+        );
+        box-shadow:
+          0 0 0 2px #eeeeee70,
+          0 0 0 7px #b7b7b744,
+          inset 0 0 0 3px #888b9290;
+      }
+      .hub::after {
+        content: '';
+        position: absolute;
+        inset: 14%;
+        border-radius: 50%;
+        border: 4px solid #f8f8f890;
+        box-shadow: 0 0 0 2px #6c747b60;
+      }
+      .ring {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        fill: none;
+      }
+      .remaining {
+        stroke: var(--remaining-color);
+      }
+      .played {
+        stroke: var(--played-color);
+      }
+      figcaption {
+        padding-top: 18px;
+        margin-top: 16px;
+        border-top: 1px solid #d5d5cf;
+      }
+      .tag {
+        display: inline-block;
+        font-size: 11px;
+        padding: 2px 7px;
+        border-radius: 3px;
+        background: #e2e2dc;
+        color: #55554f;
+        margin-bottom: 8px;
+        letter-spacing: 0.3px;
+      }
+      h2 {
+        margin: 0 0 8px;
+        font:
+          20px 'Auralis Serif',
+          Georgia,
+          serif;
+        color: #1e1e1e;
+      }
+      figcaption p {
+        margin: 0;
+        line-height: 1.7;
+        color: #62625b;
+        font-size: 13px;
+      }
+
+      footer {
+        margin-top: 48px;
+        padding-top: 24px;
+        border-top: 1px solid #aaa9a3;
+        display: flex;
+        gap: 32px;
+        align-items: center;
+        justify-content: space-between;
+        color: #62625b;
+        font-size: 12px;
+        flex-wrap: wrap;
+      }
+      .legend-group {
+        display: inline-flex;
+        gap: 20px;
+        align-items: center;
+      }
+      .key {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .swatch {
+        width: 22px;
+        height: 3px;
+        background: var(--played-color);
+        border-radius: 2px;
+      }
+      .swatch.remaining {
+        background: var(--remaining-color);
+      }
+      .swatch.dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+
+      @media (max-width: 1280px) {
+        .comparison {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 768px) {
+        main {
+          padding: 24px 16px;
+        }
+        .comparison {
+          grid-template-columns: 1fr;
+          gap: 28px;
+        }
+        .stage {
+          height: clamp(260px, 80vw, 360px);
+        }
+        .toolbar {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .slider-container {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="header-title-row">
+          <h1>碟片进度轨道 · 扩展形态探索</h1>
+          <p class="header-desc">拟物介质 · 极坐标音频 · 工业美学 · 实时交互对比</p>
+        </div>
+
+        <!-- 交互测试与视图控制栏 -->
+        <div class="toolbar" role="region" aria-label="交互控制器">
+          <div class="tool-group">
+            <button id="togglePlayBtn" class="ctrl-btn" type="button" aria-label="播放或暂停动画">
+              <span id="playIcon">▶</span>
+              <span id="playLabel">自动巡航</span>
+            </button>
+            <div class="slider-container">
+              <input
+                id="progressRange"
+                type="range"
+                min="0"
+                max="1000"
+                value="400"
+                aria-label="播放进度调节"
+              />
+              <label id="timeDisplay">40% · 01:36 / 04:00</label>
+            </div>
+          </div>
+
+          <div class="tool-group">
+            <button id="viewToggleBtn" class="ctrl-btn" type="button" aria-label="切换视角">
+              <span>◰ 视角切换 (3D 倾斜 / 正面)</span>
+            </button>
+
+            <div class="theme-swatches" aria-label="配色方案选择">
+              <span style="font-size: 12px; color: #62625b; margin-right: 2px">盘面色:</span>
+              <button
+                class="theme-btn active"
+                style="background: #a82365"
+                data-played="#a82365"
+                data-disc="#d52c85"
+                title="洋红品红 (原版)"
+              ></button>
+              <button
+                class="theme-btn"
+                style="background: #2b5a88"
+                data-played="#2b5a88"
+                data-disc="#3874ab"
+                title="普鲁士蓝"
+              ></button>
+              <button
+                class="theme-btn"
+                style="background: #b86a14"
+                data-played="#b86a14"
+                data-disc="#d98223"
+                title="琉璃琥珀"
+              ></button>
+              <button
+                class="theme-btn"
+                style="background: #297258"
+                data-played="#297258"
+                data-disc="#389473"
+                title="苔原翡翠"
+              ></button>
+              <button
+                class="theme-btn"
+                style="background: #333333"
+                data-played="#333333"
+                data-disc="#505050"
+                title="曜石哑黑"
+              ></button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="comparison" aria-label="六种扩展播放进度轨道形态">
+        <!-- 1. 专辑分轨断点环 -->
+        <figure data-shape="segmented">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg
+                class="ring"
+                viewBox="-250 -250 500 500"
+                role="img"
+                aria-label="专辑分轨断点环"
+              ></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">实体介质 · 专辑整轨</span>
+            <h2>1. 专辑分轨断点环 (Track Segments)</h2>
+            <p>
+              一圈代表整张 CD 盘片容量，按单曲时长比例切分，各轨之间留有微小物理间隙。已播曲目常驻高亮，当前曲目在段内平滑推进，还原看黑胶/CD 盘面音轨刻痕的物理仪式感。
+            </p>
+          </figcaption>
+        </figure>
+
+        <!-- 2. 极坐标镜像声波环 -->
+        <figure data-shape="waveform">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg
+                class="ring"
+                viewBox="-250 -250 500 500"
+                role="img"
+                aria-label="极坐标镜像声波环"
+              ></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">音频可视化 · 能量轮廓</span>
+            <h2>2. 极坐标镜像声波环 (Radial Waveform)</h2>
+            <p>
+              基于整首音频的真实动态包络，以基准圆为中心内外对称起伏。直观呈现歌曲副歌爆发点与安静间隙，高采样密度兼具工业制图般的精确度与艺术美感。
+            </p>
+          </figcaption>
+        </figure>
+
+        <!-- 3. 工业点阵穿孔环 -->
+        <figure data-shape="dot-matrix">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg
+                class="ring"
+                viewBox="-250 -250 500 500"
+                role="img"
+                aria-label="工业点阵穿孔环"
+              ></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">包豪斯 · 经典硬件</span>
+            <h2>3. 工业点阵穿孔环 (Dot-Matrix Ring)</h2>
+            <p>
+              致敬博朗 (Braun) 与索尼高端 CD 随身听的微穿孔点阵。由 120 颗微型点构成，每逢 10 点设置模数节拍，当前进度点伴有呼吸光晕，呼吸感强且不显压抑。
+            </p>
+          </figcaption>
+        </figure>
+
+        <!-- 4. 激光读取头光斑游标 -->
+        <figure data-shape="laser-pickup">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg
+                class="ring"
+                viewBox="-250 -250 500 500"
+                role="img"
+                aria-label="激光读取头光斑游标"
+              ></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">光学读取 · 聚焦光晕</span>
+            <h2>4. 激光读取光头游标 (Laser Pickup Head)</h2>
+            <p>
+              模拟 CD 机心光学读取头（Pick-up Unit）对焦盘面的光束。双轨细线导向槽配合高亮红宝石激光核与径向定位刻线，在 3D 旋转视角下呈现机械寻轨的动态质感。
+            </p>
+          </figcaption>
+        </figure>
+
+        <!-- 5. 彗星余晖渐隐弧 -->
+        <figure data-shape="comet-fade">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg
+                class="ring"
+                viewBox="-250 -250 500 500"
+                role="img"
+                aria-label="彗星余晖渐隐弧"
+              ></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">极简呼吸 · 空间留白</span>
+            <h2>5. 彗星余晖渐隐弧 (Comet Fade Arc)</h2>
+            <p>
+              摒弃 360° 完整闭环的轨道底色，仅以四个象限极微十字为基准。当前播放点身后拖曳 50° 自然衰减的荧光尾迹，轻盈剔透，为外侧歌词与排版留出最纯粹的空隙。
+            </p>
+          </figcaption>
+        </figure>
+
+        <!-- 6. 盘面刻录微槽带 -->
+        <figure data-shape="grooves">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg
+                class="ring"
+                viewBox="-250 -250 500 500"
+                role="img"
+                aria-label="盘面刻录微槽带"
+              ></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">CD-R 拟物 · 数据刻痕</span>
+            <h2>6. 盘面刻录微槽带 (Burned Grooves)</h2>
+            <p>
+              模拟光盘刻录（Pits & Lands）数据写入后的同心深浅色阶。三层同心微槽并行，已写数据区转为饱满金属质感，未写区域呈现细腻微虚线，由径向切向游标精准截断。
+            </p>
+          </figcaption>
+        </figure>
+      </section>
+
+      <footer>
+        <div class="legend-group">
+          <span class="key"><span class="swatch"></span>已播放 / 当前活跃</span>
+          <span class="key"><span class="swatch remaining"></span>未播放 / 预留轨道</span>
+          <span class="key"><span class="swatch dot" style="background: #ffffff; box-shadow: 0 0 0 1.5px var(--played-color)"></span>读取焦点</span>
+        </div>
+        <div>
+          <span>提示：可拖动上方滑动条或点击盘面，实时观察各形态在不同进度下的几何响应</span>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const namespace = 'http://www.w3.org/2000/svg'
+      let currentProgress = 0.4
+      let isPlaying = false
+      let animId = null
+      let isFlatView = false
+
+      function element(name, attributes = {}) {
+        const node = document.createElementNS(namespace, name)
+        for (const [key, value] of Object.entries(attributes)) {
+          node.setAttribute(key, String(value))
+        }
+        return node
+      }
+
+      function point(radius, angle) {
+        return [Math.cos(angle) * radius, Math.sin(angle) * radius]
+      }
+
+      function polarToCartesian(radius, angle) {
+        return {
+          x: Math.cos(angle) * radius,
+          y: Math.sin(angle) * radius,
+        }
+      }
+
+      function describeArc(radius, startAngle, endAngle) {
+        const start = polarToCartesian(radius, startAngle)
+        const end = polarToCartesian(radius, endAngle)
+        const diff = endAngle - startAngle
+        const largeArcFlag = diff > Math.PI ? 1 : 0
+        return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`
+      }
+
+      // 预生成高保真音频波形包络数据 (140 个对称采样点)
+      const waveformSamples = []
+      const WAVE_COUNT = 140
+      for (let i = 0; i < WAVE_COUNT; i++) {
+        const t = i / WAVE_COUNT
+        let base = 0.22
+        if (t < 0.12) base = 0.2 + 0.3 * (t / 0.12)
+        else if (t < 0.42) base = 0.55 + 0.35 * Math.sin(((t - 0.12) / 0.3) * Math.PI)
+        else if (t < 0.58) base = 0.32 + 0.18 * Math.sin(((t - 0.42) / 0.16) * Math.PI)
+        else if (t < 0.84) base = 0.72 + 0.28 * Math.sin(((t - 0.58) / 0.26) * Math.PI)
+        else base = 0.5 * (1 - (t - 0.84) / 0.16)
+
+        const fine1 = 0.5 + 0.25 * Math.sin(i * 1.83)
+        const fine2 = 0.25 * Math.cos(i * 3.41)
+        const amp = Math.max(2.5, base * (fine1 + fine2) * 17)
+        waveformSamples.push(amp)
+      }
+
+      // 专辑曲目配置：7 首歌时长权重，总和 1.0
+      const albumTracks = [0.13, 0.16, 0.11, 0.19, 0.14, 0.15, 0.12]
+
+      // 各轨道形态渲染函数映射
+      const renderers = {
+        // 1. 专辑分轨断点环
+        segmented(svg, progress) {
+          svg.replaceChildren()
+          const radius = 198
+          const gapAngle = (2.2 * Math.PI) / 180 // 2.2度音轨间隙
+          let accumulated = 0
+
+          // 底层极淡导轨
+          svg.append(
+            element('circle', {
+              r: radius,
+              stroke: '#e2e2dc',
+              'stroke-width': 1,
+              fill: 'none',
+              opacity: 0.6,
+            }),
+          )
+
+          albumTracks.forEach((durationRatio, trackIdx) => {
+            const startP = accumulated
+            const endP = accumulated + durationRatio
+            accumulated = endP
+
+            const startAngle = startP * Math.PI * 2 - Math.PI / 2 + gapAngle / 2
+            const endAngle = endP * Math.PI * 2 - Math.PI / 2 - gapAngle / 2
+
+            if (startAngle >= endAngle) return
+
+            // 绘制未播放轨道基线
+            svg.append(
+              element('path', {
+                d: describeArc(radius, startAngle, endAngle),
+                class: 'remaining',
+                'stroke-width': 2.8,
+                'stroke-linecap': 'round',
+                opacity: 0.65,
+              }),
+            )
+
+            // 计算该曲目内部进度
+            if (progress >= endP) {
+              // 整曲已完全播放
+              svg.append(
+                element('path', {
+                  d: describeArc(radius, startAngle, endAngle),
+                  class: 'played',
+                  'stroke-width': 3.2,
+                  'stroke-linecap': 'round',
+                }),
+              )
+            } else if (progress > startP) {
+              // 当前曲目正在播放中
+              const trackLocalProgress = (progress - startP) / durationRatio
+              const currAngle = startAngle + (endAngle - startAngle) * trackLocalProgress
+
+              svg.append(
+                element('path', {
+                  d: describeArc(radius, startAngle, currAngle),
+                  class: 'played',
+                  'stroke-width': 3.4,
+                  'stroke-linecap': 'round',
+                }),
+              )
+
+              // 进度端点小游标
+              const [px, py] = point(radius, currAngle)
+              svg.append(
+                element('circle', {
+                  cx: px,
+                  cy: py,
+                  r: 3,
+                  fill: '#ffffff',
+                  stroke: 'var(--played-color)',
+                  'stroke-width': 2,
+                }),
+              )
+            }
+
+            // 在音轨起始点绘制微小序号刻度
+            const [tx1, ty1] = point(radius - 5, startAngle - gapAngle / 2)
+            const [tx2, ty2] = point(radius + 5, startAngle - gapAngle / 2)
+            svg.append(
+              element('line', {
+                x1: tx1,
+                y1: ty1,
+                x2: tx2,
+                y2: ty2,
+                stroke: '#aaa9a3',
+                'stroke-width': 1.2,
+                opacity: 0.6,
+              }),
+            )
+          })
+        },
+
+        // 2. 极坐标镜像声波环
+        waveform(svg, progress) {
+          svg.replaceChildren()
+          const baseRadius = 198
+
+          // 中心参考环线
+          svg.append(
+            element('circle', {
+              r: baseRadius,
+              stroke: '#aaa9a3',
+              'stroke-width': 0.8,
+              'stroke-dasharray': '2 3',
+              opacity: 0.45,
+            }),
+          )
+
+          const playedIndexThreshold = Math.floor(WAVE_COUNT * progress)
+
+          for (let i = 0; i < WAVE_COUNT; i++) {
+            const angle = (i / WAVE_COUNT) * Math.PI * 2 - Math.PI / 2
+            const amp = waveformSamples[i]
+            const [x1, y1] = point(baseRadius - amp, angle)
+            const [x2, y2] = point(baseRadius + amp, angle)
+            const isPlayed = i <= playedIndexThreshold
+
+            svg.append(
+              element('line', {
+                x1,
+                y1,
+                x2,
+                y2,
+                class: isPlayed ? 'played' : 'remaining',
+                'stroke-width': isPlayed ? 2 : 1.4,
+                'stroke-linecap': 'round',
+                opacity: isPlayed ? 1 : 0.4,
+              }),
+            )
+          }
+
+          // 当前播放位置游标高亮指针
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+          const [hx1, hy1] = point(baseRadius - 22, currAngle)
+          const [hx2, hy2] = point(baseRadius + 22, currAngle)
+          svg.append(
+            element('line', {
+              x1: hx1,
+              y1: hy1,
+              x2: hx2,
+              y2: hy2,
+              stroke: '#ffffff',
+              'stroke-width': 2.5,
+              'stroke-linecap': 'round',
+              filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.5))',
+            }),
+          )
+        },
+
+        // 3. 工业点阵穿孔环
+        'dot-matrix'(svg, progress) {
+          svg.replaceChildren()
+          const radius = 198
+          const totalDots = 120
+          const playedThreshold = Math.floor(totalDots * progress)
+
+          for (let i = 0; i < totalDots; i++) {
+            const angle = (i / totalDots) * Math.PI * 2 - Math.PI / 2
+            const [cx, cy] = point(radius, angle)
+            const isMajor = i % 10 === 0
+            const isPlayed = i < playedThreshold
+            const isCurrent = i === playedThreshold
+
+            if (isCurrent) {
+              // 呼吸外圈环
+              svg.append(
+                element('circle', {
+                  cx,
+                  cy,
+                  r: 5.5,
+                  fill: 'none',
+                  stroke: 'var(--played-color)',
+                  'stroke-width': 1.5,
+                  opacity: 0.8,
+                }),
+              )
+              // 高亮白芯
+              svg.append(
+                element('circle', {
+                  cx,
+                  cy,
+                  r: 2.8,
+                  fill: '#ffffff',
+                }),
+              )
+            } else {
+              svg.append(
+                element('circle', {
+                  cx,
+                  cy,
+                  r: isMajor ? 2.8 : 1.7,
+                  fill: isPlayed ? 'var(--played-color)' : '#aaa9a3',
+                  opacity: isPlayed ? (isMajor ? 1 : 0.9) : isMajor ? 0.6 : 0.35,
+                }),
+              )
+            }
+
+            // 四主象限辅助外刻度环
+            if (i % 30 === 0) {
+              const [ox, oy] = point(radius + 7, angle)
+              svg.append(
+                element('circle', {
+                  cx: ox,
+                  cy: oy,
+                  r: 1,
+                  fill: '#858586',
+                }),
+              )
+            }
+          }
+        },
+
+        // 4. 激光读取头光斑游标
+        'laser-pickup'(svg, progress) {
+          svg.replaceChildren()
+          const radius = 198
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+
+          // 双轨同心导槽
+          svg.append(
+            element('circle', {
+              r: radius - 3.5,
+              stroke: '#d5d5cf',
+              'stroke-width': 1,
+              fill: 'none',
+            }),
+          )
+          svg.append(
+            element('circle', {
+              r: radius + 3.5,
+              stroke: '#d5d5cf',
+              'stroke-width': 1,
+              fill: 'none',
+            }),
+          )
+
+          // 刻度导轨底色
+          svg.append(
+            element('circle', {
+              r: radius,
+              class: 'remaining',
+              'stroke-width': 1.6,
+              fill: 'none',
+              opacity: 0.5,
+            }),
+          )
+
+          // 已播放部分平滑弧线
+          svg.append(
+            element('circle', {
+              r: radius,
+              class: 'played',
+              'stroke-width': 2.8,
+              fill: 'none',
+              pathLength: 1,
+              'stroke-dasharray': `${progress} ${1 - progress}`,
+              transform: 'rotate(-90)',
+              'stroke-linecap': 'round',
+            }),
+          )
+
+          // 激光头径向校准引导刻线
+          const [lx1, ly1] = point(radius - 14, currAngle)
+          const [lx2, ly2] = point(radius + 14, currAngle)
+          svg.append(
+            element('line', {
+              x1: lx1,
+              y1: ly1,
+              x2: lx2,
+              y2: ly2,
+              stroke: 'var(--played-color)',
+              'stroke-width': 1.6,
+              'stroke-linecap': 'round',
+              opacity: 0.85,
+            }),
+          )
+
+          // 光斑聚焦核心 (复合层光晕)
+          const [px, py] = point(radius, currAngle)
+
+          // 漫反射大光晕
+          svg.append(
+            element('circle', {
+              cx: px,
+              cy: py,
+              r: 10,
+              fill: 'var(--played-color)',
+              opacity: 0.35,
+            }),
+          )
+          // 中层红宝石光环
+          svg.append(
+            element('circle', {
+              cx: px,
+              cy: py,
+              r: 5,
+              fill: 'var(--played-color)',
+            }),
+          )
+          // 锐利白光点
+          svg.append(
+            element('circle', {
+              cx: px,
+              cy: py,
+              r: 2,
+              fill: '#ffffff',
+            }),
+          )
+        },
+
+        // 5. 彗星余晖渐隐弧
+        'comet-fade'(svg, progress) {
+          svg.replaceChildren()
+          const radius = 198
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+
+          // 4个象限定位微型十字标记（代替厚重的全圆跑道）
+          ;[0, Math.PI / 2, Math.PI, (Math.PI * 3) / 2].forEach((cardinalAngle) => {
+            const [cx, cy] = point(radius, cardinalAngle - Math.PI / 2)
+            svg.append(
+              element('circle', {
+                cx,
+                cy,
+                r: 1.5,
+                fill: '#9a9993',
+              }),
+            )
+          })
+
+          // 渐变衰减彗星尾迹 (分32段多级透明度弧线)
+          const SEGMENTS = 36
+          const TAIL_SPAN = (56 * Math.PI) / 180 // 56度尾长
+
+          for (let j = 0; j < SEGMENTS; j++) {
+            const ratio1 = j / SEGMENTS
+            const ratio2 = (j + 1) / SEGMENTS
+
+            const a1 = currAngle - ratio1 * TAIL_SPAN
+            const a2 = currAngle - ratio2 * TAIL_SPAN
+
+            const alpha = Math.pow(1 - ratio1, 1.8)
+            const width = 1.0 + (1 - ratio1) * 2.6
+
+            svg.append(
+              element('path', {
+                d: describeArc(radius, a2, a1),
+                stroke: 'var(--played-color)',
+                'stroke-width': width,
+                'stroke-linecap': j === 0 ? 'round' : 'butt',
+                opacity: alpha,
+                fill: 'none',
+              }),
+            )
+          }
+
+          // 彗星头部发光焦点
+          const [hx, hy] = point(radius, currAngle)
+          svg.append(
+            element('circle', {
+              cx: hx,
+              cy: hy,
+              r: 4,
+              fill: '#ffffff',
+              stroke: 'var(--played-color)',
+              'stroke-width': 2,
+            }),
+          )
+        },
+
+        // 6. 盘面刻录微槽带
+        grooves(svg, progress) {
+          svg.replaceChildren()
+          const radii = [193, 198, 203]
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+
+          radii.forEach((r, idx) => {
+            // 未刻录区域细腻虚线
+            svg.append(
+              element('circle', {
+                r,
+                stroke: '#aaa9a3',
+                'stroke-width': 1,
+                'stroke-dasharray': '2 4',
+                fill: 'none',
+                opacity: 0.5,
+              }),
+            )
+
+            // 已刻录区域高密度饱满线
+            svg.append(
+              element('circle', {
+                r,
+                class: 'played',
+                'stroke-width': idx === 1 ? 1.8 : 1.2,
+                fill: 'none',
+                pathLength: 1,
+                'stroke-dasharray': `${progress} ${1 - progress}`,
+                transform: 'rotate(-90)',
+                opacity: idx === 1 ? 1 : 0.8,
+              }),
+            )
+          })
+
+          // 刻录边缘径向切片游标
+          const [kx1, ky1] = point(188, currAngle)
+          const [kx2, ky2] = point(208, currAngle)
+          svg.append(
+            element('line', {
+              x1: kx1,
+              y1: ky1,
+              x2: kx2,
+              y2: ky2,
+              stroke: '#ffffff',
+              'stroke-width': 2,
+              'stroke-linecap': 'round',
+              filter: 'drop-shadow(0 0 1px rgba(0,0,0,0.6))',
+            }),
+          )
+          svg.append(
+            element('circle', {
+              cx: kx2,
+              cy: ky2,
+              r: 2,
+              fill: 'var(--played-color)',
+            }),
+          )
+        },
+      }
+
+      // 全量刷新各图元
+      function updateAllRings() {
+        for (const figure of document.querySelectorAll('figure')) {
+          const svg = figure.querySelector('svg')
+          const shape = figure.dataset.shape
+          if (renderers[shape]) {
+            renderers[shape](svg, currentProgress)
+          }
+        }
+
+        // 更新时间与进度提示文案
+        const totalSeconds = 240 // 4分钟
+        const currentSec = Math.floor(totalSeconds * currentProgress)
+        const formatTime = (s) => {
+          const m = String(Math.floor(s / 60)).padStart(2, '0')
+          const sec = String(s % 60).padStart(2, '0')
+          return `${m}:${sec}`
+        }
+        const pct = Math.round(currentProgress * 100)
+        document.getElementById('timeDisplay').textContent =
+          `${pct}% · ${formatTime(currentSec)} / ${formatTime(totalSeconds)}`
+      }
+
+      // 滑动条事件绑定
+      const slider = document.getElementById('progressRange')
+      slider.addEventListener('input', (e) => {
+        currentProgress = Number(e.target.value) / 1000
+        updateAllRings()
+      })
+
+      // 播放/巡航动画控制
+      const playBtn = document.getElementById('togglePlayBtn')
+      const playIcon = document.getElementById('playIcon')
+      const playLabel = document.getElementById('playLabel')
+
+      function animateStep() {
+        if (!isPlaying) return
+        currentProgress += 0.0012
+        if (currentProgress > 1) currentProgress = 0
+        slider.value = String(Math.round(currentProgress * 1000))
+        updateAllRings()
+        animId = requestAnimationFrame(animateStep)
+      }
+
+      playBtn.addEventListener('click', () => {
+        isPlaying = !isPlaying
+        if (isPlaying) {
+          playBtn.classList.add('active')
+          playIcon.textContent = '⏸'
+          playLabel.textContent = '暂停巡航'
+          animId = requestAnimationFrame(animateStep)
+        } else {
+          playBtn.classList.remove('active')
+          playIcon.textContent = '▶'
+          playLabel.textContent = '自动巡航'
+          if (animId) cancelAnimationFrame(animId)
+        }
+      })
+
+      // 视角切换：3D倾斜 与 正面俯视
+      const viewBtn = document.getElementById('viewToggleBtn')
+      viewBtn.addEventListener('click', () => {
+        isFlatView = !isFlatView
+        document.querySelectorAll('.plane').forEach((plane) => {
+          plane.classList.toggle('flat', isFlatView)
+        })
+        viewBtn.classList.toggle('active', isFlatView)
+      })
+
+      // 配色选择器切换
+      document.querySelectorAll('.theme-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.theme-btn').forEach((b) => b.classList.remove('active'))
+          btn.classList.add('active')
+          const played = btn.dataset.played
+          const disc = btn.dataset.disc
+          document.documentElement.style.setProperty('--played-color', played)
+          document.documentElement.style.setProperty('--disc-color', disc)
+          updateAllRings()
+        })
+      })
+
+      // 点击任意盘面支持快速跳转进度（计算点击坐标与极角）
+      document.querySelectorAll('.plane').forEach((plane) => {
+        plane.addEventListener('click', (e) => {
+          const rect = plane.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const dx = e.clientX - centerX
+          const dy = e.clientY - centerY
+
+          let rad = Math.atan2(dy, dx) + Math.PI / 2
+          if (rad < 0) rad += Math.PI * 2
+          currentProgress = rad / (Math.PI * 2)
+          slider.value = String(Math.round(currentProgress * 1000))
+          updateAllRings()
+        })
+      })
+
+      // 首次载入渲染
+      updateAllRings()
+    </script>
+  </body>
+</html>

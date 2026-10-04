@@ -51,6 +51,9 @@ export class ArtworkCacheGarbageCollector {
          UNION
          SELECT artwork_cache_key AS key
          FROM track_metadata
+         WHERE artwork_cache_key IS NOT NULL
+         UNION
+         SELECT artwork_cache_key AS key FROM removed_track_history
          WHERE artwork_cache_key IS NOT NULL`,
       )
       .all() as Array<{ key: string }>
@@ -79,10 +82,11 @@ export class ArtworkCacheGarbageCollector {
       const referenced = this.collectReferencedKeys()
       const hasReference = this.db.prepare(`
         SELECT 1 FROM albums WHERE artwork_cache_key = ?
-        UNION ALL SELECT 1 FROM track_metadata WHERE artwork_cache_key = ? LIMIT 1
+        UNION ALL SELECT 1 FROM track_metadata WHERE artwork_cache_key = ?
+        UNION ALL SELECT 1 FROM removed_track_history WHERE artwork_cache_key = ? LIMIT 1
       `)
       const deleteIfUnreferenced = this.db.transaction((name: string, path: string) => {
-        if (!canCollect() || hasReference.get(name, name)) return false
+        if (!canCollect() || hasReference.get(name, name, name)) return false
         // No await between the final reference check and deletion. The write lock
         // excludes database writers; the maintenance gate also protects files
         // produced by workers whose references have not been committed yet.

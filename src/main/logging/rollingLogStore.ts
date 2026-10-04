@@ -1,12 +1,6 @@
-import {
-  appendFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  statSync,
-} from 'node:fs'
+import { createWriteStream, readdirSync, type WriteStream } from 'node:fs'
+import { mkdir, readdir, rename, rm, stat } from 'node:fs/promises'
+import { once } from 'node:events'
 import { join } from 'node:path'
 import { sanitizeSerializedLogLine } from './logSanitizer'
 
@@ -48,6 +42,8 @@ export class RollingLogStore {
   private currentBytes = 0
   private closed = false
   private writable = true
+  private stream: WriteStream | undefined
+  private pending: Promise<void>
 
   constructor(
     readonly logsDirectory: string,
@@ -56,53 +52,74 @@ export class RollingLogStore {
     this.maximumFileBytes = Math.max(1_024, options.maximumFileBytes ?? DEFAULT_LOG_FILE_BYTES)
     this.maximumFileCount = Math.max(1, options.maximumFileCount ?? DEFAULT_LOG_FILE_COUNT)
     this.currentPath = join(logsDirectory, CURRENT_LOG_FILE_NAME)
-    this.initialize()
+    this.pending = this.initialize()
   }
 
-  private initialize(): void {
+  private async initialize(): Promise<void> {
     try {
-      mkdirSync(this.logsDirectory, { recursive: true })
-      for (const fileName of listManagedLogFileNames(this.logsDirectory)) {
+      await mkdir(this.logsDirectory, { recursive: true })
+      for (const fileName of (await readdir(this.logsDirectory)).filter(isManagedLogFileName)) {
         const match = managedLogPattern.exec(fileName)
         const archiveIndex = Number(match?.[1] ?? 0)
         const filePath = join(this.logsDirectory, fileName)
         if (
           archiveIndex >= this.maximumFileCount ||
-          statSync(filePath).size > this.maximumFileBytes
+          (await stat(filePath)).size > this.maximumFileBytes
         ) {
-          rmSync(filePath, { force: true })
+          await rm(filePath, { force: true })
         }
       }
-      this.currentBytes = existsSync(this.currentPath) ? statSync(this.currentPath).size : 0
+      this.currentBytes = await stat(this.currentPath).then(
+        (entry) => entry.size,
+        () => 0,
+      )
     } catch {
       this.writable = false
       this.currentBytes = 0
     }
   }
 
-  private rotate(): void {
+  private async closeStream(): Promise<void> {
+    const stream = this.stream
+    this.stream = undefined
+    if (!stream || stream.closed) return
+    const closing = once(stream, 'close')
+    stream.end()
+    await closing
+  }
+
+  private async rotate(): Promise<void> {
+    await this.closeStream()
     const oldestPath = join(this.logsDirectory, `auralis.${this.maximumFileCount - 1}.log`)
-    if (this.maximumFileCount > 1) rmSync(oldestPath, { force: true })
+    if (this.maximumFileCount > 1) await rm(oldestPath, { force: true })
 
     for (let index = this.maximumFileCount - 2; index >= 1; index -= 1) {
       const source = join(this.logsDirectory, `auralis.${index}.log`)
-      if (existsSync(source)) {
-        renameSync(source, join(this.logsDirectory, `auralis.${index + 1}.log`))
-      }
+      await this.renameIfPresent(source, join(this.logsDirectory, `auralis.${index + 1}.log`))
     }
 
-    if (existsSync(this.currentPath)) {
-      if (this.maximumFileCount > 1) {
-        renameSync(this.currentPath, join(this.logsDirectory, 'auralis.1.log'))
-      } else {
-        rmSync(this.currentPath, { force: true })
-      }
-    }
+    if (this.maximumFileCount > 1)
+      await this.renameIfPresent(this.currentPath, join(this.logsDirectory, 'auralis.1.log'))
+    else await rm(this.currentPath, { force: true })
     this.currentBytes = 0
   }
 
-  write(serializedLine: string): void {
-    if (this.closed || !this.writable) return
+  private async renameIfPresent(source: string, destination: string): Promise<void> {
+    try {
+      await rename(source, destination)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+  }
+
+  write(serializedLine: string): Promise<void> {
+    if (this.closed) return this.pending
+    this.pending = this.pending.then(() => this.append(serializedLine))
+    return this.pending
+  }
+
+  private async append(serializedLine: string): Promise<void> {
+    if (!this.writable) return
 
     try {
       let safeLine = sanitizeSerializedLogLine(serializedLine)
@@ -117,17 +134,36 @@ export class RollingLogStore {
         bytes = Buffer.byteLength(safeLine, 'utf8')
       }
       if (this.currentBytes > 0 && this.currentBytes + bytes > this.maximumFileBytes) {
-        this.rotate()
+        await this.rotate()
       }
-      appendFileSync(this.currentPath, safeLine, { encoding: 'utf8' })
+      if (!this.stream) {
+        const stream = createWriteStream(this.currentPath, { flags: 'a', encoding: 'utf8' })
+        this.stream = stream
+        stream.on('error', () => {
+          this.writable = false
+        })
+        await once(stream, 'open')
+      }
+      const stream = this.stream
+      await new Promise<void>((resolve, reject) => {
+        stream.write(safeLine, (error) => (error ? reject(error) : resolve()))
+      })
       this.currentBytes += bytes
     } catch {
       // Logging failures must never affect playback, scanning, or application shutdown.
       this.writable = false
+      this.stream?.destroy()
     }
   }
 
-  close(): void {
+  close(): Promise<void> {
     this.closed = true
+    this.pending = this.pending
+      .then(() => this.closeStream())
+      .catch(() => {
+        this.stream?.destroy()
+        this.stream = undefined
+      })
+    return this.pending
   }
 }

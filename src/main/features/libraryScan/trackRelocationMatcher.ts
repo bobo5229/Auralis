@@ -1,11 +1,5 @@
 import type { ScannedTrack } from '@shared/types/libraryScan'
-import type { TrackRepository, MissingTrackCandidate } from '@main/repositories/trackRepository'
-import type { NormalizedIdentity } from '@main/features/metadata/metadataNormalizer'
-
-export interface RelocationResult {
-  candidate: MissingTrackCandidate
-  track: ScannedTrack
-}
+import type { MissingTrackCandidate } from '@main/repositories/trackRepository'
 
 /**
  * Minimal file identity needed for relocation matching.
@@ -20,13 +14,27 @@ export interface FileIdentity {
   fileSize: number | null
 }
 
+function durationsMatch(candidate: number | null, file: number | null): boolean {
+  return (
+    candidate !== null &&
+    file !== null &&
+    Number.isFinite(candidate) &&
+    Number.isFinite(file) &&
+    candidate > 0 &&
+    file > 0 &&
+    Math.abs(candidate - file) <= 1
+  )
+}
+
 /**
  * Pure function: find the unique missing-candidate match for a file's identity.
  *
  * Matching rules (shared across full scan and watcher):
  * 1. ISRC match — both must have the same non-null ISRC,
- *    and there must be exactly one matching candidate.
- *    Zero ISRC matches fall through to Rule 2; only >1 aborts.
+ *    there must be exactly one matching candidate, and both must have
+ *    known positive durations differing by at most 1s. A whole album and
+ *    an individual track can share an ISRC; that alone cannot relocate them.
+ *    Zero ISRC matches fall through to Rule 2; ambiguous or conflicting matches abort.
  * 2. Title+artist match — title and artist must match exactly,
  *    duration diff ≤ 1s, file size diff ≤ 2%, album matches or
  *    either side is empty / Unknown Album.
@@ -43,7 +51,10 @@ export function findUniqueRelocationCandidate(
   // Rule 1 — ISRC
   if (identity.isrc) {
     const isrcMatches = candidates.filter((c) => c.isrc === identity.isrc)
-    if (isrcMatches.length === 1) return isrcMatches[0]
+    if (isrcMatches.length === 1) {
+      const match = isrcMatches[0]!
+      return durationsMatch(match.durationSeconds, identity.durationSeconds) ? match : null
+    }
     if (isrcMatches.length > 1) return null
     // 0 ISRC matches → fall through to Rule 2
   }
@@ -54,8 +65,7 @@ export function findUniqueRelocationCandidate(
     if (c.title !== identity.title) return false
     if (c.artist !== identity.artist) return false
 
-    if (!c.durationSeconds || !identity.durationSeconds) return false
-    if (Math.abs(c.durationSeconds - identity.durationSeconds) > 1) return false
+    if (!durationsMatch(c.durationSeconds, identity.durationSeconds)) return false
 
     if (!c.fileSize || !identity.fileSize) return false
     if (Math.abs(c.fileSize - identity.fileSize) / c.fileSize > 0.02) return false
@@ -73,30 +83,22 @@ export function findUniqueRelocationCandidate(
   return titleMatches.length === 1 ? titleMatches[0] : null
 }
 
-/**
- * Try to match a scanned track against missing candidates in the database.
- * Returns a RelocationResult if a unique match is found, null otherwise.
- */
-export function tryRelocateMissingCandidate(
-  trackRepository: TrackRepository,
-  scannedTrack: ScannedTrack,
-): RelocationResult | null {
-  const identity: NormalizedIdentity = {
-    title: scannedTrack.title,
-    artist: scannedTrack.artist,
-    album: scannedTrack.album,
-    isrc: scannedTrack.isrc,
+/** Decide the entire batch before writing; two new paths must not claim one old record. */
+export function findUniqueRelocations(
+  candidates: MissingTrackCandidate[],
+  tracks: ScannedTrack[],
+  canRelocate: (candidate: MissingTrackCandidate, track: ScannedTrack) => boolean = () => true,
+): Map<string, MissingTrackCandidate> {
+  const matches = new Map<string, MissingTrackCandidate>()
+  const claims = new Map<number, number>()
+  for (const track of tracks) {
+    const match = findUniqueRelocationCandidate(candidates, track)
+    if (!match || !canRelocate(match, track)) continue
+    matches.set(track.filePath, match)
+    claims.set(match.trackId, (claims.get(match.trackId) ?? 0) + 1)
   }
-
-  const candidates = trackRepository.findMissingCandidatesByIdentity(identity)
-  const match = findUniqueRelocationCandidate(candidates, {
-    title: scannedTrack.title,
-    artist: scannedTrack.artist,
-    album: scannedTrack.album,
-    isrc: scannedTrack.isrc,
-    durationSeconds: scannedTrack.durationSeconds,
-    fileSize: scannedTrack.fileSize,
-  })
-
-  return match ? { candidate: match, track: scannedTrack } : null
+  for (const [filePath, match] of matches) {
+    if (claims.get(match.trackId) !== 1) matches.delete(filePath)
+  }
+  return matches
 }

@@ -1,4 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
+import { ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
@@ -54,7 +55,7 @@ function createMenu() {
     tracks: [tracks[0], tracks[1]],
     firstTrackIndex: 0,
   }
-  const selectTrack = vi.fn()
+  const selectedTrackId = ref<number | null>(null)
   const playTrackFromQueue = vi.fn(async () => undefined)
   const insertTrackAfterCurrent = vi.fn()
   const insertTracksAfterCurrent = vi.fn()
@@ -95,6 +96,7 @@ function createMenu() {
     getTrackById: (id) => tracks.find((track) => track.id === id) ?? null,
     getAlbumGroupByTrackId: (id) => (id === 1 || id === 2 ? group : null),
     currentTrackId: () => 2,
+    selectedTrackId: () => selectedTrackId.value,
     onTrackActivated,
     playTrackFromQueue,
     insertTrackAfterCurrent,
@@ -114,7 +116,7 @@ function createMenu() {
     menu,
     tracks,
     group,
-    selectTrack,
+    selectedTrackId,
     playTrackFromQueue,
     insertTrackAfterCurrent,
     insertTracksAfterCurrent,
@@ -168,6 +170,35 @@ describe('useLibraryContextMenu', () => {
     )
     expect(setMetadataReturnTarget).not.toHaveBeenCalled()
     expect(setViewSwitchReturnTarget).not.toHaveBeenCalled()
+  })
+
+  it('clears the temporary right-click highlight when the menu closes', () => {
+    const { menu, selectedTrackId } = createMenu()
+    menu.onOpenContextMenu(1, createMouseEvent())
+    expect(menu.highlightedTrackId.value).toBe(1)
+    expect(selectedTrackId.value).toBeNull()
+
+    menu.closeContextMenu()
+    expect(menu.highlightedTrackId.value).toBeNull()
+
+    menu.onOpenContextMenu(3, createMouseEvent())
+    expect(menu.highlightedTrackId.value).toBe(3)
+    menu.closeContextMenu()
+    expect(menu.highlightedTrackId.value).toBeNull()
+  })
+
+  it('preserves explicit selection while menu highlights follow their own lifecycle', () => {
+    const { menu, selectedTrackId } = createMenu()
+    selectedTrackId.value = 2
+    menu.onOpenContextMenu(1, createMouseEvent())
+    expect(menu.highlightedTrackId.value).toBe(1)
+    menu.closeContextMenu()
+    expect(menu.highlightedTrackId.value).toBe(2)
+    expect(selectedTrackId.value).toBe(2)
+
+    menu.onOpenContextMenu(3, createMouseEvent())
+    menu.closeContextMenu('metadata-dialog')
+    expect(menu.highlightedTrackId.value).toBe(2)
   })
 
   it('hands the return target to metadata or view-switch without restoring focus', () => {

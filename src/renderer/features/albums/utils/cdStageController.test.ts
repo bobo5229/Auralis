@@ -95,11 +95,12 @@ describe('CD stage lifetime', () => {
     const media = Object.assign(new EventTarget(), { matches: false })
     vi.stubGlobal('window', new EventTarget())
     vi.stubGlobal('matchMedia', () => media)
-    const document = {
+    const document = Object.assign(new EventTarget(), {
+      hidden: false,
       createElement: () => new TestElement(),
       createElementNS: () => new TestElement(),
       elementFromPoint: vi.fn(() => null as TestElement | null),
-    }
+    })
     vi.stubGlobal('document', document)
     vi.stubGlobal(
       'ResizeObserver',
@@ -180,6 +181,33 @@ describe('CD stage lifetime', () => {
     controller.dispose()
     expect(clock.running).toBe(false)
     expect(change).toHaveBeenLastCalledWith(0, true)
+  })
+
+  it('moves the entire focused slot without overwriting its pose and clears vibration on exit', () => {
+    const { controller, stage, media, document } = setup(8, vi.fn())
+    controller.setVibrationOffset(1)
+    expect(stage.children.every((node) => !node.style.translate)).toBe(true)
+    controller.setFocused(true)
+    settle()
+    const slot = stage.children.find((node) => node.attributes.get('data-selected') === 'true')!
+    const pose = slot.style.transform
+    controller.setVibrationOffset(100)
+    expect(slot.style.transform.startsWith(pose)).toBe(true)
+    expect(slot.style.transform).not.toBe(pose)
+    document.hidden = true
+    controller.setVibrationOffset(1)
+    expect(slot.style.transform).toBe(pose)
+    document.hidden = false
+    controller.setVibrationOffset(-1)
+    controller.setFocused(false)
+    expect(slot.style.transform).not.toContain(') translate3d(')
+    settle()
+    controller.setFocused(true)
+    settle()
+    media.matches = true
+    controller.setVibrationOffset(1)
+    expect(slot.style.transform).not.toContain(') translate3d(')
+    controller.dispose()
   })
 
   it('selects and focuses a requested album with reduced motion', () => {
@@ -275,6 +303,60 @@ describe('CD stage lifetime', () => {
     expect(progressPath.attributes.get('d')).not.toBe(stillPath)
     controller.setPlayback({ visible: true, playing: false, progress: 0.25, accent: '#123456' })
     expect(clock.running).toBe(false)
+    controller.dispose()
+  })
+
+  it('switches to a reusable comet that follows seeks, freezes on pause and stops when hidden', () => {
+    const { stage, controller, document, media } = setup(8, vi.fn())
+    controller.setFocused(true)
+    settle()
+    const slot = stage.children.find((node) => node.attributes.get('data-selected') === 'true')!
+    const ring = slot.children[0].children[1]
+    const playback = {
+      visible: true,
+      playing: true,
+      progress: 0.25,
+      accent: '#123456',
+      style: 'comet' as const,
+    }
+    controller.setPlayback(playback)
+    const comet = ring.children[2]
+    const moving = comet.children[4]
+    const head = moving.children[36]
+    expect(moving.attributes.get('transform')).toBe('rotate(90 200 200)')
+    expect(comet.style.stroke).toBe('#123456')
+    expect(ring.children[0].style.display).toBe('none')
+    const originalNodes = [...moving.children]
+    const radius = head.attributes.get('r')
+    advance(8)
+    expect(head.attributes.get('r')).not.toBe(radius)
+    expect(moving.children).toEqual(originalNodes)
+
+    controller.setPlayback({ ...playback, progress: 0.8, playing: false })
+    expect(clock.running).toBe(false)
+    expect(moving.attributes.get('transform')).toBe('rotate(288 200 200)')
+    const pausedRadius = head.attributes.get('r')
+    advance(8)
+    expect(head.attributes.get('r')).toBe(pausedRadius)
+    controller.setPlayback({ ...playback, progress: 0 })
+    expect(moving.attributes.get('transform')).toBe('rotate(0 200 200)')
+
+    document.hidden = true
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(clock.running).toBe(false)
+    document.hidden = false
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(clock.running).toBe(true)
+    controller.setPlayback({ ...playback, style: 'wave' })
+    expect(comet.style.display).toBe('none')
+    expect(ring.children[0].style.display).toBe('')
+    media.matches = true
+    controller.setPlayback(playback)
+    expect(clock.running).toBe(false)
+    expect(ring.children[2]).toBe(comet)
+    expect(ring.children).toHaveLength(3)
+    controller.setPlayback({ ...playback, visible: false })
+    expect(ring.style.opacity).toBe('0')
     controller.dispose()
   })
 

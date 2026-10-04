@@ -66,7 +66,7 @@ const {
 const hasRenderableData = computed(() => loadState.value === 'ready')
 const isEffectsActive = computed(() => hasRenderableData.value && !props.isEntering)
 useAlbumCoverTracking(detailRootRef, coverStageRef, isEffectsActive)
-const { albumGenrePills, heroLegalLine, albumReleaseYear, albumDiscGroups } =
+const { albumGenrePills, albumHeroGenreLabel, heroLegalLine, albumReleaseYear, albumDiscGroups } =
   useAlbumDetailPresentation(albumTracks, previewReleaseDate)
 const displayAlbumArtist = computed(() =>
   albumArtist.value === 'Unknown Artist'
@@ -396,9 +396,11 @@ onBeforeUnmount(() => {
                     <span v-else class="album-hero-artist-text">{{ displayAlbumArtist }}</span>
                     <span class="album-hero-artist-dot" aria-hidden="true">·</span>
                     <span class="album-hero-year-text">{{ albumReleaseYear }}</span>
-                    <span v-if="albumGenrePills.length > 0" class="album-hero-genre-group">
+                    <span v-if="albumHeroGenreLabel" class="album-hero-genre-group">
                       <span class="album-hero-artist-dot" aria-hidden="true">·</span>
-                      <span class="album-hero-genre-text">{{ albumGenrePills.join(' / ') }}</span>
+                      <span v-tooltip.overflow="albumHeroGenreLabel" class="album-hero-genre-text">
+                        {{ albumHeroGenreLabel }}
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -407,8 +409,10 @@ onBeforeUnmount(() => {
               <!-- 专辑播放操作 -->
               <div class="album-hero-actions">
                 <button class="album-hero-play-btn" type="button" @click="playAlbum">
-                  <span class="i-lucide-play h-4 w-4" aria-hidden="true"></span>
-                  <span>{{ t('albums.detail.play') }}</span>
+                  <span class="album-hero-engraved-icon" aria-hidden="true">
+                    <span class="i-lucide-play h-4 w-4"></span>
+                  </span>
+                  <span class="album-hero-engraved-label">{{ t('albums.detail.play') }}</span>
                 </button>
                 <button
                   v-tooltip="t('albums.detail.shuffle')"
@@ -417,7 +421,9 @@ onBeforeUnmount(() => {
                   :aria-label="t('albums.detail.shuffle')"
                   @click="playAlbumShuffle"
                 >
-                  <span class="i-lucide-shuffle h-4 w-4" aria-hidden="true"></span>
+                  <span class="album-hero-engraved-icon" aria-hidden="true">
+                    <span class="i-lucide-shuffle h-4 w-4"></span>
+                  </span>
                 </button>
               </div>
             </div>
@@ -842,6 +848,7 @@ onBeforeUnmount(() => {
 
 .album-hero-genre-group {
   display: inline-flex;
+  flex: 1 1 0;
   align-items: baseline;
   gap: 8px;
   min-width: 0;
@@ -849,7 +856,9 @@ onBeforeUnmount(() => {
 }
 
 .album-hero-genre-text {
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   min-width: 0;
 }
 
@@ -873,35 +882,150 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 6px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--auralis-text) 8%, transparent);
-  border: 1px solid color-mix(in srgb, var(--auralis-text) 18%, transparent);
-  color: var(--auralis-text);
   font-size: 14px;
   font-weight: 650;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  letter-spacing: 0.02em;
   transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
   cursor: pointer;
+  user-select: none;
 }
 
+/* 播放主按钮：多重斜光拉丝电镀金属质感（以全局强调色为基底动态计算衍生，绝不硬编码） */
+.album-hero-play-btn {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, #ffffff 38%, var(--auralis-theme-accent)) 0%,
+    var(--auralis-theme-accent) 24%,
+    color-mix(in srgb, #ffffff 42%, var(--auralis-theme-accent)) 46%,
+    color-mix(in srgb, #000000 24%, var(--auralis-theme-accent)) 72%,
+    var(--auralis-theme-accent) 100%
+  );
+  border: 1px solid color-mix(in srgb, #ffffff 45%, var(--auralis-theme-accent));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 8px rgba(0, 0, 0, 0.22),
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 2px 10px color-mix(in srgb, var(--auralis-theme-accent) 30%, transparent);
+  color: var(--auralis-control-primary-text, var(--auralis-dark-on-accent, #121212));
+}
+
+.album-hero-engraved-label {
+  text-shadow:
+    0 -0.5px 0 rgba(0, 0, 0, 0.4),
+    0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+/* 阴影放在图标外层，避免 Lucide 的 mask 裁掉刻痕边缘。 */
+.album-hero-engraved-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 -0.5px 0 rgba(0, 0, 0, 0.4)) drop-shadow(0 1px 0 rgba(255, 255, 255, 0.65));
+}
+
+/* 高光掠过光刃：带倾角的三次平滑衰减金属反光条带 */
+.album-hero-play-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 35%,
+    color-mix(in srgb, #ffffff 70%, var(--auralis-theme-accent)) 50%,
+    transparent 65%,
+    transparent 100%
+  );
+  transform: translateX(-160%) skewX(-15deg);
+}
+
+.album-hero-play-btn:hover {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, #ffffff 46%, var(--auralis-theme-accent)) 0%,
+    color-mix(in srgb, #ffffff 6%, var(--auralis-theme-accent)) 24%,
+    color-mix(in srgb, #ffffff 50%, var(--auralis-theme-accent)) 46%,
+    color-mix(in srgb, #000000 16%, var(--auralis-theme-accent)) 72%,
+    color-mix(in srgb, #ffffff 6%, var(--auralis-theme-accent)) 100%
+  );
+  border-color: color-mix(in srgb, #ffffff 60%, var(--auralis-theme-accent));
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 10px rgba(0, 0, 0, 0.15),
+    0 6px 22px rgba(0, 0, 0, 0.45),
+    0 3px 14px color-mix(in srgb, var(--auralis-theme-accent) 35%, transparent);
+  color: var(--auralis-control-primary-text, var(--auralis-dark-on-accent, #121212));
+  transform: none;
+}
+
+/* 悬停瞬间触发单次利落划过 (0.65s)，鼠标移出后自动静默归位 */
+.album-hero-play-btn:hover::after {
+  transform: translateX(160%) skewX(-15deg);
+  transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.album-hero-play-btn:active {
+  transform: translateY(0.5px);
+  box-shadow:
+    inset 0 1.5px 3px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* 随机播放辅助按钮：冷银拉丝电镀金属质感（始终为冷银合金色，不随强调色变动，无掠光动画，保持纯净静止反射） */
 .album-hero-shuffle-btn {
   width: 40px;
   min-width: 40px;
   padding: 0;
   flex-shrink: 0;
+  background: linear-gradient(
+    135deg,
+    #e8ebf0 0%,
+    #bcc3cc 24%,
+    #eaedf2 46%,
+    #8c94a0 72%,
+    #b0b7c2 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 8px rgba(0, 0, 0, 0.18),
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.25);
+  color: #121417;
 }
 
-.album-hero-play-btn:hover,
 .album-hero-shuffle-btn:hover {
-  background: color-mix(in srgb, var(--auralis-text) 15%, transparent);
-  border-color: color-mix(in srgb, var(--auralis-text) 32%, transparent);
-  color: var(--auralis-text);
-  transform: translateY(-1px);
+  background: linear-gradient(
+    135deg,
+    #f5f7fa 0%,
+    #caced6 24%,
+    #ffffff 46%,
+    #9ca4b0 72%,
+    #c4cad4 100%
+  );
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow:
+    inset 0 1px 0 #ffffff,
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 10px rgba(0, 0, 0, 0.12),
+    0 6px 20px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(255, 255, 255, 0.15);
+  color: #121417;
+  transform: none;
 }
 
-.album-hero-play-btn:active,
 .album-hero-shuffle-btn:active {
-  transform: translateY(0);
+  transform: translateY(0.5px);
+  box-shadow:
+    inset 0 1.5px 3px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.4);
 }
 .album-hero-footer-stage {
   position: relative;
@@ -976,5 +1100,9 @@ onBeforeUnmount(() => {
 :where([data-reduced-motion='true']) .album-hero-shuffle-btn:hover,
 :where([data-reduced-motion='true']) .album-detail-back:hover {
   transform: none;
+}
+
+:where([data-reduced-motion='true']) .album-hero-play-btn::after {
+  display: none !important;
 }
 </style>

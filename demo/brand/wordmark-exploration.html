@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'none'"
+    />
+    <title>Auralis · 品牌字设计比较</title>
+    <link rel="stylesheet" href="../../src/renderer/app/styles/harmony-fonts.css" />
+    <link rel="stylesheet" href="wordmark-exploration.css" />
+    <script src="wordmark-exploration.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>让名字也有自己的声音。</h1>
+          <p>五种原创矢量字标，同一个 Auralis。</p>
+        </div>
+        <a href="logo-exploration.html">回看 Logo 方案</a>
+      </header>
+      <div class="controls">
+        <fieldset>
+          <legend>画布</legend>
+          <label><input type="radio" name="theme" value="light" checked />浅色</label
+          ><label><input type="radio" name="theme" value="dark" />深色</label>
+        </fieldset>
+        <label class="suffix-control"
+          ><input type="checkbox" id="suffix" checked />保留 Music 后缀</label
+        >
+        <span>点击方案，在下方比较实际应用。</span>
+      </div>
+      <section id="concepts" aria-label="五种品牌字方案"></section>
+      <section class="application" aria-labelledby="preview-title">
+        <div class="section-heading">
+          <div>
+            <h2 id="preview-title">共鸣圆体 · 应用预览</h2>
+            <p id="selection-note" aria-live="polite">圆润笔画与声波 A 呼应，优先推荐用于侧栏。</p>
+          </div>
+          <a id="download" href="assets/wordmark-resonant.svg" download>下载字标 SVG</a>
+        </div>
+        <div class="preview-grid">
+          <div class="sidebar light-sample">
+            <span class="sample-label">浅色侧栏 · 260 px</span>
+            <div class="brand">
+              <img class="mark" src="assets/resonance-a.svg" alt="" /><img
+                class="chosen-wordmark"
+                src="assets/wordmark-resonant.svg"
+                alt="Auralis"
+              /><span class="music">Music</span>
+            </div>
+            <div class="navigation">
+              <span class="active">我的音乐</span><span>专辑</span><span>艺术家</span>
+            </div>
+          </div>
+          <div class="sidebar dark-sample">
+            <span class="sample-label">深色侧栏 · 260 px</span>
+            <div class="brand">
+              <img class="mark" src="assets/resonance-a.svg" alt="" /><img
+                class="chosen-wordmark"
+                src="assets/wordmark-resonant.svg"
+                alt="Auralis"
+              /><span class="music">Music</span>
+            </div>
+            <div class="navigation">
+              <span class="active">我的音乐</span><span>专辑</span><span>艺术家</span>
+            </div>
+          </div>
+          <div class="splash">
+            <img class="splash-mark mark" src="assets/resonance-a.svg" alt="共鸣 A" /><img
+              class="chosen-wordmark"
+              src="assets/wordmark-resonant.svg"
+              alt="Auralis"
+            /><span class="sample-label">开屏字标 · 不带后缀</span>
+          </div>
+        </div>
+      </section>
+      <footer>
+        五款字标均为原创路径草案，可独立导出，无字体依赖。侧栏为布局示意；当前播放器品牌字保持原样。
+      </footer>
+    </main>
+  </body>
+</html>

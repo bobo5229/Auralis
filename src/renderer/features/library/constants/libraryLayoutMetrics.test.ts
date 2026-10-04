@@ -10,7 +10,7 @@ describe('library layout geometry contract', () => {
     expect(LIBRARY_LAYOUT_METRICS).toMatchObject({
       flatRowHeight: 44,
       flatArtworkSize: 44,
-      coverArtworkSize: 250,
+      coverArtworkSize: 280,
       coverTrackRowHeight: 48,
       coverDiscHeadingHeight: 24,
       coverPanelPaddingBlockSide: 0,
@@ -21,16 +21,16 @@ describe('library layout geometry contract', () => {
     expect(LIBRARY_LAYOUT_CSS_VARS['--library-flat-row-height']).toBe('44px')
     expect(LIBRARY_LAYOUT_CSS_VARS['--library-cover-track-row-height']).toBe('48px')
     expect(LIBRARY_LAYOUT_CSS_VARS['--library-cover-disc-heading-height']).toBe('24px')
-    expect(LIBRARY_LAYOUT_CSS_VARS['--library-cover-artwork-size']).toBe('250px')
+    expect(LIBRARY_LAYOUT_CSS_VARS['--library-cover-artwork-size']).toBe('280px')
     expect(LIBRARY_LAYOUT_CSS_VARS['--library-cover-panel-border-width']).toBe('0px')
     expect(LIBRARY_LAYOUT_CSS_VARS['--library-cover-panel-padding-block-side']).toBe('0px')
     expect(LIBRARY_LAYOUT_CSS_VARS['--library-cover-panel-padding-inline-side']).toBe('10px')
   })
 
   it('uses the cover column until the track panel becomes taller', () => {
-    expect(getAlbumGroupEstimatedHeight(1, false)).toBe(359)
-    expect(getAlbumGroupEstimatedHeight(1, true)).toBe(379)
-    expect(getAlbumGroupEstimatedHeight(3, true, 2)).toBe(379)
+    expect(getAlbumGroupEstimatedHeight(1, false)).toBe(389)
+    expect(getAlbumGroupEstimatedHeight(1, true)).toBe(409)
+    expect(getAlbumGroupEstimatedHeight(3, true, 2)).toBe(409)
     expect(getAlbumGroupEstimatedHeight(10, true)).toBe(537)
     expect(getAlbumGroupEstimatedHeight(10, true, 2)).toBe(561)
     expect(getAlbumGroupEstimatedHeight(10, true, 3)).toBe(585)

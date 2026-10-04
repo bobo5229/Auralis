@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auralis Archive · Thermal Receipt Prototype</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: #090a0f;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 32px 16px;
+      overflow-x: hidden;
+      user-select: none;
+    }
+
+    /* Ambient background grid */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: 
+        radial-gradient(circle at 50% 20%, rgba(30, 41, 59, 0.4) 0%, transparent 70%),
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 32px 32px, 32px 32px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+
+    header {
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .badge {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(14, 165, 233, 0.15);
+      border: 1px solid rgba(14, 165, 233, 0.4);
+      color: #38bdf8;
+      letter-spacing: 1px;
+    }
+
+    p.subtitle {
+      font-size: 13px;
+      color: #94a3b8;
+      margin-top: 6px;
+    }
+
+    /* Control Panel */
+    .control-deck {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 12px 18px;
+      background: #141721;
+      border: 1px solid #232938;
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .btn {
+      appearance: none;
+      border: 1px solid #334155;
+      background: #1e2433;
+      color: #e2e8f0;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: #283044;
+      border-color: #475569;
+      color: #38bdf8;
+      transform: translateY(-1px);
+    }
+
+    .btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 16px rgba(14, 165, 233, 0.3);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #0369a1;
+      border-color: #7dd3fc;
+      color: #ffffff;
+    }
+
+    .toggle-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #94a3b8;
+      margin-left: 8px;
+      padding-left: 12px;
+      border-left: 1px solid #283044;
+    }
+
+    .toggle-group input[type="checkbox"] {
+      accent-color: #0284c7;
+      cursor: pointer;
+    }
+
+    /* Machine Chassis & Output Slot */
+    .chassis {
+      position: relative;
+      width: 380px;
+      background: linear-gradient(180deg, #1e222e 0%, #151821 100%);
+      border: 1px solid #2d3548;
+      border-radius: 12px;
+      padding: 24px 20px 20px 20px;
+      box-shadow: 
+        0 20px 40px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .chassis-header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: #64748b;
+      letter-spacing: 1px;
+      font-family: monospace;
+      margin-bottom: 14px;
+    }
+
+    .chassis-led {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #334155;
+      display: inline-block;
+      transition: all 0.3s;
+    }
+
+    .chassis-led.active {
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+    }
+
+    .chassis-led.busy {
+      background: #f59e0b;
+      box-shadow: 0 0 10px #f59e0b;
+      animation: blink 0.3s infinite alternate;
+    }
+
+    @keyframes blink {
+      from { opacity: 0.4; }
+      to { opacity: 1; }
+    }
+
+    /* Paper Feed Slot */
+    .slot-frame {
+      width: 100%;
+      max-width: 320px;
+      position: relative;
+      perspective: 800px;
+    }
+
+    .slot-slit {
+      width: 100%;
+      height: 10px;
+      background: #08090d;
+      border-radius: 5px;
+      border: 1px solid #131722;
+      box-shadow: 
+        inset 0 4px 6px rgba(0, 0, 0, 0.9),
+        0 1px 0 rgba(255, 255, 255, 0.08);
+      position: relative;
+      z-index: 5;
+    }
+
+    /* The Receipt Paper Container */
+    .receipt-feed-viewport {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow: visible;
+      position: relative;
+      margin-top: -5px;
+      z-index: 2;
+    }
+
+    /* Thermal Receipt Card */
+    .receipt {
+      width: 290px;
+      background: #fbf9f2;
+      color: #1a1917;
+      font-family: "Courier New", Courier, "Auralis Mac Pixel", monospace;
+      font-size: 11px;
+      line-height: 1.45;
+      letter-spacing: 0.2px;
+      box-shadow: 
+        0 12px 28px rgba(0, 0, 0, 0.45),
+        0 2px 4px rgba(0, 0, 0, 0.2);
+      position: relative;
+      transform-origin: top center;
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s;
+      max-height: 0px;
+      overflow: hidden;
+      opacity: 0;
+    }
+
+    /* Subtle paper texture */
+    .receipt::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: 
+        radial-gradient(rgba(0,0,0,0.02) 1px, transparent 0),
+        linear-gradient(180deg, rgba(240, 235, 220, 0.3) 0%, rgba(255, 255, 255, 0.1) 100%);
+      background-size: 4px 4px, 100% 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Top & bottom serrated paper cut edge */
+    .receipt-edge-top,
+    .receipt-edge-bottom {
+      height: 8px;
+      width: 100%;
+      background-color: #fbf9f2;
+      background-image: radial-gradient(circle, transparent, transparent 50%, #fbf9f2 50%, #fbf9f2 100%);
+      background-size: 8px 8px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .receipt-edge-top {
+      clip-path: polygon(
+        0% 100%, 2.5% 0%, 5% 100%, 7.5% 0%, 10% 100%, 12.5% 0%, 15% 100%, 17.5% 0%, 20% 100%, 22.5% 0%,
+        25% 100%, 27.5% 0%, 30% 100%, 32.5% 0%, 35% 100%, 37.5% 0%, 40% 100%, 42.5% 0%, 45% 100%, 47.5% 0%,
+        50% 100%, 52.5% 0%, 55% 100%, 57.5% 0%, 60% 100%, 62.5% 0%, 65% 100%, 67.5% 0%, 70% 100%, 72.5% 0%,
+        75% 100%, 77.5% 0%, 80% 100%, 82.5% 0%, 85% 100%, 87.5% 0%, 90% 100%, 92.5% 0%, 95% 100%, 97.5% 0%, 100% 100%
+      );
+      height: 6px;
+      background: #fbf9f2;
+    }
+
+    .receipt-edge-bottom {
+      clip-path: polygon(
+        0% 0%, 2.5% 100%, 5% 0%, 7.5% 100%, 10% 0%, 12.5% 100%, 15% 0%, 17.5% 100%, 20% 0%, 22.5% 100%,
+        25% 0%, 27.5% 100%, 30% 0%, 32.5% 100%, 35% 0%, 37.5% 100%, 40% 0%, 42.5% 100%, 45% 0%, 47.5% 100%,
+        50% 0%, 52.5% 100%, 55% 0%, 57.5% 100%, 60% 0%, 62.5% 100%, 65% 0%, 67.5% 100%, 70% 0%, 72.5% 100%,
+        75% 0%, 77.5% 100%, 80% 0%, 82.5% 100%, 85% 0%, 87.5% 100%, 90% 0%, 92.5% 100%, 95% 0%, 97.5% 100%, 100% 0%
+      );
+      height: 6px;
+      background: #fbf9f2;
+    }
+
+    .receipt-inner {
+      padding: 12px 18px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .r-center {
+      text-align: center;
+    }
+
+    .r-title {
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 1.5px;
+      margin-bottom: 2px;
+    }
+
+    .r-sub {
+      font-size: 10px;
+      letter-spacing: 0.5px;
+      color: #333;
+    }
+
+    .r-divider {
+      border-top: 1px dashed #777;
+      margin: 8px 0;
+    }
+
+    .r-double-divider {
+      border-top: 2px solid #222;
+      border-bottom: 1px solid #222;
+      height: 3px;
+      margin: 8px 0;
+    }
+
+    .r-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 3px 0;
+    }
+
+    .r-label {
+      color: #444;
+    }
+
+    .r-val {
+      font-weight: 600;
+      color: #000;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .r-sec-title {
+      font-weight: 700;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 6px 0 3px 0;
+    }
+
+    .r-album-row {
+      margin: 5px 0;
+      line-height: 1.3;
+    }
+
+    .r-album-name {
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 250px;
+    }
+
+    .r-album-meta {
+      font-size: 9.5px;
+      color: #555;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .r-barcode-wrap {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .r-barcode {
+      display: flex;
+      align-items: stretch;
+      height: 30px;
+      gap: 1.5px;
+    }
+
+    .r-bar {
+      background: #111;
+      width: 1px;
+    }
+
+    .r-bar.w2 { width: 2.5px; }
+    .r-bar.w3 { width: 4px; }
+    .r-bar.space { background: transparent; }
+
+    .r-serial {
+      font-size: 9px;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+
+    .r-stamp {
+      display: inline-block;
+      border: 2px solid #b91c1c;
+      color: #b91c1c;
+      font-weight: 800;
+      font-size: 9px;
+      padding: 2px 6px;
+      letter-spacing: 1px;
+      border-radius: 3px;
+      transform: rotate(-3deg);
+      margin: 8px 0;
+    }
+
+    .tear-prompt {
+      position: absolute;
+      bottom: -32px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0284c7;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 12px;
+      border-radius: 999px;
+      box-shadow: 0 4px 12px rgba(2, 132, 199, 0.4);
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s ease;
+      white-space: nowrap;
+      z-index: 10;
+    }
+
+    .tear-prompt:hover {
+      background: #0369a1;
+      transform: translateX(-50%) scale(1.04);
+    }
+
+    .receipt.is-torn {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(1.08) rotate(1deg);
+      z-index: 100;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 0 100vmax rgba(0, 0, 0, 0.75);
+    }
+
+    .action-bar {
+      margin-top: 14px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .receipt::after {
+      content: "";
+      position: absolute;
+      bottom: 6px;
+      right: 10px;
+      left: 10px;
+      height: 12px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+      z-index: -1;
+      transform: rotate(1deg);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>
+        Auralis · 声迹热敏打印机
+        <span class="badge">PROTOTYPE</span>
+      </h1>
+      <p class="subtitle">模拟卡带未来主义的步进电动机出纸、微机械合成音与实体纸质听歌凭证</p>
+    </header>
+
+    <!-- Controls -->
+    <div class="control-deck">
+      <button class="btn btn-primary" id="btn-print-year">
+        <span>🖨️ 打印 2026 年度总结小票</span>
+      </button>
+      <button class="btn" id="btn-print-day">
+        <span>📄 打印今日收听单</span>
+      </button>
+      <button class="btn" id="btn-reset" disabled>
+        <span>🔄 重置</span>
+      </button>
+
+      <div class="toggle-group">
+        <label>
+          <input type="checkbox" id="chk-audio" checked />
+          机械音效 (Web Audio)
+        </label>
+      </div>
+    </div>
+
+    <!-- Machine Output Station -->
+    <div class="chassis">
+      <div class="chassis-header">
+        <span>DECK #AUR-PRINTER-01</span>
+        <span style="display: flex; align-items: center; gap: 6px;">
+          <span class="chassis-led" id="deck-led"></span>
+          <span id="deck-status">READY</span>
+        </span>
+      </div>
+
+      <div class="slot-frame">
+        <div class="slot-slit"></div>
+
+        <div class="receipt-feed-viewport">
+          <article class="receipt" id="receipt-card" aria-label="听歌凭据小票">
+            <div class="receipt-edge-top"></div>
+            <div class="receipt-inner" id="receipt-content">
+              <!-- Dynamically populated -->
+            </div>
+            <div class="receipt-edge-bottom"></div>
+
+            <div class="tear-prompt" id="tear-btn">
+              ✂️ 点击撕下凭证 (Tear Off)
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions once torn -->
+    <div class="action-bar" id="torn-actions" style="display: none;">
+      <button class="btn btn-primary" id="btn-save-image">
+        <span>💾 导出为高清图片 (PNG)</span>
+      </button>
+      <button class="btn" id="btn-close-inspect">
+        <span>返回控制台</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // --- Web Audio Synthetic Mechanical Stepper Motor Sound ---
+    let audioCtx = null;
+
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    // Step motor "buzz-click"
+    function playStepPulse() {
+      if (!document.getElementById('chk-audio').checked) return;
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+
+        // 1. Motor coil buzz (low frequency pulse)
+        const osc = ctx.createOscillator();
+        const oscGain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(140 + Math.random() * 20, now);
+        oscGain.gain.setValueAtTime(0.08, now);
+        oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+        osc.connect(oscGain);
+        oscGain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.025);
+
+        // 2. Paper friction click (filtered noise)
+        const bufferSize = ctx.sampleRate * 0.015;
+        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+
+        const whiteNoise = ctx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 3200;
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.04, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.015);
+
+        whiteNoise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(ctx.destination);
+        whiteNoise.start(now);
+      } catch (e) {}
+    }
+
+    // Paper cutter knife "snick"
+    function playCutterSound() {
+      if (!document.getElementById('chk-audio').checked) return;
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(900, now);
+        osc.frequency.exponentialRampToValueAtTime(120, now + 0.08);
+
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      } catch (e) {}
+    }
+
+    // Paper tear sound
+    function playTearSound() {
+      if (!document.getElementById('chk-audio').checked) return;
+      try {
+        const ctx = getAudioContext();
+        const now = ctx.currentTime;
+        const dur = 0.14;
+        const bufferSize = ctx.sampleRate * dur;
+        const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * Math.sin((i / bufferSize) * Math.PI);
+        }
+        const noise = ctx.createBufferSource();
+        noise.buffer = noiseBuffer;
+        const filter = ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 1800;
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + dur);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(ctx.destination);
+        noise.start(now);
+      } catch (e) {}
+    }
+
+    // --- Mock Archive Data Generator ---
+    function generateYearData() {
+      return {
+        type: 'year',
+        year: 2026,
+        checksum: '7A9B-4D21',
+        activeDays: 142,
+        totalDays: 365,
+        totalPlays: 1482,
+        durationHours: 86.4,
+        dailyAverage: '10.4',
+        peakDate: '07.14',
+        peakPlays: 38,
+        topAlbums: [
+          { rank: 1, title: '玻璃花园 / Signal Garden', artist: '隙间信号', plays: 138 },
+          { rank: 2, title: 'Out of the Blue', artist: 'Electric Light Orchestra', plays: 104 },
+          { rank: 3, title: 'Random Access Memories', artist: 'Daft Punk', plays: 89 },
+          { rank: 4, title: 'Departure (2024 Remaster)', artist: 'Nujabes', plays: 72 },
+          { rank: 5, title: 'Plastic Love & Midnight City', artist: '竹内玛利亚', plays: 61 }
+        ]
+      };
+    }
+
+    function generateDayData() {
+      const now = new Date();
+      return {
+        type: 'day',
+        date: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`,
+        checksum: 'DAY-' + Math.floor(1000 + Math.random() * 9000),
+        totalPlays: 24,
+        durationMinutes: 78,
+        topAlbums: [
+          { rank: 1, title: '玻璃花园 / Signal Garden', artist: '隙间信号', plays: 12 },
+          { rank: 2, title: 'Departure', artist: 'Nujabes', plays: 8 },
+          { rank: 3, title: 'Discovery', artist: 'Daft Punk', plays: 4 }
+        ]
+      };
+    }
+
+    // --- HTML Receipt Renderer ---
+    function renderReceiptHtml(data) {
+      if (data.type === 'year') {
+        const albumRows = data.topAlbums.map(a => `
+          <div class="r-album-row">
+            <div class="r-album-name">#${a.rank} ${a.title}</div>
+            <div class="r-album-meta">
+              <span>ARTIST: ${a.artist}</span>
+              <span>${a.plays} PLAYS</span>
+            </div>
+          </div>
+        `).join('');
+
+        return `
+          <div class="r-center">
+            <div class="r-title">* AURALIS AUDIT *</div>
+            <div class="r-sub">ANNUAL TEMPORAL LOG · ${data.year}</div>
+            <div class="r-stamp">VERIFIED & AUDITED</div>
+          </div>
+
+          <div class="r-divider"></div>
+
+          <div class="r-row"><span class="r-label">TERMINAL :</span><span class="r-val">AUR-128K-RECORDER</span></div>
+          <div class="r-row"><span class="r-label">ARCHIVE  :</span><span class="r-val">#AUR-${data.year}-${data.checksum}</span></div>
+          <div class="r-row"><span class="r-label">STATUS   :</span><span class="r-val">AUTHENTICATED</span></div>
+
+          <div class="r-double-divider"></div>
+
+          <div class="r-sec-title">METRICS RECEIPT</div>
+          <div class="r-row"><span class="r-label">ACTIVE DAYS:</span><span class="r-val">${String(data.activeDays).padStart(3, '0')} / ${data.totalDays} D</span></div>
+          <div class="r-row"><span class="r-label">TOTAL PLAYS:</span><span class="r-val">${data.totalPlays.toLocaleString()} T</span></div>
+          <div class="r-row"><span class="r-label">TOTAL DURATION:</span><span class="r-val">${data.durationHours} HRS</span></div>
+          <div class="r-row"><span class="r-label">DAILY AVERAGE:</span><span class="r-val">${data.dailyAverage} T/D</span></div>
+          <div class="r-row"><span class="r-label">PEAK RECORD:</span><span class="r-val">[${data.peakDate}] ${data.peakPlays} T</span></div>
+
+          <div class="r-double-divider"></div>
+
+          <div class="r-sec-title">TOP RECORD ALBUMS</div>
+          ${albumRows}
+
+          <div class="r-divider"></div>
+
+          <div class="r-barcode-wrap">
+            <div class="r-barcode">
+              <span class="r-bar w2"></span><span class="r-bar space"></span><span class="r-bar w1"></span><span class="r-bar w3"></span>
+              <span class="r-bar w1"></span><span class="r-bar space"></span><span class="r-bar w2"></span><span class="r-bar w1"></span>
+              <span class="r-bar w3"></span><span class="r-bar space"></span><span class="r-bar w1"></span><span class="r-bar w2"></span>
+              <span class="r-bar w2"></span><span class="r-bar space"></span><span class="r-bar w3"></span><span class="r-bar w1"></span>
+              <span class="r-bar w1"></span><span class="r-bar space"></span><span class="r-bar w2"></span><span class="r-bar w3"></span>
+            </div>
+            <div class="r-serial">NO. #AUR-${data.year}-${data.checksum}</div>
+          </div>
+
+          <div class="r-divider"></div>
+          <div class="r-center r-sub" style="margin-top: 6px;">
+            AURALIS AUDIO CONSERVATION BUREAU<br/>
+            THANK YOU FOR PRESERVING TIME
+          </div>
+        `;
+      } else {
+        const albumRows = data.topAlbums.map(a => `
+          <div class="r-album-row">
+            <div class="r-album-name">#${a.rank} ${a.title}</div>
+            <div class="r-album-meta">
+              <span>${a.artist}</span>
+              <span>${a.plays} PLAYS</span>
+            </div>
+          </div>
+        `).join('');
+
+        return `
+          <div class="r-center">
+            <div class="r-title">* DAILY AUDIO LOG *</div>
+            <div class="r-sub">SESSION LOG: ${data.date}</div>
+          </div>
+          <div class="r-divider"></div>
+          <div class="r-row"><span class="r-label">TOTAL PLAYS:</span><span class="r-val">${data.totalPlays} TRACKS</span></div>
+          <div class="r-row"><span class="r-label">DURATION:</span><span class="r-val">${data.durationMinutes} MINS</span></div>
+          <div class="r-double-divider"></div>
+          <div class="r-sec-title">TODAY'S HIGHLIGHTS</div>
+          ${albumRows}
+          <div class="r-divider"></div>
+          <div class="r-center r-sub">#AURALIS-SESSION-${data.checksum}</div>
+        `;
+      }
+    }
+
+    // --- State & Stepper Feed Animation Controller ---
+    const receiptEl = document.getElementById('receipt-card');
+    const contentEl = document.getElementById('receipt-content');
+    const tearBtn = document.getElementById('tear-btn');
+    const deckLed = document.getElementById('deck-led');
+    const deckStatus = document.getElementById('deck-status');
+    const btnPrintYear = document.getElementById('btn-print-year');
+    const btnPrintDay = document.getElementById('btn-print-day');
+    const btnReset = document.getElementById('btn-reset');
+    const tornActions = document.getElementById('torn-actions');
+    const btnCloseInspect = document.getElementById('btn-close-inspect');
+    const btnSaveImage = document.getElementById('btn-save-image');
+
+    let isPrinting = false;
+    let isTorn = false;
+    let animTimer = null;
+
+    function startPrinting(data) {
+      if (isPrinting) return;
+      isPrinting = true;
+      isTorn = false;
+
+      // Update Controls
+      btnPrintYear.disabled = true;
+      btnPrintDay.disabled = true;
+      btnReset.disabled = true;
+      deckLed.className = 'chassis-led busy';
+      deckStatus.textContent = 'PRINTING...';
+      tearBtn.style.opacity = '0';
+      tearBtn.style.pointerEvents = 'none';
+      tornActions.style.display = 'none';
+
+      // Reset receipt styles
+      receiptEl.classList.remove('is-torn');
+      receiptEl.style.transition = 'none';
+      receiptEl.style.maxHeight = '0px';
+      receiptEl.style.opacity = '1';
+      receiptEl.style.transform = 'translateY(0)';
+
+      contentEl.innerHTML = renderReceiptHtml(data);
+
+      // Measure target full height
+      receiptEl.style.maxHeight = 'none';
+      const targetHeight = receiptEl.offsetHeight;
+      receiptEl.style.maxHeight = '0px';
+
+      let currentHeight = 0;
+      const stepIncrement = 7;
+      const stepIntervalMs = 28;
+
+      animTimer = setInterval(() => {
+        currentHeight += stepIncrement;
+        if (currentHeight >= targetHeight) {
+          currentHeight = targetHeight;
+          clearInterval(animTimer);
+          finishPrinting();
+        }
+
+        receiptEl.style.maxHeight = `${currentHeight}px`;
+
+        const jitterX = (Math.random() - 0.5) * 0.8;
+        receiptEl.style.transform = `translateX(${jitterX}px)`;
+
+        playStepPulse();
+      }, stepIntervalMs);
+    }
+
+    function finishPrinting() {
+      isPrinting = false;
+      playCutterSound();
+      receiptEl.style.transform = 'none';
+      deckLed.className = 'chassis-led active';
+      deckStatus.textContent = 'SEALED';
+      btnReset.disabled = false;
+
+      setTimeout(() => {
+        tearBtn.style.opacity = '1';
+        tearBtn.style.pointerEvents = 'auto';
+      }, 200);
+    }
+
+    // Tear paper
+    tearBtn.addEventListener('click', () => {
+      if (isPrinting || isTorn) return;
+      isTorn = true;
+      playTearSound();
+
+      tearBtn.style.opacity = '0';
+      tearBtn.style.pointerEvents = 'none';
+      receiptEl.classList.add('is-torn');
+      deckStatus.textContent = 'DISPENSED';
+      deckLed.className = 'chassis-led';
+      tornActions.style.display = 'flex';
+    });
+
+    btnCloseInspect.addEventListener('click', () => {
+      receiptEl.classList.remove('is-torn');
+      tornActions.style.display = 'none';
+      tearBtn.style.opacity = '1';
+      tearBtn.style.pointerEvents = 'auto';
+      isTorn = false;
+    });
+
+    function resetDeck() {
+      clearInterval(animTimer);
+      isPrinting = false;
+      isTorn = false;
+      receiptEl.classList.remove('is-torn');
+      receiptEl.style.maxHeight = '0px';
+      receiptEl.style.opacity = '0';
+      tearBtn.style.opacity = '0';
+      tearBtn.style.pointerEvents = 'none';
+      tornActions.style.display = 'none';
+      deckLed.className = 'chassis-led';
+      deckStatus.textContent = 'READY';
+      btnPrintYear.disabled = false;
+      btnPrintDay.disabled = false;
+      btnReset.disabled = true;
+    }
+
+    btnPrintYear.addEventListener('click', () => startPrinting(generateYearData()));
+    btnPrintDay.addEventListener('click', () => startPrinting(generateDayData()));
+    btnReset.addEventListener('click', resetDeck);
+
+    // Save as Image via Canvas
+    btnSaveImage.addEventListener('click', () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const w = 420;
+      const h = receiptEl.offsetHeight * 1.35;
+      canvas.width = w * 2;
+      canvas.height = h * 2;
+      ctx.scale(2, 2);
+
+      ctx.fillStyle = '#fbf9f2';
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.fillStyle = '#1a1917';
+      ctx.font = 'bold 16px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('* AURALIS ARCHIVE AUDIT *', w / 2, 40);
+
+      ctx.font = '12px "Courier New", monospace';
+      ctx.fillText('ANNUAL METRICS RECORD', w / 2, 60);
+
+      ctx.strokeStyle = '#444';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(30, 75);
+      ctx.lineTo(w - 30, 75);
+      ctx.stroke();
+
+      ctx.textAlign = 'left';
+      ctx.font = '12px "Courier New", monospace';
+      let y = 100;
+      const textLines = contentEl.innerText.split('\n').filter(t => t.trim().length > 0);
+      for (const line of textLines) {
+        if (line.includes('AURALIS AUDIT') || line.includes('ANNUAL TEMPORAL')) continue;
+        ctx.fillText(line.slice(0, 42), 35, y);
+        y += 18;
+      }
+
+      const link = document.createElement('a');
+      link.download = `Auralis-Archive-Receipt-${Date.now()}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+  </script>
+</body>
+</html>

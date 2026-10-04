@@ -22,6 +22,31 @@ afterEach(() => {
 })
 
 describe('migrateDatabase', () => {
+  it('adds history storage to migration 23 without changing existing music or statistics', () => {
+    const db = createDatabase()
+    db.exec(
+      'CREATE TABLE schema_migrations(id INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)',
+    )
+    for (const migration of migrations.slice(0, 23)) {
+      db.exec(migration.sql)
+      db.prepare('INSERT INTO schema_migrations(id,name) VALUES(?,?)').run(
+        migration.id,
+        migration.name,
+      )
+    }
+    db.exec(
+      "INSERT INTO tracks(id,file_path,title,genre) VALUES(5,'old.flac','Song','Pop'); INSERT INTO track_play_stats(track_id,play_count) VALUES(5,7); INSERT INTO daily_track_play_stats(play_date,track_id,play_count,duration_seconds) VALUES('2026-10-03',5,7,700)",
+    )
+    const before = db.prepare('SELECT * FROM library_track_display').all()
+    migrateDatabase(db)
+    expect(db.prepare('SELECT * FROM library_track_display').all()).toEqual(before)
+    expect(db.prepare('SELECT COUNT(*) FROM removed_track_history').pluck().get()).toBe(0)
+    expect(db.prepare('SELECT * FROM listening_daily_track_play_stats').all()).toEqual(
+      db.prepare('SELECT * FROM daily_track_play_stats').all(),
+    )
+    expect(db.pragma('foreign_key_check')).toEqual([])
+  })
+
   it('creates the complete current schema and records every migration once', () => {
     const db = createDatabase()
 
@@ -37,9 +62,9 @@ describe('migrateDatabase', () => {
       .all() as string[]
 
     expect(migrations.map(({ id }) => id)).toEqual(
-      Array.from({ length: 23 }, (_, index) => index + 1),
+      Array.from({ length: 24 }, (_, index) => index + 1),
     )
-    expect(migrations.at(-1)?.name).toBe('add_composer_to_tracks')
+    expect(migrations.at(-1)?.name).toBe('preserve_listening_history_after_track_removal')
     expect(objects).toEqual(
       expect.arrayContaining([
         'tracks',
@@ -109,7 +134,7 @@ describe('migrateDatabase', () => {
       availability: 'available',
       playCount: 0,
     })
-    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(23)
+    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(24)
     expect(
       db.prepare('SELECT lyrics_sidecar_fingerprint FROM tracks WHERE id = 7').pluck().get(),
     ).toBeNull()

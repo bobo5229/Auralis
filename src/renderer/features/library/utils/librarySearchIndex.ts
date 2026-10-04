@@ -1,4 +1,5 @@
 import type { TrackListItem } from '@shared/types/libraryScan'
+import { splitDelimitedValues } from '@shared/utils/delimitedValues'
 import { normalizeSearchText } from './normalizeSearchText'
 import type { LibrarySearchRecord } from './librarySearchScan'
 
@@ -28,6 +29,15 @@ function createLibrarySearchIndexBuilder(): LibrarySearchIndexBuilder {
     normalizedBySource.set(value, normalized)
     return normalized
   }
+  const artistPartsBySource = new Map<string | null | undefined, readonly string[]>()
+  const normalizeArtistParts = (value: string | null | undefined): readonly string[] => {
+    const cached = artistPartsBySource.get(value)
+    if (cached) return cached
+    // 先拆原始字段，再逐项归一化，避免扩大分隔符规则或重复繁简转换。
+    const parts = Object.freeze(splitDelimitedValues(value).map(normalizeCached))
+    artistPartsBySource.set(value, parts)
+    return parts
+  }
 
   return {
     append(track) {
@@ -35,7 +45,9 @@ function createLibrarySearchIndexBuilder(): LibrarySearchIndexBuilder {
         Object.freeze({
           title: normalizeCached(track.title),
           artist: normalizeCached(track.artist),
+          artistParts: normalizeArtistParts(track.artist),
           albumArtist: normalizeCached(track.albumArtist),
+          albumArtistParts: normalizeArtistParts(track.albumArtist),
           album: normalizeCached(track.album),
         }),
       )

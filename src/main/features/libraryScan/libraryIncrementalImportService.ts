@@ -1,4 +1,4 @@
-import { parseFile } from 'music-metadata'
+import { parseAudioMetadata as parseFile } from '../metadata/parseAudioMetadata'
 import {
   normalizeMetadata,
   normalizeIdentityText,
@@ -8,9 +8,11 @@ import type { NormalizedIdentity } from '../metadata/metadataNormalizer'
 import { resolveLyricsForFile } from '../metadata/resolveLyricsForFile'
 import { resolveArtworkForFile } from '../artwork/resolveArtworkForFile'
 import { checkFileStability } from './fileStabilityChecker'
-import { tryRelocateMissingCandidate } from './trackRelocationMatcher'
+import { findUniqueRelocations } from './trackRelocationMatcher'
+import { stat } from 'node:fs/promises'
+import { win32 } from 'node:path'
 import { logger } from '../../logging/logger'
-import type { TrackRepository } from '../../repositories/trackRepository'
+import type { TrackRepository, MissingTrackCandidate } from '../../repositories/trackRepository'
 import type { ScannedTrack } from '@shared/types/libraryScan'
 import type { RendererEventSender } from '@main/ipc/rendererEvents'
 
@@ -56,6 +58,7 @@ export class LibraryIncrementalImportService {
     const result: ImportResult = { imported: [], unstable: [], failed: [] }
 
     const uniquePaths = [...new Set(filePaths)]
+    const parsedTracks: ScannedTrack[] = []
     const recordFailure = (filePath: string, error: unknown) => {
       const reason = error instanceof Error ? error.message : 'Unable to import audio file'
       result.failed.push({ filePath, reason })
@@ -66,9 +69,6 @@ export class LibraryIncrementalImportService {
       const batch = uniquePaths.slice(offset, offset + IMPORT_BATCH_SIZE)
       // Overlap the stability delays; keep parsing serial to bound artwork memory.
       const stable = await Promise.all(batch.map((filePath) => this.waitForStability(filePath)))
-      const additions: ScannedTrack[] = []
-      const relocatedIds: number[] = []
-      const relocatedPaths: string[] = []
       for (const [index, filePath] of batch.entries()) {
         if (!stable[index]) {
           result.unstable.push(filePath)
@@ -77,20 +77,68 @@ export class LibraryIncrementalImportService {
 
         try {
           const { track } = await this.parseAndNormalize(filePath)
-          const match = tryRelocateMissingCandidate(this.trackRepository, track)
-          if (match && this.trackRepository.relocateTrack(match.candidate.trackId, track)) {
-            result.imported.push(filePath)
-            relocatedIds.push(match.candidate.trackId)
-            relocatedPaths.push(filePath)
-          } else {
-            // Includes a failed relocation due to an occupied path / UNIQUE race.
-            additions.push(track)
-          }
+          parsedTracks.push(track)
         } catch (error) {
           recordFailure(filePath, error)
         }
       }
+    }
 
+    const candidates = new Map<number, MissingTrackCandidate>()
+    for (const track of parsedTracks) {
+      for (const candidate of this.trackRepository.findRelocationCandidatesByIdentity(
+        track,
+        true,
+      )) {
+        candidates.set(candidate.trackId, candidate)
+      }
+    }
+    // Also handles add-before-unlink watcher events: an available DB row can have
+    // an absent old file. A present or unreadable old file must never be relocated.
+    const absentCandidates: MissingTrackCandidate[] = []
+    const pathAliasIds = new Set<number>()
+    const incomingPaths = new Set(
+      parsedTracks.map((track) => win32.normalize(track.filePath).toLowerCase()),
+    )
+    for (const candidate of candidates.values()) {
+      // Windows keeps the old spelling readable after a case-only rename.
+      if (incomingPaths.has(win32.normalize(candidate.filePath).toLowerCase())) {
+        absentCandidates.push(candidate)
+        pathAliasIds.add(candidate.trackId)
+        continue
+      }
+      try {
+        await stat(candidate.filePath)
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code
+        if (code === 'ENOENT' || code === 'ENOTDIR') absentCandidates.push(candidate)
+      }
+    }
+    const matches = findUniqueRelocations(
+      absentCandidates,
+      parsedTracks,
+      (candidate, track) =>
+        !pathAliasIds.has(candidate.trackId) ||
+        win32.normalize(candidate.filePath).toLowerCase() ===
+          win32.normalize(track.filePath).toLowerCase(),
+    )
+
+    for (let offset = 0; offset < parsedTracks.length; offset += IMPORT_BATCH_SIZE) {
+      const additions: ScannedTrack[] = []
+      const relocatedIds: number[] = []
+      const relocatedPaths: string[] = []
+      for (const track of parsedTracks.slice(offset, offset + IMPORT_BATCH_SIZE)) {
+        try {
+          const match = matches.get(track.filePath)
+          if (match && this.trackRepository.relocateTrack(match.trackId, track, match.filePath)) {
+            result.imported.push(track.filePath)
+            relocatedIds.push(match.trackId)
+            relocatedPaths.push(track.filePath)
+          } else additions.push(track)
+        } catch (error) {
+          recordFailure(track.filePath, error)
+        }
+      }
       if (relocatedIds.length) {
         this.sendToRenderer('library:changed', {
           reason: 'track-relocated',
@@ -137,7 +185,6 @@ export class LibraryIncrementalImportService {
   private async parseAndNormalize(
     filePath: string,
   ): Promise<{ track: ScannedTrack; identity: NormalizedIdentity }> {
-    const { stat } = await import('node:fs/promises')
     const fileStat = await stat(filePath)
     const metadata = await parseFile(filePath, { duration: true })
     const normalized = normalizeMetadata(metadata, filePath)

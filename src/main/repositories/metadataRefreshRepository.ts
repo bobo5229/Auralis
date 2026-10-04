@@ -2,9 +2,15 @@ import {
   normalizeEditableText,
   normalizeEditableYear,
   normalizeEditableReleaseDate,
+  normalizeEditableMetadata,
 } from '../features/metadata/editableMetadataValidation'
 import { BaseRepository } from './baseRepository'
-import { splitDelimitedValues } from '@shared/utils/delimitedValues'
+import {
+  canonicalizeDelimitedValues,
+  cleanDelimitedValues,
+  joinDelimitedValues,
+  splitDelimitedValues,
+} from '@shared/utils/delimitedValues'
 import type Database from 'better-sqlite3'
 import type { EditableTrackMetadata, MetadataRefreshFailure } from '@shared/types/libraryScan'
 
@@ -372,7 +378,7 @@ export class MetadataRefreshRepository extends BaseRepository {
         )
     })
 
-    update(metadata)
+    update(normalizeEditableMetadata(metadata))
   }
 
   getActiveJob(): MetadataRefreshJob | null {
@@ -614,11 +620,24 @@ export class MetadataRefreshRepository extends BaseRepository {
         .prepare('SELECT source FROM track_metadata WHERE track_id = ?')
         .get(metadata.trackId) as { source: string } | undefined
       const preserveUserEdit = existingSource?.source === 'user_edit'
-      const artistDisplay = metadata.artistDisplay || metadata.artist
+      const artists = cleanDelimitedValues(
+        metadata.artists.length > 0
+          ? metadata.artists
+          : [metadata.artistDisplay || metadata.artist],
+      )
+      const artistDisplay = joinDelimitedValues(artists) || 'Unknown Artist'
       const albumTitle = metadata.albumTitle || metadata.album
-      const albumArtistDisplay =
-        metadata.albumArtistDisplay || metadata.albumArtist || artistDisplay
-      const genreDisplay = metadata.genres.length > 0 ? metadata.genres.join('; ') : metadata.genre
+      const albumArtists = cleanDelimitedValues(
+        metadata.albumArtists.length > 0
+          ? metadata.albumArtists
+          : [metadata.albumArtistDisplay || metadata.albumArtist || artistDisplay],
+      )
+      const albumArtistDisplay = joinDelimitedValues(albumArtists) || artistDisplay
+      const genreDisplay = joinDelimitedValues(
+        cleanDelimitedValues(metadata.genres.length > 0 ? metadata.genres : [metadata.genre]),
+      )
+      const copyright = canonicalizeDelimitedValues(metadata.copyright)
+      const composer = canonicalizeDelimitedValues(metadata.composer)
 
       if (preserveUserEdit) {
         // Keep user_edit display fields / source; still refresh technical + lyrics data.
@@ -633,8 +652,8 @@ export class MetadataRefreshRepository extends BaseRepository {
           metadata.trackNo,
           metadata.discNo,
           metadata.durationSeconds,
-          metadata.copyright,
-          metadata.composer,
+          copyright,
+          composer,
           metadata.lyricsText,
           metadata.lyricsFormat,
           metadata.isrc,
@@ -673,8 +692,8 @@ export class MetadataRefreshRepository extends BaseRepository {
         metadata.durationSeconds,
         metadata.year,
         metadata.releaseDate,
-        metadata.copyright,
-        metadata.composer,
+        copyright,
+        composer,
         genreDisplay,
         metadata.lyricsText,
         metadata.lyricsFormat,
@@ -691,7 +710,7 @@ export class MetadataRefreshRepository extends BaseRepository {
       upsertAlbum.run(albumTitle, albumArtistDisplay, metadata.artworkCacheKey)
       this.replaceTrackArtists(
         metadata.trackId,
-        metadata.artists.length > 0 ? metadata.artists : [artistDisplay],
+        artists,
         'primary',
         upsertArtist,
         getArtistId,
@@ -700,7 +719,7 @@ export class MetadataRefreshRepository extends BaseRepository {
       )
       this.replaceTrackArtists(
         metadata.trackId,
-        metadata.albumArtists.length > 0 ? metadata.albumArtists : [albumArtistDisplay],
+        albumArtists,
         'album_artist',
         upsertArtist,
         getArtistId,

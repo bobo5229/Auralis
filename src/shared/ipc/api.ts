@@ -95,6 +95,12 @@ export interface AuralisApi {
     ) => Result<'lyrics:get-by-track-id'>
   }
   playback: {
+    subscribeSpectrum: (
+      request: Req<'playback:spectrum-subscribe'>,
+    ) => Result<'playback:spectrum-subscribe'>
+    onSpectrumFrame: (
+      callback: (event: IpcEventPayload<'playback:spectrum-frame'>) => void,
+    ) => () => void
     nativeAvailability: () => Result<'playback:native-availability'>
     nativeCommand: (request: Req<'playback:native-command'>) => Result<'playback:native-command'>
     onNativeEvent: (

@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 碟片进度轨道静态比较</title>
+    <style>
+      @font-face {
+        font-family: 'Auralis Serif';
+        src: url('../../src/renderer/assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-R.woff2')
+          format('woff2');
+        font-display: swap;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #eeeeec;
+        color: #292929;
+        font:
+          14px 'Segoe UI',
+          'Microsoft YaHei',
+          sans-serif;
+      }
+      ::selection {
+        background: #ebc0d5;
+        color: #292929;
+      }
+      main {
+        max-width: 1640px;
+        margin: auto;
+        padding: 48px 40px 36px;
+      }
+      header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 24px;
+        padding-bottom: 22px;
+        border-bottom: 1px solid #aaa9a3;
+      }
+      h1 {
+        margin: 0;
+        font:
+          30px 'Auralis Serif',
+          Georgia,
+          serif;
+      }
+      header p {
+        margin: 0;
+        color: #62625b;
+        font-size: 13px;
+      }
+      .comparison {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 32px;
+        margin-top: 34px;
+      }
+      figure {
+        margin: 0;
+        min-width: 0;
+      }
+      .stage {
+        display: grid;
+        place-items: center;
+        overflow: clip;
+        height: clamp(300px, 35vw, 520px);
+        perspective: 1100px;
+      }
+      .plane {
+        position: relative;
+        width: 100%;
+        max-width: 490px;
+        aspect-ratio: 1;
+        transform: rotateZ(-24deg) rotateY(26deg) rotateX(32deg);
+      }
+      .disc {
+        position: absolute;
+        inset: 16%;
+        border-radius: 50%;
+        background: #d52c85;
+        box-shadow:
+          0 0 0 2px #858586,
+          inset 0 0 0 3px #dadbd5,
+          14px 22px 22px #29292918;
+        mask-image: radial-gradient(circle, transparent 0 6.8%, #000 7.1%);
+      }
+      .disc::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: linear-gradient(120deg, #fff3, transparent 30%, #0001 65%, #fff2);
+        box-shadow:
+          inset 1px 1px 0 2px #ffffff80,
+          inset -2px -2px 0 3px #42424280;
+      }
+      .hub {
+        position: absolute;
+        width: 25%;
+        height: 25%;
+        left: 37.5%;
+        top: 37.5%;
+        border-radius: 50%;
+        background: conic-gradient(
+          from 30deg,
+          #bdc1c6,
+          #e2e4e4,
+          #a0a6b1,
+          #ccd5d8,
+          #eeece8,
+          #989da6,
+          #bdc1c6
+        );
+        box-shadow:
+          0 0 0 2px #eeeeee70,
+          0 0 0 7px #b7b7b744,
+          inset 0 0 0 3px #888b9290;
+      }
+      .hub::after {
+        content: '';
+        position: absolute;
+        inset: 14%;
+        border-radius: 50%;
+        border: 5px solid #f8f8f890;
+        box-shadow: 0 0 0 2px #6c747b60;
+      }
+      .ring {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        fill: none;
+        stroke-linecap: round;
+      }
+      .remaining {
+        stroke: #aaa9a3;
+      }
+      .played {
+        stroke: #a82365;
+      }
+      figcaption {
+        padding-top: 22px;
+        border-top: 1px solid #bdbdb9;
+      }
+      h2 {
+        margin: 0 0 10px;
+        font:
+          24px 'Auralis Serif',
+          Georgia,
+          serif;
+      }
+      figcaption p {
+        margin: 0;
+        line-height: 1.8;
+        color: #62625b;
+      }
+      footer {
+        margin-top: 42px;
+        display: flex;
+        gap: 24px;
+        align-items: center;
+        color: #62625b;
+        font-size: 12px;
+      }
+      .key {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .swatch {
+        width: 24px;
+        height: 2px;
+        background: #a82365;
+      }
+      .swatch.remaining {
+        background: #aaa9a3;
+      }
+      @media (max-width: 900px) {
+        main {
+          padding: 28px 24px;
+        }
+        header {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 12px;
+        }
+        .comparison {
+          grid-template-columns: 1fr;
+          gap: 40px;
+        }
+        .stage {
+          height: min(100vw, 470px);
+        }
+        figcaption {
+          max-width: 490px;
+          margin: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>碟片进度轨道</h1>
+        <p>静态比较 · 相同倾斜角度 · 播放进度 40%</p>
+      </header>
+      <section class="comparison" aria-label="三种播放进度轨道形态">
+        <figure data-shape="smooth">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg
+                class="ring"
+                viewBox="-250 -250 500 500"
+                role="img"
+                aria-label="细圆环，播放进度百分之四十"
+              ></svg>
+            </div>
+          </div>
+          <figcaption>
+            <h2>细圆环</h2>
+            <p>连续细线，已播放部分沿圆周延伸。<br />形态安静，给外圈歌词留出更多空间。</p>
+          </figcaption>
+        </figure>
+        <figure data-shape="ticks">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg
+                class="ring"
+                viewBox="-250 -250 500 500"
+                role="img"
+                aria-label="刻度环，播放进度百分之四十"
+              ></svg>
+            </div>
+          </div>
+          <figcaption>
+            <h2>刻度环</h2>
+            <p>等距刻度逐段标出播放进度。<br />每五格增加一条长刻度，强调秩序感。</p>
+          </figcaption>
+        </figure>
+        <figure data-shape="radial">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg
+                class="ring"
+                viewBox="-250 -250 500 500"
+                role="img"
+                aria-label="放射线环，播放进度百分之四十"
+              ></svg>
+            </div>
+          </div>
+          <figcaption>
+            <h2>放射线环</h2>
+            <p>径向短线形成有起伏的外轮廓。<br />静态长短仅示意形态，尚未接入音频。</p>
+          </figcaption>
+        </figure>
+      </section>
+      <footer>
+        <span class="key"><span class="swatch"></span>已播放</span
+        ><span class="key"><span class="swatch remaining"></span>未播放</span>
+      </footer>
+    </main>
+    <script>
+      const namespace = 'http://www.w3.org/2000/svg'
+      const progress = 0.4
+      function element(name, attributes) {
+        const node = document.createElementNS(namespace, name)
+        for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, String(value))
+        return node
+      }
+      function point(radius, angle) {
+        return [Math.cos(angle) * radius, Math.sin(angle) * radius]
+      }
+      for (const figure of document.querySelectorAll('figure')) {
+        const svg = figure.querySelector('svg')
+        const shape = figure.dataset.shape
+        if (shape === 'smooth') {
+          svg.append(element('circle', { r: 198, class: 'remaining', 'stroke-width': 1.8 }))
+          svg.append(
+            element('circle', {
+              r: 198,
+              class: 'played',
+              'stroke-width': 2.5,
+              pathLength: 1,
+              'stroke-dasharray': `${progress} ${1 - progress}`,
+              transform: 'rotate(-90)',
+            }),
+          )
+        } else {
+          const count = shape === 'ticks' ? 100 : 160
+          for (let index = 0; index < count; index++) {
+            const angle = (index / count) * Math.PI * 2 - Math.PI / 2
+            const length =
+              shape === 'ticks'
+                ? index % 5 === 0
+                  ? 15
+                  : 7
+                : 7 +
+                  8 * (0.5 + 0.5 * Math.sin(index * 0.47)) +
+                  9 * (0.5 + 0.5 * Math.cos(index * 0.19))
+            const [x1, y1] = point(192, angle)
+            const [x2, y2] = point(192 + length, angle)
+            svg.append(
+              element('line', {
+                x1,
+                y1,
+                x2,
+                y2,
+                class: index < count * progress ? 'played' : 'remaining',
+                'stroke-width': shape === 'ticks' ? 1.8 : 1.5,
+              }),
+            )
+          }
+        }
+      }
+    </script>
+  </body>
+</html>

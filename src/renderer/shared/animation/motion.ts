@@ -215,6 +215,188 @@ export function createAlbumArtworkTransition(source: HTMLElement, content: HTMLE
   }
 }
 
+export interface FullscreenPlayerTransitionSnapshot {
+  opacity: string
+  artwork?: { left: number; top: number; width: number; height: number; radius: number }
+}
+
+/** Carry the playbar artwork into the fullscreen player, with reversible visual continuity. */
+export function animateFullscreenPlayerTransition(options: {
+  overlay: HTMLElement
+  artwork: HTMLElement | null
+  source: HTMLElement | null
+  entering: boolean
+  reducedMotion: boolean
+  interrupted?: FullscreenPlayerTransitionSnapshot
+  onComplete: () => void
+}): {
+  cancel: () => FullscreenPlayerTransitionSnapshot | undefined
+  finish: () => void
+} {
+  const { overlay, artwork, source, entering, reducedMotion, interrupted, onComplete } = options
+  const animations: Animation[] = []
+  const restorers: (() => void)[] = []
+  let cover: HTMLElement | undefined
+  let stopped = false
+  let coverWidth = 0
+  let coverRadius = 0
+  const cleanup = (): void => {
+    animations.forEach((animation) => animation.cancel())
+    cover?.remove()
+    restorers.forEach((restore) => restore())
+    window.removeEventListener('resize', finish)
+  }
+  const finish = (): void => {
+    if (stopped) return
+    stopped = true
+    cleanup()
+    onComplete()
+  }
+  const cancel = (): FullscreenPlayerTransitionSnapshot | undefined => {
+    if (stopped) return undefined
+    const snapshot: FullscreenPlayerTransitionSnapshot = {
+      opacity: getComputedStyle(overlay).opacity,
+    }
+    if (cover) {
+      const rect = cover.getBoundingClientRect()
+      snapshot.artwork = {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+        radius: Number.parseFloat(getComputedStyle(cover).borderRadius) * (rect.width / coverWidth),
+      }
+    }
+    stopped = true
+    cleanup()
+    return snapshot
+  }
+  const run = (target: HTMLElement, frames: Keyframe[], timing: KeyframeAnimationOptions): void => {
+    animations.push(target.animate(frames, { fill: 'both', ...timing }))
+  }
+  const hide = (target: HTMLElement): void => {
+    const opacity = target.style.opacity
+    target.style.opacity = '0'
+    restorers.push(() => {
+      target.style.opacity = opacity
+    })
+  }
+  const validRect = (rect: DOMRect): boolean =>
+    [rect.left, rect.top, rect.width, rect.height].every(Number.isFinite) &&
+    rect.width > 0 &&
+    rect.height > 0
+  const sourceRect = source?.getBoundingClientRect()
+  const targetRect = artwork?.getBoundingClientRect()
+  const carryArtwork =
+    !reducedMotion &&
+    source &&
+    artwork &&
+    source.isConnected &&
+    sourceRect &&
+    targetRect &&
+    validRect(sourceRect) &&
+    validRect(targetRect)
+  const duration = carryArtwork ? (entering ? 400 : 320) : 180
+  const easing = 'cubic-bezier(0.16, 1, 0.3, 1)'
+
+  if (carryArtwork) {
+    // Clone the noninteractive destination so the high-resolution cover stays sharp while scaling.
+    cover = artwork.cloneNode(true) as HTMLElement
+    cover.setAttribute('aria-hidden', 'true')
+    cover.setAttribute('data-fullscreen-artwork-transition', '')
+    const artworkStyle = getComputedStyle(artwork)
+    coverRadius = Number.parseFloat(artworkStyle.borderRadius) || 0
+    coverWidth = targetRect.width
+    Object.assign(cover.style, {
+      position: 'fixed',
+      left: `${targetRect.left}px`,
+      top: `${targetRect.top}px`,
+      width: `${targetRect.width}px`,
+      height: `${targetRect.height}px`,
+      maxWidth: 'none',
+      margin: '0',
+      transformOrigin: '0 0',
+      background: artworkStyle.backgroundColor,
+      overflow: 'hidden',
+      pointerEvents: 'none',
+      zIndex: '1001',
+      boxShadow: 'none',
+    })
+    const sourceRadius = Number.parseFloat(getComputedStyle(source).borderRadius) || 0
+    const small = {
+      left: sourceRect.left,
+      top: sourceRect.top,
+      width: sourceRect.width,
+      height: sourceRect.height,
+      radius: sourceRadius * (sourceRect.width / source.offsetWidth),
+    }
+    const large = {
+      left: targetRect.left,
+      top: targetRect.top,
+      width: targetRect.width,
+      height: targetRect.height,
+      radius: coverRadius,
+    }
+    const frame = (rect: typeof large): Keyframe => ({
+      transform: `translate(${rect.left - targetRect.left}px, ${rect.top - targetRect.top}px) scale(${rect.width / targetRect.width}, ${rect.height / targetRect.height})`,
+      borderRadius: `${rect.radius / (rect.width / targetRect.width)}px`,
+    })
+    document.body.append(cover)
+    hide(source)
+    hide(artwork)
+    run(
+      cover,
+      [frame(interrupted?.artwork ?? (entering ? small : large)), frame(entering ? large : small)],
+      { duration, easing },
+    )
+  }
+
+  run(
+    overlay,
+    [
+      { opacity: interrupted?.opacity ?? (entering ? '0' : '1') },
+      { opacity: entering ? '1' : '0' },
+    ],
+    {
+      duration: carryArtwork ? (entering ? 250 : 180) : duration,
+      delay: carryArtwork && !entering ? 100 : 0,
+      easing: 'ease-out',
+    },
+  )
+
+  if (carryArtwork) {
+    const content = overlay.querySelectorAll<HTMLElement>(
+      '.fullscreen-player-meta-row, .fullscreen-player-progress-group, .fullscreen-player-control-stack, .fullscreen-player-lyrics',
+    )
+    content.forEach((target) =>
+      run(
+        target,
+        entering
+          ? [
+              { opacity: 0, transform: 'translateY(12px)' },
+              { opacity: 1, transform: 'none' },
+            ]
+          : [
+              { opacity: 1, transform: 'none' },
+              { opacity: 0, transform: 'translateY(8px)' },
+            ],
+        { duration: entering ? 260 : 140, delay: entering ? 100 : 0, easing },
+      ),
+    )
+  }
+
+  window.addEventListener('resize', finish)
+  void Promise.all(animations.map((animation) => animation.finished)).then(
+    finish,
+    (error: unknown) => {
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      finish()
+      throw error
+    },
+  )
+  return { cancel, finish }
+}
+
 /** A cancellable frame clock for coordinated geometry (no Vue render per frame). */
 export function animateProgress(
   duration: number,

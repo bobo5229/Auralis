@@ -10,6 +10,10 @@ describe('presentCdTrackComposers', () => {
     expect(presentCdTrackComposers('A; B; C')).toEqual(['A', 'B', 'C'])
   })
 
+  it.each(['A;B', 'A；B', 'A;\tB', 'AC/DC'])('keeps %s as one composer', (value) => {
+    expect(presentCdTrackComposers(value)).toEqual([value])
+  })
+
   it('keeps commas inside a composer name', () => {
     expect(presentCdTrackComposers('Bach, Johann Sebastian; Mozart')).toEqual([
       'Bach, Johann Sebastian',

@@ -1,5 +1,6 @@
 import { stat } from 'node:fs/promises'
-import { parseFile, type IAudioMetadata } from 'music-metadata'
+import type { IAudioMetadata } from 'music-metadata'
+import { parseAudioMetadata } from './parseAudioMetadata'
 import {
   normalizeMetadata,
   normalizeIdentityText,
@@ -39,7 +40,7 @@ export async function readStableMetadata(
     try {
       const before = await stat(filePath)
       if (!before.isFile()) throw new Error('Metadata source is not a file')
-      const metadata = await parseFile(filePath, { duration: true })
+      const metadata = await parseAudioMetadata(filePath, { duration: true })
       const normalized = normalizeMetadata(metadata, filePath)
       const lyrics = await resolveLyricsForFile(filePath, metadata)
       const fingerprint = {

@@ -59,6 +59,67 @@ function createSession(overrides?: {
 const tracks = [createTrack(1, 'Alpha'), createTrack(2, 'Beta'), createTrack(3, 'Alpine')]
 
 describe('useLibrarySearchSession', () => {
+  it.each([
+    ['Enter', true, 13],
+    ['Escape', true, 27],
+    ['Enter', false, 229],
+    ['Escape', false, 229],
+  ])('leaves %s to the IME (composing=%s, keyCode=%s)', async (key, isComposing, keyCode) => {
+    const scrollToTrackIndex = vi.fn(async () => undefined)
+    const { session } = createSession({ scrollToTrackIndex })
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+    session.onSearchInputFocus()
+    await session.jumpToNextSearchMatch()
+    const outcome = { ...session.searchOutcome.value }
+    scrollToTrackIndex.mockClear()
+    const event = { key, isComposing, keyCode, preventDefault: vi.fn() } as unknown as KeyboardEvent
+
+    session.onSearchKeydown(event)
+    await nextTick()
+
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(scrollToTrackIndex).not.toHaveBeenCalled()
+    expect(session.searchQuery.value).toBe('al')
+    expect(session.searchOutcome.value).toEqual(outcome)
+    expect(session.isSearchFocused.value).toBe(true)
+  })
+
+  it.each(['', 'query'])('releases focus on leaving the search bar with query %j', (query) => {
+    const { session } = createSession()
+    session.searchQuery.value = query
+    session.onSearchInputFocus()
+
+    session.onSearchBarFocusOut({ relatedTarget: null } as FocusEvent)
+
+    expect(session.isSearchFocused.value).toBe(false)
+    expect(session.shouldRenderSearchBar.value).toBe(query !== '')
+  })
+
+  it('keeps focus when moving within the bar, then releases it on moving outside', () => {
+    const { session } = createSession()
+    class FakeNode {}
+    vi.stubGlobal('Node', FakeNode)
+    try {
+      const inside = new FakeNode()
+      const outside = new FakeNode()
+      session.searchRootRef.value = {
+        contains: (target: unknown) => target === inside,
+      } as unknown as HTMLElement
+      session.onSearchInputFocus()
+
+      session.onSearchBarFocusOut({ relatedTarget: inside } as unknown as FocusEvent)
+      expect(session.isSearchFocused.value).toBe(true)
+      expect(session.shouldRenderSearchBar.value).toBe(true)
+
+      session.onSearchBarFocusOut({ relatedTarget: outside } as unknown as FocusEvent)
+      expect(session.isSearchFocused.value).toBe(false)
+      expect(session.shouldRenderSearchBar.value).toBe(false)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('keeps an idle outcome and does not scroll for an empty query', async () => {
     const { session, scrollToTrackIndex } = createSession()
     session.scheduleLibrarySearchIndex(tracks)

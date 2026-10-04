@@ -13,6 +13,7 @@ import { ArtworkCacheMigrationService } from '@main/features/artwork/artworkCach
 import { isPathUnderAnyRoot } from '@main/features/audio/audioPathGuard'
 import { probeAudioDecode } from '@main/features/audio/audioDecodeProbe'
 import { NativePlaybackService } from '@main/features/audio/nativePlaybackService'
+import { PlaybackSpectrumService } from '@main/features/audio/playbackSpectrumService'
 import { PlaybackFileCoordinator } from '@main/features/audio/playbackFileCoordinator'
 import { RendererReadLeaseOwner } from '@main/features/audio/rendererReadLeaseOwner'
 import { resolveAudioRuntimePaths } from '@main/features/audio/audioRuntimePaths'
@@ -187,17 +188,43 @@ export function registerIpcHandlers(
   })
 
   metadataWatchService.start()
+  const resolvePlaybackTrack = async (trackId: number): Promise<string> => {
+    if (!(await getAudioUrl(trackId))) throw new Error('Audio file is unavailable')
+    const path = trackRepository.getFilePathById(trackId)
+    if (!path) throw new Error('Audio file is unavailable')
+    return path
+  }
+  const spectrum = new PlaybackSpectrumService({
+    ffmpegPath: audioPaths.ffmpegPath,
+    resolveTrack: resolvePlaybackTrack,
+    coordinator: playbackFileCoordinator,
+    emit: (frame) => sendToRenderer(ipcChannels.playback.spectrumFrame, frame),
+    warn: (error) => logger.warn({ error }, 'Playback spectrum analysis failed'),
+  })
+  const spectrumOwners = new WeakSet<Electron.WebContents>()
+  electronIpcRegistrar.handle(ipcChannels.playback.spectrumSubscribe, (event, request) => {
+    if (!spectrumOwners.has(event.sender)) {
+      spectrumOwners.add(event.sender)
+      event.sender.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
+        if (isMainFrame && !isInPlace) void spectrum.dispose()
+      })
+      event.sender.once('destroyed', () => {
+        void spectrum.dispose()
+      })
+      event.sender.on('render-process-gone', () => {
+        void spectrum.dispose()
+      })
+    }
+    return spectrum.subscribe(request, nativePlayback.getSpectrumSource())
+  })
   const nativePlayback = new NativePlaybackService({
     ...audioPaths,
-    resolveTrack: async (trackId) => {
-      // Reuse the same catalog, extension, root and file checks as audio://.
-      if (!(await getAudioUrl(trackId))) throw new Error('Audio file is unavailable')
-      const path = trackRepository.getFilePathById(trackId)
-      if (!path) throw new Error('Audio file is unavailable')
-      return path
-    },
+    resolveTrack: resolvePlaybackTrack,
     coordinator: playbackFileCoordinator,
-    emit: (event) => sendToRenderer(ipcChannels.playback.nativeEvent, event),
+    emit: (event) => {
+      sendToRenderer(ipcChannels.playback.nativeEvent, event)
+      spectrum.syncNative(nativePlayback.getSpectrumSource())
+    },
     warn: (error) => logger.warn({ error }, 'Digital silence boundary optimization failed'),
     onBoundaryStatus: (event) => logger.debug(event, 'Digital silence boundary analysis'),
   })
@@ -321,6 +348,7 @@ export function registerIpcHandlers(
         electronIpcRegistrar.shutdown(),
         metadataWatchService.stop(),
         artworkMaintenanceService.shutdown(),
+        spectrum.dispose(),
         Promise.resolve().then(() => nativePlayback.dispose()),
       ])
       const workers = await Promise.allSettled([

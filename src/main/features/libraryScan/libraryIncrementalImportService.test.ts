@@ -13,9 +13,9 @@ vi.mock('../../logging/logger', () => ({ logger: { warn: vi.fn() } }))
 function setup() {
   const repo = {
     upsertMany: vi.fn<TrackRepository['upsertMany']>(),
-    findMissingCandidatesByIdentity: vi.fn<TrackRepository['findMissingCandidatesByIdentity']>(
-      () => [],
-    ),
+    findRelocationCandidatesByIdentity: vi.fn<
+      TrackRepository['findRelocationCandidatesByIdentity']
+    >(() => []),
     relocateTrack: vi.fn<TrackRepository['relocateTrack']>(() => true),
   }
   const send = vi.fn()
@@ -30,6 +30,9 @@ function setup() {
 beforeEach(() => {
   vi.useFakeTimers()
   vi.clearAllMocks()
+  vi.mocked(stat)
+    .mockReset()
+    .mockResolvedValue({ size: 100, mtimeMs: 100 } as Awaited<ReturnType<typeof stat>>)
   vi.mocked(parseFile)
     .mockReset()
     .mockResolvedValue({
@@ -58,9 +61,9 @@ describe('incremental import batching', () => {
     expect(parseFile).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(1)
     expect(parseFile).toHaveBeenCalledTimes(32)
-    expect(repo.upsertMany).toHaveBeenCalledTimes(1)
-    expect(repo.upsertMany.mock.calls[0][0]).toHaveLength(32)
-    expect(send).toHaveBeenCalledTimes(1)
+    // The entire pass is matched before any new path can claim an old identity.
+    expect(repo.upsertMany).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(1600)
     expect(await pending).toEqual({ imported: paths, unstable: [], failed: [] })
     expect(repo.upsertMany).toHaveBeenCalledTimes(3)
@@ -105,7 +108,7 @@ describe('incremental import batching', () => {
     expect(service.isImportActive()).toBe(false)
   })
 
-  it('retains relocated identities and falls back to batch upsert for an occupied path', async () => {
+  it('retains a relocated identity while importing an unrelated new track', async () => {
     const { service, repo, send } = setup()
     const candidate = {
       trackId: 9,
@@ -119,9 +122,20 @@ describe('incremental import batching', () => {
       durationSeconds: 120,
       fileSize: 100,
     }
-    repo.findMissingCandidatesByIdentity.mockReturnValue([candidate])
-    repo.relocateTrack.mockReturnValueOnce(true).mockReturnValueOnce(false)
-    const pending = service.importFiles(['moved.flac', 'occupied.flac'])
+    repo.findRelocationCandidatesByIdentity.mockReturnValue([candidate])
+    vi.mocked(stat).mockImplementation(async (filePath) => {
+      if (filePath === 'old.flac') throw Object.assign(new Error('absent'), { code: 'ENOENT' })
+      return { size: 100, mtimeMs: 100 } as Awaited<ReturnType<typeof stat>>
+    })
+    const metadata = await parseFile('fixture')
+    vi.mocked(parseFile).mockResolvedValueOnce({
+      ...metadata,
+      common: {
+        ...metadata.common,
+        title: 'Other song',
+      },
+    })
+    const pending = service.importFiles(['occupied.flac', 'moved.flac'])
     await vi.runAllTimersAsync()
     expect((await pending).imported).toEqual(['moved.flac', 'occupied.flac'])
     expect(repo.upsertMany.mock.calls[0][0]).toEqual([
@@ -144,5 +158,150 @@ describe('incremental import batching', () => {
       unstable: ['missing.flac'],
       failed: [],
     })
+  })
+
+  it.each(['ENOENT', 'ENOTDIR', 'EACCES', 'present'])(
+    'only relocates when the old path is confirmed absent: %s',
+    async (state) => {
+      const { service, repo, send } = setup()
+      repo.findRelocationCandidatesByIdentity.mockReturnValue([
+        {
+          trackId: 9,
+          filePath: 'old.flac',
+          title: 'Song',
+          artist: 'Artist',
+          album: 'Album',
+          durationSeconds: 120,
+          fileSize: 100,
+          isrc: null,
+          metadataSignature: null,
+          missingSince: null,
+        },
+      ])
+      vi.mocked(stat).mockImplementation(async (filePath) => {
+        if (filePath === 'old.flac' && state !== 'present')
+          throw Object.assign(new Error(state), { code: state })
+        return { size: 100, mtimeMs: 100 } as Awaited<ReturnType<typeof stat>>
+      })
+      const pending = service.importFiles(['new.flac'])
+      await vi.runAllTimersAsync()
+      expect((await pending).imported).toEqual(['new.flac'])
+      expect(repo.findRelocationCandidatesByIdentity).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Song' }),
+        true,
+      )
+      if (state === 'ENOENT' || state === 'ENOTDIR') {
+        expect(repo.relocateTrack).toHaveBeenCalledWith(
+          9,
+          expect.objectContaining({ filePath: 'new.flac' }),
+          'old.flac',
+        )
+        expect(repo.upsertMany).not.toHaveBeenCalled()
+        expect(send).toHaveBeenCalledWith('library:changed', {
+          reason: 'track-relocated',
+          trackIds: [9],
+          filePaths: ['new.flac'],
+        })
+      } else {
+        expect(repo.relocateTrack).not.toHaveBeenCalled()
+        expect(repo.upsertMany).toHaveBeenCalledOnce()
+      }
+    },
+  )
+
+  it('rejects competing new paths across import batches', async () => {
+    const { service, repo } = setup()
+    repo.findRelocationCandidatesByIdentity.mockReturnValue([
+      {
+        trackId: 9,
+        filePath: 'old.flac',
+        title: 'Song',
+        artist: 'Artist',
+        album: 'Album',
+        durationSeconds: 120,
+        fileSize: 100,
+        isrc: null,
+        metadataSignature: null,
+        missingSince: null,
+      },
+    ])
+    const metadata = await parseFile('fixture')
+    vi.mocked(parseFile).mockImplementation(async (filePath) => ({
+      ...metadata,
+      common: {
+        ...metadata.common,
+        title: filePath === 'new-0.flac' || filePath === 'new-32.flac' ? 'Song' : 'Other',
+      },
+    }))
+    vi.mocked(stat).mockImplementation(async (filePath) => {
+      if (filePath === 'old.flac') throw Object.assign(new Error('absent'), { code: 'ENOENT' })
+      return { size: 100, mtimeMs: 100 } as Awaited<ReturnType<typeof stat>>
+    })
+    const paths = Array.from({ length: 33 }, (_, i) => `new-${i}.flac`)
+    const pending = service.importFiles(paths)
+    await vi.runAllTimersAsync()
+    expect((await pending).imported).toEqual(paths)
+    expect(repo.relocateTrack).not.toHaveBeenCalled()
+  })
+
+  it('keeps the old identity when the destination becomes occupied', async () => {
+    const { service, repo, send } = setup()
+    repo.findRelocationCandidatesByIdentity.mockReturnValue([
+      {
+        trackId: 9,
+        filePath: 'old.flac',
+        title: 'Song',
+        artist: 'Artist',
+        album: 'Album',
+        durationSeconds: 120,
+        fileSize: 100,
+        isrc: null,
+        metadataSignature: null,
+        missingSince: null,
+      },
+    ])
+    vi.mocked(stat).mockImplementation(async (filePath) => {
+      if (filePath === 'old.flac') throw Object.assign(new Error('absent'), { code: 'ENOENT' })
+      return { size: 100, mtimeMs: 100 } as Awaited<ReturnType<typeof stat>>
+    })
+    repo.relocateTrack.mockReturnValue(false)
+    const pending = service.importFiles(['occupied.flac'])
+    await vi.runAllTimersAsync()
+    expect((await pending).imported).toEqual(['occupied.flac'])
+    expect(repo.upsertMany).toHaveBeenCalledOnce()
+    expect(send).not.toHaveBeenCalledWith(
+      'library:changed',
+      expect.objectContaining({ reason: 'track-relocated' }),
+    )
+  })
+
+  it('keeps a Windows path alias attached to its own record while importing another copy', async () => {
+    const { service, repo } = setup()
+    repo.findRelocationCandidatesByIdentity.mockReturnValue([
+      {
+        trackId: 9,
+        filePath: 'old.flac',
+        title: 'Song',
+        artist: 'Artist',
+        album: 'Album',
+        durationSeconds: 120,
+        fileSize: 100,
+        isrc: null,
+        metadataSignature: null,
+        missingSince: null,
+      },
+    ])
+    const pending = service.importFiles(['copy.flac', 'OLD.flac'])
+    await vi.runAllTimersAsync()
+    expect((await pending).failed).toEqual([])
+    expect(repo.relocateTrack).toHaveBeenCalledOnce()
+    expect(repo.relocateTrack).toHaveBeenCalledWith(
+      9,
+      expect.objectContaining({ filePath: 'OLD.flac' }),
+      'old.flac',
+    )
+    expect(repo.upsertMany).toHaveBeenCalledWith([
+      expect.objectContaining({ filePath: 'copy.flac' }),
+    ])
   })
 })

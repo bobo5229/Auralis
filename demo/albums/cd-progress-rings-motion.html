@@ -1,0 +1,1333 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 碟片进度轨道 · 动态与微交互探索</title>
+    <style>
+      @font-face {
+        font-family: 'Auralis Serif';
+        src: url('../../src/renderer/assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-R.woff2')
+          format('woff2');
+        font-display: swap;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      :root {
+        --played-color: #a82365;
+        --disc-color: #d52c85;
+        --remaining-color: #aaa9a3;
+      }
+      body {
+        margin: 0;
+        background: #eeeeec;
+        color: #292929;
+        font:
+          14px 'Segoe UI',
+          'Microsoft YaHei',
+          sans-serif;
+      }
+      ::selection {
+        background: #ebc0d5;
+        color: #292929;
+      }
+      main {
+        max-width: 1680px;
+        margin: auto;
+        padding: 40px 40px 60px;
+      }
+      header {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid #aaa9a3;
+      }
+      .header-title-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+      h1 {
+        margin: 0;
+        font:
+          32px 'Auralis Serif',
+          Georgia,
+          serif;
+        letter-spacing: 0.5px;
+      }
+      .header-desc {
+        margin: 0;
+        color: #62625b;
+        font-size: 13px;
+      }
+
+      /* 交互控制台 */
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 12px 18px;
+        background: #e4e4e0;
+        border: 1px solid #cecec8;
+        border-radius: 8px;
+        flex-wrap: wrap;
+      }
+      .tool-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .ctrl-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        background: #f7f7f5;
+        border: 1px solid #aaa9a3;
+        border-radius: 4px;
+        color: #292929;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        user-select: none;
+      }
+      .ctrl-btn:hover {
+        background: #ffffff;
+        border-color: #62625b;
+      }
+      .ctrl-btn.active {
+        background: #292929;
+        color: #ffffff;
+        border-color: #292929;
+      }
+      .ctrl-btn.special {
+        background: #f0e6ec;
+        border-color: var(--played-color);
+        color: var(--played-color);
+        font-weight: 500;
+      }
+      .ctrl-btn.special:hover {
+        background: var(--played-color);
+        color: #ffffff;
+      }
+      .slider-container {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 270px;
+      }
+      .slider-container label {
+        font-size: 12px;
+        color: #62625b;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      input[type='range'] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 4px;
+        background: #aaa9a3;
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+      }
+      input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--played-color);
+        box-shadow: 0 0 0 2px #fff;
+        cursor: pointer;
+        transition: transform 0.1s ease;
+      }
+      input[type='range']::-webkit-slider-thumb:hover {
+        transform: scale(1.2);
+      }
+      .theme-swatches {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .theme-btn {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        cursor: pointer;
+        padding: 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        transition: transform 0.15s ease;
+      }
+      .theme-btn:hover {
+        transform: scale(1.15);
+      }
+      .theme-btn.active {
+        border-color: #292929;
+        transform: scale(1.15);
+      }
+
+      /* 动效展示网格 */
+      .comparison {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 36px 30px;
+        margin-top: 36px;
+      }
+      figure {
+        margin: 0;
+        min-width: 0;
+        background: #f7f7f4;
+        border: 1px solid #d5d5cf;
+        border-radius: 6px;
+        padding: 16px 20px 24px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+      }
+      .stage {
+        display: grid;
+        place-items: center;
+        overflow: clip;
+        height: clamp(280px, 30vw, 400px);
+        perspective: 1100px;
+        border-radius: 4px;
+        background: #ededeb;
+      }
+      .plane {
+        position: relative;
+        width: 100%;
+        max-width: 380px;
+        aspect-ratio: 1;
+        transform: rotateZ(-24deg) rotateY(26deg) rotateX(32deg);
+        transition: transform 0.4s cubic-bezier(0.2, 0, 0, 1);
+        cursor: pointer;
+      }
+      .plane.flat {
+        transform: rotateZ(0deg) rotateY(0deg) rotateX(0deg);
+      }
+      .disc {
+        position: absolute;
+        inset: 16%;
+        border-radius: 50%;
+        background: var(--disc-color);
+        box-shadow:
+          0 0 0 2px #858586,
+          inset 0 0 0 3px #dadbd5,
+          14px 22px 22px #29292918;
+        mask-image: radial-gradient(circle, transparent 0 6.8%, #000 7.1%);
+        transition: background 0.3s ease;
+      }
+      .disc::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: linear-gradient(120deg, #fff3, transparent 30%, #0001 65%, #fff2);
+        box-shadow:
+          inset 1px 1px 0 2px #ffffff80,
+          inset -2px -2px 0 3px #42424280;
+      }
+      .hub {
+        position: absolute;
+        width: 25%;
+        height: 25%;
+        left: 37.5%;
+        top: 37.5%;
+        border-radius: 50%;
+        background: conic-gradient(
+          from 30deg,
+          #bdc1c6,
+          #e2e4e4,
+          #a0a6b1,
+          #ccd5d8,
+          #eeece8,
+          #989da6,
+          #bdc1c6
+        );
+        box-shadow:
+          0 0 0 2px #eeeeee70,
+          0 0 0 7px #b7b7b744,
+          inset 0 0 0 3px #888b9290;
+      }
+      .hub::after {
+        content: '';
+        position: absolute;
+        inset: 14%;
+        border-radius: 50%;
+        border: 4px solid #f8f8f890;
+        box-shadow: 0 0 0 2px #6c747b60;
+      }
+      .ring {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        fill: none;
+      }
+      .remaining {
+        stroke: var(--remaining-color);
+      }
+      .played {
+        stroke: var(--played-color);
+      }
+
+      figcaption {
+        padding-top: 16px;
+        margin-top: 16px;
+        border-top: 1px solid #d5d5cf;
+      }
+      .tag-row {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      .tag {
+        display: inline-block;
+        font-size: 11px;
+        padding: 2px 7px;
+        border-radius: 3px;
+        background: #e2e2dc;
+        color: #55554f;
+        letter-spacing: 0.3px;
+      }
+      .tag.motion-type {
+        background: #ebddde;
+        color: var(--played-color);
+        font-weight: 500;
+      }
+      h2 {
+        margin: 0 0 8px;
+        font:
+          20px 'Auralis Serif',
+          Georgia,
+          serif;
+        color: #1e1e1e;
+      }
+      figcaption p {
+        margin: 0 0 8px;
+        line-height: 1.7;
+        color: #62625b;
+        font-size: 13px;
+      }
+      .motion-detail {
+        font-size: 12px;
+        color: #7b7b75;
+        background: #ebebe6;
+        padding: 6px 10px;
+        border-radius: 4px;
+        border-left: 2px solid var(--played-color);
+      }
+
+      footer {
+        margin-top: 48px;
+        padding-top: 24px;
+        border-top: 1px solid #aaa9a3;
+        display: flex;
+        gap: 32px;
+        align-items: center;
+        justify-content: space-between;
+        color: #62625b;
+        font-size: 12px;
+        flex-wrap: wrap;
+      }
+
+      @media (max-width: 1200px) {
+        .comparison {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 768px) {
+        main {
+          padding: 24px 16px;
+        }
+        .comparison {
+          grid-template-columns: 1fr;
+          gap: 28px;
+        }
+        .toolbar {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .slider-container {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="header-title-row">
+          <h1>碟片进度轨道 · 动态与微交互探索</h1>
+          <p class="header-desc">
+            克制而充满机械生命力 · 6 种物理动效模型：音圈微颤 · 多普勒色散 · 角动量差速 · 声谱波动 · 擒纵飞返 · 离子流衰减
+          </p>
+        </div>
+
+        <div class="toolbar" role="region" aria-label="交互控制器">
+          <div class="tool-group">
+            <button id="togglePlayBtn" class="ctrl-btn active" type="button" aria-label="播放或暂停动画">
+              <span id="playIcon">⏸</span>
+              <span id="playLabel">巡航中</span>
+            </button>
+            <div class="slider-container">
+              <input
+                id="progressRange"
+                type="range"
+                min="0"
+                max="1000"
+                value="400"
+                aria-label="播放进度调节"
+              />
+              <label id="timeDisplay">40% · 01:36 / 04:00</label>
+            </div>
+          </div>
+
+          <div class="tool-group">
+            <!-- 专项动效触发按钮 -->
+            <button id="triggerFlybackBtn" class="ctrl-btn special" type="button" title="点击体验飞返弹跳">
+              <span>⎌ 触发飞返弹跳</span>
+            </button>
+            <button id="toggleBeatBtn" class="ctrl-btn active" type="button" title="开关低音脉冲模拟">
+              <span>♫ 低音重拍: 开启</span>
+            </button>
+            <button id="viewToggleBtn" class="ctrl-btn" type="button" aria-label="切换视角">
+              <span>◰ 视角 (3D / 平面)</span>
+            </button>
+
+            <div class="theme-swatches" aria-label="配色方案">
+              <span style="font-size: 12px; color: #62625b; margin-right: 2px">盘面:</span>
+              <button
+                class="theme-btn active"
+                style="background: #a82365"
+                data-played="#a82365"
+                data-disc="#d52c85"
+                title="洋红品红"
+              ></button>
+              <button
+                class="theme-btn"
+                style="background: #2b5a88"
+                data-played="#2b5a88"
+                data-disc="#3874ab"
+                title="普鲁士蓝"
+              ></button>
+              <button
+                class="theme-btn"
+                style="background: #b86a14"
+                data-played="#b86a14"
+                data-disc="#d98223"
+                title="琉璃琥珀"
+              ></button>
+              <button
+                class="theme-btn"
+                style="background: #297258"
+                data-played="#297258"
+                data-disc="#389473"
+                title="苔原翡翠"
+              ></button>
+              <button
+                class="theme-btn"
+                style="background: #333333"
+                data-played="#333333"
+                data-disc="#505050"
+                title="曜石哑黑"
+              ></button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="comparison" aria-label="六大物理动效模型">
+        <!-- 1. 激光读取头：音圈马达高频微颤与聚焦呼吸 -->
+        <figure data-shape="laser-motion">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <div class="tag-row">
+              <span class="tag">光学工程</span>
+              <span class="tag motion-type">动效: 音圈微颤 + 聚焦呼吸</span>
+            </div>
+            <h2>1. 激光读取头：音圈微颤寻轨</h2>
+            <p>
+              CD 机心物镜并非刚性固定，而是悬挂在电磁音圈（Voice Coil Actuator）中实时微调。动效模拟激光焦点亚像素级的径向高频微颤（±0.7px）与对焦光晕呼吸。
+            </p>
+            <div class="motion-detail">
+              物理机制：超高频径向微颤寻轨 + 0.8Hz 聚焦光斑柔和呼吸 + 激光切向导线微光晕扫射。
+            </div>
+          </figcaption>
+        </figure>
+
+        <!-- 2. 全息衍射：多普勒色散位移与高光扫掠 -->
+        <figure data-shape="iridescence-motion">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <div class="tag-row">
+              <span class="tag">波动物理</span>
+              <span class="tag motion-type">动效: 相对多普勒色散漂移</span>
+            </div>
+            <h2>2. 全息彩虹带：光栅干涉流光</h2>
+            <p>
+              自然光照射在旋转光盘上时，观察者视角的干涉彩虹光谱并非固定跟随盘片，而是产生多普勒式光波漂移。动效模拟青/翠/金/绯各波段谱线的动态相位差与镜面反射反光脉冲。
+            </p>
+            <div class="motion-detail">
+              物理机制：渐变色阶随时间连续相位游移 + 周期性高光镜面波峰（Specular Flash）横扫彩虹扇区。
+            </div>
+          </figcaption>
+        </figure>
+
+        <!-- 3. 开盘机：严格角速度反比差速自转 -->
+        <figure data-shape="reel-motion">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <div class="tag-row">
+              <span class="tag">发烧硬件</span>
+              <span class="tag motion-type">动效: 质量守恒角速度差动</span>
+            </div>
+            <h2>3. 开盘磁带机：差速角动量轮转</h2>
+            <p>
+              遵循磁带走带线速度恒定定律（$v = \omega r$）。内圈供带盘随磁带减少半径变小，自转角速度<b>加速狂转</b>；外圈收带盘由于带厚增加，自转速度<b>平缓变慢</b>。
+            </p>
+            <div class="motion-detail">
+              物理机制：内盘 $\omega_1 \propto 1/R_1$ 飞旋 + 外盘 $\omega_2 \propto 1/R_2$ 沉稳慢转 + 跨接走带高频微颤（Flutter）。
+            </div>
+          </figcaption>
+        </figure>
+
+        <!-- 4. 极坐标声波：实时音频能量脉冲激荡 -->
+        <figure data-shape="waveform-motion">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <div class="tag-row">
+              <span class="tag">声学可视化</span>
+              <span class="tag motion-type">动效: 低音能量泵感 + 频谱起伏</span>
+            </div>
+            <h2>4. 极坐标声波：实时脉冲声浪</h2>
+            <p>
+              静态波形只是曲目的历史轮廓，动态声波则是活着的音乐。已播放区域波峰随节拍实时跳动（Bass Pumping），当前游标位置剧烈震荡，未播放区域静谧沉睡。
+            </p>
+            <div class="motion-detail">
+              物理机制：游标邻域高斯能量爆炸扩散 + 鼓点低频泵动倍增 + 驻波谐波起伏，杜绝纯静态的死板。
+            </div>
+          </figcaption>
+        </figure>
+
+        <!-- 5. 逆跳大弧：擒纵机构微步进与毫秒级飞返弹跳 -->
+        <figure data-shape="retrograde-motion">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <div class="tag-row">
+              <span class="tag">高级制表</span>
+              <span class="tag motion-type">动效: 机械擒纵步进 + 阻尼飞返</span>
+            </div>
+            <h2>5. 逆跳飞返机构：擒纵律动与瞬弹</h2>
+            <p>
+              致敬 28,800 振频机械表芯。平时以细微机械擒纵步进（Escapement Ticks）坚实前行；点击上方“触发飞返”时，指针在 160ms 内瞬间飞弹回起点并伴随微弱红宝石碰撞回弹。
+            </p>
+            <div class="motion-detail">
+              物理机制：机械齿轮离散步进微震 + 终点超快弹簧回弹动力学（Spring Bounce）与冲击光环。
+            </div>
+          </figcaption>
+        </figure>
+
+        <!-- 6. 彗星余晖：等离子体尾流与荧光逆向涟漪 -->
+        <figure data-shape="comet-motion">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <div class="tag-row">
+              <span class="tag">发光动力学</span>
+              <span class="tag motion-type">动效: 荧光衰减逆向等离子波</span>
+            </div>
+            <h2>6. 彗星余晖：等离子余辉涟漪</h2>
+            <p>
+              模拟阴极射线管（CRT）荧光粉受激发光与太阳风等离子尾流。拖曳的 50° 光弧并非均质渐变，而是一道道逆着播放方向传递的微光呼吸波纹，轻盈飘逸。
+            </p>
+            <div class="motion-detail">
+              物理机制：彗核闪烁微星芒 + 尾迹逆向行进波调制透明度 + 离子尾流微弱散开呼吸。
+            </div>
+          </figcaption>
+        </figure>
+      </section>
+
+      <footer>
+        <div>
+          <span>动效准则：克制、合乎物理逻辑、提供触觉反馈；排版型（如活字印版）保持静笃，机械/声学型注入生命力</span>
+        </div>
+        <div>
+          <span>提示：随时点击盘面任意角度寻轨，或点击上方「⎌ 触发飞返弹跳」查看机械飞跳动效</span>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const namespace = 'http://www.w3.org/2000/svg'
+      let currentProgress = 0.4
+      let isPlaying = true
+      let animId = null
+      let isFlatView = false
+      let bassBeatEnabled = true
+
+      // 差动轮转累积角
+      let supplyAngle = 0
+      let takeupAngle = 0
+
+      // 逆跳飞返状态机
+      let isFlybacking = false
+      let flybackStartTime = 0
+      let flybackStartProgress = 0
+
+      // 波形基础数据生成 (128 点)
+      const WAVE_SAMPLES = 128
+      const baseWaveformData = []
+      for (let i = 0; i < WAVE_SAMPLES; i++) {
+        const t = i / WAVE_SAMPLES
+        let base = 0.25
+        if (t < 0.15) base = 0.2 + 0.3 * (t / 0.15)
+        else if (t < 0.45) base = 0.55 + 0.35 * Math.sin(((t - 0.15) / 0.3) * Math.PI)
+        else if (t < 0.6) base = 0.3 + 0.15 * Math.sin(((t - 0.45) / 0.15) * Math.PI)
+        else if (t < 0.85) base = 0.7 + 0.3 * Math.sin(((t - 0.6) / 0.25) * Math.PI)
+        else base = 0.45 * (1 - (t - 0.85) / 0.15)
+        const jitter = 0.5 + 0.3 * Math.sin(i * 1.7) + 0.2 * Math.cos(i * 3.3)
+        baseWaveformData.push(Math.max(2.5, base * jitter * 16))
+      }
+
+      function element(name, attributes = {}) {
+        const node = document.createElementNS(namespace, name)
+        for (const [key, value] of Object.entries(attributes)) {
+          node.setAttribute(key, String(value))
+        }
+        return node
+      }
+
+      function point(radius, angle) {
+        return [Math.cos(angle) * radius, Math.sin(angle) * radius]
+      }
+
+      function polarToCartesian(radius, angle) {
+        return {
+          x: Math.cos(angle) * radius,
+          y: Math.sin(angle) * radius,
+        }
+      }
+
+      function describeArc(radius, startAngle, endAngle) {
+        const start = polarToCartesian(radius, startAngle)
+        const end = polarToCartesian(radius, endAngle)
+        const diff = endAngle - startAngle
+        const largeArcFlag = diff > Math.PI ? 1 : 0
+        return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`
+      }
+
+      // 6 大专业级动效渲染器
+      const motionRenderers = {
+        // 1. 激光读取头：音圈高频微颤与聚焦呼吸
+        'laser-motion'(svg, progress, time) {
+          svg.replaceChildren()
+          const baseR = 198
+          // 电磁音圈径向高频微颤 (周期极短，模拟寻轨修正)
+          const coilJitter = Math.sin(time * 0.038) * 0.75 + Math.cos(time * 0.061) * 0.35
+          const effectiveR = baseR + coilJitter
+
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+
+          // 双导轨
+          svg.append(
+            element('circle', {
+              r: baseR - 3.5,
+              stroke: '#d5d5cf',
+              'stroke-width': 1,
+              fill: 'none',
+            }),
+          )
+          svg.append(
+            element('circle', {
+              r: baseR + 3.5,
+              stroke: '#d5d5cf',
+              'stroke-width': 1,
+              fill: 'none',
+            }),
+          )
+
+          // 进度底轨与已播放轨
+          svg.append(
+            element('circle', {
+              r: baseR,
+              class: 'remaining',
+              'stroke-width': 1.6,
+              fill: 'none',
+              opacity: 0.5,
+            }),
+          )
+          svg.append(
+            element('circle', {
+              r: baseR,
+              class: 'played',
+              'stroke-width': 2.8,
+              fill: 'none',
+              pathLength: 1,
+              'stroke-dasharray': `${progress} ${1 - progress}`,
+              transform: 'rotate(-90)',
+              'stroke-linecap': 'round',
+            }),
+          )
+
+          // 聚焦微呼吸光晕
+          const haloBreath = Math.sin(time * 0.005) * 2.5
+          const [px, py] = point(effectiveR, currAngle)
+
+          // 漫反射大光晕
+          svg.append(
+            element('circle', {
+              cx: px,
+              cy: py,
+              r: 10 + haloBreath,
+              fill: 'var(--played-color)',
+              opacity: 0.35 + Math.sin(time * 0.005) * 0.1,
+            }),
+          )
+
+          // 径向寻轨音圈导引校准线 (高频微晃动)
+          const [lx1, ly1] = point(effectiveR - 14, currAngle)
+          const [lx2, ly2] = point(effectiveR + 14, currAngle)
+          svg.append(
+            element('line', {
+              x1: lx1,
+              y1: ly1,
+              x2: lx2,
+              y2: ly2,
+              stroke: 'var(--played-color)',
+              'stroke-width': 1.6,
+              'stroke-linecap': 'round',
+              opacity: 0.9,
+            }),
+          )
+
+          // 红宝石光环与白光聚焦核
+          svg.append(
+            element('circle', {
+              cx: px,
+              cy: py,
+              r: 4.8,
+              fill: 'var(--played-color)',
+            }),
+          )
+          svg.append(
+            element('circle', {
+              cx: px,
+              cy: py,
+              r: 2.0 + Math.sin(time * 0.01) * 0.5,
+              fill: '#ffffff',
+            }),
+          )
+        },
+
+        // 2. 全息衍射：多普勒色散流光与高光扫掠
+        'iridescence-motion'(svg, progress, time) {
+          svg.replaceChildren()
+          const radius = 198
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+
+          // 动态干涉相位偏转
+          const phase = (time * 0.001) % 1
+          const gradId = 'dynRainbow'
+          let defs = element('defs')
+          defs.innerHTML = `
+            <linearGradient id="${gradId}" x1="${0 + phase * 20}%" y1="${0}%" x2="${100 + phase * 20}%" y2="${100}%">
+              <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.9"/>
+              <stop offset="25%" stop-color="#34d399" stop-opacity="0.95"/>
+              <stop offset="50%" stop-color="#facc15" stop-opacity="1"/>
+              <stop offset="75%" stop-color="#f43f5e" stop-opacity="0.95"/>
+              <stop offset="100%" stop-color="#a855f7" stop-opacity="0.9"/>
+            </linearGradient>
+          `
+          svg.append(defs)
+
+          // 双层基础环
+          svg.append(
+            element('circle', {
+              r: radius - 3,
+              stroke: '#d5d5cf',
+              'stroke-width': 1,
+              fill: 'none',
+            }),
+          )
+          svg.append(
+            element('circle', {
+              r: radius + 3,
+              stroke: '#d5d5cf',
+              'stroke-width': 1,
+              fill: 'none',
+            }),
+          )
+
+          // 已播实体环
+          svg.append(
+            element('circle', {
+              r: radius,
+              class: 'played',
+              'stroke-width': 2.4,
+              fill: 'none',
+              pathLength: 1,
+              'stroke-dasharray': `${progress} ${1 - progress}`,
+              transform: 'rotate(-90)',
+              'stroke-linecap': 'round',
+            }),
+          )
+
+          // 动态彩虹扇区 (宽48度)
+          const span = (48 * Math.PI) / 180
+          const startA = currAngle - span
+          const endA = currAngle + (6 * Math.PI) / 180
+          svg.append(
+            element('path', {
+              d: describeArc(radius, startA, endA),
+              stroke: `url(#${gradId})`,
+              'stroke-width': 5,
+              'stroke-linecap': 'round',
+              fill: 'none',
+              filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.75))',
+            }),
+          )
+
+          // 周期性镜面反射闪斑 (每2.5秒横扫一次彩虹区)
+          const flashCycle = (time * 0.0004) % 1
+          const flashAngle = startA + span * flashCycle
+          const [fx, fy] = point(radius, flashAngle)
+          const flashOpacity = Math.sin(flashCycle * Math.PI) * 0.85
+          svg.append(
+            element('circle', {
+              cx: fx,
+              cy: fy,
+              r: 4.5,
+              fill: '#ffffff',
+              opacity: flashOpacity,
+              filter: 'drop-shadow(0 0 3px #ffffff)',
+            }),
+          )
+
+          // 游标焦点
+          const [hx, hy] = point(radius, currAngle)
+          svg.append(
+            element('circle', {
+              cx: hx,
+              cy: hy,
+              r: 3.5,
+              fill: '#ffffff',
+              stroke: '#facc15',
+              'stroke-width': 1.8,
+            }),
+          )
+        },
+
+        // 3. 开盘机：角动量差速自转与走带颤动
+        'reel-motion'(svg, progress, time) {
+          svg.replaceChildren()
+          const rSupply = 188
+          const rTakeup = 204
+
+          const supplyWidth = 1.2 + 8.5 * Math.sqrt(Math.max(0, 1 - progress))
+          const takeupWidth = 1.2 + 8.5 * Math.sqrt(progress)
+
+          // 供带环 (内圈)
+          svg.append(
+            element('circle', {
+              r: rSupply,
+              stroke: '#b8b7b1',
+              'stroke-width': supplyWidth,
+              fill: 'none',
+              opacity: 0.7,
+            }),
+          )
+          // 收带环 (外圈)
+          svg.append(
+            element('circle', {
+              r: rTakeup,
+              stroke: 'var(--played-color)',
+              'stroke-width': takeupWidth,
+              fill: 'none',
+              opacity: 0.9,
+            }),
+          )
+
+          // 绘制内圈 3 轮辐 (加速旋转)
+          for (let i = 0; i < 3; i++) {
+            const spokeA = supplyAngle + (i * Math.PI * 2) / 3
+            const [sx1, sy1] = point(rSupply - supplyWidth / 2 - 3, spokeA)
+            const [sx2, sy2] = point(rSupply + supplyWidth / 2 + 3, spokeA)
+            svg.append(
+              element('line', {
+                x1: sx1,
+                y1: sy1,
+                x2: sx2,
+                y2: sy2,
+                stroke: '#ffffff',
+                'stroke-width': 1.6,
+                opacity: 0.85,
+              }),
+            )
+          }
+
+          // 绘制外圈 3 轮辐 (慢速旋转)
+          for (let i = 0; i < 3; i++) {
+            const spokeA = takeupAngle + (i * Math.PI * 2) / 3
+            const [tx1, ty1] = point(rTakeup - takeupWidth / 2 - 3, spokeA)
+            const [tx2, ty2] = point(rTakeup + takeupWidth / 2 + 3, spokeA)
+            svg.append(
+              element('line', {
+                x1: tx1,
+                y1: ty1,
+                x2: tx2,
+                y2: ty2,
+                stroke: '#ffffff',
+                'stroke-width': 1.6,
+                opacity: 0.85,
+              }),
+            )
+          }
+
+          // 走带切向桥 (微抖晃 Flutter 动效)
+          const flutter = Math.sin(time * 0.05) * 0.6
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+          const [bx1, by1] = point(rSupply + flutter, currAngle)
+          const [bx2, by2] = point(rTakeup - flutter, currAngle)
+          svg.append(
+            element('line', {
+              x1: bx1,
+              y1: by1,
+              x2: bx2,
+              y2: by2,
+              stroke: '#ffffff',
+              'stroke-width': 2.2,
+              'stroke-linecap': 'round',
+            }),
+          )
+        },
+
+        // 4. 极坐标声波：实时音频能量脉冲起伏
+        'waveform-motion'(svg, progress, time) {
+          svg.replaceChildren()
+          const baseRadius = 198
+          const activeIndex = Math.floor(WAVE_SAMPLES * progress)
+
+          // 模拟 120BPM 节拍低音重击能量脉冲 (Bass Beat)
+          const beatPhase = (time * 0.002) % 1
+          const beatPulse =
+            bassBeatEnabled && beatPhase < 0.25 ? Math.sin((beatPhase / 0.25) * Math.PI) * 1.5 : 0
+
+          // 参考虚线
+          svg.append(
+            element('circle', {
+              r: baseRadius,
+              stroke: '#aaa9a3',
+              'stroke-width': 0.8,
+              'stroke-dasharray': '2 3',
+              opacity: 0.45,
+            }),
+          )
+
+          for (let i = 0; i < WAVE_SAMPLES; i++) {
+            const angle = (i / WAVE_SAMPLES) * Math.PI * 2 - Math.PI / 2
+            const isPlayed = i <= activeIndex
+            const isNearPlayhead = Math.abs(i - activeIndex) <= 4
+
+            let amp = baseWaveformData[i]
+
+            if (isPlayed) {
+              // 活跃波形：随节拍谐波动态震荡
+              const harmonic = Math.sin(time * 0.006 + i * 0.35) * 0.35
+              amp = amp * (1 + harmonic + beatPulse * 0.4)
+              if (isNearPlayhead) {
+                // 游标附近爆发高能声浪
+                amp += (5 - Math.abs(i - activeIndex)) * 1.8
+              }
+            } else {
+              // 未播放波形：休眠安静状态
+              amp = amp * 0.55
+            }
+
+            const [x1, y1] = point(baseRadius - amp, angle)
+            const [x2, y2] = point(baseRadius + amp, angle)
+
+            svg.append(
+              element('line', {
+                x1,
+                y1,
+                x2,
+                y2,
+                class: isPlayed ? 'played' : 'remaining',
+                'stroke-width': isPlayed ? (isNearPlayhead ? 2.5 : 1.8) : 1.2,
+                'stroke-linecap': 'round',
+                opacity: isPlayed ? 1 : 0.35,
+              }),
+            )
+          }
+
+          // 当前播放头高亮能量针
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+          const [hx1, hy1] = point(baseRadius - 24 - beatPulse * 4, currAngle)
+          const [hx2, hy2] = point(baseRadius + 24 + beatPulse * 4, currAngle)
+          svg.append(
+            element('line', {
+              x1: hx1,
+              y1: hy1,
+              x2: hx2,
+              y2: hy2,
+              stroke: '#ffffff',
+              'stroke-width': 2.8,
+              'stroke-linecap': 'round',
+              filter: 'drop-shadow(0 0 3px rgba(0,0,0,0.6))',
+            }),
+          )
+        },
+
+        // 5. 逆跳飞返机构：擒纵律动与飞弹回弹
+        'retrograde-motion'(svg, progress, time) {
+          svg.replaceChildren()
+          const radius = 198
+          const startAngle = -Math.PI / 6
+          const totalSpan = (240 * Math.PI) / 180
+          const endAngle = startAngle + totalSpan
+
+          // 机械表擒纵步进模拟 (Escapement micro-stepping):
+          // 将连续进度量化为 500 个离散擒纵齿步进，带有微妙的机械卡阻感
+          const STEPS = 400
+          const steppedProgress = Math.floor(progress * STEPS) / STEPS
+
+          const currAngle = startAngle + totalSpan * steppedProgress
+
+          // 240度整弧底槽
+          svg.append(
+            element('path', {
+              d: describeArc(radius, startAngle, endAngle),
+              class: 'remaining',
+              'stroke-width': 2,
+              'stroke-linecap': 'round',
+              opacity: 0.5,
+            }),
+          )
+
+          // 24 等分扇面机械齿
+          for (let i = 0; i <= 24; i++) {
+            const tickA = startAngle + (totalSpan / 24) * i
+            const isMajor = i % 6 === 0
+            const [p1x, p1y] = point(radius + 4, tickA)
+            const [p2x, p2y] = point(radius + (isMajor ? 14 : 8), tickA)
+            svg.append(
+              element('line', {
+                x1: p1x,
+                y1: p1y,
+                x2: p2x,
+                y2: p2y,
+                stroke: '#9a9993',
+                'stroke-width': isMajor ? 1.5 : 1,
+              }),
+            )
+          }
+
+          // 逆跳行进弧
+          if (steppedProgress > 0.005) {
+            svg.append(
+              element('path', {
+                d: describeArc(radius, startAngle, currAngle),
+                class: 'played',
+                'stroke-width': 3.5,
+                'stroke-linecap': 'round',
+              }),
+            )
+          }
+
+          // 起止限位红宝石销
+          ;[startAngle, endAngle].forEach((limitA) => {
+            const [jx, jy] = point(radius, limitA)
+            svg.append(
+              element('circle', {
+                cx: jx,
+                cy: jy,
+                r: 4.5,
+                fill: '#d52c85',
+                stroke: '#ffffff',
+                'stroke-width': 1.5,
+              }),
+            )
+          })
+
+          // 飞返指针 (伴随轻微微震)
+          const [hx, hy] = point(radius, currAngle)
+          svg.append(
+            element('circle', {
+              cx: hx,
+              cy: hy,
+              r: 5,
+              fill: '#ffffff',
+              stroke: 'var(--played-color)',
+              'stroke-width': 2.5,
+            }),
+          )
+
+          // 若正处于飞返碰撞，显示红宝石冲击闪光波
+          if (isFlybacking && progress < 0.15) {
+            const [jx, jy] = point(radius, startAngle)
+            svg.append(
+              element('circle', {
+                cx: jx,
+                cy: jy,
+                r: 9 + (1 - progress / 0.15) * 8,
+                fill: 'none',
+                stroke: '#ffffff',
+                'stroke-width': 2,
+                opacity: 0.9,
+              }),
+            )
+          }
+        },
+
+        // 6. 彗星余晖：等离子体逆向涟漪波动
+        'comet-motion'(svg, progress, time) {
+          svg.replaceChildren()
+          const radius = 198
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+
+          // 4 象限十字基准
+          ;[0, Math.PI / 2, Math.PI, (Math.PI * 3) / 2].forEach((ca) => {
+            const [cx, cy] = point(radius, ca - Math.PI / 2)
+            svg.append(
+              element('circle', {
+                cx,
+                cy,
+                r: 1.5,
+                fill: '#9a9993',
+              }),
+            )
+          })
+
+          // 动态逆向波动等离子尾流
+          const SEGMENTS = 36
+          const TAIL_SPAN = (56 * Math.PI) / 180
+
+          for (let j = 0; j < SEGMENTS; j++) {
+            const ratio1 = j / SEGMENTS
+            const ratio2 = (j + 1) / SEGMENTS
+
+            const a1 = currAngle - ratio1 * TAIL_SPAN
+            const a2 = currAngle - ratio2 * TAIL_SPAN
+
+            // 逆向行进波 (Traveling Wave towards the head)
+            const wave = Math.sin(j * 0.4 - time * 0.008) * 0.25
+            const baseAlpha = Math.pow(1 - ratio1, 1.8)
+            const alpha = Math.max(0.01, Math.min(1, baseAlpha * (1 + wave)))
+            const width = 1.0 + (1 - ratio1) * 2.8 + wave * 0.8
+
+            svg.append(
+              element('path', {
+                d: describeArc(radius, a2, a1),
+                stroke: 'var(--played-color)',
+                'stroke-width': width,
+                'stroke-linecap': j === 0 ? 'round' : 'butt',
+                opacity: alpha,
+                fill: 'none',
+              }),
+            )
+          }
+
+          // 彗星头部微光星芒 (Twinkle)
+          const twinkle = Math.sin(time * 0.01) * 0.8
+          const [hx, hy] = point(radius, currAngle)
+          svg.append(
+            element('circle', {
+              cx: hx,
+              cy: hy,
+              r: 4.2 + twinkle,
+              fill: '#ffffff',
+              stroke: 'var(--played-color)',
+              'stroke-width': 2,
+            }),
+          )
+        },
+      }
+
+      // 弹簧回弹缓动函数 (Damped Spring)
+      function springOut(t) {
+        return 1 - Math.exp(-6 * t) * Math.cos(10 * t)
+      }
+
+      let lastTime = performance.now()
+
+      // 主动效渲染循环 (60fps / 120fps)
+      function mainLoop(now) {
+        const dt = Math.min(50, now - lastTime)
+        lastTime = now
+
+        if (isFlybacking) {
+          // 飞返动画运行中：历时 180ms 瞬跳回起点
+          const elapsed = now - flybackStartTime
+          const duration = 180
+          if (elapsed < duration) {
+            const t = elapsed / duration
+            const spring = springOut(t)
+            currentProgress = flybackStartProgress * (1 - spring)
+            if (currentProgress < 0) currentProgress = 0
+          } else {
+            isFlybacking = false
+            currentProgress = 0
+          }
+          slider.value = String(Math.round(currentProgress * 1000))
+        } else if (isPlaying) {
+          // 常规巡航进位
+          currentProgress += 0.00095 * (dt / 16.6)
+          if (currentProgress > 1) {
+            currentProgress = 0
+          }
+          slider.value = String(Math.round(currentProgress * 1000))
+        }
+
+        // 磁带差速角动量积累：v = omega * r => omega = v / r
+        const rS = 188
+        const rT = 204
+        const sW = 1.2 + 8.5 * Math.sqrt(Math.max(0.01, 1 - currentProgress))
+        const tW = 1.2 + 8.5 * Math.sqrt(Math.max(0.01, currentProgress))
+        // 速度常数
+        const v = 0.04 * (dt / 16.6)
+        supplyAngle += v / (sW * 0.6)
+        takeupAngle += v / (tW * 1.4)
+
+        // 渲染 6 大形态
+        for (const figure of document.querySelectorAll('figure')) {
+          const svg = figure.querySelector('svg')
+          const shape = figure.dataset.shape
+          if (motionRenderers[shape]) {
+            motionRenderers[shape](svg, currentProgress, now)
+          }
+        }
+
+        // 更新时间显示
+        const totalSeconds = 240
+        const currentSec = Math.floor(totalSeconds * currentProgress)
+        const formatTime = (s) => {
+          const m = String(Math.floor(s / 60)).padStart(2, '0')
+          const sec = String(s % 60).padStart(2, '0')
+          return `${m}:${sec}`
+        }
+        const pct = Math.round(currentProgress * 100)
+        document.getElementById('timeDisplay').textContent =
+          `${pct}% · ${formatTime(currentSec)} / ${formatTime(totalSeconds)}`
+
+        animId = requestAnimationFrame(mainLoop)
+      }
+
+      // 控制器绑定
+      const slider = document.getElementById('progressRange')
+      slider.addEventListener('input', (e) => {
+        currentProgress = Number(e.target.value) / 1000
+      })
+
+      const playBtn = document.getElementById('togglePlayBtn')
+      const playIcon = document.getElementById('playIcon')
+      const playLabel = document.getElementById('playLabel')
+
+      playBtn.addEventListener('click', () => {
+        isPlaying = !isPlaying
+        if (isPlaying) {
+          playBtn.classList.add('active')
+          playIcon.textContent = '⏸'
+          playLabel.textContent = '巡航中'
+        } else {
+          playBtn.classList.remove('active')
+          playIcon.textContent = '▶'
+          playLabel.textContent = '已暂停'
+        }
+      })
+
+      // 飞返弹跳按钮
+      const flybackBtn = document.getElementById('triggerFlybackBtn')
+      flybackBtn.addEventListener('click', () => {
+        isFlybacking = true
+        flybackStartTime = performance.now()
+        flybackStartProgress = currentProgress > 0.05 ? currentProgress : 0.85
+      })
+
+      // 低音重拍切换
+      const beatBtn = document.getElementById('toggleBeatBtn')
+      beatBtn.addEventListener('click', () => {
+        bassBeatEnabled = !bassBeatEnabled
+        beatBtn.classList.toggle('active', bassBeatEnabled)
+        beatBtn.innerHTML = `<span>♫ 低音重拍: ${bassBeatEnabled ? '开启' : '关闭'}</span>`
+      })
+
+      // 视角切换
+      const viewBtn = document.getElementById('viewToggleBtn')
+      viewBtn.addEventListener('click', () => {
+        isFlatView = !isFlatView
+        document.querySelectorAll('.plane').forEach((plane) => {
+          plane.classList.toggle('flat', isFlatView)
+        })
+        viewBtn.classList.toggle('active', isFlatView)
+      })
+
+      // 颜色切换
+      document.querySelectorAll('.theme-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.theme-btn').forEach((b) => b.classList.remove('active'))
+          btn.classList.add('active')
+          document.documentElement.style.setProperty('--played-color', btn.dataset.played)
+          document.documentElement.style.setProperty('--disc-color', btn.dataset.disc)
+        })
+      })
+
+      // 点击极角快速跳转
+      document.querySelectorAll('.plane').forEach((plane) => {
+        plane.addEventListener('click', (e) => {
+          const rect = plane.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const dx = e.clientX - centerX
+          const dy = e.clientY - centerY
+
+          let rad = Math.atan2(dy, dx) + Math.PI / 2
+          if (rad < 0) rad += Math.PI * 2
+          currentProgress = rad / (Math.PI * 2)
+          slider.value = String(Math.round(currentProgress * 1000))
+        })
+      })
+
+      // 启动 60fps 动效循环
+      requestAnimationFrame(mainLoop)
+    </script>
+  </body>
+</html>

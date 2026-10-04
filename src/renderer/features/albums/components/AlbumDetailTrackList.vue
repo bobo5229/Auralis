@@ -35,7 +35,7 @@ function formatDisplayArtist(artist: string | null | undefined): string {
         <button
           v-for="(track, index) in group.tracks"
           :key="track.id"
-          class="album-detail-track"
+          class="album-detail-track auralis-track-row-divider"
           :class="{
             'album-detail-track--selected': resolveAlbumTrackPresentation(
               track.id,
@@ -103,4 +103,5 @@ function formatDisplayArtist(artist: string | null | undefined): string {
   </div>
 </template>
 
+<style scoped src="../../../shared/styles/trackRowDivider.css"></style>
 <style scoped src="../styles/albumDetail.track-list.css"></style>

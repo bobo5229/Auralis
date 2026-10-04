@@ -68,6 +68,7 @@ function onAction(): void {
     :title="title"
     :description="statusKind === 'loading' ? scanProgressText : ''"
     :action-label="actionLabel"
+    :show-icon="kind !== 'empty'"
     :icon="kind === 'no-search-match' ? 'i-lucide-search-x' : 'i-lucide-music-4'"
     @action="onAction"
   />

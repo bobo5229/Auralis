@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useFullscreenPlayer } from '@renderer/features/playback/composables/useFullscreenPlayer'
@@ -15,11 +15,12 @@ import type { LyricLine } from '@renderer/features/lyrics/types'
 import FluidArtworkBackground from '@renderer/features/playback/components/FluidArtworkBackground.vue'
 import { usePlaybackProgressInteraction } from '@renderer/features/playback/composables/usePlaybackProgressInteraction'
 import { useReducedMotion } from '@renderer/features/lyrics/composables/useReducedMotion'
+import { resolveRestorablePlayerTrigger } from '../utils/playerOverlayFocus'
+import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
 import {
-  getPlayerOverlayFocusables,
-  resolvePlayerOverlayKeyAction,
-  resolveRestorablePlayerTrigger,
-} from '../utils/playerOverlayFocus'
+  animateFullscreenPlayerTransition,
+  type FullscreenPlayerTransitionSnapshot,
+} from '@renderer/shared/animation/motion'
 
 const skipPreviousIconUrl = new URL(
   '../../features/playback/assets/skip-previous-rounded.svg',
@@ -48,12 +49,49 @@ const imgError = ref(false)
 const overlayRef = ref<HTMLElement | null>(null)
 const exitButtonRef = ref<HTMLButtonElement | null>(null)
 const reducedMotion = useReducedMotion()
+let activeTransition: ReturnType<typeof animateFullscreenPlayerTransition> | undefined
+let interruptedTransition: FullscreenPlayerTransitionSnapshot | undefined
+
+function runTransition(element: Element, done: () => void, entering: boolean): void {
+  const interrupted = activeTransition?.cancel() ?? interruptedTransition
+  ;(element as HTMLElement).inert = !entering
+  activeTransition = animateFullscreenPlayerTransition({
+    overlay: element as HTMLElement,
+    artwork: (element as HTMLElement).querySelector<HTMLElement>('.fullscreen-player-artwork'),
+    source: document.querySelector<HTMLElement>('[data-player-bar-artwork]'),
+    entering,
+    reducedMotion: reducedMotion.matches.value,
+    interrupted,
+    onComplete: () => {
+      activeTransition = undefined
+      interruptedTransition = undefined
+      done()
+    },
+  })
+  interruptedTransition = undefined
+}
+
+function handleEnter(element: Element, done: () => void): void {
+  runTransition(element, done, true)
+}
+
+function handleLeave(element: Element, done: () => void): void {
+  runTransition(element, done, false)
+}
+
+function handleTransitionCancelled(): void {
+  interruptedTransition = activeTransition?.cancel()
+  activeTransition = undefined
+}
+
+watch(reducedMotion.matches, () => activeTransition?.finish())
 let returnFocusTarget: HTMLElement | null = null
 const progressFillRef = ref<HTMLElement | null>(null)
 const lyricsScrollRef = ref<HTMLElement | null>(null)
 const lyricsTrackRef = ref<HTMLElement | null>(null)
 
 const artworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
+watch(artworkCacheKey, () => activeTransition?.finish())
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
 const title = computed(() => playback.state.currentTrack?.title || 'Unknown Title')
 const subtitle = computed(() =>
@@ -174,42 +212,21 @@ watch(
       if (activeElement instanceof HTMLElement && !overlayRef.value?.contains(activeElement)) {
         returnFocusTarget = activeElement
       }
-      void nextTick(() => {
-        if (isFullscreenPlayerOpen.value) exitButtonRef.value?.focus({ preventScroll: true })
-      })
-    } else {
-      void nextTick(() => {
-        if (isFullscreenPlayerOpen.value) return
-        resolveRestorablePlayerTrigger(returnFocusTarget)?.focus({ preventScroll: true })
-        returnFocusTarget = null
-      })
     }
   },
   { flush: 'sync', immediate: true },
 )
 
-function handleKeydown(event: KeyboardEvent): void {
-  const root = overlayRef.value
-  if (!isFullscreenPlayerOpen.value || !root) return
-  if (event.key !== 'Escape' && event.key !== 'Tab') return
-  const focusables = getPlayerOverlayFocusables(root)
-  const action = resolvePlayerOverlayKeyAction({
-    key: event.key,
-    shiftKey: event.shiftKey,
-    kind: 'queue',
-    focusableCount: focusables.length,
-    activeIndex: focusables.indexOf(document.activeElement as HTMLElement),
-  })
-  if (action.type === 'dismiss') {
-    event.preventDefault()
-    event.stopPropagation()
-    closeFullscreenPlayer()
-  } else if (action.type === 'cycle-focus' || action.type === 'keep-root') {
-    event.preventDefault()
-    const target = action.type === 'cycle-focus' ? focusables[action.nextIndex] : root
-    target?.focus({ preventScroll: true })
-  }
-}
+useOverlayFocusTrap({
+  isOpen: isFullscreenPlayerOpen,
+  container: overlayRef,
+  initialFocus: () => exitButtonRef.value ?? undefined,
+  onEscape: closeFullscreenPlayer,
+  restoreFocus: () => {
+    resolveRestorablePlayerTrigger(returnFocusTarget)?.focus({ preventScroll: true })
+    returnFocusTarget = null
+  },
+})
 
 function handleVolumeInput(event: Event): void {
   playback.setVolume(Number((event.target as HTMLInputElement).value))
@@ -231,19 +248,21 @@ function handleRepeatClick(): void {
   playback.setPlaybackMode('repeat-all')
 }
 
-onMounted(() => {
-  window.addEventListener('keydown', handleKeydown, true)
-})
-
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', handleKeydown, true)
+  activeTransition?.cancel()
   reducedMotion.dispose()
 })
 </script>
 
 <template>
   <Teleport to="body">
-    <Transition name="fullscreen-player">
+    <Transition
+      :css="false"
+      @enter="handleEnter"
+      @leave="handleLeave"
+      @enter-cancelled="handleTransitionCancelled"
+      @leave-cancelled="handleTransitionCancelled"
+    >
       <section
         v-if="isFullscreenPlayerOpen"
         ref="overlayRef"
@@ -278,6 +297,7 @@ onBeforeUnmount(() => {
                 :src="artworkUrl"
                 alt=""
                 class="h-full w-full object-cover"
+                decoding="async"
                 @error="imgError = true"
               />
               <div v-else class="fullscreen-player-artwork-placeholder">
@@ -522,7 +542,6 @@ onBeforeUnmount(() => {
 
 .fullscreen-player-exit:hover {
   color: var(--auralis-text);
-  background: var(--auralis-artwork-placeholder-bg);
 }
 
 .fullscreen-player :is(button, input, [tabindex]):focus-visible {
@@ -996,16 +1015,6 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 
-.fullscreen-player-enter-active,
-.fullscreen-player-leave-active {
-  transition: opacity 180ms ease;
-}
-
-.fullscreen-player-enter-from,
-.fullscreen-player-leave-to {
-  opacity: 0;
-}
-
 @media (max-width: 900px) {
   .fullscreen-player {
     --fullscreen-content-width: min(62vw, 320px);
@@ -1050,10 +1059,5 @@ onBeforeUnmount(() => {
 :where([data-reduced-motion='true']) .fullscreen-player-lyric-active,
 :where([data-reduced-motion='true']) .fullscreen-player-prelude-dot {
   transform: none;
-}
-
-:where([data-reduced-motion='true']) .fullscreen-player-enter-active,
-:where([data-reduced-motion='true']) .fullscreen-player-leave-active {
-  transition: none;
 }
 </style>

@@ -15,8 +15,9 @@ export default defineConfig({
           'features/metadata/metadataRefreshWorker': resolve(
             'src/main/features/metadata/metadataRefreshWorker.ts',
           ),
+          'logging/rollingLogTransport': resolve('src/main/logging/rollingLogTransport.ts'),
         },
-        external: ['better-sqlite3', 'bindings', 'sharp'],
+        external: ['better-sqlite3', 'bindings', 'sharp', 'pino'],
       },
     },
     resolve: {

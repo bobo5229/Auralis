@@ -4,6 +4,7 @@ import 'virtual:uno.css'
 import './app/styles/main.css'
 import { useTheme } from './composables/useTheme'
 import { useDarkAccent } from './features/appearance/composables/useDarkAccent'
+import { useLightAccent } from './features/appearance/composables/useLightAccent'
 import { tooltipPlugin } from './shared/tooltip/tooltip'
 import { initMotionPreference } from './shared/animation/motionPreference'
 import {
@@ -17,6 +18,8 @@ const { initTheme } = useTheme()
 initTheme()
 const { initDarkAccent } = useDarkAccent()
 initDarkAccent()
+const { initLightAccent } = useLightAccent()
+initLightAccent()
 const disposeMotionPreference = initMotionPreference()
 if (import.meta.hot) import.meta.hot.dispose(disposeMotionPreference)
 
@@ -91,7 +94,7 @@ async function bootstrap(): Promise<void> {
   app.use(i18n)
   app.use(router)
   await router.isReady()
-  await router.replace({ name: 'home' })
+  await router.replace({ name: 'library' })
   app.mount('#app')
   await nextTick()
   // 主界面就绪信号在路由就绪、Vue 挂载并渲染一帧后发出；

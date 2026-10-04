@@ -35,6 +35,7 @@ import { useAlbumCatalog } from '../composables/useAlbumCatalog'
 import { useAlbumGridLayout } from '../composables/useAlbumGridLayout'
 import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
 import { findAlbumTransitionFocusTarget } from '../utils/albumGridTransitionPlan'
+import { calculateAlbumTransitionRect } from '../utils/albumGridTransitionGeometry'
 import type { AlbumLayoutTransitionParticipant } from '@renderer/app/layout/lyricsAlbumTransitionCoordinator'
 
 const ALBUM_DISPLAY_MODE_KEY = 'auralis-albums-display-mode'
@@ -299,15 +300,40 @@ function collectVisibleTransitionTargets(
 ): AlbumTransitionTarget[] {
   const container = scrollRef.value
   if (!container || !viewport) return []
-  return Array.from(container.querySelectorAll<HTMLElement>('.album-card[data-album-key]')).flatMap(
-    (card) => {
-      const rect = card.getBoundingClientRect()
-      if (!isInsideViewport(rect, viewport)) return []
-      const key = card.dataset.albumKey
-      if (!key) return []
-      return [{ key, node: card, rect: toTransitionRect(rect) }]
-    },
-  )
+  const paddingTop = Number.parseFloat(getComputedStyle(container).paddingTop) || 0
+  const scrollTop = container.scrollTop
+  const rowsByIndex = new Map(virtualRows.value.map((row) => [row.index, row]))
+  const targets: AlbumTransitionTarget[] = []
+  for (const rowElement of container.querySelectorAll<HTMLElement>('.albums-grid-row')) {
+    const row = rowsByIndex.get(Number(rowElement.dataset.rowIndex))
+    if (!row) continue
+    Array.from(rowElement.querySelectorAll<HTMLElement>('.album-card[data-album-key]')).forEach(
+      (card, columnIndex) => {
+        const key = card.dataset.albumKey
+        if (!key) return
+        const rect = calculateAlbumTransitionRect({
+          viewport,
+          gridWidth: gridWidth.value ?? viewport.width,
+          columnCount: columnCount.value,
+          columnIndex,
+          rowStart: row.start,
+          rowHeight: row.size,
+          paddingTop,
+          scrollTop,
+        })
+        if (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.left < viewport.right &&
+          rect.left + rect.width > viewport.left &&
+          rect.top < viewport.bottom &&
+          rect.top + rect.height > viewport.top
+        )
+          targets.push({ key, node: card, rect })
+      },
+    )
+  }
+  return targets
 }
 
 function removeTransitionInputListeners(): void {
@@ -319,7 +345,8 @@ function removeTransitionInputListeners(): void {
 
 function onTransitionKeydown(event: KeyboardEvent): void {
   const target = event.target
-  if (target instanceof Element && target.closest('[data-lyrics-toggle]')) return
+  if (target instanceof Element && target.closest('[data-lyrics-toggle], [data-sidebar-toggle]'))
+    return
   if (
     [
       'ArrowUp',
@@ -883,6 +910,7 @@ defineExpose<AlbumLayoutTransitionParticipant>({
               v-for="virtualRow in virtualRows"
               :key="String(virtualRow.key)"
               class="albums-grid-row absolute left-0 top-0 grid w-full gap-x-5"
+              :data-row-index="virtualRow.index"
               :style="{
                 height: `${virtualRow.size}px`,
                 transform: `translateY(${virtualRow.start}px)`,
@@ -1022,6 +1050,8 @@ defineExpose<AlbumLayoutTransitionParticipant>({
 
 .albums-grid-content--transitioning {
   visibility: hidden;
+  /* Width and total height stay explicit; skip the inert cards' style/layout until handoff. */
+  content-visibility: hidden;
 }
 
 :where([data-reduced-motion='true']) .albums-grid-row {

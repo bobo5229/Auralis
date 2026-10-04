@@ -1,7 +1,7 @@
 import { readonly, ref, toValue, watch, type MaybeRefOrGetter, type Ref } from 'vue'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import type { ArtworkPalette } from '../types'
-import { FALLBACK_PALETTE } from '../utils/extractArtworkPalette'
+import { FALLBACK_PALETTE } from '../utils/artworkPaletteDefaults'
 import { extractArtworkPaletteInWorker } from '../utils/artworkPaletteWorkerClient'
 
 type PaletteCacheEntry =

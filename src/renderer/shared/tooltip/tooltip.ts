@@ -1,6 +1,7 @@
 import type { DirectiveBinding, ObjectDirective, Plugin } from 'vue'
 import { animateTooltipOpacity } from '@renderer/shared/animation/motion'
-import { isTooltipTextClipped, placeTooltip } from './tooltipGeometry'
+import { isTooltipTextClipped } from './tooltipGeometry'
+import { startFloatingPosition } from '../floating/floatingPosition'
 import './tooltip.css'
 
 type TooltipText = string | null | undefined
@@ -26,6 +27,7 @@ export function createTooltipController() {
   let fadeTimer: ReturnType<typeof setTimeout> | undefined
   let cancelAnimation = (): void => {}
   let observer: MutationObserver | null = null
+  let positioning: ReturnType<typeof startFloatingPosition> | undefined
 
   function clearTimers(): void {
     clearTimeout(showTimer)
@@ -36,6 +38,8 @@ export function createTooltipController() {
 
   function dismiss(immediate = false): void {
     clearTimers()
+    positioning?.dispose()
+    positioning = undefined
     observer?.disconnect()
     active = null
     if (describedElement) {
@@ -86,25 +90,27 @@ export function createTooltipController() {
     overlay.hidden = false
     overlay.removeAttribute('aria-hidden')
     overlay.style.pointerEvents = 'auto'
-    const position = placeTooltip(
-      entry.element.getBoundingClientRect(),
-      overlay.getBoundingClientRect(),
-      {
-        width: document.documentElement.clientWidth,
-        height: document.documentElement.clientHeight,
+    positioning = startFloatingPosition({
+      reference: entry.element,
+      floating: overlay,
+      profile: entry.right ? 'tooltip-right' : 'tooltip',
+      onError: () => dismiss(true),
+      onPosition: (_result, first) => {
+        if (!first || !overlay) return
+        const focused = document.activeElement
+        describedElement =
+          focused instanceof HTMLElement && entry.element.contains(focused)
+            ? focused
+            : entry.element
+        const tokens = new Set(
+          (describedElement.getAttribute('aria-describedby') ?? '').split(/\s+/),
+        )
+        tokens.delete('')
+        tokens.add(id)
+        describedElement.setAttribute('aria-describedby', [...tokens].join(' '))
+        cancelAnimation = animateTooltipOpacity(overlay, true)
       },
-      entry.right ? 'right' : 'above',
-    )
-    overlay.style.left = `${position.left}px`
-    overlay.style.top = `${position.top}px`
-    const focused = document.activeElement
-    describedElement =
-      focused instanceof HTMLElement && entry.element.contains(focused) ? focused : entry.element
-    const tokens = new Set((describedElement.getAttribute('aria-describedby') ?? '').split(/\s+/))
-    tokens.delete('')
-    tokens.add(id)
-    describedElement.setAttribute('aria-describedby', [...tokens].join(' '))
-    cancelAnimation = animateTooltipOpacity(overlay, true)
+    })
   }
 
   function request(entry: Entry): void {

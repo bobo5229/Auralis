@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlaybackQueue } from '@renderer/features/playback/composables/usePlaybackQueue'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
-import {
-  getPlayerOverlayFocusables,
-  resolvePlayerOverlayKeyAction,
-  resolveQueueInitialFocusTarget,
-} from '@renderer/app/utils/playerOverlayFocus'
+import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
+import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverlayFocus'
 import type { PlaybackTrack } from '@renderer/features/playback/types'
 
 const emit = defineEmits<{ close: [] }>()
@@ -42,56 +39,19 @@ watch(currentIndex, () => {
   })
 })
 
-function getActiveFocusIndex(focusables: HTMLElement[]): number {
-  const active = document.activeElement
-  return focusables.findIndex((item) => item === active)
-}
-
-function handleKeydown(event: KeyboardEvent): void {
-  const root = element.value
-  if (!root) return
-
-  const focusables = getPlayerOverlayFocusables(root)
-  const action = resolvePlayerOverlayKeyAction({
-    key: event.key,
-    shiftKey: event.shiftKey,
-    kind: 'queue',
-    focusableCount: focusables.length,
-    activeIndex: getActiveFocusIndex(focusables),
-  })
-
-  if (action.type === 'dismiss') {
-    event.preventDefault()
+let restoreOnClose = false
+useOverlayFocusTrap({
+  isOpen: true,
+  container: element,
+  initialFocus: () =>
+    element.value?.querySelector<HTMLElement>('.queue-item-active button') ?? undefined,
+  onEscape: () => {
+    restoreOnClose = true
     emit('close')
-    return
-  }
-
-  if (action.type === 'keep-root') {
-    event.preventDefault()
-    root.focus()
-    return
-  }
-
-  if (action.type === 'cycle-focus') {
-    event.preventDefault()
-    focusables[action.nextIndex]?.focus()
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleKeydown)
-  // Initial focus enters the active track's play button, else the first
-  // focusable item, else the dialog root itself so Tab never lands behind
-  // the dialog (TECHDOC §8.1; empty / single-track queue fallback).
-  const root = element.value
-  if (root) {
-    const focusables = getPlayerOverlayFocusables(root)
-    resolveQueueInitialFocusTarget({ root, focusables }).focus()
-  }
-})
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown)
+  },
+  restoreFocus: (captured) => {
+    if (restoreOnClose) resolveRestorablePlayerTrigger(captured)?.focus()
+  },
 })
 </script>
 

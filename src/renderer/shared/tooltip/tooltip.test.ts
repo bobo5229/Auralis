@@ -6,6 +6,21 @@ vi.mock('@renderer/shared/animation/motion', () => ({
   animateTooltipOpacity: () => () => {},
 }))
 
+vi.mock('@floating-ui/dom', async (original) => ({
+  ...(await original<typeof import('@floating-ui/dom')>()),
+  computePosition: vi.fn(async () => ({
+    x: 100,
+    y: 72,
+    placement: 'top',
+    strategy: 'fixed',
+    middlewareData: {},
+  })),
+  autoUpdate: vi.fn((_reference, _floating, update: () => void) => {
+    update()
+    return vi.fn()
+  }),
+}))
+
 // DOM stand-ins test event/timer lifecycle in the project's Node-only test environment.
 // Pixel rendering remains a manual check.
 class TestElement {
@@ -66,7 +81,7 @@ class TestDocument extends EventTarget {
   }
 }
 
-describe('shared tooltip lifecycle', () => {
+describe('shared tooltip lifecycle', async () => {
   let doc: TestDocument
   let controller: ReturnType<typeof createTooltipController>
   let checkMutations: () => void
@@ -106,7 +121,12 @@ describe('shared tooltip lifecycle', () => {
     doc.dispatchEvent(event)
   }
   function visible(): TestElement | undefined {
-    return doc.body.children.find((child) => child.className === 'tooltip-overlay' && !child.hidden)
+    return doc.body.children.find(
+      (child) =>
+        child.className === 'tooltip-overlay' &&
+        !child.hidden &&
+        child.style.visibility !== 'hidden',
+    )
   }
 
   beforeEach(() => {
@@ -135,68 +155,68 @@ describe('shared tooltip lifecycle', () => {
     vi.unstubAllGlobals()
   })
 
-  it('keeps fully visible text quiet and shows clipped text after 500ms', () => {
+  it('keeps fully visible text quiet and shows clipped text after 500ms', async () => {
     const complete = mount('Complete', { overflow: true })
     dispatch('pointerover', complete)
-    vi.advanceTimersByTime(700)
+    await vi.advanceTimersByTimeAsync(700)
     expect(visible()).toBeUndefined()
     const clipped = mount('Full track title', { overflow: true }, true)
     dispatch('pointerover', clipped)
-    vi.advanceTimersByTime(499)
+    await vi.advanceTimersByTimeAsync(499)
     expect(visible()).toBeUndefined()
-    vi.advanceTimersByTime(1)
+    await vi.advanceTimersByTimeAsync(1)
     expect(visible()?.textContent).toBe('Full track title')
   })
 
-  it('cancels a pending hint on exit and re-arms it on a quick re-entry', () => {
+  it('cancels a pending hint on exit and re-arms it on a quick re-entry', async () => {
     const element = mount('Hint')
     dispatch('pointerover', element)
-    vi.advanceTimersByTime(300)
+    await vi.advanceTimersByTimeAsync(300)
     dispatch('pointerout', element)
-    vi.advanceTimersByTime(50)
+    await vi.advanceTimersByTimeAsync(50)
     dispatch('pointerover', element)
-    vi.advanceTimersByTime(599)
+    await vi.advanceTimersByTimeAsync(599)
     expect(visible()).toBeUndefined()
-    vi.advanceTimersByTime(1)
+    await vi.advanceTimersByTimeAsync(1)
     expect(visible()?.textContent).toBe('Hint')
   })
 
-  it('uses a single overlay and never shows the stale pending target', () => {
+  it('uses a single overlay and never shows the stale pending target', async () => {
     const first = mount('First')
     const second = mount('Second', { data: true })
     dispatch('pointerover', first)
-    vi.advanceTimersByTime(500)
+    await vi.advanceTimersByTimeAsync(500)
     dispatch('pointerover', second)
-    vi.advanceTimersByTime(150)
+    await vi.advanceTimersByTimeAsync(150)
     expect(visible()?.textContent).toBe('Second')
-    vi.advanceTimersByTime(600)
+    await vi.advanceTimersByTimeAsync(600)
     expect(visible()?.textContent).toBe('Second')
     expect(doc.body.children.filter((child) => child.className === 'tooltip-overlay')).toHaveLength(
       1,
     )
   })
 
-  it('lets the pointer cross the gap and remain over the tooltip', () => {
+  it('lets the pointer cross the gap and remain over the tooltip', async () => {
     const element = mount('Readable')
     dispatch('pointerover', element)
-    vi.advanceTimersByTime(600)
+    await vi.advanceTimersByTimeAsync(600)
     const tooltip = visible()!
     dispatch('pointerout', element)
-    vi.advanceTimersByTime(80)
+    await vi.advanceTimersByTimeAsync(80)
     dispatch('pointerover', tooltip)
-    vi.advanceTimersByTime(500)
+    await vi.advanceTimersByTimeAsync(500)
     expect(visible()).toBe(tooltip)
     dispatch('pointerout', tooltip)
-    vi.advanceTimersByTime(250)
+    await vi.advanceTimersByTimeAsync(250)
     expect(visible()).toBeUndefined()
   })
 
-  it('supports keyboard focus and Escape without removing existing descriptions', () => {
+  it('supports keyboard focus and Escape without removing existing descriptions', async () => {
     const element = mount('Keyboard hint')
     element.setAttribute('aria-describedby', 'existing-description')
     doc.activeElement = element
     dispatch('focusin', element)
-    vi.advanceTimersByTime(600)
+    await vi.advanceTimersByTimeAsync(600)
     expect(element.getAttribute('aria-describedby')).toContain(visible()!.id)
     dispatch('keydown', element, { key: 'Escape' })
     expect(visible()).toBeUndefined()
@@ -204,27 +224,27 @@ describe('shared tooltip lifecycle', () => {
     expect(element.getAttribute('aria-describedby')).toBe('existing-description')
   })
 
-  it('ignores touch hover and mouse focus', () => {
+  it('ignores touch hover and mouse focus', async () => {
     const element = mount('Hint')
     dispatch('pointerover', element, { pointerType: 'touch' })
     element.focusVisible = false
     dispatch('focusin', element)
-    vi.advanceTimersByTime(1000)
+    await vi.advanceTimersByTimeAsync(1000)
     expect(visible()).toBeUndefined()
   })
 
-  it.each(['scroll', 'pointerdown', 'click'])('dismisses pending hints on %s', (event) => {
+  it.each(['scroll', 'pointerdown', 'click'])('dismisses pending hints on %s', async (event) => {
     const element = mount('Hint')
     dispatch('pointerover', element)
     dispatch(event, element)
-    vi.advanceTimersByTime(1000)
+    await vi.advanceTimersByTimeAsync(1000)
     expect(visible()).toBeUndefined()
   })
 
-  it('dismisses a recycled row when its bound content changes', () => {
+  it('dismisses a recycled row when its bound content changes', async () => {
     const element = mount('Old title')
     dispatch('pointerover', element)
-    vi.advanceTimersByTime(600)
+    await vi.advanceTimersByTimeAsync(600)
     controller.directive.updated?.(
       element as unknown as HTMLElement,
       binding('New title'),
@@ -235,22 +255,22 @@ describe('shared tooltip lifecycle', () => {
     expect(element.getAttribute('aria-describedby')).toBeNull()
   })
 
-  it('cleans up when a trigger is removed by KeepAlive or unmount', () => {
+  it('cleans up when a trigger is removed by KeepAlive or unmount', async () => {
     const element = mount('Hint')
     dispatch('pointerover', element)
-    vi.advanceTimersByTime(600)
+    await vi.advanceTimersByTimeAsync(600)
     element.remove()
     checkMutations()
     expect(visible()).toBeUndefined()
     expect(element.getAttribute('aria-describedby')).toBeNull()
   })
 
-  it('disposes pending work and global listeners', () => {
+  it('disposes pending work and global listeners', async () => {
     const element = mount('Hint')
     dispatch('pointerover', element)
     controller.dispose()
     dispatch('pointerover', element)
-    vi.advanceTimersByTime(1000)
+    await vi.advanceTimersByTimeAsync(1000)
     expect(visible()).toBeUndefined()
   })
 })

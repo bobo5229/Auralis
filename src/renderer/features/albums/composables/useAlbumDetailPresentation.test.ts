@@ -45,8 +45,12 @@ describe('useAlbumDetailPresentation', () => {
     ])
     const state = useAlbumDetailPresentation(tracks, ref(null))
     expect(state.albumGenrePills.value).toEqual(['Jazz', 'Pop', 'Rock'])
+    expect(state.albumHeroGenreLabel.value).toBe('Jazz & Pop')
+    tracks.value = [track(1, { genre: 'R&B/Soul' })]
+    expect(state.albumHeroGenreLabel.value).toBe('R&B/Soul')
     tracks.value = []
     expect(state.albumGenrePills.value).toEqual([])
+    expect(state.albumHeroGenreLabel.value).toBe('')
   })
 
   it('updates totals when tracks change and keeps singular play labels', () => {

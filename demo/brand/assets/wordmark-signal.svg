@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 301 80" role="img" aria-labelledby="title">
+  <title id="title">Auralis — signal</title>
+  <g fill="none" stroke="#171c1a" stroke-width="6" stroke-linecap="butt" stroke-linejoin="round">
+    <g transform="translate(12 0)"><path d="M4 64 22 8H32L50 64M15 43H39"/></g>
+    <g transform="translate(72 0)"><path d="M4 25V53Q4 64 15 64H24Q35 64 35 53V25M35 56V64"/></g>
+    <g transform="translate(120 0)"><path d="M4 64V35Q4 25 14 25H26"/></g>
+    <g transform="translate(157 0)"><path d="M34 25H15Q4 25 4 36V53Q4 64 15 64H25Q35 64 35 53V37H19M35 55V64"/></g>
+    <g transform="translate(206 0)"><path d="M5 8V55Q5 64 16 64"/></g>
+    <g transform="translate(231 0)"><path d="M8 28V64M8 8V15"/></g>
+    <g transform="translate(255 0)"><path d="M32 25H14Q4 25 4 35Q4 44 15 44H21Q32 44 32 54Q32 64 22 64H3"/></g>
+  </g>
+</svg>

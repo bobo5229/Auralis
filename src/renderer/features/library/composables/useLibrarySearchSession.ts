@@ -32,7 +32,7 @@ export function useLibrarySearchSession(options: {
   onLibraryListMouseLeave: () => void
   onSearchBarPointerDown: () => void
   onSearchInputFocus: () => void
-  onSearchInputBlur: () => void
+  onSearchBarFocusOut: (event: FocusEvent) => void
   onSearchKeydown: (event: KeyboardEvent) => void
   onDocumentPointerDown: (event: PointerEvent) => void
   onWindowKeyDown: (event: KeyboardEvent) => void
@@ -183,8 +183,10 @@ export function useLibrarySearchSession(options: {
     isSearchFocused.value = true
   }
 
-  function onSearchInputBlur(): void {
-    // 聚焦锁定主要由 onDocumentPointerDown 或 Escape 控制，避免输入框内子元素点击时误卸载
+  function onSearchBarFocusOut(event: FocusEvent): void {
+    const target = event.relatedTarget
+    if (target && target instanceof Node && searchRootRef.value?.contains(target)) return
+    isSearchFocused.value = false
   }
 
   function clearSearch(): void {
@@ -201,6 +203,9 @@ export function useLibrarySearchSession(options: {
   }
 
   function onSearchKeydown(event: KeyboardEvent): void {
+    // Enter / Escape 先交给输入法确认或取消候选字；229 兼容组合态键盘事件。
+    if (event.isComposing || event.keyCode === 229) return
+
     if (event.key === 'Enter') {
       event.preventDefault()
       void jumpToNextSearchMatch()
@@ -266,7 +271,7 @@ export function useLibrarySearchSession(options: {
     onLibraryListMouseLeave,
     onSearchBarPointerDown,
     onSearchInputFocus,
-    onSearchInputBlur,
+    onSearchBarFocusOut,
     onSearchKeydown,
     onDocumentPointerDown,
     onWindowKeyDown,

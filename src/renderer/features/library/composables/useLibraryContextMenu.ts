@@ -17,6 +17,7 @@ export function useLibraryContextMenu(options: {
   getTrackById: (trackId: number) => TrackListItem | null
   getAlbumGroupByTrackId: (trackId: number) => LibraryAlbumGroup | null
   currentTrackId: () => number | null
+  selectedTrackId: () => number | null
   onTrackActivated: (trackId: number) => void
   playTrackFromQueue: (
     queue: TrackListItem[],
@@ -36,6 +37,8 @@ export function useLibraryContextMenu(options: {
   addTracksToPlaylist: (playlistId: number, trackIds: number[]) => Promise<unknown>
 }) {
   const contextMenu = ref<LibraryContextMenuState | null>(null)
+  // 菜单选中态只在菜单打开期间生效，不写入播放器的持久选择。
+  const highlightedTrackId = computed(() => contextMenu.value?.trackId ?? options.selectedTrackId())
   const regularPlaylistItems = ref<SidebarPlaylistItem[]>([])
   const addToPlaylistFeedback = ref<{ playlistId: number; message: string } | null>(null)
   const isCreatingPlaylistFromMenu = ref(false)
@@ -264,6 +267,7 @@ export function useLibraryContextMenu(options: {
 
   return {
     contextMenu,
+    highlightedTrackId,
     contextMenuAnchor,
     contextMenuTrackTitle,
     contextMenuAlbumTitle,

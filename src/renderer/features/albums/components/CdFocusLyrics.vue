@@ -7,6 +7,7 @@ import { useReducedMotion } from '@renderer/features/lyrics/composables/useReduc
 import { animateProgress } from '@renderer/shared/animation/motion'
 import {
   cdLyricsArcPlacement,
+  cdLyricsOccupiedArcBounds,
   cdLyricsPlacement,
   type LyricsRect,
 } from '../utils/cdLyricsPlacement'
@@ -43,6 +44,7 @@ let arcCenter = Math.random() * 360
 let arcReversed: boolean | null = null
 const viewport = ref('0 0 1 1')
 const fontSize = ref(24)
+const fallbackBaseFontSize = ref(20)
 const measureRef = ref<SVGTextElement | null>(null)
 const depthSamples = shallowRef<{ distance: number; scale: number }[]>([])
 const glyphMetrics = shallowRef<{ text: string; width: number }[]>([])
@@ -67,10 +69,14 @@ function resetExitAnimationStyles(): void {
 }
 const placement = shallowRef<LyricsRect | null>(null)
 const fallbackFontSize = computed(() => {
+  const base = fallbackBaseFontSize.value
   const width = placement.value?.width ?? 0
   const measuredWidth = glyphMetrics.value.reduce((sum, glyph) => sum + glyph.width, 0)
-  const naturalWidth = (measuredWidth / fontSize.value) * 20 + glyphMetrics.value.length * (20 / 30)
-  return naturalWidth > 0 ? 20 * Math.min(1, Math.max(0, width - 16) / (naturalWidth * 1.08)) : 20
+  const naturalWidth =
+    (measuredWidth / fontSize.value) * base + glyphMetrics.value.length * (base / 30)
+  return naturalWidth > 0
+    ? base * Math.min(1, Math.max(0, width - 16) / (naturalWidth * 1.08))
+    : base
 })
 const showEmpty = ref(false)
 const emptyOpacity = ref(1)
@@ -173,25 +179,30 @@ function projectArc(): void {
     .filter((element): element is HTMLElement => element !== null)
     .map((element) => rect(element, 20))
   placement.value = cdLyricsPlacement(bounds, [rect(disc, 80), ...exclusions.value])
-  fontSize.value = 24 * Math.hypot(transforms[2].matrix.a, transforms[2].matrix.b)
+  const typography = getComputedStyle(stage)
+  const baseFontSize = Number.parseFloat(typography.getPropertyValue('--cd-type-lyrics-size')) || 24
+  fallbackBaseFontSize.value =
+    Number.parseFloat(typography.getPropertyValue('--cd-type-lyrics-flat-size')) || 20
+  fontSize.value = baseFontSize * Math.hypot(transforms[2].matrix.a, transforms[2].matrix.b)
   const rectangleAt = (center: number): LyricsRect => {
     const reversed =
       center === arcCenter && arcReversed !== null
         ? arcReversed
         : project(center + 0.5, 252).x < project(center - 0.5, 252).x
-    const points = Array.from({ length: 25 }, (_, index) =>
-      project(center - 60 + index * 5, reversed ? 276 : 252),
+    const points = Array.from({ length: 97 }, (_, index) => {
+      const point = project(
+        center - 60 + (index / 96) * 120,
+        (reversed ? 276 : 252) + radialOffset.value,
+      )
+      return { ...point, scale: 1 / point.scale }
+    })
+    // Only the centered glyphs occupy space; unused ends of the SVG path are safe.
+    return cdLyricsOccupiedArcBounds(
+      points,
+      glyphMetrics.value.reduce((sum, glyph) => sum + glyph.width, 0),
+      glyphMetrics.value.length,
+      fontSize.value,
     )
-    // Cover the entire arc and glyph height, including perspective enlargement.
-    const padding = fontSize.value * Math.max(1, ...points.map((point) => 1 / point.scale)) + 2
-    const left = Math.min(...points.map((point) => point.x)) - padding
-    const top = Math.min(...points.map((point) => point.y)) - padding
-    return {
-      left,
-      top,
-      width: Math.max(...points.map((point) => point.x)) + padding - left,
-      height: Math.max(...points.map((point) => point.y)) + padding - top,
-    }
   }
   const safeCenter = cdLyricsArcPlacement(arcCenter, rectangleAt, bounds, exclusions.value)
   arcAvailable.value = safeCenter !== null
@@ -309,10 +320,18 @@ watch(
       await nextTick()
       if (cancelled) return
       const measurement = measureRef.value
+      if (measurement && line) {
+        const style = getComputedStyle(measurement)
+        // Measure after the local font is loaded, so avoidance uses the rendered glyph widths.
+        await document.fonts.load(style.font, line).catch(() => [])
+        if (cancelled) return
+      }
       glyphMetrics.value = Array.from(displayedText.value).map((text) => {
         if (measurement) measurement.textContent = text
         return { text, width: measurement?.getComputedTextLength() ?? fontSize.value }
       })
+      // Re-evaluate avoidance with this line's measured width before revealing it.
+      projectArc()
       if (!line || !host) return
       if (reduced) {
         textOpacity.value = 1
@@ -533,7 +552,7 @@ onBeforeUnmount(() => {
   height: 100%;
   overflow: visible;
   pointer-events: none;
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--cd-font-lyrics);
   font-weight: 400;
   text-rendering: geometricPrecision;
 }
@@ -546,14 +565,14 @@ onBeforeUnmount(() => {
   justify-content: center;
   pointer-events: none;
   text-align: center;
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--cd-font-text);
   color: var(--cd-text-muted, #62625b);
-  font-size: 13px;
-  line-height: 22px;
+  font-size: var(--cd-type-notice-size);
+  line-height: var(--cd-type-notice-line-height);
 }
 .cd-lyrics-fallback {
   position: absolute;
   pointer-events: none;
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  font-family: var(--cd-font-lyrics);
 }
 </style>

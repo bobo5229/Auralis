@@ -39,6 +39,8 @@ export interface OklabColor {
 
 export interface PaletteColor {
   rgb: RgbColor
+  /** Extracted cluster color before display tone mapping. */
+  sourceRgb?: RgbColor
   oklab: OklabColor
   weight: number
   chroma: number

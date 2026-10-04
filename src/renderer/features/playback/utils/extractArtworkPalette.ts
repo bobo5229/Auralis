@@ -1,6 +1,9 @@
+import { distance, palette, utils } from 'image-q'
 import type { ArtworkPalette, OklabColor, PaletteColor, RgbColor } from '../types'
 import { getOklabChroma, getOklabDistance, oklabToRgb, rgbToOklab } from './colorSpace'
-import { PLAYER_DEFAULT_ACCENT_DARK } from './playerColorDefaults'
+import { FALLBACK_PALETTE } from './artworkPaletteDefaults'
+
+export { FALLBACK_PALETTE } from './artworkPaletteDefaults'
 
 interface Sample {
   rgb: RgbColor
@@ -13,136 +16,53 @@ interface Cluster {
 }
 
 const MAX_COLORS = 5
-const MAX_ITERATIONS = 16
-const CONVERGENCE_DELTA = 0.0015
 const MIN_WEIGHT = 0.015
 const MERGE_DISTANCE = 0.035
 const MIN_ACCENT_DISTANCE = 0.05
 
-const FALLBACK_ACCENT_RGB: RgbColor = PLAYER_DEFAULT_ACCENT_DARK
-const FALLBACK_ACCENT_OKLAB = rgbToOklab(FALLBACK_ACCENT_RGB)
-
-export const FALLBACK_PALETTE: ArtworkPalette = {
-  key: 'fallback',
-  background: { r: 14, g: 17, b: 23 },
-  accents: [
-    {
-      rgb: FALLBACK_ACCENT_RGB,
-      oklab: FALLBACK_ACCENT_OKLAB,
-      weight: 1,
-      chroma: getOklabChroma(FALLBACK_ACCENT_OKLAB),
-    },
-  ],
-  textTone: 'light',
-  quality: 'fallback',
-}
-
-function hashKey(key: string): number {
-  let hash = 2166136261
-  for (let i = 0; i < key.length; i += 1) {
-    hash ^= key.charCodeAt(i)
-    hash = Math.imul(hash, 16777619)
-  }
-  return hash >>> 0
-}
-
-function createRandom(seed: number): () => number {
-  let state = seed || 0x9e3779b9
-  return () => {
-    state += 0x6d2b79f5
-    let value = state
-    value = Math.imul(value ^ (value >>> 15), value | 1)
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61)
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296
-  }
-}
-
-function averageOklab(samples: Sample[]): OklabColor {
-  const sum = samples.reduce(
-    (result, sample) => ({
-      l: result.l + sample.oklab.l,
-      a: result.a + sample.oklab.a,
-      b: result.b + sample.oklab.b,
-    }),
-    { l: 0, a: 0, b: 0 },
-  )
-  return {
-    l: sum.l / samples.length,
-    a: sum.a / samples.length,
-    b: sum.b / samples.length,
-  }
-}
-
-function initializeCenters(samples: Sample[], count: number, key: string): OklabColor[] {
-  const random = createRandom(hashKey(key))
-  const mean = averageOklab(samples)
-  const first = samples.reduce((nearest, sample) =>
-    getOklabDistance(sample.oklab, mean) < getOklabDistance(nearest.oklab, mean) ? sample : nearest,
-  )
-  const centers = [{ ...first.oklab }]
-
-  while (centers.length < count) {
-    const distances = samples.map((sample) => {
-      const nearest = Math.min(...centers.map((center) => getOklabDistance(sample.oklab, center)))
-      return nearest * nearest
-    })
-    const total = distances.reduce((sum, distance) => sum + distance, 0)
-    if (total <= Number.EPSILON) break
-
-    let target = random() * total
-    let selectedIndex = distances.length - 1
-    for (let i = 0; i < distances.length; i += 1) {
-      target -= distances[i]
-      if (target <= 0) {
-        selectedIndex = i
-        break
+function clusterSamples(samples: Sample[]): Cluster[] {
+  // Three histogram bits per channel bound Wu's four-dimensional working set
+  // for the existing 48 × 48 artwork sample. Output still uses full RGB values.
+  const quantizer = new palette.WuQuant(new distance.EuclideanBT709NoAlpha(), MAX_COLORS, 3)
+  const pixels = new Uint8Array(samples.flatMap(({ rgb }) => [rgb.r, rgb.g, rgb.b, 255]))
+  quantizer.sample(utils.PointContainer.fromUint8Array(pixels, samples.length, 1))
+  const clusters: Cluster[] = quantizer
+    .quantizeSync()
+    .getPointContainer()
+    .getPointArray()
+    .map(({ r, g, b }) => ({ center: rgbToOklab({ r, g, b }), samples: [] }))
+  for (const sample of samples) {
+    let nearestIndex = 0
+    let nearestDistance = Number.POSITIVE_INFINITY
+    clusters.forEach((cluster, index) => {
+      const value = getOklabDistance(sample.oklab, cluster.center)
+      if (value < nearestDistance) {
+        nearestIndex = index
+        nearestDistance = value
       }
-    }
-    centers.push({ ...samples[selectedIndex].oklab })
-  }
-
-  return centers
-}
-
-function clusterSamples(samples: Sample[], key: string): Cluster[] {
-  const uniqueColors = new Set(samples.map(({ rgb }) => `${rgb.r},${rgb.g},${rgb.b}`)).size
-  let centers = initializeCenters(samples, Math.min(MAX_COLORS, uniqueColors), key)
-  let clusters: Cluster[] = []
-
-  for (let iteration = 0; iteration < MAX_ITERATIONS; iteration += 1) {
-    clusters = centers.map((center) => ({ center, samples: [] }))
-    for (const sample of samples) {
-      let nearestIndex = 0
-      let nearestDistance = Number.POSITIVE_INFINITY
-      centers.forEach((center, index) => {
-        const distance = getOklabDistance(sample.oklab, center)
-        if (distance < nearestDistance) {
-          nearestIndex = index
-          nearestDistance = distance
-        }
-      })
-      clusters[nearestIndex].samples.push(sample)
-    }
-
-    const nextCenters = clusters.map((cluster) => {
-      if (cluster.samples.length > 0) return averageOklab(cluster.samples)
-      return samples.reduce(
-        (farthest, sample) => {
-          const error = Math.min(...centers.map((center) => getOklabDistance(sample.oklab, center)))
-          return error > farthest.error ? { sample, error } : farthest
-        },
-        { sample: samples[0], error: -1 },
-      ).sample.oklab
     })
-    const movement = centers.reduce(
-      (sum, center, index) => sum + getOklabDistance(center, nextCenters[index]),
-      0,
-    )
-    centers = nextCenters
-    if (movement < CONVERGENCE_DELTA) break
+    clusters[nearestIndex].samples.push(sample)
   }
-
-  return clusters.filter((cluster) => cluster.samples.length > 0)
+  return clusters
+    .filter((cluster) => cluster.samples.length > 0)
+    .map((cluster) => {
+      const sum = cluster.samples.reduce(
+        (result, sample) => ({
+          l: result.l + sample.oklab.l,
+          a: result.a + sample.oklab.a,
+          b: result.b + sample.oklab.b,
+        }),
+        { l: 0, a: 0, b: 0 },
+      )
+      return {
+        ...cluster,
+        center: {
+          l: sum.l / cluster.samples.length,
+          a: sum.a / cluster.samples.length,
+          b: sum.b / cluster.samples.length,
+        },
+      }
+    })
 }
 
 function mergeClusters(colors: PaletteColor[]): PaletteColor[] {
@@ -236,6 +156,7 @@ function selectAccents(colors: PaletteColor[]): PaletteColor[] {
     )
     return {
       ...color,
+      sourceRgb: color.rgb,
       oklab: displayOklab,
       rgb: oklabToRgb(displayOklab),
       chroma: getOklabChroma(displayOklab),
@@ -252,7 +173,7 @@ export function extractArtworkPalette(key: string, pixels: Uint8ClampedArray): A
   }
   if (samples.length === 0) return { ...FALLBACK_PALETTE, key }
 
-  const clustered = clusterSamples(samples, key).map((cluster) =>
+  const clustered = clusterSamples(samples).map((cluster) =>
     toPaletteColor(cluster, samples.length),
   )
   const meaningful = clustered.filter((color) => color.weight >= MIN_WEIGHT)

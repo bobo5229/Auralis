@@ -86,6 +86,8 @@
 
 ### library：曲库
 
+- [TECHDOC：确认删除文件后的曲库清理](topics/library/TECHDOC-deleted-track-cleanup-2026-10-04.md)
+- [TECHDOC：歌曲改名与移动后的路径找回](topics/library/TECHDOC-track-path-relocation-2026-10-04.md)
 - [TECHDOC：封面视图分割线与设备像素取整](topics/library/TECHDOC-cover-track-divider-pixel-snapping-2026-09-28.md)
 - [TECHDOC：音乐来源行采用路径优先布局](topics/library/TECHDOC-music-source-path-priority-2026-09-28.md)
 - [TECHDOC：歌曲页字重设置](topics/library/TECHDOC-song-font-weight-settings-2026-09-28.md)
@@ -98,6 +100,8 @@
 
 ### metadata：元数据
 
+- [REPORT：当前曲库流派上层统计与映射草案](topics/metadata/REPORT-genre-upper-classification-2026-10-04.md)
+- [TECHDOC：多值元数据统一处理规则](topics/metadata/TECHDOC-multivalue-metadata-2026-10-03.md)
 - [TECHDOC：播放器占用歌曲的元数据编辑限制](topics/metadata/TECHDOC-playback-metadata-edit-guard-2026-09-30.md)
 - [TECHDOC：元数据刷新后的文件指纹一致性](topics/metadata/TECHDOC-refresh-file-fingerprint-2026-09-21.md)
 - [流派多值分隔符与原子复合流派方案](topics/metadata/plan-genre-delimiter-atomic-compounds.md)
@@ -124,6 +128,8 @@
 - [TECHDOC：modern PlayerBar 外壳圆角增大](topics/playback/TECHDOC-playerbar-radius-2026-08-29.md)
 
 ### shell：应用外壳
+
+- [施工文档：浅色与深色强调色独立配置](topics/shell/IMPLEMENTATION-light-dark-theme-accent-2026-10-04.md) — 独立偏好、跟随应用主题编辑、可读颜色、效果预览与开屏首帧。
 
 - [施工文档：英文与数字字体统一，Georgia 仅用于碟片标题](topics/shell/IMPLEMENTATION-latin-numeral-font-unification-2026-10-02.md) — 顺序分批迁移通用界面、CD、歌词、声迹 DOM 与 Canvas，保留现有中文字体。
 
@@ -366,6 +372,8 @@
 
 ## 审查记录
 
+- [CD 浏览页开发复盘](reviews/2026-10-04-cd-browser-development-lessons.md) — 原型选择、真实操作、音频效果、短时动效、动态配色、开源复用及旧方案清理经验。
+- [Auralis 自写实现与开源复用审计](reviews/2026-10-04-open-source-reuse-audit.md) — 源码与成熟实现对照、替换优先级、迁移边界及建议保留项；候选尚未接入。
 - [2026-09-28 Electron 启动崩溃：安装目录 ACL 与沙箱兼容问题](reviews/2026-09-28-electron-startup-acl-crash.md)
 - [Auralis 主题与颜色体系审计报告](reviews/播放器主题配色审计报告.md)
 - [桌面歌词窗口生命周期审查](reviews/REVIEW-desktop-lyrics-window-lifecycle.md)

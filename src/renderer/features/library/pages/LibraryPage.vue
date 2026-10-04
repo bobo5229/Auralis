@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch 
 import { useRoute, useRouter } from 'vue-router'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
+import { useElementSize } from '@vueuse/core'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
@@ -64,6 +65,8 @@ const showPlayCount = computed(
 const tracks = shallowRef<TrackListItem[]>([])
 const isLoading = ref(true)
 const scrollRef = ref<HTMLElement | null>(null)
+// content-box 排除底部播放栏安全区；只在容器尺寸变化时更新。
+const { height: coverViewportHeight } = useElementSize(scrollRef)
 
 const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
 const LIBRARY_TOP_INSET = 16
@@ -267,6 +270,7 @@ async function restoreLibraryFocus(
 
 const {
   contextMenu,
+  highlightedTrackId,
   contextMenuAnchor,
   contextMenuTrackTitle,
   contextMenuAlbumTitle,
@@ -292,9 +296,9 @@ const {
   getTrackById: (trackId) => libraryDerivedIndex.value.trackById.get(trackId) ?? null,
   getAlbumGroupByTrackId,
   currentTrackId: () => playback.state.currentTrackId,
+  selectedTrackId: () => playback.state.selectedTrackId,
   onTrackActivated: (trackId) => {
     keyboardFocusTrackId.value = trackId
-    playback.selectTrack(trackId)
   },
   playTrackFromQueue: (queue, trackId, playOptions) =>
     playback.playTrackFromQueue(queue, trackId, playOptions),
@@ -349,7 +353,7 @@ const {
   onLibraryListMouseLeave,
   onSearchBarPointerDown,
   onSearchInputFocus,
-  onSearchInputBlur,
+  onSearchBarFocusOut,
   onSearchKeydown,
   onDocumentPointerDown,
   onWindowKeyDown,
@@ -578,11 +582,11 @@ onBeforeUnmount(() => {
       <div class="library-search-zone">
         <Transition name="search-overlay" :duration="160">
           <div v-if="shouldRenderSearchBar" class="library-search-overlay">
-            <div class="library-search-backdrop" aria-hidden="true"></div>
             <div
               ref="searchRootRef"
               class="library-search-bar"
               @pointerdown="onSearchBarPointerDown"
+              @focusout="onSearchBarFocusOut"
             >
               <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
               <input
@@ -594,7 +598,6 @@ onBeforeUnmount(() => {
                 :aria-label="t('library.search.ariaLabel')"
                 spellcheck="false"
                 @focus="onSearchInputFocus"
-                @blur="onSearchInputBlur"
                 @keydown="onSearchKeydown"
               />
               <span
@@ -617,7 +620,7 @@ onBeforeUnmount(() => {
                   }}
                 </template>
                 <template v-else-if="searchOutcome.kind === 'not-found'">
-                  <span class="text-red-500 font-medium">
+                  <span class="text-[var(--auralis-danger)] font-medium">
                     {{ t('library.search.notFound') }}
                   </span>
                 </template>
@@ -650,7 +653,7 @@ onBeforeUnmount(() => {
                   :index="virtualRow.index"
                   :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
                   :is-playing="playback.state.isPlaying"
-                  :selected="playback.state.selectedTrackId === tracks[virtualRow.index].id"
+                  :selected="highlightedTrackId === tracks[virtualRow.index].id"
                   :focused="keyboardFocusTrackId === tracks[virtualRow.index].id"
                   :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
                   :style="{
@@ -689,9 +692,10 @@ onBeforeUnmount(() => {
                     :data-album-key="albumGroups[virtualGroup.index].key"
                     :data-first-track-id="albumGroups[virtualGroup.index].tracks[0]?.id"
                     :group="albumGroups[virtualGroup.index]"
+                    :viewport-height="coverViewportHeight"
                     :now-playing-track-id="playback.state.currentTrackId"
                     :is-playing="playback.state.isPlaying"
-                    :selected-track-id="playback.state.selectedTrackId"
+                    :selected-track-id="highlightedTrackId"
                     :focused-track-id="keyboardFocusTrackId"
                     :style="{
                       height: `${virtualGroup.size}px`,

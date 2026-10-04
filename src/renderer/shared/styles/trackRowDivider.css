@@ -1,0 +1,11 @@
+/* 由各曲目行决定分隔线的边界与显示状态，共用绘制方式和主题颜色。 */
+.auralis-track-row-divider::before,
+.auralis-track-row-divider::after {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  /* 使用边框的设备像素取整，避免非整数缩放下实心矩形出现粗细差异。 */
+  height: 0;
+  border-top: 1px solid var(--auralis-cover-track-divider);
+  pointer-events: none;
+}

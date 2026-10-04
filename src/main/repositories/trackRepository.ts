@@ -327,6 +327,7 @@ export class TrackRepository extends BaseRepository {
 
     const upsertTrack = this.db.prepare(`
       INSERT INTO tracks (
+        id,
         file_path,
         file_size,
         file_mtime_ms,
@@ -353,7 +354,7 @@ export class TrackRepository extends BaseRepository {
         missing_since,
         updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
+      VALUES (MAX(COALESCE((SELECT MAX(id) FROM tracks),0),COALESCE((SELECT MAX(id) FROM removed_track_history),0))+1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
       ON CONFLICT(file_path) DO UPDATE SET
         file_size = excluded.file_size,
         file_mtime_ms = excluded.file_mtime_ms,
@@ -547,11 +548,6 @@ export class TrackRepository extends BaseRepository {
     return restoredIds
   }
 
-  hasMissingTracks(): boolean {
-    const row = this.db.prepare("SELECT 1 FROM tracks WHERE availability = 'missing' LIMIT 1").get()
-    return Boolean(row)
-  }
-
   getMissingCandidates(): MissingTrackCandidate[] {
     return this.db
       .prepare(
@@ -572,7 +568,10 @@ export class TrackRepository extends BaseRepository {
       .all() as MissingTrackCandidate[]
   }
 
-  findMissingCandidatesByIdentity(identity: NormalizedIdentity): MissingTrackCandidate[] {
+  findRelocationCandidatesByIdentity(
+    identity: NormalizedIdentity,
+    includeAvailable = false,
+  ): MissingTrackCandidate[] {
     const selectCandidates = `
       SELECT id AS trackId,
              file_path AS filePath,
@@ -585,7 +584,7 @@ export class TrackRepository extends BaseRepository {
              metadata_signature AS metadataSignature,
              missing_since AS missingSince
       FROM tracks
-      WHERE availability = 'missing'
+      WHERE availability IN (${includeAvailable ? "'missing', 'available'" : "'missing'"})
     `
 
     if (identity.isrc) {
@@ -688,11 +687,12 @@ export class TrackRepository extends BaseRepository {
   }
 
   /**
-   * Relocate a missing track onto a new path.
+   * Relocate a record whose old file was confirmed absent (or a Windows path alias).
+   * The expected old path prevents a stale match from taking over an already moved record.
    * Returns false when the target path is already occupied by another track
    * (or a UNIQUE constraint race loses), so callers can fall back to upsert.
    */
-  relocateTrack(trackId: number, scannedTrack: ScannedTrack): boolean {
+  relocateTrack(trackId: number, scannedTrack: ScannedTrack, expectedOldPath: string): boolean {
     const occupant = this.db
       .prepare(`SELECT id FROM tracks WHERE file_path = ? AND id != ?`)
       .get(scannedTrack.filePath, trackId) as { id: number } | undefined
@@ -727,10 +727,10 @@ export class TrackRepository extends BaseRepository {
                availability = 'available',
                missing_since = NULL,
                lyrics_checked_mtime_ms = ?,
-               lyrics_sidecar_fingerprint = NULL,
+               lyrics_sidecar_fingerprint = ?,
                metadata_checked_mtime_ms = ?,
                updated_at = CURRENT_TIMESTAMP
-           WHERE id = ?`,
+           WHERE id = ? AND file_path = ?`,
         )
         .run(
           scannedTrack.filePath,
@@ -753,8 +753,10 @@ export class TrackRepository extends BaseRepository {
           scannedTrack.isrc,
           scannedTrack.metadataSignature,
           scannedTrack.fileMtimeMs,
+          scannedTrack.lyricsSidecarFingerprint ?? null,
           scannedTrack.fileMtimeMs,
           trackId,
+          expectedOldPath,
         )
 
       return result.changes > 0

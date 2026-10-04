@@ -8,7 +8,7 @@ import type {
   MetadataRefreshWorkerMessage,
 } from './metadataRefreshTypes'
 import { writeAudioTags } from './audioTagWriteService'
-import { normalizeEditableReleaseDate, normalizeEditableYear } from './editableMetadataValidation'
+import { normalizeEditableMetadata } from './editableMetadataValidation'
 import { assertMetadataFingerprint, readStableMetadata } from './readStableMetadata'
 import { verifyWrittenMetadata } from './verifyWrittenMetadata'
 import { logger } from '../../logging/logger'
@@ -386,8 +386,7 @@ export class MetadataRefreshService {
   private async writeTrackMetadata(
     metadata: EditableTrackMetadata,
   ): Promise<UpdateTrackMetadataResult> {
-    normalizeEditableReleaseDate(metadata.releaseDate)
-    normalizeEditableYear(metadata.year)
+    metadata = normalizeEditableMetadata(metadata)
     const filePath = this.repository.getTrackFilePath(metadata.trackId)
 
     if (!filePath) {

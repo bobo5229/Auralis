@@ -93,6 +93,7 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
       <div class="track-info-row">
         <div
           class="track-cover cursor-pointer"
+          data-player-bar-artwork
           role="button"
           tabindex="0"
           :data-fullscreen-focus-restored="isRestoredCoverFocus ? 'true' : undefined"
@@ -115,7 +116,7 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
         <div class="track-text">
           <div class="track-title">{{ currentTrack.title || 'Unknown Title' }}</div>
           <div class="track-subtitle">
-            {{ formatPlaybackSubtitle(currentTrack) }}
+            {{ formatPlaybackSubtitle(currentTrack, '—') }}
           </div>
         </div>
       </div>

@@ -86,7 +86,9 @@ watch(
           :aria-current="row.track.id === currentTrackId ? 'true' : undefined"
           @click="emit('play', row.track.id)"
         >
-          <span class="cd-track-number">{{ row.track.trackNo ?? '' }}</span>
+          <span class="cd-track-number">{{
+            row.track.trackNo == null ? '' : String(row.track.trackNo).padStart(2, '0')
+          }}</span>
           <span class="cd-track-detail">
             <span class="cd-track-title-wrap">
               <span class="cd-track-title" dir="auto">{{ row.title }}</span>
@@ -111,7 +113,8 @@ button {
   justify-content: center;
   gap: 8px;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--cd-type-action-size);
+  line-height: var(--cd-type-action-line-height);
   color: inherit;
   background: transparent;
   border: 1px solid var(--cd-border, #bdbdb9);
@@ -144,27 +147,24 @@ button:focus-visible {
 }
 h2 {
   margin: 0;
-  font:
-    400 20px/1.25 var(--auralis-font-latin),
-    'Auralis Desktop Lyrics SC',
-    serif;
+  font: var(--cd-type-weight) var(--cd-type-section-size)/var(--cd-type-section-line-height)
+    var(--cd-font-display);
 }
 .cd-track-panel .cd-mode {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-size: 11px;
-  line-height: 16px;
   padding: 4px 0 4px 8px;
   border: 0;
   background: transparent;
   box-shadow: none;
   color: var(--cd-text-muted, #62625b);
+  font: var(--cd-type-weight) var(--cd-type-mode-size)/var(--cd-type-mode-line-height)
+    var(--cd-font-text);
 }
 .cd-mode-label {
   display: block;
-  line-height: 16px;
+  line-height: var(--cd-type-mode-line-height);
 }
 .cd-mode-icon {
   display: block;
@@ -191,7 +191,8 @@ h2 {
 .cd-disc-heading {
   margin: 22px 0 9px;
   color: var(--cd-text-muted, #62625b);
-  font: 400 11px var(--auralis-font-disc-heading);
+  font: var(--cd-type-weight) var(--cd-type-disc-size)/var(--cd-type-disc-line-height)
+    var(--cd-font-text);
   letter-spacing: 0.08em;
 }
 .cd-track-panel .cd-track {
@@ -212,11 +213,9 @@ h2 {
 }
 .cd-track-number {
   color: var(--cd-text-subtle, #77776f);
-  font:
-    11px/1.7 var(--auralis-font-latin),
-    'Auralis Desktop Lyrics SC',
-    serif;
-  font-variant-numeric: tabular-nums;
+  font: var(--cd-type-weight)
+    var(--cd-type-track-number-size)/var(--cd-type-track-number-line-height) var(--cd-font-number);
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .cd-track-detail {
   display: flex;
@@ -234,10 +233,8 @@ h2 {
   white-space: nowrap;
 }
 .cd-track-title {
-  font:
-    400 14px/1.5 var(--auralis-font-latin),
-    'Auralis Desktop Lyrics SC',
-    serif;
+  font: var(--cd-type-weight) var(--cd-type-track-size)/var(--cd-type-track-line-height)
+    var(--cd-font-display);
 }
 .cd-track-title-wrap {
   position: relative;
@@ -255,10 +252,8 @@ h2 {
   pointer-events: none;
 }
 .cd-track-artist {
-  font:
-    11px/1.5 var(--auralis-font-latin),
-    'Auralis Desktop Lyrics SC',
-    serif;
+  font: var(--cd-type-weight)
+    var(--cd-type-track-artist-size)/var(--cd-type-track-artist-line-height) var(--cd-font-display);
   color: var(--cd-text-subtle, #77776f);
 }
 @media (max-width: 800px) {

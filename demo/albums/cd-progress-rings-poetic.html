@@ -1,0 +1,1384 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 碟片进度轨道 · 介质与诗性探索</title>
+    <style>
+      @font-face {
+        font-family: 'Auralis Serif';
+        src: url('../../src/renderer/assets/fonts/GenRyuMin2TC-otf/GenRyuMin2TC-R.woff2')
+          format('woff2');
+        font-display: swap;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      :root {
+        --played-color: #a82365;
+        --disc-color: #d52c85;
+        --remaining-color: #aaa9a3;
+        --ink-color: #292929;
+      }
+      body {
+        margin: 0;
+        background: #eeeeec;
+        color: #292929;
+        font:
+          14px 'Segoe UI',
+          'Microsoft YaHei',
+          sans-serif;
+      }
+      ::selection {
+        background: #ebc0d5;
+        color: #292929;
+      }
+      main {
+        max-width: 1720px;
+        margin: auto;
+        padding: 40px 40px 60px;
+      }
+      header {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid #aaa9a3;
+      }
+      .header-title-row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+      h1 {
+        margin: 0;
+        font:
+          32px 'Auralis Serif',
+          Georgia,
+          serif;
+        letter-spacing: 0.5px;
+      }
+      .header-desc {
+        margin: 0;
+        color: #62625b;
+        font-size: 13px;
+      }
+      /* 控制栏 */
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding: 12px 18px;
+        background: #e4e4e0;
+        border: 1px solid #cecec8;
+        border-radius: 8px;
+        flex-wrap: wrap;
+      }
+      .tool-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .ctrl-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        background: #f7f7f5;
+        border: 1px solid #aaa9a3;
+        border-radius: 4px;
+        color: #292929;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        user-select: none;
+      }
+      .ctrl-btn:hover {
+        background: #ffffff;
+        border-color: #62625b;
+      }
+      .ctrl-btn.active {
+        background: #292929;
+        color: #ffffff;
+        border-color: #292929;
+      }
+      .slider-container {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 290px;
+      }
+      .slider-container label {
+        font-size: 12px;
+        color: #62625b;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      input[type='range'] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 100%;
+        height: 4px;
+        background: #aaa9a3;
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+      }
+      input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--played-color);
+        box-shadow: 0 0 0 2px #fff;
+        cursor: pointer;
+        transition: transform 0.1s ease;
+      }
+      input[type='range']::-webkit-slider-thumb:hover {
+        transform: scale(1.2);
+      }
+      .theme-swatches {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .theme-btn {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        cursor: pointer;
+        padding: 0;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        transition: transform 0.15s ease;
+      }
+      .theme-btn:hover {
+        transform: scale(1.15);
+      }
+      .theme-btn.active {
+        border-color: #292929;
+        transform: scale(1.15);
+      }
+
+      /* 8 格栅展示 */
+      .comparison {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 32px 24px;
+        margin-top: 36px;
+      }
+      figure {
+        margin: 0;
+        min-width: 0;
+        background: #f7f7f4;
+        border: 1px solid #d5d5cf;
+        border-radius: 6px;
+        padding: 14px 16px 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+      }
+      .stage {
+        display: grid;
+        place-items: center;
+        overflow: clip;
+        height: clamp(260px, 22vw, 360px);
+        perspective: 1100px;
+        border-radius: 4px;
+        background: #ededeb;
+      }
+      .plane {
+        position: relative;
+        width: 100%;
+        max-width: 340px;
+        aspect-ratio: 1;
+        transform: rotateZ(-24deg) rotateY(26deg) rotateX(32deg);
+        transition: transform 0.4s cubic-bezier(0.2, 0, 0, 1);
+        cursor: pointer;
+      }
+      .plane.flat {
+        transform: rotateZ(0deg) rotateY(0deg) rotateX(0deg);
+      }
+      .disc {
+        position: absolute;
+        inset: 16%;
+        border-radius: 50%;
+        background: var(--disc-color);
+        box-shadow:
+          0 0 0 2px #858586,
+          inset 0 0 0 3px #dadbd5,
+          14px 22px 22px #29292918;
+        mask-image: radial-gradient(circle, transparent 0 6.8%, #000 7.1%);
+        transition: background 0.3s ease;
+      }
+      .disc::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background: linear-gradient(120deg, #fff3, transparent 30%, #0001 65%, #fff2);
+        box-shadow:
+          inset 1px 1px 0 2px #ffffff80,
+          inset -2px -2px 0 3px #42424280;
+      }
+      .hub {
+        position: absolute;
+        width: 25%;
+        height: 25%;
+        left: 37.5%;
+        top: 37.5%;
+        border-radius: 50%;
+        background: conic-gradient(
+          from 30deg,
+          #bdc1c6,
+          #e2e4e4,
+          #a0a6b1,
+          #ccd5d8,
+          #eeece8,
+          #989da6,
+          #bdc1c6
+        );
+        box-shadow:
+          0 0 0 2px #eeeeee70,
+          0 0 0 7px #b7b7b744,
+          inset 0 0 0 3px #888b9290;
+      }
+      .hub::after {
+        content: '';
+        position: absolute;
+        inset: 14%;
+        border-radius: 50%;
+        border: 4px solid #f8f8f890;
+        box-shadow: 0 0 0 2px #6c747b60;
+      }
+      .ring {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+        fill: none;
+      }
+      .remaining {
+        stroke: var(--remaining-color);
+      }
+      .played {
+        stroke: var(--played-color);
+      }
+      figcaption {
+        padding-top: 14px;
+        margin-top: 14px;
+        border-top: 1px solid #d5d5cf;
+      }
+      .tag {
+        display: inline-block;
+        font-size: 11px;
+        padding: 2px 7px;
+        border-radius: 3px;
+        background: #e2e2dc;
+        color: #55554f;
+        margin-bottom: 6px;
+        letter-spacing: 0.3px;
+      }
+      h2 {
+        margin: 0 0 6px;
+        font:
+          18px 'Auralis Serif',
+          Georgia,
+          serif;
+        color: #1e1e1e;
+      }
+      figcaption p {
+        margin: 0;
+        line-height: 1.65;
+        color: #62625b;
+        font-size: 12.5px;
+      }
+
+      footer {
+        margin-top: 48px;
+        padding-top: 24px;
+        border-top: 1px solid #aaa9a3;
+        display: flex;
+        gap: 32px;
+        align-items: center;
+        justify-content: space-between;
+        color: #62625b;
+        font-size: 12px;
+        flex-wrap: wrap;
+      }
+      .legend-group {
+        display: inline-flex;
+        gap: 20px;
+        align-items: center;
+      }
+      .key {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .swatch {
+        width: 20px;
+        height: 3px;
+        background: var(--played-color);
+        border-radius: 2px;
+      }
+      .swatch.remaining {
+        background: var(--remaining-color);
+      }
+
+      @media (max-width: 1440px) {
+        .comparison {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 1024px) {
+        .comparison {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 640px) {
+        main {
+          padding: 24px 16px;
+        }
+        .comparison {
+          grid-template-columns: 1fr;
+          gap: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="header-title-row">
+          <h1>碟片进度轨道 · 介质与诗性探索</h1>
+          <p class="header-desc">
+            阿基米德螺线 · 全息彩虹 · 天体星盘 · 逆跳制表 · 卷径守恒 · 测绘地形 · 循迹唱臂 · 活字折标
+          </p>
+        </div>
+
+        <div class="toolbar" role="region" aria-label="交互控制器">
+          <div class="tool-group">
+            <button id="togglePlayBtn" class="ctrl-btn" type="button" aria-label="自动巡航">
+              <span id="playIcon">▶</span>
+              <span id="playLabel">自动巡航</span>
+            </button>
+            <div class="slider-container">
+              <input
+                id="progressRange"
+                type="range"
+                min="0"
+                max="1000"
+                value="400"
+                aria-label="播放进度调节"
+              />
+              <label id="timeDisplay">40% · 01:36 / 04:00</label>
+            </div>
+          </div>
+
+          <div class="tool-group">
+            <button id="viewToggleBtn" class="ctrl-btn" type="button" aria-label="切换视角">
+              <span>◰ 视角切换 (3D 倾斜 / 正面)</span>
+            </button>
+
+            <div class="theme-swatches" aria-label="配色方案选择">
+              <span style="font-size: 12px; color: #62625b; margin-right: 2px">盘面色:</span>
+              <button
+                class="theme-btn active"
+                style="background: #a82365"
+                data-played="#a82365"
+                data-disc="#d52c85"
+                title="洋红品红"
+              ></button>
+              <button
+                class="theme-btn"
+                style="background: #2b5a88"
+                data-played="#2b5a88"
+                data-disc="#3874ab"
+                title="普鲁士蓝"
+              ></button>
+              <button
+                class="theme-btn"
+                style="background: #b86a14"
+                data-played="#b86a14"
+                data-disc="#d98223"
+                title="琉璃琥珀"
+              ></button>
+              <button
+                class="theme-btn"
+                style="background: #297258"
+                data-played="#297258"
+                data-disc="#389473"
+                title="苔原翡翠"
+              ></button>
+              <button
+                class="theme-btn"
+                style="background: #333333"
+                data-played="#333333"
+                data-disc="#505050"
+                title="曜石哑黑"
+              ></button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="comparison" aria-label="八种诗性与器物进阶轨道形态">
+        <!-- 1. 阿基米德渐开数据螺线 -->
+        <figure data-shape="spiral">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">介质本源 · 光盘真理</span>
+            <h2>1. 阿基米德渐开螺线 (Data Spiral)</h2>
+            <p>
+              CD 本质上是从内向外缠绕 5 公里的微距螺线。打破正圆闭环，拾音光头沿微距螺线从盘芯向外缘缓步旋展，真实还原盘片物理拓扑。
+            </p>
+          </figcaption>
+        </figure>
+
+        <!-- 2. 全息衍射彩虹折射带 -->
+        <figure data-shape="iridescence">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">光学物理 · 布拉格衍射</span>
+            <h2>2. 全息衍射彩虹带 (Iridescence)</h2>
+            <p>
+              模拟微米光栅在自然光下形成的薄膜干涉彩虹光谱。播放点前沿泛起孔雀青、金琥珀与紫红渐变焦斑，随旋转呈现梦幻的光学折射。
+            </p>
+          </figcaption>
+        </figure>
+
+        <!-- 3. 开盘机卷径差动双环 -->
+        <figure data-shape="reel-to-reel">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">模拟发烧 · 磁带守恒</span>
+            <h2>3. 开盘机卷径差动双环 (Reel-to-Reel)</h2>
+            <p>
+              依据磁带截面积守恒定律：内圈供带盘随进度由厚变薄，外圈收带盘由薄变厚。通过物理质量与厚度的消长感知时间流逝。
+            </p>
+          </figcaption>
+        </figure>
+
+        <!-- 4. 逆跳飞返机构大弧 -->
+        <figure data-shape="retrograde">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">高级制表 · 呼吸留白</span>
+            <h2>4. 逆跳飞返机构弧 (Retrograde Arc)</h2>
+            <p>
+              致敬钟表顶级逆跳复杂功能。截取下方 240° 开口大弧，顶部留出 120° 空间给盘面与歌词；两端镶嵌红宝石限位销，终点瞬跳回弹。
+            </p>
+          </figcaption>
+        </figure>
+
+        <!-- 5. 环形声场地形等高线 -->
+        <figure data-shape="topography">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">测绘地理 · 声学地貌</span>
+            <h2>5. 环形声场等高线 (Topography)</h2>
+            <p>
+              致敬 Joy Division 脉冲星与大地等高线。四层起伏曲线解构低、中、高频声学能量，扫描光束如拂过拂晓的峡谷山脊，层峦叠嶂。
+            </p>
+          </figcaption>
+        </figure>
+
+        <!-- 6. 天体星盘与晨昏切环 -->
+        <figure data-shape="astrolabe">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">古典天象 · 浑天黄道</span>
+            <h2>6. 天体星盘晨昏环 (Astrolabe)</h2>
+            <p>
+              欧洲古天文星盘与 23.5° 黄道天球投影。金色恒星符号领航，已播与未播交界处形成晨昏明暗线（Terminator），昼夜交割，肃穆深远。
+            </p>
+          </figcaption>
+        </figure>
+
+        <!-- 7. 偏航循迹角唱臂轨 -->
+        <figure data-shape="tracking-arm">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">黑胶几何 · 机械工程</span>
+            <h2>7. 唱臂循迹几何轨 (Tonearm Track)</h2>
+            <p>
+              黑胶 Baerwald 零误差对准几何。偏心双曲线上附带极简唱头几何轮廓与切向垂线，随唱针向盘芯推进展示微妙的偏航角摆动。
+            </p>
+          </figcaption>
+        </figure>
+
+        <!-- 8. 活字铅印与书脊折标 -->
+        <figure data-shape="letterpress">
+          <div class="stage">
+            <div class="plane">
+              <div class="disc"><div class="hub"></div></div>
+              <svg class="ring" viewBox="-250 -250 500 500" role="img"></svg>
+            </div>
+          </div>
+          <figcaption>
+            <span class="tag">活字印刷 · 藏书装帧</span>
+            <h2>8. 活字折标印版环 (Letterpress)</h2>
+            <p>
+              源流明体与古典装帧裁切折标。沿环排布罗马数字乐章与印版折页孔，播放抚过由哑光水印化为焦黑油墨与朱砂印痕，充盈书卷气。
+            </p>
+          </figcaption>
+        </figure>
+      </section>
+
+      <footer>
+        <div class="legend-group">
+          <span class="key"><span class="swatch"></span>已播放 / 活跃焦点</span>
+          <span class="key"><span class="swatch remaining"></span>未播放 / 预留基准</span>
+        </div>
+        <div>
+          <span>Auralis Design Spec · 介质与诗性实验集 · 点击盘面任意角度即刻精准寻轨</span>
+        </div>
+      </footer>
+    </main>
+
+    <script>
+      const namespace = 'http://www.w3.org/2000/svg'
+      let currentProgress = 0.4
+      let isPlaying = false
+      let animId = null
+      let isFlatView = false
+
+      function element(name, attributes = {}) {
+        const node = document.createElementNS(namespace, name)
+        for (const [key, value] of Object.entries(attributes)) {
+          node.setAttribute(key, String(value))
+        }
+        return node
+      }
+
+      function point(radius, angle) {
+        return [Math.cos(angle) * radius, Math.sin(angle) * radius]
+      }
+
+      function polarToCartesian(radius, angle) {
+        return {
+          x: Math.cos(angle) * radius,
+          y: Math.sin(angle) * radius,
+        }
+      }
+
+      function describeArc(radius, startAngle, endAngle) {
+        const start = polarToCartesian(radius, startAngle)
+        const end = polarToCartesian(radius, endAngle)
+        const diff = endAngle - startAngle
+        const largeArcFlag = diff > Math.PI ? 1 : 0
+        return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`
+      }
+
+      // 生成螺线路径点
+      function buildSpiralPoints(rStart, rEnd, aStart, aEnd, steps = 100) {
+        const points = []
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps
+          const r = rStart + (rEnd - rStart) * t
+          const a = aStart + (aEnd - aStart) * t
+          points.push(point(r, a))
+        }
+        return points
+      }
+
+      function pointsToPathD(pts) {
+        if (!pts.length) return ''
+        let d = `M ${pts[0][0]} ${pts[0][1]}`
+        for (let i = 1; i < pts.length; i++) {
+          d += ` L ${pts[i][0]} ${pts[i][1]}`
+        }
+        return d
+      }
+
+      // 八大形态的专业级渲染算法
+      const renderers = {
+        // 1. 阿基米德渐开数据螺线
+        spiral(svg, progress) {
+          svg.replaceChildren()
+          const rMin = 182
+          const rMax = 212
+          const totalTurns = 2.2
+          const startAngle = -Math.PI / 2
+          const totalAngle = totalTurns * Math.PI * 2
+          const currentAngle = startAngle + totalAngle * progress
+          const currentRadius = rMin + (rMax - rMin) * progress
+
+          // 全程未播微细螺线底轨
+          const bgPts = buildSpiralPoints(rMin, rMax, startAngle, startAngle + totalAngle, 120)
+          svg.append(
+            element('path', {
+              d: pointsToPathD(bgPts),
+              class: 'remaining',
+              'stroke-width': 1.2,
+              'stroke-dasharray': '2 4',
+              opacity: 0.5,
+              fill: 'none',
+            }),
+          )
+
+          // 已播放连续高密螺线
+          if (progress > 0.005) {
+            const playedPts = buildSpiralPoints(
+              rMin,
+              currentRadius,
+              startAngle,
+              currentAngle,
+              Math.max(10, Math.floor(120 * progress)),
+            )
+            svg.append(
+              element('path', {
+                d: pointsToPathD(playedPts),
+                class: 'played',
+                'stroke-width': 2.4,
+                'stroke-linecap': 'round',
+                fill: 'none',
+              }),
+            )
+          }
+
+          // 螺线行进光斑游标
+          const [cx, cy] = point(currentRadius, currentAngle)
+          svg.append(
+            element('circle', {
+              cx,
+              cy,
+              r: 4.5,
+              fill: '#ffffff',
+              stroke: 'var(--played-color)',
+              'stroke-width': 2,
+            }),
+          )
+          // 沿法线延伸的拾音导引刻度
+          const [lx1, ly1] = point(currentRadius - 7, currentAngle)
+          const [lx2, ly2] = point(currentRadius + 7, currentAngle)
+          svg.append(
+            element('line', {
+              x1: lx1,
+              y1: ly1,
+              x2: lx2,
+              y2: ly2,
+              stroke: '#ffffff',
+              'stroke-width': 1.5,
+              'stroke-linecap': 'round',
+            }),
+          )
+        },
+
+        // 2. 全息衍射彩虹折射带
+        iridescence(svg, progress) {
+          svg.replaceChildren()
+          const radius = 198
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+
+          // 定义彩虹薄膜渐变色谱
+          let defs = svg.querySelector('defs')
+          if (!defs) {
+            defs = element('defs')
+            defs.innerHTML = `
+              <linearGradient id="rainbowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#46d1c7" stop-opacity="0.9"/>
+                <stop offset="28%" stop-color="#6ee7b7" stop-opacity="0.95"/>
+                <stop offset="55%" stop-color="#facc15" stop-opacity="1"/>
+                <stop offset="78%" stop-color="#f43f5e" stop-opacity="0.95"/>
+                <stop offset="100%" stop-color="#c084fc" stop-opacity="0.9"/>
+              </linearGradient>
+            `
+            svg.append(defs)
+          }
+
+          // 基础微细同心双光栅底轨
+          svg.append(
+            element('circle', {
+              r: radius - 3,
+              stroke: '#d2d2cc',
+              'stroke-width': 1,
+              fill: 'none',
+            }),
+          )
+          svg.append(
+            element('circle', {
+              r: radius + 3,
+              stroke: '#d2d2cc',
+              'stroke-width': 1,
+              fill: 'none',
+            }),
+          )
+
+          // 已播放区域沉淀的主色实体环
+          svg.append(
+            element('circle', {
+              r: radius,
+              class: 'played',
+              'stroke-width': 2.4,
+              fill: 'none',
+              pathLength: 1,
+              'stroke-dasharray': `${progress} ${1 - progress}`,
+              transform: 'rotate(-90)',
+              'stroke-linecap': 'round',
+            }),
+          )
+
+          // 彩虹衍射扇形焦斑 (跨越当前点前后约45度)
+          const span = (46 * Math.PI) / 180
+          const startA = currAngle - span
+          const endA = currAngle + (8 * Math.PI) / 180
+          svg.append(
+            element('path', {
+              d: describeArc(radius, startA, endA),
+              stroke: 'url(#rainbowGrad)',
+              'stroke-width': 4.5,
+              'stroke-linecap': 'round',
+              fill: 'none',
+              filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.8))',
+            }),
+          )
+
+          // 核心衍射高亮白光焦点
+          const [hx, hy] = point(radius, currAngle)
+          svg.append(
+            element('circle', {
+              cx: hx,
+              cy: hy,
+              r: 3.5,
+              fill: '#ffffff',
+              stroke: '#facc15',
+              'stroke-width': 1.5,
+            }),
+          )
+        },
+
+        // 3. 开盘机卷径差动双环
+        'reel-to-reel'(svg, progress) {
+          svg.replaceChildren()
+          // 磁带卷径守恒模型：内圈供带轮变细，外圈收带轮变厚
+          const rSupply = 188
+          const rTakeup = 204
+
+          const supplyWidth = 1.2 + 8.5 * Math.sqrt(Math.max(0, 1 - progress))
+          const takeupWidth = 1.2 + 8.5 * Math.sqrt(progress)
+
+          // 供带盘 (Supply Reel - 内圈)
+          svg.append(
+            element('circle', {
+              r: rSupply,
+              stroke: '#b8b7b1',
+              'stroke-width': supplyWidth,
+              fill: 'none',
+              opacity: 0.7,
+            }),
+          )
+          // 收带盘 (Take-up Reel - 外圈，已录制带量)
+          svg.append(
+            element('circle', {
+              r: rTakeup,
+              stroke: 'var(--played-color)',
+              'stroke-width': takeupWidth,
+              fill: 'none',
+              opacity: 0.9,
+            }),
+          )
+
+          // 动态磁带轮辐与旋转标记
+          const rotAngle = progress * Math.PI * 8 - Math.PI / 2
+          for (let i = 0; i < 3; i++) {
+            const spokeA = rotAngle + (i * Math.PI * 2) / 3
+            const [sx1, sy1] = point(rSupply - supplyWidth / 2 - 4, spokeA)
+            const [sx2, sy2] = point(rSupply + supplyWidth / 2 + 4, spokeA)
+            svg.append(
+              element('line', {
+                x1: sx1,
+                y1: sy1,
+                x2: sx2,
+                y2: sy2,
+                stroke: '#ffffff',
+                'stroke-width': 1.5,
+                opacity: 0.8,
+              }),
+            )
+          }
+
+          // 磁带走带跨接切线导轨 (模拟磁头读带切向)
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+          const [tx1, ty1] = point(rSupply, currAngle)
+          const [tx2, ty2] = point(rTakeup, currAngle)
+          svg.append(
+            element('line', {
+              x1: tx1,
+              y1: ty1,
+              x2: tx2,
+              y2: ty2,
+              stroke: '#ffffff',
+              'stroke-width': 2,
+              'stroke-linecap': 'round',
+            }),
+          )
+        },
+
+        // 4. 逆跳飞返机构大弧
+        retrograde(svg, progress) {
+          svg.replaceChildren()
+          const radius = 198
+          // 顶部留出120度大开口，从 -30度(2点钟) 沿顺时针延伸至 210度(10点钟)，总跨度240度
+          const startAngle = -Math.PI / 6
+          const totalSpan = (240 * Math.PI) / 180
+          const endAngle = startAngle + totalSpan
+          const currAngle = startAngle + totalSpan * progress
+
+          // 底轨 240度整弧
+          svg.append(
+            element('path', {
+              d: describeArc(radius, startAngle, endAngle),
+              class: 'remaining',
+              'stroke-width': 2,
+              'stroke-linecap': 'round',
+              opacity: 0.5,
+            }),
+          )
+
+          // 刻度微齿 (24 等分扇面)
+          for (let i = 0; i <= 24; i++) {
+            const tickA = startAngle + (totalSpan / 24) * i
+            const isMajor = i % 6 === 0
+            const [p1x, p1y] = point(radius + 4, tickA)
+            const [p2x, p2y] = point(radius + (isMajor ? 14 : 8), tickA)
+            svg.append(
+              element('line', {
+                x1: p1x,
+                y1: p1y,
+                x2: p2x,
+                y2: p2y,
+                stroke: '#9a9993',
+                'stroke-width': isMajor ? 1.5 : 1,
+              }),
+            )
+          }
+
+          // 已走过的高亮逆跳弧
+          if (progress > 0.005) {
+            svg.append(
+              element('path', {
+                d: describeArc(radius, startAngle, currAngle),
+                class: 'played',
+                'stroke-width': 3.5,
+                'stroke-linecap': 'round',
+              }),
+            )
+          }
+
+          // 起止限位红宝石柱 (Stop Jewels)
+          ;[startAngle, endAngle].forEach((limitA) => {
+            const [jx, jy] = point(radius, limitA)
+            svg.append(
+              element('circle', {
+                cx: jx,
+                cy: jy,
+                r: 4.5,
+                fill: '#d52c85',
+                stroke: '#ffffff',
+                'stroke-width': 1.5,
+              }),
+            )
+          })
+
+          // 当前飞返游标指针
+          const [hx, hy] = point(radius, currAngle)
+          svg.append(
+            element('circle', {
+              cx: hx,
+              cy: hy,
+              r: 5,
+              fill: '#ffffff',
+              stroke: 'var(--played-color)',
+              'stroke-width': 2.5,
+            }),
+          )
+        },
+
+        // 5. 环形声场地形等高线
+        topography(svg, progress) {
+          svg.replaceChildren()
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+          const layers = [188, 194, 200, 206]
+
+          layers.forEach((baseR, lIdx) => {
+            const playedPts = []
+            const remainingPts = []
+            const steps = 100
+
+            for (let i = 0; i <= steps; i++) {
+              const a = (i / steps) * Math.PI * 2 - Math.PI / 2
+              // 多重正弦与余弦拟合地理等高线
+              const elevation =
+                Math.sin(a * 4 + lIdx) * 3.5 + Math.cos(a * 7 - lIdx * 0.8) * 2.2
+              const r = baseR + elevation
+              const pt = point(r, a)
+
+              if (a <= currAngle) {
+                playedPts.push(pt)
+              } else {
+                if (remainingPts.length === 0 && playedPts.length > 0) {
+                  remainingPts.push(playedPts[playedPts.length - 1])
+                }
+                remainingPts.push(pt)
+              }
+            }
+
+            // 未扫描暗调等高线
+            if (remainingPts.length > 1) {
+              svg.append(
+                element('path', {
+                  d: pointsToPathD(remainingPts),
+                  stroke: '#aaa9a3',
+                  'stroke-width': 1,
+                  'stroke-dasharray': '2 3',
+                  opacity: 0.45,
+                  fill: 'none',
+                }),
+              )
+            }
+
+            // 已照亮声学地貌线
+            if (playedPts.length > 1) {
+              svg.append(
+                element('path', {
+                  d: pointsToPathD(playedPts),
+                  class: 'played',
+                  'stroke-width': 1.6,
+                  opacity: 0.6 + lIdx * 0.12,
+                  fill: 'none',
+                }),
+              )
+            }
+          })
+
+          // 测绘声波前沿剖面扫描针
+          const [sx1, sy1] = point(184, currAngle)
+          const [sx2, sy2] = point(211, currAngle)
+          svg.append(
+            element('line', {
+              x1: sx1,
+              y1: sy1,
+              x2: sx2,
+              y2: sy2,
+              stroke: '#ffffff',
+              'stroke-width': 2,
+              'stroke-linecap': 'round',
+            }),
+          )
+        },
+
+        // 6. 天体星盘与晨昏切环
+        astrolabe(svg, progress) {
+          svg.replaceChildren()
+          const radius = 198
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+
+          // 黄道天球 23.5° 倾角投影椭圆
+          svg.append(
+            element('ellipse', {
+              cx: 0,
+              cy: 0,
+              rx: radius + 6,
+              ry: (radius + 6) * Math.cos((23.5 * Math.PI) / 180),
+              transform: 'rotate(-20)',
+              stroke: '#cac9c3',
+              'stroke-width': 1,
+              'stroke-dasharray': '3 4',
+              fill: 'none',
+              opacity: 0.55,
+            }),
+          )
+
+          // 24小时恒星时微刻度圈
+          svg.append(
+            element('circle', {
+              r: radius,
+              class: 'remaining',
+              'stroke-width': 1.5,
+              opacity: 0.5,
+              fill: 'none',
+            }),
+          )
+
+          // 已走过的昼界金弧
+          svg.append(
+            element('circle', {
+              r: radius,
+              class: 'played',
+              'stroke-width': 2.8,
+              fill: 'none',
+              pathLength: 1,
+              'stroke-dasharray': `${progress} ${1 - progress}`,
+              transform: 'rotate(-90)',
+              'stroke-linecap': 'round',
+            }),
+          )
+
+          // 晨昏界线 (Terminator Line) 贯穿圆盘的切径
+          const [t1x, t1y] = point(radius - 12, currAngle)
+          const [t2x, t2y] = point(radius + 12, currAngle)
+          svg.append(
+            element('line', {
+              x1: t1x,
+              y1: t1y,
+              x2: t2x,
+              y2: t2y,
+              stroke: '#b86a14',
+              'stroke-width': 1.8,
+            }),
+          )
+
+          // 金色太阳恒星符号游标 ⊙
+          const [sx, sy] = point(radius, currAngle)
+          svg.append(
+            element('circle', {
+              cx: sx,
+              cy: sy,
+              r: 5.5,
+              fill: '#ffd043',
+              stroke: '#292929',
+              'stroke-width': 1.2,
+            }),
+          )
+          svg.append(
+            element('circle', {
+              cx: sx,
+              cy: sy,
+              r: 1.5,
+              fill: '#292929',
+            }),
+          )
+        },
+
+        // 7. 偏航循迹角唱臂轨
+        'tracking-arm'(svg, progress) {
+          svg.replaceChildren()
+          const radius = 198
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+
+          // Baerwald 循迹双零点参考圆弧 (R=192, 204)
+          ;[192, 204].forEach((gr) => {
+            svg.append(
+              element('circle', {
+                r: gr,
+                stroke: '#deded8',
+                'stroke-width': 0.8,
+                'stroke-dasharray': '2 5',
+                fill: 'none',
+              }),
+            )
+          })
+
+          // 主拾音音轨弧
+          svg.append(
+            element('circle', {
+              r: radius,
+              class: 'remaining',
+              'stroke-width': 1.5,
+              opacity: 0.45,
+              fill: 'none',
+            }),
+          )
+          svg.append(
+            element('circle', {
+              r: radius,
+              class: 'played',
+              'stroke-width': 2.6,
+              fill: 'none',
+              pathLength: 1,
+              'stroke-dasharray': `${progress} ${1 - progress}`,
+              transform: 'rotate(-90)',
+              'stroke-linecap': 'round',
+            }),
+          )
+
+          // 唱头机械线框 (Cartridge Headshell 极简机械俯视轮廓)
+          const [px, py] = point(radius, currAngle)
+          const offsetAngle = currAngle + (Math.sin(currAngle * 2) * 5 * Math.PI) / 180
+
+          const gCartridge = element('g', {
+            transform: `translate(${px}, ${py}) rotate(${(offsetAngle * 180) / Math.PI + 90})`,
+          })
+          // 唱头轮廓矩形
+          gCartridge.append(
+            element('rect', {
+              x: -6,
+              y: -14,
+              width: 12,
+              height: 18,
+              rx: 1.5,
+              fill: '#292929',
+              stroke: '#ffffff',
+              'stroke-width': 1,
+            }),
+          )
+          // 唱针针尖中心线
+          gCartridge.append(
+            element('line', {
+              x1: 0,
+              y1: -14,
+              x2: 0,
+              y2: 7,
+              stroke: 'var(--played-color)',
+              'stroke-width': 1.5,
+            }),
+          )
+          // 针尖微红宝石
+          gCartridge.append(
+            element('circle', {
+              cx: 0,
+              cy: 7,
+              r: 1.8,
+              fill: '#ffffff',
+            }),
+          )
+          svg.append(gCartridge)
+        },
+
+        // 8. 活字铅印与书脊折标
+        letterpress(svg, progress) {
+          svg.replaceChildren()
+          const radius = 198
+          const currAngle = progress * Math.PI * 2 - Math.PI / 2
+
+          // 穿孔压印虚线 (Perforations)
+          svg.append(
+            element('circle', {
+              r: radius,
+              stroke: '#aaa9a3',
+              'stroke-width': 1,
+              'stroke-dasharray': '1 6',
+              fill: 'none',
+              opacity: 0.6,
+            }),
+          )
+
+          // 12 个活字章节微标
+          const glyphs = [
+            'I',
+            'II',
+            'III',
+            'IV',
+            'V',
+            'VI',
+            'VII',
+            'VIII',
+            'IX',
+            'X',
+            'XI',
+            'XII',
+          ]
+          glyphs.forEach((gl, idx) => {
+            const angle = (idx / 12) * Math.PI * 2 - Math.PI / 2
+            const [gx, gy] = point(radius, angle)
+            const isPassed = angle <= currAngle
+
+            const txt = element('text', {
+              x: gx,
+              y: gy,
+              'text-anchor': 'middle',
+              'dominant-baseline': 'central',
+              'font-family': 'Auralis Serif, Georgia, serif',
+              'font-size': '10px',
+              fill: isPassed ? 'var(--ink-color)' : '#aaa9a3',
+              'font-weight': isPassed ? 'bold' : 'normal',
+              opacity: isPassed ? 1 : 0.45,
+            })
+            txt.textContent = gl
+            svg.append(txt)
+          })
+
+          // 朱砂印色圆弧段 (已播放油墨浸润)
+          if (progress > 0.01) {
+            svg.append(
+              element('circle', {
+                r: radius,
+                class: 'played',
+                'stroke-width': 1.8,
+                fill: 'none',
+                pathLength: 1,
+                'stroke-dasharray': `${progress} ${1 - progress}`,
+                transform: 'rotate(-90)',
+                opacity: 0.7,
+              }),
+            )
+          }
+
+          // 藏书印裁切对准对位标 (Registration Crop Mark ⊕)
+          const [kx, ky] = point(radius, currAngle)
+          svg.append(
+            element('circle', {
+              cx: kx,
+              cy: ky,
+              r: 4.5,
+              fill: '#ffffff',
+              stroke: 'var(--played-color)',
+              'stroke-width': 1.5,
+            }),
+          )
+          svg.append(
+            element('line', {
+              x1: kx - 7,
+              y1: ky,
+              x2: kx + 7,
+              y2: ky,
+              stroke: 'var(--played-color)',
+              'stroke-width': 1.2,
+            }),
+          )
+          svg.append(
+            element('line', {
+              x1: kx,
+              y1: ky - 7,
+              x2: kx,
+              y2: ky + 7,
+              stroke: 'var(--played-color)',
+              'stroke-width': 1.2,
+            }),
+          )
+        },
+      }
+
+      // 全局状态更新
+      function updateAllRings() {
+        for (const figure of document.querySelectorAll('figure')) {
+          const svg = figure.querySelector('svg')
+          const shape = figure.dataset.shape
+          if (renderers[shape]) {
+            renderers[shape](svg, currentProgress)
+          }
+        }
+
+        const totalSeconds = 240
+        const currentSec = Math.floor(totalSeconds * currentProgress)
+        const formatTime = (s) => {
+          const m = String(Math.floor(s / 60)).padStart(2, '0')
+          const sec = String(s % 60).padStart(2, '0')
+          return `${m}:${sec}`
+        }
+        const pct = Math.round(currentProgress * 100)
+        document.getElementById('timeDisplay').textContent =
+          `${pct}% · ${formatTime(currentSec)} / ${formatTime(totalSeconds)}`
+      }
+
+      // 进度条控制
+      const slider = document.getElementById('progressRange')
+      slider.addEventListener('input', (e) => {
+        currentProgress = Number(e.target.value) / 1000
+        updateAllRings()
+      })
+
+      // 巡航播放
+      const playBtn = document.getElementById('togglePlayBtn')
+      const playIcon = document.getElementById('playIcon')
+      const playLabel = document.getElementById('playLabel')
+
+      function animateStep() {
+        if (!isPlaying) return
+        currentProgress += 0.001
+        if (currentProgress > 1) currentProgress = 0
+        slider.value = String(Math.round(currentProgress * 1000))
+        updateAllRings()
+        animId = requestAnimationFrame(animateStep)
+      }
+
+      playBtn.addEventListener('click', () => {
+        isPlaying = !isPlaying
+        if (isPlaying) {
+          playBtn.classList.add('active')
+          playIcon.textContent = '⏸'
+          playLabel.textContent = '暂停巡航'
+          animId = requestAnimationFrame(animateStep)
+        } else {
+          playBtn.classList.remove('active')
+          playIcon.textContent = '▶'
+          playLabel.textContent = '自动巡航'
+          if (animId) cancelAnimationFrame(animId)
+        }
+      })
+
+      // 视角切换
+      const viewBtn = document.getElementById('viewToggleBtn')
+      viewBtn.addEventListener('click', () => {
+        isFlatView = !isFlatView
+        document.querySelectorAll('.plane').forEach((plane) => {
+          plane.classList.toggle('flat', isFlatView)
+        })
+        viewBtn.classList.toggle('active', isFlatView)
+      })
+
+      // 配色方案
+      document.querySelectorAll('.theme-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.theme-btn').forEach((b) => b.classList.remove('active'))
+          btn.classList.add('active')
+          const played = btn.dataset.played
+          const disc = btn.dataset.disc
+          document.documentElement.style.setProperty('--played-color', played)
+          document.documentElement.style.setProperty('--disc-color', disc)
+          updateAllRings()
+        })
+      })
+
+      // 点击极角快速寻轨
+      document.querySelectorAll('.plane').forEach((plane) => {
+        plane.addEventListener('click', (e) => {
+          const rect = plane.getBoundingClientRect()
+          const centerX = rect.left + rect.width / 2
+          const centerY = rect.top + rect.height / 2
+          const dx = e.clientX - centerX
+          const dy = e.clientY - centerY
+
+          let rad = Math.atan2(dy, dx) + Math.PI / 2
+          if (rad < 0) rad += Math.PI * 2
+          currentProgress = rad / (Math.PI * 2)
+          slider.value = String(Math.round(currentProgress * 1000))
+          updateAllRings()
+        })
+      })
+
+      // 初次加载渲染
+      updateAllRings()
+    </script>
+  </body>
+</html>

@@ -2,6 +2,7 @@ import type { NativePlaybackCommand, NativePlaybackEvent } from '@shared/ipc/con
 import { openMpvClient, type MpvClient, type MpvMessage } from './mpvClient'
 import { DigitalSilenceAnalyzer, type DigitalBoundary } from './digitalSilence'
 import { SoftTransitionPreparer, type SoftTransition } from './softTransition'
+import type { SpectrumSource } from './playbackSpectrumService'
 
 const BOUNDARY_UPDATE_MARGIN_SECONDS = 2
 
@@ -64,6 +65,19 @@ export class NativePlaybackService {
   constructor(private readonly options: Options) {
     this.analyzer = new DigitalSilenceAnalyzer(options.ffmpegPath)
     this.transitions = new SoftTransitionPreparer(options.ffmpegPath, options.mpvPath)
+  }
+
+  /** Read-only view of the actual decoder source, including transition bridges. */
+  getSpectrumSource(): SpectrumSource | null {
+    if (!this.loaded || this.snapshot.trackId === null) return null
+    const bridge = this.transition?.stage === 'bridge' ? this.transition.plan : null
+    return {
+      trackId: this.snapshot.trackId,
+      path: bridge?.path ?? this.path,
+      currentTime: this.snapshot.currentTime,
+      isPlaying: this.snapshot.isPlaying,
+      timelineOffset: bridge?.incomingStart ?? 0,
+    }
   }
 
   private publish(kind: NativePlaybackEvent['kind'] = 'state', detail?: string): void {

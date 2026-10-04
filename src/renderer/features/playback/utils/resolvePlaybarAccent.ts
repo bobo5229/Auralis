@@ -1,5 +1,5 @@
 import type { RgbColor } from '../types'
-import { getRelativeLuminance } from './resolvePlayerPrimaryButtonTextColor'
+import { getContrastRatio, getRelativeLuminance } from '@renderer/shared/color/colorMath'
 import { PLAYER_DEFAULT_ACCENT_DARK, PLAYER_DEFAULT_ACCENT_LIGHT } from './playerColorDefaults'
 
 // Conservative upper bound for the dark surface, including tint and control highlights.
@@ -31,7 +31,6 @@ export function resolvePlaybarAccent(color?: RgbColor | null, isDark = true): Rg
       if (getRelativeLuminance(candidate) >= minimumLuminance) return candidate
     }
   } else {
-    const surfaceLuminance = getRelativeLuminance(PLAYBAR_LIGHT_SURFACE_BOUND)
     // Darken/mix towards deep shade to maintain at least 3:1 contrast against light surface.
     for (let step = 0; step <= 100; step++) {
       const amount = step / 100
@@ -40,8 +39,7 @@ export function resolvePlaybarAccent(color?: RgbColor | null, isDark = true): Rg
         g: Math.round(source.g * (1 - amount)),
         b: Math.round(source.b * (1 - amount)),
       }
-      const candidateLuminance = getRelativeLuminance(candidate)
-      const contrast = (surfaceLuminance + 0.05) / (candidateLuminance + 0.05)
+      const contrast = getContrastRatio(PLAYBAR_LIGHT_SURFACE_BOUND, candidate)
       if (contrast >= 3) return candidate
     }
   }

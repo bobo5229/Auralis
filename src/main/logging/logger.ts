@@ -1,6 +1,6 @@
 import pino, { type DestinationStream, type Logger } from 'pino'
 import { sanitizeLogValue } from './logSanitizer'
-import { RollingLogStore, type RollingLogStoreOptions } from './rollingLogStore'
+import type { RollingLogStoreOptions } from './rollingLogStore'
 
 const SUPPORTED_LOG_LEVELS = ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'] as const
 
@@ -34,41 +34,98 @@ function createLogger(destination?: DestinationStream, development = isDevelopme
   )
 }
 
-export interface InitializeLoggerOptions extends RollingLogStoreOptions {
+interface LoggerEnvironmentOptions extends RollingLogStoreOptions {
   development: boolean
   logsDirectory: string
-  persistToFile: boolean
 }
+// Resolve in the main entry; Rollup may move logger.ts into a shared chunk.
+export type InitializeLoggerOptions = LoggerEnvironmentOptions &
+  ({ persistToFile: false } | { persistToFile: true; transportPath: string })
 
-let rollingStore: RollingLogStore | undefined
+interface LogTransport {
+  write(message: string): boolean
+  flushSync(): void
+  end(): void
+  on(event: 'error', listener: (error: Error) => void): void
+}
+interface LogSession {
+  transport?: LogTransport
+  failed: boolean
+  closed: boolean
+}
+let session: LogSession | undefined
 
 // The live binding lets modules import the logger before Electron has finalized userData.
 export let logger: Logger = createLogger(undefined, isDevelopment)
 
 export function initializeLogger(options: InitializeLoggerOptions): void {
-  rollingStore?.close()
-  rollingStore = undefined
+  shutdownLogger()
 
   if (!options.persistToFile) {
     logger = createLogger(undefined, options.development)
     return
   }
 
-  rollingStore = new RollingLogStore(options.logsDirectory, options)
-  const destination: DestinationStream = {
+  const current: LogSession = { failed: false, closed: false }
+  session = current
+  try {
+    current.transport = pino.transport({
+      target: options.transportPath,
+      options: {
+        logsDirectory: options.logsDirectory,
+        maximumFileBytes: options.maximumFileBytes,
+        maximumFileCount: options.maximumFileCount,
+      },
+    }) as LogTransport
+    current.transport.on('error', () => {
+      current.failed = true
+    })
+  } catch {
+    current.failed = true
+  }
+  const destination: DestinationStream & { flush(callback: () => void): void } = {
     write(message: string) {
-      rollingStore?.write(message)
+      if (current.closed || current.failed || !current.transport) return
+      try {
+        current.transport.write(message)
+      } catch {
+        current.failed = true
+      }
+    },
+    flush(callback) {
+      try {
+        if (!current.closed && !current.failed) current.transport?.flushSync()
+      } catch {
+        current.failed = true
+      }
+      callback()
     },
   }
   logger = createLogger(destination, options.development)
 }
 
-export function shutdownLogger(): void {
+/** Flush pending records before diagnostics read the managed files. */
+export function flushLogger(): void {
   try {
-    logger.flush()
+    if (!session?.failed) session?.transport?.flushSync()
   } catch {
-    // The rolling destination writes synchronously; flush is best-effort for other destinations.
+    if (session) session.failed = true
   }
-  rollingStore?.close()
-  rollingStore = undefined
+}
+
+export function shutdownLogger(): void {
+  const closing = session
+  if (!closing) return
+  session = undefined
+  closing.closed = true
+  try {
+    if (!closing.failed) closing.transport?.flushSync()
+  } catch {
+    closing.failed = true
+  }
+  try {
+    closing.transport?.end()
+  } catch {
+    closing.failed = true
+  }
 }

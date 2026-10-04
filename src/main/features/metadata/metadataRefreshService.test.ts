@@ -79,6 +79,35 @@ beforeEach(() => {
 })
 
 describe('metadata result acceptance', () => {
+  it('passes the same canonical request to file writing and database commit', async () => {
+    const { service, repo } = setup()
+    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
+    const metadata = {
+      trackId: 1,
+      title: ' Title ',
+      artistDisplay: ' A;  ; B; a ',
+      albumTitle: ' Album ',
+      albumArtistDisplay: 'C; D; c',
+      genreDisplay: 'Pop; Live; pop',
+      year: null,
+      releaseDate: null,
+    }
+    await service.updateTrackMetadata(metadata)
+    const canonical = {
+      ...metadata,
+      title: 'Title',
+      artistDisplay: 'A; B',
+      albumTitle: 'Album',
+      albumArtistDisplay: 'C; D',
+      genreDisplay: 'Pop; Live',
+    }
+    expect(writeAudioTags).toHaveBeenCalledWith(
+      'isolated.flac',
+      canonical,
+      'isolated-bin/ffmpeg.exe',
+    )
+    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledWith(canonical, payload)
+  })
   it('drains an in-flight fingerprint check before finishing shutdown', async () => {
     const { service, repo } = setup()
     const gate = deferred<void>()

@@ -4,7 +4,7 @@ import { routeLoaders } from './routeComponentLoaders'
 export const router = createRouter({
   history: createWebHashHistory(),
   routes: [
-    { path: '/', name: 'home', component: routeLoaders.home, meta: { title: 'Home' } },
+    { path: '/', redirect: { name: 'library' } },
     {
       path: '/songs',
       name: 'library',

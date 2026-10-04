@@ -8,9 +8,10 @@ const props = withDefaults(
     description?: string
     actionLabel?: string
     icon?: string
+    showIcon?: boolean
     compact?: boolean
   }>(),
-  { description: '', actionLabel: '', icon: '', compact: false },
+  { description: '', actionLabel: '', icon: '', showIcon: true, compact: false },
 )
 
 defineEmits<{ action: [] }>()
@@ -30,6 +31,7 @@ const statusIcon = computed(() => {
     aria-live="polite"
   >
     <span
+      v-if="showIcon"
       class="main-page-status-icon"
       :class="{ 'main-page-status-icon--error': kind === 'error' }"
       aria-hidden="true"

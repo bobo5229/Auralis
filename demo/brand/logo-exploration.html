@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-tone="mono">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; font-src 'self'; connect-src 'none'"
+    />
+    <title>Auralis · Logo 设计比较</title>
+    <link rel="stylesheet" href="../../src/renderer/app/styles/typography.css" />
+    <link rel="stylesheet" href="../../src/renderer/app/styles/harmony-fonts.css" />
+    <link rel="stylesheet" href="logo-exploration.css" />
+    <script src="logo-exploration.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header class="page-header">
+        <div>
+          <h1>给 Auralis 一个自己的形状。</h1>
+          <p class="intro">从品牌首字母出发，让声音与收藏成为形状的一部分。</p>
+          <p><a href="wordmark-exploration.html">比较五种品牌艺术字方案</a></p>
+        </div>
+        <div class="previous-mark">
+          <img
+            src="../../resources/icons/icon.png"
+            width="38"
+            height="38"
+            alt="当前 Auralis 应用图标"
+          />
+          <span>当前图标</span>
+        </div>
+      </header>
+
+      <div class="controls" aria-label="比较设置">
+        <fieldset>
+          <legend>画布</legend>
+          <label><input type="radio" name="theme" value="light" checked /><span>浅色</span></label>
+          <label><input type="radio" name="theme" value="dark" /><span>深色</span></label>
+        </fieldset>
+        <fieldset>
+          <legend>图形颜色</legend>
+          <label><input type="radio" name="tone" value="mono" checked /><span>单色</span></label>
+          <label><input type="radio" name="tone" value="sage" /><span>鼠尾草</span></label>
+          <label><input type="radio" name="tone" value="blue" /><span>蓝色</span></label>
+        </fieldset>
+        <p>相同尺寸与配色，比较形状本身。</p>
+      </div>
+
+      <section class="concepts" aria-label="三个 logo 设计方向">
+        <article class="concept" data-design="resonance" aria-labelledby="resonance-title">
+          <div class="logo-canvas">
+            <img
+              class="main-mark"
+              src="assets/resonance-a.svg"
+              width="164"
+              height="164"
+              alt="共鸣 A：圆润的大写 A，横画化为声波"
+            />
+          </div>
+          <div class="wordmark">
+            <img src="assets/resonance-a.svg" width="28" height="28" alt="" /><span
+              >AuralisMusic</span
+            >
+          </div>
+          <div class="scale-strip" aria-label="共鸣 A 小尺寸比较">
+            <figure>
+              <img src="assets/resonance-a.svg" width="16" height="16" alt="16 像素" />
+              <figcaption>16</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/resonance-a.svg" width="20" height="20" alt="20 像素" />
+              <figcaption>20</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/resonance-a.svg" width="24" height="24" alt="24 像素" />
+              <figcaption>24</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/resonance-a.svg" width="32" height="32" alt="32 像素" />
+              <figcaption>32 px</figcaption>
+            </figure>
+            <div class="app-tile" aria-label="共鸣 A 应用图标">
+              <img src="assets/resonance-a.svg" width="42" height="42" alt="" />
+            </div>
+          </div>
+          <div class="concept-copy">
+            <h2 id="resonance-title">共鸣 A <span class="recommendation">推荐</span></h2>
+            <p>A 的横画成为一段声波。保留声音线索，让字母轮廓建立品牌识别。</p>
+            <button type="button" data-select="resonance" aria-pressed="true">查看共鸣 A</button>
+          </div>
+        </article>
+
+        <article class="concept" data-design="loop" aria-labelledby="loop-title">
+          <div class="logo-canvas">
+            <img
+              class="main-mark"
+              src="assets/loop-a.svg"
+              width="164"
+              height="164"
+              alt="回环 a：唱片圆环构成小写 a，末端向外延伸"
+            />
+          </div>
+          <div class="wordmark">
+            <img src="assets/loop-a.svg" width="28" height="28" alt="" /><span>AuralisMusic</span>
+          </div>
+          <div class="scale-strip" aria-label="回环 a 小尺寸比较">
+            <figure>
+              <img src="assets/loop-a.svg" width="16" height="16" alt="16 像素" />
+              <figcaption>16</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/loop-a.svg" width="20" height="20" alt="20 像素" />
+              <figcaption>20</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/loop-a.svg" width="24" height="24" alt="24 像素" />
+              <figcaption>24</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/loop-a.svg" width="32" height="32" alt="32 像素" />
+              <figcaption>32 px</figcaption>
+            </figure>
+            <div class="app-tile" aria-label="回环 a 应用图标">
+              <img src="assets/loop-a.svg" width="42" height="42" alt="" />
+            </div>
+          </div>
+          <div class="concept-copy">
+            <h2 id="loop-title">回环 a</h2>
+            <p>唱片的圆环与小写 a 合为一笔。更柔和，也呼应反复聆听的习惯。</p>
+            <button type="button" data-select="loop" aria-pressed="false">查看回环 a</button>
+          </div>
+        </article>
+
+        <article class="concept" data-design="record" aria-labelledby="record-title">
+          <div class="logo-canvas">
+            <img
+              class="main-mark"
+              src="assets/record-a.svg"
+              width="164"
+              height="164"
+              alt="藏音 A：厚实的大写 A，字腔形如唱片圆心"
+            />
+          </div>
+          <div class="wordmark">
+            <img src="assets/record-a.svg" width="28" height="28" alt="" /><span>AuralisMusic</span>
+          </div>
+          <div class="scale-strip" aria-label="藏音 A 小尺寸比较">
+            <figure>
+              <img src="assets/record-a.svg" width="16" height="16" alt="16 像素" />
+              <figcaption>16</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/record-a.svg" width="20" height="20" alt="20 像素" />
+              <figcaption>20</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/record-a.svg" width="24" height="24" alt="24 像素" />
+              <figcaption>24</figcaption>
+            </figure>
+            <figure>
+              <img src="assets/record-a.svg" width="32" height="32" alt="32 像素" />
+              <figcaption>32 px</figcaption>
+            </figure>
+            <div class="app-tile" aria-label="藏音 A 应用图标">
+              <img src="assets/record-a.svg" width="42" height="42" alt="" />
+            </div>
+          </div>
+          <div class="concept-copy">
+            <h2 id="record-title">藏音 A</h2>
+            <p>将唱片圆心留在 A 的字腔里。轮廓厚实，接近唱片厂牌的印记。</p>
+            <button type="button" data-select="record" aria-pressed="false">查看藏音 A</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="applications" aria-labelledby="applications-title">
+        <div class="applications-header">
+          <div>
+            <h2 id="applications-title">在应用中的样子</h2>
+            <p id="selection-label" aria-live="polite">共鸣 A · 侧栏、启动页与桌面图标示意</p>
+          </div>
+          <a id="download-link" href="assets/resonance-a.svg" download="auralis-resonance-a.svg"
+            >下载 SVG</a
+          >
+        </div>
+        <div class="application-grid">
+          <div class="sidebar-sample light-sample">
+            <span class="sample-label">浅色侧栏 · 20 px</span>
+            <div class="sidebar-brand">
+              <img data-preview src="assets/resonance-a.svg" width="20" height="20" alt="" /><strong
+                >AuralisMusic</strong
+              >
+            </div>
+            <div class="sidebar-lines" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+          <div class="sidebar-sample dark-sample">
+            <span class="sample-label">深色侧栏 · 20 px</span>
+            <div class="sidebar-brand">
+              <img data-preview src="assets/resonance-a.svg" width="20" height="20" alt="" /><strong
+                >AuralisMusic</strong
+              >
+            </div>
+            <div class="sidebar-lines" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+          <div class="splash-sample">
+            <img data-preview src="assets/resonance-a.svg" width="72" height="72" alt="" /><strong
+              >Auralis</strong
+            ><span class="sample-label">启动页示意</span>
+          </div>
+          <div class="desktop-sample">
+            <div class="app-tile">
+              <img data-preview src="assets/resonance-a.svg" width="64" height="64" alt="" />
+            </div>
+            <span class="sample-label">桌面图标示意</span>
+          </div>
+        </div>
+      </section>
+      <footer>已选定「共鸣 A」并接入应用。其余图形保留为设计草案，颜色仅用于比较。</footer>
+    </main>
+  </body>
+</html>

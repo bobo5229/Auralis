@@ -8,6 +8,10 @@
 图标以 [icons/](icons/) 为唯一来源，[来源说明](icons/SOURCE-ATTRIBUTION.txt) 随图标保留。
 `package.json` 已引用这里的图标，打包产物放在 `release/`。
 
+品牌图形以 [auralis-mark.svg](icons/auralis-mark.svg) 为单色矢量源文件。在仓库根目录运行
+`node scripts/export-app-icon.mjs`，可重新生成应用图标 SVG、1024px PNG 与包含
+16/24/32/48/64/128/256px 图像的 Windows ICO。侧栏和启动页的两条路径由开屏契约测试检查一致性。
+
 ## 准备音频工具
 
 在仓库根目录运行已有脚本，将明确选择的本地二进制复制到 `resources/audio/`：

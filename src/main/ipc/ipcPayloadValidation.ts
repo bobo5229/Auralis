@@ -1,3 +1,4 @@
+import * as v from 'valibot'
 import { ipcChannels } from '@shared/ipc/channels'
 import type { IpcInvokeChannel } from '@shared/ipc/contracts'
 import { LIBRARY_CATALOG_MAX_PAGE_SIZE } from '@shared/types/libraryCatalog'
@@ -57,19 +58,43 @@ function touch(context: ValidationContext, path: string): void {
   }
 }
 
-const booleanValue: Validator = (value, path, context) => {
-  touch(context, path)
-  if (typeof value !== 'boolean') fail(path, 'must be a boolean')
+function parseSchema<TSchema extends v.GenericSchema>(
+  schema: TSchema,
+  value: unknown,
+  path: string,
+): v.InferOutput<TSchema> {
+  const result = v.safeParse(schema, value, { abortEarly: true, abortPipeEarly: true })
+  if (!result.success) {
+    const issue = result.issues[0]
+    const suffix = (issue.path ?? [])
+      .map(({ key }) => (typeof key === 'number' ? `[${key}]` : `.${key}`))
+      .join('')
+    // Every schema supplies a fixed message. Never expose received values or
+    // serialize Valibot issues, which retain references to the input payload.
+    fail(`${path}${suffix}`, issue.message)
+  }
+  return result.output
 }
 
-function stringValue(options: { max: number; min?: number } = { max: MAX_TEXT_LENGTH }): Validator {
+function schemaValidator(schema: v.GenericSchema): Validator {
   return (value, path, context) => {
     touch(context, path)
-    if (typeof value !== 'string') fail(path, 'must be a string')
-    if (value.length < (options.min ?? 0) || value.length > options.max) {
-      fail(path, 'has an invalid length')
-    }
-    context.stringUnits += value.length
+    parseSchema(schema, value, path)
+  }
+}
+
+const booleanValue = schemaValidator(v.boolean('must be a boolean'))
+
+function stringValue(options: { max: number; min?: number } = { max: MAX_TEXT_LENGTH }): Validator {
+  const schema = v.pipe(
+    v.string('must be a string'),
+    v.minLength(options.min ?? 0, 'has an invalid length'),
+    v.maxLength(options.max, 'has an invalid length'),
+  )
+  return (value, path, context) => {
+    touch(context, path)
+    const text = parseSchema(schema, value, path)
+    context.stringUnits += text.length
     if (context.stringUnits > MAX_PAYLOAD_STRING_UNITS) {
       fail(path, 'exceeds the aggregate string size limit')
     }
@@ -77,20 +102,23 @@ function stringValue(options: { max: number; min?: number } = { max: MAX_TEXT_LE
 }
 
 function finiteNumber(options: { min?: number; max?: number; integer?: boolean } = {}): Validator {
-  return (value, path, context) => {
-    touch(context, path)
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      fail(path, 'must be a finite number')
-    }
-    if (options.integer && !Number.isSafeInteger(value)) {
-      fail(path, 'must be a safe integer')
-    }
-    if (options.min !== undefined && value < options.min) fail(path, 'is below the minimum')
-    if (options.max !== undefined && value > options.max) fail(path, 'exceeds the maximum')
-  }
+  const number = v.pipe(v.number('must be a finite number'), v.finite('must be a finite number'))
+  return schemaValidator(
+    v.pipe(
+      options.integer ? v.pipe(number, v.safeInteger('must be a safe integer')) : number,
+      v.minValue(options.min ?? -Infinity, 'is below the minimum'),
+      v.maxValue(options.max ?? Infinity, 'exceeds the maximum'),
+    ),
+  )
 }
 
 const positiveId = finiteNumber({ integer: true, min: 1 })
+function dataProperty(value: unknown, key: string): unknown {
+  if (value === null || typeof value !== 'object') return undefined
+  const descriptor = Object.getOwnPropertyDescriptor(value, key)
+  return descriptor && 'value' in descriptor ? descriptor.value : undefined
+}
+
 const recentAddedDays: Validator = (value, path, context) => {
   finiteNumber({ min: 1, integer: true })(value, path, context)
   try {
@@ -100,7 +128,7 @@ const recentAddedDays: Validator = (value, path, context) => {
   }
 }
 const nativePlaybackCommand: Validator = (value, path, context) => {
-  const action = (value as { action?: unknown } | null)?.action
+  const action = dataProperty(value, 'action')
   const fields: Record<string, ShapeField> = {
     session: field(finiteNumber({ integer: true, min: 0 })),
     action: field(
@@ -124,41 +152,60 @@ const archiveYear = finiteNumber({ integer: true })
 const metadataYear = finiteNumber({ integer: true })
 
 function enumValue(values: readonly string[]): Validator {
-  const allowed = new Set(values)
-  return (value, path, context) => {
-    touch(context, path)
-    if (typeof value !== 'string' || !allowed.has(value)) fail(path, 'has an unsupported value')
-  }
+  return schemaValidator(v.picklist(values, 'has an unsupported value'))
 }
 
 function nullable(validator: Validator): Validator {
   return (value, path, context) => {
-    if (value === null) {
-      touch(context, path)
-      return
-    }
-    validator(value, path, context)
+    if (value === null) touch(context, path)
+    parseSchema(
+      v.nullable(
+        v.custom((candidate) => {
+          validator(candidate, path, context)
+          return true
+        }, 'has an invalid value'),
+      ),
+      value,
+      path,
+    )
   }
 }
 
 function arrayOf(validator: Validator, options: { max: number; min?: number }): Validator {
+  const bounds = v.pipe(
+    v.custom<unknown[]>(
+      (value) => Array.isArray(value) && Object.getPrototypeOf(value) === Array.prototype,
+      'must be a plain array',
+    ),
+    v.minLength(options.min ?? 0, 'has an invalid item count'),
+    v.maxLength(options.max, 'has an invalid item count'),
+  )
   return (value, path, context) => {
     touch(context, path)
-    if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) {
-      fail(path, 'must be a plain array')
+    // Reject oversized arrays before Valibot begins item traversal. Its array
+    // schema accepts holes, whereas the IPC contract requires own indices.
+    const items = parseSchema(bounds, value, path)
+    for (let index = 0; index < items.length; index += 1) {
+      if (!Object.hasOwn(items, index)) fail(`${path}[${index}]`, 'must be present')
     }
-    if (value.length < (options.min ?? 0) || value.length > options.max) {
-      fail(path, 'has an invalid item count')
-    }
-    for (let index = 0; index < value.length; index += 1) {
-      if (!Object.hasOwn(value, index)) fail(`${path}[${index}]`, 'must be present')
-      validator(value[index], `${path}[${index}]`, context)
-    }
+    let index = 0
+    parseSchema(
+      v.array(
+        v.custom((item) => {
+          validator(item, `${path}[${index++}]`, context)
+          return true
+        }, 'has an invalid item'),
+        'must be a plain array',
+      ),
+      items,
+      path,
+    )
   }
 }
 
 function objectShape(fields: Record<string, ShapeField>): Validator {
-  const allowedKeys = new Set(Object.keys(fields))
+  const entries = Object.entries(fields)
+  const allowedKeys = new Set(entries.map(([key]) => key))
 
   return (value, path, context) => {
     touch(context, path)
@@ -179,16 +226,22 @@ function objectShape(fields: Record<string, ShapeField>): Validator {
     }
 
     const descriptors = Object.getOwnPropertyDescriptors(value)
-    for (const [key, field] of Object.entries(fields)) {
+    for (const key of Object.keys(descriptors)) {
       const descriptor = descriptors[key]
-      if (!descriptor) {
-        if (!field.optional) fail(`${path}.${key}`, 'is required')
-        continue
-      }
       if (!('value' in descriptor)) fail(`${path}.${key}`, 'must be a data property')
-      if (descriptor.value === undefined && field.optional) continue
-      field.validator(descriptor.value, `${path}.${key}`, context)
     }
+    const schemaEntries: v.ObjectEntries = Object.create(null)
+    for (const [key, field] of entries) {
+      const schema = v.custom((candidate) => {
+        field.validator(candidate, `${path}.${key}`, context)
+        return true
+      }, 'has an invalid value')
+      schemaEntries[key] = field.optional ? v.optional(schema) : schema
+    }
+    // Preserve own non-enumerable data fields and ignore inherited properties,
+    // as the previous validator did. Parsing never replaces the caller's input.
+    const record = Object.create(null, descriptors)
+    parseSchema(v.strictObject(schemaEntries, 'is required'), record, path)
   }
 }
 
@@ -253,16 +306,15 @@ const isoTimestamp: Validator = (value, path, context) => {
 
 const smartPlaylistRule: Validator = (value, path, context) => {
   if (value && typeof value === 'object' && 'preset' in value) {
-    if ((value as { preset: unknown }).preset === 'mostListened') {
+    const preset = dataProperty(value, 'preset')
+    if (preset === 'mostListened') {
       objectShape({ preset: field(enumValue(['mostListened'])) })(value, path, context)
       return
     }
     objectShape({
       preset: field(enumValue(['recentPlayed', 'recentAdded'])),
       days: field(
-        (value as { preset: unknown }).preset === 'recentAdded'
-          ? recentAddedDays
-          : finiteNumber({ min: 1, integer: true }),
+        preset === 'recentAdded' ? recentAddedDays : finiteNumber({ min: 1, integer: true }),
       ),
     })(value, path, context)
     return
@@ -409,6 +461,16 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.lyrics.getByTrackId]: required(idPayload('trackId')),
   [ipcChannels.playback.getAudioUrl]: required(idPayload('trackId')),
   [ipcChannels.playback.nativeAvailability]: voidPayload(),
+  [ipcChannels.playback.spectrumSubscribe]: required(
+    objectShape({
+      subscriptionId: field(finiteNumber({ integer: true, min: 0 })),
+      revision: field(finiteNumber({ integer: true, min: 0 })),
+      enabled: field(booleanValue),
+      trackId: field(nullable(positiveId)),
+      currentTime: field(finiteNumber({ min: 0, max: 604800 })),
+      isPlaying: field(booleanValue),
+    }),
+  ),
   [ipcChannels.playback.nativeCommand]: required(nativePlaybackCommand),
   [ipcChannels.playback.getRandomTrack]: optional(
     objectShape({ excludeTrackId: field(positiveId, true) }),

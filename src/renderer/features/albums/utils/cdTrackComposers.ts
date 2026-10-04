@@ -1,8 +1,6 @@
+import { splitDelimitedValues } from '@shared/utils/delimitedValues'
+
 export function presentCdTrackComposers(value: string | null | undefined): string[] | null {
-  const names =
-    value
-      ?.split(';')
-      .map((name) => name.trim())
-      .filter(Boolean) ?? []
+  const names = splitDelimitedValues(value)
   return names.length > 0 ? names : null
 }

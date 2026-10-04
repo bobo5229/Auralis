@@ -9,6 +9,7 @@ import type {
   ImportResult,
 } from '../libraryScan/libraryIncrementalImportService'
 import { MetadataWatchService } from './metadataWatchService'
+import { normalize } from 'node:path'
 
 vi.mock('node:fs', () => ({ watch: vi.fn() }))
 vi.mock('node:fs/promises', () => ({ stat: vi.fn(async () => ({ size: 10, mtimeMs: 1 })) }))
@@ -22,7 +23,55 @@ afterEach(() => {
 })
 
 describe('metadata watcher shutdown', () => {
+  it('routes add-before-unlink events through the importer and does not mark the relocated ID missing later', async () => {
+    vi.useFakeTimers()
+    let notify!: (event: string, filename: string) => void
+    vi.mocked(watch).mockImplementation((...args: unknown[]) => {
+      notify = args[2] as typeof notify
+      return { close: vi.fn(), on: vi.fn() } as unknown as ReturnType<typeof watch>
+    })
+    const oldPath = normalize('C:/isolated-music/old.flac')
+    const newPath = normalize('C:/isolated-music/new.flac')
+    vi.mocked(stat).mockImplementation(async (filePath) => {
+      if (filePath === oldPath) throw Object.assign(new Error('absent'), { code: 'ENOENT' })
+      return { size: 10, mtimeMs: 1 } as Awaited<ReturnType<typeof stat>>
+    })
+    const send = vi.fn()
+    const markMissingByFilePaths = vi.fn(() => [])
+    const importFiles = vi.fn(async (paths: string[]) => ({
+      imported: paths,
+      unstable: [],
+      failed: [],
+    }))
+    const service = new MetadataWatchService(
+      { list: () => [{ path: 'C:/isolated-music' }] } as unknown as LibraryRootRepository,
+      {
+        getExistingFilePaths: () => new Set(),
+        getFileFingerprintsByFilePaths: () => new Map(),
+        markMissingByFilePaths,
+      } as unknown as TrackRepository,
+      {} as MetadataRefreshService,
+      { importFiles } as unknown as LibraryIncrementalImportService,
+      send,
+    )
+    service.start()
+    notify('rename', 'new.flac')
+    notify('rename', 'old.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(importFiles).toHaveBeenCalledWith([newPath])
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(markMissingByFilePaths).toHaveBeenCalledWith([oldPath])
+    expect(send).not.toHaveBeenCalledWith(
+      'library:changed',
+      expect.objectContaining({ reason: 'track-missing' }),
+    )
+    await service.stop()
+  })
+
   it('waits for an active import and prevents retry timers or watcher restart', async () => {
+    vi.mocked(stat)
+      .mockReset()
+      .mockResolvedValue({ size: 10, mtimeMs: 1 } as Awaited<ReturnType<typeof stat>>)
     vi.useFakeTimers()
     let notify!: (event: string, filename: string) => void
     const watcher = { close: vi.fn(), on: vi.fn() }

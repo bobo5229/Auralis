@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import type { IpcResponse } from '@shared/ipc/contracts'
 import { sanitizeSerializedLogLine } from './logSanitizer'
+import { flushLogger } from './logger'
 import {
   DEFAULT_LOG_FILE_BYTES,
   DEFAULT_LOG_FILE_COUNT,
@@ -53,6 +54,7 @@ export async function exportDiagnostics(
   if (selection.canceled || !selection.filePath) return { status: 'cancelled' }
 
   try {
+    flushLogger()
     const logFileNames = chronologicalLogFileNames(options.logsDirectory)
     const lines = [
       JSON.stringify({

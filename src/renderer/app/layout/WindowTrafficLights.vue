@@ -110,11 +110,24 @@ async function control(action: IpcRequest<'window:control'>['action']): Promise<
 }
 
 .window-traffic-lights--collapsed {
-  left: 5px;
+  left: 0;
+  width: var(--auralis-sidebar-rail-width, 60px);
+  justify-content: space-evenly;
+  gap: 0;
 }
 
 .window-traffic-lights--collapsed .window-traffic-light {
-  width: 20px;
+  width: 16px;
+}
+
+.window-traffic-lights--collapsed .window-traffic-light::before {
+  width: 11px;
+  height: 11px;
+}
+
+.window-traffic-lights--collapsed .window-traffic-light > span {
+  width: 8px;
+  height: 8px;
 }
 
 .window-traffic-lights--cd {

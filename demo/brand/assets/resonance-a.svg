@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>Auralis — 共鸣 A</title>
+  <path
+    d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52"
+    stroke="currentColor"
+    stroke-width="7.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38"
+    stroke="currentColor"
+    stroke-width="6.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

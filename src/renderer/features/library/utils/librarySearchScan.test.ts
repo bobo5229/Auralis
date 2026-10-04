@@ -6,6 +6,7 @@ import {
 } from './librarySearchIndex'
 import { scanLibrarySearchIndex, type LibrarySearchRecord } from './librarySearchScan'
 import type { TrackListItem } from '@shared/types/libraryScan'
+import { normalizeSearchText } from './normalizeSearchText'
 
 function createTrack(id: number, patch: Partial<TrackListItem> = {}): TrackListItem {
   return {
@@ -31,9 +32,30 @@ function createTrack(id: number, patch: Partial<TrackListItem> = {}): TrackListI
 }
 
 const records: readonly LibrarySearchRecord[] = [
-  { title: 'alpha', artist: 'alpha artist', albumArtist: 'alpha artist', album: 'record a' },
-  { title: 'beta', artist: 'alpha ensemble', albumArtist: '', album: 'record b' },
-  { title: 'gamma', artist: 'artist three', albumArtist: '', album: 'record c' },
+  {
+    title: 'alpha',
+    artist: 'alpha artist',
+    artistParts: ['alpha artist'],
+    albumArtist: 'alpha artist',
+    albumArtistParts: ['alpha artist'],
+    album: 'record a',
+  },
+  {
+    title: 'beta',
+    artist: 'alpha ensemble',
+    artistParts: ['alpha ensemble'],
+    albumArtist: '',
+    albumArtistParts: [],
+    album: 'record b',
+  },
+  {
+    title: 'gamma',
+    artist: 'artist three',
+    artistParts: ['artist three'],
+    albumArtist: '',
+    albumArtistParts: [],
+    album: 'record c',
+  },
 ]
 
 describe('scanLibrarySearchIndex', () => {
@@ -75,6 +97,95 @@ describe('scanLibrarySearchIndex', () => {
 })
 
 describe('createLibrarySearchIndex', () => {
+  it('matches later artists once per track, cycles in source order, and preserves combined prefixes', () => {
+    const tracks = [
+      createTrack(1, { artist: 'Ariana Grande; Nicki Minaj', albumArtist: 'Guest; Nicki Minaj' }),
+      createTrack(2, { artist: 'Nicki Minaj; Nicki Chorus', albumArtist: 'Lead; 蕭敬騰' }),
+    ]
+    const originals = structuredClone(tracks)
+    const index = createLibrarySearchIndex(tracks)
+    for (const [fromIndex, targetIndex, matchPosition, wrapped] of [
+      [0, 0, 1, false],
+      [1, 1, 2, false],
+      [2, 0, 1, true],
+    ] as const) {
+      expect(scanLibrarySearchIndex(index, 'nicki', fromIndex)).toEqual({
+        totalMatches: 2,
+        targetIndex,
+        matchPosition,
+        wrapped,
+      })
+    }
+    expect(scanLibrarySearchIndex(index, normalizeSearchText('萧敬腾'), 0)).toMatchObject({
+      totalMatches: 1,
+      targetIndex: 1,
+    })
+    expect(scanLibrarySearchIndex(index, 'ariana grande; n', 0)).toMatchObject({
+      totalMatches: 1,
+      targetIndex: 0,
+    })
+    expect(tracks).toEqual(originals)
+    expect(Object.isFrozen(index[0].artistParts)).toBe(true)
+    expect(Object.isFrozen(index[0].albumArtistParts)).toBe(true)
+  })
+
+  it.each([
+    ['AC/DC', 'dc'],
+    ['Ariana/Nicki', 'nicki'],
+    ['Ariana & Nicki', 'nicki'],
+    ['Ariana, Nicki', 'nicki'],
+    ['Ariana;Nicki', 'nicki'],
+    ['Ariana； Nicki', 'nicki'],
+  ])('keeps %s atomic rather than matching %s as a later artist', (artist, query) => {
+    const index = createLibrarySearchIndex([createTrack(1, { artist, albumArtist: artist })])
+    expect(scanLibrarySearchIndex(index, query, 0).totalMatches).toBe(0)
+    expect(scanLibrarySearchIndex(index, normalizeSearchText(artist), 0).totalMatches).toBe(1)
+  })
+
+  it('matches expanded character coverage across all searchable fields in source order', () => {
+    const tracks = [
+      createTrack(1, { title: '鬱可唯 現場' }),
+      createTrack(2, { artist: '郁可唯' }),
+      createTrack(3, { albumArtist: '鬱可唯' }),
+      createTrack(4, { album: '郁可唯 精選' }),
+    ]
+    const originals = structuredClone(tracks)
+    const index = createLibrarySearchIndex(tracks)
+    const query = normalizeSearchText('郁可唯')
+
+    expect(scanLibrarySearchIndex(index, query, 2)).toEqual({
+      totalMatches: 4,
+      targetIndex: 2,
+      matchPosition: 3,
+      wrapped: false,
+    })
+    expect(scanLibrarySearchIndex(index, query, tracks.length)).toEqual({
+      totalMatches: 4,
+      targetIndex: 0,
+      matchPosition: 1,
+      wrapped: true,
+    })
+    expect(tracks).toEqual(originals)
+  })
+
+  it('retains context-sensitive prefixes in the complete incremental index', async () => {
+    const tracks = ['乾坤', '沈默是金', '藉口', '瞭解', '著名'].map((title, i) =>
+      createTrack(i + 1, { title }),
+    )
+    const index = await createLibrarySearchIndexIncrementally(tracks, {
+      isCurrent: () => true,
+      yieldToMain: async () => {},
+    })
+
+    for (let i = 0; i < tracks.length; i += 1) {
+      const query = normalizeSearchText(tracks[i].title?.slice(0, 1))
+      expect(scanLibrarySearchIndex(index, query, 0)).toMatchObject({
+        totalMatches: 1,
+        targetIndex: i,
+      })
+    }
+  })
+
   it('normalizes nullable metadata once into immutable search records', () => {
     const index = createLibrarySearchIndex([
       createTrack(1, {
@@ -89,7 +200,9 @@ describe('createLibrarySearchIndex', () => {
       {
         title: 'alpha 与梦',
         artist: '',
+        artistParts: [],
         albumArtist: 'artist',
+        albumArtistParts: ['artist'],
         album: 'album',
       },
     ])

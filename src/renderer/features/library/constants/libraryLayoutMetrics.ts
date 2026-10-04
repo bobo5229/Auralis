@@ -8,11 +8,13 @@
 export const LIBRARY_LAYOUT_METRICS = {
   flatRowHeight: 44,
   flatArtworkSize: 44,
-  coverArtworkSize: 250,
+  coverArtworkSize: 280,
   coverTrackRowHeight: 48,
   coverDiscHeadingHeight: 24,
   coverMetaGap: 12,
   coverMetaLineHeight: 20,
+  /** 封面信息吸顶后的顶部间距，不参与分组高度与滚动偏移 */
+  coverStickyTopInset: 16,
   /** 曲目区单侧纵向 padding；首曲与封面顶对齐 */
   coverPanelPaddingBlockSide: 0,
   /** 曲目区单侧横向 padding，不参与高度与纵向定位 */
@@ -27,6 +29,11 @@ export const LIBRARY_LAYOUT_METRICS = {
 
 export type LibraryLayoutMetrics = typeof LIBRARY_LAYOUT_METRICS
 
+export function getAlbumCoverColumnHeight(hasReleaseDate: boolean): number {
+  const m = LIBRARY_LAYOUT_METRICS
+  return m.coverArtworkSize + m.coverMetaGap + m.coverMetaLineHeight * (hasReleaseDate ? 3 : 2)
+}
+
 /**
  * 封面分组虚拟项高度。
  * 封面列 = artwork + metaGap + lineHeight × (2|3)
@@ -40,8 +47,7 @@ export function getAlbumGroupEstimatedHeight(
   discHeadingCount = 0,
 ): number {
   const m = LIBRARY_LAYOUT_METRICS
-  const metaLines = hasReleaseDate ? 3 : 2
-  const coverColumnHeight = m.coverArtworkSize + m.coverMetaGap + m.coverMetaLineHeight * metaLines
+  const coverColumnHeight = getAlbumCoverColumnHeight(hasReleaseDate)
   const panelPadBlock = m.coverPanelPaddingBlockSide * 2
   const panelBorderBlock = m.coverPanelBorderWidth * 2
   const tracksPanelHeight =
@@ -62,6 +68,7 @@ export const LIBRARY_LAYOUT_CSS_VARS: Readonly<Record<string, string>> = {
   '--library-cover-disc-heading-height': `${LIBRARY_LAYOUT_METRICS.coverDiscHeadingHeight}px`,
   '--library-cover-meta-gap': `${LIBRARY_LAYOUT_METRICS.coverMetaGap}px`,
   '--library-cover-meta-line-height': `${LIBRARY_LAYOUT_METRICS.coverMetaLineHeight}px`,
+  '--library-cover-sticky-top-inset': `${LIBRARY_LAYOUT_METRICS.coverStickyTopInset}px`,
   '--library-cover-panel-padding-block-side': `${LIBRARY_LAYOUT_METRICS.coverPanelPaddingBlockSide}px`,
   '--library-cover-panel-padding-inline-side': `${LIBRARY_LAYOUT_METRICS.coverPanelPaddingInlineSide}px`,
   '--library-cover-panel-border-width': `${LIBRARY_LAYOUT_METRICS.coverPanelBorderWidth}px`,

@@ -110,6 +110,8 @@ export const auralisApi: AuralisApi = {
     getByTrackId: (trackId) => invoke(ipcChannels.lyrics.getByTrackId, { trackId }),
   },
   playback: {
+    subscribeSpectrum: (request) => invoke(ipcChannels.playback.spectrumSubscribe, request),
+    onSpectrumFrame: (callback) => on(ipcChannels.playback.spectrumFrame, callback),
     nativeAvailability: () => invoke(ipcChannels.playback.nativeAvailability),
     nativeCommand: (request) => invoke(ipcChannels.playback.nativeCommand, request),
     onNativeEvent: (callback) => on(ipcChannels.playback.nativeEvent, callback),

@@ -146,6 +146,12 @@ it('keeps the B continuation through pause, cancellation and queue replacement',
   expect(test.events.at(-1)?.duration).toBe(120.048)
   test.emit({ event: 'property-change', name: 'time-pos', data: 0.5 })
   expect(test.events.at(-1)?.currentTime).toBeCloseTo(0.548)
+  expect(test.service.getSpectrumSource()).toMatchObject({
+    path: 'bridge.wav',
+    trackId: 2,
+    currentTime: 0.548,
+    timelineOffset: 0.048,
+  })
   await test.service.command({ action: 'pause', session: 1 })
   await test.service.command({ action: 'cancel-next', session: 1 })
   expect(test.state.playlist.at(-1)?.path).toBe('2.flac')
@@ -166,6 +172,12 @@ it('seeks in B instead of the bridge and does not emit a second boundary', async
   await test.advance()
   await test.service.command({ action: 'seek', session: 1, time: 30 })
   await vi.waitFor(() => expect(test.events.at(-1)?.currentTime).toBe(30))
+  expect(test.service.getSpectrumSource()).toMatchObject({
+    path: '2.flac',
+    trackId: 2,
+    currentTime: 30,
+    timelineOffset: 0,
+  })
   expect(test.state.playlist).toEqual([{ path: '2.flac', start: 30 }])
   expect(test.events.filter((e) => e.kind === 'boundary').map((e) => e.trackId)).toEqual([2])
   expect(test.plan.dispose).toHaveBeenCalledOnce()

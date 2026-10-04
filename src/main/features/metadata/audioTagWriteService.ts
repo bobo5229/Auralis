@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { parseFile } from 'music-metadata'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import { normalizeEditableMetadata } from './editableMetadataValidation'
 
 const FFMPEG_NOT_FOUND_MESSAGE =
   'Unable to write audio tags because the bundled FFmpeg runtime is unavailable.'
@@ -185,6 +186,7 @@ export async function writeAudioTags(
   metadata: EditableTrackMetadata,
   ffmpegPath: string,
 ): Promise<void> {
+  metadata = normalizeEditableMetadata(metadata)
   const originalFingerprint = await stat(filePath)
   const extension = extname(filePath)
 

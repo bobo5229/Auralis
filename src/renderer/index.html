@@ -14,20 +14,35 @@
   <body>
     <!-- 开屏退场前主界面保持 inert；控制器退场后解除并交还焦点。 -->
     <div id="app" inert tabindex="-1"></div>
-    <!-- 开屏节点独立于 Vue：viewBox 与应用图标波形一致，光点由控制器沿真实曲线驱动。 -->
+    <!-- 开屏独立于 Vue：声波展开、两侧汇合，最终回到共鸣 A 的标准构形。 -->
     <div id="splash" role="img" aria-label="Auralis">
       <div id="splash-figure" aria-hidden="true">
         <svg
           id="splash-mark"
-          viewBox="0 0 24 24"
+          viewBox="0 0 64 64"
           xmlns="http://www.w3.org/2000/svg"
           focusable="false"
         >
           <path
-            id="splash-waveform-path"
-            d="M2 13a2 2 0 0 0 2-2V7a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0V4a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0v-4a2 2 0 0 1 2-2"
+            id="splash-contour-path"
+            class="splash-brand-stroke"
+            d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52"
           />
-          <circle id="splash-dot" cx="2" cy="13" r="1.3" />
+          <path
+            id="splash-resonance-path"
+            class="splash-brand-stroke"
+            d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38"
+          />
+          <path
+            id="splash-left-leg"
+            class="splash-brand-stroke splash-forming-leg"
+            d="M10 52 27.3 13C28.2 10.95 30.1 9.925 32 9.925"
+          />
+          <path
+            id="splash-right-leg"
+            class="splash-brand-stroke splash-forming-leg"
+            d="M54 52 36.7 13C35.8 10.95 33.9 9.925 32 9.925"
+          />
         </svg>
         <span id="splash-brand">Auralis</span>
       </div>

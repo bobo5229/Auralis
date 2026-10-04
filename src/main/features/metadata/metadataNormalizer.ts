@@ -54,7 +54,8 @@ export function getYear(commonYear: number | undefined, date: string | undefined
 // ---------------------------------------------------------------------------
 
 export function normalizeArtists(artists?: string[], artist?: string): string[] {
-  return cleanDelimitedValues([...(artists ?? []), artist])
+  const values = cleanDelimitedValues(artists ?? [])
+  return values.length > 0 ? values : cleanDelimitedValues([artist])
 }
 
 export function normalizeAlbumArtists(
@@ -62,7 +63,7 @@ export function normalizeAlbumArtists(
   albumArtist?: string,
   artist?: string,
 ): string[] {
-  const normalized = cleanDelimitedValues([...(albumArtists ?? []), albumArtist])
+  const normalized = normalizeArtists(albumArtists, albumArtist)
 
   if (normalized.length > 0) {
     return normalized
@@ -78,10 +79,14 @@ export function normalizeAlbumArtists(
 const LRC_TIMESTAMP = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/
 
 const NATIVE_LYRICS_KEYS = new Set(['USLT', 'SYLT', 'LYR', 'LYRI', 'LYRICS', 'UNSYNCEDLYRICS'])
-const NATIVE_GENRE_KEYS = new Set(['GEN', 'GNRE', 'GENRE'])
+const NATIVE_GENRE_KEYS = new Set(['GEN', 'GNRE', 'GENRE', 'TCON', 'TCO', 'STYLE'])
 const NATIVE_COMPOSER_KEYS = new Set(['TCOM', 'TCM', 'COMPOSER', 'WRT'])
+const NATIVE_ARTIST_KEYS = new Set(['ARTIST', 'ART', 'TPE1', 'TP1', 'IART', 'AUTHOR', 'AUTH'])
+const NATIVE_ALBUM_ARTIST_KEYS = new Set(['ALBUMARTIST', 'AART', 'TPE2', 'TP2', 'BAND'])
+const NATIVE_COPYRIGHT_KEYS = new Set(['COPYRIGHT', 'CPRT', 'CPY', 'TCOP', 'TCR', 'ICOP'])
 
 type NativeTag = { id: string; value: unknown }
+type MetadataTags = Pick<IAudioMetadata, 'common' | 'native'>
 
 function getTextValuesFromUnknown(value: unknown): string[] {
   if (typeof value === 'string') {
@@ -100,7 +105,7 @@ function getTextValuesFromUnknown(value: unknown): string[] {
   return []
 }
 
-function getNativeTagGroups(metadata: IAudioMetadata): NativeTag[][] {
+function getNativeTagGroups(metadata: MetadataTags): NativeTag[][] {
   const native = metadata.native as unknown
 
   if (!native || typeof native !== 'object') {
@@ -121,15 +126,50 @@ function isNativeLyricsTag(id: string): boolean {
 }
 
 function isNativeGenreTag(id: string): boolean {
-  const normalized = id.replace(/[^a-zA-Z]/g, '').toUpperCase()
-
-  return NATIVE_GENRE_KEYS.has(normalized) || normalized.endsWith('GENRE')
+  return NATIVE_GENRE_KEYS.has(nativeTextKey(id))
 }
 
 function isNativeComposerTag(id: string): boolean {
-  const normalized = id.replace(/[^a-zA-Z]/g, '').toUpperCase()
+  return NATIVE_COMPOSER_KEYS.has(nativeTextKey(id))
+}
 
-  return NATIVE_COMPOSER_KEYS.has(normalized) || normalized.endsWith('COMPOSER')
+function nativeTextKey(id: string): string {
+  return (id.split(':').at(-1) ?? id).replace(/[^a-zA-Z0-9]/g, '').toUpperCase()
+}
+
+function nativeTextValues(metadata: MetadataTags, keys: ReadonlySet<string>): string[] {
+  return cleanDelimitedValues(
+    getNativeTagGroups(metadata).flatMap((tags) =>
+      tags.flatMap((tag) =>
+        keys.has(nativeTextKey(tag.id)) ? getTextValuesFromUnknown(tag.value) : [],
+      ),
+    ),
+  )
+}
+
+/** Prefer explicit plural tags; a combined display string is not an additional artist. */
+export function resolveArtists(metadata: MetadataTags): string[] {
+  const plural = nativeTextValues(metadata, new Set(['ARTISTS']))
+  if (plural.length > 0) return plural
+  const common = normalizeArtists(metadata.common.artists)
+  if (common.length > 0) return common
+  const native = nativeTextValues(metadata, NATIVE_ARTIST_KEYS)
+  return native.length > 0 ? native : normalizeArtists(undefined, metadata.common.artist)
+}
+
+export function resolveAlbumArtists(metadata: MetadataTags): string[] {
+  const plural = nativeTextValues(metadata, new Set(['ALBUMARTISTS']))
+  if (plural.length > 0) return plural
+  const common = normalizeArtists(metadata.common.albumartists)
+  if (common.length > 0) return common
+  const native = nativeTextValues(metadata, NATIVE_ALBUM_ARTIST_KEYS)
+  if (native.length > 0) return native
+  return normalizeArtists(undefined, metadata.common.albumartist)
+}
+
+export function resolveCopyright(metadata: MetadataTags): string[] {
+  const native = nativeTextValues(metadata, NATIVE_COPYRIGHT_KEYS)
+  return native.length > 0 ? native : cleanDelimitedValues([metadata.common.copyright])
 }
 
 export function resolveLyrics(
@@ -161,7 +201,7 @@ export function resolveLyrics(
   return { text: plain, format: 'plain' }
 }
 
-export function resolveGenres(metadata: IAudioMetadata): string[] {
+export function resolveGenres(metadata: MetadataTags): string[] {
   const candidates = [...(metadata.common.genre ?? [])]
 
   for (const tags of getNativeTagGroups(metadata)) {
@@ -175,7 +215,7 @@ export function resolveGenres(metadata: IAudioMetadata): string[] {
   return cleanDelimitedValues(candidates)
 }
 
-export function resolveComposers(metadata: IAudioMetadata): string[] {
+export function resolveComposers(metadata: MetadataTags): string[] {
   const candidates = [...getTextValuesFromUnknown(metadata.common.composer)]
 
   for (const tags of getNativeTagGroups(metadata)) {
@@ -229,7 +269,7 @@ function resolveIsrc(metadata: IAudioMetadata): string | null {
 
 export function normalizeIdentityText(metadata: IAudioMetadata): NormalizedIdentity {
   const common = metadata.common
-  const artists = normalizeArtists(common.artists, common.artist)
+  const artists = resolveArtists(metadata)
   const artist = joinDelimitedValues(artists) || 'Unknown Artist'
   const album = common.album || 'Unknown Album'
 
@@ -267,9 +307,10 @@ export function buildMetadataSignature(
 export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): NormalizedMetadata {
   const common = metadata.common
   const lyrics = resolveLyrics(metadata)
-  const artists = normalizeArtists(common.artists, common.artist)
+  const artists = resolveArtists(metadata)
   const artistDisplay = joinDelimitedValues(artists) || 'Unknown Artist'
-  const albumArtists = normalizeAlbumArtists(common.albumartists, common.albumartist, artistDisplay)
+  const taggedAlbumArtists = resolveAlbumArtists(metadata)
+  const albumArtists = taggedAlbumArtists.length > 0 ? taggedAlbumArtists : artists
   const albumArtistDisplay = joinDelimitedValues(albumArtists) || 'Unknown Artist'
   const albumTitle = common.album || 'Unknown Album'
   const genres = resolveGenres(metadata)
@@ -291,7 +332,7 @@ export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): 
     durationSeconds: metadata.format.duration ?? null,
     year: getYear(common.year, common.date),
     releaseDate: common.date ?? null,
-    copyright: common.copyright?.trim() || null,
+    copyright: joinDelimitedValues(resolveCopyright(metadata)),
     composers,
     composer: joinDelimitedValues(composers),
     genres,

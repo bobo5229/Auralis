@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>声迹 · Macintosh 日期软盘 / Auralis Demo</title>
+  <style>/* DEMO_CSS */</style>
+</head>
+<body>
+  <header class="page-header"><a class="wordmark" href="#" aria-label="Auralis Demo 首页">auralis<span class="brand-dot"></span></a><span class="prototype-label">视觉交互原型 · 模拟听歌数据</span><button id="material-toggle" class="material-toggle" type="button" aria-pressed="false"><span class="swatch"></span><span id="material-name">冰蓝盒</span></button></header>
+  <main>
+    <div class="intro"><h1>声迹<span>Archive</span></h1><p>把一天的声音，存进一张软盘。</p></div>
+    <section class="scene" aria-label="Mac 与日期软盘收藏桌面">
+      <div class="surface-shadow mac-shadow" aria-hidden="true"></div>
+      <div class="surface-shadow box-shadow" aria-hidden="true"></div>
+      <div class="machine-position" aria-label="原创 CSS 1984 Macintosh 概念机身">
+        <div class="computer-cube" id="computer-cube" tabindex="0" role="group" aria-label="拖动旋转 Mac；方向键旋转与俯仰，Home 复位。俯仰限制隐藏底面。">
+          <div class="shell-top"><span class="carry-handle"></span><span class="top-seam"></span></div>
+          <div class="shell-right"><div class="side-vent"></div><span class="side-seam"></span></div>
+          <div class="shell-left"><div class="side-vent"></div><span class="side-seam"></span></div>
+          <div class="shell-back">
+            <span class="rear-screw screw-tl"></span><span class="rear-screw screw-tr"></span><span class="rear-screw screw-bl"></span><span class="rear-screw screw-br"></span>
+            <div class="rear-vent-bank"><span></span><span></span></div>
+            <div class="rear-identity">Macintosh<span>MODEL 128K / 1984</span></div>
+            <div class="rear-panel"><div class="rear-power"><i class="power-rocker"></i><i class="power-socket"></i><small>POWER</small></div><div class="rear-connectors"><span class="rear-port serial-port"><i></i><small>SERIAL</small></span><span class="rear-port disk-port"><i></i><small>DISK</small></span><span class="rear-port audio-port"><i></i><small>AUDIO</small></span></div></div>
+            <div class="rear-service-label">AURALIS / ORIGINAL HARDWARE STUDY<span>PERSONAL ARCHIVE · NO. 001</span></div>
+          </div>
+          <div class="shell-bottom" aria-hidden="true"></div>
+          <div class="shell-front">
+            <div class="monitor-recess"><div class="monitor-glass"><div id="crt" class="terminal" aria-hidden="true"></div><div class="phosphor-lines"></div><div class="glass-highlight"></div><button class="screen-open" id="screen-open" type="button" aria-label="近看 Mac 屏幕" aria-pressed="false"></button></div></div>
+            <div class="heritage-mark" aria-hidden="true"><span>a</span></div>
+            <div class="drive-aperture" id="drive-slot" aria-hidden="true"></div>
+            <span class="drive-led" aria-hidden="true"></span>
+            <span class="hardware-name">Macintosh<span>PERSONAL COMPUTER / 128K</span></span>
+            <span class="brightness-dial" aria-hidden="true"></span>
+            <span class="shell-foot"></span>
+          </div>
+        </div>
+        <div class="desk-keyboard" aria-hidden="true"><div class="keyboard-keys" id="keyboard-keys"></div><span class="keyboard-space"></span><span class="keyboard-corner"></span></div>
+        <div class="mouse-cord" aria-hidden="true"></div><div class="desk-mouse" aria-hidden="true"><span></span></div>
+      </div>
+      <div class="case-position">
+        <div class="case-assembly">
+          <div class="case-lid" aria-hidden="true"><span>auralis / memory objects</span><i></i></div>
+          <div class="case-back" aria-hidden="true"></div>
+          <div class="disk-rack" id="disk-rack" role="group" aria-label="选择日期软盘"></div>
+          <div class="case-side" aria-hidden="true"></div>
+          <div class="case-front" aria-hidden="true"><div class="case-hinge"></div><span class="case-wordmark">sound, saved.</span><span class="case-caption">DAILY ARCHIVE / 7 DISKS</span><i class="case-latch"></i></div>
+          <div class="case-foot foot-left" aria-hidden="true"></div><div class="case-foot foot-right" aria-hidden="true"></div>
+        </div>
+      </div>
+      <div class="device-note"><span>Macintosh 128K</span><small>1984 / 400K DISK DRIVE</small></div>
+      <div class="box-note"><span id="box-material">冰蓝聚碳酸酯</span><small>YOUR DAYS, ON DISK.</small></div>
+      <div class="scene-controls"><button id="reset-view" type="button">复位视角 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 6a6 6 0 1 1-1 7 M5 2v5H1"/></svg></button><button id="zoom" type="button" aria-pressed="false">看近一点 <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.5"/><path d="m12 12 4 4"/></svg></button><button id="eject" type="button" disabled>弹出软盘 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m4 11 6-7 6 7Z M4 15h12"/></svg></button></div>
+    </section>
+    <footer class="archive-footer"><div class="date-meta"><span id="chosen-date">2026.10.01</span><span id="date-caption">星期四 · 等待插盘</span></div><nav class="date-strip" id="date-strip" aria-label="日期快捷选择"></nav><div class="status-wrap"><span class="status-light" aria-hidden="true"></span><p id="status" role="status" aria-live="polite">选一张软盘，读回那一天。</p></div></footer>
+    <p class="operation-note">拖动 Mac 旋转／俯仰 · 点击屏幕近看 · 点击软盘插入 · Esc 弹出<span>所有记录均为模拟数据</span></p>
+    <div id="screen-description" class="visually-hidden" aria-live="polite"></div>
+  </main>
+  <div id="flight-layer" aria-hidden="true"></div>
+  <script>/* DEMO_JS */</script>
+</body>
+</html>

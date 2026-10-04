@@ -235,6 +235,8 @@ function createApi(): AuralisApi {
       getByTrackId: vi.fn(),
     },
     playback: {
+      subscribeSpectrum: vi.fn(async () => ({ accepted: true })),
+      onSpectrumFrame: vi.fn(() => () => undefined),
       nativeAvailability: vi.fn(async () => ({ available: false })),
       nativeCommand: vi.fn(async () => ({ accepted: true })),
       onNativeEvent: vi.fn(() => () => undefined),

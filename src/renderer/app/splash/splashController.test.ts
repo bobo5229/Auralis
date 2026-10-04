@@ -1,18 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  SPLASH_DOT_TRAVEL_MS,
   SPLASH_FADE_OUT_MS,
-  easeInOutCubic,
   shouldPlaySplash,
   startSplashLifecycle,
   type SplashEnvironment,
 } from './splashController'
-
-const TOTAL_LENGTH = 100
+import { SPLASH_FORMATION_MS } from './splashMotion'
 
 interface Harness {
   env: SplashEnvironment
-  positions: Array<{ x: number; y: number }>
+  frames: number[]
   fadeCount(): number
   finishCount(): number
   setVisible(visible: boolean): void
@@ -28,7 +25,7 @@ function createHarness(options?: { reducedMotion?: boolean; visible?: boolean })
 
   const visibilityListeners: Array<() => void> = []
   const appReadyListeners: Array<() => void> = []
-  const positions: Array<{ x: number; y: number }> = []
+  const frames: number[] = []
   let fadeCount = 0
   let finishCount = 0
 
@@ -57,10 +54,8 @@ function createHarness(options?: { reducedMotion?: boolean; visible?: boolean })
       }
     },
     now: () => currentTime,
-    getTotalLength: () => TOTAL_LENGTH,
-    getPointAtLength: (length) => ({ x: length, y: 0 }),
-    setDotPosition: (x, y) => {
-      positions.push({ x, y })
+    renderMotion: (elapsed) => {
+      frames.push(elapsed)
     },
     startFadeOut: () => {
       fadeCount += 1
@@ -72,7 +67,7 @@ function createHarness(options?: { reducedMotion?: boolean; visible?: boolean })
 
   return {
     env,
-    positions,
+    frames,
     fadeCount: () => fadeCount,
     finishCount: () => finishCount,
     setVisible(next) {
@@ -91,28 +86,6 @@ function createHarness(options?: { reducedMotion?: boolean; visible?: boolean })
     },
   }
 }
-
-describe('easeInOutCubic', () => {
-  it('starts at zero, ends at one and slows at both ends', () => {
-    expect(easeInOutCubic(0)).toBe(0)
-    expect(easeInOutCubic(1)).toBe(1)
-    expect(easeInOutCubic(0.5)).toBe(0.5)
-    // 中段加速：0.25 处显著落后于线性进度。
-    expect(easeInOutCubic(0.25)).toBeLessThan(0.25)
-    expect(easeInOutCubic(0.75)).toBeGreaterThan(0.75)
-  })
-
-  it('is monotonic and clamps out-of-range input', () => {
-    let previous = -1
-    for (let step = 0; step <= 100; step += 1) {
-      const value = easeInOutCubic(step / 100)
-      expect(value).toBeGreaterThan(previous)
-      previous = value
-    }
-    expect(easeInOutCubic(-1)).toBe(0)
-    expect(easeInOutCubic(2)).toBe(1)
-  })
-})
 
 describe('shouldPlaySplash', () => {
   it('skips ordinary and cache-bypassing reloads while retaining cold navigation', () => {
@@ -135,38 +108,41 @@ describe('startSplashLifecycle', () => {
     vi.useRealTimers()
   })
 
-  it('does not start the dot before the window becomes visible', () => {
+  it('does not start formation before the window becomes visible', () => {
     const harness = createHarness()
     startSplashLifecycle(harness.env)
     harness.pumpFrames(2_000)
-    expect(harness.positions).toEqual([])
+    expect(harness.frames).toEqual([])
   })
 
-  it('starts timing from the first visible frame and docks at the path end', () => {
+  it('starts timing when visible and finishes on the exact formation frame', () => {
     const harness = createHarness()
     const stop = startSplashLifecycle(harness.env)
     harness.setVisible(true)
 
-    // 前半程逐帧推进：位置严格由 easeInOutCubic(progress) 驱动，落后于线性进度。
+    expect(harness.frames).toEqual([0])
     for (let step = 0; step < 3; step += 1) {
-      harness.pumpFrames(SPLASH_DOT_TRAVEL_MS / 12)
+      harness.pumpFrames(SPLASH_FORMATION_MS / 12)
     }
-    const last = harness.positions.at(-1)!
-    expect(last.x).toBeCloseTo(easeInOutCubic(0.25) * TOTAL_LENGTH, 5)
-    expect(last.x).toBeLessThan(0.25 * TOTAL_LENGTH)
+    expect(harness.frames.at(-1)).toBe(SPLASH_FORMATION_MS / 4)
 
-    harness.pumpFrames(SPLASH_DOT_TRAVEL_MS)
-    expect(harness.positions.at(-1)).toEqual({ x: TOTAL_LENGTH, y: 0 })
+    harness.pumpFrames(SPLASH_FORMATION_MS)
+    expect(harness.frames.at(-1)).toBe(SPLASH_FORMATION_MS)
+    const frameCount = harness.frames.length
+    harness.pumpFrames(500)
+    expect(harness.frames).toHaveLength(frameCount)
     stop()
   })
 
-  it('fades out only after the dot docks and the app is ready, exactly once', () => {
+  it('fades out only after formation and app readiness, exactly once', () => {
     const harness = createHarness({ visible: true })
     const stop = startSplashLifecycle(harness.env)
 
-    harness.pumpFrames(SPLASH_DOT_TRAVEL_MS)
+    harness.pumpFrames(SPLASH_FORMATION_MS)
     vi.advanceTimersByTime(SPLASH_FADE_OUT_MS * 2)
-    expect(harness.positions.at(-1)).toEqual({ x: TOTAL_LENGTH, y: 0 })
+    expect(harness.frames.at(-1)).toBe(SPLASH_FORMATION_MS)
+    expect(harness.fadeCount()).toBe(0)
+    expect(harness.finishCount()).toBe(0)
 
     harness.setAppReady(true)
     expect(harness.fadeCount()).toBe(1)
@@ -182,15 +158,16 @@ describe('startSplashLifecycle', () => {
     stop()
   })
 
-  it('keeps the full logo when the app is ready but the dot has not docked', () => {
+  it('waits for formation when app readiness arrives early', () => {
     const harness = createHarness({ visible: true })
     const stop = startSplashLifecycle(harness.env)
     harness.setAppReady(true)
 
-    harness.pumpFrames(SPLASH_DOT_TRAVEL_MS / 4)
+    harness.pumpFrames(SPLASH_FORMATION_MS / 4)
+    expect(harness.fadeCount()).toBe(0)
     expect(harness.finishCount()).toBe(0)
 
-    harness.pumpFrames(SPLASH_DOT_TRAVEL_MS)
+    harness.pumpFrames(SPLASH_FORMATION_MS)
     vi.advanceTimersByTime(SPLASH_FADE_OUT_MS)
     expect(harness.finishCount()).toBe(1)
     stop()
@@ -199,7 +176,7 @@ describe('startSplashLifecycle', () => {
   it('skips motion and fade entirely under reduced motion', () => {
     const harness = createHarness({ reducedMotion: true, visible: true })
     const stop = startSplashLifecycle(harness.env)
-    expect(harness.positions).toEqual([])
+    expect(harness.frames).toEqual([])
 
     harness.setAppReady(true)
     harness.pumpFrames(16)
@@ -242,7 +219,7 @@ describe('startSplashLifecycle', () => {
     expect(harness.finishCount()).toBe(1)
 
     harness.setAppReady(true)
-    harness.pumpFrames(SPLASH_DOT_TRAVEL_MS)
+    harness.pumpFrames(SPLASH_FORMATION_MS)
     vi.advanceTimersByTime(SPLASH_FADE_OUT_MS)
     expect(harness.finishCount()).toBe(1)
   })

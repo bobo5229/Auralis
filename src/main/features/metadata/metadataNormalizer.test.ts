@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { IAudioMetadata } from 'music-metadata'
-import { normalizeMetadata, resolveComposers, resolveGenres } from './metadataNormalizer'
+import {
+  normalizeMetadata,
+  resolveArtists,
+  resolveAlbumArtists,
+  resolveComposers,
+  resolveGenres,
+} from './metadataNormalizer'
 
 function audio(
   common: Partial<IAudioMetadata['common']> = {},
@@ -33,9 +39,9 @@ describe('resolveGenres', () => {
     expect(normalizeMetadata(audio({ genre: ['Cantopop; Live'] })).genre).toBe('Cantopop; Live')
   })
 
-  it('splits tight semicolon-separated genres without spaces into distinct genres', () => {
-    expect(resolveGenres(audio({ genre: ['Cantopop;Live'] }))).toEqual(['Cantopop', 'Live'])
-    expect(normalizeMetadata(audio({ genre: ['Cantopop;Live'] })).genre).toBe('Cantopop; Live')
+  it('keeps semicolons without a following space inside one genre', () => {
+    expect(resolveGenres(audio({ genre: ['Cantopop;Live'] }))).toEqual(['Cantopop;Live'])
+    expect(normalizeMetadata(audio({ genre: ['Cantopop;Live'] })).genre).toBe('Cantopop;Live')
   })
 
   it('collects multiple native genre atoms and flattens them', () => {
@@ -92,8 +98,10 @@ describe('resolveComposers', () => {
     expect(normalizeMetadata(metadata).composer).toBe('A; B; C; D; E; F')
   })
 
-  it('splits a semicolon-separated composer tag and trims spacing', () => {
-    expect(normalizeMetadata(audio({ composer: ['A;B; C'] })).composer).toBe('A; B; C')
+  it('splits composer tags only on "; " and trims labels', () => {
+    const metadata = audio({ composer: [' A;B; C '] })
+    expect(resolveComposers(metadata)).toEqual(['A;B', 'C'])
+    expect(normalizeMetadata(metadata).composer).toBe('A;B; C')
   })
 
   it('returns null when composer tags are missing or blank', () => {
@@ -109,5 +117,66 @@ describe('resolveComposers', () => {
 
   it('does not fall back to the performing artist', () => {
     expect(normalizeMetadata(audio({ artist: 'Performer' })).composer).toBeNull()
+  })
+})
+
+describe('multi-value artist normalization', () => {
+  it('uses explicit artist lists without appending the combined display value', () => {
+    const metadata = audio({
+      artists: ['A', 'B'],
+      artist: 'A & B',
+      albumartists: ['C', 'D'],
+      albumartist: 'C, D',
+    })
+    expect(resolveArtists(metadata)).toEqual(['A', 'B'])
+    expect(resolveAlbumArtists(metadata)).toEqual(['C', 'D'])
+    expect(normalizeMetadata(metadata)).toMatchObject({
+      artistDisplay: 'A; B',
+      albumArtistDisplay: 'C; D',
+    })
+  })
+
+  it('uses repeated freeform MP4 tags for all five multi-value fields', () => {
+    const metadata = audio(
+      { artist: 'A & B', albumartist: 'C & D' },
+      {
+        iTunes: [
+          { id: '----:com.apple.iTunes:ARTISTS', value: 'A' },
+          { id: '----:com.apple.iTunes:ARTISTS', value: 'B' },
+          { id: '----:com.apple.iTunes:ALBUMARTISTS', value: 'C' },
+          { id: '----:com.apple.iTunes:ALBUMARTISTS', value: 'D' },
+          { id: '----:com.apple.iTunes:GENRE', value: ['Pop', 'Live'] },
+          { id: '----:com.apple.iTunes:COMPOSER', value: { text: ['E', 'F'] } },
+          { id: 'cprt', value: ' Label; Other; label ' },
+        ],
+      },
+    )
+    expect(normalizeMetadata(metadata)).toMatchObject({
+      artistDisplay: 'A; B',
+      albumArtistDisplay: 'C; D',
+      genre: 'Pop; Live',
+      composer: 'E; F',
+      copyright: 'Label; Other',
+    })
+  })
+
+  it('keeps empty album-artist tags empty for verification and applies fallback only for display', () => {
+    const metadata = audio({ artist: 'AC/DC; B' })
+    expect(resolveAlbumArtists(metadata)).toEqual([])
+    expect(normalizeMetadata(metadata).albumArtistDisplay).toBe('AC/DC; B')
+  })
+  it('splits artists and album artists only on "; " while deduplicating native entries', () => {
+    const metadata = normalizeMetadata(
+      audio({
+        artists: [' A;B; C ', 'a;b', 'c'],
+        artist: 'A;B; C',
+        albumartists: [' D；E; F ', 'd；e', 'f'],
+        albumartist: 'D；E; F',
+      }),
+    )
+    expect(metadata.artists).toEqual(['A;B', 'C'])
+    expect(metadata.artistDisplay).toBe('A;B; C')
+    expect(metadata.albumArtists).toEqual(['D；E', 'F'])
+    expect(metadata.albumArtistDisplay).toBe('D；E; F')
   })
 })

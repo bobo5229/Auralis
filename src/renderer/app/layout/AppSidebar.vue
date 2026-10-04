@@ -6,6 +6,7 @@ import {
 import { RouterLink, useRouter } from 'vue-router'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { pointReference, startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
 import type { LibraryStats } from '@shared/types/app'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
@@ -26,6 +27,7 @@ import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
 import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
 import { animateTrashLid } from '@renderer/shared/animation/motion'
 import PlaylistIcon from './PlaylistIcon.vue'
+import { vBrandResonance } from './sidebarBrandMotion'
 
 const route = useRoute()
 const router = useRouter()
@@ -64,10 +66,37 @@ const smartCreateSubmenu = ref(false)
 const creatingPlaybackPreset = ref<'recentPlayed' | 'mostListened' | 'recentAdded' | null>(null)
 const createError = ref('')
 const playlistContextMenu = ref<{ item: SidebarPlaylistItem; x: number; y: number } | null>(null)
+const playlistContextPanel = ref<HTMLElement | null>(null)
+let playlistPosition: ReturnType<typeof startFloatingPosition> | undefined
+watch(playlistContextMenu, () => playlistPosition?.dispose(), { flush: 'sync' })
+watch(
+  [playlistContextMenu, playlistContextPanel],
+  (_values, _previous, onCleanup) => {
+    const menu = playlistContextMenu.value
+    const panel = playlistContextPanel.value
+    if (!menu || !panel) return
+    const session = startFloatingPosition({
+      reference: pointReference(menu.x, menu.y),
+      floating: panel,
+      profile: 'point-menu',
+      onError: closePlaylistContextMenu,
+    })
+    playlistPosition = session
+    onCleanup(session.dispose)
+  },
+  { flush: 'post' },
+)
 const renamingPlaylist = ref<SidebarPlaylistItem | null>(null)
 const deletingPlaylist = ref<SidebarPlaylistItem | null>(null)
 const isDeletingPlaylist = ref(false)
 const deleteError = ref('')
+watch(
+  [deleteError, deletingPlaylist, isDeletingPlaylist],
+  () => {
+    void playlistPosition?.update()
+  },
+  { flush: 'post' },
+)
 const deleteLid = ref<SVGGElement | null>(null)
 let stopDeleteLidAnimation: (() => void) | undefined
 let deleteMotionPreference: MotionQuery | undefined
@@ -108,7 +137,6 @@ const primaryNav = computed<
     routeName?: WarmableRouteName
   }>
 >(() => [
-  { to: '/', label: t('nav.home'), icon: 'i-ph-house', activeIcon: 'i-ph-house-fill' },
   {
     to: '/songs',
     label: t('nav.songs'),
@@ -455,12 +483,10 @@ function openSmartPlaylistBuilder(): void {
 function openPlaylistContextMenu(item: SidebarPlaylistItem, event: MouseEvent): void {
   deletingPlaylist.value = null
   deleteError.value = ''
-  const menuWidth = 160
-  const menuHeight = 82
   playlistContextMenu.value = {
     item,
-    x: Math.max(8, Math.min(event.clientX, window.innerWidth - menuWidth - 8)),
-    y: Math.max(8, Math.min(event.clientY, window.innerHeight - menuHeight - 8)),
+    x: event.clientX,
+    y: event.clientY,
   }
 }
 
@@ -609,6 +635,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  playlistPosition?.dispose()
   stopDeleteLidAnimation?.()
   deleteMotionPreference?.removeEventListener('change', updateDeleteLid)
   window.removeEventListener('keydown', onPlaylistMenuKeydown)
@@ -629,8 +656,10 @@ onBeforeUnmount(() => {
       <div class="sidebar-header-main">
         <component
           :is="sidebarFullHeight ? 'button' : 'div'"
+          v-brand-resonance="isRail"
           v-tooltip.right="isRail ? t('sidebar.expand') : ''"
           class="sidebar-brand-left"
+          :data-sidebar-toggle="sidebarFullHeight ? '' : undefined"
           :class="{ 'sidebar-brand-toggle': sidebarFullHeight }"
           v-bind="
             sidebarFullHeight
@@ -646,21 +675,31 @@ onBeforeUnmount(() => {
         >
           <span class="sidebar-brand-mark" aria-hidden="true">
             <svg
-              class="sidebar-brand-waveform"
-              viewBox="0 0 24 24"
+              class="sidebar-brand-symbol"
+              viewBox="0 0 64 64"
               fill="none"
               stroke="currentColor"
-              stroke-width="2"
+              stroke-width="7.5"
               stroke-linecap="round"
               stroke-linejoin="round"
             >
+              <path d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52" />
               <path
-                d="M2 13a2 2 0 0 0 2-2V7a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0V4a2 2 0 0 1 4 0v13a2 2 0 0 0 4 0v-4a2 2 0 0 1 2-2"
+                class="sidebar-brand-resonance"
+                d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38"
+                stroke-width="6.5"
               />
             </svg>
           </span>
-          <div class="sidebar-brand-copy">
-            <div class="sidebar-brand-name">AuralisMusic</div>
+          <div class="sidebar-brand-copy" :aria-hidden="isRail || undefined">
+            <div class="sidebar-brand-name">
+              <span
+                v-for="(letter, index) in 'AuralisMusic'"
+                :key="index"
+                class="sidebar-brand-letter"
+                >{{ letter }}</span
+              >
+            </div>
           </div>
         </component>
         <div class="sidebar-tools-grid" role="toolbar" :aria-label="t('sidebar.toolbarAria')">
@@ -911,11 +950,9 @@ onBeforeUnmount(() => {
         @click.capture="cancelDeleteOnOtherClick"
       >
         <div
+          ref="playlistContextPanel"
           class="library-context-menu frosted-context-menu fixed w-40"
-          :style="{
-            left: `${playlistContextMenu.x}px`,
-            top: `${playlistContextMenu.y}px`,
-          }"
+          style="visibility: hidden; overflow: auto"
           @click.stop
         >
           <button class="library-context-menu-item" type="button" @click="openRenameDialog">

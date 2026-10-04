@@ -148,6 +148,7 @@ docs/topics/shell/*
 !docs/topics/shell/techdoc-sidebar-first-navigation-warmup.md
 !docs/topics/shell/TECHDOC-semantic-font-system-2026-09-29.md
 !docs/topics/shell/IMPLEMENTATION-latin-numeral-font-unification-2026-10-02.md
+!docs/topics/shell/IMPLEMENTATION-light-dark-theme-accent-2026-10-04.md
 !docs/topics/shell/TECHDOC-theme-aware-splash-logo-2026-09-29.md
 !docs/topics/playback/
 docs/topics/playback/*

@@ -1,5 +1,5 @@
 import type { RgbColor } from '@renderer/features/playback/types'
-import { getRelativeLuminance } from '@renderer/features/playback/utils/resolvePlayerPrimaryButtonTextColor'
+import { getContrastRatio as contrastRatio } from '@renderer/shared/color/colorMath'
 import { DEFAULT_DARK_ACCENT } from '../constants/darkAccent'
 
 const DARK_ACCENT_SURFACES = ['#121212', '#1A1A1A', '#202020', '#262626'] as const
@@ -27,14 +27,6 @@ function rgbFromHex(hex: string): RgbColor {
     g: Number.parseInt(hex.slice(3, 5), 16),
     b: Number.parseInt(hex.slice(5, 7), 16),
   }
-}
-
-function contrastRatio(first: RgbColor, second: RgbColor): number {
-  const firstLuminance = getRelativeLuminance(first)
-  const secondLuminance = getRelativeLuminance(second)
-  const lighter = Math.max(firstLuminance, secondLuminance)
-  const darker = Math.min(firstLuminance, secondLuminance)
-  return (lighter + 0.05) / (darker + 0.05)
 }
 
 function mixAccentOverSurface(accent: RgbColor, surface: RgbColor, strength: number): RgbColor {

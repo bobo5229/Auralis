@@ -1,9 +1,22 @@
 /* 全局语义字体角色：按文字用途命名，字体家族与后备顺序集中在此维护。
  * 全局字体资源的 @font-face 声明保留在 main.css 与 harmony-fonts.css；
  * 声迹字体资源的 @font-face 声明位于 app/styles/archive-fonts.css；
- * 字号、字重、行高等仍由各组件或歌曲页参数控制。
+ * 通用字号与行高按语义角色集中维护；字重仍由信息层级决定。
+ * 曲目行、歌词、CD 浏览等专用排版继续使用各自的规格。
  * Mac 声迹字体在独立页面中定义。 */
 :root {
+  /* 通用文字规格：字号与默认行高成对使用，不改变全局根字号。 */
+  --auralis-type-caption-size: 12px;
+  --auralis-type-caption-line-height: 18px;
+  --auralis-type-control-size: 14px;
+  --auralis-type-control-line-height: 20px;
+  --auralis-type-body-size: 16px;
+  --auralis-type-body-line-height: 24px;
+  --auralis-type-section-size: 18px;
+  --auralis-type-section-line-height: 26px;
+  --auralis-type-page-size: 24px;
+  --auralis-type-page-line-height: 32px;
+
   /* 英文与数字共享本地加载的 Plus Jakarta Sans 字体。 */
   --auralis-font-latin: 'Plus Jakarta Sans';
 
@@ -22,4 +35,30 @@
   /* 桌面歌词：英文数字优先使用 Plus Jakarta Sans，中文沿用歌词字体。 */
   --auralis-font-desktop-lyrics:
     var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
+}
+
+/* Vue 模板可直接使用这些类；CSS 规则也可引用对应 token。 */
+.auralis-type-caption {
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+.auralis-type-control {
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+
+.auralis-type-body {
+  font-size: var(--auralis-type-body-size);
+  line-height: var(--auralis-type-body-line-height);
+}
+
+.auralis-type-section {
+  font-size: var(--auralis-type-section-size);
+  line-height: var(--auralis-type-section-line-height);
+}
+
+.auralis-type-page {
+  font-size: var(--auralis-type-page-size);
+  line-height: var(--auralis-type-page-line-height);
 }

@@ -12,7 +12,7 @@ import { splitDelimitedValues } from '@shared/utils/delimitedValues'
 
 /**
  * Atomic genre labels for spectrum / TopN.
- * Uses shared multi-value split (`"; "` / `", "` / full-width / `、`).
+ * Uses shared multi-value split (only `"; "`).
  * Slash compounds stay single labels (`R&B/SOUL`, `Hip-hop/Rap`).
  * Empty →「未分类」. Dedupes while preserving order.
  * Full play stats are attributed to every returned label.
@@ -138,8 +138,8 @@ export class PlayStatsRepository extends BaseRepository {
            display.artwork_cache_key AS artworkCacheKey,
            stats.play_count AS playCount,
            stats.duration_seconds AS durationSeconds
-         FROM daily_track_play_stats stats
-         JOIN library_track_display display ON display.id = stats.track_id
+         FROM listening_daily_track_play_stats stats
+         JOIN listening_track_display display ON display.id = stats.track_id
          WHERE stats.play_date = ?
          ORDER BY stats.play_count DESC, stats.last_played_at DESC
          LIMIT 10`,
@@ -165,8 +165,8 @@ export class PlayStatsRepository extends BaseRepository {
              SUM(stats.play_count) AS playCount,
              SUM(stats.duration_seconds) AS durationSeconds,
              MAX(stats.last_played_at) AS lastPlayedAt
-           FROM daily_track_play_stats stats
-           JOIN library_track_display display ON display.id = stats.track_id
+           FROM listening_daily_track_play_stats stats
+           JOIN listening_track_display display ON display.id = stats.track_id
            WHERE stats.play_date = ?
            GROUP BY
              NULLIF(display.album, ''),
@@ -242,8 +242,8 @@ export class PlayStatsRepository extends BaseRepository {
            display.artwork_cache_key AS artworkCacheKey,
            SUM(stats.play_count) AS playCount,
            SUM(stats.duration_seconds) AS durationSeconds
-         FROM daily_track_play_stats stats
-         JOIN library_track_display display ON display.id = stats.track_id
+         FROM listening_daily_track_play_stats stats
+         JOIN listening_track_display display ON display.id = stats.track_id
          WHERE stats.play_date BETWEEN ? AND ?
          GROUP BY stats.track_id
          ORDER BY playCount DESC, MAX(stats.last_played_at) DESC
@@ -268,7 +268,7 @@ export class PlayStatsRepository extends BaseRepository {
     const uniqueTrackCount = this.db
       .prepare(
         `SELECT COUNT(*) AS count
-         FROM daily_track_play_stats
+         FROM listening_daily_track_play_stats
          WHERE play_date = ?`,
       )
       .get(peakDay.date) as { count: number }
@@ -282,8 +282,8 @@ export class PlayStatsRepository extends BaseRepository {
            display.artwork_cache_key AS artworkCacheKey,
            stats.play_count AS playCount,
            stats.duration_seconds AS durationSeconds
-         FROM daily_track_play_stats stats
-         JOIN library_track_display display ON display.id = stats.track_id
+         FROM listening_daily_track_play_stats stats
+         JOIN listening_track_display display ON display.id = stats.track_id
          WHERE stats.play_date = ?
          ORDER BY stats.play_count DESC, stats.last_played_at DESC
          LIMIT 3`,
@@ -338,8 +338,8 @@ export class PlayStatsRepository extends BaseRepository {
            SUM(stats.play_count) AS playCount,
            SUM(stats.duration_seconds) AS durationSeconds,
            MAX(stats.last_played_at) AS lastPlayedAt
-         FROM daily_track_play_stats stats
-         JOIN library_track_display display ON display.id = stats.track_id
+         FROM listening_daily_track_play_stats stats
+         JOIN listening_track_display display ON display.id = stats.track_id
          WHERE stats.play_date BETWEEN ? AND ?
          GROUP BY stats.track_id`,
       )
@@ -566,8 +566,8 @@ export class PlayStatsRepository extends BaseRepository {
              MAX(display.artwork_cache_key) AS artworkCacheKey,
              SUM(stats.play_count) AS playCount,
              SUM(stats.duration_seconds) AS durationSeconds
-           FROM daily_track_play_stats stats
-           JOIN library_track_display display ON display.id = stats.track_id
+           FROM listening_daily_track_play_stats stats
+           JOIN listening_track_display display ON display.id = stats.track_id
            WHERE stats.play_date BETWEEN ? AND ?
            GROUP BY
              COALESCE(NULLIF(display.album, ''), '未知专辑'),
@@ -587,8 +587,8 @@ export class PlayStatsRepository extends BaseRepository {
            display.artwork_cache_key AS artworkCacheKey,
            SUM(stats.play_count) AS playCount,
            SUM(stats.duration_seconds) AS durationSeconds
-         FROM daily_track_play_stats stats
-         JOIN library_track_display display ON display.id = stats.track_id
+         FROM listening_daily_track_play_stats stats
+         JOIN listening_track_display display ON display.id = stats.track_id
          WHERE stats.play_date BETWEEN ? AND ?
          GROUP BY stats.track_id
          ORDER BY playCount DESC, MAX(stats.last_played_at) DESC
@@ -602,6 +602,8 @@ export class PlayStatsRepository extends BaseRepository {
       this.db.prepare('DELETE FROM daily_track_play_stats').run()
       this.db.prepare('DELETE FROM daily_play_stats').run()
       this.db.prepare('DELETE FROM track_play_stats').run()
+      this.db.prepare('DELETE FROM removed_daily_track_play_stats').run()
+      this.db.prepare('UPDATE removed_track_history SET play_count=0,last_played_at=NULL').run()
     })()
   }
 }

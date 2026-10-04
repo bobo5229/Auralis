@@ -98,6 +98,7 @@ initializeLogger({
   development: !app.isPackaged,
   logsDirectory: join(app.getPath('userData'), 'logs'),
   persistToFile: app.isPackaged,
+  transportPath: join(__dirname, 'logging/rollingLogTransport.js'),
 })
 const mainProcessDiagnostics = installMainProcessDiagnostics({ app, process, logger })
 let runtime: ReturnType<typeof registerIpcHandlers> | undefined

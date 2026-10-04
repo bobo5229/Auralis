@@ -257,13 +257,14 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
       calendarStatus.append(latestModel.calendarError + ' ')
       const retry = document.createElement('button')
       retry.type = 'button'
+      retry.className = 'mac-retry-button'
       retry.textContent = '重试'
       retry.onclick = actions.onRetryCalendar
       calendarStatus.append(retry)
-    } else
-      calendarStatus.textContent = latestModel.calendarLoading
-        ? '正在读取日期记录…'
-        : '有圆点的日期包含播放记录'
+    } else if (latestModel.calendarLoading) {
+      calendarStatus.textContent = '正在读取日期记录…'
+    }
+    calendarStatus.hidden = !latestModel.calendarError && !latestModel.calendarLoading
 
     // Populate Days Grid
     calGrid.querySelectorAll('.mac-calendar-cell').forEach((el) => el.remove())
@@ -400,18 +401,13 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
       !model.items.length
     ) {
       const errorDiv = document.createElement('div')
-      errorDiv.className = 'album-empty-msg'
-      errorDiv.style.flexDirection = 'column'
-      errorDiv.style.gap = '8px'
+      errorDiv.className = 'album-empty-msg is-error'
       errorDiv.textContent = model.dayError ?? model.calendarError
 
       const retryBtn = document.createElement('button')
       retryBtn.type = 'button'
+      retryBtn.className = 'mac-retry-button'
       retryBtn.textContent = '重试'
-      retryBtn.style.padding = '2px 8px'
-      retryBtn.style.border = '1px solid #000'
-      retryBtn.style.background = '#fff'
-      retryBtn.style.cursor = 'pointer'
       retryBtn.onclick = () => {
         if (model.selectedDate) actions.onRetryDay(model.selectedDate)
         else actions.onRetryCalendar()

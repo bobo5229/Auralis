@@ -422,7 +422,8 @@ onBeforeUnmount(() => {
 
 .facets-dialog-header h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--auralis-type-section-size);
+  line-height: var(--auralis-type-section-line-height);
   font-weight: 700;
   letter-spacing: 0;
 }
@@ -430,7 +431,8 @@ onBeforeUnmount(() => {
 .facets-dialog-header p {
   margin: 2px 0 0;
   color: var(--auralis-text-subtle);
-  font-size: 12px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
 }
 
 .facets-dialog-actions {
@@ -460,7 +462,8 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   color: var(--auralis-text-faint);
-  font-size: 12px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
 }
 
 .facets-dialog-grid {
@@ -489,7 +492,8 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid var(--auralis-border-subtle);
   color: var(--auralis-text-subtle);
   background: var(--auralis-sidebar-bg);
-  font-size: 11px;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
   font-weight: 750;
 }
 
@@ -505,9 +509,9 @@ onBeforeUnmount(() => {
   padding: 5px 10px;
   color: var(--auralis-text-muted);
   background: transparent;
-  font-size: 12px;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
   font-weight: 650;
-  line-height: 1.25;
   text-align: left;
 }
 
@@ -519,7 +523,8 @@ onBeforeUnmount(() => {
 
 .facet-option span:last-child {
   color: var(--auralis-text-faint);
-  font-size: 11px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
   font-weight: 700;
 }
 

@@ -47,13 +47,7 @@
 
 .album-detail-track:not(:first-child)::before {
   content: '';
-  position: absolute;
   top: 0;
-  left: 12px;
-  right: 12px;
-  height: 1px;
-  background: var(--auralis-border-subtle);
-  pointer-events: none;
 }
 
 .album-detail-disc-header + .album-detail-track::before {
@@ -63,22 +57,21 @@
 /* 仅一轨时补底部分隔，避免细行漂在空白里 */
 .album-detail-track:only-of-type::after {
   content: '';
-  position: absolute;
   bottom: 0;
-  left: 12px;
-  right: 12px;
-  height: 1px;
-  background: var(--auralis-border-subtle);
-  pointer-events: none;
 }
 
-.album-detail-track:hover,
 .album-detail-track--selected,
 .album-detail-track--playing,
 .album-detail-track--search-highlight {
   background-color: var(--auralis-control-hover-bg);
   transform: translateX(3px);
   box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.15);
+}
+
+.album-detail-track:hover {
+  background-color: var(--auralis-control-hover-bg);
+  transform: none;
+  box-shadow: none;
 }
 
 .album-detail-track--search-highlight {
@@ -95,32 +88,46 @@
   }
 }
 
-.album-detail-track.album-detail-track--selected {
-  background-color: color-mix(in srgb, var(--auralis-album-detail-accent) 12%, transparent);
-  box-shadow: inset 2px 0 0 var(--auralis-album-detail-accent);
-  transform: translateX(3px);
-}
-
+.album-detail-track.album-detail-track--selected,
 .album-detail-track.album-detail-track--playing {
-  background-color: color-mix(in srgb, var(--auralis-album-detail-accent) 18%, transparent);
-  box-shadow: inset 3px 0 0 var(--auralis-album-detail-accent);
-  transform: translateX(4px);
+  background: var(--auralis-theme-accent);
+  color: var(--auralis-control-primary-text);
+  box-shadow: none;
+  transform: none;
 }
 
+.album-detail-track:is(.album-detail-track--selected, .album-detail-track--playing)
+  :is(.album-detail-track-number, .album-detail-track-duration, .album-detail-track-artist) {
+  color: var(--auralis-control-primary-text);
+}
+
+.album-detail-track:is(.album-detail-track--selected, .album-detail-track--playing)
+  .album-detail-track-play-icon {
+  color: var(--auralis-control-primary-text);
+}
+
+.album-detail-track--playing .album-detail-track-eq i {
+  background: var(--auralis-control-primary-text);
+}
+
+.album-detail-track:hover::before,
 .album-detail-track.album-detail-track--selected::before,
 .album-detail-track.album-detail-track--playing::before,
 .album-detail-track.album-detail-track--search-highlight::before {
   display: none;
 }
 
+.album-detail-track:hover + .album-detail-track::before,
 .album-detail-track--selected + .album-detail-track::before,
 .album-detail-track--playing + .album-detail-track::before,
 .album-detail-track--search-highlight + .album-detail-track::before {
   display: none;
 }
 
+.album-detail-track:hover::after,
 .album-detail-track.album-detail-track--selected::after,
-.album-detail-track.album-detail-track--playing::after {
+.album-detail-track.album-detail-track--playing::after,
+.album-detail-track.album-detail-track--search-highlight::after {
   display: none;
 }
 

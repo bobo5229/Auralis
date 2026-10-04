@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 304 80" role="img" aria-labelledby="title">
+  <title id="title">Auralis — editorial</title>
+  <g fill="none" stroke="#171c1a" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="translate(12 0)"><path d="M4 64 28 8 52 64M13 43H42M0 64H17M39 64H59"/><path d="M28 8 52 64" stroke-width="6.5"/></g>
+    <g transform="translate(75 0)"><path d="M6 25V51Q6 64 20 64Q35 64 35 48V25M35 48V64M1 25H12M30 25H41M35 64H43"/><path d="M6 25V51" stroke-width="6.5"/></g>
+    <g transform="translate(124 0)"><path d="M6 64V25M6 39Q13 21 28 26M0 25H6M0 64H15"/><path d="M6 25V64" stroke-width="6.5"/></g>
+    <g transform="translate(161 0)"><path d="M6 30Q25 17 33 30V64M33 40Q4 38 4 54Q4 69 21 63L33 54M33 64H40"/><path d="M33 31V64" stroke-width="6.5"/></g>
+    <g transform="translate(208 0)"><path d="M8 8V64M1 8H8M1 64H17"/><path d="M8 8V64" stroke-width="6.5"/></g>
+    <g transform="translate(234 0)"><path d="M8 28V64M1 28H8M1 64H16M8 12V13"/><path d="M8 28V64" stroke-width="6.5"/></g>
+    <g transform="translate(259 0)"><path d="M31 36V25M31 29Q14 17 6 30Q0 42 19 46T28 62Q16 70 4 59M4 54V65"/><path d="M6 30Q0 42 19 46T28 62" stroke-width="6.5"/></g>
+  </g>
+</svg>

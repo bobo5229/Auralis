@@ -2,11 +2,12 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_THEME, THEME_STORAGE_KEY } from '@renderer/composables/useTheme'
-import { SPLASH_DOT_TRAVEL_MS, SPLASH_FADE_OUT_MS } from './splashController'
+import { SPLASH_FADE_OUT_MS } from './splashController'
+import { SPLASH_FORMATION_MS, SPLASH_RESONANCE_PATH } from './splashMotion'
 
 /**
  * 开屏首帧与应用主样式之间的单一维护契约：
- * splash.css 的首帧色值、字体角色、波形轨迹必须与 main.css / typography.css /
+ * splash.css 的首帧色值、字体角色、品牌路径必须与 main.css / typography.css /
  * 应用图标 SVG 保持一致；任一侧漂移都会在这里失败。
  */
 
@@ -26,6 +27,14 @@ const iconSvg = readFileSync(
 )
 const themeBootJs = readFileSync(
   fileURLToPath(new URL('../../public/splash/theme-boot.js', import.meta.url)),
+  'utf8',
+)
+const markSvg = readFileSync(
+  fileURLToPath(new URL('../../../../resources/icons/auralis-mark.svg', import.meta.url)),
+  'utf8',
+)
+const sidebarVue = readFileSync(
+  fileURLToPath(new URL('../layout/AppSidebar.vue', import.meta.url)),
   'utf8',
 )
 
@@ -69,10 +78,7 @@ describe('splash first-frame color contract', () => {
     })
 
     it(`uses hex color literals for the static ${theme} splash colors`, () => {
-      const names =
-        theme === 'dark'
-          ? ['--splash-bg', '--splash-text']
-          : ['--splash-bg', '--splash-accent', '--splash-text']
+      const names = ['--splash-bg', '--splash-text']
       for (const name of names) {
         expect(readCustomProperty(block, name)).toMatch(/^#[0-9a-fA-F]{6}$/)
       }
@@ -87,6 +93,16 @@ describe('splash first-frame color contract', () => {
       'var(--auralis-dark-accent, #1dd55f)',
     )
     expect(themeBootJs).toContain("setProperty('--auralis-dark-accent'")
+  })
+
+  it('uses the first-frame derived accent in the light splash', () => {
+    expect(readCustomProperty(splashLight, '--splash-accent')).toBe(
+      'var(--auralis-light-accent, #585b5f)',
+    )
+    expect(readCustomProperty(mainLight, '--auralis-theme-accent')).toBe(
+      'var(--auralis-light-accent, #585b5f)',
+    )
+    expect(themeBootJs).toContain("setProperty('--auralis-light-accent'")
   })
 
   it('does not reference the legacy icon blues', () => {
@@ -110,12 +126,23 @@ describe('splash typography contract', () => {
   })
 })
 
-describe('splash waveform contract', () => {
-  it('reuses the app icon waveform path verbatim', () => {
-    const iconPath = /<path\s+d="([^"]+)"/.exec(iconSvg)?.[1]
-    const splashPath = /id="splash-waveform-path"\s+d="([^"]+)"/.exec(indexHtml)?.[1]
-    expect(iconPath).toBeTruthy()
-    expect(splashPath).toBe(iconPath?.trim())
+describe('splash brand mark contract', () => {
+  it('uses both source paths in the app icon, sidebar and splash', () => {
+    const paths = (markup: string): string[] =>
+      Array.from(markup.matchAll(/<path\b[^>]*\bd="([^"]+)"/g), (match) => match[1])
+    const sourcePaths = paths(markSvg)
+    const splashSvg = /<svg\s+id="splash-mark"[\s\S]*?<\/svg>/.exec(indexHtml)?.[0] ?? ''
+    const sidebarSvg =
+      /<svg\s+class="sidebar-brand-symbol"[\s\S]*?<\/svg>/.exec(sidebarVue)?.[0] ?? ''
+    expect(sourcePaths).toHaveLength(2)
+    expect(paths(iconSvg)).toEqual(sourcePaths)
+    // 前两条是最终定格路径；后两条将同一外轮廓拆成左右两半，仅用于成形。
+    expect(paths(splashSvg).slice(0, 2)).toEqual(sourcePaths)
+    expect(paths(splashSvg)).toHaveLength(4)
+    expect(sourcePaths[1]).toBe(SPLASH_RESONANCE_PATH)
+    expect(paths(sidebarSvg)).toEqual(sourcePaths)
+    expect(splashSvg).toContain('viewBox="0 0 64 64"')
+    expect(sidebarSvg).toContain('viewBox="0 0 64 64"')
   })
 
   it('renders a bare line without the icon plate or hardcoded colors', () => {
@@ -133,12 +160,12 @@ describe('splash waveform contract', () => {
     expect(splashCss).toContain('stroke-linejoin: round')
   })
 
-  it('keeps the moving dot distinct from the waveform in both themes', () => {
-    const waveBlock = extractCssBlock(splashCss, /#splash-waveform-path\s*\{/)
-    const dotBlock = extractCssBlock(splashCss, /#splash-dot\s*\{/)
+  it('uses the theme accent for all strokes and hides auxiliary legs by default', () => {
+    const waveBlock = extractCssBlock(splashCss, /\.splash-brand-stroke\s*\{/)
+    const legsBlock = extractCssBlock(splashCss, /\.splash-forming-leg\s*\{/)
     expect(readCustomProperty(waveBlock, 'stroke')).toBe('var(--splash-accent)')
-    expect(readCustomProperty(dotBlock, 'fill')).toBe('var(--splash-text)')
-    expect(readCustomProperty(dotBlock, 'stroke')).toBe('var(--splash-bg)')
+    expect(readCustomProperty(legsBlock, 'opacity')).toBe('0')
+    expect(indexHtml).not.toContain('splash-dot')
   })
 })
 
@@ -148,8 +175,9 @@ describe('splash timing contract', () => {
     expect(transition).toBe(String(SPLASH_FADE_OUT_MS))
   })
 
-  it('keeps the overall splash around 1.5 seconds', () => {
-    expect(SPLASH_DOT_TRAVEL_MS + SPLASH_FADE_OUT_MS).toBe(1_500)
+  it('uses the approved 900ms formation and 300ms exit', () => {
+    expect(SPLASH_FORMATION_MS).toBe(900)
+    expect(SPLASH_FORMATION_MS + SPLASH_FADE_OUT_MS).toBe(1_200)
   })
 })
 

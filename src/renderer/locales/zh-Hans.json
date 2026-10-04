@@ -6,7 +6,6 @@
     "restore": "还原窗口"
   },
   "nav": {
-    "home": "首页",
     "songs": "歌曲",
     "albums": "专辑",
     "archive": "声迹"
@@ -88,19 +87,17 @@
       },
       "themeDark": "深色",
       "themeLight": "浅色",
-      "darkAccent": {
-        "title": "深色强调色",
-        "lightOnly": "仅作用于深色模式，切换后生效。",
+      "accent": {
+        "title": "强调色",
         "change": "更改",
         "close": "收起",
         "restoreDefault": "恢复默认",
         "preview": "效果预览",
         "previewSample": "Aa 123",
-        "lightened": "已适当提亮，以保证深色界面可读。",
         "alphaRejected": "强调色需为不透明颜色。",
         "invalidColor": "请输入有效的六位 HEX 颜色。",
-        "persistFailed": "颜色已应用，本次保存未完成。",
-        "pickerLabel": "深色强调色选择器",
+        "persistFailed": "颜色已在本次会话中保留，保存未完成。",
+        "pickerLabel": "{theme}强调色选择器",
         "presetColor": "预设颜色",
         "currentColor": "当前颜色：{color}",
         "hexField": "十六进制颜色",
@@ -362,6 +359,27 @@
         "turnOff": "关闭封面强调色背景",
         "lightOnly": "仅浅色模式可用"
       },
+      "progress": {
+        "wave": "波浪",
+        "comet": "彗星余晖",
+        "switchTo": "切换为{style}进度"
+      },
+      "spectrum": {
+        "title": "实时频谱",
+        "ready": "跟随音乐",
+        "waiting": "等待音频",
+        "paused": "已暂停",
+        "unavailable": "暂不可用",
+        "motionDisabled": "动效已关闭"
+      },
+      "vibration": {
+        "turnOn": "开启低频振动并隐藏歌词",
+        "turnOff": "关闭低频振动并恢复歌词",
+        "enabledHint": "{action} · {style}（右键切换模式）",
+        "disabledHint": "{action}（左键或右键）",
+        "smooth": "柔和起伏",
+        "elastic": "弹性回落"
+      },
       "modes": {
         "catalog-sequential": "全库顺序",
         "repeat-all": "专辑循环",
@@ -522,9 +540,9 @@
     },
     "status": {
       "loading": "正在读取音乐资料库…",
-      "emptyAll": "尚未收录曲目",
-      "emptyPlaylist": "歌单内暂无曲目",
-      "emptySmartPlaylist": "智能歌单无匹配曲目",
+      "emptyAll": "暂无曲目",
+      "emptyPlaylist": "暂无曲目",
+      "emptySmartPlaylist": "暂无曲目",
       "loadError": "读取音乐资料库失败",
       "retry": "重试"
     },

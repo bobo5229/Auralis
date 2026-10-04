@@ -1,3 +1,6 @@
+import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import { canonicalizeDelimitedValues } from '@shared/utils/delimitedValues'
+
 export function normalizeEditableText(value: string | null): string | null {
   if (value === null) {
     return null
@@ -62,4 +65,17 @@ export function normalizeEditableReleaseDate(value: string | null): string | nul
   }
 
   return normalized
+}
+/** One normalization step shared by tag writing, verification and database storage. */
+export function normalizeEditableMetadata(metadata: EditableTrackMetadata): EditableTrackMetadata {
+  return {
+    ...metadata,
+    title: normalizeEditableText(metadata.title),
+    artistDisplay: canonicalizeDelimitedValues(metadata.artistDisplay),
+    albumTitle: normalizeEditableText(metadata.albumTitle),
+    albumArtistDisplay: canonicalizeDelimitedValues(metadata.albumArtistDisplay),
+    genreDisplay: canonicalizeDelimitedValues(metadata.genreDisplay),
+    year: normalizeEditableYear(metadata.year),
+    releaseDate: normalizeEditableReleaseDate(metadata.releaseDate),
+  }
 }

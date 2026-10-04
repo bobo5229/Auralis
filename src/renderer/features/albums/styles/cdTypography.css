@@ -1,0 +1,190 @@
+/* Local CD room font resources. SIL Open Font License; see assets/fonts/cd-room. */
+@font-face {
+  font-family: 'Auralis CD Display';
+  font-style: italic;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(../../../assets/fonts/cd-room/EBGaramond-italic-latin-ext.woff2) format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Auralis CD Display';
+  font-style: italic;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(../../../assets/fonts/cd-room/EBGaramond-italic-latin.woff2) format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Auralis CD Display';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(../../../assets/fonts/cd-room/EBGaramond-normal-latin-ext.woff2) format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Auralis CD Display';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(../../../assets/fonts/cd-room/EBGaramond-normal-latin.woff2) format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Auralis CD Text';
+  font-style: italic;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(../../../assets/fonts/cd-room/SourceSerif4-italic-latin-ext.woff2) format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Auralis CD Text';
+  font-style: italic;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(../../../assets/fonts/cd-room/SourceSerif4-italic-latin.woff2) format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Auralis CD Numerals';
+  font-style: italic;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(../../../assets/fonts/cd-room/SourceSerif4-italic-latin.woff2) format('woff2');
+  unicode-range: U+0030-0039;
+}
+
+@font-face {
+  font-family: 'Auralis CD Text';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(../../../assets/fonts/cd-room/SourceSerif4-normal-latin-ext.woff2) format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Auralis CD Text';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(../../../assets/fonts/cd-room/SourceSerif4-normal-latin.woff2) format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Auralis CD Numerals';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url(../../../assets/fonts/cd-room/SourceSerif4-normal-latin.woff2) format('woff2');
+  unicode-range: U+0030-0039;
+}
+
+/* CD room typography: families, sizes and line heights are local semantic roles.
+ * Display: titles, names and lyrics. Text: navigation, labels and fine print.
+ * Numerals: Source Serif even inside display text; standalone data uses lining/tabular figures.
+ * Chinese retains the existing GenRyuMin2TC resources. */
+.cd-page,
+.cd-view-switch {
+  --cd-font-cjk: 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
+  --cd-font-display: 'Auralis CD Numerals', 'Auralis CD Display', var(--cd-font-cjk);
+  --cd-font-text: 'Auralis CD Text', var(--cd-font-cjk);
+  --cd-font-number: 'Auralis CD Text', var(--cd-font-cjk);
+  --cd-font-lyrics: var(--cd-font-display);
+  --cd-type-weight: 400;
+  /* Shared roles. Keep the room's editorial scale independent of global UI. */
+  --cd-type-body-size: 14px;
+  --cd-type-body-line-height: 1.5;
+  --cd-type-caption-size: 12px;
+  --cd-type-caption-line-height: 1.7;
+  --cd-type-control-size: 12px;
+  --cd-type-control-line-height: 20px;
+  --cd-type-note-size: 13px;
+  --cd-type-note-line-height: 1.5;
+  /* Existing text buttons retain font-metric line boxes rather than navigation spacing. */
+  --cd-type-action-size: var(--cd-type-note-size);
+  --cd-type-action-line-height: normal;
+  /* Surface roles. Identical specs reference shared roles; geometry variants stay explicit. */
+  --cd-type-title-size: 36px;
+  --cd-type-title-compact-size: 28px;
+  --cd-type-title-line-height: 1.25;
+  --cd-type-nav-size: var(--cd-type-control-size);
+  --cd-type-nav-line-height: var(--cd-type-control-line-height);
+  --cd-type-label-size: var(--cd-type-caption-size);
+  --cd-type-label-line-height: var(--cd-type-caption-line-height);
+  --cd-type-value-size: var(--cd-type-body-size);
+  --cd-type-value-line-height: var(--cd-type-body-line-height);
+  --cd-type-fine-size: var(--cd-type-note-size);
+  --cd-type-fine-line-height: var(--cd-type-note-line-height);
+  --cd-type-count-size: var(--cd-type-caption-size);
+  --cd-type-count-line-height: normal;
+  --cd-type-section-size: 20px;
+  --cd-type-section-line-height: 1.25;
+  --cd-type-mode-size: 11px;
+  --cd-type-mode-line-height: 16px;
+  /* Track titles use the existing EB Garamond display family at a larger reading size. */
+  --cd-type-track-size: 16px;
+  --cd-type-track-line-height: var(--cd-type-body-line-height);
+  --cd-type-track-artist-size: 11px;
+  --cd-type-track-artist-line-height: 1.5;
+  --cd-type-track-number-size: 11px;
+  --cd-type-track-number-line-height: 1.7;
+  --cd-type-disc-size: 11px;
+  --cd-type-disc-line-height: normal;
+  --cd-type-playing-size: 18px;
+  --cd-type-playing-line-height: 1.3;
+  --cd-type-playback-size: 16px;
+  --cd-type-playback-line-height: 1.3;
+  --cd-type-playback-album-line-height: 1.25;
+  --cd-type-focus-song-size: var(--cd-type-body-size);
+  --cd-type-focus-song-line-height: 17px;
+  --cd-type-focus-album-size: var(--cd-type-note-size);
+  --cd-type-focus-album-line-height: 15px;
+  --cd-type-focus-rows: var(--cd-type-focus-song-line-height) var(--cd-type-focus-album-line-height)
+    5px;
+  --cd-type-time-size: var(--cd-type-caption-size);
+  --cd-type-time-line-height: 16px;
+  /* SVG lyrics use glyph metrics, perspective and available arc length, not CSS line boxes. */
+  --cd-type-lyrics-size: 24px;
+  --cd-type-lyrics-flat-size: 20px;
+  --cd-type-notice-size: var(--cd-type-note-size);
+  --cd-type-notice-line-height: 22px;
+  --cd-type-status-size: var(--cd-type-body-size);
+  --cd-type-status-line-height: normal;
+  --cd-type-error-size: 11px;
+  --cd-type-error-line-height: normal;
+  --cd-type-debug-size: 11px;
+  --cd-type-debug-line-height: 20px;
+  font-family: var(--cd-font-text);
+  font-weight: var(--cd-type-weight);
+  font-optical-sizing: auto;
+}

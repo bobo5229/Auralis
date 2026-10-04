@@ -9,6 +9,7 @@
 | `archive/`         | [听音室](archive/listening-room.html)、[夜井星空](archive/night-well.html)、[Macintosh 128K 立体](archive/classic-mac.html)、[唱片排行](archive/ranking-record-shelf.html)、[曲目列表](archive/ranking-track-list.html)、[曲目飘带](archive/ranking-track-ribbons.html)、[侧栏·仪表箱×点唱机](archive/side-chassis-gauge-jukebox.html)、[侧栏·铭牌×热敏票](archive/side-chassis-plaque-thermal.html)、[侧栏·调谐器×内袋](archive/side-chassis-tuner-sleeve.html) |
 | `playback/`        | [播放栏材质](playback/playbar-liquid-glass-material-demo.html)、[音量浮层](playback/playbar-vertical-volume-popover-demo.html)                                     |
 | `smart-playlists/` | [智能歌单编辑器](smart-playlists/smart-playlist-builder.html)                                                                                                      |
+| `brand/`          | [Logo 设计比较](brand/logo-exploration.html)：原创字母构形、深浅主题、小尺寸与应用位置示意                                                                          |
 | `local/albums/`    | [专辑布局方案入口](local/albums/album-layout-index.html)、专辑头部与材质草稿                                                                                       |
 | `local/archive/`   | 年度总结与唱片封套草稿                                                                                                                                             |
 | `local/playback/`  | [动态流光](local/playback/apple-music-flow-demo.html)、[幕布转场](local/playback/fullscreen-curtain-transition-demo.html)                                          |
