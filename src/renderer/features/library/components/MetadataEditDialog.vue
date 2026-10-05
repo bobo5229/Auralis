@@ -8,12 +8,16 @@ import type { MetadataEditStatus } from '../composables/useLibraryMetadataEditor
 const props = withDefaults(
   defineProps<{
     metadata: EditableTrackMetadata | null
+    open?: boolean
+    loading?: boolean
     saving: boolean
     errorMessage: string | null
     editStatus?: MetadataEditStatus
   }>(),
   {
     editStatus: 'editable',
+    open: false,
+    loading: false,
   },
 )
 
@@ -21,6 +25,7 @@ const emit = defineEmits<{
   close: []
   save: [metadata: EditableTrackMetadata]
   retryStatus: []
+  retryLoad: []
 }>()
 
 const { t } = useI18n()
@@ -29,7 +34,10 @@ const dialogRef = ref<HTMLFormElement | null>(null)
 const titleInputRef = ref<HTMLInputElement | null>(null)
 const localError = ref<string | null>(null)
 
-const isEditingDisabled = computed(() => props.saving || props.editStatus !== 'editable')
+const isOpen = computed(() => props.open || props.metadata !== null)
+const isEditingDisabled = computed(
+  () => !props.metadata || props.loading || props.saving || props.editStatus !== 'editable',
+)
 
 interface StatusBannerConfig {
   message: string
@@ -187,7 +195,7 @@ function onClose(): void {
 }
 
 useOverlayFocusTrap({
-  isOpen: () => props.metadata !== null,
+  isOpen,
   container: dialogRef,
   initialFocus: () =>
     !isEditingDisabled.value ? (titleInputRef.value ?? undefined) : (dialogRef.value ?? undefined),
@@ -198,7 +206,7 @@ useOverlayFocusTrap({
 
 <template>
   <Teleport to="body">
-    <div v-if="metadata" class="library-overlay" data-library-overlay="metadata-dialog">
+    <div v-if="isOpen" class="library-overlay" data-library-overlay="metadata-dialog">
       <div class="fixed inset-0 z-[70] flex items-center justify-center p-4 library-dialog-scrim">
         <form
           ref="dialogRef"
@@ -206,6 +214,7 @@ useOverlayFocusTrap({
           role="dialog"
           tabindex="-1"
           aria-modal="true"
+          :aria-busy="loading || saving"
           aria-labelledby="metadata-dialog-title"
           :aria-describedby="localError || errorMessage ? 'metadata-dialog-error' : undefined"
           @submit.prevent="onSave"
@@ -229,7 +238,7 @@ useOverlayFocusTrap({
           </div>
 
           <p
-            v-if="editStatus === 'playback-in-use'"
+            v-if="metadata && editStatus === 'playback-in-use'"
             class="metadata-dialog-playback-notice mb-3.5 auralis-type-caption"
             role="status"
             aria-live="polite"
@@ -238,7 +247,7 @@ useOverlayFocusTrap({
           </p>
 
           <div
-            v-else-if="statusBanner"
+            v-else-if="metadata && statusBanner"
             class="metadata-dialog-status-banner mb-3.5 flex items-center justify-between gap-2.5 rounded-lg px-3 py-2 auralis-type-caption"
             :class="statusBanner.classes"
             role="status"
@@ -258,7 +267,11 @@ useOverlayFocusTrap({
             </button>
           </div>
 
-          <div class="grid gap-3">
+          <p v-if="loading" class="auralis-type-control" role="status">
+            {{ t('library.metadataEditor.status.loading') }}
+          </p>
+
+          <div v-if="metadata" class="grid gap-3">
             <label class="metadata-dialog-label grid gap-1 auralis-type-control">
               {{ t('library.metadataEditor.fields.title') }}
               <input
@@ -351,6 +364,15 @@ useOverlayFocusTrap({
               {{ t('library.metadataEditor.actions.cancel') }}
             </button>
             <button
+              v-if="!metadata && !loading && errorMessage"
+              class="metadata-dialog-btn-retry rounded px-2.5 py-1 auralis-type-control font-semibold"
+              type="button"
+              @click="emit('retryLoad')"
+            >
+              {{ t('library.metadataEditor.status.retry') }}
+            </button>
+            <button
+              v-if="metadata"
               class="metadata-dialog-btn-primary player-control-primary px-4 py-1.5 auralis-type-control font-semibold"
               type="submit"
               :disabled="isEditingDisabled"

@@ -83,10 +83,10 @@ async function fixture(dir: string, name: string, rate: number, pcm: Buffer) {
   )
   return path
 }
-async function waitFor(predicate: () => boolean, timeout = 10000) {
+async function waitFor(predicate: () => boolean, timeout = 10000, diagnostics?: () => unknown) {
   const start = Date.now()
   while (!predicate() && Date.now() - start < timeout) await delay(20)
-  expect(predicate()).toBe(true)
+  expect(predicate(), JSON.stringify(diagnostics?.())).toBe(true)
 }
 function expectPcm(actual: Buffer, expected: Buffer) {
   expect(actual.length).toBe(expected.length)
@@ -157,7 +157,15 @@ describe.skipIf(!existsSync(ffmpeg) || !existsSync(mpv))(
         })
         await waitFor(() => statuses.includes('applied'))
         await service.command({ action: 'resume', session: 1 })
-        await waitFor(() => events.some((e) => e.kind === 'ended'))
+        await waitFor(
+          () => events.some((e) => e.kind === 'ended'),
+          10000,
+          () => ({
+            statuses,
+            warnings: warnings.map(String),
+            events: events.slice(-20),
+          }),
+        )
         service.dispose()
         await delay(100)
         const left = { ...audio(a, rate), trailing: 48 },

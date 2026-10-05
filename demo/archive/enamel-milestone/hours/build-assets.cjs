@@ -98,7 +98,7 @@ function motif(value) {
   if (value === 10) {
     const spindle =
       '<circle cx="150" cy="160" r="3.3" fill="$m"/><circle cx="150" cy="160" r="1.3" fill="#082131"/>'
-    return `${record(150, 189, 84)}<circle cx="150" cy="189" r="59" fill="var(--deep)"/><circle cx="150" cy="189" r="59" fill="$g"/>${spindle}${relief(number(10, 150, 177, 1.04))}${hours(148, 240)}
+    return `${record(150, 189, 84)}<circle cx="150" cy="189" r="59" fill="var(--deep)"/><circle cx="150" cy="189" r="59" fill="$g"/>${spindle}${relief(number(10, 150, 171, 0.96))}${hours(148, 232)}
       <path d="M82 139A84 84 0 0 1 142 105" fill="none" stroke="$o" stroke-width="3"/>
       <circle cx="243" cy="101" r="13" fill="$m" stroke="#103447" stroke-width="2"/><circle cx="243" cy="101" r="8" fill="var(--deep)" stroke="$b" stroke-width="1.4"/>
       ${wire('<path d="M243 101V143Q243 150 237 155L214 176"/>', 5)}

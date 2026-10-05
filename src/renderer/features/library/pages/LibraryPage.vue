@@ -416,7 +416,7 @@ function onListShellKeyDown(event: KeyboardEvent): void {
   // 曲目行已经处理的 Enter/Space 不再冒泡触发第二次播放或选择。
   if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
   if (isInteractiveTarget(event.target)) return
-  if (contextMenu.value !== null || editingMetadata.value !== null) return
+  if (contextMenu.value !== null || isMetadataEditorOpen.value) return
 
   if (event.key === 'ArrowDown') {
     event.preventDefault()
@@ -487,6 +487,7 @@ const metadataEditor = useLibraryMetadataEditor({
   restoreFocus: restoreLibraryFocus,
   isDisposed: () => isPageUnmounted,
   getSaveErrorMessage: () => t('library.metadataEditor.errors.saveFailed'),
+  getLoadErrorMessage: () => t('library.metadataEditor.errors.loadFailed'),
   getPlaybackInUseMessage: () => t('library.metadataEditor.status.playbackInUse'),
   getQueryFailedMessage: () => t('library.metadataEditor.status.queryFailed'),
   getTrackEditState: (trackId) => auralis.metadata.getTrackEditState(trackId),
@@ -497,10 +498,18 @@ const metadataEditor = useLibraryMetadataEditor({
       message: 'Failed to save metadata edits',
       cause: error,
     }),
+  logLoadError: (error) =>
+    rendererDiagnostics.error({
+      scope: 'library.metadata',
+      message: 'Failed to load track metadata',
+      cause: error,
+    }),
 })
 
 const {
   editingMetadata,
+  isMetadataEditorOpen,
+  isLoadingMetadata,
   isSavingMetadata,
   metadataEditError,
   editStatus: metadataEditStatus,
@@ -726,6 +735,8 @@ onBeforeUnmount(() => {
     </div>
 
     <MetadataEditDialog
+      :open="isMetadataEditorOpen"
+      :loading="isLoadingMetadata"
       :metadata="editingMetadata"
       :saving="isSavingMetadata"
       :error-message="metadataEditError"
@@ -733,6 +744,7 @@ onBeforeUnmount(() => {
       @close="closeMetadataEditor"
       @save="saveMetadata"
       @retry-status="retryMetadataEditStatus"
+      @retry-load="metadataEditor.retryLoad"
     />
 
     <LibraryContextMenu

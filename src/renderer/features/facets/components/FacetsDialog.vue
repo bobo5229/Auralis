@@ -4,19 +4,16 @@ import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { SmartPlaylist, SmartPlaylistRuleCondition } from '@shared/types/smartPlaylist'
 import { auralis } from '@renderer/shared/ipc/client'
-import { splitGenreValues } from '@renderer/features/library/utils/formatGenre'
-import { splitArtistValues } from '@renderer/features/library/utils/formatArtist'
+import {
+  buildFacetOptions,
+  getFacetValues,
+  matchesFacet,
+  type FacetOption,
+} from '../utils/facetOptions'
 
 const { t } = useI18n()
 
 type FacetKind = 'genre' | 'albumArtist' | 'album'
-
-interface FacetOption {
-  key: string
-  label: string
-  value: string | null
-  trackCount: number
-}
 
 interface FacetContextMenuState {
   kind: Exclude<FacetKind, 'album'>
@@ -50,15 +47,8 @@ const selectedAlbumKey = ref<string | null>(null)
 const contextMenu = ref<FacetContextMenuState | null>(null)
 let unsubscribeChanged: (() => void) | null = null
 
-function getGenres(track: TrackListItem): Array<string | null> {
-  const genres = splitGenreValues(track.genre)
-  return genres.length > 0 ? genres : [null]
-}
-
 function getAlbumArtists(track: TrackListItem): Array<string | null> {
-  const albumArtist = track.albumArtist || track.artist
-  const artists = splitArtistValues(albumArtist)
-  return artists.length > 0 ? artists : [null]
+  return getFacetValues(track, 'albumArtist')
 }
 
 function getAlbumTitle(track: TrackListItem): string {
@@ -69,43 +59,10 @@ function getAlbumKey(albumArtist: string | null, album: string): string {
   return `${albumArtist ?? ''}\u0000${album}`
 }
 
-function getFacetKey(value: string | null): string {
-  return value === null ? 'unknown' : `value:${value}`
-}
-
-function getFacetLabel(kind: Exclude<FacetKind, 'album'>, value: string | null): string {
-  if (value !== null) return value
-  return kind === 'genre' ? t('facets.unknownGenre') : t('facets.unknownArtist')
-}
-
-function countOptions(
-  kind: Exclude<FacetKind, 'album'>,
-  values: Iterable<string | null>,
-): FacetOption[] {
-  const counts = new Map<string, FacetOption>()
-
-  for (const value of values) {
-    const key = getFacetKey(value)
-    const existing = counts.get(key)
-    if (existing) {
-      existing.trackCount += 1
-    } else {
-      counts.set(key, {
-        key,
-        label: getFacetLabel(kind, value),
-        value,
-        trackCount: 1,
-      })
-    }
-  }
-
-  return [...counts.values()].sort((left, right) => collator.compare(left.label, right.label))
-}
-
 function matchesGenre(track: TrackListItem): boolean {
   if (!selectedGenre.value) return true
   const selected = genreOptions.value.find((option) => option.key === selectedGenre.value)
-  return selected ? getGenres(track).includes(selected.value) : true
+  return selected ? matchesFacet(track, 'genre', selected.key) : true
 }
 
 function matchesAlbumArtist(track: TrackListItem): boolean {
@@ -113,21 +70,15 @@ function matchesAlbumArtist(track: TrackListItem): boolean {
   const selected = albumArtistOptions.value.find(
     (option) => option.key === selectedAlbumArtist.value,
   )
-  return selected ? getAlbumArtists(track).includes(selected.value) : true
+  return selected ? matchesFacet(track, 'albumArtist', selected.key) : true
 }
 
 const genreOptions = computed<FacetOption[]>(() =>
-  countOptions(
-    'genre',
-    tracks.value.flatMap((track) => getGenres(track)),
-  ),
+  buildFacetOptions(tracks.value, 'genre', t('facets.unknownGenre')),
 )
 
 const albumArtistOptions = computed<FacetOption[]>(() =>
-  countOptions(
-    'albumArtist',
-    tracks.value.filter(matchesGenre).flatMap((track) => getAlbumArtists(track)),
-  ),
+  buildFacetOptions(tracks.value.filter(matchesGenre), 'albumArtist', t('facets.unknownArtist')),
 )
 
 const albumOptions = computed<FacetOption[]>(() => {

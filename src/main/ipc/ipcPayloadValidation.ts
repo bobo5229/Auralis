@@ -3,6 +3,7 @@ import { ipcChannels } from '@shared/ipc/channels'
 import type { IpcInvokeChannel } from '@shared/ipc/contracts'
 import { LIBRARY_CATALOG_MAX_PAGE_SIZE } from '@shared/types/libraryCatalog'
 import { assertRecentAddedDays } from '@shared/smartPlaylists/recentAdded'
+import { SMART_PLAYLIST_MAX_OPERANDS } from '@shared/smartPlaylists/ruleLimits'
 
 const MAX_TEXT_LENGTH = 8_192
 const MAX_QUERY_LENGTH = 4_096
@@ -338,7 +339,7 @@ const smartPlaylistRule: Validator = (value, path, context) => {
         operands: field(
           arrayOf((operand, operandPath) => validateExpression(operand, operandPath, depth + 1), {
             min: 1,
-            max: 64,
+            max: SMART_PLAYLIST_MAX_OPERANDS,
           }),
           true,
         ),

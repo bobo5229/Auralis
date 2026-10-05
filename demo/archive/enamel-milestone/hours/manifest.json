@@ -11,7 +11,11 @@
       "hours": 10,
       "name": "初响",
       "motif": "唱针落下，第一段音轨开始。",
-      "palette": ["#389ab9", "#124b68", "#b5eeef"],
+      "palette": [
+        "#389ab9",
+        "#124b68",
+        "#b5eeef"
+      ],
       "svg": "assets/hours-10.svg",
       "png": "assets/hours-10@2x.png",
       "unlit": {
@@ -26,7 +30,11 @@
       "hours": 100,
       "name": "成章",
       "motif": "唱片年轮，被完整的虹彩环珍藏。",
-      "palette": ["#167dde", "#032e70", "#8ee5ff"],
+      "palette": [
+        "#167dde",
+        "#032e70",
+        "#8ee5ff"
+      ],
       "svg": "assets/hours-100.svg",
       "png": "assets/hours-100@2x.png",
       "unlit": {
@@ -41,7 +49,11 @@
       "hours": 500,
       "name": "共鸣",
       "motif": "两组声波交织，在交汇处留下光。",
-      "palette": ["#159b86", "#034a48", "#a0ffe0"],
+      "palette": [
+        "#159b86",
+        "#034a48",
+        "#a0ffe0"
+      ],
       "svg": "assets/hours-500.svg",
       "png": "assets/hours-500@2x.png",
       "unlit": {
@@ -56,7 +68,11 @@
       "hours": 1000,
       "name": "久伴",
       "motif": "一张珍藏唱片，收进专属唱片套。",
-      "palette": ["#7463bd", "#2b215c", "#d3c4ff"],
+      "palette": [
+        "#7463bd",
+        "#2b215c",
+        "#d3c4ff"
+      ],
       "svg": "assets/hours-1000.svg",
       "png": "assets/hours-1000@2x.png",
       "unlit": {

@@ -241,6 +241,14 @@ export function createAlbumDropMotion(root: HTMLElement, onActive: (active: bool
       disc.append(front, back)
       root.append(disc, coverClone)
       root.style.display = 'block'
+      // Keep the blur radius fixed: only the composited backdrop's opacity changes.
+      // It sits below the Playbar and this layer's cover/CD, so those stay sharp.
+      const backdrop = document.createElement('div')
+      backdrop.className = 'album-drop-backdrop'
+      backdrop.setAttribute('aria-hidden', 'true')
+      backdrop.inert = true
+      shell.append(backdrop)
+      sceneRestores.push(() => backdrop.remove())
       const original = cover.closest<HTMLElement>('.album-card-cover') ?? cover
       const visibility = original.style.getPropertyValue('visibility')
       const priority = original.style.getPropertyPriority('visibility')
@@ -254,7 +262,7 @@ export function createAlbumDropMotion(root: HTMLElement, onActive: (active: bool
         child.classList.add('album-drop-muted')
         child.inert = true
         sceneRestores.push(() => {
-          child.classList.remove('album-drop-muted', 'album-drop-muted--returning')
+          child.classList.remove('album-drop-muted')
           child.inert = inert
         })
       }
@@ -275,6 +283,7 @@ export function createAlbumDropMotion(root: HTMLElement, onActive: (active: bool
       observer.observe(cover)
       teardown.push(() => observer.disconnect())
 
+      void animate(backdrop, [{ opacity: 0 }, { opacity: 1 }], 240, 'ease-out')
       if (!(await animate(coverClone, [{ transform: 'none' }, { transform: grown }], 260))) return
       disc.style.visibility = 'visible'
       const extractedX = centerX + direction * (width / 2 + diameter / 2 - overlap)
@@ -337,7 +346,7 @@ export function createAlbumDropMotion(root: HTMLElement, onActive: (active: bool
       )
         return
       disc.remove()
-      for (const child of background) child.classList.add('album-drop-muted--returning')
+      void animate(backdrop, [{ opacity: 1 }, { opacity: 0 }], 240, 'ease-out')
       await animate(coverClone, [{ transform: grown }, { transform: 'none' }], 240)
       cleanup()
     }

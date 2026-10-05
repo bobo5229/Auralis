@@ -87,6 +87,7 @@ app
       `document.querySelector('#template-download').hidden && [...document.images].every(img=>!img.src.endsWith('-unlit.svg')) && [...document.querySelectorAll('.downloads a')].every(link=>!link.href.includes('-unlit'))`,
     )
     assert(litState)
+    await pause(150)
     await capture('lit-comparison')
     await win.webContents.executeJavaScript(
       `document.querySelector('button[data-state=unlit]').click(); Promise.all([...document.images].map(img=>img.decode()))`,

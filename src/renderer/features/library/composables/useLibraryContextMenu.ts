@@ -58,6 +58,12 @@ export function useLibraryContextMenu(options: {
     playlistLoadFailed.value ? options.t('library.contextMenu.playlistLoadError') : null,
   )
   let addToPlaylistFeedbackTimer: number | null = null
+  let disposed = false
+  let playlistLoadRevision = 0
+
+  function ownsMenu(origin: LibraryContextMenuState | null): boolean {
+    return !disposed && origin !== null && contextMenu.value === origin
+  }
 
   const contextMenuAnchor = computed<LibraryContextMenuAnchor>(() => ({
     clientX: contextMenu.value?.anchor.clientX ?? 0,
@@ -87,6 +93,10 @@ export function useLibraryContextMenu(options: {
   }
 
   function closeContextMenu(handoffTarget?: 'metadata-dialog' | 'view-switch'): void {
+    clearAddToPlaylistFeedback()
+    playlistLoadRevision++
+    playlistLoading.value = false
+    isCreatingPlaylistFromMenu.value = false
     if (!contextMenu.value) return
 
     const target: LibraryMetadataFocusTarget = {
@@ -96,7 +106,6 @@ export function useLibraryContextMenu(options: {
     }
 
     contextMenu.value = null
-    clearAddToPlaylistFeedback()
 
     if (handoffTarget === 'metadata-dialog') {
       options.setMetadataReturnTarget(target)
@@ -108,12 +117,16 @@ export function useLibraryContextMenu(options: {
   }
 
   async function loadRegularPlaylistItems(): Promise<void> {
+    if (disposed) return
+    const revision = ++playlistLoadRevision
     playlistLoading.value = true
     playlistLoadFailed.value = false
     try {
       const items = await options.listSidebarItems()
+      if (disposed || revision !== playlistLoadRevision) return
       regularPlaylistItems.value = items.filter((item) => item.kind === 'playlist')
     } catch (error) {
+      if (disposed || revision !== playlistLoadRevision) return
       rendererDiagnostics.error({
         scope: 'library.context-menu',
         message: 'Failed to load playlists',
@@ -121,7 +134,7 @@ export function useLibraryContextMenu(options: {
       })
       playlistLoadFailed.value = true
     } finally {
-      playlistLoading.value = false
+      if (!disposed && revision === playlistLoadRevision) playlistLoading.value = false
     }
   }
 
@@ -131,6 +144,9 @@ export function useLibraryContextMenu(options: {
     source: LibraryContextMenuSource = 'track',
     openReason: 'pointer' | 'keyboard' = 'pointer',
   ): void {
+    if (disposed) return
+    clearAddToPlaylistFeedback()
+    isCreatingPlaylistFromMenu.value = false
     options.onTrackActivated(trackId)
     contextMenu.value = {
       trackId,
@@ -234,9 +250,11 @@ export function useLibraryContextMenu(options: {
     playlistId: number,
     playlistName: string,
     trackIds: number[],
+    origin: LibraryContextMenuState | null,
   ): Promise<void> {
     await options.addTracksToPlaylist(playlistId, trackIds)
     window.dispatchEvent(new CustomEvent(LIBRARY_PLAYLISTS_CHANGED_EVENT))
+    if (!ownsMenu(origin)) return
     feedbackSource.value = {
       playlistId,
       name: playlistName,
@@ -247,14 +265,14 @@ export function useLibraryContextMenu(options: {
     }
     addToPlaylistFeedbackTimer = window.setTimeout(() => {
       addToPlaylistFeedbackTimer = null
-      closeContextMenu()
+      if (ownsMenu(origin)) closeContextMenu()
     }, 1200)
   }
 
   async function onAddContextTracksToPlaylist(playlist: SidebarPlaylistItem): Promise<void> {
     const trackIds = getContextMenuTrackIds()
     if (trackIds.length === 0) return
-    await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds)
+    await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds, contextMenu.value)
   }
 
   async function onCreatePlaylistAndAddContextTracks(): Promise<void> {
@@ -263,17 +281,23 @@ export function useLibraryContextMenu(options: {
     const trackIds = getContextMenuTrackIds()
     if (trackIds.length === 0) return
 
+    const origin = contextMenu.value
     isCreatingPlaylistFromMenu.value = true
     try {
       const playlist = await options.createPlaylist()
-      await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds)
-      await loadRegularPlaylistItems()
+      await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds, origin)
+      if (ownsMenu(origin)) await loadRegularPlaylistItems()
     } finally {
-      isCreatingPlaylistFromMenu.value = false
+      if (ownsMenu(origin)) isCreatingPlaylistFromMenu.value = false
     }
   }
 
   function dispose(): void {
+    disposed = true
+    playlistLoadRevision++
+    contextMenu.value = null
+    playlistLoading.value = false
+    isCreatingPlaylistFromMenu.value = false
     clearAddToPlaylistFeedback()
   }
 

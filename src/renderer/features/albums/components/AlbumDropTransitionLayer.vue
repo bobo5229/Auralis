@@ -28,13 +28,17 @@ defineExpose({ play, cancel })
 
 <style>
 .album-drop-muted {
-  filter: blur(6px) brightness(0.82);
   pointer-events: none;
-  transition: filter 240ms ease-out;
   -webkit-app-region: no-drag;
 }
-.album-drop-muted--returning {
-  filter: blur(0) brightness(1);
+.album-drop-backdrop {
+  position: absolute;
+  z-index: 30;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  backdrop-filter: blur(6px) brightness(0.82);
+  will-change: opacity;
 }
 .album-drop-layer {
   position: fixed;
@@ -49,6 +53,7 @@ defineExpose({ play, cancel })
   border-radius: 12px;
   box-shadow: 0 24px 54px #0008;
   transform-origin: center;
+  will-change: transform;
 }
 .album-drop-cover > .cover-frame {
   width: 100%;

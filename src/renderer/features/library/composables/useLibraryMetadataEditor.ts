@@ -34,15 +34,19 @@ interface UseLibraryMetadataEditorOptions {
   restoreFocus: (target: LibraryMetadataFocusTarget) => Promise<void>
   isDisposed: () => boolean
   getSaveErrorMessage: () => string
+  getLoadErrorMessage?: () => string
   getPlaybackInUseMessage?: () => string
   getQueryFailedMessage?: () => string
   getTrackEditState?: (trackId: number) => Promise<TrackEditStateResult>
   onTrackEditStateChanged?: (callback: (event: TrackEditStateChangedEvent) => void) => () => void
   logSaveError?: (error: unknown) => void
+  logLoadError?: (error: unknown) => void
 }
 
 export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOptions) {
   const editingMetadata = ref<EditableTrackMetadata | null>(null)
+  const isMetadataEditorOpen = ref(false)
+  const isLoadingMetadata = ref(false)
   const isSavingMetadata = ref(false)
   const errorMessageSource = shallowRef<(() => string) | null>(null)
   const metadataEditError = computed(() => errorMessageSource.value?.() ?? null)
@@ -52,12 +56,17 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   let currentVersion = 0
   let unsubscribeStatus: (() => void) | null = null
   let pendingReturnTarget: LibraryMetadataFocusTarget | null = null
+  let loadRevision = 0
+
+  function isCurrentLoad(trackId: number, revision: number): boolean {
+    return !options.isDisposed() && currentTrackId === trackId && loadRevision === revision
+  }
 
   function setReturnTarget(target: LibraryMetadataFocusTarget): void {
     pendingReturnTarget = target
   }
 
-  async function checkStatus(targetTrackId: number): Promise<void> {
+  async function checkStatus(targetTrackId: number, revision = loadRevision): Promise<void> {
     if (!options.getTrackEditState) {
       editStatus.value = 'editable'
       return
@@ -65,13 +74,13 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
 
     try {
       const result = await options.getTrackEditState(targetTrackId)
-      if (options.isDisposed() || currentTrackId !== targetTrackId) return
+      if (!isCurrentLoad(targetTrackId, revision)) return
       if (result.version >= currentVersion) {
         currentVersion = result.version
         editStatus.value = result.status
       }
     } catch {
-      if (options.isDisposed() || currentTrackId !== targetTrackId) return
+      if (!isCurrentLoad(targetTrackId, revision)) return
       if (currentVersion === 0) {
         editStatus.value = 'query-failed'
       }
@@ -85,33 +94,59 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   }
 
   async function open(trackId: number): Promise<void> {
+    if (options.isDisposed() || isSavingMetadata.value) return
+    const revision = ++loadRevision
     if (unsubscribeStatus) {
       unsubscribeStatus()
       unsubscribeStatus = null
     }
 
     currentTrackId = trackId
+    isMetadataEditorOpen.value = true
+    isLoadingMetadata.value = true
+    editingMetadata.value = null
     currentVersion = 0
     editStatus.value = options.getTrackEditState ? 'checking' : 'editable'
     errorMessageSource.value = null
 
     if (options.onTrackEditStateChanged) {
       unsubscribeStatus = options.onTrackEditStateChanged((event) => {
-        if (options.isDisposed() || currentTrackId !== event.trackId) return
+        if (event.trackId !== trackId || !isCurrentLoad(trackId, revision)) return
         if (event.version < currentVersion) return
         currentVersion = event.version
         editStatus.value = event.status
       })
     }
 
-    const [metadata] = await Promise.all([options.loadTrackMetadata(trackId), checkStatus(trackId)])
+    try {
+      const [metadata] = await Promise.all([
+        options.loadTrackMetadata(trackId),
+        checkStatus(trackId, revision),
+      ])
+      if (!isCurrentLoad(trackId, revision)) return
+      if (!metadata) throw new Error('Track metadata is unavailable')
+      editingMetadata.value = metadata
+    } catch (error) {
+      if (!isCurrentLoad(trackId, revision)) return
+      options.logLoadError?.(error)
+      errorMessageSource.value =
+        options.getLoadErrorMessage ?? options.getQueryFailedMessage ?? options.getSaveErrorMessage
+    } finally {
+      if (isCurrentLoad(trackId, revision)) isLoadingMetadata.value = false
+    }
+  }
 
-    if (options.isDisposed() || currentTrackId !== trackId) return
-    editingMetadata.value = metadata
+  async function retryLoad(): Promise<void> {
+    if (currentTrackId === null || isLoadingMetadata.value) return
+    await open(currentTrackId)
   }
 
   function close(): void {
     if (isSavingMetadata.value) return
+    const trackId = currentTrackId
+    loadRevision++
+    isMetadataEditorOpen.value = false
+    isLoadingMetadata.value = false
 
     if (unsubscribeStatus) {
       unsubscribeStatus()
@@ -122,10 +157,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     editStatus.value = 'checking'
 
     const returnTarget =
-      pendingReturnTarget ??
-      (editingMetadata.value
-        ? { trackId: editingMetadata.value.trackId, source: 'track' as const }
-        : null)
+      pendingReturnTarget ?? (trackId !== null ? { trackId, source: 'track' as const } : null)
 
     editingMetadata.value = null
     errorMessageSource.value = null
@@ -137,6 +169,12 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   }
 
   function dispose(): void {
+    loadRevision++
+    isMetadataEditorOpen.value = false
+    isLoadingMetadata.value = false
+    editingMetadata.value = null
+    errorMessageSource.value = null
+    pendingReturnTarget = null
     if (unsubscribeStatus) {
       unsubscribeStatus()
       unsubscribeStatus = null
@@ -146,7 +184,12 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   }
 
   async function save(metadata: EditableTrackMetadata): Promise<void> {
-    if (isSavingMetadata.value || editStatus.value !== 'editable') {
+    if (
+      isSavingMetadata.value ||
+      editStatus.value !== 'editable' ||
+      !editingMetadata.value ||
+      currentTrackId !== metadata.trackId
+    ) {
       return
     }
 
@@ -198,6 +241,8 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       }
       currentTrackId = null
       currentVersion = 0
+      loadRevision++
+      isMetadataEditorOpen.value = false
       editingMetadata.value = null
       pendingReturnTarget = null
 
@@ -218,6 +263,8 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
 
   return {
     editingMetadata,
+    isMetadataEditorOpen,
+    isLoadingMetadata,
     isSavingMetadata,
     metadataEditError,
     editStatus,
@@ -226,6 +273,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     close,
     save,
     retryCheckStatus,
+    retryLoad,
     dispose,
   }
 }

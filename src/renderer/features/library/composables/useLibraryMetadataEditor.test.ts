@@ -32,16 +32,18 @@ function createEditor(overrides?: {
     metadata: EditableTrackMetadata,
   ) => Promise<UpdateTrackMetadataResult | unknown>
   getSaveErrorMessage?: () => string
+  getLoadErrorMessage?: () => string
 }) {
   let scope: LibraryRouteScope = overrides?.scope ?? { kind: 'library' }
   let disposed = false
-  const loadTrackMetadata = vi.fn(async () => metadata)
+  const loadTrackMetadata = vi.fn(async (): Promise<EditableTrackMetadata | null> => metadata)
   const updateTrackMetadata = vi.fn(overrides?.updateTrackMetadata ?? (async () => undefined))
   const refreshLibrary = vi.fn(
     async () => overrides?.refreshResult ?? ('committed' as LibraryMetadataRefreshResult),
   )
   const restoreFocus = vi.fn(async () => undefined)
   const logSaveError = vi.fn()
+  const logLoadError = vi.fn()
   const editor = useLibraryMetadataEditor({
     loadTrackMetadata,
     updateTrackMetadata,
@@ -50,11 +52,13 @@ function createEditor(overrides?: {
     restoreFocus,
     isDisposed: () => disposed,
     getSaveErrorMessage: overrides?.getSaveErrorMessage ?? (() => 'save failed'),
+    getLoadErrorMessage: overrides?.getLoadErrorMessage ?? (() => 'load failed'),
     getPlaybackInUseMessage: () => 'track in use by player',
     getQueryFailedMessage: () => 'query failed',
     getTrackEditState: overrides?.getTrackEditState,
     onTrackEditStateChanged: overrides?.onTrackEditStateChanged,
     logSaveError,
+    logLoadError,
   })
 
   return {
@@ -74,6 +78,103 @@ function createEditor(overrides?: {
 }
 
 describe('useLibraryMetadataEditor', () => {
+  it.each(['reject', 'null'] as const)(
+    'shows a recoverable load error on %s without allowing a save',
+    async (failure) => {
+      const { editor, loadTrackMetadata, updateTrackMetadata } = createEditor()
+      if (failure === 'reject') loadTrackMetadata.mockRejectedValueOnce(new Error('IPC failure'))
+      else loadTrackMetadata.mockResolvedValueOnce(null)
+      const pending = editor.open(42)
+      expect(editor.isMetadataEditorOpen.value).toBe(true)
+      expect(editor.isLoadingMetadata.value).toBe(true)
+      await expect(pending).resolves.toBeUndefined()
+      expect(editor.isLoadingMetadata.value).toBe(false)
+      expect(editor.metadataEditError.value).toBe('load failed')
+      expect(editor.editingMetadata.value).toBeNull()
+      await editor.save(metadata)
+      expect(updateTrackMetadata).not.toHaveBeenCalled()
+      await editor.retryLoad()
+      expect(editor.editingMetadata.value).toEqual(metadata)
+      expect(editor.metadataEditError.value).toBeNull()
+      expect(editor.isMetadataEditorOpen.value).toBe(true)
+      editor.close()
+    },
+  )
+
+  it.each(['close', 'dispose', 'replace', 'reopen-same-track'] as const)(
+    'ignores late metadata after %s',
+    async (action) => {
+      const { editor, loadTrackMetadata } = createEditor()
+      let finish!: (value: EditableTrackMetadata) => void
+      loadTrackMetadata.mockReturnValueOnce(
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+      )
+      const pending = editor.open(42)
+      if (action === 'close') editor.close()
+      if (action === 'dispose') editor.dispose()
+      if (action === 'replace' || action === 'reopen-same-track') {
+        editor.close()
+        const trackId = action === 'replace' ? 43 : 42
+        loadTrackMetadata.mockResolvedValueOnce({ ...metadata, trackId, title: 'Latest' })
+        await editor.open(trackId)
+      }
+      finish(metadata)
+      await pending
+      if (action === 'close' || action === 'dispose') {
+        expect(editor.isMetadataEditorOpen.value).toBe(false)
+        expect(editor.editingMetadata.value).toBeNull()
+      } else expect(editor.editingMetadata.value?.title).toBe('Latest')
+      expect(editor.isLoadingMetadata.value).toBe(false)
+      expect(editor.metadataEditError.value).toBeNull()
+      editor.dispose()
+    },
+  )
+
+  it('ignores late errors and edit-state responses when the same track is reopened', async () => {
+    let reject!: (cause: Error) => void
+    let finishStatus!: (value: TrackEditStateResult) => void
+    const getTrackEditState = vi.fn(
+      async (): Promise<TrackEditStateResult> => ({ trackId: 42, status: 'editable', version: 1 }),
+    )
+    getTrackEditState.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finishStatus = resolve
+      }),
+    )
+    const { editor, loadTrackMetadata } = createEditor({ getTrackEditState })
+    loadTrackMetadata.mockReturnValueOnce(
+      new Promise((_resolve, no) => {
+        reject = no
+      }),
+    )
+    const pending = editor.open(42)
+    editor.close()
+    await editor.open(42)
+    finishStatus({ trackId: 42, status: 'playback-in-use', version: 99 })
+    reject(new Error('Old failure'))
+    await pending
+    expect(editor.editStatus.value).toBe('editable')
+    expect(editor.metadataEditError.value).toBeNull()
+    expect(editor.editingMetadata.value).toEqual(metadata)
+    editor.dispose()
+  })
+
+  it('localizes the load error and restores focus when closing a failed load', async () => {
+    const locale = ref('zh')
+    const { editor, loadTrackMetadata, restoreFocus } = createEditor({
+      getLoadErrorMessage: () => (locale.value === 'zh' ? '读取失败' : 'Load failed'),
+    })
+    loadTrackMetadata.mockRejectedValueOnce(new Error('Unavailable'))
+    await editor.open(42)
+    expect(editor.metadataEditError.value).toBe('读取失败')
+    locale.value = 'en'
+    expect(editor.metadataEditError.value).toBe('Load failed')
+    editor.close()
+    expect(restoreFocus).toHaveBeenCalledWith({ trackId: 42, source: 'track' })
+  })
+
   it('refreshes an existing error after a language change without repeating the save', async () => {
     const language = ref('zh-Hans')
     const { editor, updateTrackMetadata } = createEditor({

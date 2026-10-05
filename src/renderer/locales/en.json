@@ -554,10 +554,12 @@
         "checking": "Checking editing status…",
         "playbackInUse": "This file is in use by the player. Switch to another track before editing metadata.",
         "queryFailed": "Could not check editing status. Try again.",
+        "loading": "Loading track information…",
         "retry": "Try again"
       },
       "errors": {
         "saveFailed": "Could not save metadata. Try again.",
+        "loadFailed": "Could not load track information. Try again.",
         "playbackInUse": "This file is in use by the player. Switch to another track before editing metadata.",
         "writeInProgress": "This file is being saved. Please wait."
       }
@@ -683,6 +685,7 @@
     "clearSearch": "Clear {field} search",
     "more": "Show more ({count})",
     "noValues": "No matching values",
+    "selectionLimit": "Select up to {count} values per group. Deselect one to choose another.",
     "resultCount": "{count} matching tracks | {count} matching track | {count} matching tracks",
     "creating": "Creating…",
     "create": "Create playlist"

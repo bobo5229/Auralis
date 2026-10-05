@@ -554,10 +554,12 @@
         "checking": "正在检查编辑状态…",
         "playbackInUse": "歌曲文件被播放器占用，无法修改元数据。",
         "queryFailed": "无法确认编辑状态，请重试。",
+        "loading": "正在读取歌曲信息…",
         "retry": "重试"
       },
       "errors": {
         "saveFailed": "保存元数据失败",
+        "loadFailed": "读取歌曲信息失败，请重试。",
         "playbackInUse": "歌曲文件被播放器占用，无法修改元数据。",
         "writeInProgress": "当前文件正在保存中，请稍候。"
       }
@@ -683,6 +685,7 @@
     "clearSearch": "清除{field}检索",
     "more": "显示更多（{count}）",
     "noValues": "没有找到相应的值",
+    "selectionLimit": "每组最多选择 {count} 项；取消一项后可继续选择。",
     "resultCount": "匹配歌曲 {count} 首",
     "creating": "正在创建…",
     "create": "创建歌单"

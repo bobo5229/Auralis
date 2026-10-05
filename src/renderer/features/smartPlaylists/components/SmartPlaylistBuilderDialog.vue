@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useDefaultPlaylistName } from '../utils/useDefaultPlaylistName'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
+import { SMART_PLAYLIST_MAX_OPERANDS } from '@shared/smartPlaylists/ruleLimits'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { useSidebarOwnedModal } from '@renderer/app/utils/useSidebarOwnedModal'
@@ -67,6 +68,7 @@ function toggleValue(field: BuilderField, value: string): void {
   const values = state.value.groups[field].values
   if (values.includes(value)) remove(field, value)
   else {
+    if (values.length >= SMART_PLAYLIST_MAX_OPERANDS) return
     values.push(value)
     lastSelectedField.value = field
   }
@@ -99,6 +101,8 @@ function label(field: BuilderField, value: string): string {
   return options.value[field].find((option) => option.value === value)?.label ?? value
 }
 const notice = computed(() => {
+  if (!result.value.withinLimits)
+    return t('smartBuilder.selectionLimit', { count: SMART_PLAYLIST_MAX_OPERANDS })
   if (!result.value.complete)
     return t(mode.value === 'single' ? 'smartBuilder.chooseSingle' : 'smartBuilder.chooseGroups')
   if (result.value.ids.size) return ''
@@ -207,6 +211,7 @@ async function create(): Promise<void> {
     await load()
     if (disposed || !props.open || loadError.value) return
     const current = evaluateBuilder(ruleState.value, indexBuilderTracks(tracks.value))
+    if (!current.withinLimits) return
     if (!current.complete || !current.ids.size) {
       saveError.value = 'smartBuilder.noMatches'
       return
@@ -312,6 +317,13 @@ onBeforeUnmount(() => {
                     }}</span
                   >
                 </div>
+                <p
+                  v-if="state.groups[field].values.length >= SMART_PLAYLIST_MAX_OPERANDS"
+                  class="notice neutral"
+                  role="status"
+                >
+                  {{ t('smartBuilder.selectionLimit', { count: SMART_PLAYLIST_MAX_OPERANDS }) }}
+                </p>
                 <div class="relation">
                   <span class="label">{{ t('smartBuilder.withinGroup') }}</span>
                   <div
@@ -372,6 +384,10 @@ onBeforeUnmount(() => {
                     class="choice"
                     ><input
                       :checked="state.groups[field].values.includes(option.value)"
+                      :disabled="
+                        state.groups[field].values.length >= SMART_PLAYLIST_MAX_OPERANDS &&
+                        !state.groups[field].values.includes(option.value)
+                      "
                       type="checkbox"
                       :value="option.value"
                       @change="toggleValue(field, option.value)"

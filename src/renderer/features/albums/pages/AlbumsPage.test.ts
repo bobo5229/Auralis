@@ -170,7 +170,7 @@ beforeEach(() => {
   vi.stubGlobal('Element', TestElement)
   vi.stubGlobal('Node', TestElement)
   vi.stubGlobal('document', doc)
-  vi.stubGlobal('window', { setTimeout, clearTimeout })
+  vi.stubGlobal('window', Object.assign(new EventTarget(), { setTimeout, clearTimeout }))
   vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: vi.fn() })
   vi.stubGlobal('getComputedStyle', () => ({ paddingTop: '24px', paddingBottom: '32px' }))
   vi.stubGlobal(
@@ -191,9 +191,13 @@ beforeEach(() => {
   )
 })
 afterEach(() => {
-  unmount?.()
-  unmount = null
-  vi.unstubAllGlobals()
+  try {
+    unmount?.()
+  } finally {
+    unmount = null
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  }
 })
 async function settle(): Promise<void> {
   for (let i = 0; i < 5; i++) await nextTick()
@@ -204,8 +208,8 @@ async function mountPage() {
     render: () =>
       h(KeepAlive, null, [active.value ? h(AlbumsPage) : h({ render: () => h('div') })]),
   })
-  app.mount(body)
   unmount = () => app.unmount()
+  app.mount(body)
   await settle()
   return active
 }
