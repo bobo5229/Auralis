@@ -1,0 +1,28 @@
+{
+  "badges": [
+    {
+      "id": "albums-1",
+      "name": "从头到尾",
+      "condition": "首次完整听完一张专辑",
+      "svg": "assets/albums-1.svg",
+      "png": "assets/albums-1@2x.png",
+      "page": "index.html",
+      "unlit": {
+        "svg": "assets/albums-1-unlit.svg",
+        "png": "assets/albums-1-unlit@2x.png"
+      }
+    },
+    {
+      "id": "albums-live",
+      "name": "现场回声",
+      "condition": "首次完整听完一张现场专辑",
+      "page": "live.html",
+      "svg": "assets/albums-live.svg",
+      "png": "assets/albums-live@2x.png",
+      "unlit": {
+        "svg": "assets/albums-live-unlit.svg",
+        "png": "assets/albums-live-unlit@2x.png"
+      }
+    }
+  ]
+}

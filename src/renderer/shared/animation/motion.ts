@@ -1,6 +1,4 @@
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
-import { animate } from '@motionone/dom'
-import type { AnimationControls } from '@motionone/types'
 
 /** A quiet tooltip fade, with no movement and no animation under reduced motion. */
 export function animateTooltipOpacity(target: HTMLElement, visible: boolean): () => void {
@@ -440,77 +438,6 @@ export function animateTrashLid(
     200,
     (progress) => update(from + (to - from) * (1 - Math.pow(1 - progress, 3))),
     () => update(to),
-  )
-}
-
-/** The leading edge moves first; the trailing edge catches up like a sticky line. */
-export function animateRankingUnderline(
-  target: HTMLElement,
-  left: number,
-  width: number,
-  reducedMotion: boolean,
-): () => void {
-  const fromLeft = Number.parseFloat(target.style.left)
-  const fromRight = fromLeft + Number.parseFloat(target.style.width)
-  const paint = (start: number, end: number): void => {
-    target.style.left = `${start}px`
-    target.style.width = `${end - start}px`
-  }
-  const finish = (): void => paint(left, left + width)
-  if (reducedMotion || !Number.isFinite(fromRight)) {
-    finish()
-    return () => {}
-  }
-  const movingRight = left + width / 2 >= (fromLeft + fromRight) / 2
-  return animateProgress(
-    420,
-    (progress) => {
-      const leading = 1 - Math.pow(1 - progress, 4)
-      const trailing = progress * progress * (3 - 2 * progress)
-      paint(
-        fromLeft + (left - fromLeft) * (movingRight ? trailing : leading),
-        fromRight + (left + width - fromRight) * (movingRight ? leading : trailing),
-      )
-    },
-    finish,
-  )
-}
-
-export function animateRankingRibbon(
-  target: HTMLElement,
-  expanded: boolean,
-  reducedMotion: boolean,
-): () => void {
-  const from = Number(target.style.getPropertyValue('--reveal')) || 0
-  const to = expanded ? 1 : 0
-  const finish = (): void => target.style.setProperty('--reveal', String(to))
-  if (reducedMotion) {
-    finish()
-    return () => {}
-  }
-  return animateProgress(
-    540,
-    (progress) => {
-      const eased = 1 - Math.pow(1 - progress, 4)
-      target.style.setProperty('--reveal', String(from + (to - from) * eased))
-    },
-    finish,
-  )
-}
-
-export function animateRankingRecord(
-  target: HTMLElement,
-  pulled: boolean,
-  reducedMotion: boolean,
-): AnimationControls {
-  return animate(
-    target,
-    {
-      transform: pulled
-        ? 'translateY(-28px) translateZ(90px) rotateY(-18deg)'
-        : 'translateY(0px) translateZ(0px) rotateY(-50deg)',
-    },
-    { duration: reducedMotion ? 0 : 0.62, easing: [0.18, 0.85, 0.2, 1] },
   )
 }
 

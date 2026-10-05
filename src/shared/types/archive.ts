@@ -72,7 +72,6 @@ export interface DailyAlbumStatsItem {
   artworkCacheKey: string | null
   playCount: number
   durationSeconds: number
-  canPlay: boolean
 }
 
 export interface DailyAlbumStats {

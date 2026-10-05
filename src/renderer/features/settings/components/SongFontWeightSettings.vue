@@ -187,7 +187,7 @@ function onRadiusInput(event: Event): void {
                   t('settings.appearance.songFontWeight.coverRadius')
                 }}</strong>
               </div>
-              <div class="song-cover-radius-control">
+              <div class="settings-range-control">
                 <input
                   id="song-cover-radius-input"
                   type="range"
@@ -195,7 +195,7 @@ function onRadiusInput(event: Event): void {
                   max="24"
                   step="2"
                   :value="coverArtworkRadius"
-                  :style="{ '--song-cover-radius-progress': `${radiusFillPercent}%` }"
+                  :style="{ '--settings-range-progress': `${radiusFillPercent}%` }"
                   aria-labelledby="song-cover-radius-label"
                   @input="onRadiusInput"
                 />
@@ -470,80 +470,6 @@ function onRadiusInput(event: Event): void {
 .song-cover-radius-reveal-leave-to {
   max-height: 0;
   opacity: 0;
-}
-
-.song-cover-radius-reveal .settings-row > .song-cover-radius-control {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.song-cover-radius-control {
-  --song-cover-radius-fill: var(--auralis-text-muted);
-}
-
-:global([data-theme='dark'] .song-cover-radius-control) {
-  --song-cover-radius-fill: var(--auralis-theme-accent);
-}
-
-.song-cover-radius-control input {
-  width: 120px;
-  height: 18px;
-  margin: 0;
-  appearance: none;
-  background: transparent;
-  cursor: pointer;
-}
-
-.song-cover-radius-control input::-webkit-slider-runnable-track {
-  appearance: none;
-  height: 6px;
-  border-radius: 999px;
-  background: linear-gradient(
-    to right,
-    var(--song-cover-radius-fill) var(--song-cover-radius-progress),
-    color-mix(in srgb, var(--auralis-text) 12%, transparent) var(--song-cover-radius-progress)
-  );
-}
-
-.song-cover-radius-control input::-webkit-slider-thumb {
-  width: 12px;
-  height: 12px;
-  margin-top: -3px;
-  appearance: none;
-  border-radius: 50%;
-  background: var(--song-cover-radius-fill);
-}
-
-.song-cover-radius-control input::-moz-range-track {
-  appearance: none;
-  height: 6px;
-  border-radius: 999px;
-  background: linear-gradient(
-    to right,
-    var(--song-cover-radius-fill) var(--song-cover-radius-progress),
-    color-mix(in srgb, var(--auralis-text) 12%, transparent) var(--song-cover-radius-progress)
-  );
-}
-
-.song-cover-radius-control input::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--song-cover-radius-fill);
-}
-
-.song-cover-radius-control input:focus-visible {
-  outline: 2px solid var(--auralis-sidebar-active-indicator);
-  outline-offset: 4px;
-}
-
-.song-cover-radius-control output {
-  min-width: 32px;
-  color: var(--auralis-text-muted);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
 }
 
 :where([data-reduced-motion='true']) .song-cover-radius-reveal-enter-active,

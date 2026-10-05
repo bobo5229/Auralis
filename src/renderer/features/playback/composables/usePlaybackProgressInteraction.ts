@@ -12,6 +12,8 @@ export interface PlaybackProgressInteractionOptions {
   seekByRatio: (ratio: number) => void
   seekTo: (time: number) => void
   renderRatio: (ratio: number) => void
+  /** Limits automatic interpolation only; seek and pointer feedback remain immediate. */
+  maxVisualFps?: number
   resolveSeekStepSeconds: (shiftKey: boolean) => number
   subscribeFrame?: FrameSubscriber
   now?: () => number
@@ -55,6 +57,9 @@ export function usePlaybackProgressInteraction(options: PlaybackProgressInteract
   let activePointerTarget: ProgressPointerTarget | null = null
   let activePointerId: number | null = null
   let disposed = false
+  let lastVisualFrameAt: number | null = null
+  const visualFrameInterval =
+    options.maxVisualFps && options.maxVisualFps > 0 ? 1000 / options.maxVisualFps : 0
 
   const ratio = computed(() => {
     if (options.duration.value <= 0) return 0
@@ -81,10 +86,20 @@ export function usePlaybackProgressInteraction(options: PlaybackProgressInteract
     renderVisualProgress(progressAnchorAt)
   }
 
+  function renderScheduledProgress(now: number): void {
+    if (isDragging.value) return
+    if (lastVisualFrameAt !== null && now - lastVisualFrameAt < visualFrameInterval - 0.1) return
+    lastVisualFrameAt = now
+    renderVisualProgress(now)
+  }
+
   function syncFrameSubscription(): void {
     if (disposed) return
     if (options.active.value && options.isPlaying.value) {
-      if (!frameUnsubscribe) frameUnsubscribe = frameSubscriber(renderVisualProgress)
+      if (!frameUnsubscribe) {
+        lastVisualFrameAt = null
+        frameUnsubscribe = frameSubscriber(renderScheduledProgress)
+      }
     } else {
       frameUnsubscribe?.()
       frameUnsubscribe = null

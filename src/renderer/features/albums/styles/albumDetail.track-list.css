@@ -41,10 +41,6 @@
   transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
-.album-tracklist-panel--with-heat .album-detail-track {
-  grid-template-columns: 42px minmax(0, 1fr) 56px 58px;
-}
-
 .album-detail-track:not(:first-child)::before {
   content: '';
   top: 0;

@@ -11,23 +11,35 @@ function formatDateKey(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
-export interface ArchiveMacDataDependencies {
-  now?: () => Date
-  getDailyAlbumStats?: (date: string) => Promise<DailyAlbumStats>
+function isSelectableDate(date: string | null | undefined, today: string): date is string {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today || date < '1970-01-01')
+    return false
+  const [year, month, day] = date.split('-').map(Number)
+  return formatDateKey(new Date(year, month - 1, day)) === date
 }
 
-export function useArchiveMacData(dependencies: ArchiveMacDataDependencies = {}) {
-  const getNow = dependencies.now ?? (() => new Date())
+export interface ArchiveMacDataOptions {
+  now?: () => Date
+  getDailyAlbumStats?: (date: string) => Promise<DailyAlbumStats>
+  initialDate?: string | null
+  initialAlbumKey?: string | null
+}
+
+export function useArchiveMacData(options: ArchiveMacDataOptions = {}) {
+  const getNow = options.now ?? (() => new Date())
   const fetchStats =
-    dependencies.getDailyAlbumStats ?? ((date: string) => auralis.archive.getDailyAlbumStats(date))
+    options.getDailyAlbumStats ?? ((date: string) => auralis.archive.getDailyAlbumStats(date))
 
-  const currentYear = ref(getNow().getFullYear())
-  const todayKey = ref(formatDateKey(getNow()))
+  const now = getNow()
+  const currentYear = ref(now.getFullYear())
+  const todayKey = ref(formatDateKey(now))
+  const hasInitialDate = isSelectableDate(options.initialDate, todayKey.value)
+  const initialDate = hasInitialDate ? options.initialDate! : todayKey.value
 
-  const selectedYear = ref(currentYear.value)
-  const selectedDate = ref<string | null>(todayKey.value)
+  const selectedYear = ref(Number(initialDate.slice(0, 4)))
+  const selectedDate = ref<string | null>(initialDate)
   const firstRecordedYear = ref(currentYear.value)
-  const browsingYear = ref(currentYear.value)
+  const browsingYear = ref(selectedYear.value)
   let hasRecordedHistory = false
 
   const years = computed(() => {
@@ -36,15 +48,17 @@ export function useArchiveMacData(dependencies: ArchiveMacDataDependencies = {})
     return Array.from({ length: count }, (_, i) => currentYear.value - i)
   })
 
-  const calendar = useArchiveCalendar(selectedYear, { loadAnnualInsights: false })
+  const calendar = useArchiveCalendar(selectedYear)
   // Browsing another year must not replace the selected day's calendar/default request.
-  const browsingCalendar = useArchiveCalendar(browsingYear, { loadAnnualInsights: false })
+  const browsingCalendar = useArchiveCalendar(browsingYear)
   const visibleCalendar = computed(() =>
     browsingYear.value === selectedYear.value ? calendar : browsingCalendar,
   )
 
   const items = ref<DailyAlbumStatsItem[]>([])
-  const selectedAlbumKey = ref<string | null>(null)
+  const selectedAlbumKey = ref<string | null>(
+    hasInitialDate ? (options.initialAlbumKey ?? null) : null,
+  )
   const dayLoading = ref(false)
   const dayErrorKey = ref<string | null>(null)
   const dayError = computed(() => (dayErrorKey.value ? uiText(dayErrorKey.value) : null))
@@ -123,9 +137,8 @@ export function useArchiveMacData(dependencies: ArchiveMacDataDependencies = {})
   async function selectDate(date: string): Promise<void> {
     if (disposed) return
     syncClock()
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > todayKey.value || date < '1970-01-01') return
-    const [targetYear, month, day] = date.split('-').map(Number)
-    if (formatDateKey(new Date(targetYear, month - 1, day)) !== date) return
+    if (!isSelectableDate(date, todayKey.value)) return
+    const targetYear = Number(date.slice(0, 4))
     chooseYearDefault = false
     pendingDefaultYear = null
     browsingYear.value = targetYear
@@ -138,7 +151,10 @@ export function useArchiveMacData(dependencies: ArchiveMacDataDependencies = {})
     await readDay(date)
   }
 
-  async function readDay(date: string, preserveSelection = false): Promise<void> {
+  async function readDay(
+    date: string,
+    { preserveSelection = false, isRefresh = false } = {},
+  ): Promise<void> {
     const token = ++dayRequestToken
     dayLoading.value = true
     dayErrorKey.value = null
@@ -153,7 +169,7 @@ export function useArchiveMacData(dependencies: ArchiveMacDataDependencies = {})
       dayLoading.value = false
     } catch {
       if (token !== dayRequestToken || disposed) return
-      dayErrorKey.value = preserveSelection ? 'archive.mac.refreshError' : 'archive.mac.dayError'
+      dayErrorKey.value = isRefresh ? 'archive.mac.refreshError' : 'archive.mac.dayError'
       dayLoading.value = false
     }
   }
@@ -198,7 +214,9 @@ export function useArchiveMacData(dependencies: ArchiveMacDataDependencies = {})
     if (disposed) return
     syncClock()
     await Promise.all([
-      selectedDate.value ? readDay(selectedDate.value, true) : Promise.resolve(),
+      selectedDate.value
+        ? readDay(selectedDate.value, { preserveSelection: true, isRefresh: true })
+        : Promise.resolve(),
       loadYearData(selectedYear.value, pendingDefaultYear === selectedYear.value),
       browsingYear.value !== selectedYear.value
         ? browsingCalendar.loadHeatmap()
@@ -218,9 +236,9 @@ export function useArchiveMacData(dependencies: ArchiveMacDataDependencies = {})
     { flush: 'sync' },
   )
 
-  // Initial parallel fetch: year calendar + today stats
-  void loadYearData(currentYear.value)
-  void selectDate(todayKey.value)
+  // Load the restored selection directly, without an unused request for today.
+  void loadYearData(selectedYear.value)
+  void readDay(initialDate, { preserveSelection: true })
 
   return {
     selectedYear,

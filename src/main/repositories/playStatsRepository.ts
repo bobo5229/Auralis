@@ -155,59 +155,54 @@ export class PlayStatsRepository extends BaseRepository {
   }
 
   getDailyAlbumStats(date: string): DailyAlbumStatsItem[] {
+    // Join each day's records by track ID before combining current and removed history.
+    // Joining the two UNION views first would materialize the entire display library.
     const rows = this.db
       .prepare(
-        `WITH album_stats AS (
+        `WITH daily_tracks AS (
            SELECT
              NULLIF(display.album, '') AS title,
              NULLIF(COALESCE(NULLIF(display.album_artist, ''), display.artist), '') AS artist,
-             MAX(display.artwork_cache_key) AS artworkCacheKey,
-             SUM(stats.play_count) AS playCount,
-             SUM(stats.duration_seconds) AS durationSeconds,
-             MAX(stats.last_played_at) AS lastPlayedAt
-           FROM listening_daily_track_play_stats stats
-           JOIN listening_track_display display ON display.id = stats.track_id
-           WHERE stats.play_date = ?
-           GROUP BY
+             display.artwork_cache_key AS artworkCacheKey,
+             stats.play_count AS playCount,
+             stats.duration_seconds AS durationSeconds,
+             stats.last_played_at AS lastPlayedAt
+           FROM daily_track_play_stats stats
+           JOIN library_track_display display ON display.id = stats.track_id
+           WHERE stats.play_date = @date
+           UNION ALL
+           SELECT
              NULLIF(display.album, ''),
-             NULLIF(COALESCE(NULLIF(display.album_artist, ''), display.artist), '')
-         ), top_albums AS (
-           SELECT * FROM album_stats
-           ORDER BY
-             playCount DESC,
-             lastPlayedAt DESC,
-             title COLLATE BINARY ASC,
-             artist COLLATE BINARY ASC
-           LIMIT 5
+             NULLIF(COALESCE(NULLIF(display.album_artist, ''), display.artist), ''),
+             display.artwork_cache_key,
+             stats.play_count,
+             stats.duration_seconds,
+             stats.last_played_at
+           FROM removed_daily_track_play_stats stats
+           JOIN removed_track_history display ON display.id = stats.track_id
+           WHERE stats.play_date = @date
          )
          SELECT
-           top_albums.title,
-           top_albums.artist,
-           top_albums.artworkCacheKey,
-           top_albums.playCount,
-           top_albums.durationSeconds,
-           CASE WHEN top_albums.title IS NOT NULL AND top_albums.artist IS NOT NULL AND EXISTS (
-             SELECT 1
-             FROM library_track_display playable
-             WHERE playable.availability = 'available'
-               AND playable.album = top_albums.title
-               AND COALESCE(NULLIF(playable.album_artist, ''), playable.artist) = top_albums.artist
-           ) THEN 1 ELSE 0 END AS canPlay
-         FROM top_albums
+           title,
+           artist,
+           MAX(artworkCacheKey) AS artworkCacheKey,
+           SUM(playCount) AS playCount,
+           SUM(durationSeconds) AS durationSeconds
+         FROM daily_tracks
+         GROUP BY title, artist
          ORDER BY
            playCount DESC,
-           lastPlayedAt DESC,
+           MAX(lastPlayedAt) DESC,
            title COLLATE BINARY ASC,
-           artist COLLATE BINARY ASC`,
+           artist COLLATE BINARY ASC
+         LIMIT 5`,
       )
-      .all(date) as Array<{
+      .all({ date }) as Array<{
       title: string | null
       artist: string | null
       artworkCacheKey: string | null
       playCount: number
       durationSeconds: number
-      lastPlayedAt: string | null
-      canPlay: number
     }>
 
     return rows.map((row) => {
@@ -224,7 +219,6 @@ export class PlayStatsRepository extends BaseRepository {
         artworkCacheKey: row.artworkCacheKey,
         playCount: Number(row.playCount),
         durationSeconds: Number(row.durationSeconds),
-        canPlay: Number(row.canPlay) === 1,
       }
     })
   }

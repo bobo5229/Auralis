@@ -4,6 +4,8 @@
 
 小时系列静态资产：打开 [hours/index.html](hours/index.html) 并排查看 10、100、500、1000 小时四枚徽章，可下载 SVG 与透明 PNG。规格与生成方式见 [hours/README.md](hours/README.md)。
 
+连续天数系列：打开 [days/index.html](days/index.html) 查看连续 7 天「一周相伴」的午夜蓝北斗星图，[days/30.html](days/30.html) 查看连续 30 天「月下相伴」的珍珠月牙与月相环，[days/100.html](days/100.html) 查看连续 100 天「百日留声」的数字唱针与双唱片，[days/365.html](days/365.html) 查看连续 365 天「一岁相伴」的金色太阳与四季周年轨道，或 [days/520.html](days/520.html) 查看连续 520 天「倾心相伴」的石榴红心形音轨。五枚均提供统一未点亮版本。规格与生成方式见 [days/README.md](days/README.md)。
+
 - 移动鼠标观察倾斜和高光；拖动调整角度。
 - 聚焦徽章后使用方向键调整，Home 或“复位视角”恢复。
 - “展开结构”展示五层 SVG；三种釉色可切换。
@@ -22,3 +24,7 @@ Start-Process -FilePath ./node_modules/electron/dist/electron.exe -ArgumentList 
 截图默认保存到系统临时目录，也可用 `BADGE_CHECK_OUTPUT` 指向已有目录。运行检查只使用独立的临时 Electron 配置目录。
 
 授章为手动触发的独立演示，没有接入真实播放、里程碑检测、音乐或提示音。SVG 遮罩与位移滤镜模拟墨水边缘，不使用流体模拟或 GLSL。
+
+首张专辑徽章：打开 [albums/index.html](albums/index.html) 查看「从头到尾」，以象牙白唱片封套、墨蓝唱片和连续银线表达首次完整听完一张专辑。提供已点亮／统一金属胚、透明 SVG/PNG、深浅背景与 96px 对照。见 [albums/README.md](albums/README.md)。
+
+现场专辑徽章：打开 [albums/live.html](albums/live.html) 查看「现场回声」，以酒红幕帘、银色复古麦克风与观众席弧线纪念首次完整听完一张现场专辑；提供统一灰色LIVE胚、透明 SVG/PNG、深浅背景、96px与移动预览。见 [albums/README.md](albums/README.md)。

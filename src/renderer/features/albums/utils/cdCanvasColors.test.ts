@@ -47,7 +47,7 @@ describe('CD canvas cover colors', () => {
   })
   it('lifts deep covers and retains color on saturated surfaces', () => {
     const dark = resolveCdCanvasBackground(palette({ r: 5, g: 8, b: 10 }, { r: 5, g: 8, b: 10 }))!
-    expect(rgbToOklab(dark).l).toBeCloseTo(0.72, 2)
+    expect(rgbToOklab(dark).l).toBeCloseTo(0.67, 2)
     const saturated = rgbToOklab(resolveCdCanvasBackground(palette())!)
     expect(Math.hypot(saturated.a, saturated.b)).toBeGreaterThan(0.16)
     expect(Math.hypot(saturated.a, saturated.b)).toBeLessThan(0.215)
@@ -62,9 +62,10 @@ describe('CD canvas cover colors', () => {
     expect(extracted.accents[0]!.sourceRgb).toEqual(green)
     const canvas = rgbToOklab(resolveCdCanvasBackground(extracted)!)
     const source = rgbToOklab(green)
-    expect(canvas.l).toBeCloseTo(source.l, 2)
-    expect(canvas.l).toBeGreaterThan(extracted.accents[0]!.oklab.l + 0.1)
-    expect(Math.hypot(canvas.a, canvas.b)).toBeGreaterThan(0.2)
+    expect(canvas.l).toBeCloseTo(source.l - 0.05, 2)
+    expect(canvas.l).toBeGreaterThan(extracted.accents[0]!.oklab.l + 0.05)
+    // The deeper background needs slight chroma reduction to remain in sRGB.
+    expect(Math.hypot(canvas.a, canvas.b)).toBeGreaterThan(0.18)
     expect(Math.atan2(canvas.b, canvas.a)).toBeCloseTo(Math.atan2(source.b, source.a), 1)
   })
   it('preserves the hue of pink and deep blue covers when lifting them into the canvas gamut', () => {
@@ -74,8 +75,24 @@ describe('CD canvas cover colors', () => {
     ]) {
       const result = rgbToOklab(resolveCdCanvasBackground(palette(gray, rgb))!)
       const source = rgbToOklab(rgb)
-      expect(result.l).toBeGreaterThanOrEqual(0.715)
+      expect(result.l).toBeGreaterThanOrEqual(0.665)
       expect(Math.atan2(result.b, result.a)).toBeCloseTo(Math.atan2(source.b, source.a), 1)
+    }
+  })
+  it('gently deepens bright and neutral covers without shifting their hue', () => {
+    for (const rgb of [
+      { r: 250, g: 220, b: 180 },
+      { r: 230, g: 170, b: 190 },
+      gray,
+      { r: 255, g: 255, b: 255 },
+    ]) {
+      const source = rgbToOklab(rgb)
+      const result = rgbToOklab(resolveCdCanvasBackground(palette(rgb, rgb))!)
+      expect(result.l).toBeCloseTo(Math.max(0.72, Math.min(0.88, source.l)) - 0.05, 2)
+      expect(result.l).toBeLessThan(source.l - 0.03)
+      if (Math.hypot(source.a, source.b) > 0.035) {
+        expect(Math.atan2(result.b, result.a)).toBeCloseTo(Math.atan2(source.b, source.a), 1)
+      }
     }
   })
   it('retains already readable lyrics colors', () => {

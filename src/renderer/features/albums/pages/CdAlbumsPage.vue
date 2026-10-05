@@ -1911,11 +1911,8 @@ onBeforeUnmount(() => {
   overflow: visible;
   touch-action: pan-y;
   user-select: none;
+  /* Keep the stage focusable for keyboard browsing without framing the entire canvas. */
   outline: none;
-}
-.cd-stage:focus-visible {
-  outline: 2px solid var(--cd-focus-ring);
-  outline-offset: -4px;
 }
 .cd-stage--unavailable {
   visibility: hidden;

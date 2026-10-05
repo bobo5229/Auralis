@@ -31,10 +31,6 @@
 
   /* 碟片标题：歌曲封面视图、专辑详情与设置预览共用。 */
   --auralis-font-disc-heading: Georgia, 'HarmonyOS Sans SC', sans-serif;
-
-  /* 桌面歌词：英文数字优先使用 Plus Jakarta Sans，中文沿用歌词字体。 */
-  --auralis-font-desktop-lyrics:
-    var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
 }
 
 /* Vue 模板可直接使用这些类；CSS 规则也可引用对应 token。 */

@@ -27,7 +27,6 @@ vi.mock('@renderer/shared/ipc/client', () => ({
             artworkCacheKey: 'art-1',
             playCount: 10,
             durationSeconds: 1200,
-            canPlay: true,
           },
         ],
       }),
@@ -53,7 +52,6 @@ describe('useArchiveMacData', () => {
           artworkCacheKey: 'art-1',
           playCount: 15,
           durationSeconds: 900,
-          canPlay: true,
         },
       ],
     } satisfies DailyAlbumStats)
@@ -137,7 +135,6 @@ describe('useArchiveMacData', () => {
             artworkCacheKey: null,
             playCount: 1,
             durationSeconds: 100,
-            canPlay: false,
           },
         ],
       }
@@ -193,7 +190,6 @@ describe('useArchiveMacData', () => {
             artworkCacheKey: null,
             playCount: 3,
             durationSeconds: 120,
-            canPlay: true,
           },
         ],
       })
@@ -225,7 +221,6 @@ describe('useArchiveMacData', () => {
           artworkCacheKey: null,
           playCount: 99,
           durationSeconds: 999,
-          canPlay: true,
         },
       ],
     })
@@ -254,7 +249,6 @@ describe('useArchiveMacData', () => {
             artworkCacheKey: null,
             playCount: 10 + currentCall,
             durationSeconds: 100,
-            canPlay: true,
           },
           {
             key: 'album-2',
@@ -264,7 +258,6 @@ describe('useArchiveMacData', () => {
             artworkCacheKey: null,
             playCount: 5 + currentCall,
             durationSeconds: 80,
-            canPlay: true,
           },
         ],
       }
@@ -322,7 +315,6 @@ describe('useArchiveMacData', () => {
           artworkCacheKey: null,
           playCount: 1,
           durationSeconds: 10,
-          canPlay: true,
         },
       ],
     })

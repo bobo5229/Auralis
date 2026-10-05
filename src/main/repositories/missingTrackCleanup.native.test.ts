@@ -106,7 +106,7 @@ it('removes an actually deleted file from the collection and preserves all commi
     spectrum: stats.getListeningGenreSpectrum(2026),
   }).toEqual(before)
   expect(stats.getDailyAlbumStats('2026-10-03')).toEqual([
-    expect.objectContaining({ title: 'Gone album', canPlay: false, playCount: 1 }),
+    expect.objectContaining({ title: 'Gone album', playCount: 1 }),
   ])
   expect(
     db.prepare('SELECT play_count FROM removed_track_history WHERE id=?').pluck().get(id),

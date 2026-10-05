@@ -122,10 +122,6 @@
       "coverArtworkRounded": "Rounded artwork",
       "language": "Interface language",
       "languageDescription": "Choose the language used by the app.",
-      "fluidBackground": "Fluid background",
-      "fluidBackgroundDescription": "Bring album colors into the app background.",
-      "fluidBackgroundAriaOn": "Fluid background, on",
-      "fluidBackgroundAriaOff": "Fluid background, off",
       "songFontWeight": {
         "title": "Song view settings",
         "listView": "List view",
@@ -330,7 +326,19 @@
     "repeatEnableOne": "Enable repeat one",
     "repeatDisable": "Disable repeat",
     "repeatEnableAll": "Enable repeat all",
-    "lyricsStartingSoon": "Lyrics starting soon"
+    "lyricsStartingSoon": "Lyrics starting soon",
+    "background": {
+      "controls": "Background controls",
+      "mode": "Background style",
+      "metal": "Liquid metal",
+      "fluid": "Fluid",
+      "speed": "Flow speed",
+      "folds": "Fold scale",
+      "roughness": "Reflection softness",
+      "pause": "Pause background",
+      "resume": "Resume background",
+      "reset": "Reset material"
+    }
   },
   "albums": {
     "cd": {

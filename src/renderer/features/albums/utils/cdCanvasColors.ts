@@ -53,7 +53,8 @@ export function resolveCdCanvasBackground(palette: DeepReadonly<ArtworkPalette>)
   const chroma = Math.hypot(lab.a, lab.b)
   const scale = chroma > 0 ? Math.min(1.05, 0.21 / chroma) : 0
   const canvas = {
-    l: Math.max(0.72, Math.min(0.88, lab.l)),
+    // Deepen the focused canvas slightly so cover artwork stands out against its own hue.
+    l: Math.max(0.72, Math.min(0.88, lab.l)) - 0.05,
     a: lab.a * scale,
     b: lab.b * scale,
   }

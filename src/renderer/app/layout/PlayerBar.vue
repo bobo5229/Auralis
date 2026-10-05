@@ -321,7 +321,7 @@ function handleNext(): void {
   >
     <!-- Modern floating island: chrome lives on the island, not the host. -->
     <div ref="islandRef" class="player-bar-island" data-playbar-drop-target>
-      <div class="player-bar-glass" aria-hidden="true"></div>
+      <div class="player-bar-surface" aria-hidden="true"></div>
       <div
         v-if="paletteEnabled && previousAlbumTint"
         class="player-bar-album-tint player-bar-album-tint-previous"

@@ -1,0 +1,22 @@
+{
+  "scope": "demo/playback/liquid-metal",
+  "mode": "Experience",
+  "tokens": {
+    "panel": "rgba(24, 24, 22, 0.94)",
+    "text": "#f4f3ef",
+    "muted": "#bbb9af",
+    "radius": "12px",
+    "focus": "#f5efb2"
+  },
+  "effects": {
+    "renderer": "WebGL 2 full-screen fragment shader",
+    "surface": "Two-octave fBm, nested domain warping, localized curl, continuous time",
+    "normals": "Finite differences of the dynamic height field",
+    "reflection": "Procedural colored studio environment; approximation, not full PBR",
+    "palette": "image-q WuQuant with OKLab coverage weighting and linear RGB shading",
+    "defaults": { "speed": 0.7, "folds": 1.15, "roughness": 0.12 },
+    "brightness": "No full-canvas brightness filter",
+    "reference": "assets/reference.png, supplied by the user"
+  },
+  "status": "Prototype material awaits user visual evaluation; not integrated into the player"
+}

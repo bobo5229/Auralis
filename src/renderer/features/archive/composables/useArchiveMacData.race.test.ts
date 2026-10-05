@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
 import type { DailyAlbumStats, ListeningHeatmap } from '@shared/types/archive'
 import { auralis } from '@renderer/shared/ipc/client'
-import { useArchiveMacData } from './useArchiveMacData'
+import { useArchiveMacData, type ArchiveMacDataOptions } from './useArchiveMacData'
 
 vi.mock('@renderer/shared/ipc/client', () => ({
   auralis: { archive: { getListeningHeatmap: vi.fn() } },
@@ -35,15 +35,17 @@ const stats = (date: string, key = date): DailyAlbumStats => ({
       artworkCacheKey: null,
       playCount: 1,
       durationSeconds: 180,
-      canPlay: false,
     },
   ],
 })
-function setup(fetch: (date: string) => Promise<DailyAlbumStats>) {
+function setup(
+  fetch: (date: string) => Promise<DailyAlbumStats>,
+  selection: Pick<ArchiveMacDataOptions, 'initialDate' | 'initialAlbumKey'> = {},
+) {
   const owner = scope()
   scopes.push(owner)
   return owner.run(() =>
-    useArchiveMacData({ now: () => new Date(2026, 9, 1), getDailyAlbumStats: fetch }),
+    useArchiveMacData({ now: () => new Date(2026, 9, 1), getDailyAlbumStats: fetch, ...selection }),
   )!
 }
 beforeEach(() => {
@@ -53,6 +55,46 @@ beforeEach(() => {
 afterEach(() => scopes.splice(0).forEach((s) => s.stop()))
 
 describe('Mac archive request ownership', () => {
+  it.each(['2026-09-30', '2025-05-20'])(
+    'loads the restored date %s and album without querying today first',
+    async (date) => {
+      const response = stats(date, 'first')
+      response.items.push({ ...response.items[0], key: 'restored' })
+      const fetch = vi.fn(async () => response)
+      const data = setup(fetch, { initialDate: date, initialAlbumKey: 'restored' })
+      await flush()
+
+      const year = Number(date.slice(0, 4))
+      expect(fetch).toHaveBeenCalledExactlyOnceWith(date)
+      expect(auralis.archive.getListeningHeatmap).toHaveBeenCalledExactlyOnceWith(year)
+      expect(data.selectedYear.value).toBe(year)
+      expect(data.browsingYear.value).toBe(year)
+      expect(data.selectedDate.value).toBe(date)
+      expect(data.selectedAlbumKey.value).toBe('restored')
+    },
+  )
+
+  it.each(['2025-02-30', '2027-01-01', '1969-12-31', 'invalid', null])(
+    'falls back to today for an invalid saved date (%s)',
+    async (initialDate) => {
+      const fetch = vi.fn(async (date: string) => stats(date))
+      const data = setup(fetch, { initialDate, initialAlbumKey: 'stale' })
+      await flush()
+      expect(fetch).toHaveBeenCalledExactlyOnceWith('2026-10-01')
+      expect(auralis.archive.getListeningHeatmap).toHaveBeenCalledExactlyOnceWith(2026)
+      expect(data.selectedDate.value).toBe('2026-10-01')
+      expect(data.selectedAlbumKey.value).toBe('2026-10-01')
+    },
+  )
+
+  it('selects the first remaining album if the restored album has disappeared', async () => {
+    const fetch = vi.fn(async (date: string) => stats(date, 'remaining'))
+    const data = setup(fetch, { initialDate: '2026-09-30', initialAlbumKey: 'removed' })
+    await flush()
+    expect(fetch).toHaveBeenCalledExactlyOnceWith('2026-09-30')
+    expect(data.selectedAlbumKey.value).toBe('remaining')
+  })
+
   it('invalidates a pending day immediately when selecting another year', async () => {
     const old = deferred<DailyAlbumStats>()
     const year = deferred<ListeningHeatmap>()

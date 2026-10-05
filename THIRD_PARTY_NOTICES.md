@@ -32,10 +32,11 @@ SOFTWARE.
 
 ## nikdelvin/liquid-glass
 
-`src/renderer/features/playback/utils/liquidGlassDisplacementMap.ts` contains a
-formatting-adapted port of the SVG displacement filter algorithm from
+Earlier versions included a formatting-adapted port of the SVG displacement filter algorithm from
 [`nikdelvin/liquid-glass`](https://github.com/nikdelvin/liquid-glass) at commit
 `49251869805a117db87c70998e3f7b83719c690e`.
+
+The unused implementation was removed on 2026-10-06. This notice is retained for historical attribution.
 
 Copyright (c) 2025 Nikita Stadnik
 

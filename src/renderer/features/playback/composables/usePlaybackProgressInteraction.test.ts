@@ -29,7 +29,7 @@ function pointerEvent(
   } as unknown as PointerEvent
 }
 
-function setup(activeInitially = false) {
+function setup(activeInitially = false, maxVisualFps?: number) {
   const duration = ref(100)
   const currentTime = ref(20)
   const isPlaying = ref(false)
@@ -38,7 +38,7 @@ function setup(activeInitially = false) {
   const seekTo = vi.fn()
   const renderRatio = vi.fn()
   const unsubscribe = vi.fn()
-  const subscribeFrame = vi.fn(() => unsubscribe)
+  const subscribeFrame = vi.fn<(callback: (now: number) => void) => () => void>(() => unsubscribe)
   const interaction = usePlaybackProgressInteraction({
     duration,
     currentTime,
@@ -47,6 +47,7 @@ function setup(activeInitially = false) {
     seekByRatio,
     seekTo,
     renderRatio,
+    maxVisualFps,
     resolveSeekStepSeconds: (shiftKey) => (shiftKey ? 10 : 5),
     subscribeFrame,
     now: () => 1000,
@@ -76,6 +77,36 @@ describe('progress ratio helpers', () => {
 })
 
 describe('usePlaybackProgressInteraction', () => {
+  it('limits 240Hz automatic interpolation while retaining immediate dragging, seek and ARIA state', async () => {
+    const { isPlaying, renderRatio, subscribeFrame, currentTime, interaction } = setup(true, 30)
+    isPlaying.value = true
+    await nextTick()
+    await nextTick()
+    const tick = subscribeFrame.mock.calls[0][0]
+    renderRatio.mockClear()
+    for (let frame = 0; frame < 240; frame++) tick(1000 + frame * (1000 / 240))
+    expect(renderRatio).toHaveBeenCalledTimes(30)
+    expect(renderRatio.mock.calls.at(-1)?.[0]).toBeCloseTo((20 + 232 / 240) / 100)
+
+    const target = createPointerTarget()
+    interaction.onPointerDown(pointerEvent(target, 150))
+    expect(renderRatio).toHaveBeenLastCalledWith(0.25)
+    expect(interaction.valueNow.value).toBe(25)
+    const count = renderRatio.mock.calls.length
+    tick(2010)
+    expect(renderRatio).toHaveBeenCalledTimes(count)
+    interaction.onPointerMove(pointerEvent(target, 250))
+    expect(renderRatio).toHaveBeenLastCalledWith(0.75)
+    expect(interaction.valueNow.value).toBe(75)
+    interaction.onPointerCancel()
+
+    currentTime.value = 80
+    await nextTick()
+    expect(renderRatio).toHaveBeenLastCalledWith(0.8)
+    expect(interaction.valueNow.value).toBe(80)
+    interaction.dispose()
+  })
+
   it('tracks pointer start and move, then commits the final ratio on pointer up', () => {
     const { interaction, seekByRatio } = setup()
     const target = createPointerTarget()

@@ -1,0 +1,81 @@
+{
+  "series": "日日相伴",
+  "status": "design-prototype",
+  "badges": [
+    {
+      "id": "days-7",
+      "consecutiveDays": 7,
+      "name": "一周相伴",
+      "motif": "北斗七星凝成银色星图，记录音乐相伴的一周。",
+      "palette": ["#264976", "#101e40", "#a8c8e8"],
+      "svg": "assets/days-7.svg",
+      "png": "assets/days-7@2x.png",
+      "unlit": {
+        "svg": "assets/days-7-unlit.svg",
+        "png": "assets/days-7-unlit@2x.png"
+      },
+      "width": 330,
+      "height": 370
+    },
+    {
+      "id": "days-30",
+      "consecutiveDays": 30,
+      "name": "月下相伴",
+      "motif": "两段珍珠月牙弧构成 3，银边月相环构成 0，记录三十天的陪伴。",
+      "palette": ["#595d91", "#181b3d", "#c5bfdf"],
+      "svg": "assets/days-30.svg",
+      "png": "assets/days-30@2x.png",
+      "unlit": {
+        "svg": "assets/days-30-unlit.svg",
+        "png": "assets/days-30-unlit@2x.png"
+      },
+      "width": 330,
+      "height": 370
+    },
+    {
+      "id": "days-100",
+      "consecutiveDays": 100,
+      "name": "百日留声",
+      "motif": "数字 1 化作唱针，两个 0 化作唱片音轨，音乐物件组成 100。",
+      "palette": ["#206d72", "#092e36", "#9ad6cf"],
+      "svg": "assets/days-100.svg",
+      "png": "assets/days-100@2x.png",
+      "unlit": {
+        "svg": "assets/days-100-unlit.svg",
+        "png": "assets/days-100-unlit@2x.png"
+      },
+      "width": 330,
+      "height": 370
+    },
+    {
+      "id": "days-365",
+      "consecutiveDays": 365,
+      "name": "一岁相伴",
+      "motif": "香槟金太阳与四季周年轨道，珍藏音乐相伴的一整年。",
+      "palette": ["#9a6835", "#352519", "#dec69c"],
+      "svg": "assets/days-365.svg",
+      "png": "assets/days-365@2x.png",
+      "unlit": {
+        "svg": "assets/days-365-unlit.svg",
+        "png": "assets/days-365-unlit@2x.png"
+      },
+      "width": 330,
+      "height": 370
+    },
+    {
+      "id": "days-520",
+      "consecutiveDays": 520,
+      "name": "倾心相伴",
+      "motif": "三道银色音轨弯成心形，珍藏音乐相伴的 520 天。",
+      "palette": ["#8b304c", "#350f23", "#e9b9c7"],
+      "svg": "assets/days-520.svg",
+      "png": "assets/days-520@2x.png",
+      "unlit": {
+        "svg": "assets/days-520-unlit.svg",
+        "png": "assets/days-520-unlit@2x.png"
+      },
+      "width": 330,
+      "height": 370
+    }
+  ]
+}

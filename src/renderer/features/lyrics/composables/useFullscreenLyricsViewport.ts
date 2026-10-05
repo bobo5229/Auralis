@@ -1,5 +1,7 @@
 import { computed, getCurrentScope, nextTick, onScopeDispose, ref, watch, type Ref } from 'vue'
 import type { LyricsStatus } from './useTrackLyrics'
+import type { LyricLine } from '../types'
+import { createWholeLineLyricsViewport } from './wholeLineLyricsViewport'
 
 type ReadonlyRef<T> = Readonly<Ref<T>>
 type LyricMetric = { offset: number; height: number }
@@ -15,6 +17,9 @@ export interface FullscreenLyricsViewportOptions {
   showPrelude: ReadonlyRef<boolean>
   isOpen: ReadonlyRef<boolean>
   reducedMotion?: ReadonlyRef<boolean>
+  wholeLineMode?: ReadonlyRef<boolean>
+  lines?: ReadonlyRef<readonly LyricLine[]>
+  artworkRef?: Ref<HTMLElement | null>
 }
 
 const MIN_DURATION_MS = 420
@@ -66,18 +71,24 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
   const containerHeight = ref(0)
   const isUserScrolling = ref(false)
   const topPadding = computed(() =>
-    options.lyricsStatus.value === 'plain'
-      ? Math.round(containerHeight.value * FULLSCREEN_LYRICS_FADE_TOP_RATIO) + PLAIN_EDGE_GAP_PX
-      : Math.round(containerHeight.value * FULLSCREEN_LYRICS_FOCAL_RATIO),
+    options.wholeLineMode?.value
+      ? 0
+      : options.lyricsStatus.value === 'plain'
+        ? Math.round(containerHeight.value * FULLSCREEN_LYRICS_FADE_TOP_RATIO) + PLAIN_EDGE_GAP_PX
+        : Math.round(containerHeight.value * FULLSCREEN_LYRICS_FOCAL_RATIO),
   )
   const bottomPadding = computed(() =>
-    options.lyricsStatus.value === 'plain'
-      ? Math.round(containerHeight.value * FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO) + PLAIN_EDGE_GAP_PX
-      : Math.round(containerHeight.value * (1 - FULLSCREEN_LYRICS_FOCAL_RATIO)),
+    options.wholeLineMode?.value
+      ? 0
+      : options.lyricsStatus.value === 'plain'
+        ? Math.round(containerHeight.value * FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO) +
+          PLAIN_EDGE_GAP_PX
+        : Math.round(containerHeight.value * (1 - FULLSCREEN_LYRICS_FOCAL_RATIO)),
   )
   let scrollTimeout: ReturnType<typeof setTimeout> | null = null
   let resizeObserver: ResizeObserver | null = null
   let observedContainer: HTMLElement | null = null
+  let observedWholeLineMode = false
   let animation: Animation | null = null
   let offset = 0
   let lineMetrics: LyricMetric[] = []
@@ -86,6 +97,12 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
   let metricsPreludeState = false
   let scrollMax = 0
   let disposed = false
+  const wholeLine = createWholeLineLyricsViewport({
+    ...options,
+    focalRatio: FULLSCREEN_LYRICS_FOCAL_RATIO,
+    activeScale: FULLSCREEN_LYRICS_ACTIVE_SCALE,
+  })
+  const clearWholeLineLayout = wholeLine.clear
 
   function setOffset(nextOffset: number): void {
     offset = nextOffset
@@ -134,6 +151,7 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
     setOffset(0)
     if (options.scrollRef.value) options.scrollRef.value.scrollTop = 0
     clearMetrics()
+    clearWholeLineLayout()
   }
 
   function rebuildMetrics(force = false): void {
@@ -246,21 +264,35 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
       disconnectResizeObserver()
       return
     }
-    if (container === observedContainer && resizeObserver) return
+    const wholeLineMode = options.wholeLineMode?.value ?? false
+    if (
+      container === observedContainer &&
+      resizeObserver &&
+      observedWholeLineMode === wholeLineMode
+    )
+      return
 
     disconnectResizeObserver()
     containerHeight.value = container.clientHeight
     if (typeof ResizeObserver === 'undefined') return
     resizeObserver = new ResizeObserver((entries) => {
       if (disposed || !options.isOpen.value || observedContainer !== container) return
-      containerHeight.value = entries[0]?.contentRect.height ?? container.clientHeight
+      containerHeight.value = wholeLineMode
+        ? container.clientHeight
+        : (entries[0]?.contentRect.height ?? container.clientHeight)
       void nextTick(() => {
         rebuildMetrics(true)
-        updateTarget('auto')
+        if (wholeLineMode) wholeLine.update('auto')
+        else updateTarget('auto')
       })
     })
     resizeObserver.observe(container)
+    if (wholeLineMode) {
+      if (options.artworkRef?.value) resizeObserver.observe(options.artworkRef.value)
+      if (options.trackRef.value) resizeObserver.observe(options.trackRef.value)
+    }
     observedContainer = container
+    observedWholeLineMode = wholeLineMode
   }
 
   function refresh(behavior: ScrollBehavior, forceMetrics = false): void {
@@ -270,11 +302,17 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
       return
     }
     syncScrollContainer()
+    if (options.wholeLineMode?.value) {
+      wholeLine.update(behavior, forceMetrics)
+      return
+    }
+    clearWholeLineLayout()
     rebuildMetrics(forceMetrics)
     updateTarget(behavior)
   }
 
   function pauseAutoFollow(): void {
+    if (options.wholeLineMode?.value) return
     if (disposed || !options.isOpen.value || options.lyricsStatus.value !== 'lrc') return
     const container = options.scrollRef.value
     if (!isUserScrolling.value) {
@@ -303,6 +341,7 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
     cancelAnimation(true)
     disconnectResizeObserver()
     clearMetrics()
+    clearWholeLineLayout()
   }
 
   function onWheel(event: Pick<WheelEvent, 'deltaY'>): void {
@@ -322,18 +361,34 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
     disposed = true
   }
 
+  watch(
+    () => [options.activeIndex.value, options.showPrelude.value, options.reducedMotion?.value],
+    () => {
+      if (options.wholeLineMode?.value && options.isOpen.value) wholeLine.beforeChange()
+    },
+    { flush: 'pre' },
+  )
   watch(options.currentTrackId, resetPosition)
   watch(options.lyricsStatus, resetPosition)
+  if (options.wholeLineMode) watch(options.wholeLineMode, resetPosition)
   watch(
     () => [
       options.activeIndex.value,
       options.isPrelude.value,
+      options.showPrelude.value,
       options.lineCount.value,
       options.isOpen.value,
       options.lyricsStatus.value,
       options.reducedMotion?.value,
+      options.wholeLineMode?.value,
+      options.lines?.value,
     ],
     () => {
+      if (options.wholeLineMode?.value) {
+        if (!options.isOpen.value) suspend()
+        else refresh('smooth')
+        return
+      }
       void nextTick(() => {
         if (!options.isOpen.value) {
           suspend()

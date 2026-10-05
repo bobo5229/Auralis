@@ -2,7 +2,6 @@
 import { onBeforeUnmount, onMounted, ref, shallowRef, watchEffect } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import markup from '../mac/archiveMac.html?raw'
 import archiveMacCss from '../mac/archiveMac.css?raw'
@@ -10,32 +9,23 @@ import macAlbumWindowCss from '../mac/macAlbumWindow.css?raw'
 import '../mac/archiveMacFonts.css'
 import { mountArchiveMacView } from '../mac/mountArchiveMacView'
 import { useArchiveMacData } from '../composables/useArchiveMacData'
+import { useArchiveLibraryRefresh } from '../composables/useArchiveLibraryRefresh'
 import { resolveArchiveFontFamily } from '../utils/resolveArchiveFontFamily'
 import type { MacViewController } from '../mac/macViewTypes'
-import type { LibraryChangedReason } from '@shared/ipc/contracts'
 import { archiveSceneSession } from '../mac/archiveSceneSession'
 
 const router = useRouter()
 const { t, locale } = useI18n()
 const canvasHost = ref<HTMLElement | null>(null)
-const data = useArchiveMacData()
+const data = useArchiveMacData({
+  initialDate: archiveSceneSession.date,
+  initialAlbumKey: archiveSceneSession.albumKey,
+})
+useArchiveLibraryRefresh(data.refresh)
 const view = shallowRef<MacViewController | null>(null)
 const sceneReady = ref(false)
 
-let unsubscribe: (() => void) | undefined
-let debounceTimer: number | null = null
 let disposed = false
-
-const RELEVANT_REASONS = new Set<LibraryChangedReason>([
-  'play-stats-updated',
-  'play-stats-reset',
-  'metadata-refresh',
-  'track-added',
-  'track-missing',
-  'track-restored',
-  'track-relocated',
-  'file-change',
-])
 
 function returnToPlayer(): void {
   const previous = router.options.history.state.back
@@ -73,13 +63,6 @@ onMounted(async () => {
   const host = canvasHost.value
   if (!host) return
 
-  if (archiveSceneSession.date) {
-    const key = archiveSceneSession.albumKey
-    await data.selectDate(archiveSceneSession.date)
-    if (disposed) return
-    if (key) data.selectAlbum(key)
-  }
-
   const macFont = resolveArchiveFontFamily(
     getComputedStyle(host).getPropertyValue('--mac-font'),
     "'Plus Jakarta Sans', 'Auralis Mac Pixel', 'Microsoft YaHei', sans-serif",
@@ -116,25 +99,12 @@ onMounted(async () => {
     onRetryCalendar: () => data.retryCalendar(),
     onRetryDay: (date) => data.retryDay(date),
   })
-
-  // Subscribe to library changes
-  unsubscribe = auralis.library.onChanged((event) => {
-    if (RELEVANT_REASONS.has(event.reason)) {
-      if (debounceTimer !== null) clearTimeout(debounceTimer)
-      debounceTimer = window.setTimeout(() => {
-        debounceTimer = null
-        if (!disposed) void data.refresh()
-      }, 150)
-    }
-  })
 })
 
 onBeforeUnmount(() => {
   archiveSceneSession.date = data.selectedDate.value
   archiveSceneSession.albumKey = data.selectedAlbumKey.value
   disposed = true
-  if (debounceTimer !== null) clearTimeout(debounceTimer)
-  unsubscribe?.()
   view.value?.dispose()
 })
 </script>

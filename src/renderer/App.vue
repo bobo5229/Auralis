@@ -12,15 +12,11 @@ import WindowTrafficLights from './app/layout/WindowTrafficLights.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
-import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
-import { useShellFluidBackground } from '@renderer/features/appearance/composables/useShellFluidBackground'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useCdCanvasTheme } from '@renderer/features/albums/composables/useCdCanvasTheme'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
-import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { MODERN_PLAYER_BAR_MAX_WIDTH_PX } from '@renderer/features/playback/utils/modernPlayerBarLayout'
-import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { useLyricsPanelVisibility } from '@renderer/features/appearance/composables/useLyricsPanelVisibility'
 import { useLyricsPanelLayout, computeLyricsTargetWidth } from './app/layout/useLyricsPanelLayout'
 import { animateProgress } from '@renderer/shared/animation/motion'
@@ -30,7 +26,10 @@ import {
   type LyricsAlbumTransitionTicket,
 } from './app/layout/lyricsAlbumTransitionCoordinator'
 import { createAlbumDetailEntryTransition } from './app/layout/albumDetailEntryTransition'
+import { findAlbumTransitionFocusTarget } from './features/albums/utils/albumGridTransitionPlan'
+import { albumIdentityKey } from './features/albums/utils/albumIdentity'
 import { createSidebarLayoutTransition } from './app/layout/sidebarLayoutTransition'
+import { hasCdViewSwitchTransition } from './features/albums/utils/cdViewSwitchTransition'
 import {
   animateLyricsPanelSlide,
   animateLyricsPlayerTranslation,
@@ -38,8 +37,6 @@ import {
 } from './app/layout/lyricsPanelSlideMotion'
 
 const route = useRoute()
-const playback = usePlayback()
-const { shellFluidBackgroundEnabled } = useShellFluidBackground()
 const { cdCanvasTheme } = useCdCanvasTheme()
 useSystemMediaIntegration()
 const { displayMode } = usePlayerDisplayMode()
@@ -48,6 +45,7 @@ const { lyricsPanelExpanded } = useLyricsPanelVisibility()
 const { canDisplayLyricsPanel } = useLyricsPanelLayout()
 
 const shellRef = ref<HTMLElement | null>(null)
+const mainRef = ref<HTMLElement | null>(null)
 const initialLyricsActive = canDisplayLyricsPanel.value && lyricsPanelExpanded.value
 const lyricsProgress = ref(initialLyricsActive ? 1 : 0)
 const shouldMountLyrics = ref(initialLyricsActive)
@@ -718,12 +716,18 @@ const shellStyle = computed<CSSProperties>(() => ({
   '--auralis-lyrics-column-width': `calc(20% * ${lyricsProgress.value})`,
 }))
 
-/** 上一导航来源路由名；在 beforeEach 中更新，供 Transition 在目标路由已切换时仍能判断方向 */
+/** 成功导航的来源；与目标路由在同一轮渲染前更新。 */
 const previousRouteName = ref(route.name)
-/** Albums ➔ AlbumDetail 专属进入过渡标记；在 beforeEach 提早设为 true，并在 after-enter/cancelled 时复位 */
+const isCdIndexSlide = ref(false)
+/** 仅在导航成功后锁定交互，加载失败或守卫取消不产生过渡状态。 */
 const isAlbumDetailEntering = ref(false)
 const isAlbumRouteTransitioning = ref(false)
 const isFirstAlbumDetailTransition = ref(false)
+let albumRouteRevision = 0
+const enteringRevisions = new WeakMap<Element, number>()
+const leavingInertStates = new WeakMap<HTMLElement, boolean>()
+let shouldRestoreRouteFocus = false
+let albumListReturnFocus: { albumKey: string; selector: string } | null = null
 let hasPreparedAlbumDetail = false
 const albumDetailEntryTransition = createAlbumDetailEntryTransition(() => {
   hasPreparedAlbumDetail = true
@@ -739,16 +743,49 @@ const firstAlbumDetailTransitionHooks = computed(() =>
     : {},
 )
 
-const removeBeforeEach = router.beforeEach((to, from) => {
+const removeBeforeEach = router.beforeEach(() => {
   if (isGenericLyricsTransitioning) {
     applyImmediateState(canDisplayLyricsPanel.value && lyricsPanelExpanded.value)
   }
+})
+
+const removeAfterEach = router.afterEach((to, from, failure) => {
+  if (failure) return
   albumDetailEntryTransition.cancel()
+  albumRouteRevision += 1
+  const focused = document.activeElement
+  const mainHasFocus = focused instanceof HTMLElement && !!mainRef.value?.contains(focused)
+  if (from.name === 'albums' && to.name === 'album-detail') {
+    const albumKey =
+      typeof to.query.artist === 'string' && typeof to.query.title === 'string'
+        ? albumIdentityKey(to.query.artist, to.query.title)
+        : null
+    const focusedAlbumKey =
+      focused instanceof HTMLElement
+        ? focused.closest<HTMLElement>('.album-card[data-album-key]')?.dataset.albumKey
+        : null
+    albumListReturnFocus = albumKey
+      ? {
+          albumKey,
+          selector:
+            focusedAlbumKey === albumKey && focused?.matches('.album-card-play')
+              ? '.album-card-play'
+              : '.cover-stage',
+        }
+      : null
+  }
   previousRouteName.value = from.name
+  isCdIndexSlide.value =
+    from.name === 'cd-albums' &&
+    to.name === 'cd-album-index' &&
+    hasCdViewSwitchTransition('browse', 'index')
   isAlbumDetailEntering.value = to.name === 'album-detail' && from.name === 'albums'
   isFirstAlbumDetailTransition.value = isAlbumDetailEntering.value && !hasPreparedAlbumDetail
   isAlbumRouteTransitioning.value =
     isAlbumDetailEntering.value || (to.name === 'albums' && from.name === 'album-detail')
+  shouldRestoreRouteFocus =
+    (isAlbumRouteTransitioning.value && mainHasFocus) ||
+    (shouldRestoreRouteFocus && (mainHasFocus || focused === document.body))
 })
 
 onMounted(() => {
@@ -760,8 +797,12 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   removeBeforeEach()
+  removeAfterEach()
+  albumRouteRevision += 1
+  shouldRestoreRouteFocus = false
   albumDetailEntryTransition.cancel()
   isAlbumDetailEntering.value = false
+  isAlbumRouteTransitioning.value = false
   void settleAlbumLyricsTransition()
   cancelLyricsAnimation()
   clearPlayerBarTransition()
@@ -804,23 +845,13 @@ watch(sidebarFullHeight, (fullHeight) => {
   if (!fullHeight && activeAlbumTransitionTicket) void settleAlbumLyricsTransition()
 })
 
-const artworkUrl = computed(() =>
-  getArtworkUrl(playback.state.currentTrack?.artworkCacheKey ?? null),
-)
-const shouldRenderShellArtwork = computed(
-  () =>
-    shellFluidBackgroundEnabled.value &&
-    displayMode.value === 'normal' &&
-    !isStandaloneCanvas.value &&
-    artworkUrl.value !== null,
-)
-
 /**
  * 路由过渡规则：
  * 1. 专辑列表 ➔ 专辑详情：景深穿梭与黑胶破土浮升 (album-detail-enter-matrix)
  * 2. 专辑详情 ➔ 专辑列表：黑胶沉降与景深聚拢归位 (album-detail-exit-matrix)
- * 3. 唱片室进入与离开：短淡入淡出，首次展开动画由页面控制
- * 4. 其余路由切换：不使用 CSS 过渡，立即完成
+ * 3. CD 浏览切换到封面检索：检索页面从右侧滑入
+ * 4. 唱片室其余进入与离开：短淡入淡出，首次展开动画由页面控制
+ * 5. 其余路由切换：不使用 CSS 过渡，立即完成
  */
 const transitionName = computed(() => {
   if (route.name === 'album-detail' && previousRouteName.value === 'albums') {
@@ -829,21 +860,67 @@ const transitionName = computed(() => {
   if (route.name === 'albums' && previousRouteName.value === 'album-detail') {
     return 'album-detail-exit-matrix'
   }
+  if (isCdIndexSlide.value) return 'cd-index-slide'
   if (route.name === 'cd-albums' || previousRouteName.value === 'cd-albums') {
     return 'cd-canvas-fade'
   }
   return null
 })
 
-function onTransitionAfterEnter(): void {
-  isAlbumDetailEntering.value = false
-  isAlbumRouteTransitioning.value = false
+function onTransitionBeforeEnter(element: Element): void {
+  enteringRevisions.set(element, albumRouteRevision)
 }
 
-function onTransitionEnterCancelled(): void {
+function onTransitionBeforeLeave(element: Element): void {
+  if (!isAlbumRouteTransitioning.value) return
+  const node = element as HTMLElement
+  if (!leavingInertStates.has(node)) leavingInertStates.set(node, node.inert)
+  node.inert = true
+}
+
+function restoreLeavingInteractivity(element: Element): void {
+  const node = element as HTMLElement
+  const previous = leavingInertStates.get(node)
+  if (previous === undefined) return
+  node.inert = previous
+  leavingInertStates.delete(node)
+}
+
+async function restoreRouteFocus(revision: number): Promise<void> {
+  await nextTick()
+  if (revision !== albumRouteRevision || !shouldRestoreRouteFocus) return
+  shouldRestoreRouteFocus = false
+  const main = mainRef.value
+  const focused = document.activeElement
+  // Respect focus moved to the Playbar or Sidebar while the page was inert.
+  if (!main?.isConnected || (focused !== document.body && !main.contains(focused))) return
+  const returnTarget =
+    route.name === 'albums' && albumListReturnFocus
+      ? findAlbumTransitionFocusTarget(
+          main.querySelectorAll<HTMLElement>('.album-card[data-album-key]'),
+          albumListReturnFocus.albumKey,
+          albumListReturnFocus.selector,
+        )
+      : null
+  const target =
+    returnTarget ??
+    (route.name === 'album-detail' ? main.querySelector<HTMLElement>('.album-detail-back') : null)
+  ;(target ?? main).focus({ preventScroll: true })
+}
+
+function onTransitionAfterEnter(element: Element): void {
+  if (enteringRevisions.get(element) !== albumRouteRevision) return
+  isAlbumDetailEntering.value = false
+  isAlbumRouteTransitioning.value = false
+  void restoreRouteFocus(albumRouteRevision)
+}
+
+function onTransitionEnterCancelled(element: Element): void {
+  if (enteringRevisions.get(element) !== albumRouteRevision) return
   albumDetailEntryTransition.cancel()
   isAlbumDetailEntering.value = false
   isAlbumRouteTransitioning.value = false
+  void restoreRouteFocus(albumRouteRevision)
 }
 
 watch(
@@ -877,7 +954,6 @@ watch(displayMode, (mode) => {
         'is-cd-albums': isCdCanvas,
         'is-archive-canvas': isArchiveCanvas,
         'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
-        'has-artwork': shouldRenderShellArtwork,
         'is-sidebar-collapsed': renderedSidebarRail,
         'is-lyrics-collapsed': isLyricsCollapsed,
         'is-lyrics-resizing': isLyricsResizing,
@@ -892,23 +968,23 @@ watch(displayMode, (mode) => {
       />
       <WindowTrafficLights :cd-canvas="isStandaloneCanvas" />
 
-      <FluidArtworkBackground
-        v-if="shouldRenderShellArtwork"
-        :artwork-url="artworkUrl"
-        :active="true"
-        :playing="playback.state.isPlaying"
-        class="app-shell-bg-fluid"
-      />
-      <div v-if="shouldRenderShellArtwork" class="app-shell-bg-overlay" aria-hidden="true" />
-
       <AppSidebar v-if="!isStandaloneCanvas" class="relative z-10" />
 
-      <main class="app-main relative z-10">
+      <main
+        ref="mainRef"
+        class="app-main relative z-10"
+        tabindex="-1"
+        :inert="isAlbumRouteTransitioning"
+      >
         <RouterView v-slot="{ Component, route: viewRoute }">
           <Transition
             :name="transitionName ?? undefined"
             :css="transitionName !== null && !isFirstAlbumDetailTransition"
             v-bind="firstAlbumDetailTransitionHooks"
+            @before-enter="onTransitionBeforeEnter"
+            @before-leave="onTransitionBeforeLeave"
+            @after-leave="restoreLeavingInteractivity"
+            @leave-cancelled="restoreLeavingInteractivity"
             @after-enter="onTransitionAfterEnter"
             @enter-cancelled="onTransitionEnterCancelled"
           >
@@ -950,7 +1026,6 @@ watch(displayMode, (mode) => {
 
 <style scoped>
 .app-window.is-archive-canvas {
-  --auralis-main-corner-radius: 0px;
   --auralis-playbar-safe-area: 0px;
   background: #030305;
 }
@@ -990,23 +1065,5 @@ watch(displayMode, (mode) => {
   .app-shell.is-cd-albums {
     grid-template-columns: minmax(0, 1fr) !important;
   }
-}
-
-.app-shell-bg-fluid,
-.app-shell-bg-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.app-shell-bg-fluid {
-  z-index: 0;
-}
-
-.app-shell-bg-overlay {
-  z-index: 1;
-  background: var(--auralis-shell-overlay-bg, color-mix(in srgb, #0c0b0a 65%, transparent));
-  backdrop-filter: var(--auralis-overlay-blur, blur(20px) saturate(1.45) contrast(1.02));
-  -webkit-backdrop-filter: var(--auralis-overlay-blur, blur(20px) saturate(1.45) contrast(1.02));
 }
 </style>

@@ -16,13 +16,12 @@ export function beginCdViewSwitchTransition(
   return transition
 }
 
-export function consumeCdViewSwitchTransition(
-  target: CdViewSwitchTarget,
-): CdViewSwitchTransition | null {
-  if (!pendingTransition || pendingTransition.to !== target) return null
-  const transition = pendingTransition
-  pendingTransition = null
-  return transition
+/** Identify a controller click so the route can choose its page transition. */
+export function hasCdViewSwitchTransition(
+  from: CdViewSwitchTarget,
+  to: CdViewSwitchTarget,
+): boolean {
+  return pendingTransition?.from === from && pendingTransition.to === to
 }
 
 export function clearCdViewSwitchTransition(transition: CdViewSwitchTransition): void {

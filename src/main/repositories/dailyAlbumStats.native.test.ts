@@ -100,7 +100,6 @@ describe('PlayStatsRepository.getDailyAlbumStats', () => {
         artworkCacheKey: null,
         playCount: 5,
         durationSeconds: 740,
-        canPlay: true,
       },
     ])
     expect(playStats.getDailyAlbumStats('2026-06-16')).toEqual([])
@@ -229,13 +228,11 @@ describe('PlayStatsRepository.getDailyAlbumStats', () => {
       albumKey: null,
       playCount: 5,
       durationSeconds: 420,
-      canPlay: false,
     })
     expect(items).toHaveLength(3)
     expect(items.find((item) => item.title === '未知专辑')).toMatchObject({
       artist: '未知艺术家',
       albumKey: { album: '未知专辑', albumArtist: '未知艺术家' },
-      canPlay: true,
     })
     expect(items.find((item) => item.title === 'Fallback')).toMatchObject({
       artist: 'Fallback artist',
@@ -243,8 +240,8 @@ describe('PlayStatsRepository.getDailyAlbumStats', () => {
     })
   })
 
-  it('retains missing-file history and checks availability across the whole current album', () => {
-    const { db, tracks, playStats } = setup()
+  it('retains missing-file history and leaves availability checks to album playback', () => {
+    const { db, tracks, playStats, library } = setup()
     tracks.upsertMany([
       scanned(1, { album: 'Unavailable', albumArtist: 'Band' }),
       scanned(2, { album: 'Partial', albumArtist: 'Band' }),
@@ -261,12 +258,17 @@ describe('PlayStatsRepository.getDailyAlbumStats', () => {
     const items = playStats.getDailyAlbumStats(date)
     expect(items.find((item) => item.title === 'Unavailable')).toMatchObject({
       playCount: 4,
-      canPlay: false,
     })
     expect(items.find((item) => item.title === 'Partial')).toMatchObject({
       playCount: 2,
-      canPlay: true,
     })
+    const unavailable = items.find((item) => item.title === 'Unavailable')!
+    const partial = items.find((item) => item.title === 'Partial')!
+    expect(library.getAlbumTracks(unavailable.albumKey!)).toBeNull()
+    expect(library.getAlbumTracks(partial.albumKey!)?.tracks.map((track) => track.id)).toEqual([
+      trackId(db, 3),
+    ])
+    expect(partial).not.toHaveProperty('canPlay')
   })
 
   it('uses display metadata and aggregates artwork keys from current track metadata', () => {
@@ -295,11 +297,76 @@ describe('PlayStatsRepository.getDailyAlbumStats', () => {
       artworkCacheKey: 'cover-z',
       playCount: 5,
       durationSeconds: 750,
-      canPlay: true,
     })
     expect(library.getAlbumTracks(item!.albumKey!)?.tracks.map((track) => track.id)).toEqual([
       trackId(db, 1),
       trackId(db, 2),
     ])
+  })
+
+  it('merges current display metadata and removed history for the same day and album', () => {
+    const { db, tracks, playStats } = setup()
+    tracks.upsertMany([
+      scanned(1, { album: 'Shared', albumArtist: 'Band' }),
+      scanned(2, { album: 'Other day', albumArtist: 'Band' }),
+      scanned(3, { album: 'File album', albumArtist: 'File artist' }),
+    ])
+    db.prepare(
+      `INSERT INTO track_metadata (
+         track_id, album_title, album_artist_display, artwork_cache_key, source
+       ) VALUES (?, 'Displayed album', 'Band', 'cover-m', 'user_edit')`,
+    ).run(trackId(db, 3))
+    const date = '2026-06-15'
+    addDailyStats(db, date, 1, 2, 200, `${date}T10:00:00.000Z`)
+    addDailyStats(db, '2026-06-14', 2, 99, 9900)
+    addDailyStats(db, date, 3, 3, 300, `${date}T12:00:00.000Z`)
+    const addRemoved = db.prepare(
+      `INSERT INTO removed_track_history (
+         id, album, album_artist, artist, artwork_cache_key, source_file_path, recovery_json
+       ) VALUES (?, ?, ?, ?, ?, ?, '{}')`,
+    )
+    addRemoved.run(1001, 'Shared', 'Band', 'Singer', 'cover-z', 'C:\\Removed\\1.flac')
+    addRemoved.run(1002, 'Displayed album', 'Band', 'Singer', 'cover-a', 'C:\\Removed\\2.flac')
+    addRemoved.run(1003, 'History only', '', 'Fallback artist', 'cover-x', 'C:\\Removed\\3.flac')
+    const addRemovedStats = db.prepare(
+      `INSERT INTO removed_daily_track_play_stats (
+         play_date, track_id, play_count, duration_seconds, last_played_at
+       ) VALUES (?, ?, ?, ?, ?)`,
+    )
+    addRemovedStats.run(date, 1001, 4, 400, `${date}T11:00:00.000Z`)
+    addRemovedStats.run(date, 1002, 5, 500, `${date}T13:00:00.000Z`)
+    addRemovedStats.run(date, 1003, 1, 180, `${date}T09:00:00.000Z`)
+    addRemovedStats.run('2026-06-14', 1001, 99, 9900, '2026-06-14T12:00:00.000Z')
+
+    expect(playStats.getDailyAlbumStats(date)).toEqual([
+      {
+        key: JSON.stringify(['Displayed album', 'Band']),
+        albumKey: { album: 'Displayed album', albumArtist: 'Band' },
+        title: 'Displayed album',
+        artist: 'Band',
+        artworkCacheKey: 'cover-m',
+        playCount: 8,
+        durationSeconds: 800,
+      },
+      {
+        key: JSON.stringify(['Shared', 'Band']),
+        albumKey: { album: 'Shared', albumArtist: 'Band' },
+        title: 'Shared',
+        artist: 'Band',
+        artworkCacheKey: 'cover-z',
+        playCount: 6,
+        durationSeconds: 600,
+      },
+      {
+        key: JSON.stringify(['History only', 'Fallback artist']),
+        albumKey: { album: 'History only', albumArtist: 'Fallback artist' },
+        title: 'History only',
+        artist: 'Fallback artist',
+        artworkCacheKey: 'cover-x',
+        playCount: 1,
+        durationSeconds: 180,
+      },
+    ])
+    expect(playStats.getDailyAlbumStats('2026-06-16')).toEqual([])
   })
 })

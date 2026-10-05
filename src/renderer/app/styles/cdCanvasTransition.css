@@ -9,13 +9,47 @@
 .cd-canvas-fade-leave-to {
   opacity: 0;
 }
+
+.cd-index-slide-enter-active {
+  z-index: 2;
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+.cd-index-slide-enter-from {
+  transform: translate3d(100%, 0, 0);
+}
+.cd-index-slide-enter-to {
+  transform: translate3d(0, 0, 0);
+}
+/* Hold the outgoing canvas underneath until the incoming slide completes. */
+.app-main > .cd-page.cd-index-slide-leave-active {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+.cd-index-slide-leave-active {
+  animation: cd-index-slide-hold 420ms;
+}
+@keyframes cd-index-slide-hold {
+  from,
+  to {
+    opacity: 1;
+  }
+}
 :where([data-reduced-motion='true']) .cd-canvas-fade-enter-active,
-:where([data-reduced-motion='true']) .cd-canvas-fade-leave-active {
+:where([data-reduced-motion='true']) .cd-canvas-fade-leave-active,
+:where([data-reduced-motion='true']) .cd-index-slide-enter-active,
+:where([data-reduced-motion='true']) .cd-index-slide-leave-active {
   transition: none;
+  animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .cd-canvas-fade-enter-active,
-  .cd-canvas-fade-leave-active {
+  .cd-canvas-fade-leave-active,
+  .cd-index-slide-enter-active,
+  .cd-index-slide-leave-active {
     transition: none;
+    animation: none;
   }
 }

@@ -23,4 +23,10 @@
 用于共享原型。新原型沿用对应主题目录。关联脚本随原型放置，跨主题共享素材通过相对路径引用。
 部分旧原型使用在线示例图片，离线时这些图片可能不可用。
 
+液态金属背景：[原型说明与接入计划](playback/liquid-metal/README.md)。在项目根目录运行
+`node demo/playback/liquid-metal/serve.mjs` 后打开 `http://127.0.0.1:4176/`；支持本地封面取色、
+动态金属曲面、材质调节和模拟歌词预览。
+
+液态金属对比：[Paper LiquidMetal / Auralis](playback/liquid-metal-comparison/index.html)，离线打开；支持同步暂停、配色、封面取色及材质调节。[运行与重建说明](playback/liquid-metal-comparison/README.md)。
+
 浅色强调色对照：[灰玫瑰 / 酒红 / 灰紫 / 当前鼠尾草](local/shell/light-accent-colors.html)，沿用当前播放器浅色底色。
