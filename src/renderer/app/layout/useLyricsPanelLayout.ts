@@ -86,12 +86,15 @@ export function useLyricsPanelLayout(options: UseLyricsPanelLayoutOptions = {}) 
     return name === 'cd-albums' || name === 'cd-album-index' || name === 'archive'
   })
 
-  const canDisplayLyricsPanel: ComputedRef<boolean> = computed(() => {
-    return isWideScreen.value && displayMode.value === 'normal' && !isStandaloneCanvas.value
-  })
+  // Fullscreen covers the shell. Keep its columns stable while disabling panel controls.
+  const canLayoutLyricsPanel = computed(() => isWideScreen.value && !isStandaloneCanvas.value)
+  const canDisplayLyricsPanel: ComputedRef<boolean> = computed(
+    () => canLayoutLyricsPanel.value && displayMode.value === 'normal',
+  )
 
   return {
     isWideScreen: isWideScreen as Ref<boolean>,
+    canLayoutLyricsPanel,
     canDisplayLyricsPanel,
   }
 }

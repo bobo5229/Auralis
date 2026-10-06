@@ -197,25 +197,11 @@
 }
 .hologram-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 20px;
   align-items: center;
   padding-bottom: 22px;
   flex-shrink: 0;
-}
-.hologram-header h1 {
-  margin: 0;
-  font-size: var(--auralis-type-section-size, 18px);
-  line-height: var(--auralis-type-section-line-height, 26px);
-  font-weight: 500;
-  white-space: nowrap;
-}
-.hologram-header h1 span {
-  margin-left: 12px;
-  color: var(--holo-muted);
-  font-size: var(--auralis-type-caption-size, 12px);
-  line-height: var(--auralis-type-caption-line-height, 18px);
-  font-weight: 400;
 }
 .date-tools {
   display: flex;
@@ -293,6 +279,7 @@
   display: none;
 }
 .album-empty-msg {
+  grid-column: 1 / -1;
   display: flex;
   min-height: 180px;
   align-items: center;
@@ -410,153 +397,530 @@
   position: relative;
   z-index: 20;
 }
-.disk-caption {
-  display: flex;
-  gap: 16px;
-  color: var(--holo-muted);
-  font-size: var(--auralis-type-caption-size, 12px);
-  line-height: var(--auralis-type-caption-line-height, 18px);
-}
 .disk-deck {
-  --disk-size: clamp(175px, 21vw, 290px);
   position: relative;
-  height: calc(var(--disk-size) + 112px);
-  margin-top: 22px;
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(14px, 1.8vh, 22px) clamp(12px, 1.4vw, 18px);
+  padding: 6px 4px 36px;
   perspective: 1200px;
+  --floppy-contour: polygon(
+    0% 0%,
+    calc(100% - 15px) 0%,
+    100% 15px,
+    100% 57%,
+    calc(100% - 3px) 59%,
+    calc(100% - 3px) 61%,
+    100% 63%,
+    100% 100%,
+    0% 100%,
+    0% 63%,
+    3px 61%,
+    3px 59%,
+    0% 57%
+  );
+  --floppy-contour-back: polygon(
+    15px 0%,
+    100% 0%,
+    100% 57%,
+    calc(100% - 3px) 59%,
+    calc(100% - 3px) 61%,
+    100% 63%,
+    100% 100%,
+    0% 100%,
+    0% 63%,
+    3px 61%,
+    3px 59%,
+    0% 57%,
+    0% 15px
+  );
 }
 .disk-media {
-  --disk-depth: 0;
-  position: absolute;
-  left: 3%;
-  top: 70px;
-  width: var(--disk-size);
-  aspect-ratio: 1;
+  position: relative;
+  width: 100%;
+  max-width: 250px;
+  aspect-ratio: 90 / 94;
+  margin: 0 auto;
   padding: 0;
-  border: 1px solid #92c5cc85;
-  border-radius: 5px 17px 6px 5px;
-  color: #e3f4f5;
-  background: linear-gradient(135deg, #294048ed, #10212ee8 58%, #29444cd9);
-  box-shadow:
-    5px 6px 0 #10252d,
-    6px 7px 0 #8bbec286,
-    16px 24px 30px #0006,
-    inset 1px 1px 1px #e2ffff44;
+  border: 0;
+  background: transparent;
+  color: var(--holo-text);
   transform-style: preserve-3d;
-  transform: translate(
-      calc(var(--disk-depth) * var(--disk-step, 43px)),
-      calc(var(--disk-depth) * -17px)
-    )
-    rotateY(-12deg) rotateZ(calc(var(--disk-depth) * 2deg))
-    scale(calc(1 - var(--disk-depth) * 0.045));
+  transform: rotateX(6deg) rotateY(-8deg);
   transform-origin: 50% 50%;
   transition:
-    transform 440ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 320ms cubic-bezier(0.2, 0.8, 0.25, 1),
     opacity 240ms,
     filter 240ms;
   touch-action: none;
   user-select: none;
   cursor: grab;
 }
-.disk-media::before {
-  content: '';
-  position: absolute;
-  inset: 7px;
-  border: 1px solid #b3e9ef20;
-  border-radius: 2px 10px 2px 2px;
-  pointer-events: none;
-}
-.disk-media::after {
-  content: '';
-  position: absolute;
-  right: 7%;
-  bottom: 5%;
-  width: 7%;
-  height: 4%;
-  background: #040b10;
-  border: 1px solid #6c959d;
-  box-shadow: -1px -1px 1px #0008;
-}
 .disk-media:hover,
 .disk-media:focus-visible {
-  transform: translate(
-      calc(var(--disk-depth) * var(--disk-step, 43px)),
-      calc(var(--disk-depth) * -17px - 16px)
-    )
-    rotateY(-7deg) rotateZ(calc(var(--disk-depth) * 2deg))
-    scale(calc(1 - var(--disk-depth) * 0.045));
+  transform: rotateX(2deg) rotateY(-2deg) translateZ(16px) scale(1.05);
   filter: brightness(1.15);
+  z-index: 15;
 }
 .disk-media[aria-pressed='true'] {
-  border-color: #c3f2f1;
+  transform: rotateX(0deg) rotateY(0deg) translateZ(12px) scale(1.03);
+  z-index: 12;
 }
+.disk-media[aria-pressed='true'] .disk-face-front {
+  box-shadow:
+    inset 1.5px 2px 1.5px rgba(255, 255, 255, 0.9),
+    inset -1.5px -2px 2px rgba(0, 0, 0, 0.6),
+    0 20px 42px rgba(0, 15, 25, 0.8),
+    0 0 24px rgba(154, 239, 231, 0.45);
+}
+.disk-media.is-loaded {
+  opacity: 0.22;
+  filter: grayscale(0.7) brightness(0.7);
+  pointer-events: none;
+  transform: scale(0.96) translateZ(-8px);
+}
+
+/* Empty Bay Placeholder (5x2 Rack Slots) */
+.disk-bay-empty {
+  position: relative;
+  width: 100%;
+  max-width: 250px;
+  aspect-ratio: 90 / 94;
+  margin: 0 auto;
+  border-radius: 4px;
+  border: 1px dashed rgba(154, 239, 231, 0.22);
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(12, 35, 45, 0.35) 0%,
+    rgba(6, 16, 22, 0.5) 100%
+  );
+  clip-path: var(--floppy-contour);
+  transform: rotateX(6deg) rotateY(-8deg);
+  opacity: 0.55;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.disk-bay-empty::after {
+  content: '';
+  width: 42%;
+  height: 2px;
+  background: rgba(154, 239, 231, 0.16);
+  border-radius: 1px;
+}
+/* 1. Volumetric Extrusion Slices (8 Slices, gapless thickness) */
+.disk-extrusion {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+.disk-slice {
+  position: absolute;
+  inset: 0;
+  clip-path: var(--floppy-contour);
+  background: linear-gradient(
+    135deg,
+    rgba(42, 127, 140, 0.88) 0%,
+    rgba(12, 45, 56, 0.94) 55%,
+    rgba(42, 127, 140, 0.82) 100%
+  );
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.3),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.6);
+  backface-visibility: hidden;
+}
+.disk-slice.is-parting-line {
+  background: linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.75) 0%,
+    rgba(12, 45, 56, 0.98) 50%,
+    rgba(0, 0, 0, 0.85) 100%
+  );
+  box-shadow:
+    inset 0.5px 0.5px 0 rgba(255, 255, 255, 0.15),
+    0 0 2px rgba(0, 0, 0, 0.9);
+}
+
+/* 2. Internal Optical Depth (Mylar Platter + Spindle Hub) */
+.disk-internal {
+  position: absolute;
+  inset: 0;
+  transform: translateZ(0px);
+  pointer-events: none;
+  transform-style: preserve-3d;
+}
+.disk-mylar {
+  position: absolute;
+  width: 82%;
+  height: 82%;
+  left: 9%;
+  top: 10%;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 45% 45%, #181c20 0%, #08090a 60%, #030405 85%),
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      rgba(255, 255, 255, 0.035) 0,
+      rgba(255, 255, 255, 0.035) 1px,
+      transparent 1px,
+      transparent 3.5px
+    );
+  box-shadow:
+    0 0 14px rgba(0, 0, 0, 0.85),
+    inset 0 0 20px rgba(0, 0, 0, 0.95);
+  opacity: 0.92;
+}
+.disk-spindle {
+  position: absolute;
+  width: 32%;
+  height: 32%;
+  left: 34%;
+  top: 35%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 45%, #dce4e8 0%, #a2b0b8 50%, #68747a 85%);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.6),
+    inset 0 0 4px rgba(0, 0, 0, 0.5);
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.disk-spindle-hole {
+  width: 22%;
+  height: 22%;
+  background: #030405;
+  border-radius: 50%;
+  box-shadow: inset 1px 1px 2px #000;
+}
+
+/* 3. Front Face Cap (Z = +4px) */
+.disk-face-front {
+  position: absolute;
+  inset: 0;
+  clip-path: var(--floppy-contour);
+  border-radius: 4px 0 4px 4px;
+  background:
+    radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.42) 0%, transparent 60%),
+    linear-gradient(
+      135deg,
+      rgba(42, 127, 140, 0.76) 0%,
+      rgba(12, 45, 56, 0.86) 55%,
+      rgba(42, 127, 140, 0.72) 100%
+    );
+  box-shadow:
+    inset 1.5px 2px 1.5px rgba(255, 255, 255, 0.7),
+    inset -1.5px -2px 2px rgba(0, 0, 0, 0.6),
+    0 18px 36px rgba(0, 15, 25, 0.75),
+    0 0 20px rgba(154, 239, 231, 0.25);
+  transform: translateZ(4px);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  pointer-events: none;
+}
+.disk-mold-bevel {
+  position: absolute;
+  inset: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-bottom-color: rgba(0, 0, 0, 0.4);
+  border-right-color: rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  clip-path: polygon(0% 0%, calc(100% - 14px) 0%, 100% 14px, 100% 100%, 0% 100%);
+}
+
+/* 4. Chrome U-Clamp Shutter (跨扣咬合) */
 .disk-shutter {
   position: absolute;
-  top: -1px;
-  left: 20%;
+  top: 0;
+  left: 21%;
   width: 58%;
-  height: 29%;
-  background: linear-gradient(105deg, #718a94, #c2d3d4 24%, #68828d 47%, #b6ced0 75%, #7a949f);
-  border-radius: 0 0 5px 5px;
+  height: 31%;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  z-index: 10;
+}
+.disk-shutter-bridge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 11px;
+  transform-origin: 50% 0;
+  transform: rotateX(90deg) translateY(-5.5px);
+  background: linear-gradient(90deg, #99aab4, #ffffff 45%, #7d8f99);
+  box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.4);
+}
+.disk-shutter-leaf {
+  position: absolute;
+  inset: 0;
+  border-radius: 0 0 4px 4px;
+  background: linear-gradient(
+    115deg,
+    #8a9ca5 0%,
+    #ffffff 24%,
+    #687c88 46%,
+    #e3edf5 74%,
+    #7a8f9a 100%
+  );
   box-shadow:
-    1px 3px 5px #0008,
-    inset 0 -1px 0 #efffff88;
+    0 4px 10px rgba(0, 0, 0, 0.45),
+    inset 0 1.5px 1.5px #fff,
+    inset 0 -1px 1px rgba(0, 0, 0, 0.5);
+  transform: translateZ(5.5px);
+  backface-visibility: hidden;
 }
-.disk-shutter::before {
-  content: '';
+.disk-shutter-arrow {
   position: absolute;
-  top: 16%;
+  top: 24%;
+  left: 12%;
+  width: 0;
+  height: 0;
+  border-left: 5px solid #4a5963;
+  border-top: 3.5px solid transparent;
+  border-bottom: 3.5px solid transparent;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.8));
+}
+.disk-shutter-ribs {
+  position: absolute;
+  top: 22%;
+  left: 21%;
+  width: 12px;
+  height: 10px;
+  background: repeating-linear-gradient(
+    0deg,
+    #4d5c66 0,
+    #4d5c66 1px,
+    transparent 1px,
+    transparent 3.5px
+  );
+  opacity: 0.65;
+}
+.disk-shutter-window {
+  position: absolute;
+  top: 14%;
   bottom: 12%;
-  right: 18%;
-  width: 20%;
-  border: 1px solid #405460;
+  right: 14%;
+  width: 22%;
   border-radius: 2px;
-  background: linear-gradient(90deg, #0a1721, #253e4a);
-  box-shadow: inset 2px 1px 4px #0009;
+  background: #040507;
+  box-shadow:
+    inset 1px 1px 2px rgba(0, 0, 0, 0.95),
+    0 1px 0 rgba(255, 255, 255, 0.5);
+  overflow: hidden;
 }
-.disk-shutter::after {
-  content: '';
+.disk-shutter-reflection {
   position: absolute;
-  top: 18%;
-  left: 13%;
-  width: 20%;
-  height: 1px;
-  background: #e6ffff80;
-  box-shadow: 0 4px 0 #506e7666;
+  inset: -40%;
+  background:
+    radial-gradient(circle at 50% 50%, #15181b 0%, #050608 70%),
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      rgba(255, 255, 255, 0.04) 0,
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+  transform: rotate(35deg);
+}
+/* Recessed Label Cavity & Refined Horizontal Label Typography */
+.disk-label-cavity {
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  top: 34%;
+  bottom: 8%;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.85),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.25),
+    0 1px 0 rgba(255, 255, 255, 0.12);
+  padding: 3px;
+  transform: translateZ(1px);
+  pointer-events: auto;
 }
 .disk-label {
-  position: absolute;
-  left: 12%;
-  right: 12%;
-  top: 34%;
-  bottom: 10%;
+  width: 100%;
+  height: 100%;
+  border-radius: 2.5px;
+  background: linear-gradient(
+    130deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(242, 250, 255, 0.95) 40%,
+    rgba(255, 245, 249, 0.95) 70%,
+    rgba(244, 255, 252, 0.98) 100%
+  );
+  box-shadow:
+    0 1.5px 4px rgba(0, 0, 0, 0.35),
+    inset 0 0 10px rgba(154, 239, 231, 0.15);
   display: flex;
+  flex-direction: column;
   overflow: hidden;
-  border-radius: 2px;
-  background: #d2dfd8;
-  box-shadow: inset 0 1px 2px #0005;
+  position: relative;
+}
+.disk-label::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 15%,
+    rgba(255, 110, 175, 0.18) 32%,
+    rgba(100, 245, 255, 0.24) 48%,
+    rgba(255, 225, 110, 0.18) 64%,
+    transparent 82%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+.disk-label-bar {
+  height: 6px;
+  width: 100%;
+  flex-shrink: 0;
+  background: linear-gradient(90deg, #2a7f8c 0%, #3df0ff 65%, #9aefe7 100%);
+  transition: background 0.3s ease;
+}
+.disk-label-content {
+  flex: 1;
+  min-height: 0;
+  padding: 6px 8px 6px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  position: relative;
+  z-index: 1;
 }
 .disk-cover {
-  width: 68%;
-  height: 100%;
+  width: clamp(48px, 6vw, 68px);
+  height: clamp(48px, 6vw, 68px);
+  border-radius: 3px;
+  overflow: hidden;
   flex-shrink: 0;
+  box-shadow: 0 1.5px 5px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: #121a20;
   display: grid;
   place-items: center;
-  background: #18313a;
 }
 .disk-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
   pointer-events: none;
 }
-.disk-title {
-  writing-mode: vertical-rl;
-  padding: 9px 5px;
-  color: #152c32;
-  font-size: clamp(10px, 1vw, 13px);
-  line-height: 1.45;
-  text-align: left;
+.disk-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   overflow: hidden;
+  text-align: left;
+}
+.disk-title {
+  font-size: clamp(11px, 1.1vw, 13px);
+  font-weight: 700;
+  color: #0b1820;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+  letter-spacing: -0.2px;
+}
+.disk-artist {
+  font-size: clamp(9px, 0.9vw, 11px);
+  color: #4b6672;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+.disk-stats {
+  display: flex;
+  gap: 4px;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+.disk-pill {
+  font-size: 9px;
+  font-family: var(--font-mono, monospace);
+  background: rgba(42, 127, 140, 0.12);
+  color: #1e5a63;
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid rgba(42, 127, 140, 0.2);
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.disk-hole-hd {
+  position: absolute;
+  bottom: 4.5%;
+  left: 7%;
+  width: 6.5%;
+  height: 6.5%;
+  border-radius: 1px;
+  background: #030406;
+  box-shadow: inset 1px 1px 2px #000;
+}
+.disk-hole-wp {
+  position: absolute;
+  bottom: 4.5%;
+  right: 7%;
+  width: 6.5%;
+  height: 6.5%;
+  border-radius: 1px;
+  background: #030406;
+  box-shadow: inset 1px 1px 2px #000;
+}
+.disk-wp-slider {
+  position: absolute;
+  inset: 1px 1px 50% 1px;
+  background: #0e1e24;
+  border-radius: 0.5px;
+}
+
+/* 5. Back Face Cap (Z = -4px) */
+.disk-face-back {
+  position: absolute;
+  inset: 0;
+  clip-path: var(--floppy-contour-back);
+  border-radius: 0 4px 4px 4px;
+  background: linear-gradient(
+    135deg,
+    rgba(12, 45, 56, 0.92) 0%,
+    rgba(42, 127, 140, 0.78) 55%,
+    rgba(12, 45, 56, 0.94) 100%
+  );
+  box-shadow:
+    inset 1.5px 2px 1.5px rgba(255, 255, 255, 0.5),
+    inset -1.5px -2px 2px rgba(0, 0, 0, 0.6);
+  transform: rotateY(180deg) translateZ(4px);
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  pointer-events: none;
+}
+.disk-back-rotor {
+  position: absolute;
+  width: 32%;
+  height: 32%;
+  left: 34%;
+  top: 35%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 45% 45%, #b4c2ca 0%, #758690 60%, #4a5760 100%);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.6);
+}
+.disk-rotor-slot {
+  position: absolute;
+  width: 30%;
+  height: 18%;
+  left: 35%;
+  top: 41%;
+  background: #111518;
+  border-radius: 2px;
 }
 .hologram .disk-media.is-away,
 .hologram .disk-media.is-dragging {
@@ -678,9 +1042,8 @@
     gap: 8px;
   }
   .disk-deck {
-    --disk-size: clamp(160px, 45vw, 235px);
-    --disk-step: 27px;
-    height: calc(var(--disk-size) + 100px);
+    gap: 10px 8px;
+    padding: 6px 2px 16px;
   }
   .mac-date-popup {
     position: fixed;

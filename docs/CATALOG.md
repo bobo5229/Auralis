@@ -64,21 +64,7 @@
 
 ### archive：音乐归档
 
-- [Mac 声迹前端分阶段施工文档](topics/archive/TECHDOC-mac-archive-frontend-integration.md) — 临时入口、独立页面、真实统计、舞台与拖放播放，按 Phase/Task 执行。
-
-- [Mac 声迹后端接入施工方案](topics/archive/TECHDOC-mac-archive-backend-integration.md) — 源码审查、每日专辑 Top5 契约、分步施工与验证。
-
-- [Apple II 原型进度记录（2026-10-01）](topics/archive/PROGRESS-apple-ii-demo-2026-10-01.md) — 探索暂停，后续回到 1984 版 Mac；记录实现、验证与性能测量。
-
-- [设计参考：复古未来主义](topics/archive/REFERENCE-retrofuturism-design.md) — 用户提供的原文参考，按需采用，不作为项目强制规范。
-- [PRD：年度摘要实体票根档案](topics/archive/PRD：Archive%20页面年度摘要“实体票根档案（Editorial%20Liner%20Notes）”模块.MD)
-- [TECHDOC：年度摘要实体票根档案](topics/archive/techdoc-archive-editorial-liner-notes.md)
-- [产品需求文档 (PRD)：声迹页面黑胶封套抽盘交互式年度摘要](topics/archive/prd-archive-annual-vinyl-jacket-summary.md)
-- [PRD: 声迹页面“Music DNA 音乐基因与风格图谱”模块](topics/archive/prd-archive-music-dna-spectrum.md)
-- [技术架构文档 (TECHDOC)：声迹页面黑胶封套抽盘交互式年度摘要实现方案](topics/archive/techdoc-archive-annual-vinyl-jacket-summary.md)
-- [TECHDOC: Music DNA 环形图 Hover/锁定 → 流派 Top 3 曲目](topics/archive/techdoc-archive-music-dna-ring-top-tracks.md)
-- [TECHDOC: 声迹页面“Music DNA 音乐基因与风格图谱”技术设计文档](topics/archive/techdoc-archive-music-dna-spectrum.md)
-- [Archive 听歌排行历史回看技术方案](topics/archive/techdoc-archive-ranking-history.md)
+- [设计参考：复古未来主义](topics/archive/REFERENCE-retrofuturism-design.md) — 用户提供的原文参考，按需采用，不作为项目强制规范。现行入口为 `/archive` 的 Macintosh 聆听档案页。
 
 ### artwork：封面
 

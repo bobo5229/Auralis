@@ -10,6 +10,7 @@ import {
   getAlbumCoverTrackDiscHeadings,
 } from '../utils/albumCoverDiscHeadings'
 import AlbumCoverTrackRow from './AlbumCoverTrackRow.vue'
+import VirtualAlbumTrackList from './VirtualAlbumTrackList.vue'
 import {
   getAlbumCoverColumnHeight,
   LIBRARY_LAYOUT_METRICS,
@@ -23,6 +24,8 @@ const props = withDefaults(
     selectedTrackId?: number | null
     focusedTrackId?: number | null
     viewportHeight?: number
+    scrollElement?: HTMLElement | null
+    startOffset?: number
   }>(),
   {
     nowPlayingTrackId: null,
@@ -30,6 +33,8 @@ const props = withDefaults(
     selectedTrackId: null,
     focusedTrackId: null,
     viewportHeight: 0,
+    scrollElement: null,
+    startOffset: 0,
   },
 )
 
@@ -47,6 +52,8 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const { coverArtworkRounded, coverArtworkRadius } = useCoverArtworkCorners()
+// 分组虚拟化仍会挂载整张专辑；大型合集额外按曲目虚拟化。
+const LONG_ALBUM_TRACK_COUNT = 100
 const imgError = ref(false)
 const discHeadings = computed(() => getAlbumCoverTrackDiscHeadings(props.group.tracks))
 // 可用高度已扣除播放栏安全区；低窗口中恢复正常滚动，确保说明可见。
@@ -148,35 +155,58 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
     </div>
 
     <div class="album-cover-tracks">
-      <template v-for="(track, trackIdx) in group.tracks" :key="track.id">
-        <div
-          v-if="discHeadings[trackIdx] !== null"
-          class="cover-disc-heading"
-          :class="{ 'cover-disc-heading--first': trackIdx === 0 }"
-        >
-          {{ formatAlbumCoverDiscHeading(discHeadings[trackIdx]!) }}
-        </div>
-        <AlbumCoverTrackRow
-          :track="track"
-          :now-playing="nowPlayingTrackId === track.id"
-          :is-playing="isPlaying"
-          :selected="selectedTrackId === track.id"
-          :focused="focusedTrackId === track.id"
-          :index="trackIdx"
-          :disc-end="trackIdx === group.tracks.length - 1 || discHeadings[trackIdx + 1] != null"
-          @select="emit('select', $event)"
-          @play="emit('play', $event)"
-          @focus="emit('focusTrack', $event)"
-          @open-context-menu="
-            (trackId, event, openReason) => emit('openTrackContextMenu', trackId, event, openReason)
-          "
-        />
+      <VirtualAlbumTrackList
+        v-if="group.tracks.length > LONG_ALBUM_TRACK_COUNT"
+        :tracks="group.tracks"
+        :scroll-element="scrollElement"
+        :start-offset="startOffset"
+        :now-playing-track-id="nowPlayingTrackId"
+        :is-playing="isPlaying"
+        :selected-track-id="selectedTrackId"
+        :focused-track-id="focusedTrackId"
+        @select="emit('select', $event)"
+        @play="emit('play', $event)"
+        @focus-track="emit('focusTrack', $event)"
+        @open-track-context-menu="
+          (trackId, event, openReason) => emit('openTrackContextMenu', trackId, event, openReason)
+        "
+      />
+      <template v-else>
+        <template v-for="(track, trackIdx) in group.tracks" :key="track.id">
+          <div
+            v-if="discHeadings[trackIdx] !== null"
+            class="cover-disc-heading"
+            :class="{ 'cover-disc-heading--first': trackIdx === 0 }"
+          >
+            {{ formatAlbumCoverDiscHeading(discHeadings[trackIdx]!) }}
+          </div>
+          <AlbumCoverTrackRow
+            :track="track"
+            :now-playing="nowPlayingTrackId === track.id"
+            :is-playing="isPlaying"
+            :selected="selectedTrackId === track.id"
+            :focused="focusedTrackId === track.id"
+            :index="trackIdx"
+            :disc-end="trackIdx === group.tracks.length - 1 || discHeadings[trackIdx + 1] != null"
+            @select="emit('select', $event)"
+            @play="emit('play', $event)"
+            @focus="emit('focusTrack', $event)"
+            @open-context-menu="
+              (trackId, event, openReason) =>
+                emit('openTrackContextMenu', trackId, event, openReason)
+            "
+          />
+        </template>
       </template>
     </div>
   </div>
 </template>
 
 <style scoped>
+.album-cover-artwork:hover {
+  cursor: default;
+}
+
 .album-cover-artwork:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: 3px;
@@ -200,7 +230,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
   line-height: 20px;
 }
 
-.cover-disc-heading {
+:deep(.cover-disc-heading) {
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -217,7 +247,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 }
 
 /* 首个 Disc 标题放入组顶部留白，不占曲目列高度。 */
-.cover-disc-heading--first {
+:deep(.cover-disc-heading--first) {
   position: absolute;
   top: calc(-1 * var(--library-cover-disc-heading-height));
   left: var(--library-cover-panel-padding-inline-side);

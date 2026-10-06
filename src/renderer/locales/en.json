@@ -16,6 +16,12 @@
     "createFirstPlaylist": "Create your first playlist",
     "playlistNameRequired": "Enter a name",
     "renameFailed": "Could not rename the playlist. Try again.",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "reorderHelp": "Hold to drag, or press Alt with the up or down arrow to move a playlist. Press Shift+F10 to open the menu.",
+    "reorderAnnouncement": "Moved {name} to position {position} of {total}",
+    "reorderFailed": "Order was not saved. Playlists have been reloaded. Please try again.",
+    "reorderReloadFailed": "Order was not saved and playlists could not be reloaded. Please try again.",
     "newPlaylist": "New playlist",
     "newSmartPlaylist": "New smart playlist",
     "recentPlayed": "Recently played",
@@ -23,28 +29,20 @@
     "recentAdded": "Recently added",
     "customSmartPlaylist": "Custom",
     "createPlaylistFailed": "Could not create the playlist. Try again.",
-    "smartPlaylists": "Smart playlists",
     "rename": "Rename",
     "delete": "Delete",
     "renameDialogTitle": "Rename playlist",
     "playlistName": "Playlist name",
     "cancel": "Cancel",
     "save": "Save",
-    "create": "Create",
-    "queryDialogTitle": "Create smart playlist",
-    "queryAria": "Smart playlist query",
-    "queryRequired": "Enter a query",
-    "queryParseFailed": "Could not parse the query",
-    "deletePlaylistTitle": "Delete playlist?",
-    "deleteSmartPlaylistTitle": "Delete smart playlist?",
     "toolbarAria": "Sidebar tools",
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar",
     "tool": {
-      "facets": "Filters",
       "facetsPanel": "Filter panel",
+      "themeToLight": "Switch to light theme",
+      "themeToDark": "Switch to dark theme",
       "settings": "Settings",
-      "refresh": "Refresh library",
       "refreshAction": "Refresh library",
       "refreshBusy": "Refreshing library"
     },
@@ -67,16 +65,18 @@
   },
   "settings": {
     "title": "Settings",
+    "dialog": {
+      "close": "Close settings",
+      "loading": "Loading settings…",
+      "loadFailed": "Settings could not be loaded. Try again.",
+      "retry": "Try again"
+    },
     "navAriaLabel": "Settings categories",
     "nav": {
       "appearance": "Appearance",
       "playback": "Playback",
       "library": "Music library",
-      "about": "About",
-      "appearanceDescription": "Theme, layout and song typography",
-      "playbackDescription": "Gapless playback, silence trimming and soft transitions",
-      "libraryDescription": "Manage music files and metadata",
-      "aboutDescription": "Version and local data"
+      "about": "About"
     },
     "appearance": {
       "theme": "Theme",
@@ -150,11 +150,11 @@
           "discHeading": "Disc heading"
         },
         "options": {
-          "default": "Default ({weight})",
           "400": "Regular (400)",
           "500": "Medium (500)",
           "600": "Semibold (600)",
-          "700": "Bold (700)"
+          "700": "Bold (700)",
+          "default": "Default ({weight})"
         },
         "sample": {
           "title": "夜航 Night Flight — 写给远方的一封很长的信",
@@ -169,12 +169,6 @@
         },
         "expand": "Expand",
         "collapse": "Collapse"
-      },
-      "playerBarMaterial": "Player bar material",
-      "playerBarMaterialDescription": "Tint the player bar with album colors or use the translucent Liquid Glass effect.",
-      "playerBarMaterialOption": {
-        "coverTint": "Album tint",
-        "liquidGlass": "Liquid Glass"
       },
       "interface": "Interface",
       "languagePersistFailed": "Language changed, but could not save it. It may reset after restarting. Try again.",
@@ -311,16 +305,11 @@
       "repeat-one": "Repeat one",
       "shuffle": "Shuffle",
       "album-shuffle": "Album shuffle"
-    },
-    "modeDock": {
-      "sequential": "Sequential",
-      "repeat-all": "Repeat all",
-      "repeat-one": "Repeat one",
-      "shuffle": "Shuffle",
-      "album-shuffle": "Albums"
     }
   },
   "fullscreen": {
+    "settings": "Fullscreen settings",
+    "closeSettings": "Close fullscreen settings",
     "overlayAria": "Fullscreen player",
     "exit": "Exit fullscreen player",
     "repeatEnableOne": "Enable repeat one",
@@ -328,7 +317,7 @@
     "repeatEnableAll": "Enable repeat all",
     "lyricsStartingSoon": "Lyrics starting soon",
     "background": {
-      "controls": "Background controls",
+      "section": "Background",
       "mode": "Background style",
       "metal": "Liquid metal",
       "fluid": "Fluid",
@@ -336,7 +325,6 @@
       "folds": "Fold scale",
       "roughness": "Reflection softness",
       "pause": "Pause background",
-      "resume": "Resume background",
       "reset": "Reset material"
     }
   },
@@ -381,14 +369,6 @@
         "toLight": "Switch to light mode",
         "toDark": "Switch to dark mode"
       },
-      "background": {
-        "enabled": "Album colors on",
-        "disabled": "Album colors off",
-        "toggle": "Album color background",
-        "turnOn": "Enable album color background",
-        "turnOff": "Disable album color background",
-        "lightOnly": "Available in light mode"
-      },
       "progress": {
         "current": "{style} progress",
         "wave": "Wave",
@@ -405,8 +385,8 @@
       },
       "vibration": {
         "disabled": "Vibration off",
-        "turnOn": "Enable bass vibration and hide lyrics",
-        "turnOff": "Disable bass vibration and show lyrics",
+        "turnOn": "Enable bass vibration",
+        "turnOff": "Disable bass vibration",
         "smooth": "Smooth",
         "elastic": "Elastic"
       },
@@ -503,6 +483,17 @@
   },
   "library": {
     "playCount": "{count} plays | {count} play | {count} plays",
+    "columns": {
+      "artwork": "Cover",
+      "title": "Title",
+      "artist": "Artist",
+      "album": "Album",
+      "playCount": "Plays",
+      "duration": "Duration",
+      "resizeBetween": "Resize columns between {left} and {right}",
+      "menuLabel": "Track list column width menu",
+      "restoreDefaults": "Restore default column widths"
+    },
     "search": {
       "ariaLabel": "Search this list",
       "placeholder": "Search titles, artists and albums…",
@@ -530,7 +521,6 @@
     },
     "metadataEditor": {
       "title": "Edit metadata",
-      "ariaLabel": "Edit track metadata",
       "fields": {
         "title": "Title",
         "artist": "Artist",
@@ -568,7 +558,6 @@
       "errors": {
         "saveFailed": "Could not save metadata. Try again.",
         "loadFailed": "Could not load track information. Try again.",
-        "playbackInUse": "This file is in use by the player. Switch to another track before editing metadata.",
         "writeInProgress": "This file is being saved. Please wait."
       }
     },
@@ -595,25 +584,6 @@
   },
   "archive": {
     "title": "Listening archive",
-    "annualSummary": "Annual summary",
-    "annualRecap": "Annual recap",
-    "linerNotes": {
-      "badge": "ANNUAL NOTES · {year} ARCHIVE",
-      "serial": "NO. #AUR-{year}-{checksum}",
-      "archiveId": "ARCHIVE-ID: #AUR-{year}-{checksum}",
-      "status": "STATUS: {status}",
-      "statusVerified": "VERIFIED & ARCHIVED",
-      "statusPending": "PENDING",
-      "statusAudited": "AUDITED",
-      "emptyNarrative": "No listening records for this year yet. Play a track to begin your archive.",
-      "auditOrg": "AURALIS AUDIT",
-      "receiptTitle": "* METRICS RECEIPT *",
-      "receiptActiveDays": "ACTIVE DAYS",
-      "receiptTotalPlays": "TOTAL PLAYS",
-      "receiptTotalDuration": "TOTAL DURATION",
-      "receiptDailyAverage": "DAILY AVERAGE",
-      "receiptPeakLog": "PEAK LOG"
-    },
     "mac": {
       "pageAria": "Mac listening archive",
       "backAria": "Return to player",

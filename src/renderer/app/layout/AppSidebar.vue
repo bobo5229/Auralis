@@ -18,7 +18,11 @@ import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import SmartPlaylistBuilderDialog from '@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue'
 import { useLibraryScanStart } from '@renderer/features/library/composables/useLibraryScanStart'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
+import { useTheme } from '@renderer/composables/useTheme'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
+import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
+import { preloadSettingsContent } from '@renderer/features/settings/utils/settingsContentLoader'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { prefetchRouteOnIntent } from '../router/routeWarmup'
@@ -33,6 +37,8 @@ import { vBrandResonance } from './sidebarBrandMotion'
 const route = useRoute()
 const router = useRouter()
 const playback = usePlayback()
+const { displayMode } = usePlayerDisplayMode()
+const { isSettingsOpen, openSettings } = useSettingsDialog()
 const { sidebarFullHeight, sidebarCollapsed, setSidebarCollapsed } = useSidebarLayout()
 /** 收起图标栏仅在全高布局生效；悬浮布局始终展示完整侧栏。 */
 const isRail = computed(() => sidebarFullHeight.value && sidebarCollapsed.value)
@@ -48,6 +54,8 @@ const { isStartingLibraryRefresh, refreshLibrary } = useLibraryScanStart({
 })
 
 const playlistItems = ref<SidebarPlaylistItem[]>([])
+const sidebarNavigation = ref<HTMLElement | null>(null)
+const sidebarPlaylistSection = ref<HTMLElement | null>(null)
 const smartPlaylists = ref<SmartPlaylist[]>([])
 const smartPlaylistKinds = computed(
   () =>
@@ -140,7 +148,15 @@ let pendingNavCleanup: (() => void) | null = null
 
 const POINTER_MOVE_TOLERANCE = 6
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const { isDark, toggleTheme } = useTheme()
+const themeToggleLabel = computed(() =>
+  t(isDark.value ? 'sidebar.tool.themeToLight' : 'sidebar.tool.themeToDark'),
+)
+
+function onToggleTheme(): void {
+  void toggleTheme()
+}
 
 const activePath = ref(route.path)
 
@@ -156,28 +172,28 @@ const primaryNav = computed<
   {
     to: '/songs',
     label: t('nav.songs'),
-    icon: 'i-ph-music-note',
-    activeIcon: 'i-ph-music-note-fill',
+    icon: 'i-ph-music-note-simple',
+    activeIcon: 'i-ph-music-note-simple-fill',
     routeName: 'library',
   },
   {
     to: '/albums',
     label: t('nav.albums'),
-    icon: 'i-ph-vinyl-record',
-    activeIcon: 'i-ph-vinyl-record-fill',
+    icon: 'i-ph-stack',
+    activeIcon: 'i-ph-stack-fill',
     routeName: 'albums',
   },
   {
     to: '/albums/cd',
     label: t('albums.cd.title'),
-    icon: 'i-ph-disc',
-    activeIcon: 'i-ph-disc-fill',
+    icon: 'cd-case',
+    activeIcon: 'cd-case',
   },
   {
     to: '/archive',
     label: t('nav.archive'),
-    icon: 'i-ph-archive',
-    activeIcon: 'i-ph-archive-fill',
+    icon: 'i-ph-clock-counter-clockwise',
+    activeIcon: 'i-ph-clock-counter-clockwise-fill',
     routeName: 'archive',
   },
 ])
@@ -214,11 +230,20 @@ function getPlaylistKey(item: { kind: string; id: number }): string {
 const {
   pressedPlaylistKey,
   draggingPlaylistKey,
+  hiddenPlaylistKey,
   dropTarget,
+  isSaving: isSavingPlaylistOrder,
+  reorderError,
+  announcement: reorderAnnouncement,
   onPointerDown: onPlaylistPointerDown,
   shouldSuppressClick,
+  canMove: canMovePlaylist,
+  move: movePlaylist,
+  cancel: cancelPlaylistReorder,
 } = useSidebarPlaylistReorder({
   playlistItems,
+  scrollContainer: sidebarNavigation,
+  playlistContainer: sidebarPlaylistSection,
   persistOrder: (items) => auralis.playlists.reorderSidebarItems(items),
   reload: () => loadSidebarPlaylists(),
 })
@@ -339,7 +364,7 @@ function setPendingActiveFromPointer(event: PointerEvent, path: string): void {
 }
 
 function onPlaylistClick(event: MouseEvent, path: string): void {
-  if (shouldSuppressClick()) {
+  if (shouldSuppressClick(event)) {
     event.preventDefault()
     event.stopPropagation()
     return
@@ -373,7 +398,7 @@ async function playRandomPlaylistTrack(item: SidebarPlaylistItem): Promise<void>
 function onPlaylistDoubleClick(item: SidebarPlaylistItem, event: MouseEvent): void {
   event.preventDefault()
   event.stopPropagation()
-  if (shouldSuppressClick()) return
+  if (shouldSuppressClick(event)) return
   void playRandomPlaylistTrack(item)
 }
 
@@ -496,6 +521,22 @@ watch([() => route.path, isRail], () => {
   closePlaylistContextMenu()
 })
 
+watch(
+  [
+    () => route.path,
+    isRail,
+    sidebarFullHeight,
+    displayMode,
+    createMenu,
+    playlistContextMenu,
+    isFacetsDialogOpen,
+    isBuilderOpen,
+    renamingPlaylist,
+  ],
+  () => cancelPlaylistReorder(true),
+  { flush: 'sync' },
+)
+
 async function createPlaybackPreset(
   preset: 'recentPlayed' | 'mostListened' | 'recentAdded',
 ): Promise<void> {
@@ -548,6 +589,7 @@ function openSmartPlaylistBuilder(): void {
 }
 
 function openPlaylistContextMenu(item: SidebarPlaylistItem, event: MouseEvent): void {
+  cancelPlaylistReorder(true)
   closeCreateMenu()
   playlistContextTrigger.value = playlistRowElement(item)
   deletingPlaylist.value = null
@@ -563,6 +605,39 @@ function closePlaylistContextMenu(): void {
   deletingPlaylist.value = null
   deleteError.value = ''
   playlistContextMenu.value = null
+}
+
+function onPlaylistKeydown(item: SidebarPlaylistItem, event: KeyboardEvent): void {
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
+  if (
+    event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey &&
+    (event.key === 'ArrowUp' || event.key === 'ArrowDown')
+  ) {
+    event.preventDefault()
+    event.stopPropagation()
+    cancelPlaylistReorder(true)
+    movePlaylist(item, event.key === 'ArrowUp' ? -1 : 1)
+  } else if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) {
+    event.preventDefault()
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    openPlaylistContextMenu(
+      item,
+      new MouseEvent('contextmenu', {
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      }),
+    )
+  } else if (event.key === 'Enter') setPendingActive(getPlaylistPath(item))
+}
+
+function movePlaylistFromMenu(direction: -1 | 1): void {
+  const item = playlistContextMenu.value?.item
+  if (!item || !canMovePlaylist(item, direction)) return
+  closePlaylistContextMenu()
+  movePlaylist(item, direction)
 }
 
 function cancelDeleteOnOtherClick(event: MouseEvent): void {
@@ -725,7 +800,10 @@ onBeforeUnmount(() => {
 <template>
   <aside
     class="app-sidebar"
-    :class="{ 'app-sidebar--full-height': sidebarFullHeight, 'app-sidebar--collapsed': isRail }"
+    :class="{
+      'app-sidebar--full-height': sidebarFullHeight,
+      'app-sidebar--collapsed': isRail,
+    }"
   >
     <header class="sidebar-header">
       <div class="sidebar-header-main">
@@ -787,21 +865,31 @@ onBeforeUnmount(() => {
           >
             <span class="i-ph-sliders-horizontal"></span>
           </button>
-          <RouterLink
-            v-tooltip.right="isRail ? t('sidebar.tool.settings') : ''"
-            to="/settings"
+          <button
+            v-tooltip.right="isRail ? themeToggleLabel : ''"
             class="sidebar-tool-button"
-            :class="{ 'sidebar-tool-button-active': activePath === '/settings' }"
+            type="button"
+            :aria-label="themeToggleLabel"
+            @click="onToggleTheme"
+          >
+            <span v-if="isDark" class="i-ph-sun"></span>
+            <span v-else class="i-ph-moon"></span>
+          </button>
+          <button
+            v-tooltip.right="isRail ? t('sidebar.tool.settings') : ''"
+            type="button"
+            class="sidebar-tool-button"
+            :class="{ 'sidebar-tool-button-active': isSettingsOpen }"
             :aria-label="t('sidebar.tool.settings')"
-            :draggable="false"
-            @dragstart.prevent
-            @pointerenter="onRouteIntent('settings')"
-            @focusin="onRouteIntent('settings')"
-            @pointerdown="setPendingActiveFromPointer($event, '/settings')"
-            @keydown.enter="setPendingActive('/settings')"
+            aria-haspopup="dialog"
+            :aria-expanded="isSettingsOpen"
+            data-settings-trigger
+            @pointerenter="preloadSettingsContent"
+            @focusin="preloadSettingsContent"
+            @click="openSettings()"
           >
             <span class="i-ph-gear"></span>
-          </RouterLink>
+          </button>
           <button
             v-tooltip.right="isRail ? t('sidebar.tool.refreshAction') : ''"
             class="sidebar-tool-button"
@@ -826,6 +914,7 @@ onBeforeUnmount(() => {
 
     <nav
       id="sidebar-navigation"
+      ref="sidebarNavigation"
       class="sidebar-navigation"
       :class="{ 'sidebar-navigation--empty': playlistItems.length === 0 && !isRail }"
     >
@@ -850,14 +939,45 @@ onBeforeUnmount(() => {
           @keydown.enter="setPendingActive(item.to)"
         >
           <span class="sidebar-link-icon">
-            <span :class="isPrimaryNavActive(item.to) ? item.activeIcon : item.icon"></span>
+            <span v-if="item.icon === 'cd-case'" aria-hidden="true">
+              <svg
+                width="100%"
+                height="100%"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="2.5" y="2.5" width="19" height="19" rx="4" />
+                <path
+                  v-if="isPrimaryNavActive(item.to)"
+                  d="M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12Zm0 4.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"
+                  fill="currentColor"
+                  fill-rule="evenodd"
+                  stroke="none"
+                />
+                <template v-else>
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="1.5" />
+                </template>
+              </svg>
+            </span>
+            <span v-else :class="isPrimaryNavActive(item.to) ? item.activeIcon : item.icon"></span>
           </span>
           <span class="sidebar-link-label">{{ item.label }}</span>
           <span v-if="item.count !== null" class="sidebar-link-count">{{ item.count }}</span>
         </RouterLink>
       </section>
 
-      <section class="sidebar-playlist-section">
+      <section
+        ref="sidebarPlaylistSection"
+        class="sidebar-playlist-section"
+        :aria-busy="isSavingPlaylistOrder"
+        :data-playlist-drop-key="dropTarget?.key"
+        :data-playlist-drop-position="dropTarget?.position"
+      >
         <div class="smart-playlist-section-header">
           <div class="sidebar-section-title">
             <div class="sidebar-section-label">{{ t('sidebar.playlists') }}</div>
@@ -876,30 +996,52 @@ onBeforeUnmount(() => {
             <span class="i-ph-plus"></span>
           </button>
         </div>
+        <p id="sidebar-playlist-reorder-help" class="sr-only">
+          {{ t('sidebar.reorderHelp') }}
+        </p>
+        <p v-if="reorderError" class="sidebar-playlist-reorder-error" role="alert">
+          {{ t(reorderError === 'save' ? 'sidebar.reorderFailed' : 'sidebar.reorderReloadFailed') }}
+        </p>
         <RouterLink
           v-for="playlist in playlistItems"
           :key="getPlaylistKey(playlist)"
+          v-memo="[
+            playlist.kind,
+            playlist.id,
+            playlist.name,
+            playlist.trackCount,
+            playlist.viewMode,
+            playlist.sortOrder,
+            playlist.createdAt,
+            playlist.updatedAt,
+            activePath,
+            pressedPlaylistKey === getPlaylistKey(playlist),
+            draggingPlaylistKey === getPlaylistKey(playlist),
+            hiddenPlaylistKey === getPlaylistKey(playlist),
+            isRail,
+            locale,
+            getPlaylistIcon(playlist),
+          ]"
           v-tooltip.right="isRail ? playlist.name : ''"
           :to="getPlaylistPath(playlist)"
           :data-sidebar-playlist-key="getPlaylistKey(playlist)"
           :draggable="false"
           class="sidebar-link"
           :aria-label="playlist.name"
+          aria-describedby="sidebar-playlist-reorder-help"
+          aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown Shift+F10"
           :class="{
             'sidebar-link-with-count': true,
             'sidebar-link-active': activePath === getPlaylistPath(playlist),
             'smart-playlist-link-pressed': pressedPlaylistKey === getPlaylistKey(playlist),
             'smart-playlist-link-dragging': draggingPlaylistKey === getPlaylistKey(playlist),
-            'smart-playlist-drop-before':
-              dropTarget?.key === getPlaylistKey(playlist) && dropTarget.position === 'before',
-            'smart-playlist-drop-after':
-              dropTarget?.key === getPlaylistKey(playlist) && dropTarget.position === 'after',
+            'sidebar-playlist-drag-origin': hiddenPlaylistKey === getPlaylistKey(playlist),
           }"
           @pointerdown="onPlaylistPointerDown(playlist, $event)"
-          @click="onPlaylistClick($event, getPlaylistPath(playlist))"
+          @click.capture="onPlaylistClick($event, getPlaylistPath(playlist))"
           @dblclick="onPlaylistDoubleClick(playlist, $event)"
           @dragstart.prevent
-          @keydown.enter="setPendingActive(getPlaylistPath(playlist))"
+          @keydown="onPlaylistKeydown(playlist, $event)"
           @contextmenu.prevent="openPlaylistContextMenu(playlist, $event)"
         >
           <span class="sidebar-link-icon">
@@ -915,6 +1057,9 @@ onBeforeUnmount(() => {
         </div>
       </section>
     </nav>
+    <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+      {{ reorderAnnouncement ? t('sidebar.reorderAnnouncement', reorderAnnouncement) : '' }}
+    </p>
     <FacetsDialog
       :open="isFacetsDialogOpen"
       @close="isFacetsDialogOpen = false"
@@ -1050,6 +1195,27 @@ onBeforeUnmount(() => {
           @click.stop
           @keydown="onMenuKeydown"
         >
+          <button
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            :disabled="!canMovePlaylist(playlistContextMenu.item, -1)"
+            @click="movePlaylistFromMenu(-1)"
+          >
+            <span class="i-ph-arrow-up"></span>
+            <span>{{ t('sidebar.moveUp') }}</span>
+          </button>
+          <button
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            :disabled="!canMovePlaylist(playlistContextMenu.item, 1)"
+            @click="movePlaylistFromMenu(1)"
+          >
+            <span class="i-ph-arrow-down"></span>
+            <span>{{ t('sidebar.moveDown') }}</span>
+          </button>
+          <div class="library-context-menu-separator" role="separator"></div>
           <button
             class="library-context-menu-item"
             type="button"

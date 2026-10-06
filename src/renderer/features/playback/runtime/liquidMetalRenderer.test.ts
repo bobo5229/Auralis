@@ -17,6 +17,25 @@ function setup() {
     STATIC_DRAW: 0x88e4,
     FLOAT: 0x1406,
     TRIANGLES: 4,
+    TEXTURE0: 0x84c0,
+    TEXTURE_2D: 0x0de1,
+    TEXTURE_MIN_FILTER: 0x2801,
+    TEXTURE_MAG_FILTER: 0x2800,
+    TEXTURE_WRAP_S: 0x2802,
+    TEXTURE_WRAP_T: 0x2803,
+    LINEAR: 0x2601,
+    CLAMP_TO_EDGE: 0x812f,
+    RGBA: 0x1908,
+    UNSIGNED_BYTE: 0x1401,
+    UNPACK_FLIP_Y_WEBGL: 0x9240,
+    createTexture: vi.fn(() => ({})),
+    deleteTexture: vi.fn(),
+    activeTexture: vi.fn(),
+    bindTexture: vi.fn(),
+    texParameteri: vi.fn(),
+    texImage2D: vi.fn(),
+    texSubImage2D: vi.fn(),
+    pixelStorei: vi.fn(),
     getExtension: vi.fn(() => (extensionAvailable ? extension : null)),
     createShader: vi.fn(() => ({})),
     shaderSource: vi.fn(),
@@ -48,6 +67,7 @@ function setup() {
     useProgram: vi.fn(),
     uniform2f: vi.fn(),
     uniform1f: vi.fn(),
+    uniform1i: vi.fn(),
     uniform3fv: vi.fn(),
     uniform1fv: vi.fn(),
     drawArrays: vi.fn(),
@@ -85,7 +105,11 @@ function setup() {
   const onReady = vi.fn()
   const onContextLost = vi.fn()
   const onFrameInvalidated = vi.fn()
-  const create = (reducedMotion = false, palette?: LiquidMetalPalette) =>
+  const create = (
+    reducedMotion = false,
+    palette?: LiquidMetalPalette,
+    overrides: Partial<Parameters<typeof createLiquidMetalRenderer>[1]> = {},
+  ) =>
     createLiquidMetalRenderer(canvas as unknown as HTMLCanvasElement, {
       active: true,
       playing: true,
@@ -99,6 +123,7 @@ function setup() {
       onReady,
       onContextLost,
       onFrameInvalidated,
+      ...overrides,
     })
   return {
     gl,
@@ -137,6 +162,105 @@ function setup() {
     },
   }
 }
+
+describe('fullscreen material rendering', () => {
+  let runtime: ReturnType<typeof setup>
+  beforeEach(() => (runtime = setup()))
+  afterEach(() => vi.unstubAllGlobals())
+  const phase = () =>
+    runtime.gl.uniform1f.mock.calls.filter(([name]) => name === 'u_phase').at(-1)?.[1]
+
+  it('animates material switching while the flow clock is frozen, and completes after drawing the endpoint', () => {
+    const complete = vi.fn()
+    const renderer = runtime.create(true, undefined, {
+      enableMorph: true,
+      onMorphComplete: complete,
+    })
+    runtime.complete()
+    runtime.advance()
+    const time = runtime.drawnTime()
+    renderer.transitionTo(0, true)
+    runtime.advance(475)
+    expect(phase()).toBeCloseTo(0.5)
+    expect(runtime.drawnTime()).toBe(time)
+    expect(complete).not.toHaveBeenCalled()
+    runtime.advance(475)
+    expect(phase()).toBe(0)
+    expect(complete).toHaveBeenCalledWith(0)
+    expect(complete.mock.invocationCallOrder[0]).toBeGreaterThan(
+      runtime.gl.drawArrays.mock.invocationCallOrder.at(-1)!,
+    )
+    expect(runtime.frames.size).toBe(0)
+    renderer.dispose()
+  })
+  it('uses a direct endpoint for reduced motion and submits it before returning', () => {
+    const renderer = runtime.create(true, undefined, {
+      enableMorph: true,
+      morphReducedMotion: true,
+    })
+    runtime.complete()
+    runtime.advance()
+    renderer.transitionTo(0, true)
+    expect(phase()).toBe(0)
+    runtime.advance(475)
+    expect(phase()).toBe(0)
+    renderer.dispose()
+  })
+  it('keeps the 950 ms material duration when music is paused', () => {
+    const complete = vi.fn()
+    const renderer = runtime.create(true, undefined, {
+      enableMorph: true,
+      onMorphComplete: complete,
+    })
+    runtime.complete()
+    runtime.advance()
+    renderer.setState({ active: true, playing: false, reducedMotion: true })
+    renderer.transitionTo(0, true)
+    runtime.advance(475)
+    expect(phase()).toBeCloseTo(0.5)
+    runtime.advance(475)
+    expect(phase()).toBe(0)
+    expect(complete).toHaveBeenCalledWith(0)
+    renderer.dispose()
+  })
+  it('uploads only into ready resources, reuses the texture allocation and invalidates it on context loss', () => {
+    const renderer = runtime.create(true, undefined, { enableMorph: true })
+    const canvas = { width: 720, height: 480 } as HTMLCanvasElement
+    expect(renderer.uploadFlowFrame(canvas)).toBe(false)
+    runtime.complete()
+    runtime.advance()
+    expect(renderer.uploadFlowFrame(canvas)).toBe(true)
+    expect(renderer.uploadFlowFrame(canvas)).toBe(true)
+    expect(runtime.gl.texImage2D).toHaveBeenCalledTimes(2)
+    expect(runtime.gl.texSubImage2D).toHaveBeenCalledOnce()
+    expect(runtime.gl.pixelStorei).toHaveBeenLastCalledWith(runtime.gl.UNPACK_FLIP_Y_WEBGL, true)
+    runtime.lose()
+    expect(renderer.uploadFlowFrame(canvas)).toBe(false)
+    runtime.restore()
+    runtime.complete()
+    runtime.advance()
+    expect(renderer.uploadFlowFrame(canvas)).toBe(true)
+    expect(runtime.gl.texImage2D).toHaveBeenCalledTimes(4)
+    renderer.dispose()
+    expect(runtime.gl.deleteTexture).toHaveBeenCalledOnce()
+    expect(renderer.uploadFlowFrame(canvas)).toBe(false)
+  })
+  it('settles the selected endpoint on suspension without accumulating hidden material time', () => {
+    const renderer = runtime.create(true, undefined, { enableMorph: true })
+    runtime.complete()
+    runtime.advance()
+    renderer.transitionTo(0, true)
+    runtime.advance(250)
+    expect(phase()).toBeGreaterThan(0)
+    runtime.setHidden(true)
+    runtime.advance(5000)
+    expect(runtime.frames.size).toBe(0)
+    runtime.setHidden(false)
+    runtime.advance()
+    expect(phase()).toBe(0)
+    renderer.dispose()
+  })
+})
 
 describe('liquid-metal non-blocking initialization', () => {
   let runtime: ReturnType<typeof setup>
@@ -188,6 +312,35 @@ describe('liquid-metal non-blocking initialization', () => {
     runtime.advance()
     expect(runtime.gl.drawArrays).toHaveBeenCalledOnce()
     expect(runtime.onReady).toHaveBeenCalledOnce()
+    renderer.dispose()
+  })
+
+  it('prepares exactly one parked GPU frame and then stops drawing and polling', () => {
+    const renderer = runtime.create()
+    renderer.setState({ active: false, playing: true, reducedMotion: false })
+    renderer.prewarm()
+    runtime.advance()
+    expect(runtime.gl.drawArrays).not.toHaveBeenCalled()
+    runtime.complete()
+    runtime.advance()
+    expect(runtime.gl.drawArrays).toHaveBeenCalledOnce()
+    expect(runtime.onReady).toHaveBeenCalledOnce()
+    expect(runtime.frames.size).toBe(0)
+    renderer.prewarm()
+    runtime.advance(1000)
+    expect(runtime.gl.drawArrays).toHaveBeenCalledOnce()
+    renderer.dispose()
+  })
+
+  it('cancels parked preparation before the selected mode or window becomes inactive', () => {
+    const renderer = runtime.create()
+    renderer.setState({ active: false, playing: true, reducedMotion: false })
+    renderer.prewarm()
+    renderer.cancelPrewarm()
+    runtime.complete()
+    runtime.advance()
+    expect(runtime.gl.drawArrays).not.toHaveBeenCalled()
+    expect(runtime.frames.size).toBe(0)
     renderer.dispose()
   })
 

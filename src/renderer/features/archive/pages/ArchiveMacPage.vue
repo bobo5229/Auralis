@@ -59,7 +59,14 @@ watchEffect(() => {
   })
 })
 
+function onKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape' && !sceneReady.value) {
+    returnToPlayer()
+  }
+}
+
 onMounted(async () => {
+  window.addEventListener('keydown', onKeydown)
   const host = canvasHost.value
   if (!host) return
 
@@ -102,6 +109,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
   archiveSceneSession.date = data.selectedDate.value
   archiveSceneSession.albumKey = data.selectedAlbumKey.value
   disposed = true
@@ -112,15 +120,6 @@ onBeforeUnmount(() => {
 <template>
   <section class="archive-mac-page" :aria-label="t('archive.mac.pageAria')">
     <header class="archive-mac-header">
-      <button
-        type="button"
-        class="archive-mac-back-btn"
-        :aria-label="t('archive.mac.backAria')"
-        @click="returnToPlayer"
-      >
-        <span aria-hidden="true">←</span> {{ t('archive.mac.back') }}
-      </button>
-      <span class="archive-mac-title">AURALIS / {{ t('archive.title') }}</span>
       <button
         v-if="sceneReady"
         type="button"
@@ -200,11 +199,6 @@ onBeforeUnmount(() => {
   line-height: var(--auralis-type-control-line-height);
   white-space: nowrap;
 }
-.archive-mac-title {
-  font-weight: 400;
-  letter-spacing: 1.5px;
-  color: #94a3b8;
-}
 .archive-mac-host {
   flex: 1;
   min-height: 0;
@@ -215,9 +209,6 @@ onBeforeUnmount(() => {
     height: 42px;
     gap: 12px;
     padding-top: 0;
-  }
-  .archive-mac-title {
-    display: none;
   }
 }
 </style>

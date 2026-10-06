@@ -7,7 +7,7 @@
 | 主题                                               | 内容                                                        |
 | -------------------------------------------------- | ----------------------------------------------------------- |
 | [albums：专辑](../CATALOG.md#albums专辑)           | 专辑目录、详情页、头部视觉、退出与曲目推送动效              |
-| [archive：音乐归档](../CATALOG.md#archive音乐归档) | 收听排行、年度总结、Music DNA；不是文档历史归档             |
+| [archive：音乐归档](../CATALOG.md#archive音乐归档) | Macintosh 聆听档案正式页；不是文档历史归档                  |
 | [artwork：封面](../CATALOG.md#artwork封面)         | 封面加载与缓存优化                                          |
 | [library：曲库](../CATALOG.md#library曲库)         | 歌曲列表滚动、播放后视口恢复、初次扫描性能优化              |
 | [metadata：元数据](../CATALOG.md#metadata元数据)   | 流派分隔及原子复合名称                                      |

@@ -3,7 +3,7 @@ in vec2 a_position;
 void main() { gl_Position = vec4(a_position, 0., 1.); }
 `
 
-export const fragmentSource = `#version 300 es
+export const liquidMetalShaderHeader = `#version 300 es
 precision highp float;
 uniform vec2 u_resolution;
 uniform float u_time;
@@ -12,7 +12,9 @@ uniform float u_roughness;
 uniform vec3 u_colors[6];
 uniform float u_weights[6];
 out vec4 outColor;
+`
 
+export const liquidMetalShaderFunctions = `
 float hash(vec2 p) {
   vec3 p3 = fract(vec3(p.xyx) * .1031);
   p3 += dot(p3, p3.yzx + 33.33);
@@ -69,7 +71,9 @@ float surface(vec2 p, float t, out vec2 warped) {
 float lightBand(float x, float center, float width) {
   return exp(-pow((x-center)/width,2.));
 }
-void main() {
+`
+
+const liquidMetalColorBody = `
   vec2 uv = gl_FragCoord.xy / u_resolution;
   vec2 p = (2.*gl_FragCoord.xy-u_resolution)/u_resolution.y;
   p = mat2(.9,-.435,.435,.9)*p;
@@ -104,6 +108,16 @@ void main() {
   // Gentle highlight compression preserves bright colored metal without clipping wide areas.
   color = color/(color+vec3(.62));
   color = pow(max(color,vec3(0.)),vec3(1./2.2));
+`
+
+export const liquidMetalColorSource = `
+vec3 liquidMetalColor() {${liquidMetalColorBody}
+  return color;
+}
+`
+
+export const fragmentSource = `${liquidMetalShaderHeader}${liquidMetalShaderFunctions}
+void main() {${liquidMetalColorBody}
   outColor = vec4(color,1.);
 }
 `

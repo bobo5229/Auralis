@@ -105,7 +105,7 @@ describe('PlayStatsRepository.getDailyAlbumStats', () => {
     expect(playStats.getDailyAlbumStats('2026-06-16')).toEqual([])
   })
 
-  it('limits results to five with play count, recency, and binary identity ordering', () => {
+  it('limits results to ten with play count, recency, and binary identity ordering', () => {
     const { db, tracks, playStats } = setup()
     tracks.upsertMany([
       scanned(1, { album: 'A', albumArtist: 'Z' }),
@@ -115,6 +115,11 @@ describe('PlayStatsRepository.getDailyAlbumStats', () => {
       scanned(5, { album: 'C', albumArtist: 'A' }),
       scanned(6, { album: 'D', albumArtist: 'A' }),
       scanned(7, { album: 'E', albumArtist: 'A' }),
+      scanned(8, { album: 'F', albumArtist: 'A' }),
+      scanned(9, { album: 'G', albumArtist: 'A' }),
+      scanned(10, { album: 'H', albumArtist: 'A' }),
+      scanned(11, { album: 'I', albumArtist: 'A' }),
+      scanned(12, { album: 'J', albumArtist: 'A' }),
     ])
     const date = '2026-06-15'
     addDailyStats(db, date, 1, 10, 100, `${date}T10:00:00.000Z`)
@@ -124,6 +129,21 @@ describe('PlayStatsRepository.getDailyAlbumStats', () => {
     addDailyStats(db, date, 5, 9, 90, `${date}T12:00:00.000Z`)
     addDailyStats(db, date, 6, 8, 80, `${date}T13:00:00.000Z`)
     addDailyStats(db, date, 7, 7, 70, `${date}T14:00:00.000Z`)
+    addDailyStats(db, date, 8, 6, 60, `${date}T15:00:00.000Z`)
+    addDailyStats(db, date, 9, 5, 50, `${date}T16:00:00.000Z`)
+    addDailyStats(db, date, 10, 4, 40, `${date}T17:00:00.000Z`)
+    addDailyStats(db, date, 11, 3, 30, `${date}T18:00:00.000Z`)
+    addDailyStats(db, date, 12, 2, 20, `${date}T19:00:00.000Z`)
+
+    expect(
+      playStats.getDailyAlbumStats(date, 5).map(({ title, artist }) => [title, artist]),
+    ).toEqual([
+      ['Z', 'A'],
+      ['A', 'A'],
+      ['A', 'Z'],
+      ['B', 'A'],
+      ['C', 'A'],
+    ])
 
     expect(playStats.getDailyAlbumStats(date).map(({ title, artist }) => [title, artist])).toEqual([
       ['Z', 'A'],
@@ -131,7 +151,15 @@ describe('PlayStatsRepository.getDailyAlbumStats', () => {
       ['A', 'Z'],
       ['B', 'A'],
       ['C', 'A'],
+      ['D', 'A'],
+      ['E', 'A'],
+      ['F', 'A'],
+      ['G', 'A'],
+      ['H', 'A'],
     ])
+
+    expect(playStats.getDailyAlbumStats(date, -1)).toHaveLength(1)
+    expect(playStats.getDailyAlbumStats(date, 0)).toHaveLength(1)
   })
 
   it('keeps delimiter-collision identities separate and passes each key to album playback', () => {

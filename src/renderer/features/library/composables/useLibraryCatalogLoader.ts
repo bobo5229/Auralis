@@ -48,6 +48,8 @@ export function useLibraryCatalogLoader(options: {
     isRequestCurrent: () => boolean,
   ) => Promise<void>
   scrollToPlaybackTrack: (isRequestCurrent?: () => boolean) => Promise<void>
+  prepareForegroundViewport?: (isRequestCurrent: () => boolean) => Promise<void>
+  restoreNavigationViewport?: (isRequestCurrent: () => boolean) => Promise<boolean>
   replaceWithLibraryHome: () => Promise<unknown>
   loadErrorMessage: () => string
   onLibraryChanged: (
@@ -69,6 +71,7 @@ export function useLibraryCatalogLoader(options: {
   const coordinator = new LibraryRequestCoordinator()
   const catalogClient = options.catalogClient ?? new SharedLibraryCatalogLoad(options.getTrackPage)
   const hasInitialLoadError = ref(false)
+  const isPositioningForegroundViewport = ref(false)
   const initialLoadError = computed(() =>
     hasInitialLoadError.value ? options.loadErrorMessage() : null,
   )
@@ -152,6 +155,7 @@ export function useLibraryCatalogLoader(options: {
   }
 
   async function loadLibraryData(mode: LibraryLoadMode = 'foreground'): Promise<LibraryLoadResult> {
+    if (options.isDisposed()) return 'stale'
     if (mode === 'metadata-save') {
       while (coordinator.hasActiveForeground && !options.isDisposed()) {
         await coordinator.waitForForegroundIdle()
@@ -170,9 +174,11 @@ export function useLibraryCatalogLoader(options: {
     const isForeground = mode === 'foreground'
     const hasPreviousSnapshot =
       committedScope !== null && isSameLibraryRouteScope(committedScope, scope)
-    const viewportCapture = isForeground ? null : options.captureViewportRestore()
+    const viewportCapture =
+      isForeground && !hasPreviousSnapshot ? null : options.captureViewportRestore()
 
     if (isForeground && isRequestCurrent()) {
+      isPositioningForegroundViewport.value = !hasPreviousSnapshot
       options.isLoading.value = !hasPreviousSnapshot
       hasInitialLoadError.value = false
       if (!hasPreviousSnapshot) options.pageIdentity.value = null
@@ -187,14 +193,26 @@ export function useLibraryCatalogLoader(options: {
         return 'redirected'
       }
 
+      if (isForeground) isPositioningForegroundViewport.value = true
       commitLibrarySnapshot(snapshot)
       committedScope = scope
       hasInitialLoadError.value = false
 
-      if (viewportCapture) {
-        await options.restoreViewportRestore(viewportCapture, isRequestCurrent)
-      } else {
-        await options.scrollToPlaybackTrack(isRequestCurrent)
+      // Mount the real scroll container before positioning it. Keep its first
+      // render hidden until both layout and navigation restoration are ready.
+      if (isForeground) {
+        options.isLoading.value = false
+        await options.prepareForegroundViewport?.(isRequestCurrent)
+        if (!isRequestCurrent()) return 'stale'
+      }
+      const restoredNavigation = await options.restoreNavigationViewport?.(isRequestCurrent)
+      if (!isRequestCurrent()) return 'stale'
+      if (!restoredNavigation) {
+        if (viewportCapture) {
+          await options.restoreViewportRestore(viewportCapture, isRequestCurrent)
+        } else {
+          await options.scrollToPlaybackTrack(isRequestCurrent)
+        }
       }
 
       return isRequestCurrent() ? 'committed' : 'stale'
@@ -222,6 +240,7 @@ export function useLibraryCatalogLoader(options: {
       const completion = coordinator.finish(generation)
 
       if (completion.ownedForeground) {
+        isPositioningForegroundViewport.value = false
         if (!options.isDisposed() && isRequestCurrent()) {
           options.isLoading.value = false
         }
@@ -296,6 +315,7 @@ export function useLibraryCatalogLoader(options: {
   }
 
   return {
+    isPositioningForegroundViewport,
     initialLoadError,
     loadLibraryData,
     retryInitialLoad,

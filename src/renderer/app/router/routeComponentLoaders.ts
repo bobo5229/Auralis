@@ -1,6 +1,6 @@
 import type { RouteComponent } from 'vue-router'
 
-export type WarmableRouteName = 'library' | 'albums' | 'archive' | 'settings'
+export type WarmableRouteName = 'library' | 'albums' | 'archive'
 
 export type RouteComponentModule = RouteComponent | { default: RouteComponent }
 export type RouteComponentLoader = () => Promise<RouteComponentModule>
@@ -9,7 +9,6 @@ export const PRIMARY_WARMABLE_ROUTES: readonly WarmableRouteName[] = [
   'library',
   'albums',
   'archive',
-  'settings',
 ] as const
 
 /**
@@ -23,7 +22,6 @@ export const rawRouteLoaders = {
   cdAlbumIndex: () => import('@renderer/features/albums/pages/CdAlbumIndexPage.vue'),
   albumDetail: () => import('@renderer/features/albums/pages/AlbumDetailPage.vue'),
   archive: () => import('@renderer/features/archive/pages/ArchiveMacPage.vue'),
-  settings: () => import('@renderer/features/settings/pages/SettingsPage.vue'),
 } as const satisfies Record<string, RouteComponentLoader>
 
 export function createRouteLoaderRegistry(
@@ -58,14 +56,12 @@ export function createRouteLoaderRegistry(
     cdAlbumIndex: () => getOrLoad('cdAlbumIndex', loaders.cdAlbumIndex),
     albumDetail: () => getOrLoad('albumDetail', loaders.albumDetail),
     archive: () => getOrLoad('archive', loaders.archive),
-    settings: () => getOrLoad('settings', loaders.settings),
   }
 
   const warmableRouteMap: Record<WarmableRouteName, RouteComponentLoader> = {
     library: routeLoaders.library,
     albums: routeLoaders.albums,
     archive: routeLoaders.archive,
-    settings: routeLoaders.settings,
   }
 
   const isWarmableRoute = (name: unknown): name is WarmableRouteName =>

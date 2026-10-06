@@ -57,7 +57,7 @@ async function calculateArtworkPalette(key: string): Promise<ArtworkPalette> {
   return extractArtworkPaletteInWorker(key, pixels)
 }
 
-function getArtworkPalette(key: string): Promise<ArtworkPalette> {
+export function getArtworkPalette(key: string): Promise<ArtworkPalette> {
   const cached = paletteCache.get(key)
   if (cached?.state === 'resolved') {
     touchCacheEntry(key, cached)

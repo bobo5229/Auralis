@@ -1,13 +1,13 @@
-/* Settings page chrome and shared row controls (.settings-controls). */
+/* Settings content chrome and shared row controls (.settings-controls). */
 
-.settings-page .about-mark {
+.settings-surface .about-mark {
   display: flex;
   gap: 14px;
   align-items: center;
   padding: 16px;
 }
 
-.settings-page .about-logo {
+.settings-surface .about-logo {
   display: grid;
   flex: 0 0 auto;
   width: 36px;
@@ -18,34 +18,34 @@
   background: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 24%, transparent);
 }
 
-.settings-page .about-logo span {
+.settings-surface .about-logo span {
   width: 22px;
   height: 22px;
 }
 
-.settings-page .about-mark > div {
+.settings-surface .about-mark > div {
   display: grid;
   gap: 3px;
 }
 
-.settings-page .about-mark strong {
+.settings-surface .about-mark strong {
   font-size: 16px;
   font-weight: 600;
   color: var(--auralis-text);
 }
 
-.settings-page .about-mark div span {
+.settings-surface .about-mark div span {
   color: var(--auralis-text-subtle);
   font-size: 12px;
   font-weight: 400;
 }
 
-.settings-page .about-details {
+.settings-surface .about-details {
   border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
 }
 
-.settings-page .about-diagnostics-button,
-:is(.settings-page, .settings-controls) .settings-text-button {
+.settings-surface .about-diagnostics-button,
+:is(.settings-surface, .settings-controls) .settings-text-button {
   flex: 0 0 auto;
   min-height: 30px;
   padding: 0;
@@ -59,38 +59,38 @@
   cursor: pointer;
 }
 
-.settings-page .about-diagnostics-button:hover:not(:disabled),
-:is(.settings-page, .settings-controls) .settings-text-button:hover:not(:disabled) {
+.settings-surface .about-diagnostics-button:hover:not(:disabled),
+:is(.settings-surface, .settings-controls) .settings-text-button:hover:not(:disabled) {
   color: var(--auralis-text);
 }
 
-.settings-page .about-diagnostics-button:disabled,
-:is(.settings-page, .settings-controls) .settings-text-button:disabled {
+.settings-surface .about-diagnostics-button:disabled,
+:is(.settings-surface, .settings-controls) .settings-text-button:disabled {
   opacity: 0.45;
   cursor: default;
 }
 
-.settings-page .about-diagnostics-button:focus-visible,
-:is(.settings-page, .settings-controls) .settings-text-button:focus-visible {
+.settings-surface .about-diagnostics-button:focus-visible,
+:is(.settings-surface, .settings-controls) .settings-text-button:focus-visible {
   outline: 2px solid var(--auralis-sidebar-active-indicator);
   outline-offset: 2px;
 }
 
-:is(.settings-page, .settings-controls) .settings-text-button {
+:is(.settings-surface, .settings-controls) .settings-text-button {
   align-self: center;
 }
 
-.settings-page .about-settings .settings-value {
+.settings-surface .about-settings .settings-value {
   padding: 0;
   border-radius: 0;
   background: transparent;
 }
 
-.settings-page .about-document {
+.settings-surface .about-document {
   border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
 }
 
-.settings-page .about-document > summary {
+.settings-surface .about-document > summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -105,11 +105,11 @@
   cursor: pointer;
 }
 
-.settings-page .about-document > summary::-webkit-details-marker {
+.settings-surface .about-document > summary::-webkit-details-marker {
   display: none;
 }
 
-.settings-page .about-document-action {
+.settings-surface .about-document-action {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -117,16 +117,16 @@
   font-size: 12px;
 }
 
-.settings-page .about-document-action .i-lucide-chevron-down {
+.settings-surface .about-document-action .i-lucide-chevron-down {
   width: 16px;
   height: 16px;
 }
 
-.settings-page .about-document[open] .i-lucide-chevron-down {
+.settings-surface .about-document[open] .i-lucide-chevron-down {
   transform: rotate(180deg);
 }
 
-.settings-page .about-document-content {
+.settings-surface .about-document-content {
   max-height: 360px;
   margin: 0;
   padding: 12px 16px 16px;
@@ -142,30 +142,30 @@
   scrollbar-color: var(--auralis-text-faint) transparent;
 }
 
-.settings-page .about-document > summary:focus-visible,
-.settings-page .about-document-content:focus-visible {
+.settings-surface .about-document > summary:focus-visible,
+.settings-surface .about-document-content:focus-visible {
   outline: 2px solid var(--auralis-sidebar-active-indicator);
   outline-offset: -2px;
 }
 
-.settings-page .settings-compact-actions .database-path {
+.settings-surface .settings-compact-actions .database-path {
   font-family: var(--auralis-font-ui);
 }
 
 /* Settings Group & Section Title */
-:is(.settings-page, .settings-controls) .settings-group {
+:is(.settings-surface, .settings-controls) .settings-group {
   margin-bottom: 24px;
 }
 
-:is(.settings-page, .settings-controls) .settings-group:last-child {
+:is(.settings-surface, .settings-controls) .settings-group:last-child {
   margin-bottom: 0;
 }
 
-:is(.settings-page, .settings-controls) .settings-group-header {
+:is(.settings-surface, .settings-controls) .settings-group-header {
   margin-bottom: 8px;
 }
 
-:is(.settings-page, .settings-controls) .settings-group-title {
+:is(.settings-surface, .settings-controls) .settings-group-title {
   margin: 0;
   font-size: 13px;
   font-weight: 600;
@@ -175,7 +175,7 @@
 }
 
 /* Group Surface: one restrained card per semantic section */
-:is(.settings-page, .settings-controls) .settings-group-card {
+:is(.settings-surface, .settings-controls) .settings-group-card {
   border: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 80%, transparent);
   border-radius: 13px;
   background: color-mix(in srgb, var(--auralis-sidebar-bg) 50%, transparent);
@@ -184,7 +184,7 @@
 }
 
 /* Base Setting Row inside Group Surface */
-:is(.settings-page, .settings-controls) .settings-row {
+:is(.settings-surface, .settings-controls) .settings-row {
   display: flex;
   gap: 20px;
   align-items: center;
@@ -195,30 +195,30 @@
 }
 
 /* Setting Row with Secondary Copy */
-:is(.settings-page, .settings-controls) .settings-row:has(span),
-:is(.settings-page, .settings-controls) .settings-row--with-desc {
+:is(.settings-surface, .settings-controls) .settings-row:has(span),
+:is(.settings-surface, .settings-controls) .settings-row--with-desc {
   min-height: 56px;
   padding: 10px 16px;
 }
 
-:is(.settings-page, .settings-controls) .settings-row + .settings-row {
+:is(.settings-surface, .settings-controls) .settings-row + .settings-row {
   border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
 }
 
-:is(.settings-page, .settings-controls) .settings-row > div {
+:is(.settings-surface, .settings-controls) .settings-row > div {
   display: grid;
   min-width: 0;
   gap: 2px;
 }
 
-:is(.settings-page, .settings-controls) .settings-row > div > strong {
+:is(.settings-surface, .settings-controls) .settings-row > div > strong {
   font-size: 13px;
   font-weight: 600;
   line-height: 1.35;
   color: var(--auralis-text);
 }
 
-:is(.settings-page, .settings-controls) .settings-row > div > span {
+:is(.settings-surface, .settings-controls) .settings-row > div > span {
   color: var(--auralis-text-subtle);
   font-size: 12px;
   font-weight: 400;
@@ -226,13 +226,13 @@
   max-width: 540px;
 }
 
-:is(.settings-page, .settings-controls) .settings-row > .settings-segmented-control {
+:is(.settings-surface, .settings-controls) .settings-row > .settings-segmented-control {
   display: inline-flex;
   flex: 0 0 auto;
   gap: 3px;
 }
 
-:is(.settings-page, .settings-controls) .settings-segmented-option {
+:is(.settings-surface, .settings-controls) .settings-segmented-option {
   min-height: 30px;
   padding: 0 10px;
   border: 0;
@@ -247,21 +247,21 @@
     background-color 180ms ease;
 }
 
-:is(.settings-page, .settings-controls) .settings-segmented-option:hover {
+:is(.settings-surface, .settings-controls) .settings-segmented-option:hover {
   color: var(--auralis-text);
 }
 
-:is(.settings-page, .settings-controls) .settings-segmented-option:focus-visible {
+:is(.settings-surface, .settings-controls) .settings-segmented-option:focus-visible {
   outline: 2px solid var(--auralis-sidebar-active-indicator);
   outline-offset: 2px;
 }
 
-:is(.settings-page, .settings-controls) .settings-segmented-option.is-selected {
+:is(.settings-surface, .settings-controls) .settings-segmented-option.is-selected {
   color: var(--auralis-control-primary-text);
   background: var(--auralis-theme-accent);
 }
 
-:is(.settings-page, .settings-controls) .settings-value {
+:is(.settings-surface, .settings-controls) .settings-value {
   color: var(--auralis-text-muted);
   font-size: 12px;
   font-weight: 600;
@@ -270,7 +270,7 @@
   border-radius: 8px;
 }
 
-:is(.settings-page, .settings-controls) .settings-switch {
+:is(.settings-surface, .settings-controls) .settings-switch {
   position: relative;
   display: inline-block;
   vertical-align: middle;
@@ -290,26 +290,26 @@
     box-shadow 180ms ease;
 }
 
-:is(.settings-page, .settings-controls) .settings-switch:hover:not(:disabled) {
+:is(.settings-surface, .settings-controls) .settings-switch:hover:not(:disabled) {
   border-color: color-mix(in srgb, var(--auralis-text) 25%, transparent);
 }
 
-:is(.settings-page, .settings-controls) .settings-switch:disabled {
+:is(.settings-surface, .settings-controls) .settings-switch:disabled {
   opacity: 0.38;
   cursor: not-allowed;
 }
 
-:is(.settings-page, .settings-controls) .settings-switch:focus-visible {
+:is(.settings-surface, .settings-controls) .settings-switch:focus-visible {
   outline: 2px solid var(--auralis-sidebar-active-indicator);
   outline-offset: 2px;
 }
 
-:is(.settings-page, .settings-controls) .settings-switch.is-enabled {
+:is(.settings-surface, .settings-controls) .settings-switch.is-enabled {
   border-color: color-mix(in srgb, var(--auralis-sidebar-active-indicator) 70%, transparent);
   background: var(--auralis-sidebar-active-indicator);
 }
 
-:is(.settings-page, .settings-controls) .settings-switch-thumb {
+:is(.settings-surface, .settings-controls) .settings-switch-thumb {
   position: absolute;
   top: 2px;
   left: 2px;
@@ -322,32 +322,32 @@
 }
 
 [data-theme='light']
-  :is(.settings-page, .settings-controls)
+  :is(.settings-surface, .settings-controls)
   .settings-switch:not(.is-enabled)
   .settings-switch-thumb {
   background: #ffffff;
 }
 
-:is(.settings-page, .settings-controls) .settings-switch.is-enabled .settings-switch-thumb {
+:is(.settings-surface, .settings-controls) .settings-switch.is-enabled .settings-switch-thumb {
   transform: translateX(16px);
   background: #ffffff;
 }
 
-:is(.settings-page, .settings-controls) .settings-row > .settings-range-control {
+:is(.settings-surface, .settings-controls) .settings-row > .settings-range-control {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-:is(.settings-page, .settings-controls) .settings-range-control {
+:is(.settings-surface, .settings-controls) .settings-range-control {
   --settings-range-fill: var(--auralis-text-muted);
 }
 
-[data-theme='dark'] :is(.settings-page, .settings-controls) .settings-range-control {
+[data-theme='dark'] :is(.settings-surface, .settings-controls) .settings-range-control {
   --settings-range-fill: var(--auralis-theme-accent);
 }
 
-:is(.settings-page, .settings-controls) .settings-range-control input {
+:is(.settings-surface, .settings-controls) .settings-range-control input {
   width: 120px;
   height: 18px;
   margin: 0;
@@ -356,7 +356,7 @@
   cursor: pointer;
 }
 
-:is(.settings-page, .settings-controls)
+:is(.settings-surface, .settings-controls)
   .settings-range-control
   input::-webkit-slider-runnable-track {
   appearance: none;
@@ -369,7 +369,7 @@
   );
 }
 
-:is(.settings-page, .settings-controls) .settings-range-control input::-webkit-slider-thumb {
+:is(.settings-surface, .settings-controls) .settings-range-control input::-webkit-slider-thumb {
   width: 12px;
   height: 12px;
   margin-top: -3px;
@@ -378,7 +378,7 @@
   background: var(--settings-range-fill);
 }
 
-:is(.settings-page, .settings-controls) .settings-range-control input::-moz-range-track {
+:is(.settings-surface, .settings-controls) .settings-range-control input::-moz-range-track {
   appearance: none;
   height: 6px;
   border-radius: 999px;
@@ -389,19 +389,19 @@
   );
 }
 
-:is(.settings-page, .settings-controls) .settings-range-control input::-moz-range-thumb {
+:is(.settings-surface, .settings-controls) .settings-range-control input::-moz-range-thumb {
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background: var(--settings-range-fill);
 }
 
-:is(.settings-page, .settings-controls) .settings-range-control input:focus-visible {
+:is(.settings-surface, .settings-controls) .settings-range-control input:focus-visible {
   outline: 2px solid var(--auralis-sidebar-active-indicator);
   outline-offset: 4px;
 }
 
-:is(.settings-page, .settings-controls) .settings-range-control output {
+:is(.settings-surface, .settings-controls) .settings-range-control output {
   min-width: 32px;
   color: var(--auralis-text-muted);
   font-size: 12px;
@@ -409,7 +409,7 @@
   text-align: right;
 }
 
-.settings-page .database-path {
+.settings-surface .database-path {
   overflow: hidden;
   max-width: 480px;
   text-overflow: ellipsis;
@@ -421,24 +421,26 @@
 }
 
 @media (max-width: 560px) {
-  .settings-page .settings-row--path {
+  .settings-surface .settings-row--path {
     align-items: flex-start;
     flex-direction: column;
     padding-block: 16px;
     gap: 12px;
   }
 
-  .settings-page .database-path {
+  .settings-surface .database-path {
     max-width: calc(100vw - 72px);
   }
 }
 
-:where([data-reduced-motion='true']) :is(.settings-page, .settings-controls) .settings-switch,
-:where([data-reduced-motion='true']) :is(.settings-page, .settings-controls) .settings-switch-thumb,
+:where([data-reduced-motion='true']) :is(.settings-surface, .settings-controls) .settings-switch,
 :where([data-reduced-motion='true'])
-  :is(.settings-page, .settings-controls)
+  :is(.settings-surface, .settings-controls)
+  .settings-switch-thumb,
+:where([data-reduced-motion='true'])
+  :is(.settings-surface, .settings-controls)
   .settings-segmented-option,
-:where([data-reduced-motion='true']) .settings-page .about-logo {
+:where([data-reduced-motion='true']) .settings-surface .about-logo {
   transition: none;
   transform: none;
 }

@@ -985,7 +985,6 @@ defineExpose<AlbumLayoutTransitionParticipant>({
       </button>
       <Transition name="search-overlay" :duration="160">
         <div v-if="shouldRenderSearchBar" class="library-search-overlay">
-          <div class="library-search-backdrop" aria-hidden="true"></div>
           <div
             ref="searchRootRef"
             class="library-search-bar"
@@ -1008,7 +1007,9 @@ defineExpose<AlbumLayoutTransitionParticipant>({
               v-if="searchOutcome !== 'idle'"
               class="library-search-outcome ml-auto shrink-0 select-none text-xs tabular-nums"
               :class="
-                searchOutcome === 'not-found' ? 'text-red-500' : 'text-[var(--auralis-text-muted)]'
+                searchOutcome === 'not-found'
+                  ? 'text-[var(--auralis-danger)] font-medium'
+                  : 'text-[var(--auralis-text-muted)]'
               "
               role="status"
               aria-live="polite"

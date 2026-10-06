@@ -20,7 +20,7 @@ const { t } = useI18n()
 const element = ref<HTMLElement | null>(null)
 
 const modes = computed<Array<{ id: PlaybackMode; label: string; icon: string }>>(() => [
-  { id: 'sequential', label: t('player.modeOption.sequential'), icon: 'i-ph-list-numbers' },
+  { id: 'sequential', label: t('player.modeOption.sequential'), icon: 'i-ph-sort-ascending' },
   { id: 'repeat-all', label: t('player.modeOption.repeat-all'), icon: 'i-ph-repeat' },
   { id: 'repeat-one', label: t('player.modeOption.repeat-one'), icon: 'i-ph-repeat-once' },
   { id: 'shuffle', label: t('player.modeOption.shuffle'), icon: 'i-ph-shuffle' },

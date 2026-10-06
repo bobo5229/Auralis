@@ -6,7 +6,7 @@
 | 目录               | 内容与入口                                                                                                                                                         |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `albums/`          | [专辑展开](albums/album-open-transition.html)、[CD 聚焦](albums/cd-focus-demo.html)、[CD 动效](albums/cd-motion-demo.html)、[CD 启动](albums/cd-startup-demo.html) |
-| `archive/`         | [听音室](archive/listening-room.html)、[夜井星空](archive/night-well.html)、[Macintosh 128K 立体](archive/classic-mac.html)、[唱片排行](archive/ranking-record-shelf.html)、[曲目列表](archive/ranking-track-list.html)、[曲目飘带](archive/ranking-track-ribbons.html)、[侧栏·仪表箱×点唱机](archive/side-chassis-gauge-jukebox.html)、[侧栏·铭牌×热敏票](archive/side-chassis-plaque-thermal.html)、[侧栏·调谐器×内袋](archive/side-chassis-tuner-sleeve.html) |
+| `archive/`         | [Macintosh 128K 立体](archive/classic-mac.html)、[夜井星空](archive/night-well.html)、[日期软盘](archive/mac-diskbox-demo.html)、[油灰软盘](archive/floppy-putty.html)                                                                 |
 | `playback/`        | [播放栏材质](playback/playbar-liquid-glass-material-demo.html)、[音量浮层](playback/playbar-vertical-volume-popover-demo.html)                                     |
 | `smart-playlists/` | [智能歌单编辑器](smart-playlists/smart-playlist-builder.html)                                                                                                      |
 | `brand/`          | [Logo 设计比较](brand/logo-exploration.html)：原创字母构形、深浅主题、小尺寸与应用位置示意                                                                          |
@@ -22,6 +22,10 @@
 `local/` 收纳原 `test/` 和 `docs/demos/` 中的本地资料，继续由 Git 忽略；其他主题目录
 用于共享原型。新原型沿用对应主题目录。关联脚本随原型放置，跨主题共享素材通过相对路径引用。
 部分旧原型使用在线示例图片，离线时这些图片可能不可用。
+
+流光与液态金属之间的材质演化：[原型说明](playback/background-morph/README.md)。运行
+`node demo/playback/background-morph/run.mjs` 打开独立交互窗口，支持正反向切换、慢放、
+手动进度和封面配色对照。
 
 液态金属背景：[原型说明与接入计划](playback/liquid-metal/README.md)。在项目根目录运行
 `node demo/playback/liquid-metal/serve.mjs` 后打开 `http://127.0.0.1:4176/`；支持本地封面取色、

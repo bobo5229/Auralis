@@ -2,6 +2,11 @@ import { uiText, i18n } from '@renderer/i18n'
 import type { DailyAlbumStatsItem } from '@shared/types/archive'
 import { formatArchiveMinutes } from '../utils/archiveDailyDetailState'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
+import type { ArtworkPalette } from '@renderer/features/playback/types'
+import {
+  getArtworkPalette,
+  peekArtworkPalette,
+} from '@renderer/features/playback/composables/useArtworkPalette'
 
 /** View-only physical media. Loading a disk never issues a playback command. */
 export function mountArchiveDisks(
@@ -12,7 +17,6 @@ export function mountArchiveDisks(
   const shell = root.getElementById('archive-mac-shell')!
   const deck = root.getElementById('album-list')!
   const slot = root.querySelector<HTMLElement>('.floppy')!
-  const insert = root.getElementById('disk-insert') as HTMLButtonElement
   const eject = root.getElementById('disk-eject') as HTMLButtonElement
   const status = root.getElementById('disk-status')!
   const motion = createReducedMotionQuery()
@@ -66,12 +70,9 @@ export function mountArchiveDisks(
 
   function layout() {
     const front = items.findIndex((item) => item.key === selected)
-    let depth = selected === loaded ? 0 : 1
     items.forEach((item, index) => {
-      const node = nodes.get(item.key)!
-      const order = index === front || item.key === loaded ? 0 : depth++
-      node.style.setProperty('--disk-depth', String(order))
-      node.style.zIndex = String(10 - order)
+      const node = nodes.get(item.key)
+      if (!node) return
       node.setAttribute('aria-pressed', String(index === front))
       node.classList.toggle('is-loaded', item.key === loaded)
       node.classList.toggle(
@@ -80,8 +81,6 @@ export function mountArchiveDisks(
       )
       node.disabled = busy || item.key === loaded
     })
-    insert.disabled = busy || !selected || selected === loaded
-    insert.textContent = uiText(selected === loaded ? 'archive.mac.loaded' : 'archive.mac.insert')
     eject.hidden = !loaded
     eject.disabled = busy
     deck.setAttribute('aria-busy', String(busy))
@@ -193,7 +192,6 @@ export function mountArchiveDisks(
     fly.style.width = `${size}px`
     fly.style.height = `${size}px`
     fly.style.transformOrigin = '50% 50%'
-    fly.style.clipPath = 'inset(0)'
     const pose = (t: number, lift = 0) => {
       const x = start.x + (end.x - start.x) * t - size / 2
       const y = start.y + (end.y - start.y) * t - size / 2 - lift
@@ -426,13 +424,6 @@ export function mountArchiveDisks(
     },
     opts,
   )
-  insert.addEventListener(
-    'click',
-    () => {
-      void load(selected)
-    },
-    opts,
-  )
   eject.addEventListener(
     'click',
     () => {
@@ -453,6 +444,24 @@ export function mountArchiveDisks(
         node.setAttribute('aria-label', uiText('archive.mac.insertAria', { title: node.title }))
         const title = node.querySelector('.disk-title')
         if (title) title.textContent = item.title || uiText('library.missing.album')
+        const artist = node.querySelector('.disk-artist')
+        if (artist) artist.textContent = item.artist || uiText('library.missing.artist')
+        const playsPill = node.querySelector<HTMLElement>('.disk-pill-plays')
+        if (playsPill) {
+          playsPill.textContent = item.playCount
+            ? uiText(
+                'library.playCount',
+                { count: item.playCount.toLocaleString(i18n.global.locale.value) },
+                item.playCount,
+              )
+            : ''
+        }
+        const durPill = node.querySelector<HTMLElement>('.disk-pill-duration')
+        if (durPill) {
+          durPill.textContent = item.durationSeconds
+            ? formatArchiveMinutes(item.durationSeconds)
+            : ''
+        }
       }
       mirror()
       layout()
@@ -468,37 +477,29 @@ export function mountArchiveDisks(
       layout()
     },
     update(next: DailyAlbumStatsItem[], key: string | null, nextDate: string | null) {
-      const changed = date !== nextDate || JSON.stringify(items) !== JSON.stringify(next)
+      const sanitizedNext = next.slice(0, 10)
+      const changed = date !== nextDate || JSON.stringify(items) !== JSON.stringify(sanitizedNext)
       if (changed) {
         cancel()
-        if (date !== nextDate || !next.some((item) => item.key === loaded)) loaded = ''
+        if (date !== nextDate || !sanitizedNext.some((item) => item.key === loaded)) loaded = ''
         date = nextDate
-        items = next
+        items = sanitizedNext
         const focused = (root.activeElement as HTMLElement | null)?.dataset.key
         deck.replaceChildren()
         nodes.clear()
         for (const item of items) {
-          const node = document.createElement('button')
-          node.type = 'button'
-          node.className = 'disk-media'
-          node.dataset.key = item.key
-          node.title = `${item.title || uiText('library.missing.album')} — ${item.artist || uiText('library.missing.artist')}`
-          node.setAttribute('aria-label', uiText('archive.mac.insertAria', { title: node.title }))
-          const shutter = document.createElement('span')
-          shutter.className = 'disk-shutter'
-          shutter.setAttribute('aria-hidden', 'true')
-          const label = document.createElement('span')
-          label.className = 'disk-label'
-          const cover = document.createElement('span')
-          cover.className = 'disk-cover'
-          artwork(cover, item.artworkCacheKey)
-          const title = document.createElement('span')
-          title.className = 'disk-title'
-          title.textContent = item.title || uiText('library.missing.album')
-          label.append(cover, title)
-          node.append(shutter, label)
+          const node = createDiskNode(item, artwork)
           nodes.set(item.key, node)
           deck.append(node)
+        }
+        if (items.length > 0) {
+          const emptyCount = Math.max(0, 10 - items.length)
+          for (let i = 0; i < emptyCount; i++) {
+            const bay = document.createElement('div')
+            bay.className = 'disk-bay-empty'
+            bay.setAttribute('aria-hidden', 'true')
+            deck.append(bay)
+          }
         }
         if (focused) nodes.get(focused)?.focus({ preventScroll: true })
         statusMessage = null
@@ -514,4 +515,195 @@ export function mountArchiveDisks(
       nodes.clear()
     },
   }
+}
+
+function updateColorBarGradient(bar: HTMLElement, palette: ArtworkPalette): void {
+  const c1 = palette.accents[0]?.rgb ?? palette.dominant ?? palette.background
+  const c2 = palette.accents[1]?.rgb ??
+    palette.dominant ?? {
+      r: Math.min(255, c1.r + 30),
+      g: Math.min(255, c1.g + 30),
+      b: Math.min(255, c1.b + 30),
+    }
+  bar.style.background = `linear-gradient(90deg, rgb(${c1.r}, ${c1.g}, ${c1.b}) 0%, rgb(${c2.r}, ${c2.g}, ${c2.b}) 100%)`
+}
+
+function applyDiskColorBar(bar: HTMLElement, cacheKey: string | null): void {
+  if (!cacheKey) {
+    bar.style.background = 'linear-gradient(90deg, #2a7f8c 0%, #3df0ff 65%, #9aefe7 100%)'
+    return
+  }
+  const cached = peekArtworkPalette(cacheKey)
+  if (cached) {
+    updateColorBarGradient(bar, cached)
+    return
+  }
+  getArtworkPalette(cacheKey)
+    .then((palette) => {
+      updateColorBarGradient(bar, palette)
+    })
+    .catch(() => {
+      bar.style.background = 'linear-gradient(90deg, #2a7f8c 0%, #3df0ff 65%, #9aefe7 100%)'
+    })
+}
+
+function createDiskNode(
+  item: DailyAlbumStatsItem,
+  artwork: (node: HTMLElement, key: string | null) => void,
+): HTMLButtonElement {
+  const node = document.createElement('button')
+  node.type = 'button'
+  node.className = 'disk-media'
+  node.dataset.key = item.key
+  node.title = `${item.title || uiText('library.missing.album')} — ${item.artist || uiText('library.missing.artist')}`
+  node.setAttribute('aria-label', uiText('archive.mac.insertAria', { title: node.title }))
+
+  // 1. Extrusion Slices (9 slices covering 8px gapless physical 2.5D thickness)
+  const extrusion = document.createElement('span')
+  extrusion.className = 'disk-extrusion'
+  extrusion.setAttribute('aria-hidden', 'true')
+  for (let z = -4; z <= 4; z++) {
+    const slice = document.createElement('span')
+    slice.className = z === 0 ? 'disk-slice is-parting-line' : 'disk-slice'
+    slice.style.transform = `translateZ(${z}px)`
+    extrusion.append(slice)
+  }
+
+  // 2. Internal Optical Depth (Mylar platter & spindle hub)
+  const internal = document.createElement('span')
+  internal.className = 'disk-internal'
+  internal.setAttribute('aria-hidden', 'true')
+  const mylar = document.createElement('span')
+  mylar.className = 'disk-mylar'
+  const spindle = document.createElement('span')
+  spindle.className = 'disk-spindle'
+  const spindleHole = document.createElement('span')
+  spindleHole.className = 'disk-spindle-hole'
+  spindle.append(spindleHole)
+  internal.append(mylar, spindle)
+
+  // 3. Front Face Cap (Z = +4px)
+  const front = document.createElement('span')
+  front.className = 'disk-face-front'
+  front.setAttribute('aria-hidden', 'true')
+
+  const moldBevel = document.createElement('span')
+  moldBevel.className = 'disk-mold-bevel'
+
+  const cavity = document.createElement('span')
+  cavity.className = 'disk-label-cavity'
+
+  const label = document.createElement('span')
+  label.className = 'disk-label'
+
+  const colorBar = document.createElement('span')
+  colorBar.className = 'disk-label-bar'
+  applyDiskColorBar(colorBar, item.artworkCacheKey)
+
+  const content = document.createElement('span')
+  content.className = 'disk-label-content'
+
+  const cover = document.createElement('span')
+  cover.className = 'disk-cover'
+  artwork(cover, item.artworkCacheKey)
+
+  const meta = document.createElement('span')
+  meta.className = 'disk-meta'
+
+  const title = document.createElement('span')
+  title.className = 'disk-title'
+  title.textContent = item.title || uiText('library.missing.album')
+
+  const artist = document.createElement('span')
+  artist.className = 'disk-artist'
+  artist.textContent = item.artist || uiText('library.missing.artist')
+
+  const stats = document.createElement('span')
+  stats.className = 'disk-stats'
+
+  if (item.playCount) {
+    const playsPill = document.createElement('span')
+    playsPill.className = 'disk-pill disk-pill-plays'
+    playsPill.textContent = uiText(
+      'library.playCount',
+      { count: item.playCount.toLocaleString(i18n.global.locale.value) },
+      item.playCount,
+    )
+    stats.append(playsPill)
+  }
+
+  if (item.durationSeconds) {
+    const durPill = document.createElement('span')
+    durPill.className = 'disk-pill disk-pill-duration'
+    durPill.textContent = formatArchiveMinutes(item.durationSeconds)
+    stats.append(durPill)
+  }
+
+  meta.append(title, artist, stats)
+  content.append(cover, meta)
+  label.append(colorBar, content)
+  cavity.append(label)
+
+  const holeHd = document.createElement('span')
+  holeHd.className = 'disk-hole-hd'
+  const holeWp = document.createElement('span')
+  holeWp.className = 'disk-hole-wp'
+  const wpSlider = document.createElement('span')
+  wpSlider.className = 'disk-wp-slider'
+  holeWp.append(wpSlider)
+
+  front.append(moldBevel, cavity, holeHd, holeWp)
+
+  // 4. Shutter Assembly
+  const shutter = document.createElement('span')
+  shutter.className = 'disk-shutter'
+  shutter.setAttribute('aria-hidden', 'true')
+
+  const bridge = document.createElement('span')
+  bridge.className = 'disk-shutter-bridge'
+
+  const leaf = document.createElement('span')
+  leaf.className = 'disk-shutter-leaf'
+
+  const arrow = document.createElement('span')
+  arrow.className = 'disk-shutter-arrow'
+
+  const ribs = document.createElement('span')
+  ribs.className = 'disk-shutter-ribs'
+
+  const win = document.createElement('span')
+  win.className = 'disk-shutter-window'
+  const ref = document.createElement('span')
+  ref.className = 'disk-shutter-reflection'
+  win.append(ref)
+
+  leaf.append(arrow, ribs, win)
+  shutter.append(bridge, leaf)
+
+  // 5. Back Face Cap (Z = -4px)
+  const back = document.createElement('span')
+  back.className = 'disk-face-back'
+  back.setAttribute('aria-hidden', 'true')
+
+  const rotor = document.createElement('span')
+  rotor.className = 'disk-back-rotor'
+  const rotorSlot = document.createElement('span')
+  rotorSlot.className = 'disk-rotor-slot'
+  rotor.append(rotorSlot)
+
+  const backHoleHd = document.createElement('span')
+  backHoleHd.className = 'disk-hole-hd'
+  backHoleHd.style.cssText = 'left:auto;right:7%;'
+
+  const backHoleWp = document.createElement('span')
+  backHoleWp.className = 'disk-hole-wp'
+  backHoleWp.style.cssText = 'right:auto;left:7%;'
+  const backWpSlider = document.createElement('span')
+  backWpSlider.className = 'disk-wp-slider'
+  backHoleWp.append(backWpSlider)
+
+  back.append(rotor, backHoleHd, backHoleWp)
+
+  node.append(extrusion, internal, front, shutter, back)
+  return node
 }

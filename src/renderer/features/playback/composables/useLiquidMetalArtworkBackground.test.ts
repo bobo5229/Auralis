@@ -28,6 +28,10 @@ const runtime = {
   setPalette: vi.fn(),
   setMaterial: vi.fn(),
   resize: vi.fn(),
+  prewarm: vi.fn(),
+  cancelPrewarm: vi.fn(),
+  uploadFlowFrame: vi.fn(() => true),
+  transitionTo: vi.fn(),
   dispose: vi.fn(),
 }
 let idle: IdleRequestCallback | null = null
@@ -61,6 +65,7 @@ function mount(enabled = true, active = false) {
     motionPaused: false,
     palette: FALLBACK_PALETTE,
     settings: DEFAULT_LIQUID_METAL_SETTINGS,
+    deferInitialization: false,
   })
   const unavailable = vi.fn()
   let background!: ReturnType<typeof useLiquidMetalArtworkBackground>
@@ -112,6 +117,7 @@ describe('persistent liquid-metal background', () => {
     const visibility = nativeVisibility()
     const { state, unmount } = mount(true, true)
     expect(vi.mocked(createLiquidMetalRenderer).mock.calls[0][1].active).toBe(false)
+    expect(runtime.prewarm).not.toHaveBeenCalled()
     visibility.resolve(true)
     await Promise.resolve()
     expect(runtime.setState).toHaveBeenLastCalledWith({
@@ -120,6 +126,7 @@ describe('persistent liquid-metal background', () => {
       reducedMotion: false,
     })
     visibility.event(false)
+    expect(runtime.cancelPrewarm).toHaveBeenCalled()
     expect(runtime.setState).toHaveBeenLastCalledWith({
       active: false,
       playing: true,
@@ -198,6 +205,7 @@ describe('persistent liquid-metal background', () => {
     prepare()
     expect(createLiquidMetalRenderer).toHaveBeenCalledOnce()
     expect(vi.mocked(createLiquidMetalRenderer).mock.calls[0][1].active).toBe(false)
+    expect(runtime.prewarm).toHaveBeenCalledOnce()
 
     for (const active of [true, false, true, false]) {
       state.active = active
@@ -223,6 +231,39 @@ describe('persistent liquid-metal background', () => {
     expect(createLiquidMetalRenderer).toHaveBeenCalledOnce()
     expect(vi.mocked(createLiquidMetalRenderer).mock.calls[0][1].active).toBe(true)
     staleIdle?.({ didTimeout: false, timeRemaining: () => 10 })
+    expect(createLiquidMetalRenderer).toHaveBeenCalledOnce()
+  })
+
+  it('defers a cold context until artwork motion finishes, including stale idle callbacks', async () => {
+    const { state } = mount()
+    const staleIdle = idle
+    state.deferInitialization = true
+    state.active = true
+    await nextTick()
+    expect(cancelIdle).toHaveBeenCalledWith(1)
+    staleIdle?.({ didTimeout: false, timeRemaining: () => 10 })
+    expect(createLiquidMetalRenderer).not.toHaveBeenCalled()
+
+    state.deferInitialization = false
+    await nextTick()
+    expect(createLiquidMetalRenderer).toHaveBeenCalledOnce()
+    expect(vi.mocked(createLiquidMetalRenderer).mock.calls[0][1].active).toBe(true)
+    state.deferInitialization = true
+    await nextTick()
+    expect(runtime.setState).toHaveBeenLastCalledWith({
+      active: false,
+      playing: true,
+      reducedMotion: false,
+    })
+    expect(runtime.cancelPrewarm).toHaveBeenCalled()
+    vi.mocked(createLiquidMetalRenderer).mock.calls[0][1].onReady?.()
+    state.playing = false
+    await nextTick()
+    expect(runtime.setState).toHaveBeenLastCalledWith({
+      active: true,
+      playing: false,
+      reducedMotion: false,
+    })
     expect(createLiquidMetalRenderer).toHaveBeenCalledOnce()
   })
 
@@ -288,5 +329,35 @@ describe('persistent liquid-metal background', () => {
     expect(background.ready.value).toBe(false)
     expect(runtime.dispose).toHaveBeenCalledOnce()
     expect(unavailable).toHaveBeenCalledOnce()
+  })
+  it('prepares a restored parked context only while its native window is visible', async () => {
+    const visibility = nativeVisibility()
+    const { state, background } = mount(true, true)
+    visibility.resolve(true)
+    await Promise.resolve()
+    const callbacks = vi.mocked(createLiquidMetalRenderer).mock.calls[0][1]
+    callbacks.onReady?.()
+    callbacks.onContextLost?.()
+    expect(background.ready.value).toBe(false)
+    state.active = false
+    await nextTick()
+    runtime.prewarm.mockClear()
+    callbacks.onContextRestored?.()
+    expect(runtime.prewarm).toHaveBeenCalledOnce()
+    visibility.event(false)
+    runtime.prewarm.mockClear()
+    callbacks.onContextRestored?.()
+    expect(runtime.prewarm).not.toHaveBeenCalled()
+    expect(runtime.setState).toHaveBeenLastCalledWith({
+      active: false,
+      playing: true,
+      reducedMotion: false,
+    })
+    visibility.event(true)
+    expect(runtime.setState).toHaveBeenLastCalledWith({
+      active: false,
+      playing: true,
+      reducedMotion: false,
+    })
   })
 })

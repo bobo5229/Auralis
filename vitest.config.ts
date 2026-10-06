@@ -16,10 +16,13 @@ export default defineConfig({
     // Component tests mount Vue with a custom renderer in the Node environment.
     testTransformMode: {
       web: [
+        '**/FlatTrackColumnHeader.test.ts',
         '**/SongRow.test.ts',
+        '**/VirtualAlbumTrackList.test.ts',
         '**/AlbumCard.test.ts',
         '**/AlbumsPage.test.ts',
         '**/ThemeAccentSettings.test.ts',
+        '**/SettingsDialog.test.ts',
       ],
     },
     include: ['src/**/*.test.ts'],

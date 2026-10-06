@@ -13,8 +13,7 @@ import {
   useFullscreenLyricsViewport,
 } from '@renderer/features/lyrics/composables/useFullscreenLyricsViewport'
 import type { LyricLine } from '@renderer/features/lyrics/types'
-import FluidArtworkBackground from '@renderer/features/playback/components/FluidArtworkBackground.vue'
-import LiquidMetalArtworkBackground from '@renderer/features/playback/components/LiquidMetalArtworkBackground.vue'
+import FullscreenArtworkBackground from '@renderer/features/playback/components/FullscreenArtworkBackground.vue'
 import FullscreenBackgroundControls from '@renderer/features/playback/components/FullscreenBackgroundControls.vue'
 import { useFullscreenBackground } from '@renderer/features/playback/composables/useFullscreenBackground'
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
@@ -53,18 +52,50 @@ const {
 const imgError = ref(false)
 const overlayRef = ref<HTMLElement | null>(null)
 const artworkRef = ref<HTMLElement | null>(null)
-// Keep only the GPU background alive; controls and lyrics still leave with the section.
-const metalBackgroundTarget = shallowRef<HTMLElement | null>(null)
+// Park the GPU backgrounds between visits; controls and lyrics still leave with the section.
+const backgroundTarget = shallowRef<HTMLElement | null>(null)
+const deferBackgroundInitialization = ref(false)
 const exitButtonRef = ref<HTMLButtonElement | null>(null)
 const backgroundControlsRef = ref<InstanceType<typeof FullscreenBackgroundControls> | null>(null)
 const { backgroundMode, backgroundMotionPaused, metalSettings, setBackgroundMode } =
   useFullscreenBackground()
+const backgroundPresentationMode = ref(backgroundMode.value)
 const reducedMotion = useReducedMotion()
 let activeTransition: ReturnType<typeof animateFullscreenPlayerTransition> | undefined
 let interruptedTransition: FullscreenPlayerTransitionSnapshot | undefined
+let backgroundReleaseFrame = 0
+
+function releaseBackgroundInitialization(): void {
+  cancelAnimationFrame(backgroundReleaseFrame)
+  // Let the completed artwork transition reach the compositor before starting a
+  // cold context; changing a flag in its completion microtask is still too early.
+  backgroundReleaseFrame = requestAnimationFrame(() => {
+    backgroundReleaseFrame = requestAnimationFrame(() => {
+      backgroundReleaseFrame = 0
+      deferBackgroundInitialization.value = false
+    })
+  })
+}
+
+watch(
+  isFullscreenPlayerOpen,
+  () => {
+    // Post-render background watchers can run before Transition's enter hook.
+    // Block cold preparation synchronously with the open/close state change.
+    cancelAnimationFrame(backgroundReleaseFrame)
+    backgroundReleaseFrame = 0
+    deferBackgroundInitialization.value = true
+  },
+  { flush: 'sync' },
+)
 
 function runTransition(element: Element, done: () => void, entering: boolean): void {
   const interrupted = activeTransition?.cancel() ?? interruptedTransition
+  cancelAnimationFrame(backgroundReleaseFrame)
+  backgroundReleaseFrame = 0
+  // Context creation is synchronous even with parallel shader compilation. Keep
+  // cold GPU preparation outside both artwork transitions; reuse ready canvases.
+  deferBackgroundInitialization.value = true
   ;(element as HTMLElement).inert = !entering
   activeTransition = animateFullscreenPlayerTransition({
     overlay: element as HTMLElement,
@@ -77,8 +108,9 @@ function runTransition(element: Element, done: () => void, entering: boolean): v
       activeTransition = undefined
       interruptedTransition = undefined
       done()
+      releaseBackgroundInitialization()
       if (entering && wholeLineLyrics.value) {
-        void nextTick(() => refreshFullscreenLyrics('auto', true))
+        void nextTick(() => refreshFullscreenLyrics('auto'))
       }
     },
   })
@@ -86,7 +118,7 @@ function runTransition(element: Element, done: () => void, entering: boolean): v
 }
 
 function handleEnter(element: Element, done: () => void): void {
-  metalBackgroundTarget.value = element as HTMLElement
+  backgroundTarget.value = element as HTMLElement
   runTransition(element, done, true)
 }
 
@@ -95,12 +127,13 @@ function handleLeave(element: Element, done: () => void): void {
 }
 
 function handleAfterLeave(element: Element): void {
-  if (metalBackgroundTarget.value === element) metalBackgroundTarget.value = null
+  if (backgroundTarget.value === element) backgroundTarget.value = null
 }
 
 function handleTransitionCancelled(): void {
   interruptedTransition = activeTransition?.cancel()
   activeTransition = undefined
+  releaseBackgroundInitialization()
 }
 
 watch(reducedMotion.matches, () => activeTransition?.finish())
@@ -113,7 +146,7 @@ const artworkCacheKey = computed(() => playback.state.currentTrack?.artworkCache
 watch(artworkCacheKey, () => activeTransition?.finish())
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
 const { palette: metalPalette } = useArtworkPalette(artworkCacheKey, {
-  enabled: computed(() => backgroundMode.value === 'metal'),
+  enabled: computed(() => isFullscreenPlayerOpen.value || backgroundMode.value === 'metal'),
   retainPreviousWhileLoading: true,
 })
 const title = computed(() => playback.state.currentTrack?.title || t('player.unknownTrack'))
@@ -144,9 +177,7 @@ const fullscreenLyricLines = computed<LyricLine[]>(() => {
   return lyricsStatus.value === 'lrc' ? parsedLines.value : []
 })
 
-const wholeLineLyrics = computed(
-  () => backgroundMode.value === 'metal' && lyricsStatus.value === 'lrc',
-)
+const wholeLineLyrics = computed(() => lyricsStatus.value === 'lrc')
 
 const volumeIconClass = computed(() => {
   if (playback.state.isMuted) return 'i-lucide-volume-x'
@@ -211,6 +242,7 @@ const {
   onWheel: handleFullscreenLyricsWheel,
   onKeydown: handleFullscreenLyricsKeydown,
   refresh: refreshFullscreenLyrics,
+  renderedLines: renderedLyricLines,
 } = useFullscreenLyricsViewport({
   scrollRef: lyricsScrollRef,
   trackRef: lyricsTrackRef,
@@ -226,6 +258,14 @@ const {
   lines: fullscreenLyricLines,
   artworkRef,
 })
+
+watch(
+  backgroundPresentationMode,
+  () => {
+    if (wholeLineLyrics.value) refreshFullscreenLyrics('auto', true)
+  },
+  { flush: 'post' },
+)
 
 const lyricsMaskStyle = {
   '--fullscreen-lyrics-fade-top': `${FULLSCREEN_LYRICS_FADE_TOP_RATIO * 100}%`,
@@ -288,22 +328,26 @@ function handleRepeatClick(): void {
 
 onBeforeUnmount(() => {
   activeTransition?.cancel()
+  cancelAnimationFrame(backgroundReleaseFrame)
   reducedMotion.dispose()
 })
 </script>
 
 <template>
   <Teleport to="body">
-    <LiquidMetalArtworkBackground
-      :target="metalBackgroundTarget"
-      :enabled="backgroundMode === 'metal' && playback.state.currentTrackId !== null"
-      :visible="backgroundMode === 'metal' && metalBackgroundTarget !== null"
+    <FullscreenArtworkBackground
+      :target="backgroundTarget"
+      :mode="backgroundMode"
+      :artwork-url="artworkUrl"
+      :artwork-key="artworkCacheKey"
       :palette="metalPalette"
       :settings="metalSettings"
-      :active="isFullscreenPlayerOpen && backgroundMode === 'metal'"
+      :active="isFullscreenPlayerOpen"
       :motion-paused="backgroundMotionPaused"
       :playing="playback.state.isPlaying"
-      @unavailable="setBackgroundMode('fluid')"
+      :defer-initialization="deferBackgroundInitialization"
+      @fallback="setBackgroundMode"
+      @presentation-mode="backgroundPresentationMode = $event"
     />
     <Transition
       :css="false"
@@ -317,8 +361,9 @@ onBeforeUnmount(() => {
         v-if="isFullscreenPlayerOpen"
         ref="overlayRef"
         class="fullscreen-player"
-        :class="{ 'fullscreen-player--metal': backgroundMode === 'metal' }"
+        :class="{ 'fullscreen-player--metal': backgroundPresentationMode === 'metal' }"
         :data-background-mode="backgroundMode"
+        :data-background-presentation="backgroundPresentationMode"
         role="dialog"
         aria-modal="true"
         tabindex="-1"
@@ -336,12 +381,6 @@ onBeforeUnmount(() => {
           <span class="i-lucide-chevron-down h-6 w-6" aria-hidden="true" />
         </button>
         <FullscreenBackgroundControls ref="backgroundControlsRef" />
-        <FluidArtworkBackground
-          v-if="backgroundMode === 'fluid'"
-          :artwork-url="artworkUrl"
-          :active="isFullscreenPlayerOpen && !backgroundMotionPaused"
-          :playing="playback.state.isPlaying"
-        />
 
         <div class="fullscreen-player-left">
           <div class="fullscreen-player-artwork-slot">
@@ -528,7 +567,7 @@ onBeforeUnmount(() => {
                 ></span>
               </div>
               <div
-                v-for="(line, index) in fullscreenLyricLines"
+                v-for="{ line, index } in renderedLyricLines"
                 :key="line.id"
                 v-memo="[lyricsStatus, activeIndex === index, activeIndex < index, line.text]"
                 class="fullscreen-player-lyric-line"
@@ -604,6 +643,7 @@ onBeforeUnmount(() => {
 }
 
 .fullscreen-player--metal {
+  --auralis-fullscreen-pause-fill: var(--auralis-fullscreen-metal-pause-fill);
   --auralis-text: #f6f2ea;
   --auralis-text-muted: #d4d0c9;
   --auralis-progress-track: #96918a;
@@ -953,11 +993,12 @@ onBeforeUnmount(() => {
 .fullscreen-player-filled-pause {
   width: 30px;
   height: 34px;
-  color: var(--auralis-text);
+  opacity: 1;
+  color: var(--auralis-fullscreen-pause-fill);
 }
 
 .fullscreen-player-play:hover .fullscreen-player-filled-pause {
-  color: var(--auralis-text-muted);
+  color: var(--auralis-text);
 }
 
 .fullscreen-player-filled-pause::before,
@@ -1106,7 +1147,8 @@ onBeforeUnmount(() => {
   );
 }
 
-.fullscreen-player--metal .fullscreen-player-lyrics-scroll {
+.fullscreen-player--metal .fullscreen-player-lyrics-scroll,
+.fullscreen-player-lyrics-scroll.fullscreen-player-lyrics-whole {
   -webkit-mask-image: none;
   mask-image: none;
 }
@@ -1137,8 +1179,9 @@ onBeforeUnmount(() => {
   transition: none;
 }
 
-.fullscreen-player--metal .fullscreen-player-lyrics-whole .fullscreen-player-lyric-material {
+.fullscreen-player-lyrics-whole .fullscreen-player-lyric-line .fullscreen-player-lyric-material {
   /* One maximum-size line layout is shared by all states; only its painted scale changes. */
+  display: block;
   position: absolute;
   inset: 0 0 auto;
   font-size: calc(clamp(22px, 2.25vw, 39px) * var(--fullscreen-lyric-active-scale));

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 液态金属反射迭代</title>
+    <style>
+      /* DEMO_CSS */
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>液态金属 · 反射迭代</h1>
+          <p>同一配色、同一时间，观察从柔光到镜面的变化。</p>
+        </div>
+        <div class="actions">
+          <button id="pause" type="button" aria-pressed="false">暂停流动</button>
+          <button id="reset" type="button">重置</button>
+        </div>
+      </header>
+      <div class="toolbar" aria-label="预览选项">
+        <label for="preset"
+          >配色
+          <select id="preset">
+            <option value="alloy">银蓝与金色</option>
+            <option value="espresso">封面蓝棕 · 配色样本</option>
+            <option value="silver">纯银 · 单色对照</option>
+            <option value="rose">玫瑰铜</option>
+            <option value="dark">深灰 · 暗色输入</option>
+          </select></label
+        >
+        <label class="upload">本地封面取色<input id="cover" type="file" accept="image/*" /></label>
+        <label for="tint">单色 <input id="tint" type="color" value="#91a9c4" /></label>
+        <label for="lyrics"><input id="lyrics" type="checkbox" /> 歌词预览</label>
+      </div>
+      <div class="view-toolbar">
+        <div class="view-switch" role="group" aria-label="显示方式">
+          <button type="button" data-view="both" aria-pressed="true">当前 / 迭代</button>
+          <button type="button" data-view="refined" aria-pressed="false">仅迭代版</button>
+          <button type="button" data-view="reference" aria-pressed="false">迭代 / 参考图</button>
+        </div>
+        <button id="clean" type="button">纯背景</button>
+      </div>
+      <div id="comparison" class="comparison" data-view="both">
+        <section id="baseline-panel">
+          <div class="panel-heading">
+            <h2>当前算法</h2>
+            <span>现有材质</span>
+          </div>
+          <div class="surface">
+            <canvas id="baseline" aria-label="当前液态金属算法"></canvas>
+            <div class="sample" hidden>
+              <p>明亮的反射缓缓经过</p>
+              <strong>在流动中，看见光的形状</strong>
+              <p>让音乐缓缓流动</p>
+            </div>
+          </div>
+        </section>
+        <section id="refined-panel">
+          <div class="panel-heading">
+            <h2>镜面迭代</h2>
+            <span>深暗反射 · 宽窄高光</span>
+          </div>
+          <div class="surface">
+            <canvas id="refined" aria-label="镜面反射迭代版"></canvas>
+            <div class="sample" hidden>
+              <p>明亮的反射缓缓经过</p>
+              <strong>在流动中，看见光的形状</strong>
+              <p>让音乐缓缓流动</p>
+            </div>
+          </div>
+        </section>
+        <section id="reference-panel">
+          <div class="panel-heading">
+            <h2>参考图</h2>
+            <span>你提供的材质方向</span>
+          </div>
+          <div class="surface">
+            <img
+              id="reference-image"
+              src="__REFERENCE_DATA__"
+              alt="银蓝与金色液态金属，深暗反射中穿插明亮而狭窄的高光带"
+            />
+          </div>
+        </section>
+      </div>
+      <div class="palette-row">
+        <div id="swatches" aria-label="当前配色"></div>
+        <p id="palette-note" role="status" aria-live="polite"></p>
+      </div>
+      <p id="error" role="alert" hidden></p>
+      <div class="settings">
+        <fieldset>
+          <legend>共同曲面</legend>
+          <label for="speed"
+            >流速 <output id="speed-value" for="speed">0.70</output
+            ><input
+              id="speed"
+              data-setting="speed"
+              type="range"
+              min="0.15"
+              max="1.8"
+              step="0.05"
+              value="0.7"
+          /></label>
+          <label for="folds"
+            >曲面尺度 <output id="folds-value" for="folds">1.15</output
+            ><input
+              id="folds"
+              data-setting="folds"
+              type="range"
+              min="0.65"
+              max="2.2"
+              step="0.05"
+              value="1.15"
+          /></label>
+          <label for="roughness"
+            >反射柔度 <output id="roughness-value" for="roughness">0.12</output
+            ><input
+              id="roughness"
+              data-setting="roughness"
+              type="range"
+              min="0.04"
+              max="0.35"
+              step="0.01"
+              value="0.12"
+          /></label>
+        </fieldset>
+        <fieldset>
+          <legend>迭代材质</legend>
+          <label for="mirror"
+            >镜面强度 <output id="mirror-value" for="mirror">1.00</output
+            ><input
+              id="mirror"
+              data-setting="mirror"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="1"
+          /></label>
+          <label for="depth"
+            >暗部深度 <output id="depth-value" for="depth">0.85</output
+            ><input
+              id="depth"
+              data-setting="depth"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.85"
+          /></label>
+          <label for="detail"
+            >局部卷曲 <output id="detail-value" for="detail">0.32</output
+            ><input
+              id="detail"
+              data-setting="detail"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.32"
+          /></label>
+        </fieldset>
+      </div>
+      <footer>
+        <span id="clock">正在准备材质…</span>
+        <p>局部卷曲设为 0 可保持当前形态，单独比较反光。封面仅在本机处理。</p>
+      </footer>
+    </main>
+    <button id="restore" type="button" hidden>返回对比 <span>Esc</span></button>
+    <script>
+      /* DEMO_JS */
+    </script>
+  </body>
+</html>

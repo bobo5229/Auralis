@@ -398,9 +398,6 @@ export function mountArchiveMacView(root: ShadowRoot, actions: MacViewActions): 
     refreshStaticLocale()
     macDevice.refreshLocale()
     controls.hidden = !model.items.length
-    root.getElementById('projection-count')!.textContent = model.items.length
-      ? uiText('archive.mac.albumCount', { count: model.items.length })
-      : ''
     const todayKey = model.todayKey
     if (!model.years.includes(popupBrowsingYear)) {
       const validDate = parseDateKey(model.selectedDate ?? model.todayKey)

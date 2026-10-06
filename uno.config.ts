@@ -66,12 +66,11 @@ export default defineConfig({
       'inline-flex items-center justify-center rounded p-2 transition shadow-none hover:shadow-none',
     'player-control-primary':
       'inline-flex items-center justify-center rounded-full p-3 text-[var(--auralis-text)] transition hover:bg-[var(--auralis-control-hover-bg)] hover:text-[var(--auralis-text)]',
-    'song-row':
-      'grid h-[var(--library-flat-row-height)] grid-cols-[var(--library-flat-artwork-size)_minmax(0,1fr)_300px_minmax(0,1fr)_56px] items-center gap-2.5 px-4 cursor-pointer',
+    'song-row': 'h-[var(--library-flat-row-height)] items-center cursor-pointer',
     'song-cover':
       'h-[var(--library-flat-artwork-size)] w-[var(--library-flat-artwork-size)] shrink-0 rounded-md bg-[var(--auralis-border-subtle)] flex items-center justify-center',
-    'song-title': 'text-sm truncate pl-1.5',
-    'song-artist': 'text-xs text-[var(--auralis-text-muted)] truncate pl-2',
+    'song-title': 'text-sm truncate',
+    'song-artist': 'text-xs text-[var(--auralis-text-muted)] truncate',
     'song-album': 'text-xs text-[var(--auralis-text-subtle)] truncate text-right',
     'song-duration': 'text-xs text-[var(--auralis-text-faint)] text-right tabular-nums',
     'metadata-input':

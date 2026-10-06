@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { useReducedMotion } from '../composables/useReducedMotion'
 import {
   resolveLyricsFollowBehavior,
@@ -21,6 +22,8 @@ const props = defineProps<{
 const { t } = useI18n()
 const { seekTo } = usePlayback()
 const reducedMotion = useReducedMotion()
+const { displayMode } = usePlayerDisplayMode()
+const isActive = computed(() => displayMode.value === 'normal')
 
 const scrollRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLElement | null>(null)
@@ -33,6 +36,7 @@ let trackOffset = 0
 let lineMetrics: Array<{ offset: number; height: number }> = []
 let preludeMetric: { offset: number; height: number } | null = null
 let metricsLineCount = -1
+let metricsLines: readonly LyricLine[] | null = null
 let metricsPreludeState = false
 let scrollMax = 0
 
@@ -77,12 +81,14 @@ function cancelTrackAnimation(commitCurrentPosition: boolean): number {
 }
 
 function rebuildMetrics(force = false): void {
+  if (!isActive.value) return
   const container = scrollRef.value
   const track = trackRef.value
   if (!container || !track) {
     lineMetrics = []
     preludeMetric = null
     metricsLineCount = -1
+    metricsLines = null
     metricsPreludeState = false
     scrollMax = 0
     return
@@ -91,6 +97,7 @@ function rebuildMetrics(force = false): void {
   if (
     !force &&
     metricsLineCount === props.lines.length &&
+    metricsLines === props.lines &&
     metricsPreludeState === props.showPrelude
   ) {
     return
@@ -106,6 +113,7 @@ function rebuildMetrics(force = false): void {
     ? { offset: preludeElement.offsetTop, height: preludeElement.offsetHeight }
     : null
   metricsLineCount = props.lines.length
+  metricsLines = props.lines
   metricsPreludeState = props.showPrelude
   scrollMax = Math.max(0, track.scrollHeight - container.clientHeight)
 }
@@ -129,7 +137,7 @@ function computeTarget(): number | null {
 function updateTarget(
   behavior: LyricsFollowBehavior = resolveLyricsFollowBehavior(reducedMotion.matches.value),
 ): void {
-  if (isUserScrolling.value) return
+  if (!isActive.value || isUserScrolling.value) return
   const container = scrollRef.value
   const track = trackRef.value
   const target = computeTarget()
@@ -240,6 +248,7 @@ function onLyricLineActivate(index: number): void {
 function onLyricLineKeydown(event: KeyboardEvent, index: number): void {
   if (event.key !== 'Enter' && event.key !== ' ') return
   event.preventDefault()
+  event.stopPropagation()
   onLyricLineActivate(index)
 }
 
@@ -263,13 +272,17 @@ function syncContainer(): void {
   const container = scrollRef.value
   resizeObserver?.disconnect()
   resizeObserver = null
-  if (!container) {
+  if (!container || !isActive.value) {
     containerHeight.value = 0
     return
   }
 
   containerHeight.value = container.clientHeight
   resizeObserver = new ResizeObserver((entries) => {
+    if (!isActive.value) {
+      metricsLineCount = -1
+      return
+    }
     containerHeight.value = entries[0].contentRect.height
     nextTick(() => {
       rebuildMetrics(true)
@@ -293,6 +306,22 @@ watch(
   },
   { flush: 'post' },
 )
+
+watch(isActive, (active) => {
+  if (!active) {
+    if (scrollTimeout) clearTimeout(scrollTimeout)
+    scrollTimeout = null
+    isUserScrolling.value = false
+    cancelTrackAnimation(true)
+    return
+  }
+  void nextTick(() => {
+    if (!isActive.value) return
+    if (!resizeObserver) syncContainer()
+    rebuildMetrics()
+    updateTarget('auto')
+  })
+})
 
 // A preference flip to reduce mid-movement must cancel the in-flight WAAPI
 // animation and land the track on the target instantly (P2).
@@ -404,6 +433,7 @@ onBeforeUnmount(() => {
   transition:
     opacity 300ms ease,
     filter 300ms ease;
+  overflow-wrap: anywhere;
 }
 
 .lyric-line-seekable {

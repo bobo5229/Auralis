@@ -68,10 +68,8 @@
   "devDependencies": {
     "@electron-toolkit/tsconfig": "^1.0.1",
     "@electron/rebuild": "^4.0.4",
-    "@iconify-json/ion": "^1.2.7",
     "@iconify-json/lucide": "^1.2.114",
     "@iconify-json/ph": "^1.2.2",
-    "@iconify-json/ri": "^1.2.10",
     "@types/better-sqlite3": "^7.6.12",
     "@types/culori": "4.0.1",
     "@types/node": "^22.13.10",

@@ -32,8 +32,8 @@ describe('routeComponentLoaders', () => {
     expect(archive).toHaveBeenCalledTimes(1)
   })
 
-  it('defines primary warmable routes strictly matching library, albums, archive, and settings', () => {
-    expect(PRIMARY_WARMABLE_ROUTES).toEqual(['library', 'albums', 'archive', 'settings'])
+  it('defines primary warmable routes strictly matching library, albums and archive', () => {
+    expect(PRIMARY_WARMABLE_ROUTES).toEqual(['library', 'albums', 'archive'])
   })
 
   it('correctly checks isWarmableRoute only for valid warmable routes', () => {
@@ -42,13 +42,12 @@ describe('routeComponentLoaders', () => {
       albums: vi.fn(),
       albumDetail: vi.fn(),
       archive: vi.fn(),
-      settings: vi.fn(),
     })
 
     expect(registry.isWarmableRoute('library')).toBe(true)
     expect(registry.isWarmableRoute('albums')).toBe(true)
     expect(registry.isWarmableRoute('archive')).toBe(true)
-    expect(registry.isWarmableRoute('settings')).toBe(true)
+    expect(registry.isWarmableRoute('settings')).toBe(false)
     expect(registry.isWarmableRoute('download')).toBe(false)
 
     expect(registry.isWarmableRoute('album-detail')).toBe(false)
@@ -72,7 +71,6 @@ describe('routeComponentLoaders', () => {
       albums: albumsMock as RouteComponentLoader,
       albumDetail: vi.fn(),
       archive: vi.fn(),
-      settings: vi.fn(),
     })
 
     const p1 = registry.loadRoute('albums')
@@ -109,7 +107,6 @@ describe('routeComponentLoaders', () => {
       albums: vi.fn(),
       albumDetail: vi.fn(),
       archive: failingLoader as RouteComponentLoader,
-      settings: vi.fn(),
     })
 
     await expect(registry.loadRoute('archive')).rejects.toThrow('Network / bundle load failure')

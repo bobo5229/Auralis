@@ -290,7 +290,7 @@ const playbackModeIconClass = computed(() => {
       return 'i-ph-vinyl-record'
     case 'sequential':
     default:
-      return 'i-ph-list-numbers'
+      return 'i-ph-sort-ascending'
   }
 })
 
@@ -410,7 +410,7 @@ function handleNext(): void {
             :aria-expanded="isQueueOpen"
             @click="toggleQueue"
           >
-            <span class="playbar-action-icon h-5 w-5 i-ph-playlist" />
+            <span class="playbar-action-icon h-5 w-5 i-ph-queue" />
           </button>
 
           <div ref="queuePopoverRef" class="contents">
@@ -431,7 +431,7 @@ function handleNext(): void {
             "
             @click="toggleLyrics"
           >
-            <span class="playbar-action-icon h-5 w-5 i-ph-text-align-left" aria-hidden="true" />
+            <span class="playbar-action-icon h-5 w-5 i-ph-subtitles" aria-hidden="true" />
           </button>
 
           <div v-if="isUtilitiesOverflow" class="player-bar-overflow">
@@ -482,7 +482,7 @@ function handleNext(): void {
                 "
                 @click="handleOverflowToggleLyrics"
               >
-                <span class="playbar-action-icon h-4 w-4 i-ph-text-align-left" aria-hidden="true" />
+                <span class="playbar-action-icon h-4 w-4 i-ph-subtitles" aria-hidden="true" />
                 <span class="player-bar-overflow-label">{{
                   lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')
                 }}</span>

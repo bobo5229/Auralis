@@ -2,6 +2,7 @@ import { computed, getCurrentScope, nextTick, onScopeDispose, ref, watch, type R
 import type { LyricsStatus } from './useTrackLyrics'
 import type { LyricLine } from '../types'
 import { createWholeLineLyricsViewport } from './wholeLineLyricsViewport'
+import { resolveWholeLyricsStart } from '../utils/wholeLineLyricsLayout'
 
 type ReadonlyRef<T> = Readonly<Ref<T>>
 type LyricMetric = { offset: number; height: number }
@@ -69,6 +70,17 @@ export function resolveFullscreenLyricsAnimationDuration(distance: number): numb
 
 export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOptions) {
   const containerHeight = ref(0)
+  const renderAhead = ref(16)
+  const renderedLines = computed(() => {
+    const lines = options.lines?.value ?? []
+    const start = options.wholeLineMode?.value
+      ? Math.max(0, resolveWholeLyricsStart(lines, options.activeIndex.value))
+      : 0
+    const end = options.wholeLineMode?.value
+      ? Math.max(start, options.activeIndex.value) + renderAhead.value
+      : lines.length
+    return lines.slice(start, end).map((line, offset) => ({ line, index: start + offset }))
+  })
   const isUserScrolling = ref(false)
   const topPadding = computed(() =>
     options.wholeLineMode?.value
@@ -101,6 +113,11 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
     ...options,
     focalRatio: FULLSCREEN_LYRICS_FOCAL_RATIO,
     activeScale: FULLSCREEN_LYRICS_ACTIVE_SCALE,
+    requestMoreLines: () => {
+      if (renderedLines.value.at(-1)?.index === (options.lines?.value.length ?? 0) - 1) return false
+      renderAhead.value *= 2
+      return true
+    },
   })
   const clearWholeLineLayout = wholeLine.clear
 
@@ -369,6 +386,14 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
     { flush: 'pre' },
   )
   watch(options.currentTrackId, resetPosition)
+  watch(
+    () => [options.isOpen.value, containerHeight.value],
+    () => {
+      // Re-evaluate the bounded window after a resize or a visit to a very tall viewport.
+      renderAhead.value = 16
+    },
+  )
+  if (options.lines) watch(options.lines, () => (renderAhead.value = 16))
   watch(options.lyricsStatus, resetPosition)
   if (options.wholeLineMode) watch(options.wholeLineMode, resetPosition)
   watch(
@@ -382,6 +407,7 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
       options.reducedMotion?.value,
       options.wholeLineMode?.value,
       options.lines?.value,
+      renderedLines.value.length,
     ],
     () => {
       if (options.wholeLineMode?.value) {
@@ -410,6 +436,7 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
 
   return {
     containerHeight,
+    renderedLines,
     topPadding,
     bottomPadding,
     isUserScrolling,

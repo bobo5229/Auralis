@@ -96,6 +96,45 @@ describe('fullscreen lyrics viewport helpers', () => {
 })
 
 describe('useFullscreenLyricsViewport', () => {
+  it('mounts the active timed window with two history sentences and keeps plain lyrics complete', async () => {
+    const lines = ref(
+      Array.from({ length: 600 }, (_, index) => ({
+        id: String(index),
+        text: `Sentence ${index}`,
+        timeSeconds: index * 2,
+      })),
+    )
+    const activeIndex = ref(592)
+    const wholeLineMode = ref(true)
+    const viewport = useFullscreenLyricsViewport({
+      scrollRef: ref(null),
+      trackRef: ref(null),
+      currentTrackId: ref(1),
+      lyricsStatus: ref<LyricsStatus>('lrc'),
+      lineCount: ref(600),
+      activeIndex,
+      isPrelude: ref(false),
+      showPrelude: ref(false),
+      isOpen: ref(true),
+      wholeLineMode,
+      lines,
+    })
+    expect(viewport.renderedLines.value.map((row) => row.index)).toEqual(
+      Array.from({ length: 10 }, (_, index) => 590 + index),
+    )
+    activeIndex.value = 20
+    expect(viewport.renderedLines.value.map((row) => row.index)).toEqual(
+      Array.from({ length: 18 }, (_, index) => 18 + index),
+    )
+    activeIndex.value = -1
+    expect(viewport.renderedLines.value[0].index).toBe(0)
+    expect(viewport.renderedLines.value).toHaveLength(16)
+    wholeLineMode.value = false
+    expect(viewport.renderedLines.value).toHaveLength(600)
+    await flushViewport()
+    viewport.dispose()
+  })
+
   function setup() {
     const { container, track, animation } = createViewportElements()
     const scrollRef = ref<HTMLElement | null>(container)

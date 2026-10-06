@@ -40,7 +40,7 @@ interface TestNode {
   animate: (frames: Keyframe[], timing: KeyframeAnimationOptions) => Animation
 }
 
-function setup() {
+function setup(firstIndex = 0) {
   const active = ref(-1)
   const reduced = ref(false)
   const nodes: TestNode[] = []
@@ -58,7 +58,7 @@ function setup() {
   const make = (index: number, material = false): TestNode => {
     const node: TestNode = {
       style: new Style(),
-      dataset: { lyricIndex: String(index) },
+      dataset: { lyricIndex: String(firstIndex + index) },
       offsetHeight: 48,
       children: [],
       getBoundingClientRect: () => {
@@ -102,18 +102,23 @@ function setup() {
     materials.push(material)
     nodes.push(make(index))
   }
-  vi.stubGlobal('getComputedStyle', (node: TestNode) => ({
-    visibility: nodes[Number(node.dataset.lyricIndex)]?.style.visibility || 'hidden',
-    transform: node.style.transform || 'none',
-    lineHeight: '48px',
-    fontSize: '32px',
-    color:
-      Number(node.dataset.lyricIndex) === active.value
-        ? 'rgb(255, 255, 255)'
-        : 'rgb(133, 139, 147)',
-    webkitTextStrokeColor: 'rgb(24, 30, 39)',
-    textShadow: 'none',
-  }))
+  vi.stubGlobal('getComputedStyle', (node: TestNode) => {
+    const index = Number(node.dataset.lyricIndex)
+    const row = nodes[index - firstIndex]
+    const isLine = row === node
+    const isActive = index === active.value
+    return {
+      visibility: row?.style.visibility || 'hidden',
+      transform: node.style.transform || 'none',
+      lineHeight: '48px',
+      fontSize: '32px',
+      color: isActive ? 'rgb(255, 255, 255)' : 'rgb(133, 139, 147)',
+      webkitTextStrokeColor: 'rgb(24, 30, 39)',
+      textShadow: 'none',
+      opacity: isLine && !isActive ? '0.34' : '1',
+      filter: isLine && !isActive ? 'blur(3px)' : 'blur(0px)',
+    }
+  })
   vi.stubGlobal(
     'DOMMatrixReadOnly',
     class {
@@ -140,7 +145,7 @@ function setup() {
       getBoundingClientRect: () => ({ top: 30, right: 100 }),
     } as unknown as HTMLElement),
     lines: ref(
-      nodes.map((_, index) => ({
+      Array.from({ length: firstIndex + nodes.length }, (_, index) => ({
         id: String(index),
         text: `Sentence ${index}`,
         timeSeconds: 10 + index * 10,
@@ -164,6 +169,31 @@ function setup() {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('whole-sentence motion lifecycle', () => {
+  it('positions a mounted window by its original lyric indices after a distant seek', () => {
+    const { change, nodes, materials } = setup(1000)
+    change(1006)
+    expect(nodes.slice(0, 4).every((line) => line.style.visibility === 'hidden')).toBe(true)
+    expect(nodes[4].style.visibility).toBe('visible')
+    expect(nodes[6].style.visibility).toBe('visible')
+    expect(materials[6].style.transform).toBe('scale(1)')
+    expect(nodes[4].getBoundingClientRect().top).toBeCloseTo(30)
+  })
+
+  it('reuses measured heights across sentence changes and invalidates them on a font refresh', () => {
+    const { controller, change, materials } = setup()
+    const readHeight = vi.fn(() => 48)
+    materials.forEach((material) =>
+      Object.defineProperty(material, 'offsetHeight', { get: readHeight }),
+    )
+    controller.update('auto', true)
+    expect(readHeight).toHaveBeenCalledTimes(materials.length)
+    change(0)
+    change(1)
+    expect(readHeight).toHaveBeenCalledTimes(materials.length)
+    controller.update('auto', true)
+    expect(readHeight).toHaveBeenCalledTimes(materials.length * 2)
+  })
+
   it('calibrates opening immediately, then moves and changes paint together for 360ms', () => {
     const { nodes, runs, change } = setup()
     expect(runs).toHaveLength(0)
@@ -176,6 +206,21 @@ describe('whole-sentence motion lifecycle', () => {
         (run) =>
           run.frames[0].color === 'rgb(133, 139, 147)' &&
           run.frames[1].color === 'rgb(255, 255, 255)',
+      ),
+    ).toBe(true)
+  })
+
+  it('animates fluid-style dimming and blur with sentence movement', () => {
+    const { nodes, change, runs } = setup()
+    change(0)
+    expect(
+      runs.some(
+        (run) =>
+          run.element === nodes[0] &&
+          run.frames[0].filter === 'blur(3px)' &&
+          run.frames[0].opacity === '0.34' &&
+          run.frames[1].filter === 'blur(0px)' &&
+          run.frames[1].opacity === '1',
       ),
     ).toBe(true)
   })

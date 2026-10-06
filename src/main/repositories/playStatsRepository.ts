@@ -154,7 +154,8 @@ export class PlayStatsRepository extends BaseRepository {
     }
   }
 
-  getDailyAlbumStats(date: string): DailyAlbumStatsItem[] {
+  getDailyAlbumStats(date: string, limit = 10): DailyAlbumStatsItem[] {
+    const safeLimit = Math.max(1, Math.floor(limit))
     // Join each day's records by track ID before combining current and removed history.
     // Joining the two UNION views first would materialize the entire display library.
     const rows = this.db
@@ -195,9 +196,9 @@ export class PlayStatsRepository extends BaseRepository {
            MAX(lastPlayedAt) DESC,
            title COLLATE BINARY ASC,
            artist COLLATE BINARY ASC
-         LIMIT 5`,
+         LIMIT @limit`,
       )
-      .all({ date }) as Array<{
+      .all({ date, limit: safeLimit }) as Array<{
       title: string | null
       artist: string | null
       artworkCacheKey: string | null

@@ -49,6 +49,8 @@ function deferred<T>() {
 
 function createLoader(overrides?: {
   getTrackPage?: (request: unknown) => Promise<LibraryTrackPage>
+  prepareForegroundViewport?: (isRequestCurrent: () => boolean) => Promise<void>
+  restoreNavigationViewport?: (isRequestCurrent: () => boolean) => Promise<boolean>
 }) {
   let disposed = false
   const pageIdentity = ref<LibraryPageIdentity | null>({ kind: 'library' })
@@ -65,6 +67,12 @@ function createLoader(overrides?: {
   const restoreViewportRestore = vi.fn(async () => undefined)
   const scrollToPlaybackTrack = vi.fn(async () => undefined)
   const replaceWithLibraryHome = vi.fn(async () => undefined)
+  const prepareForegroundViewport = vi.fn(
+    overrides?.prepareForegroundViewport ?? (async () => undefined),
+  )
+  const restoreNavigationViewport = vi.fn(
+    overrides?.restoreNavigationViewport ?? (async () => false),
+  )
   let changedHandler: ((event: { reason: string }) => void | Promise<void>) | null = null
   const getTrackPage =
     overrides?.getTrackPage ?? vi.fn(async () => createPage([createTrack(1), createTrack(2)]))
@@ -84,6 +92,8 @@ function createLoader(overrides?: {
     captureViewportRestore,
     restoreViewportRestore,
     scrollToPlaybackTrack,
+    prepareForegroundViewport,
+    restoreNavigationViewport,
     replaceWithLibraryHome,
     loadErrorMessage: () => 'load failed',
     onLibraryChanged: (callback) => {
@@ -104,6 +114,8 @@ function createLoader(overrides?: {
     onSnapshotCommitted,
     restoreViewportRestore,
     scrollToPlaybackTrack,
+    prepareForegroundViewport,
+    restoreNavigationViewport,
     emitLibraryChanged: async (reason: string) => {
       await changedHandler?.({ reason })
     },
@@ -116,6 +128,51 @@ function createLoader(overrides?: {
 
 describe('useLibraryCatalogLoader', () => {
   afterEach(() => vi.useRealTimers())
+
+  it('mounts and prepares the foreground viewport before restoring navigation, without playback overriding it', async () => {
+    const ready = deferred<void>()
+    const returned = createLoader({
+      prepareForegroundViewport: () => ready.promise,
+      restoreNavigationViewport: async () => true,
+    })
+    const pending = returned.loader.loadLibraryData('foreground')
+    await vi.waitFor(() => expect(returned.prepareForegroundViewport).toHaveBeenCalledOnce())
+    expect(returned.isLoading.value).toBe(false)
+    expect(returned.loader.isPositioningForegroundViewport.value).toBe(true)
+    expect(returned.restoreNavigationViewport).not.toHaveBeenCalled()
+    ready.resolve()
+    expect(await pending).toBe('committed')
+    expect(returned.restoreNavigationViewport).toHaveBeenCalledOnce()
+    expect(returned.scrollToPlaybackTrack).not.toHaveBeenCalled()
+    expect(returned.loader.isPositioningForegroundViewport.value).toBe(false)
+    returned.dispose()
+  })
+
+  it('keeps a pending saved position through an empty return and restores on the next populated snapshot', async () => {
+    const getTrackPage = vi
+      .fn()
+      .mockResolvedValueOnce(createPage([]))
+      .mockResolvedValueOnce(createPage([createTrack(1)]))
+    const returned = createLoader({ getTrackPage, restoreNavigationViewport: async () => true })
+    await returned.loader.loadLibraryData('foreground')
+    await returned.loader.loadLibraryData('background')
+    expect(returned.restoreNavigationViewport).toHaveBeenCalledTimes(2)
+    expect(returned.restoreViewportRestore).not.toHaveBeenCalled()
+    expect(returned.scrollToPlaybackTrack).not.toHaveBeenCalled()
+    returned.dispose()
+  })
+
+  it('skips stale restoration after unmount while layout preparation is pending', async () => {
+    const ready = deferred<void>()
+    const returned = createLoader({ prepareForegroundViewport: () => ready.promise })
+    const pending = returned.loader.loadLibraryData('foreground')
+    await vi.waitFor(() => expect(returned.prepareForegroundViewport).toHaveBeenCalledOnce())
+    returned.dispose()
+    ready.resolve()
+    expect(await pending).toBe('stale')
+    expect(returned.restoreNavigationViewport).not.toHaveBeenCalled()
+    expect(returned.scrollToPlaybackTrack).not.toHaveBeenCalled()
+  })
 
   it('coalesces spaced imports and flushes the final change', async () => {
     vi.useFakeTimers()

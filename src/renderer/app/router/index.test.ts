@@ -17,4 +17,10 @@ describe('default route', () => {
     expect(router.currentRoute.value.name).toBe('library')
     expect(router.currentRoute.value.fullPath).toBe('/songs')
   })
+
+  it('redirects the retired settings page to the songs page', async () => {
+    await router.push('/settings')
+    expect(router.currentRoute.value.name).toBe('library')
+    expect(router.currentRoute.value.fullPath).toBe('/songs')
+  })
 })

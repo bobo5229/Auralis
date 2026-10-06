@@ -66,6 +66,7 @@ describe('useLyricsPanelLayout', () => {
     // Fullscreen hides it
     mockDisplayMode.value = 'fullscreen'
     expect(layout.canDisplayLyricsPanel.value).toBe(false)
+    expect(layout.canLayoutLyricsPanel.value).toBe(true)
     mockDisplayMode.value = 'normal'
     expect(layout.canDisplayLyricsPanel.value).toBe(true)
 
@@ -73,6 +74,7 @@ describe('useLyricsPanelLayout', () => {
     matchesState = false
     listeners.forEach((cb) => cb({ matches: false }))
     expect(layout.canDisplayLyricsPanel.value).toBe(false)
+    expect(layout.canLayoutLyricsPanel.value).toBe(false)
 
     unsub()
   })

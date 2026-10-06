@@ -27,7 +27,6 @@ import {
   type CdSurfaceIndicatorMotionState,
 } from '../utils/cdSurfaceIndicator'
 import CdViewSwitch from '../components/CdViewSwitch.vue'
-import CdBackgroundSwitch from '../components/CdBackgroundSwitch.vue'
 import CdSpectrumPreview from '../components/CdSpectrumPreview.vue'
 import { albumIdentityKey } from '../utils/albumIdentity'
 import type { TrackListItem } from '@shared/types/libraryScan'
@@ -46,10 +45,8 @@ import CdTrackList from '../components/CdTrackList.vue'
 import CdFocusLyrics from '../components/CdFocusLyrics.vue'
 import { createCdStage, type CdAlbum } from '../utils/cdStageController'
 import { useCdCanvasTheme } from '../composables/useCdCanvasTheme'
-import { useCdCanvasBackground } from '../composables/useCdCanvasBackground'
 import { useCdProgressStyle } from '../composables/useCdProgressStyle'
 import { useCdCanvasColors } from '../composables/useCdCanvasColors'
-import { resolveCdCanvasBackground } from '../utils/cdCanvasColors'
 import { formatCdAccent } from '../utils/cdAccent'
 import { presentCdTrackComposers } from '../utils/cdTrackComposers'
 import { animatePlaybackTextShimmer, animateProgress } from '@renderer/shared/animation/motion'
@@ -84,9 +81,6 @@ const trackPanelRef = ref<HTMLElement | null>(null)
 const controlsRef = ref<HTMLElement | null>(null)
 const focusedPlaybackFrameRef = ref<HTMLElement | null>(null)
 const focused = ref(false)
-// Canvas color follows the requested state; UI stays focused during its exit motion.
-const focusTarget = ref(false)
-const { cdCanvasBackgroundEnabled, toggleCdCanvasBackground } = useCdCanvasBackground()
 const { cdProgressStyle, toggleCdProgressStyle } = useCdProgressStyle()
 const { cdVibrationEnabled, toggleCdVibration, cdVibrationStyle, setCdVibrationStyle } =
   useCdVibration()
@@ -112,9 +106,6 @@ const progressToggleLabel = computed(() =>
 )
 const progressTooltip = computed(() =>
   t('albums.cd.progress.current', { style: t(`albums.cd.progress.${cdProgressStyle.value}`) }),
-)
-const canvasBackgroundActive = computed(
-  () => focusTarget.value && cdCanvasTheme.value === 'light' && cdCanvasBackgroundEnabled.value,
 )
 const focusSettled = ref(false)
 const cdMode = ref<CdPlaybackMode>('catalog-sequential')
@@ -230,22 +221,7 @@ const stageRef = ref<HTMLElement | null>(null)
 const infoRef = ref<HTMLElement | null>(null)
 const loading = ref(true)
 const starting = ref(false)
-const canvasArtworkKey = computed(() => focusedAlbum.value?.artworkCacheKey ?? null)
-const { palette: canvasPalette } = useArtworkPalette(canvasArtworkKey, {
-  enabled: () =>
-    cdCanvasTheme.value === 'light' &&
-    cdCanvasBackgroundEnabled.value &&
-    !loading.value &&
-    !starting.value,
-})
-const canvasBackground = computed(() =>
-  canvasBackgroundActive.value &&
-  canvasArtworkKey.value &&
-  canvasPalette.value.key === canvasArtworkKey.value
-    ? resolveCdCanvasBackground(canvasPalette.value)
-    : null,
-)
-useCdCanvasColors(pageRef, canvasBackground, cdCanvasTheme, () =>
+useCdCanvasColors(pageRef, cdCanvasTheme, () =>
   ringTrackMatches.value &&
   ringPalette.value.key === ringArtworkKey.value &&
   ringPalette.value.quality !== 'fallback'
@@ -801,9 +777,6 @@ onMounted(() => {
         }
       },
       change: focusChange,
-      targetChange: (open) => {
-        focusTarget.value = open
-      },
       togglePlayback: () => {
         if (!ringTrackMatches.value || loading.value || failed.value) return false
         void playback.togglePlayPause()
@@ -855,10 +828,9 @@ onBeforeUnmount(() => {
       'cd-page--loading': loading && !count && !failed,
       'cd-page--starting': starting,
       'cd-page--focused': focused,
-      'cd-page--entry-fade': repeatEntry && !loading && !failed,
+      'cd-page--entry-fade': repeatEntry && !fromIndexViewSwitch && !loading && !failed,
     }"
     :data-theme="cdCanvasTheme"
-    :data-background-mode="canvasBackgroundActive ? 'accent' : 'default'"
     :aria-label="t('albums.cd.title')"
     @keydown="onKeydown"
   >
@@ -1049,7 +1021,6 @@ onBeforeUnmount(() => {
         </p>
       </section>
       <CdFocusLyrics
-        v-if="!cdVibrationEnabled"
         :active="focusSettled && ringTrackMatches && !loading && !failed"
         accent="var(--cd-lyrics-color)"
         :stage="stageRef"
@@ -1137,12 +1108,6 @@ onBeforeUnmount(() => {
       ></span>
       <span v-else class="i-lucide-moon cd-control-icon" aria-hidden="true"></span>
     </button>
-    <CdBackgroundSwitch
-      v-if="focused && !starting"
-      :enabled="cdCanvasBackgroundEnabled"
-      :disabled="cdCanvasTheme === 'dark'"
-      @toggle="toggleCdCanvasBackground"
-    />
     <button
       v-if="focused && !starting"
       v-tooltip.feedback="progressTooltip"
@@ -1291,6 +1256,7 @@ onBeforeUnmount(() => {
   --cd-bg-image: none;
   --cd-text: #292929;
   --cd-text-muted: #62625b;
+  --cd-lyrics-color: var(--cd-text-muted);
   --cd-text-subtle: #64645d;
   --cd-text-faint: #85857d;
   --cd-text-count: #55554f;
@@ -1959,7 +1925,6 @@ onBeforeUnmount(() => {
   background: transparent;
   box-shadow: none;
 }
-.cd-page .cd-background-toggle,
 .cd-page .cd-vibration-toggle,
 .cd-page .cd-progress-toggle {
   padding: 0;
@@ -1969,11 +1934,9 @@ onBeforeUnmount(() => {
   background: transparent;
   box-shadow: none;
 }
-.cd-page .cd-background-toggle[aria-pressed='true'],
 .cd-page .cd-vibration-toggle[aria-pressed='true'] {
   color: var(--cd-text);
 }
-.cd-page .cd-background-toggle:hover:not(:disabled),
 .cd-page .cd-vibration-toggle:hover:not(:disabled),
 .cd-page .cd-progress-toggle:hover:not(:disabled) {
   color: var(--cd-text);
@@ -1982,7 +1945,7 @@ onBeforeUnmount(() => {
 }
 .cd-page .cd-progress-toggle {
   position: absolute;
-  left: 120px;
+  left: 72px;
   bottom: 24px;
   z-index: 8;
   width: 32px;
@@ -1991,7 +1954,7 @@ onBeforeUnmount(() => {
 }
 .cd-page .cd-vibration-toggle {
   position: absolute;
-  left: 168px;
+  left: 120px;
   bottom: 24px;
   z-index: 8;
   width: 32px;
@@ -2244,11 +2207,11 @@ onBeforeUnmount(() => {
     bottom: 16px;
   }
   .cd-page .cd-progress-toggle {
-    left: 112px;
+    left: 64px;
     bottom: 16px;
   }
   .cd-page .cd-vibration-toggle {
-    left: 160px;
+    left: 112px;
     bottom: 16px;
   }
 }

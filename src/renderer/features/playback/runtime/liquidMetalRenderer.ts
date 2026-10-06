@@ -1,4 +1,6 @@
 import { vertexSource, fragmentSource } from './liquidMetalShader'
+import { morphFragmentSource } from './fullscreenBackgroundMorphShader'
+import { createBackgroundMorphClock, type BackgroundMorphEndpoint } from './backgroundMorph'
 import { resolveLiquidMetalSettings, type LiquidMetalSettings } from './liquidMetalSettings'
 import { alignLiquidMetalPalette, type LiquidMetalPalette } from './liquidMetalPalette'
 
@@ -6,6 +8,8 @@ interface RendererState {
   active: boolean
   playing: boolean
   reducedMotion: boolean
+  // Pausing the flow must not pause a user-requested material transition.
+  morphReducedMotion?: boolean
 }
 
 interface GpuResources {
@@ -13,6 +17,7 @@ interface GpuResources {
   buffer: WebGLBuffer
   vao: WebGLVertexArrayObject
   uniforms: Record<string, WebGLUniformLocation | null>
+  flowTexture: WebGLTexture | null
 }
 
 interface PendingProgram {
@@ -30,7 +35,11 @@ export function createLiquidMetalRenderer(
     onError: (error: unknown) => void
     onReady?: () => void
     onContextLost?: () => void
+    onContextRestored?: () => void
     onFrameInvalidated?: () => void
+    enableMorph?: boolean
+    onMorphFrame?: (phase: number) => void
+    onMorphComplete?: (phase: BackgroundMorphEndpoint) => void
   },
 ) {
   const context = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false })
@@ -58,6 +67,11 @@ export function createLiquidMetalRenderer(
     failed = false,
     disposed = false,
     ready = false
+  let warming = false
+  const morph = createBackgroundMorphClock()
+  let morphCompletionPending = false
+  let flowWidth = 0,
+    flowHeight = 0
 
   function compile(type: number, source: string): WebGLShader {
     const shader = gl.createShader(type)
@@ -80,6 +94,7 @@ export function createLiquidMetalRenderer(
     gl.deleteBuffer(resources.buffer)
     gl.deleteVertexArray(resources.vao)
     gl.deleteProgram(resources.program)
+    if (resources.flowTexture) gl.deleteTexture(resources.flowTexture)
     resources = null
   }
 
@@ -91,7 +106,10 @@ export function createLiquidMetalRenderer(
       program: WebGLProgram | null = null
     try {
       vertex = compile(gl.VERTEX_SHADER, vertexSource)
-      fragment = compile(gl.FRAGMENT_SHADER, fragmentSource)
+      fragment = compile(
+        gl.FRAGMENT_SHADER,
+        options.enableMorph ? morphFragmentSource : fragmentSource,
+      )
       program = gl.createProgram()
       if (!program) throw new Error('Unable to allocate liquid-metal program')
       gl.attachShader(program, vertex)
@@ -119,7 +137,8 @@ export function createLiquidMetalRenderer(
     const { program, vertex, fragment } = pending
     pending = null
     let buffer: WebGLBuffer | null = null,
-      vao: WebGLVertexArrayObject | null = null
+      vao: WebGLVertexArrayObject | null = null,
+      flowTexture: WebGLTexture | null = null
     try {
       if (!gl.getProgramParameter(program, gl.LINK_STATUS))
         throw new Error(gl.getProgramInfoLog(program) ?? 'Unable to link liquid-metal program')
@@ -133,15 +152,42 @@ export function createLiquidMetalRenderer(
       gl.enableVertexAttribArray(position)
       gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 0, 0)
       const uniforms = Object.fromEntries(
-        ['resolution', 'time', 'folds', 'roughness', 'colors[0]', 'weights[0]'].map((name) => [
-          name,
-          gl.getUniformLocation(program, 'u_' + name),
-        ]),
+        [
+          'resolution',
+          'time',
+          'folds',
+          'roughness',
+          'colors[0]',
+          'weights[0]',
+          ...(options.enableMorph ? ['flow', 'phase'] : []),
+        ].map((name) => [name, gl.getUniformLocation(program, 'u_' + name)]),
       )
-      resources = { program, buffer, vao, uniforms }
+      if (options.enableMorph) {
+        flowTexture = gl.createTexture()
+        if (!flowTexture) throw new Error('Unable to allocate flow texture')
+        gl.bindTexture(gl.TEXTURE_2D, flowTexture)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          1,
+          1,
+          0,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          new Uint8Array([14, 17, 23, 255]),
+        )
+        flowWidth = flowHeight = 0
+      }
+      resources = { program, buffer, vao, uniforms, flowTexture }
     } catch (error) {
       if (buffer) gl.deleteBuffer(buffer)
       if (vao) gl.deleteVertexArray(vao)
+      if (flowTexture) gl.deleteTexture(flowTexture)
       gl.deleteProgram(program)
       throw error
     } finally {
@@ -159,9 +205,13 @@ export function createLiquidMetalRenderer(
     return isVisible() && !state.reducedMotion
   }
 
+  function canDraw(): boolean {
+    return (state.active || warming) && !document.hidden && !lost && !failed && !disposed
+  }
+
   function requestDraw(): void {
     dirty = true
-    if (!frame && isVisible()) frame = requestAnimationFrame(tick)
+    if (!frame && canDraw()) frame = requestAnimationFrame(tick)
   }
 
   function resize(): void {
@@ -203,8 +253,21 @@ export function createLiquidMetalRenderer(
     gl.uniform1f(uniforms.roughness, settings.roughness)
     gl.uniform3fv(uniforms['colors[0]'], colors)
     gl.uniform1fv(uniforms['weights[0]'], weights)
+    if (resources.flowTexture) {
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, resources.flowTexture)
+      gl.uniform1i(uniforms.flow, 0)
+      gl.uniform1f(uniforms.phase, morph.phase)
+    }
     gl.drawArrays(gl.TRIANGLES, 0, 3)
     dirty = false
+    if (options.enableMorph) {
+      options.onMorphFrame?.(morph.phase)
+      if (morphCompletionPending && !morph.transitioning) {
+        morphCompletionPending = false
+        options.onMorphComplete?.(morph.target)
+      }
+    }
     if (!ready) {
       ready = true
       options.onReady?.()
@@ -213,7 +276,7 @@ export function createLiquidMetalRenderer(
 
   function tick(now: number): void {
     frame = 0
-    if (!isVisible()) return
+    if (!canDraw()) return
     try {
       if (!finishInitialization(now)) {
         frame = requestAnimationFrame(tick)
@@ -226,7 +289,9 @@ export function createLiquidMetalRenderer(
     if (lastTick && isAnimated())
       time += Math.min((now - lastTick) / 1000, 0.05) * settings.speed * (state.playing ? 1 : 0.38)
     lastTick = now
-    const interval = 1000 / (state.playing ? 60 : 30)
+    morph.sample(now)
+    const interval =
+      1000 / (state.playing || morph.transitioning || morphCompletionPending ? 60 : 30)
     const elapsed = now - lastDraw
     if (dirty || !lastDraw) {
       lastDraw = now
@@ -237,14 +302,18 @@ export function createLiquidMetalRenderer(
       lastDraw += Math.max(1, Math.floor((elapsed + 0.5) / interval)) * interval
       draw(now)
     }
-    if (isAnimated() || blendStarted !== null) frame = requestAnimationFrame(tick)
+    warming = false
+    if (isAnimated() || blendStarted !== null || morph.transitioning || morphCompletionPending)
+      frame = requestAnimationFrame(tick)
   }
 
   function sync(): void {
     cancelAnimationFrame(frame)
     frame = 0
     lastTick = lastDraw = 0
-    if (isVisible()) requestDraw()
+    if ((!state.active || document.hidden || state.morphReducedMotion) && morph.transitioning)
+      morph.finish()
+    if (canDraw()) requestDraw()
   }
 
   function fail(error: unknown): void {
@@ -258,10 +327,14 @@ export function createLiquidMetalRenderer(
   function onLost(event: Event): void {
     event.preventDefault()
     lost = true
+    warming = false
     resources = null // The browser invalidates every object on context loss.
     pending = null
     parallelCompile = null
     ready = false
+    morph.finish()
+    morphCompletionPending = false
+    flowWidth = flowHeight = 0
     sync()
     options.onContextLost?.()
   }
@@ -272,6 +345,9 @@ export function createLiquidMetalRenderer(
       initialize()
       lost = false
       resize()
+      // The owner knows whether this parked context is still eligible to prewarm
+      // (including native-window visibility, which document.hidden can miss).
+      options.onContextRestored?.()
       sync()
     } catch (error) {
       fail(error)
@@ -289,6 +365,56 @@ export function createLiquidMetalRenderer(
 
   return {
     resize,
+    /** Call inside the source draw, before its default framebuffer is presented. */
+    uploadFlowFrame(source: HTMLCanvasElement): boolean {
+      if (
+        !resources?.flowTexture ||
+        disposed ||
+        failed ||
+        lost ||
+        source.width < 2 ||
+        source.height < 2
+      )
+        return false
+      try {
+        gl.activeTexture(gl.TEXTURE0)
+        gl.bindTexture(gl.TEXTURE_2D, resources.flowTexture)
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+        if (flowWidth === source.width && flowHeight === source.height)
+          gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, source)
+        else {
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
+          flowWidth = source.width
+          flowHeight = source.height
+        }
+        // Respect the output's cadence; source uploads must not force a second draw.
+        if (!frame && canDraw()) frame = requestAnimationFrame(tick)
+        return true
+      } catch (error) {
+        fail(error)
+        return false
+      }
+    },
+    transitionTo(target: BackgroundMorphEndpoint, animated = true): void {
+      if (!options.enableMorph || disposed || failed || lost) return
+      const now = performance.now()
+      morph.to(target, now, animated && isVisible() && !state.morphReducedMotion)
+      morphCompletionPending = true
+      // A direct endpoint must be submitted before the coordinator swaps surfaces.
+      if (!morph.transitioning && resources && canDraw()) draw(now)
+      requestDraw()
+    },
+    prewarm() {
+      if (ready || disposed || failed || lost) return
+      // Compile without blocking queries, submit one parked frame, then stop polling.
+      warming = true
+      requestDraw()
+    },
+    cancelPrewarm() {
+      if (!warming) return
+      warming = false
+      sync()
+    },
     setPalette(palette: LiquidMetalPalette) {
       if (disposed) return
       const now = performance.now()

@@ -12,6 +12,8 @@ import WindowTrafficLights from './app/layout/WindowTrafficLights.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
+import SettingsDialog from '@renderer/features/settings/components/SettingsDialog.vue'
+import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useCdCanvasTheme } from '@renderer/features/albums/composables/useCdCanvasTheme'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
@@ -40,13 +42,23 @@ const route = useRoute()
 const { cdCanvasTheme } = useCdCanvasTheme()
 useSystemMediaIntegration()
 const { displayMode } = usePlayerDisplayMode()
+const { isSettingsOpen, closeSettings } = useSettingsDialog()
+
+watch(() => route.fullPath, closeSettings, { flush: 'sync' })
+watch(
+  displayMode,
+  (mode) => {
+    if (mode === 'fullscreen') closeSettings()
+  },
+  { flush: 'sync' },
+)
 
 const { lyricsPanelExpanded } = useLyricsPanelVisibility()
-const { canDisplayLyricsPanel } = useLyricsPanelLayout()
+const { canLayoutLyricsPanel } = useLyricsPanelLayout()
 
 const shellRef = ref<HTMLElement | null>(null)
 const mainRef = ref<HTMLElement | null>(null)
-const initialLyricsActive = canDisplayLyricsPanel.value && lyricsPanelExpanded.value
+const initialLyricsActive = canLayoutLyricsPanel.value && lyricsPanelExpanded.value
 const lyricsProgress = ref(initialLyricsActive ? 1 : 0)
 const shouldMountLyrics = ref(initialLyricsActive)
 const isLyricsCollapsed = ref(!initialLyricsActive)
@@ -533,7 +545,7 @@ async function settleAlbumLyricsTransition(): Promise<void> {
   lyricsAlbumTransition.cancel()
   const participant = activeAlbumParticipant
   participant?.cancelLyricsLayoutTransition(ticket.revision)
-  const expanded = ticket.to >= 0.5 && canDisplayLyricsPanel.value
+  const expanded = ticket.to >= 0.5 && canLayoutLyricsPanel.value
   setLyricsTargetState(expanded)
   setLyricsVisualProgress(expanded ? 1 : 0)
   sidebarLayoutTransition.clear()
@@ -679,7 +691,7 @@ function collapseWithAnimation(): void {
 }
 
 watch(lyricsPanelExpanded, (expanded) => {
-  if (!canDisplayLyricsPanel.value) {
+  if (!canLayoutLyricsPanel.value) {
     applyImmediateState(false)
     return
   }
@@ -690,13 +702,13 @@ watch(lyricsPanelExpanded, (expanded) => {
   }
 })
 
-watch(canDisplayLyricsPanel, (canDisplay) => {
+watch(canLayoutLyricsPanel, (canDisplay) => {
   applyImmediateState(canDisplay && lyricsPanelExpanded.value)
 })
 
 function updateLyricsTargetWidth(): void {
   if (isGenericLyricsTransitioning) {
-    applyImmediateState(canDisplayLyricsPanel.value && lyricsPanelExpanded.value)
+    applyImmediateState(canLayoutLyricsPanel.value && lyricsPanelExpanded.value)
   }
   if (activeAlbumTransitionTicket) void settleAlbumLyricsTransition()
   lyricsTargetWidthPx.value = computeLyricsTargetWidth(shellRef.value?.clientWidth)
@@ -706,7 +718,7 @@ function handleReducedMotionChange(): void {
   if (reducedMotionMedia?.matches && activeAlbumTransitionTicket) {
     void settleAlbumLyricsTransition()
   } else if (reducedMotionMedia?.matches && isGenericLyricsTransitioning) {
-    applyImmediateState(lyricsPanelExpanded.value && canDisplayLyricsPanel.value)
+    applyImmediateState(lyricsPanelExpanded.value && canLayoutLyricsPanel.value)
   }
 }
 
@@ -718,7 +730,7 @@ const shellStyle = computed<CSSProperties>(() => ({
 
 /** 成功导航的来源；与目标路由在同一轮渲染前更新。 */
 const previousRouteName = ref(route.name)
-const isCdIndexSlide = ref(false)
+const cdIndexSlideDirection = ref<'enter' | 'leave' | null>(null)
 /** 仅在导航成功后锁定交互，加载失败或守卫取消不产生过渡状态。 */
 const isAlbumDetailEntering = ref(false)
 const isAlbumRouteTransitioning = ref(false)
@@ -745,7 +757,7 @@ const firstAlbumDetailTransitionHooks = computed(() =>
 
 const removeBeforeEach = router.beforeEach(() => {
   if (isGenericLyricsTransitioning) {
-    applyImmediateState(canDisplayLyricsPanel.value && lyricsPanelExpanded.value)
+    applyImmediateState(canLayoutLyricsPanel.value && lyricsPanelExpanded.value)
   }
 })
 
@@ -775,10 +787,16 @@ const removeAfterEach = router.afterEach((to, from, failure) => {
       : null
   }
   previousRouteName.value = from.name
-  isCdIndexSlide.value =
+  cdIndexSlideDirection.value =
     from.name === 'cd-albums' &&
     to.name === 'cd-album-index' &&
     hasCdViewSwitchTransition('browse', 'index')
+      ? 'enter'
+      : from.name === 'cd-album-index' &&
+          to.name === 'cd-albums' &&
+          hasCdViewSwitchTransition('index', 'browse')
+        ? 'leave'
+        : null
   isAlbumDetailEntering.value = to.name === 'album-detail' && from.name === 'albums'
   isFirstAlbumDetailTransition.value = isAlbumDetailEntering.value && !hasPreparedAlbumDetail
   isAlbumRouteTransitioning.value =
@@ -831,10 +849,10 @@ const renderedSidebarRail = ref(isSidebarRail.value)
 
 watch(isSidebarRail, (rail) => {
   if (isGenericLyricsTransitioning) {
-    applyImmediateState(canDisplayLyricsPanel.value && lyricsPanelExpanded.value)
+    applyImmediateState(canLayoutLyricsPanel.value && lyricsPanelExpanded.value)
   }
   if (sidebarFullHeight.value && !reducedMotionMedia?.matches && usesAlbumLayoutTransition()) {
-    void runAlbumLyricsTransition(canDisplayLyricsPanel.value && lyricsPanelExpanded.value, rail)
+    void runAlbumLyricsTransition(canLayoutLyricsPanel.value && lyricsPanelExpanded.value, rail)
   } else {
     if (activeAlbumTransitionTicket) void settleAlbumLyricsTransition()
     renderedSidebarRail.value = rail
@@ -849,7 +867,7 @@ watch(sidebarFullHeight, (fullHeight) => {
  * 路由过渡规则：
  * 1. 专辑列表 ➔ 专辑详情：景深穿梭与黑胶破土浮升 (album-detail-enter-matrix)
  * 2. 专辑详情 ➔ 专辑列表：黑胶沉降与景深聚拢归位 (album-detail-exit-matrix)
- * 3. CD 浏览切换到封面检索：检索页面从右侧滑入
+ * 3. CD 浏览与封面检索切换：检索页面从右侧滑入，返回时向右滑出
  * 4. 唱片室其余进入与离开：短淡入淡出，首次展开动画由页面控制
  * 5. 其余路由切换：不使用 CSS 过渡，立即完成
  */
@@ -860,7 +878,8 @@ const transitionName = computed(() => {
   if (route.name === 'albums' && previousRouteName.value === 'album-detail') {
     return 'album-detail-exit-matrix'
   }
-  if (isCdIndexSlide.value) return 'cd-index-slide'
+  if (cdIndexSlideDirection.value === 'enter') return 'cd-index-slide'
+  if (cdIndexSlideDirection.value === 'leave') return 'cd-index-slide-return'
   if (route.name === 'cd-albums' || previousRouteName.value === 'cd-albums') {
     return 'cd-canvas-fade'
   }
@@ -931,6 +950,9 @@ watch(
 )
 
 watch(displayMode, (mode) => {
+  if (mode !== 'normal' && isGenericLyricsTransitioning) {
+    applyImmediateState(canLayoutLyricsPanel.value && lyricsPanelExpanded.value)
+  }
   if (mode !== 'normal' && activeAlbumTransitionTicket) void settleAlbumLyricsTransition()
 })
 </script>
@@ -938,7 +960,7 @@ watch(displayMode, (mode) => {
 <template>
   <div
     class="app-window"
-    :inert="displayMode === 'fullscreen'"
+    :inert="displayMode === 'fullscreen' || isSettingsOpen"
     :class="{
       'is-cd-albums': isCdCanvas,
       'is-archive-canvas': isArchiveCanvas,
@@ -1022,6 +1044,7 @@ watch(displayMode, (mode) => {
     </div>
     <FullscreenPlayerOverlay />
   </div>
+  <SettingsDialog />
 </template>
 
 <style scoped>

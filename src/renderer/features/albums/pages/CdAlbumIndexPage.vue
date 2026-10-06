@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
+import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import CdViewSwitch from '../components/CdViewSwitch.vue'
 import { cdAlbumCatalogSession } from '../composables/cdAlbumCatalogSession'
 import { useCdCanvasTheme } from '../composables/useCdCanvasTheme'
@@ -303,7 +304,7 @@ onBeforeUnmount(() => {
             }"
           >
             <h2 v-if="headingArtist(virtualRow.index) !== null" class="cd-index-artist" dir="auto">
-              {{ headingArtist(virtualRow.index) }}
+              {{ formatArtist(headingArtist(virtualRow.index)) }}
             </h2>
             <template v-else-if="albumsAt(virtualRow.index)">
               <button
@@ -345,8 +346,12 @@ onBeforeUnmount(() => {
                   gridColumn: `span ${block.albums.length}`,
                 }"
               >
-                <h2 v-tooltip.overflow="block.artist" class="cd-index-shared-artist" dir="auto">
-                  {{ block.artist }}
+                <h2
+                  v-tooltip.overflow="formatArtist(block.artist)"
+                  class="cd-index-shared-artist"
+                  dir="auto"
+                >
+                  {{ formatArtist(block.artist) }}
                 </h2>
                 <div
                   class="cd-index-shared-albums"

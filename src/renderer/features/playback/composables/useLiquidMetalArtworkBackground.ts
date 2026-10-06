@@ -9,6 +9,7 @@ import type { ArtworkPalette } from '../types'
 import { toLiquidMetalPalette } from '../runtime/liquidMetalPalette'
 import { createLiquidMetalRenderer } from '../runtime/liquidMetalRenderer'
 import type { LiquidMetalSettings } from '../runtime/liquidMetalSettings'
+import type { BackgroundMorphEndpoint } from '../runtime/backgroundMorph'
 
 interface BackgroundState {
   enabled: boolean
@@ -17,6 +18,8 @@ interface BackgroundState {
   motionPaused: boolean
   palette: DeepReadonly<ArtworkPalette>
   settings: Readonly<LiquidMetalSettings>
+  deferInitialization?: boolean
+  enableMorph?: boolean
 }
 
 /** Own one canvas/context for the overlay's lifetime, without retaining its lyrics DOM. */
@@ -24,6 +27,11 @@ export function useLiquidMetalArtworkBackground(
   canvas: Ref<HTMLCanvasElement | null>,
   state: BackgroundState,
   onUnavailable: () => void,
+  callbacks: {
+    onMorphFrame?: (phase: number) => void
+    onMorphComplete?: (phase: BackgroundMorphEndpoint) => void
+    onContextLost?: () => void
+  } = {},
 ) {
   const ready = ref(false)
   let renderer: ReturnType<typeof createLiquidMetalRenderer> | null = null
@@ -46,17 +54,21 @@ export function useLiquidMetalArtworkBackground(
   }
 
   function syncState(): void {
+    const deferColdFrame = state.deferInitialization && !ready.value
     renderer?.setState({
-      active: state.enabled && state.active && windowVisible,
+      active: state.enabled && state.active && windowVisible && !deferColdFrame,
       playing: state.playing,
       reducedMotion: state.motionPaused || motionQuery?.matches === true,
+      ...(state.enableMorph ? { morphReducedMotion: motionQuery?.matches === true } : {}),
     })
+    if (!state.enabled || !windowVisible || deferColdFrame) renderer?.cancelPrewarm()
+    else if (!state.active) renderer?.prewarm()
   }
 
   function initialize(): void {
     cancelWarmup?.()
     cancelWarmup = null
-    if (!mounted || !canvas.value || !state.enabled || renderer) return
+    if (!mounted || !canvas.value || !state.enabled || state.deferInitialization || renderer) return
     if (!motionQuery) {
       motionQuery = createReducedMotionQuery()
       motionQuery.addEventListener('change', syncState)
@@ -68,11 +80,23 @@ export function useLiquidMetalArtworkBackground(
         active: state.active && windowVisible,
         playing: state.playing,
         reducedMotion: state.motionPaused || motionQuery.matches,
+        ...(state.enableMorph ? { morphReducedMotion: motionQuery.matches } : {}),
+        enableMorph: state.enableMorph,
+        onMorphFrame: callbacks.onMorphFrame,
+        onMorphComplete: callbacks.onMorphComplete,
         onReady: () => (ready.value = true),
-        onContextLost: () => (ready.value = false),
-        onFrameInvalidated: () => (ready.value = false),
+        onContextLost: () => {
+          ready.value = false
+          callbacks.onContextLost?.()
+        },
+        onContextRestored: syncState,
+        onFrameInvalidated: () => {
+          ready.value = false
+          if (state.deferInitialization) syncState()
+        },
         onError: handleError,
       })
+      if (!state.active && windowVisible) renderer.prewarm()
     } catch (error) {
       handleError(error)
     }
@@ -86,14 +110,13 @@ export function useLiquidMetalArtworkBackground(
       syncState()
       return
     }
-    if (!state.enabled) return
+    if (!state.enabled || state.deferInitialization) return
     if (state.active) {
       initialize()
       return
     }
-    // Compile during a quiet moment after a track exists and metal is selected.
-    // An inactive renderer submits no draws or frame polling; first entry uses
-    // the driver's already compiled program, then sizes/draws the visible canvas.
+    // Prepare the selected mode during idle, including one GPU draw. Later parked
+    // state changes reuse that frame without running an animation clock.
     if (typeof requestIdleCallback === 'function') {
       const id = requestIdleCallback(initialize, { timeout: 1500 })
       cancelWarmup = () => cancelIdleCallback(id)
@@ -112,7 +135,9 @@ export function useLiquidMetalArtworkBackground(
     (settings) => renderer?.setMaterial(settings),
   )
   watch(() => [state.playing, state.motionPaused], syncState)
-  watch(() => [state.enabled, state.active], syncPreparation, { flush: 'post' })
+  watch(() => [state.enabled, state.active, state.deferInitialization], syncPreparation, {
+    flush: 'post',
+  })
 
   onMounted(() => {
     mounted = true
@@ -133,5 +158,11 @@ export function useLiquidMetalArtworkBackground(
     renderer = null
   })
 
-  return { ready, resize: () => renderer?.resize() }
+  return {
+    ready,
+    resize: () => renderer?.resize(),
+    uploadFlowFrame: (source: HTMLCanvasElement) => renderer?.uploadFlowFrame(source) ?? false,
+    transitionTo: (target: BackgroundMorphEndpoint, animated: boolean) =>
+      renderer?.transitionTo(target, animated),
+  }
 }

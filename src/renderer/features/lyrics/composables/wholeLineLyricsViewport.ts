@@ -20,6 +20,7 @@ interface Options {
   reducedMotion?: Readonly<Ref<boolean>>
   focalRatio: number
   activeScale: number
+  requestMoreLines?: () => boolean
 }
 
 interface Paint extends Keyframe {
@@ -31,7 +32,13 @@ interface Pose {
   top: number
   height: number
   scale: number
+  lineAppearance: LineAppearance
   paint: Paint[]
+}
+
+interface LineAppearance extends Keyframe {
+  opacity: string
+  filter: string
 }
 
 function readPaint(element: HTMLElement): Paint {
@@ -40,6 +47,14 @@ function readPaint(element: HTMLElement): Paint {
     color: style.color,
     webkitTextStrokeColor: style.webkitTextStrokeColor,
     textShadow: style.textShadow,
+  }
+}
+
+function readLineAppearance(element: HTMLElement): LineAppearance {
+  const style = getComputedStyle(element)
+  return {
+    opacity: style.opacity,
+    filter: style.filter,
   }
 }
 
@@ -77,7 +92,7 @@ function firstInkOffset(line: HTMLElement, scale: number): number {
   )
 }
 
-/** Owns only the metal whole-sentence view; legacy scrolling never enters this controller. */
+/** Owns the shared timed whole-sentence view; plain lyrics keep the legacy scrolling path. */
 export function createWholeLineLyricsViewport(options: Options) {
   let track: HTMLElement | null = null
   let pending: Map<HTMLElement, Pose> | null = null
@@ -85,6 +100,8 @@ export function createWholeLineLyricsViewport(options: Options) {
   let previousIndex = -1
   let layoutKey = ''
   let generation = 0
+  let expandingWindow = false
+  let measurements = new WeakMap<LyricLine, { key: string; height: number; inkOffset?: number }>()
   const animations = new Set<Animation>()
 
   function capture(): Map<HTMLElement, Pose> {
@@ -98,6 +115,7 @@ export function createWholeLineLyricsViewport(options: Options) {
         top: rect.top,
         height: rect.height,
         scale: readScale(material),
+        lineAppearance: readLineAppearance(line),
         paint: Array.from(material.children, (child) => readPaint(child as HTMLElement)),
       })
     })
@@ -116,6 +134,7 @@ export function createWholeLineLyricsViewport(options: Options) {
     layoutKey = ''
     linesIdentity = undefined
     previousIndex = -1
+    expandingWindow = false
     if (!track) return
     track.style.removeProperty('--fullscreen-whole-fit-scale')
     track
@@ -171,6 +190,8 @@ export function createWholeLineLyricsViewport(options: Options) {
     const lines = options.lines?.value
     if (!container || !nextTrack || !lines) return
     if (track && track !== nextTrack) clear()
+    const elements = Array.from(nextTrack.querySelectorAll<HTMLElement>('[data-lyric-index]'))
+    const indices = elements.map((line) => Number(line.dataset.lyricIndex))
     const rect = container.getBoundingClientRect()
     const artwork = options.artworkRef?.value?.getBoundingClientRect()
     const anchorTop =
@@ -182,6 +203,8 @@ export function createWholeLineLyricsViewport(options: Options) {
       options.activeIndex.value,
       options.showPrelude.value,
       options.reducedMotion?.value,
+      indices[0],
+      indices.at(-1),
     ].join('|')
     // ResizeObserver also reports our own final row heights. It must not restart a transition.
     if (!force && track === nextTrack && linesIdentity === lines && layoutKey === key) {
@@ -194,8 +217,13 @@ export function createWholeLineLyricsViewport(options: Options) {
       lines,
       previousIndex,
       options.activeIndex.value,
-      behavior === 'auto' || options.reducedMotion?.value || linesIdentity !== lines || !track,
+      behavior === 'auto' ||
+        options.reducedMotion?.value ||
+        linesIdentity !== lines ||
+        !track ||
+        expandingWindow,
     )
+    expandingWindow = false
     cancel()
     const token = generation
     track = nextTrack
@@ -203,17 +231,43 @@ export function createWholeLineLyricsViewport(options: Options) {
     layoutKey = key
     previousIndex = options.activeIndex.value
     container.scrollTop = 0
-    const elements = Array.from(track.querySelectorAll<HTMLElement>('[data-lyric-index]'))
     const materials = elements.map(
       (line) => line.querySelector<HTMLElement>('.fullscreen-player-lyric-material')!,
     )
-    const heights = materials.map((material) =>
-      Math.max(material.offsetHeight, parseFloat(getComputedStyle(material).lineHeight)),
-    )
+    if (!materials.length) return
+    if (force) measurements = new WeakMap()
+    const font = getComputedStyle(materials[0])
+    const measurementKey = [
+      rect.width,
+      font.fontSize,
+      font.fontFamily,
+      font.fontWeight,
+      font.lineHeight,
+      font.letterSpacing,
+    ].join('|')
+    const measured = materials.map((material, index) => {
+      const lyric = lines[indices[index]]
+      const key = `${measurementKey}|${lyric.text}`
+      const cached = measurements.get(lyric)
+      if (cached?.key === key) return cached
+      const value = {
+        key,
+        height: Math.max(material.offsetHeight, parseFloat(font.lineHeight)),
+        inkOffset: undefined as number | undefined,
+      }
+      measurements.set(lyric, value)
+      return value
+    })
+    const heights = measured.map((value) => value.height)
     const prelude = track.querySelector<HTMLElement>('[data-lyric-prelude]')
-    const start = resolveWholeLyricsStart(lines, options.activeIndex.value)
+    const start = indices.indexOf(resolveWholeLyricsStart(lines, options.activeIndex.value))
+    const currentIndex = indices.indexOf(options.activeIndex.value)
     const first = elements[start]
     if (!first) return
+    if (measured[start].inkOffset === undefined) {
+      const scale = readScale(materials[start])
+      measured[start].inkOffset = firstInkOffset(first, scale) / scale
+    }
     const opening = isWholeLyricsOpening(lines, options.activeIndex.value)
     const focalCenter = container.clientHeight * options.focalRatio
     let fit = 1
@@ -225,7 +279,7 @@ export function createWholeLineLyricsViewport(options: Options) {
     for (let attempt = 0; attempt < 16; attempt++) {
       track.style.setProperty('--fullscreen-whole-fit-scale', String(fit))
       scales = elements.map(
-        (_, index) => fit * (index === options.activeIndex.value ? 1 : 1 / options.activeScale),
+        (_, index) => fit * (index === currentIndex ? 1 : 1 / options.activeScale),
       )
       elements.forEach((line, index) => {
         line.style.height = `${heights[index] * scales[index]}px`
@@ -241,10 +295,10 @@ export function createWholeLineLyricsViewport(options: Options) {
       layout = resolveWholeLyricsWindow(
         metrics,
         start,
-        options.activeIndex.value,
+        currentIndex,
         anchorTop,
         container.clientHeight,
-        firstInkOffset(first, scales[start]),
+        measured[start].inkOffset! * scales[start],
         opening ? focalCenter : undefined,
       )
       let ratio: number
@@ -273,9 +327,13 @@ export function createWholeLineLyricsViewport(options: Options) {
     const main: Promise<void>[] = []
     const incoming: number[] = []
     const targets = materials.map((material) => material.getBoundingClientRect())
-    const current = elements[options.activeIndex.value]
+    const appearances = elements.map(readLineAppearance)
+    const paints = materials.map((material) =>
+      Array.from(material.children, (child) => readPaint(child as HTMLElement)),
+    )
+    const current = elements[currentIndex]
     const newCurrent = current && !previous.has(current)
-    const currentTarget = targets[options.activeIndex.value]
+    const currentTarget = targets[currentIndex]
     const blocked = new Set<HTMLElement>()
     if (newCurrent) {
       // Reveal a newly reached current sentence immediately. History whose swept area
@@ -298,7 +356,7 @@ export function createWholeLineLyricsViewport(options: Options) {
       const waitForEntry =
         duration > 0 &&
         visible &&
-        (blocked.has(line) || (!old && retained && index !== options.activeIndex.value))
+        (blocked.has(line) || (!old && retained && index !== currentIndex))
       line.style.visibility = visible && !waitForEntry ? 'visible' : 'hidden'
       line.setAttribute('aria-hidden', String(!visible || waitForEntry))
       if (!visible || !duration) return
@@ -307,12 +365,18 @@ export function createWholeLineLyricsViewport(options: Options) {
         return
       }
       const material = materials[index]
-      const box = material.getBoundingClientRect()
+      const box = targets[index]
       if (old) {
         main.push(
           animate(
             line,
-            [{ transform: `translate3d(0, ${old.top - box.top}px, 0)` }, { transform: 'none' }],
+            [
+              {
+                transform: `translate3d(0, ${old.top - box.top}px, 0)`,
+                ...old.lineAppearance,
+              },
+              { transform: 'none', ...appearances[index] },
+            ],
             duration,
           ),
         )
@@ -324,7 +388,7 @@ export function createWholeLineLyricsViewport(options: Options) {
           ),
         )
         Array.from(material.children).forEach((child, layer) => {
-          const target = readPaint(child as HTMLElement)
+          const target = paints[index][layer]
           if (old.paint[layer])
             main.push(animate(child as HTMLElement, [old.paint[layer], target], duration))
         })
@@ -344,6 +408,11 @@ export function createWholeLineLyricsViewport(options: Options) {
     if (prelude) {
       prelude.style.visibility = options.showPrelude.value ? 'visible' : 'hidden'
       prelude.setAttribute('aria-hidden', String(!options.showPrelude.value))
+    }
+    // Fit can reveal more future sentences in a very tall window or after shrinking long
+    // history. Grow only when the last mounted row fits, rather than clipping the content.
+    if (layout.endIndex === elements.length - 1 && options.requestMoreLines?.()) {
+      expandingWindow = true
     }
     void Promise.all(main).then(() => {
       if (token !== generation) return

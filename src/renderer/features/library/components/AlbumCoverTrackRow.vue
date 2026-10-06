@@ -248,8 +248,7 @@ function onKeyDown(event: KeyboardEvent): void {
 }
 
 .cover-track-row::before,
-.cover-track-row--disc-end::after,
-.cover-track-row:last-child::after {
+.cover-track-row--disc-end::after {
   content: '';
 }
 
@@ -257,8 +256,7 @@ function onKeyDown(event: KeyboardEvent): void {
   top: 0;
 }
 
-.cover-track-row--disc-end::after,
-.cover-track-row:last-child::after {
+.cover-track-row--disc-end::after {
   bottom: 0;
 }
 

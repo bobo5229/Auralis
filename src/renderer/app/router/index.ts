@@ -55,9 +55,7 @@ export const router = createRouter({
     },
     {
       path: '/settings',
-      name: 'settings',
-      component: routeLoaders.settings,
-      meta: { title: 'Settings' },
+      redirect: { name: 'library' },
     },
   ],
 })

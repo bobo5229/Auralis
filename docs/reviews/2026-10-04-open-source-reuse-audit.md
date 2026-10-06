@@ -19,7 +19,7 @@
 | 低 | [IPC 参数校验](../../src/main/ipc/ipcPayloadValidation.ts)：约500行，包含自建结构校验工具和各通道策略 | [Valibot](https://valibot.dev/api/strictObject/) | 通用结构校验可由 schema 接管，减少手写工具和类型维护。保留 IPC 来源校验、总大小、节点数量、深度和危险属性限制；不将整个文件视为可直接删除的框架代码。 |
 | 低 | [元数据文件监听](../../src/main/features/metadata/metadataWatchService.ts)：原生递归监听加事件整理、延迟确认和重试 | [Chokidar](https://github.com/paulmillr/chokidar) | 可复用事件规范化、原子写入及分块写入处理。保留缺失确认、文件迁移匹配和自身写入忽略规则；大曲库监听资源开销需要实测。扫描阶段的[文件稳定性检查](../../src/main/features/libraryScan/fileStabilityChecker.ts)不能直接随监听层一起删除。 |
 
-封面取色目前通过[48 × 48 采样](../../src/renderer/features/playback/composables/useArtworkPalette.ts)和[Worker](../../src/renderer/features/playback/workers/artworkPalette.worker.ts)执行。项目另有[image-q Worker](../../src/renderer/features/archive/mac/coverQuantize.worker.ts)，因此这个候选可以优先复用现有依赖，但两种算法的颜色结果不保证一致。
+封面取色目前通过[48 × 48 采样](../../src/renderer/features/playback/composables/useArtworkPalette.ts)和[Worker](../../src/renderer/features/playback/workers/artworkPalette.worker.ts)执行，量化底层见[extractArtworkPalette](../../src/renderer/features/playback/utils/extractArtworkPalette.ts)。
 
 ## 有现成方案但暂不优先替换的实现
 
@@ -50,7 +50,7 @@
 | 音频播放与解码 | mpv、FFmpeg | [mpvClient](../../src/main/features/audio/mpvClient.ts)、[softTransition](../../src/main/features/audio/softTransition.ts) |
 | FFT | fft.js | [spectrumAnalysis](../../src/shared/audio/spectrumAnalysis.ts) |
 | 元数据读取与标签写入 | music-metadata、FFmpeg | [parseAudioMetadata](../../src/main/features/metadata/parseAudioMetadata.ts)、[audioTagWriteService](../../src/main/features/metadata/audioTagWriteService.ts) |
-| 图片处理与颜色量化 | sharp、image-q | [封面缓存](../../src/main/features/artwork/artworkCache.ts)、[量化 Worker](../../src/renderer/features/archive/mac/coverQuantize.worker.ts) |
+| 图片处理与颜色量化 | sharp、image-q | [封面缓存](../../src/main/features/artwork/artworkCache.ts)、[封面取色](../../src/renderer/features/playback/utils/extractArtworkPalette.ts) |
 | 虚拟列表 | TanStack Virtual | [LibraryPage](../../src/renderer/features/library/pages/LibraryPage.vue)、[AlbumsPage](../../src/renderer/features/albums/pages/AlbumsPage.vue) |
 | 拼音索引 | pinyin-pro | [cdAlbumIndex](../../src/renderer/features/albums/utils/cdAlbumIndex.ts) |
 | 动画与流动背景 | Motion One、浏览器 WAAPI、AMLL、Pixi | [共享动效](../../src/renderer/shared/animation/motion.ts)、[FluidArtworkBackground](../../src/renderer/features/playback/components/FluidArtworkBackground.vue) |
