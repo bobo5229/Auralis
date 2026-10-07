@@ -16,7 +16,8 @@
   padding: 12px 14px 6px;
   color: var(--auralis-text-muted);
   font-family: var(--auralis-font-disc-heading);
-  font-size: 12px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
   font-weight: 700;
   letter-spacing: 0.06em;
   user-select: none;
@@ -134,8 +135,9 @@
   width: 100%;
   height: 28px;
   color: var(--auralis-text-faint);
-  font-size: 13px;
-  font-weight: 650;
+  font-size: var(--album-detail-type-track-number-size);
+  line-height: var(--album-detail-type-track-number-line-height);
+  font-weight: var(--album-detail-type-track-number-weight);
   font-variant-numeric: tabular-nums;
 }
 
@@ -211,7 +213,9 @@
 
 .album-detail-track-duration {
   color: var(--auralis-text-faint);
-  font-size: 10px;
+  font-size: var(--album-detail-type-track-meta-size);
+  line-height: var(--album-detail-type-track-meta-line-height);
+  font-weight: var(--album-detail-type-track-meta-weight);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -225,14 +229,17 @@
 }
 
 .album-detail-track-title {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--album-detail-type-track-title-size);
+  line-height: var(--album-detail-type-track-title-line-height);
+  font-weight: var(--album-detail-type-track-title-weight);
 }
 
 .album-detail-track-artist {
   margin-top: 3px;
   color: var(--auralis-text-muted);
-  font-size: 12px;
+  font-size: var(--album-detail-type-track-meta-size);
+  line-height: var(--album-detail-type-track-meta-line-height);
+  font-weight: var(--album-detail-type-track-meta-weight);
 }
 
 :where([data-reduced-motion='true']) .album-detail-track:hover,

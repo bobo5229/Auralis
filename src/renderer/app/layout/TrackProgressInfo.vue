@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useFullscreenPlayer } from '@renderer/features/playback/composables/useFullscreenPlayer'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
-import { formatPlaybackSubtitle } from '@renderer/features/playback/utils/formatPlaybackSubtitle'
+import { usePlaybackMetadataDisplay } from '@renderer/features/playback/composables/usePlaybackMetadataDisplay'
 import {
   formatPlaybackClock,
   PLAYBACK_CLOCK_EMPTY,
@@ -23,6 +23,7 @@ const props = withDefaults(
 
 const playback = usePlayback()
 const { t } = useI18n()
+const { songText, playbackSubtitle } = usePlaybackMetadataDisplay()
 const { isFullscreenPlayerOpen, openFullscreenPlayer } = useFullscreenPlayer()
 const imgError = ref(false)
 const restoredCoverFocus = ref<'pointer' | 'keyboard' | null>(null)
@@ -93,7 +94,10 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
     </div>
 
     <!-- Track identity (+ optional inline progress) -->
-    <div v-else-if="currentTrack">
+    <div
+      v-else-if="currentTrack"
+      :class="{ 'track-info-with-split-clocks': props.showProgress && props.showSplitClocks }"
+    >
       <div class="track-info-row">
         <div
           class="track-cover cursor-pointer"
@@ -118,9 +122,11 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
           </div>
         </div>
         <div class="track-text">
-          <div class="track-title">{{ currentTrack.title || t('player.unknownTrack') }}</div>
+          <div class="track-title">
+            {{ songText(currentTrack.title) || t('player.unknownTrack') }}
+          </div>
           <div class="track-subtitle">
-            {{ formatPlaybackSubtitle(currentTrack, '—') }}
+            {{ playbackSubtitle(currentTrack, '—') }}
           </div>
         </div>
       </div>
@@ -135,6 +141,22 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
 </template>
 
 <style scoped>
+/* 共用时间列宽，让文字容器终止于进度轨道右端。 */
+.track-info-with-split-clocks {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  column-gap: 8px;
+}
+
+.track-info-with-split-clocks > .track-info-row {
+  grid-column: 1 / 3;
+}
+
+.track-info-with-split-clocks > .player-bar-progress-row {
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
 .track-cover[data-fullscreen-focus-restored='pointer']:focus-visible {
   outline: none;
 }

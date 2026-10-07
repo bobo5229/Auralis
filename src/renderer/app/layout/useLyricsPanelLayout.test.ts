@@ -57,9 +57,9 @@ describe('useLyricsPanelLayout', () => {
     mockRoute.name = 'songs'
     expect(layout.canDisplayLyricsPanel.value).toBe(true)
 
-    // Archive canvas hides lyrics and restores availability on return.
+    // Archive uses the regular shell and keeps lyrics available.
     mockRoute.name = 'archive'
-    expect(layout.canDisplayLyricsPanel.value).toBe(false)
+    expect(layout.canDisplayLyricsPanel.value).toBe(true)
     mockRoute.name = 'songs'
     expect(layout.canDisplayLyricsPanel.value).toBe(true)
 

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import { formatDuration } from '@renderer/features/library/utils/formatDuration'
 import { resolveAlbumTrackPresentation } from '../utils/albumTrackPresentation'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 
 defineProps<{
   groups: { discNo: number | null; tracks: TrackListItem[] }[]
@@ -18,10 +18,11 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { songText, songValues } = useChineseTextDisplay()
 
 function formatDisplayArtist(artist: string | null | undefined): string {
   if (!artist || artist === 'Unknown Artist') return t('library.unknownArtist')
-  return formatArtist(artist)
+  return songValues(artist)
 }
 </script>
 
@@ -86,7 +87,7 @@ function formatDisplayArtist(artist: string | null | undefined): string {
           </span>
           <span class="min-w-0 text-left">
             <span class="album-detail-track-title">{{
-              track.title || t('albums.detail.unknownTitle')
+              songText(track.title) || t('albums.detail.unknownTitle')
             }}</span>
             <span
               v-if="track.artist && track.artist !== albumArtist"

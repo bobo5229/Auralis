@@ -12,7 +12,7 @@ export interface PlaybackProgressInteractionOptions {
   seekByRatio: (ratio: number) => void
   seekTo: (time: number) => void
   renderRatio: (ratio: number) => void
-  /** Limits automatic interpolation only; seek and pointer feedback remain immediate. */
+  /** Limits automatic progress paints; seek and pointer feedback remain immediate. */
   maxVisualFps?: number
   resolveSeekStepSeconds: (shiftKey: boolean) => number
   subscribeFrame?: FrameSubscriber
@@ -80,10 +80,11 @@ export function usePlaybackProgressInteraction(options: PlaybackProgressInteract
     options.renderRatio(nextRatio)
   }
 
-  function syncAnchor(): void {
+  function syncAnchor(immediate = true): void {
     progressAnchorTime = options.currentTime.value
     progressAnchorAt = getNow()
-    renderVisualProgress(progressAnchorAt)
+    if (immediate) renderVisualProgress(progressAnchorAt)
+    else renderScheduledProgress(progressAnchorAt)
   }
 
   function renderScheduledProgress(now: number): void {
@@ -145,7 +146,13 @@ export function usePlaybackProgressInteraction(options: PlaybackProgressInteract
   }
 
   function onPointerDown(event: PointerEvent): void {
-    if (options.duration.value <= 0 || !isProgressPointerTarget(event.currentTarget)) return
+    if (
+      event.button !== 0 ||
+      activePointerId !== null ||
+      options.duration.value <= 0 ||
+      !isProgressPointerTarget(event.currentTarget)
+    )
+      return
     isDragging.value = true
     activePointerTarget = event.currentTarget
     activePointerId = event.pointerId
@@ -155,15 +162,17 @@ export function usePlaybackProgressInteraction(options: PlaybackProgressInteract
   }
 
   function onPointerMove(event: PointerEvent): void {
-    if (!isDragging.value) return
+    if (!isDragging.value || event.pointerId !== activePointerId) return
     updateFromPointer(event)
   }
 
   function onPointerUp(event: PointerEvent): void {
+    if (event.pointerId !== activePointerId) return
     finishDragging(true, event)
   }
 
-  function onPointerCancel(): void {
+  function onPointerCancel(event?: PointerEvent): void {
+    if (event && event.pointerId !== activePointerId) return
     finishDragging(false)
   }
 
@@ -190,7 +199,21 @@ export function usePlaybackProgressInteraction(options: PlaybackProgressInteract
     draggingRatio.value = null
   }
 
-  watch(() => [options.currentTime.value, options.duration.value], syncAnchor)
+  watch(
+    () => [options.currentTime.value, options.duration.value],
+    ([time, duration], [, previousDuration]) => {
+      const elapsed = options.isPlaying.value ? Math.max(0, getNow() - progressAnchorAt) / 1000 : 0
+      const jumped = Math.abs(time - (progressAnchorTime + elapsed)) > 0.25
+      // Clock notifications must share the interpolation budget. Seek, pause and
+      // duration changes still paint immediately rather than waiting for a frame.
+      syncAnchor(
+        !options.active.value ||
+          !options.isPlaying.value ||
+          duration !== previousDuration ||
+          jumped,
+      )
+    },
+  )
   watch(
     () => [options.active.value, options.isPlaying.value],
     () => nextTick(syncFrameSubscription),
@@ -209,6 +232,7 @@ export function usePlaybackProgressInteraction(options: PlaybackProgressInteract
     onPointerUp,
     onPointerCancel,
     onKeydown,
+    refresh: () => syncAnchor(),
     dispose,
   }
 }

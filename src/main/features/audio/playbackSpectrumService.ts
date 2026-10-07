@@ -11,6 +11,7 @@ import {
   type SpectrumSubscription,
 } from '@shared/types/playbackSpectrum'
 import type { PlaybackCoordinator } from './nativePlaybackService'
+import { normalizeAudioFilePath } from './playbackFileCoordinator'
 
 export interface SpectrumSource {
   trackId: number
@@ -40,6 +41,7 @@ const MAX_CARRY_BYTES = 512 * 1024
 
 /** Silent, bounded look-ahead decoding. Playback is the only time authority. */
 export class PlaybackSpectrumService {
+  private suspendedPath: string | null = null
   private subscription: SpectrumSubscription | null = null
   private source: SpectrumSource | null = null
   private anchorAt = 0
@@ -196,6 +198,7 @@ export class PlaybackSpectrumService {
   private async startDecoder(): Promise<void> {
     const source = this.source
     if (!source) return
+    if (normalizeAudioFilePath(source.path) === this.suspendedPath) return
     const abort = new AbortController()
     this.decoderAbort = abort
     const epoch = this.epoch
@@ -392,6 +395,19 @@ export class PlaybackSpectrumService {
   private stopTimer(): void {
     if (this.timer) clearInterval(this.timer)
     this.timer = null
+  }
+
+  async suspendFileReaders(filePath: string): Promise<() => void> {
+    const path = normalizeAudioFilePath(filePath)
+    this.suspendedPath = path
+    if (this.source && normalizeAudioFilePath(this.source.path) === path) this.stopDecoder()
+    await Promise.allSettled([...this.closing])
+    return () => {
+      if (this.suspendedPath !== path) return
+      this.suspendedPath = null
+      if (this.source?.isPlaying && !this.decoderAbort && !this.failed && !this.eof)
+        void this.startDecoder()
+    }
   }
 
   async dispose(): Promise<void> {

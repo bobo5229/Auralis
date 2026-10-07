@@ -36,7 +36,11 @@ const localError = ref<string | null>(null)
 
 const isOpen = computed(() => props.open || props.metadata !== null)
 const isEditingDisabled = computed(
-  () => !props.metadata || props.loading || props.saving || props.editStatus !== 'editable',
+  () =>
+    !props.metadata ||
+    props.loading ||
+    props.saving ||
+    !['editable', 'playback-editable'].includes(props.editStatus),
 )
 
 interface StatusBannerConfig {
@@ -47,6 +51,12 @@ interface StatusBannerConfig {
 
 const statusBanner = computed<StatusBannerConfig | null>(() => {
   switch (props.editStatus) {
+    case 'playback-editable':
+      return {
+        message: t('library.metadataEditor.status.playbackEditable'),
+        classes: 'metadata-dialog-status-banner--info',
+        icon: 'i-lucide-music text-[var(--auralis-text-muted)]',
+      }
     case 'checking':
       return {
         message: t('library.metadataEditor.status.checking'),

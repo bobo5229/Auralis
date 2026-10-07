@@ -21,7 +21,7 @@ export const rawRouteLoaders = {
   cdAlbums: () => import('@renderer/features/albums/pages/CdAlbumsPage.vue'),
   cdAlbumIndex: () => import('@renderer/features/albums/pages/CdAlbumIndexPage.vue'),
   albumDetail: () => import('@renderer/features/albums/pages/AlbumDetailPage.vue'),
-  archive: () => import('@renderer/features/archive/pages/ArchiveMacPage.vue'),
+  archive: () => import('@renderer/features/archive/pages/ArchivePage.vue'),
 } as const satisfies Record<string, RouteComponentLoader>
 
 export function createRouteLoaderRegistry(

@@ -8,6 +8,7 @@ import {
 } from '../utils/librarySearchIndex'
 import { scanLibrarySearchIndex, type LibrarySearchRecord } from '../utils/librarySearchScan'
 import { isLibrarySearchBarHovered } from '../utils/librarySearchHover'
+import { canDismissPageSearch } from '../utils/librarySearchKeyboard'
 import { normalizeSearchText } from '../utils/normalizeSearchText'
 
 export function useLibrarySearchSession(options: {
@@ -44,6 +45,7 @@ export function useLibrarySearchSession(options: {
   const searchInputRef = ref<HTMLElement | null>(null)
   const searchRootRef = ref<HTMLElement | null>(null)
   const searchOutcome = ref<LibrarySearchOutcome>({ kind: 'idle' })
+  let isSearchHoverDismissed = false
   let lastSearchQuery = ''
   let lastMatchedTrackIndex = -1
   let searchScrollRequestId = 0
@@ -162,15 +164,18 @@ export function useLibrarySearchSession(options: {
     if (!currentTarget) return
 
     const bar = searchRootRef.value
-    isSearchZoneHovered.value = isLibrarySearchBarHovered(
+    const hovered = isLibrarySearchBarHovered(
       event.clientX,
       event.clientY,
       currentTarget.getBoundingClientRect(),
-      bar ? bar.getBoundingClientRect() : null,
+      bar && !isSearchHoverDismissed ? bar.getBoundingClientRect() : null,
     )
+    if (!hovered) isSearchHoverDismissed = false
+    isSearchZoneHovered.value = hovered && !isSearchHoverDismissed
   }
 
   function onLibraryListMouseLeave(): void {
+    isSearchHoverDismissed = false
     isSearchZoneHovered.value = false
   }
 
@@ -180,6 +185,7 @@ export function useLibrarySearchSession(options: {
   }
 
   function onSearchInputFocus(): void {
+    isSearchHoverDismissed = false
     isSearchFocused.value = true
   }
 
@@ -202,6 +208,13 @@ export function useLibrarySearchSession(options: {
     searchOutcome.value = { kind: 'idle' }
   }
 
+  function dismissSearch(): void {
+    clearSearch()
+    isSearchHoverDismissed ||= isSearchZoneHovered.value
+    isSearchZoneHovered.value = false
+    isSearchFocused.value = false
+  }
+
   function onSearchKeydown(event: KeyboardEvent): void {
     // Enter / Escape 先交给输入法确认或取消候选字；229 兼容组合态键盘事件。
     if (event.isComposing || event.keyCode === 229) return
@@ -214,7 +227,7 @@ export function useLibrarySearchSession(options: {
       if (searchQuery.value !== '') {
         clearSearch()
       } else {
-        isSearchFocused.value = false
+        dismissSearch()
         searchInputRef.value?.blur()
       }
     }
@@ -246,11 +259,24 @@ export function useLibrarySearchSession(options: {
     )
       return
     if (
+      !options.isDisposed() &&
+      options.isLibrarySurface() &&
+      !isSearchFocused.value &&
+      (searchQuery.value !== '' || shouldRenderSearchBar.value) &&
+      event.key === 'Escape' &&
+      canDismissPageSearch(event)
+    ) {
+      event.preventDefault()
+      dismissSearch()
+      return
+    }
+    if (
       options.isLibrarySurface() &&
       event.key === '/' &&
       !options.isInteractiveTarget(event.target)
     ) {
       event.preventDefault()
+      isSearchHoverDismissed = false
       isSearchFocused.value = true
       void nextTick(() => {
         searchInputRef.value?.focus()

@@ -23,6 +23,7 @@ function pointerEvent(
 ): PointerEvent {
   return {
     currentTarget,
+    button: 0,
     clientX,
     pointerId,
     preventDefault: vi.fn(),
@@ -77,6 +78,56 @@ describe('progress ratio helpers', () => {
 })
 
 describe('usePlaybackProgressInteraction', () => {
+  it('keeps high-frequency clock notifications inside the frame budget and paints external seeks immediately', async () => {
+    let now = 1000
+    const currentTime = ref(20)
+    const renderRatio = vi.fn()
+    let tick: (time: number) => void = () => {}
+    const interaction = usePlaybackProgressInteraction({
+      duration: ref(100),
+      currentTime,
+      isPlaying: ref(true),
+      active: ref(true),
+      seekByRatio: vi.fn(),
+      seekTo: vi.fn(),
+      renderRatio,
+      maxVisualFps: 30,
+      resolveSeekStepSeconds: () => 5,
+      now: () => now,
+      subscribeFrame: (callback) => {
+        tick = callback
+        return () => {}
+      },
+    })
+    renderRatio.mockClear()
+    for (let frame = 0; frame < 240; frame++) {
+      now = 1000 + frame * (1000 / 240)
+      currentTime.value = 20 + frame / 240
+      await nextTick()
+      tick(now)
+    }
+    expect(renderRatio).toHaveBeenCalledTimes(30)
+    currentTime.value = 80
+    await nextTick()
+    expect(renderRatio).toHaveBeenLastCalledWith(0.8)
+    interaction.dispose()
+  })
+
+  it('ignores secondary buttons and other pointers without committing the active drag', () => {
+    const { interaction, seekByRatio } = setup()
+    const target = createPointerTarget()
+    interaction.onPointerDown({ ...pointerEvent(target, 150), button: 2 } as PointerEvent)
+    expect(interaction.isDragging.value).toBe(false)
+    interaction.onPointerDown(pointerEvent(target, 150))
+    interaction.onPointerMove(pointerEvent(target, 250, 8))
+    interaction.onPointerUp(pointerEvent(target, 250, 8))
+    interaction.onPointerCancel(pointerEvent(target, 250, 8))
+    expect(interaction.draggingRatio.value).toBe(0.25)
+    expect(seekByRatio).not.toHaveBeenCalled()
+    interaction.onPointerUp(pointerEvent(target, 200))
+    expect(seekByRatio).toHaveBeenCalledWith(0.5)
+    interaction.dispose()
+  })
   it('limits 240Hz automatic interpolation while retaining immediate dragging, seek and ARIA state', async () => {
     const { isPlaying, renderRatio, subscribeFrame, currentTime, interaction } = setup(true, 30)
     isPlaying.value = true

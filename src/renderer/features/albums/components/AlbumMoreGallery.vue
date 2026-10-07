@@ -5,6 +5,7 @@ import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import type { AlbumSummary } from '../types'
 import { formatAlbumYear } from '../utils/formatAlbumYear'
 import { albumGalleryCapacity, updateRandomAlbumOrder } from '../utils/albumGalleryLayout'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 
 const props = defineProps<{
   albums: AlbumSummary[]
@@ -16,6 +17,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ open: [album: AlbumSummary, event: MouseEvent] }>()
 const { t, locale } = useI18n()
+const { songText } = useChineseTextDisplay()
 const moreAlbumsScrollerRef = ref<HTMLElement | null>(null)
 let isPageUnmounted = false
 
@@ -85,7 +87,7 @@ function onMoreAlbumsScroll(event: Event): void {
 }
 
 function formatDisplayAlbumTitle(title: string): string {
-  return title === 'Unknown Album' ? t('library.unknownAlbum') : title
+  return title === 'Unknown Album' ? t('library.unknownAlbum') : songText(title)
 }
 
 async function refreshMoreAlbumsScrollState(): Promise<void> {
@@ -126,13 +128,11 @@ function onMoreAlbumsWheel(event: WheelEvent): void {
   }
 }
 
-function formatAlbumYearParts(value: string | null): { number: string; suffix: string } {
-  const label = formatAlbumYear(value, locale.value, t('albums.detail.unknownYear')).replace(
+function formatDisplayAlbumYear(value: string | null): string {
+  return formatAlbumYear(value, locale.value, t('albums.detail.unknownYear')).replace(
     /(\d)年$/,
     '$1 年',
   )
-  const match = label.match(/^(\d+)(.*)$/)
-  return match ? { number: match[1], suffix: match[2] } : { number: '', suffix: label }
 }
 watch(
   [moreAlbumsScrollerRef, () => props.effectsActive],
@@ -222,12 +222,7 @@ onBeforeUnmount(() => {
             {{ formatDisplayAlbumTitle(album.title) }}
           </p>
           <p class="album-more-gallery-year">
-            <template v-for="(part, key) in formatAlbumYearParts(album.releaseDate)" :key="key">
-              <span v-if="key === 'number' && part" class="album-more-gallery-year-number">{{
-                part
-              }}</span>
-              <span v-else>{{ part }}</span>
-            </template>
+            {{ formatDisplayAlbumYear(album.releaseDate) }}
           </p>
         </div>
       </button>

@@ -23,8 +23,8 @@ describe('routeComponentLoaders', () => {
     expect(cdAlbums).toHaveBeenCalledTimes(1)
   })
 
-  it('loads the formal Mac Archive page lazily and shares warmup requests', async () => {
-    const archive = vi.fn().mockResolvedValue({ default: { name: 'ArchiveMacPage' } })
+  it('loads the Archive page lazily and shares warmup requests', async () => {
+    const archive = vi.fn().mockResolvedValue({ default: { name: 'ArchivePage' } })
     const registry = createRouteLoaderRegistry({ archive })
     expect(archive).not.toHaveBeenCalled()
     expect(registry.isWarmableRoute('archive')).toBe(true)

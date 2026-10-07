@@ -1,5 +1,5 @@
 import { nextTick } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { resolveHiddenLibrarySearchBarRect } from '../utils/librarySearchHover'
 import { useLibrarySearchSession } from './useLibrarySearchSession'
@@ -35,13 +35,14 @@ function createKeydown(key: string): KeyboardEvent {
 
 function createSession(overrides?: {
   disposed?: boolean
+  isLibrarySurface?: () => boolean
   scrollToTrackIndex?: (index: number, isRequestCurrent?: () => boolean) => Promise<void>
 }) {
   let disposed = overrides?.disposed ?? false
   const scrollToTrackIndex = overrides?.scrollToTrackIndex ?? vi.fn(async () => undefined)
   const session = useLibrarySearchSession({
     isDisposed: () => disposed,
-    isLibrarySurface: () => true,
+    isLibrarySurface: overrides?.isLibrarySurface ?? (() => true),
     isInteractiveTarget: () => false,
     scrollToTrackIndex,
   })
@@ -57,6 +58,110 @@ function createSession(overrides?: {
 }
 
 const tracks = [createTrack(1, 'Alpha'), createTrack(2, 'Beta'), createTrack(3, 'Alpine')]
+
+describe('library page Escape', () => {
+  class TestElement {
+    isContentEditable = false
+    constructor(public tagName = 'div') {}
+    matches(selector: string): boolean {
+      return selector.split(', ').includes(this.tagName)
+    }
+  }
+  const querySelector = vi.fn(() => null as unknown)
+  beforeEach(() => {
+    querySelector.mockReset().mockReturnValue(null)
+    vi.stubGlobal('Node', TestElement)
+    vi.stubGlobal('HTMLElement', TestElement)
+    vi.stubGlobal('document', { querySelector })
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('clears and closes after clicking outside, without stealing focus or completing an old search', async () => {
+    const { session, scrollToTrackIndex } = createSession()
+    const focus = vi.fn()
+    const blur = vi.fn()
+    session.searchInputRef.value = { focus, blur } as unknown as HTMLElement
+    session.scheduleLibrarySearchIndex(tracks)
+    session.searchQuery.value = 'al'
+    session.onSearchInputFocus()
+    const pendingSearch = session.jumpToNextSearchMatch()
+    session.onDocumentPointerDown({ target: new TestElement() } as unknown as PointerEvent)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    const event = createKeydown('Escape')
+    session.onWindowKeyDown(event)
+    await pendingSearch
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+    expect(session.searchQuery.value).toBe('')
+    expect(session.searchOutcome.value).toEqual({ kind: 'idle' })
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+    expect(focus).not.toHaveBeenCalled()
+    expect(blur).not.toHaveBeenCalled()
+    expect(scrollToTrackIndex).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    { defaultPrevented: true },
+    { isComposing: true },
+    { keyCode: 229 },
+    { ctrlKey: true },
+    { metaKey: true },
+    { altKey: true },
+    { target: new TestElement('input') },
+    { target: new TestElement('textarea') },
+    { target: new TestElement('select') },
+    { target: Object.assign(new TestElement(), { isContentEditable: true }) },
+  ])('preserves unfocused search when another interaction owns Escape: %j', (flags) => {
+    const { session } = createSession()
+    session.searchQuery.value = 'al'
+    const event = createKeydown('Escape')
+    Object.assign(event, flags)
+    session.onWindowKeyDown(event)
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(session.searchQuery.value).toBe('al')
+  })
+
+  it('yields to overlays and does nothing after disposal or leaving the library surface', () => {
+    const { session, dispose } = createSession()
+    session.searchQuery.value = 'al'
+    querySelector.mockReturnValue({})
+    session.onWindowKeyDown(createKeydown('Escape'))
+    expect(session.searchQuery.value).toBe('al')
+    querySelector.mockReturnValue(null)
+    dispose()
+    session.onWindowKeyDown(createKeydown('Escape'))
+    expect(session.searchQuery.value).toBe('al')
+    const other = createSession({ isLibrarySurface: () => false }).session
+    other.searchQuery.value = 'al'
+    other.onWindowKeyDown(createKeydown('Escape'))
+    expect(other.searchQuery.value).toBe('al')
+  })
+
+  it.each([false, true])(
+    'suppresses hover reopening until leaving after Escape (focused=%s)',
+    (focused) => {
+      const { session } = createSession()
+      const container = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 800 }) }
+      const move = (clientX: number, clientY: number) =>
+        session.onLibraryListMouseMove({
+          currentTarget: container,
+          clientX,
+          clientY,
+        } as unknown as MouseEvent)
+      move(400, 15)
+      expect(session.shouldRenderSearchBar.value).toBe(true)
+      if (focused) session.onSearchInputFocus()
+      const event = createKeydown('Escape')
+      if (focused) session.onSearchKeydown(event)
+      else session.onWindowKeyDown(event)
+      expect(session.shouldRenderSearchBar.value).toBe(false)
+      move(401, 15)
+      expect(session.shouldRenderSearchBar.value).toBe(false)
+      move(50, 100)
+      move(400, 15)
+      expect(session.shouldRenderSearchBar.value).toBe(true)
+    },
+  )
+})
 
 describe('useLibrarySearchSession', () => {
   it.each([

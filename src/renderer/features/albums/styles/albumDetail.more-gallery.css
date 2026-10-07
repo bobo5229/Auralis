@@ -13,7 +13,8 @@
 .album-more-gallery-title {
   margin: 0 0 16px;
   color: var(--auralis-text);
-  font-size: 18px;
+  font-size: var(--auralis-type-section-size);
+  line-height: var(--auralis-type-section-line-height);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
@@ -226,9 +227,9 @@
 .album-more-gallery-album-title {
   overflow: hidden;
   color: var(--auralis-text);
-  font-size: 13px;
+  font-size: var(--auralis-type-control-size);
   font-weight: 650;
-  line-height: 1.3;
+  line-height: var(--auralis-type-control-line-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -236,11 +237,8 @@
 .album-more-gallery-year {
   margin-top: 4px;
   color: var(--auralis-text-faint);
-  font-size: 12px;
-}
-
-.album-more-gallery-year-number {
-  font-size: 13px;
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
 }
 
 :where([data-reduced-motion='true']) .album-more-gallery-scroller,

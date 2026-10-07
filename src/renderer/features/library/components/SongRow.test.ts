@@ -3,11 +3,16 @@ import { createRenderer, h, nextTick, ref, type Component } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import SongRow from './SongRow.vue'
 import AlbumCoverTrackRow from './AlbumCoverTrackRow.vue'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     locale: ref('zh-Hans'),
-    t: (key: string) => key,
+    t: (key: string, values?: object) => {
+      if (key === 'library.missing.title') return '未知标题'
+      if (key === 'library.missing.artist') return '未知艺人'
+      return key === 'library.a11y.songRow' ? `${key} ${JSON.stringify(values)}` : key
+    },
   }),
 }))
 
@@ -61,6 +66,8 @@ const renderer = createRenderer<TestNode, TestNode>({
 const cleanups: Array<() => void> = []
 afterEach(() => {
   cleanups.splice(0).forEach((cleanup) => cleanup())
+  useChineseTextDisplay().setSongInfoScript('simplified')
+  vi.unstubAllGlobals()
 })
 
 function mountRows(component: Component, trackPatch: Partial<TrackListItem> = {}) {
@@ -95,7 +102,14 @@ function mountRows(component: Component, trackPatch: Partial<TrackListItem> = {}
         ),
       ),
   })
-  app.directive('tooltip', {})
+  app.directive('tooltip', {
+    mounted: (element, binding) => {
+      element.props.tooltip = binding.value
+    },
+    updated: (element, binding) => {
+      element.props.tooltip = binding.value
+    },
+  })
   const container = node()
   app.mount(container)
   cleanups.push(() => app.unmount())
@@ -111,13 +125,50 @@ describe.each([
   ['SongRow', SongRow],
   ['AlbumCoverTrackRow', AlbumCoverTrackRow],
 ] as const)('%s', (_name, component) => {
+  it('updates real row text, tooltips and accessible metadata without changing selection or playback', async () => {
+    vi.stubGlobal('localStorage', { setItem: vi.fn() })
+    const trackPatch = Object.freeze({
+      title: '头发与音乐',
+      artist: '萧敬腾; 郁可唯',
+      album: '看着你',
+      genre: '节奏布鲁斯',
+    })
+    const original = { ...trackPatch }
+    const view = mountRows(component, trackPatch)
+    const preference = useChineseTextDisplay()
+    const texts = (element: TestNode): string[] => [
+      element.text ?? '',
+      ...element.children.flatMap(texts),
+    ]
+    const tooltips = (element: TestNode): unknown[] => [
+      element.props.tooltip,
+      ...element.children.flatMap(tooltips),
+    ]
+    expect(texts(view.rows[0])).toContain('头发与音乐')
+    preference.setSongInfoScript('traditional')
+    await nextTick()
+    expect(texts(view.rows[0])).toContain('頭髮與音樂')
+    expect(texts(view.rows[0])).toContain('蕭敬騰 & 鬱可唯')
+    expect(tooltips(view.rows[0])).toContain('頭髮與音樂')
+    expect(view.rows[0].props['aria-label']).toContain('頭髮與音樂')
+    expect(view.rows[0].props['aria-label']).toContain('蕭敬騰')
+    expect(view.selectedId.value).toBeNull()
+    expect(view.play).not.toHaveBeenCalled()
+    expect(trackPatch).toEqual(original)
+    preference.setSongInfoScript('simplified')
+    await nextTick()
+    expect(texts(view.rows[0])).toContain('头发与音乐')
+  })
   it.each([null, '', '   '])('shows the missing-title fallback for %j', (title) => {
+    vi.stubGlobal('localStorage', { setItem: vi.fn() })
+    useChineseTextDisplay().setSongInfoScript('traditional')
     const view = mountRows(component, { title })
     const texts = (element: TestNode): string[] => [
       element.text ?? '',
       ...element.children.flatMap(texts),
     ]
-    expect(texts(view.rows[0])).toContain('library.missing.title')
+    expect(texts(view.rows[0])).toContain('未知标题')
+    expect(texts(view.rows[0])).not.toContain('未知標題')
   })
 
   it.each([{ isComposing: true }, { keyCode: 229 }, { defaultPrevented: true }])(

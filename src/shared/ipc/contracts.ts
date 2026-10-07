@@ -121,7 +121,11 @@ export interface IpcEventContract {
   'metadata:track-edit-state-changed': TrackEditStateChangedEvent
 }
 
-export type TrackEditStatus = 'editable' | 'playback-in-use' | 'write-in-progress'
+export type TrackEditStatus =
+  | 'editable'
+  | 'playback-editable'
+  | 'playback-in-use'
+  | 'write-in-progress'
 
 export interface TrackEditStateResult {
   trackId: number
@@ -137,7 +141,16 @@ export interface TrackEditStateChangedEvent {
 
 export type UpdateTrackMetadataResult =
   | { ok: true }
-  | { ok: false; reason: 'playback-in-use' | 'write-in-progress' }
+  | {
+      ok: false
+      reason:
+        | 'playback-in-use'
+        | 'write-in-progress'
+        | 'buffer-preparation-failed'
+        | 'file-in-use'
+        | 'playback-restore-failed'
+        | 'playback-changed'
+    }
 
 export type IpcEventChannel = keyof IpcEventContract
 export type IpcEventPayload<C extends IpcEventChannel> = IpcEventContract[C]

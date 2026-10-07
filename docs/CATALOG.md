@@ -356,9 +356,16 @@
 - [Auralis 设置页信息结构重设计](history/2026-08-14/03-settings-ia/Auralis%20设置页信息结构重设计.md)
 - [设置页信息结构重设计 Implementation Plan](history/2026-08-14/03-settings-ia/IMPLEMENTATION.md)
 
+## 可复用经验
+
+- [经验索引](lessons/README.md) — 按任务选择复盘与对应清理证据。
+- [UI 冗余清理经验](lessons/2026-10-06-ui-cleanup-lessons.md) — 入口、生命周期、CSS 匹配、共享边界与验证证据。
+- [CD 浏览页开发复盘](lessons/2026-10-04-cd-browser-development-lessons.md) — 原型选择、真实操作、音频效果、短时动效、动态配色、开源复用及旧方案清理经验。
+
 ## 审查记录
 
-- [CD 浏览页开发复盘](reviews/2026-10-04-cd-browser-development-lessons.md) — 原型选择、真实操作、音频效果、短时动效、动态配色、开源复用及旧方案清理经验。
+- [第一批冗余清理记录](reviews/2026-10-06-confirmed-redundancy-cleanup.md)。
+- [第二批冗余筛查与清理记录](reviews/2026-10-06-redundancy-second-pass.md)。
 - [Auralis 自写实现与开源复用审计](reviews/2026-10-04-open-source-reuse-audit.md) — 源码与成熟实现对照、替换优先级、迁移边界及建议保留项；候选尚未接入。
 - [2026-09-28 Electron 启动崩溃：安装目录 ACL 与沙箱兼容问题](reviews/2026-09-28-electron-startup-acl-crash.md)
 - [Auralis 主题与颜色体系审计报告](reviews/播放器主题配色审计报告.md)

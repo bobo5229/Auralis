@@ -89,7 +89,7 @@ function syncRendererState(): void {
 
   background.setStaticMode(props.motionPaused || reducedMotionQuery?.matches === true)
   background.setFlowSpeed(props.playing ? 1.6 : 0.6)
-  background.setFPS(props.playing ? 60 : 30)
+  background.setFPS(props.playing || props.captureFrames ? 60 : 12)
 
   if (
     !contextLost &&

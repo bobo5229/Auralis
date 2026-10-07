@@ -51,6 +51,10 @@ export default defineConfig({
   },
   renderer: {
     root: resolve('src/renderer'),
+    optimizeDeps: {
+      // The palette worker loads this dependency only when the first cover is rendered.
+      include: ['image-q'],
+    },
     resolve: {
       alias: {
         '@renderer': resolve('src/renderer'),

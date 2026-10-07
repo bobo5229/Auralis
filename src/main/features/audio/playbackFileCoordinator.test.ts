@@ -29,6 +29,41 @@ function setupCoordinator() {
 }
 
 describe('PlaybackFileCoordinator', () => {
+  it('blocks new readers during preparation and promotes only after real readers release', async () => {
+    const { coordinator } = setupCoordinator()
+    coordinator.setBufferedWriteCapability(() => true)
+    const current = await coordinator.acquireReadLease('D:/music/song1.flac', 'mpv-current')
+    expect(coordinator.getTrackState(1).status).toBe('playback-editable')
+    const intent = coordinator.reserveWriteIntent('D:/music/song1.flac')!
+    expect(intent).toBeTruthy()
+    expect(coordinator.getTrackState(1).status).toBe('write-in-progress')
+    expect(() => coordinator.promoteWriteIntent(intent)).toThrow('readers')
+    const granted = vi.fn()
+    const next = coordinator.acquireReadLease('D:/music/song1.flac', 'mpv-current').then(granted)
+    await Promise.resolve()
+    expect(granted).not.toHaveBeenCalled()
+    coordinator.releaseReadLease(current.leaseId)
+    coordinator.promoteWriteIntent(intent)
+    coordinator.releaseWriteLease(intent)
+    await next
+    expect(granted).toHaveBeenCalledOnce()
+    expect(coordinator.getTrackState(1).status).toBe('playback-editable')
+  })
+
+  it('does not offer buffered writes when a renderer or another non-cooperating reader owns the file', async () => {
+    const { coordinator, sendToRenderer } = setupCoordinator()
+    coordinator.setBufferedWriteCapability(() => true)
+    await coordinator.acquireReadLease('D:/music/song1.flac', 'mpv-current')
+    const other = await coordinator.acquireReadLease('D:/music/song1.flac', 'html-audio')
+    expect(coordinator.getTrackState(1).status).toBe('playback-in-use')
+    expect(coordinator.reserveWriteIntent('D:/music/song1.flac')).toBeNull()
+    coordinator.releaseReadLease(other.leaseId)
+    expect(coordinator.getTrackState(1).status).toBe('playback-editable')
+    expect(sendToRenderer).toHaveBeenLastCalledWith(
+      ipcChannels.metadata.trackEditStateChanged,
+      expect.objectContaining({ status: 'playback-editable' }),
+    )
+  })
   it('keeps versions increasing after idle entries are removed', async () => {
     const { coordinator } = setupCoordinator()
     const first = await coordinator.acquireReadLease('D:/music/song1.flac', 'player')

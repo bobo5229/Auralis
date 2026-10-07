@@ -53,7 +53,6 @@ export interface CdAlbumIndexModel {
 export interface CdIndexArtistGroup {
   name: string
   letter: CdIndexLetter
-  sortKey: string
   albums: AlbumSummary[]
 }
 
@@ -102,10 +101,10 @@ export function shouldShowCdFocusedPlayback(
   return !isSameAlbumTrack(track, album)
 }
 
-export function cdIndexArtistOrder(name: string): { letter: CdIndexLetter; sortKey: string } {
+export function cdIndexArtistLetter(name: string): CdIndexLetter {
   const trimmed = name.trim()
   if (!trimmed || name === UNKNOWN_ALBUM_ARTIST) {
-    return { letter: '#', sortKey: `\uffff${name}` }
+    return '#'
   }
   const transcribed = pinyin(trimmed, {
     toneType: 'none',
@@ -117,9 +116,9 @@ export function cdIndexArtistOrder(name: string): { letter: CdIndexLetter; sortK
     .trim()
   const first = transcribed[0]
   if (!first || first < 'a' || first > 'z') {
-    return { letter: '#', sortKey: `\uffff${name}` }
+    return '#'
   }
-  return { letter: first.toUpperCase() as CdIndexLetter, sortKey: transcribed }
+  return first.toUpperCase() as CdIndexLetter
 }
 
 /** Comparable YYYY-MM-DD. Partial dates fill missing month and day with 01. */
@@ -138,25 +137,7 @@ export function cdIndexReleaseLabel(value: string | null): string | null {
   return value.trim()
 }
 
-function compareAlbums(left: AlbumSummary, right: AlbumSummary): number {
-  const leftDate = cdIndexReleaseOrder(left.releaseDate)
-  const rightDate = cdIndexReleaseOrder(right.releaseDate)
-  if (leftDate !== rightDate) {
-    if (leftDate === null) return 1
-    if (rightDate === null) return -1
-    return leftDate < rightDate ? -1 : 1
-  }
-  const title = left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
-  if (title !== 0) return title
-  return left.key.localeCompare(right.key)
-}
-
-function compareArtists(left: CdIndexArtistGroup, right: CdIndexArtistGroup): number {
-  const sortKey = left.sortKey.localeCompare(right.sortKey)
-  if (sortKey !== 0) return sortKey
-  return left.name.localeCompare(right.name)
-}
-
+/** Keep first-occurrence order from the same ordered library used by the songs page. */
 export function groupCdAlbumIndexArtists(albums: readonly AlbumSummary[]): CdIndexArtistGroup[] {
   const grouped = new Map<string, CdIndexArtistGroup>()
   for (const album of albums) {
@@ -165,18 +146,14 @@ export function groupCdAlbumIndexArtists(albums: readonly AlbumSummary[]): CdInd
       existing.albums.push(album)
       continue
     }
-    const order = cdIndexArtistOrder(album.albumArtist)
     grouped.set(album.albumArtist, {
       name: album.albumArtist,
-      letter: order.letter,
-      sortKey: order.sortKey,
+      letter: cdIndexArtistLetter(album.albumArtist),
       albums: [album],
     })
   }
 
-  const artists = [...grouped.values()].sort(compareArtists)
-  for (const artist of artists) artist.albums.sort(compareAlbums)
-  return artists
+  return [...grouped.values()]
 }
 
 export function canShareCdIndexRow(artist: CdIndexArtistGroup, columnCount: number): boolean {

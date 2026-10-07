@@ -46,15 +46,17 @@
 }
 
 #splash-figure {
+  --splash-mark-size: clamp(96px, 22vmin, 220px);
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(16px, 4vmin, 32px);
+  gap: clamp(10px, 2.6vmin, 22px);
 }
 
 #splash-mark {
   display: block;
-  width: clamp(96px, 22vmin, 220px);
+  width: var(--splash-mark-size);
   height: auto;
   aspect-ratio: 1;
 }
@@ -76,13 +78,54 @@
   opacity: 0;
 }
 
-/* 文字在主样式加载前即可解析完整的通用界面字体栈。 */
+/* 品牌展示字号随 Logo 缩放，使文字墨迹宽度对齐图形两端（含圆头描边）。 */
 #splash-brand {
+  display: inline-flex;
   font-family: var(--splash-font-ui);
-  font-size: clamp(20px, 4.5vmin, 40px);
+  font-size: calc(var(--splash-mark-size) * 0.24);
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.02em;
+}
+
+.splash-brand-char {
+  display: inline-block;
+  transition: color 80ms ease;
+}
+
+/* 硬件刻度齿置于品牌字下方，不改变 Logo 与文字的居中和间距。 */
+#splash-progress {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 24px;
+  width: 148px;
+  height: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#splash-progress > span {
+  width: 1.5px;
+  height: 5px;
+  background: color-mix(in srgb, var(--splash-text) 15%, transparent);
+  border-radius: 0.5px;
+  transition: background 60ms ease;
+}
+
+#splash-progress > .is-active {
+  background: var(--splash-text);
+}
+
+#splash-progress > .is-leading {
+  background: var(--splash-accent);
+  box-shadow: 0 0 4px var(--splash-accent);
+}
+
+:where([data-reduced-motion='true']) #splash-progress > span {
+  transition: none;
 }
 
 .splash-startup-error {

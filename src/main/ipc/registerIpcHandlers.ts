@@ -224,13 +224,20 @@ export function registerIpcHandlers(
     ...audioPaths,
     resolveTrack: resolvePlaybackTrack,
     coordinator: playbackFileCoordinator,
+    suspendFileReaders: (filePath) => spectrum.suspendFileReaders(filePath),
     emit: (event) => {
       sendToRenderer(ipcChannels.playback.nativeEvent, event)
       spectrum.syncNative(nativePlayback.getSpectrumSource())
     },
-    warn: (error) => logger.warn({ error }, 'Digital silence boundary optimization failed'),
+    warn: (error) => logger.warn({ error }, 'Native playback operation failed'),
     onBoundaryStatus: (event) => logger.debug(event, 'Digital silence boundary analysis'),
   })
+  playbackFileCoordinator.setBufferedWriteCapability((filePath) =>
+    nativePlayback.canWriteMetadata(filePath),
+  )
+  metadataRefreshService.setBufferedTagWriteHandler((filePath, metadata, commitAndReconcile) =>
+    nativePlayback.writeMetadata(filePath, metadata, commitAndReconcile),
+  )
   const nativeOwners = new WeakSet<Electron.WebContents>()
   electronIpcRegistrar.handle(ipcChannels.playback.nativeAvailability, () => {
     const available = existsSync(audioPaths.mpvPath)

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRenderer, h, KeepAlive, markRaw, nextTick, ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import AlbumsPage from './AlbumsPage.vue'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 
 const fixture = vi.hoisted(() => ({
   tracks: [] as TrackListItem[],
@@ -28,7 +29,7 @@ vi.mock('vue-router', () => ({
 }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@renderer/shared/diagnostics/rendererDiagnostics', () => ({
-  rendererDiagnostics: { error: vi.fn() },
+  rendererDiagnostics: { error: vi.fn(), warn: vi.fn() },
 }))
 vi.mock('@renderer/features/playback/composables/usePlayback', () => ({
   usePlayback: () => ({ state: { currentTrackId: null }, playTrackFromQueue: vi.fn() }),
@@ -91,6 +92,8 @@ class TestElement {
   clientWidth = 985
   clientHeight = 650
   scrollTop = 0
+  value = ''
+  text = ''
   isContentEditable = false
   constructor(public tagName = 'div') {
     markRaw(this)
@@ -121,6 +124,12 @@ class TestElement {
   querySelectorAll(): [] {
     return []
   }
+  getBoundingClientRect() {
+    return { left: 0, top: 0, width: 800, right: 800, bottom: 650 }
+  }
+  getRootNode() {
+    return doc
+  }
   addEventListener(): void {}
   removeEventListener(): void {}
 }
@@ -139,8 +148,12 @@ const renderer = createRenderer<TestElement, TestElement>({
   createElement: (tag) => new TestElement(tag),
   createText: () => new TestElement('#text'),
   createComment: () => new TestElement('#comment'),
-  setText: () => undefined,
-  setElementText: () => undefined,
+  setText: (element, text) => {
+    element.text = text
+  },
+  setElementText: (element, text) => {
+    element.text = text
+  },
   insert: (child, parent, anchor) => {
     if (child.parent) child.parent.children.splice(child.parent.children.indexOf(child), 1)
     child.parent = parent
@@ -169,6 +182,7 @@ beforeEach(() => {
   vi.stubGlobal('HTMLElement', TestElement)
   vi.stubGlobal('Element', TestElement)
   vi.stubGlobal('Node', TestElement)
+  vi.stubGlobal('Document', EventTarget)
   vi.stubGlobal('document', doc)
   vi.stubGlobal('window', Object.assign(new EventTarget(), { setTimeout, clearTimeout }))
   vi.stubGlobal('sessionStorage', { getItem: () => null, setItem: vi.fn() })
@@ -195,6 +209,7 @@ afterEach(() => {
     unmount?.()
   } finally {
     unmount = null
+    useChineseTextDisplay().setSongInfoScript('simplified')
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
   }
@@ -251,6 +266,17 @@ function shortcut(target?: TestElement): KeyboardEvent {
   return event as KeyboardEvent
 }
 
+function escape(target: TestElement = doc.activeElement, flags: object = {}): KeyboardEvent {
+  const event = new Event('keydown', { cancelable: true })
+  Object.assign(event, { key: 'Escape', ...flags })
+  Object.defineProperty(event, 'target', { value: target })
+  return event as KeyboardEvent
+}
+
+function setSearchQuery(input: TestElement, value: string): void {
+  ;(input.props['onUpdate:modelValue'] as (value: string) => void)(value)
+}
+
 describe('AlbumsPage grid connection', () => {
   it('measures an empty catalog import and observes each replacement container', async () => {
     await mountPage()
@@ -298,6 +324,160 @@ describe('AlbumsPage grid connection', () => {
 })
 
 describe('AlbumsPage keyboard search', () => {
+  it('locates original and displayed album prefixes without changing catalog identities', async () => {
+    await mountPage()
+    fixture.tracks = [
+      {
+        id: 1,
+        album: '苧與音樂',
+        albumArtist: '萧敬腾',
+        artist: '萧敬腾',
+        title: '歌曲',
+      } as TrackListItem,
+    ]
+    const original = structuredClone(fixture.tracks)
+    fixture.changed?.({ reason: 'metadata-refresh' })
+    await settle()
+    shortcut()
+    await settle()
+    const input = find('library-search-input')!
+    const preference = useChineseTextDisplay()
+    for (const script of ['simplified', 'traditional'] as const) {
+      preference.setSongInfoScript(script)
+      for (const query of [
+        '苧與音樂',
+        preference.songText('苧與音樂'),
+        preference.songText('萧敬腾'),
+      ]) {
+        setSearchQuery(input, query)
+        await settle()
+        ;(input.props.onKeydown as (event: object) => void)({
+          key: 'Enter',
+          preventDefault: vi.fn(),
+        })
+        await settle()
+        expect(find('library-search-outcome')?.text).toBe('albums.search.matched')
+      }
+    }
+    expect(fixture.tracks).toEqual(original)
+  })
+  it('clears and closes unfocused search on page Escape while preserving the outside focus and scroll', async () => {
+    await mountPage()
+    await setAlbums(40)
+    shortcut()
+    await settle()
+    const input = find('library-search-input')!
+    setSearchQuery(input, 'Album')
+    await settle()
+    ;(input.props.onKeydown as (event: object) => void)({ key: 'Enter', preventDefault: vi.fn() })
+    await settle()
+    expect(find('library-search-outcome')).toBeDefined()
+    const scroll = find('albums-scroll')!
+    scroll.scrollTop = 420
+    const pointer = new Event('pointerdown')
+    Object.defineProperty(pointer, 'target', { value: scroll })
+    doc.dispatchEvent(pointer)
+    input.blur()
+    scroll.focus()
+    await settle()
+    expect(find('library-search-input')).toBe(input)
+    const event = escape(scroll)
+    doc.dispatchEvent(event)
+    await settle()
+    expect(event.defaultPrevented).toBe(true)
+    expect(find('library-search-input')).toBeUndefined()
+    expect(doc.activeElement).toBe(scroll)
+    expect(scroll.scrollTop).toBe(420)
+    shortcut()
+    await settle()
+    expect(find('library-search-input')?.value).toBe('')
+    expect(find('library-search-outcome')).toBeUndefined()
+  })
+
+  it('keeps the first focused Escape in the editor and closes on the second', async () => {
+    await mountPage()
+    shortcut()
+    await settle()
+    const input = find('library-search-input')!
+    setSearchQuery(input, 'Album')
+    const first = escape(input)
+    ;(input.props.onKeydown as (event: object) => void)(first)
+    doc.dispatchEvent(first)
+    await settle()
+    expect(find('library-search-input')).toBe(input)
+    expect(input.value).toBe('')
+    expect(doc.activeElement).toBe(input)
+    const second = escape(input)
+    ;(input.props.onKeydown as (event: object) => void)(second)
+    doc.dispatchEvent(second)
+    await settle()
+    expect(find('library-search-input')).toBeUndefined()
+  })
+
+  it.each([{ isComposing: true }, { keyCode: 229 }])(
+    'leaves focused Escape to the IME: %j',
+    async (flags) => {
+      await mountPage()
+      shortcut()
+      await settle()
+      const input = find('library-search-input')!
+      setSearchQuery(input, 'Album')
+      const event = escape(input, flags)
+      ;(input.props.onKeydown as (event: object) => void)(event)
+      doc.dispatchEvent(event)
+      await settle()
+      expect(event.defaultPrevented).toBe(false)
+      expect(input.value).toBe('Album')
+      expect(doc.activeElement).toBe(input)
+    },
+  )
+
+  it('preserves an unfocused query for other editors, overlays and inactive pages', async () => {
+    const active = await mountPage()
+    shortcut()
+    await settle()
+    const input = find('library-search-input')!
+    setSearchQuery(input, 'Album')
+    input.blur()
+    await settle()
+    const editor = new TestElement('input')
+    editor.focus()
+    const editorEscape = escape(editor)
+    doc.dispatchEvent(editorEscape)
+    expect(editorEscape.defaultPrevented).toBe(false)
+    const querySelector = vi.spyOn(doc, 'querySelector').mockReturnValue({} as never)
+    const overlayEscape = escape(body)
+    doc.dispatchEvent(overlayEscape)
+    expect(overlayEscape.defaultPrevented).toBe(false)
+    querySelector.mockRestore()
+    expect(input.value).toBe('Album')
+    active.value = false
+    await settle()
+    const inactiveEscape = escape(body)
+    doc.dispatchEvent(inactiveEscape)
+    expect(inactiveEscape.defaultPrevented).toBe(false)
+  })
+
+  it('dismisses hover search until the pointer leaves and reenters its zone', async () => {
+    await mountPage()
+    const page = find('albums-page')!
+    const move = (clientX: number, clientY: number) =>
+      (page.props.onMousemove as (event: object) => void)({ currentTarget: page, clientX, clientY })
+    move(400, 15)
+    await settle()
+    expect(find('library-search-input')).toBeDefined()
+    doc.dispatchEvent(escape(body))
+    await settle()
+    expect(find('library-search-input')).toBeUndefined()
+    move(401, 15)
+    await settle()
+    expect(find('library-search-input')).toBeUndefined()
+    move(50, 100)
+    move(400, 15)
+    await settle()
+    expect(find('library-search-input')).toBeDefined()
+  })
+
   it('opens from the focusable entry and returns focus on Escape without reopening', async () => {
     await mountPage()
     const trigger = find('albums-search-trigger')!

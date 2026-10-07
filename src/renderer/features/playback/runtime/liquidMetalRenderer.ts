@@ -291,7 +291,7 @@ export function createLiquidMetalRenderer(
     lastTick = now
     morph.sample(now)
     const interval =
-      1000 / (state.playing || morph.transitioning || morphCompletionPending ? 60 : 30)
+      1000 / (state.playing || morph.transitioning || morphCompletionPending ? 60 : 12)
     const elapsed = now - lastDraw
     if (dirty || !lastDraw) {
       lastDraw = now

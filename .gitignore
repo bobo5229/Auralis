@@ -113,6 +113,8 @@ docs/*
 !docs/CATALOG.md
 !docs/rules/
 !docs/rules/**
+!docs/lessons/
+!docs/lessons/**
 !docs/ARCHITECTURE.md
 !docs/projects/
 docs/projects/*

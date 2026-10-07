@@ -13,7 +13,6 @@ import {
   formatPlaybackClock,
   PLAYBACK_CLOCK_EMPTY,
 } from '@renderer/features/playback/utils/formatPlaybackClock'
-import { selectAlbumTracks } from '../utils/albumGrouping'
 import { cdAlbumCatalogSession } from '../composables/cdAlbumCatalogSession'
 import {
   cdFocusBackTarget,
@@ -538,7 +537,7 @@ async function loadAlbums(): Promise<void> {
       refreshPending = false
       const catalogAlbums = await cdAlbumCatalogSession.load()
       if (disposed) return
-      // Only publish a complete catalog; reuse the exact ordering of AlbumsPage.
+      // Only publish a complete catalog; keep the songs page's album and track order.
       const albums = catalogAlbums.map((album) => ({
         key: album.key,
         artworkUrl: getArtworkUrl(album.artworkCacheKey),
@@ -548,7 +547,7 @@ async function loadAlbums(): Promise<void> {
         releaseDate: album.releaseDate?.trim() || null,
         trackCount: album.tracks.length,
         copyright: album.tracks.find((track) => track.copyright?.trim())?.copyright?.trim() || null,
-        tracks: selectAlbumTracks(album.tracks, album.albumArtist, album.title),
+        tracks: album.tracks,
       }))
       albumInfo.value = albums
       count.value = albums.length

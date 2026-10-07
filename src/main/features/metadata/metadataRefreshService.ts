@@ -35,6 +35,13 @@ export interface MetadataRefreshProgress {
 }
 
 export class MetadataRefreshService {
+  private bufferedTagWrite:
+    | ((
+        filePath: string,
+        metadata: EditableTrackMetadata,
+        commitAndReconcile: (commit: () => Promise<void>) => Promise<void>,
+      ) => Promise<UpdateTrackMetadataResult>)
+    | null = null
   private activeWorker: Worker | null = null
   private activeJobId: number | null = null
   private onTagWriteSuccess: ((filePath: string) => void) | null = null
@@ -61,6 +68,12 @@ export class MetadataRefreshService {
    */
   setTagWriteSuccessHandler(handler: (filePath: string) => void): void {
     this.onTagWriteSuccess = handler
+  }
+
+  setBufferedTagWriteHandler(
+    handler: NonNullable<MetadataRefreshService['bufferedTagWrite']>,
+  ): void {
+    this.bufferedTagWrite = handler
   }
 
   /** True while a metadata refresh worker job is running. */
@@ -393,19 +406,21 @@ export class MetadataRefreshService {
       throw new Error(`Audio file not found for track ${metadata.trackId}`)
     }
 
-    if (this.writingTracks.has(metadata.trackId))
-      throw new Error('A tag write is already running for this track')
+    if (this.writingTracks.has(metadata.trackId)) return { ok: false, reason: 'write-in-progress' }
 
     let writeLeaseId: string | null = null
+    let buffered = false
     if (this.coordinator) {
       const leaseResult = this.coordinator.tryAcquireWriteLease(
         filePath,
         `track-${metadata.trackId}`,
       )
       if (!leaseResult.ok) {
-        return leaseResult
+        if (leaseResult.reason !== 'playback-in-use' || !this.bufferedTagWrite) return leaseResult
+        buffered = true
+      } else {
+        writeLeaseId = leaseResult.leaseId
       }
-      writeLeaseId = leaseResult.leaseId
     }
 
     const generation = (this.trackGenerations.get(metadata.trackId) ?? 0) + 1
@@ -415,18 +430,26 @@ export class MetadataRefreshService {
     // Suppress before the file mutates: ffmpeg replace fires watch events while
     // the write is still in flight, and a 1200ms flush can start first.
     try {
-      this.onTagWriteSuccess?.(filePath)
-      await writeAudioTags(filePath, metadata, this.ffmpegPath)
-      const result = await readStableMetadata(
-        metadata.trackId,
-        filePath,
-        this.artworkCacheDir,
-        (actual) => verifyWrittenMetadata(metadata, actual),
-      )
-      await assertMetadataFingerprint(result)
-      if (this.trackGenerations.get(metadata.trackId) !== generation)
-        throw new Error('Tag write became stale')
-      this.repository.commitVerifiedUserEdit(metadata, result)
+      const commitAndReconcile = async (commit: () => Promise<void>) => {
+        this.onTagWriteSuccess?.(filePath)
+        await commit()
+        const result = await readStableMetadata(
+          metadata.trackId,
+          filePath,
+          this.artworkCacheDir,
+          (actual) => verifyWrittenMetadata(metadata, actual),
+        )
+        await assertMetadataFingerprint(result)
+        if (this.trackGenerations.get(metadata.trackId) !== generation)
+          throw new Error('Tag write became stale')
+        this.repository.commitVerifiedUserEdit(metadata, result)
+      }
+      if (buffered) {
+        const result = await this.bufferedTagWrite!(filePath, metadata, commitAndReconcile)
+        if (!result.ok) this.pendingReconciliation.add(metadata.trackId)
+        return result
+      }
+      await commitAndReconcile(() => writeAudioTags(filePath, metadata, this.ffmpegPath))
       return { ok: true }
     } catch (error) {
       this.pendingReconciliation.add(metadata.trackId)

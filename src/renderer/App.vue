@@ -837,13 +837,10 @@ const isCdCanvas = computed(() => {
   return route.name === 'cd-albums' || route.name === 'cd-album-index'
 })
 
-const isArchiveCanvas = computed(() => route.name === 'archive')
-const isStandaloneCanvas = computed(() => isCdCanvas.value || isArchiveCanvas.value)
-
 /** 全高布局下的收起图标栏；驱动 Shell 列宽、播放栏左边界与背景裁切。 */
 const { sidebarFullHeight, sidebarCollapsed } = useSidebarLayout()
 const isSidebarRail = computed(
-  () => sidebarFullHeight.value && sidebarCollapsed.value && !isStandaloneCanvas.value,
+  () => sidebarFullHeight.value && sidebarCollapsed.value && !isCdCanvas.value,
 )
 const renderedSidebarRail = ref(isSidebarRail.value)
 
@@ -963,7 +960,6 @@ watch(displayMode, (mode) => {
     :inert="displayMode === 'fullscreen' || isSettingsOpen"
     :class="{
       'is-cd-albums': isCdCanvas,
-      'is-archive-canvas': isArchiveCanvas,
       'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
     }"
     data-app-shell-root
@@ -974,7 +970,6 @@ watch(displayMode, (mode) => {
       :class="{
         'is-album-detail': isAlbumDetail,
         'is-cd-albums': isCdCanvas,
-        'is-archive-canvas': isArchiveCanvas,
         'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
         'is-sidebar-collapsed': renderedSidebarRail,
         'is-lyrics-collapsed': isLyricsCollapsed,
@@ -985,12 +980,12 @@ watch(displayMode, (mode) => {
     >
       <div
         class="shell-drag-region"
-        :class="{ 'shell-drag-region--cd': isStandaloneCanvas }"
+        :class="{ 'shell-drag-region--cd': isCdCanvas }"
         aria-hidden="true"
       />
-      <WindowTrafficLights :cd-canvas="isStandaloneCanvas" />
+      <WindowTrafficLights :cd-canvas="isCdCanvas" />
 
-      <AppSidebar v-if="!isStandaloneCanvas" class="relative z-10" />
+      <AppSidebar v-if="!isCdCanvas" class="relative z-10" />
 
       <main
         ref="mainRef"
@@ -1033,14 +1028,14 @@ watch(displayMode, (mode) => {
       </main>
 
       <NowPlayingPanel
-        v-if="!isStandaloneCanvas"
+        v-if="!isCdCanvas"
         class="relative z-10"
         :should-mount-lyrics="shouldMountLyrics"
         :is-collapsed="isLyricsCollapsed"
         :is-interactive="isLyricsInteractive"
         :target-width-px="lyricsTargetWidthPx"
       />
-      <PlayerBar v-if="!isStandaloneCanvas" />
+      <PlayerBar v-if="!isCdCanvas" />
     </div>
     <FullscreenPlayerOverlay />
   </div>
@@ -1048,27 +1043,6 @@ watch(displayMode, (mode) => {
 </template>
 
 <style scoped>
-.app-window.is-archive-canvas {
-  --auralis-playbar-safe-area: 0px;
-  background: #030305;
-}
-.app-shell.is-archive-canvas {
-  grid-template-columns: minmax(0, 1fr) !important;
-  background: #030305;
-}
-.app-shell.is-archive-canvas > .app-main {
-  padding: 0;
-  border-radius: 0;
-  overflow: hidden;
-}
-.app-shell.is-archive-canvas > .shell-drag-region {
-  top: 0;
-  right: 112px;
-  left: 0;
-  width: auto;
-  height: 20px;
-}
-
 .app-window.is-cd-albums {
   background: #eeeeec;
   box-shadow: none;

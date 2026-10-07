@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useCoverArtworkCorners } from '@renderer/features/appearance/composables/useCoverArtworkCorners'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
-import { formatArtist } from '../utils/formatArtist'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 import {
   formatAlbumCoverDiscHeading,
   getAlbumCoverTrackDiscHeadings,
@@ -51,6 +51,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { songText, songValues } = useChineseTextDisplay()
 const { coverArtworkRounded, coverArtworkRadius } = useCoverArtworkCorners()
 // 分组虚拟化仍会挂载整张专辑；大型合集额外按曲目虚拟化。
 const LONG_ALBUM_TRACK_COUNT = 100
@@ -111,7 +112,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
         :style="{ borderRadius: coverArtworkRounded ? `${coverArtworkRadius}px` : '0px' }"
         :aria-label="
           t('library.a11y.albumArtwork', {
-            album: group.album || t('library.unknownAlbum'),
+            album: songText(group.album) || t('library.unknownAlbum'),
           })
         "
         @contextmenu.prevent="onArtworkContextMenu"
@@ -136,16 +137,16 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 
       <div class="album-cover-meta min-w-0">
         <p
-          v-tooltip.overflow="group.album || t('library.unknownAlbum')"
+          v-tooltip.overflow="songText(group.album) || t('library.unknownAlbum')"
           class="album-cover-meta-title truncate"
         >
-          {{ group.album || t('library.unknownAlbum') }}
+          {{ songText(group.album) || t('library.unknownAlbum') }}
         </p>
         <p
           class="album-cover-meta-line album-cover-meta-artist flex items-center justify-between gap-2 min-w-0"
         >
-          <span v-tooltip.overflow="formatArtist(group.albumArtist)" class="truncate">
-            {{ formatArtist(group.albumArtist) }}
+          <span v-tooltip.overflow="songValues(group.albumArtist)" class="truncate">
+            {{ songValues(group.albumArtist) }}
           </span>
         </p>
         <p v-if="group.releaseDate" class="album-cover-meta-line album-cover-meta-date truncate">

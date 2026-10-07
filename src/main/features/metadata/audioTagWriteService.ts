@@ -14,23 +14,23 @@ function normalizeTagValue(value: string | null): string {
   return value?.trim() ?? ''
 }
 
-function buildMetadataArguments(metadata: EditableTrackMetadata): string[] {
+function buildMetadataArguments(metadata: EditableTrackMetadata, flag = '-metadata'): string[] {
   const releaseDate = normalizeTagValue(metadata.releaseDate) || String(metadata.year ?? '')
 
   return [
-    '-metadata',
+    flag,
     `title=${normalizeTagValue(metadata.title)}`,
-    '-metadata',
+    flag,
     `artist=${normalizeTagValue(metadata.artistDisplay)}`,
-    '-metadata',
+    flag,
     `album=${normalizeTagValue(metadata.albumTitle)}`,
-    '-metadata',
+    flag,
     `album_artist=${normalizeTagValue(metadata.albumArtistDisplay)}`,
-    '-metadata',
+    flag,
     `genre=${normalizeTagValue(metadata.genreDisplay)}`,
-    '-metadata',
+    flag,
     `date=${releaseDate}`,
-    '-metadata',
+    flag,
     `year=${metadata.year ?? ''}`,
   ]
 }
@@ -107,7 +107,12 @@ async function remuxWithTags(
     'copy',
     '-id3v2_version',
     '3',
-    ...buildMetadataArguments(metadata),
+    ...buildMetadataArguments(
+      metadata,
+      ['.ogg', '.opus'].includes(extname(inputPath).toLowerCase())
+        ? '-metadata:s:a:0'
+        : '-metadata',
+    ),
     outputPath,
   ])
 }
@@ -148,20 +153,19 @@ async function remuxWithCover(
 
 async function replaceOriginalFile(
   originalPath: string,
-  generatedPath: string,
+  stagingPath: string,
   expected: { size: number; mtimeMs: number },
+  beforeFirstRename?: () => void,
 ): Promise<void> {
   const operationId = randomUUID()
-  const stagingPath = `${originalPath}.auralis-replacement-${operationId}`
   const backupPath = `${originalPath}.auralis-backup-${operationId}`
-
-  await copyFile(generatedPath, stagingPath)
 
   try {
     const beforeReplace = await stat(originalPath)
     if (beforeReplace.size !== expected.size || beforeReplace.mtimeMs !== expected.mtimeMs) {
       throw new Error('Audio file changed during tag writing; original was not replaced')
     }
+    beforeFirstRename?.()
     await rename(originalPath, backupPath)
 
     try {
@@ -181,11 +185,19 @@ async function replaceOriginalFile(
   }
 }
 
-export async function writeAudioTags(
+export interface PreparedAudioTagWrite {
+  stagingPath: string
+  assertUnchanged: () => Promise<void>
+  commit: (beforeFirstRename?: () => void) => Promise<void>
+  dispose: () => Promise<void>
+}
+
+/** All copying/remuxing completes before the exclusive playback write window. */
+export async function prepareAudioTagWrite(
   filePath: string,
   metadata: EditableTrackMetadata,
   ffmpegPath: string,
-): Promise<void> {
+): Promise<PreparedAudioTagWrite> {
   metadata = normalizeEditableMetadata(metadata)
   const originalFingerprint = await stat(filePath)
   const extension = extname(filePath)
@@ -197,13 +209,16 @@ export async function writeAudioTags(
   const outputPath = join(tmpdir(), `auralis-tag-edit-${randomUUID()}${extension}`)
   const coveredPath = join(tmpdir(), `auralis-tag-cover-${randomUUID()}${extension}`)
   let coverPath: string | null = null
+  const stagingPath = `${filePath}.auralis-replacement-${randomUUID()}`
+  let prepared = false
 
   try {
     const picture = await readEmbeddedPicture(filePath)
     await remuxWithTags(filePath, outputPath, metadata, ffmpegPath)
 
     let taggedPath = outputPath
-    if (picture) {
+    const preservedPicture = picture ? await readEmbeddedPicture(outputPath) : null
+    if (picture && !preservedPicture?.data.equals(picture.data)) {
       coverPath = join(
         tmpdir(),
         `auralis-tag-cover-${randomUUID()}${resolveCoverFileExtension(picture.mimeType)}`,
@@ -212,18 +227,52 @@ export async function writeAudioTags(
       try {
         await remuxWithCover(outputPath, coverPath, coveredPath, metadata, ffmpegPath)
         taggedPath = coveredPath
-      } catch {
-        // Keep the tagged remux if re-attaching the cover fails; the library
-        // cache still holds the artwork for display.
+      } catch (error) {
+        // Never commit a replacement that silently discards embedded artwork.
+        const actual = await readEmbeddedPicture(outputPath)
+        if (!actual || !actual.data.equals(picture.data)) throw error
       }
     }
-
-    await replaceOriginalFile(filePath, taggedPath, originalFingerprint)
+    await copyFile(taggedPath, stagingPath)
+    const assertUnchanged = async () => {
+      const actual = await stat(filePath)
+      if (
+        actual.size !== originalFingerprint.size ||
+        actual.mtimeMs !== originalFingerprint.mtimeMs
+      )
+        throw new Error('Audio file changed during tag preparation')
+    }
+    prepared = true
+    let committed = false
+    return {
+      stagingPath,
+      assertUnchanged,
+      commit: async (beforeFirstRename) => {
+        if (committed) throw new Error('Tag write already committed')
+        await replaceOriginalFile(filePath, stagingPath, originalFingerprint, beforeFirstRename)
+        committed = true
+      },
+      dispose: () => rm(stagingPath, { force: true }),
+    }
   } finally {
     await rm(outputPath, { force: true })
     await rm(coveredPath, { force: true })
     if (coverPath) {
       await rm(coverPath, { force: true })
     }
+    if (!prepared) await rm(stagingPath, { force: true })
+  }
+}
+
+export async function writeAudioTags(
+  filePath: string,
+  metadata: EditableTrackMetadata,
+  ffmpegPath: string,
+): Promise<void> {
+  const prepared = await prepareAudioTagWrite(filePath, metadata, ffmpegPath)
+  try {
+    await prepared.commit()
+  } finally {
+    await prepared.dispose()
   }
 }

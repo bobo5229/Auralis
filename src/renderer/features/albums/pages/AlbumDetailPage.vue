@@ -10,8 +10,7 @@ import {
   useArtworkPalette,
 } from '@renderer/features/playback/composables/useArtworkPalette'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
-import { formatArtist } from '@renderer/features/library/utils/formatArtist'
-import { formatDelimitedParts } from '@shared/utils/delimitedValues'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 
 import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumDetailTrackList from '../components/AlbumDetailTrackList.vue'
@@ -33,6 +32,7 @@ const props = withDefaults(
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const { songText, songValues, songParts } = useChineseTextDisplay()
 const playback = usePlayback()
 const detailRootRef = ref<HTMLElement | null>(null)
 const coverStageRef = ref<HTMLElement | null>(null)
@@ -68,10 +68,10 @@ const { albumGenrePills, albumHeroGenreLabel, heroLegalLine, albumReleaseDate, a
 const displayAlbumArtist = computed(() =>
   albumArtist.value === 'Unknown Artist'
     ? t('library.unknownArtist')
-    : formatArtist(albumArtist.value),
+    : songValues(albumArtist.value),
 )
 const displayAlbumTitle = computed(() =>
-  albumTitle.value === 'Unknown Album' ? t('library.unknownAlbum') : albumTitle.value,
+  albumTitle.value === 'Unknown Album' ? t('library.unknownAlbum') : songText(albumTitle.value),
 )
 
 const albumGroups = computed(() => {
@@ -111,11 +111,6 @@ const albumDetailStyle = computed<CSSProperties>(() => {
 
   return { '--auralis-album-detail-accent': resolvedAccent }
 })
-
-function onArtistClick(): void {
-  if (!albumArtist.value || albumArtist.value === 'Unknown Artist') return
-  void router.push({ name: 'library', query: { q: albumArtist.value } })
-}
 
 const isGenreGallery = computed(() => moreAlbumsByArtist.value.length === 0)
 const galleryAlbums = computed(() =>
@@ -355,22 +350,18 @@ onBeforeUnmount(() => {
                     {{ displayAlbumTitle }}
                   </h1>
                   <div class="album-hero-artist-row select-text">
-                    <button
-                      v-if="albumArtist && albumArtist !== 'Unknown Artist'"
-                      v-tooltip.overflow="displayAlbumArtist"
-                      type="button"
-                      class="album-hero-artist-btn"
-                      @click="onArtistClick"
-                    >
+                    <span v-tooltip.overflow="displayAlbumArtist" class="album-hero-artist-text">
                       {{ displayAlbumArtist }}
-                    </button>
-                    <span v-else class="album-hero-artist-text">{{ displayAlbumArtist }}</span>
+                    </span>
                     <span class="album-hero-artist-dot" aria-hidden="true">·</span>
                     <span class="album-hero-date-text">{{ albumReleaseDate }}</span>
                     <span v-if="albumHeroGenreLabel" class="album-hero-genre-group">
                       <span class="album-hero-artist-dot" aria-hidden="true">·</span>
-                      <span v-tooltip.overflow="albumHeroGenreLabel" class="album-hero-genre-text">
-                        {{ albumHeroGenreLabel }}
+                      <span
+                        v-tooltip.overflow="songParts(albumGenrePills.slice(0, 2))"
+                        class="album-hero-genre-text"
+                      >
+                        {{ songParts(albumGenrePills.slice(0, 2)) }}
                       </span>
                     </span>
                   </div>
@@ -403,7 +394,7 @@ onBeforeUnmount(() => {
           <!-- 下半部分：底部脚注层（横跨全宽，完整横向展开，低于按钮与封面底边） -->
           <div v-if="heroLegalLine" class="album-hero-footer-stage select-none">
             <p class="album-hero-legal-text">
-              {{ heroLegalLine }}
+              {{ songValues(heroLegalLine) }}
             </p>
           </div>
         </section>
@@ -427,7 +418,7 @@ onBeforeUnmount(() => {
           :albums="galleryAlbums"
           :single-row="isGenreGallery"
           :artist-label="displayAlbumArtist"
-          :genre-label="formatDelimitedParts(albumGenrePills)"
+          :genre-label="songParts(albumGenrePills)"
           :effects-active="isEffectsActive"
           :opening="isOpeningWork"
           @open="openAlbum"
@@ -476,19 +467,21 @@ onBeforeUnmount(() => {
       aria-live="assertive"
     >
       <div class="album-detail-state-content text-center">
-        <p class="album-detail-state-message text-base font-semibold text-[var(--auralis-text)]">
+        <p
+          class="album-detail-state-message auralis-type-body font-semibold text-[var(--auralis-text)]"
+        >
           {{ loadState === 'error' ? t('albums.detail.loadError') : t('albums.detail.notFound') }}
         </p>
         <button
           v-if="loadState === 'error'"
-          class="album-detail-state-action mt-3 text-sm text-[var(--auralis-sidebar-active-text)]"
+          class="album-detail-state-action auralis-type-control mt-3 text-[var(--auralis-sidebar-active-text)]"
           type="button"
           @click="retryLoad"
         >
           {{ t('albums.detail.retry') }}
         </button>
         <button
-          class="album-detail-state-action mt-3 text-sm text-[var(--auralis-sidebar-active-text)]"
+          class="album-detail-state-action auralis-type-control mt-3 text-[var(--auralis-sidebar-active-text)]"
           type="button"
           @click="goBack"
         >
@@ -499,6 +492,7 @@ onBeforeUnmount(() => {
   </div>
 </template>
 
+<style scoped src="../styles/albumDetail.typography.css"></style>
 <style scoped>
 .album-detail-container {
   width: 100%;
@@ -534,9 +528,9 @@ onBeforeUnmount(() => {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   color: var(--auralis-text-muted);
-  font-size: 12px;
+  font-size: var(--album-detail-type-back-size);
   font-weight: 500;
-  line-height: 1.2;
+  line-height: var(--album-detail-type-back-line-height);
   cursor: pointer;
   transition: color 0.2s ease;
 }
@@ -656,15 +650,15 @@ onBeforeUnmount(() => {
 }
 
 .album-hero-title {
-  margin: 0;
-  padding-bottom: 6px;
+  /* 两行截断的间隔放在外部，避免底部内边距露出第三行。 */
+  margin: 0 0 6px;
   box-sizing: border-box;
   max-width: 100%;
   color: var(--auralis-text);
-  font-family: var(--auralis-font-latin), 'Auralis Desktop Lyrics SC', 'Times New Roman', serif;
-  font-size: clamp(24px, 2.8vw, 38px);
-  font-weight: 800;
-  line-height: 1.22;
+  font-family: var(--album-detail-font-title);
+  font-size: var(--album-detail-type-title-size);
+  font-weight: var(--album-detail-type-title-weight);
+  line-height: var(--album-detail-type-title-line-height);
   letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -679,37 +673,23 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  font-size: 17px;
-  font-weight: 650;
-  line-height: 1.4;
   color: var(--auralis-text);
 }
 
-.album-hero-artist-btn {
-  background: transparent;
-  border: none;
-  padding: 0;
-  color: var(--auralis-text);
-  font-size: 17px;
-  font-weight: 650;
-  cursor: pointer;
-  text-decoration: none;
-  transition: color 0.15s ease;
-  max-width: 320px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.album-hero-artist-btn:hover {
-  color: var(--auralis-sidebar-active-indicator, var(--auralis-text));
-  text-decoration: underline;
+.album-hero-artist-row,
+.album-hero-artist-text {
+  font-size: var(--album-detail-type-artist-size);
+  font-weight: var(--album-detail-type-artist-weight);
+  line-height: var(--album-detail-type-artist-line-height);
 }
 
 .album-hero-artist-text {
   color: var(--auralis-text);
-  font-size: 17px;
-  font-weight: 650;
+  min-width: 0;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .album-hero-artist-dot {
@@ -719,7 +699,8 @@ onBeforeUnmount(() => {
 
 .album-hero-date-text,
 .album-hero-genre-text {
-  font-size: 14px;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
   font-weight: 500;
   color: var(--auralis-text-muted);
 }
@@ -760,7 +741,8 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 6px;
   border-radius: 999px;
-  font-size: 14px;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
   font-weight: 650;
   letter-spacing: 0.02em;
   transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -906,9 +888,9 @@ onBeforeUnmount(() => {
   margin: 0;
   width: 100%;
   color: var(--auralis-text-subtle);
-  font-size: 11px;
+  font-size: var(--auralis-type-caption-size);
   font-weight: 400;
-  line-height: 1.4;
+  line-height: var(--auralis-type-caption-line-height);
   letter-spacing: 0.01em;
   white-space: normal;
   word-break: break-word;

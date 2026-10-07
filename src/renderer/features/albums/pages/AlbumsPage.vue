@@ -20,7 +20,10 @@ import { resolveMenuNavigationIndex } from '@renderer/app/utils/menuKeyboardNavi
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { isLibrarySearchBarHovered } from '@renderer/features/library/utils/librarySearchHover'
+import { canDismissPageSearch } from '@renderer/features/library/utils/librarySearchKeyboard'
 import { normalizeSearchText } from '@renderer/features/library/utils/normalizeSearchText'
+import { createDisplaySearchKeys } from '@renderer/features/library/utils/displaySearchKeys'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 import { prefetchArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumCard from '../components/AlbumCard.vue'
@@ -59,6 +62,7 @@ const props = withDefaults(
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const { songText } = useChineseTextDisplay()
 const playback = usePlayback()
 const { displayMode } = usePlayerDisplayMode()
 const hasCurrentTrack = computed(() => Boolean(playback.state.currentTrackId))
@@ -90,6 +94,7 @@ const isSearchOpen = ref(false)
 const searchTriggerRef = ref<HTMLButtonElement | null>(null)
 let searchReturnFocus: HTMLElement | null = null
 let searchFocusRevision = 0
+let isSearchHoverDismissed = false
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const searchRootRef = ref<HTMLElement | null>(null)
 const highlightedAlbumKey = ref<string | null>(null)
@@ -147,6 +152,20 @@ watch(tracks, () => {
 
 const catalogIndex = computed(() => getAlbumCatalogIndex(tracks.value))
 const albums = computed<AlbumSummary[]>(() => catalogIndex.value.albums)
+const albumSearchKeys = computed(
+  () =>
+    new Map(
+      albums.value.map((album) => [
+        album.key,
+        [
+          ...new Set([
+            ...createDisplaySearchKeys(album.title),
+            ...createDisplaySearchKeys(album.albumArtist, true),
+          ]),
+        ],
+      ]),
+    ),
+)
 const {
   gridWidth,
   columnCount,
@@ -586,8 +605,8 @@ watch(albums, () => {
 function doesAlbumMatchSearch(album: AlbumSummary, normalizedQuery: string): boolean {
   if (!normalizedQuery) return false
 
-  return [album.title, album.albumArtist].some((value) =>
-    normalizeSearchText(value).startsWith(normalizedQuery),
+  return (
+    albumSearchKeys.value.get(album.key)?.some((key) => key.startsWith(normalizedQuery)) ?? false
   )
 }
 
@@ -638,12 +657,27 @@ async function openSearch(): Promise<void> {
       activeElement instanceof HTMLElement && activeElement !== document.body ? activeElement : null
   }
   isSearchOpen.value = true
+  isSearchHoverDismissed = false
   await nextTick()
   if (revision !== searchFocusRevision || !canRefresh.value || !isSearchOpen.value) return
   searchInputRef.value?.focus({ preventScroll: true })
 }
 
 function onPageSearchShortcut(event: KeyboardEvent): void {
+  if (
+    canRefresh.value &&
+    displayMode.value === 'normal' &&
+    !contextMenu.value &&
+    !isLayoutTransitionActive.value &&
+    !isSearchFocused.value &&
+    (searchQuery.value !== '' || shouldRenderSearchBar.value) &&
+    canDismissPageSearch(event)
+  ) {
+    event.preventDefault()
+    clearSearch()
+    dismissSearch(false)
+    return
+  }
   if (
     event.defaultPrevented ||
     event.isComposing ||
@@ -674,27 +708,44 @@ function onSearchBlur(): void {
   isSearchOpen.value = false
 }
 
+function clearSearch(): void {
+  searchQuery.value = ''
+  resetSearchOutcome()
+  highlightedAlbumKey.value = null
+  if (searchHighlightTimeout) clearTimeout(searchHighlightTimeout)
+  searchHighlightTimeout = null
+}
+
+function dismissSearch(restoreFocus: boolean): void {
+  const revision = ++searchFocusRevision
+  isSearchOpen.value = false
+  isSearchHoverDismissed ||= isSearchZoneHovered.value
+  isSearchZoneHovered.value = false
+  isSearchFocused.value = false
+  const returnFocus = searchReturnFocus
+  searchReturnFocus = null
+  if (!restoreFocus) return
+  searchInputRef.value?.blur()
+  void nextTick(() => {
+    if (revision !== searchFocusRevision || !canRefresh.value) return
+    const target = returnFocus?.isConnected ? returnFocus : searchTriggerRef.value
+    target?.focus({ preventScroll: true })
+  })
+}
+
+function onSearchFocus(): void {
+  isSearchHoverDismissed = false
+  isSearchFocused.value = true
+}
+
 function onSearchKeydown(event: KeyboardEvent): void {
+  if (event.isComposing || event.keyCode === 229) return
   if (event.key === 'Escape') {
     event.preventDefault()
     if (searchQuery.value !== '') {
-      searchQuery.value = ''
-      highlightedAlbumKey.value = null
-      if (searchHighlightTimeout) clearTimeout(searchHighlightTimeout)
-      searchHighlightTimeout = null
+      clearSearch()
     } else {
-      const revision = ++searchFocusRevision
-      isSearchOpen.value = false
-      isSearchZoneHovered.value = false
-      isSearchFocused.value = false
-      searchInputRef.value?.blur()
-      const returnFocus = searchReturnFocus
-      searchReturnFocus = null
-      void nextTick(() => {
-        if (revision !== searchFocusRevision || !canRefresh.value) return
-        const target = returnFocus?.isConnected ? returnFocus : searchTriggerRef.value
-        target?.focus({ preventScroll: true })
-      })
+      dismissSearch(true)
     }
     return
   }
@@ -708,15 +759,18 @@ function onAlbumsMouseMove(event: MouseEvent): void {
   if (!currentTarget) return
 
   const bar = searchRootRef.value
-  isSearchZoneHovered.value = isLibrarySearchBarHovered(
+  const hovered = isLibrarySearchBarHovered(
     event.clientX,
     event.clientY,
     currentTarget.getBoundingClientRect(),
-    bar ? bar.getBoundingClientRect() : null,
+    bar && !isSearchHoverDismissed ? bar.getBoundingClientRect() : null,
   )
+  if (!hovered) isSearchHoverDismissed = false
+  isSearchZoneHovered.value = hovered && !isSearchHoverDismissed
 }
 
 function onAlbumsMouseLeave(): void {
+  isSearchHoverDismissed = false
   isSearchZoneHovered.value = false
 }
 
@@ -999,7 +1053,7 @@ defineExpose<AlbumLayoutTransitionParticipant>({
               :placeholder="t('albums.search.placeholder')"
               :aria-label="t('albums.search.ariaLabel')"
               spellcheck="false"
-              @focus="isSearchFocused = true"
+              @focus="onSearchFocus"
               @blur="onSearchBlur"
               @keydown="onSearchKeydown"
             />
@@ -1117,7 +1171,9 @@ defineExpose<AlbumLayoutTransitionParticipant>({
             @click="playContextAlbum"
           >
             <span class="i-lucide-play"></span>
-            <span>{{ t('albums.contextMenu.play', { title: contextMenu.album.title }) }}</span>
+            <span>{{
+              t('albums.contextMenu.play', { title: songText(contextMenu.album.title) })
+            }}</span>
           </button>
           <div class="library-context-menu-separator"></div>
           <template v-if="hasCurrentTrack">
@@ -1129,7 +1185,9 @@ defineExpose<AlbumLayoutTransitionParticipant>({
               @click="insertContextAlbum"
             >
               <span class="i-lucide-list-plus"></span>
-              <span>{{ t('albums.contextMenu.insert', { title: contextMenu.album.title }) }}</span>
+              <span>{{
+                t('albums.contextMenu.insert', { title: songText(contextMenu.album.title) })
+              }}</span>
             </button>
             <div class="library-context-menu-separator"></div>
           </template>

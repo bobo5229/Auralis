@@ -4,9 +4,9 @@ import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { animatePlaybackBars } from '@renderer/shared/animation/motion'
 import { formatDuration } from '../utils/formatDuration'
-import { formatArtist, isMultiValueArtist } from '../utils/formatArtist'
-import { formatGenre } from '../utils/formatGenre'
+import { isMultiValueArtist } from '../utils/formatArtist'
 import { formatMetadataDisplay } from '../utils/formatMetadataDisplay'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 
 const props = withDefaults(
   defineProps<{
@@ -28,8 +28,9 @@ const emit = defineEmits<{
   openContextMenu: [trackId: number, event: MouseEvent, openReason?: 'pointer' | 'keyboard']
 }>()
 const { t } = useI18n()
+const { songText, songValues } = useChineseTextDisplay()
 const titleDisplay = computed(() =>
-  formatMetadataDisplay(props.track.title, t('library.missing.title')),
+  formatMetadataDisplay(songText(props.track.title), t('library.missing.title')),
 )
 const barsRef = ref<HTMLElement | null>(null)
 
@@ -87,7 +88,7 @@ function onKeyDown(event: KeyboardEvent): void {
       t('library.a11y.songRow', {
         index: index + 1,
         title: titleDisplay.text,
-        artist: track.artist ?? '',
+        artist: songValues(track.artist),
       })
     "
     @dblclick="emit('play', track.id)"
@@ -118,15 +119,15 @@ function onKeyDown(event: KeyboardEvent): void {
       >
       <span
         v-if="isMultiValueArtist(track.artist)"
-        v-tooltip.overflow="formatArtist(track.artist)"
+        v-tooltip.overflow="songValues(track.artist)"
         class="cover-track-artist-line truncate text-xs leading-[18px] text-[var(--auralis-text-faint)]"
-        >{{ formatArtist(track.artist) }}</span
+        >{{ songValues(track.artist) }}</span
       >
     </div>
     <span
-      v-tooltip.overflow="formatGenre(track.genre)"
+      v-tooltip.overflow="songValues(track.genre)"
       class="cover-track-genre truncate text-right text-xs text-[var(--auralis-text-muted)] min-w-0"
-      >{{ formatGenre(track.genre) }}</span
+      >{{ songValues(track.genre) }}</span
     >
     <span
       v-tooltip.overflow="formatDuration(track.durationSeconds)"

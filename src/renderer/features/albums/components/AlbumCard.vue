@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
-import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 import {
   prefetchArtworkPalette,
   useArtworkPalette,
@@ -18,8 +18,15 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const displayAlbumTitle = computed(() => props.album.title)
-const displayAlbumArtist = computed(() => formatArtist(props.album.albumArtist))
+const { songText, songValues } = useChineseTextDisplay()
+const displayAlbumTitle = computed(() =>
+  props.album.title === 'Unknown Album' ? t('library.unknownAlbum') : songText(props.album.title),
+)
+const displayAlbumArtist = computed(() =>
+  props.album.albumArtist === 'Unknown Artist'
+    ? t('library.unknownArtist')
+    : songValues(props.album.albumArtist),
+)
 const artworkCacheKey = computed(() => props.album.artworkCacheKey)
 const { palette } = useArtworkPalette(artworkCacheKey)
 const playButtonStyle = computed(() => {

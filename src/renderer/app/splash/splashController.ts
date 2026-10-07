@@ -1,6 +1,12 @@
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import type { AuralisApi } from '@shared/ipc/api'
-import { getSplashMotionFrame, SPLASH_FORMATION_MS } from './splashMotion'
+import {
+  getSplashBrandCharFrame,
+  getSplashMotionFrame,
+  getSplashPlaceboCompletion,
+  getSplashPlaceboProgress,
+  SPLASH_FORMATION_MS,
+} from './splashMotion'
 import {
   APP_FAILED_EVENT,
   APP_HOST_ELEMENT_ID,
@@ -26,6 +32,7 @@ export interface SplashEnvironment {
   requestFrame(callback: (now: number) => void): () => void
   now(): number
   renderMotion(elapsed: number): void
+  renderProgress(progress: number): void
   startFadeOut(): void
   /** 移除开屏节点、解除主界面 inert 并交还焦点；由控制器保证只调用一次。 */
   finishSplash(): void
@@ -73,6 +80,15 @@ export function startSplashLifecycle(env: SplashEnvironment): () => void {
     if (phase === 'fading' || phase === 'finished') return
     phase = 'fading'
     stopFrameAndTimer()
+    const completionStart = env.now()
+    const initialProgress = getSplashPlaceboProgress(completionStart - startTime)
+    env.renderProgress(initialProgress)
+    const completeProgress = (now: number): void => {
+      const progress = getSplashPlaceboCompletion(now - completionStart, initialProgress)
+      env.renderProgress(progress)
+      cancelFrame = progress < 1 ? env.requestFrame(completeProgress) : null
+    }
+    cancelFrame = env.requestFrame(completeProgress)
     env.startFadeOut()
     fadeTimer = setTimeout(finish, SPLASH_FADE_OUT_MS)
   }
@@ -96,17 +112,22 @@ export function startSplashLifecycle(env: SplashEnvironment): () => void {
   }
 
   const step = (now: number): void => {
-    if (phase !== 'moving') return
-    const elapsed = Math.min(SPLASH_FORMATION_MS, Math.max(0, now - startTime))
-    env.renderMotion(elapsed)
-    if (elapsed >= SPLASH_FORMATION_MS) {
+    if (phase !== 'moving' && phase !== 'formed') return
+    const elapsed = Math.max(0, now - startTime)
+    if (phase === 'moving') env.renderMotion(Math.min(SPLASH_FORMATION_MS, elapsed))
+    env.renderProgress(getSplashPlaceboProgress(elapsed))
+    if (phase === 'moving' && elapsed >= SPLASH_FORMATION_MS) {
       // 最后一帧使用标准品牌路径，完整 Logo 安静停留直到应用就绪。
       phase = 'formed'
       cancelFrame = null
-      tryExit()
-      return
     }
-    cancelFrame = env.requestFrame(step)
+    if (phase === 'formed') tryExit()
+    if (phase === 'moving' || (phase === 'formed' && elapsed < 1_200)) {
+      cancelFrame = env.requestFrame(step)
+    } else if (phase === 'formed') {
+      // 已到等待平台，后续由就绪事件触发补满，不持续刷新静止的刻度。
+      cancelFrame = null
+    }
   }
 
   const beginMotion = (): void => {
@@ -114,6 +135,7 @@ export function startSplashLifecycle(env: SplashEnvironment): () => void {
     phase = 'moving'
     startTime = env.now()
     env.renderMotion(0)
+    env.renderProgress(0)
     cancelFrame = env.requestFrame(step)
   }
 
@@ -181,6 +203,20 @@ export function initSplashController(): void {
   const reducedMotion = reducedMotionQuery.matches
   const legPaths = legs as SVGPathElement[]
   const lengths = legPaths.map((leg) => leg.getTotalLength())
+  const brandChars = Array.from(brand.querySelectorAll<HTMLElement>('.splash-brand-char'))
+  const progressTrack = document.getElementById('splash-progress')
+  if (progressTrack) {
+    const ticks = Array.from({ length: 22 }, () => document.createElement('span'))
+    progressTrack.replaceChildren(...ticks)
+  }
+  const progressTicks = Array.from(progressTrack?.children ?? [])
+  const renderProgress = (progress: number): void => {
+    const activeCount = Math.round(progress * progressTicks.length)
+    progressTicks.forEach((tick, index) => {
+      tick.classList.toggle('is-active', index < activeCount)
+      tick.classList.toggle('is-leading', index === activeCount - 1 && progress < 1)
+    })
+  }
   const renderMotion = (elapsed: number): void => {
     const state = getSplashMotionFrame(elapsed)
     path.style.opacity = state.joined ? '1' : '0'
@@ -191,11 +227,18 @@ export function initSplashController(): void {
       leg.style.strokeDasharray = String(lengths[index])
       leg.style.strokeDashoffset = String(lengths[index] * (1 - state.legProgress))
     })
-    brand.style.opacity = String(state.brandOpacity)
-    brand.style.transform = `translateY(${state.brandOffset}px)`
+    brandChars.forEach((char, index) => {
+      const frame = getSplashBrandCharFrame(elapsed, index)
+      char.style.opacity = String(frame.opacity)
+      char.style.transform = `translateY(${frame.offset}px)`
+      char.style.color = frame.accentPercent
+        ? `color-mix(in srgb, var(--splash-accent) ${frame.accentPercent}%, var(--splash-text))`
+        : 'var(--splash-text)'
+    })
   }
   // 可见前准备首帧；减少动态效果保留 HTML 默认的完整静态 Logo。
   if (!reducedMotion) renderMotion(0)
+  else renderProgress(1)
   const stop = startSplashLifecycle({
     isDocumentVisible: () => document.visibilityState === 'visible',
     isAppReady: () => window.__auralisAppReady === true,
@@ -220,6 +263,7 @@ export function initSplashController(): void {
     },
     now: () => performance.now(),
     renderMotion,
+    renderProgress,
     startFadeOut: () => splash.classList.add('is-exiting'),
     finishSplash: () => {
       splash.remove()

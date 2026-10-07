@@ -76,6 +76,18 @@ const smartCreateSubmenu = ref(false)
 const creatingPlaybackPreset = ref<'recentPlayed' | 'mostListened' | 'recentAdded' | null>(null)
 const createError = ref('')
 const playlistContextMenu = ref<{ item: SidebarPlaylistItem; x: number; y: number } | null>(null)
+const playlistContextIndex = computed(() => {
+  const item = playlistContextMenu.value?.item
+  if (!item) return -1
+  return playlistItems.value.findIndex(
+    (candidate) => getPlaylistKey(candidate) === getPlaylistKey(item),
+  )
+})
+const playlistContextHasPrevious = computed(() => playlistContextIndex.value > 0)
+const playlistContextHasNext = computed(
+  () =>
+    playlistContextIndex.value >= 0 && playlistContextIndex.value < playlistItems.value.length - 1,
+)
 const playlistContextPanel = ref<HTMLElement | null>(null)
 const playlistContextTrigger = ref<HTMLElement | null>(null)
 const playlistContextPositioned = ref(false)
@@ -192,8 +204,8 @@ const primaryNav = computed<
   {
     to: '/archive',
     label: t('nav.archive'),
-    icon: 'i-ph-clock-counter-clockwise',
-    activeIcon: 'i-ph-clock-counter-clockwise-fill',
+    icon: 'i-lucide-notebook-pen',
+    activeIcon: 'i-lucide-notebook-pen',
     routeName: 'archive',
   },
 ])
@@ -855,60 +867,6 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </component>
-        <div class="sidebar-tools-grid" role="toolbar" :aria-label="t('sidebar.toolbarAria')">
-          <button
-            v-tooltip.right="isRail ? t('sidebar.tool.facetsPanel') : ''"
-            class="sidebar-tool-button"
-            type="button"
-            :aria-label="t('sidebar.tool.facetsPanel')"
-            @click="isFacetsDialogOpen = true"
-          >
-            <span class="i-ph-sliders-horizontal"></span>
-          </button>
-          <button
-            v-tooltip.right="isRail ? themeToggleLabel : ''"
-            class="sidebar-tool-button"
-            type="button"
-            :aria-label="themeToggleLabel"
-            @click="onToggleTheme"
-          >
-            <span v-if="isDark" class="i-ph-sun"></span>
-            <span v-else class="i-ph-moon"></span>
-          </button>
-          <button
-            v-tooltip.right="isRail ? t('sidebar.tool.settings') : ''"
-            type="button"
-            class="sidebar-tool-button"
-            :class="{ 'sidebar-tool-button-active': isSettingsOpen }"
-            :aria-label="t('sidebar.tool.settings')"
-            aria-haspopup="dialog"
-            :aria-expanded="isSettingsOpen"
-            data-settings-trigger
-            @pointerenter="preloadSettingsContent"
-            @focusin="preloadSettingsContent"
-            @click="openSettings()"
-          >
-            <span class="i-ph-gear"></span>
-          </button>
-          <button
-            v-tooltip.right="isRail ? t('sidebar.tool.refreshAction') : ''"
-            class="sidebar-tool-button"
-            type="button"
-            :aria-label="
-              isStartingLibraryRefresh
-                ? t('sidebar.tool.refreshBusy')
-                : t('sidebar.tool.refreshAction')
-            "
-            :disabled="isStartingLibraryRefresh"
-            :aria-busy="isStartingLibraryRefresh"
-            @click="refreshLibrary"
-          >
-            <span
-              class="i-ph-arrows-clockwise"
-              :class="{ 'animate-spin': isStartingLibraryRefresh }"
-            ></span>
-          </button>
-        </div>
       </div>
     </header>
 
@@ -1057,6 +1015,62 @@ onBeforeUnmount(() => {
         </div>
       </section>
     </nav>
+    <footer class="sidebar-footer">
+      <div class="sidebar-tools-grid" role="toolbar" :aria-label="t('sidebar.toolbarAria')">
+        <button
+          v-tooltip.right="isRail ? t('sidebar.tool.facetsPanel') : ''"
+          class="sidebar-tool-button"
+          type="button"
+          :aria-label="t('sidebar.tool.facetsPanel')"
+          @click="isFacetsDialogOpen = true"
+        >
+          <span class="i-ph-sliders-horizontal"></span>
+        </button>
+        <button
+          v-tooltip.right="isRail ? t('sidebar.tool.refreshAction') : ''"
+          class="sidebar-tool-button"
+          type="button"
+          :aria-label="
+            isStartingLibraryRefresh
+              ? t('sidebar.tool.refreshBusy')
+              : t('sidebar.tool.refreshAction')
+          "
+          :disabled="isStartingLibraryRefresh"
+          :aria-busy="isStartingLibraryRefresh"
+          @click="refreshLibrary"
+        >
+          <span
+            class="i-ph-arrows-clockwise"
+            :class="{ 'animate-spin': isStartingLibraryRefresh }"
+          ></span>
+        </button>
+        <button
+          v-tooltip.right="isRail ? themeToggleLabel : ''"
+          class="sidebar-tool-button"
+          type="button"
+          :aria-label="themeToggleLabel"
+          @click="onToggleTheme"
+        >
+          <span v-if="isDark" class="i-ph-sun"></span>
+          <span v-else class="i-ph-moon"></span>
+        </button>
+        <button
+          v-tooltip.right="isRail ? t('sidebar.tool.settings') : ''"
+          type="button"
+          class="sidebar-tool-button"
+          :class="{ 'sidebar-tool-button-active': isSettingsOpen }"
+          :aria-label="t('sidebar.tool.settings')"
+          aria-haspopup="dialog"
+          :aria-expanded="isSettingsOpen"
+          data-settings-trigger
+          @pointerenter="preloadSettingsContent"
+          @focusin="preloadSettingsContent"
+          @click="openSettings()"
+        >
+          <span class="i-ph-gear"></span>
+        </button>
+      </div>
+    </footer>
     <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
       {{ reorderAnnouncement ? t('sidebar.reorderAnnouncement', reorderAnnouncement) : '' }}
     </p>
@@ -1196,6 +1210,7 @@ onBeforeUnmount(() => {
           @keydown="onMenuKeydown"
         >
           <button
+            v-if="playlistContextHasPrevious"
             class="library-context-menu-item"
             type="button"
             role="menuitem"
@@ -1205,7 +1220,13 @@ onBeforeUnmount(() => {
             <span class="i-ph-arrow-up"></span>
             <span>{{ t('sidebar.moveUp') }}</span>
           </button>
+          <div
+            v-if="playlistContextHasPrevious && playlistContextHasNext"
+            class="library-context-menu-separator"
+            role="separator"
+          ></div>
           <button
+            v-if="playlistContextHasNext"
             class="library-context-menu-item"
             type="button"
             role="menuitem"
@@ -1215,7 +1236,11 @@ onBeforeUnmount(() => {
             <span class="i-ph-arrow-down"></span>
             <span>{{ t('sidebar.moveDown') }}</span>
           </button>
-          <div class="library-context-menu-separator" role="separator"></div>
+          <div
+            v-if="playlistContextHasPrevious || playlistContextHasNext"
+            class="library-context-menu-separator"
+            role="separator"
+          ></div>
           <button
             class="library-context-menu-item"
             type="button"

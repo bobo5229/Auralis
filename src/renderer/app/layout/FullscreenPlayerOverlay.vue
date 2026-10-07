@@ -4,8 +4,8 @@ import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useFullscreenPlayer } from '@renderer/features/playback/composables/useFullscreenPlayer'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
-import { formatPlaybackSubtitle } from '@renderer/features/playback/utils/formatPlaybackSubtitle'
-import { useTrackLyrics } from '@renderer/features/lyrics/composables/useTrackLyrics'
+import { usePlaybackMetadataDisplay } from '@renderer/features/playback/composables/usePlaybackMetadataDisplay'
+import { useDisplayedTrackLyrics } from '@renderer/features/lyrics/composables/useDisplayedTrackLyrics'
 import {
   FULLSCREEN_LYRICS_FADE_TOP_RATIO,
   FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO,
@@ -38,6 +38,7 @@ const playIconUrl = new URL('../../features/playback/assets/play.svg', import.me
 
 const playback = usePlayback()
 const { t } = useI18n()
+const { songText, playbackSubtitle } = usePlaybackMetadataDisplay()
 const { isFullscreenPlayerOpen, closeFullscreenPlayer } = useFullscreenPlayer()
 const {
   status: lyricsStatus,
@@ -47,10 +48,12 @@ const {
   isPrelude,
   showPrelude,
   preludeLitDotCount,
-} = useTrackLyrics()
+} = useDisplayedTrackLyrics()
 
 const imgError = ref(false)
 const overlayRef = ref<HTMLElement | null>(null)
+// Space can activate :focus-visible after a pointer click; reserve the lyrics ring for Tab navigation.
+const keyboardNavigation = ref(false)
 const artworkRef = ref<HTMLElement | null>(null)
 // Park the GPU backgrounds between visits; controls and lyrics still leave with the section.
 const backgroundTarget = shallowRef<HTMLElement | null>(null)
@@ -149,10 +152,12 @@ const { palette: metalPalette } = useArtworkPalette(artworkCacheKey, {
   enabled: computed(() => isFullscreenPlayerOpen.value || backgroundMode.value === 'metal'),
   retainPreviousWhileLoading: true,
 })
-const title = computed(() => playback.state.currentTrack?.title || t('player.unknownTrack'))
+const title = computed(
+  () => songText(playback.state.currentTrack?.title) || t('player.unknownTrack'),
+)
 const subtitle = computed(() =>
   playback.state.currentTrack
-    ? formatPlaybackSubtitle(playback.state.currentTrack)
+    ? playbackSubtitle(playback.state.currentTrack)
     : t('player.unknownTrack'),
 )
 
@@ -283,6 +288,7 @@ watch(
 watch(
   isFullscreenPlayerOpen,
   (isOpen) => {
+    keyboardNavigation.value = false
     if (isOpen) {
       const activeElement = document.activeElement
       if (activeElement instanceof HTMLElement && !overlayRef.value?.contains(activeElement)) {
@@ -361,13 +367,18 @@ onBeforeUnmount(() => {
         v-if="isFullscreenPlayerOpen"
         ref="overlayRef"
         class="fullscreen-player"
-        :class="{ 'fullscreen-player--metal': backgroundPresentationMode === 'metal' }"
+        :class="{
+          'fullscreen-player--metal': backgroundPresentationMode === 'metal',
+          'fullscreen-player--keyboard-navigation': keyboardNavigation,
+        }"
         :data-background-mode="backgroundMode"
         :data-background-presentation="backgroundPresentationMode"
         role="dialog"
         aria-modal="true"
         tabindex="-1"
         :aria-label="t('fullscreen.overlayAria')"
+        @keydown.capture="keyboardNavigation ||= $event.key === 'Tab'"
+        @pointerdown.capture="keyboardNavigation = false"
       >
         <div class="fullscreen-drag-region" aria-hidden="true" />
         <button
@@ -753,12 +764,6 @@ onBeforeUnmount(() => {
   -webkit-text-stroke-width: 1.25px;
 }
 
-.fullscreen-player--metal :is(button, input, [tabindex]):focus-visible,
-.fullscreen-player--metal
-  .fullscreen-player-lyrics:has(.fullscreen-player-lyrics-scroll:focus-visible) {
-  box-shadow: 0 0 0 6px #0e1117;
-}
-
 .fullscreen-player-exit:hover {
   color: var(--auralis-text);
 }
@@ -769,7 +774,8 @@ onBeforeUnmount(() => {
 }
 
 /* The scroll mask also clips outlines, so draw keyboard focus on its unmasked parent. */
-.fullscreen-player-lyrics:has(.fullscreen-player-lyrics-scroll:focus-visible) {
+.fullscreen-player--keyboard-navigation
+  .fullscreen-player-lyrics:has(.fullscreen-player-lyrics-scroll:focus-visible) {
   outline: 2px solid var(--auralis-text);
   outline-offset: 4px;
 }

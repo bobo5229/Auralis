@@ -7,6 +7,7 @@ import {
 import { scanLibrarySearchIndex, type LibrarySearchRecord } from './librarySearchScan'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { normalizeSearchText } from './normalizeSearchText'
+import { convertChineseText } from '@renderer/features/appearance/utils/chineseText'
 
 function createTrack(id: number, patch: Partial<TrackListItem> = {}): TrackListItem {
   return {
@@ -187,6 +188,7 @@ describe('createLibrarySearchIndex', () => {
   })
 
   it('normalizes nullable metadata once into immutable search records', () => {
+    // Display aliases supplement original keys; original snapshot fields stay unchanged.
     const index = createLibrarySearchIndex([
       createTrack(1, {
         title: '  ＡLPHA 與夢  ',
@@ -208,6 +210,40 @@ describe('createLibrarySearchIndex', () => {
     ])
     expect(Object.isFrozen(index)).toBe(true)
     expect(Object.isFrozen(index[0])).toBe(true)
+  })
+
+  it('finds original and both displayed scripts even when conversion is not reversible', () => {
+    const tracks = [
+      createTrack(1, { title: '苧與音樂', artist: '头发; 萧敬腾', album: '看着你' }),
+      createTrack(2, { title: '苧與音樂' }),
+    ]
+    const original = structuredClone(tracks)
+    const index = createLibrarySearchIndex(tracks)
+    for (const script of ['simplified', 'traditional'] as const) {
+      const title = convertChineseText(tracks[0].title, script)
+      const query = normalizeSearchText(title)
+      expect(scanLibrarySearchIndex(index, query, 0)).toMatchObject({
+        totalMatches: 2,
+        targetIndex: 0,
+      })
+      expect(scanLibrarySearchIndex(index, query, 1)).toMatchObject({
+        totalMatches: 2,
+        targetIndex: 1,
+      })
+      expect(scanLibrarySearchIndex(index, query, 2)).toMatchObject({
+        wrapped: true,
+        targetIndex: 0,
+      })
+      expect(
+        scanLibrarySearchIndex(index, normalizeSearchText(convertChineseText('萧敬腾', script)), 0),
+      ).toMatchObject({ totalMatches: 1, targetIndex: 0 })
+      expect(
+        scanLibrarySearchIndex(index, normalizeSearchText(convertChineseText('看着你', script)), 0),
+      ).toMatchObject({ totalMatches: 1, targetIndex: 0 })
+    }
+    expect(scanLibrarySearchIndex(index, normalizeSearchText('苧'), 0).totalMatches).toBe(2)
+    expect(Object.isFrozen(index[0].displayAliases)).toBe(true)
+    expect(tracks).toEqual(original)
   })
 
   it('publishes one complete incremental index after yielding between bounded slices', async () => {

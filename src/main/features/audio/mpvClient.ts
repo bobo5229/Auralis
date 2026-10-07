@@ -32,6 +32,9 @@ export async function openMpvClient(
       '--idle=yes',
       '--keep-open=no',
       '--gapless-audio=yes',
+      // Same-song float PCM bridges must use the same negotiated output format
+      // as the original decoder, so WASAPI keeps its audio client open.
+      '--audio-format=float',
       '--replaygain=no',
       '--volume=0',
       '--input-default-bindings=no',

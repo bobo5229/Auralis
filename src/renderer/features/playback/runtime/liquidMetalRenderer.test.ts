@@ -605,7 +605,7 @@ describe('liquid-metal frame scheduling', () => {
   it.each([24, 60, 120, 144, 165, 240])('keeps the paused cadence at %i Hz', (refreshRate) => {
     const renderer = start(false)
     for (let i = 0; i < refreshRate * 10; i++) runtime.advance(1000 / refreshRate)
-    expect(runtime.gl.drawArrays).toHaveBeenCalledTimes(Math.min(refreshRate, 30) * 10)
+    expect(runtime.gl.drawArrays).toHaveBeenCalledTimes(Math.min(refreshRate, 12) * 10)
     renderer.dispose()
   })
 
@@ -617,7 +617,7 @@ describe('liquid-metal frame scheduling', () => {
       runtime.gl.drawArrays.mockClear()
       const before = runtime.drawnTime()!
       for (let i = 0; i < 144; i++) runtime.advance(1000 / 144)
-      expect(runtime.gl.drawArrays).toHaveBeenCalledTimes(playing ? 60 : 30)
+      expect(runtime.gl.drawArrays).toHaveBeenCalledTimes(playing ? 60 : 12)
       expect(runtime.drawnTime()! - before).toBeCloseTo(
         DEFAULT_LIQUID_METAL_SETTINGS.speed * (playing ? 1 : 0.38),
         5,

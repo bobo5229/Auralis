@@ -19,6 +19,7 @@ export function normalizeAudioFilePath(filePath: string): string {
 }
 
 interface WriteWaiter {
+  sourceId: string
   signal?: AbortSignal
   resolve: (lease: { leaseId: string; version: number }) => void
   reject: (error: Error) => void
@@ -37,7 +38,7 @@ interface FileAccessEntry {
 interface LeaseMetadata {
   leaseId: string
   normalizedPath: string
-  kind: 'read' | 'write'
+  kind: 'read' | 'write' | 'intent'
   sourceId: string
 }
 
@@ -48,12 +49,62 @@ export interface PlaybackFileCoordinatorDependencies {
 }
 
 export class PlaybackFileCoordinator {
+  private bufferedWriteCapability: ((filePath: string) => boolean) | null = null
   private readonly entries = new Map<string, FileAccessEntry>()
   private readonly leases = new Map<string, LeaseMetadata>()
   private nextLeaseSequence = 0
   private stateVersion = 0
 
   constructor(private readonly dependencies: PlaybackFileCoordinatorDependencies) {}
+
+  setBufferedWriteCapability(capability: (filePath: string) => boolean): void {
+    this.bufferedWriteCapability = capability
+  }
+
+  refreshPlaybackCapability(filePath: string): void {
+    const entry = this.entries.get(normalizeAudioFilePath(filePath))
+    if (!entry) return
+    entry.version = ++this.stateVersion
+    this.broadcastStatusIfChanged(entry)
+  }
+
+  private canBuffer(entry: FileAccessEntry): boolean {
+    return (
+      !!this.bufferedWriteCapability?.([...entry.filePaths][0]) &&
+      [...entry.readers].every((id) =>
+        ['mpv-current', 'mpv-next', 'spectrum-analysis'].includes(
+          this.leases.get(id)?.sourceId ?? '',
+        ),
+      )
+    )
+  }
+
+  /** Reserve the path before preparation, while existing readers continue playing. */
+  reserveWriteIntent(filePath: string): string | null {
+    const normalizedPath = normalizeAudioFilePath(filePath)
+    const entry = this.getOrCreateEntry(normalizedPath, filePath)
+    if (entry.writer !== null || !this.canBuffer(entry)) return null
+    const leaseId = `lease_intent_${++this.nextLeaseSequence}`
+    entry.writer = leaseId
+    this.leases.set(leaseId, {
+      leaseId,
+      normalizedPath,
+      kind: 'intent',
+      sourceId: 'metadata-writer',
+    })
+    entry.version = ++this.stateVersion
+    this.broadcastStatusIfChanged(entry)
+    return leaseId
+  }
+
+  promoteWriteIntent(leaseId: string): void {
+    const lease = this.leases.get(leaseId)
+    const entry = lease && this.entries.get(lease.normalizedPath)
+    if (!lease || lease.kind !== 'intent' || !entry || entry.writer !== leaseId)
+      throw new Error('Tag write intent expired')
+    if (entry.readers.size > 0) throw new Error('Audio readers have not released the file')
+    lease.kind = 'write'
+  }
 
   private getOrCreateEntry(normalizedPath: string, filePath: string): FileAccessEntry {
     let entry = this.entries.get(normalizedPath)
@@ -81,7 +132,8 @@ export class PlaybackFileCoordinator {
 
   private computeStatus(entry: FileAccessEntry): TrackEditStatus {
     if (entry.writer !== null) return 'write-in-progress'
-    if (entry.readers.size > 0) return 'playback-in-use'
+    if (entry.readers.size > 0)
+      return this.canBuffer(entry) ? 'playback-editable' : 'playback-in-use'
     return 'editable'
   }
 
@@ -130,6 +182,7 @@ export class PlaybackFileCoordinator {
       let onAbort: (() => void) | null = null
 
       const waiter: WriteWaiter = {
+        sourceId,
         signal,
         resolve: (result) => {
           if (onAbort && signal) signal.removeEventListener('abort', onAbort)
@@ -166,10 +219,8 @@ export class PlaybackFileCoordinator {
     if (!entry) return
 
     entry.readers.delete(leaseId)
-    if (entry.readers.size === 0 && entry.writer === null) {
-      entry.version = ++this.stateVersion
-      this.broadcastStatusIfChanged(entry)
-    }
+    entry.version = ++this.stateVersion
+    this.broadcastStatusIfChanged(entry)
     this.cleanEntryIfIdle(entry)
   }
 
@@ -180,12 +231,12 @@ export class PlaybackFileCoordinator {
     const normalizedPath = normalizeAudioFilePath(filePath)
     const entry = this.getOrCreateEntry(normalizedPath, filePath)
 
-    if (entry.readers.size > 0) {
-      return { ok: false, reason: 'playback-in-use' }
-    }
-
     if (entry.writer !== null) {
       return { ok: false, reason: 'write-in-progress' }
+    }
+
+    if (entry.readers.size > 0) {
+      return { ok: false, reason: 'playback-in-use' }
     }
 
     const leaseId = `lease_write_${++this.nextLeaseSequence}`
@@ -199,7 +250,7 @@ export class PlaybackFileCoordinator {
 
   releaseWriteLease(leaseId: string): void {
     const lease = this.leases.get(leaseId)
-    if (!lease || lease.kind !== 'write') return
+    if (!lease || (lease.kind !== 'write' && lease.kind !== 'intent')) return
     this.leases.delete(leaseId)
 
     const entry = this.entries.get(lease.normalizedPath)
@@ -220,7 +271,7 @@ export class PlaybackFileCoordinator {
         leaseId: nextReadLeaseId,
         normalizedPath: entry.normalizedPath,
         kind: 'read',
-        sourceId: 'waiter-granted',
+        sourceId: waiter.sourceId,
       })
       waiter.resolve({ leaseId: nextReadLeaseId, version: entry.version })
     }

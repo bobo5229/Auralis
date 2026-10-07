@@ -79,6 +79,16 @@
       "about": "关于"
     },
     "appearance": {
+      "textDisplay": {
+        "title": "文字显示",
+        "songInfo": "歌曲信息字形",
+        "songInfoDescription": "切换歌曲与专辑信息的简繁显示，不改变原始元数据。",
+        "lyrics": "歌词字形",
+        "lyricsDescription": "独立切换歌词的简繁显示，不跟随歌曲信息设置。",
+        "simplified": "简体",
+        "traditional": "繁体",
+        "persistFailed": "已应用，本次保存未完成。"
+      },
       "theme": "主题",
       "themeDescription": "选择应用界面为深色或浅色外观。",
       "reducedMotion": {
@@ -442,7 +452,7 @@
       "unknownYear": "年份未知",
       "unknownDate": "日期未知",
       "unknownTitle": "未命名曲目",
-      "moreAlbumsTitle": "{artist} 的更多作品",
+      "moreAlbumsTitle": "更多作品来自 {artist}",
       "genreAlbumsTitle": "{genre} 的更多作品",
       "moreAlbumsAria": "{artist} 的更多作品",
       "openAlbumAria": "打开专辑 {title}",
@@ -551,6 +561,7 @@
       "status": {
         "checking": "正在检查编辑状态…",
         "playbackInUse": "歌曲文件被播放器占用，无法修改元数据。",
+        "playbackEditable": "播放中可保存元数据，音乐将继续播放。",
         "queryFailed": "无法确认编辑状态，请重试。",
         "loading": "正在读取歌曲信息…",
         "retry": "重试"
@@ -558,7 +569,11 @@
       "errors": {
         "saveFailed": "保存元数据失败",
         "loadFailed": "读取歌曲信息失败，请重试。",
-        "writeInProgress": "当前文件正在保存中，请稍候。"
+        "writeInProgress": "当前文件正在保存中，请稍候。",
+        "bufferPreparationFailed": "暂时无法在播放中保存。编辑内容已保留，请重试或切曲后保存。",
+        "fileInUse": "文件写回失败。编辑内容已保留，请检查文件占用或磁盘空间后重试。",
+        "playbackRestoreFailed": "续播恢复失败。文件可能已更新，请重新读取元数据后核对。",
+        "playbackChanged": "播放状态已改变，本次保存未完成。编辑内容已保留，请核对后重试。"
       }
     },
     "status": {
@@ -584,53 +599,7 @@
   },
   "archive": {
     "title": "聆听档案",
-    "mac": {
-      "pageAria": "Mac 聆听档案",
-      "backAria": "返回播放器",
-      "back": "返回",
-      "backToIntro": "返回星空",
-      "enter": "进入聆听档案。双击或按 Enter、空格。",
-      "model": "大屏 Macintosh 概念模型",
-      "reader": "Macintosh 128K，专辑软盘读取器",
-      "loadedAlbum": "已载入专辑",
-      "noDisk": "未载入软盘",
-      "plays": "播放次数",
-      "duration": "聆听时长",
-      "collection": "悬浮软盘收藏",
-      "albums": "听过的专辑",
-      "date": "日期",
-      "previousDay": "上一天",
-      "nextDay": "下一天",
-      "chooseDate": "选择统计日期",
-      "today": "今日",
-      "todayDate": "今日 {date}",
-      "chooseYear": "选择年份",
-      "years": "历史年份",
-      "previousMonth": "上一月",
-      "nextMonth": "下一月",
-      "closeCalendar": "关闭日历",
-      "topAlbums": "当日最常听",
-      "disks": "专辑软盘",
-      "insert": "插入 Mac",
-      "eject": "退盘",
-      "loaded": "已载入",
-      "returned": "软盘已退回",
-      "loadedTitle": "已载入 {title}",
-      "insertAria": "{title}，双击或按 Enter 插入 Mac",
-      "albumCount": "{count} 张",
-      "chooseDateHint": "请选择日期",
-      "calendarLoading": "正在读取日期记录…",
-      "dayLoading": "正在读取当天专辑…",
-      "loading": "读取中…",
-      "failed": "读取失败",
-      "empty": "当天没有专辑播放记录",
-      "noRecords": "无记录",
-      "retained": "{error} · 保留上次记录",
-      "calendarError": "无法读取听歌记录",
-      "refreshError": "刷新失败",
-      "dayError": "无法读取当天专辑",
-      "lessThanMinute": "不到 1 分钟"
-    }
+    "placeholder": "聆听档案，敬请期待"
   },
   "smartBuilder": {
     "title": "新建智能歌单",

@@ -6,38 +6,14 @@ defineProps<{ kind: 'playlist' | 'recentPlayed' | 'mostListened' | 'recentAdded'
   <span
     class="playlist-kind-icon"
     :class="{
+      'i-ph-playlist': kind === 'playlist',
       'i-ph-ranking': kind === 'mostListened',
+      'i-ph-clock-counter-clockwise': kind === 'recentPlayed',
     }"
     aria-hidden="true"
   >
     <svg
-      v-if="kind === 'recentPlayed'"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.75"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <path d="M3 10a9 9 0 1 1 2.6 8.4M3 4v6h6" />
-      <circle cx="14" cy="12" r="5" />
-      <path d="M14 9v3l2 1" />
-    </svg>
-    <svg
-      v-else-if="kind === 'playlist'"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.75"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <path d="M6 9a7 7 0 1 1 9 9" />
-      <circle cx="9" cy="15" r="7" />
-      <circle cx="9" cy="15" r="2" />
-    </svg>
-    <svg
-      v-else-if="kind === 'custom' || kind === 'recentAdded'"
+      v-if="kind === 'custom' || kind === 'recentAdded'"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

@@ -3,7 +3,7 @@ import { nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlaybackQueue } from '@renderer/features/playback/composables/usePlaybackQueue'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
-import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
 import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverlayFocus'
 import type { PlaybackTrack } from '@renderer/features/playback/types'
@@ -12,6 +12,7 @@ const emit = defineEmits<{ close: [] }>()
 const element = ref<HTMLElement | null>(null)
 
 const { t } = useI18n()
+const { songText, songValues } = useChineseTextDisplay()
 
 defineExpose({ element })
 
@@ -28,8 +29,8 @@ function onArtworkError(trackId: number): void {
 }
 
 function formatSubtitle(track: PlaybackTrack): string {
-  const artist = track.artist ? formatArtist(track.artist) : null
-  const parts = [artist, track.album].filter(Boolean)
+  const artist = track.artist ? songValues(track.artist) : null
+  const parts = [artist, songText(track.album)].filter(Boolean)
   return parts.length > 0 ? parts.join(' - ') : t('player.unknownArtist')
 }
 
@@ -83,7 +84,7 @@ useOverlayFocusTrap({
               getArtworkUrl(currentTrack.artworkCacheKey) && !artworkErrorIds.has(currentTrack.id)
             "
             :src="getArtworkUrl(currentTrack.artworkCacheKey)!"
-            :alt="currentTrack.title || t('player.unknownTrack')"
+            :alt="songText(currentTrack.title) || t('player.unknownTrack')"
             class="h-full w-full object-cover"
             loading="lazy"
             decoding="async"
@@ -96,7 +97,7 @@ useOverlayFocusTrap({
         </div>
         <div class="min-w-0 flex-1">
           <div class="queue-item-title">
-            {{ currentTrack.title || t('player.unknownTrack') }}
+            {{ songText(currentTrack.title) || t('player.unknownTrack') }}
           </div>
           <div class="queue-item-subtitle">
             {{ formatSubtitle(currentTrack) }}
@@ -118,14 +119,16 @@ useOverlayFocusTrap({
           class="queue-item"
           :class="{ 'queue-item-active': isActive(track.id) }"
           type="button"
-          :aria-label="t('player.playTrack', { title: track.title || t('player.unknownTrack') })"
+          :aria-label="
+            t('player.playTrack', { title: songText(track.title) || t('player.unknownTrack') })
+          "
           @click="playTrack(track.id)"
         >
           <div class="queue-item-cover">
             <img
               v-if="getArtworkUrl(track.artworkCacheKey) && !artworkErrorIds.has(track.id)"
               :src="getArtworkUrl(track.artworkCacheKey)!"
-              :alt="track.title || t('player.unknownTrack')"
+              :alt="songText(track.title) || t('player.unknownTrack')"
               class="h-full w-full object-cover"
               loading="lazy"
               decoding="async"
@@ -137,7 +140,9 @@ useOverlayFocusTrap({
             </div>
           </div>
           <div class="min-w-0 flex-1">
-            <div class="queue-item-title">{{ track.title || t('player.unknownTrack') }}</div>
+            <div class="queue-item-title">
+              {{ songText(track.title) || t('player.unknownTrack') }}
+            </div>
             <div class="queue-item-subtitle">{{ formatSubtitle(track) }}</div>
           </div>
         </button>

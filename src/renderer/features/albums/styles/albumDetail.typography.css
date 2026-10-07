@@ -1,0 +1,29 @@
+/* 专辑详情页专用排版，变量由页面根节点传递给曲目组件。
+ * 元数据、播放控件、脚注与关联专辑直接复用 --auralis-type-*。
+ * 展示标题保持自适应尺寸；艺术家保留独立层级。
+ * 曲目使用专用规格以维护行内几何；列表非虚拟化，行高可随副标题增高。
+ * 展示标题与播放器共用界面字体栈，字体角色独立维护。 */
+.album-detail-container {
+  /* 返回导航使用独立的紧凑规格，字号与行高成对维护。 */
+  --album-detail-type-back-size: 12px;
+  --album-detail-type-back-line-height: 18px;
+
+  --album-detail-font-title: var(--auralis-font-ui);
+  --album-detail-type-title-size: clamp(24px, 2.8vw, 38px);
+  --album-detail-type-title-line-height: 1.22;
+  --album-detail-type-title-weight: 800;
+
+  --album-detail-type-artist-size: 17px;
+  --album-detail-type-artist-line-height: 24px;
+  --album-detail-type-artist-weight: 650;
+
+  --album-detail-type-track-title-size: var(--auralis-type-control-size);
+  --album-detail-type-track-title-line-height: var(--auralis-type-control-line-height);
+  --album-detail-type-track-title-weight: 700;
+  --album-detail-type-track-meta-size: var(--auralis-type-caption-size);
+  --album-detail-type-track-meta-line-height: var(--auralis-type-caption-line-height);
+  --album-detail-type-track-meta-weight: 400;
+  --album-detail-type-track-number-size: 13px;
+  --album-detail-type-track-number-line-height: 20px;
+  --album-detail-type-track-number-weight: 650;
+}

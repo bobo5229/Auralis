@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { formatArtist } from '../utils/formatArtist'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 import { formatDuration } from '../utils/formatDuration'
 import { formatMetadataDisplay } from '../utils/formatMetadataDisplay'
 import type { LibraryFlatColumnId } from '../utils/libraryFlatColumnLayout'
@@ -30,12 +30,13 @@ const emit = defineEmits<{
 }>()
 
 const { t, locale } = useI18n()
+const { songText, songValues } = useChineseTextDisplay()
 const imgError = ref(false)
 const titleDisplay = computed(() =>
-  formatMetadataDisplay(props.track.title, t('library.missing.title')),
+  formatMetadataDisplay(songText(props.track.title), t('library.missing.title')),
 )
 const artistDisplay = computed(() =>
-  formatMetadataDisplay(formatArtist(props.track.artist), t('library.missing.artist')),
+  formatMetadataDisplay(songValues(props.track.artist), t('library.missing.artist')),
 )
 const playCountDisplay = computed(() =>
   t(
@@ -140,8 +141,8 @@ function onKeyDown(event: KeyboardEvent): void {
       v-if="visibleColumns.includes('album')"
       class="song-album min-w-0 library-flat-column--album"
     >
-      <span v-tooltip.overflow="track.album" class="block truncate text-right">{{
-        track.album
+      <span v-tooltip.overflow="songText(track.album)" class="block truncate text-right">{{
+        songText(track.album)
       }}</span>
     </div>
     <div

@@ -491,7 +491,7 @@ const {
   onWindowKeyDown,
   invalidate: invalidateLibrarySearchSession,
 } = useLibrarySearchSession({
-  isDisposed: () => isPageUnmounted,
+  isDisposed: () => isPageUnmounted || hasLeftInstanceRoute,
   isLibrarySurface: () => isLibrarySurface.value,
   isInteractiveTarget,
   scrollToTrackIndex,
@@ -776,6 +776,15 @@ const metadataEditor = useLibraryMetadataEditor({
   restoreFocus: restoreLibraryFocus,
   isDisposed: () => isPageUnmounted,
   getSaveErrorMessage: () => t('library.metadataEditor.errors.saveFailed'),
+  getSaveFailureMessage: (reason) => {
+    const keys: Record<string, string> = {
+      'buffer-preparation-failed': 'bufferPreparationFailed',
+      'file-in-use': 'fileInUse',
+      'playback-restore-failed': 'playbackRestoreFailed',
+      'playback-changed': 'playbackChanged',
+    }
+    return t(`library.metadataEditor.errors.${keys[reason] ?? 'saveFailed'}`)
+  },
   getLoadErrorMessage: () => t('library.metadataEditor.errors.loadFailed'),
   getPlaybackInUseMessage: () => t('library.metadataEditor.status.playbackInUse'),
   getQueryFailedMessage: () => t('library.metadataEditor.status.queryFailed'),

@@ -34,6 +34,7 @@ interface UseLibraryMetadataEditorOptions {
   restoreFocus: (target: LibraryMetadataFocusTarget) => Promise<void>
   isDisposed: () => boolean
   getSaveErrorMessage: () => string
+  getSaveFailureMessage?: (reason: string) => string
   getLoadErrorMessage?: () => string
   getPlaybackInUseMessage?: () => string
   getQueryFailedMessage?: () => string
@@ -186,7 +187,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   async function save(metadata: EditableTrackMetadata): Promise<void> {
     if (
       isSavingMetadata.value ||
-      editStatus.value !== 'editable' ||
+      !['editable', 'playback-editable'].includes(editStatus.value) ||
       !editingMetadata.value ||
       currentTrackId !== metadata.trackId
     ) {
@@ -215,7 +216,9 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
           editStatus.value = 'write-in-progress'
           errorMessageSource.value = options.getSaveErrorMessage
         } else {
-          errorMessageSource.value = options.getSaveErrorMessage
+          errorMessageSource.value = options.getSaveFailureMessage
+            ? () => options.getSaveFailureMessage!(rejected.reason)
+            : options.getSaveErrorMessage
         }
         return
       }

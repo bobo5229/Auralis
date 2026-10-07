@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { useTrackLyrics } from '../composables/useTrackLyrics'
+import { useDisplayedTrackLyrics } from '../composables/useDisplayedTrackLyrics'
 import SyncedLyricsView from './SyncedLyricsView.vue'
 import PlainLyricsView from './PlainLyricsView.vue'
 import LyricsEmptyState from './LyricsEmptyState.vue'
 
 const { t } = useI18n()
 const { status, rawLyrics, parsedLines, activeIndex, isPrelude, showPrelude, preludeLitDotCount } =
-  useTrackLyrics()
+  useDisplayedTrackLyrics()
 </script>
 
 <template>

@@ -6,7 +6,7 @@ import {
   canShareCdIndexRow,
   cdAlbumFocusQuery,
   cdFocusBackTarget,
-  cdIndexArtistOrder,
+  cdIndexArtistLetter,
   cdIndexReleaseLabel,
   cdIndexReleaseOrder,
   findCdIndexAlbumRow,
@@ -63,18 +63,18 @@ function album(
 
 describe('cd album index ordering', () => {
   it('buckets Chinese names by polyphonic pinyin and keeps the original name', () => {
-    expect(cdIndexArtistOrder('音乐').letter).toBe('Y')
-    expect(cdIndexArtistOrder('重庆').letter).toBe('C')
-    expect(cdIndexArtistOrder('成长').sortKey.startsWith('cheng zhang')).toBe(true)
-    expect(cdIndexArtistOrder('长江').sortKey.startsWith('chang jiang')).toBe(true)
-    expect(cdIndexArtistOrder('周杰伦')).toMatchObject({ letter: 'Z', sortKey: 'zhou jie lun' })
-    expect(cdIndexArtistOrder('Beatles').letter).toBe('B')
-    expect(cdIndexArtistOrder('123乐队').letter).toBe('#')
-    expect(cdIndexArtistOrder('Unknown Artist').letter).toBe('#')
-    expect(cdIndexArtistOrder('Øystein').letter).toBe('#')
+    expect(cdIndexArtistLetter('音乐')).toBe('Y')
+    expect(cdIndexArtistLetter('重庆')).toBe('C')
+    expect(cdIndexArtistLetter('成长')).toBe('C')
+    expect(cdIndexArtistLetter('长江')).toBe('C')
+    expect(cdIndexArtistLetter('周杰伦')).toBe('Z')
+    expect(cdIndexArtistLetter('Beatles')).toBe('B')
+    expect(cdIndexArtistLetter('123乐队')).toBe('#')
+    expect(cdIndexArtistLetter('Unknown Artist')).toBe('#')
+    expect(cdIndexArtistLetter('Øystein')).toBe('#')
   })
 
-  it('sorts artists by pinyin, then original name, with # last', () => {
+  it('keeps incoming artist order and only uses pinyin for letter anchors', () => {
     const rawAlbums = [
       album('周杰伦', '叶惠美', '2003-07-31'),
       album('Unknown Artist', 'Lost'),
@@ -87,14 +87,14 @@ describe('cd album index ordering', () => {
     ]
     const grouped = groupCdAlbumIndexArtists(rawAlbums).map((g) => g.name)
     expect(grouped).toEqual([
-      'Beatles',
+      '周杰伦',
+      'Unknown Artist',
       '重庆',
       '音乐',
-      '张伟',
-      '章伟',
-      '周杰伦',
+      'Beatles',
       '123乐队',
-      'Unknown Artist',
+      '章伟',
+      '张伟',
     ])
 
     // Artists with more albums than columns use heading rows.
@@ -117,25 +117,25 @@ describe('cd album index ordering', () => {
     const model = buildCdAlbumIndex(multiAlbums, 4)
     const artists = model.rows.filter((row) => row.type === 'heading').map((row) => row.artist)
     expect(artists).toEqual([
-      'Beatles',
+      '周杰伦',
+      'Unknown Artist',
       '重庆',
       '音乐',
-      '张伟',
-      '章伟',
-      '周杰伦',
+      'Beatles',
       '123乐队',
-      'Unknown Artist',
+      '章伟',
+      '张伟',
     ])
     expect(model.anchors.find((anchor) => anchor.letter === 'C')?.rowIndex).toBe(
       model.rows.findIndex((row) => row.type === 'heading' && row.artist === '重庆'),
     )
     expect(model.anchors.find((anchor) => anchor.letter === 'D')?.rowIndex).toBeNull()
     expect(model.anchors.find((anchor) => anchor.letter === '#')?.rowIndex).toBe(
-      model.rows.findIndex((row) => row.type === 'heading' && row.artist === '123乐队'),
+      model.rows.findIndex((row) => row.type === 'heading' && row.artist === 'Unknown Artist'),
     )
   })
 
-  it('sorts an artist by full release date and parks missing dates last', () => {
+  it('keeps incoming album order regardless of release date or title', () => {
     const model = buildCdAlbumIndex(
       [
         album('周杰伦', '十一月', '2005-11-01'),
@@ -151,7 +151,10 @@ describe('cd album index ordering', () => {
     const titles = model.rows
       .filter((row) => row.type === 'albums')
       .flatMap((row) => row.albums.map((item) => item.title))
-    expect(titles).toEqual(['仅年份', '同年后作', '十一月', '同日甲', '同日乙', '坏日期', '无日期'])
+    expect(titles).toEqual(['十一月', '无日期', '同年后作', '仅年份', '坏日期', '同日乙', '同日甲'])
+  })
+
+  it('validates release labels independently of ordering', () => {
     expect(cdIndexReleaseOrder('2000')).toBe('2000-01-01')
     expect(cdIndexReleaseOrder('2000-13-01')).toBeNull()
     expect(cdIndexReleaseLabel('2000-06-01')).toBe('2000-06-01')
@@ -301,9 +304,7 @@ describe('cd album index shared rows', () => {
 
   it('shares any artist block that fits within the column count', () => {
     // 0 albums -> false
-    expect(
-      canShareCdIndexRow({ name: 'Empty', letter: '#', sortKey: 'empty', albums: [] }, 4),
-    ).toBe(false)
+    expect(canShareCdIndexRow({ name: 'Empty', letter: '#', albums: [] }, 4)).toBe(false)
 
     // 1 album with many tracks -> true
     const oneAlbumArtist = groupCdAlbumIndexArtists([album('Solo', 'LP', null, 16)])[0]!

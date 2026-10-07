@@ -78,6 +78,19 @@ function createEditor(overrides?: {
 }
 
 describe('useLibraryMetadataEditor', () => {
+  it('allows saving during cooperating playback and retains the draft when buffering fails', async () => {
+    const { editor, updateTrackMetadata, refreshLibrary } = createEditor({
+      getTrackEditState: async (trackId) => ({ trackId, status: 'playback-editable', version: 1 }),
+      updateTrackMetadata: async () => ({ ok: false, reason: 'buffer-preparation-failed' }),
+    })
+    await editor.open(42)
+    await editor.save({ ...metadata, title: 'New title' })
+    expect(updateTrackMetadata).toHaveBeenCalledWith({ ...metadata, title: 'New title' })
+    expect(editor.isMetadataEditorOpen.value).toBe(true)
+    expect(editor.editingMetadata.value).not.toBeNull()
+    expect(editor.isSavingMetadata.value).toBe(false)
+    expect(refreshLibrary).not.toHaveBeenCalled()
+  })
   it.each(['reject', 'null'] as const)(
     'shows a recoverable load error on %s without allowing a save',
     async (failure) => {

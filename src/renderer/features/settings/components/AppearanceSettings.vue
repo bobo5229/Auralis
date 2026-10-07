@@ -7,6 +7,7 @@ import { useMotionPreference } from '@renderer/features/appearance/composables/u
 import type { MotionPreference } from '@renderer/shared/animation/motionPreference'
 import SongFontWeightSettings from './SongFontWeightSettings.vue'
 import ThemeAccentSettings from './ThemeAccentSettings.vue'
+import ChineseTextSettings from './ChineseTextSettings.vue'
 import { useUiLocale } from '@renderer/i18n'
 import type { UiLocale } from '@shared/uiLocale'
 
@@ -264,6 +265,7 @@ function selectMotionPreference(value: MotionPreference): void {
       </div>
     </div>
 
+    <ChineseTextSettings />
     <SongFontWeightSettings />
   </section>
 </template>

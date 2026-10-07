@@ -79,6 +79,16 @@
       "about": "About"
     },
     "appearance": {
+      "textDisplay": {
+        "title": "Text display",
+        "songInfo": "Song information script",
+        "songInfoDescription": "Display song and album information in simplified or traditional Chinese without changing original metadata.",
+        "lyrics": "Lyrics script",
+        "lyricsDescription": "Choose the lyrics script independently of song information.",
+        "simplified": "Simplified",
+        "traditional": "Traditional",
+        "persistFailed": "Applied, but could not save this preference."
+      },
       "theme": "Theme",
       "themeDescription": "Choose a dark or light appearance.",
       "reducedMotion": {
@@ -551,6 +561,7 @@
       "status": {
         "checking": "Checking editing status…",
         "playbackInUse": "This file is in use by the player. Switch to another track before editing metadata.",
+        "playbackEditable": "You can save metadata while the music continues playing.",
         "queryFailed": "Could not check editing status. Try again.",
         "loading": "Loading track information…",
         "retry": "Try again"
@@ -558,7 +569,11 @@
       "errors": {
         "saveFailed": "Could not save metadata. Try again.",
         "loadFailed": "Could not load track information. Try again.",
-        "writeInProgress": "This file is being saved. Please wait."
+        "writeInProgress": "This file is being saved. Please wait.",
+        "bufferPreparationFailed": "Unable to save during playback right now. Your edits are retained. Retry or save after switching tracks.",
+        "fileInUse": "Unable to write the file. Your edits are retained. Check file access and free disk space, then retry.",
+        "playbackRestoreFailed": "Unable to restore playback. The file may have been updated. Reload its metadata to check.",
+        "playbackChanged": "Playback changed before this save completed. Your edits are retained. Check the file and retry."
       }
     },
     "status": {
@@ -584,53 +599,7 @@
   },
   "archive": {
     "title": "Listening archive",
-    "mac": {
-      "pageAria": "Mac listening archive",
-      "backAria": "Return to player",
-      "back": "Back",
-      "backToIntro": "Return to stars",
-      "enter": "Enter listening archive. Double-click or press Enter or Space.",
-      "model": "Macintosh concept model",
-      "reader": "Macintosh 128K album disk reader",
-      "loadedAlbum": "Loaded album",
-      "noDisk": "No disk loaded",
-      "plays": "Play count",
-      "duration": "Listening time",
-      "collection": "Floating disk collection",
-      "albums": "Albums you listened to",
-      "date": "Date",
-      "previousDay": "Previous day",
-      "nextDay": "Next day",
-      "chooseDate": "Choose listening date",
-      "today": "Today",
-      "todayDate": "Today {date}",
-      "chooseYear": "Choose year",
-      "years": "Recorded years",
-      "previousMonth": "Previous month",
-      "nextMonth": "Next month",
-      "closeCalendar": "Close calendar",
-      "topAlbums": "Most played that day",
-      "disks": "Album disks",
-      "insert": "Insert into Mac",
-      "eject": "Eject",
-      "loaded": "Loaded",
-      "returned": "Disk returned",
-      "loadedTitle": "Loaded {title}",
-      "insertAria": "{title}. Double-click or press Enter to insert into Mac.",
-      "albumCount": "{count} albums | {count} album | {count} albums",
-      "chooseDateHint": "Choose a date",
-      "calendarLoading": "Loading date records…",
-      "dayLoading": "Loading albums for this day…",
-      "loading": "Loading…",
-      "failed": "Could not load",
-      "empty": "No album plays recorded that day",
-      "noRecords": "No records",
-      "retained": "{error} · Previous records retained",
-      "calendarError": "Could not load listening records",
-      "refreshError": "Could not refresh",
-      "dayError": "Could not load albums for this day",
-      "lessThanMinute": "Less than 1 min"
-    }
+    "placeholder": "Listening archive, coming soon"
   },
   "smartBuilder": {
     "title": "New smart playlist",
