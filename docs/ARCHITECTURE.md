@@ -10,8 +10,8 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 而不是面向依赖云端曲库、社交推荐或流媒体服务的用户。
 
 主要能力包括添加并扫描本地音乐目录，提取和编辑音频标签、封面与歌词，
-浏览曲目、专辑、普通/智能播放列表，本地播放并记录收听历史，
-通过 Archive 回顾统计，以及显示应用内歌词。
+浏览曲目、专辑、普通/智能播放列表，本地播放并记录收听统计，以及显示应用内歌词。
+`/archive` 当前是文字占位页；统计仍会记录，并保留重置能力。
 
 隐私与耐久性是产品方向：音乐文件和数据库留在本机，当前没有账号系统、
 遥测、在线推荐或云同步。
@@ -20,7 +20,7 @@ Auralis 是一个 Windows 优先、local-first 的个人音乐档案与播放器
 
 - 桌面容器：Electron 38，主进程运行于 Node.js，界面运行于 Chromium。
 - 语言：TypeScript 5.7；Vue 文件使用 Vue 3 Composition API 和 `<script setup>`。
-- UI：Vue 3、Vue Router、UnoCSS、Motion One、TanStack Virtual。
+- UI：Vue 3、Vue Router、UnoCSS、TanStack Virtual；转场使用现有动画工具与 Web Animations API。
 - 视觉与歌词：PixiJS、`@applemusic-like-lyrics/core`。
 - 数据库：SQLite，通过同步原生模块 `better-sqlite3` 访问。
 - 元数据：`music-metadata`，耗时扫描和刷新运行在 Node worker thread。
@@ -143,15 +143,18 @@ service 和 watcher，并把它们绑定到 typed IPC。业务规则不应继续
 - 应用外壳：`src/renderer/App.vue`；持有侧边栏、路由页、歌词面板、悬浮播放栏和全屏播放层。
 - 全局布局与播放控件：`src/renderer/app/layout/`
 - 专辑：`src/renderer/features/albums/`
-- Archive：`src/renderer/features/archive/`
+- Archive：`src/renderer/features/archive/`（当前页面为占位；统计由播放链路记录，重置能力仍保留）
 - 媒体库和标签编辑：`src/renderer/features/library/`
 - 歌词：`src/renderer/features/lyrics/`
 - 播放状态与视觉效果：`src/renderer/features/playback/`
 - 设置：`src/renderer/features/settings/`
 - 跨 feature 的 UI 工具：`src/renderer/shared/`
-- UI 语言（简/繁/英）：`src/renderer/i18n/`（vue-i18n 实例）+ `src/renderer/locales/`（`zh-Hans` 唯一手写源、`en` 人工、`zh-Hant` 由 `scripts/generate-zh-hant.mjs` s2tw 生成）+ `src/renderer/composables/useLocale.ts`（localStorage 持久化与热切换，键 `auralis-locale`）
+- UI 语言仅有简体中文与英文：`src/renderer/i18n/index.ts` 提供 `useUiLocale`，
+  `src/shared/uiLocale.ts` 定义受支持语言及存储键。歌曲信息与歌词文本另有简繁转换，
+  由 `useChineseTextDisplay` 和 `useDisplayedTrackLyrics` 接入；这不是第三种 UI 语言。
 
-主窗口使用不透明的无框窗口（`frame: false` + `transparent: false`）。主界面左侧边栏顶部
+正式应用目前只创建一个主 `BrowserWindow`；`FullscreenPlayerOverlay` 是 `App.vue` 中的同窗覆盖层，
+开发演示页不属于第二个正式 renderer。主窗口使用不透明的无框窗口（`frame: false` + `transparent: false`）。主界面左侧边栏顶部
 显示自绘红绿灯窗口按钮，CD 视图暂时在右上角显示同一组按钮；窗口操作经过类型化 IPC。
 客户区壳底与内描边仍可跟随当前曲专辑色板（`--auralis-window-chrome-*`），无曲时回退主题
 token。主窗口在加载 Renderer 前通过 `mainWindowRegistry` 登记身份，关闭后注销；IPC 仅接受已登记主窗口的可信顶层 frame 请求。
@@ -314,6 +317,7 @@ npm.cmd run dist
 - preload 必须使用 context bridge；不要开启 renderer 的 Node integration。
 - 主窗口必须保持 sandbox；preload 保持自包含 CommonJS 输出和最小暴露面。
 - 所有 renderer 窗口必须复用导航、权限、新窗口和 webview 拒绝策略。
+- 正式应用目前只创建一个主 `BrowserWindow`；`FullscreenPlayerOverlay` 是同窗覆盖层，不另建 renderer 窗口。
 - 跨进程数据必须有 shared 类型，不能用未声明的字符串 channel 或 `any` 漂移。
 - SQL 留在 repositories/schema；业务规则留在 services/features；handler 只做适配和组装。
 - 长时间扫描和元数据解析不能阻塞 Electron 主线程。

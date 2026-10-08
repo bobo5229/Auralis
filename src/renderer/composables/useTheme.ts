@@ -11,11 +11,7 @@ export function isThemeMode(value: unknown): value is ThemeMode {
   return value === 'light' || value === 'dark'
 }
 
-export function resolveTheme(requested?: ThemeMode | null): ThemeMode {
-  if (requested && isThemeMode(requested)) {
-    return requested
-  }
-
+export function resolveTheme(): ThemeMode {
   try {
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem(THEME_STORAGE_KEY)
@@ -69,17 +65,7 @@ function toggleTheme(): Promise<void> {
 }
 
 function initTheme(): void {
-  let stored: string | null = null
-  try {
-    if (typeof localStorage !== 'undefined') {
-      stored = localStorage.getItem(THEME_STORAGE_KEY)
-    }
-  } catch {
-    stored = null
-  }
-
-  const initialTheme: ThemeMode = isThemeMode(stored) ? stored : DEFAULT_THEME
-  commitTheme(initialTheme)
+  commitTheme(resolveTheme())
 }
 
 export function useTheme() {

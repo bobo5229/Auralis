@@ -112,6 +112,19 @@ function pendingNames(handle: FakeClient): string[] {
   return handle.pending.map((item) => item.name)
 }
 
+function beginTagRecovery(service: NativePlaybackService, handle: OpenHandle): void {
+  // Keep real event routing and command serialization; inject only the already-prepared window.
+  const state = service as unknown as { tags: { tagWindow: unknown } }
+  state.tags.tagWindow = {
+    phase: 'resume',
+    source: { path: 'recovery.flac', dispose: async () => {} },
+    resumePath: 'replacement.flac',
+    abort: new AbortController(),
+  }
+  handle.hangNames.add('loadfile')
+  handle.onEvent({ event: 'end-file', reason: 'error' })
+}
+
 beforeEach(() => {
   opened.length = 0
   vi.mocked(openMpvClient).mockReset()
@@ -119,6 +132,56 @@ beforeEach(() => {
 })
 
 describe('NativePlaybackService session cancellation', () => {
+  it.each(['start', 'stop'] as const)(
+    'ignores a stale tag recovery rejection after %s',
+    async (action) => {
+      const { service, events } = createService()
+      try {
+        const old = await completeStart(service, 1)
+        beginTagRecovery(service, old)
+        await vi.waitFor(() => expect(pendingNames(old)).toContain('loadfile'))
+        if (action === 'start') {
+          const starting = service.command({
+            action: 'start',
+            session: 2,
+            trackId: 2,
+            volume: 1,
+            muted: false,
+          })
+          await vi.waitFor(() => expect(opened).toHaveLength(2))
+          opened[1].onEvent({ event: 'file-loaded' })
+          await expect(starting).resolves.toEqual({ accepted: true })
+          await new Promise<void>((resolve) => setImmediate(resolve))
+          expect(opened[1].closed()).toBe(false)
+          expect(events.at(-1)?.trackId).toBe(2)
+        } else {
+          await expect(service.command({ action: 'stop', session: 1 })).resolves.toEqual({
+            accepted: true,
+          })
+          await new Promise<void>((resolve) => setImmediate(resolve))
+        }
+        expect(events.filter((event) => event.kind === 'error')).toEqual([])
+      } finally {
+        await service.dispose()
+      }
+    },
+  )
+
+  it('reports a tag recovery failure from the current window', async () => {
+    const { service, events } = createService()
+    try {
+      const handle = await completeStart(service, 1)
+      beginTagRecovery(service, handle)
+      await vi.waitFor(() => expect(pendingNames(handle)).toContain('loadfile'))
+      handle.pending.shift()!.reject(new Error('Recovery decode failed'))
+      await vi.waitFor(() => expect(events.at(-1)?.kind).toBe('error'))
+      expect(events.at(-1)?.detail).toBe('Recovery decode failed')
+      expect(handle.closed()).toBe(true)
+    } finally {
+      await service.dispose()
+    }
+  })
+
   it('returns accepted:false when a pending start load is replaced by a new session', async () => {
     const { service, events } = createService()
     vi.mocked(openMpvClient).mockImplementation(openImplementation(['loadfile']))

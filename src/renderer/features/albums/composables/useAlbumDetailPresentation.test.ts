@@ -53,34 +53,6 @@ describe('useAlbumDetailPresentation', () => {
     expect(state.albumHeroGenreLabel.value).toBe('')
   })
 
-  it('updates totals when tracks change and keeps singular play labels', () => {
-    const tracks = ref([track(1, { durationSeconds: 61, playCount: 1 })])
-    const state = useAlbumDetailPresentation(tracks, ref(null))
-    expect(state.metricsTrackCount.value).toBe(1)
-    expect(JSON.parse(state.metricsTotalDuration.value)).toEqual({
-      key: 'albums.detail.duration.minutes',
-      minutes: 1,
-      seconds: 1,
-    })
-    expect(JSON.parse(state.metricsPlaysLabel.value)).toEqual({
-      key: 'albums.detail.metrics.playsUnitOne',
-      count: 1,
-    })
-    tracks.value = [
-      track(2, { durationSeconds: 1800, playCount: 3 }),
-      track(3, { durationSeconds: null }),
-    ]
-    expect(state.metricsTrackCount.value).toBe(2)
-    expect(JSON.parse(state.metricsTotalTime.value)).toEqual({
-      key: 'albums.detail.metrics.hoursUnit',
-      hours: '1.5',
-    })
-    expect(JSON.parse(state.metricsPlaysLabel.value)).toEqual({
-      key: 'albums.detail.metrics.playsUnit',
-      count: 3,
-    })
-  })
-
   it('hides disc headings for one disc and groups multiple discs without reordering tracks', () => {
     const tracks = ref([track(1, { discNo: null }), track(2)])
     const state = useAlbumDetailPresentation(tracks, ref(null))

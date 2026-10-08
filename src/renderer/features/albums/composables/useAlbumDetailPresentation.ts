@@ -16,9 +16,6 @@ export function useAlbumDetailPresentation(
   const copyright = computed(
     () => albumTracks.value.find((track) => track.copyright)?.copyright ?? null,
   )
-  const totalDurationSeconds = computed(() =>
-    albumTracks.value.reduce((total, track) => total + (track.durationSeconds ?? 0), 0),
-  )
 
   function collectGenreCounts(): { label: string; count: number; firstSeen: number }[] {
     const genreCounts = new Map<string, { label: string; count: number; firstSeen: number }>()
@@ -51,55 +48,6 @@ export function useAlbumDetailPresentation(
   /** 提取全部流派，去重并按包含该流派的曲目数量排序，同频次保留首次出现顺序。 */
   const albumGenrePills = computed<string[]>(() => collectGenreCounts().map((genre) => genre.label))
   const albumHeroGenreLabel = computed(() => formatGenreParts(albumGenrePills.value.slice(0, 2)))
-  function formatMetricsDuration(seconds: number): string {
-    const totalSeconds = Math.max(0, Math.floor(seconds))
-    const minutes = Math.floor(totalSeconds / 60)
-    return t('albums.detail.duration.minutes', { minutes, seconds: totalSeconds % 60 })
-  }
-
-  const metricsTrackCount = computed(() => albumTracks.value.length)
-  const metricsTotalDuration = computed(() => formatMetricsDuration(totalDurationSeconds.value))
-
-  const metricsListenData = computed(() => {
-    let totalPlays = 0
-    let listenedSeconds = 0
-
-    for (const track of albumTracks.value) {
-      const playCount = track.playCount ?? 0
-      totalPlays += playCount
-      listenedSeconds += playCount * (track.durationSeconds ?? 0)
-    }
-
-    return { totalPlays, listenedSeconds }
-  })
-
-  const metricsTotalPlays = computed(() => metricsListenData.value.totalPlays)
-
-  const metricsPlaysLabel = computed(() => {
-    const count = metricsTotalPlays.value
-    const key =
-      count === 1 ? 'albums.detail.metrics.playsUnitOne' : 'albums.detail.metrics.playsUnit'
-    return t(key, { count })
-  })
-
-  const metricsTotalTime = computed(() => {
-    const seconds = metricsListenData.value.listenedSeconds
-    if (seconds <= 0) {
-      return t('albums.detail.metrics.minutesUnit', { minutes: 0 })
-    }
-
-    if (seconds < 3600) {
-      const minutes = Math.max(1, Math.round(seconds / 60))
-      return t('albums.detail.metrics.minutesUnit', { minutes })
-    }
-
-    const hoursTenths = Math.round((seconds / 3600) * 10) / 10
-    const hoursLabel =
-      Number.isInteger(hoursTenths) || hoursTenths >= 10
-        ? String(Math.round(hoursTenths))
-        : hoursTenths.toFixed(1)
-    return t('albums.detail.metrics.hoursUnit', { hours: hoursLabel })
-  })
 
   /**
    * Hero 法律附录：仅显示版权，发行日期由右侧元数据展示。
@@ -140,10 +88,6 @@ export function useAlbumDetailPresentation(
   return {
     albumGenrePills,
     albumHeroGenreLabel,
-    metricsTrackCount,
-    metricsTotalDuration,
-    metricsPlaysLabel,
-    metricsTotalTime,
     heroLegalLine,
     albumReleaseDate,
     albumDiscGroups,

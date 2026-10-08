@@ -1,7 +1,9 @@
 # TECHDOC：音乐来源行采用路径优先布局
 
 日期：2026-09-28  
-状态：方案 B 已确认，正式页面待实施。
+状态：方案 B 已接入正式设置页源码；本文早期布局描述保留为历史方案。本次仅核对源码，未进行运行画面验收。
+
+> 当前源码已在 [`MusicLibrarySettings.vue`](../../../src/renderer/features/settings/components/MusicLibrarySettings.vue) 接入路径优先布局：路径独占上部、允许任意片段换行与选取复制；摘要和操作位于下部，窄容器下纵向排列。扫描进度、错误与操作继续使用现有状态。本文第 2 节描述的是修改前布局，第 3–6 节记录当时的目标、实现步骤和验收要求，不是待实施清单。当前文档核对不等于 Electron 画面验收。
 
 ## 1. 目标
 
@@ -11,7 +13,7 @@
 
 设计参照为已确认的三方案 Demo 中的 B「路径优先」，文件位于 `C:/Users/BoBo/.codex/visualizations/2026/09/27/01a0e191-eadf-7b60-9619-cc32fa00a02a/music-source-layouts.html`。该 Demo 的路径、数量和进度为固定示例；正式页面只显示真实状态。
 
-## 2. 当前实现
+## 2. 修改前布局（历史记录）
 
 `src/renderer/features/settings/components/MusicLibrarySettings.vue` 中，`.library-source-row` 将标题、路径、摘要与两个操作按钮放在同一横排。`.library-source-path` 使用 `white-space: nowrap`、`text-overflow: ellipsis` 截断路径，完整内容依靠 `v-tooltip.overflow` 展示。这种布局让长路径的辨认依赖悬停；窄宽度下信息区也与按钮争夺空间。
 

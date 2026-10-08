@@ -7,11 +7,11 @@
 | 主题                                               | 内容                                                        |
 | -------------------------------------------------- | ----------------------------------------------------------- |
 | [albums：专辑](../CATALOG.md#albums专辑)           | 专辑目录、详情页、头部视觉、退出与曲目推送动效              |
-| [archive：音乐归档](../CATALOG.md#archive音乐归档) | Macintosh 聆听档案正式页；不是文档历史归档                  |
+| [archive：音乐归档](../CATALOG.md#archive音乐归档) | `/archive` 当前为文字占位页；播放统计仍会记录并保留重置能力 |
 | [artwork：封面](../CATALOG.md#artwork封面)         | 封面加载与缓存优化                                          |
 | [library：曲库](../CATALOG.md#library曲库)         | 歌曲列表滚动、播放后视口恢复、初次扫描性能优化              |
 | [metadata：元数据](../CATALOG.md#metadata元数据)   | 流派分隔及原子复合名称                                      |
-| [playback：播放](../CATALOG.md#playback播放界面)   | 播放编排架构、PlayerBar、全屏背景与迷你模式同步             |
+| [playback：播放](../CATALOG.md#playback播放界面)   | 播放编排架构、PlayerBar、同窗全屏覆盖层与历史方案           |
 | [shell：应用外壳](../CATALOG.md#shell应用外壳)     | 主窗口标题栏、Sidebar、浅色配色预设、品牌与工具区、界面语言 |
 
 多阶段手稿皮肤和曲库页面编排材料见[项目档案](../projects/README.md)；早期同主题资料仍保留在[历史批次](../history/README.md)。
@@ -21,10 +21,10 @@
 - [歌曲改名与移动后的路径找回](library/TECHDOC-track-path-relocation-2026-10-04.md)记录唯一匹配时保留歌曲身份及关联数据的处理方案、扫描与监听实现和验证范围。
 - [确认删除文件后的曲库清理](library/TECHDOC-deleted-track-cleanup-2026-10-04.md)记录全量扫描后移除曲库与歌单记录、保留收听历史的实现、验证与实际清理；独立复验通过，真实库已移除 24 条缺失记录。
 - [当前曲库流派上层统计](metadata/REPORT-genre-upper-classification-2026-10-04.md)列出清理后 4,131 首歌曲、57 个原流派的上层统计与映射草案，原流派保留；分类与界面尚未实施。
-- [音乐来源路径优先布局](library/TECHDOC-music-source-path-priority-2026-09-28.md)记录已确认的 B 方案及正式页面接入、状态与验收要求；待实施。
-- [歌曲页字重设置](library/TECHDOC-song-font-weight-settings-2026-09-28.md)记录已确认的总折叠项、两种视图独立字重、即时预览和本地持久化方案；应用实现待开发。
+- [音乐来源路径优先布局](library/TECHDOC-music-source-path-priority-2026-09-28.md)记录已接入设置页源码的布局；本轮仅核对源码，运行画面验收未确认。
+- [歌曲页字重设置](library/TECHDOC-song-font-weight-settings-2026-09-28.md)记录已接入设置页、歌曲列表与封面视图的字重配置；偏好与常量有既有测试，本轮仅核对源码，组件运行画面验收未确认。
 - [历史：MiniPlayer 弹层可用性与窗口状态同步修复](playback/TECHDOC-miniplayer-geometry-state-fixes-2026-09-28.md)记录弹层裁切、状态乱序、开关失配和极小工作区越界的修复方案与定向验收；迷你播放器已于 2026-09-28 移除。
-- [主界面歌词面板收起与展开](shell/TECHDOC-collapsible-lyrics-panel-2026-09-28.md)记录已确认的播放栏切换入口、持久化偏好、响应式行为及主内容与播放栏同步收放方案；待实施。
+- [主界面歌词面板收起与展开](shell/TECHDOC-collapsible-lyrics-panel-2026-09-28.md)记录偏好与主界面布局接入；专辑页当前动画和性能证据见[当前同步过渡说明](../CATALOG.md#albums专辑)。
 - [封面视图当前播放曲目的动态音柱](library/TECHDOC-cover-track-playing-indicator-2026-09-28.md)规定音轨号位置的动态与静态状态、基线保持、动画清理和验收范围；方案已确认，待实施。
 
 - [深色主题中性黑与霓虹玫红配色](shell/TECHDOC-dark-theme-midnight-rose-2026-09-27.md)记录已确认的黑灰层级、单强调色及普通 PlayerBar 动态染色边界；正式应用待实施，浅色主题保持现状。

@@ -1,10 +1,12 @@
 # TECHDOC：播放器颜色变量体系补全
 
 - 日期：2026-09-26
-- 状态：变量迁移与遗留收尾已实施；计算样式对比通过，应用整体视觉验收待完成。
+- 状态：历史交付记录（2026-09-27）；MiniPlayer 与桌面歌词后来已移除。
 - 更新：2026-09-27。第 1–8 节保留设计与实施计划，第 9 节记录实际交付。
 - 基线：当前工作区源码，包含已有未提交修改。
 - 适用规则：[Renderer 视觉与交互](../../rules/renderer.md)、[风险分级验收](../../rules/validation.md)。
+
+> 本文保留 2026-09-26/27 的颜色变量诊断、迁移证据和当时的视觉检查记录，不表示其中所有组件仍存在或当前整体视觉已验收。MiniPlayer、其浮层及桌面歌词已经移除；对应描述均为历史快照。PlayerBar 与 `FullscreenPlayerOverlay` 的相关颜色材料仍可作为源码参考，当前状态以源码为准。Archive 当前是文字占位页。
 
 ## 1. 方案结论
 
@@ -12,22 +14,22 @@
 
 第一轮实施保持当前深浅主题、迷你播放器和全屏播放器的实际外观。完成后，调整滑块、控件状态、材质或回退色时，可以定位到明确的定义入口；同一职责的颜色有统一来源，各播放形态仍保留各自的视觉设计。
 
-范围覆盖普通 PlayerBar、队列与模式浮层、音量控件、MiniPlayer 及其浮层、FullscreenPlayerOverlay，以及这些界面消费的封面颜色回退。播放行为、布局几何、窗口管理和取色算法的计算规则保持现状。右侧 Now Playing、桌面歌词窗口与其他页面继续使用其现有配色；本轮只检查共享样式对它们的传播。
+当时的范围覆盖普通 PlayerBar、队列与模式浮层、音量控件、MiniPlayer 及其浮层、FullscreenPlayerOverlay，以及这些界面消费的封面颜色回退。播放行为、布局几何、窗口管理和取色算法的计算规则保持现状。右侧 Now Playing、桌面歌词窗口与其他页面继续使用其现有配色；本轮只检查共享样式对它们的传播。MiniPlayer 和桌面歌词此后已移除。
 
-## 2. 当前实现与缺口
+## 2. 迁移时的代码入口与缺口（2026-09-26）
 
 | 入口                                                                                               | 当前职责                                                                   | 待补全项                                                           |
 | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | [main.css](../../../src/renderer/app/styles/main.css)                                              | 深浅主题基础变量、`--auralis-playbar-*`、`--player-surface-*` 与播放器样式 | 滑块和部分交互样式仍直接写色值；播放器引用了侧边栏语义变量         |
 | [uno.config.ts](../../../uno.config.ts)                                                            | 播放器 shortcut 消费主题变量                                               | `player-control-active` 等引用侧边栏变量，需要按实际使用方拆开职责 |
 | [PlayerBar.vue](../../../src/renderer/app/layout/PlayerBar.vue)                                    | 封面取色、强调色对比度处理、局部动态变量注入                               | 保留动态链路，统一静态回退入口                                     |
-| [MiniPlayer.vue](../../../src/renderer/app/layout/MiniPlayer.vue)                                  | `.mini-player-canvas` 定义局部深色主题，宿主与浮层共享动态强调色           | 按钮前景、金属材质、高对比度覆盖与 tooltip 配色仍有直接色值        |
-| [miniPlayerPopover.css](../../../src/renderer/app/layout/miniPlayer/miniPlayerPopover.css)         | 迷你队列、模式、音量浮层样式                                               | 悬停与选中背景重复写值，多处携带字面量回退                         |
+| `MiniPlayer.vue`（后已移除）                                                                       | `.mini-player-canvas` 当时定义局部深色主题，宿主与浮层共享动态强调色       | 当时按钮前景、金属材质、高对比度覆盖与 tooltip 配色仍有直接色值    |
+| `miniPlayerPopover.css`（后已移除）                                                                | 当时的迷你队列、模式、音量浮层样式                                         | 当时悬停与选中背景重复写值，多处携带字面量回退                     |
 | [FullscreenPlayerOverlay.vue](../../../src/renderer/app/layout/FullscreenPlayerOverlay.vue)        | `.fullscreen-player` 局部文字、轨道、填充色与背景                          | 集中背景、歌词光晕和控件颜色；外部 SVG 图标有固定白色填充          |
 | [resolvePlaybarAccent.ts](../../../src/renderer/features/playback/utils/resolvePlaybarAccent.ts)   | 深浅主题强调色回退和对比度计算                                             | 回退 RGB 与 CSS、调色板模块重复维护                                |
 | [extractArtworkPalette.ts](../../../src/renderer/features/playback/utils/extractArtworkPalette.ts) | 提取调色板及 `FALLBACK_PALETTE`                                            | 统一同语义强调色来源，保留算法背景回退的独立职责                   |
 
-[useTheme.ts](../../../src/renderer/composables/useTheme.ts) 当前支持 `light` 和 `dark`；PlayerBar 将 `isDark` 传入强调色解析函数。MiniPlayer 在局部设置 `color-scheme: dark` 并覆盖基础颜色；全屏播放器在自身根节点定义固定配色。
+截至本文迁移时，[useTheme.ts](../../../src/renderer/composables/useTheme.ts) 支持 `light` 和 `dark`；PlayerBar 将 `isDark` 传入强调色解析函数。MiniPlayer 当时在局部设置 `color-scheme: dark` 并覆盖基础颜色；全屏播放器在自身根节点定义固定配色。
 
 历史文档中的 dark-only、旧材质模式和浅色建议值属于历史背景。本方案以当前源码和实施前的计算样式为迁移基线。Renderer 规则中“PlayerBar 使用深色磨砂”的描述与当前浅色实现存在差异，变量整理沿用当前深浅分支，主题策略变更另行决策。
 
@@ -105,13 +107,13 @@ playerColorDefaults.ts
 
 - `FALLBACK_PALETTE.background` 是取色失败后的算法背景；它与 CSS 的背景回退当前数值不同，保持各自职责。
 - `PLAYBAR_DARK_SURFACE_BOUND`、`PLAYBAR_LIGHT_SURFACE_BOUND` 是对比度计算的表面亮度边界，继续由强调色算法维护。材质发生变化时重新核对边界，不能直接以透明背景的 RGB 替代。
-- `resolvePlayerPrimaryButtonTextColor.ts` 的两种前景是对比度候选；目前实际调用方包括 Archive 的 `RankingRecordShelf.vue`，播放器只通过另一导出使用亮度计算。本轮保持候选值与调用关系。
+- `resolvePlayerPrimaryButtonTextColor.ts` 的两种前景是对比度候选；在本文编写时，调用方包括 Archive 的 `RankingRecordShelf.vue`，播放器只通过另一导出使用亮度计算。本轮保持了当时的候选值与调用关系；该 Archive 组件已不属于当前占位页。
 
 ## 6. 宿主、主题与继承
 
 普通 PlayerBar 保留深浅主题定义，队列、模式菜单和音量浮层继续共享其表面变量。移除播放器对 `--auralis-sidebar-active-*` 的依赖时，先记录每个主题下的实际值，再将这些值落到播放器语义变量，避免侧边栏调整带动播放器变色。
 
-MiniPlayer 的配色定义继续位于 `.mini-player-canvas`。主体 `.mini-player` 与 `MiniPlayerPopover` 是该节点下的兄弟，变量放到主体上会使浮层失去继承。迷你窗口的 `.tooltip-overlay` 通过现有 `.mini-player-root` 专用规则维护；它的颜色定义保留在可实际到达该节点的作用域，不能依赖 canvas 后代关系。
+以下为 MiniPlayer 移除前的结构诊断：配色定义位于 `.mini-player-canvas`。主体 `.mini-player` 与 `MiniPlayerPopover` 是该节点下的兄弟，变量放到主体上会使浮层失去继承。迷你窗口的 `.tooltip-overlay` 通过当时 `.mini-player-root` 专用规则维护；这些描述仅用于保留历史诊断，不是当前入口。
 
 全屏播放器通过 Teleport 展示，颜色变量定义在 `.fullscreen-player` 自身。它的进度与音量填充当前使用局部固定值；封面流动背景与控件强调色是不同链路，本轮保留这一关系。
 
@@ -209,4 +211,4 @@ npm.cmd run build
 - 本次未运行应用测试或完整构建；未进行应用整体视觉验收。上述计算样式验证使用隔离 DOM 和模拟状态类，不代表真实窗口、鼠标事件和媒体查询切换验收。
 - 提交前补充验证：`npm.cmd run build` 通过，包含语言键检查、类型检查、主进程／Preload／Renderer 构建及产物预算检查。构建基于当前工作区，包含未纳入本次提交的侧边栏、Now Playing 与 Archive 既有修改。
 
-后续视觉确认覆盖实际迷你窗口按钮与封面、歌词锁定浮层、主题切换，以及降低透明度和高对比度状态。
+当时列出的后续视觉确认包括迷你窗口按钮与封面、歌词锁定浮层、主题切换，以及降低透明度和高对比度状态；迷你窗口后来已移除，这条记录不代表当前窗口的验收结果。

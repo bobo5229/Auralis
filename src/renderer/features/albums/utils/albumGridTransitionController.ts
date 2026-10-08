@@ -1,5 +1,3 @@
-import { planAlbumGridTransition } from './albumGridTransitionPlan'
-
 export interface AlbumTransitionRect {
   left: number
   top: number
@@ -138,7 +136,6 @@ export function createAlbumGridTransitionController(host: AlbumGridTransitionLay
   ): void {
     try {
       const sources = items.filter((item) => item.side === 'from')
-      const plan = planAlbumGridTransition(sources, targets)
       const nextUnion = unionRect(viewportFrom, viewport)
 
       host.setBounds(nextUnion)
@@ -154,7 +151,7 @@ export function createAlbumGridTransitionController(host: AlbumGridTransitionLay
       }
 
       const addedKeys = new Set<string>()
-      for (const target of plan.to) {
+      for (const target of targets) {
         if (addedKeys.has(target.key)) continue
         addedKeys.add(target.key)
         const element = host.createItem(

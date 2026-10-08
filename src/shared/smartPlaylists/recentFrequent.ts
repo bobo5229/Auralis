@@ -2,7 +2,6 @@ import type { RecentFrequentSmartPlaylistRule, SmartPlaylistRule } from '../type
 
 export const RECENT_FREQUENT_DAY_OPTIONS = [3, 7, 30, 90, 365] as const
 export const DEFAULT_RECENT_FREQUENT_DAYS = 30
-export const RECENT_PLAYED_DAY_OPTIONS = RECENT_FREQUENT_DAY_OPTIONS
 export const DEFAULT_RECENT_PLAYED_DAYS = 30
 
 export function assertRecentFrequentDays(days: number): void {

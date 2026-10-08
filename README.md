@@ -1,4 +1,5 @@
 # Auralis
+
 A Local Music Player
 
 Auralis is a Windows-first, local-first music player for large personal collections. It scans music
@@ -11,9 +12,9 @@ on accounts, streaming services, recommendations, or cloud storage.
 - Metadata, artwork, and lyrics extraction, plus metadata editing and audio tag write-back
 - Track, album, playlist, and smart-playlist browsing
 - Local playback, queue management, listening statistics, and gapless playback support
-- Archive views for listening history and rankings
+- The Archive route is currently a placeholder; playback statistics are still recorded and can be reset
 - In-app and fullscreen player experiences
-- Simplified Chinese, Traditional Chinese, and English interfaces
+- Simplified Chinese and English UI, with separate simplified/traditional text display for songs and lyrics
 
 Feature status is determined by the current source, routes, and tests. Design documents under
 [Documentation](docs/README.md) includes topic designs and historical decisions; these are not a
@@ -29,7 +30,9 @@ content.
 ## Architecture Rules
 
 The renderer owns UI, animation, user interaction, and view state. It must not directly access
-SQLite, the filesystem, metadata parsers, artwork generation, scanning, or search indexing.
+SQLite, the filesystem, metadata parsers, artwork generation, or scanning. It may derive an in-memory
+search index from library data received through typed IPC; this does not grant direct database or
+filesystem access.
 
 The primary data path is:
 
@@ -40,10 +43,11 @@ Repository -> Service -> Typed IPC -> UI
 Expensive scanning and metadata work runs in worker threads. Main-process services expose typed IPC
 through the preload context bridge.
 
-Both renderer windows run with context isolation, no Node integration, and Electron sandboxing.
-Their self-contained CommonJS preloads expose only the APIs required by each surface. Window-open,
-webview, permission, redirect, and navigation policies deny capabilities outside the configured
-renderer entry.
+The production app currently creates one Electron `BrowserWindow`. `FullscreenPlayerOverlay` is a
+Vue overlay in that same renderer; standalone development demos are not additional product windows.
+The main window runs with context isolation, no Node integration, and Electron sandboxing. Its
+self-contained CommonJS preload exposes only the required APIs. Window-open, webview, permission,
+redirect, and navigation policies deny capabilities outside the configured renderer entry.
 
 Renderer diagnostics are structured, bounded, and redacted before being written locally to DevTools;
 they are never uploaded as telemetry. Main-process fatal, startup, renderer-exit, and child-process
@@ -54,7 +58,7 @@ diagnostics are emitted through Pino after local paths and URLs are redacted.
 - Electron 38
 - Vue 3 with Composition API and `<script setup lang="ts">`
 - TypeScript 5.7
-- Vue Router, UnoCSS, Motion One, PixiJS, and TanStack Virtual
+- Vue Router, UnoCSS, PixiJS, and TanStack Virtual
 - SQLite through `better-sqlite3`
 - `music-metadata` for local audio metadata
 - Pino logging in the main process

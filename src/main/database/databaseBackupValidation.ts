@@ -1,5 +1,72 @@
-import type Database from 'better-sqlite3'
+import Database from 'better-sqlite3'
+import { closeSync, existsSync, openSync, readSync, statSync } from 'node:fs'
 import { migrations } from './schemaMigrations'
+
+const SQLITE_HEADER_STRING = 'SQLite format 3'
+const SQLITE_HEADER_BYTES = 16
+
+export interface ValidateBackupResult {
+  ok: boolean
+  error?: string
+}
+
+export type DatabaseConstructor = new (
+  path: string,
+  options?: Database.Options,
+) => Database.Database
+
+/**
+ * Validates whether the given file is an authentic, non-corrupt, and schema-compatible Auralis SQLite backup.
+ */
+export function validateBackupFile(
+  filePath: string,
+  databaseCtor: DatabaseConstructor = Database,
+): ValidateBackupResult {
+  try {
+    if (!existsSync(filePath)) {
+      return { ok: false, error: 'Backup file does not exist.' }
+    }
+
+    const stats = statSync(filePath)
+    if (!stats.isFile()) {
+      return { ok: false, error: 'Selected path is not a file.' }
+    }
+
+    if (stats.size < 100) {
+      return { ok: false, error: 'File size is too small to be a valid SQLite database.' }
+    }
+
+    const fd = openSync(filePath, 'r')
+    const headerBuf = Buffer.alloc(SQLITE_HEADER_BYTES)
+    try {
+      readSync(fd, headerBuf, 0, SQLITE_HEADER_BYTES, 0)
+    } finally {
+      closeSync(fd)
+    }
+
+    const headerStr = headerBuf.toString('utf8', 0, 15)
+    if (headerStr !== SQLITE_HEADER_STRING) {
+      return { ok: false, error: 'Invalid SQLite file header signature.' }
+    }
+
+    const testDb = new databaseCtor(filePath, { readonly: true, fileMustExist: true })
+    try {
+      const checkResult = testDb.pragma('quick_check(1)', { simple: true })
+      if (checkResult !== 'ok') {
+        return { ok: false, error: `SQLite quick_check failed: ${String(checkResult)}` }
+      }
+
+      assertBackupSchema(testDb, databaseCtor)
+    } finally {
+      testDb.close()
+    }
+
+    return { ok: true }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
+    return { ok: false, error: errorMsg }
+  }
+}
 
 export function assertBackupSchema(
   db: Database.Database,

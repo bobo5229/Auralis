@@ -58,20 +58,6 @@ export function normalizeArtists(artists?: string[], artist?: string): string[] 
   return values.length > 0 ? values : cleanDelimitedValues([artist])
 }
 
-export function normalizeAlbumArtists(
-  albumArtists?: string[],
-  albumArtist?: string,
-  artist?: string,
-): string[] {
-  const normalized = normalizeArtists(albumArtists, albumArtist)
-
-  if (normalized.length > 0) {
-    return normalized
-  }
-
-  return normalizeArtists(undefined, artist)
-}
-
 // ---------------------------------------------------------------------------
 // Lyrics extraction (from scan worker — pure, no filesystem access)
 // ---------------------------------------------------------------------------

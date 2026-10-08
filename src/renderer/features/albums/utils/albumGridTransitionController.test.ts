@@ -75,11 +75,15 @@ function createHost() {
     rootWrites: 0,
     itemWrites: 0,
     detachedWrites: 0,
+    groupAnimations: 0,
   }
   let origin = { left: 0, top: 0 }
   let current: FakeWrapper[] = []
   let visible = false
   let failNextItem = false
+  let animationDuration = 0
+  let resolveAnimation: (() => void) | null = null
+  let lastAnimation: Promise<void> | null = null
 
   const toWrapper = (item: HTMLElement): FakeWrapper => item as unknown as FakeWrapper
   const host: AlbumGridTransitionLayerHost = {
@@ -136,23 +140,25 @@ function createHost() {
       if (wrapper.connected) counts.itemWrites += 1
       else counts.detachedWrites += 1
     },
+    animateGroups(duration) {
+      counts.groupAnimations += 1
+      animationDuration = duration
+      lastAnimation = new Promise<void>((resolve) => {
+        resolveAnimation = resolve
+      })
+      return lastAnimation
+    },
     captureItem(item) {
       const wrapper = toWrapper(item)
       counts.captures += 1
-      const values = wrapper.transform.match(
-        /translate3d\(([-\d.]+)px, ([-\d.]+)px, 0\) scale\(([-\d.]+)\)/u,
-      )
-      const dx = values ? Number(values[1]) : 0
-      const dy = values ? Number(values[2]) : 0
-      const scale = values ? Number(values[3]) : 1
       return {
         key: wrapper.key,
         node: wrapper.snapshot as unknown as HTMLElement,
         rect: {
-          left: origin.left + wrapper.localLeft + dx,
-          top: origin.top + wrapper.localTop + dy,
-          width: wrapper.rect.width * scale,
-          height: wrapper.rect.height * scale,
+          left: origin.left + wrapper.localLeft,
+          top: origin.top + wrapper.localTop,
+          width: wrapper.rect.width,
+          height: wrapper.rect.height,
         },
         opacity: wrapper.opacity,
         snapshotOwned: true,
@@ -172,14 +178,24 @@ function createHost() {
     get visible() {
       return visible
     },
+    get animationDuration() {
+      return animationDuration
+    },
+    get lastAnimation() {
+      return lastAnimation
+    },
     failNextCreate() {
       failNextItem = true
+    },
+    finishAnimation() {
+      resolveAnimation?.()
+      resolveAnimation = null
     },
   }
 }
 
 describe('album grid transition controller', () => {
-  it('replaces stale registered items and only updates current wrappers', () => {
+  it('replaces stale items, updates current wrappers, and delegates animation completion', async () => {
     const fake = createHost()
     const controller = createAlbumGridTransitionController(fake.host)
     const viewport = rect(0, 0, 400, 300)
@@ -223,6 +239,18 @@ describe('album grid transition controller', () => {
     expect(controller.getItemStats()).toEqual({ registeredItems: 0, connectedItems: 0 })
     expect(fake.current).toHaveLength(0)
     expect(fake.visible).toBe(false)
+
+    controller.commitTargets(viewport, [target('final', rect(0, 0), fake.counts)])
+    const animation = controller.animate(200)
+    let completed = false
+    void animation.then(() => (completed = true))
+    expect(fake.counts.groupAnimations).toBe(1)
+    expect(fake.animationDuration).toBe(200)
+    expect(animation).toBe(fake.lastAnimation)
+    expect(completed).toBe(false)
+    fake.finishAnimation()
+    await animation
+    expect(completed).toBe(true)
   })
 
   it('reuses outgoing snapshots and prepares the complete target layout once', () => {
@@ -262,7 +290,7 @@ describe('album grid transition controller', () => {
     expect(fake.counts.rootWrites).toBeGreaterThan(beforeRender.rootWrites)
   })
 
-  it('fades both complete layouts while keeping every card at its original size and position', () => {
+  it('fades complete layouts while keeping card geometry fixed', () => {
     const fake = createHost()
     const controller = createAlbumGridTransitionController(fake.host)
     const viewport = rect(0, 0, 400, 300)
@@ -278,12 +306,19 @@ describe('album grid transition controller', () => {
     ])
 
     controller.renderProgress(0.5)
-    const byKey = new Map(fake.current.map((item) => [item.key, item]))
     expect(fake.current).toHaveLength(6)
-    expect(byKey.get('a')?.opacity).toBeCloseTo(0.15 / 0.65)
-    expect(byKey.get('b')?.opacity).toBeCloseTo(0.15 / 0.65)
-    expect(byKey.get('old')?.opacity).toBe(0)
-    expect(byKey.get('new')?.opacity).toBeCloseTo(0.15 / 0.65)
+    const sourceCards = fake.current.filter((item) => item.side === 'from')
+    const targetCards = fake.current.filter((item) => item.side === 'to')
+    expect(sourceCards.map((item) => [item.key, item.opacity])).toEqual([
+      ['a', 0],
+      ['b', 0],
+      ['old', 0],
+    ])
+    expect(targetCards.map((item) => item.key)).toEqual(['b', 'a', 'new'])
+    for (const item of targetCards) expect(item.opacity).toBeCloseTo(0.15 / 0.65)
+    expect(fake.current.map((item) => [item.rect.width, item.rect.height])).toEqual(
+      Array.from({ length: 6 }, () => [100, 100]),
+    )
     expect(fake.current.every((item) => item.transform === 'translate3d(0, 0, 0)')).toBe(true)
   })
 
@@ -303,7 +338,7 @@ describe('album grid transition controller', () => {
     expect(fake.current[0].localTop).toBe(70)
   })
 
-  it('captures current visible nodes for a reverse without cloning or duplicate keys', () => {
+  it('captures both visible copies of a key in the crossfade interval for a reverse', () => {
     const fake = createHost()
     const controller = createAlbumGridTransitionController(fake.host)
     const viewport = rect(0, 0, 400, 300)
@@ -312,15 +347,26 @@ describe('album grid transition controller', () => {
       target('a', rect(100, 100), fake.counts),
       target('b', rect(200, 100), fake.counts),
     ])
-    controller.renderProgress(0.5)
+    controller.renderProgress(0.4)
     const captured = controller.captureVisuals()
+    expect(captured.map((item) => item.key)).toEqual(['a', 'a', 'b'])
+    expect(captured.map(({ rect: itemRect }) => [itemRect.left, itemRect.top])).toEqual([
+      [0, 0],
+      [100, 100],
+      [200, 100],
+    ])
     const cloneCount = fake.counts.clones
     const oldWrappers = [...fake.current]
 
     controller.prepareSources(controller.captureViewport(), captured)
 
-    expect(controller.getItemStats()).toEqual({ registeredItems: 2, connectedItems: 2 })
-    expect(new Set(fake.current.map((item) => item.key)).size).toBe(2)
+    expect(controller.getItemStats()).toEqual({ registeredItems: 3, connectedItems: 3 })
+    expect(fake.current.map((item) => item.key)).toEqual(['a', 'a', 'b'])
+    expect(fake.current.map((item) => [item.localLeft, item.localTop])).toEqual([
+      [0, 0],
+      [100, 100],
+      [200, 100],
+    ])
     expect(fake.counts.clones).toBe(cloneCount)
     expect(fake.current.map((item) => item.snapshot)).toEqual(captured.map((item) => item.node))
     expect(oldWrappers.every((item) => !item.connected)).toBe(true)

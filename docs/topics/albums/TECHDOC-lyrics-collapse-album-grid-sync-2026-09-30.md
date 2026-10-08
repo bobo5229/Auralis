@@ -1,30 +1,42 @@
 # 歌词面板收起与专辑网格同步过渡技术方案
 
 日期：2026-09-30  
-状态：源码分析完成，方案待实施。
+状态：历史诊断与方案记录；原方案已被 2026-10-08 当前实现替代。
 
 2026-10-04 更新：专辑列表已移除透视视图；下文实施和验证范围改为常规网格，列表不再读取或保存显示模式偏好。原始执行链路和原因分析保留 2026-09-30 的记录。
 
-## 结论
+## 当前实现 2026-10-08
 
-专辑页的不同步来自明确的执行顺序：歌词面板先完成 200ms 收起动画，专辑网格保持旧宽度，随后经过两次 requestAnimationFrame 和 nextTick 才提交最终布局。用户看到的“专辑重排动画”主要是延迟发生的布局切换；当前网格没有卡片位置插值动画。
+以下为源码现状。本文其余部分保留 2026-09-30 的分析和提案，其中“当前执行链路”“推荐实现”和验收要求只描述当时，不是当前实现或待办。
+
+- `App.vue` 先提交布局，再等待两个一次性 `requestAnimationFrame` 让固定表面获得首帧绘制，然后启动统一的 200ms 过渡；没有持续的 rAF 动画循环。
+- 专辑网格按旧、新布局分别创建固定几何的可见卡片层，用 Web Animations API 对整组做交叉淡切；卡片不逐张移动或缩放，布局裁切在准备和提交时设置，不逐帧更新。
+- Sidebar 快照以不超过 8px 的水平位移配合淡出/淡入；歌词面板通过 transform 滑动并在过渡末段调整透明度；Playbar 根据布局情况使用实时位移或快照淡切。各参与者使用 200ms 时长。
+- 反向切换沿 revision 与取消路径收尾；专辑页保留滚动锚点和焦点恢复，结束或取消时清理快照和临时样式。
+- 既有隔离 Electron 对照使用合成曲库，布局、绘制和栅格化开销较旧方案下降；仍记录到约 33ms 的帧间隔和部分帧更新标记。未覆盖真实曲库封面解码、真实音频负载或物理窗口帧率，因此不能据此认定真实曲库下已完全消除卡顿。
+
+源码入口：[App.vue](../../../src/renderer/App.vue)、[AlbumsPage.vue](../../../src/renderer/features/albums/pages/AlbumsPage.vue)、[sidebarLayoutTransition.ts](../../../src/renderer/app/layout/sidebarLayoutTransition.ts)、[AlbumGridTransitionLayer.vue](../../../src/renderer/features/albums/components/AlbumGridTransitionLayer.vue)。
+
+## 历史结论
+
+当时专辑页的不同步来自明确的执行顺序：歌词面板先完成 200ms 收起动画，专辑网格保持旧宽度，随后经过两次 requestAnimationFrame 和 nextTick 才提交最终布局。用户看到的“专辑重排动画”主要是延迟发生的布局切换；当时的网格没有卡片位置插值动画。
 
 建议将收放组织成一次布局事务：先计算并提交最终网格几何，再让可见专辑、歌词面板和 Playbar 共用一个进度完成视觉过渡。列数与虚拟行高每次事务提交一次，可见卡片通过位置插值移动，结束时只清理过渡层。
 
-本文依据当前工作区源码，包括已有未提交修改。本次完成静态链路分析，未启动 Electron 或采集 Performance trace；掉帧的主要耗时来源仍需按下文测量确认。
+2026-09-30 的分析依据当时工作区源码，包括已有未提交修改；只完成静态链路分析，未启动 Electron 或采集 Performance trace，掉帧的主要耗时来源仍待测量。
 
-## 当前执行链路
+## 2026-09-30 历史执行链路
 
-| 环节 | 源码依据 | 当前行为 |
-| --- | --- | --- |
-| 切换入口 | [PlayerBar.vue](../../../src/renderer/app/layout/PlayerBar.vue)、[useLyricsPanelVisibility.ts](../../../src/renderer/features/appearance/composables/useLyricsPanelVisibility.ts) | 更新共享的歌词展开偏好 |
-| 收放状态 | [App.vue](../../../src/renderer/App.vue) 的 `collapseWithAnimation`、`finishLyricsResize` | 设置 `isLyricsResizing`，逐帧更新进度；完成后卸载歌词，再经过两次 rAF 解除 resizing |
-| 动画时钟 | [motion.ts](../../../src/renderer/shared/animation/motion.ts) 的 `animateLyricsPanelExpansion` | 时长 200ms，缓动为 `1 - (1 - t)^3` |
-| Shell 与播放栏 | [main.css](../../../src/renderer/app/styles/main.css) 的 `.app-shell`、`.player-bar` | 进度驱动歌词 Grid 列宽和 Playbar 的 `right` |
-| 歌词内容 | [NowPlayingPanel.vue](../../../src/renderer/app/layout/NowPlayingPanel.vue) | 内容保持目标宽度，外层裁切；内容透明度随进度变化 |
-| 网格布局 | [useAlbumGridLayout.ts](../../../src/renderer/features/albums/composables/useAlbumGridLayout.ts) | resizing 期间保留已提交宽度、列数和行高，结束后 `nextTick(update)` |
-| 虚拟行 | [AlbumsPage.vue](../../../src/renderer/features/albums/pages/AlbumsPage.vue) | 内层固定 `gridWidth`；按列数将专辑分组；行通过 `translateY` 定位 |
-| 现有测试 | [useAlbumGridLayout.test.ts](../../../src/renderer/features/albums/composables/useAlbumGridLayout.test.ts) | 明确验证动画期间冻结几何、结束后一次提交，以及滚动锚点不漂移 |
+| 环节           | 源码依据                                                                                                                                                                          | 当时行为                                                                            |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 切换入口       | [PlayerBar.vue](../../../src/renderer/app/layout/PlayerBar.vue)、[useLyricsPanelVisibility.ts](../../../src/renderer/features/appearance/composables/useLyricsPanelVisibility.ts) | 更新共享的歌词展开偏好                                                              |
+| 收放状态       | [App.vue](../../../src/renderer/App.vue) 的 `collapseWithAnimation`、`finishLyricsResize`                                                                                         | 设置 `isLyricsResizing`，逐帧更新进度；完成后卸载歌词，再经过两次 rAF 解除 resizing |
+| 动画时钟       | [motion.ts](../../../src/renderer/shared/animation/motion.ts) 的 `animateLyricsPanelExpansion`                                                                                    | 时长 200ms，缓动为 `1 - (1 - t)^3`                                                  |
+| Shell 与播放栏 | [main.css](../../../src/renderer/app/styles/main.css) 的 `.app-shell`、`.player-bar`                                                                                              | 进度驱动歌词 Grid 列宽和 Playbar 的 `right`                                         |
+| 歌词内容       | [NowPlayingPanel.vue](../../../src/renderer/app/layout/NowPlayingPanel.vue)                                                                                                       | 内容保持目标宽度，外层裁切；内容透明度随进度变化                                    |
+| 网格布局       | [useAlbumGridLayout.ts](../../../src/renderer/features/albums/composables/useAlbumGridLayout.ts)                                                                                  | resizing 期间保留已提交宽度、列数和行高，结束后 `nextTick(update)`                  |
+| 虚拟行         | [AlbumsPage.vue](../../../src/renderer/features/albums/pages/AlbumsPage.vue)                                                                                                      | 内层固定 `gridWidth`；按列数将专辑分组；行通过 `translateY` 定位                    |
+| 现有测试       | [useAlbumGridLayout.test.ts](../../../src/renderer/features/albums/composables/useAlbumGridLayout.test.ts)                                                                        | 明确验证动画期间冻结几何、结束后一次提交，以及滚动锚点不漂移                        |
 
 ```text
 当前：点击 → 歌词面板逐帧收起，专辑保持旧几何
@@ -48,13 +60,13 @@ Shell 已有 `.is-lyrics-resizing { transition: none; }`，收放期间不会让
 
 ### 需要测量的掉帧来源
 
-| 候选来源 | 已确认的代码路径 | 需要记录的证据 |
-| --- | --- | --- |
-| 动画中持续布局 | 每帧改变 Grid 列宽与 Playbar 的 `right` | Layout、Recalculate Style、Paint 的耗时与受影响节点 |
-| 虚拟器尺寸观察 | 页面的 ResizeObserver 调用网格更新；TanStack 的 `observeElementRect` 仍观察容器 | 回调次数、虚拟器更新耗时，确认冻结网格后剩余工作量 |
-| 终点集中更新 | 提交宽度与行高、`measure()`、列数变化时重建 `albumRows`、恢复 scrollTop | 动画尾部主线程峰值，区分分组、DOM patch 与布局耗时 |
-| 跨行卡片重建 | 行以虚拟行 key 标识，卡片 key 位于各自行内 | mount/unmount 次数、图片解码与绘制事件 |
-| 视觉效果叠加 | 封面阴影、透视 transform，播放中的歌词更新 | Paint、Raster、Composite 与主线程轨道的对应关系 |
+| 候选来源       | 已确认的代码路径                                                                | 需要记录的证据                                      |
+| -------------- | ------------------------------------------------------------------------------- | --------------------------------------------------- |
+| 动画中持续布局 | 每帧改变 Grid 列宽与 Playbar 的 `right`                                         | Layout、Recalculate Style、Paint 的耗时与受影响节点 |
+| 虚拟器尺寸观察 | 页面的 ResizeObserver 调用网格更新；TanStack 的 `observeElementRect` 仍观察容器 | 回调次数、虚拟器更新耗时，确认冻结网格后剩余工作量  |
+| 终点集中更新   | 提交宽度与行高、`measure()`、列数变化时重建 `albumRows`、恢复 scrollTop         | 动画尾部主线程峰值，区分分组、DOM patch 与布局耗时  |
+| 跨行卡片重建   | 行以虚拟行 key 标识，卡片 key 位于各自行内                                      | mount/unmount 次数、图片解码与绘制事件              |
+| 视觉效果叠加   | 封面阴影、透视 transform，播放中的歌词更新                                      | Paint、Raster、Composite 与主线程轨道的对应关系     |
 
 列数变化会将部分专辑移到另一个父行；相同的 `album.key` 不能保证跨父节点复用卡片实例。应统计实际重建数量，再决定是否进一步调整渲染结构。
 
@@ -108,16 +120,16 @@ Playbar 的目标 `right` 一次提交，对实际可见的播放栏岛从旧矩
 
 ## 打断和滚动契约
 
-| 场景 | 处理方式 |
-| --- | --- |
-| 快速反向点击 | 从当前可见插值矩形和歌词进度接续；取消旧 revision，以当前画面为新起点，重新准备目标；剩余时长按行程缩短 |
-| 列数往返变化 | 保留稳定专辑 key 与行内偏移；按最终几何恢复锚点，避免每次重用新行首专辑而向前漂移 |
-| 窗口改变尺寸或跨越 1280px | 取消快照事务，按当前窗口和面板可用条件直接结算最终布局；下一次按钮操作再启动动画 |
-| 路由离开或 KeepAlive 停用 | 取消动画和待执行测量，清理替身与样式；在容器仍有效时保存滚动位置 |
-| reduced motion 开启 | 直接提交最终几何和可访问状态，跳过快照与时钟；动画中切换偏好时立即结算 |
-| 全屏或迷你模式切换 | 按现有 `canDisplayLyricsPanel` 结算并清理；返回普通模式时重新读取实际容器几何 |
-| 事务中曲库刷新 | 使当前事务失效，清理后按最新专辑集合提交，避免旧 key 指向新列表位置 |
-| 准备失败或容器脱离 DOM | 清理临时状态，恢复符合当前偏好的稳定布局，避免残留透明内容或 inert 控件 |
+| 场景                      | 处理方式                                                                                                |
+| ------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 快速反向点击              | 从当前可见插值矩形和歌词进度接续；取消旧 revision，以当前画面为新起点，重新准备目标；剩余时长按行程缩短 |
+| 列数往返变化              | 保留稳定专辑 key 与行内偏移；按最终几何恢复锚点，避免每次重用新行首专辑而向前漂移                       |
+| 窗口改变尺寸或跨越 1280px | 取消快照事务，按当前窗口和面板可用条件直接结算最终布局；下一次按钮操作再启动动画                        |
+| 路由离开或 KeepAlive 停用 | 取消动画和待执行测量，清理替身与样式；在容器仍有效时保存滚动位置                                        |
+| reduced motion 开启       | 直接提交最终几何和可访问状态，跳过快照与时钟；动画中切换偏好时立即结算                                  |
+| 全屏或迷你模式切换        | 按现有 `canDisplayLyricsPanel` 结算并清理；返回普通模式时重新读取实际容器几何                           |
+| 事务中曲库刷新            | 使当前事务失效，清理后按最新专辑集合提交，避免旧 key 指向新列表位置                                     |
+| 准备失败或容器脱离 DOM    | 清理临时状态，恢复符合当前偏好的稳定布局，避免残留透明内容或 inert 控件                                 |
 
 这些规则应与现有滚动锚点测试合并设计。锚点恢复保留原有“等待新总高度进入 DOM 后写 scrollTop”的约束，并覆盖接近列表底部时的合法范围裁剪。
 

@@ -90,7 +90,6 @@
         "persistFailed": "Applied, but could not save this preference."
       },
       "theme": "Theme",
-      "themeDescription": "Choose a dark or light appearance.",
       "reducedMotion": {
         "title": "Reduce motion",
         "description": "Reduce movement, scaling and continuous animations. Follow the system or enable manually.",
@@ -294,7 +293,6 @@
     "more": "More playback controls",
     "progress": "Playback progress",
     "fullscreen": "Open fullscreen player",
-    "queueCount": "{count} tracks | {count} track | {count} tracks",
     "queueEmpty": "Your play queue is empty",
     "nowPlaying": "Now playing",
     "upNext": "Up next",
@@ -422,39 +420,12 @@
       "back": "Back to list",
       "play": "Play",
       "shuffle": "Shuffle",
-      "tracks": "Tracks",
       "disc": "Disc {number}",
-      "trackCount": {
-        "one": "{count} track",
-        "other": "{count} tracks"
-      },
-      "duration": {
-        "zero": "00 min 00 sec",
-        "minutes": "{minutes} min {seconds} sec",
-        "hours": "{hours} hr {minutes} min"
-      },
-      "metrics": {
-        "tracks": "Tracks",
-        "duration": "Duration",
-        "plays": "Plays",
-        "listened": "Listening time",
-        "stats": "Listening statistics",
-        "playsUnit": "{count} plays",
-        "playsUnitOne": "{count} play",
-        "minutesUnit": "{minutes} min",
-        "hoursUnit": "{hours} hr"
-      },
-      "listenSummary": {
-        "plays": "Played {count} times | Played {count} time | Played {count} times",
-        "minutes": "Played {count} times · about {minutes} min | Played {count} time · about {minutes} min | Played {count} times · about {minutes} min",
-        "hours": "Played {count} times · about {hours} hr | Played {count} time · about {hours} hr | Played {count} times · about {hours} hr"
-      },
       "unknownYear": "Unknown year",
       "unknownDate": "Unknown date",
       "unknownTitle": "Untitled track",
       "moreAlbumsTitle": "More from {artist}",
       "genreAlbumsTitle": "More in {genre}",
-      "moreAlbumsAria": "More from {artist}",
       "openAlbumAria": "Open album {title}",
       "coverAlt": "Artwork for {title}",
       "heroAria": "Artwork and details for {title}",

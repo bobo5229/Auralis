@@ -90,7 +90,6 @@
         "persistFailed": "已应用，本次保存未完成。"
       },
       "theme": "主题",
-      "themeDescription": "选择应用界面为深色或浅色外观。",
       "reducedMotion": {
         "title": "减少动态效果",
         "description": "减少位移、缩放和持续动效。默认跟随系统，也可手动开启。",
@@ -294,7 +293,6 @@
     "more": "更多播放控件",
     "progress": "播放进度",
     "fullscreen": "打开全屏播放器",
-    "queueCount": "{count} 首",
     "queueEmpty": "暂无播放队列",
     "nowPlaying": "正在播放",
     "upNext": "接下来",
@@ -422,39 +420,12 @@
       "back": "返回列表",
       "play": "播放",
       "shuffle": "随机播放",
-      "tracks": "曲目",
       "disc": "第 {number} 碟",
-      "trackCount": {
-        "one": "{count} 首曲目",
-        "other": "{count} 首曲目"
-      },
-      "duration": {
-        "zero": "00 分 00 秒",
-        "minutes": "{minutes} 分 {seconds} 秒",
-        "hours": "{hours} 小时 {minutes} 分"
-      },
-      "metrics": {
-        "tracks": "曲目",
-        "duration": "总长",
-        "plays": "已听",
-        "listened": "累计",
-        "stats": "收听统计",
-        "playsUnit": "{count} 次",
-        "playsUnitOne": "{count} 次",
-        "minutesUnit": "{minutes} 分钟",
-        "hoursUnit": "{hours} 小时"
-      },
-      "listenSummary": {
-        "plays": "听过 {count} 次",
-        "minutes": "听过 {count} 次 · 约 {minutes} 分钟",
-        "hours": "听过 {count} 次 · 约 {hours} 小时"
-      },
       "unknownYear": "年份未知",
       "unknownDate": "日期未知",
       "unknownTitle": "未命名曲目",
       "moreAlbumsTitle": "更多作品来自 {artist}",
       "genreAlbumsTitle": "{genre} 的更多作品",
-      "moreAlbumsAria": "{artist} 的更多作品",
       "openAlbumAria": "打开专辑 {title}",
       "coverAlt": "{title} 的封面",
       "heroAria": "{title} 的专辑封面与详情",

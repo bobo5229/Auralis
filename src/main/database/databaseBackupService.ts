@@ -1,14 +1,13 @@
 import Database from 'better-sqlite3'
-import { assertBackupSchema } from './databaseBackupValidation'
+import { validateBackupFile, type DatabaseConstructor } from './databaseBackupValidation'
+import { applyStagedDatabaseRestore } from './databaseBackupRestore'
+
 import { migrateDatabase } from './schema'
 import { randomUUID } from 'node:crypto'
 import {
-  closeSync,
   copyFileSync,
   existsSync,
   mkdirSync,
-  openSync,
-  readSync,
   readdirSync,
   renameSync,
   statSync,
@@ -18,72 +17,10 @@ import { basename, dirname, join } from 'node:path'
 import { logger } from '@main/logging/logger'
 import type { DatabaseExportBackupResult, DatabaseRestoreBackupResult } from '@shared/ipc/contracts'
 
-const SQLITE_HEADER_STRING = 'SQLite format 3'
-const SQLITE_HEADER_BYTES = 16
+export { validateBackupFile } from './databaseBackupValidation'
+export type { DatabaseConstructor, ValidateBackupResult } from './databaseBackupValidation'
+
 const MAX_PRE_MIGRATION_BACKUPS = 5
-
-export interface ValidateBackupResult {
-  ok: boolean
-  error?: string
-}
-
-export type DatabaseConstructor = new (
-  path: string,
-  options?: Database.Options,
-) => Database.Database
-
-/**
- * Validates whether the given file is an authentic, non-corrupt, and schema-compatible Auralis SQLite backup.
- */
-export function validateBackupFile(
-  filePath: string,
-  databaseCtor: DatabaseConstructor = Database,
-): ValidateBackupResult {
-  try {
-    if (!existsSync(filePath)) {
-      return { ok: false, error: 'Backup file does not exist.' }
-    }
-
-    const stats = statSync(filePath)
-    if (!stats.isFile()) {
-      return { ok: false, error: 'Selected path is not a file.' }
-    }
-
-    if (stats.size < 100) {
-      return { ok: false, error: 'File size is too small to be a valid SQLite database.' }
-    }
-
-    const fd = openSync(filePath, 'r')
-    const headerBuf = Buffer.alloc(SQLITE_HEADER_BYTES)
-    try {
-      readSync(fd, headerBuf, 0, SQLITE_HEADER_BYTES, 0)
-    } finally {
-      closeSync(fd)
-    }
-
-    const headerStr = headerBuf.toString('utf8', 0, 15)
-    if (headerStr !== SQLITE_HEADER_STRING) {
-      return { ok: false, error: 'Invalid SQLite file header signature.' }
-    }
-
-    const testDb = new databaseCtor(filePath, { readonly: true, fileMustExist: true })
-    try {
-      const checkResult = testDb.pragma('quick_check(1)', { simple: true })
-      if (checkResult !== 'ok') {
-        return { ok: false, error: `SQLite quick_check failed: ${String(checkResult)}` }
-      }
-
-      assertBackupSchema(testDb, databaseCtor)
-    } finally {
-      testDb.close()
-    }
-
-    return { ok: true }
-  } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : String(error)
-    return { ok: false, error: errorMsg }
-  }
-}
 
 export interface ExportBackupOptions {
   db: Database.Database
@@ -202,120 +139,15 @@ export async function stageDatabaseRestore(
   }
 }
 
-/**
- * Applies a staged database restore during startup with atomic swap and rollback fallback.
- */
+/** Applies a staged restore before the application opens its database. */
 export function applyStagedRestoreIfExists(
   databasePath: string,
   options?: { databaseCtor?: DatabaseConstructor; migrate?: (db: Database.Database) => void },
 ): boolean {
-  const stagedPath = `${databasePath}.restore_staged`
-  if (!existsSync(stagedPath)) {
-    return false
-  }
-
-  const databaseCtor = options?.databaseCtor ?? Database
-  const rollbackPath = `${databasePath}.rollback`
-  const rollbackWalPath = `${databasePath}-wal.rollback`
-  const rollbackShmPath = `${databasePath}-shm.rollback`
-  const walPath = `${databasePath}-wal`
-  const shmPath = `${databasePath}-shm`
-
-  logger.info(
-    { stagedPath, databasePath },
-    'Detected staged database restore; applying atomic swap',
-  )
-
-  let hasOriginalDb = false
-  let hasOriginalWal = false
-  let hasOriginalShm = false
-  let replaced = false
-
-  try {
-    // 1. Create rollback copies of active files
-    if (existsSync(databasePath)) {
-      copyFileSync(databasePath, rollbackPath)
-      hasOriginalDb = true
-    }
-    if (existsSync(walPath)) {
-      copyFileSync(walPath, rollbackWalPath)
-      hasOriginalWal = true
-    }
-    if (existsSync(shmPath)) {
-      copyFileSync(shmPath, rollbackShmPath)
-      hasOriginalShm = true
-    }
-
-    const validation = validateBackupFile(stagedPath, databaseCtor)
-    if (!validation.ok) throw new Error(validation.error)
-
-    // 2. Replace active db with staged file and clear previous wal/shm
-    replaced = true
-    copyFileSync(stagedPath, databasePath)
-    if (existsSync(walPath)) unlinkSync(walPath)
-    if (existsSync(shmPath)) unlinkSync(shmPath)
-
-    // 3. Migrate and verify before releasing the original database rollback files.
-    const testDb = new databaseCtor(databasePath, { fileMustExist: true })
-    try {
-      testDb.pragma('foreign_keys = ON')
-      ;(options?.migrate ?? migrateDatabase)(testDb)
-      assertBackupSchema(testDb, databaseCtor)
-      const checkResult = testDb.pragma('quick_check(1)', { simple: true })
-      if (checkResult !== 'ok') {
-        throw new Error(`Corrupt restored database quick_check: ${String(checkResult)}`)
-      }
-    } finally {
-      testDb.close()
-    }
-
-    // 4. Success — clean up staged file and rollback backups
-    if (existsSync(stagedPath)) unlinkSync(stagedPath)
-    for (const path of [rollbackPath, rollbackWalPath, rollbackShmPath]) {
-      try {
-        if (existsSync(path)) unlinkSync(path)
-      } catch (error) {
-        logger.warn({ error, path }, 'Restore succeeded; rollback cleanup deferred')
-      }
-    }
-
-    logger.info({ databasePath }, 'Staged database restore applied and verified successfully')
-    return true
-  } catch (error) {
-    logger.error(
-      { error, databasePath },
-      'Failed to apply staged database restore; executing rollback',
-    )
-
-    // Remove replacement WAL/SHM before restoring the original set.
-    try {
-      if (replaced) {
-        for (const path of [walPath, shmPath]) if (existsSync(path)) unlinkSync(path)
-        if (!hasOriginalDb && existsSync(databasePath)) unlinkSync(databasePath)
-      }
-      if (hasOriginalDb && existsSync(rollbackPath)) {
-        copyFileSync(rollbackPath, databasePath)
-        unlinkSync(rollbackPath)
-      }
-      if (hasOriginalWal && existsSync(rollbackWalPath)) {
-        copyFileSync(rollbackWalPath, walPath)
-        unlinkSync(rollbackWalPath)
-      }
-      if (hasOriginalShm && existsSync(rollbackShmPath)) {
-        copyFileSync(rollbackShmPath, shmPath)
-        unlinkSync(rollbackShmPath)
-      }
-      if (existsSync(stagedPath)) {
-        unlinkSync(stagedPath)
-      }
-    } catch (rollbackError) {
-      logger.error({ rollbackError }, 'Catastrophic error during database restore rollback')
-    }
-
-    throw new Error(
-      `Failed to apply staged database restore: ${error instanceof Error ? error.message : String(error)}`,
-    )
-  }
+  return applyStagedDatabaseRestore(databasePath, {
+    databaseCtor: options?.databaseCtor ?? Database,
+    migrate: options?.migrate ?? migrateDatabase,
+  })
 }
 
 export interface PreMigrationBackupOptions {

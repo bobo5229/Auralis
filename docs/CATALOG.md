@@ -38,8 +38,9 @@
 
 ### albums：专辑
 
-- [施工文档：专辑列表页收起歌词动画性能修复](topics/albums/IMPLEMENTATION-lyrics-collapse-performance-fix-2026-10-02.md) — 当前实现诊断、分阶段修复、快照复用、回归与性能验收。
-- [TECHDOC：歌词面板收起与专辑网格同步过渡](topics/albums/TECHDOC-lyrics-collapse-album-grid-sync-2026-09-30.md)
+- [当前实现与历史诊断：歌词面板收起与专辑网格同步过渡](topics/albums/TECHDOC-lyrics-collapse-album-grid-sync-2026-09-30.md#当前实现-2026-10-08) — 记录 fixed grid group-opacity 淡切、Sidebar/歌词/Playbar 协同及隔离性能证据边界。
+- [历史：专辑列表页收起歌词动画性能施工方案](topics/albums/IMPLEMENTATION-lyrics-collapse-performance-fix-2026-10-02.md) — 原移动缩放方案与任务清单已被当前实现替代，性能未宣称对真实曲库完全通过。
+- [历史：歌词面板收起与专辑网格同步过渡方案](topics/albums/TECHDOC-lyrics-collapse-album-grid-sync-2026-09-30.md) — 保留 2026-09-30 的诊断与设计记录；现行行为见上方当前实现说明。
 - [TECHDOC：更多作品封面内部悬停反馈](topics/albums/TECHDOC-more-albums-cover-hover-2026-09-27.md)
 - [PRD：CD 专辑封面索引页](topics/albums/PRD-cd-album-cover-index-2026-09-25.md)
 - [TECHDOC：CD 专辑封面索引页](topics/albums/TECHDOC-cd-album-cover-index-2026-09-25.md)
@@ -64,7 +65,7 @@
 
 ### archive：音乐归档
 
-- [设计参考：复古未来主义](topics/archive/REFERENCE-retrofuturism-design.md) — 用户提供的原文参考，按需采用，不作为项目强制规范。现行入口为 `/archive` 的聆听档案文字占位页。
+- [设计参考：复古未来主义](topics/archive/REFERENCE-retrofuturism-design.md) — 用户提供的原文参考，按需采用，不作为项目强制规范。`/archive` 当前为文字占位页；播放统计仍会记录并保留重置能力。
 
 ### artwork：封面
 
@@ -94,6 +95,7 @@
 
 ### playback：播放界面
 
+- [历史：TECHDOC：播放器颜色变量体系补全](topics/playback/TECHDOC-player-color-token-completion-2026-09-26.md) — 保留颜色变量迁移记录；MiniPlayer 与桌面歌词已移除，PlayerBar 与全屏覆盖层相关内容仅作历史及源码参考。
 - [历史：TECHDOC：MiniPlayer 弹层可用性与窗口状态同步修复](topics/playback/TECHDOC-miniplayer-geometry-state-fixes-2026-09-28.md)
 - [FullscreenPlayerOverlay 职责拆分技术设计](topics/playback/TECHDOC-fullscreen-player-overlay-refactor-2026-08-30.md)
 - [历史：MiniPlayer 脚本职责拆分技术设计](topics/playback/TECHDOC-mini-player-script-refactor-2026-08-30.md)

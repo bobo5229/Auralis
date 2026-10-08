@@ -20,8 +20,8 @@ resources/audio/*.exe
 .electron-home/
 
 # App data (local database, cache)
-data/
-AppData/
+/data/
+/AppData/
 
 # Logs and diagnostics
 logs
@@ -130,8 +130,13 @@ docs/history/*
 !docs/history/README.md
 !docs/topics/
 docs/topics/*
+!docs/topics/archive/
+docs/topics/archive/*
+!docs/topics/archive/REFERENCE-retrofuturism-design.md
 !docs/topics/albums/
 docs/topics/albums/*
+!docs/topics/albums/IMPLEMENTATION-lyrics-collapse-performance-fix-2026-10-02.md
+!docs/topics/albums/TECHDOC-cd-room-semantic-typography-2026-10-04.md
 !docs/topics/albums/techdoc-album-detail-local-catalog-fallback-gallery.md
 !docs/topics/albums/PRD-cd-album-cover-index-2026-09-25.md
 !docs/topics/albums/TECHDOC-cd-album-cover-index-2026-09-25.md
@@ -140,14 +145,20 @@ docs/topics/albums/*
 !docs/topics/README.md
 !docs/topics/library/
 docs/topics/library/*
+!docs/topics/library/TECHDOC-deleted-track-cleanup-2026-10-04.md
+!docs/topics/library/TECHDOC-track-path-relocation-2026-10-04.md
 !docs/topics/library/TECHDOC-catalog-concurrent-load-2026-09-21.md
 !docs/topics/library/TECHDOC-cover-track-divider-pixel-snapping-2026-09-28.md
 !docs/topics/library/TECHDOC-music-source-path-priority-2026-09-28.md
 !docs/topics/metadata/
 docs/topics/metadata/*
+!docs/topics/metadata/REPORT-genre-upper-classification-2026-10-04.md
+!docs/topics/metadata/TECHDOC-multivalue-metadata-2026-10-03.md
+!docs/topics/metadata/TECHDOC-playback-metadata-edit-guard-2026-09-30.md
 !docs/topics/metadata/TECHDOC-refresh-file-fingerprint-2026-09-21.md
 !docs/topics/shell/
 docs/topics/shell/*
+!docs/topics/shell/TECHDOC-custom-dark-accent-2026-10-02.md
 !docs/topics/shell/light-theme-color-presets.md
 !docs/topics/shell/techdoc-sidebar-first-navigation-warmup.md
 !docs/topics/shell/TECHDOC-semantic-font-system-2026-09-29.md
@@ -156,6 +167,8 @@ docs/topics/shell/*
 !docs/topics/shell/TECHDOC-theme-aware-splash-logo-2026-09-29.md
 !docs/topics/playback/
 docs/topics/playback/*
+!docs/topics/playback/TECHDOC-player-color-token-completion-2026-09-26.md
+!docs/topics/playback/TECHDOC-playerbar-queue-surface-unification-2026-09-06.md
 !docs/topics/playback/TECHDOC-gapless-memory-budget-2026-09-21.md
 !docs/topics/playback/PRD-playerbar-matte-depth-2026-08-29.md
 !docs/topics/playback/TECHDOC-playerbar-matte-depth-2026-08-29.md
@@ -168,6 +181,9 @@ docs/topics/playback/*
 !docs/topics/playback/TECHDOC-player-bar-overlay-controller-2026-08-30.md
 !docs/reviews/
 docs/reviews/*
+!docs/reviews/2026-10-04-open-source-reuse-audit.md
+!docs/reviews/2026-10-06-confirmed-redundancy-cleanup.md
+!docs/reviews/2026-10-06-redundancy-second-pass.md
 !docs/reviews/2026-07-17-architecture-review-fixes.md
 !docs/reviews/2026-09-28-electron-startup-acl-crash.md
 !docs/handoffs/
@@ -182,6 +198,9 @@ issues/
 
 # Local audit / review handbooks (most findings under docs/reviews remain local)
 *作战手册.md
+
+# Keep future Codex attachments local; existing tracked files remain tracked.
+/.codex-remote-attachments/
 
 # Release media session
 release-media-session/
