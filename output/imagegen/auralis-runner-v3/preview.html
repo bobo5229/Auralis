@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Auralis 跑步动作预览</title>
+<style>
+body{margin:0;background:#d6d1c7;color:#303030;font:16px system-ui;display:grid;justify-items:center;padding:32px;gap:16px}
+h1{font-size:20px;margin:0}canvas{width:512px;height:512px;max-width:85vw;image-rendering:pixelated;background:#d6d1c7}
+button,select{font:inherit;padding:8px 12px}nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}p{margin:0;max-width:600px;line-height:1.6}
+</style>
+<h1>Auralis · 跑步动作草稿</h1>
+<canvas id="screen" width="512" height="512"></canvas>
+<nav><button id="pause">暂停</button><button id="prev">上一帧</button><button id="next">下一帧</button><select id="speed" aria-label="播放速度"><option value="90">正常 · 90 ms/帧</option><option value="240">慢速 · 240 ms/帧</option></select><span id="status"></span></nav>
+<p>观察手脚交替、身体起伏和第 8 帧到第 1 帧的衔接。此预览用于检查素材，没有接入音乐播放。</p>
+<output id="verification" hidden></output>
+<script>
+const canvas=document.querySelector('#screen'), ctx=canvas.getContext('2d'), atlas=new Image();
+let playing=true, duration=90, current=0, start=performance.now(), fixed=current;
+function frameAt(elapsed,ms){return Math.floor(elapsed/ms)%8}
+function draw(index){ctx.fillStyle='#d6d1c7';ctx.fillRect(0,0,512,512);ctx.fillStyle='#b5aea0';ctx.fillRect(0,440,512,4);ctx.imageSmoothingEnabled=false;ctx.drawImage(atlas,index*128,0,128,128,0,0,512,512);document.querySelector('#status').textContent=`第 ${index+1} / 8 帧`}
+function setFrame(index){playing=false;current=(index+8)%8;document.querySelector('#pause').textContent='播放';draw(current)}
+document.querySelector('#pause').onclick=()=>{playing=!playing;if(playing){fixed=current;start=performance.now()}document.querySelector('#pause').textContent=playing?'暂停':'播放'};
+document.querySelector('#prev').onclick=()=>setFrame(current-1);
+document.querySelector('#next').onclick=()=>setFrame(current+1);
+document.querySelector('#speed').onchange=e=>{duration=Number(e.target.value);fixed=current;start=performance.now()};
+atlas.onload=()=>{
+  const tests=[90,240].map(ms=>({duration:ms,sequence:Array.from({length:9},(_,i)=>frameAt(i*ms,ms)),boundary:[frameAt(8*ms-1,ms),frameAt(8*ms,ms)]}));
+  if(atlas.naturalWidth!==1024||atlas.naturalHeight!==128||tests.some(t=>t.sequence.join(',')!=='0,1,2,3,4,5,6,7,0'))throw Error('atlas or timing validation failed');
+  const checkFrame=new URLSearchParams(location.search).get('frame');
+  if(checkFrame!==null)setFrame(Number(checkFrame));
+  draw(current);
+  document.querySelector('#verification').textContent=JSON.stringify({loaded:true,size:[atlas.naturalWidth,atlas.naturalHeight],tests});
+  function tick(now){if(playing){current=(fixed+frameAt(now-start,duration))%8;draw(current)}requestAnimationFrame(tick)}
+  requestAnimationFrame(tick);
+};
+atlas.onerror=()=>{document.querySelector('#status').textContent='素材加载失败';document.querySelector('#verification').textContent='ERROR: atlas load failed'};
+atlas.src='./run-atlas-draft.png';
+</script>
+</html>

@@ -255,12 +255,6 @@ function createApi(): AuralisApi {
       onCommand: vi.fn(),
     },
     archive: {
-      getListeningHeatmap: vi.fn(),
-      getDailyListeningDetail: vi.fn(),
-      getDailyAlbumStats: vi.fn(),
-      getAnnualListeningInsights: vi.fn(),
-      getListeningRanking: vi.fn(),
-      getListeningGenreSpectrum: vi.fn(),
       resetPlayStats: vi.fn(),
     },
     metadata: {

@@ -149,7 +149,6 @@ const nativePlaybackCommand: Validator = (value, path, context) => {
   objectShape(fields)(value, path, context)
 }
 const positiveLimit = finiteNumber({ integer: true, min: 1, max: MAX_ID_LIST_LENGTH })
-const archiveYear = finiteNumber({ integer: true })
 const metadataYear = finiteNumber({ integer: true })
 
 function enumValue(values: readonly string[]): Validator {
@@ -280,13 +279,6 @@ const albumKey = objectShape({
   album: field(stringValue({ max: MAX_TEXT_LENGTH })),
 })
 
-const dateKey: Validator = (value, path, context) => {
-  stringValue({ min: 10, max: 10 })(value, path, context)
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    fail(path, 'must use the YYYY-MM-DD format')
-  }
-}
-
 const partialDate: Validator = (value, path, context) => {
   stringValue({ min: 4, max: 10 })(value, path, context)
   if (typeof value !== 'string' || !/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/.test(value)) {
@@ -359,15 +351,6 @@ const smartPlaylistRule: Validator = (value, path, context) => {
     expression: field(expression, true),
   })(value, path, context)
 }
-
-const rankingPayload = objectShape({
-  range: field(enumValue(['day', 'week', 'month', 'year'])),
-  target: field(enumValue(['track', 'album'])),
-  date: field(dateKey, true),
-  weekStartDate: field(dateKey, true),
-  year: field(archiveYear, true),
-  month: field(finiteNumber({ integer: true, min: 1, max: 12 }), true),
-})
 
 const editableMetadata = objectShape({
   trackId: field(positiveId),
@@ -494,16 +477,6 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.playback.acquireReadLease]: required(idPayload('trackId')),
   [ipcChannels.playback.releaseReadLease]: required(
     objectShape({ leaseId: field(stringValue({ min: 1, max: 128 })) }),
-  ),
-  [ipcChannels.archive.getListeningHeatmap]: required(objectShape({ year: field(archiveYear) })),
-  [ipcChannels.archive.getDailyListeningDetail]: required(objectShape({ date: field(dateKey) })),
-  [ipcChannels.archive.getDailyAlbumStats]: required(objectShape({ date: field(dateKey) })),
-  [ipcChannels.archive.getAnnualListeningInsights]: required(
-    objectShape({ year: field(archiveYear) }),
-  ),
-  [ipcChannels.archive.getListeningRanking]: required(rankingPayload),
-  [ipcChannels.archive.getListeningGenreSpectrum]: required(
-    objectShape({ year: field(archiveYear) }),
   ),
   [ipcChannels.archive.resetPlayStats]: voidPayload(),
   [ipcChannels.metadata.refreshTrack]: required(idPayload('trackId')),

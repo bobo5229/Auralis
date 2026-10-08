@@ -7,6 +7,7 @@
   "main": "out/main/index.js",
   "scripts": {
     "dev": "set AURALIS_QUIET_GPU_LOGS=1&& set AURALIS_LOG_LEVEL=warn&& electron-vite dev",
+    "dev:browser": "vite --config vite.browser.config.ts --mode browser-preview --open",
     "dev:no-direct-composition": "set AURALIS_DISABLE_DIRECT_COMPOSITION=1&& electron-vite dev",
     "dev:verbose-gpu": "electron-vite dev",
     "dev:software-rendering": "set AURALIS_SOFTWARE_RENDERING=1&& electron-vite dev",
@@ -22,7 +23,7 @@
     "preview": "electron-vite preview",
     "rebuild:native": "set USERPROFILE=%CD%\\.electron-home&& set HOME=%CD%\\.electron-home&& electron-rebuild -f -w better-sqlite3",
     "typecheck": "vue-tsc -p tsconfig.web.json --noEmit --tsBuildInfoFile .electron-home/tsconfig.web.tsbuildinfo && tsc -p tsconfig.node.json --noEmit --tsBuildInfoFile .electron-home/tsconfig.node.tsbuildinfo",
-    "lint": "eslint --max-warnings 0 src scripts electron.vite.config.ts eslint.config.js uno.config.ts vitest.config.ts vitest.native.config.ts",
+    "lint": "eslint --max-warnings 0 src scripts electron.vite.config.ts vite.browser.config.ts eslint.config.js uno.config.ts vitest.config.ts vitest.native.config.ts",
     "prelint": "npm run locales:check",
     "test": "npm run test:unit && npm run test:native && npm run test:library-scope",
     "test:unit": "vitest run",

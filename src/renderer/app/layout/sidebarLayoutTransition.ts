@@ -3,7 +3,6 @@ interface SidebarVisual {
   rect: DOMRect
   opacity: number
   target: boolean
-  anchorX: number
 }
 
 /** Freeze sidebar geometry just like the album and Playbar snapshot layers. */
@@ -14,16 +13,8 @@ export function createSidebarLayoutTransition() {
   let visuals: SidebarVisual[] = []
   let from: DOMRect | null = null
   let to: DOMRect | null = null
-  let viewport: DOMRect | null = null
   let bounds: DOMRect | null = null
-  let fromAnchorX = 0
-  let toAnchorX = 0
-  let visualAnchorX = 0
-
-  function measureAnchor(sidebar: HTMLElement): number {
-    const rect = (sidebar.querySelector('.sidebar-brand-mark') ?? sidebar).getBoundingClientRect()
-    return rect.left + rect.width / 2
-  }
+  let animations: Animation[] = []
 
   function snapshot(source: HTMLElement): HTMLElement {
     const clone = source.cloneNode(true) as HTMLElement
@@ -65,7 +56,7 @@ export function createSidebarLayoutTransition() {
       top: `${visual.rect.top - bounds.top}px`,
       width: `${visual.rect.width}px`,
       height: `${visual.rect.height}px`,
-      opacity: String(visual.opacity),
+      opacity: String(visual.target ? 0 : visual.opacity),
       transform: 'translate3d(0, 0, 0)',
     })
     wrapper.append(visual.node)
@@ -87,14 +78,13 @@ export function createSidebarLayoutTransition() {
     if (layer) {
       for (const child of layer.children) {
         const node = child.firstElementChild
-        const opacity = Number.parseFloat((child as HTMLElement).style.opacity)
+        const opacity = Number.parseFloat(getComputedStyle(child).opacity)
         if (!(node instanceof HTMLElement) || opacity <= 0.001) continue
         captured.push({
           node: snapshot(node),
           rect: node.getBoundingClientRect(),
           opacity,
           target: false,
-          anchorX: measureAnchor(node),
         })
       }
     } else {
@@ -103,15 +93,13 @@ export function createSidebarLayoutTransition() {
         rect: sidebar.getBoundingClientRect(),
         opacity: 1,
         target: false,
-        anchorX: measureAnchor(sidebar),
       })
     }
-    fromAnchorX = layer ? visualAnchorX : measureAnchor(sidebar)
-    visualAnchorX = fromAnchorX
-    from = viewport ?? sidebar.getBoundingClientRect()
-    viewport = from
+    from = layer?.getBoundingClientRect() ?? sidebar.getBoundingClientRect()
     bounds = from
     to = null
+    animations.forEach((animation) => animation.cancel())
+    animations = []
     layer?.remove()
     if (root !== sidebar) {
       if (root) root.style.opacity = originalOpacity
@@ -130,11 +118,11 @@ export function createSidebarLayoutTransition() {
     }
     Object.assign(layer.style, {
       position: 'fixed',
-      zIndex: '25',
+      // A departing grid must not paint over the incoming navigation surface.
+      zIndex: '46',
       pointerEvents: 'none',
       overflow: 'hidden',
       contain: 'layout paint',
-      background: style.backgroundColor,
       color: style.color,
       font: style.font,
     })
@@ -157,44 +145,45 @@ export function createSidebarLayoutTransition() {
       Math.max(from.right, to.right) - left,
       Math.max(from.bottom, to.bottom) - top,
     )
-    toAnchorX = measureAnchor(root)
-    visuals.push({ node: snapshot(root), rect: to, opacity: 1, target: true, anchorX: toAnchorX })
+    visuals.push({ node: snapshot(root), rect: to, opacity: 1, target: true })
     layer.replaceChildren()
     setBounds(bounds)
     for (const visual of visuals) append(visual)
     restoreScroll()
-    render(0)
   }
 
-  function render(progress: number): void {
-    if (!layer || !from || !to || !bounds) return
-    const eased = 1 - Math.pow(1 - progress, 3)
-    viewport = new DOMRect(
-      from.left + (to.left - from.left) * eased,
-      from.top + (to.top - from.top) * eased,
-      from.width + (to.width - from.width) * eased,
-      from.height + (to.height - from.height) * eased,
-    )
-    layer.style.clipPath = `inset(${viewport.top - bounds.top}px ${bounds.right - viewport.right}px ${bounds.bottom - viewport.bottom}px ${viewport.left - bounds.left}px)`
-    visualAnchorX = fromAnchorX + (toAnchorX - fromAnchorX) * eased
-    visuals.forEach((visual, index) => {
-      const wrapper = layer!.children[index] as HTMLElement
-      const dx = visual.target
-        ? (fromAnchorX - toAnchorX) * (1 - eased)
-        : (toAnchorX - visual.anchorX) * eased
-      wrapper.style.transform = `translate3d(${dx}px, 0, 0)`
-      wrapper.style.opacity = String(visual.opacity * (visual.target ? eased : 1 - eased))
-    })
+  async function animate(duration: number): Promise<void> {
+    if (!layer || !from || !to) return
+    const direction = to.width < from.width ? -1 : 1
+    for (const [index, visual] of visuals.entries()) {
+      const wrapper = layer.children[index] as HTMLElement
+      animations.push(
+        wrapper.animate(
+          visual.target
+            ? [
+                { opacity: 0, transform: `translateX(${-direction * 8}px)` },
+                { opacity: 1, transform: 'translateX(0)' },
+              ]
+            : [
+                { opacity: visual.opacity, transform: 'translateX(0)' },
+                { opacity: 0, transform: `translateX(${direction * 8}px)` },
+              ],
+          { duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' },
+        ),
+      )
+    }
+    await Promise.all(animations.map((animation) => animation.finished.catch(() => undefined)))
   }
-
   function clear(): void {
+    animations.forEach((animation) => animation.cancel())
+    animations = []
     layer?.remove()
     if (root) root.style.opacity = originalOpacity
     root = null
     layer = null
     visuals = []
-    from = to = viewport = bounds = null
+    from = to = bounds = null
   }
 
-  return { prepare, commit, render, clear, isActive: () => layer !== null }
+  return { prepare, commit, animate, clear, isActive: () => layer !== null }
 }

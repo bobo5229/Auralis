@@ -46,7 +46,7 @@ const isEditingDisabled = computed(
 interface StatusBannerConfig {
   message: string
   classes: string
-  icon: string
+  icon?: string
 }
 
 const statusBanner = computed<StatusBannerConfig | null>(() => {
@@ -61,7 +61,6 @@ const statusBanner = computed<StatusBannerConfig | null>(() => {
       return {
         message: t('library.metadataEditor.status.checking'),
         classes: 'metadata-dialog-status-banner--info',
-        icon: 'i-lucide-loader-2 animate-spin text-[var(--auralis-text-muted)]',
       }
     case 'playback-in-use':
       return null
@@ -69,7 +68,6 @@ const statusBanner = computed<StatusBannerConfig | null>(() => {
       return {
         message: t('library.metadataEditor.errors.writeInProgress'),
         classes: 'metadata-dialog-status-banner--warning',
-        icon: 'i-lucide-loader-2 animate-spin text-amber-500 shrink-0',
       }
     case 'query-failed':
       return {
@@ -82,9 +80,6 @@ const statusBanner = computed<StatusBannerConfig | null>(() => {
   }
 })
 
-const yearHasError = computed(
-  () => localError.value === 'library.metadataEditor.validation.yearInvalid',
-)
 const releaseDateHasError = computed(
   () => localError.value === 'library.metadataEditor.validation.dateInvalid',
 )
@@ -95,7 +90,6 @@ const form = reactive({
   albumTitle: '',
   albumArtistDisplay: '',
   genreDisplay: '',
-  year: '',
   releaseDate: '',
 })
 
@@ -108,7 +102,6 @@ watch(
     form.albumTitle = metadata?.albumTitle ?? ''
     form.albumArtistDisplay = metadata?.albumArtistDisplay ?? ''
     form.genreDisplay = metadata?.genreDisplay ?? ''
-    form.year = metadata?.year === null || metadata?.year === undefined ? '' : String(metadata.year)
     form.releaseDate = metadata?.releaseDate ?? ''
 
     if (metadata && !isEditingDisabled.value) {
@@ -167,13 +160,7 @@ function onSave(): void {
     return
   }
 
-  const yearText = form.year.trim()
   const releaseDate = normalize(form.releaseDate)
-
-  if (yearText && !/^\d{1,4}$/.test(yearText)) {
-    localError.value = 'library.metadataEditor.validation.yearInvalid'
-    return
-  }
 
   if (releaseDate) {
     const releaseDateError = validateReleaseDate(releaseDate)
@@ -185,7 +172,6 @@ function onSave(): void {
   }
 
   localError.value = null
-  const parsedYear = yearText ? Number.parseInt(yearText, 10) : null
 
   emit('save', {
     trackId: props.metadata.trackId,
@@ -194,7 +180,7 @@ function onSave(): void {
     albumTitle: normalize(form.albumTitle),
     albumArtistDisplay: normalize(form.albumArtistDisplay),
     genreDisplay: normalize(form.genreDisplay),
-    year: Number.isInteger(parsedYear) ? parsedYear : null,
+    year: props.metadata.year,
     releaseDate,
   })
 }
@@ -264,7 +250,11 @@ useOverlayFocusTrap({
             aria-live="polite"
           >
             <div class="flex items-center gap-2 min-w-0">
-              <span :class="statusBanner.icon" class="text-sm shrink-0"></span>
+              <span
+                v-if="statusBanner.icon"
+                :class="statusBanner.icon"
+                class="text-sm shrink-0"
+              ></span>
               <span>{{ statusBanner.message }}</span>
             </div>
             <button
@@ -282,7 +272,7 @@ useOverlayFocusTrap({
           </p>
 
           <div v-if="metadata" class="grid gap-3">
-            <label class="metadata-dialog-label grid gap-1 auralis-type-control">
+            <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
               {{ t('library.metadataEditor.fields.title') }}
               <input
                 ref="titleInputRef"
@@ -292,7 +282,7 @@ useOverlayFocusTrap({
                 :disabled="isEditingDisabled"
               />
             </label>
-            <label class="metadata-dialog-label grid gap-1 auralis-type-control">
+            <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
               {{ t('library.metadataEditor.fields.artist') }}
               <input
                 v-model="form.artistDisplay"
@@ -301,7 +291,7 @@ useOverlayFocusTrap({
                 :disabled="isEditingDisabled"
               />
             </label>
-            <label class="metadata-dialog-label grid gap-1 auralis-type-control">
+            <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
               {{ t('library.metadataEditor.fields.album') }}
               <input
                 v-model="form.albumTitle"
@@ -310,7 +300,7 @@ useOverlayFocusTrap({
                 :disabled="isEditingDisabled"
               />
             </label>
-            <label class="metadata-dialog-label grid gap-1 auralis-type-control">
+            <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
               {{ t('library.metadataEditor.fields.albumArtist') }}
               <input
                 v-model="form.albumArtistDisplay"
@@ -319,30 +309,16 @@ useOverlayFocusTrap({
                 :disabled="isEditingDisabled"
               />
             </label>
-            <div class="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_112px]">
-              <label class="metadata-dialog-label grid min-w-0 gap-1 auralis-type-control">
-                {{ t('library.metadataEditor.fields.genre') }}
-                <input
-                  v-model="form.genreDisplay"
-                  class="metadata-dialog-input metadata-input"
-                  :placeholder="t('library.metadataEditor.placeholders.genre')"
-                  :disabled="isEditingDisabled"
-                />
-              </label>
-              <label class="metadata-dialog-label grid min-w-0 gap-1 auralis-type-control">
-                {{ t('library.metadataEditor.fields.year') }}
-                <input
-                  v-model="form.year"
-                  class="metadata-dialog-input metadata-dialog-input--numeric metadata-input"
-                  inputmode="numeric"
-                  :placeholder="t('library.metadataEditor.placeholders.year')"
-                  :disabled="isEditingDisabled"
-                  :aria-invalid="yearHasError ? 'true' : undefined"
-                  :aria-describedby="yearHasError ? 'metadata-dialog-error' : undefined"
-                />
-              </label>
-            </div>
-            <label class="metadata-dialog-label grid gap-1 auralis-type-control">
+            <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
+              {{ t('library.metadataEditor.fields.genre') }}
+              <input
+                v-model="form.genreDisplay"
+                class="metadata-dialog-input metadata-input"
+                :placeholder="t('library.metadataEditor.placeholders.genre')"
+                :disabled="isEditingDisabled"
+              />
+            </label>
+            <label class="metadata-dialog-label grid gap-1 auralis-type-caption">
               {{ t('library.metadataEditor.fields.releaseDate') }}
               <input
                 v-model="form.releaseDate"

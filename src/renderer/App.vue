@@ -21,7 +21,6 @@ import { usePlayerDisplayMode } from '@renderer/features/playback/composables/us
 import { MODERN_PLAYER_BAR_MAX_WIDTH_PX } from '@renderer/features/playback/utils/modernPlayerBarLayout'
 import { useLyricsPanelVisibility } from '@renderer/features/appearance/composables/useLyricsPanelVisibility'
 import { useLyricsPanelLayout, computeLyricsTargetWidth } from './app/layout/useLyricsPanelLayout'
-import { animateProgress } from '@renderer/shared/animation/motion'
 import {
   createLyricsAlbumTransitionCoordinator,
   type AlbumLayoutTransitionParticipant,
@@ -219,22 +218,6 @@ function retargetPlayerBarTransitionLayers(targetRect: DOMRect): void {
   }
 }
 
-function renderPlayerBarTransition(progress: number): void {
-  if (playerBarTranslationOffset && activePlayerBarIsland) {
-    const remaining = Math.pow(1 - progress, 3)
-    activePlayerBarIsland.style.transform = `translate3d(${playerBarTranslationOffset.x * remaining}px, ${playerBarTranslationOffset.y * remaining}px, 0)`
-    return
-  }
-  for (const layer of playerBarTransitionLayers) {
-    const dx = Number(layer.dataset.transitionDx) || 0
-    const dy = Number(layer.dataset.transitionDy) || 0
-    const initialOpacity = Number.parseFloat(layer.dataset.startOpacity ?? '') || 0
-    layer.style.transform = `translate3d(${dx * progress}px, ${dy * progress}px, 0)`
-    layer.style.opacity = String(initialOpacity * (1 - progress))
-  }
-  if (activePlayerBarIsland) activePlayerBarIsland.style.opacity = String(progress)
-}
-
 function clearPlayerBarTransition(): void {
   removePlayerBarTransitionLayers()
   playerBarTransitionVisuals = []
@@ -299,11 +282,28 @@ function onTransitionPointerDown(event: PointerEvent): void {
   const target = event.target
   if (target instanceof Element && target.closest('[data-lyrics-toggle], [data-sidebar-toggle]'))
     return
+  const button = target instanceof Element ? target.closest('button') : null
+  if (button && activePlayerBarIsland?.contains(button)) {
+    // Keep pointerup/click on the pressed control while the live island moves.
+    button.setPointerCapture(event.pointerId)
+    return
+  }
+  void settleAlbumLyricsTransition()
+}
+
+function onTransitionClick(event: MouseEvent): void {
+  if (
+    event.target instanceof Element &&
+    event.target.closest('[data-lyrics-toggle], [data-sidebar-toggle]')
+  )
+    return
+  // Bubble after the control has handled its click, before clearing its transform.
   void settleAlbumLyricsTransition()
 }
 
 function removeTransitionPointerListener(): void {
   document.removeEventListener('pointerdown', onTransitionPointerDown, true)
+  document.removeEventListener('click', onTransitionClick)
 }
 
 function usesAlbumLayoutTransition(): boolean {
@@ -439,6 +439,7 @@ async function runAlbumLyricsTransition(expanded: boolean, sidebarRail?: boolean
     return
   }
   document.addEventListener('pointerdown', onTransitionPointerDown, true)
+  document.addEventListener('click', onTransitionClick)
 
   // Commit the shell's final column once, while AlbumsPage keeps its geometry locked.
   if (sidebarRail !== undefined) renderedSidebarRail.value = sidebarRail
@@ -495,12 +496,17 @@ async function runAlbumLyricsTransition(expanded: boolean, sidebarRail?: boolean
     clearPlayerBarTransition()
   }
 
-  participant.renderLyricsLayoutTransition(ticket.revision, 0)
-  if (translatesPlayerBar && playerBarTranslationOffset) renderPlayerBarTransition(0)
+  if (translatesPlayerBar && playerBarTranslationOffset && activePlayerBarIsland)
+    activePlayerBarIsland.style.transform = `translate3d(${playerBarTranslationOffset.x}px, ${playerBarTranslationOffset.y}px, 0)`
   lyricsVisualProgress = from
+  // Keep the source still while the fixed surfaces receive their initial paint.
+  await new Promise<void>((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+  )
+  if (!lyricsAlbumTransition.isCurrent(ticket)) return
   if (!lyricsAlbumTransition.start(ticket)) return
 
-  const duration = animatesSidebar ? 280 : getLyricsSlideDuration(from, to)
+  const duration = 200
   const slide = activeLyricsPanel
     ? animateLyricsPanelSlide(
         activeLyricsPanel,
@@ -512,28 +518,50 @@ async function runAlbumLyricsTransition(expanded: boolean, sidebarRail?: boolean
       )
     : null
   const playerMovement =
-    slide && playerBarTranslationOffset && activePlayerBarIsland
+    playerBarTranslationOffset && activePlayerBarIsland
       ? animateLyricsPlayerTranslation(activePlayerBarIsland, playerBarTranslationOffset, duration)
       : null
-  if (slide) {
-    stopLyricsAnimation = () => {
-      slide.cancel()
-      playerMovement?.cancel()
+  const playerFades: Animation[] = []
+  if (!translatesPlayerBar) {
+    for (const layer of playerBarTransitionLayers) {
+      const dx = Number(layer.dataset.transitionDx) || 0
+      const dy = Number(layer.dataset.transitionDy) || 0
+      playerFades.push(
+        layer.animate(
+          [
+            { opacity: Number(layer.dataset.startOpacity) || 0, transform: 'translate3d(0, 0, 0)' },
+            { opacity: 0, transform: `translate3d(${dx}px, ${dy}px, 0)` },
+          ],
+          { duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' },
+        ),
+      )
     }
+    if (activePlayerBarIsland)
+      playerFades.push(
+        activePlayerBarIsland.animate([{ opacity: 0 }, { opacity: 1 }], {
+          duration,
+          fill: 'forwards',
+        }),
+      )
   }
-  stopAlbumTransitionAnimation = animateProgress(
-    duration,
-    (progress) => {
-      const eased =
-        slide?.movement.effect?.getComputedTiming().progress ?? 1 - Math.pow(1 - progress, 3)
-      const visualProgress = from + (to - from) * eased
-      lyricsVisualProgress = visualProgress
-      participant.renderLyricsLayoutTransition(ticket.revision, slide ? eased : progress)
-      if (!playerMovement) renderPlayerBarTransition(progress)
-      sidebarLayoutTransition.render(progress)
-    },
-    () => void finishAlbumLyricsTransition(ticket),
-  )
+  stopLyricsAnimation = () => {
+    slide?.cancel()
+    playerMovement?.cancel()
+    playerFades.forEach((animation) => animation.cancel())
+  }
+  let cancelled = false
+  stopAlbumTransitionAnimation = () => {
+    cancelled = true
+  }
+  await Promise.all([
+    participant.animateLyricsLayoutTransition(ticket.revision, duration),
+    sidebarLayoutTransition.animate(duration),
+    ...[slide?.movement, playerMovement, ...playerFades].flatMap((animation) =>
+      animation ? [animation.finished.catch(() => undefined)] : [],
+    ),
+  ])
+  if (!cancelled && lyricsAlbumTransition.isCurrent(ticket))
+    await finishAlbumLyricsTransition(ticket)
 }
 
 async function settleAlbumLyricsTransition(): Promise<void> {

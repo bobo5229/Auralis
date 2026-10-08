@@ -484,11 +484,7 @@ input {
 .player-bar {
   --auralis-playbar-slider-fill: var(--auralis-theme-accent);
   --auralis-volume-fill: var(--auralis-playbar-slider-fill);
-  --auralis-playbar-artwork-accent: var(
-    --auralis-active-album-accent,
-    var(--auralis-player-static-accent)
-  );
-  --auralis-playbar-control-selected-fg: var(--auralis-playbar-artwork-accent);
+  --auralis-playbar-control-selected-fg: var(--auralis-playbar-slider-fill);
   --auralis-playbar-control-selected-hover-fg: var(--auralis-playbar-control-selected-fg);
   --auralis-playbar-control-focus-ring: var(--auralis-playbar-brand-fg);
   --player-surface-bg: var(--auralis-frosted-surface-bg);
@@ -627,8 +623,6 @@ input {
 }
 
 .player-bar .volume-control-group {
-  --auralis-playbar-control-selected-fg: var(--auralis-volume-fill);
-  --auralis-playbar-control-selected-hover-fg: var(--auralis-volume-fill);
   gap: 0;
 }
 
@@ -1027,13 +1021,30 @@ input {
 }
 
 .playbar-action-icon {
+  display: block;
+  flex-shrink: 0;
   color: inherit;
-  transition: color 0.2s ease;
 }
 
-.player-bar-control:hover .playbar-action-icon,
-.player-bar-control-active .playbar-action-icon {
-  color: inherit;
+/* 密集外框、声波和碟片占比更大；校正图形大小，点击区域保持一致。 */
+.player-bar
+  .playbar-action-icon:is(
+    .i-ph-subtitles,
+    .i-ph-speaker-high,
+    .i-ph-speaker-low,
+    .i-ph-speaker-slash,
+    .i-ph-vinyl-record
+  ) {
+  transform: scale(0.9);
+  transform-origin: center;
+}
+
+.player-bar .playback-actions > .player-bar-control,
+.player-bar .player-bar-overflow > .player-bar-control,
+.player-bar .volume-control-group > .player-bar-control {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
 }
 
 .player-bar .player-bar-control {
@@ -1070,12 +1081,12 @@ input {
 }
 
 .player-bar .player-bar-control:hover:not(:disabled) {
-  background: transparent;
+  background: var(--auralis-control-hover-bg);
   color: var(--auralis-playbar-control-hover-fg);
 }
 
 .player-bar .player-bar-control:active:not(:disabled) {
-  background: transparent;
+  background: var(--auralis-control-hover-bg);
   color: var(--auralis-playbar-control-pressed-fg);
 }
 
@@ -1765,7 +1776,7 @@ input[type='range'].volume-overlay-slider {
   transform: none;
 }
 
-.sidebar-tool-button > span {
+.sidebar-tools-grid .sidebar-tool-button > span {
   width: var(--sidebar-icon-size);
   height: var(--sidebar-icon-size);
 }
@@ -1946,7 +1957,6 @@ input[type='range'].volume-overlay-slider {
 
 .sidebar-link-active .sidebar-link-icon {
   color: var(--auralis-control-primary-text) !important;
-  transform: scale(1.05);
 }
 
 .sidebar-link-active:hover {

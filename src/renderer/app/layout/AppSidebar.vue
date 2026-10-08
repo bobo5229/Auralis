@@ -32,6 +32,7 @@ import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
 import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
 import { animateTrashLid } from '@renderer/shared/animation/motion'
 import PlaylistIcon from './PlaylistIcon.vue'
+import SidebarIcon, { type SidebarIconKind } from './SidebarIcon.vue'
 import { vBrandResonance } from './sidebarBrandMotion'
 
 const route = useRoute()
@@ -176,36 +177,31 @@ const primaryNav = computed<
   Array<{
     to: string
     label: string
-    icon: string
-    activeIcon: string
+    icon: SidebarIconKind
     routeName?: WarmableRouteName
   }>
 >(() => [
   {
     to: '/songs',
     label: t('nav.songs'),
-    icon: 'i-ph-music-note-simple',
-    activeIcon: 'i-ph-music-note-simple-fill',
+    icon: 'song',
     routeName: 'library',
   },
   {
     to: '/albums',
     label: t('nav.albums'),
-    icon: 'i-ph-stack',
-    activeIcon: 'i-ph-stack-fill',
+    icon: 'albums',
     routeName: 'albums',
   },
   {
     to: '/albums/cd',
     label: t('albums.cd.title'),
-    icon: 'cd-case',
-    activeIcon: 'cd-case',
+    icon: 'cd',
   },
   {
     to: '/archive',
     label: t('nav.archive'),
-    icon: 'i-lucide-notebook-pen',
-    activeIcon: 'i-lucide-notebook-pen',
+    icon: 'archive',
     routeName: 'archive',
   },
 ])
@@ -897,32 +893,7 @@ onBeforeUnmount(() => {
           @keydown.enter="setPendingActive(item.to)"
         >
           <span class="sidebar-link-icon">
-            <span v-if="item.icon === 'cd-case'" aria-hidden="true">
-              <svg
-                width="100%"
-                height="100%"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <rect x="2.5" y="2.5" width="19" height="19" rx="4" />
-                <path
-                  v-if="isPrimaryNavActive(item.to)"
-                  d="M12 6a6 6 0 1 0 0 12 6 6 0 0 0 0-12Zm0 4.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z"
-                  fill="currentColor"
-                  fill-rule="evenodd"
-                  stroke="none"
-                />
-                <template v-else>
-                  <circle cx="12" cy="12" r="6" />
-                  <circle cx="12" cy="12" r="1.5" />
-                </template>
-              </svg>
-            </span>
-            <span v-else :class="isPrimaryNavActive(item.to) ? item.activeIcon : item.icon"></span>
+            <SidebarIcon :kind="item.icon" />
           </span>
           <span class="sidebar-link-label">{{ item.label }}</span>
           <span v-if="item.count !== null" class="sidebar-link-count">{{ item.count }}</span>
@@ -1018,16 +989,20 @@ onBeforeUnmount(() => {
     <footer class="sidebar-footer">
       <div class="sidebar-tools-grid" role="toolbar" :aria-label="t('sidebar.toolbarAria')">
         <button
-          v-tooltip.right="isRail ? t('sidebar.tool.facetsPanel') : ''"
+          v-tooltip="t('sidebar.tool.facetsPanel')"
           class="sidebar-tool-button"
           type="button"
           :aria-label="t('sidebar.tool.facetsPanel')"
           @click="isFacetsDialogOpen = true"
         >
-          <span class="i-ph-sliders-horizontal"></span>
+          <SidebarIcon kind="filters" />
         </button>
         <button
-          v-tooltip.right="isRail ? t('sidebar.tool.refreshAction') : ''"
+          v-tooltip="
+            isStartingLibraryRefresh
+              ? t('sidebar.tool.refreshBusy')
+              : t('sidebar.tool.refreshAction')
+          "
           class="sidebar-tool-button"
           type="button"
           :aria-label="
@@ -1039,23 +1014,19 @@ onBeforeUnmount(() => {
           :aria-busy="isStartingLibraryRefresh"
           @click="refreshLibrary"
         >
-          <span
-            class="i-ph-arrows-clockwise"
-            :class="{ 'animate-spin': isStartingLibraryRefresh }"
-          ></span>
+          <SidebarIcon kind="refresh" :class="{ 'animate-spin': isStartingLibraryRefresh }" />
         </button>
         <button
-          v-tooltip.right="isRail ? themeToggleLabel : ''"
+          v-tooltip="themeToggleLabel"
           class="sidebar-tool-button"
           type="button"
           :aria-label="themeToggleLabel"
           @click="onToggleTheme"
         >
-          <span v-if="isDark" class="i-ph-sun"></span>
-          <span v-else class="i-ph-moon"></span>
+          <SidebarIcon :kind="isDark ? 'sun' : 'moon'" />
         </button>
         <button
-          v-tooltip.right="isRail ? t('sidebar.tool.settings') : ''"
+          v-tooltip="t('sidebar.tool.settings')"
           type="button"
           class="sidebar-tool-button"
           :class="{ 'sidebar-tool-button-active': isSettingsOpen }"
@@ -1067,7 +1038,7 @@ onBeforeUnmount(() => {
           @focusin="preloadSettingsContent"
           @click="openSettings()"
         >
-          <span class="i-ph-gear"></span>
+          <SidebarIcon kind="settings" />
         </button>
       </div>
     </footer>

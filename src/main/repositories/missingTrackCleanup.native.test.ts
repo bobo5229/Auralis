@@ -75,16 +75,17 @@ async function fixture() {
 }
 
 it('removes an actually deleted file from the collection and preserves all committed listening history', async () => {
-  const { root, db, tracks, stats, track, id, oldPath, remove } = await fixture()
+  const { root, db, tracks, track, id, oldPath, remove } = await fixture()
   await writeFile(oldPath, 'isolated fixture')
   await unlink(oldPath)
   const daily = db.prepare('SELECT * FROM daily_play_stats ORDER BY play_date').all()
-  const before = {
-    detail: stats.getDailyListeningDetail('2026-10-03'),
-    annual: stats.getAnnualListeningInsights(2026),
-    ranking: stats.getListeningRanking('2026-01-01', '2026-12-31', 'track'),
-    spectrum: stats.getListeningGenreSpectrum(2026),
-  }
+  const history = () => ({
+    tracks: db.prepare('SELECT * FROM listening_track_display ORDER BY id').all(),
+    plays: db
+      .prepare('SELECT * FROM listening_daily_track_play_stats ORDER BY play_date,track_id')
+      .all(),
+  })
+  const before = history()
   expect(remove()).toEqual([id])
   for (const table of [
     'tracks',
@@ -99,14 +100,13 @@ it('removes an actually deleted file from the collection and preserves all commi
     expect(db.prepare(`SELECT COUNT(*) FROM ${table}`).pluck().get()).toBe(0)
   expect(tracks.getFilePathById(id)).toBeNull()
   expect(db.prepare('SELECT * FROM daily_play_stats ORDER BY play_date').all()).toEqual(daily)
-  expect({
-    detail: stats.getDailyListeningDetail('2026-10-03'),
-    annual: stats.getAnnualListeningInsights(2026),
-    ranking: stats.getListeningRanking('2026-01-01', '2026-12-31', 'track'),
-    spectrum: stats.getListeningGenreSpectrum(2026),
-  }).toEqual(before)
-  expect(stats.getDailyAlbumStats('2026-10-03')).toEqual([
-    expect.objectContaining({ title: 'Gone album', playCount: 1 }),
+  expect(history()).toEqual(before)
+  expect(before.tracks).toEqual([
+    expect.objectContaining({ id, title: 'Edited title', album: 'Gone album', genre: 'Live; Pop' }),
+  ])
+  expect(before.plays).toEqual([
+    expect.objectContaining({ play_date: '2026-10-03', track_id: id, play_count: 1 }),
+    expect.objectContaining({ play_date: '2026-10-04', track_id: id, play_count: 1 }),
   ])
   expect(
     db.prepare('SELECT play_count FROM removed_track_history WHERE id=?').pluck().get(id),
@@ -216,8 +216,9 @@ it('requires a commit transaction and includes removed history in resetAll', asy
   expect(() => cleanup.removeConfirmedMissing(root)).toThrow('requires a transaction')
   expect(remove()).toEqual([id])
   stats.resetAll()
-  expect(stats.getDailyListeningDetail('2026-10-03').tracks).toEqual([])
-  expect(stats.getListeningGenreSpectrum(2026).totalPlayedTracks).toBe(0)
+  expect(db.prepare('SELECT * FROM listening_daily_track_play_stats').all()).toEqual([])
+  expect(db.prepare('SELECT * FROM daily_play_stats').all()).toEqual([])
+  expect(db.prepare('SELECT * FROM track_play_stats').all()).toEqual([])
   expect(db.prepare('SELECT play_count FROM removed_track_history').pluck().get()).toBe(0)
   expect(db.prepare('SELECT COUNT(*) FROM removed_daily_track_play_stats').pluck().get()).toBe(0)
 })

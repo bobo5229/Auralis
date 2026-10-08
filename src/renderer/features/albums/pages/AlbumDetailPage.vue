@@ -449,8 +449,12 @@ onBeforeUnmount(() => {
               <div class="album-hero-cover album-detail-skeleton-block"></div>
             </div>
             <div class="album-hero-content-stage">
-              <div class="album-detail-skeleton-line album-detail-skeleton-line--title"></div>
-              <div class="album-detail-skeleton-line album-detail-skeleton-line--meta"></div>
+              <div class="album-hero-zone-primary">
+                <div class="album-hero-meta-block">
+                  <div class="album-detail-skeleton-line album-detail-skeleton-line--title"></div>
+                  <div class="album-detail-skeleton-line album-detail-skeleton-line--meta"></div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -602,9 +606,11 @@ onBeforeUnmount(() => {
   position: relative;
   z-index: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  height: var(--album-hero-cover-size);
+  display: grid;
+  /* 对称上下轨道让信息区独立居中，操作区贴齐封面底边。 */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
   color: var(--auralis-text);
 }
 
@@ -634,6 +640,7 @@ onBeforeUnmount(() => {
   border-radius: 12px;
 }
 .album-hero-zone-primary {
+  grid-row: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -645,6 +652,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  width: 100%;
   min-width: 0;
   flex: 1 1 auto;
 }
@@ -722,7 +730,8 @@ onBeforeUnmount(() => {
 }
 
 .album-hero-actions {
-  margin-top: 8px;
+  grid-row: 3;
+  align-self: end;
   z-index: 2;
   display: flex;
   flex-wrap: wrap;
@@ -916,6 +925,16 @@ onBeforeUnmount(() => {
     column-gap: 24px;
   }
 
+  /* 200px 封面下，元数据保持单行，给两行标题与底部按钮留出间隔。 */
+  .album-hero-artist-row {
+    flex-wrap: nowrap;
+  }
+
+  .album-hero-date-text {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
   .album-body-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -937,6 +956,23 @@ onBeforeUnmount(() => {
 
   .album-hero-cover-container {
     justify-self: start;
+  }
+
+  /* 单列布局中，信息与操作恢复正常文档流。 */
+  .album-hero-content-stage {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .album-hero-artist-row {
+    flex-wrap: wrap;
+  }
+
+  .album-hero-actions {
+    align-self: auto;
+    margin-top: 8px;
   }
 }
 

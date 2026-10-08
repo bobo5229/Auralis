@@ -478,19 +478,20 @@ describe('AlbumsPage keyboard search', () => {
     expect(find('library-search-input')).toBeDefined()
   })
 
-  it('opens from the focusable entry and returns focus on Escape without reopening', async () => {
+  it('opens from the shortcut and returns focus on Escape without reopening', async () => {
     await mountPage()
-    const trigger = find('albums-search-trigger')!
-    trigger.focus()
+    const originalFocus = new TestElement('button')
+    originalFocus.parent = body
+    originalFocus.focus()
     expect(find('library-search-input')).toBeUndefined()
-    await (trigger.props.onClick as () => Promise<void>)()
+    shortcut(originalFocus)
     await settle()
     const input = find('library-search-input')!
     expect(doc.activeElement).toBe(input)
     const event = { key: 'Escape', preventDefault: vi.fn() }
     ;(input.props.onKeydown as (event: object) => void)(event)
     await settle()
-    expect(doc.activeElement).toBe(trigger)
+    expect(doc.activeElement).toBe(originalFocus)
     expect(find('library-search-input')).toBeUndefined()
   })
   it('handles the active page shortcut but preserves other input and menu focus', async () => {

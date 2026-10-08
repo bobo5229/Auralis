@@ -23,15 +23,6 @@ import type {
   SidebarPlaylistKind,
 } from '@shared/types/playlist'
 import type {
-  AnnualListeningInsights,
-  DailyAlbumStats,
-  DailyListeningDetail,
-  ListeningGenreSpectrum,
-  ListeningRanking,
-  ListeningRankingParams,
-  ListeningHeatmap,
-} from '@shared/types/archive'
-import type {
   CreateSmartPlaylistResult,
   SmartPlaylist,
   SmartPlaylistDetail,
@@ -357,30 +348,6 @@ export interface IpcInvokeContract {
   'playback:release-read-lease': {
     request: { leaseId: string }
     response: { ok: true }
-  }
-  'archive:get-listening-heatmap': {
-    request: { year: number }
-    response: ListeningHeatmap
-  }
-  'archive:get-daily-listening-detail': {
-    request: { date: string }
-    response: DailyListeningDetail
-  }
-  'archive:get-daily-album-stats': {
-    request: { date: string }
-    response: DailyAlbumStats
-  }
-  'archive:get-annual-listening-insights': {
-    request: { year: number }
-    response: AnnualListeningInsights
-  }
-  'archive:get-listening-ranking': {
-    request: ListeningRankingParams
-    response: ListeningRanking
-  }
-  'archive:get-listening-genre-spectrum': {
-    request: { year: number }
-    response: ListeningGenreSpectrum
   }
   'archive:reset-play-stats': {
     request: void

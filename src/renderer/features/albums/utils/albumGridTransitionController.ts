@@ -14,19 +14,13 @@ export interface AlbumTransitionVisual {
   opacity: number
   /** The node is already a sanitized copy owned by the transition layer. */
   snapshotOwned?: boolean
+  clip?: AlbumTransitionRect
 }
 
 export interface AlbumTransitionTarget {
   key: string
   node: HTMLElement
   rect: AlbumTransitionRect
-}
-
-export interface AlbumTransitionSourcePlan {
-  key: string
-  rect: AlbumTransitionRect
-  opacity: number
-  destination: AlbumTransitionRect | null
 }
 
 export interface AlbumTransitionItemOptions {
@@ -36,6 +30,7 @@ export interface AlbumTransitionItemOptions {
   rect: AlbumTransitionRect
   opacity: number
   snapshotOwned: boolean
+  clip?: AlbumTransitionRect
 }
 
 export interface AlbumGridTransitionLayerHost {
@@ -49,11 +44,20 @@ export interface AlbumGridTransitionLayerHost {
   setItemPosition(item: HTMLElement, left: number, top: number): void
   renderViewport(viewport: AlbumTransitionRect, union: AlbumTransitionRect): void
   renderItem(item: HTMLElement, transform: string, opacity: number): void
+  setGroupViewports?(
+    from: AlbumTransitionRect,
+    to: AlbumTransitionRect,
+    union: AlbumTransitionRect,
+  ): void
+  animateGroups?(duration: number): Promise<void>
   captureItem(item: HTMLElement): AlbumTransitionVisual | null
   isConnected(item: HTMLElement): boolean
 }
 
-interface TransitionLayerItem extends AlbumTransitionSourcePlan {
+interface TransitionLayerItem {
+  key: string
+  rect: AlbumTransitionRect
+  opacity: number
   side: 'from' | 'to'
   element: HTMLElement
 }
@@ -98,10 +102,7 @@ export function createAlbumGridTransitionController(host: AlbumGridTransitionLay
       viewportUnion = unionRect(viewportFrom, viewportTo)
       host.setBounds(viewportUnion)
 
-      const seen = new Set<string>()
       for (const source of sources) {
-        if (seen.has(source.key)) continue
-        seen.add(source.key)
         const opacity = clampOpacity(source.opacity)
         const element = host.createItem(
           {
@@ -111,6 +112,7 @@ export function createAlbumGridTransitionController(host: AlbumGridTransitionLay
             rect: source.rect,
             opacity,
             snapshotOwned: source.snapshotOwned === true,
+            clip: source.clip,
           },
           viewportUnion,
         )
@@ -121,7 +123,6 @@ export function createAlbumGridTransitionController(host: AlbumGridTransitionLay
           element,
           rect: source.rect,
           opacity,
-          destination: null,
         })
       }
       renderProgress(0)
@@ -137,8 +138,7 @@ export function createAlbumGridTransitionController(host: AlbumGridTransitionLay
   ): void {
     try {
       const sources = items.filter((item) => item.side === 'from')
-      const { from: plannedSources, to: addedTargets } = planAlbumGridTransition(sources, targets)
-      const sourcePlans = new Map(plannedSources.map((item) => [item.key, item]))
+      const plan = planAlbumGridTransition(sources, targets)
       const nextUnion = unionRect(viewportFrom, viewport)
 
       host.setBounds(nextUnion)
@@ -146,8 +146,6 @@ export function createAlbumGridTransitionController(host: AlbumGridTransitionLay
       viewportUnion = nextUnion
 
       for (const source of sources) {
-        const plan = sourcePlans.get(source.key)
-        source.destination = plan?.destination ?? null
         host.setItemPosition(
           source.element,
           source.rect.left - viewportUnion.left,
@@ -156,7 +154,7 @@ export function createAlbumGridTransitionController(host: AlbumGridTransitionLay
       }
 
       const addedKeys = new Set<string>()
-      for (const target of addedTargets) {
+      for (const target of plan.to) {
         if (addedKeys.has(target.key)) continue
         addedKeys.add(target.key)
         const element = host.createItem(
@@ -177,10 +175,10 @@ export function createAlbumGridTransitionController(host: AlbumGridTransitionLay
           element,
           rect: target.rect,
           opacity: 0,
-          destination: null,
         })
       }
       renderProgress(0)
+      host.setGroupViewports?.(viewportFrom, viewportTo, viewportUnion)
     } catch (error) {
       clear()
       throw error
@@ -189,41 +187,28 @@ export function createAlbumGridTransitionController(host: AlbumGridTransitionLay
 
   function renderProgress(progress: number): void {
     const value = Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0))
-    currentViewport = {
-      left: viewportFrom.left + (viewportTo.left - viewportFrom.left) * value,
-      top: viewportFrom.top + (viewportTo.top - viewportFrom.top) * value,
-      width: viewportFrom.width + (viewportTo.width - viewportFrom.width) * value,
-      height: viewportFrom.height + (viewportTo.height - viewportFrom.height) * value,
-    }
+    currentViewport = viewportUnion
     host.renderViewport(currentViewport, viewportUnion)
 
     for (const item of items) {
       if (item.side === 'from') {
-        const destination = item.destination
-        const dx = destination ? destination.left - item.rect.left : 0
-        const dy = destination ? destination.top - item.rect.top : 0
-        const targetScale =
-          destination && item.rect.width > 0 ? destination.width / item.rect.width : 1
-        const scale = 1 + (targetScale - 1) * value
         host.renderItem(
           item.element,
-          `translate3d(${dx * value}px, ${dy * value}px, 0) scale(${scale})`,
-          destination ? item.opacity : item.opacity * (1 - value),
+          'translate3d(0, 0, 0)',
+          item.opacity * Math.max(0, 1 - value / 0.45),
         )
       } else {
-        host.renderItem(item.element, 'translate3d(0, 0, 0)', value)
+        host.renderItem(item.element, 'translate3d(0, 0, 0)', Math.max(0, (value - 0.35) / 0.65))
       }
     }
   }
 
   function captureVisuals(): AlbumTransitionVisual[] {
-    const seen = new Set<string>()
     return items.flatMap((item) => {
-      if (seen.has(item.key) || !host.isConnected(item.element)) return []
+      if (!host.isConnected(item.element)) return []
       const visual = host.captureItem(item.element)
       if (!visual || visual.rect.width <= 0 || visual.rect.height <= 0) return []
       if (!Number.isFinite(visual.opacity) || visual.opacity <= 0.001) return []
-      seen.add(item.key)
       return [{ ...visual, key: item.key, snapshotOwned: true }]
     })
   }
@@ -243,6 +228,8 @@ export function createAlbumGridTransitionController(host: AlbumGridTransitionLay
     prepareSources,
     commitTargets,
     renderProgress,
+    animate: (duration: number): Promise<void> =>
+      host.animateGroups?.(duration) ?? Promise.resolve(),
     captureVisuals,
     captureViewport,
     getItemStats,

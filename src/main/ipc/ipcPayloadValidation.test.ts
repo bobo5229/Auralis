@@ -113,8 +113,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(66)
-    expect(kinds).toEqual({ void: 20, optional: 5, required: 41 })
+    expect(actualChannels).toHaveLength(60)
+    expect(kinds).toEqual({ void: 20, optional: 5, required: 35 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -344,14 +344,6 @@ describe('domain IPC payload validation behavior', () => {
       }),
     ).toBeTruthy()
     expect(
-      parse('archive:get-listening-ranking', {
-        range: 'month',
-        target: 'album',
-        year: 2026,
-        month: 8,
-      }),
-    ).toBeTruthy()
-    expect(
       parse('playback:record-effective-play', {
         trackId: 42,
         sessionId: 'session-42',
@@ -372,9 +364,6 @@ describe('domain IPC payload validation behavior', () => {
     ['playlists:update-view-mode', { id: 1, viewMode: 'tiles' }],
     ['playback:get-album-tracks', { albumKey: { albumArtist: 'A' } }],
     ['playback:record-effective-play', { trackId: 1, sessionId: 'x', playedAtIso: 'today' }],
-    ['archive:get-daily-listening-detail', { date: '02/30/2026' }],
-    ['archive:get-daily-album-stats', { date: '02/30/2026' }],
-    ['archive:get-listening-ranking', { range: 'quarter', target: 'track' }],
     ['window:control', { action: 'open-devtools' }],
   ] as const)('rejects malformed payload for %s', (channel, payload) => {
     expect(() => parse(channel, payload)).toThrow(IpcPayloadValidationError)
@@ -420,11 +409,7 @@ describe('domain IPC payload validation behavior', () => {
     ).toThrow(/invalid item count/)
   })
 
-  it('accepts structurally valid years and dates without calendar or range checks', () => {
-    expect(parse('archive:get-listening-heatmap', { year: 1969 })).toEqual({ year: 1969 })
-    expect(parse('archive:get-daily-listening-detail', { date: '2026-02-30' })).toEqual({
-      date: '2026-02-30',
-    })
+  it('accepts structurally valid metadata years and dates without calendar or range checks', () => {
     expect(
       parse('metadata:update-track-metadata', {
         trackId: 42,
@@ -437,34 +422,6 @@ describe('domain IPC payload validation behavior', () => {
         releaseDate: '2026-02-30',
       }),
     ).toBeTruthy()
-    expect(() => parse('archive:get-listening-heatmap', { year: Number.NaN })).toThrow(
-      /finite number/,
-    )
-    expect(() =>
-      parse('archive:get-listening-heatmap', { year: Number.POSITIVE_INFINITY }),
-    ).toThrow(/finite number/)
-  })
-
-  it('validates daily album stats date shape while leaving calendar checks to the service', () => {
-    expect(parse('archive:get-daily-album-stats', { date: '2026-02-28' })).toEqual({
-      date: '2026-02-28',
-    })
-    expect(parse('archive:get-daily-album-stats', { date: '2026-02-30' })).toEqual({
-      date: '2026-02-30',
-    })
-    expect(() => parse('archive:get-daily-album-stats')).toThrow(IpcPayloadValidationError)
-    expect(() => parse('archive:get-daily-album-stats', { date: 20260228 })).toThrow(
-      IpcPayloadValidationError,
-    )
-    expect(() =>
-      parse('archive:get-daily-album-stats', { date: '2026-02-28', unexpected: true }),
-    ).toThrow(IpcPayloadValidationError)
-    expect(() =>
-      parseDomainIpcPayload('archive:get-daily-album-stats', [
-        { date: '2026-02-28' },
-        { date: '2026-02-28' },
-      ]),
-    ).toThrow(IpcPayloadValidationError)
   })
 
   it('keeps smart-playlist resource and enum-shape checks without business pairing', () => {

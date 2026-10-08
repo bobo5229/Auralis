@@ -8,26 +8,16 @@ export interface AlbumTransitionPlanSource {
   key: string
   rect: AlbumTransitionRect
   opacity: number
-  destination: AlbumTransitionRect | null
 }
 
 export function planAlbumGridTransition(
   from: readonly Pick<AlbumTransitionVisual, 'key' | 'rect' | 'opacity'>[],
   to: readonly AlbumTransitionTarget[],
 ): { from: AlbumTransitionPlanSource[]; to: readonly AlbumTransitionTarget[] } {
-  const destinations = new Map(to.map((target) => [target.key, target.rect]))
-  const fromKeys = new Set(from.map((visual) => visual.key))
   return {
-    from: from.map(({ key, rect, opacity }) => ({
-      key,
-      rect,
-      opacity,
-      destination: destinations.get(key) ?? null,
-    })),
-    // A matched album is represented by its moving source snapshot. Keep a
-    // destination snapshot only for albums that become newly visible, or the
-    // same album is rendered twice while the source moves across the grid.
-    to: to.filter((target) => !fromKeys.has(target.key)),
+    from: from.map(({ key, rect, opacity }) => ({ key, rect, opacity })),
+    // Each layout is a separate fixed surface, including albums visible in both.
+    to,
   }
 }
 

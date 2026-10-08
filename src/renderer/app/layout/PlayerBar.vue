@@ -290,7 +290,7 @@ const playbackModeIconClass = computed(() => {
       return 'i-ph-vinyl-record'
     case 'sequential':
     default:
-      return 'i-ph-sort-ascending'
+      return 'i-ph-list-numbers'
   }
 })
 
@@ -421,6 +421,7 @@ function handleNext(): void {
             v-if="canDisplayLyricsPanel && !isUtilitiesOverflow"
             ref="lyricsButtonRef"
             class="player-bar-control"
+            :class="{ 'player-bar-control-active': lyricsPanelExpanded }"
             data-testid="player-lyrics-button"
             data-lyrics-toggle
             type="button"
@@ -473,6 +474,7 @@ function handleNext(): void {
                 v-if="canDisplayLyricsPanel"
                 ref="overflowLyricsButtonRef"
                 class="player-bar-control player-bar-overflow-item"
+                :class="{ 'player-bar-control-active': lyricsPanelExpanded }"
                 data-lyrics-toggle
                 type="button"
                 role="menuitemcheckbox"

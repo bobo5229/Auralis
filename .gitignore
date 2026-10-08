@@ -46,6 +46,8 @@ coverage
 .stylelintcache
 
 # Tool caches and intermediate files
+/output/**/browser-profile/
+/output/**/isolated-profile/
 .grunt
 .lock-wscript
 lib-cov

@@ -64,7 +64,7 @@
 
 ### archive：音乐归档
 
-- [设计参考：复古未来主义](topics/archive/REFERENCE-retrofuturism-design.md) — 用户提供的原文参考，按需采用，不作为项目强制规范。现行入口为 `/archive` 的 Macintosh 聆听档案页。
+- [设计参考：复古未来主义](topics/archive/REFERENCE-retrofuturism-design.md) — 用户提供的原文参考，按需采用，不作为项目强制规范。现行入口为 `/archive` 的聆听档案文字占位页。
 
 ### artwork：封面
 

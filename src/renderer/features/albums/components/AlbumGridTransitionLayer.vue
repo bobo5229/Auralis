@@ -7,6 +7,10 @@ import {
 } from '../utils/albumGridTransitionController'
 
 const rootRef = ref<HTMLElement | null>(null)
+const groups = new Map<string, HTMLElement>()
+const viewports = new WeakMap<HTMLElement, AlbumTransitionRect>()
+const itemClips = new WeakMap<HTMLElement, AlbumTransitionRect>()
+let animations: Animation[] = []
 
 function requireRoot(): HTMLElement {
   const root = rootRef.value
@@ -36,6 +40,9 @@ const host: AlbumGridTransitionLayerHost = {
   reset(): void {
     const root = rootRef.value
     if (!root) return
+    animations.forEach((animation) => animation.cancel())
+    animations = []
+    groups.clear()
     root.replaceChildren()
     root.style.display = 'none'
   },
@@ -69,12 +76,25 @@ const host: AlbumGridTransitionLayerHost = {
       width: `${options.rect.width}px`,
       height: `${options.rect.height}px`,
       opacity: String(options.opacity),
-      transform: 'translate3d(0, 0, 0)',
+      transform: 'none',
     })
+    if (options.clip) {
+      itemClips.set(wrapper, options.clip)
+      wrapper.style.clipPath = `inset(${Math.max(0, options.clip.top - options.rect.top)}px ${Math.max(0, options.rect.left + options.rect.width - options.clip.left - options.clip.width)}px ${Math.max(0, options.rect.top + options.rect.height - options.clip.top - options.clip.height)}px ${Math.max(0, options.clip.left - options.rect.left)}px)`
+    }
     return wrapper
   },
   appendItem(item): void {
-    requireRoot().append(item)
+    const side = item.dataset.side ?? 'from'
+    let group = groups.get(side)
+    if (!group) {
+      group = document.createElement('div')
+      group.className = 'album-grid-transition-group'
+      group.dataset.side = side
+      groups.set(side, group)
+      requireRoot().append(group)
+    }
+    group.append(item)
   },
   setItemPosition(item, left, top): void {
     Object.assign(item.style, { left: `${left}px`, top: `${top}px` })
@@ -83,21 +103,66 @@ const host: AlbumGridTransitionLayerHost = {
     requireRoot().style.clipPath = `inset(${viewport.top - union.top}px ${union.left + union.width - viewport.left - viewport.width}px ${union.top + union.height - viewport.top - viewport.height}px ${viewport.left - union.left}px)`
   },
   renderItem(item, transform, opacity): void {
-    item.style.transform = transform
+    item.style.transform = transform === 'translate3d(0, 0, 0)' ? 'none' : transform
     item.style.opacity = String(opacity)
+  },
+  setGroupViewports(from, to, union): void {
+    for (const [side, group] of groups) {
+      const viewport = side === 'from' ? from : to
+      viewports.set(group, viewport)
+      group.style.clipPath = `inset(${viewport.top - union.top}px ${union.left + union.width - viewport.left - viewport.width}px ${union.top + union.height - viewport.top - viewport.height}px ${viewport.left - union.left}px)`
+      if (side === 'to') {
+        // Prepare the incoming surface for rasterization before starting its fade.
+        group.style.opacity = '0.001'
+        for (const item of group.children) (item as HTMLElement).style.opacity = '1'
+      }
+    }
+  },
+  async animateGroups(duration): Promise<void> {
+    for (const [side, group] of groups) {
+      // Only two composited surfaces animate. Card dimensions remain fixed.
+      const outgoing = side === 'from'
+      const animation = group.animate(
+        outgoing
+          ? [{ opacity: 1 }, { opacity: 0, offset: 0.45 }, { opacity: 0 }]
+          : [{ opacity: 0 }, { opacity: 0, offset: 0.35 }, { opacity: 1 }],
+        { duration, fill: 'forwards' },
+      )
+      animations.push(animation)
+    }
+    await Promise.all(animations.map((animation) => animation.finished.catch(() => undefined)))
   },
   captureItem(item) {
     if (!item.isConnected) return null
     const rect = item.getBoundingClientRect()
     const snapshot = item.firstElementChild
     if (!(snapshot instanceof HTMLElement)) return null
-    const opacity = Number.parseFloat(getComputedStyle(item).opacity)
+    const group = item.parentElement
+    const opacity =
+      Number.parseFloat(getComputedStyle(item).opacity) *
+      (group ? Number.parseFloat(getComputedStyle(group).opacity) : 1)
+    const viewport = group ? viewports.get(group) : undefined
+    const clip = itemClips.get(item)
+    const left = Math.max(rect.left, viewport?.left ?? rect.left, clip?.left ?? rect.left)
+    const top = Math.max(rect.top, viewport?.top ?? rect.top, clip?.top ?? rect.top)
+    const right = Math.min(
+      rect.right,
+      viewport ? viewport.left + viewport.width : rect.right,
+      clip ? clip.left + clip.width : rect.right,
+    )
+    const bottom = Math.min(
+      rect.bottom,
+      viewport ? viewport.top + viewport.height : rect.bottom,
+      clip ? clip.top + clip.height : rect.bottom,
+    )
+    if (right <= left || bottom <= top) return null
     return {
       key: item.dataset.albumKey ?? '',
       node: snapshot,
       rect: { left: rect.left, top: rect.top, width: rect.width, height: rect.height },
       opacity,
       snapshotOwned: true,
+      clip: { left, top, width: right - left, height: bottom - top },
     }
   },
   isConnected(item): boolean {
@@ -110,7 +175,7 @@ const controller = createAlbumGridTransitionController(host)
 defineExpose({
   prepareSources: controller.prepareSources,
   commitTargets: controller.commitTargets,
-  renderProgress: controller.renderProgress,
+  animate: controller.animate,
   captureVisuals: controller.captureVisuals,
   captureViewport: controller.captureViewport,
   getItemStats: controller.getItemStats,
@@ -144,8 +209,13 @@ defineExpose({
   top: 0;
   left: 0;
   pointer-events: none;
-  transform-origin: top left;
-  will-change: transform, opacity;
+}
+
+.album-grid-transition-group {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: opacity;
 }
 
 .album-grid-transition-item > .album-card {

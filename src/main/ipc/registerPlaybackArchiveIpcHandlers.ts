@@ -9,17 +9,7 @@ type PlaybackQueries = Pick<
   'getRandomTrack' | 'getRandomAlbumTracks' | 'getAlbumTracks'
 >
 
-type PlayStatsOperations = Pick<
-  PlayStatsService,
-  | 'recordEffectivePlay'
-  | 'getListeningHeatmap'
-  | 'getDailyListeningDetail'
-  | 'getDailyAlbumStats'
-  | 'getAnnualListeningInsights'
-  | 'getListeningRanking'
-  | 'getListeningGenreSpectrum'
-  | 'resetAll'
->
+type PlayStatsOperations = Pick<PlayStatsService, 'recordEffectivePlay' | 'resetAll'>
 
 export interface PlaybackArchiveIpcDependencies {
   libraryService: PlaybackQueries
@@ -71,32 +61,6 @@ export function registerPlaybackArchiveIpcHandlers(
     },
   )
 
-  registrar.handle(ipcChannels.archive.getListeningHeatmap, (_event, payload: { year: number }) =>
-    playStatsService.getListeningHeatmap(payload.year),
-  )
-  registrar.handle(
-    ipcChannels.archive.getDailyListeningDetail,
-    (_event, payload: { date: string }) => playStatsService.getDailyListeningDetail(payload.date),
-  )
-  registrar.handle(
-    ipcChannels.archive.getDailyAlbumStats,
-    (_event, payload: { date: Parameters<PlayStatsOperations['getDailyAlbumStats']>[0] }) =>
-      playStatsService.getDailyAlbumStats(payload.date),
-  )
-  registrar.handle(
-    ipcChannels.archive.getAnnualListeningInsights,
-    (_event, payload: { year: number }) =>
-      playStatsService.getAnnualListeningInsights(payload.year),
-  )
-  registrar.handle(
-    ipcChannels.archive.getListeningRanking,
-    (_event, payload: Parameters<PlayStatsOperations['getListeningRanking']>[0]) =>
-      playStatsService.getListeningRanking(payload),
-  )
-  registrar.handle(
-    ipcChannels.archive.getListeningGenreSpectrum,
-    (_event, payload: { year: number }) => playStatsService.getListeningGenreSpectrum(payload.year),
-  )
   registrar.handle(ipcChannels.archive.resetPlayStats, () => {
     const result = playStatsService.resetAll()
     notifyLibraryChanged({

@@ -9,6 +9,7 @@ import { useDarkAccent } from './features/appearance/composables/useDarkAccent'
 import { useLightAccent } from './features/appearance/composables/useLightAccent'
 import { tooltipPlugin } from './shared/tooltip/tooltip'
 import { initMotionPreference } from './shared/animation/motionPreference'
+import { auralis } from './shared/ipc/client'
 import {
   APP_FAILED_EVENT,
   APP_HOST_ELEMENT_ID,
@@ -70,18 +71,17 @@ function showStartupFailure(error: unknown): void {
 
   try {
     const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
-    window.auralis.app.splashReady({ theme })
-    window.auralis.app.rendererReady()
+    auralis.app.splashReady({ theme })
+    auralis.app.rendererReady()
   } catch {
     // Preload 故障时，主进程现有的窗口显示超时仍会展示错误画面。
   }
 }
 
 async function bootstrap(): Promise<void> {
-  const [{ default: App }, { router }, { auralis }] = await Promise.all([
+  const [{ default: App }, { router }] = await Promise.all([
     import('./App.vue'),
     import('./app/router'),
-    import('./shared/ipc/client'),
   ])
 
   const { i18n, initUiLocale } = await import('./i18n')

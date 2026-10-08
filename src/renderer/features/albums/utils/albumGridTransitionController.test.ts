@@ -225,7 +225,7 @@ describe('album grid transition controller', () => {
     expect(fake.visible).toBe(false)
   })
 
-  it('reuses prepared snapshots at commit and creates only newly visible targets', () => {
+  it('reuses outgoing snapshots and prepares the complete target layout once', () => {
     const fake = createHost()
     const controller = createAlbumGridTransitionController(fake.host)
     const viewport = rect(0, 0, 400, 300)
@@ -243,12 +243,14 @@ describe('album grid transition controller', () => {
       target('c', rect(110, 110), fake.counts),
       target('d', rect(220, 110), fake.counts),
     ])
-    const committed = new Map(fake.current.map((item) => [item.key, item]))
+    const committed = new Map(
+      fake.current.filter((item) => item.side === 'from').map((item) => [item.key, item]),
+    )
     expect(committed.get('a')).toBe(sources.get('a'))
     expect(committed.get('b')).toBe(sources.get('b'))
     expect(committed.get('c')).toBe(sources.get('c'))
-    expect(fake.counts.clones).toBe(4)
-    expect(controller.getItemStats()).toEqual({ registeredItems: 4, connectedItems: 4 })
+    expect(fake.counts.clones).toBe(6)
+    expect(controller.getItemStats()).toEqual({ registeredItems: 6, connectedItems: 6 })
 
     const beforeFrames = { ...fake.counts }
     for (const progress of [0, 0.25, 0.5, 0.75, 1]) controller.renderProgress(progress)
@@ -260,7 +262,7 @@ describe('album grid transition controller', () => {
     expect(fake.counts.rootWrites).toBeGreaterThan(beforeRender.rootWrites)
   })
 
-  it('fades unmatched sources and new targets while retaining one wrapper per key', () => {
+  it('fades both complete layouts while keeping every card at its original size and position', () => {
     const fake = createHost()
     const controller = createAlbumGridTransitionController(fake.host)
     const viewport = rect(0, 0, 400, 300)
@@ -277,12 +279,12 @@ describe('album grid transition controller', () => {
 
     controller.renderProgress(0.5)
     const byKey = new Map(fake.current.map((item) => [item.key, item]))
-    expect(fake.current).toHaveLength(4)
-    expect(byKey.get('a')?.opacity).toBe(1)
-    expect(byKey.get('b')?.opacity).toBe(1)
-    expect(byKey.get('old')?.opacity).toBe(0.5)
-    expect(byKey.get('new')?.opacity).toBe(0.5)
-    expect(new Set(fake.current.map((item) => item.key)).size).toBe(fake.current.length)
+    expect(fake.current).toHaveLength(6)
+    expect(byKey.get('a')?.opacity).toBeCloseTo(0.15 / 0.65)
+    expect(byKey.get('b')?.opacity).toBeCloseTo(0.15 / 0.65)
+    expect(byKey.get('old')?.opacity).toBe(0)
+    expect(byKey.get('new')?.opacity).toBeCloseTo(0.15 / 0.65)
+    expect(fake.current.every((item) => item.transform === 'translate3d(0, 0, 0)')).toBe(true)
   })
 
   it('keeps a source at the same screen position when the union origin changes', () => {

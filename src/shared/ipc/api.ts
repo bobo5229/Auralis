@@ -135,24 +135,6 @@ export interface AuralisApi {
     onCommand: (callback: (command: IpcEventPayload<'system-media:command'>) => void) => () => void
   }
   archive: {
-    getListeningHeatmap: (
-      year: Req<'archive:get-listening-heatmap'>['year'],
-    ) => Result<'archive:get-listening-heatmap'>
-    getDailyListeningDetail: (
-      date: Req<'archive:get-daily-listening-detail'>['date'],
-    ) => Result<'archive:get-daily-listening-detail'>
-    getDailyAlbumStats: (
-      date: Req<'archive:get-daily-album-stats'>['date'],
-    ) => Result<'archive:get-daily-album-stats'>
-    getAnnualListeningInsights: (
-      year: Req<'archive:get-annual-listening-insights'>['year'],
-    ) => Result<'archive:get-annual-listening-insights'>
-    getListeningRanking: (
-      params: Req<'archive:get-listening-ranking'>,
-    ) => Result<'archive:get-listening-ranking'>
-    getListeningGenreSpectrum: (
-      year: Req<'archive:get-listening-genre-spectrum'>['year'],
-    ) => Result<'archive:get-listening-genre-spectrum'>
     resetPlayStats: () => Result<'archive:reset-play-stats'>
   }
   metadata: {

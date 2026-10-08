@@ -91,7 +91,6 @@ const searchQuery = ref('')
 const isSearchFocused = ref(false)
 const isSearchZoneHovered = ref(false)
 const isSearchOpen = ref(false)
-const searchTriggerRef = ref<HTMLButtonElement | null>(null)
 let searchReturnFocus: HTMLElement | null = null
 let searchFocusRevision = 0
 let isSearchHoverDismissed = false
@@ -386,7 +385,11 @@ function removeTransitionInputListeners(): void {
 
 function onTransitionKeydown(event: KeyboardEvent): void {
   const target = event.target
-  if (target instanceof Element && target.closest('[data-lyrics-toggle], [data-sidebar-toggle]'))
+  if (
+    (event.key === 'Enter' || event.key === ' ') &&
+    target instanceof Element &&
+    target.closest('[data-lyrics-toggle], [data-sidebar-toggle]')
+  )
     return
   if (
     [
@@ -524,8 +527,8 @@ async function commitLyricsLayoutTransition(revision: number): Promise<boolean> 
   }
 }
 
-function renderLyricsLayoutTransition(revision: number, progress: number): void {
-  if (revision === layoutTransitionRevision) transitionLayerRef.value?.renderProgress(progress)
+async function animateLyricsLayoutTransition(revision: number, duration: number): Promise<void> {
+  if (revision === layoutTransitionRevision) await transitionLayerRef.value?.animate(duration)
 }
 
 async function finishLyricsLayoutTransition(revision: number): Promise<void> {
@@ -728,8 +731,7 @@ function dismissSearch(restoreFocus: boolean): void {
   searchInputRef.value?.blur()
   void nextTick(() => {
     if (revision !== searchFocusRevision || !canRefresh.value) return
-    const target = returnFocus?.isConnected ? returnFocus : searchTriggerRef.value
-    target?.focus({ preventScroll: true })
+    if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true })
   })
 }
 
@@ -1012,7 +1014,7 @@ onBeforeUnmount(() => {
 defineExpose<AlbumLayoutTransitionParticipant>({
   prepareLyricsLayoutTransition,
   commitLyricsLayoutTransition,
-  renderLyricsLayoutTransition,
+  animateLyricsLayoutTransition,
   finishLyricsLayoutTransition,
   cancelLyricsLayoutTransition,
 })
@@ -1025,18 +1027,6 @@ defineExpose<AlbumLayoutTransitionParticipant>({
     @mouseleave="onAlbumsMouseLeave"
   >
     <div class="library-search-zone">
-      <button
-        ref="searchTriggerRef"
-        type="button"
-        class="albums-search-trigger"
-        :aria-label="t('albums.search.open')"
-        :title="t('albums.search.open')"
-        :aria-expanded="shouldRenderSearchBar"
-        aria-keyshortcuts="Control+f Meta+f"
-        @click="openSearch"
-      >
-        <span class="i-lucide-search" aria-hidden="true"></span>
-      </button>
       <Transition name="search-overlay" :duration="160">
         <div v-if="shouldRenderSearchBar" class="library-search-overlay">
           <div
@@ -1208,32 +1198,6 @@ defineExpose<AlbumLayoutTransitionParticipant>({
 </template>
 
 <style scoped>
-.albums-search-trigger {
-  position: absolute;
-  top: 8px;
-  right: 20px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 38px;
-  border-radius: 8px;
-  color: var(--auralis-text-muted);
-  pointer-events: auto;
-  -webkit-app-region: no-drag;
-}
-
-.albums-search-trigger:hover {
-  color: var(--auralis-text);
-  background: var(--auralis-search-bg);
-}
-
-.albums-search-trigger:focus-visible {
-  outline: 2px solid var(--auralis-text);
-  outline-offset: 2px;
-}
-
 .albums-page-body {
   display: flex;
   flex-direction: column;
@@ -1263,8 +1227,7 @@ defineExpose<AlbumLayoutTransitionParticipant>({
 
 .albums-grid-content--transitioning {
   visibility: hidden;
-  /* Width and total height stay explicit; skip the inert cards' style/layout until handoff. */
-  content-visibility: hidden;
+  /* Resolve the target layout before its snapshot fades in, rather than at handoff. */
 }
 
 :where([data-reduced-motion='true']) .albums-grid-row {

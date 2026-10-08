@@ -466,7 +466,6 @@
     },
     "search": {
       "ariaLabel": "Search albums and album artists",
-      "open": "Search albums",
       "placeholder": "Search albums and album artists",
       "matched": "Match {index} of {total}",
       "wrapped": "Back to the first match ({index} of {total})",
@@ -537,7 +536,6 @@
         "album": "Albums",
         "albumArtist": "Album artist",
         "genre": "Genre",
-        "year": "Year",
         "releaseDate": "Release date"
       },
       "placeholders": {
@@ -546,7 +544,6 @@
         "album": "Enter album title",
         "albumArtist": "Enter album artist name",
         "genre": "Enter genre",
-        "year": "e.g. 2024",
         "releaseDate": "e.g. 2024-05-20"
       },
       "actions": {
@@ -555,7 +552,6 @@
         "saving": "Saving…"
       },
       "validation": {
-        "yearInvalid": "Enter a year of up to four digits",
         "dateInvalid": "Use the date format YYYY-MM-DD"
       },
       "status": {

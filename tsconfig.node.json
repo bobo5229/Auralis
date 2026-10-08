@@ -2,6 +2,7 @@
   "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
   "include": [
     "electron.vite.config.ts",
+    "vite.browser.config.ts",
     "vitest.config.ts",
     "vitest.native.config.ts",
     "src/main/**/*.ts",

@@ -1,0 +1,147 @@
+{
+  "cell": [
+    128,
+    128
+  ],
+  "scale": 0.08333333333333333,
+  "frames": [
+    {
+      "frame": 1,
+      "source_hip": [
+        653,
+        730
+      ],
+      "registered_hip": [
+        60,
+        67
+      ],
+      "visible_bounds": [
+        23,
+        15,
+        91,
+        110
+      ]
+    },
+    {
+      "frame": 2,
+      "source_hip": [
+        660,
+        735
+      ],
+      "registered_hip": [
+        60,
+        66
+      ],
+      "visible_bounds": [
+        36,
+        14,
+        83,
+        110
+      ]
+    },
+    {
+      "frame": 3,
+      "source_hip": [
+        655,
+        744
+      ],
+      "registered_hip": [
+        60,
+        68
+      ],
+      "visible_bounds": [
+        29,
+        15,
+        83,
+        110
+      ]
+    },
+    {
+      "frame": 4,
+      "source_hip": [
+        706,
+        708
+      ],
+      "registered_hip": [
+        60,
+        63
+      ],
+      "visible_bounds": [
+        29,
+        10,
+        90,
+        97
+      ]
+    },
+    {
+      "frame": 5,
+      "source_hip": [
+        650,
+        735
+      ],
+      "registered_hip": [
+        60,
+        67
+      ],
+      "visible_bounds": [
+        30,
+        15,
+        87,
+        110
+      ]
+    },
+    {
+      "frame": 6,
+      "source_hip": [
+        659,
+        735
+      ],
+      "registered_hip": [
+        60,
+        67
+      ],
+      "visible_bounds": [
+        41,
+        16,
+        85,
+        110
+      ]
+    },
+    {
+      "frame": 7,
+      "source_hip": [
+        658,
+        716
+      ],
+      "registered_hip": [
+        60,
+        66
+      ],
+      "visible_bounds": [
+        30,
+        15,
+        88,
+        110
+      ]
+    },
+    {
+      "frame": 8,
+      "source_hip": [
+        713,
+        726
+      ],
+      "registered_hip": [
+        60,
+        63
+      ],
+      "visible_bounds": [
+        34,
+        11,
+        92,
+        97
+      ]
+    }
+  ],
+  "duration_ms": 90,
+  "status": "draft; structural checks passed; motion approval pending"
+}

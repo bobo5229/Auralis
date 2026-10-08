@@ -1,4 +1,15 @@
 import type { AuralisApi } from '@shared/ipc/api'
+import { browserPreviewApi } from './browserPreviewApi'
 
-// This client belongs to the main renderer entry, which receives the full preload API.
-export const auralis = window.auralis as AuralisApi
+// The browser preview mode uses a local mock; desktop mode uses the typed preload API.
+const isBrowserPreview = import.meta.env.MODE === 'browser-preview'
+
+if (isBrowserPreview) {
+  console.info(
+    'Auralis browser preview: Electron APIs are mocked; local library and playback are unavailable.',
+  )
+}
+
+export const auralis: AuralisApi = isBrowserPreview
+  ? browserPreviewApi
+  : (window.auralis as AuralisApi)

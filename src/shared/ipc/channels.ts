@@ -71,12 +71,6 @@ export const ipcChannels = {
     command: 'system-media:command',
   },
   archive: {
-    getListeningHeatmap: 'archive:get-listening-heatmap',
-    getDailyListeningDetail: 'archive:get-daily-listening-detail',
-    getDailyAlbumStats: 'archive:get-daily-album-stats',
-    getAnnualListeningInsights: 'archive:get-annual-listening-insights',
-    getListeningRanking: 'archive:get-listening-ranking',
-    getListeningGenreSpectrum: 'archive:get-listening-genre-spectrum',
     resetPlayStats: 'archive:reset-play-stats',
   },
   metadata: {

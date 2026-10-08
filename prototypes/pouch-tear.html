@@ -1,0 +1,704 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 铝制包装袋撕开交互原型 (路线一)</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #14161a;
+        --surface: #1e2229;
+        --surface-hover: #262c36;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #edf0ee;
+        --muted: #969fad;
+        --accent: #5e81f4;
+        --accent-glow: rgba(94, 129, 244, 0.25);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        height: 100vh;
+        overflow: hidden;
+        background: radial-gradient(circle at 45% 40%, #1f232b 0%, var(--bg) 100%);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        user-select: none;
+      }
+
+      header {
+        position: absolute;
+        top: 20px;
+        left: 28px;
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      .brand {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        font-weight: 700;
+        font-size: 18px;
+        letter-spacing: 0.08em;
+      }
+
+      .brand span {
+        font-size: 12px;
+        font-weight: 400;
+        color: var(--muted);
+        letter-spacing: 0.12em;
+      }
+
+      .subtitle {
+        margin-top: 4px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      #stage {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        position: relative;
+      }
+
+      #canvas-wrapper {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* 撕口提示环 */
+      #tear-indicator {
+        position: absolute;
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 5;
+        transition: opacity 0.2s ease;
+      }
+
+      .indicator-ring {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: 2px solid #ff4d6d;
+        box-shadow: 0 0 12px rgba(255, 77, 109, 0.6);
+        animation: pulse 1.4s infinite ease-in-out;
+      }
+
+      .indicator-label {
+        background: rgba(20, 22, 26, 0.85);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 77, 109, 0.4);
+        padding: 4px 10px;
+        border-radius: 14px;
+        font-size: 12px;
+        color: #ffccd5;
+        white-space: nowrap;
+      }
+
+      @keyframes pulse {
+        0%, 100% { transform: scale(0.9); opacity: 0.8; }
+        50% { transform: scale(1.15); opacity: 1; }
+      }
+
+      /* 控制面板 */
+      aside {
+        position: absolute;
+        top: 24px;
+        right: 28px;
+        width: 320px;
+        background: rgba(30, 34, 41, 0.75);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 24px;
+        z-index: 10;
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+      }
+
+      h2 {
+        margin: 0 0 8px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      .desc {
+        margin: 0 0 18px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--muted);
+      }
+
+      .progress-box {
+        margin-bottom: 20px;
+        background: rgba(0, 0, 0, 0.25);
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+      }
+
+      .progress-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+
+      .progress-bar-bg {
+        height: 6px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .progress-bar-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #ff4d6d, #5e81f4);
+        border-radius: 3px;
+        transition: width 0.1s linear;
+      }
+
+      .btn-group {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+
+      button {
+        flex: 1;
+        cursor: pointer;
+        padding: 10px 14px;
+        font-size: 13px;
+        font-weight: 500;
+        background: var(--surface);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        transition: all 0.2s ease;
+      }
+
+      button:hover {
+        background: var(--surface-hover);
+        border-color: rgba(255, 255, 255, 0.18);
+      }
+
+      button.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+        box-shadow: 0 0 16px var(--accent-glow);
+      }
+
+      .btn-primary {
+        width: 100%;
+        background: #2a313d;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        color: #fff;
+        margin-top: 6px;
+      }
+
+      .btn-primary:hover {
+        background: #343c4a;
+      }
+
+      .btn-primary:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .tip {
+        margin-top: 16px;
+        font-size: 12px;
+        color: #7b8492;
+        line-height: 1.4;
+      }
+    </style>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="brand">AURALIS <span>／ MATERIAL PROTOTYPE</span></div>
+      <div class="subtitle">路线一：纯代码 3D 网格生成 · 撕口约束与圆柱卷曲形变</div>
+    </header>
+
+    <div id="stage">
+      <div id="canvas-wrapper"></div>
+      <div id="tear-indicator">
+        <div class="indicator-ring"></div>
+        <div class="indicator-label">按住撕口向右撕开 →</div>
+      </div>
+    </div>
+
+    <aside>
+      <h2>铝箔袋交互实验</h2>
+      <p class="desc">无需 Blender，网格与 40 锯齿切口、微充气鼓包及撕裂翻卷全由纯代码生成。</p>
+
+      <div class="progress-box">
+        <div class="progress-label">
+          <span>撕开进度</span>
+          <span id="progress-val">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div id="progress-bar" class="progress-bar-fill"></div>
+        </div>
+      </div>
+
+      <div class="btn-group">
+        <button id="btn-silver" class="active">原色铝箔</button>
+        <button id="btn-holo">镭射彩膜</button>
+      </div>
+
+      <button id="btn-extract" class="btn-primary" disabled>抽出内藏专辑卡片 ↗</button>
+      <button id="btn-reset" style="width: 100%; margin-top: 8px;">重新装袋还原</button>
+
+      <p class="tip">
+        • 鼠标点击左上方红色锯齿撕口向右拖动<br />
+        • 松手保留进度，支持继续撕<br />
+        • 晃动鼠标可观察铝箔漫反射高光
+      </p>
+    </aside>
+
+    <script>
+      // ==================== 1. 基础 Three.js 场景搭建 ====================
+      const wrapper = document.getElementById('canvas-wrapper');
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 0, 9.2);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.1;
+      wrapper.appendChild(renderer.domElement);
+
+      // 环境与灯光体系（提供金属高反光源）
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+      scene.add(ambientLight);
+
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.8);
+      keyLight.position.set(4, 7, 6);
+      scene.add(keyLight);
+
+      const fillLight = new THREE.DirectionalLight(0x88ccff, 1.2);
+      fillLight.position.set(-5, -2, 4);
+      scene.add(fillLight);
+
+      const backRimLight = new THREE.DirectionalLight(0xffffff, 0.9);
+      backRimLight.position.set(0, 5, -5);
+      scene.add(backRimLight);
+
+      // ==================== 2. 纯代码生成铝箔微褶皱与压痕法线贴图 ====================
+      function createWrinkleNormalTexture() {
+        const size = 512;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const img = ctx.createImageData(size, size);
+
+        for (let y = 0; y < size; y++) {
+          for (let x = 0; x < size; x++) {
+            const idx = (y * size + x) * 4;
+            // 细碎的铝箔压延波纹与折痕
+            const f1 = Math.sin(x * 0.18) * Math.cos(y * 0.18);
+            const f2 = Math.sin(x * 0.05 + y * 0.05) * 0.6;
+            const f3 = Math.cos(x * 0.35 - y * 0.2) * 0.3;
+            const bump = f1 + f2 + f3;
+
+            img.data[idx] = 128 + bump * 35;     // R
+            img.data[idx + 1] = 128 + bump * 35; // G
+            img.data[idx + 2] = 255;             // B
+            img.data[idx + 3] = 255;             // A
+          }
+        }
+        ctx.putImageData(img, 0, 0);
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(3, 4);
+        return tex;
+      }
+
+      const wrinkleNormalMap = createWrinkleNormalTexture();
+
+      // ==================== 3. 材质定义 ====================
+      // 3.1 原色铝箔材质
+      const silverMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xdedede,
+        metalness: 0.94,
+        roughness: 0.22,
+        clearcoat: 0.7,
+        clearcoatRoughness: 0.12,
+        normalMap: wrinkleNormalMap,
+        normalScale: new THREE.Vector2(0.3, 0.3),
+        side: THREE.DoubleSide
+      });
+
+      // 3.2 镭射彩膜材质（利用各向异性与色相着色器效果）
+      const holoMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xc8d8e8,
+        metalness: 0.95,
+        roughness: 0.18,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0.08,
+        normalMap: wrinkleNormalMap,
+        normalScale: new THREE.Vector2(0.25, 0.25),
+        side: THREE.DoubleSide
+      });
+
+      let currentMaterial = silverMaterial;
+
+      // 3.3 袋内暗腔材质
+      const interiorMaterial = new THREE.MeshStandardMaterial({
+        color: 0x222428,
+        metalness: 0.8,
+        roughness: 0.6,
+        side: THREE.BackSide
+      });
+
+      // ==================== 4. 几何结构与网格装配 ====================
+      const rootGroup = new THREE.Group();
+      scene.add(rootGroup);
+
+      const BAG_W = 3.4;
+      const BAG_H = 4.6;
+      const STRIP_H = 0.58;
+      const BODY_H = BAG_H - STRIP_H;
+      const SERRATION_COUNT = 36; // 锯齿齿数
+
+      // 锯齿边界数学公式
+      function getSerrationOffset(x) {
+        const u = (x + BAG_W / 2) / BAG_W;
+        const phase = u * SERRATION_COUNT;
+        const triangle = 1 - 2 * Math.abs((phase % 1) - 0.5);
+        return (triangle - 0.5) * 0.055;
+      }
+
+      // 4.1 袋身主体（微膨胀 Pillow Shape + 底部锯齿）
+      const bodyCols = 64;
+      const bodyRows = 48;
+      const bodyGeo = new THREE.PlaneGeometry(BAG_W, BODY_H, bodyCols, bodyRows);
+      const bPos = bodyGeo.attributes.position;
+
+      for (let i = 0; i < bPos.count; i++) {
+        let x = bPos.getX(i);
+        let y = bPos.getY(i);
+
+        // 如果在最底边，加上锯齿轮廓
+        if (y <= -BODY_H / 2 + 0.001) {
+          y += getSerrationOffset(x);
+          bPos.setY(i, y);
+        }
+
+        // 充气鼓包（中心向外凸起）
+        const u = (x / (BAG_W / 2)) * (Math.PI / 2);
+        const v = (y / (BODY_H / 2)) * (Math.PI / 2);
+        const zPuff = Math.cos(u) * Math.cos(v) * 0.28;
+        bPos.setZ(i, zPuff);
+      }
+      bodyGeo.computeVertexNormals();
+
+      const bodyMesh = new THREE.Mesh(bodyGeo, currentMaterial);
+      bodyMesh.position.y = -STRIP_H / 2;
+      rootGroup.add(bodyMesh);
+
+      // 4.2 袋身内部暗腔（防穿帮背壳）
+      const backGeo = new THREE.PlaneGeometry(BAG_W, BODY_H);
+      const backMesh = new THREE.Mesh(backGeo, interiorMaterial);
+      backMesh.position.set(0, -STRIP_H / 2, -0.05);
+      rootGroup.add(backMesh);
+
+      // 4.3 顶部可撕开封口条（高细分段以支持光滑卷曲）
+      const stripCols = 90;
+      const stripRows = 12;
+      const stripGeo = new THREE.PlaneGeometry(BAG_W, STRIP_H, stripCols, stripRows);
+      const sPos = stripGeo.attributes.position;
+
+      // 加上顶部冲压锯齿
+      for (let i = 0; i < sPos.count; i++) {
+        const x = sPos.getX(i);
+        let y = sPos.getY(i);
+        if (y >= STRIP_H / 2 - 0.001) {
+          y += getSerrationOffset(x);
+          sPos.setY(i, y);
+        }
+      }
+      stripGeo.computeVertexNormals();
+      const stripInitialPositions = stripGeo.attributes.position.array.slice();
+
+      const stripMesh = new THREE.Mesh(stripGeo, currentMaterial);
+      stripMesh.position.y = BODY_H / 2;
+      rootGroup.add(stripMesh);
+
+      // 4.4 内部封口接缝衬底
+      const sealSeamGeo = new THREE.PlaneGeometry(BAG_W, STRIP_H);
+      const sealSeamMesh = new THREE.Mesh(sealSeamGeo, interiorMaterial);
+      sealSeamMesh.position.set(0, BODY_H / 2, -0.02);
+      rootGroup.add(sealSeamMesh);
+
+      // 4.5 藏在袋中的专辑闪卡（开封后可抽出）
+      function createCardMesh() {
+        const cardCanvas = document.createElement('canvas');
+        cardCanvas.width = 512;
+        cardCanvas.height = 720;
+        const ctx = cardCanvas.getContext('2d');
+
+        // 卡片绘制：虚构专辑封面
+        const grad = ctx.createLinearGradient(0, 0, 512, 720);
+        grad.addColorStop(0, '#2d1b4e');
+        grad.addColorStop(0.5, '#1e3c72');
+        grad.addColorStop(1, '#0f2027');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 512, 720);
+
+        // 专辑圆盘装饰
+        ctx.beginPath();
+        ctx.arc(256, 280, 140, 0, Math.PI * 2);
+        ctx.fillStyle = '#ff758c';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(256, 280, 50, 0, Math.PI * 2);
+        ctx.fillStyle = '#1e2229';
+        ctx.fill();
+
+        // 标签文字
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 32px sans-serif';
+        ctx.fillText('AURALIS EDITION', 60, 520);
+        ctx.font = '22px sans-serif';
+        ctx.fillStyle = '#969fad';
+        ctx.fillText('NO. 001 · LIMITED FOIL CARD', 60, 560);
+
+        const cardTex = new THREE.CanvasTexture(cardCanvas);
+        const cardMat = new THREE.MeshPhysicalMaterial({
+          map: cardTex,
+          metalness: 0.85,
+          roughness: 0.25,
+          clearcoat: 0.9,
+          clearcoatRoughness: 0.1,
+          side: THREE.DoubleSide
+        });
+
+        const cardGeo = new THREE.PlaneGeometry(2.4, 3.4);
+        const cMesh = new THREE.Mesh(cardGeo, cardMat);
+        cMesh.position.set(0, -0.2, 0.02); // 藏在袋内
+        return cMesh;
+      }
+
+      const albumCard = createCardMesh();
+      albumCard.visible = false;
+      rootGroup.add(albumCard);
+
+      // ==================== 5. 撕裂形变数学算法 (Cylinder Curl & Peeling) ====================
+      let tearProgress = 0.0;
+      let targetProgress = 0.0;
+      let isDragging = false;
+      let dragStartX = 0;
+      let cardExtracted = false;
+
+      function updateTearDeformation(progress) {
+        const positions = stripGeo.attributes.position.array;
+        const count = stripGeo.attributes.position.count;
+        const tearCutX = -BAG_W / 2 + progress * BAG_W;
+
+        for (let i = 0; i < count; i++) {
+          const origX = stripInitialPositions[i * 3];
+          const origY = stripInitialPositions[i * 3 + 1];
+          const origZ = stripInitialPositions[i * 3 + 2];
+
+          if (origX <= tearCutX) {
+            // 已被撕下来的部分：铝箔受拉向右上翻卷成圆柱卷曲
+            const dist = tearCutX - origX;
+            const rollAngle = dist * 4.2; // 卷折角度
+            const rollRadius = 0.22;
+
+            const rx = tearCutX - Math.sin(rollAngle) * rollRadius;
+            const rz = origZ - (1 - Math.cos(rollAngle)) * rollRadius - dist * 0.18;
+            const ry = origY + dist * 0.16; // 向上撕起
+
+            positions[i * 3] = rx;
+            positions[i * 3 + 1] = ry;
+            positions[i * 3 + 2] = rz;
+          } else {
+            // 未撕到的部分：保持原位
+            positions[i * 3] = origX;
+            positions[i * 3 + 1] = origY;
+            positions[i * 3 + 2] = origZ;
+          }
+        }
+
+        stripGeo.attributes.position.needsUpdate = true;
+        stripGeo.computeVertexNormals();
+
+        // 当撕开超过 30% 时，卡片露出一角
+        if (progress > 0.3) {
+          albumCard.visible = true;
+          if (!cardExtracted) {
+            albumCard.position.y = -0.2 + (progress - 0.3) * 0.5;
+            albumCard.position.z = 0.02 + progress * 0.05;
+          }
+        } else if (!cardExtracted) {
+          albumCard.visible = false;
+        }
+
+        // 更新 UI
+        const pct = Math.round(progress * 100);
+        document.getElementById('progress-val').innerText = pct + '%';
+        document.getElementById('progress-bar').style.width = pct + '%';
+
+        if (progress >= 0.98) {
+          document.getElementById('btn-extract').disabled = false;
+          indicator.style.opacity = '0';
+        } else {
+          indicator.style.opacity = '1';
+          updateIndicatorPos(progress);
+        }
+      }
+
+      // 更新撕口指示器位置
+      const indicator = document.getElementById('tear-indicator');
+      function updateIndicatorPos(progress) {
+        const tearLocalX = -BAG_W / 2 + progress * BAG_W;
+        const v = new THREE.Vector3(tearLocalX, BODY_H / 2, 0.2);
+        v.applyMatrix4(rootGroup.matrixWorld);
+        v.project(camera);
+
+        const screenX = (v.x * 0.5 + 0.5) * window.innerWidth;
+        const screenY = (-(v.y * 0.5) + 0.5) * window.innerHeight;
+        indicator.style.left = screenX + 'px';
+        indicator.style.top = screenY + 'px';
+      }
+
+      // ==================== 6. 交互事件处理 ====================
+      const raycaster = new THREE.Raycaster();
+      const mouse = new THREE.Vector2();
+
+      window.addEventListener('mousedown', (e) => {
+        if (e.target.tagName === 'BUTTON' || e.target.closest('aside')) return;
+
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+
+        const hits = raycaster.intersectObject(stripMesh);
+        // 如果点击在封口条或撕口附近，启动拖拽
+        if (hits.length > 0 || Math.hypot(e.clientX - indicator.offsetLeft, e.clientY - indicator.offsetTop) < 60) {
+          isDragging = true;
+          dragStartX = e.clientX;
+        }
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        // 鼠标悬停时轻微倾斜袋身，产生金属流光
+        if (!isDragging) {
+          const targetRotY = (e.clientX / window.innerWidth - 0.5) * 0.35;
+          const targetRotX = (e.clientY / window.innerHeight - 0.5) * 0.25;
+          rootGroup.rotation.y += (targetRotY - rootGroup.rotation.y) * 0.08;
+          rootGroup.rotation.x += (targetRotX - rootGroup.rotation.x) * 0.08;
+          return;
+        }
+
+        const deltaX = e.clientX - dragStartX;
+        const deltaProgress = deltaX / (window.innerWidth * 0.28);
+        targetProgress = Math.min(Math.max(targetProgress + deltaProgress, 0), 1.0);
+        dragStartX = e.clientX;
+      });
+
+      window.addEventListener('mouseup', () => {
+        isDragging = false;
+      });
+
+      // 按钮操作
+      document.getElementById('btn-reset').addEventListener('click', () => {
+        targetProgress = 0.0;
+        cardExtracted = false;
+        albumCard.position.set(0, -0.2, 0.02);
+        albumCard.rotation.set(0, 0, 0);
+        albumCard.scale.set(1, 1, 1);
+        document.getElementById('btn-extract').disabled = true;
+        document.getElementById('btn-extract').innerText = '抽出内藏专辑卡片 ↗';
+      });
+
+      document.getElementById('btn-extract').addEventListener('click', () => {
+        cardExtracted = !cardExtracted;
+        const btn = document.getElementById('btn-extract');
+        if (cardExtracted) {
+          btn.innerText = '放回包装袋 ↙';
+        } else {
+          btn.innerText = '抽出内藏专辑卡片 ↗';
+        }
+      });
+
+      // 材质切换
+      const btnSilver = document.getElementById('btn-silver');
+      const btnHolo = document.getElementById('btn-holo');
+
+      btnSilver.addEventListener('click', () => {
+        currentMaterial = silverMaterial;
+        bodyMesh.material = currentMaterial;
+        stripMesh.material = currentMaterial;
+        btnSilver.classList.add('active');
+        btnHolo.classList.remove('active');
+      });
+
+      btnHolo.addEventListener('click', () => {
+        currentMaterial = holoMaterial;
+        bodyMesh.material = currentMaterial;
+        stripMesh.material = currentMaterial;
+        btnHolo.classList.add('active');
+        btnSilver.classList.remove('active');
+      });
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      // ==================== 7. 渲染主循环 ====================
+      function animate() {
+        requestAnimationFrame(animate);
+
+        // 平滑过渡撕裂进度
+        if (Math.abs(tearProgress - targetProgress) > 0.001) {
+          tearProgress += (targetProgress - tearProgress) * 0.25;
+          updateTearDeformation(tearProgress);
+        }
+
+        // 卡片抽出平滑过渡
+        if (cardExtracted) {
+          albumCard.position.y += (1.8 - albumCard.position.y) * 0.1;
+          albumCard.position.z += (1.2 - albumCard.position.z) * 0.1;
+          albumCard.rotation.z += (-0.08 - albumCard.rotation.z) * 0.1;
+          albumCard.scale.setScalar(1.25);
+        } else if (tearProgress >= 0.98) {
+          albumCard.position.y += (0.35 - albumCard.position.y) * 0.1;
+          albumCard.position.z += (0.08 - albumCard.position.z) * 0.1;
+          albumCard.rotation.z += (0 - albumCard.rotation.z) * 0.1;
+          albumCard.scale.setScalar(1.0);
+        }
+
+        renderer.render(scene, camera);
+      }
+
+      updateTearDeformation(0);
+      animate();
+    </script>
+  </body>
+</html>

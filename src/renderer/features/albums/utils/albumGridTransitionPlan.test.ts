@@ -7,7 +7,7 @@ function rect(left: number, top: number) {
 }
 
 describe('album grid transition plan', () => {
-  it('matches cards by stable album key when column regrouping moves them across rows', () => {
+  it('retains both fixed layouts when column regrouping moves albums across rows', () => {
     const from: AlbumTransitionVisual[] = [
       { key: 'album-a', node: {} as HTMLElement, rect: rect(20, 10), opacity: 1 },
       { key: 'album-b', node: {} as HTMLElement, rect: rect(220, 10), opacity: 1 },
@@ -20,12 +20,12 @@ describe('album grid transition plan', () => {
     ]
 
     const plan = planAlbumGridTransition(from, to)
-    expect(plan.from.map(({ key, destination }) => [key, destination?.top ?? null])).toEqual([
-      ['album-a', 280],
-      ['album-b', 280],
-      ['album-old', null],
+    expect(plan.from.map(({ key, rect }) => [key, rect.top])).toEqual([
+      ['album-a', 10],
+      ['album-b', 10],
+      ['album-old', 10],
     ])
-    expect(plan.to.map(({ key }) => key)).toEqual(['album-new'])
+    expect(plan.to.map(({ key }) => key)).toEqual(['album-b', 'album-a', 'album-new'])
   })
 
   it('restores focus to the same keyed card after its row has changed', () => {

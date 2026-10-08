@@ -135,15 +135,6 @@ export const auralisApi: AuralisApi = {
     onCommand: (callback) => on(ipcChannels.systemMedia.command, callback),
   },
   archive: {
-    getListeningHeatmap: (year) => invoke(ipcChannels.archive.getListeningHeatmap, { year }),
-    getDailyListeningDetail: (date) =>
-      invoke(ipcChannels.archive.getDailyListeningDetail, { date }),
-    getDailyAlbumStats: (date) => invoke(ipcChannels.archive.getDailyAlbumStats, { date }),
-    getAnnualListeningInsights: (year) =>
-      invoke(ipcChannels.archive.getAnnualListeningInsights, { year }),
-    getListeningRanking: (params) => invoke(ipcChannels.archive.getListeningRanking, params),
-    getListeningGenreSpectrum: (year) =>
-      invoke(ipcChannels.archive.getListeningGenreSpectrum, { year }),
     resetPlayStats: () => invoke(ipcChannels.archive.resetPlayStats),
   },
   metadata: {
