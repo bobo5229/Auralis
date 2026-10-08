@@ -391,3 +391,23 @@ describe('metadata result acceptance', () => {
     })
   })
 })
+
+describe('metadata refresh worker host shutdown retry', () => {
+  it('restores the active job after termination fails and completes shutdown on retry', async () => {
+    const { service, repo } = setup()
+    service.refreshTrack(1)
+    const worker = workers[0] as EventEmitter & { terminate: () => Promise<number> }
+    vi.spyOn(worker, 'terminate').mockRejectedValueOnce(new Error('termination failed'))
+    await expect(service.shutdown()).rejects.toThrow('termination failed')
+    expect(service.hasActiveJob()).toBe(true)
+    expect(repo.completeJob).not.toHaveBeenCalled()
+    expect(() => service.refreshTrack(1)).toThrow('shutting down')
+    await service.shutdown()
+    expect(service.hasActiveJob()).toBe(false)
+    expect(repo.completeJob).toHaveBeenCalledExactlyOnceWith(
+      1,
+      'Application shutdown interrupted refresh',
+    )
+    expect(worker.terminate).toHaveBeenCalledTimes(2)
+  })
+})

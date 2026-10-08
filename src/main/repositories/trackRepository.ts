@@ -1,4 +1,4 @@
-import { normalize } from 'node:path'
+import type Database from 'better-sqlite3'
 import type {
   AlbumArtworkPatch,
   ScannedTrack,
@@ -8,161 +8,45 @@ import type {
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto } from '@shared/types/playback'
 import type { AlbumDetailSummary } from '@shared/types/albumDetail'
-import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'
 import type { NormalizedIdentity } from '@main/features/metadata/metadataNormalizer'
+import type { KnownTrackFile, MissingTrackCandidate } from './trackRepositoryTypes'
 import { BaseRepository } from './baseRepository'
-import { sortLibraryTracks } from './libraryTrackSort'
+import { TrackQueryRepository } from './trackQueryRepository'
+import { TrackScanWriter } from './trackScanWriter'
+import { TrackAvailabilityRepository } from './trackAvailabilityRepository'
 
-export interface KnownTrackFile {
-  filePath: string
-  fileSize: number | null
-  fileMtimeMs: number | null
-  album: string | null
-  albumArtist: string | null
-  artworkCacheKey: string | null
-  lyricsFormat: string | null
-  lyricsCheckedMtimeMs: number | null
-  lyricsSidecarFingerprint?: string | null
-  metadataCheckedMtimeMs: number | null
-}
-
-export interface MissingTrackCandidate {
-  trackId: number
-  filePath: string
-  title: string | null
-  artist: string | null
-  album: string | null
-  durationSeconds: number | null
-  fileSize: number | null
-  isrc: string | null
-  metadataSignature: string | null
-  missingSince: string | null
-}
-
-function toPathVariants(filePath: string): string[] {
-  const normalizedPath = normalize(filePath)
-  const slashPath = normalizedPath.replace(/\\/g, '/')
-  const backslashPath = normalizedPath.replace(/\//g, '\\')
-
-  return [...new Set([normalizedPath, slashPath, backslashPath])]
-}
-
-function toRootPrefixes(rootPath: string): string[] {
-  return toPathVariants(rootPath).map((pathVariant) => {
-    if (pathVariant.endsWith('/') || pathVariant.endsWith('\\')) {
-      return pathVariant
-    }
-
-    return pathVariant.includes('/') && !pathVariant.includes('\\')
-      ? `${pathVariant}/`
-      : `${pathVariant}\\`
-  })
-}
-
-function escapeLikePattern(value: string): string {
-  return value.replace(/~/g, '~~').replace(/%/g, '~%').replace(/_/g, '~_')
-}
-
-const TRACK_LIST_ITEM_COLUMNS = `id, title, artist, album,
-                album_artist AS albumArtist,
-                track_no AS trackNo,
-                disc_no AS discNo,
-                release_date AS releaseDate,
-                copyright,
-                composer,
-                duration_seconds AS durationSeconds,
-                artwork_cache_key AS artworkCacheKey,
-                genre,
-                availability,
-                play_count AS playCount,
-                last_played_at AS lastPlayedAt,
-                created_at AS createdAt`
-
-/** Matches renderer album identity: albumArtist || artist || 'Unknown Artist'. */
-const albumArtistIdentityExpr = `CASE
-          WHEN NULLIF(album_artist, '') IS NOT NULL THEN album_artist
-          WHEN NULLIF(artist, '') IS NOT NULL THEN artist
-          ELSE 'Unknown Artist'
-        END`
-
-/** Matches renderer album identity: album || 'Unknown Album'. */
-const albumTitleIdentityExpr = `CASE
-          WHEN NULLIF(album, '') IS NOT NULL THEN album
-          ELSE 'Unknown Album'
-        END`
+export type { KnownTrackFile, MissingTrackCandidate } from './trackRepositoryTypes'
 
 export class TrackRepository extends BaseRepository {
+  private readonly queries: TrackQueryRepository
+  private readonly writer: TrackScanWriter
+  private readonly availability: TrackAvailabilityRepository
+
+  constructor(db: Database.Database) {
+    super(db)
+    this.queries = new TrackQueryRepository(db)
+    this.writer = new TrackScanWriter(db)
+    this.availability = new TrackAvailabilityRepository(db)
+  }
+
   getChangeToken(): string {
-    // total_changes covers this connection; data_version covers worker connections.
-    const version = this.db
-      .prepare('SELECT total_changes() AS local, data_version AS external FROM pragma_data_version')
-      .get() as { local: number; external: number }
-    return `${version.local}:${version.external}`
+    return this.queries.getChangeToken()
   }
 
   getFilePathById(trackId: number): string | null {
-    const row = this.db
-      .prepare(`SELECT file_path AS filePath FROM tracks WHERE id = ?`)
-      .get(trackId) as { filePath: string } | undefined
-
-    return row?.filePath ?? null
+    return this.queries.getFilePathById(trackId)
   }
 
   getTrackIdsByFilePaths(filePaths: string[]): number[] {
-    const uniquePaths = [...new Set(filePaths)].filter(Boolean)
-
-    if (uniquePaths.length === 0) {
-      return []
-    }
-
-    const trackIds: number[] = []
-
-    for (let index = 0; index < uniquePaths.length; index += 400) {
-      const batch = uniquePaths.slice(index, index + 400)
-      const placeholders = batch.map(() => '?').join(', ')
-      const rows = this.db
-        .prepare(`SELECT id FROM tracks WHERE file_path IN (${placeholders})`)
-        .all(...batch) as Array<{ id: number }>
-
-      trackIds.push(...rows.map((row) => row.id))
-    }
-
-    return trackIds
+    return this.queries.getTrackIdsByFilePaths(filePaths)
   }
 
   getTrackIdsByPlaybackPath(filePath: string): number[] {
-    const variants = process.platform === 'win32' ? toPathVariants(filePath) : [filePath]
-    const collation = process.platform === 'win32' ? 'COLLATE NOCASE' : ''
-    const rows = this.db
-      .prepare(
-        `SELECT id FROM tracks WHERE file_path ${collation} IN (${variants.map(() => '?').join(', ')})`,
-      )
-      .all(...variants) as Array<{ id: number }>
-    return rows.map((row) => row.id)
+    return this.queries.getTrackIdsByPlaybackPath(filePath)
   }
 
   getExistingFilePaths(filePaths: string[]): Set<string> {
-    const uniquePaths = [...new Set(filePaths)].filter(Boolean)
-
-    if (uniquePaths.length === 0) {
-      return new Set()
-    }
-
-    const existing = new Set<string>()
-
-    for (let index = 0; index < uniquePaths.length; index += 400) {
-      const batch = uniquePaths.slice(index, index + 400)
-      const placeholders = batch.map(() => '?').join(', ')
-      const rows = this.db
-        .prepare(`SELECT file_path AS filePath FROM tracks WHERE file_path IN (${placeholders})`)
-        .all(...batch) as Array<{ filePath: string }>
-
-      for (const row of rows) {
-        existing.add(row.filePath)
-      }
-    }
-
-    return existing
+    return this.queries.getExistingFilePaths(filePaths)
   }
 
   /**
@@ -174,92 +58,23 @@ export class TrackRepository extends BaseRepository {
   getFileFingerprintsByFilePaths(
     filePaths: string[],
   ): Map<string, { fileSize: number; fileMtimeMs: number }> {
-    const uniquePaths = [...new Set(filePaths)].filter(Boolean)
-    const fingerprints = new Map<string, { fileSize: number; fileMtimeMs: number }>()
-
-    if (uniquePaths.length === 0) {
-      return fingerprints
-    }
-
-    for (let index = 0; index < uniquePaths.length; index += 400) {
-      const batch = uniquePaths.slice(index, index + 400)
-      const placeholders = batch.map(() => '?').join(', ')
-      const rows = this.db
-        .prepare(
-          `SELECT file_path AS filePath, file_size AS fileSize, file_mtime_ms AS fileMtimeMs
-           FROM tracks WHERE file_path IN (${placeholders})`,
-        )
-        .all(...batch) as Array<{ filePath: string; fileSize: number; fileMtimeMs: number }>
-
-      for (const row of rows) {
-        fingerprints.set(row.filePath, { fileSize: row.fileSize, fileMtimeMs: row.fileMtimeMs })
-      }
-    }
-
-    return fingerprints
+    return this.queries.getFileFingerprintsByFilePaths(filePaths)
   }
 
   getLyricsByTrackId(trackId: number): TrackLyrics | null {
-    const row = this.db
-      .prepare(
-        `SELECT id AS trackId, lyrics_text AS lyricsText, lyrics_format AS lyricsFormat
-         FROM tracks WHERE id = ?`,
-      )
-      .get(trackId) as TrackLyrics | undefined
-
-    return row ?? null
+    return this.queries.getLyricsByTrackId(trackId)
   }
 
   getAll(): TrackListItem[] {
-    const tracks = this.db
-      .prepare(
-        `SELECT ${TRACK_LIST_ITEM_COLUMNS}
-         FROM library_track_display
-         WHERE availability = 'available'
-         ORDER BY id ASC`,
-      )
-      .all() as TrackListItem[]
-
-    return sortLibraryTracks(tracks)
+    return this.queries.getAll()
   }
 
   getAlbumDetailTracks(albumArtist: string, albumTitle: string): TrackListItem[] {
-    return this.db
-      .prepare(
-        `SELECT ${TRACK_LIST_ITEM_COLUMNS}
-         FROM library_track_display
-         WHERE availability = 'available'
-           AND ${albumArtistIdentityExpr} = ?
-           AND ${albumTitleIdentityExpr} = ?
-         ORDER BY
-           COALESCE(disc_no, 1) ASC,
-           CASE WHEN track_no IS NULL THEN 1 ELSE 0 END,
-           track_no ASC,
-           title COLLATE NOCASE ASC,
-           id ASC`,
-      )
-      .all(albumArtist, albumTitle) as TrackListItem[]
+    return this.queries.getAlbumDetailTracks(albumArtist, albumTitle)
   }
 
   getArtistAlbumSummaries(albumArtist: string, excludeAlbumTitle: string): AlbumDetailSummary[] {
-    return this.db
-      .prepare(
-        `SELECT
-            ${albumArtistIdentityExpr} AS albumArtist,
-            ${albumTitleIdentityExpr} AS title,
-            MIN(release_date) AS releaseDate,
-            MIN(NULLIF(artwork_cache_key, '')) AS artworkCacheKey
-         FROM library_track_display
-         WHERE availability = 'available'
-           AND ${albumArtistIdentityExpr} = ?
-           AND ${albumTitleIdentityExpr} != ?
-         GROUP BY ${albumArtistIdentityExpr}, ${albumTitleIdentityExpr}
-         ORDER BY
-           CASE WHEN MIN(release_date) IS NULL THEN 1 ELSE 0 END,
-           MIN(release_date) ASC,
-           title COLLATE NOCASE ASC`,
-      )
-      .all(albumArtist, excludeAlbumTitle) as AlbumDetailSummary[]
+    return this.queries.getArtistAlbumSummaries(albumArtist, excludeAlbumTitle)
   }
 
   getGenreAlbumSummaries(
@@ -267,346 +82,42 @@ export class TrackRepository extends BaseRepository {
     excludeArtist: string,
     excludeTitle: string,
   ): AlbumDetailSummary[] {
-    const genreKeys = new Set(genres.map(normalizeDelimitedValue).filter(Boolean))
-    if (genreKeys.size === 0) return []
-
-    const albums = this.db
-      .prepare(
-        `SELECT
-            ${albumArtistIdentityExpr} AS albumArtist,
-            ${albumTitleIdentityExpr} AS title,
-            MIN(release_date) AS releaseDate,
-            MIN(NULLIF(artwork_cache_key, '')) AS artworkCacheKey,
-            json_group_array(DISTINCT genre) AS genres
-         FROM library_track_display
-         WHERE availability = 'available'
-           AND NOT (${albumArtistIdentityExpr} = ? AND ${albumTitleIdentityExpr} = ?)
-         GROUP BY ${albumArtistIdentityExpr}, ${albumTitleIdentityExpr}`,
-      )
-      .all(excludeArtist, excludeTitle) as (AlbumDetailSummary & { genres: string })[]
-
-    return albums
-      .filter((album) =>
-        (JSON.parse(album.genres) as (string | null)[]).some((value) =>
-          splitDelimitedValues(value).some((genre) =>
-            genreKeys.has(normalizeDelimitedValue(genre)),
-          ),
-        ),
-      )
-      .map((album) => ({
-        albumArtist: album.albumArtist,
-        title: album.title,
-        releaseDate: album.releaseDate,
-        artworkCacheKey: album.artworkCacheKey,
-      }))
+    return this.queries.getGenreAlbumSummaries(genres, excludeArtist, excludeTitle)
   }
 
   getKnownFiles(): KnownTrackFile[] {
-    return this.db
-      .prepare(
-        `SELECT t.file_path AS filePath,
-                t.file_size AS fileSize,
-                t.file_mtime_ms AS fileMtimeMs,
-                t.album AS album,
-                t.album_artist AS albumArtist,
-                a.artwork_cache_key AS artworkCacheKey,
-                t.lyrics_format AS lyricsFormat,
-                t.lyrics_checked_mtime_ms AS lyricsCheckedMtimeMs,
-                t.lyrics_sidecar_fingerprint AS lyricsSidecarFingerprint,
-                t.metadata_checked_mtime_ms AS metadataCheckedMtimeMs
-         FROM tracks t
-         LEFT JOIN albums a ON t.album = a.title AND t.album_artist = a.artist`,
-      )
-      .all() as KnownTrackFile[]
+    return this.queries.getKnownFiles()
   }
 
   upsertMany(tracks: ScannedTrack[]): void {
-    if (tracks.length === 0) {
-      return
-    }
-
-    const upsertTrack = this.db.prepare(`
-      INSERT INTO tracks (
-        id,
-        file_path,
-        file_size,
-        file_mtime_ms,
-        title,
-        artist,
-        album,
-        album_artist,
-        track_no,
-        disc_no,
-        duration_seconds,
-        year,
-        release_date,
-        copyright,
-        composer,
-        genre,
-        lyrics_text,
-        lyrics_format,
-        lyrics_checked_mtime_ms,
-        lyrics_sidecar_fingerprint,
-        metadata_checked_mtime_ms,
-        isrc,
-        metadata_signature,
-        availability,
-        missing_since,
-        updated_at
-      )
-      VALUES (MAX(COALESCE((SELECT MAX(id) FROM tracks),0),COALESCE((SELECT MAX(id) FROM removed_track_history),0))+1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
-      ON CONFLICT(file_path) DO UPDATE SET
-        file_size = excluded.file_size,
-        file_mtime_ms = excluded.file_mtime_ms,
-        title = excluded.title,
-        artist = excluded.artist,
-        album = excluded.album,
-        album_artist = excluded.album_artist,
-        track_no = excluded.track_no,
-        disc_no = excluded.disc_no,
-        duration_seconds = excluded.duration_seconds,
-        year = excluded.year,
-        release_date = excluded.release_date,
-        copyright = excluded.copyright,
-        composer = excluded.composer,
-        genre = excluded.genre,
-        lyrics_text = excluded.lyrics_text,
-        lyrics_format = excluded.lyrics_format,
-        lyrics_checked_mtime_ms = excluded.lyrics_checked_mtime_ms,
-        lyrics_sidecar_fingerprint = excluded.lyrics_sidecar_fingerprint,
-        metadata_checked_mtime_ms = excluded.metadata_checked_mtime_ms,
-        isrc = excluded.isrc,
-        metadata_signature = excluded.metadata_signature,
-        availability = 'available',
-        missing_since = NULL,
-        updated_at = CURRENT_TIMESTAMP
-    `)
-
-    const upsertAlbum = this.db.prepare(`
-      INSERT INTO albums (title, artist, artwork_cache_key)
-      VALUES (?, ?, ?)
-      ON CONFLICT(title, artist) DO UPDATE SET
-        artwork_cache_key = excluded.artwork_cache_key
-        WHERE excluded.artwork_cache_key LIKE 'v2-%.webp'
-          AND (
-            albums.artwork_cache_key IS NULL
-            OR albums.artwork_cache_key NOT LIKE 'v2-%.webp'
-          )
-    `)
-
-    const upsertBatch = this.db.transaction((items: ScannedTrack[]) => {
-      for (const track of items) {
-        upsertTrack.run(
-          track.filePath,
-          track.fileSize,
-          track.fileMtimeMs,
-          track.title,
-          track.artist,
-          track.album,
-          track.albumArtist,
-          track.trackNo,
-          track.discNo,
-          track.durationSeconds,
-          track.year,
-          track.releaseDate,
-          track.copyright,
-          track.composer,
-          track.genre,
-          track.lyricsText,
-          track.lyricsFormat,
-          track.fileMtimeMs,
-          track.lyricsSidecarFingerprint ?? null,
-          track.fileMtimeMs,
-          track.isrc,
-          track.metadataSignature,
-        )
-        upsertAlbum.run(track.album, track.albumArtist || track.artist, track.artworkCacheKey)
-      }
-    })
-
-    for (let index = 0; index < tracks.length; index += 300) {
-      upsertBatch(tracks.slice(index, index + 300))
-    }
+    return this.writer.upsertMany(tracks)
   }
 
   patchAlbumArtwork(items: AlbumArtworkPatch[]): void {
-    if (items.length === 0) {
-      return
-    }
-
-    const upsert = this.db.prepare(`
-      INSERT INTO albums (title, artist, artwork_cache_key)
-      VALUES (?, ?, ?)
-      ON CONFLICT(title, artist) DO UPDATE SET
-        artwork_cache_key = excluded.artwork_cache_key
-        WHERE excluded.artwork_cache_key LIKE 'v2-%.webp'
-          AND (
-            albums.artwork_cache_key IS NULL
-            OR albums.artwork_cache_key NOT LIKE 'v2-%.webp'
-          )
-    `)
-
-    const batch = this.db.transaction((patches: AlbumArtworkPatch[]) => {
-      for (const patch of patches) {
-        upsert.run(patch.album, patch.artist, patch.artworkCacheKey)
-      }
-    })
-
-    for (let index = 0; index < items.length; index += 300) {
-      batch(items.slice(index, index + 300))
-    }
+    return this.writer.patchAlbumArtwork(items)
   }
 
   patchLyrics(items: TrackLyricsPatch[]): void {
-    if (items.length === 0) {
-      return
-    }
-
-    const update = this.db.prepare(`
-      UPDATE tracks
-      SET lyrics_text = ?,
-          lyrics_format = ?,
-          lyrics_checked_mtime_ms = ?,
-          lyrics_sidecar_fingerprint = ?,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE file_path = ?
-    `)
-
-    const updateDisplay = this.db.prepare(`
-      UPDATE track_metadata SET lyrics_text = ?, lyrics_format = ?, refreshed_at = CURRENT_TIMESTAMP
-      WHERE track_id = (SELECT id FROM tracks WHERE file_path = ?)
-    `)
-
-    const batch = this.db.transaction((patches: TrackLyricsPatch[]) => {
-      for (const patch of patches) {
-        update.run(
-          patch.lyricsText,
-          patch.lyricsFormat,
-          patch.lyricsCheckedMtimeMs,
-          patch.lyricsSidecarFingerprint ?? null,
-          patch.filePath,
-        )
-        // Display metadata can also hold lyrics; clearing a sidecar must clear both.
-        updateDisplay.run(patch.lyricsText, patch.lyricsFormat, patch.filePath)
-      }
-    })
-
-    for (let index = 0; index < items.length; index += 300) {
-      batch(items.slice(index, index + 300))
-    }
+    return this.writer.patchLyrics(items)
   }
 
   markMissingByFilePaths(filePaths: string[]): number[] {
-    if (filePaths.length === 0) return []
-
-    const markedIds: number[] = []
-
-    for (let index = 0; index < filePaths.length; index += 400) {
-      const batch = filePaths.slice(index, index + 400)
-      const placeholders = batch.map(() => '?').join(', ')
-      const rows = this.db
-        .prepare(
-          `UPDATE tracks
-           SET availability = 'missing',
-               missing_since = CURRENT_TIMESTAMP,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE file_path IN (${placeholders})
-             AND availability = 'available'
-           RETURNING id`,
-        )
-        .all(...batch) as Array<{ id: number }>
-
-      markedIds.push(...rows.map((row) => row.id))
-    }
-
-    return markedIds
+    return this.availability.markMissingByFilePaths(filePaths)
   }
 
   markAvailableByFilePaths(filePaths: string[]): number[] {
-    if (filePaths.length === 0) return []
-
-    const restoredIds: number[] = []
-
-    for (let index = 0; index < filePaths.length; index += 400) {
-      const batch = filePaths.slice(index, index + 400)
-      const placeholders = batch.map(() => '?').join(', ')
-      const rows = this.db
-        .prepare(
-          `UPDATE tracks
-           SET availability = 'available',
-               missing_since = NULL,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE file_path IN (${placeholders})
-             AND availability = 'missing'
-           RETURNING id`,
-        )
-        .all(...batch) as Array<{ id: number }>
-
-      restoredIds.push(...rows.map((row) => row.id))
-    }
-
-    return restoredIds
+    return this.availability.markAvailableByFilePaths(filePaths)
   }
 
   getMissingCandidates(): MissingTrackCandidate[] {
-    return this.db
-      .prepare(
-        `SELECT id AS trackId,
-                file_path AS filePath,
-                title,
-                artist,
-                album,
-                duration_seconds AS durationSeconds,
-                file_size AS fileSize,
-                isrc,
-                metadata_signature AS metadataSignature,
-                missing_since AS missingSince
-         FROM tracks
-         WHERE availability = 'missing'
-         ORDER BY missing_since ASC`,
-      )
-      .all() as MissingTrackCandidate[]
+    return this.availability.getMissingCandidates()
   }
 
   findRelocationCandidatesByIdentity(
     identity: NormalizedIdentity,
     includeAvailable = false,
   ): MissingTrackCandidate[] {
-    const selectCandidates = `
-      SELECT id AS trackId,
-             file_path AS filePath,
-             title,
-             artist,
-             album,
-             duration_seconds AS durationSeconds,
-             file_size AS fileSize,
-             isrc,
-             metadata_signature AS metadataSignature,
-             missing_since AS missingSince
-      FROM tracks
-      WHERE availability IN (${includeAvailable ? "'missing', 'available'" : "'missing'"})
-    `
-
-    if (identity.isrc) {
-      const byIsrc = this.db
-        .prepare(`${selectCandidates} AND isrc = ?`)
-        .all(identity.isrc) as MissingTrackCandidate[]
-
-      // Unique/ambiguous ISRC handling is done by the matcher.
-      // Only fall through to title+artist when ISRC yields zero hits.
-      if (byIsrc.length > 0) {
-        return byIsrc
-      }
-    }
-
-    return this.db
-      .prepare(
-        `${selectCandidates}
-           AND isrc IS NULL
-           AND title = ?
-           AND artist = ?`,
-      )
-      .all(identity.title, identity.artist) as MissingTrackCandidate[]
+    return this.availability.findRelocationCandidatesByIdentity(identity, includeAvailable)
   }
 
   markMissingUnderRootExcept(
@@ -614,76 +125,11 @@ export class TrackRepository extends BaseRepository {
     foundFilePaths: string[],
     unreadableDirectoryPaths: string[] = [],
   ): number[] {
-    const rootPrefixes = toRootPrefixes(rootPath)
-    const rootPredicates = rootPrefixes.map(() => `file_path LIKE ? ESCAPE '~'`).join(' OR ')
-    const rootPatternArgs = rootPrefixes.map((prefix) => `${escapeLikePattern(prefix)}%`)
-    const unreadablePrefixes = unreadableDirectoryPaths.flatMap(toRootPrefixes)
-    const unreadablePredicate =
-      unreadablePrefixes.length > 0
-        ? `AND NOT (${unreadablePrefixes.map(() => `file_path LIKE ? ESCAPE '~'`).join(' OR ')})`
-        : ''
-    const unreadablePatternArgs = unreadablePrefixes.map(
-      (prefix) => `${escapeLikePattern(prefix)}%`,
+    return this.availability.markMissingUnderRootExcept(
+      rootPath,
+      foundFilePaths,
+      unreadableDirectoryPaths,
     )
-
-    if (foundFilePaths.length === 0) {
-      const rows = this.db
-        .prepare(
-          `UPDATE tracks
-           SET availability = 'missing',
-               missing_since = CURRENT_TIMESTAMP,
-               updated_at = CURRENT_TIMESTAMP
-            WHERE (${rootPredicates})
-              AND availability = 'available'
-              ${unreadablePredicate}
-            RETURNING id`,
-        )
-        .all(...rootPatternArgs, ...unreadablePatternArgs) as Array<{ id: number }>
-
-      return rows.map((row) => row.id)
-    }
-
-    try {
-      this.db.exec(
-        `CREATE TEMP TABLE IF NOT EXISTS _temp_found_paths (
-          file_path TEXT PRIMARY KEY
-        )`,
-      )
-      this.db.exec('DELETE FROM _temp_found_paths')
-
-      const insertTemp = this.db.prepare(
-        'INSERT OR IGNORE INTO _temp_found_paths (file_path) VALUES (?)',
-      )
-      const insertBatch = this.db.transaction((paths: string[]) => {
-        for (const path of paths) {
-          for (const pathVariant of toPathVariants(path)) {
-            insertTemp.run(pathVariant)
-          }
-        }
-      })
-
-      for (let index = 0; index < foundFilePaths.length; index += 300) {
-        insertBatch(foundFilePaths.slice(index, index + 300))
-      }
-
-      const rows = this.db
-        .prepare(
-          `UPDATE tracks
-           SET availability = 'missing',
-               missing_since = CURRENT_TIMESTAMP,
-               updated_at = CURRENT_TIMESTAMP
-            WHERE (${rootPredicates})
-              AND availability = 'available'
-              AND file_path NOT IN (SELECT file_path FROM _temp_found_paths)
-              ${unreadablePredicate}
-            RETURNING id`,
-        )
-        .all(...rootPatternArgs, ...unreadablePatternArgs) as Array<{ id: number }>
-
-      return rows.map((row) => row.id)
-    } finally {
-      this.db.exec('DROP TABLE IF EXISTS _temp_found_paths')
-    }
   }
 
   /**
@@ -693,182 +139,25 @@ export class TrackRepository extends BaseRepository {
    * (or a UNIQUE constraint race loses), so callers can fall back to upsert.
    */
   relocateTrack(trackId: number, scannedTrack: ScannedTrack, expectedOldPath: string): boolean {
-    const occupant = this.db
-      .prepare(`SELECT id FROM tracks WHERE file_path = ? AND id != ?`)
-      .get(scannedTrack.filePath, trackId) as { id: number } | undefined
-
-    if (occupant) {
-      return false
-    }
-
-    try {
-      const result = this.db
-        .prepare(
-          `UPDATE tracks
-           SET file_path = ?,
-               file_size = ?,
-               file_mtime_ms = ?,
-               title = ?,
-               artist = ?,
-               album = ?,
-               album_artist = ?,
-               track_no = ?,
-               disc_no = ?,
-               duration_seconds = ?,
-               year = ?,
-               release_date = ?,
-               copyright = ?,
-               composer = ?,
-               genre = ?,
-               lyrics_text = ?,
-               lyrics_format = ?,
-               isrc = ?,
-               metadata_signature = ?,
-               availability = 'available',
-               missing_since = NULL,
-               lyrics_checked_mtime_ms = ?,
-               lyrics_sidecar_fingerprint = ?,
-               metadata_checked_mtime_ms = ?,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE id = ? AND file_path = ?`,
-        )
-        .run(
-          scannedTrack.filePath,
-          scannedTrack.fileSize,
-          scannedTrack.fileMtimeMs,
-          scannedTrack.title,
-          scannedTrack.artist,
-          scannedTrack.album,
-          scannedTrack.albumArtist,
-          scannedTrack.trackNo,
-          scannedTrack.discNo,
-          scannedTrack.durationSeconds,
-          scannedTrack.year,
-          scannedTrack.releaseDate,
-          scannedTrack.copyright,
-          scannedTrack.composer,
-          scannedTrack.genre,
-          scannedTrack.lyricsText,
-          scannedTrack.lyricsFormat,
-          scannedTrack.isrc,
-          scannedTrack.metadataSignature,
-          scannedTrack.fileMtimeMs,
-          scannedTrack.lyricsSidecarFingerprint ?? null,
-          scannedTrack.fileMtimeMs,
-          trackId,
-          expectedOldPath,
-        )
-
-      return result.changes > 0
-    } catch (error) {
-      // SQLITE_CONSTRAINT (UNIQUE file_path) or other write races.
-      const code =
-        error && typeof error === 'object' && 'code' in error
-          ? String((error as { code?: unknown }).code)
-          : ''
-      if (code.startsWith('SQLITE_CONSTRAINT')) {
-        return false
-      }
-
-      throw error
-    }
+    return this.availability.relocateTrack(trackId, scannedTrack, expectedOldPath)
   }
 
   getRandomPlayableTrack(excludeTrackId?: number): PlaybackTrackDto | null {
-    const baseQuery = `
-      SELECT id, title, artist, album,
-             album_artist AS albumArtist,
-             duration_seconds AS durationSeconds,
-             artwork_cache_key AS artworkCacheKey
-      FROM library_track_display
-      WHERE availability = 'available'`
-
-    if (excludeTrackId !== undefined) {
-      const row = this.db
-        .prepare(`${baseQuery} AND id != ? ORDER BY RANDOM() LIMIT 1`)
-        .get(excludeTrackId) as PlaybackTrackDto | undefined
-
-      if (row) return row
-    }
-
-    const row = this.db.prepare(`${baseQuery} ORDER BY RANDOM() LIMIT 1`).get() as
-      | PlaybackTrackDto
-      | undefined
-
-    return row ?? null
+    return this.queries.getRandomPlayableTrack(excludeTrackId)
   }
 
   getRandomAlbumIdentity(excludeAlbumKey?: {
     albumArtist: string
     album: string
   }): { albumArtist: string; album: string } | null {
-    const albumArtistExpr = `COALESCE(NULLIF(album_artist, ''), artist)`
-
-    const baseQuery = `
-      SELECT ${albumArtistExpr} AS albumArtist, album
-      FROM library_track_display
-      WHERE availability = 'available'
-        AND album IS NOT NULL
-        AND album != ''
-      GROUP BY ${albumArtistExpr}, album`
-
-    if (excludeAlbumKey) {
-      const row = this.db
-        .prepare(
-          `${baseQuery} HAVING NOT (${albumArtistExpr} = ? AND album = ?) ORDER BY RANDOM() LIMIT 1`,
-        )
-        .get(excludeAlbumKey.albumArtist, excludeAlbumKey.album) as
-        | { albumArtist: string; album: string }
-        | undefined
-
-      if (row) return row
-    }
-
-    const row = this.db.prepare(`${baseQuery} ORDER BY RANDOM() LIMIT 1`).get() as
-      | { albumArtist: string; album: string }
-      | undefined
-
-    return row ?? null
+    return this.queries.getRandomAlbumIdentity(excludeAlbumKey)
   }
 
   getAlbumTracks(albumArtist: string, album: string): PlaybackTrackDto[] {
-    const albumArtistExpr = `COALESCE(NULLIF(album_artist, ''), artist)`
-
-    return this.db
-      .prepare(
-        `SELECT id, title, artist, album,
-                ${albumArtistExpr} AS albumArtist,
-                duration_seconds AS durationSeconds,
-                artwork_cache_key AS artworkCacheKey
-         FROM library_track_display
-         WHERE availability = 'available'
-           AND ${albumArtistExpr} = ?
-           AND album = ?
-         ORDER BY
-           CASE WHEN disc_no IS NULL THEN 1 ELSE 0 END,
-           disc_no ASC,
-           CASE WHEN track_no IS NULL THEN 1 ELSE 0 END,
-           track_no ASC,
-           title COLLATE NOCASE ASC,
-           id ASC`,
-      )
-      .all(albumArtist, album) as PlaybackTrackDto[]
+    return this.queries.getAlbumTracks(albumArtist, album)
   }
 
   markMissingByPathPrefix(rootPath: string): number {
-    const rootPrefixes = toRootPrefixes(rootPath)
-    const predicates = rootPrefixes.map(() => `file_path LIKE ? ESCAPE '~'`).join(' OR ')
-    const patternArgs = rootPrefixes.map((prefix) => `${escapeLikePattern(prefix)}%`)
-
-    return this.db
-      .prepare(
-        `UPDATE tracks
-         SET availability = 'missing',
-             missing_since = COALESCE(missing_since, CURRENT_TIMESTAMP),
-             updated_at = CURRENT_TIMESTAMP
-         WHERE availability = 'available'
-           AND (${predicates})`,
-      )
-      .run(...patternArgs).changes
+    return this.availability.markMissingByPathPrefix(rootPath)
   }
 }

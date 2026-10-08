@@ -1,7 +1,5 @@
-import { watch } from 'node:fs'
-import type { FSWatcher } from 'node:fs'
 import { stat } from 'node:fs/promises'
-import { extname, join, normalize } from 'node:path'
+import { extname, normalize } from 'node:path'
 import { isSupportedAudioFile } from '@main/features/libraryScan/audioFileFilter'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
@@ -11,65 +9,64 @@ import { resolveWatchRefreshPaths } from './metadataFileChangeFilter'
 import { resolveAudioCandidatesForLyricSidecar } from './lyricSidecarPaths'
 import type { LibraryIncrementalImportService } from '../libraryScan/libraryIncrementalImportService'
 import type { RendererEventSender } from '@main/ipc/rendererEvents'
+import { MetadataWatchImportQueue } from './metadataWatchImportQueue'
+import { MetadataRootWatchers } from './metadataRootWatchers'
+import { MetadataMissingConfirmation } from './metadataMissingConfirmation'
+import { isTransientStatError } from './metadataWatchStatErrors'
+
 const WATCH_DEBOUNCE_MS = 1200
 const RETRY_AFTER_ACTIVE_JOB_MS = 5000
 const UNSTABLE_RETRY_DELAY_MS = 3000
-const MAX_UNSTABLE_RETRIES = 40 // ~2 min total (40 * 3s)
-const MISSING_CONFIRM_DELAY_MS = 5000
 const MAX_STAT_RETRIES = 10
 /** Suppress watch-triggered metadata refresh after a successful user tag write. */
 const TAG_WRITE_REFRESH_SUPPRESS_MS = 8000
 
-/**
- * Error codes that indicate a file is temporarily inaccessible rather than deleted.
- * These should trigger a retry instead of marking the track as missing.
- */
-const TRANSIENT_STAT_ERROR_CODES = new Set([
-  'EACCES',
-  'EPERM',
-  'EBUSY',
-  'ETIMEDOUT',
-  'ENETDOWN',
-  'ENETUNREACH',
-  'EHOSTUNREACH',
-  'EHOSTDOWN',
-  'ECONNRESET',
-  'ECONNREFUSED',
-  'EAGAIN',
-])
-
-function isTransientStatError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
-  const code = (error as NodeJS.ErrnoException).code
-  return typeof code === 'string' && TRANSIENT_STAT_ERROR_CODES.has(code)
-}
-
 export class MetadataWatchService {
-  private readonly watchers = new Map<string, FSWatcher>()
   private readonly pendingFilePaths = new Map<string, number>()
   /** Audio paths whose pending event came from a sidecar `.lrc` mapping. */
   private readonly pendingLyricsIntentPaths = new Set<string>()
-  private readonly unstableRetries = new Map<string, number>()
-  private readonly inFlightFilePaths = new Set<string>()
-  private readonly deferredFilePaths = new Set<string>()
-  private readonly pendingMissingFilePaths = new Map<string, number>()
   private readonly statRetries = new Map<string, number>()
   /** filePath → suppress refresh until epoch ms */
   private readonly suppressRefreshUntil = new Map<string, number>()
   /** Watch work that may eventually write to the library database. */
   private readonly activeOperations = new Set<Promise<void>>()
   private flushTimer: ReturnType<typeof setTimeout> | null = null
-  private missingConfirmationTimer: ReturnType<typeof setTimeout> | null = null
   private flushPaused = false
   private stopped = false
+
+  private readonly importQueue: MetadataWatchImportQueue
+  private readonly rootWatchers: MetadataRootWatchers
+  private readonly missingConfirmation: MetadataMissingConfirmation
 
   constructor(
     private readonly libraryRootRepository: LibraryRootRepository,
     private readonly trackRepository: TrackRepository,
     private readonly metadataRefreshService: MetadataRefreshService,
-    private readonly incrementalImportService: LibraryIncrementalImportService,
-    private readonly sendToRenderer: RendererEventSender,
-  ) {}
+    incrementalImportService: LibraryIncrementalImportService,
+    sendToRenderer: RendererEventSender,
+  ) {
+    this.importQueue = new MetadataWatchImportQueue(
+      incrementalImportService,
+      (filePath) => {
+        this.pendingFilePaths.set(filePath, Date.now())
+      },
+      (delay) => this.scheduleFlush(delay),
+    )
+    this.rootWatchers = new MetadataRootWatchers(
+      () => this.stopped,
+      (path) => this.enqueueChangedPath(path),
+    )
+    this.missingConfirmation = new MetadataMissingConfirmation(
+      trackRepository,
+      this.statRetries,
+      sendToRenderer,
+      {
+        isStopped: () => this.stopped,
+        isPaused: () => this.flushPaused,
+        runOperation: (operation) => this.runOperation(operation),
+      },
+    )
+  }
 
   start(): void {
     this.syncRoots()
@@ -77,11 +74,7 @@ export class MetadataWatchService {
 
   async stop(): Promise<void> {
     this.stopped = true
-    for (const watcher of this.watchers.values()) {
-      watcher.close()
-    }
-
-    this.watchers.clear()
+    this.rootWatchers.close()
     this.statRetries.clear()
     this.suppressRefreshUntil.clear()
     this.flushPaused = true
@@ -91,17 +84,14 @@ export class MetadataWatchService {
       this.flushTimer = null
     }
 
-    if (this.missingConfirmationTimer) {
-      clearTimeout(this.missingConfirmationTimer)
-      this.missingConfirmationTimer = null
-    }
+    this.missingConfirmation.pause()
     while (this.activeOperations.size > 0) {
       await Promise.allSettled([...this.activeOperations])
     }
     this.pendingFilePaths.clear()
-    this.pendingMissingFilePaths.clear()
+    this.missingConfirmation.clear()
     this.pendingLyricsIntentPaths.clear()
-    this.deferredFilePaths.clear()
+    this.importQueue.clearDeferred()
   }
 
   /**
@@ -115,10 +105,7 @@ export class MetadataWatchService {
       this.flushTimer = null
     }
 
-    if (this.missingConfirmationTimer) {
-      clearTimeout(this.missingConfirmationTimer)
-      this.missingConfirmationTimer = null
-    }
+    this.missingConfirmation.pause()
 
     // A flush may already be past its initial pause check and waiting on file
     // I/O. Full scans must not start until all such work (including imports
@@ -134,9 +121,7 @@ export class MetadataWatchService {
     if (this.pendingFilePaths.size > 0) {
       this.scheduleFlush()
     }
-    if (this.pendingMissingFilePaths.size > 0) {
-      this.scheduleMissingConfirmation()
-    }
+    this.missingConfirmation.resume()
   }
 
   /**
@@ -149,7 +134,7 @@ export class MetadataWatchService {
     // Drop any already-queued refresh for this path.
     this.pendingFilePaths.delete(normalizedPath)
     this.pendingLyricsIntentPaths.delete(normalizedPath)
-    this.deferredFilePaths.delete(normalizedPath)
+    this.importQueue.discardDeferred(normalizedPath)
   }
 
   private isRefreshSuppressed(filePath: string): boolean {
@@ -166,68 +151,31 @@ export class MetadataWatchService {
 
   syncRoots(): void {
     if (this.stopped) return
-    const roots = this.libraryRootRepository.list()
-    const nextRootPaths = new Set(roots.map((root) => normalize(root.path)))
-
-    for (const rootPath of this.watchers.keys()) {
-      if (!nextRootPaths.has(rootPath)) {
-        this.watchers.get(rootPath)?.close()
-        this.watchers.delete(rootPath)
-      }
-    }
-
-    for (const rootPath of nextRootPaths) {
-      if (this.watchers.has(rootPath)) {
-        continue
-      }
-
-      this.watchRoot(rootPath)
-    }
+    this.rootWatchers.sync(this.libraryRootRepository.list().map((root) => root.path))
   }
 
-  private watchRoot(rootPath: string): void {
-    try {
-      const watcher = watch(rootPath, { recursive: true }, (_eventType, filename) => {
-        if (this.stopped || !filename) {
-          return
-        }
+  private enqueueChangedPath(filePath: string): void {
+    if (extname(filePath).toLowerCase() === '.lrc') {
+      const audioCandidates = resolveAudioCandidatesForLyricSidecar(filePath)
+      const knownAudioPaths = this.trackRepository.getExistingFilePaths(audioCandidates)
 
-        const filePath = normalize(join(rootPath, filename.toString()))
+      for (const audioPath of knownAudioPaths) {
+        this.pendingFilePaths.set(audioPath, Date.now())
+        this.pendingLyricsIntentPaths.add(audioPath)
+      }
 
-        if (extname(filePath).toLowerCase() === '.lrc') {
-          const audioCandidates = resolveAudioCandidatesForLyricSidecar(filePath)
-          const knownAudioPaths = this.trackRepository.getExistingFilePaths(audioCandidates)
-
-          for (const audioPath of knownAudioPaths) {
-            this.pendingFilePaths.set(audioPath, Date.now())
-            this.pendingLyricsIntentPaths.add(audioPath)
-          }
-
-          if (knownAudioPaths.size > 0) {
-            this.scheduleFlush()
-          }
-          return
-        }
-
-        if (!isSupportedAudioFile(filePath)) {
-          return
-        }
-
-        this.pendingFilePaths.set(filePath, Date.now())
+      if (knownAudioPaths.size > 0) {
         this.scheduleFlush()
-      })
-
-      watcher.on('error', (error) => {
-        logger.warn({ error, rootPath }, 'Metadata watcher failed')
-        watcher.close()
-        this.watchers.delete(rootPath)
-      })
-
-      this.watchers.set(rootPath, watcher)
-      logger.info({ rootPath }, 'Metadata watcher started')
-    } catch (error) {
-      logger.warn({ error, rootPath }, 'Unable to start metadata watcher')
+      }
+      return
     }
+
+    if (!isSupportedAudioFile(filePath)) {
+      return
+    }
+
+    this.pendingFilePaths.set(filePath, Date.now())
+    this.scheduleFlush()
   }
 
   private scheduleFlush(delay = WATCH_DEBOUNCE_MS): void {
@@ -270,9 +218,7 @@ export class MetadataWatchService {
     const incoming: string[] = []
 
     for (const filePath of filePaths) {
-      if (this.inFlightFilePaths.has(filePath)) {
-        this.deferredFilePaths.add(filePath)
-      } else {
+      if (!this.importQueue.deferIfInFlight(filePath)) {
         incoming.push(filePath)
       }
     }
@@ -373,14 +319,14 @@ export class MetadataWatchService {
 
       // New tracks: import with relocation matching
       if (newFilePaths.length > 0) {
-        await this.importWithRetry(newFilePaths)
+        await this.importQueue.importFiles(newFilePaths)
       }
     }
 
     // Route missing tracks to confirmation queue
     if (missingPaths.length > 0) {
       for (const filePath of missingPaths) {
-        this.enqueueMissingFile(filePath)
+        this.missingConfirmation.enqueue(filePath)
       }
     }
 
@@ -393,165 +339,9 @@ export class MetadataWatchService {
     }
   }
 
-  private enqueueMissingFile(filePath: string): void {
-    this.pendingMissingFilePaths.set(filePath, Date.now())
-    this.scheduleMissingConfirmation()
-  }
-
-  private scheduleMissingConfirmation(): void {
-    if (this.stopped || this.flushPaused) {
-      return
-    }
-
-    if (this.missingConfirmationTimer) {
-      clearTimeout(this.missingConfirmationTimer)
-    }
-    this.missingConfirmationTimer = setTimeout(() => {
-      this.missingConfirmationTimer = null
-      this.runOperation(() => this.confirmMissing())
-    }, MISSING_CONFIRM_DELAY_MS)
-  }
-
-  private async confirmMissing(): Promise<void> {
-    const entries = [...this.pendingMissingFilePaths.entries()]
-    this.pendingMissingFilePaths.clear()
-
-    if (entries.length === 0) {
-      return
-    }
-
-    // Stat again to confirm files are still missing
-    const filePaths = entries.map(([p]) => p)
-    const statResults = await Promise.allSettled(filePaths.map((p) => stat(p)))
-    if (this.stopped) return
-    const confirmedMissing: string[] = []
-    const restoredPaths: string[] = []
-    const transientErrorPaths: string[] = []
-
-    for (let i = 0; i < filePaths.length; i++) {
-      const result = statResults[i]
-      if (result.status === 'fulfilled') {
-        restoredPaths.push(filePaths[i])
-        this.statRetries.delete(filePaths[i])
-      } else if (isTransientStatError(result.reason)) {
-        transientErrorPaths.push(filePaths[i])
-      } else {
-        confirmedMissing.push(filePaths[i])
-      }
-    }
-
-    // Requeue transient errors for retry
-    if (transientErrorPaths.length > 0) {
-      for (const filePath of transientErrorPaths) {
-        const retries = (this.statRetries.get(filePath) ?? 0) + 1
-        if (retries >= MAX_STAT_RETRIES) {
-          this.statRetries.delete(filePath)
-          logger.warn({ filePath, retries }, 'Dropping file after max stat retries (confirm phase)')
-        } else {
-          this.statRetries.set(filePath, retries)
-          this.enqueueMissingFile(filePath)
-        }
-      }
-    }
-
-    // Handle restored files
-    if (restoredPaths.length > 0) {
-      const restoredIds = this.trackRepository.markAvailableByFilePaths(restoredPaths)
-
-      if (restoredIds.length > 0) {
-        this.sendChanged('track-restored', restoredIds, restoredPaths)
-      }
-    }
-
-    // Handle confirmed missing files
-    if (confirmedMissing.length > 0) {
-      const missingIds = this.trackRepository.markMissingByFilePaths(confirmedMissing)
-
-      if (missingIds.length > 0) {
-        this.sendChanged('track-missing', missingIds, confirmedMissing)
-      }
-    }
-  }
-
-  private async importWithRetry(filePaths: string[]): Promise<void> {
-    for (const filePath of filePaths) this.inFlightFilePaths.add(filePath)
-    try {
-      const result = await this.incrementalImportService.importFiles(filePaths)
-
-      // Release in-flight and drain deferred for imported files
-      for (const filePath of result.imported) {
-        this.unstableRetries.delete(filePath)
-        this.releaseInFlight(filePath)
-      }
-
-      // Release in-flight and drain deferred for permanently failed files
-      for (const failure of result.failed) {
-        this.unstableRetries.delete(failure.filePath)
-        this.releaseInFlight(failure.filePath)
-      }
-
-      // Handle unstable files: release in-flight first, then requeue for retry
-      if (result.unstable.length > 0) {
-        for (const filePath of result.unstable) {
-          // Release in-flight before requeue so the next flush won't defer it
-          this.inFlightFilePaths.delete(filePath)
-
-          const retries = (this.unstableRetries.get(filePath) ?? 0) + 1
-
-          if (retries >= MAX_UNSTABLE_RETRIES) {
-            this.unstableRetries.delete(filePath)
-            this.drainDeferred(filePath)
-            logger.warn({ filePath, retries }, 'Dropping unstable file after max retries')
-          } else {
-            this.unstableRetries.set(filePath, retries)
-            this.pendingFilePaths.set(filePath, Date.now())
-          }
-        }
-
-        this.scheduleFlush(UNSTABLE_RETRY_DELAY_MS)
-      }
-    } catch (error) {
-      // Release all in-flight on unexpected error and drain deferred
-      for (const filePath of filePaths) {
-        this.releaseInFlight(filePath)
-      }
-      logger.warn({ error, count: filePaths.length }, 'Incremental import failed')
-    }
-  }
-
-  /**
-   * Release a path from in-flight and re-add any deferred events for it to pending.
-   */
-  private releaseInFlight(filePath: string): void {
-    this.inFlightFilePaths.delete(filePath)
-    this.drainDeferred(filePath)
-  }
-
-  /**
-   * If a path was deferred while in-flight, move it to pending and schedule a flush.
-   */
-  private drainDeferred(filePath: string): void {
-    if (this.deferredFilePaths.delete(filePath)) {
-      this.pendingFilePaths.set(filePath, Date.now())
-      this.scheduleFlush()
-    }
-  }
-
   private requeuePaths(filePaths: string[]): void {
     for (const filePath of filePaths) {
       this.pendingFilePaths.set(filePath, Date.now())
     }
-  }
-
-  private sendChanged(
-    reason: 'track-missing' | 'track-restored' | 'track-relocated',
-    trackIds: number[],
-    filePaths: string[],
-  ): void {
-    this.sendToRenderer('library:changed', {
-      reason,
-      trackIds,
-      filePaths,
-    })
   }
 }
