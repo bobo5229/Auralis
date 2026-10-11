@@ -44,8 +44,6 @@ vi.mock('@renderer/features/appearance/composables/useMotionPreference', () => (
 }))
 vi.mock('./ThemeAccentSettings.vue', () => ({ default: { render: () => null } }))
 vi.mock('./ChineseTextSettings.vue', () => ({ default: { render: () => null } }))
-vi.mock('./SongFontWeightSettings.vue', () => ({ default: { render: () => null } }))
-vi.mock('./AlbumListParameterSettings.vue', () => ({ default: { render: () => null } }))
 
 class TestNode {
   parent: TestNode | null = null

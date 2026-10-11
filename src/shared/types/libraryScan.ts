@@ -53,6 +53,8 @@ export interface LibraryScanProgress {
 }
 
 export interface ScannedTrack {
+  /** Actual audio codec; older internal worker payloads may omit it. */
+  codec?: string | null
   /** Version used by the worker, committed only with successful full metadata writes. */
   metadataParserVersion?: string
   filePath: string

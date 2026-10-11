@@ -17,8 +17,6 @@ import {
   type PlayingIconPreset,
 } from '@renderer/features/appearance/composables/usePlayingIconPreference'
 import SettingsSelect from './SettingsSelect.vue'
-import SongFontWeightSettings from './SongFontWeightSettings.vue'
-import AlbumListParameterSettings from './AlbumListParameterSettings.vue'
 import ThemeAccentSettings from './ThemeAccentSettings.vue'
 import ChineseTextSettings from './ChineseTextSettings.vue'
 import LyricsEffectsSettings from './LyricsEffectsSettings.vue'
@@ -377,7 +375,5 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
     <LyricsEffectsSettings />
     <WindowBehaviorSettings />
     <ChineseTextSettings />
-    <SongFontWeightSettings />
-    <AlbumListParameterSettings />
   </section>
 </template>

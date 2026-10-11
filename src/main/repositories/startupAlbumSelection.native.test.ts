@@ -4,8 +4,7 @@ import type Database from 'better-sqlite3'
 import { migrateDatabase } from '../database/schema'
 import { TrackQueryRepository } from './trackQueryRepository'
 import { TrackRepository } from './trackRepository'
-import { LibraryRepository } from './libraryRepository'
-import { LibraryService } from '../services/libraryService'
+import { queryStartupAlbum } from '../features/startupAlbum/startupAlbumQuery'
 
 const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as new (
   path: string,
@@ -43,7 +42,7 @@ it('excludes the previous playable album, returns ordered tracks, and permits a 
   }
 })
 
-it('aggregates only available tracks by displayed album identity and uses the startup service', () => {
+it('aggregates only available tracks by displayed album identity and uses the worker query', () => {
   const db = new DatabaseCtor(':memory:')
   try {
     migrateDatabase(db)
@@ -78,23 +77,22 @@ it('aggregates only available tracks by displayed album identity and uses the st
         lastPlayedAt: '2026-10-09T12:00:00.000Z',
       },
     ])
-    const service = new LibraryService(new LibraryRepository(db), tracks)
     const random = vi.spyOn(Math, 'random')
     try {
       // The same draw chooses the less-played A in discovery and B in uniform mode.
       random.mockReturnValueOnce(0).mockReturnValueOnce(0.5)
-      expect(service.getStartupAlbumTracks()?.album).toBe('A')
+      expect(queryStartupAlbum(db)?.album).toBe('A')
       random.mockReturnValueOnce(0.9).mockReturnValueOnce(0.5)
-      expect(service.getStartupAlbumTracks()?.album).toBe('B')
+      expect(queryStartupAlbum(db)?.album).toBe('B')
     } finally {
       random.mockRestore()
     }
-    const selected = service.getStartupAlbumTracks([{ albumArtist: 'Band', album: 'B' }])
+    const selected = queryStartupAlbum(db, [{ albumArtist: 'Band', album: 'B' }])
     expect(selected?.album).toBe('A')
     expect(selected?.tracks.map((track) => track.title)).toEqual(['A first', 'A second'])
     // Tiny collections release the oldest shown album and still return its complete playable list.
     expect(
-      service.getStartupAlbumTracks([
+      queryStartupAlbum(db, [
         { albumArtist: 'Artist', album: 'A' },
         { albumArtist: 'Band', album: 'B' },
       ])?.album,
@@ -104,7 +102,7 @@ it('aggregates only available tracks by displayed album identity and uses the st
       VALUES (2, 1, '2026-09-30T23:00:00-14:00')`)
     expect(tracks.getStartupAlbumCandidates()[0].lastPlayedAt).toBe('2026-10-01T13:00:00.000Z')
     db.exec("UPDATE tracks SET availability = 'missing'")
-    expect(service.getStartupAlbumTracks()).toBeNull()
+    expect(queryStartupAlbum(db)).toBeNull()
   } finally {
     db.close()
   }

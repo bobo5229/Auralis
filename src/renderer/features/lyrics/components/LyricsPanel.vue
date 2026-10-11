@@ -130,6 +130,7 @@ watch(
 
       <SyncedLyricsView
         v-else-if="status === 'lrc'"
+        :active="active"
         :lines="parsedLines"
         :active-index="activeIndex"
         :is-prelude="isPrelude"

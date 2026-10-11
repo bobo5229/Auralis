@@ -16,12 +16,11 @@ import { DEFAULT_RECENT_ADDED_DAYS } from '@shared/smartPlaylists/recentAdded'
 import { useRoute } from 'vue-router'
 import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import SmartPlaylistBuilderDialog from '@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue'
-import { useLibraryScanStart } from '@renderer/features/library/composables/useLibraryScanStart'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
-import { useTheme } from '@renderer/composables/useTheme'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
+import { usePageParameters } from '@renderer/features/appearance/composables/usePageParameters'
 import { preloadSettingsContent } from '@renderer/features/settings/utils/settingsContentLoader'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
@@ -31,6 +30,8 @@ import { resolveRestorableFocusTarget } from '../utils/sidebarModalFocus'
 import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
 import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
 import { createSidebarLibraryLoader } from '../utils/sidebarLibraryLoader'
+import { useSidebarLibraryStatus } from '../composables/useSidebarLibraryStatus'
+import { SIDEBAR_FLAVOR_KEYS, useSidebarFlavor } from '../composables/useSidebarFlavor'
 import { animateTrashLid } from '@renderer/shared/animation/motion'
 import PlaylistIcon from './PlaylistIcon.vue'
 import SidebarIcon, { type SidebarIconKind } from './SidebarIcon.vue'
@@ -41,6 +42,17 @@ const router = useRouter()
 const playback = usePlayback()
 const { displayMode } = usePlayerDisplayMode()
 const { isSettingsOpen, openSettings } = useSettingsDialog()
+const pageParameters = usePageParameters()
+const canOpenPageParameters = computed(() =>
+  Boolean(pageParameters?.supported.value && pageParameters.context.value),
+)
+const pageParametersLabel = computed(() =>
+  t(
+    canOpenPageParameters.value
+      ? 'sidebar.tool.pageParameters'
+      : 'sidebar.tool.pageParametersUnavailable',
+  ),
+)
 const { sidebarFullHeight, sidebarCollapsed, setSidebarCollapsed } = useSidebarLayout()
 /** 收起图标栏仅在全高布局生效；悬浮布局始终展示完整侧栏。 */
 const isRail = computed(() => sidebarFullHeight.value && sidebarCollapsed.value)
@@ -50,9 +62,13 @@ function toggleSidebarCollapsed(): void {
   setSidebarCollapsed(!sidebarCollapsed.value)
 }
 const isFacetsDialogOpen = ref(false)
-const { isStartingLibraryRefresh, refreshLibrary } = useLibraryScanStart({
-  getLibraryRoots: () => auralis.library.getRoots(),
-  startLibraryScan: (rootId) => auralis.library.startScan(rootId),
+const libraryStatus = useSidebarLibraryStatus(auralis.library)
+const { isRefreshing, refreshLibrary } = libraryStatus
+const libraryStatusLabel = computed(() =>
+  t(`sidebar.status.${libraryStatus.status.value}`, libraryStatus.counts.value),
+)
+watch(isSettingsOpen, (open, wasOpen) => {
+  if (wasOpen && !open) void libraryStatus.reload()
 })
 
 const playlistItems = ref<SidebarPlaylistItem[]>([])
@@ -69,6 +85,17 @@ const smartPlaylistKinds = computed(
     ),
 )
 const libraryStats = ref<LibraryStats>({ trackCount: 0, albumCount: 0 })
+const isFlavorHovered = ref(false)
+const isFlavorFocused = ref(false)
+const flavor = useSidebarFlavor(
+  computed(() => !isRail.value),
+  computed(() => isFlavorHovered.value || isFlavorFocused.value),
+)
+const flavorValues = computed(() => ({ count: libraryStats.value.trackCount }))
+const flavorLabel = computed(() => t(`sidebar.flavor.${flavor.key.value}`, flavorValues.value))
+const flavorSizingLabels = computed(() =>
+  SIDEBAR_FLAVOR_KEYS.map((key) => t(`sidebar.flavor.${key}`, flavorValues.value)),
+)
 const sidebarLibraryLoader = createSidebarLibraryLoader({
   playlistItems,
   smartPlaylists,
@@ -172,14 +199,6 @@ let pendingNavCleanup: (() => void) | null = null
 const POINTER_MOVE_TOLERANCE = 6
 
 const { t, locale } = useI18n()
-const { isDark, toggleTheme } = useTheme()
-const themeToggleLabel = computed(() =>
-  t(isDark.value ? 'sidebar.tool.themeToLight' : 'sidebar.tool.themeToDark'),
-)
-
-function onToggleTheme(): void {
-  void toggleTheme()
-}
 
 const activePath = ref(route.path)
 
@@ -994,60 +1013,93 @@ onBeforeUnmount(() => {
       </section>
     </nav>
     <footer class="sidebar-footer">
-      <div class="sidebar-tools-grid" role="toolbar" :aria-label="t('sidebar.toolbarAria')">
-        <button
-          v-tooltip.fast="t('sidebar.tool.facetsPanel')"
-          class="sidebar-tool-button"
-          type="button"
-          :aria-label="t('sidebar.tool.facetsPanel')"
-          @click="isFacetsDialogOpen = true"
+      <div class="sidebar-footer-top">
+        <div
+          class="sidebar-library-status"
+          :data-tone="libraryStatus.tone.value"
+          role="status"
+          :aria-label="libraryStatusLabel"
+          tabindex="0"
+          @pointerenter="isFlavorHovered = true"
+          @pointerleave="isFlavorHovered = false"
+          @focusin="isFlavorFocused = true"
+          @focusout="isFlavorFocused = false"
         >
-          <SidebarIcon kind="filters" />
-        </button>
-        <button
-          v-tooltip.fast="
-            isStartingLibraryRefresh
-              ? t('sidebar.tool.refreshBusy')
-              : t('sidebar.tool.refreshAction')
-          "
-          class="sidebar-tool-button"
-          type="button"
-          :aria-label="
-            isStartingLibraryRefresh
-              ? t('sidebar.tool.refreshBusy')
-              : t('sidebar.tool.refreshAction')
-          "
-          :disabled="isStartingLibraryRefresh"
-          :aria-busy="isStartingLibraryRefresh"
-          @click="refreshLibrary"
-        >
-          <SidebarIcon kind="refresh" :class="{ 'animate-spin': isStartingLibraryRefresh }" />
-        </button>
-        <button
-          v-tooltip.fast="themeToggleLabel"
-          class="sidebar-tool-button"
-          type="button"
-          :aria-label="themeToggleLabel"
-          @click="onToggleTheme"
-        >
-          <SidebarIcon :kind="isDark ? 'sun' : 'moon'" />
-        </button>
-        <button
-          v-tooltip.fast="t('sidebar.tool.settings')"
-          type="button"
-          class="sidebar-tool-button"
-          :class="{ 'sidebar-tool-button-active': isSettingsOpen }"
-          :aria-label="t('sidebar.tool.settings')"
-          aria-haspopup="dialog"
-          :aria-expanded="isSettingsOpen"
-          data-settings-trigger
-          @pointerenter="preloadSettingsContent"
-          @focusin="preloadSettingsContent"
-          @click="openSettings()"
-        >
-          <SidebarIcon kind="settings" />
-        </button>
+          <span class="sidebar-status-dot" aria-hidden="true"></span>
+          <span v-if="!isRail" class="sidebar-status-label auralis-type-caption" aria-hidden="true">
+            <span
+              v-for="(label, index) in flavorSizingLabels"
+              :key="index"
+              class="sidebar-flavor-sizer"
+              >{{ label }}</span
+            >
+            <span class="sidebar-flavor-text">{{ flavorLabel }}</span>
+          </span>
+          <span class="sr-only">{{ libraryStatusLabel }}</span>
+        </div>
+        <div class="sidebar-tools-grid" role="group" :aria-label="t('sidebar.toolbarAria')">
+          <button
+            v-tooltip.fast="
+              isRefreshing ? t('sidebar.tool.refreshBusy') : t('sidebar.tool.refreshAction')
+            "
+            class="sidebar-tool-button"
+            type="button"
+            :aria-label="
+              isRefreshing ? t('sidebar.tool.refreshBusy') : t('sidebar.tool.refreshAction')
+            "
+            :disabled="isRefreshing"
+            :aria-busy="isRefreshing"
+            @click="refreshLibrary"
+          >
+            <SidebarIcon kind="refresh" :class="{ 'animate-spin': isRefreshing }" />
+          </button>
+          <button
+            v-tooltip.fast="pageParametersLabel"
+            type="button"
+            class="sidebar-tool-button"
+            :class="{ 'sidebar-tool-button-active': pageParameters?.open.value }"
+            :aria-label="pageParametersLabel"
+            :aria-disabled="!canOpenPageParameters"
+            aria-haspopup="dialog"
+            :aria-expanded="pageParameters?.open.value ?? false"
+            aria-controls="page-parameter-panel"
+            data-page-parameters-trigger
+            @click="
+              canOpenPageParameters && pageParameters?.toggle($event.currentTarget as HTMLElement)
+            "
+          >
+            <SidebarIcon kind="parameters" />
+          </button>
+          <button
+            v-tooltip.fast="t('sidebar.tool.facetsPanel')"
+            class="sidebar-tool-button"
+            type="button"
+            :aria-label="t('sidebar.tool.facetsPanel')"
+            @click="isFacetsDialogOpen = true"
+          >
+            <SidebarIcon kind="filters" />
+          </button>
+        </div>
       </div>
+      <button
+        v-tooltip.fast="isRail ? t('sidebar.tool.settings') : ''"
+        type="button"
+        class="sidebar-tool-button sidebar-settings-button"
+        :class="{ 'sidebar-tool-button-active': isSettingsOpen }"
+        :aria-label="t('sidebar.tool.settings')"
+        aria-haspopup="dialog"
+        :aria-expanded="isSettingsOpen"
+        data-settings-trigger
+        @pointerenter="preloadSettingsContent"
+        @focusin="preloadSettingsContent"
+        @click="openSettings()"
+      >
+        <span class="sidebar-settings-icon"><SidebarIcon kind="settings" /></span>
+        <span class="sidebar-settings-label auralis-type-control">{{
+          t('sidebar.tool.settings')
+        }}</span>
+        <span class="sidebar-settings-shortcut" aria-hidden="true">⌘,</span>
+      </button>
     </footer>
     <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
       {{ reorderAnnouncement ? t('sidebar.reorderAnnouncement', reorderAnnouncement) : '' }}

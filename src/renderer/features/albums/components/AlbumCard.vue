@@ -16,7 +16,6 @@ const props = defineProps<{
   album: AlbumSummary
   highlighted?: boolean
   longPressEnabled?: boolean
-  artworkUrl?: string
 }>()
 
 const { t } = useI18n()
@@ -30,7 +29,6 @@ const displayAlbumArtist = computed(() =>
     : songValues(props.album.albumArtist),
 )
 const artworkCacheKey = computed(() => props.album.artworkCacheKey)
-const artworkUrl = computed(() => props.artworkUrl ?? getArtworkUrl(props.album.artworkCacheKey))
 const { palette } = useArtworkPalette(artworkCacheKey)
 const playButtonStyle = computed(() => {
   const color =
@@ -173,8 +171,8 @@ function onContextMenu(event: MouseEvent): void {
       >
         <div class="cover-frame">
           <img
-            v-if="artworkUrl && !imageFailed"
-            :src="artworkUrl"
+            v-if="album.artworkCacheKey && !imageFailed"
+            :src="getArtworkUrl(album.artworkCacheKey) ?? undefined"
             :alt="t('albums.a11y.coverAlt', { title: displayAlbumTitle })"
             class="cover-img"
             loading="lazy"

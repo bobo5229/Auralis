@@ -14,6 +14,7 @@ import VirtualAlbumTrackList from './VirtualAlbumTrackList.vue'
 import {
   getAlbumCoverColumnHeight,
   LIBRARY_LAYOUT_METRICS,
+  type CoverMetadataLayout,
 } from '../constants/libraryLayoutMetrics'
 
 const props = withDefaults(
@@ -27,6 +28,7 @@ const props = withDefaults(
     viewportHeight?: number
     scrollElement?: HTMLElement | null
     startOffset?: number
+    metadataLayout?: Readonly<CoverMetadataLayout>
   }>(),
   {
     nowPlayingTrackId: null,
@@ -37,6 +39,7 @@ const props = withDefaults(
     viewportHeight: 0,
     scrollElement: null,
     startOffset: 0,
+    metadataLayout: undefined,
   },
 )
 
@@ -63,7 +66,7 @@ const discHeadings = computed(() => getAlbumCoverTrackDiscHeadings(props.group.t
 const canStickAside = computed(
   () =>
     props.viewportHeight >=
-    getAlbumCoverColumnHeight(Boolean(props.group.releaseDate)) +
+    getAlbumCoverColumnHeight(Boolean(props.group.releaseDate), props.metadataLayout) +
       LIBRARY_LAYOUT_METRICS.coverStickyTopInset,
 )
 
@@ -145,11 +148,10 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
           {{ songText(group.album) || t('library.unknownAlbum') }}
         </p>
         <p
-          class="album-cover-meta-line album-cover-meta-artist flex items-center justify-between gap-2 min-w-0"
+          v-tooltip.overflow="songValues(group.albumArtist)"
+          class="album-cover-meta-line album-cover-meta-artist min-w-0 truncate"
         >
-          <span v-tooltip.overflow="songValues(group.albumArtist)" class="truncate">
-            {{ songValues(group.albumArtist) }}
-          </span>
+          {{ songValues(group.albumArtist) }}
         </p>
         <p v-if="group.releaseDate" class="album-cover-meta-line album-cover-meta-date truncate">
           {{ group.releaseDate }}
@@ -220,19 +222,37 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 .album-cover-meta-title {
   font-weight: var(--auralis-song-cover-album-weight, 700);
   font-size: var(--auralis-song-cover-album-size, 16px);
-  line-height: 20px;
+  line-height: var(--library-cover-meta-album-line-height, var(--library-cover-meta-line-height));
 }
 
 .album-cover-meta-artist {
   font-weight: var(--auralis-song-cover-album-artist-weight, 600);
   font-size: var(--auralis-song-cover-album-artist-size, 12px);
-  line-height: 20px;
+  line-height: var(--library-cover-meta-artist-line-height, var(--library-cover-meta-line-height));
 }
 
 .album-cover-meta-date {
   font-weight: var(--auralis-song-cover-release-date-weight, 500);
   font-size: var(--auralis-song-cover-release-date-size, 12px);
-  line-height: 20px;
+  line-height: var(--library-cover-meta-date-line-height, var(--library-cover-meta-line-height));
+}
+
+.album-cover-meta {
+  display: flex;
+  flex-direction: column;
+  text-align: var(--library-cover-meta-align, left);
+}
+
+.album-cover-meta > p {
+  margin: 0;
+}
+
+.album-cover-meta > .album-cover-meta-artist {
+  margin-top: var(--library-cover-meta-album-artist-gap);
+}
+
+.album-cover-meta > .album-cover-meta-date {
+  margin-top: var(--library-cover-meta-artist-date-gap);
 }
 
 :deep(.cover-disc-heading) {

@@ -945,6 +945,9 @@ void app
         `localStorage.setItem('auralis-last-startup-album', ${JSON.stringify(JSON.stringify(history[1]))}); localStorage.setItem('auralis-startup-album-history', ${JSON.stringify(JSON.stringify(history))})`,
       )
     }
+    const initialHistory = await seed.webContents.executeJavaScript(
+      "localStorage.getItem('auralis-startup-album-history')",
+    )
     seed.destroy()
     const win = createWindow()
     win.webContents.on('console-message', (event) => {
@@ -959,6 +962,44 @@ void app
       win.webContents.once('did-finish-load', () => resolve()),
     )
     void loaded
+    // Observe the real card draw and storage boundary before the splash ends.
+    // A mounted button or an empty scene frame is not an actual presentation.
+    await win.webContents.executeJavaScript(`(() => {
+      window.__fixtureCardDraws = 0;
+      window.__fixtureShownWrites = [];
+      for (const name of ['drawArrays', 'drawElements']) {
+        const draw = WebGL2RenderingContext.prototype[name];
+        WebGL2RenderingContext.prototype[name] = function(...args) {
+          const result = Reflect.apply(draw, this, args);
+          const program = this.getParameter(this.CURRENT_PROGRAM);
+          if (program && !this.isContextLost() && this.getUniformLocation(program, 'uCardFinish'))
+            window.__fixtureCardDraws++;
+          return result;
+        };
+      }
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === 'auralis-startup-album-history') {
+          const card = document.querySelector('.startup-album-static');
+          const image = card?.querySelector('img');
+          const staticReady = Boolean(card && card.getBoundingClientRect().width > 0 &&
+            (!card.classList.contains('has-artwork') || image?.complete && image.naturalWidth > 0));
+          window.__fixtureShownWrites.push({cardDraws: window.__fixtureCardDraws, staticReady});
+        }
+        return Reflect.apply(setItem, this, [key, value]);
+      };
+    })()`)
+    if (testCase === 'first-frame-cancel')
+      await win.webContents.executeJavaScript(`(() => {
+        const observer = new MutationObserver(() => {
+          const overlay = document.querySelector('.startup-album-overlay');
+          if (!overlay) return;
+          observer.disconnect();
+          window.__fixtureCancelledBeforeDraw = window.__fixtureCardDraws === 0;
+          overlay.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+        });
+        observer.observe(document.body, {childList:true, subtree:true});
+      })()`)
     if (testCase === 'fallback' || testCase === 'play-fallback')
       await win.webContents.executeJavaScript(
         `void (HTMLCanvasElement.prototype.getContext = new Proxy(HTMLCanvasElement.prototype.getContext, {apply(target, self, args) { return self.dataset.engine?.startsWith('three.js') && String(args[0]).startsWith('webgl') ? null : Reflect.apply(target, self, args) }}))`,
@@ -1045,6 +1086,19 @@ void app
         ),
         'Interrupted welcome displayed or remembered an album',
       )
+    } else if (testCase === 'first-frame-cancel') {
+      await wait(win, 'window.__fixtureCancelledBeforeDraw === true')
+      await wait(win, "!document.querySelector('.startup-album-overlay')")
+      await pause(250)
+      assert(
+        await win.webContents.executeJavaScript(
+          `window.__fixtureShownWrites.length === 0 && window.__fixtureCardDraws === 0 &&
+            localStorage.getItem('auralis-startup-album-history') === ${JSON.stringify(initialHistory)} &&
+            localStorage.getItem('auralis-last-startup-album') === ${JSON.stringify(previous)} &&
+            !document.querySelector('.app-window').inert`,
+        ),
+        'Cancelling before the first card frame wrote presentation history or left the page locked',
+      )
     } else if (testCase === 'disabled' || testCase === 'empty') {
       await wait(win, 'window.__auralisSplashFinished === true')
       await pause(1500)
@@ -1069,6 +1123,13 @@ void app
         'Startup actions contain removed copy or controls',
       )
       const firstSeen = Date.now()
+      await wait(win, 'window.__fixtureShownWrites.length === 1')
+      assert(
+        await win.webContents.executeJavaScript(
+          'window.__fixtureShownWrites[0].cardDraws > 0 || window.__fixtureShownWrites[0].staticReady',
+        ),
+        'Presentation history was written before a WebGL card draw or a loaded static card',
+      )
       const shownHistory = await win.webContents.executeJavaScript(
         "localStorage.getItem('auralis-startup-album-history')",
       )
@@ -1121,6 +1182,26 @@ void app
         win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Tab' })
         win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Tab' })
         await wait(win, 'document.activeElement?.hasAttribute("data-startup-skip")')
+        for (const selector of ['[data-startup-skip]', '[data-startup-play]']) {
+          if (selector === '[data-startup-play]') {
+            win.webContents.sendInputEvent({
+              type: 'keyDown',
+              keyCode: 'Tab',
+              modifiers: ['shift'],
+            })
+            win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Tab', modifiers: ['shift'] })
+          }
+          await wait(win, `document.activeElement?.matches(${JSON.stringify(selector)})`)
+          assert(
+            await win.webContents.executeJavaScript(`(() => {
+              const button = document.querySelector(${JSON.stringify(selector)});
+              const style = getComputedStyle(button);
+              return button.matches(':focus-visible') && style.outlineStyle !== 'none' &&
+                parseFloat(style.outlineWidth) >= 2 && style.outlineColor !== 'rgba(0, 0, 0, 0)';
+            })()`),
+            `Missing visible keyboard focus: ${selector}`,
+          )
+        }
         await pause(1600)
         await capture(win, 'simplified-actions')
         win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Escape' })
@@ -1235,7 +1316,16 @@ void app
         "localStorage.getItem('auralis-startup-album-history')",
       )
       assert(savedHistory === shownHistory, 'Closing or skipping changed presentation history')
+      assert(
+        await win.webContents.executeJavaScript('window.__fixtureShownWrites.length === 1'),
+        'Context restoration or exit recorded the same presentation again',
+      )
       const history = JSON.parse(savedHistory)
+      for (const entry of [...history, JSON.parse(current)])
+        assert(
+          Object.keys(entry).sort().join(',') === 'album,albumArtist',
+          'Presentation preferences contain fields beyond the album identity',
+        )
       assert(
         history.length <= 10 && JSON.stringify(history[0]) === current,
         'Presentation history is unbounded or does not start with the shown album',

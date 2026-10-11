@@ -260,6 +260,7 @@ export class LibraryIncrementalImportService {
           discNo: normalized.discNo,
           durationSeconds: normalized.durationSeconds,
           bitrateBps: normalized.bitrateBps,
+          codec: normalized.codec,
           year: normalized.year,
           releaseDate: normalized.releaseDate,
           copyright: normalized.copyright,

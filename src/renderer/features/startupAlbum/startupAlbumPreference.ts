@@ -51,6 +51,9 @@ export function rememberStartupAlbum(
   album: AlbumKey,
 ): void {
   try {
+    // Callers may pass an album result containing tracks and local file paths.
+    // Persist the identity explicitly at this boundary, including the legacy key.
+    const identity: AlbumKey = { albumArtist: album.albumArtist, album: album.album }
     const history = storage?.getItem
       ? readStartupAlbumHistory({ getItem: storage.getItem.bind(storage) })
       : []
@@ -59,10 +62,10 @@ export function rememberStartupAlbum(
     )
     storage?.setItem(
       STARTUP_ALBUM_HISTORY_KEY,
-      JSON.stringify([album, ...previous].slice(0, STARTUP_ALBUM_HISTORY_LIMIT)),
+      JSON.stringify([identity, ...previous].slice(0, STARTUP_ALBUM_HISTORY_LIMIT)),
     )
     // Retained for older app versions and migration from their single-entry preference.
-    storage?.setItem(LAST_STARTUP_ALBUM_KEY, JSON.stringify(album))
+    storage?.setItem(LAST_STARTUP_ALBUM_KEY, JSON.stringify(identity))
   } catch {
     /* Session remains usable. */
   }

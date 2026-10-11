@@ -16,6 +16,8 @@ export interface TrackForMetadataRefresh {
 }
 
 export interface RefreshedTrackMetadata {
+  /** Actual audio codec; older internal worker payloads may omit it. */
+  codec?: string | null
   metadataParserVersion?: string
   sourceFilePath: string
   fileSize: number

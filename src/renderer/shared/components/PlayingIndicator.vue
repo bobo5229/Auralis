@@ -1,24 +1,17 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { usePlayingIconPreference } from '@renderer/features/appearance/composables/usePlayingIconPreference'
 import { animatePlaybackBars, animatePlaybackBlocks } from '@renderer/shared/animation/motion'
+import { useWindowVisibility } from '@renderer/shared/animation/useWindowVisibility'
 
-const props = withDefaults(defineProps<{ playing: boolean; size?: number }>(), { size: 14 })
+const props = defineProps<{ playing: boolean; size?: number }>()
 const { playingIcon } = usePlayingIconPreference()
 const element = ref<SVGSVGElement | null>(null)
-const visible = ref(typeof document === 'undefined' || !document.hidden)
+const visible = useWindowVisibility()
 const blocks = Array.from({ length: 9 }, (_, index) => ({
   x: 1 + (index % 3) * 7.33,
   y: 1 + Math.floor(index / 3) * 7.33,
 }))
-function updateVisibility(): void {
-  visible.value = !document.hidden
-}
-onMounted(() => {
-  updateVisibility()
-  document.addEventListener('visibilitychange', updateVisibility)
-})
-onBeforeUnmount(() => document.removeEventListener('visibilitychange', updateVisibility))
 watch(
   [element, playingIcon, () => props.playing, visible],
   (_, __, onCleanup) => {
@@ -37,7 +30,10 @@ watch(
     ref="element"
     class="playing-indicator"
     :data-preset="playingIcon"
-    :style="{ width: `${size}px`, height: `${size}px` }"
+    :style="{
+      width: `${size ?? (playingIcon === 'blocks-wave' ? 12 : 14)}px`,
+      height: `${size ?? (playingIcon === 'blocks-wave' ? 12 : 14)}px`,
+    }"
     :viewBox="playingIcon === 'blocks-wave' ? '0 0 24 24' : '0 0 14 14'"
     aria-hidden="true"
     focusable="false"

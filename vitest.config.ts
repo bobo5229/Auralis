@@ -25,6 +25,8 @@ export default defineConfig({
         '**/FullscreenBackgroundControls.test.ts',
         '**/FullscreenLyricsContextMenu.test.ts',
         '**/SyncedLyricsView.test.ts',
+        '**/PlayingIndicator.test.ts',
+        '**/StartupAlbumOverlay.test.ts',
         '**/AppearanceSettings.lyricsScroll.test.ts',
         '**/AppearanceSettings.playingIcon.test.ts',
         '**/SettingsDialog.test.ts',

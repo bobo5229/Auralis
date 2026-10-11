@@ -16,6 +16,9 @@ export default defineConfig({
           'features/metadata/metadataRefreshWorker': resolve(
             'src/main/features/metadata/metadataRefreshWorker.ts',
           ),
+          'features/startupAlbum/startupAlbumWorker': resolve(
+            'src/main/features/startupAlbum/startupAlbumWorker.ts',
+          ),
           'logging/rollingLogTransport': resolve('src/main/logging/rollingLogTransport.ts'),
         },
         external: ['better-sqlite3', 'bindings', 'sharp', 'pino'],
@@ -63,6 +66,9 @@ export default defineConfig({
       },
     },
     build: {
+      minify: 'esbuild',
+      // Keep CSS output unchanged when enabling production JS minification.
+      cssMinify: false,
       rollupOptions: {
         input: {
           index: resolve('src/renderer/index.html'),

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import WindowTrafficLights from '@renderer/app/layout/WindowTrafficLights.vue'
 import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
@@ -30,8 +30,13 @@ const modalOpen = ref(true)
 const fading = ref(false)
 const fallback = ref(false)
 const staticArtwork = ref<string | null>(null)
+const staticArtworkReady = ref(false)
 let scene: ReturnType<typeof createCardScene> | undefined
 let unmounted = false
+let shown = false
+let windowVisible = false
+let staticFrame = 0
+let staticRevision = 0
 let unsubscribeVisibility: (() => void) | undefined
 let fadeTimer: ReturnType<typeof setTimeout> | undefined
 const album = props.presentation.album
@@ -86,12 +91,55 @@ function close(): void {
   modalOpen.value = false
   clearTimeout(fadeTimer)
   fadeTimer = undefined
+  cancelStaticShown()
   dispose()
   emit('close')
 }
 function revealBackdrop(): void {
   if (interactive.value && modalOpen.value) backdropRevealed.value = true
 }
+function canRecordShown(): boolean {
+  return (
+    !shown &&
+    !unmounted &&
+    interactive.value &&
+    modalOpen.value &&
+    windowVisible &&
+    !document.hidden
+  )
+}
+function recordShown(): void {
+  if (!canRecordShown()) return
+  shown = true
+  revealBackdrop()
+  emit('shown')
+}
+function cancelStaticShown(): void {
+  staticRevision++
+  if (staticFrame) cancelAnimationFrame(staticFrame)
+  staticFrame = 0
+}
+function queueStaticShown(): void {
+  cancelStaticShown()
+  if (!fallback.value || (staticArtwork.value && !staticArtworkReady.value) || !canRecordShown())
+    return
+  const revision = staticRevision
+  void nextTick().then(() => {
+    if (revision !== staticRevision || !canRecordShown()) return
+    // DOM insertion and PNG decoding alone are not a displayed card. Allow a
+    // paint before recording the static fallback, and cancel if it exits first.
+    staticFrame = requestAnimationFrame(() => {
+      staticFrame = requestAnimationFrame(() => {
+        staticFrame = 0
+        if (revision === staticRevision && fallback.value) recordShown()
+      })
+    })
+  })
+}
+function documentVisibilityChanged(): void {
+  queueStaticShown()
+}
+watch([fallback, staticArtwork, staticArtworkReady], queueStaticShown, { flush: 'post' })
 function freezeBackdrop(): void {
   if (backdrop.value) backdrop.value.style.opacity = getComputedStyle(backdrop.value).opacity
 }
@@ -102,7 +150,6 @@ function play(): void {
   root.value?.focus({ preventScroll: true })
   void playback
     .playTrackFromQueue(album.tracks, album.tracks[0].id, {
-      playbackMode: 'sequential',
       replaceHistory: true,
     })
     .catch((cause: unknown) =>
@@ -177,21 +224,50 @@ useOverlayFocusTrap({
   },
 })
 onMounted(async () => {
+  let visibilityRevision = 0
+  unsubscribeVisibility = auralis.window.onVisibilityChanged(({ isVisible }) => {
+    visibilityRevision++
+    windowVisible = isVisible
+    if (!isVisible && !interactive.value) {
+      close()
+      return
+    }
+    scene?.setVisible(isVisible)
+    queueStaticShown()
+  })
+  const revision = visibilityRevision
+  const visibilityReady = auralis.window
+    .getVisibility()
+    .then(({ isVisible }) => {
+      if (!unmounted && revision === visibilityRevision) windowVisible = isVisible
+    })
+    .catch(() => {
+      if (!unmounted && revision === visibilityRevision) windowVisible = !document.hidden
+    })
+  document.addEventListener('visibilitychange', documentVisibilityChanged)
   await nextTick()
   // Establish the transparent starting style before the first card frame.
   if (backdrop.value) getComputedStyle(backdrop.value).getPropertyValue('opacity')
-  await loadCardFonts(title.value, artist.value)
+  await Promise.all([loadCardFonts(title.value, artist.value), visibilityReady])
   if (unmounted || !interactive.value) return
   try {
     if (!props.presentation.createScene || !host.value)
       throw new Error('WebGL card renderer unavailable')
+    let renderedFrames = 0
     scene = props.presentation.createScene(
       host.value,
       (value) => {
         if (value.disposed) return
         // The initial scene frames can be empty while the card is below the
         // viewport. Begin after its first draw, with cold shaders prepared.
-        if (value.cardRendered) revealBackdrop()
+        const drewFrame = value.frames > renderedFrames
+        renderedFrames = value.frames
+        if (drewFrame && value.cardRendered && !value.contextLost) {
+          // Context restoration can make the canvas visible on this Vue update.
+          void nextTick().then(() => {
+            if (!fallback.value) recordShown()
+          })
+        }
         if (value.dropping) {
           const fade = Math.min(1, value.dropProgress / (450 / 1200))
           root.value?.style.setProperty(
@@ -213,41 +289,24 @@ onMounted(async () => {
       createReducedMotionQuery(),
       appearance,
     )
-    let visibilityRevision = 0
-    unsubscribeVisibility = auralis.window.onVisibilityChanged(({ isVisible }) => {
-      visibilityRevision++
-      if (!isVisible && !interactive.value) {
-        close()
-        return
-      }
-      scene?.setVisible(isVisible)
-    })
-    const revision = visibilityRevision
-    void auralis.window
-      .getVisibility()
-      .then(({ isVisible }) => {
-        if (revision === visibilityRevision) scene?.setVisible(isVisible)
-      })
-      .catch(() => {
-        /* DOM visibility remains a fallback. */
-      })
+    scene.setVisible(windowVisible)
   } catch (cause) {
     prepareStaticArtwork()
     dispose()
     host.value?.replaceChildren()
     fallback.value = true
-    revealBackdrop()
     rendererDiagnostics.warn({
       scope: 'startup.album.render',
       message: 'Using static startup album card',
       cause,
     })
   }
-  emit('shown')
 })
 onBeforeUnmount(() => {
   unmounted = true
   clearTimeout(fadeTimer)
+  cancelStaticShown()
+  document.removeEventListener('visibilitychange', documentVisibilityChanged)
   unsubscribeVisibility?.()
   dispose()
 })
@@ -277,7 +336,12 @@ onBeforeUnmount(() => {
       <div class="startup-album-stage">
         <div ref="host" class="startup-album-canvas" :class="{ 'is-fallback': fallback }" />
         <div v-if="fallback && staticArtwork" class="startup-album-static has-artwork">
-          <img :src="staticArtwork" alt="" />
+          <img
+            :src="staticArtwork"
+            alt=""
+            @load="staticArtworkReady = true"
+            @error="staticArtwork = null"
+          />
         </div>
         <div v-else-if="fallback" class="startup-album-static" :style="staticCardStyle">
           <h2 :style="{ fontFamily: cardTitleFamily }">{{ title }}</h2>
@@ -397,9 +461,6 @@ onBeforeUnmount(() => {
 .startup-album-controls .startup-album-play {
   background: var(--auralis-control-primary-bg);
   color: var(--auralis-control-primary-text);
-}
-.startup-album-controls .startup-album-play:focus-visible {
-  outline: none;
 }
 .startup-album-static {
   position: absolute;

@@ -7,6 +7,24 @@ const props = defineProps<{ icon: string }>()
 // 使用描边绘制，避免缩放填充图标时同时改变线宽。
 const paths: Record<string, string[]> = {
   'i-ph-arrow-right': ['M3.25 10H16.25', 'M10.5 4.25 16.25 10 10.5 15.75'],
+  'i-ph-repeat': [
+    'M3 8V7.5A3 3 0 0 1 6 4.5H16.5 M13.5 1.5 16.5 4.5 13.5 7.5',
+    'M17 12V12.5A3 3 0 0 1 14 15.5H3.5 M6.5 12.5 3.5 15.5 6.5 18.5',
+  ],
+  'i-ph-repeat-once': [
+    'M3 8V7.5A3 3 0 0 1 6 4.5H16.5 M13.5 1.5 16.5 4.5 13.5 7.5',
+    'M17 12V12.5A3 3 0 0 1 14 15.5H3.5 M6.5 12.5 3.5 15.5 6.5 18.5',
+    'M8.75 9 10.25 8V12',
+  ],
+  'i-ph-shuffle': [
+    'M2.5 5H5Q6.5 5 7.75 7L12.25 13Q13.5 15 15 15H17.5 M15 12.5 17.5 15 15 17.5',
+    'M2.5 15H5Q6.5 15 7.75 13 M12.25 7Q13.5 5 15 5H17.5 M15 2.5 17.5 5 15 7.5',
+  ],
+  'i-ph-vinyl-record': [
+    'M18 10A8 8 0 1 1 2 10A8 8 0 1 1 18 10Z',
+    'M12.5 10A2.5 2.5 0 1 1 7.5 10A2.5 2.5 0 1 1 12.5 10Z',
+    'M5 8A5.4 5.4 0 0 1 8 5 M12 15A5.4 5.4 0 0 0 15 12',
+  ],
   'i-ph-queue': ['M2.5 4.5H16 M2.5 10H9.5 M2.5 15.5H9.5', 'M12.5 9 17.5 12.25 12.5 15.5Z'],
   'i-ph-subtitles': [
     'M3.5 3.75H16.5Q17.5 3.75 17.5 4.75V15.25Q17.5 16.25 16.5 16.25H3.5Q2.5 16.25 2.5 15.25V4.75Q2.5 3.75 3.5 3.75Z',
@@ -35,7 +53,7 @@ const strokes = computed(() => paths[props.icon])
     viewBox="0 0 20 20"
     fill="none"
     stroke="currentColor"
-    stroke-width="1.35"
+    stroke-width="1.6"
     stroke-linecap="round"
     stroke-linejoin="round"
     aria-hidden="true"

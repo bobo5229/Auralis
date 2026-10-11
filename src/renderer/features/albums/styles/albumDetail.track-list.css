@@ -103,10 +103,6 @@
   color: var(--auralis-control-primary-text);
 }
 
-.album-detail-track--playing .album-detail-track-eq i {
-  background: var(--auralis-control-primary-text);
-}
-
 .album-detail-track:hover::before,
 .album-detail-track.album-detail-track--selected::before,
 .album-detail-track.album-detail-track--playing::before,
@@ -156,7 +152,12 @@
 
 .album-detail-track-eq {
   position: absolute;
-  color: var(--auralis-album-detail-accent);
+  color: inherit;
+}
+
+.album-detail-track:has(.album-detail-track-artist)
+  .album-detail-track-eq[data-preset='blocks-wave'] {
+  transform: translateY(calc((var(--album-detail-type-track-meta-line-height) + 3px) / -2));
 }
 
 /* 非播放态 hover：序号 → 播放三角；播放中始终只显示 EQ，避免与三角叠层 */

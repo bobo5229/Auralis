@@ -10,6 +10,8 @@ import { useSettingsDialog } from '@renderer/features/settings/composables/useSe
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { useSongFontWeights } from '@renderer/features/appearance/composables/useSongFontWeights'
 import { useSongFontSizes } from '@renderer/features/appearance/composables/useSongFontSizes'
+import { useSongCoverInfoLayout } from '@renderer/features/appearance/composables/useSongCoverInfoLayout'
+import { usePageParameterSource } from '@renderer/features/appearance/composables/usePageParameters'
 import SongRow from '../components/SongRow.vue'
 import FlatTrackColumnHeader from '../components/FlatTrackColumnHeader.vue'
 import FlatTrackColumnMenu from '../components/FlatTrackColumnMenu.vue'
@@ -22,6 +24,8 @@ import {
   getAlbumGroupEstimatedHeight,
   LIBRARY_LAYOUT_CSS_VARS,
   LIBRARY_LAYOUT_METRICS,
+  DEFAULT_COVER_METADATA_LAYOUT,
+  type CoverMetadataLayout,
 } from '../constants/libraryLayoutMetrics'
 import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryViewMode } from '../types/libraryInteraction'
@@ -71,6 +75,7 @@ const librarySurfaceKind = computed(() => resolveLibrarySurfaceKind(route.name))
 const isLibrarySurface = computed(() => librarySurfaceKind.value !== null)
 const { songFontWeightStyle } = useSongFontWeights()
 const { songFontSizeStyle } = useSongFontSizes()
+const coverInfo = useSongCoverInfoLayout(() => librarySurfaceKind.value === 'library')
 
 const pageIdentity = ref<LibraryPageIdentity | null>(null)
 const showPlayCount = computed(
@@ -122,6 +127,12 @@ function readPersistedViewMode(): LibraryViewMode {
 
 const libraryViewMode = ref<LibraryViewMode>(readPersistedViewMode())
 const isCoverView = computed(() => libraryViewMode.value === 'cover')
+if (instanceRouteName === 'library') {
+  usePageParameterSource(
+    'songs',
+    computed(() => (isCoverView.value ? 'cover' : 'list')),
+  )
+}
 let isPageUnmounted = false
 
 interface FlatColumnMenuState {
@@ -148,6 +159,7 @@ const flatLayoutCssVars = computed<Record<string, string>>(() => ({
 const libraryPageStyle = computed(() => ({
   ...LIBRARY_LAYOUT_CSS_VARS,
   ...flatLayoutCssVars.value,
+  ...coverInfo.style.value,
   ...(librarySurfaceKind.value === 'library'
     ? { ...songFontWeightStyle.value, ...songFontSizeStyle.value }
     : {}),
@@ -176,19 +188,35 @@ const rowVirtualizer = useVirtualizer(
 const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalSize = computed(() => rowVirtualizer.value.getTotalSize())
 
-function getAlbumGroupSize(group: LibraryAlbumGroup): number {
+function getAlbumGroupSize(
+  group: LibraryAlbumGroup,
+  metadataLayout: Readonly<CoverMetadataLayout> = coverInfo.metadataLayout.value,
+): number {
   return getAlbumGroupEstimatedHeight(
     group.tracks.length,
     Boolean(group.releaseDate),
     getAlbumCoverDiscHeadingCount(group.tracks),
+    metadataLayout,
   )
 }
 
 const libraryCatalogViewIndex = computed(() =>
-  createLibraryCatalogViewIndex(tracks.value, getAlbumGroupSize),
+  createLibraryCatalogViewIndex(tracks.value, (group) =>
+    getAlbumGroupSize(group, DEFAULT_COVER_METADATA_LAYOUT),
+  ),
 )
 const albumGroups = computed(() => libraryCatalogViewIndex.value.albumGroups)
-const libraryDerivedIndex = computed(() => libraryCatalogViewIndex.value)
+// Layout changes only rebuild group offsets, rather than regrouping the entire track catalog.
+const libraryDerivedIndex = computed(() => {
+  const index = libraryCatalogViewIndex.value
+  let offset = 0
+  const albumGroupStartOffsets = index.albumGroups.map((group) => {
+    const start = offset
+    offset += getAlbumGroupSize(group)
+    return start
+  })
+  return { ...index, albumGroupStartOffsets }
+})
 
 function getAlbumGroupByTrackId(trackId: number): LibraryAlbumGroup | null {
   const groupIndex = libraryDerivedIndex.value.albumGroupIndexByTrackId.get(trackId)
@@ -311,6 +339,57 @@ watch(
     rowVirtualizer.value.measure()
   },
 )
+
+let coverLayoutRevision = 0
+watch(coverInfo.metadataLayout, async (layout, previousLayout) => {
+  if (
+    Object.keys(layout).every(
+      (key) =>
+        layout[key as keyof CoverMetadataLayout] ===
+        previousLayout[key as keyof CoverMetadataLayout],
+    )
+  )
+    return
+  const revision = ++coverLayoutRevision
+  const container = scrollRef.value
+  const trackSnapshot = tracks.value
+  const generation = viewport.captureScrollGeneration()
+  let targetScrollTop = container?.scrollTop ?? 0
+  // Keep the same album and offset visible when preceding cover columns change height.
+  let previousOffset = COVER_TOP_INSET
+  let nextOffset = COVER_TOP_INSET
+  for (const group of albumGroups.value) {
+    const previousHeight = getAlbumGroupSize(group, previousLayout)
+    const nextHeight = getAlbumGroupSize(group, layout)
+    if (targetScrollTop < previousOffset + previousHeight) {
+      targetScrollTop =
+        nextOffset + Math.max(0, Math.min(targetScrollTop - previousOffset, nextHeight - 1))
+      break
+    }
+    previousOffset += previousHeight
+    nextOffset += nextHeight
+  }
+  if ((container?.scrollTop ?? 0) <= COVER_TOP_INSET) targetScrollTop = container?.scrollTop ?? 0
+  albumVirtualizer.value.measure()
+  await nextTick()
+  if (
+    !container ||
+    !isCoverView.value ||
+    isPageUnmounted ||
+    hasLeftInstanceRoute ||
+    isLoading.value ||
+    isPositioningForegroundViewport.value ||
+    tracks.value !== trackSnapshot ||
+    revision !== coverLayoutRevision ||
+    viewport.isScrollInputCancelled(generation)
+  )
+    return
+  container.scrollTop = Math.min(
+    targetScrollTop,
+    Math.max(0, container.scrollHeight - container.clientHeight),
+  )
+  viewport.scheduleFirstVisibleTrackIndexUpdate()
+})
 
 function onRowFocus(trackId: number): void {
   keyboardFocusTrackId.value = trackId
@@ -1005,6 +1084,7 @@ onBeforeUnmount(() => {
                     :data-first-track-id="albumGroups[virtualGroup.index].tracks[0]?.id"
                     :group="albumGroups[virtualGroup.index]"
                     :viewport-height="coverViewportHeight"
+                    :metadata-layout="coverInfo.metadataLayout.value"
                     :scroll-element="scrollRef"
                     :start-offset="virtualGroup.start + COVER_TOP_INSET"
                     :now-playing-track-id="playback.state.currentTrackId"

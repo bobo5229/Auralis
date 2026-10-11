@@ -13,11 +13,16 @@ import {
   DEFAULT_COVER_ARTWORK_RADIUS,
   useCoverArtworkCorners,
 } from '@renderer/features/appearance/composables/useCoverArtworkCorners'
-import SongFontWeightPreview from './SongFontWeightPreview.vue'
 import SongFontWeightSelect from './SongFontWeightSelect.vue'
 import SongFontSizeInput from './SongFontSizeInput.vue'
 import { useSongFontSizes } from '@renderer/features/appearance/composables/useSongFontSizes'
 import { songFontSizeRange } from '@renderer/features/appearance/constants/songFontSizes'
+import { useSongCoverInfoLayout } from '@renderer/features/appearance/composables/useSongCoverInfoLayout'
+import {
+  COVER_INFO_ALIGNMENTS,
+  COVER_INFO_SPACING_RANGES,
+} from '@renderer/features/appearance/constants/songCoverInfoLayout'
+import SettingsSelect from './SettingsSelect.vue'
 
 const { t } = useI18n()
 const { persistFailed, songFontWeightChoice, setSongFontWeight, resetSongFontWeightView } =
@@ -28,10 +33,34 @@ const {
   setSongFontSize,
   resetSongFontSizeView,
 } = useSongFontSizes()
-const { coverArtworkRounded, setCoverArtworkRounded, coverArtworkRadius, setCoverArtworkRadius } =
-  useCoverArtworkCorners()
+const {
+  coverArtworkRounded,
+  setCoverArtworkRounded,
+  coverArtworkRadius,
+  setCoverArtworkRadius,
+  roundedPersistFailed,
+  radiusPersistFailed,
+} = useCoverArtworkCorners()
 
-const previewView = ref<SongFontWeightView>('list')
+const props = defineProps<{ view: SongFontWeightView; inactive: boolean }>()
+const activeView = computed(() => props.view)
+const coverInfo = useSongCoverInfoLayout()
+const coverInfoPersistFailed = computed(
+  () => activeView.value === 'cover' && coverInfo.persistFailed.value,
+)
+const saveFailed = computed(
+  () =>
+    persistFailed.value ||
+    sizePersistFailed.value ||
+    coverInfoPersistFailed.value ||
+    (activeView.value === 'cover' && (roundedPersistFailed.value || radiusPersistFailed.value)),
+)
+const alignmentOptions = computed(() =>
+  COVER_INFO_ALIGNMENTS.map((value) => ({
+    value,
+    label: t(`pageParameters.coverInfo.${value}`),
+  })),
+)
 const resetAnnounced = ref(false)
 let resetStatusTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -42,43 +71,43 @@ function clearResetStatus(): void {
 }
 
 const activeFields = computed(() =>
-  previewView.value === 'list' ? SONG_LIST_FONT_FIELDS : SONG_COVER_FONT_FIELDS,
+  activeView.value === 'list' ? SONG_LIST_FONT_FIELDS : SONG_COVER_FONT_FIELDS,
 )
 const radiusFillPercent = computed(() => ((coverArtworkRadius.value - 4) / 20) * 100)
 
 const statusText = computed(() => {
-  if (persistFailed.value || sizePersistFailed.value)
-    return t('settings.appearance.songFontWeight.persistFailed')
+  if (saveFailed.value) return t('settings.appearance.songFontWeight.persistFailed')
   return ''
 })
 
-watch(previewView, clearResetStatus)
+watch(activeView, clearResetStatus)
 onUnmounted(clearResetStatus)
 
 function fieldId(field: string): string {
-  return `song-font-weight-${previewView.value}-${field}`
+  return `song-font-weight-${activeView.value}-${field}`
 }
 
 function defaultWeight(field: string): number {
-  return defaultSongFontWeight(previewView.value, field) ?? 400
+  return defaultSongFontWeight(activeView.value, field) ?? 400
 }
 
 function onWeightChange(field: string, choice: SongFontWeightChoice): void {
   clearResetStatus()
-  setSongFontWeight(previewView.value, field, choice)
+  setSongFontWeight(activeView.value, field, choice)
 }
 
 function onSizeChange(field: string, size: number): void {
   clearResetStatus()
-  setSongFontSize(previewView.value, field, size)
+  setSongFontSize(activeView.value, field, size)
 }
 
 function onReset(): void {
-  resetSongFontWeightView(previewView.value)
-  resetSongFontSizeView(previewView.value)
-  if (previewView.value === 'cover') {
+  resetSongFontWeightView(activeView.value)
+  resetSongFontSizeView(activeView.value)
+  if (activeView.value === 'cover') {
     setCoverArtworkRounded(true)
     setCoverArtworkRadius(DEFAULT_COVER_ARTWORK_RADIUS)
+    coverInfo.reset()
   }
   clearResetStatus()
   resetAnnounced.value = true
@@ -89,170 +118,185 @@ function onReset(): void {
 }
 
 function onRadiusInput(event: Event): void {
+  clearResetStatus()
   setCoverArtworkRadius(Number((event.target as HTMLInputElement).value))
 }
+defineExpose({ reset: onReset })
 </script>
 
 <template>
   <div class="settings-group">
-    <details class="song-font-weight-details">
-      <summary class="song-font-weight-summary">
-        <span>{{ t('settings.appearance.songFontWeight.title') }}</span>
-        <span class="song-font-weight-summary-action" aria-hidden="true">
-          <span class="song-font-weight-expand-label">{{
-            t('settings.appearance.songFontWeight.expand')
-          }}</span>
-          <span class="song-font-weight-collapse-label">{{
-            t('settings.appearance.songFontWeight.collapse')
-          }}</span>
-          <span class="song-font-weight-chevron i-lucide-chevron-down h-4 w-4"></span>
-        </span>
-      </summary>
-
-      <div class="song-font-weight-content">
-        <div class="song-font-weight-preview-block">
-          <h3 class="song-font-weight-preview-heading">
-            {{ t('settings.appearance.songFontWeight.preview') }}
-          </h3>
-          <SongFontWeightPreview :view="previewView" />
-        </div>
-
-        <div class="song-font-weight-toolbar">
-          <div
-            class="settings-segmented-control"
-            role="group"
-            :aria-label="t('settings.appearance.songFontWeight.viewGroup')"
-          >
-            <button
-              type="button"
-              class="settings-segmented-option"
-              :class="{ 'is-selected': previewView === 'list' }"
-              :aria-pressed="previewView === 'list'"
-              @click="previewView = 'list'"
-            >
-              {{ t('settings.appearance.songFontWeight.listView') }}
-            </button>
-            <button
-              type="button"
-              class="settings-segmented-option"
-              :class="{ 'is-selected': previewView === 'cover' }"
-              :aria-pressed="previewView === 'cover'"
-              @click="previewView = 'cover'"
-            >
-              {{ t('settings.appearance.songFontWeight.coverView') }}
-            </button>
-          </div>
-          <div class="song-font-weight-reset-group">
-            <Transition name="song-font-weight-reset-notice">
-              <span
-                v-if="resetAnnounced && !persistFailed && !sizePersistFailed"
-                class="song-font-weight-reset-notice"
-                role="status"
-              >
-                {{ t('settings.appearance.songFontWeight.resetStatus') }}
-              </span>
-            </Transition>
-            <button type="button" class="song-font-weight-reset" @click="onReset">
-              {{ t('settings.appearance.songFontWeight.resetView') }}
-            </button>
-          </div>
-        </div>
-
+    <div class="song-font-weight-content">
+      <Transition name="song-font-weight-reset-notice">
         <p
-          v-if="statusText"
-          class="song-font-weight-status"
-          :class="{ 'is-warning': persistFailed || sizePersistFailed }"
+          v-if="resetAnnounced && !saveFailed"
+          class="song-font-weight-status song-font-weight-reset-notice"
           role="status"
         >
-          {{ statusText }}
+          {{ t('settings.appearance.songFontWeight.resetStatus') }}
         </p>
+      </Transition>
 
-        <div v-if="previewView === 'cover'" class="song-cover-options">
-          <h3 class="song-parameters-heading">
-            {{ t('settings.appearance.songFontWeight.coverSection') }}
-          </h3>
-          <div class="settings-row song-font-weight-row">
-            <div>
-              <strong>{{ t('settings.appearance.coverArtworkRounded') }}</strong>
-            </div>
-            <button
-              type="button"
-              class="settings-switch"
-              role="switch"
-              :aria-checked="coverArtworkRounded"
-              :aria-label="t('settings.appearance.coverArtworkRounded')"
-              :class="{ 'is-enabled': coverArtworkRounded }"
-              @click="setCoverArtworkRounded(!coverArtworkRounded)"
-            >
-              <span class="settings-switch-thumb" aria-hidden="true"></span>
-            </button>
+      <p
+        v-if="statusText"
+        class="song-font-weight-status"
+        :class="{ 'is-warning': saveFailed }"
+        role="status"
+      >
+        {{ statusText }}
+      </p>
+
+      <div v-if="activeView === 'cover'" class="song-cover-options">
+        <h3 class="song-parameters-heading">
+          {{ t('settings.appearance.songFontWeight.coverSection') }}
+        </h3>
+        <div class="settings-row song-font-weight-row">
+          <div>
+            <strong>{{ t('settings.appearance.coverArtworkRounded') }}</strong>
           </div>
-          <Transition name="song-cover-radius-reveal">
-            <div v-if="coverArtworkRounded" class="song-cover-radius-reveal">
-              <div class="settings-row song-font-weight-row">
-                <div>
-                  <strong id="song-cover-radius-label">{{
-                    t('settings.appearance.songFontWeight.coverRadius')
-                  }}</strong>
-                </div>
-                <div class="settings-range-control">
-                  <input
-                    id="song-cover-radius-input"
-                    type="range"
-                    min="4"
-                    max="24"
-                    step="2"
-                    :value="coverArtworkRadius"
-                    :style="{ '--settings-range-progress': `${radiusFillPercent}%` }"
-                    aria-labelledby="song-cover-radius-label"
-                    @input="onRadiusInput"
-                  />
-                  <output for="song-cover-radius-input">{{ coverArtworkRadius }} px</output>
-                </div>
+          <button
+            type="button"
+            class="settings-switch"
+            role="switch"
+            :aria-checked="coverArtworkRounded"
+            :aria-label="t('settings.appearance.coverArtworkRounded')"
+            :class="{ 'is-enabled': coverArtworkRounded }"
+            @click="
+              () => {
+                clearResetStatus()
+                setCoverArtworkRounded(!coverArtworkRounded)
+              }
+            "
+          >
+            <span class="settings-switch-thumb" aria-hidden="true"></span>
+          </button>
+        </div>
+        <Transition name="song-cover-radius-reveal">
+          <div v-if="coverArtworkRounded" class="song-cover-radius-reveal">
+            <div class="settings-row song-font-weight-row">
+              <div>
+                <strong id="song-cover-radius-label">{{
+                  t('settings.appearance.songFontWeight.coverRadius')
+                }}</strong>
+              </div>
+              <div class="settings-range-control">
+                <input
+                  id="song-cover-radius-input"
+                  type="range"
+                  min="4"
+                  max="24"
+                  step="2"
+                  :value="coverArtworkRadius"
+                  :style="{ '--settings-range-progress': `${radiusFillPercent}%` }"
+                  aria-labelledby="song-cover-radius-label"
+                  @input="onRadiusInput"
+                />
+                <output for="song-cover-radius-input">{{ coverArtworkRadius }} px</output>
               </div>
             </div>
-          </Transition>
-        </div>
+          </div>
+        </Transition>
+      </div>
 
-        <h3 class="song-parameters-heading">
-          {{ t('settings.appearance.songFontWeight.typographySection') }}
-        </h3>
-        <div class="song-font-column-labels" aria-hidden="true">
-          <span>{{ t('settings.appearance.songFontWeight.sizeLabel') }}</span>
-          <span>{{ t('settings.appearance.songFontWeight.weightSection') }}</span>
+      <div
+        v-if="activeView === 'cover'"
+        class="song-cover-info-options"
+        @input="clearResetStatus"
+        @change="clearResetStatus"
+      >
+        <h3 class="song-parameters-heading">{{ t('pageParameters.coverInfo.title') }}</h3>
+        <div
+          v-for="(range, field) in COVER_INFO_SPACING_RANGES"
+          :key="field"
+          class="settings-row song-font-weight-row"
+        >
+          <div>
+            <strong :id="`song-cover-info-${field}-label`">{{
+              t(`pageParameters.coverInfo.${field}`)
+            }}</strong>
+          </div>
+          <div class="settings-range-control">
+            <input
+              :id="`song-cover-info-${field}`"
+              type="range"
+              :min="range.min"
+              :max="range.max"
+              step="1"
+              :value="coverInfo.preference.value[field]"
+              :style="{ '--settings-range-progress': coverInfo.spacingProgress(field) }"
+              :aria-labelledby="`song-cover-info-${field}-label`"
+              @input="
+                coverInfo.setSpacing(field, Number(($event.target as HTMLInputElement).value))
+              "
+            />
+            <output :for="`song-cover-info-${field}`"
+              >{{ coverInfo.preference.value[field] }} px</output
+            >
+          </div>
         </div>
-        <div class="song-font-weight-rows">
-          <div
-            v-for="field in activeFields"
-            :key="`${previewView}-${field}`"
-            class="settings-row song-font-weight-row"
-          >
-            <div>
-              <strong :id="`${fieldId(field)}-label`">{{
-                t(`settings.appearance.songFontWeight.fields.${field}`)
-              }}</strong>
-            </div>
-            <div class="song-font-controls">
-              <SongFontSizeInput
-                :id="`${fieldId(field)}-size`"
-                :label="t(`settings.appearance.songFontWeight.fields.${field}`)"
-                :model-value="songFontSize(previewView, field)"
-                :min="songFontSizeRange(previewView, field).min"
-                :max="songFontSizeRange(previewView, field).max"
-                @update:model-value="onSizeChange(field, $event)"
-              />
-              <SongFontWeightSelect
-                :id="fieldId(field)"
-                :labelledby="`${fieldId(field)}-label`"
-                :model-value="songFontWeightChoice(previewView, field)"
-                :default-weight="defaultWeight(field)"
-                @update:model-value="onWeightChange(field, $event)"
-              />
-            </div>
+        <div class="settings-row song-font-weight-row">
+          <div>
+            <strong id="song-cover-info-alignment-label">{{
+              t('pageParameters.coverInfo.alignment')
+            }}</strong>
+          </div>
+          <div class="song-cover-info-alignment">
+            <SettingsSelect
+              id="song-cover-info-alignment"
+              labelledby="song-cover-info-alignment-label"
+              :model-value="coverInfo.preference.value.alignment"
+              :options="alignmentOptions"
+              :disabled="inactive"
+              @update:model-value="
+                (value) => {
+                  clearResetStatus()
+                  coverInfo.setAlignment(value)
+                }
+              "
+            />
           </div>
         </div>
       </div>
-    </details>
+
+      <h3 class="song-parameters-heading">
+        {{ t('settings.appearance.songFontWeight.typographySection') }}
+      </h3>
+      <div class="song-font-column-labels" aria-hidden="true">
+        <span>{{ t('settings.appearance.songFontWeight.sizeLabel') }}</span>
+        <span>{{ t('settings.appearance.songFontWeight.weightSection') }}</span>
+      </div>
+      <div class="song-font-weight-rows">
+        <div
+          v-for="field in activeFields"
+          :key="`${activeView}-${field}`"
+          class="settings-row song-font-weight-row"
+        >
+          <div>
+            <strong :id="`${fieldId(field)}-label`">{{
+              t(`settings.appearance.songFontWeight.fields.${field}`)
+            }}</strong>
+          </div>
+          <div class="song-font-controls">
+            <SongFontSizeInput
+              :id="`${fieldId(field)}-size`"
+              :label="t(`settings.appearance.songFontWeight.fields.${field}`)"
+              :model-value="songFontSize(activeView, field)"
+              :min="songFontSizeRange(activeView, field).min"
+              :max="songFontSizeRange(activeView, field).max"
+              @update:model-value="onSizeChange(field, $event)"
+            />
+            <SongFontWeightSelect
+              :id="fieldId(field)"
+              :labelledby="`${fieldId(field)}-label`"
+              :model-value="songFontWeightChoice(activeView, field)"
+              :default-weight="defaultWeight(field)"
+              :disabled="inactive"
+              @update:model-value="onWeightChange(field, $event)"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 

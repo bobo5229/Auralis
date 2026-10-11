@@ -748,4 +748,11 @@ export const migrations = [
       ALTER TABLE tracks ADD COLUMN metadata_parser_version TEXT NOT NULL DEFAULT 'metadata:1';
     `,
   },
+  {
+    id: 27,
+    name: 'add_track_codec',
+    sql: `
+      ALTER TABLE tracks ADD COLUMN codec TEXT;
+    `,
+  },
 ] as const

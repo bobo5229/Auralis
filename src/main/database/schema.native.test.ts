@@ -64,9 +64,9 @@ describe('migrateDatabase', () => {
       .all() as string[]
 
     expect(migrations.map(({ id }) => id)).toEqual(
-      Array.from({ length: 26 }, (_, index) => index + 1),
+      Array.from({ length: 27 }, (_, index) => index + 1),
     )
-    expect(migrations.at(-1)?.name).toBe('add_metadata_parser_version')
+    expect(migrations.at(-1)?.name).toBe('add_track_codec')
     expect(objects).toEqual(
       expect.arrayContaining([
         'tracks',
@@ -136,7 +136,7 @@ describe('migrateDatabase', () => {
       availability: 'available',
       playCount: 0,
     })
-    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(26)
+    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(27)
     expect(
       db.prepare('SELECT lyrics_sidecar_fingerprint FROM tracks WHERE id = 7').pluck().get(),
     ).toBeNull()

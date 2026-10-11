@@ -14,6 +14,11 @@ import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
 import SettingsDialog from '@renderer/features/settings/components/SettingsDialog.vue'
+import PageParameterPanel from './app/layout/PageParameterPanel.vue'
+import {
+  createPageParameters,
+  providePageParameters,
+} from '@renderer/features/appearance/composables/usePageParameters'
 import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useCdCanvasTheme } from '@renderer/features/albums/composables/useCdCanvasTheme'
@@ -50,6 +55,13 @@ const { cdCanvasTheme } = useCdCanvasTheme()
 useSystemMediaIntegration()
 const { displayMode } = usePlayerDisplayMode()
 const { isSettingsOpen, closeSettings } = useSettingsDialog()
+const pageParameters = createPageParameters(
+  computed(() => route.name),
+  computed(
+    () => isSettingsOpen.value || displayMode.value === 'fullscreen' || startupAlbumActive.value,
+  ),
+)
+providePageParameters(pageParameters)
 
 watch(() => route.fullPath, closeSettings, { flush: 'sync' })
 watch(
@@ -1070,6 +1082,7 @@ watch(displayMode, (mode) => {
     </div>
     <FullscreenPlayerOverlay />
   </div>
+  <PageParameterPanel :controller="pageParameters" :target-width-px="lyricsTargetWidthPx" />
   <SettingsDialog />
   <component
     :is="startupAlbumOverlay"

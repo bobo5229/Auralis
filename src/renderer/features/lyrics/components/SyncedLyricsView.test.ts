@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createRenderer, h, nextTick, ref } from 'vue'
 import SyncedLyricsView from './SyncedLyricsView.vue'
 import { setLyricsScrollPreset } from '../lyricsScrollPreset'
@@ -59,7 +59,7 @@ class TestNode {
 
 const renderer = createRenderer<TestNode, TestNode>({
   createElement: (type) => new TestNode(type),
-  createText: () => new TestNode('text'),
+  createText: (text) => Object.assign(new TestNode('text'), { textContent: text }),
   createComment: () => new TestNode('comment'),
   insert(child, parent, anchor) {
     if (child.parent) child.parent.children.splice(child.parent.children.indexOf(child), 1)
@@ -98,11 +98,21 @@ afterEach(() => {
   setLyricsScrollPreset('standard')
   reduced.value = false
   vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
+
+beforeEach(() => {
+  vi.stubGlobal('document', {
+    hidden: false,
+    fonts: { ready: Promise.resolve() },
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })
+  vi.stubGlobal('getComputedStyle', () => ({ transform: 'none' }))
 })
 
 it('applies the selected curve on the next normal-panel lyric transition and skips motion when reduced', async () => {
   vi.stubGlobal('localStorage', { setItem: vi.fn() })
-  vi.stubGlobal('document', { fonts: { ready: Promise.resolve() } })
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -149,7 +159,6 @@ it('applies the selected curve on the next normal-panel lyric transition and ski
 
 it('remeasures and immediately aligns a same-length replacement with new line geometry', async () => {
   vi.stubGlobal('localStorage', { setItem: vi.fn() })
-  vi.stubGlobal('document', { fonts: { ready: Promise.resolve() } })
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -201,4 +210,143 @@ it('remeasures and immediately aligns a same-length replacement with new line ge
   expect(scroll.scrollTop).toBe(17)
 
   app.unmount()
+})
+
+it('cancels hidden-window follow and realigns the latest replacement when the native window returns', async () => {
+  let visibility!: (state: { isVisible: boolean }) => void
+  const unsubscribe = vi.fn()
+  vi.stubGlobal('window', {
+    auralis: {
+      window: {
+        getVisibility: async () => ({ isVisible: true }),
+        onVisibilityChanged: (callback: typeof visibility) => {
+          visibility = callback
+          return unsubscribe
+        },
+      },
+    },
+  })
+  const disconnect = vi.fn()
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect = disconnect
+    },
+  )
+  const lines = ref([
+    { id: '0', text: 'First', timeSeconds: 0 },
+    { id: '1', text: 'Second', timeSeconds: 2 },
+  ])
+  const activeIndex = ref(0)
+  const root = new TestNode('root')
+  const app = renderer.createApp({
+    setup: () => () =>
+      h(SyncedLyricsView, {
+        lines: lines.value,
+        activeIndex: activeIndex.value,
+        isPrelude: false,
+        showPrelude: false,
+        preludeLitDotCount: 0,
+      }),
+  })
+  app.mount(root)
+  await nextTick()
+  await nextTick()
+  await nextTick()
+  const track = find(root, 'synced-lyrics-track')!
+  expect(track.style.transform).toBe('translate3d(0, -60px, 0)')
+  activeIndex.value = 1
+  await nextTick()
+  await nextTick()
+  expect(track.animate).toHaveBeenCalledTimes(1)
+  const running = track.animate.mock.results[0].value
+  visibility({ isVisible: false })
+  await nextTick()
+  expect(document.hidden).toBe(false)
+  expect(running.cancel).toHaveBeenCalledOnce()
+  expect(disconnect).toHaveBeenCalled()
+  expect(String(find(root, 'synced-lyrics-scroll')!.props.class)).toContain(
+    'synced-lyrics-scroll--inactive',
+  )
+  lines.value = [{ id: 'replacement', text: 'A much longer replacement line', timeSeconds: 4 }]
+  activeIndex.value = 0
+  await nextTick()
+  await nextTick()
+  expect(track.animate).toHaveBeenCalledTimes(1)
+  expect(track.querySelectorAll('[data-lyric-index]').map((line) => line.getTextContent())).toEqual(
+    ['A much longer replacement line'],
+  )
+  visibility({ isVisible: true })
+  await nextTick()
+  await nextTick()
+  expect(track.style.transform).toBe('translate3d(0, -90px, 0)')
+  expect(String(find(root, 'synced-lyrics-scroll')!.props.class)).not.toContain(
+    'synced-lyrics-scroll--inactive',
+  )
+  expect(track.animate).toHaveBeenCalledTimes(1)
+  app.unmount()
+  expect(unsubscribe).toHaveBeenCalledOnce()
+})
+
+it('respects panel activity, resumes manual scrolling, and remains usable without a preload API', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  )
+  const active = ref(true)
+  const activeIndex = ref(0)
+  const lines = [
+    { id: '0', text: 'First', timeSeconds: 0 },
+    { id: '1', text: 'Second', timeSeconds: 2 },
+  ]
+  const root = new TestNode('root')
+  const app = renderer.createApp({
+    setup: () => () =>
+      h(SyncedLyricsView, {
+        active: active.value,
+        lines,
+        activeIndex: activeIndex.value,
+        isPrelude: false,
+        showPrelude: false,
+        preludeLitDotCount: 0,
+      }),
+  })
+  app.mount(root)
+  await nextTick()
+  await nextTick()
+  const track = find(root, 'synced-lyrics-track')!
+  const scroll = find(root, 'synced-lyrics-scroll')!
+  ;(scroll.props.onWheel as () => void)()
+  scroll.scrollTop = 17
+  activeIndex.value = 1
+  await nextTick()
+  await nextTick()
+  expect(scroll.scrollTop).toBe(17)
+  expect(track.animate).not.toHaveBeenCalled()
+  await vi.advanceTimersByTimeAsync(3000)
+  expect(scroll.scrollTop).toBe(0)
+  expect(track.animate).toHaveBeenCalledOnce()
+  ;(scroll.props.onWheel as () => void)()
+  active.value = false
+  await nextTick()
+  expect(vi.getTimerCount()).toBe(0)
+  activeIndex.value = 0
+  await nextTick()
+  await nextTick()
+  expect(track.animate).toHaveBeenCalledOnce()
+  active.value = true
+  await nextTick()
+  await nextTick()
+  expect(track.style.transform).toBe('translate3d(0, -60px, 0)')
+  expect(track.animate).toHaveBeenCalledOnce()
+  app.unmount()
+  expect(document.removeEventListener).toHaveBeenCalledWith(
+    'visibilitychange',
+    expect.any(Function),
+  )
 })

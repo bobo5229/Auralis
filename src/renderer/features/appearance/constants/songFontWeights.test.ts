@@ -142,7 +142,6 @@ describe('song font weight style wiring', () => {
   const songRow = source('src/renderer/features/library/components/SongRow.vue')
   const albumGroup = source('src/renderer/features/library/components/AlbumCoverGroup.vue')
   const trackRow = source('src/renderer/features/library/components/AlbumCoverTrackRow.vue')
-  const preview = source('src/renderer/features/settings/components/SongFontWeightPreview.vue')
   const libraryPage = source('src/renderer/features/library/pages/LibraryPage.vue')
   const uno = source('uno.config.ts')
 
@@ -150,12 +149,10 @@ describe('song font weight style wiring', () => {
     for (const field of SONG_LIST_FONT_FIELDS) {
       const declaration = `var(${songFontWeightCssVarName('list', field)}, ${SONG_FONT_WEIGHT_DEFAULTS.list[field]})`
       expect(songRow).toContain(declaration)
-      expect(preview).toContain(declaration)
     }
     for (const field of SONG_COVER_FONT_FIELDS) {
       const declaration = `var(${songFontWeightCssVarName('cover', field)}, ${SONG_FONT_WEIGHT_DEFAULTS.cover[field]})`
       expect(`${albumGroup}\n${trackRow}`).toContain(declaration)
-      expect(preview).toContain(declaration)
     }
 
     expect(songRow).not.toContain('font-bold')

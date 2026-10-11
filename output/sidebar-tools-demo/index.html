@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 侧栏工具托盘 Demo</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 36px 32px 24px; background: #f5f5f3; color: #292b2d; font: 14px/20px 'Segoe UI', 'Microsoft YaHei', sans-serif; }
+      button, input, select { font: inherit; }
+      button { cursor: pointer; }
+      button:focus-visible, select:focus-visible { outline: 2px solid var(--accent, #585b5f); outline-offset: 3px; }
+      button { -webkit-tap-highlight-color: transparent; }
+      h1 { margin: 0 0 8px; font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -.5px; }
+      .intro { margin: 0; color: #73777b; font-size: 12px; line-height: 18px; }
+      .page { max-width: 856px; margin: auto; }
+      .examples { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; margin-top: 28px; }
+      .example-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+      .example-head strong { font-size: 12px; font-weight: 500; }
+      .collapse { border: 0; padding: 4px 0 4px 8px; background: none; color: #73777b; font-size: 12px; }
+      .preview { --sidebar-bg: #1a1a1a; --main-bg: #121212; --tray-bg: #202020; --fg: #f3eee6; --muted: #afb4bc; --faint: #9299a3; --border: rgba(225,221,214,.08); --accent: #1dd55f; --active-bg: color-mix(in srgb, var(--accent) 12%, transparent); --hover-bg: rgba(255,255,255,.06); --shadow: rgba(0,0,0,.12); position: relative; display: flex; height: 508px; overflow: hidden; color: var(--fg); background: var(--main-bg); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 5px 20px rgba(25,28,30,.05); }
+      .preview[data-theme='light'] { --sidebar-bg: #e7e9eb; --main-bg: #f0f1f2; --tray-bg: #f8f9fa; --fg: #292b2d; --muted: #60656a; --faint: #686e74; --border: rgba(41,43,45,.08); --accent: #585b5f; --active-bg: #dfe2e5; --hover-bg: rgba(41,43,45,.05); --shadow: rgba(41,43,45,.04); }
+      .sidebar { display: flex; flex-direction: column; flex: 0 0 260px; width: 260px; min-height: 0; background: var(--sidebar-bg); border-right: 1px solid var(--border); }
+      .brand { display: flex; align-items: center; gap: 9px; height: 80px; flex: 0 0 80px; padding: 0 23px; }
+      .brand-mark { display: flex; align-items: center; gap: 3px; height: 22px; color: var(--accent); }
+      .brand-mark i { display: block; width: 3px; height: 12px; border-radius: 2px; background: currentColor; }
+      .brand-mark i:nth-child(2) { height: 22px; }
+      .brand-mark i:nth-child(3) { height: 16px; }
+      .brand-name { font-size: 19px; font-weight: 650; letter-spacing: -.5px; }
+      .nav { min-height: 0; flex: 1; overflow: auto; padding: 0 10px; scrollbar-width: thin; }
+      .nav-item { display: flex; align-items: center; gap: 11px; height: 38px; width: 100%; margin: 3px 0; padding: 0 12px; border: 1px solid transparent; border-radius: 10px; background: none; text-align: left; color: var(--muted); white-space: nowrap; }
+      .nav-item:hover { background: var(--hover-bg); color: var(--fg); }
+      .nav-item.selected { color: var(--accent); background: var(--active-bg); }
+      .nav-label { min-width: 0; flex: 1; }
+      .count { font-size: 12px; color: var(--faint); }
+      svg { display: block; width: 18px; height: 18px; flex: 0 0 18px; }
+      .section-label { display: flex; align-items: center; justify-content: space-between; margin: 24px 12px 10px; color: var(--faint); font-size: 12px; }
+      .playlist-dot { width: 18px; height: 18px; flex: 0 0 18px; border: 1px solid var(--border); border-radius: 5px; background: color-mix(in srgb, var(--fg) 5%, transparent); }
+      .footer { position: relative; padding: 10px 12px 12px; }
+      .tray { display: flex; align-items: center; justify-content: space-between; width: 236px; padding: 5px; border: 1px solid var(--border); border-radius: 14px; background: var(--tray-bg); box-shadow: 0 2px 5px var(--shadow); }
+      .group { display: flex; gap: 4px; }
+      .separator { width: 1px; height: 20px; flex: 0 0 1px; background: var(--border); }
+      .tool { position: relative; display: flex; width: 36px; height: 36px; padding: 0; align-items: center; justify-content: center; border: 0; border-radius: 9px; background: transparent; color: var(--faint); transition: background 130ms ease, color 130ms ease; }
+      .tool:hover { color: var(--fg); background: var(--hover-bg); }
+      .tool[aria-pressed='true'] { color: var(--accent); background: var(--active-bg); }
+      .tool:active { background: var(--active-bg); }
+      .tool::after { position: absolute; z-index: 4; bottom: calc(100% + 13px); left: 50%; padding: 5px 9px; color: var(--fg); background: var(--tray-bg); border: 1px solid var(--border); border-radius: 7px; box-shadow: 0 3px 8px var(--shadow); white-space: nowrap; font-size: 12px; line-height: 18px; font-weight: 400; content: attr(aria-label); opacity: 0; pointer-events: none; transform: translateX(-50%); }
+      .tool:first-child::after { left: -4px; transform: none; }
+      .group:last-child .tool:last-child::after { left: auto; right: -4px; transform: none; }
+      .tool:hover::after, .tool:focus-visible::after { opacity: 1; transition: opacity 130ms ease 180ms; }
+      .preview.has-panel .tool::after { display: none; }
+      .spinning svg { animation: spin 900ms linear infinite; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .content { flex: 1; padding: 37px 20px; overflow: hidden; }
+      .content h2 { margin: 0 0 5px; font-size: 20px; line-height: 28px; white-space: nowrap; font-weight: 600; }
+      .content p { margin: 0 0 28px; color: var(--faint); font-size: 12px; white-space: nowrap; }
+      .skeleton { display: flex; align-items: center; gap: 10px; margin: 0 0 18px; opacity: .42; }
+      .cover { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 5px; background: color-mix(in srgb, var(--fg) 10%, transparent); }
+      .lines { flex: 1; min-width: 30px; }
+      .lines i { display: block; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--fg) 15%, transparent); }
+      .lines i + i { width: 60%; height: 3px; margin-top: 8px; }
+      .popover { position: absolute; z-index: 3; left: 12px; bottom: 78px; width: 236px; padding: 15px; border: 1px solid var(--border); border-radius: 14px; background: var(--tray-bg); box-shadow: 0 8px 28px var(--shadow); }
+      .popover[hidden] { display: none; }
+      .popover-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+      .popover h3 { margin: 0; font-size: 14px; line-height: 20px; font-weight: 600; }
+      .close { display: grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 6px; color: var(--faint); background: none; font-size: 19px; }
+      .close:hover { background: var(--hover-bg); color: var(--fg); }
+      .field { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 12px 0 0; color: var(--muted); font-size: 12px; }
+      .field select { width: 108px; padding: 5px; border: 1px solid var(--border); border-radius: 7px; color: var(--fg); background: var(--sidebar-bg); font-size: 12px; }
+      .popover p { margin: 0; font-size: 12px; line-height: 18px; color: var(--muted); }
+      .chip { display: inline-block; margin: 12px 4px 0 0; padding: 4px 8px; border: 1px solid var(--border); border-radius: 7px; font-size: 12px; color: var(--muted); background: var(--hover-bg); }
+      .status { height: 18px; margin: 10px 0 0; font-size: 12px; color: #73777b; }
+      .note { margin: 18px 0 0; font-size: 12px; line-height: 18px; color: #85898c; }
+      .preview.collapsed .sidebar { width: 60px; flex-basis: 60px; }
+      .preview.collapsed .brand { padding: 0; justify-content: center; }
+      .preview.collapsed .brand-name, .preview.collapsed .nav-label, .preview.collapsed .count, .preview.collapsed .section-label { display: none; }
+      .preview.collapsed .nav { padding: 0 9px; }
+      .preview.collapsed .nav-item { justify-content: center; padding: 0; width: 42px; }
+      .preview.collapsed .footer { padding: 10px 8px 12px; }
+      .preview.collapsed .tray { width: 44px; flex-direction: column; padding: 3px; border-radius: 13px; gap: 7px; }
+      .preview.collapsed .group { flex-direction: column; }
+      .preview.collapsed .separator { width: 20px; height: 1px; }
+      .preview.collapsed .tool::after { left: calc(100% + 12px); right: auto; bottom: auto; top: 50%; transform: translateY(-50%); }
+      .preview.collapsed .popover { left: 68px; bottom: 12px; }
+      @media (max-width: 760px) { body { padding: 24px 18px; } .examples { grid-template-columns: 1fr; } .preview { max-width: 440px; } }
+      @media (prefers-reduced-motion: reduce) { *, *::after { transition: none !important; animation: none !important; } }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <h1>侧栏工具区 · Demo</h1>
+      <p class="intro">试试悬停图标、打开页面参数、切换主题，或收起侧栏。</p>
+      <div class="examples" id="examples"></div>
+      <p class="note">左侧：分面 / 页面参数　　右侧：刷新曲库 / 主题 / 设置。此页面仅预览交互与样式。</p>
+    </main>
+    <script>
+      // Reuses the existing SidebarIcon SVG geometry; no app services or persistence.
+      const paths = {
+        filters: '<path d="M9 3h10a2 2 0 0 1 2 2v10M6 6h10a2 2 0 0 1 2 2v10"/><rect x="3" y="9" width="12" height="12" rx="2"/>',
+        parameters: '<path d="M4 3v6m0 4v8M12 3v10m0 4v4M20 3v2m0 4v12M1 9h6m2 8h6m2-12h6"/>',
+        refresh: '<path d="M3 12a9 9 0 0 1 15.4-6.4L21 8.5M21 3v5.5h-5.5M21 12a9 9 0 0 1-15.4 6.4L3 15.5M3 21v-5.5h5.5"/>',
+        sun: '<circle cx="12" cy="12" r="4.5"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>',
+        moon: '<path d="M20.9 13.2A9 9 0 1 1 10.8 3.1a7 7 0 0 0 10.1 10.1Z"/>',
+        settings: '<path d="M10 3h4l.4 2.8 2.1 1.2 2.6-1 2 3.4-2.2 1.6v2l2.2 1.6-2 3.4-2.6-1-2.1 1.2-.4 2.8h-4l-.4-2.8-2.1-1.2-2.6 1-2-3.4 2.2-1.6v-2L2.9 9.4l2-3.4 2.6 1 2.1-1.2L10 3Z"/><circle cx="12" cy="12" r="3"/>',
+        song: '<ellipse cx="7.5" cy="18" rx="3.5" ry="2.7"/><path d="M11 18V3.5l9 3"/>',
+        albums: '<path d="m12 3-9 5 9 5 9-5-9-5ZM3 12l9 5 9-5M3 16l9 5 9-5"/>',
+        cd: '<rect x="3" y="3" width="18" height="18" rx="3.5"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.5"/>',
+        archive: '<path d="M13 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6M2.5 7H5M2.5 12H5M2.5 17H5"/><path d="m13 12 1-4 5-5a1.4 1.4 0 0 1 2 2l-5 5-3 2Z"/>',
+      }
+      const icon = kind => `<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${paths[kind]}</svg>`
+      const labels = { filters: '分面', parameters: '页面参数', refresh: '刷新曲库', theme: '切换到浅色', settings: '设置' }
+      const tool = kind => `<button type="button" class="tool" data-action="${kind}" aria-label="${labels[kind]}" ${['filters', 'parameters', 'settings'].includes(kind) ? 'aria-pressed="false" aria-haspopup="dialog"' : ''}>${icon(kind === 'theme' ? 'sun' : kind)}</button>`
+      const nav = (kind, label, count = '', selected = false) => `<button type="button" class="nav-item ${selected ? 'selected' : ''}" aria-label="${label}">${kind ? icon(kind) : '<span class="playlist-dot"></span>'}<span class="nav-label">${label}</span><span class="count">${count}</span></button>`
+      const examples = document.querySelector('#examples')
+      for (const [index, theme] of ['dark', 'light'].entries()) {
+        const article = document.createElement('article')
+        article.innerHTML = `<div class="example-head"><strong>${theme === 'dark' ? '深色' : '浅色'}</strong><button class="collapse" type="button" aria-expanded="true">收起侧栏 ↔</button></div>
+          <div class="preview" data-theme="${theme}">
+            <aside class="sidebar" aria-label="${theme === 'dark' ? '深色' : '浅色'}侧栏预览">
+              <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span class="brand-name">Auralis</span></div>
+              <nav class="nav" aria-label="曲库导航">
+                ${nav('song', '歌曲', '4,140', true)}${nav('albums', '专辑', '286')}${nav('cd', '唱片室')}${nav('archive', '声迹')}
+                <div class="section-label"><span>我的歌单</span><span aria-hidden="true">＋</span></div>
+                ${nav('', '夜间聆听', '24')}${nav('', '钢琴与独奏', '32')}${nav('', '周末精选', '18')}
+              </nav>
+              <footer class="footer"><div class="tray" role="toolbar" aria-label="侧栏工具">
+                <div class="group">${tool('filters')}${tool('parameters')}</div><div class="separator" role="separator" aria-orientation="vertical"></div>
+                <div class="group">${tool('refresh')}${tool('theme')}${tool('settings')}</div>
+              </div></footer>
+            </aside>
+            <div class="content" aria-hidden="true"><h2>歌曲</h2><p>本地收藏</p>${Array.from({length: 7}, () => '<div class="skeleton"><span class="cover"></span><span class="lines"><i></i><i></i></span></div>').join('')}</div>
+            <section class="popover" id="panel-${index}" role="dialog" aria-label="页面参数" hidden><div class="popover-head"><h3></h3><button type="button" class="close" aria-label="关闭">×</button></div><div class="panel-body"></div></section>
+          </div><p class="status" aria-live="polite">悬停图标查看名称</p>`
+        examples.append(article)
+        const preview = article.querySelector('.preview')
+        const panel = article.querySelector('.popover')
+        const status = article.querySelector('.status')
+        let lastTrigger
+        const closePanel = restoreFocus => {
+          panel.hidden = true
+          preview.classList.remove('has-panel')
+          article.querySelectorAll('.tool[aria-pressed]').forEach(button => button.setAttribute('aria-pressed', 'false'))
+          if (restoreFocus) lastTrigger?.focus()
+        }
+        article.querySelector('.collapse').addEventListener('click', event => {
+          const collapsed = preview.classList.toggle('collapsed')
+          event.currentTarget.textContent = collapsed ? '展开侧栏 ↔' : '收起侧栏 ↔'
+          event.currentTarget.setAttribute('aria-expanded', String(!collapsed))
+          article.querySelector('.separator').setAttribute('aria-orientation', collapsed ? 'horizontal' : 'vertical')
+        })
+        article.querySelectorAll('.nav-item').forEach(button => button.addEventListener('click', () => {
+          article.querySelectorAll('.nav-item').forEach(item => item.classList.remove('selected'))
+          button.classList.add('selected')
+          status.textContent = `当前入口：${button.getAttribute('aria-label')}`
+          closePanel(false)
+        }))
+        article.querySelectorAll('.tool').forEach(button => {
+          const action = button.dataset.action
+          if (button.hasAttribute('aria-pressed')) button.setAttribute('aria-controls', panel.id)
+          const updateTheme = () => {
+            const dark = preview.dataset.theme === 'dark'
+            const themeButton = article.querySelector('[data-action="theme"]')
+            themeButton.innerHTML = icon(dark ? 'sun' : 'moon')
+            themeButton.setAttribute('aria-label', dark ? '切换到浅色' : '切换到深色')
+            article.querySelector('.example-head strong').textContent = dark ? '深色' : '浅色'
+          }
+          updateTheme()
+          button.addEventListener('click', () => {
+            if (action === 'theme') {
+              preview.dataset.theme = preview.dataset.theme === 'dark' ? 'light' : 'dark'
+              updateTheme()
+              status.textContent = `已切换到${preview.dataset.theme === 'dark' ? '深色' : '浅色'}`
+              return
+            }
+            if (action === 'refresh') {
+              if (button.getAttribute('aria-busy') === 'true') return
+              button.classList.add('spinning')
+              button.setAttribute('aria-busy', 'true')
+              status.textContent = '正在刷新…'
+              setTimeout(() => { button.classList.remove('spinning'); button.setAttribute('aria-busy', 'false'); status.textContent = '刷新完成（演示）' }, 1100)
+              return
+            }
+            const wasOpen = button.getAttribute('aria-pressed') === 'true'
+            closePanel(false)
+            if (wasOpen) { status.textContent = '面板已关闭'; return }
+            lastTrigger = button
+            button.setAttribute('aria-pressed', 'true')
+            panel.hidden = false
+            preview.classList.add('has-panel')
+            panel.setAttribute('aria-label', labels[action])
+            panel.querySelector('h3').textContent = labels[action]
+            panel.querySelector('.panel-body').innerHTML = action === 'parameters'
+              ? '<p>当前页面 · 歌曲</p><label class="field">视图<select><option>封面</option><option>列表</option></select></label><label class="field">字号<select><option>默认</option><option>较大</option></select></label>'
+              : action === 'filters'
+              ? '<p>按收藏属性浏览音乐</p><span class="chip">艺术家</span><span class="chip">年代</span><span class="chip">流派</span>'
+              : '<p>外观与曲库偏好</p><label class="field">界面密度<select><option>标准</option><option>紧凑</option></select></label>'
+            status.textContent = `已打开${labels[action]} · Esc 关闭`
+            panel.querySelector('.close').focus()
+          })
+        })
+        panel.querySelector('.close').addEventListener('click', () => closePanel(true))
+        article.addEventListener('keydown', event => { if (event.key === 'Escape' && !panel.hidden) { closePanel(true); status.textContent = '面板已关闭' } })
+        document.addEventListener('pointerdown', event => { if (!panel.hidden && !panel.contains(event.target) && !article.querySelector('.tray').contains(event.target)) closePanel(false) })
+      }
+    </script>
+  </body>
+</html>

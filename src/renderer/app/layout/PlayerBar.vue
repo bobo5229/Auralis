@@ -338,7 +338,7 @@ function handleNext(): void {
             :aria-label="t('player.previous')"
             @click="handlePrev"
           >
-            <svg class="h-4 w-5" viewBox="0 0 32 24" fill="currentColor" aria-hidden="true">
+            <svg class="h-[18px] w-6" viewBox="0 0 32 24" fill="currentColor" aria-hidden="true">
               <path
                 d="M13 4.5C14.3 3.7 16 4.6 16 6.1v11.8c0 1.5-1.7 2.4-3 1.6L2.6 13.6a1.85 1.85 0 0 1 0-3.2L13 4.5Zm14 0c1.3-.8 3 .1 3 1.6v11.8c0 1.5-1.7 2.4-3 1.6l-10.4-5.9a1.85 1.85 0 0 1 0-3.2L27 4.5Z"
               />
@@ -356,7 +356,7 @@ function handleNext(): void {
             <span v-if="isPrimaryPlaybackPending" class="h-6 w-6 i-ph-spinner-gap" />
             <span
               v-else
-              class="h-6 w-6"
+              class="h-7 w-7"
               :class="playback.state.isPlaying ? 'i-ph-pause-fill' : 'i-ph-play-fill'"
               aria-hidden="true"
             />
@@ -367,7 +367,7 @@ function handleNext(): void {
             :aria-label="t('player.next')"
             @click="handleNext"
           >
-            <svg class="h-4 w-5" viewBox="0 0 32 24" fill="currentColor" aria-hidden="true">
+            <svg class="h-[18px] w-6" viewBox="0 0 32 24" fill="currentColor" aria-hidden="true">
               <path
                 transform="translate(32 0) scale(-1 1)"
                 d="M13 4.5C14.3 3.7 16 4.6 16 6.1v11.8c0 1.5-1.7 2.4-3 1.6L2.6 13.6a1.85 1.85 0 0 1 0-3.2L13 4.5Zm14 0c1.3-.8 3 .1 3 1.6v11.8c0 1.5-1.7 2.4-3 1.6l-10.4-5.9a1.85 1.85 0 0 1 0-3.2L27 4.5Z"

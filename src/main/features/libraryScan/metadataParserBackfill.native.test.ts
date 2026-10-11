@@ -117,12 +117,16 @@ describe('parser version migration and automatic backfill', () => {
     expect(after).toEqual(
       before.map((rows, i) =>
         i === 0
-          ? rows.map((row) => ({ ...(row as object), metadata_parser_version: 'metadata:1' }))
+          ? rows.map((row) => ({
+              ...(row as object),
+              metadata_parser_version: 'metadata:1',
+              codec: null,
+            }))
           : rows,
       ),
     )
     expect(getMetadataParserVersion('song.mp3')).not.toBe('metadata:1')
-    expect(getMetadataParserVersion('song.flac')).toBe('metadata:1')
+    expect(getMetadataParserVersion('song.flac')).not.toBe('metadata:1')
     db.exec("UPDATE tracks SET metadata_parser_version='completed'")
     migrateDatabase(db)
     expect(db.prepare('SELECT metadata_parser_version FROM tracks').pluck().get()).toBe('completed')
@@ -161,7 +165,7 @@ describe('parser version migration and automatic backfill', () => {
     expect(tracks.getKnownFiles()[0].metadataParserVersion).toBe(getMetadataParserVersion(path))
   })
 
-  it('keeps unchanged formats at the migration baseline on the fast path', async () => {
+  it('keeps unchanged files at the current parser version on the fast path', async () => {
     const { db, tracks, root } = await setup()
     const path = join(root, 'unchanged.flac')
     // Deliberately unparseable: the current fingerprint/version must skip decoding.
@@ -169,9 +173,16 @@ describe('parser version migration and automatic backfill', () => {
     const fingerprint = await stat(path)
     db.prepare(
       `INSERT INTO tracks(file_path,file_size,file_mtime_ms,metadata_checked_mtime_ms,
-      lyrics_checked_mtime_ms,lyrics_sidecar_fingerprint,album,album_artist)
-      VALUES(?,?,?,?,?,'[null,null]','Album','Artist')`,
-    ).run(path, fingerprint.size, fingerprint.mtimeMs, fingerprint.mtimeMs, fingerprint.mtimeMs)
+      lyrics_checked_mtime_ms,lyrics_sidecar_fingerprint,album,album_artist,metadata_parser_version)
+      VALUES(?,?,?,?,?,'[null,null]','Album','Artist',?)`,
+    ).run(
+      path,
+      fingerprint.size,
+      fingerprint.mtimeMs,
+      fingerprint.mtimeMs,
+      fingerprint.mtimeMs,
+      getMetadataParserVersion(path),
+    )
     const failures: string[] = []
     const reader = new LibraryScanTrackReader(
       tracks.getKnownFiles(),

@@ -1,14 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import {
-  prefetchArtworkPalette,
-  useArtworkPalette,
-} from '@renderer/features/playback/composables/useArtworkPalette'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 
@@ -99,18 +95,6 @@ const artworkCacheKey = computed(
     previewArtworkCacheKey.value,
 )
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
-const { palette: albumPalette } = useArtworkPalette(artworkCacheKey, {
-  enabled: hasRenderableData,
-})
-const albumDetailStyle = computed<CSSProperties>(() => {
-  const accent = albumPalette.value.accents[0]?.rgb
-  const resolvedAccent =
-    albumPalette.value.quality === 'fallback' || !accent
-      ? 'var(--auralis-artwork-accent-fallback)'
-      : `rgb(${accent.r} ${accent.g} ${accent.b})`
-
-  return { '--auralis-album-detail-accent': resolvedAccent }
-})
 
 const isGenreGallery = computed(() => moreAlbumsByArtist.value.length === 0)
 const galleryAlbums = computed(() =>
@@ -139,7 +123,6 @@ async function openAlbum(album: AlbumSummary, event: MouseEvent): Promise<void> 
   isOpeningWork.value = true
   if (source && content) artworkTransition = createAlbumArtworkTransition(source, content)
 
-  prefetchArtworkPalette(album.artworkCacheKey)
   writeAlbumDetailSnapshot({
     albumArtist: album.albumArtist,
     albumTitle: album.title,
@@ -291,10 +274,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    class="album-detail-container album-detail-page h-full w-full relative bg-transparent"
-    :style="hasRenderableData ? albumDetailStyle : undefined"
-  >
+  <div class="album-detail-container album-detail-page h-full w-full relative bg-transparent">
     <section
       v-if="hasRenderableData"
       ref="detailRootRef"

@@ -1,10 +1,12 @@
 # 全局浅色配色预设
 
-- 状态：预设方案；**尚未写入代码**，供后续分批改造页面时共用。
+- 状态：历史预设方案；各项实施状态以当前源码为准，不将原建议值视为现行约束。
 - 视觉依据：CD 浏览页（`CdAlbumsPage.vue` / `CdTrackList.vue` / `CdFocusLyrics.vue`）已验收的浅灰画布。
-- 对照源：当前全局 token 在 `src/renderer/app/styles/main.css`（`:root` 暖黑，`.app-window` Graphite）；应用仍为 dark-only（`useTheme.ts`）。
+- 原方案对照源：`src/renderer/app/styles/main.css`（当时为 `:root` 暖黑、`.app-window` Graphite）与当时 dark-only 的 `useTheme.ts`；此描述仅对应原方案编写阶段。
 - 范围：主窗口各页、侧栏、播放栏、设置、弹窗、右键菜单、浮层、迷你播放器、桌面歌词。
 - 不改：布局、字号、字族、动效曲线；封面取色链路与沉浸宿主边界保持现有契约。
+
+专辑详情页更新（2026-10-11）：页面交互及播放行使用主题强调色与配套前景色，律动图标继承播放行前景色；已移除无人消费的专辑详情强调色计算和变量。下文其余预设保留为历史方案，当前实现以源码为准。
 
 ## 1. 方向摘要
 
@@ -131,7 +133,7 @@ CD 页另有 `#42423d` / `#55554f` / `#6f6f67` 等近邻色，改造时分别并
 | --- | --- |
 | `--auralis-active-album-accent` | 封面主强调色；用于播放键、进度填充、激活控件 |
 | `--auralis-active-album-tint` | 封面氛围色；仅作半透明叠色，不直接当正文色 |
-| `--auralis-album-detail-accent` / `--auralis-archive-accent` | 页面级 accent，职责与现深色契约相同 |
+| `--auralis-archive-accent` | 归档页局部 accent；专辑详情页不再提供页面级专辑 accent |
 
 窗口 chrome 桥接仍指向静态 token：
 
@@ -181,7 +183,7 @@ CD 页另有 `#42423d` / `#55554f` / `#6f6f67` 等近邻色，改造时分别并
 ### 4.2 封面取色
 
 1. **静态壳（侧栏、列表、设置、普通弹窗）不消费 album accent**——与现深色契约一致。
-2. **沉浸宿主**（PlayerBar、Mini Player、Fullscreen、以及页面级 Album Detail / Archive accent）继续写局部 `--auralis-active-album-*`。
+2. **沉浸宿主**（原方案中的 PlayerBar、Mini Player、Fullscreen、Archive）按各自职责写局部动态色；当前 Album Detail 使用主题语义色，不写专辑动态 accent。
 3. **Tint 叠在磨砂之上**：浅底建议 tint 混合约 **8%–14%**（深色常见 12%–28%）；过强会导致正文发脏、对比下降。
 4. **Accent 只做点缀**：播放键、进度条、音量填充、当前态描边；大面积背景与正文保持中性灰阶。
 5. **可读性优先**：取色过亮时加深或降饱和后再用于描边 / 字色；过暗时可略提亮。算法不变时，在消费者边界做 `color-mix` 约束即可。

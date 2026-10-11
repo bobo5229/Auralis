@@ -1,0 +1,89 @@
+{
+  "geometry": [
+    {
+      "theme": "dark",
+      "sidebar": 260,
+      "tray": 236,
+      "buttons": [
+        {
+          "width": 36,
+          "height": 36,
+          "inside": true
+        },
+        {
+          "width": 36,
+          "height": 36,
+          "inside": true
+        },
+        {
+          "width": 36,
+          "height": 36,
+          "inside": true
+        },
+        {
+          "width": 36,
+          "height": 36,
+          "inside": true
+        },
+        {
+          "width": 36,
+          "height": 36,
+          "inside": true
+        }
+      ]
+    },
+    {
+      "theme": "light",
+      "sidebar": 260,
+      "tray": 236,
+      "buttons": [
+        {
+          "width": 36,
+          "height": 36,
+          "inside": true
+        },
+        {
+          "width": 36,
+          "height": 36,
+          "inside": true
+        },
+        {
+          "width": 36,
+          "height": 36,
+          "inside": true
+        },
+        {
+          "width": 36,
+          "height": 36,
+          "inside": true
+        },
+        {
+          "width": 36,
+          "height": 36,
+          "inside": true
+        }
+      ]
+    }
+  ],
+  "rail": [
+    {
+      "width": 60,
+      "tray": 44,
+      "inside": true
+    },
+    {
+      "width": 60,
+      "tray": 44,
+      "inside": true
+    }
+  ],
+  "hoverOpacity": "1",
+  "checks": [
+    "native pointer hover",
+    "native parameter click",
+    "native Escape and focus restoration",
+    "theme toggle",
+    "refresh feedback",
+    "collapsed layout"
+  ]
+}

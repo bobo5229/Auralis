@@ -7,8 +7,6 @@ import { LibraryCatalogSnapshotStore } from '@main/features/libraryCatalog/libra
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
 import { splitDelimitedValues } from '@shared/utils/delimitedValues'
-import type { StartupAlbumHistory } from '@shared/types/startupAlbum'
-import { selectStartupAlbum } from './startupAlbumSelection'
 
 export class LibraryService {
   private readonly catalogSnapshotStore: LibraryCatalogSnapshotStore
@@ -67,11 +65,6 @@ export class LibraryService {
     const track = this.trackRepository.getRandomPlayableTrack(excludeTrackId)
     if (track) return track
     return this.trackRepository.getRandomPlayableTrack()
-  }
-
-  getStartupAlbumTracks(history: StartupAlbumHistory = []): RandomAlbumTracksResult | null {
-    const identity = selectStartupAlbum(this.trackRepository.getStartupAlbumCandidates(), history)
-    return identity ? this.getAlbumTracks(identity) : null
   }
 
   getRandomAlbumTracks(excludeAlbumKey?: {

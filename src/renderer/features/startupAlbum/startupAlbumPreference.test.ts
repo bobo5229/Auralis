@@ -70,6 +70,28 @@ it('retains the ten most recent distinct presentations and migrates the previous
   ])
   expect(readLastStartupAlbum(storage)).toEqual(album(8))
 })
+it('writes only identities when presentation albums contain tracks and private local paths', () => {
+  const data = new Map<string, string>()
+  const storage = {
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => data.set(key, value),
+  }
+  const identity = { albumArtist: 'Artist', album: 'Album' }
+  const presentationAlbum = {
+    ...identity,
+    tracks: [{ id: 42, filePath: 'C:/private/music/song.flac', title: 'Private title' }],
+  }
+  // Also sanitize old oversized stored entries when updating history.
+  data.set(LAST_STARTUP_ALBUM_KEY, JSON.stringify({ ...presentationAlbum, album: 'Old' }))
+  rememberStartupAlbum(storage, presentationAlbum)
+  expect(JSON.parse(data.get(STARTUP_ALBUM_HISTORY_KEY)!)).toEqual([
+    identity,
+    { ...identity, album: 'Old' },
+  ])
+  expect(JSON.parse(data.get(LAST_STARTUP_ALBUM_KEY)!)).toEqual(identity)
+  expect([...data.values()].join('')).not.toContain('tracks')
+  expect([...data.values()].join('')).not.toContain('C:/private')
+})
 it('recovers stale history and removes malformed, duplicate and oversized identities', () => {
   const previous = { albumArtist: 'Old', album: 'Old' }
   const valid = { albumArtist: 'A', album: 'B' }

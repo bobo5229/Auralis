@@ -199,3 +199,26 @@ describe('normalize encoded bitrate', () => {
     },
   )
 })
+
+describe('normalize audio codec', () => {
+  it.each(['MPEG 1 Layer 3', 'FLAC', 'AAC', 'ALAC', 'Vorbis I', 'Opus', 'PCM'])(
+    'keeps the detected codec %s',
+    (codec) => {
+      const metadata = audio()
+      metadata.format = { ...metadata.format, codec }
+      expect(normalizeMetadata(metadata).codec).toBe(codec)
+    },
+  )
+
+  it('trims codec names without replacing them with container or encoder names', () => {
+    const metadata = audio()
+    metadata.format = { ...metadata.format, container: 'M4A', codec: ' ALAC ', tool: 'Lavf' }
+    expect(normalizeMetadata(metadata, 'song.m4a').codec).toBe('ALAC')
+  })
+
+  it.each([undefined, '', '   '])('stores an unknown codec as null: %s', (codec) => {
+    const metadata = audio()
+    metadata.format = { ...metadata.format, container: 'M4A', codec }
+    expect(normalizeMetadata(metadata, 'song.m4a').codec).toBeNull()
+  })
+})

@@ -22,6 +22,7 @@ export class TrackScanWriter extends BaseRepository {
         disc_no,
         duration_seconds,
         bitrate_bps,
+        codec,
         year,
         release_date,
         copyright,
@@ -39,7 +40,7 @@ export class TrackScanWriter extends BaseRepository {
         missing_since,
         updated_at
       )
-      VALUES (MAX(COALESCE((SELECT MAX(id) FROM tracks),0),COALESCE((SELECT MAX(id) FROM removed_track_history),0))+1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
+      VALUES (MAX(COALESCE((SELECT MAX(id) FROM tracks),0),COALESCE((SELECT MAX(id) FROM removed_track_history),0))+1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
       ON CONFLICT(file_path) DO UPDATE SET
         file_size = excluded.file_size,
         file_mtime_ms = excluded.file_mtime_ms,
@@ -51,6 +52,7 @@ export class TrackScanWriter extends BaseRepository {
         disc_no = excluded.disc_no,
         duration_seconds = excluded.duration_seconds,
         bitrate_bps = excluded.bitrate_bps,
+        codec = excluded.codec,
         year = excluded.year,
         release_date = excluded.release_date,
         copyright = excluded.copyright,
@@ -97,6 +99,7 @@ export class TrackScanWriter extends BaseRepository {
           track.discNo,
           track.durationSeconds,
           track.bitrateBps,
+          track.codec ?? null,
           track.year,
           track.releaseDate,
           track.copyright,

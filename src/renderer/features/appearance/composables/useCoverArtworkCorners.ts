@@ -20,6 +20,8 @@ function readPersisted(): boolean {
 
 const coverArtworkRounded = ref(readPersisted())
 const coverArtworkRadius = ref(readPersistedRadius())
+const roundedPersistFailed = ref(false)
+const radiusPersistFailed = ref(false)
 
 function readPersistedRadius(): number {
   try {
@@ -41,7 +43,9 @@ function setCoverArtworkRounded(enabled: boolean): void {
   coverArtworkRounded.value = enabled
   try {
     localStorage.setItem(STORAGE_KEY, String(enabled))
+    roundedPersistFailed.value = false
   } catch (cause) {
+    roundedPersistFailed.value = true
     rendererDiagnostics.warn({
       scope: 'appearance.cover-artwork',
       message: 'Could not save cover corner preference; keeping it for this session',
@@ -55,7 +59,9 @@ function setCoverArtworkRadius(radius: number): void {
   coverArtworkRadius.value = radius
   try {
     localStorage.setItem(RADIUS_STORAGE_KEY, String(radius))
+    radiusPersistFailed.value = false
   } catch (cause) {
+    radiusPersistFailed.value = true
     rendererDiagnostics.warn({
       scope: 'appearance.cover-artwork',
       message: 'Could not save cover corner radius preference; keeping it for this session',
@@ -70,5 +76,7 @@ export function useCoverArtworkCorners() {
     setCoverArtworkRounded,
     coverArtworkRadius: readonly(coverArtworkRadius),
     setCoverArtworkRadius,
+    roundedPersistFailed: readonly(roundedPersistFailed),
+    radiusPersistFailed: readonly(radiusPersistFailed),
   }
 }

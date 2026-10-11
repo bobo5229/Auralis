@@ -212,6 +212,10 @@ function onKeyDown(event: KeyboardEvent): void {
   transform: translate(-50%, -50%);
 }
 
+.cover-track-row:has(.cover-track-artist-line) .cover-track-bars[data-preset='blocks-wave'] {
+  margin-top: calc(max(18px, var(--auralis-song-cover-artist-size, 12px) * 1.2) / -2);
+}
+
 .cover-track-row::before,
 .cover-track-row--disc-end::after {
   content: '';

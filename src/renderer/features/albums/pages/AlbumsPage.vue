@@ -39,6 +39,7 @@ import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
 import { useAlbumCatalog } from '../composables/useAlbumCatalog'
 import { useAlbumGridLayout } from '../composables/useAlbumGridLayout'
 import { useAlbumListParameters } from '@renderer/features/appearance/composables/useAlbumListParameters'
+import { usePageParameterSource } from '@renderer/features/appearance/composables/usePageParameters'
 import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
 import { findAlbumTransitionFocusTarget } from '../utils/albumGridTransitionPlan'
 import { calculateAlbumTransitionRect } from '../utils/albumGridTransitionGeometry'
@@ -61,6 +62,7 @@ const props = withDefaults(
   },
 )
 const route = useRoute()
+usePageParameterSource('albums')
 const router = useRouter()
 const { t } = useI18n()
 const { songText } = useChineseTextDisplay()
@@ -249,7 +251,6 @@ function scheduleIdlePalettePrefetch(): void {
 }
 
 function seedAlbumDetailSnapshot(album: AlbumSummary): void {
-  prefetchArtworkPalette(album.artworkCacheKey)
   writeAlbumDetailSnapshot({
     albumArtist: album.albumArtist,
     albumTitle: album.title,
@@ -922,7 +923,7 @@ function playGridAlbum(album: AlbumSummary): void {
   const albumTracks = selectAlbumPlaybackTracks(album)
   const firstTrack = albumTracks[0]
   if (!firstTrack) return
-  void playback.playTrackFromQueue(albumTracks, firstTrack.id, { playbackMode: 'sequential' })
+  void playback.playTrackFromQueue(albumTracks, firstTrack.id)
 }
 
 function playCoverAlbum(album: AlbumSummary): void {

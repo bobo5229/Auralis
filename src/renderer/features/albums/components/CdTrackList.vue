@@ -258,6 +258,12 @@ h2 {
     var(--cd-type-track-artist-size)/var(--cd-type-track-artist-line-height) var(--cd-font-display);
   color: var(--cd-text-subtle, #64645d);
 }
+.cd-track:has(.cd-track-artist) .cd-playing-bars[data-preset='blocks-wave'] {
+  /* 将整行中心上移半个副标题及间距，对齐标题行中心。 */
+  margin-top: calc(
+    (var(--cd-type-track-artist-size) * var(--cd-type-track-artist-line-height) + 2px) / -2
+  );
+}
 @media (max-width: 800px) {
   .cd-track-heading {
     flex-wrap: wrap;

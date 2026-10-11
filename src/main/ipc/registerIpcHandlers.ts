@@ -26,6 +26,7 @@ import { LibraryIncrementalImportService } from '@main/features/libraryScan/libr
 import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
 import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
 import { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
+import { StartupAlbumWorkerHost } from '@main/features/startupAlbum/startupAlbumWorkerHost'
 import { logger } from '@main/logging/logger'
 import { exportDiagnostics } from '@main/logging/diagnosticExport'
 import { LibraryRepository } from '@main/repositories/libraryRepository'
@@ -68,6 +69,7 @@ export function registerIpcHandlers(
     resourcesPath: process.resourcesPath,
   })
   const libraryService = new LibraryService(new LibraryRepository(db), new TrackRepository(db))
+  const startupAlbumWorker = new StartupAlbumWorkerHost(db.name)
   const libraryScanService = new LibraryScanService(db, artworkCacheDir)
   const trackRepository = new TrackRepository(db)
   const libraryRootRepository = new LibraryRootRepository(db)
@@ -283,7 +285,7 @@ export function registerIpcHandlers(
   electronIpcRegistrar.handle(ipcChannels.app.claimCdStartupEntry, claimCdStartupEntry)
   electronIpcRegistrar.handle(ipcChannels.app.claimStartupAlbum, (_event, request) =>
     claimStartupAlbum(() =>
-      libraryService.getStartupAlbumTracks(
+      startupAlbumWorker.getStartupAlbumTracks(
         request?.recentAlbums ?? (request?.excludeAlbumKey ? [request.excludeAlbumKey] : []),
       ),
     ),
@@ -408,6 +410,7 @@ export function registerIpcHandlers(
       // Stop producers immediately, and keep SQLite open while accepted work drains.
       const producers = await Promise.allSettled([
         electronIpcRegistrar.shutdown(),
+        startupAlbumWorker.shutdown(),
         metadataWatchService.stop(),
         artworkMaintenanceService.shutdown(),
         spectrum.dispose(),

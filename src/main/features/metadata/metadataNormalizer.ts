@@ -16,6 +16,7 @@ export interface NormalizedMetadata {
   discNo: number | null
   durationSeconds: number | null
   bitrateBps: number | null
+  codec: string | null
   year: number | null
   releaseDate: string | null
   copyright: string | null
@@ -317,6 +318,7 @@ export function normalizeMetadata(metadata: IAudioMetadata, filePath?: string): 
     trackNo: common.track.no ?? null,
     discNo: common.disk.no ?? null,
     durationSeconds: metadata.format.duration ?? null,
+    codec: metadata.format.codec?.trim() || null,
     bitrateBps:
       typeof metadata.format.bitrate === 'number' &&
       Number.isFinite(metadata.format.bitrate) &&
