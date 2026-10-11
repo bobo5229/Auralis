@@ -89,6 +89,27 @@ describe('useSongFontWeights', () => {
     expect(state.songFontWeightStyle.value['--auralis-song-cover-duration-weight']).toBe('400')
   })
 
+  it('persists cover bitrate weight independently and restores its default on reset', async () => {
+    storage.set(
+      SONG_FONT_WEIGHT_STORAGE_KEY,
+      JSON.stringify({ version: 1, list: { title: 600 }, cover: { duration: 500 } }),
+    )
+    const state = await load()
+    expect(state.songFontWeightStyle.value['--auralis-song-cover-bitrate-weight']).toBe('400')
+    state.setSongFontWeight('cover', 'bitrate', 700)
+    expect(stored()).toEqual({
+      version: 1,
+      list: { title: 600 },
+      cover: { duration: 500, bitrate: 700 },
+    })
+    vi.resetModules()
+    const restored = await load()
+    expect(restored.songFontWeightChoice('cover', 'bitrate')).toBe(700)
+    restored.resetSongFontWeightView('cover')
+    expect(restored.songFontWeightStyle.value['--auralis-song-cover-bitrate-weight']).toBe('400')
+    expect(restored.songFontWeightChoice('list', 'title')).toBe(600)
+  })
+
   it('keeps illegal storage until the next valid edit', async () => {
     const raw = JSON.stringify({
       version: 1,

@@ -183,6 +183,9 @@ function createApi(): AuralisApi {
       restoreBackup: vi.fn(),
     },
     app: {
+      setLocale: vi.fn(async () => undefined),
+      claimStartupAlbum: vi.fn(async () => ({ album: null })),
+      claimCdStartupEntry: vi.fn(async () => ({ firstEntry: true })),
       getInfo: vi.fn(),
       exportDiagnostics: vi.fn(),
       rendererReady: vi.fn(),
@@ -253,12 +256,8 @@ function createApi(): AuralisApi {
       onCommand: vi.fn(),
     },
     archive: {
-      getListeningHeatmap: vi.fn(),
-      getDailyListeningDetail: vi.fn(),
-      getDailyAlbumStats: vi.fn(),
-      getAnnualListeningInsights: vi.fn(),
-      getListeningRanking: vi.fn(),
-      getListeningGenreSpectrum: vi.fn(),
+      getAnnualPlayCounts: vi.fn(async () => []),
+      getDayTopTracks: vi.fn(async () => []),
       resetPlayStats: vi.fn(),
     },
     metadata: {
@@ -279,6 +278,10 @@ function createApi(): AuralisApi {
       onRefreshProgress: vi.fn(),
     },
     window: {
+      getCloseBehavior: vi.fn().mockResolvedValue({ behavior: 'quit', trayAvailable: true }),
+      setCloseBehavior: vi.fn(),
+      getVisibility: vi.fn().mockResolvedValue({ isVisible: true }),
+      onVisibilityChanged: vi.fn().mockReturnValue(() => {}),
       control: vi.fn(),
       getMaximized: vi.fn(),
       onMaximizedChanged: vi.fn(),
@@ -543,7 +546,7 @@ describe('usePlayback mode navigation & characterization frozen semantics', () =
   it('sequential mode: manual next stops at end without error, ended stops and resets time', async () => {
     const playback = await loadPlayback()
     const audio = TestAudio.latest!
-    await playback.playTrackFromQueue([track(1), track(2)], 2)
+    await playback.playTrackFromQueue([track(1), track(2)], 2, { playbackMode: 'sequential' })
     expect(playback.state.currentTrackId).toBe(2)
 
     // Manual next at end of queue
@@ -664,7 +667,7 @@ describe('usePlayback mode navigation & characterization frozen semantics', () =
   it('previous track at start of queue: wraps in repeat-all, seeks to start in sequential', async () => {
     const playback = await loadPlayback()
     const audio = TestAudio.latest!
-    await playback.playTrackFromQueue([track(1), track(2)], 1)
+    await playback.playTrackFromQueue([track(1), track(2)], 1, { playbackMode: 'sequential' })
     audio.currentTime = 50
     playback.state.currentTime = 50
 

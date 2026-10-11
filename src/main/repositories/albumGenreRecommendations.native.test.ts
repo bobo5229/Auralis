@@ -31,6 +31,7 @@ function scanned(id: number, patch: Partial<ScannedTrack> = {}): ScannedTrack {
     albumArtist: 'Artist',
     trackNo: id,
     discNo: 1,
+    bitrateBps: null,
     durationSeconds: 180,
     year: 2020,
     releaseDate: '2020',

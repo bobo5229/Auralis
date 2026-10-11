@@ -7,6 +7,7 @@ import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type {
   LibraryContextMenuAnchor,
   LibraryContextMenuSource,
+  LibraryPlaylistFeedback,
   LibraryViewMode,
 } from '../types/libraryInteraction'
 
@@ -21,7 +22,7 @@ const props = defineProps<{
   hideInsert?: boolean
   currentViewMode: LibraryViewMode
   playlists: SidebarPlaylistItem[]
-  playlistFeedback: { playlistId: number; message: string } | null
+  playlistFeedback: LibraryPlaylistFeedback | null
   playlistLoading: boolean
   playlistLoadError: string | null
   creatingPlaylist: boolean
@@ -599,16 +600,28 @@ onBeforeUnmount(() => {
             </span>
           </button>
 
-          <!-- 歌单添加成功反馈（位于主菜单根部，子菜单关闭后依然保留并朗读） -->
+          <!-- 添加结果保留在主菜单，子菜单关闭后依然可见并朗读。 -->
           <template v-if="playlistFeedback">
             <div class="library-context-menu-separator" role="separator"></div>
             <div
-              class="flex items-center gap-2 px-3 py-1.5 auralis-type-caption text-emerald-500 font-medium select-none"
-              role="status"
+              class="flex items-center gap-2 px-3 py-1.5 auralis-type-caption font-medium select-none"
+              :class="
+                playlistFeedback.kind === 'error'
+                  ? 'text-red-500'
+                  : playlistFeedback.kind === 'success'
+                    ? 'text-emerald-500'
+                    : 'text-[var(--auralis-text-muted)]'
+              "
+              :role="playlistFeedback.kind === 'error' ? 'alert' : 'status'"
               aria-live="polite"
             >
-              <span class="i-lucide-check text-sm shrink-0"></span>
-              <span class="truncate">{{ playlistFeedback.message }}</span>
+              <span
+                :class="
+                  playlistFeedback.kind === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-check'
+                "
+                class="text-sm shrink-0"
+              ></span>
+              <span>{{ playlistFeedback.message }}</span>
             </div>
           </template>
         </div>
@@ -673,7 +686,11 @@ onBeforeUnmount(() => {
                   pl.name
                 }}</span>
                 <span
-                  v-if="playlistFeedback && playlistFeedback.playlistId === pl.id"
+                  v-if="
+                    playlistFeedback &&
+                    playlistFeedback.kind !== 'error' &&
+                    playlistFeedback.playlistId === pl.id
+                  "
                   class="library-context-menu-chevron text-[10px] text-green-600 font-bold"
                   aria-live="polite"
                 >

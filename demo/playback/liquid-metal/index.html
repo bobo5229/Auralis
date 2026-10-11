@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · 液态金属原型</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <canvas id="metal" aria-label="随专辑配色流动的液态金属背景"></canvas>
+    <header class="toolbar">
+      <div class="identity"><strong>Auralis</strong><span>液态金属 · 材质原型</span></div>
+      <nav aria-label="预览工具">
+        <button id="reference">参考图</button>
+        <button id="lyrics" aria-pressed="false">歌词预览</button>
+        <button id="clean" aria-pressed="false">纯背景</button>
+      </nav>
+    </header>
+    <button id="restore" hidden>显示控制</button>
+    <main class="player-preview" hidden aria-label="模拟播放器布局">
+      <section class="album-preview">
+        <img id="preview-cover" alt="当前配色样本或上传的专辑封面" />
+        <h1 id="preview-title">柠檬黄绿</h1>
+        <p>专辑配色预览 · 模拟信息</p>
+        <div class="mock-progress" aria-hidden="true"><span></span></div>
+      </section>
+      <section class="lyrics-preview" aria-label="模拟歌词">
+        <p>让颜色随曲面舒展</p>
+        <p class="current">在流动中，看见光的形状</p>
+        <p>明亮的反射缓缓经过</p>
+      </section>
+    </main>
+    <aside class="controls" aria-label="材质调节">
+      <div class="palette-row">
+        <div class="cover-info">
+          <img id="cover" alt="配色样本" />
+          <div>
+            <strong id="palette-name">柠檬黄绿</strong><span id="palette-origin">内置配色样本</span>
+          </div>
+        </div>
+        <div id="swatches" class="swatches" aria-label="取色结果"></div>
+        <label class="upload-button" tabindex="0" role="button" for="upload">上传专辑封面</label>
+        <input id="upload" type="file" accept="image/*" hidden />
+      </div>
+      <div class="presets" role="group" aria-label="配色样本">
+        <button data-preset="lemon" aria-pressed="true">柠檬黄绿</button>
+        <button data-preset="blue" aria-pressed="false">冰蓝</button>
+        <button data-preset="rose" aria-pressed="false">玫瑰铜</button>
+        <button data-preset="mono" aria-pressed="false">黑白封面</button>
+      </div>
+      <div class="sliders">
+        <label for="speed"
+          >流速 <output id="speed-value">0.70</output
+          ><input id="speed" type="range" min="0.15" max="1.8" step="0.05" value="0.7"
+        /></label>
+        <label for="folds"
+          >褶皱尺度 <output id="folds-value">1.15</output
+          ><input id="folds" type="range" min="0.65" max="2.2" step="0.05" value="1.15"
+        /></label>
+        <label for="roughness"
+          >反射柔度 <output id="roughness-value">0.12</output
+          ><input id="roughness" type="range" min="0.04" max="0.35" step="0.01" value="0.12"
+        /></label>
+      </div>
+      <footer>
+        <button id="pause" aria-pressed="false">暂停流动</button>
+        <button id="reset">重置材质</button>
+        <span id="status" role="status" aria-live="polite">正在准备材质…</span>
+      </footer>
+    </aside>
+    <dialog id="reference-dialog" aria-labelledby="reference-title">
+      <div class="dialog-header">
+        <h2 id="reference-title">视觉基准 · 用户提供的参考图</h2>
+        <button id="close-reference">关闭</button>
+      </div>
+      <img src="./assets/reference.png" alt="黄绿金色液态金属：宽大曲面、连续镜面高光与局部褶皱" />
+    </dialog>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

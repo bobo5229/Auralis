@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { animatePlaybackBars } from '@renderer/shared/animation/motion'
+import PlayingIndicator from '@renderer/shared/components/PlayingIndicator.vue'
 import { formatDuration } from '../utils/formatDuration'
-import { formatArtist, isMultiValueArtist } from '../utils/formatArtist'
-import { formatGenre } from '../utils/formatGenre'
+import { formatBitrate } from '../utils/formatBitrate'
+import { isMultiValueArtist } from '../utils/formatArtist'
+import { formatMetadataDisplay } from '../utils/formatMetadataDisplay'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 
 const props = withDefaults(
   defineProps<{
@@ -13,11 +15,12 @@ const props = withDefaults(
     nowPlaying: boolean
     isPlaying?: boolean
     selected?: boolean
+    contextSelected?: boolean
     focused?: boolean
     index?: number
     discEnd?: boolean
   }>(),
-  { isPlaying: false, selected: false, focused: false, index: 0 },
+  { isPlaying: false, selected: false, contextSelected: false, focused: false, index: 0 },
 )
 
 const emit = defineEmits<{
@@ -27,22 +30,12 @@ const emit = defineEmits<{
   openContextMenu: [trackId: number, event: MouseEvent, openReason?: 'pointer' | 'keyboard']
 }>()
 const { t } = useI18n()
-const barsRef = ref<HTMLElement | null>(null)
-
-// 仅当前曲目行存在音柱 DOM 时注册动画资源；每次依赖变化先执行上一次的清理函数。
-watch(
-  [barsRef, () => props.nowPlaying, () => props.isPlaying],
-  (_, __, onCleanup) => {
-    const bars = Array.from(
-      barsRef.value?.querySelectorAll<HTMLElement>('.cover-track-bars__bar') ?? [],
-    )
-    if (bars.length === 0) return
-    onCleanup(animatePlaybackBars(bars, props.isPlaying))
-  },
-  { flush: 'post', immediate: true },
+const { songText, songValues } = useChineseTextDisplay()
+const titleDisplay = computed(() =>
+  formatMetadataDisplay(songText(props.track.title), t('library.missing.title')),
 )
-
 function onKeyDown(event: KeyboardEvent): void {
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
   if (event.key === ' ') {
     event.preventDefault()
     emit('select', props.track.id)
@@ -70,6 +63,7 @@ function onKeyDown(event: KeyboardEvent): void {
     class="cover-track-row auralis-track-row-divider"
     :class="{
       'cover-track-row--playing': nowPlaying,
+      'library-track-context-selected': contextSelected,
       'cover-track-row--single-line': !isMultiValueArtist(track.artist),
       'cover-track-row--disc-end': discEnd,
     }"
@@ -81,11 +75,10 @@ function onKeyDown(event: KeyboardEvent): void {
     :aria-label="
       t('library.a11y.songRow', {
         index: index + 1,
-        title: track.title ?? '',
-        artist: track.artist ?? '',
+        title: titleDisplay.text,
+        artist: songValues(track.artist),
       })
     "
-    @click="emit('select', track.id)"
     @dblclick="emit('play', track.id)"
     @contextmenu.prevent="emit('openContextMenu', track.id, $event, 'pointer')"
     @keydown="onKeyDown"
@@ -100,34 +93,38 @@ function onKeyDown(event: KeyboardEvent): void {
           track.trackNo == null ? (nowPlaying ? '00' : '') : String(track.trackNo).padStart(2, '0')
         }}
       </span>
-      <span v-if="nowPlaying" ref="barsRef" class="cover-track-bars" aria-hidden="true">
-        <span class="cover-track-bars__bar"></span>
-        <span class="cover-track-bars__bar"></span>
-        <span class="cover-track-bars__bar"></span>
-      </span>
+      <PlayingIndicator v-if="nowPlaying" class="cover-track-bars" :playing="isPlaying" />
     </span>
-    <div class="min-w-0 flex flex-col overflow-hidden max-h-full">
+    <div class="cover-track-info min-w-0 flex flex-col overflow-hidden max-h-full">
       <span
-        v-tooltip.overflow="track.title"
+        v-tooltip.overflow="titleDisplay.text"
         class="cover-track-title truncate text-sm leading-5 text-[var(--auralis-text)]"
-        >{{ track.title ?? '' }}</span
+        >{{ titleDisplay.text }}</span
       >
       <span
         v-if="isMultiValueArtist(track.artist)"
-        v-tooltip.overflow="formatArtist(track.artist)"
+        v-tooltip.overflow="songValues(track.artist)"
         class="cover-track-artist-line truncate text-xs leading-[18px] text-[var(--auralis-text-faint)]"
-        >{{ formatArtist(track.artist) }}</span
+        >{{ songValues(track.artist) }}</span
       >
     </div>
     <span
-      v-tooltip.overflow="formatGenre(track.genre)"
+      v-tooltip.overflow="songValues(track.genre)"
       class="cover-track-genre truncate text-right text-xs text-[var(--auralis-text-muted)] min-w-0"
-      >{{ formatGenre(track.genre) }}</span
+      >{{ songValues(track.genre) }}</span
     >
-    <span
-      class="cover-track-duration text-right text-xs text-[var(--auralis-text-muted)] tabular-nums"
-      >{{ formatDuration(track.durationSeconds) }}</span
-    >
+    <div class="cover-track-technical min-w-0 flex flex-col text-right tabular-nums">
+      <span
+        v-tooltip.overflow="formatDuration(track.durationSeconds)"
+        class="cover-track-duration min-w-0 truncate text-xs text-[var(--auralis-text-muted)]"
+        >{{ formatDuration(track.durationSeconds) }}</span
+      >
+      <span
+        v-tooltip.overflow="formatBitrate(track.bitrateBps)"
+        class="cover-track-bitrate auralis-type-caption min-w-0 truncate text-[var(--auralis-text-faint)]"
+        >{{ formatBitrate(track.bitrateBps) }}</span
+      >
+    </div>
   </div>
 </template>
 
@@ -136,34 +133,59 @@ function onKeyDown(event: KeyboardEvent): void {
 <style scoped>
 .cover-track-number {
   font-weight: var(--auralis-song-cover-track-number-weight, 400);
+  font-size: var(--auralis-song-cover-track-number-size, 12px);
+  line-height: max(16px, 1.2em);
 }
 
 .cover-track-title {
   font-weight: var(--auralis-song-cover-title-weight, 500);
+  font-size: var(--auralis-song-cover-title-size, 14px);
+  line-height: max(20px, 1.2em);
 }
 
 .cover-track-artist-line {
   font-weight: var(--auralis-song-cover-artist-weight, 400);
+  font-size: var(--auralis-song-cover-artist-size, 12px);
+  line-height: max(18px, 1.2em);
 }
 
 .cover-track-genre {
   font-weight: var(--auralis-song-cover-genre-weight, 400);
+  font-size: var(--auralis-song-cover-genre-size, 12px);
+  line-height: max(16px, 1.2em);
 }
 
 .cover-track-duration {
   font-weight: var(--auralis-song-cover-duration-weight, 400);
+  font-size: var(--auralis-song-cover-duration-size, 12px);
+  line-height: max(16px, 1.2em);
+}
+
+.cover-track-bitrate {
+  font-weight: var(--auralis-song-cover-bitrate-weight, 400);
+  font-size: var(--auralis-song-cover-bitrate-size, 12px);
+  line-height: max(var(--auralis-type-caption-line-height), 1.2em);
 }
 
 .cover-track-row {
-  /* 各列在完整行框内居中；双行文字共 38px，上下各留 5px，完整显示副行下伸部。 */
+  /* 技术信息固定两行，各列在 48px 行框中分别垂直居中。 */
   align-items: center;
 }
 
-.cover-track-row--single-line {
-  /* 单行文字共用基线，按内容高度形成一组，再在完整行框中整体居中。 */
-  grid-template-rows: max-content;
-  align-content: center;
-  align-items: first baseline;
+/* 右侧面板收起时，多值艺术家与标题并排；各自省略，保持曲目行的固定高度。 */
+.app-shell.is-lyrics-collapsed
+  .cover-track-row:not(.cover-track-row--single-line)
+  .cover-track-info {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.app-shell.is-lyrics-collapsed
+  .cover-track-row:not(.cover-track-row--single-line)
+  :is(.cover-track-title, .cover-track-artist-line) {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .cover-track-index {
@@ -182,10 +204,6 @@ function onKeyDown(event: KeyboardEvent): void {
   position: absolute;
   top: 50%;
   left: 50%;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 2px;
   width: 14px;
   height: 14px;
   color: var(--auralis-song-row-now-playing-title);
@@ -194,30 +212,8 @@ function onKeyDown(event: KeyboardEvent): void {
   transform: translate(-50%, -50%);
 }
 
-.cover-track-bars__bar {
-  width: 2px;
-  height: 12px;
-  border-radius: 1px;
-  background: currentColor;
-  transform-origin: bottom;
-}
-
-/* 初始静态柱高 5/10/7px；播放动画由 motion.ts 在同一 transform 上覆盖。 */
-.cover-track-bars__bar:nth-child(1) {
-  transform: scaleY(0.417);
-}
-
-.cover-track-bars__bar:nth-child(2) {
-  transform: scaleY(0.833);
-}
-
-.cover-track-bars__bar:nth-child(3) {
-  transform: scaleY(0.583);
-}
-
 .cover-track-row::before,
-.cover-track-row--disc-end::after,
-.cover-track-row:last-child::after {
+.cover-track-row--disc-end::after {
   content: '';
 }
 
@@ -225,8 +221,7 @@ function onKeyDown(event: KeyboardEvent): void {
   top: 0;
 }
 
-.cover-track-row--disc-end::after,
-.cover-track-row:last-child::after {
+.cover-track-row--disc-end::after {
   bottom: 0;
 }
 

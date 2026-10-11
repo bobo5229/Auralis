@@ -16,6 +16,11 @@ export interface AuralisApi {
   }
   app: {
     getInfo: () => Result<'app:get-info'>
+    setLocale: (locale: Req<'app:set-locale'>['locale']) => Result<'app:set-locale'>
+    claimCdStartupEntry: () => Result<'app:claim-cd-startup-entry'>
+    claimStartupAlbum: (
+      request?: Exclude<IpcRequest<'app:claim-startup-album'>, void>,
+    ) => Result<'app:claim-startup-album'>
     exportDiagnostics: () => Result<'app:export-diagnostics'>
     rendererReady: () => void
     splashReady: (payload: IpcSendPayload<'app:splash-ready'>) => void
@@ -133,25 +138,13 @@ export interface AuralisApi {
     onCommand: (callback: (command: IpcEventPayload<'system-media:command'>) => void) => () => void
   }
   archive: {
-    getListeningHeatmap: (
-      year: Req<'archive:get-listening-heatmap'>['year'],
-    ) => Result<'archive:get-listening-heatmap'>
-    getDailyListeningDetail: (
-      date: Req<'archive:get-daily-listening-detail'>['date'],
-    ) => Result<'archive:get-daily-listening-detail'>
-    getDailyAlbumStats: (
-      date: Req<'archive:get-daily-album-stats'>['date'],
-    ) => Result<'archive:get-daily-album-stats'>
-    getAnnualListeningInsights: (
-      year: Req<'archive:get-annual-listening-insights'>['year'],
-    ) => Result<'archive:get-annual-listening-insights'>
-    getListeningRanking: (
-      params: Req<'archive:get-listening-ranking'>,
-    ) => Result<'archive:get-listening-ranking'>
-    getListeningGenreSpectrum: (
-      year: Req<'archive:get-listening-genre-spectrum'>['year'],
-    ) => Result<'archive:get-listening-genre-spectrum'>
+    getAnnualPlayCounts: (
+      year: Req<'archive:get-annual-play-counts'>['year'],
+    ) => Result<'archive:get-annual-play-counts'>
     resetPlayStats: () => Result<'archive:reset-play-stats'>
+    getDayTopTracks: (
+      date: Req<'archive:get-day-top-tracks'>['date'],
+    ) => Result<'archive:get-day-top-tracks'>
   }
   metadata: {
     refreshTrack: (
@@ -187,8 +180,16 @@ export interface AuralisApi {
     ) => () => void
   }
   window: {
+    getCloseBehavior: () => Result<'window:get-close-behavior'>
+    setCloseBehavior: (
+      behavior: Req<'window:set-close-behavior'>['behavior'],
+    ) => Result<'window:set-close-behavior'>
     control: (action: Req<'window:control'>['action']) => Result<'window:control'>
     getMaximized: () => Result<'window:get-maximized'>
+    getVisibility: () => Result<'window:get-visibility'>
+    onVisibilityChanged: (
+      callback: (state: IpcEventPayload<'window:visibility-changed'>) => void,
+    ) => () => void
     onMaximizedChanged: (
       callback: (state: IpcEventPayload<'window:maximized-changed'>) => void,
     ) => () => void

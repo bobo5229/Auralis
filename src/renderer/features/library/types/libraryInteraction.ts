@@ -18,6 +18,12 @@ export interface LibraryContextMenuState {
   anchor: LibraryContextMenuAnchor
 }
 
+export interface LibraryPlaylistFeedback {
+  playlistId: number | null
+  kind: 'success' | 'info' | 'error'
+  message: string
+}
+
 export type LibrarySearchOutcome =
   | { kind: 'idle' }
   | { kind: 'matched'; index: number; total: number; wrapped: boolean }
@@ -34,7 +40,7 @@ export interface LibraryContextMenuProps {
   hideInsert?: boolean
   currentViewMode: LibraryViewMode
   playlists: SidebarPlaylistItem[]
-  playlistFeedback: { playlistId: number; message: string } | null
+  playlistFeedback: LibraryPlaylistFeedback | null
   playlistLoading: boolean
   playlistLoadError: string | null
   creatingPlaylist: boolean

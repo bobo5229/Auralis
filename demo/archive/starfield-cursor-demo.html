@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>声迹 · 星空与光标 / Auralis Demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --night: #030509;
+        --starlight: #e7deca;
+        --signal: #9ebabe;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        overflow: hidden;
+        background: var(--night);
+        color: var(--starlight);
+        font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      }
+      ::selection {
+        color: var(--night);
+        background: var(--starlight);
+      }
+
+      .sky {
+        position: fixed;
+        inset: 0;
+        isolation: isolate;
+        background:
+          radial-gradient(ellipse at 74% 34%, #15202955, transparent 58%),
+          radial-gradient(ellipse at 38% 78%, #201d1428, transparent 54%), var(--night);
+        touch-action: none;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        transform: translate(var(--camera-x, 0px), var(--camera-y, 0px))
+          rotate(var(--camera-roll, 0deg));
+      }
+      .sky::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: radial-gradient(ellipse at center, transparent 36%, #01020778 100%);
+      }
+      .sky::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        opacity: var(--galaxy-blend, 0);
+        background:
+          radial-gradient(ellipse at 62% 42%, #164b6148, transparent 65%),
+          radial-gradient(ellipse at 28% 76%, #123b3c35, transparent 58%);
+      }
+
+      .masthead {
+        position: fixed;
+        z-index: 1;
+        top: max(28px, env(safe-area-inset-top));
+        left: max(32px, env(safe-area-inset-left));
+        display: flex;
+        align-items: baseline;
+        gap: 14px;
+        pointer-events: none;
+      }
+      .wordmark {
+        font:
+          italic 22px/28px Georgia,
+          serif;
+        letter-spacing: -0.03em;
+      }
+      h1 {
+        margin: 0;
+        color: #c2caca;
+        font-size: 12px;
+        line-height: 18px;
+        font-weight: 400;
+      }
+
+      .controls {
+        position: fixed;
+        z-index: 1;
+        right: max(28px, env(safe-area-inset-right));
+        bottom: max(24px, env(safe-area-inset-bottom));
+        display: flex;
+        gap: 20px;
+      }
+      button {
+        min-height: 44px;
+        padding: 10px 4px;
+        border: 0;
+        border-bottom: 1px solid #9ebabe38;
+        border-radius: 0;
+        background: transparent;
+        color: #bfccce;
+        font:
+          12px/20px 'Segoe UI',
+          'Microsoft YaHei',
+          sans-serif;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      button:hover {
+        color: var(--starlight);
+        border-bottom-color: var(--starlight);
+      }
+      button:focus-visible {
+        outline: 1px solid var(--signal);
+        outline-offset: 5px;
+      }
+      button[aria-pressed='true'] {
+        color: var(--starlight);
+        border-bottom-color: var(--starlight);
+      }
+      button:disabled {
+        color: #b3bfc1;
+        cursor: default;
+        border-bottom-color: transparent;
+      }
+      button[hidden] {
+        display: none;
+      }
+
+      .destination {
+        position: fixed;
+        z-index: 1;
+        top: 50%;
+        left: 50%;
+        display: grid;
+        place-items: center;
+        width: 76px;
+        height: 76px;
+        min-height: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        transform: translate(-50%, -50%) translate(var(--camera-x, 0px), var(--camera-y, 0px))
+          rotate(var(--camera-roll, 0deg));
+        touch-action: manipulation;
+      }
+      .destination:hover {
+        border: 0;
+      }
+      .destination-dot {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: rgb(var(--destination-color, 229 216 174));
+        transform: scale(var(--destination-scale, 1));
+        pointer-events: none;
+      }
+      .destination-hint {
+        position: fixed;
+        top: calc(50% + 64px);
+        left: 50%;
+        z-index: 1;
+        margin: 0;
+        color: #bfccce;
+        font-size: 12px;
+        line-height: 20px;
+        transform: translateX(-50%);
+        pointer-events: none;
+      }
+      .sky[data-state='travel'] ~ .destination-hint {
+        opacity: 0;
+      }
+
+      @media (max-width: 600px) {
+        .masthead {
+          top: max(20px, env(safe-area-inset-top));
+          left: max(20px, env(safe-area-inset-left));
+        }
+        .controls {
+          right: max(20px, env(safe-area-inset-right));
+          bottom: max(20px, env(safe-area-inset-bottom));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main
+      class="sky"
+      id="sky"
+      data-state="home"
+      aria-label="星空交互演示：双击中央圆点穿梭至另一星系；移动光标探索星点，点击背景发出光波"
+    >
+      <canvas id="stars" aria-hidden="true"></canvas>
+    </main>
+    <header class="masthead">
+      <span class="wordmark">auralis</span>
+      <h1>声迹 / 星空</h1>
+    </header>
+    <button
+      class="destination"
+      id="destination"
+      type="button"
+      aria-label="中央圆点代替 Mac；双击、Enter 或空格键穿越星空"
+      aria-describedby="destination-hint"
+      aria-busy="false"
+    >
+      <span class="destination-dot" aria-hidden="true"></span>
+    </button>
+    <p class="destination-hint" id="destination-hint">双击穿越</p>
+    <nav class="controls" aria-label="演示控制">
+      <button id="reset" type="button">复位</button>
+      <button id="motion" type="button" aria-pressed="false">暂停动效</button>
+      <button id="fullscreen" type="button" aria-pressed="false">全屏</button>
+    </nav>
+    <script>
+      ;(() => {
+        const sky = document.getElementById('sky')
+        const canvas = document.getElementById('stars')
+        const context = canvas.getContext('2d', { alpha: true })
+        const motionButton = document.getElementById('motion')
+        const fullscreenButton = document.getElementById('fullscreen')
+        const destination = document.getElementById('destination')
+        const destinationHint = document.getElementById('destination-hint')
+        const resetButton = document.getElementById('reset')
+        if (!context) return
+
+        const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
+        const homeColors = [
+          [239, 230, 211],
+          [255, 194, 109],
+          [115, 175, 255],
+          [95, 220, 185],
+          [190, 150, 250],
+          [247, 139, 172],
+        ]
+        const awayColors = [
+          [215, 235, 255],
+          [255, 203, 127],
+          [100, 170, 255],
+          [90, 230, 203],
+          [172, 133, 255],
+          [248, 130, 187],
+        ]
+        const homeStrengths = [1, 1.15, 0.95, 1, 1, 1]
+        const awayStrengths = [1, 0.8, 1.25, 1.18, 1.05, 0.95]
+        const travelDuration = 5
+        const accelerationDuration = 0.6
+        const decelerationDuration = 0.8
+        const cruiseSpeed = 8
+        let flightRandom = randomSource(1281984)
+        const pointer = { x: 0, y: 0, tx: 0, ty: 0, strength: 0, inside: false }
+        const view = { x: 0, y: 0 }
+        const pulses = []
+        let stars = []
+        let width = 1
+        let height = 1
+        let paused = false
+        let raf = 0
+        let previousTime = 0
+        let elapsed = 0
+        let galaxy = 0
+        let journey = null
+        let lastTouch = 0
+        let suppressDoubleClickUntil = 0
+
+        // A fixed seed keeps the same sky when resizing or comparing motion modes.
+        function randomSource(seed) {
+          return () => {
+            seed = (seed * 1664525 + 1013904223) >>> 0
+            return seed / 4294967296
+          }
+        }
+
+        // Small reusable light sprites avoid per-star gradients and shadow filters.
+        const lights = [...homeColors, ...awayColors].map((rgb) => {
+          const color = rgb.join(', ')
+          const tile = document.createElement('canvas')
+          tile.width = tile.height = 64
+          const c = tile.getContext('2d')
+          const light = c.createRadialGradient(32, 32, 0, 32, 32, 32)
+          light.addColorStop(0, `rgba(${color}, .8)`)
+          light.addColorStop(0.12, `rgba(${color}, .3)`)
+          light.addColorStop(0.4, `rgba(${color}, .06)`)
+          light.addColorStop(1, `rgba(${color}, 0)`)
+          c.fillStyle = light
+          c.fillRect(0, 0, 64, 64)
+          return tile
+        })
+
+        // Cache colored tails once; each frame only stretches and turns these sprites.
+        const trails = [...homeColors, ...awayColors].map((rgb) => {
+          const tile = document.createElement('canvas')
+          tile.width = 128
+          tile.height = 8
+          const c = tile.getContext('2d')
+          const color = rgb.join(', ')
+          const fade = c.createLinearGradient(0, 0, 128, 0)
+          fade.addColorStop(0, `rgba(${color}, 0)`)
+          fade.addColorStop(0.3, `rgba(${color}, .22)`)
+          fade.addColorStop(0.75, `rgba(${color}, .75)`)
+          fade.addColorStop(1, `rgba(${color}, 1)`)
+          c.strokeStyle = fade
+          c.lineWidth = 3
+          c.beginPath()
+          c.moveTo(0, 4)
+          c.lineTo(128, 4)
+          c.stroke()
+          return tile
+        })
+
+        function pickStarColor(random) {
+          const sample = random()
+          // White remains the largest group; each star keeps its color family across galaxies.
+          const boundaries = [0.44, 0.64, 0.77, 0.86, 0.94, 1]
+          return boundaries.findIndex((limit) => sample < limit)
+        }
+
+        function animated() {
+          return !paused && !reducedMotion.matches
+        }
+
+        function smoothStep(from, to, value) {
+          const p = Math.max(0, Math.min(1, (value - from) / (to - from)))
+          return p * p * (3 - 2 * p)
+        }
+
+        function travelState() {
+          if (!journey) return { blend: galaxy, focus: galaxy, speed: 0, exposure: 0 }
+          const progress = journey.age / travelDuration
+          const acceleration = smoothStep(0, accelerationDuration, journey.age)
+          const deceleration =
+            1 - smoothStep(travelDuration - decelerationDuration, travelDuration, journey.age)
+          const speed = cruiseSpeed * acceleration * deceleration
+          return {
+            blend: journey.from + (journey.to - journey.from) * smoothStep(0.18, 0.92, progress),
+            focus: journey.from + (journey.to - journey.from) * smoothStep(0.08, 0.8, progress),
+            speed,
+            exposure: Math.min(
+              speed * 0.055,
+              travelDistance(journey.age) - travelDistance(Math.max(0, journey.age - 0.055)),
+            ),
+          }
+        }
+
+        // Integrate the speed curve so distance is independent of refresh rate.
+        function travelDistance(age) {
+          const integral = (p) => p * p * p - (p * p * p * p) / 2
+          if (age < accelerationDuration)
+            return cruiseSpeed * accelerationDuration * integral(age / accelerationDuration)
+          const brakeAt = travelDuration - decelerationDuration
+          const accelerated = accelerationDuration / 2
+          if (age <= brakeAt) return cruiseSpeed * (accelerated + age - accelerationDuration)
+          const braking = Math.min(decelerationDuration, age - brakeAt)
+          return (
+            cruiseSpeed *
+            (accelerated +
+              brakeAt -
+              accelerationDuration +
+              braking -
+              decelerationDuration * integral(braking / decelerationDuration))
+          )
+        }
+
+        function advanceStars(distance, dt) {
+          for (const star of stars) {
+            star.appearance = Math.min(1, star.appearance + dt / 0.3)
+            if (distance <= 0) continue
+            star.z -= distance
+            const x = 0.5 + star.worldX / star.z
+            const y = 0.5 + star.worldY / star.z
+            if (
+              star.z < 0.2 ||
+              x < -120 / width ||
+              x > 1 + 120 / width ||
+              y < -120 / height ||
+              y > 1 + 120 / height
+            ) {
+              // Replenish independently at varied distances; fade in beyond the camera.
+              star.z = 7 + flightRandom() * 5
+              star.worldX = (flightRandom() - 0.5) * 7
+              star.worldY = (flightRandom() - 0.5) * 7
+              star.appearance = 0
+              star.sinceSpawn = 0
+            } else {
+              star.sinceSpawn += distance
+            }
+            star.x = 0.5 + star.worldX / star.z
+            star.y = 0.5 + star.worldY / star.z
+          }
+        }
+
+        function cameraMotion(speed) {
+          if (!journey || reducedMotion.matches) return { x: 0, y: 0, roll: 0 }
+          const strength = speed / cruiseSpeed
+          const amplitude = Math.min(4.5, Math.min(width, height) * 0.009) * strength
+          const time = journey.age
+          // Continuous waves feel irregular without producing random frame-to-frame jumps.
+          return {
+            x:
+              amplitude *
+              (Math.sin(time * 67) * 0.6 +
+                Math.sin(time * 109 + 1.9) * 0.28 +
+                Math.sin(time * 173 + 0.3) * 0.12),
+            y:
+              amplitude *
+              0.75 *
+              (Math.sin(time * 83 + 2.3) * 0.65 + Math.sin(time * 137 + 0.5) * 0.35),
+            roll: strength * 0.16 * (Math.sin(time * 41) * 0.65 + Math.sin(time * 79 + 1) * 0.35),
+          }
+        }
+
+        function syncJourney() {
+          sky.dataset.state = journey ? 'travel' : galaxy ? 'away' : 'home'
+          destination.setAttribute('aria-busy', String(Boolean(journey)))
+          destinationHint.textContent = galaxy ? '双击返回' : '双击穿越'
+          destination.setAttribute(
+            'aria-label',
+            journey
+              ? '正在穿梭星空'
+              : galaxy
+                ? '已抵达新星系；双击、Enter 或空格键返回'
+                : '中央圆点代替 Mac；双击、Enter 或空格键穿越星空',
+          )
+        }
+
+        function finishJourney() {
+          if (!journey) return
+          galaxy = journey.to
+          journey = null
+          syncJourney()
+        }
+
+        function beginJourney() {
+          if (journey) return
+          pulses.length = 0
+          journey = { from: galaxy, to: 1 - galaxy, age: 0 }
+          syncJourney()
+          if (reducedMotion.matches) finishJourney()
+          paint()
+          start()
+        }
+
+        function resetJourney() {
+          journey = null
+          galaxy = 0
+          view.x = view.y = 0
+          pulses.length = 0
+          syncJourney()
+          resize()
+        }
+
+        function glow(color, x, y, size, alpha, blend) {
+          if (blend < 1) {
+            context.globalAlpha = alpha * (1 - blend)
+            context.drawImage(lights[color], x - size / 2, y - size / 2, size, size)
+          }
+          if (blend > 0) {
+            context.globalAlpha = alpha * blend
+            context.drawImage(
+              lights[color + homeColors.length],
+              x - size / 2,
+              y - size / 2,
+              size,
+              size,
+            )
+          }
+        }
+
+        function resize() {
+          width = sky.clientWidth
+          height = sky.clientHeight
+          const dpr = Math.min(window.devicePixelRatio || 1, 2)
+          canvas.width = Math.round(width * dpr)
+          canvas.height = Math.round(height * dpr)
+          context.setTransform(dpr, 0, 0, dpr, 0, 0)
+
+          const random = randomSource(19841024)
+          flightRandom = randomSource(1281984)
+          const count = Math.min(1800, Math.max(380, Math.round((width * height) / 1050)))
+          stars = Array.from({ length: count }, () => {
+            const band = random() < 0.3
+            const x = random() * 1.1 - 0.05
+            // A diffuse diagonal dust lane, with quieter space on the left for the Mac.
+            const y = band
+              ? 0.96 - x * 0.83 + (random() + random() + random() - 1.5) * 0.24
+              : random() * 1.1 - 0.05
+            const depth = Math.pow(random(), 2)
+            const z = 0.8 + random() * 10
+            return {
+              x,
+              y,
+              depth,
+              z,
+              worldX: (x - 0.5) * z,
+              worldY: (y - 0.5) * z,
+              appearance: 1,
+              sinceSpawn: Infinity,
+              radius: 0.35 + depth * 1.25,
+              alpha: 0.18 + random() * 0.34 + depth * 0.28,
+              phase: random() * Math.PI * 2,
+              speed: 0.25 + random() * 0.45,
+              color: pickStarColor(random),
+              beacon: depth > 0.82 && random() < 0.18,
+            }
+          })
+          if (!pointer.inside) {
+            pointer.x = pointer.tx = width / 2
+            pointer.y = pointer.ty = height / 2
+          }
+          paint()
+          start()
+        }
+
+        function paint() {
+          context.clearRect(0, 0, width, height)
+          const travel = travelState()
+          const camera = cameraMotion(travel.speed)
+          // Stars and the destination share one camera; navigation stays stationary.
+          const sceneStyle = document.documentElement.style
+          sceneStyle.setProperty('--camera-x', `${camera.x.toFixed(3)}px`)
+          sceneStyle.setProperty('--camera-y', `${camera.y.toFixed(3)}px`)
+          sceneStyle.setProperty('--camera-roll', `${camera.roll.toFixed(4)}deg`)
+          const colorChannels = homeColors.map((color, i) =>
+            color.map((value, channel) =>
+              Math.round(value + (awayColors[i][channel] - value) * travel.blend),
+            ),
+          )
+          const colors = colorChannels.map((color) => color.join(', '))
+          const energy = travel.speed / cruiseSpeed
+          const headColors = colorChannels.map((color) =>
+            color.map((value) => Math.round(value + (255 - value) * 0.25 * energy)).join(', '),
+          )
+          const strengths = homeStrengths.map(
+            (strength, i) => strength + (awayStrengths[i] - strength) * travel.blend,
+          )
+          const dotColor = [229, 216, 174].map((value, i) =>
+            Math.round(value + ([151, 227, 225][i] - value) * travel.blend),
+          )
+          sky.style.setProperty('--galaxy-blend', String(travel.blend))
+          destination.style.setProperty('--destination-color', dotColor.join(' '))
+          destination.style.setProperty('--destination-scale', String(1 + travel.focus * 2.3))
+          const moving = animated()
+          const pointerStrength = pointer.strength * (1 - energy)
+          const reach = Math.min(180, Math.max(120, width * 0.14))
+          const shiftX = moving ? view.x : 0
+          const shiftY = moving ? view.y : 0
+
+          // A low intensity phosphor pool; the native cursor remains visible.
+          if (pointerStrength > 0.001) {
+            glow(3, pointer.x, pointer.y, reach * 2, pointerStrength * 0.11, travel.blend)
+          }
+
+          for (const star of stars) {
+            let x = star.x * width - shiftX * (2 + star.depth * 20)
+            let y = star.y * height - shiftY * (2 + star.depth * 16)
+            const dx = x - pointer.x
+            const dy = y - pointer.y
+            const distance = Math.hypot(dx, dy)
+            const proximity = Math.max(0, 1 - distance / reach)
+            let response = proximity * proximity * pointerStrength
+            let wave = 0
+
+            for (const pulse of pulses) {
+              const age = elapsed - pulse.start
+              const radius = age * 175
+              const ring = Math.max(
+                0,
+                1 - Math.abs(Math.hypot(x - pulse.x, y - pulse.y) - radius) / 30,
+              )
+              wave = Math.max(wave, ring * Math.pow(Math.max(0, 1 - age / 2), 2))
+            }
+            response = Math.min(1, response + wave * 0.65)
+
+            if (moving && distance > 1) {
+              const push = proximity * proximity * pointerStrength * (2 + star.depth * 10)
+              x += (dx / distance) * push
+              y += (dy / distance) * push
+            }
+            const twinkle = moving
+              ? 0.89 + Math.sin(elapsed * star.speed + star.phase) * 0.11
+              : 0.95
+            const alpha =
+              smoothStep(0, 1, star.appearance) *
+              Math.min(
+                1,
+                (star.alpha * twinkle + response * 0.62 + energy * 0.18) *
+                  (star.color === 0 ? 1 : 1.16) *
+                  strengths[star.color],
+              )
+            const radius = star.radius + response * 0.55
+
+            if (travel.exposure > 0) {
+              const tailZ =
+                star.z + Math.min(travel.exposure * (0.45 + star.depth * 0.55), star.sinceSpawn)
+              const tailX = x + (star.worldX / tailZ - star.worldX / star.z) * width
+              const tailY = y + (star.worldY / tailZ - star.worldY / star.z) * height
+              paintTrail(star, x, y, tailX, tailY, alpha, travel.blend)
+            }
+
+            if (star.depth > 0.64 || response > 0.08) {
+              const size = (star.beacon ? 20 : 9 + star.depth * 7) + response * 14
+              glow(
+                star.color,
+                x,
+                y,
+                size,
+                Math.min(0.7, alpha * 0.55 + response * 0.25),
+                travel.blend,
+              )
+            }
+            context.globalAlpha = alpha
+            context.fillStyle = `rgb(${headColors[star.color]})`
+            context.beginPath()
+            context.arc(x, y, radius, 0, Math.PI * 2)
+            context.fill()
+
+            if (star.beacon) {
+              context.globalAlpha = alpha * 0.32 * (1 - energy)
+              context.strokeStyle = `rgb(${colors[star.color]})`
+              context.lineWidth = 0.6
+              const ray = 3.5 + response * 3
+              context.beginPath()
+              context.moveTo(x - ray, y)
+              context.lineTo(x + ray, y)
+              context.moveTo(x, y - ray)
+              context.lineTo(x, y + ray)
+              context.stroke()
+            }
+          }
+
+          for (const pulse of pulses) {
+            const age = elapsed - pulse.start
+            context.globalAlpha = Math.pow(Math.max(0, 1 - age / 2), 3) * 0.16
+            context.strokeStyle = `rgb(${colors[3]})`
+            context.lineWidth = 0.6
+            context.beginPath()
+            context.arc(pulse.x, pulse.y, age * 175, 0, Math.PI * 2)
+            context.stroke()
+          }
+          context.globalAlpha = 1
+        }
+
+        function paintTrail(star, x, y, tailX, tailY, brightness, blend) {
+          const length = Math.hypot(x - tailX, y - tailY)
+          const thickness = (0.6 + star.depth * 0.9) * 4
+          if (length > 0.25) {
+            context.save()
+            context.translate(tailX, tailY)
+            context.rotate(Math.atan2(y - tailY, x - tailX))
+            if (blend < 1) {
+              context.globalAlpha = brightness * (1 - blend)
+              context.drawImage(trails[star.color], 0, -thickness / 2, length, thickness)
+            }
+            if (blend > 0) {
+              context.globalAlpha = brightness * blend
+              context.drawImage(
+                trails[star.color + homeColors.length],
+                0,
+                -thickness / 2,
+                length,
+                thickness,
+              )
+            }
+            context.restore()
+          }
+        }
+
+        function frame(time) {
+          raf = 0
+          if (document.hidden) return
+          if (!animated()) {
+            syncMotion()
+            return
+          }
+          // Follow display refresh without dropping frames at the 60 Hz boundary.
+          const dt = previousTime ? Math.min((time - previousTime) / 1000, 0.1) : 0
+          previousTime = time
+          elapsed += dt
+          let distance = 0
+          if (journey) {
+            const previousDistance = travelDistance(journey.age)
+            journey.age = Math.min(travelDuration, journey.age + dt)
+            distance = travelDistance(journey.age) - previousDistance
+            advanceStars(distance, dt)
+            if (journey.age >= travelDuration) finishJourney()
+          } else advanceStars(0, dt)
+          const follow = 1 - Math.exp(-dt * 9)
+          pointer.x += (pointer.tx - pointer.x) * follow
+          pointer.y += (pointer.ty - pointer.y) * follow
+          pointer.strength += ((pointer.inside ? 1 : 0) - pointer.strength) * follow
+          view.x += ((pointer.inside ? (pointer.tx / width - 0.5) * 2 : 0) - view.x) * follow
+          view.y += ((pointer.inside ? (pointer.ty / height - 0.5) * 2 : 0) - view.y) * follow
+          for (let i = pulses.length - 1; i >= 0; i--) {
+            if (elapsed - pulses[i].start > 2) pulses.splice(i, 1)
+          }
+          paint()
+          raf = requestAnimationFrame(frame)
+        }
+
+        function start() {
+          if (raf || !animated() || document.hidden) return
+          previousTime = 0
+          raf = requestAnimationFrame(frame)
+        }
+
+        function stop() {
+          cancelAnimationFrame(raf)
+          raf = 0
+          previousTime = 0
+          pulses.length = 0
+        }
+
+        function updatePointer(event) {
+          pointer.tx = event.clientX
+          pointer.ty = event.clientY
+          pointer.inside = true
+          // Some background windows defer the media query's change notification.
+          if (motionButton.disabled !== reducedMotion.matches) syncMotion()
+          if (!animated()) {
+            pointer.x = pointer.tx
+            pointer.y = pointer.ty
+            pointer.strength = 1
+            paint()
+          }
+        }
+
+        function leave() {
+          pointer.inside = false
+          if (!animated()) {
+            pointer.strength = 0
+            paint()
+          }
+        }
+
+        sky.addEventListener('pointermove', updatePointer)
+        sky.addEventListener('pointerdown', (event) => {
+          if (!event.isPrimary || event.button !== 0) return
+          updatePointer(event)
+          if (event.pointerType !== 'mouse') sky.setPointerCapture(event.pointerId)
+          if (animated() && !journey) {
+            pulses.push({ x: event.clientX, y: event.clientY, start: elapsed })
+            if (pulses.length > 4) pulses.shift()
+          }
+        })
+        sky.addEventListener('pointerleave', leave)
+        sky.addEventListener('pointerup', (event) => {
+          if (sky.hasPointerCapture(event.pointerId)) sky.releasePointerCapture(event.pointerId)
+          if (event.pointerType !== 'mouse') leave()
+        })
+        sky.addEventListener('pointercancel', leave)
+        window.addEventListener('blur', leave)
+
+        function syncMotion() {
+          stop()
+          if (reducedMotion.matches) finishJourney()
+          view.x = view.y = 0
+          pointer.x = pointer.tx
+          pointer.y = pointer.ty
+          pointer.strength = pointer.inside ? 1 : 0
+          motionButton.disabled = reducedMotion.matches
+          motionButton.textContent = reducedMotion.matches
+            ? '已减少动态效果'
+            : paused
+              ? '继续动效'
+              : '暂停动效'
+          motionButton.setAttribute('aria-pressed', String(paused || reducedMotion.matches))
+          paint()
+          start()
+        }
+        motionButton.addEventListener('click', () => {
+          paused = !paused
+          syncMotion()
+        })
+        destination.addEventListener('dblclick', (event) => {
+          if (event.button !== 0 || performance.now() < suppressDoubleClickUntil) return
+          event.preventDefault()
+          beginJourney()
+        })
+        destination.addEventListener('keydown', (event) => {
+          if ((event.key === 'Enter' || event.key === ' ') && !event.repeat) {
+            event.preventDefault()
+            beginJourney()
+          }
+        })
+        destination.addEventListener('pointerup', (event) => {
+          if (event.pointerType === 'mouse' || !event.isPrimary) return
+          const now = performance.now()
+          if (lastTouch && now - lastTouch < 350) {
+            lastTouch = 0
+            suppressDoubleClickUntil = now + 500
+            beginJourney()
+          } else lastTouch = now
+        })
+        resetButton.addEventListener('click', resetJourney)
+        window.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape' && (journey || galaxy)) {
+            event.preventDefault()
+            resetJourney()
+          }
+        })
+        reducedMotion.addEventListener('change', syncMotion)
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            stop()
+            leave()
+          } else syncMotion()
+        })
+        window.addEventListener('pagehide', stop)
+        window.addEventListener('pageshow', start)
+        window.addEventListener('resize', resize)
+
+        fullscreenButton.hidden = !document.fullscreenEnabled
+        fullscreenButton.addEventListener('click', async () => {
+          try {
+            if (document.fullscreenElement) await document.exitFullscreen()
+            else await document.documentElement.requestFullscreen()
+          } catch {
+            // Keep the demo usable if this browser refuses the fullscreen request.
+            fullscreenButton.hidden = true
+          }
+        })
+        document.addEventListener('fullscreenchange', () => {
+          const active = Boolean(document.fullscreenElement)
+          fullscreenButton.textContent = active ? '退出全屏' : '全屏'
+          fullscreenButton.setAttribute('aria-pressed', String(active))
+        })
+
+        resize()
+        syncJourney()
+        syncMotion()
+      })()
+    </script>
+  </body>
+</html>

@@ -1,0 +1,56 @@
+[
+  {
+    "name": "light",
+    "result": {
+      "count": 1,
+      "label": "切换为繁体中文",
+      "background": "rgb(248, 249, 250)",
+      "radius": "16px",
+      "shadow": "none",
+      "filter": "none",
+      "color": "rgb(96, 101, 106)",
+      "padding": "4px 12px",
+      "within": true,
+      "focused": true
+    }
+  },
+  {
+    "name": "light-selection",
+    "result": {
+      "script": "traditional",
+      "open": false,
+      "stored": "traditional"
+    }
+  },
+  {
+    "name": "dark",
+    "result": {
+      "count": 1,
+      "label": "切换为简体中文",
+      "background": "rgb(38, 38, 38)",
+      "radius": "16px",
+      "shadow": "none",
+      "filter": "blur(24px) saturate(1.08)",
+      "color": "rgb(175, 180, 188)",
+      "padding": "4px 12px",
+      "within": true,
+      "focused": true
+    }
+  },
+  {
+    "name": "dark-selection",
+    "result": {
+      "script": "simplified",
+      "open": false,
+      "stored": "simplified"
+    }
+  },
+  {
+    "name": "escape",
+    "result": {
+      "menu": false,
+      "fullscreen": true,
+      "focused": true
+    }
+  }
+]

@@ -95,8 +95,14 @@ function runBudgetCheck(outDir = path.join(ROOT_DIR, 'out')) {
   }
 
   for (const file of allFiles) {
-    const rel = file.relativePath
-    if (rel.startsWith('out/renderer/') || rel.includes('/renderer/')) {
+    const relToOut = path.relative(outDir, file.fullPath).replace(/\\/g, '/')
+    const isRenderer = relToOut.startsWith('renderer/') || path.basename(outDir) === 'renderer'
+    const isMain =
+      (relToOut.startsWith('main/') && !relToOut.startsWith('main/renderer/')) ||
+      path.basename(outDir) === 'main'
+    const isPreload = relToOut.startsWith('preload/') || path.basename(outDir) === 'preload'
+
+    if (isRenderer) {
       if (file.ext === '.js') {
         categories.rendererJs.push(file)
       } else if (file.ext === '.css') {
@@ -104,11 +110,11 @@ function runBudgetCheck(outDir = path.join(ROOT_DIR, 'out')) {
       } else if (['.woff2', '.woff', '.ttf', '.otf', '.eot'].includes(file.ext)) {
         categories.rendererFonts.push(file)
       }
-    } else if (rel.startsWith('out/main/') || rel.includes('/main/')) {
+    } else if (isMain) {
       if (file.ext === '.js' || file.ext === '.cjs' || file.ext === '.mjs') {
         categories.mainJs.push(file)
       }
-    } else if (rel.startsWith('out/preload/') || rel.includes('/preload/')) {
+    } else if (isPreload) {
       if (file.ext === '.js' || file.ext === '.cjs' || file.ext === '.mjs') {
         categories.preloadJs.push(file)
       }

@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useFullscreenPlayer } from '@renderer/features/playback/composables/useFullscreenPlayer'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
-import { formatPlaybackSubtitle } from '@renderer/features/playback/utils/formatPlaybackSubtitle'
+import { usePlaybackMetadataDisplay } from '@renderer/features/playback/composables/usePlaybackMetadataDisplay'
 import {
   formatPlaybackClock,
   PLAYBACK_CLOCK_EMPTY,
@@ -23,10 +23,12 @@ const props = withDefaults(
 
 const playback = usePlayback()
 const { t } = useI18n()
+const { songText, playbackSubtitle } = usePlaybackMetadataDisplay()
 const { isFullscreenPlayerOpen, openFullscreenPlayer } = useFullscreenPlayer()
 const imgError = ref(false)
-const isRestoredCoverFocus = ref(false)
+const restoredCoverFocus = ref<'pointer' | 'keyboard' | null>(null)
 let openedFullscreenFromCover = false
+let openedFullscreenUsingKeyboard = false
 
 const currentTrack = computed(() => playback.state.currentTrack)
 const hasTrack = computed(() => currentTrack.value !== null)
@@ -45,8 +47,9 @@ watch(
 )
 
 function handleCoverClick(event: MouseEvent): void {
-  isRestoredCoverFocus.value = false
+  restoredCoverFocus.value = null
   openedFullscreenFromCover = true
+  openedFullscreenUsingKeyboard = event.detail === 0
   ;(event.currentTarget as HTMLElement).focus({ preventScroll: true })
   openFullscreenPlayer()
 }
@@ -54,14 +57,16 @@ function handleCoverClick(event: MouseEvent): void {
 function handleCoverKeydown(event: KeyboardEvent): void {
   if (event.key !== 'Enter' && event.key !== ' ') return
   event.preventDefault()
+  restoredCoverFocus.value = null
   openedFullscreenFromCover = true
+  openedFullscreenUsingKeyboard = true
   openFullscreenPlayer()
 }
 
 watch(isFullscreenPlayerOpen, (isOpen) => {
   if (!isOpen && openedFullscreenFromCover) {
-    // 保留恢复后的 Tab 位置，直到焦点离开封面才解除轮廓隐藏。
-    isRestoredCoverFocus.value = true
+    // 鼠标返回时隐藏轮廓；键盘进入全屏时保留可见焦点。
+    restoredCoverFocus.value = openedFullscreenUsingKeyboard ? 'keyboard' : 'pointer'
     openedFullscreenFromCover = false
   }
 })
@@ -89,18 +94,21 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
     </div>
 
     <!-- Track identity (+ optional inline progress) -->
-    <div v-else-if="currentTrack">
+    <div
+      v-else-if="currentTrack"
+      :class="{ 'track-info-with-split-clocks': props.showProgress && props.showSplitClocks }"
+    >
       <div class="track-info-row">
         <div
           class="track-cover cursor-pointer"
           data-player-bar-artwork
           role="button"
           tabindex="0"
-          :data-fullscreen-focus-restored="isRestoredCoverFocus ? 'true' : undefined"
+          :data-fullscreen-focus-restored="restoredCoverFocus ?? undefined"
           :aria-label="t('player.fullscreen')"
           @click="handleCoverClick"
           @keydown="handleCoverKeydown"
-          @blur="isRestoredCoverFocus = false"
+          @blur="restoredCoverFocus = null"
         >
           <img
             v-if="getArtworkUrl(currentTrack.artworkCacheKey) && !imgError"
@@ -114,9 +122,11 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
           </div>
         </div>
         <div class="track-text">
-          <div class="track-title">{{ currentTrack.title || 'Unknown Title' }}</div>
+          <div class="track-title">
+            {{ songText(currentTrack.title) || t('player.unknownTrack') }}
+          </div>
           <div class="track-subtitle">
-            {{ formatPlaybackSubtitle(currentTrack, '—') }}
+            {{ playbackSubtitle(currentTrack, '—') }}
           </div>
         </div>
       </div>
@@ -131,7 +141,28 @@ watch(isFullscreenPlayerOpen, (isOpen) => {
 </template>
 
 <style scoped>
-.track-cover[data-fullscreen-focus-restored='true']:focus-visible {
+/* 共用时间列宽，让文字容器终止于进度轨道右端。 */
+.track-info-with-split-clocks {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  column-gap: 8px;
+}
+
+.track-info-with-split-clocks > .track-info-row {
+  grid-column: 1 / 3;
+}
+
+.track-info-with-split-clocks > .player-bar-progress-row {
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.track-cover[data-fullscreen-focus-restored='pointer']:focus-visible {
   outline: none;
+}
+
+.track-cover[data-fullscreen-focus-restored='keyboard']:focus {
+  outline: 2px solid var(--auralis-active-album-accent, var(--auralis-player-static-accent));
+  outline-offset: 2px;
 }
 </style>

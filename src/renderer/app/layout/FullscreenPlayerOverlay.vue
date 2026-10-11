@@ -1,20 +1,31 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useFullscreenPlayer } from '@renderer/features/playback/composables/useFullscreenPlayer'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
-import { formatPlaybackSubtitle } from '@renderer/features/playback/utils/formatPlaybackSubtitle'
-import { useTrackLyrics } from '@renderer/features/lyrics/composables/useTrackLyrics'
+import { usePlaybackMetadataDisplay } from '@renderer/features/playback/composables/usePlaybackMetadataDisplay'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
+import type { ChineseScript } from '@renderer/features/appearance/utils/chineseText'
+import { useDisplayedTrackLyrics } from '@renderer/features/lyrics/composables/useDisplayedTrackLyrics'
+import { useLyricLineSeek } from '@renderer/features/lyrics/composables/useLyricLineSeek'
 import {
   FULLSCREEN_LYRICS_FADE_TOP_RATIO,
   FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO,
+  FULLSCREEN_LYRICS_ACTIVE_SCALE,
   useFullscreenLyricsViewport,
 } from '@renderer/features/lyrics/composables/useFullscreenLyricsViewport'
+import { useFullscreenLyricsTypography } from '@renderer/features/lyrics/composables/useFullscreenLyricsTypography'
 import type { LyricLine } from '@renderer/features/lyrics/types'
-import FluidArtworkBackground from '@renderer/features/playback/components/FluidArtworkBackground.vue'
+import FullscreenArtworkBackground from '@renderer/features/playback/components/FullscreenArtworkBackground.vue'
+import FullscreenBackgroundControls from '@renderer/features/playback/components/FullscreenBackgroundControls.vue'
+import FullscreenLyricsContextMenu from '@renderer/features/lyrics/components/FullscreenLyricsContextMenu.vue'
+import FullscreenPlaybackModeControl from './FullscreenPlaybackModeControl.vue'
+import { useFullscreenBackground } from '@renderer/features/playback/composables/useFullscreenBackground'
+import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { usePlaybackProgressInteraction } from '@renderer/features/playback/composables/usePlaybackProgressInteraction'
 import { useReducedMotion } from '@renderer/features/lyrics/composables/useReducedMotion'
+import { useLyricsScrollPreset } from '@renderer/features/lyrics/lyricsScrollPreset'
 import { resolveRestorablePlayerTrigger } from '../utils/playerOverlayFocus'
 import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
 import {
@@ -34,6 +45,8 @@ const playIconUrl = new URL('../../features/playback/assets/play.svg', import.me
 
 const playback = usePlayback()
 const { t } = useI18n()
+const { lyricsScript, lyricsPersistFailed, setLyricsScript } = useChineseTextDisplay()
+const { songText, playbackSubtitle } = usePlaybackMetadataDisplay()
 const { isFullscreenPlayerOpen, closeFullscreenPlayer } = useFullscreenPlayer()
 const {
   status: lyricsStatus,
@@ -43,17 +56,66 @@ const {
   isPrelude,
   showPrelude,
   preludeLitDotCount,
-} = useTrackLyrics()
+} = useDisplayedTrackLyrics()
 
 const imgError = ref(false)
 const overlayRef = ref<HTMLElement | null>(null)
+// Space can activate :focus-visible after a pointer click; reserve the lyrics ring for Tab navigation.
+const keyboardNavigation = ref(false)
+const artworkRef = ref<HTMLElement | null>(null)
+// Park the GPU backgrounds between visits; controls and lyrics still leave with the section.
+const backgroundTarget = shallowRef<HTMLElement | null>(null)
+const deferBackgroundInitialization = ref(false)
 const exitButtonRef = ref<HTMLButtonElement | null>(null)
+const backgroundControlsRef = ref<InstanceType<typeof FullscreenBackgroundControls> | null>(null)
+const modeControlRef = ref<InstanceType<typeof FullscreenPlaybackModeControl> | null>(null)
+const lyricsContextMenuOpen = ref(false)
+const lyricsContextMenuAnchor = ref({ clientX: 0, clientY: 0 })
+const { backgroundMode, backgroundMotionPaused, metalSettings, setBackgroundMode } =
+  useFullscreenBackground()
+const backgroundPresentationMode = ref(backgroundMode.value)
 const reducedMotion = useReducedMotion()
+const { preset: lyricsScrollPreset } = useLyricsScrollPreset()
+const { preference: lyricsTypography, style: lyricsTypographyStyle } =
+  useFullscreenLyricsTypography()
 let activeTransition: ReturnType<typeof animateFullscreenPlayerTransition> | undefined
 let interruptedTransition: FullscreenPlayerTransitionSnapshot | undefined
+let backgroundReleaseFrame = 0
+let lyricsLayoutRefreshFrame = 0
+let keyboardContextMenuPending = false
+let keyboardContextMenuFallbackTimer: ReturnType<typeof setTimeout> | null = null
+
+function releaseBackgroundInitialization(): void {
+  cancelAnimationFrame(backgroundReleaseFrame)
+  // Let the completed artwork transition reach the compositor before starting a
+  // cold context; changing a flag in its completion microtask is still too early.
+  backgroundReleaseFrame = requestAnimationFrame(() => {
+    backgroundReleaseFrame = requestAnimationFrame(() => {
+      backgroundReleaseFrame = 0
+      deferBackgroundInitialization.value = false
+    })
+  })
+}
+
+watch(
+  isFullscreenPlayerOpen,
+  () => {
+    // Post-render background watchers can run before Transition's enter hook.
+    // Block cold preparation synchronously with the open/close state change.
+    cancelAnimationFrame(backgroundReleaseFrame)
+    backgroundReleaseFrame = 0
+    deferBackgroundInitialization.value = true
+  },
+  { flush: 'sync' },
+)
 
 function runTransition(element: Element, done: () => void, entering: boolean): void {
   const interrupted = activeTransition?.cancel() ?? interruptedTransition
+  cancelAnimationFrame(backgroundReleaseFrame)
+  backgroundReleaseFrame = 0
+  // Context creation is synchronous even with parallel shader compilation. Keep
+  // cold GPU preparation outside both artwork transitions; reuse ready canvases.
+  deferBackgroundInitialization.value = true
   ;(element as HTMLElement).inert = !entering
   activeTransition = animateFullscreenPlayerTransition({
     overlay: element as HTMLElement,
@@ -66,12 +128,17 @@ function runTransition(element: Element, done: () => void, entering: boolean): v
       activeTransition = undefined
       interruptedTransition = undefined
       done()
+      releaseBackgroundInitialization()
+      if (entering && wholeLineLyrics.value) {
+        void nextTick(() => refreshFullscreenLyrics('auto'))
+      }
     },
   })
   interruptedTransition = undefined
 }
 
 function handleEnter(element: Element, done: () => void): void {
+  backgroundTarget.value = element as HTMLElement
   runTransition(element, done, true)
 }
 
@@ -79,9 +146,14 @@ function handleLeave(element: Element, done: () => void): void {
   runTransition(element, done, false)
 }
 
+function handleAfterLeave(element: Element): void {
+  if (backgroundTarget.value === element) backgroundTarget.value = null
+}
+
 function handleTransitionCancelled(): void {
   interruptedTransition = activeTransition?.cancel()
   activeTransition = undefined
+  releaseBackgroundInitialization()
 }
 
 watch(reducedMotion.matches, () => activeTransition?.finish())
@@ -93,9 +165,17 @@ const lyricsTrackRef = ref<HTMLElement | null>(null)
 const artworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 watch(artworkCacheKey, () => activeTransition?.finish())
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
-const title = computed(() => playback.state.currentTrack?.title || 'Unknown Title')
+const { palette: metalPalette } = useArtworkPalette(artworkCacheKey, {
+  enabled: computed(() => isFullscreenPlayerOpen.value || backgroundMode.value === 'metal'),
+  retainPreviousWhileLoading: true,
+})
+const title = computed(
+  () => songText(playback.state.currentTrack?.title) || t('player.unknownTrack'),
+)
 const subtitle = computed(() =>
-  playback.state.currentTrack ? formatPlaybackSubtitle(playback.state.currentTrack) : 'No track',
+  playback.state.currentTrack
+    ? playbackSubtitle(playback.state.currentTrack)
+    : t('player.unknownTrack'),
 )
 
 const currentTimeLabel = computed(() => formatTime(playback.state.currentTime))
@@ -118,6 +198,118 @@ const fullscreenLyricLines = computed<LyricLine[]>(() => {
 
   return lyricsStatus.value === 'lrc' ? parsedLines.value : []
 })
+
+const lyricsContextMenuEnabled = computed(
+  () =>
+    isFullscreenPlayerOpen.value &&
+    (lyricsStatus.value === 'lrc' || lyricsStatus.value === 'plain') &&
+    fullscreenLyricLines.value.length > 0,
+)
+
+function focusLyricsScroll(): void {
+  void nextTick(() => lyricsScrollRef.value?.focus({ preventScroll: true }))
+}
+
+function closeLyricsContextMenuWithoutFocus(): void {
+  lyricsContextMenuOpen.value = false
+  clearKeyboardContextMenuFallback()
+}
+
+function closeLyricsContextMenu(
+  reason: 'escape' | 'tab' | 'outside' | 'focusout' | 'scroll' | 'position-error',
+): void {
+  if (!lyricsContextMenuOpen.value) return
+  lyricsContextMenuOpen.value = false
+  clearKeyboardContextMenuFallback()
+  if (reason === 'escape' || reason === 'position-error') focusLyricsScroll()
+}
+
+function selectLyricsScript(script: ChineseScript): void {
+  setLyricsScript(script)
+  closeLyricsContextMenuWithoutFocus()
+  focusLyricsScroll()
+}
+
+function openLyricsContextMenu(clientX: number, clientY: number): boolean {
+  if (!lyricsContextMenuEnabled.value || !lyricsScrollRef.value) return false
+  modeControlRef.value?.close(false)
+  backgroundControlsRef.value?.close(false)
+  lyricsContextMenuAnchor.value = { clientX, clientY }
+  lyricsContextMenuOpen.value = true
+  return true
+}
+
+function getLyricsKeyboardAnchor(): { clientX: number; clientY: number } | null {
+  const rect = lyricsScrollRef.value?.getBoundingClientRect()
+  if (!rect || rect.width <= 0 || rect.height <= 0) return null
+  return {
+    clientX: Math.round(rect.left + rect.width / 2),
+    clientY: Math.round(rect.top + rect.height / 2),
+  }
+}
+
+function clearKeyboardContextMenuFallback(): void {
+  keyboardContextMenuPending = false
+  if (keyboardContextMenuFallbackTimer) clearTimeout(keyboardContextMenuFallbackTimer)
+  keyboardContextMenuFallbackTimer = null
+}
+
+function markKeyboardContextMenuPending(): void {
+  clearKeyboardContextMenuFallback()
+  keyboardContextMenuPending = true
+  keyboardContextMenuFallbackTimer = setTimeout(clearKeyboardContextMenuFallback, 750)
+}
+
+function handleLyricsContextMenu(event: MouseEvent): void {
+  if (!lyricsContextMenuEnabled.value) return
+  event.preventDefault()
+  event.stopPropagation()
+
+  if (event.clientX === 0 && event.clientY === 0) {
+    if (keyboardContextMenuPending && lyricsContextMenuOpen.value) {
+      clearKeyboardContextMenuFallback()
+      return
+    }
+    clearKeyboardContextMenuFallback()
+    const anchor = getLyricsKeyboardAnchor()
+    if (anchor) openLyricsContextMenu(anchor.clientX, anchor.clientY)
+    return
+  }
+
+  clearKeyboardContextMenuFallback()
+  openLyricsContextMenu(event.clientX, event.clientY)
+}
+
+function handleLyricsContainerKeydown(event: KeyboardEvent): void {
+  if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) {
+    if (!lyricsContextMenuEnabled.value) return
+    event.preventDefault()
+    event.stopPropagation()
+    const anchor = getLyricsKeyboardAnchor()
+    if (anchor && openLyricsContextMenu(anchor.clientX, anchor.clientY))
+      markKeyboardContextMenuPending()
+    return
+  }
+  handleFullscreenLyricsKeydown(event)
+}
+
+function handleLyricsWheel(event: WheelEvent): void {
+  closeLyricsContextMenuWithoutFocus()
+  handleFullscreenLyricsWheel(event)
+}
+
+function handleLyricsTouchMove(): void {
+  closeLyricsContextMenuWithoutFocus()
+  pauseFullscreenLyricAutoFollow()
+}
+
+watch(
+  () => [playback.state.currentTrackId, lyricsStatus.value, fullscreenLyricLines.value],
+  () => closeLyricsContextMenuWithoutFocus(),
+  { flush: 'post' },
+)
+
+const wholeLineLyrics = computed(() => lyricsStatus.value === 'lrc')
 
 const volumeIconClass = computed(() => {
   if (playback.state.isMuted) return 'i-lucide-volume-x'
@@ -152,11 +344,12 @@ function formatTime(seconds: number): string {
 function renderProgressRatio(ratio: number): void {
   const fill = progressFillRef.value
   if (!fill) return
-  fill.style.clipPath = `inset(0 ${(1 - ratio) * 100}% 0 0 round 999px)`
+  fill.style.transform = `translateX(${(ratio - 1) * 100}%)`
 }
 
 const {
   valueNow: progressValueNow,
+  ratio: progressRatio,
   onPointerDown: handleProgressPointerDown,
   onPointerMove: handleProgressPointerMove,
   onPointerUp: handleProgressPointerUp,
@@ -170,6 +363,7 @@ const {
   seekByRatio: playback.seekByRatio,
   seekTo: playback.seekTo,
   renderRatio: renderProgressRatio,
+  maxVisualFps: 30,
   resolveSeekStepSeconds: (shiftKey) => (shiftKey ? 10 : 5),
 })
 
@@ -179,6 +373,8 @@ const {
   pauseAutoFollow: pauseFullscreenLyricAutoFollow,
   onWheel: handleFullscreenLyricsWheel,
   onKeydown: handleFullscreenLyricsKeydown,
+  refresh: refreshFullscreenLyrics,
+  renderedLines: renderedLyricLines,
 } = useFullscreenLyricsViewport({
   scrollRef: lyricsScrollRef,
   trackRef: lyricsTrackRef,
@@ -190,12 +386,72 @@ const {
   showPrelude,
   isOpen: isFullscreenPlayerOpen,
   reducedMotion: reducedMotion.matches,
+  scrollPreset: lyricsScrollPreset,
+  wholeLineMode: wholeLineLyrics,
+  lines: fullscreenLyricLines,
+  artworkRef,
 })
 
-const lyricsMaskStyle = {
+watch(
+  backgroundPresentationMode,
+  () => {
+    if (wholeLineLyrics.value) refreshFullscreenLyrics('auto', true)
+  },
+  { flush: 'post' },
+)
+
+const lyricsMaskStyle = computed(() => ({
+  ...lyricsTypographyStyle.value,
   '--fullscreen-lyrics-fade-top': `${FULLSCREEN_LYRICS_FADE_TOP_RATIO * 100}%`,
   '--fullscreen-lyrics-fade-bottom': `${(1 - FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO) * 100}%`,
+  '--fullscreen-lyric-active-scale': FULLSCREEN_LYRICS_ACTIVE_SCALE,
+}))
+
+const { activate: seekToLyricLine, onKeydown: handleLyricLineKeydown } = useLyricLineSeek({
+  lines: () => fullscreenLyricLines.value,
+  enabled: () => lyricsStatus.value === 'lrc',
+  onSeek: () => {
+    void nextTick(() => refreshFullscreenLyrics('smooth'))
+  },
+})
+
+function cancelLyricsLayoutRefresh(): void {
+  if (!lyricsLayoutRefreshFrame) return
+  cancelAnimationFrame(lyricsLayoutRefreshFrame)
+  lyricsLayoutRefreshFrame = 0
 }
+
+function scheduleLyricsLayoutRefresh(): void {
+  cancelLyricsLayoutRefresh()
+  if (!isFullscreenPlayerOpen.value) return
+  lyricsLayoutRefreshFrame = requestAnimationFrame(() => {
+    lyricsLayoutRefreshFrame = 0
+    if (!isFullscreenPlayerOpen.value) return
+    refreshFullscreenLyrics('auto', true)
+  })
+}
+
+watch(
+  () => [
+    lyricsTypography.value.fontSizePercent,
+    lyricsTypography.value.fontWeight,
+    lyricsTypography.value.lineGapPercent,
+    fullscreenLyricLines.value,
+  ],
+  scheduleLyricsLayoutRefresh,
+  { flush: 'post' },
+)
+
+watch(
+  isFullscreenPlayerOpen,
+  (isOpen) => {
+    if (!isOpen) {
+      cancelLyricsLayoutRefresh()
+      closeLyricsContextMenuWithoutFocus()
+    }
+  },
+  { flush: 'sync' },
+)
 
 watch(
   () => playback.state.currentTrackId,
@@ -207,6 +463,7 @@ watch(
 watch(
   isFullscreenPlayerOpen,
   (isOpen) => {
+    keyboardNavigation.value = false
     if (isOpen) {
       const activeElement = document.activeElement
       if (activeElement instanceof HTMLElement && !overlayRef.value?.contains(activeElement)) {
@@ -221,7 +478,14 @@ useOverlayFocusTrap({
   isOpen: isFullscreenPlayerOpen,
   container: overlayRef,
   initialFocus: () => exitButtonRef.value ?? undefined,
-  onEscape: closeFullscreenPlayer,
+  onEscape: () => {
+    if (lyricsContextMenuOpen.value) {
+      closeLyricsContextMenu('escape')
+      return
+    }
+    if (modeControlRef.value?.close()) return
+    if (!backgroundControlsRef.value?.close()) closeFullscreenPlayer()
+  },
   restoreFocus: () => {
     resolveRestorablePlayerTrigger(returnFocusTarget)?.focus({ preventScroll: true })
     returnFocusTarget = null
@@ -230,10 +494,6 @@ useOverlayFocusTrap({
 
 function handleVolumeInput(event: Event): void {
   playback.setVolume(Number((event.target as HTMLInputElement).value))
-}
-
-function handleShuffleClick(): void {
-  playback.setPlaybackMode(playback.state.playbackMode === 'shuffle' ? 'sequential' : 'shuffle')
 }
 
 function handleRepeatClick(): void {
@@ -250,16 +510,34 @@ function handleRepeatClick(): void {
 
 onBeforeUnmount(() => {
   activeTransition?.cancel()
+  cancelAnimationFrame(backgroundReleaseFrame)
+  cancelLyricsLayoutRefresh()
+  clearKeyboardContextMenuFallback()
   reducedMotion.dispose()
 })
 </script>
 
 <template>
   <Teleport to="body">
+    <FullscreenArtworkBackground
+      :target="backgroundTarget"
+      :mode="backgroundMode"
+      :artwork-url="artworkUrl"
+      :artwork-key="artworkCacheKey"
+      :palette="metalPalette"
+      :settings="metalSettings"
+      :active="isFullscreenPlayerOpen"
+      :motion-paused="backgroundMotionPaused"
+      :playing="playback.state.isPlaying"
+      :defer-initialization="deferBackgroundInitialization"
+      @fallback="setBackgroundMode"
+      @presentation-mode="backgroundPresentationMode = $event"
+    />
     <Transition
       :css="false"
       @enter="handleEnter"
       @leave="handleLeave"
+      @after-leave="handleAfterLeave"
       @enter-cancelled="handleTransitionCancelled"
       @leave-cancelled="handleTransitionCancelled"
     >
@@ -267,31 +545,35 @@ onBeforeUnmount(() => {
         v-if="isFullscreenPlayerOpen"
         ref="overlayRef"
         class="fullscreen-player"
+        :class="{
+          'fullscreen-player--metal': backgroundPresentationMode === 'metal',
+          'fullscreen-player--keyboard-navigation': keyboardNavigation,
+        }"
+        :data-background-mode="backgroundMode"
+        :data-background-presentation="backgroundPresentationMode"
         role="dialog"
         aria-modal="true"
         tabindex="-1"
         :aria-label="t('fullscreen.overlayAria')"
+        @keydown.capture="keyboardNavigation ||= $event.key === 'Tab'"
+        @pointerdown.capture="keyboardNavigation = false"
       >
         <div class="fullscreen-drag-region" aria-hidden="true" />
         <button
           ref="exitButtonRef"
+          v-tooltip.fast="t('fullscreen.exit')"
           class="fullscreen-player-exit"
           type="button"
           :aria-label="t('fullscreen.exit')"
-          :title="t('fullscreen.exit')"
           @click="closeFullscreenPlayer"
         >
           <span class="i-lucide-chevron-down h-6 w-6" aria-hidden="true" />
         </button>
-        <FluidArtworkBackground
-          :artwork-url="artworkUrl"
-          :active="isFullscreenPlayerOpen"
-          :playing="playback.state.isPlaying"
-        />
+        <FullscreenBackgroundControls ref="backgroundControlsRef" />
 
         <div class="fullscreen-player-left">
           <div class="fullscreen-player-artwork-slot">
-            <div class="fullscreen-player-artwork">
+            <div ref="artworkRef" class="fullscreen-player-artwork">
               <img
                 v-if="artworkUrl && !imgError"
                 :src="artworkUrl"
@@ -321,7 +603,7 @@ onBeforeUnmount(() => {
               :aria-label="t('player.progress')"
               aria-valuemin="0"
               :aria-valuemax="Math.round(playback.state.duration)"
-              :aria-valuenow="Math.round(playback.state.currentTime)"
+              :aria-valuenow="Math.round(progressRatio * playback.state.duration)"
               :aria-valuetext="`${progressValueNow}%`"
               @pointerdown="handleProgressPointerDown"
               @pointermove="handleProgressPointerMove"
@@ -341,17 +623,7 @@ onBeforeUnmount(() => {
 
           <div class="fullscreen-player-control-stack">
             <div class="fullscreen-player-controls">
-              <button
-                type="button"
-                :aria-label="t('player.modeOption.shuffle')"
-                :aria-pressed="playback.state.playbackMode === 'shuffle'"
-                :class="{
-                  'fullscreen-player-control-active': playback.state.playbackMode === 'shuffle',
-                }"
-                @click="handleShuffleClick"
-              >
-                <span class="i-lucide-shuffle h-4.5 w-4.5" />
-              </button>
+              <FullscreenPlaybackModeControl ref="modeControlRef" />
               <button
                 class="fullscreen-player-skip"
                 type="button"
@@ -437,19 +709,26 @@ onBeforeUnmount(() => {
 
         <div class="fullscreen-player-lyrics">
           <div v-if="lyricsStatus === 'loading'" class="fullscreen-player-lyrics-empty">
-            Loading lyrics...
+            {{ t('player.lyricsLoading') }}
           </div>
           <div
             v-else-if="fullscreenLyricLines.length > 0"
             ref="lyricsScrollRef"
             class="fullscreen-player-lyrics-scroll"
-            :class="{ 'fullscreen-player-lyrics-plain': lyricsStatus === 'plain' }"
+            :class="{
+              'fullscreen-player-lyrics-plain': lyricsStatus === 'plain',
+              'fullscreen-player-lyrics-whole': wholeLineLyrics,
+            }"
             :style="lyricsMaskStyle"
             aria-live="polite"
             tabindex="0"
-            @wheel="handleFullscreenLyricsWheel"
-            @touchmove="pauseFullscreenLyricAutoFollow"
-            @keydown="handleFullscreenLyricsKeydown"
+            :aria-haspopup="lyricsContextMenuEnabled ? 'menu' : undefined"
+            :aria-expanded="lyricsContextMenuOpen"
+            :aria-controls="lyricsContextMenuOpen ? 'fullscreen-lyrics-context-menu' : undefined"
+            @contextmenu="handleLyricsContextMenu"
+            @wheel="handleLyricsWheel"
+            @touchmove="handleLyricsTouchMove"
+            @keydown="handleLyricsContainerKeydown"
           >
             <div ref="lyricsTrackRef" class="fullscreen-player-lyrics-track">
               <div :style="{ height: `${lyricsTopPadding}px` }"></div>
@@ -471,25 +750,57 @@ onBeforeUnmount(() => {
                 ></span>
               </div>
               <div
-                v-for="(line, index) in fullscreenLyricLines"
+                v-for="{ line, index } in renderedLyricLines"
                 :key="line.id"
-                v-memo="[activeIndex === index, line.text]"
+                v-memo="[lyricsStatus, activeIndex === index, activeIndex < index, line.text]"
                 class="fullscreen-player-lyric-line"
                 :class="{
                   'fullscreen-player-lyric-active': lyricsStatus === 'lrc' && activeIndex === index,
                   'fullscreen-player-lyric-upcoming':
                     lyricsStatus === 'lrc' && activeIndex !== index && line.text,
+                  'fullscreen-player-lyric-future': lyricsStatus === 'lrc' && index > activeIndex,
                   'fullscreen-player-lyric-empty': !line.text,
+                  'fullscreen-player-lyric-seekable': lyricsStatus === 'lrc',
                 }"
+                :role="lyricsStatus === 'lrc' ? 'button' : undefined"
+                :tabindex="lyricsStatus === 'lrc' ? 0 : undefined"
+                :aria-label="
+                  lyricsStatus === 'lrc'
+                    ? line.text
+                      ? t('player.lyricsSeekToLine', { text: line.text })
+                      : t('player.lyricsSeekToTime', { seconds: Math.floor(line.timeSeconds) })
+                    : undefined
+                "
                 :data-lyric-index="index"
+                @click.stop="seekToLyricLine(index)"
+                @keydown="handleLyricLineKeydown($event, index)"
               >
-                {{ line.text || ' ' }}
+                <span class="fullscreen-player-lyric-material">
+                  <span class="fullscreen-player-lyric-relief" aria-hidden="true">{{
+                    line.text || ' '
+                  }}</span>
+                  <span class="fullscreen-player-lyric-fill">{{ line.text || ' ' }}</span>
+                </span>
               </div>
               <div :style="{ height: `${lyricsBottomPadding}px` }"></div>
             </div>
           </div>
           <div v-else class="fullscreen-player-lyrics-empty">{{ t('player.lyricsEmpty') }}</div>
+          <div
+            v-if="lyricsPersistFailed && lyricsContextMenuEnabled"
+            class="fullscreen-lyrics-script-persist-status"
+            role="status"
+          >
+            {{ t('fullscreen.lyricsContextMenu.persistFailed') }}
+          </div>
         </div>
+        <FullscreenLyricsContextMenu
+          :open="lyricsContextMenuOpen"
+          :anchor="lyricsContextMenuAnchor"
+          :current-script="lyricsScript"
+          @select="selectLyricsScript"
+          @close="closeLyricsContextMenu"
+        />
       </section>
     </Transition>
   </Teleport>
@@ -509,7 +820,6 @@ onBeforeUnmount(() => {
   --auralis-fullscreen-lyrics-glow: rgba(255, 255, 255, 0.42);
   --fullscreen-padding-block: clamp(64px, 10vh, 110px);
   --fullscreen-content-width: min(32vw, 600px);
-  --fullscreen-lyric-active-scale: 1.23;
 
   position: fixed;
   inset: 0;
@@ -533,11 +843,123 @@ onBeforeUnmount(() => {
   display: inline-flex;
   width: 44px;
   height: 44px;
+  background: transparent;
   align-items: center;
   justify-content: center;
   border-radius: 8px;
   color: var(--auralis-text-muted);
   -webkit-app-region: no-drag;
+}
+
+.fullscreen-player--metal {
+  --auralis-fullscreen-pause-fill: var(--auralis-fullscreen-metal-pause-fill);
+  --auralis-text: #f6f2ea;
+  --auralis-text-muted: #d4d0c9;
+  --auralis-progress-track: #96918a;
+  --auralis-progress-fill: #f6f2ea;
+  --auralis-volume-fill: #f6f2ea;
+}
+
+.fullscreen-player--metal .fullscreen-player-lyrics-empty {
+  /* Protect each glyph against moving highlights without covering the metal surface. */
+  paint-order: stroke fill;
+  -webkit-text-stroke: 1.5px rgba(14, 17, 23, 0.96);
+  text-shadow: 0 2px 3px rgba(14, 17, 23, 0.9);
+}
+
+.fullscreen-player--metal .fullscreen-player-lyric-upcoming {
+  color: var(--auralis-text-muted);
+  opacity: 1;
+  filter: none;
+}
+
+.fullscreen-player--metal .fullscreen-player-lyric-line {
+  /* All timed states share a thin edge and light from the upper left. */
+  --fullscreen-lyric-surface: #747b84;
+  --fullscreen-lyric-edge: rgba(24, 30, 39, 0.45);
+  --fullscreen-lyric-relief-edge: rgba(24, 30, 39, 0.5);
+  --fullscreen-lyric-relief-shadow:
+    -0.45px -0.6px 0 rgba(236, 240, 245, 0.18), 0.6px 0.8px 0.8px rgba(24, 30, 39, 0.22),
+    1px 2px 3px rgba(14, 17, 23, 0.14);
+
+  paint-order: stroke fill;
+}
+
+/* Keep the edge relief behind the solid fill so shadows cannot tint the surface. */
+.fullscreen-player-lyric-relief {
+  display: none;
+}
+
+.fullscreen-player--metal
+  :is(
+    .fullscreen-player-lyric-active,
+    .fullscreen-player-lyric-upcoming,
+    .fullscreen-player-lyric-future
+  )
+  .fullscreen-player-lyric-material {
+  display: block;
+  position: relative;
+  isolation: isolate;
+}
+
+.fullscreen-player--metal
+  :is(
+    .fullscreen-player-lyric-active,
+    .fullscreen-player-lyric-upcoming,
+    .fullscreen-player-lyric-future
+  )
+  .fullscreen-player-lyric-relief {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  color: var(--fullscreen-lyric-surface);
+  -webkit-text-stroke: 0.6px var(--fullscreen-lyric-relief-edge);
+  text-shadow: var(--fullscreen-lyric-relief-shadow);
+  pointer-events: none;
+  transition:
+    color 300ms ease,
+    -webkit-text-stroke-color 300ms ease,
+    text-shadow 300ms ease;
+}
+
+.fullscreen-player--metal
+  :is(
+    .fullscreen-player-lyric-active,
+    .fullscreen-player-lyric-upcoming,
+    .fullscreen-player-lyric-future
+  )
+  .fullscreen-player-lyric-fill {
+  display: block;
+  color: var(--fullscreen-lyric-surface);
+  -webkit-text-fill-color: currentColor;
+  -webkit-text-stroke: 0.35px var(--fullscreen-lyric-edge);
+  text-shadow: none;
+  transition:
+    color 300ms ease,
+    -webkit-text-stroke-color 300ms ease;
+}
+
+.fullscreen-player--metal .fullscreen-player-lyric-active {
+  --fullscreen-lyric-surface: #ffffff;
+  --fullscreen-lyric-edge: rgba(224, 228, 234, 0.85);
+  --fullscreen-lyric-relief-edge: rgba(70, 78, 90, 0.55);
+  --fullscreen-lyric-relief-shadow:
+    -0.45px -0.6px 0 rgba(255, 255, 255, 0.6), 0.6px 0.8px 0.8px rgba(24, 30, 39, 0.32),
+    1px 2px 3px rgba(14, 17, 23, 0.22);
+}
+
+.fullscreen-player--metal .fullscreen-player-lyric-future {
+  --fullscreen-lyric-surface: #858b93;
+  --fullscreen-lyric-edge: rgba(24, 30, 39, 0.5);
+  --fullscreen-lyric-relief-edge: rgba(24, 30, 39, 0.68);
+  --fullscreen-lyric-relief-shadow:
+    -0.45px -0.6px 0 rgba(236, 240, 245, 0.55), 0.6px 0.8px 0.8px rgba(24, 30, 39, 0.38),
+    1px 2px 3px rgba(14, 17, 23, 0.22);
+}
+
+.fullscreen-player--metal .fullscreen-player-lyrics-empty {
+  -webkit-text-stroke-width: 1.25px;
 }
 
 .fullscreen-player-exit:hover {
@@ -547,6 +969,17 @@ onBeforeUnmount(() => {
 .fullscreen-player :is(button, input, [tabindex]):focus-visible {
   outline: 2px solid var(--auralis-text);
   outline-offset: 4px;
+}
+
+/* The scroll mask also clips outlines, so draw keyboard focus on its unmasked parent. */
+.fullscreen-player--keyboard-navigation
+  .fullscreen-player-lyrics:has(.fullscreen-player-lyrics-scroll:focus-visible) {
+  outline: 2px solid var(--auralis-text);
+  outline-offset: 4px;
+}
+
+.fullscreen-player .fullscreen-player-lyrics-scroll:focus-visible {
+  outline: none;
 }
 
 .fullscreen-drag-region {
@@ -563,6 +996,25 @@ onBeforeUnmount(() => {
 .fullscreen-player-lyrics {
   position: relative;
   z-index: 1;
+}
+
+.fullscreen-lyrics-script-persist-status {
+  position: absolute;
+  right: 0;
+  bottom: 10px;
+  z-index: 3;
+  max-width: min(100%, 34rem);
+  padding: 7px 11px;
+  border: 1px solid var(--auralis-fullscreen-controls-border);
+  border-radius: 9px;
+  color: var(--auralis-fullscreen-controls-text);
+  background: color-mix(in srgb, var(--auralis-fullscreen-controls-bg) 92%, transparent);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 20%);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 .fullscreen-player-left {
@@ -663,6 +1115,8 @@ onBeforeUnmount(() => {
   cursor: pointer;
   border-radius: 999px;
   background: var(--auralis-progress-track);
+  overflow: hidden;
+  contain: layout paint;
 }
 
 .fullscreen-player-progress-track::before {
@@ -677,8 +1131,8 @@ onBeforeUnmount(() => {
   height: 100%;
   border-radius: inherit;
   background: var(--auralis-progress-fill);
-  clip-path: inset(0 100% 0 0 round 999px);
-  will-change: clip-path;
+  transform: translateX(-100%);
+  will-change: transform;
 }
 
 .fullscreen-player-time-row {
@@ -762,11 +1216,12 @@ onBeforeUnmount(() => {
 .fullscreen-player-filled-pause {
   width: 30px;
   height: 34px;
-  color: var(--auralis-text);
+  opacity: 1;
+  color: var(--auralis-fullscreen-pause-fill);
 }
 
 .fullscreen-player-play:hover .fullscreen-player-filled-pause {
-  color: var(--auralis-text-muted);
+  color: var(--auralis-text);
 }
 
 .fullscreen-player-filled-pause::before,
@@ -889,6 +1344,12 @@ onBeforeUnmount(() => {
 }
 
 .fullscreen-player-lyrics-scroll {
+  --fullscreen-lyrics-font-size: calc(
+    clamp(22px, 2.25vw, 39px) * var(--fullscreen-lyrics-font-scale, 1)
+  );
+  --fullscreen-lyrics-line-gap: calc(
+    clamp(26px, 4vh, 52px) * var(--fullscreen-lyrics-gap-scale, 1)
+  );
   box-sizing: border-box;
   width: calc(min(900px, 100%) + var(--fullscreen-lyrics-left-bleed));
   height: 100%;
@@ -915,6 +1376,58 @@ onBeforeUnmount(() => {
   );
 }
 
+.fullscreen-player--metal .fullscreen-player-lyrics-scroll,
+.fullscreen-player-lyrics-scroll.fullscreen-player-lyrics-whole {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.fullscreen-player-lyrics:has(.fullscreen-player-lyrics-whole) {
+  padding-top: 0;
+}
+
+.fullscreen-player-lyrics-whole {
+  /* Reserve room above the aligned ink for its fine edge and highlight. */
+  margin-top: -4px;
+  height: calc(100% + 4px);
+  overflow: clip;
+}
+
+.fullscreen-player-lyrics-whole .fullscreen-player-lyrics-track {
+  position: relative;
+  min-height: 0;
+  padding-right: 0;
+  visibility: hidden;
+}
+
+.fullscreen-player-lyrics-whole .fullscreen-player-lyric-line {
+  position: relative;
+  min-height: 0;
+  font-size: var(--fullscreen-lyrics-font-size);
+  transform: none;
+  transition: none;
+}
+
+.fullscreen-player-lyrics-whole .fullscreen-player-lyric-line .fullscreen-player-lyric-material {
+  /* One maximum-size line layout is shared by all states; only its painted scale changes. */
+  display: block;
+  position: absolute;
+  inset: 0 0 auto;
+  font-size: calc(var(--fullscreen-lyrics-font-size) * var(--fullscreen-lyric-active-scale));
+  transform-origin: left top;
+}
+
+.fullscreen-player--metal
+  .fullscreen-player-lyrics-whole
+  :is(.fullscreen-player-lyric-fill, .fullscreen-player-lyric-relief) {
+  /* The viewport owns position, scale and paint together, including interrupted transitions. */
+  transition: none;
+}
+
+.fullscreen-player-lyrics-whole .fullscreen-player-lyric-line + .fullscreen-player-lyric-line {
+  margin-top: calc(var(--fullscreen-lyrics-line-gap) * var(--fullscreen-whole-fit-scale, 1));
+}
+
 .fullscreen-player-lyrics-scroll::-webkit-scrollbar {
   display: none;
 }
@@ -929,8 +1442,8 @@ onBeforeUnmount(() => {
 
 .fullscreen-player-lyric-line {
   overflow-wrap: anywhere;
-  font-size: clamp(22px, 2.25vw, 39px);
-  font-weight: 800;
+  font-size: var(--fullscreen-lyrics-font-size);
+  font-weight: var(--fullscreen-lyrics-font-weight, 800);
   line-height: 1.2;
   letter-spacing: 0;
   transform-origin: left center;
@@ -938,6 +1451,11 @@ onBeforeUnmount(() => {
     transform 420ms cubic-bezier(0.22, 0.72, 0.18, 1),
     opacity 300ms ease,
     filter 300ms ease;
+}
+
+.fullscreen-player-lyric-seekable {
+  cursor: pointer;
+  border-radius: 6px;
 }
 
 .fullscreen-player-prelude {
@@ -969,7 +1487,7 @@ onBeforeUnmount(() => {
 }
 
 .fullscreen-player-lyric-line + .fullscreen-player-lyric-line {
-  margin-top: clamp(26px, 4vh, 52px);
+  margin-top: var(--fullscreen-lyrics-line-gap);
 }
 
 .fullscreen-player-lyric-active {
@@ -1011,7 +1529,6 @@ onBeforeUnmount(() => {
   color: var(--auralis-text-muted);
   font-size: clamp(21px, 2.15vw, 34px);
   font-weight: 800;
-  opacity: 0.42;
   text-align: center;
 }
 
@@ -1045,6 +1562,31 @@ onBeforeUnmount(() => {
   .fullscreen-player-meta-row {
     text-align: left;
   }
+
+  /* The whole-sentence view keeps the cover/lyric alignment at the supported minimum width. */
+  .fullscreen-player:has(.fullscreen-player-lyrics-whole) {
+    --fullscreen-content-width: min(32vw, 320px);
+
+    grid-template-columns: var(--fullscreen-content-width) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    align-content: stretch;
+    gap: clamp(32px, 5vw, 72px);
+  }
+
+  .fullscreen-player:has(.fullscreen-player-lyrics-whole) .fullscreen-player-left {
+    align-items: stretch;
+    justify-content: center;
+    justify-self: auto;
+    text-align: left;
+  }
+
+  .fullscreen-player:has(.fullscreen-player-lyrics-whole) .fullscreen-player-artwork-slot {
+    flex-shrink: 1;
+  }
+
+  .fullscreen-player:has(.fullscreen-player-lyrics-whole) .fullscreen-player-lyrics {
+    height: auto;
+  }
 }
 
 :where([data-reduced-motion='true']) .fullscreen-player-lyrics-track {
@@ -1053,6 +1595,13 @@ onBeforeUnmount(() => {
 
 :where([data-reduced-motion='true']) .fullscreen-player-lyric-line,
 :where([data-reduced-motion='true']) .fullscreen-player-prelude-dot {
+  transition: none;
+}
+
+:where([data-reduced-motion='true'])
+  .fullscreen-player--metal
+  .fullscreen-player-lyric-line
+  :is(.fullscreen-player-lyric-relief, .fullscreen-player-lyric-fill) {
   transition: none;
 }
 

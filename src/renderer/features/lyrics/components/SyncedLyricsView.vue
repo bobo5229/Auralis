@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { useLyricLineSeek } from '../composables/useLyricLineSeek'
+import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { useReducedMotion } from '../composables/useReducedMotion'
+import { getLyricsScrollEasing, useLyricsScrollPreset } from '../lyricsScrollPreset'
+import { useLyricsEffectsPreference } from '../lyricsEffectsPreference'
 import {
   resolveLyricsFollowBehavior,
   shouldAnimateLyricsFollow,
@@ -19,8 +22,15 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const { seekTo } = usePlayback()
+const { effects } = useLyricsEffectsPreference()
+const { activate: onLyricLineActivate, onKeydown: onLyricLineKeydown } = useLyricLineSeek({
+  lines: () => props.lines,
+  onSeek: followAfterSeek,
+})
 const reducedMotion = useReducedMotion()
+const { preset: lyricsScrollPreset } = useLyricsScrollPreset()
+const { displayMode } = usePlayerDisplayMode()
+const isActive = computed(() => displayMode.value === 'normal')
 
 const scrollRef = ref<HTMLElement | null>(null)
 const trackRef = ref<HTMLElement | null>(null)
@@ -33,6 +43,7 @@ let trackOffset = 0
 let lineMetrics: Array<{ offset: number; height: number }> = []
 let preludeMetric: { offset: number; height: number } | null = null
 let metricsLineCount = -1
+let metricsLines: readonly LyricLine[] | null = null
 let metricsPreludeState = false
 let scrollMax = 0
 
@@ -40,7 +51,6 @@ const MIN_DURATION_MS = 420
 const MAX_DURATION_MS = 650
 const DURATION_BASE_MS = 380
 const DURATION_PER_PIXEL = 0.65
-const EASING = 'cubic-bezier(0.4, 0, 0.2, 1)'
 
 const topPadding = computed(() => Math.round(containerHeight.value * 0.3))
 const bottomPadding = computed(() => Math.round(containerHeight.value * 0.7))
@@ -77,12 +87,14 @@ function cancelTrackAnimation(commitCurrentPosition: boolean): number {
 }
 
 function rebuildMetrics(force = false): void {
+  if (!isActive.value) return
   const container = scrollRef.value
   const track = trackRef.value
   if (!container || !track) {
     lineMetrics = []
     preludeMetric = null
     metricsLineCount = -1
+    metricsLines = null
     metricsPreludeState = false
     scrollMax = 0
     return
@@ -91,6 +103,7 @@ function rebuildMetrics(force = false): void {
   if (
     !force &&
     metricsLineCount === props.lines.length &&
+    metricsLines === props.lines &&
     metricsPreludeState === props.showPrelude
   ) {
     return
@@ -106,6 +119,7 @@ function rebuildMetrics(force = false): void {
     ? { offset: preludeElement.offsetTop, height: preludeElement.offsetHeight }
     : null
   metricsLineCount = props.lines.length
+  metricsLines = props.lines
   metricsPreludeState = props.showPrelude
   scrollMax = Math.max(0, track.scrollHeight - container.clientHeight)
 }
@@ -129,7 +143,7 @@ function computeTarget(): number | null {
 function updateTarget(
   behavior: LyricsFollowBehavior = resolveLyricsFollowBehavior(reducedMotion.matches.value),
 ): void {
-  if (isUserScrolling.value) return
+  if (!isActive.value || isUserScrolling.value) return
   const container = scrollRef.value
   const track = trackRef.value
   const target = computeTarget()
@@ -162,7 +176,7 @@ function updateTarget(
     ],
     {
       duration,
-      easing: EASING,
+      easing: getLyricsScrollEasing(lyricsScrollPreset.value),
       fill: 'both',
     },
   )
@@ -212,12 +226,7 @@ function resumeAutoFollowFromUserScroll(): void {
  * Click / keyboard on a timed LRC line: seek playback, then immediately follow
  * the new active line (cancel the 3s user-scroll pause from pointerdown).
  */
-function onLyricLineActivate(index: number): void {
-  const line = props.lines[index]
-  if (!line || !Number.isFinite(line.timeSeconds)) return
-
-  seekTo(line.timeSeconds)
-
+function followAfterSeek(): void {
   if (scrollTimeout) {
     clearTimeout(scrollTimeout)
     scrollTimeout = null
@@ -235,12 +244,6 @@ function onLyricLineActivate(index: number): void {
     rebuildMetrics()
     updateTarget()
   })
-}
-
-function onLyricLineKeydown(event: KeyboardEvent, index: number): void {
-  if (event.key !== 'Enter' && event.key !== ' ') return
-  event.preventDefault()
-  onLyricLineActivate(index)
 }
 
 function resetScrollPosition(): void {
@@ -263,13 +266,17 @@ function syncContainer(): void {
   const container = scrollRef.value
   resizeObserver?.disconnect()
   resizeObserver = null
-  if (!container) {
+  if (!container || !isActive.value) {
     containerHeight.value = 0
     return
   }
 
   containerHeight.value = container.clientHeight
   resizeObserver = new ResizeObserver((entries) => {
+    if (!isActive.value) {
+      metricsLineCount = -1
+      return
+    }
     containerHeight.value = entries[0].contentRect.height
     nextTick(() => {
       rebuildMetrics(true)
@@ -280,19 +287,36 @@ function syncContainer(): void {
 }
 
 watch(
-  () => [props.activeIndex, props.isPrelude, props.showPrelude, props.lines.length],
-  () => {
+  () => [props.activeIndex, props.isPrelude, props.showPrelude, props.lines] as const,
+  (next, previous) => {
+    const linesChanged = next[3] !== previous[3]
     if (props.lines.length === 0) {
       resetScrollPosition()
       return
     }
     nextTick(() => {
       rebuildMetrics()
-      updateTarget()
+      updateTarget(linesChanged ? 'auto' : undefined)
     })
   },
   { flush: 'post' },
 )
+
+watch(isActive, (active) => {
+  if (!active) {
+    if (scrollTimeout) clearTimeout(scrollTimeout)
+    scrollTimeout = null
+    isUserScrolling.value = false
+    cancelTrackAnimation(true)
+    return
+  }
+  void nextTick(() => {
+    if (!isActive.value) return
+    if (!resizeObserver) syncContainer()
+    rebuildMetrics()
+    updateTarget('auto')
+  })
+})
 
 // A preference flip to reduce mid-movement must cancel the in-flight WAAPI
 // animation and land the track on the target instantly (P2).
@@ -329,6 +353,7 @@ onBeforeUnmount(() => {
   <div
     ref="scrollRef"
     class="synced-lyrics-scroll h-full overflow-auto scrollbar-none px-4"
+    :class="{ 'synced-lyrics-scroll--blur': effects.blur }"
     tabindex="0"
     @wheel="pauseAutoFollow"
     @pointerdown="pauseAutoFollow"
@@ -404,6 +429,7 @@ onBeforeUnmount(() => {
   transition:
     opacity 300ms ease,
     filter 300ms ease;
+  overflow-wrap: anywhere;
 }
 
 .lyric-line-seekable {
@@ -428,8 +454,15 @@ onBeforeUnmount(() => {
 }
 
 .lyric-line-blur-filter {
-  filter: blur(3px);
   opacity: 0.8;
+}
+
+.synced-lyrics-scroll--blur .lyric-line-blur-filter {
+  filter: blur(3px);
+}
+
+.synced-lyrics-scroll--blur .lyric-line-seekable:hover {
+  filter: none;
 }
 
 .lyric-prelude {

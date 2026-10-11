@@ -75,6 +75,7 @@ describe('updateUserEditedMetadata artwork', () => {
       albumArtist: 'Other',
       trackNo: 1,
       discNo: 1,
+      bitrateBps: null,
       durationSeconds: 1,
       year: null,
       releaseDate: null,

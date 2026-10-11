@@ -2,26 +2,16 @@ import { computed, ref } from 'vue'
 
 export type ThemeMode = 'light' | 'dark'
 
-export type ThemeTransitionOrigin = {
-  x: number
-  y: number
-}
-
 export const THEME_STORAGE_KEY = 'auralis-theme'
 export const DEFAULT_THEME: ThemeMode = 'dark'
 
 const theme = ref<ThemeMode>(DEFAULT_THEME)
-const isThemeTransitioning = ref(false)
 
 export function isThemeMode(value: unknown): value is ThemeMode {
   return value === 'light' || value === 'dark'
 }
 
-export function resolveTheme(requested?: ThemeMode | null): ThemeMode {
-  if (requested && isThemeMode(requested)) {
-    return requested
-  }
-
+export function resolveTheme(): ThemeMode {
   try {
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem(THEME_STORAGE_KEY)
@@ -57,16 +47,7 @@ function commitTheme(nextTheme: ThemeMode): void {
 /**
  * Apply theme immediately and persist to local storage.
  */
-async function setTheme(
-  nextTheme: ThemeMode,
-  options?: {
-    animate?: boolean
-    origin?: ThemeTransitionOrigin
-  },
-): Promise<void> {
-  void options
-  if (isThemeTransitioning.value) return
-
+async function setTheme(nextTheme: ThemeMode): Promise<void> {
   const resolved = isThemeMode(nextTheme) ? nextTheme : DEFAULT_THEME
   if (
     theme.value === resolved &&
@@ -83,23 +64,8 @@ function toggleTheme(): Promise<void> {
   return setTheme(next)
 }
 
-function toggleThemeFromElement(trigger: HTMLElement): void {
-  void trigger
-  void toggleTheme()
-}
-
 function initTheme(): void {
-  let stored: string | null = null
-  try {
-    if (typeof localStorage !== 'undefined') {
-      stored = localStorage.getItem(THEME_STORAGE_KEY)
-    }
-  } catch {
-    stored = null
-  }
-
-  const initialTheme: ThemeMode = isThemeMode(stored) ? stored : DEFAULT_THEME
-  commitTheme(initialTheme)
+  commitTheme(resolveTheme())
 }
 
 export function useTheme() {
@@ -107,10 +73,8 @@ export function useTheme() {
     theme,
     isDark: computed(() => theme.value === 'dark'),
     nextThemeLabel: computed(() => (theme.value === 'dark' ? 'Light theme' : 'Dark theme')),
-    isThemeTransitioning,
     initTheme,
     setTheme,
-    toggleThemeFromElement,
     toggleTheme,
   }
 }

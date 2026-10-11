@@ -17,6 +17,8 @@ export function createNativePlaybackRuntime(
 ): PlaybackAudioRuntime {
   const fallback = createFallback(callbacks)
   let native = false
+  let starting = false
+  let retainedSession: number | null = null
   let disposed = false
   let session = ++nextSession
   let volume = 0.8
@@ -56,6 +58,9 @@ export function createNativePlaybackRuntime(
       hasCurrentData: event.kind !== 'ended' && !event.buffering,
     }
     if (event.kind === 'boundary') callbacks.onEnded(event.trackId)
+    // Boundary adoption may clear playback (for example a just-missing track).
+    // Do not publish the rest of that old event into the replacement lifetime.
+    if (!native || disposed || event.session !== session) return
     callbacks.onDurationChange(event.duration)
     callbacks.onTimeUpdate(event)
     callbacks.onPlayingChange(event.isPlaying)
@@ -63,33 +68,54 @@ export function createNativePlaybackRuntime(
     if (event.kind === 'ended') callbacks.onEnded(null)
   }
   const unsubscribe = api.onNativeEvent(receive)
-  function clear(): void {
+  function clear(options?: { replacing?: boolean }): void {
+    const replacing = options?.replacing === true
+    const cancelPendingNative = native && starting
+    if (replacing && native && !cancelPendingNative) {
+      retainedSession = session
+      // Silence the old song while its replacement URL is resolved, keeping the
+      // decoder and output alive. Main owns the eventual file-unload barrier.
+      void api.nativeCommand({ action: 'pause', session }).catch(warn)
+      void api.nativeCommand({ action: 'cancel-next', session }).catch(warn)
+    }
     session = ++nextSession
     native = false
+    starting = false
     snapshot = idle()
     fallback.clear()
-    void api.nativeCommand({ action: 'stop', session }).catch(warn)
+    if (!replacing || cancelPendingNative) {
+      retainedSession = null
+      void api.nativeCommand({ action: 'stop', session }).catch(warn)
+    }
   }
   return {
     async start(trackId, url, options) {
-      clear()
+      clear({ replacing: true })
       const requestSession = session
-      const availability = options.preferGapless
-        ? await api.nativeAvailability()
-        : { available: false }
+      let availability: { available: boolean }
+      try {
+        availability = options.preferGapless ? await api.nativeAvailability() : { available: false }
+      } catch (error) {
+        if (session !== requestSession || disposed) return
+        clear()
+        throw error
+      }
       if (session !== requestSession || disposed) return
       if (!availability.available) {
+        clear()
         if (options.preferGapless) warn(new Error('mpv unavailable; using Web Audio'))
         return fallback.start(trackId, url, options)
       }
       native = true
-      // stop and start must use different monotonically increasing sessions.
+      starting = true
+      retainedSession = null
       session = ++nextSession
       const startSession = session
       try {
         const result = await api.nativeCommand({ action: 'start', session, trackId, volume, muted })
         if (session !== startSession || disposed) return
         if (!result.accepted) throw new Error('Native playback start was rejected')
+        starting = false
         await api.nativeCommand({ action: 'volume', session, volume, muted })
       } catch (error) {
         if (session !== startSession || disposed) return
@@ -103,6 +129,7 @@ export function createNativePlaybackRuntime(
     },
     pause() {
       if (!native) {
+        if (retainedSession !== null) clear()
         fallback.pause()
         session = ++nextSession
         return

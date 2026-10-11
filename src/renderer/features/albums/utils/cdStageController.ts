@@ -2,8 +2,6 @@ import { createReducedMotionQuery } from '@renderer/shared/animation/motionPrefe
 import { animateCdPress, animateFrames } from '@renderer/shared/animation/motion'
 import { cdAlbumIndex, cdPose, cdSlots, cdProjectedDiscOutline } from './cdGeometry'
 import { cdPlaybackWavePath, cdPlaybackWaveSeed } from './cdPlaybackWave'
-import { createCdCometRing } from './cdCometRing'
-import type { CdProgressStyle } from '../composables/useCdProgressStyle'
 import { playCdStartup } from './cdStartup'
 import { CD_VIBRATION_MAX_PX } from './cdVibrationMotion'
 import { cdVibrationProjection } from './cdVibrationProjection'
@@ -31,10 +29,9 @@ interface DiscNode {
   shadowPath?: SVGPathElement
   waveProgress?: SVGPathElement
   wavePaths?: SVGPathElement[]
-  comet?: ReturnType<typeof createCdCometRing>
   waveSeed: number
   image?: HTMLImageElement
-  artwork: 'idle' | 'decoding' | 'shown' | 'dropped'
+  artwork: 'idle' | 'decoding' | 'shown' | 'deferred' | 'dropped'
   vinyl?: HTMLDivElement
   tilt: { x: number; y: number; targetX: number; targetY: number }
   cancelTiltAnimation?: () => void
@@ -74,7 +71,6 @@ export interface CdPlaybackRingState {
   playing: boolean
   progress: number
   accent: string
-  style?: CdProgressStyle
 }
 
 export function createCdStage(
@@ -86,6 +82,7 @@ export function createCdStage(
   focusOptions?: {
     geometry: () => { cx: number; cy: number; rightBoundary: number }
     change: (progress: number, settled: boolean) => void
+    targetChange?: (focused: boolean) => void
     togglePlayback?: () => boolean
   },
 ) {
@@ -178,17 +175,6 @@ export function createCdStage(
       if (!node.waveRing || !node.waveProgress || !node.waveTrack) continue
       const visible = node === activeNode
       node.waveRing.style.opacity = visible ? '1' : '0'
-      const comet = playback.style === 'comet'
-      node.waveTrack.style.display = comet ? 'none' : ''
-      node.waveProgress.style.display = comet ? 'none' : ''
-      if (visible && comet && !node.comet) {
-        node.comet = createCdCometRing(node.waveRing)
-        node.comet.paint(waveElapsed)
-      }
-      if (node.comet) {
-        node.comet.root.style.display = comet ? '' : 'none'
-        if (visible && comet) node.comet.setProgress(playback.progress, playback.accent)
-      }
       node.waveProgress.style.stroke = playback.accent
       node.waveProgress.setAttribute('stroke-dashoffset', String(1 - playback.progress))
       if (!visible) {
@@ -204,28 +190,6 @@ export function createCdStage(
     // Decorative loops stop while hidden; the playback clock still supplies progress.
     if (document.hidden) {
       stopWaveAnimation()
-      return
-    }
-    if (playback.style === 'comet') {
-      if (!playback.playing || reducedMotion.matches) {
-        stopWaveAnimation()
-        return
-      }
-      if (cancelWaveAnimation) return
-      cancelWaveAnimation = animateFrames((seconds) => {
-        const node = nodes.get(selected)
-        if (!node?.comet || !playback.visible || focusProgress !== 1 || focusMoving) {
-          cancelWaveAnimation = null
-          return false
-        }
-        waveElapsed += seconds
-        waveFrameElapsed += seconds
-        if (waveFrameElapsed >= 1 / 30) {
-          waveFrameElapsed %= 1 / 30
-          node.comet.paint(waveElapsed)
-        }
-        return true
-      })
       return
     }
     if (reducedMotion.matches) {
@@ -317,6 +281,7 @@ export function createCdStage(
     pointer = null
     measureFocus()
     focusTarget = Number(open)
+    focusOptions.targetChange?.(open)
     const from = focusProgress
     const finish = (): void => {
       focusProgress = focusTarget
@@ -419,16 +384,45 @@ export function createCdStage(
     node.cancelTiltAnimation?.()
     node.cancelSpinAnimation?.()
     if (hovered === node) hovered = null
+    releaseStartupImage(node)
     node.slot.remove()
   }
 
-  function releaseStartupImage(node: DiscNode): void {
+  function releaseStartupImage(node: DiscNode, deferred = false): void {
     const image = node.image
     node.image = undefined
-    node.artwork = 'dropped'
+    node.artwork = deferred ? 'deferred' : 'dropped'
     if (!image) return
+    readyImages.delete(image)
     image.remove()
     image.src = ''
+  }
+
+  function ensureDiscArtwork(node: DiscNode, startupDisc = false): void {
+    if (node.image || (node.artwork !== 'idle' && node.artwork !== 'deferred')) return
+    const album = albums[cdAlbumIndex(node.index, albums.length)]
+    if (album?.key !== node.albumKey || !album.artworkUrl) {
+      node.artwork = 'dropped'
+      return
+    }
+    const image = new Image()
+    image.alt = ''
+    image.decoding = 'async'
+    image.draggable = false
+    image.addEventListener(
+      'error',
+      () => {
+        if (node.image === image) releaseStartupImage(node)
+      },
+      { once: true },
+    )
+    node.image = image
+    node.artwork = 'idle'
+    if (!startupDisc) {
+      node.artwork = 'shown'
+      image.src = album.artworkUrl
+      node.art.append(image)
+    }
   }
 
   function showStartupImage(node: DiscNode): void {
@@ -451,10 +445,11 @@ export function createCdStage(
     image.src = album.artworkUrl
     return image.decode().then(
       () => {
-        if (generation === startupGeneration && node.artwork === 'decoding') readyImages.add(image)
+        if (generation === startupGeneration && node.image === image && node.artwork === 'decoding')
+          readyImages.add(image)
       },
       () => {
-        if (generation === startupGeneration && node.artwork === 'decoding')
+        if (generation === startupGeneration && node.image === image && node.artwork === 'decoding')
           releaseStartupImage(node)
       },
     )
@@ -478,13 +473,7 @@ export function createCdStage(
       node.disc.style.willChange = ''
       node.vinyl?.remove()
       node.vinyl = undefined
-      if (node.artwork !== 'shown') releaseStartupImage(node)
-      else if (node.image) {
-        node.image.remove()
-        node.image.src = ''
-        node.image = undefined
-        node.artwork = 'dropped'
-      }
+      if (node.artwork !== 'dropped') releaseStartupImage(node, true)
     }
   }
 
@@ -592,26 +581,7 @@ export function createCdStage(
       artwork: 'idle',
       tilt: { x: 0, y: 0, targetX: 0, targetY: 0 },
     }
-    if (album.artworkUrl) {
-      const image = new Image()
-      image.alt = ''
-      image.decoding = 'async'
-      image.draggable = false
-      image.addEventListener(
-        'error',
-        () => {
-          if (node.artwork === 'shown') image.remove()
-          else if (node.artwork !== 'dropped') releaseStartupImage(node)
-        },
-        { once: true },
-      )
-      node.image = image
-      if (!startupDisc) {
-        image.src = album.artworkUrl
-        art.append(image)
-        node.artwork = 'shown'
-      }
-    }
+    ensureDiscArtwork(node, startupDisc)
     if (!startupDisc) ensureDiscChrome(node)
     nodes.set(index, node)
     discNodes.set(disc, node)
@@ -687,6 +657,7 @@ export function createCdStage(
     }
     slots.forEach((index, layer) => {
       const node = nodes.get(index) ?? createDisc(index)
+      if (!startup) ensureDiscArtwork(node)
       ensureDiscChrome(node)
       const t = index - position
       const pose = cdPose(t, width, height)
@@ -755,6 +726,7 @@ export function createCdStage(
     if (focusProgress || focusMoving) {
       focusProgress = focusTarget = 0
       focusMoving = false
+      focusOptions?.targetChange?.(false)
       focusOptions?.change(0, true)
       for (const node of nodes.values()) {
         node.slot.style.willChange = ''
@@ -778,7 +750,7 @@ export function createCdStage(
         node.vinyl = undefined
         node.slot.style.willChange = ''
         node.disc.style.willChange = ''
-        if (node.artwork === 'idle' || node.artwork === 'decoding') releaseStartupImage(node)
+        if (node.artwork === 'idle' || node.artwork === 'decoding') releaseStartupImage(node, true)
       }
       onStartup?.(false)
     }
@@ -822,7 +794,7 @@ export function createCdStage(
       for (const node of nodes.values()) {
         if (node.artwork === 'shown' || node.artwork === 'dropped') continue
         if (node.image && readyImages.has(node.image)) showStartupImage(node)
-        else releaseStartupImage(node)
+        else releaseStartupImage(node, true)
       }
       const pool = new Map(
         Array.from(nodes, ([index, node]) => [
@@ -1407,11 +1379,6 @@ export function createCdStage(
       applyVibration(node)
     },
     setPlayback(next: CdPlaybackRingState): void {
-      if ((next.style ?? 'wave') !== (playback.style ?? 'wave')) {
-        stopWaveAnimation()
-        ringDrawElapsed = 0
-        ringDrawSettled = false
-      }
       playback = {
         ...next,
         progress: Math.max(0, Math.min(1, Number.isFinite(next.progress) ? next.progress : 0)),

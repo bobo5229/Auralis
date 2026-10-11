@@ -38,24 +38,25 @@
 
 ### albums：专辑
 
-- [施工文档：专辑列表页收起歌词动画性能修复](topics/albums/IMPLEMENTATION-lyrics-collapse-performance-fix-2026-10-02.md) — 当前实现诊断、分阶段修复、快照复用、回归与性能验收。
-- [TECHDOC：歌词面板收起与专辑网格同步过渡](topics/albums/TECHDOC-lyrics-collapse-album-grid-sync-2026-09-30.md)
+- [当前实现与历史诊断：歌词面板收起与专辑网格同步过渡](topics/albums/TECHDOC-lyrics-collapse-album-grid-sync-2026-09-30.md#当前实现-2026-10-08) — 记录 fixed grid group-opacity 淡切、Sidebar/歌词/Playbar 协同及隔离性能证据边界。
+- [历史：专辑列表页收起歌词动画性能施工方案](topics/albums/IMPLEMENTATION-lyrics-collapse-performance-fix-2026-10-02.md) — 原移动缩放方案与任务清单已被当前实现替代，性能未宣称对真实曲库完全通过。
+- [历史：歌词面板收起与专辑网格同步过渡方案](topics/albums/TECHDOC-lyrics-collapse-album-grid-sync-2026-09-30.md) — 保留 2026-09-30 的诊断与设计记录；现行行为见上方当前实现说明。
 - [TECHDOC：更多作品封面内部悬停反馈](topics/albums/TECHDOC-more-albums-cover-hover-2026-09-27.md)
 - [PRD：CD 专辑封面索引页](topics/albums/PRD-cd-album-cover-index-2026-09-25.md)
 - [TECHDOC：CD 专辑封面索引页](topics/albums/TECHDOC-cd-album-cover-index-2026-09-25.md)
 - [TECHDOC：CD 目录全量顺序播放](topics/albums/TECHDOC-cd-catalog-sequential-playback-2026-09-26.md)
 - [TECHDOC：CD 聚焦状态与双目标返回](topics/albums/TECHDOC-cd-focus-return-navigation-2026-09-25.md)
 - [PRD：专辑详情页 Banner 模块视觉与交互重构](topics/albums/PRD：专辑详情页%20Banner%20模块视觉与交互重构.md)
-- [TECHDOC：专辑详情页进入非对称过渡](topics/albums/techdoc-album-detail-enter-transition-motion.md)
+- [TECHDOC：专辑列表进入详情的交叉淡入淡出](topics/albums/techdoc-album-detail-enter-transition-motion.md)
 - [TECHDOC：专辑列表虚拟行定位与视觉动效解耦](topics/albums/techdoc-albums-virtual-row-transition-fix.md)
 - [TECHDOC：专辑详情页本地分类兜底画廊](topics/albums/techdoc-album-detail-local-catalog-fallback-gallery.md)
 - [专辑详情页重构 MVP 实施计划 (Album Detail Page Redesign MVP Plan)](topics/albums/2026-07-25-album-detail-redesign-plan.md)
-- [产品需求文档 (PRD)：专辑详情页退出景深沉降过渡](topics/albums/prd-album-detail-exit-transition.md)
+- [历史 PRD：专辑详情页退出景深沉降过渡](topics/albums/prd-album-detail-exit-transition.md)
 - [产品需求文档 (PRD)：专辑详情页热门单曲右下角入口与物理推移联动](topics/albums/prd-album-detail-top-tracks-push.md)
 - [产品需求文档 (PRD)：专辑列表页独立动态液态极光 Header 展架](topics/albums/prd-albums-page-liquid-aurora-header.md)
 - [产品需求文档 (PRD)：专辑列表页 Hi-Fi 发烧唱片馆藏与黑曜石控制架](topics/albums/prd-albums-page-obsidian-shelf.md)
 - [产品需求文档 (PRD)：专辑列表页阳极氧化拉丝金属内凹 Header 展架](topics/albums/prd-albums-page-recessed-metal-header.md)
-- [技术方案文档 (TECHDOC)：专辑详情页退出景深沉降过渡](topics/albums/techdoc-album-detail-exit-transition-motion.md)
+- [TECHDOC：专辑详情退出的对称淡入淡出](topics/albums/techdoc-album-detail-exit-transition-motion.md)
 - [技术方案文档：专辑详情页沉浸式 Hero 巨幕重构 (Album Detail Hero Billboard Technical Spec)](topics/albums/techdoc-album-detail-hero-billboard-redesign.md)
 - [技术方案文档 (TECHDOC)：热门单曲右下角入口与曲目行物理推移联动](topics/albums/techdoc-album-detail-top-tracks-push-motion.md)
 - [技术方案文档 (TECHDOC)：专辑列表页独立动态液态极光 Header 展架](topics/albums/techdoc-albums-page-liquid-aurora-header.md)
@@ -64,21 +65,7 @@
 
 ### archive：音乐归档
 
-- [Mac 声迹前端分阶段施工文档](topics/archive/TECHDOC-mac-archive-frontend-integration.md) — 临时入口、独立页面、真实统计、舞台与拖放播放，按 Phase/Task 执行。
-
-- [Mac 声迹后端接入施工方案](topics/archive/TECHDOC-mac-archive-backend-integration.md) — 源码审查、每日专辑 Top5 契约、分步施工与验证。
-
-- [Apple II 原型进度记录（2026-10-01）](topics/archive/PROGRESS-apple-ii-demo-2026-10-01.md) — 探索暂停，后续回到 1984 版 Mac；记录实现、验证与性能测量。
-
-- [设计参考：复古未来主义](topics/archive/REFERENCE-retrofuturism-design.md) — 用户提供的原文参考，按需采用，不作为项目强制规范。
-- [PRD：年度摘要实体票根档案](topics/archive/PRD：Archive%20页面年度摘要“实体票根档案（Editorial%20Liner%20Notes）”模块.MD)
-- [TECHDOC：年度摘要实体票根档案](topics/archive/techdoc-archive-editorial-liner-notes.md)
-- [产品需求文档 (PRD)：声迹页面黑胶封套抽盘交互式年度摘要](topics/archive/prd-archive-annual-vinyl-jacket-summary.md)
-- [PRD: 声迹页面“Music DNA 音乐基因与风格图谱”模块](topics/archive/prd-archive-music-dna-spectrum.md)
-- [技术架构文档 (TECHDOC)：声迹页面黑胶封套抽盘交互式年度摘要实现方案](topics/archive/techdoc-archive-annual-vinyl-jacket-summary.md)
-- [TECHDOC: Music DNA 环形图 Hover/锁定 → 流派 Top 3 曲目](topics/archive/techdoc-archive-music-dna-ring-top-tracks.md)
-- [TECHDOC: 声迹页面“Music DNA 音乐基因与风格图谱”技术设计文档](topics/archive/techdoc-archive-music-dna-spectrum.md)
-- [Archive 听歌排行历史回看技术方案](topics/archive/techdoc-archive-ranking-history.md)
+- [设计参考：复古未来主义](topics/archive/REFERENCE-retrofuturism-design.md) — 用户提供的原文参考，按需采用，不作为项目强制规范。`/archive` 当前按真实每日有效播放次数显示年度聆听热力图；悬停气泡显示当天次数与累计曲目时长，点击让日期格子弹性展开为当日 Top 3 面板；播放统计更新或重置后自动刷新。
 
 ### artwork：封面
 
@@ -108,6 +95,9 @@
 
 ### playback：播放界面
 
+- [全屏右侧歌词繁简右键菜单：施工技术文档](topics/playback/TECHDOC-fullscreen-lyrics-script-context-menu-2026-10-11.md) — 方案已确认，待实施；复用现有繁简偏好，涵盖菜单、焦点、持久化、文字重测与 GPT6Luna Max 施工提示词。
+- [全屏歌词排版参数：施工技术文档](topics/playback/TECHDOC-fullscreen-lyrics-typography-settings-2026-10-10.md) — 方案已确认，待实施；包含右侧设置分组、持久化、换行与定位刷新及 GPT6Luna Max 施工提示词。
+- [历史：TECHDOC：播放器颜色变量体系补全](topics/playback/TECHDOC-player-color-token-completion-2026-09-26.md) — 保留颜色变量迁移记录；MiniPlayer 与桌面歌词已移除，PlayerBar 与全屏覆盖层相关内容仅作历史及源码参考。
 - [历史：TECHDOC：MiniPlayer 弹层可用性与窗口状态同步修复](topics/playback/TECHDOC-miniplayer-geometry-state-fixes-2026-09-28.md)
 - [FullscreenPlayerOverlay 职责拆分技术设计](topics/playback/TECHDOC-fullscreen-player-overlay-refactor-2026-08-30.md)
 - [历史：MiniPlayer 脚本职责拆分技术设计](topics/playback/TECHDOC-mini-player-script-refactor-2026-08-30.md)
@@ -370,9 +360,16 @@
 - [Auralis 设置页信息结构重设计](history/2026-08-14/03-settings-ia/Auralis%20设置页信息结构重设计.md)
 - [设置页信息结构重设计 Implementation Plan](history/2026-08-14/03-settings-ia/IMPLEMENTATION.md)
 
+## 可复用经验
+
+- [经验索引](lessons/README.md) — 按任务选择复盘与对应清理证据。
+- [UI 冗余清理经验](lessons/2026-10-06-ui-cleanup-lessons.md) — 入口、生命周期、CSS 匹配、共享边界与验证证据。
+- [CD 浏览页开发复盘](lessons/2026-10-04-cd-browser-development-lessons.md) — 原型选择、真实操作、音频效果、短时动效、动态配色、开源复用及旧方案清理经验。
+
 ## 审查记录
 
-- [CD 浏览页开发复盘](reviews/2026-10-04-cd-browser-development-lessons.md) — 原型选择、真实操作、音频效果、短时动效、动态配色、开源复用及旧方案清理经验。
+- [第一批冗余清理记录](reviews/2026-10-06-confirmed-redundancy-cleanup.md)。
+- [第二批冗余筛查与清理记录](reviews/2026-10-06-redundancy-second-pass.md)。
 - [Auralis 自写实现与开源复用审计](reviews/2026-10-04-open-source-reuse-audit.md) — 源码与成熟实现对照、替换优先级、迁移边界及建议保留项；候选尚未接入。
 - [2026-09-28 Electron 启动崩溃：安装目录 ACL 与沙箱兼容问题](reviews/2026-09-28-electron-startup-acl-crash.md)
 - [Auralis 主题与颜色体系审计报告](reviews/播放器主题配色审计报告.md)
@@ -392,6 +389,8 @@
 交接记录保留中断位置与当时待办，不构成继续执行授权。
 
 ## 演示
+
+- [像素旅途页面原型](../demo/playback/pixel-journey/README.md) — 草地远山、中文像素音乐面板、播放驱动奔跑与暂停待机；独立原型，未接入应用。
 
 - [原型目录与分类](../demo/README.md)
 - [Auralis · 动态流光取色实验](../demo/local/playback/apple-music-flow-demo.html)

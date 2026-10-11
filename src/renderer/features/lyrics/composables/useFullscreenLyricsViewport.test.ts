@@ -7,6 +7,7 @@ import {
   useFullscreenLyricsViewport,
 } from './useFullscreenLyricsViewport'
 import type { LyricsStatus } from './useTrackLyrics'
+import type { LyricsScrollPreset } from '../lyricsScrollPreset'
 
 class FakeResizeObserver {
   static instances: FakeResizeObserver[] = []
@@ -46,7 +47,7 @@ function createViewportElements() {
     querySelector: vi.fn(() => null),
     animate: vi.fn(() => animation),
   } as unknown as HTMLElement
-  return { container, track, animation }
+  return { container, track, animation, lines }
 }
 
 async function flushViewport(): Promise<void> {
@@ -76,11 +77,67 @@ describe('fullscreen lyrics viewport helpers', () => {
     expect(resolveFullscreenLyricsAnimationDuration(100)).toBe(445)
     expect(resolveFullscreenLyricsAnimationDuration(1000)).toBe(650)
   })
+
+  it('keeps a wrapped active lyric entirely within the clear area', () => {
+    const metric = { offset: 800, height: 238 }
+    for (const scale of [1, 1.23]) {
+      const target = resolveFullscreenLyricsScrollTarget(metric, 442, 2000, scale)
+      const center = metric.offset + metric.height / 2 - target
+      expect(center - (metric.height * scale) / 2).toBeGreaterThanOrEqual(442 * 0.07)
+      expect(center + (metric.height * scale) / 2).toBeLessThanOrEqual(442 * 0.9)
+    }
+  })
+
+  it('starts oversized lyrics below the top fade so manual reading begins with the first line', () => {
+    const metric = { offset: 900, height: 600 }
+    const target = resolveFullscreenLyricsScrollTarget(metric, 442, 2000)
+    const top = metric.offset + metric.height / 2 - target - (metric.height * 1.23) / 2
+    expect(top).toBeCloseTo(442 * 0.07 + 4)
+  })
 })
 
 describe('useFullscreenLyricsViewport', () => {
+  it('mounts the active timed window with two history sentences and keeps plain lyrics complete', async () => {
+    const lines = ref(
+      Array.from({ length: 600 }, (_, index) => ({
+        id: String(index),
+        text: `Sentence ${index}`,
+        timeSeconds: index * 2,
+      })),
+    )
+    const activeIndex = ref(592)
+    const wholeLineMode = ref(true)
+    const viewport = useFullscreenLyricsViewport({
+      scrollRef: ref(null),
+      trackRef: ref(null),
+      currentTrackId: ref(1),
+      lyricsStatus: ref<LyricsStatus>('lrc'),
+      lineCount: ref(600),
+      activeIndex,
+      isPrelude: ref(false),
+      showPrelude: ref(false),
+      isOpen: ref(true),
+      wholeLineMode,
+      lines,
+    })
+    expect(viewport.renderedLines.value.map((row) => row.index)).toEqual(
+      Array.from({ length: 10 }, (_, index) => 590 + index),
+    )
+    activeIndex.value = 20
+    expect(viewport.renderedLines.value.map((row) => row.index)).toEqual(
+      Array.from({ length: 18 }, (_, index) => 18 + index),
+    )
+    activeIndex.value = -1
+    expect(viewport.renderedLines.value[0].index).toBe(0)
+    expect(viewport.renderedLines.value).toHaveLength(16)
+    wholeLineMode.value = false
+    expect(viewport.renderedLines.value).toHaveLength(600)
+    await flushViewport()
+    viewport.dispose()
+  })
+
   function setup() {
-    const { container, track, animation } = createViewportElements()
+    const { container, track, animation, lines } = createViewportElements()
     const scrollRef = ref<HTMLElement | null>(container)
     const trackRef = ref<HTMLElement | null>(track)
     const currentTrackId = ref<number | null>(1)
@@ -91,6 +148,7 @@ describe('useFullscreenLyricsViewport', () => {
     const showPrelude = ref(false)
     const isOpen = ref(true)
     const reducedMotion = ref(false)
+    const scrollPreset = ref<LyricsScrollPreset>('standard')
     const viewport = useFullscreenLyricsViewport({
       scrollRef,
       trackRef,
@@ -102,16 +160,19 @@ describe('useFullscreenLyricsViewport', () => {
       showPrelude,
       isOpen,
       reducedMotion,
+      scrollPreset,
     })
     return {
       container,
       track,
       animation,
+      lines,
       scrollRef,
       currentTrackId,
       activeIndex,
       isOpen,
       reducedMotion,
+      scrollPreset,
       lyricsStatus,
       viewport,
     }
@@ -142,6 +203,47 @@ describe('useFullscreenLyricsViewport', () => {
     expect(track.style.transform).toBe('translate3d(0, 0px, 0)')
   })
 
+  it('force-refreshes new timed-line geometry, cancels stale motion and preserves manual browsing', async () => {
+    const { activeIndex, container, lines, track, viewport } = setup()
+    await flushViewport()
+
+    activeIndex.value = 1
+    await flushViewport()
+    expect(track.animate).toHaveBeenCalledOnce()
+    ;(lines[1] as unknown as { offsetTop: number }).offsetTop = 240
+    ;(lines[1] as unknown as { offsetHeight: number }).offsetHeight = 60
+    ;(track as unknown as { scrollHeight: number }).scrollHeight = 500
+    viewport.refresh('auto', true)
+
+    expect(track.animate).toHaveBeenCalledOnce()
+    expect(container.scrollTop).toBe(0)
+    expect(track.style.transform).toContain('-222.')
+
+    viewport.pauseAutoFollow()
+    container.scrollTop = 90
+    ;(lines[1] as unknown as { offsetTop: number }).offsetTop = 300
+    viewport.refresh('auto', true)
+
+    expect(viewport.isUserScrolling.value).toBe(true)
+    expect(container.scrollTop).toBe(90)
+    viewport.dispose()
+  })
+
+  it('clamps native plain-text scrolling after a forced content shrink', async () => {
+    const { container, lyricsStatus, track, viewport } = setup()
+    lyricsStatus.value = 'plain'
+    await flushViewport()
+    container.scrollTop = 250
+    ;(track as unknown as { scrollHeight: number }).scrollHeight = 160
+
+    viewport.refresh('auto', true)
+
+    expect(lyricsStatus.value).toBe('plain')
+    expect(container.scrollTop).toBe(60)
+    expect(track.style.transform).toBe('translate3d(0, 0px, 0)')
+    viewport.dispose()
+  })
+
   it('animates toward the newly active lyric line', async () => {
     const { activeIndex, track } = setup()
     await flushViewport()
@@ -151,6 +253,18 @@ describe('useFullscreenLyricsViewport', () => {
 
     expect(track.animate).toHaveBeenCalledOnce()
     expect(track.style.transform).toBe('translate3d(0, -165px, 0)')
+  })
+
+  it('uses the selected curve for the next timed line in the legacy viewport', async () => {
+    const { activeIndex, scrollPreset, track } = setup()
+    await flushViewport()
+    scrollPreset.value = 'soft'
+    activeIndex.value = 1
+    await flushViewport()
+    expect(track.animate).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({ easing: 'cubic-bezier(0.2, 0, 0, 1)' }),
+    )
   })
 
   it('preserves manual reading for eight seconds before resuming auto-follow', async () => {

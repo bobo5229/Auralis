@@ -1,0 +1,283 @@
+.song-font-weight-details {
+  min-width: 0;
+  overflow: clip;
+  border: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 80%, transparent);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 50%, transparent);
+  interpolate-size: allow-keywords;
+}
+
+.song-font-weight-details::details-content {
+  block-size: 0;
+  overflow: clip;
+  opacity: 0;
+  transition:
+    block-size 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 180ms ease,
+    content-visibility 280ms;
+  transition-behavior: allow-discrete;
+}
+
+.song-font-weight-details[open]::details-content {
+  block-size: auto;
+  opacity: 1;
+}
+
+.song-font-weight-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 9px 16px;
+  color: var(--auralis-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.song-font-weight-summary::-webkit-details-marker {
+  display: none;
+}
+
+.song-font-weight-summary::marker {
+  content: '';
+}
+
+.song-font-weight-summary:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: -2px;
+}
+
+.song-font-weight-details[open] > .song-font-weight-summary {
+  border-bottom: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+.song-font-weight-chevron {
+  flex: 0 0 auto;
+  color: var(--auralis-text-muted);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.song-font-weight-summary-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.song-font-weight-collapse-label,
+.song-font-weight-details[open] > .song-font-weight-summary .song-font-weight-expand-label {
+  display: none;
+}
+
+.song-font-weight-details[open] > .song-font-weight-summary .song-font-weight-collapse-label {
+  display: inline;
+}
+
+.song-font-weight-details[open] > .song-font-weight-summary .song-font-weight-chevron {
+  transform: rotate(180deg);
+}
+
+.song-font-weight-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 16px 2px;
+}
+
+.song-font-weight-reset {
+  min-height: 30px;
+  padding: 0 0 0 10px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--auralis-text-muted);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.song-font-weight-reset-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.song-font-weight-reset-notice {
+  color: var(--auralis-danger);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.song-font-weight-reset-notice-enter-active {
+  transition:
+    opacity 220ms ease-out,
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.song-font-weight-reset-notice-leave-active {
+  transition: opacity 140ms ease-in;
+}
+
+.song-font-weight-reset-notice-enter-from {
+  opacity: 0;
+  transform: translateX(12px);
+}
+
+.song-font-weight-reset-notice-leave-to {
+  opacity: 0;
+}
+
+:where([data-reduced-motion='true']) .song-font-weight-details::details-content {
+  transition:
+    opacity 120ms ease,
+    content-visibility 120ms;
+}
+
+:where([data-reduced-motion='true']) .song-font-weight-chevron {
+  transition: none;
+}
+
+:where([data-reduced-motion='true']) .song-font-weight-reset-notice-enter-active,
+:where([data-reduced-motion='true']) .song-font-weight-reset-notice-leave-active {
+  transition: opacity 120ms ease;
+}
+
+:where([data-reduced-motion='true']) .song-font-weight-reset-notice-enter-from {
+  transform: none;
+}
+
+.song-font-weight-reset:hover {
+  color: var(--auralis-text);
+}
+
+.song-font-weight-reset:focus-visible {
+  outline: 2px solid var(--auralis-sidebar-active-indicator);
+  outline-offset: 2px;
+}
+
+.song-font-weight-status {
+  margin: 0;
+  padding: 4px 16px 0;
+  color: var(--auralis-text-subtle);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.song-font-weight-status.is-warning {
+  color: var(--auralis-text);
+}
+
+/* Keep parameter section and column labels on the existing compact 11px scale. */
+.song-parameters-heading,
+.song-font-column-labels {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.song-parameters-heading {
+  margin: 8px 0 0;
+  padding: 12px 16px 4px;
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+  color: var(--auralis-text-muted);
+  font-weight: 600;
+}
+
+.song-cover-options + .song-parameters-heading {
+  margin-top: 0;
+}
+
+.song-cover-radius-reveal {
+  overflow: hidden;
+  max-height: 80px;
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+.song-cover-radius-reveal-enter-active,
+.song-cover-radius-reveal-leave-active {
+  transition:
+    max-height 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 180ms ease;
+}
+
+.song-cover-radius-reveal-enter-from,
+.song-cover-radius-reveal-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+:where([data-reduced-motion='true']) .song-cover-radius-reveal-enter-active,
+:where([data-reduced-motion='true']) .song-cover-radius-reveal-leave-active {
+  transition: opacity 120ms ease;
+}
+
+.song-font-weight-rows {
+  margin-top: 0;
+}
+
+.song-font-controls,
+.song-font-column-labels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 148px));
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.settings-row.song-font-weight-row > .song-font-controls {
+  margin-left: auto;
+  gap: 12px;
+}
+.song-font-column-labels {
+  justify-content: end;
+  padding: 0 16px 4px;
+  color: var(--auralis-text-muted);
+}
+.song-font-controls :deep(.settings-select) {
+  width: 148px;
+  min-width: 0;
+}
+
+.song-font-weight-row {
+  flex-wrap: wrap;
+  row-gap: 8px;
+  cursor: default;
+}
+
+/* Keep the sticky preview bounded by the expanded panel without another scroll container. */
+.song-font-weight-content {
+  position: relative;
+  isolation: isolate;
+}
+
+.song-font-weight-preview-block {
+  position: sticky;
+  /* Offset the scroll container's padding so scrolled controls cannot peek above the preview. */
+  top: calc(-1 * var(--settings-content-padding-top, 0px));
+  z-index: 1;
+  border-bottom: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+  background: var(--auralis-surface-raised);
+  padding: 12px 16px 16px;
+}
+
+.song-font-weight-preview-heading {
+  margin: 0 0 8px;
+  color: var(--auralis-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}

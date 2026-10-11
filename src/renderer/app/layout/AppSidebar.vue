@@ -7,6 +7,7 @@ import { RouterLink, useRouter } from 'vue-router'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { pointReference, startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
+import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
 import type { LibraryStats } from '@shared/types/app'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
@@ -17,7 +18,11 @@ import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import SmartPlaylistBuilderDialog from '@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue'
 import { useLibraryScanStart } from '@renderer/features/library/composables/useLibraryScanStart'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
+import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
+import { useTheme } from '@renderer/composables/useTheme'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
+import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
+import { preloadSettingsContent } from '@renderer/features/settings/utils/settingsContentLoader'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { prefetchRouteOnIntent } from '../router/routeWarmup'
@@ -25,13 +30,17 @@ import type { WarmableRouteName } from '../router/routeComponentLoaders'
 import { resolveRestorableFocusTarget } from '../utils/sidebarModalFocus'
 import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
 import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
+import { createSidebarLibraryLoader } from '../utils/sidebarLibraryLoader'
 import { animateTrashLid } from '@renderer/shared/animation/motion'
 import PlaylistIcon from './PlaylistIcon.vue'
+import SidebarIcon, { type SidebarIconKind } from './SidebarIcon.vue'
 import { vBrandResonance } from './sidebarBrandMotion'
 
 const route = useRoute()
 const router = useRouter()
 const playback = usePlayback()
+const { displayMode } = usePlayerDisplayMode()
+const { isSettingsOpen, openSettings } = useSettingsDialog()
 const { sidebarFullHeight, sidebarCollapsed, setSidebarCollapsed } = useSidebarLayout()
 /** 收起图标栏仅在全高布局生效；悬浮布局始终展示完整侧栏。 */
 const isRail = computed(() => sidebarFullHeight.value && sidebarCollapsed.value)
@@ -47,6 +56,8 @@ const { isStartingLibraryRefresh, refreshLibrary } = useLibraryScanStart({
 })
 
 const playlistItems = ref<SidebarPlaylistItem[]>([])
+const sidebarNavigation = ref<HTMLElement | null>(null)
+const sidebarPlaylistSection = ref<HTMLElement | null>(null)
 const smartPlaylists = ref<SmartPlaylist[]>([])
 const smartPlaylistKinds = computed(
   () =>
@@ -58,17 +69,48 @@ const smartPlaylistKinds = computed(
     ),
 )
 const libraryStats = ref<LibraryStats>({ trackCount: 0, albumCount: 0 })
+const sidebarLibraryLoader = createSidebarLibraryLoader({
+  playlistItems,
+  smartPlaylists,
+  libraryStats,
+  getStats: () => auralis.library.getStats(),
+  listSidebarItems: () => auralis.playlists.listSidebarItems(),
+  listSmartPlaylists: () => auralis.smartPlaylists.list(),
+  listSmartTrackCounts: () => auralis.smartPlaylists.listTrackCounts(),
+})
 const createPlaylistButton = ref<HTMLButtonElement | null>(null)
 const createMenu = ref<{ x: number; y: number } | null>(null)
+const createMenuPanel = ref<HTMLElement | null>(null)
 const smartCreateTrigger = ref<HTMLButtonElement | null>(null)
 const smartCreatePanel = ref<HTMLElement | null>(null)
 const smartCreateSubmenu = ref(false)
 const creatingPlaybackPreset = ref<'recentPlayed' | 'mostListened' | 'recentAdded' | null>(null)
 const createError = ref('')
 const playlistContextMenu = ref<{ item: SidebarPlaylistItem; x: number; y: number } | null>(null)
+const playlistContextIndex = computed(() => {
+  const item = playlistContextMenu.value?.item
+  if (!item) return -1
+  return playlistItems.value.findIndex(
+    (candidate) => getPlaylistKey(candidate) === getPlaylistKey(item),
+  )
+})
+const playlistContextHasPrevious = computed(() => playlistContextIndex.value > 0)
+const playlistContextHasNext = computed(
+  () =>
+    playlistContextIndex.value >= 0 && playlistContextIndex.value < playlistItems.value.length - 1,
+)
 const playlistContextPanel = ref<HTMLElement | null>(null)
+const playlistContextTrigger = ref<HTMLElement | null>(null)
+const playlistContextPositioned = ref(false)
 let playlistPosition: ReturnType<typeof startFloatingPosition> | undefined
-watch(playlistContextMenu, () => playlistPosition?.dispose(), { flush: 'sync' })
+watch(
+  playlistContextMenu,
+  () => {
+    playlistPosition?.dispose()
+    playlistContextPositioned.value = false
+  },
+  { flush: 'sync' },
+)
 watch(
   [playlistContextMenu, playlistContextPanel],
   (_values, _previous, onCleanup) => {
@@ -79,6 +121,9 @@ watch(
       reference: pointReference(menu.x, menu.y),
       floating: panel,
       profile: 'point-menu',
+      onPosition: () => {
+        playlistContextPositioned.value = true
+      },
       onError: closePlaylistContextMenu,
     })
     playlistPosition = session
@@ -114,6 +159,8 @@ function updateDeleteLid(): void {
 watch([deleteLid, deletingPlaylist], updateDeleteLid, { flush: 'post' })
 const renameValue = ref('')
 const renameError = ref('')
+const isSavingRename = ref(false)
+let renameSession = 0
 const renameInput = ref<HTMLInputElement | null>(null)
 const renameDialogRef = ref<HTMLElement | null>(null)
 const isBuilderOpen = ref(false)
@@ -124,7 +171,15 @@ let pendingNavCleanup: (() => void) | null = null
 
 const POINTER_MOVE_TOLERANCE = 6
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
+const { isDark, toggleTheme } = useTheme()
+const themeToggleLabel = computed(() =>
+  t(isDark.value ? 'sidebar.tool.themeToLight' : 'sidebar.tool.themeToDark'),
+)
+
+function onToggleTheme(): void {
+  void toggleTheme()
+}
 
 const activePath = ref(route.path)
 
@@ -132,36 +187,31 @@ const primaryNav = computed<
   Array<{
     to: string
     label: string
-    icon: string
-    activeIcon: string
+    icon: SidebarIconKind
     routeName?: WarmableRouteName
   }>
 >(() => [
   {
     to: '/songs',
     label: t('nav.songs'),
-    icon: 'i-ph-music-note',
-    activeIcon: 'i-ph-music-note-fill',
+    icon: 'song',
     routeName: 'library',
   },
   {
     to: '/albums',
     label: t('nav.albums'),
-    icon: 'i-ph-vinyl-record',
-    activeIcon: 'i-ph-vinyl-record-fill',
+    icon: 'albums',
     routeName: 'albums',
   },
   {
     to: '/albums/cd',
     label: t('albums.cd.title'),
-    icon: 'i-ph-disc',
-    activeIcon: 'i-ph-disc-fill',
+    icon: 'cd',
   },
   {
     to: '/archive',
     label: t('nav.archive'),
-    icon: 'i-ph-archive',
-    activeIcon: 'i-ph-archive-fill',
+    icon: 'archive',
     routeName: 'archive',
   },
 ])
@@ -198,11 +248,20 @@ function getPlaylistKey(item: { kind: string; id: number }): string {
 const {
   pressedPlaylistKey,
   draggingPlaylistKey,
+  hiddenPlaylistKey,
   dropTarget,
+  isSaving: isSavingPlaylistOrder,
+  reorderError,
+  announcement: reorderAnnouncement,
   onPointerDown: onPlaylistPointerDown,
   shouldSuppressClick,
+  canMove: canMovePlaylist,
+  move: movePlaylist,
+  cancel: cancelPlaylistReorder,
 } = useSidebarPlaylistReorder({
   playlistItems,
+  scrollContainer: sidebarNavigation,
+  playlistContainer: sidebarPlaylistSection,
   persistOrder: (items) => auralis.playlists.reorderSidebarItems(items),
   reload: () => loadSidebarPlaylists(),
 })
@@ -323,7 +382,7 @@ function setPendingActiveFromPointer(event: PointerEvent, path: string): void {
 }
 
 function onPlaylistClick(event: MouseEvent, path: string): void {
-  if (shouldSuppressClick()) {
+  if (shouldSuppressClick(event)) {
     event.preventDefault()
     event.stopPropagation()
     return
@@ -357,32 +416,21 @@ async function playRandomPlaylistTrack(item: SidebarPlaylistItem): Promise<void>
 function onPlaylistDoubleClick(item: SidebarPlaylistItem, event: MouseEvent): void {
   event.preventDefault()
   event.stopPropagation()
-  if (shouldSuppressClick()) return
+  if (shouldSuppressClick(event)) return
   void playRandomPlaylistTrack(item)
 }
 
 async function loadSidebarPlaylists(): Promise<void> {
-  const [items, smart] = await Promise.all([
-    auralis.playlists.listSidebarItems(),
-    auralis.smartPlaylists.list(),
-  ])
-  playlistItems.value = items
-  smartPlaylists.value = smart
+  await sidebarLibraryLoader.loadPlaylists()
 }
 
 async function loadSidebarStats(): Promise<void> {
-  const [stats, items, smart] = await Promise.all([
-    auralis.library.getStats(),
-    auralis.playlists.listSidebarItems(),
-    auralis.smartPlaylists.list(),
-  ])
-  libraryStats.value = stats
-  playlistItems.value = items
-  smartPlaylists.value = smart
+  await sidebarLibraryLoader.loadStats()
 }
 
 function openCreateMenu(): void {
   if (!createPlaylistButton.value) return
+  closePlaylistContextMenu()
   smartCreateSubmenu.value = false
   createError.value = ''
   const rect = createPlaylistButton.value.getBoundingClientRect()
@@ -417,17 +465,83 @@ function onSmartCreateSubmenuKeydown(event: KeyboardEvent): void {
     event.stopPropagation()
     smartCreateTrigger.value?.focus()
     smartCreateSubmenu.value = false
-  } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-    event.preventDefault()
-    const buttons = Array.from(
-      smartCreatePanel.value?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)') ?? [],
-    )
-    const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
-    buttons[
-      (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
-    ]?.focus()
+  } else {
+    onMenuKeydown(event)
   }
 }
+
+function onMenuKeydown(event: KeyboardEvent): void {
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+  const panel = event.currentTarget as HTMLElement
+  const buttons = Array.from(
+    panel.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)'),
+  ).filter(
+    (button) => button.closest('[role="menu"]') === panel && button.getClientRects().length > 0,
+  )
+  if (!buttons.length) return
+  event.preventDefault()
+  event.stopPropagation()
+  const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
+  const next =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? buttons.length - 1
+        : index < 0
+          ? event.key === 'ArrowDown'
+            ? 0
+            : buttons.length - 1
+          : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length
+  buttons[next]?.focus()
+}
+
+useOverlayFocusTrap({
+  isOpen: () => createMenu.value !== null,
+  container: createMenuPanel,
+  onEscape() {
+    if (smartCreateSubmenu.value && smartCreatePanel.value?.contains(document.activeElement)) {
+      smartCreateSubmenu.value = false
+      smartCreateTrigger.value?.focus()
+    } else closeCreateMenu()
+  },
+  restoreFocus: (captured) =>
+    (
+      resolveRestorableFocusTarget(captured) ??
+      resolveRestorableFocusTarget(createPlaylistButton.value)
+    )?.focus(),
+})
+
+useOverlayFocusTrap({
+  isOpen: () => playlistContextMenu.value !== null && playlistContextPositioned.value,
+  container: playlistContextPanel,
+  onEscape: closePlaylistContextMenu,
+  restoreFocus: () =>
+    (
+      resolveRestorableFocusTarget(playlistContextTrigger.value) ??
+      resolveRestorableFocusTarget(createPlaylistButton.value)
+    )?.focus(),
+})
+
+watch([() => route.path, isRail], () => {
+  closeCreateMenu()
+  closePlaylistContextMenu()
+})
+
+watch(
+  [
+    () => route.path,
+    isRail,
+    sidebarFullHeight,
+    displayMode,
+    createMenu,
+    playlistContextMenu,
+    isFacetsDialogOpen,
+    isBuilderOpen,
+    renamingPlaylist,
+  ],
+  () => cancelPlaylistReorder(true),
+  { flush: 'sync' },
+)
 
 async function createPlaybackPreset(
   preset: 'recentPlayed' | 'mostListened' | 'recentAdded',
@@ -448,7 +562,7 @@ async function createPlaybackPreset(
     closeCreateMenu()
     await router.push(`/smart-playlists/${playlist.id}`)
   } catch (cause) {
-    createError.value = t('sidebar.createPlaylistFailed')
+    createError.value = 'sidebar.createPlaylistFailed'
     rendererDiagnostics.warn({
       scope: 'sidebar.create-playlist',
       message: 'Failed to create playback preset playlist',
@@ -481,6 +595,9 @@ function openSmartPlaylistBuilder(): void {
 }
 
 function openPlaylistContextMenu(item: SidebarPlaylistItem, event: MouseEvent): void {
+  cancelPlaylistReorder(true)
+  closeCreateMenu()
+  playlistContextTrigger.value = playlistRowElement(item)
   deletingPlaylist.value = null
   deleteError.value = ''
   playlistContextMenu.value = {
@@ -496,6 +613,39 @@ function closePlaylistContextMenu(): void {
   playlistContextMenu.value = null
 }
 
+function onPlaylistKeydown(item: SidebarPlaylistItem, event: KeyboardEvent): void {
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
+  if (
+    event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey &&
+    (event.key === 'ArrowUp' || event.key === 'ArrowDown')
+  ) {
+    event.preventDefault()
+    event.stopPropagation()
+    cancelPlaylistReorder(true)
+    movePlaylist(item, event.key === 'ArrowUp' ? -1 : 1)
+  } else if (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey)) {
+    event.preventDefault()
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    openPlaylistContextMenu(
+      item,
+      new MouseEvent('contextmenu', {
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2,
+      }),
+    )
+  } else if (event.key === 'Enter') setPendingActive(getPlaylistPath(item))
+}
+
+function movePlaylistFromMenu(direction: -1 | 1): void {
+  const item = playlistContextMenu.value?.item
+  if (!item || !canMovePlaylist(item, direction)) return
+  closePlaylistContextMenu()
+  movePlaylist(item, direction)
+}
+
 function cancelDeleteOnOtherClick(event: MouseEvent): void {
   if (!(event.target as Element).closest('[data-delete-playlist]')) {
     deletingPlaylist.value = null
@@ -503,21 +653,11 @@ function cancelDeleteOnOtherClick(event: MouseEvent): void {
   }
 }
 
-function onPlaylistMenuKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && createMenu.value) {
-    closeCreateMenu()
-    createPlaylistButton.value?.focus()
-    return
-  }
-  if (event.key !== 'Escape' || !playlistContextMenu.value) return
-  const item = playlistContextMenu.value.item
-  closePlaylistContextMenu()
-  playlistRowElement(item)?.focus()
-}
-
 async function openRenameDialog(): Promise<void> {
   if (!playlistContextMenu.value) return
   const item = playlistContextMenu.value.item
+  renameSession++
+  isSavingRename.value = false
   rememberSidebarModalTrigger(playlistRowElement(item))
   renamingPlaylist.value = item
   renameValue.value = item.name
@@ -528,32 +668,50 @@ async function openRenameDialog(): Promise<void> {
 }
 
 function closeRenameDialog(): void {
+  renameSession++
+  isSavingRename.value = false
   renamingPlaylist.value = null
   renameError.value = ''
 }
 
 async function submitRename(): Promise<void> {
-  if (!renamingPlaylist.value) return
+  if (!renamingPlaylist.value || isSavingRename.value) return
   if (!renameValue.value.trim()) {
-    renameError.value = t('sidebar.playlistNameRequired')
+    renameError.value = 'sidebar.playlistNameRequired'
     return
   }
 
-  const renamed =
-    renamingPlaylist.value.kind === 'playlist'
-      ? await auralis.playlists.rename(renamingPlaylist.value.id, renameValue.value)
-      : await auralis.smartPlaylists.rename(renamingPlaylist.value.id, renameValue.value)
-  if (renamed) {
-    await loadSidebarPlaylists()
-    window.dispatchEvent(
-      new CustomEvent(
-        renamingPlaylist.value.kind === 'playlist'
-          ? 'auralis-playlists-changed'
-          : 'auralis-smart-playlists-changed',
-      ),
-    )
+  const item = renamingPlaylist.value
+  const name = renameValue.value
+  const session = renameSession
+  isSavingRename.value = true
+  renameError.value = ''
+  try {
+    const renamed =
+      item.kind === 'playlist'
+        ? await auralis.playlists.rename(item.id, name)
+        : await auralis.smartPlaylists.rename(item.id, name)
+    if (renamed) {
+      window.dispatchEvent(
+        new CustomEvent(
+          item.kind === 'playlist'
+            ? 'auralis-playlists-changed'
+            : 'auralis-smart-playlists-changed',
+        ),
+      )
+      await loadSidebarPlaylists()
+    }
+    if (session === renameSession) closeRenameDialog()
+  } catch (cause) {
+    rendererDiagnostics.warn({
+      scope: 'sidebar.rename-playlist',
+      message: 'Failed to rename playlist',
+      cause,
+    })
+    if (session === renameSession) renameError.value = 'sidebar.renameFailed'
+  } finally {
+    if (session === renameSession) isSavingRename.value = false
   }
-  closeRenameDialog()
 }
 
 async function requestDelete(): Promise<void> {
@@ -614,7 +772,7 @@ async function confirmDelete(): Promise<void> {
     })
     if (playlistContextMenu.value === menu) {
       deletingPlaylist.value = null
-      deleteError.value = '删除失败，请重试'
+      deleteError.value = 'sidebar.deleteFailed'
     }
   } finally {
     isDeletingPlaylist.value = false
@@ -624,21 +782,28 @@ async function confirmDelete(): Promise<void> {
 onMounted(() => {
   deleteMotionPreference = createReducedMotionQuery()
   deleteMotionPreference.addEventListener('change', updateDeleteLid)
-  window.addEventListener('keydown', onPlaylistMenuKeydown)
-  void loadSidebarPlaylists()
   void loadSidebarStats()
   unsubscribeLibraryChanged = auralis.library.onChanged((event) => {
-    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
+    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') {
+      void sidebarLibraryLoader.refreshPlayStats().catch((cause: unknown) => {
+        rendererDiagnostics.error({
+          scope: 'sidebar.playlist',
+          message: 'Failed to refresh playback playlist counts',
+          cause,
+        })
+      })
+      return
+    }
     void loadSidebarStats()
   })
   window.addEventListener('auralis-playlists-changed', onPlaylistsChanged)
 })
 
 onBeforeUnmount(() => {
+  sidebarLibraryLoader.dispose()
   playlistPosition?.dispose()
   stopDeleteLidAnimation?.()
   deleteMotionPreference?.removeEventListener('change', updateDeleteLid)
-  window.removeEventListener('keydown', onPlaylistMenuKeydown)
   pendingNavCleanup?.()
   pendingNavCleanup = null
   unsubscribeLibraryChanged?.()
@@ -650,7 +815,10 @@ onBeforeUnmount(() => {
 <template>
   <aside
     class="app-sidebar"
-    :class="{ 'app-sidebar--full-height': sidebarFullHeight, 'app-sidebar--collapsed': isRail }"
+    :class="{
+      'app-sidebar--full-height': sidebarFullHeight,
+      'app-sidebar--collapsed': isRail,
+    }"
   >
     <header class="sidebar-header">
       <div class="sidebar-header-main">
@@ -692,9 +860,9 @@ onBeforeUnmount(() => {
             </svg>
           </span>
           <div class="sidebar-brand-copy" :aria-hidden="isRail || undefined">
-            <div class="sidebar-brand-name">
+            <div class="sidebar-brand-name" role="img" aria-label="AuralisMusic">
               <span
-                v-for="(letter, index) in 'AuralisMusic'"
+                v-for="(letter, index) in 'uralisMusic'"
                 :key="index"
                 class="sidebar-brand-letter"
                 >{{ letter }}</span
@@ -702,56 +870,12 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </component>
-        <div class="sidebar-tools-grid" role="toolbar" :aria-label="t('sidebar.toolbarAria')">
-          <button
-            v-tooltip.right="isRail ? t('sidebar.tool.facetsPanel') : ''"
-            class="sidebar-tool-button"
-            type="button"
-            :aria-label="t('sidebar.tool.facetsPanel')"
-            @click="isFacetsDialogOpen = true"
-          >
-            <span class="i-ph-sliders-horizontal"></span>
-          </button>
-          <RouterLink
-            v-tooltip.right="isRail ? t('sidebar.tool.settings') : ''"
-            to="/settings"
-            class="sidebar-tool-button"
-            :class="{ 'sidebar-tool-button-active': activePath === '/settings' }"
-            :aria-label="t('sidebar.tool.settings')"
-            :draggable="false"
-            @dragstart.prevent
-            @pointerenter="onRouteIntent('settings')"
-            @focusin="onRouteIntent('settings')"
-            @pointerdown="setPendingActiveFromPointer($event, '/settings')"
-            @keydown.enter="setPendingActive('/settings')"
-            @keydown.space="setPendingActive('/settings')"
-          >
-            <span class="i-ph-gear"></span>
-          </RouterLink>
-          <button
-            v-tooltip.right="isRail ? t('sidebar.tool.refreshAction') : ''"
-            class="sidebar-tool-button"
-            type="button"
-            :aria-label="
-              isStartingLibraryRefresh
-                ? t('sidebar.tool.refreshBusy')
-                : t('sidebar.tool.refreshAction')
-            "
-            :disabled="isStartingLibraryRefresh"
-            :aria-busy="isStartingLibraryRefresh"
-            @click="refreshLibrary"
-          >
-            <span
-              class="i-ph-arrows-clockwise"
-              :class="{ 'animate-spin': isStartingLibraryRefresh }"
-            ></span>
-          </button>
-        </div>
       </div>
     </header>
 
     <nav
       id="sidebar-navigation"
+      ref="sidebarNavigation"
       class="sidebar-navigation"
       :class="{ 'sidebar-navigation--empty': playlistItems.length === 0 && !isRail }"
     >
@@ -774,17 +898,22 @@ onBeforeUnmount(() => {
           @focusin="onRouteIntent(item.routeName)"
           @pointerdown="setPendingActiveFromPointer($event, item.to)"
           @keydown.enter="setPendingActive(item.to)"
-          @keydown.space="setPendingActive(item.to)"
         >
           <span class="sidebar-link-icon">
-            <span :class="isPrimaryNavActive(item.to) ? item.activeIcon : item.icon"></span>
+            <SidebarIcon :kind="item.icon" />
           </span>
           <span class="sidebar-link-label">{{ item.label }}</span>
           <span v-if="item.count !== null" class="sidebar-link-count">{{ item.count }}</span>
         </RouterLink>
       </section>
 
-      <section class="sidebar-playlist-section">
+      <section
+        ref="sidebarPlaylistSection"
+        class="sidebar-playlist-section"
+        :aria-busy="isSavingPlaylistOrder"
+        :data-playlist-drop-key="dropTarget?.key"
+        :data-playlist-drop-position="dropTarget?.position"
+      >
         <div class="smart-playlist-section-header">
           <div class="sidebar-section-title">
             <div class="sidebar-section-label">{{ t('sidebar.playlists') }}</div>
@@ -795,36 +924,60 @@ onBeforeUnmount(() => {
             class="smart-playlist-add-button"
             type="button"
             :aria-label="t('sidebar.newPlaylist')"
+            aria-haspopup="menu"
+            :aria-expanded="createMenu !== null"
+            aria-controls="sidebar-create-menu"
             @click="openCreateMenu"
           >
             <span class="i-ph-plus"></span>
           </button>
         </div>
+        <p id="sidebar-playlist-reorder-help" class="sr-only">
+          {{ t('sidebar.reorderHelp') }}
+        </p>
+        <p v-if="reorderError" class="sidebar-playlist-reorder-error" role="alert">
+          {{ t(reorderError === 'save' ? 'sidebar.reorderFailed' : 'sidebar.reorderReloadFailed') }}
+        </p>
         <RouterLink
           v-for="playlist in playlistItems"
           :key="getPlaylistKey(playlist)"
+          v-memo="[
+            playlist.kind,
+            playlist.id,
+            playlist.name,
+            playlist.trackCount,
+            playlist.viewMode,
+            playlist.sortOrder,
+            playlist.createdAt,
+            playlist.updatedAt,
+            activePath,
+            pressedPlaylistKey === getPlaylistKey(playlist),
+            draggingPlaylistKey === getPlaylistKey(playlist),
+            hiddenPlaylistKey === getPlaylistKey(playlist),
+            isRail,
+            locale,
+            getPlaylistIcon(playlist),
+          ]"
           v-tooltip.right="isRail ? playlist.name : ''"
           :to="getPlaylistPath(playlist)"
           :data-sidebar-playlist-key="getPlaylistKey(playlist)"
           :draggable="false"
           class="sidebar-link"
           :aria-label="playlist.name"
+          aria-describedby="sidebar-playlist-reorder-help"
+          aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown Shift+F10"
           :class="{
             'sidebar-link-with-count': true,
             'sidebar-link-active': activePath === getPlaylistPath(playlist),
             'smart-playlist-link-pressed': pressedPlaylistKey === getPlaylistKey(playlist),
             'smart-playlist-link-dragging': draggingPlaylistKey === getPlaylistKey(playlist),
-            'smart-playlist-drop-before':
-              dropTarget?.key === getPlaylistKey(playlist) && dropTarget.position === 'before',
-            'smart-playlist-drop-after':
-              dropTarget?.key === getPlaylistKey(playlist) && dropTarget.position === 'after',
+            'sidebar-playlist-drag-origin': hiddenPlaylistKey === getPlaylistKey(playlist),
           }"
           @pointerdown="onPlaylistPointerDown(playlist, $event)"
-          @click="onPlaylistClick($event, getPlaylistPath(playlist))"
+          @click.capture="onPlaylistClick($event, getPlaylistPath(playlist))"
           @dblclick="onPlaylistDoubleClick(playlist, $event)"
           @dragstart.prevent
-          @keydown.enter="setPendingActive(getPlaylistPath(playlist))"
-          @keydown.space="setPendingActive(getPlaylistPath(playlist))"
+          @keydown="onPlaylistKeydown(playlist, $event)"
           @contextmenu.prevent="openPlaylistContextMenu(playlist, $event)"
         >
           <span class="sidebar-link-icon">
@@ -840,6 +993,65 @@ onBeforeUnmount(() => {
         </div>
       </section>
     </nav>
+    <footer class="sidebar-footer">
+      <div class="sidebar-tools-grid" role="toolbar" :aria-label="t('sidebar.toolbarAria')">
+        <button
+          v-tooltip.fast="t('sidebar.tool.facetsPanel')"
+          class="sidebar-tool-button"
+          type="button"
+          :aria-label="t('sidebar.tool.facetsPanel')"
+          @click="isFacetsDialogOpen = true"
+        >
+          <SidebarIcon kind="filters" />
+        </button>
+        <button
+          v-tooltip.fast="
+            isStartingLibraryRefresh
+              ? t('sidebar.tool.refreshBusy')
+              : t('sidebar.tool.refreshAction')
+          "
+          class="sidebar-tool-button"
+          type="button"
+          :aria-label="
+            isStartingLibraryRefresh
+              ? t('sidebar.tool.refreshBusy')
+              : t('sidebar.tool.refreshAction')
+          "
+          :disabled="isStartingLibraryRefresh"
+          :aria-busy="isStartingLibraryRefresh"
+          @click="refreshLibrary"
+        >
+          <SidebarIcon kind="refresh" :class="{ 'animate-spin': isStartingLibraryRefresh }" />
+        </button>
+        <button
+          v-tooltip.fast="themeToggleLabel"
+          class="sidebar-tool-button"
+          type="button"
+          :aria-label="themeToggleLabel"
+          @click="onToggleTheme"
+        >
+          <SidebarIcon :kind="isDark ? 'sun' : 'moon'" />
+        </button>
+        <button
+          v-tooltip.fast="t('sidebar.tool.settings')"
+          type="button"
+          class="sidebar-tool-button"
+          :class="{ 'sidebar-tool-button-active': isSettingsOpen }"
+          :aria-label="t('sidebar.tool.settings')"
+          aria-haspopup="dialog"
+          :aria-expanded="isSettingsOpen"
+          data-settings-trigger
+          @pointerenter="preloadSettingsContent"
+          @focusin="preloadSettingsContent"
+          @click="openSettings()"
+        >
+          <SidebarIcon kind="settings" />
+        </button>
+      </div>
+    </footer>
+    <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+      {{ reorderAnnouncement ? t('sidebar.reorderAnnouncement', reorderAnnouncement) : '' }}
+    </p>
     <FacetsDialog
       :open="isFacetsDialogOpen"
       @close="isFacetsDialogOpen = false"
@@ -855,14 +1067,24 @@ onBeforeUnmount(() => {
     <Teleport to="body">
       <div v-if="createMenu" class="sidebar-overlay fixed inset-0 z-[88]" @click="closeCreateMenu">
         <div
+          id="sidebar-create-menu"
+          ref="createMenuPanel"
           class="sidebar-create-menu library-context-menu frosted-context-menu fixed w-48"
+          role="menu"
+          :aria-label="t('sidebar.newPlaylist')"
           :style="{
             left: `${createMenu.x}px`,
             top: `${createMenu.y}px`,
           }"
           @click.stop
+          @keydown="onMenuKeydown"
         >
-          <button class="library-context-menu-item" type="button" @click="createRegularPlaylist">
+          <button
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            @click="createRegularPlaylist"
+          >
             <PlaylistIcon kind="playlist" />
             <span>{{ t('sidebar.newPlaylist') }}</span>
           </button>
@@ -872,12 +1094,13 @@ onBeforeUnmount(() => {
               ref="smartCreateTrigger"
               class="library-context-menu-item"
               type="button"
-              aria-haspopup="true"
+              role="menuitem"
+              aria-haspopup="menu"
               :aria-expanded="!!smartCreateSubmenu"
               aria-controls="sidebar-smart-create-submenu"
               @click="toggleSmartCreateSubmenu"
-              @keydown.right.prevent="enterSmartCreateSubmenu"
-              @keydown.down.prevent="enterSmartCreateSubmenu"
+              @keydown.right.prevent.stop="enterSmartCreateSubmenu"
+              @keydown.down.prevent.stop="enterSmartCreateSubmenu"
             >
               <span class="i-ph-sparkle" aria-hidden="true"></span>
               <span class="library-context-menu-text">{{ t('sidebar.newSmartPlaylist') }}</span>
@@ -892,6 +1115,8 @@ onBeforeUnmount(() => {
                 <div
                   id="sidebar-smart-create-submenu"
                   ref="smartCreatePanel"
+                  role="menu"
+                  :aria-label="t('sidebar.newSmartPlaylist')"
                   @keydown="onSmartCreateSubmenuKeydown"
                 >
                   <button
@@ -899,6 +1124,7 @@ onBeforeUnmount(() => {
                     type="button"
                     :disabled="!!creatingPlaybackPreset"
                     :aria-busy="creatingPlaybackPreset === 'recentPlayed'"
+                    role="menuitem"
                     @click="createPlaybackPreset('recentPlayed')"
                   >
                     <PlaylistIcon kind="recentPlayed" />
@@ -910,6 +1136,7 @@ onBeforeUnmount(() => {
                     type="button"
                     :disabled="!!creatingPlaybackPreset"
                     :aria-busy="creatingPlaybackPreset === 'mostListened'"
+                    role="menuitem"
                     @click="createPlaybackPreset('mostListened')"
                   >
                     <PlaylistIcon kind="mostListened" />
@@ -921,6 +1148,7 @@ onBeforeUnmount(() => {
                     type="button"
                     :disabled="!!creatingPlaybackPreset"
                     :aria-busy="creatingPlaybackPreset === 'recentAdded'"
+                    role="menuitem"
                     @click="createPlaybackPreset('recentAdded')"
                   >
                     <PlaylistIcon kind="recentAdded" />
@@ -930,6 +1158,7 @@ onBeforeUnmount(() => {
                   <button
                     class="library-context-menu-item"
                     type="button"
+                    role="menuitem"
                     @click="openSmartPlaylistBuilder"
                   >
                     <PlaylistIcon kind="custom" />
@@ -939,7 +1168,7 @@ onBeforeUnmount(() => {
               </div>
             </Transition>
           </div>
-          <p v-if="createError" class="sidebar-create-error" role="alert">{{ createError }}</p>
+          <p v-if="createError" class="sidebar-create-error" role="alert">{{ t(createError) }}</p>
         </div>
       </div>
 
@@ -952,10 +1181,50 @@ onBeforeUnmount(() => {
         <div
           ref="playlistContextPanel"
           class="library-context-menu frosted-context-menu fixed w-40"
+          role="menu"
+          :aria-label="playlistContextMenu.item.name"
           style="visibility: hidden; overflow: auto"
           @click.stop
+          @keydown="onMenuKeydown"
         >
-          <button class="library-context-menu-item" type="button" @click="openRenameDialog">
+          <button
+            v-if="playlistContextHasPrevious"
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            :disabled="!canMovePlaylist(playlistContextMenu.item, -1)"
+            @click="movePlaylistFromMenu(-1)"
+          >
+            <span class="i-ph-arrow-up"></span>
+            <span>{{ t('sidebar.moveUp') }}</span>
+          </button>
+          <div
+            v-if="playlistContextHasPrevious && playlistContextHasNext"
+            class="library-context-menu-separator"
+            role="separator"
+          ></div>
+          <button
+            v-if="playlistContextHasNext"
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            :disabled="!canMovePlaylist(playlistContextMenu.item, 1)"
+            @click="movePlaylistFromMenu(1)"
+          >
+            <span class="i-ph-arrow-down"></span>
+            <span>{{ t('sidebar.moveDown') }}</span>
+          </button>
+          <div
+            v-if="playlistContextHasPrevious || playlistContextHasNext"
+            class="library-context-menu-separator"
+            role="separator"
+          ></div>
+          <button
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            @click="openRenameDialog"
+          >
             <span class="i-ph-pencil-simple"></span>
             <span>{{ t('sidebar.rename') }}</span>
           </button>
@@ -964,6 +1233,7 @@ onBeforeUnmount(() => {
             class="library-context-menu-item smart-playlist-context-danger"
             type="button"
             data-delete-playlist
+            role="menuitem"
             :disabled="isDeletingPlaylist"
             @click="requestDelete"
           >
@@ -985,9 +1255,9 @@ onBeforeUnmount(() => {
                 </g>
               </svg>
             </span>
-            <span>{{ deletingPlaylist ? '确认删除' : t('sidebar.delete') }}</span>
+            <span>{{ t(deletingPlaylist ? 'sidebar.confirmDelete' : 'sidebar.delete') }}</span>
           </button>
-          <p v-if="deleteError" class="px-3 py-1 text-xs" role="alert">{{ deleteError }}</p>
+          <p v-if="deleteError" class="px-3 py-1 text-xs" role="alert">{{ t(deleteError) }}</p>
         </div>
       </div>
 
@@ -1008,10 +1278,17 @@ onBeforeUnmount(() => {
             :aria-label="t('sidebar.playlistName')"
             @input="renameError = ''"
           />
-          <p v-if="renameError" class="smart-playlist-dialog-error">{{ renameError }}</p>
+          <p v-if="renameError" class="smart-playlist-dialog-error" role="alert">
+            {{ t(renameError) }}
+          </p>
           <div class="smart-playlist-dialog-actions">
             <button type="button" @click="closeRenameDialog">{{ t('sidebar.cancel') }}</button>
-            <button type="submit" class="smart-playlist-dialog-primary">
+            <button
+              type="submit"
+              class="smart-playlist-dialog-primary"
+              :disabled="isSavingRename"
+              :aria-busy="isSavingRename"
+            >
               {{ t('sidebar.save') }}
             </button>
           </div>

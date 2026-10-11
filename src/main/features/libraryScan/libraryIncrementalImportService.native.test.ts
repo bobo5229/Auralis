@@ -6,9 +6,13 @@ import { TrackRepository } from '../../repositories/trackRepository'
 import { LibraryIncrementalImportService } from './libraryIncrementalImportService'
 
 vi.mock('node:fs/promises', () => ({ stat: async () => ({ size: 100, mtimeMs: 100 }) }))
+vi.mock('node:fs', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:fs')>()),
+  statSync: () => ({ size: 100, mtimeMs: 100 }),
+}))
 vi.mock('music-metadata', () => ({
   parseFile: async () => ({
-    format: { duration: 120 },
+    format: { duration: 120, bitrate: 320000 },
     native: {},
     common: {
       title: 'Song',
@@ -46,6 +50,7 @@ describe('incremental import transactions', () => {
     await vi.runAllTimersAsync()
     expect(await pending).toEqual({ imported: ['a.flac', 'b.flac'], failed: [], unstable: [] })
     expect(send).toHaveBeenCalledOnce()
+    expect(repo.getAll().map((track) => track.bitrateBps)).toEqual([320000, 320000])
     expect(repo.getKnownFiles()).toEqual([
       expect.objectContaining({ filePath: 'a.flac', fileSize: 100, metadataCheckedMtimeMs: 100 }),
       expect.objectContaining({ filePath: 'b.flac', fileSize: 100, metadataCheckedMtimeMs: 100 }),

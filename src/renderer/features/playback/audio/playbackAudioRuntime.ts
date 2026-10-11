@@ -49,7 +49,8 @@ export interface PlaybackAudioRuntime {
   setVolume(volume: number, muted: boolean): void
   scheduleNext(trackId: number, url: string, options: NextOptions): Promise<boolean>
   cancelScheduledNext(): void
-  clear(): void
+  /** A replacement may pause and retain native output until start(); clear() fully stops it. */
+  clear(options?: { replacing?: boolean }): void
   getSnapshot(): PlaybackAudioSnapshot
   dispose(): void
 }

@@ -1,0 +1,18 @@
+/* Local card lettering. SIL OFL 1.1; see assets/fonts/startup-album. */
+@font-face {
+  font-family: 'Auralis Card Title';
+  font-style: normal;
+  font-weight: 400 900;
+  /* Match the small displayed card, not the larger Canvas drawing size. */
+  font-variation-settings: 'opsz' 18;
+  font-display: block;
+  src: url('../../../assets/fonts/startup-album/BodoniModa-variable.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Auralis Card Signature';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('../../../assets/fonts/startup-album/Allura-Regular.woff2') format('woff2');
+}

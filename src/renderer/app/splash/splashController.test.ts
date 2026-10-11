@@ -10,6 +10,7 @@ import { SPLASH_FORMATION_MS } from './splashMotion'
 interface Harness {
   env: SplashEnvironment
   frames: number[]
+  pendingFrameCount(): number
   fadeCount(): number
   finishCount(): number
   setVisible(visible: boolean): void
@@ -68,6 +69,7 @@ function createHarness(options?: { reducedMotion?: boolean; visible?: boolean })
   return {
     env,
     frames,
+    pendingFrameCount: () => pendingFrames.length,
     fadeCount: () => fadeCount,
     finishCount: () => finishCount,
     setVisible(next) {
@@ -210,6 +212,23 @@ describe('startSplashLifecycle', () => {
     harness.pumpFrames(16)
     expect(harness.finishCount()).toBe(1)
     stop()
+  })
+
+  it('stops frame scheduling after formation, through a slow startup and the fade', () => {
+    const harness = createHarness({ visible: true })
+    startSplashLifecycle(harness.env)
+    harness.pumpFrames(SPLASH_FORMATION_MS)
+    const motionFrames = harness.frames.length
+    expect(harness.pendingFrameCount()).toBe(0)
+    harness.pumpFrames(5_000)
+    expect(harness.frames).toHaveLength(motionFrames)
+    expect(harness.fadeCount()).toBe(0)
+    harness.setAppReady(true)
+    expect(harness.fadeCount()).toBe(1)
+    expect(harness.pendingFrameCount()).toBe(0)
+    vi.advanceTimersByTime(SPLASH_FADE_OUT_MS)
+    expect(harness.finishCount()).toBe(1)
+    expect(harness.pendingFrameCount()).toBe(0)
   })
 
   it('ignores later signals after the returned cleanup runs', () => {

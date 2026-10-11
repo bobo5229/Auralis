@@ -5,6 +5,7 @@ export interface LibrarySearchRecord {
   readonly albumArtist: string
   readonly albumArtistParts: readonly string[]
   readonly album: string
+  readonly displayAliases?: readonly string[]
 }
 
 export interface LibrarySearchScanResult {
@@ -21,7 +22,8 @@ function matchesSearchRecord(record: LibrarySearchRecord, normalizedQuery: strin
     record.artistParts.some((artist) => artist.startsWith(normalizedQuery)) ||
     record.albumArtist.startsWith(normalizedQuery) ||
     record.albumArtistParts.some((artist) => artist.startsWith(normalizedQuery)) ||
-    record.album.startsWith(normalizedQuery)
+    record.album.startsWith(normalizedQuery) ||
+    Boolean(record.displayAliases?.some((key) => key.startsWith(normalizedQuery)))
   )
 }
 

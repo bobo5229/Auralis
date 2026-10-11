@@ -180,7 +180,7 @@ describe('playback statistics across controller and tracker', () => {
 
   it('starts a new session when replaying HTMLAudio after the queue ends', async () => {
     const { api, tracks, record, runtime, ended } = setup()
-    await api.playTrackFromQueue([tracks[0]], 1)
+    await api.playTrackFromQueue([tracks[0]], 1, { playbackMode: 'sequential' })
     await vi.advanceTimersByTimeAsync(10_000)
     ended()
     await vi.advanceTimersByTimeAsync(0)

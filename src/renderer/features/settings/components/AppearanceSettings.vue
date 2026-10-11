@@ -1,14 +1,47 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useStartupAlbumPreference } from '@renderer/features/startupAlbum/startupAlbumPreference'
 import { useI18n } from 'vue-i18n'
 import { useTheme, type ThemeMode } from '@renderer/composables/useTheme'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useMotionPreference } from '@renderer/features/appearance/composables/useMotionPreference'
 import type { MotionPreference } from '@renderer/shared/animation/motionPreference'
+import {
+  LYRICS_SCROLL_PRESETS,
+  useLyricsScrollPreset,
+  type LyricsScrollPreset,
+} from '@renderer/features/lyrics/lyricsScrollPreset'
+import {
+  PLAYING_ICON_PRESETS,
+  usePlayingIconPreference,
+  type PlayingIconPreset,
+} from '@renderer/features/appearance/composables/usePlayingIconPreference'
+import SettingsSelect from './SettingsSelect.vue'
 import SongFontWeightSettings from './SongFontWeightSettings.vue'
+import AlbumListParameterSettings from './AlbumListParameterSettings.vue'
 import ThemeAccentSettings from './ThemeAccentSettings.vue'
+import ChineseTextSettings from './ChineseTextSettings.vue'
+import LyricsEffectsSettings from './LyricsEffectsSettings.vue'
+import WindowBehaviorSettings from './WindowBehaviorSettings.vue'
+import { useUiLocale } from '@renderer/i18n'
+import type { UiLocale } from '@shared/uiLocale'
 
+const {
+  enabled: startupAlbumEnabled,
+  persistFailed: startupAlbumPersistFailed,
+  setEnabled: setStartupAlbumEnabled,
+} = useStartupAlbumPreference()
 const { t } = useI18n()
+const { locale, persistFailed: localePersistFailed, nativeSyncFailed, setUiLocale } = useUiLocale()
+const localeOptions = [
+  { id: 'zh-Hans', label: '简体中文' },
+  { id: 'en', label: 'English' },
+] as const
+const localeButtons = ref<HTMLButtonElement[]>([])
+function selectLocale(value: UiLocale): void {
+  setUiLocale(value)
+  localeButtons.value[localeOptions.findIndex((option) => option.id === value)]?.focus()
+}
 const { theme, setTheme } = useTheme()
 const { sidebarFullHeight, setSidebarFullHeight } = useSidebarLayout()
 const {
@@ -16,6 +49,24 @@ const {
   persistFailed: motionPersistFailed,
   setMotionPreference,
 } = useMotionPreference()
+const {
+  preset: lyricsScrollPreset,
+  persistFailed: lyricsScrollPersistFailed,
+  setPreset: setLyricsScrollPreset,
+} = useLyricsScrollPreset()
+const lyricsScrollOptions = computed(() =>
+  LYRICS_SCROLL_PRESETS.map((value) => ({
+    value,
+    label: t(`settings.appearance.lyricsScroll.${value}`),
+  })),
+)
+const { playingIcon, setPlayingIcon } = usePlayingIconPreference()
+const playingIconOptions = computed(() =>
+  PLAYING_ICON_PRESETS.map((value) => ({
+    value,
+    label: t(`settings.appearance.playingIcon.${value}`),
+  })),
+)
 const systemMotionRef = ref<HTMLButtonElement | null>(null)
 const reducedMotionRef = ref<HTMLButtonElement | null>(null)
 const darkOptionRef = ref<HTMLButtonElement | null>(null)
@@ -45,15 +96,89 @@ function selectMotionPreference(value: MotionPreference): void {
   setMotionPreference(value)
   ;(value === 'system' ? systemMotionRef : reducedMotionRef).value?.focus()
 }
+
+function selectLyricsScrollPreset(value: LyricsScrollPreset): void {
+  setLyricsScrollPreset(value)
+}
+
+function selectPlayingIconPreset(value: PlayingIconPreset): void {
+  setPlayingIcon(value)
+}
 </script>
 
 <template>
   <section class="settings-section">
     <div class="settings-group">
       <div class="settings-group-header">
-        <h2 class="settings-group-title">界面</h2>
+        <h2 class="settings-group-title">{{ t('settings.appearance.interface') }}</h2>
       </div>
       <div class="settings-group-card">
+        <div class="settings-row settings-row--with-desc">
+          <div>
+            <strong>{{ t('settings.appearance.startupAlbum.title') }}</strong>
+            <span id="startup-album-description">{{
+              t('settings.appearance.startupAlbum.description')
+            }}</span>
+            <span v-if="startupAlbumPersistFailed" role="status">{{
+              t('settings.appearance.startupAlbum.persistFailed')
+            }}</span>
+          </div>
+          <button
+            type="button"
+            class="settings-switch"
+            role="switch"
+            :aria-checked="startupAlbumEnabled"
+            :aria-label="t('settings.appearance.startupAlbum.title')"
+            aria-describedby="startup-album-description"
+            :class="{ 'is-enabled': startupAlbumEnabled }"
+            data-startup-setting
+            @click="setStartupAlbumEnabled(!startupAlbumEnabled)"
+          >
+            <span class="settings-switch-thumb" aria-hidden="true" />
+          </button>
+        </div>
+        <div class="settings-row settings-row--with-desc">
+          <div>
+            <strong>{{ t('settings.appearance.language') }}</strong>
+            <span id="appearance-language-description">{{
+              t('settings.appearance.languageDescription')
+            }}</span>
+            <span v-if="localePersistFailed" role="status">{{
+              t('settings.appearance.languagePersistFailed')
+            }}</span>
+            <span v-if="nativeSyncFailed" role="status">{{
+              t('settings.appearance.languageSyncFailed')
+            }}</span>
+          </div>
+          <div
+            class="settings-segmented-control"
+            role="radiogroup"
+            :aria-label="t('settings.appearance.language')"
+            aria-describedby="appearance-language-description"
+          >
+            <button
+              v-for="option in localeOptions"
+              :key="option.id"
+              ref="localeButtons"
+              type="button"
+              class="settings-segmented-option"
+              role="radio"
+              :aria-checked="locale === option.id"
+              :tabindex="locale === option.id ? 0 : -1"
+              :class="{ 'is-selected': locale === option.id }"
+              :lang="option.id"
+              @click="selectLocale(option.id)"
+              @keydown.left.prevent="selectLocale(locale === 'en' ? 'zh-Hans' : 'en')"
+              @keydown.right.prevent="selectLocale(locale === 'en' ? 'zh-Hans' : 'en')"
+              @keydown.up.prevent="selectLocale(locale === 'en' ? 'zh-Hans' : 'en')"
+              @keydown.down.prevent="selectLocale(locale === 'en' ? 'zh-Hans' : 'en')"
+              @keydown.home.prevent="selectLocale('zh-Hans')"
+              @keydown.end.prevent="selectLocale('en')"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
         <div class="settings-row">
           <div>
             <strong>{{ t('settings.appearance.theme') }}</strong>
@@ -72,8 +197,12 @@ function selectMotionPreference(value: MotionPreference): void {
               :tabindex="theme === 'light' ? 0 : -1"
               :class="{ 'is-selected': theme === 'light' }"
               @click="selectTheme('light')"
+              @keydown.left.prevent="selectTheme('dark')"
+              @keydown.up.prevent="selectTheme('dark')"
               @keydown.right.prevent="selectTheme('dark')"
               @keydown.down.prevent="selectTheme('dark')"
+              @keydown.home.prevent="selectTheme('light')"
+              @keydown.end.prevent="selectTheme('dark')"
             >
               {{ t('settings.appearance.themeLight') }}
             </button>
@@ -88,12 +217,55 @@ function selectMotionPreference(value: MotionPreference): void {
               @click="selectTheme('dark')"
               @keydown.left.prevent="selectTheme('light')"
               @keydown.up.prevent="selectTheme('light')"
+              @keydown.right.prevent="selectTheme('light')"
+              @keydown.down.prevent="selectTheme('light')"
+              @keydown.home.prevent="selectTheme('light')"
+              @keydown.end.prevent="selectTheme('dark')"
             >
               {{ t('settings.appearance.themeDark') }}
             </button>
           </div>
         </div>
         <ThemeAccentSettings />
+        <div class="settings-row settings-row--with-desc settings-row--lyrics-scroll">
+          <div>
+            <strong id="appearance-lyrics-scroll-label">{{
+              t('settings.appearance.lyricsScroll.title')
+            }}</strong>
+            <span id="appearance-lyrics-scroll-description">{{
+              t('settings.appearance.lyricsScroll.description')
+            }}</span>
+            <span v-if="lyricsScrollPersistFailed" role="status">{{
+              t('settings.appearance.lyricsScroll.persistFailed')
+            }}</span>
+          </div>
+          <SettingsSelect
+            id="appearance-lyrics-scroll"
+            labelledby="appearance-lyrics-scroll-label"
+            describedby="appearance-lyrics-scroll-description"
+            :model-value="lyricsScrollPreset"
+            :options="lyricsScrollOptions"
+            @update:model-value="selectLyricsScrollPreset($event as LyricsScrollPreset)"
+          />
+        </div>
+        <div class="settings-row settings-row--with-desc settings-row--playing-icon">
+          <div>
+            <strong id="appearance-playing-icon-label">{{
+              t('settings.appearance.playingIcon.title')
+            }}</strong>
+            <span id="appearance-playing-icon-description">{{
+              t('settings.appearance.playingIcon.description')
+            }}</span>
+          </div>
+          <SettingsSelect
+            id="appearance-playing-icon"
+            labelledby="appearance-playing-icon-label"
+            describedby="appearance-playing-icon-description"
+            :model-value="playingIcon"
+            :options="playingIconOptions"
+            @update:model-value="selectPlayingIconPreset($event as PlayingIconPreset)"
+          />
+        </div>
         <div class="settings-row settings-row--with-desc">
           <div>
             <strong>{{ t('settings.appearance.reducedMotion.title') }}</strong>
@@ -119,6 +291,8 @@ function selectMotionPreference(value: MotionPreference): void {
               :tabindex="motionPreference === 'system' ? 0 : -1"
               :class="{ 'is-selected': motionPreference === 'system' }"
               @click="selectMotionPreference('system')"
+              @keydown.left.prevent="selectMotionPreference('reduce')"
+              @keydown.up.prevent="selectMotionPreference('reduce')"
               @keydown.right.prevent="selectMotionPreference('reduce')"
               @keydown.down.prevent="selectMotionPreference('reduce')"
               @keydown.home.prevent="selectMotionPreference('system')"
@@ -135,6 +309,8 @@ function selectMotionPreference(value: MotionPreference): void {
               :tabindex="motionPreference === 'reduce' ? 0 : -1"
               :class="{ 'is-selected': motionPreference === 'reduce' }"
               @click="selectMotionPreference('reduce')"
+              @keydown.right.prevent="selectMotionPreference('system')"
+              @keydown.down.prevent="selectMotionPreference('system')"
               @keydown.left.prevent="selectMotionPreference('system')"
               @keydown.up.prevent="selectMotionPreference('system')"
               @keydown.home.prevent="selectMotionPreference('system')"
@@ -166,8 +342,12 @@ function selectMotionPreference(value: MotionPreference): void {
               :tabindex="sidebarFullHeight ? -1 : 0"
               :class="{ 'is-selected': !sidebarFullHeight }"
               @click="selectSidebarLayout(false)"
+              @keydown.left.prevent="selectSidebarLayout(true)"
+              @keydown.up.prevent="selectSidebarLayout(true)"
               @keydown.right.prevent="selectSidebarLayout(true)"
               @keydown.down.prevent="selectSidebarLayout(true)"
+              @keydown.home.prevent="selectSidebarLayout(false)"
+              @keydown.end.prevent="selectSidebarLayout(true)"
             >
               {{ t('settings.appearance.sidebarFloating') }}
             </button>
@@ -182,6 +362,10 @@ function selectMotionPreference(value: MotionPreference): void {
               @click="selectSidebarLayout(true)"
               @keydown.left.prevent="selectSidebarLayout(false)"
               @keydown.up.prevent="selectSidebarLayout(false)"
+              @keydown.right.prevent="selectSidebarLayout(false)"
+              @keydown.down.prevent="selectSidebarLayout(false)"
+              @keydown.home.prevent="selectSidebarLayout(false)"
+              @keydown.end.prevent="selectSidebarLayout(true)"
             >
               {{ t('settings.appearance.sidebarFullHeightOption') }}
             </button>
@@ -190,6 +374,10 @@ function selectMotionPreference(value: MotionPreference): void {
       </div>
     </div>
 
+    <LyricsEffectsSettings />
+    <WindowBehaviorSettings />
+    <ChineseTextSettings />
     <SongFontWeightSettings />
+    <AlbumListParameterSettings />
   </section>
 </template>

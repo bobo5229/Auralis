@@ -24,6 +24,7 @@ const nonInvokeChannels = new Set<string>([
   ipcChannels.metadata.refreshProgress,
   ipcChannels.metadata.trackEditStateChanged,
   ipcChannels.window.maximizedChanged,
+  ipcChannels.window.visibilityChanged,
 ])
 
 const expectedChannels = flattenChannels(ipcChannels)
@@ -35,6 +36,21 @@ function parse(channel: DomainIpcInvokeChannel, payload?: unknown): unknown {
 }
 
 describe('domain IPC payload validation coverage', () => {
+  it('accepts only supported UI locale values without expanding the payload shape', () => {
+    expect(parse('app:set-locale', { locale: 'zh-Hans' })).toEqual({ locale: 'zh-Hans' })
+    expect(parse('app:set-locale', { locale: 'en' })).toEqual({ locale: 'en' })
+    for (const payload of [
+      undefined,
+      {},
+      { locale: 'zh-Hant' },
+      { locale: 'EN' },
+      { locale: null },
+      { locale: ['en'] },
+      { locale: 'en', path: 'unexpected' },
+    ]) {
+      expect(() => parse('app:set-locale', payload)).toThrow(IpcPayloadValidationError)
+    }
+  })
   it.each(Object.keys(domainIpcPayloadPolicies) as DomainIpcInvokeChannel[])(
     'accepts a representative payload without cloning or coercing it for %s',
     (channel) => {
@@ -97,8 +113,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(63)
-    expect(kinds).toEqual({ void: 18, optional: 5, required: 40 })
+    expect(actualChannels).toHaveLength(65)
+    expect(kinds).toEqual({ void: 21, optional: 6, required: 38 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -288,6 +304,26 @@ describe('domain IPC payload validation behavior', () => {
       parse(ipcChannels.playback.nativeCommand, { ...payload, path: 'bridge.wav' }),
     ).toThrow(IpcPayloadValidationError)
   })
+  it('accepts bounded startup presentation history without changing legacy callers', () => {
+    const album = { albumArtist: 'Artist', album: 'Album' }
+    const request = { recentAlbums: Array.from({ length: 10 }, () => album) }
+    expect(parse('app:claim-startup-album', request)).toEqual(request)
+    expect(parse('app:claim-startup-album', { excludeAlbumKey: album })).toEqual({
+      excludeAlbumKey: album,
+    })
+    expect(parse('app:claim-startup-album', undefined)).toBeUndefined()
+    for (const recentAlbums of [
+      Array(11).fill(album),
+      [null],
+      [{ album: 'A' }],
+      [{ ...album, albumArtist: 42 }],
+      'bad',
+    ]) {
+      expect(() => parse('app:claim-startup-album', { recentAlbums })).toThrow(
+        IpcPayloadValidationError,
+      )
+    }
+  })
   it('accepts representative valid scalar, nested, optional, and batch payloads', () => {
     expect(
       parse('library:get-track-page', { cursor: 'snapshot:cursor', limit: 1_000, refresh: true }),
@@ -328,14 +364,6 @@ describe('domain IPC payload validation behavior', () => {
       }),
     ).toBeTruthy()
     expect(
-      parse('archive:get-listening-ranking', {
-        range: 'month',
-        target: 'album',
-        year: 2026,
-        month: 8,
-      }),
-    ).toBeTruthy()
-    expect(
       parse('playback:record-effective-play', {
         trackId: 42,
         sessionId: 'session-42',
@@ -356,10 +384,9 @@ describe('domain IPC payload validation behavior', () => {
     ['playlists:update-view-mode', { id: 1, viewMode: 'tiles' }],
     ['playback:get-album-tracks', { albumKey: { albumArtist: 'A' } }],
     ['playback:record-effective-play', { trackId: 1, sessionId: 'x', playedAtIso: 'today' }],
-    ['archive:get-daily-listening-detail', { date: '02/30/2026' }],
-    ['archive:get-daily-album-stats', { date: '02/30/2026' }],
-    ['archive:get-listening-ranking', { range: 'quarter', target: 'track' }],
     ['window:control', { action: 'open-devtools' }],
+    ['window:set-close-behavior', { behavior: 'hide' }],
+    ['window:set-close-behavior', { behavior: 'tray', path: 'C:/untrusted' }],
   ] as const)('rejects malformed payload for %s', (channel, payload) => {
     expect(() => parse(channel, payload)).toThrow(IpcPayloadValidationError)
   })
@@ -404,11 +431,7 @@ describe('domain IPC payload validation behavior', () => {
     ).toThrow(/invalid item count/)
   })
 
-  it('accepts structurally valid years and dates without calendar or range checks', () => {
-    expect(parse('archive:get-listening-heatmap', { year: 1969 })).toEqual({ year: 1969 })
-    expect(parse('archive:get-daily-listening-detail', { date: '2026-02-30' })).toEqual({
-      date: '2026-02-30',
-    })
+  it('accepts structurally valid metadata years and dates without calendar or range checks', () => {
     expect(
       parse('metadata:update-track-metadata', {
         trackId: 42,
@@ -421,34 +444,6 @@ describe('domain IPC payload validation behavior', () => {
         releaseDate: '2026-02-30',
       }),
     ).toBeTruthy()
-    expect(() => parse('archive:get-listening-heatmap', { year: Number.NaN })).toThrow(
-      /finite number/,
-    )
-    expect(() =>
-      parse('archive:get-listening-heatmap', { year: Number.POSITIVE_INFINITY }),
-    ).toThrow(/finite number/)
-  })
-
-  it('validates daily album stats date shape while leaving calendar checks to the service', () => {
-    expect(parse('archive:get-daily-album-stats', { date: '2026-02-28' })).toEqual({
-      date: '2026-02-28',
-    })
-    expect(parse('archive:get-daily-album-stats', { date: '2026-02-30' })).toEqual({
-      date: '2026-02-30',
-    })
-    expect(() => parse('archive:get-daily-album-stats')).toThrow(IpcPayloadValidationError)
-    expect(() => parse('archive:get-daily-album-stats', { date: 20260228 })).toThrow(
-      IpcPayloadValidationError,
-    )
-    expect(() =>
-      parse('archive:get-daily-album-stats', { date: '2026-02-28', unexpected: true }),
-    ).toThrow(IpcPayloadValidationError)
-    expect(() =>
-      parseDomainIpcPayload('archive:get-daily-album-stats', [
-        { date: '2026-02-28' },
-        { date: '2026-02-28' },
-      ]),
-    ).toThrow(IpcPayloadValidationError)
   })
 
   it('keeps smart-playlist resource and enum-shape checks without business pairing', () => {

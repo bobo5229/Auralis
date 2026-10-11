@@ -135,6 +135,7 @@ it('guards an occupied destination and a stale old-path match', async () => {
     albumArtist: 'Artist',
     trackNo: null,
     discNo: null,
+    bitrateBps: null,
     durationSeconds: 0.1,
     year: null,
     releaseDate: null,

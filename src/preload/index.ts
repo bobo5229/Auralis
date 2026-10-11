@@ -59,7 +59,10 @@ export const auralisApi: AuralisApi = {
     restoreBackup: () => invoke(ipcChannels.database.restoreBackup),
   },
   app: {
+    setLocale: (locale) => invoke(ipcChannels.app.setLocale, { locale }),
     getInfo: () => invoke(ipcChannels.app.getInfo),
+    claimCdStartupEntry: () => invoke(ipcChannels.app.claimCdStartupEntry),
+    claimStartupAlbum: (request) => invoke(ipcChannels.app.claimStartupAlbum, request),
     exportDiagnostics: () => invoke(ipcChannels.app.exportDiagnostics),
     rendererReady: () => send(ipcChannels.app.rendererReady),
     splashReady: (payload) => send(ipcChannels.app.splashReady, payload),
@@ -133,15 +136,8 @@ export const auralisApi: AuralisApi = {
     onCommand: (callback) => on(ipcChannels.systemMedia.command, callback),
   },
   archive: {
-    getListeningHeatmap: (year) => invoke(ipcChannels.archive.getListeningHeatmap, { year }),
-    getDailyListeningDetail: (date) =>
-      invoke(ipcChannels.archive.getDailyListeningDetail, { date }),
-    getDailyAlbumStats: (date) => invoke(ipcChannels.archive.getDailyAlbumStats, { date }),
-    getAnnualListeningInsights: (year) =>
-      invoke(ipcChannels.archive.getAnnualListeningInsights, { year }),
-    getListeningRanking: (params) => invoke(ipcChannels.archive.getListeningRanking, params),
-    getListeningGenreSpectrum: (year) =>
-      invoke(ipcChannels.archive.getListeningGenreSpectrum, { year }),
+    getAnnualPlayCounts: (year) => invoke(ipcChannels.archive.getAnnualPlayCounts, { year }),
+    getDayTopTracks: (date) => invoke(ipcChannels.archive.getDayTopTracks, { date }),
     resetPlayStats: () => invoke(ipcChannels.archive.resetPlayStats),
   },
   metadata: {
@@ -159,8 +155,12 @@ export const auralisApi: AuralisApi = {
     onTrackEditStateChanged: (callback) => on(ipcChannels.metadata.trackEditStateChanged, callback),
   },
   window: {
+    getCloseBehavior: () => invoke(ipcChannels.window.getCloseBehavior),
+    setCloseBehavior: (behavior) => invoke(ipcChannels.window.setCloseBehavior, { behavior }),
     control: (action) => invoke(ipcChannels.window.control, { action }),
     getMaximized: () => invoke(ipcChannels.window.getMaximized),
+    getVisibility: () => invoke(ipcChannels.window.getVisibility),
+    onVisibilityChanged: (callback) => on(ipcChannels.window.visibilityChanged, callback),
     onMaximizedChanged: (callback) => on(ipcChannels.window.maximizedChanged, callback),
   },
 }

@@ -25,6 +25,9 @@ export interface PlaylistTrackCount {
 
 export interface AddPlaylistTracksResult {
   addedCount: number
+  alreadyPresentCount: number
+  unavailableCount: number
+  playlistExists: boolean
 }
 
 export interface SidebarPlaylistItem {

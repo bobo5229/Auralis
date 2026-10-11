@@ -1,0 +1,1148 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>声迹 · 油灰软盘 / Auralis Demo</title>
+  <style>
+    :root {
+      --studio: #09080c;
+      --desk: #14110e;
+      --lamp: #f0d4a0;
+      --putty: #d7ceba;
+      --putty-hi: #efe7d4;
+      --putty-mid: #c9c0ab;
+      --putty-lo: #a89f8b;
+      --putty-ink: #6f6758;
+      --abs: #3a3732;
+      --abs-hi: #514c45;
+      --abs-lo: #221f1b;
+      --steel: #c5c9cd;
+      --paper: #ece6d6;
+      --phosphor: #c8d9b6;
+      --crt: #1a2318;
+      --ink: #ece4d6;
+      --muted: #8d8476;
+      --led: #e8a04a;
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--studio);
+      color: var(--ink);
+    }
+    body {
+      font-family: Palatino, "Iowan Old Style", "Songti SC", "SimSun", serif;
+      overflow-x: hidden;
+    }
+    button {
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+    }
+    button:focus-visible,
+    a:focus-visible {
+      outline: 2px solid var(--putty-hi);
+      outline-offset: 4px;
+    }
+    button:disabled { cursor: default; opacity: 0.38; }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse at 28% 18%, rgba(240, 212, 160, 0.14), transparent 42%),
+        radial-gradient(ellipse at 72% 70%, rgba(62, 48, 32, 0.35), transparent 48%),
+        linear-gradient(180deg, #121014 0%, var(--studio) 38%, #050407 100%);
+      z-index: 0;
+    }
+
+    .page-header {
+      position: relative;
+      z-index: 8;
+      display: flex;
+      align-items: baseline;
+      gap: 18px;
+      padding: 28px 48px 8px;
+      max-width: 1480px;
+      margin: 0 auto;
+    }
+    .wordmark {
+      font: italic 28px/32px Palatino, "Iowan Old Style", serif;
+      letter-spacing: -0.03em;
+      text-decoration: none;
+      color: var(--ink);
+    }
+    .wordmark i {
+      display: inline-block;
+      width: 5px;
+      height: 5px;
+      margin: 0 8px 4px;
+      border-radius: 50%;
+      background: var(--putty-lo);
+    }
+    .prototype-label {
+      font: 12px/18px "Segoe UI", "Microsoft YaHei", sans-serif;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+    }
+    .header-hint {
+      margin-left: auto;
+      font: 12px/18px "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: var(--muted);
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 0 48px 40px;
+    }
+    .intro {
+      margin: 8px 0 0;
+    }
+    h1 {
+      margin: 0;
+      font-size: 36px;
+      font-weight: 400;
+      letter-spacing: 0.04em;
+      line-height: 1.25;
+    }
+    h1 span {
+      font-style: italic;
+      font-size: 26px;
+      color: var(--muted);
+      letter-spacing: -0.02em;
+    }
+    .intro p {
+      margin: 8px 0 0;
+      font: 13px/22px "Segoe UI", "Microsoft YaHei", sans-serif;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      max-width: 46em;
+      overflow-wrap: break-word;
+    }
+
+    .scene {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+      grid-template-rows: auto auto;
+      column-gap: 28px;
+      row-gap: 8px;
+      margin-top: 12px;
+      isolation: isolate;
+      min-height: 560px;
+    }
+    .desk-glow {
+      position: absolute;
+      left: 4%;
+      right: 4%;
+      top: 470px;
+      height: 90px;
+      background: radial-gradient(ellipse at 50% 40%, #000000aa, transparent 70%);
+      filter: blur(18px);
+      pointer-events: none;
+    }
+
+    .machine-position {
+      grid-column: 1;
+      grid-row: 1 / span 2;
+      position: relative;
+      width: 280px;
+      height: 520px;
+      z-index: 4;
+      perspective: 1250px;
+      justify-self: start;
+      margin-top: 8px;
+    }
+    .computer-cube {
+      position: absolute;
+      width: 280px;
+      height: 365px;
+      transform-style: preserve-3d;
+      transform: rotateX(var(--pitch, -16deg)) rotateY(var(--yaw, -23deg));
+      transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+      touch-action: none;
+      user-select: none;
+      cursor: grab;
+      outline: none;
+    }
+    .computer-cube.is-dragging { transition: none; cursor: grabbing; }
+    .computer-cube:focus-visible { outline: 1px dashed var(--putty-hi); outline-offset: 16px; }
+
+    .shell-front, .shell-right, .shell-left, .shell-top, .shell-back, .shell-bottom {
+      position: absolute;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: 2px;
+    }
+    .shell-front {
+      inset: 0;
+      transform: translateZ(107.5px);
+      background: linear-gradient(115deg, #e5dcc8 0%, #d5c9b1 65%, #bfb39a);
+      box-shadow: inset 2px 1px 3px #fff8, inset -2px -3px 4px #8b816650;
+      transform-style: preserve-3d;
+    }
+    .shell-right {
+      width: 215px;
+      height: 365px;
+      left: 32.5px;
+      transform: rotateY(90deg) translateZ(140px);
+      background: linear-gradient(100deg, #b8b19e, #aaa893 50%, #919787);
+      box-shadow: inset -1px 0 2px #797e6f;
+    }
+    .shell-left {
+      width: 215px;
+      height: 365px;
+      left: 32.5px;
+      transform: rotateY(-90deg) translateZ(140px);
+      background: linear-gradient(100deg, #d2cab7, #b9b8a3);
+    }
+    .shell-top {
+      width: 280px;
+      height: 215px;
+      top: 75px;
+      transform: rotateX(90deg) translateZ(182.5px);
+      background: linear-gradient(170deg, #c9c6b5, #e6dfcc);
+      box-shadow: inset 0 -1px 2px #fff9;
+    }
+    .shell-back {
+      inset: 0;
+      transform: rotateY(180deg) translateZ(107.5px);
+      background: linear-gradient(115deg, #c8c4b0, #b8b29d 60%, #a0a18b);
+    }
+    .shell-bottom {
+      width: 280px;
+      height: 215px;
+      top: 75px;
+      transform: rotateX(-90deg) translateZ(182.5px);
+      background: #8b8d76;
+    }
+    .side-seam {
+      position: absolute;
+      top: 13px;
+      bottom: 12px;
+      left: 70%;
+      width: 1px;
+      background: #74796660;
+    }
+    .side-vent {
+      position: absolute;
+      bottom: 48px;
+      left: 40px;
+      width: 128px;
+      height: 48px;
+      background: repeating-linear-gradient(90deg, #5f685b 0 2px, transparent 2px 7px);
+      opacity: 0.75;
+    }
+    .shell-left .side-seam { left: 30%; }
+    .shell-left .side-vent { left: 44px; }
+    .carry-handle {
+      position: absolute;
+      width: 142px;
+      height: 26px;
+      border-radius: 6px;
+      left: 69px;
+      top: 72px;
+      background: #56594c;
+      box-shadow: inset 0 5px 7px #262d2799, 0 1px 0 #eee7d7;
+    }
+    .carry-handle::after {
+      content: "";
+      position: absolute;
+      inset: 9px 7px 3px;
+      background: linear-gradient(#d6d0bb, #b4b19e);
+      border-radius: 2px;
+    }
+    .monitor-recess {
+      position: absolute;
+      left: 25px;
+      right: 25px;
+      top: 26px;
+      height: 167px;
+      border-radius: 16px 16px 19px 19px;
+      padding: 10px 11px 11px;
+      background: linear-gradient(150deg, #8f856f, #c1b397 46%, #e8ddc5);
+      box-shadow: inset 2px 3px 6px #594f3c99, 0 1px 2px #efe7d555;
+    }
+    .monitor-glass {
+      height: 100%;
+      position: relative;
+      border-radius: 11px 11px 13px 13px;
+      overflow: hidden;
+      background: #8eaa92;
+      border: 5px solid #343c32;
+      box-shadow: inset 0 0 16px #152d2499;
+    }
+    .terminal {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      width: 100%;
+      padding: 6px 8px;
+      font: 8px/1.4 Consolas, "Microsoft YaHei", monospace;
+      color: #243a31;
+      background: radial-gradient(ellipse at center, #d2e0ca, #99b5a0);
+    }
+    .phosphor-lines, .glass-highlight {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .phosphor-lines {
+      background: repeating-linear-gradient(0deg, transparent 0 1px, #253b2a20 1px 2px);
+      opacity: 0.5;
+    }
+    .glass-highlight {
+      background: linear-gradient(126deg, #f4fff338, transparent 32%, transparent 80%, #0e201b30);
+      box-shadow: inset 0 0 13px #0c1d2050;
+      border-radius: 7px;
+    }
+    .heritage-mark {
+      position: absolute;
+      left: 31px;
+      top: 239px;
+      width: 20px;
+      height: 24px;
+      background: linear-gradient(#7d9c58 0 17%, #c8ac56 17% 34%, #cb8053 34% 51%, #bd625e 51% 68%, #8e6e94 68% 85%, #538c9f 85%);
+      border-radius: 3px 9px 3px 7px;
+      box-shadow: 0 1px 0 #efe3c8;
+    }
+    .heritage-mark span {
+      font: italic bold 24px/24px Georgia, serif;
+      color: #eee0bd;
+      display: block;
+      text-align: center;
+    }
+    .drive-aperture {
+      position: absolute;
+      left: 93px;
+      top: 249px;
+      width: 144px;
+      height: 8px;
+      border-radius: 3px;
+      background: linear-gradient(#262a20, #101912 70%, #5c5c42);
+      box-shadow: 0 1px 0 #f5e5b3, inset 1px 2px 3px #050b05;
+    }
+    .drive-aperture.is-target {
+      box-shadow: 0 0 0 2px var(--led), 0 1px 0 #f5e5b3, inset 1px 2px 3px #050b05;
+    }
+    .drive-led {
+      position: absolute;
+      right: 28px;
+      top: 251px;
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: #6d765a;
+    }
+    body[data-phase="inserting"] .drive-led,
+    body[data-phase="reading"] .drive-led {
+      background: var(--led);
+      box-shadow: 0 1px 6px #e8a04a;
+      animation: led-blink 0.16s steps(2, end) infinite;
+    }
+    body[data-phase="ready"] .drive-led {
+      background: #b5d386;
+      box-shadow: 0 1px 4px #9fbc7470;
+    }
+    @keyframes led-blink { 50% { opacity: 0.3; } }
+    .hardware-name {
+      position: absolute;
+      bottom: 44px;
+      left: 32px;
+      font: 11px/15px Georgia, serif;
+      color: #766c58;
+      text-shadow: 0 1px 0 #f0e4c9;
+    }
+    .hardware-name > span {
+      display: block;
+      font: 5px/10px Consolas, monospace;
+      letter-spacing: 0.12em;
+    }
+    .brightness-dial {
+      position: absolute;
+      bottom: 35px;
+      right: 36px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 25%, #d9cbaa, #9b9275 60%, #756e57);
+    }
+    .shell-foot {
+      position: absolute;
+      bottom: -4px;
+      left: 20px;
+      right: 20px;
+      height: 5px;
+      border-radius: 0 0 4px 4px;
+      background: #807f6a;
+    }
+    .desk-keyboard {
+      position: absolute;
+      top: 398px;
+      left: -70px;
+      width: 299px;
+      height: 104px;
+      transform: perspective(800px) rotateX(37deg) rotateZ(5deg);
+      background: linear-gradient(135deg, #e1d8c1, #c4b99d);
+      border-radius: 6px 6px 8px 8px;
+      padding: 12px 13px 22px;
+      box-shadow: inset 0 2px 3px #fff8, 0 8px 0 #aea38a, 0 11px 4px #0006;
+    }
+    .keyboard-keys {
+      display: grid;
+      grid-template-columns: repeat(14, 1fr);
+      gap: 4px;
+    }
+    .keyboard-keys i {
+      display: block;
+      height: 14px;
+      border-radius: 2px;
+      background: linear-gradient(155deg, #f1e9d7, #cfbea0);
+      box-shadow: 0 2px 0 #9d9174;
+    }
+    .keyboard-space {
+      display: block;
+      width: 144px;
+      height: 13px;
+      margin: 7px auto 0;
+      background: linear-gradient(#eee6d0, #d0c1a0);
+      box-shadow: 0 2px 0 #a29577;
+      border-radius: 2px;
+    }
+    .desk-mouse {
+      position: absolute;
+      top: 431px;
+      left: 275px;
+      width: 42px;
+      height: 65px;
+      border-radius: 15px;
+      background: linear-gradient(135deg, #e4ddc7, #bcaf93);
+      transform: rotate(-12deg);
+      box-shadow: inset 2px 1px 2px #fff7, 3px 5px 0 #ad9e83, 6px 8px 8px #0005;
+    }
+    .desk-mouse span {
+      position: absolute;
+      top: 9px;
+      left: 8px;
+      right: 8px;
+      height: 22px;
+      border-radius: 4px;
+      background: linear-gradient(#e6ddc4, #ccc1a3);
+    }
+
+    .screen-menu {
+      display: flex;
+      gap: 9px;
+      border-bottom: 1px solid #557365;
+      padding-bottom: 3px;
+      font-size: 7px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .screen-menu span:last-child { margin-left: auto; }
+    .screen-idle {
+      display: grid;
+      place-items: center;
+      align-content: center;
+      gap: 6px;
+      flex: 1;
+      text-align: center;
+      font-size: 9px;
+    }
+    .screen-idle small { font-size: 6px; }
+    .disk-icon {
+      width: 23px;
+      height: 24px;
+      border: 2px solid #43634e;
+      position: relative;
+      box-shadow: inset 0 -6px 0 #70917a55;
+    }
+    .disk-icon::before {
+      content: "";
+      position: absolute;
+      left: 4px;
+      right: 4px;
+      top: 0;
+      height: 7px;
+      border: 1px solid #43634e;
+    }
+    .read-bar {
+      height: 5px;
+      border: 1px solid #486554;
+      width: 90px;
+      margin: 4px auto;
+    }
+    .read-bar i {
+      display: block;
+      height: 100%;
+      background: #526f5b;
+      animation: read-progress 0.9s linear forwards;
+    }
+    @keyframes read-progress { from { width: 0; } to { width: 100%; } }
+    .crt-ready {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      min-height: 0;
+    }
+    .crt-ready img {
+      width: 72px;
+      height: 72px;
+      object-fit: cover;
+      filter: grayscale(1) sepia(0.22);
+      mix-blend-mode: multiply;
+      box-shadow: 0 0 0 1px #43634e55;
+    }
+    .crt-ready strong {
+      font-size: 10px;
+      line-height: 12px;
+      font-weight: 700;
+      max-width: 100%;
+    }
+    .crt-ready span { font-size: 6px; line-height: 8px; }
+
+    .rack {
+      grid-column: 2;
+      grid-row: 1;
+      position: relative;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 22px 18px;
+      align-items: flex-start;
+      z-index: 6;
+      padding-top: 36px;
+    }
+    .disk {
+      --disk-w: clamp(148px, 12vw, 176px);
+      width: var(--disk-w);
+      padding: 0;
+      border: 0;
+      background: none;
+      text-align: left;
+      color: var(--ink);
+      transform: translateY(0) rotate(var(--lean, -2deg));
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), filter 0.3s, opacity 0.3s;
+      filter: drop-shadow(4px 14px 12px #00000088);
+    }
+    .disk:nth-child(2) { --lean: 1.5deg; }
+    .disk:nth-child(3) { --lean: -1deg; }
+    .disk:nth-child(4) { --lean: 2deg; }
+    .disk:nth-child(5) { --lean: -2.5deg; }
+    .disk:hover,
+    .disk:focus-visible {
+      transform: translateY(-18px) rotate(0deg);
+      z-index: 8;
+    }
+    .disk.is-chosen {
+      transform: translateY(-10px) rotate(0deg);
+    }
+    .disk.in-drive {
+      opacity: 0.22;
+      transform: translateY(18px) rotate(var(--lean, -2deg));
+      pointer-events: none;
+    }
+    .disk.is-dragging-source {
+      opacity: 0.2;
+    }
+    .disk-shell {
+      position: relative;
+      display: block;
+      width: 100%;
+      aspect-ratio: 90 / 94;
+      background:
+        linear-gradient(160deg, var(--abs-hi) 0%, var(--abs) 42%, var(--abs-lo) 100%);
+      clip-path: polygon(0 0, 90% 0, 100% 9%, 100% 100%, 0 100%);
+      border-radius: 5px 4px 6px 6px;
+      box-shadow:
+        inset 2px 2px 3px #ffffff22,
+        inset -3px -4px 5px #00000088;
+    }
+    .disk-shell::before {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      border: 1px solid #ffffff12;
+      border-radius: 2px 8px 2px 2px;
+      pointer-events: none;
+    }
+    .shutter {
+      position: absolute;
+      top: 0;
+      left: 22%;
+      width: 54%;
+      height: 14%;
+      background: linear-gradient(100deg, #8e959c, var(--steel) 28%, #9aa1a8 48%, #d5d9dc 72%, #7d858c);
+      border-radius: 0 0 3px 3px;
+      box-shadow: inset -2px 0 0 #3a404680, 1px 2px 3px #0006;
+    }
+    .shutter::after {
+      content: "";
+      position: absolute;
+      top: 18%;
+      bottom: 16%;
+      right: 14%;
+      width: 18%;
+      background: #1a1d20;
+      border-radius: 1px;
+      box-shadow: inset 1px 1px 2px #0009;
+    }
+    .label {
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      top: 18%;
+      bottom: 9%;
+      background: var(--paper);
+      border-radius: 2px;
+      box-shadow: inset 0 1px 2px #0003;
+      overflow: hidden;
+    }
+    .label img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      pointer-events: none;
+    }
+    .notch {
+      position: absolute;
+      bottom: 5%;
+      right: 8%;
+      width: 7%;
+      height: 6%;
+      background: #0d0c0a;
+      box-shadow: inset 1px 1px 0 #000;
+    }
+    .caption {
+      display: block;
+      margin-top: 12px;
+      padding: 0 2px;
+    }
+    .caption .date {
+      display: block;
+      font: 10px/14px Consolas, "Segoe UI", monospace;
+      letter-spacing: 0.16em;
+      color: var(--muted);
+    }
+    .caption .title {
+      display: block;
+      margin-top: 2px;
+      font: italic 18px/24px Palatino, "Songti SC", serif;
+      letter-spacing: 0.02em;
+    }
+    .caption .artist {
+      display: block;
+      font: 12px/18px "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: var(--muted);
+    }
+
+    .scene-controls {
+      grid-column: 2;
+      grid-row: 2;
+      position: relative;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px 22px;
+      z-index: 12;
+      margin-top: 12px;
+      min-height: 36px;
+      font: 12px/18px "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: var(--muted);
+    }
+    .scene-controls button {
+      padding: 8px 0;
+      border: 0;
+      background: none;
+      color: var(--ink);
+      border-bottom: 1px solid #8d847666;
+    }
+    .scene-controls button:hover:not(:disabled) { color: var(--putty-hi); }
+    .status {
+      min-height: 18px;
+    }
+
+    .archive-footer {
+      display: flex;
+      gap: 24px;
+      border-top: 1px solid #3a342c;
+      padding: 20px 0 8px;
+      margin-top: 8px;
+      font: 12px/18px "Segoe UI", "Microsoft YaHei", sans-serif;
+      color: var(--muted);
+    }
+
+    .flying-disk {
+      position: fixed;
+      z-index: 40;
+      pointer-events: none;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: none;
+      filter: drop-shadow(4px 10px 8px #0008);
+    }
+    .flying-disk .caption { display: none; }
+    .flight-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 40;
+    }
+
+    @media (max-width: 1100px) {
+      .page-header, main { padding-left: 24px; padding-right: 24px; }
+      .scene { grid-template-columns: minmax(260px, 300px) minmax(0, 1fr); }
+      .machine-position { transform: scale(0.86); transform-origin: top left; height: 460px; }
+    }
+    @media (max-width: 760px) {
+      .header-hint { display: none; }
+      .scene {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto auto;
+      }
+      .machine-position {
+        grid-column: 1;
+        grid-row: 1;
+        margin: 8px auto 0;
+        transform: scale(0.84);
+        transform-origin: top center;
+        height: 320px;
+        justify-self: center;
+      }
+      .rack { grid-column: 1; grid-row: 2; padding-top: 8px; justify-content: center; }
+      .scene-controls { grid-column: 1; grid-row: 3; }
+      .desk-keyboard, .desk-mouse, .desk-glow { display: none; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .computer-cube, .disk { transition: none; }
+      body[data-phase="inserting"] .drive-led,
+      body[data-phase="reading"] .drive-led { animation: none; }
+      .read-bar i { animation: none; width: 100%; }
+    }
+  </style>
+</head>
+<body data-phase="idle">
+  <header class="page-header">
+    <a class="wordmark" href="../README.md">Auralis<i></i></a>
+    <span class="prototype-label">DEMO · 油灰软盘</span>
+    <span class="header-hint">单击选中 · 双击或拖入盘槽读取 · Esc 弹出</span>
+  </header>
+  <main>
+    <div class="intro">
+      <h1>声迹 <span>putty floppy</span></h1>
+      <p>独立原型。炭色工程塑料，窄金属快门，方形封面铺满标签，曲名写在盘外。封面为示意静物，不接入曲库。</p>
+    </div>
+    <div class="scene">
+      <div class="desk-glow" aria-hidden="true"></div>
+      <div class="machine-position">
+        <div class="computer-cube" id="computer-cube" tabindex="0" aria-label="Macintosh，可拖动旋转">
+          <div class="shell-front">
+            <div class="monitor-recess">
+              <div class="monitor-glass">
+                <div class="terminal" id="crt" aria-live="polite"></div>
+                <div class="phosphor-lines"></div>
+                <div class="glass-highlight"></div>
+              </div>
+            </div>
+            <div class="heritage-mark" aria-hidden="true"><span></span></div>
+            <div class="drive-aperture" id="drive-slot" aria-hidden="true"></div>
+            <div class="drive-led" aria-hidden="true"></div>
+            <div class="hardware-name">Macintosh<span>128K</span></div>
+            <div class="brightness-dial" aria-hidden="true"></div>
+            <div class="shell-foot" aria-hidden="true"></div>
+          </div>
+          <div class="shell-right">
+            <div class="side-seam"></div>
+            <div class="side-vent"></div>
+          </div>
+          <div class="shell-left">
+            <div class="side-seam"></div>
+            <div class="side-vent"></div>
+          </div>
+          <div class="shell-top">
+            <div class="carry-handle"></div>
+          </div>
+          <div class="shell-back"></div>
+          <div class="shell-bottom"></div>
+        </div>
+        <div class="desk-keyboard" aria-hidden="true">
+          <div class="keyboard-keys" id="keyboard-keys"></div>
+          <span class="keyboard-space"></span>
+        </div>
+        <div class="desk-mouse" aria-hidden="true"><span></span></div>
+      </div>
+      <div class="rack" id="rack"></div>
+      <div class="scene-controls">
+        <span class="status" id="status">选一张软盘，读回那一天。</span>
+        <button type="button" id="eject" disabled>弹出</button>
+        <button type="button" id="reset-view">摆正机身</button>
+      </div>
+    </div>
+    <p class="visually-hidden" id="screen-description">Mac 屏幕等待插入软盘。听歌数据为示意。</p>
+    <footer class="archive-footer">
+      <span>材质：油灰 ABS 机身 · 暖炭工程塑料盘壳</span>
+      <span>交互：盘槽读取，不播放</span>
+      <span>数据：虚构日程，无曲库访问</span>
+    </footer>
+  </main>
+  <div class="flight-layer" id="flight-layer"></div>
+  <script>
+    (() => {
+      "use strict";
+      const albums = [
+        { date: "10.01", title: "鸡蛋花", artist: "Frangipani", minutes: 47, cover: "assets/floppy-putty/01-plumeria.jpg" },
+        { date: "10.02", title: "雏菊与镜", artist: "Still Life", minutes: 62, cover: "assets/floppy-putty/02-daisies.jpg" },
+        { date: "10.03", title: "秋叶", artist: "Fallen Gold", minutes: 38, cover: "assets/floppy-putty/03-autumn.jpg" },
+        { date: "10.04", title: "矮牵牛", artist: "Petunia", minutes: 55, cover: "assets/floppy-putty/04-petunias.jpg" },
+        { date: "10.05", title: "暗房与琴", artist: "Darkroom", minutes: 71, cover: "assets/floppy-putty/05-camera.jpg" }
+      ];
+      const $ = (id) => document.getElementById(id);
+      const reduced = matchMedia("(prefers-reduced-motion: reduce)");
+      const rack = $("rack");
+      const terminal = $("crt");
+      const cube = $("computer-cube");
+      const slot = $("drive-slot");
+      const disks = [];
+      let selected = 0;
+      let inserted = null;
+      let phase = "idle";
+      let generation = 0;
+      let animation = null;
+      let pendingTimer = null;
+      let pendingResolve = null;
+      let ghost = null;
+      const pitchMin = -50, pitchMax = -8;
+      let yaw = -23, pitch = -16, drag = null, blockClickUntil = 0;
+      let diskDrag = null;
+      const mechanical = () => phase === "inserting" || phase === "ejecting";
+      const menu = '<div class="screen-menu"><span>Auralis</span><span>File</span><span>Disk</span><span>1984</span></div>';
+
+      function setView(nextYaw, nextPitch) {
+        yaw = nextYaw;
+        pitch = Math.max(pitchMin, Math.min(pitchMax, nextPitch));
+        cube.style.setProperty("--yaw", `${yaw}deg`);
+        cube.style.setProperty("--pitch", `${pitch}deg`);
+      }
+      function stopDrag() {
+        if (drag && cube.hasPointerCapture(drag.id)) cube.releasePointerCapture(drag.id);
+        drag = null;
+        cube.classList.remove("is-dragging");
+      }
+      function frontYaw(angle = 0) {
+        return angle + 360 * Math.round((yaw - angle) / 360);
+      }
+      async function faceDrive() {
+        stopDrag();
+        setView(frontYaw(-23), -16);
+        await delay(reduced.matches ? 20 : 420);
+      }
+
+      cube.addEventListener("pointerdown", (event) => {
+        if (mechanical() || drag || !event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) return;
+        drag = { id: event.pointerId, x: event.clientX, y: event.clientY, yaw, pitch, moved: false };
+        if (!event.target.closest("button")) cube.focus({ preventScroll: true });
+      });
+      window.addEventListener("pointermove", (event) => {
+        if (!drag || event.pointerId !== drag.id) return;
+        const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+        if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+        if (!drag.moved) {
+          drag.moved = true;
+          cube.classList.add("is-dragging");
+          cube.setPointerCapture(event.pointerId);
+        }
+        setView(drag.yaw + dx * 0.65, drag.pitch - dy * 0.3);
+        event.preventDefault();
+      }, { passive: false });
+      function endPointer(event) {
+        if (!drag || event.pointerId !== drag.id) return;
+        if (drag.moved) blockClickUntil = performance.now() + 350;
+        stopDrag();
+      }
+      window.addEventListener("pointerup", endPointer);
+      window.addEventListener("pointercancel", endPointer);
+      cube.addEventListener("click", (event) => {
+        if (performance.now() < blockClickUntil) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      }, true);
+
+      for (let i = 0; i < 42; i++) {
+        $("keyboard-keys").append(document.createElement("i"));
+      }
+
+      albums.forEach((album, index) => {
+        const disk = document.createElement("button");
+        disk.type = "button";
+        disk.className = "disk";
+        disk.dataset.index = String(index);
+        disk.setAttribute("aria-label", `选中 ${album.date} ${album.title}`);
+        disk.setAttribute("aria-pressed", "false");
+        disk.innerHTML =
+          `<span class="disk-shell">` +
+            `<span class="shutter"></span>` +
+            `<span class="label"><img alt="" src="${album.cover}"></span>` +
+            `<span class="notch"></span>` +
+          `</span>` +
+          `<span class="caption">` +
+            `<span class="date">${album.date} / 2026</span>` +
+            `<span class="title">${album.title}</span>` +
+            `<span class="artist">${album.artist}</span>` +
+          `</span>`;
+        disk.addEventListener("click", () => {
+          if (diskDrag && diskDrag.moved) return;
+          select(index);
+        });
+        disk.addEventListener("dblclick", (event) => {
+          event.preventDefault();
+          insert(index);
+        });
+        disk.addEventListener("pointerdown", (event) => startDiskDrag(event, index, disk));
+        rack.append(disk);
+        disks.push(disk);
+      });
+
+      function startDiskDrag(event, index, disk) {
+        if (mechanical() || !event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) return;
+        diskDrag = { id: event.pointerId, index, x: event.clientX, y: event.clientY, moved: false, clone: null };
+        disk.setPointerCapture(event.pointerId);
+      }
+      window.addEventListener("pointermove", (event) => {
+        if (!diskDrag || event.pointerId !== diskDrag.id) return;
+        const dx = event.clientX - diskDrag.x, dy = event.clientY - diskDrag.y;
+        if (!diskDrag.moved && Math.hypot(dx, dy) < 8) return;
+        if (!diskDrag.moved) {
+          diskDrag.moved = true;
+          select(diskDrag.index);
+          const source = disks[diskDrag.index];
+          source.classList.add("is-dragging-source");
+          const clone = source.cloneNode(true);
+          clone.className = "disk flying-disk";
+          clone.style.width = `${source.querySelector(".disk-shell").getBoundingClientRect().width}px`;
+          clone.style.left = "0px";
+          clone.style.top = "0px";
+          $("flight-layer").append(clone);
+          diskDrag.clone = clone;
+          ghost = clone;
+        }
+        const shell = disks[diskDrag.index].querySelector(".disk-shell").getBoundingClientRect();
+        diskDrag.clone.style.transform = `translate(${event.clientX - shell.width / 2}px, ${event.clientY - shell.height / 2}px) rotate(-8deg)`;
+        const slotBox = slot.getBoundingClientRect();
+        const over = event.clientX > slotBox.left - 24 && event.clientX < slotBox.right + 24 &&
+          event.clientY > slotBox.top - 40 && event.clientY < slotBox.bottom + 40;
+        slot.classList.toggle("is-target", over);
+        event.preventDefault();
+      }, { passive: false });
+      function endDiskDrag(event) {
+        if (!diskDrag || event.pointerId !== diskDrag.id) return;
+        const over = slot.classList.contains("is-target");
+        const index = diskDrag.index;
+        disks[index].classList.remove("is-dragging-source");
+        slot.classList.remove("is-target");
+        diskDrag.clone?.remove();
+        if (ghost === diskDrag.clone) ghost = null;
+        const moved = diskDrag.moved;
+        diskDrag = null;
+        if (moved && over) insert(index);
+      }
+      window.addEventListener("pointerup", endDiskDrag);
+      window.addEventListener("pointercancel", endDiskDrag);
+
+      function cancelPending() {
+        generation += 1;
+        animation?.cancel();
+        animation = null;
+        if (pendingTimer !== null) clearTimeout(pendingTimer);
+        pendingTimer = null;
+        pendingResolve?.();
+        pendingResolve = null;
+        ghost?.remove();
+        ghost = null;
+      }
+      function delay(ms) {
+        return new Promise((resolve) => {
+          pendingResolve = resolve;
+          pendingTimer = setTimeout(() => {
+            pendingTimer = null;
+            pendingResolve = null;
+            resolve();
+          }, reduced.matches ? 20 : ms);
+        });
+      }
+      function update(next, message) {
+        phase = next;
+        document.body.dataset.phase = phase;
+        $("status").textContent = message;
+        $("eject").disabled = phase === "idle" || phase === "ejecting";
+        disks.forEach((disk, i) => {
+          disk.classList.toggle("is-chosen", i === selected);
+          disk.classList.toggle("in-drive", i === inserted);
+          disk.setAttribute("aria-pressed", String(i === inserted));
+        });
+      }
+      function idleScreen() {
+        terminal.innerHTML = menu + '<div class="screen-idle"><span class="disk-icon"></span><span>Insert a disk.</span><small>PUTTY FLOPPY · DEMO</small></div>';
+        $("screen-description").textContent = "Mac 屏幕等待插入软盘。";
+      }
+      function readingScreen(album) {
+        terminal.innerHTML = menu + `<div class="screen-idle"><span class="disk-icon"></span><span>Reading ${album.date}…</span><div class="read-bar"><i></i></div><small>${album.title}</small></div>`;
+      }
+      function readyScreen(album) {
+        terminal.innerHTML = menu +
+          `<div class="crt-ready"><img alt="" src="${album.cover}"><strong>${album.title}</strong><span>${album.artist} · ${album.minutes} min</span></div>`;
+        $("screen-description").textContent = `已读取 ${album.date} ${album.title}，${album.minutes} 分钟。`;
+      }
+      function select(index) {
+        selected = index;
+        disks.forEach((disk, i) => disk.classList.toggle("is-chosen", i === selected));
+        if (phase === "idle") update("idle", `已选 ${albums[index].title}。双击或拖入盘槽。`);
+      }
+      async function fly(index, reverse = false) {
+        const from = disks[index].querySelector(".disk-shell").getBoundingClientRect();
+        const slotBox = slot.getBoundingClientRect();
+        const element = disks[index].cloneNode(true);
+        element.className = "disk flying-disk";
+        element.style.width = `${from.width}px`;
+        $("flight-layer").append(element);
+        ghost = element;
+        const start = reverse
+          ? { x: slotBox.x + slotBox.width / 2 - from.width / 2, y: slotBox.y - from.height * 0.12 }
+          : { x: from.x, y: from.y };
+        const end = reverse
+          ? { x: from.x, y: from.y }
+          : { x: slotBox.x + slotBox.width / 2 - from.width / 2, y: slotBox.y - from.height * 0.12 };
+        const frames = reverse
+          ? [
+              { transform: `translate(${start.x}px,${start.y}px) rotate(-9deg) scale(.69,.045)`, opacity: 0.2 },
+              { transform: `translate(${start.x + 28}px,${start.y - 24}px) rotate(-6deg) scale(.85,.55)`, opacity: 1, offset: 0.3 },
+              { transform: `translate(${end.x}px,${end.y}px) rotate(0deg) scale(1)`, opacity: 1 }
+            ]
+          : [
+              { transform: `translate(${start.x}px,${start.y}px) rotate(0deg) scale(1)`, opacity: 1 },
+              { transform: `translate(${start.x - 70}px,${start.y - 80}px) rotate(-12deg) scale(1.04)`, opacity: 1, offset: 0.32 },
+              { transform: `translate(${end.x + 8}px,${end.y - 6}px) rotate(-8deg) scale(.82,.4)`, opacity: 1, offset: 0.78 },
+              { transform: `translate(${end.x}px,${end.y}px) rotate(-9deg) scale(.69,.045)`, opacity: 0 }
+            ];
+        const current = element.animate(frames, {
+          duration: reduced.matches ? 30 : (reverse ? 650 : 1000),
+          easing: "cubic-bezier(.3,.05,.2,1)",
+          fill: "forwards"
+        });
+        animation = current;
+        let flightTimeout;
+        try {
+          await Promise.race([
+            current.finished,
+            new Promise((resolve) => { flightTimeout = setTimeout(resolve, reduced.matches ? 70 : (reverse ? 750 : 1100)); })
+          ]);
+        } catch { /* cancelled */ }
+        finally {
+          clearTimeout(flightTimeout);
+          current.cancel();
+        }
+        if (animation === current) animation = null;
+        element.remove();
+        if (ghost === element) ghost = null;
+      }
+      async function insert(index) {
+        if (index === inserted && phase === "ready") {
+          update("ready", `${albums[index].title} 已在机内。可弹出，或换一张。`);
+          return;
+        }
+        const previous = inserted;
+        cancelPending();
+        const token = generation;
+        selected = index;
+        update("inserting", "盘槽转向你，准备插盘…");
+        await faceDrive();
+        if (token !== generation) return;
+        if (previous !== null && previous !== index) {
+          update("ejecting", `归还 ${albums[previous].title}，准备换盘…`);
+          await fly(previous, true);
+          if (token !== generation) return;
+        }
+        inserted = index;
+        update("inserting", `正在插入 ${albums[index].title}…`);
+        readingScreen(albums[index]);
+        await fly(index);
+        if (token !== generation) return;
+        update("reading", "盘片转动中…");
+        await delay(720);
+        if (token !== generation) return;
+        readyScreen(albums[index]);
+        update("ready", `${albums[index].date} · ${albums[index].title}，已读回。`);
+      }
+      async function eject() {
+        if (phase === "idle") return;
+        const old = inserted;
+        cancelPending();
+        const token = generation;
+        update("ejecting", "弹出软盘…");
+        idleScreen();
+        await faceDrive();
+        if (token !== generation) return;
+        if (old !== null) await fly(old, true);
+        if (token !== generation) return;
+        inserted = null;
+        update("idle", "软盘已归位。再选一张。");
+      }
+
+      $("eject").addEventListener("click", eject);
+      $("reset-view").addEventListener("click", () => {
+        if (mechanical()) return;
+        stopDrag();
+        setView(frontYaw(-23), -16);
+      });
+      document.addEventListener("keydown", (event) => {
+        if (event.altKey || event.ctrlKey || event.metaKey) return;
+        if (event.key === "Escape") {
+          event.preventDefault();
+          eject();
+          return;
+        }
+        if (event.key === "Enter" && document.activeElement && rack.contains(document.activeElement)) {
+          event.preventDefault();
+          insert(Number(document.activeElement.dataset.index));
+          return;
+        }
+        if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+          if (cube.contains(document.activeElement)) return;
+          event.preventDefault();
+          const next = (selected + (event.key === "ArrowRight" ? 1 : albums.length - 1)) % albums.length;
+          disks[next].focus({ preventScroll: true });
+          select(next);
+        }
+      });
+
+      idleScreen();
+      update("idle", "选一张软盘，读回那一天。");
+      if (location.hash === "#ready") insert(0);
+      window.archiveFloppyPuttyDemo = Object.freeze({
+        inspect: () => ({ selected, inserted, phase, title: albums[selected].title })
+      });
+    })();
+  </script>
+</body>
+</html>

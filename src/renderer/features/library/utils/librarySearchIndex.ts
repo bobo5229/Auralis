@@ -2,6 +2,7 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import { splitDelimitedValues } from '@shared/utils/delimitedValues'
 import { normalizeSearchText } from './normalizeSearchText'
 import type { LibrarySearchRecord } from './librarySearchScan'
+import { createDisplaySearchKeys } from './displaySearchKeys'
 
 export class LibrarySearchIndexBuildStaleError extends Error {
   constructor() {
@@ -30,6 +31,16 @@ function createLibrarySearchIndexBuilder(): LibrarySearchIndexBuilder {
     return normalized
   }
   const artistPartsBySource = new Map<string | null | undefined, readonly string[]>()
+  const displayKeysBySource = new Map<string | null | undefined, readonly string[]>()
+  const artistDisplayKeysBySource = new Map<string | null | undefined, readonly string[]>()
+  function displayKeys(value: string | null | undefined, multiValue = false): readonly string[] {
+    const cache = multiValue ? artistDisplayKeysBySource : displayKeysBySource
+    const cached = cache.get(value)
+    if (cached) return cached
+    const keys = createDisplaySearchKeys(value, multiValue)
+    cache.set(value, keys)
+    return keys
+  }
   const normalizeArtistParts = (value: string | null | undefined): readonly string[] => {
     const cached = artistPartsBySource.get(value)
     if (cached) return cached
@@ -41,6 +52,24 @@ function createLibrarySearchIndexBuilder(): LibrarySearchIndexBuilder {
 
   return {
     append(track) {
+      const originals = new Set([
+        normalizeCached(track.title),
+        normalizeCached(track.artist),
+        normalizeCached(track.albumArtist),
+        normalizeCached(track.album),
+        ...normalizeArtistParts(track.artist),
+        ...normalizeArtistParts(track.albumArtist),
+      ])
+      const displayAliases = Object.freeze(
+        [
+          ...new Set([
+            ...displayKeys(track.title),
+            ...displayKeys(track.artist, true),
+            ...displayKeys(track.albumArtist, true),
+            ...displayKeys(track.album),
+          ]),
+        ].filter((key) => !originals.has(key)),
+      )
       records.push(
         Object.freeze({
           title: normalizeCached(track.title),
@@ -49,6 +78,7 @@ function createLibrarySearchIndexBuilder(): LibrarySearchIndexBuilder {
           albumArtist: normalizeCached(track.albumArtist),
           albumArtistParts: normalizeArtistParts(track.albumArtist),
           album: normalizeCached(track.album),
+          ...(displayAliases.length ? { displayAliases } : {}),
         }),
       )
     },

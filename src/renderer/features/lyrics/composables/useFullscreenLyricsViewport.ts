@@ -1,5 +1,9 @@
 import { computed, getCurrentScope, nextTick, onScopeDispose, ref, watch, type Ref } from 'vue'
 import type { LyricsStatus } from './useTrackLyrics'
+import type { LyricLine } from '../types'
+import { createWholeLineLyricsViewport } from './wholeLineLyricsViewport'
+import { resolveWholeLyricsStart } from '../utils/wholeLineLyricsLayout'
+import { getLyricsScrollEasing, type LyricsScrollPreset } from '../lyricsScrollPreset'
 
 type ReadonlyRef<T> = Readonly<Ref<T>>
 type LyricMetric = { offset: number; height: number }
@@ -15,18 +19,23 @@ export interface FullscreenLyricsViewportOptions {
   showPrelude: ReadonlyRef<boolean>
   isOpen: ReadonlyRef<boolean>
   reducedMotion?: ReadonlyRef<boolean>
+  scrollPreset?: ReadonlyRef<LyricsScrollPreset>
+  wholeLineMode?: ReadonlyRef<boolean>
+  lines?: ReadonlyRef<readonly LyricLine[]>
+  artworkRef?: Ref<HTMLElement | null>
 }
 
 const MIN_DURATION_MS = 420
 const MAX_DURATION_MS = 650
 const DURATION_BASE_MS = 380
 const DURATION_PER_PIXEL = 0.65
-const EASING = 'cubic-bezier(0.4, 0, 0.2, 1)'
 const AUTO_FOLLOW_PAUSE_MS = 8000
 export const FULLSCREEN_LYRICS_FOCAL_RATIO = 0.3
 export const FULLSCREEN_LYRICS_FADE_TOP_RATIO = 0.07
 export const FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO = 0.1
+export const FULLSCREEN_LYRICS_ACTIVE_SCALE = 1.23
 const PLAIN_EDGE_GAP_PX = 8
+const ACTIVE_EDGE_GAP_PX = 4
 
 export function clampFullscreenLyricsScroll(value: number, max: number): number {
   return Math.max(0, Math.min(value, max))
@@ -36,11 +45,21 @@ export function resolveFullscreenLyricsScrollTarget(
   metric: LyricMetric,
   containerHeight: number,
   scrollMax: number,
+  scale = FULLSCREEN_LYRICS_ACTIVE_SCALE,
 ): number {
-  return clampFullscreenLyricsScroll(
-    metric.offset - containerHeight * FULLSCREEN_LYRICS_FOCAL_RATIO + metric.height / 2,
-    scrollMax,
+  const visibleHalfHeight = (metric.height * scale) / 2
+  const firstClearCenter =
+    containerHeight * FULLSCREEN_LYRICS_FADE_TOP_RATIO + ACTIVE_EDGE_GAP_PX + visibleHalfHeight
+  const lastClearCenter =
+    containerHeight * (1 - FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO) -
+    ACTIVE_EDGE_GAP_PX -
+    visibleHalfHeight
+  // Keep fitting lines clear of both fades. Oversized lines start at the top for manual reading.
+  const center = Math.max(
+    firstClearCenter,
+    Math.min(containerHeight * FULLSCREEN_LYRICS_FOCAL_RATIO, lastClearCenter),
   )
+  return clampFullscreenLyricsScroll(metric.offset + metric.height / 2 - center, scrollMax)
 }
 
 export function resolveFullscreenLyricsAnimationDuration(distance: number): number {
@@ -52,20 +71,37 @@ export function resolveFullscreenLyricsAnimationDuration(distance: number): numb
 
 export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOptions) {
   const containerHeight = ref(0)
+  const renderAhead = ref(16)
+  const renderedLines = computed(() => {
+    const lines = options.lines?.value ?? []
+    const start = options.wholeLineMode?.value
+      ? Math.max(0, resolveWholeLyricsStart(lines, options.activeIndex.value))
+      : 0
+    const end = options.wholeLineMode?.value
+      ? Math.max(start, options.activeIndex.value) + renderAhead.value
+      : lines.length
+    return lines.slice(start, end).map((line, offset) => ({ line, index: start + offset }))
+  })
   const isUserScrolling = ref(false)
   const topPadding = computed(() =>
-    options.lyricsStatus.value === 'plain'
-      ? Math.round(containerHeight.value * FULLSCREEN_LYRICS_FADE_TOP_RATIO) + PLAIN_EDGE_GAP_PX
-      : Math.round(containerHeight.value * FULLSCREEN_LYRICS_FOCAL_RATIO),
+    options.wholeLineMode?.value
+      ? 0
+      : options.lyricsStatus.value === 'plain'
+        ? Math.round(containerHeight.value * FULLSCREEN_LYRICS_FADE_TOP_RATIO) + PLAIN_EDGE_GAP_PX
+        : Math.round(containerHeight.value * FULLSCREEN_LYRICS_FOCAL_RATIO),
   )
   const bottomPadding = computed(() =>
-    options.lyricsStatus.value === 'plain'
-      ? Math.round(containerHeight.value * FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO) + PLAIN_EDGE_GAP_PX
-      : Math.round(containerHeight.value * (1 - FULLSCREEN_LYRICS_FOCAL_RATIO)),
+    options.wholeLineMode?.value
+      ? 0
+      : options.lyricsStatus.value === 'plain'
+        ? Math.round(containerHeight.value * FULLSCREEN_LYRICS_FADE_BOTTOM_RATIO) +
+          PLAIN_EDGE_GAP_PX
+        : Math.round(containerHeight.value * (1 - FULLSCREEN_LYRICS_FOCAL_RATIO)),
   )
   let scrollTimeout: ReturnType<typeof setTimeout> | null = null
   let resizeObserver: ResizeObserver | null = null
   let observedContainer: HTMLElement | null = null
+  let observedWholeLineMode = false
   let animation: Animation | null = null
   let offset = 0
   let lineMetrics: LyricMetric[] = []
@@ -74,6 +110,17 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
   let metricsPreludeState = false
   let scrollMax = 0
   let disposed = false
+  const wholeLine = createWholeLineLyricsViewport({
+    ...options,
+    focalRatio: FULLSCREEN_LYRICS_FOCAL_RATIO,
+    activeScale: FULLSCREEN_LYRICS_ACTIVE_SCALE,
+    requestMoreLines: () => {
+      if (renderedLines.value.at(-1)?.index === (options.lines?.value.length ?? 0) - 1) return false
+      renderAhead.value *= 2
+      return true
+    },
+  })
+  const clearWholeLineLayout = wholeLine.clear
 
   function setOffset(nextOffset: number): void {
     offset = nextOffset
@@ -122,6 +169,7 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
     setOffset(0)
     if (options.scrollRef.value) options.scrollRef.value.scrollTop = 0
     clearMetrics()
+    clearWholeLineLayout()
   }
 
   function rebuildMetrics(force = false): void {
@@ -151,18 +199,25 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
     metricsLineCount = options.lineCount.value
     metricsPreludeState = options.showPrelude.value
     scrollMax = Math.max(0, track.scrollHeight - container.clientHeight)
+    container.scrollTop = clampFullscreenLyricsScroll(container.scrollTop, scrollMax)
   }
 
   function computeTarget(): number | null {
     if (!options.scrollRef.value) return null
+    const scale = options.reducedMotion?.value ? 1 : FULLSCREEN_LYRICS_ACTIVE_SCALE
     if (options.isPrelude.value) {
       if (!preludeMetric) return 0
-      return resolveFullscreenLyricsScrollTarget(preludeMetric, containerHeight.value, scrollMax)
+      return resolveFullscreenLyricsScrollTarget(
+        preludeMetric,
+        containerHeight.value,
+        scrollMax,
+        scale,
+      )
     }
     if (options.lyricsStatus.value !== 'lrc' || options.activeIndex.value < 0) return null
     const metric = lineMetrics[options.activeIndex.value]
     if (!metric) return null
-    return resolveFullscreenLyricsScrollTarget(metric, containerHeight.value, scrollMax)
+    return resolveFullscreenLyricsScrollTarget(metric, containerHeight.value, scrollMax, scale)
   }
 
   function updateTarget(behavior: ScrollBehavior = 'smooth'): void {
@@ -195,7 +250,7 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
       ],
       {
         duration: resolveFullscreenLyricsAnimationDuration(distance),
-        easing: EASING,
+        easing: getLyricsScrollEasing(options.scrollPreset?.value),
         fill: 'both',
       },
     )
@@ -228,21 +283,35 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
       disconnectResizeObserver()
       return
     }
-    if (container === observedContainer && resizeObserver) return
+    const wholeLineMode = options.wholeLineMode?.value ?? false
+    if (
+      container === observedContainer &&
+      resizeObserver &&
+      observedWholeLineMode === wholeLineMode
+    )
+      return
 
     disconnectResizeObserver()
     containerHeight.value = container.clientHeight
     if (typeof ResizeObserver === 'undefined') return
     resizeObserver = new ResizeObserver((entries) => {
       if (disposed || !options.isOpen.value || observedContainer !== container) return
-      containerHeight.value = entries[0]?.contentRect.height ?? container.clientHeight
+      containerHeight.value = wholeLineMode
+        ? container.clientHeight
+        : (entries[0]?.contentRect.height ?? container.clientHeight)
       void nextTick(() => {
         rebuildMetrics(true)
-        updateTarget('auto')
+        if (wholeLineMode) wholeLine.update('auto')
+        else updateTarget('auto')
       })
     })
     resizeObserver.observe(container)
+    if (wholeLineMode) {
+      if (options.artworkRef?.value) resizeObserver.observe(options.artworkRef.value)
+      if (options.trackRef.value) resizeObserver.observe(options.trackRef.value)
+    }
     observedContainer = container
+    observedWholeLineMode = wholeLineMode
   }
 
   function refresh(behavior: ScrollBehavior, forceMetrics = false): void {
@@ -252,11 +321,17 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
       return
     }
     syncScrollContainer()
+    if (options.wholeLineMode?.value) {
+      wholeLine.update(behavior, forceMetrics)
+      return
+    }
+    clearWholeLineLayout()
     rebuildMetrics(forceMetrics)
     updateTarget(behavior)
   }
 
   function pauseAutoFollow(): void {
+    if (options.wholeLineMode?.value) return
     if (disposed || !options.isOpen.value || options.lyricsStatus.value !== 'lrc') return
     const container = options.scrollRef.value
     if (!isUserScrolling.value) {
@@ -285,6 +360,7 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
     cancelAnimation(true)
     disconnectResizeObserver()
     clearMetrics()
+    clearWholeLineLayout()
   }
 
   function onWheel(event: Pick<WheelEvent, 'deltaY'>): void {
@@ -304,18 +380,43 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
     disposed = true
   }
 
+  watch(
+    () => [options.activeIndex.value, options.showPrelude.value, options.reducedMotion?.value],
+    () => {
+      if (options.wholeLineMode?.value && options.isOpen.value) wholeLine.beforeChange()
+    },
+    { flush: 'pre' },
+  )
   watch(options.currentTrackId, resetPosition)
+  watch(
+    () => [options.isOpen.value, containerHeight.value],
+    () => {
+      // Re-evaluate the bounded window after a resize or a visit to a very tall viewport.
+      renderAhead.value = 16
+    },
+  )
+  if (options.lines) watch(options.lines, () => (renderAhead.value = 16))
   watch(options.lyricsStatus, resetPosition)
+  if (options.wholeLineMode) watch(options.wholeLineMode, resetPosition)
   watch(
     () => [
       options.activeIndex.value,
       options.isPrelude.value,
+      options.showPrelude.value,
       options.lineCount.value,
       options.isOpen.value,
       options.lyricsStatus.value,
       options.reducedMotion?.value,
+      options.wholeLineMode?.value,
+      options.lines?.value,
+      renderedLines.value.length,
     ],
     () => {
+      if (options.wholeLineMode?.value) {
+        if (!options.isOpen.value) suspend()
+        else refresh('smooth')
+        return
+      }
       void nextTick(() => {
         if (!options.isOpen.value) {
           suspend()
@@ -337,6 +438,7 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
 
   return {
     containerHeight,
+    renderedLines,
     topPadding,
     bottomPadding,
     isUserScrolling,

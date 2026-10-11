@@ -1,6 +1,4 @@
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
-import { animate } from '@motionone/dom'
-import type { AnimationControls } from '@motionone/types'
 
 /** A quiet tooltip fade, with no movement and no animation under reduced motion. */
 export function animateTooltipOpacity(target: HTMLElement, visible: boolean): () => void {
@@ -19,41 +17,11 @@ export function animateTooltipOpacity(target: HTMLElement, visible: boolean): ()
   }
 }
 
-/** A compositor-only playback marker; paused/reduced motion keeps a static line. */
-export function animatePlaybackUnderline(target: HTMLElement, playing: boolean): () => void {
-  const preference = createReducedMotionQuery()
-  const title = target.parentElement
-  let animation: Animation | undefined
-  const update = (): void => {
-    const elapsed = animation?.currentTime
-    animation?.cancel()
-    animation = undefined
-    // Read geometry only when the title/marker resizes, never on animation frames.
-    const distance = Math.max(0, (title?.clientWidth ?? 0) - target.getBoundingClientRect().width)
-    if (playing && !preference.matches && distance > 0) {
-      animation = target.animate(
-        [{ transform: 'translateX(0)' }, { transform: `translateX(${distance}px)` }],
-        { duration: 1400, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out' },
-      )
-      if (typeof elapsed === 'number') animation.currentTime = elapsed
-    }
-  }
-  const resizeObserver = new ResizeObserver(update)
-  if (title) resizeObserver.observe(title)
-  resizeObserver.observe(target)
-  update()
-  preference.addEventListener('change', update)
-  return () => {
-    animation?.cancel()
-    resizeObserver.disconnect()
-    preference.removeEventListener('change', update)
-  }
-}
-
 /**
  * Fixed-height playback bars for the cover track indicator. Each bar keeps a 12px box and
  * animates `transform: scaleY(...)` from its bottom edge, so no frame touches layout.
- * Pausing or reduced motion cancels the loops and restores the static 5/10/7px shape.
+ * Pausing restores the static 5/10/7px shape. Playback indicators always animate while
+ * playing, independently of the system or app reduced-motion preference.
  */
 const PLAYBACK_BAR_HEIGHT = 12
 const PLAYBACK_BAR_MIN_HEIGHT = 4
@@ -63,9 +31,11 @@ const PLAYBACK_BAR_SPECS = [
   { staticHeight: 7, duration: 900, peakOffset: 0.7 },
 ] as const
 
-export function animatePlaybackBars(bars: readonly HTMLElement[], playing: boolean): () => void {
+export function animatePlaybackBars(
+  bars: readonly (HTMLElement | SVGElement)[],
+  playing: boolean,
+): () => void {
   if (bars.length === 0) return () => {}
-  const preference = createReducedMotionQuery()
   const animations: Animation[] = []
   const toScale = (height: number): string => `scaleY(${(height / PLAYBACK_BAR_HEIGHT).toFixed(3)})`
   const specFor = (index: number): (typeof PLAYBACK_BAR_SPECS)[number] =>
@@ -94,16 +64,35 @@ export function animatePlaybackBars(bars: readonly HTMLElement[], playing: boole
       )
     })
   }
-  const update = (): void => {
-    stopLoops()
-    paintStaticShape()
-    if (playing && !preference.matches) startLoops()
-  }
-  preference.addEventListener('change', update)
-  update()
+  paintStaticShape()
+  if (playing) startLoops()
+  return stopLoops
+}
+
+/** Always animate during playback. Adapted from svg-spinners/blocks-wave (MIT); see THIRD_PARTY_NOTICES.md. */
+export function animatePlaybackBlocks(blocks: readonly SVGElement[], playing: boolean): () => void {
+  blocks.forEach((block) => {
+    block.style.transform = 'scale(1)'
+  })
+  if (!playing) return () => {}
+  const animations = blocks.map((block, index) =>
+    block.animate(
+      [
+        { transform: 'scale(1)', offset: 0 },
+        { transform: 'scale(0.18145)', offset: 0.25 },
+        { transform: 'scale(1)', offset: 0.5 },
+        { transform: 'scale(1)', offset: 1 },
+      ],
+      {
+        duration: 1200,
+        delay: ((index % 3) + Math.floor(index / 3)) * 100,
+        easing: 'linear',
+        iterations: Infinity,
+      },
+    ),
+  )
   return () => {
-    stopLoops()
-    preference.removeEventListener('change', update)
+    animations.forEach((animation) => animation.cancel())
   }
 }
 
@@ -443,77 +432,6 @@ export function animateTrashLid(
   )
 }
 
-/** The leading edge moves first; the trailing edge catches up like a sticky line. */
-export function animateRankingUnderline(
-  target: HTMLElement,
-  left: number,
-  width: number,
-  reducedMotion: boolean,
-): () => void {
-  const fromLeft = Number.parseFloat(target.style.left)
-  const fromRight = fromLeft + Number.parseFloat(target.style.width)
-  const paint = (start: number, end: number): void => {
-    target.style.left = `${start}px`
-    target.style.width = `${end - start}px`
-  }
-  const finish = (): void => paint(left, left + width)
-  if (reducedMotion || !Number.isFinite(fromRight)) {
-    finish()
-    return () => {}
-  }
-  const movingRight = left + width / 2 >= (fromLeft + fromRight) / 2
-  return animateProgress(
-    420,
-    (progress) => {
-      const leading = 1 - Math.pow(1 - progress, 4)
-      const trailing = progress * progress * (3 - 2 * progress)
-      paint(
-        fromLeft + (left - fromLeft) * (movingRight ? trailing : leading),
-        fromRight + (left + width - fromRight) * (movingRight ? leading : trailing),
-      )
-    },
-    finish,
-  )
-}
-
-export function animateRankingRibbon(
-  target: HTMLElement,
-  expanded: boolean,
-  reducedMotion: boolean,
-): () => void {
-  const from = Number(target.style.getPropertyValue('--reveal')) || 0
-  const to = expanded ? 1 : 0
-  const finish = (): void => target.style.setProperty('--reveal', String(to))
-  if (reducedMotion) {
-    finish()
-    return () => {}
-  }
-  return animateProgress(
-    540,
-    (progress) => {
-      const eased = 1 - Math.pow(1 - progress, 4)
-      target.style.setProperty('--reveal', String(from + (to - from) * eased))
-    },
-    finish,
-  )
-}
-
-export function animateRankingRecord(
-  target: HTMLElement,
-  pulled: boolean,
-  reducedMotion: boolean,
-): AnimationControls {
-  return animate(
-    target,
-    {
-      transform: pulled
-        ? 'translateY(-28px) translateZ(90px) rotateY(-18deg)'
-        : 'translateY(0px) translateZ(0px) rotateY(-50deg)',
-    },
-    { duration: reducedMotion ? 0 : 0.62, easing: [0.18, 0.85, 0.2, 1] },
-  )
-}
-
 /** A small tactile press that leaves the disc's tilt and artwork rotation intact. */
 export function animateCdPress(target: HTMLElement, reducedMotion: boolean): () => void {
   if (reducedMotion) return () => {}
@@ -540,36 +458,4 @@ export function animateFrames(update: (seconds: number) => boolean): () => void 
     stopped = true
     cancelAnimationFrame(frame)
   }
-}
-
-export const LYRICS_PANEL_ANIMATION_DURATION_MS = 200
-
-/**
- * Coordinated expansion / collapse animation for the shell lyrics column and playbar right offset.
- * Uses a gentle cubic deceleration curve and resolves immediately when reduced motion is preferred.
- */
-export function animateLyricsPanelExpansion(
-  from: number,
-  to: number,
-  reducedMotion: boolean,
-  onProgress: (progress: number) => void,
-  onComplete: () => void,
-): () => void {
-  if (reducedMotion || from === to) {
-    onProgress(to)
-    onComplete()
-    return () => {}
-  }
-
-  return animateProgress(
-    LYRICS_PANEL_ANIMATION_DURATION_MS,
-    (progress) => {
-      const eased = 1 - Math.pow(1 - progress, 3)
-      onProgress(from + (to - from) * eased)
-    },
-    () => {
-      onProgress(to)
-      onComplete()
-    },
-  )
 }

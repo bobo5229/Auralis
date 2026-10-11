@@ -2,27 +2,36 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
-import { formatArtist } from '@renderer/features/library/utils/formatArtist'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 import {
   prefetchArtworkPalette,
   useArtworkPalette,
 } from '@renderer/features/playback/composables/useArtworkPalette'
 import { resolvePlayerPrimaryButtonTextColor } from '@renderer/features/playback/utils/resolvePlayerPrimaryButtonTextColor'
+import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import type { AlbumSummary } from '../types'
+import { useAlbumCoverLongPress } from '../composables/useAlbumCoverLongPress'
 
 const props = defineProps<{
   album: AlbumSummary
-  displayMode: 'grid' | 'perspective'
   highlighted?: boolean
+  longPressEnabled?: boolean
+  artworkUrl?: string
 }>()
 
 const { t } = useI18n()
-const displayAlbumTitle = computed(() => props.album.title)
-const displayAlbumArtist = computed(() => formatArtist(props.album.albumArtist))
+const { songText, songValues } = useChineseTextDisplay()
+const displayAlbumTitle = computed(() =>
+  props.album.title === 'Unknown Album' ? t('library.unknownAlbum') : songText(props.album.title),
+)
+const displayAlbumArtist = computed(() =>
+  props.album.albumArtist === 'Unknown Artist'
+    ? t('library.unknownArtist')
+    : songValues(props.album.albumArtist),
+)
 const artworkCacheKey = computed(() => props.album.artworkCacheKey)
-const { palette } = useArtworkPalette(artworkCacheKey, {
-  enabled: computed(() => props.displayMode === 'grid'),
-})
+const artworkUrl = computed(() => props.artworkUrl ?? getArtworkUrl(props.album.artworkCacheKey))
+const { palette } = useArtworkPalette(artworkCacheKey)
 const playButtonStyle = computed(() => {
   const color =
     palette.value.quality !== 'fallback' && palette.value.key === artworkCacheKey.value
@@ -39,11 +48,50 @@ const emit = defineEmits<{
   open: [album: AlbumSummary]
   play: [album: AlbumSummary]
   openContextMenu: [album: AlbumSummary, event: MouseEvent]
+  longPress: [album: AlbumSummary, cover: HTMLElement]
 }>()
+
+const longPress = useAlbumCoverLongPress(
+  computed(() => Boolean(props.longPressEnabled)),
+  (cover) => emit('longPress', props.album, cover),
+)
+const { holding } = longPress
+watch(() => props.album.key, longPress.cancel)
 
 const imageFailed = ref(false)
 const cardRootRef = ref<HTMLElement | null>(null)
+const playIconRef = ref<SVGSVGElement | null>(null)
+let playIconAnimation: Animation | null = null
 let visibilityObserver: IntersectionObserver | null = null
+
+function cancelPlayIconAnimation(): void {
+  playIconAnimation?.cancel()
+  playIconAnimation = null
+}
+
+function playAlbum(): void {
+  emit('play', props.album)
+  cancelPlayIconAnimation()
+  const icon = playIconRef.value
+  if (!icon?.animate || createReducedMotionQuery().matches) return
+
+  // 保留原有 1px 光学居中，只移动图标；再次点击从原位重新起跳。
+  const animation = icon.animate(
+    [
+      { transform: 'translate(1px, 0)', offset: 0, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+      { transform: 'translate(1px, -4px)', offset: 0.4, easing: 'cubic-bezier(0.55, 0, 1, 0.45)' },
+      { transform: 'translate(1px, 0.6px)', offset: 0.82, easing: 'ease-out' },
+      { transform: 'translate(1px, 0)', offset: 1 },
+    ],
+    { duration: 260 },
+  )
+  playIconAnimation = animation
+  animation.onfinish = () => {
+    if (playIconAnimation === animation) playIconAnimation = null
+  }
+}
+
+watch(() => props.album.key, cancelPlayIconAnimation)
 
 function prefetchCoverPalette(): void {
   prefetchArtworkPalette(props.album.artworkCacheKey)
@@ -73,15 +121,30 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  cancelPlayIconAnimation()
   visibilityObserver?.disconnect()
   visibilityObserver = null
 })
 
-function openAlbum(): void {
+function openAlbum(event?: MouseEvent): void {
+  if (longPress.consumeClick(event)) return
   emit('open', props.album)
 }
 
+function onCoverKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  if (event.repeat) return
+  longPress.cancel()
+  if (event.key === 'Enter' && event.shiftKey && props.longPressEnabled) {
+    emit('longPress', props.album, event.currentTarget as HTMLElement)
+  } else emit('open', props.album)
+}
+
 function onContextMenu(event: MouseEvent): void {
+  longPress.cancel()
+  const isCover = (event.currentTarget as HTMLElement | null)?.classList?.contains('cover-stage')
+  if (isCover && longPress.consumeClick(event)) return
   emit('openContextMenu', props.album, event)
 }
 </script>
@@ -90,29 +153,32 @@ function onContextMenu(event: MouseEvent): void {
   <article
     ref="cardRootRef"
     class="album-card min-w-0"
-    :class="[`album-card--${displayMode}`, { 'album-card--highlighted': highlighted }]"
+    :class="{ 'album-card--highlighted': highlighted }"
     @pointerenter="prefetchCoverPalette"
   >
     <div class="album-card-cover">
-      <!-- cover-stage 锁定 1:1；cover-frame 承载 3D；img 绝对填充 + object-fit:cover 强制裁切 -->
+      <!-- cover-stage 锁定 1:1；img 绝对填充并通过 object-fit:cover 裁切 -->
       <div
         class="cover-stage"
+        :class="{ 'cover-stage--holding': holding }"
         role="button"
         tabindex="0"
         :aria-label="t('albums.a11y.openAlbum', { title: displayAlbumTitle })"
+        :aria-description="longPressEnabled ? t('albums.a11y.longPressPlay') : undefined"
+        @pointerdown="longPress.start"
+        @dragstart.prevent
         @click="openAlbum"
         @contextmenu.prevent="onContextMenu"
-        @keydown.enter="openAlbum"
-        @keydown.space.prevent="openAlbum"
+        @keydown="onCoverKeydown"
       >
         <div class="cover-frame">
           <img
-            v-if="getArtworkUrl(album.artworkCacheKey) && !imageFailed"
-            :src="getArtworkUrl(album.artworkCacheKey)!"
+            v-if="artworkUrl && !imageFailed"
+            :src="artworkUrl"
             :alt="t('albums.a11y.coverAlt', { title: displayAlbumTitle })"
             class="cover-img"
             loading="lazy"
-            decoding="async"
+            decoding="auto"
             draggable="false"
             @error="imageFailed = true"
           />
@@ -121,16 +187,16 @@ function onContextMenu(event: MouseEvent): void {
           </div>
         </div>
       </div>
-      <div v-if="displayMode === 'grid'" class="album-card-play-clip">
+      <div class="album-card-play-clip">
         <button
           type="button"
           class="album-card-play"
           :style="playButtonStyle"
           :aria-label="t('albums.contextMenu.play', { title: displayAlbumTitle })"
-          @click="emit('play', album)"
+          @click="playAlbum"
           @contextmenu.prevent="onContextMenu"
         >
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <svg ref="playIconRef" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <!-- M6 起笔：bbox 中心落在 viewBox 中线；原先 M8 会让三角在 48px 圆里偏右约 2.4px -->
             <path
               d="M6 5.5c0-.9 1-1.5 1.8-1l10 6.5a1.2 1.2 0 0 1 0 2l-10 6.5c-.8.5-1.8-.1-1.8-1V5.5Z"
@@ -145,7 +211,9 @@ function onContextMenu(event: MouseEvent): void {
       <p class="album-card-artist">{{ displayAlbumArtist }}</p>
       <div class="album-card-index-line">
         <span class="album-card-year">
-          <template v-if="album.releaseDate"> {{ album.releaseDate.slice(0, 4) }} 年 </template>
+          <template v-if="album.releaseDate">
+            {{ t('albums.year', { year: album.releaseDate.slice(0, 4) }) }}
+          </template>
           <template v-else>&nbsp;</template>
         </span>
       </div>
@@ -154,6 +222,12 @@ function onContextMenu(event: MouseEvent): void {
 </template>
 
 <style scoped>
+:global(:root) {
+  /* Album-list cover geometry; root scope also reaches inert layout-transition clones. */
+  --album-list-cover-radius: 12px;
+  --album-list-cover-hold-outset: 3px;
+}
+
 .album-card {
   display: flex;
   flex-direction: column;
@@ -168,7 +242,7 @@ function onContextMenu(event: MouseEvent): void {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: var(--album-list-cover-radius);
   pointer-events: none;
 }
 
@@ -210,7 +284,7 @@ function onContextMenu(event: MouseEvent): void {
   transform: translateX(1px);
 }
 
-.album-card--grid .album-card-cover:is(:hover, :has(:focus-visible)) .album-card-play {
+.album-card-cover:is(:hover, :has(:focus-visible)) .album-card-play {
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
@@ -252,12 +326,38 @@ function onContextMenu(event: MouseEvent): void {
   width: 100%;
   aspect-ratio: 1 / 1;
   flex-shrink: 0;
-  border-radius: 12px;
+  border-radius: var(--album-list-cover-radius);
   overflow: visible;
   background: transparent;
   cursor: pointer;
   outline: none;
-  perspective: 800px;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.cover-stage--holding::after {
+  position: absolute;
+  inset: calc(0px - var(--album-list-cover-hold-outset));
+  border: 2px solid var(--auralis-focus-ring);
+  border-radius: calc(var(--album-list-cover-radius) + var(--album-list-cover-hold-outset));
+  pointer-events: none;
+  content: '';
+  animation: album-cover-hold 500ms ease-out forwards;
+}
+
+@keyframes album-cover-hold {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 0.8;
+  }
+}
+
+:where([data-reduced-motion='true']) .cover-stage--holding::after {
+  animation: none;
+  opacity: 0.6;
 }
 
 .cover-stage:focus-visible {
@@ -273,16 +373,9 @@ function onContextMenu(event: MouseEvent): void {
   border-radius: inherit;
   background: var(--auralis-artwork-placeholder-bg);
   box-shadow: var(--auralis-surface-shadow, 0 10px 24px rgba(0, 0, 0, 0.28));
-  transform: rotateY(0deg) rotateX(0deg) scale(1);
-  transform-style: preserve-3d;
-  transition:
-    transform 0.45s cubic-bezier(0.34, 1.25, 0.64, 1),
-    box-shadow 0.45s cubic-bezier(0.34, 1.25, 0.64, 1),
-    inset 0.45s cubic-bezier(0.34, 1.25, 0.64, 1);
-  will-change: transform;
 }
 
-.album-card--grid .cover-frame::after {
+.cover-frame::after {
   position: absolute;
   z-index: 1;
   inset: 0;
@@ -293,7 +386,7 @@ function onContextMenu(event: MouseEvent): void {
   content: '';
 }
 
-.album-card--grid .album-card-cover:is(:hover, :has(:focus-visible)) .cover-frame::after {
+.album-card-cover:is(:hover, :has(:focus-visible)) .cover-frame::after {
   opacity: 1;
 }
 
@@ -324,47 +417,15 @@ function onContextMenu(event: MouseEvent): void {
   font-size: 11px;
 }
 
-/* ── 3D 透视展台：倾斜正方形 frame，img 仍强制 1:1 cover ─ */
-.album-card--perspective .cover-stage {
-  overflow: visible;
-  background: transparent;
-  box-shadow: none;
-  perspective: 800px;
-}
-
-.album-card--perspective .cover-frame {
-  /* 等距内缩保持正方形，并为投影留边 */
-  inset: 6%;
-  border-radius: 10px;
-  transform: rotateY(-18deg) rotateX(8deg) scale(0.92);
-  transform-style: preserve-3d;
-  box-shadow:
-    -10px 14px 24px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-.album-card--perspective:hover .cover-frame,
-.album-card--perspective:focus-within .cover-frame {
-  /* 转正并放大：阴影改为居中下投，避免 -x 偏移 + blur 再次顶穿左侧裁切线 */
-  transform: rotateY(0deg) rotateX(0deg) scale(1);
-  box-shadow:
-    0 16px 28px rgba(0, 0, 0, 0.48),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-
-/* ── 元信息：固定高度 + 单行省略，全场卡片物理高度一致 ─ */
+/* 元信息统一高度随排版参数扩展；单行省略保持同一网格内的卡片几何一致。 */
 .album-card-meta {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  height: 58px;
-  margin-top: 12px;
+  gap: var(--album-list-text-gap, 3px);
+  height: var(--album-list-meta-height, 58px);
+  margin-top: var(--album-list-meta-gap, 12px);
   min-width: 0;
   overflow: hidden;
-}
-
-.album-card--perspective .album-card-meta {
-  margin-inline: 6%;
 }
 
 .album-card-title,
@@ -375,7 +436,6 @@ function onContextMenu(event: MouseEvent): void {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  line-height: 1.25;
 }
 
 .album-card-index-line {
@@ -397,18 +457,23 @@ function onContextMenu(event: MouseEvent): void {
 }
 
 .album-card-title {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--album-list-type-title-size);
+  font-weight: var(--album-list-type-title-weight);
+  line-height: var(--album-list-type-title-line-height);
   color: var(--auralis-text);
 }
 
 .album-card-artist {
-  font-size: 12px;
+  font-size: var(--album-list-type-artist-size);
+  font-weight: var(--album-list-type-artist-weight);
+  line-height: var(--album-list-type-artist-line-height);
   color: var(--auralis-text-muted);
 }
 
 .album-card-year {
-  font-size: 11px;
+  font-size: var(--album-list-type-year-size);
+  font-weight: var(--album-list-type-year-weight);
+  line-height: var(--album-list-type-year-line-height);
   color: var(--auralis-text-faint);
   /* 无发行年时仍占一行，避免行高参差 */
   min-height: 1.25em;
@@ -418,17 +483,7 @@ function onContextMenu(event: MouseEvent): void {
   transition: none;
 }
 
-:where([data-reduced-motion='true']) .album-card--grid .cover-frame::after {
+:where([data-reduced-motion='true']) .cover-frame::after {
   transition: none;
-}
-
-:where([data-reduced-motion='true']) .album-card--perspective .cover-frame {
-  transition: none !important;
-  transform: none !important;
-}
-
-:where([data-reduced-motion='true']) .album-card--perspective:hover .cover-frame,
-:where([data-reduced-motion='true']) .album-card--perspective:focus-within .cover-frame {
-  transform: none !important;
 }
 </style>

@@ -5,44 +5,67 @@ import {
 } from '@renderer/shared/animation/motionPreference'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
+import { useStartupAlbum } from './features/startupAlbum/useStartupAlbum'
+import './app/styles/cdCanvasTransition.css'
 import { router } from './app/router'
 import AppSidebar from './app/layout/AppSidebar.vue'
 import WindowTrafficLights from './app/layout/WindowTrafficLights.vue'
 import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
-import FluidArtworkBackground from './features/playback/components/FluidArtworkBackground.vue'
-import { useShellFluidBackground } from '@renderer/features/appearance/composables/useShellFluidBackground'
+import SettingsDialog from '@renderer/features/settings/components/SettingsDialog.vue'
+import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useCdCanvasTheme } from '@renderer/features/albums/composables/useCdCanvasTheme'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
-import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { MODERN_PLAYER_BAR_MAX_WIDTH_PX } from '@renderer/features/playback/utils/modernPlayerBarLayout'
-import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { useLyricsPanelVisibility } from '@renderer/features/appearance/composables/useLyricsPanelVisibility'
 import { useLyricsPanelLayout, computeLyricsTargetWidth } from './app/layout/useLyricsPanelLayout'
-import { animateLyricsPanelExpansion, animateProgress } from '@renderer/shared/animation/motion'
 import {
   createLyricsAlbumTransitionCoordinator,
   type AlbumLayoutTransitionParticipant,
   type LyricsAlbumTransitionTicket,
 } from './app/layout/lyricsAlbumTransitionCoordinator'
 import { createAlbumDetailEntryTransition } from './app/layout/albumDetailEntryTransition'
+import { findAlbumTransitionFocusTarget } from './features/albums/utils/albumGridTransitionPlan'
+import { albumIdentityKey } from './features/albums/utils/albumIdentity'
 import { createSidebarLayoutTransition } from './app/layout/sidebarLayoutTransition'
+import { hasCdViewSwitchTransition } from './features/albums/utils/cdViewSwitchTransition'
+import {
+  animateLyricsPanelSlide,
+  animateLyricsPlayerTranslation,
+  getLyricsSlideDuration,
+} from './app/layout/lyricsPanelSlideMotion'
 
+const {
+  active: startupAlbumActive,
+  presentation: startupAlbumPresentation,
+  overlay: startupAlbumOverlay,
+  shown: startupAlbumShown,
+  close: closeStartupAlbum,
+} = useStartupAlbum()
 const route = useRoute()
-const playback = usePlayback()
-const { shellFluidBackgroundEnabled } = useShellFluidBackground()
 const { cdCanvasTheme } = useCdCanvasTheme()
 useSystemMediaIntegration()
 const { displayMode } = usePlayerDisplayMode()
+const { isSettingsOpen, closeSettings } = useSettingsDialog()
+
+watch(() => route.fullPath, closeSettings, { flush: 'sync' })
+watch(
+  displayMode,
+  (mode) => {
+    if (mode === 'fullscreen') closeSettings()
+  },
+  { flush: 'sync' },
+)
 
 const { lyricsPanelExpanded } = useLyricsPanelVisibility()
-const { canDisplayLyricsPanel } = useLyricsPanelLayout()
+const { canLayoutLyricsPanel } = useLyricsPanelLayout()
 
 const shellRef = ref<HTMLElement | null>(null)
-const initialLyricsActive = canDisplayLyricsPanel.value && lyricsPanelExpanded.value
+const mainRef = ref<HTMLElement | null>(null)
+const initialLyricsActive = canLayoutLyricsPanel.value && lyricsPanelExpanded.value
 const lyricsProgress = ref(initialLyricsActive ? 1 : 0)
 const shouldMountLyrics = ref(initialLyricsActive)
 const isLyricsCollapsed = ref(!initialLyricsActive)
@@ -64,38 +87,20 @@ let playerBarTransitionVisuals: Array<{
 let playerBarTransitionLayers: HTMLElement[] = []
 let playerBarTranslationOffset: { x: number; y: number } | null = null
 let lyricsPanelTravelPx = 0
-let lyricsPanelTransformFromPx = 0
-let lyricsPanelTransformToPx = 0
 let activeLyricsPanel: HTMLElement | null = null
 let activeLyricsContent: HTMLElement | null = null
 let activePlayerBarIsland: HTMLElement | null = null
-let lyricsResizeFrame: number | null = null
-
-function cancelLyricsResizeFrame(): void {
-  if (lyricsResizeFrame !== null) cancelAnimationFrame(lyricsResizeFrame)
-  lyricsResizeFrame = null
-}
-
 function beginLyricsResize(): void {
-  cancelLyricsResizeFrame()
   isLyricsResizing.value = true
 }
 
-function finishLyricsResize(): void {
-  // 终点列宽先绘制，再恢复侧边栏的 CSS 过渡和专辑网格测量。
-  lyricsResizeFrame = requestAnimationFrame(() => {
-    lyricsResizeFrame = requestAnimationFrame(() => {
-      lyricsResizeFrame = null
-      isLyricsResizing.value = false
-    })
-  })
-}
-
 let stopLyricsAnimation: (() => void) | null = null
-let animationTarget: boolean | null = null
 let reducedMotionMedia: MotionQuery | null = null
+let genericLyricsTransitionRevision = 0
+let isGenericLyricsTransitioning = false
 
 function cancelLyricsAnimation(): void {
+  genericLyricsTransitionRevision += 1
   stopLyricsAnimation?.()
   stopLyricsAnimation = null
 }
@@ -221,22 +226,6 @@ function retargetPlayerBarTransitionLayers(targetRect: DOMRect): void {
   }
 }
 
-function renderPlayerBarTransition(progress: number): void {
-  if (playerBarTranslationOffset && activePlayerBarIsland) {
-    const remaining = Math.pow(1 - progress, 3)
-    activePlayerBarIsland.style.transform = `translate3d(${playerBarTranslationOffset.x * remaining}px, ${playerBarTranslationOffset.y * remaining}px, 0)`
-    return
-  }
-  for (const layer of playerBarTransitionLayers) {
-    const dx = Number(layer.dataset.transitionDx) || 0
-    const dy = Number(layer.dataset.transitionDy) || 0
-    const initialOpacity = Number.parseFloat(layer.dataset.startOpacity ?? '') || 0
-    layer.style.transform = `translate3d(${dx * progress}px, ${dy * progress}px, 0)`
-    layer.style.opacity = String(initialOpacity * (1 - progress))
-  }
-  if (activePlayerBarIsland) activePlayerBarIsland.style.opacity = String(progress)
-}
-
 function clearPlayerBarTransition(): void {
   removePlayerBarTransitionLayers()
   playerBarTransitionVisuals = []
@@ -282,6 +271,7 @@ function resetLyricsPanelPosition(panel: HTMLElement | null): void {
     'transform',
     'opacity',
     'visibility',
+    'will-change',
   ]) {
     panel.style.removeProperty(property)
   }
@@ -300,11 +290,28 @@ function onTransitionPointerDown(event: PointerEvent): void {
   const target = event.target
   if (target instanceof Element && target.closest('[data-lyrics-toggle], [data-sidebar-toggle]'))
     return
+  const button = target instanceof Element ? target.closest('button') : null
+  if (button && activePlayerBarIsland?.contains(button)) {
+    // Keep pointerup/click on the pressed control while the live island moves.
+    button.setPointerCapture(event.pointerId)
+    return
+  }
+  void settleAlbumLyricsTransition()
+}
+
+function onTransitionClick(event: MouseEvent): void {
+  if (
+    event.target instanceof Element &&
+    event.target.closest('[data-lyrics-toggle], [data-sidebar-toggle]')
+  )
+    return
+  // Bubble after the control has handled its click, before clearing its transform.
   void settleAlbumLyricsTransition()
 }
 
 function removeTransitionPointerListener(): void {
   document.removeEventListener('pointerdown', onTransitionPointerDown, true)
+  document.removeEventListener('click', onTransitionClick)
 }
 
 function usesAlbumLayoutTransition(): boolean {
@@ -330,6 +337,7 @@ function setLyricsTargetState(expanded: boolean): void {
 async function finishAlbumLyricsTransition(ticket: LyricsAlbumTransitionTicket): Promise<void> {
   if (!lyricsAlbumTransition.isCurrent(ticket)) return
   stopAlbumTransitionAnimation = null
+  cancelLyricsAnimation()
   const expanded = ticket.to >= 0.5
   const panel = shellRef.value?.querySelector<HTMLElement>('.now-playing-panel') ?? null
   setLyricsVisualProgress(ticket.to)
@@ -345,7 +353,7 @@ async function finishAlbumLyricsTransition(ticket: LyricsAlbumTransitionTicket):
   activeAlbumParticipant = null
   isAlbumLayoutTransitioning.value = false
   isLyricsResizing.value = false
-  animationTarget = null
+  isGenericLyricsTransitioning = false
   stopLyricsAnimation = null
 }
 
@@ -353,28 +361,36 @@ let activeAlbumParticipant: AlbumLayoutTransitionParticipant | null = null
 async function runAlbumLyricsTransition(expanded: boolean, sidebarRail?: boolean): Promise<void> {
   const participant = activeAlbumsPage.value
   if (!participant || !usesAlbumLayoutTransition()) return
+  // Read the painted position before cancelling compositor animations on reversal.
+  const previousPanel = activeLyricsPanel
+  const previousPanelRect = previousPanel?.getBoundingClientRect()
+  const previousStyle = previousPanel ? getComputedStyle(previousPanel) : null
+  const previousTranslation = previousStyle ? new DOMMatrixReadOnly(previousStyle.transform).m41 : 0
+  const from =
+    previousPanelRect && previousPanelRect.width > 0
+      ? Math.max(0, Math.min(1, 1 - previousTranslation / previousPanelRect.width))
+      : lyricsVisualProgress
+  const fromOpacity = previousStyle
+    ? Number(previousStyle.opacity)
+    : shouldMountLyrics.value
+      ? 1
+      : 0
+  const startingIslandRect = getPlayerBarIsland()?.getBoundingClientRect() ?? null
   stopAlbumTransitionAnimation?.()
   stopAlbumTransitionAnimation = null
   cancelLyricsAnimation()
-  cancelLyricsResizeFrame()
 
-  const from = lyricsVisualProgress
   const to = expanded ? 1 : 0
   const animatesSidebar = sidebarRail !== undefined || sidebarLayoutTransition.isActive()
-  if (!animatesSidebar && Math.abs(to - from) < 0.001) {
-    applyImmediateState(expanded)
-    return
-  }
+  // Even zero-distance reversals must restore the target columns while the grid is locked.
 
   const ticket = lyricsAlbumTransition.begin(from, to)
   activeAlbumTransitionTicket = ticket
   activeAlbumParticipant = participant
   activeLyricsPanel = null
   activeLyricsContent = null
-  animationTarget = expanded
   isLyricsResizing.value = true
   isAlbumLayoutTransitioning.value = true
-  const startingIslandRect = getPlayerBarIsland()?.getBoundingClientRect() ?? null
   const translatesPlayerBar =
     animatesSidebar ||
     (startingIslandRect !== null &&
@@ -394,13 +410,22 @@ async function runAlbumLyricsTransition(expanded: boolean, sidebarRail?: boolean
   }
 
   let panel = shellRef.value?.querySelector<HTMLElement>('.now-playing-panel') ?? null
-  const startingPanelRect = panel?.getBoundingClientRect()
+  const paintedPanelRect = previousPanelRect ?? panel?.getBoundingClientRect()
+  const startingPanelRect = paintedPanelRect
+    ? new DOMRect(
+        paintedPanelRect.left - previousTranslation,
+        paintedPanelRect.top,
+        paintedPanelRect.width,
+        paintedPanelRect.height,
+      )
+    : undefined
   if (panel) {
     if (expanded) {
       resetLyricsPanelPosition(panel)
       panel.style.visibility = 'hidden'
     } else if (startingPanelRect && startingPanelRect.width > 0) {
       panel.style.visibility = 'hidden'
+      panel.style.removeProperty('transform')
       positionLyricsPanel(panel, startingPanelRect)
     }
   }
@@ -422,6 +447,7 @@ async function runAlbumLyricsTransition(expanded: boolean, sidebarRail?: boolean
     return
   }
   document.addEventListener('pointerdown', onTransitionPointerDown, true)
+  document.addEventListener('click', onTransitionClick)
 
   // Commit the shell's final column once, while AlbumsPage keeps its geometry locked.
   if (sidebarRail !== undefined) renderedSidebarRail.value = sidebarRail
@@ -449,11 +475,10 @@ async function runAlbumLyricsTransition(expanded: boolean, sidebarRail?: boolean
     panel.style.visibility = 'hidden'
     positionLyricsPanel(panel, targetPanelRect)
     lyricsPanelTravelPx = targetPanelRect.width
-    lyricsPanelTransformFromPx = expanded ? lyricsPanelTravelPx * (1 - from) : 0
-    lyricsPanelTransformToPx = expanded ? 0 : lyricsPanelTravelPx
-    panel.style.opacity = String(from)
+    panel.style.opacity = String(fromOpacity)
+    panel.style.willChange = 'transform, opacity'
     activeLyricsContent?.style.setProperty('opacity', '1')
-    panel.style.transform = `translate3d(${lyricsPanelTransformFromPx}px, 0, 0)`
+    panel.style.transform = `translate3d(${lyricsPanelTravelPx * (1 - from)}px, 0, 0)`
     panel.style.visibility = 'visible'
   }
 
@@ -479,30 +504,72 @@ async function runAlbumLyricsTransition(expanded: boolean, sidebarRail?: boolean
     clearPlayerBarTransition()
   }
 
-  participant.renderLyricsLayoutTransition(ticket.revision, 0)
-  if (translatesPlayerBar && playerBarTranslationOffset) renderPlayerBarTransition(0)
-  setLyricsVisualProgress(from)
+  if (translatesPlayerBar && playerBarTranslationOffset && activePlayerBarIsland)
+    activePlayerBarIsland.style.transform = `translate3d(${playerBarTranslationOffset.x}px, ${playerBarTranslationOffset.y}px, 0)`
+  lyricsVisualProgress = from
+  // Keep the source still while the fixed surfaces receive their initial paint.
+  await new Promise<void>((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+  )
+  if (!lyricsAlbumTransition.isCurrent(ticket)) return
   if (!lyricsAlbumTransition.start(ticket)) return
 
-  const duration = animatesSidebar ? 280 : 200 * Math.abs(to - from)
-  stopAlbumTransitionAnimation = animateProgress(
-    duration,
-    (progress) => {
-      const eased = 1 - Math.pow(1 - progress, 3)
-      const visualProgress = from + (to - from) * eased
-      setLyricsVisualProgress(visualProgress)
-      if (activeLyricsPanel) {
-        const panelOffset =
-          lyricsPanelTransformFromPx +
-          (lyricsPanelTransformToPx - lyricsPanelTransformFromPx) * eased
-        activeLyricsPanel.style.transform = `translate3d(${panelOffset}px, 0, 0)`
-      }
-      participant.renderLyricsLayoutTransition(ticket.revision, progress)
-      renderPlayerBarTransition(progress)
-      sidebarLayoutTransition.render(progress)
-    },
-    () => void finishAlbumLyricsTransition(ticket),
-  )
+  const duration = 200
+  const slide = activeLyricsPanel
+    ? animateLyricsPanelSlide(
+        activeLyricsPanel,
+        from,
+        to,
+        fromOpacity,
+        lyricsPanelTravelPx,
+        duration,
+      )
+    : null
+  const playerMovement =
+    playerBarTranslationOffset && activePlayerBarIsland
+      ? animateLyricsPlayerTranslation(activePlayerBarIsland, playerBarTranslationOffset, duration)
+      : null
+  const playerFades: Animation[] = []
+  if (!translatesPlayerBar) {
+    for (const layer of playerBarTransitionLayers) {
+      const dx = Number(layer.dataset.transitionDx) || 0
+      const dy = Number(layer.dataset.transitionDy) || 0
+      playerFades.push(
+        layer.animate(
+          [
+            { opacity: Number(layer.dataset.startOpacity) || 0, transform: 'translate3d(0, 0, 0)' },
+            { opacity: 0, transform: `translate3d(${dx}px, ${dy}px, 0)` },
+          ],
+          { duration, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'forwards' },
+        ),
+      )
+    }
+    if (activePlayerBarIsland)
+      playerFades.push(
+        activePlayerBarIsland.animate([{ opacity: 0 }, { opacity: 1 }], {
+          duration,
+          fill: 'forwards',
+        }),
+      )
+  }
+  stopLyricsAnimation = () => {
+    slide?.cancel()
+    playerMovement?.cancel()
+    playerFades.forEach((animation) => animation.cancel())
+  }
+  let cancelled = false
+  stopAlbumTransitionAnimation = () => {
+    cancelled = true
+  }
+  await Promise.all([
+    participant.animateLyricsLayoutTransition(ticket.revision, duration),
+    sidebarLayoutTransition.animate(duration),
+    ...[slide?.movement, playerMovement, ...playerFades].flatMap((animation) =>
+      animation ? [animation.finished.catch(() => undefined)] : [],
+    ),
+  ])
+  if (!cancelled && lyricsAlbumTransition.isCurrent(ticket))
+    await finishAlbumLyricsTransition(ticket)
 }
 
 async function settleAlbumLyricsTransition(): Promise<void> {
@@ -510,10 +577,11 @@ async function settleAlbumLyricsTransition(): Promise<void> {
   if (!ticket) return
   stopAlbumTransitionAnimation?.()
   stopAlbumTransitionAnimation = null
+  cancelLyricsAnimation()
   lyricsAlbumTransition.cancel()
   const participant = activeAlbumParticipant
   participant?.cancelLyricsLayoutTransition(ticket.revision)
-  const expanded = ticket.to >= 0.5 && canDisplayLyricsPanel.value
+  const expanded = ticket.to >= 0.5 && canLayoutLyricsPanel.value
   setLyricsTargetState(expanded)
   setLyricsVisualProgress(expanded ? 1 : 0)
   sidebarLayoutTransition.clear()
@@ -524,11 +592,11 @@ async function settleAlbumLyricsTransition(): Promise<void> {
   activeAlbumParticipant = null
   isAlbumLayoutTransitioning.value = false
   isLyricsResizing.value = false
-  animationTarget = null
   stopLyricsAnimation = null
 }
 
 function applyImmediateState(expanded: boolean): void {
+  isGenericLyricsTransitioning = false
   const ticket = activeAlbumTransitionTicket
   if (ticket) {
     stopAlbumTransitionAnimation?.()
@@ -544,9 +612,7 @@ function applyImmediateState(expanded: boolean): void {
   resetLyricsPanelPosition(shellRef.value?.querySelector<HTMLElement>('.now-playing-panel') ?? null)
   isAlbumLayoutTransitioning.value = false
   cancelLyricsAnimation()
-  cancelLyricsResizeFrame()
   isLyricsResizing.value = false
-  animationTarget = null
   if (expanded) {
     lyricsProgress.value = 1
     shouldMountLyrics.value = true
@@ -561,83 +627,107 @@ function applyImmediateState(expanded: boolean): void {
   setLyricsVisualProgress(expanded ? 1 : 0)
 }
 
+async function runGenericLyricsTransition(expanded: boolean): Promise<void> {
+  const panel = shellRef.value?.querySelector<HTMLElement>('.now-playing-panel')
+  if (!panel) {
+    applyImmediateState(expanded)
+    return
+  }
+  // Capture the current painted position before cancelling a reversed animation.
+  const panelStyle = getComputedStyle(panel)
+  const from = isGenericLyricsTransitioning
+    ? Math.max(
+        0,
+        Math.min(
+          1,
+          1 - new DOMMatrixReadOnly(panelStyle.transform).m41 / panel.getBoundingClientRect().width,
+        ),
+      )
+    : lyricsVisualProgress
+  const fromOpacity = shouldMountLyrics.value ? Number(panelStyle.opacity) : 0
+  const startingIslandRect = getPlayerBarIsland()?.getBoundingClientRect() ?? null
+  cancelLyricsAnimation()
+  const revision = genericLyricsTransitionRevision
+  clearPlayerBarTransition()
+  resetLyricsPanelPosition(panel)
+  isGenericLyricsTransitioning = true
+  beginLyricsResize()
+  shouldMountLyrics.value = true
+  isLyricsCollapsed.value = false
+  isLyricsInteractive.value = false
+  // Measure the full panel once; layout commits to the destination before motion starts.
+  panel.style.visibility = 'hidden'
+  lyricsProgress.value = 1
+  await nextTick()
+  if (revision !== genericLyricsTransitionRevision) return
+  const rect = panel.getBoundingClientRect()
+  positionLyricsPanel(panel, rect)
+  const to = expanded ? 1 : 0
+  const fromTransform = `translate3d(${rect.width * (1 - from)}px, 0, 0)`
+  panel.style.transform = fromTransform
+  panel.style.opacity = String(fromOpacity)
+  panel.style.willChange = 'transform, opacity'
+  panel.querySelector<HTMLElement>('.now-playing-panel-content')?.style.setProperty('opacity', '1')
+  lyricsProgress.value = to
+  await nextTick()
+  if (revision !== genericLyricsTransitionRevision) return
+  panel.style.removeProperty('visibility')
+  const duration = getLyricsSlideDuration(from, to)
+  const slide = animateLyricsPanelSlide(panel, from, to, fromOpacity, rect.width, duration)
+  let playerMovement: Animation | null = null
+  const island = getPlayerBarIsland()
+  if (island && startingIslandRect) {
+    const targetRect = island.getBoundingClientRect()
+    playerMovement = animateLyricsPlayerTranslation(
+      island,
+      { x: startingIslandRect.left - targetRect.left, y: startingIslandRect.top - targetRect.top },
+      duration,
+    )
+  }
+  stopLyricsAnimation = () => {
+    slide.cancel()
+    playerMovement?.cancel()
+  }
+  slide.movement.onfinish = () => {
+    if (revision !== genericLyricsTransitionRevision) return
+    stopLyricsAnimation?.()
+    stopLyricsAnimation = null
+    isGenericLyricsTransitioning = false
+    resetLyricsPanelPosition(panel)
+    setLyricsTargetState(expanded)
+    // The layout already reached its destination before the compositor animation.
+    isLyricsResizing.value = false
+  }
+}
+
 async function expandWithAnimation(): Promise<void> {
-  animationTarget = true
   if (!reducedMotionMedia?.matches && usesAlbumLayoutTransition()) {
     await runAlbumLyricsTransition(true)
     return
   }
-  cancelLyricsAnimation()
-
   if (reducedMotionMedia?.matches) {
     applyImmediateState(true)
     return
   }
 
-  beginLyricsResize()
-
-  if (!shouldMountLyrics.value) {
-    shouldMountLyrics.value = true
-    isLyricsCollapsed.value = false
-    isLyricsInteractive.value = false
-    await nextTick()
-    await new Promise((resolve) => requestAnimationFrame(resolve))
-    if (animationTarget !== true || !canDisplayLyricsPanel.value) return
-  }
-
-  stopLyricsAnimation = animateLyricsPanelExpansion(
-    lyricsProgress.value,
-    1,
-    Boolean(reducedMotionMedia?.matches),
-    (progress) => {
-      lyricsProgress.value = progress
-      lyricsVisualProgress = progress
-    },
-    () => {
-      stopLyricsAnimation = null
-      lyricsVisualProgress = 1
-      isLyricsInteractive.value = true
-      finishLyricsResize()
-    },
-  )
+  await runGenericLyricsTransition(true)
 }
 
 function collapseWithAnimation(): void {
-  animationTarget = false
   if (!reducedMotionMedia?.matches && usesAlbumLayoutTransition()) {
     void runAlbumLyricsTransition(false)
     return
   }
-  cancelLyricsAnimation()
-  isLyricsInteractive.value = false
-
   if (reducedMotionMedia?.matches) {
     applyImmediateState(false)
     return
   }
 
-  beginLyricsResize()
-
-  stopLyricsAnimation = animateLyricsPanelExpansion(
-    lyricsProgress.value,
-    0,
-    Boolean(reducedMotionMedia?.matches),
-    (progress) => {
-      lyricsProgress.value = progress
-      lyricsVisualProgress = progress
-    },
-    () => {
-      stopLyricsAnimation = null
-      lyricsVisualProgress = 0
-      shouldMountLyrics.value = false
-      isLyricsCollapsed.value = true
-      finishLyricsResize()
-    },
-  )
+  void runGenericLyricsTransition(false)
 }
 
 watch(lyricsPanelExpanded, (expanded) => {
-  if (!canDisplayLyricsPanel.value) {
+  if (!canLayoutLyricsPanel.value) {
     applyImmediateState(false)
     return
   }
@@ -648,11 +738,14 @@ watch(lyricsPanelExpanded, (expanded) => {
   }
 })
 
-watch(canDisplayLyricsPanel, (canDisplay) => {
+watch(canLayoutLyricsPanel, (canDisplay) => {
   applyImmediateState(canDisplay && lyricsPanelExpanded.value)
 })
 
 function updateLyricsTargetWidth(): void {
+  if (isGenericLyricsTransitioning) {
+    applyImmediateState(canLayoutLyricsPanel.value && lyricsPanelExpanded.value)
+  }
   if (activeAlbumTransitionTicket) void settleAlbumLyricsTransition()
   lyricsTargetWidthPx.value = computeLyricsTargetWidth(shellRef.value?.clientWidth)
 }
@@ -660,8 +753,8 @@ function updateLyricsTargetWidth(): void {
 function handleReducedMotionChange(): void {
   if (reducedMotionMedia?.matches && activeAlbumTransitionTicket) {
     void settleAlbumLyricsTransition()
-  } else if (reducedMotionMedia?.matches && stopLyricsAnimation) {
-    applyImmediateState(lyricsPanelExpanded.value && canDisplayLyricsPanel.value)
+  } else if (reducedMotionMedia?.matches && isGenericLyricsTransitioning) {
+    applyImmediateState(lyricsPanelExpanded.value && canLayoutLyricsPanel.value)
   }
 }
 
@@ -671,18 +764,20 @@ const shellStyle = computed<CSSProperties>(() => ({
   '--auralis-lyrics-column-width': `calc(20% * ${lyricsProgress.value})`,
 }))
 
-/** 上一导航来源路由名；在 beforeEach 中更新，供 Transition 在目标路由已切换时仍能判断方向 */
+/** 成功导航的来源；与目标路由在同一轮渲染前更新。 */
 const previousRouteName = ref(route.name)
-/** Albums ➔ AlbumDetail 专属进入过渡标记；在 beforeEach 提早设为 true，并在 after-enter/cancelled 时复位 */
+const cdIndexSlideDirection = ref<'enter' | 'leave' | null>(null)
+/** 仅在导航成功后锁定交互，加载失败或守卫取消不产生过渡状态。 */
 const isAlbumDetailEntering = ref(false)
 const isAlbumRouteTransitioning = ref(false)
-const isFirstAlbumDetailTransition = ref(false)
-let hasPreparedAlbumDetail = false
-const albumDetailEntryTransition = createAlbumDetailEntryTransition(() => {
-  hasPreparedAlbumDetail = true
-})
-const firstAlbumDetailTransitionHooks = computed(() =>
-  isFirstAlbumDetailTransition.value
+let albumRouteRevision = 0
+const enteringRevisions = new WeakMap<Element, number>()
+const leavingInertStates = new WeakMap<HTMLElement, boolean>()
+let shouldRestoreRouteFocus = false
+let albumListReturnFocus: { albumKey: string; selector: string } | null = null
+const albumDetailEntryTransition = createAlbumDetailEntryTransition()
+const albumDetailTransitionHooks = computed(() =>
+  isAlbumDetailEntering.value
     ? {
         onBeforeEnter: albumDetailEntryTransition.beforeEnter,
         onEnter: albumDetailEntryTransition.enter,
@@ -692,13 +787,54 @@ const firstAlbumDetailTransitionHooks = computed(() =>
     : {},
 )
 
-const removeBeforeEach = router.beforeEach((to, from) => {
+const removeBeforeEach = router.beforeEach(() => {
+  if (isGenericLyricsTransitioning) {
+    applyImmediateState(canLayoutLyricsPanel.value && lyricsPanelExpanded.value)
+  }
+})
+
+const removeAfterEach = router.afterEach((to, from, failure) => {
+  if (failure) return
   albumDetailEntryTransition.cancel()
+  albumRouteRevision += 1
+  const focused = document.activeElement
+  const mainHasFocus = focused instanceof HTMLElement && !!mainRef.value?.contains(focused)
+  if (from.name === 'albums' && to.name === 'album-detail') {
+    const albumKey =
+      typeof to.query.artist === 'string' && typeof to.query.title === 'string'
+        ? albumIdentityKey(to.query.artist, to.query.title)
+        : null
+    const focusedAlbumKey =
+      focused instanceof HTMLElement
+        ? focused.closest<HTMLElement>('.album-card[data-album-key]')?.dataset.albumKey
+        : null
+    albumListReturnFocus = albumKey
+      ? {
+          albumKey,
+          selector:
+            focusedAlbumKey === albumKey && focused?.matches('.album-card-play')
+              ? '.album-card-play'
+              : '.cover-stage',
+        }
+      : null
+  }
   previousRouteName.value = from.name
+  cdIndexSlideDirection.value =
+    from.name === 'cd-albums' &&
+    to.name === 'cd-album-index' &&
+    hasCdViewSwitchTransition('browse', 'index')
+      ? 'enter'
+      : from.name === 'cd-album-index' &&
+          to.name === 'cd-albums' &&
+          hasCdViewSwitchTransition('index', 'browse')
+        ? 'leave'
+        : null
   isAlbumDetailEntering.value = to.name === 'album-detail' && from.name === 'albums'
-  isFirstAlbumDetailTransition.value = isAlbumDetailEntering.value && !hasPreparedAlbumDetail
   isAlbumRouteTransitioning.value =
     isAlbumDetailEntering.value || (to.name === 'albums' && from.name === 'album-detail')
+  shouldRestoreRouteFocus =
+    (isAlbumRouteTransitioning.value && mainHasFocus) ||
+    (shouldRestoreRouteFocus && (mainHasFocus || focused === document.body))
 })
 
 onMounted(() => {
@@ -710,11 +846,14 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   removeBeforeEach()
+  removeAfterEach()
+  albumRouteRevision += 1
+  shouldRestoreRouteFocus = false
   albumDetailEntryTransition.cancel()
   isAlbumDetailEntering.value = false
+  isAlbumRouteTransitioning.value = false
   void settleAlbumLyricsTransition()
   cancelLyricsAnimation()
-  cancelLyricsResizeFrame()
   clearPlayerBarTransition()
   removeTransitionPointerListener()
   reducedMotionMedia?.removeEventListener('change', handleReducedMotionChange)
@@ -729,19 +868,19 @@ const isCdCanvas = computed(() => {
   return route.name === 'cd-albums' || route.name === 'cd-album-index'
 })
 
-const isArchiveCanvas = computed(() => route.name === 'archive')
-const isStandaloneCanvas = computed(() => isCdCanvas.value || isArchiveCanvas.value)
-
 /** 全高布局下的收起图标栏；驱动 Shell 列宽、播放栏左边界与背景裁切。 */
 const { sidebarFullHeight, sidebarCollapsed } = useSidebarLayout()
 const isSidebarRail = computed(
-  () => sidebarFullHeight.value && sidebarCollapsed.value && !isStandaloneCanvas.value,
+  () => sidebarFullHeight.value && sidebarCollapsed.value && !isCdCanvas.value,
 )
 const renderedSidebarRail = ref(isSidebarRail.value)
 
 watch(isSidebarRail, (rail) => {
+  if (isGenericLyricsTransitioning) {
+    applyImmediateState(canLayoutLyricsPanel.value && lyricsPanelExpanded.value)
+  }
   if (sidebarFullHeight.value && !reducedMotionMedia?.matches && usesAlbumLayoutTransition()) {
-    void runAlbumLyricsTransition(canDisplayLyricsPanel.value && lyricsPanelExpanded.value, rail)
+    void runAlbumLyricsTransition(canLayoutLyricsPanel.value && lyricsPanelExpanded.value, rail)
   } else {
     if (activeAlbumTransitionTicket) void settleAlbumLyricsTransition()
     renderedSidebarRail.value = rail
@@ -752,42 +891,83 @@ watch(sidebarFullHeight, (fullHeight) => {
   if (!fullHeight && activeAlbumTransitionTicket) void settleAlbumLyricsTransition()
 })
 
-const artworkUrl = computed(() =>
-  getArtworkUrl(playback.state.currentTrack?.artworkCacheKey ?? null),
-)
-const shouldRenderShellArtwork = computed(
-  () =>
-    shellFluidBackgroundEnabled.value &&
-    displayMode.value === 'normal' &&
-    !isStandaloneCanvas.value &&
-    artworkUrl.value !== null,
-)
-
 /**
  * 路由过渡规则：
- * 1. 专辑列表 ➔ 专辑详情：景深穿梭与黑胶破土浮升 (album-detail-enter-matrix)
- * 2. 专辑详情 ➔ 专辑列表：黑胶沉降与景深聚拢归位 (album-detail-exit-matrix)
- * 3. 其余路由切换：不使用 CSS 过渡，立即完成
+ * 1. 专辑列表 ➔ 专辑详情：180ms 交叉淡入淡出 (album-detail-enter-fade)
+ * 2. 专辑详情 ➔ 专辑列表：180ms 对称交叉淡入淡出 (album-detail-exit-fade)
+ * 3. CD 浏览与封面检索切换：检索页面从右侧滑入，返回时向右滑出
+ * 4. 唱片室其余进入与离开：短淡入淡出，首次展开动画由页面控制
+ * 5. 其余路由切换：不使用 CSS 过渡，立即完成
  */
 const transitionName = computed(() => {
   if (route.name === 'album-detail' && previousRouteName.value === 'albums') {
-    return 'album-detail-enter-matrix'
+    return 'album-detail-enter-fade'
   }
   if (route.name === 'albums' && previousRouteName.value === 'album-detail') {
-    return 'album-detail-exit-matrix'
+    return 'album-detail-exit-fade'
+  }
+  if (cdIndexSlideDirection.value === 'enter') return 'cd-index-slide'
+  if (cdIndexSlideDirection.value === 'leave') return 'cd-index-slide-return'
+  if (route.name === 'cd-albums' || previousRouteName.value === 'cd-albums') {
+    return 'cd-canvas-fade'
   }
   return null
 })
 
-function onTransitionAfterEnter(): void {
-  isAlbumDetailEntering.value = false
-  isAlbumRouteTransitioning.value = false
+function onTransitionBeforeEnter(element: Element): void {
+  enteringRevisions.set(element, albumRouteRevision)
 }
 
-function onTransitionEnterCancelled(): void {
+function onTransitionBeforeLeave(element: Element): void {
+  if (!isAlbumRouteTransitioning.value) return
+  const node = element as HTMLElement
+  if (!leavingInertStates.has(node)) leavingInertStates.set(node, node.inert)
+  node.inert = true
+}
+
+function restoreLeavingInteractivity(element: Element): void {
+  const node = element as HTMLElement
+  const previous = leavingInertStates.get(node)
+  if (previous === undefined) return
+  node.inert = previous
+  leavingInertStates.delete(node)
+}
+
+async function restoreRouteFocus(revision: number): Promise<void> {
+  await nextTick()
+  if (revision !== albumRouteRevision || !shouldRestoreRouteFocus) return
+  shouldRestoreRouteFocus = false
+  const main = mainRef.value
+  const focused = document.activeElement
+  // Respect focus moved to the Playbar or Sidebar while the page was inert.
+  if (!main?.isConnected || (focused !== document.body && !main.contains(focused))) return
+  const returnTarget =
+    route.name === 'albums' && albumListReturnFocus
+      ? findAlbumTransitionFocusTarget(
+          main.querySelectorAll<HTMLElement>('.album-card[data-album-key]'),
+          albumListReturnFocus.albumKey,
+          albumListReturnFocus.selector,
+        )
+      : null
+  const target =
+    returnTarget ??
+    (route.name === 'album-detail' ? main.querySelector<HTMLElement>('.album-detail-back') : null)
+  ;(target ?? main).focus({ preventScroll: true })
+}
+
+function onTransitionAfterEnter(element: Element): void {
+  if (enteringRevisions.get(element) !== albumRouteRevision) return
+  isAlbumDetailEntering.value = false
+  isAlbumRouteTransitioning.value = false
+  void restoreRouteFocus(albumRouteRevision)
+}
+
+function onTransitionEnterCancelled(element: Element): void {
+  if (enteringRevisions.get(element) !== albumRouteRevision) return
   albumDetailEntryTransition.cancel()
   isAlbumDetailEntering.value = false
   isAlbumRouteTransitioning.value = false
+  void restoreRouteFocus(albumRouteRevision)
 }
 
 watch(
@@ -798,6 +978,9 @@ watch(
 )
 
 watch(displayMode, (mode) => {
+  if (mode !== 'normal' && isGenericLyricsTransitioning) {
+    applyImmediateState(canLayoutLyricsPanel.value && lyricsPanelExpanded.value)
+  }
   if (mode !== 'normal' && activeAlbumTransitionTicket) void settleAlbumLyricsTransition()
 })
 </script>
@@ -805,10 +988,9 @@ watch(displayMode, (mode) => {
 <template>
   <div
     class="app-window"
-    :inert="displayMode === 'fullscreen'"
+    :inert="displayMode === 'fullscreen' || isSettingsOpen || startupAlbumActive"
     :class="{
       'is-cd-albums': isCdCanvas,
-      'is-archive-canvas': isArchiveCanvas,
       'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
     }"
     data-app-shell-root
@@ -819,10 +1001,9 @@ watch(displayMode, (mode) => {
       :class="{
         'is-album-detail': isAlbumDetail,
         'is-cd-albums': isCdCanvas,
-        'is-archive-canvas': isArchiveCanvas,
         'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
-        'has-artwork': shouldRenderShellArtwork,
         'is-sidebar-collapsed': renderedSidebarRail,
+        'is-lyrics-collapsed': isLyricsCollapsed,
         'is-lyrics-resizing': isLyricsResizing,
         'is-album-layout-transitioning': isAlbumLayoutTransitioning,
       }"
@@ -830,28 +1011,28 @@ watch(displayMode, (mode) => {
     >
       <div
         class="shell-drag-region"
-        :class="{ 'shell-drag-region--cd': isStandaloneCanvas }"
+        :class="{ 'shell-drag-region--cd': isCdCanvas }"
         aria-hidden="true"
       />
-      <WindowTrafficLights :cd-canvas="isStandaloneCanvas" />
+      <WindowTrafficLights :cd-canvas="isCdCanvas" />
 
-      <FluidArtworkBackground
-        v-if="shouldRenderShellArtwork"
-        :artwork-url="artworkUrl"
-        :active="true"
-        :playing="playback.state.isPlaying"
-        class="app-shell-bg-fluid"
-      />
-      <div v-if="shouldRenderShellArtwork" class="app-shell-bg-overlay" aria-hidden="true" />
+      <AppSidebar v-if="!isCdCanvas" class="relative z-10" />
 
-      <AppSidebar v-if="!isStandaloneCanvas" class="relative z-10" />
-
-      <main class="app-main relative z-10">
+      <main
+        ref="mainRef"
+        class="app-main relative z-10"
+        tabindex="-1"
+        :inert="isAlbumRouteTransitioning"
+      >
         <RouterView v-slot="{ Component, route: viewRoute }">
           <Transition
             :name="transitionName ?? undefined"
-            :css="transitionName !== null && !isFirstAlbumDetailTransition"
-            v-bind="firstAlbumDetailTransitionHooks"
+            :css="transitionName !== null && !isAlbumDetailEntering"
+            v-bind="albumDetailTransitionHooks"
+            @before-enter="onTransitionBeforeEnter"
+            @before-leave="onTransitionBeforeLeave"
+            @after-leave="restoreLeavingInteractivity"
+            @leave-cancelled="restoreLeavingInteractivity"
             @after-enter="onTransitionAfterEnter"
             @enter-cancelled="onTransitionEnterCancelled"
           >
@@ -878,42 +1059,28 @@ watch(displayMode, (mode) => {
       </main>
 
       <NowPlayingPanel
-        v-if="!isStandaloneCanvas"
+        v-if="!isCdCanvas"
         class="relative z-10"
         :should-mount-lyrics="shouldMountLyrics"
         :is-collapsed="isLyricsCollapsed"
         :is-interactive="isLyricsInteractive"
         :target-width-px="lyricsTargetWidthPx"
       />
-      <PlayerBar v-if="!isStandaloneCanvas" />
+      <PlayerBar v-if="!isCdCanvas" />
     </div>
     <FullscreenPlayerOverlay />
   </div>
+  <SettingsDialog />
+  <component
+    :is="startupAlbumOverlay"
+    v-if="startupAlbumOverlay && startupAlbumPresentation"
+    :presentation="startupAlbumPresentation"
+    @shown="startupAlbumShown"
+    @close="closeStartupAlbum"
+  />
 </template>
 
 <style scoped>
-.app-window.is-archive-canvas {
-  --auralis-main-corner-radius: 0px;
-  --auralis-playbar-safe-area: 0px;
-  background: #030305;
-}
-.app-shell.is-archive-canvas {
-  grid-template-columns: minmax(0, 1fr) !important;
-  background: #030305;
-}
-.app-shell.is-archive-canvas > .app-main {
-  padding: 0;
-  border-radius: 0;
-  overflow: hidden;
-}
-.app-shell.is-archive-canvas > .shell-drag-region {
-  top: 0;
-  right: 112px;
-  left: 0;
-  width: auto;
-  height: 20px;
-}
-
 .app-window.is-cd-albums {
   background: #eeeeec;
   box-shadow: none;
@@ -933,23 +1100,5 @@ watch(displayMode, (mode) => {
   .app-shell.is-cd-albums {
     grid-template-columns: minmax(0, 1fr) !important;
   }
-}
-
-.app-shell-bg-fluid,
-.app-shell-bg-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.app-shell-bg-fluid {
-  z-index: 0;
-}
-
-.app-shell-bg-overlay {
-  z-index: 1;
-  background: var(--auralis-shell-overlay-bg, color-mix(in srgb, #0c0b0a 65%, transparent));
-  backdrop-filter: var(--auralis-overlay-blur, blur(20px) saturate(1.45) contrast(1.02));
-  -webkit-backdrop-filter: var(--auralis-overlay-blur, blur(20px) saturate(1.45) contrast(1.02));
 }
 </style>

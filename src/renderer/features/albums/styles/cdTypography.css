@@ -152,11 +152,11 @@
   --cd-type-mode-size: 11px;
   --cd-type-mode-line-height: 16px;
   /* Track titles use the existing EB Garamond display family at a larger reading size. */
-  --cd-type-track-size: 16px;
+  --cd-type-track-size: 18px;
   --cd-type-track-line-height: var(--cd-type-body-line-height);
   --cd-type-track-artist-size: 11px;
   --cd-type-track-artist-line-height: 1.5;
-  --cd-type-track-number-size: 11px;
+  --cd-type-track-number-size: 12px;
   --cd-type-track-number-line-height: 1.7;
   --cd-type-disc-size: 11px;
   --cd-type-disc-line-height: normal;

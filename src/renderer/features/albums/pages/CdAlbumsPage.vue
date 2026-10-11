@@ -5,6 +5,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch 
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import { auralis } from '@renderer/shared/ipc/client'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import { splitDelimitedValues } from '@renderer/features/library/utils/formatDelimitedValues'
@@ -12,7 +13,6 @@ import {
   formatPlaybackClock,
   PLAYBACK_CLOCK_EMPTY,
 } from '@renderer/features/playback/utils/formatPlaybackClock'
-import { selectAlbumTracks } from '../utils/albumGrouping'
 import { cdAlbumCatalogSession } from '../composables/cdAlbumCatalogSession'
 import {
   cdFocusBackTarget,
@@ -26,7 +26,6 @@ import {
   type CdSurfaceIndicatorMotionState,
 } from '../utils/cdSurfaceIndicator'
 import CdViewSwitch from '../components/CdViewSwitch.vue'
-import CdBackgroundSwitch from '../components/CdBackgroundSwitch.vue'
 import CdSpectrumPreview from '../components/CdSpectrumPreview.vue'
 import { albumIdentityKey } from '../utils/albumIdentity'
 import type { TrackListItem } from '@shared/types/libraryScan'
@@ -45,10 +44,7 @@ import CdTrackList from '../components/CdTrackList.vue'
 import CdFocusLyrics from '../components/CdFocusLyrics.vue'
 import { createCdStage, type CdAlbum } from '../utils/cdStageController'
 import { useCdCanvasTheme } from '../composables/useCdCanvasTheme'
-import { useCdCanvasBackground } from '../composables/useCdCanvasBackground'
-import { useCdProgressStyle } from '../composables/useCdProgressStyle'
 import { useCdCanvasColors } from '../composables/useCdCanvasColors'
-import { resolveCdCanvasBackground } from '../utils/cdCanvasColors'
 import { formatCdAccent } from '../utils/cdAccent'
 import { presentCdTrackComposers } from '../utils/cdTrackComposers'
 import { animatePlaybackTextShimmer, animateProgress } from '@renderer/shared/animation/motion'
@@ -77,13 +73,12 @@ const { cdCanvasTheme, setCdCanvasTheme } = useCdCanvasTheme()
 const themeToggleLabel = computed(() =>
   t(cdCanvasTheme.value === 'dark' ? 'albums.cd.theme.toLight' : 'albums.cd.theme.toDark'),
 )
+const themeTooltip = computed(() => t(`albums.cd.theme.${cdCanvasTheme.value}`))
 const pageRef = ref<HTMLElement | null>(null)
 const trackPanelRef = ref<HTMLElement | null>(null)
 const controlsRef = ref<HTMLElement | null>(null)
 const focusedPlaybackFrameRef = ref<HTMLElement | null>(null)
 const focused = ref(false)
-const { cdCanvasBackgroundEnabled, toggleCdCanvasBackground } = useCdCanvasBackground()
-const { cdProgressStyle, toggleCdProgressStyle } = useCdProgressStyle()
 const { cdVibrationEnabled, toggleCdVibration, cdVibrationStyle, setCdVibrationStyle } =
   useCdVibration()
 const vibrationToggleLabel = computed(() =>
@@ -91,11 +86,8 @@ const vibrationToggleLabel = computed(() =>
 )
 const vibrationTooltip = computed(() =>
   cdVibrationEnabled.value
-    ? t('albums.cd.vibration.enabledHint', {
-        action: vibrationToggleLabel.value,
-        style: t(`albums.cd.vibration.${cdVibrationStyle.value}`),
-      })
-    : t('albums.cd.vibration.disabledHint', { action: vibrationToggleLabel.value }),
+    ? t(`albums.cd.vibration.${cdVibrationStyle.value}`)
+    : t('albums.cd.vibration.disabled'),
 )
 function handleVibrationContextMenu(): void {
   if (!cdVibrationEnabled.value) {
@@ -104,14 +96,6 @@ function handleVibrationContextMenu(): void {
   }
   setCdVibrationStyle(cdVibrationStyle.value === 'smooth' ? 'elastic' : 'smooth')
 }
-const progressToggleLabel = computed(() =>
-  t('albums.cd.progress.switchTo', {
-    style: t(`albums.cd.progress.${cdProgressStyle.value === 'wave' ? 'comet' : 'wave'}`),
-  }),
-)
-const canvasBackgroundActive = computed(
-  () => focused.value && cdCanvasTheme.value === 'light' && cdCanvasBackgroundEnabled.value,
-)
 const focusSettled = ref(false)
 const cdMode = ref<CdPlaybackMode>('catalog-sequential')
 const discSurface = ref<'cd' | 'vinyl'>('cd')
@@ -226,22 +210,7 @@ const stageRef = ref<HTMLElement | null>(null)
 const infoRef = ref<HTMLElement | null>(null)
 const loading = ref(true)
 const starting = ref(false)
-const canvasArtworkKey = computed(() => focusedAlbum.value?.artworkCacheKey ?? null)
-const { palette: canvasPalette } = useArtworkPalette(canvasArtworkKey, {
-  enabled: () =>
-    cdCanvasTheme.value === 'light' &&
-    cdCanvasBackgroundEnabled.value &&
-    !loading.value &&
-    !starting.value,
-})
-const canvasBackground = computed(() =>
-  canvasBackgroundActive.value &&
-  canvasArtworkKey.value &&
-  canvasPalette.value.key === canvasArtworkKey.value
-    ? resolveCdCanvasBackground(canvasPalette.value)
-    : null,
-)
-useCdCanvasColors(pageRef, canvasBackground, cdCanvasTheme, () =>
+useCdCanvasColors(pageRef, cdCanvasTheme, () =>
   ringTrackMatches.value &&
   ringPalette.value.key === ringArtworkKey.value &&
   ringPalette.value.quality !== 'fallback'
@@ -249,7 +218,8 @@ useCdCanvasColors(pageRef, canvasBackground, cdCanvasTheme, () =>
     : null,
 )
 const infoSuppressed = ref(false)
-let startupPlayed = false
+let entryInitialized = false
+const repeatEntry = ref(false)
 const failed = ref(false)
 const count = ref(0)
 const infoSelected = ref(0)
@@ -527,7 +497,6 @@ function syncPlaybackRing(): void {
     playing: playback.state.isPlaying,
     progress: Number.isFinite(duration) && duration > 0 ? playback.state.currentTime / duration : 0,
     accent: `var(--cd-wave-accent, ${ringAccent.value})`,
-    style: cdProgressStyle.value,
   })
 }
 
@@ -539,7 +508,6 @@ watch(
     () => playback.state.currentTime,
     () => playback.state.duration,
     ringAccent,
-    cdProgressStyle,
   ],
   syncPlaybackRing,
 )
@@ -557,7 +525,7 @@ async function loadAlbums(): Promise<void> {
       refreshPending = false
       const catalogAlbums = await cdAlbumCatalogSession.load()
       if (disposed) return
-      // Only publish a complete catalog; reuse the exact ordering of AlbumsPage.
+      // Only publish a complete catalog; keep the songs page's album and track order.
       const albums = catalogAlbums.map((album) => ({
         key: album.key,
         artworkUrl: getArtworkUrl(album.artworkCacheKey),
@@ -567,17 +535,26 @@ async function loadAlbums(): Promise<void> {
         releaseDate: album.releaseDate?.trim() || null,
         trackCount: album.tracks.length,
         copyright: album.tracks.find((track) => track.copyright?.trim())?.copyright?.trim() || null,
-        tracks: selectAlbumTracks(album.tracks, album.albumArtist, album.title),
+        tracks: album.tracks,
       }))
       albumInfo.value = albums
       count.value = albums.length
-      const intro = !startupPlayed && albums.length > 0
+      const initialEntry = !entryInitialized && albums.length > 0
+      let firstRuntimeEntry = false
+      if (initialEntry) {
+        const entry = await auralis.app.claimCdStartupEntry()
+        if (disposed) return
+        firstRuntimeEntry = entry.firstEntry
+        repeatEntry.value = !firstRuntimeEntry
+        entryInitialized = true
+      }
       const targetKey =
-        intro && albums.some((album) => album.key === requestedAlbumKey) ? requestedAlbumKey : null
-      if (intro) startupPlayed = true
+        initialEntry && albums.some((album) => album.key === requestedAlbumKey)
+          ? requestedAlbumKey
+          : null
       controller?.setAlbums(
         albums,
-        intro && !targetKey && !fromIndexViewSwitch,
+        firstRuntimeEntry && !targetKey && !fromIndexViewSwitch,
         targetKey ?? undefined,
       )
       if (targetKey) controller?.setFocused(true, 'fade')
@@ -808,6 +785,13 @@ onBeforeUnmount(() => {
   clearFocusedPlaybackInfoTimer()
   unsubscribe?.()
   const routeName = router.currentRoute.value.name
+  // Disposal removes imperative disc nodes before Vue finishes its leave fade.
+  // Keep inert copies for that short visual tail; all controllers still stop now.
+  const departingDiscs =
+    routeName !== 'cd-albums' && !reducedMotion.matches
+      ? Array.from(stageRef.value?.children ?? [], (node) => node.cloneNode(true))
+      : []
+  if (routeName !== 'cd-albums' && pageRef.value) pageRef.value.inert = true
   if (routeName !== 'cd-albums' && routeName !== 'cd-album-index') {
     cdAlbumCatalogSession.clear()
     clearCdIndexReturn()
@@ -819,6 +803,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', settleInfo)
   controller?.dispose()
   controller = null
+  stageRef.value?.append(...departingDiscs)
 })
 </script>
 
@@ -830,9 +815,9 @@ onBeforeUnmount(() => {
       'cd-page--loading': loading && !count && !failed,
       'cd-page--starting': starting,
       'cd-page--focused': focused,
+      'cd-page--entry-fade': repeatEntry && !fromIndexViewSwitch && !loading && !failed,
     }"
     :data-theme="cdCanvasTheme"
-    :data-background-mode="canvasBackgroundActive ? 'accent' : 'default'"
     :aria-label="t('albums.cd.title')"
     @keydown="onKeydown"
   >
@@ -996,7 +981,7 @@ onBeforeUnmount(() => {
         ref="stageRef"
         class="cd-stage"
         :class="{ 'cd-stage--unavailable': loading || failed || !count }"
-        tabindex="0"
+        :tabindex="loading || failed || !count ? -1 : 0"
         role="region"
         :aria-label="t('albums.cd.stage')"
         :aria-busy="loading || starting"
@@ -1023,7 +1008,6 @@ onBeforeUnmount(() => {
         </p>
       </section>
       <CdFocusLyrics
-        v-if="!cdVibrationEnabled"
         :active="focusSettled && ringTrackMatches && !loading && !failed"
         accent="var(--cd-lyrics-color)"
         :stage="stageRef"
@@ -1098,35 +1082,23 @@ onBeforeUnmount(() => {
       </span>
     </footer>
     <button
+      v-tooltip.feedback="themeTooltip"
       type="button"
       class="cd-theme-toggle"
       :aria-label="themeToggleLabel"
       @click="toggleCdCanvasTheme"
     >
-      <span v-if="cdCanvasTheme === 'dark'" class="i-lucide-sun h-4 w-4" aria-hidden="true"></span>
-      <span v-else class="i-lucide-moon h-4 w-4" aria-hidden="true"></span>
-    </button>
-    <CdBackgroundSwitch
-      v-if="focused && !starting"
-      :enabled="cdCanvasBackgroundEnabled"
-      :disabled="cdCanvasTheme === 'dark'"
-      @toggle="toggleCdCanvasBackground"
-    />
-    <button
-      v-if="focused && !starting"
-      v-tooltip="progressToggleLabel"
-      type="button"
-      class="cd-progress-toggle"
-      :aria-label="progressToggleLabel"
-      :data-progress-style="cdProgressStyle"
-      @click="toggleCdProgressStyle"
-    >
-      <span class="i-lucide-audio-lines h-4 w-4" aria-hidden="true"></span>
+      <span
+        v-if="cdCanvasTheme === 'dark'"
+        class="i-lucide-sun cd-control-icon"
+        aria-hidden="true"
+      ></span>
+      <span v-else class="i-lucide-moon cd-control-icon" aria-hidden="true"></span>
     </button>
     <CdSpectrumPreview v-if="route.query.spectrum === '1'" :frame="spectrumFrame" />
     <button
       v-if="focused && !starting"
-      v-tooltip="vibrationTooltip"
+      v-tooltip.feedback="vibrationTooltip"
       type="button"
       class="cd-vibration-toggle"
       :aria-label="vibrationToggleLabel"
@@ -1134,13 +1106,35 @@ onBeforeUnmount(() => {
       @click="toggleCdVibration"
       @contextmenu.prevent="handleVibrationContextMenu"
     >
-      <span class="i-lucide-vibrate h-4 w-4" aria-hidden="true"></span>
+      <span class="i-lucide-vibrate cd-control-icon" aria-hidden="true"></span>
     </button>
   </section>
 </template>
 
 <style scoped>
-.cd-page--loading > * {
+.cd-page--entry-fade {
+  /* Begin when catalog loading finishes, even if the route fade has already ended. */
+  animation: cd-ready-entry-fade 240ms ease-out;
+}
+@keyframes cd-ready-entry-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+:where([data-reduced-motion='true']) .cd-page--entry-fade {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cd-page--entry-fade {
+    animation: none;
+  }
+}
+
+.cd-page--loading .cd-content > :not(.cd-status),
+.cd-page--loading > :not(.cd-header):not(.cd-content) {
   visibility: hidden;
 }
 .cd-tracks {
@@ -1232,12 +1226,14 @@ onBeforeUnmount(() => {
 }
 /* CD canvas is local to this page. Light values match the approved demo. */
 .cd-page {
+  --cd-control-icon-size: 20px;
   --auralis-playbar-safe-area: 0px;
   --cd-bg: #eeeeec;
   --cd-bg-image: none;
   --cd-text: #292929;
   --cd-text-muted: #62625b;
-  --cd-text-subtle: #77776f;
+  --cd-lyrics-color: var(--cd-text-muted);
+  --cd-text-subtle: #64645d;
   --cd-text-faint: #85857d;
   --cd-text-count: #55554f;
   --cd-text-browsing: #42423d;
@@ -1280,7 +1276,7 @@ onBeforeUnmount(() => {
   );
   --cd-text: #e6e4de;
   --cd-text-muted: #a8a69f;
-  --cd-text-subtle: #8e8c86;
+  --cd-text-subtle: #a4a29c;
   --cd-text-faint: #7d7b75;
   --cd-text-count: #b3b1ab;
   --cd-text-browsing: #d4d2cc;
@@ -1436,8 +1432,7 @@ onBeforeUnmount(() => {
   color-scheme: inherit;
 }
 .cd-info--with-composer {
-  max-height: none;
-  overflow: visible;
+  max-height: calc(100% - 40px);
 }
 .cd-info-title-row {
   position: relative;
@@ -1858,11 +1853,8 @@ onBeforeUnmount(() => {
   overflow: visible;
   touch-action: pan-y;
   user-select: none;
+  /* Keep the stage focusable for keyboard browsing without framing the entire canvas. */
   outline: none;
-}
-.cd-stage:focus-visible {
-  outline: none;
-  box-shadow: none;
 }
 .cd-stage--unavailable {
   visibility: hidden;
@@ -1886,6 +1878,12 @@ onBeforeUnmount(() => {
   gap: 16px;
   padding: 16px 24px 24px 64px;
 }
+.cd-page :deep(.cd-control-icon) {
+  display: inline-flex;
+  width: var(--cd-control-icon-size);
+  height: var(--cd-control-icon-size);
+  flex-shrink: 0;
+}
 .cd-page .cd-theme-toggle {
   position: absolute;
   left: 24px;
@@ -1903,9 +1901,7 @@ onBeforeUnmount(() => {
   background: transparent;
   box-shadow: none;
 }
-.cd-page .cd-background-toggle,
-.cd-page .cd-vibration-toggle,
-.cd-page .cd-progress-toggle {
+.cd-page .cd-vibration-toggle {
   padding: 0;
   color: var(--cd-text-muted);
   border: 0;
@@ -1913,29 +1909,17 @@ onBeforeUnmount(() => {
   background: transparent;
   box-shadow: none;
 }
-.cd-page .cd-background-toggle[aria-pressed='true'],
 .cd-page .cd-vibration-toggle[aria-pressed='true'] {
   color: var(--cd-text);
 }
-.cd-page .cd-background-toggle:hover:not(:disabled),
-.cd-page .cd-vibration-toggle:hover:not(:disabled),
-.cd-page .cd-progress-toggle:hover:not(:disabled) {
+.cd-page .cd-vibration-toggle:hover:not(:disabled) {
   color: var(--cd-text);
   background: transparent;
   box-shadow: none;
 }
-.cd-page .cd-progress-toggle {
-  position: absolute;
-  left: 120px;
-  bottom: 24px;
-  z-index: 8;
-  width: 32px;
-  height: 32px;
-  -webkit-app-region: no-drag;
-}
 .cd-page .cd-vibration-toggle {
   position: absolute;
-  left: 168px;
+  left: 72px;
   bottom: 24px;
   z-index: 8;
   width: 32px;
@@ -2187,12 +2171,8 @@ onBeforeUnmount(() => {
     left: 16px;
     bottom: 16px;
   }
-  .cd-page .cd-progress-toggle {
-    left: 112px;
-    bottom: 16px;
-  }
   .cd-page .cd-vibration-toggle {
-    left: 160px;
+    left: 64px;
     bottom: 16px;
   }
 }

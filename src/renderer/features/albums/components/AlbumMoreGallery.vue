@@ -5,17 +5,18 @@ import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import type { AlbumSummary } from '../types'
 import { formatAlbumYear } from '../utils/formatAlbumYear'
 import { albumGalleryCapacity, updateRandomAlbumOrder } from '../utils/albumGalleryLayout'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 
 const props = defineProps<{
   albums: AlbumSummary[]
   artistLabel: string
   genreLabel: string
-  effectsActive: boolean
   opening: boolean
   singleRow?: boolean
 }>()
 const emit = defineEmits<{ open: [album: AlbumSummary, event: MouseEvent] }>()
 const { t, locale } = useI18n()
+const { songText } = useChineseTextDisplay()
 const moreAlbumsScrollerRef = ref<HTMLElement | null>(null)
 let isPageUnmounted = false
 
@@ -58,13 +59,23 @@ function resetMoreAlbumsScrollState(): void {
 
 function updateMoreAlbumsScrollState(scroller: HTMLElement | null): void {
   if (!scroller) return
-  if (props.singleRow) {
-    const style = getComputedStyle(scroller)
-    rowCapacity.value = albumGalleryCapacity(
-      scroller.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
-      parseFloat(style.getPropertyValue('--gallery-card-width')),
+  const style = getComputedStyle(scroller)
+  const availableWidth =
+    scroller.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+  if (availableWidth <= 0) {
+    rowCapacity.value = 0
+    resetMoreAlbumsScrollState()
+    return
+  }
+  rowCapacity.value = Math.max(
+    1,
+    albumGalleryCapacity(
+      availableWidth,
+      parseFloat(style.getPropertyValue('--gallery-card-min-width')),
       parseFloat(style.columnGap),
-    )
+    ),
+  )
+  if (props.singleRow) {
     scroller.scrollLeft = 0
     resetMoreAlbumsScrollState()
     return
@@ -85,17 +96,17 @@ function onMoreAlbumsScroll(event: Event): void {
 }
 
 function formatDisplayAlbumTitle(title: string): string {
-  return title === 'Unknown Album' ? t('library.unknownAlbum') : title
+  return title === 'Unknown Album' ? t('library.unknownAlbum') : songText(title)
 }
 
 async function refreshMoreAlbumsScrollState(): Promise<void> {
-  if (!props.effectsActive || !props.albums.length) {
+  if (!props.albums.length) {
     resetMoreAlbumsScrollState()
     return
   }
 
   await nextTick()
-  if (isPageUnmounted || !props.effectsActive || !props.albums.length) return
+  if (isPageUnmounted || !props.albums.length) return
 
   const scroller = moreAlbumsScrollerRef.value
   if (scroller) {
@@ -126,33 +137,41 @@ function onMoreAlbumsWheel(event: WheelEvent): void {
   }
 }
 
-function formatAlbumYearParts(value: string | null): { number: string; suffix: string } {
-  const label = formatAlbumYear(value, locale.value, t('albums.detail.unknownYear')).replace(
+function formatDisplayAlbumYear(value: string | null): string {
+  return formatAlbumYear(value, locale.value, t('albums.detail.unknownYear')).replace(
     /(\d)年$/,
     '$1 年',
   )
-  const match = label.match(/^(\d+)(.*)$/)
-  return match ? { number: match[1], suffix: match[2] } : { number: '', suffix: label }
 }
 watch(
-  [moreAlbumsScrollerRef, () => props.effectsActive],
-  ([scroller, effectsActive], _previous, onCleanup) => {
-    if (!scroller || !effectsActive) return
+  moreAlbumsScrollerRef,
+  (scroller, _previous, onCleanup) => {
+    if (!scroller) return
 
+    // 基础布局在首次绘制前就绪，不随页面转场暂停。
+    updateMoreAlbumsScrollState(scroller)
+
+    let resizeFrame = 0
     const observer = new ResizeObserver(() => {
-      if (!isPageUnmounted) updateMoreAlbumsScrollState(scroller)
+      cancelAnimationFrame(resizeFrame)
+      resizeFrame = requestAnimationFrame(() => {
+        if (!isPageUnmounted) updateMoreAlbumsScrollState(scroller)
+      })
     })
     observer.observe(scroller)
-    onCleanup(() => observer.disconnect())
+    onCleanup(() => {
+      observer.disconnect()
+      cancelAnimationFrame(resizeFrame)
+    })
   },
   { immediate: true, flush: 'post' },
 )
 watch(
   [
-    () => props.effectsActive,
     () => props.singleRow,
     () => props.albums.map((album) => album.key).join('\u0001'),
     moreAlbumsScrollerRef,
+    rowCapacity,
   ],
   () => {
     void refreshMoreAlbumsScrollState()
@@ -172,7 +191,9 @@ onBeforeUnmount(() => {
     <div
       ref="moreAlbumsScrollerRef"
       class="album-more-gallery-scroller"
+      :style="{ '--gallery-column-count': Math.max(1, rowCapacity) }"
       :class="{
+        'is-layout-ready': rowCapacity > 0,
         'is-at-start': isMoreScrolledToStart,
         'is-at-end': isMoreScrolledToEnd,
         'is-unscrollable': !isMoreScrollable,
@@ -222,12 +243,7 @@ onBeforeUnmount(() => {
             {{ formatDisplayAlbumTitle(album.title) }}
           </p>
           <p class="album-more-gallery-year">
-            <template v-for="(part, key) in formatAlbumYearParts(album.releaseDate)" :key="key">
-              <span v-if="key === 'number' && part" class="album-more-gallery-year-number">{{
-                part
-              }}</span>
-              <span v-else>{{ part }}</span>
-            </template>
+            {{ formatDisplayAlbumYear(album.releaseDate) }}
           </p>
         </div>
       </button>

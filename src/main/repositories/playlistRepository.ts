@@ -1,5 +1,10 @@
 import type { TrackListItem } from '@shared/types/libraryScan'
-import type { Playlist, PlaylistViewMode } from '@shared/types/playlist'
+import type {
+  AddPlaylistTracksResult,
+  Playlist,
+  PlaylistViewMode,
+  SidebarPlaylistKind,
+} from '@shared/types/playlist'
 import { BaseRepository } from './baseRepository'
 
 interface PlaylistRow {
@@ -76,6 +81,7 @@ export class PlaylistRepository extends BaseRepository {
                 d.copyright,
                 d.composer,
                 d.duration_seconds AS durationSeconds,
+                d.bitrate_bps AS bitrateBps,
                 d.artwork_cache_key AS artworkCacheKey,
                 d.genre,
                 d.availability,
@@ -103,43 +109,79 @@ export class PlaylistRepository extends BaseRepository {
       .all() as PlaylistTrackCountRow[]
   }
 
-  addTracks(playlistId: number, trackIds: number[]): number {
+  addTracks(playlistId: number, trackIds: number[]): AddPlaylistTracksResult {
     const uniqueTrackIds = [...new Set(trackIds)].filter((trackId) => Number.isInteger(trackId))
-    if (uniqueTrackIds.length === 0) return 0
+    const addBatch = this.db.transaction((): AddPlaylistTracksResult => {
+      const result = {
+        addedCount: 0,
+        alreadyPresentCount: 0,
+        unavailableCount: 0,
+        playlistExists: this.getById(playlistId) !== null,
+      }
+      if (!result.playlistExists) return result
 
-    const currentMaxPosition =
-      (this.db
-        .prepare(
-          `SELECT MAX(position)
-           FROM playlist_tracks
-           WHERE playlist_id = ?`,
-        )
-        .pluck()
-        .get(playlistId) as number | null) ?? -1
-
-    const insert = this.db.prepare(
-      `INSERT OR IGNORE INTO playlist_tracks (playlist_id, track_id, position)
-       SELECT ?, ?, ?
-       WHERE EXISTS (
-         SELECT 1 FROM tracks
-         WHERE id = ?
-           AND availability = 'available'
-       )`,
-    )
-    const addBatch = this.db.transaction((ids: number[]) => {
-      let addedCount = 0
-      ids.forEach((trackId, index) => {
-        addedCount += insert.run(
+      const currentMaxPosition =
+        (this.db
+          .prepare('SELECT MAX(position) FROM playlist_tracks WHERE playlist_id = ?')
+          .pluck()
+          .get(playlistId) as number | null) ?? -1
+      const available = this.db.prepare(
+        "SELECT id FROM tracks WHERE id = ? AND availability = 'available'",
+      )
+      const insert = this.db.prepare(
+        `INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)
+         ON CONFLICT(playlist_id, track_id) DO NOTHING`,
+      )
+      for (const trackId of uniqueTrackIds) {
+        if (!available.get(trackId)) {
+          result.unavailableCount++
+          continue
+        }
+        const changes = insert.run(
           playlistId,
           trackId,
-          currentMaxPosition + index + 1,
-          trackId,
+          currentMaxPosition + result.addedCount + 1,
         ).changes
-      })
-      return addedCount
+        if (changes > 0) result.addedCount++
+        else result.alreadyPresentCount++
+      }
+      return result
     })
+    return addBatch.immediate()
+  }
 
-    return addBatch(uniqueTrackIds)
+  /** Validate and update both sidebar tables while holding one write transaction. */
+  reorderSidebarItems(items: Array<{ kind: SidebarPlaylistKind; id: number }>): void {
+    this.db
+      .transaction(() => {
+        const existing = this.db
+          .prepare(
+            `SELECT 'playlist' AS kind, id FROM playlists
+         UNION ALL SELECT 'smart' AS kind, id FROM smart_playlists`,
+          )
+          .all() as Array<{ kind: SidebarPlaylistKind; id: number }>
+        const key = (item: { kind: SidebarPlaylistKind; id: number }) => `${item.kind}:${item.id}`
+        const existingKeys = new Set(existing.map(key))
+        const requestedKeys = new Set(items.map(key))
+        if (
+          items.length !== existing.length ||
+          requestedKeys.size !== items.length ||
+          items.some((item) => !existingKeys.has(key(item)))
+        )
+          return
+
+        const regularUpdate = this.db.prepare(
+          'UPDATE playlists SET sort_order = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        )
+        const smartUpdate = this.db.prepare(
+          'UPDATE smart_playlists SET sort_order = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        )
+        items.forEach((item, index) => {
+          const update = item.kind === 'playlist' ? regularUpdate : smartUpdate
+          update.run(index, item.id)
+        })
+      })
+      .immediate()
   }
 
   create(name: string, sortOrder: number): Playlist {

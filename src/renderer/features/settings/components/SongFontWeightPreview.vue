@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { useSongFontWeights } from '@renderer/features/appearance/composables/useSongFontWeights'
+import { useSongFontSizes } from '@renderer/features/appearance/composables/useSongFontSizes'
 import { useCoverArtworkCorners } from '@renderer/features/appearance/composables/useCoverArtworkCorners'
 import type { SongFontWeightView } from '@renderer/features/appearance/constants/songFontWeights'
+import { formatBitrate } from '@renderer/features/library/utils/formatBitrate'
 
 defineProps<{
   view: SongFontWeightView
@@ -10,12 +12,13 @@ defineProps<{
 
 const { t } = useI18n()
 const { songFontWeightStyle } = useSongFontWeights()
+const { songFontSizeStyle } = useSongFontSizes()
 const { coverArtworkRounded, coverArtworkRadius } = useCoverArtworkCorners()
 const previewBrand = 'Auralis'
 </script>
 
 <template>
-  <div class="song-font-preview" :style="songFontWeightStyle">
+  <div class="song-font-preview" :style="[songFontWeightStyle, songFontSizeStyle]">
     <div v-if="view === 'list'" class="song-font-preview-list">
       <div class="song-font-preview-thumb" aria-hidden="true">
         <span class="i-lucide-music text-sm text-[var(--auralis-text-disabled)]"></span>
@@ -32,7 +35,7 @@ const previewBrand = 'Auralis'
         >{{ previewBrand }}</span
       >
       <span
-        class="song-font-preview-list-duration text-right text-sm text-[var(--auralis-text-faint)] tabular-nums"
+        class="song-font-preview-list-duration min-w-0 truncate text-right text-sm text-[var(--auralis-text-faint)] tabular-nums"
         >{{ t('settings.appearance.songFontWeight.sample.duration') }}</span
       >
     </div>
@@ -59,7 +62,7 @@ const previewBrand = 'Auralis'
         </div>
       </div>
       <div class="song-font-preview-tracks">
-        <div class="song-font-preview-disc">Disc 01</div>
+        <div class="song-font-preview-disc">{{ t('albums.detail.disc', { number: '01' }) }}</div>
         <div class="song-font-preview-track">
           <span
             class="song-font-preview-track-number text-center text-xs text-[var(--auralis-text-muted)] tabular-nums"
@@ -79,10 +82,16 @@ const previewBrand = 'Auralis'
             class="song-font-preview-genre truncate text-right text-xs text-[var(--auralis-text-muted)]"
             >{{ previewBrand }}</span
           >
-          <span
-            class="song-font-preview-cover-duration text-right text-xs text-[var(--auralis-text-muted)] tabular-nums"
-            >{{ t('settings.appearance.songFontWeight.sample.duration') }}</span
-          >
+          <div class="min-w-0 flex flex-col text-right tabular-nums">
+            <span
+              class="song-font-preview-cover-duration min-w-0 truncate text-xs text-[var(--auralis-text-muted)]"
+              >{{ t('settings.appearance.songFontWeight.sample.duration') }}</span
+            >
+            <span
+              class="song-font-preview-cover-bitrate auralis-type-caption min-w-0 truncate text-[var(--auralis-text-faint)]"
+              >{{ formatBitrate(320000) }}</span
+            >
+          </div>
         </div>
       </div>
     </div>
@@ -123,18 +132,26 @@ const previewBrand = 'Auralis'
 
 .song-font-preview-list-title {
   font-weight: var(--auralis-song-list-title-weight, 700);
+  font-size: var(--auralis-song-list-title-size, 14px);
+  line-height: max(20px, 1.2em);
 }
 
 .song-font-preview-list-artist {
   font-weight: var(--auralis-song-list-artist-weight, 600);
+  font-size: var(--auralis-song-list-artist-size, 12px);
+  line-height: max(16px, 1.2em);
 }
 
 .song-font-preview-list-album {
   font-weight: var(--auralis-song-list-album-weight, 600);
+  font-size: var(--auralis-song-list-album-size, 12px);
+  line-height: max(16px, 1.2em);
 }
 
 .song-font-preview-list-duration {
   font-weight: var(--auralis-song-list-duration-weight, 400);
+  font-size: var(--auralis-song-list-duration-size, 12px);
+  line-height: max(16px, 1.2em);
 }
 
 .song-font-preview-cover {
@@ -164,8 +181,8 @@ const previewBrand = 'Auralis'
 .song-font-preview-album {
   margin-top: 12px;
   color: var(--auralis-text);
-  font-size: 16px;
   font-weight: var(--auralis-song-cover-album-weight, 700);
+  font-size: var(--auralis-song-cover-album-size, 16px);
   line-height: 20px;
 }
 
@@ -178,10 +195,14 @@ const previewBrand = 'Auralis'
 
 .song-font-preview-album-artist {
   font-weight: var(--auralis-song-cover-album-artist-weight, 600);
+  font-size: var(--auralis-song-cover-album-artist-size, 12px);
+  line-height: 20px;
 }
 
 .song-font-preview-release-date {
   font-weight: var(--auralis-song-cover-release-date-weight, 500);
+  font-size: var(--auralis-song-cover-release-date-size, 12px);
+  line-height: 20px;
 }
 
 .song-font-preview-disc {
@@ -195,14 +216,15 @@ const previewBrand = 'Auralis'
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.045);
   color: var(--auralis-text-muted);
-  font-size: 11px;
   font-weight: var(--auralis-song-cover-disc-heading-weight, 700);
+  font-size: var(--auralis-song-cover-disc-heading-size, 11px);
+  line-height: 24px;
   letter-spacing: 0.06em;
 }
 
 .song-font-preview-track {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1.4fr) minmax(0, 1fr) 44px;
+  grid-template-columns: 32px minmax(0, 1.4fr) minmax(0, 1fr) 80px;
   column-gap: 12px;
   align-items: center;
   min-height: 48px;
@@ -210,22 +232,38 @@ const previewBrand = 'Auralis'
 
 .song-font-preview-track-number {
   font-weight: var(--auralis-song-cover-track-number-weight, 400);
+  font-size: var(--auralis-song-cover-track-number-size, 12px);
+  line-height: max(16px, 1.2em);
 }
 
 .song-font-preview-cover-title {
   font-weight: var(--auralis-song-cover-title-weight, 500);
+  font-size: var(--auralis-song-cover-title-size, 14px);
+  line-height: max(20px, 1.2em);
 }
 
 .song-font-preview-cover-artist {
   font-weight: var(--auralis-song-cover-artist-weight, 400);
+  font-size: var(--auralis-song-cover-artist-size, 12px);
+  line-height: max(18px, 1.2em);
 }
 
 .song-font-preview-genre {
   font-weight: var(--auralis-song-cover-genre-weight, 400);
+  font-size: var(--auralis-song-cover-genre-size, 12px);
+  line-height: max(16px, 1.2em);
 }
 
 .song-font-preview-cover-duration {
   font-weight: var(--auralis-song-cover-duration-weight, 400);
+  font-size: var(--auralis-song-cover-duration-size, 12px);
+  line-height: max(16px, 1.2em);
+}
+
+.song-font-preview-cover-bitrate {
+  font-weight: var(--auralis-song-cover-bitrate-weight, 400);
+  font-size: var(--auralis-song-cover-bitrate-size, 12px);
+  line-height: max(var(--auralis-type-caption-line-height), 1.2em);
 }
 
 @container (max-width: 460px) {

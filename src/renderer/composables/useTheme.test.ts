@@ -91,11 +91,7 @@ describe('useTheme', () => {
     expect(isThemeMode(123)).toBe(false)
   })
 
-  it('resolves theme from requested value or storage fallback', () => {
-    expect(resolveTheme('light')).toBe('light')
-    expect(resolveTheme('dark')).toBe('dark')
-
-    // No requested mode, storage empty -> default to dark
+  it('resolves theme from storage or uses the dark default', () => {
     expect(resolveTheme()).toBe(DEFAULT_THEME)
 
     // Storage has light

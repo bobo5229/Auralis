@@ -4,12 +4,13 @@ import { useI18n } from 'vue-i18n'
 import { useCoverArtworkCorners } from '@renderer/features/appearance/composables/useCoverArtworkCorners'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
-import { formatArtist } from '../utils/formatArtist'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 import {
   formatAlbumCoverDiscHeading,
   getAlbumCoverTrackDiscHeadings,
 } from '../utils/albumCoverDiscHeadings'
 import AlbumCoverTrackRow from './AlbumCoverTrackRow.vue'
+import VirtualAlbumTrackList from './VirtualAlbumTrackList.vue'
 import {
   getAlbumCoverColumnHeight,
   LIBRARY_LAYOUT_METRICS,
@@ -21,15 +22,21 @@ const props = withDefaults(
     nowPlayingTrackId?: number | null
     isPlaying?: boolean
     selectedTrackId?: number | null
+    contextSelectedTrackId?: number | null
     focusedTrackId?: number | null
     viewportHeight?: number
+    scrollElement?: HTMLElement | null
+    startOffset?: number
   }>(),
   {
     nowPlayingTrackId: null,
     isPlaying: false,
     selectedTrackId: null,
+    contextSelectedTrackId: null,
     focusedTrackId: null,
     viewportHeight: 0,
+    scrollElement: null,
+    startOffset: 0,
   },
 )
 
@@ -46,7 +53,10 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { songText, songValues } = useChineseTextDisplay()
 const { coverArtworkRounded, coverArtworkRadius } = useCoverArtworkCorners()
+// 分组虚拟化仍会挂载整张专辑；大型合集额外按曲目虚拟化。
+const LONG_ALBUM_TRACK_COUNT = 100
 const imgError = ref(false)
 const discHeadings = computed(() => getAlbumCoverTrackDiscHeadings(props.group.tracks))
 // 可用高度已扣除播放栏安全区；低窗口中恢复正常滚动，确保说明可见。
@@ -72,6 +82,7 @@ function onArtworkContextMenu(event: MouseEvent): void {
 }
 
 function onArtworkKeyDown(event: KeyboardEvent): void {
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
   if (
     event.key === 'Enter' ||
     event.key === ' ' ||
@@ -97,10 +108,13 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
     <div class="album-cover-aside" :class="{ 'album-cover-aside--sticky': canStickAside }">
       <div
         class="album-cover-artwork select-none"
+        tabindex="0"
+        role="button"
+        aria-haspopup="menu"
         :style="{ borderRadius: coverArtworkRounded ? `${coverArtworkRadius}px` : '0px' }"
         :aria-label="
           t('library.a11y.albumArtwork', {
-            album: group.album || t('library.unknownAlbum'),
+            album: songText(group.album) || t('library.unknownAlbum'),
           })
         "
         @contextmenu.prevent="onArtworkContextMenu"
@@ -125,16 +139,16 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 
       <div class="album-cover-meta min-w-0">
         <p
-          v-tooltip.overflow="group.album || t('library.unknownAlbum')"
+          v-tooltip.overflow="songText(group.album) || t('library.unknownAlbum')"
           class="album-cover-meta-title truncate"
         >
-          {{ group.album || t('library.unknownAlbum') }}
+          {{ songText(group.album) || t('library.unknownAlbum') }}
         </p>
         <p
           class="album-cover-meta-line album-cover-meta-artist flex items-center justify-between gap-2 min-w-0"
         >
-          <span v-tooltip.overflow="formatArtist(group.albumArtist)" class="truncate">
-            {{ formatArtist(group.albumArtist) }}
+          <span v-tooltip.overflow="songValues(group.albumArtist)" class="truncate">
+            {{ songValues(group.albumArtist) }}
           </span>
         </p>
         <p v-if="group.releaseDate" class="album-cover-meta-line album-cover-meta-date truncate">
@@ -144,48 +158,84 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
     </div>
 
     <div class="album-cover-tracks">
-      <template v-for="(track, trackIdx) in group.tracks" :key="track.id">
-        <div
-          v-if="discHeadings[trackIdx] !== null"
-          class="cover-disc-heading"
-          :class="{ 'cover-disc-heading--first': trackIdx === 0 }"
-        >
-          {{ formatAlbumCoverDiscHeading(discHeadings[trackIdx]!) }}
-        </div>
-        <AlbumCoverTrackRow
-          :track="track"
-          :now-playing="nowPlayingTrackId === track.id"
-          :is-playing="isPlaying"
-          :selected="selectedTrackId === track.id"
-          :focused="focusedTrackId === track.id"
-          :index="trackIdx"
-          :disc-end="trackIdx === group.tracks.length - 1 || discHeadings[trackIdx + 1] != null"
-          @select="emit('select', $event)"
-          @play="emit('play', $event)"
-          @focus="emit('focusTrack', $event)"
-          @open-context-menu="
-            (trackId, event, openReason) => emit('openTrackContextMenu', trackId, event, openReason)
-          "
-        />
+      <VirtualAlbumTrackList
+        v-if="group.tracks.length > LONG_ALBUM_TRACK_COUNT"
+        :tracks="group.tracks"
+        :scroll-element="scrollElement"
+        :start-offset="startOffset"
+        :now-playing-track-id="nowPlayingTrackId"
+        :is-playing="isPlaying"
+        :selected-track-id="selectedTrackId"
+        :context-selected-track-id="contextSelectedTrackId"
+        :focused-track-id="focusedTrackId"
+        @select="emit('select', $event)"
+        @play="emit('play', $event)"
+        @focus-track="emit('focusTrack', $event)"
+        @open-track-context-menu="
+          (trackId, event, openReason) => emit('openTrackContextMenu', trackId, event, openReason)
+        "
+      />
+      <template v-else>
+        <template v-for="(track, trackIdx) in group.tracks" :key="track.id">
+          <div
+            v-if="discHeadings[trackIdx] !== null"
+            class="cover-disc-heading"
+            :class="{ 'cover-disc-heading--first': trackIdx === 0 }"
+          >
+            {{ formatAlbumCoverDiscHeading(discHeadings[trackIdx]!) }}
+          </div>
+          <AlbumCoverTrackRow
+            :track="track"
+            :now-playing="nowPlayingTrackId === track.id"
+            :is-playing="isPlaying"
+            :selected="selectedTrackId === track.id"
+            :context-selected="contextSelectedTrackId === track.id"
+            :focused="focusedTrackId === track.id"
+            :index="trackIdx"
+            :disc-end="trackIdx === group.tracks.length - 1 || discHeadings[trackIdx + 1] != null"
+            @select="emit('select', $event)"
+            @play="emit('play', $event)"
+            @focus="emit('focusTrack', $event)"
+            @open-context-menu="
+              (trackId, event, openReason) =>
+                emit('openTrackContextMenu', trackId, event, openReason)
+            "
+          />
+        </template>
       </template>
     </div>
   </div>
 </template>
 
 <style scoped>
+.album-cover-artwork:hover {
+  cursor: default;
+}
+
+.album-cover-artwork:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 3px;
+}
+
 .album-cover-meta-title {
   font-weight: var(--auralis-song-cover-album-weight, 700);
+  font-size: var(--auralis-song-cover-album-size, 16px);
+  line-height: 20px;
 }
 
 .album-cover-meta-artist {
   font-weight: var(--auralis-song-cover-album-artist-weight, 600);
+  font-size: var(--auralis-song-cover-album-artist-size, 12px);
+  line-height: 20px;
 }
 
 .album-cover-meta-date {
   font-weight: var(--auralis-song-cover-release-date-weight, 500);
+  font-size: var(--auralis-song-cover-release-date-size, 12px);
+  line-height: 20px;
 }
 
-.cover-disc-heading {
+:deep(.cover-disc-heading) {
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -195,13 +245,14 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
   border-radius: 8px;
   background: transparent;
   color: var(--auralis-text-muted);
-  font-size: 11px;
   font-weight: var(--auralis-song-cover-disc-heading-weight, 700);
+  font-size: var(--auralis-song-cover-disc-heading-size, 11px);
+  line-height: 24px;
   letter-spacing: 0.06em;
 }
 
 /* 首个 Disc 标题放入组顶部留白，不占曲目列高度。 */
-.cover-disc-heading--first {
+:deep(.cover-disc-heading--first) {
   position: absolute;
   top: calc(-1 * var(--library-cover-disc-heading-height));
   left: var(--library-cover-panel-padding-inline-side);

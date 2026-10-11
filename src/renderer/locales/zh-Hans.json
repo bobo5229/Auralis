@@ -1,4 +1,8 @@
 {
+  "startupAlbum": {
+    "play": "播放专辑",
+    "skip": "跳过"
+  },
   "windowControls": {
     "close": "关闭窗口",
     "minimize": "最小化窗口",
@@ -8,13 +12,20 @@
   "nav": {
     "songs": "歌曲",
     "albums": "专辑",
-    "archive": "声迹"
+    "archive": "聆听档案"
   },
   "sidebar": {
     "library": "资料库",
     "playlists": "歌单",
     "createFirstPlaylist": "创建第一张歌单",
     "playlistNameRequired": "名称不能为空",
+    "renameFailed": "重命名失败，请重试",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "reorderHelp": "长按拖动排序，或按 Alt 加上、下方向键移动歌单。按 Shift 加 F10 打开菜单。",
+    "reorderAnnouncement": "已将{name}移至第{position}项，共{total}项",
+    "reorderFailed": "排序未保存，已重新加载歌单，请重试",
+    "reorderReloadFailed": "排序未保存，重新加载失败，请重试",
     "newPlaylist": "新建歌单",
     "newSmartPlaylist": "新建智能歌单",
     "recentPlayed": "最近播放",
@@ -22,31 +33,25 @@
     "recentAdded": "最近添加",
     "customSmartPlaylist": "自定义",
     "createPlaylistFailed": "创建失败，请重试",
-    "smartPlaylists": "智能歌单",
     "rename": "重命名",
     "delete": "删除",
     "renameDialogTitle": "重命名歌单",
     "playlistName": "歌单名称",
     "cancel": "取消",
     "save": "保存",
-    "create": "创建",
-    "queryDialogTitle": "创建智能歌单",
-    "queryAria": "智能歌单查询语法",
-    "queryRequired": "请输入查询语法",
-    "queryParseFailed": "无法解析查询语法",
-    "deletePlaylistTitle": "删除歌单？",
-    "deleteSmartPlaylistTitle": "删除智能歌单？",
     "toolbarAria": "侧栏工具",
     "collapse": "收起侧边栏",
     "expand": "展开侧边栏",
     "tool": {
-      "facets": "筛选",
       "facetsPanel": "筛选面板",
+      "themeToLight": "切换到浅色主题",
+      "themeToDark": "切换到深色主题",
       "settings": "设置",
-      "refresh": "刷新曲库",
       "refreshAction": "刷新曲库",
       "refreshBusy": "正在刷新曲库"
-    }
+    },
+    "confirmDelete": "确认删除",
+    "deleteFailed": "删除失败，请重试"
   },
   "facets": {
     "title": "筛选",
@@ -64,26 +69,81 @@
   },
   "settings": {
     "title": "设置",
+    "dialog": {
+      "close": "关闭设置",
+      "loading": "正在加载设置…",
+      "loadFailed": "设置加载失败，请重试。",
+      "retry": "重试"
+    },
     "navAriaLabel": "设置分类",
     "nav": {
       "appearance": "外观",
       "playback": "播放",
       "library": "音乐资料库",
-      "about": "关于",
-      "appearanceDescription": "主题、界面布局和歌曲页字重",
-      "playbackDescription": "无缝播放、边界静音和柔和过渡",
-      "libraryDescription": "管理音乐文件与元数据",
-      "aboutDescription": "版本与本地数据位置"
+      "about": "关于"
     },
     "appearance": {
+      "startupAlbum": {
+        "title": "启动时推荐一张专辑",
+        "description": "欢迎页结束后，从本地收藏随机展示一张专辑。下次启动生效。",
+        "persistFailed": "本次保存未完成，请重试。"
+      },
+      "textDisplay": {
+        "title": "文字显示",
+        "songInfo": "歌曲信息字形",
+        "songInfoDescription": "切换歌曲与专辑信息的简繁显示，不改变原始元数据。",
+        "lyrics": "歌词字形",
+        "lyricsDescription": "独立切换歌词的简繁显示，不跟随歌曲信息设置。",
+        "simplified": "简体",
+        "traditional": "繁体",
+        "persistFailed": "已应用，本次保存未完成。"
+      },
       "theme": "主题",
-      "themeDescription": "选择应用界面为深色或浅色外观。",
       "reducedMotion": {
         "title": "减少动态效果",
         "description": "减少位移、缩放和持续动效。默认跟随系统，也可手动开启。",
         "system": "跟随系统",
         "enabled": "开启",
         "persistFailed": "已应用，本次保存未完成。"
+      },
+      "lyricsEffects": {
+        "title": "主界面歌词",
+        "edgeFade": {
+          "title": "顶部与底部渐隐",
+          "description": "让同步歌词在面板的上下边缘逐渐隐去。"
+        },
+        "blur": {
+          "title": "高斯模糊",
+          "description": "柔化非当前歌词，突出正在播放的一行。"
+        },
+        "persistFailed": "已应用，本次保存未完成。"
+      },
+      "windowBehavior": {
+        "title": "窗口行为",
+        "label": "点击关闭按钮时",
+        "description": "选择退出应用，或保留播放并收起窗口。",
+        "quit": "退出应用",
+        "minimize": "最小化到任务栏",
+        "tray": "收起到系统托盘",
+        "trayUnavailable": "系统托盘不可用；收起到托盘时将改为最小化到任务栏。",
+        "loadFailed": "未能读取关闭方式，请重试。",
+        "saveFailed": "未能保存，关闭方式保持原设置。",
+        "retry": "重试"
+      },
+      "lyricsScroll": {
+        "title": "歌词滚动效果",
+        "description": "控制普通与全屏同步歌词的过渡曲线；减少动态效果开启时仍即时定位。",
+        "standard": "标准",
+        "quick": "迅捷",
+        "soft": "柔和",
+        "emphasized": "强调",
+        "persistFailed": "已应用，本次保存未完成。"
+      },
+      "playingIcon": {
+        "title": "“播放中”图标",
+        "description": "选择播放状态所展示的图标符号。",
+        "equalizer": "三柱均衡器",
+        "blocks-wave": "方块律动"
       },
       "themeDark": "深色",
       "themeLight": "浅色",
@@ -119,10 +179,6 @@
       "coverArtworkRounded": "封面圆角",
       "language": "界面语言",
       "languageDescription": "选择应用界面显示的语言。",
-      "fluidBackground": "流光背景",
-      "fluidBackgroundDescription": "让专辑色彩进入应用背景。",
-      "fluidBackgroundAriaOn": "流光背景，当前已开启",
-      "fluidBackgroundAriaOff": "流光背景，当前已关闭",
       "songFontWeight": {
         "title": "歌曲页参数",
         "listView": "列表视图",
@@ -131,6 +187,10 @@
         "coverSection": "封面",
         "coverRadius": "圆角弧度",
         "weightSection": "字重",
+        "typographySection": "字体",
+        "sizeLabel": "字号",
+        "increaseSize": "增大{field}字号",
+        "decreaseSize": "减小{field}字号",
         "resetView": "恢复默认参数",
         "resetStatus": "已恢复当前视图的默认参数",
         "persistFailed": "本次调整已生效，保存失败，重启后可能恢复",
@@ -144,14 +204,15 @@
           "trackNumber": "音轨编号",
           "genre": "流派",
           "duration": "歌曲时长",
+          "bitrate": "比特率",
           "discHeading": "碟片标题"
         },
         "options": {
-          "default": "默认（{weight}）",
           "400": "常规（400）",
           "500": "中等（500）",
           "600": "半粗（600）",
-          "700": "粗体（700）"
+          "700": "粗体（700）",
+          "default": "默认（{weight}）"
         },
         "sample": {
           "title": "夜航 Night Flight — 写给远方的一封很长的信",
@@ -161,22 +222,39 @@
           "releaseDate": "2016-04-22",
           "trackNumber": "03",
           "genre": "民谣 Folk",
-          "duration": "4:12",
+          "duration": "04:12",
           "discHeading": "Disc 01"
+        },
+        "expand": "展开",
+        "collapse": "收起"
+      },
+      "albumParameters": {
+        "title": "专辑页参数",
+        "reset": "恢复默认参数",
+        "resetStatus": "已恢复专辑页默认参数",
+        "persistFailed": "本次调整已生效，保存失败，重启后可能恢复",
+        "sampleTitle": "静谧时光 · Quiet Hours",
+        "sampleArtist": "Auralis Ensemble",
+        "fields": {
+          "title": "专辑名称",
+          "artist": "艺术家",
+          "year": "发行年份"
         }
       },
-      "playerBarMaterial": "播放栏材质",
-      "playerBarMaterialDescription": "选择播放栏跟随专辑封面取色，或使用更通透的 Liquid Glass 效果。",
-      "playerBarMaterialOption": {
-        "coverTint": "封面取色",
-        "liquidGlass": "Liquid Glass"
-      }
+      "interface": "界面",
+      "languagePersistFailed": "语言已切换，但未能保存。重启后可能恢复，请重试。",
+      "languageSyncFailed": "语言已切换，原生控件同步失败，请重试。"
     },
     "playback": {
       "gapless": "无缝播放",
       "gaplessDescription": "减少连续曲目切换时的间隙。",
       "gaplessAriaOn": "无缝播放，当前已开启",
-      "gaplessAriaOff": "无缝播放，当前已关闭"
+      "gaplessAriaOff": "无缝播放，当前已关闭",
+      "digitalSilence": "跳过边界数字静音",
+      "digitalSilenceDescription": "移除连续专辑曲目间极短的数字静音。",
+      "nativeUnavailable": "当前原生播放不可用。",
+      "softTransition": "柔和过渡",
+      "softTransitionDescription": "普通换曲时交叉淡化 2 秒。"
     },
     "library": {
       "maintenanceSection": "资料库维护",
@@ -241,7 +319,8 @@
         "selectFolder": "无法选择音乐文件夹",
         "startScan": "无法开始扫描",
         "cancelScan": "无法取消扫描"
-      }
+      },
+      "failureDetails": "诊断详情"
     },
     "about": {
       "productSection": "产品信息",
@@ -276,7 +355,6 @@
     "more": "更多播放控件",
     "progress": "播放进度",
     "fullscreen": "打开全屏播放器",
-    "queueCount": "{count} 首",
     "queueEmpty": "暂无播放队列",
     "nowPlaying": "正在播放",
     "upNext": "接下来",
@@ -291,37 +369,68 @@
     "lyricsSeekToLine": "跳转到：{text}",
     "lyricsSeekToTime": "跳转到 {seconds} 秒",
     "lyricsStartingSoon": "歌词即将开始",
+    "currentMode": "播放模式：{mode}",
+    "albumShuffleDescription": "专辑间随机，专辑内顺序",
     "modeOption": {
       "sequential": "顺序播放",
       "repeat-all": "列表循环",
       "repeat-one": "单曲循环",
       "shuffle": "随机播放",
       "album-shuffle": "专辑随机"
-    },
-    "modeDock": {
-      "sequential": "顺序",
-      "repeat-all": "循环",
-      "repeat-one": "单曲",
-      "shuffle": "随机",
-      "album-shuffle": "专辑"
     }
   },
   "fullscreen": {
+    "settings": "全屏设置",
+    "closeSettings": "关闭全屏设置",
     "overlayAria": "全屏播放器",
     "exit": "退出全屏播放器",
     "repeatEnableOne": "开启单曲循环",
     "repeatDisable": "关闭循环",
     "repeatEnableAll": "开启列表循环",
-    "lyricsStartingSoon": "歌词即将开始"
+    "lyricsStartingSoon": "歌词即将开始",
+    "background": {
+      "section": "背景",
+      "mode": "背景样式",
+      "metal": "液态金属",
+      "fluid": "流光",
+      "speed": "流动速度",
+      "folds": "纹理大小",
+      "roughness": "反射柔度",
+      "pause": "暂停背景",
+      "reset": "重置材质"
+    },
+    "lyrics": {
+      "section": "歌词",
+      "fontSize": "字号",
+      "fontWeight": "字重",
+      "lineGap": "行间距",
+      "scaleDescription": "字号和行间距以当前自适应值为 100%。",
+      "reset": "恢复默认",
+      "resetStatus": "已恢复歌词默认参数",
+      "persistFailed": "本次调整已生效，保存失败，重启后可能恢复",
+      "weights": {
+        "400": "常规（400）",
+        "500": "中等（500）",
+        "600": "半粗（600）",
+        "700": "粗体（700）",
+        "800": "特粗（800）"
+      }
+    },
+    "lyricsContextMenu": {
+      "label": "歌词显示",
+      "simplified": "切换为简体中文",
+      "traditional": "切换为繁体中文",
+      "persistFailed": "本次切换已生效，保存失败，重启后可能恢复"
+    }
   },
   "albums": {
     "cd": {
       "nowPlaying": "Now Playing",
       "paused": "Paused",
       "tracks": "曲目",
-      "returnToBrowse": "返回 CD 浏览",
+      "returnToBrowse": "返回唱片室",
       "returnToIndex": "返回封面检索",
-      "focusReturnBrowse": "CD 浏览",
+      "focusReturnBrowse": "唱片室",
       "focusReturnIndex": "专辑检索",
       "view": {
         "label": "浏览方式",
@@ -350,19 +459,10 @@
         "vinyl": "黑胶质感"
       },
       "theme": {
+        "light": "浅色模式",
+        "dark": "深色模式",
         "toLight": "切换到浅色",
         "toDark": "切换到深色"
-      },
-      "background": {
-        "toggle": "背景取色",
-        "turnOn": "开启封面强调色背景",
-        "turnOff": "关闭封面强调色背景",
-        "lightOnly": "仅浅色模式可用"
-      },
-      "progress": {
-        "wave": "波浪",
-        "comet": "彗星余晖",
-        "switchTo": "切换为{style}进度"
       },
       "spectrum": {
         "title": "实时频谱",
@@ -373,10 +473,9 @@
         "motionDisabled": "动效已关闭"
       },
       "vibration": {
-        "turnOn": "开启低频振动并隐藏歌词",
-        "turnOff": "关闭低频振动并恢复歌词",
-        "enabledHint": "{action} · {style}（右键切换模式）",
-        "disabledHint": "{action}（左键或右键）",
+        "disabled": "振动关闭",
+        "turnOn": "开启低频振动",
+        "turnOff": "关闭低频振动",
         "smooth": "柔和起伏",
         "elastic": "弹性回落"
       },
@@ -391,7 +490,7 @@
       "artist": "Album Artist",
       "releaseDate": "Release Date",
       "copyright": "Copyright",
-      "title": "CD 浏览",
+      "title": "唱片室",
       "stage": "专辑光盘展示区，可用左右方向键或滑动切换",
       "hint": "方向键或左右滑动切换",
       "previous": "上一张",
@@ -402,38 +501,12 @@
       "back": "返回列表",
       "play": "播放",
       "shuffle": "随机播放",
-      "tracks": "曲目",
       "disc": "Disc {number}",
-      "trackCount": {
-        "one": "{count} 首曲目",
-        "other": "{count} 首曲目"
-      },
-      "duration": {
-        "zero": "00 分 00 秒",
-        "minutes": "{minutes} 分 {seconds} 秒",
-        "hours": "{hours} 小时 {minutes} 分"
-      },
-      "metrics": {
-        "tracks": "曲目",
-        "duration": "总长",
-        "plays": "已听",
-        "listened": "累计",
-        "stats": "收听统计",
-        "playsUnit": "{count} 次",
-        "playsUnitOne": "{count} 次",
-        "minutesUnit": "{minutes} 分钟",
-        "hoursUnit": "{hours} 小时"
-      },
-      "listenSummary": {
-        "plays": "听过 {count} 次",
-        "minutes": "听过 {count} 次 · 约 {minutes} 分钟",
-        "hours": "听过 {count} 次 · 约 {hours} 小时"
-      },
       "unknownYear": "年份未知",
+      "unknownDate": "日期未知",
       "unknownTitle": "未命名曲目",
-      "moreAlbumsTitle": "{artist} 的更多作品",
+      "moreAlbumsTitle": "更多作品来自 {artist}",
       "genreAlbumsTitle": "{genre} 的更多作品",
-      "moreAlbumsAria": "{artist} 的更多作品",
       "openAlbumAria": "打开专辑 {title}",
       "coverAlt": "{title} 的封面",
       "heroAria": "{title} 的专辑封面与详情",
@@ -446,17 +519,15 @@
     "search": {
       "ariaLabel": "搜索专辑和专辑艺术家",
       "placeholder": "搜索专辑、专辑艺术家",
-      "matched": "定位到 {index} / {total}",
+      "matched": "{index} / {total}",
       "wrapped": "已回到开头（{index} / {total}）",
       "notFound": "未找到匹配专辑"
     },
     "contextMenu": {
       "locateCurrent": "定位到当前专辑",
       "play": "播放「{title}」",
-      "openInCd": "在「CD 浏览」中打开",
-      "insert": "插播「{title}」",
-      "switchToPerspective": "切换到透视封面视图",
-      "switchToGrid": "切换到常规封面视图"
+      "openInCd": "在「唱片室」中打开",
+      "insert": "插播「{title}」"
     },
     "status": {
       "loading": "正在读取专辑目录…",
@@ -466,15 +537,28 @@
     },
     "a11y": {
       "openAlbum": "打开专辑 {title}",
+      "longPressPlay": "长按封面播放整张专辑，也可按 Shift+Enter 触发",
       "coverAlt": "{title} 的封面"
-    }
+    },
+    "year": "{year} 年"
   },
   "library": {
     "playCount": "{count} 次",
+    "columns": {
+      "artwork": "封面",
+      "title": "歌曲",
+      "artist": "艺人",
+      "album": "专辑",
+      "playCount": "次数",
+      "duration": "时长",
+      "resizeBetween": "调整 {left} 与 {right} 列宽",
+      "menuLabel": "曲目列表列宽菜单",
+      "restoreDefaults": "恢复默认列宽"
+    },
     "search": {
       "ariaLabel": "搜索当前列表",
       "placeholder": "搜索标题、艺人、专辑…",
-      "matched": "定位到 {index} / {total}",
+      "matched": "{index} / {total}",
       "wrapped": "已回到开头（{index} / {total}）",
       "notFound": "未找到匹配项",
       "clearSearch": "清空搜索"
@@ -494,27 +578,29 @@
       "noPlaylists": "暂无可添加的歌单",
       "playlistLoading": "正在加载歌单…",
       "playlistLoadError": "加载歌单失败",
-      "addedSuccess": "已添加到「{name}」"
+      "addedSuccess": "已添加到「{name}」",
+      "alreadyInPlaylist": "已在「{name}」中",
+      "addedPartial": "已向「{name}」添加 {count} 首歌曲；跳过 {unavailable} 首不可用歌曲。",
+      "tracksUnavailable": "未添加新歌曲，不可用的歌曲无法添加。",
+      "playlistNotFound": "此歌单已删除，请选择其他歌单。",
+      "playlistAddError": "添加歌曲失败，请重试。"
     },
     "metadataEditor": {
       "title": "编辑元数据",
-      "ariaLabel": "编辑曲目元数据",
       "fields": {
         "title": "标题",
-        "artist": "艺人",
+        "artist": "艺术家",
         "album": "专辑",
-        "albumArtist": "专辑艺人",
+        "albumArtist": "专辑艺术家",
         "genre": "流派",
-        "year": "年份",
         "releaseDate": "发行日期"
       },
       "placeholders": {
         "title": "输入曲目标题",
-        "artist": "输入艺人名称",
+        "artist": "输入艺术家名称",
         "album": "输入专辑名称",
-        "albumArtist": "输入专辑艺人名称",
+        "albumArtist": "输入专辑艺术家名称",
         "genre": "输入流派",
-        "year": "例如：2024",
         "releaseDate": "例如：2024-05-20"
       },
       "actions": {
@@ -523,19 +609,25 @@
         "saving": "正在保存…"
       },
       "validation": {
-        "yearInvalid": "年份必须为四位数字",
         "dateInvalid": "日期格式必须为 YYYY-MM-DD"
       },
       "status": {
         "checking": "正在检查编辑状态…",
         "playbackInUse": "歌曲文件被播放器占用，无法修改元数据。",
+        "preloadInUse": "歌曲已预加载，暂时无法修改元数据。",
+        "playbackEditable": "播放中可保存元数据，音乐将继续播放。",
         "queryFailed": "无法确认编辑状态，请重试。",
+        "loading": "正在读取歌曲信息…",
         "retry": "重试"
       },
       "errors": {
         "saveFailed": "保存元数据失败",
-        "playbackInUse": "歌曲文件被播放器占用，无法修改元数据。",
-        "writeInProgress": "当前文件正在保存中，请稍候。"
+        "loadFailed": "读取歌曲信息失败，请重试。",
+        "writeInProgress": "当前文件正在保存中，请稍候。",
+        "bufferPreparationFailed": "暂时无法在播放中保存。编辑内容已保留，请重试或切曲后保存。",
+        "fileInUse": "文件写回失败。编辑内容已保留，请检查文件占用或磁盘空间后重试。",
+        "playbackRestoreFailed": "续播恢复失败。文件可能已更新，请重新读取元数据后核对。",
+        "playbackChanged": "播放状态已改变，本次保存未完成。编辑内容已保留，请核对后重试。"
       }
     },
     "status": {
@@ -560,25 +652,54 @@
     }
   },
   "archive": {
-    "title": "声迹",
-    "annualSummary": "年度摘要",
-    "annualRecap": "年度总结",
-    "linerNotes": {
-      "badge": "ANNUAL NOTES · {year} ARCHIVE",
-      "serial": "NO. #AUR-{year}-{checksum}",
-      "archiveId": "ARCHIVE-ID: #AUR-{year}-{checksum}",
-      "status": "STATUS: {status}",
-      "statusVerified": "VERIFIED & ARCHIVED",
-      "statusPending": "PENDING",
-      "statusAudited": "AUDITED",
-      "emptyNarrative": "本年度档案室尚无旋律登记入库。当第一首曲目流淌时，专属时光档案将在此正式封存。",
-      "auditOrg": "AURALIS AUDIT",
-      "receiptTitle": "* METRICS RECEIPT *",
-      "receiptActiveDays": "ACTIVE DAYS",
-      "receiptTotalPlays": "TOTAL PLAYS",
-      "receiptTotalDuration": "TOTAL DURATION",
-      "receiptDailyAverage": "DAILY AVERAGE",
-      "receiptPeakLog": "PEAK LOG"
-    }
+    "title": "聆听档案",
+    "previousYear": "上一年",
+    "nextYear": "下一年",
+    "loading": "正在读取聆听记录…",
+    "loadError": "聆听记录加载失败，请稍后重新进入。",
+    "empty": "该年份暂无聆听记录",
+    "calendarDescription": "{year} 年聆听热力图，共 {plays} 次有效播放，{days} 个活跃日；方向键选择日期，回车查看当日歌曲，Esc 关闭",
+    "daySummary": "{count} 次 · {minutes} 分钟",
+    "playCount": "{count} 次",
+    "dayEmpty": "当日暂无聆听记录",
+    "dayLoadError": "加载失败，请重新点击日期。",
+    "unknownTrack": "未知歌曲",
+    "unknownArtist": "未知艺术家"
+  },
+  "smartBuilder": {
+    "title": "新建智能歌单",
+    "defaultName": "我的智能歌单",
+    "genre": "流派",
+    "artist": "艺术家",
+    "chooseSingle": "请选择流派或艺术家",
+    "chooseGroups": "请选择每个条件组的具体值",
+    "groupEmpty": "条件组内无匹配，无法创建",
+    "noIntersection": "各条件组之间没有交集，无法创建",
+    "loadError": "曲库加载失败，请重试",
+    "noMatches": "当前条件没有匹配歌曲，请调整后重试",
+    "createError": "创建失败，请重试",
+    "loading": "正在读取曲库…",
+    "betweenGroups": "组间关系",
+    "betweenGroupsAria": "不同维度之间的关系",
+    "single": "单选",
+    "andAll": "和 · 同时满足",
+    "orAny": "或 · 满足任一",
+    "matchCount": "{count} 首匹配",
+    "unselected": "未选择",
+    "withinGroup": "组内关系",
+    "withinGroupAria": "{field}组内关系",
+    "and": "和",
+    "or": "或",
+    "selected": "已选{field}",
+    "remove": "移除 {value}",
+    "clear": "清空",
+    "search": "检索{field}",
+    "clearSearch": "清除{field}检索",
+    "more": "显示更多（{count}）",
+    "noValues": "没有找到相应的值",
+    "selectionLimit": "每组最多选择 {count} 项；取消一项后可继续选择。",
+    "resultCount": "匹配歌曲 {count} 首",
+    "creating": "正在创建…",
+    "create": "创建歌单"
   }
 }

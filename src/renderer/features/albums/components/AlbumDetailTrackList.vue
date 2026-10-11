@@ -1,14 +1,16 @@
 <script setup lang="ts">
+import PlayingIndicator from '@renderer/shared/components/PlayingIndicator.vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { formatArtist } from '@renderer/features/library/utils/formatArtist'
 import { formatDuration } from '@renderer/features/library/utils/formatDuration'
 import { resolveAlbumTrackPresentation } from '../utils/albumTrackPresentation'
+import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 
 defineProps<{
   groups: { discNo: number | null; tracks: TrackListItem[] }[]
   albumArtist: string
   selectedTrackId: number | null
+  isPlaying: boolean
   currentTrackId: number | null
   highlightedTrackId: number | null
 }>()
@@ -18,10 +20,11 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { songText, songValues } = useChineseTextDisplay()
 
 function formatDisplayArtist(artist: string | null | undefined): string {
   if (!artist || artist === 'Unknown Artist') return t('library.unknownArtist')
-  return formatArtist(artist)
+  return songValues(artist)
 }
 </script>
 
@@ -82,11 +85,15 @@ function formatDisplayArtist(artist: string | null | undefined): string {
               }}
             </span>
             <span class="album-detail-track-play-icon i-lucide-play"></span>
-            <span class="album-detail-track-eq" aria-hidden="true"><i></i><i></i><i></i></span>
+            <PlayingIndicator
+              v-if="track.id === currentTrackId"
+              class="album-detail-track-eq"
+              :playing="isPlaying"
+            />
           </span>
           <span class="min-w-0 text-left">
             <span class="album-detail-track-title">{{
-              track.title || t('albums.detail.unknownTitle')
+              songText(track.title) || t('albums.detail.unknownTitle')
             }}</span>
             <span
               v-if="track.artist && track.artist !== albumArtist"

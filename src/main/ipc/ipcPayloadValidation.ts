@@ -3,6 +3,9 @@ import { ipcChannels } from '@shared/ipc/channels'
 import type { IpcInvokeChannel } from '@shared/ipc/contracts'
 import { LIBRARY_CATALOG_MAX_PAGE_SIZE } from '@shared/types/libraryCatalog'
 import { assertRecentAddedDays } from '@shared/smartPlaylists/recentAdded'
+import { SMART_PLAYLIST_MAX_OPERANDS } from '@shared/smartPlaylists/ruleLimits'
+import { isListeningArchiveDate } from '@shared/listeningArchiveDate'
+import { STARTUP_ALBUM_HISTORY_LIMIT } from '@shared/types/startupAlbum'
 
 const MAX_TEXT_LENGTH = 8_192
 const MAX_QUERY_LENGTH = 4_096
@@ -148,7 +151,6 @@ const nativePlaybackCommand: Validator = (value, path, context) => {
   objectShape(fields)(value, path, context)
 }
 const positiveLimit = finiteNumber({ integer: true, min: 1, max: MAX_ID_LIST_LENGTH })
-const archiveYear = finiteNumber({ integer: true })
 const metadataYear = finiteNumber({ integer: true })
 
 function enumValue(values: readonly string[]): Validator {
@@ -279,13 +281,6 @@ const albumKey = objectShape({
   album: field(stringValue({ max: MAX_TEXT_LENGTH })),
 })
 
-const dateKey: Validator = (value, path, context) => {
-  stringValue({ min: 10, max: 10 })(value, path, context)
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    fail(path, 'must use the YYYY-MM-DD format')
-  }
-}
-
 const partialDate: Validator = (value, path, context) => {
   stringValue({ min: 4, max: 10 })(value, path, context)
   if (typeof value !== 'string' || !/^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/.test(value)) {
@@ -338,7 +333,7 @@ const smartPlaylistRule: Validator = (value, path, context) => {
         operands: field(
           arrayOf((operand, operandPath) => validateExpression(operand, operandPath, depth + 1), {
             min: 1,
-            max: 64,
+            max: SMART_PLAYLIST_MAX_OPERANDS,
           }),
           true,
         ),
@@ -359,15 +354,6 @@ const smartPlaylistRule: Validator = (value, path, context) => {
   })(value, path, context)
 }
 
-const rankingPayload = objectShape({
-  range: field(enumValue(['day', 'week', 'month', 'year'])),
-  target: field(enumValue(['track', 'album'])),
-  date: field(dateKey, true),
-  weekStartDate: field(dateKey, true),
-  year: field(archiveYear, true),
-  month: field(finiteNumber({ integer: true, min: 1, max: 12 }), true),
-})
-
 const editableMetadata = objectShape({
   trackId: field(positiveId),
   title: field(nullable(stringValue({ max: MAX_TEXT_LENGTH }))),
@@ -383,6 +369,16 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.database.exportBackup]: voidPayload(),
   [ipcChannels.database.restoreBackup]: voidPayload(),
   [ipcChannels.app.getInfo]: voidPayload(),
+  [ipcChannels.app.setLocale]: required(
+    objectShape({ locale: field(enumValue(['zh-Hans', 'en'])) }),
+  ),
+  [ipcChannels.app.claimCdStartupEntry]: voidPayload(),
+  [ipcChannels.app.claimStartupAlbum]: optional(
+    objectShape({
+      excludeAlbumKey: field(albumKey, true),
+      recentAlbums: field(arrayOf(albumKey, { max: STARTUP_ALBUM_HISTORY_LIMIT }), true),
+    }),
+  ),
   [ipcChannels.app.exportDiagnostics]: voidPayload(),
   [ipcChannels.library.getStats]: voidPayload(),
   [ipcChannels.library.selectRoot]: voidPayload(),
@@ -490,15 +486,17 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.playback.releaseReadLease]: required(
     objectShape({ leaseId: field(stringValue({ min: 1, max: 128 })) }),
   ),
-  [ipcChannels.archive.getListeningHeatmap]: required(objectShape({ year: field(archiveYear) })),
-  [ipcChannels.archive.getDailyListeningDetail]: required(objectShape({ date: field(dateKey) })),
-  [ipcChannels.archive.getDailyAlbumStats]: required(objectShape({ date: field(dateKey) })),
-  [ipcChannels.archive.getAnnualListeningInsights]: required(
-    objectShape({ year: field(archiveYear) }),
+  [ipcChannels.archive.getAnnualPlayCounts]: required(
+    objectShape({ year: field(finiteNumber({ integer: true, min: 1900, max: 9999 })) }),
   ),
-  [ipcChannels.archive.getListeningRanking]: required(rankingPayload),
-  [ipcChannels.archive.getListeningGenreSpectrum]: required(
-    objectShape({ year: field(archiveYear) }),
+  [ipcChannels.archive.getDayTopTracks]: required(
+    objectShape({
+      date: field((value, path, context) => {
+        stringValue({ min: 10, max: 10 })(value, path, context)
+        if (!isListeningArchiveDate(value as string))
+          fail(path, 'must be a valid local calendar date')
+      }),
+    }),
   ),
   [ipcChannels.archive.resetPlayStats]: voidPayload(),
   [ipcChannels.metadata.refreshTrack]: required(idPayload('trackId')),
@@ -520,6 +518,11 @@ export const domainIpcPayloadPolicies = {
     objectShape({ action: field(enumValue(['minimize', 'toggle-maximize', 'close'])) }),
   ),
   [ipcChannels.window.getMaximized]: voidPayload(),
+  [ipcChannels.window.getVisibility]: voidPayload(),
+  [ipcChannels.window.getCloseBehavior]: voidPayload(),
+  [ipcChannels.window.setCloseBehavior]: required(
+    objectShape({ behavior: field(enumValue(['quit', 'minimize', 'tray'])) }),
+  ),
 } satisfies Record<DomainIpcInvokeChannel, IpcPayloadPolicy>
 
 export function parseDomainIpcPayload(

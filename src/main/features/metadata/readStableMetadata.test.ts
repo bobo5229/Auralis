@@ -107,3 +107,12 @@ describe('stable metadata reading', () => {
     expect(parseFile).toHaveBeenCalledOnce()
   })
 })
+
+describe('stable metadata bitrate', () => {
+  it('carries the parsed bitrate into the refresh result', async () => {
+    const metadata = await parseFile('fixture')
+    metadata.format = { ...metadata.format, bitrate: 256789.5 }
+    vi.mocked(parseFile).mockResolvedValue(metadata)
+    expect((await readStableMetadata(1, 'isolated.flac', 'cache')).bitrateBps).toBe(256789.5)
+  })
+})

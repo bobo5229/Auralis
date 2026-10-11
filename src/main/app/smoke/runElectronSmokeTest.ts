@@ -24,6 +24,8 @@ interface AppInfoProbe {
 interface RouteProbe {
   hash: string
   settingsMounted: boolean
+  backgroundInert: boolean
+  focusOnClose: boolean
 }
 
 interface StartupPresentationProbe {
@@ -391,28 +393,45 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
       }
     })
 
-    await record('hash router navigates to settings', async () => {
-      const probe = (await mainWindow.webContents.executeJavaScript(
-        `(async () => {
-          window.location.hash = '#/settings'
+    await record(
+      'settings opens as a modal without navigating or replacing the library',
+      async () => {
+        const probe = (await mainWindow.webContents.executeJavaScript(
+          `(async () => {
+          const beforeHash = window.location.hash
+          const page = document.querySelector('.library-page')
+          const trigger = document.querySelector('[data-settings-trigger]')
+          if (!page || !trigger) throw new Error('Settings entry or library page is missing')
+          trigger.focus()
+          trigger.click()
           const deadline = Date.now() + 5000
-          while (!document.querySelector('.settings-page') && Date.now() < deadline) {
+          while (!document.querySelector('.settings-surface') && Date.now() < deadline) {
             await new Promise((resolve) => setTimeout(resolve, 20))
+          }
+          if (window.location.hash !== beforeHash || document.querySelector('.library-page') !== page) {
+            throw new Error('Opening settings replaced the current page')
           }
           return {
             hash: window.location.hash,
-            settingsMounted: Boolean(document.querySelector('.settings-page'))
+            settingsMounted: Boolean(document.querySelector('[data-settings-dialog] .settings-surface')),
+            backgroundInert: document.querySelector('[data-app-shell-root]').inert,
+            focusOnClose: document.activeElement === document.querySelector('.settings-dialog-close'),
           }
         })()`,
-        true,
-      )) as RouteProbe
+          true,
+        )) as RouteProbe
 
-      if (probe.hash !== '#/settings' || !probe.settingsMounted) {
-        throw new Error(`Settings route did not mount: ${JSON.stringify(probe)}`)
-      }
+        if (
+          probe.hash !== '#/songs' ||
+          !probe.settingsMounted ||
+          !probe.backgroundInert ||
+          !probe.focusOnClose
+        ) {
+          throw new Error(`Settings modal did not mount correctly: ${JSON.stringify(probe)}`)
+        }
 
-      const playerBarOnRoute = (await mainWindow.webContents.executeJavaScript(
-        `(() => {
+        const playerBarOnRoute = (await mainWindow.webContents.executeJavaScript(
+          `(() => {
           const el = document.querySelector('.player-bar')
           const style = el ? getComputedStyle(el) : null
           const rect = el?.getBoundingClientRect()
@@ -430,22 +449,118 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
             bottomDistance: rect ? window.innerHeight - rect.bottom : null,
           }
         })()`,
-        true,
-      )) as {
-        mounted: boolean
-        position?: string
-        inViewport: boolean
-        bottomDistance: number | null
-      }
-      if (
-        !playerBarOnRoute.mounted ||
-        playerBarOnRoute.position !== 'fixed' ||
-        !playerBarOnRoute.inViewport
-      ) {
-        throw new Error(
-          `PlayerBar layout degraded on route navigation: ${JSON.stringify(playerBarOnRoute)}`,
+          true,
+        )) as {
+          mounted: boolean
+          position?: string
+          inViewport: boolean
+          bottomDistance: number | null
+        }
+        if (
+          !playerBarOnRoute.mounted ||
+          playerBarOnRoute.position !== 'fixed' ||
+          !playerBarOnRoute.inViewport
+        ) {
+          throw new Error(
+            `PlayerBar layout degraded on route navigation: ${JSON.stringify(playerBarOnRoute)}`,
+          )
+        }
+      },
+    )
+
+    await record(
+      'settings preserves child Escape, section selection and return focus',
+      async () => {
+        await mainWindow.webContents.executeJavaScript(
+          `(async () => {
+        const wait = () => new Promise((resolve) => setTimeout(resolve, 180))
+        const waitForClosed = async () => {
+          const deadline = Date.now() + 2000
+          while (document.querySelector('[data-settings-dialog]') && Date.now() < deadline) {
+            await new Promise((resolve) => setTimeout(resolve, 20))
+          }
+        }
+        const escape = (target) => target.dispatchEvent(new KeyboardEvent('keydown', {
+          key: 'Escape', bubbles: true, cancelable: true,
+        }))
+        const page = document.querySelector('.library-page')
+        const trigger = document.querySelector('[data-settings-trigger]')
+        const close = document.querySelector('.settings-dialog-close')
+        close.focus()
+        close.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true }))
+        if (!document.querySelector('[data-settings-dialog]').contains(document.activeElement) || document.activeElement === close) {
+          throw new Error('Shift+Tab escaped the settings dialog')
+        }
+        document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))
+        if (document.activeElement !== close) throw new Error('Tab did not wrap to the close button')
+
+        const picker = document.querySelector('.dark-accent-toggle')
+        picker.click()
+        await wait()
+        const pickerInput = document.querySelector('.dark-accent-picker-host input')
+        pickerInput.focus()
+        escape(pickerInput)
+        await wait()
+        if (!document.querySelector('[data-settings-dialog]') || picker.getAttribute('aria-expanded') !== 'false') {
+          throw new Error('Color picker Escape closed the parent dialog')
+        }
+
+        const details = document.querySelector('.song-font-weight-details')
+        if (!details) throw new Error('Song typography disclosure is missing')
+        details.open = true
+        await wait()
+        const weight = document.querySelector('.song-font-weight-select')
+        weight.focus()
+        weight.click()
+        await wait()
+        escape(weight)
+        await wait()
+        if (!document.querySelector('[data-settings-dialog]') || document.querySelector('.song-font-weight-menu')) {
+          throw new Error('Font menu Escape closed the parent dialog or left its menu open')
+        }
+        weight.click()
+        await wait()
+        document.querySelector('.song-font-weight-option').click()
+        await wait()
+        if (document.querySelector('.song-font-weight-menu') || !document.querySelector('[data-settings-dialog]')) {
+          throw new Error('Teleported font menu could not select an option inside the modal')
+        }
+
+        document.querySelector('[data-settings-section="about"]').click()
+        await wait()
+        document.querySelector('.settings-dialog-backdrop').click()
+        await waitForClosed()
+        if (document.querySelector('[data-settings-dialog]') || document.querySelector('[data-app-shell-root]').inert || document.activeElement !== trigger) {
+          throw new Error('Closing settings did not restore background interaction and focus: ' + JSON.stringify({
+            dialogPresent: Boolean(document.querySelector('[data-settings-dialog]')),
+            inert: document.querySelector('[data-app-shell-root]').inert,
+            focused: document.activeElement?.outerHTML?.slice(0, 300),
+            triggerConnected: trigger.isConnected,
+          }))
+        }
+        trigger.click()
+        await wait()
+        if (!document.querySelector('[data-settings-section="about"][aria-current="true"]') || document.querySelector('.settings-dialog-content').scrollTop !== 0) {
+          throw new Error('Settings did not reopen on the remembered section from the top')
+        }
+        escape(document.activeElement)
+        await waitForClosed()
+        if (document.querySelector('[data-settings-dialog]') || document.querySelector('.library-page') !== page) {
+          throw new Error('Escape did not return to the original library page')
+        }
+      })()`,
+          true,
         )
-      }
+      },
+    )
+
+    await record('retired settings URL redirects to the library', async () => {
+      await mainWindow.webContents.executeJavaScript(`window.location.hash = '#/settings'`, true)
+      await waitFor('settings compatibility redirect', async () =>
+        mainWindow.webContents.executeJavaScript(
+          `window.location.hash === '#/songs' && !document.querySelector('[data-settings-dialog]')`,
+        ),
+      )
     })
 
     await record('playerbar geometry anchors correctly across window resize', async () => {
@@ -538,13 +653,13 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
       if (!absent) throw new Error('Retired presentation APIs remain exposed')
     })
 
-    await record('registered main window retains library IPC and three sidebar tools', async () => {
+    await record('registered main window retains library IPC and four sidebar tools', async () => {
       const valid = await mainWindow.webContents.executeJavaScript(`(async () => {
         const roots = await window.auralis.library.getRoots()
         const tracks = await window.auralis.library.getTracks()
         const toolbar = document.querySelector('.sidebar-tools-grid')
         const tools = toolbar ? [...toolbar.children] : []
-        return Array.isArray(roots) && Array.isArray(tracks) && tools.length === 3 &&
+        return Array.isArray(roots) && Array.isArray(tracks) && tools.length === 4 &&
           tools.every((el) => {
             const rect = el.getBoundingClientRect()
             return rect.width > 0 && rect.height > 0 && rect.left >= 0 &&

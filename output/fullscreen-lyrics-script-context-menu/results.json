@@ -1,0 +1,264 @@
+[
+  {
+    "name": "initial-simplified-lrc",
+    "result": {
+      "script": "simplified",
+      "source": "頭髮與看著：這是一句中英文混排的長歌詞，用來觀察繁簡切換後的換行與定位。Typography must follow the converted sentence and preserve the current playback line.",
+      "display": "头发与看着：这是一句中英文混排的长歌词，用来观察繁简切换后的换行与定位。Typography must follow the converted sentence and preserve the current playback line.",
+      "geometry": {
+        "width": 1101,
+        "height": 761,
+        "currentTime": 8,
+        "activeIndex": 0,
+        "scrollTop": 0,
+        "scrollHeight": 2376,
+        "clientHeight": 583,
+        "lyricRect": {
+          "left": 496.625,
+          "right": 1013.2291870117188,
+          "top": 72.125,
+          "bottom": 654.7604370117188
+        },
+        "activeText": "头发与看着：这是一句中英文混排的长歌词，用来观察繁简切换后的换行与定位。Typography must follow the converted sentence and preserve the current playback line.头发与看着：这是一句中英文混排的长歌词，用来观察繁简切换后的换行与定位。Typography must follow the converted sentence and preserve the current playback line.",
+        "activeFontSize": "30.4794px",
+        "activeFontWeight": "800",
+        "lineHeight": "36.5753px",
+        "gap": "30.4533px",
+        "fit": "1"
+      }
+    }
+  },
+  {
+    "name": "right-bottom-menu-open",
+    "result": {
+      "prevented": true,
+      "menuOpen": true,
+      "items": [
+        {
+          "text": "简体中文",
+          "checked": "true"
+        },
+        {
+          "text": "繁体中文",
+          "checked": "false"
+        }
+      ],
+      "rect": {
+        "left": 909.3333740234375,
+        "right": 1093.3333740234375,
+        "top": 651,
+        "bottom": 744.3333358764648
+      },
+      "within": true,
+      "focused": "简体中文"
+    }
+  },
+  {
+    "name": "traditional-selection-lrc",
+    "result": {
+      "script": "traditional",
+      "source": "頭髮與看著：這是一句中英文混排的長歌詞，用來觀察繁簡切換後的換行與定位。Typography must follow the converted sentence and preserve the current playback line.",
+      "display": "頭髮與看著：這是一句中英文混排的長歌詞，用來觀察繁簡切換後的換行與定位。Typography must follow the converted sentence and preserve the current playback line.",
+      "activeIndex": 0,
+      "currentTime": 8,
+      "geometry": {
+        "width": 1101,
+        "height": 761,
+        "currentTime": 8,
+        "activeIndex": 0,
+        "scrollTop": 0,
+        "scrollHeight": 2376,
+        "clientHeight": 583,
+        "lyricRect": {
+          "left": 496.625,
+          "right": 1013.2291870117188,
+          "top": 72.125,
+          "bottom": 654.7604370117188
+        },
+        "activeText": "頭髮與看著：這是一句中英文混排的長歌詞，用來觀察繁簡切換後的換行與定位。Typography must follow the converted sentence and preserve the current playback line.頭髮與看著：這是一句中英文混排的長歌詞，用來觀察繁簡切換後的換行與定位。Typography must follow the converted sentence and preserve the current playback line.",
+        "activeFontSize": "30.4794px",
+        "activeFontWeight": "800",
+        "lineHeight": "36.5753px",
+        "gap": "30.4533px",
+        "fit": "1"
+      },
+      "stored": "traditional"
+    }
+  },
+  {
+    "name": "shift-f10-and-zero-coordinate-fallback",
+    "result": {
+      "menuOpen": true,
+      "zeroContextPrevented": true,
+      "menuAnchor": {
+        "left": "755px",
+        "top": "363px"
+      },
+      "active": "menuitemradio"
+    }
+  },
+  {
+    "name": "arrow-navigation-keeps-selection",
+    "result": {
+      "checked": [
+        "false",
+        "true"
+      ],
+      "focused": "简体中文"
+    }
+  },
+  {
+    "name": "escape-closes-only-menu",
+    "result": {
+      "menuOpen": false,
+      "fullscreen": true,
+      "focusIsLyrics": true
+    }
+  },
+  {
+    "name": "settings-menu-mutual-exclusion",
+    "result": {
+      "contextMenu": true,
+      "settings": false,
+      "active": "繁体中文"
+    }
+  },
+  {
+    "name": "playback-mode-menu-mutual-exclusion",
+    "result": {
+      "contextMenu": true,
+      "modeMenu": false,
+      "active": "繁体中文"
+    }
+  },
+  {
+    "name": "outside-control-remains-operable",
+    "result": {
+      "menuOpen": false,
+      "modeBefore": "sequential",
+      "modeAfter": "repeat-all",
+      "operationApplied": true,
+      "focusPreserved": true
+    }
+  },
+  {
+    "name": "tab-exits-menu-and-keeps-fullscreen",
+    "result": {
+      "menuOpen": false,
+      "fullscreen": true,
+      "focusInsideFullscreen": true,
+      "focus": "退出全屏播放器"
+    }
+  },
+  {
+    "name": "failed-save-remains-active",
+    "result": {
+      "script": "simplified",
+      "failed": true,
+      "status": "本次切换已生效，保存失败，重启后可能恢复",
+      "menuOpen": false
+    }
+  },
+  {
+    "name": "same-choice-retries-save",
+    "result": {
+      "script": "simplified",
+      "failed": false,
+      "stored": "simplified",
+      "status": null
+    }
+  },
+  {
+    "name": "typography-maximum-fluid",
+    "result": {
+      "width": 1101,
+      "height": 761,
+      "currentTime": 8,
+      "activeIndex": 0,
+      "scrollTop": 0,
+      "scrollHeight": 2893,
+      "clientHeight": 583,
+      "lyricRect": {
+        "left": 496.625,
+        "right": 1013.2291870117188,
+        "top": 72.125,
+        "bottom": 654.7604370117188
+      },
+      "activeText": "头发与看着：这是一句中英文混排的长歌词，用来观察繁简切换后的换行与定位。Typography must follow the converted sentence and preserve the current playback line.头发与看着：这是一句中英文混排的长歌词，用来观察繁简切换后的换行与定位。Typography must follow the converted sentence and preserve the current playback line.",
+      "activeFontSize": "45.7191px",
+      "activeFontWeight": "400",
+      "lineHeight": "54.8629px",
+      "gap": "29.0279px",
+      "fit": "0.6354629016185851"
+    }
+  },
+  {
+    "name": "fluid-menu-light-theme",
+    "result": {
+      "theme": "light",
+      "background": "rgb(248, 249, 250)",
+      "color": "rgb(41, 43, 45)",
+      "menuOpen": true
+    }
+  },
+  {
+    "name": "plain-before-script-switch",
+    "result": {
+      "scrollTop": 500,
+      "scrollHeight": 8664,
+      "display": "头发与看着：这是一句中英文混排的长歌词，用来观察繁简切换后的换行与定位。Typography must follow the converted sentence and preserve the current playback line.头发与看着：这是一句中英文混排的长歌词，用来观察繁简切换后的换行与定位。Typography must follow the converted sentence and preserve the current playback line."
+    }
+  },
+  {
+    "name": "plain-after-script-switch",
+    "result": {
+      "script": "traditional",
+      "scrollTop": 500,
+      "scrollHeight": 8664,
+      "display": "頭髮與看著：這是一句中英文混排的長歌詞，用來觀察繁簡切換後的換行與定位。Typography must follow the converted sentence and preserve the current playback line.頭髮與看著：這是一句中英文混排的長歌詞，用來觀察繁簡切換後的換行與定位。Typography must follow the converted sentence and preserve the current playback line."
+    }
+  },
+  {
+    "name": "small-window-edge-menu",
+    "result": {
+      "viewport": {
+        "width": 902,
+        "height": 622
+      },
+      "rect": {
+        "left": 710,
+        "right": 894,
+        "top": 520.6666870117188,
+        "bottom": 614.0000228881836
+      },
+      "within": true
+    }
+  },
+  {
+    "name": "exit-fullscreen-cleans-open-menu",
+    "result": {
+      "open": false,
+      "menuOpen": false
+    }
+  },
+  {
+    "name": "fullscreen-reopen-shared-preference",
+    "result": {
+      "open": true,
+      "script": "traditional",
+      "display": "頭髮與看著：這是一句中英文混排的長歌詞，用來觀察繁簡切換後的換行與定位。Typography must follow the converted sentence and preserve the current playback line.頭髮與看著：這是一句中英文混排的長歌詞，用來觀察繁簡切換後的換行與定位。Typography must follow the converted sentence and preserve the current playback line."
+    }
+  },
+  {
+    "name": "track-change-cleans-open-menu",
+    "result": {
+      "trackId": 970042,
+      "status": "empty",
+      "menuOpen": false
+    }
+  },
+  {
+    "name": "renderer-reload-prefers-saved-script",
+    "result": "traditional"
+  }
+]

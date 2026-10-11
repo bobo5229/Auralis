@@ -1,0 +1,75 @@
+.cd-page {
+  --cd-control-icon-size: 20px;
+  --auralis-playbar-safe-area: 0px;
+  --cd-bg: #eeeeec;
+  --cd-bg-image: none;
+  --cd-text: #292929;
+  --cd-text-muted: #62625b;
+  --cd-lyrics-color: var(--cd-text-muted);
+  --cd-text-subtle: #64645d;
+  --cd-text-faint: #85857d;
+  --cd-text-count: #55554f;
+  --cd-text-browsing: #42423d;
+  --cd-text-album: #6f6f67;
+  --cd-border: #bdbdb9;
+  --cd-border-strong: #8e8e88;
+  --cd-border-row: #aaa9a3;
+  --cd-border-track: #aaa9a333;
+  --cd-hover-bg: #e1e1de;
+  --cd-focus-ring: #292929;
+  --cd-wave-track: #b7b7b0;
+  --cd-wave-progress: #62625b;
+  --cd-progress-fill: #585753;
+  --cd-disc-body: #aaa;
+  --cd-disc-rim: #858586;
+  --cd-shadow-fill: #3a3b38;
+  --cd-shimmer-a: #85857d;
+  --cd-shimmer-b: #71716b;
+  --cd-shimmer-c: #585753;
+  box-sizing: border-box;
+  padding-bottom: 0;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  background: var(--cd-bg);
+  background-image: var(--cd-bg-image);
+  color: var(--cd-text);
+  color-scheme: light;
+  view-transition-name: cd-canvas;
+}
+.cd-page[data-theme='dark'] {
+  --cd-bg: #2b2d30;
+  --cd-bg-image: repeating-linear-gradient(
+    135deg,
+    rgba(224, 226, 230, 0.045) 0 1px,
+    transparent 1px 7px
+  );
+  --cd-text: #e6e4de;
+  --cd-text-muted: #a8a69f;
+  --cd-text-subtle: #a4a29c;
+  --cd-text-faint: #7d7b75;
+  --cd-text-count: #b3b1ab;
+  --cd-text-browsing: #d4d2cc;
+  --cd-text-album: #b0aea8;
+  --cd-border: #5c6168;
+  --cd-border-strong: #6e737a;
+  --cd-border-row: #4a4f56;
+  --cd-border-track: rgba(186, 190, 196, 0.2);
+  --cd-hover-bg: #35383d;
+  --cd-focus-ring: #d8d6d0;
+  --cd-wave-track: #7c8188;
+  --cd-wave-progress: #c6c4be;
+  --cd-progress-fill: #c6c4be;
+  --cd-disc-body: #8a9098;
+  --cd-disc-rim: #b3b9c1;
+  --cd-shadow-fill: #000;
+  --cd-shimmer-a: #9e9c96;
+  --cd-shimmer-b: #b8b6b0;
+  --cd-shimmer-c: #d8d6d0;
+  color-scheme: dark;
+}
+
+html,body { margin:0; } * { box-sizing:border-box; } .cd-page { padding:32px; width:460px; max-width:100%; height:100vh; } @media(max-width:800px) { .cd-page {width:320px;padding:20px;} }

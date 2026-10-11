@@ -15,7 +15,21 @@ export default defineConfig({
     environment: 'node',
     // Component tests mount Vue with a custom renderer in the Node environment.
     testTransformMode: {
-      web: ['**/SongRow.test.ts', '**/AlbumCard.test.ts', '**/ThemeAccentSettings.test.ts'],
+      web: [
+        '**/FlatTrackColumnHeader.test.ts',
+        '**/SongRow.test.ts',
+        '**/VirtualAlbumTrackList.test.ts',
+        '**/AlbumCard.test.ts',
+        '**/AlbumsPage.test.ts',
+        '**/ThemeAccentSettings.test.ts',
+        '**/FullscreenBackgroundControls.test.ts',
+        '**/FullscreenLyricsContextMenu.test.ts',
+        '**/SyncedLyricsView.test.ts',
+        '**/AppearanceSettings.lyricsScroll.test.ts',
+        '**/AppearanceSettings.playingIcon.test.ts',
+        '**/SettingsDialog.test.ts',
+        '**/LibraryContextMenu.test.ts',
+      ],
     },
     include: ['src/**/*.test.ts'],
     exclude: [...configDefaults.exclude, 'src/**/*.native.test.ts'],

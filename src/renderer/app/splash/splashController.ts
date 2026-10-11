@@ -1,8 +1,9 @@
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import type { AuralisApi } from '@shared/ipc/api'
-import { getSplashMotionFrame, SPLASH_FORMATION_MS } from './splashMotion'
+import { getSplashBrandCharFrame, getSplashMotionFrame, SPLASH_FORMATION_MS } from './splashMotion'
 import {
   APP_FAILED_EVENT,
+  markSplashFinished,
   APP_HOST_ELEMENT_ID,
   APP_READY_EVENT,
   SPLASH_ELEMENT_ID,
@@ -97,16 +98,16 @@ export function startSplashLifecycle(env: SplashEnvironment): () => void {
 
   const step = (now: number): void => {
     if (phase !== 'moving') return
-    const elapsed = Math.min(SPLASH_FORMATION_MS, Math.max(0, now - startTime))
-    env.renderMotion(elapsed)
+    const elapsed = Math.max(0, now - startTime)
+    env.renderMotion(Math.min(SPLASH_FORMATION_MS, elapsed))
     if (elapsed >= SPLASH_FORMATION_MS) {
       // 最后一帧使用标准品牌路径，完整 Logo 安静停留直到应用就绪。
       phase = 'formed'
       cancelFrame = null
       tryExit()
-      return
+    } else {
+      cancelFrame = env.requestFrame(step)
     }
-    cancelFrame = env.requestFrame(step)
   }
 
   const beginMotion = (): void => {
@@ -172,6 +173,7 @@ export function initSplashController(): void {
   if (!shouldPlaySplash(window.location.search, navigation?.type)) {
     splash?.remove()
     appHost.removeAttribute('inert')
+    markSplashFinished()
     notifySplashReady(readSplashTheme())
     return
   }
@@ -181,6 +183,7 @@ export function initSplashController(): void {
   const reducedMotion = reducedMotionQuery.matches
   const legPaths = legs as SVGPathElement[]
   const lengths = legPaths.map((leg) => leg.getTotalLength())
+  const brandChars = Array.from(brand.querySelectorAll<HTMLElement>('.splash-brand-char'))
   const renderMotion = (elapsed: number): void => {
     const state = getSplashMotionFrame(elapsed)
     path.style.opacity = state.joined ? '1' : '0'
@@ -191,11 +194,18 @@ export function initSplashController(): void {
       leg.style.strokeDasharray = String(lengths[index])
       leg.style.strokeDashoffset = String(lengths[index] * (1 - state.legProgress))
     })
-    brand.style.opacity = String(state.brandOpacity)
-    brand.style.transform = `translateY(${state.brandOffset}px)`
+    brandChars.forEach((char, index) => {
+      const frame = getSplashBrandCharFrame(elapsed, index)
+      char.style.opacity = String(frame.opacity)
+      char.style.transform = `translateY(${frame.offset}px)`
+      char.style.color = frame.accentPercent
+        ? `color-mix(in srgb, var(--splash-accent) ${frame.accentPercent}%, var(--splash-text))`
+        : 'var(--splash-text)'
+    })
   }
   // 可见前准备首帧；减少动态效果保留 HTML 默认的完整静态 Logo。
   if (!reducedMotion) renderMotion(0)
+  let interrupted = false
   const stop = startSplashLifecycle({
     isDocumentVisible: () => document.visibilityState === 'visible',
     isAppReady: () => window.__auralisAppReady === true,
@@ -225,11 +235,16 @@ export function initSplashController(): void {
       splash.remove()
       appHost.removeAttribute('inert')
       appHost.focus({ preventScroll: true })
+      if (!interrupted && window.__auralisAppReady) markSplashFinished()
     },
   })
 
-  window.addEventListener('pagehide', () => stop(), { once: true })
-  window.addEventListener(APP_FAILED_EVENT, () => stop(), { once: true })
+  const interrupt = (): void => {
+    interrupted = true
+    stop()
+  }
+  window.addEventListener('pagehide', interrupt, { once: true })
+  window.addEventListener(APP_FAILED_EVENT, interrupt, { once: true })
   window.__auralisSplashActive = true
   notifySplashReady(readSplashTheme())
 }

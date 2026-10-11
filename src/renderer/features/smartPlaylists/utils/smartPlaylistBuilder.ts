@@ -1,6 +1,7 @@
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { SmartPlaylistExpressionRule } from '@shared/types/smartPlaylist'
 import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'
+import { SMART_PLAYLIST_MAX_OPERANDS } from '@shared/smartPlaylists/ruleLimits'
 
 export type BuilderField = 'genre' | 'artist'
 export type BuilderRelation = 'and' | 'or'
@@ -71,11 +72,17 @@ export function evaluateBuilder(
       ),
     }
   })
+  const withinLimits = state.fields.every(
+    (field) => state.groups[field].values.length <= SMART_PLAYLIST_MAX_OPERANDS,
+  )
   const complete =
-    !!groups.length && state.fields.every((field) => state.groups[field].values.length > 0)
+    withinLimits &&
+    !!groups.length &&
+    state.fields.every((field) => state.groups[field].values.length > 0)
   return {
     groups,
     complete,
+    withinLimits,
     ids: complete
       ? combine(
           groups.map((group) => group.ids),
@@ -85,6 +92,8 @@ export function evaluateBuilder(
   }
 }
 export function buildPlaylistRule(state: BuilderState): SmartPlaylistExpressionRule {
+  if (state.fields.some((field) => state.groups[field].values.length > SMART_PLAYLIST_MAX_OPERANDS))
+    throw new Error(`Each condition group supports at most ${SMART_PLAYLIST_MAX_OPERANDS} values`)
   if (!state.fields.length || state.fields.some((field) => !state.groups[field].values.length))
     throw new Error('请选择每个条件组的具体值')
   return {

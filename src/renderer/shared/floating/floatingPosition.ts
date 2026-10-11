@@ -12,7 +12,7 @@ import {
 } from '@floating-ui/dom'
 import { rendererDiagnostics } from '../diagnostics/rendererDiagnostics'
 
-export type FloatingProfile = 'tooltip' | 'tooltip-right' | 'point-menu' | 'submenu'
+export type FloatingProfile = 'tooltip' | 'tooltip-right' | 'point-menu' | 'submenu' | 'popover'
 
 export function pointReference(x: number, y: number): VirtualElement {
   return {
@@ -77,16 +77,18 @@ export function startFloatingPosition(options: {
     const current = (): boolean => !disposed && request === sequence && floating.isConnected
     const middleware: Middleware[] = []
     if (profile !== 'point-menu') {
-      middleware.push(offset(tooltip ? 8 : 4))
+      middleware.push(offset(tooltip || profile === 'popover' ? 8 : 4))
       middleware.push(
         flip({
           ...overflow,
           fallbackPlacements:
-            profile === 'tooltip-right'
-              ? ['top', 'bottom']
-              : profile === 'tooltip'
-                ? ['bottom']
-                : ['left-start'],
+            profile === 'popover'
+              ? ['top']
+              : profile === 'tooltip-right'
+                ? ['top', 'bottom']
+                : profile === 'tooltip'
+                  ? ['bottom']
+                  : ['left-start'],
         }),
       )
     }
@@ -106,13 +108,15 @@ export function startFloatingPosition(options: {
       const result = await computePosition(reference, floating, {
         strategy: 'fixed',
         placement:
-          profile === 'tooltip'
-            ? 'top'
-            : profile === 'tooltip-right'
-              ? 'right'
-              : profile === 'submenu'
-                ? 'right-start'
-                : 'bottom-start',
+          profile === 'popover'
+            ? 'bottom'
+            : profile === 'tooltip'
+              ? 'top'
+              : profile === 'tooltip-right'
+                ? 'right'
+                : profile === 'submenu'
+                  ? 'right-start'
+                  : 'bottom-start',
         middleware,
       })
       if (!current()) return

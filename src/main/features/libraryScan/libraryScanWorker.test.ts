@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IAudioMetadata } from 'music-metadata'
 import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './libraryScanTypes'
+import { getMetadataParserVersion } from '../metadata/metadataParserVersion'
 
 const harness = vi.hoisted(() => ({
   input: {} as LibraryScanWorkerInput,
@@ -63,6 +64,7 @@ beforeEach(() => {
         lyricsCheckedMtimeMs: 100,
         lyricsSidecarFingerprint: '[null,null]',
         metadataCheckedMtimeMs: 100,
+        metadataParserVersion: getMetadataParserVersion(filePath),
       },
     ],
   }
@@ -217,4 +219,72 @@ describe('scan sidecar invalidation', () => {
     expect(messages.filter((m) => m.type === 'failure')).toHaveLength(1)
     expect(messages.some((m) => m.type === 'tracks' || m.type === 'trackLyrics')).toBe(false)
   })
+})
+
+describe('scan parser version backfill', () => {
+  it('retries an outdated version after failure and stops backfilling after persistence', async () => {
+    harness.stat.mockImplementation(async (candidate: string) => {
+      if (candidate === filePath) return { size: 100, mtimeMs: 100 }
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+    })
+    harness.input.knownFiles[0].metadataParserVersion = 'outdated'
+    harness.parseFile.mockRejectedValueOnce(new Error('EBUSY'))
+    const failed = await scan()
+    expect(failed.filter((m) => m.type === 'failure')).toHaveLength(1)
+    expect(failed.some((m) => m.type === 'tracks')).toBe(false)
+    expect(harness.input.knownFiles[0].metadataParserVersion).toBe('outdated')
+
+    vi.resetModules()
+    const retried = await scan()
+    expect(retried.find((m) => m.type === 'tracks')).toMatchObject({
+      payload: [{ metadataParserVersion: getMetadataParserVersion(filePath) }],
+    })
+    // A worker result alone must not make an interrupted/uncommitted scan current.
+    vi.resetModules()
+    expect((await scan()).some((m) => m.type === 'tracks')).toBe(true)
+    harness.input.knownFiles[0].metadataParserVersion = getMetadataParserVersion(filePath)
+    vi.resetModules()
+    harness.parseFile.mockClear()
+    const next = await scan()
+    expect(next.some((m) => m.type === 'tracks')).toBe(false)
+    expect(harness.parseFile).not.toHaveBeenCalled()
+  })
+
+  it('does not mark a version checked when the audio changes during parsing', async () => {
+    harness.parseFile.mockImplementationOnce(async () => {
+      harness.stat.mockImplementation(async (candidate: string) => {
+        if (candidate === filePath) return { size: 300, mtimeMs: 300 }
+        throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+      })
+      return metadata
+    })
+    const failed = await scan()
+    expect(failed.filter((m) => m.type === 'failure')).toHaveLength(1)
+    expect(failed.some((m) => m.type === 'tracks')).toBe(false)
+  })
+})
+
+describe('scan bitrate backfill', () => {
+  it.each([320000, undefined])(
+    'backfills unchanged audio with bitrate %s once',
+    async (bitrate) => {
+      harness.stat.mockImplementation(async (candidate: string) => {
+        if (candidate === filePath) return { size: 100, mtimeMs: 100 }
+        throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+      })
+      harness.input.knownFiles[0].metadataCheckedMtimeMs = null
+      harness.parseFile.mockResolvedValue({ ...metadata, format: { ...metadata.format, bitrate } })
+      const messages = await scan()
+      expect(messages.find((m) => m.type === 'tracks')).toMatchObject({
+        payload: [{ bitrateBps: bitrate ?? null, fileMtimeMs: 100 }],
+      })
+      // Successful persistence records the checked fingerprint even when bitrate is absent.
+      harness.input.knownFiles[0].metadataCheckedMtimeMs = 100
+      harness.parseFile.mockClear()
+      vi.resetModules()
+      const next = await scan()
+      expect(harness.parseFile).not.toHaveBeenCalled()
+      expect(next.some((m) => m.type === 'tracks')).toBe(false)
+    },
+  )
 })

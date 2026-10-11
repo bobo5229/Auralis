@@ -26,4 +26,5 @@ Renderer 不直接访问数据库、文件系统或 Electron 主进程能力；�
 | 调整或审查界面布局、播放状态、窗口尺寸或生命周期        | [Renderer 视觉与交互](docs/rules/renderer.md) |
 | 选择验证范围、判断完成状态或独立验收要求                | [风险与验收](docs/rules/validation.md)        |
 | 编写跨会话施工、审查或复验交接信息                      | [施工提示词](docs/rules/handoff-prompts.md)   |
+| 冗余筛查、旧实现清理或 UI 需求收缩                    | [可复用经验索引](docs/lessons/README.md)（按任务选读） |
 | 执行用户已授权的 Git 写操作或发布                       | [Git 与发布](docs/rules/git-release.md)       |

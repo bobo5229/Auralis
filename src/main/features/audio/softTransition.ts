@@ -48,7 +48,7 @@ export async function readMpvTimestampOrigin(
     return origin
   } finally {
     lifetime.removeEventListener('abort', abort)
-    client?.close()
+    await client?.close()
   }
 }
 

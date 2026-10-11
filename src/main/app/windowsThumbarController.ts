@@ -6,6 +6,7 @@ import {
   type ThumbarButton,
 } from 'electron'
 import { ipcChannels } from '@shared/ipc/channels'
+import { getNativeUiMessages, onNativeUiLocaleChanged } from './uiLocale'
 import { sendRendererEvent } from '@main/ipc/rendererEvents'
 import type { SystemMediaCommand, SystemMediaPlaybackState } from '@shared/ipc/contracts'
 
@@ -83,7 +84,9 @@ export function createWindowsThumbarController(window: BrowserWindow): () => voi
     }
   }
 
+  let latestState: SystemMediaPlaybackState = { hasTrack: false, isPlaying: false }
   const updateButtons = (state: SystemMediaPlaybackState): void => {
+    latestState = state
     if (window.isDestroyed()) return
 
     if (!state.hasTrack) {
@@ -93,17 +96,17 @@ export function createWindowsThumbarController(window: BrowserWindow): () => voi
 
     const buttons: ThumbarButton[] = [
       {
-        tooltip: '上一首',
+        tooltip: getNativeUiMessages().previous,
         icon: icons.previous,
         click: () => sendCommand('previous'),
       },
       {
-        tooltip: state.isPlaying ? '暂停' : '播放',
+        tooltip: state.isPlaying ? getNativeUiMessages().pause : getNativeUiMessages().play,
         icon: state.isPlaying ? icons.pause : icons.play,
         click: () => sendCommand('toggle-play-pause'),
       },
       {
-        tooltip: '下一首',
+        tooltip: getNativeUiMessages().next,
         icon: icons.next,
         click: () => sendCommand('next'),
       },
@@ -128,8 +131,10 @@ export function createWindowsThumbarController(window: BrowserWindow): () => voi
   }
 
   ipcMain.on(ipcChannels.systemMedia.updateThumbarState, handleStateUpdate)
+  const unsubscribeLocale = onNativeUiLocaleChanged(() => updateButtons(latestState))
 
   return () => {
+    unsubscribeLocale()
     ipcMain.removeListener(ipcChannels.systemMedia.updateThumbarState, handleStateUpdate)
     if (!window.isDestroyed()) window.setThumbarButtons([])
   }

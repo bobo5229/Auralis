@@ -1,7 +1,7 @@
 # TECHDOC：modern PlayerBar Liquid Glass 视觉保真修复
 
 - 日期：2026-09-05
-- 状态：待实施的修复方案；当前实现尚未通过视觉验收，本文不代表修复已经完成。
+- 状态：历史方案。2026-10-06 已移除无调用入口的液态玻璃组件与 SVG 折射实现；下文保留当时的设计与验证记录，不代表当前实现。
 - 触发问题：Auralis 当前 PlayerBar 更接近深色高模糊毛玻璃，与参考仓库示意图中可辨认的液态折射、边缘位移和色散不一致。
 - 参考实现：[`nikdelvin/liquid-glass`](https://github.com/nikdelvin/liquid-glass/tree/49251869805a117db87c70998e3f7b83719c690e)，固定到 commit `49251869805a117db87c70998e3f7b83719c690e`。
 - 本地算法来源：`src/renderer/features/playback/utils/liquidGlassDisplacementMap.ts`；许可声明见仓库根目录 `THIRD_PARTY_NOTICES.md`。

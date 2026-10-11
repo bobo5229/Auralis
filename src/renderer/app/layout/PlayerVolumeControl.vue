@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useVolumeOverlay } from '@renderer/features/playback/composables/useVolumeOverlay'
 import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverlayFocus'
+import PlayerBarActionIcon from './PlayerBarActionIcon.vue'
 
 const emit = defineEmits<{
   activate: []
@@ -42,7 +43,7 @@ const volumeSliderStyle = computed(() => {
 
   return {
     '--volume-percent': percentage,
-    '--volume-track-bg': `linear-gradient(to right, var(--auralis-active-album-accent) 0%, var(--auralis-active-album-accent) ${percentage}, var(--auralis-progress-track) ${percentage}, var(--auralis-progress-track) 100%)`,
+    '--volume-track-bg': `linear-gradient(to right, var(--auralis-volume-fill) 0%, var(--auralis-volume-fill) ${percentage}, var(--auralis-progress-track) ${percentage}, var(--auralis-progress-track) 100%)`,
     background: 'transparent',
   }
 })
@@ -98,7 +99,7 @@ defineExpose({
       :aria-expanded="isVolumeOverlayOpen"
       @click="handleVolumeButtonClick"
     >
-      <span class="playbar-action-icon h-5 w-5" :class="volumeIconClass" />
+      <PlayerBarActionIcon :icon="volumeIconClass" />
     </button>
     <div
       class="volume-inline-reveal"
@@ -106,21 +107,22 @@ defineExpose({
       :aria-hidden="!isVolumeOverlayOpen"
     >
       <div class="volume-inline-panel" role="group" :aria-label="t('player.volume')">
-        <input
-          type="range"
-          class="volume-slider volume-overlay-slider"
-          min="0"
-          max="1"
-          step="0.01"
-          :value="playback.state.volume"
-          :style="volumeSliderStyle"
-          :aria-label="t('player.volume')"
-          aria-valuemin="0"
-          aria-valuemax="100"
-          :aria-valuenow="volumePercentText"
-          @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
-        />
-        <span class="volume-overlay-value" aria-hidden="true">{{ volumePercentText }}%</span>
+        <div class="volume-slider-field" :style="volumeSliderStyle">
+          <input
+            type="range"
+            class="volume-slider volume-overlay-slider"
+            min="0"
+            max="1"
+            step="0.01"
+            :value="playback.state.volume"
+            :aria-label="t('player.volume')"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            :aria-valuenow="volumePercentText"
+            @input="playback.setVolume(Number(($event.target as HTMLInputElement).value))"
+          />
+          <span class="volume-overlay-value" aria-hidden="true">{{ volumePercentText }}%</span>
+        </div>
       </div>
     </div>
   </div>

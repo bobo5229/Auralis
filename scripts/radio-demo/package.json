@@ -1,0 +1,16 @@
+{
+  "name": "auralis-radio-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node run.mjs",
+    "check": "vue-tsc -p tsconfig.json --noEmit",
+    "verify": "node run.mjs --test"
+  },
+  "dependencies": {
+    "three": "0.180.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.180.0"
+  }
+}

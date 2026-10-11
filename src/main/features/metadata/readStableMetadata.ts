@@ -1,6 +1,7 @@
 import { stat } from 'node:fs/promises'
 import type { IAudioMetadata } from 'music-metadata'
 import { parseAudioMetadata } from './parseAudioMetadata'
+import { getMetadataParserVersion } from './metadataParserVersion'
 import {
   normalizeMetadata,
   normalizeIdentityText,
@@ -66,6 +67,7 @@ export async function readStableMetadata(
       verifyTags?.(metadata)
       return {
         ...normalized,
+        metadataParserVersion: getMetadataParserVersion(filePath),
         ...fingerprint,
         trackId,
         lyricsText: lyrics?.text ?? null,

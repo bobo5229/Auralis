@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Auralis · LiquidMetal 对比</title>
+    <style>
+      /* DEMO_CSS */
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>液态金属对比</h1>
+          <p>同一时间轴、相同画布尺寸，观察金属反光与流动形态。</p>
+        </div>
+        <div class="actions">
+          <button id="pause" type="button">暂停</button
+          ><button id="reset" type="button">重置</button>
+        </div>
+      </header>
+      <div class="toolbar">
+        <label
+          >配色
+          <select id="preset">
+            <option value="silver">银色 · 单色对照</option>
+            <option value="purple">紫色 · 多色对照</option>
+            <option value="gold">金色 · 多色对照</option>
+            <option value="blue">蓝色 · 多色对照</option>
+            <option value="white">纯白 · 极亮输入</option>
+            <option value="dark">深灰 · 极暗输入</option>
+          </select></label
+        >
+        <label class="upload">本地封面取色<input id="cover" type="file" accept="image/*" /></label>
+        <label
+          >染色 <input id="tint" type="color" value="#ffffff" aria-label="两侧统一单色"
+        /></label>
+        <label class="speed-control"
+          >速度
+          <input id="speed" type="range" min="0.15" max="1.8" step="0.05" value="0.7" /><output
+            for="speed"
+            id="speed-value"
+            >0.70×</output
+          ></label
+        >
+        <label><input id="lyrics" type="checkbox" /> 示例文字</label>
+      </div>
+      <div class="view-toolbar">
+        <div class="view-switch" role="group" aria-label="显示方式">
+          <button type="button" data-view="both" aria-pressed="true">并排</button
+          ><button type="button" data-view="paper" aria-pressed="false">仅 Paper</button
+          ><button type="button" data-view="auralis" aria-pressed="false">仅 Auralis</button>
+        </div>
+        <span id="time">0.00 s</span>
+      </div>
+      <div class="comparison" id="comparison" data-view="both">
+        <section id="paper-panel">
+          <div class="panel-heading">
+            <h2>Paper LiquidMetal</h2>
+            <span>0.0.81 · Backdrop</span>
+          </div>
+          <div class="surface" id="paper-surface">
+            <div class="sample" aria-hidden="true">
+              <strong>让音乐缓缓流动</strong><span>Let the music flow</span>
+            </div>
+          </div>
+          <p>明暗条带、轮廓扭曲、色散；保留官方全屏 shader。</p>
+        </section>
+        <section id="auralis-panel">
+          <div class="panel-heading">
+            <h2>Auralis 当前算法</h2>
+            <span>工作区源码</span>
+          </div>
+          <div class="surface" id="auralis-surface">
+            <canvas id="auralis-canvas" aria-label="Auralis 液态金属效果"></canvas>
+            <div class="sample" aria-hidden="true">
+              <strong>让音乐缓缓流动</strong><span>Let the music flow</span>
+            </div>
+          </div>
+          <p>噪声曲面、法线与环境反射；使用当前生产片元着色器。</p>
+        </section>
+      </div>
+      <div class="palette-row">
+        <div id="swatches" aria-label="当前配色"></div>
+        <p id="palette-note" role="status"></p>
+      </div>
+      <p id="error" role="alert" hidden></p>
+      <details id="material-settings">
+        <summary>材质参数</summary>
+        <div class="settings-grid">
+          <fieldset>
+            <legend>Paper</legend>
+            <label
+              >条带密度<input
+                data-paper="repetition"
+                type="range"
+                min="1"
+                max="10"
+                step="0.1"
+                value="1.5"
+              /><output>1.50</output></label
+            >
+            <label
+              >柔和度<input
+                data-paper="softness"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.05"
+              /><output>0.05</output></label
+            >
+            <label
+              >扭曲<input
+                data-paper="distortion"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.1"
+              /><output>0.10</output></label
+            >
+            <label
+              >轮廓<input
+                data-paper="contour"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value="0.4"
+              /><output>0.40</output></label
+            >
+            <label
+              >色散<input
+                data-paper="dispersion"
+                type="range"
+                min="-1"
+                max="1"
+                step="0.01"
+                value="0.3"
+              /><output>0.30</output></label
+            >
+            <label
+              >方向<input
+                data-paper="angle"
+                type="range"
+                min="0"
+                max="360"
+                step="1"
+                value="90"
+              /><output>90.00</output></label
+            >
+            <label
+              >缩放<input
+                data-paper="scale"
+                type="range"
+                min="0.1"
+                max="4"
+                step="0.05"
+                value="1"
+              /><output>1.00</output></label
+            >
+          </fieldset>
+          <fieldset>
+            <legend>Auralis</legend>
+            <label
+              >褶皱<input
+                data-auralis="folds"
+                type="range"
+                min="0.65"
+                max="2.2"
+                step="0.05"
+                value="1.15"
+              /><output>1.15</output></label
+            >
+            <label
+              >粗糙度<input
+                data-auralis="roughness"
+                type="range"
+                min="0.04"
+                max="0.35"
+                step="0.01"
+                value="0.12"
+              /><output>0.12</output></label
+            >
+            <p>
+              两套参数含义不同，按各自默认值比较。速度同步表示时间输入一致，视觉流速由算法决定。
+            </p>
+          </fieldset>
+        </div>
+      </details>
+      <footer>
+        <p id="resolution">正在初始化 WebGL2…</p>
+        <p>示例文字仅用于观察背景可读性。封面处理在本地完成。</p>
+        <a href="https://shaders.paper.design/liquid-metal" target="_blank" rel="noreferrer"
+          >Paper 官方演示</a
+        >
+        ·
+        <a href="https://github.com/paper-design/shaders" target="_blank" rel="noreferrer"
+          >上游源码</a
+        >
+        <details class="license">
+          <summary>Paper Shaders · Apache-2.0 许可证</summary>
+          <!-- PAPER_LICENSE -->
+        </details>
+      </footer>
+    </main>
+    <script>
+      /* DEMO_JS */
+    </script>
+  </body>
+</html>

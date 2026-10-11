@@ -67,12 +67,12 @@ export class PlaylistService {
     }
   }
 
-  create(): Playlist {
+  create(defaultName = '新建歌单'): Playlist {
     const allNames = [
       ...this.playlistRepository.list().map((playlist) => playlist.name),
       ...this.smartPlaylistRepository.list().map((playlist) => playlist.name),
     ]
-    const name = this.getAvailableName('新建歌单', allNames)
+    const name = this.getAvailableName(defaultName, allNames)
     return this.playlistRepository.create(name, this.getNextSortOrder())
   }
 
@@ -99,35 +99,13 @@ export class PlaylistService {
   }
 
   addTracks(id: number, trackIds: number[]): AddPlaylistTracksResult {
-    const playlist = this.playlistRepository.getById(id)
-    if (!playlist) return { addedCount: 0 }
-
-    return { addedCount: this.playlistRepository.addTracks(id, trackIds) }
+    return this.playlistRepository.addTracks(id, trackIds)
   }
 
   reorderSidebarItems(
     items: Array<{ kind: SidebarPlaylistKind; id: number }>,
   ): SidebarPlaylistItem[] {
-    const existingItems = this.listSidebarItems(new Map())
-    const existingKeys = new Set(existingItems.map((item) => this.toItemKey(item)))
-    const requestedKeys = new Set(items.map((item) => this.toItemKey(item)))
-
-    if (
-      items.length !== existingItems.length ||
-      requestedKeys.size !== items.length ||
-      items.some((item) => !existingKeys.has(this.toItemKey(item)))
-    ) {
-      return existingItems
-    }
-
-    items.forEach((item, index) => {
-      if (item.kind === 'playlist') {
-        this.playlistRepository.setSortOrder(item.id, index)
-      } else {
-        this.smartPlaylistRepository.setSortOrder(item.id, index)
-      }
-    })
-
+    this.playlistRepository.reorderSidebarItems(items)
     return this.listSidebarItems(new Map())
   }
 
@@ -168,9 +146,5 @@ export class PlaylistService {
     let suffix = appendInitialSuffix ? 1 : 2
     while (names.has(`${fallbackBase} ${suffix}`.toLocaleLowerCase())) suffix += 1
     return `${fallbackBase} ${suffix}`
-  }
-
-  private toItemKey(item: { kind: SidebarPlaylistKind; id: number }): string {
-    return `${item.kind}:${item.id}`
   }
 }

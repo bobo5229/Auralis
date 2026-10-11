@@ -1,5 +1,4 @@
-import { BrowserWindow, app, ipcMain } from 'electron'
-import { existsSync } from 'node:fs'
+import { BrowserWindow, ipcMain } from 'electron'
 import { join } from 'node:path'
 import { ipcChannels } from '@shared/ipc/channels'
 import type { SplashScreenReadyPayload, SplashScreenTheme } from '@shared/ipc/contracts'
@@ -7,16 +6,8 @@ import { registerMainWindow } from './mainWindowRegistry'
 import { createWindowsThumbarController } from './windowsThumbarController'
 import { secureRendererWindow } from './webContentsSecurity'
 import { sendRendererEvent } from '@main/ipc/rendererEvents'
-
-function resolveAppIconPath(): string | undefined {
-  const candidates = [
-    join(process.resourcesPath, 'icons', 'icon.png'),
-    join(app.getAppPath(), 'resources', 'icons', 'icon.png'),
-    join(__dirname, '../../resources/icons/icon.png'),
-  ]
-
-  return candidates.find((candidate) => existsSync(candidate))
-}
+import { observeWindowVisibility } from './windowVisibility'
+import { resolveAppIconPath } from './appIcon'
 
 export function createWindow(options: { showSplash?: boolean } = {}): BrowserWindow {
   const showSplash = options.showSplash !== false
@@ -52,6 +43,7 @@ export function createWindow(options: { showSplash?: boolean } = {}): BrowserWin
 
   registerMainWindow(window)
   const disposeThumbarController = createWindowsThumbarController(window)
+  const disposeVisibility = observeWindowVisibility(window)
 
   const notifyMaximizedChanged = (): void => {
     if (!window.webContents.isDestroyed()) {
@@ -113,6 +105,7 @@ export function createWindow(options: { showSplash?: boolean } = {}): BrowserWin
     ipcMain.removeListener(ipcChannels.app.rendererReady, handleRendererReady)
     ipcMain.removeListener(ipcChannels.app.splashReady, handleSplashReady)
     disposeThumbarController()
+    disposeVisibility()
   })
 
   window.webContents.once('render-process-gone', showWindow)

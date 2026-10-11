@@ -34,7 +34,7 @@ const contentStyle = computed<CSSProperties>(() => ({
     :aria-hidden="isCollapsed ? 'true' : undefined"
   >
     <div class="now-playing-panel-content" :style="contentStyle">
-      <LyricsPanel v-if="shouldMountLyrics" />
+      <LyricsPanel v-if="shouldMountLyrics" :active="isInteractive && !isCollapsed" />
     </div>
   </aside>
 </template>

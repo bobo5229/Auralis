@@ -133,16 +133,25 @@ const glyphs = computed(() => {
   }))
 })
 
+function slotPoseTransform(slot: HTMLElement): string {
+  const value = slot.style.transform
+  if (!value) return getComputedStyle(slot).transform
+  const split = value.lastIndexOf(') translate3d(')
+  return split === -1 ? value : value.slice(0, split + 1)
+}
+
 function projectArc(): void {
   const stage = props.stage
   const disc = stage?.querySelector<HTMLElement>('.cd-position[data-selected="true"] .cd-disc')
   if (!stage || !disc) return
   const hover = disc.parentElement!
   const slot = hover.parentElement!
-  const transforms = [disc, hover, slot].map((element) => {
+  const transforms = [disc, hover, slot].map((element, index) => {
     const style = getComputedStyle(element)
     const [x, y] = style.transformOrigin.split(' ').map(Number.parseFloat)
-    return { matrix: new DOMMatrixReadOnly(style.transform), x, y }
+    // Bass vibration appends a second translate/scale onto the slot pose.
+    const transform = index === 2 ? slotPoseTransform(slot) : style.transform
+    return { matrix: new DOMMatrixReadOnly(transform), x, y }
   })
   // Project the same flattened planes as the disc, then draw SVG text at viewport
   // resolution. No CSS 3D bitmap scaling is applied to the lyric SVG itself.
@@ -277,7 +286,9 @@ watch(
       '.cd-position[data-selected="true"] .cd-disc',
     )
     if (disc) {
-      for (const element of [disc, disc.parentElement!, disc.parentElement!.parentElement!]) {
+      // Slot transform also carries bass vibration; watching it would reproject
+      // lyrics on every spectrum frame. Pose changes still go through measure().
+      for (const element of [disc, disc.parentElement!]) {
         transforms.observe(element, { attributes: true, attributeFilter: ['style'] })
       }
     }

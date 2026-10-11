@@ -1,0 +1,705 @@
+{
+  "startupAlbum": {
+    "play": "Play album",
+    "skip": "Skip"
+  },
+  "windowControls": {
+    "close": "Close window",
+    "minimize": "Minimize window",
+    "maximize": "Maximize window",
+    "restore": "Restore window"
+  },
+  "nav": {
+    "songs": "Songs",
+    "albums": "Albums",
+    "archive": "Listening archive"
+  },
+  "sidebar": {
+    "library": "Library",
+    "playlists": "Playlists",
+    "createFirstPlaylist": "Create your first playlist",
+    "playlistNameRequired": "Enter a name",
+    "renameFailed": "Could not rename the playlist. Try again.",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "reorderHelp": "Hold to drag, or press Alt with the up or down arrow to move a playlist. Press Shift+F10 to open the menu.",
+    "reorderAnnouncement": "Moved {name} to position {position} of {total}",
+    "reorderFailed": "Order was not saved. Playlists have been reloaded. Please try again.",
+    "reorderReloadFailed": "Order was not saved and playlists could not be reloaded. Please try again.",
+    "newPlaylist": "New playlist",
+    "newSmartPlaylist": "New smart playlist",
+    "recentPlayed": "Recently played",
+    "mostListened": "Most played",
+    "recentAdded": "Recently added",
+    "customSmartPlaylist": "Custom",
+    "createPlaylistFailed": "Could not create the playlist. Try again.",
+    "rename": "Rename",
+    "delete": "Delete",
+    "renameDialogTitle": "Rename playlist",
+    "playlistName": "Playlist name",
+    "cancel": "Cancel",
+    "save": "Save",
+    "toolbarAria": "Sidebar tools",
+    "collapse": "Collapse sidebar",
+    "expand": "Expand sidebar",
+    "tool": {
+      "facetsPanel": "Filter panel",
+      "themeToLight": "Switch to light theme",
+      "themeToDark": "Switch to dark theme",
+      "settings": "Settings",
+      "refreshAction": "Refresh library",
+      "refreshBusy": "Refreshing library"
+    },
+    "confirmDelete": "Confirm deletion",
+    "deleteFailed": "Could not delete the playlist. Try again."
+  },
+  "facets": {
+    "title": "Filters",
+    "trackCount": "{count} tracks | {count} track | {count} tracks",
+    "reset": "Reset",
+    "close": "Close",
+    "loading": "Loading filters…",
+    "genre": "Genre",
+    "albumArtist": "Album artist",
+    "album": "Albums",
+    "createSmartPlaylist": "Create smart playlist",
+    "unknownGenre": "Unknown genre",
+    "unknownArtist": "Unknown artist",
+    "unknownAlbum": "Unknown album"
+  },
+  "settings": {
+    "title": "Settings",
+    "dialog": {
+      "close": "Close settings",
+      "loading": "Loading settings…",
+      "loadFailed": "Settings could not be loaded. Try again.",
+      "retry": "Try again"
+    },
+    "navAriaLabel": "Settings categories",
+    "nav": {
+      "appearance": "Appearance",
+      "playback": "Playback",
+      "library": "Music library",
+      "about": "About"
+    },
+    "appearance": {
+      "startupAlbum": {
+        "title": "Recommend an album at startup",
+        "description": "Show a random album from your local collection after the welcome screen. Applies on the next launch.",
+        "persistFailed": "Could not save this preference. Please try again."
+      },
+      "textDisplay": {
+        "title": "Text display",
+        "songInfo": "Song information script",
+        "songInfoDescription": "Display song and album information in simplified or traditional Chinese without changing original metadata.",
+        "lyrics": "Lyrics script",
+        "lyricsDescription": "Choose the lyrics script independently of song information.",
+        "simplified": "Simplified",
+        "traditional": "Traditional",
+        "persistFailed": "Applied, but could not save this preference."
+      },
+      "theme": "Theme",
+      "reducedMotion": {
+        "title": "Reduce motion",
+        "description": "Reduce movement, scaling and continuous animations. Follow the system or enable manually.",
+        "system": "System",
+        "enabled": "On",
+        "persistFailed": "Applied, but could not save this preference."
+      },
+      "lyricsEffects": {
+        "title": "Main window lyrics",
+        "edgeFade": {
+          "title": "Top and bottom fade",
+          "description": "Fade timed lyrics at the top and bottom edges of the panel."
+        },
+        "blur": {
+          "title": "Gaussian blur",
+          "description": "Soften inactive lyrics to highlight the line currently playing."
+        },
+        "persistFailed": "Applied, but could not save this preference."
+      },
+      "windowBehavior": {
+        "title": "Window behavior",
+        "label": "When clicking Close",
+        "description": "Exit the app, or keep playback running and put the window away.",
+        "quit": "Exit app",
+        "minimize": "Minimize to taskbar",
+        "tray": "Hide to system tray",
+        "trayUnavailable": "System tray is unavailable. Hiding to the tray will minimize to the taskbar instead.",
+        "loadFailed": "Could not load the close behavior. Please retry.",
+        "saveFailed": "Could not save. The previous close behavior is still active.",
+        "retry": "Retry"
+      },
+      "lyricsScroll": {
+        "title": "Lyrics scroll effect",
+        "description": "Choose the transition curve for timed lyrics in the panel and fullscreen. Reduce motion still moves instantly.",
+        "standard": "Standard",
+        "quick": "Quick",
+        "soft": "Soft",
+        "emphasized": "Emphasized",
+        "persistFailed": "Applied, but could not save this preference."
+      },
+      "playingIcon": {
+        "title": "Now playing icon",
+        "description": "Choose the icon symbol displayed during playback.",
+        "equalizer": "Equalizer",
+        "blocks-wave": "Blocks wave"
+      },
+      "themeDark": "Dark",
+      "themeLight": "Light",
+      "accent": {
+        "title": "Accent color",
+        "change": "Change",
+        "close": "Collapse",
+        "restoreDefault": "Restore default",
+        "preview": "Preview",
+        "previewSample": "Aa 123",
+        "alphaRejected": "Use an opaque accent color.",
+        "invalidColor": "Enter a valid six-digit HEX color.",
+        "persistFailed": "Color applied for this session, but could not save it.",
+        "pickerLabel": "{theme} accent color picker",
+        "presetColor": "Preset color",
+        "currentColor": "Current color: {color}",
+        "hexField": "HEX color",
+        "redField": "Red",
+        "greenField": "Green",
+        "blueField": "Blue",
+        "hueField": "Hue",
+        "saturationField": "Saturation",
+        "lightnessField": "Lightness",
+        "brightnessField": "Brightness",
+        "saturationBrightnessSlider": "Saturation and brightness",
+        "saturationBrightnessValue": "Saturation: {saturation}%, brightness: {brightness}%",
+        "presetListLabel": "Choose a preset color"
+      },
+      "sidebarLayout": "Sidebar layout",
+      "sidebarLayoutDescription": "Float the sidebar with space around it, or extend it along the full left edge.",
+      "sidebarFloating": "Floating",
+      "sidebarFullHeightOption": "Full height",
+      "coverArtworkRounded": "Rounded artwork",
+      "language": "Interface language",
+      "languageDescription": "Choose the language used by the app.",
+      "songFontWeight": {
+        "title": "Song view settings",
+        "listView": "List view",
+        "coverView": "Cover view",
+        "viewGroup": "Song settings view",
+        "coverSection": "Artwork",
+        "coverRadius": "Corner radius",
+        "weightSection": "Weight",
+        "typographySection": "Typography",
+        "sizeLabel": "Size",
+        "increaseSize": "Increase {field} text size",
+        "decreaseSize": "Decrease {field} text size",
+        "resetView": "Restore defaults",
+        "resetStatus": "Defaults restored for this view",
+        "persistFailed": "Changes applied, but could not save them. They may reset after restarting.",
+        "preview": "Preview",
+        "fields": {
+          "title": "Track title",
+          "artist": "Artist",
+          "album": "Album title",
+          "albumArtist": "Album artist",
+          "releaseDate": "Release date",
+          "trackNumber": "Track number",
+          "genre": "Genre",
+          "duration": "Duration",
+          "bitrate": "Bitrate",
+          "discHeading": "Disc heading"
+        },
+        "options": {
+          "400": "Regular (400)",
+          "500": "Medium (500)",
+          "600": "Semibold (600)",
+          "700": "Bold (700)",
+          "default": "Default ({weight})"
+        },
+        "sample": {
+          "title": "夜航 Night Flight — 写给远方的一封很长的信",
+          "artist": "陈粒 / 林生祥",
+          "album": "远航集 Far Voyage",
+          "albumArtist": "陈粒",
+          "releaseDate": "2016-04-22",
+          "trackNumber": "03",
+          "genre": "民谣 Folk",
+          "duration": "04:12",
+          "discHeading": "Disc 01"
+        },
+        "expand": "Expand",
+        "collapse": "Collapse"
+      },
+      "albumParameters": {
+        "title": "Album page parameters",
+        "reset": "Reset parameters",
+        "resetStatus": "Album page defaults restored",
+        "persistFailed": "Changes are active but could not be saved and may reset after restarting.",
+        "sampleTitle": "Quiet Hours · 静谧时光",
+        "sampleArtist": "Auralis Ensemble",
+        "fields": {
+          "title": "Album title",
+          "artist": "Artist",
+          "year": "Release year"
+        }
+      },
+      "interface": "Interface",
+      "languagePersistFailed": "Language changed, but could not save it. It may reset after restarting. Try again.",
+      "languageSyncFailed": "Language changed, but native controls could not update. Try again."
+    },
+    "playback": {
+      "gapless": "Gapless playback",
+      "gaplessDescription": "Reduce gaps between consecutive tracks.",
+      "gaplessAriaOn": "Gapless playback, on",
+      "gaplessAriaOff": "Gapless playback, off",
+      "digitalSilence": "Trim boundary silence",
+      "digitalSilenceDescription": "Trim brief digital silence between consecutive album tracks.",
+      "nativeUnavailable": "Native playback is currently unavailable.",
+      "softTransition": "Soft transitions",
+      "softTransitionDescription": "Crossfade for 2 seconds during regular track changes."
+    },
+    "library": {
+      "maintenanceSection": "Library maintenance",
+      "databaseLocation": "Database location",
+      "databaseReadFailed": "Could not read app information",
+      "databaseLoading": "Loading…",
+      "copyPath": "Copy path",
+      "copySuccess": "Copied",
+      "copyFailed": "Could not copy",
+      "backupDatabase": "Back up database",
+      "backupDatabaseDescription": "Export the library database, playlists and listening statistics to one backup file.",
+      "exportBackup": "Back up database",
+      "backupExporting": "Choose a save location…",
+      "backupSaved": "Backup saved",
+      "backupCancelled": "Cancelled",
+      "backupFailed": "Backup failed",
+      "restoreDatabase": "Restore database",
+      "restoreDatabaseDescription": "Validate and stage a database backup. Restart the app to apply it.",
+      "restoreBackup": "Restore database",
+      "restoreStaging": "Choose a backup file…",
+      "restoreStaged": "Backup staged. Restart the app to apply it.",
+      "restoreCancelled": "Cancelled",
+      "restoreFailed": "Restore failed",
+      "sourceSection": "Music source",
+      "currentFolder": "Music folder",
+      "noFolderSelected": "No music folder selected",
+      "lastScanned": "Last scanned {time}",
+      "chooseFolderHint": "Choose a folder to build your local library",
+      "changeFolder": "Change",
+      "selectFolder": "Choose folder",
+      "rescan": "Rescan",
+      "scanLibrary": "Scan library",
+      "status": "Status",
+      "discovered": "Discovered",
+      "fileCount": "{count} files | {count} file | {count} files",
+      "scanningTitle": "Organizing your music library",
+      "scanningMessage": "Reading music files…",
+      "cancel": "Cancel",
+      "fileProgress": "{scanned} / {total} files",
+      "failedCount": "{count} failed",
+      "scanStatus": {
+        "scanning": "Scanning",
+        "waitingFirst": "Awaiting first scan",
+        "notConfigured": "Not configured",
+        "completed": "Scan complete",
+        "canceled": "Scan cancelled",
+        "failed": "Scan failed",
+        "queued": "Scan queued",
+        "unknown": "Unknown status"
+      },
+      "neverScanned": "Never scanned",
+      "failuresSummary": "Metadata maintenance failed for {count} files | Metadata maintenance failed for {count} file | Metadata maintenance failed for {count} files",
+      "failureRecords": "Failure records",
+      "clearing": "Clearing…",
+      "clearRecords": "Clear records",
+      "trackFallback": "Track {id}",
+      "unknown": "Unknown",
+      "jobPrefix": "Job {id}",
+      "errors": {
+        "loadState": "Could not load library status. Try again.",
+        "clearFailures": "Could not clear failure records. Try again.",
+        "selectFolder": "Could not choose a music folder. Try again.",
+        "startScan": "Could not start the scan. Try again.",
+        "cancelScan": "Could not cancel the scan. Try again."
+      },
+      "failureDetails": "Diagnostic details"
+    },
+    "about": {
+      "productSection": "Product information",
+      "supportSection": "Diagnostics",
+      "license": "License",
+      "thirdPartyNotices": "Third-party notices",
+      "tagline": "A local player for your personal music collection",
+      "version": "Version",
+      "versionDescription": "Installed app version",
+      "versionUnavailable": "Unavailable",
+      "diagnostics": "Diagnostic information",
+      "diagnosticsDescription": "Export limited local logs and the app version. Music files and the database are excluded; paths and URLs are redacted.",
+      "exportDiagnostics": "Export diagnostics",
+      "diagnosticsExporting": "Choose a save location…",
+      "diagnosticsSaved": "Diagnostics exported",
+      "diagnosticsCancelled": "Cancelled",
+      "diagnosticsFailed": "Export failed"
+    }
+  },
+  "player": {
+    "play": "Play",
+    "pause": "Pause",
+    "playbackLoading": "Loading audio",
+    "playbackNoTrack": "Choose a track first",
+    "next": "Next track",
+    "previous": "Previous track",
+    "queue": "Play queue",
+    "volume": "Volume",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "mode": "Playback mode",
+    "more": "More playback controls",
+    "progress": "Playback progress",
+    "fullscreen": "Open fullscreen player",
+    "queueEmpty": "Your play queue is empty",
+    "nowPlaying": "Now playing",
+    "upNext": "Up next",
+    "playTrack": "Play {title}",
+    "unknownTrack": "Unknown track",
+    "unknownArtist": "Unknown artist",
+    "lyricsLoading": "Loading lyrics",
+    "lyricsEmpty": "No lyrics available",
+    "lyricsNoTrack": "No track selected",
+    "lyricsCollapse": "Collapse lyrics",
+    "lyricsExpand": "Expand lyrics",
+    "lyricsSeekToLine": "Seek to: {text}",
+    "lyricsSeekToTime": "Seek to {seconds} seconds",
+    "lyricsStartingSoon": "Lyrics starting soon",
+    "currentMode": "Playback mode: {mode}",
+    "albumShuffleDescription": "Shuffle albums, play tracks in album order",
+    "modeOption": {
+      "sequential": "Sequential",
+      "repeat-all": "Repeat all",
+      "repeat-one": "Repeat one",
+      "shuffle": "Shuffle",
+      "album-shuffle": "Album shuffle"
+    }
+  },
+  "fullscreen": {
+    "settings": "Fullscreen settings",
+    "closeSettings": "Close fullscreen settings",
+    "overlayAria": "Fullscreen player",
+    "exit": "Exit fullscreen player",
+    "repeatEnableOne": "Enable repeat one",
+    "repeatDisable": "Disable repeat",
+    "repeatEnableAll": "Enable repeat all",
+    "lyricsStartingSoon": "Lyrics starting soon",
+    "background": {
+      "section": "Background",
+      "mode": "Background style",
+      "metal": "Liquid metal",
+      "fluid": "Fluid",
+      "speed": "Flow speed",
+      "folds": "Fold scale",
+      "roughness": "Reflection softness",
+      "pause": "Pause background",
+      "reset": "Reset material"
+    },
+    "lyrics": {
+      "section": "Lyrics",
+      "fontSize": "Font size",
+      "fontWeight": "Font weight",
+      "lineGap": "Line spacing",
+      "scaleDescription": "Font size and line spacing use the adaptive defaults at 100%.",
+      "reset": "Restore defaults",
+      "resetStatus": "Default lyrics settings restored",
+      "persistFailed": "Changes are applied, but could not be saved. They may reset after restarting.",
+      "weights": {
+        "400": "Regular (400)",
+        "500": "Medium (500)",
+        "600": "Semibold (600)",
+        "700": "Bold (700)",
+        "800": "Extra bold (800)"
+      }
+    },
+    "lyricsContextMenu": {
+      "label": "Lyrics display",
+      "simplified": "Switch to Simplified Chinese",
+      "traditional": "Switch to Traditional Chinese",
+      "persistFailed": "This change is active, but could not be saved. It may reset after restarting."
+    }
+  },
+  "albums": {
+    "cd": {
+      "nowPlaying": "Now Playing",
+      "paused": "Paused",
+      "tracks": "Tracks",
+      "returnToBrowse": "Back to CD browse",
+      "returnToIndex": "Back to album index",
+      "focusReturnBrowse": "CD browse",
+      "focusReturnIndex": "Album index",
+      "view": {
+        "label": "Browse view",
+        "browse": "Disc browse",
+        "index": "Album index"
+      },
+      "indexPage": {
+        "title": "Album index",
+        "letters": "Letter index",
+        "missingDate": "—",
+        "openAlbum": "View album {title}"
+      },
+      "composer": {
+        "label": "Composer",
+        "more": "{count} more composers | {count} more composer | {count} more composers",
+        "expand": "Show all composers",
+        "collapse": "Collapse composers"
+      },
+      "lyrics": {
+        "label": "Current track lyrics",
+        "instrumental": "This is an instrumental track without lyrics"
+      },
+      "surface": {
+        "label": "Disc surface",
+        "cd": "CD",
+        "vinyl": "Vinyl"
+      },
+      "theme": {
+        "light": "Light mode",
+        "dark": "Dark mode",
+        "toLight": "Switch to light mode",
+        "toDark": "Switch to dark mode"
+      },
+      "spectrum": {
+        "title": "Live spectrum",
+        "ready": "Following music",
+        "waiting": "Waiting for audio",
+        "paused": "Paused",
+        "unavailable": "Unavailable",
+        "motionDisabled": "Motion disabled"
+      },
+      "vibration": {
+        "disabled": "Vibration off",
+        "turnOn": "Enable bass vibration",
+        "turnOff": "Disable bass vibration",
+        "smooth": "Smooth",
+        "elastic": "Elastic"
+      },
+      "modes": {
+        "catalog-sequential": "Library sequence",
+        "repeat-all": "Repeat album",
+        "shuffle": "Shuffle repeat",
+        "sequential": "Sequential"
+      },
+      "information": "Album information",
+      "trackCount": "{count} tracks | {count} track | {count} tracks",
+      "artist": "Album Artist",
+      "releaseDate": "Release Date",
+      "copyright": "Copyright",
+      "title": "CD browse",
+      "stage": "Album discs. Use arrow keys or swipe to browse.",
+      "hint": "Use arrow keys or swipe to browse",
+      "previous": "Previous album",
+      "next": "Next album",
+      "position": "Album {index} of {total}"
+    },
+    "detail": {
+      "back": "Back to list",
+      "play": "Play",
+      "shuffle": "Shuffle",
+      "disc": "Disc {number}",
+      "unknownYear": "Unknown year",
+      "unknownDate": "Unknown date",
+      "unknownTitle": "Untitled track",
+      "moreAlbumsTitle": "More from {artist}",
+      "genreAlbumsTitle": "More in {genre}",
+      "openAlbumAria": "Open album {title}",
+      "coverAlt": "Artwork for {title}",
+      "heroAria": "Artwork and details for {title}",
+      "loading": "Loading album…",
+      "loadError": "Could not load the album",
+      "notFound": "Album not found",
+      "retry": "Try again",
+      "returnToAlbums": "Back to albums"
+    },
+    "search": {
+      "ariaLabel": "Search albums and album artists",
+      "placeholder": "Search albums and album artists",
+      "matched": "{index} / {total}",
+      "wrapped": "Back to the first match ({index} of {total})",
+      "notFound": "No matching albums"
+    },
+    "contextMenu": {
+      "locateCurrent": "Locate current album",
+      "play": "Play {title}",
+      "openInCd": "Open in CD browse",
+      "insert": "Play {title} next"
+    },
+    "status": {
+      "loading": "Loading albums…",
+      "empty": "No albums yet. Add a music folder in Settings.",
+      "loadError": "Could not load albums",
+      "retry": "Try again"
+    },
+    "a11y": {
+      "openAlbum": "Open album {title}",
+      "longPressPlay": "Hold the artwork or press Shift+Enter to play the album",
+      "coverAlt": "Artwork for {title}"
+    },
+    "year": "{year}"
+  },
+  "library": {
+    "playCount": "{count} plays | {count} play | {count} plays",
+    "columns": {
+      "artwork": "Cover",
+      "title": "Title",
+      "artist": "Artist",
+      "album": "Album",
+      "playCount": "Plays",
+      "duration": "Duration",
+      "resizeBetween": "Resize columns between {left} and {right}",
+      "menuLabel": "Track list column width menu",
+      "restoreDefaults": "Restore default column widths"
+    },
+    "search": {
+      "ariaLabel": "Search this list",
+      "placeholder": "Search titles, artists and albums…",
+      "matched": "{index} / {total}",
+      "wrapped": "Back to the first match ({index} of {total})",
+      "notFound": "No matches",
+      "clearSearch": "Clear search"
+    },
+    "contextMenu": {
+      "ariaLabel": "Library actions",
+      "locateCurrent": "Locate current track",
+      "playTrack": "Play {title}",
+      "playAlbum": "Play album {album}",
+      "insertTrack": "Play {title} next",
+      "insertAlbum": "Play album {album} next",
+      "addToPlaylist": "Add to playlist",
+      "createPlaylist": "New playlist",
+      "editMetadata": "Edit metadata",
+      "switchToCover": "Switch to cover view",
+      "switchToFlat": "Switch to list view",
+      "noPlaylists": "No playlists available",
+      "playlistLoading": "Loading playlists…",
+      "playlistLoadError": "Could not load playlists. Try again.",
+      "addedSuccess": "Added to {name}",
+      "alreadyInPlaylist": "Already in {name}",
+      "addedPartial": "Added {count} tracks to {name}; {unavailable} unavailable tracks were skipped.",
+      "tracksUnavailable": "No new tracks added. Unavailable tracks could not be added.",
+      "playlistNotFound": "This playlist was deleted. Choose another playlist.",
+      "playlistAddError": "Could not add tracks. Try again."
+    },
+    "metadataEditor": {
+      "title": "Edit metadata",
+      "fields": {
+        "title": "Title",
+        "artist": "Artist",
+        "album": "Albums",
+        "albumArtist": "Album artist",
+        "genre": "Genre",
+        "releaseDate": "Release date"
+      },
+      "placeholders": {
+        "title": "Enter track title",
+        "artist": "Enter artist name",
+        "album": "Enter album title",
+        "albumArtist": "Enter album artist name",
+        "genre": "Enter genre",
+        "releaseDate": "e.g. 2024-05-20"
+      },
+      "actions": {
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving…"
+      },
+      "validation": {
+        "dateInvalid": "Use the date format YYYY-MM-DD"
+      },
+      "status": {
+        "checking": "Checking editing status…",
+        "playbackInUse": "This file is in use by the player. Switch to another track before editing metadata.",
+        "preloadInUse": "This track is preloaded. Metadata cannot be edited right now.",
+        "playbackEditable": "You can save metadata while the music continues playing.",
+        "queryFailed": "Could not check editing status. Try again.",
+        "loading": "Loading track information…",
+        "retry": "Try again"
+      },
+      "errors": {
+        "saveFailed": "Could not save metadata. Try again.",
+        "loadFailed": "Could not load track information. Try again.",
+        "writeInProgress": "This file is being saved. Please wait.",
+        "bufferPreparationFailed": "Unable to save during playback right now. Your edits are retained. Retry or save after switching tracks.",
+        "fileInUse": "Unable to write the file. Your edits are retained. Check file access and free disk space, then retry.",
+        "playbackRestoreFailed": "Unable to restore playback. The file may have been updated. Reload its metadata to check.",
+        "playbackChanged": "Playback changed before this save completed. Your edits are retained. Check the file and retry."
+      }
+    },
+    "status": {
+      "loading": "Loading music library…",
+      "emptyAll": "No tracks",
+      "emptyPlaylist": "No tracks",
+      "emptySmartPlaylist": "No tracks",
+      "loadError": "Could not load the library. Try again.",
+      "retry": "Try again"
+    },
+    "a11y": {
+      "songRow": "Track {index}: {title} - {artist}",
+      "albumArtwork": "Album {album}. Press Enter for album actions."
+    },
+    "missing": {
+      "title": "Untitled track",
+      "artist": "Unknown artist",
+      "album": "Unknown album",
+      "date": "Unknown date",
+      "genre": "Uncategorized",
+      "artwork": "No artwork"
+    }
+  },
+  "archive": {
+    "title": "Listening archive",
+    "previousYear": "Previous year",
+    "nextYear": "Next year",
+    "loading": "Loading listening records…",
+    "loadError": "Could not load listening records. Please return to this page later.",
+    "empty": "No listening records this year",
+    "calendarDescription": "Listening heatmap for {year}: {plays} effective plays across {days} active days. Use arrow keys to select a date, Enter to view its tracks, and Escape to close.",
+    "daySummary": "{count} plays · {minutes} min",
+    "playCount": "{count} plays",
+    "dayEmpty": "No listening records for this day",
+    "dayLoadError": "Could not load tracks. Click the date again to retry.",
+    "unknownTrack": "Unknown track",
+    "unknownArtist": "Unknown artist"
+  },
+  "smartBuilder": {
+    "title": "New smart playlist",
+    "defaultName": "My smart playlist",
+    "genre": "Genre",
+    "artist": "Artist",
+    "chooseSingle": "Choose a genre or artist",
+    "chooseGroups": "Choose values in every condition group",
+    "groupEmpty": "A condition group has no matches. Adjust it to create a playlist.",
+    "noIntersection": "The condition groups have no common tracks. Adjust the conditions.",
+    "loadError": "Could not load the library. Try again.",
+    "noMatches": "No tracks match these conditions. Adjust them and try again.",
+    "createError": "Could not create the playlist. Try again.",
+    "loading": "Loading library…",
+    "betweenGroups": "Between groups",
+    "betweenGroupsAria": "Relationship between dimensions",
+    "single": "Single",
+    "andAll": "AND · Match all",
+    "orAny": "OR · Match any",
+    "matchCount": "{count} matches | {count} match | {count} matches",
+    "unselected": "Nothing selected",
+    "withinGroup": "Within group",
+    "withinGroupAria": "Relationship within {field}",
+    "and": "AND",
+    "or": "OR",
+    "selected": "Selected {field}",
+    "remove": "Remove {value}",
+    "clear": "Clear",
+    "search": "Search {field}",
+    "clearSearch": "Clear {field} search",
+    "more": "Show more ({count})",
+    "noValues": "No matching values",
+    "selectionLimit": "Select up to {count} values per group. Deselect one to choose another.",
+    "resultCount": "{count} matching tracks | {count} matching track | {count} matching tracks",
+    "creating": "Creating…",
+    "create": "Create playlist"
+  }
+}

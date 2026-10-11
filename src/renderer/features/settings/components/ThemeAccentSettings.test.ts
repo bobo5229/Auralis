@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRenderer, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { tinycolor } from 'vue-color'
 import { useTheme } from '@renderer/composables/useTheme'
 import { useDarkAccent } from '@renderer/features/appearance/composables/useDarkAccent'
 import { useLightAccent } from '@renderer/features/appearance/composables/useLightAccent'
@@ -31,6 +33,7 @@ vi.mock('vue-i18n', async () => {
     'settings.appearance.accent.presetListLabel': '选择要应用的预设颜色',
   }
   const t = (key: string, values?: Record<string, unknown>): string => {
+    if (locale.value === 'en' && key === 'settings.appearance.accent.hexField') return 'HEX color'
     let message = messages[key] ?? key
     for (const [name, value] of Object.entries(values ?? {})) {
       message = message.replace(`{${name}}`, String(value))
@@ -80,6 +83,18 @@ vi.mock('vue-color', async (importOriginal) => {
             ),
           ),
           h('div', { class: 'active-color' }),
+          h('button', {
+            class: 'mock-hue-control',
+            onClick: () =>
+              emit(
+                'update:tinyColor',
+                actual.tinycolor({
+                  ...(props.tinyColor as ReturnType<typeof actual.tinycolor>).toHsl(),
+                  h:
+                    ((props.tinyColor as ReturnType<typeof actual.tinycolor>).toHsl().h + 40) % 360,
+                }),
+              ),
+          }),
           h('input', {
             class: 'vc-input-input',
             'aria-label': 'Hex',
@@ -353,6 +368,7 @@ async function clickAndFlush(node: TestNode): Promise<void> {
 }
 
 beforeEach(async () => {
+  useI18n().locale.value = 'zh-Hans'
   storage = new MemoryStorage()
   mountedApps = []
   vi.stubGlobal('localStorage', storage)
@@ -483,6 +499,25 @@ describe('ThemeAccentSettings', () => {
     expect(storage.writes).toEqual([`auralis-${mode}-accent`])
   })
 
+  it('makes hue changes visible after restoring the neutral light accent', async () => {
+    const root = await mountSettings()
+    await clickAndFlush(findClass(root, 'dark-accent-toggle')!)
+    await clickAndFlush(findClass(root, 'dark-accent-reset')!)
+    expect(lightState.lightAccent.value).toBe('#585B5F')
+
+    await clickAndFlush(findClass(root, 'mock-hue-control')!)
+    const selected = lightState.lightAccent.value
+    expect(selected).not.toBe('#585B5F')
+    expect(tinycolor(selected).toHsl().s).toBeGreaterThanOrEqual(0.4)
+    await clickAndFlush(findClass(root, 'mock-hue-control')!)
+    expect(lightState.lightAccent.value).not.toBe(selected)
+    expect(tinycolor(lightState.lightAccent.value).toHsl().s).toBeGreaterThanOrEqual(0.4)
+    expect(storage.getItem('auralis-light-accent')).toBe(lightState.lightAccent.value)
+    expect(findClass(root, 'dark-accent-user-swatch')?.props.style).toEqual({
+      backgroundColor: lightState.lightAccent.value,
+    })
+  })
+
   it('shows write failures only for the current app theme', async () => {
     const root = await mountSettings()
     await clickAndFlush(findClass(root, 'dark-accent-toggle')!)
@@ -498,6 +533,21 @@ describe('ThemeAccentSettings', () => {
     await themeState.setTheme('dark')
     await nextTick()
     expect(nodeText(root)).toContain('颜色已在本次会话中保留，保存未完成。')
+  })
+
+  it('updates translated input labels when switching language with the picker open', async () => {
+    const root = await mountSettings()
+    await clickAndFlush(findClass(root, 'dark-accent-toggle')!)
+    const input = findClass(root, 'vc-input-input')!
+    expect(input.getAttribute('aria-label')).toBe('十六进制颜色')
+    useI18n().locale.value = 'en'
+    await nextTick()
+    await nextTick()
+    expect(input.getAttribute('aria-label')).toBe('HEX color')
+    useI18n().locale.value = 'zh-Hans'
+    await nextTick()
+    await nextTick()
+    expect(input.getAttribute('aria-label')).toBe('十六进制颜色')
   })
 
   it('handles Escape and returns focus to the trigger', async () => {

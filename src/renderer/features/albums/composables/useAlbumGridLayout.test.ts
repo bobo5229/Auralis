@@ -23,15 +23,15 @@ function setup() {
     scrollTop: 0,
   }
   const container = shallowRef(element as HTMLElement)
-  const displayMode = ref<'grid' | 'perspective'>('grid')
   const isResizing = ref(false)
   const isActive = ref(true)
   const albumKeys = ref(Array.from({ length: 120 }, (_, index) => `album-${index}`))
   const measure = vi.fn()
+  const metadataOccupancy = ref(70)
   const scope = effectScope()
   scopes.push(scope)
   const grid = scope.run(() =>
-    useAlbumGridLayout({ container, displayMode, isResizing, isActive, albumKeys, measure }),
+    useAlbumGridLayout({ container, isResizing, isActive, albumKeys, measure, metadataOccupancy }),
   )!
   grid.update(false)
   readWidth.mockClear()
@@ -43,35 +43,34 @@ function setup() {
       width = value
     },
     readWidth,
-    displayMode,
     isResizing,
     isActive,
     albumKeys,
     measure,
+    metadataOccupancy,
     scope,
   }
 }
 
 describe('album grid geometry', () => {
-  it('preserves the 3–6 column rules and display mode row spacing', () => {
+  it('preserves the 3–6 column rules and grid row spacing', () => {
     const keys = Array.from({ length: 20 }, (_, index) => `album-${index}`)
-    const calculate = (width: number, displayMode: 'grid' | 'perspective') =>
+    const calculate = (width: number) =>
       calculateAlbumGridGeometry({
         width,
         viewportHeight: 800,
         paddingTop: 24,
         paddingBottom: 32,
-        displayMode,
         albumKeys: keys,
         previous: null,
         scrollTop: 0,
         anchorAlbumKey: null,
       }).geometry
 
-    expect(calculate(700, 'grid').columnCount).toBe(3)
-    expect(calculate(970, 'grid').columnCount).toBe(5)
-    expect(calculate(1290, 'grid').columnCount).toBe(6)
-    expect(calculate(970, 'perspective').rowHeight).toBe(calculate(970, 'grid').rowHeight - 20)
+    expect(calculate(700).columnCount).toBe(3)
+    expect(calculate(970).columnCount).toBe(5)
+    expect(calculate(1290).columnCount).toBe(6)
+    expect(calculate(970).rowHeight).toBe(268)
   })
 
   it('clamps a remapped bottom anchor to the new legal scroll range', () => {
@@ -88,7 +87,6 @@ describe('album grid geometry', () => {
       viewportHeight: 700,
       paddingTop: 24,
       paddingBottom: 32,
-      displayMode: 'grid',
       albumKeys,
       previous,
       scrollTop: 24 + previous.totalHeight,
@@ -100,6 +98,39 @@ describe('album grid geometry', () => {
 })
 
 describe('album grid layout commits', () => {
+  it('applies font geometry after a transition lock or inactive page is released', async () => {
+    const state = setup()
+    state.grid.beginTransition()
+    state.metadataOccupancy.value = 96
+    await nextTick()
+    await nextTick()
+    expect(state.measure).not.toHaveBeenCalled()
+    state.grid.endTransition()
+    await nextTick()
+    await nextTick()
+    expect(state.grid.rowHeight.value).toBe(294)
+    state.isActive.value = false
+    state.metadataOccupancy.value = 70
+    await nextTick()
+    await nextTick()
+    expect(state.grid.rowHeight.value).toBe(294)
+    state.isActive.value = true
+    state.grid.update()
+    expect(state.grid.rowHeight.value).toBe(268)
+  })
+
+  it('recomputes row height and preserves the visible album when font sizes grow', async () => {
+    const state = setup()
+    state.element.scrollTop = 24 + 10 * 268 + 20
+    state.metadataOccupancy.value = 96
+    await nextTick()
+    await nextTick()
+    await nextTick()
+    expect(state.grid.rowHeight.value).toBe(294)
+    expect(state.element.scrollTop).toBe(24 + 10 * 294 + 20)
+    expect(state.measure).toHaveBeenCalledOnce()
+  })
+
   it('commits the target geometry once before motion and ignores intervening resize observations', async () => {
     const state = setup()
     const initialHeight = state.grid.rowHeight.value
@@ -191,5 +222,17 @@ describe('album grid layout commits', () => {
     state.scope.stop()
     await nextTick()
     expect(state.measure).not.toHaveBeenCalled()
+  })
+
+  it('does not restore a stale scroll offset after leaving and reactivating the same container', async () => {
+    const state = setup()
+    state.element.scrollTop = 24 + 10 * 268 + 20
+    state.setWidth(1290)
+    state.grid.update()
+    state.isActive.value = false
+    state.isActive.value = true
+    state.element.scrollTop = 80
+    await nextTick()
+    expect(state.element.scrollTop).toBe(80)
   })
 })

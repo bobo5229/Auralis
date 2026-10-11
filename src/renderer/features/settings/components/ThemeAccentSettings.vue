@@ -8,6 +8,7 @@ import { DARK_ACCENT_PRESETS } from '@renderer/features/appearance/constants/dar
 import { useDarkAccent } from '@renderer/features/appearance/composables/useDarkAccent'
 import { parseOpaquePickerAccent } from '@renderer/features/appearance/utils/parsePickerAccent'
 import { useLightAccent } from '@renderer/features/appearance/composables/useLightAccent'
+import { DEFAULT_LIGHT_ACCENT } from '@renderer/features/appearance/constants/lightAccent'
 import { useTheme } from '@renderer/composables/useTheme'
 
 const { t, locale } = useI18n()
@@ -74,7 +75,7 @@ const pickerBinding = computed(() => {
         return
       }
       pickerIssue.value = null
-      setEditingAccent(result.color)
+      setEditingAccent(resolvePickedAccent(value, result.color))
     },
   }
 })
@@ -98,6 +99,23 @@ const previewStyle = computed(() => ({
 function setEditingAccent(value: string): void {
   if (theme.value === 'light') setLightAccent(value)
   else setDarkAccent(value)
+}
+
+function resolvePickedAccent(value: unknown, color: string): string {
+  if (theme.value !== 'light' || activeAccent.value !== DEFAULT_LIGHT_ACCENT) return color
+
+  const picked = tinycolor(value as Parameters<typeof tinycolor>[0])
+  const input = picked.getOriginalInput()
+  // SketchPicker emits HSL for hue changes; the saturation square emits HSV.
+  if (!input || typeof input !== 'object' || !('h' in input) || !('l' in input)) return color
+
+  const initial = tinycolor(DEFAULT_LIGHT_ACCENT).toHsl()
+  const next = picked.toHsl()
+  if (Math.abs(next.h - initial.h) < 0.5 || Math.abs(next.s - initial.s) > 0.01) return color
+
+  return tinycolor({ ...next, s: 0.45 })
+    .toHexString()
+    .toUpperCase()
 }
 
 function resetEditingAccent(): void {
@@ -132,8 +150,13 @@ function syncPickerAccessibility(): void {
 
   host.querySelectorAll<HTMLInputElement>('.vc-input-input').forEach((input) => {
     const originalLabel = input.getAttribute('aria-label')?.toLowerCase()
-    const key = originalLabel ? inputLabelKeys[originalLabel] : undefined
-    if (key) input.setAttribute('aria-label', t(`settings.appearance.accent.${key}`))
+    const key =
+      input.getAttribute('data-accent-label-key') ??
+      (originalLabel ? inputLabelKeys[originalLabel] : undefined)
+    if (key) {
+      input.setAttribute('data-accent-label-key', key)
+      input.setAttribute('aria-label', t(`settings.appearance.accent.${key}`))
+    }
   })
 
   host.querySelectorAll<HTMLElement>('[role="slider"]').forEach((slider) => {
@@ -156,8 +179,11 @@ function syncPickerAccessibility(): void {
       return
     }
 
-    const key = inputLabelKeys[originalLabel]
-    if (key) slider.setAttribute('aria-label', t(`settings.appearance.accent.${key}`))
+    const key = slider.getAttribute('data-accent-label-key') ?? inputLabelKeys[originalLabel]
+    if (key) {
+      slider.setAttribute('data-accent-label-key', key)
+      slider.setAttribute('aria-label', t(`settings.appearance.accent.${key}`))
+    }
   })
 
   syncCurrentColorAccessibility(host)
@@ -168,6 +194,10 @@ function syncCurrentColorAccessibility(host = pickerHostRef.value): void {
 
   const saturationSlider = host.querySelector<HTMLElement>('.vc-saturation-slider [role="slider"]')
   if (saturationSlider) {
+    saturationSlider.setAttribute(
+      'aria-label',
+      t('settings.appearance.accent.saturationBrightnessSlider'),
+    )
     const hsv = tinycolor(activeAccent.value).toHsv()
     saturationSlider.setAttribute('aria-valuenow', hsv.s.toFixed(2))
     saturationSlider.setAttribute(
@@ -364,6 +394,7 @@ watch(activeAccent, async () => {
 
 <style scoped>
 .dark-accent-settings {
+  container: accent-settings / inline-size;
   font-family: var(--auralis-font-ui);
 }
 
@@ -708,7 +739,7 @@ watch(activeAccent, async () => {
   opacity: 0;
 }
 
-@media (max-width: 760px) {
+@container accent-settings (max-width: 620px) {
   .dark-accent-picker-content {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -743,7 +774,7 @@ watch(activeAccent, async () => {
   transition: opacity 120ms ease;
 }
 
-@media (max-width: 520px) {
+@container accent-settings (max-width: 360px) {
   .dark-accent-settings-row {
     align-items: flex-start;
   }

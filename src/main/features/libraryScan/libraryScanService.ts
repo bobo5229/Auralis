@@ -1,55 +1,46 @@
 import { BrowserWindow, dialog } from 'electron'
-import { Worker, type WorkerOptions } from 'node:worker_threads'
-import { join, win32 } from 'node:path'
+import { getNativeUiMessages } from '@main/app/uiLocale'
+import { Worker } from 'node:worker_threads'
+import { win32 } from 'node:path'
 import type Database from 'better-sqlite3'
-import { ipcChannels } from '@shared/ipc/channels'
 import type {
   LibraryRoot,
-  LibraryScanProgress,
   LibraryScanStatus,
-  ScannedTrack,
   SelectLibraryRootResult,
 } from '@shared/types/libraryScan'
 import { logger } from '@main/logging/logger'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
-import { ScanFailureRepository } from '@main/repositories/scanFailureRepository'
 import { ScanJobRepository } from '@main/repositories/scanJobRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
-import { MissingTrackCleanupRepository } from '@main/repositories/missingTrackCleanupRepository'
-import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './libraryScanTypes'
-import { findUniqueRelocations } from './trackRelocationMatcher'
-import { createRendererEventSender, type RendererEventSender } from '@main/ipc/rendererEvents'
+import { createRendererEventSender } from '@main/ipc/rendererEvents'
 
-export type LibraryScanWorkerFactory = (fileName: string, options: WorkerOptions) => Worker
+import { LibraryScanPersistence } from './libraryScanPersistence'
+import { LibraryScanWorkerHost, type LibraryScanWorkerFactory } from './libraryScanWorkerHost'
 
-interface ImportedTracks {
-  addedPaths: string[]
-  relocatedIds: number[]
-  relocatedPaths: string[]
-}
-
-function isUnderDirectory(filePath: string, directory: string): boolean {
-  const relative = win32.relative(directory, filePath)
-  return (
-    relative === '' ||
-    (relative !== '..' && !relative.startsWith('..\\') && !win32.isAbsolute(relative))
-  )
-}
+export type { LibraryScanWorkerFactory } from './libraryScanWorkerHost'
 
 export class LibraryScanService {
   private readonly db: Database.Database
   private readonly libraryRootRepository: LibraryRootRepository
   private readonly scanJobRepository: ScanJobRepository
-  private readonly scanFailureRepository: ScanFailureRepository
   private readonly trackRepository: TrackRepository
   private readonly artworkCacheDir: string
-  private readonly createWorker: LibraryScanWorkerFactory
-  private readonly sendToRenderer: RendererEventSender
-  private activeWorker: Worker | null = null
-  private activeJobId: number | null = null
-  private readonly pendingNewTracks = new Map<string, ScannedTrack>()
-  private scanHadFailures = false
+  private readonly persistence: LibraryScanPersistence
+  private readonly workerHost: LibraryScanWorkerHost
   private stopping = false
+  private rootChanging = false
+  private rootChange: Promise<SelectLibraryRootResult> | null = null
+  private preparation: {
+    jobId: number
+    canceled: boolean
+    done: Promise<void>
+    resolve: () => void
+  } | null = null
+  private readonly cancellations = new Map<number, Promise<{ ok: boolean }>>()
+  private onRootChange: {
+    onStart?: () => void | Promise<void>
+    onEnd?: () => void | Promise<void>
+  } = {}
   private readonly pendingStarts = new Set<Promise<{ jobId: number }>>()
   private onScanLifecycle: {
     onStart?: () => void | Promise<void>
@@ -65,11 +56,21 @@ export class LibraryScanService {
     this.db = db
     this.libraryRootRepository = new LibraryRootRepository(db)
     this.scanJobRepository = new ScanJobRepository(db)
-    this.scanFailureRepository = new ScanFailureRepository(db)
     this.trackRepository = new TrackRepository(db)
     this.artworkCacheDir = artworkCacheDir
-    this.createWorker = createWorker
-    this.sendToRenderer = createRendererEventSender(getAllWindows)
+    this.persistence = new LibraryScanPersistence(
+      db,
+      this.libraryRootRepository,
+      this.scanJobRepository,
+      this.trackRepository,
+      createRendererEventSender(getAllWindows),
+    )
+    this.workerHost = new LibraryScanWorkerHost(createWorker, {
+      onMessage: (message, jobId) => this.persistence.handleMessage(message, jobId),
+      onFailure: (jobId, reason) => this.persistence.fail(jobId, reason),
+      onClear: () => this.persistence.clearPendingTracks(),
+      onEnd: () => this.onScanLifecycle.onEnd?.(),
+    })
     this.scanJobRepository.markInterruptedJobs()
   }
 
@@ -86,33 +87,77 @@ export class LibraryScanService {
 
   /** True while a scan worker (or a scan in preparation) is running. */
   isScanActive(): boolean {
-    return this.activeWorker !== null || this.activeJobId !== null
+    return this.workerHost.isActive()
   }
 
   async selectRoot(): Promise<SelectLibraryRootResult> {
     const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     const result = await dialog.showOpenDialog(window, {
       properties: ['openDirectory'],
-      title: 'Choose Music Library Folder',
+      title: getNativeUiMessages().selectFolder,
     })
 
     if (result.canceled || !result.filePaths[0]) {
       return { canceled: true }
     }
 
-    // The app manages a single library root. Atomically replace any
-    // existing roots so old directories are no longer watched and their
-    // tracks are marked missing (preserving play history, reversible).
-    const root = this.db.transaction(() => {
-      const existingRoots = this.libraryRootRepository.list()
-      for (const oldRoot of existingRoots) {
-        this.trackRepository.markMissingByPathPrefix(oldRoot.path)
-        this.libraryRootRepository.deleteById(oldRoot.id)
-      }
-      return this.libraryRootRepository.upsertByPath(result.filePaths[0])
-    })()
+    // The dialog can stay open while another request starts a scan. Recheck here.
+    if (this.stopping || this.rootChanging || this.isScanActive() || this.cancellations.size > 0) {
+      throw new Error('Cannot change library root while a scan or library change is active')
+    }
+    const selectedPath = result.filePaths[0]
+    const existingRoots = this.libraryRootRepository.list()
+    if (existingRoots.length === 1 && win32.relative(existingRoots[0].path, selectedPath) === '') {
+      return { canceled: false, root: existingRoots[0] }
+    }
 
-    return { canceled: false, root }
+    this.rootChanging = true
+    const change = this.replaceRoot(selectedPath)
+    this.rootChange = change
+    try {
+      return await change
+    } finally {
+      this.rootChange = null
+      this.rootChanging = false
+    }
+  }
+
+  setRootChangeHooks(hooks: {
+    onStart?: () => void | Promise<void>
+    onEnd?: () => void | Promise<void>
+  }): void {
+    this.onRootChange = hooks
+  }
+
+  private async replaceRoot(selectedPath: string): Promise<SelectLibraryRootResult> {
+    try {
+      await this.onRootChange.onStart?.()
+      if (this.stopping) throw new Error('Library root change interrupted by application shutdown')
+      const result = this.db.transaction(() => {
+        const missingIds = new Set<number>()
+        for (const oldRoot of this.libraryRootRepository.list()) {
+          // Keep tracks covered by the new root available, including overlapping roots.
+          for (const id of this.trackRepository.markMissingUnderRootExcept(
+            oldRoot.path,
+            [],
+            [selectedPath],
+          )) {
+            missingIds.add(id)
+          }
+          this.libraryRootRepository.deleteById(oldRoot.id)
+        }
+        const root = this.libraryRootRepository.upsertByPath(selectedPath)
+        return { root, missingIds: [...missingIds] }
+      })()
+      if (result.missingIds.length > 0) this.persistence.publishMissingTracks(result.missingIds)
+      return { canceled: false, root: result.root }
+    } finally {
+      try {
+        await this.onRootChange.onEnd?.()
+      } catch (error) {
+        logger.error({ error }, 'Failed to end library root change lifecycle')
+      }
+    }
   }
 
   getRoots(): LibraryRoot[] {
@@ -136,17 +181,27 @@ export class LibraryScanService {
 
   async shutdown(): Promise<void> {
     this.stopping = true
-    await Promise.allSettled([...this.pendingStarts])
-    if (this.activeJobId !== null) await this.cancelScan(this.activeJobId)
+    await Promise.allSettled([
+      ...this.pendingStarts,
+      ...this.cancellations.values(),
+      ...(this.rootChange ? [this.rootChange] : []),
+    ])
+    await this.workerHost.waitForCleanup()
+    if (this.workerHost.activeJobId !== null) await this.cancelScan(this.workerHost.activeJobId)
   }
 
   private async startScanInternal(rootId: number): Promise<{ jobId: number }> {
+    if (this.cancellations.size > 0) await Promise.all([...this.cancellations.values()])
+    const cleanup = this.workerHost.waitForCleanup()
+    if (cleanup) await cleanup
+    if (this.stopping) throw new Error('Library scan service is shutting down')
+    if (this.rootChanging) throw new Error('Cannot start a scan while the library root is changing')
     const activeJob = this.scanJobRepository.getActive()
 
     if (activeJob) {
       // This service still owns the job (it may be waiting for the async
       // lifecycle start hook before the worker is created) — return existing.
-      if (this.activeJobId === activeJob.jobId) {
+      if (this.workerHost.activeJobId === activeJob.jobId) {
         return { jobId: activeJob.jobId }
       }
 
@@ -159,9 +214,6 @@ export class LibraryScanService {
         activeJob.jobId,
         'Scan job recovered after unexpected interruption',
       )
-      this.activeWorker = null
-      this.activeJobId = null
-      await this.onScanLifecycle.onEnd?.()
     }
 
     const root = this.libraryRootRepository.getById(rootId)
@@ -171,57 +223,77 @@ export class LibraryScanService {
     }
 
     const job = this.scanJobRepository.create(root.id)
-    this.pendingNewTracks.clear()
-    this.scanHadFailures = false
-    this.activeJobId = job.jobId
+    this.persistence.begin()
+    this.workerHost.prepare(job.jobId)
+    let resolvePreparation!: () => void
+    const preparation = {
+      jobId: job.jobId,
+      canceled: false,
+      done: new Promise<void>((resolve) => {
+        resolvePreparation = resolve
+      }),
+      resolve: () => resolvePreparation(),
+    }
+    this.preparation = preparation
 
     try {
       await this.onScanLifecycle.onStart?.()
       if (this.stopping) throw new Error('Library scan interrupted by application shutdown')
-      this.startWorker(job.jobId, root.path)
+      if (preparation.canceled) return { jobId: job.jobId }
+      this.workerHost.start({
+        jobId: job.jobId,
+        rootPath: root.path,
+        knownFiles: this.trackRepository.getKnownFiles(),
+        artworkCacheDir: this.artworkCacheDir,
+      })
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Failed to prepare library scan'
-      this.scanJobRepository.fail(job.jobId, reason)
-      this.activeJobId = null
-      try {
-        await this.onScanLifecycle.onEnd?.()
-      } catch (lifecycleError) {
-        logger.error({ error: lifecycleError, jobId: job.jobId }, 'Failed to end scan lifecycle')
+      if (!preparation.canceled) {
+        try {
+          this.scanJobRepository.fail(job.jobId, reason)
+        } finally {
+          await this.workerHost.finish(job.jobId)
+        }
       }
       throw error
+    } finally {
+      if (this.preparation === preparation) this.preparation = null
+      preparation.resolve()
     }
 
     return { jobId: job.jobId }
   }
 
-  async cancelScan(jobId: number): Promise<{ ok: boolean }> {
-    if (!this.activeWorker || this.activeJobId !== jobId) {
-      return { ok: false }
+  cancelScan(jobId: number): Promise<{ ok: boolean }> {
+    const existing = this.cancellations.get(jobId)
+    if (existing) return existing
+    if (this.workerHost.activeJobId !== jobId || this.workerHost.waitForCleanup()) {
+      return Promise.resolve({ ok: false })
     }
+    if (this.preparation?.jobId === jobId) this.preparation.canceled = true
+    const cancel = this.cancelScanInternal(jobId)
+    this.cancellations.set(jobId, cancel)
+    void cancel.then(
+      () => this.cancellations.delete(jobId),
+      () => this.cancellations.delete(jobId),
+    )
+    return cancel
+  }
 
-    // Clear state BEFORE terminate to prevent the exit handler from racing
-    // and writing a 'failed' status that we would later overwrite to 'canceled'.
-    const worker = this.activeWorker
-    this.activeWorker = null
-    this.activeJobId = null
+  private async cancelScanInternal(jobId: number): Promise<{ ok: boolean }> {
+    if (this.preparation?.jobId === jobId) await this.preparation.done
+    if (!(await this.workerHost.terminate(jobId))) return { ok: false }
     try {
-      await worker.terminate()
-    } catch (error) {
-      this.activeWorker = worker
-      this.activeJobId = jobId
-      throw error
-    }
-    this.scanJobRepository.finish(jobId, 'canceled')
-    this.pendingNewTracks.clear()
-    try {
-      await this.onScanLifecycle.onEnd?.()
-    } catch (error) {
-      logger.error({ error, jobId }, 'Failed to end canceled scan lifecycle')
+      this.scanJobRepository.finish(jobId, 'canceled')
+    } finally {
+      // Termination succeeded: even a database failure must release the stopped
+      // worker and its watcher pause. A remaining scanning row can be healed.
+      await this.workerHost.finish(jobId)
     }
     const status = this.scanJobRepository.getById(jobId)
 
     if (status) {
-      this.publishProgress({
+      this.persistence.publishProgress({
         jobId,
         status: 'canceled',
         totalFiles: status.totalFiles,
@@ -233,357 +305,5 @@ export class LibraryScanService {
     }
 
     return { ok: true }
-  }
-
-  private startWorker(jobId: number, rootPath: string): void {
-    const workerInput: LibraryScanWorkerInput = {
-      jobId,
-      rootPath,
-      knownFiles: this.trackRepository.getKnownFiles(),
-      artworkCacheDir: this.artworkCacheDir,
-    }
-    const workerPath = join(__dirname, 'features/libraryScan/libraryScanWorker.js')
-    const worker = this.createWorker(workerPath, {
-      workerData: workerInput,
-    })
-
-    this.activeWorker = worker
-    // Terminal settlement and lifecycle cleanup are scoped to this worker so a
-    // late event can neither settle twice nor clear a newer scan.
-    let terminalSettled = false
-    let lifecycleEndPromise: Promise<void> | null = null
-
-    const endLifecycle = (): Promise<void> => {
-      if (!lifecycleEndPromise) {
-        lifecycleEndPromise = Promise.resolve()
-          .then(() => this.onScanLifecycle.onEnd?.())
-          .catch((error) => {
-            logger.error({ error, jobId }, 'Failed to end library scan lifecycle')
-          })
-      }
-
-      return lifecycleEndPromise
-    }
-
-    const clearWorkerState = (): void => {
-      if (this.activeWorker === worker) {
-        this.activeWorker = null
-      }
-      if (this.activeJobId === jobId) {
-        this.pendingNewTracks.clear()
-        this.activeJobId = null
-        void endLifecycle()
-      }
-    }
-
-    const settleFailed = (reason: string, error?: unknown): void => {
-      if (terminalSettled || this.activeWorker !== worker) {
-        return
-      }
-
-      terminalSettled = true
-      logger.error({ error, jobId }, reason)
-
-      try {
-        this.scanJobRepository.fail(jobId, reason)
-        const status = this.scanJobRepository.getById(jobId)
-        this.publishProgress({
-          jobId,
-          status: 'failed',
-          totalFiles: status?.totalFiles ?? 0,
-          scannedFiles: status?.scannedFiles ?? 0,
-          failedFiles: status?.failedFiles ?? 0,
-          currentFile: null,
-          message: reason,
-        })
-      } catch (settlementError) {
-        logger.error({ error: settlementError, jobId }, 'Failed to persist scan failure status')
-      } finally {
-        clearWorkerState()
-      }
-    }
-
-    worker.on('message', (message: LibraryScanWorkerMessage) => {
-      if (terminalSettled || this.activeWorker !== worker || this.activeJobId !== jobId) {
-        return
-      }
-
-      const isTerminal = message.type === 'complete' || message.type === 'fatal'
-
-      try {
-        this.handleWorkerMessage(message, jobId)
-        if (isTerminal) {
-          terminalSettled = true
-          clearWorkerState()
-        }
-      } catch (error) {
-        const reason =
-          error instanceof Error ? error.message : 'Unknown error while processing worker message'
-        settleFailed(`Failed to finalize library scan: ${reason}`, error)
-      }
-    })
-
-    worker.on('error', (error) => {
-      settleFailed(error.message, error)
-    })
-
-    worker.on('exit', (code) => {
-      // Defer so any already-queued terminal message handlers run first.
-      setImmediate(() => {
-        if (terminalSettled || this.activeJobId !== jobId) {
-          return
-        }
-
-        const reason =
-          code === 0
-            ? 'Worker exited without completing the scan'
-            : `Worker exited with code ${code}`
-        settleFailed(reason)
-      })
-    })
-  }
-
-  private handleWorkerMessage(message: LibraryScanWorkerMessage, workerJobId: number): void {
-    if (message.type === 'progress') {
-      const progress = message.payload
-      if (progress.failedFiles > 0) this.scanHadFailures = true
-      this.scanJobRepository.updateProgress(
-        progress.jobId,
-        progress.totalFiles,
-        progress.scannedFiles,
-        progress.failedFiles,
-      )
-      this.publishProgress(progress)
-      return
-    }
-
-    if (message.type === 'tracks') {
-      // New paths wait until the complete inventory can distinguish moves from copies.
-      const knownPaths = this.trackRepository.getExistingFilePaths(
-        message.payload.map((track) => track.filePath),
-      )
-      const knownTracks: ScannedTrack[] = []
-      for (const track of message.payload) {
-        if (knownPaths.has(track.filePath)) knownTracks.push(track)
-        else this.pendingNewTracks.set(track.filePath, track)
-      }
-      this.trackRepository.upsertMany(knownTracks)
-      return
-    }
-
-    if (message.type === 'albumArtwork') {
-      this.trackRepository.patchAlbumArtwork(message.payload)
-      return
-    }
-
-    if (message.type === 'trackLyrics') {
-      this.trackRepository.patchLyrics(message.payload)
-      const filePaths = message.payload.map((patch) => patch.filePath)
-      this.publishChanged(
-        'metadata-refresh',
-        this.trackRepository.getTrackIdsByFilePaths(filePaths),
-        filePaths,
-      )
-      return
-    }
-
-    if (message.type === 'failure') {
-      this.scanHadFailures = true
-      this.scanFailureRepository.insertMany([message.payload])
-      return
-    }
-
-    if (message.type === 'fatal') {
-      this.scanJobRepository.fail(workerJobId, message.payload.reason)
-      const status = this.scanJobRepository.getById(workerJobId)
-      this.publishProgress({
-        jobId: workerJobId,
-        status: 'failed',
-        totalFiles: status?.totalFiles ?? 0,
-        scannedFiles: status?.scannedFiles ?? 0,
-        failedFiles: status?.failedFiles ?? 1,
-        currentFile: null,
-        message: message.payload.reason,
-      })
-      return
-    }
-
-    if (message.type === 'complete') {
-      const result = this.db.transaction(() => {
-        const status = this.scanJobRepository.getById(workerJobId)
-
-        if (!status || status.status !== 'scanning') {
-          return null
-        }
-
-        const root = this.libraryRootRepository.getById(status.rootId)
-        if (!root) {
-          throw new Error(`Library root not found while completing scan: ${status.rootId}`)
-        }
-
-        this.libraryRootRepository.markScanned(status.rootId)
-        const restoredIds = this.trackRepository.markAvailableByFilePaths(
-          message.payload.foundFilePaths,
-        )
-        const missingIds = this.trackRepository.markMissingUnderRootExcept(
-          root.path,
-          message.payload.foundFilePaths,
-          message.payload.unreadableDirectoryPaths,
-        )
-
-        const candidates = this.trackRepository
-          .getMissingCandidates()
-          .filter(
-            (candidate) =>
-              isUnderDirectory(candidate.filePath, root.path) &&
-              !message.payload.unreadableDirectoryPaths.some((directory) =>
-                isUnderDirectory(candidate.filePath, directory),
-              ),
-          )
-        const imported = this.upsertOrRelocateTracks(
-          [...this.pendingNewTracks.values()],
-          candidates,
-        )
-
-        const removedIds =
-          !this.scanHadFailures &&
-          status.failedFiles === 0 &&
-          message.payload.unreadableDirectoryPaths.length === 0
-            ? new MissingTrackCleanupRepository(this.db).removeConfirmedMissing(root.path)
-            : []
-
-        if (!this.scanJobRepository.finish(workerJobId, 'completed')) {
-          throw new Error(`Scan job was no longer active while completing: ${workerJobId}`)
-        }
-
-        const relocated = new Set(imported.relocatedIds)
-        return {
-          status,
-          restoredIds,
-          missingIds: [
-            ...new Set([...missingIds.filter((id) => !relocated.has(id)), ...removedIds]),
-          ],
-          imported,
-        }
-      })()
-
-      if (!result) {
-        return
-      }
-
-      this.publishImportedTracks(result.imported)
-
-      if (result.restoredIds.length > 0) {
-        this.publishChanged('track-restored', result.restoredIds, message.payload.foundFilePaths)
-      }
-
-      if (result.missingIds.length > 0) {
-        this.publishChanged('track-missing', result.missingIds)
-      }
-
-      this.publishProgress({
-        jobId: workerJobId,
-        status: 'completed',
-        totalFiles: result.status.totalFiles,
-        scannedFiles: result.status.scannedFiles,
-        failedFiles: result.status.failedFiles,
-        currentFile: null,
-        message: 'Scan completed',
-      })
-    }
-  }
-
-  private upsertOrRelocateTracks(
-    tracks: ScannedTrack[],
-    candidates: ReturnType<TrackRepository['getMissingCandidates']>,
-  ): ImportedTracks {
-    const newTracks: ScannedTrack[] = []
-    const relocatedIds: number[] = []
-    const relocatedPaths: string[] = []
-    const matches = findUniqueRelocations(candidates, tracks)
-    for (const track of tracks) {
-      try {
-        const match = matches.get(track.filePath)
-
-        if (match) {
-          const relocated = this.trackRepository.relocateTrack(match.trackId, track, match.filePath)
-
-          if (relocated) {
-            relocatedIds.push(match.trackId)
-            relocatedPaths.push(track.filePath)
-          } else {
-            // Path occupied or constraint race — fall back to path upsert.
-            newTracks.push(track)
-          }
-        } else {
-          newTracks.push(track)
-        }
-      } catch (error) {
-        this.scanHadFailures = true
-        logger.warn(
-          { error, filePath: track.filePath },
-          'Failed to relocate/upsert scanned track; trying upsert fallback',
-        )
-        newTracks.push(track)
-      }
-    }
-    let addedPaths: string[] = []
-    if (newTracks.length > 0) {
-      const newTrackPaths = newTracks.map((track) => track.filePath)
-      const existingPaths = this.trackRepository.getExistingFilePaths(newTrackPaths)
-      addedPaths = newTrackPaths.filter((filePath) => !existingPaths.has(filePath))
-
-      try {
-        this.trackRepository.upsertMany(newTracks)
-      } catch (error) {
-        // One bad row must not drop the whole batch — retry per track.
-        this.scanHadFailures = true
-        logger.warn({ error, count: newTracks.length }, 'Batch upsert failed; retrying per track')
-        for (const track of newTracks) {
-          try {
-            this.trackRepository.upsertMany([track])
-          } catch (trackError) {
-            logger.warn(
-              { error: trackError, filePath: track.filePath },
-              'Skipping track after upsert failure',
-            )
-          }
-        }
-      }
-
-      const committedPaths = this.trackRepository.getExistingFilePaths(addedPaths)
-      addedPaths = addedPaths.filter((path) => committedPaths.has(path))
-    }
-    return { addedPaths, relocatedIds, relocatedPaths }
-  }
-
-  private publishImportedTracks(result: ImportedTracks): void {
-    if (result.addedPaths.length > 0) {
-      this.publishChanged(
-        'track-added',
-        this.trackRepository.getTrackIdsByFilePaths(result.addedPaths),
-        result.addedPaths,
-      )
-    }
-    if (result.relocatedIds.length > 0) {
-      this.publishChanged('track-relocated', result.relocatedIds, result.relocatedPaths)
-    }
-  }
-
-  private publishProgress(progress: LibraryScanProgress): void {
-    this.sendToRenderer(ipcChannels.library.scanProgress, progress)
-  }
-
-  private publishChanged(
-    reason:
-      | 'track-added'
-      | 'track-missing'
-      | 'track-restored'
-      | 'track-relocated'
-      | 'metadata-refresh',
-    trackIds: number[],
-    filePaths: string[] = [],
-  ): void {
-    this.sendToRenderer(ipcChannels.library.changed, { reason, trackIds, filePaths })
   }
 }

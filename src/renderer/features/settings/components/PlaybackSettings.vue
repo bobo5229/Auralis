@@ -61,19 +61,19 @@ onMounted(async () => {
         </div>
         <div class="settings-row settings-row--with-desc">
           <div>
-            <strong>跳过边界数字静音</strong>
+            <strong>{{ t('settings.playback.digitalSilence') }}</strong>
             <span id="digital-silence-description">
-              移除连续专辑曲目间极短的数字静音。
-              <template v-if="gaplessPlaybackEnabled && nativeAvailable === false"
-                >当前原生播放不可用。</template
-              >
+              {{ t('settings.playback.digitalSilenceDescription') }}
+              <template v-if="gaplessPlaybackEnabled && nativeAvailable === false">{{
+                t('settings.playback.nativeUnavailable')
+              }}</template>
             </span>
           </div>
           <button
             type="button"
             class="settings-switch"
             role="switch"
-            aria-label="跳过边界数字静音"
+            :aria-label="t('settings.playback.digitalSilence')"
             aria-describedby="digital-silence-description"
             :aria-checked="skipDigitalSilenceEnabled"
             :disabled="!gaplessPlaybackEnabled"
@@ -85,17 +85,19 @@ onMounted(async () => {
         </div>
         <div class="settings-row settings-row--with-desc">
           <div>
-            <strong>柔和过渡</strong>
+            <strong>{{ t('settings.playback.softTransition') }}</strong>
             <span id="soft-transition-description">
-              普通换曲时交叉淡化 2 秒。
-              <template v-if="nativeAvailable === false">当前原生播放不可用。</template>
+              {{ t('settings.playback.softTransitionDescription') }}
+              <template v-if="nativeAvailable === false">{{
+                t('settings.playback.nativeUnavailable')
+              }}</template>
             </span>
           </div>
           <button
             type="button"
             class="settings-switch"
             role="switch"
-            aria-label="柔和过渡"
+            :aria-label="t('settings.playback.softTransition')"
             aria-describedby="soft-transition-description"
             :aria-checked="softTransitionEnabled"
             :disabled="!gaplessPlaybackEnabled || nativeAvailable === false"

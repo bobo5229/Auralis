@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useDefaultPlaylistName } from '../utils/useDefaultPlaylistName'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
+import { SMART_PLAYLIST_MAX_OPERANDS } from '@shared/smartPlaylists/ruleLimits'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { useSidebarOwnedModal } from '@renderer/app/utils/useSidebarOwnedModal'
@@ -17,12 +20,20 @@ import {
 const props = defineProps<{ open: boolean; trigger: HTMLElement | null }>()
 const emit = defineEmits<{ close: []; created: [playlist: SmartPlaylist] }>()
 const fields: BuilderField[] = ['genre', 'artist']
-const labels = { genre: '流派', artist: '艺术家' }
+const { t } = useI18n()
+const labels = computed(() => ({
+  genre: t('smartBuilder.genre'),
+  artist: t('smartBuilder.artist'),
+}))
 const icons = { genre: 'i-lucide-list-filter', artist: 'i-lucide-user-round' }
 const state = ref(newBuilderState())
 const mode = ref<'single' | 'and' | 'or'>('single')
 const lastSelectedField = ref<BuilderField>('genre')
-const name = ref('我的智能歌单')
+const {
+  name,
+  nameEdited,
+  reset: resetName,
+} = useDefaultPlaylistName(() => t('smartBuilder.defaultName'))
 const queries = ref({ genre: '', artist: '' })
 const limits = ref({ genre: 100, artist: 100 })
 const tracks = shallowRef<TrackListItem[]>([])
@@ -57,6 +68,7 @@ function toggleValue(field: BuilderField, value: string): void {
   const values = state.value.groups[field].values
   if (values.includes(value)) remove(field, value)
   else {
+    if (values.length >= SMART_PLAYLIST_MAX_OPERANDS) return
     values.push(value)
     lastSelectedField.value = field
   }
@@ -89,12 +101,14 @@ function label(field: BuilderField, value: string): string {
   return options.value[field].find((option) => option.value === value)?.label ?? value
 }
 const notice = computed(() => {
+  if (!result.value.withinLimits)
+    return t('smartBuilder.selectionLimit', { count: SMART_PLAYLIST_MAX_OPERANDS })
   if (!result.value.complete)
-    return mode.value === 'single' ? '请选择流派或艺术家' : '请选择每个条件组的具体值'
+    return t(mode.value === 'single' ? 'smartBuilder.chooseSingle' : 'smartBuilder.chooseGroups')
   if (result.value.ids.size) return ''
   return result.value.groups.some((group) => group.ids.size === 0)
-    ? '条件组内无匹配，无法创建'
-    : '各条件组之间没有交集，无法创建'
+    ? t('smartBuilder.groupEmpty')
+    : t('smartBuilder.noIntersection')
 })
 function groupCount(field: BuilderField): number {
   return result.value.groups.find((group) => group.field === field)?.ids.size ?? 0
@@ -115,35 +129,44 @@ let generation = 0
 let pending = false
 let running = false
 let unsubscribe: (() => void) | undefined
-async function load(): Promise<void> {
+async function load(
+  freshness: 'fresh' | 'snapshot' = 'snapshot',
+  supersede = true,
+): Promise<boolean> {
   pending = true
-  generation++
-  if (running) return
+  // Import notifications queue another complete preview without invalidating
+  // the current preview or a create request's freshness boundary.
+  if (supersede) generation++
+  if (running) return false
+  pending = false
   running = true
   loading.value = true
+  const token = generation
+  loadError.value = ''
   try {
-    while (pending && props.open && !disposed) {
-      pending = false
-      const token = generation
-      loadError.value = ''
-      try {
-        const snapshot = await libraryCatalogClient.load(
-          () => !disposed && props.open && token === generation,
-        )
-        if (token === generation && props.open && !disposed) tracks.value = [...snapshot.tracks]
-      } catch (cause) {
-        if (disposed || !props.open || token !== generation) continue
-        loadError.value = '曲库加载失败，请重试'
-        rendererDiagnostics.warn({
-          scope: 'sidebar.smart-playlist-builder',
-          message: 'Failed to load builder catalog',
-          cause,
-        })
-      }
-    }
+    const snapshot = await libraryCatalogClient.load(
+      () => !disposed && props.open && token === generation,
+      freshness,
+    )
+    if (disposed || !props.open || token !== generation) return false
+    if (!libraryCatalogClient.isSnapshotCurrent(snapshot)) return false
+    tracks.value = [...snapshot.tracks]
+    return true
+  } catch (cause) {
+    if (disposed || !props.open || token !== generation) return false
+    loadError.value = 'smartBuilder.loadError'
+    rendererDiagnostics.warn({
+      scope: 'sidebar.smart-playlist-builder',
+      message: 'Failed to load builder catalog',
+      cause,
+    })
+    return false
   } finally {
     running = false
     loading.value = false
+    // Keep follow-up previews independent: create waits for its own fresh
+    // snapshot, rather than waiting for a continuous import stream to stop.
+    if (pending && props.open && !disposed) void load('snapshot', false)
   }
 }
 watch(
@@ -159,7 +182,7 @@ watch(
     state.value = newBuilderState()
     mode.value = 'single'
     lastSelectedField.value = 'genre'
-    name.value = '我的智能歌单'
+    resetName()
     queries.value = { genre: '', artist: '' }
     limits.value = { genre: 100, artist: 100 }
     saveError.value = ''
@@ -194,11 +217,16 @@ async function create(): Promise<void> {
   try {
     // Recheck against a fresh complete snapshot before persisting the dynamic rule.
     libraryCatalogClient.invalidate()
-    await load()
+    const refreshed = await load('fresh')
     if (disposed || !props.open || loadError.value) return
+    if (!refreshed) {
+      saveError.value = 'smartBuilder.createError'
+      return
+    }
     const current = evaluateBuilder(ruleState.value, indexBuilderTracks(tracks.value))
+    if (!current.withinLimits) return
     if (!current.complete || !current.ids.size) {
-      saveError.value = '当前条件没有匹配歌曲，请调整后重试'
+      saveError.value = 'smartBuilder.noMatches'
       return
     }
     const created = await auralis.smartPlaylists.create(
@@ -210,7 +238,7 @@ async function create(): Promise<void> {
     emit('created', created.playlist)
     emit('close')
   } catch (cause) {
-    saveError.value = '创建失败，请重试'
+    saveError.value = 'smartBuilder.createError'
     rendererDiagnostics.warn({
       scope: 'sidebar.smart-playlist-builder',
       message: 'Failed to create smart playlist',
@@ -222,8 +250,18 @@ async function create(): Promise<void> {
 }
 onMounted(() => {
   unsubscribe = auralis.library.onChanged((event) => {
-    if (!props.open || event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset')
+    if (
+      disposed ||
+      !props.open ||
+      event.reason === 'play-stats-updated' ||
+      event.reason === 'play-stats-reset'
+    )
       return
+    if (event.reason === 'track-added' || event.reason === 'track-relocated') {
+      libraryCatalogClient.invalidate('import')
+      void load('snapshot', false)
+      return
+    }
     libraryCatalogClient.invalidate()
     void load()
   })
@@ -249,32 +287,35 @@ onBeforeUnmount(() => {
       >
         <header>
           <div class="title-lockup">
-            <h1 id="playlist-builder-title">新建智能歌单</h1>
+            <h1 id="playlist-builder-title">{{ t('smartBuilder.title') }}</h1>
           </div>
-          <button class="close" aria-label="关闭" :disabled="saving" @click="close">
+          <button class="close" :aria-label="t('facets.close')" :disabled="saving" @click="close">
             <span class="i-lucide-x" />
           </button>
         </header>
         <div class="stage">
-          <p v-if="loading" class="notice neutral" role="status">正在读取曲库…</p>
+          <p v-if="loading" class="notice neutral" role="status">{{ t('smartBuilder.loading') }}</p>
           <p v-if="loadError" class="notice" role="alert">
-            {{ loadError }} <button :disabled="loading || saving" @click="load">重试</button>
+            {{ t(loadError) }}
+            <button :disabled="loading || saving" @click="load()">
+              {{ t('albums.status.retry') }}
+            </button>
           </p>
           <fieldset :disabled="saving || loading || !!loadError" class="controls">
             <div class="relation outer">
-              <span class="label">组间关系</span>
-              <div class="switch" role="group" aria-label="不同维度之间的关系">
+              <span class="label">{{ t('smartBuilder.betweenGroups') }}</span>
+              <div class="switch" role="group" :aria-label="t('smartBuilder.betweenGroupsAria')">
                 <button
                   type="button"
                   :aria-pressed="mode === 'single'"
                   @click="selectMode('single')"
                 >
-                  单选
+                  {{ t('smartBuilder.single') }}
                 </button>
                 <button type="button" :aria-pressed="mode === 'and'" @click="selectMode('and')">
-                  和 · 同时满足</button
+                  {{ t('smartBuilder.andAll') }}</button
                 ><button type="button" :aria-pressed="mode === 'or'" @click="selectMode('or')">
-                  或 · 满足任一
+                  {{ t('smartBuilder.orAny') }}
                 </button>
               </div>
             </div>
@@ -293,54 +334,67 @@ onBeforeUnmount(() => {
                     class="badge"
                     :class="{ empty: state.groups[field].values.length && !groupCount(field) }"
                     >{{
-                      state.groups[field].values.length ? `${groupCount(field)} 首匹配` : '未选择'
+                      state.groups[field].values.length
+                        ? t('smartBuilder.matchCount', { count: groupCount(field) })
+                        : t('smartBuilder.unselected')
                     }}</span
                   >
                 </div>
+                <p
+                  v-if="state.groups[field].values.length >= SMART_PLAYLIST_MAX_OPERANDS"
+                  class="notice neutral"
+                  role="status"
+                >
+                  {{ t('smartBuilder.selectionLimit', { count: SMART_PLAYLIST_MAX_OPERANDS }) }}
+                </p>
                 <div class="relation">
-                  <span class="label">组内关系</span>
-                  <div class="switch" role="group" :aria-label="`${labels[field]}组内关系`">
+                  <span class="label">{{ t('smartBuilder.withinGroup') }}</span>
+                  <div
+                    class="switch"
+                    role="group"
+                    :aria-label="t('smartBuilder.withinGroupAria', { field: labels[field] })"
+                  >
                     <button
                       :aria-pressed="state.groups[field].relation === 'and'"
                       @click="state.groups[field].relation = 'and'"
                     >
-                      和</button
+                      {{ t('smartBuilder.and') }}</button
                     ><button
                       :aria-pressed="state.groups[field].relation === 'or'"
                       @click="state.groups[field].relation = 'or'"
                     >
-                      或
+                      {{ t('smartBuilder.or') }}
                     </button>
                   </div>
                 </div>
                 <div
                   v-if="state.groups[field].values.length"
                   class="selected-values"
-                  :aria-label="`已选${labels[field]}`"
+                  :aria-label="t('smartBuilder.selected', { field: labels[field] })"
                 >
                   <button
                     v-for="value in state.groups[field].values"
                     :key="value"
                     class="chip"
-                    :aria-label="`移除 ${label(field, value)}`"
+                    :aria-label="t('smartBuilder.remove', { value: label(field, value) })"
                     @click="remove(field, value)"
                   >
                     <span>{{ label(field, value) }}</span
                     ><span class="i-lucide-x" /></button
                   ><button class="clear-group" @click="state.groups[field].values = []">
-                    清空
+                    {{ t('smartBuilder.clear') }}
                   </button>
                 </div>
                 <div class="search-wrap">
                   <span class="i-lucide-search" /><input
                     v-model="queries[field]"
                     class="search"
-                    :placeholder="`检索${labels[field]}`"
-                    :aria-label="`检索${labels[field]}`"
+                    :placeholder="t('smartBuilder.search', { field: labels[field] })"
+                    :aria-label="t('smartBuilder.search', { field: labels[field] })"
                   /><button
                     v-if="queries[field]"
                     class="clear-search"
-                    :aria-label="`清除${labels[field]}检索`"
+                    :aria-label="t('smartBuilder.clearSearch', { field: labels[field] })"
                     @click="queries[field] = ''"
                   >
                     <span class="i-lucide-x" />
@@ -353,6 +407,10 @@ onBeforeUnmount(() => {
                     class="choice"
                     ><input
                       :checked="state.groups[field].values.includes(option.value)"
+                      :disabled="
+                        state.groups[field].values.length >= SMART_PLAYLIST_MAX_OPERANDS &&
+                        !state.groups[field].values.includes(option.value)
+                      "
                       type="checkbox"
                       :value="option.value"
                       @change="toggleValue(field, option.value)"
@@ -363,10 +421,12 @@ onBeforeUnmount(() => {
                     class="more"
                     @click="limits[field] += 100"
                   >
-                    显示更多（{{ filtered[field].length - limits[field] }}）
+                    {{ t('smartBuilder.more', { count: filtered[field].length - limits[field] }) }}
                   </button>
                 </div>
-                <p v-if="!filtered[field].length" class="notice neutral">没有找到相应的值</p>
+                <p v-if="!filtered[field].length" class="notice neutral">
+                  {{ t('smartBuilder.noValues') }}
+                </p>
               </fieldset>
             </div>
           </fieldset>
@@ -375,24 +435,23 @@ onBeforeUnmount(() => {
           <input
             v-model="name"
             class="name"
-            aria-label="歌单名称"
-            placeholder="歌单名称"
+            :aria-label="t('sidebar.playlistName')"
+            :placeholder="t('sidebar.playlistName')"
             maxlength="80"
             :disabled="saving"
+            @input="nameEdited = true"
           />
-          <div class="match-summary" role="status" aria-live="polite">
-            <span
-              >匹配歌曲 <strong>{{ result.ids.size }}</strong> 首</span
-            >
+          <div class="result-summary" role="status" aria-live="polite">
+            <span>{{ t('smartBuilder.resultCount', { count: result.ids.size }) }}</span>
             <span v-if="notice" class="match-notice" :class="{ neutral: !result.complete }">
               {{ notice }}
             </span>
           </div>
           <button class="primary" :disabled="!canCreate" @click="create">
-            {{ saving ? '正在创建…' : '创建歌单' }}
+            {{ t(saving ? 'smartBuilder.creating' : 'smartBuilder.create') }}
           </button>
         </div>
-        <p v-if="saveError" class="status" role="alert">{{ saveError }}</p>
+        <p v-if="saveError" class="status" role="alert">{{ t(saveError) }}</p>
       </section>
     </div>
   </Teleport>
@@ -410,13 +469,16 @@ onBeforeUnmount(() => {
   padding: 24px;
 }
 .playlist-builder {
+  font-family: var(--auralis-font-ui);
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
+  font-weight: 400;
   --text: var(--auralis-text, #f3eee6);
   --muted: var(--auralis-text-muted, #afb4bc);
   --subtle: var(--auralis-text-subtle, #9299a3);
   --line: var(--auralis-border-subtle, #e1ddd614);
   width: min(880px, 100%);
+  min-width: 0;
   border-radius: 20px;
   background: var(--auralis-frosted-surface-bg, rgba(24, 26, 29, 0.9));
   backdrop-filter: var(--auralis-frosted-surface-filter, blur(24px));
@@ -434,6 +496,7 @@ onBeforeUnmount(() => {
   grid-column: 1/-1;
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
+  font-weight: 400;
   padding: 10px;
   color: var(--muted);
 }
@@ -479,12 +542,14 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 24px 8px;
+  padding: 18px 24px 14px;
   flex-shrink: 0;
   gap: 20px;
+  border-bottom: 1px solid var(--line);
 }
 .title-lockup {
   display: flex;
+  min-width: 0;
   gap: 12px;
   align-items: center;
 }
@@ -494,6 +559,7 @@ h1 {
   line-height: var(--auralis-type-section-line-height);
   font-weight: 600;
   letter-spacing: -0.4px;
+  overflow-wrap: anywhere;
 }
 .close {
   display: grid;
@@ -506,7 +572,7 @@ h1 {
   color: var(--text);
 }
 .stage {
-  padding: 12px 24px 8px;
+  padding: 16px 24px 14px;
   flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
@@ -514,10 +580,10 @@ h1 {
   scrollbar-color: var(--auralis-scrollbar-thumb, #484d55) transparent;
 }
 h2 {
-  font-size: var(--auralis-type-section-size);
-  line-height: var(--auralis-type-section-line-height);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
   font-weight: 600;
-  margin: 0 0 20px;
+  margin: 0 0 12px;
 }
 input[type='checkbox'] {
   appearance: none;
@@ -565,21 +631,25 @@ input[type='checkbox']:checked::after {
 .label {
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
+  font-weight: 600;
   color: var(--muted);
 }
 .outer .label {
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
+  font-weight: 600;
   color: var(--text);
 }
 .switch {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 4px;
 }
 .switch button {
   padding: 6px 11px;
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
+  font-weight: 600;
   border-radius: 8px;
   color: var(--subtle);
   white-space: nowrap;
@@ -598,7 +668,7 @@ input[type='checkbox']:checked::after {
 .condition-groups.parallel-groups {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 28px;
+  gap: 24px;
   align-items: start;
 }
 .group {
@@ -616,10 +686,11 @@ input[type='checkbox']:checked::after {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .group-header h2 {
   margin: 0;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 9px;
@@ -631,7 +702,7 @@ input[type='checkbox']:checked::after {
 }
 .group .relation {
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 .badge {
   color: var(--subtle);
@@ -656,6 +727,7 @@ input[type='checkbox']:checked::after {
   gap: 7px;
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
+  font-weight: 600;
   border: 0;
   background: var(--auralis-border-subtle, #e1ddd614);
   border-radius: 8px;
@@ -679,6 +751,7 @@ input[type='checkbox']:checked::after {
 .clear-group {
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
+  font-weight: 400;
   color: var(--subtle);
   padding: 4px 6px;
 }
@@ -708,6 +781,7 @@ input[type='checkbox']:checked::after {
   color: var(--text);
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
+  font-weight: 400;
 }
 .search:focus-visible {
   outline: none;
@@ -757,7 +831,7 @@ input[type='checkbox']:checked::after {
 }
 .choice span {
   flex: 1;
-  font-weight: 600;
+  font-weight: 500;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -766,6 +840,7 @@ input[type='checkbox']:checked::after {
   color: var(--subtle);
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
 .choice input[type='checkbox'] {
@@ -773,33 +848,31 @@ input[type='checkbox']:checked::after {
   height: 15px;
   border-radius: 3px;
 }
-.match-summary {
+.result-summary {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-left: auto;
+  min-width: 0;
   text-align: right;
   color: var(--muted);
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
-}
-.match-summary strong {
-  color: var(--text);
-  font-size: var(--auralis-type-section-size);
-  line-height: var(--auralis-type-section-line-height);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
   font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.result-summary > span:first-child {
+  color: var(--text);
   font-variant-numeric: tabular-nums;
 }
 .match-notice {
   color: #e5a5a0;
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
+  font-weight: 400;
+  overflow-wrap: anywhere;
 }
 .match-notice.neutral {
   color: var(--subtle);
-}
-.match-summary + .primary {
-  margin-left: 0;
 }
 .notice {
   font-size: var(--auralis-type-caption-size);
@@ -812,13 +885,14 @@ input[type='checkbox']:checked::after {
 }
 .actions {
   padding: 16px 24px 22px;
-  display: flex;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) auto;
+  gap: 12px;
   align-items: center;
   flex-shrink: 0;
+  border-top: 1px solid var(--line);
 }
 .primary {
-  margin-left: auto;
   background: var(--auralis-control-primary-bg, #8fa7bb);
   color: var(--auralis-control-primary-text, #111214);
   padding: 11px 20px;
@@ -827,6 +901,7 @@ input[type='checkbox']:checked::after {
   line-height: var(--auralis-type-control-line-height);
   font-weight: 600;
   white-space: nowrap;
+  justify-self: end;
 }
 .primary:disabled {
   color: var(--auralis-text-disabled, #afb4bc59);
@@ -836,7 +911,7 @@ input[type='checkbox']:checked::after {
   background: color-mix(in srgb, var(--auralis-control-primary-bg, #8fa7bb) 88%, #fff);
 }
 .name {
-  width: 240px;
+  width: 100%;
   min-width: 0;
   padding: 10px 12px;
   border: 1px solid var(--auralis-border-subtle);
@@ -845,6 +920,7 @@ input[type='checkbox']:checked::after {
   color: var(--text);
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
+  font-weight: 400;
 }
 .name::placeholder {
   color: var(--subtle);
@@ -855,32 +931,72 @@ input[type='checkbox']:checked::after {
 }
 .status {
   margin: 0;
-  padding: 0 30px 18px;
+  padding: 12px 24px 18px;
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
+  font-weight: 400;
   color: var(--muted);
 }
 @media (max-width: 760px) {
   header {
-    padding: 18px 20px 8px;
+    padding: 16px 20px 12px;
   }
   h1 {
     font-size: var(--auralis-type-section-size);
     line-height: var(--auralis-type-section-line-height);
   }
   .stage {
-    padding: 12px 20px 8px;
+    padding: 14px 20px 12px;
   }
   .condition-groups.parallel-groups {
     grid-template-columns: 1fr;
+    gap: 16px;
   }
   .actions {
-    padding: 16px 20px;
-    flex-wrap: wrap;
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding: 14px 20px 18px;
   }
   .name {
-    flex: 1;
-    width: 160px;
+    grid-column: 1 / -1;
+  }
+  .result-summary {
+    grid-column: 1;
+    text-align: left;
+  }
+  .primary {
+    grid-column: 2;
+  }
+  .status {
+    padding: 12px 20px 16px;
+  }
+}
+@media (max-width: 420px) {
+  .builder-backdrop {
+    padding: 16px;
+  }
+  header {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+  .stage {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+  .actions {
+    grid-template-columns: minmax(0, 1fr);
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+  .result-summary,
+  .primary {
+    grid-column: 1;
+  }
+  .primary {
+    justify-self: end;
+  }
+  .status {
+    padding-right: 16px;
+    padding-left: 16px;
   }
 }
 </style>

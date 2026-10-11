@@ -1,4 +1,6 @@
 import type { AppInfo, LibraryStats } from '@shared/types/app'
+import type { UiLocale } from '@shared/uiLocale'
+import type { WindowBehaviorState, WindowCloseBehavior } from '@shared/types/windowBehavior'
 import type { PlaybackSpectrumFrame, SpectrumSubscription } from '@shared/types/playbackSpectrum'
 import type { AudioResource } from '@shared/types/audioDecode'
 import type {
@@ -12,6 +14,7 @@ import type {
   EditableTrackMetadata,
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
+import type { StartupAlbumHistory } from '@shared/types/startupAlbum'
 import type {
   AddPlaylistTracksResult,
   Playlist,
@@ -21,15 +24,6 @@ import type {
   SidebarPlaylistItem,
   SidebarPlaylistKind,
 } from '@shared/types/playlist'
-import type {
-  AnnualListeningInsights,
-  DailyAlbumStats,
-  DailyListeningDetail,
-  ListeningGenreSpectrum,
-  ListeningRanking,
-  ListeningRankingParams,
-  ListeningHeatmap,
-} from '@shared/types/archive'
 import type {
   CreateSmartPlaylistResult,
   SmartPlaylist,
@@ -43,6 +37,7 @@ import type {
   LibraryTrackPageRequest,
 } from '@shared/types/libraryCatalog'
 import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
+import type { DailyPlayCount, DailyTopTrack } from '@shared/types/listeningArchive'
 
 export type LibraryChangedReason =
   | 'track-added'
@@ -113,13 +108,19 @@ export interface IpcEventContract {
   'playback:native-event': NativePlaybackEvent
   'system-media:command': SystemMediaCommand
   'window:maximized-changed': { isMaximized: boolean }
+  'window:visibility-changed': { isVisible: boolean }
   'library:scan-progress': LibraryScanProgress
   'library:changed': LibraryChangedEvent
   'metadata:refresh-progress': MetadataRefreshProgressEvent
   'metadata:track-edit-state-changed': TrackEditStateChangedEvent
 }
 
-export type TrackEditStatus = 'editable' | 'playback-in-use' | 'write-in-progress'
+export type TrackEditStatus =
+  | 'editable'
+  | 'playback-editable'
+  | 'playback-in-use'
+  | 'preload-in-use'
+  | 'write-in-progress'
 
 export interface TrackEditStateResult {
   trackId: number
@@ -135,7 +136,16 @@ export interface TrackEditStateChangedEvent {
 
 export type UpdateTrackMetadataResult =
   | { ok: true }
-  | { ok: false; reason: 'playback-in-use' | 'write-in-progress' }
+  | {
+      ok: false
+      reason:
+        | 'playback-in-use'
+        | 'write-in-progress'
+        | 'buffer-preparation-failed'
+        | 'file-in-use'
+        | 'playback-restore-failed'
+        | 'playback-changed'
+    }
 
 export type IpcEventChannel = keyof IpcEventContract
 export type IpcEventPayload<C extends IpcEventChannel> = IpcEventContract[C]
@@ -178,6 +188,21 @@ export interface IpcInvokeContract {
   'app:get-info': {
     request: void
     response: AppInfo
+  }
+  'app:set-locale': {
+    request: { locale: UiLocale }
+    response: void
+  }
+  'app:claim-startup-album': {
+    request: {
+      excludeAlbumKey?: { albumArtist: string; album: string }
+      recentAlbums?: StartupAlbumHistory
+    } | void
+    response: { album: RandomAlbumTracksResult | null }
+  }
+  'app:claim-cd-startup-entry': {
+    request: void
+    response: { firstEntry: boolean }
   }
   'app:export-diagnostics': {
     request: void
@@ -335,33 +360,17 @@ export interface IpcInvokeContract {
     request: { leaseId: string }
     response: { ok: true }
   }
-  'archive:get-listening-heatmap': {
+  'archive:get-annual-play-counts': {
     request: { year: number }
-    response: ListeningHeatmap
-  }
-  'archive:get-daily-listening-detail': {
-    request: { date: string }
-    response: DailyListeningDetail
-  }
-  'archive:get-daily-album-stats': {
-    request: { date: string }
-    response: DailyAlbumStats
-  }
-  'archive:get-annual-listening-insights': {
-    request: { year: number }
-    response: AnnualListeningInsights
-  }
-  'archive:get-listening-ranking': {
-    request: ListeningRankingParams
-    response: ListeningRanking
-  }
-  'archive:get-listening-genre-spectrum': {
-    request: { year: number }
-    response: ListeningGenreSpectrum
+    response: DailyPlayCount[]
   }
   'archive:reset-play-stats': {
     request: void
     response: { ok: true }
+  }
+  'archive:get-day-top-tracks': {
+    request: { date: string }
+    response: DailyTopTrack[]
   }
   'metadata:refresh-track': {
     request: { trackId: number }
@@ -416,6 +425,18 @@ export interface IpcInvokeContract {
   'window:get-maximized': {
     request: void
     response: { isMaximized: boolean }
+  }
+  'window:get-visibility': {
+    request: void
+    response: IpcEventPayload<'window:visibility-changed'>
+  }
+  'window:get-close-behavior': {
+    request: void
+    response: WindowBehaviorState
+  }
+  'window:set-close-behavior': {
+    request: { behavior: WindowCloseBehavior }
+    response: WindowBehaviorState
   }
 }
 

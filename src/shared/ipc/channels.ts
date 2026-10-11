@@ -5,6 +5,9 @@ export const ipcChannels = {
   },
   app: {
     getInfo: 'app:get-info',
+    setLocale: 'app:set-locale',
+    claimCdStartupEntry: 'app:claim-cd-startup-entry',
+    claimStartupAlbum: 'app:claim-startup-album',
     exportDiagnostics: 'app:export-diagnostics',
     rendererReady: 'app:renderer-ready',
     splashReady: 'app:splash-ready',
@@ -69,12 +72,8 @@ export const ipcChannels = {
     command: 'system-media:command',
   },
   archive: {
-    getListeningHeatmap: 'archive:get-listening-heatmap',
-    getDailyListeningDetail: 'archive:get-daily-listening-detail',
-    getDailyAlbumStats: 'archive:get-daily-album-stats',
-    getAnnualListeningInsights: 'archive:get-annual-listening-insights',
-    getListeningRanking: 'archive:get-listening-ranking',
-    getListeningGenreSpectrum: 'archive:get-listening-genre-spectrum',
+    getAnnualPlayCounts: 'archive:get-annual-play-counts',
+    getDayTopTracks: 'archive:get-day-top-tracks',
     resetPlayStats: 'archive:reset-play-stats',
   },
   metadata: {
@@ -91,8 +90,12 @@ export const ipcChannels = {
     trackEditStateChanged: 'metadata:track-edit-state-changed',
   },
   window: {
+    getCloseBehavior: 'window:get-close-behavior',
+    setCloseBehavior: 'window:set-close-behavior',
     control: 'window:control',
     getMaximized: 'window:get-maximized',
     maximizedChanged: 'window:maximized-changed',
+    getVisibility: 'window:get-visibility',
+    visibilityChanged: 'window:visibility-changed',
   },
 } as const

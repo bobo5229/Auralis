@@ -1,4 +1,6 @@
 import { createApp, nextTick } from 'vue'
+import { initialUiLocale } from './i18n/preference'
+import { nativeUiMessages } from '@shared/uiLocale'
 import '@unocss/reset/tailwind.css'
 import 'virtual:uno.css'
 import './app/styles/main.css'
@@ -7,14 +9,20 @@ import { useDarkAccent } from './features/appearance/composables/useDarkAccent'
 import { useLightAccent } from './features/appearance/composables/useLightAccent'
 import { tooltipPlugin } from './shared/tooltip/tooltip'
 import { initMotionPreference } from './shared/animation/motionPreference'
+import { initLyricsScrollPreset } from './features/lyrics/lyricsScrollPreset'
+import { initAlbumListParameters } from './features/appearance/composables/useAlbumListParameters'
+import { auralis } from './shared/ipc/client'
 import {
   APP_FAILED_EVENT,
+  markSplashFinished,
   APP_HOST_ELEMENT_ID,
   APP_READY_EVENT,
   SPLASH_ELEMENT_ID,
 } from './app/splash/startupSignals'
 
 const { initTheme } = useTheme()
+const disposeAlbumListParameters = initAlbumListParameters()
+if (import.meta.hot) import.meta.hot.dispose(disposeAlbumListParameters)
 initTheme()
 const { initDarkAccent } = useDarkAccent()
 initDarkAccent()
@@ -22,6 +30,8 @@ const { initLightAccent } = useLightAccent()
 initLightAccent()
 const disposeMotionPreference = initMotionPreference()
 if (import.meta.hot) import.meta.hot.dispose(disposeMotionPreference)
+const disposeLyricsScrollPreset = initLyricsScrollPreset()
+if (import.meta.hot) import.meta.hot.dispose(disposeLyricsScrollPreset)
 
 function waitForNextFrame(): Promise<void> {
   if (typeof requestAnimationFrame !== 'function') return Promise.resolve()
@@ -38,9 +48,11 @@ function releaseOrphanedSplash(): void {
   if (window.__auralisSplashActive) return
   document.getElementById(SPLASH_ELEMENT_ID)?.remove()
   document.getElementById(APP_HOST_ELEMENT_ID)?.removeAttribute('inert')
+  markSplashFinished()
 }
 
 function showStartupFailure(error: unknown): void {
+  window.__auralisAppFailed = true
   console.error('Auralis startup failed', error)
   window.dispatchEvent(new Event(APP_FAILED_EVENT))
 
@@ -56,9 +68,11 @@ function showStartupFailure(error: unknown): void {
   const message = document.createElement('div')
   message.className = 'splash-startup-error'
   const title = document.createElement('strong')
-  title.textContent = 'Auralis 启动失败'
+  const messages = nativeUiMessages[initialUiLocale()]
+  document.documentElement.lang = initialUiLocale()
+  title.textContent = messages.startupTitle
   const description = document.createElement('span')
-  description.textContent = '请关闭应用后重试。'
+  description.textContent = messages.startupRetry
   message.append(title, description)
   splash.replaceChildren(message)
   document.body.append(splash)
@@ -66,28 +80,21 @@ function showStartupFailure(error: unknown): void {
 
   try {
     const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
-    window.auralis.app.splashReady({ theme })
-    window.auralis.app.rendererReady()
+    auralis.app.splashReady({ theme })
+    auralis.app.rendererReady()
   } catch {
     // Preload 故障时，主进程现有的窗口显示超时仍会展示错误画面。
   }
 }
 
 async function bootstrap(): Promise<void> {
-  // 清理旧偏好属于维护操作，存储不可用时仍继续启动主界面。
-  try {
-    localStorage.removeItem('auralis-locale')
-  } catch {
-    // 受限上下文中的 localStorage 可能不可用。
-  }
-
-  const [{ default: App }, { router }, { auralis }] = await Promise.all([
+  const [{ default: App }, { router }] = await Promise.all([
     import('./App.vue'),
     import('./app/router'),
-    import('./shared/ipc/client'),
   ])
 
-  const { i18n } = await import('./i18n')
+  const { i18n, initUiLocale } = await import('./i18n')
+  initUiLocale((locale) => auralis.app.setLocale(locale))
 
   const app = createApp(App)
   app.use(tooltipPlugin)

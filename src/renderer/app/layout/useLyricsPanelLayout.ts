@@ -81,17 +81,20 @@ export function useLyricsPanelLayout(options: UseLyricsPanelLayoutOptions = {}) 
     })
   }
 
-  const isStandaloneCanvas = computed(() => {
+  const isCdCanvas = computed(() => {
     const name = String(route?.name ?? '')
-    return name === 'cd-albums' || name === 'cd-album-index' || name === 'archive'
+    return name === 'cd-albums' || name === 'cd-album-index'
   })
 
-  const canDisplayLyricsPanel: ComputedRef<boolean> = computed(() => {
-    return isWideScreen.value && displayMode.value === 'normal' && !isStandaloneCanvas.value
-  })
+  // Fullscreen covers the shell. Keep its columns stable while disabling panel controls.
+  const canLayoutLyricsPanel = computed(() => isWideScreen.value && !isCdCanvas.value)
+  const canDisplayLyricsPanel: ComputedRef<boolean> = computed(
+    () => canLayoutLyricsPanel.value && displayMode.value === 'normal',
+  )
 
   return {
     isWideScreen: isWideScreen as Ref<boolean>,
+    canLayoutLyricsPanel,
     canDisplayLyricsPanel,
   }
 }

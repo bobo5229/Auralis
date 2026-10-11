@@ -21,10 +21,13 @@ async function setup() {
   const statuses: string[] = []
   const warnings: unknown[] = []
   let emit!: (event: MpvMessage) => void
+  let nextEntryId = 0
+  const entryIds = new WeakMap<object, number>()
   const state = {
     time: 0,
     position: 0,
     end: 'none',
+    paused: false,
     playlist: [] as { path: string; start: string }[],
     before: (async () => {}) as (name: string, args: unknown[]) => Promise<void>,
   }
@@ -34,13 +37,20 @@ async function setup() {
       if (args[0] === 'duration') return 120
       if (args[0] === 'time-pos') return state.time
       if (args[0] === 'playlist-pos') return state.position
+      if (args[0] === 'playlist/0/id') return entryIds.get(state.playlist[0])
+      if (args[0] === 'pause') return state.paused
     }
     if (name === 'loadfile') {
       const item = { path: String(args[0]), start: (args[3] as { start?: string })?.start ?? '0' }
+      const entryId = ++nextEntryId
+      entryIds.set(item, entryId)
       if (args[1] === 'replace') {
         state.playlist = [item]
         state.position = 0
-        queueMicrotask(() => emit({ event: 'file-loaded' }))
+        queueMicrotask(() => {
+          emit({ event: 'start-file', playlist_entry_id: entryId })
+          emit({ event: 'file-loaded' })
+        })
       } else state.playlist.push(item)
     }
     if (name === 'playlist-clear') {
@@ -55,6 +65,7 @@ async function setup() {
     }
     if (name === 'playlist-remove') state.playlist.splice(Number(args[0]), 1)
     if (name === 'set_property' && args[0] === 'file-local-options/end') state.end = String(args[1])
+    if (name === 'set_property' && args[0] === 'pause') state.paused = Boolean(args[1])
     return undefined
   })
   vi.mocked(openMpvClient).mockImplementation(async (_path, callback) => {

@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
 import { useElementSize } from '@vueuse/core'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
+import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { useSongFontWeights } from '@renderer/features/appearance/composables/useSongFontWeights'
+import { useSongFontSizes } from '@renderer/features/appearance/composables/useSongFontSizes'
 import SongRow from '../components/SongRow.vue'
+import FlatTrackColumnHeader from '../components/FlatTrackColumnHeader.vue'
+import FlatTrackColumnMenu from '../components/FlatTrackColumnMenu.vue'
 import AlbumCoverGroup from '../components/AlbumCoverGroup.vue'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import MetadataEditDialog from '../components/MetadataEditDialog.vue'
@@ -39,23 +43,34 @@ import {
 import { useLibrarySearchSession } from '../composables/useLibrarySearchSession'
 import { useLibraryViewport } from '../composables/useLibraryViewport'
 import { useLibraryContextMenu } from '../composables/useLibraryContextMenu'
+import { useLibraryFlatColumnLayout } from '../composables/useLibraryFlatColumnLayout'
 import { useLibraryCatalogLoader } from '../composables/useLibraryCatalogLoader'
 import { libraryCatalogClient } from '../utils/libraryCatalogClient'
+import { libraryNavigationViewportStore } from '../utils/libraryNavigationViewport'
+import type { LibraryFlatColumnId, LibraryFlatColumnWidths } from '../utils/libraryFlatColumnLayout'
+import '../styles/flatTrackGrid.css'
 
 const { t } = useI18n()
 
 const playback = usePlayback()
 const route = useRoute()
 const router = useRouter()
+const instanceRouteName = route.name
+let hasLeftInstanceRoute = false
+// Route transitions can keep an outgoing instance mounted while the next page
+// loads. Once it has left, returning to the same route must not revive its work.
+watch(
+  () => route.name,
+  (name) => {
+    if (name !== instanceRouteName) hasLeftInstanceRoute = true
+  },
+  { flush: 'sync' },
+)
 
 const librarySurfaceKind = computed(() => resolveLibrarySurfaceKind(route.name))
 const isLibrarySurface = computed(() => librarySurfaceKind.value !== null)
 const { songFontWeightStyle } = useSongFontWeights()
-const libraryPageStyle = computed(() =>
-  librarySurfaceKind.value === 'library'
-    ? { ...LIBRARY_LAYOUT_CSS_VARS, ...songFontWeightStyle.value }
-    : LIBRARY_LAYOUT_CSS_VARS,
-)
+const { songFontSizeStyle } = useSongFontSizes()
 
 const pageIdentity = ref<LibraryPageIdentity | null>(null)
 const showPlayCount = computed(
@@ -65,12 +80,19 @@ const showPlayCount = computed(
 const tracks = shallowRef<TrackListItem[]>([])
 const isLoading = ref(true)
 const scrollRef = ref<HTMLElement | null>(null)
+const flatHeaderRef = ref<{
+  beginPointerResize: (handleId: string, event: PointerEvent) => void
+  getResizeHandles: () => HTMLElement[]
+} | null>(null)
+const isFlatColumnResizeActive = ref(false)
+const isFlatColumnResizeTarget = ref(false)
 // content-box 排除底部播放栏安全区；只在容器尺寸变化时更新。
-const { height: coverViewportHeight } = useElementSize(scrollRef)
+const { height: coverViewportHeight, width: measuredFlatContainerWidth } = useElementSize(scrollRef)
+const flatContainerWidth = ref(0)
+let flatContainerWidthFrame = 0
 
 const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
-const LIBRARY_TOP_INSET = 16
-const LIBRARY_FLAT_BOTTOM_INSET = 28
+const COVER_TOP_INSET = LIBRARY_LAYOUT_METRICS.coverContentTopInset
 const smartPlaylistId = computed(() => {
   if (route.name !== 'smart-playlist') return null
   const parsed = Number(route.params.id)
@@ -102,12 +124,51 @@ const libraryViewMode = ref<LibraryViewMode>(readPersistedViewMode())
 const isCoverView = computed(() => libraryViewMode.value === 'cover')
 let isPageUnmounted = false
 
+interface FlatColumnMenuState {
+  clientX: number
+  clientY: number
+  openReason: 'pointer' | 'keyboard'
+  returnFocusElement: HTMLElement | null
+}
+
+const flatColumnMenu = ref<FlatColumnMenuState | null>(null)
+
+const flatColumnLayoutState = useLibraryFlatColumnLayout({
+  containerWidth: flatContainerWidth,
+  showPlayCount,
+})
+const flatColumnLayout = flatColumnLayoutState.layout
+const flatLayoutCssVars = computed<Record<string, string>>(() => ({
+  '--library-flat-row-height': `${flatColumnLayout.value.rowHeight}px`,
+  '--library-flat-artwork-size': `${flatColumnLayout.value.widths.artwork}px`,
+  '--library-flat-grid-template': flatColumnLayout.value.gridTemplateColumns,
+  '--library-flat-grid-gap': `${flatColumnLayout.value.gap}px`,
+  '--library-flat-grid-padding-inline': `${flatColumnLayout.value.paddingInline}px`,
+}))
+const libraryPageStyle = computed(() => ({
+  ...LIBRARY_LAYOUT_CSS_VARS,
+  ...flatLayoutCssVars.value,
+  ...(librarySurfaceKind.value === 'library'
+    ? { ...songFontWeightStyle.value, ...songFontSizeStyle.value }
+    : {}),
+}))
+
+watch(measuredFlatContainerWidth, (width) => {
+  if (flatContainerWidthFrame) window.cancelAnimationFrame(flatContainerWidthFrame)
+  flatContainerWidthFrame = window.requestAnimationFrame(() => {
+    flatContainerWidthFrame = 0
+    if (isPageUnmounted || !Number.isFinite(width)) return
+    flatContainerWidth.value = Math.max(0, width)
+  })
+})
+
 const rowVirtualizer = useVirtualizer(
   computed(() => ({
     count: tracks.value.length,
     enabled: !isCoverView.value,
     getScrollElement: () => scrollRef.value,
-    estimateSize: () => LIBRARY_LAYOUT_METRICS.flatRowHeight,
+    estimateSize: () => flatColumnLayout.value.rowHeight,
+    paddingStart: LIBRARY_LAYOUT_METRICS.flatHeaderHeight + LIBRARY_LAYOUT_METRICS.flatRowsInset,
     overscan: 12,
   })),
 )
@@ -157,7 +218,8 @@ const viewport = useLibraryViewport({
   virtualAlbumGroups,
   currentTrackId: () => playback.state.currentTrackId,
   selectedTrackId: () => playback.state.selectedTrackId,
-  isDisposed: () => isPageUnmounted,
+  isDisposed: () => isPageUnmounted || hasLeftInstanceRoute,
+  flatRowHeight: computed(() => flatColumnLayout.value.rowHeight),
   onViewSwitchComplete: (targetTrackId) => {
     if (pendingViewSwitchReturnTarget) {
       void restoreLibraryFocus(pendingViewSwitchReturnTarget)
@@ -181,6 +243,74 @@ const {
   onLibraryViewEnter,
   dispose: disposeLibraryViewport,
 } = viewport
+
+let navigationRestorePending = true
+let navigationRestoreIntent = viewport.captureNavigationIntent()
+
+function saveNavigationViewport(): void {
+  if (
+    hasLeftInstanceRoute ||
+    !pageIdentity.value ||
+    isLoading.value ||
+    isPositioningForegroundViewport.value
+  )
+    return
+  libraryNavigationViewportStore.save(pageIdentity.value, viewport.captureNavigationViewport())
+}
+
+function leaveLibraryViewport(): void {
+  saveNavigationViewport()
+  viewport.cancelNavigationRestore()
+}
+
+onBeforeRouteLeave(leaveLibraryViewport)
+onBeforeRouteUpdate(leaveLibraryViewport)
+
+async function prepareForegroundViewport(isRequestCurrent: () => boolean): Promise<void> {
+  await nextTick()
+  if (!isRequestCurrent()) return
+  const container = scrollRef.value
+  if (!container) return
+  // Measure before restoring so responsive columns don't alter row height a
+  // frame later and move the returned viewport after it becomes visible.
+  if (flatContainerWidthFrame) window.cancelAnimationFrame(flatContainerWidthFrame)
+  flatContainerWidthFrame = 0
+  flatContainerWidth.value = container.clientWidth
+  rowVirtualizer.value.measure()
+  albumVirtualizer.value.measure()
+  await nextTick()
+}
+
+async function restoreNavigationViewport(isRequestCurrent: () => boolean): Promise<boolean> {
+  if (!navigationRestorePending || !pageIdentity.value) return false
+  const saved = libraryNavigationViewportStore.get(pageIdentity.value)
+  if (!saved) {
+    navigationRestorePending = false
+    return false
+  }
+  if (viewport.captureNavigationIntent() !== navigationRestoreIntent) {
+    navigationRestorePending = false
+    return true
+  }
+  // Preserve the record through empty/error states until valid content mounts.
+  await nextTick()
+  if (!isRequestCurrent()) return true
+  if (viewport.restoreNavigationViewport(saved, navigationRestoreIntent, isRequestCurrent)) {
+    navigationRestorePending = false
+  }
+  return true
+}
+
+watch(
+  () => flatColumnLayout.value.rowHeight,
+  (nextHeight, previousHeight) => {
+    if (nextHeight === previousHeight) return
+    if (!isPositioningForegroundViewport.value) {
+      void viewport.preserveFlatScrollAnchorForRowHeight(previousHeight, nextHeight)
+    }
+    rowVirtualizer.value.measure()
+  },
+)
 
 function onRowFocus(trackId: number): void {
   keyboardFocusTrackId.value = trackId
@@ -310,7 +440,8 @@ const {
   setViewSwitchReturnTarget: (target) => {
     pendingViewSwitchReturnTarget = target
   },
-  restoreFocus: restoreLibraryFocus,
+  restoreFocus: (target, scroll) =>
+    flatColumnMenu.value ? Promise.resolve() : restoreLibraryFocus(target, scroll),
   t: (key, values) => (values ? String(t(key, values)) : String(t(key))),
   listSidebarItems: () => auralis.playlists.listSidebarItems(),
   createPlaylist: () => auralis.playlists.create(),
@@ -318,6 +449,7 @@ const {
 })
 
 function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId?: number | null): void {
+  closeFlatColumnMenu()
   beginViewSwitch(anchorTrackId ?? null)
 
   libraryViewMode.value = nextMode
@@ -344,13 +476,14 @@ const {
   searchQuery,
   searchInputRef,
   searchRootRef,
+  searchZoneRef,
   searchOutcome,
   shouldRenderSearchBar,
   scheduleLibrarySearchIndex,
   clearSearch,
   resetMatchCursor,
-  onLibraryListMouseMove,
-  onLibraryListMouseLeave,
+  onLibraryListMouseMove: updateSearchHoverFromMouseMove,
+  onLibraryListMouseLeave: clearSearchHover,
   onSearchBarPointerDown,
   onSearchInputFocus,
   onSearchBarFocusOut,
@@ -359,14 +492,141 @@ const {
   onWindowKeyDown,
   invalidate: invalidateLibrarySearchSession,
 } = useLibrarySearchSession({
-  isDisposed: () => isPageUnmounted,
+  isDisposed: () => isPageUnmounted || hasLeftInstanceRoute,
   isLibrarySurface: () => isLibrarySurface.value,
   isInteractiveTarget,
   scrollToTrackIndex,
 })
 
+function onFlatColumnResizePreview(widths: LibraryFlatColumnWidths): void {
+  flatColumnLayoutState.preview(widths)
+}
+
+function onFlatColumnResizeCommit(
+  widths: LibraryFlatColumnWidths,
+  changedColumns: readonly LibraryFlatColumnId[],
+): void {
+  flatColumnLayoutState.commit(widths, changedColumns)
+}
+
+function onFlatColumnResizeCancel(): void {
+  flatColumnLayoutState.cancelPreview()
+}
+
+function onFlatColumnResizeStateChange(active: boolean): void {
+  isFlatColumnResizeActive.value = active
+  isFlatColumnResizeTarget.value = active
+  if (active) clearSearchHover()
+}
+
+function isPointInsideFlatResizeHandle(clientX: number, clientY: number): boolean {
+  if (isCoverView.value) return false
+  return (
+    flatHeaderRef.value?.getResizeHandles().some((handle) => {
+      const rect = handle.getBoundingClientRect()
+      return (
+        clientX >= rect.left &&
+        clientX <= rect.right &&
+        clientY >= rect.top &&
+        clientY <= rect.bottom
+      )
+    }) ?? false
+  )
+}
+
+function onLibrarySurfaceMouseMove(event: MouseEvent): void {
+  const insideHandle = isPointInsideFlatResizeHandle(event.clientX, event.clientY)
+  isFlatColumnResizeTarget.value = insideHandle || isFlatColumnResizeActive.value
+  if (insideHandle || isFlatColumnResizeActive.value) {
+    clearSearchHover()
+    return
+  }
+  updateSearchHoverFromMouseMove(event)
+}
+
+function onLibrarySurfaceMouseLeave(): void {
+  if (isFlatColumnResizeActive.value) return
+  isFlatColumnResizeTarget.value = false
+  clearSearchHover()
+}
+
+function onLibraryPointerDownCapture(event: PointerEvent): void {
+  if (isCoverView.value) return
+  const header = flatHeaderRef.value
+  if (!header) return
+
+  const handles = header.getResizeHandles()
+  const target = event.target instanceof Element ? event.target : null
+  const directHandle = target?.closest<HTMLElement>('[data-column-resize-handle]')
+  const handle =
+    directHandle && handles.includes(directHandle)
+      ? directHandle
+      : handles.find((candidate) => {
+          const rect = candidate.getBoundingClientRect()
+          return (
+            event.clientX >= rect.left &&
+            event.clientX <= rect.right &&
+            event.clientY >= rect.top &&
+            event.clientY <= rect.bottom
+          )
+        })
+  const handleId = handle?.dataset.columnResizeHandle
+  if (handleId) header.beginPointerResize(handleId, event)
+}
+
+function onLibraryContextMenuCapture(event: MouseEvent): void {
+  if (isCoverView.value) return
+  const header = scrollRef.value?.querySelector<HTMLElement>('.library-flat-track-header')
+  const target = event.target instanceof Element ? event.target : null
+  if (!header || (target && header.contains(target))) return
+  const rect = header.getBoundingClientRect()
+  if (
+    event.clientX < rect.left ||
+    event.clientX > rect.right ||
+    event.clientY < rect.top ||
+    event.clientY > rect.bottom
+  ) {
+    return
+  }
+  event.preventDefault()
+  event.stopPropagation()
+  openFlatColumnMenu(event, 'pointer')
+}
+
+function openFlatColumnMenu(event: MouseEvent, openReason: 'pointer' | 'keyboard'): void {
+  flatColumnMenu.value = {
+    clientX: event.clientX,
+    clientY: event.clientY,
+    openReason,
+    returnFocusElement:
+      openReason === 'keyboard'
+        ? event.target instanceof HTMLElement
+          ? event.target
+          : (document.activeElement as HTMLElement)
+        : null,
+  }
+  if (contextMenu.value) closeContextMenu()
+}
+
+function closeFlatColumnMenu(): void {
+  flatColumnMenu.value = null
+}
+
+function openSongRowContextMenu(
+  trackId: number,
+  event: MouseEvent,
+  openReason: 'pointer' | 'keyboard' = 'pointer',
+): void {
+  flatColumnMenu.value = null
+  onOpenContextMenu(trackId, event, 'track', openReason)
+}
+
+function restoreDefaultFlatColumns(): void {
+  flatColumnLayoutState.reset()
+}
+
 function openSettings(): void {
-  void router.push('/settings')
+  useSettingsDialog().openSettings('library')
 }
 
 const keyboardFocusTrackId = ref<number | null>(null)
@@ -411,8 +671,10 @@ async function moveKeyboardFocus(direction: LibraryKeyboardMoveDirection): Promi
 }
 
 function onListShellKeyDown(event: KeyboardEvent): void {
+  // 曲目行已经处理的 Enter/Space 不再冒泡触发第二次播放或选择。
+  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
   if (isInteractiveTarget(event.target)) return
-  if (contextMenu.value !== null || editingMetadata.value !== null) return
+  if (contextMenu.value !== null || isMetadataEditorOpen.value) return
 
   if (event.key === 'ArrowDown') {
     event.preventDefault()
@@ -443,6 +705,7 @@ function onListShellKeyDown(event: KeyboardEvent): void {
 
 const {
   initialLoadError,
+  isPositioningForegroundViewport,
   loadLibraryData,
   retryInitialLoad,
   bindExternalPlaylistEvents,
@@ -450,7 +713,7 @@ const {
   dispose: disposeLibraryCatalogLoader,
 } = useLibraryCatalogLoader({
   catalogClient: libraryCatalogClient,
-  isDisposed: () => isPageUnmounted,
+  isDisposed: () => isPageUnmounted || hasLeftInstanceRoute,
   captureRouteScope: captureLibraryRouteScope,
   pageIdentity,
   tracks,
@@ -469,6 +732,8 @@ const {
   captureViewportRestore: captureLibraryViewportRestore,
   restoreViewportRestore: restoreLibraryViewportRestore,
   scrollToPlaybackTrack,
+  prepareForegroundViewport,
+  restoreNavigationViewport,
   replaceWithLibraryHome: () => router.replace('/songs'),
   loadErrorMessage: () => t('library.status.loadError'),
   onLibraryChanged: (callback) => auralis.library.onChanged(callback),
@@ -483,7 +748,18 @@ const metadataEditor = useLibraryMetadataEditor({
   restoreFocus: restoreLibraryFocus,
   isDisposed: () => isPageUnmounted,
   getSaveErrorMessage: () => t('library.metadataEditor.errors.saveFailed'),
+  getSaveFailureMessage: (reason) => {
+    const keys: Record<string, string> = {
+      'buffer-preparation-failed': 'bufferPreparationFailed',
+      'file-in-use': 'fileInUse',
+      'playback-restore-failed': 'playbackRestoreFailed',
+      'playback-changed': 'playbackChanged',
+    }
+    return t(`library.metadataEditor.errors.${keys[reason] ?? 'saveFailed'}`)
+  },
+  getLoadErrorMessage: () => t('library.metadataEditor.errors.loadFailed'),
   getPlaybackInUseMessage: () => t('library.metadataEditor.status.playbackInUse'),
+  getPreloadInUseMessage: () => t('library.metadataEditor.status.preloadInUse'),
   getQueryFailedMessage: () => t('library.metadataEditor.status.queryFailed'),
   getTrackEditState: (trackId) => auralis.metadata.getTrackEditState(trackId),
   onTrackEditStateChanged: (callback) => auralis.metadata.onTrackEditStateChanged(callback),
@@ -493,10 +769,18 @@ const metadataEditor = useLibraryMetadataEditor({
       message: 'Failed to save metadata edits',
       cause: error,
     }),
+  logLoadError: (error) =>
+    rendererDiagnostics.error({
+      scope: 'library.metadata',
+      message: 'Failed to load track metadata',
+      cause: error,
+    }),
 })
 
 const {
   editingMetadata,
+  isMetadataEditorOpen,
+  isLoadingMetadata,
   isSavingMetadata,
   metadataEditError,
   editStatus: metadataEditStatus,
@@ -506,19 +790,23 @@ const saveMetadata = metadataEditor.save
 const retryMetadataEditStatus = metadataEditor.retryCheckStatus
 
 onMounted(async () => {
+  if (hasLeftInstanceRoute) return
   document.addEventListener('pointerdown', onDocumentPointerDown)
   window.addEventListener('keydown', onWindowKeyDown)
   bindExternalPlaylistEvents()
+  subscribeLibraryEvents()
   void loadRegularPlaylistItems()
   await loadLibraryData('foreground')
-  if (isPageUnmounted) return
-  subscribeLibraryEvents()
 })
 
 watch(
   () => route.fullPath,
   async () => {
+    if (hasLeftInstanceRoute) return
+    navigationRestorePending = true
+    navigationRestoreIntent = viewport.captureNavigationIntent()
     clearSearch()
+    closeFlatColumnMenu()
     closeContextMenu()
     await loadLibraryData('foreground')
     await nextTick()
@@ -528,6 +816,10 @@ watch(
 
 onBeforeUnmount(() => {
   isPageUnmounted = true
+  if (flatContainerWidthFrame) window.cancelAnimationFrame(flatContainerWidthFrame)
+  flatContainerWidthFrame = 0
+  flatColumnMenu.value = null
+  flatColumnLayoutState.cancelPreview()
   metadataEditor.dispose()
   invalidateLibrarySearchSession()
   disposeLibraryViewport()
@@ -542,9 +834,15 @@ onBeforeUnmount(() => {
   <section
     class="library-page main-page-frame relative"
     :data-library-surface="librarySurfaceKind ?? undefined"
+    :class="{
+      'library-page--flat-resize-target': isFlatColumnResizeTarget,
+      'library-page--flat-column-resizing': isFlatColumnResizeActive,
+    }"
     :style="libraryPageStyle"
-    @mousemove="onLibraryListMouseMove($event)"
-    @mouseleave="onLibraryListMouseLeave()"
+    @mousemove="onLibrarySurfaceMouseMove($event)"
+    @mouseleave="onLibrarySurfaceMouseLeave()"
+    @pointerdown.capture="onLibraryPointerDownCapture"
+    @contextmenu.capture="onLibraryContextMenuCapture"
   >
     <div
       v-if="initialLoadError && pageIdentity"
@@ -576,10 +874,15 @@ onBeforeUnmount(() => {
     <div
       v-else
       class="library-list-shell flex min-h-0 flex-1 flex-col overflow-hidden"
+      :style="{ visibility: isPositioningForegroundViewport ? 'hidden' : undefined }"
       :class="{ 'library-list-shell--play-count': showPlayCount }"
       @keydown="onListShellKeyDown"
     >
-      <div class="library-search-zone">
+      <div
+        ref="searchZoneRef"
+        class="library-search-zone"
+        :class="{ 'library-search-zone--flat-row': !isCoverView }"
+      >
         <Transition name="search-overlay" :duration="160">
           <div v-if="shouldRenderSearchBar" class="library-search-overlay">
             <div
@@ -610,12 +913,12 @@ onBeforeUnmount(() => {
                   {{
                     searchOutcome.wrapped
                       ? t('library.search.wrapped', {
-                          index: searchOutcome.index,
-                          total: searchOutcome.total,
+                          index: String(searchOutcome.index).padStart(2, '0'),
+                          total: String(searchOutcome.total).padStart(2, '0'),
                         })
                       : t('library.search.matched', {
-                          index: searchOutcome.index,
-                          total: searchOutcome.total,
+                          index: String(searchOutcome.index).padStart(2, '0'),
+                          total: String(searchOutcome.total).padStart(2, '0'),
                         })
                   }}
                 </template>
@@ -640,34 +943,43 @@ onBeforeUnmount(() => {
             <template v-if="!isCoverView">
               <div
                 :style="{
-                  height: `${totalSize + LIBRARY_TOP_INSET + LIBRARY_FLAT_BOTTOM_INSET}px`,
+                  height: `${totalSize + LIBRARY_LAYOUT_METRICS.flatBottomInset}px`,
                   width: '100%',
                   position: 'relative',
                 }"
               >
+                <FlatTrackColumnHeader
+                  ref="flatHeaderRef"
+                  :layout="flatColumnLayout"
+                  :resizing="isFlatColumnResizeActive"
+                  @resize-preview="onFlatColumnResizePreview"
+                  @resize-commit="onFlatColumnResizeCommit"
+                  @resize-cancel="onFlatColumnResizeCancel"
+                  @resize-state="onFlatColumnResizeStateChange"
+                  @open-context-menu="openFlatColumnMenu"
+                />
                 <SongRow
                   v-for="virtualRow in virtualRows"
                   :key="String(virtualRow.key)"
                   :track="tracks[virtualRow.index]"
                   :show-play-count="showPlayCount"
+                  :visible-columns="flatColumnLayout.visibleColumnIds"
                   :index="virtualRow.index"
                   :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
                   :is-playing="playback.state.isPlaying"
                   :selected="highlightedTrackId === tracks[virtualRow.index].id"
+                  :context-selected="contextMenu?.trackId === tracks[virtualRow.index].id"
                   :focused="keyboardFocusTrackId === tracks[virtualRow.index].id"
                   :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
                   :style="{
                     height: `${virtualRow.size}px`,
-                    top: `${virtualRow.start + LIBRARY_TOP_INSET}px`,
+                    top: `${virtualRow.start}px`,
                   }"
                   class="absolute left-0 w-full"
                   @select="onSelect"
                   @play="onPlay"
                   @focus="onRowFocus"
-                  @open-context-menu="
-                    (trackId, event, openReason) =>
-                      onOpenContextMenu(trackId, event, 'track', openReason)
-                  "
+                  @open-context-menu="openSongRowContextMenu"
                 />
               </div>
             </template>
@@ -675,7 +987,7 @@ onBeforeUnmount(() => {
             <template v-else>
               <div
                 :style="{
-                  height: `${albumGroupsTotalSize + LIBRARY_TOP_INSET}px`,
+                  height: `${albumGroupsTotalSize + COVER_TOP_INSET}px`,
                   width: '100%',
                   position: 'relative',
                 }"
@@ -683,7 +995,7 @@ onBeforeUnmount(() => {
                 <div
                   class="library-cover-virtual-window"
                   :style="{
-                    paddingTop: `${albumVirtualWindowStart + LIBRARY_TOP_INSET}px`,
+                    paddingTop: `${albumVirtualWindowStart + COVER_TOP_INSET}px`,
                   }"
                 >
                   <AlbumCoverGroup
@@ -693,9 +1005,12 @@ onBeforeUnmount(() => {
                     :data-first-track-id="albumGroups[virtualGroup.index].tracks[0]?.id"
                     :group="albumGroups[virtualGroup.index]"
                     :viewport-height="coverViewportHeight"
+                    :scroll-element="scrollRef"
+                    :start-offset="virtualGroup.start + COVER_TOP_INSET"
                     :now-playing-track-id="playback.state.currentTrackId"
                     :is-playing="playback.state.isPlaying"
                     :selected-track-id="highlightedTrackId"
+                    :context-selected-track-id="contextMenu?.trackId ?? null"
                     :focused-track-id="keyboardFocusTrackId"
                     :style="{
                       height: `${virtualGroup.size}px`,
@@ -704,10 +1019,7 @@ onBeforeUnmount(() => {
                     @select="onSelect"
                     @play="onPlay"
                     @focus-track="onRowFocus"
-                    @open-track-context-menu="
-                      (trackId, event, openReason) =>
-                        onOpenContextMenu(trackId, event, 'track', openReason)
-                    "
+                    @open-track-context-menu="openSongRowContextMenu"
                     @open-album-artwork-context-menu="
                       (anchorTrackId, event, openReason) =>
                         onOpenAlbumArtworkContextMenu(anchorTrackId, event, openReason)
@@ -722,6 +1034,8 @@ onBeforeUnmount(() => {
     </div>
 
     <MetadataEditDialog
+      :open="isMetadataEditorOpen"
+      :loading="isLoadingMetadata"
       :metadata="editingMetadata"
       :saving="isSavingMetadata"
       :error-message="metadataEditError"
@@ -729,6 +1043,7 @@ onBeforeUnmount(() => {
       @close="closeMetadataEditor"
       @save="saveMetadata"
       @retry-status="retryMetadataEditStatus"
+      @retry-load="metadataEditor.retryLoad"
     />
 
     <LibraryContextMenu
@@ -764,6 +1079,16 @@ onBeforeUnmount(() => {
       @create-playlist="onCreatePlaylistAndAddContextTracks"
       @edit-metadata="onEditMetadataFromContextMenu"
       @switch-view="(mode) => switchLibraryViewMode(mode, contextMenu?.trackId ?? null)"
+    />
+
+    <FlatTrackColumnMenu
+      :open="flatColumnMenu !== null"
+      :client-x="flatColumnMenu?.clientX ?? 0"
+      :client-y="flatColumnMenu?.clientY ?? 0"
+      :open-reason="flatColumnMenu?.openReason ?? 'pointer'"
+      :return-focus-element="flatColumnMenu?.returnFocusElement ?? null"
+      @close="closeFlatColumnMenu"
+      @restore-defaults="restoreDefaultFlatColumns"
     />
   </section>
 </template>
