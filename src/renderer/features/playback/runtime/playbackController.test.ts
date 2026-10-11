@@ -387,6 +387,7 @@ describe('playbackController unit tests with injected dependencies', () => {
         const controller = createPlaybackController(deps)
         try {
           const { api } = controller
+          api.setPlaybackMode('sequential')
           const runtimeFactory = vi.mocked(deps.createAudioRuntime!)
           const runtime = runtimeFactory.mock.results[0].value
           const callbacks = runtimeFactory.mock.calls[0][0]
@@ -489,6 +490,7 @@ describe('playbackController unit tests with injected dependencies', () => {
     const controller = createPlaybackController(deps)
 
     expect(controller.api.state.volume).toBe(0.6)
+    expect(controller.api.state.playbackMode).toBe('repeat-all')
     expect(controller.api.gaplessPlaybackEnabled.value).toBe(true)
     expect(controller.api.state.queue).toEqual([])
     expect(controller.api.state.currentIndex).toBe(-1)

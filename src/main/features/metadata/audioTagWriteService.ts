@@ -203,6 +203,11 @@ export async function prepareAudioTagWrite(
 ): Promise<PreparedAudioTagWrite> {
   metadata = normalizeEditableMetadata(metadata)
   const originalFingerprint = await stat(filePath)
+  const assertUnchanged = async () => {
+    const actual = await stat(filePath)
+    if (actual.size !== originalFingerprint.size || actual.mtimeMs !== originalFingerprint.mtimeMs)
+      throw new Error('Audio file changed during tag writing; original was not replaced')
+  }
   const extension = extname(filePath)
 
   if (!extension) {
@@ -237,18 +242,19 @@ export async function prepareAudioTagWrite(
       }
     }
     await copyFile(taggedPath, stagingPath)
+    // An external replacement must be reported as a concurrent edit rather than
+    // parsed as the source whose unedited tags we are trying to preserve.
+    await assertUnchanged()
     // Every caller must reject a lossy or incorrect remux before the original
     // can be renamed, including ordinary saves without a playback buffer.
-    verifyWrittenMetadata(metadata, await parseAudioMetadata(stagingPath))
-    await verifyPreservedAudioTags(filePath, stagingPath)
-    const assertUnchanged = async () => {
-      const actual = await stat(filePath)
-      if (
-        actual.size !== originalFingerprint.size ||
-        actual.mtimeMs !== originalFingerprint.mtimeMs
-      )
-        throw new Error('Audio file changed during tag preparation')
+    try {
+      verifyWrittenMetadata(metadata, await parseAudioMetadata(stagingPath))
+      await verifyPreservedAudioTags(filePath, stagingPath)
+    } catch (error) {
+      await assertUnchanged()
+      throw error
     }
+    await assertUnchanged()
     prepared = true
     let committed = false
     return {

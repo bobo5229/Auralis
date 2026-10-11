@@ -5,7 +5,7 @@ import { copyFile, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'nod
 import { tmpdir } from 'node:os'
 import { basename, join, resolve, sep } from 'node:path'
 import { prepareAudioTagWrite, writeAudioTags } from './audioTagWriteService'
-import { parseAudioMetadata } from './parseAudioMetadata'
+import * as metadataParser from './parseAudioMetadata'
 import { MetadataTagWriteCoordinator } from './metadataTagWriteCoordinator'
 import type { MetadataRefreshRepository } from '../../repositories/metadataRefreshRepository'
 
@@ -137,9 +137,11 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
     try {
       expect((await readFile(file)).equals(before)).toBe(true)
       expect(transaction.stagingPath.startsWith(file + '.auralis-replacement-')).toBe(true)
-      expect((await parseAudioMetadata(transaction.stagingPath)).common.title).toBe('After')
+      expect((await metadataParser.parseAudioMetadata(transaction.stagingPath)).common.title).toBe(
+        'After',
+      )
       await transaction.commit()
-      expect((await parseAudioMetadata(file)).common.composer).toEqual(['Composer'])
+      expect((await metadataParser.parseAudioMetadata(file)).common.composer).toEqual(['Composer'])
       await expect(transaction.commit()).rejects.toThrow('already committed')
     } finally {
       await transaction.dispose()
@@ -157,7 +159,7 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
   }
   it('rejects collapsed unedited composer values before replacing the original or committing the database', async () => {
     await addComposerValues(file, ['Composer One', 'Composer Two'])
-    expect((await parseAudioMetadata(file)).common.composer).toEqual([
+    expect((await metadataParser.parseAudioMetadata(file)).common.composer).toEqual([
       'Composer One',
       'Composer Two',
     ])
@@ -229,9 +231,9 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
         ],
         { windowsHide: true },
       )
-      const before = await parseAudioMetadata(file)
+      const before = await metadataParser.parseAudioMetadata(file)
       await writeAudioTags(file, edit, ffmpeg)
-      const after = await parseAudioMetadata(file)
+      const after = await metadataParser.parseAudioMetadata(file)
       expect(after.common.title).toBe('After')
       expect(after.common.composer).toEqual(before.common.composer)
       expect(after.common.track).toEqual(before.common.track)
@@ -250,6 +252,31 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
     expect(rename).not.toHaveBeenCalled()
     expect((await readFile(file)).equals(changed)).toBe(true)
   })
+  it.each(['valid', 'invalid'] as const)(
+    'rejects an external %s source replacement during tag verification',
+    async (format) => {
+      const before = await readFile(file)
+      const changed =
+        format === 'valid'
+          ? Buffer.concat([before, Buffer.from('external change')])
+          : Buffer.from('external replacement')
+      const parse = metadataParser.parseAudioMetadata
+      const spy = vi
+        .spyOn(metadataParser, 'parseAudioMetadata')
+        .mockImplementation(async (path) => {
+          if (path === file) await writeFile(file, changed)
+          return parse(path)
+        })
+      try {
+        await expect(writeAudioTags(file, edit, ffmpeg)).rejects.toThrow(
+          'Audio file changed during tag writing; original was not replaced',
+        )
+      } finally {
+        spy.mockRestore()
+      }
+      await expectFailedPreparationCleaned(changed)
+    },
+  )
   it('can cancel immediately before the first rename', async () => {
     const before = await readFile(file)
     const transaction = await prepareAudioTagWrite(file, edit, ffmpeg)

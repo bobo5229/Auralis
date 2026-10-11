@@ -290,7 +290,7 @@ describe('gapless navigation across asynchronous backend boundaries', () => {
   it('updates Previous seek position while already paused without preparing new audio', async () => {
     const test = setup()
     try {
-      await test.api.playTrackFromQueue(test.tracks.slice(0, 2), 1)
+      await test.api.playTrackFromQueue(test.tracks.slice(0, 2), 1, { playbackMode: 'sequential' })
       await vi.waitFor(() => expect(test.nextId()).toBe(2))
       test.api.pause()
       test.api.state.currentTime = 5
@@ -310,7 +310,9 @@ describe('gapless navigation across asynchronous backend boundaries', () => {
       const test = setup()
       const seek = deferred<void>()
       try {
-        await test.api.playTrackFromQueue(test.tracks.slice(0, 2), 1)
+        await test.api.playTrackFromQueue(test.tracks.slice(0, 2), 1, {
+          playbackMode: 'sequential',
+        })
         await vi.waitFor(() => expect(test.nextId()).toBe(2))
         test.runtime.seek.mockImplementationOnce(() => seek.promise)
         const previous = test.api.playPrevious()
