@@ -2418,7 +2418,8 @@ input[type='range'].volume-overlay-slider {
   background: var(--auralis-border-subtle);
 }
 
-:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay) .frosted-context-menu {
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+  .frosted-context-menu {
   padding: 4px;
   border: none;
   border-radius: 16px;
@@ -2479,7 +2480,8 @@ input[type='range'].volume-overlay-slider {
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay) .frosted-context-menu {
+  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+    .frosted-context-menu {
     background: var(--auralis-dialog-bg);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -2487,7 +2489,8 @@ input[type='range'].volume-overlay-slider {
 }
 
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay) .frosted-context-menu {
+  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
+    .frosted-context-menu {
     background: var(--auralis-dialog-bg);
   }
 }
