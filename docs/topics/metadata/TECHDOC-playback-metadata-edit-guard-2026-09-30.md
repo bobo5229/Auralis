@@ -43,13 +43,13 @@ npm.cmd run typecheck
 
 ## 面板行为
 
-| 状态 | 输入与保存 | 提示及草稿 |
-| --- | --- | --- |
-| 编辑可用状态尚未确认 | 禁用 | 显示“正在检查编辑状态…” |
-| 文件由播放器使用 | 禁用 | 显示占用提示，保留草稿 |
-| 文件已释放 | 启用 | 移除占用提示，保留草稿 |
-| 正在保存 | 禁用 | 保留现有保存反馈 |
-| 状态查询失败 | 禁用 | 显示“无法确认编辑状态，请重试。”并提供重试 |
+| 状态                 | 输入与保存 | 提示及草稿                                 |
+| -------------------- | ---------- | ------------------------------------------ |
+| 编辑可用状态尚未确认 | 禁用       | 显示“正在检查编辑状态…”                    |
+| 文件由播放器使用     | 禁用       | 显示占用提示，保留草稿                     |
+| 文件已释放           | 启用       | 移除占用提示，保留草稿                     |
+| 正在保存             | 禁用       | 保留现有保存反馈                           |
+| 状态查询失败         | 禁用       | 显示“无法确认编辑状态，请重试。”并提供重试 |
 
 占用提示固定为：
 
@@ -101,16 +101,16 @@ npm.cmd run typecheck
 
 ## 施工位置与顺序
 
-| 位置 | 工作 |
-| --- | --- |
-| Main 文件协调模块及定向测试 | 文件身份、读写使用权、取消及状态版本 |
-| `src/main/features/audio/nativePlaybackService.ts` | 当前加载、预加载、过渡读取与实际释放接入 |
-| `src/renderer/features/playback/audio/playbackAudioRuntime.ts` 及实际后端 | 检查并接入源文件读取生命周期 |
-| `src/main/features/metadata/metadataRefreshService.ts` | 原子获取写入权、类型化拒绝、失败释放 |
-| `src/main/ipc/registerMetadataIpcHandlers.ts`、`registerIpcHandlers.ts` | 状态查询、事件与服务装配 |
-| Shared IPC、Preload、payload 校验 | 同步契约与显式能力 |
-| `useLibraryMetadataEditor.ts`、`MetadataEditDialog.vue`、`LibraryPage.vue` | 状态订阅、保留草稿、只读提示与保存反馈 |
-| 现有 locale 文件 | 补齐检查中、占用、查询失败与重试文案 |
+| 位置                                                                       | 工作                                     |
+| -------------------------------------------------------------------------- | ---------------------------------------- |
+| Main 文件协调模块及定向测试                                                | 文件身份、读写使用权、取消及状态版本     |
+| `src/main/features/audio/nativePlaybackService.ts`                         | 当前加载、预加载、过渡读取与实际释放接入 |
+| `src/renderer/features/playback/audio/playbackAudioRuntime.ts` 及实际后端  | 检查并接入源文件读取生命周期             |
+| `src/main/features/metadata/metadataRefreshService.ts`                     | 原子获取写入权、类型化拒绝、失败释放     |
+| `src/main/ipc/registerMetadataIpcHandlers.ts`、`registerIpcHandlers.ts`    | 状态查询、事件与服务装配                 |
+| Shared IPC、Preload、payload 校验                                          | 同步契约与显式能力                       |
+| `useLibraryMetadataEditor.ts`、`MetadataEditDialog.vue`、`LibraryPage.vue` | 状态订阅、保留草稿、只读提示与保存反馈   |
+| 现有 locale 文件                                                           | 补齐检查中、占用、查询失败与重试文案     |
 
 先实现文件协调与保存保护，再接入各播放读取路径，最后接入面板状态与文案。保留现有字段校验、曲库刷新、焦点恢复和关闭行为。无需数据库迁移或新增持久化偏好。
 
