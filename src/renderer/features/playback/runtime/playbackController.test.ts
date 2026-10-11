@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { PlaybackTrack } from '../types'
-import { createPlaybackController } from './playbackController'
+import type { PlaybackMode, PlaybackTrack } from '../types'
+import { createPlaybackController, type PlaybackPublicApi } from './playbackController'
+import type { PlaybackAudioSnapshot } from '../audio/playbackAudioRuntime'
 import type { PlaybackDependencies } from './playbackDependencies'
 
 describe('playbackController unit tests with injected dependencies', () => {
@@ -127,6 +128,361 @@ describe('playbackController unit tests with injected dependencies', () => {
     controller.dispose()
   })
 
+  describe('navigation edits during pending playback', () => {
+    function createTracks(ids: number[]): PlaybackTrack[] {
+      return ids.map((id) => ({
+        id,
+        title: `Song ${id}`,
+        artist: 'Artist',
+        album: 'Album',
+        albumArtist: 'Artist',
+        durationSeconds: 10,
+        artworkCacheKey: null,
+      }))
+    }
+
+    const edits = [
+      { action: 'mode', queueIds: [1, 2, 3], mode: 'sequential', nextId: 2 },
+      { action: 'insert', queueIds: [1, 4, 2, 3], mode: 'shuffle', nextId: 4 },
+      { action: 'insert-many', queueIds: [1, 4, 5, 2, 3], mode: 'shuffle', nextId: 4 },
+      { action: 'replace', queueIds: [1, 4, 2, 3], mode: 'sequential', nextId: 4 },
+      { action: 'missing', queueIds: [1, 2], mode: 'shuffle', nextId: 2 },
+    ] as const
+
+    function editNavigation(api: PlaybackPublicApi, action: (typeof edits)[number]['action']) {
+      if (action === 'mode') api.setPlaybackMode('sequential')
+      if (action === 'insert') api.insertTrackAfterCurrent(createTracks([4])[0])
+      if (action === 'insert-many') api.insertTracksAfterCurrent(createTracks([4, 5]))
+      if (action === 'replace') {
+        expect(
+          api.replaceCurrentPlaybackQueue({
+            expectedSessionId: api.queueSession.value!.id,
+            expectedTrackId: 1,
+            expectedQueueTrackIds: [1, 2, 3],
+            queue: createTracks([1, 4, 2, 3]),
+            playbackMode: 'sequential',
+          }),
+        ).toBe(true)
+      }
+      if (action === 'missing') {
+        vi.mocked(deps.onLibraryChanged).mock.calls[0][0]({
+          reason: 'track-missing',
+          trackIds: [3],
+          filePaths: [],
+        })
+      }
+    }
+
+    it.each(
+      edits.flatMap((edit) =>
+        (['result', 'error'] as const).map((outcome) => ({ ...edit, outcome })),
+      ),
+    )('preserves $action after a late next $outcome', async (edit) => {
+      let resolveNext!: (track: PlaybackTrack) => void
+      let rejectNext!: (error: Error) => void
+      vi.mocked(deps.getRandomTrack).mockReturnValueOnce(
+        new Promise((resolve, reject) => {
+          resolveNext = resolve
+          rejectNext = reject
+        }),
+      )
+      const tracks = createTracks([1, 2, 3])
+      const controller = createPlaybackController(deps)
+      const { api } = controller
+      const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
+      await api.playTrackFromQueue(tracks, 1, { playbackMode: 'shuffle' })
+      api.state.isPlaying = true
+      const pending = api.playNext()
+      expect(api.isPlaybackPending.value).toBe(true)
+
+      editNavigation(api, edit.action)
+      expect(api.isPlaybackPending.value).toBe(false)
+      if (edit.outcome === 'result') resolveNext(tracks[2])
+      else rejectNext(new Error('outdated next selection failed'))
+      await pending
+
+      expect(api.state.queue.map((track) => track.id)).toEqual(edit.queueIds)
+      expect(api.state.currentTrackId).toBe(1)
+      expect(api.state.currentIndex).toBe(0)
+      expect(api.state.playbackMode).toBe(edit.mode)
+      expect(api.state.isPlaying).toBe(true)
+      expect(api.state.error).toBeNull()
+      expect(api.isPlaybackPending.value).toBe(false)
+      expect(runtime.start).toHaveBeenCalledTimes(1)
+
+      vi.mocked(deps.getRandomTrack).mockResolvedValueOnce(tracks[1])
+      await api.playNext()
+      expect(api.state.currentTrackId).toBe(edit.nextId)
+      expect(api.isPlaybackPending.value).toBe(false)
+      if (edit.action === 'insert-many') {
+        await api.playNext()
+        expect(api.state.currentTrackId).toBe(5)
+      }
+      controller.dispose()
+    })
+
+    it.each(['result', 'error'] as const)(
+      'does not let a cancelled next %s unlock a newer audio load',
+      async (outcome) => {
+        let resolveNext!: (track: PlaybackTrack) => void
+        let rejectNext!: (error: Error) => void
+        let resolveUrl!: (value: { url: string }) => void
+        vi.mocked(deps.getRandomTrack).mockReturnValueOnce(
+          new Promise((resolve, reject) => {
+            resolveNext = resolve
+            rejectNext = reject
+          }),
+        )
+        const tracks = createTracks([1, 2, 3])
+        const controller = createPlaybackController(deps)
+        const { api } = controller
+        await api.playTrackFromQueue(tracks, 1, { playbackMode: 'shuffle' })
+        const old = api.playNext()
+        api.setPlaybackMode('sequential')
+        vi.mocked(deps.getAudioUrl).mockReturnValueOnce(
+          new Promise((resolve) => {
+            resolveUrl = resolve
+          }),
+        )
+        const newer = api.playNext()
+        await vi.waitFor(() => expect(api.state.currentTrackId).toBe(2))
+        if (outcome === 'result') resolveNext(tracks[2])
+        else rejectNext(new Error('outdated next selection failed'))
+        await old
+        expect(api.state.currentTrackId).toBe(2)
+        expect(api.state.queue.map((track) => track.id)).toEqual([1, 2, 3])
+        expect(api.state.playbackMode).toBe('sequential')
+        expect(api.state.error).toBeNull()
+        expect(api.isPlaybackPending.value).toBe(true)
+        resolveUrl({ url: 'audio://2' })
+        await newer
+        expect(api.isPlaybackPending.value).toBe(false)
+        controller.dispose()
+      },
+    )
+
+    it.each(
+      (['shuffle', 'album-shuffle'] as const).flatMap((mode) =>
+        (['mode', 'insert'] as const).flatMap((action) =>
+          (['result', 'error'] as const).map((outcome) => ({ mode, action, outcome })),
+        ),
+      ),
+    )('ignores a natural-ended $mode $outcome after $action', async (testCase) => {
+      let resolveNext!: (track: PlaybackTrack) => void
+      let rejectNext!: (error: Error) => void
+      const selection = new Promise<PlaybackTrack>((resolve, reject) => {
+        resolveNext = resolve
+        rejectNext = reject
+      })
+      if (testCase.mode === 'shuffle') {
+        vi.mocked(deps.getRandomTrack).mockReturnValueOnce(selection)
+      } else {
+        vi.mocked(deps.getRandomAlbumTracks).mockImplementationOnce(async () => ({
+          albumArtist: 'Artist',
+          album: 'Album',
+          tracks: [await selection],
+        }))
+      }
+      const controller = createPlaybackController(deps)
+      const { api } = controller
+      const runtimeFactory = vi.mocked(deps.createAudioRuntime!)
+      const runtime = runtimeFactory.mock.results[0].value
+      const tracks = createTracks([1, 2, 3])
+      await api.playTrackFromQueue(tracks, 1, { playbackMode: testCase.mode })
+      runtimeFactory.mock.calls[0][0].onEnded(null)
+      await vi.waitFor(() =>
+        expect(
+          testCase.mode === 'shuffle' ? deps.getRandomTrack : deps.getRandomAlbumTracks,
+        ).toHaveBeenCalledTimes(1),
+      )
+      expect(api.isPlaybackPending.value).toBe(true)
+      editNavigation(api, testCase.action)
+      expect(api.isPlaybackPending.value).toBe(false)
+      if (testCase.outcome === 'result') resolveNext(tracks[2])
+      else rejectNext(new Error('outdated natural advance failed'))
+      // onEnded dispatches without returning its promise; drain its microtasks.
+      await new Promise((resolve) => setTimeout(resolve, 0))
+      expect(api.state.currentTrackId).toBe(1)
+      expect(api.state.queue.map((track) => track.id)).toEqual(
+        testCase.action === 'mode' ? [1, 2, 3] : [1, 4, 2, 3],
+      )
+      expect(api.state.playbackMode).toBe(testCase.action === 'mode' ? 'sequential' : testCase.mode)
+      expect(api.state.error).toBeNull()
+      expect(api.isPlaybackPending.value).toBe(false)
+      expect(runtime.start).toHaveBeenCalledTimes(1)
+      await api.playNext()
+      expect(api.state.currentTrackId).toBe(testCase.action === 'mode' ? 2 : 4)
+      expect(api.isPlaybackPending.value).toBe(false)
+      controller.dispose()
+    })
+
+    it('keeps an accepted next track loading when mode and inserted next track change', async () => {
+      let resolveUrl!: (value: { url: string }) => void
+      const controller = createPlaybackController(deps)
+      const { api } = controller
+      const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
+      const tracks = createTracks([1, 2, 3])
+      await api.playTrackFromQueue(tracks, 1)
+      vi.mocked(deps.getAudioUrl).mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveUrl = resolve
+        }),
+      )
+      const pending = api.playNext()
+      await vi.waitFor(() => expect(api.state.currentTrackId).toBe(2))
+      api.setPlaybackMode('repeat-all')
+      api.insertTrackAfterCurrent(createTracks([4])[0])
+      expect(api.isPlaybackPending.value).toBe(true)
+      resolveUrl({ url: 'audio://2' })
+      await pending
+      expect(runtime.start).toHaveBeenLastCalledWith(2, 'audio://2', expect.any(Object))
+      expect(api.state.currentTrackId).toBe(2)
+      expect(api.state.queue.map((track) => track.id)).toEqual([1, 2, 4, 3])
+      expect(api.state.playbackMode).toBe('repeat-all')
+      expect(api.isPlaybackPending.value).toBe(false)
+      await api.playNext()
+      expect(api.state.currentTrackId).toBe(4)
+      expect(api.isPlaybackPending.value).toBe(false)
+      controller.dispose()
+    })
+
+    it('keeps a pending decision when insertion and queue replacement are rejected', async () => {
+      let resolveNext!: (track: PlaybackTrack) => void
+      vi.mocked(deps.getRandomTrack).mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveNext = resolve
+        }),
+      )
+      const tracks = createTracks([1, 2, 3])
+      const controller = createPlaybackController(deps)
+      const { api } = controller
+      await api.playTrackFromQueue(tracks, 1, { playbackMode: 'shuffle' })
+      const pending = api.playNext()
+      api.insertTrackAfterCurrent(tracks[0])
+      api.insertTracksAfterCurrent([])
+      expect(
+        api.replaceCurrentPlaybackQueue({
+          expectedSessionId: api.queueSession.value!.id,
+          expectedTrackId: 1,
+          expectedQueueTrackIds: [1, 999],
+          queue: tracks,
+          playbackMode: 'sequential',
+        }),
+      ).toBe(false)
+      expect(api.isPlaybackPending.value).toBe(true)
+      resolveNext(tracks[2])
+      await pending
+      expect(api.state.currentTrackId).toBe(3)
+      expect(api.state.playbackMode).toBe('shuffle')
+      expect(api.isPlaybackPending.value).toBe(false)
+      controller.dispose()
+    })
+
+    it.each(
+      edits.flatMap((edit) => ['url', 'start', 'resume'].map((phase) => ({ ...edit, phase }))),
+    )(
+      'lets the current track finish $phase after $action and keeps statistics and prefetch active',
+      async (edit) => {
+        vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'performance'] })
+        const controller = createPlaybackController(deps)
+        try {
+          const { api } = controller
+          const runtimeFactory = vi.mocked(deps.createAudioRuntime!)
+          const runtime = runtimeFactory.mock.results[0].value
+          const callbacks = runtimeFactory.mock.calls[0][0]
+          const tracks = createTracks([1, 2, 3])
+          let snapshot: PlaybackAudioSnapshot = {
+            kind: 'idle',
+            trackId: null,
+            currentTime: 0,
+            duration: 0,
+            isPlaying: false,
+            hasCurrentData: false,
+          }
+          runtime.getSnapshot.mockImplementation(() => snapshot)
+          function reportPlaying() {
+            snapshot = {
+              kind: 'mpv',
+              trackId: 1,
+              currentTime: 0,
+              duration: 10,
+              isPlaying: true,
+              hasCurrentData: true,
+            }
+            callbacks.onPlayingChange(true)
+          }
+          runtime.start.mockImplementation(async () => reportPlaying())
+          runtime.pause.mockImplementation(() => {
+            snapshot.isPlaying = false
+            callbacks.onPlayingChange(false)
+          })
+          let finish!: () => void
+          let pending: Promise<void>
+          if (edit.phase === 'url') {
+            vi.mocked(deps.getAudioUrl).mockReturnValueOnce(
+              new Promise((resolve) => {
+                finish = () => resolve({ url: 'audio://1' })
+              }),
+            )
+            pending = api.playTrackFromQueue(tracks, 1)
+          } else if (edit.phase === 'start') {
+            runtime.start.mockImplementationOnce(
+              () =>
+                new Promise<void>((resolve) => {
+                  finish = () => {
+                    reportPlaying()
+                    resolve()
+                  }
+                }),
+            )
+            pending = api.playTrackFromQueue(tracks, 1)
+            await vi.waitFor(() => expect(runtime.start).toHaveBeenCalledTimes(1))
+          } else {
+            await api.playTrackFromQueue(tracks, 1)
+            api.pause()
+            runtime.scheduleNext.mockClear()
+            runtime.resume.mockImplementationOnce(
+              () =>
+                new Promise<void>((resolve) => {
+                  finish = () => {
+                    reportPlaying()
+                    resolve()
+                  }
+                }),
+            )
+            pending = api.play()
+          }
+          expect(api.isPlaybackPending.value).toBe(true)
+          editNavigation(api, edit.action)
+          expect(api.isPlaybackPending.value).toBe(true)
+          finish()
+          await pending
+          await vi.waitFor(() => expect(runtime.scheduleNext).toHaveBeenCalled())
+          expect(api.state.queue.map((track) => track.id)).toEqual(edit.queueIds)
+          expect(api.state.currentTrackId).toBe(1)
+          expect(api.state.currentIndex).toBe(0)
+          expect(api.state.playbackMode).toBe('sequential')
+          expect(api.state.isPlaying).toBe(true)
+          expect(api.isPlaybackPending.value).toBe(false)
+          expect(runtime.start).toHaveBeenCalledTimes(1)
+          expect(runtime.scheduleNext).toHaveBeenLastCalledWith(
+            edit.nextId,
+            `audio://${edit.nextId}`,
+            expect.any(Object),
+          )
+          await vi.advanceTimersByTimeAsync(6_000)
+          expect(deps.recordEffectivePlay).toHaveBeenCalledTimes(1)
+          expect(deps.recordEffectivePlay).toHaveBeenCalledWith(
+            expect.objectContaining({ trackId: 1 }),
+          )
+        } finally {
+          controller.dispose()
+          vi.useRealTimers()
+        }
+      },
+    )
+  })
+
   it('initializes with default volume and gapless settings from storage', () => {
     storageMap.set('auralis-volume', '0.6')
     storageMap.set('auralis-gapless-playback-enabled', 'true')
@@ -175,6 +531,93 @@ describe('playbackController unit tests with injected dependencies', () => {
 
     controller.api.setPlaybackMode('shuffle')
     expect(controller.api.state.playbackMode).toBe('shuffle')
+  })
+
+  it.each<PlaybackMode>(['sequential', 'repeat-all', 'repeat-one', 'shuffle', 'album-shuffle'])(
+    'keeps the current CD session and audio preparation when reselecting %s',
+    async (mode) => {
+      const controller = createPlaybackController(deps)
+      const { api } = controller
+      const track: PlaybackTrack = {
+        id: 1,
+        title: 'Song',
+        artist: 'A',
+        albumArtist: 'A',
+        album: 'Album',
+        durationSeconds: 120,
+        artworkCacheKey: null,
+      }
+      await api.playTrackFromQueue([track], 1, { source: 'cd', playbackMode: mode })
+      const runtime = vi.mocked(deps.createAudioRuntime!).mock.results[0].value
+      const session = api.queueSession.value
+      const cancellations = runtime.cancelScheduledNext.mock.calls.length
+      api.state.currentTime = 42
+      api.setPlaybackMode(mode)
+      expect(api.queueSession.value).toBe(session)
+      expect(api.state.currentTrackId).toBe(1)
+      expect(api.state.currentTime).toBe(42)
+      expect(runtime.cancelScheduledNext).toHaveBeenCalledTimes(cancellations)
+      controller.dispose()
+    },
+  )
+
+  it('keeps the unfinished shuffle round when the current mode is selected again', async () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0)
+    const controller = createPlaybackController(deps)
+    try {
+      const tracks: PlaybackTrack[] = [1, 2, 3].map((id) => ({
+        id,
+        title: String(id),
+        artist: 'A',
+        albumArtist: 'A',
+        album: 'Album',
+        durationSeconds: 120,
+        artworkCacheKey: null,
+      }))
+      await controller.api.playTrackFromQueue(tracks, 1, {
+        playbackMode: 'shuffle',
+        shufflePool: tracks,
+        shuffleCycle: true,
+      })
+      const round = [controller.api.state.currentTrackId]
+      await controller.api.playNext()
+      round.push(controller.api.state.currentTrackId)
+      controller.api.setPlaybackMode('shuffle')
+      await controller.api.playNext()
+      round.push(controller.api.state.currentTrackId)
+      expect(round.sort()).toEqual([1, 2, 3])
+    } finally {
+      controller.dispose()
+      random.mockRestore()
+    }
+  })
+
+  it('keeps a pending random navigation when the current mode is selected again', async () => {
+    let resolveNext!: (track: PlaybackTrack) => void
+    vi.mocked(deps.getRandomTrack).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveNext = resolve
+      }),
+    )
+    const track: PlaybackTrack = {
+      id: 1,
+      title: 'Song',
+      artist: 'A',
+      albumArtist: 'A',
+      album: 'Album',
+      durationSeconds: 120,
+      artworkCacheKey: null,
+    }
+    const controller = createPlaybackController(deps)
+    await controller.api.playTrackFromQueue([track], 1, { playbackMode: 'shuffle' })
+    const pending = controller.api.playNext()
+    controller.api.setPlaybackMode('shuffle')
+    expect(controller.api.isPlaybackPending.value).toBe(true)
+    resolveNext({ ...track, id: 2 })
+    await pending
+    expect(controller.api.state.currentTrackId).toBe(2)
+    expect(controller.api.isPlaybackPending.value).toBe(false)
+    controller.dispose()
   })
 
   it('replaces the queue and history with the chosen CD album and keeps shuffle inside it', async () => {
@@ -388,7 +831,7 @@ describe('playbackController unit tests with injected dependencies', () => {
       } else if (takeover === 'new-cd-session') {
         await api.playTrackFromQueue(tracks, 1, { source: 'cd' })
       } else if (takeover === 'mode') {
-        api.setPlaybackMode('sequential')
+        api.setPlaybackMode('repeat-one')
         expect(api.queueSession.value).toBeNull()
       } else if (takeover === 'insert') {
         api.insertTrackAfterCurrent(createTracks([3])[0])
@@ -413,7 +856,7 @@ describe('playbackController unit tests with injected dependencies', () => {
 
       expect(replaced).toBe(false)
       expect(api.state.queue).toBe(queue)
-      expect(api.state.playbackMode).toBe('sequential')
+      expect(api.state.playbackMode).toBe(takeover === 'mode' ? 'repeat-one' : 'sequential')
       expect(api.state.currentTime).toBe(42)
       expect(runtime.start).toHaveBeenCalledTimes(starts)
       expect(runtime.cancelScheduledNext).toHaveBeenCalledTimes(cancellations)

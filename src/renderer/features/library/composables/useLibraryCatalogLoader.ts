@@ -80,6 +80,16 @@ export function useLibraryCatalogLoader(options: {
   let unsubscribeScanProgress: (() => void) | null = null
   let importRefreshTimer: ReturnType<typeof setTimeout> | null = null
   let importRefreshDeadline: ReturnType<typeof setTimeout> | null = null
+  let disposed = false
+  let playStatsRevision = 0
+
+  function dependsOnPlayStats(preset: string | undefined): boolean {
+    return preset === 'recentPlayed' || preset === 'mostListened' || preset === 'recentFrequent'
+  }
+
+  function isDisposed(): boolean {
+    return disposed || options.isDisposed()
+  }
 
   function clearImportRefresh(): void {
     if (importRefreshTimer !== null) clearTimeout(importRefreshTimer)
@@ -90,8 +100,8 @@ export function useLibraryCatalogLoader(options: {
 
   function flushImportRefresh(): void {
     clearImportRefresh()
-    if (options.isDisposed()) return
-    catalogClient.invalidate()
+    if (isDisposed()) return
+    catalogClient.invalidate('import')
     void loadLibraryData('background')
   }
 
@@ -104,7 +114,7 @@ export function useLibraryCatalogLoader(options: {
 
   function isCurrentLibraryRequest(generation: number, scope: LibraryRouteScope): boolean {
     return (
-      !options.isDisposed() &&
+      !isDisposed() &&
       coordinator.isLatest(generation) &&
       isSameLibraryRouteScope(scope, options.captureRouteScope())
     )
@@ -113,20 +123,40 @@ export function useLibraryCatalogLoader(options: {
   async function fetchLibrarySnapshot(
     scope: LibraryRouteScope,
     isRequestCurrent: () => boolean,
-  ): Promise<LibraryDataSnapshot | null> {
+    mode: LibraryLoadMode,
+  ): Promise<{ snapshot: LibraryDataSnapshot | null; isSnapshotCurrent: () => boolean }> {
     if (scope.kind === 'smart-playlist') {
+      const statsRevision = playStatsRevision
       const detail = await options.getSmartPlaylistDetail(scope.id)
-      if (!detail) return null
-      return createSmartPlaylistLibrarySnapshot(detail)
+      const usesPlayStats =
+        detail !== null &&
+        'preset' in detail.playlist.rule &&
+        dependsOnPlayStats(detail.playlist.rule.preset)
+      return {
+        snapshot: detail ? createSmartPlaylistLibrarySnapshot(detail) : null,
+        isSnapshotCurrent: () => {
+          if (!usesPlayStats || statsRevision === playStatsRevision) return true
+          // The first detail also tells us whether this route consumes statistics.
+          // Check at commit time: an event can arrive after this fetch resolves
+          // but before its consumer resumes, while no identity is committed yet.
+          if (isRequestCurrent()) void loadLibraryData('background')
+          return false
+        },
+      }
     }
 
     if (scope.kind === 'playlist') {
       const detail = await options.getPlaylistDetail(scope.id)
-      if (!detail) return null
-      return createPlaylistLibrarySnapshot(detail)
+      return {
+        snapshot: detail ? createPlaylistLibrarySnapshot(detail) : null,
+        isSnapshotCurrent: () => true,
+      }
     }
 
-    const catalog = await catalogClient.load(isRequestCurrent)
+    const catalog = await catalogClient.load(
+      isRequestCurrent,
+      mode === 'metadata-save' ? 'fresh' : 'snapshot',
+    )
     if (import.meta.env.DEV) {
       rendererDiagnostics.info({
         scope: 'library.catalog',
@@ -144,7 +174,10 @@ export function useLibraryCatalogLoader(options: {
         },
       })
     }
-    return createAllSongsLibrarySnapshot([...catalog.tracks], options.readPersistedViewMode())
+    return {
+      snapshot: createAllSongsLibrarySnapshot([...catalog.tracks], options.readPersistedViewMode()),
+      isSnapshotCurrent: () => catalogClient.isSnapshotCurrent(catalog),
+    }
   }
 
   function commitLibrarySnapshot(snapshot: LibraryDataSnapshot): void {
@@ -155,13 +188,13 @@ export function useLibraryCatalogLoader(options: {
   }
 
   async function loadLibraryData(mode: LibraryLoadMode = 'foreground'): Promise<LibraryLoadResult> {
-    if (options.isDisposed()) return 'stale'
+    if (isDisposed()) return 'stale'
     if (mode === 'metadata-save') {
-      while (coordinator.hasActiveForeground && !options.isDisposed()) {
+      while (coordinator.hasActiveForeground && !isDisposed()) {
         await coordinator.waitForForegroundIdle()
       }
 
-      if (options.isDisposed()) return 'stale'
+      if (isDisposed()) return 'stale'
       catalogClient.invalidate()
     }
 
@@ -185,8 +218,15 @@ export function useLibraryCatalogLoader(options: {
     }
 
     try {
-      const snapshot = await fetchLibrarySnapshot(scope, isRequestCurrent)
+      const { snapshot, isSnapshotCurrent } = await fetchLibrarySnapshot(
+        scope,
+        isRequestCurrent,
+        mode,
+      )
       if (!isRequestCurrent()) return 'stale'
+      // An event may arrive between the shared load resolving and this consumer
+      // resuming. Its queued refresh will reconcile without committing old data.
+      if (!isSnapshotCurrent()) return 'stale'
 
       if (snapshot === null) {
         await options.replaceWithLibraryHome()
@@ -241,7 +281,7 @@ export function useLibraryCatalogLoader(options: {
 
       if (completion.ownedForeground) {
         isPositioningForegroundViewport.value = false
-        if (!options.isDisposed() && isRequestCurrent()) {
+        if (!isDisposed() && isRequestCurrent()) {
           options.isLoading.value = false
         }
       }
@@ -253,12 +293,13 @@ export function useLibraryCatalogLoader(options: {
   }
 
   async function retryInitialLoad(): Promise<void> {
+    if (isDisposed()) return
     catalogClient.invalidate()
     await loadLibraryData('foreground')
   }
 
   function onExternalPlaylistCollectionChanged(eventName: string): void {
-    if (options.isDisposed()) return
+    if (isDisposed()) return
     if (!shouldRefreshLibraryForExternalPlaylistEvent(options.captureRouteScope(), eventName)) {
       return
     }
@@ -274,15 +315,29 @@ export function useLibraryCatalogLoader(options: {
   }
 
   function bindExternalPlaylistEvents(): void {
-    if (typeof window === 'undefined') return
+    if (isDisposed() || typeof window === 'undefined') return
     window.addEventListener(LIBRARY_PLAYLISTS_CHANGED_EVENT, onPlaylistsChanged)
     window.addEventListener(LIBRARY_SMART_PLAYLISTS_CHANGED_EVENT, onSmartPlaylistsChanged)
   }
 
   function subscribeLibraryEvents(): void {
+    if (isDisposed() || unsubscribeChanged || unsubscribeScanProgress) return
     unsubscribeChanged = options.onLibraryChanged(async (event) => {
-      if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
-      if (options.isDisposed()) return
+      if (isDisposed()) return
+      if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') {
+        playStatsRevision += 1
+        const scope = options.captureRouteScope()
+        const identity = options.pageIdentity.value
+        if (
+          scope.kind === 'smart-playlist' &&
+          identity?.kind === 'smart-playlist' &&
+          identity.id === scope.id &&
+          dependsOnPlayStats(identity.preset)
+        ) {
+          await loadLibraryData('background')
+        }
+        return
+      }
       if (event.reason === 'track-added' || event.reason === 'track-relocated') {
         scheduleImportRefresh()
         return
@@ -293,6 +348,7 @@ export function useLibraryCatalogLoader(options: {
     })
 
     unsubscribeScanProgress = options.onScanProgress(async (progress) => {
+      if (isDisposed()) return
       if (progress.status === 'completed') {
         clearImportRefresh()
         catalogClient.invalidate()
@@ -302,6 +358,7 @@ export function useLibraryCatalogLoader(options: {
   }
 
   function dispose(): void {
+    disposed = true
     clearImportRefresh()
     coordinator.invalidate()
     unsubscribeChanged?.()

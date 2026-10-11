@@ -22,6 +22,7 @@ const props = withDefaults(
     nowPlayingTrackId?: number | null
     isPlaying?: boolean
     selectedTrackId?: number | null
+    contextSelectedTrackId?: number | null
     focusedTrackId?: number | null
     viewportHeight?: number
     scrollElement?: HTMLElement | null
@@ -31,6 +32,7 @@ const props = withDefaults(
     nowPlayingTrackId: null,
     isPlaying: false,
     selectedTrackId: null,
+    contextSelectedTrackId: null,
     focusedTrackId: null,
     viewportHeight: 0,
     scrollElement: null,
@@ -164,6 +166,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
         :now-playing-track-id="nowPlayingTrackId"
         :is-playing="isPlaying"
         :selected-track-id="selectedTrackId"
+        :context-selected-track-id="contextSelectedTrackId"
         :focused-track-id="focusedTrackId"
         @select="emit('select', $event)"
         @play="emit('play', $event)"
@@ -186,6 +189,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
             :now-playing="nowPlayingTrackId === track.id"
             :is-playing="isPlaying"
             :selected="selectedTrackId === track.id"
+            :context-selected="contextSelectedTrackId === track.id"
             :focused="focusedTrackId === track.id"
             :index="trackIdx"
             :disc-end="trackIdx === group.tracks.length - 1 || discHeadings[trackIdx + 1] != null"

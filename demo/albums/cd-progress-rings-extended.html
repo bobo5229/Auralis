@@ -154,7 +154,9 @@
         cursor: pointer;
         padding: 0;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-        transition: transform 0.15s ease, border-color 0.15s ease;
+        transition:
+          transform 0.15s ease,
+          border-color 0.15s ease;
       }
       .theme-btn:hover {
         transform: scale(1.15);
@@ -435,7 +437,7 @@
         </div>
       </header>
 
-      <section class="comparison" aria-label="六种扩展播放进度轨道形态">
+      <section class="comparison" aria-label="五种扩展播放进度轨道形态">
         <!-- 1. 专辑分轨断点环 -->
         <figure data-shape="segmented">
           <div class="stage">
@@ -453,7 +455,9 @@
             <span class="tag">实体介质 · 专辑整轨</span>
             <h2>1. 专辑分轨断点环 (Track Segments)</h2>
             <p>
-              一圈代表整张 CD 盘片容量，按单曲时长比例切分，各轨之间留有微小物理间隙。已播曲目常驻高亮，当前曲目在段内平滑推进，还原看黑胶/CD 盘面音轨刻痕的物理仪式感。
+              一圈代表整张 CD
+              盘片容量，按单曲时长比例切分，各轨之间留有微小物理间隙。已播曲目常驻高亮，当前曲目在段内平滑推进，还原看黑胶/CD
+              盘面音轨刻痕的物理仪式感。
             </p>
           </figcaption>
         </figure>
@@ -497,7 +501,8 @@
             <span class="tag">包豪斯 · 经典硬件</span>
             <h2>3. 工业点阵穿孔环 (Dot-Matrix Ring)</h2>
             <p>
-              致敬博朗 (Braun) 与索尼高端 CD 随身听的微穿孔点阵。由 120 颗微型点构成，每逢 10 点设置模数节拍，当前进度点伴有呼吸光晕，呼吸感强且不显压抑。
+              致敬博朗 (Braun) 与索尼高端 CD 随身听的微穿孔点阵。由 120 颗微型点构成，每逢 10
+              点设置模数节拍，当前进度点伴有呼吸光晕，呼吸感强且不显压抑。
             </p>
           </figcaption>
         </figure>
@@ -519,34 +524,14 @@
             <span class="tag">光学读取 · 聚焦光晕</span>
             <h2>4. 激光读取光头游标 (Laser Pickup Head)</h2>
             <p>
-              模拟 CD 机心光学读取头（Pick-up Unit）对焦盘面的光束。双轨细线导向槽配合高亮红宝石激光核与径向定位刻线，在 3D 旋转视角下呈现机械寻轨的动态质感。
+              模拟 CD 机心光学读取头（Pick-up
+              Unit）对焦盘面的光束。双轨细线导向槽配合高亮红宝石激光核与径向定位刻线，在 3D
+              旋转视角下呈现机械寻轨的动态质感。
             </p>
           </figcaption>
         </figure>
 
-        <!-- 5. 彗星余晖渐隐弧 -->
-        <figure data-shape="comet-fade">
-          <div class="stage">
-            <div class="plane">
-              <div class="disc"><div class="hub"></div></div>
-              <svg
-                class="ring"
-                viewBox="-250 -250 500 500"
-                role="img"
-                aria-label="彗星余晖渐隐弧"
-              ></svg>
-            </div>
-          </div>
-          <figcaption>
-            <span class="tag">极简呼吸 · 空间留白</span>
-            <h2>5. 彗星余晖渐隐弧 (Comet Fade Arc)</h2>
-            <p>
-              摒弃 360° 完整闭环的轨道底色，仅以四个象限极微十字为基准。当前播放点身后拖曳 50° 自然衰减的荧光尾迹，轻盈剔透，为外侧歌词与排版留出最纯粹的空隙。
-            </p>
-          </figcaption>
-        </figure>
-
-        <!-- 6. 盘面刻录微槽带 -->
+        <!-- 5. 盘面刻录微槽带 -->
         <figure data-shape="grooves">
           <div class="stage">
             <div class="plane">
@@ -561,9 +546,10 @@
           </div>
           <figcaption>
             <span class="tag">CD-R 拟物 · 数据刻痕</span>
-            <h2>6. 盘面刻录微槽带 (Burned Grooves)</h2>
+            <h2>5. 盘面刻录微槽带 (Burned Grooves)</h2>
             <p>
-              模拟光盘刻录（Pits & Lands）数据写入后的同心深浅色阶。三层同心微槽并行，已写数据区转为饱满金属质感，未写区域呈现细腻微虚线，由径向切向游标精准截断。
+              模拟光盘刻录（Pits &
+              Lands）数据写入后的同心深浅色阶。三层同心微槽并行，已写数据区转为饱满金属质感，未写区域呈现细腻微虚线，由径向切向游标精准截断。
             </p>
           </figcaption>
         </figure>
@@ -573,7 +559,13 @@
         <div class="legend-group">
           <span class="key"><span class="swatch"></span>已播放 / 当前活跃</span>
           <span class="key"><span class="swatch remaining"></span>未播放 / 预留轨道</span>
-          <span class="key"><span class="swatch dot" style="background: #ffffff; box-shadow: 0 0 0 1.5px var(--played-color)"></span>读取焦点</span>
+          <span class="key"
+            ><span
+              class="swatch dot"
+              style="background: #ffffff; box-shadow: 0 0 0 1.5px var(--played-color)"
+            ></span
+            >读取焦点</span
+          >
         </div>
         <div>
           <span>提示：可拖动上方滑动条或点击盘面，实时观察各形态在不同进度下的几何响应</span>
@@ -951,66 +943,7 @@
           )
         },
 
-        // 5. 彗星余晖渐隐弧
-        'comet-fade'(svg, progress) {
-          svg.replaceChildren()
-          const radius = 198
-          const currAngle = progress * Math.PI * 2 - Math.PI / 2
-
-          // 4个象限定位微型十字标记（代替厚重的全圆跑道）
-          ;[0, Math.PI / 2, Math.PI, (Math.PI * 3) / 2].forEach((cardinalAngle) => {
-            const [cx, cy] = point(radius, cardinalAngle - Math.PI / 2)
-            svg.append(
-              element('circle', {
-                cx,
-                cy,
-                r: 1.5,
-                fill: '#9a9993',
-              }),
-            )
-          })
-
-          // 渐变衰减彗星尾迹 (分32段多级透明度弧线)
-          const SEGMENTS = 36
-          const TAIL_SPAN = (56 * Math.PI) / 180 // 56度尾长
-
-          for (let j = 0; j < SEGMENTS; j++) {
-            const ratio1 = j / SEGMENTS
-            const ratio2 = (j + 1) / SEGMENTS
-
-            const a1 = currAngle - ratio1 * TAIL_SPAN
-            const a2 = currAngle - ratio2 * TAIL_SPAN
-
-            const alpha = Math.pow(1 - ratio1, 1.8)
-            const width = 1.0 + (1 - ratio1) * 2.6
-
-            svg.append(
-              element('path', {
-                d: describeArc(radius, a2, a1),
-                stroke: 'var(--played-color)',
-                'stroke-width': width,
-                'stroke-linecap': j === 0 ? 'round' : 'butt',
-                opacity: alpha,
-                fill: 'none',
-              }),
-            )
-          }
-
-          // 彗星头部发光焦点
-          const [hx, hy] = point(radius, currAngle)
-          svg.append(
-            element('circle', {
-              cx: hx,
-              cy: hy,
-              r: 4,
-              fill: '#ffffff',
-              stroke: 'var(--played-color)',
-              'stroke-width': 2,
-            }),
-          )
-        },
-
-        // 6. 盘面刻录微槽带
+        // 5. 盘面刻录微槽带
         grooves(svg, progress) {
           svg.replaceChildren()
           const radii = [193, 198, 203]

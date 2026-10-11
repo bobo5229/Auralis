@@ -5,6 +5,7 @@ import {
 } from '@renderer/shared/animation/motionPreference'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
+import { useStartupAlbum } from './features/startupAlbum/useStartupAlbum'
 import './app/styles/cdCanvasTransition.css'
 import { router } from './app/router'
 import AppSidebar from './app/layout/AppSidebar.vue'
@@ -37,6 +38,13 @@ import {
   getLyricsSlideDuration,
 } from './app/layout/lyricsPanelSlideMotion'
 
+const {
+  active: startupAlbumActive,
+  presentation: startupAlbumPresentation,
+  overlay: startupAlbumOverlay,
+  shown: startupAlbumShown,
+  close: closeStartupAlbum,
+} = useStartupAlbum()
 const route = useRoute()
 const { cdCanvasTheme } = useCdCanvasTheme()
 useSystemMediaIntegration()
@@ -762,18 +770,14 @@ const cdIndexSlideDirection = ref<'enter' | 'leave' | null>(null)
 /** 仅在导航成功后锁定交互，加载失败或守卫取消不产生过渡状态。 */
 const isAlbumDetailEntering = ref(false)
 const isAlbumRouteTransitioning = ref(false)
-const isFirstAlbumDetailTransition = ref(false)
 let albumRouteRevision = 0
 const enteringRevisions = new WeakMap<Element, number>()
 const leavingInertStates = new WeakMap<HTMLElement, boolean>()
 let shouldRestoreRouteFocus = false
 let albumListReturnFocus: { albumKey: string; selector: string } | null = null
-let hasPreparedAlbumDetail = false
-const albumDetailEntryTransition = createAlbumDetailEntryTransition(() => {
-  hasPreparedAlbumDetail = true
-})
-const firstAlbumDetailTransitionHooks = computed(() =>
-  isFirstAlbumDetailTransition.value
+const albumDetailEntryTransition = createAlbumDetailEntryTransition()
+const albumDetailTransitionHooks = computed(() =>
+  isAlbumDetailEntering.value
     ? {
         onBeforeEnter: albumDetailEntryTransition.beforeEnter,
         onEnter: albumDetailEntryTransition.enter,
@@ -826,7 +830,6 @@ const removeAfterEach = router.afterEach((to, from, failure) => {
         ? 'leave'
         : null
   isAlbumDetailEntering.value = to.name === 'album-detail' && from.name === 'albums'
-  isFirstAlbumDetailTransition.value = isAlbumDetailEntering.value && !hasPreparedAlbumDetail
   isAlbumRouteTransitioning.value =
     isAlbumDetailEntering.value || (to.name === 'albums' && from.name === 'album-detail')
   shouldRestoreRouteFocus =
@@ -890,18 +893,18 @@ watch(sidebarFullHeight, (fullHeight) => {
 
 /**
  * 路由过渡规则：
- * 1. 专辑列表 ➔ 专辑详情：景深穿梭与黑胶破土浮升 (album-detail-enter-matrix)
- * 2. 专辑详情 ➔ 专辑列表：黑胶沉降与景深聚拢归位 (album-detail-exit-matrix)
+ * 1. 专辑列表 ➔ 专辑详情：180ms 交叉淡入淡出 (album-detail-enter-fade)
+ * 2. 专辑详情 ➔ 专辑列表：180ms 对称交叉淡入淡出 (album-detail-exit-fade)
  * 3. CD 浏览与封面检索切换：检索页面从右侧滑入，返回时向右滑出
  * 4. 唱片室其余进入与离开：短淡入淡出，首次展开动画由页面控制
  * 5. 其余路由切换：不使用 CSS 过渡，立即完成
  */
 const transitionName = computed(() => {
   if (route.name === 'album-detail' && previousRouteName.value === 'albums') {
-    return 'album-detail-enter-matrix'
+    return 'album-detail-enter-fade'
   }
   if (route.name === 'albums' && previousRouteName.value === 'album-detail') {
-    return 'album-detail-exit-matrix'
+    return 'album-detail-exit-fade'
   }
   if (cdIndexSlideDirection.value === 'enter') return 'cd-index-slide'
   if (cdIndexSlideDirection.value === 'leave') return 'cd-index-slide-return'
@@ -985,7 +988,7 @@ watch(displayMode, (mode) => {
 <template>
   <div
     class="app-window"
-    :inert="displayMode === 'fullscreen' || isSettingsOpen"
+    :inert="displayMode === 'fullscreen' || isSettingsOpen || startupAlbumActive"
     :class="{
       'is-cd-albums': isCdCanvas,
       'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
@@ -1024,8 +1027,8 @@ watch(displayMode, (mode) => {
         <RouterView v-slot="{ Component, route: viewRoute }">
           <Transition
             :name="transitionName ?? undefined"
-            :css="transitionName !== null && !isFirstAlbumDetailTransition"
-            v-bind="firstAlbumDetailTransitionHooks"
+            :css="transitionName !== null && !isAlbumDetailEntering"
+            v-bind="albumDetailTransitionHooks"
             @before-enter="onTransitionBeforeEnter"
             @before-leave="onTransitionBeforeLeave"
             @after-leave="restoreLeavingInteractivity"
@@ -1068,6 +1071,13 @@ watch(displayMode, (mode) => {
     <FullscreenPlayerOverlay />
   </div>
   <SettingsDialog />
+  <component
+    :is="startupAlbumOverlay"
+    v-if="startupAlbumOverlay && startupAlbumPresentation"
+    :presentation="startupAlbumPresentation"
+    @shown="startupAlbumShown"
+    @close="closeStartupAlbum"
+  />
 </template>
 
 <style scoped>

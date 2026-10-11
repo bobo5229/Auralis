@@ -1,12 +1,13 @@
 import { computed, ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import type { SidebarPlaylistItem } from '@shared/types/playlist'
+import type { AddPlaylistTracksResult, SidebarPlaylistItem } from '@shared/types/playlist'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import type {
   LibraryContextMenuAnchor,
   LibraryContextMenuSource,
   LibraryContextMenuState,
+  LibraryPlaylistFeedback,
 } from '../types/libraryInteraction'
 import type { LibraryMetadataFocusTarget } from './useLibraryMetadataEditor'
 import { LIBRARY_PLAYLISTS_CHANGED_EVENT } from '../utils/libraryRouteScope'
@@ -34,19 +35,29 @@ export function useLibraryContextMenu(options: {
   t: (key: string, values?: Record<string, unknown>) => string
   listSidebarItems: () => Promise<SidebarPlaylistItem[]>
   createPlaylist: () => Promise<{ id: number; name: string }>
-  addTracksToPlaylist: (playlistId: number, trackIds: number[]) => Promise<unknown>
+  addTracksToPlaylist: (playlistId: number, trackIds: number[]) => Promise<AddPlaylistTracksResult>
 }) {
   const contextMenu = ref<LibraryContextMenuState | null>(null)
   // 菜单选中态只在菜单打开期间生效，不写入播放器的持久选择。
   const highlightedTrackId = computed(() => contextMenu.value?.trackId ?? options.selectedTrackId())
   const regularPlaylistItems = ref<SidebarPlaylistItem[]>([])
-  const feedbackSource = ref<{ playlistId: number; name: string } | null>(null)
-  const addToPlaylistFeedback = computed(() =>
+  const feedbackSource = ref<{
+    playlistId: number | null
+    name: string
+    kind: LibraryPlaylistFeedback['kind']
+    key: string
+    count?: number
+    unavailable?: number
+  } | null>(null)
+  const addToPlaylistFeedback = computed<LibraryPlaylistFeedback | null>(() =>
     feedbackSource.value
       ? {
           playlistId: feedbackSource.value.playlistId,
-          message: options.t('library.contextMenu.addedSuccess', {
+          kind: feedbackSource.value.kind,
+          message: options.t(`library.contextMenu.${feedbackSource.value.key}`, {
             name: feedbackSource.value.name,
+            count: feedbackSource.value.count,
+            unavailable: feedbackSource.value.unavailable,
           }),
         }
       : null,
@@ -60,6 +71,7 @@ export function useLibraryContextMenu(options: {
   let addToPlaylistFeedbackTimer: number | null = null
   let disposed = false
   let playlistLoadRevision = 0
+  let playlistOperationRevision = 0
 
   function ownsMenu(origin: LibraryContextMenuState | null): boolean {
     return !disposed && origin !== null && contextMenu.value === origin
@@ -94,6 +106,7 @@ export function useLibraryContextMenu(options: {
 
   function closeContextMenu(handoffTarget?: 'metadata-dialog' | 'view-switch'): void {
     clearAddToPlaylistFeedback()
+    playlistOperationRevision++
     playlistLoadRevision++
     playlistLoading.value = false
     isCreatingPlaylistFromMenu.value = false
@@ -146,6 +159,7 @@ export function useLibraryContextMenu(options: {
   ): void {
     if (disposed) return
     clearAddToPlaylistFeedback()
+    playlistOperationRevision++
     isCreatingPlaylistFromMenu.value = false
     options.onTrackActivated(trackId)
     contextMenu.value = {
@@ -251,28 +265,68 @@ export function useLibraryContextMenu(options: {
     playlistName: string,
     trackIds: number[],
     origin: LibraryContextMenuState | null,
+    revision: number,
   ): Promise<void> {
-    await options.addTracksToPlaylist(playlistId, trackIds)
-    window.dispatchEvent(new CustomEvent(LIBRARY_PLAYLISTS_CHANGED_EVENT))
-    if (!ownsMenu(origin)) return
+    const result = await options.addTracksToPlaylist(playlistId, trackIds)
+    if (result.addedCount > 0) {
+      window.dispatchEvent(new CustomEvent(LIBRARY_PLAYLISTS_CHANGED_EVENT))
+    }
+    if (!ownsMenu(origin) || revision !== playlistOperationRevision) return
+    const key = !result.playlistExists
+      ? 'playlistNotFound'
+      : result.unavailableCount > 0
+        ? result.addedCount > 0
+          ? 'addedPartial'
+          : 'tracksUnavailable'
+        : result.addedCount > 0
+          ? 'addedSuccess'
+          : result.alreadyPresentCount > 0
+            ? 'alreadyInPlaylist'
+            : 'tracksUnavailable'
+    const kind = key === 'addedSuccess' ? 'success' : key === 'alreadyInPlaylist' ? 'info' : 'error'
     feedbackSource.value = {
       playlistId,
       name: playlistName,
+      kind,
+      key,
+      count: result.addedCount,
+      unavailable: result.unavailableCount,
     }
-
-    if (addToPlaylistFeedbackTimer !== null) {
-      window.clearTimeout(addToPlaylistFeedbackTimer)
+    if (kind === 'error') {
+      if (!result.playlistExists) await loadRegularPlaylistItems()
+      return
     }
     addToPlaylistFeedbackTimer = window.setTimeout(() => {
       addToPlaylistFeedbackTimer = null
-      if (ownsMenu(origin)) closeContextMenu()
+      if (ownsMenu(origin) && revision === playlistOperationRevision) closeContextMenu()
     }, 1200)
+  }
+
+  function reportPlaylistOperationError(
+    error: unknown,
+    origin: LibraryContextMenuState | null,
+    revision: number,
+  ): void {
+    rendererDiagnostics.error({
+      scope: 'library.context-menu',
+      message: 'Failed to add tracks to playlist',
+      cause: error,
+    })
+    if (!ownsMenu(origin) || revision !== playlistOperationRevision) return
+    feedbackSource.value = { playlistId: null, name: '', kind: 'error', key: 'playlistAddError' }
   }
 
   async function onAddContextTracksToPlaylist(playlist: SidebarPlaylistItem): Promise<void> {
     const trackIds = getContextMenuTrackIds()
     if (trackIds.length === 0) return
-    await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds, contextMenu.value)
+    const origin = contextMenu.value
+    const revision = ++playlistOperationRevision
+    clearAddToPlaylistFeedback()
+    try {
+      await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds, origin, revision)
+    } catch (error) {
+      reportPlaylistOperationError(error, origin, revision)
+    }
   }
 
   async function onCreatePlaylistAndAddContextTracks(): Promise<void> {
@@ -282,11 +336,19 @@ export function useLibraryContextMenu(options: {
     if (trackIds.length === 0) return
 
     const origin = contextMenu.value
+    const revision = ++playlistOperationRevision
+    clearAddToPlaylistFeedback()
     isCreatingPlaylistFromMenu.value = true
     try {
       const playlist = await options.createPlaylist()
-      await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds, origin)
-      if (ownsMenu(origin)) await loadRegularPlaylistItems()
+      window.dispatchEvent(new CustomEvent(LIBRARY_PLAYLISTS_CHANGED_EVENT))
+      await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds, origin, revision)
+      if (ownsMenu(origin) && revision === playlistOperationRevision)
+        await loadRegularPlaylistItems()
+    } catch (error) {
+      reportPlaylistOperationError(error, origin, revision)
+      if (ownsMenu(origin) && revision === playlistOperationRevision)
+        await loadRegularPlaylistItems()
     } finally {
       if (ownsMenu(origin)) isCreatingPlaylistFromMenu.value = false
     }

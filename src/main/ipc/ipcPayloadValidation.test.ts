@@ -113,8 +113,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(60)
-    expect(kinds).toEqual({ void: 20, optional: 5, required: 35 })
+    expect(actualChannels).toHaveLength(65)
+    expect(kinds).toEqual({ void: 21, optional: 6, required: 38 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -304,6 +304,26 @@ describe('domain IPC payload validation behavior', () => {
       parse(ipcChannels.playback.nativeCommand, { ...payload, path: 'bridge.wav' }),
     ).toThrow(IpcPayloadValidationError)
   })
+  it('accepts bounded startup presentation history without changing legacy callers', () => {
+    const album = { albumArtist: 'Artist', album: 'Album' }
+    const request = { recentAlbums: Array.from({ length: 10 }, () => album) }
+    expect(parse('app:claim-startup-album', request)).toEqual(request)
+    expect(parse('app:claim-startup-album', { excludeAlbumKey: album })).toEqual({
+      excludeAlbumKey: album,
+    })
+    expect(parse('app:claim-startup-album', undefined)).toBeUndefined()
+    for (const recentAlbums of [
+      Array(11).fill(album),
+      [null],
+      [{ album: 'A' }],
+      [{ ...album, albumArtist: 42 }],
+      'bad',
+    ]) {
+      expect(() => parse('app:claim-startup-album', { recentAlbums })).toThrow(
+        IpcPayloadValidationError,
+      )
+    }
+  })
   it('accepts representative valid scalar, nested, optional, and batch payloads', () => {
     expect(
       parse('library:get-track-page', { cursor: 'snapshot:cursor', limit: 1_000, refresh: true }),
@@ -365,6 +385,8 @@ describe('domain IPC payload validation behavior', () => {
     ['playback:get-album-tracks', { albumKey: { albumArtist: 'A' } }],
     ['playback:record-effective-play', { trackId: 1, sessionId: 'x', playedAtIso: 'today' }],
     ['window:control', { action: 'open-devtools' }],
+    ['window:set-close-behavior', { behavior: 'hide' }],
+    ['window:set-close-behavior', { behavior: 'tray', path: 'C:/untrusted' }],
   ] as const)('rejects malformed payload for %s', (channel, payload) => {
     expect(() => parse(channel, payload)).toThrow(IpcPayloadValidationError)
   })

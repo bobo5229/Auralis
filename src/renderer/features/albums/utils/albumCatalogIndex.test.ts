@@ -10,6 +10,7 @@ const track = (id: number, album: string, trackNo: number): TrackListItem => ({
   albumArtist: 'Artist',
   artist: 'Artist',
   discNo: 1,
+  bitrateBps: null,
   durationSeconds: 180,
   releaseDate: '2020',
   copyright: null,

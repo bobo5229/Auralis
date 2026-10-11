@@ -16,6 +16,7 @@ function createTrack(id: number, title: string): TrackListItem {
     releaseDate: null,
     copyright: null,
     composer: null,
+    bitrateBps: null,
     durationSeconds: null,
     artworkCacheKey: null,
     genre: null,
@@ -46,6 +47,9 @@ function createSession(overrides?: {
     isInteractiveTarget: () => false,
     scrollToTrackIndex,
   })
+  session.searchZoneRef.value = {
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 800 }),
+  } as unknown as HTMLElement
 
   return {
     session,
@@ -164,6 +168,53 @@ describe('library page Escape', () => {
 })
 
 describe('useLibrarySearchSession', () => {
+  it('uses the actual search zone, excluding the flat header, the gap below it and song rows', () => {
+    const { session } = createSession()
+    const zone = { left: 100, top: 140, width: 500 }
+    session.searchZoneRef.value = {
+      getBoundingClientRect: () => zone,
+    } as unknown as HTMLElement
+    const move = (clientX: number, clientY: number) =>
+      session.onLibraryListMouseMove({
+        currentTarget: { getBoundingClientRect: () => ({ left: 0, top: 100, width: 800 }) },
+        clientX,
+        clientY,
+      } as unknown as MouseEvent)
+
+    // 页面顶部的旧热区，以及搜索行下方的表头、空隙、曲目均不触发。
+    for (const y of [108, 120, 190, 216, 228, 248]) {
+      move(350, y)
+      expect(session.shouldRenderSearchBar.value).toBe(false)
+    }
+    move(550, 160)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+    move(350, 160)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+
+    session.searchRootRef.value = {
+      getBoundingClientRect: () => resolveHiddenLibrarySearchBarRect(zone),
+    } as unknown as HTMLElement
+    move(350, 160)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    move(350, 228)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+
+    session.searchQuery.value = 'al'
+    move(350, 248)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+    session.clearSearch()
+    session.onSearchInputFocus()
+    move(350, 248)
+    expect(session.shouldRenderSearchBar.value).toBe(true)
+  })
+
+  it('does not reveal search while the search zone is unmounted', () => {
+    const { session } = createSession()
+    session.searchZoneRef.value = null
+    session.onLibraryListMouseMove({ clientX: 400, clientY: 15 } as MouseEvent)
+    expect(session.shouldRenderSearchBar.value).toBe(false)
+  })
+
   it.each([
     { isComposing: true },
     { keyCode: 229 },
@@ -326,6 +377,7 @@ describe('useLibrarySearchSession', () => {
     const container = {
       getBoundingClientRect: () => containerRect,
     } as unknown as HTMLElement
+    session.searchZoneRef.value = container
     const hidden = resolveHiddenLibrarySearchBarRect(containerRect)
 
     function move(clientX: number, clientY: number): void {
@@ -379,6 +431,7 @@ describe('useLibrarySearchSession', () => {
     const container = {
       getBoundingClientRect: () => containerRect,
     } as unknown as HTMLElement
+    session.searchZoneRef.value = container
     const barRect = resolveHiddenLibrarySearchBarRect(containerRect)
     session.searchRootRef.value = {
       getBoundingClientRect: () => barRect,

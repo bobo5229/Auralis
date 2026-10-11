@@ -27,6 +27,8 @@
 `node demo/playback/background-morph/run.mjs` 打开独立交互窗口，支持正反向切换、慢放、
 手动进度和封面配色对照。
 
+像素旅途：[原型说明](playback/pixel-journey/README.md)。运行 `node demo/playback/pixel-journey/serve.mjs` 后打开 `http://127.0.0.1:4188/demo/playback/pixel-journey/`；支持音乐播放驱动奔跑、暂停待机、进度跳转、常驻音量及小窗口提示。
+
 液态金属背景：[原型说明与接入计划](playback/liquid-metal/README.md)。在项目根目录运行
 `node demo/playback/liquid-metal/serve.mjs` 后打开 `http://127.0.0.1:4176/`；支持本地封面取色、
 动态金属曲面、材质调节和模拟歌词预览。

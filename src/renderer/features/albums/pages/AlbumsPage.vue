@@ -38,6 +38,7 @@ import type { AlbumSummary } from '../types'
 import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
 import { useAlbumCatalog } from '../composables/useAlbumCatalog'
 import { useAlbumGridLayout } from '../composables/useAlbumGridLayout'
+import { useAlbumListParameters } from '@renderer/features/appearance/composables/useAlbumListParameters'
 import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
 import { findAlbumTransitionFocusTarget } from '../utils/albumGridTransitionPlan'
 import { calculateAlbumTransitionRect } from '../utils/albumGridTransitionGeometry'
@@ -120,14 +121,14 @@ const searchFeedback = computed(() => {
   if (searchOutcome.value === 'not-found') return t('albums.search.notFound')
   if (searchOutcome.value === 'wrapped') {
     return t('albums.search.wrapped', {
-      index: searchMatchPosition.value,
-      total: searchMatchTotal.value,
+      index: String(searchMatchPosition.value).padStart(2, '0'),
+      total: String(searchMatchTotal.value).padStart(2, '0'),
     })
   }
   if (searchOutcome.value === 'matched') {
     return t('albums.search.matched', {
-      index: searchMatchPosition.value,
-      total: searchMatchTotal.value,
+      index: String(searchMatchPosition.value).padStart(2, '0'),
+      total: String(searchMatchTotal.value).padStart(2, '0'),
     })
   }
   return ''
@@ -165,6 +166,7 @@ const albumSearchKeys = computed(
       ]),
     ),
 )
+const { metadataOccupancy } = useAlbumListParameters()
 const {
   gridWidth,
   columnCount,
@@ -179,10 +181,14 @@ const {
   isActive: isPageActive,
   albumKeys: computed(() => albums.value.map((album) => album.key)),
   measure: () => rowVirtualizer.value.measure(),
+  metadataOccupancy,
 })
 const gridContentRef = ref<HTMLElement | null>(null)
 const transitionLayerRef = ref<InstanceType<typeof AlbumGridTransitionLayer> | null>(null)
 const isLayoutTransitionActive = ref(false)
+watch(metadataOccupancy, () => {
+  if (isLayoutTransitionActive.value) emit('cancel-layout-transition')
+})
 const dropLayerRef = ref<InstanceType<typeof AlbumDropTransitionLayer> | null>(null)
 const isDropActive = ref(false)
 const canDropAlbum = computed(

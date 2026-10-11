@@ -1,4 +1,8 @@
 {
+  "startupAlbum": {
+    "play": "播放专辑",
+    "skip": "跳过"
+  },
   "windowControls": {
     "close": "关闭窗口",
     "minimize": "最小化窗口",
@@ -79,6 +83,11 @@
       "about": "关于"
     },
     "appearance": {
+      "startupAlbum": {
+        "title": "启动时推荐一张专辑",
+        "description": "欢迎页结束后，从本地收藏随机展示一张专辑。下次启动生效。",
+        "persistFailed": "本次保存未完成，请重试。"
+      },
       "textDisplay": {
         "title": "文字显示",
         "songInfo": "歌曲信息字形",
@@ -96,6 +105,45 @@
         "system": "跟随系统",
         "enabled": "开启",
         "persistFailed": "已应用，本次保存未完成。"
+      },
+      "lyricsEffects": {
+        "title": "主界面歌词",
+        "edgeFade": {
+          "title": "顶部与底部渐隐",
+          "description": "让同步歌词在面板的上下边缘逐渐隐去。"
+        },
+        "blur": {
+          "title": "高斯模糊",
+          "description": "柔化非当前歌词，突出正在播放的一行。"
+        },
+        "persistFailed": "已应用，本次保存未完成。"
+      },
+      "windowBehavior": {
+        "title": "窗口行为",
+        "label": "点击关闭按钮时",
+        "description": "选择退出应用，或保留播放并收起窗口。",
+        "quit": "退出应用",
+        "minimize": "最小化到任务栏",
+        "tray": "收起到系统托盘",
+        "trayUnavailable": "系统托盘不可用；收起到托盘时将改为最小化到任务栏。",
+        "loadFailed": "未能读取关闭方式，请重试。",
+        "saveFailed": "未能保存，关闭方式保持原设置。",
+        "retry": "重试"
+      },
+      "lyricsScroll": {
+        "title": "歌词滚动效果",
+        "description": "控制普通与全屏同步歌词的过渡曲线；减少动态效果开启时仍即时定位。",
+        "standard": "标准",
+        "quick": "迅捷",
+        "soft": "柔和",
+        "emphasized": "强调",
+        "persistFailed": "已应用，本次保存未完成。"
+      },
+      "playingIcon": {
+        "title": "“播放中”图标",
+        "description": "选择播放状态所展示的图标符号。",
+        "equalizer": "三柱均衡器",
+        "blocks-wave": "方块律动"
       },
       "themeDark": "深色",
       "themeLight": "浅色",
@@ -156,6 +204,7 @@
           "trackNumber": "音轨编号",
           "genre": "流派",
           "duration": "歌曲时长",
+          "bitrate": "比特率",
           "discHeading": "碟片标题"
         },
         "options": {
@@ -173,11 +222,24 @@
           "releaseDate": "2016-04-22",
           "trackNumber": "03",
           "genre": "民谣 Folk",
-          "duration": "4:12",
+          "duration": "04:12",
           "discHeading": "Disc 01"
         },
         "expand": "展开",
         "collapse": "收起"
+      },
+      "albumParameters": {
+        "title": "专辑页参数",
+        "reset": "恢复默认参数",
+        "resetStatus": "已恢复专辑页默认参数",
+        "persistFailed": "本次调整已生效，保存失败，重启后可能恢复",
+        "sampleTitle": "静谧时光 · Quiet Hours",
+        "sampleArtist": "Auralis Ensemble",
+        "fields": {
+          "title": "专辑名称",
+          "artist": "艺术家",
+          "year": "发行年份"
+        }
       },
       "interface": "界面",
       "languagePersistFailed": "语言已切换，但未能保存。重启后可能恢复，请重试。",
@@ -307,6 +369,8 @@
     "lyricsSeekToLine": "跳转到：{text}",
     "lyricsSeekToTime": "跳转到 {seconds} 秒",
     "lyricsStartingSoon": "歌词即将开始",
+    "currentMode": "播放模式：{mode}",
+    "albumShuffleDescription": "专辑间随机，专辑内顺序",
     "modeOption": {
       "sequential": "顺序播放",
       "repeat-all": "列表循环",
@@ -334,6 +398,29 @@
       "roughness": "反射柔度",
       "pause": "暂停背景",
       "reset": "重置材质"
+    },
+    "lyrics": {
+      "section": "歌词",
+      "fontSize": "字号",
+      "fontWeight": "字重",
+      "lineGap": "行间距",
+      "scaleDescription": "字号和行间距以当前自适应值为 100%。",
+      "reset": "恢复默认",
+      "resetStatus": "已恢复歌词默认参数",
+      "persistFailed": "本次调整已生效，保存失败，重启后可能恢复",
+      "weights": {
+        "400": "常规（400）",
+        "500": "中等（500）",
+        "600": "半粗（600）",
+        "700": "粗体（700）",
+        "800": "特粗（800）"
+      }
+    },
+    "lyricsContextMenu": {
+      "label": "歌词显示",
+      "simplified": "切换为简体中文",
+      "traditional": "切换为繁体中文",
+      "persistFailed": "本次切换已生效，保存失败，重启后可能恢复"
     }
   },
   "albums": {
@@ -377,12 +464,6 @@
         "toLight": "切换到浅色",
         "toDark": "切换到深色"
       },
-      "progress": {
-        "current": "{style}进度",
-        "wave": "波浪",
-        "comet": "彗星余晖",
-        "switchTo": "切换为{style}进度"
-      },
       "spectrum": {
         "title": "实时频谱",
         "ready": "跟随音乐",
@@ -420,7 +501,7 @@
       "back": "返回列表",
       "play": "播放",
       "shuffle": "随机播放",
-      "disc": "第 {number} 碟",
+      "disc": "Disc {number}",
       "unknownYear": "年份未知",
       "unknownDate": "日期未知",
       "unknownTitle": "未命名曲目",
@@ -438,7 +519,7 @@
     "search": {
       "ariaLabel": "搜索专辑和专辑艺术家",
       "placeholder": "搜索专辑、专辑艺术家",
-      "matched": "定位到 {index} / {total}",
+      "matched": "{index} / {total}",
       "wrapped": "已回到开头（{index} / {total}）",
       "notFound": "未找到匹配专辑"
     },
@@ -477,7 +558,7 @@
     "search": {
       "ariaLabel": "搜索当前列表",
       "placeholder": "搜索标题、艺人、专辑…",
-      "matched": "定位到 {index} / {total}",
+      "matched": "{index} / {total}",
       "wrapped": "已回到开头（{index} / {total}）",
       "notFound": "未找到匹配项",
       "clearSearch": "清空搜索"
@@ -497,7 +578,12 @@
       "noPlaylists": "暂无可添加的歌单",
       "playlistLoading": "正在加载歌单…",
       "playlistLoadError": "加载歌单失败",
-      "addedSuccess": "已添加到「{name}」"
+      "addedSuccess": "已添加到「{name}」",
+      "alreadyInPlaylist": "已在「{name}」中",
+      "addedPartial": "已向「{name}」添加 {count} 首歌曲；跳过 {unavailable} 首不可用歌曲。",
+      "tracksUnavailable": "未添加新歌曲，不可用的歌曲无法添加。",
+      "playlistNotFound": "此歌单已删除，请选择其他歌单。",
+      "playlistAddError": "添加歌曲失败，请重试。"
     },
     "metadataEditor": {
       "title": "编辑元数据",
@@ -528,6 +614,7 @@
       "status": {
         "checking": "正在检查编辑状态…",
         "playbackInUse": "歌曲文件被播放器占用，无法修改元数据。",
+        "preloadInUse": "歌曲已预加载，暂时无法修改元数据。",
         "playbackEditable": "播放中可保存元数据，音乐将继续播放。",
         "queryFailed": "无法确认编辑状态，请重试。",
         "loading": "正在读取歌曲信息…",
@@ -566,7 +653,18 @@
   },
   "archive": {
     "title": "聆听档案",
-    "placeholder": "聆听档案，敬请期待"
+    "previousYear": "上一年",
+    "nextYear": "下一年",
+    "loading": "正在读取聆听记录…",
+    "loadError": "聆听记录加载失败，请稍后重新进入。",
+    "empty": "该年份暂无聆听记录",
+    "calendarDescription": "{year} 年聆听热力图，共 {plays} 次有效播放，{days} 个活跃日；方向键选择日期，回车查看当日歌曲，Esc 关闭",
+    "daySummary": "{count} 次 · {minutes} 分钟",
+    "playCount": "{count} 次",
+    "dayEmpty": "当日暂无聆听记录",
+    "dayLoadError": "加载失败，请重新点击日期。",
+    "unknownTrack": "未知歌曲",
+    "unknownArtist": "未知艺术家"
   },
   "smartBuilder": {
     "title": "新建智能歌单",

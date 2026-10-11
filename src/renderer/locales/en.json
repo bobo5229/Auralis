@@ -1,4 +1,8 @@
 {
+  "startupAlbum": {
+    "play": "Play album",
+    "skip": "Skip"
+  },
   "windowControls": {
     "close": "Close window",
     "minimize": "Minimize window",
@@ -79,6 +83,11 @@
       "about": "About"
     },
     "appearance": {
+      "startupAlbum": {
+        "title": "Recommend an album at startup",
+        "description": "Show a random album from your local collection after the welcome screen. Applies on the next launch.",
+        "persistFailed": "Could not save this preference. Please try again."
+      },
       "textDisplay": {
         "title": "Text display",
         "songInfo": "Song information script",
@@ -96,6 +105,45 @@
         "system": "System",
         "enabled": "On",
         "persistFailed": "Applied, but could not save this preference."
+      },
+      "lyricsEffects": {
+        "title": "Main window lyrics",
+        "edgeFade": {
+          "title": "Top and bottom fade",
+          "description": "Fade timed lyrics at the top and bottom edges of the panel."
+        },
+        "blur": {
+          "title": "Gaussian blur",
+          "description": "Soften inactive lyrics to highlight the line currently playing."
+        },
+        "persistFailed": "Applied, but could not save this preference."
+      },
+      "windowBehavior": {
+        "title": "Window behavior",
+        "label": "When clicking Close",
+        "description": "Exit the app, or keep playback running and put the window away.",
+        "quit": "Exit app",
+        "minimize": "Minimize to taskbar",
+        "tray": "Hide to system tray",
+        "trayUnavailable": "System tray is unavailable. Hiding to the tray will minimize to the taskbar instead.",
+        "loadFailed": "Could not load the close behavior. Please retry.",
+        "saveFailed": "Could not save. The previous close behavior is still active.",
+        "retry": "Retry"
+      },
+      "lyricsScroll": {
+        "title": "Lyrics scroll effect",
+        "description": "Choose the transition curve for timed lyrics in the panel and fullscreen. Reduce motion still moves instantly.",
+        "standard": "Standard",
+        "quick": "Quick",
+        "soft": "Soft",
+        "emphasized": "Emphasized",
+        "persistFailed": "Applied, but could not save this preference."
+      },
+      "playingIcon": {
+        "title": "Now playing icon",
+        "description": "Choose the icon symbol displayed during playback.",
+        "equalizer": "Equalizer",
+        "blocks-wave": "Blocks wave"
       },
       "themeDark": "Dark",
       "themeLight": "Light",
@@ -156,6 +204,7 @@
           "trackNumber": "Track number",
           "genre": "Genre",
           "duration": "Duration",
+          "bitrate": "Bitrate",
           "discHeading": "Disc heading"
         },
         "options": {
@@ -173,11 +222,24 @@
           "releaseDate": "2016-04-22",
           "trackNumber": "03",
           "genre": "民谣 Folk",
-          "duration": "4:12",
+          "duration": "04:12",
           "discHeading": "Disc 01"
         },
         "expand": "Expand",
         "collapse": "Collapse"
+      },
+      "albumParameters": {
+        "title": "Album page parameters",
+        "reset": "Reset parameters",
+        "resetStatus": "Album page defaults restored",
+        "persistFailed": "Changes are active but could not be saved and may reset after restarting.",
+        "sampleTitle": "Quiet Hours · 静谧时光",
+        "sampleArtist": "Auralis Ensemble",
+        "fields": {
+          "title": "Album title",
+          "artist": "Artist",
+          "year": "Release year"
+        }
       },
       "interface": "Interface",
       "languagePersistFailed": "Language changed, but could not save it. It may reset after restarting. Try again.",
@@ -307,6 +369,8 @@
     "lyricsSeekToLine": "Seek to: {text}",
     "lyricsSeekToTime": "Seek to {seconds} seconds",
     "lyricsStartingSoon": "Lyrics starting soon",
+    "currentMode": "Playback mode: {mode}",
+    "albumShuffleDescription": "Shuffle albums, play tracks in album order",
     "modeOption": {
       "sequential": "Sequential",
       "repeat-all": "Repeat all",
@@ -334,6 +398,29 @@
       "roughness": "Reflection softness",
       "pause": "Pause background",
       "reset": "Reset material"
+    },
+    "lyrics": {
+      "section": "Lyrics",
+      "fontSize": "Font size",
+      "fontWeight": "Font weight",
+      "lineGap": "Line spacing",
+      "scaleDescription": "Font size and line spacing use the adaptive defaults at 100%.",
+      "reset": "Restore defaults",
+      "resetStatus": "Default lyrics settings restored",
+      "persistFailed": "Changes are applied, but could not be saved. They may reset after restarting.",
+      "weights": {
+        "400": "Regular (400)",
+        "500": "Medium (500)",
+        "600": "Semibold (600)",
+        "700": "Bold (700)",
+        "800": "Extra bold (800)"
+      }
+    },
+    "lyricsContextMenu": {
+      "label": "Lyrics display",
+      "simplified": "Switch to Simplified Chinese",
+      "traditional": "Switch to Traditional Chinese",
+      "persistFailed": "This change is active, but could not be saved. It may reset after restarting."
     }
   },
   "albums": {
@@ -376,12 +463,6 @@
         "dark": "Dark mode",
         "toLight": "Switch to light mode",
         "toDark": "Switch to dark mode"
-      },
-      "progress": {
-        "current": "{style} progress",
-        "wave": "Wave",
-        "comet": "Comet",
-        "switchTo": "Switch to {style} progress"
       },
       "spectrum": {
         "title": "Live spectrum",
@@ -438,7 +519,7 @@
     "search": {
       "ariaLabel": "Search albums and album artists",
       "placeholder": "Search albums and album artists",
-      "matched": "Match {index} of {total}",
+      "matched": "{index} / {total}",
       "wrapped": "Back to the first match ({index} of {total})",
       "notFound": "No matching albums"
     },
@@ -477,7 +558,7 @@
     "search": {
       "ariaLabel": "Search this list",
       "placeholder": "Search titles, artists and albums…",
-      "matched": "Match {index} of {total}",
+      "matched": "{index} / {total}",
       "wrapped": "Back to the first match ({index} of {total})",
       "notFound": "No matches",
       "clearSearch": "Clear search"
@@ -497,7 +578,12 @@
       "noPlaylists": "No playlists available",
       "playlistLoading": "Loading playlists…",
       "playlistLoadError": "Could not load playlists. Try again.",
-      "addedSuccess": "Added to {name}"
+      "addedSuccess": "Added to {name}",
+      "alreadyInPlaylist": "Already in {name}",
+      "addedPartial": "Added {count} tracks to {name}; {unavailable} unavailable tracks were skipped.",
+      "tracksUnavailable": "No new tracks added. Unavailable tracks could not be added.",
+      "playlistNotFound": "This playlist was deleted. Choose another playlist.",
+      "playlistAddError": "Could not add tracks. Try again."
     },
     "metadataEditor": {
       "title": "Edit metadata",
@@ -528,6 +614,7 @@
       "status": {
         "checking": "Checking editing status…",
         "playbackInUse": "This file is in use by the player. Switch to another track before editing metadata.",
+        "preloadInUse": "This track is preloaded. Metadata cannot be edited right now.",
         "playbackEditable": "You can save metadata while the music continues playing.",
         "queryFailed": "Could not check editing status. Try again.",
         "loading": "Loading track information…",
@@ -566,7 +653,18 @@
   },
   "archive": {
     "title": "Listening archive",
-    "placeholder": "Listening archive, coming soon"
+    "previousYear": "Previous year",
+    "nextYear": "Next year",
+    "loading": "Loading listening records…",
+    "loadError": "Could not load listening records. Please return to this page later.",
+    "empty": "No listening records this year",
+    "calendarDescription": "Listening heatmap for {year}: {plays} effective plays across {days} active days. Use arrow keys to select a date, Enter to view its tracks, and Escape to close.",
+    "daySummary": "{count} plays · {minutes} min",
+    "playCount": "{count} plays",
+    "dayEmpty": "No listening records for this day",
+    "dayLoadError": "Could not load tracks. Click the date again to retry.",
+    "unknownTrack": "Unknown track",
+    "unknownArtist": "Unknown artist"
   },
   "smartBuilder": {
     "title": "New smart playlist",

@@ -129,35 +129,44 @@ let generation = 0
 let pending = false
 let running = false
 let unsubscribe: (() => void) | undefined
-async function load(): Promise<void> {
+async function load(
+  freshness: 'fresh' | 'snapshot' = 'snapshot',
+  supersede = true,
+): Promise<boolean> {
   pending = true
-  generation++
-  if (running) return
+  // Import notifications queue another complete preview without invalidating
+  // the current preview or a create request's freshness boundary.
+  if (supersede) generation++
+  if (running) return false
+  pending = false
   running = true
   loading.value = true
+  const token = generation
+  loadError.value = ''
   try {
-    while (pending && props.open && !disposed) {
-      pending = false
-      const token = generation
-      loadError.value = ''
-      try {
-        const snapshot = await libraryCatalogClient.load(
-          () => !disposed && props.open && token === generation,
-        )
-        if (token === generation && props.open && !disposed) tracks.value = [...snapshot.tracks]
-      } catch (cause) {
-        if (disposed || !props.open || token !== generation) continue
-        loadError.value = 'smartBuilder.loadError'
-        rendererDiagnostics.warn({
-          scope: 'sidebar.smart-playlist-builder',
-          message: 'Failed to load builder catalog',
-          cause,
-        })
-      }
-    }
+    const snapshot = await libraryCatalogClient.load(
+      () => !disposed && props.open && token === generation,
+      freshness,
+    )
+    if (disposed || !props.open || token !== generation) return false
+    if (!libraryCatalogClient.isSnapshotCurrent(snapshot)) return false
+    tracks.value = [...snapshot.tracks]
+    return true
+  } catch (cause) {
+    if (disposed || !props.open || token !== generation) return false
+    loadError.value = 'smartBuilder.loadError'
+    rendererDiagnostics.warn({
+      scope: 'sidebar.smart-playlist-builder',
+      message: 'Failed to load builder catalog',
+      cause,
+    })
+    return false
   } finally {
     running = false
     loading.value = false
+    // Keep follow-up previews independent: create waits for its own fresh
+    // snapshot, rather than waiting for a continuous import stream to stop.
+    if (pending && props.open && !disposed) void load('snapshot', false)
   }
 }
 watch(
@@ -208,8 +217,12 @@ async function create(): Promise<void> {
   try {
     // Recheck against a fresh complete snapshot before persisting the dynamic rule.
     libraryCatalogClient.invalidate()
-    await load()
+    const refreshed = await load('fresh')
     if (disposed || !props.open || loadError.value) return
+    if (!refreshed) {
+      saveError.value = 'smartBuilder.createError'
+      return
+    }
     const current = evaluateBuilder(ruleState.value, indexBuilderTracks(tracks.value))
     if (!current.withinLimits) return
     if (!current.complete || !current.ids.size) {
@@ -237,8 +250,18 @@ async function create(): Promise<void> {
 }
 onMounted(() => {
   unsubscribe = auralis.library.onChanged((event) => {
-    if (!props.open || event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset')
+    if (
+      disposed ||
+      !props.open ||
+      event.reason === 'play-stats-updated' ||
+      event.reason === 'play-stats-reset'
+    )
       return
+    if (event.reason === 'track-added' || event.reason === 'track-relocated') {
+      libraryCatalogClient.invalidate('import')
+      void load('snapshot', false)
+      return
+    }
     libraryCatalogClient.invalidate()
     void load()
   })
@@ -274,7 +297,7 @@ onBeforeUnmount(() => {
           <p v-if="loading" class="notice neutral" role="status">{{ t('smartBuilder.loading') }}</p>
           <p v-if="loadError" class="notice" role="alert">
             {{ t(loadError) }}
-            <button :disabled="loading || saving" @click="load">
+            <button :disabled="loading || saving" @click="load()">
               {{ t('albums.status.retry') }}
             </button>
           </p>

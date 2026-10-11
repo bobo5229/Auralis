@@ -6,7 +6,10 @@ import {
   type LibraryTrackPageResponse,
 } from '@shared/types/libraryCatalog'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { SharedLibraryCatalogLoad } from './sharedLibraryCatalogLoad'
+import {
+  LibraryCatalogLoadInvalidatedError,
+  SharedLibraryCatalogLoad,
+} from './sharedLibraryCatalogLoad'
 import { loadLibraryCatalogSnapshot } from './loadLibraryCatalogSnapshot'
 
 // Runtime-only integration fixture: keep Main out of the renderer composite TypeScript project.
@@ -73,6 +76,72 @@ describe('shared catalog execution', () => {
     ])
     expect(a.snapshotId).not.toBe(b.snapshotId)
     expect(a.tracks).toEqual(b.tracks)
+  })
+
+  it('publishes an in-flight complete import snapshot while a fresh consumer waits for a newer one', async () => {
+    const wait = gate()
+    let source = tracks(5001)
+    const store = new LibraryCatalogSnapshotStore(() => source)
+    const client = new SharedLibraryCatalogLoad(async (request) => {
+      const page = store.getPage(request)
+      if (request.cursor) await wait.promise
+      return page
+    })
+    const progressive = client.load(() => true, 'snapshot')
+    source = tracks(5002)
+    client.invalidate('import')
+    const fresh = client.load(() => true)
+    wait.release()
+    expect((await progressive).tracks).toHaveLength(5001)
+    expect((await fresh).tracks).toHaveLength(5002)
+  })
+
+  it('does not extend a fresh request boundary for imports arriving after its snapshot started', async () => {
+    const wait = gate()
+    const store = new LibraryCatalogSnapshotStore(() => tracks(5001))
+    const fetch = vi.fn(async (request) => {
+      const page = store.getPage(request)
+      await wait.promise
+      return page
+    })
+    const client = new SharedLibraryCatalogLoad(fetch)
+    client.invalidate()
+    const fresh = client.load(() => true)
+    client.invalidate('import')
+    client.invalidate('import')
+    wait.release()
+    expect((await fresh).tracks).toHaveLength(5001)
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('discards a complete progressive snapshot invalidated by a strong change', async () => {
+    const wait = gate()
+    let source = tracks(5001)
+    const store = new LibraryCatalogSnapshotStore(() => source)
+    const client = new SharedLibraryCatalogLoad(async (request) => {
+      const page = store.getPage(request)
+      if (request.cursor) await wait.promise
+      return page
+    })
+    const progressive = client.load(() => true, 'snapshot')
+    source = tracks(5000)
+    client.invalidate()
+    wait.release()
+    expect((await progressive).tracks).toHaveLength(5000)
+  })
+
+  it('fails after bounded strong invalidations and can recover on a later request', async () => {
+    const store = new LibraryCatalogSnapshotStore(() => tracks(1))
+    let changing = true
+    const fetch = vi.fn(async (request) => {
+      if (changing) client.invalidate()
+      return store.getPage(request)
+    })
+    const client = new SharedLibraryCatalogLoad(fetch)
+    await expect(client.load(() => true)).rejects.toBeInstanceOf(LibraryCatalogLoadInvalidatedError)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    changing = false
+    expect((await client.load(() => true)).tracks).toHaveLength(1)
   })
 
   it('restarts once on serialized expiry, discarding partial data', async () => {

@@ -9,10 +9,12 @@ import { usePlayback } from '@renderer/features/playback/composables/usePlayback
 import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
 import { useAlbumTint } from '@renderer/features/playback/composables/useAlbumTint'
 import type { PlaybackMode } from '@renderer/features/playback/types'
+import { usePlaybackModePresentation } from '@renderer/features/playback/composables/usePlaybackModePresentation'
 import TrackProgressInfo from './TrackProgressInfo.vue'
 import PlaybackQueuePopover from './PlaybackQueuePopover.vue'
 import PlaybackModeMenu from './PlaybackModeMenu.vue'
 import PlayerVolumeControl from './PlayerVolumeControl.vue'
+import PlayerBarActionIcon from './PlayerBarActionIcon.vue'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { isPlayerVisualEffectsActive } from '@renderer/app/utils/playerVisualEffects'
 import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverlayFocus'
@@ -278,21 +280,11 @@ onUnmounted(() => {
 })
 
 // --- Mode icon ---
-const playbackModeIconClass = computed(() => {
-  switch (playback.state.playbackMode) {
-    case 'repeat-all':
-      return 'i-ph-repeat'
-    case 'repeat-one':
-      return 'i-ph-repeat-once'
-    case 'shuffle':
-      return 'i-ph-shuffle'
-    case 'album-shuffle':
-      return 'i-ph-vinyl-record'
-    case 'sequential':
-    default:
-      return 'i-ph-list-numbers'
-  }
-})
+const {
+  icon: playbackModeIconClass,
+  label: playbackModeLabel,
+  tooltip: playbackModeTooltip,
+} = usePlaybackModePresentation(() => playback.state.playbackMode)
 
 // --- Transport ---
 function handlePlayPause(): void {
@@ -365,7 +357,7 @@ function handleNext(): void {
             <span
               v-else
               class="h-6 w-6"
-              :class="playback.state.isPlaying ? 'i-ph-music-note-fill' : 'i-ph-play-fill'"
+              :class="playback.state.isPlaying ? 'i-ph-pause-fill' : 'i-ph-play-fill'"
               aria-hidden="true"
             />
           </button>
@@ -390,14 +382,16 @@ function handleNext(): void {
           <button
             v-if="!isUtilitiesOverflow"
             ref="modeButtonRef"
+            v-tooltip="playbackModeTooltip"
             class="player-bar-control"
             :class="{ 'player-bar-control-active': isModeMenuOpen }"
             type="button"
-            :aria-label="t('player.mode')"
+            :aria-label="playbackModeLabel"
+            aria-haspopup="menu"
             :aria-expanded="isModeMenuOpen"
             @click="toggleModeMenu"
           >
-            <span class="playbar-action-icon h-5 w-5" :class="playbackModeIconClass" />
+            <PlayerBarActionIcon :icon="playbackModeIconClass" />
           </button>
 
           <button
@@ -410,7 +404,7 @@ function handleNext(): void {
             :aria-expanded="isQueueOpen"
             @click="toggleQueue"
           >
-            <span class="playbar-action-icon h-5 w-5 i-ph-queue" />
+            <PlayerBarActionIcon icon="i-ph-queue" />
           </button>
 
           <div ref="queuePopoverRef" class="contents">
@@ -432,7 +426,7 @@ function handleNext(): void {
             "
             @click="toggleLyrics"
           >
-            <span class="playbar-action-icon h-5 w-5 i-ph-subtitles" aria-hidden="true" />
+            <PlayerBarActionIcon icon="i-ph-subtitles" />
           </button>
 
           <div v-if="isUtilitiesOverflow" class="player-bar-overflow">
@@ -458,11 +452,13 @@ function handleNext(): void {
             >
               <button
                 ref="modeButtonRef"
+                v-tooltip="playbackModeTooltip"
                 class="player-bar-control player-bar-overflow-item"
                 :class="{ 'player-bar-control-active': isModeMenuOpen }"
                 type="button"
                 role="menuitem"
-                :aria-label="t('player.mode')"
+                :aria-label="playbackModeLabel"
+                aria-haspopup="menu"
                 :aria-expanded="isModeMenuOpen"
                 @click="toggleModeMenu"
               >

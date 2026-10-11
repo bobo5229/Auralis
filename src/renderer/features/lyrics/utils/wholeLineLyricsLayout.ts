@@ -7,8 +7,6 @@ export interface WholeLyricMetric {
 
 export const WHOLE_LYRIC_SHADOW_GAP = 4
 export const WHOLE_LYRIC_OPENING_GAP = 16
-export const WHOLE_LYRIC_MOTION_EASING = 'cubic-bezier(0.22, 0.72, 0.18, 1)'
-
 export function resolveWholeLyricsMotionDuration(
   lines: readonly LyricLine[],
   previousIndex: number,

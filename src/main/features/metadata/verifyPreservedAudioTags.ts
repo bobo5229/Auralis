@@ -57,6 +57,9 @@ export async function verifyPreservedAudioTags(source: string, staging: string):
     '©alb',
     '©gen',
     'gnre',
+    // This freeform MP4 field is part of the editable genre list, whose final
+    // value is checked by verifyWrittenMetadata rather than preserved verbatim.
+    '----:com.apple.itunes:genre',
     '©day',
     'inam',
     'iart',

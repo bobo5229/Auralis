@@ -44,7 +44,6 @@ import CdTrackList from '../components/CdTrackList.vue'
 import CdFocusLyrics from '../components/CdFocusLyrics.vue'
 import { createCdStage, type CdAlbum } from '../utils/cdStageController'
 import { useCdCanvasTheme } from '../composables/useCdCanvasTheme'
-import { useCdProgressStyle } from '../composables/useCdProgressStyle'
 import { useCdCanvasColors } from '../composables/useCdCanvasColors'
 import { formatCdAccent } from '../utils/cdAccent'
 import { presentCdTrackComposers } from '../utils/cdTrackComposers'
@@ -80,7 +79,6 @@ const trackPanelRef = ref<HTMLElement | null>(null)
 const controlsRef = ref<HTMLElement | null>(null)
 const focusedPlaybackFrameRef = ref<HTMLElement | null>(null)
 const focused = ref(false)
-const { cdProgressStyle, toggleCdProgressStyle } = useCdProgressStyle()
 const { cdVibrationEnabled, toggleCdVibration, cdVibrationStyle, setCdVibrationStyle } =
   useCdVibration()
 const vibrationToggleLabel = computed(() =>
@@ -98,14 +96,6 @@ function handleVibrationContextMenu(): void {
   }
   setCdVibrationStyle(cdVibrationStyle.value === 'smooth' ? 'elastic' : 'smooth')
 }
-const progressToggleLabel = computed(() =>
-  t('albums.cd.progress.switchTo', {
-    style: t(`albums.cd.progress.${cdProgressStyle.value === 'wave' ? 'comet' : 'wave'}`),
-  }),
-)
-const progressTooltip = computed(() =>
-  t('albums.cd.progress.current', { style: t(`albums.cd.progress.${cdProgressStyle.value}`) }),
-)
 const focusSettled = ref(false)
 const cdMode = ref<CdPlaybackMode>('catalog-sequential')
 const discSurface = ref<'cd' | 'vinyl'>('cd')
@@ -507,7 +497,6 @@ function syncPlaybackRing(): void {
     playing: playback.state.isPlaying,
     progress: Number.isFinite(duration) && duration > 0 ? playback.state.currentTime / duration : 0,
     accent: `var(--cd-wave-accent, ${ringAccent.value})`,
-    style: cdProgressStyle.value,
   })
 }
 
@@ -519,7 +508,6 @@ watch(
     () => playback.state.currentTime,
     () => playback.state.duration,
     ringAccent,
-    cdProgressStyle,
   ],
   syncPlaybackRing,
 )
@@ -1106,17 +1094,6 @@ onBeforeUnmount(() => {
         aria-hidden="true"
       ></span>
       <span v-else class="i-lucide-moon cd-control-icon" aria-hidden="true"></span>
-    </button>
-    <button
-      v-if="focused && !starting"
-      v-tooltip.feedback="progressTooltip"
-      type="button"
-      class="cd-progress-toggle"
-      :aria-label="progressToggleLabel"
-      :data-progress-style="cdProgressStyle"
-      @click="toggleCdProgressStyle"
-    >
-      <span class="i-lucide-audio-lines cd-control-icon" aria-hidden="true"></span>
     </button>
     <CdSpectrumPreview v-if="route.query.spectrum === '1'" :frame="spectrumFrame" />
     <button
@@ -1924,8 +1901,7 @@ onBeforeUnmount(() => {
   background: transparent;
   box-shadow: none;
 }
-.cd-page .cd-vibration-toggle,
-.cd-page .cd-progress-toggle {
+.cd-page .cd-vibration-toggle {
   padding: 0;
   color: var(--cd-text-muted);
   border: 0;
@@ -1936,24 +1912,14 @@ onBeforeUnmount(() => {
 .cd-page .cd-vibration-toggle[aria-pressed='true'] {
   color: var(--cd-text);
 }
-.cd-page .cd-vibration-toggle:hover:not(:disabled),
-.cd-page .cd-progress-toggle:hover:not(:disabled) {
+.cd-page .cd-vibration-toggle:hover:not(:disabled) {
   color: var(--cd-text);
   background: transparent;
   box-shadow: none;
 }
-.cd-page .cd-progress-toggle {
-  position: absolute;
-  left: 72px;
-  bottom: 24px;
-  z-index: 8;
-  width: 32px;
-  height: 32px;
-  -webkit-app-region: no-drag;
-}
 .cd-page .cd-vibration-toggle {
   position: absolute;
-  left: 120px;
+  left: 72px;
   bottom: 24px;
   z-index: 8;
   width: 32px;
@@ -2205,12 +2171,8 @@ onBeforeUnmount(() => {
     left: 16px;
     bottom: 16px;
   }
-  .cd-page .cd-progress-toggle {
-    left: 64px;
-    bottom: 16px;
-  }
   .cd-page .cd-vibration-toggle {
-    left: 112px;
+    left: 64px;
     bottom: 16px;
   }
 }

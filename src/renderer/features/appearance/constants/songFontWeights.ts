@@ -16,6 +16,7 @@ export const SONG_COVER_FONT_FIELDS = [
   'trackNumber',
   'genre',
   'duration',
+  'bitrate',
   'discHeading',
 ] as const
 
@@ -50,6 +51,7 @@ export const SONG_FONT_WEIGHT_DEFAULTS = {
     trackNumber: 400,
     genre: 400,
     duration: 400,
+    bitrate: 400,
     discHeading: 700,
   },
 } as const satisfies {
@@ -66,6 +68,7 @@ const FIELD_SLUG = {
   trackNumber: 'track-number',
   genre: 'genre',
   duration: 'duration',
+  bitrate: 'bitrate',
   discHeading: 'disc-heading',
 } as const satisfies Record<SongCoverFontField, string>
 

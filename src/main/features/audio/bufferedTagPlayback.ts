@@ -98,6 +98,7 @@ export class BufferedTagPlayback {
   private frozenTagTime: number | null = null
   private tagDecodeOffset = 0
   private tagSeekLoading = false
+  private writesInFlight = 0
   private readonly tagFiles = new Set<TagAudioSnapshot>()
 
   constructor(
@@ -114,6 +115,16 @@ export class BufferedTagPlayback {
 
   isActive(): boolean {
     return this.tagWindow !== null
+  }
+
+  get canReuseTransport(): boolean {
+    return (
+      !this.writesInFlight &&
+      !this.tagWindow &&
+      !this.tagFallback &&
+      !this.tagSeekLoading &&
+      !this.tagFiles.size
+    )
   }
 
   get decodeOffset(): number {
@@ -365,6 +376,7 @@ export class BufferedTagPlayback {
     const cancel = () => window.reject(new Error('Tag playback cancelled'))
     signal.addEventListener('abort', cancel, { once: true })
     this.tagWindow = window
+    this.writesInFlight++
     if (this.read().paused) this.frozenTagTime ??= this.read().currentTime
     const nextRequest = this.scheduling.suspendPreparation()
     let prepared: PreparedAudioTagWrite | null = null
@@ -441,7 +453,11 @@ export class BufferedTagPlayback {
     } finally {
       window.done = true
       signal.removeEventListener('abort', cancel)
-      await this.completeWrite(attempt, intent, prepared, resumeReaders)
+      try {
+        await this.completeWrite(attempt, intent, prepared, resumeReaders)
+      } finally {
+        this.writesInFlight--
+      }
     }
   }
 

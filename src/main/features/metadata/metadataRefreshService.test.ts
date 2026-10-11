@@ -411,3 +411,174 @@ describe('metadata refresh worker host shutdown retry', () => {
     expect(worker.terminate).toHaveBeenCalledTimes(2)
   })
 })
+
+describe('metadata refresh partial completion', () => {
+  it.each(['fatal', 'error', 'exit'] as const)(
+    'does not publish metadata changes or count unprocessed tracks after %s without commits',
+    async (terminal) => {
+      const { service, repo, send } = setup()
+      service.refreshTrack(1)
+      if (terminal === 'fatal')
+        workers[0].emit('message', {
+          type: 'fatal',
+          payload: { jobId: 1, reason: 'Fatal refresh' },
+        })
+      else if (terminal === 'error') workers[0].emit('error', new Error('Worker error'))
+      else workers[0].emit('exit', 1)
+      await vi.waitFor(() => expect(service.hasActiveJob()).toBe(false))
+      expect(repo.updateJobProgress).toHaveBeenLastCalledWith(1, 0, 0)
+      expect(send).toHaveBeenCalledExactlyOnceWith('metadata:refresh-progress', {
+        jobId: 1,
+        status: 'failed',
+        totalTracks: 1,
+        processedTracks: 0,
+        failedTracks: 0,
+      })
+    },
+  )
+
+  it.each(['fatal', 'error', 'exit'] as const)(
+    'publishes committed tracks and actual counts once after %s, without affecting the next job',
+    async (terminal) => {
+      const { service, repo, send } = setup()
+      repo.getTracksByIds.mockReturnValue([
+        { trackId: 1, filePath: 'isolated.flac' },
+        { trackId: 2, filePath: 'failed.flac' },
+        { trackId: 3, filePath: 'unprocessed.flac' },
+      ])
+      service.refreshTracks([1, 2, 3])
+      const worker = workers[0]
+      worker.emit('message', { type: 'result', payload })
+      worker.emit('message', {
+        type: 'failure',
+        payload: { jobId: 1, trackId: 2, filePath: 'failed.flac', reason: 'Invalid tags' },
+      })
+      if (terminal === 'fatal')
+        worker.emit('message', { type: 'fatal', payload: { jobId: 1, reason: 'Fatal refresh' } })
+      else if (terminal === 'error') worker.emit('error', new Error('Worker error'))
+      else worker.emit('exit', 1)
+      await vi.waitFor(() => expect(service.hasActiveJob()).toBe(false))
+      expect(repo.updateTrackMetadata).toHaveBeenCalledExactlyOnceWith(payload)
+      expect(repo.updateJobProgress).toHaveBeenLastCalledWith(1, 1, 1)
+      expect(repo.completeJob).toHaveBeenCalledOnce()
+      expect(send).toHaveBeenCalledWith('library:changed', {
+        reason: 'metadata-refresh',
+        trackIds: [1],
+        filePaths: [],
+      })
+      expect(send).toHaveBeenCalledWith('metadata:refresh-progress', {
+        jobId: 1,
+        status: 'failed',
+        totalTracks: 3,
+        processedTracks: 2,
+        failedTracks: 1,
+      })
+
+      service.refreshTrack(1)
+      worker.emit('message', { type: 'result', payload })
+      worker.emit('message', { type: 'complete' })
+      worker.emit('error', new Error('Late worker error'))
+      worker.emit('exit', 1)
+      workers[1].emit('message', { type: 'complete' })
+      await vi.waitFor(() => expect(repo.completeJob).toHaveBeenCalledTimes(2))
+      expect(repo.updateTrackMetadata).toHaveBeenCalledOnce()
+      expect(send.mock.calls.filter(([channel]) => channel === 'library:changed')).toHaveLength(1)
+      expect(
+        send.mock.calls.filter(([channel]) => channel === 'metadata:refresh-progress'),
+      ).toHaveLength(2)
+    },
+  )
+
+  it.each(['job-progress', 'renderer-progress', 'completion'] as const)(
+    'retains committed changes and file-change scope when %s throws',
+    async (failure) => {
+      const { service, repo, send } = setup()
+      repo.getJobById.mockReturnValue({ scope: 'file-change' })
+      service.refreshTracksFromFileChanges([1])
+      if (failure === 'job-progress')
+        repo.updateJobProgress.mockImplementationOnce(() => {
+          throw new Error('Progress SQL failed')
+        })
+      if (failure === 'renderer-progress')
+        send.mockImplementationOnce((channel) => {
+          if (channel === 'metadata:refresh-progress') throw new Error('Renderer send failed')
+        })
+      if (failure === 'completion')
+        repo.completeJob.mockImplementationOnce(() => {
+          throw new Error('Completion SQL failed')
+        })
+      workers[0].emit('message', { type: 'result', payload })
+      if (failure !== 'completion')
+        workers[0].emit('message', {
+          type: 'progress',
+          payload: { jobId: 1, processed: 1, failed: 0 },
+        })
+      workers[0].emit('message', { type: 'complete' })
+      workers[0].emit('error', new Error('Late error'))
+      workers[0].emit('exit', 1)
+      await vi.waitFor(() => expect(service.hasActiveJob()).toBe(false))
+      expect(repo.updateTrackMetadata).toHaveBeenCalledExactlyOnceWith(payload)
+      expect(repo.updateJobProgress).toHaveBeenLastCalledWith(1, 1, 0)
+      expect(repo.completeJob).toHaveBeenCalledOnce()
+      expect(send).toHaveBeenCalledWith('library:changed', {
+        reason: 'file-change',
+        trackIds: [1],
+        filePaths: [],
+      })
+      expect(send).toHaveBeenLastCalledWith('metadata:refresh-progress', {
+        jobId: 1,
+        status: 'failed',
+        totalTracks: 1,
+        processedTracks: 1,
+        failedTracks: 0,
+      })
+      expect(send.mock.calls.filter(([channel]) => channel === 'library:changed')).toHaveLength(1)
+    },
+  )
+
+  it('publishes previously committed tracks when shutting down', async () => {
+    const { service, repo, send } = setup()
+    service.refreshTrack(1)
+    workers[0].emit('message', { type: 'result', payload })
+    await vi.waitFor(() => expect(repo.updateTrackMetadata).toHaveBeenCalledOnce())
+    await service.shutdown()
+    expect(repo.updateJobProgress).toHaveBeenLastCalledWith(1, 1, 0)
+    expect(repo.completeJob).toHaveBeenCalledExactlyOnceWith(
+      1,
+      'Application shutdown interrupted refresh',
+    )
+    expect(send).toHaveBeenCalledWith('library:changed', {
+      reason: 'metadata-refresh',
+      trackIds: [1],
+      filePaths: [],
+    })
+    expect(send).toHaveBeenLastCalledWith('metadata:refresh-progress', {
+      jobId: 1,
+      status: 'failed',
+      totalTracks: 1,
+      processedTracks: 1,
+      failedTracks: 0,
+    })
+  })
+
+  it('notifies once after complete even when terminal progress delivery fails', async () => {
+    const { service, repo, send } = setup()
+    send.mockImplementation((channel) => {
+      if (channel === 'metadata:refresh-progress') throw new Error('Renderer send failed')
+    })
+    service.refreshTrack(1)
+    workers[0].emit('message', { type: 'result', payload })
+    workers[0].emit('message', { type: 'complete' })
+    workers[0].emit('error', new Error('Late error'))
+    workers[0].emit('exit', 1)
+    await vi.waitFor(() => expect(service.hasActiveJob()).toBe(false))
+    expect(repo.completeJob).toHaveBeenCalledExactlyOnceWith(1)
+    expect(send.mock.calls.filter(([channel]) => channel === 'library:changed')).toEqual([
+      ['library:changed', { reason: 'metadata-refresh', trackIds: [1], filePaths: [] }],
+    ])
+    expect(send).toHaveBeenLastCalledWith(
+      'metadata:refresh-progress',
+      expect.objectContaining({ status: 'completed', processedTracks: 1, failedTracks: 0 }),
+    )
+  })
+})

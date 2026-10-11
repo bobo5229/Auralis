@@ -37,6 +37,7 @@ interface UseLibraryMetadataEditorOptions {
   getSaveFailureMessage?: (reason: string) => string
   getLoadErrorMessage?: () => string
   getPlaybackInUseMessage?: () => string
+  getPreloadInUseMessage?: () => string
   getQueryFailedMessage?: () => string
   getTrackEditState?: (trackId: number) => Promise<TrackEditStateResult>
   onTrackEditStateChanged?: (callback: (event: TrackEditStateChangedEvent) => void) => () => void
@@ -210,8 +211,11 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       ) {
         const rejected = saveResult as { ok: false; reason: string }
         if (rejected.reason === 'playback-in-use') {
-          editStatus.value = 'playback-in-use'
-          errorMessageSource.value = options.getPlaybackInUseMessage ?? options.getSaveErrorMessage
+          if (editStatus.value !== 'preload-in-use') editStatus.value = 'playback-in-use'
+          errorMessageSource.value = () =>
+            editStatus.value === 'preload-in-use'
+              ? (options.getPreloadInUseMessage ?? options.getSaveErrorMessage)()
+              : (options.getPlaybackInUseMessage ?? options.getSaveErrorMessage)()
         } else if (rejected.reason === 'write-in-progress') {
           editStatus.value = 'write-in-progress'
           errorMessageSource.value = options.getSaveErrorMessage

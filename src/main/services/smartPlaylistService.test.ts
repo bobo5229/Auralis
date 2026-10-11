@@ -20,6 +20,7 @@ describe('recent added album order', () => {
       releaseDate: null,
       copyright: null,
       composer: null,
+      bitrateBps: null,
       durationSeconds: null,
       artworkCacheKey: null,
       genre: null,

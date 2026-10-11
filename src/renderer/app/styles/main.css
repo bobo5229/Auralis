@@ -175,6 +175,10 @@
   --auralis-playbar-reduced-transparency-bg: #1a1a1a;
 
   /* Song list tokens */
+  --auralis-track-selected-bg: var(--auralis-theme-accent);
+  --auralis-track-selected-text: var(--auralis-control-primary-text);
+  --auralis-track-context-bg: color-mix(in srgb, var(--auralis-theme-accent) 78%, #000);
+  --auralis-track-context-text: var(--auralis-control-primary-text);
   --auralis-song-row-bg: transparent;
   --auralis-song-row-alt-bg: rgba(225, 221, 214, 0.035);
   --auralis-song-row-border: rgba(225, 221, 214, 0.08);
@@ -283,6 +287,10 @@
   --auralis-playbar-reduced-transparency-bg: #f8f9fa;
 
   /* Song list tokens */
+  --auralis-track-selected-bg: var(--auralis-theme-accent);
+  --auralis-track-selected-text: var(--auralis-control-primary-text);
+  --auralis-track-context-bg: var(--auralis-theme-accent-soft);
+  --auralis-track-context-text: var(--auralis-text);
   --auralis-song-row-bg: transparent;
   --auralis-song-row-alt-bg: rgba(41, 43, 45, 0.025);
   --auralis-song-row-border: rgba(41, 43, 45, 0.05);
@@ -352,6 +360,10 @@
   --auralis-progress-fill: var(--auralis-theme-accent);
   --auralis-volume-fill: var(--auralis-theme-accent);
   --auralis-artwork-placeholder-bg: rgba(225, 221, 214, 0.12);
+  --auralis-track-selected-bg: var(--auralis-theme-accent);
+  --auralis-track-selected-text: var(--auralis-control-primary-text);
+  --auralis-track-context-bg: color-mix(in srgb, var(--auralis-theme-accent) 78%, #000);
+  --auralis-track-context-text: var(--auralis-control-primary-text);
   --auralis-song-row-bg: transparent;
   --auralis-song-row-alt-bg: rgba(225, 221, 214, 0.035);
   --auralis-song-row-border: rgba(225, 221, 214, 0.08);
@@ -617,7 +629,7 @@ input {
 }
 
 .player-bar .player-bar-island {
-  --volume-growth: min(144px, max(16px, calc(50% - 366px)));
+  --volume-growth: min(130px, max(16px, calc(50% - 366px)));
   width: calc(min(700px, calc(100% - 64px)) + var(--volume-growth) * var(--volume-reveal, 0));
   margin-right: calc(-1 * var(--volume-growth) * var(--volume-reveal, 0));
 }
@@ -627,7 +639,7 @@ input {
 }
 
 .player-bar .volume-inline-reveal {
-  width: calc(144px * var(--volume-reveal, 0));
+  width: calc(130px * var(--volume-reveal, 0));
   opacity: var(--volume-reveal, 0);
   overflow: hidden;
   flex-shrink: 0;
@@ -636,11 +648,10 @@ input {
 .player-bar .volume-inline-panel {
   display: flex;
   align-items: center;
-  width: 138px;
+  width: 130px;
   height: 48px;
-  margin-left: 6px;
-  /* 两端留出半个百分比标签的空间，0% / 100% 仍与填充末端居中对齐。 */
-  padding-inline: 18px;
+  /* 分别为 0% / 100% 留出半个标签的空间，数值仍与填充末端居中对齐。 */
+  padding-inline: 10px 18px;
   flex-shrink: 0;
 }
 
@@ -1026,9 +1037,9 @@ input {
   color: inherit;
 }
 
-/* 密集外框、声波和碟片占比更大；校正图形大小，点击区域保持一致。 */
+/* 菜单内的填充图标及碟片仍按原图形校正；描边图标自行校正几何。 */
 .player-bar
-  .playbar-action-icon:is(
+  .playbar-action-icon:not(.playbar-action-stroke-icon):is(
     .i-ph-subtitles,
     .i-ph-speaker-high,
     .i-ph-speaker-low,
@@ -1204,8 +1215,9 @@ input {
   box-shadow: none;
 }
 
-.player-bar .transport-control-primary[aria-busy='true'] {
-  cursor: wait;
+.player-bar .transport-control-primary:disabled[aria-busy='true'] {
+  color: var(--auralis-playbar-control-strong-fg);
+  cursor: default;
 }
 
 :where([data-reduced-motion='true']) .player-bar .transport-control-primary,
@@ -1728,7 +1740,7 @@ input[type='range'].volume-overlay-slider {
   flex-shrink: 0;
   padding: 12px 10px;
   border-top: 1px solid var(--auralis-border-subtle);
-  background: var(--auralis-sidebar-bg);
+  background: transparent;
 }
 
 /* 展开时均匀横排，收起时按相同顺序纵排。 */
@@ -2150,13 +2162,13 @@ input[type='range'].volume-overlay-slider {
   background-color: var(--auralis-control-hover-bg);
 }
 
-/* 与专辑详情页共用主题色及其对比色；hover 保持选中/播放高亮。 */
+/* 选中与播放沿用主题高亮；菜单目标通过局部语义色覆盖，hover 保持当前状态。 */
 .song-row:is(.song-row--selected, .song-row--playing),
 .song-row:is(.song-row--selected, .song-row--playing):hover,
 .cover-track-row:is([aria-pressed='true'], .cover-track-row--playing),
 .cover-track-row:is([aria-pressed='true'], .cover-track-row--playing):hover {
-  background-color: var(--auralis-theme-accent);
-  color: var(--auralis-control-primary-text);
+  background-color: var(--auralis-track-selected-bg);
+  color: var(--auralis-track-highlight-text, var(--auralis-track-selected-text));
   border-radius: 12px;
   border-color: transparent;
 }
@@ -2171,9 +2183,10 @@ input[type='range'].volume-overlay-slider {
     .cover-track-artist-line,
     .cover-track-genre,
     .cover-track-duration,
+    .cover-track-bitrate,
     .cover-track-bars
   ) {
-  color: var(--auralis-control-primary-text);
+  color: var(--auralis-track-highlight-text, var(--auralis-track-selected-text));
 }
 
 .library-list-shell--play-count {
@@ -2188,7 +2201,14 @@ input[type='range'].volume-overlay-slider {
 
 .song-row:is(.song-row--selected, .song-row--playing):focus-visible,
 .cover-track-row:is([aria-pressed='true'], .cover-track-row--playing):focus-visible {
-  outline-color: var(--auralis-control-primary-text);
+  outline-color: var(--auralis-track-highlight-text, var(--auralis-track-selected-text));
+}
+
+/* 菜单目标沿用主题色相，深色主题压暗、浅色主题使用柔和底色；优先于播放与 hover 背景。 */
+:is(.song-row, .cover-track-row).library-track-context-selected,
+:is(.song-row, .cover-track-row).library-track-context-selected:hover {
+  --auralis-track-highlight-text: var(--auralis-track-context-text);
+  background-color: var(--auralis-track-context-bg);
 }
 
 /* Library search bar */
@@ -2398,7 +2418,7 @@ input[type='range'].volume-overlay-slider {
   background: var(--auralis-border-subtle);
 }
 
-:is(.library-overlay, .albums-overlay, .sidebar-overlay) .frosted-context-menu {
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay) .frosted-context-menu {
   padding: 4px;
   border: none;
   border-radius: 16px;
@@ -2409,7 +2429,7 @@ input[type='range'].volume-overlay-slider {
   color: var(--auralis-text);
 }
 
-:is(.library-overlay, .albums-overlay, .sidebar-overlay)
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
   .frosted-context-menu
   .library-context-menu-item {
   border: none;
@@ -2419,21 +2439,21 @@ input[type='range'].volume-overlay-slider {
   color: var(--auralis-text-muted);
 }
 
-:is(.library-overlay, .albums-overlay, .sidebar-overlay)
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
   .frosted-context-menu
   .library-context-menu-item:hover:not(:disabled) {
   background: var(--auralis-control-hover-bg);
   color: var(--auralis-text);
 }
 
-:is(.library-overlay, .albums-overlay, .sidebar-overlay)
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
   .frosted-context-menu
   .library-context-menu-item:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: -2px;
 }
 
-:is(.library-overlay, .albums-overlay, .sidebar-overlay)
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
   .frosted-context-menu
   .library-context-menu-separator {
   position: relative;
@@ -2445,7 +2465,7 @@ input[type='range'].volume-overlay-slider {
   background: transparent;
 }
 
-:is(.library-overlay, .albums-overlay, .sidebar-overlay)
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
   .frosted-context-menu
   .library-context-menu-separator::before {
   content: '';
@@ -2459,7 +2479,7 @@ input[type='range'].volume-overlay-slider {
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  :is(.library-overlay, .albums-overlay, .sidebar-overlay) .frosted-context-menu {
+  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay) .frosted-context-menu {
     background: var(--auralis-dialog-bg);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -2467,21 +2487,22 @@ input[type='range'].volume-overlay-slider {
 }
 
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  :is(.library-overlay, .albums-overlay, .sidebar-overlay) .frosted-context-menu {
+  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay) .frosted-context-menu {
     background: var(--auralis-dialog-bg);
   }
 }
 
 /* 深色菜单在正常和透明度降级状态下都使用不透明浮层色。 */
 :where([data-theme='dark'], :root:not([data-theme='light']))
-  :is(.library-overlay, .albums-overlay, .sidebar-overlay)
+  :is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
   .frosted-context-menu {
   background: var(--auralis-context-menu-bg);
 }
 
 :where([data-theme='light'])
   .library-overlay[data-library-overlay='context-menu']
-  .library-context-menu-panel {
+  .library-context-menu-panel,
+:where([data-theme='light']) :is(.fullscreen-player, .lyrics-menu-overlay) .frosted-context-menu {
   background: var(--auralis-context-menu-bg);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
@@ -2495,10 +2516,10 @@ input[type='range'].volume-overlay-slider {
   overflow-y: auto;
 }
 
-:is(.library-overlay, .albums-overlay, .sidebar-overlay)
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
   .frosted-context-menu
   .library-context-menu-item.smart-playlist-context-danger,
-:is(.library-overlay, .albums-overlay, .sidebar-overlay)
+:is(.library-overlay, .albums-overlay, .sidebar-overlay, .fullscreen-player, .lyrics-menu-overlay)
   .frosted-context-menu
   .library-context-menu-item.smart-playlist-context-danger:hover:not(:disabled) {
   color: var(--auralis-danger);
@@ -2595,70 +2616,27 @@ input[type='range'].volume-overlay-slider {
   background: var(--auralis-sidebar-active-bg);
 }
 
-/* 专辑详情页退出 ➔ 专辑列表页：黑胶沉降与景深聚拢归位 */
-.album-detail-exit-matrix-leave-active {
+/* 专辑详情页退出 ➔ 专辑列表页：与进入对称的原位交叉淡入淡出 */
+.album-detail-exit-fade-leave-active {
   position: absolute;
   inset: 0;
   width: 100%;
   overflow: hidden;
   pointer-events: none;
-  transition:
-    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 320ms cubic-bezier(0.16, 1, 0.3, 1),
-    filter 320ms cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, opacity, filter;
+  transition: opacity 180ms ease-out;
+  will-change: opacity;
   z-index: 20;
 }
 
-.album-detail-exit-matrix-leave-to {
-  opacity: 0;
-  transform: scale(0.92) translateY(16px);
-  filter: blur(8px);
-}
-
-.album-detail-exit-matrix-enter-active {
-  transition:
-    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 320ms cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, opacity;
+.album-detail-exit-fade-enter-active {
+  transition: opacity 180ms ease-out;
+  will-change: opacity;
   z-index: 10;
 }
 
-.album-detail-exit-matrix-enter-from {
+.album-detail-exit-fade-leave-to,
+.album-detail-exit-fade-enter-from {
   opacity: 0;
-  transform: scale(1.04);
-}
-
-/* 专辑列表页进入 ➔ 专辑详情页：景深前推与黑胶破土浮升 */
-.album-detail-enter-matrix-leave-active {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  overflow: hidden;
-  pointer-events: none;
-  transition:
-    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 320ms cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, opacity;
-  z-index: 10;
-}
-
-.album-detail-enter-matrix-leave-to {
-  opacity: 0;
-  transform: scale(1.04);
-}
-
-.album-detail-enter-matrix-enter-active {
-  transition:
-    transform 320ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 320ms cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, opacity;
-  z-index: 20;
-}
-
-.album-detail-enter-matrix-enter-from {
-  opacity: 0;
-  transform: scale(0.94) translate3d(0, 16px, 0);
 }
 
 /* Library view switch fade */
@@ -2714,20 +2692,10 @@ input[type='range'].volume-overlay-slider {
   transform: translateX(-50%);
 }
 
-:where([data-reduced-motion='true']) .album-detail-exit-matrix-leave-active,
-:where([data-reduced-motion='true']) .album-detail-exit-matrix-enter-active,
-:where([data-reduced-motion='true']) .album-detail-enter-matrix-leave-active,
-:where([data-reduced-motion='true']) .album-detail-enter-matrix-enter-active {
-  transition: opacity 300ms ease;
-  will-change: opacity;
-}
-
-:where([data-reduced-motion='true']) .album-detail-exit-matrix-leave-to,
-:where([data-reduced-motion='true']) .album-detail-exit-matrix-enter-from,
-:where([data-reduced-motion='true']) .album-detail-enter-matrix-leave-to,
-:where([data-reduced-motion='true']) .album-detail-enter-matrix-enter-from {
-  transform: none !important;
-  filter: none !important;
+:where([data-reduced-motion='true']) .album-detail-exit-fade-leave-active,
+:where([data-reduced-motion='true']) .album-detail-exit-fade-enter-active {
+  transition: none;
+  will-change: auto;
 }
 
 :where([data-reduced-motion='true']) .player-bar-album-tint-previous {

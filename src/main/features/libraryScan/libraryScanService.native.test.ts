@@ -25,7 +25,10 @@ class FakeWorker extends EventEmitter {
 const databases: Database.Database[] = []
 const roots: string[] = []
 
-function createHarness(rootPath = 'C:\\Music'): {
+function createHarness(
+  rootPath = 'C:\\Music',
+  workerSequence?: FakeWorker[],
+): {
   db: Database.Database
   service: LibraryScanService
   worker: FakeWorker
@@ -37,11 +40,11 @@ function createHarness(rootPath = 'C:\\Music'): {
   databases.push(db)
   migrateDatabase(db)
   const root = new LibraryRootRepository(db).upsertByPath(rootPath)
-  const worker = new FakeWorker()
+  const worker = workerSequence?.[0] ?? new FakeWorker()
   let capturedOptions: WorkerOptions | null = null
   const createWorker: LibraryScanWorkerFactory = (_fileName, options) => {
     capturedOptions = options
-    return worker as unknown as Worker
+    return (workerSequence?.shift() ?? worker) as unknown as Worker
   }
   const send = vi.fn()
   const service = new LibraryScanService(db, 'C:\\Cache', createWorker, () => [
@@ -85,6 +88,7 @@ describe('LibraryScanService worker lifecycle', () => {
         albumArtist: 'Artist',
         trackNo: null,
         discNo: null,
+        bitrateBps: null,
         durationSeconds: 180,
         year: null,
         releaseDate: null,
@@ -209,6 +213,7 @@ describe('LibraryScanService worker lifecycle', () => {
             albumArtist: 'Artist',
             trackNo: 1,
             discNo: 1,
+            bitrateBps: null,
             durationSeconds: newDuration,
             year: null,
             releaseDate: null,
@@ -290,6 +295,7 @@ describe('LibraryScanService worker lifecycle', () => {
         albumArtist: 'Artist',
         trackNo: null,
         discNo: null,
+        bitrateBps: null,
         durationSeconds: 180,
         year: null,
         releaseDate: null,
@@ -348,6 +354,7 @@ describe('LibraryScanService worker lifecycle', () => {
         albumArtist: 'Artist',
         trackNo: null,
         discNo: null,
+        bitrateBps: null,
         durationSeconds: 180,
         year: null,
         releaseDate: null,
@@ -405,6 +412,7 @@ describe('LibraryScanService worker lifecycle', () => {
       albumArtist: 'Artist',
       trackNo: null,
       discNo: null,
+      bitrateBps: null,
       durationSeconds: 180,
       year: null,
       releaseDate: null,
@@ -481,7 +489,7 @@ describe('LibraryScanService worker lifecycle', () => {
   })
 
   it('preserves stored metadata after a failed read and commits a later retry with its sidecar fingerprint', async () => {
-    const { db, service, worker, rootId } = createHarness()
+    const { db, service, worker, rootId, send } = createHarness()
     const repo = new TrackRepository(db)
     const track = {
       filePath: 'C:\\Music\\song.flac',
@@ -493,6 +501,7 @@ describe('LibraryScanService worker lifecycle', () => {
       albumArtist: 'Artist',
       trackNo: 1,
       discNo: 1,
+      bitrateBps: null,
       durationSeconds: 180,
       year: null,
       releaseDate: null,
@@ -534,6 +543,7 @@ describe('LibraryScanService worker lifecycle', () => {
         {
           ...track,
           title: 'Updated',
+          metadataParserVersion: 'metadata:1',
           fileSize: 200,
           fileMtimeMs: 200,
           lyricsSidecarFingerprint: '[[20,200],null]',
@@ -546,6 +556,12 @@ describe('LibraryScanService worker lifecycle', () => {
       fileMtimeMs: 200,
       metadataCheckedMtimeMs: 200,
       lyricsSidecarFingerprint: '[[20,200],null]',
+      metadataParserVersion: 'metadata:1',
+    })
+    expect(send).toHaveBeenCalledWith('library:changed', {
+      reason: 'metadata-refresh',
+      trackIds: [1],
+      filePaths: [track.filePath],
     })
     await service.cancelScan(2)
   })
@@ -689,5 +705,148 @@ describe('LibraryScanService worker lifecycle', () => {
     })
     expect(service.isScanActive()).toBe(false)
     expect(onEnd).toHaveBeenCalledTimes(1)
+  })
+  it.each(['cancel', 'fatal'] as const)(
+    'ignores every stale worker event while a new scan is active after %s',
+    async (ending) => {
+      const oldWorker = new FakeWorker()
+      const nextWorker = new FakeWorker()
+      const { service, rootId, send } = createHarness('C:\Music', [oldWorker, nextWorker])
+      const onEnd = vi.fn()
+      service.setScanLifecycleHooks({ onEnd })
+      const first = await service.startScan(rootId)
+      if (ending === 'cancel') await service.cancelScan(first.jobId)
+      else {
+        emitWorkerMessage(oldWorker, {
+          type: 'fatal',
+          payload: { jobId: first.jobId, reason: 'old fatal' },
+        })
+        await vi.waitFor(() => expect(onEnd).toHaveBeenCalledTimes(1))
+      }
+      const second = await service.startScan(rootId)
+      send.mockClear()
+      emitWorkerMessage(oldWorker, {
+        type: 'progress',
+        payload: {
+          jobId: first.jobId,
+          status: 'scanning',
+          totalFiles: 99,
+          scannedFiles: 99,
+          failedFiles: 99,
+          currentFile: null,
+          message: 'stale',
+        },
+      })
+      emitWorkerMessage(oldWorker, {
+        type: 'complete',
+        payload: { foundFilePaths: [], unreadableDirectoryPaths: [] },
+      })
+      emitWorkerMessage(oldWorker, {
+        type: 'fatal',
+        payload: { jobId: first.jobId, reason: 'late fatal' },
+      })
+      oldWorker.emit('error', new Error('late error'))
+      oldWorker.emit('exit', 1)
+      await new Promise<void>((resolve) => setImmediate(resolve))
+      expect(service.isScanActive()).toBe(true)
+      expect(service.getScanStatus(second.jobId)).toMatchObject({
+        status: 'scanning',
+        failedFiles: 0,
+      })
+      expect(send).not.toHaveBeenCalled()
+      expect(onEnd).toHaveBeenCalledTimes(1)
+      emitWorkerMessage(nextWorker, {
+        type: 'complete',
+        payload: { foundFilePaths: [], unreadableDirectoryPaths: [] },
+      })
+      await vi.waitFor(() => expect(onEnd).toHaveBeenCalledTimes(2))
+      expect(service.getScanStatus(second.jobId)?.status).toBe('completed')
+      expect(service.isScanActive()).toBe(false)
+    },
+  )
+
+  it('commits valid fallback rows, suppresses cleanup after import failure, and resets for the next scan', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'auralis-scan-import-fallback-'))
+    roots.push(root)
+    const { db, service, worker, rootId, send } = createHarness(root)
+    const makeTrack = (filePath: string, title: string) => ({
+      filePath,
+      title,
+      fileSize: 100,
+      fileMtimeMs: 1,
+      artist: 'Artist',
+      album: 'Album',
+      albumArtist: 'Artist',
+      trackNo: null,
+      discNo: null,
+      bitrateBps: null,
+      durationSeconds: 180,
+      year: null,
+      releaseDate: null,
+      copyright: null,
+      composer: null,
+      genre: null,
+      artworkCacheKey: null,
+      lyricsText: null,
+      lyricsFormat: null,
+      isrc: null,
+      metadataSignature: 'test',
+    })
+    const oldPath = join(root, 'old.flac')
+    new TrackRepository(db).upsertMany([makeTrack(oldPath, 'Old')])
+    const oldId = db.prepare('SELECT id FROM tracks WHERE file_path=?').pluck().get(oldPath)
+    db.exec(
+      "CREATE TRIGGER reject_bad_scan_row BEFORE INSERT ON tracks WHEN NEW.title='Bad' BEGIN SELECT RAISE(ABORT,'bad row'); END",
+    )
+    const tracks = [
+      makeTrack(join(root, 'good-one.flac'), 'One'),
+      makeTrack(join(root, 'bad.flac'), 'Bad'),
+      makeTrack(join(root, 'good-two.flac'), 'Two'),
+    ]
+    const first = await service.startScan(rootId)
+    emitWorkerMessage(worker, { type: 'tracks', payload: tracks })
+    expect(db.prepare('SELECT COUNT(*) FROM tracks').pluck().get()).toBe(1)
+    emitWorkerMessage(worker, {
+      type: 'complete',
+      payload: {
+        foundFilePaths: tracks.map((track) => track.filePath),
+        unreadableDirectoryPaths: [],
+      },
+    })
+    expect(service.getScanStatus(first.jobId)?.status).toBe('completed')
+    expect(db.prepare('SELECT title FROM tracks ORDER BY title').pluck().all()).toEqual([
+      'Old',
+      'One',
+      'Two',
+    ])
+    expect(db.prepare('SELECT availability FROM tracks WHERE id=?').pluck().get(oldId)).toBe(
+      'missing',
+    )
+    expect(db.prepare('SELECT COUNT(*) FROM removed_track_history').pluck().get()).toBe(0)
+    const addedEvent = send.mock.calls.find(
+      ([channel, payload]) => channel === 'library:changed' && payload.reason === 'track-added',
+    )
+    expect(addedEvent?.[1].filePaths).toEqual([tracks[0].filePath, tracks[2].filePath])
+    expect(
+      send.mock.calls.map(([channel, payload]) =>
+        channel === 'library:changed' ? payload.reason : payload.status,
+      ),
+    ).toEqual(['track-added', 'track-missing', 'completed'])
+    send.mockClear()
+    const second = await service.startScan(rootId)
+    emitWorkerMessage(worker, {
+      type: 'complete',
+      payload: {
+        foundFilePaths: [tracks[0].filePath, tracks[2].filePath],
+        unreadableDirectoryPaths: [],
+      },
+    })
+    expect(service.getScanStatus(second.jobId)?.status).toBe('completed')
+    expect(db.prepare('SELECT COUNT(*) FROM removed_track_history').pluck().get()).toBe(1)
+    expect(db.prepare('SELECT COUNT(*) FROM tracks WHERE id=?').pluck().get(oldId)).toBe(0)
+    expect(send).not.toHaveBeenCalledWith(
+      'library:changed',
+      expect.objectContaining({ reason: 'track-added' }),
+    )
   })
 })

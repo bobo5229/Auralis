@@ -1,4 +1,6 @@
 import type { PlayStatsRepository } from '../repositories/playStatsRepository'
+import type { DailyPlayCount, DailyTopTrack } from '@shared/types/listeningArchive'
+import { isListeningArchiveDate } from '@shared/listeningArchiveDate'
 
 /** In-memory idempotency window for sessionIds (insertion-order FIFO eviction). */
 const MAX_SESSION_CACHE = 5000
@@ -59,6 +61,18 @@ export class PlayStatsService {
     }
 
     this.recordedSessions.add(sessionId)
+  }
+
+  getAnnualPlayCounts(year: number): DailyPlayCount[] {
+    if (!Number.isInteger(year) || year < 1900 || year > 9999) {
+      throw new RangeError('Invalid listening archive year')
+    }
+    return this.playStatsRepo.getAnnualPlayCounts(year)
+  }
+
+  getDayTopTracks(date: string): DailyTopTrack[] {
+    if (!isListeningArchiveDate(date)) throw new RangeError('Invalid listening archive date')
+    return this.playStatsRepo.getDayTopTracks(date)
   }
 
   resetAll(): { ok: true } {

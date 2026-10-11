@@ -48,6 +48,12 @@ coverage
 # Tool caches and intermediate files
 /output/**/browser-profile/
 /output/**/isolated-profile/
+/output/**/profile/
+/output/**/*-profile/
+/output/**/*-profile-*/
+/output/**/dist-*/
+# Diagnostics captured from the real local music collection stay local.
+/output/metadata-real-path-probe-20261011/
 .grunt
 .lock-wscript
 lib-cov

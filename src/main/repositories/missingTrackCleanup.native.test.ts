@@ -43,6 +43,7 @@ async function fixture() {
     albumArtist: 'Artist',
     trackNo: null,
     discNo: null,
+    bitrateBps: null,
     durationSeconds: 180,
     year: null,
     releaseDate: null,

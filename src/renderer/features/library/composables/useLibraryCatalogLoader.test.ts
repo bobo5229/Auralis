@@ -1,11 +1,22 @@
 import { ref, shallowRef } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { TrackListItem } from '@shared/types/libraryScan'
-import type { LibraryTrackPage } from '@shared/types/libraryCatalog'
+import type { LibraryScanProgress, TrackListItem } from '@shared/types/libraryScan'
+import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryViewMode } from '../types/libraryInteraction'
+import type { LibraryRouteScope } from '../utils/libraryRouteScope'
+import type { SmartPlaylistDetail, SmartPlaylistRule } from '@shared/types/smartPlaylist'
+import type { PlaylistDetail } from '@shared/types/playlist'
 import type { LibraryViewportCapture } from './useLibraryViewport'
 import { useLibraryCatalogLoader } from './useLibraryCatalogLoader'
+
+// Keep the actual snapshot/cursor implementation in the runtime fixture only.
+const storeModule = '../../../../main/features/libraryCatalog/libraryCatalogSnapshotStore'
+const { LibraryCatalogSnapshotStore } = (await import(storeModule)) as {
+  LibraryCatalogSnapshotStore: new (load: () => TrackListItem[]) => {
+    getPage(request?: LibraryTrackPageRequest): LibraryTrackPage
+  }
+}
 
 function createTrack(id: number): TrackListItem {
   return {
@@ -19,6 +30,7 @@ function createTrack(id: number): TrackListItem {
     releaseDate: null,
     copyright: null,
     composer: null,
+    bitrateBps: null,
     durationSeconds: null,
     artworkCacheKey: null,
     genre: null,
@@ -48,7 +60,10 @@ function deferred<T>() {
 }
 
 function createLoader(overrides?: {
-  getTrackPage?: (request: unknown) => Promise<LibraryTrackPage>
+  captureRouteScope?: () => LibraryRouteScope
+  getSmartPlaylistDetail?: (id: number) => Promise<SmartPlaylistDetail | null>
+  getPlaylistDetail?: (id: number) => Promise<PlaylistDetail | null>
+  getTrackPage?: (request: LibraryTrackPageRequest) => Promise<LibraryTrackPage>
   prepareForegroundViewport?: (isRequestCurrent: () => boolean) => Promise<void>
   restoreNavigationViewport?: (isRequestCurrent: () => boolean) => Promise<boolean>
 }) {
@@ -74,19 +89,32 @@ function createLoader(overrides?: {
     overrides?.restoreNavigationViewport ?? (async () => false),
   )
   let changedHandler: ((event: { reason: string }) => void | Promise<void>) | null = null
+  let scanHandler: ((progress: LibraryScanProgress) => void | Promise<void>) | null = null
+  const subscribeChanged = vi.fn((callback: NonNullable<typeof changedHandler>) => {
+    changedHandler = callback
+    return () => {
+      changedHandler = null
+    }
+  })
+  const subscribeScan = vi.fn((callback: NonNullable<typeof scanHandler>) => {
+    scanHandler = callback
+    return () => {
+      scanHandler = null
+    }
+  })
   const getTrackPage =
     overrides?.getTrackPage ?? vi.fn(async () => createPage([createTrack(1), createTrack(2)]))
 
   const loader = useLibraryCatalogLoader({
     isDisposed: () => disposed,
-    captureRouteScope: () => ({ kind: 'library' as const }),
+    captureRouteScope: overrides?.captureRouteScope ?? (() => ({ kind: 'library' as const })),
     pageIdentity,
     tracks,
     libraryViewMode,
     isLoading,
     getTrackPage,
-    getPlaylistDetail: vi.fn(async () => null),
-    getSmartPlaylistDetail: vi.fn(async () => null),
+    getPlaylistDetail: overrides?.getPlaylistDetail ?? vi.fn(async () => null),
+    getSmartPlaylistDetail: overrides?.getSmartPlaylistDetail ?? vi.fn(async () => null),
     readPersistedViewMode: () => 'flat' as const,
     onSnapshotCommitted,
     captureViewportRestore,
@@ -96,13 +124,8 @@ function createLoader(overrides?: {
     restoreNavigationViewport,
     replaceWithLibraryHome,
     loadErrorMessage: () => 'load failed',
-    onLibraryChanged: (callback) => {
-      changedHandler = callback
-      return () => {
-        changedHandler = null
-      }
-    },
-    onScanProgress: () => () => undefined,
+    onLibraryChanged: subscribeChanged,
+    onScanProgress: subscribeScan,
   })
 
   return {
@@ -116,8 +139,13 @@ function createLoader(overrides?: {
     scrollToPlaybackTrack,
     prepareForegroundViewport,
     restoreNavigationViewport,
+    subscribeChanged,
+    subscribeScan,
     emitLibraryChanged: async (reason: string) => {
       await changedHandler?.({ reason })
+    },
+    emitScanCompleted: async () => {
+      await scanHandler?.({ status: 'completed' } as LibraryScanProgress)
     },
     dispose: () => {
       disposed = true
@@ -128,6 +156,169 @@ function createLoader(overrides?: {
 
 describe('useLibraryCatalogLoader', () => {
   afterEach(() => vi.useRealTimers())
+
+  function smartDetail(rule: SmartPlaylistRule, ids: number[]): SmartPlaylistDetail {
+    return {
+      playlist: {
+        id: 1,
+        name: 'Smart',
+        rule,
+        viewMode: 'flat',
+        sortOrder: 0,
+        createdAt: '',
+        updatedAt: '',
+      },
+      tracks: ids.map(createTrack),
+    }
+  }
+
+  it.each<SmartPlaylistRule>([
+    { preset: 'recentPlayed', days: 7 },
+    { preset: 'mostListened' },
+    { preset: 'recentFrequent', days: 7 },
+  ])('reconciles membership and order for $preset on playback and reset', async (rule) => {
+    let source = smartDetail(rule, [])
+    const getDetail = vi.fn(async () => source)
+    const returned = createLoader({
+      captureRouteScope: () => ({ kind: 'smart-playlist', id: 1 }),
+      getSmartPlaylistDetail: getDetail,
+    })
+    returned.loader.subscribeLibraryEvents()
+    await returned.loader.loadLibraryData()
+    source = smartDetail(rule, [2, 1])
+    await returned.emitLibraryChanged('play-stats-updated')
+    expect(returned.tracks.value.map((track) => track.id)).toEqual([2, 1])
+    source = smartDetail(rule, [1, 2])
+    await returned.emitLibraryChanged('play-stats-updated')
+    expect(returned.tracks.value.map((track) => track.id)).toEqual([1, 2])
+    source = smartDetail(rule, [])
+    await returned.emitLibraryChanged('play-stats-reset')
+    expect(returned.tracks.value).toEqual([])
+    expect(returned.getTrackPage).not.toHaveBeenCalled()
+    returned.dispose()
+  })
+
+  it.each<SmartPlaylistRule>([
+    { preset: 'recentAdded', days: 7 },
+    { conditions: [{ field: 'genre', value: 'Rock' }] },
+  ])('does not reread non-statistical smart rules on playback events', async (rule) => {
+    const gate = deferred<SmartPlaylistDetail>()
+    const getDetail = vi.fn(() => gate.promise)
+    const returned = createLoader({
+      captureRouteScope: () => ({ kind: 'smart-playlist', id: 1 }),
+      getSmartPlaylistDetail: getDetail,
+    })
+    returned.loader.subscribeLibraryEvents()
+    const loading = returned.loader.loadLibraryData()
+    await returned.emitLibraryChanged('play-stats-updated')
+    gate.resolve(smartDetail(rule, [1]))
+    expect(await loading).toBe('committed')
+    await returned.emitLibraryChanged('play-stats-reset')
+    expect(getDetail).toHaveBeenCalledOnce()
+    returned.dispose()
+  })
+
+  it('ignores playback events on a manual playlist', async () => {
+    const getDetail = vi.fn(async () => ({
+      playlist: {
+        id: 1,
+        name: 'Manual',
+        viewMode: 'flat' as const,
+        sortOrder: 0,
+        createdAt: '',
+        updatedAt: '',
+      },
+      tracks: [createTrack(1)],
+    }))
+    const returned = createLoader({
+      captureRouteScope: () => ({ kind: 'playlist', id: 1 }),
+      getPlaylistDetail: getDetail,
+    })
+    returned.loader.subscribeLibraryEvents()
+    await returned.loader.loadLibraryData()
+    await returned.emitLibraryChanged('play-stats-updated')
+    await returned.emitLibraryChanged('play-stats-reset')
+    expect(getDetail).toHaveBeenCalledOnce()
+    expect(returned.getTrackPage).not.toHaveBeenCalled()
+    returned.dispose()
+  })
+
+  it('rejects first-load and background results invalidated by consecutive statistics events', async () => {
+    const first = deferred<SmartPlaylistDetail>()
+    const second = deferred<SmartPlaylistDetail>()
+    const rule = { preset: 'recentPlayed' as const, days: 7 }
+    const getDetail = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise)
+      .mockResolvedValue(smartDetail(rule, []))
+    const returned = createLoader({
+      captureRouteScope: () => ({ kind: 'smart-playlist', id: 1 }),
+      getSmartPlaylistDetail: getDetail,
+    })
+    returned.loader.subscribeLibraryEvents()
+    const loading = returned.loader.loadLibraryData()
+    await returned.emitLibraryChanged('play-stats-updated')
+    first.resolve(smartDetail(rule, []))
+    expect(await loading).toBe('stale')
+    await vi.waitFor(() => expect(getDetail).toHaveBeenCalledTimes(2))
+    await returned.emitLibraryChanged('play-stats-updated')
+    await returned.emitLibraryChanged('play-stats-reset')
+    second.resolve(smartDetail(rule, [1]))
+    await vi.waitFor(() => expect(returned.onSnapshotCommitted).toHaveBeenCalledOnce())
+    expect(returned.tracks.value).toEqual([])
+    expect(getDetail).toHaveBeenCalledTimes(3)
+    returned.dispose()
+  })
+
+  it('queues reconciliation when statistics change between the first detail resolving and commit', async () => {
+    const gate = deferred<SmartPlaylistDetail>()
+    const rule = { preset: 'mostListened' as const }
+    const getDetail = vi
+      .fn()
+      .mockImplementationOnce(() => gate.promise)
+      .mockResolvedValue(smartDetail(rule, [2]))
+    const returned = createLoader({
+      captureRouteScope: () => ({ kind: 'smart-playlist', id: 1 }),
+      getSmartPlaylistDetail: getDetail,
+    })
+    returned.loader.subscribeLibraryEvents()
+    const loading = returned.loader.loadLibraryData()
+    gate.resolve(smartDetail(rule, [1]))
+    await Promise.resolve()
+    await returned.emitLibraryChanged('play-stats-updated')
+    expect(await loading).toBe('stale')
+    await vi.waitFor(() => expect(returned.tracks.value.map((track) => track.id)).toEqual([2]))
+    expect(returned.onSnapshotCommitted).toHaveBeenCalledOnce()
+    returned.dispose()
+  })
+
+  it.each(['route', 'dispose'])(
+    'does not commit a pending statistics refresh after %s change',
+    async (change) => {
+      const gate = deferred<SmartPlaylistDetail>()
+      const rule = { preset: 'mostListened' as const }
+      let scope: LibraryRouteScope = { kind: 'smart-playlist', id: 1 }
+      const getDetail = vi
+        .fn()
+        .mockResolvedValueOnce(smartDetail(rule, [1]))
+        .mockImplementation(() => gate.promise)
+      const returned = createLoader({
+        captureRouteScope: () => scope,
+        getSmartPlaylistDetail: getDetail,
+      })
+      returned.loader.subscribeLibraryEvents()
+      await returned.loader.loadLibraryData()
+      const pending = returned.emitLibraryChanged('play-stats-reset')
+      if (change === 'dispose') returned.dispose()
+      else scope = { kind: 'library' }
+      gate.resolve(smartDetail(rule, []))
+      await pending
+      expect(returned.tracks.value.map((track) => track.id)).toEqual([1])
+      expect(returned.onSnapshotCommitted).toHaveBeenCalledOnce()
+      returned.dispose()
+    },
+  )
 
   it('mounts and prepares the foreground viewport before restoring navigation, without playback overriding it', async () => {
     const ready = deferred<void>()
@@ -187,6 +378,113 @@ describe('useLibraryCatalogLoader', () => {
     expect(getTrackPage).toHaveBeenCalledOnce()
     dispose()
   })
+
+  it.each(['track-added', 'track-missing', 'metadata-refresh', 'scan-completed'])(
+    'reconciles %s captured while the first snapshot is loading',
+    async (reason) => {
+      vi.useFakeTimers()
+      const gate = deferred<LibraryTrackPage>()
+      const getTrackPage = vi
+        .fn()
+        .mockImplementationOnce(() => gate.promise)
+        .mockResolvedValue(createPage([createTrack(2)]))
+      const returned = createLoader({ getTrackPage })
+      returned.loader.subscribeLibraryEvents()
+      const foreground = returned.loader.loadLibraryData('foreground')
+      if (reason === 'scan-completed') await returned.emitScanCompleted()
+      else await returned.emitLibraryChanged(reason)
+      gate.resolve(createPage([]))
+      await foreground
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(returned.tracks.value.map((track) => track.id)).toEqual([2])
+      expect(returned.loader.initialLoadError.value).toBeNull()
+      returned.dispose()
+    },
+  )
+
+  it('subscribes once and cannot reattach or commit after disposal during the initial load', async () => {
+    const gate = deferred<LibraryTrackPage>()
+    const returned = createLoader({ getTrackPage: () => gate.promise })
+    returned.loader.subscribeLibraryEvents()
+    returned.loader.subscribeLibraryEvents()
+    const foreground = returned.loader.loadLibraryData('foreground')
+    returned.dispose()
+    returned.loader.subscribeLibraryEvents()
+    gate.resolve(createPage([createTrack(1)]))
+    expect(await foreground).toBe('stale')
+    expect(returned.subscribeChanged).toHaveBeenCalledOnce()
+    expect(returned.subscribeScan).toHaveBeenCalledOnce()
+    expect(returned.onSnapshotCommitted).not.toHaveBeenCalled()
+    await returned.emitLibraryChanged('metadata-refresh')
+    await returned.emitScanCompleted()
+    expect(returned.onSnapshotCommitted).not.toHaveBeenCalled()
+  })
+
+  it.each(['track-added', 'track-relocated'])(
+    'publishes complete snapshots during slow continuous %s and converges after imports stop',
+    async (reason) => {
+      vi.useFakeTimers()
+      let source = [createTrack(1)]
+      const store = new LibraryCatalogSnapshotStore(() => source)
+      const returned = createLoader({
+        getTrackPage: async (request) => {
+          const page = store.getPage(request)
+          await new Promise((resolve) => setTimeout(resolve, 1800))
+          return page
+        },
+      })
+      const first = returned.loader.loadLibraryData('foreground')
+      await vi.advanceTimersByTimeAsync(1800)
+      await first
+      returned.loader.subscribeLibraryEvents()
+      source = Array.from({ length: 5001 }, (_, i) => createTrack(i + 1))
+      for (let i = 0; i < 60; i += 1) {
+        source = [...source, createTrack(5002 + i)]
+        await returned.emitLibraryChanged(reason)
+        await vi.advanceTimersByTimeAsync(500)
+      }
+      expect(returned.onSnapshotCommitted.mock.calls.length).toBeGreaterThan(2)
+      expect(returned.tracks.value.length).toBeGreaterThan(5000)
+      for (const [snapshot] of returned.onSnapshotCommitted.mock.calls) {
+        expect(snapshot.tracks.map((track: TrackListItem) => track.id)).toEqual(
+          Array.from({ length: snapshot.tracks.length }, (_, i) => i + 1),
+        )
+      }
+      await vi.advanceTimersByTimeAsync(15000)
+      expect(returned.tracks.value.map((track) => track.id)).toEqual(
+        source.map((track) => track.id),
+      )
+      expect(returned.loader.initialLoadError.value).toBeNull()
+      returned.dispose()
+    },
+  )
+
+  it.each(['track-missing', 'metadata-refresh'])(
+    'does not publish pre-change data after %s invalidates a slow import snapshot',
+    async (reason) => {
+      const gate = deferred<LibraryTrackPage>()
+      let source = [createTrack(1), createTrack(2)]
+      const getTrackPage = vi
+        .fn()
+        .mockImplementationOnce(() => gate.promise)
+        .mockImplementation(async () => createPage(source))
+      const returned = createLoader({ getTrackPage })
+      returned.loader.subscribeLibraryEvents()
+      const foreground = returned.loader.loadLibraryData('foreground')
+      source =
+        reason === 'track-missing'
+          ? [createTrack(1)]
+          : [{ ...createTrack(1), title: 'Edited' }, createTrack(2)]
+      await returned.emitLibraryChanged(reason)
+      gate.resolve(createPage([createTrack(1), createTrack(2)]))
+      expect(await foreground).toBe('committed')
+      await vi.waitFor(() => expect(returned.onSnapshotCommitted).toHaveBeenCalledTimes(2))
+      for (const [snapshot] of returned.onSnapshotCommitted.mock.calls) {
+        expect(snapshot.tracks).toEqual(source)
+      }
+      returned.dispose()
+    },
+  )
 
   it('refreshes during continuous imports and cancels pending timers on dispose', async () => {
     vi.useFakeTimers()

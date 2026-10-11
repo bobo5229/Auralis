@@ -116,7 +116,7 @@ export default defineConfig({
     'album-cover-tracks': 'min-w-0',
     /* height+min-height 固定行盒，与 getAlbumGroupEstimatedHeight 共用行高指标。 */
     'cover-track-row':
-      'relative grid grid-cols-[40px_minmax(0,1.4fr)_minmax(110px,1fr)_48px] gap-x-3 items-center px-3 h-[var(--library-cover-track-row-height)] min-h-[var(--library-cover-track-row-height)] rounded-md cursor-pointer transition-colors hover:bg-[var(--auralis-control-hover-bg)]',
+      'relative grid grid-cols-[40px_minmax(0,1.4fr)_minmax(110px,1fr)_80px] gap-x-3 items-center px-3 h-[var(--library-cover-track-row-height)] min-h-[var(--library-cover-track-row-height)] rounded-md cursor-pointer transition-colors hover:bg-[var(--auralis-control-hover-bg)]',
     'cover-track-row--playing':
       'bg-[var(--auralis-song-row-now-playing-bg)] hover:bg-[var(--auralis-song-row-now-playing-bg)]',
     'lyric-active': 'text-[var(--auralis-lyrics-active)] font-bold text-[28px] leading-12 py-1.5',

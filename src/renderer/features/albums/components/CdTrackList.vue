@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { CdPlaybackMode } from '../utils/cdPlaybackQueue'
 import { formatArtist, splitArtistValues } from '@renderer/features/library/utils/formatArtist'
-import { animatePlaybackUnderline } from '@renderer/shared/animation/motion'
+import PlayingIndicator from '@renderer/shared/components/PlayingIndicator.vue'
 
 const props = defineProps<{
   tracks: TrackListItem[]
@@ -16,7 +16,6 @@ const props = defineProps<{
 const emit = defineEmits<{ play: [id: number]; mode: [] }>()
 const { t } = useI18n()
 const scrollRef = ref<HTMLElement | null>(null)
-const panelRef = ref<HTMLElement | null>(null)
 const hasMultipleDiscs = computed(
   () => new Set(props.tracks.map((track) => track.discNo || 1)).size > 1,
 )
@@ -41,14 +40,6 @@ const rows = computed(() =>
   })),
 )
 watch(
-  [panelRef, () => props.currentTrackId, () => props.isPlaying, rows],
-  (_, __, onCleanup) => {
-    const marker = panelRef.value?.querySelector<HTMLElement>('.cd-playing-line')
-    if (marker) onCleanup(animatePlaybackUnderline(marker, props.isPlaying))
-  },
-  { flush: 'post', immediate: true },
-)
-watch(
   () => props.tracks,
   () => {
     if (scrollRef.value) scrollRef.value.scrollTop = 0
@@ -57,7 +48,7 @@ watch(
 </script>
 
 <template>
-  <div ref="panelRef" class="cd-track-panel">
+  <div class="cd-track-panel">
     <div class="cd-track-heading">
       <h2>{{ t('albums.cd.tracks') }}</h2>
       <button type="button" class="cd-mode" @click="emit('mode')">
@@ -80,7 +71,7 @@ watch(
     <div ref="scrollRef" class="cd-track-scroll" tabindex="0" :aria-label="t('albums.cd.tracks')">
       <template v-for="row in rows" :key="row.track.id">
         <h3 v-if="row.disc" class="cd-disc-heading">
-          {{ t('albums.detail.disc', { number: row.disc }) }}
+          {{ t('albums.detail.disc', { number: String(row.disc).padStart(2, '0') }) }}
         </h3>
         <button
           type="button"
@@ -88,18 +79,22 @@ watch(
           :aria-current="row.track.id === currentTrackId ? 'true' : undefined"
           @click="emit('play', row.track.id)"
         >
-          <span class="cd-track-number">{{
-            row.track.trackNo == null ? '' : String(row.track.trackNo).padStart(2, '0')
-          }}</span>
+          <span class="cd-track-index">
+            <span
+              class="cd-track-number"
+              :class="{ 'cd-track-number--hidden': row.track.id === currentTrackId }"
+              >{{
+                row.track.trackNo == null ? '' : String(row.track.trackNo).padStart(2, '0')
+              }}</span
+            >
+            <PlayingIndicator
+              v-if="row.track.id === currentTrackId"
+              class="cd-playing-bars"
+              :playing="isPlaying"
+            />
+          </span>
           <span class="cd-track-detail">
-            <span class="cd-track-title-wrap">
-              <span class="cd-track-title" dir="auto">{{ row.title }}</span>
-              <span
-                v-if="row.track.id === currentTrackId"
-                class="cd-playing-line"
-                aria-hidden="true"
-              ></span>
-            </span>
+            <span class="cd-track-title" dir="auto">{{ row.title }}</span>
             <span v-if="row.artist" class="cd-track-artist" dir="auto">{{ row.artist }}</span>
           </span>
         </button>
@@ -213,7 +208,13 @@ h2 {
 .cd-track-panel .cd-track + .cd-track {
   border-top-color: var(--cd-border-track, #aaa9a333);
 }
+.cd-track-index {
+  position: relative;
+  display: block;
+  text-align: center;
+}
 .cd-track-number {
+  display: block;
   color: var(--cd-text-subtle, #64645d);
   font: var(--cd-type-weight)
     var(--cd-type-track-number-size)/var(--cd-type-track-number-line-height) var(--cd-font-number);
@@ -223,7 +224,7 @@ h2 {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
 }
 .cd-track-title,
@@ -238,20 +239,19 @@ h2 {
   font: var(--cd-type-weight) var(--cd-type-track-size)/var(--cd-type-track-line-height)
     var(--cd-font-display);
 }
-.cd-track-title-wrap {
-  position: relative;
-  width: fit-content;
-  max-width: 100%;
-  padding-bottom: 3px;
+.cd-track-number--hidden {
+  visibility: hidden;
 }
-.cd-playing-line {
+.cd-playing-bars {
   position: absolute;
-  left: 0;
-  bottom: 0;
-  width: min(18px, 25%);
-  height: 1px;
-  background: var(--cd-text-muted, #62625b);
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  color: var(--cd-text-muted, #62625b);
+  transform: translate(-50%, -50%);
   pointer-events: none;
+  user-select: none;
 }
 .cd-track-artist {
   font: var(--cd-type-weight)

@@ -180,3 +180,22 @@ describe('multi-value artist normalization', () => {
     expect(metadata.albumArtistDisplay).toBe('D；E; F')
   })
 })
+
+describe('normalize encoded bitrate', () => {
+  it.each([320000, 1411200, 256789.5])(
+    'preserves positive bitrate %s in bits per second',
+    (bitrate) => {
+      const metadata = audio()
+      metadata.format = { ...metadata.format, bitrate }
+      expect(normalizeMetadata(metadata).bitrateBps).toBe(bitrate)
+    },
+  )
+  it.each([undefined, 0, -1, NaN, Infinity, -Infinity])(
+    'normalizes invalid bitrate %s to null',
+    (bitrate) => {
+      const metadata = audio()
+      metadata.format = { ...metadata.format, bitrate }
+      expect(normalizeMetadata(metadata).bitrateBps).toBeNull()
+    },
+  )
+})

@@ -71,9 +71,17 @@ describe('Chinese text preferences', () => {
     expect(state.songText('头发')).toBe('頭髮')
     expect(state.songInfoPersistFailed.value).toBe(true)
     expect(state.lyricsPersistFailed.value).toBe(false)
+
+    state.setLyricsScript('traditional')
+    expect(state.lyricText('看着你')).toBe('看著你')
+    expect(state.lyricsPersistFailed.value).toBe(true)
+
     writeFails = false
     state.setSongInfoScript('traditional')
+    state.setLyricsScript('traditional')
     expect(state.songInfoPersistFailed.value).toBe(false)
+    expect(state.lyricsPersistFailed.value).toBe(false)
     expect(storage.get('auralis-song-info-script')).toBe('traditional')
+    expect(storage.get('auralis-lyrics-script')).toBe('traditional')
   })
 })

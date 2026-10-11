@@ -2,24 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   getSplashBrandCharFrame,
   getSplashMotionFrame,
-  getSplashPlaceboCompletion,
-  getSplashPlaceboProgress,
   SPLASH_FORMATION_MS,
   SPLASH_RESONANCE_PATH,
 } from './splashMotion'
-
-describe('placebo progress', () => {
-  it('advances along the demo curve without claiming completion before readiness', () => {
-    expect(getSplashPlaceboProgress(-10)).toBe(0)
-    expect(getSplashPlaceboProgress(0)).toBe(0)
-    expect(getSplashPlaceboProgress(300)).toBeCloseTo(0.32)
-    expect(getSplashPlaceboProgress(900)).toBeCloseTo(0.78)
-    expect(getSplashPlaceboProgress(1_200)).toBeCloseTo(0.92)
-    expect(getSplashPlaceboProgress(60_000)).toBeCloseTo(0.92)
-    expect(getSplashPlaceboCompletion(0, 0.78)).toBe(0.78)
-    expect(getSplashPlaceboCompletion(80, 0.78)).toBe(1)
-  })
-})
 
 describe('one sound forms Auralis', () => {
   it('reveals the sound before the letter and the wordmark', () => {
@@ -64,8 +49,25 @@ describe('brand resonance cascade', () => {
     expect(first.offset).toBeLessThan(7)
     expect(first.accentPercent).toBeGreaterThan(0)
     expect(getSplashBrandCharFrame(580, 1).opacity).toBe(0)
-    expect(getSplashBrandCharFrame(612, 1)).toEqual(first)
+    expect(getSplashBrandCharFrame(604, 1)).toEqual(first)
     expect(getSplashBrandCharFrame(720, 0)).toEqual({ opacity: 1, offset: 0, accentPercent: 0 })
+  })
+
+  it('lets only the final s overshoot gently and settle continuously with the logo', () => {
+    expect(getSplashBrandCharFrame(704, 6).offset).toBeCloseTo(7)
+    expect(getSplashBrandCharFrame(740, 6).offset).toBeGreaterThan(0)
+    const overshoot = getSplashBrandCharFrame(810, 6).offset
+    expect(overshoot).toBeLessThan(-0.8)
+    expect(overshoot).toBeGreaterThan(-1.2)
+    expect(getSplashBrandCharFrame(870, 6).offset).toBeGreaterThan(overshoot)
+    expect(getSplashBrandCharFrame(899, 6).offset).toBeLessThan(0)
+    expect(getSplashBrandCharFrame(899, 6).offset).toBeGreaterThan(-0.001)
+    expect(getSplashBrandCharFrame(900, 6).offset).toBe(0)
+    for (let ms = 560; ms <= SPLASH_FORMATION_MS; ms += 10) {
+      for (let index = 0; index < 6; index += 1) {
+        expect(getSplashBrandCharFrame(ms, index).offset).toBeGreaterThanOrEqual(0)
+      }
+    }
   })
 
   it('leaves every letter fully visible and still at formation completion', () => {

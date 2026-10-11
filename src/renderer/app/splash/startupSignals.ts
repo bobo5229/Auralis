@@ -10,6 +10,8 @@ declare global {
     __auralisSplashActive?: boolean
     /** 主界面已就绪（路由就绪、Vue 挂载并渲染一帧之后）。 */
     __auralisAppReady?: boolean
+    __auralisAppFailed?: boolean
+    __auralisSplashFinished?: boolean
   }
 }
 
@@ -18,3 +20,10 @@ export const APP_FAILED_EVENT = 'auralis:app-failed'
 
 export const SPLASH_ELEMENT_ID = 'splash'
 export const APP_HOST_ELEMENT_ID = 'app'
+
+export const SPLASH_FINISHED_EVENT = 'auralis:splash-finished'
+export function markSplashFinished(): void {
+  if (window.__auralisSplashFinished || window.__auralisAppFailed) return
+  window.__auralisSplashFinished = true
+  window.dispatchEvent(new Event(SPLASH_FINISHED_EVENT))
+}

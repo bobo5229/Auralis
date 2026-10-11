@@ -33,6 +33,7 @@ export class MetadataWatchService {
   private flushTimer: ReturnType<typeof setTimeout> | null = null
   private flushPaused = false
   private stopped = false
+  private rootsVersion = 0
 
   private readonly importQueue: MetadataWatchImportQueue
   private readonly rootWatchers: MetadataRootWatchers
@@ -48,9 +49,11 @@ export class MetadataWatchService {
     this.importQueue = new MetadataWatchImportQueue(
       incrementalImportService,
       (filePath) => {
+        if (!this.isCurrentPath(filePath)) return
         this.pendingFilePaths.set(filePath, Date.now())
       },
       (delay) => this.scheduleFlush(delay),
+      (filePath) => this.isCurrentPath(filePath),
     )
     this.rootWatchers = new MetadataRootWatchers(
       () => this.stopped,
@@ -63,6 +66,7 @@ export class MetadataWatchService {
       {
         isStopped: () => this.stopped,
         isPaused: () => this.flushPaused,
+        isPathActive: (filePath) => this.isCurrentPath(filePath),
         runOperation: (operation) => this.runOperation(operation),
       },
     )
@@ -131,10 +135,9 @@ export class MetadataWatchService {
   suppressRefreshForPath(filePath: string, durationMs = TAG_WRITE_REFRESH_SUPPRESS_MS): void {
     const normalizedPath = normalize(filePath)
     this.suppressRefreshUntil.set(normalizedPath, Date.now() + durationMs)
-    // Drop any already-queued refresh for this path.
-    this.pendingFilePaths.delete(normalizedPath)
+    // Keep queued file events so availability can still recover during tag-write
+    // suppression. The flush applies suppression only to metadata refresh.
     this.pendingLyricsIntentPaths.delete(normalizedPath)
-    this.importQueue.discardDeferred(normalizedPath)
   }
 
   private isRefreshSuppressed(filePath: string): boolean {
@@ -151,15 +154,41 @@ export class MetadataWatchService {
 
   syncRoots(): void {
     if (this.stopped) return
-    this.rootWatchers.sync(this.libraryRootRepository.list().map((root) => root.path))
+    if (this.rootWatchers.sync(this.libraryRootRepository.list().map((root) => root.path))) {
+      this.rootsVersion++
+    }
+    // A root transition keeps observations belonging to retained/nested roots,
+    // but must discard every kind of work accepted from removed roots.
+    for (const paths of [
+      this.pendingFilePaths,
+      this.pendingLyricsIntentPaths,
+      this.statRetries,
+      this.suppressRefreshUntil,
+    ]) {
+      for (const filePath of paths.keys()) {
+        if (!this.isCurrentPath(filePath)) paths.delete(filePath)
+      }
+    }
+    this.missingConfirmation.pruneInactivePaths()
+    this.importQueue.pruneInactivePaths()
+    if (this.pendingFilePaths.size === 0 && this.flushTimer) {
+      clearTimeout(this.flushTimer)
+      this.flushTimer = null
+    }
+  }
+
+  private isCurrentPath(filePath: string): boolean {
+    return !this.stopped && this.rootWatchers.containsPath(filePath)
   }
 
   private enqueueChangedPath(filePath: string): void {
+    if (!this.isCurrentPath(filePath)) return
     if (extname(filePath).toLowerCase() === '.lrc') {
       const audioCandidates = resolveAudioCandidatesForLyricSidecar(filePath)
       const knownAudioPaths = this.trackRepository.getExistingFilePaths(audioCandidates)
 
       for (const audioPath of knownAudioPaths) {
+        if (!this.isCurrentPath(audioPath)) continue
         this.pendingFilePaths.set(audioPath, Date.now())
         this.pendingLyricsIntentPaths.add(audioPath)
       }
@@ -218,7 +247,7 @@ export class MetadataWatchService {
     const incoming: string[] = []
 
     for (const filePath of filePaths) {
-      if (!this.importQueue.deferIfInFlight(filePath)) {
+      if (this.isCurrentPath(filePath) && !this.importQueue.deferIfInFlight(filePath)) {
         incoming.push(filePath)
       }
     }
@@ -228,8 +257,16 @@ export class MetadataWatchService {
     }
 
     // Stat all files to determine existence
+    const rootsVersion = this.rootsVersion
     const statResults = await Promise.allSettled(incoming.map((p) => stat(p)))
     if (this.stopped) return
+    if (rootsVersion !== this.rootsVersion) {
+      // Re-observe retained paths; an old stat must not become authoritative
+      // after a root has been removed (even if it was subsequently re-added).
+      this.requeuePaths(incoming)
+      if (this.pendingFilePaths.size > 0) this.scheduleFlush()
+      return
+    }
     const existingEntries: Array<{ filePath: string; size: number; mtimeMs: number }> = []
     const missingPaths: string[] = []
     const transientErrorPaths: string[] = []
@@ -237,14 +274,14 @@ export class MetadataWatchService {
     for (let i = 0; i < incoming.length; i++) {
       const result = statResults[i]
 
-      if (result.status === 'fulfilled') {
+      if (result.status === 'fulfilled' && result.value.isFile()) {
         existingEntries.push({
           filePath: incoming[i],
           size: result.value.size,
           mtimeMs: result.value.mtimeMs,
         })
         this.statRetries.delete(incoming[i])
-      } else if (isTransientStatError(result.reason)) {
+      } else if (result.status === 'rejected' && isTransientStatError(result.reason)) {
         transientErrorPaths.push(incoming[i])
       } else {
         missingPaths.push(incoming[i])
@@ -275,11 +312,15 @@ export class MetadataWatchService {
         .filter((entry) => !knownPaths.has(entry.filePath))
         .map((entry) => entry.filePath)
 
+      // Availability depends on a regular file returning, independently of
+      // whether its metadata fingerprint changed or tag writes are suppressed.
+      this.missingConfirmation.restorePaths(knownEntries.map((entry) => entry.filePath))
+
       // Known tracks: refresh when the audio fingerprint changed, or when a
       // sidecar `.lrc` mapped this path into lyrics intent. Opening a file for
       // playback leaves size + mtime untouched and carries no lyrics intent, so
       // it must not create a refresh job. Tag-write suppression is applied
-      // before this decision.
+      // only to this metadata decision.
       const refreshCandidates = knownEntries.filter(
         (entry) => !this.isRefreshSuppressed(entry.filePath),
       )
@@ -341,6 +382,7 @@ export class MetadataWatchService {
 
   private requeuePaths(filePaths: string[]): void {
     for (const filePath of filePaths) {
+      if (!this.isCurrentPath(filePath)) continue
       this.pendingFilePaths.set(filePath, Date.now())
     }
   }

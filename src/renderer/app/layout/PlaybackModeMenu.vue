@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   getPlayerModeMenuItems,
@@ -7,6 +7,7 @@ import {
   resolveModeMenuKeydown,
 } from '@renderer/app/utils/playerOverlayFocus'
 import type { PlaybackMode } from '@renderer/features/playback/types'
+import { usePlaybackModePresentation } from '@renderer/features/playback/composables/usePlaybackModePresentation'
 
 const props = defineProps<{
   currentMode: PlaybackMode
@@ -19,13 +20,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const element = ref<HTMLElement | null>(null)
 
-const modes = computed<Array<{ id: PlaybackMode; label: string; icon: string }>>(() => [
-  { id: 'sequential', label: t('player.modeOption.sequential'), icon: 'i-ph-list-numbers' },
-  { id: 'repeat-all', label: t('player.modeOption.repeat-all'), icon: 'i-ph-repeat' },
-  { id: 'repeat-one', label: t('player.modeOption.repeat-one'), icon: 'i-ph-repeat-once' },
-  { id: 'shuffle', label: t('player.modeOption.shuffle'), icon: 'i-ph-shuffle' },
-  { id: 'album-shuffle', label: t('player.modeOption.album-shuffle'), icon: 'i-ph-vinyl-record' },
-])
+const { options: modes } = usePlaybackModePresentation(() => props.currentMode)
 
 function handleSelect(mode: PlaybackMode): void {
   emit('select', mode, 'pointer')
@@ -55,6 +50,7 @@ function handleKeydown(event: KeyboardEvent): void {
 
   if (result.type === 'dismiss') {
     event.preventDefault()
+    event.stopPropagation()
     emit('close')
     return
   }
@@ -93,6 +89,7 @@ onMounted(() => {
   >
     <template v-for="(mode, index) in modes" :key="mode.id">
       <button
+        v-tooltip="mode.description"
         class="playback-mode-item"
         :class="{
           'playback-mode-item-active': currentMode === mode.id,
@@ -103,6 +100,7 @@ onMounted(() => {
         type="button"
         role="menuitemradio"
         :aria-checked="currentMode === mode.id"
+        :aria-label="mode.description ? `${mode.label} · ${mode.description}` : mode.label"
         :tabindex="resolveModeMenuItemTabIndex(focusedIndex, index)"
         @focus="focusedIndex = index"
         @click="handleSelect(mode.id)"

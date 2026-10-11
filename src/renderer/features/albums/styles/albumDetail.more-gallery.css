@@ -1,5 +1,6 @@
 .album-more-gallery {
-  --gallery-card-width: 144px;
+  --gallery-card-min-width: 180px;
+  --gallery-card-gap: 18px;
   margin-top: 36px;
   margin-inline: 0;
   min-width: 0;
@@ -21,15 +22,17 @@
 
 .album-more-gallery-scroller {
   --gallery-inline-padding: 16px;
-  display: flex;
-  gap: 18px;
+  display: grid;
+  grid-auto-flow: column;
+  /* 尚未取得有效宽度时保留正常封面尺寸，避免按一列撑满区域。 */
+  grid-auto-columns: var(--gallery-card-min-width);
+  gap: var(--gallery-card-gap);
   overflow-x: auto;
   overflow-y: hidden;
   padding: 12px var(--gallery-inline-padding) 16px;
   margin-top: -4px;
   margin-inline: calc(-1 * var(--gallery-inline-padding));
-  scroll-snap-type: x proximity;
-  /* Keep the first card snapped at scrollLeft = 0, including its inset. */
+  /* 焦点滚动时，为封面保留左右内边距；滚轮浏览保持连续位移。 */
   scroll-padding-inline: var(--gallery-inline-padding);
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
@@ -52,6 +55,14 @@
   transition:
     -webkit-mask-image 0.25s ease,
     mask-image 0.25s ease;
+}
+
+.album-more-gallery-scroller.is-layout-ready {
+  /* 完整列等分可用宽度，封面保持正方形；更多作品仍可横向滚动。 */
+  grid-auto-columns: calc(
+    (100% - (var(--gallery-column-count) - 1) * var(--gallery-card-gap)) /
+      var(--gallery-column-count)
+  );
 }
 
 .album-more-gallery-scroller.is-at-start {
@@ -78,16 +89,13 @@
 
 .album-more-gallery-scroller.is-single-row {
   overflow-x: hidden;
-  scroll-snap-type: none;
   -webkit-mask-image: none;
   mask-image: none;
 }
 
 .album-more-gallery-card {
-  flex: 0 0 auto;
-  width: var(--gallery-card-width);
-  min-width: var(--gallery-card-width);
-  scroll-snap-align: start;
+  width: 100%;
+  min-width: 0;
   appearance: none;
   cursor: pointer;
   user-select: none;

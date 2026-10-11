@@ -406,6 +406,7 @@ onBeforeUnmount(() => {
             :album-artist="albumArtist"
             :selected-track-id="playback.state.selectedTrackId"
             :current-track-id="playback.state.currentTrackId"
+            :is-playing="playback.state.isPlaying"
             :highlighted-track-id="highlightedTrackId"
             @play="playTrack"
           />
@@ -419,7 +420,6 @@ onBeforeUnmount(() => {
           :single-row="isGenreGallery"
           :artist-label="displayAlbumArtist"
           :genre-label="songParts(albumGenrePills)"
-          :effects-active="isEffectsActive"
           :opening="isOpeningWork"
           @open="openAlbum"
         />
@@ -505,7 +505,7 @@ onBeforeUnmount(() => {
   position: relative;
 }
 
-.album-detail-container.album-detail-exit-matrix-leave-active {
+.album-detail-container.album-detail-exit-fade-leave-active {
   position: absolute;
 }
 

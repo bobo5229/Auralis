@@ -54,6 +54,7 @@ function createEditor(overrides?: {
     getSaveErrorMessage: overrides?.getSaveErrorMessage ?? (() => 'save failed'),
     getLoadErrorMessage: overrides?.getLoadErrorMessage ?? (() => 'load failed'),
     getPlaybackInUseMessage: () => 'track in use by player',
+    getPreloadInUseMessage: () => 'track preloaded',
     getQueryFailedMessage: () => 'query failed',
     getTrackEditState: overrides?.getTrackEditState,
     onTrackEditStateChanged: overrides?.onTrackEditStateChanged,
@@ -78,6 +79,46 @@ function createEditor(overrides?: {
 }
 
 describe('useLibraryMetadataEditor', () => {
+  it('blocks saving a preloaded track and follows its transition into playback', async () => {
+    let listener!: (event: TrackEditStateChangedEvent) => void
+    const { editor, updateTrackMetadata } = createEditor({
+      getTrackEditState: async (trackId) => ({ trackId, status: 'preload-in-use', version: 1 }),
+      onTrackEditStateChanged: (callback) => {
+        listener = callback
+        return () => {}
+      },
+    })
+    await editor.open(metadata.trackId)
+    expect(editor.editStatus.value).toBe('preload-in-use')
+    await editor.save(metadata)
+    expect(updateTrackMetadata).not.toHaveBeenCalled()
+    listener({ trackId: metadata.trackId, status: 'playback-in-use', version: 2 })
+    expect(editor.editStatus.value).toBe('playback-in-use')
+    listener({ trackId: metadata.trackId, status: 'playback-editable', version: 3 })
+    await editor.save(metadata)
+    expect(updateTrackMetadata).toHaveBeenCalledOnce()
+  })
+
+  it('retains the preload notice when a preload races with saving', async () => {
+    let listener!: (event: TrackEditStateChangedEvent) => void
+    const { editor } = createEditor({
+      getTrackEditState: async (trackId) => ({ trackId, status: 'editable', version: 1 }),
+      onTrackEditStateChanged: (callback) => {
+        listener = callback
+        return () => {}
+      },
+      updateTrackMetadata: async () => {
+        listener({ trackId: metadata.trackId, status: 'preload-in-use', version: 2 })
+        return { ok: false, reason: 'playback-in-use' }
+      },
+    })
+    await editor.open(metadata.trackId)
+    await editor.save(metadata)
+    expect(editor.editStatus.value).toBe('preload-in-use')
+    expect(editor.metadataEditError.value).toBe('track preloaded')
+    expect(editor.editingMetadata.value).toEqual(metadata)
+  })
+
   it('allows saving during cooperating playback and retains the draft when buffering fails', async () => {
     const { editor, updateTrackMetadata, refreshLibrary } = createEditor({
       getTrackEditState: async (trackId) => ({ trackId, status: 'playback-editable', version: 1 }),

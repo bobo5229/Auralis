@@ -4,6 +4,7 @@ import { useSongFontWeights } from '@renderer/features/appearance/composables/us
 import { useSongFontSizes } from '@renderer/features/appearance/composables/useSongFontSizes'
 import { useCoverArtworkCorners } from '@renderer/features/appearance/composables/useCoverArtworkCorners'
 import type { SongFontWeightView } from '@renderer/features/appearance/constants/songFontWeights'
+import { formatBitrate } from '@renderer/features/library/utils/formatBitrate'
 
 defineProps<{
   view: SongFontWeightView
@@ -81,10 +82,16 @@ const previewBrand = 'Auralis'
             class="song-font-preview-genre truncate text-right text-xs text-[var(--auralis-text-muted)]"
             >{{ previewBrand }}</span
           >
-          <span
-            class="song-font-preview-cover-duration min-w-0 truncate text-right text-xs text-[var(--auralis-text-muted)] tabular-nums"
-            >{{ t('settings.appearance.songFontWeight.sample.duration') }}</span
-          >
+          <div class="min-w-0 flex flex-col text-right tabular-nums">
+            <span
+              class="song-font-preview-cover-duration min-w-0 truncate text-xs text-[var(--auralis-text-muted)]"
+              >{{ t('settings.appearance.songFontWeight.sample.duration') }}</span
+            >
+            <span
+              class="song-font-preview-cover-bitrate auralis-type-caption min-w-0 truncate text-[var(--auralis-text-faint)]"
+              >{{ formatBitrate(320000) }}</span
+            >
+          </div>
         </div>
       </div>
     </div>
@@ -217,7 +224,7 @@ const previewBrand = 'Auralis'
 
 .song-font-preview-track {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1.4fr) minmax(0, 1fr) 44px;
+  grid-template-columns: 32px minmax(0, 1.4fr) minmax(0, 1fr) 80px;
   column-gap: 12px;
   align-items: center;
   min-height: 48px;
@@ -251,6 +258,12 @@ const previewBrand = 'Auralis'
   font-weight: var(--auralis-song-cover-duration-weight, 400);
   font-size: var(--auralis-song-cover-duration-size, 12px);
   line-height: max(16px, 1.2em);
+}
+
+.song-font-preview-cover-bitrate {
+  font-weight: var(--auralis-song-cover-bitrate-weight, 400);
+  font-size: var(--auralis-song-cover-bitrate-size, 12px);
+  line-height: max(var(--auralis-type-caption-line-height), 1.2em);
 }
 
 @container (max-width: 460px) {

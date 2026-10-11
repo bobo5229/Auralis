@@ -18,6 +18,9 @@ export interface AuralisApi {
     getInfo: () => Result<'app:get-info'>
     setLocale: (locale: Req<'app:set-locale'>['locale']) => Result<'app:set-locale'>
     claimCdStartupEntry: () => Result<'app:claim-cd-startup-entry'>
+    claimStartupAlbum: (
+      request?: Exclude<IpcRequest<'app:claim-startup-album'>, void>,
+    ) => Result<'app:claim-startup-album'>
     exportDiagnostics: () => Result<'app:export-diagnostics'>
     rendererReady: () => void
     splashReady: (payload: IpcSendPayload<'app:splash-ready'>) => void
@@ -135,7 +138,13 @@ export interface AuralisApi {
     onCommand: (callback: (command: IpcEventPayload<'system-media:command'>) => void) => () => void
   }
   archive: {
+    getAnnualPlayCounts: (
+      year: Req<'archive:get-annual-play-counts'>['year'],
+    ) => Result<'archive:get-annual-play-counts'>
     resetPlayStats: () => Result<'archive:reset-play-stats'>
+    getDayTopTracks: (
+      date: Req<'archive:get-day-top-tracks'>['date'],
+    ) => Result<'archive:get-day-top-tracks'>
   }
   metadata: {
     refreshTrack: (
@@ -171,6 +180,10 @@ export interface AuralisApi {
     ) => () => void
   }
   window: {
+    getCloseBehavior: () => Result<'window:get-close-behavior'>
+    setCloseBehavior: (
+      behavior: Req<'window:set-close-behavior'>['behavior'],
+    ) => Result<'window:set-close-behavior'>
     control: (action: Req<'window:control'>['action']) => Result<'window:control'>
     getMaximized: () => Result<'window:get-maximized'>
     getVisibility: () => Result<'window:get-visibility'>

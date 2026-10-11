@@ -28,6 +28,7 @@ function createTrack(id: number): TrackListItem {
     releaseDate: '2026',
     copyright: null,
     composer: null,
+    bitrateBps: null,
     durationSeconds: 180,
     artworkCacheKey: null,
     genre: 'Rock',

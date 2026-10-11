@@ -1,5 +1,85 @@
 # Third-party notices
 
+## Startup album card fonts
+
+The card bundles local WOFF2 editions of:
+
+- **Bodoni Moda**, Copyright 2020 The Bodoni Moda Project Authors
+  (<https://github.com/indestructible-type/Bodoni>), source commit
+  `30ce6cdc354ef179a3b72ba0f0e71826e599348c`.
+- **Allura**, Copyright 2010 The Allura Project Authors
+  (<https://github.com/googlefonts/allura>), source commit
+  `38a78b41510a10b1129c50fa5177b642bd2b4a19`.
+
+Both are licensed under SIL Open Font License 1.1. Complete copyright and
+license notices are in `src/renderer/assets/fonts/startup-album/*-OFL.txt`
+and embedded in each bundled font's name-table license field. Outlines and
+character coverage are unchanged; the original TTFs were compressed to WOFF2.
+
+## georgedoescode/generative-utils
+
+`src/renderer/features/startupAlbum/rendering/backgrounds/vendor/spline.ts` adapts the spline
+path conversion from [`src/spline.js`](https://github.com/georgedoescode/generative-utils/blob/c26bbcfaecefd4f8302326c71fd18bfd8f413866/src/spline.js).
+Source commit: `c26bbcfaecefd4f8302326c71fd18bfd8f413866`. The adaptation adds
+TypeScript point tuples and omits unused callback and object-input support.
+It is used by the startup album card's procedural backgrounds and their design prototype.
+
+MIT License
+
+Copyright (c) 2021 George Francis
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+## selop/pokebox
+
+`src/renderer/features/startupAlbum/rendering/vendor/pokeboxFoil.ts` contains
+formatting-adapted GLSL functions from `blend.glsl`, `rainbow.glsl`, `voronoi.glsl`
+and `holo-shine.glsl` in [`selop/pokebox`](https://github.com/selop/pokebox/tree/7f6b1b4b6bb4684f80b49d1318b2a1c90a357b80/src/shaders/common).
+`cardCoating.ts` adapts the crossed light-band composition from `regular-holo.frag`
+at the same commit, `7f6b1b4b6bb4684f80b49d1318b2a1c90a357b80`.
+The integration supplies local procedural masks, view-angle inputs, protected
+metadata and one bounded display-space colour budget. No card artwork, external
+foil textures, camera tracking or application dependencies are included.
+The full notice below is also retained in the renderer module for built bundles.
+
+MIT License
+
+Copyright (c) 2026 Sergej Lopatkin
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
 ## jberg/butterchurn
 
 `src/shared/audio/bassEnvelope.ts` adapts the attack/release smoothing and
@@ -59,3 +139,30 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## n3r4zzurr0/svg-spinners — Blocks Wave
+
+`PlayingIndicator.vue` and `animatePlaybackBlocks` adapt the geometry and timing from
+[`svg-css/blocks-wave.svg`](https://github.com/n3r4zzurr0/svg-spinners/blob/main/svg-css/blocks-wave.svg).
+The adaptation uses Web Animations transforms and adds playback, visibility and reduced-motion controls.
+
+MIT License (MIT)
+
+Copyright (c) Utkarsh Verma
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

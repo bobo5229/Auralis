@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PlayingIndicator from '@renderer/shared/components/PlayingIndicator.vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import { formatDuration } from '@renderer/features/library/utils/formatDuration'
@@ -9,6 +10,7 @@ defineProps<{
   groups: { discNo: number | null; tracks: TrackListItem[] }[]
   albumArtist: string
   selectedTrackId: number | null
+  isPlaying: boolean
   currentTrackId: number | null
   highlightedTrackId: number | null
 }>()
@@ -83,7 +85,11 @@ function formatDisplayArtist(artist: string | null | undefined): string {
               }}
             </span>
             <span class="album-detail-track-play-icon i-lucide-play"></span>
-            <span class="album-detail-track-eq" aria-hidden="true"><i></i><i></i><i></i></span>
+            <PlayingIndicator
+              v-if="track.id === currentTrackId"
+              class="album-detail-track-eq"
+              :playing="isPlaying"
+            />
           </span>
           <span class="min-w-0 text-left">
             <span class="album-detail-track-title">{{

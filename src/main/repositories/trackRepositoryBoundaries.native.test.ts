@@ -29,6 +29,7 @@ function track(filePath: string, title = 'Song'): ScannedTrack {
     albumArtist: 'Artist',
     trackNo: null,
     discNo: null,
+    bitrateBps: null,
     durationSeconds: 180,
     year: null,
     releaseDate: null,

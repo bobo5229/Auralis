@@ -7,6 +7,8 @@ function createService() {
     trackExists: vi.fn(() => true),
     incrementPlayCount: vi.fn(),
     resetAll: vi.fn(),
+    getAnnualPlayCounts: vi.fn(() => [{ date: '2026-10-08', playCount: 2, durationSeconds: 360 }]),
+    getDayTopTracks: vi.fn(() => []),
   }
   return {
     service: new PlayStatsService(playStatsRepo as unknown as PlayStatsRepository),
@@ -21,6 +23,44 @@ const payload = {
 }
 
 describe('PlayStatsService recording and reset', () => {
+  it('reads top tracks for a valid local date without recording or resetting', () => {
+    const { service, playStatsRepo } = createService()
+    expect(service.getDayTopTracks('2024-02-29')).toEqual([])
+    expect(playStatsRepo.getDayTopTracks).toHaveBeenCalledExactlyOnceWith('2024-02-29')
+    expect(playStatsRepo.incrementPlayCount).not.toHaveBeenCalled()
+    expect(playStatsRepo.resetAll).not.toHaveBeenCalled()
+  })
+  it.each([
+    '2026-02-29',
+    '2024-02-30',
+    '2026-00-01',
+    '2026-04-31',
+    '2026-1-1',
+    '1899-12-31',
+    'invalid',
+  ])('rejects invalid local date %s', (date) => {
+    const { service, playStatsRepo } = createService()
+    expect(() => service.getDayTopTracks(date)).toThrow(RangeError)
+    expect(playStatsRepo.getDayTopTracks).not.toHaveBeenCalled()
+  })
+  it('reads annual day counts without modifying statistics', () => {
+    const { service, playStatsRepo } = createService()
+    expect(service.getAnnualPlayCounts(2026)).toEqual([
+      { date: '2026-10-08', playCount: 2, durationSeconds: 360 },
+    ])
+    expect(playStatsRepo.getAnnualPlayCounts).toHaveBeenCalledExactlyOnceWith(2026)
+    expect(playStatsRepo.incrementPlayCount).not.toHaveBeenCalled()
+    expect(playStatsRepo.resetAll).not.toHaveBeenCalled()
+  })
+
+  it.each([1899, 10000, 2026.5, NaN, Infinity])(
+    'rejects invalid query year %s before reading',
+    (year) => {
+      const { service, playStatsRepo } = createService()
+      expect(() => service.getAnnualPlayCounts(year)).toThrow(RangeError)
+      expect(playStatsRepo.getAnnualPlayCounts).not.toHaveBeenCalled()
+    },
+  )
   it('records an effective play once per session with its local date', () => {
     const { service, playStatsRepo } = createService()
     expect(service.recordEffectivePlay(payload)).toEqual({ ok: true, recorded: true })

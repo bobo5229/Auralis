@@ -342,6 +342,7 @@ onBeforeUnmount(() => {
 }
 
 .settings-dialog-content {
+  --settings-content-padding-top: 20px;
   min-width: 0;
   min-height: 0;
   overflow-x: hidden;
@@ -349,7 +350,7 @@ onBeforeUnmount(() => {
   overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--auralis-border-subtle) transparent;
-  padding: 20px 24px 24px;
+  padding: var(--settings-content-padding-top) 24px 24px;
 }
 
 .settings-dialog-status {

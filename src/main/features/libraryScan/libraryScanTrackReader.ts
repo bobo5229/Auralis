@@ -1,5 +1,6 @@
 import { stat } from 'node:fs/promises'
 import { parseAudioMetadata as parseFile } from '../metadata/parseAudioMetadata'
+import { getMetadataParserVersion } from '../metadata/metadataParserVersion'
 import { isCurrentArtworkCacheKey } from '../artwork/artworkCachePolicy'
 import {
   normalizeMetadata,
@@ -55,7 +56,8 @@ export class LibraryScanTrackReader {
       knownFile && knownFile.fileSize === fileSize && knownFile.fileMtimeMs === fileMtimeMs
     const metadataChecked =
       knownFile?.metadataCheckedMtimeMs !== null &&
-      knownFile?.metadataCheckedMtimeMs === fileMtimeMs
+      knownFile?.metadataCheckedMtimeMs === fileMtimeMs &&
+      knownFile.metadataParserVersion === getMetadataParserVersion(filePath)
     const needsMetadataBackfill = Boolean(fileUnchanged && knownFile && !metadataChecked)
 
     try {
@@ -76,7 +78,11 @@ export class LibraryScanTrackReader {
       }
 
       if (!fileUnchanged || needsMetadataBackfill) {
-        return await this.readFullTrack(filePath, fileStat, knownFile)
+        const result = await this.readFullTrack(filePath, fileStat, knownFile)
+        const after = await stat(filePath)
+        if (after.size !== fileSize || after.mtimeMs !== fileMtimeMs)
+          throw new Error('Audio file changed while metadata was being read')
+        return result
       }
 
       if (fileUnchanged) {
@@ -232,6 +238,7 @@ export class LibraryScanTrackReader {
 
     return {
       filePath,
+      metadataParserVersion: getMetadataParserVersion(filePath),
       fileSize: Number(fileStat.size),
       fileMtimeMs: Number(fileStat.mtimeMs),
       title: normalized.title,
@@ -241,6 +248,7 @@ export class LibraryScanTrackReader {
       trackNo: normalized.trackNo,
       discNo: normalized.discNo,
       durationSeconds: normalized.durationSeconds,
+      bitrateBps: normalized.bitrateBps,
       year: normalized.year,
       releaseDate: normalized.releaseDate,
       copyright: normalized.copyright,

@@ -9,15 +9,20 @@ import { useDarkAccent } from './features/appearance/composables/useDarkAccent'
 import { useLightAccent } from './features/appearance/composables/useLightAccent'
 import { tooltipPlugin } from './shared/tooltip/tooltip'
 import { initMotionPreference } from './shared/animation/motionPreference'
+import { initLyricsScrollPreset } from './features/lyrics/lyricsScrollPreset'
+import { initAlbumListParameters } from './features/appearance/composables/useAlbumListParameters'
 import { auralis } from './shared/ipc/client'
 import {
   APP_FAILED_EVENT,
+  markSplashFinished,
   APP_HOST_ELEMENT_ID,
   APP_READY_EVENT,
   SPLASH_ELEMENT_ID,
 } from './app/splash/startupSignals'
 
 const { initTheme } = useTheme()
+const disposeAlbumListParameters = initAlbumListParameters()
+if (import.meta.hot) import.meta.hot.dispose(disposeAlbumListParameters)
 initTheme()
 const { initDarkAccent } = useDarkAccent()
 initDarkAccent()
@@ -25,6 +30,8 @@ const { initLightAccent } = useLightAccent()
 initLightAccent()
 const disposeMotionPreference = initMotionPreference()
 if (import.meta.hot) import.meta.hot.dispose(disposeMotionPreference)
+const disposeLyricsScrollPreset = initLyricsScrollPreset()
+if (import.meta.hot) import.meta.hot.dispose(disposeLyricsScrollPreset)
 
 function waitForNextFrame(): Promise<void> {
   if (typeof requestAnimationFrame !== 'function') return Promise.resolve()
@@ -41,9 +48,11 @@ function releaseOrphanedSplash(): void {
   if (window.__auralisSplashActive) return
   document.getElementById(SPLASH_ELEMENT_ID)?.remove()
   document.getElementById(APP_HOST_ELEMENT_ID)?.removeAttribute('inert')
+  markSplashFinished()
 }
 
 function showStartupFailure(error: unknown): void {
+  window.__auralisAppFailed = true
   console.error('Auralis startup failed', error)
   window.dispatchEvent(new Event(APP_FAILED_EVENT))
 

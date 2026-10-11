@@ -62,6 +62,7 @@ export const auralisApi: AuralisApi = {
     setLocale: (locale) => invoke(ipcChannels.app.setLocale, { locale }),
     getInfo: () => invoke(ipcChannels.app.getInfo),
     claimCdStartupEntry: () => invoke(ipcChannels.app.claimCdStartupEntry),
+    claimStartupAlbum: (request) => invoke(ipcChannels.app.claimStartupAlbum, request),
     exportDiagnostics: () => invoke(ipcChannels.app.exportDiagnostics),
     rendererReady: () => send(ipcChannels.app.rendererReady),
     splashReady: (payload) => send(ipcChannels.app.splashReady, payload),
@@ -135,6 +136,8 @@ export const auralisApi: AuralisApi = {
     onCommand: (callback) => on(ipcChannels.systemMedia.command, callback),
   },
   archive: {
+    getAnnualPlayCounts: (year) => invoke(ipcChannels.archive.getAnnualPlayCounts, { year }),
+    getDayTopTracks: (date) => invoke(ipcChannels.archive.getDayTopTracks, { date }),
     resetPlayStats: () => invoke(ipcChannels.archive.resetPlayStats),
   },
   metadata: {
@@ -152,6 +155,8 @@ export const auralisApi: AuralisApi = {
     onTrackEditStateChanged: (callback) => on(ipcChannels.metadata.trackEditStateChanged, callback),
   },
   window: {
+    getCloseBehavior: () => invoke(ipcChannels.window.getCloseBehavior),
+    setCloseBehavior: (behavior) => invoke(ipcChannels.window.setCloseBehavior, { behavior }),
     control: (action) => invoke(ipcChannels.window.control, { action }),
     getMaximized: () => invoke(ipcChannels.window.getMaximized),
     getVisibility: () => invoke(ipcChannels.window.getVisibility),

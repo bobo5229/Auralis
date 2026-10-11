@@ -3,6 +3,7 @@ import type { LyricsStatus } from './useTrackLyrics'
 import type { LyricLine } from '../types'
 import { createWholeLineLyricsViewport } from './wholeLineLyricsViewport'
 import { resolveWholeLyricsStart } from '../utils/wholeLineLyricsLayout'
+import { getLyricsScrollEasing, type LyricsScrollPreset } from '../lyricsScrollPreset'
 
 type ReadonlyRef<T> = Readonly<Ref<T>>
 type LyricMetric = { offset: number; height: number }
@@ -18,6 +19,7 @@ export interface FullscreenLyricsViewportOptions {
   showPrelude: ReadonlyRef<boolean>
   isOpen: ReadonlyRef<boolean>
   reducedMotion?: ReadonlyRef<boolean>
+  scrollPreset?: ReadonlyRef<LyricsScrollPreset>
   wholeLineMode?: ReadonlyRef<boolean>
   lines?: ReadonlyRef<readonly LyricLine[]>
   artworkRef?: Ref<HTMLElement | null>
@@ -27,7 +29,6 @@ const MIN_DURATION_MS = 420
 const MAX_DURATION_MS = 650
 const DURATION_BASE_MS = 380
 const DURATION_PER_PIXEL = 0.65
-const EASING = 'cubic-bezier(0.4, 0, 0.2, 1)'
 const AUTO_FOLLOW_PAUSE_MS = 8000
 export const FULLSCREEN_LYRICS_FOCAL_RATIO = 0.3
 export const FULLSCREEN_LYRICS_FADE_TOP_RATIO = 0.07
@@ -198,6 +199,7 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
     metricsLineCount = options.lineCount.value
     metricsPreludeState = options.showPrelude.value
     scrollMax = Math.max(0, track.scrollHeight - container.clientHeight)
+    container.scrollTop = clampFullscreenLyricsScroll(container.scrollTop, scrollMax)
   }
 
   function computeTarget(): number | null {
@@ -248,7 +250,7 @@ export function useFullscreenLyricsViewport(options: FullscreenLyricsViewportOpt
       ],
       {
         duration: resolveFullscreenLyricsAnimationDuration(distance),
-        easing: EASING,
+        easing: getLyricsScrollEasing(options.scrollPreset?.value),
         fill: 'both',
       },
     )

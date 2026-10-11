@@ -1,6 +1,7 @@
 import { open } from 'node:fs/promises'
 import { inflateSync } from 'node:zlib'
 import { parseFile, type IAudioMetadata, type IOptions } from 'music-metadata'
+import { normalizeEditableReleaseDate } from './editableMetadataValidation'
 
 const MAX_TAG_BYTES = 64 * 1024 * 1024
 const MAX_TEXT_BYTES = 1024 * 1024
@@ -13,6 +14,24 @@ const TEXT_FIELDS = {
   TCM: 'composer',
 } as const
 type TextField = (typeof TEXT_FIELDS)[keyof typeof TEXT_FIELDS]
+
+/** Some ID3v2.3 writers store a full date in TYER; the parser exposes only its year. */
+function decodeId3v23Date(metadata: IAudioMetadata): void {
+  if (metadata.common.date) return
+  for (const tag of metadata.native['ID3v2.3'] ?? []) {
+    if (tag.id !== 'TYER' || typeof tag.value !== 'string') continue
+    const value = tag.value.trim()
+    if (!/^\d{4}-\d{2}(?:-\d{2})?$/.test(value)) continue
+    if (metadata.common.year !== undefined && metadata.common.year !== Number(value.slice(0, 4)))
+      continue
+    try {
+      metadata.common.date = normalizeEditableReleaseDate(value) ?? undefined
+      return
+    } catch {
+      // Invalid optional dates must not prevent importing the rest of the tags.
+    }
+  }
+}
 
 /** foobar2000 serializes multiple ID3v2.3 genres with a bare semicolon. */
 function decodeId3v23Genres(metadata: IAudioMetadata): IAudioMetadata {
@@ -137,6 +156,7 @@ export async function parseAudioMetadata(
   options?: IOptions,
 ): Promise<IAudioMetadata> {
   const metadata = await parseFile(filePath, options)
+  decodeId3v23Date(metadata)
   const tagType = ['ID3v2.3', 'ID3v2.2'].find((type) => metadata.native[type])
   if (!tagType) return metadata
   const tags = metadata.native[tagType]!

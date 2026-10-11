@@ -10,7 +10,7 @@ import { SPLASH_FORMATION_MS } from './splashMotion'
 interface Harness {
   env: SplashEnvironment
   frames: number[]
-  progress: number[]
+  pendingFrameCount(): number
   fadeCount(): number
   finishCount(): number
   setVisible(visible: boolean): void
@@ -27,7 +27,6 @@ function createHarness(options?: { reducedMotion?: boolean; visible?: boolean })
   const visibilityListeners: Array<() => void> = []
   const appReadyListeners: Array<() => void> = []
   const frames: number[] = []
-  const progress: number[] = []
   let fadeCount = 0
   let finishCount = 0
 
@@ -59,9 +58,6 @@ function createHarness(options?: { reducedMotion?: boolean; visible?: boolean })
     renderMotion: (elapsed) => {
       frames.push(elapsed)
     },
-    renderProgress: (value) => {
-      progress.push(value)
-    },
     startFadeOut: () => {
       fadeCount += 1
     },
@@ -73,7 +69,7 @@ function createHarness(options?: { reducedMotion?: boolean; visible?: boolean })
   return {
     env,
     frames,
-    progress,
+    pendingFrameCount: () => pendingFrames.length,
     fadeCount: () => fadeCount,
     finishCount: () => finishCount,
     setVisible(next) {
@@ -218,44 +214,21 @@ describe('startSplashLifecycle', () => {
     stop()
   })
 
-  it('completes progress during the existing fade when the app is ready early', () => {
+  it('stops frame scheduling after formation, through a slow startup and the fade', () => {
     const harness = createHarness({ visible: true })
     startSplashLifecycle(harness.env)
-    harness.setAppReady(true)
     harness.pumpFrames(SPLASH_FORMATION_MS)
-    expect(harness.fadeCount()).toBe(1)
-    expect(harness.progress.at(-1)).toBeCloseTo(0.78)
-    harness.pumpFrames(80)
-    expect(harness.progress.at(-1)).toBe(1)
-    vi.advanceTimersByTime(SPLASH_FADE_OUT_MS)
-    expect(harness.finishCount()).toBe(1)
-  })
-
-  it('keeps progress moving during a slow startup and completes within the existing fade', () => {
-    const harness = createHarness({ visible: true })
-    startSplashLifecycle(harness.env)
-    harness.pumpFrames(900)
-    expect(harness.progress.at(-1)).toBeCloseTo(0.78)
     const motionFrames = harness.frames.length
-    harness.pumpFrames(300)
-    expect(harness.progress.at(-1)).toBeCloseTo(0.92)
-    const waitingFrames = harness.progress.length
+    expect(harness.pendingFrameCount()).toBe(0)
     harness.pumpFrames(5_000)
-    expect(harness.progress).toHaveLength(waitingFrames)
-    expect(harness.progress.at(-1)).toBeCloseTo(0.92)
     expect(harness.frames).toHaveLength(motionFrames)
     expect(harness.fadeCount()).toBe(0)
     harness.setAppReady(true)
-    harness.pumpFrames(40)
-    expect(harness.progress.at(-1)).toBeGreaterThan(0.92)
-    expect(harness.progress.at(-1)).toBeLessThan(1)
-    harness.pumpFrames(40)
-    expect(harness.progress.at(-1)).toBe(1)
+    expect(harness.fadeCount()).toBe(1)
+    expect(harness.pendingFrameCount()).toBe(0)
     vi.advanceTimersByTime(SPLASH_FADE_OUT_MS)
     expect(harness.finishCount()).toBe(1)
-    const progressFrames = harness.progress.length
-    harness.pumpFrames(100)
-    expect(harness.progress).toHaveLength(progressFrames)
+    expect(harness.pendingFrameCount()).toBe(0)
   })
 
   it('ignores later signals after the returned cleanup runs', () => {

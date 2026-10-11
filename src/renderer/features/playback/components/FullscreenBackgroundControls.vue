@@ -1,11 +1,24 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import {
+  FULLSCREEN_LYRIC_FONT_WEIGHTS,
+  FULLSCREEN_LYRICS_TYPOGRAPHY_RANGES,
+  isFullscreenLyricFontWeight,
+  type FullscreenLyricsTypography,
+} from '@renderer/features/lyrics/constants/fullscreenLyricsTypography'
+import { useFullscreenLyricsTypography } from '@renderer/features/lyrics/composables/useFullscreenLyricsTypography'
 import { useFullscreenBackground } from '../composables/useFullscreenBackground'
 import { LIQUID_METAL_RANGES, type LiquidMetalSettings } from '../runtime/liquidMetalSettings'
 import '@renderer/features/settings/styles/settings.chrome.css'
 
 const { t } = useI18n()
+const {
+  preference: lyricsTypography,
+  persistFailed: lyricsTypographyPersistFailed,
+  setPreference: setLyricsTypographyPreference,
+  resetPreference: resetLyricsTypographyPreference,
+} = useFullscreenLyricsTypography()
 const {
   backgroundMode,
   backgroundMotionPaused,
@@ -19,16 +32,31 @@ const rootRef = ref<HTMLElement | null>(null)
 const buttonRef = ref<HTMLButtonElement | null>(null)
 const closeButtonRef = ref<HTMLButtonElement | null>(null)
 const open = ref(false)
+const resetAnnounced = ref(false)
+let resetStatusTimer: ReturnType<typeof setTimeout> | null = null
 const controls = [
   { key: 'speed', label: 'fullscreen.background.speed' },
   { key: 'folds', label: 'fullscreen.background.folds' },
   { key: 'roughness', label: 'fullscreen.background.roughness' },
 ] as const
+const lyricsTypographyStatus = computed(() => {
+  if (lyricsTypographyPersistFailed.value) return t('fullscreen.lyrics.persistFailed')
+  if (resetAnnounced.value) return t('fullscreen.lyrics.resetStatus')
+  return ''
+})
 
-function close(): boolean {
+function clearResetStatus(): void {
+  resetAnnounced.value = false
+  if (resetStatusTimer !== null) {
+    clearTimeout(resetStatusTimer)
+    resetStatusTimer = null
+  }
+}
+
+function close(restoreFocus = true): boolean {
   if (!open.value) return false
   open.value = false
-  void nextTick(() => buttonRef.value?.focus({ preventScroll: true }))
+  if (restoreFocus) void nextTick(() => buttonRef.value?.focus({ preventScroll: true }))
   return true
 }
 
@@ -52,8 +80,41 @@ function parameterFill(key: keyof LiquidMetalSettings): string {
   return `${((metalSettings.value[key] - min) / (max - min)) * 100}%`
 }
 
+function lyricsParameterFill(field: 'fontSizePercent' | 'lineGapPercent'): string {
+  const { min, max } = FULLSCREEN_LYRICS_TYPOGRAPHY_RANGES[field]
+  return `${((lyricsTypography.value[field] - min) / (max - min)) * 100}%`
+}
+
+function updateLyricsPercent(field: 'fontSizePercent' | 'lineGapPercent', event: Event): void {
+  clearResetStatus()
+  setLyricsTypographyPreference({ [field]: Number((event.target as HTMLInputElement).value) })
+}
+
+function updateLyricsFontWeight(event: Event): void {
+  clearResetStatus()
+  const value = Number((event.target as HTMLSelectElement).value)
+  if (isFullscreenLyricFontWeight(value))
+    setLyricsTypographyPreference({
+      fontWeight: value,
+    } satisfies Partial<FullscreenLyricsTypography>)
+}
+
+function resetLyricsTypography(): void {
+  clearResetStatus()
+  resetLyricsTypographyPreference()
+  if (lyricsTypographyPersistFailed.value) return
+  resetAnnounced.value = true
+  resetStatusTimer = setTimeout(() => {
+    resetAnnounced.value = false
+    resetStatusTimer = null
+  }, 3000)
+}
+
 onMounted(() => document.addEventListener('pointerdown', dismissOutside, true))
-onBeforeUnmount(() => document.removeEventListener('pointerdown', dismissOutside, true))
+onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', dismissOutside, true)
+  clearResetStatus()
+})
 defineExpose({ close })
 </script>
 
@@ -61,10 +122,10 @@ defineExpose({ close })
   <div ref="rootRef" class="fullscreen-background-controls">
     <button
       ref="buttonRef"
+      v-tooltip.fast="t('fullscreen.settings')"
       class="background-controls-toggle"
       type="button"
       :aria-label="t('fullscreen.settings')"
-      :title="t('fullscreen.settings')"
       :aria-expanded="open"
       aria-controls="fullscreen-background-panel"
       @click="toggle"
@@ -77,7 +138,7 @@ defineExpose({ close })
         id="fullscreen-background-panel"
         class="background-controls-panel settings-controls"
         :aria-label="t('fullscreen.settings')"
-        @keydown.esc.stop.prevent="close"
+        @keydown.esc.stop.prevent="close()"
       >
         <header class="background-controls-header">
           <h2>{{ t('fullscreen.settings') }}</h2>
@@ -87,7 +148,7 @@ defineExpose({ close })
             type="button"
             :aria-label="t('fullscreen.closeSettings')"
             :title="t('fullscreen.closeSettings')"
-            @click="close"
+            @click="close()"
           >
             <span class="i-lucide-x h-5 w-5" aria-hidden="true" />
           </button>
@@ -176,6 +237,110 @@ defineExpose({ close })
               >
                 <span class="settings-switch-thumb" aria-hidden="true"></span>
               </button>
+            </div>
+          </div>
+          <div class="settings-group fullscreen-lyrics-typography-group">
+            <div class="settings-group-header">
+              <h3 class="settings-group-title">{{ t('fullscreen.lyrics.section') }}</h3>
+              <button
+                type="button"
+                class="settings-text-button background-controls-reset"
+                data-lyrics-typography-reset
+                @click="resetLyricsTypography"
+              >
+                {{ t('fullscreen.lyrics.reset') }}
+              </button>
+            </div>
+            <div class="settings-group-card">
+              <div class="settings-row fullscreen-lyrics-typography-row">
+                <div>
+                  <strong id="fullscreen-lyrics-font-size-label">{{
+                    t('fullscreen.lyrics.fontSize')
+                  }}</strong>
+                </div>
+                <div class="settings-range-control">
+                  <input
+                    id="fullscreen-lyrics-font-size"
+                    type="range"
+                    min="75"
+                    max="150"
+                    step="5"
+                    :value="lyricsTypography.fontSizePercent"
+                    :aria-labelledby="'fullscreen-lyrics-font-size-label'"
+                    :aria-valuetext="`${lyricsTypography.fontSizePercent}%`"
+                    :style="{
+                      '--settings-range-progress': lyricsParameterFill('fontSizePercent'),
+                    }"
+                    data-lyrics-typography="font-size"
+                    @input="updateLyricsPercent('fontSizePercent', $event)"
+                  />
+                  <output for="fullscreen-lyrics-font-size"
+                    >{{ lyricsTypography.fontSizePercent }}%</output
+                  >
+                </div>
+              </div>
+              <div class="settings-row fullscreen-lyrics-typography-row">
+                <div>
+                  <strong id="fullscreen-lyrics-font-weight-label">{{
+                    t('fullscreen.lyrics.fontWeight')
+                  }}</strong>
+                </div>
+                <select
+                  id="fullscreen-lyrics-font-weight"
+                  class="fullscreen-lyrics-typography-select"
+                  :value="lyricsTypography.fontWeight"
+                  aria-labelledby="fullscreen-lyrics-font-weight-label"
+                  data-lyrics-typography-select
+                  @change="updateLyricsFontWeight"
+                >
+                  <option
+                    v-for="weight in FULLSCREEN_LYRIC_FONT_WEIGHTS"
+                    :key="weight"
+                    :value="weight"
+                  >
+                    {{ t(`fullscreen.lyrics.weights.${weight}`) }}
+                  </option>
+                </select>
+              </div>
+              <div class="settings-row fullscreen-lyrics-typography-row">
+                <div>
+                  <strong id="fullscreen-lyrics-line-gap-label">{{
+                    t('fullscreen.lyrics.lineGap')
+                  }}</strong>
+                </div>
+                <div class="settings-range-control">
+                  <input
+                    id="fullscreen-lyrics-line-gap"
+                    type="range"
+                    min="50"
+                    max="150"
+                    step="5"
+                    :value="lyricsTypography.lineGapPercent"
+                    :aria-labelledby="'fullscreen-lyrics-line-gap-label'"
+                    :aria-valuetext="`${lyricsTypography.lineGapPercent}%`"
+                    :style="{
+                      '--settings-range-progress': lyricsParameterFill('lineGapPercent'),
+                    }"
+                    data-lyrics-typography="line-gap"
+                    @input="updateLyricsPercent('lineGapPercent', $event)"
+                  />
+                  <output for="fullscreen-lyrics-line-gap"
+                    >{{ lyricsTypography.lineGapPercent }}%</output
+                  >
+                </div>
+              </div>
+              <div class="settings-row fullscreen-lyrics-typography-description">
+                <span>{{ t('fullscreen.lyrics.scaleDescription') }}</span>
+              </div>
+              <div
+                v-if="lyricsTypographyStatus"
+                class="fullscreen-lyrics-typography-status"
+                :class="{ 'is-warning': lyricsTypographyPersistFailed }"
+                role="status"
+                data-lyrics-typography-status
+              >
+                {{ lyricsTypographyStatus }}
+              </div>
             </div>
           </div>
         </div>
@@ -286,6 +451,40 @@ defineExpose({ close })
   border-color: var(--auralis-fullscreen-controls-border);
   background: color-mix(in srgb, var(--auralis-fullscreen-controls-bg) 32%, transparent);
 }
+.background-controls-panel .fullscreen-lyrics-typography-group {
+  margin-top: 24px;
+}
+.background-controls-panel .fullscreen-lyrics-typography-row > div:first-child {
+  flex: 1 1 100px;
+}
+.background-controls-panel .fullscreen-lyrics-typography-select {
+  box-sizing: border-box;
+  min-width: 148px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--auralis-fullscreen-controls-border);
+  border-radius: 8px;
+  color: var(--auralis-text);
+  background: color-mix(in srgb, var(--auralis-fullscreen-controls-bg) 78%, transparent);
+  font: inherit;
+}
+.background-controls-panel .fullscreen-lyrics-typography-description {
+  min-height: 0;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  color: var(--auralis-text-muted);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+.background-controls-panel .fullscreen-lyrics-typography-status {
+  padding: 0 16px 14px;
+  color: var(--auralis-text-muted);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+.background-controls-panel .fullscreen-lyrics-typography-status.is-warning {
+  color: var(--auralis-danger);
+}
 .background-controls-panel
   :is(
     .settings-group-title,
@@ -305,7 +504,7 @@ defineExpose({ close })
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
 }
-.background-controls-panel :is(button, input):focus-visible {
+.background-controls-panel :is(button, input, select):focus-visible {
   outline: 2px solid var(--auralis-sidebar-active-indicator);
   outline-offset: 2px;
   box-shadow: none;

@@ -310,6 +310,7 @@ describe('metadataRefreshRepository artwork upsert rules', () => {
       albumArtist: 'Artist',
       trackNo: 1,
       discNo: 1,
+      bitrateBps: null,
       durationSeconds: 200,
       year: 2026,
       releaseDate: '2026',

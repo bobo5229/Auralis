@@ -21,6 +21,7 @@ function createTrack(id: number, patch: Partial<TrackListItem> = {}): TrackListI
     releaseDate: null,
     copyright: null,
     composer: null,
+    bitrateBps: null,
     durationSeconds: null,
     artworkCacheKey: null,
     genre: null,

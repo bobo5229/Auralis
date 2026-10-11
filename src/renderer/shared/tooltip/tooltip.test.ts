@@ -169,6 +169,20 @@ describe('shared tooltip lifecycle', async () => {
     expect(visible()?.textContent).toBe('Full track title')
   })
 
+  it('shows fast hints after 150ms and cancels them on early exit', async () => {
+    const element = mount('Tool hint', { fast: true })
+    dispatch('pointerover', element)
+    await vi.advanceTimersByTimeAsync(100)
+    dispatch('pointerout', element)
+    await vi.advanceTimersByTimeAsync(200)
+    expect(visible()).toBeUndefined()
+    dispatch('pointerover', element)
+    await vi.advanceTimersByTimeAsync(149)
+    expect(visible()).toBeUndefined()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(visible()?.textContent).toBe('Tool hint')
+  })
+
   it('cancels a pending hint on exit and re-arms it on a quick re-entry', async () => {
     const element = mount('Hint')
     dispatch('pointerover', element)

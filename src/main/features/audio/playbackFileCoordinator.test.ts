@@ -29,6 +29,26 @@ function setupCoordinator() {
 }
 
 describe('PlaybackFileCoordinator', () => {
+  it('distinguishes preloaded files while preserving exclusive write protection', async () => {
+    const { coordinator, sendToRenderer } = setupCoordinator()
+    const next = await coordinator.acquireReadLease('D:/music/song1.flac', 'mpv-next')
+    expect(coordinator.getTrackState(1).status).toBe('preload-in-use')
+    expect(sendToRenderer).toHaveBeenLastCalledWith(
+      ipcChannels.metadata.trackEditStateChanged,
+      expect.objectContaining({ status: 'preload-in-use' }),
+    )
+    expect(coordinator.tryAcquireWriteLease('D:/music/song1.flac')).toEqual({
+      ok: false,
+      reason: 'playback-in-use',
+    })
+    const current = await coordinator.acquireReadLease('D:/music/song1.flac', 'mpv-current')
+    expect(coordinator.getTrackState(1).status).toBe('playback-in-use')
+    coordinator.releaseReadLease(current.leaseId)
+    expect(coordinator.getTrackState(1).status).toBe('preload-in-use')
+    coordinator.releaseReadLease(next.leaseId)
+    expect(coordinator.getTrackState(1).status).toBe('editable')
+  })
+
   it('blocks new readers during preparation and promotes only after real readers release', async () => {
     const { coordinator } = setupCoordinator()
     coordinator.setBufferedWriteCapability(() => true)

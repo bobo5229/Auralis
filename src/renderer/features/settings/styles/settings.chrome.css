@@ -232,6 +232,19 @@
   gap: 3px;
 }
 
+:is(.settings-surface, .settings-controls) .settings-row--lyrics-scroll {
+  flex-wrap: wrap;
+}
+
+:is(.settings-surface, .settings-controls) .settings-row--lyrics-scroll > div:first-child {
+  flex: 1 1 220px;
+}
+
+:is(.settings-surface, .settings-controls) .settings-row--lyrics-scroll > .settings-select {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 :is(.settings-surface, .settings-controls) .settings-segmented-option {
   min-height: 30px;
   padding: 0 10px;

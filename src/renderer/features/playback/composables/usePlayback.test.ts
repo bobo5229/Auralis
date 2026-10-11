@@ -184,6 +184,7 @@ function createApi(): AuralisApi {
     },
     app: {
       setLocale: vi.fn(async () => undefined),
+      claimStartupAlbum: vi.fn(async () => ({ album: null })),
       claimCdStartupEntry: vi.fn(async () => ({ firstEntry: true })),
       getInfo: vi.fn(),
       exportDiagnostics: vi.fn(),
@@ -255,6 +256,8 @@ function createApi(): AuralisApi {
       onCommand: vi.fn(),
     },
     archive: {
+      getAnnualPlayCounts: vi.fn(async () => []),
+      getDayTopTracks: vi.fn(async () => []),
       resetPlayStats: vi.fn(),
     },
     metadata: {
@@ -275,6 +278,8 @@ function createApi(): AuralisApi {
       onRefreshProgress: vi.fn(),
     },
     window: {
+      getCloseBehavior: vi.fn().mockResolvedValue({ behavior: 'quit', trayAvailable: true }),
+      setCloseBehavior: vi.fn(),
       getVisibility: vi.fn().mockResolvedValue({ isVisible: true }),
       onVisibilityChanged: vi.fn().mockReturnValue(() => {}),
       control: vi.fn(),

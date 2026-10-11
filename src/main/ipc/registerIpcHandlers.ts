@@ -6,6 +6,7 @@ import { ipcChannels } from '@shared/ipc/channels'
 import { isRegisteredMainWindow } from '@main/app/mainWindowRegistry'
 import { getWindowVisibility } from '@main/app/windowVisibility'
 import { claimCdStartupEntry } from '@main/app/cdStartupSession'
+import { claimStartupAlbum } from '@main/app/startupAlbumSession'
 import { getNativeUiMessages, setNativeUiLocale } from '@main/app/uiLocale'
 import { isTrustedRendererUrl } from '@main/app/webContentsSecurity'
 import { getDatabasePath } from '@main/database/connection'
@@ -39,6 +40,7 @@ import { PlaylistService } from '@main/services/playlistService'
 import { PlayStatsService } from '@main/services/playStatsService'
 import { SmartPlaylistService } from '@main/services/smartPlaylistService'
 import type Database from 'better-sqlite3'
+import type { WindowBehaviorController } from '@main/app/windowBehaviorController'
 import { registerLibraryIpcHandlers } from './registerLibraryIpcHandlers'
 import { registerMetadataIpcHandlers } from './registerMetadataIpcHandlers'
 import { registerPlaybackArchiveIpcHandlers } from './registerPlaybackArchiveIpcHandlers'
@@ -57,6 +59,7 @@ function isMissingFileError(error: unknown): boolean {
 export function registerIpcHandlers(
   db: Database.Database,
   artworkCacheDir: string,
+  windowBehavior: WindowBehaviorController,
 ): { shutdown(): Promise<void> } {
   const sendToRenderer = createRendererEventSender(() => BrowserWindow.getAllWindows())
   const audioPaths = resolveAudioRuntimePaths({
@@ -159,9 +162,20 @@ export function registerIpcHandlers(
       metadataWatchService.resumeFlush()
       // A full scan re-derives all artwork keys — sweep the cache afterwards
       // (gated internally against any writer still being active).
-      void artworkMaintenanceService.runAfterScanGarbageCollection().catch((error) => {
-        logger.warn({ error }, 'Failed to run after-scan artwork garbage collection')
+      // The synchronous end hook returns before scan ownership is released.
+      queueMicrotask(() => {
+        void artworkMaintenanceService.runAfterScanGarbageCollection().catch((error) => {
+          logger.warn({ error }, 'Failed to run after-scan artwork garbage collection')
+        })
       })
+    },
+  })
+
+  libraryScanService.setRootChangeHooks({
+    onStart: () => metadataWatchService.pauseFlush(),
+    onEnd: () => {
+      metadataWatchService.syncRoots()
+      metadataWatchService.resumeFlush()
     },
   })
 
@@ -267,6 +281,13 @@ export function registerIpcHandlers(
   })
 
   electronIpcRegistrar.handle(ipcChannels.app.claimCdStartupEntry, claimCdStartupEntry)
+  electronIpcRegistrar.handle(ipcChannels.app.claimStartupAlbum, (_event, request) =>
+    claimStartupAlbum(() =>
+      libraryService.getStartupAlbumTracks(
+        request?.recentAlbums ?? (request?.excludeAlbumKey ? [request.excludeAlbumKey] : []),
+      ),
+    ),
+  )
   electronIpcRegistrar.handle(ipcChannels.app.setLocale, (_event, payload) => {
     setNativeUiLocale(payload.locale)
   })
@@ -334,6 +355,10 @@ export function registerIpcHandlers(
     }
     return getWindowVisibility(window)
   })
+  electronIpcRegistrar.handle(ipcChannels.window.getCloseBehavior, () => windowBehavior.getState())
+  electronIpcRegistrar.handle(ipcChannels.window.setCloseBehavior, (_event, payload) =>
+    windowBehavior.setBehavior(payload.behavior),
+  )
   electronIpcRegistrar.handle(ipcChannels.window.control, (event, payload) => {
     const window = BrowserWindow.fromWebContents(event.sender)
     if (!window || !isRegisteredMainWindow(window)) {

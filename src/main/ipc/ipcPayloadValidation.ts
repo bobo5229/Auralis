@@ -4,6 +4,8 @@ import type { IpcInvokeChannel } from '@shared/ipc/contracts'
 import { LIBRARY_CATALOG_MAX_PAGE_SIZE } from '@shared/types/libraryCatalog'
 import { assertRecentAddedDays } from '@shared/smartPlaylists/recentAdded'
 import { SMART_PLAYLIST_MAX_OPERANDS } from '@shared/smartPlaylists/ruleLimits'
+import { isListeningArchiveDate } from '@shared/listeningArchiveDate'
+import { STARTUP_ALBUM_HISTORY_LIMIT } from '@shared/types/startupAlbum'
 
 const MAX_TEXT_LENGTH = 8_192
 const MAX_QUERY_LENGTH = 4_096
@@ -371,6 +373,12 @@ export const domainIpcPayloadPolicies = {
     objectShape({ locale: field(enumValue(['zh-Hans', 'en'])) }),
   ),
   [ipcChannels.app.claimCdStartupEntry]: voidPayload(),
+  [ipcChannels.app.claimStartupAlbum]: optional(
+    objectShape({
+      excludeAlbumKey: field(albumKey, true),
+      recentAlbums: field(arrayOf(albumKey, { max: STARTUP_ALBUM_HISTORY_LIMIT }), true),
+    }),
+  ),
   [ipcChannels.app.exportDiagnostics]: voidPayload(),
   [ipcChannels.library.getStats]: voidPayload(),
   [ipcChannels.library.selectRoot]: voidPayload(),
@@ -478,6 +486,18 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.playback.releaseReadLease]: required(
     objectShape({ leaseId: field(stringValue({ min: 1, max: 128 })) }),
   ),
+  [ipcChannels.archive.getAnnualPlayCounts]: required(
+    objectShape({ year: field(finiteNumber({ integer: true, min: 1900, max: 9999 })) }),
+  ),
+  [ipcChannels.archive.getDayTopTracks]: required(
+    objectShape({
+      date: field((value, path, context) => {
+        stringValue({ min: 10, max: 10 })(value, path, context)
+        if (!isListeningArchiveDate(value as string))
+          fail(path, 'must be a valid local calendar date')
+      }),
+    }),
+  ),
   [ipcChannels.archive.resetPlayStats]: voidPayload(),
   [ipcChannels.metadata.refreshTrack]: required(idPayload('trackId')),
   [ipcChannels.metadata.refreshTracks]: required(
@@ -499,6 +519,10 @@ export const domainIpcPayloadPolicies = {
   ),
   [ipcChannels.window.getMaximized]: voidPayload(),
   [ipcChannels.window.getVisibility]: voidPayload(),
+  [ipcChannels.window.getCloseBehavior]: voidPayload(),
+  [ipcChannels.window.setCloseBehavior]: required(
+    objectShape({ behavior: field(enumValue(['quit', 'minimize', 'tray'])) }),
+  ),
 } satisfies Record<DomainIpcInvokeChannel, IpcPayloadPolicy>
 
 export function parseDomainIpcPayload(

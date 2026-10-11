@@ -26,6 +26,7 @@ export const SONG_FONT_SIZE_DEFAULTS = {
     trackNumber: 12,
     genre: 12,
     duration: 12,
+    bitrate: 12,
     discHeading: 11,
   },
 } as const
@@ -48,8 +49,8 @@ export function songFontSizeRange(view: SongFontWeightView, field: string) {
     if (['title', 'album', 'albumArtist', 'releaseDate'].includes(field)) {
       return { min: 10, max: 20 }
     }
-    // The track-number and duration columns must also accommodate two digits / m:ss.
-    if (field === 'trackNumber' || field === 'duration') return { min: 10, max: 18 }
+    // Keep fixed-width numeric columns and the two-line technical block within the row.
+    if (['trackNumber', 'duration', 'bitrate'].includes(field)) return { min: 10, max: 18 }
   }
   if (field === 'duration') return { min: 10, max: 20 }
   return { min: 10, max: 24 }

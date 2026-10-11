@@ -2,8 +2,6 @@ import { createReducedMotionQuery } from '@renderer/shared/animation/motionPrefe
 import { animateCdPress, animateFrames } from '@renderer/shared/animation/motion'
 import { cdAlbumIndex, cdPose, cdSlots, cdProjectedDiscOutline } from './cdGeometry'
 import { cdPlaybackWavePath, cdPlaybackWaveSeed } from './cdPlaybackWave'
-import { createCdCometRing } from './cdCometRing'
-import type { CdProgressStyle } from '../composables/useCdProgressStyle'
 import { playCdStartup } from './cdStartup'
 import { CD_VIBRATION_MAX_PX } from './cdVibrationMotion'
 import { cdVibrationProjection } from './cdVibrationProjection'
@@ -31,7 +29,6 @@ interface DiscNode {
   shadowPath?: SVGPathElement
   waveProgress?: SVGPathElement
   wavePaths?: SVGPathElement[]
-  comet?: ReturnType<typeof createCdCometRing>
   waveSeed: number
   image?: HTMLImageElement
   artwork: 'idle' | 'decoding' | 'shown' | 'deferred' | 'dropped'
@@ -74,7 +71,6 @@ export interface CdPlaybackRingState {
   playing: boolean
   progress: number
   accent: string
-  style?: CdProgressStyle
 }
 
 export function createCdStage(
@@ -179,17 +175,6 @@ export function createCdStage(
       if (!node.waveRing || !node.waveProgress || !node.waveTrack) continue
       const visible = node === activeNode
       node.waveRing.style.opacity = visible ? '1' : '0'
-      const comet = playback.style === 'comet'
-      node.waveTrack.style.display = comet ? 'none' : ''
-      node.waveProgress.style.display = comet ? 'none' : ''
-      if (visible && comet && !node.comet) {
-        node.comet = createCdCometRing(node.waveRing)
-        node.comet.paint(waveElapsed)
-      }
-      if (node.comet) {
-        node.comet.root.style.display = comet ? '' : 'none'
-        if (visible && comet) node.comet.setProgress(playback.progress, playback.accent)
-      }
       node.waveProgress.style.stroke = playback.accent
       node.waveProgress.setAttribute('stroke-dashoffset', String(1 - playback.progress))
       if (!visible) {
@@ -205,28 +190,6 @@ export function createCdStage(
     // Decorative loops stop while hidden; the playback clock still supplies progress.
     if (document.hidden) {
       stopWaveAnimation()
-      return
-    }
-    if (playback.style === 'comet') {
-      if (!playback.playing || reducedMotion.matches) {
-        stopWaveAnimation()
-        return
-      }
-      if (cancelWaveAnimation) return
-      cancelWaveAnimation = animateFrames((seconds) => {
-        const node = nodes.get(selected)
-        if (!node?.comet || !playback.visible || focusProgress !== 1 || focusMoving) {
-          cancelWaveAnimation = null
-          return false
-        }
-        waveElapsed += seconds
-        waveFrameElapsed += seconds
-        if (waveFrameElapsed >= 1 / 30) {
-          waveFrameElapsed %= 1 / 30
-          node.comet.paint(waveElapsed)
-        }
-        return true
-      })
       return
     }
     if (reducedMotion.matches) {
@@ -1416,11 +1379,6 @@ export function createCdStage(
       applyVibration(node)
     },
     setPlayback(next: CdPlaybackRingState): void {
-      if ((next.style ?? 'wave') !== (playback.style ?? 'wave')) {
-        stopWaveAnimation()
-        ringDrawElapsed = 0
-        ringDrawSettled = false
-      }
       playback = {
         ...next,
         progress: Math.max(0, Math.min(1, Number.isFinite(next.progress) ? next.progress : 0)),

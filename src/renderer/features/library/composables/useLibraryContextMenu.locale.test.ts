@@ -16,7 +16,12 @@ describe('localized library menu feedback', () => {
         constructor(public type: string) {}
       },
     )
-    const addTracksToPlaylist = vi.fn(async () => undefined)
+    const addTracksToPlaylist = vi.fn(async () => ({
+      addedCount: 1,
+      alreadyPresentCount: 0,
+      unavailableCount: 0,
+      playlistExists: true,
+    }))
     const options: Parameters<typeof useLibraryContextMenu>[0] = {
       tracks: ref([]),
       isScopedPlaylist: () => false,
@@ -50,6 +55,32 @@ describe('localized library menu feedback', () => {
     expect(state.playlistLoadError.value).toBe('Could not load playlists. Try again.')
     expect(state.addToPlaylistFeedback.value?.message).toBe('Added to 夜航 / My collection')
     expect(addTracksToPlaylist).toHaveBeenCalledExactlyOnceWith(1, [42])
+    addTracksToPlaylist.mockResolvedValueOnce({
+      addedCount: 0,
+      alreadyPresentCount: 0,
+      unavailableCount: 1,
+      playlistExists: true,
+    })
+    await state.onCreatePlaylistAndAddContextTracks()
+    expect(state.addToPlaylistFeedback.value).toMatchObject({
+      kind: 'error',
+      message: 'No new tracks added. Unavailable tracks could not be added.',
+    })
+    i18n.global.locale.value = 'zh-Hans'
+    expect(state.addToPlaylistFeedback.value?.message).toBe('未添加新歌曲，不可用的歌曲无法添加。')
+    addTracksToPlaylist.mockResolvedValueOnce({
+      addedCount: 0,
+      alreadyPresentCount: 1,
+      unavailableCount: 0,
+      playlistExists: true,
+    })
+    await state.onCreatePlaylistAndAddContextTracks()
+    expect(state.addToPlaylistFeedback.value).toMatchObject({
+      kind: 'info',
+      message: '已在「夜航 / My collection」中',
+    })
+    i18n.global.locale.value = 'en'
+    expect(state.addToPlaylistFeedback.value?.message).toBe('Already in 夜航 / My collection')
     state.dispose()
   })
 })

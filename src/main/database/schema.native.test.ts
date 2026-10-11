@@ -39,7 +39,9 @@ describe('migrateDatabase', () => {
     )
     const before = db.prepare('SELECT * FROM library_track_display').all()
     migrateDatabase(db)
-    expect(db.prepare('SELECT * FROM library_track_display').all()).toEqual(before)
+    expect(db.prepare('SELECT * FROM library_track_display').all()).toEqual(
+      before.map((row) => ({ ...(row as Record<string, unknown>), bitrate_bps: null })),
+    )
     expect(db.prepare('SELECT COUNT(*) FROM removed_track_history').pluck().get()).toBe(0)
     expect(db.prepare('SELECT * FROM listening_daily_track_play_stats').all()).toEqual(
       db.prepare('SELECT * FROM daily_track_play_stats').all(),
@@ -62,9 +64,9 @@ describe('migrateDatabase', () => {
       .all() as string[]
 
     expect(migrations.map(({ id }) => id)).toEqual(
-      Array.from({ length: 24 }, (_, index) => index + 1),
+      Array.from({ length: 26 }, (_, index) => index + 1),
     )
-    expect(migrations.at(-1)?.name).toBe('preserve_listening_history_after_track_removal')
+    expect(migrations.at(-1)?.name).toBe('add_metadata_parser_version')
     expect(objects).toEqual(
       expect.arrayContaining([
         'tracks',
@@ -134,7 +136,7 @@ describe('migrateDatabase', () => {
       availability: 'available',
       playCount: 0,
     })
-    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(24)
+    expect(db.prepare('SELECT COUNT(*) FROM schema_migrations').pluck().get()).toBe(26)
     expect(
       db.prepare('SELECT lyrics_sidecar_fingerprint FROM tracks WHERE id = 7').pluck().get(),
     ).toBeNull()

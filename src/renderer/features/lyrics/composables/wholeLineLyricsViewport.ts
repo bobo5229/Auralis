@@ -1,11 +1,11 @@
 import type { Ref } from 'vue'
 import type { LyricLine } from '../types'
+import { getLyricsScrollEasing, type LyricsScrollPreset } from '../lyricsScrollPreset'
 import {
   isWholeLyricsOpening,
   resolveWholeLyricsMotionDuration,
   resolveWholeLyricsStart,
   resolveWholeLyricsWindow,
-  WHOLE_LYRIC_MOTION_EASING,
   WHOLE_LYRIC_OPENING_GAP,
   WHOLE_LYRIC_SHADOW_GAP,
 } from '../utils/wholeLineLyricsLayout'
@@ -18,6 +18,7 @@ interface Options {
   showPrelude: Readonly<Ref<boolean>>
   artworkRef?: Ref<HTMLElement | null>
   reducedMotion?: Readonly<Ref<boolean>>
+  scrollPreset?: Readonly<Ref<LyricsScrollPreset>>
   focalRatio: number
   activeScale: number
   requestMoreLines?: () => boolean
@@ -103,6 +104,7 @@ export function createWholeLineLyricsViewport(options: Options) {
   let expandingWindow = false
   let measurements = new WeakMap<LyricLine, { key: string; height: number; inkOffset?: number }>()
   const animations = new Set<Animation>()
+  let transitionEasing = getLyricsScrollEasing(options.scrollPreset?.value)
 
   function capture(): Map<HTMLElement, Pose> {
     const poses = new Map<HTMLElement, Pose>()
@@ -171,7 +173,7 @@ export function createWholeLineLyricsViewport(options: Options) {
     const token = generation
     const animation = element.animate(frames, {
       duration,
-      easing: WHOLE_LYRIC_MOTION_EASING,
+      easing: transitionEasing,
       fill: 'both',
     })
     animations.add(animation)
@@ -213,6 +215,7 @@ export function createWholeLineLyricsViewport(options: Options) {
     }
     const previous = pending ?? capture()
     pending = null
+    transitionEasing = getLyricsScrollEasing(options.scrollPreset?.value)
     const duration = resolveWholeLyricsMotionDuration(
       lines,
       previousIndex,

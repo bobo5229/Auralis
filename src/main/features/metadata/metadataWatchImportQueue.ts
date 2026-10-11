@@ -13,6 +13,7 @@ export class MetadataWatchImportQueue {
     private readonly incrementalImportService: LibraryIncrementalImportService,
     private readonly onPending: (filePath: string) => void,
     private readonly scheduleFlush: (delay?: number) => void,
+    private readonly isPathActive: (filePath: string) => boolean,
   ) {}
 
   deferIfInFlight(filePath: string): boolean {
@@ -21,15 +22,22 @@ export class MetadataWatchImportQueue {
     return true
   }
 
-  discardDeferred(filePath: string): void {
-    this.deferredFilePaths.delete(filePath)
-  }
-
   clearDeferred(): void {
     this.deferredFilePaths.clear()
+    this.unstableRetries.clear()
+  }
+
+  pruneInactivePaths(): void {
+    for (const paths of [this.deferredFilePaths, this.unstableRetries]) {
+      for (const filePath of paths.keys()) {
+        if (!this.isPathActive(filePath)) paths.delete(filePath)
+      }
+    }
   }
 
   async importFiles(filePaths: string[]): Promise<void> {
+    filePaths = filePaths.filter((filePath) => this.isPathActive(filePath))
+    if (filePaths.length === 0) return
     for (const filePath of filePaths) this.inFlightFilePaths.add(filePath)
     try {
       const result = await this.incrementalImportService.importFiles(filePaths)
@@ -51,6 +59,11 @@ export class MetadataWatchImportQueue {
         for (const filePath of result.unstable) {
           // Release in-flight before requeue so the next flush won't defer it
           this.inFlightFilePaths.delete(filePath)
+          if (!this.isPathActive(filePath)) {
+            this.unstableRetries.delete(filePath)
+            this.deferredFilePaths.delete(filePath)
+            continue
+          }
 
           const retries = (this.unstableRetries.get(filePath) ?? 0) + 1
 
@@ -87,7 +100,7 @@ export class MetadataWatchImportQueue {
    * If a path was deferred while in-flight, move it to pending and schedule a flush.
    */
   private drainDeferred(filePath: string): void {
-    if (this.deferredFilePaths.delete(filePath)) {
+    if (this.deferredFilePaths.delete(filePath) && this.isPathActive(filePath)) {
       this.onPending(filePath)
       this.scheduleFlush()
     }

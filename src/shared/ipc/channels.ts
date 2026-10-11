@@ -7,6 +7,7 @@ export const ipcChannels = {
     getInfo: 'app:get-info',
     setLocale: 'app:set-locale',
     claimCdStartupEntry: 'app:claim-cd-startup-entry',
+    claimStartupAlbum: 'app:claim-startup-album',
     exportDiagnostics: 'app:export-diagnostics',
     rendererReady: 'app:renderer-ready',
     splashReady: 'app:splash-ready',
@@ -71,6 +72,8 @@ export const ipcChannels = {
     command: 'system-media:command',
   },
   archive: {
+    getAnnualPlayCounts: 'archive:get-annual-play-counts',
+    getDayTopTracks: 'archive:get-day-top-tracks',
     resetPlayStats: 'archive:reset-play-stats',
   },
   metadata: {
@@ -87,6 +90,8 @@ export const ipcChannels = {
     trackEditStateChanged: 'metadata:track-edit-state-changed',
   },
   window: {
+    getCloseBehavior: 'window:get-close-behavior',
+    setCloseBehavior: 'window:set-close-behavior',
     control: 'window:control',
     getMaximized: 'window:get-maximized',
     maximizedChanged: 'window:maximized-changed',

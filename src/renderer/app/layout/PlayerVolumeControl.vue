@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { useVolumeOverlay } from '@renderer/features/playback/composables/useVolumeOverlay'
 import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverlayFocus'
+import PlayerBarActionIcon from './PlayerBarActionIcon.vue'
 
 const emit = defineEmits<{
   activate: []
@@ -98,7 +99,7 @@ defineExpose({
       :aria-expanded="isVolumeOverlayOpen"
       @click="handleVolumeButtonClick"
     >
-      <span class="playbar-action-icon h-5 w-5" :class="volumeIconClass" />
+      <PlayerBarActionIcon :icon="volumeIconClass" />
     </button>
     <div
       class="volume-inline-reveal"

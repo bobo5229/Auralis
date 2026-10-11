@@ -2,6 +2,7 @@ import { resolve } from 'node:path'
 import { defineConfig } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
 import UnoCSS from 'unocss/vite'
+import { transform } from 'esbuild'
 
 export default defineConfig({
   main: {
@@ -68,6 +69,26 @@ export default defineConfig({
         },
       },
     },
-    plugins: [vue(), UnoCSS()],
+    plugins: [
+      vue(),
+      UnoCSS(),
+      {
+        name: 'compact-startup-card',
+        async renderChunk(code, chunk) {
+          if (
+            !Object.keys(chunk.modules).some((id) =>
+              /\/(?:node_modules\/three|features\/startupAlbum)\//.test(id.replaceAll('\\', '/')),
+            )
+          )
+            return null
+          return transform(code, {
+            minify: true,
+            format: 'esm',
+            target: 'es2022',
+            legalComments: 'inline',
+          })
+        },
+      },
+    ],
   },
 })

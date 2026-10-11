@@ -10,6 +10,7 @@ export interface MpvMessage {
   reason?: string
   error?: string
   request_id?: number
+  playlist_entry_id?: number
 }
 
 /** Private main-process transport. Never exposed through preload. */
@@ -117,7 +118,7 @@ export async function openMpvClient(
       throw new Error('mpv startup cancelled')
     }
   } catch (error) {
-    close()
+    await close()
     throw error
   }
   ready = true

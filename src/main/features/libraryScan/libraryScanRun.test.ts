@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IAudioMetadata } from 'music-metadata'
 import { runLibraryScan } from './libraryScanRun'
+import { getMetadataParserVersion } from '../metadata/metadataParserVersion'
 import { LibraryScanArtwork, getScanAlbumKey } from './libraryScanArtwork'
 import { LibraryScanTrackReader } from './libraryScanTrackReader'
 import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './libraryScanTypes'
@@ -70,6 +71,7 @@ function knownFile(filePath: string): LibraryScanWorkerInput['knownFiles'][numbe
     lyricsCheckedMtimeMs: 100,
     lyricsSidecarFingerprint: '[null,null]',
     metadataCheckedMtimeMs: 100,
+    metadataParserVersion: getMetadataParserVersion(filePath),
   }
 }
 

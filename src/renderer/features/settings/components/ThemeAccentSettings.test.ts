@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRenderer, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { tinycolor } from 'vue-color'
 import { useTheme } from '@renderer/composables/useTheme'
 import { useDarkAccent } from '@renderer/features/appearance/composables/useDarkAccent'
 import { useLightAccent } from '@renderer/features/appearance/composables/useLightAccent'
@@ -82,6 +83,18 @@ vi.mock('vue-color', async (importOriginal) => {
             ),
           ),
           h('div', { class: 'active-color' }),
+          h('button', {
+            class: 'mock-hue-control',
+            onClick: () =>
+              emit(
+                'update:tinyColor',
+                actual.tinycolor({
+                  ...(props.tinyColor as ReturnType<typeof actual.tinycolor>).toHsl(),
+                  h:
+                    ((props.tinyColor as ReturnType<typeof actual.tinycolor>).toHsl().h + 40) % 360,
+                }),
+              ),
+          }),
           h('input', {
             class: 'vc-input-input',
             'aria-label': 'Hex',
@@ -484,6 +497,25 @@ describe('ThemeAccentSettings', () => {
       mode === 'light' ? '#22D3EE' : '#FB7185',
     )
     expect(storage.writes).toEqual([`auralis-${mode}-accent`])
+  })
+
+  it('makes hue changes visible after restoring the neutral light accent', async () => {
+    const root = await mountSettings()
+    await clickAndFlush(findClass(root, 'dark-accent-toggle')!)
+    await clickAndFlush(findClass(root, 'dark-accent-reset')!)
+    expect(lightState.lightAccent.value).toBe('#585B5F')
+
+    await clickAndFlush(findClass(root, 'mock-hue-control')!)
+    const selected = lightState.lightAccent.value
+    expect(selected).not.toBe('#585B5F')
+    expect(tinycolor(selected).toHsl().s).toBeGreaterThanOrEqual(0.4)
+    await clickAndFlush(findClass(root, 'mock-hue-control')!)
+    expect(lightState.lightAccent.value).not.toBe(selected)
+    expect(tinycolor(lightState.lightAccent.value).toHsl().s).toBeGreaterThanOrEqual(0.4)
+    expect(storage.getItem('auralis-light-accent')).toBe(lightState.lightAccent.value)
+    expect(findClass(root, 'dark-accent-user-swatch')?.props.style).toEqual({
+      backgroundColor: lightState.lightAccent.value,
+    })
   })
 
   it('shows write failures only for the current app theme', async () => {

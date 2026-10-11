@@ -60,7 +60,22 @@ it('keeps the lease of an item entering playback while cancellation awaits', asy
   cleared.resolve()
   await pending
   expect(state.runtime.nextLeaseId).toBe(lease.leaseId)
-  expect(coordinator.getTrackState(1).status).toBe('playback-in-use')
+  expect(coordinator.getTrackState(1).status).toBe('preload-in-use')
+  await service.dispose()
+})
+
+it('changes the preload notice to playback usage when the next lease becomes current', async () => {
+  const { path, coordinator, state, service } = setup()
+  const next = await coordinator.acquireReadLease(path, 'mpv-next')
+  state.runtime.holdNextLease(next.leaseId)
+  const before = coordinator.getTrackState(1)
+  expect(before.status).toBe('preload-in-use')
+  state.runtime.advanceLease()
+  const after = coordinator.getTrackState(1)
+  expect(after.status).toBe('playback-in-use')
+  expect(after.version).toBeGreaterThan(before.version)
+  expect(state.runtime.currentLeaseId).toBe(next.leaseId)
+  expect(coordinator.tryAcquireWriteLease(path)).toEqual({ ok: false, reason: 'playback-in-use' })
   await service.dispose()
 })
 

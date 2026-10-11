@@ -29,6 +29,7 @@ interface MetadataWriteState {
 export class MetadataRefreshWorkerHost {
   private activeWorker: Worker | null = null
   private activeJobId: number | null = null
+  private activeJobFinalizer: ((reason: string, interrupted?: boolean) => void) | null = null
   private readonly pendingMessages = new Set<Promise<void>>()
 
   constructor(
@@ -45,20 +46,22 @@ export class MetadataRefreshWorkerHost {
   async shutdown(): Promise<void> {
     const worker = this.activeWorker
     const jobId = this.activeJobId
+    const finalize = this.activeJobFinalizer
     this.activeWorker = null
     this.activeJobId = null
+    this.activeJobFinalizer = null
     if (worker) {
       try {
         await worker.terminate()
       } catch (error) {
         this.activeWorker = worker
         this.activeJobId = jobId
+        this.activeJobFinalizer = finalize
         throw error
       }
     }
     while (this.pendingMessages.size > 0) await Promise.allSettled([...this.pendingMessages])
-    if (jobId !== null)
-      this.repository.completeJob(jobId, 'Application shutdown interrupted refresh')
+    finalize?.('Application shutdown interrupted refresh', true)
   }
 
   start(input: MetadataRefreshWorkerInput): void {
@@ -69,6 +72,7 @@ export class MetadataRefreshWorkerHost {
         generation: this.writes.generationFor(track.trackId),
       })),
     }
+    const changedReason = this.getChangedReason(input.jobId)
     const worker = new Worker(getWorkerPath(), {
       workerData: input,
     })
@@ -80,15 +84,65 @@ export class MetadataRefreshWorkerHost {
     let committed = 0
     const expectedTracks = new Map(input.tracks.map((track) => [track.trackId, track]))
     const committedTrackIds: number[] = []
+    let terminal = false
     let messages = Promise.resolve()
 
     const cleanup = (): void => {
       if (this.activeWorker === worker) {
         this.activeWorker = null
         this.activeJobId = null
+        this.activeJobFinalizer = null
         queueMicrotask(() => this.onIdle())
       }
     }
+
+    const finalize = (reason?: string, interrupted = false): void => {
+      if (
+        terminal ||
+        (!interrupted && (this.activeWorker !== worker || this.activeJobId !== input.jobId))
+      )
+        return
+      terminal = true
+      let terminalError = reason
+      const recordError = (error: unknown, affectsStatus = true): void => {
+        if (affectsStatus)
+          terminalError ??= error instanceof Error ? error.message : 'Metadata commit failed'
+        logger.error({ err: error, jobId: input.jobId }, 'Metadata refresh finalization failed')
+      }
+      try {
+        try {
+          this.repository.updateJobProgress(input.jobId, committed, failed)
+        } catch (error) {
+          recordError(error)
+        }
+        try {
+          if (terminalError === undefined) this.repository.completeJob(input.jobId)
+          else this.repository.completeJob(input.jobId, terminalError)
+        } catch (error) {
+          recordError(error)
+        }
+        // A job failure does not roll back metadata already committed to the library.
+        try {
+          if (committedTrackIds.length) this.pushChanged(committedTrackIds, changedReason)
+        } catch (error) {
+          recordError(error, false)
+        }
+        try {
+          this.pushProgress(
+            input.jobId,
+            committed + failed,
+            input.tracks.length,
+            failed,
+            terminalError === undefined ? 'completed' : 'failed',
+          )
+        } catch (error) {
+          recordError(error, false)
+        }
+      } finally {
+        cleanup()
+      }
+    }
+    this.activeJobFinalizer = finalize
 
     const handleMessage = async (message: MetadataRefreshWorkerMessage): Promise<void> => {
       if (this.activeWorker !== worker || this.activeJobId !== input.jobId) return
@@ -128,6 +182,7 @@ export class MetadataRefreshWorkerHost {
 
           const source = expectedTracks.get(f.trackId)
           if (f.jobId !== input.jobId || !source || source.filePath !== f.filePath) break
+          failed += 1
           if (
             this.isMissingFileFailure(f.reason) &&
             source.generation === this.writes.generationFor(f.trackId) &&
@@ -140,7 +195,6 @@ export class MetadataRefreshWorkerHost {
             this.repository.addFailure(f.jobId, f.trackId, f.filePath, f.reason)
           }
 
-          failed += 1
           break
         }
 
@@ -151,25 +205,12 @@ export class MetadataRefreshWorkerHost {
         }
 
         case 'complete': {
-          this.repository.updateJobProgress(input.jobId, committed, failed)
-          this.repository.completeJob(input.jobId)
-          this.pushProgress(
-            input.jobId,
-            committed + failed,
-            input.tracks.length,
-            failed,
-            'completed',
-          )
-          if (committedTrackIds.length)
-            this.pushChanged(committedTrackIds, this.getChangedReason(input.jobId))
-          cleanup()
+          finalize()
           break
         }
 
         case 'fatal': {
-          cleanup()
-          this.repository.completeJob(input.jobId, message.payload.reason)
-          this.pushProgress(input.jobId, 0, input.tracks.length, input.tracks.length, 'failed')
+          finalize(message.payload.reason)
           break
         }
       }
@@ -178,14 +219,7 @@ export class MetadataRefreshWorkerHost {
     const enqueue = (operation: () => Promise<void> | void): void => {
       messages = messages.then(operation).catch((error: unknown) => {
         logger.error({ err: error, jobId: input.jobId }, 'Metadata message processing failed')
-        if (this.activeWorker === worker) {
-          cleanup()
-          this.repository.completeJob(
-            input.jobId,
-            error instanceof Error ? error.message : 'Metadata commit failed',
-          )
-          this.pushProgress(input.jobId, committed + failed, input.tracks.length, failed, 'failed')
-        }
+        finalize(error instanceof Error ? error.message : 'Metadata commit failed')
       })
       const pending = messages
       this.pendingMessages.add(pending)
@@ -200,10 +234,7 @@ export class MetadataRefreshWorkerHost {
 
     worker.on('error', (error) =>
       enqueue(() => {
-        if (this.activeWorker !== worker) return
-        cleanup()
-        this.repository.completeJob(input.jobId, error.message)
-        this.pushProgress(input.jobId, 0, input.tracks.length, input.tracks.length, 'failed')
+        finalize(error.message)
       }),
     )
 
@@ -211,11 +242,7 @@ export class MetadataRefreshWorkerHost {
       enqueue(() => {
         // Only handle unexpected exit — normal completion is handled by the
         // 'complete' or 'fatal' message handlers which call cleanup() first.
-        if (this.activeWorker === worker && this.activeJobId === input.jobId) {
-          cleanup()
-          this.repository.completeJob(input.jobId, `Worker exited unexpectedly (code ${code})`)
-          this.pushProgress(input.jobId, 0, input.tracks.length, input.tracks.length, 'failed')
-        }
+        finalize(`Worker exited unexpectedly (code ${code})`)
       }),
     )
   }

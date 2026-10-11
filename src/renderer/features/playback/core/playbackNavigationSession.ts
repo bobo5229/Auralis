@@ -8,6 +8,7 @@ import {
 } from './playbackQueueState'
 import {
   resolvePlaybackAdvance,
+  findCurrentAlbumShuffleContext,
   type PlaybackAdvanceDecision,
   type PlaybackAdvanceTrigger,
   type PlaybackTransitionPlan,
@@ -176,11 +177,52 @@ export class PlaybackNavigationSession {
       this.pushHistory(currentTrack, plan.track.id, currentQueue)
     }
     if (plan.nextShuffleCycle) this.shuffleCycle = plan.nextShuffleCycle
-    if (plan.consumeQueued && this.getQueuedNextTrackId() === plan.track.id) {
-      this.queuedTrackIds.shift()
+    if (plan.consumeQueued) {
+      this.queuedTrackIds = this.queuedTrackIds.filter((id) => id !== plan.track.id)
     }
     if (plan.nextAlbumShuffleContext !== undefined) {
       this.albumShuffleContext = plan.nextAlbumShuffleContext
+    }
+  }
+
+  // The backend may cross an old next boundary while a mode/queue edit is in
+  // flight. Adopt its actual track without restoring the old navigation state.
+  rebaseEnteredPlan(
+    submittedPlan: PlaybackTransitionPlan,
+    currentState: NavigationCurrentState,
+    preserveShuffleContext: boolean,
+  ): PlaybackTransitionPlan {
+    const track = submittedPlan.track
+    let queue = currentState.queue.some((item) => item.id === track.id)
+      ? currentState.queue
+      : [...currentState.queue, track]
+    // An insertion made just before delivery can sit before the track mpv has
+    // already entered. Keep those unconsumed requests immediately after it.
+    const queuedTracks = this.queuedTrackIds
+      .filter((id) => id !== track.id)
+      .flatMap((id) => queue.find((item) => item.id === id) ?? [])
+    const insertion = buildMultiTrackInsertion(queue, track.id, queuedTracks)
+    if (insertion) queue = insertion.queue
+    return {
+      track,
+      queue,
+      recordHistory: currentState.currentTrackId !== track.id,
+      consumeQueued: this.queuedTrackIds.includes(track.id),
+      nextShuffleCycle:
+        preserveShuffleContext && submittedPlan.nextShuffleCycle
+          ? submittedPlan.nextShuffleCycle
+          : currentState.playbackMode === 'shuffle' && this.shuffleCycle
+            ? {
+                ...this.shuffleCycle,
+                remaining: this.shuffleCycle.remaining.filter((id) => id !== track.id),
+              }
+            : undefined,
+      nextAlbumShuffleContext:
+        preserveShuffleContext && submittedPlan.nextAlbumShuffleContext !== undefined
+          ? submittedPlan.nextAlbumShuffleContext
+          : currentState.playbackMode === 'album-shuffle'
+            ? findCurrentAlbumShuffleContext(this.shuffleTrackPool ?? queue, track.id)
+            : undefined,
     }
   }
 

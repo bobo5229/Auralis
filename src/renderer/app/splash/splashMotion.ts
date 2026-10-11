@@ -5,19 +5,7 @@ export const SPLASH_RESONANCE_PATH = 'M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38
 const clamp = (value: number): number => Math.max(0, Math.min(1, value))
 const ease = (value: number): number => 1 - (1 - clamp(value)) ** 3
 
-/** Placebo 沿用 demo 的推进曲线，实际就绪前停在 92%。 */
-export function getSplashPlaceboProgress(milliseconds: number): number {
-  if (milliseconds <= 300) return ease(milliseconds / 300) * 0.32
-  if (milliseconds <= 900) return 0.32 + ((milliseconds - 300) / 600) * 0.46
-  const progress = clamp((milliseconds - 900) / 300)
-  return 0.78 + (1 - (1 - progress) ** 2) * 0.14
-}
-
-export function getSplashPlaceboCompletion(milliseconds: number, initial: number): number {
-  return initial + ease(milliseconds / 80) * (1 - initial)
-}
-
-/** 品牌字「共鸣串联」：沿用 brand-text-motion demo 方案 1 的逐字时序。 */
+/** 品牌字「共鸣串联」：逐字出现，末尾 s 回弹并在 Logo 成形结束时落定。 */
 export function getSplashBrandCharFrame(
   milliseconds: number,
   index: number,
@@ -26,14 +14,20 @@ export function getSplashBrandCharFrame(
   offset: number
   accentPercent: number
 } {
-  // 最后一字在 demo 的 900ms 终帧已几乎落定；正式开屏在此精确归位。
-  const progress =
-    milliseconds >= SPLASH_FORMATION_MS ? 1 : ease((milliseconds - 560 - index * 32) / 160)
+  const start = 560 + index * 24
+  const progress = ease((milliseconds - start) / 160)
+  let offset = (1 - progress) * 7
+  if (index === 6) {
+    // s 从 704ms 开始，以连续的缓出回弹越过基线约 1px，900ms 速度归零。
+    const settle = clamp((milliseconds - start) / (SPLASH_FORMATION_MS - start))
+    const remaining = 1 - settle
+    offset = settle === 1 ? 0 : 7 * remaining ** 2 * (3.2 * remaining - 2.2)
+  }
   const echo =
     progress > 0.15 && progress < 0.75 ? Math.sin(((progress - 0.15) / 0.6) * Math.PI) : 0
   return {
     opacity: progress,
-    offset: (1 - progress) * 7,
+    offset,
     accentPercent: Math.round(echo * 90),
   }
 }

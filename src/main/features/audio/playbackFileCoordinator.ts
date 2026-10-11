@@ -132,8 +132,13 @@ export class PlaybackFileCoordinator {
 
   private computeStatus(entry: FileAccessEntry): TrackEditStatus {
     if (entry.writer !== null) return 'write-in-progress'
-    if (entry.readers.size > 0)
-      return this.canBuffer(entry) ? 'playback-editable' : 'playback-in-use'
+    if (entry.readers.size > 0) {
+      if (this.canBuffer(entry)) return 'playback-editable'
+      const isPreload = [...entry.readers].every(
+        (id) => this.leases.get(id)?.sourceId === 'mpv-next',
+      )
+      return isPreload ? 'preload-in-use' : 'playback-in-use'
+    }
     return 'editable'
   }
 
@@ -208,6 +213,16 @@ export class PlaybackFileCoordinator {
 
       entry.writeWaiters.push(waiter)
     })
+  }
+
+  markReadLeaseCurrent(leaseId: string): void {
+    const lease = this.leases.get(leaseId)
+    if (!lease || lease.kind !== 'read' || lease.sourceId !== 'mpv-next') return
+    lease.sourceId = 'mpv-current'
+    const entry = this.entries.get(lease.normalizedPath)
+    if (!entry) return
+    entry.version = ++this.stateVersion
+    this.broadcastStatusIfChanged(entry)
   }
 
   releaseReadLease(leaseId: string): void {

@@ -223,7 +223,12 @@ export function createTooltipController() {
       text: binding.value?.trim() ?? '',
       overflow: Boolean(binding.modifiers.overflow),
       right: Boolean(binding.modifiers.right),
-      delay: binding.modifiers.data ? 150 : binding.modifiers.overflow ? 500 : 600,
+      delay:
+        binding.modifiers.fast || binding.modifiers.data
+          ? 150
+          : binding.modifiers.overflow
+            ? 500
+            : 600,
       feedback: Boolean(binding.modifiers.feedback),
     }
     const previous = entries.get(element)

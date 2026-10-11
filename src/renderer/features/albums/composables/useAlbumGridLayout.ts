@@ -1,10 +1,14 @@
 import { nextTick, onScopeDispose, ref, watch, type Ref } from 'vue'
+import {
+  ALBUM_LIST_METADATA_GAP,
+  ALBUM_LIST_METADATA_MIN_HEIGHT,
+} from '@renderer/features/appearance/constants/albumListParameters'
 
 /** 与 .albums-grid-row 的左右阴影缓冲 padding 之和保持一致。 */
 export const GRID_PADDING_X = 40
 export const COLUMN_GAP = 20
-/** 封面下方固定元信息区：12px margin + 58px 文本块。 */
-const CARD_METADATA_HEIGHT = 70
+/** 默认元信息占用；自定义字号通过 metadataOccupancy 传入实际值。 */
+const CARD_METADATA_HEIGHT = ALBUM_LIST_METADATA_GAP + ALBUM_LIST_METADATA_MIN_HEIGHT
 const ROW_GAP = 28
 const TARGET_CARD_WIDTH = 190
 const MAX_CARD_WIDTH = 210
@@ -38,6 +42,7 @@ export function calculateAlbumGridGeometry(input: {
   previous: AlbumGridGeometry | null
   scrollTop: number
   anchorAlbumKey: string | null
+  metadataOccupancy?: number
 }): AlbumGridGeometryResult {
   const availableWidth = Math.max(0, input.width - GRID_PADDING_X)
   let columnCount = Math.floor((availableWidth + COLUMN_GAP) / (TARGET_CARD_WIDTH + COLUMN_GAP))
@@ -48,7 +53,7 @@ export function calculateAlbumGridGeometry(input: {
     cardWidth = Math.max(1, (availableWidth - COLUMN_GAP * (columnCount - 1)) / columnCount)
   }
 
-  const rowHeight = cardWidth + CARD_METADATA_HEIGHT + ROW_GAP
+  const rowHeight = cardWidth + (input.metadataOccupancy ?? CARD_METADATA_HEIGHT) + ROW_GAP
   const totalHeight = Math.ceil(input.albumKeys.length / columnCount) * rowHeight
   const geometry = { width: input.width, columnCount, cardWidth, rowHeight, totalHeight }
 
@@ -94,6 +99,7 @@ export function useAlbumGridLayout(options: {
   isActive: Readonly<Ref<boolean>>
   albumKeys: Readonly<Ref<readonly string[]>>
   measure: () => void
+  metadataOccupancy?: Readonly<Ref<number>>
 }) {
   const gridWidth = ref<number | null>(null)
   const columnCount = ref(4)
@@ -137,6 +143,7 @@ export function useAlbumGridLayout(options: {
       previous,
       scrollTop: container.scrollTop,
       anchorAlbumKey,
+      metadataOccupancy: options.metadataOccupancy?.value,
     })
     const next = result.geometry
     if (
@@ -178,6 +185,12 @@ export function useAlbumGridLayout(options: {
 
   function beginTransition(): void {
     transitionLocked = true
+  }
+
+  if (options.metadataOccupancy) {
+    watch(options.metadataOccupancy, () => {
+      void nextTick(() => update())
+    })
   }
 
   function commitTransitionTarget(): boolean {

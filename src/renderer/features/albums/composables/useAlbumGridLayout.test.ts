@@ -27,10 +27,11 @@ function setup() {
   const isActive = ref(true)
   const albumKeys = ref(Array.from({ length: 120 }, (_, index) => `album-${index}`))
   const measure = vi.fn()
+  const metadataOccupancy = ref(70)
   const scope = effectScope()
   scopes.push(scope)
   const grid = scope.run(() =>
-    useAlbumGridLayout({ container, isResizing, isActive, albumKeys, measure }),
+    useAlbumGridLayout({ container, isResizing, isActive, albumKeys, measure, metadataOccupancy }),
   )!
   grid.update(false)
   readWidth.mockClear()
@@ -46,6 +47,7 @@ function setup() {
     isActive,
     albumKeys,
     measure,
+    metadataOccupancy,
     scope,
   }
 }
@@ -96,6 +98,39 @@ describe('album grid geometry', () => {
 })
 
 describe('album grid layout commits', () => {
+  it('applies font geometry after a transition lock or inactive page is released', async () => {
+    const state = setup()
+    state.grid.beginTransition()
+    state.metadataOccupancy.value = 96
+    await nextTick()
+    await nextTick()
+    expect(state.measure).not.toHaveBeenCalled()
+    state.grid.endTransition()
+    await nextTick()
+    await nextTick()
+    expect(state.grid.rowHeight.value).toBe(294)
+    state.isActive.value = false
+    state.metadataOccupancy.value = 70
+    await nextTick()
+    await nextTick()
+    expect(state.grid.rowHeight.value).toBe(294)
+    state.isActive.value = true
+    state.grid.update()
+    expect(state.grid.rowHeight.value).toBe(268)
+  })
+
+  it('recomputes row height and preserves the visible album when font sizes grow', async () => {
+    const state = setup()
+    state.element.scrollTop = 24 + 10 * 268 + 20
+    state.metadataOccupancy.value = 96
+    await nextTick()
+    await nextTick()
+    await nextTick()
+    expect(state.grid.rowHeight.value).toBe(294)
+    expect(state.element.scrollTop).toBe(24 + 10 * 294 + 20)
+    expect(state.measure).toHaveBeenCalledOnce()
+  })
+
   it('commits the target geometry once before motion and ignores intervening resize observations', async () => {
     const state = setup()
     const initialHeight = state.grid.rowHeight.value

@@ -1,7 +1,7 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import type { SidebarPlaylistItem } from '@shared/types/playlist'
+import type { AddPlaylistTracksResult, SidebarPlaylistItem } from '@shared/types/playlist'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import { useLibraryContextMenu } from './useLibraryContextMenu'
 
@@ -17,6 +17,7 @@ function createTrack(id: number, title = `Track ${id}`): TrackListItem {
     releaseDate: null,
     copyright: null,
     composer: null,
+    bitrateBps: null,
     durationSeconds: null,
     artworkCacheKey: null,
     genre: null,
@@ -70,7 +71,14 @@ function createMenu() {
     { ...createPlaylist(8), kind: 'smart' as const },
   ])
   const createPlaylistApi = vi.fn(async () => ({ id: 11, name: 'New' }))
-  const addTracksToPlaylist = vi.fn(async (): Promise<void> => undefined)
+  const addTracksToPlaylist = vi.fn(
+    async (): Promise<AddPlaylistTracksResult> => ({
+      addedCount: 1,
+      alreadyPresentCount: 0,
+      unavailableCount: 0,
+      playlistExists: true,
+    }),
+  )
   const dispatchEvent = vi.fn()
 
   vi.stubGlobal(
@@ -138,9 +146,9 @@ describe('useLibraryContextMenu', () => {
     'ignores delayed add feedback after %s while still notifying the playlist change',
     async (action) => {
       const { menu, addTracksToPlaylist, dispatchEvent, restoreFocus } = createMenu()
-      let finish!: () => void
+      let finish!: (result: AddPlaylistTracksResult) => void
       addTracksToPlaylist.mockReturnValueOnce(
-        new Promise<void>((resolve) => {
+        new Promise<AddPlaylistTracksResult>((resolve) => {
           finish = resolve
         }),
       )
@@ -152,7 +160,7 @@ describe('useLibraryContextMenu', () => {
         menu.onOpenContextMenu(action === 'close-reopen' ? 1 : 2, createMouseEvent())
       }
       restoreFocus.mockClear()
-      finish()
+      finish({ addedCount: 1, alreadyPresentCount: 0, unavailableCount: 0, playlistExists: true })
       await pending
       expect(dispatchEvent).toHaveBeenCalledOnce()
       expect(menu.addToPlaylistFeedback.value).toBeNull()
@@ -215,6 +223,70 @@ describe('useLibraryContextMenu', () => {
     finish([createPlaylist(99)])
     await Promise.resolve()
     expect(menu.regularPlaylistItems.value.map((item) => item.id)).toEqual([9])
+    menu.dispose()
+  })
+
+  it.each(['replace', 'close-reopen', 'dispose'] as const)(
+    'handles a delayed add rejection without changing feedback after %s',
+    async (action) => {
+      const { menu, addTracksToPlaylist, dispatchEvent } = createMenu()
+      let reject!: (error: Error) => void
+      addTracksToPlaylist.mockReturnValueOnce(
+        new Promise((_resolve, fail) => {
+          reject = fail
+        }),
+      )
+      menu.onOpenContextMenu(1, createMouseEvent())
+      const pending = menu.onAddContextTracksToPlaylist(createPlaylist(9))
+      if (action === 'dispose') menu.dispose()
+      else {
+        if (action === 'close-reopen') menu.closeContextMenu()
+        menu.onOpenContextMenu(2, createMouseEvent())
+      }
+      reject(new Error('fixture delayed write failure'))
+      await expect(pending).resolves.toBeUndefined()
+      expect(menu.addToPlaylistFeedback.value).toBeNull()
+      expect(dispatchEvent).not.toHaveBeenCalled()
+      expect(vi.getTimerCount()).toBe(0)
+      menu.dispose()
+    },
+  )
+
+  it('keeps newer operation feedback when an older add finishes in the same menu', async () => {
+    const { menu, addTracksToPlaylist } = createMenu()
+    let finish!: (result: AddPlaylistTracksResult) => void
+    addTracksToPlaylist.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    menu.onOpenContextMenu(1, createMouseEvent())
+    const old = menu.onAddContextTracksToPlaylist(createPlaylist(9))
+    addTracksToPlaylist.mockResolvedValueOnce({
+      addedCount: 0,
+      alreadyPresentCount: 0,
+      unavailableCount: 1,
+      playlistExists: true,
+    })
+    await menu.onAddContextTracksToPlaylist(createPlaylist(10))
+    finish({ addedCount: 1, alreadyPresentCount: 0, unavailableCount: 0, playlistExists: true })
+    await old
+    expect(menu.addToPlaylistFeedback.value).toMatchObject({ playlistId: 10, kind: 'error' })
+    expect(vi.getTimerCount()).toBe(0)
+    menu.dispose()
+  })
+
+  it('handles creation failure and permits retry without closing the menu', async () => {
+    const { menu, createPlaylistApi, addTracksToPlaylist } = createMenu()
+    menu.onOpenContextMenu(1, createMouseEvent())
+    createPlaylistApi.mockRejectedValueOnce(new Error('fixture creation failure'))
+    await expect(menu.onCreatePlaylistAndAddContextTracks()).resolves.toBeUndefined()
+    expect(menu.addToPlaylistFeedback.value).toMatchObject({ kind: 'error' })
+    expect(menu.isCreatingPlaylistFromMenu.value).toBe(false)
+    expect(addTracksToPlaylist).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+    await menu.onCreatePlaylistAndAddContextTracks()
+    expect(menu.addToPlaylistFeedback.value).toMatchObject({ kind: 'success' })
     menu.dispose()
   })
 

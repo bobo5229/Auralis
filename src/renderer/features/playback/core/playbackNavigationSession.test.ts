@@ -159,6 +159,43 @@ describe('PlaybackNavigationSession', () => {
     expect(session.getQueuedNextTrackId()).toBeNull()
   })
 
+  it('consumes an entered priority track even when a newer insertion is ahead of it', async () => {
+    const first = track(1)
+    const entered = track(2)
+    const requested = track(3)
+    let queue = session.insertSingleTrack([first, track(9)], first.id, entered)!.queue
+    queue = session.insertSingleTrack(queue, first.id, requested)!.queue
+    const boundaryPlan = session.rebaseEnteredPlan(
+      { track: entered, queue, recordHistory: true, consumeQueued: true },
+      {
+        queue,
+        currentIndex: 0,
+        currentTrack: first,
+        currentTrackId: first.id,
+        playbackMode: 'shuffle',
+      },
+      true,
+    )
+    session.applyPlan(boundaryPlan, first, queue)
+    expect(boundaryPlan.queue.map((item) => item.id)).toEqual([1, 2, 3, 9])
+    expect(session.getQueuedNextTrackId()).toBe(requested.id)
+    const next = await session.resolveAdvance(
+      {
+        queue: boundaryPlan.queue,
+        currentIndex: 1,
+        currentTrack: entered,
+        currentTrackId: entered.id,
+        playbackMode: 'shuffle',
+      },
+      dummySource(),
+      'natural-ended',
+    )
+    if (next.kind !== 'play') throw new Error('Missing inserted priority track')
+    expect(next.plan.track.id).toBe(requested.id)
+    session.applyPlan(next.plan, entered, boundaryPlan.queue)
+    expect(session.getQueuedNextTrackId()).toBeNull()
+  })
+
   it('handles resolvePrevious for shuffle/album-shuffle history vs repeat-all wrap', () => {
     const queue = [track(1), track(2)]
     // In sequential at index 0 -> seek-to-start

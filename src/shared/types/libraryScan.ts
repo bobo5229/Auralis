@@ -12,6 +12,7 @@ export interface TrackListItem {
   copyright: string | null
   composer: string | null
   durationSeconds: number | null
+  bitrateBps: number | null
   artworkCacheKey: string | null
   genre: string | null
   availability: TrackAvailability
@@ -52,6 +53,8 @@ export interface LibraryScanProgress {
 }
 
 export interface ScannedTrack {
+  /** Version used by the worker, committed only with successful full metadata writes. */
+  metadataParserVersion?: string
   filePath: string
   fileSize: number
   fileMtimeMs: number
@@ -62,6 +65,7 @@ export interface ScannedTrack {
   trackNo: number | null
   discNo: number | null
   durationSeconds: number | null
+  bitrateBps: number | null
   year: number | null
   releaseDate: string | null
   copyright: string | null

@@ -49,6 +49,16 @@ export class NativeNextTrackScheduler {
     return this.enteringNext !== null
   }
 
+  get canReuseTransport(): boolean {
+    return (
+      !this.analysisTasks.size &&
+      !this.transition &&
+      !this.installingTransition &&
+      !this.interruptedTransition &&
+      !this.updatingBoundary
+    )
+  }
+
   get hasInterruptedLoad(): boolean {
     return this.interruptedTransition !== null
   }

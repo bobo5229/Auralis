@@ -21,6 +21,7 @@ function createTrack(id: number): TrackListItem {
     releaseDate: '2020-01-01',
     copyright: null,
     composer: null,
+    bitrateBps: null,
     durationSeconds: 180,
     artworkCacheKey: 'cover',
     genre: null,

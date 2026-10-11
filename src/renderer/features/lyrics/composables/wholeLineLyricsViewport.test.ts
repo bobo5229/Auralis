@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createWholeLineLyricsViewport } from './wholeLineLyricsViewport'
+import type { LyricsScrollPreset } from '../lyricsScrollPreset'
 
 class Style {
   height = ''
@@ -43,12 +44,19 @@ interface TestNode {
 function setup(firstIndex = 0) {
   const active = ref(-1)
   const reduced = ref(false)
+  const scrollPreset = ref<LyricsScrollPreset>('standard')
+  const container = {
+    clientHeight: 500,
+    scrollTop: 0,
+    getBoundingClientRect: () => ({ top: 20, bottom: 520, left: 300, width: 200 }),
+  }
   const nodes: TestNode[] = []
   const materials: TestNode[] = []
   const runs: {
     element: TestNode
     frames: Keyframe[]
     duration: number
+    easing: string
     finish: () => void
     cancel: ReturnType<typeof vi.fn>
   }[] = []
@@ -90,7 +98,14 @@ function setup(firstIndex = 0) {
           reject = fail
         })
         const cancel = vi.fn(() => reject(new Error('cancelled')))
-        runs.push({ element: node, frames, duration: Number(timing.duration), finish, cancel })
+        runs.push({
+          element: node,
+          frames,
+          duration: Number(timing.duration),
+          easing: String(timing.easing),
+          finish,
+          cancel,
+        })
         return { finished, cancel } as unknown as Animation
       },
     }
@@ -136,11 +151,7 @@ function setup(firstIndex = 0) {
   } as unknown as HTMLElement
   const controller = createWholeLineLyricsViewport({
     trackRef: ref(track),
-    scrollRef: ref({
-      clientHeight: 500,
-      scrollTop: 0,
-      getBoundingClientRect: () => ({ top: 20, bottom: 520, left: 300, width: 200 }),
-    } as unknown as HTMLElement),
+    scrollRef: ref(container as unknown as HTMLElement),
     artworkRef: ref({
       getBoundingClientRect: () => ({ top: 30, right: 100 }),
     } as unknown as HTMLElement),
@@ -154,6 +165,7 @@ function setup(firstIndex = 0) {
     activeIndex: active,
     showPrelude: ref(false),
     reducedMotion: reduced,
+    scrollPreset,
     focalRatio: 0.3,
     activeScale: 1.23,
   })
@@ -163,7 +175,18 @@ function setup(firstIndex = 0) {
     controller.update('smooth')
   }
   controller.update('auto')
-  return { controller, active, reduced, nodes, materials, runs, change }
+  return {
+    controller,
+    active,
+    reduced,
+    scrollPreset,
+    nodes,
+    materials,
+    runs,
+    trackStyle,
+    container,
+    change,
+  }
 }
 
 afterEach(() => vi.unstubAllGlobals())
@@ -194,6 +217,25 @@ describe('whole-sentence motion lifecycle', () => {
     expect(readHeight).toHaveBeenCalledTimes(materials.length * 2)
   })
 
+  it('recomputes row heights and the fit scale from new material measurements', () => {
+    const { controller, nodes, materials, trackStyle, active, container } = setup()
+    active.value = 4
+    container.clientHeight = 200
+    let measuredHeight = 48
+    materials.forEach((material) =>
+      Object.defineProperty(material, 'offsetHeight', { get: () => measuredHeight }),
+    )
+    controller.update('auto', true)
+    const previousHeight = Number.parseFloat(nodes[0].style.height)
+    const previousFit = Number(trackStyle.custom.get('--fullscreen-whole-fit-scale'))
+
+    measuredHeight = 96
+    controller.update('auto', true)
+
+    expect(Number.parseFloat(nodes[0].style.height)).toBeGreaterThan(previousHeight)
+    expect(Number(trackStyle.custom.get('--fullscreen-whole-fit-scale'))).toBeLessThan(previousFit)
+  })
+
   it('calibrates opening immediately, then moves and changes paint together for 360ms', () => {
     const { nodes, runs, change } = setup()
     expect(runs).toHaveLength(0)
@@ -222,6 +264,20 @@ describe('whole-sentence motion lifecycle', () => {
           run.frames[1].filter === 'blur(0px)' &&
           run.frames[1].opacity === '1',
       ),
+    ).toBe(true)
+  })
+
+  it('uses one selected curve for movement, scale and paint on the next sentence', () => {
+    const { change, runs, scrollPreset } = setup()
+    change(0)
+    const firstCount = runs.length
+    expect(runs.every((run) => run.easing === 'cubic-bezier(0.4, 0, 0.2, 1)')).toBe(true)
+
+    scrollPreset.value = 'emphasized'
+    change(1)
+    expect(runs.length).toBeGreaterThan(firstCount)
+    expect(
+      runs.slice(firstCount).every((run) => run.easing === 'cubic-bezier(0.05, 0.7, 0.1, 1)'),
     ).toBe(true)
   })
 

@@ -19,6 +19,9 @@ import { configureElectronSmokeEnvironment } from './app/smoke/electronSmokeEnvi
 import { runElectronSmokeTest } from './app/smoke/runElectronSmokeTest'
 import { createAppShutdownHandler } from './app/appShutdown'
 import { createRendererEventSender } from './ipc/rendererEvents'
+import { createWindowBehaviorPreference } from './app/windowBehaviorPreference'
+import { createWindowBehaviorController } from './app/windowBehaviorController'
+import { createSystemTray } from './app/systemTray'
 
 // Custom media scheme privileges must be registered before app.ready (single call).
 registerPrivilegedMediaSchemes()
@@ -103,6 +106,14 @@ initializeLogger({
 const mainProcessDiagnostics = installMainProcessDiagnostics({ app, process, logger })
 let runtime: ReturnType<typeof registerIpcHandlers> | undefined
 let shuttingDown = false
+let systemTray: ReturnType<typeof createSystemTray> | undefined
+const windowBehavior = createWindowBehaviorController({
+  preference: createWindowBehaviorPreference(app.getPath('userData'), (error) =>
+    logger.warn({ error }, 'Unable to read or save window close preference'),
+  ),
+  trayAvailable: () => systemTray?.isAvailable() ?? false,
+  quit: () => app.quit(),
+})
 
 void app
   .whenReady()
@@ -132,14 +143,23 @@ void app
       },
     })
 
-    runtime = registerIpcHandlers(db, artworkCacheDir)
+    systemTray = createSystemTray({
+      restoreWindow: () => {
+        windowBehavior.restoreWindow()
+      },
+      quit: windowBehavior.requestQuit,
+      reportError: (error) => logger.warn({ error }, 'System tray is unavailable'),
+    })
+    runtime = registerIpcHandlers(db, artworkCacheDir, windowBehavior)
     const mainWindow = createWindow()
+    windowBehavior.attachWindow(mainWindow)
 
     if (isElectronSmokeTest) {
       void runElectronSmokeTest(mainWindow)
     } else {
       app.on('activate', () => {
-        if (!shuttingDown) createWindow({ showSplash: false })
+        if (windowBehavior.restoreWindow() || shuttingDown) return
+        windowBehavior.attachWindow(createWindow({ showSplash: false }))
       })
     }
   })
@@ -151,21 +171,31 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on(
-  'before-quit',
-  createAppShutdownHandler({
-    shutdownServices: async () => {
-      shuttingDown = true
-      await runtime?.shutdown()
-    },
-    closeResources: () => {
-      closeDatabase()
-      logger.info('Auralis shutdown complete')
-      mainProcessDiagnostics.dispose()
-      shutdownLogger()
-    },
-    quit: () => app.quit(),
-    reportError: (error) =>
-      logger.error({ error }, 'Unable to finish shutdown; resources remain open'),
-  }),
-)
+const handleShutdown = createAppShutdownHandler({
+  shutdownServices: async () => {
+    shuttingDown = true
+    await runtime?.shutdown()
+  },
+  closeResources: () => {
+    closeDatabase()
+    logger.info('Auralis shutdown complete')
+    mainProcessDiagnostics.dispose()
+    shutdownLogger()
+  },
+  quit: () => {
+    windowBehavior.allowWindowClose()
+    app.quit()
+  },
+  reportError: (error) => {
+    windowBehavior.shutdownFailed()
+    logger.error({ error }, 'Unable to finish shutdown; resources remain open')
+  },
+})
+app.on('before-quit', (event) => {
+  windowBehavior.beginQuit()
+  handleShutdown(event)
+})
+app.once('will-quit', () => {
+  systemTray?.dispose()
+  windowBehavior.dispose()
+})

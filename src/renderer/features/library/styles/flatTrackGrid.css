@@ -2,6 +2,7 @@
   container-type: inline-size;
 }
 
+/* 隐藏时也保留独立搜索行，避免隐形热区落入表头或滚动曲目。 */
 .library-page .library-search-zone--flat-row {
   position: relative;
   inset: auto;

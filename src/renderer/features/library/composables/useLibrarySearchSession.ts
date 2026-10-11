@@ -22,6 +22,7 @@ export function useLibrarySearchSession(options: {
   isSearchZoneHovered: Ref<boolean>
   searchInputRef: Ref<HTMLElement | null>
   searchRootRef: Ref<HTMLElement | null>
+  searchZoneRef: Ref<HTMLElement | null>
   searchOutcome: Ref<LibrarySearchOutcome>
   hasSearchQuery: ComputedRef<boolean>
   shouldRenderSearchBar: ComputedRef<boolean>
@@ -44,6 +45,7 @@ export function useLibrarySearchSession(options: {
   const isSearchZoneHovered = ref(false)
   const searchInputRef = ref<HTMLElement | null>(null)
   const searchRootRef = ref<HTMLElement | null>(null)
+  const searchZoneRef = ref<HTMLElement | null>(null)
   const searchOutcome = ref<LibrarySearchOutcome>({ kind: 'idle' })
   let isSearchHoverDismissed = false
   let lastSearchQuery = ''
@@ -160,14 +162,17 @@ export function useLibrarySearchSession(options: {
   }
 
   function onLibraryListMouseMove(event: MouseEvent): void {
-    const currentTarget = event.currentTarget as HTMLElement | null
-    if (!currentTarget) return
+    const zone = searchZoneRef.value
+    if (!zone) {
+      onLibraryListMouseLeave()
+      return
+    }
 
     const bar = searchRootRef.value
     const hovered = isLibrarySearchBarHovered(
       event.clientX,
       event.clientY,
-      currentTarget.getBoundingClientRect(),
+      zone.getBoundingClientRect(),
       bar && !isSearchHoverDismissed ? bar.getBoundingClientRect() : null,
     )
     if (!hovered) isSearchHoverDismissed = false
@@ -295,6 +300,7 @@ export function useLibrarySearchSession(options: {
     isSearchZoneHovered,
     searchInputRef,
     searchRootRef,
+    searchZoneRef,
     searchOutcome,
     hasSearchQuery,
     shouldRenderSearchBar,

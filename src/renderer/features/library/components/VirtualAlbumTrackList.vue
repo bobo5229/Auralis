@@ -16,6 +16,7 @@ const props = defineProps<{
   nowPlayingTrackId: number | null
   isPlaying: boolean
   selectedTrackId: number | null
+  contextSelectedTrackId?: number | null
   focusedTrackId: number | null
 }>()
 
@@ -94,6 +95,7 @@ const totalSize = computed(() => trackVirtualizer.value.getTotalSize())
         :now-playing="nowPlayingTrackId === tracks[item.index].id"
         :is-playing="isPlaying"
         :selected="selectedTrackId === tracks[item.index].id"
+        :context-selected="contextSelectedTrackId === tracks[item.index].id"
         :focused="focusedTrackId === tracks[item.index].id"
         :index="item.index"
         :disc-end="item.index === tracks.length - 1 || discHeadings[item.index + 1] != null"

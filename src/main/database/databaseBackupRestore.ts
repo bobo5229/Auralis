@@ -32,6 +32,13 @@ export function applyStagedDatabaseRestore(
   dependencies: RestoreDependencies,
 ): boolean {
   const files = new DatabaseRestoreFiles(databasePath)
+  const onCleanupError = (error: unknown, path: string): void => {
+    logger.warn({ error, path }, 'Restore succeeded; rollback cleanup deferred')
+  }
+  if (files.recoverInterruptedRestore(onCleanupError)) {
+    logger.warn({ databasePath }, 'Recovered interrupted database restore; original files restored')
+    return false
+  }
   if (!files.hasStagedRestore()) return false
 
   logger.info(
@@ -45,9 +52,7 @@ export function applyStagedDatabaseRestore(
 
     files.replaceFromStaged()
     migrateAndVerifyRestore(databasePath, dependencies)
-    files.cleanupVerifiedRestore((error, path) => {
-      logger.warn({ error, path }, 'Restore succeeded; rollback cleanup deferred')
-    })
+    files.cleanupVerifiedRestore(onCleanupError)
     logger.info({ databasePath }, 'Staged database restore applied and verified successfully')
     return true
   } catch (error) {

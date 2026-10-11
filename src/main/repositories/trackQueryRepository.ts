@@ -6,6 +6,7 @@ import type { KnownTrackFile } from './trackRepositoryTypes'
 import { toPathVariants } from './trackRepositoryPaths'
 import { sortLibraryTracks } from './libraryTrackSort'
 import { BaseRepository } from './baseRepository'
+import type { StartupAlbumCandidate } from './startupAlbumCandidate'
 
 const TRACK_LIST_ITEM_COLUMNS = `id, title, artist, album,
                 album_artist AS albumArtist,
@@ -15,6 +16,7 @@ const TRACK_LIST_ITEM_COLUMNS = `id, title, artist, album,
                 copyright,
                 composer,
                 duration_seconds AS durationSeconds,
+                bitrate_bps AS bitrateBps,
                 artwork_cache_key AS artworkCacheKey,
                 genre,
                 availability,
@@ -257,7 +259,8 @@ export class TrackQueryRepository extends BaseRepository {
                 t.lyrics_format AS lyricsFormat,
                 t.lyrics_checked_mtime_ms AS lyricsCheckedMtimeMs,
                 t.lyrics_sidecar_fingerprint AS lyricsSidecarFingerprint,
-                t.metadata_checked_mtime_ms AS metadataCheckedMtimeMs
+                t.metadata_checked_mtime_ms AS metadataCheckedMtimeMs,
+                t.metadata_parser_version AS metadataParserVersion
          FROM tracks t
          LEFT JOIN albums a ON t.album = a.title AND t.album_artist = a.artist`,
       )
@@ -286,6 +289,23 @@ export class TrackQueryRepository extends BaseRepository {
       | undefined
 
     return row ?? null
+  }
+
+  getStartupAlbumCandidates(): StartupAlbumCandidate[] {
+    return this.db
+      .prepare(
+        `
+      SELECT COALESCE(NULLIF(album_artist, ''), artist) AS albumArtist, album,
+             AVG(play_count) AS averagePlayCount,
+             AVG(CASE WHEN play_count = 0 THEN 1.0 ELSE 0.0 END) AS unheardFraction,
+             strftime('%Y-%m-%dT%H:%M:%fZ', MAX(julianday(last_played_at))) AS lastPlayedAt
+      FROM library_track_display
+      WHERE availability = 'available' AND album IS NOT NULL AND album != ''
+      GROUP BY COALESCE(NULLIF(album_artist, ''), artist), album
+      ORDER BY albumArtist, album
+    `,
+      )
+      .all() as StartupAlbumCandidate[]
   }
 
   getRandomAlbumIdentity(excludeAlbumKey?: {

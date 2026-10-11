@@ -93,41 +93,6 @@
   transition: color 80ms ease;
 }
 
-/* 硬件刻度齿置于品牌字下方，不改变 Logo 与文字的居中和间距。 */
-#splash-progress {
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-top: 24px;
-  width: 148px;
-  height: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-#splash-progress > span {
-  width: 1.5px;
-  height: 5px;
-  background: color-mix(in srgb, var(--splash-text) 15%, transparent);
-  border-radius: 0.5px;
-  transition: background 60ms ease;
-}
-
-#splash-progress > .is-active {
-  background: var(--splash-text);
-}
-
-#splash-progress > .is-leading {
-  background: var(--splash-accent);
-  box-shadow: 0 0 4px var(--splash-accent);
-}
-
-:where([data-reduced-motion='true']) #splash-progress > span {
-  transition: none;
-}
-
 .splash-startup-error {
   display: flex;
   flex-direction: column;

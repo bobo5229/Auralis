@@ -1,4 +1,7 @@
 import type { AuralisApi } from '@shared/ipc/api'
+import { isWindowCloseBehavior, type WindowCloseBehavior } from '@shared/types/windowBehavior'
+
+let previewCloseBehavior: WindowCloseBehavior = 'quit'
 
 const emptyTrackPage = {
   snapshotId: 'browser-preview',
@@ -11,7 +14,7 @@ const emptyTrackPage = {
   },
 }
 
-function mockResponse(group: string, method: string): unknown {
+function mockResponse(group: string, method: string, args: unknown[]): unknown {
   switch (`${group}.${method}`) {
     case 'app.getInfo':
       return { name: 'Auralis', version: 'Browser preview', databasePath: 'Browser preview' }
@@ -46,6 +49,9 @@ function mockResponse(group: string, method: string): unknown {
       return null
     case 'playback.recordEffectivePlay':
       return { ok: false, recorded: false }
+    case 'archive.getAnnualPlayCounts':
+    case 'archive.getDayTopTracks':
+      return []
     case 'playback.acquireReadLease':
       return { leaseId: 'browser-preview' }
     case 'playback.releaseReadLease':
@@ -55,9 +61,18 @@ function mockResponse(group: string, method: string): unknown {
       return { isMaximized: false }
     case 'window.getVisibility':
       return { isVisible: true }
+    case 'window.getCloseBehavior':
+      return { behavior: previewCloseBehavior, trayAvailable: false }
+    case 'window.setCloseBehavior':
+      if (!isWindowCloseBehavior(args[0]) || args[0] === 'tray')
+        throw new Error('Unavailable in browser preview')
+      previewCloseBehavior = args[0]
+      return { behavior: previewCloseBehavior, trayAvailable: false }
     case 'database.exportBackup':
     case 'database.restoreBackup':
       return { status: 'cancelled' }
+    case 'app.claimStartupAlbum':
+      return { album: null }
     case 'app.setLocale':
       return undefined
   }
@@ -76,7 +91,7 @@ function createGroup(group: string): Record<PropertyKey, unknown> {
   return new Proxy(Object.create(null) as Record<PropertyKey, unknown>, {
     get(_target, method) {
       if (typeof method !== 'string') return undefined
-      return () => {
+      return (...args: unknown[]) => {
         if (method.startsWith('on')) return () => undefined
         if (
           (group === 'app' && ['rendererReady', 'splashReady'].includes(method)) ||
@@ -84,7 +99,7 @@ function createGroup(group: string): Record<PropertyKey, unknown> {
         ) {
           return undefined
         }
-        return Promise.resolve(mockResponse(group, method))
+        return Promise.resolve().then(() => mockResponse(group, method, args))
       }
     },
   })

@@ -13,13 +13,14 @@ const props = withDefaults(
     nowPlaying: boolean
     isPlaying: boolean
     selected: boolean
+    contextSelected?: boolean
     focused?: boolean
     index: number
     artworkUrl: string | null
     showPlayCount?: boolean
     visibleColumns?: readonly LibraryFlatColumnId[]
   }>(),
-  { focused: false, showPlayCount: false, visibleColumns: undefined },
+  { contextSelected: false, focused: false, showPlayCount: false, visibleColumns: undefined },
 )
 
 const emit = defineEmits<{
@@ -90,6 +91,7 @@ function onKeyDown(event: KeyboardEvent): void {
       'song-row--alt': index % 2 !== 0,
       'song-row--playing': nowPlaying,
       'song-row--selected': selected,
+      'library-track-context-selected': contextSelected,
       'library-flat-track-grid--with-play-count': showPlayCount,
     }"
     :data-track-id="track.id"

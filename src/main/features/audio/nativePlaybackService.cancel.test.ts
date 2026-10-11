@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { NativePlaybackEvent } from '@shared/ipc/contracts'
 import { NativePlaybackService } from './nativePlaybackService'
 import { openMpvClient, type MpvClient, type MpvMessage } from './mpvClient'
@@ -18,6 +18,7 @@ type FakeClient = {
   calls: string[]
   hangNames: Set<string>
   closed: () => boolean
+  currentEntryId: () => number
 }
 
 type OpenHandle = FakeClient & {
@@ -27,20 +28,27 @@ type OpenHandle = FakeClient & {
 }
 
 const opened: OpenHandle[] = []
+const services: NativePlaybackService[] = []
 
 function createFakeClient(): FakeClient {
   const pending: PendingCommand[] = []
   const calls: string[] = []
   const hangNames = new Set<string>()
   let closed = false
+  let entryId = 0
+  let paused = false
   const client: MpvClient = {
     command: (...args: unknown[]) => {
       const name = String(args[0])
       calls.push(name)
       if (closed) return Promise.reject(new Error('mpv closed'))
+      if (name === 'loadfile' && args[2] === 'replace') entryId++
       if (!hangNames.has(name)) {
         if (name === 'get_property' && args[1] === 'duration') return Promise.resolve(120)
         if (name === 'get_property' && args[1] === 'time-pos') return Promise.resolve(0)
+        if (name === 'get_property' && args[1] === 'playlist/0/id') return Promise.resolve(entryId)
+        if (name === 'get_property' && args[1] === 'pause') return Promise.resolve(paused)
+        if (name === 'set_property' && args[1] === 'pause') paused = Boolean(args[2])
         return Promise.resolve(undefined)
       }
       return new Promise((resolve, reject) => {
@@ -59,6 +67,7 @@ function createFakeClient(): FakeClient {
     calls,
     hangNames,
     closed: () => closed,
+    currentEntryId: () => entryId,
   }
 }
 
@@ -86,6 +95,7 @@ function createService() {
     emit: (event) => events.push(event),
     warn: (error) => warnings.push(error),
   })
+  services.push(service)
   return { service, events, warnings }
 }
 
@@ -101,11 +111,16 @@ async function completeStart(
     volume: 1,
     muted: false,
   })
-  await vi.waitFor(() => expect(opened.length).toBeGreaterThan(0))
+  await vi.waitFor(() => expect(opened.at(-1)?.currentEntryId()).toBeGreaterThan(0))
   const handle = opened.at(-1)!
-  handle.onEvent({ event: 'file-loaded' })
+  emitLoaded(handle)
   await expect(start).resolves.toEqual({ accepted: true })
   return handle
+}
+
+function emitLoaded(handle: OpenHandle): void {
+  handle.onEvent({ event: 'start-file', playlist_entry_id: handle.currentEntryId() })
+  handle.onEvent({ event: 'file-loaded' })
 }
 
 function pendingNames(handle: FakeClient): string[] {
@@ -131,6 +146,10 @@ beforeEach(() => {
   vi.mocked(openMpvClient).mockImplementation(openImplementation())
 })
 
+afterEach(async () => {
+  await Promise.all(services.splice(0).map((service) => service.dispose()))
+})
+
 describe('NativePlaybackService session cancellation', () => {
   it.each(['start', 'stop'] as const)(
     'ignores a stale tag recovery rejection after %s',
@@ -148,8 +167,8 @@ describe('NativePlaybackService session cancellation', () => {
             volume: 1,
             muted: false,
           })
-          await vi.waitFor(() => expect(opened).toHaveLength(2))
-          opened[1].onEvent({ event: 'file-loaded' })
+          await vi.waitFor(() => expect(opened[1]?.currentEntryId()).toBeGreaterThan(0))
+          emitLoaded(opened[1])
           await expect(starting).resolves.toEqual({ accepted: true })
           await new Promise<void>((resolve) => setImmediate(resolve))
           expect(opened[1].closed()).toBe(false)
@@ -193,6 +212,8 @@ describe('NativePlaybackService session cancellation', () => {
       muted: false,
     })
     await vi.waitFor(() => expect(pendingNames(opened[0])).toContain('loadfile'))
+    const handle = opened[0]
+    handle.hangNames.delete('loadfile')
 
     const start2 = service.command({
       action: 'start',
@@ -201,15 +222,16 @@ describe('NativePlaybackService session cancellation', () => {
       volume: 1,
       muted: false,
     })
-    await vi.waitFor(() => expect(opened.length).toBe(2))
-    opened[1].onEvent({ event: 'file-loaded' })
+    await vi.waitFor(() => expect(handle.currentEntryId()).toBe(2))
+    emitLoaded(handle)
 
     await expect(start1).resolves.toEqual({ accepted: false })
     await expect(start2).resolves.toEqual({ accepted: true })
+    expect(opened).toHaveLength(1)
     expect(events.filter((event) => event.kind === 'error')).toEqual([])
   })
 
-  it('returns accepted:false when setup commands are rejected by session release', async () => {
+  it('shares pending transport setup while replacing its logical start', async () => {
     const { service, events } = createService()
     vi.mocked(openMpvClient).mockImplementation(openImplementation(['observe_property']))
     const start1 = service.command({
@@ -228,11 +250,15 @@ describe('NativePlaybackService session cancellation', () => {
       volume: 1,
       muted: false,
     })
-    await vi.waitFor(() => expect(opened.length).toBe(2))
-    opened[1].onEvent({ event: 'file-loaded' })
+    const handle = opened[0]
+    handle.hangNames.delete('observe_property')
+    for (const item of handle.pending.splice(0)) item.resolve(undefined)
+    await vi.waitFor(() => expect(handle.currentEntryId()).toBe(1))
+    emitLoaded(handle)
 
     await expect(start1).resolves.toEqual({ accepted: false })
     await expect(start2).resolves.toEqual({ accepted: true })
+    expect(opened).toHaveLength(1)
     expect(events.filter((event) => event.kind === 'error')).toEqual([])
   })
 
@@ -261,15 +287,19 @@ describe('NativePlaybackService session cancellation', () => {
     })
     await vi.waitFor(() => expect(opened.length).toBe(1))
 
+    await expect(service.command({ action: 'stop', session: 2 })).resolves.toEqual({
+      accepted: true,
+    })
+
     const start2 = service.command({
       action: 'start',
-      session: 2,
+      session: 3,
       trackId: 2,
       volume: 1,
       muted: false,
     })
-    await vi.waitFor(() => expect(opened.length).toBe(2))
-    opened[1].onEvent({ event: 'file-loaded' })
+    await vi.waitFor(() => expect(opened[1]?.currentEntryId()).toBeGreaterThan(0))
+    emitLoaded(opened[1])
 
     await expect(start1).resolves.toEqual({ accepted: false })
     await expect(start2).resolves.toEqual({ accepted: true })
@@ -291,11 +321,14 @@ describe('NativePlaybackService session cancellation', () => {
       volume: 1,
       muted: false,
     })
-    await vi.waitFor(() => expect(opened.length).toBe(2))
-    opened[1].onEvent({ event: 'file-loaded' })
+    handle.hangNames.delete('set_property')
+    for (const item of handle.pending.splice(0)) item.reject(new Error('Old command failed'))
+    await vi.waitFor(() => expect(handle.currentEntryId()).toBe(2))
+    emitLoaded(handle)
 
     await expect(pause).resolves.toEqual({ accepted: false })
     await expect(start2).resolves.toEqual({ accepted: true })
+    expect(opened).toHaveLength(1)
     expect(events.filter((event) => event.kind === 'error')).toEqual([])
   })
 

@@ -14,6 +14,7 @@ function createFakeTrack(id: number, title: string): TrackListItem {
     releaseDate: '2026',
     copyright: null,
     composer: null,
+    bitrateBps: null,
     durationSeconds: 180,
     artworkCacheKey: null,
     genre: null,

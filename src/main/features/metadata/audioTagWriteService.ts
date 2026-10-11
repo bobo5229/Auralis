@@ -6,6 +6,9 @@ import { randomUUID } from 'node:crypto'
 import { parseFile } from 'music-metadata'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import { normalizeEditableMetadata } from './editableMetadataValidation'
+import { parseAudioMetadata } from './parseAudioMetadata'
+import { verifyWrittenMetadata } from './verifyWrittenMetadata'
+import { verifyPreservedAudioTags } from './verifyPreservedAudioTags'
 
 const FFMPEG_NOT_FOUND_MESSAGE =
   'Unable to write audio tags because the bundled FFmpeg runtime is unavailable.'
@@ -234,6 +237,10 @@ export async function prepareAudioTagWrite(
       }
     }
     await copyFile(taggedPath, stagingPath)
+    // Every caller must reject a lossy or incorrect remux before the original
+    // can be renamed, including ordinary saves without a playback buffer.
+    verifyWrittenMetadata(metadata, await parseAudioMetadata(stagingPath))
+    await verifyPreservedAudioTags(filePath, stagingPath)
     const assertUnchanged = async () => {
       const actual = await stat(filePath)
       if (

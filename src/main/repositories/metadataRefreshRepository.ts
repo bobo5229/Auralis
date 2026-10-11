@@ -1,65 +1,20 @@
-import {
-  normalizeEditableText,
-  normalizeEditableYear,
-  normalizeEditableReleaseDate,
-  normalizeEditableMetadata,
-} from '../features/metadata/editableMetadataValidation'
-import { BaseRepository } from './baseRepository'
-import {
-  canonicalizeDelimitedValues,
-  cleanDelimitedValues,
-  joinDelimitedValues,
-  splitDelimitedValues,
-} from '@shared/utils/delimitedValues'
 import type Database from 'better-sqlite3'
 import type { EditableTrackMetadata, MetadataRefreshFailure } from '@shared/types/libraryScan'
+import { BaseRepository } from './baseRepository'
+import { UserEditedMetadataWriter } from './userEditedMetadataWriter'
+import { MetadataTrackWriter } from './metadataTrackWriter'
+import type {
+  MetadataRefreshJob,
+  TrackForMetadataRefresh,
+  RefreshedTrackMetadata,
+} from './metadataRefreshRepositoryTypes'
 
-export interface MetadataRefreshJob {
-  id: number
-  scope: string
-  status: string
-  totalTracks: number
-  processedTracks: number
-  failedTracks: number
-  startedAt: string
-  finishedAt: string | null
-  errorMessage: string | null
-}
-
-export interface TrackForMetadataRefresh {
-  trackId: number
-  filePath: string
-}
-
-export interface RefreshedTrackMetadata {
-  sourceFilePath: string
-  fileSize: number
-  fileMtimeMs: number
-  trackId: number
-  title: string
-  artistDisplay: string
-  artists: string[]
-  artist: string
-  albumTitle: string
-  album: string
-  albumArtistDisplay: string
-  albumArtists: string[]
-  albumArtist: string
-  trackNo: number | null
-  discNo: number | null
-  durationSeconds: number | null
-  year: number | null
-  releaseDate: string | null
-  copyright: string | null
-  composer: string | null
-  genres: string[]
-  genre: string | null
-  lyricsText: string | null
-  lyricsFormat: string | null
-  artworkCacheKey: string | null
-  isrc: string | null
-  metadataSignature: string
-}
+export type {
+  MetadataRefreshJob,
+  TrackForMetadataRefresh,
+  RefreshedTrackMetadata,
+} from './metadataRefreshRepositoryTypes'
+export { resolveArtworkKeyForUserEdit } from './userEditedMetadataWriter'
 
 function clampLimit(limit: number | undefined, fallback = 5000, max = 10000): number {
   if (limit === undefined || !Number.isFinite(limit) || !Number.isInteger(limit)) {
@@ -69,16 +24,16 @@ function clampLimit(limit: number | undefined, fallback = 5000, max = 10000): nu
   return Math.min(Math.max(limit, 1), max)
 }
 
-export function resolveArtworkKeyForUserEdit(
-  trackMetadataKey: string | null | undefined,
-  albumKey: string | null | undefined,
-): string | null {
-  if (trackMetadataKey) return trackMetadataKey
-  if (albumKey) return albumKey
-  return null
-}
-
 export class MetadataRefreshRepository extends BaseRepository {
+  private readonly userEditWriter: UserEditedMetadataWriter
+  private readonly trackWriter: MetadataTrackWriter
+
+  constructor(db: Database.Database) {
+    super(db)
+    this.userEditWriter = new UserEditedMetadataWriter(db)
+    this.trackWriter = new MetadataTrackWriter(db)
+  }
+
   createJob(scope: string, totalTracks: number): number {
     const result = this.db
       .prepare(
@@ -192,25 +147,6 @@ export class MetadataRefreshRepository extends BaseRepository {
       .run(trackId)
   }
 
-  getEditableTrackMetadata(trackId: number): EditableTrackMetadata | null {
-    const row = this.db
-      .prepare(
-        `SELECT id AS trackId,
-                title,
-                artist AS artistDisplay,
-                album AS albumTitle,
-                album_artist AS albumArtistDisplay,
-                genre AS genreDisplay,
-                year,
-                release_date AS releaseDate
-         FROM library_track_display
-         WHERE id = ?`,
-      )
-      .get(trackId) as EditableTrackMetadata | undefined
-
-    return row ?? null
-  }
-
   getTrackFilePath(trackId: number): string | null {
     const row = this.db
       .prepare(
@@ -222,163 +158,6 @@ export class MetadataRefreshRepository extends BaseRepository {
       .get(trackId) as { filePath: string } | undefined
 
     return row?.filePath ?? null
-  }
-
-  updateUserEditedMetadata(metadata: EditableTrackMetadata): void {
-    const update = this.db.transaction((item: EditableTrackMetadata) => {
-      const existing = this.getEditableTrackMetadata(item.trackId)
-
-      if (!existing) {
-        throw new Error(`Track not found: ${item.trackId}`)
-      }
-
-      const title = normalizeEditableText(item.title)
-      const artistDisplay = normalizeEditableText(item.artistDisplay)
-      const albumTitle = normalizeEditableText(item.albumTitle)
-      const albumArtistDisplay = normalizeEditableText(item.albumArtistDisplay)
-      const genreDisplay = normalizeEditableText(item.genreDisplay)
-      const releaseDate = normalizeEditableReleaseDate(item.releaseDate)
-      const year = normalizeEditableYear(item.year)
-      const existingArtwork = this.db
-        .prepare(
-          `SELECT tm.artwork_cache_key AS trackMetadataKey,
-                  a.artwork_cache_key AS albumKey
-           FROM tracks t
-           LEFT JOIN track_metadata tm ON tm.track_id = t.id
-           LEFT JOIN albums a
-             ON COALESCE(tm.album_title, t.album) = a.title
-            AND COALESCE(
-                  NULLIF(COALESCE(tm.album_artist_display, t.album_artist), ''),
-                  COALESCE(tm.artist_display, t.artist)
-                ) = a.artist
-           WHERE t.id = ?`,
-        )
-        .get(item.trackId) as
-        | { trackMetadataKey: string | null; albumKey: string | null }
-        | undefined
-      const artworkCacheKey = resolveArtworkKeyForUserEdit(
-        existingArtwork?.trackMetadataKey,
-        existingArtwork?.albumKey,
-      )
-
-      this.db
-        .prepare(
-          `INSERT INTO track_metadata (
-            track_id,
-            title,
-            artist_display,
-            album_title,
-            album_artist_display,
-            genre_display,
-            year,
-            release_date,
-            artwork_cache_key,
-            source,
-            refreshed_at
-          )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'user_edit', CURRENT_TIMESTAMP)
-          ON CONFLICT(track_id) DO UPDATE SET
-            title = excluded.title,
-            artist_display = excluded.artist_display,
-            album_title = excluded.album_title,
-            album_artist_display = excluded.album_artist_display,
-            genre_display = excluded.genre_display,
-            year = excluded.year,
-            release_date = excluded.release_date,
-            artwork_cache_key = COALESCE(
-              track_metadata.artwork_cache_key,
-              excluded.artwork_cache_key
-            ),
-            source = excluded.source,
-            refreshed_at = CURRENT_TIMESTAMP`,
-        )
-        .run(
-          item.trackId,
-          title,
-          artistDisplay,
-          albumTitle,
-          albumArtistDisplay,
-          genreDisplay,
-          year,
-          releaseDate,
-          artworkCacheKey,
-        )
-
-      this.replaceTrackArtists(
-        item.trackId,
-        artistDisplay ? splitDelimitedValues(artistDisplay) : [],
-        'primary',
-        this.db.prepare(`
-          INSERT INTO artists (name)
-          VALUES (?)
-          ON CONFLICT(name) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
-        `),
-        this.db.prepare(`
-          SELECT id
-          FROM artists
-          WHERE name = ?
-        `),
-        this.db.prepare(`
-          DELETE FROM track_artists
-          WHERE track_id = ?
-            AND role = ?
-        `),
-        this.db.prepare(`
-          INSERT OR IGNORE INTO track_artists (track_id, artist_id, position, role)
-          VALUES (?, ?, ?, ?)
-        `),
-      )
-      this.replaceTrackArtists(
-        item.trackId,
-        albumArtistDisplay ? splitDelimitedValues(albumArtistDisplay) : [],
-        'album_artist',
-        this.db.prepare(`
-          INSERT INTO artists (name)
-          VALUES (?)
-          ON CONFLICT(name) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
-        `),
-        this.db.prepare(`
-          SELECT id
-          FROM artists
-          WHERE name = ?
-        `),
-        this.db.prepare(`
-          DELETE FROM track_artists
-          WHERE track_id = ?
-            AND role = ?
-        `),
-        this.db.prepare(`
-          INSERT OR IGNORE INTO track_artists (track_id, artist_id, position, role)
-          VALUES (?, ?, ?, ?)
-        `),
-      )
-
-      this.db
-        .prepare(
-          `UPDATE tracks
-           SET title = ?,
-               artist = ?,
-               album = ?,
-               album_artist = ?,
-               year = ?,
-               release_date = ?,
-               genre = ?,
-               updated_at = CURRENT_TIMESTAMP
-           WHERE id = ?`,
-        )
-        .run(
-          title,
-          artistDisplay,
-          albumTitle,
-          albumArtistDisplay,
-          year,
-          releaseDate,
-          genreDisplay,
-          item.trackId,
-        )
-    })
-
-    update(normalizeEditableMetadata(metadata))
   }
 
   getActiveJob(): MetadataRefreshJob | null {
@@ -463,377 +242,28 @@ export class MetadataRefreshRepository extends BaseRepository {
     return tracks
   }
 
+  getEditableTrackMetadata(trackId: number): EditableTrackMetadata | null {
+    return this.userEditWriter.getEditableTrackMetadata(trackId)
+  }
+
+  updateUserEditedMetadata(metadata: EditableTrackMetadata): void {
+    this.userEditWriter.updateUserEditedMetadata(metadata)
+  }
+
   updateTrackMetadata(result: RefreshedTrackMetadata): void {
-    // These results do not carry a stable sidecar snapshot. Invalidate that
-    // derived scan fingerprint so the next scan verifies the current .lrc.
-    // Full file_tag write — skipped when user_edit must be preserved.
-    const upsertTrackMetadata = this.db.prepare(`
-      INSERT INTO track_metadata (
-        track_id,
-        title,
-        artist_display,
-        album_title,
-        album_artist_display,
-        genre_display,
-        year,
-        release_date,
-        lyrics_text,
-        lyrics_format,
-        artwork_cache_key,
-        source,
-        refreshed_at
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'file_tag', CURRENT_TIMESTAMP)
-      ON CONFLICT(track_id) DO UPDATE SET
-        title = excluded.title,
-        artist_display = excluded.artist_display,
-        album_title = excluded.album_title,
-        album_artist_display = excluded.album_artist_display,
-        genre_display = excluded.genre_display,
-        year = excluded.year,
-        release_date = excluded.release_date,
-        lyrics_text = excluded.lyrics_text,
-        lyrics_format = excluded.lyrics_format,
-        artwork_cache_key = CASE
-          WHEN excluded.artwork_cache_key LIKE 'v2-%.webp'
-            AND (
-              track_metadata.artwork_cache_key IS NULL
-              OR track_metadata.artwork_cache_key NOT LIKE 'v2-%.webp'
-            )
-          THEN excluded.artwork_cache_key
-          ELSE track_metadata.artwork_cache_key
-        END,
-        source = excluded.source,
-        refreshed_at = CURRENT_TIMESTAMP
-      WHERE track_metadata.source IS NOT 'user_edit'
-    `)
-
-    // Technical + non-display fields only (keeps user-edited display columns).
-    const updateTrackTechnical = this.db.prepare(`
-      UPDATE tracks
-      SET track_no = ?,
-          disc_no = ?,
-          duration_seconds = ?,
-          copyright = ?,
-          composer = ?,
-          lyrics_text = ?,
-          lyrics_format = ?,
-          isrc = ?,
-          metadata_signature = ?,
-          file_size = ?,
-          file_mtime_ms = ?,
-          lyrics_checked_mtime_ms = ?,
-          lyrics_sidecar_fingerprint = NULL,
-          metadata_checked_mtime_ms = ?,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND file_path = ?
-    `)
-
-    const updateTrackFull = this.db.prepare(`
-      UPDATE tracks
-      SET title = ?,
-          artist = ?,
-          album = ?,
-          album_artist = ?,
-          track_no = ?,
-          disc_no = ?,
-          duration_seconds = ?,
-          year = ?,
-          release_date = ?,
-          copyright = ?,
-          composer = ?,
-          genre = ?,
-          lyrics_text = ?,
-          lyrics_format = ?,
-          isrc = ?,
-          metadata_signature = ?,
-          file_size = ?,
-          file_mtime_ms = ?,
-          lyrics_checked_mtime_ms = ?,
-          lyrics_sidecar_fingerprint = NULL,
-          metadata_checked_mtime_ms = ?,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = ? AND file_path = ?
-    `)
-
-    // When preserving user_edit, still refresh lyrics/artwork side-data on track_metadata.
-    const patchUserEditSideData = this.db.prepare(`
-      UPDATE track_metadata
-      SET lyrics_text = ?,
-          lyrics_format = ?,
-          artwork_cache_key = CASE
-            WHEN ? LIKE 'v2-%.webp'
-              AND (
-                artwork_cache_key IS NULL
-                OR artwork_cache_key NOT LIKE 'v2-%.webp'
-              )
-            THEN ?
-            ELSE artwork_cache_key
-          END,
-          refreshed_at = CURRENT_TIMESTAMP
-      WHERE track_id = ?
-        AND source = 'user_edit'
-    `)
-
-    const upsertAlbum = this.db.prepare(`
-      INSERT INTO albums (title, artist, artwork_cache_key)
-      VALUES (?, ?, ?)
-      ON CONFLICT(title, artist) DO UPDATE SET
-        artwork_cache_key = CASE
-          WHEN excluded.artwork_cache_key LIKE 'v2-%.webp'
-            AND (
-              albums.artwork_cache_key IS NULL
-              OR albums.artwork_cache_key NOT LIKE 'v2-%.webp'
-            )
-          THEN excluded.artwork_cache_key
-          ELSE albums.artwork_cache_key
-        END,
-        updated_at = CURRENT_TIMESTAMP
-    `)
-
-    const upsertArtist = this.db.prepare(`
-      INSERT INTO artists (name)
-      VALUES (?)
-      ON CONFLICT(name) DO UPDATE SET updated_at = CURRENT_TIMESTAMP
-    `)
-
-    const getArtistId = this.db.prepare<[string], { id: number } | undefined>(`
-      SELECT id
-      FROM artists
-      WHERE name = ?
-    `)
-
-    const deleteTrackArtists = this.db.prepare(`
-      DELETE FROM track_artists
-      WHERE track_id = ?
-        AND role = ?
-    `)
-
-    const insertTrackArtist = this.db.prepare(`
-      INSERT OR IGNORE INTO track_artists (track_id, artist_id, position, role)
-      VALUES (?, ?, ?, ?)
-    `)
-
-    const write = this.db.transaction((metadata: RefreshedTrackMetadata) => {
-      this.assertTrackIdentity(metadata)
-      const existingSource = this.db
-        .prepare('SELECT source FROM track_metadata WHERE track_id = ?')
-        .get(metadata.trackId) as { source: string } | undefined
-      const preserveUserEdit = existingSource?.source === 'user_edit'
-      const artists = cleanDelimitedValues(
-        metadata.artists.length > 0
-          ? metadata.artists
-          : [metadata.artistDisplay || metadata.artist],
-      )
-      const artistDisplay = joinDelimitedValues(artists) || 'Unknown Artist'
-      const albumTitle = metadata.albumTitle || metadata.album
-      const albumArtists = cleanDelimitedValues(
-        metadata.albumArtists.length > 0
-          ? metadata.albumArtists
-          : [metadata.albumArtistDisplay || metadata.albumArtist || artistDisplay],
-      )
-      const albumArtistDisplay = joinDelimitedValues(albumArtists) || artistDisplay
-      const genreDisplay = joinDelimitedValues(
-        cleanDelimitedValues(metadata.genres.length > 0 ? metadata.genres : [metadata.genre]),
-      )
-      const copyright = canonicalizeDelimitedValues(metadata.copyright)
-      const composer = canonicalizeDelimitedValues(metadata.composer)
-
-      if (preserveUserEdit) {
-        // Keep user_edit display fields / source; still refresh technical + lyrics data.
-        patchUserEditSideData.run(
-          metadata.lyricsText,
-          metadata.lyricsFormat,
-          metadata.artworkCacheKey,
-          metadata.artworkCacheKey,
-          metadata.trackId,
-        )
-        updateTrackTechnical.run(
-          metadata.trackNo,
-          metadata.discNo,
-          metadata.durationSeconds,
-          copyright,
-          composer,
-          metadata.lyricsText,
-          metadata.lyricsFormat,
-          metadata.isrc,
-          metadata.metadataSignature,
-          metadata.fileSize,
-          metadata.fileMtimeMs,
-          metadata.fileMtimeMs,
-          metadata.fileMtimeMs,
-          metadata.trackId,
-          metadata.sourceFilePath,
-        )
-        return
-      }
-
-      upsertTrackMetadata.run(
-        metadata.trackId,
-        metadata.title,
-        artistDisplay,
-        albumTitle,
-        albumArtistDisplay,
-        genreDisplay,
-        metadata.year,
-        metadata.releaseDate,
-        metadata.lyricsText,
-        metadata.lyricsFormat,
-        metadata.artworkCacheKey,
-      )
-
-      updateTrackFull.run(
-        metadata.title,
-        artistDisplay,
-        albumTitle,
-        albumArtistDisplay,
-        metadata.trackNo,
-        metadata.discNo,
-        metadata.durationSeconds,
-        metadata.year,
-        metadata.releaseDate,
-        copyright,
-        composer,
-        genreDisplay,
-        metadata.lyricsText,
-        metadata.lyricsFormat,
-        metadata.isrc,
-        metadata.metadataSignature,
-        metadata.fileSize,
-        metadata.fileMtimeMs,
-        metadata.fileMtimeMs,
-        metadata.fileMtimeMs,
-        metadata.trackId,
-        metadata.sourceFilePath,
-      )
-
-      upsertAlbum.run(albumTitle, albumArtistDisplay, metadata.artworkCacheKey)
-      this.replaceTrackArtists(
-        metadata.trackId,
-        artists,
-        'primary',
-        upsertArtist,
-        getArtistId,
-        deleteTrackArtists,
-        insertTrackArtist,
-      )
-      this.replaceTrackArtists(
-        metadata.trackId,
-        albumArtists,
-        'album_artist',
-        upsertArtist,
-        getArtistId,
-        deleteTrackArtists,
-        insertTrackArtist,
-      )
-    })
-
-    write(result)
+    this.trackWriter.updateTrackMetadata(result)
   }
 
   updateTrackLyrics(result: RefreshedTrackMetadata): void {
-    this.db.transaction(() => {
-      const fingerprint = this.assertTrackIdentity(result)
-      if (
-        fingerprint.fileSize !== result.fileSize ||
-        fingerprint.fileMtimeMs !== result.fileMtimeMs
-      ) {
-        // The worker already read full tags: an audio change must not be consumed as lyrics-only.
-        this.updateTrackMetadata(result)
-        return
-      }
-      this.db
-        .prepare(
-          `UPDATE tracks
-         SET lyrics_text = ?,
-             lyrics_format = ?,
-             lyrics_checked_mtime_ms = ?,
-             lyrics_sidecar_fingerprint = NULL,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = ? AND file_path = ?`,
-        )
-        .run(
-          result.lyricsText,
-          result.lyricsFormat,
-          result.fileMtimeMs,
-          result.trackId,
-          result.sourceFilePath,
-        )
-
-      this.db
-        .prepare(
-          `UPDATE track_metadata
-         SET lyrics_text = ?,
-             lyrics_format = ?,
-             refreshed_at = CURRENT_TIMESTAMP
-         WHERE track_id = ?`,
-        )
-        .run(result.lyricsText, result.lyricsFormat, result.trackId)
-    })()
+    this.trackWriter.updateTrackLyrics(result)
   }
 
   commitVerifiedUserEdit(metadata: EditableTrackMetadata, result: RefreshedTrackMetadata): void {
     this.db.transaction(() => {
       if (metadata.trackId !== result.trackId) throw new Error('Metadata track identity changed')
-      this.assertTrackIdentity(result)
+      this.trackWriter.assertTrackIdentity(result)
       this.updateUserEditedMetadata(metadata)
       this.updateTrackMetadata(result)
     })()
-  }
-
-  private assertTrackIdentity(
-    result: Pick<RefreshedTrackMetadata, 'trackId' | 'sourceFilePath' | 'fileSize' | 'fileMtimeMs'>,
-  ) {
-    if (
-      !Number.isSafeInteger(result.fileSize) ||
-      result.fileSize < 0 ||
-      !Number.isFinite(result.fileMtimeMs)
-    ) {
-      throw new Error('Invalid metadata file fingerprint')
-    }
-    const row = this.db
-      .prepare(
-        `SELECT file_size AS fileSize, file_mtime_ms AS fileMtimeMs
-      FROM tracks WHERE id = ? AND file_path = ?`,
-      )
-      .get(result.trackId, result.sourceFilePath) as
-      | { fileSize: number | null; fileMtimeMs: number | null }
-      | undefined
-    if (!row) throw new Error('Metadata track identity changed or track was removed')
-    return row
-  }
-
-  private replaceTrackArtists(
-    trackId: number,
-    names: string[],
-    role: string,
-    upsertArtist: Database.Statement<[string]>,
-    getArtistId: Database.Statement<[string], { id: number } | undefined>,
-    deleteTrackArtists: Database.Statement<[number, string]>,
-    insertTrackArtist: Database.Statement<[number, number, number, string]>,
-  ): void {
-    deleteTrackArtists.run(trackId, role)
-
-    const seen = new Set<string>()
-    let position = 0
-
-    for (const rawName of names) {
-      const name = rawName.trim()
-
-      if (!name || seen.has(name)) {
-        continue
-      }
-
-      seen.add(name)
-      upsertArtist.run(name)
-
-      const artist = getArtistId.get(name)
-      if (!artist) {
-        continue
-      }
-
-      insertTrackArtist.run(trackId, artist.id, position, role)
-      position += 1
-    }
   }
 }

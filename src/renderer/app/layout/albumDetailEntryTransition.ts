@@ -1,7 +1,7 @@
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 
-const DURATION_MS = 320
-const EASING = 'cubic-bezier(0.16, 1, 0.3, 1)'
+const DURATION_MS = 180
+const EASING = 'ease-out'
 const MAX_PREPARATION_MS = 1000
 const STABLE_FRAME_INTERVAL_MS = 34
 const REQUIRED_STABLE_INTERVALS = 4
@@ -23,8 +23,9 @@ function applyStyles(element: HTMLElement, styles: Record<string, string>): () =
   }
 }
 
-/** Hold the first route transition until the detail's cold paint has had time to finish. */
-export function createAlbumDetailEntryTransition(onPrepared: () => void) {
+/** Crossfade both routes, preparing the detail's cold paint only on the first entry. */
+export function createAlbumDetailEntryTransition(onPrepared?: () => void) {
+  let hasPrepared = false
   let active: ReturnType<typeof createSession> | null = null
 
   function createSession() {
@@ -54,26 +55,25 @@ export function createAlbumDetailEntryTransition(onPrepared: () => void) {
       if (settled || !incoming) return
       if (deadline !== null) clearTimeout(deadline)
       deadline = null
-      onPrepared()
+      if (!hasPrepared) {
+        hasPrepared = true
+        onPrepared?.()
+      }
       try {
         animations.push(
-          incoming.element.animate(
-            [
-              { opacity: 0, transform: 'scale(0.94) translate3d(0, 16px, 0)' },
-              { opacity: 1, transform: 'none' },
-            ],
-            { duration: DURATION_MS, easing: EASING, fill: 'forwards' },
-          ),
+          incoming.element.animate([{ opacity: 0 }, { opacity: 1 }], {
+            duration: DURATION_MS,
+            easing: EASING,
+            fill: 'forwards',
+          }),
         )
         if (outgoing) {
           animations.push(
-            outgoing.element.animate(
-              [
-                { opacity: 1, transform: 'none' },
-                { opacity: 0, transform: 'scale(1.04)' },
-              ],
-              { duration: DURATION_MS, easing: EASING, fill: 'forwards' },
-            ),
+            outgoing.element.animate([{ opacity: 1 }, { opacity: 0 }], {
+              duration: DURATION_MS,
+              easing: EASING,
+              fill: 'forwards',
+            }),
           )
         }
         void Promise.all(animations.map((animation) => animation.finished)).then(finish, finish)
@@ -85,6 +85,7 @@ export function createAlbumDetailEntryTransition(onPrepared: () => void) {
     async function prepare(): Promise<void> {
       if (preference.matches) return finish()
       preference.addEventListener('change', finish)
+      if (hasPrepared) return animate()
       // A hidden/minimized window or a failed decode must not hold navigation indefinitely.
       deadline = setTimeout(finish, MAX_PREPARATION_MS)
       const cover = incoming?.element.querySelector<HTMLImageElement>('.album-hero-cover img')
@@ -119,8 +120,7 @@ export function createAlbumDetailEntryTransition(onPrepared: () => void) {
           restore: applyStyles(element, {
             // Zero opacity may skip rasterization; keep this layer paintable during preparation.
             opacity: '0.01',
-            transform: 'scale(0.94) translate3d(0, 16px, 0)',
-            'will-change': 'transform, opacity',
+            'will-change': 'opacity',
             'pointer-events': 'none',
             'z-index': '20',
           }),
@@ -141,8 +141,7 @@ export function createAlbumDetailEntryTransition(onPrepared: () => void) {
             width: '100%',
             overflow: 'hidden',
             opacity: '1',
-            transform: 'none',
-            'will-change': 'transform, opacity',
+            'will-change': 'opacity',
             'pointer-events': 'none',
             'z-index': '10',
           }),

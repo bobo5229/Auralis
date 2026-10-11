@@ -18,6 +18,9 @@ export class NativePlaybackService {
   private readonly runtime: NativePlaybackSession
   private readonly tags: BufferedTagPlayback
   private readonly scheduler: NativeNextTrackScheduler
+  private transport: AbortController | null = null
+  private opening: Promise<MpvClient> | null = null
+  private readonly closing = new Set<Promise<void>>()
   private loaded = false
   private path = ''
   private paused = false
@@ -105,21 +108,69 @@ export class NativePlaybackService {
     this.loaded = false
     this.runtime.failLoad(error)
     this.publish('error', error.message)
-    this.release()
+    void this.release().catch(this.options.warn)
   }
 
   private release(): Promise<void> {
     this.tags.reset()
+    const opening = this.opening
+    this.opening = null
+    this.transport?.abort()
+    this.transport = null
     const closed = this.runtime.release()
     this.scheduler.reset()
     this.loaded = false
-    return closed.then(() => this.tags.cleanup())
+    const released = Promise.all([
+      closed,
+      opening?.then(
+        (client) => client.close(),
+        () => undefined,
+      ),
+    ]).then(() => this.tags.cleanup())
+    this.closing.add(released)
+    void released.then(
+      () => this.closing.delete(released),
+      () => this.closing.delete(released),
+    )
+    return released
+  }
+
+  private ensureClient(): Promise<MpvClient> {
+    if (this.opening) return this.opening
+    const transport = new AbortController()
+    this.transport = transport
+    this.opening = (async () => {
+      const client = await openMpvClient(
+        this.options.mpvPath,
+        (event) => {
+          if (!transport.signal.aborted)
+            this.runtime.routeEvent(event, (message, session) => this.onEvent(message, session))
+        },
+        (error) => {
+          if (!transport.signal.aborted) this.failure(error)
+        },
+        transport.signal,
+        this.options.mpvArgs,
+      )
+      if (transport.signal.aborted) {
+        await client.close()
+        throw new Error('Playback transport cancelled')
+      }
+      this.runtime.client = client
+      await Promise.all(
+        ['time-pos', 'duration', 'pause', 'paused-for-cache', 'idle-active', 'audio-pts'].map(
+          (name, index) => client.command('observe_property', index + 1, name),
+        ),
+      )
+      return client
+    })()
+    return this.opening
   }
 
   dispose(): Promise<void> {
-    const closed = this.release()
+    this.release()
     this.runtime.id = -1
-    return closed
+    return Promise.all([...this.closing]).then(() => undefined)
   }
 
   async command(request: NativePlaybackCommand): Promise<{ accepted: boolean }> {
@@ -148,6 +199,7 @@ export class NativePlaybackService {
             break
           case 'pause':
             await client.command('set_property', 'pause', true)
+            if (!isCurrent()) return { accepted: false }
             this.paused = true
             this.tags.onPause()
             this.publish()
@@ -155,6 +207,7 @@ export class NativePlaybackService {
           case 'resume':
             this.tags.onResume()
             await client.command('set_property', 'pause', false)
+            if (!isCurrent()) return { accepted: false }
             this.paused = false
             this.publish()
             break
@@ -174,10 +227,11 @@ export class NativePlaybackService {
           }
           case 'volume':
             await client.command('set_property', 'volume', request.volume * 100)
+            if (!isCurrent()) return { accepted: false }
             await client.command('set_property', 'mute', request.muted)
             break
         }
-        return { accepted: true }
+        return { accepted: isCurrent() }
       } catch (error) {
         if (!isCurrent()) return { accepted: false }
         throw error
@@ -189,7 +243,16 @@ export class NativePlaybackService {
     request: Extract<NativePlaybackCommand, { action: 'start' }>,
   ): Promise<{ accepted: boolean }> {
     if (request.session <= this.runtime.id) return { accepted: false }
-    this.release()
+    const previousClient = this.runtime.client
+    // Tag-write recovery and installed bridges still own temporary decoder files.
+    // Keep their existing process-exit barrier; ordinary song replacement reuses mpv.
+    if (!this.tags.canReuseTransport || !this.scheduler.canReuseTransport)
+      void this.release().catch(this.options.warn)
+    else {
+      this.tags.reset()
+      this.scheduler.reset()
+      this.loaded = false
+    }
     this.runtime.begin(request.session)
     const signal = this.runtime.signal
     let path: string
@@ -197,6 +260,7 @@ export class NativePlaybackService {
       path = await this.options.resolveTrack(request.trackId)
     } catch (error) {
       if (signal.aborted) return { accepted: false }
+      this.failure(error instanceof Error ? error : new Error(String(error)))
       throw error
     }
     if (signal.aborted) return { accepted: false }
@@ -207,6 +271,7 @@ export class NativePlaybackService {
         leaseId = lease.leaseId
       } catch (error) {
         if (signal.aborted) return { accepted: false }
+        this.failure(error instanceof Error ? error : new Error(String(error)))
         throw error
       }
     }
@@ -227,43 +292,27 @@ export class NativePlaybackService {
       isPlaying: false,
       buffering: false,
     }
-    let client: MpvClient
     try {
-      client = await openMpvClient(
-        this.options.mpvPath,
-        (event) => {
-          if (!signal.aborted) this.onEvent(event, request.session)
-        },
-        (error) => {
-          if (!signal.aborted) this.failure(error)
-        },
-        signal,
-        this.options.mpvArgs,
-      )
-    } catch (error) {
-      if (signal.aborted) return { accepted: false }
-      throw error
-    }
-    if (signal.aborted) {
-      client.close()
-      return { accepted: false }
-    }
-    this.runtime.client = client
-    try {
-      for (const [index, name] of [
-        'time-pos',
-        'duration',
-        'pause',
-        'paused-for-cache',
-        'idle-active',
-        'audio-pts',
-      ].entries()) {
-        await client.command('observe_property', index + 1, name)
-      }
-      await client.command('set_property', 'volume', request.volume * 100)
-      await client.command('set_property', 'mute', request.muted)
-      await this.runtime.load(client, path)
-      return { accepted: !signal.aborted }
+      const client = await this.ensureClient()
+      return await this.runtime.enqueue(async () => {
+        const isCurrent = () => this.runtime.isCurrent(request.session, client)
+        if (!isCurrent()) return { accepted: false }
+        await client.command('set_property', 'volume', request.volume * 100)
+        if (!isCurrent()) return { accepted: false }
+        await client.command('set_property', 'mute', request.muted)
+        if (!isCurrent()) return { accepted: false }
+        await this.runtime.load(client, path, (event, session) => this.onEvent(event, session))
+        if (!isCurrent()) return { accepted: false }
+        // A reused transport may be paused for replacement. Resume only after B
+        // has loaded; a new transport retains its configured initial pause state.
+        if (client === previousClient) {
+          await client.command('set_property', 'pause', false)
+          if (!isCurrent()) return { accepted: false }
+          this.paused = false
+          this.publish()
+        }
+        return { accepted: isCurrent() }
+      })
     } catch (error) {
       if (signal.aborted) return { accepted: false }
       this.failure(error instanceof Error ? error : new Error(String(error)))
@@ -330,18 +379,20 @@ export class NativePlaybackService {
       (await this.scheduler.recoverInterruptedLoad(session, client))
     )
       return
-    let properties: [unknown, unknown]
+    let properties: [unknown, unknown, unknown]
     try {
       properties = await Promise.all([
         client.command('get_property', 'duration'),
         client.command('get_property', 'time-pos'),
+        client.command('get_property', 'pause'),
       ])
     } catch (error) {
       if (!this.runtime.isCurrent(session, client)) return
       throw error
     }
     if (!this.runtime.isCurrent(session, client)) return
-    const [duration, position] = properties
+    const [duration, position, paused] = properties
+    if (typeof paused === 'boolean') this.paused = paused
     const tagContinuation = this.tags.consumeSeekContinuation()
     const continuation = this.scheduler.isContinuation || tagContinuation
     const boundary = this.loaded && !continuation
@@ -367,6 +418,7 @@ export class NativePlaybackService {
     }
     if (continuation) this.scheduler.finishContinuation()
     this.publish(boundary ? 'boundary' : 'state')
+    if (!this.runtime.isCurrent(session, client)) return
     this.options.coordinator?.refreshPlaybackCapability?.(this.path)
     this.runtime.finishLoad()
   }

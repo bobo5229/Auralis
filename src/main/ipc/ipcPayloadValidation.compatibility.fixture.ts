@@ -3,6 +3,9 @@ import type { DomainIpcInvokeChannel } from './ipcPayloadValidation'
 /** Representative payloads for every non-void channel; tests assert coverage. */
 export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> = {
   'app:set-locale': { locale: 'en' },
+  'app:claim-startup-album': {
+    recentAlbums: [{ albumArtist: 'Artist', album: 'Album' }],
+  },
   'library:start-scan': { rootId: 1 },
   'library:cancel-scan': { jobId: 1 },
   'library:get-scan-status': { jobId: 1 },
@@ -54,6 +57,8 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
   },
   'playback:acquire-read-lease': { trackId: 1 },
   'playback:release-read-lease': { leaseId: 'lease' },
+  'archive:get-annual-play-counts': { year: 2026 },
+  'archive:get-day-top-tracks': { date: '2026-10-09' },
   'metadata:refresh-track': { trackId: 1 },
   'metadata:refresh-tracks': { trackIds: [1, 2] },
   'metadata:refresh-lyrics-missing': { limit: 100 },
@@ -72,4 +77,5 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
     releaseDate: '2026-10',
   },
   'window:control': { action: 'close' },
+  'window:set-close-behavior': { behavior: 'tray' },
 }

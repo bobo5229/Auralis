@@ -234,12 +234,18 @@ useOverlayFocusTrap({
           </div>
 
           <p
-            v-if="metadata && editStatus === 'playback-in-use'"
+            v-if="metadata && ['playback-in-use', 'preload-in-use'].includes(editStatus)"
             class="metadata-dialog-playback-notice mb-3.5 auralis-type-caption"
             role="status"
             aria-live="polite"
           >
-            {{ t('library.metadataEditor.status.playbackInUse') }}
+            {{
+              t(
+                editStatus === 'preload-in-use'
+                  ? 'library.metadataEditor.status.preloadInUse'
+                  : 'library.metadataEditor.status.playbackInUse',
+              )
+            }}
           </p>
 
           <div

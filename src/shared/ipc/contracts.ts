@@ -1,5 +1,6 @@
 import type { AppInfo, LibraryStats } from '@shared/types/app'
 import type { UiLocale } from '@shared/uiLocale'
+import type { WindowBehaviorState, WindowCloseBehavior } from '@shared/types/windowBehavior'
 import type { PlaybackSpectrumFrame, SpectrumSubscription } from '@shared/types/playbackSpectrum'
 import type { AudioResource } from '@shared/types/audioDecode'
 import type {
@@ -13,6 +14,7 @@ import type {
   EditableTrackMetadata,
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto, RandomAlbumTracksResult } from '@shared/types/playback'
+import type { StartupAlbumHistory } from '@shared/types/startupAlbum'
 import type {
   AddPlaylistTracksResult,
   Playlist,
@@ -35,6 +37,7 @@ import type {
   LibraryTrackPageRequest,
 } from '@shared/types/libraryCatalog'
 import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
+import type { DailyPlayCount, DailyTopTrack } from '@shared/types/listeningArchive'
 
 export type LibraryChangedReason =
   | 'track-added'
@@ -116,6 +119,7 @@ export type TrackEditStatus =
   | 'editable'
   | 'playback-editable'
   | 'playback-in-use'
+  | 'preload-in-use'
   | 'write-in-progress'
 
 export interface TrackEditStateResult {
@@ -188,6 +192,13 @@ export interface IpcInvokeContract {
   'app:set-locale': {
     request: { locale: UiLocale }
     response: void
+  }
+  'app:claim-startup-album': {
+    request: {
+      excludeAlbumKey?: { albumArtist: string; album: string }
+      recentAlbums?: StartupAlbumHistory
+    } | void
+    response: { album: RandomAlbumTracksResult | null }
   }
   'app:claim-cd-startup-entry': {
     request: void
@@ -349,9 +360,17 @@ export interface IpcInvokeContract {
     request: { leaseId: string }
     response: { ok: true }
   }
+  'archive:get-annual-play-counts': {
+    request: { year: number }
+    response: DailyPlayCount[]
+  }
   'archive:reset-play-stats': {
     request: void
     response: { ok: true }
+  }
+  'archive:get-day-top-tracks': {
+    request: { date: string }
+    response: DailyTopTrack[]
   }
   'metadata:refresh-track': {
     request: { trackId: number }
@@ -410,6 +429,14 @@ export interface IpcInvokeContract {
   'window:get-visibility': {
     request: void
     response: IpcEventPayload<'window:visibility-changed'>
+  }
+  'window:get-close-behavior': {
+    request: void
+    response: WindowBehaviorState
+  }
+  'window:set-close-behavior': {
+    request: { behavior: WindowCloseBehavior }
+    response: WindowBehaviorState
   }
 }
 

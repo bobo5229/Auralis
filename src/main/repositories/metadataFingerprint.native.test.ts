@@ -58,6 +58,7 @@ function result(patch: Partial<RefreshedTrackMetadata> = {}): RefreshedTrackMeta
     albumArtist: 'Artist',
     trackNo: 1,
     discNo: 1,
+    bitrateBps: null,
     durationSeconds: 10,
     year: 2026,
     releaseDate: '2026',

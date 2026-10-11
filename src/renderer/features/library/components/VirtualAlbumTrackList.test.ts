@@ -65,6 +65,7 @@ function mountList() {
           releaseDate: null,
           copyright: null,
           composer: null,
+          bitrateBps: null,
           durationSeconds: 180,
           artworkCacheKey: null,
           genre: null,

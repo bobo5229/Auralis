@@ -3,6 +3,7 @@ import type { NormalizedIdentity } from '@main/features/metadata/metadataNormali
 import type { MissingTrackCandidate } from './trackRepositoryTypes'
 import { toRootPrefixes, toPathVariants, escapeLikePattern } from './trackRepositoryPaths'
 import { BaseRepository } from './baseRepository'
+import { prepareScannedMetadataDisplayUpdate } from './scannedMetadataDisplay'
 
 export class TrackAvailabilityRepository extends BaseRepository {
   markMissingByFilePaths(filePaths: string[]): number[] {
@@ -211,9 +212,10 @@ export class TrackAvailabilityRepository extends BaseRepository {
     }
 
     try {
-      const result = this.db
-        .prepare(
-          `UPDATE tracks
+      return this.db.transaction(() => {
+        const result = this.db
+          .prepare(
+            `UPDATE tracks
            SET file_path = ?,
                file_size = ?,
                file_mtime_ms = ?,
@@ -224,6 +226,7 @@ export class TrackAvailabilityRepository extends BaseRepository {
                track_no = ?,
                disc_no = ?,
                duration_seconds = ?,
+               bitrate_bps = ?,
                year = ?,
                release_date = ?,
                copyright = ?,
@@ -238,37 +241,42 @@ export class TrackAvailabilityRepository extends BaseRepository {
                lyrics_checked_mtime_ms = ?,
                lyrics_sidecar_fingerprint = ?,
                metadata_checked_mtime_ms = ?,
+               metadata_parser_version = ?,
                updated_at = CURRENT_TIMESTAMP
            WHERE id = ? AND file_path = ?`,
-        )
-        .run(
-          scannedTrack.filePath,
-          scannedTrack.fileSize,
-          scannedTrack.fileMtimeMs,
-          scannedTrack.title,
-          scannedTrack.artist,
-          scannedTrack.album,
-          scannedTrack.albumArtist,
-          scannedTrack.trackNo,
-          scannedTrack.discNo,
-          scannedTrack.durationSeconds,
-          scannedTrack.year,
-          scannedTrack.releaseDate,
-          scannedTrack.copyright,
-          scannedTrack.composer,
-          scannedTrack.genre,
-          scannedTrack.lyricsText,
-          scannedTrack.lyricsFormat,
-          scannedTrack.isrc,
-          scannedTrack.metadataSignature,
-          scannedTrack.fileMtimeMs,
-          scannedTrack.lyricsSidecarFingerprint ?? null,
-          scannedTrack.fileMtimeMs,
-          trackId,
-          expectedOldPath,
-        )
+          )
+          .run(
+            scannedTrack.filePath,
+            scannedTrack.fileSize,
+            scannedTrack.fileMtimeMs,
+            scannedTrack.title,
+            scannedTrack.artist,
+            scannedTrack.album,
+            scannedTrack.albumArtist,
+            scannedTrack.trackNo,
+            scannedTrack.discNo,
+            scannedTrack.durationSeconds,
+            scannedTrack.bitrateBps,
+            scannedTrack.year,
+            scannedTrack.releaseDate,
+            scannedTrack.copyright,
+            scannedTrack.composer,
+            scannedTrack.genre,
+            scannedTrack.lyricsText,
+            scannedTrack.lyricsFormat,
+            scannedTrack.isrc,
+            scannedTrack.metadataSignature,
+            scannedTrack.fileMtimeMs,
+            scannedTrack.lyricsSidecarFingerprint ?? null,
+            scannedTrack.fileMtimeMs,
+            scannedTrack.metadataParserVersion ?? '',
+            trackId,
+            expectedOldPath,
+          )
 
-      return result.changes > 0
+        if (result.changes > 0) prepareScannedMetadataDisplayUpdate(this.db)(scannedTrack)
+        return result.changes > 0
+      })()
     } catch (error) {
       // SQLITE_CONSTRAINT (UNIQUE file_path) or other write races.
       const code =

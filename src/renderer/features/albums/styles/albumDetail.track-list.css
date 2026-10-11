@@ -156,41 +156,7 @@
 
 .album-detail-track-eq {
   position: absolute;
-  display: none;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 2px;
-  width: 14px;
-  height: 12px;
-}
-
-.album-detail-track-eq i {
-  display: block;
-  width: 2px;
-  height: 40%;
-  border-radius: 1px;
-  background: var(--auralis-album-detail-accent);
-  animation: album-eq-bar 0.9s ease-in-out infinite;
-}
-
-.album-detail-track-eq i:nth-child(2) {
-  height: 70%;
-  animation-delay: 0.15s;
-}
-
-.album-detail-track-eq i:nth-child(3) {
-  height: 50%;
-  animation-delay: 0.3s;
-}
-
-@keyframes album-eq-bar {
-  0%,
-  100% {
-    transform: scaleY(0.45);
-  }
-  50% {
-    transform: scaleY(1);
-  }
+  color: var(--auralis-album-detail-accent);
 }
 
 /* 非播放态 hover：序号 → 播放三角；播放中始终只显示 EQ，避免与三角叠层 */
@@ -205,10 +171,6 @@
 .album-detail-track--playing .album-detail-track-index,
 .album-detail-track--playing .album-detail-track-play-icon {
   opacity: 0;
-}
-
-.album-detail-track--playing .album-detail-track-eq {
-  display: flex;
 }
 
 .album-detail-track-duration {
@@ -246,11 +208,6 @@
 :where([data-reduced-motion='true']) .album-detail-track--selected,
 :where([data-reduced-motion='true']) .album-detail-track--playing {
   transform: none;
-}
-
-:where([data-reduced-motion='true']) .album-detail-track-eq i {
-  height: 55%;
-  animation: none;
 }
 
 :where([data-reduced-motion='true']) .album-detail-track--search-highlight {

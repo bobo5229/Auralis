@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { rename } from 'node:fs/promises'
+import { parseFile } from 'music-metadata'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { resolveAudioRuntimePaths } from '../audio/audioRuntimePaths'
 import { writeAudioTags } from './audioTagWriteService'
@@ -15,9 +16,7 @@ vi.mock('node:fs/promises', () => ({
   writeFile: vi.fn(async () => undefined),
 }))
 vi.mock('music-metadata', () => ({
-  parseFile: vi.fn(async () => ({
-    common: { picture: [{ data: new Uint8Array([1]), format: 'image/png' }] },
-  })),
+  parseFile: vi.fn(),
 }))
 
 const metadata = {
@@ -41,6 +40,21 @@ function processResult(error?: Error) {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(spawn).mockImplementation(() => processResult())
+  vi.mocked(parseFile).mockImplementation(async (path) => ({
+    common: {
+      track: { no: null, of: null },
+      disk: { no: null, of: null },
+      movementIndex: { no: null, of: null },
+      title: metadata.title,
+      // The first remux loses the cover, so the second remux must restore it.
+      ...(String(path).includes('auralis-tag-edit-')
+        ? {}
+        : { picture: [{ data: new Uint8Array([1]), format: 'image/png' }] }),
+    },
+    native: {},
+    format: { trackInfo: [], tagTypes: [] },
+    quality: { warnings: [] },
+  }))
 })
 
 describe('bundled audio runtime', () => {

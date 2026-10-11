@@ -17,6 +17,17 @@
   --auralis-type-overline-size: 10px;
   --auralis-type-overline-line-height: 16px;
 
+  /* Album-card roles. Compact 1.25 line boxes preserve the fixed metadata geometry. */
+  --album-list-type-title-size: var(--auralis-type-control-size);
+  --album-list-type-title-line-height: 1.25;
+  --album-list-type-title-weight: 700;
+  --album-list-type-artist-size: var(--auralis-type-caption-size);
+  --album-list-type-artist-line-height: 1.25;
+  --album-list-type-artist-weight: 400;
+  --album-list-type-year-size: 11px;
+  --album-list-type-year-line-height: 1.25;
+  --album-list-type-year-weight: 400;
+
   /* 英文与数字共享本地加载的 Plus Jakarta Sans 字体。 */
   --auralis-font-latin: 'Plus Jakarta Sans';
 

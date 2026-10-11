@@ -476,6 +476,7 @@ const {
   searchQuery,
   searchInputRef,
   searchRootRef,
+  searchZoneRef,
   searchOutcome,
   shouldRenderSearchBar,
   scheduleLibrarySearchIndex,
@@ -496,19 +497,6 @@ const {
   isInteractiveTarget,
   scrollToTrackIndex,
 })
-
-const isFlatSearchRowReserved = ref(false)
-watch(
-  shouldRenderSearchBar,
-  (shouldRender) => {
-    if (shouldRender) isFlatSearchRowReserved.value = true
-  },
-  { flush: 'sync' },
-)
-
-function onSearchBarAfterLeave(): void {
-  if (!shouldRenderSearchBar.value) isFlatSearchRowReserved.value = false
-}
 
 function onFlatColumnResizePreview(widths: LibraryFlatColumnWidths): void {
   flatColumnLayoutState.preview(widths)
@@ -752,22 +740,6 @@ const {
   onScanProgress: (callback) => auralis.library.onScanProgress(callback),
 })
 
-const hasLibraryList = computed(
-  () =>
-    !isLoading.value && !(initialLoadError.value && !pageIdentity.value) && tracks.value.length > 0,
-)
-watch(
-  hasLibraryList,
-  (hasList) => {
-    if (!hasList) {
-      isFlatSearchRowReserved.value = false
-    } else if (shouldRenderSearchBar.value) {
-      isFlatSearchRowReserved.value = true
-    }
-  },
-  { flush: 'sync' },
-)
-
 const metadataEditor = useLibraryMetadataEditor({
   loadTrackMetadata: (trackId) => auralis.metadata.getTrackMetadata(trackId),
   updateTrackMetadata: (metadata) => auralis.metadata.updateTrackMetadata(metadata),
@@ -787,6 +759,7 @@ const metadataEditor = useLibraryMetadataEditor({
   },
   getLoadErrorMessage: () => t('library.metadataEditor.errors.loadFailed'),
   getPlaybackInUseMessage: () => t('library.metadataEditor.status.playbackInUse'),
+  getPreloadInUseMessage: () => t('library.metadataEditor.status.preloadInUse'),
   getQueryFailedMessage: () => t('library.metadataEditor.status.queryFailed'),
   getTrackEditState: (trackId) => auralis.metadata.getTrackEditState(trackId),
   onTrackEditStateChanged: (callback) => auralis.metadata.onTrackEditStateChanged(callback),
@@ -821,10 +794,9 @@ onMounted(async () => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
   window.addEventListener('keydown', onWindowKeyDown)
   bindExternalPlaylistEvents()
+  subscribeLibraryEvents()
   void loadRegularPlaylistItems()
   await loadLibraryData('foreground')
-  if (isPageUnmounted || hasLeftInstanceRoute) return
-  subscribeLibraryEvents()
 })
 
 watch(
@@ -907,10 +879,11 @@ onBeforeUnmount(() => {
       @keydown="onListShellKeyDown"
     >
       <div
+        ref="searchZoneRef"
         class="library-search-zone"
-        :class="{ 'library-search-zone--flat-row': !isCoverView && isFlatSearchRowReserved }"
+        :class="{ 'library-search-zone--flat-row': !isCoverView }"
       >
-        <Transition name="search-overlay" :duration="160" @after-leave="onSearchBarAfterLeave">
+        <Transition name="search-overlay" :duration="160">
           <div v-if="shouldRenderSearchBar" class="library-search-overlay">
             <div
               ref="searchRootRef"
@@ -940,12 +913,12 @@ onBeforeUnmount(() => {
                   {{
                     searchOutcome.wrapped
                       ? t('library.search.wrapped', {
-                          index: searchOutcome.index,
-                          total: searchOutcome.total,
+                          index: String(searchOutcome.index).padStart(2, '0'),
+                          total: String(searchOutcome.total).padStart(2, '0'),
                         })
                       : t('library.search.matched', {
-                          index: searchOutcome.index,
-                          total: searchOutcome.total,
+                          index: String(searchOutcome.index).padStart(2, '0'),
+                          total: String(searchOutcome.total).padStart(2, '0'),
                         })
                   }}
                 </template>
@@ -995,6 +968,7 @@ onBeforeUnmount(() => {
                   :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
                   :is-playing="playback.state.isPlaying"
                   :selected="highlightedTrackId === tracks[virtualRow.index].id"
+                  :context-selected="contextMenu?.trackId === tracks[virtualRow.index].id"
                   :focused="keyboardFocusTrackId === tracks[virtualRow.index].id"
                   :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
                   :style="{
@@ -1036,6 +1010,7 @@ onBeforeUnmount(() => {
                     :now-playing-track-id="playback.state.currentTrackId"
                     :is-playing="playback.state.isPlaying"
                     :selected-track-id="highlightedTrackId"
+                    :context-selected-track-id="contextMenu?.trackId ?? null"
                     :focused-track-id="keyboardFocusTrackId"
                     :style="{
                       height: `${virtualGroup.size}px`,

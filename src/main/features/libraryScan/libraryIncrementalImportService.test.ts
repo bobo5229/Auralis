@@ -1,13 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { parseFile } from 'music-metadata'
 import { stat } from 'node:fs/promises'
+import { statSync } from 'node:fs'
+import { resolveArtworkForFile } from '../artwork/resolveArtworkForFile'
 import type { TrackRepository } from '../../repositories/trackRepository'
 import { LibraryIncrementalImportService } from './libraryIncrementalImportService'
 
 vi.mock('node:fs/promises', () => ({ stat: vi.fn(async () => ({ size: 100, mtimeMs: 100 })) }))
+vi.mock('node:fs', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:fs')>()),
+  statSync: vi.fn(),
+}))
 vi.mock('music-metadata', () => ({ parseFile: vi.fn() }))
 vi.mock('../metadata/resolveLyricsForFile', () => ({ resolveLyricsForFile: async () => null }))
-vi.mock('../artwork/resolveArtworkForFile', () => ({ resolveArtworkForFile: async () => null }))
+vi.mock('../artwork/resolveArtworkForFile', () => ({ resolveArtworkForFile: vi.fn() }))
 vi.mock('../../logging/logger', () => ({ logger: { warn: vi.fn() } }))
 
 function setup() {
@@ -30,6 +36,10 @@ function setup() {
 beforeEach(() => {
   vi.useFakeTimers()
   vi.clearAllMocks()
+  vi.mocked(statSync)
+    .mockReset()
+    .mockReturnValue({ size: 100, mtimeMs: 100 } as ReturnType<typeof statSync>)
+  vi.mocked(resolveArtworkForFile).mockReset().mockResolvedValue(null)
   vi.mocked(stat)
     .mockReset()
     .mockResolvedValue({ size: 100, mtimeMs: 100 } as Awaited<ReturnType<typeof stat>>)
@@ -52,6 +62,164 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('incremental import batching', () => {
+  it('retries a changed file even when its audio read fails', async () => {
+    const { service, repo, send } = setup()
+    vi.mocked(parseFile).mockImplementationOnce(async () => {
+      vi.mocked(statSync).mockReturnValue({ size: 200, mtimeMs: 100 } as ReturnType<
+        typeof statSync
+      >)
+      throw new Error('EBUSY')
+    })
+    const pending = service.importFiles(['changed.flac'])
+    await vi.runAllTimersAsync()
+    expect(await pending).toEqual({ imported: [], unstable: ['changed.flac'], failed: [] })
+    expect(repo.upsertMany).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it.each(['size', 'mtimeMs', 'ctimeMs', 'dev', 'ino'] as const)(
+    'defers a file whose %s changes while resolving artwork',
+    async (field) => {
+      const { service, repo, send } = setup()
+      const fingerprint = { size: 100, mtimeMs: 100, ctimeMs: 100, dev: 1, ino: 1 }
+      vi.mocked(stat).mockResolvedValue(fingerprint as Awaited<ReturnType<typeof stat>>)
+      vi.mocked(resolveArtworkForFile).mockImplementationOnce(async () => {
+        vi.mocked(stat).mockResolvedValue({
+          ...fingerprint,
+          [field]: fingerprint[field] + 1,
+        } as Awaited<ReturnType<typeof stat>>)
+        return null
+      })
+      const pending = service.importFiles(['changed.flac'])
+      await vi.runAllTimersAsync()
+      expect(await pending).toEqual({ imported: [], unstable: ['changed.flac'], failed: [] })
+      expect(repo.findRelocationCandidatesByIdentity).not.toHaveBeenCalled()
+      expect(repo.upsertMany).not.toHaveBeenCalled()
+      expect(repo.relocateTrack).not.toHaveBeenCalled()
+      expect(send).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(['ENOENT', 'EACCES'])(
+    'defers a file that becomes inaccessible after parsing: %s',
+    async (code) => {
+      const { service, repo, send } = setup()
+      vi.mocked(resolveArtworkForFile).mockImplementationOnce(async () => {
+        vi.mocked(stat).mockRejectedValue(Object.assign(new Error(code), { code }))
+        return null
+      })
+      const pending = service.importFiles(['changed.flac'])
+      await vi.runAllTimersAsync()
+      expect(await pending).toEqual({ imported: [], unstable: ['changed.flac'], failed: [] })
+      expect(repo.upsertMany).not.toHaveBeenCalled()
+      expect(send).not.toHaveBeenCalled()
+    },
+  )
+
+  it('defers an earlier parsed file changed while waiting for a later import batch', async () => {
+    const { service, repo, send } = setup()
+    const paths = Array.from({ length: 33 }, (_, i) => `song-${i}.flac`)
+    const pending = service.importFiles(paths)
+    await vi.advanceTimersByTimeAsync(800)
+    expect(parseFile).toHaveBeenCalledTimes(32)
+    vi.mocked(statSync).mockImplementation(
+      (filePath) =>
+        ({
+          size: 100,
+          mtimeMs: filePath === paths[0] ? 200 : 100,
+        }) as ReturnType<typeof statSync>,
+    )
+    await vi.runAllTimersAsync()
+    expect(await pending).toEqual({ imported: paths.slice(1), unstable: [paths[0]], failed: [] })
+    expect(
+      repo.upsertMany.mock.calls.flatMap(([tracks]) => tracks.map((track) => track.filePath)),
+    ).toEqual(paths.slice(1))
+    expect(send.mock.calls.flatMap(([, event]) => event.filePaths)).toEqual(paths.slice(1))
+  })
+
+  it.each(['changed', 'ENOENT', 'EACCES'])(
+    'never migrates a stale result after awaiting the old path: %s',
+    async (state) => {
+      const { service, repo, send } = setup()
+      repo.findRelocationCandidatesByIdentity.mockReturnValue([
+        {
+          trackId: 9,
+          filePath: 'old.flac',
+          title: 'Song',
+          artist: 'Artist',
+          album: 'Album',
+          durationSeconds: 120,
+          fileSize: 100,
+          isrc: null,
+          metadataSignature: null,
+          missingSince: null,
+        },
+      ])
+      vi.mocked(stat).mockImplementation(async (filePath) => {
+        if (filePath === 'old.flac') {
+          vi.mocked(statSync).mockImplementation(() => {
+            if (state !== 'changed') throw Object.assign(new Error(state), { code: state })
+            return { size: 200, mtimeMs: 100 } as ReturnType<typeof statSync>
+          })
+          throw Object.assign(new Error('absent'), { code: 'ENOENT' })
+        }
+        return { size: 100, mtimeMs: 100 } as Awaited<ReturnType<typeof stat>>
+      })
+      const pending = service.importFiles(['new.flac'])
+      await vi.runAllTimersAsync()
+      expect(await pending).toEqual({ imported: [], unstable: ['new.flac'], failed: [] })
+      expect(repo.relocateTrack).not.toHaveBeenCalled()
+      expect(repo.upsertMany).not.toHaveBeenCalled()
+      expect(send).not.toHaveBeenCalled()
+    },
+  )
+
+  it('rechecks pending additions after a synchronous relocation callback', async () => {
+    const { service, repo, send } = setup()
+    repo.findRelocationCandidatesByIdentity.mockReturnValue([
+      {
+        trackId: 9,
+        filePath: 'old.flac',
+        title: 'Song',
+        artist: 'Artist',
+        album: 'Album',
+        durationSeconds: 120,
+        fileSize: 100,
+        isrc: null,
+        metadataSignature: null,
+        missingSince: null,
+      },
+    ])
+    vi.mocked(stat).mockImplementation(async (filePath) => {
+      if (filePath === 'old.flac') throw Object.assign(new Error('absent'), { code: 'ENOENT' })
+      return { size: 100, mtimeMs: 100 } as Awaited<ReturnType<typeof stat>>
+    })
+    const metadata = await parseFile('fixture')
+    vi.mocked(parseFile).mockResolvedValueOnce({
+      ...metadata,
+      common: { ...metadata.common, title: 'Other song' },
+    })
+    send.mockImplementation(() => {
+      vi.mocked(statSync).mockReturnValue({ size: 200, mtimeMs: 100 } as ReturnType<
+        typeof statSync
+      >)
+    })
+    const pending = service.importFiles(['added.flac', 'moved.flac'])
+    await vi.runAllTimersAsync()
+    expect(await pending).toEqual({
+      imported: ['moved.flac'],
+      unstable: ['added.flac'],
+      failed: [],
+    })
+    expect(repo.upsertMany).not.toHaveBeenCalled()
+    expect(send).toHaveBeenCalledOnce()
+    expect(send).toHaveBeenCalledWith('library:changed', {
+      reason: 'track-relocated',
+      trackIds: [9],
+      filePaths: ['moved.flac'],
+    })
+  })
+
   it('overlaps stability waits, bounds each batch and emits one change per committed batch', async () => {
     const { service, repo, send } = setup()
     const paths = Array.from({ length: 65 }, (_, i) => `song-${i}.flac`)

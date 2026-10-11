@@ -30,6 +30,7 @@ import type { WarmableRouteName } from '../router/routeComponentLoaders'
 import { resolveRestorableFocusTarget } from '../utils/sidebarModalFocus'
 import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
 import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
+import { createSidebarLibraryLoader } from '../utils/sidebarLibraryLoader'
 import { animateTrashLid } from '@renderer/shared/animation/motion'
 import PlaylistIcon from './PlaylistIcon.vue'
 import SidebarIcon, { type SidebarIconKind } from './SidebarIcon.vue'
@@ -68,6 +69,15 @@ const smartPlaylistKinds = computed(
     ),
 )
 const libraryStats = ref<LibraryStats>({ trackCount: 0, albumCount: 0 })
+const sidebarLibraryLoader = createSidebarLibraryLoader({
+  playlistItems,
+  smartPlaylists,
+  libraryStats,
+  getStats: () => auralis.library.getStats(),
+  listSidebarItems: () => auralis.playlists.listSidebarItems(),
+  listSmartPlaylists: () => auralis.smartPlaylists.list(),
+  listSmartTrackCounts: () => auralis.smartPlaylists.listTrackCounts(),
+})
 const createPlaylistButton = ref<HTMLButtonElement | null>(null)
 const createMenu = ref<{ x: number; y: number } | null>(null)
 const createMenuPanel = ref<HTMLElement | null>(null)
@@ -411,23 +421,11 @@ function onPlaylistDoubleClick(item: SidebarPlaylistItem, event: MouseEvent): vo
 }
 
 async function loadSidebarPlaylists(): Promise<void> {
-  const [items, smart] = await Promise.all([
-    auralis.playlists.listSidebarItems(),
-    auralis.smartPlaylists.list(),
-  ])
-  playlistItems.value = items
-  smartPlaylists.value = smart
+  await sidebarLibraryLoader.loadPlaylists()
 }
 
 async function loadSidebarStats(): Promise<void> {
-  const [stats, items, smart] = await Promise.all([
-    auralis.library.getStats(),
-    auralis.playlists.listSidebarItems(),
-    auralis.smartPlaylists.list(),
-  ])
-  libraryStats.value = stats
-  playlistItems.value = items
-  smartPlaylists.value = smart
+  await sidebarLibraryLoader.loadStats()
 }
 
 function openCreateMenu(): void {
@@ -784,16 +782,25 @@ async function confirmDelete(): Promise<void> {
 onMounted(() => {
   deleteMotionPreference = createReducedMotionQuery()
   deleteMotionPreference.addEventListener('change', updateDeleteLid)
-  void loadSidebarPlaylists()
   void loadSidebarStats()
   unsubscribeLibraryChanged = auralis.library.onChanged((event) => {
-    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
+    if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') {
+      void sidebarLibraryLoader.refreshPlayStats().catch((cause: unknown) => {
+        rendererDiagnostics.error({
+          scope: 'sidebar.playlist',
+          message: 'Failed to refresh playback playlist counts',
+          cause,
+        })
+      })
+      return
+    }
     void loadSidebarStats()
   })
   window.addEventListener('auralis-playlists-changed', onPlaylistsChanged)
 })
 
 onBeforeUnmount(() => {
+  sidebarLibraryLoader.dispose()
   playlistPosition?.dispose()
   stopDeleteLidAnimation?.()
   deleteMotionPreference?.removeEventListener('change', updateDeleteLid)
@@ -989,7 +996,7 @@ onBeforeUnmount(() => {
     <footer class="sidebar-footer">
       <div class="sidebar-tools-grid" role="toolbar" :aria-label="t('sidebar.toolbarAria')">
         <button
-          v-tooltip="t('sidebar.tool.facetsPanel')"
+          v-tooltip.fast="t('sidebar.tool.facetsPanel')"
           class="sidebar-tool-button"
           type="button"
           :aria-label="t('sidebar.tool.facetsPanel')"
@@ -998,7 +1005,7 @@ onBeforeUnmount(() => {
           <SidebarIcon kind="filters" />
         </button>
         <button
-          v-tooltip="
+          v-tooltip.fast="
             isStartingLibraryRefresh
               ? t('sidebar.tool.refreshBusy')
               : t('sidebar.tool.refreshAction')
@@ -1017,7 +1024,7 @@ onBeforeUnmount(() => {
           <SidebarIcon kind="refresh" :class="{ 'animate-spin': isStartingLibraryRefresh }" />
         </button>
         <button
-          v-tooltip="themeToggleLabel"
+          v-tooltip.fast="themeToggleLabel"
           class="sidebar-tool-button"
           type="button"
           :aria-label="themeToggleLabel"
@@ -1026,7 +1033,7 @@ onBeforeUnmount(() => {
           <SidebarIcon :kind="isDark ? 'sun' : 'moon'" />
         </button>
         <button
-          v-tooltip="t('sidebar.tool.settings')"
+          v-tooltip.fast="t('sidebar.tool.settings')"
           type="button"
           class="sidebar-tool-button"
           :class="{ 'sidebar-tool-button-active': isSettingsOpen }"

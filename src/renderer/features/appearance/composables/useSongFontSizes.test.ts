@@ -67,6 +67,30 @@ describe('song font size preferences', () => {
     expect(state.songFontSize('list', 'title')).toBe(14)
   })
 
+  it('persists cover bitrate size, restores it, and resets it with the cover view', async () => {
+    storage.set(
+      SONG_FONT_SIZE_STORAGE_KEY,
+      JSON.stringify({ version: 1, list: { title: 15 }, cover: { duration: 14 } }),
+    )
+    const state = await load()
+    expect(state.songFontSize('cover', 'bitrate')).toBe(12)
+    for (const size of [9, 19, 14.5, NaN]) state.setSongFontSize('cover', 'bitrate', size)
+    state.setSongFontSize('list', 'bitrate', 14)
+    expect(state.songFontSizeStyle.value['--auralis-song-cover-bitrate-size']).toBe('12px')
+    expect(state.songFontSizeStyle.value['--auralis-song-list-bitrate-size']).toBeUndefined()
+
+    state.setSongFontSize('cover', 'bitrate', 18)
+    expect(state.songFontSizeStyle.value['--auralis-song-cover-bitrate-size']).toBe('18px')
+    vi.resetModules()
+    const restored = await load()
+    expect(restored.songFontSize('cover', 'bitrate')).toBe(18)
+    expect(restored.songFontSize('cover', 'duration')).toBe(14)
+    restored.resetSongFontSizeView('cover')
+    expect(restored.songFontSize('cover', 'bitrate')).toBe(12)
+    expect(restored.songFontSize('list', 'title')).toBe(15)
+    expect(JSON.parse(storage.get(SONG_FONT_SIZE_STORAGE_KEY)!).cover).toEqual({})
+  })
+
   it('keeps changes live on save failure and retries the same value', async () => {
     const state = await load()
     writeFails = true

@@ -1,0 +1,13 @@
+{
+  "initial": {
+    "icons": 4
+  },
+  "blocks": {
+    "icons": 4,
+    "animations": 36
+  },
+  "pause": true,
+  "restore": true,
+  "lifecycle": true,
+  "errors": []
+}

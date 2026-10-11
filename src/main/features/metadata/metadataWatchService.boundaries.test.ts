@@ -1,4 +1,4 @@
-import { watch } from 'node:fs'
+import { watch, type Stats } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { normalize } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,7 +16,11 @@ vi.mock('@main/logging/logger', () => ({
 
 const root = normalize('C:/isolated-watch')
 const path = normalize(`${root}/sample.flac`)
-const fileStat = { size: 10, mtimeMs: 1 } as Awaited<ReturnType<typeof stat>>
+const fileStat = {
+  size: 10,
+  mtimeMs: 1,
+  isFile: () => true,
+} as Stats
 const absent = () => Object.assign(new Error('absent'), { code: 'ENOENT' })
 const busy = () => Object.assign(new Error('busy'), { code: 'EBUSY' })
 
@@ -27,7 +31,7 @@ function setup() {
     return { close: vi.fn(), on: vi.fn() } as unknown as ReturnType<typeof watch>
   })
   const markMissing = vi.fn(() => [1])
-  const markAvailable = vi.fn(() => [1])
+  const markAvailable = vi.fn((): number[] => [])
   const refresh = vi.fn()
   const send = vi.fn()
   const service = new MetadataWatchService(
@@ -59,6 +63,172 @@ afterEach(() => {
 })
 
 describe('metadata watcher component boundaries', () => {
+  it('restores confirmed missing unchanged audio without refreshing or duplicate notifications', async () => {
+    vi.mocked(stat).mockRejectedValue(absent())
+    const { service, notify, markMissing, markAvailable, refresh, send } = setup()
+    notify('rename', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(6200)
+    expect(markMissing).toHaveBeenCalledExactlyOnceWith([path])
+    vi.mocked(stat).mockResolvedValue(fileStat)
+    markAvailable.mockReturnValueOnce([1])
+    notify('rename', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(send).toHaveBeenCalledWith('library:changed', {
+      reason: 'track-restored',
+      trackIds: [1],
+      filePaths: [path],
+    })
+    notify('change', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(refresh).not.toHaveBeenCalled()
+    expect(send).toHaveBeenCalledTimes(2)
+    await service.stop()
+  })
+
+  it('keeps a queued restoration when tag-write suppression begins', async () => {
+    const { service, notify, markAvailable, refresh, send } = setup()
+    markAvailable.mockReturnValueOnce([1])
+    notify('rename', 'sample.flac')
+    service.suppressRefreshForPath(path)
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(markAvailable).toHaveBeenCalledExactlyOnceWith([path])
+    expect(send).toHaveBeenCalledExactlyOnceWith('library:changed', {
+      reason: 'track-restored',
+      trackIds: [1],
+      filePaths: [path],
+    })
+    expect(refresh).not.toHaveBeenCalled()
+    await service.stop()
+  })
+
+  it('ignores a stale missing confirmation after a newer watch batch restores the file', async () => {
+    vi.mocked(stat).mockRejectedValue(absent())
+    const { service, notify, markMissing, markAvailable, send } = setup()
+    notify('rename', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(6200)
+    expect(markMissing).toHaveBeenCalledOnce()
+
+    let rejectOldStat!: (error: Error) => void
+    vi.mocked(stat)
+      .mockRejectedValueOnce(absent())
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectOldStat = reject
+          }),
+      )
+      .mockResolvedValue(fileStat)
+    notify('rename', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(6200)
+    markAvailable.mockReturnValueOnce([1])
+    notify('rename', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(send).toHaveBeenCalledTimes(2)
+    rejectOldStat(absent())
+    await service.pauseFlush()
+    expect(markMissing).toHaveBeenCalledOnce()
+    expect(send).toHaveBeenCalledTimes(2)
+    await service.stop()
+  })
+
+  it('keeps other paths in an in-flight confirmation and clears completed work', async () => {
+    const otherPath = normalize(`${root}/other.flac`)
+    vi.mocked(stat).mockRejectedValue(absent())
+    const { service, notify, markMissing, markAvailable } = setup()
+    notify('rename', 'sample.flac')
+    notify('rename', 'other.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    let rejectOldStat!: (error: Error) => void
+    vi.mocked(stat).mockImplementation(async (filePath) => {
+      if (filePath === path) {
+        return new Promise((_resolve, reject) => {
+          rejectOldStat = reject
+        })
+      }
+      throw absent()
+    })
+    await vi.advanceTimersByTimeAsync(5000)
+    vi.mocked(stat).mockResolvedValue(fileStat)
+    markAvailable.mockReturnValueOnce([1])
+    notify('rename', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    rejectOldStat(absent())
+    await service.pauseFlush()
+    expect(markMissing).toHaveBeenCalledExactlyOnceWith([otherPath])
+    service.resumeFlush()
+    expect(vi.getTimerCount()).toBe(0)
+    await service.stop()
+  })
+
+  it('restores changed audio while suppression still prevents metadata refresh', async () => {
+    vi.mocked(stat).mockResolvedValue({ ...fileStat, size: 20 })
+    const { service, notify, markAvailable, refresh, send } = setup()
+    markAvailable.mockReturnValueOnce([1])
+    service.suppressRefreshForPath(path)
+    notify('rename', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(markAvailable).toHaveBeenCalledExactlyOnceWith([path])
+    expect(send).toHaveBeenCalledOnce()
+    expect(refresh).not.toHaveBeenCalled()
+    await service.stop()
+  })
+
+  it('refreshes changed restored audio independently of availability recovery', async () => {
+    vi.mocked(stat).mockResolvedValue({ ...fileStat, size: 20 })
+    const { service, notify, markAvailable, refresh } = setup()
+    markAvailable.mockReturnValueOnce([1])
+    notify('rename', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(markAvailable).toHaveBeenCalledExactlyOnceWith([path])
+    expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
+    await service.stop()
+  })
+
+  it('does not restore a directory at the audio path in either stat phase', async () => {
+    vi.mocked(stat).mockResolvedValue({ ...fileStat, isFile: () => false })
+    const { service, notify, markAvailable, markMissing, refresh, send } = setup()
+    notify('rename', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(6200)
+    expect(markAvailable).not.toHaveBeenCalled()
+    expect(refresh).not.toHaveBeenCalled()
+    expect(markMissing).toHaveBeenCalledExactlyOnceWith([path])
+    expect(send).toHaveBeenCalledExactlyOnceWith('library:changed', {
+      reason: 'track-missing',
+      trackIds: [1],
+      filePaths: [path],
+    })
+    await service.stop()
+  })
+
+  it.each(['pause', 'stop'] as const)(
+    'respects %s while a returning file stat is active',
+    async (action) => {
+      let resolveStat!: (value: Awaited<ReturnType<typeof stat>>) => void
+      vi.mocked(stat).mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveStat = resolve
+          }),
+      )
+      const { service, notify, markAvailable, send } = setup()
+      markAvailable.mockReturnValueOnce([1])
+      notify('rename', 'sample.flac')
+      await vi.advanceTimersByTimeAsync(1200)
+      let settled = false
+      const barrier = (action === 'pause' ? service.pauseFlush() : service.stop()).then(() => {
+        settled = true
+      })
+      await Promise.resolve()
+      expect(settled).toBe(false)
+      resolveStat(fileStat)
+      await barrier
+      expect(markAvailable).toHaveBeenCalledTimes(action === 'pause' ? 1 : 0)
+      expect(send).toHaveBeenCalledTimes(action === 'pause' ? 1 : 0)
+      if (action === 'pause') await service.stop()
+      expect(vi.getTimerCount()).toBe(0)
+    },
+  )
+
   it('keeps queued missing confirmation paused until scanning resumes', async () => {
     vi.mocked(stat).mockRejectedValue(absent())
     const { service, notify, markMissing, send } = setup()

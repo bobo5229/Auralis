@@ -109,420 +109,151 @@ function onRadiusInput(event: Event): void {
         </span>
       </summary>
 
-      <div class="song-font-weight-toolbar">
-        <div
-          class="settings-segmented-control"
-          role="group"
-          :aria-label="t('settings.appearance.songFontWeight.viewGroup')"
-        >
-          <button
-            type="button"
-            class="settings-segmented-option"
-            :class="{ 'is-selected': previewView === 'list' }"
-            :aria-pressed="previewView === 'list'"
-            @click="previewView = 'list'"
-          >
-            {{ t('settings.appearance.songFontWeight.listView') }}
-          </button>
-          <button
-            type="button"
-            class="settings-segmented-option"
-            :class="{ 'is-selected': previewView === 'cover' }"
-            :aria-pressed="previewView === 'cover'"
-            @click="previewView = 'cover'"
-          >
-            {{ t('settings.appearance.songFontWeight.coverView') }}
-          </button>
+      <div class="song-font-weight-content">
+        <div class="song-font-weight-preview-block">
+          <h3 class="song-font-weight-preview-heading">
+            {{ t('settings.appearance.songFontWeight.preview') }}
+          </h3>
+          <SongFontWeightPreview :view="previewView" />
         </div>
-        <div class="song-font-weight-reset-group">
-          <Transition name="song-font-weight-reset-notice">
-            <span
-              v-if="resetAnnounced && !persistFailed && !sizePersistFailed"
-              class="song-font-weight-reset-notice"
-              role="status"
+
+        <div class="song-font-weight-toolbar">
+          <div
+            class="settings-segmented-control"
+            role="group"
+            :aria-label="t('settings.appearance.songFontWeight.viewGroup')"
+          >
+            <button
+              type="button"
+              class="settings-segmented-option"
+              :class="{ 'is-selected': previewView === 'list' }"
+              :aria-pressed="previewView === 'list'"
+              @click="previewView = 'list'"
             >
-              {{ t('settings.appearance.songFontWeight.resetStatus') }}
-            </span>
-          </Transition>
-          <button type="button" class="song-font-weight-reset" @click="onReset">
-            {{ t('settings.appearance.songFontWeight.resetView') }}
-          </button>
-        </div>
-      </div>
-
-      <p
-        v-if="statusText"
-        class="song-font-weight-status"
-        :class="{ 'is-warning': persistFailed || sizePersistFailed }"
-        role="status"
-      >
-        {{ statusText }}
-      </p>
-
-      <div v-if="previewView === 'cover'" class="song-cover-options">
-        <h3 class="song-parameters-heading">
-          {{ t('settings.appearance.songFontWeight.coverSection') }}
-        </h3>
-        <div class="settings-row song-font-weight-row">
-          <div>
-            <strong>{{ t('settings.appearance.coverArtworkRounded') }}</strong>
+              {{ t('settings.appearance.songFontWeight.listView') }}
+            </button>
+            <button
+              type="button"
+              class="settings-segmented-option"
+              :class="{ 'is-selected': previewView === 'cover' }"
+              :aria-pressed="previewView === 'cover'"
+              @click="previewView = 'cover'"
+            >
+              {{ t('settings.appearance.songFontWeight.coverView') }}
+            </button>
           </div>
-          <button
-            type="button"
-            class="settings-switch"
-            role="switch"
-            :aria-checked="coverArtworkRounded"
-            :aria-label="t('settings.appearance.coverArtworkRounded')"
-            :class="{ 'is-enabled': coverArtworkRounded }"
-            @click="setCoverArtworkRounded(!coverArtworkRounded)"
-          >
-            <span class="settings-switch-thumb" aria-hidden="true"></span>
-          </button>
+          <div class="song-font-weight-reset-group">
+            <Transition name="song-font-weight-reset-notice">
+              <span
+                v-if="resetAnnounced && !persistFailed && !sizePersistFailed"
+                class="song-font-weight-reset-notice"
+                role="status"
+              >
+                {{ t('settings.appearance.songFontWeight.resetStatus') }}
+              </span>
+            </Transition>
+            <button type="button" class="song-font-weight-reset" @click="onReset">
+              {{ t('settings.appearance.songFontWeight.resetView') }}
+            </button>
+          </div>
         </div>
-        <Transition name="song-cover-radius-reveal">
-          <div v-if="coverArtworkRounded" class="song-cover-radius-reveal">
-            <div class="settings-row song-font-weight-row">
-              <div>
-                <strong id="song-cover-radius-label">{{
-                  t('settings.appearance.songFontWeight.coverRadius')
-                }}</strong>
-              </div>
-              <div class="settings-range-control">
-                <input
-                  id="song-cover-radius-input"
-                  type="range"
-                  min="4"
-                  max="24"
-                  step="2"
-                  :value="coverArtworkRadius"
-                  :style="{ '--settings-range-progress': `${radiusFillPercent}%` }"
-                  aria-labelledby="song-cover-radius-label"
-                  @input="onRadiusInput"
-                />
-                <output for="song-cover-radius-input">{{ coverArtworkRadius }} px</output>
+
+        <p
+          v-if="statusText"
+          class="song-font-weight-status"
+          :class="{ 'is-warning': persistFailed || sizePersistFailed }"
+          role="status"
+        >
+          {{ statusText }}
+        </p>
+
+        <div v-if="previewView === 'cover'" class="song-cover-options">
+          <h3 class="song-parameters-heading">
+            {{ t('settings.appearance.songFontWeight.coverSection') }}
+          </h3>
+          <div class="settings-row song-font-weight-row">
+            <div>
+              <strong>{{ t('settings.appearance.coverArtworkRounded') }}</strong>
+            </div>
+            <button
+              type="button"
+              class="settings-switch"
+              role="switch"
+              :aria-checked="coverArtworkRounded"
+              :aria-label="t('settings.appearance.coverArtworkRounded')"
+              :class="{ 'is-enabled': coverArtworkRounded }"
+              @click="setCoverArtworkRounded(!coverArtworkRounded)"
+            >
+              <span class="settings-switch-thumb" aria-hidden="true"></span>
+            </button>
+          </div>
+          <Transition name="song-cover-radius-reveal">
+            <div v-if="coverArtworkRounded" class="song-cover-radius-reveal">
+              <div class="settings-row song-font-weight-row">
+                <div>
+                  <strong id="song-cover-radius-label">{{
+                    t('settings.appearance.songFontWeight.coverRadius')
+                  }}</strong>
+                </div>
+                <div class="settings-range-control">
+                  <input
+                    id="song-cover-radius-input"
+                    type="range"
+                    min="4"
+                    max="24"
+                    step="2"
+                    :value="coverArtworkRadius"
+                    :style="{ '--settings-range-progress': `${radiusFillPercent}%` }"
+                    aria-labelledby="song-cover-radius-label"
+                    @input="onRadiusInput"
+                  />
+                  <output for="song-cover-radius-input">{{ coverArtworkRadius }} px</output>
+                </div>
               </div>
             </div>
-          </div>
-        </Transition>
-      </div>
+          </Transition>
+        </div>
 
-      <h3 class="song-parameters-heading">
-        {{ t('settings.appearance.songFontWeight.typographySection') }}
-      </h3>
-      <div class="song-font-column-labels" aria-hidden="true">
-        <span>{{ t('settings.appearance.songFontWeight.sizeLabel') }}</span>
-        <span>{{ t('settings.appearance.songFontWeight.weightSection') }}</span>
-      </div>
-      <div class="song-font-weight-rows">
-        <div
-          v-for="field in activeFields"
-          :key="`${previewView}-${field}`"
-          class="settings-row song-font-weight-row"
-        >
-          <div>
-            <strong :id="`${fieldId(field)}-label`">{{
-              t(`settings.appearance.songFontWeight.fields.${field}`)
-            }}</strong>
-          </div>
-          <div class="song-font-controls">
-            <SongFontSizeInput
-              :id="`${fieldId(field)}-size`"
-              :label="t(`settings.appearance.songFontWeight.fields.${field}`)"
-              :model-value="songFontSize(previewView, field)"
-              :min="songFontSizeRange(previewView, field).min"
-              :max="songFontSizeRange(previewView, field).max"
-              @update:model-value="onSizeChange(field, $event)"
-            />
-            <SongFontWeightSelect
-              :id="fieldId(field)"
-              :labelledby="`${fieldId(field)}-label`"
-              :model-value="songFontWeightChoice(previewView, field)"
-              :default-weight="defaultWeight(field)"
-              @update:model-value="onWeightChange(field, $event)"
-            />
+        <h3 class="song-parameters-heading">
+          {{ t('settings.appearance.songFontWeight.typographySection') }}
+        </h3>
+        <div class="song-font-column-labels" aria-hidden="true">
+          <span>{{ t('settings.appearance.songFontWeight.sizeLabel') }}</span>
+          <span>{{ t('settings.appearance.songFontWeight.weightSection') }}</span>
+        </div>
+        <div class="song-font-weight-rows">
+          <div
+            v-for="field in activeFields"
+            :key="`${previewView}-${field}`"
+            class="settings-row song-font-weight-row"
+          >
+            <div>
+              <strong :id="`${fieldId(field)}-label`">{{
+                t(`settings.appearance.songFontWeight.fields.${field}`)
+              }}</strong>
+            </div>
+            <div class="song-font-controls">
+              <SongFontSizeInput
+                :id="`${fieldId(field)}-size`"
+                :label="t(`settings.appearance.songFontWeight.fields.${field}`)"
+                :model-value="songFontSize(previewView, field)"
+                :min="songFontSizeRange(previewView, field).min"
+                :max="songFontSizeRange(previewView, field).max"
+                @update:model-value="onSizeChange(field, $event)"
+              />
+              <SongFontWeightSelect
+                :id="fieldId(field)"
+                :labelledby="`${fieldId(field)}-label`"
+                :model-value="songFontWeightChoice(previewView, field)"
+                :default-weight="defaultWeight(field)"
+                @update:model-value="onWeightChange(field, $event)"
+              />
+            </div>
           </div>
         </div>
-      </div>
-
-      <div class="song-font-weight-preview-block">
-        <h3 class="song-font-weight-preview-heading">
-          {{ t('settings.appearance.songFontWeight.preview') }}
-        </h3>
-        <SongFontWeightPreview :view="previewView" />
       </div>
     </details>
   </div>
 </template>
 
-<style scoped>
-.song-font-weight-details {
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 80%, transparent);
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 50%, transparent);
-  interpolate-size: allow-keywords;
-}
-
-.song-font-weight-details::details-content {
-  block-size: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition:
-    block-size 280ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 180ms ease,
-    content-visibility 280ms;
-  transition-behavior: allow-discrete;
-}
-
-.song-font-weight-details[open]::details-content {
-  block-size: auto;
-  opacity: 1;
-}
-
-.song-font-weight-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-height: 48px;
-  padding: 9px 16px;
-  color: var(--auralis-text);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.35;
-  list-style: none;
-  cursor: pointer;
-  user-select: none;
-}
-
-.song-font-weight-summary::-webkit-details-marker {
-  display: none;
-}
-
-.song-font-weight-summary::marker {
-  content: '';
-}
-
-.song-font-weight-summary:focus-visible {
-  outline: 2px solid var(--auralis-sidebar-active-indicator);
-  outline-offset: -2px;
-}
-
-.song-font-weight-details[open] > .song-font-weight-summary {
-  border-bottom: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
-}
-
-.song-font-weight-chevron {
-  flex: 0 0 auto;
-  color: var(--auralis-text-muted);
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.song-font-weight-summary-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--auralis-text-muted);
-  font-size: 12px;
-  line-height: 1;
-}
-
-.song-font-weight-collapse-label,
-.song-font-weight-details[open] > .song-font-weight-summary .song-font-weight-expand-label {
-  display: none;
-}
-
-.song-font-weight-details[open] > .song-font-weight-summary .song-font-weight-collapse-label {
-  display: inline;
-}
-
-.song-font-weight-details[open] > .song-font-weight-summary .song-font-weight-chevron {
-  transform: rotate(180deg);
-}
-
-.song-font-weight-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px 12px;
-  padding: 10px 16px 2px;
-}
-
-.song-font-weight-reset {
-  min-height: 30px;
-  padding: 0 0 0 10px;
-  border: 0;
-  border-radius: 8px;
-  color: var(--auralis-text-muted);
-  background: transparent;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.song-font-weight-reset-group {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  min-width: 0;
-  margin-left: auto;
-}
-
-.song-font-weight-reset-notice {
-  color: var(--auralis-danger);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.35;
-  text-align: right;
-}
-
-.song-font-weight-reset-notice-enter-active {
-  transition:
-    opacity 220ms ease-out,
-    transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.song-font-weight-reset-notice-leave-active {
-  transition: opacity 140ms ease-in;
-}
-
-.song-font-weight-reset-notice-enter-from {
-  opacity: 0;
-  transform: translateX(12px);
-}
-
-.song-font-weight-reset-notice-leave-to {
-  opacity: 0;
-}
-
-:where([data-reduced-motion='true']) .song-font-weight-details::details-content {
-  transition:
-    opacity 120ms ease,
-    content-visibility 120ms;
-}
-
-:where([data-reduced-motion='true']) .song-font-weight-chevron {
-  transition: none;
-}
-
-:where([data-reduced-motion='true']) .song-font-weight-reset-notice-enter-active,
-:where([data-reduced-motion='true']) .song-font-weight-reset-notice-leave-active {
-  transition: opacity 120ms ease;
-}
-
-:where([data-reduced-motion='true']) .song-font-weight-reset-notice-enter-from {
-  transform: none;
-}
-
-.song-font-weight-reset:hover {
-  color: var(--auralis-text);
-}
-
-.song-font-weight-reset:focus-visible {
-  outline: 2px solid var(--auralis-sidebar-active-indicator);
-  outline-offset: 2px;
-}
-
-.song-font-weight-status {
-  margin: 0;
-  padding: 4px 16px 0;
-  color: var(--auralis-text-subtle);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.35;
-}
-
-.song-font-weight-status.is-warning {
-  color: var(--auralis-text);
-}
-
-.song-parameters-heading {
-  margin: 8px 0 0;
-  padding: 12px 16px 4px;
-  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
-  color: var(--auralis-text-muted);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.song-cover-options + .song-parameters-heading {
-  margin-top: 0;
-}
-
-.song-cover-radius-reveal {
-  overflow: hidden;
-  max-height: 80px;
-  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
-}
-
-.song-cover-radius-reveal-enter-active,
-.song-cover-radius-reveal-leave-active {
-  transition:
-    max-height 220ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 180ms ease;
-}
-
-.song-cover-radius-reveal-enter-from,
-.song-cover-radius-reveal-leave-to {
-  max-height: 0;
-  opacity: 0;
-}
-
-:where([data-reduced-motion='true']) .song-cover-radius-reveal-enter-active,
-:where([data-reduced-motion='true']) .song-cover-radius-reveal-leave-active {
-  transition: opacity 120ms ease;
-}
-
-.song-font-weight-rows {
-  margin-top: 0;
-}
-
-.song-font-controls,
-.song-font-column-labels {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 148px));
-  gap: 12px;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.settings-row.song-font-weight-row > .song-font-controls {
-  margin-left: auto;
-  gap: 12px;
-}
-.song-font-column-labels {
-  justify-content: end;
-  padding: 0 16px 4px;
-  color: var(--auralis-text-muted);
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
-}
-.song-font-controls :deep(.song-font-weight-select) {
-  width: 148px;
-  min-width: 0;
-}
-
-.song-font-weight-row {
-  flex-wrap: wrap;
-  row-gap: 8px;
-  cursor: default;
-}
-
-.song-font-weight-preview-block {
-  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
-  background: var(--auralis-surface-raised);
-  padding: 12px 16px 16px;
-}
-
-.song-font-weight-preview-heading {
-  margin: 0 0 8px;
-  color: var(--auralis-text-muted);
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.35;
-}
-</style>
+<style scoped src="../styles/parameterPanel.css"></style>

@@ -38,9 +38,9 @@ describe('album cover disc headings', () => {
     expect(getAlbumCoverTrackDiscHeadings(playlistTracks)).toEqual([null, null, null])
   })
 
-  it('localizes headings while retaining the same padded disc number', () => {
-    expect(formatAlbumCoverDiscHeading(1)).toBe('第 01 碟')
-    expect(formatAlbumCoverDiscHeading(12)).toBe('第 12 碟')
+  it('keeps Disc headings and padded numbers consistent across languages', () => {
+    expect(formatAlbumCoverDiscHeading(1)).toBe('Disc 01')
+    expect(formatAlbumCoverDiscHeading(12)).toBe('Disc 12')
     i18n.global.locale.value = 'en'
     expect(formatAlbumCoverDiscHeading(1)).toBe('Disc 01')
     expect(formatAlbumCoverDiscHeading(12)).toBe('Disc 12')

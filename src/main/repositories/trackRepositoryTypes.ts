@@ -9,6 +9,7 @@ export interface KnownTrackFile {
   lyricsCheckedMtimeMs: number | null
   lyricsSidecarFingerprint?: string | null
   metadataCheckedMtimeMs: number | null
+  metadataParserVersion?: string | null
 }
 
 export interface MissingTrackCandidate {

@@ -103,6 +103,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   const readonlyPlaybackPending = readonly(playbackPending)
   const readonlyGaplessPlaybackEnabled = readonly(gaplessPlaybackEnabled)
   const playbackRequestGate = createPlaybackRequestGate()
+  let pendingAdvanceToken: PlaybackRequestToken | null = null
   const navigationSession = new PlaybackNavigationSession()
   const queueSession = ref<PlaybackQueueSession | null>(null)
   let nextQueueSessionId = 0
@@ -119,7 +120,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     currentTrack: null,
     selectedTrackId: null,
     currentTrackId: null,
-    playbackMode: 'sequential',
+    playbackMode: 'repeat-all',
     isPlaying: false,
     isMuted: false,
     currentTime: 0,
@@ -132,10 +133,25 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   let transitionGeneration = 0
   let isDisposed = false
 
-  let scheduledPlan: PlaybackTransitionPlan | null = null
+  let navigationRevision = 0
+  let navigationContextRevision = 0
+  let pausedByUser = false
+  let preparingPlan: PlaybackTransitionPlan | null = null
+  // A backend can enter the submitted track before scheduleNext's IPC ACK.
+  // Keep submitted candidates across cancellation until the current audio lifetime ends.
+  const submittedPlans = new Map<
+    number,
+    {
+      plan: PlaybackTransitionPlan
+      navigationRevision: number
+      navigationContextRevision: number
+    }
+  >()
+  const missingTrackIds = new Set<number>()
 
   function beginPlaybackRequest(): PlaybackRequestToken {
     const token = playbackRequestGate.begin()
+    pendingAdvanceToken = null
     playbackPending.value = true
     return token
   }
@@ -152,6 +168,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
   function invalidatePlaybackRequest(): void {
     playbackRequestGate.invalidate()
+    pendingAdvanceToken = null
     playbackPending.value = false
   }
 
@@ -172,8 +189,8 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       effectivePlayTracker.updateDuration()
     },
     onPlayingChange: (isPlaying) => {
-      state.isPlaying = isPlaying
-      effectivePlayTracker.setPlaying(isPlaying)
+      state.isPlaying = isPlaying && !pausedByUser
+      effectivePlayTracker.setPlaying(state.isPlaying)
     },
     onEnded: (nextTrackId) => {
       effectivePlayTracker.end()
@@ -283,12 +300,29 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
   function invalidateGaplessTransition(): void {
     transitionGeneration += 1
-    scheduledPlan = null
+    preparingPlan = null
     audioRuntime.cancelScheduledNext()
   }
 
+  function invalidateNavigationDecision(resetContext = false): void {
+    navigationRevision += 1
+    if (resetContext) navigationContextRevision += 1
+    // Only cancel the planning phase. A committed track may still be loading
+    // or resuming, and queue/mode edits must let that audio request finish.
+    if (pendingAdvanceToken !== null && isCurrentPlaybackRequest(pendingAdvanceToken)) {
+      invalidatePlaybackRequest()
+    }
+    invalidateGaplessTransition()
+  }
+
   function isCurrentGaplessPrefetch(generation: number, fromTrackId: number): boolean {
-    return generation === transitionGeneration && state.currentTrackId === fromTrackId
+    return (
+      !isDisposed &&
+      !pausedByUser &&
+      generation === transitionGeneration &&
+      state.currentTrackId === fromTrackId &&
+      audioRuntime.getSnapshot().trackId === fromTrackId
+    )
   }
 
   function isSameAlbumBoundary(current: PlaybackTrack | null, next: PlaybackTrack): boolean {
@@ -301,51 +335,85 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     )
   }
 
-  async function refreshGaplessNext(fromTrackId: number): Promise<void> {
+  async function refreshGaplessNext(
+    fromTrackId: number,
+    previousPlan?: PlaybackTransitionPlan,
+  ): Promise<void> {
     if (!gaplessPlaybackEnabled.value) {
-      transitionGeneration += 1
-      scheduledPlan = null
-      audioRuntime.cancelScheduledNext()
+      invalidateGaplessTransition()
       return
     }
 
     const generation = ++transitionGeneration
-    scheduledPlan = null
+    preparingPlan = null
     audioRuntime.cancelScheduledNext()
 
     try {
+      if (!isCurrentGaplessPrefetch(generation, fromTrackId)) return
       if (!audioRuntime.getSnapshot().isPlaying) return
-      const plan = await resolveTransitionPlan(fromTrackId)
+      const resolved = previousPlan ?? (await resolveTransitionPlan(fromTrackId))
+      const plan = resolved && filterMissingFromPlan(resolved)
       if (!plan || !isCurrentGaplessPrefetch(generation, fromTrackId)) return
+      preparingPlan = plan
 
       const url = await resolveAudioUrl(plan.track.id)
       if (!isCurrentGaplessPrefetch(generation, fromTrackId)) return
 
-      const scheduled = await audioRuntime.scheduleNext(plan.track.id, url.url, {
+      submittedPlans.set(plan.track.id, {
+        plan,
+        navigationRevision,
+        navigationContextRevision,
+      })
+      await audioRuntime.scheduleNext(plan.track.id, url.url, {
         decodeProbe: url.decodeProbe,
         trimBoundarySilence:
           skipDigitalSilenceEnabled.value &&
           (softTransitionEnabled.value || isSameAlbumBoundary(state.currentTrack, plan.track)),
         softTransition: softTransitionEnabled.value,
       })
-      if (!isCurrentGaplessPrefetch(generation, fromTrackId)) {
-        if (scheduled) audioRuntime.cancelScheduledNext()
-        return
-      }
-      if (scheduled) scheduledPlan = plan
+      // Cancellation already happened when the generation changed. A late ACK
+      // must never cancel the successor's freshly submitted next track.
     } catch {
       // Prefetch failure only disables the seamless hand-off.
     }
   }
 
   async function commitBoundary(nextTrackId: number | null): Promise<void> {
-    const plan = scheduledPlan
-    scheduledPlan = null
-    if (plan && nextTrackId === plan.track.id) {
+    if (isDisposed) return
+    if (nextTrackId !== null) {
+      const submitted = submittedPlans.get(nextTrackId)
+      const snapshot = audioRuntime.getSnapshot()
+      if (!submitted || snapshot.trackId !== nextTrackId) return
+      if (missingTrackIds.has(nextTrackId)) {
+        stopMissingCurrentTrack()
+        return
+      }
+      invalidatePlaybackRequest()
+      transitionGeneration += 1
+      preparingPlan = null
+      submittedPlans.clear()
+      const plan =
+        submitted.navigationRevision === navigationRevision
+          ? filterMissingFromPlan(submitted.plan)
+          : navigationSession.rebaseEnteredPlan(
+              filterMissingFromPlan(submitted.plan) ?? submitted.plan,
+              {
+                queue: state.queue,
+                currentIndex: state.currentIndex,
+                currentTrackId: state.currentTrackId,
+                currentTrack: state.currentTrack,
+                playbackMode: state.playbackMode,
+              },
+              submitted.navigationContextRevision === navigationContextRevision,
+            )
+      if (!plan) return
       applyTransitionPlan(plan)
-      void refreshGaplessNext(plan.track.id)
+      if (!pausedByUser) void refreshGaplessNext(plan.track.id)
       return
     }
+    submittedPlans.clear()
+    preparingPlan = null
+    if (pausedByUser) return
     await advanceTrack('natural-ended')
   }
 
@@ -362,11 +430,13 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     const index = queue.findIndex((t) => t.id === trackId)
     if (index === -1) return
     const pendingToken = beginPlaybackRequest()
+    pausedByUser = false
 
     try {
       invalidateGaplessTransition()
+      submittedPlans.clear()
       effectivePlayTracker.end()
-      audioRuntime.clear()
+      audioRuntime.clear({ replacing: true })
 
       if (options?.recordHistory !== false) {
         navigationSession.pushHistory(state.currentTrack, trackId, state.queue)
@@ -406,6 +476,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         return
       }
 
+      audioRuntime.clear()
       setPlaybackError(err)
     } finally {
       finishPlaybackRequest(pendingToken)
@@ -416,6 +487,8 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
   async function advanceTrack(trigger: PlaybackAdvanceTrigger): Promise<void> {
     const pendingToken = beginPlaybackRequest()
+    pausedByUser = false
+    pendingAdvanceToken = pendingToken
     try {
       const decision = await navigationSession.resolveAdvance(
         {
@@ -429,6 +502,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         trigger,
       )
       if (!isCurrentPlaybackRequest(pendingToken)) return
+      pendingAdvanceToken = null
 
       if (decision.kind === 'noop') {
         return
@@ -468,6 +542,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     } catch (err) {
       if (isCurrentPlaybackRequest(pendingToken)) setPlaybackError(err)
     } finally {
+      if (pendingAdvanceToken === pendingToken) pendingAdvanceToken = null
       finishPlaybackRequest(pendingToken)
     }
   }
@@ -489,8 +564,9 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   function setPlaybackMode(mode: PlaybackMode): void {
+    if (state.playbackMode === mode) return
     queueSession.value = null
-    invalidateGaplessTransition()
+    invalidateNavigationDecision(true)
     state.playbackMode = mode
     navigationSession.setMode(mode)
     if (
@@ -576,7 +652,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       return false
     }
 
-    invalidateGaplessTransition()
+    invalidateNavigationDecision(true)
     state.queue = options.queue
     state.currentIndex = newIndex
     state.playbackMode = options.playbackMode
@@ -607,6 +683,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     )
     if (!insertion) return
 
+    invalidateNavigationDecision()
     queueSession.value = null
     state.queue = insertion.queue
     state.currentIndex = insertion.currentIndex
@@ -625,6 +702,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     )
     if (!insertion) return
 
+    invalidateNavigationDecision()
     queueSession.value = null
     state.queue = insertion.queue
     state.currentIndex = insertion.currentIndex
@@ -647,6 +725,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     }
 
     const pendingToken = beginPlaybackRequest()
+    pausedByUser = false
     try {
       await audioRuntime.resume()
 
@@ -686,6 +765,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   function pause(): void {
+    pausedByUser = true
     invalidatePlaybackRequest()
     invalidateGaplessTransition()
     effectivePlayTracker.setPlaying(false)
@@ -695,6 +775,8 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
   async function playPrevious(): Promise<void> {
     invalidatePlaybackRequest()
+    navigationRevision += 1
+    navigationContextRevision += 1
     const decision = navigationSession.resolvePrevious({
       queue: state.queue,
       currentIndex: state.currentIndex,
@@ -714,8 +796,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     }
 
     if (decision.kind === 'seek-to-start') {
-      await audioRuntime.seek(0)
-      state.currentTime = 0
+      await seekCurrentTrack(0)
       return
     }
   }
@@ -737,14 +818,31 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     if (!duration) return
 
     const nextTime = Math.min(duration, Math.max(0, targetTime))
+    void seekCurrentTrack(nextTime).catch(setPlaybackError)
+    state.currentTime = nextTime
+  }
+
+  async function seekCurrentTrack(time: number): Promise<void> {
+    const trackId = state.currentTrackId
+    if (trackId === null) return
     effectivePlayTracker.beginSeekingWithFallback()
     invalidateGaplessTransition()
-    void audioRuntime.seek(nextTime).then(() => {
-      if (['gapless', 'mpv'].includes(snapshot.kind) && state.currentTrackId) {
-        void refreshGaplessNext(state.currentTrackId)
+    const generation = transitionGeneration
+    const isCurrentSeek = () =>
+      !isDisposed &&
+      generation === transitionGeneration &&
+      state.currentTrackId === trackId &&
+      audioRuntime.getSnapshot().trackId === trackId
+    try {
+      await audioRuntime.seek(time)
+      if (!isCurrentSeek()) return
+      state.currentTime = time
+      if (!pausedByUser && ['gapless', 'mpv'].includes(audioRuntime.getSnapshot().kind)) {
+        void refreshGaplessNext(trackId)
       }
-    })
-    state.currentTime = nextTime
+    } catch (error) {
+      if (isCurrentSeek()) throw error
+    }
   }
 
   function seekByRatio(ratio: number): void {
@@ -804,10 +902,68 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     state.error = null
   }
 
+  function filterMissingFromPlan(plan: PlaybackTransitionPlan): PlaybackTransitionPlan | null {
+    if (missingTrackIds.has(plan.track.id)) return null
+    return {
+      ...plan,
+      queue: plan.queue.filter((track) => !missingTrackIds.has(track.id)),
+      nextShuffleCycle: plan.nextShuffleCycle
+        ? {
+            ...plan.nextShuffleCycle,
+            remaining: plan.nextShuffleCycle.remaining.filter((id) => !missingTrackIds.has(id)),
+          }
+        : undefined,
+      nextAlbumShuffleContext: plan.nextAlbumShuffleContext
+        ? {
+            ...plan.nextAlbumShuffleContext,
+            tracks: plan.nextAlbumShuffleContext.tracks.filter(
+              (track) => !missingTrackIds.has(track.id),
+            ),
+          }
+        : plan.nextAlbumShuffleContext,
+    }
+  }
+
+  function refreshRelocatedNext(trackIds: number[]): void {
+    if (!state.currentTrackId) return
+    // Re-resolve only the affected prepared file, preserving a random choice.
+    // If the backend has already entered it, the pending boundary owns adoption.
+    if (audioRuntime.getSnapshot().trackId !== state.currentTrackId) return
+    const relocated = new Set(trackIds)
+    const plan = preparingPlan
+    if (!plan || (!relocated.has(plan.track.id) && !relocated.has(state.currentTrackId))) return
+    void refreshGaplessNext(state.currentTrackId, plan)
+  }
+
+  function stopMissingCurrentTrack(): void {
+    pausedByUser = true
+    invalidatePlaybackRequest()
+    effectivePlayTracker.end()
+    invalidateGaplessTransition()
+    submittedPlans.clear()
+    audioRuntime.clear()
+    state.currentIndex = -1
+    state.currentTrack = null
+    state.currentTrackId = null
+    state.selectedTrackId = null
+    state.currentTime = 0
+    state.duration = 0
+    state.isPlaying = false
+    state.error = 'Audio file is unavailable. Please rescan the music library.'
+  }
+
   function removeMissingTracksFromPlayback(trackIds: number[]): void {
     const missingIds = new Set(trackIds)
     if (missingIds.size === 0) return
 
+    for (const id of missingIds) missingTrackIds.add(id)
+    if (pendingAdvanceToken !== null && isCurrentPlaybackRequest(pendingAdvanceToken)) {
+      invalidatePlaybackRequest()
+    }
+    const nextMissing = preparingPlan !== null && missingIds.has(preparingPlan.track.id)
+    const queueChanged = state.queue.some((track) => missingIds.has(track.id))
+    const retainedPlan = preparingPlan && filterMissingFromPlan(preparingPlan)
+    if (nextMissing) invalidateNavigationDecision()
     const { currentTrackMissing } = navigationSession.removeMissingTracks(
       missingIds,
       state.currentTrackId,
@@ -815,18 +971,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     state.queue = state.queue.filter((track) => !missingIds.has(track.id))
 
     if (currentTrackMissing) {
-      invalidatePlaybackRequest()
-      invalidateGaplessTransition()
-      effectivePlayTracker.end()
-      audioRuntime.clear()
-      state.currentIndex = -1
-      state.currentTrack = null
-      state.currentTrackId = null
-      state.selectedTrackId = null
-      state.currentTime = 0
-      state.duration = 0
-      state.isPlaying = false
-      state.error = 'Audio file is unavailable. Please rescan the music library.'
+      stopMissingCurrentTrack()
       return
     }
 
@@ -836,15 +981,21 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     if (
       ['gapless', 'mpv'].includes(audioRuntime.getSnapshot().kind) &&
       state.currentTrackId &&
-      state.isPlaying
+      state.isPlaying &&
+      (nextMissing || queueChanged) &&
+      audioRuntime.getSnapshot().trackId === state.currentTrackId
     ) {
-      void refreshGaplessNext(state.currentTrackId)
+      void refreshGaplessNext(state.currentTrackId, retainedPlan ?? undefined)
     }
   }
 
   const unsubscribeLibraryChanged = deps.onLibraryChanged((event) => {
     if (event.reason === 'play-stats-reset') effectivePlayTracker.discardPendingRecords()
     if (event.reason === 'track-missing') removeMissingTracksFromPlayback(event.trackIds)
+    if (['track-added', 'track-restored', 'track-relocated'].includes(event.reason)) {
+      for (const id of event.trackIds) missingTrackIds.delete(id)
+    }
+    if (event.reason === 'track-relocated') refreshRelocatedNext(event.trackIds)
   })
 
   function dispose(): void {
@@ -853,6 +1004,8 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     queueSession.value = null
     invalidatePlaybackRequest()
     invalidateGaplessTransition()
+    submittedPlans.clear()
+    missingTrackIds.clear()
     effectivePlayTracker.dispose()
     audioRuntime.dispose()
     unsubscribeLibraryChanged()

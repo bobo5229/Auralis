@@ -12,6 +12,8 @@ export const nativeUiMessages = {
   'zh-Hans': {
     startupTitle: 'Auralis 启动失败',
     startupRetry: '请关闭应用后重试。',
+    showMainWindow: '显示主界面',
+    quitApp: '退出应用',
     selectFolder: '选择音乐文件夹',
     exportBackup: '导出数据库备份',
     restoreBackup: '选择要恢复的数据库备份',
@@ -26,6 +28,8 @@ export const nativeUiMessages = {
   en: {
     startupTitle: 'Auralis failed to start',
     startupRetry: 'Close the app and try again.',
+    showMainWindow: 'Show main window',
+    quitApp: 'Quit Auralis',
     selectFolder: 'Choose Music Folder',
     exportBackup: 'Export Database Backup',
     restoreBackup: 'Choose Database Backup to Restore',

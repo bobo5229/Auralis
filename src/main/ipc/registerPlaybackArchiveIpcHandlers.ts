@@ -9,7 +9,10 @@ type PlaybackQueries = Pick<
   'getRandomTrack' | 'getRandomAlbumTracks' | 'getAlbumTracks'
 >
 
-type PlayStatsOperations = Pick<PlayStatsService, 'recordEffectivePlay' | 'resetAll'>
+type PlayStatsOperations = Pick<
+  PlayStatsService,
+  'recordEffectivePlay' | 'getAnnualPlayCounts' | 'getDayTopTracks' | 'resetAll'
+>
 
 export interface PlaybackArchiveIpcDependencies {
   libraryService: PlaybackQueries
@@ -59,6 +62,14 @@ export function registerPlaybackArchiveIpcHandlers(
       }
       return result
     },
+  )
+
+  registrar.handle(ipcChannels.archive.getAnnualPlayCounts, (_event, payload: { year: number }) =>
+    playStatsService.getAnnualPlayCounts(payload.year),
+  )
+
+  registrar.handle(ipcChannels.archive.getDayTopTracks, (_event, payload: { date: string }) =>
+    playStatsService.getDayTopTracks(payload.date),
   )
 
   registrar.handle(ipcChannels.archive.resetPlayStats, () => {

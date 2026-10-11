@@ -4,15 +4,7 @@ import { applyStagedDatabaseRestore } from './databaseBackupRestore'
 
 import { migrateDatabase } from './schema'
 import { randomUUID } from 'node:crypto'
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  renameSync,
-  statSync,
-  unlinkSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, renameSync, statSync, unlinkSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { logger } from '@main/logging/logger'
 import type { DatabaseExportBackupResult, DatabaseRestoreBackupResult } from '@shared/ipc/contracts'
@@ -21,6 +13,17 @@ export { validateBackupFile } from './databaseBackupValidation'
 export type { DatabaseConstructor, ValidateBackupResult } from './databaseBackupValidation'
 
 const MAX_PRE_MIGRATION_BACKUPS = 5
+
+function removeTemporarySnapshot(tempPath: string | null): void {
+  if (!tempPath) return
+  for (const path of [tempPath, `${tempPath}-wal`, `${tempPath}-shm`, `${tempPath}-journal`]) {
+    try {
+      if (existsSync(path)) unlinkSync(path)
+    } catch (error) {
+      logger.warn({ error, path }, 'Failed to remove temporary database snapshot')
+    }
+  }
+}
 
 export interface ExportBackupOptions {
   db: Database.Database
@@ -92,6 +95,7 @@ export interface StageRestoreOptions {
 export async function stageDatabaseRestore(
   options: StageRestoreOptions,
 ): Promise<DatabaseRestoreBackupResult> {
+  let tempStagedPath: string | null = null
   try {
     const { currentDbPath, showOpenDialog, databaseCtor } = options
     if (!showOpenDialog) {
@@ -114,17 +118,27 @@ export async function stageDatabaseRestore(
     }
 
     const selectedPath = dialogResult.filePaths[0]
-    const validation = validateBackupFile(selectedPath, databaseCtor)
+    const stagedPath = `${currentDbPath}.restore_staged`
+    tempStagedPath = `${stagedPath}.tmp-${randomUUID()}`
+    mkdirSync(dirname(stagedPath), { recursive: true })
+
+    const source = new (databaseCtor ?? Database)(selectedPath, {
+      readonly: true,
+      fileMustExist: true,
+    })
+    try {
+      // The selected file may be a live database whose committed rows are in WAL.
+      await source.backup(tempStagedPath)
+    } finally {
+      source.close()
+    }
+
+    const validation = validateBackupFile(tempStagedPath, databaseCtor)
     if (!validation.ok) {
       logger.warn({ selectedPath, error: validation.error }, 'Rejected invalid restore backup file')
       return { status: 'failed', error: validation.error ?? 'Validation failed' }
     }
 
-    const stagedPath = `${currentDbPath}.restore_staged`
-    const tempStagedPath = `${stagedPath}.tmp-${Date.now()}`
-
-    mkdirSync(dirname(stagedPath), { recursive: true })
-    copyFileSync(selectedPath, tempStagedPath)
     renameSync(tempStagedPath, stagedPath)
 
     logger.info({ selectedPath, stagedPath }, 'Staged database restore file successfully')
@@ -136,6 +150,8 @@ export async function stageDatabaseRestore(
       'Failed to stage database restore',
     )
     return { status: 'failed', error: errorMsg }
+  } finally {
+    removeTemporarySnapshot(tempStagedPath)
   }
 }
 
@@ -174,18 +190,18 @@ export function createPreMigrationBackup(options: PreMigrationBackupOptions): st
     return null
   }
 
+  let tempBackupPath: string | null = null
   try {
     mkdirSync(backupsDir, { recursive: true })
 
-    // Checkpoint WAL before copying
-    db.pragma('wal_checkpoint(TRUNCATE)')
-
     const timestamp = Date.now()
-    const backupFileName = `pre-migration-v${targetVersion}-${timestamp}.backup`
+    const backupFileName = `pre-migration-v${targetVersion}-${timestamp}-${randomUUID()}.backup`
     const backupPath = join(backupsDir, backupFileName)
-    const tempBackupPath = `${backupPath}.tmp`
+    tempBackupPath = `${backupPath}.tmp`
 
-    copyFileSync(databasePath, tempBackupPath)
+    // Migrations are synchronous. VACUUM INTO creates a complete snapshot without
+    // checkpointing, even when another connection's reader pins older WAL frames.
+    db.prepare('VACUUM INTO ?').run(tempBackupPath)
     renameSync(tempBackupPath, backupPath)
 
     logger.info({ backupPath, targetVersion }, 'Created pre-migration database backup')
@@ -196,6 +212,8 @@ export function createPreMigrationBackup(options: PreMigrationBackupOptions): st
   } catch (error) {
     logger.error({ error, databasePath, targetVersion }, 'Failed to create pre-migration backup')
     return null
+  } finally {
+    removeTemporarySnapshot(tempBackupPath)
   }
 }
 

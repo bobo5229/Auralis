@@ -16,6 +16,7 @@ export interface PlaybackCoordinator {
     signal?: AbortSignal,
   ) => Promise<{ leaseId: string; version: number }>
   releaseReadLease: (leaseId: string) => void
+  markReadLeaseCurrent?: (leaseId: string) => void
   reserveWriteIntent?: (filePath: string) => string | null
   promoteWriteIntent?: (leaseId: string) => void
   releaseWriteLease?: (leaseId: string) => void

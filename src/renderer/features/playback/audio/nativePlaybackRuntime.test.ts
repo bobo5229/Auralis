@@ -90,6 +90,18 @@ describe('native playback renderer adapter', () => {
     test.runtime.dispose()
     expect(test.unsubscribe).toHaveBeenCalledOnce()
   })
+  it('discards the remaining boundary state when its callback clears playback', async () => {
+    const test = setup()
+    await test.runtime.start(1, 'audio://1', { preferGapless: true })
+    vi.mocked(test.callbacks.onEnded).mockImplementationOnce(() => test.runtime.clear())
+    test.emit(test.lastSession(), 'boundary')
+    expect(test.callbacks.onEnded).toHaveBeenCalledWith(2)
+    expect(test.callbacks.onDurationChange).not.toHaveBeenCalled()
+    expect(test.callbacks.onTimeUpdate).not.toHaveBeenCalled()
+    expect(test.callbacks.onPlayingChange).not.toHaveBeenCalled()
+    expect(test.runtime.getSnapshot().kind).toBe('idle')
+    test.runtime.dispose()
+  })
   it('falls back only when mpv is unavailable, without old threshold-based silence trimming', async () => {
     const test = setup(false)
     await test.runtime.start(1, 'audio://1', { preferGapless: true })

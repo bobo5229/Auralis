@@ -9,6 +9,7 @@ import type {
 } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import { formatLibraryScanTime } from '../utils/formatLibraryScanTime'
 import DatabaseMaintenanceSettings from './DatabaseMaintenanceSettings.vue'
 
 const { t, locale } = useI18n()
@@ -82,17 +83,7 @@ const statusLabel = computed(() => {
 const lastScannedLabel = computed(() => {
   if (!activeRoot.value?.lastScannedAt) return t('settings.library.neverScanned')
 
-  const date = new Date(activeRoot.value.lastScannedAt)
-  if (Number.isNaN(date.getTime())) return activeRoot.value.lastScannedAt
-
-  return new Intl.DateTimeFormat(locale.value, {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(date)
+  return formatLibraryScanTime(activeRoot.value.lastScannedAt, locale.value)
 })
 const libraryMetaText = computed(() => {
   if (!activeRoot.value) {

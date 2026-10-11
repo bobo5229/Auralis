@@ -1,5 +1,6 @@
 import type { ScannedTrack, AlbumArtworkPatch, TrackLyricsPatch } from '@shared/types/libraryScan'
 import { BaseRepository } from './baseRepository'
+import { prepareScannedMetadataDisplayUpdate } from './scannedMetadataDisplay'
 
 export class TrackScanWriter extends BaseRepository {
   upsertMany(tracks: ScannedTrack[]): void {
@@ -20,6 +21,7 @@ export class TrackScanWriter extends BaseRepository {
         track_no,
         disc_no,
         duration_seconds,
+        bitrate_bps,
         year,
         release_date,
         copyright,
@@ -30,13 +32,14 @@ export class TrackScanWriter extends BaseRepository {
         lyrics_checked_mtime_ms,
         lyrics_sidecar_fingerprint,
         metadata_checked_mtime_ms,
+        metadata_parser_version,
         isrc,
         metadata_signature,
         availability,
         missing_since,
         updated_at
       )
-      VALUES (MAX(COALESCE((SELECT MAX(id) FROM tracks),0),COALESCE((SELECT MAX(id) FROM removed_track_history),0))+1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
+      VALUES (MAX(COALESCE((SELECT MAX(id) FROM tracks),0),COALESCE((SELECT MAX(id) FROM removed_track_history),0))+1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'available', NULL, CURRENT_TIMESTAMP)
       ON CONFLICT(file_path) DO UPDATE SET
         file_size = excluded.file_size,
         file_mtime_ms = excluded.file_mtime_ms,
@@ -47,6 +50,7 @@ export class TrackScanWriter extends BaseRepository {
         track_no = excluded.track_no,
         disc_no = excluded.disc_no,
         duration_seconds = excluded.duration_seconds,
+        bitrate_bps = excluded.bitrate_bps,
         year = excluded.year,
         release_date = excluded.release_date,
         copyright = excluded.copyright,
@@ -57,12 +61,15 @@ export class TrackScanWriter extends BaseRepository {
         lyrics_checked_mtime_ms = excluded.lyrics_checked_mtime_ms,
         lyrics_sidecar_fingerprint = excluded.lyrics_sidecar_fingerprint,
         metadata_checked_mtime_ms = excluded.metadata_checked_mtime_ms,
+        metadata_parser_version = excluded.metadata_parser_version,
         isrc = excluded.isrc,
         metadata_signature = excluded.metadata_signature,
         availability = 'available',
         missing_since = NULL,
         updated_at = CURRENT_TIMESTAMP
     `)
+
+    const syncFileMetadata = prepareScannedMetadataDisplayUpdate(this.db)
 
     const upsertAlbum = this.db.prepare(`
       INSERT INTO albums (title, artist, artwork_cache_key)
@@ -89,6 +96,7 @@ export class TrackScanWriter extends BaseRepository {
           track.trackNo,
           track.discNo,
           track.durationSeconds,
+          track.bitrateBps,
           track.year,
           track.releaseDate,
           track.copyright,
@@ -99,9 +107,11 @@ export class TrackScanWriter extends BaseRepository {
           track.fileMtimeMs,
           track.lyricsSidecarFingerprint ?? null,
           track.fileMtimeMs,
+          track.metadataParserVersion ?? '',
           track.isrc,
           track.metadataSignature,
         )
+        syncFileMetadata(track)
         upsertAlbum.run(track.album, track.albumArtist || track.artist, track.artworkCacheKey)
       }
     })

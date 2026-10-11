@@ -1,5 +1,13 @@
 import type Database from 'better-sqlite3'
+import type { DailyPlayCount, DailyTopTrack } from '@shared/types/listeningArchive'
 import { BaseRepository } from './baseRepository'
+
+function latestPlayedAt(previous: string | null | undefined, incoming: Date): string {
+  const previousTime = previous ? Date.parse(previous) : NaN
+  return new Date(
+    Number.isNaN(previousTime) ? incoming.getTime() : Math.max(previousTime, incoming.getTime()),
+  ).toISOString()
+}
 
 export class PlayStatsRepository extends BaseRepository {
   constructor(db: Database.Database) {
@@ -14,6 +22,16 @@ export class PlayStatsRepository extends BaseRepository {
   }
 
   incrementPlayCount(trackId: number, playedAtIso: string, localPlayDate: string): void {
+    const playedAt = new Date(playedAtIso)
+    const readLastPlayed = this.db.prepare(`
+      SELECT stats.last_played_at AS trackLastPlayedAt,
+             daily.last_played_at AS dailyTrackLastPlayedAt
+      FROM tracks
+      LEFT JOIN track_play_stats AS stats ON stats.track_id = tracks.id
+      LEFT JOIN daily_track_play_stats AS daily
+        ON daily.track_id = tracks.id AND daily.play_date = ?
+      WHERE tracks.id = ?
+    `)
     const incrementTrack = this.db.prepare(`
       INSERT INTO track_play_stats (track_id, play_count, last_played_at, updated_at)
       VALUES (?, 1, ?, CURRENT_TIMESTAMP)
@@ -54,10 +72,42 @@ export class PlayStatsRepository extends BaseRepository {
     `)
 
     this.db.transaction(() => {
-      incrementTrack.run(trackId, playedAtIso)
+      // Compare inside the write transaction; legacy timestamps may use any Date.parse format.
+      const previous = readLastPlayed.get(localPlayDate, trackId) as
+        | { trackLastPlayedAt: string | null; dailyTrackLastPlayedAt: string | null }
+        | undefined
+      const trackPlayedAt = latestPlayedAt(previous?.trackLastPlayedAt, playedAt)
+      const dailyTrackPlayedAt = latestPlayedAt(previous?.dailyTrackLastPlayedAt, playedAt)
+      incrementTrack.run(trackId, trackPlayedAt)
       incrementDay.run(localPlayDate, trackId)
-      incrementDailyTrack.run(localPlayDate, playedAtIso, trackId)
+      incrementDailyTrack.run(localPlayDate, dailyTrackPlayedAt, trackId)
     })()
+  }
+
+  getAnnualPlayCounts(year: number): DailyPlayCount[] {
+    return this.db
+      .prepare(
+        `SELECT play_date AS date, play_count AS playCount, duration_seconds AS durationSeconds
+         FROM daily_play_stats
+         WHERE play_date BETWEEN ? AND ?
+         ORDER BY play_date`,
+      )
+      .all(`${year}-01-01`, `${year}-12-31`) as DailyPlayCount[]
+  }
+
+  getDayTopTracks(date: string): DailyTopTrack[] {
+    return this.db
+      .prepare(
+        `
+      SELECT stats.track_id AS trackId, display.title, display.artist, stats.play_count AS playCount
+      FROM listening_daily_track_play_stats AS stats
+      JOIN listening_track_display AS display ON display.id = stats.track_id
+      WHERE stats.play_date = ? AND stats.play_count > 0
+      ORDER BY stats.play_count DESC, stats.duration_seconds DESC, stats.track_id ASC
+      LIMIT 3
+    `,
+      )
+      .all(date) as DailyTopTrack[]
   }
 
   resetAll(): void {
