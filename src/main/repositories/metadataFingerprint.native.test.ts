@@ -299,6 +299,15 @@ describe('isolated FFmpeg tag write and stable readback', () => {
       }
       expect(suppress).toHaveBeenCalledWith(filePath)
       expect(reconcile).not.toHaveBeenCalled()
+      const savedRow = stored(db)
+      const savedEdit = repo.getEditableTrackMetadata(1)!
+      suppress.mockClear()
+      const copy = vi.spyOn(fileOperations, 'copyFile').mockClear()
+      expect(await service.updateTrackMetadata(savedEdit)).toEqual({ ok: true })
+      expect(copy).not.toHaveBeenCalled()
+      expect((await stat(filePath)).mtimeMs).toBe(fingerprint.mtimeMs)
+      expect(stored(db)).toEqual(savedRow)
+      expect(suppress).not.toHaveBeenCalled()
     },
     20000,
   )

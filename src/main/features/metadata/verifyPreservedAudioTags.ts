@@ -1,4 +1,5 @@
 import { parseAudioMetadata } from './parseAudioMetadata'
+import { MetadataSaveError } from './metadataSaveError'
 
 export async function verifyPreservedAudioTags(source: string, staging: string): Promise<void> {
   const [before, after] = await Promise.all([
@@ -11,6 +12,7 @@ export async function verifyPreservedAudioTags(source: string, staging: string):
     'artists',
     'album',
     'albumartist',
+    'albumartists',
     'genre',
     'date',
     'year',
@@ -19,7 +21,10 @@ export async function verifyPreservedAudioTags(source: string, staging: string):
     if (edited.has(key)) continue
     const name = key as keyof typeof before.common
     if (JSON.stringify(before.common[name]) !== JSON.stringify(after.common[name]))
-      throw new Error(`Tag preparation did not preserve ${key}`)
+      throw new MetadataSaveError(
+        'tag-preservation-failed',
+        `Tag preparation did not preserve ${key}`,
+      )
   }
   // Common fields do not include private tags. Reject a remux that loses them,
   // including multiplicity, instead of silently committing a partial tag set.
@@ -90,5 +95,8 @@ export async function verifyPreservedAudioTags(source: string, staging: string):
   const afterTags = nativeTags(after.native)
   for (const [tag, count] of nativeTags(before.native))
     if ((afterTags.get(tag) ?? 0) < count)
-      throw new Error('Tag preparation did not preserve a native tag')
+      throw new MetadataSaveError(
+        'tag-preservation-failed',
+        'Tag preparation did not preserve a native tag',
+      )
 }

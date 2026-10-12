@@ -21,7 +21,7 @@ export default defineConfig({
           ),
           'logging/rollingLogTransport': resolve('src/main/logging/rollingLogTransport.ts'),
         },
-        external: ['better-sqlite3', 'bindings', 'sharp', 'pino'],
+        external: ['better-sqlite3', 'bindings', 'sharp', 'pino', 'node-taglib-sharp'],
       },
     },
     resolve: {

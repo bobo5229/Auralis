@@ -353,9 +353,7 @@ function handleNext(): void {
             :aria-busy="isPrimaryPlaybackPending ? 'true' : undefined"
             @click="handlePlayPause"
           >
-            <span v-if="isPrimaryPlaybackPending" class="h-6 w-6 i-ph-spinner-gap" />
             <span
-              v-else
               class="h-7 w-7"
               :class="playback.state.isPlaying ? 'i-ph-pause-fill' : 'i-ph-play-fill'"
               aria-hidden="true"

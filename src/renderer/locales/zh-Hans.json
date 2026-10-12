@@ -786,6 +786,13 @@
       },
       "errors": {
         "saveFailed": "保存元数据失败",
+        "tagPreservationFailed": "保存会丢失原有标签，已取消写入。编辑内容已保留。",
+        "tagVerificationFailed": "写入结果与编辑内容不一致，保存未完成。请重新读取歌曲信息后核对。",
+        "tagWriteFailed": "无法生成更新后的标签文件。编辑内容已保留，请重试。",
+        "fileChanged": "歌曲文件已被其他操作修改，本次保存已取消。请重新读取歌曲信息后重试。",
+        "diskFull": "磁盘空间不足，无法完成保存。请释放空间后重试。",
+        "permissionDenied": "没有文件写入权限，或文件被其他程序锁定。请检查后重试。",
+        "fileNotFound": "找不到歌曲文件，请检查文件是否已移动或删除。",
         "loadFailed": "读取歌曲信息失败，请重试。",
         "writeInProgress": "当前文件正在保存中，请稍候。",
         "bufferPreparationFailed": "暂时无法在播放中保存。编辑内容已保留，请重试或切曲后保存。",

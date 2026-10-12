@@ -2,6 +2,7 @@ import { createApp, h } from 'vue'
 import { createI18n } from 'vue-i18n'
 import MetadataEditDialog from '../../src/renderer/features/library/components/MetadataEditDialog.vue'
 import { useLibraryMetadataEditor } from '../../src/renderer/features/library/composables/useLibraryMetadataEditor'
+import { metadataSaveFailureMessageKey } from '../../src/renderer/features/library/utils/metadataSaveFailure'
 import zh from '../../src/renderer/locales/zh-Hans.json'
 import en from '../../src/renderer/locales/en.json'
 import '../../src/renderer/app/styles/main.css'
@@ -42,7 +43,7 @@ const editor = useLibraryMetadataEditor({
   },
   isDisposed: () => false,
   getSaveErrorMessage: () => zh.library.metadataEditor.errors.saveFailed,
-  getSaveFailureMessage: () => zh.library.metadataEditor.errors.bufferPreparationFailed,
+  getSaveFailureMessage: (reason) => i18n.global.t(metadataSaveFailureMessageKey(reason)),
   getTrackEditState: async () => ({ trackId: 1, status: 'playback-editable', version }),
   onTrackEditStateChanged: (callback) => {
     status = callback
@@ -79,9 +80,10 @@ Object.assign(window, {
       saves,
       error: editor.metadataEditError.value,
     }),
+    open: () => editor.open(1),
     fail: () => {
       status?.({ trackId: 1, status: 'playback-editable', version: ++version })
-      finish?.({ ok: false, reason: 'buffer-preparation-failed' })
+      finish?.({ ok: false, reason: 'tag-preservation-failed' })
     },
   },
 })

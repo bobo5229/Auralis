@@ -786,6 +786,13 @@
       },
       "errors": {
         "saveFailed": "Could not save metadata. Try again.",
+        "tagPreservationFailed": "Saving would discard existing tags, so the write was cancelled. Your edits are retained.",
+        "tagVerificationFailed": "The written tags do not match your edits. Saving did not complete. Reload the track information to check.",
+        "tagWriteFailed": "Could not prepare the updated tag file. Your edits are retained. Try again.",
+        "fileChanged": "Another operation changed the audio file, so this save was cancelled. Reload its information and retry.",
+        "diskFull": "There is not enough disk space to complete the save. Free some space and retry.",
+        "permissionDenied": "Write access was denied or another program locked the file. Check file access and retry.",
+        "fileNotFound": "The audio file could not be found. Check whether it was moved or deleted.",
         "loadFailed": "Could not load track information. Try again.",
         "writeInProgress": "This file is being saved. Please wait.",
         "bufferPreparationFailed": "Unable to save during playback right now. Your edits are retained. Retry or save after switching tracks.",

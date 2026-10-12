@@ -56,6 +56,7 @@
     "focus-trap": "8.2.2",
     "image-q": "4.0.0",
     "music-metadata": "^11.13.0",
+    "node-taglib-sharp": "6.0.3",
     "opencc-js": "1.4.2",
     "pino": "^9.6.0",
     "pinyin-pro": "^3.29.4",

@@ -52,6 +52,16 @@ void app
       assert.equal(enabled, true)
       await screenshot('editor-editable.png')
       await js(
+        'document.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))',
+      )
+      await wait('!window.tagEditorProbe.state().open')
+      assert.equal(await js('window.tagEditorProbe.state().saves'), 0)
+      assert.equal(await js('document.activeElement.id'), 'return-target')
+      await js('window.tagEditorProbe.open()')
+      await wait(
+        '!!document.querySelector("form input") && !document.querySelector("form input").disabled',
+      )
+      await js(
         '(() => { const input = document.querySelector("form input"); input.value = "保存失败后保留的编辑内容"; input.dispatchEvent(new Event("input", { bubbles: true })); document.querySelector("form").dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); })()',
       )
       await wait('window.tagEditorProbe.state().saving')
@@ -59,6 +69,10 @@ void app
       await screenshot('editor-saving.png')
       await js('window.tagEditorProbe.fail()')
       await wait('!window.tagEditorProbe.state().saving && !!window.tagEditorProbe.state().error')
+      assert.equal(
+        await js('document.getElementById("metadata-dialog-error").textContent.trim()'),
+        '保存会丢失原有标签，已取消写入。编辑内容已保留。',
+      )
       assert.equal(
         await js('document.querySelector("form input").value'),
         '保存失败后保留的编辑内容',
@@ -85,7 +99,15 @@ void app
       await writeFile(
         join(root, 'ui-result.json'),
         JSON.stringify(
-          { enabled, retainedDraft: true, retry: true, focusRestored: true, errors },
+          {
+            enabled,
+            unchangedSkipped: true,
+            specificFailureReason: true,
+            retainedDraft: true,
+            retry: true,
+            focusRestored: true,
+            errors,
+          },
           null,
           2,
         ),

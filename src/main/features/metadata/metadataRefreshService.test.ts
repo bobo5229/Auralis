@@ -53,6 +53,9 @@ function setup(coordinator?: MetadataWriteCoordinator) {
     getTracksWithMissingLyrics: vi.fn(() => [{ trackId: 1, filePath: 'isolated.flac' }]),
     createJob: vi.fn(() => ++job),
     getTrackFilePath: vi.fn(() => 'isolated.flac'),
+    getEditableTrackMetadata: vi.fn(
+      () => null as import('@shared/types/libraryScan').EditableTrackMetadata | null,
+    ),
     updateTrackMetadata: vi.fn(),
     updateTrackLyrics: vi.fn(),
     addFailure: vi.fn(),
@@ -79,6 +82,36 @@ beforeEach(() => {
 })
 
 describe('metadata result acceptance', () => {
+  it('skips an unchanged canonical edit before acquiring a lease, suppressing watchers or mutating data', async () => {
+    const coordinator = { tryAcquireWriteLease: vi.fn(), releaseWriteLease: vi.fn() }
+    const { service, repo } = setup(coordinator)
+    const metadata = {
+      trackId: 1,
+      title: 'Title',
+      artistDisplay: 'A; B',
+      albumTitle: null,
+      albumArtistDisplay: null,
+      genreDisplay: null,
+      year: 2026,
+      releaseDate: '2026',
+    }
+    repo.getEditableTrackMetadata.mockReturnValue(metadata)
+    const suppress = vi.fn()
+    service.setTagWriteSuccessHandler(suppress)
+    expect(
+      await service.updateTrackMetadata({
+        ...metadata,
+        title: ' Title ',
+        artistDisplay: 'A; B; a',
+        albumTitle: '  ',
+      }),
+    ).toEqual({ ok: true })
+    expect(coordinator.tryAcquireWriteLease).not.toHaveBeenCalled()
+    expect(writeAudioTags).not.toHaveBeenCalled()
+    expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
+    expect(suppress).not.toHaveBeenCalled()
+    expect(workers).toHaveLength(0)
+  })
   it('passes the same canonical request to file writing and database commit', async () => {
     const { service, repo } = setup()
     vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)

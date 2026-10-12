@@ -31,6 +31,7 @@ function createEditor(overrides?: {
   updateTrackMetadata?: (
     metadata: EditableTrackMetadata,
   ) => Promise<UpdateTrackMetadataResult | unknown>
+  getSaveFailureMessage?: (reason: string) => string
   getSaveErrorMessage?: () => string
   getLoadErrorMessage?: () => string
 }) {
@@ -52,6 +53,7 @@ function createEditor(overrides?: {
     restoreFocus,
     isDisposed: () => disposed,
     getSaveErrorMessage: overrides?.getSaveErrorMessage ?? (() => 'save failed'),
+    getSaveFailureMessage: overrides?.getSaveFailureMessage,
     getLoadErrorMessage: overrides?.getLoadErrorMessage ?? (() => 'load failed'),
     getPlaybackInUseMessage: () => 'track in use by player',
     getPreloadInUseMessage: () => 'track preloaded',
@@ -79,6 +81,42 @@ function createEditor(overrides?: {
 }
 
 describe('useLibraryMetadataEditor', () => {
+  it('closes an unchanged edit and restores focus without invoking IPC or refreshing the library', async () => {
+    const { editor, updateTrackMetadata, refreshLibrary, restoreFocus } = createEditor()
+    await editor.open(42)
+    await editor.save({ ...metadata, title: ' A Song ', artistDisplay: 'An Artist; an artist' })
+    expect(updateTrackMetadata).not.toHaveBeenCalled()
+    expect(refreshLibrary).not.toHaveBeenCalled()
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+    expect(editor.isSavingMetadata.value).toBe(false)
+    expect(restoreFocus).toHaveBeenCalledWith({ trackId: 42, source: 'track' })
+  })
+
+  it('shows the localized preservation failure, retains input and allows a changed edit to be retried', async () => {
+    const language = ref('zh')
+    const { editor, updateTrackMetadata, refreshLibrary } = createEditor({
+      updateTrackMetadata: async () => ({ ok: false, reason: 'tag-preservation-failed' }),
+      getSaveFailureMessage: (reason) =>
+        language.value === 'zh'
+          ? `保存会丢失原有标签：${reason}`
+          : `Existing tags would be lost: ${reason}`,
+    })
+    await editor.open(42)
+    const changed = { ...metadata, title: 'Changed title' }
+    await editor.save(changed)
+    expect(editor.metadataEditError.value).toBe('保存会丢失原有标签：tag-preservation-failed')
+    expect(editor.isMetadataEditorOpen.value).toBe(true)
+    expect(editor.editingMetadata.value).toEqual(metadata)
+    expect(refreshLibrary).not.toHaveBeenCalled()
+    language.value = 'en'
+    expect(editor.metadataEditError.value).toBe(
+      'Existing tags would be lost: tag-preservation-failed',
+    )
+    updateTrackMetadata.mockResolvedValueOnce({ ok: true })
+    await editor.save(changed)
+    expect(updateTrackMetadata).toHaveBeenCalledTimes(2)
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+  })
   it('blocks saving a preloaded track and follows its transition into playback', async () => {
     let listener!: (event: TrackEditStateChangedEvent) => void
     const { editor, updateTrackMetadata } = createEditor({
@@ -90,12 +128,12 @@ describe('useLibraryMetadataEditor', () => {
     })
     await editor.open(metadata.trackId)
     expect(editor.editStatus.value).toBe('preload-in-use')
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
     expect(updateTrackMetadata).not.toHaveBeenCalled()
     listener({ trackId: metadata.trackId, status: 'playback-in-use', version: 2 })
     expect(editor.editStatus.value).toBe('playback-in-use')
     listener({ trackId: metadata.trackId, status: 'playback-editable', version: 3 })
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
     expect(updateTrackMetadata).toHaveBeenCalledOnce()
   })
 
@@ -113,7 +151,7 @@ describe('useLibraryMetadataEditor', () => {
       },
     })
     await editor.open(metadata.trackId)
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
     expect(editor.editStatus.value).toBe('preload-in-use')
     expect(editor.metadataEditError.value).toBe('track preloaded')
     expect(editor.editingMetadata.value).toEqual(metadata)
@@ -145,7 +183,7 @@ describe('useLibraryMetadataEditor', () => {
       expect(editor.isLoadingMetadata.value).toBe(false)
       expect(editor.metadataEditError.value).toBe('load failed')
       expect(editor.editingMetadata.value).toBeNull()
-      await editor.save(metadata)
+      await editor.save({ ...metadata, title: 'Changed title' })
       expect(updateTrackMetadata).not.toHaveBeenCalled()
       await editor.retryLoad()
       expect(editor.editingMetadata.value).toEqual(metadata)
@@ -238,7 +276,7 @@ describe('useLibraryMetadataEditor', () => {
       getSaveErrorMessage: () => (language.value === 'en' ? 'Could not save' : '保存失败'),
     })
     await editor.open(metadata.trackId)
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
     expect(editor.metadataEditError.value).toBe('保存失败')
     language.value = 'en'
     expect(editor.metadataEditError.value).toBe('Could not save')
@@ -266,9 +304,9 @@ describe('useLibraryMetadataEditor', () => {
     const { editor, updateTrackMetadata, refreshLibrary, restoreFocus } = createEditor()
     await editor.open(metadata.trackId)
 
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
 
-    expect(updateTrackMetadata).toHaveBeenCalledWith(metadata)
+    expect(updateTrackMetadata).toHaveBeenCalledWith({ ...metadata, title: 'Changed title' })
     expect(refreshLibrary).toHaveBeenCalledOnce()
     expect(editor.editingMetadata.value).toBeNull()
     expect(editor.isSavingMetadata.value).toBe(false)
@@ -282,7 +320,7 @@ describe('useLibraryMetadataEditor', () => {
       const { editor, restoreFocus, logSaveError } = createEditor({ refreshResult })
       await editor.open(metadata.trackId)
 
-      await editor.save(metadata)
+      await editor.save({ ...metadata, title: 'Changed title' })
 
       expect(editor.editingMetadata.value).toEqual(metadata)
       expect(editor.metadataEditError.value).toBe('save failed')
@@ -303,7 +341,7 @@ describe('useLibraryMetadataEditor', () => {
     })
     await editor.open(metadata.trackId)
 
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
 
     expect(editor.editingMetadata.value).toBeNull()
     expect(editor.metadataEditError.value).toBeNull()
@@ -317,7 +355,7 @@ describe('useLibraryMetadataEditor', () => {
     })
     await editor.open(metadata.trackId)
 
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
 
     expect(refreshLibrary).not.toHaveBeenCalled()
     expect(restoreFocus).not.toHaveBeenCalled()
@@ -422,7 +460,7 @@ describe('useLibraryMetadataEditor', () => {
     await editor.open(metadata.trackId)
     expect(editor.editStatus.value).toBe('playback-in-use')
 
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
 
     expect(updateTrackMetadata).not.toHaveBeenCalled()
     expect(editor.editingMetadata.value).toEqual(metadata)
@@ -436,7 +474,7 @@ describe('useLibraryMetadataEditor', () => {
     const { editor, refreshLibrary } = createEditor({ updateTrackMetadata })
 
     await editor.open(metadata.trackId)
-    await editor.save(metadata)
+    await editor.save({ ...metadata, title: 'Changed title' })
 
     expect(editor.editStatus.value).toBe('playback-in-use')
     expect(editor.metadataEditError.value).toBe('track in use by player')

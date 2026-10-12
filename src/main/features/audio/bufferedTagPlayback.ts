@@ -6,6 +6,7 @@ import { parseAudioMetadata } from '../metadata/parseAudioMetadata'
 import { verifyWrittenMetadata } from '../metadata/verifyWrittenMetadata'
 import { verifyPreservedAudioTags } from '../metadata/verifyPreservedAudioTags'
 import { prepareAudioTagWrite, type PreparedAudioTagWrite } from '../metadata/audioTagWriteService'
+import { metadataSaveFailureReason } from '../metadata/metadataSaveError'
 import { normalizeAudioFilePath } from './playbackFileCoordinator'
 import {
   createTagAudioSnapshot,
@@ -449,6 +450,7 @@ export class BufferedTagPlayback {
       this.options.warn(error)
       if (signal.aborted || !current()) reason = 'playback-changed'
       else if (committed) reason = 'playback-restore-failed'
+      else reason = metadataSaveFailureReason(error) ?? reason
       return { ok: false, reason }
     } finally {
       window.done = true

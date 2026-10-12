@@ -145,6 +145,14 @@ export type UpdateTrackMetadataResult =
         | 'file-in-use'
         | 'playback-restore-failed'
         | 'playback-changed'
+        | 'tag-preservation-failed'
+        | 'tag-verification-failed'
+        | 'tag-write-failed'
+        | 'file-changed'
+        | 'disk-full'
+        | 'permission-denied'
+        | 'file-not-found'
+        | 'save-failed'
     }
 
 export type IpcEventChannel = keyof IpcEventContract

@@ -164,7 +164,11 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
       'Composer Two',
     ])
     const before = await readFile(file)
-    const repository = { getTrackFilePath: () => file, commitVerifiedUserEdit: vi.fn() }
+    const repository = {
+      getTrackFilePath: () => file,
+      getEditableTrackMetadata: () => null,
+      commitVerifiedUserEdit: vi.fn(),
+    }
     const coordinator = {
       tryAcquireWriteLease: () => ({ ok: true as const, leaseId: 'write' }),
       releaseWriteLease: vi.fn(),

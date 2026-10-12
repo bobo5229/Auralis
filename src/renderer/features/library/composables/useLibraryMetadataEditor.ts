@@ -8,6 +8,7 @@ import type {
 } from '@shared/ipc/contracts'
 import type { LibraryContextMenuSource } from '../types/libraryInteraction'
 import { isSameLibraryRouteScope, type LibraryRouteScope } from '../utils/libraryRouteScope'
+import { isSameEditableMetadata } from '@shared/utils/editableMetadata'
 
 export type LibraryMetadataRefreshResult =
   | 'committed'
@@ -192,6 +193,11 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       !editingMetadata.value ||
       currentTrackId !== metadata.trackId
     ) {
+      return
+    }
+
+    if (isSameEditableMetadata(metadata, editingMetadata.value)) {
+      close()
       return
     }
 

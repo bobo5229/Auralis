@@ -30,6 +30,7 @@ import {
 import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryViewMode } from '../types/libraryInteraction'
 import { getArtworkUrl } from '../utils/getArtworkUrl'
+import { metadataSaveFailureMessageKey } from '../utils/metadataSaveFailure'
 import { createLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
 import { getAlbumCoverDiscHeadingCount } from '../utils/albumCoverDiscHeadings'
 import { resolveLibrarySurfaceKind } from '../utils/librarySurface'
@@ -827,15 +828,7 @@ const metadataEditor = useLibraryMetadataEditor({
   restoreFocus: restoreLibraryFocus,
   isDisposed: () => isPageUnmounted,
   getSaveErrorMessage: () => t('library.metadataEditor.errors.saveFailed'),
-  getSaveFailureMessage: (reason) => {
-    const keys: Record<string, string> = {
-      'buffer-preparation-failed': 'bufferPreparationFailed',
-      'file-in-use': 'fileInUse',
-      'playback-restore-failed': 'playbackRestoreFailed',
-      'playback-changed': 'playbackChanged',
-    }
-    return t(`library.metadataEditor.errors.${keys[reason] ?? 'saveFailed'}`)
-  },
+  getSaveFailureMessage: (reason) => t(metadataSaveFailureMessageKey(reason)),
   getLoadErrorMessage: () => t('library.metadataEditor.errors.loadFailed'),
   getPlaybackInUseMessage: () => t('library.metadataEditor.status.playbackInUse'),
   getPreloadInUseMessage: () => t('library.metadataEditor.status.preloadInUse'),

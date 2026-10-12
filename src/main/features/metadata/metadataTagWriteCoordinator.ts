@@ -6,6 +6,7 @@ import { normalizeEditableMetadata } from './editableMetadataValidation'
 import { assertMetadataFingerprint, readStableMetadata } from './readStableMetadata'
 import { verifyWrittenMetadata } from './verifyWrittenMetadata'
 import { logger } from '@main/logging/logger'
+import { isSameEditableMetadata } from '@shared/utils/editableMetadata'
 
 export interface MetadataWriteCoordinator {
   tryAcquireWriteLease: (
@@ -100,6 +101,9 @@ export class MetadataTagWriteCoordinator {
     }
 
     if (this.writingTracks.has(metadata.trackId)) return { ok: false, reason: 'write-in-progress' }
+
+    const existing = this.repository.getEditableTrackMetadata(metadata.trackId)
+    if (existing && isSameEditableMetadata(metadata, existing)) return { ok: true }
 
     let writeLeaseId: string | null = null
     let buffered = false

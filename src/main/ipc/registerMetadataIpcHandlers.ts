@@ -3,6 +3,7 @@ import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
 import type { PlaybackFileCoordinator } from '@main/features/audio/playbackFileCoordinator'
 import type { IpcHandlerRegistrar } from './validatedIpcRegistrar'
+import { metadataSaveFailureReason } from '@main/features/metadata/metadataSaveError'
 
 type MetadataOperations = Pick<
   MetadataRefreshService,
@@ -57,6 +58,12 @@ export function registerMetadataIpcHandlers(
   )
   registrar.handle(
     ipcChannels.metadata.updateTrackMetadata,
-    (_event, payload: EditableTrackMetadata) => metadataRefreshService.updateTrackMetadata(payload),
+    async (_event, payload: EditableTrackMetadata) => {
+      try {
+        return await metadataRefreshService.updateTrackMetadata(payload)
+      } catch (error) {
+        return { ok: false, reason: metadataSaveFailureReason(error) ?? 'save-failed' }
+      }
+    },
   )
 }

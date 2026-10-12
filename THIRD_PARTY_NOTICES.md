@@ -1,5 +1,15 @@
 # Third-party notices
 
+## node-taglib-sharp
+
+M4A metadata writes use **node-taglib-sharp 6.0.3** by Ben Russell, a Node.js port
+of TagLib#. Upstream: <https://github.com/benrr101/node-taglib-sharp/tree/v6.0.3>.
+License: LGPL-2.1-or-later; the complete license is included in the installed
+package at `node_modules/node-taglib-sharp/LICENSE`. The package is used
+unmodified, remains an external runtime dependency (not bundled into Auralis
+code), and can be replaced with a compatible modified version. It edits only
+disposable staging files; Auralis verifies tags before replacing an original.
+
 ## Startup album card fonts
 
 The card bundles local WOFF2 editions of:

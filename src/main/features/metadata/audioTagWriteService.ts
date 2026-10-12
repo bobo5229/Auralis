@@ -9,6 +9,8 @@ import { normalizeEditableMetadata } from './editableMetadataValidation'
 import { parseAudioMetadata } from './parseAudioMetadata'
 import { verifyWrittenMetadata } from './verifyWrittenMetadata'
 import { verifyPreservedAudioTags } from './verifyPreservedAudioTags'
+import { writeM4aStagingTags } from './m4aTagWriter'
+import { MetadataSaveError } from './metadataSaveError'
 
 const FFMPEG_NOT_FOUND_MESSAGE =
   'Unable to write audio tags because the bundled FFmpeg runtime is unavailable.'
@@ -166,7 +168,10 @@ async function replaceOriginalFile(
   try {
     const beforeReplace = await stat(originalPath)
     if (beforeReplace.size !== expected.size || beforeReplace.mtimeMs !== expected.mtimeMs) {
-      throw new Error('Audio file changed during tag writing; original was not replaced')
+      throw new MetadataSaveError(
+        'file-changed',
+        'Audio file changed during tag writing; original was not replaced',
+      )
     }
     beforeFirstRename?.()
     await rename(originalPath, backupPath)
@@ -174,7 +179,10 @@ async function replaceOriginalFile(
     try {
       const backup = await stat(backupPath)
       if (backup.size !== expected.size || backup.mtimeMs !== expected.mtimeMs) {
-        throw new Error('Audio file changed before tag replacement; restoring original')
+        throw new MetadataSaveError(
+          'file-changed',
+          'Audio file changed before tag replacement; restoring original',
+        )
       }
       await rename(stagingPath, originalPath)
     } catch (error) {
@@ -206,7 +214,10 @@ export async function prepareAudioTagWrite(
   const assertUnchanged = async () => {
     const actual = await stat(filePath)
     if (actual.size !== originalFingerprint.size || actual.mtimeMs !== originalFingerprint.mtimeMs)
-      throw new Error('Audio file changed during tag writing; original was not replaced')
+      throw new MetadataSaveError(
+        'file-changed',
+        'Audio file changed during tag writing; original was not replaced',
+      )
   }
   const extension = extname(filePath)
 
@@ -221,27 +232,32 @@ export async function prepareAudioTagWrite(
   let prepared = false
 
   try {
-    const picture = await readEmbeddedPicture(filePath)
-    await remuxWithTags(filePath, outputPath, metadata, ffmpegPath)
+    if (extension.toLowerCase() === '.m4a') {
+      await copyFile(filePath, stagingPath)
+      await writeM4aStagingTags(stagingPath, metadata)
+    } else {
+      const picture = await readEmbeddedPicture(filePath)
+      await remuxWithTags(filePath, outputPath, metadata, ffmpegPath)
 
-    let taggedPath = outputPath
-    const preservedPicture = picture ? await readEmbeddedPicture(outputPath) : null
-    if (picture && !preservedPicture?.data.equals(picture.data)) {
-      coverPath = join(
-        tmpdir(),
-        `auralis-tag-cover-${randomUUID()}${resolveCoverFileExtension(picture.mimeType)}`,
-      )
-      await writeFile(coverPath, picture.data)
-      try {
-        await remuxWithCover(outputPath, coverPath, coveredPath, metadata, ffmpegPath)
-        taggedPath = coveredPath
-      } catch (error) {
-        // Never commit a replacement that silently discards embedded artwork.
-        const actual = await readEmbeddedPicture(outputPath)
-        if (!actual || !actual.data.equals(picture.data)) throw error
+      let taggedPath = outputPath
+      const preservedPicture = picture ? await readEmbeddedPicture(outputPath) : null
+      if (picture && !preservedPicture?.data.equals(picture.data)) {
+        coverPath = join(
+          tmpdir(),
+          `auralis-tag-cover-${randomUUID()}${resolveCoverFileExtension(picture.mimeType)}`,
+        )
+        await writeFile(coverPath, picture.data)
+        try {
+          await remuxWithCover(outputPath, coverPath, coveredPath, metadata, ffmpegPath)
+          taggedPath = coveredPath
+        } catch (error) {
+          // Never commit a replacement that silently discards embedded artwork.
+          const actual = await readEmbeddedPicture(outputPath)
+          if (!actual || !actual.data.equals(picture.data)) throw error
+        }
       }
+      await copyFile(taggedPath, stagingPath)
     }
-    await copyFile(taggedPath, stagingPath)
     // An external replacement must be reported as a concurrent edit rather than
     // parsed as the source whose unedited tags we are trying to preserve.
     await assertUnchanged()
