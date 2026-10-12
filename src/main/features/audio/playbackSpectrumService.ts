@@ -41,7 +41,7 @@ const MAX_CARRY_BYTES = 512 * 1024
 
 /** Silent, bounded look-ahead decoding. Playback is the only time authority. */
 export class PlaybackSpectrumService {
-  private suspendedPath: string | null = null
+  private readonly suspendedPaths = new Map<string, number>()
   private subscription: SpectrumSubscription | null = null
   private source: SpectrumSource | null = null
   private anchorAt = 0
@@ -198,7 +198,7 @@ export class PlaybackSpectrumService {
   private async startDecoder(): Promise<void> {
     const source = this.source
     if (!source) return
-    if (normalizeAudioFilePath(source.path) === this.suspendedPath) return
+    if (this.suspendedPaths.has(normalizeAudioFilePath(source.path))) return
     const abort = new AbortController()
     this.decoderAbort = abort
     const epoch = this.epoch
@@ -399,12 +399,16 @@ export class PlaybackSpectrumService {
 
   async suspendFileReaders(filePath: string): Promise<() => void> {
     const path = normalizeAudioFilePath(filePath)
-    this.suspendedPath = path
+    this.suspendedPaths.set(path, (this.suspendedPaths.get(path) ?? 0) + 1)
     if (this.source && normalizeAudioFilePath(this.source.path) === path) this.stopDecoder()
     await Promise.allSettled([...this.closing])
+    let resumed = false
     return () => {
-      if (this.suspendedPath !== path) return
-      this.suspendedPath = null
+      if (resumed) return
+      resumed = true
+      const count = (this.suspendedPaths.get(path) ?? 1) - 1
+      if (count) this.suspendedPaths.set(path, count)
+      else this.suspendedPaths.delete(path)
       if (this.source?.isPlaying && !this.decoderAbort && !this.failed && !this.eof)
         void this.startDecoder()
     }

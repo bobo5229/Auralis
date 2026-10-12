@@ -519,4 +519,8 @@ onBeforeUnmount(() => {
   opacity: 1;
   transform: scale(1);
 }
+
+[data-theme='light'] .lyric-dot-lit {
+  box-shadow: none;
+}
 </style>

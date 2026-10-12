@@ -10,6 +10,7 @@ const MAX_STAT_RETRIES = 10
 interface ConfirmationLifecycle {
   isStopped: () => boolean
   isPaused: () => boolean
+  isPathBusy?: (filePath: string) => boolean
   isPathActive: (filePath: string) => boolean
   runOperation: (operation: () => Promise<void>) => void
 }
@@ -99,6 +100,10 @@ export class MetadataMissingConfirmation {
     for (let i = 0; i < filePaths.length; i++) {
       // A newer file observation can cancel or replace an in-flight confirmation.
       if (this.pendingMissingFilePaths.get(filePaths[i]) !== entries[i][1]) continue
+      if (this.lifecycle.isPathBusy?.(filePaths[i])) {
+        this.schedule()
+        continue
+      }
       this.pendingMissingFilePaths.delete(filePaths[i])
       if (!this.lifecycle.isPathActive(filePaths[i])) continue
       const result = statResults[i]

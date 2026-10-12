@@ -344,6 +344,45 @@ describe('useLibraryContextMenu', () => {
     expect(menu.highlightedTrackId.value).toBeNull()
   })
 
+  it.each(['pointer', 'keyboard'] as const)(
+    'highlights the artwork instead of its first track for a %s menu',
+    (openReason) => {
+      const { menu, group, selectedTrackId, restoreFocus } = createMenu()
+      selectedTrackId.value = 3
+      menu.onOpenAlbumArtworkContextMenu(1, createMouseEvent(), openReason)
+      expect(menu.contextSelectedAlbumKey.value).toBe(group.key)
+      expect(menu.contextSelectedTrackId.value).toBeNull()
+      expect(menu.highlightedTrackId.value).toBe(3)
+      expect(selectedTrackId.value).toBe(3)
+
+      menu.closeContextMenu()
+      expect(menu.contextSelectedAlbumKey.value).toBeNull()
+      expect(menu.highlightedTrackId.value).toBe(3)
+      expect(restoreFocus).toHaveBeenCalledWith(
+        { trackId: 1, source: 'album-artwork', openReason },
+        openReason === 'keyboard',
+      )
+    },
+  )
+
+  it('moves temporary highlighting between artwork and track menus and clears it on disposal', () => {
+    const { menu, group } = createMenu()
+    menu.onOpenAlbumArtworkContextMenu(1, createMouseEvent())
+    expect(menu.contextSelectedAlbumKey.value).toBe(group.key)
+    expect(menu.highlightedTrackId.value).toBeNull()
+
+    menu.onOpenContextMenu(2, createMouseEvent())
+    expect(menu.contextSelectedAlbumKey.value).toBeNull()
+    expect(menu.contextSelectedTrackId.value).toBe(2)
+    expect(menu.highlightedTrackId.value).toBe(2)
+
+    menu.onOpenAlbumArtworkContextMenu(1, createMouseEvent())
+    menu.dispose()
+    expect(menu.contextSelectedAlbumKey.value).toBeNull()
+    expect(menu.contextSelectedTrackId.value).toBeNull()
+    expect(menu.highlightedTrackId.value).toBeNull()
+  })
+
   it('preserves explicit selection while menu highlights follow their own lifecycle', () => {
     const { menu, selectedTrackId } = createMenu()
     selectedTrackId.value = 2
@@ -355,6 +394,28 @@ describe('useLibraryContextMenu', () => {
 
     menu.onOpenContextMenu(3, createMouseEvent())
     menu.closeContextMenu('metadata-dialog')
+    expect(menu.highlightedTrackId.value).toBe(2)
+  })
+
+  it('keeps an explicitly selected track selected when its context menu is reopened', () => {
+    const { menu, selectedTrackId } = createMenu()
+    selectedTrackId.value = 2
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      menu.onOpenContextMenu(2, createMouseEvent())
+      expect(menu.contextMenu.value?.trackId).toBe(2)
+      expect(menu.contextSelectedTrackId.value).toBeNull()
+      expect(menu.highlightedTrackId.value).toBe(2)
+      expect(selectedTrackId.value).toBe(2)
+      menu.closeContextMenu()
+      expect(menu.highlightedTrackId.value).toBe(2)
+    }
+
+    menu.onOpenContextMenu(1, createMouseEvent())
+    expect(menu.contextSelectedTrackId.value).toBe(1)
+    expect(menu.highlightedTrackId.value).toBe(1)
+    expect(selectedTrackId.value).toBe(2)
+    menu.closeContextMenu()
     expect(menu.highlightedTrackId.value).toBe(2)
   })
 

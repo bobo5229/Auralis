@@ -1,0 +1,1141 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auralis · 侧边栏底部布局优化方案验证</title>
+    <style>
+      :root {
+        --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+        /* Auralis 浅色经典纸感 */
+        --canvas-bg: #ece7de;
+        --card-bg: #fcfbf8;
+        --sidebar-bg: #f5f0e6;
+        --sidebar-border: rgba(0, 0, 0, 0.08);
+        --text-main: #22211e;
+        --text-muted: #6b6860;
+        --text-faint: #9c9990;
+        --accent: #9c733f;
+        --accent-light: rgba(156, 115, 63, 0.12);
+        --hover-bg: rgba(0, 0, 0, 0.05);
+        --active-bg: rgba(0, 0, 0, 0.09);
+        --dot-green: #28c840;
+        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 10px 28px -4px rgba(0, 0, 0, 0.09);
+        --danger-color: #ef4444;
+      }
+
+      :root.dark {
+        /* Auralis 深色黑曜 */
+        --canvas-bg: #111214;
+        --card-bg: #1c1d20;
+        --sidebar-bg: #18191b;
+        --sidebar-border: rgba(255, 255, 255, 0.08);
+        --text-main: #eae8e3;
+        --text-muted: #9a9790;
+        --text-faint: #66645e;
+        --accent: #c6995b;
+        --accent-light: rgba(198, 153, 91, 0.18);
+        --hover-bg: rgba(255, 255, 255, 0.06);
+        --active-bg: rgba(255, 255, 255, 0.1);
+        --dot-green: #34d399;
+        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 12px 32px -4px rgba(0, 0, 0, 0.45);
+        --danger-color: #f87171;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: var(--font-sans);
+        background: var(--canvas-bg);
+        color: var(--text-main);
+        min-height: 100vh;
+        padding: 28px 24px 60px;
+        transition: background-color 200ms ease, color 200ms ease;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* 头部控制台 */
+      .header-container {
+        max-width: 1280px;
+        margin: 0 auto 28px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid var(--sidebar-border);
+      }
+
+      .header-title h1 {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .header-title p {
+        font-size: 13px;
+        color: var(--text-muted);
+        margin-top: 4px;
+      }
+
+      .header-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .pill-group {
+        display: inline-flex;
+        background: var(--card-bg);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 9999px;
+        padding: 3px;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .pill-group button {
+        border: none;
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 12px;
+        font-weight: 500;
+        padding: 5px 12px;
+        border-radius: 9999px;
+        cursor: pointer;
+        transition: all 140ms ease;
+      }
+
+      .pill-group button.active {
+        background: var(--accent);
+        color: #fff;
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      }
+
+      .action-pill-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--card-bg);
+        border: 1px solid var(--sidebar-border);
+        color: var(--text-main);
+        padding: 6px 14px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 140ms ease;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .action-pill-btn:hover {
+        background: var(--hover-bg);
+        transform: translateY(-0.5px);
+      }
+
+      .action-pill-btn:active {
+        transform: scale(0.97);
+      }
+
+      /* 核心主展示视窗 */
+      .main-stage {
+        max-width: 1280px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+        gap: 28px;
+        align-items: start;
+      }
+
+      .stage-card {
+        background: var(--card-bg);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 18px;
+        padding: 22px;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        position: relative;
+      }
+
+      .stage-card.recommended {
+        border-color: color-mix(in srgb, var(--accent) 40%, var(--sidebar-border));
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent), var(--shadow-md);
+      }
+
+      .stage-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+
+      .stage-badge {
+        font-size: 11px;
+        font-family: var(--font-mono);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 6px;
+      }
+
+      .stage-badge.flawed {
+        background: rgba(239, 68, 68, 0.12);
+        color: var(--danger-color);
+      }
+
+      .stage-badge.solution {
+        background: var(--accent-light);
+        color: var(--accent);
+      }
+
+      .stage-title {
+        font-size: 16px;
+        font-weight: 700;
+        margin-top: 4px;
+        letter-spacing: -0.01em;
+      }
+
+      .stage-desc {
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--text-muted);
+        min-height: 36px;
+      }
+
+      /* 模拟侧边栏壳体 */
+      .sidebar-shell {
+        width: 100%;
+        max-width: 250px;
+        height: 520px;
+        margin: 0 auto;
+        background: var(--sidebar-bg);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        position: relative;
+        box-shadow: var(--shadow-sm);
+        transition: width 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+
+      .sidebar-shell.is-rail {
+        width: 72px;
+      }
+
+      /* 模拟顶部品牌与主导航 */
+      .shell-brand {
+        padding: 14px 14px 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .shell-brand-logo {
+        width: 20px;
+        height: 20px;
+        color: var(--accent);
+        flex-shrink: 0;
+      }
+
+      .shell-brand-name {
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        opacity: 1;
+        transition: opacity 160ms;
+      }
+
+      .is-rail .shell-brand-name {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .shell-nav {
+        flex: 1;
+        padding: 6px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow: hidden;
+      }
+
+      .shell-nav-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 6px 10px;
+        border-radius: 7px;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--text-muted);
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+      }
+
+      .shell-nav-item.active {
+        background: var(--active-bg);
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .shell-nav-icon {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .shell-nav-count {
+        margin-left: auto;
+        font-size: 11px;
+        color: var(--text-faint);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .is-rail .shell-nav-item {
+        justify-content: center;
+        padding: 8px 0;
+      }
+
+      .is-rail .shell-nav-count,
+      .is-rail .shell-nav-label {
+        display: none;
+      }
+
+      /* =========================================================
+         【左侧对照组】：还原当前实机截图中的病态三层结构
+         ========================================================= */
+      .flawed-footer {
+        padding: 12px 10px 10px;
+        border-top: 1px solid var(--sidebar-border);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        flex-shrink: 0;
+        background: transparent;
+      }
+
+      /* 痛点1：裸露文字折行，绿点悬空未居中 */
+      .flawed-status-block {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        padding: 0 2px;
+        min-height: 38px;
+      }
+
+      .flawed-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--dot-green);
+        flex-shrink: 0;
+        margin-top: 4px; /* 模拟实机里因折行导致的上下不居中 */
+      }
+
+      .flawed-text {
+        font-size: 11.5px;
+        line-height: 1.45;
+        color: var(--text-muted);
+        white-space: normal;
+        overflow-wrap: anywhere;
+        flex: 1;
+      }
+
+      /* 痛点2：孤立横向排开的小图标 */
+      .flawed-tools-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 0 4px;
+      }
+
+      .flawed-icon-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-faint);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+      }
+
+      /* 痛点3：满宽偏好设置，风格与中层断裂 */
+      .flawed-settings-btn {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 10px;
+        border-radius: 8px;
+        color: var(--text-main);
+        font-size: 12.5px;
+        font-weight: 500;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+      }
+
+      .flawed-settings-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .flawed-shortcut {
+        font-size: 11px;
+        font-family: var(--font-mono);
+        color: var(--text-faint);
+        background: color-mix(in srgb, var(--text-main) 6%, transparent);
+        padding: 2px 5px;
+        border-radius: 4px;
+      }
+
+      .is-rail .flawed-text,
+      .is-rail .flawed-settings-left span,
+      .is-rail .flawed-shortcut {
+        display: none;
+      }
+
+      .is-rail .flawed-tools-row {
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .is-rail .flawed-settings-btn {
+        justify-content: center;
+      }
+
+      /* =========================================================
+         【右侧推荐组】：优化重构版 (微状态岛 + 操作底栏)
+         ========================================================= */
+      .optimized-footer {
+        padding: 10px 10px 12px;
+        border-top: 1px solid var(--sidebar-border);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        flex-shrink: 0;
+        background: transparent;
+      }
+
+      /* 第 1 层：自包含曲库微状态岛 (Capsule Card) */
+      .status-island-card {
+        background: color-mix(in srgb, var(--text-main) 3.5%, transparent);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 9px;
+        padding: 6px 8px 6px 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        cursor: pointer;
+        transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+        position: relative;
+        overflow: hidden;
+        user-select: none;
+      }
+
+      .status-island-card:hover {
+        background: color-mix(in srgb, var(--text-main) 6.5%, transparent);
+        border-color: color-mix(in srgb, var(--accent) 35%, var(--sidebar-border));
+        transform: translateY(-0.5px);
+      }
+
+      .status-island-card:active {
+        transform: scale(0.985);
+      }
+
+      .status-island-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        flex: 1;
+      }
+
+      .status-island-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--dot-green);
+        flex-shrink: 0;
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--dot-green) 22%, transparent);
+        transition: background 180ms ease, box-shadow 180ms ease;
+      }
+
+      .status-island-dot.scanning {
+        background: var(--accent);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+        animation: pulse-glow 1.2s infinite ease-in-out;
+      }
+
+      @keyframes pulse-glow {
+        0%, 100% { transform: scale(0.9); opacity: 0.8; }
+        50% { transform: scale(1.25); opacity: 1; }
+      }
+
+      /* 单行防折行视窗与跑马灯 */
+      .status-island-ticker {
+        height: 18px;
+        display: flex;
+        align-items: center;
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .status-island-ticker.has-marquee {
+        mask-image: linear-gradient(to right, black calc(100% - 16px), transparent 100%);
+        -webkit-mask-image: linear-gradient(to right, black calc(100% - 16px), transparent 100%);
+      }
+
+      .status-island-text {
+        display: inline-block;
+        font-size: 11.5px;
+        font-weight: 500;
+        color: var(--text-muted);
+        white-space: nowrap;
+        flex-shrink: 0;
+        will-change: transform;
+        transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), opacity 180ms ease;
+      }
+
+      .status-island-ticker.has-marquee .status-island-text {
+        animation: island-marquee var(--marquee-duration, 8s) cubic-bezier(0.37, 0, 0.63, 1) infinite;
+      }
+
+      .status-island-card:hover .status-island-ticker.has-marquee .status-island-text {
+        animation-play-state: running;
+      }
+
+      @keyframes island-marquee {
+        0%, 18% { transform: translateX(0); }
+        65%, 82% { transform: translateX(calc(-1 * var(--marquee-dist, 0px))); }
+        94%, 100% { transform: translateX(0); }
+      }
+
+      .status-island-text.slide-out {
+        transform: translateY(-12px);
+        opacity: 0;
+      }
+
+      .status-island-text.slide-in {
+        transform: translateY(12px);
+        opacity: 0;
+      }
+
+      /* 内聚在卡片右侧的刷新操作钮 */
+      .status-island-refresh {
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-faint);
+        background: transparent;
+        border: none;
+        flex-shrink: 0;
+        cursor: pointer;
+        transition: color 140ms ease, background 140ms ease;
+      }
+
+      .status-island-card:hover .status-island-refresh {
+        color: var(--text-main);
+      }
+
+      .status-island-refresh:hover {
+        background: var(--hover-bg);
+        color: var(--accent) !important;
+      }
+
+      .status-island-refresh svg.spinning {
+        animation: spin-cw 0.85s linear infinite;
+        color: var(--accent);
+      }
+
+      @keyframes spin-cw {
+        100% { transform: rotate(360deg); }
+      }
+
+      /* 底部微型进度光条 */
+      .status-island-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 2px;
+        width: 0%;
+        background: var(--accent);
+        opacity: 0;
+        transition: width 240ms ease-out, opacity 180ms ease;
+      }
+
+      .status-island-progress.active {
+        opacity: 1;
+      }
+
+      /* 第 2 层：操作底栏 (左主设置 + 右副工具) */
+      .action-dock-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+      }
+
+      .dock-settings-btn {
+        flex: 1;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px;
+        border-radius: 7px;
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text-main);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 140ms ease;
+      }
+
+      .dock-settings-btn:hover {
+        background: var(--hover-bg);
+        border-color: var(--sidebar-border);
+      }
+
+      .dock-settings-left {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .dock-shortcut {
+        font-size: 10.5px;
+        font-family: var(--font-mono);
+        color: var(--text-faint);
+        background: color-mix(in srgb, var(--text-main) 6%, transparent);
+        padding: 1.5px 5px;
+        border-radius: 4px;
+        letter-spacing: -0.02em;
+      }
+
+      .dock-tools-group {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+
+      .dock-icon-btn {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-faint);
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        transition: color 140ms ease, background 140ms ease;
+      }
+
+      .dock-icon-btn:hover {
+        color: var(--text-main);
+        background: var(--hover-bg);
+      }
+
+      /* Rail (72px) 状态下的自适应优雅压缩 */
+      .is-rail .status-island-card {
+        padding: 8px 0;
+        justify-content: center;
+      }
+
+      .is-rail .status-island-ticker,
+      .is-rail .status-island-refresh {
+        display: none;
+      }
+
+      .is-rail .action-dock-row {
+        flex-direction: column;
+        height: auto;
+        gap: 4px;
+      }
+
+      .is-rail .dock-settings-btn {
+        flex: 0 0 32px;
+        width: 32px;
+        padding: 0;
+        justify-content: center;
+      }
+
+      .is-rail .dock-settings-left span,
+      .is-rail .dock-shortcut {
+        display: none;
+      }
+
+      .is-rail .dock-tools-group {
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      /* 方案对比与解读卡片 */
+      .annotation-box {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .annotation-box.negative {
+        background: rgba(239, 68, 68, 0.08);
+        border: 1px dashed rgba(239, 68, 68, 0.25);
+        color: var(--text-muted);
+      }
+
+      .annotation-box.positive {
+        background: var(--accent-light);
+        border: 1px dashed color-mix(in srgb, var(--accent) 30%, transparent);
+        color: var(--text-muted);
+      }
+
+      .annotation-box strong {
+        color: var(--text-main);
+      }
+
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      .metric-pill {
+        padding: 8px;
+        background: var(--card-bg);
+        border: 1px solid var(--sidebar-border);
+        border-radius: 8px;
+        text-align: center;
+      }
+
+      .metric-pill .label {
+        font-size: 11px;
+        color: var(--text-faint);
+        display: block;
+      }
+
+      .metric-pill .val {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-main);
+        margin-top: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 顶部综合操控台 -->
+    <header class="header-container">
+      <div class="header-title">
+        <h1>
+          <svg width="24" height="24" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);">
+            <path d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52" />
+            <path d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38" stroke-width="6" />
+          </svg>
+          侧边栏底部布局 · 优化验证视窗
+        </h1>
+        <p>Auralis 本地音乐播放器 · 针对实机截图痛点的结构重构与交互真机对比</p>
+      </div>
+
+      <div class="header-controls">
+        <!-- 侧栏形态切换 -->
+        <div class="pill-group" id="widthToggle">
+          <button type="button" class="active" data-rail="false">展开模式 (240px)</button>
+          <button type="button" data-rail="true">折叠 Rail (72px)</button>
+        </div>
+
+        <!-- 外观主题切换 -->
+        <div class="pill-group" id="themeToggle">
+          <button type="button" class="active" data-theme="light">浅色纸感</button>
+          <button type="button" data-theme="dark">深色黑曜</button>
+        </div>
+
+        <!-- 句子测试切换 -->
+        <div class="pill-group" id="copyToggle">
+          <button type="button" class="active" data-copy="short">短文案 (就绪)</button>
+          <button type="button" data-copy="user">截图文案 (折行测试)</button>
+          <button type="button" data-copy="long">超长文案 (极限溢出)</button>
+        </div>
+
+        <!-- 模拟同步扫描 -->
+        <button type="button" class="action-pill-btn" id="simulateScanBtn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          <span>触发曲库同步动效</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 主展示网格：现状 vs 优化 -->
+    <main class="main-stage">
+      <!-- ================= 视窗 1：实机现状复现 ================= -->
+      <section class="stage-card">
+        <div class="stage-card-header">
+          <div>
+            <span class="stage-badge flawed">现状问题复现</span>
+            <div class="stage-title">散装三层堆叠 (截图实机)</div>
+          </div>
+        </div>
+        <p class="stage-desc">
+          文案强行折成两行，绿点垂直失准；中间 3 个纯图标无边界悬空散落；底层偏好设置风格断裂。
+        </p>
+
+        <!-- 模拟侧边栏 (现状) -->
+        <div class="sidebar-shell" data-shell>
+          <div class="shell-brand">
+            <svg class="shell-brand-logo" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="7">
+              <path d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52" />
+              <path d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38" stroke-width="6" />
+            </svg>
+            <span class="shell-brand-name">Auralis</span>
+          </div>
+
+          <div class="shell-nav">
+            <div class="shell-nav-item active">
+              <span class="shell-nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></span>
+              <span class="shell-nav-label">所有歌曲</span>
+              <span class="shell-nav-count">8,420</span>
+            </div>
+            <div class="shell-nav-item">
+              <span class="shell-nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5z"/></svg></span>
+              <span class="shell-nav-label">专辑集</span>
+              <span class="shell-nav-count">512</span>
+            </div>
+          </div>
+
+          <!-- 现状 Footer -->
+          <footer class="flawed-footer">
+            <!-- 顶层：折行裸露文本 -->
+            <div class="flawed-status-block">
+              <span class="flawed-dot"></span>
+              <div class="flawed-text" id="flawedText">提示: 好音乐不会自己跑进文件夹，除非你存过。</div>
+            </div>
+
+            <!-- 中层：散装三图标 -->
+            <div class="flawed-tools-row">
+              <button class="flawed-icon-btn" title="刷新曲库" type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+              </button>
+              <button class="flawed-icon-btn" title="页面排版参数" type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+              </button>
+              <button class="flawed-icon-btn" title="筛选歌单" type="button">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              </button>
+            </div>
+
+            <!-- 底层：偏好设置 -->
+            <button class="flawed-settings-btn" type="button">
+              <span class="flawed-settings-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span>偏好设置</span>
+              </span>
+              <span class="flawed-shortcut">⌘,</span>
+            </button>
+          </footer>
+        </div>
+
+        <div class="annotation-box negative">
+          <strong>⚠️ 关键体验病灶：</strong><br />
+          1. <strong>折行松散</strong>：文本换行占满高度，绿点上下悬空错位；<br />
+          2. <strong>三层割裂</strong>：在仅 130px 空间内堆砌 3 种互斥的排版语言；<br />
+          3. <strong>功能倒错</strong>：顶部显示状态，刷新按钮却被扔在第二层最左侧。
+        </div>
+      </section>
+
+      <!-- ================= 视窗 2：优化推荐重构版 ================= -->
+      <section class="stage-card recommended">
+        <div class="stage-card-header">
+          <div>
+            <span class="stage-badge solution">推荐优化重构</span>
+            <div class="stage-title">双层微状态岛 (Island + Dock)</div>
+          </div>
+        </div>
+        <p class="stage-desc">
+          上层轻量微卡片封装（状态点 + 单行 Ticker + 闭环刷新）；下层左设主入口、右收辅助图标。
+        </p>
+
+        <!-- 模拟侧边栏 (优化后) -->
+        <div class="sidebar-shell" data-shell>
+          <div class="shell-brand">
+            <svg class="shell-brand-logo" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="7">
+              <path d="M10 52 27.3 13C29.1 8.9 34.9 8.9 36.7 13L54 52" />
+              <path d="M17 38C23 29.5 28 45.5 34 37.5S42 32 47 38" stroke-width="6" />
+            </svg>
+            <span class="shell-brand-name">Auralis</span>
+          </div>
+
+          <div class="shell-nav">
+            <div class="shell-nav-item active">
+              <span class="shell-nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></span>
+              <span class="shell-nav-label">所有歌曲</span>
+              <span class="shell-nav-count">8,420</span>
+            </div>
+            <div class="shell-nav-item">
+              <span class="shell-nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5z"/></svg></span>
+              <span class="shell-nav-label">专辑集</span>
+              <span class="shell-nav-count">512</span>
+            </div>
+          </div>
+
+          <!-- 优化后 Footer -->
+          <footer class="optimized-footer">
+            <!-- 第 1 层：自包含曲库微状态岛 -->
+            <div class="status-island-card" id="optIslandTrigger" title="点击立即同步本地音乐库 (体验垂直单行呼吸)">
+              <div class="status-island-left">
+                <span class="status-island-dot" id="optDot"></span>
+                <div class="status-island-ticker">
+                  <span class="status-island-text" id="optText">好音乐不会自己跑进文件夹，除非你存过。</span>
+                </div>
+              </div>
+              <button class="status-island-refresh" id="optRefreshBtn" title="同步曲库" type="button">
+                <svg id="optRefreshIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                </svg>
+              </button>
+              <div class="status-island-progress" id="optProgress"></div>
+            </div>
+
+            <!-- 第 2 层：操作底栏 (左主设置 + 右副工具) -->
+            <div class="action-dock-row">
+              <button class="dock-settings-btn" type="button" title="偏好设置 (⌘,)">
+                <span class="dock-settings-left">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  <span>偏好设置</span>
+                </span>
+                <kbd class="dock-shortcut">⌘,</kbd>
+              </button>
+
+              <div class="dock-tools-group">
+                <button class="dock-icon-btn" title="页面排版参数" type="button">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+                </button>
+                <button class="dock-icon-btn" title="筛选歌单" type="button">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                </button>
+              </div>
+            </div>
+          </footer>
+        </div>
+
+        <div class="annotation-box positive">
+          <strong>✓ 核心重构价值：</strong><br />
+          1. <strong>单行秩序保障</strong>：严格单行截断与平滑淡入切换，绿点与文字像素级居中；<br />
+          2. <strong>微卡片地基封装</strong>：轻量呼吸底色 + 边框，状态感知与刷新操作同处一岛闭环；<br />
+          3. <strong>层级压缩 37%</strong>：高度从 ~130px 压缩至 82px，桌面工具感精密严谨。
+        </div>
+      </section>
+    </main>
+
+    <!-- 底部性能与规格参数表 -->
+    <section style="max-width: 1280px; margin: 36px auto 0;">
+      <div class="metrics-grid">
+        <div class="metric-pill">
+          <span class="label">垂直高度占用</span>
+          <span class="val">130px → 82px (-37%)</span>
+        </div>
+        <div class="metric-pill">
+          <span class="label">视觉信息层级</span>
+          <span class="val">3 层散杂 → 2 层精密岛</span>
+        </div>
+        <div class="metric-pill">
+          <span class="label">折行稳定性</span>
+          <span class="val">100% 单行截断防护</span>
+        </div>
+      </div>
+    </section>
+
+    <script>
+      // 1. 切换主题
+      const themeBtns = document.querySelectorAll('#themeToggle button');
+      themeBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          themeBtns.forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          document.documentElement.classList.toggle('dark', btn.dataset.theme === 'dark');
+        });
+      });
+
+      // 2. 切换展开 / Rail
+      const widthBtns = document.querySelectorAll('#widthToggle button');
+      const shells = document.querySelectorAll('[data-shell]');
+      widthBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          widthBtns.forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          const isRail = btn.dataset.rail === 'true';
+          shells.forEach((s) => s.classList.toggle('is-rail', isRail));
+        });
+      });
+
+      // 3. 测试不同文案长度的抗折行表现
+      const copyPresets = {
+        short: {
+          flawed: '8,420 首乐曲 · 全部已同步',
+          opt: '8,420 首乐曲 · 全部已同步'
+        },
+        user: {
+          flawed: '提示: 好音乐不会自己跑进文件夹，除非你存过。',
+          opt: '好音乐不会自己跑进文件夹，除非你存过。'
+        },
+        long: {
+          flawed: '提示: 正在为 12,580 首母带级高解析度音轨建立本地哈希索引并匹配高清唱片封面...',
+          opt: '正在为 12,580 首母带级高解析度音轨建立本地哈希索引...'
+        }
+      };
+
+      const copyBtns = document.querySelectorAll('#copyToggle button');
+      const flawedText = document.getElementById('flawedText');
+      const optText = document.getElementById('optText');
+
+      copyBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          copyBtns.forEach((b) => b.classList.remove('active'));
+          btn.classList.add('active');
+          const mode = btn.dataset.copy;
+          if (flawedText) flawedText.textContent = copyPresets[mode].flawed;
+          setOptTextWithSlide(copyPresets[mode].opt);
+        });
+      });
+
+      function checkDemoMarquee() {
+        if (!optText) return;
+        const parent = optText.parentElement;
+        if (!parent) return;
+        const scrollW = optText.scrollWidth;
+        const clientW = parent.clientWidth;
+        if (scrollW > clientW + 4) {
+          parent.classList.add('has-marquee');
+          const dist = scrollW - clientW;
+          const dur = Math.max(7, Math.round(dist / 18));
+          parent.style.setProperty('--marquee-dist', `${dist}px`);
+          parent.style.setProperty('--marquee-duration', `${dur}s`);
+        } else {
+          parent.classList.remove('has-marquee');
+        }
+      }
+
+      // 4. 优化版垂直平滑切词动效
+      function setOptTextWithSlide(newText) {
+        if (!optText) return;
+        optText.classList.remove('slide-in');
+        optText.classList.add('slide-out');
+
+        setTimeout(() => {
+          optText.style.transition = 'none';
+          optText.textContent = newText;
+          optText.classList.remove('slide-out');
+          optText.classList.add('slide-in');
+
+          void optText.offsetWidth; // force reflow
+
+          optText.style.transition = '';
+          optText.classList.remove('slide-in');
+          checkDemoMarquee();
+        }, 180);
+      }
+
+      window.addEventListener('resize', checkDemoMarquee);
+      setTimeout(checkDemoMarquee, 100);
+
+      // 5. 模拟曲库同步与彩蛋动效
+      const scanBtn = document.getElementById('simulateScanBtn');
+      const optIsland = document.getElementById('optIslandTrigger');
+      const optDot = document.getElementById('optDot');
+      const optRefreshIcon = document.getElementById('optRefreshIcon');
+      const optProgress = document.getElementById('optProgress');
+
+      let isScanning = false;
+      let scanTimers = [];
+
+      function triggerScan() {
+        if (isScanning) return;
+        isScanning = true;
+        scanTimers.forEach((t) => clearTimeout(t));
+        scanTimers = [];
+
+        // 启动扫描态视觉
+        optDot?.classList.add('scanning');
+        optRefreshIcon?.classList.add('spinning');
+        if (optProgress) {
+          optProgress.classList.add('active');
+          optProgress.style.width = '20%';
+        }
+
+        setOptTextWithSlide('正在翻箱倒柜找歌...');
+
+        scanTimers.push(setTimeout(() => {
+          if (!isScanning) return;
+          if (optProgress) optProgress.style.width = '60%';
+          setOptTextWithSlide('看看你最近又存了什么好听的...');
+        }, 1200));
+
+        scanTimers.push(setTimeout(() => {
+          if (!isScanning) return;
+          if (optProgress) optProgress.style.width = '95%';
+          setOptTextWithSlide('正在辨识无损音轨波形...');
+        }, 2400));
+
+        scanTimers.push(setTimeout(() => {
+          if (!isScanning) return;
+          if (optProgress) optProgress.style.width = '100%';
+          optDot?.classList.remove('scanning');
+          optRefreshIcon?.classList.remove('spinning');
+          setOptTextWithSlide('全找齐了！带了 14 首新声音回家 ✨');
+
+          setTimeout(() => {
+            optProgress?.classList.remove('active');
+            setTimeout(() => {
+              if (optProgress) optProgress.style.width = '0%';
+            }, 250);
+          }, 450);
+        }, 3600));
+
+        scanTimers.push(setTimeout(() => {
+          setOptTextWithSlide('8,434 首私家偏爱 · 随时开声');
+          isScanning = false;
+        }, 6500));
+      }
+
+      scanBtn?.addEventListener('click', triggerScan);
+      optIsland?.addEventListener('click', triggerScan);
+    </script>
+  </body>
+</html>

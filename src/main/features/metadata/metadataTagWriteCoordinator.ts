@@ -7,6 +7,7 @@ import { assertMetadataFingerprint, readStableMetadata } from './readStableMetad
 import { verifyWrittenMetadata } from './verifyWrittenMetadata'
 import { logger } from '@main/logging/logger'
 import { isSameEditableMetadata } from '@shared/utils/editableMetadata'
+import { normalizeAudioFilePath } from '../audio/playbackFileCoordinator'
 
 export interface MetadataWriteCoordinator {
   tryAcquireWriteLease: (
@@ -16,7 +17,7 @@ export interface MetadataWriteCoordinator {
   releaseWriteLease: (leaseId: string) => void
 }
 
-export type BufferedMetadataTagWrite = (
+export type PlaybackMetadataTagWrite = (
   filePath: string,
   metadata: EditableTrackMetadata,
   commitAndReconcile: (commit: () => Promise<void>) => Promise<void>,
@@ -26,19 +27,15 @@ interface WriteLifecycle {
   isStopping: () => boolean
   hasActiveJob: () => boolean
   refreshTracksFromFileChanges: (ids: number[]) => { jobId: number }
+  onUserEditCommitted?: (trackId: number, filePath: string) => void
 }
 
 export class MetadataTagWriteCoordinator {
-  private bufferedTagWrite:
-    | ((
-        filePath: string,
-        metadata: EditableTrackMetadata,
-        commitAndReconcile: (commit: () => Promise<void>) => Promise<void>,
-      ) => Promise<UpdateTrackMetadataResult>)
-    | null = null
+  private playbackTagWrite: PlaybackMetadataTagWrite | null = null
   private onTagWriteSuccess: ((filePath: string) => void) | null = null
   private readonly trackGenerations = new Map<number, number>()
   private readonly writingTracks = new Set<number>()
+  private readonly writingFiles = new Set<string>()
   private readonly pendingReconciliation = new Set<number>()
   private readonly pendingWrites = new Set<Promise<UpdateTrackMetadataResult>>()
 
@@ -62,6 +59,10 @@ export class MetadataTagWriteCoordinator {
     return this.writingTracks.size > 0
   }
 
+  isWritingFile(filePath: string): boolean {
+    return this.writingFiles.has(normalizeAudioFilePath(filePath))
+  }
+
   async drain(): Promise<void> {
     await Promise.allSettled([...this.pendingWrites])
   }
@@ -74,8 +75,8 @@ export class MetadataTagWriteCoordinator {
     this.onTagWriteSuccess = handler
   }
 
-  setBufferedTagWriteHandler(handler: BufferedMetadataTagWrite): void {
-    this.bufferedTagWrite = handler
+  setPlaybackTagWriteHandler(handler: PlaybackMetadataTagWrite): void {
+    this.playbackTagWrite = handler
   }
 
   updateTrackMetadata(metadata: EditableTrackMetadata): Promise<UpdateTrackMetadataResult> {
@@ -106,15 +107,15 @@ export class MetadataTagWriteCoordinator {
     if (existing && isSameEditableMetadata(metadata, existing)) return { ok: true }
 
     let writeLeaseId: string | null = null
-    let buffered = false
+    let usesPlaybackWriter = false
     if (this.coordinator) {
       const leaseResult = this.coordinator.tryAcquireWriteLease(
         filePath,
         `track-${metadata.trackId}`,
       )
       if (!leaseResult.ok) {
-        if (leaseResult.reason !== 'playback-in-use' || !this.bufferedTagWrite) return leaseResult
-        buffered = true
+        if (leaseResult.reason !== 'playback-in-use' || !this.playbackTagWrite) return leaseResult
+        usesPlaybackWriter = true
       } else {
         writeLeaseId = leaseResult.leaseId
       }
@@ -123,6 +124,7 @@ export class MetadataTagWriteCoordinator {
     const generation = (this.trackGenerations.get(metadata.trackId) ?? 0) + 1
     this.trackGenerations.set(metadata.trackId, generation)
     this.writingTracks.add(metadata.trackId)
+    this.writingFiles.add(normalizeAudioFilePath(filePath))
 
     // Suppress before the file mutates: ffmpeg replace fires watch events while
     // the write is still in flight, and a 1200ms flush can start first.
@@ -140,9 +142,16 @@ export class MetadataTagWriteCoordinator {
         if (this.trackGenerations.get(metadata.trackId) !== generation)
           throw new Error('Tag write became stale')
         this.repository.commitVerifiedUserEdit(metadata, result)
+        this.pendingReconciliation.delete(metadata.trackId)
+        this.onTagWriteSuccess?.(filePath)
+        try {
+          this.lifecycle.onUserEditCommitted?.(metadata.trackId, filePath)
+        } catch (error) {
+          logger.warn({ err: error }, 'Unable to notify committed metadata edit')
+        }
       }
-      if (buffered) {
-        const result = await this.bufferedTagWrite!(filePath, metadata, commitAndReconcile)
+      if (usesPlaybackWriter) {
+        const result = await this.playbackTagWrite!(filePath, metadata, commitAndReconcile)
         if (!result.ok) this.pendingReconciliation.add(metadata.trackId)
         return result
       }
@@ -160,6 +169,7 @@ export class MetadataTagWriteCoordinator {
         this.coordinator?.releaseWriteLease(writeLeaseId)
       }
       this.writingTracks.delete(metadata.trackId)
+      this.writingFiles.delete(normalizeAudioFilePath(filePath))
       this.flushReconciliation()
     }
   }

@@ -5,52 +5,9 @@ import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { parseFile } from 'music-metadata'
 import { DigitalZeroCounter, isConsecutiveAlbumPair } from './digitalSilence'
-import { openMpvClient } from './mpvClient'
+import { parseFirstPcmTimestamp, readMpvTimestampOrigin } from './audioTimestamp'
 
-/** mpv rebases some containers (e.g. MP3) but retains MP4's zero origin.
- * Query the actual demuxer instead of inferring behavior from an extension/tag.
- */
-export async function readMpvTimestampOrigin(
-  executable: string,
-  path: string,
-  signal: AbortSignal,
-): Promise<number> {
-  const lifetime = AbortSignal.any([signal, AbortSignal.timeout(10000)])
-  let loaded!: () => void
-  let failed!: (error: Error) => void
-  const ready = new Promise<void>((resolve, reject) => {
-    loaded = resolve
-    failed = reject
-  })
-  // Avoid an unhandled rejection if startup fails before awaiting the load.
-  void ready.catch(() => undefined)
-  const abort = () => failed(new Error('Transition timestamp query cancelled or timed out'))
-  lifetime.addEventListener('abort', abort, { once: true })
-  let client: Awaited<ReturnType<typeof openMpvClient>> | undefined
-  try {
-    lifetime.throwIfAborted()
-    client = await openMpvClient(
-      executable,
-      (event) => {
-        if (event.event === 'file-loaded') loaded()
-        if (event.event === 'end-file' && event.reason === 'error')
-          failed(new Error('Transition timestamp query failed'))
-      },
-      failed,
-      lifetime,
-      ['--ao=null', '--pause=yes'],
-    )
-    await client.command('loadfile', path, 'replace')
-    await ready
-    const origin = await client.command('get_property', 'demuxer-start-time')
-    if (typeof origin !== 'number' || !Number.isFinite(origin))
-      throw new Error('Invalid demuxer timestamp origin')
-    return origin
-  } finally {
-    lifetime.removeEventListener('abort', abort)
-    await client?.close()
-  }
-}
+export { readMpvTimestampOrigin } from './audioTimestamp'
 
 export interface TransitionAudio {
   frames: number
@@ -133,14 +90,10 @@ export async function scanTransitionAudio(
     child.stderr.on('data', (chunk: Buffer) => {
       const text = diagnostics + chunk.toString('utf8')
       if (origin === undefined) {
-        const match =
-          /\[Parsed_ashowinfo_\d+ @ [^\]]+\] n:0 pts:(-?\d+) pts_time:[^\s]+ .*?channels:(\d+).*?rate:(\d+)/.exec(
-            text,
-          )
-        if (match) {
-          if (Number(match[2]) !== channels || Number(match[3]) !== rate)
-            stop(new Error('Unexpected transition decode format'))
-          else origin = Number(match[1]) / rate
+        try {
+          origin = parseFirstPcmTimestamp(text, rate, channels)
+        } catch (error) {
+          stop(error as Error)
         }
       }
       diagnostics = text.slice(-8192)

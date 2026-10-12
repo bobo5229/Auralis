@@ -34,6 +34,7 @@ function setup() {
   const markAvailable = vi.fn((): number[] => [])
   const refresh = vi.fn()
   const send = vi.fn()
+  const isWritingFile = vi.fn(() => false)
   const service = new MetadataWatchService(
     { list: () => [{ path: root }] } as unknown as LibraryRootRepository,
     {
@@ -43,12 +44,12 @@ function setup() {
       markMissingByFilePaths: markMissing,
       markAvailableByFilePaths: markAvailable,
     } as unknown as TrackRepository,
-    { refreshTracksFromFileChanges: refresh } as unknown as MetadataRefreshService,
+    { refreshTracksFromFileChanges: refresh, isWritingFile } as unknown as MetadataRefreshService,
     { importFiles: vi.fn() } as unknown as LibraryIncrementalImportService,
     send,
   )
   service.start()
-  return { service, notify, markMissing, markAvailable, refresh, send }
+  return { service, notify, markMissing, markAvailable, refresh, send, isWritingFile }
 }
 
 beforeEach(() => {
@@ -63,6 +64,24 @@ afterEach(() => {
 })
 
 describe('metadata watcher component boundaries', () => {
+  it('defers transient absence and a pending missing confirmation while a tag save owns the path', async () => {
+    const { service, notify, isWritingFile, markMissing, refresh } = setup()
+    vi.mocked(stat).mockRejectedValue(absent())
+    notify('rename', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    isWritingFile.mockReturnValue(true)
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(markMissing).not.toHaveBeenCalled()
+    notify('rename', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(6000)
+    expect(markMissing).not.toHaveBeenCalled()
+    expect(refresh).not.toHaveBeenCalled()
+    vi.mocked(stat).mockResolvedValue(fileStat)
+    isWritingFile.mockReturnValue(false)
+    await vi.advanceTimersByTimeAsync(6000)
+    expect(markMissing).not.toHaveBeenCalled()
+    await service.stop()
+  })
   it('restores confirmed missing unchanged audio without refreshing or duplicate notifications', async () => {
     vi.mocked(stat).mockRejectedValue(absent())
     const { service, notify, markMissing, markAvailable, refresh, send } = setup()

@@ -110,7 +110,7 @@ function onKeyDown(event: KeyboardEvent): void {
     </div>
     <span
       v-tooltip.overflow="songValues(track.genre)"
-      class="cover-track-genre truncate text-right text-xs text-[var(--auralis-text-muted)] min-w-0"
+      class="cover-track-genre truncate text-left text-xs text-[var(--auralis-text-muted)] min-w-0"
       >{{ songValues(track.genre) }}</span
     >
     <div class="cover-track-technical min-w-0 flex flex-col text-right tabular-nums">
@@ -210,10 +210,6 @@ function onKeyDown(event: KeyboardEvent): void {
   pointer-events: none;
   user-select: none;
   transform: translate(-50%, -50%);
-}
-
-.cover-track-row:has(.cover-track-artist-line) .cover-track-bars[data-preset='blocks-wave'] {
-  margin-top: calc(max(18px, var(--auralis-song-cover-artist-size, 12px) * 1.2) / -2);
 }
 
 .cover-track-row::before,

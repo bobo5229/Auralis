@@ -1,0 +1,1565 @@
+{
+  "root": "C:\\Users\\BoBo\\AppData\\Local\\Temp\\auralis-mpv-m4a-9uhwoC",
+  "mode": "device",
+  "results": [
+    {
+      "name": "aac-48000-2-front-baseline",
+      "edit": false,
+      "writes": [],
+      "alignment": {
+        "originFrames": 21088,
+        "offsetSpreadFrames": 0,
+        "minCorrelation": 0.9999999506129732,
+        "silent5msWindowsInsideSignal": 0,
+        "peak": 0.0028788328636437654,
+        "offsets": [
+          {
+            "time": 1,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999522843328
+          },
+          {
+            "time": 1.25,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000429412346
+          },
+          {
+            "time": 1.5,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999667311232
+          },
+          {
+            "time": 1.75,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000268060814
+          },
+          {
+            "time": 2,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999624297522
+          },
+          {
+            "time": 2.25,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999745055055
+          },
+          {
+            "time": 2.5,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000285057111
+          },
+          {
+            "time": 2.75,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999829742393
+          },
+          {
+            "time": 3,
+            "offsetFrames": 21088,
+            "correlation": 1.000000006703695
+          },
+          {
+            "time": 3.25,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000152104105
+          },
+          {
+            "time": 3.5,
+            "offsetFrames": 21088,
+            "correlation": 0.999999994539534
+          },
+          {
+            "time": 3.75,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999897233613
+          },
+          {
+            "time": 4,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999833946368
+          },
+          {
+            "time": 4.25,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999948088473
+          },
+          {
+            "time": 4.5,
+            "offsetFrames": 21088,
+            "correlation": 0.999999971021226
+          },
+          {
+            "time": 4.75,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999755088311
+          },
+          {
+            "time": 5,
+            "offsetFrames": 21088,
+            "correlation": 1.000000028923992
+          },
+          {
+            "time": 5.25,
+            "offsetFrames": 21088,
+            "correlation": 0.99999998768978
+          },
+          {
+            "time": 5.5,
+            "offsetFrames": 21088,
+            "correlation": 1.000000012808315
+          },
+          {
+            "time": 5.75,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000083341876
+          },
+          {
+            "time": 6,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999970399397
+          },
+          {
+            "time": 6.25,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999845622181
+          },
+          {
+            "time": 6.5,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999972785444
+          },
+          {
+            "time": 6.75,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000091287649
+          },
+          {
+            "time": 7,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999924286767
+          },
+          {
+            "time": 7.25,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999948847552
+          },
+          {
+            "time": 7.5,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999903724234
+          },
+          {
+            "time": 7.75,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000207977437
+          },
+          {
+            "time": 8,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000406584109
+          },
+          {
+            "time": 8.25,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999527395991
+          },
+          {
+            "time": 8.5,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000014041492
+          },
+          {
+            "time": 8.75,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999941022628
+          },
+          {
+            "time": 9,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000159824054
+          },
+          {
+            "time": 9.25,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999820930527
+          },
+          {
+            "time": 9.5,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000400451987
+          },
+          {
+            "time": 9.75,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000293161302
+          },
+          {
+            "time": 10,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000215470732
+          },
+          {
+            "time": 10.25,
+            "offsetFrames": 21088,
+            "correlation": 0.999999968107772
+          },
+          {
+            "time": 10.5,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000274941243
+          },
+          {
+            "time": 10.75,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999969054736
+          },
+          {
+            "time": 11,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000013646
+          },
+          {
+            "time": 11.25,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999506129732
+          },
+          {
+            "time": 11.5,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000054634435
+          },
+          {
+            "time": 11.75,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000339422097
+          },
+          {
+            "time": 12,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000094091164
+          },
+          {
+            "time": 12.25,
+            "offsetFrames": 21088,
+            "correlation": 0.999999985876928
+          },
+          {
+            "time": 12.5,
+            "offsetFrames": 21088,
+            "correlation": 1.000000025080715
+          },
+          {
+            "time": 12.75,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999662209148
+          },
+          {
+            "time": 13,
+            "offsetFrames": 21088,
+            "correlation": 1.000000016224131
+          },
+          {
+            "time": 13.25,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999977918654
+          },
+          {
+            "time": 13.5,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000200407213
+          },
+          {
+            "time": 13.75,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999590266994
+          },
+          {
+            "time": 14,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000122888073
+          },
+          {
+            "time": 14.25,
+            "offsetFrames": 21088,
+            "correlation": 1.000000052992409
+          },
+          {
+            "time": 14.5,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000400390874
+          },
+          {
+            "time": 14.75,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000141393937
+          },
+          {
+            "time": 15,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000033276677
+          },
+          {
+            "time": 15.25,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999981680713
+          },
+          {
+            "time": 15.5,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999819666954
+          },
+          {
+            "time": 15.75,
+            "offsetFrames": 21088,
+            "correlation": 0.99999995861612
+          },
+          {
+            "time": 16,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000156463114
+          },
+          {
+            "time": 16.25,
+            "offsetFrames": 21088,
+            "correlation": 1.0000000127230801
+          },
+          {
+            "time": 16.5,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999967267881
+          },
+          {
+            "time": 16.75,
+            "offsetFrames": 21088,
+            "correlation": 0.9999999863824859
+          }
+        ]
+      },
+      "events": [
+        {
+          "event": "start-file",
+          "playlist_entry_id": 1
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "file-loaded"
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "playback-restart"
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "idle"
+        }
+      ],
+      "errors": [],
+      "device": {
+        "capture": "Windows process-tree loopback",
+        "targetPid": 55092,
+        "rate": 48000,
+        "channels": 2,
+        "frames": 941760,
+        "physical_microphone": false,
+        "other_processes_included": false
+      }
+    },
+    {
+      "name": "aac-48000-2-front-edited",
+      "edit": true,
+      "writes": [
+        {
+          "n": 1,
+          "beforeTime": 3.011035,
+          "afterTime": 3.180689,
+          "milliseconds": 180.45930000000226
+        },
+        {
+          "n": 2,
+          "beforeTime": 6.000951,
+          "afterTime": 6.190208,
+          "milliseconds": 181.58870000000024
+        },
+        {
+          "n": 3,
+          "beforeTime": 9.010299,
+          "afterTime": 9.181033,
+          "milliseconds": 182.47359999999753
+        }
+      ],
+      "alignment": {
+        "originFrames": 4384,
+        "offsetSpreadFrames": 0,
+        "minCorrelation": 0.9999999506129732,
+        "silent5msWindowsInsideSignal": 0,
+        "peak": 0.0028788328636437654,
+        "offsets": [
+          {
+            "time": 1,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999522843328
+          },
+          {
+            "time": 1.25,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000429412346
+          },
+          {
+            "time": 1.5,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999667311232
+          },
+          {
+            "time": 1.75,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000268060814
+          },
+          {
+            "time": 2,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999624297522
+          },
+          {
+            "time": 2.25,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999745055055
+          },
+          {
+            "time": 2.5,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000285057111
+          },
+          {
+            "time": 2.75,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999829742393
+          },
+          {
+            "time": 3,
+            "offsetFrames": 4384,
+            "correlation": 1.000000006703695
+          },
+          {
+            "time": 3.25,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000152104105
+          },
+          {
+            "time": 3.5,
+            "offsetFrames": 4384,
+            "correlation": 0.999999994539534
+          },
+          {
+            "time": 3.75,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999897233613
+          },
+          {
+            "time": 4,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999833946368
+          },
+          {
+            "time": 4.25,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999948088473
+          },
+          {
+            "time": 4.5,
+            "offsetFrames": 4384,
+            "correlation": 0.999999971021226
+          },
+          {
+            "time": 4.75,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999755088311
+          },
+          {
+            "time": 5,
+            "offsetFrames": 4384,
+            "correlation": 1.000000028923992
+          },
+          {
+            "time": 5.25,
+            "offsetFrames": 4384,
+            "correlation": 0.99999998768978
+          },
+          {
+            "time": 5.5,
+            "offsetFrames": 4384,
+            "correlation": 1.000000012808315
+          },
+          {
+            "time": 5.75,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000083341876
+          },
+          {
+            "time": 6,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999970399397
+          },
+          {
+            "time": 6.25,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999845622181
+          },
+          {
+            "time": 6.5,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999972785444
+          },
+          {
+            "time": 6.75,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000091287649
+          },
+          {
+            "time": 7,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999924286767
+          },
+          {
+            "time": 7.25,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999948847552
+          },
+          {
+            "time": 7.5,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999903724234
+          },
+          {
+            "time": 7.75,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000207977437
+          },
+          {
+            "time": 8,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000406584109
+          },
+          {
+            "time": 8.25,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999527395991
+          },
+          {
+            "time": 8.5,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000014041492
+          },
+          {
+            "time": 8.75,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999941022628
+          },
+          {
+            "time": 9,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000159824054
+          },
+          {
+            "time": 9.25,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999820930527
+          },
+          {
+            "time": 9.5,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000400451987
+          },
+          {
+            "time": 9.75,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000293161302
+          },
+          {
+            "time": 10,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000215470732
+          },
+          {
+            "time": 10.25,
+            "offsetFrames": 4384,
+            "correlation": 0.999999968107772
+          },
+          {
+            "time": 10.5,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000274941243
+          },
+          {
+            "time": 10.75,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999969054736
+          },
+          {
+            "time": 11,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000013646
+          },
+          {
+            "time": 11.25,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999506129732
+          },
+          {
+            "time": 11.5,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000054634435
+          },
+          {
+            "time": 11.75,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000339422097
+          },
+          {
+            "time": 12,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000094091164
+          },
+          {
+            "time": 12.25,
+            "offsetFrames": 4384,
+            "correlation": 0.999999985876928
+          },
+          {
+            "time": 12.5,
+            "offsetFrames": 4384,
+            "correlation": 1.000000025080715
+          },
+          {
+            "time": 12.75,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999662209148
+          },
+          {
+            "time": 13,
+            "offsetFrames": 4384,
+            "correlation": 1.000000016224131
+          },
+          {
+            "time": 13.25,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999977918654
+          },
+          {
+            "time": 13.5,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000200407213
+          },
+          {
+            "time": 13.75,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999590266994
+          },
+          {
+            "time": 14,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000122888073
+          },
+          {
+            "time": 14.25,
+            "offsetFrames": 4384,
+            "correlation": 1.000000052992409
+          },
+          {
+            "time": 14.5,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000400390874
+          },
+          {
+            "time": 14.75,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000141393937
+          },
+          {
+            "time": 15,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000033276677
+          },
+          {
+            "time": 15.25,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999981680713
+          },
+          {
+            "time": 15.5,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999819666954
+          },
+          {
+            "time": 15.75,
+            "offsetFrames": 4384,
+            "correlation": 0.99999995861612
+          },
+          {
+            "time": 16,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000156463114
+          },
+          {
+            "time": 16.25,
+            "offsetFrames": 4384,
+            "correlation": 1.0000000127230801
+          },
+          {
+            "time": 16.5,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999967267881
+          },
+          {
+            "time": 16.75,
+            "offsetFrames": 4384,
+            "correlation": 0.9999999863824859
+          }
+        ]
+      },
+      "events": [
+        {
+          "event": "start-file",
+          "playlist_entry_id": 1
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "file-loaded"
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "playback-restart"
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "idle"
+        }
+      ],
+      "errors": [],
+      "device": {
+        "capture": "Windows process-tree loopback",
+        "targetPid": 55092,
+        "rate": 48000,
+        "channels": 2,
+        "frames": 948480,
+        "physical_microphone": false,
+        "other_processes_included": false
+      }
+    },
+    {
+      "name": "alac-48000-2-front-baseline",
+      "edit": false,
+      "writes": [],
+      "alignment": {
+        "originFrames": 3904,
+        "offsetSpreadFrames": 0,
+        "minCorrelation": 0.99999994118703,
+        "silent5msWindowsInsideSignal": 0,
+        "peak": 0.0026540528051555157,
+        "offsets": [
+          {
+            "time": 1,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999959117876
+          },
+          {
+            "time": 1.25,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000344682227
+          },
+          {
+            "time": 1.5,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999607852147
+          },
+          {
+            "time": 1.75,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999832237694
+          },
+          {
+            "time": 2,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999740393369
+          },
+          {
+            "time": 2.25,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999897130645
+          },
+          {
+            "time": 2.5,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999779951649
+          },
+          {
+            "time": 2.75,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999718520332
+          },
+          {
+            "time": 3,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000186633018
+          },
+          {
+            "time": 3.25,
+            "offsetFrames": 3904,
+            "correlation": 1.000000009538738
+          },
+          {
+            "time": 3.5,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999836078999
+          },
+          {
+            "time": 3.75,
+            "offsetFrames": 3904,
+            "correlation": 0.999999993935675
+          },
+          {
+            "time": 4,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000192564638
+          },
+          {
+            "time": 4.25,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999732169433
+          },
+          {
+            "time": 4.5,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000269676332
+          },
+          {
+            "time": 4.75,
+            "offsetFrames": 3904,
+            "correlation": 1.000000006582351
+          },
+          {
+            "time": 5,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000454529918
+          },
+          {
+            "time": 5.25,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000457731575
+          },
+          {
+            "time": 5.5,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999828852859
+          },
+          {
+            "time": 5.75,
+            "offsetFrames": 3904,
+            "correlation": 0.999999998832433
+          },
+          {
+            "time": 6,
+            "offsetFrames": 3904,
+            "correlation": 1.000000026102571
+          },
+          {
+            "time": 6.25,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000034395675
+          },
+          {
+            "time": 6.5,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000365683197
+          },
+          {
+            "time": 6.75,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999612736802
+          },
+          {
+            "time": 7,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999988892917
+          },
+          {
+            "time": 7.25,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999888126395
+          },
+          {
+            "time": 7.5,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999962573555
+          },
+          {
+            "time": 7.75,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000207619026
+          },
+          {
+            "time": 8,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000202373944
+          },
+          {
+            "time": 8.25,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000216566791
+          },
+          {
+            "time": 8.5,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999920514278
+          },
+          {
+            "time": 8.75,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000060903598
+          },
+          {
+            "time": 9,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999807862091
+          },
+          {
+            "time": 9.25,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999662652516
+          },
+          {
+            "time": 9.5,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999484178309
+          },
+          {
+            "time": 9.75,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000298555596
+          },
+          {
+            "time": 10,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999899238284
+          },
+          {
+            "time": 10.25,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999858919414
+          },
+          {
+            "time": 10.5,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999991539583
+          },
+          {
+            "time": 10.75,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000004909144
+          },
+          {
+            "time": 11,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000160802631
+          },
+          {
+            "time": 11.25,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999841375621
+          },
+          {
+            "time": 11.5,
+            "offsetFrames": 3904,
+            "correlation": 1.000000024683869
+          },
+          {
+            "time": 11.75,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000158800588
+          },
+          {
+            "time": 12,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000492547971
+          },
+          {
+            "time": 12.25,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999839936534
+          },
+          {
+            "time": 12.5,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999817010788
+          },
+          {
+            "time": 12.75,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999549495361
+          },
+          {
+            "time": 13,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000059692147
+          },
+          {
+            "time": 13.25,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999967252444
+          },
+          {
+            "time": 13.5,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999736733794
+          },
+          {
+            "time": 13.75,
+            "offsetFrames": 3904,
+            "correlation": 0.999999995165055
+          },
+          {
+            "time": 14,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000196102037
+          },
+          {
+            "time": 14.25,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999659636651
+          },
+          {
+            "time": 14.5,
+            "offsetFrames": 3904,
+            "correlation": 1.000000042593314
+          },
+          {
+            "time": 14.75,
+            "offsetFrames": 3904,
+            "correlation": 1.000000017154937
+          },
+          {
+            "time": 15,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000163593257
+          },
+          {
+            "time": 15.25,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000146449564
+          },
+          {
+            "time": 15.5,
+            "offsetFrames": 3904,
+            "correlation": 0.999999972559679
+          },
+          {
+            "time": 15.75,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000313255828
+          },
+          {
+            "time": 16,
+            "offsetFrames": 3904,
+            "correlation": 0.99999994118703
+          },
+          {
+            "time": 16.25,
+            "offsetFrames": 3904,
+            "correlation": 0.9999999993721805
+          },
+          {
+            "time": 16.5,
+            "offsetFrames": 3904,
+            "correlation": 0.999999997419398
+          },
+          {
+            "time": 16.75,
+            "offsetFrames": 3904,
+            "correlation": 1.0000000023858475
+          }
+        ]
+      },
+      "events": [
+        {
+          "event": "start-file",
+          "playlist_entry_id": 1
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "file-loaded"
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "playback-restart"
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "idle"
+        }
+      ],
+      "errors": [],
+      "device": {
+        "capture": "Windows process-tree loopback",
+        "targetPid": 55092,
+        "rate": 48000,
+        "channels": 2,
+        "frames": 953280,
+        "physical_microphone": false,
+        "other_processes_included": false
+      }
+    },
+    {
+      "name": "alac-48000-2-front-edited",
+      "edit": true,
+      "writes": [
+        {
+          "n": 1,
+          "beforeTime": 3.030636,
+          "afterTime": 3.211057,
+          "milliseconds": 192.88610000000335
+        },
+        {
+          "n": 2,
+          "beforeTime": 6.02096,
+          "afterTime": 6.230752,
+          "milliseconds": 203.37839999998687
+        },
+        {
+          "n": 3,
+          "beforeTime": 9.010322,
+          "afterTime": 9.220367,
+          "milliseconds": 208.8073000000004
+        }
+      ],
+      "alignment": {
+        "originFrames": 3424,
+        "offsetSpreadFrames": 0,
+        "minCorrelation": 0.99999994118703,
+        "silent5msWindowsInsideSignal": 0,
+        "peak": 0.0026540528051555157,
+        "offsets": [
+          {
+            "time": 1,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999959117876
+          },
+          {
+            "time": 1.25,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000344682227
+          },
+          {
+            "time": 1.5,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999607852147
+          },
+          {
+            "time": 1.75,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999832237694
+          },
+          {
+            "time": 2,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999740393369
+          },
+          {
+            "time": 2.25,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999897130645
+          },
+          {
+            "time": 2.5,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999779951649
+          },
+          {
+            "time": 2.75,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999718520332
+          },
+          {
+            "time": 3,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000186633018
+          },
+          {
+            "time": 3.25,
+            "offsetFrames": 3424,
+            "correlation": 1.000000009538738
+          },
+          {
+            "time": 3.5,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999836078999
+          },
+          {
+            "time": 3.75,
+            "offsetFrames": 3424,
+            "correlation": 0.999999993935675
+          },
+          {
+            "time": 4,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000192564638
+          },
+          {
+            "time": 4.25,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999732169433
+          },
+          {
+            "time": 4.5,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000269676332
+          },
+          {
+            "time": 4.75,
+            "offsetFrames": 3424,
+            "correlation": 1.000000006582351
+          },
+          {
+            "time": 5,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000454529918
+          },
+          {
+            "time": 5.25,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000457731575
+          },
+          {
+            "time": 5.5,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999828852859
+          },
+          {
+            "time": 5.75,
+            "offsetFrames": 3424,
+            "correlation": 0.999999998832433
+          },
+          {
+            "time": 6,
+            "offsetFrames": 3424,
+            "correlation": 1.000000026102571
+          },
+          {
+            "time": 6.25,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000034395675
+          },
+          {
+            "time": 6.5,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000365683197
+          },
+          {
+            "time": 6.75,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999612736802
+          },
+          {
+            "time": 7,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999988892917
+          },
+          {
+            "time": 7.25,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999888126395
+          },
+          {
+            "time": 7.5,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999962573555
+          },
+          {
+            "time": 7.75,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000207619026
+          },
+          {
+            "time": 8,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000202373944
+          },
+          {
+            "time": 8.25,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000216566791
+          },
+          {
+            "time": 8.5,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999920514278
+          },
+          {
+            "time": 8.75,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000060903598
+          },
+          {
+            "time": 9,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999807862091
+          },
+          {
+            "time": 9.25,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999662652516
+          },
+          {
+            "time": 9.5,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999484178309
+          },
+          {
+            "time": 9.75,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000298555596
+          },
+          {
+            "time": 10,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999899238284
+          },
+          {
+            "time": 10.25,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999858919414
+          },
+          {
+            "time": 10.5,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999991539583
+          },
+          {
+            "time": 10.75,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000004909144
+          },
+          {
+            "time": 11,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000160802631
+          },
+          {
+            "time": 11.25,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999841375621
+          },
+          {
+            "time": 11.5,
+            "offsetFrames": 3424,
+            "correlation": 1.000000024683869
+          },
+          {
+            "time": 11.75,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000158800588
+          },
+          {
+            "time": 12,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000492547971
+          },
+          {
+            "time": 12.25,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999839936534
+          },
+          {
+            "time": 12.5,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999817010788
+          },
+          {
+            "time": 12.75,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999549495361
+          },
+          {
+            "time": 13,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000059692147
+          },
+          {
+            "time": 13.25,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999967252444
+          },
+          {
+            "time": 13.5,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999736733794
+          },
+          {
+            "time": 13.75,
+            "offsetFrames": 3424,
+            "correlation": 0.999999995165055
+          },
+          {
+            "time": 14,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000196102037
+          },
+          {
+            "time": 14.25,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999659636651
+          },
+          {
+            "time": 14.5,
+            "offsetFrames": 3424,
+            "correlation": 1.000000042593314
+          },
+          {
+            "time": 14.75,
+            "offsetFrames": 3424,
+            "correlation": 1.000000017154937
+          },
+          {
+            "time": 15,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000163593257
+          },
+          {
+            "time": 15.25,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000146449564
+          },
+          {
+            "time": 15.5,
+            "offsetFrames": 3424,
+            "correlation": 0.999999972559679
+          },
+          {
+            "time": 15.75,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000313255828
+          },
+          {
+            "time": 16,
+            "offsetFrames": 3424,
+            "correlation": 0.99999994118703
+          },
+          {
+            "time": 16.25,
+            "offsetFrames": 3424,
+            "correlation": 0.9999999993721805
+          },
+          {
+            "time": 16.5,
+            "offsetFrames": 3424,
+            "correlation": 0.999999997419398
+          },
+          {
+            "time": 16.75,
+            "offsetFrames": 3424,
+            "correlation": 1.0000000023858475
+          }
+        ]
+      },
+      "events": [
+        {
+          "event": "start-file",
+          "playlist_entry_id": 1
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "file-loaded"
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "playback-restart"
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "end-file",
+          "reason": "eof",
+          "playlist_entry_id": 1
+        },
+        {
+          "event": "audio-reconfig"
+        },
+        {
+          "event": "idle"
+        }
+      ],
+      "errors": [],
+      "device": {
+        "capture": "Windows process-tree loopback",
+        "targetPid": 55092,
+        "rate": 48000,
+        "channels": 2,
+        "frames": 952320,
+        "physical_microphone": false,
+        "other_processes_included": false
+      }
+    }
+  ],
+  "errors": [],
+  "mpvVersion": "mpv v0.41.0-dev-gc64675679 Copyright © 2000-2026 mpv/MPlayer/mplayer2 projects\r\n built on Sep 22 2026 07:30:14\r\nlibplacebo version: v7.372.0\r\nFFmpeg version: ff04763\r\nFFmpeg library versions:\r\n   libavcodec      62.28.102\r\n   libavdevice     62.3.102\r\n   libavfilter     11.14.102\r\n   libavformat     62.12.102\r\n   libavutil       60.26.102\r\n   libswresample   6.3.102\r\n   libswscale      9.5.102\r\n",
+  "mpvSha256": "acabdf60eee6d3bf92b5dddde2f1371774e1ef1fceab3e674cf7a7f594ddc060",
+  "writerSha256": "ff2b9fb16df5e930b39bb755490e184db6ab900c8abec9eb257b24c273c27f24",
+  "transportSha256": "bced03896577aa51b974f35c61b482098718a2dafd22ecf991d095732fa37455"
+}

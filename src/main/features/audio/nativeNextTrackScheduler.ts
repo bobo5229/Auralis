@@ -16,9 +16,18 @@ interface TagPlaybackView {
   readonly decodeOffset: number
 }
 
+interface ScheduledSoftTransition {
+  plan: SoftTransition
+  continuationPath: string
+  stage: 'queued' | 'bridge' | 'resume'
+  continuationRecovery: 'missing' | 'queued' | null
+}
+
 /** Owns speculative next-track work and every soft-transition playlist entry. */
 export class NativeNextTrackScheduler {
   private readonly analysisTasks = new Set<Promise<void>>()
+  private metadataWrites = 0
+  private deferredAnalysis: (() => void) | null = null
   private lastNextRequest: NextTrackRequest | null = null
   private deferredNext: NextTrackRequest | null = null
   private scan = new AbortController()
@@ -26,7 +35,8 @@ export class NativeNextTrackScheduler {
   private next: { id: number; path: string } | null = null
   private enteringNext: { id: number; path: string } | null = null
   private updatingBoundary = false
-  private transition: { plan: SoftTransition; stage: 'queued' | 'bridge' | 'resume' } | null = null
+  private transition: ScheduledSoftTransition | null = null
+  private clearingTransition: ScheduledSoftTransition | null = null
   private installingTransition: { bridge: string; original: string } | null = null
   private interruptedTransition: { bridge: string; original: string } | null = null
   private readonly analyzer: DigitalSilenceAnalyzer
@@ -40,8 +50,9 @@ export class NativeNextTrackScheduler {
     private readonly runtime: NativePlaybackSession,
     private readonly read: () => LogicalPlaybackView,
     private readonly tag: TagPlaybackView,
+    private readonly onRecoverySettled: () => void,
   ) {
-    this.analyzer = new DigitalSilenceAnalyzer(options.ffmpegPath)
+    this.analyzer = new DigitalSilenceAnalyzer(options.ffmpegPath, options.mpvPath)
     this.transitions = new SoftTransitionPreparer(options.ffmpegPath, options.mpvPath)
   }
 
@@ -65,6 +76,14 @@ export class NativeNextTrackScheduler {
 
   get isContinuation(): boolean {
     return this.transition?.stage === 'resume'
+  }
+
+  get isRecoveringContinuation(): boolean {
+    return (
+      this.transition !== null &&
+      (this.transition.continuationRecovery === 'queued' ||
+        (this.clearingTransition === this.transition && this.transition.stage !== 'queued'))
+    )
   }
 
   get bridge(): SoftTransition | null {
@@ -102,14 +121,33 @@ export class NativeNextTrackScheduler {
     await Promise.allSettled([...this.analysisTasks])
   }
 
+  /** Let existing analysis finish without touching the playlist or its decoder handles. */
+  async suspendMetadataAnalysis(): Promise<() => void> {
+    this.metadataWrites++
+    await this.drainAnalysis()
+    let resumed = false
+    return () => {
+      if (resumed) return
+      resumed = true
+      this.metadataWrites--
+      if (!this.metadataWrites) {
+        const analysis = this.deferredAnalysis
+        this.deferredAnalysis = null
+        analysis?.()
+      }
+    }
+  }
+
   clearDeferredNext(): void {
     this.deferredNext = null
   }
 
   reset(): void {
+    this.deferredAnalysis = null
     this.lastNextRequest = null
     this.scan.abort()
     this.disposeTransition()
+    this.clearingTransition = null
     this.deferredNext = null
     this.installingTransition = null
     this.interruptedTransition = null
@@ -120,6 +158,7 @@ export class NativeNextTrackScheduler {
 
   endPlayback(): void {
     this.next = null
+    this.disposeTransition()
   }
 
   takeEnteredTrack(): { id: number; path: string } {
@@ -205,23 +244,68 @@ export class NativeNextTrackScheduler {
 
   async cancelNext(client: MpvClient): Promise<void> {
     this.deferredNext = null
-    if (this.transition?.stage === 'bridge') {
+    const transition = this.transition
+    if (transition?.stage === 'bridge' && transition.continuationRecovery !== 'missing') {
       // B's continuation is part of the current logical track, not a next song.
       // During the bridge no following track is appended (it is deferred).
       this.next = null
       return
     }
-    const leaseToRelease = this.runtime.nextLeaseId
-    await client.command('playlist-clear')
-    // playlist-clear preserves an item whose decoder has already started.
-    // Its lease must transfer to current playback in fileLoaded instead.
-    if (!this.enteringNext && this.runtime.nextLeaseId === leaseToRelease && leaseToRelease) {
-      this.runtime.releaseNextLease()
+    const session = this.runtime.id
+    this.clearingTransition = transition
+    try {
+      if (transition?.continuationRecovery === 'missing') {
+        await this.restoreContinuation(client, session, transition)
+        return
+      }
+      const leaseToRelease = this.runtime.nextLeaseId
+      await client.command('playlist-clear')
+      if (!this.runtime.isCurrent(session, client)) return
+      if (transition && this.transition === transition) {
+        // A may enter the bridge after the stage check but before playlist-clear.
+        // Clear then keeps the active bridge and removes B's continuation.
+        // Its start-file may precede file-loaded, or the bridge may already be idle.
+        if (transition.stage === 'bridge') {
+          await this.restoreContinuation(client, session, transition)
+          return
+        }
+        const actualPath = await client.command('get_property', 'path')
+        if (!this.runtime.isCurrent(session, client) || this.transition !== transition) return
+        if (actualPath === transition.plan.path) {
+          await this.restoreContinuation(client, session, transition)
+          return
+        }
+      }
+      // playlist-clear preserves an item whose decoder has already started.
+      // Its lease must transfer to current playback in fileLoaded instead.
+      if (!this.enteringNext && this.runtime.nextLeaseId === leaseToRelease && leaseToRelease) {
+        this.runtime.releaseNextLease()
+      }
+      this.next = null
+      if (this.transition?.stage === 'queued') this.disposeTransition()
+      if (this.read().loaded && !this.enteringNext)
+        await client.command('set_property', 'file-local-options/end', 'none')
+    } finally {
+      if (this.clearingTransition === transition) this.clearingTransition = null
+      this.onRecoverySettled()
     }
-    this.next = null
-    if (this.transition?.stage === 'queued') this.disposeTransition()
-    if (this.read().loaded && !this.enteringNext)
-      await client.command('set_property', 'file-local-options/end', 'none')
+  }
+
+  private async restoreContinuation(
+    client: MpvClient,
+    session: number,
+    transition: ScheduledSoftTransition,
+  ): Promise<void> {
+    transition.continuationRecovery = 'missing'
+    // append-play leaves an active bridge alone, and starts the continuation if
+    // IPC delay let the bridge reach EOF. Keep the lease until it loads or fails.
+    await client.command('loadfile', transition.continuationPath, 'append-play', -1, {
+      start: String(transition.plan.incomingResume),
+      'hr-seek': 'yes',
+      'hr-seek-demuxer-offset': '1',
+    })
+    if (this.runtime.isCurrent(session, client) && this.transition === transition)
+      transition.continuationRecovery = 'queued'
   }
 
   async schedule(request: NextTrackRequest): Promise<{ accepted: boolean }> {
@@ -298,23 +382,22 @@ export class NativeNextTrackScheduler {
         throw error
       }
     })
-    if (result.accepted && request.softTransition && isCurrent()) {
-      this.trackAnalysis(
-        this.refineSoftTransition(client, currentPath, nextPath, request, signal, isCurrent),
-      )
-    } else if (result.accepted && request.trimDigitalSilence && isCurrent()) {
-      // Analysis never holds the command queue or delays the scheduling acknowledgement.
-      // Keep scans alive across seek/pause/replanning in this playback lifetime for reuse.
-      this.trackAnalysis(
-        this.refineBoundary(
-          client,
-          currentPath,
-          nextPath,
-          request.trackId,
-          this.scan.signal,
-          isCurrent,
-        ),
-      )
+    if (result.accepted && isCurrent()) {
+      const analyze = () => {
+        if (!isCurrent()) return
+        if (request.softTransition)
+          this.trackAnalysis(
+            this.refineSoftTransition(client, currentPath, nextPath, request, signal, isCurrent),
+          )
+        else if (request.trimDigitalSilence)
+          this.trackAnalysis(
+            this.refineBoundary(client, currentPath, nextPath, request.trackId, signal, isCurrent),
+          )
+      }
+      // A save gates file analysis, not playlist scheduling. Resume the latest
+      // still-current refinement without canceling or reloading its next item.
+      if (this.metadataWrites) this.deferredAnalysis = analyze
+      else analyze()
     }
     return result
   }
@@ -385,7 +468,12 @@ export class NativeNextTrackScheduler {
           if (!(await ready())) return false
           await client.command('playlist-remove', position + 3)
           if (!(await ready())) return false
-          this.transition = { plan: prepared, stage: 'queued' }
+          this.transition = {
+            plan: prepared,
+            continuationPath: nextPath,
+            stage: 'queued',
+            continuationRecovery: null,
+          }
           await client.command(
             'set_property',
             'file-local-options/end',
@@ -476,7 +564,11 @@ export class NativeNextTrackScheduler {
     this.updatingBoundary = true
     try {
       // Preserve the ordinary next item until its replacement is accepted by mpv.
-      await client.command('loadfile', nextPath, 'append', -1, { start: String(boundary.start) })
+      await client.command('loadfile', nextPath, 'append', -1, {
+        start: String(boundary.start),
+        'hr-seek': 'yes',
+        'hr-seek-demuxer-offset': '1',
+      })
       appended = true
       if (!(await canUpdate())) return skipped()
       // Move the replacement ahead first: removing the original directly could

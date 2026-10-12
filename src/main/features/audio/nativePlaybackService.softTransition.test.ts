@@ -3,11 +3,41 @@ import { NativePlaybackService } from './nativePlaybackService'
 import { SoftTransitionPreparer, type SoftTransition } from './softTransition'
 import { openMpvClient, type MpvMessage } from './mpvClient'
 import type { NativePlaybackEvent } from '../../../shared/ipc/contracts'
+import type { PlaybackCoordinator } from './nativePlaybackTypes'
+import type { NativeNextTrackScheduler } from './nativeNextTrackScheduler'
 
 vi.mock('./mpvClient', () => ({ openMpvClient: vi.fn() }))
 afterEach(() => vi.restoreAllMocks())
 
-async function setup() {
+it('drains file analysis for saving and resumes deferred refinement without rebuilding its playlist', async () => {
+  const test = await setup()
+  await test.schedule()
+  expect(test.prepare).toHaveBeenCalledOnce()
+  const scheduler = (test.service as unknown as { scheduler: NativeNextTrackScheduler }).scheduler
+  let drained = false
+  const suspended = scheduler.suspendMetadataAnalysis().then((resume) => {
+    drained = true
+    return resume
+  })
+  await Promise.resolve()
+  expect(drained).toBe(false)
+  test.resolve(null)
+  const resume = await suspended
+  await test.schedule(3)
+  expect(test.prepare).toHaveBeenCalledOnce()
+  const commands = test.command.mock.calls.length
+  resume()
+  await vi.waitFor(() => expect(test.prepare).toHaveBeenCalledTimes(2))
+  expect(
+    test.command.mock.calls
+      .slice(commands)
+      .some(([name]) => name === 'playlist-clear' || name === 'loadfile'),
+  ).toBe(false)
+  expect(test.state.playlist.map((entry) => entry.path)).toEqual(['1.flac', '3.flac'])
+  await test.service.dispose()
+})
+
+async function setup(coordinator?: PlaybackCoordinator) {
   const plan: SoftTransition = {
     path: 'bridge.wav',
     outgoingEnd: 118,
@@ -38,6 +68,7 @@ async function setup() {
     position: 0,
     end: 'none',
     paused: false,
+    idle: false,
     playlist: [] as { path: string; start: number }[],
     before: (async () => {}) as (name: string, args: unknown[]) => Promise<void>,
   }
@@ -68,7 +99,18 @@ async function setup() {
           emit({ event: 'start-file', playlist_entry_id: entryId })
           emit({ event: 'file-loaded' })
         })
-      } else state.playlist.push(item)
+      } else {
+        state.playlist.push(item)
+        if (args[1] === 'append-play' && state.idle) {
+          state.idle = false
+          state.position = state.playlist.length - 1
+          state.time = item.start
+          queueMicrotask(() => {
+            emit({ event: 'start-file', playlist_entry_id: entryId })
+            emit({ event: 'file-loaded' })
+          })
+        }
+      }
     }
     if (name === 'playlist-clear') {
       state.playlist = [state.playlist[state.position]]
@@ -96,6 +138,7 @@ async function setup() {
     emit: (e) => events.push(e),
     warn: (e) => warnings.push(e),
     onBoundaryStatus: (e) => statuses.push(e.status),
+    coordinator,
   })
   await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
   const schedule = (id = 2) =>
@@ -106,10 +149,11 @@ async function setup() {
       trimDigitalSilence: false,
       softTransition: true,
     })
-  async function advance() {
+  async function advance(load = true) {
     state.position++
     state.time = state.playlist[state.position].start
     emit({ event: 'start-file' })
+    if (!load) return
     emit({ event: 'file-loaded' })
     await vi.waitFor(() => expect(events.at(-1)?.trackId).toBe(2))
   }
@@ -145,6 +189,226 @@ it('cancels a prepared transition and restores the entire outgoing track', async
   expect(test.state.end).toBe('none')
   expect(test.plan.dispose).toHaveBeenCalledOnce()
 })
+
+it.each(['cancel-next', 'replacement'] as const)(
+  'keeps B complete when natural advancement overtakes %s playlist clearing',
+  async (action) => {
+    const coordinator = {
+      acquireReadLease: vi.fn(async (path: string) => ({ leaseId: path, version: 1 })),
+      releaseReadLease: vi.fn(),
+      markReadLeaseCurrent: vi.fn(),
+    }
+    const test = await setup(coordinator)
+    await test.install()
+    test.state.before = async (name) => {
+      if (name !== 'playlist-clear') return
+      test.state.before = async () => {}
+      await test.advance()
+      test.state.time = 0.75
+      test.emit({ event: 'property-change', name: 'time-pos', data: 0.75 })
+    }
+    await (action === 'cancel-next'
+      ? test.service.command({ action, session: 1 })
+      : test.schedule(3))
+    expect(test.state.playlist).toEqual([
+      { path: 'bridge.wav', start: 0 },
+      { path: '2.flac', start: 2.048 },
+    ])
+    expect(test.state.time).toBe(0.75)
+    expect(test.events.at(-1)?.currentTime).toBeCloseTo(0.798)
+    expect(coordinator.releaseReadLease).not.toHaveBeenCalledWith('2.flac')
+    expect(coordinator.markReadLeaseCurrent).toHaveBeenCalledExactlyOnceWith('2.flac')
+    expect(test.plan.dispose).not.toHaveBeenCalled()
+    await test.service.command({ action: 'pause', session: 1 })
+    await test.schedule(4)
+    await test.service.command({ action: 'resume', session: 1 })
+    await test.advance()
+    await vi.waitFor(() => expect(test.state.playlist.at(-1)?.path).toBe('4.flac'))
+    expect(test.events.filter((e) => e.kind === 'boundary').map((e) => e.trackId)).toEqual([2])
+    expect(test.events.filter((e) => e.kind === 'error')).toEqual([])
+    expect(coordinator.releaseReadLease).not.toHaveBeenCalledWith('2.flac')
+    expect(test.plan.dispose).toHaveBeenCalledOnce()
+    expect(test.warnings).toEqual([])
+    await test.service.dispose()
+    expect(coordinator.releaseReadLease.mock.calls.filter(([id]) => id === '2.flac')).toHaveLength(
+      1,
+    )
+  },
+)
+
+it('retains B ownership when only start-file arrives before cancellation completes', async () => {
+  const coordinator = {
+    acquireReadLease: vi.fn(async (path: string) => ({ leaseId: path, version: 1 })),
+    releaseReadLease: vi.fn(),
+    markReadLeaseCurrent: vi.fn(),
+  }
+  const test = await setup(coordinator)
+  await test.install()
+  test.state.before = async (name) => {
+    if (name !== 'playlist-clear') return
+    test.state.before = async () => {}
+    await test.advance(false)
+  }
+  await test.service.command({ action: 'cancel-next', session: 1 })
+  expect(test.state.playlist).toEqual([
+    { path: 'bridge.wav', start: 0 },
+    { path: '2.flac', start: 2.048 },
+  ])
+  expect(coordinator.releaseReadLease).not.toHaveBeenCalledWith('2.flac')
+  test.emit({ event: 'file-loaded' })
+  await vi.waitFor(() => expect(test.events.at(-1)?.trackId).toBe(2))
+  expect(coordinator.markReadLeaseCurrent).toHaveBeenCalledExactlyOnceWith('2.flac')
+  await test.service.command({ action: 'cancel-next', session: 1 })
+  expect(test.state.playlist.at(-1)).toEqual({ path: '2.flac', start: 2.048 })
+  await test.advance()
+  expect(test.events.filter((e) => e.kind === 'boundary').map((e) => e.trackId)).toEqual([2])
+  expect(test.warnings).toEqual([])
+  await test.service.dispose()
+})
+
+it('does not append B again when clearing preserves its already entered continuation', async () => {
+  const test = await setup()
+  await test.install()
+  test.state.before = async (name) => {
+    if (name !== 'playlist-clear') return
+    test.state.before = async () => {}
+    await test.advance()
+    await test.advance()
+  }
+  await test.service.command({ action: 'cancel-next', session: 1 })
+  expect(test.state.playlist).toEqual([{ path: '2.flac', start: 2.048 }])
+  expect(test.events.filter((e) => e.kind === 'boundary').map((e) => e.trackId)).toEqual([2])
+  expect(test.plan.dispose).toHaveBeenCalledOnce()
+  expect(test.warnings).toEqual([])
+  await test.service.dispose()
+})
+
+it.each(['stop', 'start'] as const)(
+  'does not restore an obsolete continuation after %s replaces cancellation ownership',
+  async (action) => {
+    const test = await setup()
+    await test.install()
+    let replacement: Promise<{ accepted: boolean }> | undefined
+    test.state.before = async (name, args) => {
+      if (name === 'playlist-clear') await test.advance()
+      if (name !== 'loadfile' || args[1] !== 'append-play') return
+      test.state.before = async () => {}
+      test.state.idle = true
+      test.emit({ event: 'idle' })
+      expect(test.events.filter((e) => e.kind === 'ended')).toEqual([])
+      replacement = test.service.command(
+        action === 'stop'
+          ? { action, session: 2 }
+          : { action, session: 2, trackId: 8, volume: 1, muted: false },
+      )
+      // Closing the old transport rejects the command already waiting in IPC.
+      throw new Error('mpv closed')
+    }
+    expect(await test.service.command({ action: 'cancel-next', session: 1 })).toEqual({
+      accepted: false,
+    })
+    expect(await replacement).toEqual({ accepted: true })
+    expect(test.state.playlist.some((item) => item.path === '2.flac')).toBe(false)
+    if (action === 'start') {
+      expect(test.state.playlist).toEqual([{ path: '8.flac', start: 0 }])
+      expect(test.events.at(-1)?.trackId).toBe(8)
+    }
+    expect(test.plan.dispose).toHaveBeenCalledOnce()
+    expect(test.warnings).toEqual([])
+    await test.service.dispose()
+  },
+)
+
+it('continues B after the bridge reaches EOF while its continuation is being restored', async () => {
+  const coordinator = {
+    acquireReadLease: vi.fn(async (path: string) => ({ leaseId: path, version: 1 })),
+    releaseReadLease: vi.fn(),
+    markReadLeaseCurrent: vi.fn(),
+  }
+  const test = await setup(coordinator)
+  await test.install()
+  test.state.before = async (name, args) => {
+    if (name === 'playlist-clear') await test.advance()
+    if (name !== 'loadfile' || args[1] !== 'append-play') return
+    test.state.before = async () => {}
+    test.state.idle = true
+    test.emit({ event: 'property-change', name: 'idle-active', data: true })
+    test.emit({ event: 'idle' })
+    expect(test.events.filter((e) => e.kind === 'ended')).toEqual([])
+    expect(coordinator.releaseReadLease).not.toHaveBeenCalledWith('2.flac')
+  }
+  await test.service.command({ action: 'cancel-next', session: 1 })
+  await vi.waitFor(() => expect(test.service.getSpectrumSource()?.path).toBe('2.flac'))
+  expect(test.events.at(-1)?.currentTime).toBe(2.048)
+  expect(test.events.filter((e) => e.kind === 'boundary').map((e) => e.trackId)).toEqual([2])
+  expect(test.events.filter((e) => e.kind === 'ended')).toEqual([])
+  expect(coordinator.releaseReadLease).not.toHaveBeenCalledWith('2.flac')
+  expect(test.plan.dispose).toHaveBeenCalledOnce()
+  test.emit({ event: 'property-change', name: 'time-pos', data: 119.75 })
+  expect(test.events.at(-1)?.currentTime).toBe(119.75)
+  test.emit({ event: 'idle' })
+  expect(test.events.filter((e) => e.kind === 'ended')).toHaveLength(1)
+  expect(coordinator.releaseReadLease.mock.calls.filter(([id]) => id === '2.flac')).toHaveLength(1)
+  expect(test.warnings).toEqual([])
+  await test.service.dispose()
+})
+
+it.each([false, true])(
+  'settles failed continuation restoration with bridge idle=%s and permits a live retry',
+  async (idle) => {
+    const coordinator = {
+      acquireReadLease: vi.fn(async (path: string) => ({ leaseId: path, version: 1 })),
+      releaseReadLease: vi.fn(),
+      markReadLeaseCurrent: vi.fn(),
+    }
+    const test = await setup(coordinator)
+    await test.install()
+    test.state.before = async (name, args) => {
+      if (name === 'playlist-clear') await test.advance()
+      if (name !== 'loadfile' || args[1] !== 'append-play') return
+      test.state.before = async () => {}
+      if (idle) {
+        test.state.idle = true
+        test.emit({ event: 'idle' })
+        expect(test.events.filter((e) => e.kind === 'ended')).toEqual([])
+      }
+      throw new Error('continuation append failed')
+    }
+    await expect(test.service.command({ action: 'cancel-next', session: 1 })).rejects.toThrow(
+      'continuation append failed',
+    )
+    if (idle) {
+      expect(test.events.filter((e) => e.kind === 'ended')).toHaveLength(1)
+      expect(
+        coordinator.releaseReadLease.mock.calls.filter(([id]) => id === '2.flac'),
+      ).toHaveLength(1)
+      expect(test.plan.dispose).toHaveBeenCalledOnce()
+    } else {
+      expect(coordinator.releaseReadLease).not.toHaveBeenCalledWith('2.flac')
+      expect(test.plan.dispose).not.toHaveBeenCalled()
+      const clearCalls = test.command.mock.calls.filter(
+        ([name]) => name === 'playlist-clear',
+      ).length
+      await test.service.command({ action: 'cancel-next', session: 1 })
+      expect(test.command.mock.calls.filter(([name]) => name === 'playlist-clear')).toHaveLength(
+        clearCalls,
+      )
+      expect(test.state.playlist).toEqual([
+        { path: 'bridge.wav', start: 0 },
+        { path: '2.flac', start: 2.048 },
+      ])
+      await test.advance()
+      await vi.waitFor(() => expect(test.plan.dispose).toHaveBeenCalledOnce())
+      expect(test.events.filter((e) => e.kind === 'ended')).toEqual([])
+    }
+    expect(test.events.filter((e) => e.kind === 'boundary').map((e) => e.trackId)).toEqual([2])
+    expect(test.warnings).toEqual([])
+    await test.service.dispose()
+    expect(coordinator.releaseReadLease.mock.calls.filter(([id]) => id === '2.flac')).toHaveLength(
+      1,
+    )
+  },
+)
 
 it('keeps the B continuation through pause, cancellation and queue replacement', async () => {
   const test = await setup()

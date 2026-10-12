@@ -480,6 +480,8 @@ async function restoreLibraryFocus(
 
 const {
   contextMenu,
+  contextSelectedTrackId,
+  contextSelectedAlbumKey,
   highlightedTrackId,
   contextMenuAnchor,
   contextMenuTrackTitle,
@@ -1040,7 +1042,7 @@ onBeforeUnmount(() => {
                   :now-playing="playback.state.currentTrackId === tracks[virtualRow.index].id"
                   :is-playing="playback.state.isPlaying"
                   :selected="highlightedTrackId === tracks[virtualRow.index].id"
-                  :context-selected="contextMenu?.trackId === tracks[virtualRow.index].id"
+                  :context-selected="contextSelectedTrackId === tracks[virtualRow.index].id"
                   :focused="keyboardFocusTrackId === tracks[virtualRow.index].id"
                   :artwork-url="getArtworkUrl(tracks[virtualRow.index].artworkCacheKey)"
                   :style="{
@@ -1083,7 +1085,10 @@ onBeforeUnmount(() => {
                     :now-playing-track-id="playback.state.currentTrackId"
                     :is-playing="playback.state.isPlaying"
                     :selected-track-id="highlightedTrackId"
-                    :context-selected-track-id="contextMenu?.trackId ?? null"
+                    :context-selected-track-id="contextSelectedTrackId"
+                    :artwork-context-selected="
+                      contextSelectedAlbumKey === albumGroups[virtualGroup.index].key
+                    "
                     :focused-track-id="keyboardFocusTrackId"
                     :style="{
                       height: `${virtualGroup.size}px`,
@@ -1165,3 +1170,11 @@ onBeforeUnmount(() => {
     />
   </section>
 </template>
+
+<style scoped>
+.library-cover-virtual-window {
+  box-sizing: border-box;
+  /* 为封面外描边预留 2px 线宽 + 3px 偏移，避免被滚动容器裁切。 */
+  padding-inline: 5px;
+}
+</style>

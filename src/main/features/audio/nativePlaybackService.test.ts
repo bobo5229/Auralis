@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process'
 import type { NativePlaybackEvent } from '@shared/ipc/contracts'
 import { NativePlaybackService } from './nativePlaybackService'
 import { PlaybackFileCoordinator } from './playbackFileCoordinator'
-import { DigitalSilenceAnalyzer, type DigitalBoundary } from './digitalSilence'
+import { DigitalSilenceAnalyzer, DigitalZeroCounter, type DigitalBoundary } from './digitalSilence'
 
 const mpvPath = resolve('resources/audio/mpv.exe')
 const ffmpegPath = resolve('resources/audio/ffmpeg.exe')
@@ -160,6 +160,125 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
       expect(warnings).toEqual([])
     },
     15000,
+  )
+  it.each([
+    { name: 'offset ALAC', codec: 'alac', extension: 'm4a', offset: 0.5 },
+    { name: 'MP3 decoder warmup', codec: 'libmp3lame', extension: 'mp3', offset: 0 },
+  ])(
+    'matches every independently decoded PCM sample for $name',
+    async ({ codec, extension, offset }) => {
+      const paths: string[] = []
+      const decoded: Buffer[] = []
+      const counts: DigitalZeroCounter[] = []
+      for (const id of [1, 2]) {
+        const raw = join(directory, `${codec}-${id}.f32`)
+        const path = join(directory, `${codec}-${id}.${extension}`)
+        const data = Buffer.alloc(48000 * 4 * 8)
+        for (let frame = 0; frame < 48000 * 4; frame++) {
+          const silent = id === 1 ? frame >= 48000 * 4 - 1920 : frame < 1920
+          const sample = silent ? 0 : Math.sin(frame * 0.2) * 0.2
+          data.writeFloatLE(sample, frame * 8)
+          data.writeFloatLE(sample, frame * 8 + 4)
+        }
+        await writeFile(raw, data)
+        execFileSync(
+          ffmpegPath,
+          [
+            '-v',
+            'error',
+            '-f',
+            'f32le',
+            '-ar',
+            '48000',
+            '-ac',
+            '2',
+            '-i',
+            raw,
+            '-c:a',
+            codec,
+            ...(codec === 'libmp3lame' ? ['-b:a', '320k'] : []),
+            '-output_ts_offset',
+            String(offset),
+            '-metadata',
+            'album=Regression',
+            '-metadata',
+            'artist=Regression',
+            '-metadata',
+            'disc=1',
+            '-metadata',
+            `track=${id}`,
+            path,
+          ],
+          { windowsHide: true },
+        )
+        const single = join(directory, `${codec}-${id}.pcm`)
+        execFileSync(
+          mpvPath,
+          [
+            '--no-config',
+            '--load-scripts=no',
+            '--terminal=no',
+            '--video=no',
+            '--ao=pcm',
+            '--ao-pcm-waveheader=no',
+            `--ao-pcm-file=${single}`,
+            '--audio-format=float',
+            '--replaygain=no',
+            '--volume=100',
+            path,
+          ],
+          { windowsHide: true, timeout: 10000 },
+        )
+        const pcm = await readFile(single)
+        const counter = new DigitalZeroCounter(2)
+        counter.push(pcm)
+        counter.finish()
+        paths.push(path)
+        decoded.push(pcm)
+        counts.push(counter)
+      }
+      expect(counts[0].trailing).toBeGreaterThan(0)
+      expect(counts[1].leading).toBeGreaterThan(0)
+      expect(counts[0].trailing + counts[1].leading).toBeLessThanOrEqual(4800)
+      const joined = join(directory, `${codec}-joined.pcm`)
+      const service = new NativePlaybackService({
+        mpvPath,
+        ffmpegPath,
+        mpvArgs: ['--ao=pcm', '--ao-pcm-waveheader=no', `--ao-pcm-file=${joined}`, '--pause=yes'],
+        resolveTrack: async (id) => paths[id - 1],
+        emit: (event) => events.push(event),
+        onBoundaryStatus: ({ status }) => boundaryStatuses.push(status),
+        warn: (error) => warnings.push(error),
+      })
+      services.push(service)
+      await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
+      await service.command({ action: 'next', session: 1, trackId: 2, trimDigitalSilence: true })
+      await waitFor(() => boundaryStatuses.includes('applied'))
+      await service.command({ action: 'resume', session: 1 })
+      await waitFor(() => events.some((event) => event.kind === 'ended'))
+      service.dispose()
+      await delay(100)
+      const expected = Buffer.concat([
+        decoded[0].subarray(0, (counts[0].frames - counts[0].trailing) * 8),
+        decoded[1].subarray(counts[1].leading * 8),
+      ])
+      const actual = await readFile(joined)
+      let differentFrames = 0
+      for (let frame = 0; frame < Math.min(actual.length, expected.length) / 8; frame++)
+        if (
+          !actual
+            .subarray(frame * 8, frame * 8 + 8)
+            .equals(expected.subarray(frame * 8, frame * 8 + 8))
+        )
+          differentFrames++
+      expect({ frames: actual.length / 8, differentFrames }).toEqual({
+        frames: expected.length / 8,
+        differentFrames: 0,
+      })
+      expect(actual.equals(expected)).toBe(true)
+      expect(warnings).toEqual([])
+    },
+    20000,
   )
   it.each(['late', 'failed'] as const)(
     'keeps all original PCM when analysis is %s',

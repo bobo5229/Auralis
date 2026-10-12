@@ -3,8 +3,6 @@ import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import { extname } from 'node:path'
 import { stat } from 'node:fs/promises'
 import { parseAudioMetadata } from '../metadata/parseAudioMetadata'
-import { verifyWrittenMetadata } from '../metadata/verifyWrittenMetadata'
-import { verifyPreservedAudioTags } from '../metadata/verifyPreservedAudioTags'
 import { prepareAudioTagWrite, type PreparedAudioTagWrite } from '../metadata/audioTagWriteService'
 import { metadataSaveFailureReason } from '../metadata/metadataSaveError'
 import { normalizeAudioFilePath } from './playbackFileCoordinator'
@@ -94,6 +92,7 @@ function createTagPlaybackWindow(): TagPlaybackWindow {
 /** Owns the write window and recovery audio, including audio retained after a save ends. */
 export class BufferedTagPlayback {
   private tagAudioEligible = false
+  private tagEligibilityGeneration = 0
   private tagWindow: TagPlaybackWindow | null = null
   private tagFallback: TagAudioSnapshot | null = null
   private frozenTagTime: number | null = null
@@ -156,6 +155,7 @@ export class BufferedTagPlayback {
   }
 
   reset(): void {
+    this.tagEligibilityGeneration += 1
     this.tagAudioEligible = false
     this.frozenTagTime = null
     this.tagDecodeOffset = 0
@@ -225,6 +225,8 @@ export class BufferedTagPlayback {
   }
 
   onLogicalBoundary(): void {
+    this.tagEligibilityGeneration += 1
+    this.tagAudioEligible = false
     this.tagFallback = null
     this.tagDecodeOffset = 0
     void this.cleanupTagFiles()
@@ -247,8 +249,21 @@ export class BufferedTagPlayback {
 
   async refreshEligibility(path: string, session: number, client: MpvClient): Promise<boolean> {
     if (this.options.coordinator?.reserveWriteIntent) {
+      const generation = ++this.tagEligibilityGeneration
+      const expectedPath = normalizeAudioFilePath(path)
+      this.tagAudioEligible = false
+      const beforeRead = this.read()
+      if (!beforeRead.loaded || normalizeAudioFilePath(beforeRead.path) !== expectedPath)
+        return false
       const tags = await parseAudioMetadata(path, { skipCovers: true }).catch(() => null)
-      if (!this.runtime.isCurrent(session, client)) return false
+      const current = this.read()
+      if (
+        !this.runtime.isCurrent(session, client) ||
+        generation !== this.tagEligibilityGeneration ||
+        !current.loaded ||
+        normalizeAudioFilePath(current.path) !== expectedPath
+      )
+        return false
       this.tagAudioEligible =
         !!tags?.format.sampleRate &&
         tags.format.sampleRate <= 192000 &&
@@ -405,8 +420,6 @@ export class BufferedTagPlayback {
       const actual = await stat(filePath)
       if (original.size !== actual.size || original.mtimeMs !== actual.mtimeMs)
         throw new Error('Audio changed while preparing the tag playback snapshot')
-      verifyWrittenMetadata(metadata, await parseAudioMetadata(prepared.stagingPath))
-      await verifyPreservedAudioTags(filePath, prepared.stagingPath)
       await prepared.assertUnchanged()
       const replacementOrigin = await readMpvTimestampOrigin(
         this.options.mpvPath,

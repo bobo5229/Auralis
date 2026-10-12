@@ -19,6 +19,8 @@ export interface PlaybackCoordinator {
   markReadLeaseCurrent?: (leaseId: string) => void
   reserveWriteIntent?: (filePath: string) => string | null
   promoteWriteIntent?: (leaseId: string) => void
+  reserveFileReplacement?: (filePath: string) => string | null
+  promoteFileReplacement?: (leaseId: string) => void
   releaseWriteLease?: (leaseId: string) => void
   refreshPlaybackCapability?: (filePath: string) => void
 }

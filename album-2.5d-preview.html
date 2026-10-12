@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2.5D 专辑效果 - 固定参考角度</title>
+  <style>
+    :root {
+      /* 长方形专辑实体尺寸（与参考图一致） */
+      --album-w: 420px;
+      --album-h: 330px;
+      --album-depth: 26px;      /* 侧脊厚度 */
+
+      /* 
+        固定目标透视与倾斜姿态：
+        严格锁定用户参考图中的俯视与左内右外角度
+      */
+      --camera-y: 18%;
+      --perspective: 1500px;
+      --rot-x: -12.5deg;        /* 俯视角：顶面清晰受光 */
+      --rot-y: -34.5deg;        /* 左边缘朝内深入，右边缘朝外突出 */
+      --rot-z: 1.2deg;          /* 平衡校准 */
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      /* 背景精准匹配参考图的质感深蓝黑 */
+      background: radial-gradient(circle at 50% 40%, #1e2430 0%, #13161e 100%);
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      overflow: hidden;
+      perspective: var(--perspective);
+      perspective-origin: 50% var(--camera-y);
+    }
+
+    /* 顶部状态标注 */
+    .header-bar {
+      position: fixed;
+      top: 22px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    .badge {
+      padding: 4px 12px;
+      border-radius: 6px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #38bdf8;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .desc {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+
+    /* 3D 舞台：角度完全固定 */
+    .stage {
+      position: relative;
+      transform-style: preserve-3d;
+      margin-top: -30px;
+      user-select: none;
+    }
+
+    /* 
+      地表深长漫反射投影
+      精准契合参考图中向左后方拉伸的长条柔和暗影
+    */
+    .floor-shadow {
+      position: absolute;
+      width: calc(var(--album-w) * 1.35);
+      height: 120px;
+      bottom: -80px;
+      left: -28%;
+      background: radial-gradient(
+        ellipse at 52% 45%,
+        rgba(0, 0, 0, 0.88) 0%,
+        rgba(6, 8, 12, 0.72) 35%,
+        rgba(10, 14, 20, 0.35) 60%,
+        transparent 80%
+      );
+      transform: rotateX(86deg) rotateZ(-16deg) scale(1.15);
+      filter: blur(20px);
+      pointer-events: none;
+    }
+
+    /* 
+      专辑 3D 长方体实体
+      严格基于中心点六面闭合，角度永久锁定
+    */
+    .album {
+      position: relative;
+      width: var(--album-w);
+      height: var(--album-h);
+      transform-style: preserve-3d;
+      transform: rotateX(var(--rot-x)) rotateY(var(--rot-y)) rotateZ(var(--rot-z));
+      /* 不加任何过渡晃动，保持稳固锁定 */
+    }
+
+    /* 基础立面规则 */
+    .face {
+      position: absolute;
+      backface-visibility: hidden;
+      outline: 1px solid rgba(0, 0, 0, 0.08); /* 消除子像素抗锯齿微缝隙 */
+    }
+
+    /* 1. 正面（封面）: Z = +D/2 */
+    .face-front {
+      width: var(--album-w);
+      height: var(--album-h);
+      top: 0;
+      left: 0;
+      transform: translateZ(calc(var(--album-depth) / 2));
+      border-radius: 2px 0 0 2px;
+      overflow: hidden;
+      background-color: #f1f3f5;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+    }
+
+    .cover-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* 封面亚光覆膜反光 */
+    .face-front::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        115deg,
+        rgba(255, 255, 255, 0.22) 0%,
+        rgba(255, 255, 255, 0.04) 30%,
+        transparent 65%
+      );
+      pointer-events: none;
+    }
+
+    /* 2. 背面: Z = -D/2 */
+    .face-back {
+      width: var(--album-w);
+      height: var(--album-h);
+      top: 0;
+      left: 0;
+      transform: translateZ(calc(var(--album-depth) / -2)) rotateY(180deg);
+      background: #151820;
+      border-radius: 2px;
+    }
+
+    /* 3. 右侧脊（面向观察者）: X = W, 跨度 Z [-D/2, +D/2] */
+    .face-right {
+      width: var(--album-depth);
+      height: var(--album-h);
+      top: 0;
+      left: calc(var(--album-w) - (var(--album-depth) / 2));
+      transform: rotateY(90deg);
+      /* 精准还原参考图中的深黑蓝质感 */
+      background: linear-gradient(
+        to right,
+        #12151c 0%,
+        #1b202c 25%,
+        #242a3a 50%,
+        #1a1f2a 85%,
+        #12151c 100%
+      );
+      box-shadow: inset -1px 0 2px rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border-radius: 0 2px 2px 0;
+    }
+
+    /* 侧脊书脊凹槽压印线 */
+    .face-right::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 12%;
+      width: 1px;
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow: 1px 0 2px rgba(0, 0, 0, 0.6);
+    }
+
+    /* 
+      侧脊文字：严格按照 “专辑 - 专辑艺术家”
+      纯大写、高 tracking 间距、从上往下垂直排版
+    */
+    .spine-text {
+      position: absolute;
+      white-space: nowrap;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 3.5px;
+      color: rgba(245, 248, 255, 0.92);
+      text-transform: uppercase;
+      transform: rotate(90deg);
+      transform-origin: center center;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+      user-select: none;
+    }
+
+    /* 4. 左侧面（朝内深处）: X = 0 */
+    .face-left {
+      width: var(--album-depth);
+      height: var(--album-h);
+      top: 0;
+      left: calc(var(--album-depth) / -2);
+      transform: rotateY(-90deg);
+      background: #0f1218;
+      box-shadow: inset 1px 0 3px rgba(0, 0, 0, 0.6);
+    }
+
+    /* 5. 顶侧面（俯视重点受光面，白色纸板厚度切面）: Y = 0 */
+    .face-top {
+      width: var(--album-w);
+      height: var(--album-depth);
+      left: 0;
+      top: calc(var(--album-depth) / -2);
+      transform: rotateX(90deg);
+      /* 与正面白色纸板自然过渡，受光浅灰色 */
+      background: linear-gradient(
+        to bottom,
+        #f8fafc 0%,
+        #e2e8f0 35%,
+        #cbd5e1 75%,
+        #94a3b8 100%
+      );
+      box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.6);
+      border-radius: 2px 2px 0 0;
+    }
+
+    /* 6. 底侧面（底部背光）: Y = H */
+    .face-bottom {
+      width: var(--album-w);
+      height: var(--album-depth);
+      left: 0;
+      top: calc(var(--album-h) - (var(--album-depth) / 2));
+      transform: rotateX(-90deg);
+      background: #0b0d12;
+    }
+
+    /* 
+      半透明参考图比对层（Overlay）
+      用于 100% 验证角度是否与目标图完美重合
+    */
+    .reference-overlay {
+      position: absolute;
+      inset: 0;
+      margin: auto;
+      width: 828px;
+      height: 801px;
+      pointer-events: none;
+      opacity: 0.55;
+      display: none;
+      z-index: 50;
+      mix-blend-mode: screen;
+    }
+
+    /* 底部操作与配置栏 */
+    .dock-panel {
+      position: fixed;
+      bottom: 24px;
+      background: rgba(18, 22, 31, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 12px 20px;
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      font-size: 13px;
+    }
+
+    .dock-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dock-group label {
+      font-size: 11px;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+
+    .dock-group input[type="text"] {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #f1f5f9;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+      width: 250px;
+    }
+
+    .dock-group input[type="text"]:focus {
+      border-color: #38bdf8;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #f1f5f9;
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .btn.active {
+      background: #0284c7;
+      border-color: #38bdf8;
+      color: #fff;
+    }
+
+    #file-input {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部状态栏 -->
+  <div class="header-bar">
+    <div class="badge">角度已锁定</div>
+    <div class="desc">俯视 · 左内右外 · 侧脊：THE ACT - THE DEVIL WEARS PRADA</div>
+  </div>
+
+  <!-- 参考原图半透明叠加比对（默认隐藏，可一键开启验证） -->
+  <img id="ref-overlay" class="reference-overlay" src="user-target-reference.png" alt="Target Overlay" />
+
+  <!-- 3D 舞台 -->
+  <div class="stage">
+    <!-- 地面深长阴影 -->
+    <div class="floor-shadow"></div>
+
+    <!-- 2.5D 专辑实体（角度完全固定锁定） -->
+    <div class="album" id="album">
+      <!-- 1. 正面封面 -->
+      <div class="face face-front">
+        <img
+          id="cover-img"
+          class="cover-img"
+          alt="Album Cover"
+          src="user-target-reference.png"
+        />
+      </div>
+
+      <!-- 2. 封底 -->
+      <div class="face face-back"></div>
+
+      <!-- 3. 右侧脊（朝外突出，显示“专辑 - 专辑艺术家”） -->
+      <div class="face face-right" id="face-right">
+        <div class="spine-text" id="spine-text">THE ACT - THE DEVIL WEARS PRADA</div>
+      </div>
+
+      <!-- 4. 左侧面（闭合） -->
+      <div class="face face-left"></div>
+
+      <!-- 5. 顶侧面（白色纸板切面受光） -->
+      <div class="face face-top"></div>
+
+      <!-- 6. 底侧面（闭合） -->
+      <div class="face face-bottom"></div>
+    </div>
+  </div>
+
+  <!-- 底部功能栏 -->
+  <div class="dock-panel">
+    <!-- 侧脊信息编辑 -->
+    <div class="dock-group">
+      <label>侧脊文字</label>
+      <input
+        type="text"
+        id="input-spine"
+        value="THE ACT - THE DEVIL WEARS PRADA"
+        placeholder="专辑 - 专辑艺术家"
+        oninput="handleSpineInput()"
+      />
+    </div>
+
+    <!-- 封面切换 -->
+    <div class="dock-group">
+      <label>封面</label>
+      <button class="btn" onclick="document.getElementById('file-input').click()">上传新图片</button>
+      <input type="file" id="file-input" accept="image/*" onchange="handleFileUpload(event)" />
+    </div>
+
+    <!-- 参考图比对验证开关 -->
+    <div class="dock-group">
+      <button class="btn" id="btn-overlay" onclick="toggleOverlay()">开启原图重合比对</button>
+    </div>
+  </div>
+
+  <script>
+    const spineEl = document.getElementById("spine-text");
+    const spineInput = document.getElementById("input-spine");
+    const coverImg = document.getElementById("cover-img");
+    const refOverlay = document.getElementById("ref-overlay");
+    const btnOverlay = document.getElementById("btn-overlay");
+
+    // 实时同步侧脊文字
+    function handleSpineInput() {
+      const val = spineInput.value.trim();
+      spineEl.textContent = val || "ALBUM - ARTIST";
+    }
+
+    // 允许用户上传其他测试图片
+    function handleFileUpload(e) {
+      const file = e.target.files[0];
+      if (file) {
+        coverImg.src = URL.createObjectURL(file);
+      }
+    }
+
+    // 切换原图叠层比对模式
+    let overlayActive = false;
+    function toggleOverlay() {
+      overlayActive = !overlayActive;
+      refOverlay.style.display = overlayActive ? 'block' : 'none';
+      btnOverlay.classList.toggle('active', overlayActive);
+      btnOverlay.textContent = overlayActive ? '关闭原图比对' : '开启原图重合比对';
+    }
+  </script>
+</body>
+</html>

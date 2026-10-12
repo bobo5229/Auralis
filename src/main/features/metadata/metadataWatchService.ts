@@ -65,6 +65,7 @@ export class MetadataWatchService {
       sendToRenderer,
       {
         isStopped: () => this.stopped,
+        isPathBusy: (filePath) => this.metadataRefreshService.isWritingFile?.(filePath) ?? false,
         isPaused: () => this.flushPaused,
         isPathActive: (filePath) => this.isCurrentPath(filePath),
         runOperation: (operation) => this.runOperation(operation),
@@ -247,6 +248,11 @@ export class MetadataWatchService {
     const incoming: string[] = []
 
     for (const filePath of filePaths) {
+      if (this.metadataRefreshService.isWritingFile?.(filePath)) {
+        this.pendingFilePaths.set(filePath, Date.now())
+        this.scheduleFlush()
+        continue
+      }
       if (this.isCurrentPath(filePath) && !this.importQueue.deferIfInFlight(filePath)) {
         incoming.push(filePath)
       }
@@ -272,6 +278,11 @@ export class MetadataWatchService {
     const transientErrorPaths: string[] = []
 
     for (let i = 0; i < incoming.length; i++) {
+      if (this.metadataRefreshService.isWritingFile?.(incoming[i])) {
+        this.pendingFilePaths.set(incoming[i], Date.now())
+        this.scheduleFlush()
+        continue
+      }
       const result = statResults[i]
 
       if (result.status === 'fulfilled' && result.value.isFile()) {

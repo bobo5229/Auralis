@@ -24,6 +24,7 @@ const props = withDefaults(
     isPlaying?: boolean
     selectedTrackId?: number | null
     contextSelectedTrackId?: number | null
+    artworkContextSelected?: boolean
     focusedTrackId?: number | null
     viewportHeight?: number
     scrollElement?: HTMLElement | null
@@ -35,6 +36,7 @@ const props = withDefaults(
     isPlaying: false,
     selectedTrackId: null,
     contextSelectedTrackId: null,
+    artworkContextSelected: false,
     focusedTrackId: null,
     viewportHeight: 0,
     scrollElement: null,
@@ -111,6 +113,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
     <div class="album-cover-aside" :class="{ 'album-cover-aside--sticky': canStickAside }">
       <div
         class="album-cover-artwork select-none"
+        :class="{ 'album-cover-artwork--context-selected': artworkContextSelected }"
         tabindex="0"
         role="button"
         aria-haspopup="menu"
@@ -214,7 +217,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
   cursor: default;
 }
 
-.album-cover-artwork:focus-visible {
+.album-cover-artwork:is(:focus-visible, .album-cover-artwork--context-selected) {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: 3px;
 }

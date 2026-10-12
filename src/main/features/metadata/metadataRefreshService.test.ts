@@ -82,6 +82,64 @@ beforeEach(() => {
 })
 
 describe('metadata result acceptance', () => {
+  it('reconciles a published file after the database commit fails and notifies from accepted disk data', async () => {
+    const { service, repo, send } = setup()
+    repo.getJobById.mockReturnValue({ scope: 'file-change' })
+    repo.commitVerifiedUserEdit.mockImplementationOnce(() => {
+      throw new Error('SQL failed')
+    })
+    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
+    await expect(
+      service.updateTrackMetadata({
+        trackId: 1,
+        title: 'Published',
+        artistDisplay: null,
+        albumTitle: null,
+        albumArtistDisplay: null,
+        genreDisplay: null,
+        year: null,
+        releaseDate: null,
+      }),
+    ).rejects.toThrow('SQL failed')
+    expect(service.isWritingFile('isolated.flac')).toBe(false)
+    expect(send.mock.calls.some(([channel]) => channel === 'library:changed')).toBe(false)
+    expect(workers).toHaveLength(1)
+    const accepted = { ...payload, generation: 1 }
+    workers[0].emit('message', { type: 'result', payload: accepted })
+    workers[0].emit('message', { type: 'complete' })
+    await vi.waitFor(() => expect(service.hasActiveJob()).toBe(false))
+    expect(repo.updateTrackMetadata).toHaveBeenCalledWith(accepted)
+    expect(send).toHaveBeenCalledWith('library:changed', {
+      reason: 'file-change',
+      trackIds: [1],
+      filePaths: [],
+    })
+    await service.shutdown()
+  })
+
+  it('cancels deferred failed-save reconciliation after a successful retry', async () => {
+    const { service, repo } = setup()
+    service.refreshTrack(1)
+    const metadata = {
+      trackId: 1,
+      title: 'Retry',
+      artistDisplay: null,
+      albumTitle: null,
+      albumArtistDisplay: null,
+      genreDisplay: null,
+      year: null,
+      releaseDate: null,
+    }
+    vi.mocked(writeAudioTags).mockRejectedValueOnce(new Error('save failed'))
+    await expect(service.updateTrackMetadata(metadata)).rejects.toThrow('save failed')
+    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
+    expect(await service.updateTrackMetadata(metadata)).toEqual({ ok: true })
+    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
+    workers[0].emit('message', { type: 'complete' })
+    await vi.waitFor(() => expect(service.hasActiveJob()).toBe(false))
+    expect(workers).toHaveLength(1)
+    await service.shutdown()
+  })
   it('skips an unchanged canonical edit before acquiring a lease, suppressing watchers or mutating data', async () => {
     const coordinator = { tryAcquireWriteLease: vi.fn(), releaseWriteLease: vi.fn() }
     const { service, repo } = setup(coordinator)

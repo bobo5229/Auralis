@@ -137,6 +137,9 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   let navigationContextRevision = 0
   let pausedByUser = false
   let preparingPlan: PlaybackTransitionPlan | null = null
+  let gaplessRefreshInFlight: { trackId: number; generation: number } | null = null
+  let gaplessPreparedForTrackId: number | null = null
+  let audioBuffering = false
   // A backend can enter the submitted track before scheduleNext's IPC ACK.
   // Keep submitted candidates across cancellation until the current audio lifetime ends.
   const submittedPlans = new Map<
@@ -189,8 +192,20 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       effectivePlayTracker.updateDuration()
     },
     onPlayingChange: (isPlaying) => {
+      const recoveredFromBuffering = audioBuffering && isPlaying
       state.isPlaying = isPlaying && !pausedByUser
       effectivePlayTracker.setPlaying(state.isPlaying)
+      const snapshot = audioRuntime.getSnapshot()
+      if (
+        recoveredFromBuffering &&
+        !isDisposed &&
+        !pausedByUser &&
+        state.currentTrackId !== null &&
+        ['gapless', 'mpv'].includes(snapshot.kind) &&
+        snapshot.trackId === state.currentTrackId
+      ) {
+        void refreshGaplessNext(state.currentTrackId)
+      }
     },
     onEnded: (nextTrackId) => {
       effectivePlayTracker.end()
@@ -220,6 +235,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       effectivePlayTracker.endSeeking()
     },
     onBufferingChange: (buffering) => {
+      audioBuffering = buffering
       effectivePlayTracker.setBuffering(buffering)
     },
   }
@@ -263,6 +279,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   function commitCurrentTrack(track: PlaybackTrack, queue: PlaybackTrack[], duration = 0): void {
+    audioBuffering = false
     state.queue = queue
     state.currentIndex = queue.findIndex((t) => t.id === track.id)
     state.currentTrack = track
@@ -301,6 +318,8 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   function invalidateGaplessTransition(): void {
     transitionGeneration += 1
     preparingPlan = null
+    gaplessRefreshInFlight = null
+    gaplessPreparedForTrackId = null
     audioRuntime.cancelScheduledNext()
   }
 
@@ -344,8 +363,16 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       return
     }
 
+    if (
+      !previousPlan &&
+      (gaplessRefreshInFlight?.trackId === fromTrackId || gaplessPreparedForTrackId === fromTrackId)
+    )
+      return
+
     const generation = ++transitionGeneration
     preparingPlan = null
+    gaplessRefreshInFlight = { trackId: fromTrackId, generation }
+    gaplessPreparedForTrackId = null
     audioRuntime.cancelScheduledNext()
 
     try {
@@ -364,17 +391,21 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
         navigationRevision,
         navigationContextRevision,
       })
-      await audioRuntime.scheduleNext(plan.track.id, url.url, {
+      const scheduled = await audioRuntime.scheduleNext(plan.track.id, url.url, {
         decodeProbe: url.decodeProbe,
         trimBoundarySilence:
           skipDigitalSilenceEnabled.value &&
           (softTransitionEnabled.value || isSameAlbumBoundary(state.currentTrack, plan.track)),
         softTransition: softTransitionEnabled.value,
       })
+      if (scheduled && isCurrentGaplessPrefetch(generation, fromTrackId))
+        gaplessPreparedForTrackId = fromTrackId
       // Cancellation already happened when the generation changed. A late ACK
       // must never cancel the successor's freshly submitted next track.
     } catch {
       // Prefetch failure only disables the seamless hand-off.
+    } finally {
+      if (gaplessRefreshInFlight?.generation === generation) gaplessRefreshInFlight = null
     }
   }
 
@@ -391,6 +422,8 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       invalidatePlaybackRequest()
       transitionGeneration += 1
       preparingPlan = null
+      gaplessRefreshInFlight = null
+      gaplessPreparedForTrackId = null
       submittedPlans.clear()
       const plan =
         submitted.navigationRevision === navigationRevision
@@ -413,6 +446,9 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     }
     submittedPlans.clear()
     preparingPlan = null
+    transitionGeneration += 1
+    gaplessRefreshInFlight = null
+    gaplessPreparedForTrackId = null
     if (pausedByUser) return
     await advanceTrack('natural-ended')
   }
@@ -989,7 +1025,51 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     }
   }
 
+  const metadataRevisions = new Map<number, number>()
+  async function refreshPlaybackMetadata(trackIds: number[]): Promise<void> {
+    if (!deps.getTrackMetadata) return
+    const candidates = () => [
+      state.currentTrack,
+      ...state.queue,
+      preparingPlan?.track,
+      ...(preparingPlan?.queue ?? []),
+      ...[...submittedPlans.values()].flatMap(({ plan }) => [plan.track, ...plan.queue]),
+    ]
+    await Promise.all(
+      [...new Set(trackIds)]
+        .filter((id) => candidates().some((track) => track?.id === id))
+        .map(async (id) => {
+          const revision = (metadataRevisions.get(id) ?? 0) + 1
+          metadataRevisions.set(id, revision)
+          try {
+            const metadata = await deps.getTrackMetadata!(id)
+            if (isDisposed || metadataRevisions.get(id) !== revision || metadata?.trackId !== id)
+              return
+            // Mutate metadata only, including already submitted transition plans.
+            // Replacing a queue would cancel/rebuild the decoder's preloaded next item.
+            for (const track of candidates()) {
+              if (track?.id === id)
+                Object.assign(track, {
+                  title: metadata.title,
+                  artist: metadata.artistDisplay,
+                  album: metadata.albumTitle,
+                  albumArtist: metadata.albumArtistDisplay,
+                })
+            }
+          } catch (cause) {
+            deps.diagnostics.warn({
+              scope: 'playback.metadata',
+              message: 'Unable to refresh playback metadata',
+              cause,
+            })
+          }
+        }),
+    )
+  }
+
   const unsubscribeLibraryChanged = deps.onLibraryChanged((event) => {
+    if (event.reason === 'metadata-refresh' || event.reason === 'file-change')
+      void refreshPlaybackMetadata(event.trackIds)
     if (event.reason === 'play-stats-reset') effectivePlayTracker.discardPendingRecords()
     if (event.reason === 'track-missing') removeMissingTracksFromPlayback(event.trackIds)
     if (['track-added', 'track-restored', 'track-relocated'].includes(event.reason)) {

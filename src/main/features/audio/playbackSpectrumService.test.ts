@@ -113,6 +113,23 @@ function create() {
 }
 
 describe('timestamped playback spectrum using real FFmpeg', () => {
+  it('retains overlapping path suspensions until every matching save resumes', async () => {
+    const { service, send, leases } = create()
+    await send()
+    await vi.waitFor(() => expect(service.diagnostics.decoderStarts).toBe(1))
+    const resumeFirst = await service.suspendFileReaders(join(directory, '1.wav'))
+    const resumeOther = await service.suspendFileReaders(join(directory, '2.wav'))
+    const resumeAgain = await service.suspendFileReaders(join(directory, '1.wav'))
+    expect(leases.size).toBe(0)
+    resumeOther()
+    resumeFirst()
+    resumeFirst()
+    await send({ currentTime: 1 })
+    await delay(100)
+    expect(service.diagnostics.decoderStarts).toBe(1)
+    resumeAgain()
+    await vi.waitFor(() => expect(service.diagnostics.decoderStarts).toBe(2))
+  })
   it('does not lose phase-opposed stereo music when analyzing its frequency content', async () => {
     const { send, run } = create()
     await send({ trackId: 3, currentTime: 0.7 })

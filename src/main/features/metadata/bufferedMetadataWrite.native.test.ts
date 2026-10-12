@@ -106,7 +106,7 @@ describe('buffered file and database commit with real Electron, mpv and isolated
       ffmpeg,
       coordinator,
     )
-    metadata.setBufferedTagWriteHandler((...args) => player.writeMetadata(...args))
+    metadata.setPlaybackTagWriteHandler((...args) => player.writeMetadata(...args))
   })
   afterAll(async () => {
     await Promise.all([metadata?.shutdown(), player?.dispose()])

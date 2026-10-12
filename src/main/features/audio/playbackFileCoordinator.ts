@@ -38,7 +38,7 @@ interface FileAccessEntry {
 interface LeaseMetadata {
   leaseId: string
   normalizedPath: string
-  kind: 'read' | 'write' | 'intent'
+  kind: 'read' | 'write' | 'intent' | 'replacement-intent'
   sourceId: string
 }
 
@@ -50,6 +50,7 @@ export interface PlaybackFileCoordinatorDependencies {
 
 export class PlaybackFileCoordinator {
   private bufferedWriteCapability: ((filePath: string) => boolean) | null = null
+  private fileReplacementCapability: ((filePath: string) => boolean) | null = null
   private readonly entries = new Map<string, FileAccessEntry>()
   private readonly leases = new Map<string, LeaseMetadata>()
   private nextLeaseSequence = 0
@@ -59,6 +60,52 @@ export class PlaybackFileCoordinator {
 
   setBufferedWriteCapability(capability: (filePath: string) => boolean): void {
     this.bufferedWriteCapability = capability
+  }
+
+  setFileReplacementCapability(capability: (filePath: string) => boolean): void {
+    this.fileReplacementCapability = capability
+  }
+
+  private canReplace(entry: FileAccessEntry): boolean {
+    return (
+      !!this.fileReplacementCapability?.([...entry.filePaths][0]) &&
+      [...entry.readers].every((id) =>
+        ['mpv-current', 'mpv-next', 'spectrum-analysis'].includes(
+          this.leases.get(id)?.sourceId ?? '',
+        ),
+      )
+    )
+  }
+
+  /** Existing mpv handles keep their file version; all new opens wait for publication. */
+  reserveFileReplacement(filePath: string): string | null {
+    const entry = this.getOrCreateEntry(normalizeAudioFilePath(filePath), filePath)
+    if (entry.writer !== null || !this.canReplace(entry)) return null
+    const leaseId = `lease_replacement_${++this.nextLeaseSequence}`
+    entry.writer = leaseId
+    this.leases.set(leaseId, {
+      leaseId,
+      normalizedPath: entry.normalizedPath,
+      kind: 'replacement-intent',
+      sourceId: 'metadata-writer',
+    })
+    entry.version = ++this.stateVersion
+    this.broadcastStatusIfChanged(entry)
+    return leaseId
+  }
+
+  promoteFileReplacement(leaseId: string): void {
+    const lease = this.leases.get(leaseId)
+    const entry = lease && this.entries.get(lease.normalizedPath)
+    if (!lease || lease.kind !== 'replacement-intent' || !entry || entry.writer !== leaseId)
+      throw new Error('File replacement intent expired')
+    if (
+      [...entry.readers].some(
+        (id) => !['mpv-current', 'mpv-next'].includes(this.leases.get(id)?.sourceId ?? ''),
+      )
+    )
+      throw new Error('Non-mpv audio readers have not released the file')
+    lease.kind = 'write'
   }
 
   refreshPlaybackCapability(filePath: string): void {
@@ -133,7 +180,7 @@ export class PlaybackFileCoordinator {
   private computeStatus(entry: FileAccessEntry): TrackEditStatus {
     if (entry.writer !== null) return 'write-in-progress'
     if (entry.readers.size > 0) {
-      if (this.canBuffer(entry)) return 'playback-editable'
+      if (this.canBuffer(entry) || this.canReplace(entry)) return 'playback-editable'
       const isPreload = [...entry.readers].every(
         (id) => this.leases.get(id)?.sourceId === 'mpv-next',
       )
@@ -265,7 +312,7 @@ export class PlaybackFileCoordinator {
 
   releaseWriteLease(leaseId: string): void {
     const lease = this.leases.get(leaseId)
-    if (!lease || (lease.kind !== 'write' && lease.kind !== 'intent')) return
+    if (!lease || !['write', 'intent', 'replacement-intent'].includes(lease.kind)) return
     this.leases.delete(leaseId)
 
     const entry = this.entries.get(lease.normalizedPath)

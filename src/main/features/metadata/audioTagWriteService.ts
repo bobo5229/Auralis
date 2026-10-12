@@ -11,6 +11,7 @@ import { verifyWrittenMetadata } from './verifyWrittenMetadata'
 import { verifyPreservedAudioTags } from './verifyPreservedAudioTags'
 import { writeM4aStagingTags } from './m4aTagWriter'
 import { MetadataSaveError } from './metadataSaveError'
+import { hasM4aPublicationHelper, publishWindowsM4a } from './windowsM4aPublication'
 
 const FFMPEG_NOT_FOUND_MESSAGE =
   'Unable to write audio tags because the bundled FFmpeg runtime is unavailable.'
@@ -159,7 +160,7 @@ async function remuxWithCover(
 async function replaceOriginalFile(
   originalPath: string,
   stagingPath: string,
-  expected: { size: number; mtimeMs: number },
+  expected: { size: number; mtimeMs: number; ino: number; dev: number },
   beforeFirstRename?: () => void,
 ): Promise<void> {
   const operationId = randomUUID()
@@ -167,7 +168,12 @@ async function replaceOriginalFile(
 
   try {
     const beforeReplace = await stat(originalPath)
-    if (beforeReplace.size !== expected.size || beforeReplace.mtimeMs !== expected.mtimeMs) {
+    if (
+      beforeReplace.size !== expected.size ||
+      beforeReplace.mtimeMs !== expected.mtimeMs ||
+      beforeReplace.ino !== expected.ino ||
+      beforeReplace.dev !== expected.dev
+    ) {
       throw new MetadataSaveError(
         'file-changed',
         'Audio file changed during tag writing; original was not replaced',
@@ -178,7 +184,12 @@ async function replaceOriginalFile(
 
     try {
       const backup = await stat(backupPath)
-      if (backup.size !== expected.size || backup.mtimeMs !== expected.mtimeMs) {
+      if (
+        backup.size !== expected.size ||
+        backup.mtimeMs !== expected.mtimeMs ||
+        backup.ino !== expected.ino ||
+        backup.dev !== expected.dev
+      ) {
         throw new MetadataSaveError(
           'file-changed',
           'Audio file changed before tag replacement; restoring original',
@@ -199,7 +210,7 @@ async function replaceOriginalFile(
 export interface PreparedAudioTagWrite {
   stagingPath: string
   assertUnchanged: () => Promise<void>
-  commit: (beforeFirstRename?: () => void) => Promise<void>
+  commit: (beforeFirstRename?: () => void, preserveReaders?: boolean) => Promise<void>
   dispose: () => Promise<void>
 }
 
@@ -211,9 +222,15 @@ export async function prepareAudioTagWrite(
 ): Promise<PreparedAudioTagWrite> {
   metadata = normalizeEditableMetadata(metadata)
   const originalFingerprint = await stat(filePath)
+  const originalIdentity = await stat(filePath, { bigint: true })
   const assertUnchanged = async () => {
     const actual = await stat(filePath)
-    if (actual.size !== originalFingerprint.size || actual.mtimeMs !== originalFingerprint.mtimeMs)
+    if (
+      actual.size !== originalFingerprint.size ||
+      actual.mtimeMs !== originalFingerprint.mtimeMs ||
+      actual.ino !== originalFingerprint.ino ||
+      actual.dev !== originalFingerprint.dev
+    )
       throw new MetadataSaveError(
         'file-changed',
         'Audio file changed during tag writing; original was not replaced',
@@ -225,8 +242,8 @@ export async function prepareAudioTagWrite(
     throw new Error(`Unable to determine the audio format for ${basename(filePath)}.`)
   }
 
-  const outputPath = join(tmpdir(), `auralis-tag-edit-${randomUUID()}${extension}`)
-  const coveredPath = join(tmpdir(), `auralis-tag-cover-${randomUUID()}${extension}`)
+  let outputPath: string | null = null
+  let coveredPath: string | null = null
   let coverPath: string | null = null
   const stagingPath = `${filePath}.auralis-replacement-${randomUUID()}`
   let prepared = false
@@ -236,6 +253,8 @@ export async function prepareAudioTagWrite(
       await copyFile(filePath, stagingPath)
       await writeM4aStagingTags(stagingPath, metadata)
     } else {
+      outputPath = join(tmpdir(), `auralis-tag-edit-${randomUUID()}${extension}`)
+      coveredPath = join(tmpdir(), `auralis-tag-cover-${randomUUID()}${extension}`)
       const picture = await readEmbeddedPicture(filePath)
       await remuxWithTags(filePath, outputPath, metadata, ffmpegPath)
 
@@ -276,16 +295,26 @@ export async function prepareAudioTagWrite(
     return {
       stagingPath,
       assertUnchanged,
-      commit: async (beforeFirstRename) => {
+      commit: async (beforeFirstRename, preserveReaders = false) => {
         if (committed) throw new Error('Tag write already committed')
-        await replaceOriginalFile(filePath, stagingPath, originalFingerprint, beforeFirstRename)
+        if (
+          preserveReaders &&
+          (extension.toLowerCase() !== '.m4a' || !hasM4aPublicationHelper(ffmpegPath))
+        )
+          throw new MetadataSaveError('save-failed', 'Safe M4A publication runtime is unavailable')
+        if (extension.toLowerCase() === '.m4a' && hasM4aPublicationHelper(ffmpegPath)) {
+          await assertUnchanged()
+          beforeFirstRename?.()
+          await publishWindowsM4a(filePath, stagingPath, originalIdentity, ffmpegPath)
+        } else
+          await replaceOriginalFile(filePath, stagingPath, originalFingerprint, beforeFirstRename)
         committed = true
       },
       dispose: () => rm(stagingPath, { force: true }),
     }
   } finally {
-    await rm(outputPath, { force: true })
-    await rm(coveredPath, { force: true })
+    if (outputPath) await rm(outputPath, { force: true })
+    if (coveredPath) await rm(coveredPath, { force: true })
     if (coverPath) {
       await rm(coverPath, { force: true })
     }

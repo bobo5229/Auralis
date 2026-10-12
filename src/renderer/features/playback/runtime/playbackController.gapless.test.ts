@@ -63,6 +63,16 @@ function setup() {
     dispose: vi.fn(),
   }
   const deps: PlaybackDependencies = {
+    getTrackMetadata: vi.fn(async (id) => ({
+      trackId: id,
+      title: `Edited ${id}`,
+      artistDisplay: 'New artist',
+      albumTitle: 'New album',
+      albumArtistDisplay: 'New album artist',
+      genreDisplay: null,
+      year: null,
+      releaseDate: null,
+    })),
     getAudioUrl: vi.fn(async (trackId: number) => ({ url: `audio://${trackId}` })),
     getRandomTrack: vi.fn(async () => tracks[1]),
     getAlbumTracks: vi.fn(async () => ({
@@ -97,6 +107,49 @@ function setup() {
       snapshot = { ...snapshot, trackId, currentTime: 0 }
       callbacks.onEnded(trackId)
     },
+    stateEvent(trackId: number, isPlaying: boolean, buffering: boolean) {
+      snapshot = {
+        ...snapshot,
+        kind: 'mpv',
+        trackId,
+        isPlaying,
+        hasCurrentData: !buffering,
+      }
+      callbacks.onDurationChange(snapshot.duration)
+      callbacks.onTimeUpdate({ currentTime: snapshot.currentTime, duration: snapshot.duration })
+      callbacks.onPlayingChange(isPlaying)
+      callbacks.onBufferingChange?.(buffering)
+    },
+    bufferedBoundary(trackId: number) {
+      snapshot = {
+        ...snapshot,
+        kind: 'mpv',
+        trackId,
+        currentTime: 0,
+        isPlaying: false,
+        hasCurrentData: false,
+      }
+      callbacks.onEnded(trackId)
+      callbacks.onDurationChange(snapshot.duration)
+      callbacks.onTimeUpdate({ currentTime: snapshot.currentTime, duration: snapshot.duration })
+      callbacks.onPlayingChange(false)
+      callbacks.onBufferingChange?.(true)
+    },
+    naturalEnded() {
+      snapshot = {
+        kind: 'idle',
+        trackId: null,
+        currentTime: snapshot.currentTime,
+        duration: snapshot.duration,
+        isPlaying: false,
+        hasCurrentData: false,
+      }
+      callbacks.onDurationChange(snapshot.duration)
+      callbacks.onTimeUpdate({ currentTime: snapshot.currentTime, duration: snapshot.duration })
+      callbacks.onPlayingChange(false)
+      callbacks.onBufferingChange?.(false)
+      callbacks.onEnded(null)
+    },
     changed(reason: string, trackIds: number[]) {
       changed({ reason, trackIds, filePaths: [] })
     },
@@ -107,6 +160,183 @@ function setup() {
 }
 
 describe('gapless navigation across asynchronous backend boundaries', () => {
+  it('refreshes current and preloaded metadata without rescheduling audio and adopts it at the boundary', async () => {
+    const test = setup()
+    await test.api.playTrackFromQueue(test.tracks, 1)
+    await vi.waitFor(() => expect(test.runtime.scheduleNext).toHaveBeenCalled())
+    const scheduled = test.runtime.scheduleNext.mock.calls.length
+    const cancelled = test.runtime.cancelScheduledNext.mock.calls.length
+    const starts = test.runtime.start.mock.calls.length
+    test.changed('metadata-refresh', [1, 2])
+    await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('Edited 1'))
+    expect(test.api.state.queue[1].title).toBe('Edited 2')
+    expect(test.runtime.start).toHaveBeenCalledTimes(starts)
+    expect(test.runtime.scheduleNext).toHaveBeenCalledTimes(scheduled)
+    expect(test.runtime.cancelScheduledNext).toHaveBeenCalledTimes(cancelled)
+    test.boundary(2)
+    await vi.waitFor(() => expect(test.api.state.currentTrackId).toBe(2))
+    expect(test.api.state.currentTrack?.title).toBe('Edited 2')
+    expect(test.api.state.currentTrack?.artist).toBe('New artist')
+    test.dispose()
+  })
+
+  it('ignores an older asynchronous metadata response', async () => {
+    const test = setup()
+    await test.api.playTrackFromQueue(test.tracks, 1)
+    const old =
+      deferred<Awaited<ReturnType<NonNullable<PlaybackDependencies['getTrackMetadata']>>>>()
+    vi.mocked(test.deps.getTrackMetadata!).mockImplementationOnce(() => old.promise)
+    test.changed('metadata-refresh', [1])
+    test.changed('metadata-refresh', [1])
+    await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('Edited 1'))
+    old.resolve({
+      trackId: 1,
+      title: 'Stale',
+      artistDisplay: null,
+      albumTitle: null,
+      albumArtistDisplay: null,
+      genreDisplay: null,
+      year: null,
+      releaseDate: null,
+    })
+    await Promise.resolve()
+    expect(test.api.state.currentTrack?.title).toBe('Edited 1')
+    test.dispose()
+  })
+  it('prepares once when startup buffering recovers before start resolves', async () => {
+    const test = setup()
+    const startCompletion = deferred<void>()
+    test.runtime.start.mockImplementationOnce(async (trackId) => {
+      test.stateEvent(trackId, false, true)
+      await startCompletion.promise
+    })
+    const playback = test.api.playTrackFromQueue(test.tracks, 1, { playbackMode: 'shuffle' })
+    try {
+      await vi.waitFor(() => expect(test.runtime.start).toHaveBeenCalledOnce())
+      expect(test.runtime.scheduleNext).not.toHaveBeenCalled()
+
+      // Match nativePlaybackRuntime.receive: update snapshot, then duration/time,
+      // playing, and finally buffering state.
+      test.stateEvent(1, true, false)
+      await vi.waitFor(() => expect(test.runtime.scheduleNext).toHaveBeenCalledOnce())
+      test.stateEvent(1, true, false)
+      await Promise.resolve()
+      expect(test.deps.getRandomTrack).toHaveBeenCalledOnce()
+      expect(test.runtime.scheduleNext).toHaveBeenCalledOnce()
+
+      startCompletion.resolve()
+      await playback
+      await Promise.resolve()
+      expect(test.runtime.scheduleNext).toHaveBeenCalledOnce()
+      expect(test.deps.getRandomTrack).toHaveBeenCalledOnce()
+    } finally {
+      startCompletion.resolve()
+      test.dispose()
+    }
+  })
+
+  it('prepares the following track once after a buffered boundary resumes', async () => {
+    const test = setup()
+    try {
+      await test.api.playTrackFromQueue(test.tracks.slice(0, 3), 1)
+      await vi.waitFor(() => expect(test.runtime.scheduleNext).toHaveBeenCalledOnce())
+
+      test.bufferedBoundary(2)
+      await vi.waitFor(() => expect(test.api.state.currentTrackId).toBe(2))
+      expect(test.runtime.scheduleNext).toHaveBeenCalledOnce()
+
+      test.stateEvent(2, true, false)
+      await vi.waitFor(() => expect(test.runtime.scheduleNext).toHaveBeenCalledTimes(2))
+      expect(test.nextId()).toBe(3)
+      test.stateEvent(2, true, false)
+      await Promise.resolve()
+      expect(test.runtime.scheduleNext).toHaveBeenCalledTimes(2)
+    } finally {
+      test.dispose()
+    }
+  })
+
+  it('does not restart a short track that ends immediately after its boundary', async () => {
+    const test = setup()
+    try {
+      await test.api.playTrackFromQueue(test.tracks.slice(0, 2), 1, {
+        playbackMode: 'sequential',
+      })
+      await vi.waitFor(() => expect(test.nextId()).toBe(2))
+
+      test.bufferedBoundary(2)
+      test.naturalEnded()
+      await vi.waitFor(() => expect(test.runtime.pause).toHaveBeenCalled())
+
+      expect(test.api.state.currentTrackId).toBe(2)
+      expect(test.runtime.start).toHaveBeenCalledOnce()
+    } finally {
+      test.dispose()
+    }
+  })
+
+  it('reprepares repeat-one after a buffered boundary with the same track ID', async () => {
+    const test = setup()
+    try {
+      await test.api.playTrackFromQueue([test.tracks[0]], 1, { playbackMode: 'repeat-one' })
+      await vi.waitFor(() => expect(test.runtime.scheduleNext).toHaveBeenCalledOnce())
+      expect(test.nextId()).toBe(1)
+
+      test.bufferedBoundary(1)
+      expect(test.runtime.scheduleNext).toHaveBeenCalledOnce()
+      test.stateEvent(1, true, false)
+      await vi.waitFor(() => expect(test.runtime.scheduleNext).toHaveBeenCalledTimes(2))
+      expect(test.nextId()).toBe(1)
+    } finally {
+      test.dispose()
+    }
+  })
+
+  it.each(['pause', 'gapless-off', 'dispose'] as const)(
+    'does not prefetch after a stale buffered recovery following %s',
+    async (action) => {
+      const test = setup()
+      try {
+        test.runtime.start.mockImplementationOnce(async (trackId) => {
+          test.stateEvent(trackId, false, true)
+        })
+        await test.api.playTrackFromQueue(test.tracks.slice(0, 3), 1)
+        expect(test.runtime.scheduleNext).not.toHaveBeenCalled()
+
+        if (action === 'pause') test.api.pause()
+        if (action === 'gapless-off') test.api.setGaplessPlaybackEnabled(false)
+        if (action === 'dispose') test.dispose()
+        const scheduled = test.runtime.scheduleNext.mock.calls.length
+        test.stateEvent(1, true, false)
+        await Promise.resolve()
+        expect(test.runtime.scheduleNext).toHaveBeenCalledTimes(scheduled)
+      } finally {
+        test.dispose()
+      }
+    },
+  )
+
+  it('does not apply an old buffering recovery to a manually selected track', async () => {
+    const test = setup()
+    try {
+      test.runtime.start.mockImplementationOnce(async (trackId) => {
+        test.stateEvent(trackId, false, true)
+      })
+      await test.api.playTrackFromQueue(test.tracks.slice(0, 2), 1)
+      expect(test.runtime.scheduleNext).not.toHaveBeenCalled()
+
+      await test.api.playTrackFromQueue(test.tracks.slice(2), 3)
+      await vi.waitFor(() => expect(test.runtime.scheduleNext).toHaveBeenCalledOnce())
+      expect(test.nextId()).toBe(4)
+      test.stateEvent(3, true, false)
+      await Promise.resolve()
+      expect(test.runtime.scheduleNext).toHaveBeenCalledOnce()
+      expect(test.nextId()).toBe(4)
+    } finally {
+      test.dispose()
+    }
+  })
+
   it('consumes inserted priority once when boundary arrives before its ACK and restores history', async () => {
     const test = setup()
     const acknowledgement = deferred<boolean>()

@@ -779,7 +779,6 @@
         "checking": "Checking editing status…",
         "playbackInUse": "This file is in use by the player. Switch to another track before editing metadata.",
         "preloadInUse": "This track is preloaded. Metadata cannot be edited right now.",
-        "playbackEditable": "You can save metadata while the music continues playing.",
         "queryFailed": "Could not check editing status. Try again.",
         "loading": "Loading track information…",
         "retry": "Try again"

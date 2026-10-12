@@ -42,7 +42,9 @@ it('protects a preload until playlist-clear is acknowledged', async () => {
   const lease = await coordinator.acquireReadLease(path, 'mpv-next')
   state.runtime.holdNextLease(lease.leaseId)
   const cleared = deferred()
-  const pending = state.scheduler.cancelNext({ command: () => cleared.promise } as MpvClient)
+  const client = { command: () => cleared.promise, close: async () => {} } as MpvClient
+  state.runtime.client = client
+  const pending = state.scheduler.cancelNext(client)
   expect(coordinator.tryAcquireWriteLease(path)).toEqual({ ok: false, reason: 'playback-in-use' })
   cleared.resolve()
   await pending
@@ -55,7 +57,9 @@ it('keeps the lease of an item entering playback while cancellation awaits', asy
   const lease = await coordinator.acquireReadLease(path, 'mpv-next')
   state.runtime.holdNextLease(lease.leaseId)
   const cleared = deferred()
-  const pending = state.scheduler.cancelNext({ command: () => cleared.promise } as MpvClient)
+  const client = { command: () => cleared.promise, close: async () => {} } as MpvClient
+  state.runtime.client = client
+  const pending = state.scheduler.cancelNext(client)
   state.scheduler.enteringNext = { id: 1, path }
   cleared.resolve()
   await pending

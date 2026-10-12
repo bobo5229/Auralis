@@ -9,6 +9,7 @@ import type { SpectrumSource } from './playbackSpectrumService'
 import { BufferedTagPlayback } from './bufferedTagPlayback'
 import { NativeNextTrackScheduler } from './nativeNextTrackScheduler'
 import { NativePlaybackSession } from './nativePlaybackSession'
+import { canReplacePlayingM4a, replacePlayingM4a } from './m4aFileReplacement'
 import type { LogicalPlaybackView, NativePlaybackOptions } from './nativePlaybackTypes'
 
 export type { PlaybackCoordinator } from './nativePlaybackTypes'
@@ -25,6 +26,7 @@ export class NativePlaybackService {
   private path = ''
   private paused = false
   private buffering = false
+  private pendingEnd: { session: number; client: MpvClient } | null = null
   private snapshot: NativePlaybackEvent = {
     session: 0,
     kind: 'state',
@@ -63,11 +65,17 @@ export class NativePlaybackService {
       },
       (error) => this.failure(error),
     )
-    this.scheduler = new NativeNextTrackScheduler(options, this.runtime, read, this.tags)
+    this.scheduler = new NativeNextTrackScheduler(options, this.runtime, read, this.tags, () =>
+      this.flushPendingEnd(),
+    )
   }
 
   canWriteMetadata(filePath: string): boolean {
     return this.tags.canWriteMetadata(filePath)
+  }
+
+  canReplaceMetadata(filePath: string): boolean {
+    return canReplacePlayingM4a(filePath, this.options.ffmpegPath)
   }
 
   writeMetadata(
@@ -75,6 +83,14 @@ export class NativePlaybackService {
     metadata: EditableTrackMetadata,
     commitAndReconcile: (commit: () => Promise<void>) => Promise<void>,
   ): Promise<UpdateTrackMetadataResult> {
+    if (canReplacePlayingM4a(filePath, this.options.ffmpegPath))
+      return replacePlayingM4a(
+        this.options,
+        () => this.scheduler.suspendMetadataAnalysis(),
+        filePath,
+        metadata,
+        commitAndReconcile,
+      )
     return this.tags.writeMetadata(filePath, metadata, commitAndReconcile)
   }
 
@@ -112,6 +128,7 @@ export class NativePlaybackService {
   }
 
   private release(): Promise<void> {
+    this.pendingEnd = null
     this.tags.reset()
     const opening = this.opening
     this.opening = null
@@ -254,6 +271,7 @@ export class NativePlaybackService {
       this.loaded = false
     }
     this.runtime.begin(request.session)
+    this.pendingEnd = null
     const signal = this.runtime.signal
     let path: string
     try {
@@ -359,6 +377,11 @@ export class NativePlaybackService {
   }
 
   private playbackEnded(): void {
+    if (this.scheduler.isRecoveringContinuation && this.runtime.client) {
+      this.pendingEnd = { session: this.runtime.id, client: this.runtime.client }
+      return
+    }
+    this.pendingEnd = null
     this.tags.onPlaybackEnded(() => {
       this.snapshot.currentTime = this.snapshot.duration
     })
@@ -367,6 +390,16 @@ export class NativePlaybackService {
     this.runtime.releasePlaybackLeases()
     this.publish('ended')
     void this.tags.cleanup().catch(this.options.warn)
+  }
+
+  private flushPendingEnd(): void {
+    const pending = this.pendingEnd
+    if (
+      pending &&
+      this.runtime.isCurrent(pending.session, pending.client) &&
+      !this.scheduler.isRecoveringContinuation
+    )
+      this.playbackEnded()
   }
 
   private async fileLoaded(session: number): Promise<void> {
@@ -404,11 +437,11 @@ export class NativePlaybackService {
       this.runtime.advanceLease()
     }
     this.loaded = true
-    if (
-      this.options.coordinator?.reserveWriteIntent &&
-      !(await this.tags.refreshEligibility(this.path, session, client))
-    )
-      return
+    const loadedPath = this.path
+    const eligibility = this.tags.refreshEligibility(loadedPath, session, client)
+    // Preserve start/continuation readiness for tag editing. A natural boundary
+    // must publish its new logical track before optional tag parsing can finish.
+    if (!boundary && !(await eligibility)) return
     this.snapshot.duration = typeof duration === 'number' ? duration : 0
     this.snapshot.currentTime = typeof position === 'number' ? position : 0
     const bridge = this.scheduler.bridge
@@ -416,10 +449,22 @@ export class NativePlaybackService {
       this.snapshot.duration = bridge.incomingDuration
       this.snapshot.currentTime += bridge.incomingStart
     }
-    if (continuation) this.scheduler.finishContinuation()
+    if (continuation) {
+      this.pendingEnd = null
+      this.scheduler.finishContinuation()
+    }
     this.publish(boundary ? 'boundary' : 'state')
     if (!this.runtime.isCurrent(session, client)) return
-    this.options.coordinator?.refreshPlaybackCapability?.(this.path)
+    if (boundary) {
+      void eligibility
+        .then((current) => {
+          if (current && this.runtime.isCurrent(session, client) && this.path === loadedPath)
+            this.options.coordinator?.refreshPlaybackCapability?.(loadedPath)
+        })
+        .catch(this.options.warn)
+    } else {
+      this.options.coordinator?.refreshPlaybackCapability?.(loadedPath)
+    }
     this.runtime.finishLoad()
   }
 }

@@ -118,18 +118,20 @@ export function registerIpcHandlers(
       return null
     }
 
+    const probeLease = await playbackFileCoordinator.acquireReadLease(filePath, 'audio-probe')
     try {
       const fileStats = await stat(filePath)
       if (!fileStats.isFile()) {
         markTrackFileMissing(filePath)
         return null
       }
+      return { url: buildAudioTrackUrl(trackId), decodeProbe: await probeAudioDecode(filePath) }
     } catch (error) {
       if (isMissingFileError(error)) markTrackFileMissing(filePath)
       return null
+    } finally {
+      playbackFileCoordinator.releaseReadLease(probeLease.leaseId)
     }
-
-    return { url: buildAudioTrackUrl(trackId), decodeProbe: await probeAudioDecode(filePath) }
   }
   const metadataWatchService = new MetadataWatchService(
     libraryRootRepository,
@@ -251,7 +253,10 @@ export function registerIpcHandlers(
   playbackFileCoordinator.setBufferedWriteCapability((filePath) =>
     nativePlayback.canWriteMetadata(filePath),
   )
-  metadataRefreshService.setBufferedTagWriteHandler((filePath, metadata, commitAndReconcile) =>
+  playbackFileCoordinator.setFileReplacementCapability((filePath) =>
+    nativePlayback.canReplaceMetadata(filePath),
+  )
+  metadataRefreshService.setPlaybackTagWriteHandler((filePath, metadata, commitAndReconcile) =>
     nativePlayback.writeMetadata(filePath, metadata, commitAndReconcile),
   )
   const nativeOwners = new WeakSet<Electron.WebContents>()

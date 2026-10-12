@@ -31,12 +31,13 @@ import { useSidebarOwnedModal } from '../utils/useSidebarOwnedModal'
 import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
 import { createSidebarLibraryLoader } from '../utils/sidebarLibraryLoader'
 import { useSidebarLibraryStatus } from '../composables/useSidebarLibraryStatus'
-import { SIDEBAR_FLAVOR_KEYS, useSidebarFlavor } from '../composables/useSidebarFlavor'
+import { useSidebarFlavor } from '../composables/useSidebarFlavor'
 import { animateTrashLid } from '@renderer/shared/animation/motion'
 import PlaylistIcon from './PlaylistIcon.vue'
 import SidebarIcon, { type SidebarIconKind } from './SidebarIcon.vue'
 import { vBrandResonance } from './sidebarBrandMotion'
 
+const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const playback = usePlayback()
@@ -93,9 +94,40 @@ const flavor = useSidebarFlavor(
 )
 const flavorValues = computed(() => ({ count: libraryStats.value.trackCount }))
 const flavorLabel = computed(() => t(`sidebar.flavor.${flavor.key.value}`, flavorValues.value))
-const flavorSizingLabels = computed(() =>
-  SIDEBAR_FLAVOR_KEYS.map((key) => t(`sidebar.flavor.${key}`, flavorValues.value)),
-)
+const flavorLabelRef = ref<HTMLElement | null>(null)
+const flavorTextRef = ref<HTMLElement | null>(null)
+const isFlavorOverflowing = ref(false)
+const flavorOverflowDistance = ref(0)
+
+function updateFlavorOverflow(): void {
+  if (isRail.value || !flavorLabelRef.value || !flavorTextRef.value) {
+    isFlavorOverflowing.value = false
+    flavorOverflowDistance.value = 0
+    return
+  }
+  const containerWidth = flavorLabelRef.value.clientWidth
+  const contentWidth = flavorTextRef.value.scrollWidth
+  if (contentWidth > containerWidth + 4) {
+    isFlavorOverflowing.value = true
+    flavorOverflowDistance.value = contentWidth - containerWidth
+  } else {
+    isFlavorOverflowing.value = false
+    flavorOverflowDistance.value = 0
+  }
+}
+
+const flavorMarqueeStyle = computed(() => {
+  if (!isFlavorOverflowing.value) return undefined
+  const duration = Math.max(7, Math.round(flavorOverflowDistance.value / 18))
+  return {
+    '--flavor-scroll-distance': `${flavorOverflowDistance.value}px`,
+    '--flavor-scroll-duration': `${duration}s`,
+  }
+})
+
+watch([() => flavorLabel.value, isRail], () => {
+  void nextTick(updateFlavorOverflow)
+})
 const sidebarLibraryLoader = createSidebarLibraryLoader({
   playlistItems,
   smartPlaylists,
@@ -197,8 +229,6 @@ let unsubscribeLibraryChanged: (() => void) | null = null
 let pendingNavCleanup: (() => void) | null = null
 
 const POINTER_MOVE_TOLERANCE = 6
-
-const { t, locale } = useI18n()
 
 const activePath = ref(route.path)
 
@@ -816,6 +846,8 @@ onMounted(() => {
     void loadSidebarStats()
   })
   window.addEventListener('auralis-playlists-changed', onPlaylistsChanged)
+  void nextTick(updateFlavorOverflow)
+  window.addEventListener('resize', updateFlavorOverflow)
 })
 
 onBeforeUnmount(() => {
@@ -828,6 +860,7 @@ onBeforeUnmount(() => {
   unsubscribeLibraryChanged?.()
   unsubscribeLibraryChanged = null
   window.removeEventListener('auralis-playlists-changed', onPlaylistsChanged)
+  window.removeEventListener('resize', updateFlavorOverflow)
 })
 </script>
 
@@ -1013,32 +1046,73 @@ onBeforeUnmount(() => {
       </section>
     </nav>
     <footer class="sidebar-footer">
-      <div class="sidebar-footer-top">
-        <div
-          class="sidebar-library-status"
-          :data-tone="libraryStatus.tone.value"
-          role="status"
-          :aria-label="libraryStatusLabel"
-          tabindex="0"
-          @pointerenter="isFlavorHovered = true"
-          @pointerleave="isFlavorHovered = false"
-          @focusin="isFlavorFocused = true"
-          @focusout="isFlavorFocused = false"
-        >
+      <div
+        class="sidebar-status-card"
+        :data-tone="libraryStatus.tone.value"
+        role="status"
+        :aria-label="libraryStatusLabel"
+        tabindex="0"
+        @pointerenter="isFlavorHovered = true"
+        @pointerleave="isFlavorHovered = false"
+        @focusin="isFlavorFocused = true"
+        @focusout="isFlavorFocused = false"
+      >
+        <div class="sidebar-status-card-main" :title="flavorLabel">
           <span class="sidebar-status-dot" aria-hidden="true"></span>
-          <span v-if="!isRail" class="sidebar-status-label auralis-type-caption" aria-hidden="true">
-            <span
-              v-for="(label, index) in flavorSizingLabels"
-              :key="index"
-              class="sidebar-flavor-sizer"
-              >{{ label }}</span
-            >
-            <span class="sidebar-flavor-text">{{ flavorLabel }}</span>
+          <span
+            v-if="!isRail"
+            ref="flavorLabelRef"
+            class="sidebar-status-label auralis-type-caption"
+            :class="{ 'sidebar-status-label--marquee': isFlavorOverflowing }"
+            :style="flavorMarqueeStyle"
+            aria-hidden="true"
+          >
+            <span ref="flavorTextRef" class="sidebar-flavor-text">{{ flavorLabel }}</span>
           </span>
           <span class="sr-only">{{ libraryStatusLabel }}</span>
         </div>
+        <button
+          v-if="!isRail"
+          v-tooltip.fast="
+            isRefreshing ? t('sidebar.tool.refreshBusy') : t('sidebar.tool.refreshAction')
+          "
+          class="sidebar-status-refresh-button"
+          type="button"
+          :aria-label="
+            isRefreshing ? t('sidebar.tool.refreshBusy') : t('sidebar.tool.refreshAction')
+          "
+          :disabled="isRefreshing"
+          :aria-busy="isRefreshing"
+          @click.stop="refreshLibrary"
+        >
+          <SidebarIcon kind="refresh" :class="{ 'animate-spin': isRefreshing }" />
+        </button>
+      </div>
+
+      <div class="sidebar-actions-row">
+        <button
+          v-tooltip.fast="isRail ? t('sidebar.tool.settings') : ''"
+          type="button"
+          class="sidebar-tool-button sidebar-settings-button"
+          :class="{ 'sidebar-tool-button-active': isSettingsOpen }"
+          :aria-label="t('sidebar.tool.settings')"
+          aria-haspopup="dialog"
+          :aria-expanded="isSettingsOpen"
+          data-settings-trigger
+          @pointerenter="preloadSettingsContent"
+          @focusin="preloadSettingsContent"
+          @click="openSettings()"
+        >
+          <span class="sidebar-settings-icon"><SidebarIcon kind="settings" /></span>
+          <span v-if="!isRail" class="sidebar-settings-label auralis-type-control">{{
+            t('sidebar.tool.settings')
+          }}</span>
+          <span v-if="!isRail" class="sidebar-settings-shortcut" aria-hidden="true">⌘,</span>
+        </button>
+
         <div class="sidebar-tools-grid" role="group" :aria-label="t('sidebar.toolbarAria')">
           <button
+            v-if="isRail"
             v-tooltip.fast="
               isRefreshing ? t('sidebar.tool.refreshBusy') : t('sidebar.tool.refreshAction')
             "
@@ -1081,25 +1155,6 @@ onBeforeUnmount(() => {
           </button>
         </div>
       </div>
-      <button
-        v-tooltip.fast="isRail ? t('sidebar.tool.settings') : ''"
-        type="button"
-        class="sidebar-tool-button sidebar-settings-button"
-        :class="{ 'sidebar-tool-button-active': isSettingsOpen }"
-        :aria-label="t('sidebar.tool.settings')"
-        aria-haspopup="dialog"
-        :aria-expanded="isSettingsOpen"
-        data-settings-trigger
-        @pointerenter="preloadSettingsContent"
-        @focusin="preloadSettingsContent"
-        @click="openSettings()"
-      >
-        <span class="sidebar-settings-icon"><SidebarIcon kind="settings" /></span>
-        <span class="sidebar-settings-label auralis-type-control">{{
-          t('sidebar.tool.settings')
-        }}</span>
-        <span class="sidebar-settings-shortcut" aria-hidden="true">⌘,</span>
-      </button>
     </footer>
     <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">
       {{ reorderAnnouncement ? t('sidebar.reorderAnnouncement', reorderAnnouncement) : '' }}
