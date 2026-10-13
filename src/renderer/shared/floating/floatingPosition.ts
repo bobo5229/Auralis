@@ -9,6 +9,7 @@ import {
   type Middleware,
   type ReferenceElement,
   type VirtualElement,
+  type Placement,
 } from '@floating-ui/dom'
 import { rendererDiagnostics } from '../diagnostics/rendererDiagnostics'
 
@@ -34,6 +35,10 @@ export function startFloatingPosition(options: {
   reference: ReferenceElement
   floating: HTMLElement
   profile: FloatingProfile
+  placement?: Placement
+  fallbackPlacements?: Placement[]
+  gap?: number
+  shiftCrossAxis?: boolean
   onPosition?: (result: ComputePositionReturn, first: boolean) => void
   onError: () => void
 }) {
@@ -77,22 +82,25 @@ export function startFloatingPosition(options: {
     const current = (): boolean => !disposed && request === sequence && floating.isConnected
     const middleware: Middleware[] = []
     if (profile !== 'point-menu') {
-      middleware.push(offset(tooltip || profile === 'popover' ? 8 : 4))
+      middleware.push(offset(options.gap ?? (tooltip || profile === 'popover' ? 8 : 4)))
       middleware.push(
         flip({
           ...overflow,
           fallbackPlacements:
-            profile === 'popover'
+            options.fallbackPlacements ??
+            (profile === 'popover'
               ? ['top']
               : profile === 'tooltip-right'
                 ? ['top', 'bottom']
                 : profile === 'tooltip'
                   ? ['bottom']
-                  : ['left-start'],
+                  : ['left-start']),
         }),
       )
     }
-    middleware.push(shift({ ...overflow, mainAxis: true, crossAxis: true }))
+    middleware.push(
+      shift({ ...overflow, mainAxis: true, crossAxis: options.shiftCrossAxis ?? true }),
+    )
     if (!tooltip)
       middleware.push(
         size({
@@ -108,7 +116,8 @@ export function startFloatingPosition(options: {
       const result = await computePosition(reference, floating, {
         strategy: 'fixed',
         placement:
-          profile === 'popover'
+          options.placement ??
+          (profile === 'popover'
             ? 'bottom'
             : profile === 'tooltip'
               ? 'top'
@@ -116,7 +125,7 @@ export function startFloatingPosition(options: {
                 ? 'right'
                 : profile === 'submenu'
                   ? 'right-start'
-                  : 'bottom-start',
+                  : 'bottom-start'),
         middleware,
       })
       if (!current()) return

@@ -399,7 +399,7 @@ onBeforeUnmount(() => {
           :albums="galleryAlbums"
           :single-row="isGenreGallery"
           :artist-label="displayAlbumArtist"
-          :genre-label="songParts(albumGenrePills)"
+          :genre-label="songParts(albumGenrePills.slice(0, 1))"
           :opening="isOpeningWork"
           @open="openAlbum"
         />

@@ -51,6 +51,7 @@
     "@pixi/sprite": "^7.4.3",
     "@tanstack/vue-virtual": "^3.13.12",
     "@vueuse/core": "^12.8.2",
+    "@xmldom/xmldom": "0.9.12",
     "better-sqlite3": "^11.9.1",
     "culori": "4.0.2",
     "fft.js": "4.0.4",

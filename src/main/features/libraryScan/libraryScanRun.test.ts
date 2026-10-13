@@ -69,7 +69,7 @@ function knownFile(filePath: string): LibraryScanWorkerInput['knownFiles'][numbe
     artworkCacheKey: null,
     lyricsFormat: null,
     lyricsCheckedMtimeMs: 100,
-    lyricsSidecarFingerprint: '[null,null]',
+    lyricsSidecarFingerprint: '[null,null,null,null]',
     metadataCheckedMtimeMs: 100,
     metadataParserVersion: getMetadataParserVersion(filePath),
   }

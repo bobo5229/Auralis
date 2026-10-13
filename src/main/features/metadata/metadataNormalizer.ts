@@ -1,6 +1,8 @@
 import type { IAudioMetadata } from 'music-metadata'
 import { basename, parse } from 'node:path'
 import { cleanDelimitedValues, joinDelimitedValues } from '@shared/utils/delimitedValues'
+import type { LyricsFormat } from '@shared/types/libraryScan'
+import { classifyLyrics, type ResolvedLyrics } from './classifyLyrics'
 
 export interface NormalizedMetadata {
   title: string
@@ -25,7 +27,7 @@ export interface NormalizedMetadata {
   genres: string[]
   genre: string | null
   lyricsText: string | null
-  lyricsFormat: 'lrc' | 'plain' | null
+  lyricsFormat: LyricsFormat | null
   isrc: string | null
 }
 
@@ -63,8 +65,6 @@ export function normalizeArtists(artists?: string[], artist?: string): string[] 
 // ---------------------------------------------------------------------------
 // Lyrics extraction (from scan worker — pure, no filesystem access)
 // ---------------------------------------------------------------------------
-
-const LRC_TIMESTAMP = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/
 
 const NATIVE_LYRICS_KEYS = new Set(['USLT', 'SYLT', 'LYR', 'LYRI', 'LYRICS', 'UNSYNCEDLYRICS'])
 const NATIVE_GENRE_KEYS = new Set(['GEN', 'GNRE', 'GENRE', 'TCON', 'TCO', 'STYLE'])
@@ -160,9 +160,7 @@ export function resolveCopyright(metadata: MetadataTags): string[] {
   return native.length > 0 ? native : cleanDelimitedValues([metadata.common.copyright])
 }
 
-export function resolveLyrics(
-  metadata: IAudioMetadata,
-): { text: string; format: 'lrc' | 'plain' } | null {
+export function resolveLyrics(metadata: MetadataTags, preserveText = false): ResolvedLyrics | null {
   const candidates: string[] = []
 
   candidates.push(...getTextValuesFromUnknown(metadata.common.lyrics))
@@ -175,18 +173,16 @@ export function resolveLyrics(
     }
   }
 
-  const uniqueCandidates = [...new Set(candidates.map((candidate) => candidate.trim()))].filter(
-    Boolean,
+  const resolved = [...new Set(candidates)].flatMap((candidate) => {
+    const lyrics = classifyLyrics(candidate)
+    return lyrics ? [{ ...lyrics, text: preserveText ? candidate : lyrics.text }] : []
+  })
+  return (
+    resolved.find((lyrics) => lyrics.format === 'ttml') ??
+    resolved.find((lyrics) => lyrics.format === 'lrc') ??
+    resolved[0] ??
+    null
   )
-  const lrc = uniqueCandidates.find((candidate) => LRC_TIMESTAMP.test(candidate))
-
-  if (lrc) return { text: lrc, format: 'lrc' }
-
-  const plain = uniqueCandidates[0]
-
-  if (!plain) return null
-
-  return { text: plain, format: 'plain' }
 }
 
 export function resolveGenres(metadata: MetadataTags): string[] {

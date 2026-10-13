@@ -7,6 +7,8 @@ import { useWindowVisibility } from '@renderer/shared/animation/useWindowVisibil
 import { useReducedMotion } from '../composables/useReducedMotion'
 import { getLyricsScrollEasing, useLyricsScrollPreset } from '../lyricsScrollPreset'
 import { useLyricsEffectsPreference } from '../lyricsEffectsPreference'
+import { useLyricsCountdownPreference } from '../lyricsCountdownPreference'
+import LyricsFractureDots from './LyricsFractureDots.vue'
 import {
   resolveLyricsFollowBehavior,
   shouldAnimateLyricsFollow,
@@ -22,12 +24,14 @@ const props = withDefaults(
     isPrelude: boolean
     showPrelude: boolean
     preludeLitDotCount: number
+    preludeElapsed?: number
   }>(),
-  { active: true },
+  { active: true, preludeElapsed: 0 },
 )
 
 const { t } = useI18n()
 const { effects } = useLyricsEffectsPreference()
+const { effect: countdownEffect } = useLyricsCountdownPreference()
 const { activate: onLyricLineActivate, onKeydown: onLyricLineKeydown } = useLyricLineSeek({
   lines: () => props.lines,
   enabled: () => isActive.value,
@@ -389,12 +393,15 @@ onBeforeUnmount(() => {
         :aria-label="t('player.lyricsStartingSoon')"
         data-lyric-prelude
       >
-        <span
-          v-for="dot in 3"
-          :key="dot"
-          class="lyric-dot"
-          :class="{ 'lyric-dot-lit': dot <= preludeLitDotCount }"
-        ></span>
+        <LyricsFractureDots v-if="countdownEffect === 'fracture'" :elapsed="preludeElapsed" />
+        <template v-else>
+          <span
+            v-for="dot in 3"
+            :key="dot"
+            class="lyric-dot"
+            :class="{ 'lyric-dot-lit': dot <= preludeLitDotCount }"
+          ></span>
+        </template>
       </div>
       <div
         v-for="(line, index) in lines"

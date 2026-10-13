@@ -3,6 +3,51 @@
     "play": "播放专辑",
     "skip": "跳过"
   },
+  "lyricsEditor": {
+    "title": "编辑歌词",
+    "close": "关闭歌词编辑",
+    "updateTime": "更新",
+    "insertTime": "插入",
+    "earlier": "提前",
+    "later": "延后",
+    "updateTimeTooltip": "用当前播放时间更新本行时间戳",
+    "insertTimeTooltip": "在本行插入当前播放时间",
+    "earlierTooltip": "本行时间提前 0.1 秒",
+    "laterTooltip": "本行时间延后 0.1 秒",
+    "undo": "撤销",
+    "redo": "重做",
+    "play": "播放",
+    "pause": "暂停",
+    "position": "播放位置",
+    "text": "{format} 文本",
+    "loading": "正在载入歌词…",
+    "reload": "重新载入",
+    "tag": "保存到歌曲标签（LRC）",
+    "file": "保存为 LRC 文件",
+    "ttmlFile": "保存为 TTML 文件",
+    "ttmlSaved": "已保存为 TTML",
+    "clampedTimes": "偏移后小于零的时间已归零。",
+    "inferredEnd": "末句结束时间按开始时间后 5 秒推算。",
+    "save": "保存",
+    "saving": "正在保存…",
+    "saved": "已保存",
+    "cachePending": "歌词已写入，播放器缓存尚未更新。",
+    "writeWarning": "歌词已写入，但播放恢复或缓存更新未完成。请检查播放状态。",
+    "otherSource": "已保存，播放器仍使用更高优先级的歌词来源。",
+    "saveChanges": "保存歌词修改？",
+    "continue": "继续编辑",
+    "discard": "放弃修改",
+    "saveClose": "保存并关闭",
+    "errors": {
+      "untimed": "部分歌词尚未添加时间戳，请补齐后再保存为 TTML。",
+      "invalidLrc": "LRC 时间戳或内容无效，无法转换为 TTML。",
+      "changed": "文件已变化或编辑会话已过期。请保留编辑内容，关闭后重新载入。",
+      "busy": "歌曲正在写入，请稍后重试。",
+      "unavailable": "歌曲不可用，无法载入歌词。",
+      "failed": "歌词操作未完成，编辑内容已保留。请重试；若有恢复备份，请保留该文件。"
+    }
+  },
+  "dialog": { "close": "关闭面板" },
   "windowControls": {
     "close": "关闭窗口",
     "minimize": "最小化窗口",
@@ -293,6 +338,12 @@
       },
       "lyricsEffects": {
         "title": "主界面歌词",
+        "countdown": {
+          "title": "歌词倒计时动效",
+          "description": "选择歌词开始前圆点依次点亮或化为细小粒子消散的效果，适用于主界面与全屏歌词。",
+          "lighting": "逐个点亮",
+          "fracture": "逐个破碎"
+        },
         "edgeFade": {
           "title": "顶部与底部渐隐",
           "description": "让同步歌词在面板的上下边缘逐渐隐去。"
@@ -584,6 +635,7 @@
       "label": "歌词显示",
       "simplified": "切换为简体中文",
       "traditional": "切换为繁体中文",
+      "editLyrics": "编辑歌词",
       "persistFailed": "本次切换已生效，保存失败，重启后可能恢复"
     }
   },

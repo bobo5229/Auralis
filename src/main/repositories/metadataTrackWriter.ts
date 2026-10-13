@@ -12,7 +12,7 @@ export class MetadataTrackWriter {
 
   updateTrackMetadata(result: RefreshedTrackMetadata): void {
     // These results do not carry a stable sidecar snapshot. Invalidate that
-    // derived scan fingerprint so the next scan verifies the current .lrc.
+    // derived scan fingerprint so the next scan verifies the current lyric sidecars.
     // Full file_tag write — skipped when user_edit must be preserved.
     const upsertTrackMetadata = this.db.prepare(`
       INSERT INTO track_metadata (

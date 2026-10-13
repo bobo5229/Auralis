@@ -209,12 +209,12 @@ export class TrackQueryRepository extends BaseRepository {
   }
 
   getGenreAlbumSummaries(
-    genres: string[],
+    genre: string,
     excludeArtist: string,
     excludeTitle: string,
   ): AlbumDetailSummary[] {
-    const genreKeys = new Set(genres.map(normalizeDelimitedValue).filter(Boolean))
-    if (genreKeys.size === 0) return []
+    const genreKey = normalizeDelimitedValue(genre)
+    if (!genreKey) return []
 
     const albums = this.db
       .prepare(
@@ -234,8 +234,8 @@ export class TrackQueryRepository extends BaseRepository {
     return albums
       .filter((album) =>
         (JSON.parse(album.genres) as (string | null)[]).some((value) =>
-          splitDelimitedValues(value).some((genre) =>
-            genreKeys.has(normalizeDelimitedValue(genre)),
+          splitDelimitedValues(value).some(
+            (candidateGenre) => normalizeDelimitedValue(candidateGenre) === genreKey,
           ),
         ),
       )

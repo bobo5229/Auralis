@@ -80,7 +80,7 @@ export function createCardScene(
   fill.position.set(4, -1, 5)
   scene.add(keyLight, fill, new THREE.HemisphereLight('#ffffff', '#8b8394', 0.35))
 
-  // Entrance pose and pointer pose are independent, so controls never wait.
+  // Keep entrance and pointer poses independent so hover cannot disturb the reveal.
   const presentation = new THREE.Group()
   scene.add(presentation)
   const albumCard = createAlbumCard(content, { appearance })

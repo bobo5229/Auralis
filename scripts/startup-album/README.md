@@ -18,11 +18,11 @@
 
 数据、封面和渲染模块与启动并行准备。欢迎页不等待推荐；退场后最多等待 1 秒，超时或用户已开始操作则取消本次展示。缺失封面使用本地占位图；WebGL 不可用时使用静态卡。播放立即从第一首顺序播放整张专辑，同时闪卡用 1.2 秒翻转落入 Playbar；跳过播放 1.4 秒的裂开、散落和淡出，不改变播放状态。裂纹约在前 0.4 秒逐渐显现，再分离、翻转和下落，最后淡出。七块碎片共用同一正面纹理、印刷遮罩与闪膜，并保留纸芯侧壁；分块随展示随机变化。减弱动效或静态卡使用 180 ms 淡出。
 
-专辑信息仅显示在卡面中；卡片下方只保留“播放专辑”和“跳过”，不重复显示介绍、专辑名或艺术家，也不提供查看曲目与完整专辑入口。跳过开始后隐藏操作按钮并锁定交互，焦点留在展示层；退出完成后释放渲染资源、恢复背景交互与焦点。入场途中跳过继承当前姿态，避免跳到入场终点。退出期间窗口隐藏、WebGL 上下文丢失或动效偏好改变时直接完成关闭；卸载取消退出定时器与渲染循环。Esc 在普通展示时仍立即关闭。
+专辑信息仅显示在卡面中；卡片下方只保留“播放专辑”和“跳过”，不重复显示介绍、专辑名或艺术家，也不提供查看曲目与完整专辑入口。两个按钮在入场结束帧实际绘制后出现，减弱动效等待短入场结束；静态降级等待卡面加载及绘制。入场时焦点留在展示层，按钮出现后仅在焦点仍位于展示层根节点时交给播放按钮，不抢走窗口控制按钮上的焦点。跳过开始后隐藏操作按钮并锁定交互，焦点留在展示层；退出完成后释放渲染资源、恢复背景交互与焦点。退出期间窗口隐藏、WebGL 上下文丢失或动效偏好改变时直接完成关闭；卸载取消退出定时器与渲染循环。Esc 在入场及普通展示时仍立即关闭。
 
-遮罩在卡片首帧绘制时从透明开始，以 200ms `ease-in-out` 淡入，最终保持原有 94% 主题底色浓度；静态降级在卡面准备好时淡入。只改变遮罩，卡片与按钮不跟随淡入。入场中播放或跳过会保留遮罩当时的透明度，再接入原有退场。运行 `node scripts/startup-album/run.mjs backdrop` 可检查真实 Renderer 的透明度采样、200ms CSS transition、与首张卡面 WebGL 绘制的时序，并保存 `backdrop-fade.json`。
+遮罩在卡片首帧绘制时从透明开始，以 200ms `ease-in-out` 淡入，最终保持原有 94% 主题底色浓度；静态降级在卡面准备好时淡入。只改变遮罩，卡片不跟随淡入，按钮独立等待入场结束。运行 `node scripts/startup-album/run.mjs backdrop` 可检查真实 Renderer 的透明度采样、200ms CSS transition、与首张卡面 WebGL 绘制的时序，并保存 `backdrop-fade.json`。
 
-`skip` 检查入场中跳过，`skip-settled` 检查正常 1.4 秒退出、阶段画面与快捷键隔离；`skip-hidden`、`skip-context-loss`、`skip-reduced` 检查中断与降级。各跳过场景检查退出期间焦点与背景锁定、结束后的释放，以及退出后不再绘制。`controls` 检查原生 Tab／Shift+Tab 焦点顺序、两个按钮的可见描边和 Esc 关闭。
+`skip` 检查按钮出现后的跳过，`skip-settled` 检查正常 1.4 秒退出、阶段画面与快捷键隔离；`skip-hidden`、`skip-context-loss`、`skip-reduced` 检查中断与降级。各跳过场景检查退出期间焦点与背景锁定、结束后的释放，以及退出后不再绘制。`controls` 检查原生 Tab／Shift+Tab 焦点顺序、两个按钮的可见描边和 Esc 关闭；`controls-timing` 观察真实 WebGL 入场扫光结束帧与 DOM 按钮插入的先后关系，保存 `controls-timing.json` 和入场／停稳截图。
 
 `node scripts/startup-album/run.mjs first-frame-cancel fallback context controls` 定向检查展示记录与焦点。集成入口在欢迎页退场前观察实际卡面 WebGL draw 和历史写入，断言正常展示只写一次、静态卡加载后才记录，且偏好仅含身份字段；`first-frame-cancel` 在真实展示层挂载后、首次绘制前派发 Esc，确认没有 draw、没有历史写入且背景解锁。`context` 保留隐藏／恢复与 WebGL 丢失／恢复检查，确认展示历史不重复写入。真实组件单测另控制首帧、原生窗口／DOM 隐藏、PNG 加载／失败、卸载与播放／跳过取消时序；这些单测不代表视觉验收。
 
@@ -30,7 +30,7 @@
 
 原生截图采集本身可能跨越多个动画帧；需要单独查看没入的瞬间时，可运行 `play-inserting`，仅在目标 1000 ms 采集该阶段；需要检查同一张正面翻转至半圈时的镜像画面，可运行 `play-half-turn`，仅在目标 550 ms 采集该阶段。
 
-`play` 检查入场中点击，`play-settled`、`play-small`、`play-hidpi`、`play-light` 保存上提、半圈镜像、接触和没入阶段截图及实际 WebGL 变换／scissor 数据（`play-*-drop.json`）；检查音频请求在退场前发出、完整有序队列、重复点击不重新播放、退出后停止绘制。`play-hidden`、`play-resize`、`play-context-loss`、`play-motion-change`、`play-target-lost` 检查中断；`play-no-target`、`play-reduced`、`play-fallback` 检查淡出降级。`cardDrop.test.ts` 用真实 Three.js 数学验证半圈姿态的投影连续、落点裁切和回弹清理。`AURALIS_STARTUP_ALBUM_COVER`、`AURALIS_STARTUP_ALBUM_TITLE`、`AURALIS_STARTUP_ALBUM_ARTIST` 也可用于播放场景，素材只读复制进隔离缓存。
+`play` 检查按钮出现后的点击，`play-settled`、`play-small`、`play-hidpi`、`play-light` 保存上提、半圈镜像、接触和没入阶段截图及实际 WebGL 变换／scissor 数据（`play-*-drop.json`）；检查音频请求在退场前发出、完整有序队列、重复点击不重新播放、退出后停止绘制。`play-hidden`、`play-resize`、`play-context-loss`、`play-motion-change`、`play-target-lost` 检查中断；`play-no-target`、`play-reduced`、`play-fallback` 检查淡出降级。`cardDrop.test.ts` 用真实 Three.js 数学验证半圈姿态的投影连续、落点裁切和回弹清理。`AURALIS_STARTUP_ALBUM_COVER`、`AURALIS_STARTUP_ALBUM_TITLE`、`AURALIS_STARTUP_ALBUM_ARTIST` 也可用于播放场景，素材只读复制进隔离缓存。
 
 完整卡面与碎片使用同一套支持透明度的材质程序，初始不透明度仍为 1；避免首次跳过时另编译闪膜的透明材质变体，吃掉裂纹显现阶段。碎片按需创建，退出后释放独有几何、材质和裂纹线；纹理与印刷遮罩仍由原卡片统一释放。
 

@@ -1,7 +1,8 @@
 import { computed, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { TrackListItem } from '@shared/types/libraryScan'
-import { formatGenreParts, splitGenreValues } from '@renderer/features/library/utils/formatGenre'
+import { formatGenreParts } from '@renderer/features/library/utils/formatGenre'
+import { rankAlbumGenres } from '@shared/utils/albumGenres'
 import { formatAlbumReleaseDate } from '../utils/formatAlbumReleaseDate'
 
 export function useAlbumDetailPresentation(
@@ -17,36 +18,8 @@ export function useAlbumDetailPresentation(
     () => albumTracks.value.find((track) => track.copyright)?.copyright ?? null,
   )
 
-  function collectGenreCounts(): { label: string; count: number; firstSeen: number }[] {
-    const genreCounts = new Map<string, { label: string; count: number; firstSeen: number }>()
-    let firstSeen = 0
-
-    for (const track of albumTracks.value) {
-      const trackGenres = new Map<string, string>()
-
-      for (const genre of splitGenreValues(track.genre)) {
-        trackGenres.set(genre.toLocaleLowerCase(), genre)
-      }
-
-      for (const [key, genre] of trackGenres) {
-        const existing = genreCounts.get(key)
-
-        if (existing) {
-          existing.count += 1
-        } else {
-          genreCounts.set(key, { label: genre, count: 1, firstSeen })
-          firstSeen += 1
-        }
-      }
-    }
-
-    return [...genreCounts.values()].sort(
-      (left, right) => right.count - left.count || left.firstSeen - right.firstSeen,
-    )
-  }
-
   /** 提取全部流派，去重并按包含该流派的曲目数量排序，同频次保留首次出现顺序。 */
-  const albumGenrePills = computed<string[]>(() => collectGenreCounts().map((genre) => genre.label))
+  const albumGenrePills = computed(() => rankAlbumGenres(albumTracks.value))
   const albumHeroGenreLabel = computed(() => formatGenreParts(albumGenrePills.value.slice(0, 2)))
 
   /**

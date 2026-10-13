@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import AppDialog from '@renderer/shared/dialog/AppDialog.vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { SmartPlaylist, SmartPlaylistRuleCondition } from '@shared/types/smartPlaylist'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -186,16 +187,13 @@ async function reloadTracks(): Promise<void> {
   }
 }
 
-function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && props.open) {
-    if (contextMenu.value) {
-      closeContextMenu()
-      return
-    }
-    emit('close')
+function closeDialog(reason: 'button' | 'escape' | 'backdrop'): void {
+  if (reason === 'escape' && contextMenu.value) {
+    closeContextMenu()
+    return
   }
+  emit('close')
 }
-
 watch(
   () => props.open,
   (open) => {
@@ -224,7 +222,6 @@ watch(albumOptions, (options) => {
 })
 
 onMounted(() => {
-  window.addEventListener('keydown', onKeydown)
   unsubscribeChanged = auralis.library.onChanged((event) => {
     // Play-count ticks must not full-reload facet track lists
     if (event.reason === 'play-stats-updated' || event.reason === 'play-stats-reset') return
@@ -235,179 +232,107 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('keydown', onKeydown)
   unsubscribeChanged?.()
 })
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="facets-dialog-fade">
-      <div v-if="open" class="sidebar-overlay facets-dialog-backdrop" @click.self="emit('close')">
-        <section
-          class="facets-dialog-panel"
-          role="dialog"
-          aria-modal="true"
-          :aria-label="t('facets.title')"
+  <AppDialog
+    :open="open"
+    :title="t('facets.title')"
+    title-id="facets-dialog-title"
+    fill
+    :padded="false"
+    :scroll="false"
+    @close="closeDialog"
+  >
+    <template #subtitle
+      ><p class="facet-count">{{ t('facets.trackCount', { count: tracks.length }) }}</p></template
+    >
+    <template #header-actions>
+      <button
+        type="button"
+        class="auralis-dialog-close"
+        :aria-label="t('facets.reset')"
+        @click="clearSelection"
+      >
+        <span class="i-lucide-rotate-ccw" aria-hidden="true" />
+      </button>
+    </template>
+    <div v-if="isLoading" class="facets-dialog-loading">{{ t('facets.loading') }}</div>
+
+    <div v-else class="facets-dialog-grid">
+      <div class="facet-column">
+        <div class="facet-column-title">{{ t('facets.genre') }}</div>
+        <button
+          v-for="option in genreOptions"
+          :key="option.key"
+          class="facet-option"
+          :class="{ 'facet-option-active': isSelected('genre', option.key) }"
+          type="button"
+          @click="selectFacet('genre', option.key)"
+          @contextmenu.prevent="openContextMenu('genre', option, $event)"
         >
-          <header class="facets-dialog-header">
-            <div>
-              <h2>{{ t('facets.title') }}</h2>
-              <p>{{ t('facets.trackCount', { count: tracks.length }) }}</p>
-            </div>
+          <span>{{ option.label }}</span>
+          <span>{{ option.trackCount }}</span>
+        </button>
+      </div>
 
-            <div class="facets-dialog-actions">
-              <button type="button" :aria-label="t('facets.reset')" @click="clearSelection">
-                <span class="i-lucide-rotate-ccw h-4 w-4"></span>
-              </button>
-              <button type="button" :aria-label="t('facets.close')" @click="emit('close')">
-                <span class="i-lucide-x h-4 w-4"></span>
-              </button>
-            </div>
-          </header>
+      <div class="facet-column">
+        <div class="facet-column-title">{{ t('facets.albumArtist') }}</div>
+        <button
+          v-for="option in albumArtistOptions"
+          :key="option.key"
+          class="facet-option"
+          :class="{ 'facet-option-active': isSelected('albumArtist', option.key) }"
+          type="button"
+          @click="selectFacet('albumArtist', option.key)"
+          @contextmenu.prevent="openContextMenu('albumArtist', option, $event)"
+        >
+          <span>{{ option.label }}</span>
+          <span>{{ option.trackCount }}</span>
+        </button>
+      </div>
 
-          <div v-if="isLoading" class="facets-dialog-loading">{{ t('facets.loading') }}</div>
-
-          <div v-else class="facets-dialog-grid">
-            <div class="facet-column">
-              <div class="facet-column-title">{{ t('facets.genre') }}</div>
-              <button
-                v-for="option in genreOptions"
-                :key="option.key"
-                class="facet-option"
-                :class="{ 'facet-option-active': isSelected('genre', option.key) }"
-                type="button"
-                @click="selectFacet('genre', option.key)"
-                @contextmenu.prevent="openContextMenu('genre', option, $event)"
-              >
-                <span>{{ option.label }}</span>
-                <span>{{ option.trackCount }}</span>
-              </button>
-            </div>
-
-            <div class="facet-column">
-              <div class="facet-column-title">{{ t('facets.albumArtist') }}</div>
-              <button
-                v-for="option in albumArtistOptions"
-                :key="option.key"
-                class="facet-option"
-                :class="{ 'facet-option-active': isSelected('albumArtist', option.key) }"
-                type="button"
-                @click="selectFacet('albumArtist', option.key)"
-                @contextmenu.prevent="openContextMenu('albumArtist', option, $event)"
-              >
-                <span>{{ option.label }}</span>
-                <span>{{ option.trackCount }}</span>
-              </button>
-            </div>
-
-            <div class="facet-column">
-              <div class="facet-column-title">{{ t('facets.album') }}</div>
-              <button
-                v-for="option in albumOptions"
-                :key="option.key"
-                class="facet-option"
-                :class="{ 'facet-option-active': isSelected('album', option.key) }"
-                type="button"
-                @click="selectFacet('album', option.key)"
-              >
-                <span>{{ option.label }}</span>
-                <span>{{ option.trackCount }}</span>
-              </button>
-            </div>
-          </div>
-        </section>
-
-        <div v-if="contextMenu" class="facets-context-layer" @click="closeContextMenu">
-          <div
-            class="library-context-menu frosted-context-menu facets-context-menu"
-            :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
-            @click.stop
-          >
-            <button class="library-context-menu-item" type="button" @click="createSmartPlaylist">
-              <span class="i-lucide-list-plus"></span>
-              <span>{{ t('facets.createSmartPlaylist') }}</span>
-            </button>
-          </div>
+      <div class="facet-column">
+        <div class="facet-column-title">{{ t('facets.album') }}</div>
+        <button
+          v-for="option in albumOptions"
+          :key="option.key"
+          class="facet-option"
+          :class="{ 'facet-option-active': isSelected('album', option.key) }"
+          type="button"
+          @click="selectFacet('album', option.key)"
+        >
+          <span>{{ option.label }}</span>
+          <span>{{ option.trackCount }}</span>
+        </button>
+      </div>
+    </div>
+    <template #overlay>
+      <div v-if="contextMenu" class="facets-context-layer" @click="closeContextMenu">
+        <div
+          class="library-context-menu frosted-context-menu facets-context-menu"
+          :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
+          @click.stop
+        >
+          <button class="library-context-menu-item" type="button" @click="createSmartPlaylist">
+            <span class="i-lucide-list-plus"></span>
+            <span>{{ t('facets.createSmartPlaylist') }}</span>
+          </button>
         </div>
       </div>
-    </Transition>
-  </Teleport>
+    </template>
+  </AppDialog>
 </template>
 
 <style scoped>
-.facets-dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 80;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 28px;
-  background: rgba(0, 0, 0, 0.18);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-}
-
-.facets-dialog-panel {
-  display: grid;
-  width: min(780px, calc(100vw - 56px));
-  height: min(500px, calc(100vh - 84px));
-  min-height: 0;
-  grid-template-rows: auto minmax(0, 1fr);
-  overflow: hidden;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 8px;
-  background: var(--auralis-main-bg);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
-}
-
-.facets-dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--auralis-border-subtle);
-}
-
-.facets-dialog-header h2 {
-  margin: 0;
-  font-size: var(--auralis-type-section-size);
-  line-height: var(--auralis-type-section-line-height);
-  font-weight: 700;
-  letter-spacing: 0;
-}
-
-.facets-dialog-header p {
+.facet-count {
   margin: 2px 0 0;
   color: var(--auralis-text-subtle);
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
 }
-
-.facets-dialog-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.facets-dialog-actions button {
-  display: inline-flex;
-  width: 24px;
-  height: 24px;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 6px;
-  color: var(--auralis-text-muted);
-  background: transparent;
-}
-
-.facets-dialog-actions button:hover {
-  color: var(--auralis-text);
-  background: color-mix(in srgb, var(--auralis-control-hover-bg) 72%, transparent);
-}
-
 .facets-dialog-loading {
   display: flex;
   align-items: center;
@@ -496,21 +421,6 @@ onBeforeUnmount(() => {
 .facet-option-active:focus-visible {
   outline: 2px solid var(--auralis-control-primary-text);
   outline-offset: -2px;
-}
-
-.facets-dialog-fade-enter-active,
-.facets-dialog-fade-leave-active {
-  transition: opacity 160ms ease;
-}
-
-.facets-dialog-fade-enter-from,
-.facets-dialog-fade-leave-to {
-  opacity: 0;
-}
-
-:where([data-reduced-motion='true']) .facets-dialog-fade-enter-active,
-:where([data-reduced-motion='true']) .facets-dialog-fade-leave-active {
-  transition: none;
 }
 
 .facets-context-layer {

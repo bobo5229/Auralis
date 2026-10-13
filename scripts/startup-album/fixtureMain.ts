@@ -1005,6 +1005,37 @@ void app
         `void (HTMLCanvasElement.prototype.getContext = new Proxy(HTMLCanvasElement.prototype.getContext, {apply(target, self, args) { return self.dataset.engine?.startsWith('three.js') && String(args[0]).startsWith('webgl') ? null : Reflect.apply(target, self, args) }}))`,
       )
     const start = Date.now()
+    if (testCase === 'controls-timing') {
+      await win.webContents.executeJavaScript(`(() => {
+        const probe = window.__fixtureControlsTiming = { samples: [], settledAt: null, controlsAt: null };
+        for (const name of ['drawArrays', 'drawElements']) {
+          const draw = WebGL2RenderingContext.prototype[name];
+          WebGL2RenderingContext.prototype[name] = function(...args) {
+            const result = Reflect.apply(draw, this, args);
+            const program = this.getParameter(this.CURRENT_PROGRAM);
+            if (program && !this.isContextLost() && this.getUniformLocation(program, 'uCardFinish')) {
+              const position = this.getUniformLocation(program, 'uSweepPosition');
+              if (probe.settledAt === null && position && this.getUniform(program, position) === 1.5)
+                probe.settledAt = performance.now();
+            }
+            return result;
+          };
+        }
+        const sample = () => {
+          const overlay = document.querySelector('.startup-album-overlay');
+          if (overlay) {
+            const at = performance.now();
+            const buttons = overlay.querySelectorAll('[data-startup-play], [data-startup-skip]').length;
+            probe.samples.push({at, buttons, cardDraws: window.__fixtureCardDraws});
+            if (buttons && probe.controlsAt === null) probe.controlsAt = at;
+          }
+        };
+        const observer = new MutationObserver(sample);
+        observer.observe(document.body, {childList: true, subtree: true});
+      })()`)
+      await wait(win, "Boolean(document.querySelector('.startup-album-overlay'))")
+      await capture(win, 'entrance')
+    }
     if (testCase === 'backdrop')
       await win.webContents.executeJavaScript(`(() => {
         const probe = window.__fixtureBackdrop = { samples: [], events: [], firstSceneFrame: null, firstCardFrame: null };
@@ -1122,7 +1153,6 @@ void app
         ),
         'Startup actions contain removed copy or controls',
       )
-      const firstSeen = Date.now()
       await wait(win, 'window.__fixtureShownWrites.length === 1')
       assert(
         await win.webContents.executeJavaScript(
@@ -1133,6 +1163,16 @@ void app
       const shownHistory = await win.webContents.executeJavaScript(
         "localStorage.getItem('auralis-startup-album-history')",
       )
+      if (testCase === 'controls-timing') {
+        const probe = await win.webContents.executeJavaScript('window.__fixtureControlsTiming')
+        writeFileSync(join(output, 'controls-timing.json'), JSON.stringify(probe, null, 2))
+        assert(probe.samples[0]?.buttons === 0, 'Actions appeared when the overlay first mounted')
+        assert(
+          probe.settledAt !== null && probe.controlsAt >= probe.settledAt,
+          'Actions appeared before the card entrance finished',
+        )
+        await capture(win, 'settled')
+      }
       if (testCase === 'backdrop') {
         await wait(win, 'window.__fixtureBackdrop?.done === true')
         const probe = await win.webContents.executeJavaScript('window.__fixtureBackdrop')
@@ -1174,8 +1214,6 @@ void app
         await verifyCardContrast(win)
         await skip(win)
       } else if (playCase) {
-        if (testCase === 'play')
-          assert(Date.now() - firstSeen < 1300, 'Missed entrance play window')
         await playAlbum(win)
       } else if (testCase === 'controls') {
         await wait(win, 'document.activeElement?.hasAttribute("data-startup-play")')
@@ -1211,10 +1249,6 @@ void app
         win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Escape' })
       } else if (testCase === 'skip' || testCase.startsWith('skip-')) {
         if (testCase !== 'skip' && testCase !== 'skip-reduced') await settleCard(win)
-        assert(
-          testCase !== 'skip' || Date.now() - firstSeen < 1300,
-          'Skip was not exercised during entrance',
-        )
         await skip(win)
         await wait(win, "!document.querySelector('.app-window').inert")
         assert(

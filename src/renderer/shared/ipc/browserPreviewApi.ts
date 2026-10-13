@@ -47,6 +47,11 @@ function mockResponse(group: string, method: string, args: unknown[]): unknown {
     case 'smartPlaylists.getDetail':
     case 'playlists.getDetail':
       return null
+    case 'lyrics.openLrcEditor':
+    case 'lyrics.saveLrcEditor':
+      return { ok: false, code: 'track-unavailable' }
+    case 'lyrics.closeLrcEditor':
+      return { ok: true, value: null }
     case 'playback.recordEffectivePlay':
       return { ok: false, recorded: false }
     case 'archive.getAnnualPlayCounts':

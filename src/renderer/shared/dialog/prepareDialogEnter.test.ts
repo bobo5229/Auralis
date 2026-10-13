@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { prepareSettingsDialogEnter } from './prepareSettingsDialogEnter'
+import { prepareDialogEnter } from './prepareDialogEnter'
 
 let frames: Map<number, FrameRequestCallback>
 let frameId: number
@@ -42,7 +42,7 @@ describe('settings dialog entry preparation', () => {
     })
     vi.stubGlobal('document', { fonts: { ready } })
     const reveal = vi.fn()
-    prepareSettingsDialogEnter(new Promise<void>((resolve) => (contentReady = resolve)), reveal)
+    prepareDialogEnter(new Promise<void>((resolve) => (contentReady = resolve)), reveal)
     paint()
     expect(frames.size).toBe(0)
     contentReady()
@@ -60,7 +60,7 @@ describe('settings dialog entry preparation', () => {
 
   it('reveals the loading shell after a bounded wait even if the content never loads', async () => {
     const reveal = vi.fn()
-    prepareSettingsDialogEnter(new Promise(() => {}), reveal)
+    prepareDialogEnter(new Promise(() => {}), reveal)
     vi.advanceTimersByTime(100)
     paint()
     paint()
@@ -71,10 +71,7 @@ describe('settings dialog entry preparation', () => {
   it('cancels outstanding frames and ignores late resources after closing', async () => {
     let ready!: () => void
     const reveal = vi.fn()
-    const cancel = prepareSettingsDialogEnter(
-      new Promise<void>((resolve) => (ready = resolve)),
-      reveal,
-    )
+    const cancel = prepareDialogEnter(new Promise<void>((resolve) => (ready = resolve)), reveal)
     vi.advanceTimersByTime(100)
     paint()
     cancel()
@@ -89,7 +86,7 @@ describe('settings dialog entry preparation', () => {
   it('prepares only once when resources finish after the loading deadline', async () => {
     let ready!: () => void
     const reveal = vi.fn()
-    prepareSettingsDialogEnter(new Promise<void>((resolve) => (ready = resolve)), reveal)
+    prepareDialogEnter(new Promise<void>((resolve) => (ready = resolve)), reveal)
     vi.advanceTimersByTime(100)
     ready()
     await flush()

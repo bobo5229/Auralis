@@ -5,6 +5,7 @@ import type { MetadataRefreshRepository } from '../../repositories/metadataRefre
 import type { MetadataRefreshWorkerResult } from './metadataRefreshTypes'
 import { assertMetadataFingerprint, readStableMetadata } from './readStableMetadata'
 import { writeAudioTags } from './audioTagWriteService'
+import type { PlaybackMetadataTagWrite } from './metadataTagWriteCoordinator'
 
 const workers = vi.hoisted(() => [] as EventEmitter[])
 vi.mock('node:worker_threads', async () => {
@@ -82,6 +83,41 @@ beforeEach(() => {
 })
 
 describe('metadata result acceptance', () => {
+  it('routes lyric-only edits through the playback writer even when other fields are unchanged', async () => {
+    const { service, repo } = setup({
+      tryAcquireWriteLease: () => ({ ok: false, reason: 'playback-in-use' }),
+      releaseWriteLease: vi.fn(),
+    })
+    repo.getEditableTrackMetadata.mockReturnValue({
+      trackId: 1,
+      title: 'Before',
+      artistDisplay: null,
+      albumTitle: null,
+      albumArtistDisplay: null,
+      genreDisplay: null,
+      year: null,
+      releaseDate: null,
+    })
+    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
+    const commit = vi.fn(async () => undefined)
+    const guard = vi.fn(async () => undefined)
+    const committed = vi.fn()
+    const writer = vi.fn<PlaybackMetadataTagWrite>(async (_path, metadata, reconcile) => {
+      expect(metadata.lyricsText).toBe('[00:01.20]Edited')
+      await reconcile(commit)
+      return { ok: true as const }
+    })
+    service.setPlaybackTagWriteHandler(writer)
+    expect(await service.updateTrackLyrics(1, '[00:01.20]Edited', guard, committed)).toEqual({
+      ok: true,
+    })
+    expect(writer).toHaveBeenCalledOnce()
+    expect(guard).toHaveBeenCalledOnce()
+    expect(commit).toHaveBeenCalledOnce()
+    expect(committed).toHaveBeenCalledOnce()
+    expect(repo.updateTrackLyrics).toHaveBeenCalledWith(payload)
+    expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
+  })
   it('reconciles a published file after the database commit fails and notifies from accepted disk data', async () => {
     const { service, repo, send } = setup()
     repo.getJobById.mockReturnValue({ scope: 'file-change' })

@@ -380,6 +380,25 @@ describe('domain IPC payload validation behavior', () => {
     ['library:start-scan', { rootId: 0 }],
     ['library:cancel-scan', { jobId: Number.NaN }],
     ['lyrics:get-by-track-id', { trackId: Number.POSITIVE_INFINITY }],
+    ['lyrics:open-editor', { trackId: 1, filePath: 'C:/untrusted/song.flac' }],
+    ['lyrics:close-editor', { sessionId: 'too-short' }],
+    [
+      'lyrics:assign-editor-lines',
+      {
+        sessionId: '00000000-0000-4000-8000-000000000001',
+        expectedRevision: 'a'.repeat(64),
+        lineIds: ['line-0'],
+        assignment: 'together',
+      },
+    ],
+    [
+      'lyrics:save-editor',
+      {
+        sessionId: '00000000-0000-4000-8000-000000000001',
+        expectedRevision: 'a'.repeat(64),
+        text: '<renderer-supplied-xml/>',
+      },
+    ],
     ['library:get-track-page', { limit: 5_001 }],
     ['playlists:update-view-mode', { id: 1, viewMode: 'tiles' }],
     ['playback:get-album-tracks', { albumKey: { albumArtist: 'A' } }],
@@ -484,6 +503,24 @@ describe('domain IPC payload validation behavior', () => {
     expect(() =>
       parse('smart-playlists:create', { name: 'Deep rule', rule: { expression } }),
     ).toThrow(/depth limit/)
+  })
+
+  it('bounds LRC text saves and rejects arbitrary destinations or extra file paths', () => {
+    const request = {
+      sessionId: '00000000-0000-4000-8000-000000000001',
+      expectedRevision: 'a'.repeat(64),
+      text: '[00:01.00]Line',
+      target: 'tag',
+    }
+    expect(parse('lyrics:save-lrc-editor', request)).toBeTruthy()
+    expect(parse('lyrics:save-lrc-editor', { ...request, target: 'ttml' })).toBeTruthy()
+    expect(() => parse('lyrics:save-lrc-editor', { ...request, target: 'chorus' })).toThrow()
+    expect(() =>
+      parse('lyrics:save-lrc-editor', { ...request, filePath: 'arbitrary.flac' }),
+    ).toThrow()
+    expect(() =>
+      parse('lyrics:save-lrc-editor', { ...request, text: 'x'.repeat(128 * 1024 + 1) }),
+    ).toThrow()
   })
 
   it('rejects extra invoke arguments and never reflects sensitive payload values', () => {

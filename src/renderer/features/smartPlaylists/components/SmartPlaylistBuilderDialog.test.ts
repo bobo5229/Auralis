@@ -29,9 +29,6 @@ vi.mock('@renderer/shared/ipc/client', () => ({
   },
 }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
-vi.mock('@renderer/app/utils/useSidebarOwnedModal', () => ({
-  useSidebarOwnedModal: () => undefined,
-}))
 vi.mock('@renderer/shared/diagnostics/rendererDiagnostics', () => ({
   rendererDiagnostics: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))

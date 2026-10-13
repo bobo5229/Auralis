@@ -161,4 +161,19 @@ export class MetadataRefreshService {
   updateTrackMetadata(metadata: EditableTrackMetadata): Promise<UpdateTrackMetadataResult> {
     return this.tagWrites.updateTrackMetadata(metadata)
   }
+
+  updateTrackLyrics(
+    trackId: number,
+    lyricsText: string,
+    beforeCommit: () => Promise<void>,
+    onDiskCommit: () => void,
+  ): Promise<UpdateTrackMetadataResult> {
+    const metadata = this.repository.getEditableTrackMetadata(trackId)
+    if (!metadata) return Promise.resolve({ ok: false, reason: 'file-not-found' })
+    return this.tagWrites.updateTrackMetadata(
+      { ...metadata, lyricsText },
+      beforeCommit,
+      onDiskCommit,
+    )
+  }
 }

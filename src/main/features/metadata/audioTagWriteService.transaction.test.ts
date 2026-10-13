@@ -148,6 +148,22 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
     }
     expect((await readdir(directory)).some((name) => name.includes('auralis-'))).toBe(false)
   })
+  it('writes raw timed lyrics to FLAC without changing unrelated metadata or the original before commit', async () => {
+    const before = await readFile(file)
+    const lyrics = '[ar:Artist]\n[00:01.20]Line one\nUntimed line\n'
+    const transaction = await prepareAudioTagWrite(file, { ...edit, lyricsText: lyrics }, ffmpeg)
+    try {
+      expect(await readFile(file)).toEqual(before)
+      const staged = await metadataParser.parseAudioMetadata(transaction.stagingPath)
+      expect(staged.common.title).toBe('Before')
+      expect(staged.common.composer).toEqual(['Composer'])
+      expect(JSON.stringify(staged.common.lyrics)).toContain('[00:01.20]Line one')
+      await transaction.commit()
+      expect((await metadataParser.parseAudioMetadata(file)).common.title).toBe('Before')
+    } finally {
+      await transaction.dispose()
+    }
+  })
   const expectFailedPreparationCleaned = async (before: Buffer) => {
     expect((await readFile(file)).equals(before)).toBe(true)
     expect(rename).not.toHaveBeenCalled()

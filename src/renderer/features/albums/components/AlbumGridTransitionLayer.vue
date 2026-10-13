@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, ref } from 'vue'
+import { animateAlbumGridReflow, freezeAlbumGridSnapshot } from '../utils/albumGridReflowMotion'
 import {
   createAlbumGridTransitionController,
   type AlbumGridTransitionLayerHost,
@@ -38,11 +39,11 @@ function sanitizeSnapshot(snapshot: HTMLElement): HTMLElement {
 
 const host: AlbumGridTransitionLayerHost = {
   reset(): void {
-    const root = rootRef.value
-    if (!root) return
     animations.forEach((animation) => animation.cancel())
     animations = []
     groups.clear()
+    const root = rootRef.value
+    if (!root) return
     root.replaceChildren()
     root.style.display = 'none'
   },
@@ -106,37 +107,27 @@ const host: AlbumGridTransitionLayerHost = {
     item.style.transform = transform === 'translate3d(0, 0, 0)' ? 'none' : transform
     item.style.opacity = String(opacity)
   },
-  setGroupViewports(from, to, union): void {
+  setGroupViewports(_from, _to, union): void {
     for (const [side, group] of groups) {
-      const viewport = side === 'from' ? from : to
-      viewports.set(group, viewport)
-      group.style.clipPath = `inset(${viewport.top - union.top}px ${union.left + union.width - viewport.left - viewport.width}px ${union.top + union.height - viewport.top - viewport.height}px ${viewport.left - union.left}px)`
+      // A moving card can cross either viewport; clipping belongs to the outer union.
+      viewports.set(group, union)
+      group.style.clipPath = 'none'
       if (side === 'to') {
-        // Prepare the incoming surface for rasterization before starting its fade.
+        // Keep the outgoing snapshots visible while preparing the target surface.
         group.style.opacity = '0.001'
         for (const item of group.children) (item as HTMLElement).style.opacity = '1'
       }
     }
   },
-  async animateGroups(duration): Promise<void> {
-    for (const [side, group] of groups) {
-      // Only two composited surfaces animate. Card dimensions remain fixed.
-      const outgoing = side === 'from'
-      const animation = group.animate(
-        outgoing
-          ? [{ opacity: 1 }, { opacity: 0, offset: 0.45 }, { opacity: 0 }]
-          : [{ opacity: 0 }, { opacity: 0, offset: 0.35 }, { opacity: 1 }],
-        { duration, fill: 'forwards' },
-      )
-      animations.push(animation)
-    }
-    await Promise.all(animations.map((animation) => animation.finished.catch(() => undefined)))
+  async animateGroups(): Promise<void> {
+    await animateAlbumGridReflow(groups, animations)
   },
   captureItem(item) {
     if (!item.isConnected) return null
     const rect = item.getBoundingClientRect()
     const snapshot = item.firstElementChild
     if (!(snapshot instanceof HTMLElement)) return null
+    freezeAlbumGridSnapshot(snapshot)
     const group = item.parentElement
     const opacity =
       Number.parseFloat(getComputedStyle(item).opacity) *
@@ -171,6 +162,7 @@ const host: AlbumGridTransitionLayerHost = {
 }
 
 const controller = createAlbumGridTransitionController(host)
+onBeforeUnmount(controller.clear)
 
 defineExpose({
   prepareSources: controller.prepareSources,
@@ -215,7 +207,6 @@ defineExpose({
   position: absolute;
   inset: 0;
   pointer-events: none;
-  will-change: opacity;
 }
 
 .album-grid-transition-item > .album-card {

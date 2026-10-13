@@ -10,6 +10,7 @@ import { useLightAccent } from './features/appearance/composables/useLightAccent
 import { tooltipPlugin } from './shared/tooltip/tooltip'
 import { initMotionPreference } from './shared/animation/motionPreference'
 import { initLyricsScrollPreset } from './features/lyrics/lyricsScrollPreset'
+import { initLyricsCountdownPreference } from './features/lyrics/lyricsCountdownPreference'
 import { initAlbumListParameters } from './features/appearance/composables/useAlbumListParameters'
 import { auralis } from './shared/ipc/client'
 import {
@@ -32,6 +33,8 @@ const disposeMotionPreference = initMotionPreference()
 if (import.meta.hot) import.meta.hot.dispose(disposeMotionPreference)
 const disposeLyricsScrollPreset = initLyricsScrollPreset()
 if (import.meta.hot) import.meta.hot.dispose(disposeLyricsScrollPreset)
+const disposeLyricsCountdownPreference = initLyricsCountdownPreference()
+if (import.meta.hot) import.meta.hot.dispose(disposeLyricsCountdownPreference)
 
 function waitForNextFrame(): Promise<void> {
   if (typeof requestAnimationFrame !== 'function') return Promise.resolve()

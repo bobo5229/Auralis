@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { createRenderer, h, nextTick } from 'vue'
+import { createRenderer, h, markRaw, nextTick } from 'vue'
 import StartupAlbumOverlay from './StartupAlbumOverlay.vue'
 import type { StartupAlbumPresentation } from './useStartupAlbum'
 import type { CardSnapshot, createCardScene } from './rendering/scene'
@@ -54,7 +54,7 @@ class TestNode {
 }
 const body = new TestNode('body')
 const renderer = createRenderer<TestNode, TestNode>({
-  createElement: (type) => new TestNode(type),
+  createElement: (type) => markRaw(new TestNode(type)),
   createText: (text) => Object.assign(new TestNode('text'), { textContent: text }),
   createComment: () => new TestNode('comment'),
   insert(child, parent, anchor) {
@@ -136,13 +136,15 @@ function sceneFixture(initial?: Partial<CardSnapshot>) {
     contextLost: false,
     dropping: false,
     shattering: false,
+    entering: true,
+    entranceProgress: 0,
     ...initial,
   } as CardSnapshot
   const instance = {
     setVisible: vi.fn(),
     dispose: vi.fn(),
     getArtworkCanvas: () => canvas,
-    shatter: () => true,
+    shatter: vi.fn(() => true),
   }
   const createScene = vi.fn((_host: HTMLElement, onChange: (value: CardSnapshot) => void) => {
     notify = onChange
@@ -216,7 +218,7 @@ it('records only the first drawn WebGL card, including synchronous scene callbac
   ).toHaveBeenCalledTimes(1)
 })
 
-it.each(['escape', 'skip', 'play', 'unmount'])(
+it.each(['escape', 'unmount'])(
   'does not record a card cancelled before its first draw: %s',
   async (action) => {
     const fixture = sceneFixture()
@@ -226,9 +228,6 @@ it.each(['escape', 'skip', 'play', 'unmount'])(
       unmount = undefined
     } else if (action === 'escape') {
       mocks.focusTrap.mock.calls.at(-1)![0].onEscape()
-    } else {
-      const button = find(body, (node) => node.props[`data-startup-${action}`] !== undefined)!
-      ;(button.props.onClick as () => void)()
     }
     fixture.notify({ frames: 1, cardRendered: true })
     await flush()
@@ -236,9 +235,74 @@ it.each(['escape', 'skip', 'play', 'unmount'])(
   },
 )
 
+function actions() {
+  return ['play', 'skip'].map((action) =>
+    find(body, (node) => node.props[`data-startup-${action}`] !== undefined),
+  )
+}
+
+it.each([false, true])(
+  'waits for the drawn entrance completion (reduced motion: %s)',
+  async (reducedMotion) => {
+    const fixture = sceneFixture({ reducedMotion })
+    const { shown } = await mount(fixture.createScene)
+    expect(actions()).toEqual([undefined, undefined])
+    fixture.notify({ frames: 1, cardRendered: true, entranceProgress: 0.5 })
+    await flush()
+    expect(shown).toHaveBeenCalledTimes(1)
+    expect(actions()).toEqual([undefined, undefined])
+    // A state notification without a new rendered frame cannot reveal the buttons.
+    fixture.notify({ entering: false, entranceProgress: 1 })
+    await flush()
+    expect(actions()).toEqual([undefined, undefined])
+    visibility({ isVisible: false })
+    fixture.notify({ frames: 2 })
+    await flush()
+    expect(actions()).toEqual([undefined, undefined])
+    visibility({ isVisible: true })
+    fixture.notify({ frames: 3 })
+    await flush()
+    expect(actions().every(Boolean)).toBe(true)
+    expect(shown).toHaveBeenCalledTimes(1)
+  },
+)
+
+it.each([true, false])(
+  'hands focus to actions only from the entrance root (root focused: %s)',
+  async (rootFocused) => {
+    const fixture = sceneFixture()
+    await mount(fixture.createScene)
+    const root = find(body, (node) => node.props.role === 'dialog')!
+    expect(mocks.focusTrap.mock.calls.at(-1)![0].initialFocus()).toBe(root)
+    Object.assign(document, { activeElement: rootFocused ? root : new TestNode('button') })
+    fixture.notify({ frames: 1, cardRendered: true, entering: false, entranceProgress: 1 })
+    await flush()
+    expect(actions()[0]!.focus).toHaveBeenCalledTimes(rootFocused ? 1 : 0)
+  },
+)
+
+it.each(['play', 'skip'])(
+  'hides actions and rejects repeated %s after entrance',
+  async (action) => {
+    const fixture = sceneFixture()
+    await mount(fixture.createScene)
+    fixture.notify({ frames: 1, cardRendered: true, entering: false, entranceProgress: 1 })
+    await flush()
+    const click = actions()[action === 'play' ? 0 : 1]!.props.onClick as () => void
+    mocks.play.mockClear()
+    click()
+    click()
+    await flush()
+    expect(actions()).toEqual([undefined, undefined])
+    expect(mocks.play).toHaveBeenCalledTimes(action === 'play' ? 1 : 0)
+    expect(fixture.instance.shatter).toHaveBeenCalledTimes(action === 'skip' ? 1 : 0)
+  },
+)
+
 it('does not record a hidden card and waits for a visible frame on resume', async () => {
   const fixture = sceneFixture()
   const { shown } = await mount(fixture.createScene)
+  expect(actions()).toEqual([undefined, undefined])
   visibility({ isVisible: false })
   fixture.notify({ frames: 1, cardRendered: true })
   await flush()
@@ -268,11 +332,17 @@ it('waits for static PNG loading and a paint, then records once across context r
   await flush()
   await paint()
   expect(shown).not.toHaveBeenCalled()
+  expect(actions()).toEqual([undefined, undefined])
   await paint()
   expect(shown).toHaveBeenCalledTimes(1)
+  expect(actions().every(Boolean)).toBe(true)
   fixture.notify({ frames: 1, cardRendered: true, contextLost: false })
   await flush()
   expect(shown).toHaveBeenCalledTimes(1)
+  expect(actions()).toEqual([undefined, undefined])
+  fixture.notify({ frames: 2, entering: false, entranceProgress: 1 })
+  await flush()
+  expect(actions().every(Boolean)).toBe(true)
 })
 
 it('cancels a pending static paint when hidden or closed and resumes only while open', async () => {

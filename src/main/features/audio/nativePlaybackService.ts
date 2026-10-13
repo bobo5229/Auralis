@@ -3,7 +3,7 @@ import type {
   NativePlaybackEvent,
   UpdateTrackMetadataResult,
 } from '@shared/ipc/contracts'
-import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { AudioTagEdit as EditableTrackMetadata } from '../metadata/audioTagEdit'
 import { openMpvClient, type MpvClient, type MpvMessage } from './mpvClient'
 import type { SpectrumSource } from './playbackSpectrumService'
 import { BufferedTagPlayback } from './bufferedTagPlayback'

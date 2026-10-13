@@ -17,6 +17,10 @@ const props = withDefaults(
   },
 )
 
+const emit = defineEmits<{
+  editLyrics: [trigger: HTMLElement | null]
+}>()
+
 const contentStyle = computed<CSSProperties>(() => ({
   width:
     typeof props.targetWidthPx === 'number' && props.targetWidthPx > 0
@@ -34,7 +38,11 @@ const contentStyle = computed<CSSProperties>(() => ({
     :aria-hidden="isCollapsed ? 'true' : undefined"
   >
     <div class="now-playing-panel-content" :style="contentStyle">
-      <LyricsPanel v-if="shouldMountLyrics" :active="isInteractive && !isCollapsed" />
+      <LyricsPanel
+        v-if="shouldMountLyrics"
+        :active="isInteractive && !isCollapsed"
+        @edit-lyrics="emit('editLyrics', $event)"
+      />
     </div>
   </aside>
 </template>

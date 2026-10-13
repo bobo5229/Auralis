@@ -1,12 +1,12 @@
 import { stat } from 'node:fs/promises'
-import { extname, normalize } from 'node:path'
+import { normalize } from 'node:path'
 import { isSupportedAudioFile } from '@main/features/libraryScan/audioFileFilter'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
 import { logger } from '@main/logging/logger'
 import type { MetadataRefreshService } from './metadataRefreshService'
 import { resolveWatchRefreshPaths } from './metadataFileChangeFilter'
-import { resolveAudioCandidatesForLyricSidecar } from './lyricSidecarPaths'
+import { isLyricSidecar, resolveAudioCandidatesForLyricSidecar } from './lyricSidecarPaths'
 import type { LibraryIncrementalImportService } from '../libraryScan/libraryIncrementalImportService'
 import type { RendererEventSender } from '@main/ipc/rendererEvents'
 import { MetadataWatchImportQueue } from './metadataWatchImportQueue'
@@ -23,7 +23,7 @@ const TAG_WRITE_REFRESH_SUPPRESS_MS = 8000
 
 export class MetadataWatchService {
   private readonly pendingFilePaths = new Map<string, number>()
-  /** Audio paths whose pending event came from a sidecar `.lrc` mapping. */
+  /** Audio paths whose pending event came from a lyric sidecar mapping. */
   private readonly pendingLyricsIntentPaths = new Set<string>()
   private readonly statRetries = new Map<string, number>()
   /** filePath → suppress refresh until epoch ms */
@@ -184,7 +184,7 @@ export class MetadataWatchService {
 
   private enqueueChangedPath(filePath: string): void {
     if (!this.isCurrentPath(filePath)) return
-    if (extname(filePath).toLowerCase() === '.lrc') {
+    if (isLyricSidecar(filePath)) {
       const audioCandidates = resolveAudioCandidatesForLyricSidecar(filePath)
       const knownAudioPaths = this.trackRepository.getExistingFilePaths(audioCandidates)
 
@@ -328,7 +328,7 @@ export class MetadataWatchService {
       this.missingConfirmation.restorePaths(knownEntries.map((entry) => entry.filePath))
 
       // Known tracks: refresh when the audio fingerprint changed, or when a
-      // sidecar `.lrc` mapped this path into lyrics intent. Opening a file for
+      // A lyric sidecar mapped this path into lyrics intent. Opening a file for
       // playback leaves size + mtime untouched and carries no lyrics intent, so
       // it must not create a refresh job. Tag-write suppression is applied
       // only to this metadata decision.

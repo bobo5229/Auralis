@@ -1,5 +1,5 @@
 import { extname } from 'node:path'
-import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { AudioTagEdit as EditableTrackMetadata } from '../metadata/audioTagEdit'
 import type { UpdateTrackMetadataResult } from '@shared/ipc/contracts'
 import { prepareAudioTagWrite } from '../metadata/audioTagWriteService'
 import { metadataSaveFailureReason } from '../metadata/metadataSaveError'

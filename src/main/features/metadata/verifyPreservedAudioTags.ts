@@ -1,7 +1,11 @@
 import { parseAudioMetadata } from './parseAudioMetadata'
 import { MetadataSaveError } from './metadataSaveError'
 
-export async function verifyPreservedAudioTags(source: string, staging: string): Promise<void> {
+export async function verifyPreservedAudioTags(
+  source: string,
+  staging: string,
+  lyricsOnly = false,
+): Promise<void> {
   const [before, after] = await Promise.all([
     parseAudioMetadata(source),
     parseAudioMetadata(staging),
@@ -17,6 +21,10 @@ export async function verifyPreservedAudioTags(source: string, staging: string):
     'date',
     'year',
   ])
+  if (lyricsOnly) {
+    edited.clear()
+    edited.add('lyrics')
+  }
   for (const key of Object.keys(before.common)) {
     if (edited.has(key)) continue
     const name = key as keyof typeof before.common
@@ -81,6 +89,11 @@ export async function verifyPreservedAudioTags(source: string, staging: string):
     'isft',
     '©too',
   ])
+  if (lyricsOnly) {
+    editedNative.clear()
+    // Plain lyric fields are intentionally edited; synchronized/private fields remain protected.
+    for (const id of ['uslt', 'ult', 'lyrics', 'unsyncedlyrics', '©lyr']) editedNative.add(id)
+  }
   const nativeTags = (tags: typeof before.native) => {
     const values = new Map<string, number>()
     for (const [type, entries] of Object.entries(tags)) {

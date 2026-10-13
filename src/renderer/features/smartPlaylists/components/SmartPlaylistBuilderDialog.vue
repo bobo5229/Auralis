@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDefaultPlaylistName } from '../utils/useDefaultPlaylistName'
 import type { TrackListItem } from '@shared/types/libraryScan'
@@ -7,7 +7,8 @@ import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import { SMART_PLAYLIST_MAX_OPERANDS } from '@shared/smartPlaylists/ruleLimits'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
-import { useSidebarOwnedModal } from '@renderer/app/utils/useSidebarOwnedModal'
+import AppDialog from '@renderer/shared/dialog/AppDialog.vue'
+import { resolveRestorableFocusTarget } from '@renderer/app/utils/sidebarModalFocus'
 import { libraryCatalogClient } from '@renderer/features/library/utils/libraryCatalogClient'
 import {
   buildPlaylistRule,
@@ -41,7 +42,6 @@ const loading = ref(false)
 const saving = ref(false)
 const loadError = ref('')
 const saveError = ref('')
-const container = ref<HTMLElement | null>(null)
 const restoreTrigger = ref<HTMLElement | null>(null)
 const activeSingleField = computed(() =>
   fields.find((field) => state.value.groups[field].values.length > 0),
@@ -116,13 +116,13 @@ function groupCount(field: BuilderField): number {
 function close(): void {
   if (!saving.value) emit('close')
 }
-useSidebarOwnedModal({
-  isOpen: () => props.open,
-  container,
-  trigger: restoreTrigger,
-  canDismiss: () => !saving.value,
-  onEscape: close,
-})
+function restoreBuilderFocus(): void {
+  const fallback = document.querySelector<HTMLElement>('.app-sidebar .smart-playlist-add-button')
+  const target =
+    resolveRestorableFocusTarget(restoreTrigger.value) ?? resolveRestorableFocusTarget(fallback)
+  restoreTrigger.value = null
+  target?.focus({ preventScroll: true })
+}
 
 let disposed = false
 let generation = 0
@@ -171,7 +171,7 @@ async function load(
 }
 watch(
   () => props.open,
-  async (open) => {
+  (open) => {
     if (!open) {
       generation++
       pending = false
@@ -187,8 +187,6 @@ watch(
     limits.value = { genre: 100, artist: 100 }
     saveError.value = ''
     void load()
-    await nextTick()
-    container.value?.querySelector<HTMLButtonElement>('.close')?.focus()
   },
 )
 watch(
@@ -275,216 +273,193 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="sidebar-overlay builder-backdrop" @click.self="close">
-      <section
-        ref="container"
-        class="playlist-builder"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="playlist-builder-title"
-        :aria-busy="saving"
-      >
-        <header>
-          <div class="title-lockup">
-            <h1 id="playlist-builder-title">{{ t('smartBuilder.title') }}</h1>
-          </div>
-          <button class="close" :aria-label="t('facets.close')" :disabled="saving" @click="close">
-            <span class="i-lucide-x" />
-          </button>
-        </header>
-        <div class="stage">
-          <p v-if="loading" class="notice neutral" role="status">{{ t('smartBuilder.loading') }}</p>
-          <p v-if="loadError" class="notice" role="alert">
-            {{ t(loadError) }}
-            <button :disabled="loading || saving" @click="load()">
-              {{ t('albums.status.retry') }}
+  <AppDialog
+    :open="open"
+    :title="t('smartBuilder.title')"
+    title-id="playlist-builder-title"
+    :busy="saving"
+    :dismissible="!saving"
+    :return-focus-to="restoreTrigger"
+    :restore-focus="restoreBuilderFocus"
+    fill
+    :padded="false"
+    :scroll="false"
+    close-class="close"
+    @close="close"
+  >
+    <div class="stage">
+      <p v-if="loading" class="notice neutral" role="status">{{ t('smartBuilder.loading') }}</p>
+      <p v-if="loadError" class="notice" role="alert">
+        {{ t(loadError) }}
+        <button :disabled="loading || saving" @click="load()">
+          {{ t('albums.status.retry') }}
+        </button>
+      </p>
+      <fieldset :disabled="saving || loading || !!loadError" class="controls">
+        <div class="relation outer">
+          <span class="label">{{ t('smartBuilder.betweenGroups') }}</span>
+          <div class="switch" role="group" :aria-label="t('smartBuilder.betweenGroupsAria')">
+            <button type="button" :aria-pressed="mode === 'single'" @click="selectMode('single')">
+              {{ t('smartBuilder.single') }}
             </button>
-          </p>
-          <fieldset :disabled="saving || loading || !!loadError" class="controls">
-            <div class="relation outer">
-              <span class="label">{{ t('smartBuilder.betweenGroups') }}</span>
-              <div class="switch" role="group" :aria-label="t('smartBuilder.betweenGroupsAria')">
+            <button type="button" :aria-pressed="mode === 'and'" @click="selectMode('and')">
+              {{ t('smartBuilder.andAll') }}</button
+            ><button type="button" :aria-pressed="mode === 'or'" @click="selectMode('or')">
+              {{ t('smartBuilder.orAny') }}
+            </button>
+          </div>
+        </div>
+        <div class="condition-groups parallel-groups">
+          <fieldset
+            v-for="field in fields"
+            :key="field"
+            class="group"
+            :class="{ 'group-disabled': isGroupDisabled(field) }"
+            :disabled="isGroupDisabled(field)"
+            :aria-label="labels[field]"
+          >
+            <div class="group-header">
+              <h2><span :class="icons[field]" />{{ labels[field] }}</h2>
+              <span
+                class="badge"
+                :class="{ empty: state.groups[field].values.length && !groupCount(field) }"
+                >{{
+                  state.groups[field].values.length
+                    ? t('smartBuilder.matchCount', { count: groupCount(field) })
+                    : t('smartBuilder.unselected')
+                }}</span
+              >
+            </div>
+            <p
+              v-if="state.groups[field].values.length >= SMART_PLAYLIST_MAX_OPERANDS"
+              class="notice neutral"
+              role="status"
+            >
+              {{ t('smartBuilder.selectionLimit', { count: SMART_PLAYLIST_MAX_OPERANDS }) }}
+            </p>
+            <div class="relation">
+              <span class="label">{{ t('smartBuilder.withinGroup') }}</span>
+              <div
+                class="switch"
+                role="group"
+                :aria-label="t('smartBuilder.withinGroupAria', { field: labels[field] })"
+              >
                 <button
-                  type="button"
-                  :aria-pressed="mode === 'single'"
-                  @click="selectMode('single')"
+                  :aria-pressed="state.groups[field].relation === 'and'"
+                  @click="state.groups[field].relation = 'and'"
                 >
-                  {{ t('smartBuilder.single') }}
-                </button>
-                <button type="button" :aria-pressed="mode === 'and'" @click="selectMode('and')">
-                  {{ t('smartBuilder.andAll') }}</button
-                ><button type="button" :aria-pressed="mode === 'or'" @click="selectMode('or')">
-                  {{ t('smartBuilder.orAny') }}
+                  {{ t('smartBuilder.and') }}</button
+                ><button
+                  :aria-pressed="state.groups[field].relation === 'or'"
+                  @click="state.groups[field].relation = 'or'"
+                >
+                  {{ t('smartBuilder.or') }}
                 </button>
               </div>
             </div>
-            <div class="condition-groups parallel-groups">
-              <fieldset
-                v-for="field in fields"
-                :key="field"
-                class="group"
-                :class="{ 'group-disabled': isGroupDisabled(field) }"
-                :disabled="isGroupDisabled(field)"
-                :aria-label="labels[field]"
+            <div
+              v-if="state.groups[field].values.length"
+              class="selected-values"
+              :aria-label="t('smartBuilder.selected', { field: labels[field] })"
+            >
+              <button
+                v-for="value in state.groups[field].values"
+                :key="value"
+                class="chip"
+                :aria-label="t('smartBuilder.remove', { value: label(field, value) })"
+                @click="remove(field, value)"
               >
-                <div class="group-header">
-                  <h2><span :class="icons[field]" />{{ labels[field] }}</h2>
-                  <span
-                    class="badge"
-                    :class="{ empty: state.groups[field].values.length && !groupCount(field) }"
-                    >{{
-                      state.groups[field].values.length
-                        ? t('smartBuilder.matchCount', { count: groupCount(field) })
-                        : t('smartBuilder.unselected')
-                    }}</span
-                  >
-                </div>
-                <p
-                  v-if="state.groups[field].values.length >= SMART_PLAYLIST_MAX_OPERANDS"
-                  class="notice neutral"
-                  role="status"
-                >
-                  {{ t('smartBuilder.selectionLimit', { count: SMART_PLAYLIST_MAX_OPERANDS }) }}
-                </p>
-                <div class="relation">
-                  <span class="label">{{ t('smartBuilder.withinGroup') }}</span>
-                  <div
-                    class="switch"
-                    role="group"
-                    :aria-label="t('smartBuilder.withinGroupAria', { field: labels[field] })"
-                  >
-                    <button
-                      :aria-pressed="state.groups[field].relation === 'and'"
-                      @click="state.groups[field].relation = 'and'"
-                    >
-                      {{ t('smartBuilder.and') }}</button
-                    ><button
-                      :aria-pressed="state.groups[field].relation === 'or'"
-                      @click="state.groups[field].relation = 'or'"
-                    >
-                      {{ t('smartBuilder.or') }}
-                    </button>
-                  </div>
-                </div>
-                <div
-                  v-if="state.groups[field].values.length"
-                  class="selected-values"
-                  :aria-label="t('smartBuilder.selected', { field: labels[field] })"
-                >
-                  <button
-                    v-for="value in state.groups[field].values"
-                    :key="value"
-                    class="chip"
-                    :aria-label="t('smartBuilder.remove', { value: label(field, value) })"
-                    @click="remove(field, value)"
-                  >
-                    <span>{{ label(field, value) }}</span
-                    ><span class="i-lucide-x" /></button
-                  ><button class="clear-group" @click="state.groups[field].values = []">
-                    {{ t('smartBuilder.clear') }}
-                  </button>
-                </div>
-                <div class="search-wrap">
-                  <span class="i-lucide-search" /><input
-                    v-model="queries[field]"
-                    class="search"
-                    :placeholder="t('smartBuilder.search', { field: labels[field] })"
-                    :aria-label="t('smartBuilder.search', { field: labels[field] })"
-                  /><button
-                    v-if="queries[field]"
-                    class="clear-search"
-                    :aria-label="t('smartBuilder.clearSearch', { field: labels[field] })"
-                    @click="queries[field] = ''"
-                  >
-                    <span class="i-lucide-x" />
-                  </button>
-                </div>
-                <div class="choices">
-                  <label
-                    v-for="option in filtered[field].slice(0, limits[field])"
-                    :key="option.value"
-                    class="choice"
-                    ><input
-                      :checked="state.groups[field].values.includes(option.value)"
-                      :disabled="
-                        state.groups[field].values.length >= SMART_PLAYLIST_MAX_OPERANDS &&
-                        !state.groups[field].values.includes(option.value)
-                      "
-                      type="checkbox"
-                      :value="option.value"
-                      @change="toggleValue(field, option.value)"
-                    /><span>{{ option.label }}</span
-                    ><small>{{ option.ids.size }}</small></label
-                  ><button
-                    v-if="filtered[field].length > limits[field]"
-                    class="more"
-                    @click="limits[field] += 100"
-                  >
-                    {{ t('smartBuilder.more', { count: filtered[field].length - limits[field] }) }}
-                  </button>
-                </div>
-                <p v-if="!filtered[field].length" class="notice neutral">
-                  {{ t('smartBuilder.noValues') }}
-                </p>
-              </fieldset>
+                <span>{{ label(field, value) }}</span
+                ><span class="i-lucide-x" /></button
+              ><button class="clear-group" @click="state.groups[field].values = []">
+                {{ t('smartBuilder.clear') }}
+              </button>
             </div>
+            <div class="search-wrap">
+              <span class="i-lucide-search" /><input
+                v-model="queries[field]"
+                class="search"
+                :placeholder="t('smartBuilder.search', { field: labels[field] })"
+                :aria-label="t('smartBuilder.search', { field: labels[field] })"
+              /><button
+                v-if="queries[field]"
+                class="clear-search"
+                :aria-label="t('smartBuilder.clearSearch', { field: labels[field] })"
+                @click="queries[field] = ''"
+              >
+                <span class="i-lucide-x" />
+              </button>
+            </div>
+            <div class="choices">
+              <label
+                v-for="option in filtered[field].slice(0, limits[field])"
+                :key="option.value"
+                class="choice"
+                ><input
+                  :checked="state.groups[field].values.includes(option.value)"
+                  :disabled="
+                    state.groups[field].values.length >= SMART_PLAYLIST_MAX_OPERANDS &&
+                    !state.groups[field].values.includes(option.value)
+                  "
+                  type="checkbox"
+                  :value="option.value"
+                  @change="toggleValue(field, option.value)"
+                /><span>{{ option.label }}</span
+                ><small>{{ option.ids.size }}</small></label
+              ><button
+                v-if="filtered[field].length > limits[field]"
+                class="more"
+                @click="limits[field] += 100"
+              >
+                {{ t('smartBuilder.more', { count: filtered[field].length - limits[field] }) }}
+              </button>
+            </div>
+            <p v-if="!filtered[field].length" class="notice neutral">
+              {{ t('smartBuilder.noValues') }}
+            </p>
           </fieldset>
         </div>
-        <div class="actions">
-          <input
-            v-model="name"
-            class="name"
-            :aria-label="t('sidebar.playlistName')"
-            :placeholder="t('sidebar.playlistName')"
-            maxlength="80"
-            :disabled="saving"
-            @input="nameEdited = true"
-          />
-          <div class="result-summary" role="status" aria-live="polite">
-            <span>{{ t('smartBuilder.resultCount', { count: result.ids.size }) }}</span>
-            <span v-if="notice" class="match-notice" :class="{ neutral: !result.complete }">
-              {{ notice }}
-            </span>
-          </div>
-          <button class="primary" :disabled="!canCreate" @click="create">
-            {{ t(saving ? 'smartBuilder.creating' : 'smartBuilder.create') }}
-          </button>
-        </div>
-        <p v-if="saveError" class="status" role="alert">{{ t(saveError) }}</p>
-      </section>
+      </fieldset>
     </div>
-  </Teleport>
+
+    <template #footer>
+      <div class="actions">
+        <input
+          v-model="name"
+          class="name"
+          :aria-label="t('sidebar.playlistName')"
+          :placeholder="t('sidebar.playlistName')"
+          maxlength="80"
+          :disabled="saving"
+          @input="nameEdited = true"
+        />
+        <div class="result-summary" role="status" aria-live="polite">
+          <span>{{ t('smartBuilder.resultCount', { count: result.ids.size }) }}</span>
+          <span v-if="notice" class="match-notice" :class="{ neutral: !result.complete }">
+            {{ notice }}
+          </span>
+        </div>
+        <button
+          class="primary auralis-dialog-action auralis-dialog-action--primary"
+          :disabled="!canCreate"
+          @click="create"
+        >
+          {{ t(saving ? 'smartBuilder.creating' : 'smartBuilder.create') }}
+        </button>
+      </div>
+      <p v-if="saveError" class="status" role="alert">{{ t(saveError) }}</p>
+    </template>
+  </AppDialog>
 </template>
 
 <style scoped>
-.builder-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 92;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #08090b66;
-  padding: 24px;
-}
-.playlist-builder {
-  font-family: var(--auralis-font-ui);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 400;
+.stage,
+.actions,
+.status {
   --text: var(--auralis-text, #f3eee6);
   --muted: var(--auralis-text-muted, #afb4bc);
   --subtle: var(--auralis-text-subtle, #9299a3);
   --line: var(--auralis-border-subtle, #e1ddd614);
-  width: min(880px, 100%);
-  min-width: 0;
-  border-radius: 20px;
-  background: var(--auralis-frosted-surface-bg, rgba(24, 26, 29, 0.9));
-  backdrop-filter: var(--auralis-frosted-surface-filter, blur(24px));
-  color: var(--text);
-  overflow: hidden;
-  box-shadow: none;
 }
 .controls {
   border: 0;
@@ -500,76 +475,28 @@ onBeforeUnmount(() => {
   padding: 10px;
   color: var(--muted);
 }
-@media (prefers-reduced-transparency: reduce) {
-  .playlist-builder {
-    background: var(--auralis-dialog-bg, #1b1d21);
-    backdrop-filter: none;
-  }
-  .builder-backdrop {
-    backdrop-filter: none;
-  }
-}
 
 * {
   box-sizing: border-box;
 }
-button,
+button:not(.auralis-dialog-action),
 input {
   font: inherit;
 }
-button {
+button:not(.auralis-dialog-action) {
   cursor: pointer;
   border: 0;
   background: none;
   color: inherit;
 }
-button:disabled {
+button:not(.auralis-dialog-action):disabled {
   cursor: default;
   color: var(--auralis-text-disabled, #afb4bc59);
 }
-button:focus-visible,
+button:not(.auralis-dialog-action):focus-visible,
 input:focus-visible {
   outline: 2px solid var(--auralis-focus-ring, #8fa7bb);
   outline-offset: 3px;
-}
-.playlist-builder {
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100dvh - 48px);
-  height: auto;
-}
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 24px 14px;
-  flex-shrink: 0;
-  gap: 20px;
-  border-bottom: 1px solid var(--line);
-}
-.title-lockup {
-  display: flex;
-  min-width: 0;
-  gap: 12px;
-  align-items: center;
-}
-h1 {
-  margin: 0;
-  font-size: var(--auralis-type-section-size);
-  line-height: var(--auralis-type-section-line-height);
-  font-weight: 600;
-  letter-spacing: -0.4px;
-  overflow-wrap: anywhere;
-}
-.close {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  color: var(--subtle);
-}
-.close:hover {
-  color: var(--text);
 }
 .stage {
   padding: 16px 24px 14px;
@@ -645,7 +572,7 @@ input[type='checkbox']:checked::after {
   flex-wrap: wrap;
   gap: 4px;
 }
-.switch button {
+.switch button:not(.auralis-dialog-action) {
   padding: 6px 11px;
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
@@ -662,7 +589,7 @@ input[type='checkbox']:checked::after {
   color: var(--text);
   background: var(--auralis-control-hover-bg, #e1ddd60f);
 }
-.switch button:disabled {
+.switch button:not(.auralis-dialog-action):disabled {
   opacity: 0.35;
 }
 .condition-groups.parallel-groups {
@@ -884,31 +811,13 @@ input[type='checkbox']:checked::after {
   color: var(--subtle);
 }
 .actions {
-  padding: 16px 24px 22px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) auto;
   gap: 12px;
   align-items: center;
-  flex-shrink: 0;
-  border-top: 1px solid var(--line);
 }
 .primary {
-  background: var(--auralis-control-primary-bg, #8fa7bb);
-  color: var(--auralis-control-primary-text, #111214);
-  padding: 11px 20px;
-  border-radius: 20px;
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  white-space: nowrap;
   justify-self: end;
-}
-.primary:disabled {
-  color: var(--auralis-text-disabled, #afb4bc59);
-  background: var(--auralis-control-hover-bg, #e1ddd60d);
-}
-.primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--auralis-control-primary-bg, #8fa7bb) 88%, #fff);
 }
 .name {
   width: 100%;
@@ -931,20 +840,13 @@ input[type='checkbox']:checked::after {
 }
 .status {
   margin: 0;
-  padding: 12px 24px 18px;
+  padding: 12px 0 0;
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
   font-weight: 400;
   color: var(--muted);
 }
 @media (max-width: 760px) {
-  header {
-    padding: 16px 20px 12px;
-  }
-  h1 {
-    font-size: var(--auralis-type-section-size);
-    line-height: var(--auralis-type-section-line-height);
-  }
   .stage {
     padding: 14px 20px 12px;
   }
@@ -954,7 +856,6 @@ input[type='checkbox']:checked::after {
   }
   .actions {
     grid-template-columns: minmax(0, 1fr) auto;
-    padding: 14px 20px 18px;
   }
   .name {
     grid-column: 1 / -1;
@@ -967,25 +868,16 @@ input[type='checkbox']:checked::after {
     grid-column: 2;
   }
   .status {
-    padding: 12px 20px 16px;
+    padding: 12px 0 0;
   }
 }
 @media (max-width: 420px) {
-  .builder-backdrop {
-    padding: 16px;
-  }
-  header {
-    padding-right: 16px;
-    padding-left: 16px;
-  }
   .stage {
     padding-right: 16px;
     padding-left: 16px;
   }
   .actions {
     grid-template-columns: minmax(0, 1fr);
-    padding-right: 16px;
-    padding-left: 16px;
   }
   .result-summary,
   .primary {

@@ -4,7 +4,7 @@ import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
 import { parseFile } from 'music-metadata'
-import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { AudioTagEdit as EditableTrackMetadata } from './audioTagEdit'
 import { normalizeEditableMetadata } from './editableMetadataValidation'
 import { parseAudioMetadata } from './parseAudioMetadata'
 import { verifyWrittenMetadata } from './verifyWrittenMetadata'
@@ -12,6 +12,7 @@ import { verifyPreservedAudioTags } from './verifyPreservedAudioTags'
 import { writeM4aStagingTags } from './m4aTagWriter'
 import { MetadataSaveError } from './metadataSaveError'
 import { hasM4aPublicationHelper, publishWindowsM4a } from './windowsM4aPublication'
+import { writeLyricsStagingTag } from './lyricsTagWriter'
 
 const FFMPEG_NOT_FOUND_MESSAGE =
   'Unable to write audio tags because the bundled FFmpeg runtime is unavailable.'
@@ -249,7 +250,10 @@ export async function prepareAudioTagWrite(
   let prepared = false
 
   try {
-    if (extension.toLowerCase() === '.m4a') {
+    if (metadata.lyricsText !== undefined) {
+      await copyFile(filePath, stagingPath)
+      await writeLyricsStagingTag(stagingPath, extension.toLowerCase(), metadata.lyricsText)
+    } else if (extension.toLowerCase() === '.m4a') {
       await copyFile(filePath, stagingPath)
       await writeM4aStagingTags(stagingPath, metadata)
     } else {
@@ -284,7 +288,7 @@ export async function prepareAudioTagWrite(
     // can be renamed, including ordinary saves without a playback buffer.
     try {
       verifyWrittenMetadata(metadata, await parseAudioMetadata(stagingPath))
-      await verifyPreservedAudioTags(filePath, stagingPath)
+      await verifyPreservedAudioTags(filePath, stagingPath, metadata.lyricsText !== undefined)
     } catch (error) {
       await assertUnchanged()
       throw error

@@ -312,16 +312,19 @@ describe('metadata watcher component boundaries', () => {
     await service.stop()
   })
 
-  it('refreshes unchanged audio on sidecar intent only after tag-write suppression expires', async () => {
-    const { service, notify, refresh } = setup()
-    service.suppressRefreshForPath(path)
-    notify('change', 'sample.lrc')
-    await vi.advanceTimersByTimeAsync(1200)
-    expect(refresh).not.toHaveBeenCalled()
-    await vi.advanceTimersByTimeAsync(8000)
-    notify('change', 'sample.lrc')
-    await vi.advanceTimersByTimeAsync(1200)
-    expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
-    await service.stop()
-  })
+  it.each(['lrc', 'ttml', 'TTML'])(
+    'refreshes unchanged audio on %s sidecar intent only after tag-write suppression expires',
+    async (extension) => {
+      const { service, notify, refresh } = setup()
+      service.suppressRefreshForPath(path)
+      notify('change', `sample.${extension}`)
+      await vi.advanceTimersByTimeAsync(1200)
+      expect(refresh).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(8000)
+      notify('change', `sample.${extension}`)
+      await vi.advanceTimersByTimeAsync(1200)
+      expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
+      await service.stop()
+    },
+  )
 })

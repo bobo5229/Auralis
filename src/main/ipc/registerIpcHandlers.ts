@@ -26,6 +26,15 @@ import { LibraryIncrementalImportService } from '@main/features/libraryScan/libr
 import { LibraryScanService } from '@main/features/libraryScan/libraryScanService'
 import { MetadataRefreshService } from '@main/features/metadata/metadataRefreshService'
 import { MetadataWatchService } from '@main/features/metadata/metadataWatchService'
+import { parseAudioMetadata } from '@main/features/metadata/parseAudioMetadata'
+import {
+  getLyricsSidecarFingerprint,
+  resolveLyricsForFile,
+} from '@main/features/metadata/resolveLyricsForFile'
+import { LyricsEditorService } from '@main/features/lyrics/lyricsEditorService'
+import { LrcEditorService } from '@main/features/lyrics/lrcEditorService'
+import { LyricsEditorError } from '@main/features/lyrics/lyricsEditorError'
+import { captureLyricsFiles } from '@main/features/lyrics/lyricsEditorFiles'
 import { StartupAlbumWorkerHost } from '@main/features/startupAlbum/startupAlbumWorkerHost'
 import { logger } from '@main/logging/logger'
 import { exportDiagnostics } from '@main/logging/diagnosticExport'
@@ -44,6 +53,7 @@ import type Database from 'better-sqlite3'
 import type { WindowBehaviorController } from '@main/app/windowBehaviorController'
 import { registerLibraryIpcHandlers } from './registerLibraryIpcHandlers'
 import { registerMetadataIpcHandlers } from './registerMetadataIpcHandlers'
+import { registerLyricsEditorIpcHandlers } from './registerLyricsEditorIpcHandlers'
 import { registerPlaybackArchiveIpcHandlers } from './registerPlaybackArchiveIpcHandlers'
 import { registerPlaylistIpcHandlers } from './registerPlaylistIpcHandlers'
 import { createRendererEventSender } from './rendererEvents'
@@ -140,6 +150,159 @@ export function registerIpcHandlers(
     incrementalImportService,
     sendToRenderer,
   )
+
+  const lyricsEditorService = new LyricsEditorService({
+    getFilePath: (trackId) => trackRepository.getFilePathById(trackId),
+    getRoots: () => libraryRootRepository.list().map((root) => root.path),
+    readSource: async (filePath) => {
+      const lease = await playbackFileCoordinator.acquireReadLease(filePath, 'lyrics-editor')
+      try {
+        const metadata = await parseAudioMetadata(filePath, { skipCovers: true, duration: false })
+        const lyrics = await resolveLyricsForFile(filePath, metadata)
+        if (!lyrics) return null
+        const duration = metadata.format.duration
+        return {
+          lyricsText: lyrics.text,
+          lyricsFormat: lyrics.format,
+          ...(duration !== undefined && Number.isFinite(duration) && duration > 0
+            ? { durationMs: Math.round(duration * 1000) }
+            : {}),
+        }
+      } finally {
+        playbackFileCoordinator.releaseReadLease(lease.leaseId)
+      }
+    },
+    persist: async (trackId, filePath, text) => {
+      let updated = false
+      try {
+        if (trackRepository.getFilePathById(trackId) !== filePath) return false
+        const fingerprint = await getLyricsSidecarFingerprint(filePath)
+        const files = await captureLyricsFiles(filePath)
+        const firstTtml = files.find((file) => /\.ttml$/i.test(file.path) && file.identity)
+        if (
+          firstTtml?.text !== text ||
+          fingerprint !== (await getLyricsSidecarFingerprint(filePath))
+        )
+          return false
+        const audio = await stat(filePath)
+        trackRepository.patchLyrics([
+          {
+            filePath,
+            lyricsText: text,
+            lyricsFormat: 'ttml',
+            lyricsCheckedMtimeMs: audio.mtimeMs,
+            lyricsSidecarFingerprint: fingerprint,
+          },
+        ])
+        updated = true
+        return true
+      } finally {
+        sendToRenderer(ipcChannels.library.changed, {
+          reason: 'file-change',
+          trackIds: [trackId],
+          filePaths: [filePath],
+        })
+        if (!updated) {
+          try {
+            metadataRefreshService.refreshTracksFromFileChanges([trackId])
+          } catch (error) {
+            logger.warn({ error, trackId }, 'Saved lyrics require cache reconciliation')
+          }
+        }
+      }
+    },
+  })
+
+  const lrcEditorService = new LrcEditorService({
+    getFilePath: (id) => trackRepository.getFilePathById(id),
+    getRoots: () => libraryRootRepository.list().map((root) => root.path),
+    readSource: async (filePath) => {
+      const lease = await playbackFileCoordinator.acquireReadLease(filePath, 'lrc-editor')
+      try {
+        const metadata = await parseAudioMetadata(filePath, { skipCovers: true, duration: false })
+        const lyrics = await resolveLyricsForFile(filePath, metadata, true)
+        const duration = metadata.format.duration
+        return lyrics
+          ? {
+              lyricsText: lyrics.text,
+              lyricsFormat: lyrics.format,
+              ...(duration !== undefined && Number.isFinite(duration) && duration > 0
+                ? { durationMs: Math.round(duration * 1000) }
+                : {}),
+            }
+          : null
+      } finally {
+        playbackFileCoordinator.releaseReadLease(lease.leaseId)
+      }
+    },
+    writeTag: async (trackId, text, beforeCommit) => {
+      let committed = false
+      let result: Awaited<ReturnType<typeof metadataRefreshService.updateTrackLyrics>>
+      try {
+        result = await metadataRefreshService.updateTrackLyrics(trackId, text, beforeCommit, () => {
+          committed = true
+        })
+      } catch (error) {
+        if (committed) return { warning: true }
+        throw error
+      }
+      if (!result.ok && committed) return { warning: true }
+      if (!result.ok)
+        throw new LyricsEditorError(
+          result.reason === 'file-changed' || result.reason === 'file-not-found'
+            ? 'file-changed'
+            : result.reason === 'write-in-progress'
+              ? 'busy'
+              : 'save-failed',
+        )
+      return { warning: false }
+    },
+    reconcile: async (trackId, filePath, text) => {
+      let cacheUpdated = false
+      let active = false
+      const lease = await playbackFileCoordinator.acquireReadLease(filePath, 'lrc-editor-reconcile')
+      try {
+        if (trackRepository.getFilePathById(trackId) !== filePath) return { cacheUpdated, active }
+        const before = await stat(filePath)
+        const fingerprint = await getLyricsSidecarFingerprint(filePath)
+        const metadata = await parseAudioMetadata(filePath, { skipCovers: true, duration: false })
+        const lyrics = await resolveLyricsForFile(filePath, metadata)
+        const after = await stat(filePath)
+        if (
+          before.size !== after.size ||
+          before.mtimeMs !== after.mtimeMs ||
+          fingerprint !== (await getLyricsSidecarFingerprint(filePath))
+        )
+          return { cacheUpdated, active }
+        trackRepository.patchLyrics([
+          {
+            filePath,
+            lyricsText: lyrics?.text ?? null,
+            lyricsFormat: lyrics?.format ?? null,
+            lyricsCheckedMtimeMs: after.mtimeMs,
+            lyricsSidecarFingerprint: fingerprint,
+          },
+        ])
+        cacheUpdated = true
+        active = (lyrics?.text.trim() ?? '') === text.trim()
+        return { cacheUpdated, active }
+      } finally {
+        playbackFileCoordinator.releaseReadLease(lease.leaseId)
+        sendToRenderer(ipcChannels.library.changed, {
+          reason: 'file-change',
+          trackIds: [trackId],
+          filePaths: [filePath],
+        })
+        if (!cacheUpdated) {
+          try {
+            metadataRefreshService.refreshTracksFromFileChanges([trackId])
+          } catch (error) {
+            logger.warn({ error, trackId }, 'LRC save requires cache reconciliation')
+          }
+        }
+      }
+    },
+  })
 
   // After user tag writes, suppress watch-driven refresh so mtime churn cannot
   // immediately re-parse and clobber user_edit metadata.
@@ -393,6 +556,7 @@ export function registerIpcHandlers(
     libraryScanService,
     metadataWatchService,
   })
+  registerLyricsEditorIpcHandlers(electronIpcRegistrar, lyricsEditorService, lrcEditorService)
   registerPlaylistIpcHandlers(electronIpcRegistrar, {
     playlistService,
     smartPlaylistService,
@@ -425,6 +589,8 @@ export function registerIpcHandlers(
         libraryScanService.shutdown(),
         metadataRefreshService.shutdown(),
       ])
+      lyricsEditorService.dispose()
+      lrcEditorService.dispose()
       const failures = [...producers, ...workers].filter((result) => result.status === 'rejected')
       if (failures.length > 0) {
         throw new AggregateError(

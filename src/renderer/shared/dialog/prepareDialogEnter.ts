@@ -1,6 +1,6 @@
 /** Prepare first-use fonts and give the static blur layer time to paint before the panel fades. */
-export function prepareSettingsDialogEnter(
-  contentReady: Promise<void>,
+export function prepareDialogEnter(
+  contentReady: Promise<unknown>,
   onReady: () => void,
 ): () => void {
   let cancelled = false

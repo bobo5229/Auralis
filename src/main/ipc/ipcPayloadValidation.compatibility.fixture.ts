@@ -35,6 +35,26 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
     ],
   },
   'lyrics:get-by-track-id': { trackId: 1 },
+  'lyrics:open-editor': { trackId: 1 },
+  'lyrics:open-lrc-editor': { trackId: 1 },
+  'lyrics:save-lrc-editor': {
+    sessionId: '00000000-0000-4000-8000-000000000001',
+    expectedRevision: 'a'.repeat(64),
+    text: '[00:01.00]Lyrics',
+    target: 'file',
+  },
+  'lyrics:close-lrc-editor': { sessionId: '00000000-0000-4000-8000-000000000001' },
+  'lyrics:assign-editor-lines': {
+    sessionId: '00000000-0000-4000-8000-000000000001',
+    expectedRevision: 'a'.repeat(64),
+    lineIds: ['line-0'],
+    assignment: 'performer-1',
+  },
+  'lyrics:save-editor': {
+    sessionId: '00000000-0000-4000-8000-000000000001',
+    expectedRevision: 'a'.repeat(64),
+  },
+  'lyrics:close-editor': { sessionId: '00000000-0000-4000-8000-000000000001' },
   'playback:get-audio-url': { trackId: 1 },
   'playback:spectrum-subscribe': {
     subscriptionId: 0,

@@ -3,12 +3,18 @@
 独立 HTML 原型统一按主题放在本目录，可直接在浏览器打开。它们记录设计探索；
 自动化测试仍与源码相邻，使用 `src/**/*.test.ts`。
 
+歌词互转与对唱标记：[隔离 Demo](lyrics/duet-editor/README.md)。在项目根目录运行
+`node demo/lyrics/duet-editor/start.mjs`，再打开 `http://127.0.0.1:4186/`；使用模拟 LRC
+调用真实后端，支持 LRC / TTML 互转、两位演唱者及合唱的批量标记和左右预览。
+此原型需要本机服务，不直接双击 HTML；不连接真实曲库。
+
 | 目录               | 内容与入口                                                                                                                                                         |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `albums/`          | [专辑展开](albums/album-open-transition.html)、[CD 聚焦](albums/cd-focus-demo.html)、[CD 动效](albums/cd-motion-demo.html)、[CD 启动](albums/cd-startup-demo.html) |
 | `archive/`         | [Macintosh 128K 立体](archive/classic-mac.html)、[夜井星空](archive/night-well.html)、[日期软盘](archive/mac-diskbox-demo.html)、[油灰软盘](archive/floppy-putty.html)                                                                 |
 | `playback/`        | [播放栏材质](playback/playbar-liquid-glass-material-demo.html)、[音量浮层](playback/playbar-vertical-volume-popover-demo.html)                                     |
 | `smart-playlists/` | [智能歌单编辑器](smart-playlists/smart-playlist-builder.html)                                                                                                      |
+| `library/`         | [最近添加的时间范围](library/recent-added-range.html)：句子标尺、目录行、密度窗                                                                                    |
 | `brand/`          | [Logo 设计比较](brand/logo-exploration.html)：原创字母构形、深浅主题、小尺寸与应用位置示意                                                                          |
 | `local/albums/`    | [专辑布局方案入口](local/albums/album-layout-index.html)、专辑头部与材质草稿                                                                                       |
 | `local/archive/`   | 年度总结与唱片封套草稿                                                                                                                                             |

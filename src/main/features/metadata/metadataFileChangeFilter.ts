@@ -39,7 +39,7 @@ export function resolveChangedFilePaths(input: {
 /**
  * Watch flush decision: audio fingerprint changes plus sidecar lyrics intent.
  *
- * `.lrc` events map onto the audio path without touching the audio fingerprint,
+ * Lyric sidecar events map onto the audio path without touching the audio fingerprint,
  * so those paths must still refresh even when size and mtime match. Intent
  * paths that are not in this `stats` batch are ignored. An omitted or empty
  * `lyricsIntentPaths` matches `resolveChangedFilePaths`.

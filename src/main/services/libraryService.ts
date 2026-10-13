@@ -6,7 +6,8 @@ import { TrackRepository } from '@main/repositories/trackRepository'
 import { LibraryCatalogSnapshotStore } from '@main/features/libraryCatalog/libraryCatalogSnapshotStore'
 import type { LibraryTrackPage, LibraryTrackPageRequest } from '@shared/types/libraryCatalog'
 import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
-import { splitDelimitedValues } from '@shared/utils/delimitedValues'
+import { rankAlbumGenres } from '@shared/utils/albumGenres'
+import { readTtmlPlayback } from '@main/features/lyrics/ttmlPlayback'
 
 export class LibraryService {
   private readonly catalogSnapshotStore: LibraryCatalogSnapshotStore
@@ -43,22 +44,26 @@ export class LibraryService {
       request.albumArtist === 'Unknown Artist'
         ? []
         : this.trackRepository.getArtistAlbumSummaries(request.albumArtist, request.albumTitle)
+    const primaryGenre = moreAlbums.length === 0 ? rankAlbumGenres(tracks)[0] : undefined
     return {
       tracks,
       moreAlbums,
-      genreAlbums:
-        moreAlbums.length === 0
-          ? this.trackRepository.getGenreAlbumSummaries(
-              tracks.flatMap((track) => splitDelimitedValues(track.genre)),
-              request.albumArtist,
-              request.albumTitle,
-            )
-          : [],
+      genreAlbums: primaryGenre
+        ? this.trackRepository.getGenreAlbumSummaries(
+            primaryGenre,
+            request.albumArtist,
+            request.albumTitle,
+          )
+        : [],
     }
   }
 
   getLyrics(trackId: number): TrackLyrics | null {
-    return this.trackRepository.getLyricsByTrackId(trackId)
+    const result = this.trackRepository.getLyricsByTrackId(trackId)
+    if (result?.lyricsFormat === 'ttml' && result.lyricsText) {
+      return { ...result, ttmlPlayback: readTtmlPlayback(result.lyricsText) }
+    }
+    return result
   }
 
   getRandomTrack(excludeTrackId?: number): PlaybackTrackDto | null {

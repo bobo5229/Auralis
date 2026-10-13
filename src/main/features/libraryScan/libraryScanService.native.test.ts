@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { createRequire } from 'node:module'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { Worker, WorkerOptions } from 'node:worker_threads'
@@ -12,6 +12,8 @@ import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
 import type { LibraryScanWorkerMessage } from './libraryScanTypes'
 import { LibraryScanService, type LibraryScanWorkerFactory } from './libraryScanService'
+import { readLyricsSnapshot } from '../metadata/resolveLyricsForFile'
+import type { IAudioMetadata } from 'music-metadata'
 
 const nodeRequire = createRequire(import.meta.url)
 const DatabaseCtor = nodeRequire('better-sqlite3') as unknown as new (
@@ -566,46 +568,103 @@ describe('LibraryScanService worker lifecycle', () => {
     await service.cancelScan(2)
   })
 
-  it('persists a sidecar deletion and clears lyrics in both storage layers', async () => {
-    const { db, service, worker, rootId, send } = createHarness()
+  it('stores a real TTML sidecar snapshot unchanged and returns its format through the lyrics query', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'auralis-ttml-storage-'))
+    roots.push(root)
+    const { db, service, worker, rootId, send } = createHarness(root)
+    const filePath = join(root, 'song.flac')
+    const original = await readFile(
+      new URL('../metadata/__fixtures__/duet.ttml', import.meta.url),
+      'utf8',
+    )
+    await writeFile(join(root, 'song.ttml'), original, 'utf8')
     db.prepare(
-      `INSERT INTO tracks (id, file_path, lyrics_text, lyrics_format, file_mtime_ms)
-      VALUES (1, ?, 'old sidecar', 'lrc', 100)`,
-    ).run('C:\\Music\\song.flac')
-    db.exec(`INSERT INTO track_metadata (track_id, lyrics_text, lyrics_format, source)
-      VALUES (1, 'old sidecar', 'lrc', 'user_edit')`)
+      "INSERT INTO tracks (id, file_path, lyrics_text, lyrics_format, file_mtime_ms) VALUES (1, ?, 'old', 'lrc', 100)",
+    ).run(filePath)
+    db.exec(
+      "INSERT INTO track_metadata (track_id, lyrics_text, lyrics_format, source) VALUES (1, 'old', 'lrc', 'user_edit')",
+    )
+    const snapshot = await readLyricsSnapshot(filePath, {
+      common: {},
+      native: {},
+    } as IAudioMetadata)
     await service.startScan(rootId)
     emitWorkerMessage(worker, {
       type: 'trackLyrics',
       payload: [
         {
-          filePath: 'C:\\Music\\song.flac',
-          lyricsText: null,
-          lyricsFormat: null,
+          filePath,
+          lyricsText: snapshot.lyrics!.text,
+          lyricsFormat: snapshot.lyrics!.format,
           lyricsCheckedMtimeMs: 100,
-          lyricsSidecarFingerprint: '[null,null]',
+          lyricsSidecarFingerprint: snapshot.lyricsSidecarFingerprint,
         },
       ],
     })
     const repo = new TrackRepository(db)
-    expect(repo.getKnownFiles()[0]).toMatchObject({
-      lyricsCheckedMtimeMs: 100,
-      lyricsSidecarFingerprint: '[null,null]',
+    expect(repo.getLyricsByTrackId(1)).toEqual({
+      trackId: 1,
+      lyricsText: original,
+      lyricsFormat: 'ttml',
     })
-    expect(repo.getLyricsByTrackId(1)?.lyricsText).toBeNull()
-    expect(
-      db.prepare('SELECT lyrics_text FROM track_metadata WHERE track_id = 1').pluck().get(),
-    ).toBeNull()
-    expect(db.prepare('SELECT source FROM track_metadata WHERE track_id = 1').pluck().get()).toBe(
-      'user_edit',
-    )
+    for (const table of ['tracks', 'track_metadata']) {
+      expect(
+        db.prepare(`SELECT lyrics_text AS text, lyrics_format AS format FROM ${table}`).get(),
+      ).toEqual({ text: original, format: 'ttml' })
+    }
     expect(send).toHaveBeenCalledWith('library:changed', {
       reason: 'metadata-refresh',
       trackIds: [1],
-      filePaths: ['C:\\Music\\song.flac'],
+      filePaths: [filePath],
     })
     await service.cancelScan(1)
   })
+
+  it.each(['lrc', 'ttml'])(
+    'persists a %s sidecar deletion and clears lyrics in both storage layers',
+    async (format) => {
+      const { db, service, worker, rootId, send } = createHarness()
+      db.prepare(
+        `INSERT INTO tracks (id, file_path, lyrics_text, lyrics_format, file_mtime_ms)
+      VALUES (1, ?, 'old sidecar', ?, 100)`,
+      ).run('C:\\Music\\song.flac', format)
+      db.prepare(
+        `INSERT INTO track_metadata (track_id, lyrics_text, lyrics_format, source)
+      VALUES (1, 'old sidecar', ?, 'user_edit')`,
+      ).run(format)
+      await service.startScan(rootId)
+      emitWorkerMessage(worker, {
+        type: 'trackLyrics',
+        payload: [
+          {
+            filePath: 'C:\\Music\\song.flac',
+            lyricsText: null,
+            lyricsFormat: null,
+            lyricsCheckedMtimeMs: 100,
+            lyricsSidecarFingerprint: '[null,null]',
+          },
+        ],
+      })
+      const repo = new TrackRepository(db)
+      expect(repo.getKnownFiles()[0]).toMatchObject({
+        lyricsCheckedMtimeMs: 100,
+        lyricsSidecarFingerprint: '[null,null]',
+      })
+      expect(repo.getLyricsByTrackId(1)?.lyricsText).toBeNull()
+      expect(
+        db.prepare('SELECT lyrics_text FROM track_metadata WHERE track_id = 1').pluck().get(),
+      ).toBeNull()
+      expect(db.prepare('SELECT source FROM track_metadata WHERE track_id = 1').pluck().get()).toBe(
+        'user_edit',
+      )
+      expect(send).toHaveBeenCalledWith('library:changed', {
+        reason: 'metadata-refresh',
+        trackIds: [1],
+        filePaths: ['C:\\Music\\song.flac'],
+      })
+      await service.cancelScan(1)
+    },
+  )
   it('starts one worker and persists progress through completion', async () => {
     const { db, service, worker, rootId, workerOptions } = createHarness()
     const onStart = vi.fn()

@@ -79,11 +79,11 @@ export class TrackRepository extends BaseRepository {
   }
 
   getGenreAlbumSummaries(
-    genres: string[],
+    genre: string,
     excludeArtist: string,
     excludeTitle: string,
   ): AlbumDetailSummary[] {
-    return this.queries.getGenreAlbumSummaries(genres, excludeArtist, excludeTitle)
+    return this.queries.getGenreAlbumSummaries(genre, excludeArtist, excludeTitle)
   }
 
   getKnownFiles(): KnownTrackFile[] {

@@ -1,5 +1,5 @@
 import type { UpdateTrackMetadataResult } from '@shared/ipc/contracts'
-import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { AudioTagEdit as EditableTrackMetadata } from '../metadata/audioTagEdit'
 import { extname } from 'node:path'
 import { stat } from 'node:fs/promises'
 import { parseAudioMetadata } from '../metadata/parseAudioMetadata'

@@ -212,7 +212,7 @@ watch(
 const emit = defineEmits<{ 'cancel-layout-transition': [] }>()
 let layoutTransitionRevision = 0
 let savedFocus: { albumKey: string; selector: string } | null = null
-let allowProgrammaticScrollUntil = 0
+let pendingTransitionScrollTop: number | null = null
 
 let idlePalettePrefetchHandle: number | null = null
 let idlePalettePrefetchMode: 'idle' | 'timeout' | null = null
@@ -384,6 +384,7 @@ function collectVisibleTransitionTargets(
 }
 
 function removeTransitionInputListeners(): void {
+  pendingTransitionScrollTop = null
   document.removeEventListener('keydown', onTransitionKeydown, true)
   scrollRef.value?.removeEventListener('wheel', onTransitionWheel)
   scrollRef.value?.removeEventListener('touchstart', onTransitionTouchStart)
@@ -426,7 +427,13 @@ function onTransitionTouchStart(): void {
 }
 
 function onTransitionScroll(): void {
-  if (Date.now() < allowProgrammaticScrollUntil) return
+  if (
+    pendingTransitionScrollTop !== null &&
+    Math.abs((scrollRef.value?.scrollTop ?? 0) - pendingTransitionScrollTop) < 1
+  ) {
+    pendingTransitionScrollTop = null
+    return
+  }
   emit('cancel-layout-transition')
 }
 
@@ -501,7 +508,6 @@ async function commitLyricsLayoutTransition(revision: number): Promise<boolean> 
 
   try {
     commitGridTransitionTarget()
-    allowProgrammaticScrollUntil = Date.now() + 100
     await nextTick()
     if (
       revision !== layoutTransitionRevision ||
@@ -512,10 +518,16 @@ async function commitLyricsLayoutTransition(revision: number): Promise<boolean> 
       transitionLayerRef.value !== layer
     )
       return false
+    pendingTransitionScrollTop = container.scrollTop
 
+    // The remapped scroll event updates TanStack's visible range at the rendering
+    // boundary, after Vue's geometry patch. Capture targets only after that update.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
     await nextTick()
     if (
       revision !== layoutTransitionRevision ||
+      !isLayoutTransitionActive.value ||
+      !isPageActive.value ||
       !container.isConnected ||
       transitionLayerRef.value !== layer
     )

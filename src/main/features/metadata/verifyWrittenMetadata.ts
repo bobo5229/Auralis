@@ -1,7 +1,12 @@
 import type { IAudioMetadata } from 'music-metadata'
-import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { AudioTagEdit as EditableTrackMetadata } from './audioTagEdit'
 import { canonicalizeDelimitedValues, joinDelimitedValues } from '@shared/utils/delimitedValues'
-import { resolveArtists, resolveAlbumArtists, resolveGenres } from './metadataNormalizer'
+import {
+  resolveArtists,
+  resolveAlbumArtists,
+  resolveGenres,
+  resolveLyrics,
+} from './metadataNormalizer'
 import { MetadataSaveError } from './metadataSaveError'
 
 /** Compare actual tags, not display fallbacks such as filename/Unknown Artist. */
@@ -9,6 +14,12 @@ export function verifyWrittenMetadata(
   expected: EditableTrackMetadata,
   actual: Pick<IAudioMetadata, 'common' | 'native'>,
 ): void {
+  if (expected.lyricsText !== undefined) {
+    const actualLyrics = resolveLyrics(actual, true)
+    if ((actualLyrics?.text ?? '') !== expected.lyricsText)
+      throw new MetadataSaveError('tag-verification-failed', 'Written lyrics do not match the edit')
+    return
+  }
   const { common, native } = actual
   const text = (value: string | null | undefined) => value?.trim() || ''
   const list = (value: string | null) => canonicalizeDelimitedValues(value) ?? ''

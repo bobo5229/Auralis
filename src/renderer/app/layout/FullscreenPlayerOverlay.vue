@@ -26,6 +26,8 @@ import { useArtworkPalette } from '@renderer/features/playback/composables/useAr
 import { usePlaybackProgressInteraction } from '@renderer/features/playback/composables/usePlaybackProgressInteraction'
 import { useReducedMotion } from '@renderer/features/lyrics/composables/useReducedMotion'
 import { useLyricsScrollPreset } from '@renderer/features/lyrics/lyricsScrollPreset'
+import { useLyricsCountdownPreference } from '@renderer/features/lyrics/lyricsCountdownPreference'
+import LyricsFractureDots from '@renderer/features/lyrics/components/LyricsFractureDots.vue'
 import { resolveRestorablePlayerTrigger } from '../utils/playerOverlayFocus'
 import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
 import {
@@ -56,6 +58,7 @@ const {
   isPrelude,
   showPrelude,
   preludeLitDotCount,
+  preludeElapsed,
 } = useDisplayedTrackLyrics()
 
 const imgError = ref(false)
@@ -76,6 +79,7 @@ const { backgroundMode, backgroundMotionPaused, metalSettings, setBackgroundMode
 const backgroundPresentationMode = ref(backgroundMode.value)
 const reducedMotion = useReducedMotion()
 const { preset: lyricsScrollPreset } = useLyricsScrollPreset()
+const { effect: countdownEffect } = useLyricsCountdownPreference()
 const { preference: lyricsTypography, style: lyricsTypographyStyle } =
   useFullscreenLyricsTypography()
 let activeTransition: ReturnType<typeof animateFullscreenPlayerTransition> | undefined
@@ -742,12 +746,18 @@ onBeforeUnmount(() => {
                 :aria-label="t('fullscreen.lyricsStartingSoon')"
                 data-lyric-prelude
               >
-                <span
-                  v-for="dot in 3"
-                  :key="dot"
-                  class="fullscreen-player-prelude-dot"
-                  :class="{ 'fullscreen-player-prelude-dot-lit': dot <= preludeLitDotCount }"
-                ></span>
+                <LyricsFractureDots
+                  v-if="countdownEffect === 'fracture'"
+                  :elapsed="preludeElapsed"
+                />
+                <template v-else>
+                  <span
+                    v-for="dot in 3"
+                    :key="dot"
+                    class="fullscreen-player-prelude-dot"
+                    :class="{ 'fullscreen-player-prelude-dot-lit': dot <= preludeLitDotCount }"
+                  ></span>
+                </template>
               </div>
               <div
                 v-for="{ line, index } in renderedLyricLines"
@@ -1459,6 +1469,7 @@ onBeforeUnmount(() => {
 }
 
 .fullscreen-player-prelude {
+  --lyrics-countdown-dot-size: 0.2em;
   display: flex;
   align-items: center;
   gap: 0.22em;

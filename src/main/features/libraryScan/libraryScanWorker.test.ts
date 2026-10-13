@@ -1,4 +1,5 @@
 import { join } from 'node:path'
+import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IAudioMetadata } from 'music-metadata'
 import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './libraryScanTypes'
@@ -29,6 +30,7 @@ vi.mock('music-metadata', () => ({ parseFile: harness.parseFile }))
 vi.mock('../artwork/artworkCache', () => ({ writeArtworkToCache: vi.fn() }))
 
 const filePath = join('C:\\Music', 'song.flac')
+const ttml = readFileSync(new URL('../metadata/__fixtures__/duet.ttml', import.meta.url), 'utf8')
 const metadata: IAudioMetadata = {
   format: { duration: 180, trackInfo: [], tagTypes: [] },
   native: {},
@@ -62,7 +64,7 @@ beforeEach(() => {
         artworkCacheKey: `v2-${'a'.repeat(64)}.webp`,
         lyricsFormat: null,
         lyricsCheckedMtimeMs: 100,
-        lyricsSidecarFingerprint: '[null,null]',
+        lyricsSidecarFingerprint: '[null,null,null,null]',
         metadataCheckedMtimeMs: 100,
         metadataParserVersion: getMetadataParserVersion(filePath),
       },
@@ -134,7 +136,7 @@ describe('scan sidecar invalidation', () => {
     'refreshes %s sidecar lyrics without changing the audio fingerprint',
     async (change) => {
       if (change === 'modified')
-        harness.input.knownFiles[0].lyricsSidecarFingerprint = '[[10,10],null]'
+        harness.input.knownFiles[0].lyricsSidecarFingerprint = '[[10,10],null,null,null]'
       unchangedAudio({ size: 20, mtimeMs: 200, text: '[00:01]New lyrics' })
       const messages = await scan()
       expect(harness.parseFile).toHaveBeenCalledWith(filePath, {
@@ -148,7 +150,7 @@ describe('scan sidecar invalidation', () => {
             lyricsText: '[00:01]New lyrics',
             lyricsFormat: 'lrc',
             lyricsCheckedMtimeMs: 100,
-            lyricsSidecarFingerprint: '[[20,200],null]',
+            lyricsSidecarFingerprint: '[[20,200],null,null,null]',
           },
         ],
       })
@@ -159,7 +161,7 @@ describe('scan sidecar invalidation', () => {
   it.each([null, 'Embedded plain lyrics'])(
     'removes stale sidecar lyrics and restores embedded fallback: %s',
     async (embedded) => {
-      harness.input.knownFiles[0].lyricsSidecarFingerprint = '[[10,10],null]'
+      harness.input.knownFiles[0].lyricsSidecarFingerprint = '[[10,10],null,null,null]'
       unchangedAudio(null)
       harness.parseFile.mockResolvedValue({
         ...metadata,
@@ -171,7 +173,7 @@ describe('scan sidecar invalidation', () => {
           {
             lyricsText: embedded,
             lyricsFormat: embedded ? 'plain' : null,
-            lyricsSidecarFingerprint: '[null,null]',
+            lyricsSidecarFingerprint: '[null,null,null,null]',
           },
         ],
       })
@@ -202,7 +204,7 @@ describe('scan sidecar invalidation', () => {
     harness.input.knownFiles[0].lyricsSidecarFingerprint = null
     const messages = await scan()
     expect(messages.find((m) => m.type === 'trackLyrics')).toMatchObject({
-      payload: [{ lyricsSidecarFingerprint: '[null,null]' }],
+      payload: [{ lyricsSidecarFingerprint: '[null,null,null,null]' }],
     })
   })
 
@@ -218,6 +220,96 @@ describe('scan sidecar invalidation', () => {
     const messages = await scan()
     expect(messages.filter((m) => m.type === 'failure')).toHaveLength(1)
     expect(messages.some((m) => m.type === 'tracks' || m.type === 'trackLyrics')).toBe(false)
+  })
+})
+
+describe('scan TTML sidecar invalidation', () => {
+  function unchangedAudio(text: string | null) {
+    harness.stat.mockImplementation(async (candidate: string) => {
+      if (candidate === filePath) return { size: 100, mtimeMs: 100 }
+      if (text !== null && candidate.endsWith('.ttml')) return { size: text.length, mtimeMs: 200 }
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+    })
+    harness.readFile.mockImplementation(async (candidate: string) => {
+      if (text !== null && candidate.endsWith('.ttml')) return text
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+    })
+  }
+
+  it.each(['added', 'modified'] as const)(
+    'refreshes %s TTML for unchanged audio',
+    async (change) => {
+      if (change === 'modified')
+        harness.input.knownFiles[0].lyricsSidecarFingerprint = '[null,null,[10,10],null]'
+      unchangedAudio(ttml)
+      const messages = await scan()
+      expect(messages.find((message) => message.type === 'trackLyrics')).toMatchObject({
+        payload: [
+          {
+            filePath,
+            lyricsText: ttml,
+            lyricsFormat: 'ttml',
+            lyricsCheckedMtimeMs: 100,
+            lyricsSidecarFingerprint: JSON.stringify([null, null, [ttml.length, 200], null]),
+          },
+        ],
+      })
+      expect(messages.some((message) => message.type === 'tracks')).toBe(false)
+    },
+  )
+
+  it('removes stale TTML and restores embedded LRC', async () => {
+    harness.input.knownFiles[0].lyricsSidecarFingerprint = '[null,null,[10,10],null]'
+    unchangedAudio(null)
+    harness.parseFile.mockResolvedValue({
+      ...metadata,
+      native: { ID3v2: [{ id: 'SYLT', value: '[00:01]Embedded' }] },
+    })
+    expect((await scan()).find((message) => message.type === 'trackLyrics')).toMatchObject({
+      payload: [
+        {
+          lyricsText: '[00:01]Embedded',
+          lyricsFormat: 'lrc',
+          lyricsSidecarFingerprint: '[null,null,null,null]',
+        },
+      ],
+    })
+  })
+
+  it('backfills pre-TTML two-slot fingerprints, then skips unchanged TTML snapshots', async () => {
+    unchangedAudio(ttml)
+    harness.input.knownFiles[0].lyricsSidecarFingerprint = '[null,null]'
+    expect((await scan()).some((message) => message.type === 'trackLyrics')).toBe(true)
+    harness.input.knownFiles[0].lyricsSidecarFingerprint = JSON.stringify([
+      null,
+      null,
+      [ttml.length, 200],
+      null,
+    ])
+    vi.resetModules()
+    harness.parseFile.mockClear()
+    expect((await scan()).some((message) => message.type === 'trackLyrics')).toBe(false)
+    expect(harness.parseFile).not.toHaveBeenCalled()
+  })
+
+  it('does not commit a TTML snapshot that changed during reading', async () => {
+    unchangedAudio(ttml)
+    harness.readFile.mockImplementation(async (candidate: string) => {
+      if (candidate.endsWith('.ttml')) {
+        harness.stat.mockImplementation(async (path: string) => {
+          if (path === filePath) return { size: 100, mtimeMs: 100 }
+          if (path.endsWith('.ttml')) return { size: ttml.length + 1, mtimeMs: 300 }
+          throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+        })
+        return ttml
+      }
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+    })
+    const messages = await scan()
+    expect(messages.filter((message) => message.type === 'failure')).toHaveLength(1)
+    expect(
+      messages.some((message) => message.type === 'tracks' || message.type === 'trackLyrics'),
+    ).toBe(false)
   })
 })
 

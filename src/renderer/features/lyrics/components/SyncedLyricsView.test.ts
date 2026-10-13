@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createRenderer, h, nextTick, ref } from 'vue'
 import SyncedLyricsView from './SyncedLyricsView.vue'
 import { setLyricsScrollPreset } from '../lyricsScrollPreset'
+import { useLyricsCountdownPreference } from '../lyricsCountdownPreference'
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@renderer/features/playback/composables/usePlayback', () => ({
@@ -96,6 +97,7 @@ function find(node: TestNode, className: string): TestNode | undefined {
 
 afterEach(() => {
   setLyricsScrollPreset('standard')
+  useLyricsCountdownPreference().setEffect('lighting')
   reduced.value = false
   vi.unstubAllGlobals()
   vi.useRealTimers()
@@ -349,4 +351,52 @@ it('respects panel activity, resumes manual scrolling, and remains usable withou
     'visibilitychange',
     expect.any(Function),
   )
+})
+
+it('uses the saved particle effect in the normal lyrics panel and follows playback time on seek', async () => {
+  vi.stubGlobal('localStorage', { setItem: vi.fn() })
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  )
+  const preference = useLyricsCountdownPreference()
+  preference.setEffect('fracture')
+  const elapsed = ref(0)
+  const showPrelude = ref(true)
+  const root = new TestNode('root')
+  const app = renderer.createApp({
+    setup: () => () =>
+      h(SyncedLyricsView, {
+        lines: [{ id: 'first', text: 'First line', timeSeconds: 3 }],
+        activeIndex: -1,
+        isPrelude: true,
+        showPrelude: showPrelude.value,
+        preludeLitDotCount: 1,
+        preludeElapsed: elapsed.value,
+      }),
+  })
+  app.mount(root)
+  await nextTick()
+  expect(find(root, 'lyrics-fracture-dot')?.props['data-fracture-progress']).toBe(0)
+  expect(find(root, 'lyric-dot')).toBeUndefined()
+  elapsed.value = 0.775
+  await nextTick()
+  expect(Number(find(root, 'lyrics-fracture-dot')?.props['data-fracture-progress'])).toBeCloseTo(
+    0.5,
+  )
+  expect(find(root, 'lyrics-fracture-particles')).toBeDefined()
+  elapsed.value = 0
+  await nextTick()
+  expect(find(root, 'lyrics-fracture-particles')).toBeUndefined()
+  preference.setEffect('lighting')
+  await nextTick()
+  expect(find(root, 'lyrics-fracture-dot')).toBeUndefined()
+  expect(find(root, 'lyric-dot')).toBeDefined()
+  showPrelude.value = false
+  await nextTick()
+  expect(find(root, 'lyric-prelude')).toBeUndefined()
+  app.unmount()
 })

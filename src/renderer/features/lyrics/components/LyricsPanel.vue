@@ -14,10 +14,21 @@ import LyricsEmptyState from './LyricsEmptyState.vue'
 const { t } = useI18n()
 const { effects } = useLyricsEffectsPreference()
 const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
+const emit = defineEmits<{
+  editLyrics: [trigger: HTMLElement | null]
+}>()
 const { displayMode } = usePlayerDisplayMode()
 const { lyricsScript, setLyricsScript, lyricsPersistFailed } = useChineseTextDisplay()
-const { status, rawLyrics, parsedLines, activeIndex, isPrelude, showPrelude, preludeLitDotCount } =
-  useDisplayedTrackLyrics()
+const {
+  status,
+  rawLyrics,
+  parsedLines,
+  activeIndex,
+  isPrelude,
+  showPrelude,
+  preludeLitDotCount,
+  preludeElapsed,
+} = useDisplayedTrackLyrics()
 const panelRef = ref<HTMLElement | null>(null)
 const menuOpen = ref(false)
 const anchor = ref({ clientX: 0, clientY: 0 })
@@ -48,6 +59,12 @@ function onMenuClose(reason: string): void {
 function selectScript(script: ChineseScript): void {
   setLyricsScript(script)
   closeMenu(true)
+}
+
+function onEditLyrics(): void {
+  const trigger = scrollElement()
+  closeMenu()
+  emit('editLyrics', trigger)
 }
 
 function openMenu(clientX?: number, clientY?: number): void {
@@ -136,6 +153,7 @@ watch(
         :is-prelude="isPrelude"
         :show-prelude="showPrelude"
         :prelude-lit-dot-count="preludeLitDotCount"
+        :prelude-elapsed="preludeElapsed"
         :aria-haspopup="enabled ? 'menu' : undefined"
         :aria-expanded="menuOpen"
         :aria-controls="menuOpen ? 'normal-lyrics-context-menu' : undefined"
@@ -151,7 +169,9 @@ watch(
           :open="menuOpen"
           :anchor="anchor"
           :current-script="lyricsScript"
+          :show-edit-lyrics="true"
           @select="selectScript"
+          @edit-lyrics="onEditLyrics"
           @close="onMenuClose"
         />
       </div>

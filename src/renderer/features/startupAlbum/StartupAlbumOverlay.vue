@@ -26,6 +26,8 @@ const backdropRevealed = ref(false)
 const host = ref<HTMLElement | null>(null)
 const playButton = ref<HTMLButtonElement | null>(null)
 const interactive = ref(true)
+const controlsReady = ref(false)
+const controlsVisible = computed(() => interactive.value && controlsReady.value)
 const modalOpen = ref(true)
 const fading = ref(false)
 const fallback = ref(false)
@@ -98,18 +100,11 @@ function close(): void {
 function revealBackdrop(): void {
   if (interactive.value && modalOpen.value) backdropRevealed.value = true
 }
-function canRecordShown(): boolean {
-  return (
-    !shown &&
-    !unmounted &&
-    interactive.value &&
-    modalOpen.value &&
-    windowVisible &&
-    !document.hidden
-  )
+function canPresentCard(): boolean {
+  return !unmounted && interactive.value && modalOpen.value && windowVisible && !document.hidden
 }
 function recordShown(): void {
-  if (!canRecordShown()) return
+  if (shown || !canPresentCard()) return
   shown = true
   revealBackdrop()
   emit('shown')
@@ -121,17 +116,25 @@ function cancelStaticShown(): void {
 }
 function queueStaticShown(): void {
   cancelStaticShown()
-  if (!fallback.value || (staticArtwork.value && !staticArtworkReady.value) || !canRecordShown())
+  if (
+    !fallback.value ||
+    (staticArtwork.value && !staticArtworkReady.value) ||
+    !canPresentCard() ||
+    (shown && controlsReady.value)
+  )
     return
   const revision = staticRevision
   void nextTick().then(() => {
-    if (revision !== staticRevision || !canRecordShown()) return
+    if (revision !== staticRevision || !canPresentCard()) return
     // DOM insertion and PNG decoding alone are not a displayed card. Allow a
     // paint before recording the static fallback, and cancel if it exits first.
     staticFrame = requestAnimationFrame(() => {
       staticFrame = requestAnimationFrame(() => {
         staticFrame = 0
-        if (revision === staticRevision && fallback.value) recordShown()
+        if (revision === staticRevision && fallback.value && canPresentCard()) {
+          recordShown()
+          controlsReady.value = true
+        }
       })
     })
   })
@@ -144,7 +147,7 @@ function freezeBackdrop(): void {
   if (backdrop.value) backdrop.value.style.opacity = getComputedStyle(backdrop.value).opacity
 }
 function play(): void {
-  if (!interactive.value) return
+  if (!controlsVisible.value) return
   freezeBackdrop()
   interactive.value = false
   root.value?.focus({ preventScroll: true })
@@ -180,7 +183,7 @@ function fadeOut(): void {
   fadeTimer = setTimeout(close, 180)
 }
 function skip(): void {
-  if (!interactive.value) return
+  if (!controlsVisible.value) return
   freezeBackdrop()
   interactive.value = false
   // Keep focus and the background's inert state until the card has vanished.
@@ -213,7 +216,7 @@ useOverlayFocusTrap({
   isOpen: modalOpen,
   canDismiss: interactive,
   container: root,
-  initialFocus: () => playButton.value ?? undefined,
+  initialFocus: () => playButton.value ?? root.value ?? undefined,
   onEscape: close,
   restoreFocus(captured) {
     const target =
@@ -223,6 +226,15 @@ useOverlayFocusTrap({
     target?.focus({ preventScroll: true })
   },
 })
+watch(
+  controlsVisible,
+  (visible) => {
+    // Move from the entrance's fallback focus without stealing focus from window controls.
+    if (visible && document.activeElement === root.value)
+      playButton.value?.focus({ preventScroll: true })
+  },
+  { flush: 'post' },
+)
 onMounted(async () => {
   let visibilityRevision = 0
   unsubscribeVisibility = auralis.window.onVisibilityChanged(({ isVisible }) => {
@@ -265,7 +277,10 @@ onMounted(async () => {
         if (drewFrame && value.cardRendered && !value.contextLost) {
           // Context restoration can make the canvas visible on this Vue update.
           void nextTick().then(() => {
-            if (!fallback.value) recordShown()
+            if (!fallback.value && canPresentCard()) {
+              recordShown()
+              controlsReady.value = !value.entering
+            }
           })
         }
         if (value.dropping) {
@@ -283,7 +298,10 @@ onMounted(async () => {
           )
         }
         fallback.value = value.contextLost
-        if (value.contextLost) prepareStaticArtwork()
+        if (value.contextLost) {
+          controlsReady.value = false
+          prepareStaticArtwork()
+        }
       },
       cardContent(),
       createReducedMotionQuery(),
@@ -352,7 +370,7 @@ onBeforeUnmount(() => {
           <p :style="{ fontFamily: cardArtistFamily }">{{ artist }}</p>
         </div>
       </div>
-      <div v-if="interactive" class="startup-album-controls">
+      <div v-if="controlsVisible" class="startup-album-controls">
         <div class="startup-album-actions">
           <button
             ref="playButton"

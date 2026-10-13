@@ -52,7 +52,7 @@ afterEach(() => {
 })
 
 describe('album genre recommendations', () => {
-  it('matches any complete genre across album tracks, deduplicates and excludes missing files/current album', () => {
+  it('uses the first ranked genre on ties, deduplicates and excludes missing files/current album', () => {
     const { db, tracks, service } = setup()
     tracks.upsertMany([
       scanned(1),
@@ -69,12 +69,21 @@ describe('album genre recommendations', () => {
     )
     const detail = service.getAlbumDetail({ albumArtist: 'Artist', albumTitle: 'Current' })
     expect(detail.moreAlbums).toEqual([])
-    expect(detail.genreAlbums.map((album) => album.title).sort()).toEqual([
-      'Atomic',
-      'Current',
-      'Match',
-    ])
+    expect(detail.genreAlbums.map((album) => album.title).sort()).toEqual(['Current', 'Match'])
     expect(detail.genreAlbums.every((album) => album.albumArtist === 'Other')).toBe(true)
+  })
+
+  it('recommends only the most frequent genre, counting each track once', () => {
+    const { tracks, service } = setup()
+    tracks.upsertMany([
+      scanned(1, { genre: 'Jazz; Jazz; Jazz; R&B/SOUL' }),
+      scanned(2, { genre: 'r&b/soul' }),
+      scanned(3, { albumArtist: 'Other', album: 'Primary match', genre: 'R&B/SOUL' }),
+      scanned(4, { albumArtist: 'Other', album: 'Secondary only', genre: 'Jazz' }),
+      scanned(5, { albumArtist: 'Other', album: 'Partial only', genre: 'SOUL' }),
+    ])
+    const detail = service.getAlbumDetail({ albumArtist: 'Artist', albumTitle: 'Current' })
+    expect(detail.genreAlbums.map((album) => album.title)).toEqual(['Primary match'])
   })
 
   it('prefers same-artist albums and returns no genre fallback when genre metadata is absent', () => {

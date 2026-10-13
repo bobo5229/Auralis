@@ -14,6 +14,7 @@ import NowPlayingPanel from './app/layout/NowPlayingPanel.vue'
 import PlayerBar from './app/layout/PlayerBar.vue'
 import FullscreenPlayerOverlay from './app/layout/FullscreenPlayerOverlay.vue'
 import SettingsDialog from '@renderer/features/settings/components/SettingsDialog.vue'
+import LyricsEditPanel from '@renderer/features/lyrics/components/LyricsEditPanel.vue'
 import PageParameterPanel from './app/layout/PageParameterPanel.vue'
 import {
   createPageParameters,
@@ -35,6 +36,7 @@ import {
 import { createAlbumDetailEntryTransition } from './app/layout/albumDetailEntryTransition'
 import { findAlbumTransitionFocusTarget } from './features/albums/utils/albumGridTransitionPlan'
 import { albumIdentityKey } from './features/albums/utils/albumIdentity'
+import { ALBUM_GRID_REFLOW_DURATION_MS } from './features/albums/utils/albumGridReflowMotion'
 import { createSidebarLayoutTransition } from './app/layout/sidebarLayoutTransition'
 import { hasCdViewSwitchTransition } from './features/albums/utils/cdViewSwitchTransition'
 import {
@@ -55,19 +57,57 @@ const { cdCanvasTheme } = useCdCanvasTheme()
 useSystemMediaIntegration()
 const { displayMode } = usePlayerDisplayMode()
 const { isSettingsOpen, closeSettings } = useSettingsDialog()
+const isLyricsEditOpen = ref(false)
+const lyricsEditPanelRef = ref<InstanceType<typeof LyricsEditPanel> | null>(null)
+const lyricsEditReturnFocus = ref<HTMLElement | null>(null)
+
+function openLyricsEditPanel(trigger: HTMLElement | null): void {
+  lyricsEditReturnFocus.value = trigger
+  closeSettings()
+  isLyricsEditOpen.value = true
+}
+
+function closeLyricsEditPanel(): void {
+  if (isLyricsEditOpen.value) lyricsEditPanelRef.value?.requestClose()
+}
+
 const pageParameters = createPageParameters(
   computed(() => route.name),
   computed(
-    () => isSettingsOpen.value || displayMode.value === 'fullscreen' || startupAlbumActive.value,
+    () =>
+      isSettingsOpen.value ||
+      isLyricsEditOpen.value ||
+      displayMode.value === 'fullscreen' ||
+      startupAlbumActive.value,
   ),
 )
 providePageParameters(pageParameters)
 
-watch(() => route.fullPath, closeSettings, { flush: 'sync' })
+watch(
+  () => route.fullPath,
+  () => {
+    closeSettings()
+    closeLyricsEditPanel()
+  },
+  { flush: 'sync' },
+)
+watch(
+  isSettingsOpen,
+  (open) => {
+    if (open && isLyricsEditOpen.value) {
+      closeSettings()
+      closeLyricsEditPanel()
+    }
+  },
+  { flush: 'sync' },
+)
 watch(
   displayMode,
   (mode) => {
-    if (mode === 'fullscreen') closeSettings()
+    if (mode === 'fullscreen') {
+      closeSettings()
+      closeLyricsEditPanel()
+    }
   },
   { flush: 'sync' },
 )
@@ -526,7 +566,7 @@ async function runAlbumLyricsTransition(expanded: boolean, sidebarRail?: boolean
   if (!lyricsAlbumTransition.isCurrent(ticket)) return
   if (!lyricsAlbumTransition.start(ticket)) return
 
-  const duration = 200
+  const duration = ALBUM_GRID_REFLOW_DURATION_MS
   const slide = activeLyricsPanel
     ? animateLyricsPanelSlide(
         activeLyricsPanel,
@@ -1000,7 +1040,7 @@ watch(displayMode, (mode) => {
 <template>
   <div
     class="app-window"
-    :inert="displayMode === 'fullscreen' || isSettingsOpen || startupAlbumActive"
+    :inert="displayMode === 'fullscreen' || startupAlbumActive"
     :class="{
       'is-cd-albums': isCdCanvas,
       'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
@@ -1077,6 +1117,7 @@ watch(displayMode, (mode) => {
         :is-collapsed="isLyricsCollapsed"
         :is-interactive="isLyricsInteractive"
         :target-width-px="lyricsTargetWidthPx"
+        @edit-lyrics="openLyricsEditPanel"
       />
       <PlayerBar v-if="!isCdCanvas" />
     </div>
@@ -1084,6 +1125,12 @@ watch(displayMode, (mode) => {
   </div>
   <PageParameterPanel :controller="pageParameters" :target-width-px="lyricsTargetWidthPx" />
   <SettingsDialog />
+  <LyricsEditPanel
+    ref="lyricsEditPanelRef"
+    :open="isLyricsEditOpen"
+    :return-focus-to="lyricsEditReturnFocus"
+    @close="isLyricsEditOpen = false"
+  />
   <component
     :is="startupAlbumOverlay"
     v-if="startupAlbumOverlay && startupAlbumPresentation"

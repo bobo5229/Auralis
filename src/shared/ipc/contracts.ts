@@ -38,6 +38,16 @@ import type {
 } from '@shared/types/libraryCatalog'
 import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
 import type { DailyPlayCount, DailyTopTrack } from '@shared/types/listeningArchive'
+import type {
+  AssignLyricsEditorLines,
+  LyricsEditorResult,
+  LyricsEditorSaved,
+  LyricsEditorState,
+  SaveLyricsEditor,
+  LrcEditorState,
+  SaveLrcEditor,
+  LrcEditorSaved,
+} from '@shared/types/lyricsEditor'
 
 export type LibraryChangedReason =
   | 'track-added'
@@ -339,6 +349,34 @@ export interface IpcInvokeContract {
   'lyrics:get-by-track-id': {
     request: { trackId: number }
     response: TrackLyrics | null
+  }
+  'lyrics:open-editor': {
+    request: { trackId: number }
+    response: LyricsEditorResult<LyricsEditorState>
+  }
+  'lyrics:open-lrc-editor': {
+    request: { trackId: number }
+    response: LyricsEditorResult<LrcEditorState>
+  }
+  'lyrics:save-lrc-editor': {
+    request: SaveLrcEditor
+    response: LyricsEditorResult<LrcEditorSaved>
+  }
+  'lyrics:close-lrc-editor': {
+    request: { sessionId: string }
+    response: LyricsEditorResult<null>
+  }
+  'lyrics:assign-editor-lines': {
+    request: AssignLyricsEditorLines
+    response: LyricsEditorResult<LyricsEditorState>
+  }
+  'lyrics:save-editor': {
+    request: SaveLyricsEditor
+    response: LyricsEditorResult<LyricsEditorSaved>
+  }
+  'lyrics:close-editor': {
+    request: { sessionId: string }
+    response: LyricsEditorResult<null>
   }
   'playback:get-audio-url': {
     request: { trackId: number }

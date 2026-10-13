@@ -98,7 +98,7 @@ describe('moreAlbumsByArtist', () => {
 })
 
 describe('moreAlbumsByGenre', () => {
-  it('matches any atomic genre case-insensitively, deduplicates albums and excludes the current album', () => {
+  it('uses the first ranked genre on ties, deduplicates albums and excludes the current album', () => {
     const current = createTrack(1, { genre: 'Jazz; R&B/SOUL' })
     const albums = groupAlbums([
       current,
@@ -111,7 +111,23 @@ describe('moreAlbumsByGenre', () => {
     ])
     expect(
       moreAlbumsByGenre(albums, [current], 'Artist', 'Album').map((album) => album.title),
-    ).toEqual(['Other', 'Compound', 'Album'])
+    ).toEqual(['Other', 'Album'])
     expect(moreAlbumsByGenre(albums, [createTrack(1)], 'Artist', 'Album')).toEqual([])
+  })
+
+  it('matches only the most frequent genre and counts duplicate labels once per track', () => {
+    const currentTracks = [
+      createTrack(1, { genre: 'Jazz; Jazz; Jazz; R&B/SOUL' }),
+      createTrack(2, { genre: 'r&b/soul' }),
+    ]
+    const albums = groupAlbums([
+      ...currentTracks,
+      createTrack(3, { album: 'Primary match', genre: 'R&B/SOUL' }),
+      createTrack(4, { album: 'Secondary only', genre: 'Jazz' }),
+      createTrack(5, { album: 'Partial only', genre: 'SOUL' }),
+    ])
+    expect(
+      moreAlbumsByGenre(albums, currentTracks, 'Artist', 'Album').map((album) => album.title),
+    ).toEqual(['Primary match'])
   })
 })

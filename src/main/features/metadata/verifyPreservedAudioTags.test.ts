@@ -21,6 +21,34 @@ function tags(native: IAudioMetadata['native']): IAudioMetadata {
 beforeEach(() => vi.resetAllMocks())
 
 describe('preserved native tags', () => {
+  it('allows a lyric change while preserving the original title in lyric-only mode', async () => {
+    vi.mocked(parseAudioMetadata)
+      .mockResolvedValueOnce(
+        tags({
+          vorbis: [
+            { id: 'TITLE', value: 'Title' },
+            { id: 'LYRICS', value: 'Old' },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        tags({
+          vorbis: [
+            { id: 'TITLE', value: 'Title' },
+            { id: 'LYRICS', value: 'New' },
+          ],
+        }),
+      )
+    await expect(verifyPreservedAudioTags('source', 'staging', true)).resolves.toBeUndefined()
+  })
+  it('rejects a title change during a lyric-only write', async () => {
+    vi.mocked(parseAudioMetadata)
+      .mockResolvedValueOnce(tags({ vorbis: [{ id: 'TITLE', value: 'Title' }] }))
+      .mockResolvedValueOnce(tags({ vorbis: [{ id: 'TITLE', value: 'Changed' }] }))
+    await expect(verifyPreservedAudioTags('source', 'staging', true)).rejects.toThrow(
+      'did not preserve a native tag',
+    )
+  })
   it('allows the edited iTunes freeform genre to be replaced by the requested standard genre', async () => {
     vi.mocked(parseAudioMetadata)
       .mockResolvedValueOnce(

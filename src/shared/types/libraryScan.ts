@@ -126,10 +126,12 @@ export interface SelectLibraryRootResult {
   root?: LibraryRoot
 }
 
-export type LyricsFormat = 'lrc' | 'plain'
+export type LyricsFormat = 'lrc' | 'ttml' | 'plain'
 
 export interface TrackLyrics {
   trackId: number
   lyricsText: string | null
   lyricsFormat: LyricsFormat | null
+  /** Present for TTML only. Raw XML stays unchanged; the renderer consumes this projection. */
+  ttmlPlayback?: import('./lyricsEditor').TtmlPlaybackLyrics
 }

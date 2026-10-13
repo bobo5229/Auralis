@@ -3,6 +3,51 @@
     "play": "Play album",
     "skip": "Skip"
   },
+  "lyricsEditor": {
+    "title": "Edit lyrics",
+    "close": "Close lyrics editor",
+    "updateTime": "Update",
+    "insertTime": "Insert",
+    "earlier": "Earlier",
+    "later": "Later",
+    "updateTimeTooltip": "Update this line’s timestamp to the playback position",
+    "insertTimeTooltip": "Insert the playback position on this line",
+    "earlierTooltip": "Move this line 0.1 seconds earlier",
+    "laterTooltip": "Move this line 0.1 seconds later",
+    "undo": "Undo",
+    "redo": "Redo",
+    "play": "Play",
+    "pause": "Pause",
+    "position": "Playback position",
+    "text": "{format} text",
+    "loading": "Loading lyrics…",
+    "reload": "Reload",
+    "tag": "Save to track tags (LRC)",
+    "file": "Save as LRC file",
+    "ttmlFile": "Save as TTML file",
+    "ttmlSaved": "Saved as TTML",
+    "clampedTimes": "Times below zero after offset compensation were clamped to zero.",
+    "inferredEnd": "The final line ends 5 seconds after its start by default.",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "cachePending": "Lyrics were written; the player cache still needs updating.",
+    "writeWarning": "Lyrics were written, but playback recovery or cache updating did not complete. Check playback.",
+    "otherSource": "Saved. The player is still using a higher-priority lyrics source.",
+    "saveChanges": "Save lyric changes?",
+    "continue": "Keep editing",
+    "discard": "Discard changes",
+    "saveClose": "Save and close",
+    "errors": {
+      "untimed": "Some lyric lines have no timestamp. Add timestamps before saving as TTML.",
+      "invalidLrc": "Invalid LRC timestamps or content. Could not convert to TTML.",
+      "changed": "The file changed or the session expired. Keep your edits, then close and reload.",
+      "busy": "A write is in progress. Please retry shortly.",
+      "unavailable": "The track is unavailable; lyrics could not be loaded.",
+      "failed": "The operation did not complete. Your edits are retained. Retry and keep any recovery backup."
+    }
+  },
+  "dialog": { "close": "Close dialog" },
   "windowControls": {
     "close": "Close window",
     "minimize": "Minimize window",
@@ -293,6 +338,12 @@
       },
       "lyricsEffects": {
         "title": "Main window lyrics",
+        "countdown": {
+          "title": "Lyrics countdown animation",
+          "description": "Choose whether dots light up or dissolve into fine particles before lyrics begin. Applies to main window and fullscreen lyrics.",
+          "lighting": "Light up one by one",
+          "fracture": "Break apart one by one"
+        },
         "edgeFade": {
           "title": "Top and bottom fade",
           "description": "Fade timed lyrics at the top and bottom edges of the panel."
@@ -584,6 +635,7 @@
       "label": "Lyrics display",
       "simplified": "Switch to Simplified Chinese",
       "traditional": "Switch to Traditional Chinese",
+      "editLyrics": "Edit lyrics",
       "persistFailed": "This change is active, but could not be saved. It may reset after restarting."
     }
   },

@@ -1,7 +1,7 @@
 import type { MetadataRefreshRepository } from '@main/repositories/metadataRefreshRepository'
-import type { EditableTrackMetadata } from '@shared/types/libraryScan'
+import type { AudioTagEdit as EditableTrackMetadata } from './audioTagEdit'
 import type { UpdateTrackMetadataResult } from '@shared/ipc/contracts'
-import { writeAudioTags } from './audioTagWriteService'
+import { writeAudioTags, prepareAudioTagWrite } from './audioTagWriteService'
 import { normalizeEditableMetadata } from './editableMetadataValidation'
 import { assertMetadataFingerprint, readStableMetadata } from './readStableMetadata'
 import { verifyWrittenMetadata } from './verifyWrittenMetadata'
@@ -79,10 +79,14 @@ export class MetadataTagWriteCoordinator {
     this.playbackTagWrite = handler
   }
 
-  updateTrackMetadata(metadata: EditableTrackMetadata): Promise<UpdateTrackMetadataResult> {
+  updateTrackMetadata(
+    metadata: EditableTrackMetadata,
+    beforeCommit?: () => Promise<void>,
+    onDiskCommit?: () => void,
+  ): Promise<UpdateTrackMetadataResult> {
     if (this.lifecycle.isStopping())
       return Promise.reject(new Error('Metadata refresh service is shutting down'))
-    const request = this.writeTrackMetadata(metadata)
+    const request = this.writeTrackMetadata(metadata, beforeCommit, onDiskCommit)
     this.pendingWrites.add(request)
     void request.then(
       () => this.pendingWrites.delete(request),
@@ -93,6 +97,8 @@ export class MetadataTagWriteCoordinator {
 
   private async writeTrackMetadata(
     metadata: EditableTrackMetadata,
+    beforeCommit?: () => Promise<void>,
+    onDiskCommit?: () => void,
   ): Promise<UpdateTrackMetadataResult> {
     metadata = normalizeEditableMetadata(metadata)
     const filePath = this.repository.getTrackFilePath(metadata.trackId)
@@ -104,7 +110,8 @@ export class MetadataTagWriteCoordinator {
     if (this.writingTracks.has(metadata.trackId)) return { ok: false, reason: 'write-in-progress' }
 
     const existing = this.repository.getEditableTrackMetadata(metadata.trackId)
-    if (existing && isSameEditableMetadata(metadata, existing)) return { ok: true }
+    if (metadata.lyricsText === undefined && existing && isSameEditableMetadata(metadata, existing))
+      return { ok: true }
 
     let writeLeaseId: string | null = null
     let usesPlaybackWriter = false
@@ -130,8 +137,10 @@ export class MetadataTagWriteCoordinator {
     // the write is still in flight, and a 1200ms flush can start first.
     try {
       const commitAndReconcile = async (commit: () => Promise<void>) => {
+        await beforeCommit?.()
         this.onTagWriteSuccess?.(filePath)
         await commit()
+        onDiskCommit?.()
         const result = await readStableMetadata(
           metadata.trackId,
           filePath,
@@ -141,7 +150,8 @@ export class MetadataTagWriteCoordinator {
         await assertMetadataFingerprint(result)
         if (this.trackGenerations.get(metadata.trackId) !== generation)
           throw new Error('Tag write became stale')
-        this.repository.commitVerifiedUserEdit(metadata, result)
+        if (metadata.lyricsText !== undefined) this.repository.updateTrackLyrics(result)
+        else this.repository.commitVerifiedUserEdit(metadata, result)
         this.pendingReconciliation.delete(metadata.trackId)
         this.onTagWriteSuccess?.(filePath)
         try {
@@ -155,7 +165,14 @@ export class MetadataTagWriteCoordinator {
         if (!result.ok) this.pendingReconciliation.add(metadata.trackId)
         return result
       }
-      await commitAndReconcile(() => writeAudioTags(filePath, metadata, this.ffmpegPath))
+      if (metadata.lyricsText !== undefined) {
+        const prepared = await prepareAudioTagWrite(filePath, metadata, this.ffmpegPath)
+        try {
+          await commitAndReconcile(() => prepared.commit())
+        } finally {
+          await prepared.dispose()
+        }
+      } else await commitAndReconcile(() => writeAudioTags(filePath, metadata, this.ffmpegPath))
       return { ok: true }
     } catch (error) {
       this.pendingReconciliation.add(metadata.trackId)

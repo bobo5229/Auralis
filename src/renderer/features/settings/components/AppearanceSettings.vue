@@ -20,6 +20,7 @@ import SettingsSelect from './SettingsSelect.vue'
 import ThemeAccentSettings from './ThemeAccentSettings.vue'
 import ChineseTextSettings from './ChineseTextSettings.vue'
 import LyricsEffectsSettings from './LyricsEffectsSettings.vue'
+import LyricsCountdownSettings from './LyricsCountdownSettings.vue'
 import WindowBehaviorSettings from './WindowBehaviorSettings.vue'
 import { useUiLocale } from '@renderer/i18n'
 import type { UiLocale } from '@shared/uiLocale'
@@ -246,6 +247,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             @update:model-value="selectLyricsScrollPreset($event as LyricsScrollPreset)"
           />
         </div>
+        <LyricsCountdownSettings />
         <div class="settings-row settings-row--with-desc settings-row--playing-icon">
           <div>
             <strong id="appearance-playing-icon-label">{{
