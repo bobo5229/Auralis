@@ -31,6 +31,12 @@ const props = withDefaults(
     ready?: Promise<unknown>
   }>(),
   {
+    closeLabel: undefined,
+    describedBy: undefined,
+    initialFocus: undefined,
+    returnFocusTo: null,
+    restoreFocus: undefined,
+    ready: undefined,
     size: 'large',
     fill: false,
     padded: true,

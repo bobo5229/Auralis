@@ -6,6 +6,7 @@ import {
   resolveAlbumArtists,
   resolveComposers,
   resolveGenres,
+  resolveLyrics,
 } from './metadataNormalizer'
 
 function audio(
@@ -27,6 +28,20 @@ function audio(
     },
   }
 }
+
+describe('raw embedded lyrics', () => {
+  it.each(['\nPlain text  \r\n', '\n[00:01.20]你好  \r\nUntimed line\n'])(
+    'prefers the untouched native field when common lyrics have been normalized: %j',
+    (text) => {
+      const metadata = audio({}, { vorbis: [{ id: 'LYRICS', value: text }] })
+      metadata.common.lyrics = [
+        { text: 'Plain text', syncText: [], contentType: 1, timeStampFormat: 0 },
+      ]
+      expect(resolveLyrics(metadata, true)?.text).toBe(text)
+      expect(resolveLyrics(metadata)?.text).toBe(text.includes('[00:') ? text.trim() : 'Plain text')
+    },
+  )
+})
 
 describe('resolveGenres', () => {
   it('keeps a single genre unchanged', () => {

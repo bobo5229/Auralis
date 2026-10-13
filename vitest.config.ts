@@ -1,4 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
+import { availableParallelism } from 'node:os'
 import vue from '@vitejs/plugin-vue'
 import { configDefaults, defineConfig } from 'vitest/config'
 
@@ -13,6 +14,10 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    // Decoder integration tests spawn real mpv/FFmpeg processes; leave headroom
+    // instead of multiplying decoder threads by every logical CPU on a workstation.
+    minWorkers: 1,
+    maxWorkers: Math.min(4, availableParallelism()),
     // Component tests mount Vue with a custom renderer in the Node environment.
     testTransformMode: {
       web: [
@@ -30,6 +35,8 @@ export default defineConfig({
         '**/AppearanceSettings.lyricsScroll.test.ts',
         '**/AppearanceSettings.playingIcon.test.ts',
         '**/SettingsDialog.test.ts',
+        '**/AppDialog.test.ts',
+        '**/LyricsSaveMenu.test.ts',
         '**/LibraryContextMenu.test.ts',
       ],
     },

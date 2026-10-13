@@ -1908,7 +1908,8 @@ input[type='range'].volume-overlay-slider {
 
 /* 溢出时启动平滑匀速巡航跑马灯 */
 .sidebar-status-label--marquee .sidebar-flavor-text {
-  animation: sidebar-flavor-marquee var(--flavor-scroll-duration, 8s) cubic-bezier(0.37, 0, 0.63, 1) infinite;
+  animation: sidebar-flavor-marquee var(--flavor-scroll-duration, 8s) cubic-bezier(0.37, 0, 0.63, 1)
+    infinite;
 }
 
 /* 鼠标悬停在卡片上时：保持滚动以供持续阅读 */
@@ -1917,13 +1918,16 @@ input[type='range'].volume-overlay-slider {
 }
 
 @keyframes sidebar-flavor-marquee {
-  0%, 18% {
+  0%,
+  18% {
     transform: translateX(0);
   }
-  65%, 82% {
+  65%,
+  82% {
     transform: translateX(calc(-1 * var(--flavor-scroll-distance, 0px)));
   }
-  94%, 100% {
+  94%,
+  100% {
     transform: translateX(0);
   }
 }

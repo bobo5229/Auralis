@@ -161,18 +161,22 @@ export function resolveCopyright(metadata: MetadataTags): string[] {
 }
 
 export function resolveLyrics(metadata: MetadataTags, preserveText = false): ResolvedLyrics | null {
-  const candidates: string[] = []
-
-  candidates.push(...getTextValuesFromUnknown(metadata.common.lyrics))
+  const nativeCandidates: string[] = []
 
   for (const tags of getNativeTagGroups(metadata)) {
     for (const tag of tags) {
       if (!isNativeLyricsTag(tag.id)) continue
 
-      candidates.push(...getTextValuesFromUnknown(tag.value))
+      nativeCandidates.push(...getTextValuesFromUnknown(tag.value))
     }
   }
 
+  // Common lyrics may already be trimmed or decoded from LRC by music-metadata.
+  // Raw editing and write verification need the original native field first.
+  const commonCandidates = getTextValuesFromUnknown(metadata.common.lyrics)
+  const candidates = preserveText
+    ? [...nativeCandidates, ...commonCandidates]
+    : [...commonCandidates, ...nativeCandidates]
   const resolved = [...new Set(candidates)].flatMap((candidate) => {
     const lyrics = classifyLyrics(candidate)
     return lyrics ? [{ ...lyrics, text: preserveText ? candidate : lyrics.text }] : []

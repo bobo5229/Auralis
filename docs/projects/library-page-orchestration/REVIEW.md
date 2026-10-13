@@ -24,18 +24,18 @@
 
 ## 不变量核对
 
-| # | 不变量 | 结果 |
-| --- | --- | --- |
-| 1 | All Songs 走 `loadLibraryCatalogSnapshot(getTrackPage)`，完整聚合后再 commit | 通过 |
-| 2 | 刷新优先级 foreground > metadata-save > background；只有一个 `LibraryRequestCoordinator` | 通过 |
-| 3 | `play-stats-updated` / `play-stats-reset` 不触发全量重载 | 通过 |
-| 4 | 后台视口恢复调用 `resolveLibraryViewportRestoreAction`；用户滚动则放弃；永不滚到 playing/selected/keyboard focus | 通过 |
-| 5 | `LIBRARY_LAYOUT_METRICS` 数字未改；`SCROLL_POSITION_RATIO=0.33`；`LIBRARY_TOP_INSET=16` | 通过 |
-| 6 | 搜索索引 generation 过期丢弃；前缀字段仍是 title / artist / albumArtist / album | 通过 |
-| 7 | 卸载 invalidate coordinator、取消 rAF、解订阅 | 通过 |
-| 8 | 模板 `data-track-id` / `data-album-key` / `data-first-track-id`、manuscript owner 仍在 | 通过 |
-| 9 | 没有第二套 player store；没有改 IPC / SQLite / Playbar | 通过 |
-| 10 | `LibraryPage.vue` `<script setup>` ≤ 650 行 | 通过（第 1–540 行，含标签） |
+| #   | 不变量                                                                                                           | 结果                        |
+| --- | ---------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| 1   | All Songs 走 `loadLibraryCatalogSnapshot(getTrackPage)`，完整聚合后再 commit                                     | 通过                        |
+| 2   | 刷新优先级 foreground > metadata-save > background；只有一个 `LibraryRequestCoordinator`                         | 通过                        |
+| 3   | `play-stats-updated` / `play-stats-reset` 不触发全量重载                                                         | 通过                        |
+| 4   | 后台视口恢复调用 `resolveLibraryViewportRestoreAction`；用户滚动则放弃；永不滚到 playing/selected/keyboard focus | 通过                        |
+| 5   | `LIBRARY_LAYOUT_METRICS` 数字未改；`SCROLL_POSITION_RATIO=0.33`；`LIBRARY_TOP_INSET=16`                          | 通过                        |
+| 6   | 搜索索引 generation 过期丢弃；前缀字段仍是 title / artist / albumArtist / album                                  | 通过                        |
+| 7   | 卸载 invalidate coordinator、取消 rAF、解订阅                                                                    | 通过                        |
+| 8   | 模板 `data-track-id` / `data-album-key` / `data-first-track-id`、manuscript owner 仍在                           | 通过                        |
+| 9   | 没有第二套 player store；没有改 IPC / SQLite / Playbar                                                           | 通过                        |
+| 10  | `LibraryPage.vue` `<script setup>` ≤ 650 行                                                                      | 通过（第 1–540 行，含标签） |
 
 ### 1. 快照与加载
 

@@ -20,9 +20,7 @@ import {
 export interface LrcEditorDependencies {
   getFilePath(id: number): string | null
   getRoots(): string[]
-  readSource(
-    path: string,
-  ): Promise<{
+  readSource(path: string): Promise<{
     lyricsText: string
     lyricsFormat: 'lrc' | 'plain' | 'ttml'
     durationMs?: number

@@ -566,8 +566,8 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
           ><button class="auralis-dialog-action" @click="discard">
             {{ t('lyricsEditor.discard') }}</button
           ><button
-            ref="saveButton"
             id="lyrics-save-button"
+            ref="saveButton"
             class="auralis-dialog-action auralis-dialog-action--primary"
             :class="{ 'editor-save-covered': saveMenuVisible }"
             :tabindex="saveMenuVisible ? -1 : undefined"
@@ -585,8 +585,8 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
       </div>
       <div v-else class="editor-footer editor-footer--save">
         <button
-          ref="saveButton"
           id="lyrics-save-button"
+          ref="saveButton"
           class="auralis-dialog-action auralis-dialog-action--primary"
           :class="{ 'editor-save-covered': saveMenuVisible }"
           :tabindex="saveMenuVisible ? -1 : undefined"

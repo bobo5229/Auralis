@@ -174,7 +174,7 @@ describe('parser version migration and automatic backfill', () => {
     db.prepare(
       `INSERT INTO tracks(file_path,file_size,file_mtime_ms,metadata_checked_mtime_ms,
       lyrics_checked_mtime_ms,lyrics_sidecar_fingerprint,album,album_artist,metadata_parser_version)
-      VALUES(?,?,?,?,?,'[null,null]','Album','Artist',?)`,
+      VALUES(?,?,?,?,?,'[null,null,null,null]','Album','Artist',?)`,
     ).run(
       path,
       fingerprint.size,
@@ -190,6 +190,20 @@ describe('parser version migration and automatic backfill', () => {
       (_path, reason) => failures.push(reason),
     )
     expect((await reader.read(path)).kind).toBe('skip')
+    expect(failures).toEqual([])
+  })
+
+  it('backfills a legacy LRC-only sidecar fingerprint once before taking the fast path', async () => {
+    const { db, tracks, path, read, failures } = await setup()
+    db.prepare('UPDATE tracks SET metadata_parser_version=? WHERE id=1').run(
+      getMetadataParserVersion(path),
+    )
+    const result = await read()
+    expect(result.kind).toBe('patches')
+    if (result.kind !== 'patches' || !result.lyricsPatch) throw new Error('Expected lyrics patch')
+    expect(result.lyricsPatch.lyricsSidecarFingerprint).toBe('[null,null,null,null]')
+    tracks.patchLyrics([result.lyricsPatch])
+    expect((await read()).kind).toBe('skip')
     expect(failures).toEqual([])
   })
 

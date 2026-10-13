@@ -9,6 +9,7 @@ import type { NativePlaybackEvent } from '@shared/ipc/contracts'
 import { NativePlaybackService } from './nativePlaybackService'
 import { PlaybackFileCoordinator } from './playbackFileCoordinator'
 import { createTagAudioSnapshot, prepareTagAudioBuffer } from './tagAudioBuffer'
+import * as mpvTransport from './mpvClient'
 
 const mpvPath = resolve('resources/audio/mpv.exe')
 const ffmpegPath = resolve('resources/audio/ffmpeg.exe')
@@ -164,12 +165,36 @@ describe.skipIf(!available)('buffered tag writes with real mpv and isolated musi
     },
   )
   it('saves M4A while paused without loading a PCM bridge or changing the playback lease', async () => {
+    const openClient = mpvTransport.openMpvClient
+    let client: Awaited<ReturnType<typeof openClient>> | undefined
+    let playbackRestarts = 0
+    vi.spyOn(mpvTransport, 'openMpvClient').mockImplementation(async (path, onEvent, ...rest) => {
+      client = await openClient(
+        path,
+        (event) => {
+          onEvent(event)
+          if (event.event === 'playback-restart') playbackRestarts++
+        },
+        ...rest,
+      )
+      return client
+    })
     const file = join(directory, 'source.m4a')
     const { service, coordinator, events, warnings } = setup(file)
     await service.command({ action: 'start', session: 1, trackId: 1, volume: 1, muted: false })
     await service.command({ action: 'pause', session: 1 })
+    const restartsBeforeSeek = playbackRestarts
     await service.command({ action: 'seek', session: 1, time: 2 })
-    await vi.waitFor(() => expect(events.at(-1)?.currentTime).toBeGreaterThan(1))
+    // Observe the real decoder, not an optimistic/in-flight position notification.
+    // AAC output latency can make the settled position differ from the requested time.
+    await vi.waitFor(async () => {
+      expect(playbackRestarts).toBeGreaterThan(restartsBeforeSeek)
+      expect(await client!.command('get_property', 'seeking')).toBe(false)
+      const position = await client!.command('get_property', 'time-pos')
+      expect(position).toBeGreaterThan(1)
+      expect(events.at(-1)?.currentTime).toBe(position)
+      expect(events.at(-1)?.isPlaying).toBe(false)
+    })
     expect(coordinator.getTrackState(1).status).toBe('playback-editable')
     const before = service.getSpectrumSource()!
     const result = await service.writeMetadata(file, edit, (commit) => commit())

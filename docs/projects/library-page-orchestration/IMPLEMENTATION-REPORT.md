@@ -7,17 +7,17 @@
 
 ## Step commits
 
-| Step | 说明 | Hash |
-| --- | --- | --- |
-| 1 | 现有 library Vitest 全绿，无代码改动，无 commit | — |
-| 2 | `refactor：抽出曲库键盘焦点纯函数` | `1c045f8600015c382477934d5fdd72c8e311a321` |
-| 3 | `refactor：抽出曲库首个可见曲目计算` | `403ec8c94dbaafdabd3a4bdfc8cb65b6ded87399` |
-| 4 | `refactor：抽出曲库搜索会话` | `c1c17059a4e7492a7e08ef5bd19221ed3902e751` |
-| 5 | `refactor：抽出曲库视口与滚动 generation` | `60b6410e64fc468cb7d000e32cae2681283614f3` |
-| 6 | `refactor：抽出曲库右键菜单会话` | `d9b97b1ba2490336166bac7178f765c951e5ecf5` |
-| 7 | `refactor：抽出曲库目录加载会话` | `332527243dc4b15a0d6b61439a258da34783de38` |
-| 8 | `refactor：LibraryPage 改为 composable 接线` | `9dfab40cc8c7fc13ec6c366207feed6ca070ca1a` |
-| 9 | 验证全绿，无修复 commit | — |
+| Step | 说明                                            | Hash                                       |
+| ---- | ----------------------------------------------- | ------------------------------------------ |
+| 1    | 现有 library Vitest 全绿，无代码改动，无 commit | —                                          |
+| 2    | `refactor：抽出曲库键盘焦点纯函数`              | `1c045f8600015c382477934d5fdd72c8e311a321` |
+| 3    | `refactor：抽出曲库首个可见曲目计算`            | `403ec8c94dbaafdabd3a4bdfc8cb65b6ded87399` |
+| 4    | `refactor：抽出曲库搜索会话`                    | `c1c17059a4e7492a7e08ef5bd19221ed3902e751` |
+| 5    | `refactor：抽出曲库视口与滚动 generation`       | `60b6410e64fc468cb7d000e32cae2681283614f3` |
+| 6    | `refactor：抽出曲库右键菜单会话`                | `d9b97b1ba2490336166bac7178f765c951e5ecf5` |
+| 7    | `refactor：抽出曲库目录加载会话`                | `332527243dc4b15a0d6b61439a258da34783de38` |
+| 8    | `refactor：LibraryPage 改为 composable 接线`    | `9dfab40cc8c7fc13ec6c366207feed6ca070ca1a` |
+| 9    | 验证全绿，无修复 commit                         | —                                          |
 
 ## 跑过的命令与结果
 

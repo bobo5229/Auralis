@@ -740,28 +740,34 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
     })
 
     await record('registered main window retains library IPC and four sidebar tools', async () => {
-      const valid = await mainWindow.webContents.executeJavaScript(`(async () => {
+      const probe = await mainWindow.webContents.executeJavaScript(`(async () => {
         const roots = await window.auralis.library.getRoots()
         const tracks = await window.auralis.library.getTracks()
+        const rail = document.querySelector('.app-sidebar')?.classList.contains('app-sidebar--collapsed') === true
         const toolbar = document.querySelector('.sidebar-tools-grid')
-        const tools = [...document.querySelectorAll('.sidebar-footer button.sidebar-tool-button')]
+        const tools = [...document.querySelectorAll('.sidebar-footer button')]
         const settings = document.querySelector('.sidebar-footer [data-settings-trigger]')
         const parameters = toolbar?.querySelector('[data-page-parameters-trigger]')
         const groupedTools = toolbar ? [...toolbar.querySelectorAll('button.sidebar-tool-button')] : []
-        const refresh = groupedTools.find((el) => el.hasAttribute('aria-busy') &&
+        const refresh = tools.find((el) => el.hasAttribute('aria-busy') &&
           ['刷新曲库', '正在刷新曲库', 'Refresh library', 'Refreshing library'].includes(el.getAttribute('aria-label')))
         const filters = groupedTools.find((el) =>
           ['筛选面板', 'Filter panel'].includes(el.getAttribute('aria-label')))
-        return Array.isArray(roots) && Array.isArray(tracks) && tools.length === 4 &&
-          groupedTools.length === 3 && Boolean(refresh) && Boolean(filters) &&
+        const valid = Array.isArray(roots) && Array.isArray(tracks) && tools.length === 4 &&
+          groupedTools.length === (rail ? 3 : 2) && Boolean(refresh) && Boolean(filters) &&
+          toolbar.contains(refresh) === rail &&
           Boolean(settings) && !toolbar.contains(settings) && Boolean(parameters) &&
           tools.every((el) => {
             const rect = el.getBoundingClientRect()
             return rect.width > 0 && rect.height > 0 && rect.left >= 0 &&
               rect.right <= window.innerWidth
           })
+        return { valid, rail, toolCount: tools.length, groupedCount: groupedTools.length,
+          refresh: Boolean(refresh), filters: Boolean(filters), settings: Boolean(settings),
+          parameters: Boolean(parameters) }
       })()`)
-      if (!valid) throw new Error('Library IPC or sidebar tools are unavailable')
+      if (!probe.valid)
+        throw new Error(`Library IPC or sidebar tools are unavailable: ${JSON.stringify(probe)}`)
     })
 
     await record('playerbar layout contract holds after window operations', async () => {

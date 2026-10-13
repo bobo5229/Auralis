@@ -8,6 +8,7 @@ import { prepareAudioTagWrite, writeAudioTags } from './audioTagWriteService'
 import * as metadataParser from './parseAudioMetadata'
 import { MetadataTagWriteCoordinator } from './metadataTagWriteCoordinator'
 import type { MetadataRefreshRepository } from '../../repositories/metadataRefreshRepository'
+import { resolveLyrics } from './metadataNormalizer'
 
 vi.mock('node:fs/promises', async (original) => {
   const actual = await original<typeof import('node:fs/promises')>()
@@ -150,18 +151,50 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
   })
   it('writes raw timed lyrics to FLAC without changing unrelated metadata or the original before commit', async () => {
     const before = await readFile(file)
-    const lyrics = '[ar:Artist]\n[00:01.20]Line one\nUntimed line\n'
+    const lyrics = '\n [ar:Artist]\n[00:01.20]Line one\nUntimed line  \n\n'
     const transaction = await prepareAudioTagWrite(file, { ...edit, lyricsText: lyrics }, ffmpeg)
     try {
       expect(await readFile(file)).toEqual(before)
       const staged = await metadataParser.parseAudioMetadata(transaction.stagingPath)
       expect(staged.common.title).toBe('Before')
       expect(staged.common.composer).toEqual(['Composer'])
-      expect(JSON.stringify(staged.common.lyrics)).toContain('[00:01.20]Line one')
+      expect(JSON.stringify(staged.common.lyrics)).toContain('Line one')
+      expect(resolveLyrics(staged, true)?.text).toBe(lyrics)
       await transaction.commit()
-      expect((await metadataParser.parseAudioMetadata(file)).common.title).toBe('Before')
+      const saved = await metadataParser.parseAudioMetadata(file)
+      expect(saved.common.title).toBe('Before')
+      expect(resolveLyrics(saved, true)?.text).toBe(lyrics)
     } finally {
       await transaction.dispose()
+    }
+  })
+  it.each([
+    ['flac', 'flac'],
+    ['mp3', 'libmp3lame'],
+    ['m4a', 'aac'],
+    ['ogg', 'libvorbis'],
+    ['opus', 'libopus'],
+  ])('retains raw lyric whitespace and supports clearing %s tags', async (extension, codec) => {
+    const target = join(directory, `lyrics.${extension}`)
+    execFileSync(ffmpeg, ['-nostdin', '-v', 'error', '-y', '-i', file, '-c:a', codec, target], {
+      windowsHide: true,
+    })
+    for (const lyricsText of ['\n[00:01.20]你好  \r\nUntimed line\n\n', 'Plain text  \n', '']) {
+      const before = await readFile(target)
+      const transaction = await prepareAudioTagWrite(target, { ...edit, lyricsText }, ffmpeg)
+      try {
+        expect(await readFile(target)).toEqual(before)
+        const staged = await metadataParser.parseAudioMetadata(transaction.stagingPath)
+        expect(resolveLyrics(staged, true)?.text ?? '').toBe(lyricsText)
+        expect(staged.common.title).toBe('Before')
+        expect(staged.common.composer).toEqual(['Composer'])
+        await transaction.commit()
+        expect(
+          resolveLyrics(await metadataParser.parseAudioMetadata(target), true)?.text ?? '',
+        ).toBe(lyricsText)
+      } finally {
+        await transaction.dispose()
+      }
     }
   })
   const expectFailedPreparationCleaned = async (before: Buffer) => {

@@ -236,6 +236,13 @@ function createApi(): AuralisApi {
     },
     lyrics: {
       getByTrackId: vi.fn(),
+      openEditor: vi.fn(),
+      openLrcEditor: vi.fn(),
+      saveLrcEditor: vi.fn(),
+      closeLrcEditor: vi.fn(),
+      assignEditorLines: vi.fn(),
+      saveEditor: vi.fn(),
+      closeEditor: vi.fn(),
     },
     playback: {
       subscribeSpectrum: vi.fn(async () => ({ accepted: true })),
