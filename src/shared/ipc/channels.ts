@@ -57,6 +57,7 @@ export const ipcChannels = {
     saveLrcEditor: 'lyrics:save-lrc-editor',
     closeLrcEditor: 'lyrics:close-lrc-editor',
     assignEditorLines: 'lyrics:assign-editor-lines',
+    retimeEditorLines: 'lyrics:retime-editor-lines',
     saveEditor: 'lyrics:save-editor',
     closeEditor: 'lyrics:close-editor',
   },

@@ -96,10 +96,11 @@ async function fetchLyrics(trackId: number): Promise<void> {
         return
       }
       rawLyrics.value = result.lyricsText
-      parsedLines.value = projection.lines.map(({ id, timeSeconds, text }) => ({
+      parsedLines.value = projection.lines.map(({ id, timeSeconds, text, performer }) => ({
         id,
         timeSeconds,
         text,
+        performer,
       }))
       status.value = parsedLines.value.length ? 'lrc' : 'empty'
     } else if (result.lyricsFormat === 'lrc') {

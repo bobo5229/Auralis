@@ -504,7 +504,7 @@ onBeforeUnmount(() => {
           <!-- 插播曲目 / 插播专辑 -->
           <button
             v-if="!hideInsert"
-            class="library-context-menu-item"
+            class="library-context-menu-item library-context-menu-item--insert"
             type="button"
             role="menuitem"
             data-context-main-item

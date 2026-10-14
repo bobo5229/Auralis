@@ -49,8 +49,13 @@ function mockResponse(group: string, method: string, args: unknown[]): unknown {
       return null
     case 'lyrics.openLrcEditor':
     case 'lyrics.saveLrcEditor':
+    case 'lyrics.openEditor':
+    case 'lyrics.assignEditorLines':
+    case 'lyrics.retimeEditorLines':
+    case 'lyrics.saveEditor':
       return { ok: false, code: 'track-unavailable' }
     case 'lyrics.closeLrcEditor':
+    case 'lyrics.closeEditor':
       return { ok: true, value: null }
     case 'playback.recordEffectivePlay':
       return { ok: false, recorded: false }

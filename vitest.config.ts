@@ -37,6 +37,7 @@ export default defineConfig({
         '**/SettingsDialog.test.ts',
         '**/AppDialog.test.ts',
         '**/LyricsSaveMenu.test.ts',
+        '**/LyricsDuetLines.test.ts',
         '**/LibraryContextMenu.test.ts',
       ],
     },

@@ -44,7 +44,6 @@ function renderProgressRatio(ratio: number): void {
   if (renderedRatio === lastRenderedRatio) return
   lastRenderedRatio = renderedRatio
   fill.style.clipPath = `inset(0 ${(1 - renderedRatio) * 100}% 0 0 round 999px)`
-  fill.parentElement?.style.setProperty('--auralis-progress-value', renderedRatio.toString())
 }
 
 const interaction = usePlaybackProgressInteraction({

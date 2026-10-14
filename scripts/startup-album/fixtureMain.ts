@@ -1216,10 +1216,23 @@ void app
       } else if (playCase) {
         await playAlbum(win)
       } else if (testCase === 'controls') {
-        await wait(win, 'document.activeElement?.hasAttribute("data-startup-play")')
-        win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Tab' })
-        win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Tab' })
-        await wait(win, 'document.activeElement?.hasAttribute("data-startup-skip")')
+        assert(
+          await win.webContents.executeJavaScript(
+            'document.activeElement === document.querySelector(".startup-album-overlay")',
+          ),
+          'Actions took focus automatically after entrance',
+        )
+        for (const selector of [
+          '.window-traffic-light--close',
+          '.window-traffic-light--minimize',
+          '.window-traffic-light--maximize',
+          '[data-startup-play]',
+          '[data-startup-skip]',
+        ]) {
+          win.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Tab' })
+          win.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Tab' })
+          await wait(win, `document.activeElement?.matches(${JSON.stringify(selector)})`)
+        }
         for (const selector of ['[data-startup-skip]', '[data-startup-play]']) {
           if (selector === '[data-startup-play]') {
             win.webContents.sendInputEvent({

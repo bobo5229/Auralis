@@ -268,16 +268,19 @@ it.each([false, true])(
 )
 
 it.each([true, false])(
-  'hands focus to actions only from the entrance root (root focused: %s)',
+  'does not autofocus actions after entrance (root focused: %s)',
   async (rootFocused) => {
     const fixture = sceneFixture()
     await mount(fixture.createScene)
     const root = find(body, (node) => node.props.role === 'dialog')!
     expect(mocks.focusTrap.mock.calls.at(-1)![0].initialFocus()).toBe(root)
-    Object.assign(document, { activeElement: rootFocused ? root : new TestNode('button') })
+    const focused = rootFocused ? root : new TestNode('button')
+    Object.assign(document, { activeElement: focused })
     fixture.notify({ frames: 1, cardRendered: true, entering: false, entranceProgress: 1 })
     await flush()
-    expect(actions()[0]!.focus).toHaveBeenCalledTimes(rootFocused ? 1 : 0)
+    expect(document.activeElement).toBe(focused)
+    for (const action of actions()) expect(action!.focus).not.toHaveBeenCalled()
+    expect(mocks.focusTrap.mock.calls.at(-1)![0].initialFocus()).toBe(root)
   },
 )
 

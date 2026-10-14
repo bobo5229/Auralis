@@ -4,24 +4,18 @@ import LyricsSaveMenu, { type LyricsSaveAction } from './LyricsSaveMenu.vue'
 import { startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
 
 vi.mock('@renderer/shared/floating/floatingPosition', () => ({
-  startFloatingPosition: vi.fn(() => ({ dispose: vi.fn(), update: vi.fn() })),
+  startFloatingPosition: vi.fn(({ floating }: { floating: HTMLElement }) => {
+    floating.style.visibility = 'visible'
+    return { dispose: vi.fn(), update: vi.fn() }
+  }),
 }))
-vi.mock('vue', async (original) => ({
-  ...(await original<typeof import('vue')>()),
-  Transition: {
-    inheritAttrs: false,
-    setup(_props: unknown, { slots }: { slots: { default: () => unknown } }) {
-      return () => slots.default()
-    },
-  },
-}))
-
 class TestNode {
   props: Record<string, unknown> = {}
   children: TestNode[] = []
   parent: TestNode | null = null
   text = ''
   focused = false
+  style: Record<string, string> = {}
   constructor(public type: string) {
     markRaw(this)
   }
@@ -37,6 +31,15 @@ class TestNode {
   }
   closest(selector: string): TestNode | null {
     return selector === '[data-index]' && 'data-index' in this.props ? this : null
+  }
+  setAttribute(name: string, value: string): void {
+    this.props[name] = value
+  }
+  removeAttribute(name: string): void {
+    delete this.props[name]
+  }
+  getBoundingClientRect() {
+    return { x: 0, y: 0, left: 0, top: 0, width: 76, height: 34, right: 76, bottom: 34 }
   }
 }
 const renderer = createRenderer<TestNode, TestNode>({
@@ -64,6 +67,7 @@ const renderer = createRenderer<TestNode, TestNode>({
   nextSibling: (node) => node.parent?.children[node.parent.children.indexOf(node) + 1] ?? null,
   patchProp: (node, key, _old, value) => {
     node.props[key] = value
+    if (key === 'style' && value) Object.assign(node.style, value)
   },
 })
 function find(predicate: (node: TestNode) => boolean, root: TestNode): TestNode | undefined {
@@ -84,15 +88,18 @@ beforeEach(() => {
   vi.stubGlobal('Node', TestNode)
   vi.stubGlobal('HTMLElement', TestNode)
   vi.stubGlobal('document', {
+    documentElement: { dataset: { reducedMotion: 'true' } },
     addEventListener: (name: string, handler: typeof pointerdown) => {
       if (name === 'pointerdown') pointerdown = handler
     },
     removeEventListener: removeDocumentListener,
   })
   vi.stubGlobal('window', {
+    matchMedia: () => ({ matches: true }),
     addEventListener: vi.fn(),
     removeEventListener: removeWindowListener,
   })
+  vi.stubGlobal('getComputedStyle', () => ({ backgroundColor: 'rgb(38, 38, 38)' }))
 })
 afterEach(() => {
   app?.unmount()
@@ -158,6 +165,17 @@ describe('lyrics save action menu', () => {
     const disabled = find((node) => node.props['data-index'] === 0, root)!
     ;(disabled.props.onClick as () => void)()
     expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+  it('retains positioned visibility when pointer focus moves to a different action before click', async () => {
+    const { root, onSelect } = await mount()
+    const surface = find((node) => String(node.props.class).includes('lyrics-save-menu'), root)!
+    const ttml = find((node) => node.props['data-index'] === 2, root)!
+    expect(surface.style.visibility).toBe('visible')
+    ;(ttml.props.onFocus as () => void)()
+    await nextTick()
+    expect(surface.style.visibility).toBe('visible')
+    ;(ttml.props.onClick as () => void)()
+    expect(onSelect).toHaveBeenCalledExactlyOnceWith('ttml')
   })
   it('closes on an outside pointer or Escape without treating an action as an outside click', async () => {
     const { root, anchor, onClose } = await mount()

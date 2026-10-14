@@ -105,6 +105,9 @@ export interface AuralisApi {
     assignEditorLines: (
       request: Req<'lyrics:assign-editor-lines'>,
     ) => Result<'lyrics:assign-editor-lines'>
+    retimeEditorLines: (
+      request: Req<'lyrics:retime-editor-lines'>,
+    ) => Result<'lyrics:retime-editor-lines'>
     saveEditor: (request: Req<'lyrics:save-editor'>) => Result<'lyrics:save-editor'>
     closeEditor: (
       sessionId: Req<'lyrics:close-editor'>['sessionId'],

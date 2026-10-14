@@ -523,6 +523,28 @@ describe('domain IPC payload validation behavior', () => {
     ).toThrow()
   })
 
+  it('bounds timing mutations to IDs and finite integer milliseconds, without allowing a file destination', () => {
+    const request = {
+      sessionId: '00000000-0000-4000-8000-000000000001',
+      expectedRevision: 'a'.repeat(64),
+      lineIds: ['line-0'],
+      mode: 'shift',
+      valueMs: -100,
+    }
+    expect(parse('lyrics:retime-editor-lines', request)).toBeTruthy()
+    for (const patch of [
+      { valueMs: NaN },
+      { valueMs: Infinity },
+      { valueMs: 0.1 },
+      { valueMs: Number.MAX_SAFE_INTEGER + 1 },
+      { mode: 'replace' },
+      { lineIds: [] },
+      { lineIds: Array(10001).fill('line-0') },
+      { filePath: 'arbitrary.ttml' },
+    ])
+      expect(() => parse('lyrics:retime-editor-lines', { ...request, ...patch })).toThrow()
+  })
+
   it('rejects extra invoke arguments and never reflects sensitive payload values', () => {
     expect(() =>
       parseDomainIpcPayload('library:start-scan', [{ rootId: 1 }, 'secret-token']),

@@ -116,6 +116,7 @@ export const auralisApi: AuralisApi = {
     saveLrcEditor: (request) => invoke(ipcChannels.lyrics.saveLrcEditor, request),
     closeLrcEditor: (sessionId) => invoke(ipcChannels.lyrics.closeLrcEditor, { sessionId }),
     assignEditorLines: (request) => invoke(ipcChannels.lyrics.assignEditorLines, request),
+    retimeEditorLines: (request) => invoke(ipcChannels.lyrics.retimeEditorLines, request),
     saveEditor: (request) => invoke(ipcChannels.lyrics.saveEditor, request),
     closeEditor: (sessionId) => invoke(ipcChannels.lyrics.closeEditor, { sessionId }),
   },

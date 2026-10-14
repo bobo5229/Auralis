@@ -51,6 +51,8 @@ export interface LyricsEditorLine {
   timeSeconds: number | null
   assignment: LyricsAssignment | 'unsupported'
   editable: boolean
+  /** Missing capability is treated as read-only by older/mock providers. */
+  timingEditable?: boolean
 }
 
 export interface LyricsEditorState {
@@ -69,6 +71,16 @@ export interface AssignLyricsEditorLines {
   /** At most 10,000 IDs per call. Split larger selections using returned revisions. */
   lineIds: string[]
   assignment: LyricsAssignment
+}
+
+export interface RetimeLyricsEditorLines {
+  sessionId: string
+  expectedRevision: string
+  /** Up to 10,000 paragraphs; set accepts exactly one. */
+  lineIds: string[]
+  mode: 'set' | 'shift'
+  /** Absolute start for set; signed offset for shift. Integer milliseconds. */
+  valueMs: number
 }
 
 export interface SaveLyricsEditor {
@@ -99,6 +111,7 @@ export type LyricsEditorErrorCode =
   | 'read-only-line'
   | 'unknown-line'
   | 'invalid-request'
+  | 'invalid-time'
   | 'stale-revision'
   | 'session-expired'
   | 'too-many-sessions'

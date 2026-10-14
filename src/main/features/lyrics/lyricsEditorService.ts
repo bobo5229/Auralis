@@ -5,6 +5,7 @@ import type {
   LyricsEditorSaved,
   LyricsEditorState,
   SaveLyricsEditor,
+  RetimeLyricsEditorLines,
 } from '@shared/types/lyricsEditor'
 import type { LyricsFormat } from '@shared/types/libraryScan'
 import { assignDuetLines, ensureDuetPerformerSlots, readDuetLyrics } from './duetLyrics'
@@ -13,6 +14,8 @@ import { convertLrcToTtml } from './lyricsConversion'
 import { readTtmlPlayback } from './ttmlPlayback'
 import { LyricsEditorError } from './lyricsEditorError'
 import { MAX_LYRICS_CHARACTERS } from './ttmlDocument'
+import { readDuetDocument } from './duetDocument'
+import { retimeTtmlLines, timingEditableLines } from './ttmlLineTiming'
 import {
   audioIdentity,
   authorizeLyricsPath,
@@ -95,6 +98,7 @@ export class LyricsEditorService {
 
   private state(session: Session): LyricsEditorState {
     const playback = readTtmlPlayback(session.text)
+    const timingIds = timingEditableLines(readDuetDocument(session.text))
     const times = new Map<string, number>()
     for (const line of playback.lines)
       if (!times.has(line.editorLineId)) times.set(line.editorLineId, line.timeSeconds)
@@ -120,6 +124,12 @@ export class LyricsEditorService {
             ? (line.assignment as LyricsEditorState['lines'][number]['assignment'])
             : 'unsupported',
           editable: session.snapshot.editable && line.editable && supported && !playback.error,
+          timingEditable:
+            session.snapshot.editable &&
+            line.editable &&
+            supported &&
+            !playback.error &&
+            timingIds.has(line.id),
         }
       }),
     }
@@ -235,6 +245,31 @@ export class LyricsEditorService {
     this.assertDraftBudget(edited.text, session.cleanText, session.id)
     session.text = edited.text
     session.snapshot = edited.snapshot
+    return this.state(session)
+  }
+
+  retime(owner: number, request: RetimeLyricsEditorLines): LyricsEditorState {
+    const session = this.session(owner, request.sessionId, request.expectedRevision)
+    if (
+      !Array.isArray(request.lineIds) ||
+      !request.lineIds.length ||
+      request.lineIds.length > 10000 ||
+      request.lineIds.some((id) => typeof id !== 'string')
+    )
+      throw new LyricsEditorError('invalid-request')
+    const view = this.state(session)
+    if (!view.editable) throw new LyricsEditorError('unsupported-document')
+    const lines = new Map(view.lines.map((line) => [line.id, line]))
+    for (const id of request.lineIds) {
+      const line = lines.get(id)
+      if (!line) throw new LyricsEditorError('unknown-line')
+      if (!line.editable) throw new LyricsEditorError('read-only-line')
+      if (!line.timingEditable) throw new LyricsEditorError('unsupported-timing')
+    }
+    const text = retimeTtmlLines(session.text, request)
+    this.assertDraftBudget(text, session.cleanText, session.id)
+    session.text = text
+    session.snapshot = readDuetLyrics(text)
     return this.state(session)
   }
 

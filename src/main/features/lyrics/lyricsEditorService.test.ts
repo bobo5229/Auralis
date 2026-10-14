@@ -41,6 +41,83 @@ function fixture(options: { persist?: () => Promise<boolean>; now?: () => number
   return { service, persist }
 }
 describe('phase-one lyrics editor', () => {
+  it('shares revisions between performer and timing edits and saves their combined result', async () => {
+    const { service } = fixture()
+    const opened = await service.open(10, 1)
+    expect(opened.lines.every((line) => line.timingEditable)).toBe(true)
+    const assigned = service.assign(10, {
+      sessionId: opened.sessionId,
+      expectedRevision: opened.revision,
+      lineIds: ['line-0'],
+      assignment: 'performer-2',
+    })
+    expect(() =>
+      service.retime(10, {
+        sessionId: opened.sessionId,
+        expectedRevision: opened.revision,
+        lineIds: ['line-0'],
+        mode: 'set',
+        valueMs: 1250,
+      }),
+    ).toThrow('stale-revision')
+    const timed = service.retime(10, {
+      sessionId: assigned.sessionId,
+      expectedRevision: assigned.revision,
+      lineIds: ['line-0'],
+      mode: 'set',
+      valueMs: 1250,
+    })
+    expect(timed.lines[0]).toMatchObject({ timeSeconds: 1.25, assignment: 'performer-2' })
+    expect(timed.lines[1].timeSeconds).toBe(1)
+    const saved = await service.save(10, {
+      sessionId: timed.sessionId,
+      expectedRevision: timed.revision,
+    })
+    const snapshot = readDuetLyrics(await readFile(saved.savedPath!, 'utf8'))
+    expect(snapshot.lines[0].timing.begin).toBe('00:00:01.250')
+    expect(snapshot.lines[0].assignment).toBe('performer-2')
+    expect(await readFile(lrcPath, 'utf8')).toBe(originalLrc)
+    expect(await readFile(audio, 'utf8')).toBe('simulated-audio-do-not-decode')
+  })
+
+  it('rejects a whole timing batch without losing the preceding draft when any timestamp becomes negative', async () => {
+    const { service } = fixture()
+    const opened = await service.open(10, 1)
+    const draft = service.retime(10, {
+      sessionId: opened.sessionId,
+      expectedRevision: opened.revision,
+      lineIds: ['line-0'],
+      mode: 'set',
+      valueMs: 100,
+    })
+    expect(() =>
+      service.retime(10, {
+        sessionId: draft.sessionId,
+        expectedRevision: draft.revision,
+        lineIds: ['line-1', 'line-0'],
+        mode: 'shift',
+        valueMs: -200,
+      }),
+    ).toThrow('invalid-time')
+    const unchanged = service.retime(10, {
+      sessionId: draft.sessionId,
+      expectedRevision: draft.revision,
+      lineIds: ['line-1'],
+      mode: 'shift',
+      valueMs: 0,
+    })
+    expect(unchanged).toEqual(draft)
+    expect(() =>
+      service.retime(11, {
+        sessionId: draft.sessionId,
+        expectedRevision: draft.revision,
+        lineIds: ['line-0'],
+        mode: 'shift',
+        valueMs: 100,
+      }),
+    ).toThrow('session-expired')
+  })
+
   it('saves nameless person slots and independently assigns same-time lines without touching audio or LRC', async () => {
     const { service, persist } = fixture()
     const beforeAudio = await readFile(audio)

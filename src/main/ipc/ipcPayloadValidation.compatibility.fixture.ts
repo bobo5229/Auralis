@@ -55,6 +55,13 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
     expectedRevision: 'a'.repeat(64),
   },
   'lyrics:close-editor': { sessionId: '00000000-0000-4000-8000-000000000001' },
+  'lyrics:retime-editor-lines': {
+    sessionId: '00000000-0000-4000-8000-000000000001',
+    expectedRevision: 'a'.repeat(64),
+    lineIds: ['line-0'],
+    mode: 'shift',
+    valueMs: -100,
+  },
   'playback:get-audio-url': { trackId: 1 },
   'playback:spectrum-subscribe': {
     subscriptionId: 0,

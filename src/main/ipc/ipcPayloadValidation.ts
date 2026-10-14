@@ -485,6 +485,23 @@ export const domainIpcPayloadPolicies = {
       expectedRevision: field(stringValue({ min: 64, max: 64 })),
     }),
   ),
+  [ipcChannels.lyrics.retimeEditorLines]: required(
+    objectShape({
+      sessionId: field(stringValue({ min: 36, max: 36 })),
+      expectedRevision: field(stringValue({ min: 64, max: 64 })),
+      lineIds: field(
+        arrayOf(stringValue({ min: 1, max: 32 }), { min: 1, max: MAX_ID_LIST_LENGTH }),
+      ),
+      mode: field(enumValue(['set', 'shift'])),
+      valueMs: field(
+        finiteNumber({
+          integer: true,
+          min: -Number.MAX_SAFE_INTEGER,
+          max: Number.MAX_SAFE_INTEGER,
+        }),
+      ),
+    }),
+  ),
   [ipcChannels.lyrics.closeEditor]: required(
     objectShape({
       sessionId: field(stringValue({ min: 36, max: 36 })),

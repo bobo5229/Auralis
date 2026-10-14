@@ -40,6 +40,7 @@ import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumD
 import type { DailyPlayCount, DailyTopTrack } from '@shared/types/listeningArchive'
 import type {
   AssignLyricsEditorLines,
+  RetimeLyricsEditorLines,
   LyricsEditorResult,
   LyricsEditorSaved,
   LyricsEditorState,
@@ -368,6 +369,10 @@ export interface IpcInvokeContract {
   }
   'lyrics:assign-editor-lines': {
     request: AssignLyricsEditorLines
+    response: LyricsEditorResult<LyricsEditorState>
+  }
+  'lyrics:retime-editor-lines': {
+    request: RetimeLyricsEditorLines
     response: LyricsEditorResult<LyricsEditorState>
   }
   'lyrics:save-editor': {

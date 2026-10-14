@@ -123,8 +123,20 @@ function transition(element: HTMLElement, opening: boolean, done: () => void): v
     return
   }
   const style = getComputedStyle(element)
+  const bounds = element.getBoundingClientRect()
+  const anchor = props.anchor?.getBoundingClientRect()
+  // Viewport collision handling can move the menu above the button's top edge.
+  // Keep the collapsed surface at the button's actual position inside the menu.
+  const left = Math.max(
+    0,
+    Math.min(element.offsetWidth - buttonWidth, anchor ? anchor.left - bounds.left : 0),
+  )
+  const top = Math.max(
+    0,
+    Math.min(element.offsetHeight - buttonHeight, anchor ? anchor.top - bounds.top : 0),
+  )
   const closed = {
-    clipPath: `inset(0px 0px ${Math.max(0, element.offsetHeight - buttonHeight)}px ${Math.max(0, element.offsetWidth - buttonWidth)}px round 6px)`,
+    clipPath: `inset(${top}px ${Math.max(0, element.offsetWidth - left - buttonWidth)}px ${Math.max(0, element.offsetHeight - top - buttonHeight)}px ${left}px round 6px)`,
     backgroundColor: buttonBackground,
     borderRadius: '6px',
   }
@@ -197,7 +209,7 @@ watch(
       profile: 'popover',
       placement: 'bottom-end',
       fallbackPlacements: [],
-      shiftCrossAxis: false,
+      shiftCrossAxis: true,
       gap: 0,
       onPosition: (_result, first) => {
         if (first && props.open && token === generation) {
@@ -239,7 +251,6 @@ onBeforeUnmount(() => {
       v-if="open"
       ref="menu"
       class="lyrics-save-menu library-context-menu frosted-context-menu"
-      style="visibility: hidden"
       @keydown="keydown"
       @focusout="focusout"
     >
@@ -268,6 +279,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .lyrics-save-menu.library-context-menu.frosted-context-menu {
+  /* Positioning owns the inline visibility; focus updates must not write it back to hidden. */
+  visibility: hidden;
   position: fixed;
   z-index: 140;
   display: flex;

@@ -4,6 +4,40 @@ import SyncedLyricsView from './SyncedLyricsView.vue'
 import { setLyricsScrollPreset } from '../lyricsScrollPreset'
 import { useLyricsCountdownPreference } from '../lyricsCountdownPreference'
 
+it('updates performer alignment metadata even when the lyric text and active state are unchanged', async () => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  )
+  const performer = ref<1 | 2 | null>(1)
+  const root = new TestNode('root')
+  const app = renderer.createApp({
+    setup: () => () =>
+      h(SyncedLyricsView, {
+        lines: [
+          { id: 'same-line', text: 'Same lyric', timeSeconds: 0, performer: performer.value },
+        ],
+        activeIndex: 0,
+        isPrelude: false,
+        showPrelude: false,
+        preludeLitDotCount: 0,
+      }),
+  })
+  app.mount(root)
+  await nextTick()
+  expect(find(root, 'lyric-line-seekable')?.props['data-performer']).toBe(1)
+  performer.value = 2
+  await nextTick()
+  expect(find(root, 'lyric-line-seekable')?.props['data-performer']).toBe(2)
+  performer.value = null
+  await nextTick()
+  expect(find(root, 'lyric-line-seekable')?.props['data-performer']).toBeUndefined()
+  app.unmount()
+})
+
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@renderer/features/playback/composables/usePlayback', () => ({
   usePlayback: () => ({ seekTo: vi.fn() }),

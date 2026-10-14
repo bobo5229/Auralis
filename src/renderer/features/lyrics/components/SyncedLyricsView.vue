@@ -406,8 +406,9 @@ onBeforeUnmount(() => {
       <div
         v-for="(line, index) in lines"
         :key="line.id"
-        v-memo="[activeIndex === index, line.text]"
+        v-memo="[activeIndex === index, line.text, line.performer]"
         class="lyric-line lyric-line-seekable"
+        :data-performer="line.performer ?? undefined"
         :class="
           activeIndex === index
             ? 'lyric-active lyric-line-active-filter'
@@ -453,6 +454,14 @@ onBeforeUnmount(() => {
     opacity 300ms ease,
     filter 300ms ease;
   overflow-wrap: anywhere;
+}
+
+.lyric-line[data-performer='1'] {
+  text-align: left;
+}
+
+.lyric-line[data-performer='2'] {
+  text-align: right;
 }
 
 .synced-lyrics-scroll--inactive .lyric-line,

@@ -241,6 +241,7 @@ function createApi(): AuralisApi {
       saveLrcEditor: vi.fn(),
       closeLrcEditor: vi.fn(),
       assignEditorLines: vi.fn(),
+      retimeEditorLines: vi.fn(),
       saveEditor: vi.fn(),
       closeEditor: vi.fn(),
     },

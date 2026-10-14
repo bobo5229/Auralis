@@ -24,7 +24,6 @@ const root = ref<HTMLElement | null>(null)
 const backdrop = ref<HTMLElement | null>(null)
 const backdropRevealed = ref(false)
 const host = ref<HTMLElement | null>(null)
-const playButton = ref<HTMLButtonElement | null>(null)
 const interactive = ref(true)
 const controlsReady = ref(false)
 const controlsVisible = computed(() => interactive.value && controlsReady.value)
@@ -216,7 +215,7 @@ useOverlayFocusTrap({
   isOpen: modalOpen,
   canDismiss: interactive,
   container: root,
-  initialFocus: () => playButton.value ?? root.value ?? undefined,
+  initialFocus: () => root.value ?? undefined,
   onEscape: close,
   restoreFocus(captured) {
     const target =
@@ -226,15 +225,6 @@ useOverlayFocusTrap({
     target?.focus({ preventScroll: true })
   },
 })
-watch(
-  controlsVisible,
-  (visible) => {
-    // Move from the entrance's fallback focus without stealing focus from window controls.
-    if (visible && document.activeElement === root.value)
-      playButton.value?.focus({ preventScroll: true })
-  },
-  { flush: 'post' },
-)
 onMounted(async () => {
   let visibilityRevision = 0
   unsubscribeVisibility = auralis.window.onVisibilityChanged(({ isVisible }) => {
@@ -373,7 +363,6 @@ onBeforeUnmount(() => {
       <div v-if="controlsVisible" class="startup-album-controls">
         <div class="startup-album-actions">
           <button
-            ref="playButton"
             type="button"
             class="startup-album-play"
             data-startup-play
