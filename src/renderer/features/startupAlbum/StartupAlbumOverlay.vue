@@ -362,12 +362,7 @@ onBeforeUnmount(() => {
       </div>
       <div v-if="controlsVisible" class="startup-album-controls">
         <div class="startup-album-actions">
-          <button
-            type="button"
-            class="startup-album-play"
-            data-startup-play
-            @click="play"
-          >
+          <button type="button" class="startup-album-play" data-startup-play @click="play">
             <span class="i-lucide-play" aria-hidden="true" />{{ t('startupAlbum.play') }}
           </button>
           <button type="button" data-startup-skip @click="skip">

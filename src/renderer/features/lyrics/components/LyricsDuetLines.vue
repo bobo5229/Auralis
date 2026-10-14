@@ -189,13 +189,13 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
     </div>
     <div class="duet-timing">
       <input
-        :value="timeText"
         v-tooltip="invalidTime ? t('lyricsEditor.errors.invalidTime') : t('lyricsEditor.startTime')"
         class="duet-time-input"
         type="text"
         maxlength="32"
         spellcheck="false"
         placeholder="—"
+        :value="timeText"
         :disabled="!canSetTime"
         :aria-label="t('lyricsEditor.startTime')"
         :aria-invalid="invalidTime || undefined"
