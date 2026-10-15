@@ -335,7 +335,7 @@
         "persistFailed": "Could not save this preference. Please try again."
       },
       "textDisplay": {
-        "title": "Text display",
+        "title": "Language and text",
         "songInfo": "Song information script",
         "songInfoDescription": "Display song and album information in simplified or traditional Chinese without changing original metadata.",
         "lyrics": "Lyrics script",
@@ -360,7 +360,7 @@
         "persistFailed": "Applied, but could not save this preference."
       },
       "lyricsEffects": {
-        "title": "Main window lyrics",
+        "title": "Lyrics",
         "countdown": {
           "title": "Lyrics countdown animation",
           "description": "Choose whether dots light up or dissolve into fine particles before lyrics begin. Applies to main window and fullscreen lyrics.",
@@ -369,16 +369,16 @@
         },
         "edgeFade": {
           "title": "Top and bottom fade",
-          "description": "Fade timed lyrics at the top and bottom edges of the panel."
+          "description": "Fade timed lyrics at the top and bottom edges of the panel. Applies only to main window lyrics."
         },
         "blur": {
           "title": "Gaussian blur",
-          "description": "Soften inactive lyrics to highlight the line currently playing."
+          "description": "Soften inactive lyrics to highlight the line currently playing. Applies only to main window lyrics."
         },
         "persistFailed": "Applied, but could not save this preference."
       },
       "windowBehavior": {
-        "title": "Window behavior",
+        "title": "Startup and window",
         "label": "When clicking Close",
         "description": "Exit the app, or keep playback running and put the window away.",
         "quit": "Exit app",
@@ -479,7 +479,7 @@
           "year": "Release year"
         }
       },
-      "interface": "Interface",
+      "interface": "Interface appearance",
       "languagePersistFailed": "Language changed, but could not save it. It may reset after restarting. Try again.",
       "languageSyncFailed": "Language changed, but native controls could not update. Try again."
     },

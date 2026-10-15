@@ -59,6 +59,7 @@ onMounted(() => {
       <h2 class="settings-group-title">{{ t('settings.appearance.windowBehavior.title') }}</h2>
     </div>
     <div class="settings-group-card">
+      <slot />
       <div class="settings-row settings-row--with-desc">
         <div>
           <strong id="window-close-behavior-label">{{

@@ -14,6 +14,7 @@ const rows = ['edgeFade', 'blur'] as const
       <h2 class="settings-group-title">{{ t('settings.appearance.lyricsEffects.title') }}</h2>
     </div>
     <div class="settings-group-card">
+      <slot />
       <LyricsPanelLayoutSettings />
       <div v-for="effect in rows" :key="effect" class="settings-row settings-row--with-desc">
         <div>

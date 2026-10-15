@@ -335,7 +335,7 @@
         "persistFailed": "本次保存未完成，请重试。"
       },
       "textDisplay": {
-        "title": "文字显示",
+        "title": "语言与文字",
         "songInfo": "歌曲信息字形",
         "songInfoDescription": "切换歌曲与专辑信息的简繁显示，不改变原始元数据。",
         "lyrics": "歌词字形",
@@ -360,7 +360,7 @@
         "persistFailed": "已应用，本次保存未完成。"
       },
       "lyricsEffects": {
-        "title": "主界面歌词",
+        "title": "歌词",
         "countdown": {
           "title": "歌词倒计时动效",
           "description": "选择歌词开始前圆点依次点亮或化为细小粒子消散的效果，适用于主界面与全屏歌词。",
@@ -369,16 +369,16 @@
         },
         "edgeFade": {
           "title": "顶部与底部渐隐",
-          "description": "让同步歌词在面板的上下边缘逐渐隐去。"
+          "description": "让同步歌词在面板的上下边缘逐渐隐去。仅影响主界面歌词。"
         },
         "blur": {
           "title": "高斯模糊",
-          "description": "柔化非当前歌词，突出正在播放的一行。"
+          "description": "柔化非当前歌词，突出正在播放的一行。仅影响主界面歌词。"
         },
         "persistFailed": "已应用，本次保存未完成。"
       },
       "windowBehavior": {
-        "title": "窗口行为",
+        "title": "启动与窗口",
         "label": "点击关闭按钮时",
         "description": "选择退出应用，或保留播放并收起窗口。",
         "quit": "退出应用",
@@ -479,7 +479,7 @@
           "year": "发行年份"
         }
       },
-      "interface": "界面",
+      "interface": "界面外观",
       "languagePersistFailed": "语言已切换，但未能保存。重启后可能恢复，请重试。",
       "languageSyncFailed": "语言已切换，原生控件同步失败，请重试。"
     },

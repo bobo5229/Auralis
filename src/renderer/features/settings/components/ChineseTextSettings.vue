@@ -31,6 +31,7 @@ function select(row: (typeof rows)[number], value: ChineseScript): void {
       <h2 class="settings-group-title">{{ t('settings.appearance.textDisplay.title') }}</h2>
     </div>
     <div class="settings-group-card">
+      <slot />
       <div v-for="row in rows" :key="row.id" class="settings-row settings-row--with-desc">
         <div>
           <strong>{{ t(`settings.appearance.textDisplay.${row.id}`) }}</strong>
