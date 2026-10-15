@@ -1153,7 +1153,7 @@ defineExpose<AlbumLayoutTransitionParticipant>({
       <div v-if="contextMenu" class="albums-overlay fixed inset-0 z-[60]" @click="closeContextMenu">
         <div
           ref="contextMenuRef"
-          class="library-context-menu frosted-context-menu fixed w-55"
+          class="collection-context-menu library-context-menu frosted-context-menu fixed w-55"
           role="menu"
           :aria-label="t('nav.albums')"
           :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"

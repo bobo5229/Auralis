@@ -164,7 +164,7 @@
   --auralis-playbar-border: rgba(255, 255, 255, 0.16);
   --auralis-playbar-control-fg: #dddcd9;
   --auralis-playbar-control-strong-fg: #f4f3f0;
-  --auralis-playbar-transport-fg: var(--auralis-playbar-control-fg);
+  --auralis-playbar-transport-fg: var(--auralis-playbar-control-strong-fg);
   --auralis-playbar-transport-hover-fg: var(--auralis-playbar-control-hover-fg);
   --auralis-playbar-control-hover-fg: var(--auralis-playbar-control-strong-fg);
   --auralis-playbar-control-pressed-fg: var(--auralis-playbar-control-hover-fg);
@@ -2898,6 +2898,20 @@ input[type='range'].volume-overlay-slider {
   background: var(--auralis-context-menu-bg);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+}
+
+/* 歌单、曲目（含子菜单）和专辑右键菜单共用填充色与轻阴影。 */
+:is(.library-overlay, .albums-overlay, .sidebar-overlay)
+  .collection-context-menu.frosted-context-menu {
+  background: #303030;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+:where([data-theme='light'])
+  :is(.library-overlay, .albums-overlay, .sidebar-overlay)
+  .collection-context-menu.frosted-context-menu {
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(41, 43, 45, 0.12);
 }
 
 .sidebar-overlay .sidebar-create-menu.frosted-context-menu {

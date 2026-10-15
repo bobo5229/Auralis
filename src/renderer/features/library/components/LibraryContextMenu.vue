@@ -451,7 +451,7 @@ onBeforeUnmount(() => {
       <div class="fixed inset-0 z-[60]" @click="onBackdropClick" @keydown="onKeyDown">
         <div
           ref="menuRef"
-          class="library-context-menu-root library-context-menu-main-panel library-context-menu-panel frosted-context-menu fixed z-[61] w-58 p-1 select-none"
+          class="collection-context-menu library-context-menu-root library-context-menu-main-panel library-context-menu-panel frosted-context-menu fixed z-[61] w-58 p-1 select-none"
           style="visibility: hidden; overflow: auto"
           role="menu"
           :aria-label="t('library.contextMenu.ariaLabel')"
@@ -629,7 +629,7 @@ onBeforeUnmount(() => {
         <div
           v-if="showSubMenu"
           ref="subMenuRef"
-          class="library-context-menu-sub-panel library-context-menu-panel frosted-context-menu fixed z-[62] w-52 p-1"
+          class="collection-context-menu library-context-menu-sub-panel library-context-menu-panel frosted-context-menu fixed z-[62] w-52 p-1"
           style="visibility: hidden; overflow: auto"
           role="menu"
           :aria-label="t('library.contextMenu.addToPlaylist')"

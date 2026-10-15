@@ -1277,7 +1277,7 @@ onBeforeUnmount(() => {
       >
         <div
           ref="playlistContextPanel"
-          class="library-context-menu frosted-context-menu fixed w-40"
+          class="collection-context-menu library-context-menu frosted-context-menu fixed w-40"
           role="menu"
           :aria-label="playlistContextMenu.item.name"
           style="visibility: hidden; overflow: auto"
