@@ -283,34 +283,64 @@ onBeforeUnmount(() => {
     :open="open"
     :title="t('smartBuilder.title')"
     title-id="playlist-builder-title"
+    described-by="playlist-builder-description"
     :busy="saving"
     :dismissible="!saving"
     :return-focus-to="restoreTrigger"
     :restore-focus="restoreBuilderFocus"
-    fill
     :padded="false"
     :scroll="false"
-    close-class="close"
     @close="close"
   >
+    <template #subtitle>
+      <p id="playlist-builder-description" class="builder-description">
+        {{ t('smartBuilder.description') }}
+      </p>
+    </template>
     <div class="stage">
-      <p v-if="loading" class="notice neutral" role="status">{{ t('smartBuilder.loading') }}</p>
-      <p v-if="loadError" class="notice" role="alert">
+      <p v-if="loading" class="notice neutral load-notice" role="status">
+        <span class="i-lucide-library" aria-hidden="true" />
+        {{ t('smartBuilder.loading') }}
+      </p>
+      <p v-if="loadError" class="notice load-notice" role="alert">
         {{ t(loadError) }}
-        <button :disabled="loading || saving" @click="load()">
+        <button type="button" class="retry" :disabled="loading || saving" @click="load()">
           {{ t('albums.status.retry') }}
         </button>
       </p>
+      <div class="name-row">
+        <label for="smart-playlist-name" class="label">{{ t('sidebar.playlistName') }}</label>
+        <input
+          id="smart-playlist-name"
+          v-model="name"
+          class="name"
+          :placeholder="t('sidebar.playlistName')"
+          maxlength="80"
+          :disabled="saving"
+          @input="nameEdited = true"
+        />
+      </div>
       <fieldset :disabled="saving || loading || !!loadError" class="controls">
         <div class="relation outer">
-          <span class="label">{{ t('smartBuilder.betweenGroups') }}</span>
-          <div class="switch" role="group" :aria-label="t('smartBuilder.betweenGroupsAria')">
+          <div class="relation-description">
+            <span class="label">{{ t('smartBuilder.betweenGroups') }}</span>
+            <p id="smart-playlist-mode-description" class="hint">
+              {{ t(`smartBuilder.modeDescription.${mode}`) }}
+            </p>
+          </div>
+          <div
+            class="switch"
+            role="group"
+            :aria-label="t('smartBuilder.betweenGroupsAria')"
+            aria-describedby="smart-playlist-mode-description"
+          >
             <button type="button" :aria-pressed="mode === 'single'" @click="selectMode('single')">
               {{ t('smartBuilder.single') }}
             </button>
             <button type="button" :aria-pressed="mode === 'and'" @click="selectMode('and')">
-              {{ t('smartBuilder.andAll') }}</button
-            ><button type="button" :aria-pressed="mode === 'or'" @click="selectMode('or')">
+              {{ t('smartBuilder.andAll') }}
+            </button>
+            <button type="button" :aria-pressed="mode === 'or'" @click="selectMode('or')">
               {{ t('smartBuilder.orAny') }}
             </button>
           </div>
@@ -323,16 +353,22 @@ onBeforeUnmount(() => {
             :class="{ 'group-disabled': isGroupDisabled(field) }"
             :disabled="isGroupDisabled(field)"
             :aria-label="labels[field]"
+            :aria-describedby="isGroupDisabled(field) ? `builder-${field}-disabled` : undefined"
           >
             <div class="group-header">
-              <h2><span :class="icons[field]" />{{ labels[field] }}</h2>
+              <h2><span :class="icons[field]" aria-hidden="true" />{{ labels[field] }}</h2>
               <span
                 class="badge"
-                :class="{ empty: state.groups[field].values.length && !groupCount(field) }"
+                :class="{
+                  'badge-selected': state.groups[field].values.length,
+                  empty: state.groups[field].values.length && !groupCount(field),
+                }"
                 >{{
-                  state.groups[field].values.length
-                    ? t('smartBuilder.matchCount', { count: groupCount(field) })
-                    : t('smartBuilder.unselected')
+                  isGroupDisabled(field)
+                    ? t('smartBuilder.inactive')
+                    : state.groups[field].values.length
+                      ? t('smartBuilder.matchCount', { count: groupCount(field) })
+                      : t('smartBuilder.unselected')
                 }}</span
               >
             </div>
@@ -351,11 +387,14 @@ onBeforeUnmount(() => {
                 :aria-label="t('smartBuilder.withinGroupAria', { field: labels[field] })"
               >
                 <button
+                  type="button"
                   :aria-pressed="state.groups[field].relation === 'and'"
                   @click="state.groups[field].relation = 'and'"
                 >
-                  {{ t('smartBuilder.and') }}</button
-                ><button
+                  {{ t('smartBuilder.and') }}
+                </button>
+                <button
+                  type="button"
                   :aria-pressed="state.groups[field].relation === 'or'"
                   @click="state.groups[field].relation = 'or'"
                 >
@@ -366,34 +405,41 @@ onBeforeUnmount(() => {
             <div
               v-if="state.groups[field].values.length"
               class="selected-values"
+              role="group"
               :aria-label="t('smartBuilder.selected', { field: labels[field] })"
             >
               <button
                 v-for="value in state.groups[field].values"
                 :key="value"
+                type="button"
                 class="chip"
+                :title="label(field, value)"
                 :aria-label="t('smartBuilder.remove', { value: label(field, value) })"
                 @click="remove(field, value)"
               >
-                <span>{{ label(field, value) }}</span
-                ><span class="i-lucide-x" /></button
-              ><button class="clear-group" @click="state.groups[field].values = []">
+                <span>{{ label(field, value) }}</span>
+                <span class="i-lucide-x" aria-hidden="true" />
+              </button>
+              <button type="button" class="clear-group" @click="state.groups[field].values = []">
                 {{ t('smartBuilder.clear') }}
               </button>
             </div>
             <div class="search-wrap">
-              <span class="i-lucide-search" /><input
+              <span class="i-lucide-search" aria-hidden="true" />
+              <input
                 v-model="queries[field]"
                 class="search"
                 :placeholder="t('smartBuilder.search', { field: labels[field] })"
                 :aria-label="t('smartBuilder.search', { field: labels[field] })"
-              /><button
+              />
+              <button
                 v-if="queries[field]"
+                type="button"
                 class="clear-search"
                 :aria-label="t('smartBuilder.clearSearch', { field: labels[field] })"
                 @click="queries[field] = ''"
               >
-                <span class="i-lucide-x" />
+                <span class="i-lucide-x" aria-hidden="true" />
               </button>
             </div>
             <div class="choices">
@@ -401,7 +447,9 @@ onBeforeUnmount(() => {
                 v-for="option in filtered[field].slice(0, limits[field])"
                 :key="option.value"
                 class="choice"
-                ><input
+                :title="option.label"
+              >
+                <input
                   :checked="state.groups[field].values.includes(option.value)"
                   :disabled="
                     state.groups[field].values.length >= SMART_PLAYLIST_MAX_OPERANDS &&
@@ -410,18 +458,36 @@ onBeforeUnmount(() => {
                   type="checkbox"
                   :value="option.value"
                   @change="toggleValue(field, option.value)"
-                /><span>{{ option.label }}</span
-                ><small>{{ option.ids.size }}</small></label
-              ><button
+                />
+                <span>{{ option.label }}</span>
+                <small>{{ option.ids.size }}</small>
+              </label>
+              <button
                 v-if="filtered[field].length > limits[field]"
+                type="button"
                 class="more"
                 @click="limits[field] += 100"
               >
                 {{ t('smartBuilder.more', { count: filtered[field].length - limits[field] }) }}
               </button>
             </div>
-            <p v-if="!filtered[field].length" class="notice neutral">
-              {{ t('smartBuilder.noValues') }}
+            <p
+              v-if="!loading && !loadError && !filtered[field].length"
+              class="empty-values"
+            >
+              <span class="i-lucide-search-x" aria-hidden="true" />
+              {{
+                t(queries[field].trim() ? 'smartBuilder.noValues' : 'smartBuilder.emptyValues', {
+                  field: labels[field],
+                })
+              }}
+            </p>
+            <p
+              v-if="isGroupDisabled(field)"
+              :id="`builder-${field}-disabled`"
+              class="hint disabled-hint"
+            >
+              {{ t('smartBuilder.groupDisabled') }}
             </p>
           </fieldset>
         </div>
@@ -430,26 +496,25 @@ onBeforeUnmount(() => {
 
     <template #footer>
       <div class="actions">
-        <input
-          v-model="name"
-          class="name"
-          :aria-label="t('sidebar.playlistName')"
-          :placeholder="t('sidebar.playlistName')"
-          maxlength="80"
-          :disabled="saving"
-          @input="nameEdited = true"
-        />
-        <div class="result-summary" role="status" aria-live="polite">
-          <span>{{ t('smartBuilder.resultCount', { count: result.ids.size }) }}</span>
-          <span v-if="notice" class="match-notice" :class="{ neutral: !result.complete }">
+        <div class="result-summary" role="status" aria-live="polite" aria-atomic="true">
+          <span class="result-count">{{
+            t('smartBuilder.resultCount', { count: result.ids.size })
+          }}</span>
+          <span
+            v-if="notice && !loading && !loadError"
+            class="match-notice"
+            :class="{ neutral: !result.complete }"
+          >
             {{ notice }}
           </span>
         </div>
         <button
+          type="button"
           class="primary auralis-dialog-action auralis-dialog-action--primary"
           :disabled="!canCreate"
           @click="create"
         >
+          <span :class="saving ? 'i-lucide-loader-circle' : 'i-lucide-plus'" aria-hidden="true" />
           {{ t(saving ? 'smartBuilder.creating' : 'smartBuilder.create') }}
         </button>
       </div>
@@ -459,442 +524,592 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.stage,
-.actions,
-.status {
-  --text: var(--auralis-text, #f3eee6);
-  --muted: var(--auralis-text-muted, #afb4bc);
-  --subtle: var(--auralis-text-subtle, #9299a3);
-  --line: var(--auralis-border-subtle, #e1ddd614);
-}
-.controls {
-  border: 0;
-  padding: 0;
-  margin: 0;
-  min-width: 0;
-}
-.more {
-  grid-column: 1/-1;
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 400;
-  padding: 10px;
-  color: var(--muted);
-}
-
 * {
   box-sizing: border-box;
 }
-button:not(.auralis-dialog-action),
-input {
+
+:where(button, input) {
   font: inherit;
 }
-button:not(.auralis-dialog-action) {
-  cursor: pointer;
+
+:where(button:not(.auralis-dialog-action)) {
+  padding: 0;
   border: 0;
-  background: none;
-  color: inherit;
-}
-button:not(.auralis-dialog-action):disabled {
-  cursor: default;
-  color: var(--auralis-text-disabled, #afb4bc59);
-}
-button:not(.auralis-dialog-action):focus-visible,
-input:focus-visible {
-  outline: 2px solid var(--auralis-focus-ring, #8fa7bb);
-  outline-offset: 3px;
-}
-.stage {
-  padding: 16px 24px 14px;
-  flex: 0 1 auto;
-  min-height: 0;
-  overflow: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--auralis-scrollbar-thumb, #484d55) transparent;
-}
-h2 {
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  margin: 0 0 12px;
-}
-input[type='checkbox'] {
-  appearance: none;
-  width: 17px;
-  height: 17px;
-  border: 1px solid var(--auralis-border-strong, #9299a380);
-  border-radius: 4px;
-  margin: 0;
-  display: grid;
-  place-content: center;
-  flex-shrink: 0;
-  cursor: pointer;
   background: transparent;
+  color: var(--auralis-text);
+  cursor: pointer;
 }
-input[type='checkbox']:checked {
-  background: var(--auralis-control-primary-bg, #8fa7bb);
-  border-color: var(--auralis-control-primary-bg, #8fa7bb);
+
+:where(button:not(.auralis-dialog-action), input):disabled {
+  color: var(--auralis-text-disabled);
+  cursor: default;
 }
-input[type='checkbox']:checked::after {
-  content: '';
-  width: 8px;
-  height: 4px;
-  border-left: 1.8px solid var(--auralis-control-primary-text, #111214);
-  border-bottom: 1.8px solid var(--auralis-control-primary-text, #111214);
-  transform: translateY(-1px) rotate(-45deg);
+
+:where(button, input):focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 2px;
 }
-.choice:has(:checked) {
-  background: var(--auralis-control-active-bg, #8fa7bb1a);
+
+.builder-description,
+.hint {
+  margin: 0;
+  color: var(--auralis-text-subtle);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  overflow-wrap: anywhere;
 }
-.choice:hover {
-  background: var(--auralis-control-hover-bg, #e1ddd60f);
+
+.builder-description {
+  margin-top: 4px;
 }
-.relation {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+
+.stage {
+  min-height: 0;
+  padding: 20px 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--auralis-scrollbar-thumb) transparent;
 }
-.outer {
-  padding: 0 0 10px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 14px;
-  justify-content: space-between;
-}
-.label {
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  color: var(--muted);
-}
-.outer .label {
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  color: var(--text);
-}
-.switch {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.switch button:not(.auralis-dialog-action) {
-  padding: 6px 11px;
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  border-radius: 8px;
-  color: var(--subtle);
-  white-space: nowrap;
-}
-.switch button[aria-pressed='true'] {
-  background: var(--auralis-control-active-bg, #8fa7bb19);
-  color: var(--text);
-}
-.switch button:hover:not(:disabled) {
-  color: var(--text);
-  background: var(--auralis-control-hover-bg, #e1ddd60f);
-}
-.switch button:not(.auralis-dialog-action):disabled {
-  opacity: 0.35;
-}
-.condition-groups.parallel-groups {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
-  align-items: start;
-}
-.group {
+
+.controls {
   min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
 }
-.group-disabled {
-  opacity: 0.35;
-  pointer-events: none;
+
+.name-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
 }
+
+.label {
+  color: var(--auralis-text-muted);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  font-weight: 500;
+}
+
+.name {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--auralis-border-strong);
+  border-radius: 8px;
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+}
+
+.name::placeholder,
+.search::placeholder {
+  color: var(--auralis-text-subtle);
+}
+
+.name:focus {
+  border-color: var(--auralis-focus-ring);
+}
+
+.relation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.outer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px 20px;
+  margin-bottom: 16px;
+}
+
+.relation-description {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.outer .label {
+  color: var(--auralis-text);
+  font-weight: 600;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 9px;
+  background: var(--auralis-main-bg);
+}
+
+.switch button {
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--auralis-text-subtle);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.switch button:hover:not(:disabled):not([aria-pressed='true']) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
+.switch button[aria-pressed='true'] {
+  background: var(--auralis-theme-accent);
+  color: var(--auralis-control-primary-text);
+  font-weight: 600;
+}
+
+.condition-groups.parallel-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+
+.group {
+  min-width: 0;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--auralis-sidebar-bg) 45%, var(--auralis-main-bg));
+}
+
 .group-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-bottom: 14px;
 }
+
 .group-header h2 {
-  margin: 0;
-  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  color: var(--auralis-text);
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  font-weight: 600;
 }
+
 .group-header h2 > span {
   width: 16px;
   height: 16px;
-  color: var(--muted);
+  flex-shrink: 0;
+  color: var(--auralis-text-muted);
 }
-.group .relation {
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
+
 .badge {
-  color: var(--subtle);
+  color: var(--auralis-text-subtle);
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
+
+.badge-selected {
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--auralis-control-active-bg);
+  color: var(--auralis-text);
+}
+
 .badge.empty {
-  color: #e5a5a0;
+  background: color-mix(in srgb, var(--auralis-danger) 10%, transparent);
+  color: var(--auralis-danger);
 }
+
+.group .relation {
+  margin-bottom: 12px;
+}
+
+.group .relation .label {
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+}
+
+.group-disabled :is(.relation, .search-wrap, .choices) {
+  opacity: 0.45;
+}
+
+.disabled-hint {
+  margin-top: 12px;
+}
+
 .selected-values {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 12px;
-  min-height: 28px;
+  max-height: 108px;
+  margin: 0 0 12px;
+  padding: 4px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--auralis-scrollbar-thumb) transparent;
 }
+
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--auralis-control-active-bg);
+  color: var(--auralis-text);
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  border: 0;
-  background: var(--auralis-border-subtle, #e1ddd614);
-  border-radius: 8px;
-  padding: 5px 7px;
-  color: var(--text);
-  max-width: 100%;
+  text-align: left;
 }
-.chip span {
+
+.chip:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+}
+
+.chip > span:first-child {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.chip > span:first-child {
-  font-weight: 600;
-}
+
 .chip .i-lucide-x {
   width: 12px;
   height: 12px;
-  color: var(--subtle);
+  flex-shrink: 0;
+  color: var(--auralis-text-muted);
 }
-.clear-group {
+
+.clear-group,
+.retry {
+  min-height: 28px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  color: var(--auralis-text-muted);
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
-  font-weight: 400;
-  color: var(--subtle);
-  padding: 4px 6px;
 }
+
+.clear-group:hover:not(:disabled),
+.retry:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
 .search-wrap {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 0 10px;
-  background: var(--auralis-control-hover-bg, #e1ddd60a);
-  border-radius: 10px;
+  gap: 8px;
   margin-bottom: 10px;
+  padding: 0 10px;
+  border: 1px solid var(--auralis-border-subtle);
+  border-radius: 7px;
+  background: var(--auralis-main-bg);
 }
+
 .search-wrap > span {
-  color: var(--subtle);
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  color: var(--auralis-text-subtle);
 }
+
 .search-wrap:focus-within {
-  outline: 1px solid var(--auralis-focus-ring, #9299a3);
+  border-color: var(--auralis-focus-ring);
 }
+
+.search-wrap:has(.search:focus-visible) {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: 2px;
+}
+
 .search {
   width: 100%;
   min-width: 0;
-  padding: 10px 0;
+  padding: 7px 0;
   border: 0;
-  background: none;
-  color: var(--text);
+  background: transparent;
+  color: var(--auralis-text);
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
-  font-weight: 400;
 }
+
 .search:focus-visible {
   outline: none;
 }
-.search::placeholder {
-  color: var(--subtle);
-}
+
 .clear-search {
   display: grid;
   place-items: center;
-  color: var(--subtle);
   width: 24px;
   height: 28px;
-  padding: 0;
+  flex-shrink: 0;
+  border-radius: 4px;
+  color: var(--auralis-text-muted);
 }
+
+.clear-search:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+}
+
 .clear-search > span {
   width: 14px;
   height: 14px;
 }
+
 .choices {
   --choice-row-height: 38px;
   --choice-row-gap: 2px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: var(--choice-row-height);
-  gap: var(--choice-row-gap) 8px;
-  max-height: calc(4 * var(--choice-row-height) + 3 * var(--choice-row-gap));
+  gap: var(--choice-row-gap) 6px;
+  max-height: calc(4 * var(--choice-row-height) + 3 * var(--choice-row-gap) + 4px);
+  padding: 2px;
   overflow: auto;
-  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: var(--auralis-scrollbar-thumb, #484d55) transparent;
+  scrollbar-color: var(--auralis-scrollbar-thumb) transparent;
 }
-.choices > * {
-  scroll-snap-align: start;
+
+.choices:empty {
+  display: none;
 }
+
 .choice {
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 9px 7px;
+  gap: 8px;
+  min-width: 0;
   min-height: var(--choice-row-height);
-  border-radius: 4px;
-  cursor: pointer;
+  padding: 8px 6px;
+  border-radius: 5px;
+  color: var(--auralis-text-muted);
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
-  min-width: 0;
+  cursor: pointer;
 }
-.choice span {
+
+.choice:hover:has(input:enabled),
+.choice:focus-within {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
+}
+
+.choice:has(:checked) {
+  background: var(--auralis-control-active-bg);
+  color: var(--auralis-text);
+}
+
+.choice:has(input:disabled) {
+  cursor: default;
+}
+
+.choice > span {
   flex: 1;
-  font-weight: 500;
+  min-width: 0;
   overflow: hidden;
-  white-space: nowrap;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
 .choice small {
-  color: var(--subtle);
+  color: var(--auralis-text-subtle);
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
-  font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
-.choice input[type='checkbox'] {
+
+.choice input {
+  appearance: none;
+  display: grid;
+  place-content: center;
   width: 15px;
   height: 15px;
+  flex-shrink: 0;
+  margin: 0;
+  border: 1px solid var(--auralis-border-strong);
   border-radius: 3px;
+  background: var(--auralis-main-bg);
+  cursor: inherit;
 }
-.result-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  text-align: right;
-  color: var(--muted);
+
+.choice input:checked {
+  border-color: var(--auralis-control-primary-bg);
+  background: var(--auralis-control-primary-bg);
+}
+
+.choice input:checked::after {
+  content: '';
+  width: 7px;
+  height: 4px;
+  border-left: 1.5px solid var(--auralis-control-primary-text);
+  border-bottom: 1.5px solid var(--auralis-control-primary-text);
+  transform: translateY(-1px) rotate(-45deg);
+}
+
+.more {
+  grid-column: 1 / -1;
+  border-radius: 5px;
+  color: var(--auralis-text-muted);
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
-  font-weight: 600;
-  overflow-wrap: anywhere;
 }
-.result-summary > span:first-child {
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
+
+.more:hover:not(:disabled) {
+  background: var(--auralis-control-hover-bg);
+  color: var(--auralis-text);
 }
-.match-notice {
-  color: #e5a5a0;
+
+.empty-values {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 18px 8px;
+  color: var(--auralis-text-subtle);
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
-  font-weight: 400;
   overflow-wrap: anywhere;
 }
-.match-notice.neutral {
-  color: var(--subtle);
+
+.empty-values > span {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
+
+.notice,
+.status {
+  color: var(--auralis-danger);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  overflow-wrap: anywhere;
+}
+
 .notice {
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
-  color: #e5a5a0;
-  margin: 12px 0;
+  margin: 0 0 12px;
 }
+
 .notice.neutral {
-  color: var(--subtle);
+  color: var(--auralis-text-subtle);
 }
+
+.load-notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.load-notice > span {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
 .actions {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) auto;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+  gap: 12px 20px;
 }
-.primary {
-  justify-self: end;
-}
-.name {
-  width: 100%;
+
+.result-summary {
+  display: grid;
+  gap: 3px;
   min-width: 0;
-  padding: 10px 12px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 10px;
-  background: var(--auralis-control-hover-bg, #e1ddd60a);
-  color: var(--text);
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
-  font-weight: 400;
+  overflow-wrap: anywhere;
 }
-.name::placeholder {
-  color: var(--subtle);
+
+.result-count {
+  color: var(--auralis-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
-.name:focus-visible {
-  outline: none;
-  background: var(--auralis-control-active-bg, #8fa7bb14);
-}
-.status {
-  margin: 0;
-  padding: 12px 0 0;
+
+.match-notice {
+  color: var(--auralis-danger);
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
-  font-weight: 400;
-  color: var(--muted);
 }
+
+.match-notice.neutral {
+  color: var(--auralis-text-subtle);
+}
+
+.primary {
+  justify-self: end;
+  gap: 7px;
+}
+
+.primary > span {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.status {
+  margin: 10px 0 0;
+}
+
 @media (max-width: 760px) {
   .stage {
-    padding: 14px 20px 12px;
+    padding: 16px 20px;
   }
+
+  .outer {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
+
   .condition-groups.parallel-groups {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-  .actions {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .name {
-    grid-column: 1 / -1;
-  }
-  .result-summary {
-    grid-column: 1;
-    text-align: left;
-  }
-  .primary {
-    grid-column: 2;
-  }
-  .status {
-    padding: 12px 0 0;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
+
 @media (max-width: 420px) {
   .stage {
     padding-right: 16px;
     padding-left: 16px;
   }
+
+  .name-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .group {
+    padding: 12px;
+  }
+
+  .choices,
   .actions {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .result-summary,
-  .primary {
-    grid-column: 1;
-  }
-  .primary {
-    justify-self: end;
-  }
-  .status {
-    padding-right: 16px;
-    padding-left: 16px;
   }
 }
 </style>
