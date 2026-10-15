@@ -23,6 +23,10 @@ export interface PlaybackCoordinator {
   promoteFileReplacement?: (leaseId: string) => void
   releaseWriteLease?: (leaseId: string) => void
   refreshPlaybackCapability?: (filePath: string) => void
+  handoffWriteLeaseToRead?: (
+    leaseId: string,
+    sourceId: string,
+  ) => { leaseId: string; version: number }
 }
 
 export interface NativePlaybackOptions {

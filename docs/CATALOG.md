@@ -386,6 +386,7 @@
 
 - [2026-09-12：曲库滚动条布局修复提示词](handoffs/20260912修复1.md)
 - [Auralis 剩余优化工作交付文档](handoffs/HANDOFF-remaining-work-2026-08-28.md)
+- [标签写回、播放租约与退出对账施工提示词](handoffs/2026-10-15-tag-write-lease-shutdown-construction.md)
 
 交接记录保留中断位置与当时待办，不构成继续执行授权。
 

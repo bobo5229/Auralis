@@ -113,8 +113,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(72)
-    expect(kinds).toEqual({ void: 21, optional: 6, required: 45 })
+    expect(actualChannels).toHaveLength(74)
+    expect(kinds).toEqual({ void: 21, optional: 6, required: 47 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -324,6 +324,25 @@ describe('domain IPC payload validation behavior', () => {
       )
     }
   })
+  it('bounds manual album draws to presentation history without startup claim options', () => {
+    const album = { albumArtist: 'Artist', album: 'Album' }
+    expect(parse('app:draw-startup-album', { recentAlbums: [] })).toEqual({ recentAlbums: [] })
+    const request = { recentAlbums: Array(10).fill(album) }
+    expect(parse('app:draw-startup-album', request)).toEqual(request)
+    for (const payload of [
+      undefined,
+      {},
+      { recentAlbums: Array(11).fill(album) },
+      { recentAlbums: [null] },
+      { recentAlbums: [{ album: 'Album' }] },
+      { recentAlbums: [{ ...album, albumArtist: 42 }] },
+      { recentAlbums: 'bad' },
+      { recentAlbums: [], excludeAlbumKey: album },
+    ]) {
+      expect(() => parse('app:draw-startup-album', payload)).toThrow(IpcPayloadValidationError)
+    }
+  })
+
   it('accepts representative valid scalar, nested, optional, and batch payloads', () => {
     expect(
       parse('library:get-track-page', { cursor: 'snapshot:cursor', limit: 1_000, refresh: true }),

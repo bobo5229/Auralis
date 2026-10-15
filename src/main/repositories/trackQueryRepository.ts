@@ -364,4 +364,24 @@ export class TrackQueryRepository extends BaseRepository {
       )
       .all(albumArtist, album) as PlaybackTrackDto[]
   }
+
+  adoptPlaybackPath(trackId: number, expectedPath: string, nextPath: string): boolean {
+    if (expectedPath === nextPath) return false
+    const occupant = this.db
+      .prepare('SELECT id FROM tracks WHERE file_path = ? AND id != ?')
+      .get(nextPath, trackId) as { id: number } | undefined
+    if (occupant) return false
+    try {
+      const result = this.db
+        .prepare(
+          `UPDATE tracks
+           SET file_path = ?, updated_at = CURRENT_TIMESTAMP
+           WHERE id = ? AND file_path = ?`,
+        )
+        .run(nextPath, trackId, expectedPath)
+      return result.changes === 1
+    } catch {
+      return false
+    }
+  }
 }

@@ -22,6 +22,7 @@ import type {
   LogicalPlaybackView,
   NativePlaybackOptions,
   NextTrackRequest,
+  PlaybackCoordinator,
 } from './nativePlaybackTypes'
 
 interface TagWriteScheduling {
@@ -57,6 +58,28 @@ interface TagWriteAttempt {
   readonly client: MpvClient
   readonly session: number
   readonly signal: AbortSignal
+}
+
+/**
+ * Hold a read lease for this attempt only while it still owns an empty session.
+ * Handoff notifies listeners before the hold; if playback moved, that read lease is released.
+ */
+export function retainCommittedPlaybackLease(input: {
+  current: () => boolean
+  currentLeaseId: () => string | null
+  coordinator: PlaybackCoordinator | undefined
+  intent: string
+  hold: (leaseId: string) => void
+}): void {
+  if (!input.current() || input.currentLeaseId() !== null) return
+  const coordinator = input.coordinator
+  if (!coordinator?.handoffWriteLeaseToRead) throw new Error('File handoff is unavailable')
+  const handed = coordinator.handoffWriteLeaseToRead(input.intent, 'mpv-current')
+  if (!input.current() || input.currentLeaseId() !== null) {
+    coordinator.releaseReadLease(handed.leaseId)
+    return
+  }
+  input.hold(handed.leaseId)
 }
 
 function createTagPlaybackWindow(): TagPlaybackWindow {
@@ -440,7 +463,13 @@ export class BufferedTagPlayback {
         await prepared!.commit(check)
         committed = true
       })
-      coordinator!.releaseWriteLease!(intent)
+      retainCommittedPlaybackLease({
+        current,
+        currentLeaseId: () => this.runtime.currentLeaseId,
+        coordinator,
+        intent,
+        hold: (leaseId) => this.runtime.holdCurrentLease(leaseId),
+      })
       resumeReaders?.()
       resumeReaders = null
       if (current() && window.phase === 'bridge') {
@@ -570,12 +599,23 @@ export class BufferedTagPlayback {
     const current = () => this.isCurrentAttempt(attempt)
     const check = () => this.assertCurrentAttempt(attempt)
     // Keep the snapshot first until the verified replacement is ready to play.
-    const lease = await this.options.coordinator!.acquireReadLease(filePath, 'mpv-current', signal)
-    if (!current()) {
-      this.options.coordinator!.releaseReadLease(lease.leaseId)
+    const heldLeaseId = this.runtime.currentLeaseId
+    if (!heldLeaseId) {
+      const lease = await this.options.coordinator!.acquireReadLease(
+        filePath,
+        'mpv-current',
+        signal,
+      )
+      if (!current()) {
+        this.options.coordinator!.releaseReadLease(lease.leaseId)
+        check()
+      }
+      this.runtime.holdCurrentLease(lease.leaseId)
+    } else if (!current()) {
+      this.options.coordinator!.releaseReadLease(heldLeaseId)
+      this.runtime.holdCurrentLease(null)
       check()
     }
-    this.runtime.holdCurrentLease(lease.leaseId)
     await this.runtime.enqueue(async () => {
       check()
       if (this.read().paused) {

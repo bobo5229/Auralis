@@ -100,16 +100,6 @@ const filtered = computed(
 function label(field: BuilderField, value: string): string {
   return options.value[field].find((option) => option.value === value)?.label ?? value
 }
-const notice = computed(() => {
-  if (!result.value.withinLimits)
-    return t('smartBuilder.selectionLimit', { count: SMART_PLAYLIST_MAX_OPERANDS })
-  if (!result.value.complete)
-    return t(mode.value === 'single' ? 'smartBuilder.chooseSingle' : 'smartBuilder.chooseGroups')
-  if (result.value.ids.size) return ''
-  return result.value.groups.some((group) => group.ids.size === 0)
-    ? t('smartBuilder.groupEmpty')
-    : t('smartBuilder.noIntersection')
-})
 function groupCount(field: BuilderField): number {
   return result.value.groups.find((group) => group.field === field)?.ids.size ?? 0
 }
@@ -283,20 +273,15 @@ onBeforeUnmount(() => {
     :open="open"
     :title="t('smartBuilder.title')"
     title-id="playlist-builder-title"
-    described-by="playlist-builder-description"
     :busy="saving"
     :dismissible="!saving"
     :return-focus-to="restoreTrigger"
     :restore-focus="restoreBuilderFocus"
+    fill
     :padded="false"
     :scroll="false"
     @close="close"
   >
-    <template #subtitle>
-      <p id="playlist-builder-description" class="builder-description">
-        {{ t('smartBuilder.description') }}
-      </p>
-    </template>
     <div class="stage">
       <p v-if="loading" class="notice neutral load-notice" role="status">
         <span class="i-lucide-library" aria-hidden="true" />
@@ -322,17 +307,11 @@ onBeforeUnmount(() => {
       </div>
       <fieldset :disabled="saving || loading || !!loadError" class="controls">
         <div class="relation outer">
-          <div class="relation-description">
-            <span class="label">{{ t('smartBuilder.betweenGroups') }}</span>
-            <p id="smart-playlist-mode-description" class="hint">
-              {{ t(`smartBuilder.modeDescription.${mode}`) }}
-            </p>
-          </div>
+          <span class="label">{{ t('smartBuilder.betweenGroups') }}</span>
           <div
             class="switch"
             role="group"
             :aria-label="t('smartBuilder.betweenGroupsAria')"
-            aria-describedby="smart-playlist-mode-description"
           >
             <button type="button" :aria-pressed="mode === 'single'" @click="selectMode('single')">
               {{ t('smartBuilder.single') }}
@@ -353,7 +332,6 @@ onBeforeUnmount(() => {
             :class="{ 'group-disabled': isGroupDisabled(field) }"
             :disabled="isGroupDisabled(field)"
             :aria-label="labels[field]"
-            :aria-describedby="isGroupDisabled(field) ? `builder-${field}-disabled` : undefined"
           >
             <div class="group-header">
               <h2><span :class="icons[field]" aria-hidden="true" />{{ labels[field] }}</h2>
@@ -482,13 +460,6 @@ onBeforeUnmount(() => {
                 })
               }}
             </p>
-            <p
-              v-if="isGroupDisabled(field)"
-              :id="`builder-${field}-disabled`"
-              class="hint disabled-hint"
-            >
-              {{ t('smartBuilder.groupDisabled') }}
-            </p>
           </fieldset>
         </div>
       </fieldset>
@@ -496,18 +467,6 @@ onBeforeUnmount(() => {
 
     <template #footer>
       <div class="actions">
-        <div class="result-summary" role="status" aria-live="polite" aria-atomic="true">
-          <span class="result-count">{{
-            t('smartBuilder.resultCount', { count: result.ids.size })
-          }}</span>
-          <span
-            v-if="notice && !loading && !loadError"
-            class="match-notice"
-            :class="{ neutral: !result.complete }"
-          >
-            {{ notice }}
-          </span>
-        </div>
         <button
           type="button"
           class="primary auralis-dialog-action auralis-dialog-action--primary"
@@ -524,6 +483,9 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+/* Match the compact settings typography: labels 13px, values 12px, segmented
+ * buttons 11px (settings.chrome.css and SettingsSelect.vue). The shared dialog
+ * keeps its standard title size; scrolling geometry stays local to this panel. */
 * {
   box-sizing: border-box;
 }
@@ -550,22 +512,11 @@ onBeforeUnmount(() => {
   outline-offset: 2px;
 }
 
-.builder-description,
-.hint {
-  margin: 0;
-  color: var(--auralis-text-subtle);
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
-  overflow-wrap: anywhere;
-}
-
-.builder-description {
-  margin-top: 4px;
-}
-
 .stage {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
-  padding: 20px 24px;
+  padding: 16px 20px;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -573,7 +524,11 @@ onBeforeUnmount(() => {
 }
 
 .controls {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
   margin: 0;
   padding: 0;
   border: 0;
@@ -581,29 +536,31 @@ onBeforeUnmount(() => {
 
 .name-row {
   display: grid;
+  flex-shrink: 0;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .label {
   color: var(--auralis-text-muted);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 500;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 600;
 }
 
 .name {
   width: 100%;
   min-width: 0;
-  padding: 8px 12px;
+  padding: 5px 10px;
   border: 1px solid var(--auralis-border-strong);
   border-radius: 8px;
   background: var(--auralis-control-hover-bg);
   color: var(--auralis-text);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 500;
 }
 
 .name::placeholder,
@@ -620,20 +577,15 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px 12px;
+  gap: 6px 8px;
 }
 
 .outer {
   display: grid;
+  flex-shrink: 0;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px 20px;
-  margin-bottom: 16px;
-}
-
-.relation-description {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
+  gap: 8px 12px;
+  margin-bottom: 12px;
 }
 
 .outer .label {
@@ -646,20 +598,20 @@ onBeforeUnmount(() => {
   align-items: center;
   flex-wrap: wrap;
   gap: 2px;
-  padding: 3px;
+  padding: 2px;
   border: 1px solid var(--auralis-border-subtle);
-  border-radius: 9px;
+  border-radius: 7px;
   background: var(--auralis-main-bg);
 }
 
 .switch button {
-  min-height: 28px;
-  padding: 4px 10px;
+  min-height: 24px;
+  padding: 3px 8px;
   border-radius: 6px;
   color: var(--auralis-text-subtle);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  font-weight: 500;
+  font-size: 11px;
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -676,18 +628,26 @@ onBeforeUnmount(() => {
 
 .condition-groups.parallel-groups {
   display: grid;
+  flex: 1;
+  min-height: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
-  gap: 16px;
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
 }
 
 .group {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
   margin: 0;
-  padding: 14px;
-  border: 1px solid var(--auralis-border-subtle);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--auralis-sidebar-bg) 45%, var(--auralis-main-bg));
+  padding: 0;
+  border: 0;
+}
+
+.group > :not(.choices, .empty-values) {
+  flex-shrink: 0;
 }
 
 .group-header {
@@ -695,25 +655,25 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 8px 12px;
-  margin-bottom: 14px;
+  gap: 6px 8px;
+  margin-bottom: 8px;
 }
 
 .group-header h2 {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   margin: 0;
   color: var(--auralis-text);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
+  font-size: 13px;
+  line-height: 1.35;
   font-weight: 600;
 }
 
 .group-header h2 > span {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
   color: var(--auralis-text-muted);
 }
@@ -726,7 +686,7 @@ onBeforeUnmount(() => {
 }
 
 .badge-selected {
-  padding: 2px 7px;
+  padding: 1px 6px;
   border-radius: 5px;
   background: var(--auralis-control-active-bg);
   color: var(--auralis-text);
@@ -738,29 +698,20 @@ onBeforeUnmount(() => {
 }
 
 .group .relation {
-  margin-bottom: 12px;
-}
-
-.group .relation .label {
-  font-size: var(--auralis-type-caption-size);
-  line-height: var(--auralis-type-caption-line-height);
+  margin-bottom: 8px;
 }
 
 .group-disabled :is(.relation, .search-wrap, .choices) {
   opacity: 0.45;
 }
 
-.disabled-hint {
-  margin-top: 12px;
-}
-
 .selected-values {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
-  max-height: 108px;
-  margin: 0 0 12px;
+  gap: 4px;
+  max-height: 88px;
+  margin: 0 0 8px;
   padding: 4px;
   overflow: auto;
   overscroll-behavior: contain;
@@ -771,15 +722,16 @@ onBeforeUnmount(() => {
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   max-width: 100%;
-  min-height: 28px;
-  padding: 4px 8px;
+  min-height: 24px;
+  padding: 3px 6px;
   border-radius: 6px;
   background: var(--auralis-control-active-bg);
   color: var(--auralis-text);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 500;
   text-align: left;
 }
 
@@ -803,12 +755,13 @@ onBeforeUnmount(() => {
 
 .clear-group,
 .retry {
-  min-height: 28px;
-  padding: 4px 6px;
+  min-height: 24px;
+  padding: 3px 6px;
   border-radius: 5px;
   color: var(--auralis-text-muted);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
+  font-size: 11px;
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 600;
 }
 
 .clear-group:hover:not(:disabled),
@@ -820,11 +773,11 @@ onBeforeUnmount(() => {
 .search-wrap {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 0 10px;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding: 0 8px;
   border: 1px solid var(--auralis-border-subtle);
-  border-radius: 7px;
+  border-radius: 6px;
   background: var(--auralis-main-bg);
 }
 
@@ -847,12 +800,12 @@ onBeforeUnmount(() => {
 .search {
   width: 100%;
   min-width: 0;
-  padding: 7px 0;
+  padding: 5px 0;
   border: 0;
   background: transparent;
   color: var(--auralis-text);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
 }
 
 .search:focus-visible {
@@ -863,7 +816,7 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   width: 24px;
-  height: 28px;
+  height: 24px;
   flex-shrink: 0;
   border-radius: 4px;
   color: var(--auralis-text-muted);
@@ -879,13 +832,15 @@ onBeforeUnmount(() => {
 }
 
 .choices {
-  --choice-row-height: 38px;
+  --choice-row-height: 28px;
   --choice-row-gap: 2px;
   display: grid;
+  flex: 1 1 0;
+  min-height: 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: var(--choice-row-height);
+  align-content: start;
   gap: var(--choice-row-gap) 6px;
-  max-height: calc(4 * var(--choice-row-height) + 3 * var(--choice-row-gap) + 4px);
   padding: 2px;
   overflow: auto;
   overscroll-behavior: contain;
@@ -900,14 +855,15 @@ onBeforeUnmount(() => {
 .choice {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
   min-height: var(--choice-row-height);
-  padding: 8px 6px;
+  padding: 5px 6px;
   border-radius: 5px;
   color: var(--auralis-text-muted);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -973,8 +929,9 @@ onBeforeUnmount(() => {
   grid-column: 1 / -1;
   border-radius: 5px;
   color: var(--auralis-text-muted);
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
+  font-size: 11px;
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 600;
 }
 
 .more:hover:not(:disabled) {
@@ -984,11 +941,12 @@ onBeforeUnmount(() => {
 
 .empty-values {
   display: flex;
+  flex: 1;
   align-items: center;
   justify-content: center;
   gap: 8px;
   margin: 0;
-  padding: 18px 8px;
+  padding: 12px 8px;
   color: var(--auralis-text-subtle);
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
@@ -1010,7 +968,7 @@ onBeforeUnmount(() => {
 }
 
 .notice {
-  margin: 0 0 12px;
+  margin: 0 0 8px;
 }
 
 .notice.neutral {
@@ -1031,55 +989,49 @@ onBeforeUnmount(() => {
 }
 
 .actions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px 20px;
+  display: flex;
+  justify-content: flex-end;
 }
 
-.result-summary {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
-  overflow-wrap: anywhere;
-}
-
-.result-count {
-  color: var(--auralis-text);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.match-notice {
-  color: var(--auralis-danger);
+.primary {
+  gap: 6px;
+  min-height: 30px;
+  padding: 6px 12px;
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
 }
 
-.match-notice.neutral {
-  color: var(--auralis-text-subtle);
-}
-
-.primary {
-  justify-self: end;
-  gap: 7px;
-}
-
 .primary > span {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 
 .status {
-  margin: 10px 0 0;
+  margin: 8px 0 0;
+}
+
+/* Keep useful list heights and scroll the content when space is limited. */
+@media (max-width: 760px), (max-height: 680px) {
+  .controls,
+  .condition-groups.parallel-groups {
+    flex: 0 0 auto;
+  }
+
+  .condition-groups.parallel-groups {
+    grid-template-rows: none;
+    align-items: start;
+  }
+
+  .choices {
+    flex: none;
+    height: clamp(124px, 30dvh, 224px);
+  }
 }
 
 @media (max-width: 760px) {
   .stage {
-    padding: 16px 20px;
+    padding: 12px 16px;
   }
 
   .outer {
@@ -1094,21 +1046,16 @@ onBeforeUnmount(() => {
 
 @media (max-width: 420px) {
   .stage {
-    padding-right: 16px;
-    padding-left: 16px;
+    padding-right: 12px;
+    padding-left: 12px;
   }
 
   .name-row {
     grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
+    gap: 6px;
   }
 
-  .group {
-    padding: 12px;
-  }
-
-  .choices,
-  .actions {
+  .choices {
     grid-template-columns: minmax(0, 1fr);
   }
 }

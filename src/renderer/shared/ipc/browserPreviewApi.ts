@@ -82,6 +82,7 @@ function mockResponse(group: string, method: string, args: unknown[]): unknown {
     case 'database.restoreBackup':
       return { status: 'cancelled' }
     case 'app.claimStartupAlbum':
+    case 'app.drawStartupAlbum':
       return { album: null }
     case 'app.setLocale':
       return undefined

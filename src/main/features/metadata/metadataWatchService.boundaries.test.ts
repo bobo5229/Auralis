@@ -39,6 +39,9 @@ function setup() {
     { list: () => [{ path: root }] } as unknown as LibraryRootRepository,
     {
       getExistingFilePaths: (paths: string[]) => new Set(paths.filter((p) => p === path)),
+      getTrackIdsByPlaybackPath: () => [],
+      getFilePathById: () => null,
+      adoptPlaybackPath: () => false,
       getFileFingerprintsByFilePaths: () => new Map([[path, { fileSize: 10, fileMtimeMs: 1 }]]),
       getTrackIdsByFilePaths: () => [1],
       markMissingByFilePaths: markMissing,
@@ -179,7 +182,7 @@ describe('metadata watcher component boundaries', () => {
     await service.stop()
   })
 
-  it('restores changed audio while suppression still prevents metadata refresh', async () => {
+  it('restores changed audio immediately and refreshes it after suppression expires', async () => {
     vi.mocked(stat).mockResolvedValue({ ...fileStat, size: 20 })
     const { service, notify, markAvailable, refresh, send } = setup()
     markAvailable.mockReturnValueOnce([1])
@@ -189,6 +192,34 @@ describe('metadata watcher component boundaries', () => {
     expect(markAvailable).toHaveBeenCalledExactlyOnceWith([path])
     expect(send).toHaveBeenCalledOnce()
     expect(refresh).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(8000)
+    expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
+    expect(send).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
+    await service.stop()
+  })
+
+  it('rechecks suppressed events without refreshing an unchanged saved audio file', async () => {
+    const { service, notify, refresh } = setup()
+    service.suppressRefreshForPath(path)
+    notify('change', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(refresh).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+    await service.stop()
+  })
+
+  it('preserves queued sidecar intent when suppression starts and is extended', async () => {
+    const { service, notify, refresh } = setup()
+    notify('change', 'sample.lrc')
+    service.suppressRefreshForPath(path)
+    await vi.advanceTimersByTimeAsync(1200)
+    service.suppressRefreshForPath(path)
+    await vi.advanceTimersByTimeAsync(6800)
+    expect(refresh).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
+    expect(vi.getTimerCount()).toBe(0)
     await service.stop()
   })
 
@@ -321,10 +352,104 @@ describe('metadata watcher component boundaries', () => {
       await vi.advanceTimersByTimeAsync(1200)
       expect(refresh).not.toHaveBeenCalled()
       await vi.advanceTimersByTimeAsync(8000)
+      expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
       notify('change', `sample.${extension}`)
       await vi.advanceTimersByTimeAsync(1200)
-      expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
+      expect(refresh).toHaveBeenCalledTimes(2)
       await service.stop()
     },
   )
+
+  it('adopts a Windows case-only path and keeps suppression on that file', async () => {
+    const stored = path
+    const eventPath = normalize(`${root}/Sample.FLAC`)
+    const adoptPlaybackPath = vi.fn(() => true)
+    const importFiles = vi.fn(async () => ({ imported: [], unstable: [], failed: [] }))
+    const refresh = vi.fn()
+    const getTrackIdsByFilePaths = vi.fn((paths: string[]) =>
+      paths.includes(eventPath) ? [1] : [],
+    )
+    let notify!: (event: string, filename: string) => void
+    vi.mocked(watch).mockImplementation((...args: unknown[]) => {
+      notify = args[2] as typeof notify
+      return { close: vi.fn(), on: vi.fn() } as unknown as ReturnType<typeof watch>
+    })
+    const service = new MetadataWatchService(
+      { list: () => [{ path: root }] } as unknown as LibraryRootRepository,
+      {
+        getExistingFilePaths: (paths: string[]) =>
+          new Set(paths.filter((candidate) => candidate === stored)),
+        getTrackIdsByPlaybackPath: () => [1],
+        getFilePathById: () => stored,
+        adoptPlaybackPath,
+        getFileFingerprintsByFilePaths: () => new Map(),
+        getTrackIdsByFilePaths,
+        markMissingByFilePaths: vi.fn(() => []),
+        markAvailableByFilePaths: vi.fn((): number[] => []),
+      } as unknown as TrackRepository,
+      {
+        refreshTracksFromFileChanges: refresh,
+        isWritingFile: () => false,
+      } as unknown as MetadataRefreshService,
+      { importFiles } as unknown as LibraryIncrementalImportService,
+      vi.fn(),
+    )
+    service.start()
+    service.suppressRefreshForPath(stored)
+    notify('rename', 'Sample.FLAC')
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(adoptPlaybackPath).toHaveBeenCalledExactlyOnceWith(1, stored, eventPath)
+    expect(importFiles).not.toHaveBeenCalled()
+    expect(refresh).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(8000)
+    expect(getTrackIdsByFilePaths).toHaveBeenCalledWith([eventPath])
+    expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
+    await service.stop()
+  })
+
+  it('refreshes every stored case alias and does not adopt or import when lookup returns several ids', async () => {
+    const eventPath = normalize(`${root}/Sample.FLAC`)
+    const storedA = path
+    const storedB = normalize(`${root}/SAMPLE.flac`)
+    const adoptPlaybackPath = vi.fn(() => true)
+    const importFiles = vi.fn()
+    const refresh = vi.fn()
+    let notify!: (event: string, filename: string) => void
+    vi.mocked(watch).mockImplementation((...args: unknown[]) => {
+      notify = args[2] as typeof notify
+      return { close: vi.fn(), on: vi.fn() } as unknown as ReturnType<typeof watch>
+    })
+    const service = new MetadataWatchService(
+      { list: () => [{ path: root }] } as unknown as LibraryRootRepository,
+      {
+        getExistingFilePaths: () => new Set<string>(),
+        getTrackIdsByPlaybackPath: () => [1, 2],
+        getFilePathById: (id: number) => (id === 1 ? storedA : storedB),
+        adoptPlaybackPath,
+        getFileFingerprintsByFilePaths: () => new Map(),
+        getTrackIdsByFilePaths: (paths: string[]) =>
+          paths.flatMap((candidate) => {
+            if (candidate === storedA) return [1]
+            if (candidate === storedB) return [2]
+            return []
+          }),
+        markMissingByFilePaths: vi.fn(() => []),
+        markAvailableByFilePaths: vi.fn((): number[] => []),
+      } as unknown as TrackRepository,
+      {
+        refreshTracksFromFileChanges: refresh,
+        isWritingFile: () => false,
+      } as unknown as MetadataRefreshService,
+      { importFiles } as unknown as LibraryIncrementalImportService,
+      vi.fn(),
+    )
+    service.start()
+    notify('rename', 'Sample.FLAC')
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(adoptPlaybackPath).not.toHaveBeenCalled()
+    expect(importFiles).not.toHaveBeenCalled()
+    expect(refresh).toHaveBeenCalledExactlyOnceWith([1, 2])
+    expect(eventPath).not.toBe(storedA)
+    await service.stop()
+  })
 })

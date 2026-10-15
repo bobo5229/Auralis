@@ -85,9 +85,12 @@ function createEditor(overrides?: {
 describe('useLibraryMetadataEditor', () => {
   it('keeps the dialog busy until successful feedback finishes, then closes and restores focus', async () => {
     let finish!: () => void
-    const showSaveSuccess = vi.fn(() => new Promise<void>((resolve) => {
-      finish = resolve
-    }))
+    const showSaveSuccess = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve
+        }),
+    )
     const { editor, refreshLibrary, restoreFocus } = createEditor({ showSaveSuccess })
     await editor.open(42)
     const saving = editor.save({ ...metadata, title: 'Changed title' })
@@ -117,9 +120,12 @@ describe('useLibraryMetadataEditor', () => {
   })
 
   it('aborts pending success feedback on disposal without returning focus to an old editor', async () => {
-    const showSaveSuccess = vi.fn((signal: AbortSignal) => new Promise<void>((resolve) => {
-      signal.addEventListener('abort', () => resolve(), { once: true })
-    }))
+    const showSaveSuccess = vi.fn(
+      (signal: AbortSignal) =>
+        new Promise<void>((resolve) => {
+          signal.addEventListener('abort', () => resolve(), { once: true })
+        }),
+    )
     const { editor, restoreFocus } = createEditor({ showSaveSuccess })
     await editor.open(42)
     const saving = editor.save({ ...metadata, title: 'Changed title' })
@@ -151,6 +157,68 @@ describe('useLibraryMetadataEditor', () => {
     expect(refreshLibrary).toHaveBeenCalledWith('12:1')
     expect(editor.isMetadataEditorOpen.value).toBe(false)
     expect(restoreFocus).toHaveBeenCalledWith({ trackId: 42, source: 'track' })
+  })
+
+  it('writes a reversion to the original values after a committed save fails to refresh', async () => {
+    let persisted = { ...metadata }
+    const { editor, updateTrackMetadata, refreshLibrary } = createEditor({
+      updateTrackMetadata: async (next) => {
+        persisted = { ...next }
+        return { ok: true, libraryRevision: '12:1' }
+      },
+    })
+    refreshLibrary.mockResolvedValueOnce('failed')
+    await editor.open(metadata.trackId)
+    await editor.save({ ...metadata, title: 'Changed title' })
+    expect(persisted.title).toBe('Changed title')
+    expect(editor.isMetadataEditorOpen.value).toBe(true)
+    expect(editor.metadataEditError.value).toBe('save failed')
+
+    await editor.save({ ...metadata })
+    expect(persisted).toEqual(metadata)
+    expect(updateTrackMetadata).toHaveBeenCalledTimes(2)
+    expect(refreshLibrary).toHaveBeenCalledTimes(2)
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+  })
+
+  it('retries the failed refresh without resubmitting already committed values', async () => {
+    const showSaveSuccess = vi.fn(async () => undefined)
+    const { editor, updateTrackMetadata, refreshLibrary, restoreFocus } = createEditor({
+      updateTrackMetadata: async () => ({ ok: true, libraryRevision: '12:1' }),
+      showSaveSuccess,
+    })
+    refreshLibrary.mockRejectedValueOnce(new Error('isolated query failure'))
+    await editor.open(metadata.trackId)
+    const changed = { ...metadata, title: 'Changed title' }
+    await editor.save(changed)
+    expect(showSaveSuccess).not.toHaveBeenCalled()
+    expect(editor.isMetadataEditorOpen.value).toBe(true)
+
+    await editor.save(changed)
+    expect(updateTrackMetadata).toHaveBeenCalledOnce()
+    expect(refreshLibrary).toHaveBeenCalledTimes(2)
+    expect(refreshLibrary).toHaveBeenLastCalledWith('12:1')
+    expect(showSaveSuccess).toHaveBeenCalledOnce()
+    expect(restoreFocus).toHaveBeenCalledOnce()
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+    expect(editor.metadataEditError.value).toBeNull()
+  })
+
+  it('uses the newly loaded baseline after closing an editor with a failed refresh', async () => {
+    const { editor, loadTrackMetadata, updateTrackMetadata, refreshLibrary } = createEditor({
+      updateTrackMetadata: async () => ({ ok: true, libraryRevision: '12:1' }),
+    })
+    refreshLibrary.mockResolvedValueOnce('failed')
+    await editor.open(metadata.trackId)
+    const changed = { ...metadata, title: 'Changed title' }
+    await editor.save(changed)
+    editor.close()
+    loadTrackMetadata.mockResolvedValueOnce(changed)
+    await editor.open(metadata.trackId)
+    await editor.save(changed)
+    expect(updateTrackMetadata).toHaveBeenCalledOnce()
+    expect(refreshLibrary).toHaveBeenCalledOnce()
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
   })
 
   it('closes an unchanged edit and restores focus without invoking IPC or refreshing the library', async () => {

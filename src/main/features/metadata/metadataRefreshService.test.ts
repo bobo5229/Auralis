@@ -150,37 +150,40 @@ describe('metadata result acceptance', () => {
   })
   it('reconciles a published file after the database commit fails and notifies from accepted disk data', async () => {
     const { service, repo, send } = setup()
-    repo.getJobById.mockReturnValue({ scope: 'file-change' })
+    const metadata = {
+      trackId: 1,
+      title: 'Published',
+      artistDisplay: null,
+      albumTitle: null,
+      albumArtistDisplay: null,
+      genreDisplay: null,
+      year: null,
+      releaseDate: null,
+    }
     repo.commitVerifiedUserEdit.mockImplementationOnce(() => {
       throw new Error('SQL failed')
     })
-    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
-    await expect(
-      service.updateTrackMetadata({
-        trackId: 1,
-        title: 'Published',
-        artistDisplay: null,
-        albumTitle: null,
-        albumArtistDisplay: null,
-        genreDisplay: null,
-        year: null,
-        releaseDate: null,
-      }),
-    ).rejects.toThrow('SQL failed')
+    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload).mockResolvedValueOnce(payload)
+    await expect(service.updateTrackMetadata(metadata)).rejects.toThrow('SQL failed')
     expect(service.isWritingFile('isolated.flac')).toBe(false)
-    expect(send.mock.calls.some(([channel]) => channel === 'library:changed')).toBe(false)
-    expect(workers).toHaveLength(1)
-    const accepted = { ...payload, generation: 1 }
-    workers[0].emit('message', { type: 'result', payload: accepted })
-    workers[0].emit('message', { type: 'complete' })
-    await vi.waitFor(() => expect(service.hasActiveJob()).toBe(false))
-    expect(repo.updateTrackMetadata).toHaveBeenCalledWith(accepted)
-    expect(send).toHaveBeenCalledWith('library:changed', {
-      reason: 'file-change',
-      trackIds: [1],
-      filePaths: [],
-    })
+    await vi.waitFor(() => expect(repo.commitVerifiedUserEdit).toHaveBeenCalledTimes(2))
+    expect(repo.commitVerifiedUserEdit).toHaveBeenNthCalledWith(1, metadata, payload)
+    expect(repo.commitVerifiedUserEdit).toHaveBeenNthCalledWith(2, metadata, payload)
+    expect(repo.updateTrackMetadata).not.toHaveBeenCalled()
+    expect(send.mock.calls.filter(([channel]) => channel === 'library:changed')).toEqual([
+      [
+        'library:changed',
+        {
+          reason: 'metadata-refresh',
+          trackIds: [1],
+          filePaths: ['isolated.flac'],
+        },
+      ],
+    ])
+    expect(workers).toHaveLength(0)
     await service.shutdown()
+    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledTimes(2)
+    expect(workers).toHaveLength(0)
   })
 
   it('cancels deferred failed-save reconciliation after a successful retry', async () => {
@@ -459,9 +462,12 @@ describe('metadata result acceptance', () => {
     await vi.waitFor(() => expect(repo.completeJob).toHaveBeenCalled())
     expect(repo.updateTrackLyrics).toHaveBeenCalledWith(payload)
   })
-  it('a user write invalidates an already-parsed worker result and queues failed-write reconciliation', async () => {
+  it('a user write invalidates an already-parsed worker result and keeps a failed database commit for direct reconciliation', async () => {
     const { service, repo } = setup()
-    vi.mocked(readStableMetadata).mockRejectedValueOnce(new Error('Written tags do not match'))
+    vi.mocked(readStableMetadata)
+      .mockRejectedValueOnce(new Error('Written tags do not match'))
+      .mockRejectedValueOnce(new Error('reconcile unread'))
+      .mockResolvedValueOnce(payload)
     const gate = deferred<void>()
     vi.mocked(writeAudioTags).mockReturnValueOnce(gate.promise)
     service.refreshTrack(1)
@@ -484,9 +490,10 @@ describe('metadata result acceptance', () => {
     gate.resolve()
     await rejected
     expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
-    expect(workers).toHaveLength(2)
-    workers[1].emit('message', { type: 'complete' })
-    await vi.waitFor(() => expect(service.hasActiveJob()).toBe(false))
+    expect(workers).toHaveLength(1)
+    await service.shutdown()
+    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
+    expect(workers).toHaveLength(1)
   })
 
   describe('playback and write coordination', () => {
@@ -545,6 +552,107 @@ describe('metadata result acceptance', () => {
       expect(writeAudioTags).toHaveBeenCalledOnce()
       expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
       expect(coordinator.releaseWriteLease).toHaveBeenCalledWith('lease_test_write')
+    })
+
+    it('does not reconcile a playback restore failure after the database commit', async () => {
+      const { service, repo } = setup({
+        tryAcquireWriteLease: () => ({ ok: false, reason: 'playback-in-use' }),
+        releaseWriteLease: vi.fn(),
+      })
+      vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
+      service.setPlaybackTagWriteHandler(async (_filePath, _metadata, reconcile) => {
+        await reconcile(async () => undefined)
+        return { ok: false, reason: 'playback-restore-failed' }
+      })
+      await expect(
+        service.updateTrackMetadata({
+          trackId: 1,
+          title: 'Published',
+          artistDisplay: null,
+          albumTitle: null,
+          albumArtistDisplay: null,
+          genreDisplay: null,
+          year: null,
+          releaseDate: null,
+        }),
+      ).resolves.toEqual({ ok: false, reason: 'playback-restore-failed' })
+      expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
+      expect(workers).toHaveLength(0)
+      await service.shutdown()
+      expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
+      expect(workers).toHaveLength(0)
+    })
+
+    it('does not reconcile playback-in-use returned before commit', async () => {
+      const { service, repo } = setup({
+        tryAcquireWriteLease: () => ({ ok: false, reason: 'playback-in-use' }),
+        releaseWriteLease: vi.fn(),
+      })
+      service.setPlaybackTagWriteHandler(async () => ({ ok: false, reason: 'playback-in-use' }))
+      await expect(
+        service.updateTrackMetadata({
+          trackId: 1,
+          title: 'Published',
+          artistDisplay: null,
+          albumTitle: null,
+          albumArtistDisplay: null,
+          genreDisplay: null,
+          year: null,
+          releaseDate: null,
+        }),
+      ).resolves.toEqual({ ok: false, reason: 'playback-in-use' })
+      expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
+      expect(readStableMetadata).not.toHaveBeenCalled()
+      expect(workers).toHaveLength(0)
+      await service.shutdown()
+      expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
+    })
+
+    it('reconciles a published file on shutdown when the first stable read fails', async () => {
+      const { service, repo } = setup()
+      vi.mocked(writeAudioTags).mockResolvedValueOnce(undefined as never)
+      vi.mocked(readStableMetadata)
+        .mockRejectedValueOnce(new Error('Written tags do not match'))
+        .mockRejectedValueOnce(new Error('reconcile unread'))
+        .mockResolvedValueOnce(payload)
+      await expect(
+        service.updateTrackMetadata({
+          trackId: 1,
+          title: 'Published',
+          artistDisplay: null,
+          albumTitle: null,
+          albumArtistDisplay: null,
+          genreDisplay: null,
+          year: null,
+          releaseDate: null,
+        }),
+      ).rejects.toThrow('Written tags do not match')
+      expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
+      expect(workers).toHaveLength(0)
+      await service.shutdown()
+      expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
+      expect(workers).toHaveLength(0)
+    })
+
+    it('does not reconcile a commit that fails before the file is published', async () => {
+      const { service, repo } = setup()
+      vi.mocked(writeAudioTags).mockRejectedValueOnce(new Error('save failed'))
+      await expect(
+        service.updateTrackMetadata({
+          trackId: 1,
+          title: 'Published',
+          artistDisplay: null,
+          albumTitle: null,
+          albumArtistDisplay: null,
+          genreDisplay: null,
+          year: null,
+          releaseDate: null,
+        }),
+      ).rejects.toThrow('save failed')
+      await service.shutdown()
+      expect(repo.commitVerifiedUserEdit).not.toHaveBeenCalled()
+      expect(readStableMetadata).not.toHaveBeenCalled()
+      expect(workers).toHaveLength(0)
     })
   })
 })

@@ -29,6 +29,17 @@ describe('archive preload capabilities', () => {
     expect(invoke).toHaveBeenCalledExactlyOnceWith('app:claim-startup-album', request)
   })
 
+  it('draws fresh albums repeatedly through a separate explicit capability', async () => {
+    const request = { recentAlbums: [{ albumArtist: 'Artist', album: 'Album' }] }
+    invoke.mockResolvedValueOnce({ album: null }).mockResolvedValueOnce({ album: null })
+    await expect(auralisApi.app.drawStartupAlbum(request)).resolves.toEqual({ album: null })
+    await expect(auralisApi.app.drawStartupAlbum(request)).resolves.toEqual({ album: null })
+    expect(invoke.mock.calls).toEqual([
+      ['app:draw-startup-album', request],
+      ['app:draw-startup-album', request],
+    ])
+  })
+
   it('exposes annual counts and reset without reviving retired queries', () => {
     expect(exposeInMainWorld).toHaveBeenCalledExactlyOnceWith('auralis', auralisApi)
     expect(Object.keys(auralisApi.archive)).toEqual([

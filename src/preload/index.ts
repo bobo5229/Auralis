@@ -63,6 +63,7 @@ export const auralisApi: AuralisApi = {
     getInfo: () => invoke(ipcChannels.app.getInfo),
     claimCdStartupEntry: () => invoke(ipcChannels.app.claimCdStartupEntry),
     claimStartupAlbum: (request) => invoke(ipcChannels.app.claimStartupAlbum, request),
+    drawStartupAlbum: (request) => invoke(ipcChannels.app.drawStartupAlbum, request),
     exportDiagnostics: () => invoke(ipcChannels.app.exportDiagnostics),
     rendererReady: () => send(ipcChannels.app.rendererReady),
     splashReady: (payload) => send(ipcChannels.app.splashReady, payload),

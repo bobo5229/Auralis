@@ -8,6 +8,7 @@ import {
 } from '@renderer/app/utils/playerOverlayFocus'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import { usePlaybackModePresentation } from '@renderer/features/playback/composables/usePlaybackModePresentation'
+import PlayerBarActionIcon from './PlayerBarActionIcon.vue'
 
 const props = defineProps<{
   currentMode: PlaybackMode
@@ -105,13 +106,11 @@ onMounted(() => {
         @focus="focusedIndex = index"
         @click="handleSelect(mode.id)"
       >
-        <span class="h-4 w-4" :class="mode.icon" aria-hidden="true" />
+        <PlayerBarActionIcon :icon="mode.icon" size="playback-mode" />
         <span>{{ mode.label }}</span>
-        <span
-          v-if="currentMode === mode.id"
-          class="playback-mode-check i-ph-check"
-          aria-hidden="true"
-        />
+        <span v-if="currentMode === mode.id" class="playback-mode-check" aria-hidden="true">
+          <PlayerBarActionIcon icon="i-ph-check" size="compact" />
+        </span>
       </button>
       <div v-if="index < modes.length - 1" class="playback-mode-divider" role="separator" />
     </template>

@@ -7,5 +7,5 @@ export const cardLayout = {
   footer: { x: 44, y: 866, width: 632, height: 76 },
   title: { fontSize: 54, compactFontSize: 48, centerY: 136, lineHeight: 56, inset: 16 },
   artist: { fontSize: 60, centerY: 910, inset: 16 },
-  frame: { outerInset: 15, innerInset: 28, coverInset: 8 },
+  frame: { outerInset: 20, radius: 20, cornerGap: 8, coverInset: 2 },
 } as const

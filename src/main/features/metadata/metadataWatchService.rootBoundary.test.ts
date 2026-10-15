@@ -69,6 +69,9 @@ function setup(initialRoots = [oldRoot]) {
     { list: () => roots.map((path) => ({ path })) } as unknown as LibraryRootRepository,
     {
       getExistingFilePaths: (paths: string[]) => new Set(paths.filter((path) => known.has(path))),
+      getTrackIdsByPlaybackPath: () => [],
+      getFilePathById: () => null,
+      adoptPlaybackPath: () => false,
       getFileFingerprintsByFilePaths: (paths: string[]) =>
         new Map(paths.map((path) => [path, { fileSize: 10, fileMtimeMs: 1 }])),
       getTrackIdsByFilePaths: () => [1],

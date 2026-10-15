@@ -332,6 +332,10 @@
       "startupAlbum": {
         "title": "启动时推荐一张专辑",
         "description": "欢迎页结束后，从本地收藏随机展示一张专辑。下次启动生效。",
+        "drawNow": "抽取",
+        "drawing": "正在抽取…",
+        "drawEmpty": "暂无可推荐的专辑，请先向曲库添加音乐。",
+        "drawFailed": "本次抽取未完成，请重试。",
         "persistFailed": "本次保存未完成，请重试。"
       },
       "textDisplay": {
@@ -397,6 +401,13 @@
         "soft": "柔和",
         "emphasized": "强调",
         "persistFailed": "已应用，本次保存未完成。"
+      },
+      "playbarStyle": {
+        "title": "播放栏样式",
+        "description": "选择底部播放栏的背景样式。",
+        "plain": "普通",
+        "frosted": "毛玻璃",
+        "persistFailed": "本次选择未保存，请重新选择以重试。"
       },
       "playingIcon": {
         "title": "“播放中”图标",
@@ -917,14 +928,9 @@
   },
   "smartBuilder": {
     "title": "新建智能歌单",
-    "description": "选择本地收藏中的流派或艺术家，组合歌单筛选条件。",
     "defaultName": "我的智能歌单",
     "genre": "流派",
     "artist": "艺术家",
-    "chooseSingle": "请选择流派或艺术家",
-    "chooseGroups": "请选择每个条件组的具体值",
-    "groupEmpty": "条件组内无匹配，无法创建",
-    "noIntersection": "各条件组之间没有交集，无法创建",
     "loadError": "曲库加载失败，请重试",
     "noMatches": "当前条件没有匹配歌曲，请调整后重试",
     "createError": "创建失败，请重试",
@@ -934,15 +940,9 @@
     "single": "单一条件组",
     "andAll": "同时满足",
     "orAny": "满足任一",
-    "modeDescription": {
-      "single": "只使用流派或艺术家中的一组，可在组内选择多项。",
-      "and": "歌曲需要同时匹配流派和艺术家两个条件组。",
-      "or": "歌曲匹配流派或艺术家中的任一条件组即可。"
-    },
     "matchCount": "{count} 首匹配",
     "unselected": "未选择",
     "inactive": "暂不可选",
-    "groupDisabled": "单一条件组模式下，清空另一组后可在此选择。",
     "withinGroup": "组内匹配",
     "withinGroupAria": "{field}组内关系",
     "and": "全部",
@@ -955,8 +955,7 @@
     "more": "显示更多（{count}）",
     "noValues": "没有匹配的{field}",
     "emptyValues": "曲库中暂无{field}信息",
-    "selectionLimit": "每组最多选择 {count} 项；取消一项后可继续选择。",
-    "resultCount": "匹配歌曲 {count} 首",
+    "selectionLimit": "已达上限（{count} 项）",
     "creating": "正在创建…",
     "create": "创建歌单"
   },

@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps<{ icon: string }>()
+const props = withDefaults(
+  defineProps<{ icon: string; size?: 'compact' | 'playback-mode' | 'standard' }>(),
+  { size: 'standard' },
+)
 
 // 沿用 Phosphor 的图形结构，在 20px 网格内校正光学尺寸。
 // 使用描边绘制，避免缩放填充图标时同时改变线宽。
@@ -40,25 +43,44 @@ const paths: Record<string, string[]> = {
     'M14 7.5Q15.4 9.1 15 10.7 M16.5 5.5Q19.6 9.2 17.6 13',
     'M3.5 3 16.5 17',
   ],
+  'i-ph-dots-three': ['M4 10h0', 'M10 10h0', 'M16 10h0'],
+  'i-ph-check': ['M4.25 10.5 8.25 14.5 15.75 6.5'],
 }
 
 const strokes = computed(() => paths[props.icon])
+const iconSizeClass = computed(() => {
+  if (props.size === 'compact') return 'h-4 w-4'
+  if (props.size === 'playback-mode') return 'h-[19px] w-[19px]'
+  return 'h-5 w-5'
+})
+// 20 单位 viewBox 按实际尺寸补偿，保持不同尺寸下约 1.2px 的描边。
+const strokeWidth = computed(() => {
+  if (props.size === 'compact') return 1.5
+  if (props.size === 'playback-mode') return 1.263157895
+  return 1.2
+})
 </script>
 
 <template>
   <svg
     v-if="strokes"
-    class="playbar-action-icon playbar-action-stroke-icon h-5 w-5"
+    class="playbar-action-icon playbar-action-stroke-icon"
+    :class="iconSizeClass"
     :data-icon="icon"
     viewBox="0 0 20 20"
     fill="none"
     stroke="currentColor"
-    stroke-width="1.6"
+    :stroke-width="strokeWidth"
     stroke-linecap="round"
     stroke-linejoin="round"
     aria-hidden="true"
   >
     <path v-for="(path, index) in strokes" :key="index" :d="path" />
   </svg>
-  <span v-else class="playbar-action-icon h-5 w-5" :class="icon" aria-hidden="true" />
+  <span
+    v-else
+    class="playbar-action-icon"
+    :class="[iconSizeClass, icon]"
+    aria-hidden="true"
+  />
 </template>

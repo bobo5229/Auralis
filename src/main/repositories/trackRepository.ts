@@ -38,6 +38,10 @@ export class TrackRepository extends BaseRepository {
     return this.queries.getFilePathById(trackId)
   }
 
+  adoptPlaybackPath(trackId: number, expectedPath: string, nextPath: string): boolean {
+    return this.queries.adoptPlaybackPath(trackId, expectedPath, nextPath)
+  }
+
   getTrackIdsByFilePaths(filePaths: string[]): number[] {
     return this.queries.getTrackIdsByFilePaths(filePaths)
   }

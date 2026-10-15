@@ -138,6 +138,9 @@ function readPersistedViewMode(): LibraryViewMode {
 
 const libraryViewMode = ref<LibraryViewMode>(readPersistedViewMode())
 const isCoverView = computed(() => libraryViewMode.value === 'cover')
+const isSearchEnabled = computed(
+  () => isLibrarySurface.value && (!isRecentAdded.value || !isCoverView.value),
+)
 if (instanceRouteName === 'library') {
   usePageParameterSource(
     'songs',
@@ -568,6 +571,7 @@ function isInteractiveTarget(target: EventTarget | null): boolean {
 
 const {
   searchQuery,
+  isSearchFocused,
   searchInputRef,
   searchRootRef,
   searchZoneRef,
@@ -587,10 +591,22 @@ const {
   invalidate: invalidateLibrarySearchSession,
 } = useLibrarySearchSession({
   isDisposed: () => isPageUnmounted || hasLeftInstanceRoute,
-  isLibrarySurface: () => isLibrarySurface.value && !isRecentAdded.value,
+  isLibrarySurface: () => isSearchEnabled.value,
   isInteractiveTarget,
   scrollToTrackIndex,
 })
+
+watch(
+  isSearchEnabled,
+  (enabled) => {
+    if (enabled) return
+    clearSearch()
+    clearSearchHover()
+    searchInputRef.value?.blur()
+    isSearchFocused.value = false
+  },
+  { flush: 'sync' },
+)
 
 function onFlatColumnResizePreview(widths: LibraryFlatColumnWidths): void {
   flatColumnLayoutState.preview(widths)
@@ -631,7 +647,7 @@ function isPointInsideFlatResizeHandle(clientX: number, clientY: number): boolea
 function onLibrarySurfaceMouseMove(event: MouseEvent): void {
   const insideHandle = isPointInsideFlatResizeHandle(event.clientX, event.clientY)
   isFlatColumnResizeTarget.value = insideHandle || isFlatColumnResizeActive.value
-  if (insideHandle || isFlatColumnResizeActive.value || isRecentAdded.value) {
+  if (insideHandle || isFlatColumnResizeActive.value || !isSearchEnabled.value) {
     clearSearchHover()
     return
   }
@@ -821,7 +837,7 @@ const {
     resetMatchCursor()
     searchOutcome.value = { kind: 'idle' }
     ensureKeyboardFocusTrackId()
-    if (!isRecentAdded.value) scheduleLibrarySearchIndex(snapshot.tracks)
+    scheduleLibrarySearchIndex(snapshot.tracks)
   },
   captureViewportRestore: captureLibraryViewportRestore,
   restoreViewportRestore: restoreLibraryViewportRestore,
@@ -970,7 +986,7 @@ onBeforeUnmount(() => {
       @keydown="onListShellKeyDown"
     >
       <div
-        v-if="!isRecentAdded"
+        v-if="isSearchEnabled"
         ref="searchZoneRef"
         class="library-search-zone"
         :class="{ 'library-search-zone--flat-row': !isCoverView }"

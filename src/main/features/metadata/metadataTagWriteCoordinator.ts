@@ -15,6 +15,8 @@ export interface MetadataWriteCoordinator {
     sourceId?: string,
   ) => { ok: true; leaseId: string } | Extract<UpdateTrackMetadataResult, { ok: false }>
   releaseWriteLease: (leaseId: string) => void
+  refreshPlaybackCapability?: (filePath: string) => void
+  finishMetadataWrite?: (filePath: string) => void
 }
 
 export type PlaybackMetadataTagWrite = (
@@ -36,7 +38,8 @@ export class MetadataTagWriteCoordinator {
   private readonly trackGenerations = new Map<number, number>()
   private readonly writingTracks = new Set<number>()
   private readonly writingFiles = new Set<string>()
-  private readonly pendingReconciliation = new Set<number>()
+  private readonly pendingPublishedWrites = new Map<number, EditableTrackMetadata>()
+  private reconciliation: Promise<void> | null = null
   private readonly pendingWrites = new Set<Promise<UpdateTrackMetadataResult>>()
 
   constructor(
@@ -132,7 +135,10 @@ export class MetadataTagWriteCoordinator {
     this.trackGenerations.set(metadata.trackId, generation)
     this.writingTracks.add(metadata.trackId)
     this.writingFiles.add(normalizeAudioFilePath(filePath))
+    this.coordinator?.refreshPlaybackCapability?.(filePath)
     let libraryRevision: string | undefined
+    let filePublished = false
+    let databaseCommitted = false
 
     // Suppress before the file mutates: ffmpeg replace fires watch events while
     // the write is still in flight, and a 1200ms flush can start first.
@@ -141,6 +147,7 @@ export class MetadataTagWriteCoordinator {
         await beforeCommit?.()
         this.onTagWriteSuccess?.(filePath)
         await commit()
+        filePublished = true
         onDiskCommit?.()
         const result = await readStableMetadata(
           metadata.trackId,
@@ -153,7 +160,8 @@ export class MetadataTagWriteCoordinator {
           throw new Error('Tag write became stale')
         if (metadata.lyricsText !== undefined) this.repository.updateTrackLyrics(result)
         else this.repository.commitVerifiedUserEdit(metadata, result)
-        this.pendingReconciliation.delete(metadata.trackId)
+        this.pendingPublishedWrites.delete(metadata.trackId)
+        databaseCommitted = true
         this.onTagWriteSuccess?.(filePath)
         try {
           const revision = this.lifecycle.onUserEditCommitted?.(metadata.trackId, filePath)
@@ -164,7 +172,9 @@ export class MetadataTagWriteCoordinator {
       }
       if (usesPlaybackWriter) {
         const result = await this.playbackTagWrite!(filePath, metadata, commitAndReconcile)
-        if (!result.ok) this.pendingReconciliation.add(metadata.trackId)
+        if (!result.ok && filePublished && !databaseCommitted) {
+          this.pendingPublishedWrites.set(metadata.trackId, metadata)
+        }
         if (result.ok && libraryRevision) return { ...result, libraryRevision }
         return result
       }
@@ -178,7 +188,9 @@ export class MetadataTagWriteCoordinator {
       } else await commitAndReconcile(() => writeAudioTags(filePath, metadata, this.ffmpegPath))
       return libraryRevision ? { ok: true, libraryRevision } : { ok: true }
     } catch (error) {
-      this.pendingReconciliation.add(metadata.trackId)
+      if (filePublished && !databaseCommitted) {
+        this.pendingPublishedWrites.set(metadata.trackId, metadata)
+      }
       logger.warn(
         { err: error, trackId: metadata.trackId },
         'Tag write requires metadata reconciliation',
@@ -190,22 +202,56 @@ export class MetadataTagWriteCoordinator {
       }
       this.writingTracks.delete(metadata.trackId)
       this.writingFiles.delete(normalizeAudioFilePath(filePath))
+      this.coordinator?.finishMetadataWrite?.(filePath)
       this.flushReconciliation()
     }
   }
 
   flushReconciliation(): void {
     if (this.lifecycle.isStopping() || this.lifecycle.hasActiveJob()) return
-    const ids = [...this.pendingReconciliation].filter((id) => !this.writingTracks.has(id))
-    if (!ids.length) return
-    for (const id of ids) this.pendingReconciliation.delete(id)
-    try {
-      this.lifecycle.refreshTracksFromFileChanges(ids)
-    } catch (error) {
-      logger.warn(
-        { err: error, trackIds: ids },
-        'Unable to start metadata reconciliation; explicit retry required',
-      )
+    if (this.pendingPublishedWrites.size === 0 || this.reconciliation) return
+    const run = this.reconcilePublishedWrites()
+    const reconciliation = run.finally(() => {
+      if (this.reconciliation === reconciliation) this.reconciliation = null
+    })
+    this.reconciliation = reconciliation
+  }
+
+  async awaitReconciliation(): Promise<void> {
+    while (this.reconciliation) await this.reconciliation
+    await this.reconcilePublishedWrites()
+  }
+
+  private async reconcilePublishedWrites(): Promise<void> {
+    for (const [trackId, metadata] of [...this.pendingPublishedWrites]) {
+      if (!this.pendingPublishedWrites.has(trackId) || this.writingTracks.has(trackId)) continue
+      const filePath = this.repository.getTrackFilePath(trackId)
+      if (!filePath) {
+        this.pendingPublishedWrites.delete(trackId)
+        logger.warn({ trackId }, 'Published tag write has no track path')
+        continue
+      }
+      try {
+        const result = await readStableMetadata(
+          trackId,
+          filePath,
+          this.artworkCacheDir,
+          (actual) => verifyWrittenMetadata(metadata, actual),
+        )
+        await assertMetadataFingerprint(result)
+        if (this.writingTracks.has(trackId) || !this.pendingPublishedWrites.has(trackId)) continue
+        if (metadata.lyricsText !== undefined) this.repository.updateTrackLyrics(result)
+        else this.repository.commitVerifiedUserEdit(metadata, result)
+        this.pendingPublishedWrites.delete(trackId)
+        this.onTagWriteSuccess?.(filePath)
+        try {
+          this.lifecycle.onUserEditCommitted?.(trackId, filePath)
+        } catch (error) {
+          logger.warn({ err: error }, 'Unable to notify committed metadata edit')
+        }
+      } catch (error) {
+        logger.warn({ err: error, trackId }, 'Unable to reconcile published tag write')
+      }
     }
   }
 }

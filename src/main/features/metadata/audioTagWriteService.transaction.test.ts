@@ -252,6 +252,54 @@ describe.skipIf(!existsSync(ffmpeg))('prepared tag file transactions on isolated
     )
     await expectFailedPreparationCleaned(before)
   })
+  it('reconciles a published edit even when removing its backup fails', async () => {
+    const before = await readFile(file)
+    const actualRm = (await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises'))
+      .rm
+    const repository = {
+      getTrackFilePath: () => file,
+      getEditableTrackMetadata: () => null,
+      commitVerifiedUserEdit: vi.fn(),
+    }
+    const refreshTracksFromFileChanges = vi.fn(() => ({ jobId: 1 }))
+    const onDiskCommit = vi.fn()
+    const writer = new MetadataTagWriteCoordinator(
+      repository as unknown as MetadataRefreshRepository,
+      join(directory, 'artwork'),
+      ffmpeg,
+      {
+        isStopping: () => false,
+        hasActiveJob: () => false,
+        refreshTracksFromFileChanges,
+      },
+    )
+    vi.mocked(rm).mockImplementation(async (path, options) => {
+      if (String(path).startsWith(file + '.auralis-backup-'))
+        throw Object.assign(new Error('isolated backup cleanup failure'), { code: 'EACCES' })
+      await actualRm(path, options)
+    })
+    try {
+      await expect(writer.updateTrackMetadata(edit, undefined, onDiskCommit)).resolves.toEqual({
+        ok: true,
+      })
+      expect(onDiskCommit).toHaveBeenCalledOnce()
+      expect(repository.commitVerifiedUserEdit).toHaveBeenCalledWith(
+        edit,
+        expect.objectContaining({ title: 'After' }),
+      )
+      expect(refreshTracksFromFileChanges).not.toHaveBeenCalled()
+      expect((await metadataParser.parseAudioMetadata(file)).common.title).toBe('After')
+      const backup = (await readdir(directory)).find((name) =>
+        name.startsWith(basename(file) + '.auralis-backup-'),
+      )
+      expect(backup).toBeDefined()
+      expect(await readFile(join(directory, backup!))).toEqual(before)
+      await actualRm(join(directory, backup!))
+    } finally {
+      vi.mocked(rm).mockImplementation(actualRm)
+    }
+  })
+
   it.each([
     ['mp3', 'libmp3lame'],
     ['m4a', 'aac'],

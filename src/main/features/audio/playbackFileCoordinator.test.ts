@@ -355,4 +355,66 @@ describe('PlaybackFileCoordinator', () => {
     expect(coordinator.getTrackState(1).status).toBe('editable')
     expect(coordinator.getTrackState(3).status).toBe('editable')
   })
+
+  it('turns a write lease into one mpv read lease and leaves a second release as a no-op', async () => {
+    const { coordinator } = setupCoordinator()
+    const path = 'D:/music/song1.flac'
+    coordinator.setBufferedWriteCapability((filePath) => filePath.endsWith('.flac'))
+    const write = coordinator.tryAcquireWriteLease(path)
+    expect(write.ok).toBe(true)
+    if (!write.ok) return
+    let opened = false
+    const waiting = coordinator.acquireReadLease(path, 'mpv-next').then(() => {
+      opened = true
+    })
+    await Promise.resolve()
+    expect(opened).toBe(false)
+    const handed = coordinator.handoffWriteLeaseToRead(write.leaseId, 'mpv-current')
+    expect(handed.leaseId).toMatch(/^lease_read_/)
+    await waiting
+    expect(opened).toBe(true)
+    expect(coordinator.getTrackState(1).status).toBe('playback-editable')
+    coordinator.releaseWriteLease(write.leaseId)
+    expect(coordinator.getTrackState(1).status).toBe('playback-editable')
+    expect(() => coordinator.handoffWriteLeaseToRead(write.leaseId, 'mpv-current')).toThrow(
+      'File write handoff lease expired',
+    )
+  })
+
+  it('reports write-in-progress while metadata activity is set and still lets the in-flight save reserve', async () => {
+    const { coordinator } = setupCoordinator()
+    const path = 'D:/music/song1.flac'
+    coordinator.setBufferedWriteCapability((filePath) => filePath.endsWith('.flac'))
+    const current = await coordinator.acquireReadLease(path, 'mpv-current')
+    coordinator.setMetadataWriteActivity(() => true)
+    expect(coordinator.getTrackState(1).status).toBe('write-in-progress')
+    expect(coordinator.tryAcquireWriteLease(path)).toEqual({
+      ok: false,
+      reason: 'write-in-progress',
+    })
+    const intent = coordinator.reserveWriteIntent(path)
+    expect(intent).toBeTruthy()
+    coordinator.releaseWriteLease(intent!)
+    let htmlOpened = false
+    const htmlWaiting = coordinator.acquireReadLease(path, 'html-audio').then(() => {
+      htmlOpened = true
+    })
+    let spectrumOpened = false
+    const spectrumWaiting = coordinator.acquireReadLease(path, 'spectrum-analysis').then(() => {
+      spectrumOpened = true
+    })
+    await Promise.resolve()
+    expect(htmlOpened).toBe(false)
+    expect(spectrumOpened).toBe(false)
+    const another = await coordinator.acquireReadLease(path, 'mpv-current')
+    expect(another.leaseId).not.toBe(current.leaseId)
+    coordinator.setMetadataWriteActivity(() => false)
+    expect(coordinator.getTrackState(1).status).toBe('playback-editable')
+    coordinator.finishMetadataWrite(path)
+    await htmlWaiting
+    await spectrumWaiting
+    expect(htmlOpened).toBe(true)
+    expect(spectrumOpened).toBe(true)
+    expect(coordinator.getTrackState(1).status).toBe('playback-in-use')
+  })
 })

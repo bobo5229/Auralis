@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, inject, onBeforeUnmount, ref } from 'vue'
 import { useStartupAlbumPreference } from '@renderer/features/startupAlbum/startupAlbumPreference'
+import { startupAlbumActionsKey } from '@renderer/features/startupAlbum/startupAlbumActions'
 import { useI18n } from 'vue-i18n'
 import { useTheme, type ThemeMode } from '@renderer/composables/useTheme'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
@@ -16,6 +17,11 @@ import {
   usePlayingIconPreference,
   type PlayingIconPreset,
 } from '@renderer/features/appearance/composables/usePlayingIconPreference'
+import {
+  PLAYBAR_STYLES,
+  usePlaybarStyle,
+  type PlaybarStyle,
+} from '@renderer/features/appearance/composables/usePlaybarStyle'
 import SettingsSelect from './SettingsSelect.vue'
 import ThemeAccentSettings from './ThemeAccentSettings.vue'
 import ChineseTextSettings from './ChineseTextSettings.vue'
@@ -24,12 +30,40 @@ import LyricsCountdownSettings from './LyricsCountdownSettings.vue'
 import WindowBehaviorSettings from './WindowBehaviorSettings.vue'
 import { useUiLocale } from '@renderer/i18n'
 import type { UiLocale } from '@shared/uiLocale'
+import { useSettingsDialog } from '../composables/useSettingsDialog'
 
 const {
   enabled: startupAlbumEnabled,
   persistFailed: startupAlbumPersistFailed,
   setEnabled: setStartupAlbumEnabled,
 } = useStartupAlbumPreference()
+const startupAlbumActions = inject(startupAlbumActionsKey, null)
+const { closeSettings } = useSettingsDialog()
+const startupAlbumDrawing = computed(() => startupAlbumActions?.busy.value ?? false)
+const startupAlbumDrawError = ref<'drawEmpty' | 'drawFailed' | null>(null)
+const startupAlbumDrawButton = ref<HTMLButtonElement | null>(null)
+let startupAlbumDrawRequest: AbortController | undefined
+
+async function drawStartupAlbum(): Promise<void> {
+  if (!startupAlbumActions || startupAlbumDrawing.value) return
+  const request = new AbortController()
+  startupAlbumDrawRequest = request
+  startupAlbumDrawError.value = null
+  try {
+    const result = await startupAlbumActions.draw(
+      request.signal,
+      startupAlbumDrawButton.value ?? undefined,
+    )
+    if (request.signal.aborted) return
+    if (result === 'shown') closeSettings()
+    else if (result === 'empty') startupAlbumDrawError.value = 'drawEmpty'
+    else if (result === 'failed') startupAlbumDrawError.value = 'drawFailed'
+  } finally {
+    if (startupAlbumDrawRequest === request) startupAlbumDrawRequest = undefined
+  }
+}
+
+onBeforeUnmount(() => startupAlbumDrawRequest?.abort())
 const { t } = useI18n()
 const { locale, persistFailed: localePersistFailed, nativeSyncFailed, setUiLocale } = useUiLocale()
 const localeOptions = [
@@ -57,6 +91,18 @@ const lyricsScrollOptions = computed(() =>
   LYRICS_SCROLL_PRESETS.map((value) => ({
     value,
     label: t(`settings.appearance.lyricsScroll.${value}`),
+  })),
+)
+const {
+  style: playbarStyle,
+  persistFailed: playbarStylePersistFailed,
+  setStyle: setPlaybarStyle,
+} = usePlaybarStyle()
+
+const playbarStyleOptions = computed(() =>
+  PLAYBAR_STYLES.map((value) => ({
+    value,
+    label: t(`settings.appearance.playbarStyle.${value}`),
   })),
 )
 const { playingIcon, setPlayingIcon } = usePlayingIconPreference()
@@ -98,6 +144,10 @@ function selectMotionPreference(value: MotionPreference): void {
 
 function selectLyricsScrollPreset(value: LyricsScrollPreset): void {
   setLyricsScrollPreset(value)
+}
+
+function selectPlaybarStyle(value: PlaybarStyle): void {
+  setPlaybarStyle(value)
 }
 
 function selectPlayingIconPreset(value: PlayingIconPreset): void {
@@ -210,6 +260,27 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
               {{ t('settings.appearance.sidebarFullHeightOption') }}
             </button>
           </div>
+        </div>
+        <div class="settings-row settings-row--with-desc settings-row--playbar-style">
+          <div>
+            <strong id="appearance-playbar-style-label">{{
+              t('settings.appearance.playbarStyle.title')
+            }}</strong>
+            <span id="appearance-playbar-style-description">{{
+              t('settings.appearance.playbarStyle.description')
+            }}</span>
+            <span v-if="playbarStylePersistFailed" role="status">{{
+              t('settings.appearance.playbarStyle.persistFailed')
+            }}</span>
+          </div>
+          <SettingsSelect
+            id="appearance-playbar-style"
+            labelledby="appearance-playbar-style-label"
+            describedby="appearance-playbar-style-description"
+            :model-value="playbarStyle"
+            :options="playbarStyleOptions"
+            @update:model-value="selectPlaybarStyle($event as PlaybarStyle)"
+          />
         </div>
         <div class="settings-row settings-row--with-desc settings-row--playing-icon">
           <div>
@@ -357,7 +428,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
     </LyricsEffectsSettings>
 
     <WindowBehaviorSettings>
-      <div class="settings-row settings-row--with-desc">
+      <div class="settings-row settings-row--with-desc settings-row--startup-album">
         <div>
           <strong>{{ t('settings.appearance.startupAlbum.title') }}</strong>
           <span id="startup-album-description">{{
@@ -366,21 +437,65 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
           <span v-if="startupAlbumPersistFailed" role="status">{{
             t('settings.appearance.startupAlbum.persistFailed')
           }}</span>
+          <span v-if="startupAlbumDrawError" role="status">{{
+            t(`settings.appearance.startupAlbum.${startupAlbumDrawError}`)
+          }}</span>
         </div>
-        <button
-          type="button"
-          class="settings-switch"
-          role="switch"
-          :aria-checked="startupAlbumEnabled"
-          :aria-label="t('settings.appearance.startupAlbum.title')"
-          aria-describedby="startup-album-description"
-          :class="{ 'is-enabled': startupAlbumEnabled }"
-          data-startup-setting
-          @click="setStartupAlbumEnabled(!startupAlbumEnabled)"
-        >
-          <span class="settings-switch-thumb" aria-hidden="true" />
-        </button>
+        <div class="startup-album-actions">
+          <button
+            type="button"
+            class="settings-switch"
+            role="switch"
+            :aria-checked="startupAlbumEnabled"
+            :aria-label="t('settings.appearance.startupAlbum.title')"
+            aria-describedby="startup-album-description"
+            :class="{ 'is-enabled': startupAlbumEnabled }"
+            data-startup-setting
+            @click="setStartupAlbumEnabled(!startupAlbumEnabled)"
+          >
+            <span class="settings-switch-thumb" aria-hidden="true" />
+          </button>
+          <button
+            ref="startupAlbumDrawButton"
+            type="button"
+            class="settings-text-button startup-album-draw"
+            :disabled="!startupAlbumActions || startupAlbumDrawing"
+            :aria-busy="startupAlbumDrawing"
+            data-startup-album-draw
+            @click="drawStartupAlbum"
+          >
+            {{
+              t(
+                startupAlbumDrawing
+                  ? 'settings.appearance.startupAlbum.drawing'
+                  : 'settings.appearance.startupAlbum.drawNow',
+              )
+            }}
+          </button>
+        </div>
       </div>
     </WindowBehaviorSettings>
   </section>
 </template>
+
+<style scoped>
+.settings-row--startup-album {
+  flex-wrap: wrap;
+}
+
+.settings-row--startup-album > div:first-child {
+  flex: 1 1 220px;
+}
+
+.settings-row > .startup-album-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.startup-album-actions .startup-album-draw {
+  white-space: nowrap;
+}
+</style>

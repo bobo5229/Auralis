@@ -13,9 +13,19 @@ import { writeM4aStagingTags } from './m4aTagWriter'
 import { MetadataSaveError } from './metadataSaveError'
 import { hasM4aPublicationHelper, publishWindowsM4a } from './windowsM4aPublication'
 import { writeLyricsStagingTag } from './lyricsTagWriter'
+import { logger } from '@main/logging/logger'
 
 const FFMPEG_NOT_FOUND_MESSAGE =
   'Unable to write audio tags because the bundled FFmpeg runtime is unavailable.'
+
+async function removeTagWriteArtifact(filePath: string): Promise<void> {
+  try {
+    await rm(filePath, { force: true })
+  } catch (error) {
+    // Cleanup cannot undo publication or replace the original write failure.
+    logger.warn({ err: error, filePath }, 'Unable to remove tag-write temporary file')
+  }
+}
 
 function normalizeTagValue(value: string | null): string {
   return value?.trim() ?? ''
@@ -202,9 +212,9 @@ async function replaceOriginalFile(
       throw error
     }
 
-    await rm(backupPath, { force: true })
+    await removeTagWriteArtifact(backupPath)
   } finally {
-    await rm(stagingPath, { force: true })
+    await removeTagWriteArtifact(stagingPath)
   }
 }
 
@@ -314,15 +324,15 @@ export async function prepareAudioTagWrite(
           await replaceOriginalFile(filePath, stagingPath, originalFingerprint, beforeFirstRename)
         committed = true
       },
-      dispose: () => rm(stagingPath, { force: true }),
+      dispose: () => removeTagWriteArtifact(stagingPath),
     }
   } finally {
-    if (outputPath) await rm(outputPath, { force: true })
-    if (coveredPath) await rm(coveredPath, { force: true })
+    if (outputPath) await removeTagWriteArtifact(outputPath)
+    if (coveredPath) await removeTagWriteArtifact(coveredPath)
     if (coverPath) {
-      await rm(coverPath, { force: true })
+      await removeTagWriteArtifact(coverPath)
     }
-    if (!prepared) await rm(stagingPath, { force: true })
+    if (!prepared) await removeTagWriteArtifact(stagingPath)
   }
 }
 

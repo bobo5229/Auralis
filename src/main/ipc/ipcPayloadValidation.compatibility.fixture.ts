@@ -6,6 +6,9 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
   'app:claim-startup-album': {
     recentAlbums: [{ albumArtist: 'Artist', album: 'Album' }],
   },
+  'app:draw-startup-album': {
+    recentAlbums: [{ albumArtist: 'Artist', album: 'Album' }],
+  },
   'library:start-scan': { rootId: 1 },
   'library:cancel-scan': { jobId: 1 },
   'library:get-scan-status': { jobId: 1 },

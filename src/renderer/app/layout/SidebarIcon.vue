@@ -59,7 +59,8 @@ defineProps<{ kind: SidebarIconKind }>()
         <path d="M3 21h18M4 21v-9h4v9M10 21V4h4v17M16 21V9h4v12" />
       </template>
       <template v-else-if="kind === 'recentAdded'">
-        <path d="M3 5h18M3 10h10M3 15h8M3 20h8M17 13v8M13 17h8" />
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3.5 2" />
       </template>
       <template v-else-if="kind === 'custom'">
         <path d="M3 5h18M3 10h10M3 15h8M3 20h8" />

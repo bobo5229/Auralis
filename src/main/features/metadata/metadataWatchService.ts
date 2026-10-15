@@ -1,5 +1,6 @@
 import { stat } from 'node:fs/promises'
 import { normalize } from 'node:path'
+import { normalizeAudioFilePath } from '../audio/playbackFileCoordinator'
 import { isSupportedAudioFile } from '@main/features/libraryScan/audioFileFilter'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
@@ -134,20 +135,20 @@ export class MetadataWatchService {
    * path briefly so the write mtime change cannot clobber user_edit via refresh.
    */
   suppressRefreshForPath(filePath: string, durationMs = TAG_WRITE_REFRESH_SUPPRESS_MS): void {
-    const normalizedPath = normalize(filePath)
+    const normalizedPath = normalizeAudioFilePath(filePath)
     this.suppressRefreshUntil.set(normalizedPath, Date.now() + durationMs)
-    // Keep queued file events so availability can still recover during tag-write
-    // suppression. The flush applies suppression only to metadata refresh.
-    this.pendingLyricsIntentPaths.delete(normalizedPath)
+    // Keep both file events and sidecar intent: suppression delays reconciliation
+    // but cannot discard external changes observed around the tag write.
   }
 
   private isRefreshSuppressed(filePath: string): boolean {
-    const until = this.suppressRefreshUntil.get(normalize(filePath))
+    const normalizedPath = normalizeAudioFilePath(filePath)
+    const until = this.suppressRefreshUntil.get(normalizedPath)
     if (until === undefined) {
       return false
     }
     if (Date.now() >= until) {
-      this.suppressRefreshUntil.delete(normalize(filePath))
+      this.suppressRefreshUntil.delete(normalizedPath)
       return false
     }
     return true
@@ -206,6 +207,22 @@ export class MetadataWatchService {
 
     this.pendingFilePaths.set(filePath, Date.now())
     this.scheduleFlush()
+  }
+
+  private resolveKnownWatchPaths(filePath: string): string[] {
+    if (this.trackRepository.getExistingFilePaths([filePath]).has(filePath)) return [filePath]
+    const ids = this.trackRepository.getTrackIdsByPlaybackPath(filePath)
+    if (ids.length === 0) return []
+    if (ids.length > 1) {
+      return ids
+        .map((id) => this.trackRepository.getFilePathById(id))
+        .filter((stored): stored is string => stored !== null)
+    }
+    const id = ids[0]
+    if (id === undefined) return []
+    const stored = this.trackRepository.getFilePathById(id)
+    if (!stored || stored === filePath) return stored ? [stored] : []
+    return this.trackRepository.adoptPlaybackPath(id, stored, filePath) ? [filePath] : [stored]
   }
 
   private scheduleFlush(delay = WATCH_DEBOUNCE_MS): void {
@@ -316,35 +333,64 @@ export class MetadataWatchService {
 
     // Route existing tracks
     if (existingEntries.length > 0) {
-      const existingPaths = existingEntries.map((entry) => entry.filePath)
-      const knownPaths = this.trackRepository.getExistingFilePaths(existingPaths)
-      const knownEntries = existingEntries.filter((entry) => knownPaths.has(entry.filePath))
-      const newFilePaths = existingEntries
-        .filter((entry) => !knownPaths.has(entry.filePath))
-        .map((entry) => entry.filePath)
+      const knownEntries: Array<{
+        eventPath: string
+        resolvedPath: string
+        size: number
+        mtimeMs: number
+      }> = []
+      const newFilePaths: string[] = []
+      for (const entry of existingEntries) {
+        const resolved = this.resolveKnownWatchPaths(entry.filePath)
+        if (resolved.length === 0) {
+          newFilePaths.push(entry.filePath)
+          continue
+        }
+        for (const resolvedPath of resolved) {
+          knownEntries.push({
+            eventPath: entry.filePath,
+            resolvedPath,
+            size: entry.size,
+            mtimeMs: entry.mtimeMs,
+          })
+        }
+      }
 
       // Availability depends on a regular file returning, independently of
       // whether its metadata fingerprint changed or tag writes are suppressed.
-      this.missingConfirmation.restorePaths(knownEntries.map((entry) => entry.filePath))
+      this.missingConfirmation.restorePaths(knownEntries.map((entry) => entry.resolvedPath))
 
       // Known tracks: refresh when the audio fingerprint changed, or when a
       // A lyric sidecar mapped this path into lyrics intent. Opening a file for
       // playback leaves size + mtime untouched and carries no lyrics intent, so
       // it must not create a refresh job. Tag-write suppression is applied
       // only to this metadata decision.
-      const refreshCandidates = knownEntries.filter(
-        (entry) => !this.isRefreshSuppressed(entry.filePath),
-      )
+      let suppressionRetryDelay = Infinity
+      const refreshCandidates = knownEntries.filter((entry) => {
+        if (!this.isRefreshSuppressed(entry.eventPath)) return true
+        this.pendingFilePaths.set(entry.eventPath, Date.now())
+        suppressionRetryDelay = Math.min(
+          suppressionRetryDelay,
+          this.suppressRefreshUntil.get(normalizeAudioFilePath(entry.eventPath))! - Date.now(),
+        )
+        return false
+      })
+      if (Number.isFinite(suppressionRetryDelay) && !this.flushTimer) {
+        this.scheduleFlush(Math.max(1, suppressionRetryDelay))
+      }
       const fingerprints = this.trackRepository.getFileFingerprintsByFilePaths(
-        refreshCandidates.map((entry) => entry.filePath),
+        refreshCandidates.map((entry) => entry.resolvedPath),
       )
-      const lyricsIntentPaths = refreshCandidates
-        .map((entry) => entry.filePath)
-        .filter((filePath) => this.pendingLyricsIntentPaths.has(filePath))
       const changedPaths = resolveWatchRefreshPaths({
-        stats: refreshCandidates,
+        stats: refreshCandidates.map((entry) => ({
+          filePath: entry.resolvedPath,
+          size: entry.size,
+          mtimeMs: entry.mtimeMs,
+        })),
         fingerprints,
-        lyricsIntentPaths,
+        lyricsIntentPaths: refreshCandidates
+          .filter((entry) => this.pendingLyricsIntentPaths.has(entry.eventPath))
+          .map((entry) => entry.resolvedPath),
       })
 
       if (changedPaths.length > 0) {

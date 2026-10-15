@@ -1075,7 +1075,7 @@ watch(displayMode, (mode) => {
 <template>
   <div
     class="app-window"
-    :inert="displayMode === 'fullscreen' || startupAlbumActive"
+    :inert="displayMode === 'fullscreen'"
     :class="{
       'is-cd-albums': isCdCanvas,
       'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',

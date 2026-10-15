@@ -80,7 +80,7 @@
   -moz-osx-font-smoothing: grayscale;
 
   /* Layout dimensions (theme-independent) */
-  --auralis-playbar-height: 72px;
+  --auralis-playbar-height: 64px;
   --auralis-playbar-max-width: 760px;
   --auralis-playbar-safe-area: calc(
     var(--auralis-playbar-height) + var(--auralis-player-bottom-gap)
@@ -89,6 +89,7 @@
   --auralis-shell-vertical-gap: 24px;
   --auralis-player-bottom-gap: 40px;
   --auralis-frosted-surface-filter: blur(24px) saturate(1.08);
+  --auralis-frosted-surface-tint-opacity: 40%;
   --auralis-app-background: var(--auralis-app-bg);
   --auralis-window-chrome-bg: var(--auralis-bg);
   --auralis-window-chrome-border: var(--auralis-border-strong);
@@ -668,10 +669,6 @@ input {
   margin-right: calc(-1 * var(--volume-growth) * var(--volume-reveal, 0));
 }
 
-.player-bar .volume-control-group {
-  gap: 0;
-}
-
 .player-bar .volume-inline-reveal {
   width: calc(130px * var(--volume-reveal, 0));
   opacity: var(--volume-reveal, 0);
@@ -685,7 +682,7 @@ input {
   width: 130px;
   height: 48px;
   /* 分别为 0% / 100% 留出半个标签的空间，数值仍与填充末端居中对齐。 */
-  padding-inline: 10px 18px;
+  padding-inline: 6px 18px;
   flex-shrink: 0;
 }
 
@@ -966,19 +963,32 @@ input {
   transition: none;
 }
 
+/* Playbar body material; menu surfaces keep their existing variables. */
+.player-bar {
+  --auralis-playbar-surface-bg: var(--auralis-playbar-bg);
+  --auralis-playbar-surface-filter: none;
+}
+
+.player-bar:where([data-playbar-style='frosted']) {
+  --auralis-playbar-surface-bg: color-mix(
+    in srgb,
+    var(--auralis-playbar-bg) var(--auralis-frosted-surface-tint-opacity),
+    transparent
+  );
+  --auralis-playbar-surface-filter: var(--auralis-frosted-surface-filter);
+}
+
 .player-bar-surface {
   position: absolute;
   inset: 0;
   z-index: 0;
   overflow: hidden;
   border-radius: inherit;
-  background: var(--player-surface-bg);
+  background: var(--auralis-playbar-surface-bg);
+  -webkit-backdrop-filter: var(--auralis-playbar-surface-filter);
+  backdrop-filter: var(--auralis-playbar-surface-filter);
   pointer-events: none;
   transition: background-color 0.3s ease;
-}
-
-:where([data-theme='light']) .player-bar .player-bar-surface {
-  background: var(--auralis-playbar-reduced-transparency-bg);
 }
 
 .player-bar > :not(.player-bar-album-tint, .player-bar-surface) {
@@ -1086,6 +1096,8 @@ input {
     --player-surface-tint: transparent;
     --player-surface-blur: none;
     --playbar-album-layer-opacity: 0;
+    --auralis-playbar-surface-bg: var(--auralis-playbar-reduced-transparency-bg);
+    --auralis-playbar-surface-filter: none;
   }
 
   .player-bar :is(.queue-popover, .playback-mode-menu, .player-bar-overflow-panel) {
@@ -1101,6 +1113,8 @@ input {
     --player-surface-tint: transparent;
     --player-surface-blur: none;
     --playbar-album-layer-opacity: 0;
+    --auralis-playbar-surface-bg: var(--auralis-playbar-reduced-transparency-bg);
+    --auralis-playbar-surface-filter: none;
   }
 
   .player-bar :is(.queue-popover, .playback-mode-menu, .player-bar-overflow-panel) {

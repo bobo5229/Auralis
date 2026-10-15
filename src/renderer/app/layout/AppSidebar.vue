@@ -246,16 +246,16 @@ const primaryNav = computed<
     routeName: 'library',
   },
   {
-    to: '/recent-added',
-    label: t('sidebar.recentAdded'),
-    icon: 'recentAdded',
-    routeName: 'library',
-  },
-  {
     to: '/albums',
     label: t('nav.albums'),
     icon: 'albums',
     routeName: 'albums',
+  },
+  {
+    to: '/recent-added',
+    label: t('sidebar.recentAdded'),
+    icon: 'recentAdded',
+    routeName: 'library',
   },
   {
     to: '/albums/cd',

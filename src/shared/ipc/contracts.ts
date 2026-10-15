@@ -225,6 +225,10 @@ export interface IpcInvokeContract {
     request: void
     response: { firstEntry: boolean }
   }
+  'app:draw-startup-album': {
+    request: { recentAlbums: StartupAlbumHistory }
+    response: { album: RandomAlbumTracksResult | null }
+  }
   'app:export-diagnostics': {
     request: void
     response: { status: 'saved' | 'cancelled' | 'failed' }

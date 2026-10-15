@@ -414,6 +414,9 @@ export function registerIpcHandlers(
     warn: (error) => logger.warn({ error }, 'Native playback operation failed'),
     onBoundaryStatus: (event) => logger.debug(event, 'Digital silence boundary analysis'),
   })
+  playbackFileCoordinator.setMetadataWriteActivity((filePath) =>
+    metadataRefreshService.isWritingFile(filePath),
+  )
   playbackFileCoordinator.setBufferedWriteCapability((filePath) =>
     nativePlayback.canWriteMetadata(filePath),
   )
@@ -459,6 +462,9 @@ export function registerIpcHandlers(
       ),
     ),
   )
+  electronIpcRegistrar.handle(ipcChannels.app.drawStartupAlbum, async (_event, request) => ({
+    album: await startupAlbumWorker.getStartupAlbumTracks(request.recentAlbums),
+  }))
   electronIpcRegistrar.handle(ipcChannels.app.setLocale, (_event, payload) => {
     setNativeUiLocale(payload.locale)
   })
@@ -577,22 +583,25 @@ export function registerIpcHandlers(
   return {
     async shutdown() {
       rendererLeaseOwners.dispose()
-      // Stop producers immediately, and keep SQLite open while accepted work drains.
-      const producers = await Promise.allSettled([
+      const early = await Promise.allSettled([
         electronIpcRegistrar.shutdown(),
         startupAlbumWorker.shutdown(),
-        metadataWatchService.stop(),
         artworkMaintenanceService.shutdown(),
-        spectrum.dispose(),
-        Promise.resolve().then(() => nativePlayback.dispose()),
       ])
-      const workers = await Promise.allSettled([
+      const library = await Promise.allSettled([
         libraryScanService.shutdown(),
         metadataRefreshService.shutdown(),
       ])
+      const playback = await Promise.allSettled([
+        metadataWatchService.stop(),
+        spectrum.dispose(),
+        Promise.resolve().then(() => nativePlayback.dispose()),
+      ])
       lyricsEditorService.dispose()
       lrcEditorService.dispose()
-      const failures = [...producers, ...workers].filter((result) => result.status === 'rejected')
+      const failures = [...early, ...library, ...playback].filter(
+        (result) => result.status === 'rejected',
+      )
       if (failures.length > 0) {
         throw new AggregateError(
           failures.map((result) => result.reason),

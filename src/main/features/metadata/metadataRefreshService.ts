@@ -81,6 +81,7 @@ export class MetadataRefreshService {
     this.stopping = true
     await this.tagWrites.drain()
     await this.workerHost.shutdown()
+    await this.tagWrites.awaitReconciliation()
   }
 
   private assertRunning(): void {

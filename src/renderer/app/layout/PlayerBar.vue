@@ -29,12 +29,14 @@ import { resolvePlaybarAccent } from '@renderer/features/playback/utils/resolveP
 import { animateFrames } from '@renderer/shared/animation/motion'
 import { useTheme } from '@renderer/composables/useTheme'
 import { useLyricsPanelVisibility } from '@renderer/features/appearance/composables/useLyricsPanelVisibility'
+import { usePlaybarStyle } from '@renderer/features/appearance/composables/usePlaybarStyle'
 import { useLyricsPanelLayout } from './useLyricsPanelLayout'
 
 const playback = usePlayback()
 const { t } = useI18n()
 const { isDark } = useTheme()
 const { displayMode } = usePlayerDisplayMode()
+const { style: playbarMaterialStyle } = usePlaybarStyle()
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 // Fullscreen owns its visual pipeline. The hidden PlayerBar
 // must not decode artwork, paint canvases, or start palette work.
@@ -305,6 +307,7 @@ function handleNext(): void {
   <footer
     ref="playerBarHostRef"
     class="player-bar"
+    :data-playbar-style="playbarMaterialStyle"
     :data-volume-expanded="volumeControlRef?.open ? 'true' : 'false'"
     :class="{
       'player-bar--album-tinted': hasActiveAlbumTint,
@@ -389,7 +392,7 @@ function handleNext(): void {
             :aria-expanded="isModeMenuOpen"
             @click="toggleModeMenu"
           >
-            <PlayerBarActionIcon :icon="playbackModeIconClass" />
+            <PlayerBarActionIcon :icon="playbackModeIconClass" size="playback-mode" />
           </button>
 
           <button
@@ -437,7 +440,7 @@ function handleNext(): void {
               :aria-expanded="isOverflowOpen"
               @click="toggleOverflow"
             >
-              <span class="playbar-action-icon h-4 w-4 i-ph-dots-three" />
+              <PlayerBarActionIcon icon="i-ph-dots-three" size="compact" />
             </button>
 
             <div
@@ -460,7 +463,7 @@ function handleNext(): void {
                 :aria-expanded="isModeMenuOpen"
                 @click="toggleModeMenu"
               >
-                <span class="playbar-action-icon h-4 w-4" :class="playbackModeIconClass" />
+                <PlayerBarActionIcon :icon="playbackModeIconClass" size="playback-mode" />
                 <span class="player-bar-overflow-label">{{ t('player.mode') }}</span>
               </button>
 
@@ -478,15 +481,17 @@ function handleNext(): void {
                 "
                 @click="handleOverflowToggleLyrics"
               >
-                <span class="playbar-action-icon h-4 w-4 i-ph-subtitles" aria-hidden="true" />
+                <PlayerBarActionIcon icon="i-ph-subtitles" size="compact" />
                 <span class="player-bar-overflow-label">{{
                   lyricsPanelExpanded ? t('player.lyricsCollapse') : t('player.lyricsExpand')
                 }}</span>
                 <span
                   v-if="lyricsPanelExpanded"
-                  class="ml-auto h-4 w-4 i-ph-check"
+                  class="ml-auto flex h-4 w-4 items-center justify-center"
                   aria-hidden="true"
-                />
+                >
+                  <PlayerBarActionIcon icon="i-ph-check" size="compact" />
+                </span>
               </button>
             </div>
           </div>

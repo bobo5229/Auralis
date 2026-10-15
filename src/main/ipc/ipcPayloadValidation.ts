@@ -381,6 +381,11 @@ export const domainIpcPayloadPolicies = {
     }),
   ),
   [ipcChannels.app.exportDiagnostics]: voidPayload(),
+  [ipcChannels.app.drawStartupAlbum]: required(
+    objectShape({
+      recentAlbums: field(arrayOf(albumKey, { max: STARTUP_ALBUM_HISTORY_LIMIT })),
+    }),
+  ),
   [ipcChannels.library.getStats]: voidPayload(),
   [ipcChannels.library.selectRoot]: voidPayload(),
   [ipcChannels.library.getRoots]: voidPayload(),

@@ -62,6 +62,10 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   let pendingReturnTarget: LibraryMetadataFocusTarget | null = null
   let loadRevision = 0
   let saveFeedbackController: AbortController | null = null
+  let committedSave: {
+    metadata: EditableTrackMetadata
+    libraryRevision?: string
+  } | null = null
 
   async function showSaveSuccess(signal: AbortSignal): Promise<void> {
     try {
@@ -117,6 +121,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     }
 
     currentTrackId = trackId
+    committedSave = null
     isMetadataEditorOpen.value = true
     isLoadingMetadata.value = true
     editingMetadata.value = null
@@ -168,6 +173,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       unsubscribeStatus = null
     }
     currentTrackId = null
+    committedSave = null
     currentVersion = 0
     editStatus.value = 'checking'
 
@@ -184,6 +190,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   }
 
   function dispose(): void {
+    committedSave = null
     saveFeedbackController?.abort()
     saveFeedbackController = null
     loadRevision++
@@ -210,7 +217,10 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       return
     }
 
-    const unchanged = isSameEditableMetadata(metadata, editingMetadata.value)
+    const unchanged = isSameEditableMetadata(
+      metadata,
+      committedSave?.metadata ?? editingMetadata.value,
+    )
     isSavingMetadata.value = true
     errorMessageSource.value = null
     const saveScope = options.captureRouteScope()
@@ -218,58 +228,65 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     const controller = new AbortController()
     saveFeedbackController = controller
     const isCurrentSave = () =>
-      !controller.signal.aborted &&
-      isCurrentLoad(metadata.trackId, saveLoadRevision)
+      !controller.signal.aborted && isCurrentLoad(metadata.trackId, saveLoadRevision)
 
     try {
-      if (unchanged) {
+      if (unchanged && !committedSave) {
         await showSaveSuccess(controller.signal)
         if (!isCurrentSave()) return
         isSavingMetadata.value = false
         close(isSameLibraryRouteScope(saveScope, options.captureRouteScope()))
         return
       }
-      const saveResult = await options.updateTrackMetadata(metadata)
-      if (!isCurrentSave()) return
+      if (!unchanged) {
+        const saveResult = await options.updateTrackMetadata(metadata)
+        if (!isCurrentSave()) return
 
-      if (
-        saveResult &&
-        typeof saveResult === 'object' &&
-        'ok' in saveResult &&
-        (saveResult as { ok: boolean }).ok === false
-      ) {
-        const rejected = saveResult as { ok: false; reason: string }
-        if (rejected.reason === 'playback-in-use') {
-          if (editStatus.value !== 'preload-in-use') editStatus.value = 'playback-in-use'
-          errorMessageSource.value = () =>
-            editStatus.value === 'preload-in-use'
-              ? (options.getPreloadInUseMessage ?? options.getSaveErrorMessage)()
-              : (options.getPlaybackInUseMessage ?? options.getSaveErrorMessage)()
-        } else if (rejected.reason === 'write-in-progress') {
-          editStatus.value = 'write-in-progress'
-          errorMessageSource.value = options.getSaveErrorMessage
-        } else {
-          errorMessageSource.value = options.getSaveFailureMessage
-            ? () => options.getSaveFailureMessage!(rejected.reason)
-            : options.getSaveErrorMessage
+        if (
+          saveResult &&
+          typeof saveResult === 'object' &&
+          'ok' in saveResult &&
+          (saveResult as { ok: boolean }).ok === false
+        ) {
+          const rejected = saveResult as { ok: false; reason: string }
+          if (rejected.reason === 'playback-in-use') {
+            if (editStatus.value !== 'preload-in-use') editStatus.value = 'playback-in-use'
+            errorMessageSource.value = () =>
+              editStatus.value === 'preload-in-use'
+                ? (options.getPreloadInUseMessage ?? options.getSaveErrorMessage)()
+                : (options.getPlaybackInUseMessage ?? options.getSaveErrorMessage)()
+          } else if (rejected.reason === 'write-in-progress') {
+            editStatus.value = 'write-in-progress'
+            errorMessageSource.value = options.getSaveErrorMessage
+          } else {
+            errorMessageSource.value = options.getSaveFailureMessage
+              ? () => options.getSaveFailureMessage!(rejected.reason)
+              : options.getSaveErrorMessage
+          }
+          return
         }
-        return
+
+        // Keep the form seed intact, but compare retries with the committed
+        // values even when refreshing the view fails after the disk write.
+        committedSave = {
+          metadata: { ...metadata },
+          libraryRevision:
+            saveResult &&
+            typeof saveResult === 'object' &&
+            'ok' in saveResult &&
+            saveResult.ok === true &&
+            'libraryRevision' in saveResult &&
+            typeof saveResult.libraryRevision === 'string'
+              ? saveResult.libraryRevision
+              : undefined,
+        }
       }
 
       const returnTarget = pendingReturnTarget ?? {
         trackId: metadata.trackId,
         source: 'track' as const,
       }
-      const libraryRevision =
-        saveResult &&
-        typeof saveResult === 'object' &&
-        'ok' in saveResult &&
-        saveResult.ok === true &&
-        'libraryRevision' in saveResult &&
-        typeof saveResult.libraryRevision === 'string'
-          ? saveResult.libraryRevision
-          : undefined
-      const loadResult = await options.refreshLibrary(libraryRevision)
+      const loadResult = await options.refreshLibrary(committedSave?.libraryRevision)
       const isStillInSaveScope = isSameLibraryRouteScope(saveScope, options.captureRouteScope())
 
       if (loadResult === 'failed' || loadResult === 'queued') {
@@ -287,6 +304,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
         unsubscribeStatus = null
       }
       currentTrackId = null
+      committedSave = null
       currentVersion = 0
       loadRevision++
       isMetadataEditorOpen.value = false

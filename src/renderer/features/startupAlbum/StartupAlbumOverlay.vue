@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import WindowTrafficLights from '@renderer/app/layout/WindowTrafficLights.vue'
 import { useOverlayFocusTrap } from '@renderer/shared/focus/useOverlayFocusTrap'
+import { acquireModalBackground } from '@renderer/shared/focus/modalBackground'
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
@@ -211,12 +212,20 @@ function keyboard(event: KeyboardEvent): void {
   }
   event.stopPropagation()
 }
+let releaseBackground: (() => void) | undefined
 useOverlayFocusTrap({
   isOpen: modalOpen,
   canDismiss: interactive,
   container: root,
   initialFocus: () => root.value ?? undefined,
   onEscape: close,
+  onActivate() {
+    releaseBackground = acquireModalBackground()
+  },
+  onDeactivate() {
+    releaseBackground?.()
+    releaseBackground = undefined
+  },
   restoreFocus(captured) {
     const target =
       captured?.isConnected && !captured.closest('[inert]')
