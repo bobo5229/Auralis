@@ -61,6 +61,7 @@ function fixture() {
         id: 'a',
         text: 'First',
         timeSeconds: 1.125,
+        endTimeSeconds: 2.125,
         assignment: 'unassigned',
         editable: true,
         timingEditable: true,
@@ -69,6 +70,7 @@ function fixture() {
         id: 'b',
         text: 'Second',
         timeSeconds: 2,
+        endTimeSeconds: 3,
         assignment: 'performer-2',
         editable: true,
         timingEditable: true,
@@ -97,10 +99,28 @@ function fixture() {
   app.mount(root)
   cleanups.push(() => app.unmount())
   const rows = () => all(root, (node) => node.props.role === 'option')
-  const buttons = () => all(root, (node) => node.type === 'button')
+  // Resolve by stable action identities, so layout changes cannot silently retarget assertions.
+  const actions = [
+    'performer-1',
+    'performer-2',
+    'unassigned',
+    'select-all',
+    'set',
+    'earlier',
+    'later',
+    'together',
+  ]
+  const buttons = () =>
+    actions.map((action) => all(root, (node) => node.props['data-action'] === action)[0])
   const list = all(root, (node) => node.props.role === 'listbox')[0]
   const click = (index: number, options: Record<string, boolean> = {}) => {
     ;(rows()[index].props.onClick as (event: unknown) => void)({ ...options })
+  }
+  const checks = () => all(root, (node) => node.props.class === 'duet-check')
+  const check = (index: number, options: Record<string, boolean> = {}) => {
+    const event = { ...options, stopPropagation: vi.fn() }
+    ;(checks()[index].props.onClick as (event: unknown) => void)(event)
+    return event
   }
   const selected = () =>
     rows()
@@ -118,6 +138,8 @@ function fixture() {
     rows,
     list,
     click,
+    checks,
+    check,
     selected,
     apply,
   }
@@ -128,7 +150,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-it('supports single, Ctrl and Shift selections while skipping read-only chorus rows', async () => {
+it('supports single, Ctrl and Shift selections while skipping unsupported mixed rows', async () => {
   const view = fixture()
   view.click(0)
   await nextTick()
@@ -144,6 +166,117 @@ it('supports single, Ctrl and Shift selections while skipping read-only chorus r
   view.click(2)
   await nextTick()
   expect(view.selected()).toEqual([1, 3])
+})
+
+it('assigns the same-line chorus to the entire checked selection', async () => {
+  const view = fixture()
+  view.check(0)
+  view.check(1)
+  await nextTick()
+  view.apply(7)
+  expect(view.assign).toHaveBeenLastCalledWith(['a', 'b'], 'together')
+  view.session.value = {
+    ...view.session.value,
+    revision: 'r2',
+    dirty: true,
+    lines: view.session.value.lines.map((line) =>
+      ['a', 'b'].includes(line.id) ? { ...line, assignment: 'together' as const } : line,
+    ),
+  }
+  await nextTick()
+  expect(view.selected()).toEqual([0, 1])
+  view.apply(0)
+  expect(view.assign).toHaveBeenLastCalledWith(['a', 'b'], 'performer-1')
+})
+
+it('displays both endpoints and edits the end without shifting the start', async () => {
+  const view = fixture()
+  view.click(0)
+  await nextTick()
+  const end = all(
+    view.root,
+    (node) => node.type === 'input' && node.props['aria-label'] === 'lyricsEditor.endTime',
+  )[0]
+  expect(end.props.value).toBe('00:02.125')
+  ;(end.props.onInput as (event: unknown) => void)({ target: { value: '00:03.456' } })
+  ;(end.props.onChange as () => void)()
+  expect(view.retime).toHaveBeenLastCalledWith(['a'], 'set-end', 3456)
+  ;(end.props.onInput as (event: unknown) => void)({ target: { value: '00:01.000' } })
+  ;(end.props.onChange as () => void)()
+  await nextTick()
+  expect(view.retime).toHaveBeenCalledTimes(1)
+  expect(end.props['aria-invalid']).toBe(true)
+  view.check(1)
+  await nextTick()
+  expect(end.props.disabled).toBe(true)
+})
+
+it('groups overlapping opposite performers and updates the grouping without resetting selection', async () => {
+  const view = fixture()
+  view.session.value.lines[0].assignment = 'performer-1'
+  await nextTick()
+  expect(
+    all(
+      view.root,
+      (node) =>
+        node.props.role === 'group' && node.props['aria-label'] === 'lyricsEditor.simultaneous',
+    ),
+  ).toHaveLength(1)
+  view.check(0)
+  view.check(1)
+  view.session.value = {
+    ...view.session.value,
+    revision: 'r2',
+    lines: view.session.value.lines.map((line) =>
+      line.id === 'a' ? { ...line, endTimeSeconds: 2 } : line,
+    ),
+  }
+  await nextTick()
+  expect(all(view.root, (node) => node.props.role === 'group')).toHaveLength(0)
+  expect(view.selected()).toEqual([0, 1])
+  view.apply(1)
+  expect(view.assign).toHaveBeenLastCalledWith(['a', 'b'], 'performer-2')
+})
+
+it('shows a checkbox on every row and accumulates clicks for batch performer assignments without modifiers', async () => {
+  const view = fixture()
+  expect(view.checks()).toHaveLength(view.rows().length)
+  expect(all(view.root, (node) => node.props.class === 'duet-checkbox')).toHaveLength(4)
+  const event = view.check(0)
+  expect(event.stopPropagation).toHaveBeenCalledOnce()
+  view.check(1)
+  await nextTick()
+  expect(view.selected()).toEqual([0, 1])
+  expect(all(view.root, (node) => node.props.class === 'i-lucide-check')).toHaveLength(2)
+  view.apply(0)
+  expect(view.assign).toHaveBeenLastCalledWith(['a', 'b'], 'performer-1')
+  view.session.value = { ...view.session.value, revision: 'r2', dirty: true }
+  await nextTick()
+  expect(view.selected()).toEqual([0, 1])
+  view.apply(1)
+  expect(view.assign).toHaveBeenLastCalledWith(['a', 'b'], 'performer-2')
+  view.check(0)
+  await nextTick()
+  expect(view.selected()).toEqual([1])
+  view.apply(1)
+  expect(view.assign).toHaveBeenLastCalledWith(['b'], 'performer-2')
+})
+
+it('supports additive Shift checkbox ranges and blocks read-only or busy checkbox changes', async () => {
+  const view = fixture()
+  view.check(0)
+  view.check(3, { shiftKey: true })
+  await nextTick()
+  expect(view.selected()).toEqual([0, 1, 3])
+  view.check(2)
+  await nextTick()
+  expect(view.selected()).toEqual([0, 1, 3])
+  view.busy.value = true
+  await nextTick()
+  view.check(0)
+  expect(view.selected()).toEqual([0, 1, 3])
+  view.apply(0)
+  expect(view.assign).not.toHaveBeenCalled()
 })
 
 it('selects all editable rows, clears assignments and blocks actions during requests', async () => {

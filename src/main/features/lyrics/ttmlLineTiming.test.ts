@@ -75,3 +75,47 @@ it('does not offer timing edits for ancestor constraints, implicit starts or sub
     expect(() => retimeTtmlLines(text, request(text))).toThrow('unsupported-timing')
   }
 })
+
+it('sets a paragraph end without changing its start, words, text or assignment, and aligns an existing duration', () => {
+  const text = xml(
+    '<p begin="1s" dur="3s" ttm:agent="v2"><span begin="1s" end="2s">Word</span><span begin="2s" dur="1s"> two</span></p>',
+  )
+  const edited = retimeTtmlLines(text, { ...request(text), mode: 'set-end', valueMs: 3500 })
+  const paragraph = readDuetDocument(edited).lines.get('line-0')!
+  expect(paragraph.getAttribute('begin')).toBe('1s')
+  expect(paragraph.getAttribute('end')).toBe('00:00:03.500')
+  expect(paragraph.getAttribute('dur')).toBe('00:00:02.500')
+  const words = paragraph.getElementsByTagName('span')
+  expect(words.item(0)!.getAttribute('begin')).toBe('1s')
+  expect(words.item(0)!.getAttribute('end')).toBe('2s')
+  expect(words.item(1)!.getAttribute('dur')).toBe('1s')
+  expect(readDuetLyrics(edited).lines[0]).toMatchObject({
+    assignment: 'performer-2',
+    text: 'Word two',
+  })
+  expect(readTtmlPlayback(edited).lines[0]).toMatchObject({ timeSeconds: 1, endTimeSeconds: 3.5 })
+})
+
+it('adds a missing end and leaves exact bytes alone for an unchanged endpoint', () => {
+  const text = xml('<p begin="1s">A</p>')
+  const edited = retimeTtmlLines(text, { ...request(text), mode: 'set-end', valueMs: 2000 })
+  expect(readTtmlPlayback(edited).lines[0].endTimeSeconds).toBe(2)
+  expect(retimeTtmlLines(edited, { ...request(edited), mode: 'set-end', valueMs: 2000 })).toBe(
+    edited,
+  )
+})
+
+it('rejects ends at or before the start, clipped word timing and batch end assignments', () => {
+  const text = xml('<p begin="1s" end="4s"><span begin="2s" dur="1s">A</span></p>')
+  for (const valueMs of [0, 1000, 1500, 2500])
+    expect(() => retimeTtmlLines(text, { ...request(text), mode: 'set-end', valueMs })).toThrow(
+      'invalid-end-time',
+    )
+  expect(() =>
+    retimeTtmlLines(text, {
+      ...request(text, ['line-0', 'line-1']),
+      mode: 'set-end',
+      valueMs: 5000,
+    }),
+  ).toThrow('invalid-request')
+})

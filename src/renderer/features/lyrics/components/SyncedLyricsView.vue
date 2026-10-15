@@ -19,6 +19,7 @@ import type { LyricLine } from '../types'
 const props = withDefaults(
   defineProps<{
     active?: boolean
+    interactive?: boolean
     lines: LyricLine[]
     activeIndex: number
     isPrelude: boolean
@@ -26,7 +27,7 @@ const props = withDefaults(
     preludeLitDotCount: number
     preludeElapsed?: number
   }>(),
-  { active: true, preludeElapsed: 0 },
+  { active: true, interactive: true, preludeElapsed: 0 },
 )
 
 const { t } = useI18n()
@@ -34,7 +35,7 @@ const { effects } = useLyricsEffectsPreference()
 const { effect: countdownEffect } = useLyricsCountdownPreference()
 const { activate: onLyricLineActivate, onKeydown: onLyricLineKeydown } = useLyricLineSeek({
   lines: () => props.lines,
-  enabled: () => isActive.value,
+  enabled: () => isActive.value && props.interactive,
   onSeek: followAfterSeek,
 })
 const reducedMotion = useReducedMotion()
@@ -154,7 +155,9 @@ function computeTarget(): number | null {
 }
 
 function updateTarget(
-  behavior: LyricsFollowBehavior = resolveLyricsFollowBehavior(reducedMotion.matches.value),
+  behavior: LyricsFollowBehavior = props.interactive
+    ? resolveLyricsFollowBehavior(reducedMotion.matches.value)
+    : 'auto',
 ): void {
   if (!isActive.value || isUserScrolling.value) return
   const container = scrollRef.value
@@ -205,7 +208,7 @@ function updateTarget(
 }
 
 function pauseAutoFollow(): void {
-  if (!isActive.value) return
+  if (!isActive.value || !props.interactive) return
   const container = scrollRef.value
   if (!isUserScrolling.value) {
     const currentOffset = cancelTrackAnimation(true)
@@ -299,6 +302,21 @@ function syncContainer(): void {
   })
   resizeObserver.observe(container)
 }
+
+async function prepareForDisplay(): Promise<void> {
+  if (!isActive.value) return
+  if (scrollTimeout) clearTimeout(scrollTimeout)
+  scrollTimeout = null
+  isUserScrolling.value = false
+  syncContainer()
+  // Height changes update the padding; measure line positions after that DOM update.
+  await nextTick()
+  if (!isActive.value) return
+  rebuildMetrics(true)
+  updateTarget('auto')
+}
+
+defineExpose({ prepareForDisplay })
 
 watch(
   () => [props.activeIndex, props.isPrelude, props.showPrelude, props.lines] as const,

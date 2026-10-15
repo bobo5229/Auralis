@@ -207,6 +207,10 @@ async function release(): Promise<void> {
   if (current) await auralis.lyrics.closeLrcEditor(current.sessionId).catch(() => undefined)
 }
 function failure(code: string, recoveryPath?: string): void {
+  if (code === 'invalid-end-time') {
+    error.value = t('lyricsEditor.errors.invalidEndTime')
+    return
+  }
   if (code === 'invalid-time') {
     error.value = t('lyricsEditor.errors.invalidTime')
     return

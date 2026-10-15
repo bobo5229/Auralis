@@ -270,7 +270,7 @@
   --auralis-artwork-placeholder-bg: rgba(41, 43, 45, 0.08);
 
   /* Playbar Island */
-  --auralis-playbar-bg: rgba(248, 249, 250, 0.94);
+  --auralis-playbar-bg: var(--auralis-now-playing-bg);
   --auralis-frosted-surface-bg: rgba(248, 249, 250, 0.94);
   --auralis-playbar-border: rgba(41, 43, 45, 0.12);
   --auralis-playbar-control-fg: var(--auralis-playbar-control-strong-fg);
@@ -285,7 +285,7 @@
   --auralis-playbar-album-alpha: 0;
   --auralis-playbar-album-saturate: 1.08;
   --auralis-playbar-shadow: 0 8px 24px rgba(41, 43, 45, 0.06), 0 2px 6px rgba(41, 43, 45, 0.03);
-  --auralis-playbar-reduced-transparency-bg: #f8f9fa;
+  --auralis-playbar-reduced-transparency-bg: var(--auralis-playbar-bg);
 
   /* Song list tokens */
   --auralis-track-selected-bg: var(--auralis-theme-accent);
@@ -319,7 +319,7 @@
 
   /* App environment */
   --auralis-app-bg: #f0f1f2;
-  --auralis-album-detail-more-bg: #e7e9eb;
+  --auralis-album-detail-more-bg: var(--auralis-surface-floating);
 
   /* Scrollbar & Selection */
   --auralis-scrollbar-thumb: rgba(41, 43, 45, 0.2);
@@ -574,7 +574,7 @@ input {
   }
 
   .player-bar {
-    right: var(--auralis-lyrics-column-width, calc(20% * var(--auralis-lyrics-progress, 1)));
+    right: var(--auralis-player-lyrics-inset, var(--auralis-lyrics-column-width, 20%));
   }
 }
 
@@ -601,6 +601,38 @@ input {
   flex-direction: column;
   opacity: var(--auralis-lyrics-progress, 1);
   will-change: opacity;
+}
+
+/* Overlay the full main grid area; the playbar independently leaves room on its right. */
+.app-shell.is-lyrics-floating:not(.is-cd-albums) > .app-main {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.app-shell.is-lyrics-floating > .now-playing-panel {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  align-self: start;
+  z-index: 20;
+  width: min(var(--auralis-lyrics-target-width, 20vw), 100%);
+  max-width: 100%;
+  height: 100%;
+  min-width: 0;
+  pointer-events: auto;
+  background: var(--auralis-now-playing-bg);
+}
+
+.app-shell.is-lyrics-floating > .now-playing-panel > .now-playing-panel-content {
+  max-width: 100%;
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .app-shell.is-lyrics-floating > .now-playing-panel {
+    background: color-mix(in srgb, var(--auralis-now-playing-bg) 40%, transparent);
+    -webkit-backdrop-filter: var(--auralis-frosted-surface-filter);
+    backdrop-filter: var(--auralis-frosted-surface-filter);
+  }
 }
 
 .player-bar .player-bar-island {
@@ -721,13 +753,13 @@ input {
 .player-bar .track-info-row::after {
   content: '';
   position: absolute;
-  /* Keep the lower fade inside the gap above the progress row. */
+  /* Feather outside the cover; the lower 4px fade fits above the progress row. */
   inset: -8px -8px -4px;
   z-index: 1;
   backdrop-filter: blur(4px);
   mask-image:
     linear-gradient(to right, transparent, #000 8px, #000 calc(100% - 8px), transparent),
-    linear-gradient(to bottom, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+    linear-gradient(to bottom, transparent, #000 8px, #000 calc(100% - 4px), transparent);
   mask-composite: intersect;
   pointer-events: none;
   opacity: 0;
@@ -1527,6 +1559,12 @@ input[type='range'].volume-overlay-slider {
 
 .app-window:not(.is-cd-albums) {
   background: var(--auralis-window-chrome-bg, var(--auralis-app-background));
+}
+
+.app-window.is-sidebar-floating:not(.is-cd-albums) {
+  background: var(--auralis-main-bg);
+  /* Match the main panel's immediate token update to keep the surrounding surface continuous. */
+  transition: box-shadow 280ms ease;
 }
 
 .app-shell:not(.is-cd-albums) > .app-main {

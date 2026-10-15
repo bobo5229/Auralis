@@ -94,6 +94,7 @@ export function registerIpcHandlers(
     sendToRenderer,
     audioPaths.ffmpegPath,
     playbackFileCoordinator,
+    () => trackRepository.getChangeToken(),
   )
   const incrementalImportService = new LibraryIncrementalImportService(
     trackRepository,

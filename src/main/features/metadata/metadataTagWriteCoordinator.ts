@@ -27,7 +27,7 @@ interface WriteLifecycle {
   isStopping: () => boolean
   hasActiveJob: () => boolean
   refreshTracksFromFileChanges: (ids: number[]) => { jobId: number }
-  onUserEditCommitted?: (trackId: number, filePath: string) => void
+  onUserEditCommitted?: (trackId: number, filePath: string) => string | void
 }
 
 export class MetadataTagWriteCoordinator {
@@ -132,6 +132,7 @@ export class MetadataTagWriteCoordinator {
     this.trackGenerations.set(metadata.trackId, generation)
     this.writingTracks.add(metadata.trackId)
     this.writingFiles.add(normalizeAudioFilePath(filePath))
+    let libraryRevision: string | undefined
 
     // Suppress before the file mutates: ffmpeg replace fires watch events while
     // the write is still in flight, and a 1200ms flush can start first.
@@ -155,7 +156,8 @@ export class MetadataTagWriteCoordinator {
         this.pendingReconciliation.delete(metadata.trackId)
         this.onTagWriteSuccess?.(filePath)
         try {
-          this.lifecycle.onUserEditCommitted?.(metadata.trackId, filePath)
+          const revision = this.lifecycle.onUserEditCommitted?.(metadata.trackId, filePath)
+          if (typeof revision === 'string') libraryRevision = revision
         } catch (error) {
           logger.warn({ err: error }, 'Unable to notify committed metadata edit')
         }
@@ -163,6 +165,7 @@ export class MetadataTagWriteCoordinator {
       if (usesPlaybackWriter) {
         const result = await this.playbackTagWrite!(filePath, metadata, commitAndReconcile)
         if (!result.ok) this.pendingReconciliation.add(metadata.trackId)
+        if (result.ok && libraryRevision) return { ...result, libraryRevision }
         return result
       }
       if (metadata.lyricsText !== undefined) {
@@ -173,7 +176,7 @@ export class MetadataTagWriteCoordinator {
           await prepared.dispose()
         }
       } else await commitAndReconcile(() => writeAudioTags(filePath, metadata, this.ffmpegPath))
-      return { ok: true }
+      return libraryRevision ? { ok: true, libraryRevision } : { ok: true }
     } catch (error) {
       this.pendingReconciliation.add(metadata.trackId)
       logger.warn(

@@ -8,7 +8,12 @@ import type {
   RetimeLyricsEditorLines,
 } from '@shared/types/lyricsEditor'
 import type { LyricsFormat } from '@shared/types/libraryScan'
-import { assignDuetLines, ensureDuetPerformerSlots, readDuetLyrics } from './duetLyrics'
+import {
+  assignDuetLines,
+  ensureDuetPerformerSlots,
+  ensureDuetTogetherSlot,
+  readDuetLyrics,
+} from './duetLyrics'
 import type { DuetLyricsSnapshot } from './duetTypes'
 import { convertLrcToTtml } from './lyricsConversion'
 import { readTtmlPlayback } from './ttmlPlayback'
@@ -99,9 +104,10 @@ export class LyricsEditorService {
   private state(session: Session): LyricsEditorState {
     const playback = readTtmlPlayback(session.text)
     const timingIds = timingEditableLines(readDuetDocument(session.text))
-    const times = new Map<string, number>()
+    const times = new Map<string, { start: number; end: number | null }>()
     for (const line of playback.lines)
-      if (!times.has(line.editorLineId)) times.set(line.editorLineId, line.timeSeconds)
+      if (!times.has(line.editorLineId))
+        times.set(line.editorLineId, { start: line.timeSeconds, end: line.endTimeSeconds })
     return {
       sessionId: session.id,
       trackId: session.trackId,
@@ -115,11 +121,14 @@ export class LyricsEditorService {
         ]),
       ],
       lines: session.snapshot.lines.map((line) => {
-        const supported = ['unassigned', 'performer-1', 'performer-2'].includes(line.assignment)
+        const supported = ['unassigned', 'performer-1', 'performer-2', 'together'].includes(
+          line.assignment,
+        )
         return {
           id: line.id,
           text: line.text,
-          timeSeconds: times.get(line.id) ?? null,
+          timeSeconds: times.get(line.id)?.start ?? null,
+          endTimeSeconds: times.get(line.id)?.end ?? null,
           assignment: supported
             ? (line.assignment as LyricsEditorState['lines'][number]['assignment'])
             : 'unsupported',
@@ -223,7 +232,7 @@ export class LyricsEditorService {
   assign(owner: number, request: AssignLyricsEditorLines): LyricsEditorState {
     const session = this.session(owner, request.sessionId, request.expectedRevision)
     if (
-      !['unassigned', 'performer-1', 'performer-2'].includes(request.assignment) ||
+      !['unassigned', 'performer-1', 'performer-2', 'together'].includes(request.assignment) ||
       !Array.isArray(request.lineIds) ||
       request.lineIds.length > 10000 ||
       request.lineIds.some((id) => typeof id !== 'string')
@@ -237,8 +246,12 @@ export class LyricsEditorService {
       if (!line) throw new LyricsEditorError('unknown-line')
       if (!line.editable) throw new LyricsEditorError('read-only-line')
     }
-    const edited = assignDuetLines(session.text, {
-      expectedRevision: request.expectedRevision,
+    const prepared =
+      request.assignment === 'together' && request.lineIds.length
+        ? ensureDuetTogetherSlot(session.text, request.expectedRevision)
+        : { text: session.text, snapshot: session.snapshot }
+    const edited = assignDuetLines(prepared.text, {
+      expectedRevision: prepared.snapshot.revision,
       lineIds: request.lineIds,
       assignment: request.assignment,
     })

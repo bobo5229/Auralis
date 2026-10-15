@@ -47,7 +47,35 @@ export function timingEditableLines(source: DuetDocument): Set<string> {
   return ids
 }
 
-/** Atomic draft operation: preserve XML, assignments, durations and all word offsets. */
+function setParagraphEnd(paragraph: Element, elements: Element[], endMs: number): boolean {
+  const startMs = milliseconds(paragraph.getAttribute('begin')!)
+  if (endMs <= startMs) throw new LyricsEditorError('invalid-end-time')
+  const ends: number[] = []
+  if (paragraph.hasAttribute('end')) ends.push(milliseconds(paragraph.getAttribute('end')!))
+  if (paragraph.hasAttribute('dur'))
+    ends.push(startMs + milliseconds(paragraph.getAttribute('dur')!))
+  if (ends.length && Math.min(...ends) === endMs) return false
+
+  // Changing the paragraph boundary must not clip any explicit word/auxiliary timing.
+  const starts = new Map<Element, number>([[paragraph, startMs]])
+  for (const element of elements.slice(1)) {
+    const start = element.hasAttribute('begin')
+      ? milliseconds(element.getAttribute('begin')!)
+      : starts.get(element.parentNode as Element)!
+    starts.set(element, start)
+    const childEnds: number[] = []
+    if (element.hasAttribute('end')) childEnds.push(milliseconds(element.getAttribute('end')!))
+    if (element.hasAttribute('dur'))
+      childEnds.push(start + milliseconds(element.getAttribute('dur')!))
+    if (start >= endMs || (childEnds.length && Math.min(...childEnds) > endMs))
+      throw new LyricsEditorError('invalid-end-time')
+  }
+  paragraph.setAttribute('end', formatTtmlTime(endMs))
+  if (paragraph.hasAttribute('dur')) paragraph.setAttribute('dur', formatTtmlTime(endMs - startMs))
+  return true
+}
+
+/** Atomic draft operation: shift a line with its words, or change only its end boundary. */
 export function retimeTtmlLines(text: string, request: RetimeLyricsEditorLines): string {
   const source = readDuetDocument(text)
   if (source.snapshot.revision !== request.expectedRevision)
@@ -57,9 +85,9 @@ export function retimeTtmlLines(text: string, request: RetimeLyricsEditorLines):
   if (
     !ids.length ||
     ids.length > 10000 ||
-    !['set', 'shift'].includes(request.mode) ||
+    !['set', 'set-end', 'shift'].includes(request.mode) ||
     !Number.isSafeInteger(request.valueMs) ||
-    (request.mode === 'set' && (ids.length !== 1 || request.valueMs < 0))
+    (request.mode !== 'shift' && (ids.length !== 1 || request.valueMs < 0))
   )
     throw new LyricsEditorError('invalid-request')
   let changed = false
@@ -67,6 +95,10 @@ export function retimeTtmlLines(text: string, request: RetimeLyricsEditorLines):
     const paragraph = source.lines.get(id)
     if (!paragraph) throw new LyricsEditorError('unknown-line')
     const elements = timedElements(paragraph)
+    if (request.mode === 'set-end') {
+      changed = setParagraphEnd(paragraph, elements, request.valueMs) || changed
+      continue
+    }
     const delta =
       request.mode === 'set'
         ? request.valueMs - milliseconds(paragraph.getAttribute('begin')!)

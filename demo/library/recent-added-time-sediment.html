@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Auralis · 最近添加 / 时间沉积</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root { color-scheme: light; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; color: #302d36; background: #eae9ed; }
+    body { margin: 0; padding: 40px clamp(16px, 4vw, 64px); }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible, a:focus-visible { outline: 2px solid #7859a4; outline-offset: 4px; }
+    .intro, .controls, .previews, .footnote { max-width: 1440px; margin-inline: auto; }
+    .intro { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; }
+    .intro h1 { font-size: 24px; font-weight: 550; letter-spacing: -.6px; margin: 0; }
+    .intro p { color: #77717f; font-size: 13px; line-height: 1.6; margin: 0; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding-block: 24px 30px; }
+    .control-group { display: flex; align-items: center; gap: 12px; }
+    .control-label { font-size: 12px; color: #716a7a; }
+    .segmented { display: flex; padding: 4px; background: #dedce3; border-radius: 10px; gap: 2px; }
+    .segmented button { border: 0; background: transparent; color: #716b79; padding: 8px 15px; font-size: 13px; border-radius: 7px; white-space: nowrap; }
+    .segmented button[aria-checked="true"] { background: #faf9fc; color: #43364f; box-shadow: 0 1px 4px #32214013; }
+    .previews { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+    .previews[data-display="light"], .previews[data-display="dark"] { grid-template-columns: 1fr; }
+    .previews[data-display="light"] .preview[data-theme="dark"], .previews[data-display="dark"] .preview[data-theme="light"] { display: none; }
+    .theme-label { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 12px; color: #787180; letter-spacing: 1px; }
+    .surface { --bg: #fff; --fg: #302438; --muted: #776d7e; --line: #3a244414; --tick: #523965; color: var(--fg); background: var(--bg); border-radius: 18px; overflow: hidden; box-shadow: 0 16px 50px #32243c09; }
+    [data-theme="dark"] .surface { color-scheme: dark; --bg: #16141a; --fg: #f5eef9; --muted: #b9a9c5; --line: #e7d4ff16; --tick: #e3c9fc; }
+    .playlist-header { display: grid; grid-template-columns: minmax(0, 240px) minmax(0, 1fr); align-items: center; gap: 28px; padding: 32px; }
+    .playlist-cover { position: relative; isolation: isolate; overflow: hidden; width: 100%; aspect-ratio: 1; border-radius: 10px; background: linear-gradient(135deg, var(--cover-first, #805f91), var(--cover-mid, #ccbbd1), var(--cover-back, #eee8f2)); box-shadow: 0 12px 28px #1710201c; }
+    [data-theme="dark"] .playlist-cover { box-shadow: 0 12px 32px #0005; }
+    .shader { position: absolute; inset: 0; z-index: -3; pointer-events: none; }
+    .shader canvas { width: 100%; height: 100%; display: block; }
+    .playlist-cover::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(150deg, #ffffff12, transparent 45%, #00000008); box-shadow: inset 0 0 0 1px #ffffff18; pointer-events: none; }
+    .playlist-info { min-width: 0; }
+    .eyebrow { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 11px; letter-spacing: 2px; }
+    .eyebrow::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+    .playlist-info h2 { margin: 18px 0 12px; font-size: clamp(28px, 2.6vw, 42px); font-weight: 600; letter-spacing: -1.5px; line-height: 1.15; }
+    .hero-meta { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .range-title { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+    .range-number { font-size: 28px; font-weight: 350; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+    .range-caption { font-size: 12px; color: var(--muted); }
+    .palette-label { margin: 10px 0 0; font-size: 11px; color: var(--muted); }
+    .timeline { margin-top: 20px; }
+    .timeline-line { position: relative; height: 19px; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--tick) 28%, transparent) 0 1px, transparent 1px 20px); mask-image: linear-gradient(90deg, #000, #0008); }
+    .timeline-line::before { content: ""; position: absolute; left: 0; right: 0; top: 0; border-top: 1px solid color-mix(in srgb, var(--tick) 28%, transparent); }
+    .timeline-line::after { content: ""; position: absolute; left: 0; top: 0; width: 1px; height: 19px; background: var(--tick); }
+    .timeline-labels { display: flex; justify-content: space-between; margin-top: 7px; font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+    .list { padding: 22px 32px 26px; }
+    .list-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; border-bottom: 1px solid var(--line); }
+    .list-header strong { font-size: 13px; font-weight: 550; }
+    .list-header span { font-size: 11px; color: var(--muted); }
+    .track { display: grid; grid-template-columns: 24px 1fr auto; gap: 13px; padding-block: 15px; align-items: center; border-bottom: 1px solid var(--line); }
+    .track:last-child { border: 0; padding-bottom: 0; }
+    .track-number, .track-time { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+    .track-title { font-size: 13px; margin-bottom: 5px; }
+    .track-artist { font-size: 11px; color: var(--muted); }
+    .footnote { font-size: 12px; color: #79717f; line-height: 1.8; padding-top: 24px; }
+    .footnote p { margin: 4px 0; }
+    .footnote a { color: inherit; text-underline-offset: 3px; }
+    #status { color: #6b4b7e; }
+    @media (max-width: 1200px) { .playlist-header { grid-template-columns: minmax(0, 190px) minmax(0, 1fr); gap: 20px; padding: 24px; } }
+    @media (max-width: 1000px) { .previews { grid-template-columns: 1fr; } .intro { align-items: start; flex-direction: column; gap: 7px; } .playlist-header { grid-template-columns: minmax(0, 240px) minmax(0, 1fr); } }
+    @media (max-width: 520px) { body { padding: 24px 14px; } .controls { align-items: start; } .control-group { flex-wrap: wrap; gap: 8px; } .segmented button { padding: 8px 12px; } .playlist-header { grid-template-columns: 1fr; padding: 24px; gap: 24px; } .playlist-cover { max-width: 260px; } .list { padding-inline: 24px; } }
+  </style>
+</head>
+<body>
+  <header class="intro">
+    <h1>时间沉积</h1>
+    <p>最近添加 · 方形歌单封面探索</p>
+  </header>
+  <nav class="controls" aria-label="原型控制">
+    <div class="control-group">
+      <span id="range-label" class="control-label">回溯范围</span>
+      <div class="segmented" role="radiogroup" aria-labelledby="range-label" data-control="range">
+        <button type="button" role="radio" aria-checked="false" tabindex="-1" data-value="7">7 天</button>
+        <button type="button" role="radio" aria-checked="true" tabindex="0" data-value="30">30 天</button>
+        <button type="button" role="radio" aria-checked="false" tabindex="-1" data-value="90">90 天</button>
+        <button type="button" role="radio" aria-checked="false" tabindex="-1" data-value="all">全部</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <span id="display-label" class="control-label">对照</span>
+      <div class="segmented" role="radiogroup" aria-labelledby="display-label" data-control="display">
+        <button type="button" role="radio" aria-checked="true" tabindex="0" data-value="both">并排</button>
+        <button type="button" role="radio" aria-checked="false" tabindex="-1" data-value="light">浅色</button>
+        <button type="button" role="radio" aria-checked="false" tabindex="-1" data-value="dark">深色</button>
+      </div>
+    </div>
+  </nav>
+  <main class="previews" data-display="both"></main>
+  <footer class="footnote">
+    <p>7 天灰玫瑰与暖杏 · 30 天雾紫与灰蓝 · 90 天青灰与烟蓝 · 全部琥珀与褐紫。方形封面随范围变色，停留时静止。统计与曲目为演示数据。</p>
+    <p id="status" role="status" aria-live="polite">正在加载 Paper Grain Gradient…</p>
+    <p><a href="https://shaders.paper.design/grain-gradient" target="_blank" rel="noreferrer">Paper Grain Gradient</a> · @paper-design/shaders 0.0.81 · <a href="https://github.com/paper-design/shaders/blob/main/LICENSE" target="_blank" rel="noreferrer">Apache-2.0</a> · Copyright 2026 Paper。打开需联网加载固定版本模块。</p>
+  </footer>
+  <script type="module">
+    // Official Paper modules are loaded directly, without a React wrapper or an app build.
+    const base = 'https://cdn.jsdelivr.net/npm/@paper-design/shaders@0.0.81/dist/';
+    const root = document.querySelector('.previews');
+    const status = document.querySelector('#status');
+    const motion = matchMedia('(prefers-reduced-motion: reduce)');
+    const presets = {
+      '7': { scale: .95, offset: -.12, rotation: -16, frame: 1600, softness: .88, intensity: .08, tracks: 24, albums: 4, past: '7 天前', number: '07', caption: '天内的新收藏' },
+      '30': { scale: .72, offset: .04, rotation: -12, frame: 2100, softness: .84, intensity: .11, tracks: 128, albums: 16, past: '30 天前', number: '30', caption: '天内的新收藏' },
+      '90': { scale: .50, offset: .14, rotation: -9, frame: 2700, softness: .80, intensity: .13, tracks: 386, albums: 42, past: '90 天前', number: '90', caption: '天内的新收藏' },
+      'all': { scale: .34, offset: .23, rotation: -6, frame: 3300, softness: .78, intensity: .15, tracks: 2468, albums: 218, past: '收藏之初', number: '全部', caption: '从此刻，回望收藏之初' },
+    };
+    const palettes = {
+      '7': {
+        name: '灰玫瑰 / 暖杏',
+        light: { back: '#f1e4dc', colors: ['#a96f80', '#bd8b94', '#cc9c9c', '#d8b0a4', '#e3c4b0', '#eed7bd', '#f7e9d6'] },
+        dark: { back: '#302124', colors: ['#c88b96', '#b87989', '#a56c77', '#946563', '#7e584f', '#5e4036', '#382b28'] },
+      },
+      '30': {
+        name: '雾紫 / 灰蓝',
+        light: { back: '#e8e8f0', colors: ['#805f91', '#9c80ab', '#b09ac0', '#b4adcc', '#bec3d6', '#d3dbe6', '#ecedf4'] },
+        dark: { back: '#201d30', colors: ['#a68ac1', '#8e73a8', '#786496', '#635d83', '#505a76', '#384257', '#232b3c'] },
+      },
+      '90': {
+        name: '青灰 / 烟蓝',
+        light: { back: '#e4eceb', colors: ['#597e7b', '#759695', '#8eaaa9', '#9db2ba', '#b4c4d1', '#d0dbe2', '#e9eef0'] },
+        dark: { back: '#19282d', colors: ['#83ada5', '#709893', '#5d8386', '#4e6c7b', '#3e556b', '#2e3e52', '#202c3b'] },
+      },
+      'all': {
+        name: '琥珀 / 褐紫',
+        light: { back: '#ece2db', colors: ['#aa7843', '#be925b', '#d0ae80', '#bba095', '#ab92aa', '#cbbbd0', '#eee5ed'] },
+        dark: { back: '#2b2230', colors: ['#bd965b', '#a8804f', '#8d6b50', '#795c61', '#654d69', '#4b3b56', '#302637'] },
+      },
+    };
+    const themes = ['light', 'dark'];
+    const tracks = [['微光', '陈予安 · 夜色之间', '03:42'], ['缓慢的回声', '林序 · 留白', '04:16'], ['昨日来信', '许知遥 · 旧时光', '03:58']];
+    for (const theme of themes) {
+      const section = document.createElement('section');
+      section.className = 'preview';
+      section.dataset.theme = theme;
+      section.setAttribute('aria-label', theme === 'light' ? '浅色模式预览' : '深色模式预览');
+      section.innerHTML = `
+        <div class="theme-label"><span>${theme === 'light' ? '浅色模式' : '深色模式'}</span><span>${theme === 'light' ? 'LIGHT' : 'DARK'}</span></div>
+        <div class="surface">
+          <div class="playlist-header">
+            <div class="playlist-cover" role="img" aria-label="最近添加磨砂渐变歌单封面"><div class="shader" aria-hidden="true"></div></div>
+            <div class="playlist-info">
+              <div class="eyebrow">资料库 / 歌单</div>
+              <h2>最近添加</h2>
+              <p class="hero-meta"></p>
+              <div class="range-title"><span class="range-number"></span><span class="range-caption"></span></div>
+              <p class="palette-label"></p>
+              <div class="timeline" aria-hidden="true"><div class="timeline-line"></div><div class="timeline-labels"><span>此刻</span><span class="past-label"></span></div></div>
+            </div>
+          </div>
+          <div class="list">
+            <div class="list-header"><strong>新入库的曲目</strong><span>按添加时间</span></div>
+            ${tracks.map(([title, artist, time], i) => `<div class="track"><span class="track-number">0${i + 1}</span><div><div class="track-title">${title}</div><div class="track-artist">${artist}</div></div><span class="track-time">${time}</span></div>`).join('')}
+          </div>
+        </div>`;
+      root.append(section);
+    }
+
+    let selected = '30';
+    let current = { ...presets[selected] };
+    let mounts = [];
+    let animationFrame = 0;
+    let disposed = false;
+    let convertColor;
+    let currentPalettes = null;
+
+    function paletteState(range) {
+      if (!convertColor) return null;
+      return Object.fromEntries(themes.map((theme) => [theme, {
+        back: convertColor(palettes[range][theme].back),
+        colors: palettes[range][theme].colors.map((color) => convertColor(color)),
+      }]));
+    }
+
+    function updateLabels() {
+      const p = presets[selected];
+      for (const preview of root.children) {
+        preview.querySelector('.hero-meta').textContent = `${selected === 'all' ? '全部收藏' : `最近 ${selected} 天`} · ${p.tracks.toLocaleString('zh-Hans')} 首曲目 · ${p.albums} 张专辑`;
+        preview.querySelector('.range-number').textContent = p.number;
+        preview.querySelector('.range-caption').textContent = p.caption;
+        preview.querySelector('.past-label').textContent = p.past;
+        preview.querySelector('.palette-label').textContent = palettes[selected].name;
+        const palette = palettes[selected][preview.dataset.theme];
+        const cover = preview.querySelector('.playlist-cover');
+        cover.style.setProperty('--cover-first', palette.colors[0]);
+        cover.style.setProperty('--cover-mid', palette.colors[3]);
+        cover.style.setProperty('--cover-back', palette.back);
+        cover.setAttribute('aria-label', `最近添加，${selected === 'all' ? '全部收藏' : `最近 ${selected} 天`}，${palettes[selected].name}磨砂渐变封面`);
+      }
+    }
+
+    function paint() {
+      for (const { mount, theme } of mounts) {
+        mount.setUniforms({
+          u_colorBack: currentPalettes[theme].back,
+          u_colors: currentPalettes[theme].colors,
+          u_scale: current.scale,
+          u_offsetX: current.offset,
+          u_rotation: current.rotation,
+          u_softness: current.softness,
+          u_intensity: current.intensity,
+        });
+        mount.setFrame(current.frame);
+      }
+    }
+
+    function finishTransition() {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+      current = { ...presets[selected] };
+      currentPalettes = paletteState(selected);
+      paint();
+    }
+
+    function changeRange(value) {
+      if (!(value in presets)) return;
+      cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+      selected = value;
+      updateLabels();
+      if (!mounts.length || motion.matches || document.hidden) {
+        finishTransition();
+        return;
+      }
+      const from = { ...current };
+      const to = presets[value];
+      const fromPalettes = currentPalettes;
+      const toPalettes = paletteState(value);
+      const start = performance.now();
+      function tick(now) {
+        if (disposed) return;
+        const t = Math.min(1, (now - start) / 900);
+        const eased = 1 - (1 - t) ** 3;
+        for (const key of ['scale', 'offset', 'rotation', 'softness', 'intensity', 'frame']) {
+          current[key] = from[key] + (to[key] - from[key]) * eased;
+        }
+        const mixColor = (a, b) => a.map((channel, index) => channel + (b[index] - channel) * eased);
+        currentPalettes = Object.fromEntries(themes.map((theme) => [theme, {
+          back: mixColor(fromPalettes[theme].back, toPalettes[theme].back),
+          colors: fromPalettes[theme].colors.map((color, index) => mixColor(color, toPalettes[theme].colors[index])),
+        }]));
+        paint();
+        animationFrame = t < 1 ? requestAnimationFrame(tick) : 0;
+      }
+      animationFrame = requestAnimationFrame(tick);
+    }
+
+    for (const group of document.querySelectorAll('[role="radiogroup"]')) {
+      const buttons = [...group.querySelectorAll('button')];
+      function choose(button, focus = false) {
+        for (const item of buttons) {
+          const checked = item === button;
+          item.setAttribute('aria-checked', String(checked));
+          item.tabIndex = checked ? 0 : -1;
+        }
+        if (group.dataset.control === 'range') changeRange(button.dataset.value);
+        else root.dataset.display = button.dataset.value;
+        if (focus) button.focus();
+      }
+      buttons.forEach((button) => button.addEventListener('click', () => choose(button)));
+      group.addEventListener('keydown', (event) => {
+        const index = buttons.indexOf(event.target);
+        if (index < 0) return;
+        let next;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') next = (index + 1) % buttons.length;
+        else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') next = (index + buttons.length - 1) % buttons.length;
+        else if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = buttons.length - 1;
+        else return;
+        event.preventDefault();
+        choose(buttons[next], true);
+      });
+    }
+    updateLabels();
+
+    function onVisibility() { if (document.hidden) finishTransition(); }
+    function onMotion() { if (motion.matches) finishTransition(); }
+    document.addEventListener('visibilitychange', onVisibility);
+    motion.addEventListener('change', onMotion);
+    window.addEventListener('pagehide', (event) => {
+      finishTransition();
+      if (event.persisted) return;
+      disposed = true;
+      mounts.forEach(({ mount }) => mount.dispose());
+      mounts = [];
+      document.removeEventListener('visibilitychange', onVisibility);
+      motion.removeEventListener('change', onMotion);
+    });
+
+    try {
+      const [mountModule, gradientModule, colorModule, textureModule] = await Promise.all([
+        import(base + 'shader-mount.js'),
+        import(base + 'shaders/grain-gradient.js'),
+        import(base + 'get-shader-color-from-string.js'),
+        import(base + 'get-shader-noise-texture.js'),
+      ]);
+      const noiseTexture = textureModule.getShaderNoiseTexture();
+      await noiseTexture.decode();
+      if (!disposed) {
+        convertColor = colorModule.getShaderColorFromString;
+        currentPalettes = paletteState(selected);
+        themes.forEach((theme) => {
+          const palette = palettes[selected][theme];
+          const host = root.querySelector(`[data-theme="${theme}"] .shader`);
+          const colors = palette.colors.map((color) => convertColor(color));
+          const mount = new mountModule.ShaderMount(host, gradientModule.grainGradientFragmentShader, {
+            u_colorBack: convertColor(palette.back),
+            u_colors: colors,
+            u_colorsCount: colors.length,
+            u_softness: current.softness,
+            u_intensity: current.intensity,
+            u_noise: .12,
+            u_shape: gradientModule.GrainGradientShapes.wave,
+            u_noiseTexture: noiseTexture,
+            u_fit: 0,
+            u_scale: current.scale,
+            u_rotation: current.rotation,
+            u_offsetX: current.offset,
+            u_offsetY: -.04,
+            u_originX: .5,
+            u_originY: .5,
+            u_worldWidth: 0,
+            u_worldHeight: 0,
+          }, { alpha: false, antialias: false }, 0, current.frame, 1, 1_600_000);
+          mounts.push({ mount, theme });
+          mount.canvasElement.addEventListener('webglcontextlost', (event) => {
+            event.preventDefault();
+            finishTransition();
+            status.textContent = '图形上下文已中断，请刷新页面重新加载 Paper 效果。';
+          });
+        });
+        status.textContent = 'Paper Grain Gradient 已加载 · 切换范围，观察方形封面的配色与色带变化。';
+      }
+    } catch (error) {
+      cancelAnimationFrame(animationFrame);
+      mounts.forEach(({ mount }) => mount.dispose());
+      mounts = [];
+      root.querySelectorAll('.shader').forEach((host) => host.replaceChildren());
+      status.textContent = 'Paper 效果未能加载，当前显示 CSS 占位渐变。请检查网络与 WebGL2 支持后刷新。';
+      console.error('Paper Grain Gradient initialization failed', error);
+    }
+  </script>
+</body>
+</html>

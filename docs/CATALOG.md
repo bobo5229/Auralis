@@ -31,6 +31,7 @@
 - [Renderer 视觉与交互](rules/renderer.md)
 - [风险分级验收](rules/validation.md)
 - [施工提示词写法](rules/handoff-prompts.md)
+- [6LunaMax 施工提示词撰写规则](rules/6lunamax-construction-prompts.md)
 
 ## 主题方案
 

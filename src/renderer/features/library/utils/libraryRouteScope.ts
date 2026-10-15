@@ -1,5 +1,8 @@
+import type { RecentAddedLibraryRange } from './recentAddedLibrary'
+
 export type LibraryRouteScope =
   | { kind: 'library' }
+  | { kind: 'recent-added'; range: RecentAddedLibraryRange }
   | { kind: 'playlist'; id: number }
   | { kind: 'smart-playlist'; id: number }
 
@@ -12,6 +15,9 @@ export function isSameLibraryRouteScope(
 ): boolean {
   if (left.kind !== right.kind) return false
   if (left.kind === 'library' || right.kind === 'library') return true
+  if (left.kind === 'recent-added' || right.kind === 'recent-added') {
+    return left.kind === 'recent-added' && right.kind === 'recent-added' && left.range === right.range
+  }
   return left.id === right.id
 }
 

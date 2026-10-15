@@ -27,6 +27,7 @@ import { useSystemMediaIntegration } from '@renderer/features/playback/composabl
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { MODERN_PLAYER_BAR_MAX_WIDTH_PX } from '@renderer/features/playback/utils/modernPlayerBarLayout'
 import { useLyricsPanelVisibility } from '@renderer/features/appearance/composables/useLyricsPanelVisibility'
+import { useLyricsPanelMode } from '@renderer/features/appearance/composables/useLyricsPanelMode'
 import { useLyricsPanelLayout, computeLyricsTargetWidth } from './app/layout/useLyricsPanelLayout'
 import {
   createLyricsAlbumTransitionCoordinator,
@@ -113,10 +114,13 @@ watch(
 )
 
 const { lyricsPanelExpanded } = useLyricsPanelVisibility()
+const { mode: lyricsPanelMode } = useLyricsPanelMode()
+const isFloatingLyrics = computed(() => lyricsPanelMode.value === 'floating')
 const { canLayoutLyricsPanel } = useLyricsPanelLayout()
 
 const shellRef = ref<HTMLElement | null>(null)
 const mainRef = ref<HTMLElement | null>(null)
+const nowPlayingPanelRef = ref<InstanceType<typeof NowPlayingPanel> | null>(null)
 const initialLyricsActive = canLayoutLyricsPanel.value && lyricsPanelExpanded.value
 const lyricsProgress = ref(initialLyricsActive ? 1 : 0)
 const shouldMountLyrics = ref(initialLyricsActive)
@@ -293,6 +297,8 @@ function clearPlayerBarTransition(): void {
 }
 
 function positionLyricsPanel(panel: HTMLElement, rect: DOMRect): void {
+  // Floating lyrics stay in the main grid area, which already provides their bounds.
+  if (isFloatingLyrics.value) return
   const shellRect = shellRef.value?.getBoundingClientRect()
   if (!shellRect) return
   Object.assign(panel.style, {
@@ -519,6 +525,11 @@ async function runAlbumLyricsTransition(expanded: boolean, sidebarRail?: boolean
   }
   if (animatesSidebar) sidebarLayoutTransition.commit()
 
+  if (expanded) {
+    await nowPlayingPanelRef.value?.prepareForDisplay()
+    if (!lyricsAlbumTransition.isCurrent(ticket)) return
+  }
+
   panel = shellRef.value?.querySelector<HTMLElement>('.now-playing-panel') ?? null
   const targetPanelRect = panel?.getBoundingClientRect()
   if (panel && targetPanelRect && targetPanelRect.width > 0) {
@@ -723,6 +734,10 @@ async function runGenericLyricsTransition(expanded: boolean): Promise<void> {
   lyricsProgress.value = to
   await nextTick()
   if (revision !== genericLyricsTransitionRevision) return
+  if (expanded) {
+    await nowPlayingPanelRef.value?.prepareForDisplay()
+    if (revision !== genericLyricsTransitionRevision) return
+  }
   panel.style.removeProperty('visibility')
   const duration = getLyricsSlideDuration(from, to)
   const slide = animateLyricsPanelSlide(panel, from, to, fromOpacity, rect.width, duration)
@@ -753,7 +768,7 @@ async function runGenericLyricsTransition(expanded: boolean): Promise<void> {
 }
 
 async function expandWithAnimation(): Promise<void> {
-  if (!reducedMotionMedia?.matches && usesAlbumLayoutTransition()) {
+  if (!isFloatingLyrics.value && !reducedMotionMedia?.matches && usesAlbumLayoutTransition()) {
     await runAlbumLyricsTransition(true)
     return
   }
@@ -766,7 +781,7 @@ async function expandWithAnimation(): Promise<void> {
 }
 
 function collapseWithAnimation(): void {
-  if (!reducedMotionMedia?.matches && usesAlbumLayoutTransition()) {
+  if (!isFloatingLyrics.value && !reducedMotionMedia?.matches && usesAlbumLayoutTransition()) {
     void runAlbumLyricsTransition(false)
     return
   }
@@ -794,6 +809,21 @@ watch(canLayoutLyricsPanel, (canDisplay) => {
   applyImmediateState(canDisplay && lyricsPanelExpanded.value)
 })
 
+watch(
+  lyricsPanelMode,
+  () => {
+    // Settle any pending column animation before switching between reserved and overlay space.
+    applyImmediateState(canLayoutLyricsPanel.value && lyricsPanelExpanded.value)
+    isLyricsResizing.value = true
+    void nextTick(() => {
+      if (!isGenericLyricsTransitioning && !activeAlbumTransitionTicket) {
+        isLyricsResizing.value = false
+      }
+    })
+  },
+  { flush: 'sync' },
+)
+
 function updateLyricsTargetWidth(): void {
   if (isGenericLyricsTransitioning) {
     applyImmediateState(canLayoutLyricsPanel.value && lyricsPanelExpanded.value)
@@ -813,7 +843,12 @@ function handleReducedMotionChange(): void {
 const shellStyle = computed<CSSProperties>(() => ({
   '--auralis-lyrics-progress': String(lyricsProgress.value),
   '--auralis-lyrics-target-width': `${lyricsTargetWidthPx.value}px`,
-  '--auralis-lyrics-column-width': `calc(20% * ${lyricsProgress.value})`,
+  '--auralis-lyrics-column-width': isFloatingLyrics.value
+    ? '0px'
+    : `calc(20% * ${lyricsProgress.value})`,
+  '--auralis-player-lyrics-inset': isFloatingLyrics.value
+    ? `${lyricsTargetWidthPx.value * lyricsProgress.value}px`
+    : `calc(20% * ${lyricsProgress.value})`,
 }))
 
 /** 成功导航的来源；与目标路由在同一轮渲染前更新。 */
@@ -1044,6 +1079,7 @@ watch(displayMode, (mode) => {
     :class="{
       'is-cd-albums': isCdCanvas,
       'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
+      'is-sidebar-floating': !sidebarFullHeight && !isCdCanvas,
     }"
     data-app-shell-root
   >
@@ -1056,6 +1092,7 @@ watch(displayMode, (mode) => {
         'is-cd-albums-dark': isCdCanvas && cdCanvasTheme === 'dark',
         'is-sidebar-collapsed': renderedSidebarRail,
         'is-lyrics-collapsed': isLyricsCollapsed,
+        'is-lyrics-floating': isFloatingLyrics,
         'is-lyrics-resizing': isLyricsResizing,
         'is-album-layout-transitioning': isAlbumLayoutTransitioning,
       }"
@@ -1112,6 +1149,7 @@ watch(displayMode, (mode) => {
 
       <NowPlayingPanel
         v-if="!isCdCanvas"
+        ref="nowPlayingPanelRef"
         class="relative z-10"
         :should-mount-lyrics="shouldMountLyrics"
         :is-collapsed="isLyricsCollapsed"

@@ -12,6 +12,12 @@ export const router = createRouter({
       meta: { title: 'Library' },
     },
     {
+      path: '/recent-added',
+      name: 'recent-added',
+      component: routeLoaders.library,
+      meta: { title: 'Recently Added' },
+    },
+    {
       path: '/smart-playlists/:id',
       name: 'smart-playlist',
       component: routeLoaders.library,

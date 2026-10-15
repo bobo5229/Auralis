@@ -21,6 +21,7 @@ export default [
       '**/AppData/**',
       'data/**',
       '**/data/**',
+      'src/renderer/shared/feedback/vendor/segment.js',
     ],
   },
   ...pluginVue.configs['flat/recommended'],

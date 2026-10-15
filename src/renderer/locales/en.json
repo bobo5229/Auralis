@@ -22,6 +22,9 @@
     "text": "{format} text",
     "duetLines": "TTML lyrics",
     "startTime": "Start time",
+    "endTime": "End time",
+    "together": "Together",
+    "simultaneous": "Simultaneous vocals",
     "earlierSelectionTooltip": "Move selected lyrics 0.1 seconds earlier",
     "laterSelectionTooltip": "Move selected lyrics 0.1 seconds later",
     "performer1": "Performer 1",
@@ -51,6 +54,7 @@
     "errors": {
       "readOnly": "This TTML content does not support this edit.",
       "invalidTime": "Invalid time, or the adjustment would move a timestamp below zero.",
+      "invalidEndTime": "The end must follow the start and must not cut off timed words.",
       "untimed": "Some lyric lines have no timestamp. Add timestamps before saving as TTML.",
       "invalidLrc": "Invalid LRC timestamps or content. Could not convert to TTML.",
       "changed": "The file changed or the session expired. Keep your edits, then close and reload.",
@@ -346,6 +350,13 @@
         "description": "Reduce movement, scaling and continuous animations. Follow the system or enable manually.",
         "system": "System",
         "enabled": "On",
+        "persistFailed": "Applied, but could not save this preference."
+      },
+      "lyricsPanelLayout": {
+        "title": "Lyrics panel layout",
+        "description": "Split view reserves space for lyrics. The floating panel overlays the right side of the content with a translucent frosted background, with the playback bar moving left to make room. Applies only to main window lyrics.",
+        "split": "Split view",
+        "floating": "Floating panel",
         "persistFailed": "Applied, but could not save this preference."
       },
       "lyricsEffects": {
@@ -772,6 +783,18 @@
   },
   "library": {
     "playCount": "{count} plays | {count} play | {count} plays",
+    "recentAdded": {
+      "viewLabel": "View",
+      "tracks": "Tracks",
+      "albums": "Albums",
+      "rangeLabel": "Time range",
+      "days7": "Last 7 days",
+      "days30": "Last 30 days",
+      "days90": "Last 90 days",
+      "all": "All",
+      "empty": "No music was added in this time range",
+      "persistFailed": "The time range is active, but your choice could not be saved. Select it again to retry."
+    },
     "columns": {
       "artwork": "Cover",
       "title": "Title",
@@ -834,7 +857,8 @@
       "actions": {
         "cancel": "Cancel",
         "save": "Save",
-        "saving": "Saving…"
+        "saving": "Saving…",
+        "saved": "Saved"
       },
       "validation": {
         "dateInvalid": "Use the date format YYYY-MM-DD"

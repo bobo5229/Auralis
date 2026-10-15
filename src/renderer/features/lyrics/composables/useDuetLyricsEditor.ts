@@ -85,7 +85,7 @@ export function useDuetLyricsEditor(onFailure: (code: string, recoveryPath?: str
       !ids.length ||
       ids.length > 10000 ||
       !Number.isSafeInteger(valueMs) ||
-      (mode === 'set' && (ids.length !== 1 || valueMs < 0))
+      (mode !== 'shift' && (ids.length !== 1 || valueMs < 0))
     )
       return
     const editable = new Set(

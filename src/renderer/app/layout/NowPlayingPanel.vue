@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, type CSSProperties } from 'vue'
+import { computed, ref, type CSSProperties } from 'vue'
 import LyricsPanel from '@renderer/features/lyrics/components/LyricsPanel.vue'
 
 const props = withDefaults(
@@ -21,6 +21,14 @@ const emit = defineEmits<{
   editLyrics: [trigger: HTMLElement | null]
 }>()
 
+const lyricsPanelRef = ref<InstanceType<typeof LyricsPanel> | null>(null)
+
+async function prepareForDisplay(): Promise<void> {
+  await lyricsPanelRef.value?.prepareForDisplay()
+}
+
+defineExpose({ prepareForDisplay })
+
 const contentStyle = computed<CSSProperties>(() => ({
   width:
     typeof props.targetWidthPx === 'number' && props.targetWidthPx > 0
@@ -40,7 +48,9 @@ const contentStyle = computed<CSSProperties>(() => ({
     <div class="now-playing-panel-content" :style="contentStyle">
       <LyricsPanel
         v-if="shouldMountLyrics"
-        :active="isInteractive && !isCollapsed"
+        ref="lyricsPanelRef"
+        :active="!isCollapsed"
+        :interactive="isInteractive"
         @edit-lyrics="emit('editLyrics', $event)"
       />
     </div>

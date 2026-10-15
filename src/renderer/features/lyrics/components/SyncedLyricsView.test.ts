@@ -387,6 +387,58 @@ it('respects panel activity, resumes manual scrolling, and remains usable withou
   )
 })
 
+it('positions before display while interaction is disabled and keeps following without a scroll animation', async () => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      disconnect() {}
+    },
+  )
+  const interactive = ref(false)
+  const activeIndex = ref(1)
+  const view = ref<InstanceType<typeof SyncedLyricsView> | null>(null)
+  const lines = [
+    { id: '0', text: 'First', timeSeconds: 0 },
+    { id: '1', text: 'Second', timeSeconds: 2 },
+    { id: '2', text: 'Third', timeSeconds: 4 },
+  ]
+  const root = new TestNode('root')
+  const app = renderer.createApp({
+    setup: () => () =>
+      h(SyncedLyricsView, {
+        ref: view,
+        active: true,
+        interactive: interactive.value,
+        lines,
+        activeIndex: activeIndex.value,
+        isPrelude: false,
+        showPrelude: false,
+        preludeLitDotCount: 0,
+      }),
+  })
+  app.mount(root)
+  await nextTick()
+  await view.value?.prepareForDisplay()
+  const track = find(root, 'synced-lyrics-track')!
+  const scroll = find(root, 'synced-lyrics-scroll')!
+  expect(track.style.transform).toBe('translate3d(0, -160px, 0)')
+  expect(track.animate).not.toHaveBeenCalled()
+  ;(scroll.props.onWheel as () => void)()
+  activeIndex.value = 2
+  await nextTick()
+  await nextTick()
+  expect(track.style.transform).toBe('translate3d(0, -260px, 0)')
+  expect(track.animate).not.toHaveBeenCalled()
+  interactive.value = true
+  await nextTick()
+  activeIndex.value = 1
+  await nextTick()
+  await nextTick()
+  expect(track.animate).toHaveBeenCalledOnce()
+  app.unmount()
+})
+
 it('uses the saved particle effect in the normal lyrics panel and follows playback time on seek', async () => {
   vi.stubGlobal('localStorage', { setItem: vi.fn() })
   vi.stubGlobal(

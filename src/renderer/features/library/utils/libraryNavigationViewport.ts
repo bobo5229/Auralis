@@ -14,7 +14,9 @@ export class LibraryNavigationViewportStore {
   private readonly positions = new Map<string, LibraryNavigationViewport>()
 
   private key(scope: LibraryRouteScope): string {
-    return scope.kind === 'library' ? 'library' : `${scope.kind}:${scope.id}`
+    if (scope.kind === 'library') return 'library'
+    if (scope.kind === 'recent-added') return `recent-added:${scope.range}`
+    return `${scope.kind}:${scope.id}`
   }
 
   get(scope: LibraryRouteScope): LibraryNavigationViewport | undefined {

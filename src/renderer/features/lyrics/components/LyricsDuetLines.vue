@@ -7,6 +7,7 @@ import type {
   RetimeLyricsEditorLines,
 } from '@shared/types/lyricsEditor'
 import { formatTtmlEditorTime, parseTtmlEditorTime } from '../utils/ttmlTimeEditing'
+import { groupSimultaneousLyrics } from '../utils/groupSimultaneousLyrics'
 
 const props = defineProps<{
   session: LyricsEditorState
@@ -24,7 +25,10 @@ const list = ref<HTMLElement | null>(null)
 const selected = ref(new Set<string>())
 const focused = ref<string | null>(null)
 let anchor: string | null = null
-const editableLines = computed(() => props.session.lines.filter((line) => line.editable))
+const groups = computed(() => groupSimultaneousLyrics(props.session.lines))
+const editableLines = computed(() =>
+  groups.value.flatMap((group) => group.lines).filter((line) => line.editable),
+)
 const enabled = computed(() => props.session.editable && !props.busy)
 const allSelected = computed(
   () => editableLines.value.length > 0 && selected.value.size === editableLines.value.length,
@@ -49,14 +53,22 @@ const canStamp = computed(
 )
 const timeText = ref('')
 const invalidTime = ref(false)
+const endText = ref('')
+const invalidEndTime = ref(false)
 watch(
-  () => [singleLine.value?.id, singleLine.value?.timeSeconds, props.session.sessionId],
+  () => [
+    singleLine.value?.id,
+    singleLine.value?.timeSeconds,
+    singleLine.value?.endTimeSeconds,
+    props.session.sessionId,
+  ],
   () => {
     timeText.value =
       singleLine.value?.timeSeconds == null
         ? ''
         : formatTtmlEditorTime(singleLine.value.timeSeconds)
     invalidTime.value = false
+    resetEndTime()
   },
   { immediate: true },
 )
@@ -95,6 +107,10 @@ function choose(id: string, extend: boolean, toggle: boolean): void {
 }
 function click(event: MouseEvent, id: string): void {
   choose(id, event.shiftKey, event.ctrlKey || event.metaKey)
+  list.value?.focus({ preventScroll: true })
+}
+function check(event: MouseEvent, id: string): void {
+  choose(id, event.shiftKey, true)
   list.value?.focus({ preventScroll: true })
 }
 function selectAll(): void {
@@ -162,6 +178,28 @@ function resetTime(): void {
     singleLine.value?.timeSeconds == null ? '' : formatTtmlEditorTime(singleLine.value.timeSeconds)
   invalidTime.value = false
 }
+function inputEndTime(event: Event): void {
+  endText.value = (event.target as HTMLInputElement).value
+  invalidEndTime.value = false
+}
+function resetEndTime(): void {
+  endText.value =
+    singleLine.value?.endTimeSeconds == null
+      ? ''
+      : formatTtmlEditorTime(singleLine.value.endTimeSeconds)
+  invalidEndTime.value = false
+}
+function commitEndTime(): void {
+  if (!canSetTime.value) return
+  const valueMs = parseTtmlEditorTime(endText.value)
+  invalidEndTime.value =
+    valueMs === null || valueMs <= Math.round(singleLine.value!.timeSeconds! * 1000)
+  if (
+    !invalidEndTime.value &&
+    valueMs !== Math.round((singleLine.value?.endTimeSeconds ?? NaN) * 1000)
+  )
+    emit('retime', [...selected.value], 'set-end', valueMs!)
+}
 defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
 </script>
 
@@ -169,17 +207,41 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
   <div class="duet-editor">
     <div class="duet-toolbar">
       <div class="duet-actions">
-        <button class="auralis-dialog-action" :disabled="!canAssign" @click="assign('performer-1')">
+        <button
+          data-action="performer-1"
+          class="auralis-dialog-action"
+          :disabled="!canAssign"
+          @click="assign('performer-1')"
+        >
           {{ t('lyricsEditor.performer1') }}
         </button>
-        <button class="auralis-dialog-action" :disabled="!canAssign" @click="assign('performer-2')">
+        <button
+          data-action="performer-2"
+          class="auralis-dialog-action"
+          :disabled="!canAssign"
+          @click="assign('performer-2')"
+        >
           {{ t('lyricsEditor.performer2') }}
         </button>
-        <button class="auralis-dialog-action" :disabled="!canAssign" @click="assign('unassigned')">
+        <button
+          data-action="together"
+          class="auralis-dialog-action"
+          :disabled="!canAssign"
+          @click="assign('together')"
+        >
+          {{ t('lyricsEditor.together') }}
+        </button>
+        <button
+          data-action="unassigned"
+          class="auralis-dialog-action"
+          :disabled="!canAssign"
+          @click="assign('unassigned')"
+        >
           {{ t('lyricsEditor.clearAssignment') }}
         </button>
       </div>
       <button
+        data-action="select-all"
         class="auralis-dialog-action"
         :disabled="!enabled || !editableLines.length"
         @click="selectAll"
@@ -188,25 +250,52 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
       </button>
     </div>
     <div class="duet-timing">
-      <input
-        v-tooltip="invalidTime ? t('lyricsEditor.errors.invalidTime') : t('lyricsEditor.startTime')"
-        class="duet-time-input"
-        type="text"
-        maxlength="32"
-        spellcheck="false"
-        placeholder="—"
-        :value="timeText"
-        :disabled="!canSetTime"
-        :aria-label="t('lyricsEditor.startTime')"
-        :aria-invalid="invalidTime || undefined"
-        @input="inputTime"
-        @change="commitTime"
-        @keydown.enter.prevent="blurTime"
-        @keydown.esc.stop="resetTime"
-      />
+      <label class="duet-time-field">
+        <span>{{ t('lyricsEditor.startTime') }}</span>
+        <input
+          v-tooltip="
+            invalidTime ? t('lyricsEditor.errors.invalidTime') : t('lyricsEditor.startTime')
+          "
+          class="duet-time-input"
+          type="text"
+          maxlength="32"
+          spellcheck="false"
+          placeholder="—"
+          :value="timeText"
+          :disabled="!canSetTime"
+          :aria-label="t('lyricsEditor.startTime')"
+          :aria-invalid="invalidTime || undefined"
+          @input="inputTime"
+          @change="commitTime"
+          @keydown.enter.prevent="blurTime"
+          @keydown.esc.stop="resetTime"
+        />
+      </label>
+      <label class="duet-time-field">
+        <span>{{ t('lyricsEditor.endTime') }}</span>
+        <input
+          v-tooltip="
+            invalidEndTime ? t('lyricsEditor.errors.invalidEndTime') : t('lyricsEditor.endTime')
+          "
+          class="duet-time-input"
+          type="text"
+          maxlength="32"
+          spellcheck="false"
+          placeholder="—"
+          :value="endText"
+          :disabled="!canSetTime"
+          :aria-label="t('lyricsEditor.endTime')"
+          :aria-invalid="invalidEndTime || undefined"
+          @input="inputEndTime"
+          @change="commitEndTime"
+          @keydown.enter.prevent="blurTime"
+          @keydown.esc.stop="resetEndTime"
+        />
+      </label>
       <button
         v-tooltip="t('lyricsEditor.updateTimeTooltip')"
         class="auralis-dialog-action auralis-dialog-action--primary duet-timing-button"
+        data-action="set"
         :disabled="!canStamp"
         @mousedown.prevent
         @click="stamp"
@@ -216,6 +305,7 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
       <button
         v-tooltip="t('lyricsEditor.earlierSelectionTooltip')"
         class="auralis-dialog-action duet-timing-button"
+        data-action="earlier"
         :disabled="!canRetime"
         @mousedown.prevent
         @click="nudge(-100)"
@@ -225,6 +315,7 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
       <button
         v-tooltip="t('lyricsEditor.laterSelectionTooltip')"
         class="auralis-dialog-action duet-timing-button"
+        data-action="later"
         :disabled="!canRetime"
         @mousedown.prevent
         @click="nudge(100)"
@@ -246,39 +337,61 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
       @mousedown.shift.prevent
     >
       <div
-        v-for="line in session.lines"
-        :id="`${listId}-${line.id}`"
-        :key="line.id"
-        class="duet-line"
-        :class="{
-          'duet-line--selected': selected.has(line.id),
-          'duet-line--focused': focused === line.id,
-          'duet-line--readonly': !line.editable,
-        }"
-        role="option"
-        :aria-selected="selected.has(line.id)"
-        :aria-disabled="!enabled || !line.editable"
-        @click="click($event, line.id)"
+        v-for="group in groups"
+        :key="group.id"
+        class="duet-line-group"
+        :class="{ 'duet-line-group--simultaneous': group.simultaneous }"
+        :role="group.simultaneous ? 'group' : 'presentation'"
+        :aria-label="group.simultaneous ? t('lyricsEditor.simultaneous') : undefined"
       >
-        <span class="duet-check" aria-hidden="true">
-          <span v-if="selected.has(line.id)" class="i-lucide-check" />
-          <span v-else-if="!line.editable" class="i-lucide-lock-keyhole" />
-        </span>
-        <time class="duet-time">{{
-          line.timeSeconds === null ? '—' : formatTtmlEditorTime(line.timeSeconds)
-        }}</time>
-        <span class="duet-text">{{ line.text || '—' }}</span>
-        <span class="duet-assignment">
-          {{
-            line.assignment === 'performer-1'
-              ? t('lyricsEditor.performer1')
-              : line.assignment === 'performer-2'
-                ? t('lyricsEditor.performer2')
-                : line.assignment === 'unsupported'
-                  ? t('lyricsEditor.readOnly')
-                  : '—'
-          }}
-        </span>
+        <div v-if="group.simultaneous" class="duet-group-title" aria-hidden="true">
+          {{ t('lyricsEditor.simultaneous') }}
+        </div>
+        <div
+          v-for="line in group.lines"
+          :id="`${listId}-${line.id}`"
+          :key="line.id"
+          class="duet-line"
+          :class="{
+            'duet-line--selected': selected.has(line.id),
+            'duet-line--focused': focused === line.id,
+            'duet-line--readonly': !line.editable,
+          }"
+          role="option"
+          :aria-selected="selected.has(line.id)"
+          :aria-disabled="!enabled || !line.editable"
+          @click="click($event, line.id)"
+        >
+          <!-- The checkbox mirrors aria-selected; keyboard selection stays on the listbox. -->
+          <span class="duet-check" aria-hidden="true" @click.stop="check($event, line.id)">
+            <span class="duet-checkbox">
+              <span v-if="selected.has(line.id)" class="i-lucide-check" />
+            </span>
+          </span>
+          <span class="duet-interval">
+            <time class="duet-time" :aria-label="t('lyricsEditor.startTime')">{{
+              line.timeSeconds === null ? '—' : formatTtmlEditorTime(line.timeSeconds)
+            }}</time>
+            <span class="duet-time-separator" aria-hidden="true">–</span>
+            <time class="duet-time" :aria-label="t('lyricsEditor.endTime')">{{
+              line.endTimeSeconds == null ? '—' : formatTtmlEditorTime(line.endTimeSeconds)
+            }}</time>
+          </span>
+          <span class="duet-text">{{ line.text || '—' }}</span>
+          <span class="duet-assignment">
+            {{
+              line.assignment === 'performer-1'
+                ? t('lyricsEditor.performer1')
+                : line.assignment === 'performer-2'
+                  ? t('lyricsEditor.performer2')
+                  : line.assignment === 'together'
+                    ? t('lyricsEditor.together')
+                    : line.assignment === 'unsupported'
+                      ? t('lyricsEditor.readOnly')
+                      : '—'
+            }}
+          </span>
+        </div>
       </div>
     </div>
   </div>
@@ -313,6 +426,16 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
   font-size: var(--auralis-type-control-size);
   line-height: var(--auralis-type-control-line-height);
   font-variant-numeric: tabular-nums;
+}
+.duet-timing {
+  align-items: flex-end;
+}
+.duet-time-field {
+  display: grid;
+  gap: 6px;
+  color: var(--auralis-text-muted);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
 }
 .duet-time-input:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
@@ -355,7 +478,7 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
 }
 .duet-line {
   display: grid;
-  grid-template-columns: 16px 90px minmax(0, 1fr) auto;
+  grid-template-columns: 20px 190px minmax(0, 1fr) auto;
   align-items: start;
   gap: 12px;
   padding: 10px 12px;
@@ -364,6 +487,28 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
   line-height: var(--auralis-type-control-line-height);
   cursor: default;
   user-select: none;
+}
+.duet-line-group--simultaneous {
+  margin-block: 6px;
+  padding: 6px;
+  border-inline-start: 2px solid var(--auralis-border-strong);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--auralis-control-primary-bg) 5%, transparent);
+}
+.duet-group-title {
+  padding: 2px 12px 6px;
+  color: var(--auralis-text-muted);
+  font-size: var(--auralis-type-caption-size);
+  line-height: var(--auralis-type-caption-line-height);
+  font-weight: 600;
+}
+.duet-interval {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.duet-time-separator {
+  color: var(--auralis-text-muted);
 }
 .duet-line:hover:not(.duet-line--readonly) {
   background: var(--auralis-control-hover-bg);
@@ -380,11 +525,32 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
 .duet-check {
   display: grid;
   place-items: center;
+  width: 20px;
   height: var(--auralis-type-control-line-height);
+  cursor: pointer;
 }
-.duet-check > span {
-  width: 14px;
-  height: 14px;
+.duet-checkbox {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 17px;
+  height: 17px;
+  border: 1px solid var(--auralis-border-strong);
+  border-radius: 4px;
+  background: transparent;
+}
+.duet-line--selected .duet-checkbox {
+  border-color: var(--auralis-control-primary-bg);
+  background: var(--auralis-control-primary-bg);
+  color: var(--auralis-control-primary-text);
+}
+.duet-checkbox > span {
+  width: 13px;
+  height: 13px;
+}
+.duet-line[aria-disabled='true'] .duet-check {
+  cursor: default;
+  opacity: 0.4;
 }
 .duet-time {
   font-variant-numeric: tabular-nums;
@@ -400,5 +566,17 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
 }
 .duet-line--readonly {
   color: var(--auralis-text-muted);
+}
+@media (max-width: 1000px) {
+  .duet-line {
+    grid-template-columns: 20px 90px minmax(0, 1fr) auto;
+  }
+  .duet-interval {
+    display: grid;
+    gap: 2px;
+  }
+  .duet-time-separator {
+    display: none;
+  }
 }
 </style>

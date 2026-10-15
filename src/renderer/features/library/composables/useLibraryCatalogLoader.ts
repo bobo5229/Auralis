@@ -14,6 +14,7 @@ import type { LibraryViewportCapture } from './useLibraryViewport'
 import {
   createAllSongsLibrarySnapshot,
   createPlaylistLibrarySnapshot,
+  createRecentAddedLibrarySnapshot,
   createSmartPlaylistLibrarySnapshot,
   type LibraryDataSnapshot,
 } from '../utils/libraryDataSnapshot'
@@ -64,6 +65,7 @@ export function useLibraryCatalogLoader(options: {
         | 'play-stats-updated'
         | 'play-stats-reset'
         | string
+      libraryRevision?: string
     }) => void | Promise<void>,
   ) => () => void
   onScanProgress: (callback: (progress: LibraryScanProgress) => void | Promise<void>) => () => void
@@ -82,6 +84,13 @@ export function useLibraryCatalogLoader(options: {
   let importRefreshDeadline: ReturnType<typeof setTimeout> | null = null
   let disposed = false
   let playStatsRevision = 0
+  let revisionRefresh: {
+    revision: string
+    scope: LibraryRouteScope
+    catalogRevision: number
+    isCurrent: () => boolean
+    promise: Promise<LibraryLoadResult>
+  } | null = null
 
   function dependsOnPlayStats(preset: string | undefined): boolean {
     return preset === 'recentPlayed' || preset === 'mostListened' || preset === 'recentFrequent'
@@ -124,6 +133,7 @@ export function useLibraryCatalogLoader(options: {
     scope: LibraryRouteScope,
     isRequestCurrent: () => boolean,
     mode: LibraryLoadMode,
+    libraryRevision?: string,
   ): Promise<{ snapshot: LibraryDataSnapshot | null; isSnapshotCurrent: () => boolean }> {
     if (scope.kind === 'smart-playlist') {
       const statsRevision = playStatsRevision
@@ -156,6 +166,7 @@ export function useLibraryCatalogLoader(options: {
     const catalog = await catalogClient.load(
       isRequestCurrent,
       mode === 'metadata-save' ? 'fresh' : 'snapshot',
+      libraryRevision,
     )
     if (import.meta.env.DEV) {
       rendererDiagnostics.info({
@@ -175,7 +186,14 @@ export function useLibraryCatalogLoader(options: {
       })
     }
     return {
-      snapshot: createAllSongsLibrarySnapshot([...catalog.tracks], options.readPersistedViewMode()),
+      snapshot:
+        scope.kind === 'recent-added'
+          ? createRecentAddedLibrarySnapshot(
+              catalog.tracks,
+              scope.range,
+              options.readPersistedViewMode(),
+            )
+          : createAllSongsLibrarySnapshot([...catalog.tracks], options.readPersistedViewMode()),
       isSnapshotCurrent: () => catalogClient.isSnapshotCurrent(catalog),
     }
   }
@@ -187,7 +205,55 @@ export function useLibraryCatalogLoader(options: {
     options.onSnapshotCommitted(snapshot)
   }
 
-  async function loadLibraryData(mode: LibraryLoadMode = 'foreground'): Promise<LibraryLoadResult> {
+  async function loadLibraryData(
+    mode: LibraryLoadMode = 'foreground',
+    libraryRevision?: string,
+  ): Promise<LibraryLoadResult> {
+    if (isDisposed()) return 'stale'
+    if (!libraryRevision) return executeLibraryLoad(mode)
+
+    catalogClient.invalidateForLibraryRevision(libraryRevision)
+    const scope = options.captureRouteScope()
+    const existing = revisionRefresh
+    if (
+      existing?.revision === libraryRevision &&
+      isSameLibraryRouteScope(existing.scope, scope) &&
+      existing.catalogRevision === catalogClient.invalidationRevision &&
+      existing.isCurrent()
+    ) {
+      const result = await existing.promise
+      if (
+        result === 'committed' &&
+        existing.isCurrent() &&
+        existing.catalogRevision === catalogClient.invalidationRevision &&
+        catalogClient.isLibraryRevisionCurrent(libraryRevision)
+      )
+        return result
+      // Failed/queued/stale refreshes must not satisfy a successful save.
+      if (isDisposed()) return 'stale'
+    }
+
+    const refresh = {
+      revision: libraryRevision,
+      scope,
+      catalogRevision: catalogClient.invalidationRevision,
+      isCurrent: () => false,
+      promise: Promise.resolve<LibraryLoadResult>('stale'),
+    }
+    revisionRefresh = refresh
+    refresh.promise = executeLibraryLoad(mode, libraryRevision, (isCurrent) => {
+      refresh.isCurrent = isCurrent
+      refresh.catalogRevision = catalogClient.invalidationRevision
+      if (catalogClient.isLibraryRevisionCurrent(libraryRevision)) revisionRefresh = refresh
+    })
+    return refresh.promise
+  }
+
+  async function executeLibraryLoad(
+    mode: LibraryLoadMode,
+    libraryRevision?: string,
+    onRequestStarted?: (isCurrent: () => boolean) => void,
+  ): Promise<LibraryLoadResult> {
     if (isDisposed()) return 'stale'
     if (mode === 'metadata-save') {
       while (coordinator.hasActiveForeground && !isDisposed()) {
@@ -195,7 +261,8 @@ export function useLibraryCatalogLoader(options: {
       }
 
       if (isDisposed()) return 'stale'
-      catalogClient.invalidate()
+      if (libraryRevision) catalogClient.invalidateForLibraryRevision(libraryRevision)
+      else catalogClient.invalidate()
     }
 
     const scope = options.captureRouteScope()
@@ -204,6 +271,7 @@ export function useLibraryCatalogLoader(options: {
       return mode === 'background' ? 'queued' : 'stale'
     }
     const isRequestCurrent = () => isCurrentLibraryRequest(generation, scope)
+    onRequestStarted?.(isRequestCurrent)
     const isForeground = mode === 'foreground'
     const hasPreviousSnapshot =
       committedScope !== null && isSameLibraryRouteScope(committedScope, scope)
@@ -222,6 +290,7 @@ export function useLibraryCatalogLoader(options: {
         scope,
         isRequestCurrent,
         mode,
+        libraryRevision,
       )
       if (!isRequestCurrent()) return 'stale'
       // An event may arrive between the shared load resolving and this consumer
@@ -343,6 +412,10 @@ export function useLibraryCatalogLoader(options: {
         return
       }
       clearImportRefresh()
+      if (event.libraryRevision) {
+        await loadLibraryData('background', event.libraryRevision)
+        return
+      }
       catalogClient.invalidate()
       await loadLibraryData('background')
     })
@@ -359,6 +432,7 @@ export function useLibraryCatalogLoader(options: {
 
   function dispose(): void {
     disposed = true
+    revisionRefresh = null
     clearImportRefresh()
     coordinator.invalidate()
     unsubscribeChanged?.()

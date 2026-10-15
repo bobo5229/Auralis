@@ -950,6 +950,7 @@ function dropAlbum(album: AlbumSummary, cover: HTMLElement): void {
 }
 
 function insertContextAlbum(): void {
+  if (!hasCurrentTrack.value) return
   const album = contextMenu.value?.album
   closeContextMenu()
   if (!album) return
@@ -1185,21 +1186,20 @@ defineExpose<AlbumLayoutTransitionParticipant>({
             }}</span>
           </button>
           <div class="library-context-menu-separator"></div>
-          <template v-if="hasCurrentTrack">
-            <button
-              class="library-context-menu-item"
-              type="button"
-              role="menuitem"
-              data-album-menu-action="insert"
-              @click="insertContextAlbum"
-            >
-              <span class="i-lucide-list-plus"></span>
-              <span>{{
-                t('albums.contextMenu.insert', { title: songText(contextMenu.album.title) })
-              }}</span>
-            </button>
-            <div class="library-context-menu-separator"></div>
-          </template>
+          <button
+            class="library-context-menu-item library-context-menu-item--insert"
+            type="button"
+            role="menuitem"
+            data-album-menu-action="insert"
+            :disabled="!hasCurrentTrack"
+            @click="insertContextAlbum"
+          >
+            <span class="i-lucide-list-plus"></span>
+            <span>{{
+              t('albums.contextMenu.insert', { title: songText(contextMenu.album.title) })
+            }}</span>
+          </button>
+          <div class="library-context-menu-separator"></div>
           <button
             class="library-context-menu-item"
             role="menuitem"

@@ -45,7 +45,7 @@ function deferred<T>() {
   })
   return { promise, resolve }
 }
-function setup(coordinator?: MetadataWriteCoordinator) {
+function setup(coordinator?: MetadataWriteCoordinator, readLibraryRevision?: () => string) {
   let job = 0
   const repo = {
     markInterruptedJobs: vi.fn(),
@@ -73,6 +73,7 @@ function setup(coordinator?: MetadataWriteCoordinator) {
     send,
     'isolated-bin/ffmpeg.exe',
     coordinator,
+    readLibraryRevision,
   )
   return { repo, service, send }
 }
@@ -83,6 +84,35 @@ beforeEach(() => {
 })
 
 describe('metadata result acceptance', () => {
+  it('returns the exact committed revision carried by the success notification', async () => {
+    const readRevision = vi.fn(() => '12:1')
+    const { service, repo, send } = setup(undefined, readRevision)
+    vi.mocked(readStableMetadata).mockResolvedValueOnce(payload)
+    const result = await service.updateTrackMetadata({
+      trackId: 1,
+      title: 'Changed',
+      artistDisplay: null,
+      albumTitle: null,
+      albumArtistDisplay: null,
+      genreDisplay: null,
+      year: null,
+      releaseDate: null,
+    })
+    expect(result).toEqual({ ok: true, libraryRevision: '12:1' })
+    expect(repo.commitVerifiedUserEdit).toHaveBeenCalledOnce()
+    expect(readRevision).toHaveBeenCalledOnce()
+    expect(repo.commitVerifiedUserEdit.mock.invocationCallOrder[0]).toBeLessThan(
+      readRevision.mock.invocationCallOrder[0],
+    )
+    expect(send).toHaveBeenCalledWith('library:changed', {
+      reason: 'metadata-refresh',
+      trackIds: [1],
+      filePaths: ['isolated.flac'],
+      libraryRevision: '12:1',
+    })
+    await service.shutdown()
+  })
+
   it('routes lyric-only edits through the playback writer even when other fields are unchanged', async () => {
     const { service, repo } = setup({
       tryAcquireWriteLease: () => ({ ok: false, reason: 'playback-in-use' }),

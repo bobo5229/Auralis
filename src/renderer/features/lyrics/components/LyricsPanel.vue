@@ -13,7 +13,10 @@ import LyricsEmptyState from './LyricsEmptyState.vue'
 
 const { t } = useI18n()
 const { effects } = useLyricsEffectsPreference()
-const props = withDefaults(defineProps<{ active?: boolean }>(), { active: true })
+const props = withDefaults(defineProps<{ active?: boolean; interactive?: boolean }>(), {
+  active: true,
+  interactive: true,
+})
 const emit = defineEmits<{
   editLyrics: [trigger: HTMLElement | null]
 }>()
@@ -30,11 +33,13 @@ const {
   preludeElapsed,
 } = useDisplayedTrackLyrics()
 const panelRef = ref<HTMLElement | null>(null)
+const syncedLyricsRef = ref<InstanceType<typeof SyncedLyricsView> | null>(null)
 const menuOpen = ref(false)
 const anchor = ref({ clientX: 0, clientY: 0 })
 const enabled = computed(
   () =>
     props.active &&
+    props.interactive &&
     displayMode.value === 'normal' &&
     ((status.value === 'lrc' && parsedLines.value.length > 0) ||
       (status.value === 'plain' && !!rawLyrics.value?.trim())),
@@ -105,6 +110,13 @@ watch(
   () => closeMenu(),
   { flush: 'sync' },
 )
+
+async function prepareForDisplay(): Promise<void> {
+  await nextTick()
+  await syncedLyricsRef.value?.prepareForDisplay()
+}
+
+defineExpose({ prepareForDisplay })
 </script>
 
 <template>
@@ -147,7 +159,9 @@ watch(
 
       <SyncedLyricsView
         v-else-if="status === 'lrc'"
+        ref="syncedLyricsRef"
         :active="active"
+        :interactive="interactive"
         :lines="parsedLines"
         :active-index="activeIndex"
         :is-prelude="isPrelude"

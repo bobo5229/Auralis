@@ -12,7 +12,6 @@ import type { LibraryStats } from '@shared/types/app'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import { DEFAULT_RECENT_PLAYED_DAYS } from '@shared/smartPlaylists/recentFrequent'
-import { DEFAULT_RECENT_ADDED_DAYS } from '@shared/smartPlaylists/recentAdded'
 import { useRoute } from 'vue-router'
 import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import SmartPlaylistBuilderDialog from '@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue'
@@ -143,7 +142,7 @@ const createMenuPanel = ref<HTMLElement | null>(null)
 const smartCreateTrigger = ref<HTMLButtonElement | null>(null)
 const smartCreatePanel = ref<HTMLElement | null>(null)
 const smartCreateSubmenu = ref(false)
-const creatingPlaybackPreset = ref<'recentPlayed' | 'mostListened' | 'recentAdded' | null>(null)
+const creatingPlaybackPreset = ref<'recentPlayed' | 'mostListened' | null>(null)
 const createError = ref('')
 const playlistContextMenu = ref<{ item: SidebarPlaylistItem; x: number; y: number } | null>(null)
 const playlistContextIndex = computed(() => {
@@ -244,6 +243,12 @@ const primaryNav = computed<
     to: '/songs',
     label: t('nav.songs'),
     icon: 'song',
+    routeName: 'library',
+  },
+  {
+    to: '/recent-added',
+    label: t('sidebar.recentAdded'),
+    icon: 'recentAdded',
     routeName: 'library',
   },
   {
@@ -593,19 +598,16 @@ watch(
 )
 
 async function createPlaybackPreset(
-  preset: 'recentPlayed' | 'mostListened' | 'recentAdded',
+  preset: 'recentPlayed' | 'mostListened',
 ): Promise<void> {
   if (creatingPlaybackPreset.value) return
   creatingPlaybackPreset.value = preset
   createError.value = ''
   try {
-    const { playlist } =
-      preset === 'recentAdded'
-        ? await auralis.smartPlaylists.createRecentAdded(DEFAULT_RECENT_ADDED_DAYS)
-        : await auralis.smartPlaylists.create(
-            t(preset === 'recentPlayed' ? 'sidebar.recentPlayed' : 'sidebar.mostListened'),
-            preset === 'recentPlayed' ? { preset, days: DEFAULT_RECENT_PLAYED_DAYS } : { preset },
-          )
+    const { playlist } = await auralis.smartPlaylists.create(
+      t(preset === 'recentPlayed' ? 'sidebar.recentPlayed' : 'sidebar.mostListened'),
+      preset === 'recentPlayed' ? { preset, days: DEFAULT_RECENT_PLAYED_DAYS } : { preset },
+    )
     await loadSidebarPlaylists()
     window.dispatchEvent(new CustomEvent('auralis-playlists-changed'))
     closeCreateMenu()
@@ -1248,18 +1250,6 @@ onBeforeUnmount(() => {
                   >
                     <PlaylistIcon kind="mostListened" />
                     <span>{{ t('sidebar.mostListened') }}</span>
-                  </button>
-                  <div class="library-context-menu-separator" role="separator"></div>
-                  <button
-                    class="library-context-menu-item"
-                    type="button"
-                    :disabled="!!creatingPlaybackPreset"
-                    :aria-busy="creatingPlaybackPreset === 'recentAdded'"
-                    role="menuitem"
-                    @click="createPlaybackPreset('recentAdded')"
-                  >
-                    <PlaylistIcon kind="recentAdded" />
-                    <span>{{ t('sidebar.recentAdded') }}</span>
                   </button>
                   <div class="library-context-menu-separator" role="separator"></div>
                   <button

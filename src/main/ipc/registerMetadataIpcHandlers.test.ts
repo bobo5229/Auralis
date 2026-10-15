@@ -15,6 +15,27 @@ const edit = {
 }
 
 describe('metadata save failure transport', () => {
+  it('passes the successful public library revision through the existing save IPC', async () => {
+    const handlers = new Map<string, (...args: unknown[]) => unknown>()
+    const service = {
+      updateTrackMetadata: vi.fn(async () => ({ ok: true as const, libraryRevision: '12:1' })),
+    }
+    registerMetadataIpcHandlers(
+      {
+        handle: (channel, handler) =>
+          handlers.set(channel, handler as (...args: unknown[]) => unknown),
+      } as IpcHandlerRegistrar,
+      { metadataRefreshService: service, playbackFileCoordinator: {} } as unknown as Parameters<
+        typeof registerMetadataIpcHandlers
+      >[1],
+    )
+    expect(await handlers.get('metadata:update-track-metadata')!(null, edit)).toEqual({
+      ok: true,
+      libraryRevision: '12:1',
+    })
+    expect(service.updateTrackMetadata).toHaveBeenCalledWith(edit)
+  })
+
   it.each([
     [
       new MetadataSaveError('tag-preservation-failed', 'Private /path/song.m4a'),

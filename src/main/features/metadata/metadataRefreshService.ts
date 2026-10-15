@@ -25,6 +25,7 @@ export class MetadataRefreshService {
     sendToRenderer: RendererEventSender,
     ffmpegPath: string,
     coordinator?: MetadataWriteCoordinator,
+    readLibraryRevision?: () => string,
   ) {
     this.tagWrites = new MetadataTagWriteCoordinator(
       repository,
@@ -34,12 +35,16 @@ export class MetadataRefreshService {
         isStopping: () => this.stopping,
         hasActiveJob: () => this.hasActiveJob(),
         refreshTracksFromFileChanges: (ids) => this.refreshTracksFromFileChanges(ids),
-        onUserEditCommitted: (trackId, filePath) =>
+        onUserEditCommitted: (trackId, filePath) => {
+          const libraryRevision = readLibraryRevision?.()
           sendToRenderer(ipcChannels.library.changed, {
             reason: 'metadata-refresh',
             trackIds: [trackId],
             filePaths: [filePath],
-          }),
+            ...(libraryRevision ? { libraryRevision } : {}),
+          })
+          return libraryRevision
+        },
       },
       coordinator,
     )

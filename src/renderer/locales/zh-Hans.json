@@ -22,6 +22,9 @@
     "text": "{format} 文本",
     "duetLines": "TTML 歌词",
     "startTime": "开始时间",
+    "endTime": "结束时间",
+    "together": "合唱",
+    "simultaneous": "同时演唱",
     "earlierSelectionTooltip": "选中歌词整体提前 0.1 秒",
     "laterSelectionTooltip": "选中歌词整体延后 0.1 秒",
     "performer1": "演唱者 1",
@@ -51,6 +54,7 @@
     "errors": {
       "readOnly": "此 TTML 内容暂不支持这项编辑。",
       "invalidTime": "时间无效，或调整后会小于零。",
+      "invalidEndTime": "结束时间须晚于开始时间，且不能截断逐字时间。",
       "untimed": "部分歌词尚未添加时间戳，请补齐后再保存为 TTML。",
       "invalidLrc": "LRC 时间戳或内容无效，无法转换为 TTML。",
       "changed": "文件已变化或编辑会话已过期。请保留编辑内容，关闭后重新载入。",
@@ -346,6 +350,13 @@
         "description": "减少位移、缩放和持续动效。默认跟随系统，也可手动开启。",
         "system": "跟随系统",
         "enabled": "开启",
+        "persistFailed": "已应用，本次保存未完成。"
+      },
+      "lyricsPanelLayout": {
+        "title": "歌词面板布局",
+        "description": "独立分区为歌词保留空间；悬浮面板以半透明磨砂背景覆盖在内容右侧，播放栏向左让出位置。仅影响主界面歌词。",
+        "split": "独立分区",
+        "floating": "悬浮面板",
         "persistFailed": "已应用，本次保存未完成。"
       },
       "lyricsEffects": {
@@ -772,6 +783,18 @@
   },
   "library": {
     "playCount": "{count} 次",
+    "recentAdded": {
+      "viewLabel": "展示方式",
+      "tracks": "曲目",
+      "albums": "专辑",
+      "rangeLabel": "时间范围",
+      "days7": "最近 7 天",
+      "days30": "最近 30 天",
+      "days90": "最近 90 天",
+      "all": "全部",
+      "empty": "此时间范围内没有新添加的音乐",
+      "persistFailed": "当前时间范围已生效，但未能记住此选择。再次选择可重试。"
+    },
     "columns": {
       "artwork": "封面",
       "title": "歌曲",
@@ -834,7 +857,8 @@
       "actions": {
         "cancel": "取消",
         "save": "保存",
-        "saving": "正在保存…"
+        "saving": "正在保存…",
+        "saved": "已保存"
       },
       "validation": {
         "dateInvalid": "日期格式必须为 YYYY-MM-DD"

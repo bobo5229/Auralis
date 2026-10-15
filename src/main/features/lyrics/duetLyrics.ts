@@ -181,6 +181,14 @@ export function ensureDuetPerformerSlots(text: string, expectedRevision: string)
   return result(source, text, changed)
 }
 
+/** Create the nameless same-line chorus only when it is actually assigned. */
+export function ensureDuetTogetherSlot(text: string, expectedRevision: string): DuetEditResult {
+  const source = editableDocument(text, { expectedRevision })
+  if (source.snapshot.roles.together) return result(source, text, false)
+  newAgent(source, 'v1000', 'group')
+  return result(source, text, true)
+}
+
 /** Create missing roles and update the two names. Existing IDs and per-line assignments stay intact. */
 export function configureDuetPerformers(
   text: string,

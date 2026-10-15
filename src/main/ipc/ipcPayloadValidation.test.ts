@@ -388,7 +388,7 @@ describe('domain IPC payload validation behavior', () => {
         sessionId: '00000000-0000-4000-8000-000000000001',
         expectedRevision: 'a'.repeat(64),
         lineIds: ['line-0'],
-        assignment: 'together',
+        assignment: 'performer-3',
       },
     ],
     [
@@ -532,6 +532,17 @@ describe('domain IPC payload validation behavior', () => {
       valueMs: -100,
     }
     expect(parse('lyrics:retime-editor-lines', request)).toBeTruthy()
+    expect(
+      parse('lyrics:retime-editor-lines', { ...request, mode: 'set-end', valueMs: 2500 }),
+    ).toBeTruthy()
+    expect(
+      parse('lyrics:assign-editor-lines', {
+        sessionId: request.sessionId,
+        expectedRevision: request.expectedRevision,
+        lineIds: ['line-0'],
+        assignment: 'together',
+      }),
+    ).toBeTruthy()
     for (const patch of [
       { valueMs: NaN },
       { valueMs: Infinity },

@@ -1,5 +1,5 @@
-/** Phase one: no names or chorus-editing capability crosses IPC. */
-export type LyricsAssignment = 'unassigned' | 'performer-1' | 'performer-2'
+/** Performer identities stay nameless across IPC. */
+export type LyricsAssignment = 'unassigned' | 'performer-1' | 'performer-2' | 'together'
 
 export const MAX_LRC_EDITOR_CHARACTERS = 128 * 1024
 
@@ -49,6 +49,7 @@ export interface LyricsEditorLine {
   id: string
   text: string
   timeSeconds: number | null
+  endTimeSeconds?: number | null
   assignment: LyricsAssignment | 'unsupported'
   editable: boolean
   /** Missing capability is treated as read-only by older/mock providers. */
@@ -76,10 +77,10 @@ export interface AssignLyricsEditorLines {
 export interface RetimeLyricsEditorLines {
   sessionId: string
   expectedRevision: string
-  /** Up to 10,000 paragraphs; set accepts exactly one. */
+  /** Up to 10,000 paragraphs; set and set-end accept exactly one. */
   lineIds: string[]
-  mode: 'set' | 'shift'
-  /** Absolute start for set; signed offset for shift. Integer milliseconds. */
+  mode: 'set' | 'set-end' | 'shift'
+  /** Absolute start/end for set/set-end; signed offset for shift. Integer milliseconds. */
   valueMs: number
 }
 
@@ -112,6 +113,7 @@ export type LyricsEditorErrorCode =
   | 'unknown-line'
   | 'invalid-request'
   | 'invalid-time'
+  | 'invalid-end-time'
   | 'stale-revision'
   | 'session-expired'
   | 'too-many-sessions'

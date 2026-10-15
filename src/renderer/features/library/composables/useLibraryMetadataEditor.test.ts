@@ -34,6 +34,7 @@ function createEditor(overrides?: {
   getSaveFailureMessage?: (reason: string) => string
   getSaveErrorMessage?: () => string
   getLoadErrorMessage?: () => string
+  showSaveSuccess?: (signal: AbortSignal) => Promise<void>
 }) {
   let scope: LibraryRouteScope = overrides?.scope ?? { kind: 'library' }
   let disposed = false
@@ -50,6 +51,7 @@ function createEditor(overrides?: {
     updateTrackMetadata,
     captureRouteScope: () => scope,
     refreshLibrary,
+    showSaveSuccess: overrides?.showSaveSuccess,
     restoreFocus,
     isDisposed: () => disposed,
     getSaveErrorMessage: overrides?.getSaveErrorMessage ?? (() => 'save failed'),
@@ -81,6 +83,76 @@ function createEditor(overrides?: {
 }
 
 describe('useLibraryMetadataEditor', () => {
+  it('keeps the dialog busy until successful feedback finishes, then closes and restores focus', async () => {
+    let finish!: () => void
+    const showSaveSuccess = vi.fn(() => new Promise<void>((resolve) => {
+      finish = resolve
+    }))
+    const { editor, refreshLibrary, restoreFocus } = createEditor({ showSaveSuccess })
+    await editor.open(42)
+    const saving = editor.save({ ...metadata, title: 'Changed title' })
+    await vi.waitFor(() => expect(showSaveSuccess).toHaveBeenCalledOnce())
+    expect(refreshLibrary).toHaveBeenCalledOnce()
+    expect(editor.isSavingMetadata.value).toBe(true)
+    expect(editor.isMetadataEditorOpen.value).toBe(true)
+    expect(restoreFocus).not.toHaveBeenCalled()
+    finish()
+    await saving
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+    expect(editor.isSavingMetadata.value).toBe(false)
+    expect(restoreFocus).toHaveBeenCalledOnce()
+  })
+
+  it('does not play success feedback after a rejected save', async () => {
+    const showSaveSuccess = vi.fn(async () => undefined)
+    const { editor } = createEditor({
+      showSaveSuccess,
+      updateTrackMetadata: async () => ({ ok: false, reason: 'tag-preservation-failed' }),
+    })
+    await editor.open(42)
+    await editor.save({ ...metadata, title: 'Changed title' })
+    expect(showSaveSuccess).not.toHaveBeenCalled()
+    expect(editor.isMetadataEditorOpen.value).toBe(true)
+    expect(editor.isSavingMetadata.value).toBe(false)
+  })
+
+  it('aborts pending success feedback on disposal without returning focus to an old editor', async () => {
+    const showSaveSuccess = vi.fn((signal: AbortSignal) => new Promise<void>((resolve) => {
+      signal.addEventListener('abort', () => resolve(), { once: true })
+    }))
+    const { editor, restoreFocus } = createEditor({ showSaveSuccess })
+    await editor.open(42)
+    const saving = editor.save({ ...metadata, title: 'Changed title' })
+    await vi.waitFor(() => expect(showSaveSuccess).toHaveBeenCalledOnce())
+    editor.dispose()
+    await saving
+    expect(showSaveSuccess.mock.calls[0][0].aborted).toBe(true)
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+    expect(restoreFocus).not.toHaveBeenCalled()
+  })
+
+  it('shows successful feedback for unchanged input without writing or refreshing', async () => {
+    const showSaveSuccess = vi.fn(async () => undefined)
+    const { editor, updateTrackMetadata, refreshLibrary } = createEditor({ showSaveSuccess })
+    await editor.open(42)
+    await editor.save(metadata)
+    expect(showSaveSuccess).toHaveBeenCalledOnce()
+    expect(updateTrackMetadata).not.toHaveBeenCalled()
+    expect(refreshLibrary).not.toHaveBeenCalled()
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+  })
+
+  it('passes the successful commit revision to refresh and restores focus after it completes', async () => {
+    const { editor, refreshLibrary, restoreFocus } = createEditor({
+      updateTrackMetadata: async () => ({ ok: true, libraryRevision: '12:1' }),
+    })
+    await editor.open(42)
+    await editor.save({ ...metadata, title: 'Changed title' })
+    expect(refreshLibrary).toHaveBeenCalledWith('12:1')
+    expect(editor.isMetadataEditorOpen.value).toBe(false)
+    expect(restoreFocus).toHaveBeenCalledWith({ trackId: 42, source: 'track' })
+  })
+
   it('closes an unchanged edit and restores focus without invoking IPC or refreshing the library', async () => {
     const { editor, updateTrackMetadata, refreshLibrary, restoreFocus } = createEditor()
     await editor.open(42)

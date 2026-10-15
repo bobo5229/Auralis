@@ -476,7 +476,7 @@ export const domainIpcPayloadPolicies = {
       sessionId: field(stringValue({ min: 36, max: 36 })),
       expectedRevision: field(stringValue({ min: 64, max: 64 })),
       lineIds: field(arrayOf(stringValue({ min: 1, max: 32 }), { max: MAX_ID_LIST_LENGTH })),
-      assignment: field(enumValue(['unassigned', 'performer-1', 'performer-2'])),
+      assignment: field(enumValue(['unassigned', 'performer-1', 'performer-2', 'together'])),
     }),
   ),
   [ipcChannels.lyrics.saveEditor]: required(
@@ -492,7 +492,7 @@ export const domainIpcPayloadPolicies = {
       lineIds: field(
         arrayOf(stringValue({ min: 1, max: 32 }), { min: 1, max: MAX_ID_LIST_LENGTH }),
       ),
-      mode: field(enumValue(['set', 'shift'])),
+      mode: field(enumValue(['set', 'set-end', 'shift'])),
       valueMs: field(
         finiteNumber({
           integer: true,

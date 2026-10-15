@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
+import {
+  isNavigationFailure,
+  NavigationFailureType,
+  onBeforeRouteLeave,
+  onBeforeRouteUpdate,
+  useRoute,
+  useRouter,
+} from 'vue-router'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
 import { useElementSize } from '@vueuse/core'
@@ -20,6 +27,7 @@ import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import MetadataEditDialog from '../components/MetadataEditDialog.vue'
 import LibraryContextMenu from '../components/LibraryContextMenu.vue'
 import LibraryStatusState from '../components/LibraryStatusState.vue'
+import RecentAddedToolbar from '../components/RecentAddedToolbar.vue'
 import {
   getAlbumGroupEstimatedHeight,
   LIBRARY_LAYOUT_CSS_VARS,
@@ -52,6 +60,12 @@ import { useLibraryFlatColumnLayout } from '../composables/useLibraryFlatColumnL
 import { useLibraryCatalogLoader } from '../composables/useLibraryCatalogLoader'
 import { libraryCatalogClient } from '../utils/libraryCatalogClient'
 import { libraryNavigationViewportStore } from '../utils/libraryNavigationViewport'
+import {
+  DEFAULT_RECENT_ADDED_LIBRARY_RANGE,
+  parseRecentAddedLibraryRange,
+  RECENT_ADDED_LIBRARY_RANGE_KEY,
+  type RecentAddedLibraryRange,
+} from '../utils/recentAddedLibrary'
 import type { LibraryFlatColumnId, LibraryFlatColumnWidths } from '../utils/libraryFlatColumnLayout'
 import '../styles/flatTrackGrid.css'
 
@@ -74,9 +88,12 @@ watch(
 
 const librarySurfaceKind = computed(() => resolveLibrarySurfaceKind(route.name))
 const isLibrarySurface = computed(() => librarySurfaceKind.value !== null)
+const isRecentAdded = computed(() => route.name === 'recent-added')
 const { songFontWeightStyle } = useSongFontWeights()
 const { songFontSizeStyle } = useSongFontSizes()
-const coverInfo = useSongCoverInfoLayout(() => librarySurfaceKind.value === 'library')
+const coverInfo = useSongCoverInfoLayout(
+  () => librarySurfaceKind.value === 'library' || librarySurfaceKind.value === 'recent-added',
+)
 
 const pageIdentity = ref<LibraryPageIdentity | null>(null)
 const showPlayCount = computed(
@@ -99,6 +116,26 @@ let flatContainerWidthFrame = 0
 
 const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
 const COVER_TOP_INSET = LIBRARY_LAYOUT_METRICS.coverContentTopInset
+const recentAddedViewMode = ref<LibraryViewMode>('flat')
+const recentAddedPersistFailed = ref(false)
+
+function readRecentAddedSavedRange(): RecentAddedLibraryRange {
+  try {
+    return (
+      parseRecentAddedLibraryRange(localStorage.getItem(RECENT_ADDED_LIBRARY_RANGE_KEY)) ??
+      DEFAULT_RECENT_ADDED_LIBRARY_RANGE
+    )
+  } catch {
+    return DEFAULT_RECENT_ADDED_LIBRARY_RANGE
+  }
+}
+
+const recentAddedSavedRange = ref<RecentAddedLibraryRange>(readRecentAddedSavedRange())
+const recentAddedRange = computed<RecentAddedLibraryRange>(() => {
+  const queryRange = route.query.range
+  return (typeof queryRange === 'string' ? parseRecentAddedLibraryRange(queryRange) : null) ??
+    recentAddedSavedRange.value
+})
 const smartPlaylistId = computed(() => {
   if (route.name !== 'smart-playlist') return null
   const parsed = Number(route.params.id)
@@ -109,9 +146,14 @@ const playlistId = computed(() => {
   const parsed = Number(route.params.id)
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null
 })
-const isScopedPlaylist = computed(() => smartPlaylistId.value !== null || playlistId.value !== null)
+const isScopedPlaylist = computed(
+  () => isRecentAdded.value || smartPlaylistId.value !== null || playlistId.value !== null,
+)
 
 function captureLibraryRouteScope(): LibraryRouteScope {
+  if (isRecentAdded.value) {
+    return { kind: 'recent-added', range: recentAddedRange.value }
+  }
   if (smartPlaylistId.value !== null) {
     return { kind: 'smart-playlist', id: smartPlaylistId.value }
   }
@@ -122,6 +164,7 @@ function captureLibraryRouteScope(): LibraryRouteScope {
 }
 
 function readPersistedViewMode(): LibraryViewMode {
+  if (isRecentAdded.value) return recentAddedViewMode.value
   const stored = localStorage.getItem(LIBRARY_VIEW_MODE_KEY)
   return stored === 'cover' ? 'cover' : 'flat'
 }
@@ -161,7 +204,7 @@ const libraryPageStyle = computed(() => ({
   ...LIBRARY_LAYOUT_CSS_VARS,
   ...flatLayoutCssVars.value,
   ...coverInfo.style.value,
-  ...(librarySurfaceKind.value === 'library'
+  ...(librarySurfaceKind.value === 'library' || librarySurfaceKind.value === 'recent-added'
     ? { ...songFontWeightStyle.value, ...songFontSizeStyle.value }
     : {}),
 }))
@@ -535,7 +578,9 @@ function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId?: number
   beginViewSwitch(anchorTrackId ?? null)
 
   libraryViewMode.value = nextMode
-  if (smartPlaylistId.value !== null) {
+  if (isRecentAdded.value) {
+    recentAddedViewMode.value = nextMode
+  } else if (smartPlaylistId.value !== null) {
     void auralis.smartPlaylists.updateViewMode(smartPlaylistId.value, nextMode)
   } else if (playlistId.value !== null) {
     void auralis.playlists.updateViewMode(playlistId.value, nextMode)
@@ -543,6 +588,44 @@ function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId?: number
     localStorage.setItem(LIBRARY_VIEW_MODE_KEY, nextMode)
   }
   closeContextMenu('view-switch')
+}
+
+async function changeRecentAddedRange(nextRange: RecentAddedLibraryRange): Promise<void> {
+  const routeNameAtStart = route.name
+  const fullPathAtStart = route.fullPath
+  if (routeNameAtStart !== 'recent-added') return
+
+  try {
+    const failure = await router.replace({
+      name: 'recent-added',
+      query: { ...route.query, range: String(nextRange) },
+    })
+    const currentRoute = router.currentRoute.value
+    const targetAlreadyInRoute =
+      currentRoute.name === 'recent-added' && currentRoute.query.range === String(nextRange)
+    const duplicateNavigation = isNavigationFailure(
+      failure,
+      NavigationFailureType.duplicated,
+    )
+
+    if (failure && !(duplicateNavigation && targetAlreadyInRoute)) return
+    if (route.name !== routeNameAtStart || currentRoute.name !== 'recent-added') return
+    if (currentRoute.fullPath === fullPathAtStart && !targetAlreadyInRoute) return
+    if (recentAddedRange.value !== nextRange) return
+
+    recentAddedSavedRange.value = nextRange
+    try {
+      localStorage.setItem(RECENT_ADDED_LIBRARY_RANGE_KEY, String(nextRange))
+      recentAddedPersistFailed.value = false
+    } catch {
+      recentAddedPersistFailed.value = true
+    }
+  } catch {
+    rendererDiagnostics.error({
+      scope: 'library.recent-added',
+      message: 'Failed to navigate to the selected recent-added range',
+    })
+  }
 }
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
@@ -822,11 +905,15 @@ const {
   onScanProgress: (callback) => auralis.library.onScanProgress(callback),
 })
 
+const metadataDialogRef = ref<InstanceType<typeof MetadataEditDialog> | null>(null)
 const metadataEditor = useLibraryMetadataEditor({
   loadTrackMetadata: (trackId) => auralis.metadata.getTrackMetadata(trackId),
   updateTrackMetadata: (metadata) => auralis.metadata.updateTrackMetadata(metadata),
   captureRouteScope: captureLibraryRouteScope,
-  refreshLibrary: () => loadLibraryData('metadata-save'),
+  refreshLibrary: (libraryRevision) => loadLibraryData('metadata-save', libraryRevision),
+  showSaveSuccess: async (signal) => {
+    await metadataDialogRef.value?.showSaveSuccess(signal)
+  },
   restoreFocus: restoreLibraryFocus,
   isDisposed: () => isPageUnmounted,
   getSaveErrorMessage: () => t('library.metadataEditor.errors.saveFailed'),
@@ -918,6 +1005,14 @@ onBeforeUnmount(() => {
     @pointerdown.capture="onLibraryPointerDownCapture"
     @contextmenu.capture="onLibraryContextMenuCapture"
   >
+    <RecentAddedToolbar
+      v-if="isRecentAdded"
+      :view-mode="libraryViewMode"
+      :range="recentAddedRange"
+      :persist-failed="recentAddedPersistFailed"
+      @change-view="switchLibraryViewMode"
+      @change-range="changeRecentAddedRange"
+    />
     <div
       v-if="initialLoadError && pageIdentity"
       class="flex shrink-0 items-center gap-3 px-4 py-2 text-xs text-[var(--auralis-text-muted)]"
@@ -942,6 +1037,7 @@ onBeforeUnmount(() => {
       kind="empty"
       :is-playlist="playlistId !== null"
       :is-smart-playlist="smartPlaylistId !== null"
+      :is-recent-added="isRecentAdded"
       @open-settings="openSettings"
     />
 
@@ -1112,6 +1208,7 @@ onBeforeUnmount(() => {
     </div>
 
     <MetadataEditDialog
+      ref="metadataDialogRef"
       :open="isMetadataEditorOpen"
       :loading="isLoadingMetadata"
       :metadata="editingMetadata"

@@ -64,6 +64,8 @@ export interface LibraryChangedEvent {
   reason: LibraryChangedReason
   trackIds: number[]
   filePaths: string[]
+  /** Public catalog version after a verified metadata commit; not a write transaction token. */
+  libraryRevision?: string
 }
 
 export interface MetadataRefreshProgressEvent {
@@ -146,7 +148,7 @@ export interface TrackEditStateChangedEvent {
 }
 
 export type UpdateTrackMetadataResult =
-  | { ok: true }
+  | { ok: true; libraryRevision?: string }
   | {
       ok: false
       reason:

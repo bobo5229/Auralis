@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from 'node:util'
 import { parseAudioMetadata } from './parseAudioMetadata'
 import { MetadataSaveError } from './metadataSaveError'
 
@@ -28,7 +29,9 @@ export async function verifyPreservedAudioTags(
   for (const key of Object.keys(before.common)) {
     if (edited.has(key)) continue
     const name = key as keyof typeof before.common
-    if (JSON.stringify(before.common[name]) !== JSON.stringify(after.common[name]))
+    // Typed-array artwork is compared as bytes, without expanding every byte
+    // into JSON text. Array order and all picture properties remain protected.
+    if (!isDeepStrictEqual(before.common[name], after.common[name]))
       throw new MetadataSaveError(
         'tag-preservation-failed',
         `Tag preparation did not preserve ${key}`,
@@ -95,21 +98,31 @@ export async function verifyPreservedAudioTags(
     for (const id of ['uslt', 'ult', 'lyrics', 'unsyncedlyrics', '©lyr']) editedNative.add(id)
   }
   const nativeTags = (tags: typeof before.native) => {
-    const values = new Map<string, number>()
+    const values = new Map<string, unknown[]>()
     for (const [type, entries] of Object.entries(tags)) {
       for (const tag of entries) {
         if (editedNative.has(tag.id.toLowerCase())) continue
-        const key = `${type.startsWith('ID3v2.') ? 'ID3v2' : type}:${tag.id}:${JSON.stringify(tag.value)}`
-        values.set(key, (values.get(key) ?? 0) + 1)
+        const key = JSON.stringify([type.startsWith('ID3v2.') ? 'ID3v2' : type, tag.id])
+        const occurrences = values.get(key) ?? []
+        occurrences.push(tag.value)
+        values.set(key, occurrences)
       }
     }
     return values
   }
   const afterTags = nativeTags(after.native)
-  for (const [tag, count] of nativeTags(before.native))
-    if ((afterTags.get(tag) ?? 0) < count)
-      throw new MetadataSaveError(
-        'tag-preservation-failed',
-        'Tag preparation did not preserve a native tag',
-      )
+  for (const [tag, values] of nativeTags(before.native)) {
+    const remaining = afterTags.get(tag) ?? []
+    for (const value of values) {
+      const index = remaining.findIndex((candidate) => isDeepStrictEqual(value, candidate))
+      if (index < 0)
+        throw new MetadataSaveError(
+          'tag-preservation-failed',
+          'Tag preparation did not preserve a native tag',
+        )
+      // Consume each matching item so one retained tag cannot satisfy several
+      // original occurrences, including private binary tags and artwork.
+      remaining.splice(index, 1)
+    }
+  }
 }

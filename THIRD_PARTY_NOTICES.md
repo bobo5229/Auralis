@@ -150,6 +150,44 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+## SVG loading-to-success feedback — svg-loading and Segment
+
+`SaveProgressIcon.vue` adapts the circular SVG geometry, loading sequence and
+success stroke drawing from [jagjitgill/svg-loading](https://github.com/jagjitgill/svg-loading),
+commit `edf7b8499754b7c23aa9ed3e5e7b656ea493ab61` (`dist/svg-loading.js`).
+The Vue adapter adds cancellation, reduced-motion support, a short success hold
+and unmount cleanup instead of the upstream DOM/button mutation layer.
+
+`src/renderer/shared/feedback/vendor/segment.js` vendors
+[lmgonzalves/segment](https://github.com/lmgonzalves/segment), version 1.1.3,
+commit `dbd180703b1b94f6293688adaddda48b8d61b7e5` (`dist/segment.js`).
+Only the UMD export wrapper is replaced by ESM; the SVG stroke animation engine
+is unchanged. Both upstream projects use the MIT license.
+
+MIT License
+
+Copyright (c) 2017 Jag (svg-loading)
+
+Copyright (c) 2015 Luis Manuel (Segment)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
 ## n3r4zzurr0/svg-spinners — Blocks Wave
 
 `PlayingIndicator.vue` and `animatePlaybackBlocks` adapt the geometry and timing from

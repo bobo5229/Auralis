@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { useLyricsEffectsPreference } from '@renderer/features/lyrics/lyricsEffectsPreference'
+import LyricsPanelLayoutSettings from './LyricsPanelLayoutSettings.vue'
 
 const { t } = useI18n()
 const { effects, persistFailed, setEnabled } = useLyricsEffectsPreference()
@@ -13,6 +14,7 @@ const rows = ['edgeFade', 'blur'] as const
       <h2 class="settings-group-title">{{ t('settings.appearance.lyricsEffects.title') }}</h2>
     </div>
     <div class="settings-group-card">
+      <LyricsPanelLayoutSettings />
       <div v-for="effect in rows" :key="effect" class="settings-row settings-row--with-desc">
         <div>
           <strong>{{ t(`settings.appearance.lyricsEffects.${effect}.title`) }}</strong>

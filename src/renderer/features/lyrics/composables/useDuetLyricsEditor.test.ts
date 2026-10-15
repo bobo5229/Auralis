@@ -116,6 +116,34 @@ it('ignores late timing responses after dismissal', async () => {
   expect(editor.session.value).toBeNull()
 })
 
+it('shares chorus and end-time revisions while rejecting batch end changes', async () => {
+  const failure = vi.fn()
+  const editor = useDuetLyricsEditor(failure)
+  await editor.open(7)
+  const chorus = state('r2')
+  chorus.lines[0].assignment = 'together'
+  api.assignEditorLines.mockResolvedValue({ ok: true, value: chorus })
+  await editor.assign(['a'], 'together')
+  const timed = state('r3')
+  timed.lines[0] = { ...timed.lines[0], assignment: 'together', endTimeSeconds: 2.5 }
+  api.retimeEditorLines.mockResolvedValue({ ok: true, value: timed })
+  await editor.retime(['a', 'b'], 'set-end', 2500)
+  expect(api.retimeEditorLines).not.toHaveBeenCalled()
+  await editor.retime(['a'], 'set-end', 2500)
+  expect(api.retimeEditorLines).toHaveBeenCalledWith({
+    sessionId: 'session',
+    expectedRevision: 'r2',
+    lineIds: ['a'],
+    mode: 'set-end',
+    valueMs: 2500,
+  })
+  expect(editor.session.value?.lines[0]).toMatchObject({
+    assignment: 'together',
+    endTimeSeconds: 2.5,
+  })
+  expect(failure).not.toHaveBeenCalled()
+})
+
 it('blocks read-only rows and concurrent edits, and retains a failed draft', async () => {
   const pending = deferred<LyricsEditorResult<LyricsEditorState>>()
   api.assignEditorLines.mockReturnValue(pending.promise)

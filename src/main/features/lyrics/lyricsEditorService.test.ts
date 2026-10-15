@@ -225,7 +225,7 @@ describe('phase-one lyrics editor', () => {
     },
   )
 
-  it('rejects wrong owners, stale revisions, missing lines and chorus requests atomically', async () => {
+  it('rejects wrong owners, stale revisions, missing lines and unsupported assignments atomically', async () => {
     const { service } = fixture()
     const opened = await service.open(10, 1)
     const request = {
@@ -243,7 +243,7 @@ describe('phase-one lyrics editor', () => {
     expect(() => service.assign(10, { ...request, lineIds: ['line-0', 'missing'] })).toThrow(
       expect.objectContaining({ code: 'unknown-line' }),
     )
-    expect(() => service.assign(10, { ...request, assignment: 'together' as never })).toThrow(
+    expect(() => service.assign(10, { ...request, assignment: 'performer-3' as never })).toThrow(
       expect.objectContaining({ code: 'invalid-request' }),
     )
     const changed = service.assign(10, request)
@@ -288,10 +288,99 @@ describe('phase-one lyrics editor', () => {
     ).rejects.toMatchObject({ code: 'session-expired' })
   })
 
-  it('keeps existing chorus rows read-only while allowing individual person rows', async () => {
+  it('edits existing chorus rows and reuses the existing group identity', async () => {
     const text =
       '<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata"><head><metadata><ttm:agent xml:id="v1" type="person"/><ttm:agent xml:id="v2" type="person"/><ttm:agent xml:id="both" type="group"/></metadata></head><body><p begin="1s" end="2s" ttm:agent="both">chorus</p><p begin="2s" end="3s" ttm:agent="v1">solo</p></body></tt>'
     await writeFile(join(root, 'song.ttml'), text)
+    const { service } = fixture()
+    const opened = await service.open(10, 1)
+    expect(opened.lines[0]).toMatchObject({
+      assignment: 'together',
+      editable: true,
+      timeSeconds: 1,
+      endTimeSeconds: 2,
+    })
+    const together = service.assign(10, {
+      sessionId: opened.sessionId,
+      expectedRevision: opened.revision,
+      lineIds: ['line-0', 'line-1'],
+      assignment: 'together',
+    })
+    const changed = service.assign(10, {
+      sessionId: together.sessionId,
+      expectedRevision: together.revision,
+      lineIds: ['line-1'],
+      assignment: 'performer-2',
+    })
+    const saved = await service.save(10, {
+      sessionId: changed.sessionId,
+      expectedRevision: changed.revision,
+    })
+    expect(
+      readDuetLyrics(await readFile(saved.savedPath!, 'utf8')).lines.map((line) => line.assignment),
+    ).toEqual(['together', 'performer-2'])
+    expect(readDuetLyrics(await readFile(saved.savedPath!, 'utf8')).roles.together).toBe('both')
+  })
+
+  it('creates a nameless chorus lazily and saves chorus and end-time edits in the same draft', async () => {
+    const { service } = fixture()
+    const opened = await service.open(10, 1)
+    const chorus = service.assign(10, {
+      sessionId: opened.sessionId,
+      expectedRevision: opened.revision,
+      lineIds: ['line-0'],
+      assignment: 'together',
+    })
+    expect(chorus.lines[0]).toMatchObject({
+      assignment: 'together',
+      editable: true,
+      timingEditable: true,
+    })
+    const timed = service.retime(10, {
+      sessionId: chorus.sessionId,
+      expectedRevision: chorus.revision,
+      lineIds: ['line-0'],
+      mode: 'set-end',
+      valueMs: 2500,
+    })
+    expect(timed.lines[0]).toMatchObject({
+      timeSeconds: 1,
+      endTimeSeconds: 2.5,
+      assignment: 'together',
+    })
+    expect(() =>
+      service.retime(10, {
+        sessionId: timed.sessionId,
+        expectedRevision: timed.revision,
+        lineIds: ['line-0'],
+        mode: 'set-end',
+        valueMs: 1000,
+      }),
+    ).toThrow('invalid-end-time')
+    const saved = await service.save(10, {
+      sessionId: timed.sessionId,
+      expectedRevision: timed.revision,
+    })
+    const raw = await readFile(saved.savedPath!, 'utf8')
+    const snapshot = readDuetLyrics(raw)
+    expect(snapshot.performers.filter((performer) => performer.type === 'group')).toEqual([
+      { id: snapshot.roles.together, type: 'group', name: null },
+    ])
+    expect(snapshot.lines[0].timing).toMatchObject({ begin: '00:00:01.000', end: '00:00:02.500' })
+    expect(await readFile(lrcPath, 'utf8')).toBe(originalLrc)
+    const reopened = await service.open(10, 1)
+    expect(reopened.dirty).toBe(false)
+    expect(reopened.lines[0]).toMatchObject({
+      assignment: 'together',
+      endTimeSeconds: 2.5,
+      editable: true,
+    })
+  })
+
+  it('keeps mixed word assignments read-only and rejects a chorus batch without creating metadata', async () => {
+    const raw =
+      '<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata"><head><metadata><ttm:agent xml:id="v1" type="person"/><ttm:agent xml:id="v2" type="person"/></metadata></head><body><p begin="1s" end="2s"><span ttm:agent="v1">A</span><span ttm:agent="v2">B</span></p><p begin="2s" end="3s" ttm:agent="v1">Solo</p></body></tt>'
+    await writeFile(join(root, 'song.ttml'), raw)
     const { service } = fixture()
     const opened = await service.open(10, 1)
     expect(opened.lines[0]).toMatchObject({ assignment: 'unsupported', editable: false })
@@ -299,8 +388,8 @@ describe('phase-one lyrics editor', () => {
       service.assign(10, {
         sessionId: opened.sessionId,
         expectedRevision: opened.revision,
-        lineIds: ['line-0', 'line-1'],
-        assignment: 'performer-2',
+        lineIds: ['line-1', 'line-0'],
+        assignment: 'together',
       }),
     ).toThrow(expect.objectContaining({ code: 'read-only-line' }))
     const changed = service.assign(10, {
@@ -313,9 +402,9 @@ describe('phase-one lyrics editor', () => {
       sessionId: changed.sessionId,
       expectedRevision: changed.revision,
     })
-    expect(
-      readDuetLyrics(await readFile(saved.savedPath!, 'utf8')).lines.map((line) => line.assignment),
-    ).toEqual(['together', 'performer-2'])
+    const snapshot = readDuetLyrics(await readFile(saved.savedPath!, 'utf8'))
+    expect(snapshot.lines.map((line) => line.assignment)).toEqual(['mixed', 'performer-2'])
+    expect(snapshot.roles.together).toBeNull()
   })
 
   it('rejects paths outside configured roots and invalidates an in-flight open on navigation', async () => {

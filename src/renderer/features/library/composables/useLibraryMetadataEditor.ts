@@ -31,7 +31,8 @@ interface UseLibraryMetadataEditorOptions {
     metadata: EditableTrackMetadata,
   ) => Promise<UpdateTrackMetadataResult | unknown>
   captureRouteScope: () => LibraryRouteScope
-  refreshLibrary: () => Promise<LibraryMetadataRefreshResult>
+  refreshLibrary: (libraryRevision?: string) => Promise<LibraryMetadataRefreshResult>
+  showSaveSuccess?: (signal: AbortSignal) => Promise<void>
   restoreFocus: (target: LibraryMetadataFocusTarget) => Promise<void>
   isDisposed: () => boolean
   getSaveErrorMessage: () => string
@@ -60,6 +61,17 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   let unsubscribeStatus: (() => void) | null = null
   let pendingReturnTarget: LibraryMetadataFocusTarget | null = null
   let loadRevision = 0
+  let saveFeedbackController: AbortController | null = null
+
+  async function showSaveSuccess(signal: AbortSignal): Promise<void> {
+    try {
+      await options.showSaveSuccess?.(signal)
+    } catch (error) {
+      // The data has already been saved. A feedback failure must not turn it
+      // into a failed write or invite another submission.
+      if (!signal.aborted) options.logSaveError?.(error)
+    }
+  }
 
   function isCurrentLoad(trackId: number, revision: number): boolean {
     return !options.isDisposed() && currentTrackId === trackId && loadRevision === revision
@@ -144,7 +156,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     await open(currentTrackId)
   }
 
-  function close(): void {
+  function close(restoreFocus = true): void {
     if (isSavingMetadata.value) return
     const trackId = currentTrackId
     loadRevision++
@@ -166,12 +178,14 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     errorMessageSource.value = null
     pendingReturnTarget = null
 
-    if (returnTarget) {
+    if (returnTarget && restoreFocus) {
       void options.restoreFocus(returnTarget)
     }
   }
 
   function dispose(): void {
+    saveFeedbackController?.abort()
+    saveFeedbackController = null
     loadRevision++
     isMetadataEditorOpen.value = false
     isLoadingMetadata.value = false
@@ -196,18 +210,27 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       return
     }
 
-    if (isSameEditableMetadata(metadata, editingMetadata.value)) {
-      close()
-      return
-    }
-
+    const unchanged = isSameEditableMetadata(metadata, editingMetadata.value)
     isSavingMetadata.value = true
     errorMessageSource.value = null
     const saveScope = options.captureRouteScope()
+    const saveLoadRevision = loadRevision
+    const controller = new AbortController()
+    saveFeedbackController = controller
+    const isCurrentSave = () =>
+      !controller.signal.aborted &&
+      isCurrentLoad(metadata.trackId, saveLoadRevision)
 
     try {
+      if (unchanged) {
+        await showSaveSuccess(controller.signal)
+        if (!isCurrentSave()) return
+        isSavingMetadata.value = false
+        close(isSameLibraryRouteScope(saveScope, options.captureRouteScope()))
+        return
+      }
       const saveResult = await options.updateTrackMetadata(metadata)
-      if (options.isDisposed()) return
+      if (!isCurrentSave()) return
 
       if (
         saveResult &&
@@ -237,7 +260,16 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
         trackId: metadata.trackId,
         source: 'track' as const,
       }
-      const loadResult = await options.refreshLibrary()
+      const libraryRevision =
+        saveResult &&
+        typeof saveResult === 'object' &&
+        'ok' in saveResult &&
+        saveResult.ok === true &&
+        'libraryRevision' in saveResult &&
+        typeof saveResult.libraryRevision === 'string'
+          ? saveResult.libraryRevision
+          : undefined
+      const loadResult = await options.refreshLibrary(libraryRevision)
       const isStillInSaveScope = isSameLibraryRouteScope(saveScope, options.captureRouteScope())
 
       if (loadResult === 'failed' || loadResult === 'queued') {
@@ -246,7 +278,9 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       if (loadResult === 'stale' && isStillInSaveScope) {
         throw new Error('Metadata refresh after save became stale')
       }
-      if (options.isDisposed()) return
+      if (!isCurrentSave()) return
+      await showSaveSuccess(controller.signal)
+      if (!isCurrentSave()) return
 
       if (unsubscribeStatus) {
         unsubscribeStatus()
@@ -259,15 +293,16 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       editingMetadata.value = null
       pendingReturnTarget = null
 
-      if (isStillInSaveScope) {
+      if (isSameLibraryRouteScope(saveScope, options.captureRouteScope())) {
         await options.restoreFocus(returnTarget)
       }
     } catch (error) {
       options.logSaveError?.(error)
-      if (!options.isDisposed()) {
+      if (isCurrentSave()) {
         errorMessageSource.value = options.getSaveErrorMessage
       }
     } finally {
+      if (saveFeedbackController === controller) saveFeedbackController = null
       if (!options.isDisposed()) {
         isSavingMetadata.value = false
       }

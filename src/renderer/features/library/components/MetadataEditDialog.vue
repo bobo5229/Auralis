@@ -2,6 +2,7 @@
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppDialog from '@renderer/shared/dialog/AppDialog.vue'
+import SaveProgressIcon from '@renderer/shared/feedback/SaveProgressIcon.vue'
 import type { EditableTrackMetadata } from '@shared/types/libraryScan'
 import type { MetadataEditStatus } from '../composables/useLibraryMetadataEditor'
 
@@ -34,6 +35,31 @@ const dialog = ref<InstanceType<typeof AppDialog> | null>(null)
 const dialogRef = computed(() => (dialog.value?.panel as HTMLFormElement | null) ?? null)
 const titleInputRef = ref<HTMLInputElement | null>(null)
 const localError = ref<string | null>(null)
+const saveProgress = ref<InstanceType<typeof SaveProgressIcon> | null>(null)
+const saveSucceeded = ref(false)
+const saveButtonLabel = computed(() =>
+  saveSucceeded.value
+    ? t('library.metadataEditor.actions.saved')
+    : props.saving
+      ? t('library.metadataEditor.actions.saving')
+      : t('library.metadataEditor.actions.save'),
+)
+
+watch(
+  () => props.saving,
+  (saving) => {
+    if (!saving) saveSucceeded.value = false
+  },
+)
+
+async function showSaveSuccess(signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return
+  saveSucceeded.value = true
+  await nextTick()
+  if (!signal.aborted) await saveProgress.value?.complete(signal)
+}
+
+defineExpose({ showSaveSuccess })
 
 const isOpen = computed(() => props.open || props.metadata !== null)
 const isEditingDisabled = computed(
@@ -51,6 +77,9 @@ interface StatusBannerConfig {
 }
 
 const statusBanner = computed<StatusBannerConfig | null>(() => {
+  // The current save is represented by the submit button. Keep the warning
+  // for a write owned by another operation when this editor is not saving.
+  if (props.saving && props.editStatus === 'write-in-progress') return null
   switch (props.editStatus) {
     case 'checking':
       return {
@@ -319,6 +348,9 @@ function onClose(): void {
     </p>
 
     <template #footer>
+      <span class="sr-only" role="status" aria-live="polite">
+        {{ saving ? saveButtonLabel : '' }}
+      </span>
       <div class="flex justify-end gap-2">
         <button
           class="metadata-dialog-btn-secondary auralis-dialog-action"
@@ -338,15 +370,27 @@ function onClose(): void {
         </button>
         <button
           v-if="metadata"
-          class="metadata-dialog-btn-primary auralis-dialog-action auralis-dialog-action--primary"
+          class="metadata-dialog-btn-primary metadata-dialog-btn-save auralis-dialog-action auralis-dialog-action--primary"
+          :class="{ 'metadata-dialog-btn-save--busy': saving }"
           type="submit"
           :disabled="isEditingDisabled"
+          :aria-busy="saving && !saveSucceeded"
+          :aria-label="saveButtonLabel"
         >
-          {{
-            saving
-              ? t('library.metadataEditor.actions.saving')
-              : t('library.metadataEditor.actions.save')
-          }}
+          <span
+            class="metadata-dialog-save-content"
+            :class="{ 'metadata-dialog-save-content--hidden': saving }"
+            :aria-hidden="saving"
+          >
+            {{ t('library.metadataEditor.actions.save') }}
+          </span>
+          <span
+            class="metadata-dialog-save-content metadata-dialog-save-feedback"
+            :class="{ 'metadata-dialog-save-content--hidden': !saving }"
+            aria-hidden="true"
+          >
+            <SaveProgressIcon v-if="saving" ref="saveProgress" />
+          </span>
         </button>
       </div>
     </template>
@@ -356,6 +400,31 @@ function onClose(): void {
 <style scoped>
 .metadata-dialog-playback-notice {
   color: var(--auralis-danger);
+}
+
+.metadata-dialog-btn-save {
+  display: inline-grid;
+}
+
+.metadata-dialog-btn-save--busy:disabled {
+  opacity: 1;
+}
+
+.metadata-dialog-save-feedback {
+  min-width: 20px;
+  height: 20px;
+}
+
+.metadata-dialog-save-content {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.metadata-dialog-save-content--hidden {
+  visibility: hidden;
 }
 
 .metadata-dialog-status-banner {

@@ -14,8 +14,15 @@ vi.mock('@renderer/features/archive/pages/ArchivePage.vue', () => ({
 }))
 
 import { router } from './index'
+import { routeLoaders } from './routeComponentLoaders'
 
 describe('default route', () => {
+  it('registers recently added as a fixed route using the library page loader', () => {
+    const recentAdded = router.resolve('/recent-added')
+    expect(recentAdded.name).toBe('recent-added')
+    expect(recentAdded.matched[0]?.components?.default).toBe(routeLoaders.library)
+  })
+
   it('redirects the root path to the songs page', async () => {
     await router.push('/')
     expect(router.currentRoute.value.name).toBe('library')

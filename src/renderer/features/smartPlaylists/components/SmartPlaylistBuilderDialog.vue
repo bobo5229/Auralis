@@ -127,13 +127,16 @@ function restoreBuilderFocus(): void {
 let disposed = false
 let generation = 0
 let pending = false
+let pendingLibraryRevision: string | undefined
 let running = false
 let unsubscribe: (() => void) | undefined
 async function load(
   freshness: 'fresh' | 'snapshot' = 'snapshot',
   supersede = true,
+  libraryRevision?: string,
 ): Promise<boolean> {
   pending = true
+  pendingLibraryRevision = libraryRevision
   // Import notifications queue another complete preview without invalidating
   // the current preview or a create request's freshness boundary.
   if (supersede) generation++
@@ -147,6 +150,7 @@ async function load(
     const snapshot = await libraryCatalogClient.load(
       () => !disposed && props.open && token === generation,
       freshness,
+      libraryRevision,
     )
     if (disposed || !props.open || token !== generation) return false
     if (!libraryCatalogClient.isSnapshotCurrent(snapshot)) return false
@@ -166,7 +170,7 @@ async function load(
     loading.value = false
     // Keep follow-up previews independent: create waits for its own fresh
     // snapshot, rather than waiting for a continuous import stream to stop.
-    if (pending && props.open && !disposed) void load('snapshot', false)
+    if (pending && props.open && !disposed) void load('snapshot', false, pendingLibraryRevision)
   }
 }
 watch(
@@ -260,8 +264,10 @@ onMounted(() => {
       void load('snapshot', false)
       return
     }
-    libraryCatalogClient.invalidate()
-    void load()
+    if (event.libraryRevision)
+      libraryCatalogClient.invalidateForLibraryRevision(event.libraryRevision)
+    else libraryCatalogClient.invalidate()
+    void load('snapshot', true, event.libraryRevision)
   })
 })
 onBeforeUnmount(() => {
