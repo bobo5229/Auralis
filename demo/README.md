@@ -14,7 +14,7 @@
 | `archive/`         | [Macintosh 128K 立体](archive/classic-mac.html)、[夜井星空](archive/night-well.html)、[日期软盘](archive/mac-diskbox-demo.html)、[油灰软盘](archive/floppy-putty.html)                                                                 |
 | `playback/`        | [播放栏材质](playback/playbar-liquid-glass-material-demo.html)、[音量浮层](playback/playbar-vertical-volume-popover-demo.html)                                     |
 | `smart-playlists/` | [智能歌单编辑器](smart-playlists/smart-playlist-builder.html)                                                                                                      |
-| `library/`         | [最近添加的时间范围](library/recent-added-range.html)：句子标尺、目录行、密度窗；[时间沉积歌单封面](library/recent-added-time-sediment.html)：Paper Grain Gradient 方形封面、分范围配色与深浅主题（需联网） |
+| `library/`         | [最近添加的时间范围](library/recent-added-range.html)：句子标尺、目录行、密度窗；[时间沉积歌单封面](library/recent-added-time-sediment.html)：自有 WebGL 方形封面、分范围配色与深浅主题（离线可用） |
 | `brand/`          | [Logo 设计比较](brand/logo-exploration.html)：原创字母构形、深浅主题、小尺寸与应用位置示意                                                                          |
 | `local/albums/`    | [专辑布局方案入口](local/albums/album-layout-index.html)、专辑头部与材质草稿                                                                                       |
 | `local/archive/`   | 年度总结与唱片封套草稿                                                                                                                                             |

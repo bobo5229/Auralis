@@ -9,9 +9,9 @@
   --album-detail-type-back-line-height: 18px;
 
   --album-detail-font-title: var(--auralis-font-ui);
-  --album-detail-type-title-size: clamp(24px, 2.8vw, 38px);
-  --album-detail-type-title-line-height: 1.22;
-  --album-detail-type-title-weight: 800;
+  --album-detail-type-title-size: var(--auralis-type-hero-title-size);
+  --album-detail-type-title-line-height: var(--auralis-type-hero-title-line-height);
+  --album-detail-type-title-weight: var(--auralis-type-hero-title-weight);
 
   --album-detail-type-artist-size: 17px;
   --album-detail-type-artist-line-height: 24px;

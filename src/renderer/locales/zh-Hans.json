@@ -784,16 +784,7 @@
   "library": {
     "playCount": "{count} 次",
     "recentAdded": {
-      "viewLabel": "展示方式",
-      "tracks": "曲目",
-      "albums": "专辑",
-      "rangeLabel": "时间范围",
-      "days7": "最近 7 天",
-      "days30": "最近 30 天",
-      "days90": "最近 90 天",
-      "all": "全部",
-      "empty": "此时间范围内没有新添加的音乐",
-      "persistFailed": "当前时间范围已生效，但未能记住此选择。再次选择可重试。"
+      "empty": "还没有添加音乐"
     },
     "columns": {
       "artwork": "封面",

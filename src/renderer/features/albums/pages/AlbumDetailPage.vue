@@ -647,7 +647,7 @@ onBeforeUnmount(() => {
   font-size: var(--album-detail-type-title-size);
   font-weight: var(--album-detail-type-title-weight);
   line-height: var(--album-detail-type-title-line-height);
-  letter-spacing: -0.02em;
+  letter-spacing: var(--auralis-type-hero-title-letter-spacing);
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;

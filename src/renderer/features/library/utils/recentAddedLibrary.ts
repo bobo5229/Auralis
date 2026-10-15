@@ -3,12 +3,7 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 export const RECENT_ADDED_LIBRARY_RANGES = [7, 30, 90, 'all'] as const
 export type RecentAddedLibraryRange = (typeof RECENT_ADDED_LIBRARY_RANGES)[number]
 
-export const DEFAULT_RECENT_ADDED_LIBRARY_RANGE = 30
-export const RECENT_ADDED_LIBRARY_RANGE_KEY = 'auralis-recent-added-library-range'
-
-export function parseRecentAddedLibraryRange(
-  value: unknown,
-): RecentAddedLibraryRange | null {
+export function parseRecentAddedLibraryRange(value: unknown): RecentAddedLibraryRange | null {
   if (value === 'all') return 'all'
   if (value === 7 || value === '7') return 7
   if (value === 30 || value === '30') return 30
@@ -35,9 +30,7 @@ export function selectRecentAddedLibraryTracks(
 
   return selected
     .filter(({ addedAt }) =>
-      range === 'all'
-        ? true
-        : Number.isFinite(addedAt) && addedAt >= start && addedAt <= nowMs,
+      range === 'all' ? true : Number.isFinite(addedAt) && addedAt >= start && addedAt <= nowMs,
     )
     .sort((left, right) => {
       const leftValid = Number.isFinite(left.addedAt)

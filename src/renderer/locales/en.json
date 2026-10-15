@@ -784,16 +784,7 @@
   "library": {
     "playCount": "{count} plays | {count} play | {count} plays",
     "recentAdded": {
-      "viewLabel": "View",
-      "tracks": "Tracks",
-      "albums": "Albums",
-      "rangeLabel": "Time range",
-      "days7": "Last 7 days",
-      "days30": "Last 30 days",
-      "days90": "Last 90 days",
-      "all": "All",
-      "empty": "No music was added in this time range",
-      "persistFailed": "The time range is active, but your choice could not be saved. Select it again to retry."
+      "empty": "No music has been added yet"
     },
     "columns": {
       "artwork": "Cover",

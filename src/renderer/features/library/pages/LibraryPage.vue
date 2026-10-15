@@ -1,13 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
-import {
-  isNavigationFailure,
-  NavigationFailureType,
-  onBeforeRouteLeave,
-  onBeforeRouteUpdate,
-  useRoute,
-  useRouter,
-} from 'vue-router'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { useI18n } from 'vue-i18n'
 import { useElementSize } from '@vueuse/core'
@@ -27,7 +20,6 @@ import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
 import MetadataEditDialog from '../components/MetadataEditDialog.vue'
 import LibraryContextMenu from '../components/LibraryContextMenu.vue'
 import LibraryStatusState from '../components/LibraryStatusState.vue'
-import RecentAddedToolbar from '../components/RecentAddedToolbar.vue'
 import {
   getAlbumGroupEstimatedHeight,
   LIBRARY_LAYOUT_CSS_VARS,
@@ -60,12 +52,6 @@ import { useLibraryFlatColumnLayout } from '../composables/useLibraryFlatColumnL
 import { useLibraryCatalogLoader } from '../composables/useLibraryCatalogLoader'
 import { libraryCatalogClient } from '../utils/libraryCatalogClient'
 import { libraryNavigationViewportStore } from '../utils/libraryNavigationViewport'
-import {
-  DEFAULT_RECENT_ADDED_LIBRARY_RANGE,
-  parseRecentAddedLibraryRange,
-  RECENT_ADDED_LIBRARY_RANGE_KEY,
-  type RecentAddedLibraryRange,
-} from '../utils/recentAddedLibrary'
 import type { LibraryFlatColumnId, LibraryFlatColumnWidths } from '../utils/libraryFlatColumnLayout'
 import '../styles/flatTrackGrid.css'
 
@@ -117,25 +103,6 @@ let flatContainerWidthFrame = 0
 const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
 const COVER_TOP_INSET = LIBRARY_LAYOUT_METRICS.coverContentTopInset
 const recentAddedViewMode = ref<LibraryViewMode>('flat')
-const recentAddedPersistFailed = ref(false)
-
-function readRecentAddedSavedRange(): RecentAddedLibraryRange {
-  try {
-    return (
-      parseRecentAddedLibraryRange(localStorage.getItem(RECENT_ADDED_LIBRARY_RANGE_KEY)) ??
-      DEFAULT_RECENT_ADDED_LIBRARY_RANGE
-    )
-  } catch {
-    return DEFAULT_RECENT_ADDED_LIBRARY_RANGE
-  }
-}
-
-const recentAddedSavedRange = ref<RecentAddedLibraryRange>(readRecentAddedSavedRange())
-const recentAddedRange = computed<RecentAddedLibraryRange>(() => {
-  const queryRange = route.query.range
-  return (typeof queryRange === 'string' ? parseRecentAddedLibraryRange(queryRange) : null) ??
-    recentAddedSavedRange.value
-})
 const smartPlaylistId = computed(() => {
   if (route.name !== 'smart-playlist') return null
   const parsed = Number(route.params.id)
@@ -152,7 +119,7 @@ const isScopedPlaylist = computed(
 
 function captureLibraryRouteScope(): LibraryRouteScope {
   if (isRecentAdded.value) {
-    return { kind: 'recent-added', range: recentAddedRange.value }
+    return { kind: 'recent-added', range: 'all' }
   }
   if (smartPlaylistId.value !== null) {
     return { kind: 'smart-playlist', id: smartPlaylistId.value }
@@ -590,44 +557,6 @@ function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId?: number
   closeContextMenu('view-switch')
 }
 
-async function changeRecentAddedRange(nextRange: RecentAddedLibraryRange): Promise<void> {
-  const routeNameAtStart = route.name
-  const fullPathAtStart = route.fullPath
-  if (routeNameAtStart !== 'recent-added') return
-
-  try {
-    const failure = await router.replace({
-      name: 'recent-added',
-      query: { ...route.query, range: String(nextRange) },
-    })
-    const currentRoute = router.currentRoute.value
-    const targetAlreadyInRoute =
-      currentRoute.name === 'recent-added' && currentRoute.query.range === String(nextRange)
-    const duplicateNavigation = isNavigationFailure(
-      failure,
-      NavigationFailureType.duplicated,
-    )
-
-    if (failure && !(duplicateNavigation && targetAlreadyInRoute)) return
-    if (route.name !== routeNameAtStart || currentRoute.name !== 'recent-added') return
-    if (currentRoute.fullPath === fullPathAtStart && !targetAlreadyInRoute) return
-    if (recentAddedRange.value !== nextRange) return
-
-    recentAddedSavedRange.value = nextRange
-    try {
-      localStorage.setItem(RECENT_ADDED_LIBRARY_RANGE_KEY, String(nextRange))
-      recentAddedPersistFailed.value = false
-    } catch {
-      recentAddedPersistFailed.value = true
-    }
-  } catch {
-    rendererDiagnostics.error({
-      scope: 'library.recent-added',
-      message: 'Failed to navigate to the selected recent-added range',
-    })
-  }
-}
-
 function isInteractiveTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
   const tagName = target.tagName.toLowerCase()
@@ -658,7 +587,7 @@ const {
   invalidate: invalidateLibrarySearchSession,
 } = useLibrarySearchSession({
   isDisposed: () => isPageUnmounted || hasLeftInstanceRoute,
-  isLibrarySurface: () => isLibrarySurface.value,
+  isLibrarySurface: () => isLibrarySurface.value && !isRecentAdded.value,
   isInteractiveTarget,
   scrollToTrackIndex,
 })
@@ -702,7 +631,7 @@ function isPointInsideFlatResizeHandle(clientX: number, clientY: number): boolea
 function onLibrarySurfaceMouseMove(event: MouseEvent): void {
   const insideHandle = isPointInsideFlatResizeHandle(event.clientX, event.clientY)
   isFlatColumnResizeTarget.value = insideHandle || isFlatColumnResizeActive.value
-  if (insideHandle || isFlatColumnResizeActive.value) {
+  if (insideHandle || isFlatColumnResizeActive.value || isRecentAdded.value) {
     clearSearchHover()
     return
   }
@@ -892,7 +821,7 @@ const {
     resetMatchCursor()
     searchOutcome.value = { kind: 'idle' }
     ensureKeyboardFocusTrackId()
-    scheduleLibrarySearchIndex(snapshot.tracks)
+    if (!isRecentAdded.value) scheduleLibrarySearchIndex(snapshot.tracks)
   },
   captureViewportRestore: captureLibraryViewportRestore,
   restoreViewportRestore: restoreLibraryViewportRestore,
@@ -1005,14 +934,6 @@ onBeforeUnmount(() => {
     @pointerdown.capture="onLibraryPointerDownCapture"
     @contextmenu.capture="onLibraryContextMenuCapture"
   >
-    <RecentAddedToolbar
-      v-if="isRecentAdded"
-      :view-mode="libraryViewMode"
-      :range="recentAddedRange"
-      :persist-failed="recentAddedPersistFailed"
-      @change-view="switchLibraryViewMode"
-      @change-range="changeRecentAddedRange"
-    />
     <div
       v-if="initialLoadError && pageIdentity"
       class="flex shrink-0 items-center gap-3 px-4 py-2 text-xs text-[var(--auralis-text-muted)]"
@@ -1049,6 +970,7 @@ onBeforeUnmount(() => {
       @keydown="onListShellKeyDown"
     >
       <div
+        v-if="!isRecentAdded"
         ref="searchZoneRef"
         class="library-search-zone"
         :class="{ 'library-search-zone--flat-row': !isCoverView }"
