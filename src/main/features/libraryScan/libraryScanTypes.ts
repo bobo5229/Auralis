@@ -4,6 +4,7 @@ import type {
   ScanFailure,
   ScannedTrack,
   TrackLyricsPatch,
+  TrackTagPatch,
 } from '@shared/types/libraryScan'
 import type { KnownTrackFile } from '@main/repositories/trackRepository'
 
@@ -17,6 +18,7 @@ export interface LibraryScanWorkerInput {
 export type LibraryScanWorkerMessage =
   | { type: 'progress'; payload: LibraryScanProgress }
   | { type: 'tracks'; payload: ScannedTrack[] }
+  | { type: 'trackTags'; payload: TrackTagPatch[] }
   | { type: 'albumArtwork'; payload: AlbumArtworkPatch[] }
   | { type: 'trackLyrics'; payload: TrackLyricsPatch[] }
   | { type: 'failure'; payload: ScanFailure }

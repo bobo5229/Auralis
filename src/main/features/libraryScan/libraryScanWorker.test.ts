@@ -323,22 +323,24 @@ describe('scan parser version backfill', () => {
     harness.parseFile.mockRejectedValueOnce(new Error('EBUSY'))
     const failed = await scan()
     expect(failed.filter((m) => m.type === 'failure')).toHaveLength(1)
-    expect(failed.some((m) => m.type === 'tracks')).toBe(false)
+    expect(failed.some((m) => m.type === 'tracks' || m.type === 'trackTags')).toBe(false)
     expect(harness.input.knownFiles[0].metadataParserVersion).toBe('outdated')
 
     vi.resetModules()
     const retried = await scan()
-    expect(retried.find((m) => m.type === 'tracks')).toMatchObject({
+    expect(retried.some((m) => m.type === 'tracks')).toBe(false)
+    expect(retried.find((m) => m.type === 'trackTags')).toMatchObject({
       payload: [{ metadataParserVersion: getMetadataParserVersion(filePath) }],
     })
+    expect(harness.parseFile).toHaveBeenCalledWith(filePath, { duration: false, skipCovers: true })
     // A worker result alone must not make an interrupted/uncommitted scan current.
     vi.resetModules()
-    expect((await scan()).some((m) => m.type === 'tracks')).toBe(true)
+    expect((await scan()).some((m) => m.type === 'trackTags')).toBe(true)
     harness.input.knownFiles[0].metadataParserVersion = getMetadataParserVersion(filePath)
     vi.resetModules()
     harness.parseFile.mockClear()
     const next = await scan()
-    expect(next.some((m) => m.type === 'tracks')).toBe(false)
+    expect(next.some((m) => m.type === 'tracks' || m.type === 'trackTags')).toBe(false)
     expect(harness.parseFile).not.toHaveBeenCalled()
   })
 
@@ -356,9 +358,9 @@ describe('scan parser version backfill', () => {
   })
 })
 
-describe('scan bitrate backfill', () => {
+describe('unchanged metadata tag backfill', () => {
   it.each([320000, undefined])(
-    'backfills unchanged audio with bitrate %s once',
+    'rereads tags for unchanged audio and does not write bitrate %s',
     async (bitrate) => {
       harness.stat.mockImplementation(async (candidate: string) => {
         if (candidate === filePath) return { size: 100, mtimeMs: 100 }
@@ -367,16 +369,21 @@ describe('scan bitrate backfill', () => {
       harness.input.knownFiles[0].metadataCheckedMtimeMs = null
       harness.parseFile.mockResolvedValue({ ...metadata, format: { ...metadata.format, bitrate } })
       const messages = await scan()
-      expect(messages.find((m) => m.type === 'tracks')).toMatchObject({
-        payload: [{ bitrateBps: bitrate ?? null, fileMtimeMs: 100 }],
+      const tags = messages.find((m) => m.type === 'trackTags')
+      expect(tags).toMatchObject({
+        payload: [{ fileMtimeMs: 100, title: 'Updated title' }],
       })
-      // Successful persistence records the checked fingerprint even when bitrate is absent.
+      expect(tags?.type === 'trackTags' && tags.payload[0]).not.toHaveProperty('bitrateBps')
+      expect(tags?.type === 'trackTags' && tags.payload[0]).not.toHaveProperty('durationSeconds')
+      expect(harness.parseFile).toHaveBeenCalledWith(filePath, { duration: false, skipCovers: true })
+      expect(messages.some((m) => m.type === 'tracks')).toBe(false)
+      // Recording the checked mtime is what stops the next reread, not a bitrate write.
       harness.input.knownFiles[0].metadataCheckedMtimeMs = 100
       harness.parseFile.mockClear()
       vi.resetModules()
       const next = await scan()
       expect(harness.parseFile).not.toHaveBeenCalled()
-      expect(next.some((m) => m.type === 'tracks')).toBe(false)
+      expect(next.some((m) => m.type === 'tracks' || m.type === 'trackTags')).toBe(false)
     },
   )
 })

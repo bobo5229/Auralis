@@ -107,15 +107,17 @@ describe('audio codec persistence', () => {
     expect(db.pragma('foreign_key_check')).toEqual([])
   })
 
-  it('persists actual codecs through incremental import and backfills unchanged old-version files once', async () => {
+  it('persists codecs on import and keeps stored codec and duration when unchanged files reread tags', async () => {
     const { db, tracks } = setup()
     const files = formats.map((f) => join(root, f.name))
     const importer = new LibraryIncrementalImportService(tracks, join(root, 'artwork'), () => {})
     expect(await importer.importFiles(files)).toEqual({ imported: files, failed: [], unstable: [] })
     const readCodec = db.prepare('SELECT codec FROM tracks WHERE file_path=?').pluck()
+    const readDuration = db.prepare('SELECT duration_seconds FROM tracks WHERE file_path=?').pluck()
     for (const format of formats)
       expect(readCodec.get(join(root, format.name))).toMatch(format.codec)
-    // Simulate records parsed before codec extraction was introduced.
+    expect(readCodec.get(join(root, 'aac.m4a'))).not.toBe(readCodec.get(join(root, 'alac.m4a')))
+    // An unchanged file with an old parser version rereads text tags and keeps the stored codec.
     db.exec("UPDATE tracks SET codec=NULL,metadata_parser_version='metadata:1'")
     const failures: string[] = []
     const reader = () =>
@@ -126,24 +128,30 @@ describe('audio codec persistence', () => {
       )
     for (const format of formats) {
       const path = join(root, format.name)
+      const duration = readDuration.get(path)
       const result = await reader().read(path)
-      if (result.kind !== 'track') throw new Error(`Expected codec backfill: ${path}`)
-      expect(result.track.codec).toMatch(format.codec)
-      // Successful parsing alone must not mark the database as current.
+      if (result.kind !== 'tags') {
+        throw new Error(`Expected tag backfill for ${path}: ${failures.join('; ') || result.kind}`)
+      }
+      // ffmpeg -metadata does not land in raw ADTS. Full import and this text
+      // reread both resolve that title from the file name.
+      expect(result.patch.title).toBe(format.name === 'adts.aac' ? 'adts' : 'Song')
       expect(readCodec.get(path)).toBeNull()
       expect(tracks.getKnownFiles().find((x) => x.filePath === path)?.metadataParserVersion).toBe(
         'metadata:1',
       )
-      tracks.upsertMany([result.track])
-      expect(readCodec.get(path)).toMatch(format.codec)
+      tracks.patchTrackTags([result.patch])
+      if (result.lyricsPatch) tracks.patchLyrics([result.lyricsPatch])
+      expect(readCodec.get(path)).toBeNull()
+      expect(readDuration.get(path)).toBe(duration)
       expect(tracks.getKnownFiles().find((x) => x.filePath === path)?.metadataParserVersion).toBe(
         getMetadataParserVersion(path),
       )
-      // Files without artwork may still require an artwork-only read.
-      expect((await reader().read(path)).kind).not.toBe('track')
+      const next = await reader().read(path)
+      expect(next.kind).not.toBe('tags')
+      expect(next.kind).not.toBe('track')
     }
     expect(failures).toEqual([])
-    expect(readCodec.get(join(root, 'aac.m4a'))).not.toBe(readCodec.get(join(root, 'alac.m4a')))
   })
 
   it.each([false, true])(

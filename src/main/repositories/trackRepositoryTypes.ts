@@ -10,6 +10,8 @@ export interface KnownTrackFile {
   lyricsSidecarFingerprint?: string | null
   metadataCheckedMtimeMs: number | null
   metadataParserVersion?: string | null
+  /** Stored duration reused when an unchanged file only rereads text tags. */
+  durationSeconds?: number | null
 }
 
 export interface MissingTrackCandidate {

@@ -1,4 +1,5 @@
 import { stat } from 'node:fs/promises'
+import { extname } from 'node:path'
 import { parseAudioMetadata as parseFile } from '../metadata/parseAudioMetadata'
 import { getMetadataParserVersion } from '../metadata/metadataParserVersion'
 import { isCurrentArtworkCacheKey } from '../artwork/artworkCachePolicy'
@@ -9,11 +10,18 @@ import {
 } from '../metadata/metadataNormalizer'
 import { getLyricsSidecarFingerprint, readLyricsSnapshot } from '../metadata/resolveLyricsForFile'
 import { LibraryScanArtwork, getScanAlbumKey } from './libraryScanArtwork'
+import { readM4aTextMetadata } from './m4aTextTags'
 import type { KnownTrackFile } from '@main/repositories/trackRepository'
-import type { AlbumArtworkPatch, ScannedTrack, TrackLyricsPatch } from '@shared/types/libraryScan'
+import type {
+  AlbumArtworkPatch,
+  ScannedTrack,
+  TrackLyricsPatch,
+  TrackTagPatch,
+} from '@shared/types/libraryScan'
 
 export type ReadTrackResult =
   | { kind: 'track'; track: ScannedTrack }
+  | { kind: 'tags'; patch: TrackTagPatch; lyricsPatch: TrackLyricsPatch | null }
   | { kind: 'artwork'; patch: AlbumArtworkPatch }
   | {
       kind: 'patches'
@@ -77,11 +85,22 @@ export class LibraryScanTrackReader {
         return { kind: 'skip' }
       }
 
-      if (!fileUnchanged || needsMetadataBackfill) {
+      // A changed file still needs duration and artwork. An unchanged file only rereads text.
+      if (!fileUnchanged) {
         const result = await this.readFullTrack(filePath, fileStat, knownFile)
-        const after = await stat(filePath)
-        if (after.size !== fileSize || after.mtimeMs !== fileMtimeMs)
-          throw new Error('Audio file changed while metadata was being read')
+        await this.assertUnchanged(filePath, fileSize, fileMtimeMs)
+        return result
+      }
+
+      if (needsMetadataBackfill && knownFile) {
+        const result = await this.readUnchangedTags(
+          filePath,
+          fileSize,
+          fileMtimeMs,
+          knownFile,
+          needsLyricsBackfill,
+        )
+        await this.assertUnchanged(filePath, fileSize, fileMtimeMs)
         return result
       }
 
@@ -97,6 +116,89 @@ export class LibraryScanTrackReader {
     }
 
     return { kind: 'skip' }
+  }
+
+  private async assertUnchanged(
+    filePath: string,
+    fileSize: number,
+    fileMtimeMs: number,
+  ): Promise<void> {
+    const after = await stat(filePath)
+    if (after.size !== fileSize || after.mtimeMs !== fileMtimeMs) {
+      throw new Error('Audio file changed while metadata was being read')
+    }
+  }
+
+  private rememberAlbumArtwork(
+    album: string | null,
+    albumArtist: string | null,
+    artworkCacheKey: string | null,
+  ): void {
+    if (!isCurrentArtworkCacheKey(artworkCacheKey)) return
+    const albumKey = getScanAlbumKey(album, albumArtist)
+    if (!albumKey || this.artwork.getAlbumArtwork(albumKey) !== undefined) return
+    this.artwork.setAlbumArtwork(albumKey, artworkCacheKey)
+  }
+
+  private async readUnchangedTags(
+    filePath: string,
+    fileSize: number,
+    fileMtimeMs: number,
+    knownFile: KnownTrackFile,
+    needsLyricsBackfill: boolean,
+  ): Promise<ReadTrackResult> {
+    const carriedArtworkKey = isCurrentArtworkCacheKey(knownFile.artworkCacheKey)
+      ? knownFile.artworkCacheKey
+      : null
+    this.rememberAlbumArtwork(knownFile.album, knownFile.albumArtist, carriedArtworkKey)
+
+    const metadata =
+      extname(filePath).toLowerCase() === '.m4a'
+        ? await readM4aTextMetadata(filePath)
+        : await parseFile(filePath, { duration: false, skipCovers: true })
+    const normalized = normalizeMetadata(metadata, filePath)
+    const identity = normalizeIdentityText(metadata)
+    this.rememberAlbumArtwork(normalized.album, normalized.albumArtist, carriedArtworkKey)
+
+    let lyricsPatch: TrackLyricsPatch | null = null
+    if (needsLyricsBackfill) {
+      const { lyrics, lyricsSidecarFingerprint } = await readLyricsSnapshot(filePath, metadata)
+      lyricsPatch = {
+        filePath,
+        lyricsText: lyrics?.text ?? null,
+        lyricsFormat: lyrics?.format ?? null,
+        lyricsCheckedMtimeMs: fileMtimeMs,
+        lyricsSidecarFingerprint,
+      }
+    }
+
+    return {
+      kind: 'tags',
+      lyricsPatch,
+      patch: {
+        filePath,
+        fileMtimeMs,
+        title: normalized.title,
+        artist: normalized.artist,
+        album: normalized.album,
+        albumArtist: normalized.albumArtist,
+        trackNo: normalized.trackNo,
+        discNo: normalized.discNo,
+        year: normalized.year,
+        releaseDate: normalized.releaseDate,
+        copyright: normalized.copyright,
+        composer: normalized.composer,
+        genre: normalized.genre,
+        isrc: identity.isrc,
+        metadataSignature: buildMetadataSignature(
+          identity,
+          knownFile.durationSeconds ?? null,
+          fileSize,
+        ),
+        metadataParserVersion: getMetadataParserVersion(filePath),
+        artworkCacheKey: carriedArtworkKey,
+      },
+    }
   }
 
   private async readFullTrack(

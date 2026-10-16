@@ -93,6 +93,19 @@ export class LibraryScanPersistence {
       return
     }
 
+    if (message.type === 'trackTags') {
+      this.trackRepository.patchTrackTags(message.payload)
+      if (message.payload.length > 0) {
+        const filePaths = message.payload.map((patch) => patch.filePath)
+        this.publishChanged(
+          'metadata-refresh',
+          this.trackRepository.getTrackIdsByFilePaths(filePaths),
+          filePaths,
+        )
+      }
+      return
+    }
+
     if (message.type === 'albumArtwork') {
       this.trackRepository.patchAlbumArtwork(message.payload)
       return

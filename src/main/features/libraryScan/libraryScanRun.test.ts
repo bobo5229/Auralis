@@ -323,17 +323,33 @@ describe('scan orchestration boundaries', () => {
     ])
   })
 
-  it('fully backfills unchecked metadata even when audio, lyrics and artwork are unchanged', async () => {
+  it('rereads text tags for unchecked metadata without a full audio or artwork read', async () => {
     const filePath = join(rootPath, 'song.flac')
     harness.input.knownFiles = [
       { ...knownFile(filePath), artworkCacheKey: currentKey, metadataCheckedMtimeMs: null },
     ]
     const messages = await scan()
-    expect(harness.parseFile).toHaveBeenCalledWith(filePath, { duration: true })
-    expect(messages.find((message) => message.type === 'tracks')).toMatchObject({
-      payload: [{ filePath, title: 'Song', fileMtimeMs: 100 }],
+    expect(harness.parseFile).toHaveBeenCalledWith(filePath, {
+      duration: false,
+      skipCovers: true,
     })
+    const tags = messages.find((message) => message.type === 'trackTags')
+    expect(tags).toMatchObject({
+      payload: [
+        {
+          filePath,
+          title: 'Song',
+          fileMtimeMs: 100,
+          artworkCacheKey: currentKey,
+          metadataParserVersion: getMetadataParserVersion(filePath),
+        },
+      ],
+    })
+    expect(tags?.type === 'trackTags' && tags.payload[0]).not.toHaveProperty('durationSeconds')
+    expect(tags?.type === 'trackTags' && tags.payload[0]).not.toHaveProperty('bitrateBps')
+    expect(messages.some((message) => message.type === 'tracks')).toBe(false)
     expect(messages.some((message) => message.type === 'trackLyrics')).toBe(false)
+    expect(harness.writeArtwork).not.toHaveBeenCalled()
   })
 })
 

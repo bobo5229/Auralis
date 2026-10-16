@@ -4,6 +4,7 @@ import type {
   ScannedTrack,
   TrackListItem,
   TrackLyricsPatch,
+  TrackTagPatch,
   TrackLyrics,
 } from '@shared/types/libraryScan'
 import type { PlaybackTrackDto } from '@shared/types/playback'
@@ -104,6 +105,10 @@ export class TrackRepository extends BaseRepository {
 
   patchLyrics(items: TrackLyricsPatch[]): void {
     return this.writer.patchLyrics(items)
+  }
+
+  patchTrackTags(items: TrackTagPatch[]): void {
+    return this.writer.patchTrackTags(items)
   }
 
   markMissingByFilePaths(filePaths: string[]): number[] {

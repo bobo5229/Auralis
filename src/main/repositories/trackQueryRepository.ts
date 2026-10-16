@@ -260,7 +260,8 @@ export class TrackQueryRepository extends BaseRepository {
                 t.lyrics_checked_mtime_ms AS lyricsCheckedMtimeMs,
                 t.lyrics_sidecar_fingerprint AS lyricsSidecarFingerprint,
                 t.metadata_checked_mtime_ms AS metadataCheckedMtimeMs,
-                t.metadata_parser_version AS metadataParserVersion
+                t.metadata_parser_version AS metadataParserVersion,
+                t.duration_seconds AS durationSeconds
          FROM tracks t
          LEFT JOIN albums a ON t.album = a.title AND t.album_artist = a.artist`,
       )

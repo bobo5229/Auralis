@@ -121,6 +121,28 @@ export interface TrackLyricsPatch {
   lyricsSidecarFingerprint?: string | null
 }
 
+/** Text-tag refresh for an unchanged file. Duration, bitrate, codec, lyrics and artwork bytes stay stored. */
+export interface TrackTagPatch {
+  filePath: string
+  fileMtimeMs: number
+  title: string
+  artist: string
+  album: string
+  albumArtist: string
+  trackNo: number | null
+  discNo: number | null
+  year: number | null
+  releaseDate: string | null
+  copyright: string | null
+  composer: string | null
+  genre: string | null
+  isrc: string | null
+  metadataSignature: string
+  metadataParserVersion?: string
+  /** Existing current v2 key to carry onto the album row. Null leaves artwork untouched. */
+  artworkCacheKey: string | null
+}
+
 export interface SelectLibraryRootResult {
   canceled: boolean
   root?: LibraryRoot
