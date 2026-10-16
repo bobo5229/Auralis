@@ -922,7 +922,11 @@
     "dayEmpty": "当日暂无聆听记录",
     "dayLoadError": "加载失败，请重新点击日期。",
     "unknownTrack": "未知歌曲",
-    "unknownArtist": "未知艺术家"
+    "unknownArtist": "未知艺术家",
+    "annualSummary": "年度总结",
+    "annualSummaryPageTitle": "{year} · 年度总结",
+    "annualSummaryPending": "年度总结，敬请期待",
+    "backToYear": "返回 {year} 年"
   },
   "smartBuilder": {
     "title": "新建智能歌单",

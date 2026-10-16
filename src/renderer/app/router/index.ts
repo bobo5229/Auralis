@@ -60,6 +60,14 @@ export const router = createRouter({
       redirect: { name: 'archive' },
     },
     {
+      path: '/archive/summary/:year(\\d{4})',
+      name: 'archive-annual-summary',
+      component: routeLoaders.archiveAnnualSummary,
+      props: (route) => ({ year: Number(route.params.year) }),
+      beforeEnter: (to) => (Number(to.params.year) >= 1900 ? true : { name: 'archive' }),
+      meta: { title: 'Year in Review' },
+    },
+    {
       path: '/settings',
       redirect: { name: 'library' },
     },

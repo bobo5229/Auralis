@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
 import AnnualHeatmap from '../components/AnnualHeatmap.vue'
+import ArchiveSeasonBanner from '../components/ArchiveSeasonBanner.vue'
 import { useAnnualPlayCounts } from '../composables/useAnnualPlayCounts'
+import { resolveArchiveYear } from '../utils/archiveYear'
 
 const { t } = useI18n()
-const year = ref(new Date().getFullYear())
+const route = useRoute()
+const year = ref(resolveArchiveYear(route.query.year))
 const { days, isLoading, hasError } = useAnnualPlayCounts(year, auralis.archive, auralis.library)
 function changeYear(step: number) {
   // Keep navigation within the existing archive query's supported calendar range.
@@ -23,6 +27,7 @@ const statusMessage = computed(() => {
 <template>
   <section class="archive-page" :aria-label="t('archive.title')">
     <div class="archive-calendar-section">
+      <ArchiveSeasonBanner :year="year" class="archive-seasons" />
       <AnnualHeatmap
         :year="year"
         :days="days"
@@ -42,6 +47,7 @@ const statusMessage = computed(() => {
   min-width: 0;
   overflow-y: auto;
   padding: 24px;
+  padding-bottom: calc(var(--auralis-playbar-safe-area) + 24px);
   color: var(--auralis-text);
 }
 
@@ -50,5 +56,9 @@ const statusMessage = computed(() => {
   max-width: 1600px;
   min-width: 0;
   margin: 0 auto;
+}
+
+.archive-seasons {
+  margin: 0 2px 24px;
 }
 </style>

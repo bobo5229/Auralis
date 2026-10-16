@@ -922,7 +922,11 @@
     "dayEmpty": "No listening records for this day",
     "dayLoadError": "Could not load tracks. Click the date again to retry.",
     "unknownTrack": "Unknown track",
-    "unknownArtist": "Unknown artist"
+    "unknownArtist": "Unknown artist",
+    "annualSummary": "Year in review",
+    "annualSummaryPageTitle": "{year} · Year in review",
+    "annualSummaryPending": "Year in review, coming soon",
+    "backToYear": "Back to {year}"
   },
   "smartBuilder": {
     "title": "New smart playlist",

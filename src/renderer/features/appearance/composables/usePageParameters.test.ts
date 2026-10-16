@@ -51,21 +51,25 @@ describe('page parameters', () => {
     state.release(songs)
     expect(state.context.value).toEqual({ kind: 'albums' })
   })
-  it.each(['playlist', 'smart-playlist', 'album-detail', 'cd-albums', 'archive'])(
-    'closes on unsupported route %s without moving focus',
-    async (name) => {
-      const { state, route, trigger } = setup()
-      state.publish(Symbol(), { kind: 'songs', view: 'list' })
-      state.toggle(trigger)
-      route.value = name
-      await nextTick()
-      expect(state.open.value).toBe(false)
-      expect(state.supported.value).toBe(false)
-      expect(trigger.focus).not.toHaveBeenCalled()
-      route.value = 'library'
-      expect(state.open.value).toBe(false)
-    },
-  )
+  it.each([
+    'playlist',
+    'smart-playlist',
+    'album-detail',
+    'cd-albums',
+    'archive',
+    'archive-annual-summary',
+  ])('closes on unsupported route %s without moving focus', async (name) => {
+    const { state, route, trigger } = setup()
+    state.publish(Symbol(), { kind: 'songs', view: 'list' })
+    state.toggle(trigger)
+    route.value = name
+    await nextTick()
+    expect(state.open.value).toBe(false)
+    expect(state.supported.value).toBe(false)
+    expect(trigger.focus).not.toHaveBeenCalled()
+    route.value = 'library'
+    expect(state.open.value).toBe(false)
+  })
   it('closes for global settings/fullscreen and never reopens automatically', async () => {
     const { state, blocked, trigger } = setup()
     state.publish(Symbol(), { kind: 'songs', view: 'list' })

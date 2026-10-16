@@ -94,6 +94,9 @@
   --auralis-window-chrome-bg: var(--auralis-bg);
   --auralis-window-chrome-border: var(--auralis-border-strong);
 
+  /* Text on artwork keeps a light foreground in either application theme. */
+  --auralis-text-on-artwork: #ffffff;
+
   /* Player slider tokens */
   /* Fullscreen sliders use a neutral fill on their immersive dark surface. */
   --auralis-fullscreen-slider-fill: #e1e1e1;

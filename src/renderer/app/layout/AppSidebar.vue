@@ -273,6 +273,7 @@ const primaryNav = computed<
 function isPrimaryNavActive(path: string): boolean {
   return (
     activePath.value === path ||
+    (path === '/archive' && route.name === 'archive-annual-summary') ||
     (path === '/albums' && route.name === 'album-detail' && activePath.value === route.path)
   )
 }
