@@ -239,8 +239,6 @@ const weekdayLabels = computed(() => {
           :id="overlayId"
           :key="bubbleDate"
           :date="bubbleDate"
-          :play-count="summary?.playCount ?? 0"
-          :duration-seconds="summary?.durationSeconds ?? 0"
           :tracks="tracks"
           :loading="loading"
           :failed="failed"
@@ -334,15 +332,15 @@ const weekdayLabels = computed(() => {
 }
 
 .heatmap-cell--interactive {
+  position: relative;
   padding: 0;
   border: 0;
   appearance: none;
   cursor: pointer;
 }
-.heatmap-cell--interactive:hover,
-.heatmap-cell--interactive[aria-expanded='true'] {
-  outline: 1px solid var(--auralis-text-muted);
-  outline-offset: 1px;
+.heatmap-cell--interactive:hover {
+  z-index: 1;
+  transform: scale(1.12);
 }
 .heatmap-cell--interactive:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
@@ -381,15 +379,16 @@ const weekdayLabels = computed(() => {
 .archive-year-navigation {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .archive-year-chevron {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
+  width: 16px;
   height: 28px;
+  flex-shrink: 0;
   padding: 0;
   border: 0;
   border-radius: 4px;

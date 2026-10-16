@@ -38,6 +38,10 @@ watch(
   overflow: hidden;
 }
 
+.year-digit-slot + .year-digit-slot {
+  margin-inline-start: -0.08em;
+}
+
 .year-digit {
   position: absolute;
   inset: 0;

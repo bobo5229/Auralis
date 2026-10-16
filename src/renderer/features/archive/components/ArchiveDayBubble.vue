@@ -51,6 +51,8 @@ watch(
       reference: props.anchor,
       floating: root.value,
       profile: 'popover',
+      gap: 10,
+      shiftCrossAxis: false,
       onError: () => emit('close'),
     })
   },
