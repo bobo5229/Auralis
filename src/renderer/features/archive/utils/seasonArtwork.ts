@@ -7,18 +7,12 @@ interface RadialWash {
   end: number
 }
 interface SeasonArtwork {
-  id: string
-  character: string
-  ink: string
   base: readonly ColorStop[]
   washes: readonly RadialWash[]
 }
 
 export const seasonArtworks = [
   {
-    id: 'spring',
-    character: '春',
-    ink: '#274c3c',
     base: [
       [0, '#c1dfc0'],
       [1, '#e8dfb5'],
@@ -30,9 +24,6 @@ export const seasonArtworks = [
     ],
   },
   {
-    id: 'summer',
-    character: '夏',
-    ink: '#143f50',
     base: [
       [0, '#65b4ce'],
       [0.68, '#b6e2cf'],
@@ -45,9 +36,6 @@ export const seasonArtworks = [
     ],
   },
   {
-    id: 'autumn',
-    character: '秋',
-    ink: '#5a2c22',
     base: [
       [0, '#d9a982'],
       [1, '#e8b76e'],
@@ -59,9 +47,6 @@ export const seasonArtworks = [
     ],
   },
   {
-    id: 'winter',
-    character: '冬',
-    ink: '#38485f',
     base: [
       [0, '#c3d8e2'],
       [1, '#dce3e8'],

@@ -158,7 +158,7 @@ defineExpose({ close })
             :title="t('fullscreen.closeSettings')"
             @click="close()"
           >
-            <span class="i-lucide-x h-5 w-5" aria-hidden="true" />
+            <span class="i-lucide-chevron-right h-5 w-5" aria-hidden="true" />
           </button>
         </header>
         <div class="background-controls-content parameter-panel-content">
@@ -371,9 +371,14 @@ defineExpose({ close })
   color: var(--auralis-text);
 }
 .background-controls-panel .settings-row {
-  padding: 16px;
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 8px 16px;
   gap: 12px;
   flex-wrap: wrap;
+}
+.background-controls-panel .settings-range-control input {
+  height: 30px;
 }
 .background-controls-panel .settings-group-header {
   display: flex;
@@ -416,21 +421,18 @@ defineExpose({ close })
 .background-controls-panel .fullscreen-lyrics-typography-status.is-warning {
   color: var(--auralis-danger);
 }
-.background-controls-panel
-  :is(
-    .settings-group-title,
-    .settings-row > div > strong,
-    .settings-segmented-option,
-    .settings-text-button
-  ) {
-  font-size: var(--auralis-type-control-size);
-  line-height: var(--auralis-type-control-line-height);
+.background-controls-panel :is(.settings-group-title, .settings-row > div > strong) {
+  font-size: 13px;
+  line-height: 1.35;
+}
+.background-controls-panel :is(.settings-segmented-option, .settings-text-button) {
+  font-size: 11px;
+  line-height: 1.35;
 }
 .background-controls-panel .background-controls-reset,
 .background-controls-panel .background-controls-reset:hover:not(:disabled) {
   color: var(--auralis-danger);
 }
-.background-controls-panel .settings-text-button.background-controls-reset,
 .background-controls-panel .settings-range-control output {
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);

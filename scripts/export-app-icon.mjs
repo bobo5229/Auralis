@@ -15,8 +15,8 @@ const paths = svgBody
   .trim()
 const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
   <!-- Generated from auralis-mark.svg by scripts/export-app-icon.mjs. -->
-  <rect x="48" y="48" width="928" height="928" rx="252" fill="#292B2D"/>
-  <g transform="translate(128 128) scale(12)" color="#F3EEE6">
+  <rect x="48" y="48" width="928" height="928" rx="252" fill="#000000"/>
+  <g transform="translate(128 128) scale(12)" color="#FFFFFF">
 ${paths
   .split('\n')
   .map((line) => `    ${line}`)

@@ -4,6 +4,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 export interface SettingsSelectOption {
   value: string
   label: string
+  lang?: string
   disabled?: boolean
 }
 
@@ -26,6 +27,8 @@ const position = ref({
   left: '0px',
   top: '0px',
   width: '0px',
+  minWidth: '0px',
+  maxWidth: 'none',
   maxHeight: '240px',
 })
 const selectedIndex = computed(() =>
@@ -53,19 +56,22 @@ async function show(): Promise<void> {
   position.value = {
     left: `${Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8))}px`,
     top: `${rect.bottom + 6}px`,
-    width: `${rect.width}px`,
+    width: 'max-content',
+    minWidth: `${Math.min(rect.width, Math.max(0, window.innerWidth - 16))}px`,
+    maxWidth: `${Math.max(0, window.innerWidth - 16)}px`,
     maxHeight: `${Math.max(0, window.innerHeight - 16)}px`,
   }
   open.value = true
   await nextTick()
   if (!open.value || !menu.value) return
-  const { height } = menu.value.getBoundingClientRect()
+  const { width, height } = menu.value.getBoundingClientRect()
   const below = Math.max(0, window.innerHeight - rect.bottom - 14)
   const above = Math.max(0, rect.top - 14)
   const upwards = height > below && above > below
   const available = upwards ? above : below
   position.value = {
     ...position.value,
+    left: `${Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))}px`,
     top: `${upwards ? rect.top - 6 - Math.min(height, available) : rect.bottom + 6}px`,
     maxHeight: `${available}px`,
   }
@@ -214,6 +220,7 @@ watch(
     <span
       :id="`${id}-value`"
       class="settings-select-value"
+      :lang="options[selectedIndex]?.lang"
       :title="options[selectedIndex]?.label"
       >{{ options[selectedIndex]?.label }}</span
     >
@@ -246,7 +253,7 @@ watch(
         @pointermove="!option.disabled && (activeIndex = index)"
         @click="select(index)"
       >
-        <span :title="option.label">{{ option.label }}</span>
+        <span :lang="option.lang">{{ option.label }}</span>
         <span
           class="settings-select-check i-lucide-check h-3.5 w-3.5"
           :class="{ 'is-hidden': modelValue !== option.value }"
@@ -282,8 +289,7 @@ watch(
 .settings-select:hover {
   border-color: color-mix(in srgb, var(--auralis-text) 25%, transparent);
 }
-.settings-select-value,
-.settings-select-option > span:first-child {
+.settings-select-value {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -320,13 +326,19 @@ watch(
 }
 .settings-select-option {
   display: flex;
+  box-sizing: border-box;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   min-height: 32px;
-  padding: 0 6px;
+  padding: 4px 6px;
   border-radius: 6px;
   cursor: pointer;
+}
+.settings-select-option > span:first-child {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .settings-select-option[aria-selected='true'] {
   color: var(--auralis-sidebar-active-indicator);

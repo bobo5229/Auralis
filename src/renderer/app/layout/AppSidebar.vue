@@ -4,6 +4,7 @@ import {
   type MotionQuery,
 } from '@renderer/shared/animation/motionPreference'
 import { RouterLink, useRouter } from 'vue-router'
+import { useResizeObserver } from '@vueuse/core'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { pointReference, startFloatingPosition } from '@renderer/shared/floating/floatingPosition'
@@ -17,7 +18,10 @@ import FacetsDialog from '@renderer/features/facets/components/FacetsDialog.vue'
 import SmartPlaylistBuilderDialog from '@renderer/features/smartPlaylists/components/SmartPlaylistBuilderDialog.vue'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
-import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
+import {
+  SIDEBAR_WIDTH,
+  useSidebarLayout,
+} from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
 import { usePageParameters } from '@renderer/features/appearance/composables/usePageParameters'
 import { preloadSettingsContent } from '@renderer/features/settings/utils/settingsContentLoader'
@@ -31,10 +35,14 @@ import { useSidebarPlaylistReorder } from '../utils/useSidebarPlaylistReorder'
 import { createSidebarLibraryLoader } from '../utils/sidebarLibraryLoader'
 import { useSidebarLibraryStatus } from '../composables/useSidebarLibraryStatus'
 import { useSidebarFlavor } from '../composables/useSidebarFlavor'
+import { useSidebarResize } from '../composables/useSidebarResize'
 import { animateTrashLid } from '@renderer/shared/animation/motion'
 import PlaylistIcon from './PlaylistIcon.vue'
 import SidebarIcon, { type SidebarIconKind } from './SidebarIcon.vue'
 import { vBrandResonance } from './sidebarBrandMotion'
+
+const props = defineProps<{ maxWidth: number; resizeDisabled: boolean }>()
+const emit = defineEmits<{ 'resize-active-change': [active: boolean] }>()
 
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -114,6 +122,8 @@ function updateFlavorOverflow(): void {
     flavorOverflowDistance.value = 0
   }
 }
+
+useResizeObserver(flavorLabelRef, updateFlavorOverflow)
 
 const flavorMarqueeStyle = computed(() => {
   if (!isFlavorOverflowing.value) return undefined
@@ -582,6 +592,32 @@ watch([() => route.path, isRail], () => {
   closePlaylistContextMenu()
 })
 
+const resizeDisabled = computed(
+  () =>
+    props.resizeDisabled ||
+    isRail.value ||
+    isSettingsOpen.value ||
+    createMenu.value !== null ||
+    playlistContextMenu.value !== null ||
+    isFacetsDialogOpen.value ||
+    isBuilderOpen.value ||
+    renamingPlaylist.value !== null,
+)
+const {
+  width: resizeWidth,
+  isResizing,
+  onPointerDown: onResizePointerDown,
+  onKeyDown: onResizeKeyDown,
+  resetWidth: resetSidebarWidth,
+  cancel: cancelSidebarResize,
+} = useSidebarResize({
+  disabled: resizeDisabled,
+  maxWidth: computed(() => props.maxWidth),
+  onActiveChange: (active) => emit('resize-active-change', active),
+})
+
+watch([() => route.path, sidebarFullHeight, displayMode], cancelSidebarResize, { flush: 'sync' })
+
 watch(
   [
     () => route.path,
@@ -875,6 +911,24 @@ onBeforeUnmount(() => {
       'app-sidebar--collapsed': isRail,
     }"
   >
+    <div
+      v-if="!isRail"
+      class="sidebar-resize-handle"
+      :class="{ 'is-resizing': isResizing }"
+      role="separator"
+      aria-orientation="vertical"
+      aria-controls="sidebar-navigation"
+      :aria-label="t('sidebar.resize')"
+      :aria-valuemin="SIDEBAR_WIDTH.min"
+      :aria-valuemax="maxWidth"
+      :aria-valuenow="resizeWidth"
+      :aria-disabled="resizeDisabled || undefined"
+      :tabindex="resizeDisabled ? -1 : 0"
+      :title="t('sidebar.resizeHint')"
+      @pointerdown="onResizePointerDown"
+      @keydown="onResizeKeyDown"
+      @dblclick.prevent.stop="resetSidebarWidth"
+    />
     <header class="sidebar-header">
       <div class="sidebar-header-main">
         <component

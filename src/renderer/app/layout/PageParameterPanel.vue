@@ -179,7 +179,7 @@ onBeforeUnmount(() => {
           :aria-label="t('pageParameters.close')"
           @click="controller.close()"
         >
-          <span class="i-lucide-x h-5 w-5" aria-hidden="true" />
+          <span class="i-lucide-x" aria-hidden="true" />
         </button>
       </header>
       <div ref="content" class="parameter-panel-content">
@@ -237,6 +237,14 @@ onBeforeUnmount(() => {
   width: 28px;
   height: 32px;
 }
+.page-parameter-panel .parameter-panel-close:hover {
+  background: transparent;
+  box-shadow: none;
+}
+.page-parameter-panel .parameter-panel-close > span {
+  width: calc(var(--page-parameter-control-size) + 1px);
+  height: calc(var(--page-parameter-control-size) + 1px);
+}
 .page-parameter-panel .song-font-weight-reset {
   flex: 0 0 auto;
   min-height: 32px;
@@ -291,11 +299,7 @@ onBeforeUnmount(() => {
   padding-inline: 4px;
 }
 .page-parameter-panel :deep(.song-font-size-unit) {
-  margin-inline: 2px;
   font-size: var(--page-parameter-control-size);
-}
-.page-parameter-panel :deep(.song-font-size-buttons) {
-  width: 16px;
 }
 .page-parameter-panel :deep(.song-font-controls .settings-select) {
   width: 100%;
@@ -311,6 +315,8 @@ onBeforeUnmount(() => {
 .page-parameter-panel :deep(.song-cover-info-alignment .settings-select) {
   width: 100%;
   min-width: 0;
+  justify-content: space-between;
+  padding-inline: 10px;
   font-size: var(--page-parameter-control-size);
   white-space: nowrap;
 }
@@ -319,6 +325,7 @@ onBeforeUnmount(() => {
   min-width: max-content;
 }
 .page-parameter-panel :deep(.song-parameters-heading) {
+  font-size: var(--auralis-type-caption-size);
   margin-top: 4px;
   padding: 8px 6px 4px;
 }
@@ -331,13 +338,8 @@ onBeforeUnmount(() => {
   padding-top: 2px;
   border-top: 0;
 }
-.page-parameter-panel :deep(.settings-row > .settings-range-control) {
-  flex: 0 1 var(--page-parameter-fields-width);
-  max-width: 100%;
-}
 .page-parameter-panel :deep(.settings-range-control input) {
-  flex: 1;
-  width: 0;
+  width: 100%;
   min-width: 0;
 }
 </style>

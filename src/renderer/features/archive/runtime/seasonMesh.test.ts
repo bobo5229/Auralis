@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createSeasonMesh } from './seasonMesh'
 import type { SeasonMeshResponse } from './seasonMeshProtocol'
+import { createSeasonMeshSession } from './seasonMeshSession'
 
 class MeshWorker {
   static instances: MeshWorker[] = []
@@ -26,9 +27,12 @@ beforeEach(() => {
     vi.fn(() => ({ getPropertyValue: () => 'rgb(18 18 18 / 12%)' })),
   )
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
 
-function setup() {
+function setup(session = createSeasonMeshSession()) {
   const host = {
     clientWidth: 900,
     clientHeight: 180,
@@ -41,8 +45,16 @@ function setup() {
   } as unknown as HTMLCanvasElement
   const ready = vi.fn()
   const error = vi.fn()
-  const runtime = createSeasonMesh(host, canvas, ready, error)
-  return { runtime, offscreen, getContext, ready, error, worker: MeshWorker.instances[0] }
+  const runtime = createSeasonMesh(host, canvas, ready, error, session)
+  return { runtime, offscreen, getContext, ready, error, session, worker: MeshWorker.instances[0] }
+}
+
+function frame(elapsed = 4.25) {
+  return {
+    type: 'snapshot' as const,
+    bitmap: { close: vi.fn(), width: 900, height: 180 } as unknown as ImageBitmap,
+    elapsed,
+  }
 }
 
 describe('season mesh worker ownership', () => {
@@ -59,6 +71,7 @@ describe('season mesh worker ownership', () => {
     expect(t.runtime.isReady()).toBe(true)
     expect(t.ready).toHaveBeenCalledOnce()
     t.runtime.dispose()
+    t.worker.reply(frame())
   })
 
   it('reads theme colors only initially and when appearance changes', () => {
@@ -104,5 +117,64 @@ describe('season mesh worker ownership', () => {
     expect(t.error).toHaveBeenCalledWith(expect.objectContaining({ message: 'context lost' }))
     expect(t.runtime.isReady()).toBe(false)
     expect(t.worker.onmessage).toBe(null)
+  })
+
+  it('caches the final frame and its exact time before terminating a ready worker', async () => {
+    const t = setup()
+    t.worker.reply({ type: 'ready' })
+    t.runtime.dispose()
+    t.runtime.dispose()
+    expect(t.worker.postMessage).toHaveBeenLastCalledWith({ type: 'snapshot' })
+    expect(t.worker.terminate).not.toHaveBeenCalled()
+    const captured = t.session.whenCaptured()
+    const snapshot = frame()
+    t.worker.reply(snapshot)
+    await captured
+    expect(t.session.read()).toMatchObject({
+      bitmap: snapshot.bitmap,
+      elapsed: 4.25,
+      appearance: 'rgb(18 18 18 / 12%)',
+    })
+    expect(t.worker.terminate).toHaveBeenCalledOnce()
+    expect(t.error).not.toHaveBeenCalled()
+  })
+
+  it('restores animation time without including time spent off the page', () => {
+    const session = createSeasonMeshSession()
+    session.save(session.begin(), { ...frame(12), appearance: 'rgb(18 18 18 / 12%)' })
+    const t = setup(session)
+    expect(t.worker.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'init', elapsed: 12 }),
+      [t.offscreen],
+    )
+    t.runtime.dispose()
+  })
+
+  it('bounds snapshot shutdown and releases a bitmap arriving after the deadline', async () => {
+    vi.useFakeTimers()
+    const t = setup()
+    t.worker.reply({ type: 'ready' })
+    const late = t.worker.onmessage!
+    t.runtime.dispose()
+    const captured = t.session.whenCaptured()
+    vi.advanceTimersByTime(250)
+    await captured
+    expect(t.worker.terminate).toHaveBeenCalledOnce()
+    expect(t.session.read()).toBeUndefined()
+    const snapshot = frame()
+    late({ data: snapshot } as MessageEvent<SeasonMeshResponse>)
+    expect(snapshot.bitmap.close).toHaveBeenCalledOnce()
+    expect(t.session.read()).toBeUndefined()
+  })
+
+  it('releases a worker that fails during capture without replacing the cached frame', async () => {
+    const t = setup()
+    t.worker.reply({ type: 'ready' })
+    t.runtime.dispose()
+    const captured = t.session.whenCaptured()
+    t.worker.reply({ type: 'error', message: 'capture failed' })
+    await captured
+    expect(t.worker.terminate).toHaveBeenCalledOnce()
+    expect(t.error).not.toHaveBeenCalled()
   })
 })

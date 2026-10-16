@@ -30,7 +30,7 @@ export default defineConfig({
     'app-shell':
       'grid h-full min-h-0 grid-cols-[var(--auralis-sidebar-width,260px)_minmax(0,1fr)] overflow-hidden bg-transparent text-[var(--auralis-text)] xl:grid-cols-[var(--auralis-sidebar-width,260px)_minmax(0,1fr)_var(--auralis-lyrics-column-width,20%)]',
     'app-sidebar':
-      'flex w-[232px] h-[calc(100%_-_var(--auralis-shell-vertical-gap))] min-h-0 flex-col m-[var(--auralis-shell-edge-gap)_0_var(--auralis-shell-edge-gap)_var(--auralis-shell-edge-gap)] rounded-lg border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
+      'flex h-[calc(100%_-_var(--auralis-shell-vertical-gap))] min-h-0 flex-col m-[var(--auralis-shell-edge-gap)_0_var(--auralis-shell-edge-gap)_var(--auralis-shell-edge-gap)] rounded-lg border border-[var(--auralis-border-subtle)] bg-[var(--auralis-sidebar-bg)] overflow-hidden pb-24',
     'app-main': 'min-w-0 min-h-0 overflow-hidden bg-transparent',
     'now-playing-panel':
       'hidden h-full min-h-0 flex-col border-l border-[var(--auralis-border-subtle)] bg-[var(--auralis-now-playing-bg)] pb-4 xl:flex',

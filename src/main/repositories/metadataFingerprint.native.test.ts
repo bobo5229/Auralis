@@ -311,19 +311,90 @@ describe('isolated FFmpeg tag write and stable readback', () => {
     },
     20000,
   )
-  it('does not mark a failed real write as checked and requests reconciliation', async () => {
+  it('preserves an unpublished failed write without marking it checked or scheduling reconciliation', async () => {
     const root = await mkdtemp(join(tmpdir(), 'auralis-tag-failure-'))
     roots.push(root)
     const filePath = join(root, 'corrupt.flac')
     await writeFile(filePath, 'invalid audio', 'utf8')
     const { db, repo } = setup(filePath)
-    const service = new MetadataRefreshService(repo, root, vi.fn(), ffmpegPath)
+    const originalRow = stored(db)
+    const originalFingerprint = await stat(filePath)
+    const send = vi.fn()
+    const service = new MetadataRefreshService(repo, root, send, ffmpegPath)
+    const commit = vi.spyOn(repo, 'commitVerifiedUserEdit')
     const reconcile = vi
       .spyOn(service, 'refreshTracksFromFileChanges')
       .mockReturnValue({ jobId: 999 })
     await expect(service.updateTrackMetadata(edit)).rejects.toThrow()
+    // FFmpeg failed before publishing a replacement. Also drain shutdown work so
+    // a delayed reconciliation cannot silently change the row or its fingerprint.
+    await service.shutdown()
     expect(stored(db)).toMatchObject({ title: 'Old', size: 10, mtime: 100, metadataChecked: 100 })
+    expect(stored(db)).toEqual(originalRow)
     expect(await readFile(filePath, 'utf8')).toBe('invalid audio')
-    expect(reconcile).toHaveBeenCalledWith([1])
+    const fingerprint = await stat(filePath)
+    expect(fingerprint.size).toBe(originalFingerprint.size)
+    expect(fingerprint.mtimeMs).toBe(originalFingerprint.mtimeMs)
+    expect(commit).not.toHaveBeenCalled()
+    expect(reconcile).not.toHaveBeenCalled()
+    expect(send).not.toHaveBeenCalled()
+  }, 20000)
+
+  it('reconciles a published real write after a SQLite commit failure', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'auralis-tag-reconcile-'))
+    roots.push(root)
+    const filePath = join(root, 'sample.flac')
+    await promisify(execFile)(
+      ffmpegPath,
+      [
+        '-hide_banner',
+        '-loglevel',
+        'error',
+        '-f',
+        'lavfi',
+        '-i',
+        'sine=frequency=440:duration=0.1',
+        filePath,
+      ],
+      { windowsHide: true },
+    )
+    const { db, repo } = setup(filePath)
+    const originalRow = stored(db)
+    const send = vi.fn()
+    const service = new MetadataRefreshService(repo, root, send, ffmpegPath)
+    const commit = vi.spyOn(repo, 'commitVerifiedUserEdit')
+    // Hold background reconciliation until the failed transaction is inspected.
+    const busy = vi.spyOn(service, 'hasActiveJob').mockReturnValue(true)
+    db.exec(`CREATE TRIGGER reject_tag_fingerprint BEFORE UPDATE OF file_size ON tracks
+      BEGIN SELECT RAISE(FAIL, 'injected fingerprint commit failure'); END;`)
+    try {
+      await expect(service.updateTrackMetadata(edit)).rejects.toThrow(
+        'injected fingerprint commit failure',
+      )
+      expect(commit).toHaveBeenCalledOnce()
+      expect(stored(db)).toEqual(originalRow)
+      expect(db.prepare('SELECT * FROM track_metadata').all()).toEqual([])
+      expect(send).not.toHaveBeenCalled()
+      // The accepted tags are already on disk despite the rolled-back SQLite edit.
+      expect((await readStableMetadata(1, filePath, root)).title).toBe(edit.title)
+    } finally {
+      db.exec('DROP TRIGGER IF EXISTS reject_tag_fingerprint')
+      busy.mockRestore()
+      await service.shutdown()
+    }
+    const fingerprint = await stat(filePath)
+    expect(commit).toHaveBeenCalledTimes(2)
+    expect(stored(db)).toMatchObject({
+      title: edit.title,
+      size: fingerprint.size,
+      mtime: fingerprint.mtimeMs,
+      metadataChecked: fingerprint.mtimeMs,
+      lyricsChecked: fingerprint.mtimeMs,
+    })
+    expect(send).toHaveBeenCalledExactlyOnceWith('library:changed', {
+      reason: 'metadata-refresh',
+      trackIds: [1],
+      filePaths: [filePath],
+    })
   }, 20000)
 })

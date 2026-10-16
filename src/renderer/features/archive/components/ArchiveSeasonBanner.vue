@@ -3,39 +3,33 @@ import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useSeasonMesh } from '../composables/useSeasonMesh'
-import { seasonArtworks, seasonBannerStyle } from '../utils/seasonArtwork'
+import { seasonBannerStyle } from '../utils/seasonArtwork'
 
 defineProps<{ year: number }>()
 const { t } = useI18n()
 const root = ref<HTMLElement | null>(null)
 const canvas = ref<HTMLCanvasElement | null>(null)
-const meshReady = useSeasonMesh(root, canvas)
+const snapshotCanvas = ref<HTMLCanvasElement | null>(null)
+const { ready: meshReady, hasSnapshot } = useSeasonMesh(root, canvas, snapshotCanvas)
 </script>
 
 <template>
   <div
     ref="root"
     class="archive-season-banner"
-    :class="{ 'has-season-mesh': meshReady }"
+    :class="{ 'has-season-mesh': meshReady, 'has-season-snapshot': hasSnapshot }"
     :style="seasonBannerStyle"
   >
+    <div class="season-placeholder" aria-hidden="true">
+      <canvas ref="snapshotCanvas" class="season-snapshot"></canvas>
+    </div>
     <canvas ref="canvas" class="season-mesh" aria-hidden="true"></canvas>
     <RouterLink
       class="season-banner-link"
       :to="{ name: 'archive-annual-summary', params: { year: String(year) } }"
       :aria-label="t('archive.annualSummaryPageTitle', { year })"
     />
-    <div class="season-caption" aria-hidden="true">
-      <span
-        v-for="season in seasonArtworks"
-        :key="season.id"
-        class="season-character auralis-type-control"
-        :style="{ color: season.ink }"
-      >
-        {{ season.character }}
-      </span>
-    </div>
-    <span class="annual-summary auralis-type-control" aria-hidden="true">
+    <span class="annual-summary auralis-type-body" aria-hidden="true">
       {{ t('archive.annualSummary') }}
     </span>
   </div>
@@ -44,34 +38,52 @@ const meshReady = useSeasonMesh(root, canvas)
 <style scoped>
 .archive-season-banner {
   --season-wash: rgb(18 18 18 / 12%);
+  --season-reveal-duration: 180ms;
   --season-content-inset: 20px;
-  --season-text-half-leading: calc(
-    (var(--auralis-type-control-line-height) - var(--auralis-type-control-size)) / 2
-  );
   position: relative;
   isolation: isolate;
   container-type: inline-size;
   min-width: 0;
   overflow: hidden;
   border-radius: 10px;
-  background: linear-gradient(var(--season-wash), var(--season-wash)), var(--season-banner-art);
 }
 
+.season-snapshot,
 .season-mesh {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  visibility: hidden;
   pointer-events: none;
 }
 
-.has-season-mesh .season-mesh {
+.season-placeholder {
+  position: relative;
+  height: clamp(140px, 18cqw, 180px);
+  background: linear-gradient(var(--season-wash), var(--season-wash)), var(--season-banner-art);
+  pointer-events: none;
+}
+
+.season-snapshot {
+  visibility: hidden;
+}
+
+.has-season-snapshot .season-snapshot {
   visibility: visible;
 }
 
-.has-season-mesh {
-  background: transparent;
+.season-mesh {
+  opacity: 0;
+  transition: opacity var(--season-reveal-duration) ease-out;
+}
+
+.has-season-mesh .season-mesh {
+  opacity: 1;
+}
+
+.has-season-mesh .season-placeholder {
+  opacity: 0;
+  transition: opacity 0s linear var(--season-reveal-duration);
 }
 
 .season-banner-link {
@@ -86,33 +98,15 @@ const meshReady = useSeasonMesh(root, canvas)
   outline-offset: -3px;
 }
 
-.season-caption {
-  position: relative;
-  z-index: 2;
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  box-sizing: border-box;
-  height: clamp(140px, 18cqw, 180px);
-  /* Match the opposite caption's inset after accounting for line-box leading. */
-  padding: calc(var(--season-content-inset) - var(--season-text-half-leading))
-    var(--season-content-inset);
-  pointer-events: none;
-}
-
-.season-character {
-  position: relative;
-  /* The season glyphs are artwork lettering, distinct from ordinary UI text. */
-  font-family: 'Auralis Desktop Lyrics SC', 'SimSun', 'Yu Mincho', serif;
-  font-weight: 400;
-}
-
 .annual-summary {
+  --season-text-half-leading: calc(
+    (var(--auralis-type-body-line-height) - var(--auralis-type-body-size)) / 2
+  );
   position: absolute;
   z-index: 2;
   right: var(--season-content-inset);
   bottom: calc(var(--season-content-inset) - var(--season-text-half-leading));
-  color: var(--auralis-text-on-artwork);
+  color: var(--auralis-archive-summary-text);
   font-family: 'HarmonyOS Sans SC', var(--auralis-font-ui);
   font-weight: 500;
   pointer-events: none;
@@ -120,5 +114,15 @@ const meshReady = useSeasonMesh(root, canvas)
 
 [data-theme='light'] .archive-season-banner {
   --season-wash: rgb(255 255 255 / 4%);
+}
+
+:where([data-reduced-motion='true']) .archive-season-banner {
+  --season-reveal-duration: 0ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .archive-season-banner {
+    --season-reveal-duration: 0ms;
+  }
 }
 </style>

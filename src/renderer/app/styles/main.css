@@ -94,8 +94,8 @@
   --auralis-window-chrome-bg: var(--auralis-bg);
   --auralis-window-chrome-border: var(--auralis-border-strong);
 
-  /* Text on artwork keeps a light foreground in either application theme. */
-  --auralis-text-on-artwork: #ffffff;
+  /* Warm white for the annual summary caption in either application theme. */
+  --auralis-archive-summary-text: #f5f2ec;
 
   /* Player slider tokens */
   /* Fullscreen sliders use a neutral fill on their immersive dark surface. */
@@ -416,6 +416,15 @@
   height: 34px;
 }
 
+/* Leave the sidebar's resize hit area outside Electron's native window drag region. */
+.app-shell:not(.is-cd-albums):not(.is-sidebar-collapsed) > .shell-drag-region {
+  width: min(128px, calc(var(--auralis-sidebar-width, 260px) - 120px));
+}
+
+.app-window.is-sidebar-floating .app-shell > .shell-drag-region {
+  width: min(128px, calc(var(--auralis-sidebar-width, 260px) - 136px));
+}
+
 /* 收起态在窗口按钮下方留出整条可拖拽区域；品牌区自 54px 起。 */
 .app-shell.is-sidebar-collapsed:not(.is-cd-albums) > .shell-drag-region {
   top: 0;
@@ -547,8 +556,8 @@ input {
 .app-shell {
   --auralis-lyrics-progress: 1;
   --auralis-lyrics-column-width: calc(20% * var(--auralis-lyrics-progress, 1));
-  /* 左列宽度由全高收起态统一驱动：网格列、播放栏左边界与背景裁切共用。 */
-  --auralis-sidebar-width: 260px;
+  /* 网格列、播放栏左边界与背景裁切共用展开宽度，收起态独立覆盖。 */
+  --auralis-sidebar-width: var(--auralis-sidebar-expanded-width, 260px);
   transition: grid-template-columns 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -557,12 +566,23 @@ input {
 }
 
 /* 歌词动效自行协调布局终点，避免叠加侧边栏的列宽过渡。 */
-.app-shell.is-lyrics-resizing {
+.app-shell.is-lyrics-resizing,
+.app-shell.is-sidebar-resizing,
+.app-shell.is-lyrics-width-resizing {
   transition: none;
 }
 
-.app-shell.is-lyrics-resizing > .player-bar {
+.app-shell.is-lyrics-resizing > .player-bar,
+.app-shell.is-sidebar-resizing > .player-bar,
+.app-shell.is-lyrics-width-resizing > .player-bar {
   transition: none !important;
+}
+
+body:has(.app-shell.is-sidebar-resizing),
+body:has(.app-shell.is-sidebar-resizing) *,
+body:has(.app-shell.is-lyrics-width-resizing),
+body:has(.app-shell.is-lyrics-width-resizing) * {
+  cursor: col-resize !important;
 }
 
 .lyrics-layout-playerbar-snapshot {
@@ -1610,6 +1630,9 @@ input[type='range'].volume-overlay-slider {
   --sidebar-icon-size: 18px;
   position: relative;
   isolation: isolate;
+  min-width: 0;
+  /* Preserve the floating card's original 12px leading / 16px trailing gutters. */
+  width: calc(100% - var(--auralis-shell-edge-gap) - 16px);
   padding-bottom: 0;
   background: var(--auralis-sidebar-bg) !important;
   border-right: 1px solid var(--auralis-border-subtle);
@@ -1626,6 +1649,66 @@ input[type='range'].volume-overlay-slider {
   margin-block: 0;
   margin-left: 0;
   border-radius: 0;
+}
+
+/* A wider invisible hit area keeps the visible divider quiet and easy to grab. */
+.sidebar-resize-handle,
+.lyrics-resize-handle {
+  position: absolute;
+  z-index: 5;
+  inset: 8px 0 8px auto;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+  -webkit-app-region: no-drag;
+}
+
+.app-sidebar--full-height > .sidebar-resize-handle {
+  inset-block: 0;
+}
+
+.lyrics-resize-handle {
+  inset: 0 auto 0 0;
+}
+
+.sidebar-resize-handle::after,
+.lyrics-resize-handle::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 2px;
+  background: var(--auralis-sidebar-active-indicator);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.lyrics-resize-handle::after {
+  inset-inline: 0 auto;
+}
+
+.sidebar-resize-handle:not([aria-disabled='true']):hover::after,
+.sidebar-resize-handle:focus-visible::after,
+.sidebar-resize-handle.is-resizing::after,
+.lyrics-resize-handle:not([aria-disabled='true']):hover::after,
+.lyrics-resize-handle:focus-visible::after,
+.lyrics-resize-handle.is-resizing::after {
+  opacity: 1;
+}
+
+.sidebar-resize-handle:focus-visible,
+.lyrics-resize-handle:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: -2px;
+}
+
+.sidebar-resize-handle[aria-disabled='true'],
+.lyrics-resize-handle[aria-disabled='true'] {
+  pointer-events: none;
+}
+
+:where([data-reduced-motion='true']) .sidebar-resize-handle::after,
+:where([data-reduced-motion='true']) .lyrics-resize-handle::after {
+  transition: none;
 }
 
 /* 全高布局下品牌区为收起/展开切换按钮；悬浮布局保持纯展示。 */

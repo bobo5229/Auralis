@@ -10,6 +10,21 @@ afterEach(() => {
 })
 
 describe('season mesh clock', () => {
+  it('resumes a cached phase while keeping the existing 30 Hz speed', () => {
+    const draw = vi.fn()
+    const clock = createSeasonMeshClock(draw, 12)
+    clock.setPlaying(true)
+    vi.advanceTimersByTime(1001)
+    expect(draw).toHaveBeenCalledTimes(30)
+    expect(draw.mock.lastCall?.[0]).toBeCloseTo(13, 2)
+    clock.setPlaying(false)
+    vi.advanceTimersByTime(5000)
+    clock.setPlaying(true)
+    vi.advanceTimersByTime(1001)
+    expect(draw.mock.lastCall?.[0]).toBeCloseTo(14, 2)
+    clock.setPlaying(false)
+  })
+
   it('draws 30 times per second without scheduling display-rate callbacks', () => {
     const draw = vi.fn()
     const clock = createSeasonMeshClock(draw)

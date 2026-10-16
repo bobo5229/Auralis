@@ -23,6 +23,8 @@ import {
   type PlaybarStyle,
 } from '@renderer/features/appearance/composables/usePlaybarStyle'
 import SettingsSelect from './SettingsSelect.vue'
+import SettingsSegmentedControl from './SettingsSegmentedControl.vue'
+import LyricsPanelLayoutSettings from './LyricsPanelLayoutSettings.vue'
 import ThemeAccentSettings from './ThemeAccentSettings.vue'
 import ChineseTextSettings from './ChineseTextSettings.vue'
 import LyricsEffectsSettings from './LyricsEffectsSettings.vue'
@@ -67,13 +69,11 @@ onBeforeUnmount(() => startupAlbumDrawRequest?.abort())
 const { t } = useI18n()
 const { locale, persistFailed: localePersistFailed, nativeSyncFailed, setUiLocale } = useUiLocale()
 const localeOptions = [
-  { id: 'zh-Hans', label: '简体中文' },
-  { id: 'en', label: 'English' },
+  { value: 'zh-Hans', label: '简体中文', lang: 'zh-Hans' },
+  { value: 'en', label: 'English', lang: 'en' },
 ] as const
-const localeButtons = ref<HTMLButtonElement[]>([])
 function selectLocale(value: UiLocale): void {
   setUiLocale(value)
-  localeButtons.value[localeOptions.findIndex((option) => option.id === value)]?.focus()
 }
 const { theme, setTheme } = useTheme()
 const { sidebarFullHeight, setSidebarFullHeight } = useSidebarLayout()
@@ -156,10 +156,19 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
 </script>
 
 <template>
-  <section class="settings-section">
+  <section class="settings-section appearance-settings">
     <div class="settings-group">
       <div class="settings-group-header">
-        <h2 class="settings-group-title">{{ t('settings.appearance.interface') }}</h2>
+        <h2 class="settings-group-title">{{ t('settings.appearance.groups.themeColors') }}</h2>
+      </div>
+      <div class="settings-group-card">
+        <ThemeAccentSettings />
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="settings-group-header">
+        <h2 class="settings-group-title">{{ t('settings.appearance.groups.interfaceStyles') }}</h2>
       </div>
       <div class="settings-group-card">
         <div class="settings-row">
@@ -209,7 +218,6 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             </button>
           </div>
         </div>
-        <ThemeAccentSettings />
         <div class="settings-row settings-row--with-desc">
           <div>
             <strong>{{ t('settings.appearance.sidebarLayout') }}</strong>
@@ -273,7 +281,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
               t('settings.appearance.playbarStyle.persistFailed')
             }}</span>
           </div>
-          <SettingsSelect
+          <SettingsSegmentedControl
             id="appearance-playbar-style"
             labelledby="appearance-playbar-style-label"
             describedby="appearance-playbar-style-description"
@@ -291,7 +299,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
               t('settings.appearance.playingIcon.description')
             }}</span>
           </div>
-          <SettingsSelect
+          <SettingsSegmentedControl
             id="appearance-playing-icon"
             labelledby="appearance-playing-icon-label"
             describedby="appearance-playing-icon-description"
@@ -300,6 +308,39 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             @update:model-value="selectPlayingIconPreset($event as PlayingIconPreset)"
           />
         </div>
+      </div>
+    </div>
+
+    <ChineseTextSettings />
+
+    <div class="settings-group">
+      <div class="settings-group-header">
+        <h2 class="settings-group-title">{{ t('settings.appearance.groups.lyricsAndMotion') }}</h2>
+      </div>
+      <div class="settings-group-card">
+        <LyricsPanelLayoutSettings />
+        <div class="settings-row settings-row--with-desc settings-row--lyrics-scroll">
+          <div>
+            <strong id="appearance-lyrics-scroll-label">{{
+              t('settings.appearance.lyricsScroll.title')
+            }}</strong>
+            <span id="appearance-lyrics-scroll-description">{{
+              t('settings.appearance.lyricsScroll.description')
+            }}</span>
+            <span v-if="lyricsScrollPersistFailed" role="status">{{
+              t('settings.appearance.lyricsScroll.persistFailed')
+            }}</span>
+          </div>
+          <SettingsSegmentedControl
+            id="appearance-lyrics-scroll"
+            labelledby="appearance-lyrics-scroll-label"
+            describedby="appearance-lyrics-scroll-description"
+            :model-value="lyricsScrollPreset"
+            :options="lyricsScrollOptions"
+            @update:model-value="selectLyricsScrollPreset($event as LyricsScrollPreset)"
+          />
+        </div>
+        <LyricsCountdownSettings />
         <div class="settings-row settings-row--with-desc">
           <div>
             <strong>{{ t('settings.appearance.reducedMotion.title') }}</strong>
@@ -357,77 +398,38 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
       </div>
     </div>
 
-    <ChineseTextSettings>
-      <div class="settings-row settings-row--with-desc">
-        <div>
-          <strong>{{ t('settings.appearance.language') }}</strong>
-          <span id="appearance-language-description">{{
-            t('settings.appearance.languageDescription')
-          }}</span>
-          <span v-if="localePersistFailed" role="status">{{
-            t('settings.appearance.languagePersistFailed')
-          }}</span>
-          <span v-if="nativeSyncFailed" role="status">{{
-            t('settings.appearance.languageSyncFailed')
-          }}</span>
-        </div>
-        <div
-          class="settings-segmented-control"
-          role="radiogroup"
-          :aria-label="t('settings.appearance.language')"
-          aria-describedby="appearance-language-description"
-        >
-          <button
-            v-for="option in localeOptions"
-            :key="option.id"
-            ref="localeButtons"
-            type="button"
-            class="settings-segmented-option"
-            role="radio"
-            :aria-checked="locale === option.id"
-            :tabindex="locale === option.id ? 0 : -1"
-            :class="{ 'is-selected': locale === option.id }"
-            :lang="option.id"
-            @click="selectLocale(option.id)"
-            @keydown.left.prevent="selectLocale(locale === 'en' ? 'zh-Hans' : 'en')"
-            @keydown.right.prevent="selectLocale(locale === 'en' ? 'zh-Hans' : 'en')"
-            @keydown.up.prevent="selectLocale(locale === 'en' ? 'zh-Hans' : 'en')"
-            @keydown.down.prevent="selectLocale(locale === 'en' ? 'zh-Hans' : 'en')"
-            @keydown.home.prevent="selectLocale('zh-Hans')"
-            @keydown.end.prevent="selectLocale('en')"
-          >
-            {{ option.label }}
-          </button>
-        </div>
+    <div class="settings-group">
+      <div class="settings-group-header">
+        <h2 class="settings-group-title">{{ t('settings.appearance.groups.generalPreferences') }}</h2>
       </div>
-    </ChineseTextSettings>
+      <div class="settings-group-card">
+        <div class="settings-row settings-row--with-desc">
+          <div>
+            <strong id="appearance-language-label">{{ t('settings.appearance.language') }}</strong>
+            <span id="appearance-language-description">{{
+              t('settings.appearance.languageDescription')
+            }}</span>
+            <span v-if="localePersistFailed" role="status">{{
+              t('settings.appearance.languagePersistFailed')
+            }}</span>
+            <span v-if="nativeSyncFailed" role="status">{{
+              t('settings.appearance.languageSyncFailed')
+            }}</span>
+          </div>
+          <SettingsSelect
+            id="appearance-language"
+            labelledby="appearance-language-label"
+            describedby="appearance-language-description"
+            :model-value="locale"
+            :options="localeOptions"
+            @update:model-value="selectLocale($event as UiLocale)"
+          />
+        </div>
+        <WindowBehaviorSettings />
+      </div>
+    </div>
 
     <LyricsEffectsSettings>
-      <div class="settings-row settings-row--with-desc settings-row--lyrics-scroll">
-        <div>
-          <strong id="appearance-lyrics-scroll-label">{{
-            t('settings.appearance.lyricsScroll.title')
-          }}</strong>
-          <span id="appearance-lyrics-scroll-description">{{
-            t('settings.appearance.lyricsScroll.description')
-          }}</span>
-          <span v-if="lyricsScrollPersistFailed" role="status">{{
-            t('settings.appearance.lyricsScroll.persistFailed')
-          }}</span>
-        </div>
-        <SettingsSelect
-          id="appearance-lyrics-scroll"
-          labelledby="appearance-lyrics-scroll-label"
-          describedby="appearance-lyrics-scroll-description"
-          :model-value="lyricsScrollPreset"
-          :options="lyricsScrollOptions"
-          @update:model-value="selectLyricsScrollPreset($event as LyricsScrollPreset)"
-        />
-      </div>
-      <LyricsCountdownSettings />
-    </LyricsEffectsSettings>
-
-    <WindowBehaviorSettings>
       <div class="settings-row settings-row--with-desc settings-row--startup-album">
         <div>
           <strong>{{ t('settings.appearance.startupAlbum.title') }}</strong>
@@ -474,11 +476,26 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
           </button>
         </div>
       </div>
-    </WindowBehaviorSettings>
+    </LyricsEffectsSettings>
   </section>
 </template>
 
 <style scoped>
+.appearance-settings :deep(.settings-row:has(> .settings-segmented-control)) {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+.appearance-settings :deep(.settings-row:has(> .settings-segmented-control) > div:first-child) {
+  flex: 1 1 220px;
+}
+
+.appearance-settings :deep(.settings-row > .settings-segmented-control) {
+  flex-wrap: wrap;
+  max-width: 100%;
+  margin-left: auto;
+}
+
 .settings-row--startup-album {
   flex-wrap: wrap;
 }

@@ -52,49 +52,45 @@ function step(delta: number) {
     :class="{ 'is-pointer-focus': pointerFocus }"
     @pointerdown.capture="pointerFocus = true"
   >
-    <input
-      :id="id"
-      type="text"
-      inputmode="numeric"
-      role="spinbutton"
-      :aria-label="`${label} ${t('settings.appearance.songFontWeight.sizeLabel')}`"
-      :aria-valuemin="min"
-      :aria-valuemax="max"
-      :aria-valuenow="modelValue"
-      :aria-valuetext="`${modelValue} px`"
-      :value="draft"
-      autocomplete="off"
-      spellcheck="false"
-      @input="onInput"
-      @blur="restore"
-      @keydown.up.prevent="step(1)"
-      @keydown.down.prevent="step(-1)"
-      @keydown.enter.prevent="restore"
-      @keydown.esc.prevent.stop="restore"
-    />
-    <span class="song-font-size-unit" aria-hidden="true">px</span>
-    <div class="song-font-size-buttons">
-      <button
-        type="button"
-        :disabled="modelValue >= max"
-        :aria-label="t('settings.appearance.songFontWeight.increaseSize', { field: label })"
-        @click="step(1)"
-      >
-        <svg width="8" height="5" viewBox="0 0 8 5" aria-hidden="true">
-          <path d="M4 0 8 5H0Z" fill="currentColor" />
-        </svg>
-      </button>
-      <button
-        type="button"
-        :disabled="modelValue <= min"
-        :aria-label="t('settings.appearance.songFontWeight.decreaseSize', { field: label })"
-        @click="step(-1)"
-      >
-        <svg width="8" height="5" viewBox="0 0 8 5" aria-hidden="true">
-          <path d="m0 0 4 5 4-5Z" fill="currentColor" />
-        </svg>
-      </button>
+    <button
+      type="button"
+      :disabled="modelValue <= min"
+      :aria-label="t('settings.appearance.songFontWeight.decreaseSize', { field: label })"
+      @click="step(-1)"
+    >
+      <span class="i-lucide-minus" aria-hidden="true" />
+    </button>
+    <div class="song-font-size-value">
+      <input
+        :id="id"
+        type="text"
+        inputmode="numeric"
+        role="spinbutton"
+        :aria-label="`${label} ${t('settings.appearance.songFontWeight.sizeLabel')}`"
+        :aria-valuemin="min"
+        :aria-valuemax="max"
+        :aria-valuenow="modelValue"
+        :aria-valuetext="`${modelValue} px`"
+        :value="draft"
+        autocomplete="off"
+        spellcheck="false"
+        @input="onInput"
+        @blur="restore"
+        @keydown.up.prevent="step(1)"
+        @keydown.down.prevent="step(-1)"
+        @keydown.enter.prevent="restore"
+        @keydown.esc.prevent.stop="restore"
+      />
+      <span class="song-font-size-unit" aria-hidden="true">px</span>
     </div>
+    <button
+      type="button"
+      :disabled="modelValue >= max"
+      :aria-label="t('settings.appearance.songFontWeight.increaseSize', { field: label })"
+      @click="step(1)"
+    >
+      <span class="i-lucide-plus" aria-hidden="true" />
+    </button>
   </div>
 </template>
 
@@ -122,9 +118,16 @@ function step(delta: number) {
   outline: 2px solid var(--auralis-sidebar-active-indicator);
   outline-offset: 2px;
 }
-input {
-  width: 0;
+.song-font-size-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: 1;
+  min-width: 0;
+}
+input {
+  width: 3ch;
+  flex: 0 1 3ch;
   min-width: 0;
   border: 0;
   padding: 0;
@@ -133,21 +136,17 @@ input {
   color: inherit;
   font: inherit;
   font-variant-numeric: tabular-nums;
+  text-align: center;
   caret-color: var(--auralis-text);
 }
 .song-font-size-unit {
-  margin-inline: 4px 12px;
+  margin-inline-start: 2px;
   color: var(--auralis-text-muted);
-}
-.song-font-size-buttons {
-  display: flex;
-  flex-direction: column;
-  align-self: stretch;
-  width: 20px;
 }
 button {
   display: flex;
-  flex: 1;
+  flex: 0 0 20px;
+  align-self: stretch;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -157,9 +156,14 @@ button {
   background: transparent;
   cursor: pointer;
 }
+button > span {
+  width: 12px;
+  height: 12px;
+}
 button:hover:not(:disabled) {
   color: var(--auralis-text);
-  background: var(--auralis-control-hover-bg);
+  background: transparent;
+  box-shadow: none;
 }
 button:active:not(:disabled) {
   background: var(--auralis-control-pressed-bg, var(--auralis-control-hover-bg));

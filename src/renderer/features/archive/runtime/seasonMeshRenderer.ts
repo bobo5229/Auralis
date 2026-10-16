@@ -27,6 +27,7 @@ export function createSeasonMeshRenderer(
   initialLayout: SeasonMeshLayout,
   initialWash: SeasonMeshWash,
   onError: (cause: unknown) => void,
+  initialElapsed = 0,
 ) {
   const renderer = new WebGLRenderer({
     canvas,
@@ -73,7 +74,7 @@ export function createSeasonMeshRenderer(
   const camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1)
   let playing = false
   let disposed = false
-  let elapsed = 0
+  let elapsed = initialElapsed
   const clock = createSeasonMeshClock((time) => {
     elapsed = time
     try {
@@ -81,7 +82,7 @@ export function createSeasonMeshRenderer(
     } catch (cause) {
       fail(cause)
     }
-  })
+  }, initialElapsed)
 
   function dispose() {
     if (disposed) return
@@ -126,6 +127,13 @@ export function createSeasonMeshRenderer(
     throw cause
   }
   return {
+    snapshot() {
+      playing = false
+      clock.setPlaying(false)
+      // Capture in the same task as drawing: the default WebGL buffer need not be preserved.
+      draw()
+      return { bitmap: canvas.transferToImageBitmap(), elapsed }
+    },
     resize,
     setAppearance(wash: SeasonMeshWash) {
       if (disposed) return

@@ -103,6 +103,8 @@
     "toolbarAria": "Sidebar tools",
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar",
+    "resize": "Resize sidebar",
+    "resizeHint": "Drag to resize, double-click to reset; use arrow keys to adjust, Shift for larger steps, Home / End for minimum / maximum width",
     "tool": {
       "facetsPanel": "Filter panel",
       "settings": "Preferences",
@@ -329,6 +331,14 @@
       "about": "About"
     },
     "appearance": {
+      "groups": {
+        "themeColors": "Theme colors",
+        "interfaceStyles": "Interface styles",
+        "textDisplay": "Text display",
+        "lyricsAndMotion": "Lyrics and motion",
+        "generalPreferences": "General preferences",
+        "featureSwitches": "Feature switches"
+      },
       "startupAlbum": {
         "title": "Recommend an album at startup",
         "description": "Show a random album from your local collection after the welcome screen. Applies on the next launch.",
@@ -611,6 +621,8 @@
     "unknownTrack": "Unknown track",
     "unknownArtist": "Unknown artist",
     "lyricsLoading": "Loading lyrics",
+    "resizeLyricsPanel": "Resize lyrics panel",
+    "resizeLyricsPanelHint": "Drag to resize, double-click to restore automatic width; use arrow keys to adjust, Shift for larger steps, Home / End for minimum / maximum width",
     "lyricsEmpty": "No lyrics available",
     "lyricsNoTrack": "No track selected",
     "lyricsCollapse": "Collapse lyrics",

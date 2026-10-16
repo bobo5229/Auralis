@@ -1,11 +1,14 @@
 /** A 30 Hz clock that advances by active time, independently of the display refresh rate. */
-export function createSeasonMeshClock(onFrame: (elapsedSeconds: number) => void) {
+export function createSeasonMeshClock(
+  onFrame: (elapsedSeconds: number) => void,
+  initialElapsed = 0,
+) {
   const interval = 1000 / 30
   let playing = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let lastDraw = 0
   let nextDraw = 0
-  let elapsed = 0
+  let elapsed = initialElapsed
 
   function schedule() {
     // Round up to avoid an extra callback caused by truncating a fractional millisecond.

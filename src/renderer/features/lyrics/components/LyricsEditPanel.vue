@@ -676,7 +676,6 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
         </button>
       </div>
       <p v-if="error" class="editor-error" role="alert">{{ error }}</p>
-      <p v-if="notice" class="editor-notice" role="status">{{ notice }}</p>
     </div>
     <template #footer>
       <div v-if="confirming" class="editor-footer editor-confirm">
@@ -709,6 +708,7 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
         </div>
       </div>
       <div v-else class="editor-footer editor-footer--save">
+        <p v-if="notice" class="editor-notice" role="status">{{ notice }}</p>
         <button
           id="lyrics-save-button"
           ref="saveButton"
@@ -904,6 +904,10 @@ textarea:focus {
 }
 .editor-notice {
   color: var(--auralis-text-muted);
+}
+.editor-footer--save .editor-notice {
+  flex: 1 1 220px;
+  min-width: 0;
 }
 .editor-confirm {
   gap: 12px;

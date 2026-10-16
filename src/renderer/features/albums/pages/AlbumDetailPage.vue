@@ -659,7 +659,7 @@ onBeforeUnmount(() => {
 .album-hero-artist-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   color: var(--auralis-text);
 }

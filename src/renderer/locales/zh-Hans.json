@@ -103,6 +103,8 @@
     "toolbarAria": "侧栏工具",
     "collapse": "收起侧边栏",
     "expand": "展开侧边栏",
+    "resize": "调整侧边栏宽度",
+    "resizeHint": "拖动调整宽度，双击恢复默认；方向键微调，Shift 加速，Home / End 调至最窄 / 最宽",
     "tool": {
       "facetsPanel": "筛选面板",
       "settings": "偏好设置",
@@ -329,6 +331,14 @@
       "about": "关于"
     },
     "appearance": {
+      "groups": {
+        "themeColors": "主题颜色",
+        "interfaceStyles": "界面样式",
+        "textDisplay": "文字显示",
+        "lyricsAndMotion": "歌词与动效",
+        "generalPreferences": "通用偏好",
+        "featureSwitches": "功能开关"
+      },
       "startupAlbum": {
         "title": "启动时推荐一张专辑",
         "description": "欢迎页结束后，从本地收藏随机展示一张专辑。下次启动生效。",
@@ -611,6 +621,8 @@
     "unknownTrack": "未知歌曲",
     "unknownArtist": "未知艺人",
     "lyricsLoading": "歌词加载中",
+    "resizeLyricsPanel": "调整歌词面板宽度",
+    "resizeLyricsPanelHint": "拖动调整宽度，双击恢复自动宽度；方向键微调，Shift 加速，Home / End 调至最窄 / 最宽",
     "lyricsEmpty": "暂无歌词",
     "lyricsNoTrack": "未选择曲目",
     "lyricsCollapse": "收起歌词",
@@ -967,7 +979,7 @@
       "artworkGap": "封面与信息间距",
       "albumArtistGap": "名称与艺术家间距",
       "artistDateGap": "艺术家与年份间距",
-      "alignment": "信息对齐",
+      "alignment": "信息区对齐方式",
       "left": "左对齐",
       "center": "居中",
       "right": "右对齐"

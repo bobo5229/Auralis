@@ -4,8 +4,8 @@ import type { SeasonMeshRequest, SeasonMeshResponse } from './seasonMeshProtocol
 let runtime: ReturnType<typeof createSeasonMeshRenderer> | undefined
 let failed = false
 
-function reply(message: SeasonMeshResponse) {
-  self.postMessage(message)
+function reply(message: SeasonMeshResponse, transfer: Transferable[] = []) {
+  self.postMessage(message, { transfer })
 }
 function fail(cause: unknown) {
   if (failed) return
@@ -21,7 +21,13 @@ self.onmessage = (event: MessageEvent<SeasonMeshRequest>) => {
   try {
     switch (message.type) {
       case 'init':
-        runtime = createSeasonMeshRenderer(message.canvas, message.layout, message.wash, fail)
+        runtime = createSeasonMeshRenderer(
+          message.canvas,
+          message.layout,
+          message.wash,
+          fail,
+          message.elapsed,
+        )
         reply({ type: 'ready' })
         break
       case 'layout':
@@ -33,6 +39,14 @@ self.onmessage = (event: MessageEvent<SeasonMeshRequest>) => {
       case 'playing':
         runtime?.setPlaying(message.value)
         break
+      case 'snapshot': {
+        const frame = runtime?.snapshot()
+        if (frame) reply({ type: 'snapshot', ...frame }, [frame.bitmap])
+        runtime?.dispose()
+        runtime = undefined
+        self.close()
+        break
+      }
     }
   } catch (cause) {
     fail(cause)

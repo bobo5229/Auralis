@@ -126,7 +126,7 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-it('opens the playing icon listbox and persists user selection', async () => {
+it('shows playing icon choices and persists keyboard and pointer selections', async () => {
   const setItem = vi.fn()
   vi.stubGlobal('localStorage', { setItem, getItem: () => null })
   body = new TestNode('body')
@@ -141,42 +141,33 @@ it('opens the playing icon listbox and persists user selection', async () => {
   const root = new TestNode('root')
   const app = renderer.createApp({ render: () => h(AppearanceSettings) })
   app.mount(root)
-
   const row = find(root, (node) => String(node.props.class).includes('settings-row--playing-icon'))!
-  expect(row).toBeDefined()
-
-  const trigger = find(row, (node) => node.props.role === 'combobox')!
-  expect(trigger.props['aria-expanded']).toBe(false)
-  expect(trigger.props['aria-describedby']).toBe('appearance-playing-icon-description')
-  expect(find(trigger, (node) => node.props.id === 'appearance-playing-icon-value')?.text).toBe(
-    'settings.appearance.playingIcon.equalizer',
-  )
-
-  const preventDefault = vi.fn()
-  ;(trigger.props.onKeydown as (event: unknown) => void)({ key: 'ArrowDown', preventDefault })
-  await nextTick()
-  await nextTick()
-
-  const listbox = find(body, (node) => node.props.role === 'listbox')!
-  const options = listbox.children.filter((node) => node.props.role === 'option')
-  expect(options).toHaveLength(2)
-  expect(options.map((node) => find(node, (child) => child.type === 'span')?.text)).toEqual([
+  const group = find(row, (node) => node.props.role === 'radiogroup')!
+  expect(group.props['aria-labelledby']).toBe('appearance-playing-icon-label')
+  expect(group.props['aria-describedby']).toBe('appearance-playing-icon-description')
+  const options = group.children.filter((node) => node.props.role === 'radio')
+  expect(options.map((node) => node.text)).toEqual([
     'settings.appearance.playingIcon.equalizer',
     'settings.appearance.playingIcon.blocks-wave',
   ])
+  expect(options[0].props['aria-checked']).toBe(true)
+  expect(options[0].props.tabindex).toBe(0)
+  expect(options[1].props.tabindex).toBe(-1)
 
-  // Select the implemented blocks-wave preset
-  ;(trigger.props.onKeydown as (event: unknown) => void)({ key: 'ArrowDown', preventDefault })
+  const preventDefault = vi.fn()
+  ;(options[0].props.onKeydown as (event: unknown) => void)({ key: 'ArrowRight', preventDefault })
   await nextTick()
-  ;(trigger.props.onKeydown as (event: unknown) => void)({ key: 'Enter', preventDefault })
-  await nextTick()
-
-  expect(trigger.props['aria-expanded']).toBe(false)
+  expect(preventDefault).toHaveBeenCalledOnce()
   expect(getPlayingIconPreset()).toBe('blocks-wave')
   expect(setItem).toHaveBeenCalledWith(PLAYING_ICON_PRESET_KEY, 'blocks-wave')
-  expect(find(trigger, (node) => node.props.id === 'appearance-playing-icon-value')?.text).toBe(
-    'settings.appearance.playingIcon.blocks-wave',
-  )
+  expect(options[1].props['aria-checked']).toBe(true)
+  expect(options[1].props.tabindex).toBe(0)
+  expect(options[1].focused).toBe(true)
 
+  ;(options[0].props.onClick as () => void)()
+  await nextTick()
+  expect(getPlayingIconPreset()).toBe('equalizer')
+  expect(setItem).toHaveBeenLastCalledWith(PLAYING_ICON_PRESET_KEY, 'equalizer')
+  expect(options[0].props['aria-checked']).toBe(true)
   app.unmount()
 })

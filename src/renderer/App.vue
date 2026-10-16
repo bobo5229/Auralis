@@ -5,6 +5,7 @@ import {
 } from '@renderer/shared/animation/motionPreference'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
+import { useElementSize } from '@vueuse/core'
 import { useStartupAlbum } from './features/startupAlbum/useStartupAlbum'
 import './app/styles/cdCanvasTransition.css'
 import { router } from './app/router'
@@ -21,13 +22,22 @@ import {
   providePageParameters,
 } from '@renderer/features/appearance/composables/usePageParameters'
 import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
-import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
+import {
+  clampSidebarWidth,
+  useSidebarLayout,
+} from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useCdCanvasTheme } from '@renderer/features/albums/composables/useCdCanvasTheme'
 import { useSystemMediaIntegration } from '@renderer/features/playback/composables/useSystemMediaIntegration'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { MODERN_PLAYER_BAR_MAX_WIDTH_PX } from '@renderer/features/playback/utils/modernPlayerBarLayout'
 import { useLyricsPanelVisibility } from '@renderer/features/appearance/composables/useLyricsPanelVisibility'
 import { useLyricsPanelMode } from '@renderer/features/appearance/composables/useLyricsPanelMode'
+import {
+  clampLyricsPanelWidth,
+  LYRICS_PANEL_WIDTH,
+  useLyricsPanelWidth,
+} from '@renderer/features/appearance/composables/useLyricsPanelWidth'
+import { usePanelResize } from './app/composables/usePanelResize'
 import { useLyricsPanelLayout, computeLyricsTargetWidth } from './app/layout/useLyricsPanelLayout'
 import {
   createLyricsAlbumTransitionCoordinator,
@@ -119,10 +129,28 @@ watch(
 
 const { lyricsPanelExpanded } = useLyricsPanelVisibility()
 const { mode: lyricsPanelMode } = useLyricsPanelMode()
+const { lyricsPanelWidth, setLyricsPanelWidth } = useLyricsPanelWidth()
 const isFloatingLyrics = computed(() => lyricsPanelMode.value === 'floating')
 const { canLayoutLyricsPanel } = useLyricsPanelLayout()
 
 const shellRef = ref<HTMLElement | null>(null)
+const { width: shellWidth } = useElementSize(shellRef, {
+  width: computeLyricsTargetWidth() * 5,
+  height: 0,
+})
+const isSidebarResizing = ref(false)
+const isLyricsWidthResizing = ref(false)
+
+function onSidebarResizeActiveChange(active: boolean): void {
+  // Resolve the last width while transitions are disabled, including keyboard changes.
+  if (!active && isSidebarResizing.value) shellRef.value?.getBoundingClientRect()
+  isSidebarResizing.value = active
+}
+
+function onLyricsWidthResizeActiveChange(active: boolean): void {
+  if (!active && isLyricsWidthResizing.value) shellRef.value?.getBoundingClientRect()
+  isLyricsWidthResizing.value = active
+}
 const mainRef = ref<HTMLElement | null>(null)
 const nowPlayingPanelRef = ref<InstanceType<typeof NowPlayingPanel> | null>(null)
 const initialLyricsActive = canLayoutLyricsPanel.value && lyricsPanelExpanded.value
@@ -130,7 +158,14 @@ const lyricsProgress = ref(initialLyricsActive ? 1 : 0)
 const shouldMountLyrics = ref(initialLyricsActive)
 const isLyricsCollapsed = ref(!initialLyricsActive)
 const isLyricsInteractive = ref(initialLyricsActive)
-const lyricsTargetWidthPx = ref(computeLyricsTargetWidth())
+// The parameter panel keeps its original geometry independently of the lyrics preference.
+const pageParameterWidthPx = computed(() => computeLyricsTargetWidth(shellWidth.value))
+const lyricsTargetWidthPx = computed(() =>
+  clampLyricsPanelWidth(
+    lyricsPanelWidth.value || computeLyricsTargetWidth(shellWidth.value),
+    maxLyricsPanelWidth.value,
+  ),
+)
 const isLyricsResizing = ref(false)
 const isAlbumLayoutTransitioning = ref(false)
 const activeAlbumsPage = ref<AlbumLayoutTransitionParticipant | null>(null)
@@ -828,12 +863,11 @@ watch(
   { flush: 'sync' },
 )
 
-function updateLyricsTargetWidth(): void {
+function settleLyricsLayoutForResize(): void {
   if (isGenericLyricsTransitioning) {
     applyImmediateState(canLayoutLyricsPanel.value && lyricsPanelExpanded.value)
   }
   if (activeAlbumTransitionTicket) void settleAlbumLyricsTransition()
-  lyricsTargetWidthPx.value = computeLyricsTargetWidth(shellRef.value?.clientWidth)
 }
 
 function handleReducedMotionChange(): void {
@@ -845,14 +879,13 @@ function handleReducedMotionChange(): void {
 }
 
 const shellStyle = computed<CSSProperties>(() => ({
+  '--auralis-sidebar-expanded-width': `${Math.min(sidebarWidth.value, maxSidebarWidth.value)}px`,
   '--auralis-lyrics-progress': String(lyricsProgress.value),
   '--auralis-lyrics-target-width': `${lyricsTargetWidthPx.value}px`,
   '--auralis-lyrics-column-width': isFloatingLyrics.value
     ? '0px'
-    : `calc(20% * ${lyricsProgress.value})`,
-  '--auralis-player-lyrics-inset': isFloatingLyrics.value
-    ? `${lyricsTargetWidthPx.value * lyricsProgress.value}px`
-    : `calc(20% * ${lyricsProgress.value})`,
+    : `${lyricsTargetWidthPx.value * lyricsProgress.value}px`,
+  '--auralis-player-lyrics-inset': `${lyricsTargetWidthPx.value * lyricsProgress.value}px`,
 }))
 
 /** 成功导航的来源；与目标路由在同一轮渲染前更新。 */
@@ -931,8 +964,8 @@ const removeAfterEach = router.afterEach((to, from, failure) => {
 onMounted(() => {
   reducedMotionMedia = createReducedMotionQuery()
   reducedMotionMedia.addEventListener('change', handleReducedMotionChange)
-  window.addEventListener('resize', updateLyricsTargetWidth)
-  updateLyricsTargetWidth()
+  window.addEventListener('resize', settleLyricsLayoutForResize)
+  settleLyricsLayoutForResize()
 })
 
 onBeforeUnmount(() => {
@@ -948,7 +981,7 @@ onBeforeUnmount(() => {
   clearPlayerBarTransition()
   removeTransitionPointerListener()
   reducedMotionMedia?.removeEventListener('change', handleReducedMotionChange)
-  window.removeEventListener('resize', updateLyricsTargetWidth)
+  window.removeEventListener('resize', settleLyricsLayoutForResize)
 })
 
 const isAlbumDetail = computed(() => {
@@ -959,12 +992,72 @@ const isCdCanvas = computed(() => {
   return route.name === 'cd-albums' || route.name === 'cd-album-index'
 })
 
+const { sidebarFullHeight, sidebarCollapsed, sidebarWidth } = useSidebarLayout()
+const MAIN_CONTENT_MIN_WIDTH_PX = 480
+// Keep at least 480px for content and reserve the lyrics area in either lyrics mode.
+const maxSidebarWidth = computed(() =>
+  clampSidebarWidth(
+    shellWidth.value -
+      (canLayoutLyricsPanel.value ? lyricsTargetWidthPx.value * lyricsProgress.value : 0) -
+      MAIN_CONTENT_MIN_WIDTH_PX,
+  ),
+)
 /** 全高布局下的收起图标栏；驱动 Shell 列宽、播放栏左边界与背景裁切。 */
-const { sidebarFullHeight, sidebarCollapsed } = useSidebarLayout()
 const isSidebarRail = computed(
   () => sidebarFullHeight.value && sidebarCollapsed.value && !isCdCanvas.value,
 )
 const renderedSidebarRail = ref(isSidebarRail.value)
+
+// Use the preferred sidebar width, rather than its lyrics-dependent constrained width,
+// so the two panels' maximum widths never form a reactive feedback loop.
+const maxLyricsPanelWidth = computed(() => {
+  const sidebarSpace = renderedSidebarRail.value
+    ? Number.parseFloat(
+        shellRef.value
+          ? getComputedStyle(shellRef.value).getPropertyValue('--auralis-sidebar-rail-width')
+          : '',
+      ) || 60
+    : sidebarWidth.value
+  return clampLyricsPanelWidth(shellWidth.value - sidebarSpace - MAIN_CONTENT_MIN_WIDTH_PX)
+})
+const lyricsWidthResizeDisabled = computed(
+  () =>
+    !canLayoutLyricsPanel.value ||
+    !lyricsPanelExpanded.value ||
+    !shouldMountLyrics.value ||
+    !isLyricsInteractive.value ||
+    displayMode.value !== 'normal' ||
+    isLyricsResizing.value ||
+    isAlbumRouteTransitioning.value ||
+    isSidebarResizing.value ||
+    isSettingsOpen.value ||
+    isLyricsEditOpen.value ||
+    pageParameters.open.value ||
+    startupAlbumActive.value,
+)
+const {
+  isResizing: isLyricsWidthDragging,
+  onPointerDown: onLyricsWidthPointerDown,
+  onKeyDown: onLyricsWidthKeyDown,
+  resetWidth: resetLyricsWidth,
+  cancel: cancelLyricsWidthResize,
+} = usePanelResize({
+  preferredWidth: lyricsPanelWidth,
+  width: lyricsTargetWidthPx,
+  minWidth: LYRICS_PANEL_WIDTH.min,
+  maxWidth: maxLyricsPanelWidth,
+  direction: -1,
+  disabled: lyricsWidthResizeDisabled,
+  setWidth: setLyricsPanelWidth,
+  resetPreference: () => setLyricsPanelWidth(0),
+  onActiveChange: onLyricsWidthResizeActiveChange,
+})
+
+watch(
+  [() => route.fullPath, lyricsPanelMode, sidebarFullHeight, sidebarCollapsed],
+  cancelLyricsWidthResize,
+  { flush: 'sync' },
+)
 
 watch(isSidebarRail, (rail) => {
   if (isGenericLyricsTransitioning) {
@@ -1102,6 +1195,8 @@ watch(displayMode, (mode) => {
         'is-lyrics-collapsed': isLyricsCollapsed,
         'is-lyrics-floating': isFloatingLyrics,
         'is-lyrics-resizing': isLyricsResizing,
+        'is-sidebar-resizing': isSidebarResizing,
+        'is-lyrics-width-resizing': isLyricsWidthResizing,
         'is-album-layout-transitioning': isAlbumLayoutTransitioning,
       }"
       :style="shellStyle"
@@ -1113,7 +1208,18 @@ watch(displayMode, (mode) => {
       />
       <WindowTrafficLights :cd-canvas="isCdCanvas" />
 
-      <AppSidebar v-if="!isCdCanvas" class="relative z-10" />
+      <AppSidebar
+        v-if="!isCdCanvas"
+        class="relative z-10"
+        :max-width="maxSidebarWidth"
+        :resize-disabled="
+          isLyricsResizing ||
+          isLyricsWidthResizing ||
+          isAlbumRouteTransitioning ||
+          displayMode !== 'normal'
+        "
+        @resize-active-change="onSidebarResizeActiveChange"
+      />
 
       <main
         ref="mainRef"
@@ -1152,7 +1258,8 @@ watch(displayMode, (mode) => {
                     : viewRoute.name === 'albums'
                       ? {
                           isTransitioning: isAlbumRouteTransitioning,
-                          isLayoutResizing: isLyricsResizing,
+                          isLayoutResizing:
+                            isLyricsResizing || isSidebarResizing || isLyricsWidthResizing,
                         }
                       : {}
                 "
@@ -1171,13 +1278,20 @@ watch(displayMode, (mode) => {
         :is-collapsed="isLyricsCollapsed"
         :is-interactive="isLyricsInteractive"
         :target-width-px="lyricsTargetWidthPx"
+        :max-width-px="maxLyricsPanelWidth"
+        :resize-disabled="lyricsWidthResizeDisabled"
+        :is-width-resizing="isLyricsWidthResizing"
+        :is-width-dragging="isLyricsWidthDragging"
+        @resize-pointer-down="onLyricsWidthPointerDown"
+        @resize-key-down="onLyricsWidthKeyDown"
+        @reset-width="resetLyricsWidth"
         @edit-lyrics="openLyricsEditPanel"
       />
       <PlayerBar v-if="!isCdCanvas" />
     </div>
     <FullscreenPlayerOverlay />
   </div>
-  <PageParameterPanel :controller="pageParameters" :target-width-px="lyricsTargetWidthPx" />
+  <PageParameterPanel :controller="pageParameters" :target-width-px="pageParameterWidthPx" />
   <SettingsDialog />
   <LyricsEditPanel
     ref="lyricsEditPanelRef"

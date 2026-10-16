@@ -1,4 +1,5 @@
 import { modeRgb, useMode } from 'culori'
+import { seasonMeshSession } from './seasonMeshSession'
 import type {
   SeasonMeshLayout,
   SeasonMeshRequest,
@@ -14,27 +15,58 @@ export function createSeasonMesh(
   canvas: HTMLCanvasElement,
   onReady: () => void,
   onError: (cause: unknown) => void,
+  session = seasonMeshSession,
 ) {
   if (typeof Worker === 'undefined' || !canvas.transferControlToOffscreen) {
     throw new Error('Season mesh offscreen rendering is unavailable')
   }
   const worker = new Worker(new URL('./seasonMesh.worker.ts', import.meta.url), { type: 'module' })
+  const owner = session.begin()
   let disposed = false
   let ready = false
   let playing = false
+  let appearance = ''
+  let capturing = false
+  let released = false
+  let captureTimeout: ReturnType<typeof setTimeout> | undefined
+  let finishCapture: (() => void) | undefined
 
-  function dispose() {
-    if (disposed) return
-    disposed = true
+  function release() {
+    if (released) return
+    released = true
+    capturing = false
+    clearTimeout(captureTimeout)
     worker.onmessage = null
     worker.onerror = null
     worker.onmessageerror = null
-    // Termination also releases the worker-owned context, even during synchronous initialization.
     worker.terminate()
+    finishCapture?.()
+    finishCapture = undefined
+  }
+  function dispose() {
+    if (disposed) return
+    disposed = true
+    if (!ready) {
+      release()
+      return
+    }
+    // Stop and capture once in the worker, then release it even if no response arrives.
+    capturing = true
+    finishCapture = session.beginCapture(owner)
+    captureTimeout = setTimeout(release, 250)
+    try {
+      worker.postMessage({ type: 'snapshot' } satisfies SeasonMeshRequest)
+    } catch {
+      release()
+    }
   }
   function fail(cause: unknown) {
-    if (disposed) return
-    dispose()
+    if (disposed) {
+      release()
+      return
+    }
+    disposed = true
+    release()
     onError(cause)
   }
   function send(message: SeasonMeshRequest) {
@@ -55,10 +87,26 @@ export function createSeasonMesh(
     }
   }
   function readAppearance(): SeasonMeshWash {
-    const wash = toRgb(getComputedStyle(host).getPropertyValue('--season-wash').trim())
+    appearance = getComputedStyle(host).getPropertyValue('--season-wash').trim()
+    const wash = toRgb(appearance)
     return [wash?.r ?? 0, wash?.g ?? 0, wash?.b ?? 0, wash?.alpha ?? 0]
   }
   worker.onmessage = (event: MessageEvent<SeasonMeshResponse>) => {
+    if (event.data.type === 'snapshot') {
+      if (capturing)
+        session.save(owner, {
+          bitmap: event.data.bitmap,
+          elapsed: event.data.elapsed,
+          appearance,
+        })
+      else event.data.bitmap.close()
+      if (capturing) release()
+      return
+    }
+    if (disposed && event.data.type === 'error') {
+      release()
+      return
+    }
     if (disposed) return
     if (event.data.type === 'ready') {
       ready = true
@@ -77,10 +125,12 @@ export function createSeasonMesh(
       canvas: offscreen,
       layout: readLayout(),
       wash: readAppearance(),
+      elapsed: session.read()?.elapsed ?? 0,
     }
     worker.postMessage(message, [offscreen])
   } catch (cause) {
-    dispose()
+    disposed = true
+    release()
     throw cause
   }
   return {
