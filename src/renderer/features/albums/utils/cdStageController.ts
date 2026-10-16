@@ -656,6 +656,7 @@ export function createCdStage(
   function render(nextPosition: number, angle = 0): void {
     position = nextPosition
     const slots = cdSlots(position, albums.length)
+    const foregroundIndex = focusProgress > 0 ? selected : Math.floor(position + 0.5)
     for (const [index, node] of nodes) {
       if (!slots.includes(index)) {
         removeNode(node)
@@ -687,7 +688,8 @@ export function createCdStage(
       node.poseScale = pose.size / 400
       node.positionTransform = `translate3d(${pose.cx - pose.size / 2}px, ${pose.cy - pose.size / 2}px, 0) scale(${node.poseScale})`
       node.slot.style.transform = node.positionTransform
-      node.slot.style.zIndex = String(central && focusProgress > 0 ? 5 : layer + 1)
+      // Keep the visual centre above both neighbors, including while browsing is in flight.
+      node.slot.style.zIndex = String(index === foregroundIndex ? 5 : layer + 1)
       node.disc.style.pointerEvents =
         focusMoving || (focusProgress > 0 && !central) ? 'none' : 'auto'
       // The resting centre opens focus; a pending target during browsing remains a no-op.

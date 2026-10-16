@@ -25,7 +25,7 @@ import {
   resetSurfaceIndicator,
   type CdSurfaceIndicatorMotionState,
 } from '../utils/cdSurfaceIndicator'
-import CdViewSwitch from '../components/CdViewSwitch.vue'
+import { useCdViewSwitchVisibility } from '../composables/useCdViewSwitchVisibility'
 import CdSpectrumPreview from '../components/CdSpectrumPreview.vue'
 import { albumIdentityKey } from '../utils/albumIdentity'
 import type { TrackListItem } from '@shared/types/libraryScan'
@@ -210,6 +210,7 @@ const stageRef = ref<HTMLElement | null>(null)
 const infoRef = ref<HTMLElement | null>(null)
 const loading = ref(true)
 const starting = ref(false)
+useCdViewSwitchVisibility(computed(() => !focused.value && !starting.value))
 useCdCanvasColors(pageRef, cdCanvasTheme, () =>
   ringTrackMatches.value &&
   ringPalette.value.key === ringArtworkKey.value &&
@@ -787,7 +788,9 @@ onMounted(() => {
     },
   )
   syncPlaybackRing()
-  stageRef.value.focus({ preventScroll: true })
+  if (!document.activeElement?.closest('.cd-view-switch')) {
+    stageRef.value.focus({ preventScroll: true })
+  }
   unsubscribe = cdAlbumCatalogSession.subscribe(() => {
     void loadAlbums()
   })
@@ -860,7 +863,6 @@ onBeforeUnmount(() => {
       >
         <span :class="focused ? 'i-lucide-chevron-left' : 'i-lucide-x'" aria-hidden="true"></span>
       </button>
-      <CdViewSwitch v-if="!focused && !starting" current="browse" />
       <div
         v-if="focused"
         ref="surfaceSwitchRef"
@@ -1522,7 +1524,7 @@ onBeforeUnmount(() => {
   max-width: calc(100% - 32px);
   z-index: 4;
   align-items: stretch;
-  gap: 4px;
+  gap: 8px;
   margin: 0;
   font-family: var(--cd-font-display);
   font-size: var(--cd-type-playback-size);

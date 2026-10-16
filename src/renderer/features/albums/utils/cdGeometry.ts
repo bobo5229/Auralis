@@ -50,9 +50,10 @@ export function cdPose(t: number, width?: number, height?: number): CdPose {
   // 1. 基准尺寸：同时受可用高度与宽度约束，避免随宽度过度放大
   // 中心盘放大 10% 后，透视可见高度约为内容区高度的 60%。
   const baseD = Math.min(h * 0.6, w * 0.38)
-  // Keep the outer slots' sizes; reduce the frontal near-left disc by 12%
-  // and enlarge the selected disc by 10% to strengthen its projected area.
-  const size = baseD * discSizeScale(t)
+  // Keep the left slots' sizes and the selected disc's 10% emphasis.
+  // The upper-right disc grows by 4%, smoothly fading to zero adjustment at t=0 and t=2.
+  const rightWeight = Math.max(0, 1 - (t - 1) ** 2) ** 2
+  const size = baseD * discSizeScale(t) * (1 + 0.04 * rightWeight)
   // The left discs face the viewer more directly to retain a real contour
   // overlap while their centres open towards the clipping edge. Its added curve
   // and first derivative are both zero at the centre anchor.
@@ -61,7 +62,7 @@ export function cdPose(t: number, width?: number, height?: number): CdPose {
   const tilt = -42 + 3 * t + leftTiltCurve
   const turn = 24 - 2 * t
 
-  // 2. 中心盘盘心锚点（内容区宽度的 53.5%、高度的 59.5%）
+  // 2. 原构图基准锚点；最终对主盘和右上盘叠加局部偏移，保留左侧盘的停稳位置。
   const cx0 = 0.535 * w
   const cy0 = 0.595 * h
 
@@ -103,8 +104,11 @@ export function cdPose(t: number, width?: number, height?: number): CdPose {
     dy = -0.42 * baseD * t
   }
 
-  const cx = cx0 + dx
-  const cy = cy0 + dy
+  // 主盘向左上收至 52% W、56% H，仍略偏右下；相邻整数槽位的偏移与一阶导数均为零。
+  const centerWeight = Math.max(0, 1 - t * t) ** 2
+  // 右上盘跟随主盘向左上收拢，同时缩短横向距离、略减垂直距离，保留盘面间隙。
+  const cx = cx0 + dx - 0.015 * w * centerWeight - (0.015 * w + 0.08 * baseD) * rightWeight
+  const cy = cy0 + dy - 0.035 * h * centerWeight + (0.03 * baseD - 0.035 * h) * rightWeight
 
   return {
     x: cx,

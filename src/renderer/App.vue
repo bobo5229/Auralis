@@ -40,6 +40,8 @@ import { albumIdentityKey } from './features/albums/utils/albumIdentity'
 import { ALBUM_GRID_REFLOW_DURATION_MS } from './features/albums/utils/albumGridReflowMotion'
 import { createSidebarLayoutTransition } from './app/layout/sidebarLayoutTransition'
 import { hasCdViewSwitchTransition } from './features/albums/utils/cdViewSwitchTransition'
+import CdViewSwitch from './features/albums/components/CdViewSwitch.vue'
+import { provideCdViewSwitchVisibility } from './features/albums/composables/useCdViewSwitchVisibility'
 import {
   animateLyricsPanelSlide,
   animateLyricsPlayerTranslation,
@@ -55,6 +57,8 @@ const {
 } = useStartupAlbum()
 const route = useRoute()
 const { cdCanvasTheme } = useCdCanvasTheme()
+const cdBrowseViewSwitchVisible = provideCdViewSwitchVisibility()
+const cdViewSwitchRef = ref<InstanceType<typeof CdViewSwitch> | null>(null)
 useSystemMediaIntegration()
 const { displayMode } = usePlayerDisplayMode()
 const { isSettingsOpen, closeSettings } = useSettingsDialog()
@@ -1005,6 +1009,10 @@ function onTransitionBeforeEnter(element: Element): void {
   enteringRevisions.set(element, albumRouteRevision)
 }
 
+function onTransitionEnter(): void {
+  if (cdIndexSlideDirection.value) cdViewSwitchRef.value?.syncToCurrent(true)
+}
+
 function onTransitionBeforeLeave(element: Element): void {
   if (!isAlbumRouteTransitioning.value) return
   const node = element as HTMLElement
@@ -1113,12 +1121,20 @@ watch(displayMode, (mode) => {
         tabindex="-1"
         :inert="isAlbumRouteTransitioning"
       >
+        <CdViewSwitch
+          v-if="isCdCanvas"
+          v-show="route.name === 'cd-album-index' || cdBrowseViewSwitchVisible"
+          ref="cdViewSwitchRef"
+          :current="route.name === 'cd-album-index' ? 'index' : 'browse'"
+          :transitioning="cdIndexSlideDirection !== null"
+        />
         <RouterView v-slot="{ Component, route: viewRoute }">
           <Transition
             :name="transitionName ?? undefined"
             :css="transitionName !== null && !isAlbumDetailEntering"
             v-bind="albumDetailTransitionHooks"
             @before-enter="onTransitionBeforeEnter"
+            @enter="onTransitionEnter"
             @before-leave="onTransitionBeforeLeave"
             @after-leave="restoreLeavingInteractivity"
             @leave-cancelled="restoreLeavingInteractivity"

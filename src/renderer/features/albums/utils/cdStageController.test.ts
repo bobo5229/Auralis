@@ -137,11 +137,44 @@ describe('CD stage lifetime', () => {
     return { stage, select, approach, rapid, controller, disconnect, albums, media, document }
   }
 
+  function slotsLeftToRight(stage: TestElement): TestElement[] {
+    const left = (slot: TestElement): number =>
+      Number(slot.style.transform.match(/translate3d\(([-\d.]+)px/)?.[1])
+    return [...stage.children].sort((first, second) => left(first) - left(second))
+  }
+
   function discAt(stage: TestElement, index: number): TestElement {
-    const slot = stage.children.find((node) => Number(node.style.zIndex) === index)
-    if (!slot) throw new Error(`Missing disc at layer ${index}`)
+    // Browse positions are spatial slots; focus uses the foreground layer explicitly.
+    const slot =
+      index === 5
+        ? stage.children.find((node) => node.style.zIndex === '5')
+        : slotsLeftToRight(stage)[index - 1]
+    if (!slot) throw new Error(`Missing disc at position ${index}`)
     return slot.children[0].children[0]
   }
+
+  it('keeps the main browsing disc above both neighbors before, during and after navigation', () => {
+    const { stage, controller } = setup(8)
+    const expectForeground = (): void => {
+      const slots = slotsLeftToRight(stage)
+      const mainLayer = Number(slots[2].style.zIndex)
+      for (const neighbor of [slots[0], slots[1], slots[3]]) {
+        expect(mainLayer).toBeGreaterThan(Number(neighbor.style.zIndex))
+      }
+    }
+    expectForeground()
+    for (const direction of [1, -1]) {
+      controller.navigate(direction)
+      for (let frame = 0; frame < 60 && clock.running; frame++) {
+        advance(1)
+        expectForeground()
+      }
+      settle()
+      expectForeground()
+      expect(slotsLeftToRight(stage)[2].attributes.get('data-selected')).toBe('true')
+    }
+    controller.dispose()
+  })
 
   it('focuses only the resting centre and restores the same discs without changing selection', () => {
     const change = vi.fn()
@@ -1274,9 +1307,7 @@ describe('CD stage lifetime', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5)
     const { stage, controller, albums } = setup(8)
     const angles = () =>
-      [...stage.children]
-        .sort((left, right) => Number(left.style.zIndex) - Number(right.style.zIndex))
-        .map((slot) => slot.children[0].children[0].children[0].style.transform)
+      slotsLeftToRight(stage).map((slot) => slot.children[0].children[0].children[0].style.transform)
     const initial = angles()
     expect(new Set(initial).size).toBe(4)
     for (const transform of initial) {

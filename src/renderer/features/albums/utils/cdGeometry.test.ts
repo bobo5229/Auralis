@@ -72,6 +72,14 @@ function horizontalBounds(outline: CdPoint[]): { left: number; right: number } {
   )
 }
 
+function sampledOutlineGap(first: CdPoint[], second: CdPoint[]): number {
+  return Math.min(
+    ...first.map((point) =>
+      Math.min(...second.map((other) => Math.hypot(point.x - other.x, point.y - other.y))),
+    ),
+  )
+}
+
 describe('CD album geometry', () => {
   it('never exposes more than four albums or duplicates a small catalog', () => {
     for (const count of [0, 1, 2, 3, 4, 5, 10000]) {
@@ -108,11 +116,11 @@ describe('CD album geometry', () => {
 
     for (const { width, height } of viewports) {
       const center = cdPose(0, width, height)
-      // 中心盘盘心位于 52%–55% W, 58%–62% H
-      expect(center.x / width).toBeGreaterThanOrEqual(0.52)
-      expect(center.x / width).toBeLessThanOrEqual(0.55)
-      expect(center.y / height).toBeGreaterThanOrEqual(0.58)
-      expect(center.y / height).toBeLessThanOrEqual(0.62)
+      // 主盘横纵位置均向中心收拢，同时保留偏右、偏下的构图。
+      expect(center.x / width).toBeCloseTo(0.52, 6)
+      expect(center.y / height).toBeCloseTo(0.56, 6)
+      expect(center.x / width).toBeGreaterThan(0.5)
+      expect(center.y / height).toBeGreaterThan(0.5)
 
       // 尺寸受可用高度与宽度双重约束
       expect(center.size).toBeLessThanOrEqual(height * 0.66 + 1)
@@ -136,20 +144,28 @@ describe('CD album geometry', () => {
     const base = Math.min(height * 0.6, width * 0.38)
     const center = cdPose(0, width, height)
     const right = cdPose(1, width, height)
+    expect(center.cx).toBeCloseTo(0.52 * width, 6)
+    expect(center.cy).toBeCloseTo(0.56 * height, 6)
     expect(center).toMatchObject({
-      cx: 0.535 * width,
-      cy: 0.595 * height,
       size: base * 1.1,
       tilt: -42,
       turn: 24,
     })
+    expect(right.cx).toBeCloseTo(0.52 * width + 0.84 * base + 0.035 * width, 6)
+    expect(right.cy).toBeCloseTo(0.56 * height - 0.39 * base, 6)
+    expect(right.size).toBeCloseTo(base * 1.2 * 1.04, 6)
     expect(right).toMatchObject({
-      cx: 0.535 * width + 0.92 * base + 0.035 * width,
-      cy: 0.595 * height - 0.42 * base,
-      size: base * 1.2,
       tilt: -39,
       turn: 22,
     })
+    for (const [slot, horizontalOffset, verticalOffset] of [
+      [-1, -0.76 * base, 0.168 * base],
+      [-2, -1.46 * base, 0.23 * base],
+    ]) {
+      const neighbor = cdPose(slot, width, height)
+      expect(neighbor.cx).toBeCloseTo(0.535 * width + horizontalOffset, 6)
+      expect(neighbor.cy).toBeCloseTo(0.595 * height + verticalOffset, 6)
+    }
 
     const step = 0.0001
     const before = cdPose(-step, width, height)
@@ -167,6 +183,7 @@ describe('CD album geometry', () => {
     const viewports = [
       { width: 1400, height: 700 },
       { width: 1920, height: 950 },
+      { width: 1600, height: 480 },
       { width: 1280, height: 720 },
       { width: 1000, height: 700 },
       { width: 900, height: 620 },
@@ -193,12 +210,22 @@ describe('CD album geometry', () => {
         true,
       )
       expect(outlinesOverlap(cdProjectedDiscOutline(pNeg1), cdProjectedDiscOutline(p0))).toBe(true)
-      expect(
-        outlinesOverlap(
-          cdProjectedDiscOutline(p0),
-          cdProjectedDiscOutline(cdPose(1, width, height)),
-        ),
-      ).toBe(false)
+      const base = Math.min(height * 0.6, width * 0.38)
+      const right = cdPose(1, width, height)
+      const centerOutline = cdProjectedDiscOutline(p0)
+      const rightOutline = cdProjectedDiscOutline(right)
+      const previousRight = {
+        ...right,
+        cx: 0.535 * width + 0.92 * base + 0.035 * width,
+        cy: 0.595 * height - 0.42 * base,
+        size: base * 1.2,
+      }
+      const previousOutline = cdProjectedDiscOutline(previousRight)
+      expect(outlinesOverlap(centerOutline, rightOutline)).toBe(false)
+      expect(sampledOutlineGap(centerOutline, rightOutline)).toBeGreaterThan(0)
+      expect(sampledOutlineGap(centerOutline, rightOutline)).toBeLessThan(
+        sampledOutlineGap(centerOutline, previousOutline),
+      )
     }
   })
 

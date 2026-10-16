@@ -7,7 +7,6 @@ import { useRouter } from 'vue-router'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
 import { formatArtist } from '@renderer/features/library/utils/formatArtist'
-import CdViewSwitch from '../components/CdViewSwitch.vue'
 import { cdAlbumCatalogSession } from '../composables/cdAlbumCatalogSession'
 import { useCdCanvasTheme } from '../composables/useCdCanvasTheme'
 import {
@@ -272,7 +271,6 @@ onBeforeUnmount(() => {
       >
         <span class="i-lucide-x" aria-hidden="true"></span>
       </button>
-      <CdViewSwitch current="index" />
     </header>
 
     <div v-if="isLoading || failed || rows.length === 0" class="cd-index-status" role="status">
