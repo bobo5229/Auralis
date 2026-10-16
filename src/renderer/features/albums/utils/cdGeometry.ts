@@ -106,8 +106,9 @@ export function cdPose(t: number, width?: number, height?: number): CdPose {
 
   // 主盘向左上收至 52% W、56% H，仍略偏右下；相邻整数槽位的偏移与一阶导数均为零。
   const centerWeight = Math.max(0, 1 - t * t) ** 2
-  // 右上盘跟随主盘向左上收拢，同时缩短横向距离、略减垂直距离，保留盘面间隙。
-  const cx = cx0 + dx - 0.015 * w * centerWeight - (0.015 * w + 0.08 * baseD) * rightWeight
+  // 右上盘与主盘的水平距离按盘径设为 1.04 倍；不随窗口宽高比挤压盘面间隙。
+  // 局部修正在相邻槽位的一阶导数仍为零，保留现有滑动轨迹的平滑衔接。
+  const cx = cx0 + dx - 0.015 * w * centerWeight + (0.12 * baseD - 0.05 * w) * rightWeight
   const cy = cy0 + dy - 0.035 * h * centerWeight + (0.03 * baseD - 0.035 * h) * rightWeight
 
   return {

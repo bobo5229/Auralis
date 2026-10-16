@@ -1,5 +1,4 @@
 import { stat } from 'node:fs/promises'
-import { normalize } from 'node:path'
 import { normalizeAudioFilePath } from '../audio/playbackFileCoordinator'
 import { isSupportedAudioFile } from '@main/features/libraryScan/audioFileFilter'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'

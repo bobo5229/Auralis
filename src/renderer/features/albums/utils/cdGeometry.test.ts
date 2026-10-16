@@ -151,7 +151,7 @@ describe('CD album geometry', () => {
       tilt: -42,
       turn: 24,
     })
-    expect(right.cx).toBeCloseTo(0.52 * width + 0.84 * base + 0.035 * width, 6)
+    expect(right.cx).toBeCloseTo(0.52 * width + 1.04 * base, 6)
     expect(right.cy).toBeCloseTo(0.56 * height - 0.39 * base, 6)
     expect(right.size).toBeCloseTo(base * 1.2 * 1.04, 6)
     expect(right).toMatchObject({
@@ -222,7 +222,9 @@ describe('CD album geometry', () => {
       }
       const previousOutline = cdProjectedDiscOutline(previousRight)
       expect(outlinesOverlap(centerOutline, rightOutline)).toBe(false)
-      expect(sampledOutlineGap(centerOutline, rightOutline)).toBeGreaterThan(0)
+      const gap = sampledOutlineGap(centerOutline, rightOutline)
+      expect(gap).toBeGreaterThan(base * 0.02)
+      expect(gap).toBeLessThan(base * 0.06)
       expect(sampledOutlineGap(centerOutline, rightOutline)).toBeLessThan(
         sampledOutlineGap(centerOutline, previousOutline),
       )

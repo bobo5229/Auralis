@@ -24,6 +24,7 @@ const reducedMotion = createReducedMotionQuery()
 let observer: ResizeObserver | undefined
 let frame = 0
 let disposed = false
+let syncRevision = 0
 
 function geometryKey(): string {
   const group = groupRef.value
@@ -38,9 +39,10 @@ function geometryKey(): string {
 function syncToCurrent(animate: boolean): void {
   cancelAnimationFrame(frame)
   frame = 0
+  const revision = ++syncRevision
   const draw = (): void => {
+    if (disposed || revision !== syncRevision) return
     frame = 0
-    if (disposed) return
     const group = groupRef.value
     const button = group?.querySelector<HTMLElement>(`button[data-cd-view="${props.current}"]`)
     if (!group || !button || !group.getBoundingClientRect().width) return
@@ -54,7 +56,9 @@ function syncToCurrent(animate: boolean): void {
   }
   isMoving.value = animate && !reducedMotion.matches
   if (!isMoving.value) {
-    draw()
+    // The entering browse page can restore v-show later in this render flush.
+    // Measure only after it is visible, including when motion is reduced.
+    void nextTick(draw)
     return
   }
   // Match Vue's CSS page-transition start: both targets are applied after two frames.
@@ -163,6 +167,7 @@ function open(view: CdViewSwitchTarget): void {
   left: 50%;
   display: inline-flex;
   gap: 24px;
+  background: transparent;
   transform: translateX(-50%);
   -webkit-app-region: no-drag;
 }

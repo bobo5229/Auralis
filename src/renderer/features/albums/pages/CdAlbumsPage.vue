@@ -570,11 +570,6 @@ async function loadAlbums(): Promise<void> {
   }
 }
 
-function navigate(direction: number): void {
-  if (!loading.value && !failed.value && !starting.value && !focused.value)
-    controller?.navigate(direction)
-}
-
 function onKeydown(event: KeyboardEvent): void {
   const target = event.target
   if (

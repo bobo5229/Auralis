@@ -32,6 +32,7 @@ function node(): TestNode {
     children: [],
     parent: null,
     get offsetWidth() {
+      if (element.props.hidden) return 0
       return element.props['data-cd-view'] === 'browse' ? 40 : 80
     },
     get offsetLeft() {
@@ -116,6 +117,12 @@ function style(element: TestNode): CSSProperties {
   return element.props.style as CSSProperties
 }
 
+async function flushMeasurement() {
+  // The deferred geometry read queues a second Vue update for the indicator.
+  await nextTick()
+  await nextTick()
+}
+
 async function nextFrame() {
   const callbacks = [...frames.values()]
   frames.clear()
@@ -161,7 +168,7 @@ describe('fixed CD view navigation', () => {
     props.current = 'index'
     await nextTick()
     component.value!.syncToCurrent(true)
-    await nextTick()
+    await flushMeasurement()
     expect(frames.size).toBe(0)
     expect(style(indicator).transform).toBe('translateX(64px)')
     media.matches = false
@@ -170,6 +177,41 @@ describe('fixed CD view navigation', () => {
     cleanup = undefined
     expect(frames.size).toBe(0)
     expect(disconnect).toHaveBeenCalledOnce()
+  })
+
+  it('measures after a hidden navigation becomes visible when returning with reduced motion', async () => {
+    const { root, props, component, indicator } = await mountSwitch()
+    media.matches = true
+    props.current = 'index'
+    await nextTick()
+    component.value!.syncToCurrent(true)
+    await flushMeasurement()
+    expect(style(indicator).transform).toBe('translateX(64px)')
+
+    props.current = 'browse'
+    await nextTick()
+    const group = root.children[0]
+    group.props.hidden = true
+    component.value!.syncToCurrent(true)
+    // App's v-show is restored in the same flush after the enter hook.
+    group.props.hidden = false
+    await flushMeasurement()
+    expect(style(indicator).transform).toBe('translateX(0px)')
+    expect(style(indicator).width).toBe('40px')
+    expect(frames.size).toBe(0)
+  })
+
+  it('discards a deferred measurement when a newer animated transition starts', async () => {
+    const { props, component, indicator } = await mountSwitch()
+    props.current = 'index'
+    await nextTick()
+    component.value!.syncToCurrent(false)
+    component.value!.syncToCurrent(true)
+    await nextTick()
+    expect(style(indicator).transform).toBe('translateX(0px)')
+    await nextFrame()
+    await nextFrame()
+    expect(style(indicator).transform).toBe('translateX(64px)')
   })
 
   it('keeps the selection and indicator unchanged when navigation fails', async () => {

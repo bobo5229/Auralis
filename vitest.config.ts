@@ -25,6 +25,7 @@ export default defineConfig({
         '**/SongRow.test.ts',
         '**/VirtualAlbumTrackList.test.ts',
         '**/AlbumCard.test.ts',
+        '**/CdViewSwitch.test.ts',
         '**/AlbumsPage.test.ts',
         '**/ThemeAccentSettings.test.ts',
         '**/FullscreenBackgroundControls.test.ts',
