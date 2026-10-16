@@ -60,10 +60,11 @@ export class SmartPlaylistRepository extends BaseRepository {
     // Cross-table max so smart + regular playlists share one sidebar sort space
     const result = this.db
       .prepare(
-        `INSERT INTO smart_playlists (name, rule_json, sort_order)
+        `INSERT INTO smart_playlists (name, rule_json, view_mode, sort_order)
          VALUES (
            ?,
            ?,
+           'cover',
            COALESCE(
              (
                SELECT MAX(sort_order) + 1

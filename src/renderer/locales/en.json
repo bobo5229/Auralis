@@ -675,8 +675,6 @@
   },
   "albums": {
     "cd": {
-      "nowPlaying": "Now Playing",
-      "paused": "Paused",
       "tracks": "Tracks",
       "returnToBrowse": "Back to CD browse",
       "returnToIndex": "Back to album index",
@@ -826,8 +824,8 @@
       "addToPlaylist": "Add to playlist",
       "createPlaylist": "New playlist",
       "editMetadata": "Edit metadata",
-      "switchToCover": "Switch to cover view",
-      "switchToFlat": "Switch to list view",
+      "switchToCover": "Switch to album covers",
+      "switchToFlat": "Switch to track list",
       "noPlaylists": "No playlists available",
       "playlistLoading": "Loading playlists…",
       "playlistLoadError": "Could not load playlists. Try again.",
@@ -972,8 +970,8 @@
     },
     "reset": "Restore defaults",
     "close": "Close page parameters",
-    "songsList": "Flat view",
-    "songsCover": "Cover view",
+    "songsList": "Track list",
+    "songsCover": "Album covers",
     "albums": "Album page parameters"
   }
 }

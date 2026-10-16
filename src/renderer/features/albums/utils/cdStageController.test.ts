@@ -1058,6 +1058,145 @@ describe('CD stage lifetime', () => {
     controller.dispose()
   })
 
+  function releaseArrow(key: 'ArrowLeft' | 'ArrowRight'): void {
+    window.dispatchEvent(Object.assign(new Event('keyup'), { key }))
+  }
+
+  it('keeps a short arrow press to one album and cancels the hold delay on keyup', () => {
+    vi.useFakeTimers()
+    const { controller, select, rapid } = setup(64)
+    select.mockClear()
+    controller.startKeyboardNavigation(1)
+    advance(10)
+    releaseArrow('ArrowRight')
+    vi.advanceTimersByTime(1000)
+    settle()
+    expect(select).toHaveBeenCalledExactlyOnceWith(1)
+    expect(rapid).not.toHaveBeenCalled()
+    controller.dispose()
+  })
+
+  it('cruises while held and settles nearby on release without queuing repeated requests', () => {
+    vi.useFakeTimers()
+    const { controller, select, rapid, stage } = setup(64)
+    select.mockClear()
+    controller.startKeyboardNavigation(1)
+    advance(21)
+    vi.advanceTimersByTime(350)
+    for (let index = 0; index < 50; index++) controller.startKeyboardNavigation(1)
+    advance(180)
+    expect(clock.running).toBe(true)
+    expect(select).not.toHaveBeenCalled()
+    expect(stage.children).toHaveLength(4)
+    expect(rapid).toHaveBeenCalledExactlyOnceWith(true)
+    releaseArrow('ArrowRight')
+    settle()
+    const landed = select.mock.lastCall![0] as number
+    expect(landed).toBeGreaterThan(4)
+    expect(landed).toBeLessThan(14)
+    expect(rapid.mock.calls).toEqual([[true], [false]])
+    const transforms = stage.children.map((node) => node.style.transform)
+    vi.advanceTimersByTime(5000)
+    advance(120)
+    expect(select).toHaveBeenCalledTimes(1)
+    expect(stage.children.map((node) => node.style.transform)).toEqual(transforms)
+    controller.dispose()
+  })
+
+  it('switches held directions and ignores release of the previous direction', () => {
+    vi.useFakeTimers()
+    const { controller, select } = setup(64)
+    controller.startKeyboardNavigation(1)
+    advance(21)
+    vi.advanceTimersByTime(350)
+    advance(120)
+    controller.startKeyboardNavigation(-1)
+    advance(21)
+    vi.advanceTimersByTime(350)
+    releaseArrow('ArrowRight')
+    advance(60)
+    expect(clock.running).toBe(true)
+    select.mockClear()
+    releaseArrow('ArrowLeft')
+    settle()
+    expect(select).toHaveBeenCalledTimes(1)
+    expect(select.mock.lastCall![0]).toBeLessThan(7)
+    controller.dispose()
+  })
+
+  it.each(['blur', 'hidden', 'pointerdown', 'refresh', 'reduced-motion', 'dispose'] as const)(
+    'cancels both a pending and an active keyboard hold on %s',
+    (reason) => {
+      vi.useFakeTimers()
+      for (const holding of [false, true]) {
+        const { controller, document, albums, stage, select, media } = setup(64)
+        controller.startKeyboardNavigation(1)
+        if (holding) {
+          advance(21)
+          vi.advanceTimersByTime(350)
+          advance(60)
+        }
+        if (reason === 'blur') window.dispatchEvent(new Event('blur'))
+        else if (reason === 'hidden') {
+          document.hidden = true
+          document.dispatchEvent(new Event('visibilitychange'))
+        } else if (reason === 'pointerdown') window.dispatchEvent(new Event('pointerdown'))
+        else if (reason === 'refresh') controller.setAlbums(albums)
+        else if (reason === 'reduced-motion') {
+          media.matches = true
+          media.dispatchEvent(new Event('change'))
+        } else controller.dispose()
+        vi.advanceTimersByTime(5000)
+        settle()
+        const selections = select.mock.calls.length
+        vi.advanceTimersByTime(1000)
+        advance(120)
+        expect(select).toHaveBeenCalledTimes(selections)
+        expect(stage.children).toHaveLength(reason === 'dispose' ? 0 : 4)
+        controller.dispose()
+      }
+    },
+  )
+
+  it('bounds held navigation in a small catalog and excludes focused browsing', () => {
+    vi.useFakeTimers()
+    const { controller, select } = setup(2)
+    controller.startKeyboardNavigation(1)
+    advance(21)
+    vi.advanceTimersByTime(350)
+    settle()
+    expect(select).toHaveBeenLastCalledWith(1)
+    releaseArrow('ArrowRight')
+    controller.dispose()
+    const focused = setup(8, vi.fn())
+    focused.controller.setFocused(true)
+    settle()
+    focused.select.mockClear()
+    focused.controller.startKeyboardNavigation(1)
+    vi.advanceTimersByTime(1000)
+    expect(clock.running).toBe(false)
+    expect(focused.select).not.toHaveBeenCalled()
+    focused.controller.dispose()
+  })
+
+  it('repeats discrete selections for reduced motion and stops on release', () => {
+    vi.useFakeTimers()
+    const { controller, select, rapid, media } = setup(8)
+    media.matches = true
+    controller.startKeyboardNavigation(1)
+    expect(select).toHaveBeenLastCalledWith(1)
+    vi.advanceTimersByTime(350)
+    expect(select).toHaveBeenLastCalledWith(2)
+    vi.advanceTimersByTime(180)
+    expect(select).toHaveBeenLastCalledWith(3)
+    releaseArrow('ArrowRight')
+    vi.advanceTimersByTime(1000)
+    expect(select).toHaveBeenLastCalledWith(3)
+    expect(clock.running).toBe(false)
+    expect(rapid).not.toHaveBeenCalled()
+    controller.dispose()
+  })
+
   it('announces the approaching album after a delay and before settling', () => {
     const { controller, select, approach } = setup(8)
     for (const [direction, target] of [

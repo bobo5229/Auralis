@@ -675,8 +675,6 @@
   },
   "albums": {
     "cd": {
-      "nowPlaying": "Now Playing",
-      "paused": "Paused",
       "tracks": "曲目",
       "returnToBrowse": "返回唱片室",
       "returnToIndex": "返回封面检索",
@@ -826,8 +824,8 @@
       "addToPlaylist": "添加到歌单",
       "createPlaylist": "新建歌单",
       "editMetadata": "编辑元数据",
-      "switchToCover": "切换到封面视图",
-      "switchToFlat": "切换到平铺视图",
+      "switchToCover": "切换到专辑封面",
+      "switchToFlat": "切换到曲目列表",
       "noPlaylists": "暂无可添加的歌单",
       "playlistLoading": "正在加载歌单…",
       "playlistLoadError": "加载歌单失败",
@@ -972,8 +970,8 @@
     },
     "reset": "恢复默认",
     "close": "关闭页面参数",
-    "songsList": "平铺视图",
-    "songsCover": "封面视图",
+    "songsList": "曲目列表",
+    "songsCover": "专辑封面",
     "albums": "专辑页参数"
   }
 }

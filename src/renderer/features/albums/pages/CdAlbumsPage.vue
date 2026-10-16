@@ -47,7 +47,7 @@ import { useCdCanvasTheme } from '../composables/useCdCanvasTheme'
 import { useCdCanvasColors } from '../composables/useCdCanvasColors'
 import { formatCdAccent } from '../utils/cdAccent'
 import { presentCdTrackComposers } from '../utils/cdTrackComposers'
-import { animatePlaybackTextShimmer, animateProgress } from '@renderer/shared/animation/motion'
+import { animateProgress } from '@renderer/shared/animation/motion'
 
 interface CdAlbumInfo extends CdAlbum {
   artworkCacheKey: string | null
@@ -234,7 +234,6 @@ const playbackInformation = computed(() => {
   const title = track.title?.trim() || t('albums.detail.unknownTitle')
   const artist = formatArtist(track.artist)
   return {
-    label: t(playback.state.isPlaying ? 'albums.cd.nowPlaying' : 'albums.cd.paused'),
     song: artist ? `${title} - ${artist}` : title,
     album: track.album?.trim() ?? '',
   }
@@ -278,7 +277,6 @@ const browsingPlaybackProgressPath = [
   'C 135 5.7, 144 6.9, 160 6.1 C 178 5.2, 182 4.7, 198 5.4',
   'C 214 6.2, 226 6.7, 238 5.7',
 ].join(' ')
-const browsingPlaybackLabelRef = ref<HTMLElement | null>(null)
 const browsingPlaybackRef = ref<HTMLElement | null>(null)
 const focusedPlaybackInfoVisible = ref(false)
 let focusedPlaybackInfoTimer: ReturnType<typeof setTimeout> | null = null
@@ -331,13 +329,6 @@ watch(focusedPlaybackIdentity, async (identity) => {
   }
 })
 
-watch(
-  [browsingPlaybackLabelRef, () => playback.state.isPlaying],
-  ([browsingLabel, isPlaying], _, onCleanup) => {
-    if (browsingLabel && isPlaying) onCleanup(animatePlaybackTextShimmer(browsingLabel))
-  },
-  { flush: 'post', immediate: true },
-)
 const reducedMotion = createReducedMotionQuery()
 const motionReduced = ref(reducedMotion.matches)
 let vinylBlend = 0
@@ -584,7 +575,23 @@ function navigate(direction: number): void {
 }
 
 function onKeydown(event: KeyboardEvent): void {
-  if (event.ctrlKey || event.metaKey || event.altKey) return
+  const target = event.target
+  if (
+    event.defaultPrevented ||
+    event.isComposing ||
+    event.keyCode === 229 ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey ||
+    (target instanceof HTMLElement &&
+      (target.matches('input, textarea, select') ||
+        target.isContentEditable ||
+        target.closest('[role="menu"], [role="dialog"]')))
+  ) {
+    controller?.stopKeyboardNavigation()
+    return
+  }
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') controller?.stopKeyboardNavigation()
   if (event.key === 'Escape' && focused.value) {
     event.preventDefault()
     event.stopPropagation()
@@ -600,7 +607,15 @@ function onKeydown(event: KeyboardEvent): void {
   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
   event.preventDefault()
   event.stopPropagation()
-  if (!event.repeat) navigate(event.key === 'ArrowRight' ? 1 : -1)
+  if (!event.repeat && !loading.value && !failed.value && !starting.value) {
+    controller?.startKeyboardNavigation(event.key === 'ArrowRight' ? 1 : -1)
+  }
+}
+
+function onBrowseFocusOut(event: FocusEvent): void {
+  const target = event.relatedTarget
+  if (target instanceof Node && pageRef.value?.contains(target)) return
+  controller?.stopKeyboardNavigation()
 }
 
 function infoRows(): HTMLElement[] {
@@ -820,6 +835,7 @@ onBeforeUnmount(() => {
     :data-theme="cdCanvasTheme"
     :aria-label="t('albums.cd.title')"
     @keydown="onKeydown"
+    @focusout="onBrowseFocusOut"
   >
     <header class="cd-header">
       <nav
@@ -926,17 +942,36 @@ onBeforeUnmount(() => {
         class="cd-browsing-playback"
         role="status"
       >
+        <div class="cd-browsing-playback-heading">
+          <button
+            type="button"
+            class="cd-browsing-playback-toggle"
+            :aria-label="t(playback.state.isPlaying ? 'player.pause' : 'player.play')"
+            @click="playback.togglePlayPause()"
+          >
+            <span
+              :class="playback.state.isPlaying ? 'i-lucide-pause' : 'i-lucide-play'"
+              class="h-3.5 w-3.5"
+              aria-hidden="true"
+            ></span>
+          </button>
+          <span
+            class="cd-browsing-playback-song"
+            :title="browsingPlayback.song"
+            dir="auto"
+          >{{ browsingPlayback.song }}</span>
+        </div>
         <button
-          ref="browsingPlaybackLabelRef"
+          v-if="browsingPlayback.album"
           type="button"
-          class="cd-browsing-playback-label"
-          :class="{ 'cd-browsing-playback-label--playing': playback.state.isPlaying }"
-          :aria-label="t(playback.state.isPlaying ? 'player.pause' : 'player.play')"
-          @click="playback.togglePlayPause()"
+          class="cd-browsing-playback-album"
+          :disabled="browsingPlaybackAlbumIndex < 0"
+          :title="browsingPlayback.album"
+          @click="focusBrowsingPlaybackAlbum"
         >
-          {{ browsingPlayback.label }}
+          <span class="cd-browsing-playback-album-name" dir="auto">{{ browsingPlayback.album }}</span>
+          <span class="i-lucide-arrow-up-right h-3 w-3 shrink-0" aria-hidden="true"></span>
         </button>
-        <span class="cd-browsing-playback-song" dir="auto">{{ browsingPlayback.song }}</span>
         <div class="cd-browsing-playback-timeline">
           <span class="cd-browsing-playback-time" dir="ltr">{{ browsingPlaybackCurrentTime }}</span>
           <svg
@@ -966,16 +1001,6 @@ onBeforeUnmount(() => {
             browsingPlaybackDuration
           }}</span>
         </div>
-        <button
-          v-if="browsingPlayback.album"
-          type="button"
-          class="cd-browsing-playback-album"
-          :disabled="browsingPlaybackAlbumIndex < 0"
-          dir="auto"
-          @click="focusBrowsingPlaybackAlbum"
-        >
-          {{ browsingPlayback.album }}
-        </button>
       </div>
       <div
         ref="stageRef"
@@ -1250,9 +1275,6 @@ onBeforeUnmount(() => {
   --cd-disc-body: #aaa;
   --cd-disc-rim: #858586;
   --cd-shadow-fill: #3a3b38;
-  --cd-shimmer-a: #85857d;
-  --cd-shimmer-b: #71716b;
-  --cd-shimmer-c: #585753;
   box-sizing: border-box;
   padding-bottom: 0;
   height: 100%;
@@ -1293,9 +1315,6 @@ onBeforeUnmount(() => {
   --cd-disc-body: #8a9098;
   --cd-disc-rim: #b3b9c1;
   --cd-shadow-fill: #000;
-  --cd-shimmer-a: #9e9c96;
-  --cd-shimmer-b: #b8b6b0;
-  --cd-shimmer-c: #d8d6d0;
   color-scheme: dark;
 }
 .cd-header {
@@ -1494,17 +1513,16 @@ onBeforeUnmount(() => {
 }
 .cd-browsing-playback {
   position: absolute;
-  top: 88px;
-  left: 50%;
+  right: clamp(16px, 2.3cqw, 32px);
+  bottom: 24px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  transform: translateX(-50%);
-  width: 240px;
-  max-width: 100%;
+  width: min(320px, calc(40cqw - 32px));
+  max-width: calc(100% - 32px);
   z-index: 4;
   align-items: stretch;
-  gap: 2px;
+  gap: 4px;
   margin: 0;
   font-family: var(--cd-font-display);
   font-size: var(--cd-type-playback-size);
@@ -1512,6 +1530,33 @@ onBeforeUnmount(() => {
   color: var(--cd-text-browsing);
   white-space: nowrap;
   pointer-events: none;
+}
+.cd-browsing-playback-heading {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.cd-browsing-playback-heading .cd-browsing-playback-song {
+  text-align: right;
+}
+.cd-page .cd-browsing-playback-toggle {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--cd-text-browsing);
+  pointer-events: auto;
+}
+.cd-page .cd-browsing-playback-toggle:hover {
+  background: transparent;
+  color: var(--cd-text);
+}
+.cd-browsing-playback-toggle:focus-visible {
+  outline: 2px solid var(--cd-focus-ring);
+  outline-offset: 2px;
 }
 .cd-focused-playback {
   --cd-focused-playback-info-width: min(
@@ -1641,57 +1686,6 @@ onBeforeUnmount(() => {
   padding: 0;
   overflow: visible;
 }
-.cd-page .cd-browsing-playback-label {
-  position: relative;
-  align-self: center;
-  width: fit-content;
-  max-width: 100%;
-  flex: 0 0 auto;
-  margin-bottom: 6px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  font-size: var(--cd-type-playing-size);
-  font-style: italic;
-  text-align: center;
-  color: var(--cd-text-faint);
-  pointer-events: auto;
-  font-family: var(--cd-font-display);
-  line-height: var(--cd-type-playing-line-height);
-}
-.cd-page .cd-browsing-playback-label:hover:not(:disabled) {
-  background: transparent;
-}
-.cd-page .cd-browsing-playback-label--playing,
-.cd-page .cd-browsing-playback-label--playing:hover:not(:disabled) {
-  background: linear-gradient(
-    100deg,
-    var(--cd-shimmer-a) 0%,
-    var(--cd-shimmer-a) 46%,
-    var(--cd-shimmer-b) 48.5%,
-    var(--cd-shimmer-c) 49.5%,
-    var(--cd-shimmer-c) 50.5%,
-    var(--cd-shimmer-b) 51.5%,
-    var(--cd-shimmer-a) 54%,
-    var(--cd-shimmer-a) 100%
-  );
-  background-size: 300% 100%;
-  background-position: 100% 0;
-  background-repeat: no-repeat;
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-}
-:where([data-reduced-motion='true']) .cd-page .cd-browsing-playback-label--playing,
-:where([data-reduced-motion='true'])
-  .cd-page
-  .cd-browsing-playback-label--playing:hover:not(:disabled) {
-  background: none;
-  color: var(--cd-text-faint);
-  -webkit-text-fill-color: currentColor;
-}
 :where([data-reduced-motion='true']) .cd-focused-playback-fade-enter-active,
 :where([data-reduced-motion='true']) .cd-focused-playback-fade-leave-active {
   transition: none;
@@ -1703,17 +1697,13 @@ onBeforeUnmount(() => {
   transition: none;
 }
 .cd-browsing-playback-timeline {
-  position: relative;
-  left: 50%;
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: max-content minmax(0, 240px) max-content;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   align-items: center;
   gap: 8px;
-  width: max-content;
-  max-width: min(360px, calc(100cqw - 32px));
+  width: 100%;
   height: 16px;
-  transform: translateX(-50%);
   line-height: var(--cd-type-time-line-height);
 }
 .cd-browsing-playback-time {
@@ -1745,7 +1735,8 @@ onBeforeUnmount(() => {
   text-align: center;
 }
 .cd-page .cd-browsing-playback-album {
-  display: block;
+  display: flex;
+  justify-content: flex-end;
   width: 100%;
   min-width: 0;
   padding: 0;
@@ -1761,8 +1752,13 @@ onBeforeUnmount(() => {
   font-style: italic;
   font-synthesis: none;
   line-height: var(--cd-type-playback-album-line-height);
-  text-align: center;
+  text-align: right;
   color: var(--cd-text-album);
+}
+.cd-browsing-playback-album-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cd-page .cd-browsing-playback-album:hover:not(:disabled) {
   background: transparent;

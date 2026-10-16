@@ -21,6 +21,7 @@ const props = defineProps<{
   canInsert: boolean
   hideInsert?: boolean
   currentViewMode: LibraryViewMode
+  canSwitchToCover?: boolean
   playlists: SidebarPlaylistItem[]
   playlistFeedback: LibraryPlaylistFeedback | null
   playlistLoading: boolean
@@ -74,6 +75,9 @@ function onPlaylistMenuMouseLeave(): void {
 const activeIndex = ref(0)
 const subActiveIndex = ref(0)
 const isSubMenuFocused = ref(false)
+const isViewSwitchDisabled = computed(
+  () => props.currentViewMode === 'flat' && props.canSwitchToCover === false,
+)
 
 // Item indices and actions mapping for main menu
 interface MenuItemDef {
@@ -128,6 +132,7 @@ const menuItems = computed<MenuItemDef[]>(() => {
 
   list.push({
     id: 'switchView',
+    disabled: isViewSwitchDisabled.value,
     action: () => {
       const targetMode: LibraryViewMode = props.currentViewMode === 'flat' ? 'cover' : 'flat'
       emit('switchView', targetMode)
@@ -358,6 +363,7 @@ function handleMainMenuKeyDown(e: KeyboardEvent): void {
   } else if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
     const item = menuItems.value[activeIndex.value]
+    if (item?.disabled) return
     if (item?.hasSubMenu) {
       showSubMenu.value = true
       isSubMenuFocused.value = true
@@ -579,14 +585,15 @@ onBeforeUnmount(() => {
 
           <!-- 切换视图 -->
           <button
-            class="library-context-menu-item"
+            class="library-context-menu-item library-context-menu-item--view-switch"
             type="button"
             role="menuitem"
             data-context-main-item
             data-context-main-index="5"
-            :tabindex="activeIndex === 5 ? 0 : -1"
+            :disabled="isViewSwitchDisabled"
+            :tabindex="activeIndex === 5 && !isViewSwitchDisabled ? 0 : -1"
             @click="activateMainItem(5)"
-            @mouseenter="activeIndex = 5"
+            @mouseenter="!isViewSwitchDisabled && (activeIndex = 5)"
           >
             <span
               :class="currentViewMode === 'flat' ? 'i-lucide-layout-grid' : 'i-lucide-list-music'"

@@ -55,6 +55,9 @@ const SWAY_DAMPING = 14.4
 const INFO_DELAY_SECONDS = 0.4
 const RAPID_INPUT_SECONDS = 0.25
 const MAX_BROWSE_SPEED = 6
+const KEYBOARD_HOLD_DELAY_MS = 350
+const KEYBOARD_BROWSE_SPEED = 3.5
+const REDUCED_MOTION_REPEAT_MS = 180
 const RING_DRAW_DURATION_SECONDS = 3
 
 interface InertialMove {
@@ -114,6 +117,9 @@ export function createCdStage(
   let selected = 0
   let position = 0
   let active: InertialMove | null = null
+  let keyboardDirection = 0
+  let continuousDirection = 0
+  let keyboardHoldTimer: ReturnType<typeof setTimeout> | undefined
   let swayAngle = 0
   let swayVelocity = 0
   let cancelAnimation: (() => void) | null = null
@@ -262,6 +268,7 @@ export function createCdStage(
 
   function setFocused(open: boolean, entrance: 'motion' | 'fade' = 'motion'): void {
     if (!focusOptions || startup || active || !albums.length || Number(open) === focusTarget) return
+    clearKeyboardNavigation()
     clearVibration()
     cancelAnimation?.()
     cancelArtworkClick()
@@ -716,6 +723,7 @@ export function createCdStage(
   }
 
   function stop(): void {
+    clearKeyboardNavigation()
     clearVibration()
     cancelArtworkClick()
     for (const node of nodes.values()) {
@@ -908,14 +916,30 @@ export function createCdStage(
   function tick(seconds: number): boolean {
     if (!active) return false
     active.elapsed += seconds
-    const acceleration =
-      (active.target - active.position) * POSITION_STIFFNESS -
-      2 * active.dampingRatio * Math.sqrt(POSITION_STIFFNESS) * active.velocity
-    active.velocity = Math.max(
-      -MAX_BROWSE_SPEED,
-      Math.min(MAX_BROWSE_SPEED, active.velocity + acceleration * seconds),
-    )
-    active.position += active.velocity * seconds
+    if (continuousDirection) {
+      // Cruise from the current pose; holding a key never queues distant albums.
+      active.velocity +=
+        (continuousDirection * KEYBOARD_BROWSE_SPEED - active.velocity) * Math.min(1, seconds * 8)
+      active.position += active.velocity * seconds
+      active.target = keyboardSnapTarget(active.position, active.velocity)
+      if (
+        albums.length < 4 &&
+        (active.position <= 0 || active.position >= albums.length - 1)
+      ) {
+        active.position = active.target
+        active.velocity = 0
+        continuousDirection = 0
+      }
+    } else {
+      const acceleration =
+        (active.target - active.position) * POSITION_STIFFNESS -
+        2 * active.dampingRatio * Math.sqrt(POSITION_STIFFNESS) * active.velocity
+      active.velocity = Math.max(
+        -MAX_BROWSE_SPEED,
+        Math.min(MAX_BROWSE_SPEED, active.velocity + acceleration * seconds),
+      )
+      active.position += active.velocity * seconds
+    }
     const swayAcceleration = -SWAY_STIFFNESS * swayAngle - SWAY_DAMPING * swayVelocity
     swayVelocity += swayAcceleration * seconds
     swayAngle += swayVelocity * seconds
@@ -931,6 +955,7 @@ export function createCdStage(
       onApproach?.(cdAlbumIndex(active.target, albums.length))
     }
     const settled =
+      continuousDirection === 0 &&
       Math.abs(active.target - active.position) <= 0.002 &&
       Math.abs(active.velocity) <= 0.025 &&
       Math.abs(swayAngle) <= 0.03 &&
@@ -987,7 +1012,7 @@ export function createCdStage(
     if (!cancelAnimation) cancelAnimation = animateFrames(tick)
   }
 
-  function navigate(direction: number): void {
+  function navigateStep(direction: number): void {
     if (albums.length < 2) return
     // Reversing discards the forward backlog and aims immediately behind/ahead
     // of the current position, preserving velocity for smooth braking.
@@ -999,6 +1024,68 @@ export function createCdStage(
         : (active?.target ?? selected) + direction
     if (albums.length < 4 && (target < 0 || target >= albums.length)) return
     moveToPosition(target)
+  }
+
+  function keyboardSnapTarget(currentPosition: number, velocity: number): number {
+    const target = Math.round(currentPosition + velocity * 0.08)
+    return albums.length < 4 ? Math.max(0, Math.min(albums.length - 1, target)) : target
+  }
+
+  function clearKeyboardNavigation(): void {
+    clearTimeout(keyboardHoldTimer)
+    keyboardHoldTimer = undefined
+    keyboardDirection = 0
+    continuousDirection = 0
+  }
+
+  function stopKeyboardNavigation(direction?: number): void {
+    if (direction !== undefined && direction !== keyboardDirection) return
+    const wasContinuous = continuousDirection !== 0
+    clearKeyboardNavigation()
+    if (!wasContinuous || !active) return
+    active.target = keyboardSnapTarget(active.position, active.velocity)
+    active.dampingRatio = dampingRatio(active.target, active.position, active.velocity)
+    active.elapsed = 0
+    active.infoTriggered = false
+  }
+
+  function continueKeyboardNavigation(): void {
+    keyboardHoldTimer = undefined
+    if (!keyboardDirection || startup || focusProgress > 0 || focusMoving || albums.length < 2) {
+      stopKeyboardNavigation()
+      return
+    }
+    if (reducedMotion.matches) {
+      // Keep held-key browsing available without continuous spatial animation.
+      const direction = keyboardDirection
+      navigateStep(direction)
+      keyboardDirection = direction
+      keyboardHoldTimer = setTimeout(continueKeyboardNavigation, REDUCED_MOTION_REPEAT_MS)
+      return
+    }
+    const nextPosition = active?.position ?? selected
+    const target = keyboardDirection > 0 ? Math.floor(nextPosition) + 1 : Math.ceil(nextPosition) - 1
+    if (albums.length < 4 && (target < 0 || target >= albums.length)) return
+    moveToPosition(target)
+    continuousDirection = keyboardDirection
+    if (!rapid) {
+      rapid = true
+      onRapidBrowse?.(true)
+    }
+  }
+
+  function startKeyboardNavigation(direction: number): void {
+    if (keyboardDirection === direction) return
+    stopKeyboardNavigation()
+    if (startup || focusProgress > 0 || focusMoving || albums.length < 2) return
+    navigateStep(direction)
+    keyboardDirection = direction
+    keyboardHoldTimer = setTimeout(continueKeyboardNavigation, KEYBOARD_HOLD_DELAY_MS)
+  }
+
+  function navigate(direction: number): void {
+    stopKeyboardNavigation()
+    navigateStep(direction)
   }
 
   function focusAlbum(index: number): void {
@@ -1214,6 +1301,19 @@ export function createCdStage(
   )
   window.addEventListener('blur', resetHover, options)
   window.addEventListener('blur', cancelRotation, options)
+  window.addEventListener('blur', () => stopKeyboardNavigation(), options)
+  window.addEventListener(
+    'keyup',
+    (event) => {
+      if (event.key === 'ArrowLeft') stopKeyboardNavigation(-1)
+      else if (event.key === 'ArrowRight') stopKeyboardNavigation(1)
+    },
+    options,
+  )
+  window.addEventListener('pointerdown', () => stopKeyboardNavigation(), {
+    ...options,
+    capture: true,
+  })
   stage.addEventListener(
     'lostpointercapture',
     () => {
@@ -1349,7 +1449,14 @@ export function createCdStage(
     },
     options,
   )
-  document.addEventListener('visibilitychange', syncPlaybackRing, options)
+  document.addEventListener(
+    'visibilitychange',
+    () => {
+      if (document.hidden) stopKeyboardNavigation()
+      syncPlaybackRing()
+    },
+    options,
+  )
   const observer = new ResizeObserver(() => {
     width = stage.clientWidth
     height = stage.clientHeight
@@ -1361,6 +1468,8 @@ export function createCdStage(
 
   return {
     navigate,
+    startKeyboardNavigation,
+    stopKeyboardNavigation,
     focusAlbum,
     setFocused,
     setVibrationOffset(offset: number): void {

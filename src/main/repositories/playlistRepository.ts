@@ -187,8 +187,8 @@ export class PlaylistRepository extends BaseRepository {
   create(name: string, sortOrder: number): Playlist {
     const result = this.db
       .prepare(
-        `INSERT INTO playlists (name, sort_order)
-         VALUES (?, ?)`,
+        `INSERT INTO playlists (name, view_mode, sort_order)
+         VALUES (?, 'cover', ?)`,
       )
       .run(name, sortOrder)
 

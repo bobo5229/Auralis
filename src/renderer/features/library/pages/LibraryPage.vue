@@ -544,6 +544,7 @@ const {
 })
 
 function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId?: number | null): void {
+  if (showPlayCount.value && nextMode === 'cover') return
   closeFlatColumnMenu()
   beginViewSwitch(anchorTrackId ?? null)
 
@@ -1174,6 +1175,7 @@ onBeforeUnmount(() => {
         )
       "
       :current-view-mode="libraryViewMode"
+      :can-switch-to-cover="!showPlayCount"
       :playlists="regularPlaylistItems"
       :playlist-feedback="addToPlaylistFeedback"
       :playlist-loading="playlistLoading"

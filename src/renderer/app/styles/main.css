@@ -2712,7 +2712,8 @@ input[type='range'].volume-overlay-slider {
   cursor: default;
 }
 
-.library-context-menu-item--insert:disabled > span {
+.library-context-menu-item--insert:disabled > span,
+.library-context-menu-item.library-context-menu-item--view-switch:disabled > span {
   color: var(--auralis-text-disabled);
 }
 
