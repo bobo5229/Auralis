@@ -17,6 +17,49 @@ function createSession(panel: HTMLElement, anchor: HTMLElement, onClose: () => v
   let source: PanelRect
   let target: PanelRect
   let sourceColor = ''
+  let opening: Animation | undefined
+  let openingShadow = ''
+  const openingDuration = 400
+
+  function openingFrames(shadow: string, continuation?: { time: number; rect: PanelRect }) {
+    function spring(time: number) {
+      return time === 1
+        ? 1
+        : 1 - Math.exp(-8 * time) * (Math.cos(6 * time) + (4 / 3) * Math.sin(6 * time))
+    }
+    function rectAt(time: number): PanelRect {
+      const progress = spring(time)
+      return {
+        left: source.left + (target.left - source.left) * progress,
+        top: source.top + (target.top - source.top) * progress,
+        width: source.width + (target.width - source.width) * progress,
+        height: source.height + (target.height - source.height) * progress,
+      }
+    }
+    const baseline = continuation ? rectAt(continuation.time) : undefined
+    const offsets = Array.from({ length: 33 }, (_, index) => index / 32)
+    if (continuation) offsets.push(continuation.time)
+    return [...new Set(offsets)]
+      .sort((a, b) => a - b)
+      .map((time) => {
+        const rect = rectAt(time)
+        if (continuation && baseline && time >= continuation.time) {
+          // Preserve the visible bounds, then blend the correction out by the original deadline.
+          const remaining = (1 - time) / (1 - continuation.time)
+          const weight = remaining * remaining * (3 - 2 * remaining)
+          rect.left += (continuation.rect.left - baseline.left) * weight
+          rect.top += (continuation.rect.top - baseline.top) * weight
+          rect.width += (continuation.rect.width - baseline.width) * weight
+          rect.height += (continuation.rect.height - baseline.height) * weight
+        }
+        return {
+          offset: time,
+          transform: archivePanelTransform(rect, target, 0),
+          borderRadius: `${2 + 8 * Math.min(1, spring(time))}px`,
+          ...(time === 0 ? { boxShadow: 'none' } : time === 1 ? { boxShadow: shadow } : {}),
+        }
+      })
+  }
 
   function updateFill() {
     if (leaving || !anchor.isConnected) return
@@ -42,11 +85,35 @@ function createSession(panel: HTMLElement, anchor: HTMLElement, onClose: () => v
   }
   function onResize() {
     if (!root || leaving) return
-    if (root.offsetWidth !== target.width || root.offsetHeight !== target.height) {
-      // Opening keyframes use the original panel size; settle before placing new content.
-      animations.forEach((animation) => animation.finish())
+    const surface = root.querySelector<HTMLElement>('.archive-day-panel-surface')!
+    const active = opening?.playState === 'running' || opening?.playState === 'paused'
+    const time = typeof opening?.currentTime === 'number' ? opening.currentTime / openingDuration : 1
+    let continuation: { time: number; rect: PanelRect } | undefined
+    if (active && time >= 0 && time < 1) {
+      // ResizeObserver runs after layout; use the previous target to recover the visible bounds.
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(surface).transform)
+      continuation = {
+        time,
+        rect: {
+          left: target.left + matrix.e,
+          top: target.top + matrix.f,
+          width: target.width * matrix.a,
+          height: target.height * matrix.d,
+        },
+      }
     }
+    const previous = target
     place()
+    if (
+      continuation &&
+      opening?.effect instanceof KeyframeEffect &&
+      (previous.left !== target.left ||
+        previous.top !== target.top ||
+        previous.width !== target.width ||
+        previous.height !== target.height)
+    ) {
+      opening.effect.setKeyframes(openingFrames(openingShadow, continuation))
+    }
   }
   function animate(element: HTMLElement, frames: Keyframe[], options: KeyframeAnimationOptions) {
     const animation = element.animate(frames, options)
@@ -68,24 +135,14 @@ function createSession(panel: HTMLElement, anchor: HTMLElement, onClose: () => v
     updateFill()
     const surface = root.querySelector<HTMLElement>('.archive-day-panel-surface')!
     const content = root.querySelector<HTMLElement>('.archive-day-panel-content')!
-    const panelShadow = getComputedStyle(surface).boxShadow
+    openingShadow = getComputedStyle(surface).boxShadow
     if (!motion.matches) {
-      // Sample a damped spring once; the browser runs the finite transform animation.
-      const frames = Array.from({ length: 33 }, (_, index) => {
-        const time = index / 32
-        const progress =
-          index === 32
-            ? 1
-            : 1 - Math.exp(-8 * time) * (Math.cos(6 * time) + (4 / 3) * Math.sin(6 * time))
-        return {
-          offset: time,
-          transform: archivePanelTransform(source, target, progress),
-          borderRadius: `${2 + 8 * Math.min(1, progress)}px`,
-        }
+      // Retarget this animation on resize without restarting its clock or the text reveal.
+      opening = animate(surface, openingFrames(openingShadow), {
+        duration: openingDuration,
+        easing: 'linear',
+        fill: 'both',
       })
-      Object.assign(frames[0], { boxShadow: 'none' })
-      Object.assign(frames[32], { boxShadow: panelShadow })
-      const opening = animate(surface, frames, { duration: 400, easing: 'linear', fill: 'both' })
       animate(
         content,
         [
