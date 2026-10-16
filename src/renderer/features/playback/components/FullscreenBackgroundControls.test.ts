@@ -68,6 +68,25 @@ class TestNode {
   focus(): void {
     ;(document as unknown as { activeElement: TestNode }).activeElement = this
   }
+
+  getBoundingClientRect(): {
+    left: number
+    right: number
+    top: number
+    bottom: number
+    width: number
+    height: number
+  } {
+    return { left: 100, right: 248, top: 100, bottom: 130, width: 148, height: 30 }
+  }
+
+  closest(): null {
+    return null
+  }
+
+  querySelector(): null {
+    return null
+  }
 }
 
 let body: TestNode
@@ -149,6 +168,12 @@ beforeEach(() => {
   backgroundState.setBackgroundMode.mockClear()
   vi.stubGlobal('Node', TestNode)
   vi.stubGlobal('HTMLElement', TestNode)
+  vi.stubGlobal('window', {
+    innerWidth: 1280,
+    innerHeight: 900,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  })
   vi.stubGlobal('document', {
     body,
     activeElement: body,
@@ -181,10 +206,26 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
       { target: { value: '125' } },
     )
     trigger(
-      find((node) => node.props['data-lyrics-typography-select'] !== undefined),
-      'Change',
-      { target: { value: '600' } },
+      find((node) => node.props.id === 'fullscreen-lyrics-font-weight'),
+      'Click',
+      {},
     )
+    await flush()
+    const weightMenu = find((node) => node.props.id === 'fullscreen-lyrics-font-weight-menu')
+    expect(weightMenu?.props.role).toBe('listbox')
+    expect(weightMenu?.props.style).toMatchObject({ width: '148px', left: '100px' })
+    expect(weightMenu?.parent?.props.class).toBe('fullscreen-background-controls')
+    trigger(
+      find(
+        (node) =>
+          node.props.role === 'option' && node.textContent === 'fullscreen.lyrics.weights.600',
+      ),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(find((node) => node.props.id === 'fullscreen-lyrics-font-weight-menu')).toBeUndefined()
+    expect(find((node) => node.props.id === 'fullscreen-background-panel')).toBeDefined()
     trigger(
       find((node) => node.props['data-lyrics-typography'] === 'line-gap'),
       'Input',

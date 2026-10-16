@@ -10,6 +10,7 @@ import {
 import { useFullscreenLyricsTypography } from '@renderer/features/lyrics/composables/useFullscreenLyricsTypography'
 import { useFullscreenBackground } from '../composables/useFullscreenBackground'
 import { LIQUID_METAL_RANGES, type LiquidMetalSettings } from '../runtime/liquidMetalSettings'
+import SettingsSelect from '@renderer/features/settings/components/SettingsSelect.vue'
 import '@renderer/features/settings/styles/settings.chrome.css'
 import '@renderer/features/settings/styles/parameterSurface.css'
 
@@ -45,6 +46,12 @@ const lyricsTypographyStatus = computed(() => {
   if (resetAnnounced.value) return t('fullscreen.lyrics.resetStatus')
   return ''
 })
+const lyricsFontWeightOptions = computed(() =>
+  FULLSCREEN_LYRIC_FONT_WEIGHTS.map((weight) => ({
+    value: String(weight),
+    label: t(`fullscreen.lyrics.weights.${weight}`),
+  })),
+)
 
 function clearResetStatus(): void {
   resetAnnounced.value = false
@@ -91,9 +98,9 @@ function updateLyricsPercent(field: 'fontSizePercent' | 'lineGapPercent', event:
   setLyricsTypographyPreference({ [field]: Number((event.target as HTMLInputElement).value) })
 }
 
-function updateLyricsFontWeight(event: Event): void {
+function updateLyricsFontWeight(selected: string): void {
   clearResetStatus()
-  const value = Number((event.target as HTMLSelectElement).value)
+  const value = Number(selected)
   if (isFullscreenLyricFontWeight(value))
     setLyricsTypographyPreference({
       fontWeight: value,
@@ -286,22 +293,14 @@ defineExpose({ close })
                     t('fullscreen.lyrics.fontWeight')
                   }}</strong>
                 </div>
-                <select
+                <SettingsSelect
                   id="fullscreen-lyrics-font-weight"
-                  class="fullscreen-lyrics-typography-select"
-                  :value="lyricsTypography.fontWeight"
-                  aria-labelledby="fullscreen-lyrics-font-weight-label"
-                  data-lyrics-typography-select
-                  @change="updateLyricsFontWeight"
-                >
-                  <option
-                    v-for="weight in FULLSCREEN_LYRIC_FONT_WEIGHTS"
-                    :key="weight"
-                    :value="weight"
-                  >
-                    {{ t(`fullscreen.lyrics.weights.${weight}`) }}
-                  </option>
-                </select>
+                  labelledby="fullscreen-lyrics-font-weight-label"
+                  :model-value="String(lyricsTypography.fontWeight)"
+                  :options="lyricsFontWeightOptions"
+                  :teleport-to="rootRef ?? undefined"
+                  @update:model-value="updateLyricsFontWeight"
+                />
               </div>
               <div class="settings-row fullscreen-lyrics-typography-row">
                 <div>
@@ -394,16 +393,11 @@ defineExpose({ close })
 .background-controls-panel .fullscreen-lyrics-typography-row > div:first-child {
   flex: 1 1 100px;
 }
-.background-controls-panel .fullscreen-lyrics-typography-select {
-  box-sizing: border-box;
-  min-width: 148px;
-  height: 36px;
-  padding: 0 10px;
-  border: 1px solid var(--auralis-fullscreen-controls-border);
-  border-radius: 8px;
-  color: var(--auralis-text);
-  background: color-mix(in srgb, var(--auralis-fullscreen-controls-bg) 78%, transparent);
-  font: inherit;
+.background-controls-panel :deep(.settings-select) {
+  line-height: var(--auralis-type-caption-line-height);
+}
+.fullscreen-background-controls :deep(.settings-select-menu) {
+  color: var(--auralis-fullscreen-controls-text);
 }
 .background-controls-panel .fullscreen-lyrics-typography-description {
   min-height: 0;
@@ -457,6 +451,7 @@ defineExpose({ close })
 .background-sidebar-leave-to {
   transform: translateX(calc(100% + var(--background-panel-gap)));
 }
+.background-sidebar-enter-active,
 .background-sidebar-leave-active {
   pointer-events: none;
 }
