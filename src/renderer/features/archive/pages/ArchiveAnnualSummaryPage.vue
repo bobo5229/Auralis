@@ -9,6 +9,7 @@ const title = computed(() => t('archive.annualSummaryPageTitle', { year: props.y
 // Route-level beforeEnter does not run when only the current route's params change.
 onBeforeRouteUpdate((to) => {
   if (Number(to.params.year) < 1900) return { name: 'archive' }
+  return true
 })
 </script>
 

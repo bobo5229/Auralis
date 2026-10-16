@@ -82,7 +82,7 @@ const bannerWashes = seasonArtworks.flatMap((art, index) =>
   ),
 )
 const bannerStops = seasonArtworks.flatMap((art, index) =>
-  art.base.map(([at, color]) => `${color} ${((index + 0.15 + at * 0.7) / 4) * 100}%`),
+  art.base.map(([at, color]: ColorStop) => `${color} ${((index + 0.15 + at * 0.7) / 4) * 100}%`),
 )
 export const seasonBannerStyle = {
   '--season-banner-art': [
