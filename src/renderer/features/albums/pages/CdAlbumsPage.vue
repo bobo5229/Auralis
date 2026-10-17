@@ -952,11 +952,9 @@ onBeforeUnmount(() => {
               aria-hidden="true"
             ></span>
           </button>
-          <span
-            class="cd-browsing-playback-song"
-            :title="browsingPlayback.song"
-            dir="auto"
-          >{{ browsingPlayback.song }}</span>
+          <span class="cd-browsing-playback-song" :title="browsingPlayback.song" dir="auto">{{
+            browsingPlayback.song
+          }}</span>
         </div>
         <button
           v-if="browsingPlayback.album"
@@ -966,7 +964,9 @@ onBeforeUnmount(() => {
           :title="browsingPlayback.album"
           @click="focusBrowsingPlaybackAlbum"
         >
-          <span class="cd-browsing-playback-album-name" dir="auto">{{ browsingPlayback.album }}</span>
+          <span class="cd-browsing-playback-album-name" dir="auto">{{
+            browsingPlayback.album
+          }}</span>
           <span class="i-lucide-arrow-up-right h-3 w-3 shrink-0" aria-hidden="true"></span>
         </button>
         <div class="cd-browsing-playback-timeline">
@@ -1162,8 +1162,11 @@ onBeforeUnmount(() => {
 .cd-tracks {
   position: absolute;
   right: 32px;
-  top: 20%;
+  top: 32px;
   bottom: 32px;
+  height: max-content;
+  max-height: min(560px, calc(100% - 64px));
+  margin-block: auto;
   width: min(320px, 23vw);
   min-height: 0;
   min-width: 0;
@@ -1176,7 +1179,7 @@ onBeforeUnmount(() => {
   color-scheme: inherit;
 }
 .cd-tracks :deep(.cd-track-panel) {
-  flex: 1 1 0;
+  flex: 0 1 auto;
   min-height: 0;
 }
 .cd-playback-error {

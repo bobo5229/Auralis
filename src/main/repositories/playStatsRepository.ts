@@ -2,6 +2,24 @@ import type Database from 'better-sqlite3'
 import type { DailyPlayCount, DailyTopAlbum, DailyTopTrack } from '@shared/types/listeningArchive'
 import { BaseRepository } from './baseRepository'
 
+// Join each history source by the day's track IDs before combining them. Joining
+// both UNION views materializes the entire library display on every daily query.
+const dailyListeningTracks = `
+  SELECT stats.track_id, stats.play_count, stats.duration_seconds,
+         display.title, display.artist, display.album, display.album_artist,
+         display.artwork_cache_key
+  FROM daily_track_play_stats AS stats
+  JOIN library_track_display AS display ON display.id = stats.track_id
+  WHERE stats.play_date = @date AND stats.play_count > 0
+  UNION ALL
+  SELECT stats.track_id, stats.play_count, stats.duration_seconds,
+         display.title, display.artist, display.album, display.album_artist,
+         display.artwork_cache_key
+  FROM removed_daily_track_play_stats AS stats
+  JOIN removed_track_history AS display ON display.id = stats.track_id
+  WHERE stats.play_date = @date AND stats.play_count > 0
+`
+
 function latestPlayedAt(previous: string | null | undefined, incoming: Date): string {
   const previousTime = previous ? Date.parse(previous) : NaN
   return new Date(
@@ -99,51 +117,45 @@ export class PlayStatsRepository extends BaseRepository {
     return this.db
       .prepare(
         `
-      SELECT stats.track_id AS trackId, display.title, display.artist, stats.play_count AS playCount
-      FROM listening_daily_track_play_stats AS stats
-      JOIN listening_track_display AS display ON display.id = stats.track_id
-      WHERE stats.play_date = ? AND stats.play_count > 0
-      ORDER BY stats.play_count DESC, stats.duration_seconds DESC, stats.track_id ASC
+      WITH day_tracks AS (${dailyListeningTracks})
+      SELECT track_id AS trackId, title, artist, play_count AS playCount
+      FROM day_tracks
+      ORDER BY play_count DESC, duration_seconds DESC, track_id ASC
       LIMIT 3
     `,
       )
-      .all(date) as DailyTopTrack[]
+      .all({ date }) as DailyTopTrack[]
   }
 
   getDayTopAlbums(date: string): DailyTopAlbum[] {
     return this.db
       .prepare(
         `
-      WITH day_stats AS (
-        SELECT track_id, play_count, duration_seconds
-        FROM listening_daily_track_play_stats
-        WHERE play_date = ? AND play_count > 0
-      )
+      WITH day_tracks AS (${dailyListeningTracks})
       SELECT
-        display.album AS album,
+        album,
         COALESCE(
-          NULLIF(TRIM(display.album_artist), ''),
-          NULLIF(TRIM(display.artist), '')
+          NULLIF(TRIM(album_artist), ''),
+          NULLIF(TRIM(artist), '')
         ) AS albumArtist,
-        MAX(display.artwork_cache_key) AS artworkCacheKey,
-        SUM(stats.play_count) AS playCount,
-        SUM(stats.duration_seconds) AS durationSeconds,
+        MAX(artwork_cache_key) AS artworkCacheKey,
+        SUM(play_count) AS playCount,
+        SUM(duration_seconds) AS durationSeconds,
         COUNT(*) AS trackCount
-      FROM day_stats AS stats
-      JOIN listening_track_display AS display ON display.id = stats.track_id
-      WHERE display.album IS NOT NULL
-        AND TRIM(display.album) <> ''
+      FROM day_tracks
+      WHERE album IS NOT NULL
+        AND TRIM(album) <> ''
       GROUP BY
-        display.album,
+        album,
         COALESCE(
-          NULLIF(TRIM(display.album_artist), ''),
-          NULLIF(TRIM(display.artist), '')
+          NULLIF(TRIM(album_artist), ''),
+          NULLIF(TRIM(artist), '')
         )
-      ORDER BY durationSeconds DESC, playCount DESC, display.album COLLATE NOCASE ASC
+      ORDER BY durationSeconds DESC, playCount DESC, album COLLATE NOCASE ASC
       LIMIT 10
     `,
       )
-      .all(date) as DailyTopAlbum[]
+      .all({ date }) as DailyTopAlbum[]
   }
 
   resetAll(): void {

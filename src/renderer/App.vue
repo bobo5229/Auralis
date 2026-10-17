@@ -141,6 +141,14 @@ const { width: shellWidth } = useElementSize(shellRef, {
 const isSidebarResizing = ref(false)
 const isLyricsWidthResizing = ref(false)
 
+// Avoid a body :has() dependency: archive motion inserts transient nodes, which
+// would otherwise invalidate the inherited cursor styles across the whole page.
+watch(
+  [isSidebarResizing, isLyricsWidthResizing],
+  ([sidebar, lyrics]) => document.body.classList.toggle('is-column-resizing', sidebar || lyrics),
+  { flush: 'sync' },
+)
+
 function onSidebarResizeActiveChange(active: boolean): void {
   // Resolve the last width while transitions are disabled, including keyboard changes.
   if (!active && isSidebarResizing.value) shellRef.value?.getBoundingClientRect()
@@ -967,6 +975,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  document.body.classList.remove('is-column-resizing')
   removeBeforeEach()
   removeAfterEach()
   albumRouteRevision += 1

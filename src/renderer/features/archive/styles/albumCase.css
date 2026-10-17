@@ -1,0 +1,153 @@
+/* The focused jewel case keeps the existing total 14px depth: 12px tray + 2px lid. */
+.archive-case-shell .archive-album-spine {
+  width: 12px;
+}
+.archive-case-shell .archive-album-edge {
+  width: 12px;
+  transform: translateZ(5px) rotateY(90deg);
+}
+.archive-case-shell .archive-album-top {
+  height: 12px;
+}
+.archive-case-shell .archive-album-bottom {
+  height: 12px;
+  transform: translateZ(5px) rotateX(-90deg);
+}
+.archive-case-lid {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  transform-style: preserve-3d;
+}
+.archive-case-lid > .archive-album-front {
+  transform: translateZ(1px);
+}
+.archive-case-lid-inner {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    125deg,
+    var(--auralis-surface-floating),
+    var(--auralis-surface-raised)
+  );
+  box-shadow:
+    inset 0 0 0 1px var(--auralis-border-strong),
+    inset 8px 0 12px rgb(0 0 0 / 8%);
+  backface-visibility: hidden;
+  transform: rotateY(180deg) translateZ(1px);
+}
+.archive-case-lid-edge {
+  position: absolute;
+  background: var(--auralis-surface-floating);
+  backface-visibility: hidden;
+}
+.archive-case-lid-top,
+.archive-case-lid-bottom {
+  left: 0;
+  width: 100%;
+  height: 2px;
+  transform-origin: center top;
+}
+.archive-case-lid-top {
+  top: 0;
+  transform: translateZ(-1px) rotateX(90deg);
+}
+.archive-case-lid-bottom {
+  top: 100%;
+  transform: translateZ(1px) rotateX(-90deg);
+}
+.archive-case-lid-left,
+.archive-case-lid-right {
+  top: 0;
+  width: 2px;
+  height: 100%;
+  transform-origin: left center;
+}
+.archive-case-lid-left {
+  left: 0;
+  transform: translateZ(-1px) rotateY(-90deg);
+}
+.archive-case-lid-right {
+  left: 100%;
+  transform: translateZ(1px) rotateY(90deg);
+}
+.archive-case-toggle {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translateZ(1.1px);
+  -webkit-app-region: no-drag;
+}
+.archive-case-toggle:focus-visible {
+  outline: 2px solid var(--auralis-focus-ring);
+  outline-offset: -3px;
+}
+.archive-case-tray {
+  position: absolute;
+  inset: 0;
+  background: var(--auralis-surface-raised);
+  box-shadow: inset 0 0 0 2px var(--auralis-border-strong);
+  transform: translateZ(4px);
+  transform-style: preserve-3d;
+}
+.archive-case-tray::before {
+  position: absolute;
+  inset: 5%;
+  border-radius: 50%;
+  background: var(--auralis-bg);
+  box-shadow: inset 0 2px 6px rgb(0 0 0 / 28%);
+  content: '';
+}
+.archive-case-disc {
+  position: absolute;
+  inset: 9%;
+  border-radius: 50%;
+  /* Silver is the material of the demonstration disc, independent of the UI theme. */
+  background: conic-gradient(
+    from 30deg,
+    #d9dce0,
+    #b4bac3 12%,
+    #f3f5f7 23%,
+    #c5ccd3 35%,
+    #e4e7ed 48%,
+    #a4acb7 62%,
+    #f5f7fa 75%,
+    #c3cad2 88%,
+    #d9dce0
+  );
+  mask-image: radial-gradient(circle, transparent 7%, #000 7.8%);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 65%);
+  transform: translateZ(0.6px);
+}
+.archive-case-disc::after {
+  position: absolute;
+  inset: 28%;
+  border: 1px solid rgb(255 255 255 / 45%);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 3px rgb(68 74 86 / 9%),
+    inset 0 0 0 2px rgb(68 74 86 / 14%);
+  content: '';
+}
+.archive-case-hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10%;
+  height: 10%;
+  border: 2px solid var(--auralis-border-strong);
+  border-radius: 50%;
+  background: var(--auralis-surface-floating);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 24%);
+  transform: translate(-50%, -50%) translateZ(0.9px);
+}
+.archive-album-focus [data-case-face] {
+  pointer-events: auto;
+}

@@ -150,6 +150,22 @@ describe('annual listening counts', () => {
     scope.stop()
   })
 
+  it('preserves the annual array when a notification does not change the selected year', async () => {
+    const { scope, state, getAnnualPlayCounts, notify } = fixture()
+    await flush()
+    const previous = state.days.value
+    getAnnualPlayCounts.mockResolvedValueOnce(counts.map((day) => ({ ...day })))
+    notify('play-stats-updated')
+    await flush()
+    expect(state.days.value).toBe(previous)
+    getAnnualPlayCounts.mockResolvedValueOnce([{ ...counts[0], durationSeconds: 1200 }])
+    notify('play-stats-updated')
+    await flush()
+    expect(state.days.value).not.toBe(previous)
+    expect(state.days.value[0].durationSeconds).toBe(1200)
+    scope.stop()
+  })
+
   it('does not let an older in-flight result restore counts after reset', async () => {
     const old = deferred(),
       latest = deferred()

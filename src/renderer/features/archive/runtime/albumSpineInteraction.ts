@@ -1,20 +1,19 @@
 import { createReducedMotionQuery } from '@renderer/shared/animation/motionPreference'
+import { createAlbumFocusPresentation } from './albumFocusPresentation'
+import type { AlbumCaseLabels } from './albumCaseModel'
 
 type InputMode = 'pointer' | 'keyboard' | 'touch'
 type Point = { x: number; y: number }
 interface ReturnCopy {
   overlay: HTMLElement
-  lift: HTMLElement
-  object: HTMLElement
-  copyLift: HTMLElement
-  copyObject: HTMLElement
 }
 
-/** DOM motion is local to this display; it never opens or plays an album. */
+/** DOM motion is local to this display; it never navigates to or plays an album. */
 export function createAlbumSpineInteraction(
   viewport: HTMLElement,
   row: HTMLElement,
   onSelect: (index: number | null) => void,
+  caseLabels: () => AlbumCaseLabels,
 ) {
   const controller = new AbortController()
   const options = { signal: controller.signal }
@@ -23,37 +22,76 @@ export function createAlbumSpineInteraction(
   const part = (slot: HTMLElement, name: string) =>
     slot.querySelector<HTMLElement>(`.archive-album-${name}`)!
   const buttons = slots.map((slot) => part(slot, 'trigger') as HTMLButtonElement)
+  const ranks = slots.map((slot) => part(slot, 'rank'))
+  const fronts = slots.map((slot) => part(slot, 'front'))
+  const envelopes = slots.map((slot) => part(slot, 'envelope'))
+  let hitRegions:
+    | { viewport: DOMRect; ranks: DOMRect[]; buttons: DOMRect[]; envelopes: DOMRect[] }
+    | undefined
+  function invalidateHitRegions(): void {
+    hitRegions = undefined
+  }
+  function regions() {
+    const bounds = viewport.getBoundingClientRect()
+    if (
+      hitRegions &&
+      bounds.left === hitRegions.viewport.left &&
+      bounds.top === hitRegions.viewport.top &&
+      bounds.width === hitRegions.viewport.width &&
+      bounds.height === hitRegions.viewport.height
+    )
+      return hitRegions
+    // A translated ancestor or a wrapping heading can move this viewport without
+    // resizing it. Keep cached hit boxes tied to its current screen position.
+    return (hitRegions = {
+      viewport: bounds,
+      ranks: ranks.map((rank) => rank.getBoundingClientRect()),
+      buttons: buttons.map((button) => button.getBoundingClientRect()),
+      envelopes: envelopes.map((envelope) => envelope.getBoundingClientRect()),
+    })
+  }
   const returning = new Map<HTMLElement, ReturnCopy>()
   let active: number | null = null
   let inputMode: InputMode = 'pointer'
   let lastPointerType = 'mouse'
   let touchWasActive = false
   let pointerFrame = 0
-  let returnFrame = 0
   let lastPoint: Point | null = null
+  let focus: ReturnType<typeof createAlbumFocusPresentation> | undefined
+  let focusing = false
+
+  function openFocus(): void {
+    if (focusing || active === null) return
+    const index = active
+    focusing = true
+    cancelPointer()
+    slots.forEach(clearReturn)
+    buttons[index].setAttribute('aria-expanded', 'true')
+    focus = createAlbumFocusPresentation(
+      slots[index],
+      () => motion.matches,
+      () => {
+        focus = undefined
+        focusing = false
+        active = null
+        inputMode = 'keyboard'
+        buttons[index].setAttribute('aria-expanded', 'false')
+        buttons[index].setAttribute('aria-pressed', 'false')
+        onSelect(null)
+      },
+      caseLabels,
+    )
+  }
 
   function alignRanks(): void {
     const offsets = slots.map((slot, index) => {
       const spine = part(slot, 'spine').getBoundingClientRect()
       return (spine.left + spine.right) / 2 - buttons[index].getBoundingClientRect().left
     })
-    slots.forEach((slot, index) => {
-      part(slot, 'rank').style.left = `${offsets[index]}px`
+    ranks.forEach((rank, index) => {
+      rank.style.left = `${offsets[index]}px`
     })
-  }
-
-  function syncReturnCopies(): void {
-    returnFrame = 0
-    const poses = [...returning.values()].map((item) => ({
-      ...item,
-      liftPose: getComputedStyle(item.lift).transform,
-      objectPose: getComputedStyle(item.object).transform,
-    }))
-    poses.forEach(({ copyLift, copyObject, liftPose, objectPose }) => {
-      copyLift.style.transform = liftPose
-      copyObject.style.transform = objectPose
-    })
-    if (returning.size) returnFrame = requestAnimationFrame(syncReturnCopies)
+    invalidateHitRegions()
   }
 
   function clearReturn(slot: HTMLElement): void {
@@ -62,55 +100,68 @@ export function createAlbumSpineInteraction(
     item.overlay.getAnimations({ subtree: true }).forEach((animation) => animation.cancel())
     item.overlay.remove()
     returning.delete(slot)
-    if (!returning.size) {
-      cancelAnimationFrame(returnFrame)
-      returnFrame = 0
-    }
   }
 
   function returnAlbum(slot: HTMLElement): void {
     clearReturn(slot)
+    if (motion.matches) {
+      slot.classList.remove('is-active')
+      return
+    }
     const lift = part(slot, 'lift')
     const object = part(slot, 'object')
     const coverRect = lift.getBoundingClientRect()
+    const rowRect = row.getBoundingClientRect()
+    const left = slot.offsetLeft
+    const top = slot.offsetTop
+    const fromPoses = [getComputedStyle(lift).transform, getComputedStyle(object).transform]
     slot.classList.remove('is-active')
-    if (motion.matches) return
+
+    const transitions = [lift, object].flatMap((source, index) =>
+      source
+        .getAnimations()
+        .flatMap((animation) =>
+          animation instanceof CSSTransition &&
+          animation.transitionProperty === 'transform' &&
+          animation.effect instanceof KeyframeEffect
+            ? [{ animation, effect: animation.effect, index }]
+            : [],
+        ),
+    )
+    const duration = Math.max(
+      0,
+      ...transitions.map(({ effect }) => Number(effect.getComputedTiming().endTime)),
+    )
+    if (!duration) return
 
     // Reveal the normal stacking order progressively, without an extra turn or
-    // a sudden z-index change. Copies follow the real CSS pose, including reversals.
+    // a sudden z-index change. Mirror the browser's transition keyframes and
+    // timeline once, including shortened reversals, rather than sampling per frame.
     const overlay = document.createElement('div')
     overlay.className = 'archive-album-occlusion'
     overlay.setAttribute('aria-hidden', 'true')
     const copy = slot.cloneNode(false) as HTMLElement
-    copy.style.left = `${slot.offsetLeft}px`
-    copy.style.top = `${slot.offsetTop}px`
+    copy.style.left = `${left}px`
+    copy.style.top = `${top}px`
     copy.append(lift.cloneNode(true))
     overlay.append(copy)
     row.append(overlay)
     const copyLift = part(copy, 'lift')
     const copyObject = part(copy, 'object')
-    returning.set(slot, { overlay, lift, object, copyLift, copyObject })
-    const rowRect = row.getBoundingClientRect()
+    returning.set(slot, { overlay })
     const endRect = copyLift.getBoundingClientRect()
-    const transitions = [lift, object].flatMap((source) =>
-      source
-        .getAnimations()
-        .filter(
-          (animation) =>
-            animation instanceof CSSTransition && animation.transitionProperty === 'transform',
-        ),
-    )
-    const duration = Math.max(
-      0,
-      ...transitions.map((item) => Number(item.effect?.getComputedTiming().endTime ?? 0)),
-    )
-    if (!duration) {
-      clearReturn(slot)
-      return
+    for (const { animation, effect, index } of transitions) {
+      // Blink may serialize a CSS transition's starting pixel lengths at device
+      // scale. The resolved CSS matrix keeps the copy in the source's CSS units.
+      const frames = effect
+        .getKeyframes()
+        .map((frame, frameIndex) =>
+          frameIndex === 0 ? { ...frame, transform: fromPoses[index] } : frame,
+        )
+      const mirrored = [copyLift, copyObject][index].animate(frames, effect.getTiming())
+      if (animation.startTime !== null) mirrored.startTime = animation.startTime
+      else mirrored.currentTime = animation.currentTime
     }
-    copyLift.style.transform = getComputedStyle(lift).transform
-    copyObject.style.transform = getComputedStyle(object).transform
-    if (!returnFrame) returnFrame = requestAnimationFrame(syncReturnCopies)
     const wipe = overlay.animate(
       [
         { clipPath: `inset(0 ${Math.max(0, rowRect.right - coverRect.right - 16)}px 0 0)` },
@@ -127,6 +178,7 @@ export function createAlbumSpineInteraction(
   }
 
   function select(index: number | null, source: InputMode = 'pointer'): void {
+    if (focusing) return
     inputMode = source
     if (active === index) return
     if (active !== null) {
@@ -155,18 +207,24 @@ export function createAlbumSpineInteraction(
     )
   }
 
-  function inActiveRegion(point: Point): boolean {
+  function inActiveRegion(point: Point, hit: ReturnType<typeof regions>): boolean {
     if (active === null) return false
-    const slot = slots[active]
-    const original = buttons[active].getBoundingClientRect()
-    const current = part(slot, 'front').getBoundingClientRect()
-    const expanded = part(slot, 'envelope').getBoundingClientRect()
+    const original = hit.buttons[active]
+    const expanded = hit.envelopes[active]
+    const bounds = {
+      left: Math.min(original.left, expanded.left),
+      top: Math.min(original.top, expanded.top),
+      right: Math.max(original.right, expanded.right),
+      bottom: Math.max(original.bottom, expanded.bottom),
+    }
+    if (contains(bounds, point, 8)) return true
+    const current = fronts[active].getBoundingClientRect()
     return contains(
       {
-        left: Math.min(original.left, current.left, expanded.left),
-        top: Math.min(original.top, current.top, expanded.top),
-        right: Math.max(original.right, current.right, expanded.right),
-        bottom: Math.max(original.bottom, current.bottom, expanded.bottom),
+        left: Math.min(bounds.left, current.left),
+        top: Math.min(bounds.top, current.top),
+        right: Math.max(bounds.right, current.right),
+        bottom: Math.max(bounds.bottom, current.bottom),
       },
       point,
       8,
@@ -182,36 +240,65 @@ export function createAlbumSpineInteraction(
   function pointerSelection(): void {
     pointerFrame = 0
     if (!lastPoint) return
-    const rank = slots.findIndex((slot) =>
-      contains(part(slot, 'rank').getBoundingClientRect(), lastPoint!, 5),
-    )
+    const hit = regions()
+    const rank = hit.ranks.findIndex((rect) => contains(rect, lastPoint!, 5))
     if (rank !== -1) {
       select(rank)
       return
     }
-    const candidate = buttons.findIndex((button) =>
-      contains(button.getBoundingClientRect(), lastPoint!),
-    )
-    if (!inActiveRegion(lastPoint)) select(candidate === -1 ? null : candidate)
+    const candidate = hit.buttons.findIndex((rect) => contains(rect, lastPoint!))
+    if (!inActiveRegion(lastPoint, hit)) select(candidate === -1 ? null : candidate)
   }
 
   function reset(): void {
+    focus?.dispose()
+    focus = undefined
+    focusing = false
     cancelPointer()
     active = null
     slots.forEach((slot, index) => {
       clearReturn(slot)
       slot.classList.remove('is-active')
       buttons[index].setAttribute('aria-pressed', 'false')
+      buttons[index].setAttribute('aria-expanded', 'false')
       slot.getAnimations({ subtree: true }).forEach((animation) => animation.cancel())
     })
     alignRanks()
     onSelect(null)
   }
 
+  function overActiveCover(point: Point): boolean {
+    return active !== null && contains(fronts[active].getBoundingClientRect(), point)
+  }
+
+  viewport.addEventListener(
+    'pointerdown',
+    (event) => {
+      lastPointerType = event.pointerType
+      if (event.button !== 0 || !overActiveCover({ x: event.clientX, y: event.clientY })) return
+      touchWasActive = true
+      // The extracted cover can extend over a neighboring button. Keep that click
+      // attached to the visible album instead of focusing the hidden neighbor.
+      event.preventDefault()
+      event.stopPropagation()
+    },
+    { ...options, capture: true },
+  )
+  viewport.addEventListener(
+    'click',
+    (event) => {
+      if (event.button !== 0 || !overActiveCover({ x: event.clientX, y: event.clientY })) return
+      if (lastPointerType === 'touch' && !touchWasActive) return
+      event.stopPropagation()
+      openFocus()
+    },
+    { ...options, capture: true },
+  )
+
   viewport.addEventListener(
     'pointermove',
     (event) => {
-      if (event.pointerType === 'touch') return
+      if (focusing || event.pointerType === 'touch') return
       inputMode = 'pointer'
       lastPoint = { x: event.clientX, y: event.clientY }
       if (!pointerFrame) pointerFrame = requestAnimationFrame(pointerSelection)
@@ -229,6 +316,7 @@ export function createAlbumSpineInteraction(
   viewport.addEventListener(
     'scroll',
     () => {
+      invalidateHitRegions()
       cancelPointer()
       if (inputMode === 'pointer') select(null)
     },
@@ -303,8 +391,10 @@ export function createAlbumSpineInteraction(
       )
       const index = buttons.indexOf(button!)
       if (index === -1) return
-      if (event.detail === 0) select(index, 'keyboard')
-      else if (lastPointerType === 'touch') select(touchWasActive ? null : index, 'touch')
+      if (event.detail === 0) {
+        select(index, 'keyboard')
+        openFocus()
+      } else if (lastPointerType === 'touch') select(touchWasActive ? null : index, 'touch')
     },
     options,
   )
@@ -315,6 +405,12 @@ export function createAlbumSpineInteraction(
     },
     options,
   )
+  document.addEventListener('scroll', invalidateHitRegions, {
+    ...options,
+    capture: true,
+    passive: true,
+  })
+  document.fonts?.addEventListener('loadingdone', invalidateHitRegions, options)
   document.addEventListener(
     'visibilitychange',
     () => {
@@ -322,12 +418,20 @@ export function createAlbumSpineInteraction(
     },
     options,
   )
-  window.addEventListener('resize', reset, options)
-  const resize = new ResizeObserver(reset)
+  const layoutChanged = () => {
+    invalidateHitRegions()
+    if (focus) focus.reposition()
+    else reset()
+  }
+  window.addEventListener('resize', layoutChanged, options)
+  const resize = new ResizeObserver(layoutChanged)
   resize.observe(viewport)
   function syncMotion(): void {
     viewport.dataset.reducedMotion = String(motion.matches)
-    if (motion.matches) reset()
+    if (motion.matches) {
+      if (focus) focus.reposition()
+      else reset()
+    }
   }
   syncMotion()
   alignRanks()

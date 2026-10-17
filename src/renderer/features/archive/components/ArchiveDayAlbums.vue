@@ -37,26 +37,23 @@ const dateLabel = computed(() => {
         </h3>
         <p v-if="date" class="archive-day-albums-date auralis-type-caption">{{ dateLabel }}</p>
       </div>
-      <p v-if="date" class="archive-day-albums-hint auralis-type-caption">
-        {{ t('archive.dayAlbumsHint') }}
-      </p>
     </header>
 
     <p v-if="!date" class="archive-day-albums-empty auralis-type-caption">
       {{ t('archive.dayAlbumsNoDate') }}
     </p>
+    <ArchiveAlbumSpines v-else-if="albums.length" :key="date ?? ''" :albums="albums" />
     <p v-else-if="loading" class="archive-day-albums-message auralis-type-caption" role="status">
       {{ t('archive.loading') }}
     </p>
-    <p v-else-if="failed" class="archive-day-albums-message auralis-type-caption">
+    <p v-else-if="!failed" class="archive-day-albums-empty auralis-type-caption">
+      {{ t('archive.dayAlbumsEmpty') }}
+    </p>
+    <p v-if="date && failed" class="archive-day-albums-message auralis-type-caption">
       {{ t('archive.dayAlbumsLoadError') }}
       <button type="button" class="archive-day-albums-retry" @click="emit('retry')">
         {{ t('archive.retry') }}
       </button>
-    </p>
-    <ArchiveAlbumSpines v-else-if="albums.length" :key="date ?? ''" :albums="albums" />
-    <p v-else class="archive-day-albums-empty auralis-type-caption">
-      {{ t('archive.dayAlbumsEmpty') }}
     </p>
   </section>
 </template>
@@ -92,14 +89,9 @@ const dateLabel = computed(() => {
   font-weight: 600;
 }
 
-.archive-day-albums-date,
-.archive-day-albums-hint {
+.archive-day-albums-date {
   margin: 0;
   color: var(--auralis-text-muted);
-}
-
-.archive-day-albums-hint {
-  color: var(--auralis-text-faint);
 }
 
 .archive-day-albums-message,

@@ -42,10 +42,18 @@ const dateFormatter = computed(
       timeZone: 'UTC',
     }),
 )
-function dateLabel(date: string) {
-  const stats = dayStats.value.get(date)
-  return `${dateFormatter.value.format(new Date(`${date}T00:00:00Z`))}, ${t('archive.daySummary', { count: stats?.playCount ?? 0, minutes: Math.round((stats?.durationSeconds ?? 0) / 60) })}`
-}
+const dateLabels = computed(() => {
+  const labels = new Map<string, string>()
+  for (const date of calendar.value.weeks.flat()) {
+    if (!date) continue
+    const stats = dayStats.value.get(date)
+    labels.set(
+      date,
+      `${dateFormatter.value.format(new Date(`${date}T00:00:00Z`))}, ${t('archive.daySummary', { count: stats?.playCount ?? 0, minutes: Math.round((stats?.durationSeconds ?? 0) / 60) })}`,
+    )
+  }
+  return labels
+})
 function preview(date: string, event: PointerEvent) {
   if (event.pointerType !== 'touch') bubble.preview(date, event.currentTarget as HTMLElement)
 }
@@ -210,7 +218,7 @@ const weekdayLabels = computed(() => {
                 ]"
                 :data-date="date"
                 :tabindex="focusDate === date ? 0 : -1"
-                :aria-label="dateLabel(date)"
+                :aria-label="dateLabels.get(date)"
                 :aria-current="pinnedDate === date ? 'date' : undefined"
                 aria-haspopup="dialog"
                 :aria-expanded="bubbleDate === date && expanded"

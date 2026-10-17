@@ -1,7 +1,7 @@
-import { effectScope, ref } from 'vue'
+import { effectScope, nextTick, ref } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import type { LibraryChangedEvent } from '@shared/ipc/contracts'
-import type { DailyTopAlbum } from '@shared/types/listeningArchive'
+import type { DailyPlayCount, DailyTopAlbum } from '@shared/types/listeningArchive'
 import { useDayTopAlbums } from './useDayTopAlbums'
 
 vi.mock('@renderer/shared/diagnostics/rendererDiagnostics', () => ({
@@ -37,6 +37,11 @@ function fixture(
   let changed!: (event: LibraryChangedEvent) => void
   const unsubscribe = vi.fn()
   const scope = effectScope()
+  const summary = ref<DailyPlayCount | undefined>({
+    date: '2026-10-09',
+    playCount: 7,
+    durationSeconds: 1200,
+  })
   const state = scope.run(() =>
     useDayTopAlbums(
       date,
@@ -47,11 +52,12 @@ function fixture(
           return unsubscribe
         },
       },
+      summary,
     ),
   )!
   const notify = (reason: LibraryChangedEvent['reason']) =>
     changed({ reason, trackIds: [], filePaths: [] })
-  return { scope, state, date, getDayTopAlbums, notify, unsubscribe }
+  return { scope, state, date, summary, getDayTopAlbums, notify, unsubscribe }
 }
 
 describe('daily top albums', () => {
@@ -95,19 +101,78 @@ describe('daily top albums', () => {
     scope.stop()
   })
 
-  it('refreshes after effective plays, clears on reset, and ignores unrelated changes', async () => {
-    const { scope, state, getDayTopAlbums, notify } = fixture()
+  it('queries only when the selected day summary changes and clears immediately on reset', async () => {
+    const { scope, state, summary, getDayTopAlbums, notify } = fixture()
     await flush()
     notify('metadata-refresh')
     await flush()
     expect(getDayTopAlbums).toHaveBeenCalledOnce()
     notify('play-stats-updated')
     await flush()
+    expect(getDayTopAlbums).toHaveBeenCalledOnce()
+    summary.value = { ...summary.value!, playCount: 8 }
+    await flush()
     expect(getDayTopAlbums).toHaveBeenCalledTimes(2)
     notify('play-stats-reset')
     expect(state.albums.value).toEqual([])
     await flush()
-    expect(getDayTopAlbums).toHaveBeenCalledTimes(3)
+    expect(getDayTopAlbums).toHaveBeenCalledTimes(2)
+    scope.stop()
+  })
+
+  it('keeps cached albums while refreshing and preserves their identity for equivalent results', async () => {
+    const pending = deferred()
+    const query = vi
+      .fn<DayTopAlbumsQuery>()
+      .mockResolvedValueOnce(albums)
+      .mockReturnValueOnce(pending.promise)
+    const { scope, state, summary } = fixture(ref('2026-10-09'), query)
+    await flush()
+    const previous = state.albums.value
+    summary.value = { ...summary.value!, durationSeconds: 1500 }
+    await nextTick()
+    expect(state.isLoading.value).toBe(true)
+    expect(state.albums.value).toBe(previous)
+    pending.resolve(albums.map((album) => ({ ...album })))
+    await flush()
+    expect(state.albums.value).toBe(previous)
+    expect(state.isLoading.value).toBe(false)
+    scope.stop()
+  })
+
+  it('coalesces an automatic date change with new annual data and ignores equivalent summaries', async () => {
+    const { scope, date, summary, getDayTopAlbums } = fixture()
+    await flush()
+    summary.value = { ...summary.value! }
+    await flush()
+    expect(getDayTopAlbums).toHaveBeenCalledOnce()
+    summary.value = { date: '2026-10-10', playCount: 2, durationSeconds: 600 }
+    date.value = '2026-10-10'
+    await flush()
+    expect(getDayTopAlbums).toHaveBeenCalledTimes(2)
+    expect(getDayTopAlbums).toHaveBeenLastCalledWith('2026-10-10')
+    scope.stop()
+  })
+
+  it('keeps cached albums on a background failure and rejects an outstanding result after reset', async () => {
+    const pending = deferred()
+    const query = vi
+      .fn<DayTopAlbumsQuery>()
+      .mockResolvedValueOnce(albums)
+      .mockRejectedValueOnce(new Error('read failed'))
+      .mockReturnValueOnce(pending.promise)
+    const { scope, state, notify } = fixture(ref('2026-10-09'), query)
+    await flush()
+    const previous = state.albums.value
+    await state.refresh()
+    expect(state.hasError.value).toBe(true)
+    expect(state.albums.value).toBe(previous)
+    const refreshing = state.refresh()
+    notify('play-stats-reset')
+    pending.resolve(albums)
+    await refreshing
+    expect(state.albums.value).toEqual([])
+    expect(state.isLoading.value).toBe(false)
     scope.stop()
   })
 

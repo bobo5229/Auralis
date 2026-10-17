@@ -1,12 +1,13 @@
 import { onScopeDispose, ref, shallowRef, toValue, watch, type MaybeRefOrGetter } from 'vue'
 import type { AuralisApi } from '@shared/ipc/api'
-import type { DailyTopAlbum } from '@shared/types/listeningArchive'
+import type { DailyPlayCount, DailyTopAlbum } from '@shared/types/listeningArchive'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
 
 export function useDayTopAlbums(
   date: MaybeRefOrGetter<string | null>,
   archive: Pick<AuralisApi['archive'], 'getDayTopAlbums'>,
   library: Pick<AuralisApi['library'], 'onChanged'>,
+  daySummary: MaybeRefOrGetter<DailyPlayCount | undefined>,
 ) {
   const albums = shallowRef<DailyTopAlbum[]>([])
   const isLoading = ref(false)
@@ -28,7 +29,22 @@ export function useDayTopAlbums(
     hasError.value = false
     try {
       const result = await archive.getDayTopAlbums(target)
-      if (!disposed && revision === requestRevision) albums.value = result
+      if (!disposed && revision === requestRevision) {
+        const unchanged =
+          result.length === albums.value.length &&
+          result.every((album, index) => {
+            const previous = albums.value[index]
+            return (
+              album.album === previous.album &&
+              album.albumArtist === previous.albumArtist &&
+              album.artworkCacheKey === previous.artworkCacheKey &&
+              album.playCount === previous.playCount &&
+              album.durationSeconds === previous.durationSeconds &&
+              album.trackCount === previous.trackCount
+            )
+          })
+        if (!unchanged) albums.value = result
+      }
     } catch (cause) {
       if (!disposed && revision === requestRevision) {
         hasError.value = true
@@ -44,10 +60,13 @@ export function useDayTopAlbums(
   }
 
   const unsubscribe = library.onChanged((event) => {
-    if (disposed || (event.reason !== 'play-stats-updated' && event.reason !== 'play-stats-reset'))
-      return
-    if (event.reason === 'play-stats-reset') albums.value = []
-    void refresh()
+    if (disposed || event.reason !== 'play-stats-reset') return
+    // Reset is authoritative; discard cached data and any outstanding old read
+    // immediately. The annual summary drives the next relevant daily read.
+    revision++
+    albums.value = []
+    isLoading.value = false
+    hasError.value = false
   })
   onScopeDispose(() => {
     disposed = true
@@ -57,10 +76,28 @@ export function useDayTopAlbums(
   watch(
     () => toValue(date),
     () => {
+      revision++
       albums.value = []
+      hasError.value = false
+      isLoading.value = !!toValue(date)
+    },
+    { flush: 'sync' },
+  )
+  watch(
+    [
+      () => toValue(date),
+      () => {
+        const summary = toValue(daySummary)
+        return summary?.date === toValue(date)
+          ? `${summary.playCount}:${summary.durationSeconds}`
+          : null
+      },
+    ],
+    () => {
       void refresh()
     },
-    { immediate: true, flush: 'sync' },
+    // Coalesce the new annual data and automatic pin change in one Vue flush.
+    { immediate: true },
   )
 
   return { albums, isLoading, hasError, refresh }

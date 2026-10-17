@@ -21,7 +21,9 @@ const {
   isLoading: pinnedAlbumsLoading,
   hasError: pinnedAlbumsError,
   refresh: refreshPinnedAlbums,
-} = useDayTopAlbums(pinnedDate, auralis.archive, auralis.library)
+} = useDayTopAlbums(pinnedDate, auralis.archive, auralis.library, () =>
+  days.value.find((day) => day.date === pinnedDate.value),
+)
 
 function changeYear(step: number) {
   // Keep navigation within the existing archive query's supported calendar range.

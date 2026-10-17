@@ -41,12 +41,30 @@ function unbind(): void {
 function bind(): void {
   unbind()
   if (enabled && viewport.value && row.value) {
-    interaction = createAlbumSpineInteraction(viewport.value, row.value, (index) => {
-      activeIndex.value = index
-    })
+    interaction = createAlbumSpineInteraction(
+      viewport.value,
+      row.value,
+      (index) => {
+        activeIndex.value = index
+      },
+      () => ({ open: t('archive.openAlbumCase'), close: t('archive.closeAlbumCase') }),
+    )
   }
 }
-watch(() => props.albums, bind, { flush: 'post' })
+// Counts can change without changing the displayed cases. Keep an open case and
+// the pointer controller alive unless their ordered visual sources change.
+watch(
+  () =>
+    JSON.stringify(
+      props.albums.map(({ album, albumArtist, artworkCacheKey }) => [
+        album,
+        albumArtist,
+        artworkCacheKey,
+      ]),
+    ),
+  bind,
+  { flush: 'post' },
+)
 function activate(): void {
   enabled = true
   bind()
@@ -73,6 +91,8 @@ onBeforeUnmount(unbind)
             type="button"
             class="archive-album-trigger"
             aria-pressed="false"
+            aria-haspopup="dialog"
+            aria-expanded="false"
             :aria-label="
               t('archive.albumPreview', {
                 rank: index + 1,
@@ -100,7 +120,9 @@ onBeforeUnmount(unbind)
                 <span class="archive-spine-title">{{ albumTitle(album) }}</span>
                 <span class="archive-spine-artist">{{ albumArtist(album) }}</span>
               </div>
+              <div class="archive-album-edge"></div>
               <div class="archive-album-top"></div>
+              <div class="archive-album-bottom"></div>
               <div class="archive-album-front">
                 <img
                   v-if="artwork(album)"
@@ -127,7 +149,7 @@ onBeforeUnmount(unbind)
   </div>
 </template>
 
-<!-- The transient return copy is created by the motion controller; all selectors are feature-prefixed. -->
+<!-- Motion controllers create transient copies; all selectors are feature-prefixed. -->
 <style>
 .archive-album-spines {
   --archive-album-size: 220px;
@@ -166,6 +188,35 @@ onBeforeUnmount(unbind)
 }
 .archive-album-slot.is-active {
   z-index: 10;
+}
+.archive-album-slot.is-focused .archive-album-lift {
+  visibility: hidden;
+}
+.archive-album-focus {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  overflow: hidden;
+  background: transparent;
+  color: var(--auralis-text);
+}
+.archive-album-focus::backdrop {
+  background: color-mix(in srgb, var(--auralis-bg) 32%, transparent);
+}
+.archive-album-focus-mover {
+  position: absolute;
+  pointer-events: none;
+}
+.archive-album-focus .archive-album-lift,
+.archive-album-focus .archive-album-object {
+  transition: none !important;
 }
 .archive-album-occlusion {
   position: absolute;
@@ -278,6 +329,8 @@ onBeforeUnmount(unbind)
 }
 .archive-album-back {
   transform: rotateY(180deg) translateZ(7px);
+  box-shadow: inset 0 0 0 1px var(--auralis-border-strong);
+  background: linear-gradient(135deg, var(--auralis-surface-raised), var(--auralis-bg));
 }
 .archive-album-spine {
   position: absolute;
@@ -323,15 +376,36 @@ onBeforeUnmount(unbind)
   max-height: 30%;
   margin-top: auto;
 }
-.archive-album-top {
+.archive-album-top,
+.archive-album-bottom {
   position: absolute;
-  top: 0;
   left: 0;
   width: 100%;
   height: 14px;
-  background: var(--auralis-surface-raised);
   transform-origin: center top;
+  backface-visibility: hidden;
+  box-shadow: inset 0 0 0 1px var(--auralis-border-subtle);
+}
+.archive-album-top {
+  top: 0;
+  background: color-mix(in srgb, var(--auralis-text) 12%, var(--auralis-surface-raised));
   transform: translateZ(-7px) rotateX(90deg);
+}
+.archive-album-bottom {
+  top: 100%;
+  background: color-mix(in srgb, var(--auralis-bg) 35%, var(--auralis-surface-raised));
+  transform: translateZ(7px) rotateX(-90deg);
+}
+.archive-album-edge {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  width: 14px;
+  height: 100%;
+  background: linear-gradient(90deg, var(--auralis-surface-raised), var(--auralis-bg));
+  box-shadow: inset 0 0 0 1px var(--auralis-border-subtle);
+  transform-origin: left center;
+  transform: translateZ(7px) rotateY(90deg);
   backface-visibility: hidden;
 }
 .archive-spine-fallback {
