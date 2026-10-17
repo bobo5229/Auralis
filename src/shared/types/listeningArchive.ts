@@ -10,3 +10,12 @@ export interface DailyTopTrack {
   artist: string | null
   playCount: number
 }
+
+export interface DailyTopAlbum {
+  album: string
+  albumArtist: string | null
+  artworkCacheKey: string | null
+  playCount: number
+  durationSeconds: number
+  trackCount: number
+}

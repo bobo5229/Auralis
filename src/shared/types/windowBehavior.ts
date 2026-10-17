@@ -1,4 +1,4 @@
-export const WINDOW_CLOSE_BEHAVIORS = ['quit', 'minimize', 'tray'] as const
+export const WINDOW_CLOSE_BEHAVIORS = ['quit', 'tray'] as const
 export type WindowCloseBehavior = (typeof WINDOW_CLOSE_BEHAVIORS)[number]
 
 export interface WindowBehaviorState {

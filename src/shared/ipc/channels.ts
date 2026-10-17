@@ -59,6 +59,7 @@ export const ipcChannels = {
     closeLrcEditor: 'lyrics:close-lrc-editor',
     assignEditorLines: 'lyrics:assign-editor-lines',
     retimeEditorLines: 'lyrics:retime-editor-lines',
+    replaceEditorLineText: 'lyrics:replace-editor-line-text',
     saveEditor: 'lyrics:save-editor',
     closeEditor: 'lyrics:close-editor',
   },
@@ -83,6 +84,7 @@ export const ipcChannels = {
   archive: {
     getAnnualPlayCounts: 'archive:get-annual-play-counts',
     getDayTopTracks: 'archive:get-day-top-tracks',
+    getDayTopAlbums: 'archive:get-day-top-albums',
     resetPlayStats: 'archive:reset-play-stats',
   },
   metadata: {

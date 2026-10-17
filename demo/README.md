@@ -1,5 +1,7 @@
 # 界面原型
 
+侧立专辑：[2.5D 专辑侧放](archive/album-spines/index.html)，离线打开；接近侧面的窄封面与书脊排列，悬停向前抽出、转正，离开归位，支持明暗主题和角度调节。[原型说明](archive/album-spines/README.md)。
+
 金属品牌图标：[渐变金属 A](brand/enamel-icon.html)，直接在浏览器打开；沿用正式图标轮廓，提供钛蓝、银铬、香槟金三种渐变、原版对照、32/64/128px 尺寸预览及高光、倒角、渐变方向调节。独立 SVG 材质原型，未替换正式应用图标。
 
 季节拨盘：[四季聆听档案](archive/season-dial/index.html)，直接在浏览器打开；左侧拨盘切换春夏秋冬，右侧展示示例歌曲，支持明暗主题，不连接后端。[原型说明](archive/season-dial/README.md)。

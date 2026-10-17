@@ -52,6 +52,7 @@ function mockResponse(group: string, method: string, args: unknown[]): unknown {
     case 'lyrics.openEditor':
     case 'lyrics.assignEditorLines':
     case 'lyrics.retimeEditorLines':
+    case 'lyrics.replaceEditorLineText':
     case 'lyrics.saveEditor':
       return { ok: false, code: 'track-unavailable' }
     case 'lyrics.closeLrcEditor':
@@ -61,6 +62,7 @@ function mockResponse(group: string, method: string, args: unknown[]): unknown {
       return { ok: false, recorded: false }
     case 'archive.getAnnualPlayCounts':
     case 'archive.getDayTopTracks':
+    case 'archive.getDayTopAlbums':
       return []
     case 'playback.acquireReadLease':
       return { leaseId: 'browser-preview' }

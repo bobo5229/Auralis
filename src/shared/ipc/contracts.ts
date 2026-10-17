@@ -37,10 +37,11 @@ import type {
   LibraryTrackPageRequest,
 } from '@shared/types/libraryCatalog'
 import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
-import type { DailyPlayCount, DailyTopTrack } from '@shared/types/listeningArchive'
+import type { DailyPlayCount, DailyTopAlbum, DailyTopTrack } from '@shared/types/listeningArchive'
 import type {
   AssignLyricsEditorLines,
   RetimeLyricsEditorLines,
+  ReplaceLyricsEditorLineText,
   LyricsEditorResult,
   LyricsEditorSaved,
   LyricsEditorState,
@@ -381,6 +382,10 @@ export interface IpcInvokeContract {
     request: RetimeLyricsEditorLines
     response: LyricsEditorResult<LyricsEditorState>
   }
+  'lyrics:replace-editor-line-text': {
+    request: ReplaceLyricsEditorLineText
+    response: LyricsEditorResult<LyricsEditorState>
+  }
   'lyrics:save-editor': {
     request: SaveLyricsEditor
     response: LyricsEditorResult<LyricsEditorSaved>
@@ -428,6 +433,10 @@ export interface IpcInvokeContract {
   'archive:get-day-top-tracks': {
     request: { date: string }
     response: DailyTopTrack[]
+  }
+  'archive:get-day-top-albums': {
+    request: { date: string }
+    response: DailyTopAlbum[]
   }
   'metadata:refresh-track': {
     request: { trackId: number }

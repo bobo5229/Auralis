@@ -47,6 +47,8 @@ const confirming = ref(false)
 const error = ref('')
 const notice = ref('')
 const ttmlMode = ref(false)
+const inlineEditing = ref(false)
+const inlineDirty = ref(false)
 const duet = useDuetLyricsEditor(failure)
 const duetSession = duet.session
 const busy = computed(() => loading.value || saving.value || duet.assigning.value)
@@ -112,7 +114,7 @@ let history: Snapshot[] = []
 const historyIndex = ref(-1)
 const historyLength = ref(0)
 const dirty = computed(() =>
-  ttmlMode.value ? !!duetSession.value?.dirty : text.value !== baseline.value,
+  ttmlMode.value ? !!duetSession.value?.dirty || inlineDirty.value : text.value !== baseline.value,
 )
 const line = computed(() => getLrcTextLine(text.value, cursor.value))
 const editable = computed(() => !!session.value && !ttmlMode.value && !busy.value)
@@ -127,7 +129,9 @@ const canNudge = computed(
 )
 const canSave = computed(() =>
   ttmlMode.value
-    ? !!duetSession.value?.editable && !!duetSession.value?.dirty && !busy.value
+    ? !!duetSession.value?.editable &&
+      (!!duetSession.value?.dirty || inlineDirty.value) &&
+      !busy.value
     : saveActions.value.some((action) => !action.disabled),
 )
 
@@ -207,6 +211,10 @@ async function release(): Promise<void> {
   if (current) await auralis.lyrics.closeLrcEditor(current.sessionId).catch(() => undefined)
 }
 function failure(code: string, recoveryPath?: string): void {
+  if (code === 'invalid-line-text') {
+    error.value = t('lyricsEditor.errors.invalidLineText')
+    return
+  }
   if (code === 'invalid-end-time') {
     error.value = t('lyricsEditor.errors.invalidEndTime')
     return
@@ -357,9 +365,20 @@ async function save(target: SaveLrcEditor['target'], closeAfter = false): Promis
   }
 }
 async function saveDuet(closeAfter = false): Promise<void> {
-  const current = duetSession.value
-  if (!current || !canSave.value) return
+  if (!canSave.value) return
   const token = generation
+  if (inlineEditing.value) {
+    const committed = await duetList.value?.commitText()
+    if (token !== generation || !props.open) return
+    if (!committed) {
+      confirming.value = false
+      await nextTick()
+      duetList.value?.focus()
+      return
+    }
+  }
+  const current = duetSession.value
+  if (!current?.dirty || busy.value) return
   saving.value = true
   error.value = ''
   notice.value = ''
@@ -415,6 +434,16 @@ function retimeDuetLines(
   notice.value = ''
   void duet.retime(ids, mode, valueMs)
 }
+async function replaceDuetText(lineId: string, value: string): Promise<boolean> {
+  if (busy.value) return false
+  error.value = ''
+  notice.value = ''
+  return duet.replaceText(lineId, value)
+}
+function textEditState(active: boolean, changed: boolean): void {
+  inlineEditing.value = active
+  inlineDirty.value = changed
+}
 function keepEditing(): void {
   confirming.value = false
   void nextTick(() => {
@@ -454,7 +483,7 @@ function keydown(event: KeyboardEvent): void {
     if (!saveMenuOpen.value) openSaveMenu(confirming.value)
     return
   }
-  if (confirming.value || saveMenuOpen.value) return
+  if (confirming.value || saveMenuOpen.value || inlineEditing.value) return
   if (modifier && event.shiftKey && event.key === 'Enter') {
     event.preventDefault()
     event.stopPropagation()
@@ -491,6 +520,7 @@ watch(
   () => props.open,
   (open) => {
     if (open) {
+      inlineEditing.value = inlineDirty.value = false
       trackId.value = playback.state.currentTrackId
       confirming.value = false
       ttmlMode.value = false
@@ -502,6 +532,7 @@ watch(
       }
       void load()
     } else {
+      inlineEditing.value = inlineDirty.value = false
       generation++
       saveMenuOpen.value = false
       loading.value = false
@@ -647,11 +678,14 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
         v-else-if="ttmlMode && duetSession"
         ref="duetList"
         :session="duetSession"
-        :busy="busy || confirming"
+        :busy="busy"
+        :inactive="confirming"
+        :replace-text="replaceDuetText"
         :current-time="playback.state.currentTime"
         :matches-playback="matchesPlayback"
         @assign="assignDuetLines"
         @retime="retimeDuetLines"
+        @text-edit-state="textEditState"
       />
       <textarea
         v-else-if="!ttmlMode"

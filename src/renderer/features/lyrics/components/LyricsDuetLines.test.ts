@@ -11,6 +11,7 @@ class TestNode {
   props: Record<string, unknown> = {}
   text = ''
   focus = vi.fn()
+  select = vi.fn()
   constructor(public type: string) {
     markRaw(this)
   }
@@ -65,6 +66,8 @@ function fixture() {
         assignment: 'unassigned',
         editable: true,
         timingEditable: true,
+        textEditable: true,
+        editableText: 'First',
       },
       {
         id: 'b',
@@ -82,17 +85,23 @@ function fixture() {
   const busy = ref(false)
   const assign = vi.fn()
   const retime = vi.fn()
+  const replaceText = vi.fn().mockResolvedValue(true)
+  const textEditState = vi.fn()
+  const component = ref<InstanceType<typeof LyricsDuetLines> | null>(null)
   const matchesPlayback = ref(true)
   const root = new TestNode('root')
   const app = renderer.createApp({
     setup: () => () =>
       h(LyricsDuetLines, {
+        ref: component,
         session: session.value,
         busy: busy.value,
         currentTime: 9.125,
         matchesPlayback: matchesPlayback.value,
         onAssign: assign,
         onRetime: retime,
+        replaceText,
+        onTextEditState: textEditState,
       }),
   })
   app.directive('tooltip', {})
@@ -127,12 +136,29 @@ function fixture() {
       .filter((node) => node.props['aria-selected'])
       .map((node) => rows().indexOf(node))
   const apply = (index: number) => (buttons()[index].props.onClick as () => void)()
+  const beginEdit = async (index: number) => {
+    const span = all(
+      rows()[index],
+      (node) =>
+        node.type === 'span' &&
+        typeof node.props.class === 'string' &&
+        node.props.class.split(' ').includes('duet-text'),
+    )[0]
+    await (span.props.onDblclick as (event: unknown) => Promise<void>)({ stopPropagation: vi.fn() })
+    await nextTick()
+  }
+  const textEditor = () => all(root, (node) => node.type === 'textarea')[0]
   return {
     root,
     session,
     busy,
     assign,
     retime,
+    replaceText,
+    textEditState,
+    component,
+    beginEdit,
+    textEditor,
     matchesPlayback,
     buttons,
     rows,
@@ -166,6 +192,61 @@ it('supports single, Ctrl and Shift selections while skipping unsupported mixed 
   view.click(2)
   await nextTick()
   expect(view.selected()).toEqual([1, 3])
+})
+
+it('opens a plain line in place and confirms text without disturbing its selection', async () => {
+  const view = fixture()
+  await view.beginEdit(0)
+  const editor = view.textEditor()
+  expect(editor.props.value).toBe('First')
+  expect(editor.focus).toHaveBeenCalled()
+  expect(editor.select).toHaveBeenCalled()
+  ;(editor.props.onInput as (event: unknown) => void)({ target: { value: 'Changed & <literal>' } })
+  expect(view.textEditState).toHaveBeenLastCalledWith(true, true)
+  expect(await view.component.value!.commitText()).toBe(true)
+  expect(view.replaceText).toHaveBeenCalledWith('a', 'Changed & <literal>')
+  expect(view.textEditor()).toBeUndefined()
+  expect(view.textEditState).toHaveBeenLastCalledWith(false, false)
+  expect(view.selected()).toEqual([0])
+})
+
+it('cancels with Escape, refuses word-timed text and does not submit IME Enter', async () => {
+  const view = fixture()
+  await view.beginEdit(1)
+  expect(view.textEditor()).toBeUndefined()
+  await view.beginEdit(0)
+  const editor = view.textEditor()
+  ;(editor.props.onInput as (event: unknown) => void)({ target: { value: '输入中' } })
+  ;(editor.props.onCompositionstart as () => void)()
+  const key = (name: string) => ({ key: name, preventDefault: vi.fn(), stopPropagation: vi.fn() })
+  ;(editor.props.onKeydown as (event: unknown) => void)(key('Enter'))
+  expect(view.replaceText).not.toHaveBeenCalled()
+  ;(editor.props.onCompositionend as (event: unknown) => void)({ target: { value: '完成' } })
+  ;(editor.props.onKeydown as (event: unknown) => void)(key('Escape'))
+  await nextTick()
+  expect(view.textEditor()).toBeUndefined()
+  expect(view.replaceText).not.toHaveBeenCalled()
+  expect(view.textEditState).toHaveBeenLastCalledWith(false, false)
+})
+
+it('keeps rejected input and blocks competing row/timing/performer mutations during text editing', async () => {
+  const view = fixture()
+  view.replaceText.mockResolvedValue(false)
+  await view.beginEdit(0)
+  const editor = view.textEditor()
+  ;(editor.props.onInput as (event: unknown) => void)({ target: { value: 'Retry me' } })
+  view.apply(1)
+  view.apply(4)
+  view.check(1)
+  expect(view.assign).not.toHaveBeenCalled()
+  expect(view.retime).not.toHaveBeenCalled()
+  expect(view.selected()).toEqual([0])
+  expect(await view.component.value!.commitText()).toBe(false)
+  expect(view.textEditor().props.value).toBe('Retry me')
+  expect(view.textEditState).toHaveBeenLastCalledWith(true, true)
+  view.replaceText.mockResolvedValue(true)
+  expect(await view.component.value!.commitText()).toBe(true)
+  expect(view.replaceText).toHaveBeenLastCalledWith('a', 'Retry me')
 })
 
 it('assigns the same-line chorus to the entire checked selection', async () => {

@@ -7,6 +7,7 @@ const api = vi.hoisted(() => ({
   closeEditor: vi.fn(),
   assignEditorLines: vi.fn(),
   retimeEditorLines: vi.fn(),
+  replaceEditorLineText: vi.fn(),
 }))
 vi.mock('@renderer/shared/ipc/client', () => ({ auralis: { lyrics: api } }))
 
@@ -26,6 +27,7 @@ function state(revision = 'r1'): LyricsEditorState {
         assignment: 'unassigned',
         editable: true,
         timingEditable: true,
+        textEditable: true,
       },
       {
         id: 'b',
@@ -67,6 +69,45 @@ it('uses the returned revision for subsequent assignments and retains the same t
   ])
   expect(editor.session.value).toMatchObject({ trackId: 7, revision: 'r3', dirty: true })
   expect(failure).not.toHaveBeenCalled()
+})
+
+it('chains text with other mutations, serializes requests and preserves a rejected text draft', async () => {
+  const failure = vi.fn()
+  const editor = useDuetLyricsEditor(failure)
+  await editor.open(7)
+  api.replaceEditorLineText.mockResolvedValueOnce({ ok: true, value: state('r2') })
+  api.assignEditorLines.mockResolvedValueOnce({ ok: true, value: state('r3') })
+  expect(await editor.replaceText('b', 'Unsupported words')).toBe(false)
+  expect(api.replaceEditorLineText).not.toHaveBeenCalled()
+  expect(await editor.replaceText('a', 'New')).toBe(true)
+  await editor.assign(['a'], 'together')
+  expect(api.assignEditorLines).toHaveBeenLastCalledWith({
+    sessionId: 'session',
+    expectedRevision: 'r2',
+    lineIds: ['a'],
+    assignment: 'together',
+  })
+  const pending = deferred<LyricsEditorResult<LyricsEditorState>>()
+  api.replaceEditorLineText.mockReturnValue(pending.promise)
+  const replacing = editor.replaceText('a', 'Retry')
+  await editor.retime(['a'], 'set', 2500)
+  expect(api.retimeEditorLines).not.toHaveBeenCalled()
+  pending.resolve({ ok: false, code: 'stale-revision' })
+  expect(await replacing).toBe(false)
+  expect(editor.session.value?.revision).toBe('r3')
+  expect(failure).toHaveBeenCalledWith('stale-revision', undefined)
+})
+
+it('does not restore a text response after release', async () => {
+  const pending = deferred<LyricsEditorResult<LyricsEditorState>>()
+  api.replaceEditorLineText.mockReturnValue(pending.promise)
+  const editor = useDuetLyricsEditor(vi.fn())
+  await editor.open(7)
+  const replacing = editor.replaceText('a', 'Late')
+  await editor.release()
+  pending.resolve({ ok: true, value: state('r2') })
+  expect(await replacing).toBe(false)
+  expect(editor.session.value).toBeNull()
 })
 
 it('chains timing and performer revisions, blocks concurrent mutations and retains failed timing drafts', async () => {

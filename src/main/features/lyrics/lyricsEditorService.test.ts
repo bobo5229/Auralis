@@ -41,6 +41,103 @@ function fixture(options: { persist?: () => Promise<boolean>; now?: () => number
   return { service, persist }
 }
 describe('phase-one lyrics editor', () => {
+  it('saves text, chorus and time in one revision chain and retains an exact original backup', async () => {
+    const original = convertLrcToTtml(originalLrc).text
+    await writeFile(join(root, 'song.ttml'), original)
+    const { service } = fixture()
+    const opened = await service.open(10, 1)
+    expect(opened.lines[0]).toMatchObject({ textEditable: true, editableText: '第一句' })
+    const chorus = service.assign(10, {
+      sessionId: opened.sessionId,
+      expectedRevision: opened.revision,
+      lineIds: ['line-0'],
+      assignment: 'together',
+    })
+    const timed = service.retime(10, {
+      sessionId: chorus.sessionId,
+      expectedRevision: chorus.revision,
+      lineIds: ['line-0'],
+      mode: 'set-end',
+      valueMs: 2500,
+    })
+    const edited = service.replaceText(10, {
+      sessionId: timed.sessionId,
+      expectedRevision: timed.revision,
+      lineId: 'line-0',
+      text: '新歌词 & <literal>',
+    })
+    expect(edited.lines[0]).toMatchObject({
+      text: '新歌词 & <literal>',
+      timeSeconds: 1,
+      endTimeSeconds: 2.5,
+      assignment: 'together',
+    })
+    expect(() =>
+      service.replaceText(10, {
+        sessionId: opened.sessionId,
+        expectedRevision: opened.revision,
+        lineId: 'line-0',
+        text: 'Stale',
+      }),
+    ).toThrow('stale-revision')
+    expect(() =>
+      service.replaceText(11, {
+        sessionId: edited.sessionId,
+        expectedRevision: edited.revision,
+        lineId: 'line-0',
+        text: 'Wrong owner',
+      }),
+    ).toThrow('session-expired')
+    const saved = await service.save(10, {
+      sessionId: edited.sessionId,
+      expectedRevision: edited.revision,
+    })
+    expect(await readFile(saved.backupPath!, 'utf8')).toBe(original)
+    expect(await readFile(audio, 'utf8')).toBe('simulated-audio-do-not-decode')
+    expect(await readFile(lrcPath, 'utf8')).toBe(originalLrc)
+    const reopened = await service.open(10, 1)
+    expect(reopened.dirty).toBe(false)
+    expect(reopened.lines[0]).toMatchObject({
+      text: '新歌词 & <literal>',
+      editableText: '新歌词 & <literal>',
+      assignment: 'together',
+      endTimeSeconds: 2.5,
+    })
+  })
+
+  it('rejects text edits to timed words and keeps a valid draft after invalid text', async () => {
+    const raw =
+      '<tt xmlns="http://www.w3.org/ns/ttml"><body><p begin="1s" end="3s"><span begin="1s" end="2s">Word</span></p><p begin="4s" end="5s">Plain</p></body></tt>'
+    await writeFile(join(root, 'song.ttml'), raw)
+    const { service } = fixture()
+    const opened = await service.open(10, 1)
+    expect(opened.lines[0]).toMatchObject({ editable: true, textEditable: false })
+    expect(opened.lines[0].editableText).toBeUndefined()
+    expect(() =>
+      service.replaceText(10, {
+        sessionId: opened.sessionId,
+        expectedRevision: opened.revision,
+        lineId: 'line-0',
+        text: 'Flatten',
+      }),
+    ).toThrow('read-only-line')
+    expect(() =>
+      service.replaceText(10, {
+        sessionId: opened.sessionId,
+        expectedRevision: opened.revision,
+        lineId: 'line-1',
+        text: 'Bad\nline',
+      }),
+    ).toThrow('invalid-line-text')
+    const unchanged = service.replaceText(10, {
+      sessionId: opened.sessionId,
+      expectedRevision: opened.revision,
+      lineId: 'line-1',
+      text: 'Plain',
+    })
+    expect(unchanged.revision).toBe(opened.revision)
+    expect(unchanged.dirty).toBe(false)
+  })
   it('shares revisions between performer and timing edits and saves their combined result', async () => {
     const { service } = fixture()
     const opened = await service.open(10, 1)

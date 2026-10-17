@@ -1,5 +1,5 @@
 import type { PlayStatsRepository } from '../repositories/playStatsRepository'
-import type { DailyPlayCount, DailyTopTrack } from '@shared/types/listeningArchive'
+import type { DailyPlayCount, DailyTopAlbum, DailyTopTrack } from '@shared/types/listeningArchive'
 import { isListeningArchiveDate } from '@shared/listeningArchiveDate'
 
 /** In-memory idempotency window for sessionIds (insertion-order FIFO eviction). */
@@ -73,6 +73,11 @@ export class PlayStatsService {
   getDayTopTracks(date: string): DailyTopTrack[] {
     if (!isListeningArchiveDate(date)) throw new RangeError('Invalid listening archive date')
     return this.playStatsRepo.getDayTopTracks(date)
+  }
+
+  getDayTopAlbums(date: string): DailyTopAlbum[] {
+    if (!isListeningArchiveDate(date)) throw new RangeError('Invalid listening archive date')
+    return this.playStatsRepo.getDayTopAlbums(date)
   }
 
   resetAll(): { ok: true } {

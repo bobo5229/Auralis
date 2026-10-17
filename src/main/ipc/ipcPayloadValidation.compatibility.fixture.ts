@@ -58,6 +58,12 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
     expectedRevision: 'a'.repeat(64),
   },
   'lyrics:close-editor': { sessionId: '00000000-0000-4000-8000-000000000001' },
+  'lyrics:replace-editor-line-text': {
+    sessionId: '00000000-0000-4000-8000-000000000001',
+    expectedRevision: 'a'.repeat(64),
+    lineId: 'line-0',
+    text: 'Updated lyrics',
+  },
   'lyrics:retime-editor-lines': {
     sessionId: '00000000-0000-4000-8000-000000000001',
     expectedRevision: 'a'.repeat(64),
@@ -89,6 +95,7 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
   'playback:release-read-lease': { leaseId: 'lease' },
   'archive:get-annual-play-counts': { year: 2026 },
   'archive:get-day-top-tracks': { date: '2026-10-09' },
+  'archive:get-day-top-albums': { date: '2026-10-09' },
   'metadata:refresh-track': { trackId: 1 },
   'metadata:refresh-tracks': { trackIds: [1, 2] },
   'metadata:refresh-lyrics-missing': { limit: 100 },

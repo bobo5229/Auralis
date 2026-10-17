@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, useId, watch } from 'vue'
+import { computed, nextTick, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {
   LyricsAssignment,
   LyricsEditorState,
+  LyricsEditorLine,
   RetimeLyricsEditorLines,
 } from '@shared/types/lyricsEditor'
+import { MAX_TTML_LINE_CHARACTERS } from '@shared/types/lyricsEditor'
 import { formatTtmlEditorTime, parseTtmlEditorTime } from '../utils/ttmlTimeEditing'
 import { groupSimultaneousLyrics } from '../utils/groupSimultaneousLyrics'
 
@@ -14,10 +16,13 @@ const props = defineProps<{
   busy: boolean
   currentTime?: number
   matchesPlayback?: boolean
+  inactive?: boolean
+  replaceText?: (lineId: string, text: string) => Promise<boolean>
 }>()
 const emit = defineEmits<{
   assign: [lineIds: string[], assignment: LyricsAssignment]
   retime: [lineIds: string[], mode: RetimeLyricsEditorLines['mode'], valueMs: number]
+  'text-edit-state': [active: boolean, dirty: boolean]
 }>()
 const { t } = useI18n()
 const listId = useId()
@@ -25,21 +30,34 @@ const list = ref<HTMLElement | null>(null)
 const selected = ref(new Set<string>())
 const focused = ref<string | null>(null)
 let anchor: string | null = null
+const editing = ref<{ lineId: string; initial: string; text: string; sessionId: string } | null>(
+  null,
+)
+const lineEditor = ref<HTMLTextAreaElement | null>(null)
+const textSubmitting = ref(false)
+const textComposing = ref(false)
+const invalidText = computed(
+  () =>
+    !!editing.value &&
+    (editing.value.text.length > MAX_TTML_LINE_CHARACTERS ||
+      /[\r\n\u2028\u2029]/u.test(editing.value.text)),
+)
 const groups = computed(() => groupSimultaneousLyrics(props.session.lines))
 const editableLines = computed(() =>
   groups.value.flatMap((group) => group.lines).filter((line) => line.editable),
 )
-const enabled = computed(() => props.session.editable && !props.busy)
+const enabled = computed(() => props.session.editable && !props.busy && !props.inactive)
 const allSelected = computed(
   () => editableLines.value.length > 0 && selected.value.size === editableLines.value.length,
 )
-const canAssign = computed(() => enabled.value && selected.value.size > 0)
+const canAssign = computed(() => enabled.value && !editing.value && selected.value.size > 0)
 const selectedLines = computed(() =>
   props.session.lines.filter((line) => selected.value.has(line.id)),
 )
 const canRetime = computed(
   () =>
     enabled.value &&
+    !editing.value &&
     selectedLines.value.length > 0 &&
     selectedLines.value.length <= 10000 &&
     selectedLines.value.every((line) => line.timingEditable),
@@ -76,6 +94,10 @@ watch(
 watch(
   () => props.session.sessionId,
   () => {
+    editing.value = null
+    textSubmitting.value = false
+    textComposing.value = false
+    publishTextState()
     selected.value = new Set()
     focused.value = editableLines.value[0]?.id ?? null
     anchor = null
@@ -84,7 +106,7 @@ watch(
 )
 
 function choose(id: string, extend: boolean, toggle: boolean): void {
-  if (!enabled.value || !editableLines.value.some((line) => line.id === id)) return
+  if (!enabled.value || editing.value || !editableLines.value.some((line) => line.id === id)) return
   if (extend && anchor) {
     const ids = editableLines.value.map((line) => line.id)
     const start = ids.indexOf(anchor)
@@ -106,24 +128,30 @@ function choose(id: string, extend: boolean, toggle: boolean): void {
   focused.value = id
 }
 function click(event: MouseEvent, id: string): void {
+  if (editing.value) return
   choose(id, event.shiftKey, event.ctrlKey || event.metaKey)
   list.value?.focus({ preventScroll: true })
 }
 function check(event: MouseEvent, id: string): void {
+  if (editing.value) return
   choose(id, event.shiftKey, true)
   list.value?.focus({ preventScroll: true })
 }
 function selectAll(): void {
-  if (!enabled.value) return
+  if (!enabled.value || editing.value) return
   selected.value = allSelected.value
     ? new Set()
     : new Set(editableLines.value.map((line) => line.id))
 }
 function keydown(event: KeyboardEvent): void {
-  if (!enabled.value || event.isComposing) return
+  if (!enabled.value || editing.value || event.isComposing) return
   const modifier = event.ctrlKey || event.metaKey
   const rows = editableLines.value
-  if (modifier && event.key.toLowerCase() === 'a') {
+  if (event.key === 'F2' && focused.value) {
+    event.preventDefault()
+    const line = rows.find((line) => line.id === focused.value)
+    if (line) void beginTextEdit(line)
+  } else if (modifier && event.key.toLowerCase() === 'a') {
     event.preventDefault()
     event.stopPropagation()
     selected.value = new Set(rows.map((line) => line.id))
@@ -200,7 +228,89 @@ function commitEndTime(): void {
   )
     emit('retime', [...selected.value], 'set-end', valueMs!)
 }
-defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
+function publishTextState(): void {
+  emit(
+    'text-edit-state',
+    !!editing.value,
+    !!editing.value && editing.value.text !== editing.value.initial,
+  )
+}
+function focus(): void {
+  ;(lineEditor.value ?? list.value)?.focus({ preventScroll: true })
+}
+function setLineEditor(element: unknown): void {
+  lineEditor.value = element as HTMLTextAreaElement | null
+}
+async function beginTextEdit(line: LyricsEditorLine): Promise<void> {
+  if (!enabled.value || editing.value || !line.textEditable || !props.replaceText) return
+  choose(line.id, false, false)
+  const initial = line.editableText ?? line.text
+  editing.value = { lineId: line.id, initial, text: initial, sessionId: props.session.sessionId }
+  publishTextState()
+  await nextTick()
+  lineEditor.value?.focus({ preventScroll: true })
+  lineEditor.value?.select()
+}
+function inputText(event: Event): void {
+  if (!editing.value || textSubmitting.value) return
+  editing.value.text = (event.target as HTMLTextAreaElement).value
+  publishTextState()
+}
+function textCompositionEnd(event: CompositionEvent): void {
+  textComposing.value = false
+  inputText(event)
+}
+function cancelTextEdit(): void {
+  if (textSubmitting.value || props.busy) return
+  editing.value = null
+  textComposing.value = false
+  publishTextState()
+  void nextTick(() => list.value?.focus({ preventScroll: true }))
+}
+async function commitText(): Promise<boolean> {
+  const draft = editing.value
+  if (!draft) return true
+  if (
+    textSubmitting.value ||
+    textComposing.value ||
+    props.busy ||
+    invalidText.value ||
+    !props.replaceText
+  )
+    return false
+  if (draft.text === draft.initial) {
+    cancelTextEdit()
+    return true
+  }
+  textSubmitting.value = true
+  try {
+    const accepted = await props.replaceText(draft.lineId, draft.text)
+    if (editing.value !== draft || props.session.sessionId !== draft.sessionId) return false
+    if (accepted) {
+      editing.value = null
+      publishTextState()
+      await nextTick()
+      list.value?.focus({ preventScroll: true })
+    } else if (!props.inactive) {
+      await nextTick()
+      lineEditor.value?.focus({ preventScroll: true })
+    }
+    return accepted
+  } finally {
+    textSubmitting.value = false
+  }
+}
+function textKeydown(event: KeyboardEvent): void {
+  if (event.isComposing || textComposing.value || event.keyCode === 229) return
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    void commitText()
+  } else if (event.key === 'Escape') {
+    event.preventDefault()
+    cancelTextEdit()
+  }
+}
+defineExpose({ focus, stamp, commitText })
 </script>
 
 <template>
@@ -243,7 +353,7 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
       <button
         data-action="select-all"
         class="auralis-dialog-action"
-        :disabled="!enabled || !editableLines.length"
+        :disabled="!enabled || !!editing || !editableLines.length"
         @click="selectAll"
       >
         {{ t(allSelected ? 'lyricsEditor.deselectAll' : 'lyricsEditor.selectAll') }}
@@ -326,13 +436,14 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
     <div
       ref="list"
       class="duet-lines"
+      :class="{ 'duet-lines--text-editing': !!editing }"
       role="listbox"
       tabindex="0"
       aria-multiselectable="true"
       :aria-label="t('lyricsEditor.duetLines')"
       :aria-busy="busy"
       :aria-disabled="!enabled"
-      :aria-activedescendant="focused ? `${listId}-${focused}` : undefined"
+      :aria-activedescendant="!editing && focused ? `${listId}-${focused}` : undefined"
       @keydown="keydown"
       @mousedown.shift.prevent
     >
@@ -377,7 +488,32 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
               line.endTimeSeconds == null ? '—' : formatTtmlEditorTime(line.endTimeSeconds)
             }}</time>
           </span>
-          <span class="duet-text">{{ line.text || '—' }}</span>
+          <textarea
+            v-if="editing?.lineId === line.id"
+            :ref="setLineEditor"
+            v-tooltip="invalidText ? t('lyricsEditor.errors.invalidLineText') : undefined"
+            class="duet-text-editor"
+            rows="2"
+            spellcheck="false"
+            :value="editing.text"
+            :maxlength="MAX_TTML_LINE_CHARACTERS"
+            :readonly="busy || inactive || textSubmitting"
+            :aria-label="t('lyricsEditor.lineText')"
+            :aria-invalid="invalidText || undefined"
+            @input="inputText"
+            @click.stop
+            @dblclick.stop
+            @keydown.stop="textKeydown"
+            @compositionstart="textComposing = true"
+            @compositionend="textCompositionEnd"
+          />
+          <span
+            v-else
+            class="duet-text"
+            :class="{ 'duet-text--editable': line.textEditable && enabled && !editing }"
+            @dblclick.stop="beginTextEdit(line)"
+            >{{ line.text || '—' }}</span
+          >
           <span class="duet-assignment">
             {{
               line.assignment === 'performer-1'
@@ -552,6 +688,10 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
   cursor: default;
   opacity: 0.4;
 }
+.duet-lines--text-editing .duet-check {
+  cursor: default;
+  opacity: 0.4;
+}
 .duet-time {
   font-variant-numeric: tabular-nums;
 }
@@ -563,6 +703,33 @@ defineExpose({ focus: () => list.value?.focus({ preventScroll: true }), stamp })
 .duet-text {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.duet-text--editable {
+  cursor: text;
+}
+.duet-text-editor {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  max-height: 180px;
+  padding: 6px 8px;
+  resize: vertical;
+  border: 1px solid var(--auralis-focus-ring);
+  border-radius: 4px;
+  background: var(--auralis-dialog-bg);
+  color: var(--auralis-text);
+  font-family: inherit;
+  font-size: var(--auralis-type-control-size);
+  line-height: var(--auralis-type-control-line-height);
+  user-select: text;
+}
+.duet-text-editor:focus {
+  outline: 1px solid var(--auralis-focus-ring);
+  outline-offset: -1px;
+}
+.duet-text-editor[aria-invalid='true'] {
+  border-color: var(--auralis-danger);
 }
 .duet-line--readonly {
   color: var(--auralis-text-muted);

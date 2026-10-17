@@ -9,6 +9,7 @@ function createService() {
     resetAll: vi.fn(),
     getAnnualPlayCounts: vi.fn(() => [{ date: '2026-10-08', playCount: 2, durationSeconds: 360 }]),
     getDayTopTracks: vi.fn(() => []),
+    getDayTopAlbums: vi.fn(() => []),
   }
   return {
     service: new PlayStatsService(playStatsRepo as unknown as PlayStatsRepository),
@@ -30,6 +31,13 @@ describe('PlayStatsService recording and reset', () => {
     expect(playStatsRepo.incrementPlayCount).not.toHaveBeenCalled()
     expect(playStatsRepo.resetAll).not.toHaveBeenCalled()
   })
+  it('reads top albums for a valid local date without recording or resetting', () => {
+    const { service, playStatsRepo } = createService()
+    expect(service.getDayTopAlbums('2024-02-29')).toEqual([])
+    expect(playStatsRepo.getDayTopAlbums).toHaveBeenCalledExactlyOnceWith('2024-02-29')
+    expect(playStatsRepo.incrementPlayCount).not.toHaveBeenCalled()
+    expect(playStatsRepo.resetAll).not.toHaveBeenCalled()
+  })
   it.each([
     '2026-02-29',
     '2024-02-30',
@@ -41,7 +49,9 @@ describe('PlayStatsService recording and reset', () => {
   ])('rejects invalid local date %s', (date) => {
     const { service, playStatsRepo } = createService()
     expect(() => service.getDayTopTracks(date)).toThrow(RangeError)
+    expect(() => service.getDayTopAlbums(date)).toThrow(RangeError)
     expect(playStatsRepo.getDayTopTracks).not.toHaveBeenCalled()
+    expect(playStatsRepo.getDayTopAlbums).not.toHaveBeenCalled()
   })
   it('reads annual day counts without modifying statistics', () => {
     const { service, playStatsRepo } = createService()

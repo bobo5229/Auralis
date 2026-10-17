@@ -6,6 +6,7 @@ import type {
   LyricsEditorState,
   SaveLyricsEditor,
   RetimeLyricsEditorLines,
+  ReplaceLyricsEditorLineText,
 } from '@shared/types/lyricsEditor'
 import type { LyricsFormat } from '@shared/types/libraryScan'
 import {
@@ -21,6 +22,7 @@ import { LyricsEditorError } from './lyricsEditorError'
 import { MAX_LYRICS_CHARACTERS } from './ttmlDocument'
 import { readDuetDocument } from './duetDocument'
 import { retimeTtmlLines, timingEditableLines } from './ttmlLineTiming'
+import { plainParagraphText, replaceTtmlLineText } from './ttmlLineText'
 import {
   audioIdentity,
   authorizeLyricsPath,
@@ -103,7 +105,8 @@ export class LyricsEditorService {
 
   private state(session: Session): LyricsEditorState {
     const playback = readTtmlPlayback(session.text)
-    const timingIds = timingEditableLines(readDuetDocument(session.text))
+    const document = readDuetDocument(session.text)
+    const timingIds = timingEditableLines(document)
     const times = new Map<string, { start: number; end: number | null }>()
     for (const line of playback.lines)
       if (!times.has(line.editorLineId))
@@ -124,11 +127,20 @@ export class LyricsEditorService {
         const supported = ['unassigned', 'performer-1', 'performer-2', 'together'].includes(
           line.assignment,
         )
+        const editableText = plainParagraphText(document.lines.get(line.id)!)
+        const textEditable =
+          session.snapshot.editable &&
+          line.editable &&
+          supported &&
+          !playback.error &&
+          editableText !== null
         return {
           id: line.id,
           text: line.text,
           timeSeconds: times.get(line.id)?.start ?? null,
           endTimeSeconds: times.get(line.id)?.end ?? null,
+          textEditable,
+          ...(textEditable ? { editableText: editableText! } : {}),
           assignment: supported
             ? (line.assignment as LyricsEditorState['lines'][number]['assignment'])
             : 'unsupported',
@@ -283,6 +295,22 @@ export class LyricsEditorService {
     this.assertDraftBudget(text, session.cleanText, session.id)
     session.text = text
     session.snapshot = readDuetLyrics(text)
+    return this.state(session)
+  }
+
+  replaceText(owner: number, request: ReplaceLyricsEditorLineText): LyricsEditorState {
+    const session = this.session(owner, request.sessionId, request.expectedRevision)
+    if (typeof request.lineId !== 'string') throw new LyricsEditorError('invalid-request')
+    const view = this.state(session)
+    if (!view.editable) throw new LyricsEditorError('unsupported-document')
+    const line = view.lines.find((line) => line.id === request.lineId)
+    if (!line) throw new LyricsEditorError('unknown-line')
+    if (!line.editable || !line.textEditable) throw new LyricsEditorError('read-only-line')
+    const text = replaceTtmlLineText(session.text, request)
+    this.assertDraftBudget(text, session.cleanText, session.id)
+    const snapshot = readDuetLyrics(text)
+    session.text = text
+    session.snapshot = snapshot
     return this.state(session)
   }
 

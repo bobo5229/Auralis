@@ -34,7 +34,7 @@ describe('window behavior persistence', () => {
   it('atomically saves each choice and loads it in a new instance', () => {
     const dir = directory()
     const preference = createWindowBehaviorPreference(dir, vi.fn())
-    for (const behavior of ['minimize', 'tray', 'quit'] as const) {
+    for (const behavior of ['tray', 'quit'] as const) {
       preference.set(behavior)
       expect(preference.get()).toBe(behavior)
       expect(JSON.parse(readFileSync(join(dir, 'window-preferences.json'), 'utf8'))).toEqual({
@@ -48,12 +48,24 @@ describe('window behavior persistence', () => {
   it('keeps the previous choice and removes the temporary file when replacing fails', () => {
     const dir = directory()
     const preference = createWindowBehaviorPreference(dir, vi.fn())
-    preference.set('minimize')
+    preference.set('quit')
     const file = join(dir, 'window-preferences.json')
     rmSync(file)
     mkdirSync(file)
     expect(() => preference.set('tray')).toThrow('Could not save')
-    expect(preference.get()).toBe('minimize')
+    expect(preference.get()).toBe('quit')
     expect(readdirSync(dir)).toEqual(['window-preferences.json'])
+  })
+
+  it('maps legacy minimize-on-close to tray without rewriting the saved preference on read', () => {
+    const dir = directory()
+    const file = join(dir, 'window-preferences.json')
+    const legacy = JSON.stringify({ closeBehavior: 'minimize' })
+    writeFileSync(file, legacy)
+    const preference = createWindowBehaviorPreference(dir, vi.fn())
+    expect(preference.get()).toBe('tray')
+    expect(readFileSync(file, 'utf8')).toBe(legacy)
+    preference.set('quit')
+    expect(createWindowBehaviorPreference(dir, vi.fn()).get()).toBe('quit')
   })
 })

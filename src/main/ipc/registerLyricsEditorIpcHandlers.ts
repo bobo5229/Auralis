@@ -62,6 +62,9 @@ export function registerLyricsEditorIpcHandlers(
   registrar.handle(ipcChannels.lyrics.retimeEditorLines, (event, request) =>
     result(() => service.retime(owner(event.sender), request)),
   )
+  registrar.handle(ipcChannels.lyrics.replaceEditorLineText, (event, request) =>
+    result(() => service.replaceText(owner(event.sender), request)),
+  )
   registrar.handle(ipcChannels.lyrics.saveEditor, (event, request) =>
     result(() => service.save(owner(event.sender), request)),
   )

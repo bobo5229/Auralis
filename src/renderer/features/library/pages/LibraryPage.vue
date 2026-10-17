@@ -101,8 +101,8 @@ const flatContainerWidth = ref(0)
 let flatContainerWidthFrame = 0
 
 const LIBRARY_VIEW_MODE_KEY = 'auralis-library-view-mode'
+const RECENT_ADDED_VIEW_MODE_KEY = 'auralis-recent-added-view-mode'
 const COVER_TOP_INSET = LIBRARY_LAYOUT_METRICS.coverContentTopInset
-const recentAddedViewMode = ref<LibraryViewMode>('flat')
 const smartPlaylistId = computed(() => {
   if (route.name !== 'smart-playlist') return null
   const parsed = Number(route.params.id)
@@ -130,9 +130,12 @@ function captureLibraryRouteScope(): LibraryRouteScope {
   return { kind: 'library' }
 }
 
+function getViewModeStorageKey(): string {
+  return isRecentAdded.value ? RECENT_ADDED_VIEW_MODE_KEY : LIBRARY_VIEW_MODE_KEY
+}
+
 function readPersistedViewMode(): LibraryViewMode {
-  if (isRecentAdded.value) return recentAddedViewMode.value
-  const stored = localStorage.getItem(LIBRARY_VIEW_MODE_KEY)
+  const stored = localStorage.getItem(getViewModeStorageKey())
   return stored === 'cover' ? 'cover' : 'flat'
 }
 
@@ -549,14 +552,12 @@ function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId?: number
   beginViewSwitch(anchorTrackId ?? null)
 
   libraryViewMode.value = nextMode
-  if (isRecentAdded.value) {
-    recentAddedViewMode.value = nextMode
-  } else if (smartPlaylistId.value !== null) {
+  if (smartPlaylistId.value !== null) {
     void auralis.smartPlaylists.updateViewMode(smartPlaylistId.value, nextMode)
   } else if (playlistId.value !== null) {
     void auralis.playlists.updateViewMode(playlistId.value, nextMode)
   } else {
-    localStorage.setItem(LIBRARY_VIEW_MODE_KEY, nextMode)
+    localStorage.setItem(getViewModeStorageKey(), nextMode)
   }
   closeContextMenu('view-switch')
 }

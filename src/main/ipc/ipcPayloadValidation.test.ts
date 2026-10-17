@@ -113,8 +113,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(74)
-    expect(kinds).toEqual({ void: 21, optional: 6, required: 47 })
+    expect(actualChannels).toHaveLength(76)
+    expect(kinds).toEqual({ void: 21, optional: 6, required: 49 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -424,6 +424,7 @@ describe('domain IPC payload validation behavior', () => {
     ['playback:record-effective-play', { trackId: 1, sessionId: 'x', playedAtIso: 'today' }],
     ['window:control', { action: 'open-devtools' }],
     ['window:set-close-behavior', { behavior: 'hide' }],
+    ['window:set-close-behavior', { behavior: 'minimize' }],
     ['window:set-close-behavior', { behavior: 'tray', path: 'C:/untrusted' }],
   ] as const)('rejects malformed payload for %s', (channel, payload) => {
     expect(() => parse(channel, payload)).toThrow(IpcPayloadValidationError)
@@ -573,6 +574,25 @@ describe('domain IPC payload validation behavior', () => {
       { filePath: 'arbitrary.ttml' },
     ])
       expect(() => parse('lyrics:retime-editor-lines', { ...request, ...patch })).toThrow()
+  })
+
+  it('accepts bounded plain text edits without exposing file paths or XML replacement', () => {
+    const request = {
+      sessionId: '00000000-0000-4000-8000-000000000001',
+      expectedRevision: 'a'.repeat(64),
+      lineId: 'line-0',
+      text: 'Literal & <text>',
+    }
+    expect(parse('lyrics:replace-editor-line-text', request)).toBeTruthy()
+    expect(parse('lyrics:replace-editor-line-text', { ...request, text: '' })).toBeTruthy()
+    for (const patch of [
+      { text: 'x'.repeat(8193) },
+      { text: 1 },
+      { lineId: '' },
+      { filePath: 'arbitrary.ttml' },
+      { xml: '<replacement/>' },
+    ])
+      expect(() => parse('lyrics:replace-editor-line-text', { ...request, ...patch })).toThrow()
   })
 
   it('rejects extra invoke arguments and never reflects sensitive payload values', () => {

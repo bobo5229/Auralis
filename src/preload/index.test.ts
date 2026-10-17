@@ -18,8 +18,8 @@ describe('archive preload capabilities', () => {
   it('exposes only the typed close preference query and update', async () => {
     await auralisApi.window.getCloseBehavior()
     expect(invoke).toHaveBeenLastCalledWith('window:get-close-behavior')
-    await auralisApi.window.setCloseBehavior('minimize')
-    expect(invoke).toHaveBeenLastCalledWith('window:set-close-behavior', { behavior: 'minimize' })
+    await auralisApi.window.setCloseBehavior('tray')
+    expect(invoke).toHaveBeenLastCalledWith('window:set-close-behavior', { behavior: 'tray' })
   })
 
   it('claims a startup album through an explicit capability with presentation history', async () => {
@@ -45,6 +45,7 @@ describe('archive preload capabilities', () => {
     expect(Object.keys(auralisApi.archive)).toEqual([
       'getAnnualPlayCounts',
       'getDayTopTracks',
+      'getDayTopAlbums',
       'resetPlayStats',
     ])
   })
@@ -65,6 +66,14 @@ describe('archive preload capabilities', () => {
     invoke.mockResolvedValueOnce([])
     await expect(auralisApi.archive.getDayTopTracks('2026-10-09')).resolves.toEqual([])
     expect(invoke).toHaveBeenCalledExactlyOnceWith('archive:get-day-top-tracks', {
+      date: '2026-10-09',
+    })
+  })
+
+  it('routes only the selected local date through the explicit daily top albums channel', async () => {
+    invoke.mockResolvedValueOnce([])
+    await expect(auralisApi.archive.getDayTopAlbums('2026-10-09')).resolves.toEqual([])
+    expect(invoke).toHaveBeenCalledExactlyOnceWith('archive:get-day-top-albums', {
       date: '2026-10-09',
     })
   })

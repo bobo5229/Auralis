@@ -314,3 +314,81 @@ it('ranks at most three daily tracks including removed history with stable ties 
     db.close()
   }
 })
+
+it('ranks daily albums by duration, excludes unknown albums, and includes removed history', () => {
+  const db = new DatabaseCtor(':memory:')
+  try {
+    migrateDatabase(db)
+    db.exec(`INSERT INTO tracks(id,file_path,title,artist,album,album_artist,duration_seconds) VALUES
+      (1,'a1.flac','A1','Artist','Alpha','Artist',300),
+      (2,'a2.flac','A2','Artist','Alpha','Artist',300),
+      (3,'b1.flac','B1','Other','Beta','Other',600),
+      (4,'u1.flac','U1','Unknown','','',120),
+      (6,'c1.flac','C1','Artist','Gamma','Artist',100),
+      (7,'d1.flac','D1','Other','Delta','Other',600);
+      INSERT INTO albums(title,artist,artwork_cache_key) VALUES('Alpha','Artist','alpha-cover');
+      INSERT INTO daily_track_play_stats(play_date,track_id,play_count,duration_seconds) VALUES
+      ('2026-10-09',1,5,900),('2026-10-09',2,2,300),('2026-10-09',3,1,600),
+      ('2026-10-09',4,9,9999),('2026-10-09',6,3,300),('2026-10-09',7,2,600);
+      INSERT INTO removed_track_history(id,title,artist,album,album_artist,source_file_path,recovery_json)
+      VALUES(5,'Removed','Historical','Removed Album','Historical Artist','removed.flac','{}');
+      INSERT INTO removed_daily_track_play_stats(play_date,track_id,play_count,duration_seconds)
+      VALUES('2026-10-09',5,2,700);`)
+    const snapshot = () =>
+      [
+        'tracks',
+        'albums',
+        'daily_track_play_stats',
+        'removed_track_history',
+        'removed_daily_track_play_stats',
+      ].map((table) => db.prepare(`SELECT * FROM ${table}`).all())
+    const before = snapshot()
+    const service = new PlayStatsService(new PlayStatsRepository(db))
+    expect(service.getDayTopAlbums('2026-10-09')).toEqual([
+      {
+        album: 'Alpha',
+        albumArtist: 'Artist',
+        artworkCacheKey: 'alpha-cover',
+        playCount: 7,
+        durationSeconds: 1200,
+        trackCount: 2,
+      },
+      {
+        album: 'Removed Album',
+        albumArtist: 'Historical Artist',
+        artworkCacheKey: null,
+        playCount: 2,
+        durationSeconds: 700,
+        trackCount: 1,
+      },
+      {
+        album: 'Delta',
+        albumArtist: 'Other',
+        artworkCacheKey: null,
+        playCount: 2,
+        durationSeconds: 600,
+        trackCount: 1,
+      },
+      {
+        album: 'Beta',
+        albumArtist: 'Other',
+        artworkCacheKey: null,
+        playCount: 1,
+        durationSeconds: 600,
+        trackCount: 1,
+      },
+      {
+        album: 'Gamma',
+        albumArtist: 'Artist',
+        artworkCacheKey: null,
+        playCount: 3,
+        durationSeconds: 300,
+        trackCount: 1,
+      },
+    ])
+    expect(service.getDayTopAlbums('2026-10-10')).toEqual([])
+    expect(snapshot()).toEqual(before)
+  } finally {
+    db.close()
+  }
+})

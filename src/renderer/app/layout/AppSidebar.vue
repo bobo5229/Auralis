@@ -39,6 +39,7 @@ import { useSidebarResize } from '../composables/useSidebarResize'
 import { animateTrashLid } from '@renderer/shared/animation/motion'
 import PlaylistIcon from './PlaylistIcon.vue'
 import SidebarIcon, { type SidebarIconKind } from './SidebarIcon.vue'
+import SidebarAlbumEntry from './SidebarAlbumEntry.vue'
 import { vBrandResonance } from './sidebarBrandMotion'
 
 const props = defineProps<{ maxWidth: number; resizeDisabled: boolean }>()
@@ -240,6 +241,7 @@ let pendingNavCleanup: (() => void) | null = null
 const POINTER_MOVE_TOLERANCE = 6
 
 const activePath = ref(route.path)
+const albumMenuOpen = ref(false)
 
 const primaryNav = computed<
   Array<{
@@ -266,11 +268,6 @@ const primaryNav = computed<
     label: t('sidebar.recentAdded'),
     icon: 'recentAdded',
     routeName: 'library',
-  },
-  {
-    to: '/albums/cd',
-    label: t('albums.cd.title'),
-    icon: 'cd',
   },
   {
     to: '/archive',
@@ -597,6 +594,7 @@ const resizeDisabled = computed(
     props.resizeDisabled ||
     isRail.value ||
     isSettingsOpen.value ||
+    albumMenuOpen.value ||
     createMenu.value !== null ||
     playlistContextMenu.value !== null ||
     isFacetsDialogOpen.value ||
@@ -626,6 +624,7 @@ watch(
     displayMode,
     createMenu,
     playlistContextMenu,
+    albumMenuOpen,
     isFacetsDialogOpen,
     isBuilderOpen,
     renamingPlaylist,
@@ -634,9 +633,7 @@ watch(
   { flush: 'sync' },
 )
 
-async function createPlaybackPreset(
-  preset: 'recentPlayed' | 'mostListened',
-): Promise<void> {
+async function createPlaybackPreset(preset: 'recentPlayed' | 'mostListened'): Promise<void> {
   if (creatingPlaybackPreset.value) return
   creatingPlaybackPreset.value = preset
   createError.value = ''
@@ -990,30 +987,51 @@ onBeforeUnmount(() => {
     >
       <section class="sidebar-primary-section">
         <div class="sidebar-section-label">{{ t('sidebar.library') }}</div>
-        <RouterLink
-          v-for="item in primaryNavItems"
-          :key="item.to"
-          v-tooltip.right="isRail ? item.label : ''"
-          :to="item.to"
-          class="sidebar-link"
-          :draggable="false"
-          :aria-label="item.label"
-          :class="{
-            'sidebar-link-with-count': item.count !== null,
-            'sidebar-link-active': isPrimaryNavActive(item.to),
-          }"
-          @dragstart.prevent
-          @pointerenter="onRouteIntent(item.routeName)"
-          @focusin="onRouteIntent(item.routeName)"
-          @pointerdown="setPendingActiveFromPointer($event, item.to)"
-          @keydown.enter="setPendingActive(item.to)"
-        >
-          <span class="sidebar-link-icon">
-            <SidebarIcon :kind="item.icon" />
-          </span>
-          <span class="sidebar-link-label">{{ item.label }}</span>
-          <span v-if="item.count !== null" class="sidebar-link-count">{{ item.count }}</span>
-        </RouterLink>
+        <template v-for="item in primaryNavItems" :key="item.to">
+          <SidebarAlbumEntry
+            v-if="item.to === '/albums'"
+            :rail="isRail"
+            :active="isPrimaryNavActive(item.to)"
+            :count="libraryStats.albumCount"
+            :blocked="
+              props.resizeDisabled ||
+              isSettingsOpen ||
+              isFacetsDialogOpen ||
+              isBuilderOpen ||
+              renamingPlaylist !== null ||
+              createMenu !== null ||
+              playlistContextMenu !== null ||
+              displayMode !== 'normal'
+            "
+            @intent="onRouteIntent(item.routeName)"
+            @navigate-pointer="setPendingActiveFromPointer($event, item.to)"
+            @navigate-enter="setPendingActive(item.to)"
+            @menu-open-change="albumMenuOpen = $event"
+          />
+          <RouterLink
+            v-else
+            v-tooltip.right="isRail ? item.label : ''"
+            :to="item.to"
+            class="sidebar-link"
+            :draggable="false"
+            :aria-label="item.label"
+            :class="{
+              'sidebar-link-with-count': item.count !== null,
+              'sidebar-link-active': isPrimaryNavActive(item.to),
+            }"
+            @dragstart.prevent
+            @pointerenter="onRouteIntent(item.routeName)"
+            @focusin="onRouteIntent(item.routeName)"
+            @pointerdown="setPendingActiveFromPointer($event, item.to)"
+            @keydown.enter="setPendingActive(item.to)"
+          >
+            <span class="sidebar-link-icon">
+              <SidebarIcon :kind="item.icon" />
+            </span>
+            <span class="sidebar-link-label">{{ item.label }}</span>
+            <span v-if="item.count !== null" class="sidebar-link-count">{{ item.count }}</span>
+          </RouterLink>
+        </template>
       </section>
 
       <section
@@ -1114,7 +1132,7 @@ onBeforeUnmount(() => {
         @focusin="isFlavorFocused = true"
         @focusout="isFlavorFocused = false"
       >
-        <div class="sidebar-status-card-main" :title="flavorLabel">
+        <div class="sidebar-status-card-main">
           <span class="sidebar-status-dot" aria-hidden="true"></span>
           <span
             v-if="!isRail"

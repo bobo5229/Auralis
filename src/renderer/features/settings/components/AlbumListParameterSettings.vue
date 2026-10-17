@@ -37,6 +37,10 @@ function onReset() {
     resetAnnounced.value = false
   }, 3000)
 }
+const fontColumns = computed(() => {
+  const midpoint = Math.ceil(ALBUM_LIST_FONT_FIELDS.length / 2)
+  return [ALBUM_LIST_FONT_FIELDS.slice(0, midpoint), ALBUM_LIST_FONT_FIELDS.slice(midpoint)]
+})
 const radiusProgress = computed(() => `${((preference.value.radius - 4) / 20) * 100}%`)
 defineExpose({ reset: onReset })
 </script>
@@ -56,104 +60,118 @@ defineExpose({ reset: onReset })
       <p v-if="persistFailed" class="song-font-weight-status is-warning" role="status">
         {{ t('settings.appearance.albumParameters.persistFailed') }}
       </p>
-      <div class="song-cover-options">
-        <h3 class="song-parameters-heading">
-          {{ t('settings.appearance.songFontWeight.coverSection') }}
-        </h3>
-        <div class="settings-row song-font-weight-row">
-          <div>
-            <strong>{{ t('settings.appearance.coverArtworkRounded') }}</strong>
-          </div>
-          <button
-            type="button"
-            class="settings-switch"
-            role="switch"
-            :aria-checked="preference.rounded"
-            :aria-label="t('settings.appearance.coverArtworkRounded')"
-            :class="{ 'is-enabled': preference.rounded }"
-            @click="
-              () => {
-                clearNotice()
-                setRounded(!preference.rounded)
-              }
-            "
-          >
-            <span class="settings-switch-thumb" aria-hidden="true" />
-          </button>
-        </div>
-        <Transition name="song-cover-radius-reveal">
-          <div v-if="preference.rounded" class="song-cover-radius-reveal">
+      <div class="page-parameter-sections">
+        <div class="page-parameter-sidebar">
+          <div class="page-parameter-module song-cover-options">
+            <h3 class="song-parameters-heading">
+              {{ t('settings.appearance.songFontWeight.coverSection') }}
+            </h3>
             <div class="settings-row song-font-weight-row">
               <div>
-                <strong id="album-cover-radius-label">{{
-                  t('settings.appearance.songFontWeight.coverRadius')
-                }}</strong>
+                <strong>{{ t('settings.appearance.coverArtworkRounded') }}</strong>
               </div>
-              <div class="settings-range-control">
-                <input
-                  id="album-cover-radius"
-                  type="range"
-                  min="4"
-                  max="24"
-                  step="2"
-                  :value="preference.radius"
-                  :style="{ '--settings-range-progress': radiusProgress }"
-                  aria-labelledby="album-cover-radius-label"
-                  @input="setRadius(Number(($event.target as HTMLInputElement).value))"
-                />
-                <output for="album-cover-radius">{{ preference.radius }} px</output>
+              <button
+                type="button"
+                class="settings-switch"
+                role="switch"
+                :aria-checked="preference.rounded"
+                :aria-label="t('settings.appearance.coverArtworkRounded')"
+                :class="{ 'is-enabled': preference.rounded }"
+                @click="
+                  () => {
+                    clearNotice()
+                    setRounded(!preference.rounded)
+                  }
+                "
+              >
+                <span class="settings-switch-thumb" aria-hidden="true" />
+              </button>
+            </div>
+            <Transition name="song-cover-radius-reveal">
+              <div v-if="preference.rounded" class="song-cover-radius-reveal">
+                <div class="settings-row song-font-weight-row">
+                  <div>
+                    <strong id="album-cover-radius-label">{{
+                      t('settings.appearance.songFontWeight.coverRadius')
+                    }}</strong>
+                  </div>
+                  <div class="settings-range-control">
+                    <input
+                      id="album-cover-radius"
+                      type="range"
+                      min="4"
+                      max="24"
+                      step="2"
+                      :value="preference.radius"
+                      :style="{ '--settings-range-progress': radiusProgress }"
+                      aria-labelledby="album-cover-radius-label"
+                      @input="setRadius(Number(($event.target as HTMLInputElement).value))"
+                    />
+                    <output for="album-cover-radius">{{ preference.radius }} px</output>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </div>
+        </div>
+        <section class="page-parameter-module song-font-options">
+          <h3 class="song-parameters-heading">
+            {{ t('settings.appearance.songFontWeight.typographySection') }}
+          </h3>
+          <div class="song-font-columns">
+            <div
+              v-for="(fields, columnIndex) in fontColumns"
+              :key="columnIndex"
+              class="song-font-column"
+            >
+              <div class="song-font-column-labels" aria-hidden="true">
+                <span>{{ t('settings.appearance.songFontWeight.sizeLabel') }}</span>
+                <span>{{ t('settings.appearance.songFontWeight.weightSection') }}</span>
+              </div>
+              <div class="song-font-weight-rows">
+                <div
+                  v-for="field in fields"
+                  :key="field"
+                  class="settings-row song-font-weight-row"
+                >
+                  <div>
+                    <strong :id="`album-font-${field}-label`">{{
+                      t(`settings.appearance.albumParameters.fields.${field}`)
+                    }}</strong>
+                  </div>
+                  <div class="song-font-controls">
+                    <SongFontSizeInput
+                      :id="`album-font-${field}-size`"
+                      :label="t(`settings.appearance.albumParameters.fields.${field}`)"
+                      :model-value="sizes[field]"
+                      :min="ALBUM_LIST_SIZE_RANGES[field].min"
+                      :max="ALBUM_LIST_SIZE_RANGES[field].max"
+                      @update:model-value="
+                        (value) => {
+                          clearNotice()
+                          setSize(field, value)
+                        }
+                      "
+                    />
+                    <SongFontWeightSelect
+                      :id="`album-font-${field}-weight`"
+                      :labelledby="`album-font-${field}-label`"
+                      :model-value="preference.weights[field] ?? 'default'"
+                      :default-weight="defaultWeights[field]"
+                      :disabled="inactive"
+                      @update:model-value="
+                        (value) => {
+                          clearNotice()
+                          setWeight(field, value)
+                        }
+                      "
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </Transition>
-      </div>
-      <h3 class="song-parameters-heading">
-        {{ t('settings.appearance.songFontWeight.typographySection') }}
-      </h3>
-      <div class="song-font-column-labels" aria-hidden="true">
-        <span>{{ t('settings.appearance.songFontWeight.sizeLabel') }}</span>
-        <span>{{ t('settings.appearance.songFontWeight.weightSection') }}</span>
-      </div>
-      <div class="song-font-weight-rows">
-        <div
-          v-for="field in ALBUM_LIST_FONT_FIELDS"
-          :key="field"
-          class="settings-row song-font-weight-row"
-        >
-          <div>
-            <strong :id="`album-font-${field}-label`">{{
-              t(`settings.appearance.albumParameters.fields.${field}`)
-            }}</strong>
-          </div>
-          <div class="song-font-controls">
-            <SongFontSizeInput
-              :id="`album-font-${field}-size`"
-              :label="t(`settings.appearance.albumParameters.fields.${field}`)"
-              :model-value="sizes[field]"
-              :min="ALBUM_LIST_SIZE_RANGES[field].min"
-              :max="ALBUM_LIST_SIZE_RANGES[field].max"
-              @update:model-value="
-                (value) => {
-                  clearNotice()
-                  setSize(field, value)
-                }
-              "
-            />
-            <SongFontWeightSelect
-              :id="`album-font-${field}-weight`"
-              :labelledby="`album-font-${field}-label`"
-              :model-value="preference.weights[field] ?? 'default'"
-              :default-weight="defaultWeights[field]"
-              :disabled="inactive"
-              @update:model-value="
-                (value) => {
-                  clearNotice()
-                  setWeight(field, value)
-                }
-              "
-            />
-          </div>
-        </div>
+        </section>
       </div>
     </div>
   </div>

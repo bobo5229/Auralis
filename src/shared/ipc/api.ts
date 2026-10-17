@@ -109,6 +109,9 @@ export interface AuralisApi {
     retimeEditorLines: (
       request: Req<'lyrics:retime-editor-lines'>,
     ) => Result<'lyrics:retime-editor-lines'>
+    replaceEditorLineText: (
+      request: Req<'lyrics:replace-editor-line-text'>,
+    ) => Result<'lyrics:replace-editor-line-text'>
     saveEditor: (request: Req<'lyrics:save-editor'>) => Result<'lyrics:save-editor'>
     closeEditor: (
       sessionId: Req<'lyrics:close-editor'>['sessionId'],
@@ -160,6 +163,9 @@ export interface AuralisApi {
     getDayTopTracks: (
       date: Req<'archive:get-day-top-tracks'>['date'],
     ) => Result<'archive:get-day-top-tracks'>
+    getDayTopAlbums: (
+      date: Req<'archive:get-day-top-albums'>['date'],
+    ) => Result<'archive:get-day-top-albums'>
   }
   metadata: {
     refreshTrack: (

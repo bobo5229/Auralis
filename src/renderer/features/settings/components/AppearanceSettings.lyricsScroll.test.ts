@@ -211,23 +211,25 @@ it('skips an unavailable tray option for keyboard and pointer selection and save
   await nextTick()
   ;(trigger.props.onClick as () => void)()
   await nextTick()
-  const tray = find(body, (node) => node.props.id === 'window-close-behavior-option-2')!
+  const tray = find(body, (node) => node.props.id === 'window-close-behavior-option-1')!
+  const listbox = find(body, (node) => node.props.role === 'listbox')!
+  expect(listbox.children.filter((node) => node.props.role === 'option')).toHaveLength(2)
   expect(tray.props['aria-disabled']).toBe(true)
   ;(tray.props.onClick as () => void)()
   expect(windowApi.setCloseBehavior).not.toHaveBeenCalled()
   const key = trigger.props.onKeydown as (event: unknown) => void
   key({ key: 'End', preventDefault: vi.fn() })
   await nextTick()
-  expect(trigger.props['aria-activedescendant']).toBe('window-close-behavior-option-1')
+  expect(trigger.props['aria-activedescendant']).toBe('window-close-behavior-option-0')
   key({ key: 'ArrowDown', preventDefault: vi.fn() })
   await nextTick()
-  expect(trigger.props['aria-activedescendant']).toBe('window-close-behavior-option-1')
+  expect(trigger.props['aria-activedescendant']).toBe('window-close-behavior-option-0')
   key({ key: 'Enter', preventDefault: vi.fn() })
   await Promise.resolve()
   await nextTick()
-  expect(windowApi.setCloseBehavior).toHaveBeenCalledWith('minimize')
+  expect(windowApi.setCloseBehavior).toHaveBeenCalledWith('quit')
   expect(find(root, (node) => node.props.id === 'window-close-behavior-value')?.text).toBe(
-    'settings.appearance.windowBehavior.minimize',
+    'settings.appearance.windowBehavior.quit',
   )
   app.unmount()
 })

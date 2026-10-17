@@ -2,6 +2,7 @@
 export type LyricsAssignment = 'unassigned' | 'performer-1' | 'performer-2' | 'together'
 
 export const MAX_LRC_EDITOR_CHARACTERS = 128 * 1024
+export const MAX_TTML_LINE_CHARACTERS = 8192
 
 export interface LrcEditorState {
   sessionId: string
@@ -54,6 +55,10 @@ export interface LyricsEditorLine {
   editable: boolean
   /** Missing capability is treated as read-only by older/mock providers. */
   timingEditable?: boolean
+  /** Plain paragraphs only; missing capability is read-only. */
+  textEditable?: boolean
+  /** Original decoded paragraph text, without display whitespace normalization. */
+  editableText?: string
 }
 
 export interface LyricsEditorState {
@@ -82,6 +87,13 @@ export interface RetimeLyricsEditorLines {
   mode: 'set' | 'set-end' | 'shift'
   /** Absolute start/end for set/set-end; signed offset for shift. Integer milliseconds. */
   valueMs: number
+}
+
+export interface ReplaceLyricsEditorLineText {
+  sessionId: string
+  expectedRevision: string
+  lineId: string
+  text: string
 }
 
 export interface SaveLyricsEditor {
@@ -114,6 +126,7 @@ export type LyricsEditorErrorCode =
   | 'invalid-request'
   | 'invalid-time'
   | 'invalid-end-time'
+  | 'invalid-line-text'
   | 'stale-revision'
   | 'session-expired'
   | 'too-many-sessions'

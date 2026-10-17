@@ -62,8 +62,66 @@
   font-weight: 600;
 }
 
-.song-cover-options + .song-parameters-heading {
-  margin-top: 0;
+.page-parameter-sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.page-parameter-sidebar {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  gap: 16px;
+}
+
+.page-parameter-module,
+.song-font-column {
+  min-width: 0;
+}
+
+.song-font-weight-content {
+  container: page-parameters / inline-size;
+  min-width: 0;
+}
+
+.song-font-options {
+  container: parameter-fonts / inline-size;
+}
+
+.song-font-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.song-font-column + .song-font-column .song-font-column-labels {
+  display: none;
+}
+
+.song-font-column + .song-font-column {
+  border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
+}
+
+@container page-parameters (min-width: 656px) {
+  .page-parameter-sections:not(.page-parameter-sections--typography-only) {
+    grid-template-columns: minmax(240px, 1fr) minmax(320px, 2fr);
+  }
+}
+
+@container parameter-fonts (min-width: 656px) {
+  .song-font-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .song-font-column + .song-font-column {
+    border-top: 0;
+  }
+
+  .song-font-column + .song-font-column .song-font-column-labels {
+    display: grid;
+  }
 }
 
 .song-cover-radius-reveal {

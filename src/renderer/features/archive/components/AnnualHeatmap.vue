@@ -11,8 +11,8 @@ import { useArchivePanelMotion } from '../composables/useArchivePanelMotion'
 import { createAnnualCalendar } from '../utils/annualCalendar'
 import { playCountIntensity } from '../utils/playCountIntensity'
 
-const props = defineProps<{ year: number; days: DailyPlayCount[] }>()
-const emit = defineEmits<{ previousYear: []; nextYear: [] }>()
+const props = defineProps<{ year: number; days: DailyPlayCount[]; pinnedDate?: string | null }>()
+const emit = defineEmits<{ previousYear: []; nextYear: []; pinDate: [date: string] }>()
 const { t, locale } = useI18n()
 const calendar = computed(() => createAnnualCalendar(props.year))
 const counts = computed(() => new Map(props.days.map((day) => [day.date, day.playCount])))
@@ -53,7 +53,16 @@ function focus(date: string, event: FocusEvent) {
   focusDate.value = date
   bubble.preview(date, event.currentTarget as HTMLElement, true)
 }
+function pin(date: string) {
+  bubble.close()
+  emit('pinDate', date)
+}
 function navigate(date: string, event: KeyboardEvent) {
+  if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
+    event.preventDefault()
+    emit('pinDate', date)
+    return
+  }
   const dates = calendar.value.weeks.flat()
   const index = dates.indexOf(date)
   const row = index % 7
@@ -195,10 +204,14 @@ const weekdayLabels = computed(() => {
                 v-if="date"
                 type="button"
                 class="heatmap-cell heatmap-cell--interactive"
-                :class="`heatmap-cell--level-${playCountIntensity(counts.get(date) ?? 0)}`"
+                :class="[
+                  `heatmap-cell--level-${playCountIntensity(counts.get(date) ?? 0)}`,
+                  { 'heatmap-cell--pinned': pinnedDate === date },
+                ]"
                 :data-date="date"
                 :tabindex="focusDate === date ? 0 : -1"
                 :aria-label="dateLabel(date)"
+                :aria-current="pinnedDate === date ? 'date' : undefined"
                 aria-haspopup="dialog"
                 :aria-expanded="bubbleDate === date && expanded"
                 :aria-controls="bubbleDate === date && expanded ? overlayId : undefined"
@@ -209,6 +222,7 @@ const weekdayLabels = computed(() => {
                 @blur="bubble.leave"
                 @keydown="navigate(date, $event)"
                 @click="bubble.select(date, $event.currentTarget as HTMLElement)"
+                @contextmenu.prevent="pin(date)"
               ></button>
               <span v-else class="heatmap-cell heatmap-cell--padding" aria-hidden="true"></span>
             </template>
@@ -345,6 +359,11 @@ const weekdayLabels = computed(() => {
 .heatmap-cell--interactive:focus-visible {
   outline: 2px solid var(--auralis-focus-ring);
   outline-offset: 1px;
+}
+
+.heatmap-cell--pinned {
+  z-index: 1;
+  box-shadow: inset 0 0 0 2px var(--auralis-text);
 }
 
 .heatmap-cell--interactive[aria-expanded='true'] {

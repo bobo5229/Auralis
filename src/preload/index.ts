@@ -118,6 +118,7 @@ export const auralisApi: AuralisApi = {
     closeLrcEditor: (sessionId) => invoke(ipcChannels.lyrics.closeLrcEditor, { sessionId }),
     assignEditorLines: (request) => invoke(ipcChannels.lyrics.assignEditorLines, request),
     retimeEditorLines: (request) => invoke(ipcChannels.lyrics.retimeEditorLines, request),
+    replaceEditorLineText: (request) => invoke(ipcChannels.lyrics.replaceEditorLineText, request),
     saveEditor: (request) => invoke(ipcChannels.lyrics.saveEditor, request),
     closeEditor: (sessionId) => invoke(ipcChannels.lyrics.closeEditor, { sessionId }),
   },
@@ -147,6 +148,7 @@ export const auralisApi: AuralisApi = {
   archive: {
     getAnnualPlayCounts: (year) => invoke(ipcChannels.archive.getAnnualPlayCounts, { year }),
     getDayTopTracks: (date) => invoke(ipcChannels.archive.getDayTopTracks, { date }),
+    getDayTopAlbums: (date) => invoke(ipcChannels.archive.getDayTopAlbums, { date }),
     resetPlayStats: () => invoke(ipcChannels.archive.resetPlayStats),
   },
   metadata: {

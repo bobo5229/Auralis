@@ -243,6 +243,7 @@ function createApi(): AuralisApi {
       closeLrcEditor: vi.fn(),
       assignEditorLines: vi.fn(),
       retimeEditorLines: vi.fn(),
+      replaceEditorLineText: vi.fn(),
       saveEditor: vi.fn(),
       closeEditor: vi.fn(),
     },
@@ -267,6 +268,7 @@ function createApi(): AuralisApi {
     archive: {
       getAnnualPlayCounts: vi.fn(async () => []),
       getDayTopTracks: vi.fn(async () => []),
+      getDayTopAlbums: vi.fn(async () => []),
       resetPlayStats: vi.fn(),
     },
     metadata: {

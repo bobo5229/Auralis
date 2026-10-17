@@ -112,5 +112,37 @@ export function useDuetLyricsEditor(onFailure: (code: string, recoveryPath?: str
     }
   }
 
-  return { session, assigning, open, assign, retime, release }
+  async function replaceText(lineId: string, text: string): Promise<boolean> {
+    const current = session.value
+    if (
+      !current?.editable ||
+      assigning.value ||
+      !current.lines.some((line) => line.id === lineId && line.textEditable)
+    )
+      return false
+    const token = generation
+    assigning.value = true
+    try {
+      const result = await auralis.lyrics.replaceEditorLineText({
+        sessionId: current.sessionId,
+        expectedRevision: current.revision,
+        lineId,
+        text,
+      })
+      if (token !== generation) return false
+      if (!result.ok) {
+        onFailure(result.code, result.recoveryBackupPath)
+        return false
+      }
+      session.value = result.value
+      return true
+    } catch {
+      if (token === generation) onFailure('failed')
+      return false
+    } finally {
+      if (token === generation) assigning.value = false
+    }
+  }
+
+  return { session, assigning, open, assign, retime, replaceText, release }
 }

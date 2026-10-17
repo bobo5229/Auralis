@@ -4,14 +4,25 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
 import AnnualHeatmap from '../components/AnnualHeatmap.vue'
+import ArchiveDayAlbums from '../components/ArchiveDayAlbums.vue'
 import ArchiveSeasonBanner from '../components/ArchiveSeasonBanner.vue'
 import { useAnnualPlayCounts } from '../composables/useAnnualPlayCounts'
+import { useDayTopAlbums } from '../composables/useDayTopAlbums'
+import { usePinnedArchiveDay } from '../composables/usePinnedArchiveDay'
 import { resolveArchiveYear } from '../utils/archiveYear'
 
 const { t } = useI18n()
 const route = useRoute()
 const year = ref(resolveArchiveYear(route.query.year))
 const { days, isLoading, hasError } = useAnnualPlayCounts(year, auralis.archive, auralis.library)
+const { date: pinnedDate, pin: pinDay } = usePinnedArchiveDay(days, year)
+const {
+  albums: pinnedAlbums,
+  isLoading: pinnedAlbumsLoading,
+  hasError: pinnedAlbumsError,
+  refresh: refreshPinnedAlbums,
+} = useDayTopAlbums(pinnedDate, auralis.archive, auralis.library)
+
 function changeYear(step: number) {
   // Keep navigation within the existing archive query's supported calendar range.
   year.value = Math.min(9999, Math.max(1900, year.value + step))
@@ -31,9 +42,18 @@ const statusMessage = computed(() => {
       <AnnualHeatmap
         :year="year"
         :days="days"
+        :pinned-date="pinnedDate"
         :aria-busy="isLoading"
         @previous-year="changeYear(-1)"
         @next-year="changeYear(1)"
+        @pin-date="pinDay"
+      />
+      <ArchiveDayAlbums
+        :date="pinnedDate"
+        :albums="pinnedAlbums"
+        :loading="pinnedAlbumsLoading"
+        :failed="pinnedAlbumsError"
+        @retry="refreshPinnedAlbums"
       />
       <p class="sr-only" role="status">{{ statusMessage }}</p>
     </div>

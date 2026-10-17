@@ -1,0 +1,37 @@
+const {app,BrowserWindow}=require('electron'); const fs=require('node:fs/promises');const path=require('node:path');
+app.setPath('userData',path.join(__dirname,'isolated-profile'));app.setPath('sessionData',path.join(__dirname,'isolated-profile'));
+app.whenReady().then(async()=>{
+ const win=new BrowserWindow({show:false,width:680,height:600,useContentSize:true,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false,backgroundThrottling:false,offscreen:true}});
+ win.webContents.on('console-message',(_e,_l,m)=>console.log(m));
+ await win.loadFile(path.join(__dirname,'dist/index.html'));
+ const results=await win.webContents.executeJavaScript(`(async()=>{
+ const p=window.probe; const wait=()=>new Promise(r=>setTimeout(r,100)); await document.fonts.ready; await wait();
+ const checks=[];const assert=(name,ok,detail)=>{checks.push({name,pass:!!ok,detail});if(!ok)throw new Error(JSON.stringify(checks))};
+ const link=()=>document.querySelector('.sidebar-album-entry>.sidebar-link');const menu=()=>document.querySelector('[role=menu]');
+ const open=async(key='ContextMenu')=>{link().focus();link().dispatchEvent(new KeyboardEvent('keydown',{key,shiftKey:key==='F10',bubbles:true,cancelable:true}));await wait()};
+ assert('two sibling links in expanded',document.querySelectorAll('.sidebar-album-entry>a').length===2);
+ document.querySelector('.sidebar-cd-shortcut').click(); await wait();assert('CD shortcut route',p.router.currentRoute.value.path==='/albums/cd');
+ link().click();await wait();assert('album label route',p.router.currentRoute.value.path==='/albums');
+ p.state.rail=true;await wait();assert('rail hides CD shortcut',!document.querySelector('.sidebar-cd-shortcut'));
+ await open();assert('ContextMenu opens and focuses item',menu()&&document.activeElement?.getAttribute('role')==='menuitem');
+ document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));await wait();assert('Escape closes and restores focus',!menu()&&document.activeElement===link());
+ await open('F10');assert('Shift F10 opens',!!menu());document.querySelector('.sidebar-overlay').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));await wait();assert('outside closes and restores focus',!menu()&&document.activeElement===link());
+ link().dispatchEvent(new MouseEvent('contextmenu',{clientX:50,clientY:85,bubbles:true,cancelable:true}));await wait();assert('right click opens',!!menu());menu().querySelector('a').click();await wait();assert('menu action routes and closes',!menu()&&p.router.currentRoute.value.path==='/albums/cd');
+ await open();await p.router.push('/songs');await wait();assert('route closes menu',!menu());
+ await open();p.state.rail=false;await wait();assert('mode closes menu',!menu());
+ p.state.rail=true;await wait();await open();p.state.blocked=true;await wait();assert('blocked closes menu',!menu());await open();assert('blocked prevents menu',!menu());p.state.blocked=false;
+ await open();window.dispatchEvent(new Event('blur'));await wait();assert('blur closes menu',!menu());
+ await open();window.dispatchEvent(new Event('resize'));await wait();assert('resize closes menu',!menu());
+ p.state.rail=false;p.state.active=true;await wait();
+ const a=link().getBoundingClientRect();const s=document.querySelector('.sidebar-cd-shortcut').getBoundingClientRect();
+ assert('shortcut fits album row',s.left>=a.left&&s.right<=a.right&&s.top>=a.top&&s.bottom<=a.bottom,{album:a.toJSON(),shortcut:s.toJSON()});
+ return {checks,events:p.events,devicePixelRatio:devicePixelRatio};})()`);
+ await fs.writeFile(path.join(__dirname,'evidence.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results));
+ await win.webContents.executeJavaScript('new Promise(r=>setTimeout(r,500))');
+ await fs.writeFile(path.join(__dirname,'expanded.png'),(await win.webContents.capturePage()).toPNG());
+ await win.webContents.executeJavaScript(`window.probe.state.rail=true;new Promise(r=>setTimeout(r,350))`);
+ await fs.writeFile(path.join(__dirname,'rail.png'),(await win.webContents.capturePage()).toPNG());
+ await win.webContents.executeJavaScript(`document.querySelector('.sidebar-album-entry>.sidebar-link').dispatchEvent(new KeyboardEvent('keydown',{key:'ContextMenu',bubbles:true,cancelable:true}));new Promise(r=>setTimeout(r,350))`);
+ await fs.writeFile(path.join(__dirname,'rail-menu.png'),(await win.webContents.capturePage()).toPNG());
+ app.quit();
+}).catch(e=>{console.error(e);app.exit(1)});

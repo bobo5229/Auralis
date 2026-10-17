@@ -158,8 +158,6 @@ const lyricsProgress = ref(initialLyricsActive ? 1 : 0)
 const shouldMountLyrics = ref(initialLyricsActive)
 const isLyricsCollapsed = ref(!initialLyricsActive)
 const isLyricsInteractive = ref(initialLyricsActive)
-// The parameter panel keeps its original geometry independently of the lyrics preference.
-const pageParameterWidthPx = computed(() => computeLyricsTargetWidth(shellWidth.value))
 const lyricsTargetWidthPx = computed(() =>
   clampLyricsPanelWidth(
     lyricsPanelWidth.value || computeLyricsTargetWidth(shellWidth.value),
@@ -1268,6 +1266,7 @@ watch(displayMode, (mode) => {
             </KeepAlive>
           </Transition>
         </RouterView>
+        <PageParameterPanel :controller="pageParameters" />
       </main>
 
       <NowPlayingPanel
@@ -1291,7 +1290,6 @@ watch(displayMode, (mode) => {
     </div>
     <FullscreenPlayerOverlay />
   </div>
-  <PageParameterPanel :controller="pageParameters" :target-width-px="pageParameterWidthPx" />
   <SettingsDialog />
   <LyricsEditPanel
     ref="lyricsEditPanelRef"

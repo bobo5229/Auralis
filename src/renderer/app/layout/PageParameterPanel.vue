@@ -11,12 +11,13 @@ import {
   createReducedMotionQuery,
   type MotionQuery,
 } from '@renderer/shared/animation/motionPreference'
-import { animateLyricsPanelSlide, getLyricsSlideDuration } from './lyricsPanelSlideMotion'
+import { animatePageParameterPanel } from './pageParameterPanelMotion'
 import '@renderer/features/settings/styles/settings.chrome.css'
 import '@renderer/features/settings/styles/parameterSurface.css'
 
-const props = defineProps<{ controller: PageParameters; targetWidthPx: number }>()
+const props = defineProps<{ controller: PageParameters }>()
 const { t } = useI18n()
+const panelElement = ref<HTMLElement | null>(null)
 const closeButton = ref<HTMLButtonElement | null>(null)
 const content = ref<HTMLElement | null>(null)
 const parameterSettings = ref<{ reset: () => void } | null>(null)
@@ -39,40 +40,55 @@ const title = computed(() =>
       : 'pageParameters.albums',
   ),
 )
-let motion: ReturnType<typeof animateLyricsPanelSlide> | null = null
+let motion: ReturnType<typeof animatePageParameterPanel> | null = null
 let animatedElement: HTMLElement | null = null
 let finishMotion: (() => void) | null = null
 let reducedMotion: MotionQuery | undefined
+let boundsObserver: ResizeObserver | undefined
+let interruptedVisual: { transform: string; opacity: string } | null = null
 
 function cancelMotion() {
   if (motion && animatedElement) {
     const style = getComputedStyle(animatedElement)
-    const transform = style.transform
-    const opacity = style.opacity
+    const visual = style.display === 'none' && interruptedVisual ? interruptedVisual : style
+    const transform = visual.transform
+    const opacity = visual.opacity
     motion.cancel()
     animatedElement.style.transform = transform
     animatedElement.style.opacity = opacity
   }
   motion = null
   finishMotion = null
+  interruptedVisual = null
 }
+
+// v-show hides a cancelled leave before calling its cancellation hook. Capture
+// its visible position first without stopping motion when toggles share a tick.
+watch(
+  () => props.controller.open.value,
+  () => {
+    if (!motion || !animatedElement) return
+    const style = getComputedStyle(animatedElement)
+    interruptedVisual = { transform: style.transform, opacity: style.opacity }
+  },
+  { flush: 'sync' },
+)
 
 function slide(element: Element, to: number, done: () => void) {
   cancelMotion()
   const panel = element as HTMLElement
-  panel.style.height = to === 0 ? `${panel.getBoundingClientRect().height}px` : ''
+  const height = panel.getBoundingClientRect().height
+  panel.style.height = `${height}px`
   panel.inert = to === 0
   panel.style.pointerEvents = to === 0 ? 'none' : ''
   animatedElement = panel
-  const width = panel.getBoundingClientRect().width
   const style = getComputedStyle(panel)
   const offset = panel.style.transform
-    ? new DOMMatrixReadOnly(style.transform).m41
+    ? new DOMMatrixReadOnly(style.transform).m42
     : to === 1
-      ? width
+      ? -height
       : 0
-  const from = Math.max(0, Math.min(1, 1 - offset / width))
-  const opacity = panel.style.opacity ? Number(style.opacity) : from
+  const opacity = panel.style.opacity ? Number(style.opacity) : to === 1 ? 0 : 1
   let finished = false
   const finish = () => {
     if (finished) return
@@ -80,8 +96,10 @@ function slide(element: Element, to: number, done: () => void) {
     motion?.cancel()
     motion = null
     finishMotion = null
+    interruptedVisual = null
     panel.style.transform = ''
     panel.style.opacity = ''
+    panel.style.height = ''
     done()
   }
   finishMotion = finish
@@ -89,13 +107,13 @@ function slide(element: Element, to: number, done: () => void) {
     finish()
     return
   }
-  const current = animateLyricsPanelSlide(
+  const current = animatePageParameterPanel(
     panel,
-    from,
-    to,
+    offset,
+    to === 1 ? 0 : -height,
     opacity,
-    width,
-    getLyricsSlideDuration(from, to),
+    to === 1,
+    height,
   )
   motion = current
   void current.movement.finished.then(
@@ -132,6 +150,7 @@ watch(
   { flush: 'post' },
 )
 watch(contextKey, async () => {
+  settleMotion()
   await nextTick()
   if (content.value) content.value.scrollTop = 0
 })
@@ -140,9 +159,21 @@ onMounted(() => {
   reducedMotion.addEventListener('change', settleMotion)
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('resize', settleMotion)
+  const parent = panelElement.value?.parentElement
+  if (parent) {
+    let { width, height } = parent.getBoundingClientRect()
+    boundsObserver = new ResizeObserver(() => {
+      const bounds = parent.getBoundingClientRect()
+      if (bounds.width !== width || bounds.height !== height) settleMotion()
+      width = bounds.width
+      height = bounds.height
+    })
+    boundsObserver.observe(parent)
+  }
 })
 onBeforeUnmount(() => {
   cancelMotion()
+  boundsObserver?.disconnect()
   reducedMotion?.removeEventListener('change', settleMotion)
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('resize', settleMotion)
@@ -159,10 +190,10 @@ onBeforeUnmount(() => {
     @leave-cancelled="cancelMotion"
   >
     <section
+      ref="panelElement"
       v-show="controller.open.value"
       id="page-parameter-panel"
       class="page-parameter-panel parameter-panel-surface parameter-panel-surface--frosted settings-controls"
-      :style="{ '--page-parameter-width': `${targetWidthPx}px` }"
       role="dialog"
       aria-modal="false"
       aria-labelledby="page-parameter-title"
@@ -207,17 +238,47 @@ onBeforeUnmount(() => {
   --page-parameter-control-size: 11px;
   --page-parameter-field-width: 106px;
   --page-parameter-fields-width: calc(2 * var(--page-parameter-field-width) + 6px);
-  z-index: 50;
-  right: 0;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  width: min(max(var(--page-parameter-width), 340px), 100vw);
-  /* Auto margins center the content height without competing with the slide transform. */
-  height: fit-content;
-  max-height: calc(100vh - 2 * var(--background-panel-gap));
-  margin-block: auto;
+  --page-parameter-surface-alpha: 0.76;
+  --page-parameter-surface-filter: blur(18px) saturate(1.15);
+  --page-parameter-inline-inset: clamp(8px, 1.5%, 16px);
+  /* Stay above the page search layer (70) inside the main content stack. */
+  z-index: 80;
+  position: absolute;
+  top: 0;
+  left: var(--page-parameter-inline-inset);
+  right: var(--page-parameter-inline-inset);
+  bottom: auto;
+  border-radius: 0 0 16px 16px;
+  width: auto;
+  height: auto;
+  max-height: min(50vh, 100%);
+  margin: 0;
+  background: rgb(
+    from var(--auralis-frosted-surface-bg) r g b / var(--page-parameter-surface-alpha)
+  );
+  -webkit-backdrop-filter: var(--page-parameter-surface-filter);
+  backdrop-filter: var(--page-parameter-surface-filter);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 12%);
   -webkit-app-region: no-drag;
 }
+[data-theme='light'] .page-parameter-panel {
+  --page-parameter-surface-alpha: 0.72;
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .page-parameter-panel {
+    background: var(--auralis-fullscreen-controls-bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .page-parameter-panel {
+    background: var(--auralis-fullscreen-controls-bg);
+  }
+}
+
 .page-parameter-panel .parameter-panel-header {
   padding: 10px;
   gap: 6px;
@@ -226,12 +287,17 @@ onBeforeUnmount(() => {
   flex: 0 1 auto;
   padding: 10px 8px;
 }
+.page-parameter-panel :deep(.settings-group) {
+  margin-bottom: 0;
+}
 .page-parameter-panel .parameter-panel-header h2 {
   flex: 1;
   min-width: 0;
   font-size: var(--auralis-type-caption-size);
   line-height: var(--auralis-type-caption-line-height);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .page-parameter-panel .parameter-panel-close {
   width: 28px;
@@ -282,13 +348,16 @@ onBeforeUnmount(() => {
   flex: 1 1 auto;
   min-width: 0;
 }
+.page-parameter-panel :deep(.song-font-options .song-font-weight-row) {
+  flex-wrap: wrap;
+}
 .page-parameter-panel :deep(.song-font-column-labels),
 .page-parameter-panel :deep(.settings-row.song-font-weight-row > .song-font-controls) {
-  grid-template-columns: repeat(2, var(--page-parameter-field-width));
+  grid-template-columns: repeat(2, minmax(0, var(--page-parameter-field-width)));
   gap: 6px;
 }
 .page-parameter-panel :deep(.settings-row.song-font-weight-row > .song-font-controls) {
-  flex: 0 0 var(--page-parameter-fields-width);
+  flex: 0 1 var(--page-parameter-fields-width);
   width: var(--page-parameter-fields-width);
 }
 .page-parameter-panel :deep(.song-font-column-labels) {
@@ -320,23 +389,14 @@ onBeforeUnmount(() => {
   font-size: var(--page-parameter-control-size);
   white-space: nowrap;
 }
-.page-parameter-panel :deep(.song-cover-info-options .settings-row > div:first-child) {
-  flex: 1 0 auto;
-  min-width: max-content;
-}
 .page-parameter-panel :deep(.song-parameters-heading) {
   font-size: var(--auralis-type-caption-size);
-  margin-top: 4px;
+  margin-top: 0;
   padding: 8px 6px 4px;
+  border-top: 0;
 }
 .page-parameter-panel :deep(.song-font-weight-status) {
   padding: 2px 6px 6px;
-}
-.page-parameter-panel :deep(.song-font-weight-content > .song-parameters-heading:first-child),
-.page-parameter-panel :deep(.song-cover-options:first-child > .song-parameters-heading) {
-  margin-top: 0;
-  padding-top: 2px;
-  border-top: 0;
 }
 .page-parameter-panel :deep(.settings-range-control input) {
   width: 100%;
