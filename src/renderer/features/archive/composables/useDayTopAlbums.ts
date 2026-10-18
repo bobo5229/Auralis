@@ -60,7 +60,13 @@ export function useDayTopAlbums(
   }
 
   const unsubscribe = library.onChanged((event) => {
-    if (disposed || event.reason !== 'play-stats-reset') return
+    if (disposed) return
+    // Album identity and artwork come from current display metadata, independent of daily totals.
+    if (event.reason === 'metadata-refresh' || event.reason === 'file-change') {
+      void refresh()
+      return
+    }
+    if (event.reason !== 'play-stats-reset') return
     // Reset is authoritative; discard cached data and any outstanding old read
     // immediately. The annual summary drives the next relevant daily read.
     revision++

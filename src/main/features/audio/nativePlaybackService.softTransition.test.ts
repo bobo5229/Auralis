@@ -196,6 +196,7 @@ it.each(['cancel-next', 'replacement'] as const)(
     const coordinator = {
       acquireReadLease: vi.fn(async (path: string) => ({ leaseId: path, version: 1 })),
       releaseReadLease: vi.fn(),
+      isReadLeaseForTrack: () => true,
       markReadLeaseCurrent: vi.fn(),
     }
     const test = await setup(coordinator)
@@ -240,6 +241,7 @@ it('retains B ownership when only start-file arrives before cancellation complet
   const coordinator = {
     acquireReadLease: vi.fn(async (path: string) => ({ leaseId: path, version: 1 })),
     releaseReadLease: vi.fn(),
+    isReadLeaseForTrack: () => true,
     markReadLeaseCurrent: vi.fn(),
   }
   const test = await setup(coordinator)
@@ -323,6 +325,7 @@ it('continues B after the bridge reaches EOF while its continuation is being res
   const coordinator = {
     acquireReadLease: vi.fn(async (path: string) => ({ leaseId: path, version: 1 })),
     releaseReadLease: vi.fn(),
+    isReadLeaseForTrack: () => true,
     markReadLeaseCurrent: vi.fn(),
   }
   const test = await setup(coordinator)
@@ -359,6 +362,7 @@ it.each([false, true])(
     const coordinator = {
       acquireReadLease: vi.fn(async (path: string) => ({ leaseId: path, version: 1 })),
       releaseReadLease: vi.fn(),
+      isReadLeaseForTrack: () => true,
       markReadLeaseCurrent: vi.fn(),
     }
     const test = await setup(coordinator)

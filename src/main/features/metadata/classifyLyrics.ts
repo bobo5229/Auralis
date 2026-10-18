@@ -1,12 +1,13 @@
 import { parseTtmlDocument } from '../lyrics/ttmlDocument'
 import type { LyricsFormat } from '@shared/types/libraryScan'
+import { LRC_TIMESTAMP_SOURCE } from '@shared/utils/lrcTiming'
 
 export interface ResolvedLyrics {
   text: string
   format: LyricsFormat
 }
 
-const LRC_TIMESTAMP = /\[(\d{1,2}):(\d{2})(?:[.:](\d{1,3}))?\]/
+const LRC_TIMESTAMP = new RegExp(LRC_TIMESTAMP_SOURCE)
 const TTML_ROOT = /<(?:[\w.-]+:)?tt(?=[\s>])/u
 
 /** Structural recognition only; timing and presentation are decoded by the consumer. */

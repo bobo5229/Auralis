@@ -16,6 +16,19 @@ describe('audioPathGuard', () => {
 
     expect(isPathUnderRoot(sibling, root)).toBe(false)
     expect(isPathUnderRoot(traversal, root)).toBe(false)
+    expect(isPathUnderRoot(dirname(root), root)).toBe(false)
+  })
+
+  it.each(['...And Justice.flac', '..Bonus/record.flac', '..hidden.flac'])(
+    'accepts a legal dot-prefixed descendant: %s',
+    (name) => {
+      expect(isPathUnderRoot(join(root, name), root)).toBe(true)
+    },
+  )
+
+  it.runIf(process.platform === 'win32')('rejects paths on another drive', () => {
+    const otherDrive = root.startsWith('C:') ? 'D:' : 'C:'
+    expect(isPathUnderRoot(`${otherDrive}\\Music\\track.flac`, root)).toBe(false)
   })
 
   it('accepts a path under any configured root', () => {

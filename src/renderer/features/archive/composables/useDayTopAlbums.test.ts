@@ -73,7 +73,10 @@ describe('daily top albums', () => {
   })
 
   it('clears state without querying when no date is selected', async () => {
-    const { scope, state, getDayTopAlbums } = fixture(ref<string | null>(null))
+    const { scope, state, getDayTopAlbums, notify } = fixture(ref<string | null>(null))
+    await flush()
+    notify('metadata-refresh')
+    notify('file-change')
     await flush()
     expect(getDayTopAlbums).not.toHaveBeenCalled()
     expect(state.albums.value).toEqual([])
@@ -101,10 +104,10 @@ describe('daily top albums', () => {
     scope.stop()
   })
 
-  it('queries only when the selected day summary changes and clears immediately on reset', async () => {
+  it('queries for selected day summary changes and clears immediately on reset', async () => {
     const { scope, state, summary, getDayTopAlbums, notify } = fixture()
     await flush()
-    notify('metadata-refresh')
+    notify('track-missing')
     await flush()
     expect(getDayTopAlbums).toHaveBeenCalledOnce()
     notify('play-stats-updated')
@@ -118,6 +121,63 @@ describe('daily top albums', () => {
     await flush()
     expect(getDayTopAlbums).toHaveBeenCalledTimes(2)
     scope.stop()
+  })
+
+  it.each(['metadata-refresh', 'file-change'] as const)(
+    'refreshes album identity and artwork after %s even when daily totals are unchanged',
+    async (reason) => {
+      const updated = [
+        {
+          ...albums[0],
+          album: 'Updated album',
+          albumArtist: 'Updated artist',
+          artworkCacheKey: 'new-cover',
+        },
+      ]
+      const query = vi
+        .fn<DayTopAlbumsQuery>()
+        .mockResolvedValueOnce(albums)
+        .mockResolvedValueOnce(updated)
+      const { scope, state, summary, notify } = fixture(ref('2026-10-09'), query)
+      try {
+        await flush()
+        const previousSummary = summary.value
+        notify(reason)
+        await flush()
+        expect(query).toHaveBeenCalledTimes(2)
+        expect(query).toHaveBeenLastCalledWith('2026-10-09')
+        expect(summary.value).toBe(previousSummary)
+        expect(state.albums.value).toEqual(updated)
+      } finally {
+        scope.stop()
+      }
+    },
+  )
+
+  it('does not let an older metadata refresh overwrite a newer album result', async () => {
+    const older = deferred()
+    const newer = deferred()
+    const query = vi
+      .fn<DayTopAlbumsQuery>()
+      .mockResolvedValueOnce(albums)
+      .mockReturnValueOnce(older.promise)
+      .mockReturnValueOnce(newer.promise)
+    const { scope, state, notify } = fixture(ref('2026-10-09'), query)
+    try {
+      await flush()
+      notify('metadata-refresh')
+      notify('file-change')
+      expect(query).toHaveBeenCalledTimes(3)
+      const updated = [{ ...albums[0], album: 'Newest album', artworkCacheKey: 'latest-cover' }]
+      newer.resolve(updated)
+      await flush()
+      older.resolve([{ ...albums[0], album: 'Older album' }])
+      await flush()
+      expect(state.albums.value).toEqual(updated)
+      expect(state.isLoading.value).toBe(false)
+    } finally {
+      scope.stop()
+    }
   })
 
   it('keeps cached albums while refreshing and preserves their identity for equivalent results', async () => {
@@ -167,10 +227,11 @@ describe('daily top albums', () => {
     await state.refresh()
     expect(state.hasError.value).toBe(true)
     expect(state.albums.value).toBe(previous)
-    const refreshing = state.refresh()
+    notify('file-change')
+    expect(query).toHaveBeenCalledTimes(3)
     notify('play-stats-reset')
     pending.resolve(albums)
-    await refreshing
+    await flush()
     expect(state.albums.value).toEqual([])
     expect(state.isLoading.value).toBe(false)
     scope.stop()
@@ -194,11 +255,17 @@ describe('daily top albums', () => {
   it('unsubscribes on exit and ignores pending results', async () => {
     const pending = deferred()
     const getDayTopAlbums = vi.fn(() => pending.promise)
-    const { scope, state, unsubscribe } = fixture(ref<string | null>('2026-10-09'), getDayTopAlbums)
+    const { scope, state, unsubscribe, notify } = fixture(
+      ref<string | null>('2026-10-09'),
+      getDayTopAlbums,
+    )
     scope.stop()
     expect(unsubscribe).toHaveBeenCalledOnce()
+    notify('metadata-refresh')
+    notify('file-change')
     pending.resolve(albums)
     await flush()
     expect(state.albums.value).toEqual([])
+    expect(getDayTopAlbums).toHaveBeenCalledOnce()
   })
 })

@@ -1,18 +1,18 @@
-import type { LibraryScanWorkerMessage } from './libraryScanTypes'
-import type { ReadTrackResult } from './libraryScanTrackReader'
 import type {
-  AlbumArtworkPatch,
-  ScannedTrack,
-  TrackLyricsPatch,
-  TrackTagPatch,
-} from '@shared/types/libraryScan'
+  LibraryScanWorkerMessage,
+  ScannedTrackFile,
+  ScannedTagPatch,
+  ScannedLyricsPatch,
+} from './libraryScanTypes'
+import type { ReadTrackResult } from './libraryScanTrackReader'
+import type { AlbumArtworkPatch } from '@shared/types/libraryScan'
 
 /** Owns outgoing batches, counters and the complete inventory for one scan. */
 export class LibraryScanReporter {
-  private readonly trackBatch: ScannedTrack[] = []
-  private readonly tagBatch: TrackTagPatch[] = []
+  private readonly trackBatch: ScannedTrackFile[] = []
+  private readonly tagBatch: ScannedTagPatch[] = []
   private readonly artworkBatch: AlbumArtworkPatch[] = []
-  private readonly lyricsBatch: TrackLyricsPatch[] = []
+  private readonly lyricsBatch: ScannedLyricsPatch[] = []
   private readonly foundFilePaths: string[] = []
   private readonly unreadableDirectoryPaths: string[] = []
   private totalFiles = 0

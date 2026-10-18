@@ -29,6 +29,39 @@ function setupCoordinator() {
 }
 
 describe('PlaybackFileCoordinator', () => {
+  it('checks the current catalog binding of an active read lease without releasing it', async () => {
+    const { coordinator, trackFiles } = setupCoordinator()
+    const original = trackFiles.get(1)!
+    const lease = await coordinator.acquireReadLease(original, 'mpv-current')
+    expect(coordinator.isReadLeaseForTrack(lease.leaseId, 1, original)).toBe(true)
+    expect(coordinator.isReadLeaseForTrack(lease.leaseId, 2, original)).toBe(true)
+    expect(coordinator.isReadLeaseForTrack(lease.leaseId, 3, original)).toBe(false)
+    expect(coordinator.isReadLeaseForTrack(lease.leaseId, 1, trackFiles.get(3)!)).toBe(false)
+    expect(coordinator.isReadLeaseForTrack('expired', 1, original)).toBe(false)
+    trackFiles.set(1, 'D:/music/moved.flac')
+    expect(coordinator.isReadLeaseForTrack(lease.leaseId, 1, original)).toBe(false)
+    trackFiles.delete(1)
+    expect(coordinator.isReadLeaseForTrack(lease.leaseId, 1, original)).toBe(false)
+    expect(coordinator.tryAcquireWriteLease(original).ok).toBe(false)
+    coordinator.releaseReadLease(lease.leaseId)
+    expect(coordinator.isReadLeaseForTrack(lease.leaseId, 2, original)).toBe(false)
+    const write = coordinator.tryAcquireWriteLease(original)
+    expect(write.ok).toBe(true)
+    if (write.ok) coordinator.releaseWriteLease(write.leaseId)
+  })
+
+  it.runIf(process.platform === 'win32')(
+    'accepts equivalent Windows catalog path spellings',
+    async () => {
+      const { coordinator, trackFiles } = setupCoordinator()
+      const lease = await coordinator.acquireReadLease('d:\\MUSIC\\Song1.FLAC', 'mpv-current')
+      expect(coordinator.isReadLeaseForTrack(lease.leaseId, 1, 'D:/music/song1.flac')).toBe(true)
+      trackFiles.set(1, 'D:/music/Album/../song1.flac')
+      expect(coordinator.isReadLeaseForTrack(lease.leaseId, 1, 'D:/music/song1.flac')).toBe(true)
+      coordinator.releaseReadLease(lease.leaseId)
+    },
+  )
+
   it('retains current/next file versions and gates new opens through replacement', async () => {
     const { coordinator, trackFiles } = setupCoordinator()
     const path = 'D:/music/source.m4a'

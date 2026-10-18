@@ -12,8 +12,28 @@ import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
 import type { LibraryScanWorkerMessage } from './libraryScanTypes'
 import { LibraryScanService, type LibraryScanWorkerFactory } from './libraryScanService'
-import { readLyricsSnapshot } from '../metadata/resolveLyricsForFile'
+import {
+  getLyricsSidecarFingerprintSync,
+  readLyricsSnapshot,
+} from '../metadata/resolveLyricsForFile'
 import type { IAudioMetadata } from 'music-metadata'
+import type { ScannedTrack, TrackTagPatch, TrackLyricsPatch } from '@shared/types/libraryScan'
+
+// These lifecycle tests simulate worker output and its external filesystem.
+// Commit-time fingerprint checks remain real; real-file races have separate coverage.
+const workerFiles = vi.hoisted(() => new Map<string, { size: number; mtimeMs: number }>())
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+  return {
+    ...actual,
+    statSync: (path: string) => {
+      const file = workerFiles.get(path)
+      return file
+        ? { ...file, ctimeMs: 1, dev: 1, ino: 1, isFile: () => true }
+        : actual.statSync(path)
+    },
+  }
+})
 
 const nodeRequire = createRequire(import.meta.url)
 const DatabaseCtor = nodeRequire('better-sqlite3') as unknown as new (
@@ -63,11 +83,37 @@ function createHarness(
   }
 }
 
-function emitWorkerMessage(worker: FakeWorker, message: LibraryScanWorkerMessage): void {
-  worker.emit('message', message)
+function emitWorkerMessage(
+  worker: FakeWorker,
+  message:
+    | Exclude<LibraryScanWorkerMessage, { type: 'tracks' | 'trackTags' | 'trackLyrics' }>
+    | { type: 'tracks'; payload: ScannedTrack[] }
+    | { type: 'trackTags'; payload: TrackTagPatch[] }
+    | { type: 'trackLyrics'; payload: TrackLyricsPatch[] },
+): void {
+  if (message.type !== 'tracks' && message.type !== 'trackTags' && message.type !== 'trackLyrics') {
+    worker.emit('message', message)
+    return
+  }
+  worker.emit('message', {
+    ...message,
+    payload: message.payload.map((track) => {
+      const file = {
+        size: 'fileSize' in track ? track.fileSize : 100,
+        mtimeMs: 'fileMtimeMs' in track ? track.fileMtimeMs : track.lyricsCheckedMtimeMs,
+      }
+      workerFiles.set(track.filePath, file)
+      return {
+        ...track,
+        lyricsSidecarFingerprint: getLyricsSidecarFingerprintSync(track.filePath),
+        fileFingerprint: { ...file, ctimeMs: 1, dev: 1, ino: 1 },
+      }
+    }),
+  })
 }
 
 afterEach(async () => {
+  workerFiles.clear()
   for (const db of databases.splice(0)) if (db.open) db.close()
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true })
 })
@@ -225,7 +271,7 @@ describe('LibraryScanService worker lifecycle', () => {
             artworkCacheKey: null,
             lyricsText: null,
             lyricsFormat: null,
-            lyricsSidecarFingerprint: '[null,null]',
+            lyricsSidecarFingerprint: '[null,null,null,null]',
             isrc: 'MATCH',
             metadataSignature: 'new-signature',
           },
@@ -539,6 +585,8 @@ describe('LibraryScanService worker lifecycle', () => {
     expect(repo.getLyricsByTrackId(1)?.lyricsText).toBe('original lyrics')
 
     await service.startScan(rootId)
+    workerFiles.set('C:\\Music\\song.lrc', { size: 20, mtimeMs: 200 })
+    workerFiles.set('C:\\Music\\song.LRC', { size: 20, mtimeMs: 200 })
     emitWorkerMessage(worker, {
       type: 'tracks',
       payload: [
@@ -548,7 +596,7 @@ describe('LibraryScanService worker lifecycle', () => {
           metadataParserVersion: 'metadata:1',
           fileSize: 200,
           fileMtimeMs: 200,
-          lyricsSidecarFingerprint: '[[20,200],null]',
+          lyricsSidecarFingerprint: '[[20,200,1,1,1],[20,200,1,1,1],null,null]',
         },
       ],
     })
@@ -557,7 +605,7 @@ describe('LibraryScanService worker lifecycle', () => {
     expect(repo.getKnownFiles()[0]).toMatchObject({
       fileMtimeMs: 200,
       metadataCheckedMtimeMs: 200,
-      lyricsSidecarFingerprint: '[[20,200],null]',
+      lyricsSidecarFingerprint: '[[20,200,1,1,1],[20,200,1,1,1],null,null]',
       metadataParserVersion: 'metadata:1',
     })
     expect(send).toHaveBeenCalledWith('library:changed', {
@@ -641,14 +689,14 @@ describe('LibraryScanService worker lifecycle', () => {
             lyricsText: null,
             lyricsFormat: null,
             lyricsCheckedMtimeMs: 100,
-            lyricsSidecarFingerprint: '[null,null]',
+            lyricsSidecarFingerprint: '[null,null,null,null]',
           },
         ],
       })
       const repo = new TrackRepository(db)
       expect(repo.getKnownFiles()[0]).toMatchObject({
         lyricsCheckedMtimeMs: 100,
-        lyricsSidecarFingerprint: '[null,null]',
+        lyricsSidecarFingerprint: '[null,null,null,null]',
       })
       expect(repo.getLyricsByTrackId(1)?.lyricsText).toBeNull()
       expect(
@@ -824,88 +872,133 @@ describe('LibraryScanService worker lifecycle', () => {
     },
   )
 
-  it('commits valid fallback rows, suppresses cleanup after import failure, and resets for the next scan', async () => {
-    const root = await mkdtemp(join(tmpdir(), 'auralis-scan-import-fallback-'))
-    roots.push(root)
-    const { db, service, worker, rootId, send } = createHarness(root)
-    const makeTrack = (filePath: string, title: string) => ({
-      filePath,
-      title,
-      fileSize: 100,
-      fileMtimeMs: 1,
-      artist: 'Artist',
-      album: 'Album',
-      albumArtist: 'Artist',
-      trackNo: null,
-      discNo: null,
-      bitrateBps: null,
-      durationSeconds: 180,
-      year: null,
-      releaseDate: null,
-      copyright: null,
-      composer: null,
-      genre: null,
-      artworkCacheKey: null,
-      lyricsText: null,
-      lyricsFormat: null,
-      isrc: null,
-      metadataSignature: 'test',
-    })
-    const oldPath = join(root, 'old.flac')
-    new TrackRepository(db).upsertMany([makeTrack(oldPath, 'Old')])
-    const oldId = db.prepare('SELECT id FROM tracks WHERE file_path=?').pluck().get(oldPath)
-    db.exec(
-      "CREATE TRIGGER reject_bad_scan_row BEFORE INSERT ON tracks WHEN NEW.title='Bad' BEGIN SELECT RAISE(ABORT,'bad row'); END",
-    )
-    const tracks = [
-      makeTrack(join(root, 'good-one.flac'), 'One'),
-      makeTrack(join(root, 'bad.flac'), 'Bad'),
-      makeTrack(join(root, 'good-two.flac'), 'Two'),
-    ]
-    const first = await service.startScan(rootId)
-    emitWorkerMessage(worker, { type: 'tracks', payload: tracks })
-    expect(db.prepare('SELECT COUNT(*) FROM tracks').pluck().get()).toBe(1)
-    emitWorkerMessage(worker, {
-      type: 'complete',
-      payload: {
-        foundFilePaths: tracks.map((track) => track.filePath),
-        unreadableDirectoryPaths: [],
-      },
-    })
-    expect(service.getScanStatus(first.jobId)?.status).toBe('completed')
-    expect(db.prepare('SELECT title FROM tracks ORDER BY title').pluck().all()).toEqual([
-      'Old',
-      'One',
-      'Two',
-    ])
-    expect(db.prepare('SELECT availability FROM tracks WHERE id=?').pluck().get(oldId)).toBe(
-      'missing',
-    )
-    expect(db.prepare('SELECT COUNT(*) FROM removed_track_history').pluck().get()).toBe(0)
-    const addedEvent = send.mock.calls.find(
-      ([channel, payload]) => channel === 'library:changed' && payload.reason === 'track-added',
-    )
-    expect(addedEvent?.[1].filePaths).toEqual([tracks[0].filePath, tracks[2].filePath])
-    expect(
-      send.mock.calls.map(([channel, payload]) =>
-        channel === 'library:changed' ? payload.reason : payload.status,
-      ),
-    ).toEqual(['track-added', 'track-missing', 'completed'])
-    send.mockClear()
-    const second = await service.startScan(rootId)
-    emitWorkerMessage(worker, {
-      type: 'complete',
-      payload: {
-        foundFilePaths: [tracks[0].filePath, tracks[2].filePath],
-        unreadableDirectoryPaths: [],
-      },
-    })
-    expect(service.getScanStatus(second.jobId)?.status).toBe('completed')
-    expect(db.prepare('SELECT COUNT(*) FROM removed_track_history').pluck().get()).toBe(1)
-    expect(db.prepare('SELECT COUNT(*) FROM tracks WHERE id=?').pluck().get(oldId)).toBe(0)
-    expect(send).not.toHaveBeenCalledWith(
-      'library:changed',
-      expect.objectContaining({ reason: 'track-added' }),
-    )
-  })
+  it.each([0, 1])(
+    'reports import failures, suppresses cleanup and resets (read failures: %s)',
+    async (readFailures) => {
+      const root = await mkdtemp(join(tmpdir(), 'auralis-scan-import-fallback-'))
+      roots.push(root)
+      const { db, service, worker, rootId, send } = createHarness(root)
+      const makeTrack = (filePath: string, title: string) => ({
+        filePath,
+        title,
+        fileSize: 100,
+        fileMtimeMs: 1,
+        artist: 'Artist',
+        album: 'Album',
+        albumArtist: 'Artist',
+        trackNo: null,
+        discNo: null,
+        bitrateBps: null,
+        durationSeconds: 180,
+        year: null,
+        releaseDate: null,
+        copyright: null,
+        composer: null,
+        genre: null,
+        artworkCacheKey: null,
+        lyricsText: null,
+        lyricsFormat: null,
+        isrc: null,
+        metadataSignature: 'test',
+      })
+      const oldPath = join(root, 'old.flac')
+      new TrackRepository(db).upsertMany([makeTrack(oldPath, 'Old')])
+      const oldId = db.prepare('SELECT id FROM tracks WHERE file_path=?').pluck().get(oldPath)
+      db.exec(
+        "CREATE TRIGGER reject_bad_scan_row BEFORE INSERT ON tracks WHEN NEW.title='Bad' BEGIN SELECT RAISE(ABORT,'bad row'); END",
+      )
+      const tracks = [
+        makeTrack(join(root, 'good-one.flac'), 'One'),
+        makeTrack(join(root, 'bad.flac'), 'Bad'),
+        makeTrack(join(root, 'good-two.flac'), 'Two'),
+      ]
+      const first = await service.startScan(rootId)
+      emitWorkerMessage(worker, {
+        type: 'progress',
+        payload: {
+          jobId: first.jobId,
+          status: 'scanning',
+          totalFiles: 3 + readFailures,
+          scannedFiles: 3 + readFailures,
+          failedFiles: readFailures,
+          currentFile: null,
+          message: null,
+        },
+      })
+      if (readFailures > 0) {
+        emitWorkerMessage(worker, {
+          type: 'failure',
+          payload: {
+            jobId: first.jobId,
+            filePath: join(root, 'unreadable.flac'),
+            reason: 'read failed',
+          },
+        })
+      }
+      send.mockClear()
+      emitWorkerMessage(worker, { type: 'tracks', payload: tracks })
+      expect(db.prepare('SELECT COUNT(*) FROM tracks').pluck().get()).toBe(1)
+      emitWorkerMessage(worker, {
+        type: 'complete',
+        payload: {
+          foundFilePaths: tracks.map((track) => track.filePath),
+          unreadableDirectoryPaths: [],
+        },
+      })
+      expect(service.getScanStatus(first.jobId)?.status).toBe('completed')
+      expect(service.getScanStatus(first.jobId)).toMatchObject({
+        totalFiles: 3 + readFailures,
+        scannedFiles: 3 + readFailures,
+        failedFiles: 1 + readFailures,
+      })
+      expect(
+        db
+          .prepare('SELECT file_path, reason FROM scan_failures WHERE job_id=? ORDER BY id')
+          .all(first.jobId),
+      ).toEqual([
+        ...(readFailures
+          ? [{ file_path: join(root, 'unreadable.flac'), reason: 'read failed' }]
+          : []),
+        { file_path: tracks[1].filePath, reason: 'bad row' },
+      ])
+      expect(send).toHaveBeenCalledWith(
+        'library:scan-progress',
+        expect.objectContaining({ status: 'completed', failedFiles: 1 + readFailures }),
+      )
+      expect(db.prepare('SELECT title FROM tracks ORDER BY title').pluck().all()).toEqual([
+        'Old',
+        'One',
+        'Two',
+      ])
+      expect(db.prepare('SELECT availability FROM tracks WHERE id=?').pluck().get(oldId)).toBe(
+        'missing',
+      )
+      expect(db.prepare('SELECT COUNT(*) FROM removed_track_history').pluck().get()).toBe(0)
+      const addedEvent = send.mock.calls.find(
+        ([channel, payload]) => channel === 'library:changed' && payload.reason === 'track-added',
+      )
+      expect(addedEvent?.[1].filePaths).toEqual([tracks[0].filePath, tracks[2].filePath])
+      expect(
+        send.mock.calls.map(([channel, payload]) =>
+          channel === 'library:changed' ? payload.reason : payload.status,
+        ),
+      ).toEqual(['track-added', 'track-missing', 'completed'])
+      send.mockClear()
+      const second = await service.startScan(rootId)
+      emitWorkerMessage(worker, {
+        type: 'complete',
+        payload: {
+          foundFilePaths: [tracks[0].filePath, tracks[2].filePath],
+          unreadableDirectoryPaths: [],
+        },
+      })
+      expect(service.getScanStatus(second.jobId)?.status).toBe('completed')
+      expect(db.prepare('SELECT COUNT(*) FROM removed_track_history').pluck().get()).toBe(1)
+      expect(db.prepare('SELECT COUNT(*) FROM tracks WHERE id=?').pluck().get(oldId)).toBe(0)
+      expect(send).not.toHaveBeenCalledWith(
+        'library:changed',
+        expect.objectContaining({ reason: 'track-added' }),
+      )
+    },
+  )
 })

@@ -138,6 +138,7 @@ it('requires handoff only while the attempt still needs a read lease', () => {
   const intent = writeLease(coordinator)
   const withoutHandoff = {
     acquireReadLease: coordinator.acquireReadLease.bind(coordinator),
+    isReadLeaseForTrack: coordinator.isReadLeaseForTrack.bind(coordinator),
     releaseReadLease: coordinator.releaseReadLease.bind(coordinator),
     releaseWriteLease: coordinator.releaseWriteLease.bind(coordinator),
   }

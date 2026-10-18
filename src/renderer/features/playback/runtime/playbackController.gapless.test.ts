@@ -7,6 +7,8 @@ import type {
   PlaybackAudioSnapshot,
 } from '../audio/playbackAudioRuntime'
 import type { PlaybackTrack } from '../types'
+import type { TrackListItem } from '@shared/types/libraryScan'
+import { SharedLibraryCatalogLoad } from '../../library/utils/sharedLibraryCatalogLoad'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -14,16 +16,18 @@ function deferred<T>() {
   return { promise, resolve }
 }
 
-function setup() {
-  const tracks: PlaybackTrack[] = [1, 2, 3, 4].map((id) => ({
-    id,
-    title: String(id),
-    artist: 'Artist',
-    albumArtist: 'Artist',
-    album: id < 3 ? 'First album' : 'Second album',
-    durationSeconds: 10,
-    artworkCacheKey: null,
-  }))
+function setup(sourceTracks?: PlaybackTrack[]) {
+  const tracks: PlaybackTrack[] =
+    sourceTracks ??
+    [1, 2, 3, 4].map((id) => ({
+      id,
+      title: String(id),
+      artist: 'Artist',
+      albumArtist: 'Artist',
+      album: id < 3 ? 'First album' : 'Second album',
+      durationSeconds: 10,
+      artworkCacheKey: null,
+    }))
   let callbacks!: PlaybackAudioCallbacks
   let changed!: Parameters<PlaybackDependencies['onLibraryChanged']>[0]
   let snapshot: PlaybackAudioSnapshot = {
@@ -160,6 +164,171 @@ function setup() {
 }
 
 describe('gapless navigation across asynchronous backend boundaries', () => {
+  it.each([
+    { mode: 'shuffle' as const, shuffleCycle: false },
+    { mode: 'shuffle' as const, shuffleCycle: true },
+    { mode: 'album-shuffle' as const, shuffleCycle: false },
+  ])('retains playlist scope after all its tracks become missing: %j', async (options) => {
+    const test = setup()
+    try {
+      test.api.setGaplessPlaybackEnabled(false)
+      const pool = test.tracks.slice(0, 2)
+      await test.api.playTrackFromQueue(pool, 1, {
+        playbackMode: options.mode,
+        shufflePool: pool,
+        shuffleCycle: options.shuffleCycle,
+      })
+      test.api.insertTrackAfterCurrent(test.tracks[2])
+      await test.api.playNext()
+      expect(test.api.state.currentTrackId).toBe(3)
+
+      test.changed('track-missing', [1, 2])
+      await test.api.playNext()
+      expect(test.api.state.currentTrackId).toBe(3)
+      expect(test.api.state.queue.map(({ id }) => id)).toEqual([3])
+
+      test.naturalEnded()
+      await vi.waitFor(() => expect(test.api.isPlaybackPending.value).toBe(false))
+      expect(test.api.state.currentTrackId).toBe(3)
+      expect(test.api.state.isPlaying).toBe(false)
+      expect(test.deps.getRandomTrack).not.toHaveBeenCalled()
+      expect(test.deps.getAlbumTracks).not.toHaveBeenCalled()
+      expect(test.deps.getRandomAlbumTracks).not.toHaveBeenCalled()
+    } finally {
+      test.dispose()
+    }
+  })
+
+  it('refreshes a frozen track retained only in the scoped shuffle pool', async () => {
+    const test = setup()
+    const tracks = test.tracks.map((track) => Object.freeze({ ...track }))
+    test.api.setGaplessPlaybackEnabled(false)
+    await test.api.playTrackFromQueue([tracks[0]], 1, {
+      playbackMode: 'shuffle',
+      shufflePool: tracks.slice(0, 2),
+    })
+    test.changed('metadata-refresh', [2])
+    await vi.waitFor(() => expect(test.deps.getTrackMetadata).toHaveBeenCalledWith(2))
+    await test.api.playNext()
+    await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('Edited 2'))
+    expect(tracks[1].title).toBe('2')
+    test.dispose()
+  })
+
+  it('refreshes a frozen track retained only in playback history', async () => {
+    const test = setup()
+    test.api.setGaplessPlaybackEnabled(false)
+    await test.api.playTrackFromQueue([Object.freeze({ ...test.tracks[0] })], 1, {
+      playbackMode: 'shuffle',
+    })
+    await test.api.playNext()
+    expect(test.api.state.currentTrackId).toBe(2)
+    test.changed('metadata-refresh', [1])
+    await vi.waitFor(() => expect(test.deps.getTrackMetadata).toHaveBeenCalledWith(1))
+    await test.api.playPrevious()
+    await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('Edited 1'))
+    test.dispose()
+  })
+
+  it('refreshes frozen catalog tracks without changing the snapshot or preloaded audio', async () => {
+    const fixture = setup()
+    const source = fixture.tracks
+    fixture.dispose()
+    const catalog = await new SharedLibraryCatalogLoad(async () => ({
+      snapshotId: 'frozen',
+      totalTracks: source.length,
+      tracks: source as TrackListItem[],
+      nextCursor: null,
+      diagnostics: { snapshotBuildMs: null, pageSliceMs: 0 },
+    })).load(() => true)
+    const test = setup([...catalog.tracks])
+    await test.api.playTrackFromQueue(test.tracks, 1)
+    await vi.waitFor(() => expect(test.runtime.scheduleNext).toHaveBeenCalled())
+    const scheduled = test.runtime.scheduleNext.mock.calls.length
+    const cancelled = test.runtime.cancelScheduledNext.mock.calls.length
+    const queue = test.api.state.queue
+    test.changed('metadata-refresh', [1, 2, 2, 99])
+    await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('Edited 1'))
+    expect(test.api.state.queue[1].title).toBe('Edited 2')
+    expect(test.api.state.queue).toBe(queue)
+    expect(test.deps.getTrackMetadata).toHaveBeenCalledTimes(2)
+    expect(catalog.tracks.map((track) => track.title)).toEqual(['1', '2', '3', '4'])
+    expect(Object.isFrozen(catalog.tracks[0])).toBe(true)
+    expect(test.runtime.scheduleNext).toHaveBeenCalledTimes(scheduled)
+    expect(test.runtime.cancelScheduledNext).toHaveBeenCalledTimes(cancelled)
+    test.boundary(2)
+    await vi.waitFor(() => expect(test.api.state.currentTrackId).toBe(2))
+    expect(test.api.state.currentTrack?.title).toBe('Edited 2')
+    expect(test.deps.diagnostics.warn).not.toHaveBeenCalled()
+    test.dispose()
+  })
+
+  it('applies a pending metadata batch to the current queue after replacement', async () => {
+    const test = setup()
+    await test.api.playTrackFromQueue(test.tracks, 1)
+    const pending =
+      deferred<Awaited<ReturnType<NonNullable<PlaybackDependencies['getTrackMetadata']>>>>()
+    vi.mocked(test.deps.getTrackMetadata!).mockReturnValueOnce(pending.promise)
+    test.changed('metadata-refresh', [1])
+    const replacement = test.tracks.map((track) => Object.freeze({ ...track }))
+    await test.api.playTrackFromQueue(replacement, 1)
+    pending.resolve({
+      trackId: 1,
+      title: 'After replacement',
+      artistDisplay: null,
+      albumTitle: null,
+      albumArtistDisplay: null,
+      genreDisplay: null,
+      year: null,
+      releaseDate: null,
+    })
+    await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('After replacement'))
+    expect(test.api.state.queue[0].title).toBe('After replacement')
+    expect(replacement[0].title).toBe('1')
+    test.dispose()
+  })
+
+  it('keeps the newer revision when an older batch waits for another track', async () => {
+    const test = setup()
+    await test.api.playTrackFromQueue(test.tracks, 1)
+    const slow =
+      deferred<Awaited<ReturnType<NonNullable<PlaybackDependencies['getTrackMetadata']>>>>()
+    vi.mocked(test.deps.getTrackMetadata!).mockImplementation(async (id) =>
+      id === 2
+        ? slow.promise
+        : {
+            trackId: id,
+            title: 'Old',
+            artistDisplay: null,
+            albumTitle: null,
+            albumArtistDisplay: null,
+            genreDisplay: null,
+            year: null,
+            releaseDate: null,
+          },
+    )
+    test.changed('metadata-refresh', [1, 2])
+    await Promise.resolve()
+    vi.mocked(test.deps.getTrackMetadata!).mockResolvedValueOnce({
+      trackId: 1,
+      title: 'Newest',
+      artistDisplay: null,
+      albumTitle: null,
+      albumArtistDisplay: null,
+      genreDisplay: null,
+      year: null,
+      releaseDate: null,
+    })
+    test.changed('metadata-refresh', [1])
+    await vi.waitFor(() => expect(test.api.state.currentTrack?.title).toBe('Newest'))
+    slow.resolve(null)
+    await Promise.resolve()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(test.api.state.currentTrack?.title).toBe('Newest')
+    test.dispose()
+  })
+
   it('refreshes current and preloaded metadata without rescheduling audio and adopts it at the boundary', async () => {
     const test = setup()
     await test.api.playTrackFromQueue(test.tracks, 1)

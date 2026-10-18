@@ -51,6 +51,18 @@ export class PlaybackHistory {
     this.entries = []
   }
 
+  visitTracks(
+    visit: (track: PlaybackTrack) => void,
+    visitQueue: (queue: PlaybackTrack[]) => void,
+  ): void {
+    for (const entry of this.entries) {
+      visit(entry.track)
+      visitQueue(entry.queue)
+      if (entry.shuffleTrackPool) visitQueue(entry.shuffleTrackPool)
+      if (entry.albumShuffleContext) visitQueue(entry.albumShuffleContext.tracks)
+    }
+  }
+
   removeTracks(trackIds: ReadonlySet<number>): void {
     this.entries = this.entries
       .filter((entry) => !trackIds.has(entry.track.id))
@@ -106,7 +118,9 @@ export function insertTracksAfterCurrent(
   const currentIndex = withoutInserted.findIndex((track) => track.id === currentTrackId)
   if (currentIndex < 0) return null
 
-  const nextQueue = [...withoutInserted]
-  nextQueue.splice(currentIndex + 1, 0, ...filtered)
+  // Keep batch size independent of the runtime's function argument limit.
+  const nextQueue = withoutInserted
+    .slice(0, currentIndex + 1)
+    .concat(filtered, withoutInserted.slice(currentIndex + 1))
   return { queue: nextQueue, currentIndex, queuedTrackId: filtered[0].id }
 }

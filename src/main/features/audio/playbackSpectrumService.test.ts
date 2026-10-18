@@ -75,6 +75,7 @@ function create() {
     emit: (frame) => frames.push(frame),
     warn: (error) => warnings.push(error),
     coordinator: {
+      isReadLeaseForTrack: () => true,
       acquireReadLease: async () => {
         const leaseId = String(++id)
         leases.add(leaseId)

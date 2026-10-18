@@ -1,4 +1,5 @@
 import { Worker } from 'node:worker_threads'
+import { stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { MetadataRefreshRepository } from '@main/repositories/metadataRefreshRepository'
 import type { RendererEventSender } from '@main/ipc/rendererEvents'
@@ -183,11 +184,17 @@ export class MetadataRefreshWorkerHost {
           const source = expectedTracks.get(f.trackId)
           if (f.jobId !== input.jobId || !source || source.filePath !== f.filePath) break
           failed += 1
-          if (
-            this.isMissingFileFailure(f.reason) &&
+          const matches = () =>
+            this.activeWorker === worker &&
+            this.activeJobId === input.jobId &&
             source.generation === this.writes.generationFor(f.trackId) &&
             !this.writes.isWriting(f.trackId) &&
             this.repository.getTrackFilePath(f.trackId) === f.filePath
+          if (
+            this.isMissingFileFailure(f.reason) &&
+            matches() &&
+            (await this.isConfirmedMissing(f.filePath)) &&
+            matches()
           ) {
             this.repository.markTrackMissing(f.trackId)
             this.pushChanged([f.trackId], 'track-missing')
@@ -267,7 +274,17 @@ export class MetadataRefreshWorkerHost {
   }
 
   private isMissingFileFailure(reason: string): boolean {
-    return /\bENOENT\b|no such file or directory/i.test(reason)
+    return /\bENOENT\b|\bENOTDIR\b|no such file or directory/i.test(reason)
+  }
+
+  private async isConfirmedMissing(filePath: string): Promise<boolean> {
+    try {
+      await stat(filePath)
+      return false
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      return code === 'ENOENT' || code === 'ENOTDIR'
+    }
   }
 
   private getChangedReason(jobId: number): 'metadata-refresh' | 'file-change' {

@@ -123,7 +123,7 @@ describe('scan sidecar invalidation', () => {
   function unchangedAudio(sidecar: { size: number; mtimeMs: number; text: string } | null) {
     harness.stat.mockImplementation(async (candidate: string) => {
       if (candidate === filePath) return { size: 100, mtimeMs: 100 }
-      if (sidecar && candidate.endsWith('.lrc')) return sidecar
+      if (sidecar && candidate.endsWith('.lrc')) return { ...sidecar, ctimeMs: 1, dev: 1, ino: 1 }
       throw Object.assign(new Error('missing'), { code: 'ENOENT' })
     })
     harness.readFile.mockImplementation(async (candidate: string) => {
@@ -150,7 +150,7 @@ describe('scan sidecar invalidation', () => {
             lyricsText: '[00:01]New lyrics',
             lyricsFormat: 'lrc',
             lyricsCheckedMtimeMs: 100,
-            lyricsSidecarFingerprint: '[[20,200],null,null,null]',
+            lyricsSidecarFingerprint: '[[20,200,1,1,1],null,null,null]',
           },
         ],
       })
@@ -208,6 +208,38 @@ describe('scan sidecar invalidation', () => {
     })
   })
 
+  it('upgrades a size/mtime-only sidecar snapshot once, then skips the unchanged file', async () => {
+    unchangedAudio({ size: 20, mtimeMs: 200, text: '[00:01]Lyrics' })
+    harness.input.knownFiles[0].lyricsSidecarFingerprint = '[[20,200],null,null,null]'
+    const messages = await scan()
+    const patch = messages.find((message) => message.type === 'trackLyrics')
+    if (patch?.type !== 'trackLyrics') throw new Error('Expected upgraded sidecar snapshot')
+    expect(patch.payload[0].lyricsSidecarFingerprint).toBe('[[20,200,1,1,1],null,null,null]')
+    harness.input.knownFiles[0].lyricsSidecarFingerprint = patch.payload[0].lyricsSidecarFingerprint
+    vi.resetModules()
+    harness.parseFile.mockClear()
+    expect((await scan()).some((message) => message.type === 'trackLyrics')).toBe(false)
+    expect(harness.parseFile).not.toHaveBeenCalled()
+  })
+
+  it('rejects a same-size/same-mtime sidecar replacement during the read', async () => {
+    unchangedAudio({ size: 20, mtimeMs: 200, text: '[00:01]Old lyrics' })
+    harness.readFile.mockImplementation(async (candidate: string) => {
+      if (candidate.endsWith('.lrc')) {
+        harness.stat.mockImplementation(async (path: string) => {
+          if (path === filePath) return { size: 100, mtimeMs: 100 }
+          if (path.endsWith('.lrc')) return { size: 20, mtimeMs: 200, ctimeMs: 1, dev: 1, ino: 2 }
+          throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+        })
+        return '[00:01]New lyrics'
+      }
+      throw Object.assign(new Error('missing'), { code: 'ENOENT' })
+    })
+    const messages = await scan()
+    expect(messages.filter((message) => message.type === 'failure')).toHaveLength(1)
+    expect(messages.some((message) => message.type === 'trackLyrics')).toBe(false)
+  })
+
   it('keeps the previous lyrics and fingerprint if a sidecar changes during the read', async () => {
     unchangedAudio({ size: 20, mtimeMs: 200, text: '[00:01]New lyrics' })
     harness.readFile.mockImplementation(async (candidate: string) => {
@@ -227,7 +259,8 @@ describe('scan TTML sidecar invalidation', () => {
   function unchangedAudio(text: string | null) {
     harness.stat.mockImplementation(async (candidate: string) => {
       if (candidate === filePath) return { size: 100, mtimeMs: 100 }
-      if (text !== null && candidate.endsWith('.ttml')) return { size: text.length, mtimeMs: 200 }
+      if (text !== null && candidate.endsWith('.ttml'))
+        return { size: text.length, mtimeMs: 200, ctimeMs: 1, dev: 1, ino: 1 }
       throw Object.assign(new Error('missing'), { code: 'ENOENT' })
     })
     harness.readFile.mockImplementation(async (candidate: string) => {
@@ -250,7 +283,12 @@ describe('scan TTML sidecar invalidation', () => {
             lyricsText: ttml,
             lyricsFormat: 'ttml',
             lyricsCheckedMtimeMs: 100,
-            lyricsSidecarFingerprint: JSON.stringify([null, null, [ttml.length, 200], null]),
+            lyricsSidecarFingerprint: JSON.stringify([
+              null,
+              null,
+              [ttml.length, 200, 1, 1, 1],
+              null,
+            ]),
           },
         ],
       })
@@ -283,7 +321,7 @@ describe('scan TTML sidecar invalidation', () => {
     harness.input.knownFiles[0].lyricsSidecarFingerprint = JSON.stringify([
       null,
       null,
-      [ttml.length, 200],
+      [ttml.length, 200, 1, 1, 1],
       null,
     ])
     vi.resetModules()
@@ -375,7 +413,10 @@ describe('unchanged metadata tag backfill', () => {
       })
       expect(tags?.type === 'trackTags' && tags.payload[0]).not.toHaveProperty('bitrateBps')
       expect(tags?.type === 'trackTags' && tags.payload[0]).not.toHaveProperty('durationSeconds')
-      expect(harness.parseFile).toHaveBeenCalledWith(filePath, { duration: false, skipCovers: true })
+      expect(harness.parseFile).toHaveBeenCalledWith(filePath, {
+        duration: false,
+        skipCovers: true,
+      })
       expect(messages.some((m) => m.type === 'tracks')).toBe(false)
       // Recording the checked mtime is what stops the next reread, not a bitrate write.
       harness.input.knownFiles[0].metadataCheckedMtimeMs = 100

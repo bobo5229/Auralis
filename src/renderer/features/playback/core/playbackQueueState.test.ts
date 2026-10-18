@@ -93,4 +93,19 @@ describe('queue insertion', () => {
     expect(insertTrackAfterCurrent([track(2)], 1, track(3))).toBeNull()
     expect(insertTracksAfterCurrent([track(1)], 1, [track(1)])).toBeNull()
   })
+
+  it('inserts a large batch in first-occurrence order without changing either source', () => {
+    const batch = Array.from({ length: 200_000 }, (_, index) => track(index + 10))
+    const queue = [track(1), batch[1], track(2), batch[0], track(3)]
+    const input = [batch[0], track(2), ...batch, batch[1]]
+    const result = insertTracksAfterCurrent(queue, 2, input)!
+
+    expect(result).toMatchObject({ currentIndex: 1, queuedTrackId: 10 })
+    expect(result.queue).toHaveLength(batch.length + 3)
+    expect(result.queue.slice(0, 5).map(({ id }) => id)).toEqual([1, 2, 10, 11, 12])
+    expect(result.queue.at(-1)?.id).toBe(3)
+    expect(result.queue.slice(2, -1)).toEqual(batch)
+    expect(queue.map(({ id }) => id)).toEqual([1, 11, 2, 10, 3])
+    expect(input).toHaveLength(batch.length + 3)
+  })
 })

@@ -1,4 +1,4 @@
-import { reactive, readonly, ref, type Ref } from 'vue'
+import { reactive, readonly, ref, toRaw, type Ref } from 'vue'
 import type { PlaybackMode, PlaybackState, PlaybackTrack } from '../types'
 import {
   createPlaybackAudioRuntime,
@@ -105,6 +105,40 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   const playbackRequestGate = createPlaybackRequestGate()
   let pendingAdvanceToken: PlaybackRequestToken | null = null
   const navigationSession = new PlaybackNavigationSession()
+  // Catalog snapshots are immutable. Keep one mutable playback copy per frozen
+  // object so queues, history and preloaded plans share metadata without editing it.
+  const mutableTracks = new WeakMap<PlaybackTrack, PlaybackTrack>()
+  function playbackTrack(track: PlaybackTrack): PlaybackTrack {
+    if (!Object.isFrozen(track)) return track
+    let copy = mutableTracks.get(track)
+    if (!copy) {
+      copy = reactive({ ...track })
+      mutableTracks.set(track, copy)
+    }
+    return copy
+  }
+  function playbackQueue(queue: PlaybackTrack[]): PlaybackTrack[] {
+    let copy = queue
+    for (let index = 0; index < queue.length; index += 1) {
+      const track = playbackTrack(queue[index])
+      if (track !== queue[index]) {
+        if (copy === queue) copy = queue.slice()
+        copy[index] = track
+      }
+    }
+    return copy
+  }
+  function preparePlaybackPlan(plan: PlaybackTransitionPlan): PlaybackTransitionPlan {
+    plan.track = playbackTrack(plan.track)
+    plan.queue = playbackQueue(plan.queue)
+    if (plan.nextAlbumShuffleContext) {
+      plan.nextAlbumShuffleContext = {
+        ...plan.nextAlbumShuffleContext,
+        tracks: playbackQueue(plan.nextAlbumShuffleContext.tracks),
+      }
+    }
+    return plan
+  }
   const queueSession = ref<PlaybackQueueSession | null>(null)
   let nextQueueSessionId = 0
 
@@ -280,9 +314,9 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
   function commitCurrentTrack(track: PlaybackTrack, queue: PlaybackTrack[], duration = 0): void {
     audioBuffering = false
-    state.queue = queue
+    state.queue = playbackQueue(queue)
     state.currentIndex = queue.findIndex((t) => t.id === track.id)
-    state.currentTrack = track
+    state.currentTrack = playbackTrack(track)
     state.currentTrackId = track.id
     state.selectedTrackId = track.id
     state.currentTime = 0
@@ -312,7 +346,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       transitionSource,
       'gapless-prefetch',
     )
-    return decision.kind === 'play' ? decision.plan : null
+    return decision.kind === 'play' ? preparePlaybackPlan(decision.plan) : null
   }
 
   function invalidateGaplessTransition(): void {
@@ -555,7 +589,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       }
 
       if (decision.kind === 'play') {
-        const plan = decision.plan
+        const plan = preparePlaybackPlan(decision.plan)
         const snapshot = audioRuntime.getSnapshot()
         if (
           state.playbackMode === 'repeat-one' &&
@@ -666,7 +700,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     await playTrackFromResolvedQueue(queue, trackId, {
       recordHistory: !options?.replaceHistory,
       resetShuffleContext: {
-        shufflePool: options?.shufflePool,
+        shufflePool: options?.shufflePool && playbackQueue(options.shufflePool),
         shuffleCycle: options?.shuffleCycle,
       },
     })
@@ -689,12 +723,12 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     }
 
     invalidateNavigationDecision(true)
-    state.queue = options.queue
+    state.queue = playbackQueue(options.queue)
     state.currentIndex = newIndex
     state.playbackMode = options.playbackMode
     navigationSession.resetQueueContext({
       mode: options.playbackMode,
-      shufflePool: options.shufflePool,
+      shufflePool: options.shufflePool && playbackQueue(options.shufflePool),
       shuffleCycle: options.shuffleCycle,
     })
 
@@ -715,7 +749,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     const insertion = navigationSession.insertSingleTrack(
       currentQueue,
       state.currentTrack.id,
-      track,
+      playbackTrack(track),
     )
     if (!insertion) return
 
@@ -734,7 +768,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     const insertion = navigationSession.insertMultipleTracks(
       currentQueue,
       state.currentTrack.id,
-      tracks,
+      playbackQueue(tracks),
     )
     if (!insertion) return
 
@@ -1026,45 +1060,71 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   const metadataRevisions = new Map<number, number>()
+  function visitPlaybackTracks(visit: (track: PlaybackTrack) => void): void {
+    const queues = new Set<PlaybackTrack[]>()
+    const visitQueue = (queue: PlaybackTrack[]) => {
+      const key = toRaw(queue)
+      if (queues.has(key)) return
+      queues.add(key)
+      for (const track of queue) visit(track)
+    }
+    if (state.currentTrack) visit(state.currentTrack)
+    visitQueue(state.queue)
+    navigationSession.visitTracks(visit, visitQueue)
+    const plans = new Set([...submittedPlans.values()].map(({ plan }) => plan))
+    if (preparingPlan) plans.add(preparingPlan)
+    for (const plan of plans) {
+      visit(plan.track)
+      visitQueue(plan.queue)
+      if (plan.nextAlbumShuffleContext) visitQueue(plan.nextAlbumShuffleContext.tracks)
+    }
+  }
+
   async function refreshPlaybackMetadata(trackIds: number[]): Promise<void> {
     if (!deps.getTrackMetadata) return
-    const candidates = () => [
-      state.currentTrack,
-      ...state.queue,
-      preparingPlan?.track,
-      ...(preparingPlan?.queue ?? []),
-      ...[...submittedPlans.values()].flatMap(({ plan }) => [plan.track, ...plan.queue]),
-    ]
-    await Promise.all(
-      [...new Set(trackIds)]
-        .filter((id) => candidates().some((track) => track?.id === id))
-        .map(async (id) => {
-          const revision = (metadataRevisions.get(id) ?? 0) + 1
-          metadataRevisions.set(id, revision)
-          try {
-            const metadata = await deps.getTrackMetadata!(id)
-            if (isDisposed || metadataRevisions.get(id) !== revision || metadata?.trackId !== id)
-              return
-            // Mutate metadata only, including already submitted transition plans.
-            // Replacing a queue would cancel/rebuild the decoder's preloaded next item.
-            for (const track of candidates()) {
-              if (track?.id === id)
-                Object.assign(track, {
-                  title: metadata.title,
-                  artist: metadata.artistDisplay,
-                  album: metadata.albumTitle,
-                  albumArtist: metadata.albumArtistDisplay,
-                })
-            }
-          } catch (cause) {
-            deps.diagnostics.warn({
-              scope: 'playback.metadata',
-              message: 'Unable to refresh playback metadata',
-              cause,
-            })
-          }
-        }),
+    const requested = new Set(trackIds)
+    const relevant = new Set<number>()
+    visitPlaybackTracks((track) => {
+      if (requested.has(track.id)) relevant.add(track.id)
+    })
+    const results = await Promise.all(
+      [...relevant].map(async (id) => {
+        const revision = (metadataRevisions.get(id) ?? 0) + 1
+        metadataRevisions.set(id, revision)
+        try {
+          const metadata = await deps.getTrackMetadata!(id)
+          return metadata?.trackId === id ? { id, revision, metadata } : undefined
+        } catch (cause) {
+          deps.diagnostics.warn({
+            scope: 'playback.metadata',
+            message: 'Unable to refresh playback metadata',
+            cause,
+          })
+          return undefined
+        }
+      }),
     )
+    if (isDisposed) return
+    const updates = new Map(
+      results.flatMap((result) =>
+        result && metadataRevisions.get(result.id) === result.revision
+          ? [[result.id, result.metadata] as const]
+          : [],
+      ),
+    )
+    if (updates.size === 0) return
+    // Re-read current targets after IPC: navigation may have changed while it
+    // was pending. Two queue passes per batch, not two passes per changed ID.
+    visitPlaybackTracks((track) => {
+      const metadata = updates.get(track.id)
+      if (metadata)
+        Object.assign(track, {
+          title: metadata.title,
+          artist: metadata.artistDisplay,
+          album: metadata.albumTitle,
+          albumArtist: metadata.albumArtistDisplay,
+        })
+    })
   }
 
   const unsubscribeLibraryChanged = deps.onLibraryChanged((event) => {

@@ -89,10 +89,30 @@ export function findUniqueRelocations(
   tracks: ScannedTrack[],
   canRelocate: (candidate: MissingTrackCandidate, track: ScannedTrack) => boolean = () => true,
 ): Map<string, MissingTrackCandidate> {
+  const byIsrc = new Map<string, MissingTrackCandidate[]>()
+  const byTitleAndArtist = new Map<string, Map<string, MissingTrackCandidate[]>>()
+  for (const candidate of candidates) {
+    if (candidate.isrc) {
+      const group = byIsrc.get(candidate.isrc) ?? []
+      group.push(candidate)
+      byIsrc.set(candidate.isrc, group)
+    } else if (candidate.title !== null && candidate.artist !== null) {
+      const artists = byTitleAndArtist.get(candidate.title) ?? new Map()
+      const group = artists.get(candidate.artist) ?? []
+      group.push(candidate)
+      artists.set(candidate.artist, group)
+      byTitleAndArtist.set(candidate.title, artists)
+    }
+  }
+
   const matches = new Map<string, MissingTrackCandidate>()
   const claims = new Map<number, number>()
   for (const track of tracks) {
-    const match = findUniqueRelocationCandidate(candidates, track)
+    const isrcGroup = track.isrc ? byIsrc.get(track.isrc) : undefined
+    // Any ISRC collision must abort, even when only one candidate's duration fits.
+    if (isrcGroup && isrcGroup.length !== 1) continue
+    const group = isrcGroup ?? byTitleAndArtist.get(track.title)?.get(track.artist) ?? []
+    const match = findUniqueRelocationCandidate(group, track)
     if (!match || !canRelocate(match, track)) continue
     matches.set(track.filePath, match)
     claims.set(match.trackId, (claims.get(match.trackId) ?? 0) + 1)

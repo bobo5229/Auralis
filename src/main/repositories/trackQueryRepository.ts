@@ -39,11 +39,12 @@ const albumTitleIdentityExpr = `CASE
 
 export class TrackQueryRepository extends BaseRepository {
   getChangeToken(): string {
-    // total_changes covers this connection; data_version covers worker connections.
-    const version = this.db
-      .prepare('SELECT total_changes() AS local, data_version AS external FROM pragma_data_version')
-      .get() as { local: number; external: number }
-    return `${version.local}:${version.external}`
+    // Persistent triggers track catalog data across every writer connection.
+    // Scan progress, job history and playlist edits do not invalidate the catalog.
+    return this.db
+      .prepare('SELECT CAST(revision AS TEXT) FROM library_catalog_revision WHERE id = 1')
+      .pluck()
+      .get() as string
   }
 
   getFilePathById(trackId: number): string | null {

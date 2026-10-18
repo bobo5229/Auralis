@@ -100,6 +100,34 @@ beforeEach(() => {
 })
 
 describe('scan orchestration boundaries', () => {
+  it.each(['ctimeMs', 'dev', 'ino'] as const)(
+    'rejects a file replaced during parsing even when size and mtime match: %s',
+    async (changedField) => {
+      const filePath = join(rootPath, 'song.flac')
+      const before = { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 }
+      let parsed = false
+      harness.stat.mockImplementation(async (path: string) => {
+        if (path === filePath) return parsed ? { ...before, [changedField]: 2 } : before
+        throw missing()
+      })
+      harness.parseFile.mockImplementation(async () => {
+        parsed = true
+        return metadata
+      })
+      const messages = await scan()
+      expect(messages).toContainEqual({
+        type: 'failure',
+        payload: {
+          jobId: harness.input.jobId,
+          filePath,
+          reason: 'Audio file changed while metadata was being read',
+        },
+      })
+      expect(messages.some((message) => message.type === 'tracks')).toBe(false)
+      expect(messages.at(-2)).toMatchObject({ type: 'progress', payload: { failedFiles: 1 } })
+    },
+  )
+
   it('completes an empty inventory with forced progress and no empty batches', async () => {
     harness.readdir.mockResolvedValue([])
     const messages = await scan()

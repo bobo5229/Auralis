@@ -16,6 +16,8 @@ export interface PlaybackCoordinator {
     signal?: AbortSignal,
   ) => Promise<{ leaseId: string; version: number }>
   releaseReadLease: (leaseId: string) => void
+  /** Synchronous catalog check immediately before opening a leased decoder path. */
+  isReadLeaseForTrack: (leaseId: string, trackId: number, filePath: string) => boolean
   markReadLeaseCurrent?: (leaseId: string) => void
   reserveWriteIntent?: (filePath: string) => string | null
   promoteWriteIntent?: (leaseId: string) => void

@@ -362,6 +362,13 @@ export class NativeNextTrackScheduler {
           if (leaseId) this.options.coordinator?.releaseReadLease(leaseId)
           return { accepted: false }
         }
+        if (
+          leaseId &&
+          !this.options.coordinator!.isReadLeaseForTrack(leaseId, request.trackId, nextPath)
+        ) {
+          this.options.coordinator!.releaseReadLease(leaseId)
+          return { accepted: false }
+        }
         this.next = { id: request.trackId, path: nextPath }
         this.runtime.holdNextLease(leaseId)
         scheduled = true

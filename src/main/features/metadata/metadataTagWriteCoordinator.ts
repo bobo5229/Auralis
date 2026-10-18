@@ -40,6 +40,7 @@ export class MetadataTagWriteCoordinator {
   private readonly writingFiles = new Set<string>()
   private readonly pendingPublishedWrites = new Map<number, EditableTrackMetadata>()
   private reconciliation: Promise<void> | null = null
+  private reconciliationRequested = false
   private readonly pendingWrites = new Set<Promise<UpdateTrackMetadataResult>>()
 
   constructor(
@@ -113,7 +114,12 @@ export class MetadataTagWriteCoordinator {
     if (this.writingTracks.has(metadata.trackId)) return { ok: false, reason: 'write-in-progress' }
 
     const existing = this.repository.getEditableTrackMetadata(metadata.trackId)
-    if (metadata.lyricsText === undefined && existing && isSameEditableMetadata(metadata, existing))
+    if (
+      metadata.lyricsText === undefined &&
+      !this.pendingPublishedWrites.has(metadata.trackId) &&
+      existing &&
+      isSameEditableMetadata(metadata, existing)
+    )
       return { ok: true }
 
     let writeLeaseId: string | null = null
@@ -209,10 +215,20 @@ export class MetadataTagWriteCoordinator {
 
   flushReconciliation(): void {
     if (this.lifecycle.isStopping() || this.lifecycle.hasActiveJob()) return
-    if (this.pendingPublishedWrites.size === 0 || this.reconciliation) return
+    if (this.pendingPublishedWrites.size === 0) return
+    if (this.reconciliation) {
+      this.reconciliationRequested = true
+      return
+    }
+    this.reconciliationRequested = false
     const run = this.reconcilePublishedWrites()
     const reconciliation = run.finally(() => {
-      if (this.reconciliation === reconciliation) this.reconciliation = null
+      if (this.reconciliation === reconciliation) {
+        this.reconciliation = null
+        // Only a new request schedules another pass. A persistent failure by
+        // itself must not cause an unbounded retry loop.
+        if (this.reconciliationRequested) this.flushReconciliation()
+      }
     })
     this.reconciliation = reconciliation
   }
@@ -224,22 +240,27 @@ export class MetadataTagWriteCoordinator {
 
   private async reconcilePublishedWrites(): Promise<void> {
     for (const [trackId, metadata] of [...this.pendingPublishedWrites]) {
-      if (!this.pendingPublishedWrites.has(trackId) || this.writingTracks.has(trackId)) continue
-      const filePath = this.repository.getTrackFilePath(trackId)
-      if (!filePath) {
-        this.pendingPublishedWrites.delete(trackId)
-        logger.warn({ trackId }, 'Published tag write has no track path')
+      if (this.pendingPublishedWrites.get(trackId) !== metadata || this.writingTracks.has(trackId))
         continue
-      }
+      const generation = this.generationFor(trackId)
       try {
-        const result = await readStableMetadata(
-          trackId,
-          filePath,
-          this.artworkCacheDir,
-          (actual) => verifyWrittenMetadata(metadata, actual),
+        const filePath = this.repository.getTrackFilePath(trackId)
+        if (!filePath) {
+          this.pendingPublishedWrites.delete(trackId)
+          logger.warn({ trackId }, 'Published tag write has no track path')
+          continue
+        }
+        const result = await readStableMetadata(trackId, filePath, this.artworkCacheDir, (actual) =>
+          verifyWrittenMetadata(metadata, actual),
         )
         await assertMetadataFingerprint(result)
-        if (this.writingTracks.has(trackId) || !this.pendingPublishedWrites.has(trackId)) continue
+        if (
+          this.writingTracks.has(trackId) ||
+          this.pendingPublishedWrites.get(trackId) !== metadata ||
+          this.generationFor(trackId) !== generation ||
+          this.repository.getTrackFilePath(trackId) !== filePath
+        )
+          continue
         if (metadata.lyricsText !== undefined) this.repository.updateTrackLyrics(result)
         else this.repository.commitVerifiedUserEdit(metadata, result)
         this.pendingPublishedWrites.delete(trackId)

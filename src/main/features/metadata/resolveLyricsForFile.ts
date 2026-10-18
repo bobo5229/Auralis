@@ -1,9 +1,14 @@
 import { readFile, stat } from 'node:fs/promises'
+import { statSync, type Stats } from 'node:fs'
 import { extname } from 'node:path'
 import type { IAudioMetadata } from 'music-metadata'
 import { resolveLyrics } from './metadataNormalizer'
 import { classifyLyrics, type ResolvedLyrics } from './classifyLyrics'
 import { lyricSidecarCandidates } from './lyricSidecarPaths'
+
+function sidecarFingerprint(file: Stats): number[] {
+  return [file.size, file.mtimeMs, file.ctimeMs, file.dev, file.ino]
+}
 
 /** Includes absence, so adding or removing a sidecar invalidates the scan cache. */
 export async function getLyricsSidecarFingerprint(filePath: string): Promise<string> {
@@ -11,7 +16,7 @@ export async function getLyricsSidecarFingerprint(filePath: string): Promise<str
     lyricSidecarCandidates(filePath).map(async (candidate) => {
       try {
         const file = await stat(candidate)
-        return [file.size, file.mtimeMs]
+        return sidecarFingerprint(file)
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
         throw error
@@ -19,6 +24,21 @@ export async function getLyricsSidecarFingerprint(filePath: string): Promise<str
     }),
   )
   return JSON.stringify(fingerprints)
+}
+
+/** Synchronous counterpart for the scan's final database write boundary. */
+export function getLyricsSidecarFingerprintSync(filePath: string): string {
+  return JSON.stringify(
+    lyricSidecarCandidates(filePath).map((candidate) => {
+      try {
+        const file = statSync(candidate)
+        return sidecarFingerprint(file)
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+        throw error
+      }
+    }),
+  )
 }
 
 export async function readLyricsSnapshot(filePath: string, metadata: IAudioMetadata) {

@@ -319,6 +319,13 @@ export class NativePlaybackService {
         if (!isCurrent()) return { accepted: false }
         await client.command('set_property', 'mute', request.muted)
         if (!isCurrent()) return { accepted: false }
+        // Resolution, lease acquisition and transport setup can all await a move.
+        // Keep this check synchronous with submitting loadfile to mpv.
+        if (
+          leaseId &&
+          !this.options.coordinator!.isReadLeaseForTrack(leaseId, request.trackId, path)
+        )
+          throw new Error('Playback track path changed before loading')
         await this.runtime.load(client, path, (event, session) => this.onEvent(event, session))
         if (!isCurrent()) return { accepted: false }
         // A reused transport may be paused for replacement. Resume only after B

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { MissingTrackCandidate } from '@main/repositories/trackRepository'
-import { findUniqueRelocationCandidate, type FileIdentity } from './trackRelocationMatcher'
+import type { ScannedTrack } from '@shared/types/libraryScan'
+import {
+  findUniqueRelocationCandidate,
+  findUniqueRelocations,
+  type FileIdentity,
+} from './trackRelocationMatcher'
 
 function candidate(overrides: Partial<MissingTrackCandidate> = {}): MissingTrackCandidate {
   return {
@@ -26,6 +31,29 @@ function identity(overrides: Partial<FileIdentity> = {}): FileIdentity {
     isrc: null,
     durationSeconds: 180,
     fileSize: 1_000,
+    ...overrides,
+  }
+}
+
+function track(overrides: Partial<ScannedTrack> = {}): ScannedTrack {
+  return {
+    ...identity(),
+    filePath: 'C:\\Music\\new.flac',
+    fileSize: 1000,
+    fileMtimeMs: 1,
+    albumArtist: 'Artist',
+    trackNo: null,
+    discNo: null,
+    bitrateBps: null,
+    year: null,
+    releaseDate: null,
+    copyright: null,
+    composer: null,
+    genre: null,
+    artworkCacheKey: null,
+    lyricsText: null,
+    lyricsFormat: null,
+    metadataSignature: '',
     ...overrides,
   }
 }
@@ -156,5 +184,102 @@ describe('findUniqueRelocationCandidate', () => {
         identity(),
       ),
     ).toBeNull()
+  })
+})
+
+describe('indexed batch relocation', () => {
+  it.each([
+    {
+      name: 'ISRC priority',
+      candidates: [candidate(), candidate({ trackId: 2, isrc: 'MATCH', title: 'Other' })],
+      incoming: track({ isrc: 'MATCH' }),
+      expected: 2,
+    },
+    {
+      name: 'ISRC conflict blocks metadata fallback',
+      candidates: [candidate(), candidate({ trackId: 2, isrc: 'MATCH', durationSeconds: 500 })],
+      incoming: track({ isrc: 'MATCH' }),
+      expected: null,
+    },
+    {
+      name: 'ambiguous ISRC cannot be disambiguated by duration',
+      candidates: [
+        candidate({ isrc: 'MATCH' }),
+        candidate({ trackId: 2, isrc: 'MATCH', durationSeconds: 500 }),
+      ],
+      incoming: track({ isrc: 'MATCH' }),
+      expected: null,
+    },
+    {
+      name: 'unknown ISRC uses metadata fallback',
+      candidates: [candidate(), candidate({ trackId: 2, isrc: 'OTHER' })],
+      incoming: track({ isrc: 'MATCH' }),
+      expected: 1,
+    },
+    {
+      name: 'unknown album and tolerance boundaries',
+      candidates: [candidate({ album: 'Unknown Album' })],
+      incoming: track({ durationSeconds: 181, fileSize: 1020 }),
+      expected: 1,
+    },
+    {
+      name: 'size outside tolerance',
+      candidates: [candidate()],
+      incoming: track({ fileSize: 1021 }),
+      expected: null,
+    },
+    {
+      name: 'ambiguous metadata',
+      candidates: [candidate(), candidate({ trackId: 2 })],
+      incoming: track(),
+      expected: null,
+    },
+    {
+      name: 'null title does not match empty title',
+      candidates: [candidate({ title: null })],
+      incoming: track({ title: '' }),
+      expected: null,
+    },
+    {
+      name: 'empty ISRC uses metadata',
+      candidates: [candidate({ isrc: '' })],
+      incoming: track(),
+      expected: 1,
+    },
+  ])('preserves $name', ({ candidates, incoming, expected }) => {
+    const matches = findUniqueRelocations(candidates, [incoming])
+    expect(matches.get(incoming.filePath)?.trackId ?? null).toBe(expected)
+  })
+
+  it('rejects two accepted paths claiming one old track', () => {
+    const first = track()
+    const second = track({ filePath: 'C:\\Music\\copy.flac' })
+    expect(findUniqueRelocations([candidate()], [first, second]).size).toBe(0)
+    const onlyFirstAllowed = findUniqueRelocations(
+      [candidate()],
+      [first, second],
+      (_, incoming) => incoming === first,
+    )
+    expect([...onlyFirstAllowed.keys()]).toEqual([first.filePath])
+  })
+
+  it('keeps title and artist keys distinct even when they contain separators', () => {
+    const first = candidate({ title: 'a\u0000b', artist: 'c' })
+    const second = candidate({ trackId: 2, title: 'a', artist: 'b\u0000c' })
+    const incoming = track({ title: 'a', artist: 'b\u0000c' })
+    expect(findUniqueRelocations([first, second], [incoming]).get(incoming.filePath)).toBe(second)
+  })
+
+  it('retains each identity in a large batch of unrelated moves', () => {
+    const candidates = Array.from({ length: 20000 }, (_, index) =>
+      candidate({ trackId: index + 1, title: `Track ${index}` }),
+    )
+    const incoming = candidates.map((item) =>
+      track({ title: item.title!, filePath: `C:\\New\\${item.trackId}.flac` }),
+    )
+    const matches = findUniqueRelocations(candidates, incoming)
+    expect([...matches.values()].map((item) => item.trackId)).toEqual(
+      candidates.map((item) => item.trackId),
+    )
   })
 })

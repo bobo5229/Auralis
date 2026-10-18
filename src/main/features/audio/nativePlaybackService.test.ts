@@ -384,7 +384,7 @@ describe.skipIf(!available)('native mpv integration (isolated audio)', () => {
       version: 1,
     }))
     const releaseReadLease = vi.fn()
-    const coordinator = { acquireReadLease, releaseReadLease }
+    const coordinator = { acquireReadLease, releaseReadLease, isReadLeaseForTrack: () => true }
 
     const track1Path = join(directory, '48000-1.flac')
     const track2Path = join(directory, '48000-2.flac')

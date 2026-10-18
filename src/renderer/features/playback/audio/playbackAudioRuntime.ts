@@ -219,6 +219,41 @@ export function createPlaybackAudioRuntime(
   audio.addEventListener('error', onError)
 
   let activeSessionId = 0
+  let htmlAudioLeaseRequest: { session: number; promise: Promise<boolean> } | null = null
+
+  // Ended releases the old reader. Replaying or seeking must wait for any tag
+  // writer and acquire a new reader before touching the media again.
+  async function ensureHtmlAudioLease(session: number): Promise<boolean> {
+    const isCurrent = () =>
+      !isDisposed && session === activeSessionId && activeBackend === 'html-audio'
+    if (!isCurrent() || currentTrackId === null) return false
+    if (htmlAudioLeaseId || !acquireReadLease) return true
+    if (htmlAudioLeaseRequest?.session === session) return htmlAudioLeaseRequest.promise
+    const trackId = currentTrackId
+    const request = {
+      session,
+      promise: (async () => {
+        try {
+          const lease = await acquireReadLease(trackId)
+          if (!isCurrent()) {
+            releaseReadLease?.(lease.leaseId)
+            return false
+          }
+          htmlAudioLeaseId = lease.leaseId
+          return true
+        } catch (error) {
+          if (!isCurrent()) return false
+          throw error
+        }
+      })(),
+    }
+    htmlAudioLeaseRequest = request
+    try {
+      return await request.promise
+    } finally {
+      if (htmlAudioLeaseRequest === request) htmlAudioLeaseRequest = null
+    }
+  }
 
   function clearHtmlAudio(): void {
     if (htmlAudioLeaseId) {
@@ -273,19 +308,7 @@ export function createPlaybackAudioRuntime(
     }
 
     activeBackend = 'html-audio'
-    if (acquireReadLease) {
-      try {
-        const lease = await acquireReadLease(trackId)
-        if (startSessionId !== activeSessionId || isDisposed) {
-          releaseReadLease?.(lease.leaseId)
-          return
-        }
-        htmlAudioLeaseId = lease.leaseId
-      } catch (error) {
-        if (startSessionId !== activeSessionId) return
-        throw error
-      }
-    }
+    if (!(await ensureHtmlAudioLease(startSessionId)) || startSessionId !== activeSessionId) return
 
     audio.src = url
     audio.currentTime = 0
@@ -303,6 +326,8 @@ export function createPlaybackAudioRuntime(
       return
     }
     if (activeBackend === 'html-audio') {
+      const session = activeSessionId
+      if (!(await ensureHtmlAudioLease(session)) || session !== activeSessionId) return
       await audio.play()
       return
     }
@@ -332,6 +357,8 @@ export function createPlaybackAudioRuntime(
       return
     }
     if (activeBackend === 'html-audio') {
+      const session = activeSessionId
+      if (!(await ensureHtmlAudioLease(session)) || session !== activeSessionId) return
       audio.currentTime = time
       return
     }

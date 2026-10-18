@@ -5,6 +5,7 @@ import {
   nudgeLrcLineTime,
   replaceLrcLineTime,
 } from './lrcTextEditing'
+import { parseLrc } from './parseLrc'
 
 describe('raw LRC timing edits', () => {
   it('targets the cursor line and preserves lyric text including its spaces', () => {
@@ -27,5 +28,30 @@ describe('raw LRC timing edits', () => {
     expect(nudgeLrcLineTime(getLrcTextLine('Untimed', 0), 0.1)).toBeNull()
     expect(getLrcTextLine('\nLine', 0).text).toBe('')
     expect(getLrcTextLine('First\n', 6).number).toBe(2)
+  })
+
+  it.each([1000, -1000])('stamps and nudges playback time with offset %s', (offset) => {
+    const text = `Untimed\n[offset:${offset}]`
+    const stamped = replaceLrcLineTime(getLrcTextLine(text, 0), 10)!
+    expect(stamped).toBe(offset > 0 ? '[00:11.00]Untimed' : '[00:09.00]Untimed')
+    const updated = `${stamped}\n[offset:${offset}]`
+    expect(parseLrc(updated)[0].timeSeconds).toBe(10)
+
+    const nudged = nudgeLrcLineTime(getLrcTextLine(updated, 0), 0.1)!
+    expect(parseLrc(`${nudged}\n[offset:${offset}]`)[0].timeSeconds).toBe(10.1)
+  })
+
+  it('keeps editor-generated timestamps playable across the 100-minute boundary', () => {
+    const stamped = replaceLrcLineTime(getLrcTextLine('Long track', 0), 6000)!
+    expect(stamped).toBe('[100:00.00]Long track')
+    expect(parseLrc(stamped)[0]?.timeSeconds).toBe(6000)
+    const nudged = nudgeLrcLineTime(getLrcTextLine(stamped, 0), -0.1)!
+    expect(nudged).toBe('[99:59.90]Long track')
+    expect(parseLrc(nudged)[0]?.timeSeconds).toBe(5999.9)
+  })
+
+  it('edits the same single timestamps accepted by playback and preserves multi-time lines', () => {
+    expect(replaceLrcLineTime(getLrcTextLine('[1:02:123]Line', 0), 70)).toBe('[01:10.00]Line')
+    expect(replaceLrcLineTime(getLrcTextLine('[1:02:123][2:03:456]Repeat', 0), 70)).toBeNull()
   })
 })

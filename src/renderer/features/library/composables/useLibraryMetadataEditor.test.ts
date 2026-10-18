@@ -83,6 +83,42 @@ function createEditor(overrides?: {
 }
 
 describe('useLibraryMetadataEditor', () => {
+  it.each(['rejected', 'thrown', 'reopened'] as const)(
+    'resubmits original values after an uncertain save (%s)',
+    async (failure) => {
+      const showSaveSuccess = vi.fn(async () => undefined)
+      const { editor, updateTrackMetadata } = createEditor({ showSaveSuccess })
+      updateTrackMetadata.mockImplementationOnce(async () => {
+        if (failure === 'thrown') throw new Error('IPC failed after publication')
+        return { ok: false, reason: 'save-failed' }
+      })
+      await editor.open(42)
+      await editor.save({ ...metadata, title: 'Published despite failure' })
+      expect(showSaveSuccess).not.toHaveBeenCalled()
+      if (failure === 'reopened') {
+        editor.close()
+        await editor.open(42)
+      }
+      await editor.save(metadata)
+      expect(updateTrackMetadata).toHaveBeenCalledTimes(2)
+      expect(updateTrackMetadata).toHaveBeenLastCalledWith(metadata)
+      expect(showSaveSuccess).toHaveBeenCalledOnce()
+      expect(editor.isMetadataEditorOpen.value).toBe(false)
+    },
+  )
+
+  it('resubmits the prior committed value after a later uncertain save', async () => {
+    const { editor, updateTrackMetadata } = createEditor({ refreshResult: 'failed' })
+    await editor.open(42)
+    const committed = { ...metadata, title: 'Committed' }
+    await editor.save(committed)
+    updateTrackMetadata.mockResolvedValueOnce({ ok: false, reason: 'playback-restore-failed' })
+    await editor.save({ ...metadata, title: 'Published later' })
+    await editor.save(committed)
+    expect(updateTrackMetadata).toHaveBeenCalledTimes(3)
+    expect(updateTrackMetadata).toHaveBeenLastCalledWith(committed)
+  })
+
   it('keeps the dialog busy until successful feedback finishes, then closes and restores focus', async () => {
     let finish!: () => void
     const showSaveSuccess = vi.fn(

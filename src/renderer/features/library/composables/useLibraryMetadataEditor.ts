@@ -62,6 +62,9 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   let pendingReturnTarget: LibraryMetadataFocusTarget | null = null
   let loadRevision = 0
   let saveFeedbackController: AbortController | null = null
+  // A rejected IPC can follow a successful disk publication. Keep this across
+  // closing/reopening the dialog until the backend confirms a save for the track.
+  const uncertainSaves = new Set<number>()
   let committedSave: {
     metadata: EditableTrackMetadata
     libraryRevision?: string
@@ -217,10 +220,9 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       return
     }
 
-    const unchanged = isSameEditableMetadata(
-      metadata,
-      committedSave?.metadata ?? editingMetadata.value,
-    )
+    const unchanged =
+      !uncertainSaves.has(metadata.trackId) &&
+      isSameEditableMetadata(metadata, committedSave?.metadata ?? editingMetadata.value)
     isSavingMetadata.value = true
     errorMessageSource.value = null
     const saveScope = options.captureRouteScope()
@@ -239,6 +241,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
         return
       }
       if (!unchanged) {
+        uncertainSaves.add(metadata.trackId)
         const saveResult = await options.updateTrackMetadata(metadata)
         if (!isCurrentSave()) return
 
@@ -268,6 +271,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
 
         // Keep the form seed intact, but compare retries with the committed
         // values even when refreshing the view fails after the disk write.
+        uncertainSaves.delete(metadata.trackId)
         committedSave = {
           metadata: { ...metadata },
           libraryRevision:

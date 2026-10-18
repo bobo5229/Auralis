@@ -8,8 +8,9 @@ import {
 } from './conversionTypes'
 import { checkedMilliseconds, parseClockTime } from './conversionTime'
 import { MAX_CONVERSION_ITEMS } from './ttmlDocument'
+import { LRC_TIMESTAMP_SOURCE, parseLrcOffsetMilliseconds } from '@shared/utils/lrcTiming'
 
-const STAMP = /\[(\d+):(\d{2})(?:[.:](\d{1,3}))?\]/y
+const STAMP = new RegExp(LRC_TIMESTAMP_SOURCE, 'y')
 const INLINE_STAMP = /<(\d+):(\d{2})(?:[.:](\d{1,3}))?>/g
 
 function timestamp(match: RegExpExecArray, warnings: ConversionWarnings): number {
@@ -58,11 +59,12 @@ export function parseLrcForConversion(
       const key = tag[1].toLowerCase()
       const value = tag[2].trim()
       if (key === 'offset') {
-        if (!/^[+-]?\d+$/.test(value) || !Number.isSafeInteger(Number(value))) {
+        const parsed = parseLrcOffsetMilliseconds(value)
+        if (parsed === null) {
           throw new LyricsConversionError('invalid-lrc', 'Invalid LRC offset')
         }
         // LRC compensation: positive values make lyrics appear earlier.
-        offset = Number(value)
+        offset = parsed
       } else {
         metadata.push([key, value])
         if (key === 'length') taggedDuration = parseClockTime(value, warnings)

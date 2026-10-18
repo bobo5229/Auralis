@@ -1,4 +1,5 @@
 import { stat } from 'node:fs/promises'
+import type { Stats } from 'node:fs'
 import { extname } from 'node:path'
 import { parseAudioMetadata as parseFile } from '../metadata/parseAudioMetadata'
 import { getMetadataParserVersion } from '../metadata/metadataParserVersion'
@@ -11,22 +12,24 @@ import {
 import { getLyricsSidecarFingerprint, readLyricsSnapshot } from '../metadata/resolveLyricsForFile'
 import { LibraryScanArtwork, getScanAlbumKey } from './libraryScanArtwork'
 import { readM4aTextMetadata } from './m4aTextTags'
-import type { KnownTrackFile } from '@main/repositories/trackRepository'
+import { hasSameScanFileFingerprint, scanFileFingerprint } from './libraryScanFileFingerprint'
 import type {
-  AlbumArtworkPatch,
-  ScannedTrack,
-  TrackLyricsPatch,
-  TrackTagPatch,
-} from '@shared/types/libraryScan'
+  ScanFileFingerprint,
+  ScannedTrackFile,
+  ScannedTagPatch,
+  ScannedLyricsPatch,
+} from './libraryScanTypes'
+import type { KnownTrackFile } from '@main/repositories/trackRepository'
+import type { AlbumArtworkPatch } from '@shared/types/libraryScan'
 
 export type ReadTrackResult =
-  | { kind: 'track'; track: ScannedTrack }
-  | { kind: 'tags'; patch: TrackTagPatch; lyricsPatch: TrackLyricsPatch | null }
+  | { kind: 'track'; track: ScannedTrackFile }
+  | { kind: 'tags'; patch: ScannedTagPatch; lyricsPatch: ScannedLyricsPatch | null }
   | { kind: 'artwork'; patch: AlbumArtworkPatch }
   | {
       kind: 'patches'
       artworkPatch: AlbumArtworkPatch | null
-      lyricsPatch: TrackLyricsPatch | null
+      lyricsPatch: ScannedLyricsPatch | null
     }
   | { kind: 'skip' }
 
@@ -44,7 +47,7 @@ export class LibraryScanTrackReader {
   async read(filePath: string): Promise<ReadTrackResult> {
     let fileSize: number
     let fileMtimeMs: number
-    let fileStat: Awaited<ReturnType<typeof stat>>
+    let fileStat: Stats
 
     try {
       fileStat = await stat(filePath)
@@ -88,24 +91,25 @@ export class LibraryScanTrackReader {
       // A changed file still needs duration and artwork. An unchanged file only rereads text.
       if (!fileUnchanged) {
         const result = await this.readFullTrack(filePath, fileStat, knownFile)
-        await this.assertUnchanged(filePath, fileSize, fileMtimeMs)
+        await this.assertUnchanged(filePath, fileStat)
         return result
       }
 
       if (needsMetadataBackfill && knownFile) {
         const result = await this.readUnchangedTags(
           filePath,
-          fileSize,
-          fileMtimeMs,
+          fileStat,
           knownFile,
           needsLyricsBackfill,
         )
-        await this.assertUnchanged(filePath, fileSize, fileMtimeMs)
+        await this.assertUnchanged(filePath, fileStat)
         return result
       }
 
       if (fileUnchanged) {
-        return await this.readBackfill(filePath, fileMtimeMs, knownFile, needsLyricsBackfill)
+        const result = await this.readBackfill(filePath, fileStat, knownFile, needsLyricsBackfill)
+        await this.assertUnchanged(filePath, fileStat)
+        return result
       }
     } catch (error) {
       this.onFailure(filePath, error instanceof Error ? error.message : 'Unable to parse metadata')
@@ -118,13 +122,9 @@ export class LibraryScanTrackReader {
     return { kind: 'skip' }
   }
 
-  private async assertUnchanged(
-    filePath: string,
-    fileSize: number,
-    fileMtimeMs: number,
-  ): Promise<void> {
+  private async assertUnchanged(filePath: string, expected: ScanFileFingerprint): Promise<void> {
     const after = await stat(filePath)
-    if (after.size !== fileSize || after.mtimeMs !== fileMtimeMs) {
+    if (!hasSameScanFileFingerprint(after, expected)) {
       throw new Error('Audio file changed while metadata was being read')
     }
   }
@@ -142,11 +142,11 @@ export class LibraryScanTrackReader {
 
   private async readUnchangedTags(
     filePath: string,
-    fileSize: number,
-    fileMtimeMs: number,
+    fileStat: Stats,
     knownFile: KnownTrackFile,
     needsLyricsBackfill: boolean,
   ): Promise<ReadTrackResult> {
+    const { size: fileSize, mtimeMs: fileMtimeMs } = fileStat
     const carriedArtworkKey = isCurrentArtworkCacheKey(knownFile.artworkCacheKey)
       ? knownFile.artworkCacheKey
       : null
@@ -160,11 +160,12 @@ export class LibraryScanTrackReader {
     const identity = normalizeIdentityText(metadata)
     this.rememberAlbumArtwork(normalized.album, normalized.albumArtist, carriedArtworkKey)
 
-    let lyricsPatch: TrackLyricsPatch | null = null
+    let lyricsPatch: ScannedLyricsPatch | null = null
     if (needsLyricsBackfill) {
       const { lyrics, lyricsSidecarFingerprint } = await readLyricsSnapshot(filePath, metadata)
       lyricsPatch = {
         filePath,
+        fileFingerprint: scanFileFingerprint(fileStat),
         lyricsText: lyrics?.text ?? null,
         lyricsFormat: lyrics?.format ?? null,
         lyricsCheckedMtimeMs: fileMtimeMs,
@@ -177,6 +178,7 @@ export class LibraryScanTrackReader {
       lyricsPatch,
       patch: {
         filePath,
+        fileFingerprint: scanFileFingerprint(fileStat),
         fileMtimeMs,
         title: normalized.title,
         artist: normalized.artist,
@@ -203,7 +205,7 @@ export class LibraryScanTrackReader {
 
   private async readFullTrack(
     filePath: string,
-    fileStat: Awaited<ReturnType<typeof stat>>,
+    fileStat: Stats,
     knownFile: KnownTrackFile | undefined,
   ): Promise<ReadTrackResult> {
     const dirCoverKey = await this.artwork.resolveDirectoryCover(filePath)
@@ -233,13 +235,13 @@ export class LibraryScanTrackReader {
 
   private async readBackfill(
     filePath: string,
-    fileMtimeMs: number,
+    fileStat: Stats,
     knownFile: KnownTrackFile,
     needsLyricsBackfill: boolean,
   ): Promise<ReadTrackResult> {
     const albumKey = getScanAlbumKey(knownFile?.album ?? null, knownFile?.albumArtist ?? null)
     let artworkPatch: AlbumArtworkPatch | null = null
-    let lyricsPatch: TrackLyricsPatch | null = null
+    let lyricsPatch: ScannedLyricsPatch | null = null
 
     // Album-level cache hit: skip artwork work entirely when lyrics do not need backfill.
     if (albumKey && !needsLyricsBackfill) {
@@ -280,9 +282,10 @@ export class LibraryScanTrackReader {
       const { lyrics, lyricsSidecarFingerprint } = await readLyricsSnapshot(filePath, metadata)
       lyricsPatch = {
         filePath,
+        fileFingerprint: scanFileFingerprint(fileStat),
         lyricsText: lyrics?.text ?? null,
         lyricsFormat: lyrics?.format ?? null,
-        lyricsCheckedMtimeMs: fileMtimeMs,
+        lyricsCheckedMtimeMs: fileStat.mtimeMs,
         lyricsSidecarFingerprint,
       }
     }
@@ -320,10 +323,10 @@ export class LibraryScanTrackReader {
 
   private async createScannedTrack(
     filePath: string,
-    fileStat: Awaited<ReturnType<typeof stat>>,
+    fileStat: Stats,
     metadata: Awaited<ReturnType<typeof parseFile>>,
     resolvedArtworkKey?: string | null,
-  ): Promise<ScannedTrack> {
+  ): Promise<ScannedTrackFile> {
     const normalized = normalizeMetadata(metadata, filePath)
     const albumKey = getScanAlbumKey(normalized.album, normalized.albumArtist)
     const cachedAlbumKey = albumKey ? this.artwork.getAlbumArtwork(albumKey) : undefined
@@ -340,6 +343,7 @@ export class LibraryScanTrackReader {
 
     return {
       filePath,
+      fileFingerprint: scanFileFingerprint(fileStat),
       metadataParserVersion: getMetadataParserVersion(filePath),
       fileSize: Number(fileStat.size),
       fileMtimeMs: Number(fileStat.mtimeMs),

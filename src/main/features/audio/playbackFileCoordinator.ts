@@ -192,7 +192,10 @@ export class PlaybackFileCoordinator {
     const blocked: WriteWaiter[] = []
     for (const waiter of pendingWaiters) {
       if (waiter.signal?.aborted) continue
-      if (this.metadataWriteActive(entry.normalizedPath) && !this.isPlaybackSource(waiter.sourceId)) {
+      if (
+        this.metadataWriteActive(entry.normalizedPath) &&
+        !this.isPlaybackSource(waiter.sourceId)
+      ) {
         blocked.push(waiter)
         continue
       }
@@ -296,6 +299,19 @@ export class PlaybackFileCoordinator {
 
       entry.writeWaiters.push(waiter)
     })
+  }
+
+  isReadLeaseForTrack(leaseId: string, trackId: number, filePath: string): boolean {
+    const lease = this.leases.get(leaseId)
+    if (!lease || lease.kind !== 'read') return false
+    const path = this.dependencies.getTrackFilePath(trackId)
+    // A root junction may move while its original spelling is reused. Check the
+    // submitted spelling too, even when the new catalog alias retains the lease key.
+    return (
+      path !== null &&
+      normalizeAudioFilePath(path) === lease.normalizedPath &&
+      normalizeAudioFilePath(filePath) === lease.normalizedPath
+    )
   }
 
   markReadLeaseCurrent(leaseId: string): void {

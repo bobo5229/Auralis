@@ -126,6 +126,78 @@ describe('resolvePlaybackTransition & resolvePlaybackAdvance', () => {
     expect(api.getRandomTrack).not.toHaveBeenCalled()
   })
 
+  it.each([
+    { mode: 'shuffle' as const, shuffleCycle: undefined },
+    { mode: 'shuffle' as const, shuffleCycle: null },
+    { mode: 'album-shuffle' as const, shuffleCycle: undefined },
+  ])('keeps an exhausted shuffle scope empty for every advance trigger: %j', async (options) => {
+    const api = source({
+      getRandomTrack: vi.fn(async () => track(9)),
+      getAlbumTracks: vi.fn(async () => ({
+        album: 'Album',
+        albumArtist: 'Artist',
+        tracks: [track(1), track(9)],
+      })),
+      getRandomAlbumTracks: vi.fn(async () => ({
+        album: 'Other',
+        albumArtist: 'Artist',
+        tracks: [track(10, 'Other')],
+      })),
+    })
+    for (const trigger of ['manual-next', 'natural-ended', 'gapless-prefetch'] as const) {
+      expect(
+        await resolvePlaybackAdvance(
+          state(options.mode, { shuffleTrackPool: [], shuffleCycle: options.shuffleCycle }),
+          api,
+          trigger,
+        ),
+      ).toEqual({ kind: 'noop' })
+    }
+    expect(api.getRandomTrack).not.toHaveBeenCalled()
+    expect(api.getAlbumTracks).not.toHaveBeenCalled()
+    expect(api.getRandomAlbumTracks).not.toHaveBeenCalled()
+  })
+
+  it.each(['shuffle', 'album-shuffle'] as const)(
+    'keeps explicitly queued tracks ahead of an empty %s scope',
+    async (mode) => {
+      expect(
+        await resolvePlaybackTransition(
+          state(mode, { shuffleTrackPool: [], queuedNextTrackId: 2 }),
+          source(),
+        ),
+      ).toMatchObject({ track: { id: 2 }, consumeQueued: true })
+    },
+  )
+
+  it.each(['shuffle', 'album-shuffle'] as const)(
+    'keeps whole-library %s available when no scope is set',
+    async (mode) => {
+      const api = source({
+        getRandomTrack: vi.fn(async () => track(9)),
+        getRandomAlbumTracks: vi.fn(async () => ({
+          album: 'Other',
+          albumArtist: 'Artist',
+          tracks: [track(9, 'Other')],
+        })),
+      })
+      expect(await resolvePlaybackAdvance(state(mode), api, 'manual-next')).toMatchObject({
+        kind: 'play',
+        plan: { track: { id: 9 } },
+      })
+    },
+  )
+
+  it('keeps sequential playback independent of the shuffle scope', async () => {
+    expect(
+      await resolvePlaybackAdvance(
+        state('sequential', { shuffleTrackPool: [] }),
+        source(),
+        'manual-next',
+      ),
+    ).toMatchObject({ kind: 'play', plan: { track: { id: 2 } } })
+  })
+
   it('continues within the current album before selecting another album', async () => {
     const context: NonNullable<AlbumShuffleContext> = {
       albumArtist: 'Artist',

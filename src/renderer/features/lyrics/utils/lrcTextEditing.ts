@@ -1,9 +1,15 @@
+import { LRC_TIMESTAMP_SOURCE, readLrcOffsetMilliseconds } from '@shared/utils/lrcTiming'
+
+const LRC_TIMESTAMP = new RegExp(`^${LRC_TIMESTAMP_SOURCE}`)
+const LRC_TIMESTAMPS = new RegExp(LRC_TIMESTAMP_SOURCE, 'g')
+
 export interface LrcTextLine {
   start: number
   end: number
   number: number
   text: string
   timestamp: RegExpMatchArray | null
+  offsetMs: number
   editable: boolean
 }
 
@@ -18,14 +24,15 @@ export function getLrcTextLine(text: string, cursor: number): LrcTextLine {
   const next = text.indexOf('\n', cursor)
   const end = next < 0 ? text.length : next
   const line = text.slice(start, end)
-  const timestamp = line.match(/^\[(\d{2,}):([0-5]\d)(?:\.(\d{1,3}))?\]/)
-  const multiple = (line.match(/\[\d+:\d+(?:\.\d+)?\]/g)?.length ?? 0) > 1
+  const timestamp = line.match(LRC_TIMESTAMP)
+  const multiple = (line.match(LRC_TIMESTAMPS)?.length ?? 0) > 1
   return {
     start,
     end,
     number: text.slice(0, start).split('\n').length,
     text: line,
     timestamp,
+    offsetMs: readLrcOffsetMilliseconds(text),
     editable:
       !!line.trim() &&
       !multiple &&
@@ -36,7 +43,8 @@ export function getLrcTextLine(text: string, cursor: number): LrcTextLine {
 
 export function replaceLrcLineTime(line: LrcTextLine, seconds: number): string | null {
   if (!line.editable || !Number.isFinite(seconds)) return null
-  return `[${formatLrcTime(seconds)}]${line.timestamp ? line.text.slice(line.timestamp[0].length) : line.text}`
+  // Store the inverse compensation so playback and TTML export trigger at the chosen time.
+  return `[${formatLrcTime(seconds + line.offsetMs / 1000)}]${line.timestamp ? line.text.slice(line.timestamp[0].length) : line.text}`
 }
 
 export function nudgeLrcLineTime(line: LrcTextLine, delta: number): string | null {
@@ -44,6 +52,10 @@ export function nudgeLrcLineTime(line: LrcTextLine, delta: number): string | nul
   if (!match) return null
   return replaceLrcLineTime(
     line,
-    Number(match[1]) * 60 + Number(match[2]) + Number(`0.${match[3] ?? '0'}`) + delta,
+    Number(match[1]) * 60 +
+      Number(match[2]) +
+      Number(`0.${match[3] ?? '0'}`) -
+      line.offsetMs / 1000 +
+      delta,
   )
 }

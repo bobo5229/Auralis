@@ -134,6 +134,14 @@ export async function resolvePlaybackAdvance(
     }
   }
 
+  // An exhausted scope stays scoped. Explicitly queued tracks above still take priority.
+  if (
+    state.shuffleTrackPool?.length === 0 &&
+    (state.playbackMode === 'shuffle' || state.playbackMode === 'album-shuffle')
+  ) {
+    return { kind: 'noop' }
+  }
+
   // 2. Repeat-one
   if (state.playbackMode === 'repeat-one') {
     if (trigger === 'manual-next') {

@@ -77,6 +77,7 @@ function createCoordinator(): PlaybackCoordinator & {
   return {
     acquireReadLease: vi.fn(async () => ({ leaseId: `read-${++sequence}`, version: sequence })),
     releaseReadLease: vi.fn(),
+    isReadLeaseForTrack: () => true,
     reserveWriteIntent: vi.fn(() => null),
     refreshPlaybackCapability: vi.fn(),
   }

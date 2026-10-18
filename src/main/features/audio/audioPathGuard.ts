@@ -1,4 +1,4 @@
-import { isAbsolute, relative, resolve } from 'node:path'
+import { isAbsolute, relative, resolve, sep } from 'node:path'
 
 /**
  * Returns true when `filePath` resolves under `rootPath`
@@ -15,7 +15,7 @@ export function isPathUnderRoot(filePath: string, rootPath: string): boolean {
   const rel = relative(rootForCompare, fileForCompare)
 
   // Empty relative means the path is exactly the root directory itself — not a media file.
-  if (rel === '' || rel.startsWith('..') || isAbsolute(rel)) {
+  if (rel === '' || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
     return false
   }
 

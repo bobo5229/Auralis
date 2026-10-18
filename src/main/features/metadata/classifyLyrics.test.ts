@@ -50,6 +50,13 @@ describe('classifyLyrics', () => {
     expect(classifyLyrics(' \n ')).toBeNull()
   })
 
+  it('recognizes long-track LRC instead of downgrading editor-generated timestamps to plain text', () => {
+    expect(classifyLyrics('[100:00.00]Long track')).toEqual({
+      text: '[100:00.00]Long track',
+      format: 'lrc',
+    })
+  })
+
   it('prefers embedded TTML over LRC/plain and retains its original XML', () => {
     const metadata = {
       common: { lyrics: ['Plain', '[00:01]LRC', ttml] },
