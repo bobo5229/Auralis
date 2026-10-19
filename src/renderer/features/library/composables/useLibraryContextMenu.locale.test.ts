@@ -44,6 +44,7 @@ describe('localized library menu feedback', () => {
       },
       createPlaylist: async () => ({ id: 1, name: '夜航 / My collection' }),
       addTracksToPlaylist,
+      revealInExplorer: async () => ({ ok: true }),
     }
     const state = useLibraryContextMenu(options)
     await state.loadRegularPlaylistItems()

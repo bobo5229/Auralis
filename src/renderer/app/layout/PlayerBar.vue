@@ -16,6 +16,7 @@ import PlaybackQueuePopover from './PlaybackQueuePopover.vue'
 import PlaybackModeMenu from './PlaybackModeMenu.vue'
 import PlayerVolumeControl from './PlayerVolumeControl.vue'
 import PlayerBarActionIcon from './PlayerBarActionIcon.vue'
+import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
 import { usePlayerDisplayMode } from '@renderer/features/playback/composables/usePlayerDisplayMode'
 import { isPlayerVisualEffectsActive } from '@renderer/app/utils/playerVisualEffects'
 import { resolveRestorablePlayerTrigger } from '@renderer/app/utils/playerOverlayFocus'
@@ -333,7 +334,11 @@ function handleNext(): void {
       :class="{ 'player-bar-island--full': isFullLayout }"
       data-playbar-drop-target
     >
-      <div class="player-bar-surface" aria-hidden="true"></div>
+      <FrostedSurface
+        class="player-bar-surface"
+        :frosted="playbarMaterialStyle === 'frosted'"
+        plain-background="var(--auralis-playbar-bg)"
+      />
       <div
         v-if="paletteEnabled && previousAlbumTint"
         class="player-bar-album-tint player-bar-album-tint-previous"

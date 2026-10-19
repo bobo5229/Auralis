@@ -415,6 +415,11 @@ export const domainIpcPayloadPolicies = {
       albumTitle: field(stringValue({ max: MAX_TEXT_LENGTH })),
     }),
   ),
+  [ipcChannels.library.revealInExplorer]: required(
+    objectShape({
+      trackIds: field(arrayOf(positiveId, { min: 1, max: MAX_ID_LIST_LENGTH })),
+    }),
+  ),
   [ipcChannels.smartPlaylists.list]: voidPayload(),
   [ipcChannels.smartPlaylists.listTrackCounts]: voidPayload(),
   [ipcChannels.smartPlaylists.getDetail]: required(idPayload('id')),

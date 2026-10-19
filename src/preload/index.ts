@@ -79,6 +79,7 @@ export const auralisApi: AuralisApi = {
     getTracks: () => invoke(ipcChannels.library.getTracks),
     getTrackPage: (request) => invoke(ipcChannels.library.getTrackPage, request),
     getAlbumDetail: (request) => invoke(ipcChannels.library.getAlbumDetail, request),
+    revealInExplorer: (request) => invoke(ipcChannels.library.revealInExplorer, request),
     onScanProgress: (callback) => on(ipcChannels.library.scanProgress, callback),
     onChanged: (callback) => on(ipcChannels.library.changed, callback),
   },

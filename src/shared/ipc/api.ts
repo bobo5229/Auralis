@@ -38,6 +38,9 @@ export interface AuralisApi {
     getTracks: () => Result<'library:get-tracks'>
     getTrackPage: (request: Req<'library:get-track-page'>) => Result<'library:get-track-page'>
     getAlbumDetail: (request: Req<'library:get-album-detail'>) => Result<'library:get-album-detail'>
+    revealInExplorer: (
+      request: Req<'library:reveal-in-explorer'>,
+    ) => Result<'library:reveal-in-explorer'>
     onScanProgress: (
       callback: (progress: IpcEventPayload<'library:scan-progress'>) => void,
     ) => () => void

@@ -202,6 +202,7 @@ function createApi(): AuralisApi {
       getTracks: vi.fn(),
       getTrackPage: vi.fn(),
       getAlbumDetail: vi.fn(),
+      revealInExplorer: vi.fn(async () => ({ ok: true as const })),
       onScanProgress: vi.fn(),
       onChanged: vi.fn((listener) => {
         libraryChangedListener = listener

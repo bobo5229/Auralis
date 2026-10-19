@@ -23,6 +23,7 @@ export const ipcChannels = {
     getTracks: 'library:get-tracks',
     getTrackPage: 'library:get-track-page',
     getAlbumDetail: 'library:get-album-detail',
+    revealInExplorer: 'library:reveal-in-explorer',
     scanProgress: 'library:scan-progress',
     changed: 'library:changed',
   },

@@ -32,6 +32,8 @@ function mockResponse(group: string, method: string, args: unknown[]): unknown {
       return { jobId: 0 }
     case 'library.cancelScan':
       return { ok: false }
+    case 'library.revealInExplorer':
+      return { ok: false, reason: 'reveal-failed' }
     case 'playback.nativeAvailability':
       return { available: false, reason: 'Unavailable in browser preview' }
     case 'playback.subscribeSpectrum':

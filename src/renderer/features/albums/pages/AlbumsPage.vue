@@ -89,6 +89,9 @@ const loadError = computed(() => (catalogError.value ? t('albums.status.loadErro
 const scrollRef = ref<HTMLElement | null>(null)
 const contextMenu = ref<AlbumContextMenuState | null>(null)
 const contextMenuRef = ref<HTMLElement | null>(null)
+const revealFeedback = ref<string | null>(null)
+let revealInFlight = false
+let revealGeneration = 0
 let contextMenuTrigger: HTMLElement | null = null
 const searchQuery = ref('')
 const isSearchFocused = ref(false)
@@ -812,7 +815,22 @@ function closeContextMenu(): void {
   if (contextMenuRef.value?.contains(document.activeElement) && contextMenuTrigger?.isConnected) {
     contextMenuTrigger.focus({ preventScroll: true })
   }
+  cancelAlbumReveal()
   contextMenu.value = null
+}
+
+function cancelAlbumReveal(): void {
+  revealGeneration++
+  revealFeedback.value = null
+  revealInFlight = false
+}
+
+function clampContextMenu(menu: AlbumContextMenuState): void {
+  const element = contextMenuRef.value
+  if (!element || contextMenu.value !== menu) return
+  const bounds = element.getBoundingClientRect()
+  menu.x = Math.max(8, Math.min(menu.x, window.innerWidth - bounds.width - 8))
+  menu.y = Math.max(8, Math.min(menu.y, window.innerHeight - bounds.height - 8))
 }
 
 watch(hasCurrentTrack, async (available) => {
@@ -825,13 +843,12 @@ watch(hasCurrentTrack, async (available) => {
       : undefined
   const restoreFocus = !available && (focusedAction === 'locate' || focusedAction === 'insert')
   await nextTick()
-  const element = contextMenuRef.value
-  if (!element || contextMenu.value !== menu || hasCurrentTrack.value !== available) return
-  const bounds = element.getBoundingClientRect()
-  menu.x = Math.max(8, Math.min(menu.x, window.innerWidth - bounds.width - 8))
-  menu.y = Math.max(8, Math.min(menu.y, window.innerHeight - bounds.height - 8))
+  if (contextMenu.value !== menu || hasCurrentTrack.value !== available) return
+  clampContextMenu(menu)
   if (restoreFocus) {
-    element.querySelector<HTMLButtonElement>('[data-album-menu-action="play"]')?.focus()
+    contextMenuRef.value
+      ?.querySelector<HTMLButtonElement>('[data-album-menu-action="play"]')
+      ?.focus()
   }
 })
 
@@ -869,6 +886,7 @@ function onContextMenuKeydown(event: KeyboardEvent): void {
 
 function openContextMenu(album: AlbumSummary, event: MouseEvent): void {
   contextMenuTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : null
+  cancelAlbumReveal()
 
   contextMenu.value = {
     album,
@@ -879,11 +897,45 @@ function openContextMenu(album: AlbumSummary, event: MouseEvent): void {
   void nextTick(() => {
     const element = contextMenuRef.value
     if (!element || contextMenu.value !== menu) return
-    const bounds = element.getBoundingClientRect()
-    menu.x = Math.max(8, Math.min(event.clientX, window.innerWidth - bounds.width - 8))
-    menu.y = Math.max(8, Math.min(event.clientY, window.innerHeight - bounds.height - 8))
+    clampContextMenu(menu)
     element.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus()
   })
+}
+
+async function revealContextAlbumInExplorer(): Promise<void> {
+  const menu = contextMenu.value
+  if (!menu || revealInFlight) return
+  const generation = ++revealGeneration
+  const trackIds = menu.album.tracks.map((track) => track.id)
+  revealFeedback.value = null
+  revealInFlight = true
+  try {
+    if (trackIds.length === 0) {
+      if (generation !== revealGeneration || contextMenu.value !== menu) return
+      revealFeedback.value = t('library.contextMenu.reveal.not-found')
+    } else {
+      const result = await auralis.library.revealInExplorer({ trackIds })
+      if (generation !== revealGeneration || contextMenu.value !== menu) return
+      if (result.ok) {
+        closeContextMenu()
+        return
+      }
+      revealFeedback.value = t(`library.contextMenu.reveal.${result.reason}`)
+    }
+  } catch (error) {
+    rendererDiagnostics.error({
+      scope: 'albums.context-menu',
+      message: 'Failed to reveal album in Explorer',
+      cause: error,
+    })
+    if (generation !== revealGeneration || contextMenu.value !== menu) return
+    revealFeedback.value = t('library.contextMenu.reveal.reveal-failed')
+  } finally {
+    if (generation === revealGeneration) revealInFlight = false
+  }
+  await nextTick()
+  if (generation !== revealGeneration || contextMenu.value !== menu) return
+  clampContextMenu(menu)
 }
 
 function locateCurrentAlbum(): void {
@@ -1210,6 +1262,28 @@ defineExpose<AlbumLayoutTransitionParticipant>({
             <span class="i-lucide-disc"></span>
             <span>{{ t('albums.contextMenu.openInCd') }}</span>
           </button>
+          <div class="library-context-menu-separator"></div>
+          <button
+            class="library-context-menu-item"
+            role="menuitem"
+            type="button"
+            data-album-menu-action="open-in-explorer"
+            @click="revealContextAlbumInExplorer"
+          >
+            <span class="i-lucide-folder-open"></span>
+            <span>{{ t('albums.contextMenu.openInExplorer') }}</span>
+          </button>
+          <template v-if="revealFeedback">
+            <div class="library-context-menu-separator"></div>
+            <div
+              class="flex items-center gap-2 px-3 py-1.5 auralis-type-caption font-medium text-red-500 select-none"
+              role="alert"
+              aria-live="polite"
+            >
+              <span class="i-lucide-circle-alert text-sm shrink-0"></span>
+              <span>{{ revealFeedback }}</span>
+            </div>
+          </template>
         </div>
       </div>
     </Teleport>

@@ -113,8 +113,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(76)
-    expect(kinds).toEqual({ void: 21, optional: 6, required: 49 })
+    expect(actualChannels).toHaveLength(77)
+    expect(kinds).toEqual({ void: 21, optional: 6, required: 50 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -390,6 +390,17 @@ describe('domain IPC payload validation behavior', () => {
       }),
     ).toBeTruthy()
     expect(parse('playlists:add-tracks', { id: 7, trackIds: [1, 2, 3] })).toBeTruthy()
+    expect(parse('library:reveal-in-explorer', { trackIds: [1] })).toEqual({ trackIds: [1] })
+    for (const payload of [
+      undefined,
+      {},
+      { trackIds: [] },
+      { trackIds: [0] },
+      { trackIds: [1], filePath: 'C:/untrusted/song.flac' },
+      { filePath: 'C:/untrusted/song.flac' },
+    ]) {
+      expect(() => parse('library:reveal-in-explorer', payload)).toThrow(IpcPayloadValidationError)
+    }
     expect(parse('window:control', { action: 'toggle-maximize' })).toEqual({
       action: 'toggle-maximize',
     })

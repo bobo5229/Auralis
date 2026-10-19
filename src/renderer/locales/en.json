@@ -94,6 +94,15 @@
     "recentPlayed": "Recently played",
     "mostListened": "Most played",
     "recentAdded": "Recently added",
+    "recentAddedRange": "Time range",
+    "recentAddedRange7Days": "7 days",
+    "recentAddedRange30Days": "30 days",
+    "recentAddedRange90Days": "90 days",
+    "recentAddedRangeAll": "All time",
+    "recentAddedRangeCustom": "Custom",
+    "recentAddedRangeCustomInput": "Custom day range",
+    "recentAddedRangeCustomPlaceholder": "Days",
+    "recentAddedRangeDayUnit": "days",
     "customSmartPlaylist": "Custom",
     "createPlaylistFailed": "Could not create the playlist. Try again.",
     "rename": "Rename",
@@ -796,6 +805,7 @@
       "locateCurrent": "Locate current album",
       "play": "Play {title}",
       "openInCd": "Open in CD browse",
+      "openInExplorer": "Open in File Explorer",
       "insert": "Play {title} next"
     },
     "status": {
@@ -847,6 +857,13 @@
       "editMetadata": "Edit metadata",
       "switchToCover": "Switch to album covers",
       "switchToFlat": "Switch to track list",
+      "openInExplorer": "Open in File Explorer",
+      "reveal": {
+        "not-found": "The file to open could not be found.",
+        "outside-library": "This file is outside the music library folders.",
+        "unavailable": "The file is no longer there, and its folder could not be opened.",
+        "reveal-failed": "Could not open File Explorer. Try again."
+      },
       "noPlaylists": "No playlists available",
       "playlistLoading": "Loading playlists…",
       "playlistLoadError": "Could not load playlists. Try again.",

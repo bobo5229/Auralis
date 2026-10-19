@@ -94,6 +94,15 @@
     "recentPlayed": "最近播放",
     "mostListened": "最常收听",
     "recentAdded": "最近添加",
+    "recentAddedRange": "时间范围",
+    "recentAddedRange7Days": "7天",
+    "recentAddedRange30Days": "30天",
+    "recentAddedRange90Days": "90天",
+    "recentAddedRangeAll": "全部时间",
+    "recentAddedRangeCustom": "自定义",
+    "recentAddedRangeCustomInput": "自定义天数",
+    "recentAddedRangeCustomPlaceholder": "天数",
+    "recentAddedRangeDayUnit": "天",
     "customSmartPlaylist": "自定义",
     "createPlaylistFailed": "创建失败，请重试",
     "rename": "重命名",
@@ -796,6 +805,7 @@
       "locateCurrent": "定位到当前专辑",
       "play": "播放「{title}」",
       "openInCd": "在「唱片室」中打开",
+      "openInExplorer": "在资源管理器中打开",
       "insert": "插播「{title}」"
     },
     "status": {
@@ -847,6 +857,13 @@
       "editMetadata": "编辑元数据",
       "switchToCover": "切换到专辑封面",
       "switchToFlat": "切换到曲目列表",
+      "openInExplorer": "在资源管理器中打开",
+      "reveal": {
+        "not-found": "找不到可以打开的文件。",
+        "outside-library": "该文件不在音乐库文件夹中。",
+        "unavailable": "文件已不在原位置，所在文件夹也无法打开。",
+        "reveal-failed": "无法在资源管理器中打开，请重试。"
+      },
       "noPlaylists": "暂无可添加的歌单",
       "playlistLoading": "正在加载歌单…",
       "playlistLoadError": "加载歌单失败",

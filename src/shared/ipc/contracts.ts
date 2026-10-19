@@ -174,6 +174,14 @@ export type IpcEventPayload<C extends IpcEventChannel> = IpcEventContract[C]
 export type IpcSendChannel = keyof IpcSendContract
 export type IpcSendPayload<C extends IpcSendChannel> = IpcSendContract[C]
 
+export type RevealInExplorerReason =
+  | 'not-found'
+  | 'outside-library'
+  | 'unavailable'
+  | 'reveal-failed'
+
+export type RevealInExplorerResult = { ok: true } | { ok: false; reason: RevealInExplorerReason }
+
 export interface DatabaseExportBackupResult {
   status: 'saved' | 'cancelled' | 'failed'
   targetPath?: string
@@ -269,6 +277,10 @@ export interface IpcInvokeContract {
   'library:get-album-detail': {
     request: AlbumDetailRequest
     response: AlbumDetailResult
+  }
+  'library:reveal-in-explorer': {
+    request: { trackIds: number[] }
+    response: RevealInExplorerResult
   }
   'smart-playlists:list': {
     request: void

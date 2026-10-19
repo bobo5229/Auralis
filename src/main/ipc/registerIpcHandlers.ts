@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { stat } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -562,6 +562,15 @@ export function registerIpcHandlers(
     libraryService,
     libraryScanService,
     metadataWatchService,
+    revealInExplorer: {
+      getFilePathById: (trackId) => trackRepository.getFilePathById(trackId),
+      getRootPaths: () => libraryRootRepository.list().map((root) => root.path),
+      stat,
+      showItemInFolder: (filePath) => {
+        shell.showItemInFolder(filePath)
+      },
+      openPath: (directoryPath) => shell.openPath(directoryPath),
+    },
   })
   registerLyricsEditorIpcHandlers(electronIpcRegistrar, lyricsEditorService, lrcEditorService)
   registerPlaylistIpcHandlers(electronIpcRegistrar, {

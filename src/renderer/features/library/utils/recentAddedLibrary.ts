@@ -1,14 +1,17 @@
 import type { TrackListItem } from '@shared/types/libraryScan'
 
 export const RECENT_ADDED_LIBRARY_RANGES = [7, 30, 90, 'all'] as const
-export type RecentAddedLibraryRange = (typeof RECENT_ADDED_LIBRARY_RANGES)[number]
+// Keep day arithmetic within the range supported by JavaScript timestamps.
+export const MAX_RECENT_ADDED_LIBRARY_DAYS = 100_000_000
+export type RecentAddedLibraryRange = number | 'all'
 
 export function parseRecentAddedLibraryRange(value: unknown): RecentAddedLibraryRange | null {
   if (value === 'all') return 'all'
-  if (value === 7 || value === '7') return 7
-  if (value === 30 || value === '30') return 30
-  if (value === 90 || value === '90') return 90
-  return null
+  if (typeof value !== 'number' && (typeof value !== 'string' || !/^\d+$/.test(value))) {
+    return null
+  }
+  const days = Number(value)
+  return Number.isInteger(days) && days > 0 && days <= MAX_RECENT_ADDED_LIBRARY_DAYS ? days : null
 }
 
 export function parseRecentAddedLibraryTimestamp(value: string): number {

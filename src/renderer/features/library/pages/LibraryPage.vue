@@ -35,6 +35,7 @@ import { createLibraryCatalogViewIndex } from '../utils/libraryCatalogViewIndex'
 import { getAlbumCoverDiscHeadingCount } from '../utils/albumCoverDiscHeadings'
 import { resolveLibrarySurfaceKind } from '../utils/librarySurface'
 import type { LibraryRouteScope } from '../utils/libraryRouteScope'
+import { parseRecentAddedLibraryRange } from '../utils/recentAddedLibrary'
 import {
   resolveKeyboardFocusTrackId,
   resolveKeyboardMoveIndex,
@@ -118,7 +119,7 @@ const isScopedPlaylist = computed(
 
 function captureLibraryRouteScope(): LibraryRouteScope {
   if (isRecentAdded.value) {
-    return { kind: 'recent-added', range: 'all' }
+    return { kind: 'recent-added', range: parseRecentAddedLibraryRange(route.query.range) ?? 'all' }
   }
   if (smartPlaylistId.value !== null) {
     return { kind: 'smart-playlist', id: smartPlaylistId.value }
@@ -502,6 +503,7 @@ const {
   contextMenuAlbumTitle,
   regularPlaylistItems,
   addToPlaylistFeedback,
+  revealFeedback,
   playlistLoading,
   playlistLoadError,
   isCreatingPlaylistFromMenu,
@@ -514,6 +516,7 @@ const {
   onLocateCurrentTrack,
   onAddContextTracksToPlaylist,
   onCreatePlaylistAndAddContextTracks,
+  onRevealInExplorer,
   loadRegularPlaylistItems,
   dispose: disposeLibraryContextMenu,
 } = useLibraryContextMenu({
@@ -542,6 +545,7 @@ const {
   listSidebarItems: () => auralis.playlists.listSidebarItems(),
   createPlaylist: () => auralis.playlists.create(),
   addTracksToPlaylist: (playlistId, trackIds) => auralis.playlists.addTracks(playlistId, trackIds),
+  revealInExplorer: (trackIds) => auralis.library.revealInExplorer({ trackIds }),
 })
 
 function switchLibraryViewMode(nextMode: LibraryViewMode, anchorTrackId?: number | null): void {
@@ -1177,6 +1181,7 @@ onBeforeUnmount(() => {
       :can-switch-to-cover="!showPlayCount"
       :playlists="regularPlaylistItems"
       :playlist-feedback="addToPlaylistFeedback"
+      :reveal-feedback="revealFeedback"
       :playlist-loading="playlistLoading"
       :playlist-load-error="playlistLoadError"
       :creating-playlist="isCreatingPlaylistFromMenu"
@@ -1186,6 +1191,7 @@ onBeforeUnmount(() => {
       @insert-after-current="onContextMenuInsert"
       @add-to-playlist="onAddContextTracksToPlaylist"
       @create-playlist="onCreatePlaylistAndAddContextTracks"
+      @open-in-explorer="onRevealInExplorer"
       @edit-metadata="onEditMetadataFromContextMenu"
       @switch-view="(mode) => switchLibraryViewMode(mode, contextMenu?.trackId ?? null)"
     />

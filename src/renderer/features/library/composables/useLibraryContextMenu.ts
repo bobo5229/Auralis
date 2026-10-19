@@ -8,6 +8,8 @@ import type {
   LibraryContextMenuSource,
   LibraryContextMenuState,
   LibraryPlaylistFeedback,
+  LibraryRevealFeedback,
+  LibraryRevealRequest,
 } from '../types/libraryInteraction'
 import type { LibraryMetadataFocusTarget } from './useLibraryMetadataEditor'
 import { LIBRARY_PLAYLISTS_CHANGED_EVENT } from '../utils/libraryRouteScope'
@@ -36,6 +38,7 @@ export function useLibraryContextMenu(options: {
   listSidebarItems: () => Promise<SidebarPlaylistItem[]>
   createPlaylist: () => Promise<{ id: number; name: string }>
   addTracksToPlaylist: (playlistId: number, trackIds: number[]) => Promise<AddPlaylistTracksResult>
+  revealInExplorer: LibraryRevealRequest
 }) {
   const contextMenu = ref<LibraryContextMenuState | null>(null)
   // 菜单选中态只在菜单打开期间生效，不写入播放器的持久选择。
@@ -61,6 +64,7 @@ export function useLibraryContextMenu(options: {
     count?: number
     unavailable?: number
   } | null>(null)
+  const revealFeedback = ref<LibraryRevealFeedback | null>(null)
   const addToPlaylistFeedback = computed<LibraryPlaylistFeedback | null>(() =>
     feedbackSource.value
       ? {
@@ -84,6 +88,8 @@ export function useLibraryContextMenu(options: {
   let disposed = false
   let playlistLoadRevision = 0
   let playlistOperationRevision = 0
+  let revealRevision = 0
+  let revealInFlight = false
 
   function ownsMenu(origin: LibraryContextMenuState | null): boolean {
     return !disposed && origin !== null && contextMenu.value === origin
@@ -116,8 +122,15 @@ export function useLibraryContextMenu(options: {
     feedbackSource.value = null
   }
 
+  function invalidateReveal(): void {
+    revealRevision++
+    revealFeedback.value = null
+    revealInFlight = false
+  }
+
   function closeContextMenu(handoffTarget?: 'metadata-dialog' | 'view-switch'): void {
     clearAddToPlaylistFeedback()
+    invalidateReveal()
     playlistOperationRevision++
     playlistLoadRevision++
     playlistLoading.value = false
@@ -171,6 +184,7 @@ export function useLibraryContextMenu(options: {
   ): void {
     if (disposed) return
     clearAddToPlaylistFeedback()
+    invalidateReveal()
     playlistOperationRevision++
     isCreatingPlaylistFromMenu.value = false
     options.onTrackActivated(trackId)
@@ -334,6 +348,7 @@ export function useLibraryContextMenu(options: {
     const origin = contextMenu.value
     const revision = ++playlistOperationRevision
     clearAddToPlaylistFeedback()
+    invalidateReveal()
     try {
       await addContextTracksToPlaylist(playlist.id, playlist.name, trackIds, origin, revision)
     } catch (error) {
@@ -350,6 +365,7 @@ export function useLibraryContextMenu(options: {
     const origin = contextMenu.value
     const revision = ++playlistOperationRevision
     clearAddToPlaylistFeedback()
+    invalidateReveal()
     isCreatingPlaylistFromMenu.value = true
     try {
       const playlist = await options.createPlaylist()
@@ -366,13 +382,59 @@ export function useLibraryContextMenu(options: {
     }
   }
 
+  async function onRevealInExplorer(): Promise<void> {
+    const origin = contextMenu.value
+    if (!origin || revealInFlight) return
+    const trackIds = getContextMenuTrackIds()
+    if (trackIds.length === 0) {
+      revealFeedback.value = {
+        kind: 'error',
+        message: options.t('library.contextMenu.reveal.not-found'),
+      }
+      return
+    }
+
+    const revision = ++revealRevision
+    clearAddToPlaylistFeedback()
+    revealFeedback.value = null
+    revealInFlight = true
+    try {
+      const result = await options.revealInExplorer(trackIds)
+      if (!ownsMenu(origin) || revision !== revealRevision) return
+      if (result.ok) {
+        closeContextMenu()
+        return
+      }
+      revealFeedback.value = {
+        kind: 'error',
+        message: options.t(`library.contextMenu.reveal.${result.reason}`),
+      }
+    } catch (error) {
+      rendererDiagnostics.error({
+        scope: 'library.context-menu',
+        message: 'Failed to reveal tracks in Explorer',
+        cause: error,
+      })
+      if (!ownsMenu(origin) || revision !== revealRevision) return
+      revealFeedback.value = {
+        kind: 'error',
+        message: options.t('library.contextMenu.reveal.reveal-failed'),
+      }
+    } finally {
+      if (revision === revealRevision) revealInFlight = false
+    }
+  }
+
   function dispose(): void {
     disposed = true
     playlistLoadRevision++
+    revealRevision++
+    revealInFlight = false
     contextMenu.value = null
     playlistLoading.value = false
     isCreatingPlaylistFromMenu.value = false
     clearAddToPlaylistFeedback()
+    revealFeedback.value = null
   }
 
   return {
@@ -385,6 +447,7 @@ export function useLibraryContextMenu(options: {
     contextMenuAlbumTitle,
     regularPlaylistItems,
     addToPlaylistFeedback,
+    revealFeedback,
     playlistLoading,
     playlistLoadError,
     isCreatingPlaylistFromMenu,
@@ -397,6 +460,7 @@ export function useLibraryContextMenu(options: {
     onLocateCurrentTrack,
     onAddContextTracksToPlaylist,
     onCreatePlaylistAndAddContextTracks,
+    onRevealInExplorer,
     loadRegularPlaylistItems,
     dispose,
   }

@@ -1,5 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
+import type { RevealInExplorerResult } from '@shared/ipc/contracts'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { AddPlaylistTracksResult, SidebarPlaylistItem } from '@shared/types/playlist'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
@@ -79,6 +80,7 @@ function createMenu() {
       playlistExists: true,
     }),
   )
+  const revealInExplorer = vi.fn(async (): Promise<RevealInExplorerResult> => ({ ok: true }))
   const dispatchEvent = vi.fn()
 
   vi.stubGlobal(
@@ -118,6 +120,7 @@ function createMenu() {
     listSidebarItems,
     createPlaylist: createPlaylistApi,
     addTracksToPlaylist,
+    revealInExplorer,
   })
 
   return {
@@ -136,6 +139,7 @@ function createMenu() {
     onTrackActivated,
     listSidebarItems,
     addTracksToPlaylist,
+    revealInExplorer,
     createPlaylistApi,
     dispatchEvent,
   }
@@ -460,5 +464,68 @@ describe('useLibraryContextMenu', () => {
 
     vi.advanceTimersByTime(1200)
     expect(menu.contextMenu.value).toBeNull()
+  })
+
+  it('reveals the selected track and closes the menu', async () => {
+    const { menu, revealInExplorer } = createMenu()
+    menu.onOpenContextMenu(2, createMouseEvent(), 'track')
+    await menu.onRevealInExplorer()
+
+    expect(revealInExplorer).toHaveBeenCalledExactlyOnceWith([2])
+    expect(menu.contextMenu.value).toBeNull()
+    expect(menu.revealFeedback.value).toBeNull()
+  })
+
+  it('shows a not-found notice when album artwork has no tracks', async () => {
+    const { menu, revealInExplorer } = createMenu()
+    menu.onOpenContextMenu(3, createMouseEvent(), 'album-artwork')
+    await menu.onRevealInExplorer()
+
+    expect(revealInExplorer).not.toHaveBeenCalled()
+    expect(menu.contextMenu.value?.trackId).toBe(3)
+    expect(menu.revealFeedback.value).toEqual({
+      kind: 'error',
+      message: 'library.contextMenu.reveal.not-found',
+    })
+  })
+
+  it('reveals album artwork tracks in their existing order', async () => {
+    const { menu, revealInExplorer } = createMenu()
+    menu.onOpenContextMenu(1, createMouseEvent(), 'album-artwork')
+    await menu.onRevealInExplorer()
+
+    expect(revealInExplorer).toHaveBeenCalledExactlyOnceWith([1, 2])
+    expect(menu.contextMenu.value).toBeNull()
+  })
+
+  it('keeps the menu open and shows a failure when Explorer cannot open the file', async () => {
+    const { menu, revealInExplorer } = createMenu()
+    revealInExplorer.mockResolvedValueOnce({ ok: false, reason: 'unavailable' })
+    menu.onOpenContextMenu(1, createMouseEvent(), 'track')
+    await menu.onRevealInExplorer()
+
+    expect(menu.contextMenu.value?.trackId).toBe(1)
+    expect(menu.revealFeedback.value).toEqual({
+      kind: 'error',
+      message: 'library.contextMenu.reveal.unavailable',
+    })
+  })
+
+  it('ignores a reveal result after the menu has closed', async () => {
+    const { menu, revealInExplorer } = createMenu()
+    let finish!: (result: { ok: true }) => void
+    revealInExplorer.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+    )
+    menu.onOpenContextMenu(1, createMouseEvent(), 'track')
+    const pending = menu.onRevealInExplorer()
+    menu.closeContextMenu()
+    finish({ ok: true })
+    await pending
+
+    expect(menu.contextMenu.value).toBeNull()
+    expect(menu.revealFeedback.value).toBeNull()
   })
 })

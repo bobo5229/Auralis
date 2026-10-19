@@ -14,6 +14,7 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
   'library:get-scan-status': { jobId: 1 },
   'library:get-track-page': { cursor: 'snapshot:cursor', limit: 1000, refresh: true },
   'library:get-album-detail': { albumArtist: 'Artist', albumTitle: 'Album' },
+  'library:reveal-in-explorer': { trackIds: [1, 2] },
   'smart-playlists:get-detail': { id: 1 },
   'smart-playlists:create': {
     name: 'Name',

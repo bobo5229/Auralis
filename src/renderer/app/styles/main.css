@@ -732,7 +732,6 @@ body.is-column-resizing * {
   display: block;
 }
 
-.player-bar .player-bar-surface,
 .player-bar .player-bar-album-tint {
   border-radius: inherit;
 }
@@ -916,11 +915,6 @@ body.is-column-resizing * {
   min-width: 176px;
   padding: 8px;
   border-radius: 16px;
-  border: 1px solid var(--auralis-playbar-border);
-  background: var(--auralis-playbar-bg);
-  box-shadow: var(--auralis-playbar-shadow);
-  -webkit-backdrop-filter: blur(18px) saturate(1.12);
-  backdrop-filter: blur(18px) saturate(1.12);
 }
 
 .player-bar .player-bar-overflow-item {
@@ -1242,7 +1236,7 @@ body.is-column-resizing * {
 }
 
 /* Page parameter panel material, also used by both frosted Playbar layouts. */
-:is(.page-parameter-panel, .player-bar) {
+:is(.page-parameter-panel, .player-bar, .frosted-surface) {
   --auralis-parameter-surface-alpha: 0.76;
   --auralis-parameter-surface-bg: rgb(
     from var(--auralis-frosted-surface-bg) r g b / var(--auralis-parameter-surface-alpha)
@@ -1250,32 +1244,8 @@ body.is-column-resizing * {
   --auralis-parameter-surface-filter: blur(18px) saturate(1.15);
 }
 
-:where([data-theme='light']) :is(.page-parameter-panel, .player-bar) {
+:where([data-theme='light']) :is(.page-parameter-panel, .player-bar, .frosted-surface) {
   --auralis-parameter-surface-alpha: 0.72;
-}
-
-/* Playbar body material; menu surfaces keep their existing variables. */
-.player-bar {
-  --auralis-playbar-surface-bg: var(--auralis-playbar-bg);
-  --auralis-playbar-surface-filter: none;
-}
-
-.player-bar:where([data-playbar-style='frosted']) {
-  --auralis-playbar-surface-bg: var(--auralis-parameter-surface-bg);
-  --auralis-playbar-surface-filter: var(--auralis-parameter-surface-filter);
-}
-
-.player-bar-surface {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  border-radius: inherit;
-  background: var(--auralis-playbar-surface-bg);
-  -webkit-backdrop-filter: var(--auralis-playbar-surface-filter);
-  backdrop-filter: var(--auralis-playbar-surface-filter);
-  pointer-events: none;
-  transition: background-color 0.3s ease;
 }
 
 .player-bar > :not(.player-bar-album-tint, .player-bar-surface) {
@@ -1283,19 +1253,8 @@ body.is-column-resizing * {
   z-index: 4;
 }
 
+/* Fullscreen also uses this menu; the Playbar material is applied below. */
 .playback-mode-menu {
-  -webkit-backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
-  backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
-}
-
-.player-bar .queue-popover {
-  border: 1px solid var(--auralis-playbar-border);
-  background: color-mix(
-    in srgb,
-    var(--auralis-playbar-bg) 50%,
-    var(--auralis-playbar-highlight-soft)
-  );
-  box-shadow: var(--auralis-playbar-shadow);
   -webkit-backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
   backdrop-filter: blur(24px) saturate(180%) contrast(1.02);
 }
@@ -1367,6 +1326,7 @@ body.is-column-resizing * {
   animation: playbar-album-tint-fade-out 420ms ease forwards;
 }
 
+/* Shared Playbar menu material; each menu keeps its own geometry and content styles. */
 .player-bar :is(.queue-popover, .playback-mode-menu, .player-bar-overflow-panel) {
   border: none;
   background:
@@ -1378,7 +1338,7 @@ body.is-column-resizing * {
 }
 
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  :is(.page-parameter-panel, .player-bar) {
+  :is(.page-parameter-panel, .player-bar, .frosted-surface) {
     --auralis-parameter-surface-bg: var(--auralis-fullscreen-controls-bg);
     --auralis-parameter-surface-filter: none;
   }
@@ -1398,7 +1358,7 @@ body.is-column-resizing * {
 }
 
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  :is(.page-parameter-panel, .player-bar) {
+  :is(.page-parameter-panel, .player-bar, .frosted-surface) {
     --auralis-parameter-surface-bg: var(--auralis-fullscreen-controls-bg);
     --auralis-parameter-surface-filter: none;
   }

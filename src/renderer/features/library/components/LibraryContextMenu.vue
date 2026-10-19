@@ -24,6 +24,7 @@ const props = defineProps<{
   canSwitchToCover?: boolean
   playlists: SidebarPlaylistItem[]
   playlistFeedback: LibraryPlaylistFeedback | null
+  revealFeedback?: { kind: 'error'; message: string } | null
   playlistLoading: boolean
   playlistLoadError: string | null
   creatingPlaylist: boolean
@@ -38,6 +39,7 @@ const emit = defineEmits<{
   (e: 'createPlaylist'): void
   (e: 'editMetadata'): void
   (e: 'switchView', mode: LibraryViewMode): void
+  (e: 'openInExplorer'): void
 }>()
 
 const { t } = useI18n()
@@ -140,8 +142,17 @@ const menuItems = computed<MenuItemDef[]>(() => {
     },
   })
 
+  list.push({
+    id: 'openInExplorer',
+    action: () => {
+      emit('openInExplorer')
+    },
+  })
+
   return list
 })
+
+const menuNotice = computed(() => props.playlistFeedback ?? props.revealFeedback ?? null)
 
 const enabledMenuIndices = computed(() =>
   menuItems.value.map((item, idx) => (item.disabled ? -1 : idx)).filter((idx) => idx !== -1),
@@ -607,28 +618,44 @@ onBeforeUnmount(() => {
             </span>
           </button>
 
+          <div class="library-context-menu-separator" role="separator"></div>
+
+          <button
+            class="library-context-menu-item"
+            type="button"
+            role="menuitem"
+            data-context-main-item
+            data-context-main-index="6"
+            :tabindex="activeIndex === 6 ? 0 : -1"
+            @click="activateMainItem(6)"
+            @mouseenter="activeIndex = 6"
+          >
+            <span class="i-lucide-folder-open"></span>
+            <span class="library-context-menu-text truncate">{{
+              t('library.contextMenu.openInExplorer')
+            }}</span>
+          </button>
+
           <!-- 添加结果保留在主菜单，子菜单关闭后依然可见并朗读。 -->
-          <template v-if="playlistFeedback">
+          <template v-if="menuNotice">
             <div class="library-context-menu-separator" role="separator"></div>
             <div
               class="flex items-center gap-2 px-3 py-1.5 auralis-type-caption font-medium select-none"
               :class="
-                playlistFeedback.kind === 'error'
+                menuNotice.kind === 'error'
                   ? 'text-red-500'
-                  : playlistFeedback.kind === 'success'
+                  : menuNotice.kind === 'success'
                     ? 'text-emerald-500'
                     : 'text-[var(--auralis-text-muted)]'
               "
-              :role="playlistFeedback.kind === 'error' ? 'alert' : 'status'"
+              :role="menuNotice.kind === 'error' ? 'alert' : 'status'"
               aria-live="polite"
             >
               <span
-                :class="
-                  playlistFeedback.kind === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-check'
-                "
+                :class="menuNotice.kind === 'error' ? 'i-lucide-circle-alert' : 'i-lucide-check'"
                 class="text-sm shrink-0"
               ></span>
-              <span>{{ playlistFeedback.message }}</span>
+              <span>{{ menuNotice.message }}</span>
             </div>
           </template>
         </div>

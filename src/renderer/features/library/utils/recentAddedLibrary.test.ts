@@ -45,12 +45,9 @@ describe('recent-added library range parsing', () => {
     expect(parseRecentAddedLibraryRange(value)).toBe(expected)
   })
 
-  it.each([null, undefined, '', '365', 365, [], ['7'], {}, true])(
-    'rejects an invalid range value',
-    (value) => {
-      expect(parseRecentAddedLibraryRange(value)).toBeNull()
-    },
-  )
+  it.each([null, undefined, '', [], ['7'], {}, true])('rejects an invalid range value', (value) => {
+    expect(parseRecentAddedLibraryRange(value)).toBeNull()
+  })
 })
 
 describe('selectRecentAddedLibraryTracks', () => {
