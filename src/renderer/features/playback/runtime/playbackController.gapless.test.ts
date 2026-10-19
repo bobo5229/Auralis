@@ -263,6 +263,39 @@ describe('gapless navigation across asynchronous backend boundaries', () => {
     test.dispose()
   })
 
+  it('keeps edited metadata when reusing a catalog queue for selections, history and preloading', async () => {
+    const fixture = setup()
+    const tracks = fixture.tracks.map((track) => Object.freeze({ ...track }))
+    fixture.dispose()
+    const test = setup(tracks)
+    try {
+      await test.api.playTrackFromQueue(tracks, 1)
+      await vi.waitFor(() => expect(test.nextId()).toBe(2))
+      const queue = test.api.state.queue
+      test.changed('metadata-refresh', [1, 2])
+      await vi.waitFor(() => expect(queue[1].title).toBe('Edited 2'))
+      await test.api.playTrackFromQueue(tracks, 2)
+      expect(test.api.state.queue).toBe(queue)
+      expect(test.api.state.currentTrack?.title).toBe('Edited 2')
+      test.api.setPlaybackMode('shuffle')
+      await test.api.playPrevious()
+      expect(test.api.state.queue).toBe(queue)
+      expect(test.api.state.currentTrack?.title).toBe('Edited 1')
+      test.runtime.scheduleNext.mockClear()
+      test.api.setPlaybackMode('sequential')
+      await vi.waitFor(() => expect(test.nextId()).toBe(2))
+      test.boundary(2)
+      await vi.waitFor(() => expect(test.api.state.currentTrackId).toBe(2))
+      expect(test.api.state.queue).toEqual(queue)
+      expect(test.api.state.queue[1]).toBe(queue[1])
+      expect(test.api.state.currentTrack?.title).toBe('Edited 2')
+      expect(tracks.map((track) => track.title)).toEqual(['1', '2', '3', '4'])
+      expect(test.deps.diagnostics.warn).not.toHaveBeenCalled()
+    } finally {
+      test.dispose()
+    }
+  })
+
   it('applies a pending metadata batch to the current queue after replacement', async () => {
     const test = setup()
     await test.api.playTrackFromQueue(test.tracks, 1)

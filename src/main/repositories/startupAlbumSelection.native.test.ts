@@ -12,6 +12,43 @@ const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as new (
   path: string,
 ) => Database.Database
 
+it('selects albums with cleared artists using the displayed identity and excludes that identity', () => {
+  const db = new DatabaseCtor(':memory:')
+  try {
+    migrateDatabase(db)
+    db.exec(`
+      INSERT INTO tracks (id,file_path,title,artist,album_artist,album,track_no,availability) VALUES
+        (1,'null.wav','First',NULL,NULL,'Album',1,'available'),
+        (2,'empty.wav','Second','','','Album',2,'available'),
+        (3,'literal.wav','Third','Unknown Artist',NULL,'Album',3,'available'),
+        (4,'missing.wav','Missing',NULL,NULL,'Album',4,'missing'),
+        (5,'other.wav','Other','Other Artist',NULL,'Album',1,'available'),
+        (6,'no-album.wav','No album',NULL,NULL,NULL,1,'available');
+    `)
+    const repository = new TrackRepository(db)
+    const service = new LibraryService(new LibraryRepository(db), repository)
+    const unknown = { albumArtist: 'Unknown Artist', album: 'Album' }
+    const other = { albumArtist: 'Other Artist', album: 'Album' }
+    expect(
+      repository
+        .getStartupAlbumCandidates()
+        .map(({ albumArtist, album }) => ({ albumArtist, album })),
+    ).toEqual([other, unknown])
+    expect(service.getAlbumTracks(unknown)?.tracks.map((track) => track.id)).toEqual([1, 2, 3])
+    expect(service.getRandomAlbumTracks(other)?.tracks.map((track) => track.id)).toEqual([1, 2, 3])
+    expect(service.getRandomAlbumTracks(unknown)).toMatchObject(other)
+    expect(queryStartupAlbum(db, [other])?.tracks.map((track) => track.id)).toEqual([1, 2, 3])
+    expect(queryStartupAlbum(db, [unknown])).toMatchObject(other)
+    // Selection must not fill in the user's empty metadata.
+    expect(repository.getAll().find((track) => track.id === 1)).toMatchObject({
+      artist: null,
+      albumArtist: null,
+    })
+  } finally {
+    db.close()
+  }
+})
+
 it('plays albums in displayed order when missing disc numbers mix with explicit first and second discs', () => {
   const db = new DatabaseCtor(':memory:')
   try {

@@ -1,5 +1,6 @@
 import type { PlaybackMode, PlaybackTrack } from '../types'
 import type { AlbumShuffleContext } from './playbackQueueState'
+import { resolveAlbumArtist } from '../../albums/utils/albumIdentity'
 
 export type PlaybackAdvanceTrigger = 'manual-next' | 'natural-ended' | 'gapless-prefetch'
 
@@ -50,7 +51,7 @@ export interface PlaybackTransitionSource {
 export function getAlbumIdentity(track: PlaybackTrack): string | null {
   const album = track.album?.trim()
   if (!album) return null
-  const albumArtist = (track.albumArtist || track.artist || '').trim()
+  const albumArtist = resolveAlbumArtist(track).trim()
   return `${albumArtist.toLocaleLowerCase()}\u0000${album.toLocaleLowerCase()}`
 }
 
@@ -59,7 +60,7 @@ export function getAlbumKey(
 ): { albumArtist: string; album: string } | undefined {
   if (!track?.album) return undefined
   return {
-    albumArtist: track.albumArtist || track.artist || '',
+    albumArtist: resolveAlbumArtist(track),
     album: track.album,
   }
 }
@@ -78,7 +79,7 @@ export function buildAlbumShuffleContexts(
       context.tracks.push(track)
     } else {
       contexts.set(identity, {
-        albumArtist: track.albumArtist || track.artist || '',
+        albumArtist: resolveAlbumArtist(track),
         album: track.album!.trim(),
         tracks: [track],
       })

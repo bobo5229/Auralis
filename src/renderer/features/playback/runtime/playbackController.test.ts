@@ -1,8 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { reactive } from 'vue'
 import type { PlaybackMode, PlaybackTrack } from '../types'
 import { createPlaybackController, type PlaybackPublicApi } from './playbackController'
 import type { PlaybackAudioSnapshot } from '../audio/playbackAudioRuntime'
 import type { PlaybackDependencies } from './playbackDependencies'
+
+function frozenTracks(ids = [1, 2, 3]): PlaybackTrack[] {
+  return ids.map((id) =>
+    Object.freeze({
+      id,
+      title: `Track ${id}`,
+      artist: 'Artist',
+      album: 'Album',
+      albumArtist: 'Artist',
+      durationSeconds: 180,
+      artworkCacheKey: null,
+    }),
+  )
+}
 
 describe('playbackController unit tests with injected dependencies', () => {
   let deps: PlaybackDependencies
@@ -46,6 +61,100 @@ describe('playbackController unit tests with injected dependencies', () => {
         })),
         dispose: vi.fn(),
       })),
+    }
+  })
+
+  it.each(['plain', 'reactive', 'frozen', 'mixed'] as const)(
+    'reuses a converted %s catalog queue across selections and history',
+    async (kind) => {
+      const tracks = frozenTracks()
+      if (kind === 'mixed') tracks[1] = { ...tracks[1] }
+      const queue = kind === 'reactive' || kind === 'mixed' ? reactive(tracks) : tracks
+      if (kind === 'frozen') Object.freeze(queue)
+      const controller = createPlaybackController(deps)
+      const { api } = controller
+      try {
+        await api.playTrackFromQueue(queue, 1, { playbackMode: 'shuffle', shufflePool: queue })
+        const converted = api.state.queue
+        const firstSession = api.queueSession.value!.id
+        for (const id of [2, 3, 1, 2]) {
+          await api.playTrackFromQueue(queue, id, { shufflePool: queue })
+          expect(api.state.queue).toBe(converted)
+        }
+        expect(api.queueSession.value!.id).toBeGreaterThan(firstSession)
+        await api.playPrevious()
+        expect(api.state.currentTrackId).toBe(1)
+        expect(api.state.queue).toBe(converted)
+        expect(tracks.filter(Object.isFrozen)).toHaveLength(kind === 'mixed' ? 2 : 3)
+      } finally {
+        controller.dispose()
+      }
+    },
+  )
+
+  it.each(['reorder', 'append', 'remove', 'replace', 'mutable'] as const)(
+    'adopts a catalog queue after %s without changing its history',
+    async (change) => {
+      const tracks = frozenTracks()
+      const controller = createPlaybackController(deps)
+      const { api } = controller
+      try {
+        await api.playTrackFromQueue(tracks, 1, { playbackMode: 'shuffle', shufflePool: tracks })
+        const previous = api.state.queue
+        if (change === 'reorder') tracks.reverse()
+        if (change === 'append') tracks.push(...frozenTracks([4]))
+        if (change === 'remove') tracks.pop()
+        if (change === 'replace') tracks[1] = Object.freeze({ ...tracks[1], title: 'Replacement' })
+        if (change === 'mutable')
+          tracks.splice(0, tracks.length, ...tracks.map((track) => ({ ...track })))
+        await api.playTrackFromQueue(tracks, 2, { shufflePool: tracks })
+        expect(api.state.queue).not.toBe(previous)
+        expect(api.state.queue.map(({ id, title }) => ({ id, title }))).toEqual(
+          tracks.map(({ id, title }) => ({ id, title })),
+        )
+        expect(previous.map(({ id, title }) => ({ id, title }))).toEqual(
+          [1, 2, 3].map((id) => ({ id, title: `Track ${id}` })),
+        )
+        await api.playPrevious()
+        expect(api.state.currentTrackId).toBe(1)
+        expect(api.state.queue).toBe(previous)
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0.999)
+        try {
+          await api.playNext()
+          expect(api.state.currentTrackId).toBe(3)
+          expect(api.state.currentTrack?.title).toBe('Track 3')
+        } finally {
+          random.mockRestore()
+        }
+      } finally {
+        controller.dispose()
+      }
+    },
+  )
+
+  it('keeps different catalog snapshots and inserted queues separate', async () => {
+    const tracks = frozenTracks()
+    const nextSnapshot = frozenTracks().map((track) =>
+      Object.freeze({ ...track, title: 'New ' + track.id }),
+    )
+    const controller = createPlaybackController(deps)
+    const { api } = controller
+    try {
+      await api.playTrackFromQueue(tracks, 1, { playbackMode: 'shuffle' })
+      const original = api.state.queue
+      api.insertTrackAfterCurrent(frozenTracks([4])[0])
+      expect(api.state.queue.map(({ id }) => id)).toEqual([1, 4, 2, 3])
+      expect(original.map(({ id }) => id)).toEqual([1, 2, 3])
+      await api.playTrackFromQueue(tracks, 2)
+      expect(api.state.queue).toBe(original)
+      await api.playTrackFromQueue(nextSnapshot, 3)
+      expect(api.state.queue).not.toBe(original)
+      expect(api.state.currentTrack?.title).toBe('New 3')
+      await api.playPrevious()
+      expect(api.state.queue).toBe(original)
+      expect(api.state.currentTrack?.title).toBe('Track 2')
+    } finally {
+      controller.dispose()
     }
   })
 

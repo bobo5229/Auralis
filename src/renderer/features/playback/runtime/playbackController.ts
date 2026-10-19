@@ -108,6 +108,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   // Catalog snapshots are immutable. Keep one mutable playback copy per frozen
   // object so queues, history and preloaded plans share metadata without editing it.
   const mutableTracks = new WeakMap<PlaybackTrack, PlaybackTrack>()
+  const mutableQueues = new WeakMap<PlaybackTrack[], PlaybackTrack[]>()
   function playbackTrack(track: PlaybackTrack): PlaybackTrack {
     if (!Object.isFrozen(track)) return track
     let copy = mutableTracks.get(track)
@@ -118,14 +119,31 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     return copy
   }
   function playbackQueue(queue: PlaybackTrack[]): PlaybackTrack[] {
-    let copy = queue
-    for (let index = 0; index < queue.length; index += 1) {
-      const track = playbackTrack(queue[index])
-      if (track !== queue[index]) {
-        if (copy === queue) copy = queue.slice()
+    const source = toRaw(queue)
+    const cached = mutableQueues.get(source)
+    // The catalog's objects are frozen, but its consumer's array may be reordered
+    // or edited. Reuse only while every entry still maps to the same playback object.
+    if (
+      cached &&
+      cached.length === source.length &&
+      source.every((track, index) => playbackTrack(track) === cached[index])
+    ) {
+      return cached
+    }
+    let copy = source
+    for (let index = 0; index < source.length; index += 1) {
+      const track = playbackTrack(source[index])
+      if (track !== source[index]) {
+        if (copy === source) copy = source.slice()
         copy[index] = track
       }
     }
+    if (copy === source) {
+      mutableQueues.delete(source)
+      return queue
+    }
+    // Keep previous copies intact for history, and let discarded catalogs be collected.
+    mutableQueues.set(source, copy)
     return copy
   }
   function preparePlaybackPlan(plan: PlaybackTransitionPlan): PlaybackTransitionPlan {

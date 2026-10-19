@@ -319,13 +319,13 @@ export class TrackQueryRepository extends BaseRepository {
     return this.db
       .prepare(
         `
-      SELECT COALESCE(NULLIF(album_artist, ''), artist) AS albumArtist, album,
+      SELECT ${albumArtistIdentityExpr} AS albumArtist, album,
              AVG(play_count) AS averagePlayCount,
              AVG(CASE WHEN play_count = 0 THEN 1.0 ELSE 0.0 END) AS unheardFraction,
              strftime('%Y-%m-%dT%H:%M:%fZ', MAX(julianday(last_played_at))) AS lastPlayedAt
       FROM library_track_display
       WHERE availability = 'available' AND album IS NOT NULL AND album != ''
-      GROUP BY COALESCE(NULLIF(album_artist, ''), artist), album
+      GROUP BY ${albumArtistIdentityExpr}, album
       ORDER BY albumArtist, album
     `,
       )
@@ -336,20 +336,18 @@ export class TrackQueryRepository extends BaseRepository {
     albumArtist: string
     album: string
   }): { albumArtist: string; album: string } | null {
-    const albumArtistExpr = `COALESCE(NULLIF(album_artist, ''), artist)`
-
     const baseQuery = `
-      SELECT ${albumArtistExpr} AS albumArtist, album
+      SELECT ${albumArtistIdentityExpr} AS albumArtist, album
       FROM library_track_display
       WHERE availability = 'available'
         AND album IS NOT NULL
         AND album != ''
-      GROUP BY ${albumArtistExpr}, album`
+      GROUP BY ${albumArtistIdentityExpr}, album`
 
     if (excludeAlbumKey) {
       const row = this.db
         .prepare(
-          `${baseQuery} HAVING NOT (${albumArtistExpr} = ? AND album = ?) ORDER BY RANDOM() LIMIT 1`,
+          `${baseQuery} HAVING NOT (${albumArtistIdentityExpr} = ? AND album = ?) ORDER BY RANDOM() LIMIT 1`,
         )
         .get(excludeAlbumKey.albumArtist, excludeAlbumKey.album) as
         | { albumArtist: string; album: string }
@@ -366,17 +364,15 @@ export class TrackQueryRepository extends BaseRepository {
   }
 
   getAlbumTracks(albumArtist: string, album: string): PlaybackTrackDto[] {
-    const albumArtistExpr = `COALESCE(NULLIF(album_artist, ''), artist)`
-
     return this.db
       .prepare(
         `SELECT id, title, artist, album,
-                ${albumArtistExpr} AS albumArtist,
+                ${albumArtistIdentityExpr} AS albumArtist,
                 duration_seconds AS durationSeconds,
                 artwork_cache_key AS artworkCacheKey
          FROM library_track_display
          WHERE availability = 'available'
-           AND ${albumArtistExpr} = ?
+           AND ${albumArtistIdentityExpr} = ?
            AND album = ?
          ORDER BY
            COALESCE(disc_no, 1) ASC,

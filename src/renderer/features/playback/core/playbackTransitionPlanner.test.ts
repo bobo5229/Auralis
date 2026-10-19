@@ -3,6 +3,8 @@ import type { PlaybackMode, PlaybackTrack } from '../types'
 import type { AlbumShuffleContext } from './playbackQueueState'
 import {
   buildAlbumShuffleContexts,
+  getAlbumIdentity,
+  getAlbumKey,
   resolvePlaybackAdvance,
   resolvePlaybackTransition,
   type PlaybackTransitionSource,
@@ -49,6 +51,35 @@ function source(overrides: Partial<PlaybackTransitionSource> = {}): PlaybackTran
 }
 
 describe('resolvePlaybackTransition & resolvePlaybackAdvance', () => {
+  it.each([
+    { artist: null, albumArtist: null, expected: 'Unknown Artist' },
+    { artist: '', albumArtist: '', expected: 'Unknown Artist' },
+    { artist: 'Artist', albumArtist: null, expected: 'Artist' },
+    { artist: null, albumArtist: 'Band', expected: 'Band' },
+  ])(
+    'uses the displayed album identity when artists are cleared: %j',
+    async ({ artist, albumArtist, expected }) => {
+      const tracks = [track(1), track(2)].map((item) => ({ ...item, artist, albumArtist }))
+      const key = { albumArtist: expected, album: 'Album' }
+      const api = source({ getAlbumTracks: vi.fn(async () => ({ ...key, tracks })) })
+      const current = state('album-shuffle', { queue: [tracks[0]], currentTrack: tracks[0] })
+      expect(getAlbumKey(tracks[0])).toEqual(key)
+      expect(getAlbumIdentity(tracks[0])).toBe(getAlbumIdentity(track(3, 'Album', expected)))
+      expect(buildAlbumShuffleContexts(tracks)).toEqual([{ ...key, tracks }])
+      expect(await resolvePlaybackAdvance(current, api, 'manual-next')).toMatchObject({
+        kind: 'play',
+        plan: { track: { id: 2 } },
+      })
+      expect(api.getAlbumTracks).toHaveBeenCalledWith(key)
+      await resolvePlaybackAdvance(
+        { ...current, currentTrackId: 2, currentTrack: tracks[1] },
+        api,
+        'manual-next',
+      )
+      expect(api.getRandomAlbumTracks).toHaveBeenCalledWith(key)
+    },
+  )
+
   it('consumes an explicitly queued next track before the active mode', async () => {
     const result = await resolvePlaybackTransition(
       state('shuffle', { queuedNextTrackId: 2 }),
