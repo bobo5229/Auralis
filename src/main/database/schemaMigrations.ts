@@ -819,4 +819,18 @@ export const migrations = [
     name: 'add_audio_file_stat_fingerprint',
     sql: `ALTER TABLE tracks ADD COLUMN file_stat_fingerprint TEXT;`,
   },
+  {
+    id: 30,
+    name: 'index_artwork_references',
+    sql: `
+      -- GC rechecks current references before each deletion, inside its write
+      -- transaction. Keep that safety check proportional to matching keys.
+      CREATE INDEX idx_albums_artwork_cache_key
+        ON albums(artwork_cache_key) WHERE artwork_cache_key IS NOT NULL;
+      CREATE INDEX idx_track_metadata_artwork_cache_key
+        ON track_metadata(artwork_cache_key) WHERE artwork_cache_key IS NOT NULL;
+      CREATE INDEX idx_removed_track_history_artwork_cache_key
+        ON removed_track_history(artwork_cache_key) WHERE artwork_cache_key IS NOT NULL;
+    `,
+  },
 ] as const

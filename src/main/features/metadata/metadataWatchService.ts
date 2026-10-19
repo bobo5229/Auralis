@@ -1,4 +1,5 @@
 import { stat } from 'node:fs/promises'
+import { normalize, win32 } from 'node:path'
 import { scanFileFingerprint } from '../libraryScan/libraryScanFileFingerprint'
 import { normalizeAudioFilePath } from '../audio/playbackFileCoordinator'
 import { isSupportedAudioFile } from '@main/features/libraryScan/audioFileFilter'
@@ -14,13 +15,22 @@ import { MetadataWatchImportQueue } from './metadataWatchImportQueue'
 import { MetadataRootWatchers } from './metadataRootWatchers'
 import { MetadataMissingConfirmation } from './metadataMissingConfirmation'
 import { isTransientStatError } from './metadataWatchStatErrors'
+import { collectAudioFiles } from '../libraryScan/libraryScanInventory'
+import { getLyricsSidecarFingerprint } from './resolveLyricsForFile'
 
 const WATCH_DEBOUNCE_MS = 1200
 const RETRY_AFTER_ACTIVE_JOB_MS = 5000
 const UNSTABLE_RETRY_DELAY_MS = 3000
 const MAX_STAT_RETRIES = 10
+const RECOVERY_BATCH_SIZE = 128
 /** Suppress watch-triggered metadata refresh after a successful user tag write. */
 const TAG_WRITE_REFRESH_SUPPRESS_MS = 8000
+
+interface WatchRecovery {
+  isCurrent: () => boolean
+  retryAttempt: number
+  retryTimer: ReturnType<typeof setTimeout> | null
+}
 
 export class MetadataWatchService {
   private readonly pendingFilePaths = new Map<string, number>()
@@ -35,6 +45,7 @@ export class MetadataWatchService {
   private flushPaused = false
   private stopped = false
   private rootsVersion = 0
+  private readonly pendingRecoveries = new Map<string, WatchRecovery>()
 
   private readonly importQueue: MetadataWatchImportQueue
   private readonly rootWatchers: MetadataRootWatchers
@@ -59,6 +70,11 @@ export class MetadataWatchService {
     this.rootWatchers = new MetadataRootWatchers(
       () => this.stopped,
       (path) => this.enqueueChangedPath(path),
+      (rootPath, isCurrent) => {
+        this.clearRecoveryTimer(this.pendingRecoveries.get(rootPath))
+        this.pendingRecoveries.set(rootPath, { isCurrent, retryAttempt: 0, retryTimer: null })
+        this.resumeRecoveries()
+      },
     )
     this.missingConfirmation = new MetadataMissingConfirmation(
       trackRepository,
@@ -81,6 +97,8 @@ export class MetadataWatchService {
   async stop(): Promise<void> {
     this.stopped = true
     this.rootWatchers.close()
+    for (const recovery of this.pendingRecoveries.values()) this.clearRecoveryTimer(recovery)
+    this.pendingRecoveries.clear()
     this.statRetries.clear()
     this.suppressRefreshUntil.clear()
     this.flushPaused = true
@@ -106,6 +124,7 @@ export class MetadataWatchService {
    */
   async pauseFlush(): Promise<void> {
     this.flushPaused = true
+    for (const recovery of this.pendingRecoveries.values()) this.clearRecoveryTimer(recovery)
     if (this.flushTimer) {
       clearTimeout(this.flushTimer)
       this.flushTimer = null
@@ -128,6 +147,7 @@ export class MetadataWatchService {
       this.scheduleFlush()
     }
     this.missingConfirmation.resume()
+    this.resumeRecoveries()
   }
 
   /**
@@ -173,6 +193,12 @@ export class MetadataWatchService {
     }
     this.missingConfirmation.pruneInactivePaths()
     this.importQueue.pruneInactivePaths()
+    for (const [root, recovery] of this.pendingRecoveries) {
+      if (!recovery.isCurrent()) {
+        this.clearRecoveryTimer(recovery)
+        this.pendingRecoveries.delete(root)
+      }
+    }
     if (this.pendingFilePaths.size === 0 && this.flushTimer) {
       clearTimeout(this.flushTimer)
       this.flushTimer = null
@@ -181,6 +207,88 @@ export class MetadataWatchService {
 
   private isCurrentPath(filePath: string): boolean {
     return !this.stopped && this.rootWatchers.containsPath(filePath)
+  }
+
+  private resumeRecoveries(): void {
+    if (this.stopped || this.flushPaused) return
+    for (const [root, recovery] of this.pendingRecoveries) {
+      if (recovery.retryTimer) continue
+      this.pendingRecoveries.delete(root)
+      if (recovery.isCurrent()) this.runOperation(() => this.reconcileRecoveredRoot(root, recovery))
+    }
+  }
+
+  private clearRecoveryTimer(recovery: WatchRecovery | undefined): void {
+    if (recovery?.retryTimer) clearTimeout(recovery.retryTimer)
+    if (recovery) recovery.retryTimer = null
+  }
+
+  private async reconcileRecoveredRoot(root: string, recovery: WatchRecovery): Promise<void> {
+    const canContinue = () => !this.stopped && !this.flushPaused && recovery.isCurrent()
+    let needsRetry = false
+    try {
+      // Install the new watcher first, then reconcile the gap. Reuse the normal
+      // fingerprint, tag-write suppression, import and missing-confirmation paths.
+      const files = await collectAudioFiles(
+        root,
+        (directory) => {
+          needsRetry = true
+          logger.warn({ directory }, 'Unable to read directory during metadata watch recovery')
+        },
+        canContinue,
+      )
+      if (!canContinue()) return
+      const known = this.trackRepository.getWatchRecoveryTracks(root)
+      const pathKey = (path: string) => win32.normalize(path).toLowerCase()
+      const knownByPath = new Map(known.map((track) => [pathKey(track.filePath), track]))
+      const paths = new Map(files.map((path) => [pathKey(path), path]))
+      for (const track of known) paths.set(pathKey(track.filePath), normalize(track.filePath))
+      const candidates = [...paths.values()]
+      for (let offset = 0; offset < candidates.length; offset += RECOVERY_BATCH_SIZE) {
+        if (!canContinue()) return
+        const batch = candidates.slice(offset, offset + RECOVERY_BATCH_SIZE)
+        const lyricsChanged = await Promise.all(
+          batch.map(async (path) => {
+            const track = knownByPath.get(pathKey(path))
+            if (!track) return false
+            try {
+              return (await getLyricsSidecarFingerprint(path)) !== track.lyricsSidecarFingerprint
+            } catch (error) {
+              needsRetry = true
+              logger.warn(
+                { error, filePath: path },
+                'Unable to check lyrics during metadata watch recovery',
+              )
+              return false
+            }
+          }),
+        )
+        if (!canContinue()) return
+        for (const [index, path] of batch.entries()) {
+          this.pendingFilePaths.set(path, Date.now())
+          if (lyricsChanged[index]) this.pendingLyricsIntentPaths.add(path)
+        }
+        await this.flushPending(batch)
+      }
+    } catch (error) {
+      needsRetry = true
+      throw error
+    } finally {
+      // A full scan/root transition owns the write barrier. Resume a current
+      // recovery afterwards; a removed or superseded watcher cannot restart it.
+      if (!this.stopped && recovery.isCurrent() && (this.flushPaused || needsRetry)) {
+        this.pendingRecoveries.set(root, recovery)
+        if (!this.flushPaused) {
+          const delay = Math.min(1000 * 2 ** Math.min(recovery.retryAttempt, 5), 30000)
+          recovery.retryAttempt += 1
+          recovery.retryTimer = setTimeout(() => {
+            recovery.retryTimer = null
+            if (this.pendingRecoveries.get(root) === recovery) this.resumeRecoveries()
+          }, delay)
+          recovery.retryTimer.unref()
+        }
+      }
+    }
   }
 
   private enqueueChangedPath(filePath: string): void {
@@ -249,13 +357,13 @@ export class MetadataWatchService {
     void promise.finally(() => this.activeOperations.delete(promise))
   }
 
-  private async flushPending(): Promise<void> {
+  private async flushPending(selectedPaths?: readonly string[]): Promise<void> {
     if (this.flushPaused) {
       return
     }
 
-    const filePaths = [...this.pendingFilePaths.keys()]
-    this.pendingFilePaths.clear()
+    const filePaths = selectedPaths ? [...selectedPaths] : [...this.pendingFilePaths.keys()]
+    for (const path of filePaths) this.pendingFilePaths.delete(path)
 
     if (filePaths.length === 0) {
       return

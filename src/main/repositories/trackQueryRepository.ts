@@ -4,7 +4,7 @@ import type { PlaybackTrackDto } from '@shared/types/playback'
 import type { AlbumDetailSummary } from '@shared/types/albumDetail'
 import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'
 import type { KnownTrackFile } from './trackRepositoryTypes'
-import { toPathVariants } from './trackRepositoryPaths'
+import { toPathVariants, toRootPrefixes, escapeLikePattern } from './trackRepositoryPaths'
 import { sortLibraryTracks } from './libraryTrackSort'
 import { BaseRepository } from './baseRepository'
 import type { StartupAlbumCandidate } from './startupAlbumCandidate'
@@ -111,6 +111,22 @@ export class TrackQueryRepository extends BaseRepository {
     }
 
     return existing
+  }
+
+  getWatchRecoveryTracks(
+    rootPath: string,
+  ): Array<{ filePath: string; lyricsSidecarFingerprint: string | null }> {
+    // Stored Windows paths may use either separator, including mixed spelling.
+    const prefix = toRootPrefixes(rootPath)[0].replaceAll('\\', '/')
+    return this.db
+      .prepare(
+        `SELECT file_path AS filePath, lyrics_sidecar_fingerprint AS lyricsSidecarFingerprint
+       FROM tracks WHERE replace(file_path, char(92), '/') LIKE ? ESCAPE '~'`,
+      )
+      .all(`${escapeLikePattern(prefix)}%`) as Array<{
+      filePath: string
+      lyricsSidecarFingerprint: string | null
+    }>
   }
 
   /**

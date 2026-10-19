@@ -55,6 +55,12 @@ export class TrackRepository extends BaseRepository {
     return this.queries.getExistingFilePaths(filePaths)
   }
 
+  getWatchRecoveryTracks(
+    rootPath: string,
+  ): ReturnType<TrackQueryRepository['getWatchRecoveryTracks']> {
+    return this.queries.getWatchRecoveryTracks(rootPath)
+  }
+
   /**
    * Read the persisted scan fingerprint (file_size + file_mtime_ms) for the
    * given paths. Paths absent from the table are simply not present in the
