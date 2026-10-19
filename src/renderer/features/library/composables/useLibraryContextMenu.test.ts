@@ -1,9 +1,9 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-import type { RevealInExplorerResult } from '@shared/ipc/contracts'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import type { AddPlaylistTracksResult, SidebarPlaylistItem } from '@shared/types/playlist'
 import type { LibraryAlbumGroup } from '../types/libraryAlbumGroup'
+import type { LibraryRevealRequest } from '../types/libraryInteraction'
 import { useLibraryContextMenu } from './useLibraryContextMenu'
 
 function createTrack(id: number, title = `Track ${id}`): TrackListItem {
@@ -80,7 +80,7 @@ function createMenu() {
       playlistExists: true,
     }),
   )
-  const revealInExplorer = vi.fn(async (): Promise<RevealInExplorerResult> => ({ ok: true }))
+  const revealInExplorer = vi.fn<LibraryRevealRequest>(async () => ({ ok: true }))
   const dispatchEvent = vi.fn()
 
   vi.stubGlobal(

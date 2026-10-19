@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { reactive } from 'vue'
+import { effectScope, reactive, ref } from 'vue'
+import type { TrackListItem } from '@shared/types/libraryScan'
+import { useAlbumDetailPlayback } from '@renderer/features/albums/composables/useAlbumDetailPlayback'
 import type { PlaybackMode, PlaybackTrack } from '../types'
 import { createPlaybackController, type PlaybackPublicApi } from './playbackController'
 import type { PlaybackAudioSnapshot } from '../audio/playbackAudioRuntime'
@@ -61,6 +63,117 @@ describe('playbackController unit tests with injected dependencies', () => {
         })),
         dispose: vi.fn(),
       })),
+    }
+  })
+
+  it.each([
+    'pause',
+    'play',
+    'toggle',
+    'next',
+    'previous',
+    'seek',
+    'seek-ratio',
+    'insert',
+    'replace',
+  ] as const)('keeps a newer %s command when a pending album catalog resolves', async (command) => {
+    const controller = createPlaybackController(deps)
+    const api = controller.api
+    const scope = effectScope()
+    let resolve!: (tracks: TrackListItem[]) => void
+    const catalog = new Promise<TrackListItem[]>((done) => {
+      resolve = done
+    })
+    const target = { ...frozenTracks([1])[0], trackNo: 1, discNo: 1 } as TrackListItem
+    try {
+      api.setPlaybackMode('sequential')
+      await api.playTrackFromQueue(frozenTracks([10, 11, 12]), 11)
+      const actions = scope.run(() =>
+        useAlbumDetailPlayback({
+          albumArtist: ref('Artist'),
+          albumTitle: ref('Album'),
+          tracks: ref([target]),
+          albumTracks: ref([target]),
+          ensurePlaybackCatalog: () => catalog,
+          playbackCatalogRevision: ref(0),
+          playback: api,
+        }),
+      )!
+      const pending = actions.playTrack(1)
+      expect(api.state.currentTrackId).toBe(11)
+      expect(deps.getAudioUrl).not.toHaveBeenCalledWith(1)
+      if (command === 'pause') api.pause()
+      if (command === 'play') await api.play()
+      if (command === 'toggle') await api.togglePlayPause()
+      if (command === 'next') await api.playNext()
+      if (command === 'previous') await api.playPrevious()
+      if (command === 'seek') api.seekTo(30)
+      if (command === 'seek-ratio') api.seekByRatio(0.5)
+      if (command === 'insert') api.insertTrackAfterCurrent(frozenTracks([13])[0])
+      if (command === 'replace')
+        expect(
+          api.replaceCurrentPlaybackQueue({
+            expectedSessionId: api.queueSession.value!.id,
+            expectedTrackId: 11,
+            expectedQueueTrackIds: [10, 11, 12],
+            queue: frozenTracks([11, 14]),
+            playbackMode: 'sequential',
+          }),
+        ).toBe(true)
+      if (command === 'next') expect(api.state.currentTrackId).toBe(12)
+      if (command === 'previous') expect(api.state.currentTrackId).toBe(10)
+      if (command === 'seek') expect(api.state.currentTime).toBe(30)
+      if (command === 'seek-ratio') expect(api.state.currentTime).toBe(90)
+      const currentId = api.state.currentTrackId
+      const queueIds = api.state.queue.map((t) => t.id)
+      const audioCalls = vi.mocked(deps.getAudioUrl).mock.calls.length
+      resolve([target])
+      await pending
+      expect(api.state.currentTrackId).toBe(currentId)
+      expect(api.state.queue.map((t) => t.id)).toEqual(queueIds)
+      expect(deps.getAudioUrl).toHaveBeenCalledTimes(audioCalls)
+    } finally {
+      scope.stop()
+      controller.dispose()
+    }
+  })
+
+  it('allows pending album playback after natural time and playing updates', async () => {
+    const controller = createPlaybackController(deps)
+    const api = controller.api
+    const scope = effectScope()
+    let resolve!: (tracks: TrackListItem[]) => void
+    const catalog = new Promise<TrackListItem[]>((done) => {
+      resolve = done
+    })
+    const target = { ...frozenTracks([1])[0], trackNo: 1, discNo: 1 } as TrackListItem
+    try {
+      api.setPlaybackMode('sequential')
+      await api.playTrackFromQueue(frozenTracks([10]), 10)
+      const actions = scope.run(() =>
+        useAlbumDetailPlayback({
+          albumArtist: ref('Artist'),
+          albumTitle: ref('Album'),
+          tracks: ref([target]),
+          albumTracks: ref([target]),
+          ensurePlaybackCatalog: () => catalog,
+          playbackCatalogRevision: ref(0),
+          playback: api,
+        }),
+      )!
+      const pending = actions.playTrack(1)
+      expect(api.state.currentTrackId).toBe(10)
+      expect(deps.getAudioUrl).not.toHaveBeenCalledWith(1)
+      const callbacks = vi.mocked(deps.createAudioRuntime!).mock.calls[0][0]
+      callbacks.onTimeUpdate({ currentTime: 25, duration: 180 })
+      callbacks.onPlayingChange(true)
+      expect(api.state.currentTrackId).toBe(10)
+      resolve([target])
+      await pending
+      expect(api.state.currentTrackId).toBe(1)
+    } finally {
+      scope.stop()
+      controller.dispose()
     }
   })
 

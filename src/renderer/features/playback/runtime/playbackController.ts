@@ -50,6 +50,8 @@ export interface ReplaceCurrentPlaybackQueueOptions {
 export interface PlaybackPublicApi {
   readonly state: PlaybackState
   readonly queueSession: Readonly<Ref<PlaybackQueueSession | null>>
+  /** Changes on explicit transport/queue commands, independently of natural playback updates. */
+  readonly commandRevision: Readonly<Ref<number>>
   readonly gaplessPlaybackEnabled: Readonly<Ref<boolean>>
   readonly skipDigitalSilenceEnabled: Readonly<Ref<boolean>>
   readonly softTransitionEnabled: Readonly<Ref<boolean>>
@@ -158,6 +160,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     return plan
   }
   const queueSession = ref<PlaybackQueueSession | null>(null)
+  const commandRevision = ref(0)
   let nextQueueSessionId = 0
 
   const transitionSource: PlaybackTransitionSource = {
@@ -653,6 +656,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
   function setPlaybackMode(mode: PlaybackMode): void {
     if (state.playbackMode === mode) return
+    commandRevision.value += 1
     queueSession.value = null
     invalidateNavigationDecision(true)
     state.playbackMode = mode
@@ -707,6 +711,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     options?: PlayTrackFromQueueOptions,
   ): Promise<void> {
     if (!queue.some((track) => track.id === trackId)) return
+    commandRevision.value += 1
     // Explicit playback starts a new session even when the track IDs are unchanged.
     queueSession.value = { id: ++nextQueueSessionId, source: options?.source ?? 'default' }
     if (options?.replaceHistory) navigationSession.clearHistory()
@@ -740,6 +745,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
       return false
     }
 
+    commandRevision.value += 1
     invalidateNavigationDecision(true)
     state.queue = playbackQueue(options.queue)
     state.currentIndex = newIndex
@@ -771,6 +777,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     )
     if (!insertion) return
 
+    commandRevision.value += 1
     invalidateNavigationDecision()
     queueSession.value = null
     state.queue = insertion.queue
@@ -790,6 +797,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
     )
     if (!insertion) return
 
+    commandRevision.value += 1
     invalidateNavigationDecision()
     queueSession.value = null
     state.queue = insertion.queue
@@ -836,6 +844,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   async function togglePlayPause(): Promise<void> {
+    commandRevision.value += 1
     if (!state.currentTrack) return
 
     if (state.isPlaying) {
@@ -848,11 +857,13 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   async function play(): Promise<void> {
+    commandRevision.value += 1
     if (!state.currentTrack || state.isPlaying || playbackPending.value) return
     await resumeCurrentTrack(state.currentTrack)
   }
 
   function pause(): void {
+    commandRevision.value += 1
     pausedByUser = true
     invalidatePlaybackRequest()
     invalidateGaplessTransition()
@@ -862,6 +873,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   async function playPrevious(): Promise<void> {
+    commandRevision.value += 1
     invalidatePlaybackRequest()
     navigationRevision += 1
     navigationContextRevision += 1
@@ -890,6 +902,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   }
 
   async function playNext(): Promise<void> {
+    commandRevision.value += 1
     await advanceTrack('manual-next')
   }
 
@@ -905,6 +918,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
 
     if (!duration) return
 
+    commandRevision.value += 1
     const nextTime = Math.min(duration, Math.max(0, targetTime))
     void seekCurrentTrack(nextTime).catch(setPlaybackError)
     state.currentTime = nextTime
@@ -1173,6 +1187,7 @@ export function createPlaybackController(deps: PlaybackDependencies): PlaybackCo
   const api: PlaybackPublicApi = {
     state,
     queueSession: readonly(queueSession),
+    commandRevision: readonly(commandRevision),
     gaplessPlaybackEnabled: readonlyGaplessPlaybackEnabled,
     skipDigitalSilenceEnabled: readonly(skipDigitalSilenceEnabled),
     softTransitionEnabled: readonly(softTransitionEnabled),

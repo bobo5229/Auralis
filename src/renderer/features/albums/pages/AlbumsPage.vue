@@ -36,6 +36,7 @@ import type {
 } from '../utils/albumGridTransitionController'
 import type { AlbumSummary } from '../types'
 import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
+import { buildAlbumPlaybackQueue } from '../utils/albumPlaybackQueue'
 import { useAlbumCatalog } from '../composables/useAlbumCatalog'
 import { useAlbumGridLayout } from '../composables/useAlbumGridLayout'
 import { useAlbumListParameters } from '@renderer/features/appearance/composables/useAlbumListParameters'
@@ -962,43 +963,36 @@ function selectAlbumPlaybackTracks(album: AlbumSummary): TrackListItem[] {
   return catalogIndex.value.selectTracks(album.albumArtist, album.title)
 }
 
-function buildAlbumPlaybackQueue(album: AlbumSummary): TrackListItem[] {
-  if (playback.state.playbackMode !== 'sequential') {
-    return selectAlbumPlaybackTracks(album)
-  }
+function playAlbum(album: AlbumSummary): void {
+  const firstTrack = selectAlbumPlaybackTracks(album)[0]
+  if (!firstTrack) return
 
-  const albumIndex = albums.value.findIndex((candidate) => candidate.key === album.key)
-  if (albumIndex < 0) return selectAlbumPlaybackTracks(album)
-
-  return albums.value.slice(albumIndex).flatMap(selectAlbumPlaybackTracks)
+  void playback.playTrackFromQueue(
+    buildAlbumPlaybackQueue(
+      tracks.value,
+      album.albumArtist,
+      album.title,
+      playback.state.playbackMode,
+    ),
+    firstTrack.id,
+  )
 }
 
 function playContextAlbum(): void {
   const album = contextMenu.value?.album
   closeContextMenu()
-  if (!album) return
-  const firstTrack = selectAlbumPlaybackTracks(album)[0]
-  if (!firstTrack) return
-
-  void playback.playTrackFromQueue(buildAlbumPlaybackQueue(album), firstTrack.id)
-}
-
-function playGridAlbum(album: AlbumSummary): void {
-  const albumTracks = selectAlbumPlaybackTracks(album)
-  const firstTrack = albumTracks[0]
-  if (!firstTrack) return
-  void playback.playTrackFromQueue(albumTracks, firstTrack.id)
+  if (album) playAlbum(album)
 }
 
 function playCoverAlbum(album: AlbumSummary): void {
   dropLayerRef.value?.cancel()
-  playGridAlbum(album)
+  playAlbum(album)
 }
 
 function dropAlbum(album: AlbumSummary, cover: HTMLElement): void {
   if (!canDropAlbum.value || isDropActive.value || !album.tracks.length) return
   closeContextMenu()
-  dropLayerRef.value?.play({ album, cover, onLand: () => playGridAlbum(album) })
+  dropLayerRef.value?.play({ album, cover, onLand: () => playAlbum(album) })
 }
 
 function insertContextAlbum(): void {

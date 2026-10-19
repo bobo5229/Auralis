@@ -77,7 +77,9 @@ class TestNode {
     width: number
     height: number
   } {
-    return { left: 100, right: 248, top: 100, bottom: 130, width: 148, height: 30 }
+    // A longer option can make the content-sized menu wider than its trigger.
+    const width = this.props.role === 'listbox' ? 196 : 148
+    return { left: 100, right: 100 + width, top: 100, bottom: 130, width, height: 30 }
   }
 
   closest(): null {
@@ -213,7 +215,12 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
     await flush()
     const weightMenu = find((node) => node.props.id === 'fullscreen-lyrics-font-weight-menu')
     expect(weightMenu?.props.role).toBe('listbox')
-    expect(weightMenu?.props.style).toMatchObject({ width: '148px', left: '100px' })
+    expect(weightMenu?.props.style).toMatchObject({
+      width: 'max-content',
+      minWidth: '148px',
+      maxWidth: '1264px',
+      left: '52px',
+    })
     expect(weightMenu?.parent?.props.class).toBe('fullscreen-background-controls')
     trigger(
       find(

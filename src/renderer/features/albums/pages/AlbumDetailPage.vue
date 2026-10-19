@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import type { TrackListItem } from '@shared/types/libraryScan'
 import { auralis } from '@renderer/shared/ipc/client'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { getArtworkUrl } from '@renderer/features/library/utils/getArtworkUrl'
@@ -14,6 +13,7 @@ import AlbumMoreGallery from '../components/AlbumMoreGallery.vue'
 import { useAlbumDetailPresentation } from '../composables/useAlbumDetailPresentation'
 import type { AlbumSummary } from '../types'
 import { useAlbumDetailTracks } from '../composables/useAlbumDetailTracks'
+import { useAlbumDetailPlayback } from '../composables/useAlbumDetailPlayback'
 import { createAlbumArtworkTransition } from '@renderer/shared/animation/motion'
 
 const props = withDefaults(
@@ -51,8 +51,25 @@ const {
   initialize: initializeAlbumTracks,
   reloadTracks,
   ensureCurrentAlbum,
+  ensurePlaybackCatalog,
+  playbackCatalogRevision,
   dispose: disposeAlbumTracks,
 } = useAlbumDetailTracks({ albumArtist, albumTitle, library: auralis.library })
+const {
+  playAlbum,
+  playTrack,
+  playAlbumShuffle,
+  cancel: cancelPendingPlayback,
+} = useAlbumDetailPlayback({
+  albumArtist,
+  albumTitle,
+  tracks,
+  albumTracks,
+  ensurePlaybackCatalog,
+  playbackCatalogRevision,
+  playback,
+})
+onBeforeRouteLeave(cancelPendingPlayback)
 
 /**
  * 完整详情由快照/查询是否就绪决定；入场动画只关闭高开销效果，不拆两套 DOM。
@@ -69,25 +86,6 @@ const displayAlbumArtist = computed(() =>
 const displayAlbumTitle = computed(() =>
   albumTitle.value === 'Unknown Album' ? t('library.unknownAlbum') : songText(albumTitle.value),
 )
-
-const albumGroups = computed(() => {
-  const groupedAlbums = new Map<string, TrackListItem[]>()
-
-  for (const track of tracks.value) {
-    const artist = track.albumArtist || track.artist || 'Unknown Artist'
-    const title = track.album || 'Unknown Album'
-    const key = `${artist}\u0000${title}`
-    const existing = groupedAlbums.get(key)
-
-    if (existing) {
-      existing.push(track)
-    } else {
-      groupedAlbums.set(key, [track])
-    }
-  }
-
-  return [...groupedAlbums.entries()].map(([key, groupTracks]) => ({ key, tracks: groupTracks }))
-})
 
 const artworkCacheKey = computed(
   () =>
@@ -109,12 +107,14 @@ function retryLoad(): void {
 }
 
 function goBack(): void {
+  cancelPendingPlayback()
   void router.push({ name: 'albums' })
 }
 
 async function openAlbum(album: AlbumSummary, event: MouseEvent): Promise<void> {
   if (isOpeningWork.value) return
   if (album.albumArtist === albumArtist.value && album.title === albumTitle.value) return
+  cancelPendingPlayback()
 
   const source = (event.currentTarget as HTMLElement).querySelector<HTMLElement>(
     '.album-more-gallery-cover',
@@ -176,48 +176,6 @@ function showSearchResultHighlight(): void {
     highlightedTrackId.value = null
     highlightTimeout = null
   }, 1800)
-}
-
-function buildAlbumPlaybackQueue(): TrackListItem[] {
-  if (playback.state.playbackMode !== 'sequential') {
-    return albumTracks.value
-  }
-
-  const currentAlbumKey = `${albumArtist.value}\u0000${albumTitle.value}`
-  const albumIndex = albumGroups.value.findIndex((album) => album.key === currentAlbumKey)
-  if (albumIndex < 0) return albumTracks.value
-
-  const followingAlbumTracks = albumGroups.value
-    .slice(albumIndex + 1)
-    .flatMap((album) => album.tracks)
-
-  return [...albumTracks.value, ...followingAlbumTracks]
-}
-
-function playAlbum(): void {
-  const firstTrack = albumTracks.value[0]
-  if (!firstTrack) return
-  void playback.playTrackFromQueue(buildAlbumPlaybackQueue(), firstTrack.id)
-}
-
-/**
- * 随机播放：切到全局 shuffle，并将 shufflePool 限定为本专辑曲目。
- * 与曲库 scoped playlist 一致（playTrackFromQueue + shufflePool），
- * 不改用 album-shuffle（后者会跨专辑跳转，语义不符）。
- */
-function playAlbumShuffle(): void {
-  const pool = albumTracks.value
-  if (pool.length === 0) return
-
-  const startTrack = pool[Math.floor(Math.random() * pool.length)]
-  if (!startTrack) return
-
-  playback.setPlaybackMode('shuffle')
-  void playback.playTrackFromQueue(pool, startTrack.id, { shufflePool: pool })
-}
-
-function playTrack(trackId: number): void {
-  void playback.playTrackFromQueue(buildAlbumPlaybackQueue(), trackId)
 }
 
 /**

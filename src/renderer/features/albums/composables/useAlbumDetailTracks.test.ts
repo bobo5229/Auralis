@@ -11,7 +11,7 @@ import {
 } from '../albumDetailSnapshot'
 import { selectAlbumTracks, useAlbumDetailTracks } from './useAlbumDetailTracks'
 
-type LibraryClient = Pick<AuralisApi['library'], 'getAlbumDetail' | 'onChanged'>
+type LibraryClient = Pick<AuralisApi['library'], 'getAlbumDetail' | 'getTracks' | 'onChanged'>
 type LibraryChangedListener = Parameters<LibraryClient['onChanged']>[0]
 type LibraryChangedEvent = Parameters<LibraryChangedListener>[0]
 
@@ -42,6 +42,7 @@ function createTrack(id: number, patch: Partial<TrackListItem> = {}): TrackListI
 function createLibraryClient() {
   let changedListener: LibraryChangedListener | null = null
   const unsubscribe = vi.fn()
+  const getTracks = vi.fn(async (): Promise<TrackListItem[]> => [])
   const getAlbumDetail = vi.fn(
     async (): Promise<AlbumDetailResult> => ({ tracks: [], moreAlbums: [], genreAlbums: [] }),
   )
@@ -51,7 +52,8 @@ function createLibraryClient() {
   })
 
   return {
-    client: { getAlbumDetail, onChanged } satisfies LibraryClient,
+    client: { getAlbumDetail, getTracks, onChanged } satisfies LibraryClient,
+    getTracks,
     getAlbumDetail,
     unsubscribe,
     emit(event: LibraryChangedEvent): void {
@@ -130,6 +132,142 @@ describe('selectAlbumTracks', () => {
 })
 
 describe('useAlbumDetailTracks', () => {
+  it('subscribes before initial detail loading so catalog changes are not missed', async () => {
+    const library = createLibraryClient()
+    const oldDetail = createDeferred<AlbumDetailResult>()
+    const oldCatalog = createDeferred<TrackListItem[]>()
+    const fresh = [createTrack(2)]
+    library.getAlbumDetail
+      .mockReturnValueOnce(oldDetail.promise)
+      .mockResolvedValue({ tracks: fresh, moreAlbums: [], genreAlbums: [] })
+    library.getTracks.mockReturnValueOnce(oldCatalog.promise).mockResolvedValue(fresh)
+    const detail = useAlbumDetailTracks({
+      albumArtist: ref('Artist'),
+      albumTitle: ref('Album'),
+      library: library.client,
+    })
+    try {
+      const initializing = detail.initialize()
+      const oldPlayback = detail.ensurePlaybackCatalog()
+      library.emit({ reason: 'metadata-refresh', trackIds: [1], filePaths: [] })
+      await expect(detail.ensurePlaybackCatalog()).resolves.toBe(fresh)
+      oldCatalog.resolve([createTrack(1)])
+      oldDetail.resolve({ tracks: [createTrack(1)], moreAlbums: [], genreAlbums: [] })
+      await expect(oldPlayback).resolves.toBeNull()
+      await initializing
+      expect(detail.tracks.value).toEqual(fresh)
+      expect(detail.playbackCatalogRevision.value).toBe(1)
+    } finally {
+      detail.dispose()
+    }
+  })
+
+  it('loads and caches a full playback catalog on demand without expanding detail display data', async () => {
+    const library = createLibraryClient()
+    const current = createTrack(1)
+    const catalog = [current, createTrack(2, { album: 'Other' })]
+    library.getAlbumDetail.mockResolvedValue({ tracks: [current], moreAlbums: [], genreAlbums: [] })
+    const pending = createDeferred<TrackListItem[]>()
+    library.getTracks.mockReturnValue(pending.promise)
+    const detail = useAlbumDetailTracks({
+      albumArtist: ref('Artist'),
+      albumTitle: ref('Album'),
+      library: library.client,
+    })
+    try {
+      await detail.initialize()
+      expect(library.getTracks).not.toHaveBeenCalled()
+      const first = detail.ensurePlaybackCatalog()
+      const second = detail.ensurePlaybackCatalog()
+      expect(library.getTracks).toHaveBeenCalledOnce()
+      pending.resolve(catalog)
+      await expect(first).resolves.toBe(catalog)
+      await expect(second).resolves.toBe(catalog)
+      await expect(detail.ensurePlaybackCatalog()).resolves.toBe(catalog)
+      expect(detail.tracks.value).toEqual([current])
+      expect(library.getTracks).toHaveBeenCalledOnce()
+    } finally {
+      detail.dispose()
+    }
+  })
+
+  it('reuses a complete navigation snapshot for playback without fetching the catalog', async () => {
+    const catalog = [createTrack(1), createTrack(2, { album: 'Other' })]
+    writeAlbumDetailSnapshot({
+      albumArtist: 'Artist',
+      albumTitle: 'Album',
+      artworkCacheKey: null,
+      releaseDate: null,
+      tracks: [catalog[0]],
+      moreAlbums: [],
+      catalogTracks: catalog,
+    })
+    const library = createLibraryClient()
+    const detail = useAlbumDetailTracks({
+      albumArtist: ref('Artist'),
+      albumTitle: ref('Album'),
+      library: library.client,
+    })
+    try {
+      await expect(detail.ensurePlaybackCatalog()).resolves.toBe(catalog)
+      expect(library.getTracks).not.toHaveBeenCalled()
+    } finally {
+      detail.dispose()
+    }
+  })
+
+  it.each(['success', 'failure'] as const)(
+    'discards an invalidated catalog %s without clearing the fresh snapshot',
+    async (outcome) => {
+      const library = createLibraryClient()
+      const old = createDeferred<TrackListItem[]>()
+      const catalog = [createTrack(2)]
+      library.getTracks.mockReturnValueOnce(old.promise).mockResolvedValueOnce(catalog)
+      const detail = useAlbumDetailTracks({
+        albumArtist: ref('Artist'),
+        albumTitle: ref('Album'),
+        library: library.client,
+      })
+      try {
+        await detail.initialize()
+        const pending = detail.ensurePlaybackCatalog()
+        library.emit({ reason: 'metadata-refresh', trackIds: [], filePaths: [] })
+        await expect(detail.ensurePlaybackCatalog()).resolves.toBe(catalog)
+        if (outcome === 'success') {
+          old.resolve([createTrack(1)])
+          await expect(pending).resolves.toBeNull()
+        } else {
+          old.reject(new Error('Outdated request failed'))
+          await expect(pending).rejects.toThrow('Outdated request failed')
+        }
+        await expect(detail.ensurePlaybackCatalog()).resolves.toBe(catalog)
+        expect(library.getTracks).toHaveBeenCalledTimes(2)
+      } finally {
+        detail.dispose()
+      }
+    },
+  )
+
+  it('allows retry after catalog failure and discards pending results on disposal', async () => {
+    const library = createLibraryClient()
+    const pending = createDeferred<TrackListItem[]>()
+    library.getTracks
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockReturnValueOnce(pending.promise)
+    const detail = useAlbumDetailTracks({
+      albumArtist: ref('Artist'),
+      albumTitle: ref('Album'),
+      library: library.client,
+    })
+    await expect(detail.ensurePlaybackCatalog()).rejects.toThrow('offline')
+    const retry = detail.ensurePlaybackCatalog()
+    detail.dispose()
+    pending.resolve([createTrack(1)])
+    await expect(retry).resolves.toBeNull()
+    await expect(detail.ensurePlaybackCatalog()).resolves.toBeNull()
+    expect(library.getTracks).toHaveBeenCalledTimes(2)
+  })
+
   it('derives genre fallback from a catalog snapshot without IPC and gives artist siblings priority', async () => {
     const current = createTrack(1, { genre: 'Jazz' })
     const other = createTrack(2, { albumArtist: 'Other Artist', album: 'Other', genre: 'jazz' })
