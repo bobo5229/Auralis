@@ -1,4 +1,4 @@
-// A closed, one-operation publication helper for Windows M4A tag staging files.
+// Windows M4A publication and a non-mutating source lock for exclusive tag publication.
 #define NOMINMAX
 #define _WIN32_WINNT 0x0A00
 #include <windows.h>
@@ -16,13 +16,14 @@ int failure(DWORD error) {
     return 1;
 }
 int wmain(int argc, wchar_t** argv) {
-    if (argc != 6) return failure(ERROR_INVALID_PARAMETER);
+    const bool lockOnly = argc == 8 && std::wstring(argv[7]) == L"--lock-source";
+    if (argc != 7 && !lockOnly) return failure(ERROR_INVALID_PARAMETER);
     try {
         const auto original = std::filesystem::absolute(argv[1]).lexically_normal();
         const auto staging = std::filesystem::absolute(argv[2]).lexically_normal();
         auto extension = original.extension().wstring();
         for (auto& c : extension) c = towlower(c);
-        if (extension != L".m4a" || original.parent_path() != staging.parent_path() ||
+        if ((!lockOnly && extension != L".m4a") || original.parent_path() != staging.parent_path() ||
             !staging.wstring().starts_with(original.wstring() + L".auralis-replacement-"))
             return failure(ERROR_INVALID_PARAMETER);
         // Deny new writers, and require all existing readers to share deletion.
@@ -35,8 +36,23 @@ int wmain(int argc, wchar_t** argv) {
         const auto id = (UINT64(info.nFileIndexHigh) << 32) | info.nFileIndexLow;
         const auto ticks = (UINT64(info.ftLastWriteTime.dwHighDateTime) << 32) | info.ftLastWriteTime.dwLowDateTime;
         const auto mtimeNs = (ticks - 116444736000000000ULL) * 100;
-        if (size != std::stoull(argv[3]) || id != std::stoull(argv[4]) || mtimeNs != std::stoull(argv[5]))
+        FILE_BASIC_INFO basic{};
+        if (!GetFileInformationByHandleEx(source.value, FileBasicInfo, &basic, sizeof(basic)))
+            return failure(GetLastError());
+        const auto ctimeNs = (UINT64(basic.ChangeTime.QuadPart) - 116444736000000000ULL) * 100;
+        if (size != std::stoull(argv[3]) || id != std::stoull(argv[4]) ||
+            mtimeNs != std::stoull(argv[5]) || ctimeNs != std::stoull(argv[6]))
             return failure(ERROR_FILE_INVALID);
+        if (lockOnly) {
+            // Keep the source inode immutable while the main process moves it,
+            // publishes without overwriting and either removes or restores it.
+            // A crashed parent closes stdin, releasing this read-only lock.
+            std::cout << "{\"winError\":0}" << std::endl;
+            char command;
+            DWORD received;
+            ReadFile(GetStdHandle(STD_INPUT_HANDLE), &command, 1, &received, nullptr);
+            return 0;
+        }
         Handle replacement{CreateFileW(staging.c_str(), GENERIC_READ | GENERIC_WRITE | DELETE,
             0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr)};
         if (replacement.value == INVALID_HANDLE_VALUE) return failure(GetLastError());

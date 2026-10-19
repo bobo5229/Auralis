@@ -12,6 +12,7 @@ import { getMetadataParserVersion } from '../metadata/metadataParserVersion'
 import { readStableMetadata } from '../metadata/readStableMetadata'
 import { LibraryScanArtwork } from './libraryScanArtwork'
 import { LibraryScanTrackReader, type ReadTrackResult } from './libraryScanTrackReader'
+import { encodeScanFileFingerprint, scanFileFingerprint } from './libraryScanFileFingerprint'
 
 const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as new (
   path: string,
@@ -91,6 +92,9 @@ async function setup(date: string | null = '2012-09-30') {
   )
   db.exec("INSERT INTO track_metadata(track_id,title,source) VALUES(1,'Old file title','file_tag')")
   migrateDatabase(db)
+  db.prepare('UPDATE tracks SET file_stat_fingerprint=? WHERE id=1').run(
+    encodeScanFileFingerprint(scanFileFingerprint(fingerprint)),
+  )
   const tracks = new TrackRepository(db)
   const failures: string[] = []
   const read = () =>
@@ -127,6 +131,7 @@ describe('parser version migration and automatic backfill', () => {
               ...(row as object),
               metadata_parser_version: 'metadata:1',
               codec: null,
+              file_stat_fingerprint: null,
             }))
           : rows,
       ),
@@ -191,6 +196,10 @@ describe('parser version migration and automatic backfill', () => {
       fingerprint.mtimeMs,
       fingerprint.mtimeMs,
       getMetadataParserVersion(path),
+    )
+    db.prepare('UPDATE tracks SET file_stat_fingerprint=? WHERE file_path=?').run(
+      encodeScanFileFingerprint(scanFileFingerprint(fingerprint)),
+      path,
     )
     const failures: string[] = []
     const reader = new LibraryScanTrackReader(

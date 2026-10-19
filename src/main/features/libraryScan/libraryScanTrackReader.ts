@@ -63,8 +63,14 @@ export class LibraryScanTrackReader {
     }
 
     const knownFile = this.knownFiles.get(filePath)
+    // Size/mtime alone cannot prove legacy technical metadata is current.
+    // Establish a missing baseline through a full read, never text-only backfill.
     const fileUnchanged =
-      knownFile && knownFile.fileSize === fileSize && knownFile.fileMtimeMs === fileMtimeMs
+      knownFile &&
+      knownFile.fileFingerprint &&
+      knownFile.fileSize === fileSize &&
+      knownFile.fileMtimeMs === fileMtimeMs &&
+      hasSameScanFileFingerprint(fileStat, knownFile.fileFingerprint)
     const metadataChecked =
       knownFile?.metadataCheckedMtimeMs !== null &&
       knownFile?.metadataCheckedMtimeMs === fileMtimeMs &&

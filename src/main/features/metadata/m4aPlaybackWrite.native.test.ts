@@ -192,6 +192,20 @@ describe('M4A publication through native playback, metadata service and real Ele
             expect((await parseAudioMetadata(paths.get(id)!)).common.title).toBe(title)
             const fingerprint = await stat(paths.get(id)!)
             expect(
+              JSON.parse(
+                db
+                  .prepare('SELECT file_stat_fingerprint FROM tracks WHERE id=?')
+                  .pluck()
+                  .get(id) as string,
+              ),
+            ).toEqual([
+              fingerprint.size,
+              fingerprint.mtimeMs,
+              fingerprint.ctimeMs,
+              fingerprint.dev,
+              fingerprint.ino,
+            ])
+            expect(
               db.prepare('SELECT title,file_size,file_mtime_ms FROM tracks WHERE id=?').get(id),
             ).toEqual({ title, file_size: fingerprint.size, file_mtime_ms: fingerprint.mtimeMs })
             expect(send).toHaveBeenCalledWith('library:changed', {

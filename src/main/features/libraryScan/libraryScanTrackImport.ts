@@ -31,7 +31,9 @@ export function importScannedTracks(
     onFailure()
     failures.push({
       filePath: track.filePath,
-      reason: 'Audio file changed or became unavailable before scan import',
+      // electron-vite 3's shim scanner mistakes a trailing module keyword in a
+      // string for syntax and can insert its shim inside a later string literal.
+      reason: 'Audio file changed or became unavailable before committing scanned tracks',
     })
     return false
   }

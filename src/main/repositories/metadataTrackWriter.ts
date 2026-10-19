@@ -6,6 +6,7 @@ import {
 } from '@shared/utils/delimitedValues'
 import type { RefreshedTrackMetadata } from './metadataRefreshRepositoryTypes'
 import { replaceMetadataTrackArtists } from './metadataTrackArtists'
+import { encodeScanFileFingerprint } from '@main/features/libraryScan/libraryScanFileFingerprint'
 
 export class MetadataTrackWriter {
   constructor(private readonly db: Database.Database) {}
@@ -169,6 +170,13 @@ export class MetadataTrackWriter {
 
     const write = this.db.transaction((metadata: RefreshedTrackMetadata) => {
       this.assertTrackIdentity(metadata)
+      this.db
+        .prepare('UPDATE tracks SET file_stat_fingerprint = ? WHERE id = ? AND file_path = ?')
+        .run(
+          encodeScanFileFingerprint(metadata.fileFingerprint),
+          metadata.trackId,
+          metadata.sourceFilePath,
+        )
       const existingSource = this.db
         .prepare('SELECT source FROM track_metadata WHERE track_id = ?')
         .get(metadata.trackId) as { source: string } | undefined

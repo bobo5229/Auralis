@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { SmartPlaylistRule } from '@shared/types/smartPlaylist'
 import { assertValidSmartPlaylistRule } from './smartPlaylistService'
 import { SmartPlaylistService } from './smartPlaylistService'
@@ -6,6 +6,49 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import type { SmartPlaylistRepository } from '@main/repositories/smartPlaylistRepository'
 import type { TrackRepository } from '@main/repositories/trackRepository'
+
+describe('smart playlist counts', () => {
+  it('does not read the catalog or its revision when no smart playlists exist', () => {
+    const getAll = vi.fn()
+    const getChangeToken = vi.fn()
+    const service = new SmartPlaylistService(
+      { list: () => [] } as unknown as SmartPlaylistRepository,
+      { getAll, getChangeToken } as unknown as TrackRepository,
+    )
+
+    expect(service.listTrackCounts()).toEqual([])
+    expect(service.listTrackCounts()).toEqual([])
+    expect(getAll).not.toHaveBeenCalled()
+    expect(getChangeToken).not.toHaveBeenCalled()
+  })
+
+  it('releases an unused catalog and reads again when smart playlists return', () => {
+    const playlist = {
+      id: 1,
+      rule: { expression: { type: 'predicate', field: 'genre', operator: 'isEmpty' } },
+    } as SmartPlaylist
+    let playlists = [playlist]
+    const getAll = vi
+      .fn()
+      .mockReturnValueOnce([{ id: 1, genre: null }])
+      .mockReturnValueOnce([
+        { id: 1, genre: null },
+        { id: 2, genre: null },
+      ])
+    const service = new SmartPlaylistService(
+      { list: () => playlists } as unknown as SmartPlaylistRepository,
+      { getAll, getChangeToken: () => 'unchanged' } as unknown as TrackRepository,
+    )
+
+    expect(service.listTrackCounts()).toEqual([{ playlistId: 1, trackCount: 1 }])
+    playlists = []
+    expect(service.listTrackCounts()).toEqual([])
+    expect(getAll).toHaveBeenCalledTimes(1)
+    playlists = [playlist]
+    expect(service.listTrackCounts()).toEqual([{ playlistId: 1, trackCount: 2 }])
+    expect(getAll).toHaveBeenCalledTimes(2)
+  })
+})
 
 describe('recent added album order', () => {
   function track(id: number, overrides: Partial<TrackListItem> = {}): TrackListItem {

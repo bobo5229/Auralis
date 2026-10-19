@@ -38,7 +38,10 @@ beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(statSync)
     .mockReset()
-    .mockReturnValue({ size: 100, mtimeMs: 100 } as ReturnType<typeof statSync>)
+    .mockImplementation((path) => {
+      if (path === 'old.flac') throw Object.assign(new Error('absent'), { code: 'ENOENT' })
+      return { size: 100, mtimeMs: 100 } as ReturnType<typeof statSync>
+    })
   vi.mocked(resolveArtworkForFile).mockReset().mockResolvedValue(null)
   vi.mocked(stat)
     .mockReset()
@@ -62,6 +65,45 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers())
 
 describe('incremental import batching', () => {
+  it.each(['present', 'directory', 'EACCES'])(
+    'does not relocate if the old path becomes %s before commit',
+    async (state) => {
+      const { service, repo } = setup()
+      repo.findRelocationCandidatesByIdentity.mockReturnValue([
+        {
+          trackId: 9,
+          filePath: 'old.flac',
+          title: 'Song',
+          artist: 'Artist',
+          album: 'Album',
+          durationSeconds: 120,
+          fileSize: 100,
+          isrc: null,
+          metadataSignature: null,
+          missingSince: null,
+        },
+      ])
+      vi.mocked(stat).mockImplementation(async (path) => {
+        if (path === 'old.flac') throw Object.assign(new Error('absent'), { code: 'ENOENT' })
+        return { size: 100, mtimeMs: 100 } as Awaited<ReturnType<typeof stat>>
+      })
+      vi.mocked(statSync).mockImplementation((path) => {
+        if (path === 'old.flac') {
+          if (state === 'EACCES')
+            throw Object.assign(new Error('access denied'), { code: 'EACCES' })
+          return { isFile: () => state !== 'directory' } as ReturnType<typeof statSync>
+        }
+        return { size: 100, mtimeMs: 100 } as ReturnType<typeof statSync>
+      })
+      const pending = service.importFiles(['new.flac'])
+      await vi.runAllTimersAsync()
+      expect(await pending).toEqual({ imported: ['new.flac'], unstable: [], failed: [] })
+      expect(repo.relocateTrack).not.toHaveBeenCalled()
+      expect(repo.upsertMany).toHaveBeenCalledWith([
+        expect.objectContaining({ filePath: 'new.flac' }),
+      ])
+    },
+  )
   it('retries a changed file even when its audio read fails', async () => {
     const { service, repo, send } = setup()
     vi.mocked(parseFile).mockImplementationOnce(async () => {

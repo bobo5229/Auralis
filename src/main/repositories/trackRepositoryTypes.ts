@@ -1,4 +1,7 @@
+import type { TrackFileFingerprint } from '@shared/types/libraryScan'
+
 export interface KnownTrackFile {
+  fileFingerprint?: TrackFileFingerprint | null
   filePath: string
   fileSize: number | null
   fileMtimeMs: number | null

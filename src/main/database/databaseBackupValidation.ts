@@ -15,6 +15,34 @@ export type DatabaseConstructor = new (
   options?: Database.Options,
 ) => Database.Database
 
+function indexDefinition(db: Database.Database, table: string, name: string): unknown {
+  const properties = db
+    .prepare('SELECT "unique", partial FROM pragma_index_list(?) WHERE name = ?')
+    .get(table, name) as { unique: number; partial: number }
+  const columns = db
+    .prepare('SELECT name, "desc", coll FROM pragma_index_xinfo(?) WHERE key = 1 ORDER BY seqno')
+    .all(name) as { name: string | null; desc: number; coll: string }[]
+  // The pragmas describe ordinary keys completely. Partial/expression indexes
+  // also need their SQL, since column names alone do not describe their constraint.
+  const sql =
+    properties.partial || columns.some((column) => column.name === null)
+      ? db
+          .prepare("SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?")
+          .pluck()
+          .get(name)
+      : undefined
+  return { ...properties, columns, sql }
+}
+
+function uniqueConstraints(db: Database.Database, table: string): string[] {
+  const indexes = db
+    .prepare('SELECT name FROM pragma_index_list(?) WHERE "unique" = 1')
+    .all(table) as { name: string }[]
+  // Include sqlite_autoindex_*: table-level UNIQUE constraints are not exposed by
+  // table_info and their generated names need not match to enforce the same key.
+  return indexes.map(({ name }) => JSON.stringify(indexDefinition(db, table, name))).sort()
+}
+
 /**
  * Validates whether the given file is an authentic, non-corrupt, and schema-compatible Auralis SQLite backup.
  */
@@ -119,17 +147,21 @@ export function assertBackupSchema(
         }
       }
       if (object.type === 'table') {
+        if (
+          JSON.stringify(uniqueConstraints(db, object.name)) !==
+          JSON.stringify(uniqueConstraints(expected, object.name))
+        )
+          throw new Error('Incompatible Auralis unique constraints: ' + object.name)
         const references = (connection: Database.Database) =>
           connection.prepare('SELECT * FROM pragma_foreign_key_list(?)').all(object.name)
         if (JSON.stringify(references(db)) !== JSON.stringify(references(expected)))
           throw new Error('Incompatible Auralis foreign keys: ' + object.name)
       }
       if (object.type === 'index') {
-        const index = (connection: Database.Database) =>
-          connection
-            .prepare('SELECT name FROM pragma_index_info(?) ORDER BY seqno')
-            .all(object.name)
-        if (JSON.stringify(index(db)) !== JSON.stringify(index(expected)))
+        if (
+          JSON.stringify(indexDefinition(db, object.tbl_name, object.name)) !==
+          JSON.stringify(indexDefinition(expected, object.tbl_name, object.name))
+        )
           throw new Error('Incompatible Auralis index: ' + object.name)
       }
     }

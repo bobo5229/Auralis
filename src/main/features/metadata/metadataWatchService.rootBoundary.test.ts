@@ -19,7 +19,7 @@ vi.mock('@main/logging/logger', () => ({
 
 const oldRoot = normalize('C:/isolated-root-boundary/old')
 const newRoot = normalize('C:/isolated-root-boundary/new')
-const fileStat = { size: 10, mtimeMs: 1, isFile: () => true } as Stats
+const fileStat = { size: 10, mtimeMs: 1, ctimeMs: 1, dev: 1, ino: 1, isFile: () => true } as Stats
 const absent = () => Object.assign(new Error('absent'), { code: 'ENOENT' })
 const busy = () => Object.assign(new Error('busy'), { code: 'EBUSY' })
 const services: MetadataWatchService[] = []
@@ -73,7 +73,9 @@ function setup(initialRoots = [oldRoot]) {
       getFilePathById: () => null,
       adoptPlaybackPath: () => false,
       getFileFingerprintsByFilePaths: (paths: string[]) =>
-        new Map(paths.map((path) => [path, { fileSize: 10, fileMtimeMs: 1 }])),
+        new Map(
+          paths.map((path) => [path, { fileSize: 10, fileMtimeMs: 1, fileFingerprint: fileStat }]),
+        ),
       getTrackIdsByFilePaths: () => [1],
       markAvailableByFilePaths: restored,
       markMissingByFilePaths: missing,

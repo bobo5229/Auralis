@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
-import { copyFile, rename, rm, writeFile, stat } from 'node:fs/promises'
+import { copyFile, link, rename, rm, unlink, writeFile, stat } from 'node:fs/promises'
+import type { BigIntStats } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { randomUUID } from 'node:crypto'
@@ -12,11 +13,26 @@ import { verifyPreservedAudioTags } from './verifyPreservedAudioTags'
 import { writeM4aStagingTags } from './m4aTagWriter'
 import { MetadataSaveError } from './metadataSaveError'
 import { hasM4aPublicationHelper, publishWindowsM4a } from './windowsM4aPublication'
+import { lockWindowsAudioSource, type LockedAudioSource } from './windowsAudioSourceLock'
 import { writeLyricsStagingTag } from './lyricsTagWriter'
 import { logger } from '@main/logging/logger'
 
 const FFMPEG_NOT_FOUND_MESSAGE =
   'Unable to write audio tags because the bundled FFmpeg runtime is unavailable.'
+
+function sameFileIdentity(
+  actual: BigIntStats,
+  expected: BigIntStats,
+  includeCtime = true,
+): boolean {
+  return (
+    actual.size === expected.size &&
+    actual.mtimeNs === expected.mtimeNs &&
+    actual.ino === expected.ino &&
+    actual.dev === expected.dev &&
+    (!includeCtime || actual.ctimeNs === expected.ctimeNs)
+  )
+}
 
 async function removeTagWriteArtifact(filePath: string): Promise<void> {
   try {
@@ -171,50 +187,66 @@ async function remuxWithCover(
 async function replaceOriginalFile(
   originalPath: string,
   stagingPath: string,
-  expected: { size: number; mtimeMs: number; ino: number; dev: number },
+  expected: BigIntStats,
+  ffmpegPath: string,
   beforeFirstRename?: () => void,
 ): Promise<void> {
   const operationId = randomUUID()
   const backupPath = `${originalPath}.auralis-backup-${operationId}`
+  const probePath = `${stagingPath}.probe`
+  let probeOwned = false
+  let source: LockedAudioSource | null = null
 
   try {
-    const beforeReplace = await stat(originalPath)
-    if (
-      beforeReplace.size !== expected.size ||
-      beforeReplace.mtimeMs !== expected.mtimeMs ||
-      beforeReplace.ino !== expected.ino ||
-      beforeReplace.dev !== expected.dev
-    ) {
+    // Reject unsupported filesystems before moving the original. Both publication
+    // and recovery must create an absent path atomically, never overwrite a new file.
+    await link(stagingPath, probePath)
+    probeOwned = true
+    await unlink(probePath)
+    probeOwned = false
+    if (!sameFileIdentity(await stat(originalPath, { bigint: true }), expected)) {
       throw new MetadataSaveError(
         'file-changed',
         'Audio file changed during tag writing; original was not replaced',
       )
     }
     beforeFirstRename?.()
+    source = await lockWindowsAudioSource(originalPath, stagingPath, expected, ffmpegPath)
+    source.assertHeld()
     await rename(originalPath, backupPath)
 
     try {
-      const backup = await stat(backupPath)
-      if (
-        backup.size !== expected.size ||
-        backup.mtimeMs !== expected.mtimeMs ||
-        backup.ino !== expected.ino ||
-        backup.dev !== expected.dev
-      ) {
+      const backup = await stat(backupPath, { bigint: true })
+      // The native source handle excludes writers, including retained handles and
+      // hard-link aliases. A rename may update ctime, but must preserve identity.
+      source.assertHeld()
+      if (!sameFileIdentity(backup, expected, false)) {
         throw new MetadataSaveError(
           'file-changed',
           'Audio file changed before tag replacement; restoring original',
         )
       }
-      await rename(stagingPath, originalPath)
+      await link(stagingPath, originalPath)
     } catch (error) {
-      await rename(backupPath, originalPath)
+      try {
+        await link(backupPath, originalPath)
+        await removeTagWriteArtifact(backupPath)
+      } catch (recoveryError) {
+        // A new public-path file belongs to its creator. Keep both it and the
+        // recovery copy, including when restoration fails for another reason.
+        logger.warn({ err: recoveryError, backupPath }, 'Tag write recovery copy retained')
+      }
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST')
+        throw new MetadataSaveError('file-changed', 'Audio path was recreated during tag writing')
       throw error
     }
 
-    await removeTagWriteArtifact(backupPath)
+    if (source.isHeld()) await removeTagWriteArtifact(backupPath)
+    else logger.warn({ backupPath }, 'Tag source lock was lost; recovery copy retained')
   } finally {
+    if (probeOwned) await removeTagWriteArtifact(probePath)
     await removeTagWriteArtifact(stagingPath)
+    await source?.release()
   }
 }
 
@@ -232,25 +264,19 @@ export async function prepareAudioTagWrite(
   ffmpegPath: string,
 ): Promise<PreparedAudioTagWrite> {
   metadata = normalizeEditableMetadata(metadata)
-  const originalFingerprint = await stat(filePath)
+  const extension = extname(filePath)
+  if (!extension) {
+    throw new Error(`Unable to determine the audio format for ${basename(filePath)}.`)
+  }
+  const nativePublication =
+    extension.toLowerCase() === '.m4a' && hasM4aPublicationHelper(ffmpegPath)
   const originalIdentity = await stat(filePath, { bigint: true })
   const assertUnchanged = async () => {
-    const actual = await stat(filePath)
-    if (
-      actual.size !== originalFingerprint.size ||
-      actual.mtimeMs !== originalFingerprint.mtimeMs ||
-      actual.ino !== originalFingerprint.ino ||
-      actual.dev !== originalFingerprint.dev
-    )
+    if (!sameFileIdentity(await stat(filePath, { bigint: true }), originalIdentity))
       throw new MetadataSaveError(
         'file-changed',
         'Audio file changed during tag writing; original was not replaced',
       )
-  }
-  const extension = extname(filePath)
-
-  if (!extension) {
-    throw new Error(`Unable to determine the audio format for ${basename(filePath)}.`)
   }
 
   let outputPath: string | null = null
@@ -311,17 +337,20 @@ export async function prepareAudioTagWrite(
       assertUnchanged,
       commit: async (beforeFirstRename, preserveReaders = false) => {
         if (committed) throw new Error('Tag write already committed')
-        if (
-          preserveReaders &&
-          (extension.toLowerCase() !== '.m4a' || !hasM4aPublicationHelper(ffmpegPath))
-        )
+        if (preserveReaders && !nativePublication)
           throw new MetadataSaveError('save-failed', 'Safe M4A publication runtime is unavailable')
-        if (extension.toLowerCase() === '.m4a' && hasM4aPublicationHelper(ffmpegPath)) {
+        if (nativePublication) {
           await assertUnchanged()
           beforeFirstRename?.()
           await publishWindowsM4a(filePath, stagingPath, originalIdentity, ffmpegPath)
         } else
-          await replaceOriginalFile(filePath, stagingPath, originalFingerprint, beforeFirstRename)
+          await replaceOriginalFile(
+            filePath,
+            stagingPath,
+            originalIdentity,
+            ffmpegPath,
+            beforeFirstRename,
+          )
         committed = true
       },
       dispose: () => removeTagWriteArtifact(stagingPath),

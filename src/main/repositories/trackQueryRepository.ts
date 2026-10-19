@@ -1,4 +1,5 @@
-import type { TrackListItem, TrackLyrics } from '@shared/types/libraryScan'
+import type { TrackListItem, TrackLyrics, TrackFileFingerprint } from '@shared/types/libraryScan'
+import { decodeScanFileFingerprint } from '@main/features/libraryScan/libraryScanFileFingerprint'
 import type { PlaybackTrackDto } from '@shared/types/playback'
 import type { AlbumDetailSummary } from '@shared/types/albumDetail'
 import { normalizeDelimitedValue, splitDelimitedValues } from '@shared/utils/delimitedValues'
@@ -113,16 +114,22 @@ export class TrackQueryRepository extends BaseRepository {
   }
 
   /**
-   * Read the persisted scan fingerprint (file_size + file_mtime_ms) for the
+   * Read the persisted stable file fingerprint for the
    * given paths. Paths absent from the table are simply not present in the
    * map. Used by the metadata watcher to skip a refresh job when a file was
    * only opened for reading (same fingerprint as the last scan).
    */
   getFileFingerprintsByFilePaths(
     filePaths: string[],
-  ): Map<string, { fileSize: number; fileMtimeMs: number }> {
+  ): Map<
+    string,
+    { fileSize: number; fileMtimeMs: number; fileFingerprint: TrackFileFingerprint | null }
+  > {
     const uniquePaths = [...new Set(filePaths)].filter(Boolean)
-    const fingerprints = new Map<string, { fileSize: number; fileMtimeMs: number }>()
+    const fingerprints = new Map<
+      string,
+      { fileSize: number; fileMtimeMs: number; fileFingerprint: TrackFileFingerprint | null }
+    >()
 
     if (uniquePaths.length === 0) {
       return fingerprints
@@ -133,13 +140,23 @@ export class TrackQueryRepository extends BaseRepository {
       const placeholders = batch.map(() => '?').join(', ')
       const rows = this.db
         .prepare(
-          `SELECT file_path AS filePath, file_size AS fileSize, file_mtime_ms AS fileMtimeMs
+          `SELECT file_path AS filePath, file_size AS fileSize, file_mtime_ms AS fileMtimeMs,
+                  file_stat_fingerprint AS storedFingerprint
            FROM tracks WHERE file_path IN (${placeholders})`,
         )
-        .all(...batch) as Array<{ filePath: string; fileSize: number; fileMtimeMs: number }>
+        .all(...batch) as Array<{
+        filePath: string
+        fileSize: number
+        fileMtimeMs: number
+        storedFingerprint: string | null
+      }>
 
       for (const row of rows) {
-        fingerprints.set(row.filePath, { fileSize: row.fileSize, fileMtimeMs: row.fileMtimeMs })
+        fingerprints.set(row.filePath, {
+          fileSize: row.fileSize,
+          fileMtimeMs: row.fileMtimeMs,
+          fileFingerprint: decodeScanFileFingerprint(row.storedFingerprint),
+        })
       }
     }
 
@@ -249,11 +266,12 @@ export class TrackQueryRepository extends BaseRepository {
   }
 
   getKnownFiles(): KnownTrackFile[] {
-    return this.db
+    const rows = this.db
       .prepare(
         `SELECT t.file_path AS filePath,
                 t.file_size AS fileSize,
                 t.file_mtime_ms AS fileMtimeMs,
+                t.file_stat_fingerprint AS storedFingerprint,
                 t.album AS album,
                 t.album_artist AS albumArtist,
                 a.artwork_cache_key AS artworkCacheKey,
@@ -266,7 +284,11 @@ export class TrackQueryRepository extends BaseRepository {
          FROM tracks t
          LEFT JOIN albums a ON t.album = a.title AND t.album_artist = a.artist`,
       )
-      .all() as KnownTrackFile[]
+      .all() as Array<KnownTrackFile & { storedFingerprint: string | null }>
+    return rows.map(({ storedFingerprint, ...row }) => ({
+      ...row,
+      fileFingerprint: decodeScanFileFingerprint(storedFingerprint),
+    }))
   }
 
   getRandomPlayableTrack(excludeTrackId?: number): PlaybackTrackDto | null {
@@ -357,8 +379,7 @@ export class TrackQueryRepository extends BaseRepository {
            AND ${albumArtistExpr} = ?
            AND album = ?
          ORDER BY
-           CASE WHEN disc_no IS NULL THEN 1 ELSE 0 END,
-           disc_no ASC,
+           COALESCE(disc_no, 1) ASC,
            CASE WHEN track_no IS NULL THEN 1 ELSE 0 END,
            track_no ASC,
            title COLLATE NOCASE ASC,

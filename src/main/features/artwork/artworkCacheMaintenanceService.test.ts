@@ -19,6 +19,7 @@ function fakeCollector(
 ) {
   return {
     collectGarbage: vi.fn(async () => ({})),
+    hasUnusedAlbums: vi.fn(() => false),
     isRunning: vi.fn(() => false),
     ...overrides,
   } as unknown as ArtworkCacheGarbageCollector
@@ -93,6 +94,18 @@ describe('ArtworkCacheMaintenanceService', () => {
 
     expect(migration.runMigration).not.toHaveBeenCalled()
     expect(collector.collectGarbage).not.toHaveBeenCalled()
+  })
+
+  it('cleans obsolete album references on startup even when all artwork keys are current', async () => {
+    const migration = fakeMigration({ hasLegacyKeys: vi.fn(() => false) })
+    const collector = fakeCollector({ hasUnusedAlbums: vi.fn(() => true) })
+    const service = new ArtworkCacheMaintenanceService(migration, collector, fakeGate())
+
+    await service.runStartupMaintenance()
+
+    expect(migration.runMigration).not.toHaveBeenCalled()
+    expect(collector.collectGarbage).toHaveBeenCalledTimes(1)
+    expect(service.getState()).toBe('idle')
   })
 
   it('refuses to run while a scan worker is active', async () => {

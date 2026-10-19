@@ -19,6 +19,9 @@ const path = normalize(`${root}/sample.flac`)
 const fileStat = {
   size: 10,
   mtimeMs: 1,
+  ctimeMs: 1,
+  dev: 1,
+  ino: 1,
   isFile: () => true,
 } as Stats
 const absent = () => Object.assign(new Error('absent'), { code: 'ENOENT' })
@@ -35,6 +38,7 @@ function setup() {
   const refresh = vi.fn()
   const send = vi.fn()
   const isWritingFile = vi.fn(() => false)
+  let fileFingerprint: typeof fileStat | null = fileStat
   const service = new MetadataWatchService(
     { list: () => [{ path: root }] } as unknown as LibraryRootRepository,
     {
@@ -42,7 +46,8 @@ function setup() {
       getTrackIdsByPlaybackPath: () => [],
       getFilePathById: () => null,
       adoptPlaybackPath: () => false,
-      getFileFingerprintsByFilePaths: () => new Map([[path, { fileSize: 10, fileMtimeMs: 1 }]]),
+      getFileFingerprintsByFilePaths: () =>
+        new Map([[path, { fileSize: 10, fileMtimeMs: 1, fileFingerprint }]]),
       getTrackIdsByFilePaths: () => [1],
       markMissingByFilePaths: markMissing,
       markAvailableByFilePaths: markAvailable,
@@ -52,7 +57,18 @@ function setup() {
     send,
   )
   service.start()
-  return { service, notify, markMissing, markAvailable, refresh, send, isWritingFile }
+  return {
+    service,
+    notify,
+    markMissing,
+    markAvailable,
+    refresh,
+    send,
+    isWritingFile,
+    setFingerprint: (value: typeof fileStat | null) => {
+      fileFingerprint = value
+    },
+  }
 }
 
 beforeEach(() => {
@@ -67,6 +83,18 @@ afterEach(() => {
 })
 
 describe('metadata watcher component boundaries', () => {
+  it('refreshes a legacy row and skips duplicate read notifications after its baseline is committed', async () => {
+    const { service, notify, refresh, setFingerprint } = setup()
+    setFingerprint(null)
+    notify('change', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(1200)
+    expect(refresh).toHaveBeenCalledExactlyOnceWith([1])
+    setFingerprint(fileStat)
+    notify('change', 'sample.flac')
+    await vi.advanceTimersByTimeAsync(2400)
+    expect(refresh).toHaveBeenCalledOnce()
+    await service.stop()
+  })
   it('defers transient absence and a pending missing confirmation while a tag save owns the path', async () => {
     const { service, notify, isWritingFile, markMissing, refresh } = setup()
     vi.mocked(stat).mockRejectedValue(absent())

@@ -5,10 +5,45 @@ import { migrateDatabase } from '../database/schema'
 import { TrackQueryRepository } from './trackQueryRepository'
 import { TrackRepository } from './trackRepository'
 import { queryStartupAlbum } from '../features/startupAlbum/startupAlbumQuery'
+import { LibraryService } from '../services/libraryService'
+import { LibraryRepository } from './libraryRepository'
 
 const DatabaseCtor = createRequire(import.meta.url)('better-sqlite3') as new (
   path: string,
 ) => Database.Database
+
+it('plays albums in displayed order when missing disc numbers mix with explicit first and second discs', () => {
+  const db = new DatabaseCtor(':memory:')
+  try {
+    migrateDatabase(db)
+    db.exec(
+      'INSERT INTO tracks (id,file_path,title,artist,album_artist,album,disc_no,track_no,availability) VALUES ' +
+        "(1,'first.wav','First','Artist','Artist','Album',NULL,1,'available')," +
+        "(2,'second.wav','Second','Artist','Artist','Album',1,2,'available')," +
+        "(3,'third.wav','Third','Artist','Artist','Album',NULL,3,'available')," +
+        "(4,'disc2.wav','Disc two','Artist','Artist','Album',2,1,'available')," +
+        "(5,'bonus-a.wav','Bonus','Artist','Artist','Album',NULL,NULL,'available')," +
+        "(6,'bonus-b.wav','Bonus','Artist','Artist','Album',1,NULL,'available')," +
+        "(7,'missing.wav','Missing','Artist','Artist','Album',1,4,'missing')",
+    )
+    const repository = new TrackRepository(db)
+    const service = new LibraryService(new LibraryRepository(db), repository)
+    const identity = { albumArtist: 'Artist', album: 'Album' }
+    const expected = [1, 2, 3, 5, 6, 4]
+    expect(repository.getAlbumDetailTracks('Artist', 'Album').map((track) => track.id)).toEqual(
+      expected,
+    )
+    const album = service.getAlbumTracks(identity)!
+    expect(album.tracks.map((track) => track.id)).toEqual(expected)
+    expect(service.getRandomAlbumTracks()?.tracks.map((track) => track.id)).toEqual(expected)
+    expect(queryStartupAlbum(db)?.tracks.map((track) => track.id)).toEqual(expected)
+
+    db.exec('UPDATE tracks SET disc_no = 1 WHERE disc_no IS NULL')
+    expect(service.getAlbumTracks(identity)?.tracks.map((track) => track.id)).toEqual(expected)
+  } finally {
+    db.close()
+  }
+})
 
 it('excludes the previous playable album, returns ordered tracks, and permits a sole album', () => {
   const db = new DatabaseCtor(':memory:')

@@ -247,7 +247,7 @@ it.each(['replaced', 'same size and mtime', 'deleted', 'directory', 'unreadable'
     expect(f.db.prepare('SELECT file_path,reason FROM scan_failures').all()).toEqual([
       {
         file_path: f.incoming,
-        reason: 'Audio file changed or became unavailable before scan import',
+        reason: 'Audio file changed or became unavailable before committing scanned tracks',
       },
     ])
     expect(f.send.mock.calls.at(-1)?.[1]).toMatchObject({ status: 'completed', failedFiles: 1 })

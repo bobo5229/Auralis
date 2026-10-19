@@ -63,7 +63,7 @@ export class TrackRepository extends BaseRepository {
    */
   getFileFingerprintsByFilePaths(
     filePaths: string[],
-  ): Map<string, { fileSize: number; fileMtimeMs: number }> {
+  ): ReturnType<TrackQueryRepository['getFileFingerprintsByFilePaths']> {
     return this.queries.getFileFingerprintsByFilePaths(filePaths)
   }
 

@@ -52,10 +52,15 @@ export class SmartPlaylistService {
   }
 
   listTrackCounts(): SmartPlaylistTrackCount[] {
+    const playlists = this.smartPlaylistRepository.list()
+    if (playlists.length === 0) {
+      this.clearTrackListCache()
+      return []
+    }
     const tracks = this.getTracksCached()
     const now = new Date()
     const presetTracks = new Map<string, TrackListItem[]>()
-    return this.smartPlaylistRepository.list().map((playlist) => ({
+    return playlists.map((playlist) => ({
       playlistId: playlist.id,
       trackCount: this.getPlaylistTracks(playlist, tracks, now, presetTracks).length,
     }))

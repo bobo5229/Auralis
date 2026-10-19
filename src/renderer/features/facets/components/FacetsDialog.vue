@@ -61,25 +61,31 @@ function getAlbumKey(albumArtist: string | null, album: string): string {
 }
 
 function matchesGenre(track: TrackListItem): boolean {
-  if (!selectedGenre.value) return true
-  const selected = genreOptions.value.find((option) => option.key === selectedGenre.value)
+  const selected = activeGenreOption.value
   return selected ? matchesFacet(track, 'genre', selected.key) : true
 }
 
 function matchesAlbumArtist(track: TrackListItem): boolean {
-  if (!selectedAlbumArtist.value) return true
-  const selected = albumArtistOptions.value.find(
-    (option) => option.key === selectedAlbumArtist.value,
-  )
+  const selected = activeAlbumArtistOption.value
   return selected ? matchesFacet(track, 'albumArtist', selected.key) : true
 }
 
 const genreOptions = computed<FacetOption[]>(() =>
   buildFacetOptions(tracks.value, 'genre', t('facets.unknownGenre')),
 )
+const activeGenreOption = computed(() =>
+  selectedGenre.value
+    ? genreOptions.value.find((option) => option.key === selectedGenre.value)
+    : undefined,
+)
 
 const albumArtistOptions = computed<FacetOption[]>(() =>
   buildFacetOptions(tracks.value.filter(matchesGenre), 'albumArtist', t('facets.unknownArtist')),
+)
+const activeAlbumArtistOption = computed(() =>
+  selectedAlbumArtist.value
+    ? albumArtistOptions.value.find((option) => option.key === selectedAlbumArtist.value)
+    : undefined,
 )
 
 const albumOptions = computed<FacetOption[]>(() => {

@@ -4,6 +4,7 @@ import type { MissingTrackCandidate } from './trackRepositoryTypes'
 import { toRootPrefixes, toPathVariants, escapeLikePattern } from './trackRepositoryPaths'
 import { BaseRepository } from './baseRepository'
 import { prepareScannedMetadataDisplayUpdate } from './scannedMetadataDisplay'
+import { encodeScanFileFingerprint } from '@main/features/libraryScan/libraryScanFileFingerprint'
 
 export class TrackAvailabilityRepository extends BaseRepository {
   markMissingByFilePaths(filePaths: string[]): number[] {
@@ -276,7 +277,12 @@ export class TrackAvailabilityRepository extends BaseRepository {
             expectedOldPath,
           )
 
-        if (result.changes > 0) prepareScannedMetadataDisplayUpdate(this.db)(scannedTrack)
+        if (result.changes > 0) {
+          this.db
+            .prepare('UPDATE tracks SET file_stat_fingerprint = ? WHERE id = ?')
+            .run(encodeScanFileFingerprint(scannedTrack.fileFingerprint), trackId)
+          prepareScannedMetadataDisplayUpdate(this.db)(scannedTrack)
+        }
         return result.changes > 0
       })()
     } catch (error) {

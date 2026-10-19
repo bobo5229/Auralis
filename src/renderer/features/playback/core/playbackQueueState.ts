@@ -64,17 +64,29 @@ export class PlaybackHistory {
   }
 
   removeTracks(trackIds: ReadonlySet<number>): void {
+    if (trackIds.size === 0) return
+    // Many history entries share the same catalog queue. Filter each source
+    // once and retain that sharing across every nested playback context.
+    const filteredQueues = new Map<PlaybackTrack[], PlaybackTrack[]>()
+    const removeMissing = (queue: PlaybackTrack[]): PlaybackTrack[] => {
+      const cached = filteredQueues.get(queue)
+      if (cached) return cached
+      const filtered = queue.some((track) => trackIds.has(track.id))
+        ? queue.filter((track) => !trackIds.has(track.id))
+        : queue
+      filteredQueues.set(queue, filtered)
+      return filtered
+    }
     this.entries = this.entries
       .filter((entry) => !trackIds.has(entry.track.id))
       .map((entry) => ({
         ...entry,
-        queue: entry.queue.filter((track) => !trackIds.has(track.id)),
-        shuffleTrackPool:
-          entry.shuffleTrackPool?.filter((track) => !trackIds.has(track.id)) ?? null,
+        queue: removeMissing(entry.queue),
+        shuffleTrackPool: entry.shuffleTrackPool ? removeMissing(entry.shuffleTrackPool) : null,
         albumShuffleContext: entry.albumShuffleContext
           ? {
               ...entry.albumShuffleContext,
-              tracks: entry.albumShuffleContext.tracks.filter((track) => !trackIds.has(track.id)),
+              tracks: removeMissing(entry.albumShuffleContext.tracks),
             }
           : null,
       }))

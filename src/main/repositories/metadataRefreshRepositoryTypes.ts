@@ -1,3 +1,5 @@
+import type { TrackFileFingerprint } from '@shared/types/libraryScan'
+
 export interface MetadataRefreshJob {
   id: number
   scope: string
@@ -16,6 +18,7 @@ export interface TrackForMetadataRefresh {
 }
 
 export interface RefreshedTrackMetadata {
+  fileFingerprint?: TrackFileFingerprint
   /** Actual audio codec; older internal worker payloads may omit it. */
   codec?: string | null
   metadataParserVersion?: string

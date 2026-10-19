@@ -22,9 +22,11 @@ export default defineConfig({
     testTransformMode: {
       web: [
         '**/FlatTrackColumnHeader.test.ts',
+        '**/FacetsDialog.test.ts',
         '**/SongRow.test.ts',
         '**/VirtualAlbumTrackList.test.ts',
         '**/AlbumCard.test.ts',
+        '**/CdAlbumIndexPage.test.ts',
         '**/CdViewSwitch.test.ts',
         '**/AlbumsPage.test.ts',
         '**/ThemeAccentSettings.test.ts',

@@ -63,6 +63,7 @@ function knownFile(filePath: string): LibraryScanWorkerInput['knownFiles'][numbe
   return {
     filePath,
     fileSize: 100,
+    fileFingerprint: { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 },
     fileMtimeMs: 100,
     album: 'Album',
     albumArtist: 'Artist',
@@ -91,7 +92,7 @@ beforeEach(() => {
   harness.input = { jobId: 7, rootPath, knownFiles: [], artworkCacheDir: 'C:\\IsolatedCache' }
   harness.readdir.mockResolvedValue([entry('song.flac')])
   harness.stat.mockImplementation(async (filePath: string) => {
-    if (filePath.endsWith('.flac')) return { size: 100, mtimeMs: 100 }
+    if (filePath.endsWith('.flac')) return { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 }
     throw missing()
   })
   harness.readFile.mockRejectedValue(missing())
@@ -193,7 +194,7 @@ describe('scan orchestration boundaries', () => {
     })
     harness.stat.mockImplementation(async (filePath: string) => {
       if (filePath === vanished) throw new Error('vanished')
-      if (filePath.endsWith('.flac')) return { size: 100, mtimeMs: 100 }
+      if (filePath.endsWith('.flac')) return { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 }
       throw missing()
     })
     harness.parseFile.mockImplementation(async (filePath: string) => {

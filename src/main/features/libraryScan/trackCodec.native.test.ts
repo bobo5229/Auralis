@@ -98,7 +98,9 @@ describe('audio codec persistence', () => {
     migrateDatabase(db)
     expect(tables.map((t) => db.prepare(`SELECT * FROM ${t}`).all())).toEqual(
       before.map((rows, i) =>
-        i === 0 ? rows.map((row) => ({ ...(row as object), codec: null })) : rows,
+        i === 0
+          ? rows.map((row) => ({ ...(row as object), codec: null, file_stat_fingerprint: null }))
+          : rows,
       ),
     )
     db.exec("UPDATE tracks SET codec='FLAC'")

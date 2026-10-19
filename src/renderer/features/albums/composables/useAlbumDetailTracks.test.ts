@@ -4,7 +4,11 @@ import type { AuralisApi } from '@shared/ipc/api'
 import type { AlbumDetailResult } from '@shared/types/albumDetail'
 import type { TrackListItem } from '@shared/types/libraryScan'
 
-import { invalidateAlbumDetailSnapshot, writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
+import {
+  invalidateAlbumDetailSnapshot,
+  readAlbumDetailSnapshot,
+  writeAlbumDetailSnapshot,
+} from '../albumDetailSnapshot'
 import { selectAlbumTracks, useAlbumDetailTracks } from './useAlbumDetailTracks'
 
 type LibraryClient = Pick<AuralisApi['library'], 'getAlbumDetail' | 'onChanged'>
@@ -69,6 +73,34 @@ function createDeferred<T>() {
 afterEach(() => {
   vi.useRealTimers()
   invalidateAlbumDetailSnapshot()
+})
+
+it('orders undated artist siblings by title when navigation reuses the full catalog', async () => {
+  const current = createTrack(1)
+  const catalog = [current, createTrack(2, { album: 'Zulu' }), createTrack(3, { album: 'Alpha' })]
+  writeAlbumDetailSnapshot({
+    albumArtist: 'Artist',
+    albumTitle: 'Album',
+    artworkCacheKey: null,
+    releaseDate: null,
+    tracks: [current],
+    moreAlbums: [],
+    catalogTracks: catalog,
+  })
+  const library = createLibraryClient()
+  const detail = useAlbumDetailTracks({
+    albumArtist: ref('Artist'),
+    albumTitle: ref('Album'),
+    library: library.client,
+  })
+  try {
+    await detail.initialize()
+    expect(detail.moreAlbums.value.map((album) => album.title)).toEqual(['Alpha', 'Zulu'])
+    expect(library.getAlbumDetail).not.toHaveBeenCalled()
+    expect(catalog.map((track) => track.album)).toEqual(['Album', 'Zulu', 'Alpha'])
+  } finally {
+    detail.dispose()
+  }
 })
 
 describe('selectAlbumTracks', () => {
@@ -274,6 +306,140 @@ describe('useAlbumDetailTracks', () => {
     first.resolve({ tracks: [createTrack(1)], moreAlbums: [], genreAlbums: [] })
     await expect(firstReload).resolves.toBe(false)
     expect(detail.tracks.value.map((track) => track.id)).toEqual([2])
+  })
+
+  it.each(['success', 'failure'] as const)(
+    'ignores an old album refresh %s after navigation reuses a catalog snapshot',
+    async (outcome) => {
+      const oldTrack = createTrack(1, {
+        album: 'A',
+        artworkCacheKey: 'cover-A',
+        releaseDate: '2001-01-01',
+      })
+      const nextTrack = createTrack(2, { album: 'B' })
+      const catalog = [oldTrack, nextTrack]
+      writeAlbumDetailSnapshot({
+        albumArtist: 'Artist',
+        albumTitle: 'A',
+        artworkCacheKey: oldTrack.artworkCacheKey,
+        releaseDate: oldTrack.releaseDate,
+        tracks: [oldTrack],
+        moreAlbums: [],
+        catalogTracks: catalog,
+      })
+      const library = createLibraryClient()
+      const pending = createDeferred<AlbumDetailResult>()
+      library.getAlbumDetail.mockReturnValueOnce(pending.promise)
+      const title = ref('A')
+      const detail = useAlbumDetailTracks({
+        albumArtist: ref('Artist'),
+        albumTitle: title,
+        library: library.client,
+      })
+      try {
+        await detail.initialize()
+        const reload = detail.reloadTracks({ background: true })
+        const album = detail.moreAlbums.value.find((item) => item.title === 'B')!
+        // Match AlbumDetailPage.openAlbum's snapshot handoff.
+        writeAlbumDetailSnapshot({
+          albumArtist: album.albumArtist,
+          albumTitle: album.title,
+          artworkCacheKey: album.artworkCacheKey,
+          releaseDate: album.releaseDate,
+          tracks: album.tracks,
+          moreAlbums: detail.moreAlbums.value.filter((item) => item.key !== album.key),
+          catalogTracks: detail.tracks.value,
+        })
+        title.value = 'B'
+        await detail.ensureCurrentAlbum()
+        const nextSnapshot = readAlbumDetailSnapshot('Artist', 'B')
+
+        if (outcome === 'success')
+          pending.resolve({ tracks: [oldTrack], moreAlbums: [], genreAlbums: [] })
+        else pending.reject(new Error('Old album refresh failed'))
+
+        await expect(reload).resolves.toBe(false)
+        expect(library.getAlbumDetail).toHaveBeenCalledTimes(1)
+        expect(detail.albumTracks.value.map((item) => item.id)).toEqual([2])
+        expect(detail.previewArtworkCacheKey.value).toBeNull()
+        expect(detail.previewReleaseDate.value).toBeNull()
+        expect(detail.loadState.value).toBe('ready')
+        expect(readAlbumDetailSnapshot('Artist', 'B')).toBe(nextSnapshot)
+        expect(nextSnapshot?.tracks.map((item) => item.id)).toEqual([2])
+      } finally {
+        detail.dispose()
+      }
+    },
+  )
+
+  it('rejects a refresh when album identity changes before the route watcher runs', async () => {
+    const library = createLibraryClient()
+    const pending = createDeferred<AlbumDetailResult>()
+    library.getAlbumDetail.mockReturnValueOnce(pending.promise)
+    const artist = ref('Artist')
+    const detail = useAlbumDetailTracks({
+      albumArtist: artist,
+      albumTitle: ref('Album'),
+      library: library.client,
+    })
+    try {
+      const reload = detail.reloadTracks()
+      artist.value = 'Other Artist'
+      pending.resolve({ tracks: [createTrack(1)], moreAlbums: [], genreAlbums: [] })
+      await expect(reload).resolves.toBe(false)
+      expect(detail.tracks.value).toEqual([])
+      expect(readAlbumDetailSnapshot('Other Artist', 'Album')).toBeNull()
+    } finally {
+      detail.dispose()
+    }
+  })
+
+  it('ends an old refresh even after cached navigation returns to the same album', async () => {
+    const oldTrack = createTrack(1, { album: 'A' })
+    const otherTrack = createTrack(2, { album: 'B' })
+    const catalog = [oldTrack, otherTrack]
+    const seed = (albumTitle: string, item: TrackListItem) =>
+      writeAlbumDetailSnapshot({
+        albumArtist: 'Artist',
+        albumTitle,
+        artworkCacheKey: null,
+        releaseDate: null,
+        tracks: [item],
+        moreAlbums: [],
+        catalogTracks: catalog,
+      })
+    seed('A', oldTrack)
+    const library = createLibraryClient()
+    const pending = createDeferred<AlbumDetailResult>()
+    library.getAlbumDetail.mockReturnValueOnce(pending.promise)
+    const title = ref('A')
+    const detail = useAlbumDetailTracks({
+      albumArtist: ref('Artist'),
+      albumTitle: title,
+      library: library.client,
+    })
+    try {
+      await detail.initialize()
+      const reload = detail.reloadTracks({ background: true })
+      seed('B', otherTrack)
+      title.value = 'B'
+      await detail.ensureCurrentAlbum()
+      seed('A', oldTrack)
+      title.value = 'A'
+      await detail.ensureCurrentAlbum()
+      const snapshot = readAlbumDetailSnapshot('Artist', 'A')
+      pending.resolve({
+        tracks: [{ ...oldTrack, title: 'Stale response' }],
+        moreAlbums: [],
+        genreAlbums: [],
+      })
+      await expect(reload).resolves.toBe(false)
+      expect(detail.albumTracks.value[0].title).toBe(oldTrack.title)
+      expect(readAlbumDetailSnapshot('Artist', 'A')).toBe(snapshot)
+      expect(library.getAlbumDetail).toHaveBeenCalledTimes(1)
+    } finally {
+      detail.dispose()
+    }
   })
 
   it('debounces play-stat changes but reloads other library changes immediately', async () => {

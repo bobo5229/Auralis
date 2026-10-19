@@ -62,6 +62,7 @@ describe('databaseBackupService', () => {
     it.each([
       'tracks-only',
       'missing-column',
+      'missing-stat-fingerprint',
       'future-version',
       'missing-history',
       'missing-table',
@@ -74,6 +75,8 @@ describe('databaseBackupService', () => {
         migrateDatabase(db)
         if (kind === 'missing-column')
           db.exec('ALTER TABLE tracks DROP COLUMN lyrics_sidecar_fingerprint')
+        if (kind === 'missing-stat-fingerprint')
+          db.exec('ALTER TABLE tracks DROP COLUMN file_stat_fingerprint')
         if (kind === 'future-version')
           db.exec("INSERT INTO schema_migrations (id, name) VALUES (999, 'future')")
         if (kind === 'missing-history') db.exec('DELETE FROM schema_migrations WHERE id = 2')

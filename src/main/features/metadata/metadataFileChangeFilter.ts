@@ -1,25 +1,25 @@
-export interface WatchedFileStat {
+import type { TrackFileFingerprint } from '@shared/types/libraryScan'
+import { hasSameScanFileFingerprint } from '../libraryScan/libraryScanFileFingerprint'
+
+export interface WatchedFileStat extends TrackFileFingerprint {
   filePath: string
-  size: number
-  mtimeMs: number
 }
 
 export interface FileScanFingerprint {
   fileSize: number
   fileMtimeMs: number
+  fileFingerprint?: TrackFileFingerprint | null
 }
 
 /**
  * Decide which watched files actually changed on disk versus the persisted
- * scan fingerprint. Opening a known audio file for playback changes neither
- * size nor mtime, so those paths must not enter a metadata refresh job (the
+ * stable fingerprint. Opening a known audio file for playback does not change
+ * this fingerprint, so those paths must not enter a metadata refresh job (the
  * job would broadcast `library:changed` and drag the song-list viewport back
  * to the playing track).
  *
- * Conservative by design: a missing fingerprint row or a stat without a usable
- * mtime counts as changed, so real updates are never dropped. The mtime
- * comparison uses the raw float exactly like the scan dedup
- * (`Number(stat.mtimeMs)`), never a rounded value.
+ * Legacy rows without a full fingerprint refresh once to establish a baseline.
+ * Preserve ctime and file identity so edits that retain size/mtime are detected.
  */
 export function resolveChangedFilePaths(input: {
   stats: WatchedFileStat[]
@@ -29,9 +29,16 @@ export function resolveChangedFilePaths(input: {
     .filter((entry) => {
       const fingerprint = input.fingerprints.get(entry.filePath)
       if (!fingerprint) return true
-      const mtimeMs = Number(entry.mtimeMs)
-      if (!Number.isFinite(mtimeMs)) return true
-      return entry.size !== fingerprint.fileSize || mtimeMs !== fingerprint.fileMtimeMs
+      if (
+        !fingerprint.fileFingerprint ||
+        ![entry.size, entry.mtimeMs, entry.ctimeMs, entry.dev, entry.ino].every(Number.isFinite)
+      )
+        return true
+      return (
+        entry.size !== fingerprint.fileSize ||
+        entry.mtimeMs !== fingerprint.fileMtimeMs ||
+        !hasSameScanFileFingerprint(entry, fingerprint.fileFingerprint)
+      )
     })
     .map((entry) => entry.filePath)
 }

@@ -111,8 +111,16 @@ export function useAlbumDetailTracks({
 
   let disposed = false
   let loadGeneration = 0
+  let currentAlbumKey = albumIdentityKey(albumArtist.value, albumTitle.value)
   let playStatsReloadTimer: ReturnType<typeof setTimeout> | null = null
   let unsubscribeChanged: (() => void) | null = null
+
+  function invalidateChangedAlbumRequests(): void {
+    const key = albumIdentityKey(albumArtist.value, albumTitle.value)
+    if (key === currentAlbumKey) return
+    currentAlbumKey = key
+    loadGeneration += 1
+  }
 
   function syncLoadStateFromTracks(): void {
     loadState.value = albumTracks.value.length > 0 ? 'ready' : 'not-found'
@@ -217,16 +225,24 @@ export function useAlbumDetailTracks({
   }
 
   async function reloadTracks(options: { background?: boolean } = {}): Promise<boolean> {
+    invalidateChangedAlbumRequests()
+    const requestArtist = albumArtist.value
+    const requestTitle = albumTitle.value
     const requestGeneration = ++loadGeneration
+    const isRequestCurrent = () =>
+      !disposed &&
+      requestGeneration === loadGeneration &&
+      requestArtist === albumArtist.value &&
+      requestTitle === albumTitle.value
     const hasExistingSnapshot = albumTracks.value.length > 0
     if (!options.background && !hasExistingSnapshot) loadState.value = 'loading'
 
     try {
       const result = await library.getAlbumDetail({
-        albumArtist: albumArtist.value,
-        albumTitle: albumTitle.value,
+        albumArtist: requestArtist,
+        albumTitle: requestTitle,
       })
-      if (disposed || requestGeneration !== loadGeneration) return false
+      if (!isRequestCurrent()) return false
 
       mergeAlbumTracks(result.tracks)
       if (!hasCatalogSnapshot) storedMoreAlbums.value = result.moreAlbums.map(toAlbumSummary)
@@ -241,7 +257,7 @@ export function useAlbumDetailTracks({
       rememberSnapshot(result)
       return true
     } catch {
-      if (disposed || requestGeneration !== loadGeneration) return false
+      if (!isRequestCurrent()) return false
 
       if (hasExistingSnapshot || options.background) {
         if (hasExistingSnapshot) syncLoadStateFromTracks()
@@ -253,6 +269,8 @@ export function useAlbumDetailTracks({
   }
 
   async function ensureCurrentAlbum(): Promise<void> {
+    // A cached navigation must invalidate the old album's in-flight refresh too.
+    invalidateChangedAlbumRequests()
     if (syncToCurrentAlbum()) {
       const snapshot = readAlbumDetailSnapshot(albumArtist.value, albumTitle.value)
       const needsGenreAlbums =

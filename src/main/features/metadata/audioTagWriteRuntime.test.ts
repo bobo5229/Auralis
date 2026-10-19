@@ -8,8 +8,17 @@ import { resolveAudioRuntimePaths } from '../audio/audioRuntimePaths'
 import { writeAudioTags } from './audioTagWriteService'
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }))
+vi.mock('./windowsAudioSourceLock', () => ({
+  lockWindowsAudioSource: async () => ({
+    isHeld: () => true,
+    assertHeld: () => {},
+    release: async () => {},
+  }),
+}))
 vi.mock('node:fs/promises', () => ({
-  stat: vi.fn(async () => ({ size: 10, mtimeMs: 100 })),
+  stat: vi.fn(async () => ({ size: 10n, mtimeNs: 100n, ctimeNs: 200n, ino: 1n, dev: 2n })),
+  link: vi.fn(async () => undefined),
+  unlink: vi.fn(async () => undefined),
   copyFile: vi.fn(async () => undefined),
   rename: vi.fn(async () => undefined),
   rm: vi.fn(async () => undefined),

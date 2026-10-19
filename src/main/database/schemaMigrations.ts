@@ -814,4 +814,9 @@ export const migrations = [
       BEGIN UPDATE library_catalog_revision SET revision = revision + 1 WHERE id = 1; END;
     `,
   },
+  {
+    id: 29,
+    name: 'add_audio_file_stat_fingerprint',
+    sql: `ALTER TABLE tracks ADD COLUMN file_stat_fingerprint TEXT;`,
+  },
 ] as const

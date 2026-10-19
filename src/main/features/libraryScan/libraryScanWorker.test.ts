@@ -58,6 +58,7 @@ beforeEach(() => {
       {
         filePath,
         fileSize: 100,
+        fileFingerprint: { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 },
         fileMtimeMs: 100,
         album: 'Album',
         albumArtist: 'Artist',
@@ -122,7 +123,7 @@ describe('scan metadata failure recovery', () => {
 describe('scan sidecar invalidation', () => {
   function unchangedAudio(sidecar: { size: number; mtimeMs: number; text: string } | null) {
     harness.stat.mockImplementation(async (candidate: string) => {
-      if (candidate === filePath) return { size: 100, mtimeMs: 100 }
+      if (candidate === filePath) return { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 }
       if (sidecar && candidate.endsWith('.lrc')) return { ...sidecar, ctimeMs: 1, dev: 1, ino: 1 }
       throw Object.assign(new Error('missing'), { code: 'ENOENT' })
     })
@@ -227,7 +228,7 @@ describe('scan sidecar invalidation', () => {
     harness.readFile.mockImplementation(async (candidate: string) => {
       if (candidate.endsWith('.lrc')) {
         harness.stat.mockImplementation(async (path: string) => {
-          if (path === filePath) return { size: 100, mtimeMs: 100 }
+          if (path === filePath) return { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 }
           if (path.endsWith('.lrc')) return { size: 20, mtimeMs: 200, ctimeMs: 1, dev: 1, ino: 2 }
           throw Object.assign(new Error('missing'), { code: 'ENOENT' })
         })
@@ -258,7 +259,7 @@ describe('scan sidecar invalidation', () => {
 describe('scan TTML sidecar invalidation', () => {
   function unchangedAudio(text: string | null) {
     harness.stat.mockImplementation(async (candidate: string) => {
-      if (candidate === filePath) return { size: 100, mtimeMs: 100 }
+      if (candidate === filePath) return { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 }
       if (text !== null && candidate.endsWith('.ttml'))
         return { size: text.length, mtimeMs: 200, ctimeMs: 1, dev: 1, ino: 1 }
       throw Object.assign(new Error('missing'), { code: 'ENOENT' })
@@ -335,7 +336,7 @@ describe('scan TTML sidecar invalidation', () => {
     harness.readFile.mockImplementation(async (candidate: string) => {
       if (candidate.endsWith('.ttml')) {
         harness.stat.mockImplementation(async (path: string) => {
-          if (path === filePath) return { size: 100, mtimeMs: 100 }
+          if (path === filePath) return { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 }
           if (path.endsWith('.ttml')) return { size: ttml.length + 1, mtimeMs: 300 }
           throw Object.assign(new Error('missing'), { code: 'ENOENT' })
         })
@@ -354,7 +355,7 @@ describe('scan TTML sidecar invalidation', () => {
 describe('scan parser version backfill', () => {
   it('retries an outdated version after failure and stops backfilling after persistence', async () => {
     harness.stat.mockImplementation(async (candidate: string) => {
-      if (candidate === filePath) return { size: 100, mtimeMs: 100 }
+      if (candidate === filePath) return { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 }
       throw Object.assign(new Error('missing'), { code: 'ENOENT' })
     })
     harness.input.knownFiles[0].metadataParserVersion = 'outdated'
@@ -401,7 +402,7 @@ describe('unchanged metadata tag backfill', () => {
     'rereads tags for unchanged audio and does not write bitrate %s',
     async (bitrate) => {
       harness.stat.mockImplementation(async (candidate: string) => {
-        if (candidate === filePath) return { size: 100, mtimeMs: 100 }
+        if (candidate === filePath) return { size: 100, mtimeMs: 100, ctimeMs: 1, dev: 1, ino: 1 }
         throw Object.assign(new Error('missing'), { code: 'ENOENT' })
       })
       harness.input.knownFiles[0].metadataCheckedMtimeMs = null

@@ -62,8 +62,9 @@ export function albumYearSortKey(value: string | null): number {
 
 export function sortAlbumsByYearThenTitle(albums: AlbumSummary[]): AlbumSummary[] {
   return [...albums].sort((left, right) => {
-    const yearOrder = albumYearSortKey(left.releaseDate) - albumYearSortKey(right.releaseDate)
-    if (yearOrder !== 0) return yearOrder
+    const leftYear = albumYearSortKey(left.releaseDate)
+    const rightYear = albumYearSortKey(right.releaseDate)
+    if (leftYear !== rightYear) return leftYear - rightYear
     return left.title.localeCompare(right.title, undefined, { sensitivity: 'base' })
   })
 }

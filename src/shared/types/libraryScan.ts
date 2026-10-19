@@ -52,7 +52,16 @@ export interface LibraryScanProgress {
   message: string | null
 }
 
+export interface TrackFileFingerprint {
+  size: number
+  mtimeMs: number
+  ctimeMs: number
+  dev: number
+  ino: number
+}
+
 export interface ScannedTrack {
+  fileFingerprint?: TrackFileFingerprint
   /** Actual audio codec; older internal worker payloads may omit it. */
   codec?: string | null
   /** Version used by the worker, committed only with successful full metadata writes. */
@@ -123,6 +132,7 @@ export interface TrackLyricsPatch {
 
 /** Text-tag refresh for an unchanged file. Duration, bitrate, codec, lyrics and artwork bytes stay stored. */
 export interface TrackTagPatch {
+  fileFingerprint?: TrackFileFingerprint
   filePath: string
   fileMtimeMs: number
   title: string

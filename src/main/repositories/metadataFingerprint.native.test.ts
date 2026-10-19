@@ -14,6 +14,7 @@ import { resolveWatchRefreshPaths } from '../features/metadata/metadataFileChang
 import { MetadataRefreshService } from '../features/metadata/metadataRefreshService'
 import { readStableMetadata } from '../features/metadata/readStableMetadata'
 import { resolveAudioRuntimePaths } from '../features/audio/audioRuntimePaths'
+import { TrackRepository } from './trackRepository'
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
@@ -47,6 +48,7 @@ function result(patch: Partial<RefreshedTrackMetadata> = {}): RefreshedTrackMeta
     sourceFilePath: path,
     fileSize: 20,
     fileMtimeMs: 200.25,
+    fileFingerprint: { size: 20, mtimeMs: 200.25, ctimeMs: 201, dev: 1, ino: 1 },
     title: 'New',
     artistDisplay: 'Artist',
     artists: ['Artist'],
@@ -117,8 +119,12 @@ describe('metadata fingerprint transactions', () => {
       metadataChecked: 200.25,
       lyricsChecked: 200.25,
     })
-    const fingerprints = new Map([[path, { fileSize: 20, fileMtimeMs: 200.25 }]])
-    const stats = [{ filePath: path, size: 20, mtimeMs: 200.25 }]
+    expect(
+      new TrackRepository(db).getFileFingerprintsByFilePaths([path]).get(path)?.fileFingerprint,
+    ).toEqual(result().fileFingerprint)
+    const fileFingerprint = { size: 20, mtimeMs: 200.25, ctimeMs: 100, dev: 1, ino: 1 }
+    const fingerprints = new Map([[path, { fileSize: 20, fileMtimeMs: 200.25, fileFingerprint }]])
+    const stats = [{ filePath: path, ...fileFingerprint }]
     expect(resolveWatchRefreshPaths({ stats, fingerprints })).toEqual([])
     expect(
       resolveWatchRefreshPaths({ stats: [{ ...stats[0], mtimeMs: 300 }], fingerprints }),
@@ -141,6 +147,9 @@ describe('metadata fingerprint transactions', () => {
       source: 'user_edit',
       title: edit.title,
     })
+    expect(
+      new TrackRepository(db).getFileFingerprintsByFilePaths([path]).get(path)?.fileFingerprint,
+    ).toEqual(result().fileFingerprint)
   })
   it('rolls back metadata, fingerprints and related rows on a later SQL failure', () => {
     const { db, repo } = setup()
@@ -150,6 +159,7 @@ describe('metadata fingerprint transactions', () => {
     expect(() => repo.updateTrackMetadata(result())).toThrow('injected failure')
     expect(stored(db)).toMatchObject({ title: 'Old', size: 10, mtime: 100, metadataChecked: 100 })
     expect(db.prepare('SELECT * FROM track_metadata').all()).toEqual([])
+    expect(db.prepare('SELECT file_stat_fingerprint FROM tracks').pluck().get()).toBeNull()
   })
   it('rejects moved and deleted track identities without side effects', () => {
     const { db, repo } = setup()

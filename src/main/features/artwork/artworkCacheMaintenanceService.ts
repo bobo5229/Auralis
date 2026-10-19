@@ -65,6 +65,8 @@ export class ArtworkCacheMaintenanceService {
     return this.runGuarded(async () => {
       if (!this.migration.hasLegacyKeys()) {
         logger.info('Artwork cache already current — skipping migration')
+        // Existing current-format caches may still be pinned by obsolete albums.
+        if (this.garbageCollector.hasUnusedAlbums()) await this.collectGarbageInternal()
         return
       }
 

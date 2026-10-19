@@ -51,8 +51,7 @@ const columnCount = ref(MIN_COLUMNS)
 const albumRowHeight = ref(TARGET_CARD_WIDTH + CARD_META_HEIGHT + ROW_GAP)
 const sharedRowHeight = computed(() => albumRowHeight.value + SHARED_HEADING_HEIGHT)
 const highlightKey = ref<string | null>(null)
-const imageFailed = ref(new Set<string>())
-let resizeObserver: ResizeObserver | null = null
+const failedArtworkByAlbum = ref(new Map<string, string>())
 let highlightTimer: ReturnType<typeof setTimeout> | null = null
 let pendingReturn: CdIndexReturnMarker | null = null
 let disposed = false
@@ -60,6 +59,18 @@ let unsubscribe: (() => void) | null = null
 let loadRevision = 0
 
 const failed = computed(() => error.value != null && albums.value.length === 0)
+const artworkByAlbum = computed(
+  () => new Map(albums.value.map((album) => [album.key, album.artworkCacheKey])),
+)
+watch(
+  artworkByAlbum,
+  (keys) => {
+    for (const [album, key] of failedArtworkByAlbum.value) {
+      if (keys.get(album) !== key) failedArtworkByAlbum.value.delete(album)
+    }
+  },
+  { flush: 'sync' },
+)
 const artistGroups = computed(() => groupCdAlbumIndexArtists(albums.value))
 const indexModel = computed(() => layoutCdAlbumIndex(artistGroups.value, columnCount.value))
 const rows = computed(() => indexModel.value.rows)
@@ -137,19 +148,22 @@ async function finishReturn(): Promise<void> {
   await restoreReturn(marker)
 }
 
-function connectScroll(): void {
-  const container = scrollRef.value
-  if (!container) return
-  updateGrid()
-  if (!resizeObserver) {
-    resizeObserver = new ResizeObserver(() => {
+watch(
+  scrollRef,
+  (container, _previous, onCleanup) => {
+    if (!container) return
+    const observer = new ResizeObserver(() => {
+      if (disposed || scrollRef.value !== container) return
       updateGrid()
       void finishReturn()
     })
-    resizeObserver.observe(container)
-  }
-  void finishReturn()
-}
+    onCleanup(() => observer.disconnect())
+    observer.observe(container)
+    updateGrid()
+    void finishReturn()
+  },
+  { flush: 'post' },
+)
 
 function releaseDate(album: AlbumSummary): string {
   return cdIndexReleaseLabel(album.releaseDate) ?? t('albums.cd.indexPage.missingDate')
@@ -170,12 +184,15 @@ function sharedBlocksAt(index: number): CdIndexArtistBlock[] | null {
   return row?.type === 'shared' ? row.blocks : null
 }
 
-function coverFailed(key: string): boolean {
-  return imageFailed.value.has(key)
+function coverFailed(album: AlbumSummary): boolean {
+  return failedArtworkByAlbum.value.get(album.key) === album.artworkCacheKey
 }
 
-function markCoverFailed(key: string): void {
-  imageFailed.value = new Set(imageFailed.value).add(key)
+function markCoverFailed(album: AlbumSummary): void {
+  // Ignore errors from old images whose resources have already left the catalog.
+  const key = album.artworkCacheKey
+  if (key && artworkByAlbum.value.get(album.key) === key)
+    failedArtworkByAlbum.value.set(album.key, key)
 }
 
 function openAlbum(album: AlbumSummary): void {
@@ -231,12 +248,6 @@ function refresh(): void {
   void loadAlbums()
 }
 
-watch(isLoading, async (loading) => {
-  if (loading || failed.value || rows.value.length === 0) return
-  await nextTick()
-  if (!disposed) connectScroll()
-})
-
 onMounted(() => {
   pendingReturn = consumeCdIndexReturn()
   unsubscribe = cdAlbumCatalogSession.subscribe(refresh)
@@ -250,8 +261,6 @@ onBeforeUnmount(() => {
   if (routeName !== 'cd-albums' && routeName !== 'cd-album-index') {
     cdAlbumCatalogSession.clear()
   }
-  resizeObserver?.disconnect()
-  resizeObserver = null
   clearHighlight()
 })
 </script>
@@ -317,13 +326,14 @@ onBeforeUnmount(() => {
               >
                 <span class="cd-index-cover">
                   <img
-                    v-if="getArtworkUrl(album.artworkCacheKey) && !coverFailed(album.key)"
+                    v-if="getArtworkUrl(album.artworkCacheKey) && !coverFailed(album)"
+                    :key="album.artworkCacheKey!"
                     :src="getArtworkUrl(album.artworkCacheKey)!"
                     :alt="album.title"
                     loading="lazy"
                     decoding="async"
                     draggable="false"
-                    @error="markCoverFailed(album.key)"
+                    @error="markCoverFailed(album)"
                   />
                   <span
                     v-else
@@ -369,13 +379,14 @@ onBeforeUnmount(() => {
                   >
                     <span class="cd-index-cover">
                       <img
-                        v-if="getArtworkUrl(album.artworkCacheKey) && !coverFailed(album.key)"
+                        v-if="getArtworkUrl(album.artworkCacheKey) && !coverFailed(album)"
+                        :key="album.artworkCacheKey!"
                         :src="getArtworkUrl(album.artworkCacheKey)!"
                         :alt="album.title"
                         loading="lazy"
                         decoding="async"
                         draggable="false"
-                        @error="markCoverFailed(album.key)"
+                        @error="markCoverFailed(album)"
                       />
                       <span
                         v-else

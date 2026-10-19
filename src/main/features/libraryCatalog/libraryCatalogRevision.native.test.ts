@@ -168,7 +168,11 @@ describe('catalog revisions', () => {
     const before = tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all())
     migrateDatabase(db)
     migrateDatabase(db)
-    expect(tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all())).toEqual(before)
+    expect(tables.map((table) => db.prepare(`SELECT * FROM ${table}`).all())).toEqual(
+      before.map((rows, i) =>
+        i === 0 ? rows.map((row) => ({ ...(row as object), file_stat_fingerprint: null })) : rows,
+      ),
+    )
     expect(new TrackRepository(db).getChangeToken()).toBe('0')
     expect(db.pragma('foreign_key_check')).toEqual([])
     db.exec("UPDATE tracks SET title='Changed' WHERE id=1")

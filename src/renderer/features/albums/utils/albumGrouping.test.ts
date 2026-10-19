@@ -75,6 +75,32 @@ describe('groupAlbums', () => {
 })
 
 describe('moreAlbumsByArtist', () => {
+  it.each([null, 'invalid-date'])(
+    'orders equally unknown years by title after dated albums (%s)',
+    (releaseDate) => {
+      const albums = groupAlbums([
+        createTrack(1, { album: 'Current', releaseDate }),
+        createTrack(2, { album: 'Zulu', releaseDate }),
+        createTrack(3, { album: 'Alpha', releaseDate }),
+        createTrack(4, { album: 'Dated Z', releaseDate: '2020-01-01' }),
+        createTrack(5, { album: 'Dated A', releaseDate: '2020-06-01' }),
+      ])
+      expect(moreAlbumsByArtist(albums, 'Artist', 'Current').map((album) => album.title)).toEqual([
+        'Dated A',
+        'Dated Z',
+        'Alpha',
+        'Zulu',
+      ])
+      expect(albums.map((album) => album.title)).toEqual([
+        'Current',
+        'Zulu',
+        'Alpha',
+        'Dated Z',
+        'Dated A',
+      ])
+    },
+  )
+
   it('excludes the current album and unknown artists, then sorts by year', () => {
     const albums = groupAlbums([
       createTrack(1, { album: 'B', releaseDate: '2022-01-01' }),

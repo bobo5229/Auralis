@@ -1,11 +1,12 @@
 import { stat } from 'node:fs/promises'
+import { scanFileFingerprint } from '../libraryScan/libraryScanFileFingerprint'
 import { normalizeAudioFilePath } from '../audio/playbackFileCoordinator'
 import { isSupportedAudioFile } from '@main/features/libraryScan/audioFileFilter'
 import { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import { TrackRepository } from '@main/repositories/trackRepository'
 import { logger } from '@main/logging/logger'
 import type { MetadataRefreshService } from './metadataRefreshService'
-import { resolveWatchRefreshPaths } from './metadataFileChangeFilter'
+import { resolveWatchRefreshPaths, type WatchedFileStat } from './metadataFileChangeFilter'
 import { isLyricSidecar, resolveAudioCandidatesForLyricSidecar } from './lyricSidecarPaths'
 import type { LibraryIncrementalImportService } from '../libraryScan/libraryIncrementalImportService'
 import type { RendererEventSender } from '@main/ipc/rendererEvents'
@@ -289,7 +290,7 @@ export class MetadataWatchService {
       if (this.pendingFilePaths.size > 0) this.scheduleFlush()
       return
     }
-    const existingEntries: Array<{ filePath: string; size: number; mtimeMs: number }> = []
+    const existingEntries: WatchedFileStat[] = []
     const missingPaths: string[] = []
     const transientErrorPaths: string[] = []
 
@@ -304,8 +305,7 @@ export class MetadataWatchService {
       if (result.status === 'fulfilled' && result.value.isFile()) {
         existingEntries.push({
           filePath: incoming[i],
-          size: result.value.size,
-          mtimeMs: result.value.mtimeMs,
+          ...scanFileFingerprint(result.value),
         })
         this.statRetries.delete(incoming[i])
       } else if (result.status === 'rejected' && isTransientStatError(result.reason)) {
@@ -332,12 +332,12 @@ export class MetadataWatchService {
 
     // Route existing tracks
     if (existingEntries.length > 0) {
-      const knownEntries: Array<{
-        eventPath: string
-        resolvedPath: string
-        size: number
-        mtimeMs: number
-      }> = []
+      const knownEntries: Array<
+        {
+          eventPath: string
+          resolvedPath: string
+        } & WatchedFileStat
+      > = []
       const newFilePaths: string[] = []
       for (const entry of existingEntries) {
         const resolved = this.resolveKnownWatchPaths(entry.filePath)
@@ -347,10 +347,9 @@ export class MetadataWatchService {
         }
         for (const resolvedPath of resolved) {
           knownEntries.push({
+            ...entry,
             eventPath: entry.filePath,
             resolvedPath,
-            size: entry.size,
-            mtimeMs: entry.mtimeMs,
           })
         }
       }
@@ -359,11 +358,9 @@ export class MetadataWatchService {
       // whether its metadata fingerprint changed or tag writes are suppressed.
       this.missingConfirmation.restorePaths(knownEntries.map((entry) => entry.resolvedPath))
 
-      // Known tracks: refresh when the audio fingerprint changed, or when a
-      // A lyric sidecar mapped this path into lyrics intent. Opening a file for
-      // playback leaves size + mtime untouched and carries no lyrics intent, so
-      // it must not create a refresh job. Tag-write suppression is applied
-      // only to this metadata decision.
+      // Refresh changed/unknown audio fingerprints and explicit sidecar intent.
+      // Ordinary reads leave a verified fingerprint intact and stay on the fast
+      // path. Tag-write suppression delays only this metadata decision.
       let suppressionRetryDelay = Infinity
       const refreshCandidates = knownEntries.filter((entry) => {
         if (!this.isRefreshSuppressed(entry.eventPath)) return true
@@ -382,9 +379,8 @@ export class MetadataWatchService {
       )
       const changedPaths = resolveWatchRefreshPaths({
         stats: refreshCandidates.map((entry) => ({
+          ...scanFileFingerprint(entry),
           filePath: entry.resolvedPath,
-          size: entry.size,
-          mtimeMs: entry.mtimeMs,
         })),
         fingerprints,
         lyricsIntentPaths: refreshCandidates

@@ -7,20 +7,20 @@ import type {
   TrackTagPatch,
 } from '@shared/types/libraryScan'
 import type { KnownTrackFile } from '@main/repositories/trackRepository'
-import type { Stats } from 'node:fs'
+import type { TrackFileFingerprint } from '@shared/types/libraryScan'
 
-export type ScanFileFingerprint = Pick<Stats, 'size' | 'mtimeMs' | 'ctimeMs' | 'dev' | 'ino'>
+export type ScanFileFingerprint = TrackFileFingerprint
 
 export interface ScanFileSnapshot {
   filePath: string
   fileFingerprint: ScanFileFingerprint
 }
 
-export interface ScannedTrackFile extends ScannedTrack, ScanFileSnapshot {
+export interface ScannedTrackFile extends Omit<ScannedTrack, 'fileFingerprint'>, ScanFileSnapshot {
   lyricsSidecarFingerprint: string
 }
 
-export interface ScannedTagPatch extends TrackTagPatch, ScanFileSnapshot {}
+export interface ScannedTagPatch extends Omit<TrackTagPatch, 'fileFingerprint'>, ScanFileSnapshot {}
 
 export interface ScannedLyricsPatch extends TrackLyricsPatch, ScanFileSnapshot {
   lyricsSidecarFingerprint: string
