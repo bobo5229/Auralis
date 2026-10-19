@@ -113,8 +113,8 @@ describe('VirtualAlbumTrackList', () => {
     const view = mountList()
     await nextTick()
     expect(view.rows().length).toBeLessThan(30)
-    expect(view.root.children[0].props.style).toEqual({ height: '48216px' })
-    // Disc 2 starts after 100 rows, with its 24px heading above the first track.
+    expect(view.root.children[0].props.style).toEqual({ height: '48360px' })
+    // Disc 2 starts after 100 rows, with its 40px heading above the first track.
     await view.scroll(44 + 4800)
     expect(view.rows().some((row) => row.props['data-track-id'] === 101)).toBe(true)
     expect(view.rows().length).toBeLessThan(30)

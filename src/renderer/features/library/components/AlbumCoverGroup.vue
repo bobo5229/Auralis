@@ -264,6 +264,7 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
   align-items: center;
   font-family: var(--auralis-font-disc-heading);
   height: var(--library-cover-disc-heading-height);
+  padding-block: 8px;
   padding-inline: 12px;
   border-radius: 8px;
   background: transparent;
@@ -277,7 +278,9 @@ function onArtworkKeyDown(event: KeyboardEvent): void {
 /* 首个 Disc 标题放入组顶部留白，不占曲目列高度。 */
 :deep(.cover-disc-heading--first) {
   position: absolute;
-  top: calc(-1 * var(--library-cover-disc-heading-height));
+  height: 24px;
+  padding-block: 0;
+  top: -24px;
   left: var(--library-cover-panel-padding-inline-side);
   right: var(--library-cover-panel-padding-inline-side);
 }

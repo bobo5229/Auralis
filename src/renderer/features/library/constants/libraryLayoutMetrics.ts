@@ -14,7 +14,8 @@ export const LIBRARY_LAYOUT_METRICS = {
   flatBottomInset: 28,
   coverArtworkSize: 280,
   coverTrackRowHeight: 48,
-  coverDiscHeadingHeight: 24,
+  /** 后续碟片标题：24px 行高 + 上下各 8px 留白；首个标题仍为 24px。 */
+  coverDiscHeadingHeight: 40,
   coverMetaGap: 12,
   coverMetaLineHeight: 20,
   coverMetaAlbumArtistGap: 0,

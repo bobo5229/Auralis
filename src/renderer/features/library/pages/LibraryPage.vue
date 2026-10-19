@@ -77,9 +77,8 @@ const isLibrarySurface = computed(() => librarySurfaceKind.value !== null)
 const isRecentAdded = computed(() => route.name === 'recent-added')
 const { songFontWeightStyle } = useSongFontWeights()
 const { songFontSizeStyle } = useSongFontSizes()
-const coverInfo = useSongCoverInfoLayout(
-  () => librarySurfaceKind.value === 'library' || librarySurfaceKind.value === 'recent-added',
-)
+// All song surfaces share the song page's preferences; only the song page exposes editing.
+const coverInfo = useSongCoverInfoLayout()
 
 const pageIdentity = ref<LibraryPageIdentity | null>(null)
 const showPlayCount = computed(
@@ -177,9 +176,8 @@ const libraryPageStyle = computed(() => ({
   ...LIBRARY_LAYOUT_CSS_VARS,
   ...flatLayoutCssVars.value,
   ...coverInfo.style.value,
-  ...(librarySurfaceKind.value === 'library' || librarySurfaceKind.value === 'recent-added'
-    ? { ...songFontWeightStyle.value, ...songFontSizeStyle.value }
-    : {}),
+  ...songFontWeightStyle.value,
+  ...songFontSizeStyle.value,
 }))
 
 watch(measuredFlatContainerWidth, (width) => {

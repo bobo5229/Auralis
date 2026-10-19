@@ -170,9 +170,15 @@ describe('song font weight style wiring', () => {
     }
   })
 
-  it('injects variables only on the library song surface', () => {
-    expect(libraryPage).toContain("librarySurfaceKind.value === 'library'")
-    expect(libraryPage).toContain('songFontWeightStyle')
-    expect(libraryPage).toContain('LIBRARY_LAYOUT_CSS_VARS')
+  it('shares song preferences across song, recent-added and both playlist surfaces', () => {
+    const style = libraryPage.match(
+      /const libraryPageStyle = computed\(\(\) => \(\{([\s\S]*?)\}\)\)/,
+    )?.[1]
+    expect(style).toContain('...songFontWeightStyle.value')
+    expect(style).toContain('...songFontSizeStyle.value')
+    expect(style).toContain('...coverInfo.style.value')
+    expect(style).toContain('...LIBRARY_LAYOUT_CSS_VARS')
+    expect(style).not.toMatch(/librarySurfaceKind|route\.name|\?/)
+    expect(libraryPage).toContain('const coverInfo = useSongCoverInfoLayout()')
   })
 })
