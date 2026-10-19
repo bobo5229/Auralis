@@ -11,6 +11,7 @@ import { useAlbumTint } from '@renderer/features/playback/composables/useAlbumTi
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import { usePlaybackModePresentation } from '@renderer/features/playback/composables/usePlaybackModePresentation'
 import TrackProgressInfo from './TrackProgressInfo.vue'
+import PlayerBarProgress from './PlayerBarProgress.vue'
 import PlaybackQueuePopover from './PlaybackQueuePopover.vue'
 import PlaybackModeMenu from './PlaybackModeMenu.vue'
 import PlayerVolumeControl from './PlayerVolumeControl.vue'
@@ -30,6 +31,11 @@ import { animateFrames } from '@renderer/shared/animation/motion'
 import { useTheme } from '@renderer/composables/useTheme'
 import { useLyricsPanelVisibility } from '@renderer/features/appearance/composables/useLyricsPanelVisibility'
 import { usePlaybarStyle } from '@renderer/features/appearance/composables/usePlaybarStyle'
+import { usePlaybarLayout } from '@renderer/features/appearance/composables/usePlaybarLayout'
+import {
+  formatPlaybackClock,
+  PLAYBACK_CLOCK_EMPTY,
+} from '@renderer/features/playback/utils/formatPlaybackClock'
 import { useLyricsPanelLayout } from './useLyricsPanelLayout'
 
 const playback = usePlayback()
@@ -37,6 +43,8 @@ const { t } = useI18n()
 const { isDark } = useTheme()
 const { displayMode } = usePlayerDisplayMode()
 const { style: playbarMaterialStyle } = usePlaybarStyle()
+const { layout: playbarLayout } = usePlaybarLayout()
+const isFullLayout = computed(() => playbarLayout.value === 'full')
 const currentArtworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 // Fullscreen owns its visual pipeline. The hidden PlayerBar
 // must not decode artwork, paint canvases, or start palette work.
@@ -90,6 +98,10 @@ const primaryPlaybackLabel = computed(() => {
   if (isPrimaryPlaybackPending.value) return t('player.playbackLoading')
   return playback.state.isPlaying ? t('player.pause') : t('player.play')
 })
+const elapsedClock = computed(() => formatPlaybackClock(playback.state.currentTime))
+const durationClock = computed(() =>
+  playback.state.duration > 0 ? formatPlaybackClock(playback.state.duration) : PLAYBACK_CLOCK_EMPTY,
+)
 const playerBarStyle = computed(
   () =>
     ({
@@ -171,7 +183,9 @@ const { islandInlineSize } = usePlayerBarIslandMetrics({
   enabled: isNormalPlayerDisplay,
 })
 
-const isUtilitiesOverflow = computed(() => shouldOverflowModernUtilities(islandInlineSize.value))
+const isUtilitiesOverflow = computed(
+  () => !isFullLayout.value && shouldOverflowModernUtilities(islandInlineSize.value),
+)
 
 function toggleQueue(): void {
   overlayController.toggle('queue')
@@ -265,11 +279,8 @@ usePlayerBarResponsiveFocus({
   closeOverflowPanels: () => overlayController.closeMany(['overflow', 'mode']),
 })
 
-watch(
-  () => isNormalPlayerDisplay.value,
-  (shouldObserveIsland) => {
-    if (!shouldObserveIsland) closeOverflow()
-  },
+watch([isNormalPlayerDisplay, playbarLayout], () =>
+  overlayController.closeMany(['mode', 'overflow']),
 )
 
 onMounted(() => {
@@ -308,6 +319,7 @@ function handleNext(): void {
     ref="playerBarHostRef"
     class="player-bar"
     :data-playbar-style="playbarMaterialStyle"
+    :data-playbar-layout="playbarLayout"
     :data-volume-expanded="volumeControlRef?.open ? 'true' : 'false'"
     :class="{
       'player-bar--album-tinted': hasActiveAlbumTint,
@@ -315,7 +327,12 @@ function handleNext(): void {
     :style="playerBarStyle"
   >
     <!-- Modern floating island: chrome lives on the island, not the host. -->
-    <div ref="islandRef" class="player-bar-island" data-playbar-drop-target>
+    <div
+      ref="islandRef"
+      class="player-bar-island"
+      :class="{ 'player-bar-island--full': isFullLayout }"
+      data-playbar-drop-target
+    >
       <div class="player-bar-surface" aria-hidden="true"></div>
       <div
         v-if="paletteEnabled && previousAlbumTint"
@@ -375,13 +392,43 @@ function handleNext(): void {
               />
             </svg>
           </button>
+          <div v-if="isFullLayout" class="player-bar-full-mode">
+            <button
+              ref="modeButtonRef"
+              v-tooltip="playbackModeTooltip"
+              class="player-bar-control player-bar-mode-trigger"
+              :class="{ 'player-bar-control-active': isModeMenuOpen }"
+              data-testid="player-mode-button"
+              type="button"
+              :aria-label="playbackModeLabel"
+              aria-haspopup="menu"
+              :aria-expanded="isModeMenuOpen"
+              @click="toggleModeMenu"
+            >
+              <PlayerBarActionIcon :icon="playbackModeIconClass" size="compact" />
+              <span class="i-ph-caret-down h-2.5 w-2.5" aria-hidden="true" />
+            </button>
+            <div ref="modeMenuRef" class="contents">
+              <PlaybackModeMenu
+                v-if="isModeMenuOpen"
+                :current-mode="playback.state.playbackMode"
+                @select="handleSelectMode"
+                @close="handleModeMenuClose"
+              />
+            </div>
+          </div>
+          <div v-if="isFullLayout" class="player-bar-full-time" aria-hidden="true">
+            <span>{{ elapsedClock }}</span>
+            <span class="player-bar-full-time-divider">/</span>
+            <span>{{ durationClock }}</span>
+          </div>
         </div>
 
-        <TrackProgressInfo show-split-clocks />
+        <TrackProgressInfo :show-progress="!isFullLayout" :show-split-clocks="!isFullLayout" />
 
         <div class="playback-actions">
           <button
-            v-if="!isUtilitiesOverflow"
+            v-if="!isFullLayout && !isUtilitiesOverflow"
             ref="modeButtonRef"
             v-tooltip="playbackModeTooltip"
             class="player-bar-control"
@@ -496,7 +543,7 @@ function handleNext(): void {
             </div>
           </div>
 
-          <div ref="modeMenuRef" class="contents">
+          <div v-if="!isFullLayout" ref="modeMenuRef" class="contents">
             <PlaybackModeMenu
               v-if="isModeMenuOpen"
               :current-mode="playback.state.playbackMode"
@@ -510,6 +557,10 @@ function handleNext(): void {
             @activate="overlayController.activateVolume()"
           />
         </div>
+      </div>
+
+      <div v-if="isFullLayout" class="player-bar-full-progress">
+        <PlayerBarProgress />
       </div>
     </div>
   </footer>

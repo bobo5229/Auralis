@@ -414,6 +414,13 @@
         "emphasized": "Emphasized",
         "persistFailed": "Applied, but could not save this preference."
       },
+      "playbarLayout": {
+        "title": "Playback bar layout",
+        "description": "Choose how the bottom playback bar is arranged. The full-width layout uses an edge-to-edge control row and a flush progress bar.",
+        "island": "Floating island",
+        "full": "Full width",
+        "persistFailed": "Your selection could not be saved. Select it again to retry."
+      },
       "playbarStyle": {
         "title": "Playback bar style",
         "description": "Choose the background style of the bottom playback bar.",

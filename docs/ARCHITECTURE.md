@@ -140,7 +140,7 @@ service 和 watcher，并把它们绑定到 typed IPC。业务规则不应继续
 
 ### 5.4 renderer
 
-- 应用外壳：`src/renderer/App.vue`；持有侧边栏、路由页、歌词面板、悬浮播放栏和全屏播放层。
+- 应用外壳：`src/renderer/App.vue`；持有侧边栏、路由页、歌词面板、底部播放栏（悬浮岛 / 全宽）和全屏播放层。
 - 全局布局与播放控件：`src/renderer/app/layout/`
 - 专辑：`src/renderer/features/albums/`
 - Archive：`src/renderer/features/archive/`（年度热力图与当日专辑 Top 10；统计由播放链路记录，重置能力仍保留）

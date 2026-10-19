@@ -414,6 +414,13 @@
         "emphasized": "强调",
         "persistFailed": "已应用，本次保存未完成。"
       },
+      "playbarLayout": {
+        "title": "播放栏布局",
+        "description": "选择底部播放栏的布局方式。全宽布局采用通栏控制与贴底进度条。",
+        "island": "悬浮岛",
+        "full": "全宽",
+        "persistFailed": "本次选择未保存，请重新选择以重试。"
+      },
       "playbarStyle": {
         "title": "播放栏样式",
         "description": "选择底部播放栏的背景样式。",

@@ -22,6 +22,11 @@ import {
   usePlaybarStyle,
   type PlaybarStyle,
 } from '@renderer/features/appearance/composables/usePlaybarStyle'
+import {
+  PLAYBAR_LAYOUTS,
+  usePlaybarLayout,
+  type PlaybarLayout,
+} from '@renderer/features/appearance/composables/usePlaybarLayout'
 import SettingsSelect from './SettingsSelect.vue'
 import SettingsSegmentedControl from './SettingsSegmentedControl.vue'
 import LyricsPanelLayoutSettings from './LyricsPanelLayoutSettings.vue'
@@ -94,6 +99,18 @@ const lyricsScrollOptions = computed(() =>
   })),
 )
 const {
+  layout: playbarLayout,
+  persistFailed: playbarLayoutPersistFailed,
+  setLayout: setPlaybarLayout,
+} = usePlaybarLayout()
+
+const playbarLayoutOptions = computed(() =>
+  PLAYBAR_LAYOUTS.map((value) => ({
+    value,
+    label: t(`settings.appearance.playbarLayout.${value}`),
+  })),
+)
+const {
   style: playbarStyle,
   persistFailed: playbarStylePersistFailed,
   setStyle: setPlaybarStyle,
@@ -144,6 +161,10 @@ function selectMotionPreference(value: MotionPreference): void {
 
 function selectLyricsScrollPreset(value: LyricsScrollPreset): void {
   setLyricsScrollPreset(value)
+}
+
+function selectPlaybarLayout(value: PlaybarLayout): void {
+  setPlaybarLayout(value)
 }
 
 function selectPlaybarStyle(value: PlaybarStyle): void {
@@ -268,6 +289,27 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
               {{ t('settings.appearance.sidebarFullHeightOption') }}
             </button>
           </div>
+        </div>
+        <div class="settings-row settings-row--with-desc settings-row--playbar-layout">
+          <div>
+            <strong id="appearance-playbar-layout-label">{{
+              t('settings.appearance.playbarLayout.title')
+            }}</strong>
+            <span id="appearance-playbar-layout-description">{{
+              t('settings.appearance.playbarLayout.description')
+            }}</span>
+            <span v-if="playbarLayoutPersistFailed" role="status">{{
+              t('settings.appearance.playbarLayout.persistFailed')
+            }}</span>
+          </div>
+          <SettingsSegmentedControl
+            id="appearance-playbar-layout"
+            labelledby="appearance-playbar-layout-label"
+            describedby="appearance-playbar-layout-description"
+            :model-value="playbarLayout"
+            :options="playbarLayoutOptions"
+            @update:model-value="selectPlaybarLayout($event as PlaybarLayout)"
+          />
         </div>
         <div class="settings-row settings-row--with-desc settings-row--playbar-style">
           <div>
@@ -400,7 +442,9 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
 
     <div class="settings-group">
       <div class="settings-group-header">
-        <h2 class="settings-group-title">{{ t('settings.appearance.groups.generalPreferences') }}</h2>
+        <h2 class="settings-group-title">
+          {{ t('settings.appearance.groups.generalPreferences') }}
+        </h2>
       </div>
       <div class="settings-group-card">
         <div class="settings-row settings-row--with-desc">

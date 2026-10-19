@@ -190,9 +190,9 @@ onBeforeUnmount(() => {
     @leave-cancelled="cancelMotion"
   >
     <section
-      ref="panelElement"
       v-show="controller.open.value"
       id="page-parameter-panel"
+      ref="panelElement"
       class="page-parameter-panel parameter-panel-surface parameter-panel-surface--frosted settings-controls"
       role="dialog"
       aria-modal="false"
@@ -238,8 +238,6 @@ onBeforeUnmount(() => {
   --page-parameter-control-size: 11px;
   --page-parameter-field-width: 106px;
   --page-parameter-fields-width: calc(2 * var(--page-parameter-field-width) + 6px);
-  --page-parameter-surface-alpha: 0.76;
-  --page-parameter-surface-filter: blur(18px) saturate(1.15);
   --page-parameter-inline-inset: clamp(8px, 1.5%, 16px);
   /* Stay above the page search layer (70) inside the main content stack. */
   z-index: 80;
@@ -253,32 +251,12 @@ onBeforeUnmount(() => {
   height: auto;
   max-height: min(50vh, 100%);
   margin: 0;
-  background: rgb(
-    from var(--auralis-frosted-surface-bg) r g b / var(--page-parameter-surface-alpha)
-  );
-  -webkit-backdrop-filter: var(--page-parameter-surface-filter);
-  backdrop-filter: var(--page-parameter-surface-filter);
+  background: var(--auralis-parameter-surface-bg);
+  -webkit-backdrop-filter: var(--auralis-parameter-surface-filter);
+  backdrop-filter: var(--auralis-parameter-surface-filter);
   box-shadow: 0 12px 32px rgb(0 0 0 / 12%);
   -webkit-app-region: no-drag;
 }
-[data-theme='light'] .page-parameter-panel {
-  --page-parameter-surface-alpha: 0.72;
-}
-
-@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  .page-parameter-panel {
-    background: var(--auralis-fullscreen-controls-bg);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-}
-
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .page-parameter-panel {
-    background: var(--auralis-fullscreen-controls-bg);
-  }
-}
-
 .page-parameter-panel .parameter-panel-header {
   padding: 10px;
   gap: 6px;
