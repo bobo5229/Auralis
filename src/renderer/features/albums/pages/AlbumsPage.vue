@@ -29,11 +29,6 @@ import { writeAlbumDetailSnapshot } from '../albumDetailSnapshot'
 import AlbumCard from '../components/AlbumCard.vue'
 import AlbumGridTransitionLayer from '../components/AlbumGridTransitionLayer.vue'
 import AlbumDropTransitionLayer from '../components/AlbumDropTransitionLayer.vue'
-import type {
-  AlbumTransitionRect,
-  AlbumTransitionTarget,
-  AlbumTransitionVisual,
-} from '../utils/albumGridTransitionController'
 import type { AlbumSummary } from '../types'
 import { getAlbumCatalogIndex } from '../utils/albumCatalogIndex'
 import { buildAlbumPlaybackQueue } from '../utils/albumPlaybackQueue'
@@ -42,8 +37,7 @@ import { useAlbumGridLayout } from '../composables/useAlbumGridLayout'
 import { useAlbumListParameters } from '@renderer/features/appearance/composables/useAlbumListParameters'
 import { usePageParameterSource } from '@renderer/features/appearance/composables/usePageParameters'
 import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
-import { findAlbumTransitionFocusTarget } from '../utils/albumGridTransitionPlan'
-import { calculateAlbumTransitionRect } from '../utils/albumGridTransitionGeometry'
+import { useAlbumLayoutTransition } from '../composables/useAlbumLayoutTransition'
 import type { AlbumLayoutTransitionParticipant } from '@renderer/app/layout/lyricsAlbumTransitionCoordinator'
 
 const ALBUMS_SCROLL_TOP_KEY = 'auralis-albums-scroll-top'
@@ -173,15 +167,7 @@ const albumSearchKeys = computed(
     ),
 )
 const { metadataOccupancy } = useAlbumListParameters()
-const {
-  gridWidth,
-  columnCount,
-  rowHeight,
-  update: updateAdaptiveGrid,
-  beginTransition: beginGridTransition,
-  commitTransitionTarget: commitGridTransitionTarget,
-  endTransition: endGridTransition,
-} = useAlbumGridLayout({
+const gridLayout = useAlbumGridLayout({
   container: scrollRef,
   isResizing: toRef(props, 'isLayoutResizing'),
   isActive: isPageActive,
@@ -189,13 +175,27 @@ const {
   measure: () => rowVirtualizer.value.measure(),
   metadataOccupancy,
 })
+const { gridWidth, columnCount, rowHeight, update: updateAdaptiveGrid } = gridLayout
 const gridContentRef = ref<HTMLElement | null>(null)
 const transitionLayerRef = ref<InstanceType<typeof AlbumGridTransitionLayer> | null>(null)
-const isLayoutTransitionActive = ref(false)
+const dropLayerRef = ref<InstanceType<typeof AlbumDropTransitionLayer> | null>(null)
+const emit = defineEmits<{ 'cancel-layout-transition': [] }>()
+const {
+  isLayoutTransitionActive,
+  participant: layoutTransition,
+  cancelCurrentTransition,
+} = useAlbumLayoutTransition({
+  container: scrollRef,
+  layer: transitionLayerRef,
+  isPageActive,
+  grid: gridLayout,
+  getVirtualRows: () => virtualRows.value,
+  cancelDrop: () => dropLayerRef.value?.cancel(),
+  requestCancel: () => emit('cancel-layout-transition'),
+})
 watch(metadataOccupancy, () => {
   if (isLayoutTransitionActive.value) emit('cancel-layout-transition')
 })
-const dropLayerRef = ref<InstanceType<typeof AlbumDropTransitionLayer> | null>(null)
 const isDropActive = ref(false)
 const canDropAlbum = computed(
   () =>
@@ -213,10 +213,6 @@ watch(
   },
   { flush: 'sync' },
 )
-const emit = defineEmits<{ 'cancel-layout-transition': [] }>()
-let layoutTransitionRevision = 0
-let savedFocus: { albumKey: string; selector: string } | null = null
-let pendingTransitionScrollTop: number | null = null
 
 let idlePalettePrefetchHandle: number | null = null
 let idlePalettePrefetchMode: 'idle' | 'timeout' | null = null
@@ -296,290 +292,6 @@ const rowVirtualizer = useVirtualizer<HTMLElement, HTMLElement>(
 
 const virtualRows = computed(() => rowVirtualizer.value.getVirtualItems())
 const totalHeight = computed(() => rowVirtualizer.value.getTotalSize())
-
-function toTransitionRect(rect: DOMRect): AlbumTransitionRect {
-  return { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
-}
-
-function measureScrollViewport(container: HTMLElement): DOMRect {
-  const rect = container.getBoundingClientRect()
-  return DOMRect.fromRect({
-    x: rect.left + container.clientLeft,
-    y: rect.top + container.clientTop,
-    width: container.clientWidth,
-    height: container.clientHeight,
-  })
-}
-
-function isInsideViewport(rect: DOMRect, viewport: DOMRect): boolean {
-  return (
-    rect.width > 0 &&
-    rect.height > 0 &&
-    rect.right > viewport.left &&
-    rect.left < viewport.right &&
-    rect.bottom > viewport.top &&
-    rect.top < viewport.bottom
-  )
-}
-
-function collectVisibleTransitionVisuals(
-  viewport = scrollRef.value ? measureScrollViewport(scrollRef.value) : undefined,
-): AlbumTransitionVisual[] {
-  const container = scrollRef.value
-  if (!container || !viewport) return []
-  return Array.from(container.querySelectorAll<HTMLElement>('.album-card[data-album-key]')).flatMap(
-    (card) => {
-      const rect = card.getBoundingClientRect()
-      if (!isInsideViewport(rect, viewport)) return []
-      const key = card.dataset.albumKey
-      if (!key) return []
-      const opacity = Number.parseFloat(getComputedStyle(card).opacity)
-      return [
-        {
-          key,
-          node: card,
-          rect: toTransitionRect(rect),
-          opacity: Number.isFinite(opacity) ? opacity : 1,
-        },
-      ]
-    },
-  )
-}
-
-function collectVisibleTransitionTargets(
-  viewport = scrollRef.value ? measureScrollViewport(scrollRef.value) : undefined,
-): AlbumTransitionTarget[] {
-  const container = scrollRef.value
-  if (!container || !viewport) return []
-  const paddingTop = Number.parseFloat(getComputedStyle(container).paddingTop) || 0
-  const scrollTop = container.scrollTop
-  const rowsByIndex = new Map(virtualRows.value.map((row) => [row.index, row]))
-  const targets: AlbumTransitionTarget[] = []
-  for (const rowElement of container.querySelectorAll<HTMLElement>('.albums-grid-row')) {
-    const row = rowsByIndex.get(Number(rowElement.dataset.rowIndex))
-    if (!row) continue
-    Array.from(rowElement.querySelectorAll<HTMLElement>('.album-card[data-album-key]')).forEach(
-      (card, columnIndex) => {
-        const key = card.dataset.albumKey
-        if (!key) return
-        const rect = calculateAlbumTransitionRect({
-          viewport,
-          gridWidth: gridWidth.value ?? viewport.width,
-          columnCount: columnCount.value,
-          columnIndex,
-          rowStart: row.start,
-          rowHeight: row.size,
-          paddingTop,
-          scrollTop,
-        })
-        if (
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.left < viewport.right &&
-          rect.left + rect.width > viewport.left &&
-          rect.top < viewport.bottom &&
-          rect.top + rect.height > viewport.top
-        )
-          targets.push({ key, node: card, rect })
-      },
-    )
-  }
-  return targets
-}
-
-function removeTransitionInputListeners(): void {
-  pendingTransitionScrollTop = null
-  document.removeEventListener('keydown', onTransitionKeydown, true)
-  scrollRef.value?.removeEventListener('wheel', onTransitionWheel)
-  scrollRef.value?.removeEventListener('touchstart', onTransitionTouchStart)
-  scrollRef.value?.removeEventListener('scroll', onTransitionScroll)
-}
-
-function onTransitionKeydown(event: KeyboardEvent): void {
-  const target = event.target
-  if (
-    (event.key === 'Enter' || event.key === ' ') &&
-    target instanceof Element &&
-    target.closest('[data-lyrics-toggle], [data-sidebar-toggle]')
-  )
-    return
-  if (
-    [
-      'ArrowUp',
-      'ArrowDown',
-      'ArrowLeft',
-      'ArrowRight',
-      'Home',
-      'End',
-      'PageUp',
-      'PageDown',
-      'Tab',
-      'Enter',
-      ' ',
-    ].includes(event.key)
-  ) {
-    emit('cancel-layout-transition')
-  }
-}
-
-function onTransitionWheel(): void {
-  emit('cancel-layout-transition')
-}
-
-function onTransitionTouchStart(): void {
-  emit('cancel-layout-transition')
-}
-
-function onTransitionScroll(): void {
-  if (
-    pendingTransitionScrollTop !== null &&
-    Math.abs((scrollRef.value?.scrollTop ?? 0) - pendingTransitionScrollTop) < 1
-  ) {
-    pendingTransitionScrollTop = null
-    return
-  }
-  emit('cancel-layout-transition')
-}
-
-function prepareLyricsLayoutTransition(revision: number): boolean {
-  dropLayerRef.value?.cancel()
-  const container = scrollRef.value
-  const layer = transitionLayerRef.value
-  if (!isPageActive.value || !container?.isConnected || !layer) return false
-  const reversing = isLayoutTransitionActive.value
-  let gridTransitionBegun = false
-  try {
-    const viewport = measureScrollViewport(container)
-    let fromViewport = toTransitionRect(viewport)
-    let sources: AlbumTransitionVisual[]
-    if (reversing) {
-      fromViewport = layer.captureViewport()
-      sources = layer.captureVisuals()
-    } else {
-      const activeElement = document.activeElement
-      if (activeElement instanceof HTMLElement) {
-        const card = activeElement.closest<HTMLElement>('.album-card[data-album-key]')
-        if (card?.dataset.albumKey) {
-          savedFocus = {
-            albumKey: card.dataset.albumKey,
-            selector: activeElement.classList.contains('cover-stage')
-              ? '.cover-stage'
-              : activeElement.classList.contains('album-card-play')
-                ? '.album-card-play'
-                : '.cover-stage',
-          }
-        }
-      }
-      sources = collectVisibleTransitionVisuals(viewport)
-      beginGridTransition()
-      gridTransitionBegun = true
-    }
-
-    layoutTransitionRevision = revision
-    isLayoutTransitionActive.value = true
-    layer.prepareSources(fromViewport, sources)
-  } catch (error) {
-    layer.clear()
-    isLayoutTransitionActive.value = false
-    savedFocus = null
-    removeTransitionInputListeners()
-    if (reversing || gridTransitionBegun) endGridTransition()
-    rendererDiagnostics.error({
-      scope: 'albums.transition',
-      message: 'Failed to prepare album layout transition',
-      cause: error,
-    })
-    return false
-  }
-  document.addEventListener('keydown', onTransitionKeydown, true)
-  container.addEventListener('wheel', onTransitionWheel, { passive: true })
-  container.addEventListener('touchstart', onTransitionTouchStart, { passive: true })
-  container.addEventListener('scroll', onTransitionScroll, { passive: true })
-  return true
-}
-
-async function commitLyricsLayoutTransition(revision: number): Promise<boolean> {
-  const container = scrollRef.value
-  const layer = transitionLayerRef.value
-  if (
-    revision !== layoutTransitionRevision ||
-    !isLayoutTransitionActive.value ||
-    !isPageActive.value ||
-    !container?.isConnected ||
-    !layer
-  )
-    return false
-
-  try {
-    commitGridTransitionTarget()
-    await nextTick()
-    if (
-      revision !== layoutTransitionRevision ||
-      !isLayoutTransitionActive.value ||
-      !isPageActive.value ||
-      scrollRef.value !== container ||
-      !container.isConnected ||
-      transitionLayerRef.value !== layer
-    )
-      return false
-    pendingTransitionScrollTop = container.scrollTop
-
-    // The remapped scroll event updates TanStack's visible range at the rendering
-    // boundary, after Vue's geometry patch. Capture targets only after that update.
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
-    await nextTick()
-    if (
-      revision !== layoutTransitionRevision ||
-      !isLayoutTransitionActive.value ||
-      !isPageActive.value ||
-      !container.isConnected ||
-      transitionLayerRef.value !== layer
-    )
-      return false
-    const viewport = measureScrollViewport(container)
-    layer.commitTargets(toTransitionRect(viewport), collectVisibleTransitionTargets(viewport))
-    return true
-  } catch (error) {
-    layer.clear()
-    rendererDiagnostics.error({
-      scope: 'albums.transition',
-      message: 'Failed to commit album layout transition',
-      cause: error,
-    })
-    return false
-  }
-}
-
-async function animateLyricsLayoutTransition(revision: number, duration: number): Promise<void> {
-  if (revision === layoutTransitionRevision) await transitionLayerRef.value?.animate(duration)
-}
-
-async function finishLyricsLayoutTransition(revision: number): Promise<void> {
-  if (revision !== layoutTransitionRevision) return
-  const container = scrollRef.value
-  transitionLayerRef.value?.clear()
-  isLayoutTransitionActive.value = false
-  removeTransitionInputListeners()
-  endGridTransition()
-  const focus = savedFocus
-  savedFocus = null
-  await nextTick()
-  if (!focus || !isPageActive.value || !container?.isConnected) return
-  findAlbumTransitionFocusTarget(
-    container.querySelectorAll<HTMLElement>('.album-card[data-album-key]'),
-    focus.albumKey,
-    focus.selector,
-  )?.focus()
-}
-
-function cancelLyricsLayoutTransition(revision: number): void {
-  if (revision !== layoutTransitionRevision) return
-  transitionLayerRef.value?.clear()
-  savedFocus = null
-  isLayoutTransitionActive.value = false
-  removeTransitionInputListeners()
-  endGridTransition()
-}
 
 async function connectGrid(): Promise<void> {
   const revision = ++gridConnectionRevision
@@ -1061,7 +773,7 @@ function disconnectPage(): void {
 }
 
 onDeactivated(() => {
-  cancelLyricsLayoutTransition(layoutTransitionRevision)
+  cancelCurrentTransition()
   disconnectPage()
   sessionStorage.setItem(ALBUMS_SCROLL_TOP_KEY, String(savedScrollTop))
 })
@@ -1069,7 +781,7 @@ onDeactivated(() => {
 onBeforeUnmount(() => {
   isPageUnmounted = true
   if (isPageActive.value && scrollRef.value) savedScrollTop = scrollRef.value.scrollTop
-  cancelLyricsLayoutTransition(layoutTransitionRevision)
+  cancelCurrentTransition()
   disconnectPage()
   sessionStorage.setItem(ALBUMS_SCROLL_TOP_KEY, String(savedScrollTop))
   if (searchHighlightTimeout) {
@@ -1077,13 +789,7 @@ onBeforeUnmount(() => {
   }
 })
 
-defineExpose<AlbumLayoutTransitionParticipant>({
-  prepareLyricsLayoutTransition,
-  commitLyricsLayoutTransition,
-  animateLyricsLayoutTransition,
-  finishLyricsLayoutTransition,
-  cancelLyricsLayoutTransition,
-})
+defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
 </script>
 
 <template>

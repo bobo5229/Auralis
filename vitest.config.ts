@@ -22,6 +22,7 @@ export default defineConfig({
     testTransformMode: {
       web: [
         '**/App.shell.test.ts',
+        '**/AppSidebar.test.ts',
         '**/FlatTrackColumnHeader.test.ts',
         '**/FacetsDialog.test.ts',
         '**/SongRow.test.ts',
@@ -41,6 +42,7 @@ export default defineConfig({
         '**/SettingsDialog.test.ts',
         '**/AppDialog.test.ts',
         '**/LyricsSaveMenu.test.ts',
+        '**/LyricsEditPanel.test.ts',
         '**/LyricsDuetLines.test.ts',
         '**/LibraryContextMenu.test.ts',
       ],

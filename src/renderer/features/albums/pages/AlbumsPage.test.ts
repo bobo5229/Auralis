@@ -2,12 +2,25 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRenderer, h, KeepAlive, markRaw, nextTick, ref } from 'vue'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import AlbumsPage from './AlbumsPage.vue'
+import type { AlbumLayoutTransitionParticipant } from '@renderer/app/layout/lyricsAlbumTransitionCoordinator'
+import { useAlbumListParameters } from '@renderer/features/appearance/composables/useAlbumListParameters'
 import { useChineseTextDisplay } from '@renderer/features/appearance/composables/useChineseTextDisplay'
 
 const fixture = vi.hoisted(() => ({
   tracks: [] as TrackListItem[],
   changed: null as null | ((event: { reason: string }) => void),
   route: { name: 'albums' },
+  beforeLeave: null as null | (() => void),
+  cancelRequested: vi.fn(),
+  dropCancel: vi.fn(),
+  layer: {
+    prepareSources: vi.fn(),
+    commitTargets: vi.fn(),
+    animate: vi.fn<(duration: number) => Promise<void>>(async () => undefined),
+    captureVisuals: vi.fn(() => []),
+    captureViewport: vi.fn(() => ({ left: 0, top: 0, width: 800, height: 650 })),
+    clear: vi.fn(),
+  },
 }))
 vi.mock('@renderer/shared/ipc/client', () => ({
   auralis: {
@@ -25,7 +38,9 @@ vi.mock('@renderer/shared/ipc/client', () => ({
 vi.mock('vue-router', () => ({
   useRoute: () => fixture.route,
   useRouter: () => ({ push: vi.fn() }),
-  onBeforeRouteLeave: vi.fn(),
+  onBeforeRouteLeave: (callback: () => void) => {
+    fixture.beforeLeave = callback
+  },
 }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@renderer/shared/diagnostics/rendererDiagnostics', () => ({
@@ -43,13 +58,19 @@ vi.mock('@renderer/features/playback/composables/useArtworkPalette', () => ({
 }))
 vi.mock('../components/AlbumCard.vue', async () => {
   const { h } = await import('vue')
-  return { default: { render: () => h('div') } }
+  return {
+    default: {
+      props: ['longPressEnabled'],
+      setup: (props: { longPressEnabled: boolean }) => () =>
+        h('div', { class: 'album-card', 'data-long-press-enabled': props.longPressEnabled }),
+    },
+  }
 })
 vi.mock('../components/AlbumGridTransitionLayer.vue', () => ({
-  default: { methods: { clear: vi.fn() }, render: () => null },
+  default: { methods: fixture.layer, render: () => null },
 }))
 vi.mock('../components/AlbumDropTransitionLayer.vue', () => ({
-  default: { methods: { cancel: vi.fn() }, render: () => null },
+  default: { methods: { cancel: fixture.dropCancel }, render: () => null },
 }))
 vi.mock('@renderer/app/layout/MainPageStatus.vue', () => ({ default: { render: () => null } }))
 // The custom renderer exercises the page and real grid layout. DOM animation and
@@ -85,10 +106,26 @@ vi.mock('@tanstack/vue-virtual', async () => {
   }
 })
 
-class TestElement {
+// Node's EventTarget requires an options object to remove capture listeners.
+class TestEventTarget extends EventTarget {
+  override removeEventListener(
+    type: string,
+    callback: EventListenerOrEventListenerObject | null,
+    options?: EventListenerOptions | boolean,
+  ): void {
+    super.removeEventListener(
+      type,
+      callback,
+      typeof options === 'boolean' ? { capture: options } : options,
+    )
+  }
+}
+class TestElement extends TestEventTarget {
   props: Record<string, unknown> = {}
   children: TestElement[] = []
   parent: TestElement | null = null
+  clientLeft = 0
+  clientTop = 0
   clientWidth = 985
   clientHeight = 650
   scrollTop = 0
@@ -96,6 +133,7 @@ class TestElement {
   text = ''
   isContentEditable = false
   constructor(public tagName = 'div') {
+    super()
     markRaw(this)
   }
   get isConnected(): boolean {
@@ -118,6 +156,9 @@ class TestElement {
   matches(selector: string): boolean {
     return selector.split(', ').includes(this.tagName.toLowerCase())
   }
+  closest(): null {
+    return null
+  }
   querySelector(): null {
     return null
   }
@@ -130,11 +171,9 @@ class TestElement {
   getRootNode() {
     return doc
   }
-  addEventListener(): void {}
-  removeEventListener(): void {}
 }
 const body = new TestElement('body')
-const doc = Object.assign(new EventTarget(), {
+const doc = Object.assign(new TestEventTarget(), {
   activeElement: body,
   body,
   querySelector: () => null,
@@ -173,12 +212,50 @@ const renderer = createRenderer<TestElement, TestElement>({
   querySelector: () => body,
 })
 let unmount: (() => void) | null = null
+const participant = ref<AlbumLayoutTransitionParticipant | null>(null)
+const frames = new Map<number, FrameRequestCallback>()
+let frameId = 0
+class TestRect {
+  constructor(
+    public left = 0,
+    public top = 0,
+    public width = 0,
+    public height = 0,
+  ) {}
+  get right() {
+    return this.left + this.width
+  }
+  get bottom() {
+    return this.top + this.height
+  }
+  static fromRect({ x = 0, y = 0, width = 0, height = 0 }: DOMRectInit) {
+    return new TestRect(x, y, width, height)
+  }
+}
+async function frame(): Promise<void> {
+  const pending = [...frames.values()]
+  frames.clear()
+  pending.forEach((callback) => callback(0))
+  await settle()
+}
+function pageTransition() {
+  if (!participant.value) throw new Error('Page participant is unavailable')
+  return participant.value
+}
 beforeEach(() => {
+  vi.clearAllMocks()
+  frames.clear()
+  fixture.beforeLeave = null
   fixture.tracks = []
   fixture.route.name = 'albums'
   observers.length = 0
   body.children = []
   doc.activeElement = body
+  vi.stubGlobal('DOMRect', TestRect)
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    frames.set(++frameId, callback)
+    return frameId
+  })
   vi.stubGlobal('HTMLElement', TestElement)
   vi.stubGlobal('Element', TestElement)
   vi.stubGlobal('Node', TestElement)
@@ -209,6 +286,8 @@ afterEach(() => {
     unmount?.()
   } finally {
     unmount = null
+    useAlbumListParameters().reset()
+    frames.clear()
     useChineseTextDisplay().setSongInfoScript('simplified')
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
@@ -221,7 +300,11 @@ async function mountPage() {
   const active = ref(true)
   const app = renderer.createApp({
     render: () =>
-      h(KeepAlive, null, [active.value ? h(AlbumsPage) : h({ render: () => h('div') })]),
+      h(KeepAlive, null, [
+        active.value
+          ? h(AlbumsPage, { ref: participant, onCancelLayoutTransition: fixture.cancelRequested })
+          : h({ render: () => h('div') }),
+      ]),
   })
   unmount = () => app.unmount()
   app.mount(body)
@@ -507,4 +590,103 @@ describe('AlbumsPage keyboard search', () => {
     await settle()
     expect(shortcut().defaultPrevented).toBe(false)
   })
+})
+
+describe('AlbumsPage layout transition participant', () => {
+  it('locks interaction and grid geometry until the exposed transition completes', async () => {
+    await mountPage()
+    expect(pageTransition().prepareLyricsLayoutTransition(1)).toBe(false)
+    await setAlbums(40)
+    const scroll = find('albums-scroll')!
+    const grid = scroll.children[0]
+    expect(find('album-card')?.props['data-long-press-enabled']).toBe(true)
+    fixture.dropCancel.mockClear()
+    expect(pageTransition().prepareLyricsLayoutTransition(2)).toBe(true)
+    await settle()
+    expect(fixture.dropCancel).toHaveBeenCalled()
+    expect(grid.props.inert).toBe(true)
+    expect(grid.props['aria-hidden']).toBe('true')
+    expect(find('album-card')?.props['data-long-press-enabled']).toBe(false)
+    expect(shortcut().defaultPrevented).toBe(false)
+    scroll.clientWidth = 685
+    observers.at(-1)!.callback()
+    await settle()
+    expect(find('albums-grid-row')?.props.style).toMatchObject({
+      gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+    })
+    const committed = pageTransition().commitLyricsLayoutTransition(2)
+    await settle()
+    expect(fixture.layer.commitTargets).not.toHaveBeenCalled()
+    await frame()
+    expect(await committed).toBe(true)
+    expect(find('albums-grid-row')?.props.style).toMatchObject({
+      gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+    })
+    await pageTransition().animateLyricsLayoutTransition(2, 200)
+    expect(fixture.layer.animate).toHaveBeenCalledWith(200)
+    await pageTransition().finishLyricsLayoutTransition(2)
+    await settle()
+    expect(grid.props.inert).toBeUndefined()
+    expect(grid.props['aria-hidden']).toBeUndefined()
+    expect(find('album-card')?.props['data-long-press-enabled']).toBe(true)
+    expect(shortcut().defaultPrevented).toBe(true)
+  })
+
+  it('emits cancellation for input, catalog, metadata and route changes only while participating', async () => {
+    await mountPage()
+    await setAlbums(40)
+    const scroll = find('albums-scroll')!
+    expect(pageTransition().prepareLyricsLayoutTransition(3)).toBe(true)
+    scroll.dispatchEvent(new Event('wheel'))
+    scroll.dispatchEvent(new Event('touchstart'))
+    doc.dispatchEvent(Object.assign(new Event('keydown'), { key: 'Tab' }))
+    expect(fixture.cancelRequested).toHaveBeenCalledTimes(3)
+    await setAlbums(41)
+    useAlbumListParameters().setSize('title', 24)
+    await settle()
+    fixture.beforeLeave?.()
+    expect(fixture.cancelRequested).toHaveBeenCalledTimes(6)
+    pageTransition().cancelLyricsLayoutTransition(3)
+    await settle()
+    const calls = fixture.cancelRequested.mock.calls.length
+    scroll.dispatchEvent(new Event('wheel'))
+    scroll.dispatchEvent(new Event('touchstart'))
+    doc.dispatchEvent(Object.assign(new Event('keydown'), { key: 'Tab' }))
+    fixture.beforeLeave?.()
+    expect(fixture.cancelRequested).toHaveBeenCalledTimes(calls)
+    expect(find('albums-grid-content--transitioning')).toBeUndefined()
+  })
+
+  it.each(['deactivate', 'unmount'] as const)(
+    'cleans listeners and rejects a pending commit on %s',
+    async (exit) => {
+      const active = await mountPage()
+      await setAlbums(40)
+      const scroll = find('albums-scroll')!
+      const transition = pageTransition()
+      expect(transition.prepareLyricsLayoutTransition(4)).toBe(true)
+      const committed = transition.commitLyricsLayoutTransition(4)
+      await settle()
+      if (exit === 'deactivate') active.value = false
+      else {
+        unmount?.()
+        unmount = null
+      }
+      await settle()
+      await frame()
+      expect(await committed).toBe(false)
+      expect(fixture.layer.commitTargets).not.toHaveBeenCalled()
+      scroll.dispatchEvent(new Event('wheel'))
+      doc.dispatchEvent(Object.assign(new Event('keydown'), { key: 'Tab' }))
+      expect(fixture.cancelRequested).not.toHaveBeenCalled()
+      expect(fixture.layer.clear).toHaveBeenCalled()
+      if (exit === 'deactivate') {
+        active.value = true
+        await settle()
+        expect(find('albums-grid-content--transitioning')).toBeUndefined()
+        expect(pageTransition().prepareLyricsLayoutTransition(5)).toBe(true)
+        expect(fixture.layer.captureVisuals).not.toHaveBeenCalled()
+      }
+    },
+  )
 })
