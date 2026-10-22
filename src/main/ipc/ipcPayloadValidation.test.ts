@@ -113,8 +113,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(77)
-    expect(kinds).toEqual({ void: 21, optional: 6, required: 50 })
+    expect(actualChannels).toHaveLength(78)
+    expect(kinds).toEqual({ void: 21, optional: 6, required: 51 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {

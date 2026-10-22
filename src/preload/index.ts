@@ -148,6 +148,7 @@ export const auralisApi: AuralisApi = {
   },
   archive: {
     getAnnualPlayCounts: (year) => invoke(ipcChannels.archive.getAnnualPlayCounts, { year }),
+    getAnnualSummary: (year) => invoke(ipcChannels.archive.getAnnualSummary, { year }),
     getDayTopTracks: (date) => invoke(ipcChannels.archive.getDayTopTracks, { date }),
     getDayTopAlbums: (date) => invoke(ipcChannels.archive.getDayTopAlbums, { date }),
     resetPlayStats: () => invoke(ipcChannels.archive.resetPlayStats),

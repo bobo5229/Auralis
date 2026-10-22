@@ -44,6 +44,7 @@ describe('archive preload capabilities', () => {
     expect(exposeInMainWorld).toHaveBeenCalledExactlyOnceWith('auralis', auralisApi)
     expect(Object.keys(auralisApi.archive)).toEqual([
       'getAnnualPlayCounts',
+      'getAnnualSummary',
       'getDayTopTracks',
       'getDayTopAlbums',
       'resetPlayStats',
@@ -60,6 +61,11 @@ describe('archive preload capabilities', () => {
   it('continues routing reset through its explicit IPC channel', async () => {
     await expect(auralisApi.archive.resetPlayStats()).resolves.toEqual({ ok: true })
     expect(invoke).toHaveBeenCalledExactlyOnceWith('archive:reset-play-stats')
+  })
+
+  it('routes annual summaries through an explicit year-only capability', async () => {
+    await auralisApi.archive.getAnnualSummary(2026)
+    expect(invoke).toHaveBeenCalledExactlyOnceWith('archive:get-annual-summary', { year: 2026 })
   })
 
   it('routes only the selected local date through the explicit daily top tracks channel', async () => {

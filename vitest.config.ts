@@ -31,6 +31,7 @@ export default defineConfig({
         '**/CdAlbumIndexPage.test.ts',
         '**/CdViewSwitch.test.ts',
         '**/AlbumsPage.test.ts',
+        '**/LibraryPage.test.ts',
         '**/ThemeAccentSettings.test.ts',
         '**/FullscreenBackgroundControls.test.ts',
         '**/FullscreenLyricsContextMenu.test.ts',

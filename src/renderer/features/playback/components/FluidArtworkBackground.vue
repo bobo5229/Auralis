@@ -33,7 +33,6 @@ const props = withDefaults(
 )
 const emit = defineEmits<{
   unavailable: []
-  lost: []
 }>()
 
 const containerRef = ref<HTMLElement | null>(null)
@@ -42,7 +41,7 @@ let session: ReturnType<typeof createArtworkBackgroundSession> | null = null
 let reducedMotionQuery: MotionQuery | null = null
 let albumRequestToken = 0
 let disposed = false
-let contextLost = false
+const contextLost = ref(false)
 let initializationPending = false
 let reinitializeAfterPending = false
 let cancelInitialization: (() => void) | null = null
@@ -83,7 +82,7 @@ function syncRendererState(): void {
   background.setFPS(props.playing ? 60 : 12)
 
   if (
-    !contextLost &&
+    !contextLost.value &&
     props.enabled &&
     props.windowVisible &&
     props.active &&
@@ -106,7 +105,7 @@ function primeBackground(): void {
     props.deferInitialization ||
     props.active ||
     !props.windowVisible ||
-    contextLost ||
+    contextLost.value ||
     document.visibilityState !== 'visible'
   )
     return
@@ -128,7 +127,7 @@ function primeBackground(): void {
 function handleFrame(canvas: HTMLCanvasElement, settled: boolean): void {
   if (
     disposed ||
-    contextLost ||
+    contextLost.value ||
     background?.getElement() !== canvas ||
     committedArtworkUrl !== props.artworkUrl
   )
@@ -144,7 +143,7 @@ function handleFrame(canvas: HTMLCanvasElement, settled: boolean): void {
 
 async function syncAlbum(): Promise<void> {
   const currentSession = session
-  if (!currentSession || !props.enabled || contextLost || disposed) return
+  if (!currentSession || !props.enabled || contextLost.value || disposed) return
   const artworkUrl = props.artworkUrl
   if (committedArtworkUrl === artworkUrl) return
 
@@ -197,10 +196,9 @@ function handleReducedMotionChange(): void {
 function handleContextLost(event: Event): void {
   // 允许浏览器恢复上下文；AMLL 自身不会暂停或重建失效的 GPU 资源。
   event.preventDefault()
-  contextLost = true
+  contextLost.value = true
   cancelPrime()
   readyArtworkUrl = undefined
-  emit('lost')
   albumRequestToken += 1
   session?.cancelPendingAlbum()
   background?.pause()
@@ -224,7 +222,7 @@ function releaseBackground(): void {
 function handleContextRestored(): void {
   if (disposed) return
   releaseBackground()
-  contextLost = false
+  contextLost.value = false
   if (initializationPending) reinitializeAfterPending = true
   else void initializeBackground()
 }
@@ -334,7 +332,7 @@ function scheduleInitialization(): void {
     cancelInitialization = null
     if (props.enabled && !disposed) void initializeBackground()
   }
-  // Prepare the selected mode while the player is parked, outside the opening click task.
+  // Prepare the background while the player is parked, outside the opening click task.
   if (typeof requestIdleCallback === 'function') {
     const id = requestIdleCallback(prepare, { timeout: 1000 })
     cancelInitialization = () => cancelIdleCallback(id)
@@ -401,7 +399,7 @@ onBeforeUnmount(() => {
       ref="containerRef"
       class="fluid-artwork-background"
       :class="{ 'fluid-artwork-background--parked': target === null }"
-      :style="{ visibility: visible ? 'visible' : 'hidden' }"
+      :style="{ visibility: visible && !contextLost ? 'visible' : 'hidden' }"
       aria-hidden="true"
     >
       <FluidArtworkBackgroundEffects />

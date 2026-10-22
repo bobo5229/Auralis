@@ -159,6 +159,9 @@ export interface AuralisApi {
     onCommand: (callback: (command: IpcEventPayload<'system-media:command'>) => void) => () => void
   }
   archive: {
+    getAnnualSummary: (
+      year: Req<'archive:get-annual-summary'>['year'],
+    ) => Result<'archive:get-annual-summary'>
     getAnnualPlayCounts: (
       year: Req<'archive:get-annual-play-counts'>['year'],
     ) => Result<'archive:get-annual-play-counts'>

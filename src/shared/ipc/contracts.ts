@@ -37,7 +37,12 @@ import type {
   LibraryTrackPageRequest,
 } from '@shared/types/libraryCatalog'
 import type { AlbumDetailRequest, AlbumDetailResult } from '@shared/types/albumDetail'
-import type { DailyPlayCount, DailyTopAlbum, DailyTopTrack } from '@shared/types/listeningArchive'
+import type {
+  AnnualSummary,
+  DailyPlayCount,
+  DailyTopAlbum,
+  DailyTopTrack,
+} from '@shared/types/listeningArchive'
 import type {
   AssignLyricsEditorLines,
   RetimeLyricsEditorLines,
@@ -437,6 +442,10 @@ export interface IpcInvokeContract {
   'archive:get-annual-play-counts': {
     request: { year: number }
     response: DailyPlayCount[]
+  }
+  'archive:get-annual-summary': {
+    request: { year: number }
+    response: AnnualSummary
   }
   'archive:reset-play-stats': {
     request: void

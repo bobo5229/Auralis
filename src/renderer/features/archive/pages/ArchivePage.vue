@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { auralis } from '@renderer/shared/ipc/client'
@@ -14,8 +14,14 @@ import { resolveArchiveYear } from '../utils/archiveYear'
 const { t } = useI18n()
 const route = useRoute()
 const year = ref(resolveArchiveYear(route.query.year))
+watch(
+  () => route.query.year,
+  (value) => {
+    year.value = resolveArchiveYear(value)
+  },
+)
 const { days, isLoading, hasError } = useAnnualPlayCounts(year, auralis.archive, auralis.library)
-const { date: pinnedDate, pin: pinDay } = usePinnedArchiveDay(days, year)
+const { date: pinnedDate, pin: pinDay } = usePinnedArchiveDay(days, year, () => route.query.date)
 const {
   albums: pinnedAlbums,
   isLoading: pinnedAlbumsLoading,

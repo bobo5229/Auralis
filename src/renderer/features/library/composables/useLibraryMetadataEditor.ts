@@ -8,7 +8,7 @@ import type {
 } from '@shared/ipc/contracts'
 import type { LibraryContextMenuSource } from '../types/libraryInteraction'
 import { isSameLibraryRouteScope, type LibraryRouteScope } from '../utils/libraryRouteScope'
-import { isSameEditableMetadata } from '@shared/utils/editableMetadata'
+import { createLibraryMetadataSaveCommit } from '../utils/libraryMetadataSaveCommit'
 
 export type LibraryMetadataRefreshResult =
   | 'committed'
@@ -62,13 +62,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   let pendingReturnTarget: LibraryMetadataFocusTarget | null = null
   let loadRevision = 0
   let saveFeedbackController: AbortController | null = null
-  // A rejected IPC can follow a successful disk publication. Keep this across
-  // closing/reopening the dialog until the backend confirms a save for the track.
-  const uncertainSaves = new Set<number>()
-  let committedSave: {
-    metadata: EditableTrackMetadata
-    libraryRevision?: string
-  } | null = null
+  const saveCommit = createLibraryMetadataSaveCommit()
 
   async function showSaveSuccess(signal: AbortSignal): Promise<void> {
     try {
@@ -124,7 +118,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     }
 
     currentTrackId = trackId
-    committedSave = null
+    saveCommit.reset()
     isMetadataEditorOpen.value = true
     isLoadingMetadata.value = true
     editingMetadata.value = null
@@ -176,7 +170,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       unsubscribeStatus = null
     }
     currentTrackId = null
-    committedSave = null
+    saveCommit.reset()
     currentVersion = 0
     editStatus.value = 'checking'
 
@@ -193,7 +187,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
   }
 
   function dispose(): void {
-    committedSave = null
+    saveCommit.reset()
     saveFeedbackController?.abort()
     saveFeedbackController = null
     loadRevision++
@@ -210,6 +204,23 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
     currentVersion = 0
   }
 
+  function applySaveRejection(reason: string): void {
+    if (reason === 'playback-in-use') {
+      if (editStatus.value !== 'preload-in-use') editStatus.value = 'playback-in-use'
+      errorMessageSource.value = () =>
+        editStatus.value === 'preload-in-use'
+          ? (options.getPreloadInUseMessage ?? options.getSaveErrorMessage)()
+          : (options.getPlaybackInUseMessage ?? options.getSaveErrorMessage)()
+    } else if (reason === 'write-in-progress') {
+      editStatus.value = 'write-in-progress'
+      errorMessageSource.value = options.getSaveErrorMessage
+    } else {
+      errorMessageSource.value = options.getSaveFailureMessage
+        ? () => options.getSaveFailureMessage!(reason)
+        : options.getSaveErrorMessage
+    }
+  }
+
   async function save(metadata: EditableTrackMetadata): Promise<void> {
     if (
       isSavingMetadata.value ||
@@ -220,9 +231,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       return
     }
 
-    const unchanged =
-      !uncertainSaves.has(metadata.trackId) &&
-      isSameEditableMetadata(metadata, committedSave?.metadata ?? editingMetadata.value)
+    const unchanged = saveCommit.isUnchanged(metadata, editingMetadata.value)
     isSavingMetadata.value = true
     errorMessageSource.value = null
     const saveScope = options.captureRouteScope()
@@ -233,7 +242,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
       !controller.signal.aborted && isCurrentLoad(metadata.trackId, saveLoadRevision)
 
     try {
-      if (unchanged && !committedSave) {
+      if (unchanged && !saveCommit.current) {
         await showSaveSuccess(controller.signal)
         if (!isCurrentSave()) return
         isSavingMetadata.value = false
@@ -241,7 +250,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
         return
       }
       if (!unchanged) {
-        uncertainSaves.add(metadata.trackId)
+        saveCommit.beginWrite(metadata.trackId)
         const saveResult = await options.updateTrackMetadata(metadata)
         if (!isCurrentSave()) return
 
@@ -252,45 +261,18 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
           (saveResult as { ok: boolean }).ok === false
         ) {
           const rejected = saveResult as { ok: false; reason: string }
-          if (rejected.reason === 'playback-in-use') {
-            if (editStatus.value !== 'preload-in-use') editStatus.value = 'playback-in-use'
-            errorMessageSource.value = () =>
-              editStatus.value === 'preload-in-use'
-                ? (options.getPreloadInUseMessage ?? options.getSaveErrorMessage)()
-                : (options.getPlaybackInUseMessage ?? options.getSaveErrorMessage)()
-          } else if (rejected.reason === 'write-in-progress') {
-            editStatus.value = 'write-in-progress'
-            errorMessageSource.value = options.getSaveErrorMessage
-          } else {
-            errorMessageSource.value = options.getSaveFailureMessage
-              ? () => options.getSaveFailureMessage!(rejected.reason)
-              : options.getSaveErrorMessage
-          }
+          applySaveRejection(rejected.reason)
           return
         }
 
-        // Keep the form seed intact, but compare retries with the committed
-        // values even when refreshing the view fails after the disk write.
-        uncertainSaves.delete(metadata.trackId)
-        committedSave = {
-          metadata: { ...metadata },
-          libraryRevision:
-            saveResult &&
-            typeof saveResult === 'object' &&
-            'ok' in saveResult &&
-            saveResult.ok === true &&
-            'libraryRevision' in saveResult &&
-            typeof saveResult.libraryRevision === 'string'
-              ? saveResult.libraryRevision
-              : undefined,
-        }
+        saveCommit.recordCommitted(metadata, saveResult)
       }
 
       const returnTarget = pendingReturnTarget ?? {
         trackId: metadata.trackId,
         source: 'track' as const,
       }
-      const loadResult = await options.refreshLibrary(committedSave?.libraryRevision)
+      const loadResult = await options.refreshLibrary(saveCommit.current?.libraryRevision)
       const isStillInSaveScope = isSameLibraryRouteScope(saveScope, options.captureRouteScope())
 
       if (loadResult === 'failed' || loadResult === 'queued') {
@@ -308,7 +290,7 @@ export function useLibraryMetadataEditor(options: UseLibraryMetadataEditorOption
         unsubscribeStatus = null
       }
       currentTrackId = null
-      committedSave = null
+      saveCommit.reset()
       currentVersion = 0
       loadRevision++
       isMetadataEditorOpen.value = false

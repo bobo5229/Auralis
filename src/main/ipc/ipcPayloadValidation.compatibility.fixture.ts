@@ -95,6 +95,7 @@ export const validIpcPayloads: Partial<Record<DomainIpcInvokeChannel, unknown>> 
   'playback:acquire-read-lease': { trackId: 1 },
   'playback:release-read-lease': { leaseId: 'lease' },
   'archive:get-annual-play-counts': { year: 2026 },
+  'archive:get-annual-summary': { year: 2026 },
   'archive:get-day-top-tracks': { date: '2026-10-09' },
   'archive:get-day-top-albums': { date: '2026-10-09' },
   'metadata:refresh-track': { trackId: 1 },

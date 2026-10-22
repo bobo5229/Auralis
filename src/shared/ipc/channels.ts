@@ -84,6 +84,7 @@ export const ipcChannels = {
   },
   archive: {
     getAnnualPlayCounts: 'archive:get-annual-play-counts',
+    getAnnualSummary: 'archive:get-annual-summary',
     getDayTopTracks: 'archive:get-day-top-tracks',
     getDayTopAlbums: 'archive:get-day-top-albums',
     resetPlayStats: 'archive:reset-play-stats',

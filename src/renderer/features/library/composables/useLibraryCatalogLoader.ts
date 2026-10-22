@@ -1,4 +1,4 @@
-import { computed, ref, type Ref } from 'vue'
+import type { Ref } from 'vue'
 import type {
   LibraryTrackPageResponse,
   LibraryTrackPageRequest,
@@ -7,17 +7,13 @@ import type { TrackListItem, LibraryScanProgress } from '@shared/types/librarySc
 import type { PlaylistDetail } from '@shared/types/playlist'
 import type { SmartPlaylistDetail } from '@shared/types/smartPlaylist'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
+import { createLibrarySnapshotLoader, dependsOnPlayStats } from '../utils/librarySnapshotLoader'
+import { useLibrarySnapshotPresentation } from './useLibrarySnapshotPresentation'
 import type { LibraryViewMode } from '../types/libraryInteraction'
 import type { LibraryPageIdentity } from '../types/libraryPageIdentity'
 import type { LibraryMetadataRefreshResult } from './useLibraryMetadataEditor'
 import type { LibraryViewportCapture } from './useLibraryViewport'
-import {
-  createAllSongsLibrarySnapshot,
-  createPlaylistLibrarySnapshot,
-  createRecentAddedLibrarySnapshot,
-  createSmartPlaylistLibrarySnapshot,
-  type LibraryDataSnapshot,
-} from '../utils/libraryDataSnapshot'
+import type { LibraryDataSnapshot } from '../utils/libraryDataSnapshot'
 import { SharedLibraryCatalogLoad } from '../utils/sharedLibraryCatalogLoad'
 import { LibraryRequestCoordinator, type LibraryLoadMode } from '../utils/libraryRequestCoordinator'
 import {
@@ -72,12 +68,13 @@ export function useLibraryCatalogLoader(options: {
 }) {
   const coordinator = new LibraryRequestCoordinator()
   const catalogClient = options.catalogClient ?? new SharedLibraryCatalogLoad(options.getTrackPage)
-  const hasInitialLoadError = ref(false)
-  const isPositioningForegroundViewport = ref(false)
-  const initialLoadError = computed(() =>
-    hasInitialLoadError.value ? options.loadErrorMessage() : null,
-  )
-  let committedScope: LibraryRouteScope | null = null
+  const presentation = useLibrarySnapshotPresentation(options)
+  const {
+    hasInitialLoadError,
+    isPositioningForegroundViewport,
+    initialLoadError,
+    commitLibrarySnapshot,
+  } = presentation
   let unsubscribeChanged: (() => void) | null = null
   let unsubscribeScanProgress: (() => void) | null = null
   let importRefreshTimer: ReturnType<typeof setTimeout> | null = null
@@ -92,9 +89,16 @@ export function useLibraryCatalogLoader(options: {
     promise: Promise<LibraryLoadResult>
   } | null = null
 
-  function dependsOnPlayStats(preset: string | undefined): boolean {
-    return preset === 'recentPlayed' || preset === 'mostListened' || preset === 'recentFrequent'
-  }
+  const { fetchLibrarySnapshot } = createLibrarySnapshotLoader({
+    catalogClient,
+    getSmartPlaylistDetail: options.getSmartPlaylistDetail,
+    getPlaylistDetail: options.getPlaylistDetail,
+    readPersistedViewMode: options.readPersistedViewMode,
+    getPlayStatsRevision: () => playStatsRevision,
+    requestBackgroundRefresh: () => {
+      void loadLibraryData('background')
+    },
+  })
 
   function isDisposed(): boolean {
     return disposed || options.isDisposed()
@@ -127,82 +131,6 @@ export function useLibraryCatalogLoader(options: {
       coordinator.isLatest(generation) &&
       isSameLibraryRouteScope(scope, options.captureRouteScope())
     )
-  }
-
-  async function fetchLibrarySnapshot(
-    scope: LibraryRouteScope,
-    isRequestCurrent: () => boolean,
-    mode: LibraryLoadMode,
-    libraryRevision?: string,
-  ): Promise<{ snapshot: LibraryDataSnapshot | null; isSnapshotCurrent: () => boolean }> {
-    if (scope.kind === 'smart-playlist') {
-      const statsRevision = playStatsRevision
-      const detail = await options.getSmartPlaylistDetail(scope.id)
-      const usesPlayStats =
-        detail !== null &&
-        'preset' in detail.playlist.rule &&
-        dependsOnPlayStats(detail.playlist.rule.preset)
-      return {
-        snapshot: detail ? createSmartPlaylistLibrarySnapshot(detail) : null,
-        isSnapshotCurrent: () => {
-          if (!usesPlayStats || statsRevision === playStatsRevision) return true
-          // The first detail also tells us whether this route consumes statistics.
-          // Check at commit time: an event can arrive after this fetch resolves
-          // but before its consumer resumes, while no identity is committed yet.
-          if (isRequestCurrent()) void loadLibraryData('background')
-          return false
-        },
-      }
-    }
-
-    if (scope.kind === 'playlist') {
-      const detail = await options.getPlaylistDetail(scope.id)
-      return {
-        snapshot: detail ? createPlaylistLibrarySnapshot(detail) : null,
-        isSnapshotCurrent: () => true,
-      }
-    }
-
-    const catalog = await catalogClient.load(
-      isRequestCurrent,
-      mode === 'metadata-save' ? 'fresh' : 'snapshot',
-      libraryRevision,
-    )
-    if (import.meta.env.DEV) {
-      rendererDiagnostics.info({
-        scope: 'library.catalog',
-        message: 'Library catalog snapshot loaded',
-        context: {
-          totalTracks: catalog.tracks.length,
-          totalPages: catalog.totalPages,
-          snapshotBuildMs: catalog.snapshotBuildMs,
-          snapshotHeapDeltaBytes: catalog.snapshotHeapDeltaBytes,
-          pageSliceMs: catalog.pageSliceMs,
-          pageRoundTripMs: catalog.pageRoundTripMs,
-          rendererAggregateMs: catalog.rendererAggregateMs,
-          rendererLoadMs: catalog.rendererLoadMs,
-          rendererHeapDeltaBytes: catalog.rendererHeapDeltaBytes,
-        },
-      })
-    }
-    return {
-      snapshot:
-        scope.kind === 'recent-added'
-          ? createRecentAddedLibrarySnapshot(
-              catalog.tracks,
-              scope.range,
-              options.readPersistedViewMode(),
-            )
-          : createAllSongsLibrarySnapshot([...catalog.tracks], options.readPersistedViewMode()),
-      isSnapshotCurrent: () => catalogClient.isSnapshotCurrent(catalog),
-    }
-  }
-
-  function commitLibrarySnapshot(snapshot: LibraryDataSnapshot): void {
-    options.pageIdentity.value = snapshot.identity
-    options.tracks.value = snapshot.tracks
-    options.libraryViewMode.value = snapshot.viewMode
-    options.onSnapshotCommitted(snapshot)
   }
 
   async function loadLibraryData(
@@ -273,8 +201,7 @@ export function useLibraryCatalogLoader(options: {
     const isRequestCurrent = () => isCurrentLibraryRequest(generation, scope)
     onRequestStarted?.(isRequestCurrent)
     const isForeground = mode === 'foreground'
-    const hasPreviousSnapshot =
-      committedScope !== null && isSameLibraryRouteScope(committedScope, scope)
+    const hasPreviousSnapshot = presentation.hasPreviousSnapshot(scope)
     const viewportCapture =
       isForeground && !hasPreviousSnapshot ? null : options.captureViewportRestore()
 
@@ -304,7 +231,7 @@ export function useLibraryCatalogLoader(options: {
 
       if (isForeground) isPositioningForegroundViewport.value = true
       commitLibrarySnapshot(snapshot)
-      committedScope = scope
+      presentation.recordCommittedScope(scope)
       hasInitialLoadError.value = false
 
       // Mount the real scroll container before positioning it. Keep its first

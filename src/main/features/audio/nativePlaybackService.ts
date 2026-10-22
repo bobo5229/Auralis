@@ -349,28 +349,7 @@ export class NativePlaybackService {
     if (event.event === 'start-file' && this.loaded) {
       if (!this.tags.onStartFile()) this.scheduler.onStartFile(session)
     } else if (event.event === 'property-change') {
-      if (event.name === 'idle-active' && event.data === true && this.loaded) {
-        if (!this.tags.ignoresIdle) this.playbackEnded()
-        return
-      }
-      const time = this.tags.timeFromProperty(event.name, event.data, this.scheduler.isEnteringNext)
-      if (time !== undefined)
-        this.snapshot.currentTime =
-          event.name === 'time-pos' && this.scheduler.bridge
-            ? this.scheduler.bridge.incomingStart + time
-            : time
-      if (
-        event.name === 'duration' &&
-        typeof event.data === 'number' &&
-        !this.scheduler.isEnteringNext &&
-        !this.tags.isActive() &&
-        !this.scheduler.bridge
-      )
-        this.snapshot.duration = event.data + this.tags.decodeOffset
-      if (event.name === 'pause' && typeof event.data === 'boolean') this.paused = event.data
-      if (event.name === 'paused-for-cache' && typeof event.data === 'boolean')
-        this.buffering = event.data
-      if (this.loaded) this.publish()
+      this.propertyChanged(event)
     } else if (event.event === 'file-loaded') {
       void this.fileLoaded(session).catch((error: Error) => {
         if (session === this.runtime.id && this.runtime.client) this.failure(error)
@@ -409,6 +388,67 @@ export class NativePlaybackService {
       this.playbackEnded()
   }
 
+  private propertyChanged(event: MpvMessage): void {
+    if (event.name === 'idle-active' && event.data === true && this.loaded) {
+      if (!this.tags.ignoresIdle) this.playbackEnded()
+      return
+    }
+    const time = this.tags.timeFromProperty(event.name, event.data, this.scheduler.isEnteringNext)
+    if (time !== undefined)
+      this.snapshot.currentTime =
+        event.name === 'time-pos' && this.scheduler.bridge
+          ? this.scheduler.bridge.incomingStart + time
+          : time
+    if (
+      event.name === 'duration' &&
+      typeof event.data === 'number' &&
+      !this.scheduler.isEnteringNext &&
+      !this.tags.isActive() &&
+      !this.scheduler.bridge
+    )
+      this.snapshot.duration = event.data + this.tags.decodeOffset
+    if (event.name === 'pause' && typeof event.data === 'boolean') this.paused = event.data
+    if (event.name === 'paused-for-cache' && typeof event.data === 'boolean')
+      this.buffering = event.data
+    if (this.loaded) this.publish()
+  }
+
+  private beginLoadedTrack(paused: unknown): { continuation: boolean; boundary: boolean } {
+    if (typeof paused === 'boolean') this.paused = paused
+    const tagContinuation = this.tags.consumeSeekContinuation()
+    const continuation = this.scheduler.isContinuation || tagContinuation
+    const boundary = this.loaded && !continuation
+    if (boundary) {
+      const next = this.scheduler.takeEnteredTrack()
+      this.snapshot.trackId = next.id
+      this.path = next.path
+      this.tags.onLogicalBoundary()
+      this.runtime.advanceLease()
+    }
+    this.loaded = true
+    return { continuation, boundary }
+  }
+
+  private publishLoadedFile(
+    properties: readonly [unknown, unknown, unknown],
+    continuation: boolean,
+    boundary: boolean,
+  ): void {
+    const [duration, position] = properties
+    this.snapshot.duration = typeof duration === 'number' ? duration : 0
+    this.snapshot.currentTime = typeof position === 'number' ? position : 0
+    const bridge = this.scheduler.bridge
+    if (bridge) {
+      this.snapshot.duration = bridge.incomingDuration
+      this.snapshot.currentTime += bridge.incomingStart
+    }
+    if (continuation) {
+      this.pendingEnd = null
+      this.scheduler.finishContinuation()
+    }
+    this.publish(boundary ? 'boundary' : 'state')
+  }
+
   private async fileLoaded(session: number): Promise<void> {
     const client = this.runtime.client
     if (!client) return
@@ -431,36 +471,13 @@ export class NativePlaybackService {
       throw error
     }
     if (!this.runtime.isCurrent(session, client)) return
-    const [duration, position, paused] = properties
-    if (typeof paused === 'boolean') this.paused = paused
-    const tagContinuation = this.tags.consumeSeekContinuation()
-    const continuation = this.scheduler.isContinuation || tagContinuation
-    const boundary = this.loaded && !continuation
-    if (boundary) {
-      const next = this.scheduler.takeEnteredTrack()
-      this.snapshot.trackId = next.id
-      this.path = next.path
-      this.tags.onLogicalBoundary()
-      this.runtime.advanceLease()
-    }
-    this.loaded = true
+    const { continuation, boundary } = this.beginLoadedTrack(properties[2])
     const loadedPath = this.path
     const eligibility = this.tags.refreshEligibility(loadedPath, session, client)
     // Preserve start/continuation readiness for tag editing. A natural boundary
     // must publish its new logical track before optional tag parsing can finish.
     if (!boundary && !(await eligibility)) return
-    this.snapshot.duration = typeof duration === 'number' ? duration : 0
-    this.snapshot.currentTime = typeof position === 'number' ? position : 0
-    const bridge = this.scheduler.bridge
-    if (bridge) {
-      this.snapshot.duration = bridge.incomingDuration
-      this.snapshot.currentTime += bridge.incomingStart
-    }
-    if (continuation) {
-      this.pendingEnd = null
-      this.scheduler.finishContinuation()
-    }
-    this.publish(boundary ? 'boundary' : 'state')
+    this.publishLoadedFile(properties, continuation, boundary)
     if (!this.runtime.isCurrent(session, client)) return
     if (boundary) {
       void eligibility

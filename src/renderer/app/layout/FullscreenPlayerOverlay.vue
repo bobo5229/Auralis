@@ -22,7 +22,6 @@ import FullscreenBackgroundControls from '@renderer/features/playback/components
 import FullscreenLyricsContextMenu from '@renderer/features/lyrics/components/FullscreenLyricsContextMenu.vue'
 import FullscreenPlaybackModeControl from './FullscreenPlaybackModeControl.vue'
 import { useFullscreenBackground } from '@renderer/features/playback/composables/useFullscreenBackground'
-import { useFullscreenSolidBackground } from '@renderer/features/playback/composables/useFullscreenSolidBackground'
 import { usePlaybackProgressInteraction } from '@renderer/features/playback/composables/usePlaybackProgressInteraction'
 import { useReducedMotion } from '@renderer/features/lyrics/composables/useReducedMotion'
 import { useLyricsScrollPreset } from '@renderer/features/lyrics/lyricsScrollPreset'
@@ -74,7 +73,7 @@ const backgroundControlsRef = ref<InstanceType<typeof FullscreenBackgroundContro
 const modeControlRef = ref<InstanceType<typeof FullscreenPlaybackModeControl> | null>(null)
 const lyricsContextMenuOpen = ref(false)
 const lyricsContextMenuAnchor = ref({ clientX: 0, clientY: 0 })
-const { backgroundMode, backgroundMotionPaused, setBackgroundMode } = useFullscreenBackground()
+const { backgroundMotionPaused } = useFullscreenBackground()
 const reducedMotion = useReducedMotion()
 const { preset: lyricsScrollPreset } = useLyricsScrollPreset()
 const { effect: countdownEffect } = useLyricsCountdownPreference()
@@ -167,10 +166,6 @@ const lyricsTrackRef = ref<HTMLElement | null>(null)
 const artworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 watch(artworkCacheKey, () => activeTransition?.finish())
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
-const solidBackground = useFullscreenSolidBackground(
-  computed(() => playback.state.currentTrack),
-  { enabled: computed(() => backgroundMode.value === 'solid') },
-)
 const title = computed(
   () => songText(playback.state.currentTrack?.title) || t('player.unknownTrack'),
 )
@@ -394,14 +389,6 @@ const {
   artworkRef,
 })
 
-watch(
-  backgroundMode,
-  () => {
-    if (wholeLineLyrics.value) refreshFullscreenLyrics('auto', true)
-  },
-  { flush: 'post' },
-)
-
 const lyricsMaskStyle = computed(() => ({
   ...lyricsTypographyStyle.value,
   '--fullscreen-lyrics-fade-top': `${FULLSCREEN_LYRICS_FADE_TOP_RATIO * 100}%`,
@@ -523,13 +510,11 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <FullscreenArtworkBackground
       :target="backgroundTarget"
-      :mode="backgroundMode"
       :artwork-url="artworkUrl"
       :active="isFullscreenPlayerOpen"
       :motion-paused="backgroundMotionPaused"
       :playing="playback.state.isPlaying"
       :defer-initialization="deferBackgroundInitialization"
-      @fallback="setBackgroundMode"
     />
     <Transition
       :css="false"
@@ -544,12 +529,8 @@ onBeforeUnmount(() => {
         ref="overlayRef"
         class="fullscreen-player"
         :class="{
-          'fullscreen-player--solid': backgroundMode === 'solid',
           'fullscreen-player--keyboard-navigation': keyboardNavigation,
         }"
-        :data-background-mode="backgroundMode"
-        :style="backgroundMode === 'solid' ? solidBackground.style : undefined"
-        :data-background-presentation="backgroundMode"
         role="dialog"
         aria-modal="true"
         tabindex="-1"
@@ -1384,12 +1365,8 @@ onBeforeUnmount(() => {
 .fullscreen-player-lyric-upcoming {
   color: var(--auralis-text);
   filter: blur(3px);
-  opacity: var(--fullscreen-lyric-inactive-opacity, 0.34);
+  opacity: 0.34;
   transform: scale(1);
-}
-
-.fullscreen-player--solid .fullscreen-player-lyric-line {
-  filter: none;
 }
 
 .fullscreen-player-lyric-empty {

@@ -22,6 +22,24 @@ function fixture() {
 }
 
 describe('pinned archive day', () => {
+  it('honours a summary date link across data loading and rejects dates from another year', async () => {
+    const scope = effectScope()
+    const year = ref(2026)
+    const requested = ref('2026-03-01')
+    const days = ref<DailyPlayCount[]>([])
+    const state = scope.run(() => usePinnedArchiveDay(days, year, requested))!
+    expect(state.date.value).toBe('2026-03-01')
+    days.value = days2026
+    await flush()
+    expect(state.date.value).toBe('2026-03-01')
+    requested.value = '2025-07-04'
+    expect(state.date.value).toBe('2026-10-09')
+    year.value = 2025
+    expect(state.date.value).toBe('2025-07-04')
+    requested.value = '2025-02-30'
+    expect(state.date.value).toBeNull()
+    scope.stop()
+  })
   it('follows the newest active day until the user pins one', async () => {
     const { scope, days, state } = fixture()
     expect(state.date.value).toBeNull()

@@ -66,6 +66,21 @@ function mockResponse(group: string, method: string, args: unknown[]): unknown {
     case 'archive.getDayTopTracks':
     case 'archive.getDayTopAlbums':
       return []
+    case 'archive.getAnnualSummary':
+      return {
+        year: args[0],
+        playCount: 0,
+        activeDays: 0,
+        albumCount: 0,
+        albums: [],
+        tracks: [],
+        artists: [],
+        months: [],
+        seasons: [],
+        peakDay: null,
+        longestRun: null,
+        selection: [],
+      }
     case 'playback.acquireReadLease':
       return { leaseId: 'browser-preview' }
     case 'playback.releaseReadLease':

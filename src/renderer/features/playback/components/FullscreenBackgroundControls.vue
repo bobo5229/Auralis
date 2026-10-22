@@ -20,8 +20,7 @@ const {
   setPreference: setLyricsTypographyPreference,
   resetPreference: resetLyricsTypographyPreference,
 } = useFullscreenLyricsTypography()
-const { backgroundMode, backgroundMotionPaused, setBackgroundMode, setBackgroundMotionPaused } =
-  useFullscreenBackground()
+const { backgroundMotionPaused, setBackgroundMotionPaused } = useFullscreenBackground()
 const rootRef = ref<HTMLElement | null>(null)
 const buttonRef = ref<HTMLButtonElement | null>(null)
 const closeButtonRef = ref<HTMLButtonElement | null>(null)
@@ -145,37 +144,6 @@ defineExpose({ close })
           </div>
           <div class="settings-group-card">
             <div class="settings-row">
-              <div>
-                <strong>{{ t('fullscreen.background.mode') }}</strong>
-              </div>
-              <div
-                class="settings-segmented-control"
-                role="group"
-                :aria-label="t('fullscreen.background.mode')"
-              >
-                <button
-                  type="button"
-                  class="settings-segmented-option"
-                  :class="{ 'is-selected': backgroundMode === 'fluid' }"
-                  data-background-mode="fluid"
-                  :aria-pressed="backgroundMode === 'fluid'"
-                  @click="setBackgroundMode('fluid')"
-                >
-                  {{ t('fullscreen.background.fluid') }}
-                </button>
-                <button
-                  type="button"
-                  class="settings-segmented-option"
-                  :class="{ 'is-selected': backgroundMode === 'solid' }"
-                  data-background-mode="solid"
-                  :aria-pressed="backgroundMode === 'solid'"
-                  @click="setBackgroundMode('solid')"
-                >
-                  {{ t('fullscreen.background.solid') }}
-                </button>
-              </div>
-            </div>
-            <div v-if="backgroundMode !== 'solid'" class="settings-row">
               <div>
                 <strong>{{ t('fullscreen.background.pause') }}</strong>
               </div>

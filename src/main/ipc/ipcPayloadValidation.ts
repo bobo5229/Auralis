@@ -565,6 +565,9 @@ export const domainIpcPayloadPolicies = {
   [ipcChannels.archive.getAnnualPlayCounts]: required(
     objectShape({ year: field(finiteNumber({ integer: true, min: 1900, max: 9999 })) }),
   ),
+  [ipcChannels.archive.getAnnualSummary]: required(
+    objectShape({ year: field(finiteNumber({ integer: true, min: 1900, max: 9999 })) }),
+  ),
   [ipcChannels.archive.getDayTopTracks]: required(
     objectShape({ date: field(listeningArchiveDateValue) }),
   ),

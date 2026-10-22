@@ -1,7 +1,6 @@
 import { createRenderer, nextTick, reactive } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useFullscreenArtworkBackground } from './useFullscreenArtworkBackground'
-import type { FullscreenBackgroundMode } from './useFullscreenBackground'
 
 const host = createRenderer<object, object>({
   patchProp() {},
@@ -25,45 +24,27 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-function mount(mode: FullscreenBackgroundMode = 'fluid') {
-  const state = reactive({ mode, active: true, target: {} as HTMLElement | null })
-  const fallback = vi.fn((next: FullscreenBackgroundMode) => {
-    state.mode = next
-  })
+function mount() {
+  const state = reactive({ active: true, target: {} as HTMLElement | null })
   let background!: ReturnType<typeof useFullscreenArtworkBackground>
   const app = host.createApp({
     setup() {
-      background = useFullscreenArtworkBackground(state, fallback)
+      background = useFullscreenArtworkBackground(state)
       return () => null
     },
   })
   app.mount({})
   const unmount = () => app.unmount()
   cleanups.push(unmount)
-  return { state, fallback, background, unmount }
+  return { state, background, unmount }
 }
 
 describe('fullscreen background coordination', () => {
-  it('activates flow directly and disables it immediately on solid selection', () => {
-    const { state, background } = mount()
+  it('activates flow directly', () => {
+    const { background } = mount()
     expect(background.fluidEnabled.value).toBe(true)
     expect(background.fluidActive.value).toBe(true)
     expect(background.fluidVisible.value).toBe(true)
-    state.mode = 'solid'
-    expect(background.fluidEnabled.value).toBe(false)
-    expect(background.fluidActive.value).toBe(false)
-    expect(background.fluidVisible.value).toBe(false)
-    state.mode = 'fluid'
-    expect(background.fluidActive.value).toBe(true)
-  })
-
-  it('opens solid without enabling a GPU renderer and ignores stale renderer events', () => {
-    const { background, fallback } = mount('solid')
-    expect(background.fluidEnabled.value).toBe(false)
-    expect(background.fluidActive.value).toBe(false)
-    background.onFluidUnavailable()
-    background.onFluidLost()
-    expect(fallback).not.toHaveBeenCalled()
   })
 
   it.each(['exit', 'document-hidden'] as const)('pauses on %s and resumes on return', (reason) => {
@@ -112,29 +93,23 @@ describe('fullscreen background coordination', () => {
     cleanups.pop()
   })
 
-  it('falls back to solid on initialization failure and prevents a retry loop', () => {
-    const { state, background, fallback } = mount()
+  it('hides failed flow and prevents retry loops across re-entry and visibility changes', () => {
+    const { state, background } = mount()
     background.onFluidUnavailable()
-    expect(state.mode).toBe('solid')
     expect(background.fluidEnabled.value).toBe(false)
-    background.onFluidUnavailable()
-    expect(fallback).toHaveBeenCalledOnce()
-    state.mode = 'fluid'
-    expect(state.mode).toBe('solid')
     expect(background.fluidActive.value).toBe(false)
-  })
-
-  it('stays solid after context loss until the user explicitly selects flow again', async () => {
-    const { state, background, fallback } = mount()
-    background.onFluidLost()
-    expect(state.mode).toBe('solid')
-    await nextTick()
-    expect(state.mode).toBe('solid')
+    expect(background.fluidVisible.value).toBe(false)
+    background.onFluidUnavailable()
     state.active = false
+    state.target = null
+    Object.assign(document, { hidden: true })
+    document.dispatchEvent(new Event('visibilitychange'))
     state.active = true
-    expect(state.mode).toBe('solid')
-    expect(fallback).toHaveBeenCalledOnce()
-    state.mode = 'fluid'
-    expect(background.fluidActive.value).toBe(true)
+    state.target = {} as HTMLElement
+    Object.assign(document, { hidden: false })
+    document.dispatchEvent(new Event('visibilitychange'))
+    expect(background.fluidEnabled.value).toBe(false)
+    expect(background.fluidActive.value).toBe(false)
+    expect(background.fluidVisible.value).toBe(false)
   })
 })

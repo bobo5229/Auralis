@@ -7,6 +7,7 @@ import { useChineseTextDisplay } from '@renderer/features/appearance/composables
 import { createAlbumSpineInteraction } from '../runtime/albumSpineInteraction'
 
 const props = defineProps<{ albums: DailyTopAlbum[] }>()
+const emit = defineEmits<{ select: [index: number] }>()
 const { t } = useI18n()
 const { songText, songValues } = useChineseTextDisplay()
 const viewport = ref<HTMLElement | null>(null)
@@ -46,6 +47,7 @@ function bind(): void {
       row.value,
       (index) => {
         activeIndex.value = index
+        if (index !== null) emit('select', index)
       },
       () => ({ open: t('archive.openAlbumCase'), close: t('archive.closeAlbumCase') }),
     )

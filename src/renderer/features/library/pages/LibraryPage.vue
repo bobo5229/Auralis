@@ -36,16 +36,9 @@ import { getAlbumCoverDiscHeadingCount } from '../utils/albumCoverDiscHeadings'
 import { resolveLibrarySurfaceKind } from '../utils/librarySurface'
 import type { LibraryRouteScope } from '../utils/libraryRouteScope'
 import { parseRecentAddedLibraryRange } from '../utils/recentAddedLibrary'
-import {
-  resolveKeyboardFocusTrackId,
-  resolveKeyboardMoveIndex,
-  type LibraryKeyboardMoveDirection,
-} from '../utils/libraryKeyboardFocus'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
-import {
-  useLibraryMetadataEditor,
-  type LibraryMetadataFocusTarget,
-} from '../composables/useLibraryMetadataEditor'
+import { useLibraryMetadataEditor } from '../composables/useLibraryMetadataEditor'
+import { useLibraryFocusSession } from '../composables/useLibraryFocusSession'
 import { useLibrarySearchSession } from '../composables/useLibrarySearchSession'
 import { useLibraryViewport } from '../composables/useLibraryViewport'
 import { useLibraryContextMenu } from '../composables/useLibraryContextMenu'
@@ -264,19 +257,10 @@ const viewport = useLibraryViewport({
   selectedTrackId: () => playback.state.selectedTrackId,
   isDisposed: () => isPageUnmounted || hasLeftInstanceRoute,
   flatRowHeight: computed(() => flatColumnLayout.value.rowHeight),
-  onViewSwitchComplete: (targetTrackId) => {
-    if (pendingViewSwitchReturnTarget) {
-      void restoreLibraryFocus(pendingViewSwitchReturnTarget)
-      pendingViewSwitchReturnTarget = null
-    } else {
-      void restoreLibraryFocus({ trackId: targetTrackId, source: 'track' })
-    }
-  },
+  onViewSwitchComplete: (targetTrackId) => focusSession.onViewSwitchComplete(targetTrackId),
 })
 
 const {
-  captureScrollGeneration,
-  isScrollInputCancelled,
   scheduleFirstVisibleTrackIndexUpdate,
   scrollToTrackById,
   scrollToTrackIndex,
@@ -287,6 +271,29 @@ const {
   onLibraryViewEnter,
   dispose: disposeLibraryViewport,
 } = viewport
+
+const focusSession = useLibraryFocusSession({
+  tracks,
+  derivedIndex: libraryDerivedIndex,
+  scrollRef,
+  viewport,
+  selectedTrackId: () => playback.state.selectedTrackId,
+  currentTrackId: () => playback.state.currentTrackId,
+  getAlbumGroupByTrackId,
+  isInteractiveTarget,
+  isContextMenuOpen: () => contextMenu.value !== null,
+  isMetadataEditorOpen: () => isMetadataEditorOpen.value,
+  selectTrack: (trackId) => playback.selectTrack(trackId),
+  playTrack: (trackId) => onPlay(trackId),
+})
+const {
+  keyboardFocusTrackId,
+  onRowFocus,
+  ensureKeyboardFocusTrackId,
+  restoreLibraryFocus,
+  onListShellKeyDown,
+  setViewSwitchReturnTarget,
+} = focusSession
 
 let navigationRestorePending = true
 let navigationRestoreIntent = viewport.captureNavigationIntent()
@@ -407,10 +414,6 @@ watch(coverInfo.metadataLayout, async (layout, previousLayout) => {
   viewport.scheduleFirstVisibleTrackIndexUpdate()
 })
 
-function onRowFocus(trackId: number): void {
-  keyboardFocusTrackId.value = trackId
-}
-
 function onSelect(trackId: number) {
   keyboardFocusTrackId.value = trackId
   playback.selectTrack(trackId)
@@ -421,76 +424,6 @@ function onPlay(trackId: number) {
   playback.playTrackFromQueue(tracks.value, trackId, {
     shufflePool: isScopedPlaylist.value ? tracks.value : undefined,
   })
-}
-
-let pendingViewSwitchReturnTarget: LibraryMetadataFocusTarget | null = null
-
-async function restoreLibraryFocus(
-  target: LibraryMetadataFocusTarget | null,
-  scroll = true,
-): Promise<void> {
-  if (!target) return
-
-  let activeTrackId = target.trackId
-  const trackExists = libraryDerivedIndex.value.trackById.has(activeTrackId)
-
-  if (!trackExists) {
-    if (tracks.value.length === 0) {
-      scrollRef.value?.focus()
-      return
-    }
-
-    const selectedExists =
-      playback.state.selectedTrackId != null &&
-      libraryDerivedIndex.value.trackById.has(playback.state.selectedTrackId)
-    const currentExists =
-      playback.state.currentTrackId != null &&
-      libraryDerivedIndex.value.trackById.has(playback.state.currentTrackId)
-
-    if (selectedExists) {
-      activeTrackId = playback.state.selectedTrackId!
-    } else if (currentExists) {
-      activeTrackId = playback.state.currentTrackId!
-    } else {
-      activeTrackId = tracks.value[0].id
-    }
-  }
-
-  keyboardFocusTrackId.value = activeTrackId
-
-  const startGeneration = captureScrollGeneration()
-  if (scroll) {
-    await scrollToTrackById(activeTrackId, undefined, startGeneration)
-    await nextTick()
-    await new Promise((resolve) => window.requestAnimationFrame(resolve))
-    if (isScrollInputCancelled(startGeneration)) return
-  }
-
-  let targetEl: HTMLElement | null = null
-
-  if (target.source === 'album-artwork' && trackExists) {
-    targetEl = document.querySelector<HTMLElement>(
-      `[data-first-track-id="${activeTrackId}"] .album-cover-artwork`,
-    )
-    if (!targetEl) {
-      const group = getAlbumGroupByTrackId(activeTrackId)
-      if (group) {
-        targetEl = document.querySelector<HTMLElement>(
-          `[data-album-key="${group.key}"] .album-cover-artwork`,
-        )
-      }
-    }
-  }
-
-  if (!targetEl) {
-    targetEl = document.querySelector<HTMLElement>(`[data-track-id="${activeTrackId}"]`)
-  }
-
-  if (!targetEl) {
-    targetEl = scrollRef.value
-  }
-
-  targetEl?.focus(scroll ? undefined : { preventScroll: true })
 }
 
 const {
@@ -536,9 +469,7 @@ const {
   scrollToTrackById,
   openMetadataEditor: (trackId) => metadataEditor.open(trackId),
   setMetadataReturnTarget: (target) => metadataEditor.setReturnTarget(target),
-  setViewSwitchReturnTarget: (target) => {
-    pendingViewSwitchReturnTarget = target
-  },
+  setViewSwitchReturnTarget,
   restoreFocus: (target, scroll) =>
     flatColumnMenu.value ? Promise.resolve() : restoreLibraryFocus(target, scroll),
   t: (key, values) => (values ? String(t(key, values)) : String(t(key))),
@@ -741,80 +672,6 @@ function restoreDefaultFlatColumns(): void {
 
 function openSettings(): void {
   useSettingsDialog().openSettings('library')
-}
-
-const keyboardFocusTrackId = ref<number | null>(null)
-
-function ensureKeyboardFocusTrackId(): number | null {
-  const nextId = resolveKeyboardFocusTrackId({
-    trackCount: tracks.value.length,
-    currentFocusId: keyboardFocusTrackId.value,
-    selectedTrackId: playback.state.selectedTrackId,
-    currentTrackId: playback.state.currentTrackId,
-    hasTrack: (id) => libraryDerivedIndex.value.trackIndexById.has(id),
-    firstTrackId: tracks.value[0]?.id ?? null,
-  })
-  keyboardFocusTrackId.value = nextId
-  return nextId
-}
-
-async function moveKeyboardFocus(direction: LibraryKeyboardMoveDirection): Promise<void> {
-  if (tracks.value.length === 0) return
-
-  const currentId = ensureKeyboardFocusTrackId()
-  const currentIndex =
-    currentId === null ? -1 : (libraryDerivedIndex.value.trackIndexById.get(currentId) ?? -1)
-  const targetIndex = resolveKeyboardMoveIndex({
-    direction,
-    currentIndex,
-    lastIndex: tracks.value.length - 1,
-  })
-
-  const targetTrack = tracks.value[targetIndex]
-  if (!targetTrack) return
-
-  keyboardFocusTrackId.value = targetTrack.id
-  await scrollToTrackById(targetTrack.id)
-
-  void nextTick(() => {
-    requestAnimationFrame(() => {
-      const el = document.querySelector<HTMLElement>(`[data-track-id="${targetTrack.id}"]`)
-      el?.focus()
-    })
-  })
-}
-
-function onListShellKeyDown(event: KeyboardEvent): void {
-  // 曲目行已经处理的 Enter/Space 不再冒泡触发第二次播放或选择。
-  if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return
-  if (isInteractiveTarget(event.target)) return
-  if (contextMenu.value !== null || isMetadataEditorOpen.value) return
-
-  if (event.key === 'ArrowDown') {
-    event.preventDefault()
-    void moveKeyboardFocus('next')
-  } else if (event.key === 'ArrowUp') {
-    event.preventDefault()
-    void moveKeyboardFocus('prev')
-  } else if (event.key === 'Home') {
-    event.preventDefault()
-    void moveKeyboardFocus('first')
-  } else if (event.key === 'End') {
-    event.preventDefault()
-    void moveKeyboardFocus('last')
-  } else if (event.key === ' ') {
-    const focusId = ensureKeyboardFocusTrackId()
-    if (focusId) {
-      event.preventDefault()
-      playback.selectTrack(focusId)
-    }
-  } else if (event.key === 'Enter') {
-    const focusId = ensureKeyboardFocusTrackId()
-    if (focusId) {
-      event.preventDefault()
-      onPlay(focusId)
-    }
-  }
 }
 
 const {

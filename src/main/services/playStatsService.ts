@@ -70,6 +70,13 @@ export class PlayStatsService {
     return this.playStatsRepo.getAnnualPlayCounts(year)
   }
 
+  getAnnualSummary(year: number) {
+    if (!Number.isInteger(year) || year < 1900 || year > 9999) {
+      throw new RangeError('Invalid listening archive year')
+    }
+    return this.playStatsRepo.getAnnualSummary(year)
+  }
+
   getDayTopTracks(date: string): DailyTopTrack[] {
     if (!isListeningArchiveDate(date)) throw new RangeError('Invalid listening archive date')
     return this.playStatsRepo.getDayTopTracks(date)

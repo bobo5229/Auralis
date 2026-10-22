@@ -42,11 +42,7 @@ const typographyState = {
 }
 
 const backgroundState = {
-  backgroundMode: ref<'fluid' | 'solid'>('fluid'),
   backgroundMotionPaused: ref(false),
-  setBackgroundMode: vi.fn(
-    (mode: 'fluid' | 'solid') => (backgroundState.backgroundMode.value = mode),
-  ),
   setBackgroundMotionPaused: vi.fn(
     (paused: boolean) => (backgroundState.backgroundMotionPaused.value = paused),
   ),
@@ -165,8 +161,6 @@ beforeEach(() => {
   typographyState.persistFailed.value = false
   typographyState.setPreference.mockClear()
   typographyState.resetPreference.mockClear()
-  backgroundState.backgroundMode.value = 'fluid'
-  backgroundState.setBackgroundMode.mockClear()
   backgroundState.backgroundMotionPaused.value = false
   backgroundState.setBackgroundMotionPaused.mockClear()
   vi.stubGlobal('Node', TestNode)
@@ -247,12 +241,12 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
     ])
   })
 
-  it('resets only lyrics, keeps controls available for both backgrounds and shows save feedback', async () => {
+  it('resets only lyrics, preserves paused background and shows save feedback', async () => {
     await mount()
     typographyState.preference.value = { fontSizePercent: 125, fontWeight: 600, lineGapPercent: 80 }
     await flush()
     trigger(
-      find((node) => node.props['data-background-mode'] === 'fluid'),
+      find((node) => node.props['data-background-pause'] !== undefined),
       'Click',
       {},
     )
@@ -266,7 +260,7 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
     )
     await flush()
     expect(typographyState.resetPreference).toHaveBeenCalledOnce()
-    expect(backgroundState.setBackgroundMode).toHaveBeenCalledWith('fluid')
+    expect(backgroundState.backgroundMotionPaused.value).toBe(true)
     expect(
       find((node) => node.props['data-lyrics-typography-status'] !== undefined)?.textContent,
     ).toBe('fullscreen.lyrics.resetStatus')
@@ -298,25 +292,20 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
   })
 })
 
-describe('FullscreenBackgroundControls background modes', () => {
-  it('offers only flow and solid, with flow selected by default', async () => {
+describe('FullscreenBackgroundControls background motion', () => {
+  it('offers pause without a background mode selector', async () => {
     await mount()
-    const fluidOption = find((node) => node.props['data-background-mode'] === 'fluid')!
-    const solidOption = find((node) => node.props['data-background-mode'] === 'solid')!
-    expect([fluidOption.textContent, solidOption.textContent]).toEqual([
-      'fullscreen.background.fluid',
-      'fullscreen.background.solid',
-    ])
-    expect(find((node) => node.props['data-background-mode'] === 'metal')).toBeUndefined()
-    expect(fluidOption.props['aria-pressed']).toBe(true)
-    expect(solidOption.props['aria-pressed']).toBe(false)
-    expect(String(fluidOption.props.class)).toContain('is-selected')
+    expect(find((node) => node.props['data-background-mode'] !== undefined)).toBeUndefined()
+    expect(find((node) => node.textContent === 'fullscreen.background.mode')).toBeUndefined()
+    expect(
+      find((node) => node.props['data-background-pause'] !== undefined)?.props['aria-checked'],
+    ).toBe(false)
     expect(
       find((node) => node.type === 'input' && node.props['data-lyrics-typography'] === undefined),
     ).toBeUndefined()
   })
 
-  it('keeps lyrics settings in solid and restores the paused flow preference on return', async () => {
+  it('toggles motion and preserves its preference when the settings panel reopens', async () => {
     await mount()
     trigger(
       find((node) => node.props['data-background-pause'] !== undefined),
@@ -325,19 +314,10 @@ describe('FullscreenBackgroundControls background modes', () => {
     )
     await flush()
     expect(backgroundState.setBackgroundMotionPaused).toHaveBeenCalledWith(true)
-    trigger(
-      find((node) => node.props['data-background-mode'] === 'solid'),
-      'Click',
-      {},
-    )
+    expect(controlsInstance?.close()).toBe(true)
     await flush()
-    const solidOption = find((node) => node.props['data-background-mode'] === 'solid')!
-    expect(backgroundState.setBackgroundMode).toHaveBeenCalledWith('solid')
-    expect(solidOption.props['aria-pressed']).toBe(true)
-    expect(find((node) => node.props['data-background-pause'] !== undefined)).toBeUndefined()
-    expect(find((node) => node.props['data-lyrics-typography'] === 'font-size')).toBeDefined()
     trigger(
-      find((node) => node.props['data-background-mode'] === 'fluid'),
+      find((node) => node.props['aria-controls'] === 'fullscreen-background-panel'),
       'Click',
       {},
     )
@@ -345,6 +325,16 @@ describe('FullscreenBackgroundControls background modes', () => {
     expect(
       find((node) => node.props['data-background-pause'] !== undefined)?.props['aria-checked'],
     ).toBe(true)
-    expect(solidOption.props['aria-pressed']).toBe(false)
+    expect(find((node) => node.props['data-lyrics-typography'] === 'font-size')).toBeDefined()
+    trigger(
+      find((node) => node.props['data-background-pause'] !== undefined),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(backgroundState.setBackgroundMotionPaused).toHaveBeenLastCalledWith(false)
+    expect(
+      find((node) => node.props['data-background-pause'] !== undefined)?.props['aria-checked'],
+    ).toBe(false)
   })
 })

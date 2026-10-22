@@ -2,10 +2,8 @@
 import { ref } from 'vue'
 import FluidArtworkBackground from './FluidArtworkBackground.vue'
 import { useFullscreenArtworkBackground } from '../composables/useFullscreenArtworkBackground'
-import type { FullscreenBackgroundMode } from '../composables/useFullscreenBackground'
 
 const props = defineProps<{
-  mode: FullscreenBackgroundMode
   target: HTMLElement | null
   artworkUrl: string | null
   active: boolean
@@ -13,11 +11,8 @@ const props = defineProps<{
   motionPaused: boolean
   deferInitialization?: boolean
 }>()
-const emit = defineEmits<{
-  fallback: [mode: FullscreenBackgroundMode]
-}>()
 const surface = ref<HTMLElement | null>(null)
-const background = useFullscreenArtworkBackground(props, (mode) => emit('fallback', mode))
+const background = useFullscreenArtworkBackground(props)
 </script>
 
 <template>
@@ -26,7 +21,6 @@ const background = useFullscreenArtworkBackground(props, (mode) => emit('fallbac
       ref="surface"
       class="fullscreen-artwork-background"
       :class="{ 'fullscreen-artwork-background--parked': target === null }"
-      :data-background-presentation="mode"
       :style="{ visibility: target === null ? 'hidden' : 'visible' }"
       aria-hidden="true"
     >
@@ -41,7 +35,6 @@ const background = useFullscreenArtworkBackground(props, (mode) => emit('fallbac
         :motion-paused="motionPaused"
         :defer-initialization="deferInitialization"
         @unavailable="background.onFluidUnavailable"
-        @lost="background.onFluidLost"
       />
     </div>
   </Teleport>
@@ -49,6 +42,8 @@ const background = useFullscreenArtworkBackground(props, (mode) => emit('fallbac
 
 <style scoped>
 .fullscreen-artwork-background {
+  --auralis-artwork-background-fallback: var(--auralis-fullscreen-bg, #15181d);
+
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -58,8 +53,5 @@ const background = useFullscreenArtworkBackground(props, (mode) => emit('fallbac
 }
 .fullscreen-artwork-background--parked {
   position: fixed;
-}
-.fullscreen-artwork-background[data-background-presentation='solid'] {
-  background: var(--auralis-fullscreen-solid-bg);
 }
 </style>

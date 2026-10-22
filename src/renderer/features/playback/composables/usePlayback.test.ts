@@ -268,6 +268,9 @@ function createApi(): AuralisApi {
     },
     archive: {
       getAnnualPlayCounts: vi.fn(async () => []),
+      getAnnualSummary: vi.fn(async () => {
+        throw new Error('Annual summary is unused in playback tests')
+      }),
       getDayTopTracks: vi.fn(async () => []),
       getDayTopAlbums: vi.fn(async () => []),
       resetPlayStats: vi.fn(),
