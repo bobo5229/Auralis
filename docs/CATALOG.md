@@ -369,6 +369,7 @@
 
 ## 审查记录
 
+- [高复杂度单文件重构待办：P2–P3](reviews/2026-10-23-complexity-refactor-backlog.md) — P1 已完成；保留原审计排序、指标与后续拆分边界。
 - [2026-10-20 工作区清理与整理方案](reviews/2026-10-20-workspace-cleanup-plan.md) — 本地方案及本轮记录；演示整理部分完成，候选删除受阻，浏览器验证待完成。
 - [第一批冗余清理记录](reviews/2026-10-06-confirmed-redundancy-cleanup.md)。
 - [第二批冗余筛查与清理记录](reviews/2026-10-06-redundancy-second-pass.md)。
