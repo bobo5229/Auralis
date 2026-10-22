@@ -417,6 +417,7 @@ function handleNext(): void {
               <PlaybackModeMenu
                 v-if="isModeMenuOpen"
                 :current-mode="playback.state.playbackMode"
+                :material="playbarMaterialStyle"
                 @select="handleSelectMode"
                 @close="handleModeMenuClose"
               />
@@ -457,11 +458,15 @@ function handleNext(): void {
             :aria-expanded="isQueueOpen"
             @click="toggleQueue"
           >
-            <PlayerBarActionIcon icon="i-ph-queue" />
+            <PlayerBarActionIcon icon="i-ph-list" />
           </button>
 
           <div ref="queuePopoverRef" class="contents">
-            <PlaybackQueuePopover v-if="isQueueOpen" @close="handleQueueClose" />
+            <PlaybackQueuePopover
+              v-if="isQueueOpen"
+              :material="playbarMaterialStyle"
+              @close="handleQueueClose"
+            />
           </div>
 
           <button
@@ -552,6 +557,7 @@ function handleNext(): void {
             <PlaybackModeMenu
               v-if="isModeMenuOpen"
               :current-mode="playback.state.playbackMode"
+              :material="playbarMaterialStyle"
               @select="handleSelectMode"
               @close="handleModeMenuClose"
             />

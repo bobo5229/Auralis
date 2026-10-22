@@ -1,73 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createCdStage } from './cdStageController'
 
-const clock = vi.hoisted(() => ({
-  update: (() => false) as (seconds: number) => boolean,
-  running: false,
-  cancel: vi.fn(),
-  press: vi.fn(() => vi.fn()),
-}))
-vi.mock('@renderer/shared/animation/motion', () => ({
-  animateCdPress: clock.press,
-  animateFrames: (update: typeof clock.update) => {
-    clock.update = update
-    clock.running = true
-    return () => {
-      clock.running = false
-      clock.cancel()
-    }
-  },
-  animateProgress: (duration: number, update: (progress: number) => void, complete: () => void) => {
-    let elapsed = 0
-    clock.update = (seconds) => {
-      elapsed += seconds * 1000
-      update(Math.min(1, elapsed / duration))
-      if (elapsed < duration) return true
-      complete()
-      return false
-    }
-    clock.running = true
-    return () => {
-      clock.running = false
-      clock.cancel()
-    }
-  },
-}))
+import { stageClock as clock, TestElement } from './cdStageTestSupport'
 
-// Small DOM substitute: these tests cover controller state/lifetime, not visuals.
-class TestElement extends EventTarget {
-  src = ''
-  style = {} as CSSStyleDeclaration
-  children: TestElement[] = []
-  parent: TestElement | null = null
-  attributes = new Map<string, string>()
-  classList = { add: vi.fn() }
-  clientWidth = 1200
-  clientHeight = 700
-  setAttribute(name: string, value: string): void {
-    this.attributes.set(name, value)
+vi.mock('@renderer/shared/animation/motion', async () => {
+  const { stageClock } = await import('./cdStageTestSupport')
+  return {
+    animateCdPress: stageClock.press,
+    animateFrames: stageClock.animateFrames,
+    animateProgress: stageClock.animateProgress,
   }
-  focus(): void {}
-  getBoundingClientRect(): DOMRect {
-    return { left: 0, top: 0, width: 400, height: 400 } as DOMRect
-  }
-  setPointerCapture(): void {}
-  hasPointerCapture(): boolean {
-    return true
-  }
-  releasePointerCapture(): void {}
-  append(...children: TestElement[]): void {
-    for (const child of children) {
-      child.parent = this
-      this.children.push(child)
-    }
-  }
-  remove(): void {
-    if (this.parent) this.parent.children = this.parent.children.filter((child) => child !== this)
-  }
-}
+})
 
 afterEach(() => {
+  clock.reset()
   vi.useRealTimers()
   vi.unstubAllGlobals()
   vi.clearAllMocks()
@@ -76,11 +22,7 @@ afterEach(() => {
 
 describe('CD stage lifetime', () => {
   function advance(frames: number): void {
-    for (let index = 0; index < frames && clock.running; index++) {
-      const update = clock.update
-      const running = update(1 / 60)
-      if (clock.update === update) clock.running = running
-    }
+    clock.advance(frames)
   }
   function settle(): void {
     advance(600)
@@ -416,6 +358,47 @@ describe('CD stage lifetime', () => {
     document.elementFromPoint.mockReturnValue(disc)
     stage.dispatchEvent(pointerEvent('pointerup', stage, options))
   }
+
+  it('keeps stage and ring clocks alive when concurrent hover or artwork animation ends', () => {
+    vi.useFakeTimers()
+    const { controller, stage, document } = setup(8, vi.fn())
+    stage.dispatchEvent(
+      pointerEvent('pointermove', discAt(stage, 3), {
+        pointerType: 'mouse',
+        buttons: 0,
+        clientX: 350,
+      }),
+    )
+    advance(2)
+    controller.navigate(1)
+    expect(clock.size).toBe(2)
+    settle()
+    controller.setFocused(true)
+    settle()
+    controller.setPlayback({ visible: true, playing: true, progress: 0.4, accent: '#abc' })
+    const disc = discAt(stage, 5)
+    const ring = disc.parent!.children[1]
+    const track = ring.children[0]
+    tap(stage, document, disc, { button: 2 })
+    vi.advanceTimersByTime(320)
+    expect(clock.size).toBe(2)
+    advance(100)
+    expect(clock.size).toBe(1)
+    const wave = track.attributes.get('d')
+    advance(3)
+    expect(track.attributes.get('d')).not.toBe(wave)
+    // A new spin survives ring cancellation and the focus transition.
+    tap(stage, document, disc, { button: 2 })
+    vi.advanceTimersByTime(320)
+    controller.setFocused(false)
+    expect(clock.size).toBe(2)
+    const angle = disc.children[0].style.transform
+    advance(10)
+    expect(disc.children[0].style.transform).not.toBe(angle)
+    settle()
+    controller.dispose()
+    expect(clock.size).toBe(0)
+  })
 
   it('toggles playback only for left double-clicks on the settled focused disc', () => {
     const toggle = vi.fn(() => true)
@@ -1307,7 +1290,9 @@ describe('CD stage lifetime', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5)
     const { stage, controller, albums } = setup(8)
     const angles = () =>
-      slotsLeftToRight(stage).map((slot) => slot.children[0].children[0].children[0].style.transform)
+      slotsLeftToRight(stage).map(
+        (slot) => slot.children[0].children[0].children[0].style.transform,
+      )
     const initial = angles()
     expect(new Set(initial).size).toBe(4)
     for (const transform of initial) {

@@ -1,5 +1,6 @@
 import type { MpvClient } from './mpvClient'
-import { DigitalSilenceAnalyzer, type DigitalBoundary } from './digitalSilence'
+import { DigitalSilenceAnalyzer } from './digitalSilence'
+import { NativeBoundaryUpdater } from './nativeBoundaryUpdate'
 import { SoftTransitionPreparer, type SoftTransition } from './softTransition'
 import type { NativePlaybackSession } from './nativePlaybackSession'
 import type {
@@ -8,8 +9,6 @@ import type {
   NativePlaybackOptions,
   NextTrackRequest,
 } from './nativePlaybackTypes'
-
-const BOUNDARY_UPDATE_MARGIN_SECONDS = 2
 
 interface TagPlaybackView {
   isActive(): boolean
@@ -34,11 +33,9 @@ export class NativeNextTrackScheduler {
   private nextGeneration = 0
   private next: { id: number; path: string } | null = null
   private enteringNext: { id: number; path: string } | null = null
-  private updatingBoundary = false
   private transition: ScheduledSoftTransition | null = null
   private clearingTransition: ScheduledSoftTransition | null = null
-  private installingTransition: { bridge: string; original: string } | null = null
-  private interruptedTransition: { bridge: string; original: string } | null = null
+  private readonly boundaryUpdater: NativeBoundaryUpdater
   private readonly analyzer: DigitalSilenceAnalyzer
   private readonly transitions: SoftTransitionPreparer
 
@@ -52,6 +49,29 @@ export class NativeNextTrackScheduler {
     private readonly tag: TagPlaybackView,
     private readonly onRecoverySettled: () => void,
   ) {
+    this.boundaryUpdater = new NativeBoundaryUpdater({
+      enqueue: (work) => this.runtime.enqueue(work),
+      isCurrent: (session, client) => this.runtime.isCurrent(session, client),
+      read: () => ({
+        loaded: this.read().loaded,
+        duration: this.read().duration,
+        decodeOffset: this.tag.decodeOffset,
+        enteringNext: this.enteringNext !== null,
+        hasTransition: this.transition !== null,
+      }),
+      publishTransition: (plan, continuationPath) => {
+        const transition: ScheduledSoftTransition = {
+          plan,
+          continuationPath,
+          stage: 'queued',
+          continuationRecovery: null,
+        }
+        this.transition = transition
+        return () => {
+          if (this.transition === transition) this.transition = null
+        }
+      },
+    })
     this.analyzer = new DigitalSilenceAnalyzer(options.ffmpegPath, options.mpvPath)
     this.transitions = new SoftTransitionPreparer(options.ffmpegPath, options.mpvPath)
   }
@@ -64,14 +84,14 @@ export class NativeNextTrackScheduler {
     return (
       !this.analysisTasks.size &&
       !this.transition &&
-      !this.installingTransition &&
-      !this.interruptedTransition &&
-      !this.updatingBoundary
+      !this.boundaryUpdater.isInstalling &&
+      !this.boundaryUpdater.hasInterruptedLoad &&
+      !this.boundaryUpdater.isUpdating
     )
   }
 
   get hasInterruptedLoad(): boolean {
-    return this.interruptedTransition !== null
+    return this.boundaryUpdater.hasInterruptedLoad
   }
 
   get isContinuation(): boolean {
@@ -93,7 +113,7 @@ export class NativeNextTrackScheduler {
   canBeginTagWrite(): boolean {
     return (
       (!this.transition || this.transition.stage === 'queued') &&
-      !this.installingTransition &&
+      !this.boundaryUpdater.isInstalling &&
       !this.enteringNext
     )
   }
@@ -149,8 +169,7 @@ export class NativeNextTrackScheduler {
     this.disposeTransition()
     this.clearingTransition = null
     this.deferredNext = null
-    this.installingTransition = null
-    this.interruptedTransition = null
+    this.boundaryUpdater.reset()
     this.next = null
     this.enteringNext = null
     this.nextGeneration++
@@ -193,35 +212,16 @@ export class NativeNextTrackScheduler {
       return
     }
     if (this.transition?.stage === 'queued') this.transition.stage = 'bridge'
-    if (this.installingTransition && !this.transition)
-      this.interruptedTransition = this.installingTransition
     this.enteringNext = this.next
     this.scan.abort()
-    if (this.updatingBoundary && !this.transition) {
-      const client = this.runtime.client!
-      void this.runtime
-        .enqueue(async () => {
-          if (this.runtime.isCurrent(session, client)) {
-            await client.command('playlist-clear')
-            if (this.runtime.isCurrent(session, client))
-              await client.command('set_property', 'file-local-options/end', 'none')
-          }
-        })
-        .catch((error: unknown) => {
-          if (this.runtime.isCurrent(session, client)) this.options.warn(error)
-        })
-    }
+    const client = this.runtime.client!
+    void this.boundaryUpdater.onStartFile(session, client)?.catch((error: unknown) => {
+      if (this.runtime.isCurrent(session, client)) this.options.warn(error)
+    })
   }
 
-  async recoverInterruptedLoad(session: number, client: MpvClient): Promise<boolean> {
-    const interrupted = this.interruptedTransition
-    if (!interrupted) return false
-    const actualPath = await client.command('get_property', 'path')
-    if (!this.runtime.isCurrent(session, client)) return true
-    this.interruptedTransition = null
-    if (actualPath !== interrupted.bridge) return false
-    await client.command('loadfile', interrupted.original, 'replace', -1, {})
-    return true
+  recoverInterruptedLoad(session: number, client: MpvClient): Promise<boolean> {
+    return this.boundaryUpdater.recoverInterruptedLoad(session, client)
   }
 
   restoreDeferredNext(): void {
@@ -443,65 +443,12 @@ export class NativeNextTrackScheduler {
         return
       }
       const prepared = plan
-      const installed = await this.runtime.enqueue(async () => {
-        const owns = () => isCurrent() && this.read().loaded && !this.enteringNext
-        const ready = async () => {
-          if (!owns()) return false
-          const time = await client.command('get_property', 'time-pos')
-          return (
-            owns() &&
-            typeof time === 'number' &&
-            prepared.outgoingEnd - time - this.tag.decodeOffset >= BOUNDARY_UPDATE_MARGIN_SECONDS
-          )
-        }
-        if (!(await ready())) return false
-        const position = await client.command('get_property', 'playlist-pos')
-        if (typeof position !== 'number' || !Number.isInteger(position) || position < 0)
-          return false
-        let installed = false
-        this.installingTransition = { bridge: prepared.path, original: nextPath }
-        this.updatingBoundary = true
-        try {
-          // Keep the original B first until both replacements are available.
-          await client.command('loadfile', prepared.path, 'append', -1, {})
-          await client.command('loadfile', nextPath, 'append', -1, {
-            start: String(prepared.incomingResume),
-            'hr-seek': 'yes',
-            'hr-seek-demuxer-offset': '1',
-          })
-          if (!(await ready())) return false
-          await client.command('playlist-move', position + 2, position + 1)
-          await client.command('playlist-move', position + 3, position + 2)
-          if (!(await ready())) return false
-          await client.command('playlist-remove', position + 3)
-          if (!(await ready())) return false
-          this.transition = {
-            plan: prepared,
-            continuationPath: nextPath,
-            stage: 'queued',
-            continuationRecovery: null,
-          }
-          await client.command(
-            'set_property',
-            'file-local-options/end',
-            String(prepared.outgoingEnd - this.tag.decodeOffset),
-          )
-          installed = true
-          return true
-        } finally {
-          try {
-            if (!installed && owns()) {
-              this.transition = null
-              await client.command('playlist-clear')
-              await client.command('set_property', 'file-local-options/end', 'none')
-              await client.command('loadfile', nextPath, 'append', -1, {})
-            }
-          } finally {
-            this.installingTransition = null
-            this.updatingBoundary = false
-          }
-        }
-      })
+      const installed = await this.boundaryUpdater.installSoftTransition(
+        client,
+        nextPath,
+        prepared,
+        isCurrent,
+      )
       if (installed) plan = null // The playback lifetime now owns the file.
       report(installed ? 'applied' : isCurrent() ? 'too-late' : 'cancelled')
     } catch (error) {
@@ -526,94 +473,16 @@ export class NativeNextTrackScheduler {
       const boundary = await this.analyzer.boundary(currentPath, nextPath, signal)
       if (!isCurrent()) return report('cancelled')
       if (!boundary) return report('unchanged')
-      const status = await this.runtime.enqueue(() =>
-        this.updateBoundary(client, nextPath, boundary, isCurrent),
+      const status = await this.boundaryUpdater.updateBoundary(
+        client,
+        nextPath,
+        boundary,
+        isCurrent,
       )
       report(status)
     } catch (error) {
       report(isCurrent() ? 'failed' : 'cancelled')
       if (isCurrent()) this.options.warn(error)
-    }
-  }
-
-  private async updateBoundary(
-    client: MpvClient,
-    nextPath: string,
-    boundary: DigitalBoundary,
-    isCurrent: () => boolean,
-  ): Promise<'applied' | 'too-late' | 'cancelled'> {
-    const ownsBoundary = () => isCurrent() && this.read().loaded && !this.enteringNext
-    const end = boundary.end ?? this.read().duration
-    if (!ownsBoundary()) return 'cancelled'
-    const position = await client.command('get_property', 'playlist-pos')
-    if (!ownsBoundary()) return 'cancelled'
-    if (typeof position !== 'number' || !Number.isInteger(position) || position < 0)
-      throw new Error('Invalid mpv playlist position during boundary update')
-    const canUpdate = async () => {
-      if (!ownsBoundary()) return false
-      // Query mpv instead of relying on a possibly delayed time-pos event.
-      const time = await client.command('get_property', 'time-pos')
-      if (!ownsBoundary()) return false
-      const currentPosition = await client.command('get_property', 'playlist-pos')
-      return (
-        ownsBoundary() &&
-        currentPosition === position &&
-        typeof time === 'number' &&
-        end - time - this.tag.decodeOffset >= BOUNDARY_UPDATE_MARGIN_SECONDS
-      )
-    }
-    const skipped = () => (ownsBoundary() ? ('too-late' as const) : ('cancelled' as const))
-    if (!(await canUpdate())) return skipped()
-    const nextIndex = position + 1
-    let appended = false
-    let moved = false
-    let replaced = false
-    this.updatingBoundary = true
-    try {
-      // Preserve the ordinary next item until its replacement is accepted by mpv.
-      await client.command('loadfile', nextPath, 'append', -1, {
-        start: String(boundary.start),
-        'hr-seek': 'yes',
-        'hr-seek-demuxer-offset': '1',
-      })
-      appended = true
-      if (!(await canUpdate())) return skipped()
-      // Move the replacement ahead first: removing the original directly could
-      // stop it if a delayed command arrives just after natural advancement.
-      await client.command('playlist-move', nextIndex + 1, nextIndex)
-      moved = true
-      if (!(await canUpdate())) return skipped()
-      await client.command('playlist-remove', nextIndex + 1)
-      replaced = true
-      if (!(await canUpdate())) return skipped()
-      if (boundary.end !== null)
-        await client.command(
-          'set_property',
-          'file-local-options/end',
-          String(boundary.end - this.tag.decodeOffset),
-        )
-      if (!ownsBoundary()) return skipped()
-      appended = false
-      return 'applied'
-    } finally {
-      try {
-        if (appended && ownsBoundary()) {
-          if (moved) {
-            // Put the ordinary head first before dropping the trimmed replacement.
-            if (replaced) await client.command('loadfile', nextPath, 'append', -1, {})
-            if (ownsBoundary()) {
-              await client.command('playlist-move', nextIndex + 1, nextIndex)
-              if (ownsBoundary()) await client.command('playlist-remove', nextIndex + 1)
-              if (ownsBoundary())
-                await client.command('set_property', 'file-local-options/end', 'none')
-            }
-          } else {
-            await client.command('playlist-remove', nextIndex + 1)
-          }
-        }
-      } finally {
-        this.updatingBoundary = false
-      }
     }
   }
 }

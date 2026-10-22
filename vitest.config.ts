@@ -21,6 +21,7 @@ export default defineConfig({
     // Component tests mount Vue with a custom renderer in the Node environment.
     testTransformMode: {
       web: [
+        '**/App.shell.test.ts',
         '**/FlatTrackColumnHeader.test.ts',
         '**/FacetsDialog.test.ts',
         '**/SongRow.test.ts',

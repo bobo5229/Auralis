@@ -670,13 +670,9 @@
     "background": {
       "section": "背景",
       "mode": "背景样式",
-      "metal": "液态金属",
       "fluid": "流光",
-      "speed": "流动速度",
-      "folds": "纹理大小",
-      "roughness": "反射柔度",
-      "pause": "暂停背景",
-      "reset": "重置材质"
+      "solid": "纯色",
+      "pause": "暂停背景"
     },
     "lyrics": {
       "section": "歌词",

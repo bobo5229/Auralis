@@ -42,15 +42,14 @@ const typographyState = {
 }
 
 const backgroundState = {
-  backgroundMode: ref<'metal' | 'fluid'>('metal'),
+  backgroundMode: ref<'fluid' | 'solid'>('fluid'),
   backgroundMotionPaused: ref(false),
-  metalSettings: ref({ speed: 0.5, folds: 0.5, roughness: 0.5 }),
   setBackgroundMode: vi.fn(
-    (mode: 'metal' | 'fluid') => (backgroundState.backgroundMode.value = mode),
+    (mode: 'fluid' | 'solid') => (backgroundState.backgroundMode.value = mode),
   ),
-  setBackgroundMotionPaused: vi.fn(),
-  setMetalSettings: vi.fn(),
-  resetMetalSettings: vi.fn(),
+  setBackgroundMotionPaused: vi.fn(
+    (paused: boolean) => (backgroundState.backgroundMotionPaused.value = paused),
+  ),
 }
 
 class TestNode {
@@ -166,8 +165,10 @@ beforeEach(() => {
   typographyState.persistFailed.value = false
   typographyState.setPreference.mockClear()
   typographyState.resetPreference.mockClear()
-  backgroundState.backgroundMode.value = 'metal'
+  backgroundState.backgroundMode.value = 'fluid'
   backgroundState.setBackgroundMode.mockClear()
+  backgroundState.backgroundMotionPaused.value = false
+  backgroundState.setBackgroundMotionPaused.mockClear()
   vi.stubGlobal('Node', TestNode)
   vi.stubGlobal('HTMLElement', TestNode)
   vi.stubGlobal('window', {
@@ -294,5 +295,56 @@ describe('FullscreenBackgroundControls lyrics typography group', () => {
     expect(controlsInstance?.close()).toBe(true)
     await flush()
     expect(documentStub.activeElement?.props['aria-controls']).toBe('fullscreen-background-panel')
+  })
+})
+
+describe('FullscreenBackgroundControls background modes', () => {
+  it('offers only flow and solid, with flow selected by default', async () => {
+    await mount()
+    const fluidOption = find((node) => node.props['data-background-mode'] === 'fluid')!
+    const solidOption = find((node) => node.props['data-background-mode'] === 'solid')!
+    expect([fluidOption.textContent, solidOption.textContent]).toEqual([
+      'fullscreen.background.fluid',
+      'fullscreen.background.solid',
+    ])
+    expect(find((node) => node.props['data-background-mode'] === 'metal')).toBeUndefined()
+    expect(fluidOption.props['aria-pressed']).toBe(true)
+    expect(solidOption.props['aria-pressed']).toBe(false)
+    expect(String(fluidOption.props.class)).toContain('is-selected')
+    expect(
+      find((node) => node.type === 'input' && node.props['data-lyrics-typography'] === undefined),
+    ).toBeUndefined()
+  })
+
+  it('keeps lyrics settings in solid and restores the paused flow preference on return', async () => {
+    await mount()
+    trigger(
+      find((node) => node.props['data-background-pause'] !== undefined),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(backgroundState.setBackgroundMotionPaused).toHaveBeenCalledWith(true)
+    trigger(
+      find((node) => node.props['data-background-mode'] === 'solid'),
+      'Click',
+      {},
+    )
+    await flush()
+    const solidOption = find((node) => node.props['data-background-mode'] === 'solid')!
+    expect(backgroundState.setBackgroundMode).toHaveBeenCalledWith('solid')
+    expect(solidOption.props['aria-pressed']).toBe(true)
+    expect(find((node) => node.props['data-background-pause'] !== undefined)).toBeUndefined()
+    expect(find((node) => node.props['data-lyrics-typography'] === 'font-size')).toBeDefined()
+    trigger(
+      find((node) => node.props['data-background-mode'] === 'fluid'),
+      'Click',
+      {},
+    )
+    await flush()
+    expect(
+      find((node) => node.props['data-background-pause'] !== undefined)?.props['aria-checked'],
+    ).toBe(true)
+    expect(solidOption.props['aria-pressed']).toBe(false)
   })
 })

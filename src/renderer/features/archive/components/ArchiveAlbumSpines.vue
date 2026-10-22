@@ -20,7 +20,7 @@ let interaction: ReturnType<typeof createAlbumSpineInteraction> | undefined
 let enabled = false
 
 function albumTitle(album: DailyTopAlbum): string {
-  return album.album === 'Unknown Album' ? t('library.unknownAlbum') : songText(album.album)
+  return album.album === 'Unknown Album' ? t('facets.unknownAlbum') : songText(album.album)
 }
 function albumArtist(album: DailyTopAlbum): string {
   return !album.albumArtist || album.albumArtist === 'Unknown Artist'

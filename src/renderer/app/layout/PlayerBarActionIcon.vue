@@ -28,7 +28,7 @@ const paths: Record<string, string[]> = {
     'M12.5 10A2.5 2.5 0 1 1 7.5 10A2.5 2.5 0 1 1 12.5 10Z',
     'M5 8A5.4 5.4 0 0 1 8 5 M12 15A5.4 5.4 0 0 0 15 12',
   ],
-  'i-ph-queue': ['M2.5 4.5H16 M2.5 10H9.5 M2.5 15.5H9.5', 'M12.5 9 17.5 12.25 12.5 15.5Z'],
+  'i-ph-list': ['M2.5 4.5H17.5 M2.5 10H17.5 M2.5 15.5H17.5'],
   'i-ph-subtitles': [
     'M3.5 3.75H16.5Q17.5 3.75 17.5 4.75V15.25Q17.5 16.25 16.5 16.25H3.5Q2.5 16.25 2.5 15.25V4.75Q2.5 3.75 3.5 3.75Z',
     'M5 10H6.5 M9 10H15 M5 13H11 M13.5 13H15',
@@ -77,10 +77,5 @@ const strokeWidth = computed(() => {
   >
     <path v-for="(path, index) in strokes" :key="index" :d="path" />
   </svg>
-  <span
-    v-else
-    class="playbar-action-icon"
-    :class="[iconSizeClass, icon]"
-    aria-hidden="true"
-  />
+  <span v-else class="playbar-action-icon" :class="[iconSizeClass, icon]" aria-hidden="true" />
 </template>

@@ -10,7 +10,7 @@ import {
   buildMetadataSignature,
 } from '../metadata/metadataNormalizer'
 import { getLyricsSidecarFingerprint, readLyricsSnapshot } from '../metadata/resolveLyricsForFile'
-import { LibraryScanArtwork, getScanAlbumKey } from './libraryScanArtwork'
+import { LibraryScanArtwork } from './libraryScanArtwork'
 import { readM4aTextMetadata } from './m4aTextTags'
 import { hasSameScanFileFingerprint, scanFileFingerprint } from './libraryScanFileFingerprint'
 import type {
@@ -96,7 +96,7 @@ export class LibraryScanTrackReader {
 
       // A changed file still needs duration and artwork. An unchanged file only rereads text.
       if (!fileUnchanged) {
-        const result = await this.readFullTrack(filePath, fileStat, knownFile)
+        const result = await this.readFullTrack(filePath, fileStat)
         await this.assertUnchanged(filePath, fileStat)
         return result
       }
@@ -135,17 +135,6 @@ export class LibraryScanTrackReader {
     }
   }
 
-  private rememberAlbumArtwork(
-    album: string | null,
-    albumArtist: string | null,
-    artworkCacheKey: string | null,
-  ): void {
-    if (!isCurrentArtworkCacheKey(artworkCacheKey)) return
-    const albumKey = getScanAlbumKey(album, albumArtist)
-    if (!albumKey || this.artwork.getAlbumArtwork(albumKey) !== undefined) return
-    this.artwork.setAlbumArtwork(albumKey, artworkCacheKey)
-  }
-
   private async readUnchangedTags(
     filePath: string,
     fileStat: Stats,
@@ -156,7 +145,6 @@ export class LibraryScanTrackReader {
     const carriedArtworkKey = isCurrentArtworkCacheKey(knownFile.artworkCacheKey)
       ? knownFile.artworkCacheKey
       : null
-    this.rememberAlbumArtwork(knownFile.album, knownFile.albumArtist, carriedArtworkKey)
 
     const metadata =
       extname(filePath).toLowerCase() === '.m4a'
@@ -164,7 +152,6 @@ export class LibraryScanTrackReader {
         : await parseFile(filePath, { duration: false, skipCovers: true })
     const normalized = normalizeMetadata(metadata, filePath)
     const identity = normalizeIdentityText(metadata)
-    this.rememberAlbumArtwork(normalized.album, normalized.albumArtist, carriedArtworkKey)
 
     let lyricsPatch: ScannedLyricsPatch | null = null
     if (needsLyricsBackfill) {
@@ -209,29 +196,8 @@ export class LibraryScanTrackReader {
     }
   }
 
-  private async readFullTrack(
-    filePath: string,
-    fileStat: Stats,
-    knownFile: KnownTrackFile | undefined,
-  ): Promise<ReadTrackResult> {
-    const dirCoverKey = await this.artwork.resolveDirectoryCover(filePath)
-    let knownAlbumArtworkKey: string | null | undefined = dirCoverKey ?? undefined
-
-    if (knownAlbumArtworkKey === undefined && knownFile?.album && knownFile.albumArtist) {
-      const albumKey = getScanAlbumKey(knownFile.album, knownFile.albumArtist)
-      if (albumKey) {
-        knownAlbumArtworkKey = this.artwork.getAlbumArtwork(albumKey)
-      }
-    }
-
-    if (knownAlbumArtworkKey !== undefined && isCurrentArtworkCacheKey(knownAlbumArtworkKey)) {
-      const metadata = await parseFile(filePath, { duration: true, skipCovers: true })
-      return {
-        kind: 'track',
-        track: await this.createScannedTrack(filePath, fileStat, metadata, knownAlbumArtworkKey),
-      }
-    }
-
+  private async readFullTrack(filePath: string, fileStat: Stats): Promise<ReadTrackResult> {
+    // A different track in the same album cannot establish whether this file embeds artwork.
     const metadata = await parseFile(filePath, { duration: true })
     return {
       kind: 'track',
@@ -245,43 +211,12 @@ export class LibraryScanTrackReader {
     knownFile: KnownTrackFile,
     needsLyricsBackfill: boolean,
   ): Promise<ReadTrackResult> {
-    const albumKey = getScanAlbumKey(knownFile?.album ?? null, knownFile?.albumArtist ?? null)
     let artworkPatch: AlbumArtworkPatch | null = null
     let lyricsPatch: ScannedLyricsPatch | null = null
 
-    // Album-level cache hit: skip artwork work entirely when lyrics do not need backfill.
-    if (albumKey && !needsLyricsBackfill) {
-      const cached = this.artwork.getAlbumArtwork(albumKey)
-
-      if (cached !== undefined) {
-        // Only a CURRENT v2 key can be committed by the album upsert; a null
-        // value means "no artwork" and skips, a legacy value falls through to
-        // re-resolution so the upgrade is not lost.
-        if (isCurrentArtworkCacheKey(cached) && knownFile?.album && knownFile.albumArtist) {
-          return {
-            kind: 'artwork',
-            patch: {
-              album: knownFile.album,
-              artist: knownFile.albumArtist,
-              artworkCacheKey: cached,
-            },
-          }
-        }
-
-        if (cached === null) {
-          return { kind: 'skip' }
-        }
-      }
-    }
-
-    // Cache miss or lyrics backfill: parse file once and reuse metadata for both tasks.
-    const dirCoverKey = await this.artwork.resolveDirectoryCover(filePath)
-    const hasKnownKey =
-      isCurrentArtworkCacheKey(knownFile.artworkCacheKey) ||
-      dirCoverKey !== null ||
-      (albumKey !== null && this.artwork.getAlbumArtwork(albumKey!) !== undefined)
-    const skipCovers = Boolean(hasKnownKey)
-
+    // Only this unchanged file's current key can skip embedded artwork parsing.
+    const knownKey = knownFile.artworkCacheKey
+    const skipCovers = isCurrentArtworkCacheKey(knownKey)
     const metadata = await parseFile(filePath, { duration: false, skipCovers })
 
     if (needsLyricsBackfill) {
@@ -298,15 +233,9 @@ export class LibraryScanTrackReader {
 
     // Reuse only a CURRENT v2 key; legacy keys must be re-resolved so the
     // artwork cache is upgraded even when the audio file itself is unchanged.
-    const knownKey = knownFile?.artworkCacheKey ?? null
     const artworkCacheKey = isCurrentArtworkCacheKey(knownKey)
       ? knownKey
-      : (dirCoverKey ?? (await this.artwork.resolveArtwork(filePath, metadata)))
-
-    // Cache both success and failure to avoid repeated parseFile for albums without artwork
-    if (albumKey) {
-      this.artwork.setAlbumArtwork(albumKey, artworkCacheKey)
-    }
+      : await this.artwork.resolveArtwork(filePath, metadata)
 
     if (artworkCacheKey && knownFile?.album && knownFile.albumArtist) {
       artworkPatch = {
@@ -331,21 +260,11 @@ export class LibraryScanTrackReader {
     filePath: string,
     fileStat: Stats,
     metadata: Awaited<ReturnType<typeof parseFile>>,
-    resolvedArtworkKey?: string | null,
   ): Promise<ScannedTrackFile> {
     const normalized = normalizeMetadata(metadata, filePath)
-    const albumKey = getScanAlbumKey(normalized.album, normalized.albumArtist)
-    const cachedAlbumKey = albumKey ? this.artwork.getAlbumArtwork(albumKey) : undefined
-    const artworkCacheKey =
-      resolvedArtworkKey ??
-      cachedAlbumKey ??
-      (await this.artwork.resolveArtwork(filePath, metadata))
+    const artworkCacheKey = await this.artwork.resolveArtwork(filePath, metadata)
     const { lyrics, lyricsSidecarFingerprint } = await readLyricsSnapshot(filePath, metadata)
     const identity = normalizeIdentityText(metadata)
-
-    if (albumKey && artworkCacheKey) {
-      this.artwork.setAlbumArtwork(albumKey, artworkCacheKey)
-    }
 
     return {
       filePath,

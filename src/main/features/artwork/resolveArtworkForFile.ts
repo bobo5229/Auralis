@@ -4,7 +4,7 @@ import { writeArtworkToCache } from './artworkCache'
 import type { ArtworkSource } from './artworkTypes'
 import type { IAudioMetadata } from 'music-metadata'
 
-function extractEmbeddedArtwork(metadata: IAudioMetadata): ArtworkSource | null {
+export function extractEmbeddedArtwork(metadata: IAudioMetadata): ArtworkSource | null {
   const picture = metadata.common.picture?.[0]
 
   if (!picture) {

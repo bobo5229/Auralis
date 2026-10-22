@@ -9,7 +9,6 @@ import {
 } from '@renderer/features/lyrics/constants/fullscreenLyricsTypography'
 import { useFullscreenLyricsTypography } from '@renderer/features/lyrics/composables/useFullscreenLyricsTypography'
 import { useFullscreenBackground } from '../composables/useFullscreenBackground'
-import { LIQUID_METAL_RANGES, type LiquidMetalSettings } from '../runtime/liquidMetalSettings'
 import SettingsSelect from '@renderer/features/settings/components/SettingsSelect.vue'
 import '@renderer/features/settings/styles/settings.chrome.css'
 import '@renderer/features/settings/styles/parameterSurface.css'
@@ -21,26 +20,14 @@ const {
   setPreference: setLyricsTypographyPreference,
   resetPreference: resetLyricsTypographyPreference,
 } = useFullscreenLyricsTypography()
-const {
-  backgroundMode,
-  backgroundMotionPaused,
-  metalSettings,
-  setBackgroundMode,
-  setBackgroundMotionPaused,
-  setMetalSettings,
-  resetMetalSettings,
-} = useFullscreenBackground()
+const { backgroundMode, backgroundMotionPaused, setBackgroundMode, setBackgroundMotionPaused } =
+  useFullscreenBackground()
 const rootRef = ref<HTMLElement | null>(null)
 const buttonRef = ref<HTMLButtonElement | null>(null)
 const closeButtonRef = ref<HTMLButtonElement | null>(null)
 const open = ref(false)
 const resetAnnounced = ref(false)
 let resetStatusTimer: ReturnType<typeof setTimeout> | null = null
-const controls = [
-  { key: 'speed', label: 'fullscreen.background.speed' },
-  { key: 'folds', label: 'fullscreen.background.folds' },
-  { key: 'roughness', label: 'fullscreen.background.roughness' },
-] as const
 const lyricsTypographyStatus = computed(() => {
   if (lyricsTypographyPersistFailed.value) return t('fullscreen.lyrics.persistFailed')
   if (resetAnnounced.value) return t('fullscreen.lyrics.resetStatus')
@@ -77,15 +64,6 @@ async function toggle(): Promise<void> {
 
 function dismissOutside(event: PointerEvent): void {
   if (event.target instanceof Node && !rootRef.value?.contains(event.target)) open.value = false
-}
-
-function updateParameter(key: keyof LiquidMetalSettings, event: Event): void {
-  setMetalSettings({ [key]: Number((event.target as HTMLInputElement).value) })
-}
-
-function parameterFill(key: keyof LiquidMetalSettings): string {
-  const { min, max } = LIQUID_METAL_RANGES[key]
-  return `${((metalSettings.value[key] - min) / (max - min)) * 100}%`
 }
 
 function lyricsParameterFill(field: 'fontSizePercent' | 'lineGapPercent'): string {
@@ -164,14 +142,6 @@ defineExpose({ close })
         <div class="background-controls-content parameter-panel-content">
           <div class="settings-group-header">
             <h3 class="settings-group-title">{{ t('fullscreen.background.section') }}</h3>
-            <button
-              v-if="backgroundMode === 'metal'"
-              type="button"
-              class="settings-text-button background-controls-reset"
-              @click="resetMetalSettings"
-            >
-              {{ t('fullscreen.background.reset') }}
-            </button>
           </div>
           <div class="settings-group-card">
             <div class="settings-row">
@@ -186,16 +156,6 @@ defineExpose({ close })
                 <button
                   type="button"
                   class="settings-segmented-option"
-                  :class="{ 'is-selected': backgroundMode === 'metal' }"
-                  data-background-mode="metal"
-                  :aria-pressed="backgroundMode === 'metal'"
-                  @click="setBackgroundMode('metal')"
-                >
-                  {{ t('fullscreen.background.metal') }}
-                </button>
-                <button
-                  type="button"
-                  class="settings-segmented-option"
                   :class="{ 'is-selected': backgroundMode === 'fluid' }"
                   data-background-mode="fluid"
                   :aria-pressed="backgroundMode === 'fluid'"
@@ -203,33 +163,19 @@ defineExpose({ close })
                 >
                   {{ t('fullscreen.background.fluid') }}
                 </button>
+                <button
+                  type="button"
+                  class="settings-segmented-option"
+                  :class="{ 'is-selected': backgroundMode === 'solid' }"
+                  data-background-mode="solid"
+                  :aria-pressed="backgroundMode === 'solid'"
+                  @click="setBackgroundMode('solid')"
+                >
+                  {{ t('fullscreen.background.solid') }}
+                </button>
               </div>
             </div>
-            <template v-if="backgroundMode === 'metal'">
-              <div v-for="control in controls" :key="control.key" class="settings-row">
-                <div>
-                  <strong :id="`background-${control.key}-label`">{{ t(control.label) }}</strong>
-                </div>
-                <div class="settings-range-control">
-                  <input
-                    :id="`background-${control.key}-input`"
-                    type="range"
-                    :data-metal-parameter="control.key"
-                    :aria-labelledby="`background-${control.key}-label`"
-                    :min="LIQUID_METAL_RANGES[control.key].min"
-                    :max="LIQUID_METAL_RANGES[control.key].max"
-                    :step="LIQUID_METAL_RANGES[control.key].step"
-                    :value="metalSettings[control.key]"
-                    :style="{ '--settings-range-progress': parameterFill(control.key) }"
-                    @input="updateParameter(control.key, $event)"
-                  />
-                  <output :for="`background-${control.key}-input`">{{
-                    metalSettings[control.key].toFixed(2)
-                  }}</output>
-                </div>
-              </div>
-            </template>
-            <div class="settings-row">
+            <div v-if="backgroundMode !== 'solid'" class="settings-row">
               <div>
                 <strong>{{ t('fullscreen.background.pause') }}</strong>
               </div>

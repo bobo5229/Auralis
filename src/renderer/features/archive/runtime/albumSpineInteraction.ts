@@ -418,10 +418,18 @@ export function createAlbumSpineInteraction(
     },
     options,
   )
+  function hasFocusedKeyboardSelection(): boolean {
+    return (
+      inputMode === 'keyboard' &&
+      active !== null &&
+      buttons[active] === document.activeElement &&
+      viewport.contains(document.activeElement)
+    )
+  }
   const layoutChanged = () => {
     invalidateHitRegions()
     if (focus) focus.reposition()
-    else reset()
+    else if (!hasFocusedKeyboardSelection()) reset()
   }
   window.addEventListener('resize', layoutChanged, options)
   const resize = new ResizeObserver(layoutChanged)

@@ -1,5 +1,7 @@
 # 界面原型
 
+封面取色比较：[Wu / 调整后的 Wu / OKLab K-means](playback/palette-comparison/index.html)，离线打开；内置代表性封面，支持三列并排、全样本总览、本地封面导入与单列放大，统一背景适配规则，未接入正式界面。[说明与验证](playback/palette-comparison/README.md)。
+
 侧立专辑：[2.5D 专辑侧放](archive/album-spines/index.html)，离线打开；接近侧面的窄封面与书脊排列，悬停向前抽出、转正，离开归位，支持明暗主题和角度调节。[原型说明](archive/album-spines/README.md)。
 
 金属品牌图标：[渐变金属 A](brand/enamel-icon.html)，直接在浏览器打开；沿用正式图标轮廓，提供钛蓝、银铬、香槟金三种渐变、原版对照、32/64/128px 尺寸预览及高光、倒角、渐变方向调节。独立 SVG 材质原型，未替换正式应用图标。
@@ -16,12 +18,14 @@
 
 | 目录               | 内容与入口                                                                                                                                                         |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `albums/`          | [专辑展开](albums/album-open-transition.html)、[CD 聚焦](albums/cd-focus-demo.html)、[CD 动效](albums/cd-motion-demo.html)、[CD 启动](albums/cd-startup-demo.html) |
-| `archive/`         | [Macintosh 128K 立体](archive/classic-mac.html)、[夜井星空](archive/night-well.html)、[日期软盘](archive/mac-diskbox-demo.html)、[油灰软盘](archive/floppy-putty.html)                                                                 |
+| `albums/`          | [专辑展开](albums/album-open-transition.html)、[CD 聚焦](albums/cd-focus-demo.html)、[CD 动效](albums/cd-motion-demo.html)、[CD 启动](albums/cd-startup-demo.html)、[2.5D 专辑预览](albums/album-2.5d-preview.html)（[目标参考图](albums/user-target-reference.png)） |
+| `assets/`          | [test-cover.png](assets/test-cover.png)：保留的封面图片，归属尚未确认 |
+| `archive/`         | [Macintosh 128K 立体](archive/classic-mac.html)、[夜井星空](archive/night-well.html)、[日期软盘](archive/mac-diskbox-demo.html)、[油灰软盘](archive/floppy-putty.html)、[包装袋撕开交互](archive/pouch-tear.html) |
 | `playback/`        | [播放栏材质](playback/playbar-liquid-glass-material-demo.html)、[音量浮层](playback/playbar-vertical-volume-popover-demo.html)                                     |
 | `smart-playlists/` | [智能歌单编辑器](smart-playlists/smart-playlist-builder.html)                                                                                                      |
 | `library/`         | [最近添加的时间范围](library/recent-added-range.html)：句子标尺、目录行、密度窗；[时间沉积歌单封面](library/recent-added-time-sediment.html)：自有 WebGL 方形封面、分范围配色与深浅主题（离线可用） |
-| `brand/`          | [Logo 设计比较](brand/logo-exploration.html)：原创字母构形、深浅主题、小尺寸与应用位置示意                                                                          |
+| `brand/`          | [Logo 设计比较](brand/logo-exploration.html)：原创字母构形、深浅主题、小尺寸与应用位置示意；[品牌动效](brand/brand-motion.html) |
+| `shell/`          | [侧边栏收起交互](shell/sidebar-collapse.html) |
 | `local/albums/`    | [专辑布局方案入口](local/albums/album-layout-index.html)、专辑头部与材质草稿                                                                                       |
 | `local/archive/`   | 年度总结与唱片封套草稿                                                                                                                                             |
 | `local/playback/`  | [动态流光](local/playback/apple-music-flow-demo.html)、[幕布转场](local/playback/fullscreen-curtain-transition-demo.html)                                          |
@@ -35,16 +39,6 @@
 用于共享原型。新原型沿用对应主题目录。关联脚本随原型放置，跨主题共享素材通过相对路径引用。
 部分旧原型使用在线示例图片，离线时这些图片可能不可用。
 
-流光与液态金属之间的材质演化：[原型说明](playback/background-morph/README.md)。运行
-`node demo/playback/background-morph/run.mjs` 打开独立交互窗口，支持正反向切换、慢放、
-手动进度和封面配色对照。
-
 像素旅途：[原型说明](playback/pixel-journey/README.md)。运行 `node demo/playback/pixel-journey/serve.mjs` 后打开 `http://127.0.0.1:4188/demo/playback/pixel-journey/`；支持音乐播放驱动奔跑、暂停待机、进度跳转、常驻音量及小窗口提示。
-
-液态金属背景：[原型说明与接入计划](playback/liquid-metal/README.md)。在项目根目录运行
-`node demo/playback/liquid-metal/serve.mjs` 后打开 `http://127.0.0.1:4176/`；支持本地封面取色、
-动态金属曲面、材质调节和模拟歌词预览。
-
-液态金属对比：[Paper LiquidMetal / Auralis](playback/liquid-metal-comparison/index.html)，离线打开；支持同步暂停、配色、封面取色及材质调节。[运行与重建说明](playback/liquid-metal-comparison/README.md)。
 
 浅色强调色对照：[灰玫瑰 / 酒红 / 灰紫 / 当前鼠尾草](local/shell/light-accent-colors.html)，沿用当前播放器浅色底色。

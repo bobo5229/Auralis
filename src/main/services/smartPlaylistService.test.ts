@@ -6,8 +6,50 @@ import type { TrackListItem } from '@shared/types/libraryScan'
 import type { SmartPlaylist } from '@shared/types/smartPlaylist'
 import type { SmartPlaylistRepository } from '@main/repositories/smartPlaylistRepository'
 import type { TrackRepository } from '@main/repositories/trackRepository'
+import * as delimitedValues from '@shared/utils/delimitedValues'
 
 describe('smart playlist counts', () => {
+  it('evaluates 64 genre alternatives without repeating field parsing or rule normalization', () => {
+    const rule: SmartPlaylistRule = {
+      expression: {
+        type: 'or',
+        operands: Array.from({ length: 64 }, (_, index) => ({
+          type: 'predicate',
+          field: 'genre',
+          operator: 'has',
+          value: `Genre ${index}`,
+        })),
+      },
+    }
+    assertValidSmartPlaylistRule(rule)
+    let revision = '1'
+    let tracks = Array.from({ length: 10_000 }, (_, index) => ({
+      id: index + 1,
+      genre: `GENRE ${index % 2000}`,
+    })) as TrackListItem[]
+    const getAll = vi.fn(() => tracks)
+    const service = new SmartPlaylistService(
+      { list: () => [{ id: 1, rule }] } as unknown as SmartPlaylistRepository,
+      { getAll, getChangeToken: () => revision } as unknown as TrackRepository,
+    )
+    const split = vi.spyOn(delimitedValues, 'splitDelimitedValues')
+    const normalize = vi.spyOn(delimitedValues, 'normalizeDelimitedValue')
+    try {
+      expect(service.listTrackCounts()).toEqual([{ playlistId: 1, trackCount: 320 }])
+      expect(split.mock.calls.length).toBeLessThanOrEqual(tracks.length)
+      expect(normalize.mock.calls.length).toBeLessThanOrEqual(tracks.length + 64)
+      expect(service.listTrackCounts()).toEqual([{ playlistId: 1, trackCount: 320 }])
+      expect(getAll).toHaveBeenCalledTimes(1)
+      tracks = [{ id: 1, genre: 'Genre 0; Other' }] as TrackListItem[]
+      revision = '2'
+      expect(service.listTrackCounts()).toEqual([{ playlistId: 1, trackCount: 1 }])
+      expect(getAll).toHaveBeenCalledTimes(2)
+    } finally {
+      split.mockRestore()
+      normalize.mockRestore()
+    }
+  })
+
   it('does not read the catalog or its revision when no smart playlists exist', () => {
     const getAll = vi.fn()
     const getChangeToken = vi.fn()

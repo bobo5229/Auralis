@@ -18,6 +18,9 @@ interface Cluster {
 const MAX_COLORS = 5
 const MIN_WEIGHT = 0.015
 const MERGE_DISTANCE = 0.035
+const MIN_HUE_MERGE_CHROMA = 0.025
+const MAX_HUE_MERGE_ANGLE = Math.PI / 10
+const MAX_HUE_MERGE_LIGHTNESS = 0.22
 const MIN_ACCENT_DISTANCE = 0.05
 
 function clusterSamples(samples: Sample[]): Cluster[] {
@@ -69,9 +72,19 @@ function mergeClusters(colors: PaletteColor[]): PaletteColor[] {
   const merged: PaletteColor[] = []
 
   for (const color of colors.sort((a, b) => b.weight - a.weight)) {
-    const target = merged.find(
-      (candidate) => getOklabDistance(candidate.oklab, color.oklab) < MERGE_DISTANCE,
-    )
+    const target = merged.find((candidate) => {
+      if (getOklabDistance(candidate.oklab, color.oklab) < MERGE_DISTANCE) return true
+      if (candidate.chroma < MIN_HUE_MERGE_CHROMA || color.chroma < MIN_HUE_MERGE_CHROMA) {
+        return false
+      }
+      const angle = Math.abs(
+        Math.atan2(candidate.oklab.b, candidate.oklab.a) - Math.atan2(color.oklab.b, color.oklab.a),
+      )
+      return (
+        Math.min(angle, Math.PI * 2 - angle) <= MAX_HUE_MERGE_ANGLE &&
+        Math.abs(candidate.oklab.l - color.oklab.l) <= MAX_HUE_MERGE_LIGHTNESS
+      )
+    })
     if (!target) {
       merged.push({ ...color, rgb: { ...color.rgb }, oklab: { ...color.oklab } })
       continue
@@ -88,7 +101,13 @@ function mergeClusters(colors: PaletteColor[]): PaletteColor[] {
     target.chroma = getOklabChroma(target.oklab)
   }
 
-  return merged
+  // Preserve the prototype's area order before stable score sorting, including ties.
+  return merged.sort((a, b) => b.weight - a.weight)
+}
+
+function getRepresentativeScore(color: PaletteColor): number {
+  // Area dominates; chroma is a bounded bonus and never excludes black, white or gray.
+  return color.weight * (0.9 + 0.1 * Math.min(1, color.chroma / 0.12))
 }
 
 function fitDisplayColor(color: OklabColor, lightness: number, chromaBoost = 1): OklabColor {
@@ -124,15 +143,7 @@ function toPaletteColor(cluster: Cluster, totalSamples: number): PaletteColor {
   }
 }
 
-function selectAccents(colors: PaletteColor[]): PaletteColor[] {
-  const ranked = [...colors].sort((a, b) => {
-    const getScore = (color: PaletteColor): number => {
-      const extremePenalty =
-        color.oklab.l < 0.08 || (color.oklab.l > 0.94 && color.chroma < 0.03) ? 0.35 : 1
-      return color.weight * (0.08 + color.chroma * 3.2) * extremePenalty
-    }
-    return getScore(b) - getScore(a)
-  })
+function selectAccents(ranked: PaletteColor[]): PaletteColor[] {
   const selected: PaletteColor[] = []
 
   for (const color of ranked) {
@@ -178,10 +189,11 @@ export function extractArtworkPalette(key: string, pixels: Uint8ClampedArray): A
   )
   const meaningful = clustered.filter((color) => color.weight >= MIN_WEIGHT)
   const merged = mergeClusters(meaningful.length > 0 ? meaningful : clustered.slice(0, 1))
-  const accents = selectAccents(merged)
+  const ranked = [...merged].sort((a, b) => getRepresentativeScore(b) - getRepresentativeScore(a))
+  const accents = selectAccents(ranked)
   if (accents.length === 0) return { ...FALLBACK_PALETTE, key }
 
-  const dominant = [...merged].sort((a, b) => b.weight - a.weight)[0]
+  const dominant = ranked[0]
   const backgroundOklab = fitDisplayColor(
     dominant.oklab,
     Math.min(0.18, Math.max(0.08, dominant.oklab.l * 0.26)),

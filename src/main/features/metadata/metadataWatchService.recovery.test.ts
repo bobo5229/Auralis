@@ -5,7 +5,10 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import type { LibraryRootRepository } from '@main/repositories/libraryRootRepository'
 import type { TrackRepository } from '@main/repositories/trackRepository'
 import type { MetadataRefreshService } from './metadataRefreshService'
-import type { LibraryIncrementalImportService } from '../libraryScan/libraryIncrementalImportService'
+import type {
+  ImportResult,
+  LibraryIncrementalImportService,
+} from '../libraryScan/libraryIncrementalImportService'
 import { MetadataWatchService } from './metadataWatchService'
 import { getLyricsSidecarFingerprint } from './resolveLyricsForFile'
 
@@ -29,18 +32,26 @@ const services: MetadataWatchService[] = []
 function entry(name: string) {
   return { name, isDirectory: () => false, isFile: () => true }
 }
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
+}
 function setup() {
   let configured = [root]
   let error!: (error: Error) => void
-  vi.mocked(watch).mockImplementation(
-    () =>
-      ({
-        close: vi.fn(),
-        on: (_event: string, callback: typeof error) => {
-          error = callback
-        },
-      }) as unknown as ReturnType<typeof watch>,
-  )
+  let notify!: (event: string, filename: string) => void
+  vi.mocked(watch).mockImplementation((...args: unknown[]) => {
+    notify = args[2] as typeof notify
+    return {
+      close: vi.fn(),
+      on: (_event: string, callback: typeof error) => {
+        error = callback
+      },
+    } as unknown as ReturnType<typeof watch>
+  })
   vi.mocked(watch).mockImplementationOnce(() => {
     throw new Error('Offline')
   })
@@ -53,7 +64,13 @@ function setup() {
   const missing = vi.fn(() => [4])
   const refresh = vi.fn()
   const isWritingFile = vi.fn<(filePath: string) => boolean>(() => false)
-  const imports = vi.fn(async (paths: string[]) => ({ imported: paths, unstable: [], failed: [] }))
+  const imports = vi.fn(
+    async (paths: string[]): Promise<ImportResult> => ({
+      imported: paths,
+      unstable: [],
+      failed: [],
+    }),
+  )
   const service = new MetadataWatchService(
     { list: () => configured.map((path) => ({ path })) } as unknown as LibraryRootRepository,
     {
@@ -86,6 +103,7 @@ function setup() {
     missing,
     refresh,
     isWritingFile,
+    notify: (filename: string) => notify('change', filename),
     fail: () => error(new Error('Disconnected')),
     sync: (paths: string[]) => {
       configured = paths
@@ -257,3 +275,139 @@ it.each(['pause', 'remove', 'stop'] as const)(
     }
   },
 )
+
+it.each(['pause', 'remove', 'stop', 'supersede'] as const)(
+  'ignores a lyrics fingerprint completed after recovery is interrupted by %s',
+  async (action) => {
+    const gate = deferred<string>()
+    vi.mocked(getLyricsSidecarFingerprint).mockImplementationOnce(() => gate.promise)
+    const h = setup()
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(h.query).toHaveBeenCalledOnce()
+    expect(stat).not.toHaveBeenCalled()
+
+    let settled = false
+    let barrier: Promise<void> | undefined
+    if (action === 'pause' || action === 'stop') {
+      barrier = (action === 'pause' ? h.service.pauseFlush() : h.service.stop()).then(() => {
+        settled = true
+      })
+      await Promise.resolve()
+      expect(settled).toBe(false)
+    } else if (action === 'remove') {
+      h.sync([])
+    } else {
+      h.fail()
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(h.imports).toHaveBeenCalledOnce()
+      expect(h.refresh).toHaveBeenCalledExactlyOnceWith([2, 3])
+    }
+
+    gate.resolve('changed')
+    await vi.advanceTimersByTimeAsync(0)
+    await barrier
+    if (action === 'pause' || action === 'stop') expect(settled).toBe(true)
+    expect(h.imports).toHaveBeenCalledTimes(action === 'supersede' ? 1 : 0)
+    expect(h.refresh).toHaveBeenCalledTimes(action === 'supersede' ? 1 : 0)
+    if (action === 'pause') {
+      h.service.resumeFlush()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(h.refresh).toHaveBeenCalledExactlyOnceWith([2, 3])
+      expect(h.imports).toHaveBeenCalledOnce()
+    }
+    await h.service.stop()
+    expect(vi.getTimerCount()).toBe(0)
+  },
+)
+
+it.each(['pause', 'stop'] as const)(
+  'drains the active recovery import before %s and does not start the next batch',
+  async (action) => {
+    vi.mocked(readdir).mockResolvedValue(
+      Array.from({ length: 129 }, (_, id) => entry(`new-${id}.flac`)) as never,
+    )
+    const h = setup()
+    h.query.mockReturnValue([])
+    const gate = deferred<ImportResult>()
+    h.imports.mockReturnValueOnce(gate.promise)
+    await vi.advanceTimersByTimeAsync(1000)
+    const firstBatch = h.imports.mock.calls[0][0]
+    expect(firstBatch).toHaveLength(128)
+    let settled = false
+    const barrier = (action === 'pause' ? h.service.pauseFlush() : h.service.stop()).then(() => {
+      settled = true
+    })
+    await Promise.resolve()
+    expect(settled).toBe(false)
+    gate.resolve({ imported: firstBatch, unstable: [], failed: [] })
+    await barrier
+    expect(settled).toBe(true)
+    expect(h.imports).toHaveBeenCalledOnce()
+    expect(vi.getTimerCount()).toBe(0)
+    if (action === 'pause') {
+      h.service.resumeFlush()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(h.imports).toHaveBeenLastCalledWith([path('new-128')])
+      expect(h.imports.mock.calls.every(([paths]) => paths.length <= 128)).toBe(true)
+    } else {
+      h.service.resumeFlush()
+      await vi.advanceTimersByTimeAsync(60000)
+      expect(h.imports).toHaveBeenCalledOnce()
+    }
+  },
+)
+
+it('keeps ordinary watcher events pending when recovery flushes only its selected batch', async () => {
+  const inventory = deferred<ReturnType<typeof entry>[]>()
+  vi.mocked(readdir).mockReturnValueOnce(inventory.promise as never)
+  const h = setup()
+  h.query.mockReturnValue([])
+  await vi.advanceTimersByTimeAsync(1000)
+  h.notify('event.flac')
+  inventory.resolve([entry('recovered.flac')])
+  await vi.advanceTimersByTimeAsync(0)
+  expect(h.imports).toHaveBeenCalledExactlyOnceWith([path('recovered')])
+  await vi.advanceTimersByTimeAsync(1199)
+  expect(h.imports).toHaveBeenCalledOnce()
+  await vi.advanceTimersByTimeAsync(1)
+  expect(h.imports).toHaveBeenNthCalledWith(2, [path('event')])
+})
+
+it('defers a watcher event during a recovery import and retains it through the pause barrier', async () => {
+  vi.mocked(readdir).mockResolvedValue([entry('new.flac')] as never)
+  const h = setup()
+  h.query.mockReturnValue([])
+  const gate = deferred<ImportResult>()
+  h.imports.mockReturnValueOnce(gate.promise)
+  await vi.advanceTimersByTimeAsync(1000)
+  h.notify('new.flac')
+  await vi.advanceTimersByTimeAsync(1200)
+  expect(h.imports).toHaveBeenCalledOnce()
+  const barrier = h.service.pauseFlush()
+  gate.resolve({ imported: [path('new')], unstable: [], failed: [] })
+  await barrier
+  expect(h.imports).toHaveBeenCalledOnce()
+  expect(vi.getTimerCount()).toBe(0)
+  // The resumed inventory no longer reports the path; only its deferred event remains.
+  vi.mocked(readdir).mockResolvedValue([])
+  h.service.resumeFlush()
+  await vi.advanceTimersByTimeAsync(1200)
+  expect(h.imports).toHaveBeenNthCalledWith(2, [path('new')])
+})
+
+it('backs off failed recovery up to 30 seconds and releases its retry on stop', async () => {
+  vi.mocked(readdir).mockRejectedValue(new Error('Busy'))
+  const h = setup()
+  await vi.advanceTimersByTimeAsync(1000)
+  let attempts = 1
+  for (const delay of [1000, 2000, 4000, 8000, 16000, 30000, 30000]) {
+    await vi.advanceTimersByTimeAsync(delay - 1)
+    expect(readdir).toHaveBeenCalledTimes(attempts)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(readdir).toHaveBeenCalledTimes(++attempts)
+  }
+  await h.service.stop()
+  await vi.advanceTimersByTimeAsync(60000)
+  expect(readdir).toHaveBeenCalledTimes(attempts)
+  expect(vi.getTimerCount()).toBe(0)
+})

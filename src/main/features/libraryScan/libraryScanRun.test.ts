@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { IAudioMetadata } from 'music-metadata'
 import { runLibraryScan } from './libraryScanRun'
 import { getMetadataParserVersion } from '../metadata/metadataParserVersion'
-import { LibraryScanArtwork, getScanAlbumKey } from './libraryScanArtwork'
-import { LibraryScanTrackReader } from './libraryScanTrackReader'
+import { LibraryScanArtwork } from './libraryScanArtwork'
+import { LibraryScanTrackReader, type ReadTrackResult } from './libraryScanTrackReader'
+import { resolveArtworkForFile } from '../artwork/resolveArtworkForFile'
 import type { LibraryScanWorkerInput, LibraryScanWorkerMessage } from './libraryScanTypes'
 
 const harness = vi.hoisted(() => ({
@@ -324,7 +325,7 @@ describe('scan orchestration boundaries', () => {
     expect(messages.some((message) => message.type === 'tracks')).toBe(false)
     expect(
       harness.parseFile.mock.calls.every(
-        ([, options]) => options.duration === false && options.skipCovers === true,
+        ([, options]) => options.duration === false && options.skipCovers === false,
       ),
     ).toBe(true)
   })
@@ -347,7 +348,7 @@ describe('scan orchestration boundaries', () => {
       payload: { jobId: 8, totalFiles: 1, scannedFiles: 1, failedFiles: 0 },
     })
     expect(harness.parseFile.mock.calls.map(([, options]) => options)).toEqual([
-      { duration: true, skipCovers: true },
+      { duration: true },
       { duration: true },
     ])
   })
@@ -382,37 +383,152 @@ describe('scan orchestration boundaries', () => {
   })
 })
 
-describe('album cache backfill decisions', () => {
-  it.each([
-    { cached: currentKey, expectedKind: 'artwork', parses: false },
-    { cached: null, expectedKind: 'skip', parses: false },
-    { cached: 'legacy.jpg', expectedKind: 'patches', parses: true },
-  ])('preserves the $cached cached artwork decision', async ({ cached, expectedKind, parses }) => {
+describe('per-file artwork priority', () => {
+  const embeddedKey = `v2-${'b'.repeat(64)}.webp`
+  const otherEmbeddedKey = `v2-${'c'.repeat(64)}.webp`
+  const withPicture = (name: string): IAudioMetadata => ({
+    ...metadata,
+    common: { ...metadata.common, picture: [{ format: 'image/png', data: Buffer.from(name) }] },
+  })
+
+  function provideDirectoryCover() {
+    harness.readFile.mockImplementation(async (filePath: string) => {
+      if (filePath.endsWith('cover.jpg')) return Buffer.from('directory cover')
+      throw missing()
+    })
+  }
+
+  beforeEach(() => {
+    harness.writeArtwork.mockImplementation(async (_dir, source) =>
+      source.data.toString() === 'embedded'
+        ? embeddedKey
+        : source.data.toString() === 'other'
+          ? otherEmbeddedKey
+          : currentKey,
+    )
+  })
+
+  it('uses each new file’s embedded picture even after a same-album directory fallback', async () => {
+    const files = ['fallback.flac', 'embedded.flac', 'other.flac']
+    provideDirectoryCover()
+    harness.parseFile.mockImplementation(async (filePath: string) =>
+      filePath.endsWith('embedded.flac')
+        ? withPicture('embedded')
+        : filePath.endsWith('other.flac')
+          ? withPicture('other')
+          : metadata,
+    )
+    const reader = new LibraryScanTrackReader(
+      [],
+      new LibraryScanArtwork('C:\\IsolatedCache'),
+      vi.fn(),
+    )
+    const results: ReadTrackResult[] = []
+    for (const file of files) results.push(await reader.read(join(rootPath, file)))
+    expect(
+      results.map((result) => result.kind === 'track' && result.track.artworkCacheKey),
+    ).toEqual([currentKey, embeddedKey, otherEmbeddedKey])
+    expect(harness.parseFile.mock.calls.every(([, options]) => !options.skipCovers)).toBe(true)
+    expect(harness.readFile.mock.calls.filter(([path]) => path.endsWith('cover.jpg'))).toHaveLength(
+      1,
+    )
+  })
+
+  it('does not give a bare file another same-album file’s embedded artwork', async () => {
+    harness.parseFile.mockResolvedValueOnce(withPicture('embedded')).mockResolvedValueOnce(metadata)
+    const reader = new LibraryScanTrackReader(
+      [],
+      new LibraryScanArtwork('C:\\IsolatedCache'),
+      vi.fn(),
+    )
+    expect(await reader.read(join(rootPath, 'first.flac'))).toMatchObject({
+      kind: 'track',
+      track: { artworkCacheKey: embeddedKey },
+    })
+    expect(await reader.read(join(rootPath, 'bare.flac'))).toMatchObject({
+      kind: 'track',
+      track: { artworkCacheKey: null },
+    })
+    expect(await reader.read(join(rootPath, 'also-bare.flac'))).toMatchObject({
+      kind: 'track',
+      track: { artworkCacheKey: null },
+    })
+    expect(harness.readFile.mock.calls.filter(([path]) => path.endsWith('cover.jpg'))).toHaveLength(
+      1,
+    )
+  })
+
+  it('preserves the shared resolver’s null result when embedded conversion fails', async () => {
+    provideDirectoryCover()
+    const embedded = withPicture('embedded')
+    harness.parseFile.mockResolvedValue(embedded)
+    harness.writeArtwork.mockResolvedValue(null)
     const filePath = join(rootPath, 'song.flac')
-    const artwork = new LibraryScanArtwork(harness.input.artworkCacheDir)
-    artwork.setAlbumArtwork(getScanAlbumKey('Album', 'Artist')!, cached)
-    if (parses) {
-      harness.readFile.mockImplementation(async (filePath: string) => {
-        if (filePath.endsWith('cover.jpg')) return Buffer.from('directory cover')
-        throw missing()
-      })
-    }
-    const failure = vi.fn()
-    const reader = new LibraryScanTrackReader([knownFile(filePath)], artwork, failure)
-    const result = await reader.read(filePath)
-    expect(result.kind).toBe(expectedKind)
-    expect(failure).not.toHaveBeenCalled()
-    if (parses) {
-      expect(harness.parseFile).toHaveBeenCalledWith(filePath, {
-        duration: false,
-        skipCovers: true,
-      })
-      expect(result).toMatchObject({
-        artworkPatch: { artworkCacheKey: currentKey },
+    const reader = new LibraryScanTrackReader(
+      [],
+      new LibraryScanArtwork('C:\\IsolatedCache'),
+      vi.fn(),
+    )
+    expect(await reader.read(filePath)).toMatchObject({
+      kind: 'track',
+      track: { artworkCacheKey: null },
+    })
+    expect(await resolveArtworkForFile(filePath, embedded, 'C:\\IsolatedCache')).toBeNull()
+    expect(harness.readFile.mock.calls.some(([path]) => path.endsWith('cover.jpg'))).toBe(false)
+  })
+
+  it('deduplicates concurrent directory reads and conversions in one scan', async () => {
+    provideDirectoryCover()
+    harness.readdir.mockResolvedValue([entry('a.flac'), entry('b.flac'), entry('c.flac')])
+    const messages = await scan()
+    expect(
+      messages.filter((message) => message.type === 'tracks').flatMap((message) => message.payload),
+    ).toHaveLength(3)
+    expect(harness.writeArtwork).toHaveBeenCalledTimes(1)
+    expect(harness.readFile.mock.calls.filter(([path]) => path.endsWith('cover.jpg'))).toHaveLength(
+      1,
+    )
+  })
+
+  it.each([null, 'legacy.jpg'])(
+    'reads embedded pictures during artwork backfill for %s even with a directory cover',
+    async (key) => {
+      provideDirectoryCover()
+      harness.parseFile.mockResolvedValue(withPicture('embedded'))
+      const filePath = join(rootPath, 'song.flac')
+      const reader = new LibraryScanTrackReader(
+        [{ ...knownFile(filePath), artworkCacheKey: key }],
+        new LibraryScanArtwork('C:\\IsolatedCache'),
+        vi.fn(),
+      )
+      expect(await reader.read(filePath)).toMatchObject({
+        kind: 'patches',
+        artworkPatch: { artworkCacheKey: embeddedKey },
         lyricsPatch: null,
       })
-    } else {
-      expect(harness.parseFile).not.toHaveBeenCalled()
-    }
+      expect(harness.parseFile).toHaveBeenCalledWith(filePath, {
+        duration: false,
+        skipCovers: false,
+      })
+      expect(harness.readFile.mock.calls.some(([path]) => path.endsWith('cover.jpg'))).toBe(false)
+    },
+  )
+
+  it('keeps an unchanged file’s v2 artwork during lyrics backfill', async () => {
+    provideDirectoryCover()
+    harness.parseFile.mockResolvedValue(withPicture('embedded'))
+    const filePath = join(rootPath, 'song.flac')
+    const reader = new LibraryScanTrackReader(
+      [{ ...knownFile(filePath), artworkCacheKey: currentKey, lyricsCheckedMtimeMs: null }],
+      new LibraryScanArtwork('C:\\IsolatedCache'),
+      vi.fn(),
+    )
+    expect(await reader.read(filePath)).toMatchObject({
+      kind: 'patches',
+      artworkPatch: { artworkCacheKey: currentKey },
+      lyricsPatch: { filePath, lyricsCheckedMtimeMs: 100 },
+    })
+    expect(harness.parseFile).toHaveBeenCalledWith(filePath, { duration: false, skipCovers: true })
+    expect(harness.writeArtwork).not.toHaveBeenCalled()
   })
 })

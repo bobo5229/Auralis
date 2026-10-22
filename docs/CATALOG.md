@@ -369,6 +369,7 @@
 
 ## 审查记录
 
+- [2026-10-20 工作区清理与整理方案](reviews/2026-10-20-workspace-cleanup-plan.md) — 本地方案及本轮记录；演示整理部分完成，候选删除受阻，浏览器验证待完成。
 - [第一批冗余清理记录](reviews/2026-10-06-confirmed-redundancy-cleanup.md)。
 - [第二批冗余筛查与清理记录](reviews/2026-10-06-redundancy-second-pass.md)。
 - [Auralis 自写实现与开源复用审计](reviews/2026-10-04-open-source-reuse-audit.md) — 源码与成熟实现对照、替换优先级、迁移边界及建议保留项；候选尚未接入。

@@ -22,7 +22,7 @@ import FullscreenBackgroundControls from '@renderer/features/playback/components
 import FullscreenLyricsContextMenu from '@renderer/features/lyrics/components/FullscreenLyricsContextMenu.vue'
 import FullscreenPlaybackModeControl from './FullscreenPlaybackModeControl.vue'
 import { useFullscreenBackground } from '@renderer/features/playback/composables/useFullscreenBackground'
-import { useArtworkPalette } from '@renderer/features/playback/composables/useArtworkPalette'
+import { useFullscreenSolidBackground } from '@renderer/features/playback/composables/useFullscreenSolidBackground'
 import { usePlaybackProgressInteraction } from '@renderer/features/playback/composables/usePlaybackProgressInteraction'
 import { useReducedMotion } from '@renderer/features/lyrics/composables/useReducedMotion'
 import { useLyricsScrollPreset } from '@renderer/features/lyrics/lyricsScrollPreset'
@@ -74,9 +74,7 @@ const backgroundControlsRef = ref<InstanceType<typeof FullscreenBackgroundContro
 const modeControlRef = ref<InstanceType<typeof FullscreenPlaybackModeControl> | null>(null)
 const lyricsContextMenuOpen = ref(false)
 const lyricsContextMenuAnchor = ref({ clientX: 0, clientY: 0 })
-const { backgroundMode, backgroundMotionPaused, metalSettings, setBackgroundMode } =
-  useFullscreenBackground()
-const backgroundPresentationMode = ref(backgroundMode.value)
+const { backgroundMode, backgroundMotionPaused, setBackgroundMode } = useFullscreenBackground()
 const reducedMotion = useReducedMotion()
 const { preset: lyricsScrollPreset } = useLyricsScrollPreset()
 const { effect: countdownEffect } = useLyricsCountdownPreference()
@@ -169,10 +167,10 @@ const lyricsTrackRef = ref<HTMLElement | null>(null)
 const artworkCacheKey = computed(() => playback.state.currentTrack?.artworkCacheKey ?? null)
 watch(artworkCacheKey, () => activeTransition?.finish())
 const artworkUrl = computed(() => getArtworkUrl(artworkCacheKey.value))
-const { palette: metalPalette } = useArtworkPalette(artworkCacheKey, {
-  enabled: computed(() => isFullscreenPlayerOpen.value || backgroundMode.value === 'metal'),
-  retainPreviousWhileLoading: true,
-})
+const solidBackground = useFullscreenSolidBackground(
+  computed(() => playback.state.currentTrack),
+  { enabled: computed(() => backgroundMode.value === 'solid') },
+)
 const title = computed(
   () => songText(playback.state.currentTrack?.title) || t('player.unknownTrack'),
 )
@@ -397,7 +395,7 @@ const {
 })
 
 watch(
-  backgroundPresentationMode,
+  backgroundMode,
   () => {
     if (wholeLineLyrics.value) refreshFullscreenLyrics('auto', true)
   },
@@ -527,15 +525,11 @@ onBeforeUnmount(() => {
       :target="backgroundTarget"
       :mode="backgroundMode"
       :artwork-url="artworkUrl"
-      :artwork-key="artworkCacheKey"
-      :palette="metalPalette"
-      :settings="metalSettings"
       :active="isFullscreenPlayerOpen"
       :motion-paused="backgroundMotionPaused"
       :playing="playback.state.isPlaying"
       :defer-initialization="deferBackgroundInitialization"
       @fallback="setBackgroundMode"
-      @presentation-mode="backgroundPresentationMode = $event"
     />
     <Transition
       :css="false"
@@ -550,11 +544,12 @@ onBeforeUnmount(() => {
         ref="overlayRef"
         class="fullscreen-player"
         :class="{
-          'fullscreen-player--metal': backgroundPresentationMode === 'metal',
+          'fullscreen-player--solid': backgroundMode === 'solid',
           'fullscreen-player--keyboard-navigation': keyboardNavigation,
         }"
         :data-background-mode="backgroundMode"
-        :data-background-presentation="backgroundPresentationMode"
+        :style="backgroundMode === 'solid' ? solidBackground.style : undefined"
+        :data-background-presentation="backgroundMode"
         role="dialog"
         aria-modal="true"
         tabindex="-1"
@@ -786,9 +781,6 @@ onBeforeUnmount(() => {
                 @keydown="handleLyricLineKeydown($event, index)"
               >
                 <span class="fullscreen-player-lyric-material">
-                  <span class="fullscreen-player-lyric-relief" aria-hidden="true">{{
-                    line.text || ' '
-                  }}</span>
                   <span class="fullscreen-player-lyric-fill">{{ line.text || ' ' }}</span>
                 </span>
               </div>
@@ -859,117 +851,6 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   color: var(--auralis-text-muted);
   -webkit-app-region: no-drag;
-}
-
-.fullscreen-player--metal {
-  --auralis-fullscreen-pause-fill: var(--auralis-fullscreen-metal-pause-fill);
-  --auralis-text: #f6f2ea;
-  --auralis-text-muted: #d4d0c9;
-  --auralis-progress-track: #96918a;
-  --auralis-progress-fill: #f6f2ea;
-  --auralis-volume-fill: #f6f2ea;
-}
-
-.fullscreen-player--metal .fullscreen-player-lyrics-empty {
-  /* Protect each glyph against moving highlights without covering the metal surface. */
-  paint-order: stroke fill;
-  -webkit-text-stroke: 1.5px rgba(14, 17, 23, 0.96);
-  text-shadow: 0 2px 3px rgba(14, 17, 23, 0.9);
-}
-
-.fullscreen-player--metal .fullscreen-player-lyric-upcoming {
-  color: var(--auralis-text-muted);
-  opacity: 1;
-  filter: none;
-}
-
-.fullscreen-player--metal .fullscreen-player-lyric-line {
-  /* All timed states share a thin edge and light from the upper left. */
-  --fullscreen-lyric-surface: #747b84;
-  --fullscreen-lyric-edge: rgba(24, 30, 39, 0.45);
-  --fullscreen-lyric-relief-edge: rgba(24, 30, 39, 0.5);
-  --fullscreen-lyric-relief-shadow:
-    -0.45px -0.6px 0 rgba(236, 240, 245, 0.18), 0.6px 0.8px 0.8px rgba(24, 30, 39, 0.22),
-    1px 2px 3px rgba(14, 17, 23, 0.14);
-
-  paint-order: stroke fill;
-}
-
-/* Keep the edge relief behind the solid fill so shadows cannot tint the surface. */
-.fullscreen-player-lyric-relief {
-  display: none;
-}
-
-.fullscreen-player--metal
-  :is(
-    .fullscreen-player-lyric-active,
-    .fullscreen-player-lyric-upcoming,
-    .fullscreen-player-lyric-future
-  )
-  .fullscreen-player-lyric-material {
-  display: block;
-  position: relative;
-  isolation: isolate;
-}
-
-.fullscreen-player--metal
-  :is(
-    .fullscreen-player-lyric-active,
-    .fullscreen-player-lyric-upcoming,
-    .fullscreen-player-lyric-future
-  )
-  .fullscreen-player-lyric-relief {
-  display: block;
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  color: var(--fullscreen-lyric-surface);
-  -webkit-text-stroke: 0.6px var(--fullscreen-lyric-relief-edge);
-  text-shadow: var(--fullscreen-lyric-relief-shadow);
-  pointer-events: none;
-  transition:
-    color 300ms ease,
-    -webkit-text-stroke-color 300ms ease,
-    text-shadow 300ms ease;
-}
-
-.fullscreen-player--metal
-  :is(
-    .fullscreen-player-lyric-active,
-    .fullscreen-player-lyric-upcoming,
-    .fullscreen-player-lyric-future
-  )
-  .fullscreen-player-lyric-fill {
-  display: block;
-  color: var(--fullscreen-lyric-surface);
-  -webkit-text-fill-color: currentColor;
-  -webkit-text-stroke: 0.35px var(--fullscreen-lyric-edge);
-  text-shadow: none;
-  transition:
-    color 300ms ease,
-    -webkit-text-stroke-color 300ms ease;
-}
-
-.fullscreen-player--metal .fullscreen-player-lyric-active {
-  --fullscreen-lyric-surface: #ffffff;
-  --fullscreen-lyric-edge: rgba(224, 228, 234, 0.85);
-  --fullscreen-lyric-relief-edge: rgba(70, 78, 90, 0.55);
-  --fullscreen-lyric-relief-shadow:
-    -0.45px -0.6px 0 rgba(255, 255, 255, 0.6), 0.6px 0.8px 0.8px rgba(24, 30, 39, 0.32),
-    1px 2px 3px rgba(14, 17, 23, 0.22);
-}
-
-.fullscreen-player--metal .fullscreen-player-lyric-future {
-  --fullscreen-lyric-surface: #858b93;
-  --fullscreen-lyric-edge: rgba(24, 30, 39, 0.5);
-  --fullscreen-lyric-relief-edge: rgba(24, 30, 39, 0.68);
-  --fullscreen-lyric-relief-shadow:
-    -0.45px -0.6px 0 rgba(236, 240, 245, 0.55), 0.6px 0.8px 0.8px rgba(24, 30, 39, 0.38),
-    1px 2px 3px rgba(14, 17, 23, 0.22);
-}
-
-.fullscreen-player--metal .fullscreen-player-lyrics-empty {
-  -webkit-text-stroke-width: 1.25px;
 }
 
 .fullscreen-player-exit:hover {
@@ -1386,7 +1267,6 @@ onBeforeUnmount(() => {
   );
 }
 
-.fullscreen-player--metal .fullscreen-player-lyrics-scroll,
 .fullscreen-player-lyrics-scroll.fullscreen-player-lyrics-whole {
   -webkit-mask-image: none;
   mask-image: none;
@@ -1425,13 +1305,6 @@ onBeforeUnmount(() => {
   inset: 0 0 auto;
   font-size: calc(var(--fullscreen-lyrics-font-size) * var(--fullscreen-lyric-active-scale));
   transform-origin: left top;
-}
-
-.fullscreen-player--metal
-  .fullscreen-player-lyrics-whole
-  :is(.fullscreen-player-lyric-fill, .fullscreen-player-lyric-relief) {
-  /* The viewport owns position, scale and paint together, including interrupted transitions. */
-  transition: none;
 }
 
 .fullscreen-player-lyrics-whole .fullscreen-player-lyric-line + .fullscreen-player-lyric-line {
@@ -1511,8 +1384,12 @@ onBeforeUnmount(() => {
 .fullscreen-player-lyric-upcoming {
   color: var(--auralis-text);
   filter: blur(3px);
-  opacity: 0.34;
+  opacity: var(--fullscreen-lyric-inactive-opacity, 0.34);
   transform: scale(1);
+}
+
+.fullscreen-player--solid .fullscreen-player-lyric-line {
+  filter: none;
 }
 
 .fullscreen-player-lyric-empty {
@@ -1606,13 +1483,6 @@ onBeforeUnmount(() => {
 
 :where([data-reduced-motion='true']) .fullscreen-player-lyric-line,
 :where([data-reduced-motion='true']) .fullscreen-player-prelude-dot {
-  transition: none;
-}
-
-:where([data-reduced-motion='true'])
-  .fullscreen-player--metal
-  .fullscreen-player-lyric-line
-  :is(.fullscreen-player-lyric-relief, .fullscreen-player-lyric-fill) {
   transition: none;
 }
 

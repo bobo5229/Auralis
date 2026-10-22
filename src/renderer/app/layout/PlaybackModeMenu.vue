@@ -8,10 +8,13 @@ import {
 } from '@renderer/app/utils/playerOverlayFocus'
 import type { PlaybackMode } from '@renderer/features/playback/types'
 import { usePlaybackModePresentation } from '@renderer/features/playback/composables/usePlaybackModePresentation'
+import type { PlaybarStyle } from '@renderer/features/appearance/composables/usePlaybarStyle'
+import FrostedSurface from '@renderer/shared/components/FrostedSurface.vue'
 import PlayerBarActionIcon from './PlayerBarActionIcon.vue'
 
 const props = defineProps<{
   currentMode: PlaybackMode
+  material?: PlaybarStyle
 }>()
 const emit = defineEmits<{
   select: [mode: PlaybackMode, source: 'pointer' | 'keyboard']
@@ -84,10 +87,16 @@ onMounted(() => {
   <div
     ref="element"
     class="player-overlay playback-mode-menu"
+    :class="{ 'playback-mode-menu--playbar': material !== undefined }"
     role="menu"
     :aria-label="t('player.mode')"
     @keydown="handleKeydown"
   >
+    <FrostedSurface
+      v-if="material !== undefined"
+      :frosted="material === 'frosted'"
+      plain-background="var(--auralis-playbar-bg)"
+    />
     <template v-for="(mode, index) in modes" :key="mode.id">
       <button
         v-tooltip="mode.description"
@@ -116,3 +125,12 @@ onMounted(() => {
     </template>
   </div>
 </template>
+
+<style scoped>
+.playback-mode-menu--playbar {
+  isolation: isolate;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+</style>

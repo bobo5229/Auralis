@@ -670,13 +670,9 @@
     "background": {
       "section": "Background",
       "mode": "Background style",
-      "metal": "Liquid metal",
       "fluid": "Fluid",
-      "speed": "Flow speed",
-      "folds": "Fold scale",
-      "roughness": "Reflection softness",
-      "pause": "Pause background",
-      "reset": "Reset material"
+      "solid": "Solid",
+      "pause": "Pause background"
     },
     "lyrics": {
       "section": "Lyrics",
