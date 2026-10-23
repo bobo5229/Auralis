@@ -110,7 +110,7 @@ npm.cmd run test:native -- src/main/repositories/missingTrackCleanup.native.test
 - 使用当前源代码的 `LibraryScanService` 和实际扫描 worker 执行全量扫描；窗口关闭期间不启动文件监听。没有直接用临时 SQL 删除歌曲。
 - 扫描任务 87：4,131 个文件全部扫描成功，失败 0，未读目录 0。没有新导入歌曲或路径找回。
 
-清理前备份：[before-confirmed-missing-cleanup-20261004-0b0557a3-69c8-4f2e-be6b-8c1bb7b6a8f8.sqlite](D:/VSCode/Auralis/data/user-data/backups/before-confirmed-missing-cleanup-20261004-0b0557a3-69c8-4f2e-be6b-8c1bb7b6a8f8.sqlite)，155,533,312 字节。
+清理前备份：[before-confirmed-missing-cleanup-20261004-0b0557a3-69c8-4f2e-be6b-8c1bb7b6a8f8.sqlite](../../../data/user-data/backups/before-confirmed-missing-cleanup-20261004-0b0557a3-69c8-4f2e-be6b-8c1bb7b6a8f8.sqlite)，155,533,312 字节。
 
 | 项目               | 清理前 | 清理后 |
 | ------------------ | -----: | -----: |

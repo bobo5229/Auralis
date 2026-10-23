@@ -11,14 +11,28 @@
 | 查某个页面或能力的方案         | [主题方案](topics/README.md)                              |
 | 查多阶段项目的设计、基线与交付 | [项目档案](projects/README.md)                            |
 | 回查早期批次的设计与改动记录   | [历史批次](history/README.md)                             |
-| 查冗余清理与 UI 开发经验       | [可复用经验](lessons/README.md)                           |
-| 查审查发现、修复记录           | [完整索引：审查记录](CATALOG.md#审查记录)                 |
-| 查中断任务的交接信息           | [完整索引：交接记录](CATALOG.md#交接记录)                 |
-| 查看独立 HTML 演示             | [完整索引：演示](CATALOG.md#演示)                         |
+| 查开发复盘与排查经验           | [可复用经验](lessons/README.md)                           |
+| 查审查发现、修复与验证记录     | [审查记录](reviews/README.md)                             |
+| 查施工提示词和中断任务交接     | [交接记录](handoffs/README.md)                            |
+| 查看独立 HTML 演示             | [原型目录](../demo/README.md)                             |
 
-当前工作区整理计划：[2026-10-20 清理与整理方案](reviews/2026-10-20-workspace-cleanup-plan.md)（本地资料；演示迁移部分完成，候选删除受阻）。
+## 目录分工
 
-后续重构清单：[高复杂度单文件 P2–P3 待办](reviews/2026-10-23-complexity-refactor-backlog.md)（P1 已完成）。
+| 目录        | 收录内容                               | 阅读入口                                                    |
+| ----------- | -------------------------------------- | ----------------------------------------------------------- |
+| `rules/`    | 协作、实现、审查与验收约束             | [根协作入口](../AGENTS.md)、[规则索引](CATALOG.md#协作规则) |
+| `topics/`   | 按产品主题组织的独立方案               | [主题方案](topics/README.md)                                |
+| `projects/` | 同一项目的方案、阶段基线、交付与审查   | [项目档案](projects/README.md)                              |
+| `lessons/`  | 可复用的方法、经验与排查复盘           | [经验索引](lessons/README.md)                               |
+| `reviews/`  | 有具体范围和版本的审查、评估与修复记录 | [审查索引](reviews/README.md)                               |
+| `handoffs/` | 施工提示词、交接条件和当时待办         | [交接索引](handoffs/README.md)                              |
+| `history/`  | 按原日期批次保留的早期资料             | [历史批次](history/README.md)                               |
+
+## 近期参考
+
+- [珐琅徽章 GLSL 原型排查复盘](lessons/2026-10-24-enamel-glsl-debugging-lessons.md)：启动排查、验收脚本时序、异步输入、DPR 与法线精度。
+- [P1–P2 重构汇报](reviews/2026-10-23-p1-p2-refactor-report.md)与[原重构待办](reviews/2026-10-23-complexity-refactor-backlog.md)：分别查交付快照和审计候选，当前进度仍以源码及本次任务为准。
+- [2026-10-20 清理与整理方案](reviews/2026-10-20-workspace-cleanup-plan.md)：回查当时的演示迁移、清理候选与执行限制。
 
 ## 如何理解状态
 

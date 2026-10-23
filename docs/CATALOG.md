@@ -11,6 +11,8 @@
 
 已知替代关系见[主题说明](topics/README.md)，阶段状态阅读限制见[项目说明](projects/README.md)。
 
+快速跳转：[协作规则](#协作规则) · [主题方案](#主题方案) · [项目档案](#项目档案) · [历史批次](#历史批次) · [可复用经验](#可复用经验) · [审查记录](#审查记录) · [交接记录](#交接记录) · [演示](#演示)
+
 ## 入口与架构
 
 - [Auralis 架构说明](ARCHITECTURE.md)
@@ -19,11 +21,14 @@
 - [项目档案说明](projects/README.md)
 - [文档入口](README.md)
 - [主题方案说明](topics/README.md)
+- [审查与验证记录入口](reviews/README.md)
+- [施工提示词与交接记录入口](handoffs/README.md)
 
 ## 协作规则
 
 - [施工者规则](rules/implementation.md)
 - [审查者规则](rules/review.md)
+- [子代理派遣与额度](rules/agent-dispatch.md)
 - [架构与 IPC](rules/architecture.md)
 - [环境与操作](rules/environment.md)
 - [Git 与发布](rules/git-release.md)
@@ -39,6 +44,7 @@
 
 ### albums：专辑
 
+- [唱片室语义字号体系](topics/albums/TECHDOC-cd-room-semantic-typography-2026-10-04.md)
 - [当前实现与历史诊断：歌词面板收起与专辑网格同步过渡](topics/albums/TECHDOC-lyrics-collapse-album-grid-sync-2026-09-30.md#当前实现-2026-10-08) — 记录 fixed grid group-opacity 淡切、Sidebar/歌词/Playbar 协同及隔离性能证据边界。
 - [历史：专辑列表页收起歌词动画性能施工方案](topics/albums/IMPLEMENTATION-lyrics-collapse-performance-fix-2026-10-02.md) — 原移动缩放方案与任务清单已被当前实现替代，性能未宣称对真实曲库完全通过。
 - [历史：歌词面板收起与专辑网格同步过渡方案](topics/albums/TECHDOC-lyrics-collapse-album-grid-sync-2026-09-30.md) — 保留 2026-09-30 的诊断与设计记录；现行行为见上方当前实现说明。
@@ -68,7 +74,7 @@
 
 ### archive：音乐归档
 
-- [设计参考：复古未来主义](topics/archive/REFERENCE-retrofuturism-design.md) — 用户提供的原文参考，按需采用，不作为项目强制规范。`/archive` 当前按真实每日有效播放次数显示年度聆听热力图；悬停气泡显示当天次数与累计曲目时长，点击让日期格子弹性展开为当日 Top 3 面板；播放统计更新或重置后自动刷新。
+- [设计参考：复古未来主义](topics/archive/REFERENCE-retrofuturism-design.md) — 用户提供的原文参考，按需采用，不作为项目强制规范。界面与材质原型见[原型目录](../demo/README.md)。
 
 ### artwork：封面
 
@@ -98,8 +104,9 @@
 
 ### playback：播放界面
 
-- [全屏右侧歌词繁简右键菜单：施工技术文档](topics/playback/TECHDOC-fullscreen-lyrics-script-context-menu-2026-10-11.md) — 方案已确认，待实施；复用现有繁简偏好，涵盖菜单、焦点、持久化、文字重测与 GPT6Luna Max 施工提示词。
-- [全屏歌词排版参数：施工技术文档](topics/playback/TECHDOC-fullscreen-lyrics-typography-settings-2026-10-10.md) — 方案已确认，待实施；包含右侧设置分组、持久化、换行与定位刷新及 GPT6Luna Max 施工提示词。
+- [全屏右侧歌词繁简右键菜单：施工技术文档](topics/playback/TECHDOC-fullscreen-lyrics-script-context-menu-2026-10-11.md) — 复用繁简偏好的方案记录，涵盖菜单、焦点、持久化、文字重测与施工提示词。
+- [全屏歌词排版参数：施工技术文档](topics/playback/TECHDOC-fullscreen-lyrics-typography-settings-2026-10-10.md) — 设置分组、持久化、换行与定位刷新的方案记录。
+- [TECHDOC：PlayerBar 控件颜色语义收敛](topics/playback/TECHDOC-playerbar-control-color-semantics-2026-09-27.md)
 - [历史：TECHDOC：播放器颜色变量体系补全](topics/playback/TECHDOC-player-color-token-completion-2026-09-26.md) — 保留颜色变量迁移记录；MiniPlayer 与桌面歌词已移除，PlayerBar 与全屏覆盖层相关内容仅作历史及源码参考。
 - [历史：TECHDOC：MiniPlayer 弹层可用性与窗口状态同步修复](topics/playback/TECHDOC-miniplayer-geometry-state-fixes-2026-09-28.md)
 - [FullscreenPlayerOverlay 职责拆分技术设计](topics/playback/TECHDOC-fullscreen-player-overlay-refactor-2026-08-30.md)
@@ -122,6 +129,7 @@
 
 ### shell：应用外壳
 
+- [侧边栏过场风格文案模式](topics/shell/spec-sidebar-footer-flavor-modes.md)
 - [施工文档：浅色与深色强调色独立配置](topics/shell/IMPLEMENTATION-light-dark-theme-accent-2026-10-04.md) — 独立偏好、跟随应用主题编辑、可读颜色、效果预览与开屏首帧。
 
 - [施工文档：英文与数字字体统一，Georgia 仅用于碟片标题](topics/shell/IMPLEMENTATION-latin-numeral-font-unification-2026-10-02.md) — 顺序分批迁移通用界面、CD、歌词、声迹 DOM 与 Canvas，保留现有中文字体。
@@ -368,19 +376,46 @@
 - [经验索引](lessons/README.md) — 按任务选择复盘与对应清理证据。
 - [UI 冗余清理经验](lessons/2026-10-06-ui-cleanup-lessons.md) — 入口、生命周期、CSS 匹配、共享边界与验证证据。
 - [CD 浏览页开发复盘](lessons/2026-10-04-cd-browser-development-lessons.md) — 原型选择、真实操作、音频效果、短时动效、动态配色、开源复用及旧方案清理经验。
+- [侧边栏 UI 迭代经验](lessons/2026-10-14-sidebar-ui-iteration-lessons.md) — 图标重量、对齐、文案边界、状态来源与配色材质。
+- [珐琅徽章 GLSL 原型排查复盘](lessons/2026-10-24-enamel-glsl-debugging-lessons.md) — 阶段日志、验收调用时序、异步输入、DPR 与法线精度。
 
 ## 审查记录
 
-- [高复杂度单文件重构待办：P2–P3](reviews/2026-10-23-complexity-refactor-backlog.md) — P1 已完成；保留原审计排序、指标与后续拆分边界。
-- [2026-10-20 工作区清理与整理方案](reviews/2026-10-20-workspace-cleanup-plan.md) — 本地方案及本轮记录；演示整理部分完成，候选删除受阻，浏览器验证待完成。
+[按问题查找审查与验证记录](reviews/README.md)。以下保留逐篇入口，进度与结论属于原文记录的时间和范围。
+
+### 架构、重构与清理
+
+- [P1–P2 重构汇报](reviews/2026-10-23-p1-p2-refactor-report.md)
+- [高复杂度单文件重构待办：P2–P3](reviews/2026-10-23-complexity-refactor-backlog.md) — 原审计排序、指标与后续拆分边界，结合交付汇报阅读。
+- [2026-10-16 代码审计](reviews/2026-10-16-1742-code-audit.md)
+- [面向新产品重建的资产审查](reviews/product-rebuild-asset-audit-2026-09-27.md)
+- [2026-10-20 工作区清理与整理方案](reviews/2026-10-20-workspace-cleanup-plan.md) — 当时的清理候选、演示迁移及执行限制。
 - [第一批冗余清理记录](reviews/2026-10-06-confirmed-redundancy-cleanup.md)。
 - [第二批冗余筛查与清理记录](reviews/2026-10-06-redundancy-second-pass.md)。
-- [Auralis 自写实现与开源复用审计](reviews/2026-10-04-open-source-reuse-audit.md) — 源码与成熟实现对照、替换优先级、迁移边界及建议保留项；候选尚未接入。
+- [架构 Review 落地修复汇总](reviews/2026-07-17-architecture-review-fixes.md)
+
+### 开源复用与替换评估
+
+- [Auralis 自写实现与开源复用审计](reviews/2026-10-04-open-source-reuse-audit.md) — 源码与成熟实现对照、替换优先级、迁移边界及建议保留项。
+- [封面聚类替换记录](reviews/2026-10-04-artwork-palette-replacement.md)
+- [Culori 颜色计算替换](reviews/2026-10-04-culori-color-math-replacement.md)
+- [Floating UI 定位替换](reviews/2026-10-04-floating-ui-positioning-replacement.md)
+- [focus-trap 焦点管理替换](reviews/2026-10-04-focus-trap-replacement.md)
+- [IPC Valibot 替换与验收交接](reviews/2026-10-04-ipc-valibot-replacement.md)
+- [日志 Worker transport 替换](reviews/2026-10-04-logging-transport-replacement.md)
+- [Chokidar 元数据监听替换](reviews/2026-10-04-metadata-watch-chokidar.md)
+- [opencc-js 搜索繁简归一化评估](reviews/2026-10-04-opencc-search-normalization-evaluation.md)
+
+### 环境、数据与界面诊断
+
 - [2026-09-28 Electron 启动崩溃：安装目录 ACL 与沙箱兼容问题](reviews/2026-09-28-electron-startup-acl-crash.md)
+- [mpv 播放中标签保存施工交接](reviews/2026-10-08-mpv-buffered-tag-write.md)
 - [Auralis 主题与颜色体系审计报告](reviews/播放器主题配色审计报告.md)
 - [桌面歌词窗口生命周期审查](reviews/REVIEW-desktop-lyrics-window-lifecycle.md)
-- [架构 Review 落地修复汇总](reviews/2026-07-17-architecture-review-fixes.md)
 - [专辑列表页 UI 审查与重构优化诊断报告 (Albums Page UI Audit & Optimization Spec)](reviews/2026-07-25-albums-page-ui-audit-fixes.md)
+
+### 教学示例
+
 - [示范审查（教学用）](reviews/2026-08-05-demo-audit/README.md)
 - [Round 0 — 定尺（IPC / 进程边界）](reviews/2026-08-05-demo-audit/round-00-定尺-IPC边界.md)
 - [Round 1 — 模块：歌曲页（Library）](reviews/2026-08-05-demo-audit/round-01-模块-歌曲页.md)
@@ -388,15 +423,23 @@
 
 ## 交接记录
 
+[按任务查找施工提示词与交接记录](handoffs/README.md)。
+
 - [2026-09-12：曲库滚动条布局修复提示词](handoffs/20260912修复1.md)
 - [Auralis 剩余优化工作交付文档](handoffs/HANDOFF-remaining-work-2026-08-28.md)
 - [标签写回、播放租约与退出对账施工提示词](handoffs/2026-10-15-tag-write-lease-shutdown-construction.md)
+- [Playbar Liquid Glass 隔离原型施工提示词](handoffs/2026-10-15-playbar-liquid-glass-prototype-construction.md)
+- [Playbar 毛玻璃与样式切换接入施工提示词](handoffs/2026-10-15-playbar-material-switch-construction.md)
+- [最近添加固定资料库入口施工提示词](handoffs/2026-10-15-recent-added-library-6lunamax.md)
+- [Mac CRT 去噪入场动效施工说明](handoffs/mac-crt-denoise-transition.md)
+- [完整移除迷你播放器施工提示词](handoffs/PROMPT-remove-miniplayer-2026-09-28.md)
 
 交接记录保留中断位置与当时待办，不构成继续执行授权。
 
 ## 演示
 
-- [像素旅途页面原型](../demo/playback/pixel-journey/README.md) — 草地远山、中文像素音乐面板、播放驱动奔跑与暂停待机；独立原型，未接入应用。
+- [珐琅徽章 GLSL 反光替换样板](../demo/archive/enamel-milestone/glsl/README.md) — 100 小时徽章的原版／动态材质对照、材质生成和隔离验证。
+- [唱片材质原型](../demo/albums/disc-material/README.md) — 独立材质实验及其运行说明。
 
 - [原型目录与分类](../demo/README.md)
 - [Auralis · 动态流光取色实验](../demo/local/playback/apple-music-flow-demo.html)

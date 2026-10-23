@@ -19,8 +19,8 @@
 
 - [`main.css`](../../../src/renderer/app/styles/main.css) 注册 `Auralis Numerals`、`Plus Jakarta Sans`、`Auralis Desktop Lyrics SC`，并在 `:root` 直接写入全局字体栈。`Auralis Numerals` 通过 `unicode-range` 只匹配 ASCII 数字，英文继续落到 Plus Jakarta Sans，中文继续落到 HarmonyOS Sans SC。
 - [`harmony-fonts.css`](../../../src/renderer/app/styles/harmony-fonts.css) 注册 HarmonyOS Sans SC 的本地字重资源。
-- 歌曲封面视图的 [碟片标题](../../../src/renderer/features/library/components/AlbumCoverGroup.vue)与 [设置预览](../../../src/renderer/features/settings/components/SongFontWeightPreview.vue)分别写有 `Georgia, 'HarmonyOS Sans SC', sans-serif`。两处属于同一语义角色。
-- [`CdFocusLyrics.vue`](../../../src/renderer/features/albums/components/CdFocusLyrics.vue)、CD 页面与桌面歌词在局部使用各自的衬线字体栈；[`EditorialLinerNotesCard.vue`](../../../src/renderer/features/archive/components/EditorialLinerNotesCard.vue)已有 `--liner-font-*` 局部变量。
+- 歌曲封面视图的 [碟片标题](../../../src/renderer/features/library/components/AlbumCoverGroup.vue)与 设置预览 `SongFontWeightPreview.vue`（历史组件路径）分别写有 `Georgia, 'HarmonyOS Sans SC', sans-serif`。两处属于同一语义角色。
+- [`CdFocusLyrics.vue`](../../../src/renderer/features/albums/components/CdFocusLyrics.vue)、CD 页面与桌面歌词在局部使用各自的衬线字体栈；`EditorialLinerNotesCard.vue`（历史组件路径）已有 `--liner-font-*` 局部变量。
 - 音乐来源路径目前继承设置页字体；这一行为应保持。歌曲页字重配置中的 `--auralis-song-*weight` 变量与字体家族角色相互独立。
 
 ## 3. Token 结构
