@@ -47,15 +47,3 @@ export function parseTtmlTime(text: string, warnings: ConversionWarnings): numbe
   const units: Record<string, number> = { ms: 1, s: 1000, m: 60000, h: 3600000 }
   return roundedMilliseconds(Number(offset[1]) * units[offset[2]], warnings)
 }
-
-export function formatLrcTime(value: number): string {
-  checkedMilliseconds(value)
-  const minutes = Math.floor(value / 60000)
-  const seconds = Math.floor(value / 1000) % 60
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(value % 1000).padStart(3, '0')}`
-}
-
-export function formatTtmlTime(value: number): string {
-  const hours = Math.floor(checkedMilliseconds(value) / 3600000)
-  return `${String(hours).padStart(2, '0')}:${formatLrcTime(value % 3600000)}`
-}

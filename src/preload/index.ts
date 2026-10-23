@@ -113,15 +113,9 @@ export const auralisApi: AuralisApi = {
   },
   lyrics: {
     getByTrackId: (trackId) => invoke(ipcChannels.lyrics.getByTrackId, { trackId }),
-    openEditor: (trackId) => invoke(ipcChannels.lyrics.openEditor, { trackId }),
     openLrcEditor: (trackId) => invoke(ipcChannels.lyrics.openLrcEditor, { trackId }),
     saveLrcEditor: (request) => invoke(ipcChannels.lyrics.saveLrcEditor, request),
     closeLrcEditor: (sessionId) => invoke(ipcChannels.lyrics.closeLrcEditor, { sessionId }),
-    assignEditorLines: (request) => invoke(ipcChannels.lyrics.assignEditorLines, request),
-    retimeEditorLines: (request) => invoke(ipcChannels.lyrics.retimeEditorLines, request),
-    replaceEditorLineText: (request) => invoke(ipcChannels.lyrics.replaceEditorLineText, request),
-    saveEditor: (request) => invoke(ipcChannels.lyrics.saveEditor, request),
-    closeEditor: (sessionId) => invoke(ipcChannels.lyrics.closeEditor, { sessionId }),
   },
   playback: {
     subscribeSpectrum: (request) => invoke(ipcChannels.playback.spectrumSubscribe, request),

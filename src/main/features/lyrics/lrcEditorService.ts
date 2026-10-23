@@ -4,7 +4,6 @@ import type { LrcEditorState, LrcEditorSaved, SaveLrcEditor } from '@shared/type
 import { MAX_LRC_EDITOR_CHARACTERS } from '@shared/types/lyricsEditor'
 import { LYRICS_TAG_EXTENSIONS } from '../metadata/lyricsTagWriter'
 import { LyricsEditorError } from './lyricsEditorError'
-import { convertLrcToTtml } from './lyricsConversion'
 import {
   audioIdentity,
   authorizeLyricsPath,
@@ -23,7 +22,6 @@ export interface LrcEditorDependencies {
   readSource(path: string): Promise<{
     lyricsText: string
     lyricsFormat: 'lrc' | 'plain' | 'ttml'
-    durationMs?: number
   } | null>
   writeTag(
     id: number,
@@ -47,12 +45,11 @@ interface Session {
   sidecars: LyricFile[]
   revision: string
   format: LrcEditorState['format']
-  durationMs?: number
   touched: number
   busy: boolean
 }
 
-/** Raw text sessions are separate from the existing TTML assignment drafts. */
+/** Owner-bound LRC text drafts with guarded file and tag saves. */
 export class LrcEditorService {
   private readonly sessions = new Map<string, Session>()
   private readonly saving = new Set<string>()
@@ -92,6 +89,7 @@ export class LrcEditorService {
       const audio = await audioIdentity(path)
       const sidecars = await captureLyricsFiles(path)
       const source = await this.dependencies.readSource(path)
+      if (source?.lyricsFormat === 'ttml') throw new LyricsEditorError('unsupported-format')
       const text = source?.lyricsText ?? ''
       if (text.length > MAX_LRC_EDITOR_CHARACTERS)
         throw new LyricsEditorError('unsupported-document')
@@ -105,7 +103,6 @@ export class LrcEditorService {
         sidecars,
         revision: createHash('sha256').update(text).digest('hex'),
         format: source?.lyricsFormat ?? 'plain',
-        durationMs: source?.durationMs,
         touched: this.now(),
         busy: false,
       }
@@ -133,37 +130,16 @@ export class LrcEditorService {
     if (!session || session.owner !== owner) throw new LyricsEditorError('session-expired')
     if (session.busy || this.saving.has(pathKey(session.path))) throw new LyricsEditorError('busy')
     if (request.expectedRevision !== session.revision) throw new LyricsEditorError('stale-revision')
-    if (session.format === 'ttml') throw new LyricsEditorError('unsupported-document')
     if (
       typeof request.text !== 'string' ||
       request.text.length > MAX_LRC_EDITOR_CHARACTERS ||
       request.text.includes('\0') ||
-      !['tag', 'file', 'ttml'].includes(request.target) ||
+      !['tag', 'file'].includes(request.target) ||
       /<\s*(?:\w+:)?tt\b/i.test(request.text)
     )
       throw new LyricsEditorError('invalid-request')
     if (request.target === 'tag' && !LYRICS_TAG_EXTENSIONS.has(extname(session.path).toLowerCase()))
       throw new LyricsEditorError('unsupported-file')
-    let savedText = request.text
-    let conversionWarnings: string[] = []
-    if (request.target === 'ttml') {
-      let converted: ReturnType<typeof convertLrcToTtml>
-      try {
-        converted = convertLrcToTtml(
-          request.text,
-          session.durationMs === undefined ? {} : { durationMs: session.durationMs },
-        )
-      } catch {
-        throw new LyricsEditorError('invalid-lrc')
-      }
-      // Do not mark an unsaved plain-text line as saved after silently omitting it.
-      if (converted.warnings.includes('untimed-lines-ignored'))
-        throw new LyricsEditorError('untimed-lines')
-      if (converted.text.length > MAX_LRC_EDITOR_CHARACTERS)
-        throw new LyricsEditorError('unsupported-document')
-      savedText = converted.text
-      conversionWarnings = converted.warnings
-    }
     session.busy = true
     session.touched = this.now()
     const key = pathKey(session.path)
@@ -179,11 +155,11 @@ export class LrcEditorService {
           )
         ).warning
       } else {
-        const targetPath = `${session.path.slice(0, -extname(session.path).length)}.${request.target === 'ttml' ? 'ttml' : 'lrc'}`
+        const targetPath = `${session.path.slice(0, -extname(session.path).length)}.lrc`
         const target = session.sidecars.find((file) => pathKey(file.path) === pathKey(targetPath))
         if (!target) throw new LyricsEditorError('unsupported-file')
         backupPath = (
-          await publishLyricsFile(target, savedText, (moved) => this.unchanged(session, moved))
+          await publishLyricsFile(target, request.text, (moved) => this.unchanged(session, moved))
         ).backupPath
       }
       // A completed write cannot be submitted again using the old baseline.
@@ -193,15 +169,13 @@ export class LrcEditorService {
         reconciliation = await this.dependencies.reconcile(
           session.trackId,
           session.dbPath,
-          savedText,
+          request.text,
         )
       } catch {
         /* Disk save has committed. */
       }
       return {
         trackId: session.trackId,
-        savedFormat: request.target === 'ttml' ? 'ttml' : 'lrc',
-        conversionWarnings,
         backupPath,
         writeWarning,
         ...reconciliation,

@@ -115,7 +115,6 @@ async function mount() {
   const actions: LyricsSaveAction[] = [
     { target: 'tag', label: 'Tag', disabled: true, icon: 'i-lucide-tag' },
     { target: 'file', label: 'LRC', disabled: false, icon: 'i-lucide-file-text' },
-    { target: 'ttml', label: 'TTML', disabled: false, icon: 'i-lucide-file-code' },
   ]
   app = renderer.createApp({
     render: () =>
@@ -144,22 +143,22 @@ function key(root: TestNode, value: string, target?: TestNode): void {
 }
 
 describe('lyrics save action menu', () => {
-  it('shows only three actions with full-width separators and no extra save or collapse button', async () => {
+  it('shows only two actions with full-width separators and no extra save or collapse button', async () => {
     const { root } = await mount()
     const menu = find((node) => node.props.role === 'menu', root)!
     expect(menu.props['aria-label']).toBe('Save')
-    expect(menu.children.filter((node) => node.type === 'button')).toHaveLength(3)
-    expect(menu.children.filter((node) => node.props.role === 'separator')).toHaveLength(2)
+    expect(menu.children.filter((node) => node.type === 'button')).toHaveLength(2)
+    expect(menu.children.filter((node) => node.props.role === 'separator')).toHaveLength(1)
     expect(find((node) => node.text === 'Save', root)).toBeUndefined()
     expect(find((node) => String(node.props.class).includes('chevron'), root)).toBeUndefined()
   })
   it('skips disabled destinations with arrows and selects the active destination with Enter', async () => {
     const { root, onSelect } = await mount()
     key(root, 'ArrowDown')
-    const ttml = find((node) => node.props['data-index'] === 2, root)!
-    expect(ttml.focused).toBe(true)
-    key(root, 'Enter', ttml)
-    expect(onSelect).toHaveBeenCalledWith('ttml')
+    const lrc = find((node) => node.props['data-index'] === 1, root)!
+    expect(lrc.focused).toBe(true)
+    key(root, 'Enter', lrc)
+    expect(onSelect).toHaveBeenCalledWith('file')
     key(root, 'ArrowDown')
     expect(find((node) => node.props['data-index'] === 1, root)?.focused).toBe(true)
     const disabled = find((node) => node.props['data-index'] === 0, root)!
@@ -169,13 +168,13 @@ describe('lyrics save action menu', () => {
   it('retains positioned visibility when pointer focus moves to a different action before click', async () => {
     const { root, onSelect } = await mount()
     const surface = find((node) => String(node.props.class).includes('lyrics-save-menu'), root)!
-    const ttml = find((node) => node.props['data-index'] === 2, root)!
+    const lrc = find((node) => node.props['data-index'] === 1, root)!
     expect(surface.style.visibility).toBe('visible')
-    ;(ttml.props.onFocus as () => void)()
+    ;(lrc.props.onFocus as () => void)()
     await nextTick()
     expect(surface.style.visibility).toBe('visible')
-    ;(ttml.props.onClick as () => void)()
-    expect(onSelect).toHaveBeenCalledExactlyOnceWith('ttml')
+    ;(lrc.props.onClick as () => void)()
+    expect(onSelect).toHaveBeenCalledExactlyOnceWith('file')
   })
   it('closes on an outside pointer or Escape without treating an action as an outside click', async () => {
     const { root, anchor, onClose } = await mount()

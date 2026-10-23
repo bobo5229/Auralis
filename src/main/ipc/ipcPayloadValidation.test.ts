@@ -113,8 +113,8 @@ describe('domain IPC payload validation coverage', () => {
     )
 
     expect(actualChannels).toEqual(expectedChannels)
-    expect(actualChannels).toHaveLength(78)
-    expect(kinds).toEqual({ void: 21, optional: 6, required: 51 })
+    expect(actualChannels).toHaveLength(72)
+    expect(kinds).toEqual({ void: 21, optional: 6, required: 45 })
   })
 
   it('enforces the declared void, optional, and required argument contracts', () => {
@@ -439,25 +439,8 @@ describe('domain IPC payload validation behavior', () => {
     ['library:start-scan', { rootId: 0 }],
     ['library:cancel-scan', { jobId: Number.NaN }],
     ['lyrics:get-by-track-id', { trackId: Number.POSITIVE_INFINITY }],
-    ['lyrics:open-editor', { trackId: 1, filePath: 'C:/untrusted/song.flac' }],
-    ['lyrics:close-editor', { sessionId: 'too-short' }],
-    [
-      'lyrics:assign-editor-lines',
-      {
-        sessionId: '00000000-0000-4000-8000-000000000001',
-        expectedRevision: 'a'.repeat(64),
-        lineIds: ['line-0'],
-        assignment: 'performer-3',
-      },
-    ],
-    [
-      'lyrics:save-editor',
-      {
-        sessionId: '00000000-0000-4000-8000-000000000001',
-        expectedRevision: 'a'.repeat(64),
-        text: '<renderer-supplied-xml/>',
-      },
-    ],
+    ['lyrics:open-lrc-editor', { trackId: 1, filePath: 'C:/untrusted/song.flac' }],
+    ['lyrics:close-lrc-editor', { sessionId: 'too-short' }],
     ['library:get-track-page', { limit: 5_001 }],
     ['playlists:update-view-mode', { id: 1, viewMode: 'tiles' }],
     ['playback:get-album-tracks', { albumKey: { albumArtist: 'A' } }],
@@ -565,6 +548,19 @@ describe('domain IPC payload validation behavior', () => {
     ).toThrow(/depth limit/)
   })
 
+  it('does not register TTML editing channels', () => {
+    const registered = Object.values(ipcChannels.lyrics)
+    for (const channel of [
+      'lyrics:open-editor',
+      'lyrics:close-editor',
+      'lyrics:save-editor',
+      'lyrics:assign-editor-lines',
+      'lyrics:retime-editor-lines',
+      'lyrics:replace-editor-line-text',
+    ])
+      expect(registered).not.toContain(channel)
+  })
+
   it('bounds LRC text saves and rejects arbitrary destinations or extra file paths', () => {
     const request = {
       sessionId: '00000000-0000-4000-8000-000000000001',
@@ -573,7 +569,8 @@ describe('domain IPC payload validation behavior', () => {
       target: 'tag',
     }
     expect(parse('lyrics:save-lrc-editor', request)).toBeTruthy()
-    expect(parse('lyrics:save-lrc-editor', { ...request, target: 'ttml' })).toBeTruthy()
+    expect(parse('lyrics:save-lrc-editor', { ...request, target: 'file' })).toBeTruthy()
+    expect(() => parse('lyrics:save-lrc-editor', { ...request, target: 'ttml' })).toThrow()
     expect(() => parse('lyrics:save-lrc-editor', { ...request, target: 'chorus' })).toThrow()
     expect(() =>
       parse('lyrics:save-lrc-editor', { ...request, filePath: 'arbitrary.flac' }),
@@ -581,58 +578,6 @@ describe('domain IPC payload validation behavior', () => {
     expect(() =>
       parse('lyrics:save-lrc-editor', { ...request, text: 'x'.repeat(128 * 1024 + 1) }),
     ).toThrow()
-  })
-
-  it('bounds timing mutations to IDs and finite integer milliseconds, without allowing a file destination', () => {
-    const request = {
-      sessionId: '00000000-0000-4000-8000-000000000001',
-      expectedRevision: 'a'.repeat(64),
-      lineIds: ['line-0'],
-      mode: 'shift',
-      valueMs: -100,
-    }
-    expect(parse('lyrics:retime-editor-lines', request)).toBeTruthy()
-    expect(
-      parse('lyrics:retime-editor-lines', { ...request, mode: 'set-end', valueMs: 2500 }),
-    ).toBeTruthy()
-    expect(
-      parse('lyrics:assign-editor-lines', {
-        sessionId: request.sessionId,
-        expectedRevision: request.expectedRevision,
-        lineIds: ['line-0'],
-        assignment: 'together',
-      }),
-    ).toBeTruthy()
-    for (const patch of [
-      { valueMs: NaN },
-      { valueMs: Infinity },
-      { valueMs: 0.1 },
-      { valueMs: Number.MAX_SAFE_INTEGER + 1 },
-      { mode: 'replace' },
-      { lineIds: [] },
-      { lineIds: Array(10001).fill('line-0') },
-      { filePath: 'arbitrary.ttml' },
-    ])
-      expect(() => parse('lyrics:retime-editor-lines', { ...request, ...patch })).toThrow()
-  })
-
-  it('accepts bounded plain text edits without exposing file paths or XML replacement', () => {
-    const request = {
-      sessionId: '00000000-0000-4000-8000-000000000001',
-      expectedRevision: 'a'.repeat(64),
-      lineId: 'line-0',
-      text: 'Literal & <text>',
-    }
-    expect(parse('lyrics:replace-editor-line-text', request)).toBeTruthy()
-    expect(parse('lyrics:replace-editor-line-text', { ...request, text: '' })).toBeTruthy()
-    for (const patch of [
-      { text: 'x'.repeat(8193) },
-      { text: 1 },
-      { lineId: '' },
-      { filePath: 'arbitrary.ttml' },
-      { xml: '<replacement/>' },
-    ])
-      expect(() => parse('lyrics:replace-editor-line-text', { ...request, ...patch })).toThrow()
   })
 
   it('rejects extra invoke arguments and never reflects sensitive payload values', () => {

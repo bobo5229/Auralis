@@ -44,13 +44,7 @@ import type {
   DailyTopTrack,
 } from '@shared/types/listeningArchive'
 import type {
-  AssignLyricsEditorLines,
-  RetimeLyricsEditorLines,
-  ReplaceLyricsEditorLineText,
   LyricsEditorResult,
-  LyricsEditorSaved,
-  LyricsEditorState,
-  SaveLyricsEditor,
   LrcEditorState,
   SaveLrcEditor,
   LrcEditorSaved,
@@ -381,10 +375,6 @@ export interface IpcInvokeContract {
     request: { trackId: number }
     response: TrackLyrics | null
   }
-  'lyrics:open-editor': {
-    request: { trackId: number }
-    response: LyricsEditorResult<LyricsEditorState>
-  }
   'lyrics:open-lrc-editor': {
     request: { trackId: number }
     response: LyricsEditorResult<LrcEditorState>
@@ -394,26 +384,6 @@ export interface IpcInvokeContract {
     response: LyricsEditorResult<LrcEditorSaved>
   }
   'lyrics:close-lrc-editor': {
-    request: { sessionId: string }
-    response: LyricsEditorResult<null>
-  }
-  'lyrics:assign-editor-lines': {
-    request: AssignLyricsEditorLines
-    response: LyricsEditorResult<LyricsEditorState>
-  }
-  'lyrics:retime-editor-lines': {
-    request: RetimeLyricsEditorLines
-    response: LyricsEditorResult<LyricsEditorState>
-  }
-  'lyrics:replace-editor-line-text': {
-    request: ReplaceLyricsEditorLineText
-    response: LyricsEditorResult<LyricsEditorState>
-  }
-  'lyrics:save-editor': {
-    request: SaveLyricsEditor
-    response: LyricsEditorResult<LyricsEditorSaved>
-  }
-  'lyrics:close-editor': {
     request: { sessionId: string }
     response: LyricsEditorResult<null>
   }

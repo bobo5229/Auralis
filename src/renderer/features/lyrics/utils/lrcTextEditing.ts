@@ -43,7 +43,7 @@ export function getLrcTextLine(text: string, cursor: number): LrcTextLine {
 
 export function replaceLrcLineTime(line: LrcTextLine, seconds: number): string | null {
   if (!line.editable || !Number.isFinite(seconds)) return null
-  // Store the inverse compensation so playback and TTML export trigger at the chosen time.
+  // Store the inverse compensation so playback triggers at the chosen time.
   return `[${formatLrcTime(seconds + line.offsetMs / 1000)}]${line.timestamp ? line.text.slice(line.timestamp[0].length) : line.text}`
 }
 

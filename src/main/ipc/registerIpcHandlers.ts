@@ -31,10 +31,8 @@ import {
   getLyricsSidecarFingerprint,
   resolveLyricsForFile,
 } from '@main/features/metadata/resolveLyricsForFile'
-import { LyricsEditorService } from '@main/features/lyrics/lyricsEditorService'
 import { LrcEditorService } from '@main/features/lyrics/lrcEditorService'
 import { LyricsEditorError } from '@main/features/lyrics/lyricsEditorError'
-import { captureLyricsFiles } from '@main/features/lyrics/lyricsEditorFiles'
 import { StartupAlbumWorkerHost } from '@main/features/startupAlbum/startupAlbumWorkerHost'
 import { logger } from '@main/logging/logger'
 import { exportDiagnostics } from '@main/logging/diagnosticExport'
@@ -152,68 +150,6 @@ export function registerIpcHandlers(
     sendToRenderer,
   )
 
-  const lyricsEditorService = new LyricsEditorService({
-    getFilePath: (trackId) => trackRepository.getFilePathById(trackId),
-    getRoots: () => libraryRootRepository.list().map((root) => root.path),
-    readSource: async (filePath) => {
-      const lease = await playbackFileCoordinator.acquireReadLease(filePath, 'lyrics-editor')
-      try {
-        const metadata = await parseAudioMetadata(filePath, { skipCovers: true, duration: false })
-        const lyrics = await resolveLyricsForFile(filePath, metadata)
-        if (!lyrics) return null
-        const duration = metadata.format.duration
-        return {
-          lyricsText: lyrics.text,
-          lyricsFormat: lyrics.format,
-          ...(duration !== undefined && Number.isFinite(duration) && duration > 0
-            ? { durationMs: Math.round(duration * 1000) }
-            : {}),
-        }
-      } finally {
-        playbackFileCoordinator.releaseReadLease(lease.leaseId)
-      }
-    },
-    persist: async (trackId, filePath, text) => {
-      let updated = false
-      try {
-        if (trackRepository.getFilePathById(trackId) !== filePath) return false
-        const fingerprint = await getLyricsSidecarFingerprint(filePath)
-        const files = await captureLyricsFiles(filePath)
-        const firstTtml = files.find((file) => /\.ttml$/i.test(file.path) && file.identity)
-        if (
-          firstTtml?.text !== text ||
-          fingerprint !== (await getLyricsSidecarFingerprint(filePath))
-        )
-          return false
-        const audio = await stat(filePath)
-        trackRepository.patchLyrics([
-          {
-            filePath,
-            lyricsText: text,
-            lyricsFormat: 'ttml',
-            lyricsCheckedMtimeMs: audio.mtimeMs,
-            lyricsSidecarFingerprint: fingerprint,
-          },
-        ])
-        updated = true
-        return true
-      } finally {
-        sendToRenderer(ipcChannels.library.changed, {
-          reason: 'file-change',
-          trackIds: [trackId],
-          filePaths: [filePath],
-        })
-        if (!updated) {
-          try {
-            metadataRefreshService.refreshTracksFromFileChanges([trackId])
-          } catch (error) {
-            logger.warn({ error, trackId }, 'Saved lyrics require cache reconciliation')
-          }
-        }
-      }
-    },
-  })
-
   const lrcEditorService = new LrcEditorService({
     getFilePath: (id) => trackRepository.getFilePathById(id),
     getRoots: () => libraryRootRepository.list().map((root) => root.path),
@@ -222,14 +158,10 @@ export function registerIpcHandlers(
       try {
         const metadata = await parseAudioMetadata(filePath, { skipCovers: true, duration: false })
         const lyrics = await resolveLyricsForFile(filePath, metadata, true)
-        const duration = metadata.format.duration
         return lyrics
           ? {
               lyricsText: lyrics.text,
               lyricsFormat: lyrics.format,
-              ...(duration !== undefined && Number.isFinite(duration) && duration > 0
-                ? { durationMs: Math.round(duration * 1000) }
-                : {}),
             }
           : null
       } finally {
@@ -572,7 +504,7 @@ export function registerIpcHandlers(
       openPath: (directoryPath) => shell.openPath(directoryPath),
     },
   })
-  registerLyricsEditorIpcHandlers(electronIpcRegistrar, lyricsEditorService, lrcEditorService)
+  registerLyricsEditorIpcHandlers(electronIpcRegistrar, lrcEditorService)
   registerPlaylistIpcHandlers(electronIpcRegistrar, {
     playlistService,
     smartPlaylistService,
@@ -606,7 +538,6 @@ export function registerIpcHandlers(
         spectrum.dispose(),
         Promise.resolve().then(() => nativePlayback.dispose()),
       ])
-      lyricsEditorService.dispose()
       lrcEditorService.dispose()
       const failures = [...early, ...library, ...playback].filter(
         (result) => result.status === 'rejected',

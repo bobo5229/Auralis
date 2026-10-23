@@ -1,5 +1,5 @@
-import { DOMImplementation, XMLSerializer, type Element, type Node } from '@xmldom/xmldom'
-import { formatTtmlTime, parseTtmlTime, checkedMilliseconds } from './conversionTime'
+import { type Element, type Node } from '@xmldom/xmldom'
+import { parseTtmlTime, checkedMilliseconds } from './conversionTime'
 import {
   LyricsConversionError,
   type ConversionDocument,
@@ -66,50 +66,6 @@ function plainText(element: Element): string {
         .split('\u0000')
         .map((line) => line.replace(/[\t\r\n ]+/g, ' ').replace(/^ +| +$/g, ''))
         .join('\n')
-}
-
-export function serializeConversionTtml(source: ConversionDocument): string {
-  const document = new DOMImplementation().createDocument(TTML_NAMESPACE, 'tt', null)
-  const root = document.documentElement!
-  root.setAttribute('xmlns', TTML_NAMESPACE)
-  root.setAttribute('xmlns:ttm', TTML_METADATA_NAMESPACE)
-  root.setAttribute('xmlns:auralis', AURALIS_NAMESPACE)
-  const head = document.createElementNS(TTML_NAMESPACE, 'head')
-  const metadata = document.createElementNS(TTML_NAMESPACE, 'metadata')
-  head.appendChild(metadata)
-  root.appendChild(head)
-  for (const [key, value] of source.metadata) {
-    if (key === 'ti') {
-      const title = document.createElementNS(TTML_METADATA_NAMESPACE, 'ttm:title')
-      title.appendChild(document.createTextNode(value))
-      metadata.appendChild(title)
-    }
-    const entry = document.createElementNS(AURALIS_NAMESPACE, 'auralis:meta')
-    entry.setAttribute('name', key)
-    entry.setAttribute('value', value)
-    metadata.appendChild(entry)
-  }
-  const body = document.createElementNS(TTML_NAMESPACE, 'body')
-  const div = document.createElementNS(TTML_NAMESPACE, 'div')
-  body.appendChild(div)
-  root.appendChild(body)
-  for (const line of source.lines) {
-    const paragraph = document.createElementNS(TTML_NAMESPACE, 'p')
-    paragraph.setAttribute('begin', formatTtmlTime(line.startMs))
-    paragraph.setAttribute('end', formatTtmlTime(line.endMs!))
-    paragraph.setAttributeNS(XML_NAMESPACE, 'xml:space', 'preserve')
-    if (line.words?.length) {
-      for (const word of line.words) {
-        const span = document.createElementNS(TTML_NAMESPACE, 'span')
-        span.setAttribute('begin', formatTtmlTime(word.startMs))
-        span.setAttribute('end', formatTtmlTime(word.endMs!))
-        span.appendChild(document.createTextNode(word.text))
-        paragraph.appendChild(span)
-      }
-    } else paragraph.appendChild(document.createTextNode(line.text))
-    div.appendChild(paragraph)
-  }
-  return `<?xml version="1.0" encoding="UTF-8"?>\n${new XMLSerializer().serializeToString(document)}\n`
 }
 
 interface TimeContext {

@@ -8,7 +8,7 @@ import { assertRecentAddedDays } from '@shared/smartPlaylists/recentAdded'
 import { SMART_PLAYLIST_MAX_OPERANDS } from '@shared/smartPlaylists/ruleLimits'
 import { isListeningArchiveDate } from '@shared/listeningArchiveDate'
 import { STARTUP_ALBUM_HISTORY_LIMIT } from '@shared/types/startupAlbum'
-import { MAX_LRC_EDITOR_CHARACTERS, MAX_TTML_LINE_CHARACTERS } from '@shared/types/lyricsEditor'
+import { MAX_LRC_EDITOR_CHARACTERS } from '@shared/types/lyricsEditor'
 
 const MAX_TEXT_LENGTH = 8_192
 const MAX_QUERY_LENGTH = 4_096
@@ -479,61 +479,16 @@ export const domainIpcPayloadPolicies = {
     }),
   ),
   [ipcChannels.lyrics.getByTrackId]: required(idPayload('trackId')),
-  [ipcChannels.lyrics.openEditor]: required(idPayload('trackId')),
   [ipcChannels.lyrics.openLrcEditor]: required(idPayload('trackId')),
   [ipcChannels.lyrics.saveLrcEditor]: required(
     objectShape({
       sessionId: field(stringValue({ min: 36, max: 36 })),
       expectedRevision: field(stringValue({ min: 64, max: 64 })),
       text: field(stringValue({ max: MAX_LRC_EDITOR_CHARACTERS })),
-      target: field(enumValue(['tag', 'file', 'ttml'])),
+      target: field(enumValue(['tag', 'file'])),
     }),
   ),
   [ipcChannels.lyrics.closeLrcEditor]: required(
-    objectShape({
-      sessionId: field(stringValue({ min: 36, max: 36 })),
-    }),
-  ),
-  [ipcChannels.lyrics.assignEditorLines]: required(
-    objectShape({
-      sessionId: field(stringValue({ min: 36, max: 36 })),
-      expectedRevision: field(stringValue({ min: 64, max: 64 })),
-      lineIds: field(arrayOf(stringValue({ min: 1, max: 32 }), { max: MAX_ID_LIST_LENGTH })),
-      assignment: field(enumValue(['unassigned', 'performer-1', 'performer-2', 'together'])),
-    }),
-  ),
-  [ipcChannels.lyrics.saveEditor]: required(
-    objectShape({
-      sessionId: field(stringValue({ min: 36, max: 36 })),
-      expectedRevision: field(stringValue({ min: 64, max: 64 })),
-    }),
-  ),
-  [ipcChannels.lyrics.retimeEditorLines]: required(
-    objectShape({
-      sessionId: field(stringValue({ min: 36, max: 36 })),
-      expectedRevision: field(stringValue({ min: 64, max: 64 })),
-      lineIds: field(
-        arrayOf(stringValue({ min: 1, max: 32 }), { min: 1, max: MAX_ID_LIST_LENGTH }),
-      ),
-      mode: field(enumValue(['set', 'set-end', 'shift'])),
-      valueMs: field(
-        finiteNumber({
-          integer: true,
-          min: -Number.MAX_SAFE_INTEGER,
-          max: Number.MAX_SAFE_INTEGER,
-        }),
-      ),
-    }),
-  ),
-  [ipcChannels.lyrics.replaceEditorLineText]: required(
-    objectShape({
-      sessionId: field(stringValue({ min: 36, max: 36 })),
-      expectedRevision: field(stringValue({ min: 64, max: 64 })),
-      lineId: field(stringValue({ min: 1, max: 32 })),
-      text: field(stringValue({ max: MAX_TTML_LINE_CHARACTERS })),
-    }),
-  ),
-  [ipcChannels.lyrics.closeEditor]: required(
     objectShape({
       sessionId: field(stringValue({ min: 36, max: 36 })),
     }),

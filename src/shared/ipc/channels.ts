@@ -54,15 +54,9 @@ export const ipcChannels = {
   },
   lyrics: {
     getByTrackId: 'lyrics:get-by-track-id',
-    openEditor: 'lyrics:open-editor',
     openLrcEditor: 'lyrics:open-lrc-editor',
     saveLrcEditor: 'lyrics:save-lrc-editor',
     closeLrcEditor: 'lyrics:close-lrc-editor',
-    assignEditorLines: 'lyrics:assign-editor-lines',
-    retimeEditorLines: 'lyrics:retime-editor-lines',
-    replaceEditorLineText: 'lyrics:replace-editor-line-text',
-    saveEditor: 'lyrics:save-editor',
-    closeEditor: 'lyrics:close-editor',
   },
   playback: {
     spectrumSubscribe: 'playback:spectrum-subscribe',

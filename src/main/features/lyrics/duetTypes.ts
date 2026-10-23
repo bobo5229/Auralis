@@ -38,32 +38,6 @@ export interface DuetLyricsSnapshot {
   issues: DuetIssue[]
 }
 
-export interface DuetEditResult {
-  text: string
-  changed: boolean
-  snapshot: DuetLyricsSnapshot
-}
-
-export interface ConfigureDuetRequest {
-  expectedRevision: string
-  performer1Name: string
-  performer2Name: string
-  /** Optional group label. Omission preserves an existing label. */
-  togetherName?: string
-}
-
-export interface RenameDuetPerformerRequest {
-  expectedRevision: string
-  performerId: string
-  name: string
-}
-
-export interface AssignDuetLinesRequest {
-  expectedRevision: string
-  lineIds: string[]
-  assignment: DuetAssignment
-}
-
 export class DuetLyricsError extends Error {
   constructor(
     readonly code:

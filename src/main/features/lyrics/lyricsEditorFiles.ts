@@ -143,7 +143,7 @@ export function sameLyricFiles(
 /**
  * Flush first; reserve a unique backup directory; publish via an exclusive hard link.
  * No replacement rename or unlink ever overwrites an external writer's target.
- * Filesystems without hard links fail the probe before touching an existing TTML.
+ * Filesystems without hard links fail the probe before touching an existing lyrics file.
  */
 export async function publishLyricsFile(
   target: LyricFile,

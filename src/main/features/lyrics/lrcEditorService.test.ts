@@ -3,7 +3,8 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { LrcEditorService } from './lrcEditorService'
-import { readTtmlPlayback } from './ttmlPlayback'
+import { captureLyricsFiles, publishLyricsFile } from './lyricsEditorFiles'
+import { LyricsEditorError } from './lyricsEditorError'
 import { MAX_LRC_EDITOR_CHARACTERS, type SaveLrcEditor } from '@shared/types/lyricsEditor'
 
 let root: string
@@ -26,7 +27,12 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true })
 })
 function fixture(
-  options: { format?: 'lrc' | 'ttml'; cacheUpdated?: boolean; now?: () => number } = {},
+  options: {
+    format?: 'lrc' | 'ttml'
+    cacheUpdated?: boolean
+    now?: () => number
+    roots?: string[]
+  } = {},
 ) {
   const writeTag = vi.fn(async (_id: number, _text: string, check: () => Promise<void>) => {
     await check()
@@ -38,7 +44,7 @@ function fixture(
   }))
   const service = new LrcEditorService({
     getFilePath: (id) => (id === 1 ? audio : null),
-    getRoots: () => [root],
+    getRoots: () => options.roots ?? [root],
     readSource: async () => ({
       lyricsText: await readFile(sidecar, 'utf8'),
       lyricsFormat: options.format ?? 'lrc',
@@ -63,61 +69,30 @@ async function request(
   }
 }
 describe('LRC text save sessions', () => {
-  it('can export an unchanged timed LRC to TTML', async () => {
-    const lyrics = '[00:01.00]Unchanged lyric\n'
-    await writeFile(sidecar, lyrics)
-    const { service } = fixture()
-    const state = await service.open(10, 1)
-    const saved = await service.save(10, {
-      sessionId: state.sessionId,
-      expectedRevision: state.revision,
-      text: state.text,
-      target: 'ttml',
-    })
-    expect(saved.savedFormat).toBe('ttml')
-    expect(readTtmlPlayback(await readFile(join(root, 'song.ttml'), 'utf8')).lines[0].text).toBe(
-      'Unchanged lyric',
-    )
-    expect(await readFile(sidecar, 'utf8')).toBe(lyrics)
-  })
-  it('converts a timed draft to same-name TTML, backs up an existing file and retains the LRC', async () => {
+  it('rejects a removed TTML destination without changing files or consuming the LRC draft', async () => {
     const ttmlPath = join(root, 'song.ttml')
-    await writeFile(ttmlPath, 'malformed old TTML')
-    const { service, reconcile } = fixture()
-    const edit = {
-      ...(await request(service)),
-      target: 'ttml' as const,
-      text: '[00:02.00]First\n[00:04.00]Second\n',
-    }
-    const saved = await service.save(10, edit)
-    const xml = await readFile(ttmlPath, 'utf8')
-    expect(saved.savedFormat).toBe('ttml')
-    expect(readTtmlPlayback(xml).lines.map((line) => [line.timeSeconds, line.text])).toEqual([
-      [2, 'First'],
-      [4, 'Second'],
-    ])
-    expect(await readFile(saved.backupPath!, 'utf8')).toBe('malformed old TTML')
+    await writeFile(ttmlPath, 'Existing TTML')
+    const { service, writeTag, reconcile } = fixture()
+    const edit = await request(service)
+    await expect(
+      service.save(10, { ...edit, target: 'ttml' } as unknown as SaveLrcEditor),
+    ).rejects.toMatchObject({ code: 'invalid-request' })
+    expect(await readFile(ttmlPath, 'utf8')).toBe('Existing TTML')
     expect(await readFile(sidecar, 'utf8')).toBe(original)
-    expect(reconcile).toHaveBeenCalledWith(1, audio, xml)
+    expect(writeTag).not.toHaveBeenCalled()
+    expect(reconcile).not.toHaveBeenCalled()
+    await service.save(10, edit)
+    expect(await readFile(sidecar, 'utf8')).toBe(edit.text)
+    expect(await readFile(ttmlPath, 'utf8')).toBe('Existing TTML')
   })
-  it('rejects incomplete and malformed LRC conversion without touching an existing TTML', async () => {
-    const ttmlPath = join(root, 'song.ttml')
-    await writeFile(ttmlPath, 'old TTML')
+  it('rejects externally changed TTML sidecars before saving LRC', async () => {
     const { service } = fixture()
-    const edit = { ...(await request(service)), target: 'ttml' as const }
-    await expect(service.save(10, edit)).rejects.toMatchObject({ code: 'untimed-lines' })
-    await expect(service.save(10, { ...edit, text: '[00:90.00]Broken' })).rejects.toMatchObject({
-      code: 'invalid-lrc',
-    })
-    expect(await readFile(ttmlPath, 'utf8')).toBe('old TTML')
-  })
-  it('rejects a TTML target created externally after the editor opened', async () => {
-    const { service } = fixture()
-    const edit = { ...(await request(service)), target: 'ttml' as const, text: '[00:02.00]Line' }
+    const edit = await request(service)
     const ttmlPath = join(root, 'song.ttml')
     await writeFile(ttmlPath, 'External TTML')
     await expect(service.save(10, edit)).rejects.toMatchObject({ code: 'file-changed' })
     expect(await readFile(ttmlPath, 'utf8')).toBe('External TTML')
+    expect(await readFile(sidecar, 'utf8')).toBe(original)
   })
   it('backs up the exact sidecar, publishes the same-name LRC and leaves audio unchanged', async () => {
     const { service } = fixture()
@@ -167,16 +142,38 @@ describe('LRC text save sessions', () => {
     expect(await service.save(10, edit)).toMatchObject({ writeWarning: true })
     await expect(service.save(10, edit)).rejects.toMatchObject({ code: 'session-expired' })
   })
-  it('keeps TTML read-only and bounds raw drafts', async () => {
+  it('rejects TTML sessions and bounds raw drafts', async () => {
     const ttml = fixture({ format: 'ttml' }).service
-    await expect(ttml.save(10, await request(ttml))).rejects.toMatchObject({
-      code: 'unsupported-document',
+    await expect(ttml.open(10, 1)).rejects.toMatchObject({
+      code: 'unsupported-format',
     })
     const { service } = fixture()
     const edit = await request(service)
     await expect(
       service.save(10, { ...edit, text: 'x'.repeat(MAX_LRC_EDITOR_CHARACTERS + 1) }),
     ).rejects.toMatchObject({ code: 'invalid-request' })
+  })
+  it('rejects tracks outside configured library roots before opening a draft', async () => {
+    const { service, writeTag, reconcile } = fixture({ roots: [join(root, 'not-a-library-root')] })
+    await expect(service.open(10, 1)).rejects.toMatchObject({ code: 'outside-library' })
+    expect(await readFile(sidecar, 'utf8')).toBe(original)
+    expect(writeTag).not.toHaveBeenCalled()
+    expect(reconcile).not.toHaveBeenCalled()
+  })
+  it('preserves both the external LRC and recovery backup when publication loses a race', async () => {
+    const captured = (await captureLyricsFiles(audio)).find((file) => file.path === sidecar)!
+    let recovery: string | undefined
+    try {
+      await publishLyricsFile(captured, 'new', async (moved) => {
+        if (moved) await writeFile(sidecar, 'external-created-after-move', { flag: 'wx' })
+      })
+      expect.fail('Expected a publication conflict')
+    } catch (error) {
+      expect(error).toMatchObject({ code: 'recovery-required' })
+      recovery = (error as LyricsEditorError).recoveryBackupPath
+    }
+    expect(await readFile(sidecar, 'utf8')).toBe('external-created-after-move')
+    expect(await readFile(recovery!, 'utf8')).toBe(original)
   })
   it('expires idle sessions and invalidates pending opens when their window owner leaves', async () => {
     let now = 0

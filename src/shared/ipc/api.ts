@@ -102,23 +102,9 @@ export interface AuralisApi {
     getByTrackId: (
       trackId: Req<'lyrics:get-by-track-id'>['trackId'],
     ) => Result<'lyrics:get-by-track-id'>
-    openEditor: (trackId: Req<'lyrics:open-editor'>['trackId']) => Result<'lyrics:open-editor'>
     openLrcEditor: (trackId: number) => Result<'lyrics:open-lrc-editor'>
     saveLrcEditor: (request: Req<'lyrics:save-lrc-editor'>) => Result<'lyrics:save-lrc-editor'>
     closeLrcEditor: (sessionId: string) => Result<'lyrics:close-lrc-editor'>
-    assignEditorLines: (
-      request: Req<'lyrics:assign-editor-lines'>,
-    ) => Result<'lyrics:assign-editor-lines'>
-    retimeEditorLines: (
-      request: Req<'lyrics:retime-editor-lines'>,
-    ) => Result<'lyrics:retime-editor-lines'>
-    replaceEditorLineText: (
-      request: Req<'lyrics:replace-editor-line-text'>,
-    ) => Result<'lyrics:replace-editor-line-text'>
-    saveEditor: (request: Req<'lyrics:save-editor'>) => Result<'lyrics:save-editor'>
-    closeEditor: (
-      sessionId: Req<'lyrics:close-editor'>['sessionId'],
-    ) => Result<'lyrics:close-editor'>
   }
   playback: {
     subscribeSpectrum: (

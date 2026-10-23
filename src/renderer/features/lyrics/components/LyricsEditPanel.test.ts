@@ -7,12 +7,6 @@ const api = vi.hoisted(() => ({
   openLrcEditor: vi.fn(),
   closeLrcEditor: vi.fn(),
   saveLrcEditor: vi.fn(),
-  openEditor: vi.fn(),
-  closeEditor: vi.fn(),
-  saveEditor: vi.fn(),
-  assignEditorLines: vi.fn(),
-  retimeEditorLines: vi.fn(),
-  replaceEditorLineText: vi.fn(),
 }))
 const playback = reactive({
   currentTrackId: 7 as number | null,
@@ -165,7 +159,7 @@ function button(label: string) {
 async function flush() {
   for (let i = 0; i < 15; i++) await nextTick()
 }
-function lrc(sessionId = 'raw', format: 'lrc' | 'ttml' = 'lrc') {
+function lrc(sessionId = 'raw', format: 'lrc' | 'plain' = 'lrc') {
   return {
     sessionId,
     trackId: 7,
@@ -173,28 +167,6 @@ function lrc(sessionId = 'raw', format: 'lrc' | 'ttml' = 'lrc') {
     text: '[00:01.00]First\r\n[00:02.00]Second',
     format,
     canSaveTag: true,
-  }
-}
-function duet(sessionId = 'duet', dirty = false) {
-  return {
-    sessionId,
-    trackId: 7,
-    revision: sessionId,
-    dirty,
-    editable: true,
-    issues: [],
-    lines: [
-      {
-        id: 'a',
-        text: 'First',
-        editableText: 'First',
-        timeSeconds: 1,
-        assignment: 'unassigned',
-        editable: true,
-        textEditable: true,
-        timingEditable: true,
-      },
-    ],
   }
 }
 async function mount(returnFocusTo?: TestNode) {
@@ -254,19 +226,14 @@ beforeEach(() => {
   })
   api.openLrcEditor.mockImplementation(async () => ({ ok: true, value: lrc() }))
   api.closeLrcEditor.mockResolvedValue({ ok: true })
-  api.closeEditor.mockResolvedValue({ ok: true })
-  api.openEditor.mockImplementation(async () => ({ ok: true, value: duet() }))
   api.saveLrcEditor.mockResolvedValue({
     ok: true,
     value: {
-      savedFormat: 'lrc',
-      conversionWarnings: [],
       writeWarning: false,
       cacheUpdated: true,
       active: true,
     },
   })
-  api.saveEditor.mockResolvedValue({ ok: true, value: { cacheUpdated: true } })
 })
 afterEach(async () => {
   app?.unmount()
@@ -358,52 +325,6 @@ it('saves and closes only after selecting a target from the confirmation menu', 
   expect(api.openLrcEditor).toHaveBeenCalledTimes(1)
 })
 
-it('switches a saved LRC to the real TTML list and commits inline text before saving its latest revision', async () => {
-  await mount()
-  api.openLrcEditor.mockResolvedValue({ ok: true, value: lrc('converted', 'ttml') })
-  api.saveLrcEditor.mockResolvedValue({
-    ok: true,
-    value: {
-      savedFormat: 'ttml',
-      conversionWarnings: [],
-      writeWarning: false,
-      cacheUpdated: true,
-      active: true,
-    },
-  })
-  fire(button('lyricsEditor.save'), 'onClick')
-  await flush()
-  fire(button('lyricsEditor.ttmlFile'), 'onClick')
-  await flush()
-  expect(source()).toBeUndefined()
-  expect(find((node) => node.props.role === 'listbox')).toBeDefined()
-  const words = find(
-    (node) => node.type === 'span' && String(node.props.class).split(' ').includes('duet-text'),
-  )!
-  fire(words, 'onDblclick')
-  await flush()
-  const textarea = find((node) => node.type === 'textarea')!
-  textarea.value = 'Updated'
-  fire(textarea, 'onInput')
-  await flush()
-  api.replaceEditorLineText.mockResolvedValue({
-    ok: true,
-    value: { ...duet('duet', true), revision: 'r2' },
-  })
-  fire(button('lyricsEditor.save'), 'onClick')
-  await flush()
-  expect(api.replaceEditorLineText).toHaveBeenCalledWith({
-    sessionId: 'duet',
-    expectedRevision: 'duet',
-    lineId: 'a',
-    text: 'Updated',
-  })
-  expect(api.saveEditor).toHaveBeenCalledWith({ sessionId: 'duet', expectedRevision: 'r2' })
-  expect(api.saveEditor.mock.invocationCallOrder[0]).toBeGreaterThan(
-    api.replaceEditorLineText.mock.invocationCallOrder[0],
-  )
-})
-
 it('blocks dismissal and duplicate keyboard saves while the write is pending', async () => {
   const view = await mount()
   let finish!: (value: unknown) => void
@@ -465,29 +386,6 @@ it('protects dirty text on beforeunload but does not treat a failed post-save re
   expect(windowListeners.has('beforeunload')).toBe(false)
 })
 
-it('retains rejected TTML inline input without submitting a save or closing', async () => {
-  api.openLrcEditor.mockResolvedValue({ ok: true, value: lrc('raw-ttml', 'ttml') })
-  const view = await mount()
-  fire(
-    find(
-      (node) => node.type === 'span' && String(node.props.class).split(' ').includes('duet-text'),
-    )!,
-    'onDblclick',
-  )
-  await flush()
-  const textarea = find((node) => node.type === 'textarea')!
-  textarea.value = 'Retry'
-  fire(textarea, 'onInput')
-  await flush()
-  api.replaceEditorLineText.mockResolvedValueOnce({ ok: false, code: 'stale-revision' })
-  fire(button('lyricsEditor.save'), 'onClick')
-  await flush()
-  expect(find((node) => node.type === 'textarea')?.value).toBe('Retry')
-  expect(activeElement).toBe(textarea)
-  expect(api.saveEditor).not.toHaveBeenCalled()
-  expect(view.onClose).not.toHaveBeenCalled()
-})
-
 it('returns focus to the provided trigger, then a valid captured target, then the lyrics viewport', async () => {
   const trigger = new TestNode('button')
   const captured = new TestNode('button')
@@ -503,4 +401,24 @@ it('returns focus to the provided trigger, then a valid captured target, then th
   vi.stubGlobal('document', { ...document, body, querySelector: () => viewport })
   restore(captured as unknown as HTMLElement)
   expect(activeElement).toBe(viewport)
+})
+
+it('offers only tag and LRC destinations in the real save menu', async () => {
+  await mount()
+  fire(button('lyricsEditor.save'), 'onClick')
+  await flush()
+  expect(button('lyricsEditor.tag')).toBeDefined()
+  expect(button('lyricsEditor.file')).toBeDefined()
+  expect(button('lyricsEditor.ttmlFile')).toBeUndefined()
+  const menu = find((node) => node.props.role === 'menu')!
+  expect(menu.children.filter((node) => node.type === 'button')).toHaveLength(2)
+})
+
+it('reports unsupported TTML without enabling editing or saving', async () => {
+  api.openLrcEditor.mockResolvedValue({ ok: false, code: 'unsupported-format' })
+  await mount()
+  expect(textContent(body)).toContain('lyricsEditor.errors.lrcOnly')
+  expect(source().props.readonly).toBe(true)
+  expect(button('lyricsEditor.save').props.disabled).toBe(true)
+  expect(api.saveLrcEditor).not.toHaveBeenCalled()
 })

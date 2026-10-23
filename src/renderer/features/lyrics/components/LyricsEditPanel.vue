@@ -3,7 +3,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppDialog from '@renderer/shared/dialog/AppDialog.vue'
 import LyricsSaveMenu from './LyricsSaveMenu.vue'
-import LyricsDuetLines from './LyricsDuetLines.vue'
 import { useLyricsEditSession } from '../composables/useLyricsEditSession'
 import { usePlayback } from '@renderer/features/playback/composables/usePlayback'
 import { MAX_LRC_EDITOR_CHARACTERS, type SaveLrcEditor } from '@shared/types/lyricsEditor'
@@ -26,32 +25,23 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const playback = usePlayback()
 const editor = ref<HTMLTextAreaElement | null>(null)
-const duetList = ref<InstanceType<typeof LyricsDuetLines> | null>(null)
 const continueButton = ref<HTMLButtonElement | null>(null)
 const cursor = ref(0)
 const composing = ref(false)
-const inlineEditing = ref(false)
-const inlineDirty = ref(false)
 const editSession = useLyricsEditSession({
   isOpen: () => props.open,
   t,
   composing: () => composing.value,
-  inlineEditing: () => inlineEditing.value,
-  inlineDirty: () => inlineDirty.value,
   onLrcLoaded: () => {
     cursor.value = 0
     history = []
     historyIndex.value = -1
     record()
   },
-  focusEditor: (mode, resetSelection = false) => {
-    if (mode === 'ttml') duetList.value?.focus()
-    else {
-      editor.value?.focus({ preventScroll: true })
-      if (resetSelection) editor.value?.setSelectionRange(0, 0)
-    }
+  focusEditor: (resetSelection = false) => {
+    editor.value?.focus({ preventScroll: true })
+    if (resetSelection) editor.value?.setSelectionRange(0, 0)
   },
-  commitInlineText: () => duetList.value?.commitText(),
   onClose: () => emit('close'),
 })
 const {
@@ -64,8 +54,6 @@ const {
   confirming,
   error,
   notice,
-  ttmlMode,
-  duetSession,
   busy,
   dirty,
   editable,
@@ -73,11 +61,7 @@ const {
   canSaveTarget,
   reload: load,
   saveLrc: save,
-  saveTtml: saveDuet,
   failure,
-  assignDuetLines,
-  retimeDuetLines,
-  replaceDuetText,
 } = editSession
 const saveButton = ref<HTMLButtonElement | null>(null)
 const saveMenuOpen = ref(false)
@@ -96,20 +80,10 @@ const saveActions = computed(() => [
     disabled: !canSaveTarget('file'),
     icon: 'i-lucide-file-text',
   },
-  {
-    target: 'ttml' as const,
-    label: t('lyricsEditor.ttmlFile'),
-    disabled: !canSaveTarget('ttml'),
-    icon: 'i-lucide-file-code',
-  },
 ])
 
 function openSaveMenu(closeAfter = false): void {
   if (!canSave.value) return
-  if (ttmlMode.value) {
-    void saveDuet(closeAfter)
-    return
-  }
   saveMenuCloseAfter.value = closeAfter
   saveMenuOpen.value = !saveMenuOpen.value
 }
@@ -212,15 +186,10 @@ async function undo(direction: number): Promise<void> {
   syncCursor()
   notice.value = ''
 }
-function textEditState(active: boolean, changed: boolean): void {
-  inlineEditing.value = active
-  inlineDirty.value = changed
-}
 function keepEditing(): void {
   confirming.value = false
   void nextTick(() => {
-    if (ttmlMode.value) duetList.value?.focus()
-    else editor.value?.focus({ preventScroll: true })
+    editor.value?.focus({ preventScroll: true })
   })
 }
 function requestClose(reason?: string): void {
@@ -255,12 +224,11 @@ function keydown(event: KeyboardEvent): void {
     if (!saveMenuOpen.value) openSaveMenu(confirming.value)
     return
   }
-  if (confirming.value || saveMenuOpen.value || inlineEditing.value) return
+  if (confirming.value || saveMenuOpen.value) return
   if (modifier && event.shiftKey && event.key === 'Enter') {
     event.preventDefault()
     event.stopPropagation()
-    if (ttmlMode.value) duetList.value?.stamp()
-    else stamp()
+    stamp()
   } else if (
     event.target === editor.value &&
     modifier &&
@@ -291,7 +259,6 @@ function beforeUnload(event: BeforeUnloadEvent): void {
 watch(
   () => props.open,
   (open) => {
-    inlineEditing.value = inlineDirty.value = false
     saveMenuOpen.value = false
     if (open) void editSession.open(playback.state.currentTrackId)
     else void editSession.close()
@@ -342,7 +309,7 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
     @close="requestClose"
   >
     <div class="lyrics-editor-content">
-      <div v-if="!ttmlMode" class="editor-toolbar">
+      <div class="editor-toolbar">
         <div class="editor-actions">
           <button
             v-tooltip="
@@ -422,27 +389,12 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
         />
         <span>{{ formatLrcTime(matchesPlayback ? playback.state.duration : 0) }}</span>
       </div>
-      <div v-if="!ttmlMode" class="editor-meta">
-        <label for="lyrics-source-editor">{{
-          t('lyricsEditor.text', { format: session?.format === 'ttml' ? 'TTML' : 'LRC' })
-        }}</label>
+      <div class="editor-meta">
+        <label for="lyrics-source-editor">{{ t('lyricsEditor.text') }}</label>
       </div>
       <div v-if="loading" class="editor-load" role="status">{{ t('lyricsEditor.loading') }}</div>
-      <LyricsDuetLines
-        v-else-if="ttmlMode && duetSession"
-        ref="duetList"
-        :session="duetSession"
-        :busy="busy"
-        :inactive="confirming"
-        :replace-text="replaceDuetText"
-        :current-time="playback.state.currentTime"
-        :matches-playback="matchesPlayback"
-        @assign="assignDuetLines"
-        @retime="retimeDuetLines"
-        @text-edit-state="textEditState"
-      />
       <textarea
-        v-else-if="!ttmlMode"
+        v-else
         id="lyrics-source-editor"
         ref="editor"
         :value="text"
@@ -458,7 +410,7 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
         @compositionstart="composing = true"
         @compositionend="compositionEnd"
       />
-      <div v-if="(!session || (ttmlMode && !duetSession)) && !busy" class="editor-status">
+      <div v-if="!session && !busy" class="editor-status">
         <button class="editor-tool" @click="load">
           {{ t('lyricsEditor.reload') }}
         </button>
@@ -481,17 +433,13 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
             :tabindex="saveMenuVisible ? -1 : undefined"
             :aria-hidden="saveMenuVisible || undefined"
             :disabled="!canSave"
-            :aria-haspopup="ttmlMode ? undefined : 'menu'"
-            :aria-expanded="ttmlMode ? undefined : saveMenuOpen"
+            aria-haspopup="menu"
+            :aria-expanded="saveMenuOpen"
             :aria-controls="saveMenuOpen ? 'lyrics-save-menu' : undefined"
             @click="openSaveMenu(true)"
           >
             {{ t('lyricsEditor.saveClose') }}
-            <span
-              v-if="!ttmlMode"
-              class="i-lucide-chevron-down editor-save-chevron"
-              aria-hidden="true"
-            />
+            <span class="i-lucide-chevron-down editor-save-chevron" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -505,17 +453,13 @@ function restoreLyricsFocus(captured: HTMLElement | null): void {
           :tabindex="saveMenuVisible ? -1 : undefined"
           :aria-hidden="saveMenuVisible || undefined"
           :disabled="!canSave"
-          :aria-haspopup="ttmlMode ? undefined : 'menu'"
-          :aria-expanded="ttmlMode ? undefined : saveMenuOpen"
+          aria-haspopup="menu"
+          :aria-expanded="saveMenuOpen"
           :aria-controls="saveMenuOpen ? 'lyrics-save-menu' : undefined"
           @click="openSaveMenu()"
         >
           {{ t(saving ? 'lyricsEditor.saving' : 'lyricsEditor.save') }}
-          <span
-            v-if="!ttmlMode"
-            class="i-lucide-chevron-down editor-save-chevron"
-            aria-hidden="true"
-          />
+          <span class="i-lucide-chevron-down editor-save-chevron" aria-hidden="true" />
         </button>
       </div>
     </template>

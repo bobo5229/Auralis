@@ -1,23 +1,12 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import { nextTick, reactive } from 'vue'
-import type {
-  LrcEditorSaved,
-  LrcEditorState,
-  LyricsEditorResult,
-  LyricsEditorState,
-} from '@shared/types/lyricsEditor'
+import type { LrcEditorSaved, LrcEditorState, LyricsEditorResult } from '@shared/types/lyricsEditor'
 import { useLyricsEditSession } from './useLyricsEditSession'
 
 const api = vi.hoisted(() => ({
   openLrcEditor: vi.fn(),
   closeLrcEditor: vi.fn(),
   saveLrcEditor: vi.fn(),
-  openEditor: vi.fn(),
-  closeEditor: vi.fn(),
-  saveEditor: vi.fn(),
-  assignEditorLines: vi.fn(),
-  retimeEditorLines: vi.fn(),
-  replaceEditorLineText: vi.fn(),
 }))
 vi.mock('@renderer/shared/ipc/client', () => ({ auralis: { lyrics: api } }))
 
@@ -31,32 +20,9 @@ function raw(sessionId = 'raw', format: LrcEditorState['format'] = 'lrc'): LrcEd
     canSaveTag: true,
   }
 }
-function draft(revision = 'r1', sessionId = 'duet'): LyricsEditorState {
-  return {
-    sessionId,
-    trackId: 7,
-    revision,
-    dirty: revision !== 'r1',
-    editable: true,
-    issues: [],
-    lines: [
-      {
-        id: 'a',
-        text: 'First',
-        assignment: 'unassigned',
-        timeSeconds: 1,
-        editable: true,
-        timingEditable: true,
-        textEditable: true,
-      },
-    ],
-  }
-}
 function saved(overrides: Partial<LrcEditorSaved> = {}): LrcEditorSaved {
   return {
     trackId: 7,
-    savedFormat: 'lrc',
-    conversionWarnings: [],
     backupPath: null,
     cacheUpdated: true,
     active: true,
@@ -77,32 +43,25 @@ async function flush() {
   for (let i = 0; i < 12; i++) await nextTick()
 }
 function fixture() {
-  const view = reactive({ open: true, composing: false, inlineEditing: false, inlineDirty: false })
+  const view = reactive({ open: true, composing: false })
   const onLrcLoaded = vi.fn()
   const focusEditor = vi.fn()
   const onClose = vi.fn()
-  const commitInlineText = vi.fn<() => Promise<boolean>>().mockResolvedValue(true)
   const editor = useLyricsEditSession({
     isOpen: () => view.open,
     t: (key) => key,
     composing: () => view.composing,
-    inlineEditing: () => view.inlineEditing,
-    inlineDirty: () => view.inlineDirty,
     onLrcLoaded,
     focusEditor,
-    commitInlineText,
     onClose,
   })
-  return { editor, view, onLrcLoaded, focusEditor, commitInlineText, onClose }
+  return { editor, view, onLrcLoaded, focusEditor, onClose }
 }
 beforeEach(() => {
   vi.resetAllMocks()
   api.openLrcEditor.mockResolvedValue({ ok: true, value: raw() })
-  api.openEditor.mockResolvedValue({ ok: true, value: draft() })
   api.closeLrcEditor.mockResolvedValue({ ok: true })
-  api.closeEditor.mockResolvedValue({ ok: true })
   api.saveLrcEditor.mockResolvedValue({ ok: true, value: saved() })
-  api.saveEditor.mockResolvedValue({ ok: true, value: { cacheUpdated: true } })
 })
 
 it('loads a normalized baseline, keeps destination eligibility and resets history only on reload', async () => {
@@ -112,8 +71,7 @@ it('loads a normalized baseline, keeps destination eligibility and resets histor
   expect(editor.dirty.value).toBe(false)
   expect(editor.canSaveTarget('tag')).toBe(false)
   expect(editor.canSaveTarget('file')).toBe(true)
-  expect(editor.canSaveTarget('ttml')).toBe(true)
-  expect(focusEditor.mock.calls).toEqual([['lrc', true], ['lrc']])
+  expect(focusEditor.mock.calls).toEqual([[true], []])
   editor.text.value = 'Changed'
   expect(editor.canSaveTarget('tag')).toBe(true)
   view.composing = true
@@ -170,38 +128,6 @@ it.each(['error-result', 'exception'] as const)(
   },
 )
 
-it('releases the TTML draft before its raw session and tolerates repeated dismissal', async () => {
-  api.openLrcEditor.mockResolvedValue({ ok: true, value: raw('raw-ttml', 'ttml') })
-  const closing = deferred<unknown>()
-  api.closeEditor.mockReturnValueOnce(closing.promise)
-  const { editor } = fixture()
-  await editor.open(7)
-  const released = editor.close()
-  expect(editor.session.value).toBeNull()
-  expect(editor.duetSession.value).toBeNull()
-  expect(api.closeLrcEditor).not.toHaveBeenCalled()
-  closing.resolve({ ok: true })
-  await released
-  await editor.close()
-  expect(api.closeEditor).toHaveBeenCalledExactlyOnceWith('duet')
-  expect(api.closeLrcEditor).toHaveBeenCalledExactlyOnceWith('raw-ttml')
-})
-
-it('closes a late TTML draft when the panel is dismissed during its open', async () => {
-  api.openLrcEditor.mockResolvedValue({ ok: true, value: raw('raw-ttml', 'ttml') })
-  const pending = deferred<LyricsEditorResult<LyricsEditorState>>()
-  api.openEditor.mockReturnValueOnce(pending.promise)
-  const { editor, focusEditor } = fixture()
-  const opening = editor.open(7)
-  await flush()
-  await editor.close()
-  pending.resolve({ ok: true, value: draft() })
-  await opening
-  expect(editor.duetSession.value).toBeNull()
-  expect(api.closeEditor).toHaveBeenCalledWith('duet')
-  expect(focusEditor).not.toHaveBeenCalled()
-})
-
 it('saves with the fresh revision after reopening and retains the fixed track', async () => {
   const { editor } = fixture()
   await editor.open(7)
@@ -241,26 +167,6 @@ it.each([
   { overrides: { writeWarning: true }, notice: 'lyricsEditor.writeWarning', closes: false },
   { overrides: { cacheUpdated: false }, notice: 'lyricsEditor.cachePending', closes: false },
   { overrides: { active: false }, notice: 'lyricsEditor.otherSource', closes: false },
-  {
-    overrides: { conversionWarnings: ['negative-times-clamped'] },
-    notice: 'lyricsEditor.saved lyricsEditor.clampedTimes',
-    closes: false,
-  },
-  {
-    overrides: { conversionWarnings: ['inferred-final-end'] },
-    notice: 'lyricsEditor.saved lyricsEditor.inferredEnd',
-    closes: false,
-  },
-  {
-    overrides: {
-      writeWarning: true,
-      cacheUpdated: false,
-      active: false,
-      conversionWarnings: ['negative-times-clamped', 'inferred-final-end'],
-    },
-    notice: 'lyricsEditor.writeWarning lyricsEditor.clampedTimes lyricsEditor.inferredEnd',
-    closes: false,
-  },
 ])('preserves save-and-close warning policy: $notice', async ({ overrides, notice, closes }) => {
   const { editor, onClose } = fixture()
   await editor.open(7)
@@ -330,121 +236,4 @@ it('releases a late saved-baseline reopen instead of installing it after dismiss
   expect(editor.session.value).toBeNull()
   expect(api.closeLrcEditor).toHaveBeenCalledWith('late-reopen')
   expect(api.saveLrcEditor).toHaveBeenCalledOnce()
-})
-
-it('opens the TTML draft after conversion without initializing another raw text history', async () => {
-  const { editor, onLrcLoaded, focusEditor } = fixture()
-  await editor.open(7)
-  api.saveLrcEditor.mockResolvedValue({ ok: true, value: saved({ savedFormat: 'ttml' }) })
-  api.openLrcEditor.mockResolvedValue({ ok: true, value: raw('converted', 'ttml') })
-  await editor.saveLrc('ttml')
-  expect(editor.ttmlMode.value).toBe(true)
-  expect(editor.duetSession.value?.sessionId).toBe('duet')
-  expect(editor.notice.value).toBe('lyricsEditor.ttmlSaved')
-  expect(onLrcLoaded).toHaveBeenCalledOnce()
-  expect(focusEditor).toHaveBeenLastCalledWith('ttml')
-})
-
-it('keeps rejected inline text and never sends its TTML save', async () => {
-  api.openLrcEditor.mockResolvedValue({ ok: true, value: raw('raw-ttml', 'ttml') })
-  const { editor, view, commitInlineText, focusEditor } = fixture()
-  await editor.open(7)
-  view.inlineEditing = view.inlineDirty = true
-  editor.confirming.value = true
-  commitInlineText.mockResolvedValue(false)
-  await editor.saveTtml(true)
-  expect(api.saveEditor).not.toHaveBeenCalled()
-  expect(view.inlineDirty).toBe(true)
-  expect(editor.confirming.value).toBe(false)
-  expect(focusEditor).toHaveBeenLastCalledWith('ttml')
-})
-
-it('serializes inline text and TTML save using the returned revision and blocks competing mutations', async () => {
-  api.openLrcEditor.mockResolvedValue({ ok: true, value: raw('raw-ttml', 'ttml') })
-  const { editor, view, commitInlineText } = fixture()
-  await editor.open(7)
-  view.inlineEditing = view.inlineDirty = true
-  const pending = deferred<LyricsEditorResult<LyricsEditorState>>()
-  api.replaceEditorLineText.mockReturnValueOnce(pending.promise)
-  commitInlineText.mockImplementation(async () => {
-    const accepted = await editor.replaceDuetText('a', 'Updated')
-    if (accepted) view.inlineEditing = view.inlineDirty = false
-    return accepted
-  })
-  const saving = editor.saveTtml()
-  expect(editor.busy.value).toBe(true)
-  editor.assignDuetLines(['a'], 'performer-1')
-  editor.retimeDuetLines(['a'], 'shift', 100)
-  await editor.saveTtml()
-  await editor.reload()
-  expect(api.assignEditorLines).not.toHaveBeenCalled()
-  expect(api.retimeEditorLines).not.toHaveBeenCalled()
-  expect(api.saveEditor).not.toHaveBeenCalled()
-  pending.resolve({ ok: true, value: draft('r2') })
-  await saving
-  expect(api.saveEditor).toHaveBeenCalledExactlyOnceWith({
-    sessionId: 'duet',
-    expectedRevision: 'r2',
-  })
-  expect(editor.duetSession.value?.dirty).toBe(false)
-})
-
-it('does not save when dismissed during inline text submission', async () => {
-  api.openLrcEditor.mockResolvedValue({ ok: true, value: raw('raw-ttml', 'ttml') })
-  const { editor, view, commitInlineText } = fixture()
-  await editor.open(7)
-  view.inlineEditing = view.inlineDirty = true
-  const pending = deferred<boolean>()
-  commitInlineText.mockReturnValueOnce(pending.promise)
-  const saving = editor.saveTtml()
-  view.open = false
-  await editor.close()
-  pending.resolve(true)
-  await saving
-  expect(api.saveEditor).not.toHaveBeenCalled()
-})
-
-it.each([true, false])('preserves TTML close policy when cacheUpdated=%s', async (cacheUpdated) => {
-  api.openLrcEditor.mockResolvedValue({ ok: true, value: raw('raw-ttml', 'ttml') })
-  api.openEditor.mockResolvedValueOnce({ ok: true, value: draft('r2') })
-  api.saveEditor.mockResolvedValue({ ok: true, value: { cacheUpdated } })
-  const { editor, onClose } = fixture()
-  await editor.open(7)
-  editor.confirming.value = true
-  await editor.saveTtml(true)
-  expect(onClose).toHaveBeenCalledTimes(cacheUpdated ? 1 : 0)
-  expect(api.openEditor).toHaveBeenCalledTimes(cacheUpdated ? 1 : 2)
-  expect(editor.notice.value).toBe(cacheUpdated ? '' : 'lyricsEditor.cachePending')
-  expect(editor.confirming.value).toBe(false)
-})
-
-it('does not retry a committed TTML save after its reopen fails', async () => {
-  api.openLrcEditor.mockResolvedValue({ ok: true, value: raw('raw-ttml', 'ttml') })
-  api.openEditor
-    .mockResolvedValueOnce({ ok: true, value: draft('r2') })
-    .mockResolvedValueOnce({ ok: false, code: 'session-expired' })
-  const { editor } = fixture()
-  await editor.open(7)
-  await editor.saveTtml()
-  expect(editor.duetSession.value).toBeNull()
-  expect(editor.notice.value).toBe('lyricsEditor.saved')
-  expect(editor.error.value).toBe('lyricsEditor.errors.changed')
-  await editor.saveTtml()
-  expect(api.saveEditor).toHaveBeenCalledOnce()
-})
-
-it('preserves the TTML draft on save failure and reports unsupported documents as read-only', async () => {
-  api.openLrcEditor.mockResolvedValue({ ok: true, value: raw('raw-ttml', 'ttml') })
-  api.openEditor.mockResolvedValueOnce({ ok: true, value: draft('r2') })
-  api.saveEditor.mockResolvedValue({ ok: false, code: 'file-changed' })
-  const { editor } = fixture()
-  await editor.open(7)
-  await editor.saveTtml()
-  expect(editor.duetSession.value?.revision).toBe('r2')
-  expect(editor.dirty.value).toBe(true)
-  expect(api.closeEditor).not.toHaveBeenCalled()
-  api.openEditor.mockResolvedValueOnce({ ok: true, value: { ...draft(), editable: false } })
-  await editor.reload()
-  expect(editor.error.value).toBe('lyricsEditor.errors.readOnly')
-  expect(editor.canSave.value).toBe(false)
 })
