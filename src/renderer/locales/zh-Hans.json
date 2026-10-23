@@ -122,8 +122,8 @@
       "settings": "偏好设置",
       "refreshAction": "刷新曲库",
       "refreshBusy": "正在刷新曲库",
-      "pageParameters": "页面参数",
-      "pageParametersUnavailable": "当前页面暂无可调参数"
+      "switchToLightTheme": "切换到浅色主题",
+      "switchToDarkTheme": "切换到深色主题"
     },
     "flavor": {
       "simulation": {
@@ -1064,6 +1064,7 @@
     "create": "创建歌单"
   },
   "pageParameters": {
+    "open": "页面参数",
     "coverInfo": {
       "title": "专辑信息布局",
       "artworkGap": "封面与信息间距",

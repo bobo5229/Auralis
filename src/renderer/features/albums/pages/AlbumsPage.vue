@@ -36,6 +36,8 @@ import { useAlbumCatalog } from '../composables/useAlbumCatalog'
 import { useAlbumGridLayout } from '../composables/useAlbumGridLayout'
 import { useAlbumListParameters } from '@renderer/features/appearance/composables/useAlbumListParameters'
 import { usePageParameterSource } from '@renderer/features/appearance/composables/usePageParameters'
+import { usePageSearchTools } from '@renderer/features/appearance/composables/usePageSearchTools'
+import PageParameterTrigger from '@renderer/app/layout/PageParameterTrigger.vue'
 import { resolveNextAlbumSearchMatch } from '../utils/albumSearchNavigation'
 import { useAlbumLayoutTransition } from '../composables/useAlbumLayoutTransition'
 import type { AlbumLayoutTransitionParticipant } from '@renderer/app/layout/lyricsAlbumTransitionCoordinator'
@@ -60,6 +62,12 @@ const route = useRoute()
 usePageParameterSource('albums')
 const router = useRouter()
 const { t } = useI18n()
+const {
+  hasParameters: hasPageParameters,
+  keepVisible: keepSearchToolsVisible,
+  onFocusIn: onSearchToolsFocusIn,
+  onFocusOut: onSearchToolsFocusOut,
+} = usePageSearchTools('albums')
 const { songText } = useChineseTextDisplay()
 const playback = usePlayback()
 const { displayMode } = usePlayerDisplayMode()
@@ -501,6 +509,7 @@ function onAlbumsMouseMove(event: MouseEvent): void {
     event.clientY,
     currentTarget.getBoundingClientRect(),
     bar && !isSearchHoverDismissed ? bar.getBoundingClientRect() : null,
+    hasPageParameters.value,
   )
   if (!hovered) isSearchHoverDismissed = false
   isSearchZoneHovered.value = hovered && !isSearchHoverDismissed
@@ -800,38 +809,47 @@ defineExpose<AlbumLayoutTransitionParticipant>(layoutTransition)
   >
     <div class="library-search-zone">
       <Transition name="search-overlay" :duration="160">
-        <div v-if="shouldRenderSearchBar" class="library-search-overlay">
+        <div v-if="shouldRenderSearchBar || keepSearchToolsVisible" class="library-search-overlay">
           <div
             ref="searchRootRef"
-            class="library-search-bar"
-            @pointerdown="searchInputRef?.focus()"
+            class="page-search-tools"
+            :class="{ 'page-search-tools--parameters': hasPageParameters }"
+            @focusin="onSearchToolsFocusIn"
+            @focusout="onSearchToolsFocusOut"
           >
-            <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
-            <input
-              ref="searchInputRef"
-              v-model="searchQuery"
-              type="text"
-              class="library-search-input"
-              :placeholder="t('albums.search.placeholder')"
-              :aria-label="t('albums.search.ariaLabel')"
-              spellcheck="false"
-              @focus="onSearchFocus"
-              @blur="onSearchBlur"
-              @keydown="onSearchKeydown"
-            />
-            <span
-              v-if="searchOutcome !== 'idle'"
-              class="library-search-outcome ml-auto shrink-0 select-none text-xs tabular-nums"
-              :class="
-                searchOutcome === 'not-found'
-                  ? 'text-[var(--auralis-danger)] font-medium'
-                  : 'text-[var(--auralis-text-muted)]'
-              "
-              role="status"
-              aria-live="polite"
+            <div
+              class="library-search-bar"
+              @pointerdown="!isLoading && albums.length > 0 && searchInputRef?.focus()"
             >
-              {{ searchFeedback }}
-            </span>
+              <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
+              <input
+                ref="searchInputRef"
+                v-model="searchQuery"
+                type="text"
+                class="library-search-input"
+                :disabled="isLoading || albums.length === 0"
+                :placeholder="t('albums.search.placeholder')"
+                :aria-label="t('albums.search.ariaLabel')"
+                spellcheck="false"
+                @focus="onSearchFocus"
+                @blur="onSearchBlur"
+                @keydown="onSearchKeydown"
+              />
+              <span
+                v-if="searchOutcome !== 'idle'"
+                class="library-search-outcome ml-auto shrink-0 select-none text-xs tabular-nums"
+                :class="
+                  searchOutcome === 'not-found'
+                    ? 'text-[var(--auralis-danger)] font-medium'
+                    : 'text-[var(--auralis-text-muted)]'
+                "
+                role="status"
+                aria-live="polite"
+              >
+                {{ searchFeedback }}
+              </span>
+            </div>
+            <PageParameterTrigger v-if="hasPageParameters" />
           </div>
         </div>
       </Transition>

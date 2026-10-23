@@ -466,6 +466,7 @@ function selectPlayingIconPreset(value: PlayingIconPreset): void {
             describedby="appearance-language-description"
             :model-value="locale"
             :options="localeOptions"
+            :show-value-title="false"
             @update:model-value="selectLocale($event as UiLocale)"
           />
         </div>

@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRenderer, h, KeepAlive, markRaw, nextTick, ref } from 'vue'
+import {
+  createPageParameters,
+  providePageParameters,
+  type PageParameters,
+} from '@renderer/features/appearance/composables/usePageParameters'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import AlbumsPage from './AlbumsPage.vue'
 import type { AlbumLayoutTransitionParticipant } from '@renderer/app/layout/lyricsAlbumTransitionCoordinator'
@@ -145,10 +150,12 @@ class TestElement extends TestEventTarget {
   focus(): void {
     doc.activeElement = this
     ;(this.props.onFocus as (() => void) | undefined)?.()
+    bubbleFocus(this, 'onFocusin', null)
   }
   blur(): void {
     doc.activeElement = body
     ;(this.props.onBlur as (() => void) | undefined)?.()
+    bubbleFocus(this, 'onFocusout', body)
   }
   contains(target: unknown): boolean {
     return target === this || this.children.some((child) => child.contains(target))
@@ -171,6 +178,14 @@ class TestElement extends TestEventTarget {
   getRootNode() {
     return doc
   }
+}
+function bubbleFocus(element: TestElement, name: string, relatedTarget: TestElement | null) {
+  for (let node: TestElement | null = element; node; node = node.parent)
+    (node.props[name] as ((event: object) => void) | undefined)?.({
+      target: element,
+      currentTarget: node,
+      relatedTarget,
+    })
 }
 const body = new TestElement('body')
 const doc = Object.assign(new TestEventTarget(), {
@@ -296,16 +311,24 @@ afterEach(() => {
 async function settle(): Promise<void> {
   for (let i = 0; i < 5; i++) await nextTick()
 }
-async function mountPage() {
+let parameters: PageParameters | undefined
+async function mountPage(withParameters = false) {
   const active = ref(true)
   const app = renderer.createApp({
-    render: () =>
-      h(KeepAlive, null, [
-        active.value
-          ? h(AlbumsPage, { ref: participant, onCancelLayoutTransition: fixture.cancelRequested })
-          : h({ render: () => h('div') }),
-      ]),
+    setup() {
+      if (withParameters) {
+        parameters = createPageParameters(ref('albums'), ref(false))
+        providePageParameters(parameters)
+      }
+      return () =>
+        h(KeepAlive, null, [
+          active.value
+            ? h(AlbumsPage, { ref: participant, onCancelLayoutTransition: fixture.cancelRequested })
+            : h({ render: () => h('div') }),
+        ])
+    },
   })
+  app.directive('tooltip', {})
   unmount = () => app.unmount()
   app.mount(body)
   await settle()
@@ -689,4 +712,32 @@ describe('AlbumsPage layout transition participant', () => {
       }
     },
   )
+})
+
+describe('AlbumsPage page parameter entry', () => {
+  it('opens parameters from outside the input and restores the empty toolbar focus', async () => {
+    await mountPage(true)
+    await setAlbums(4)
+    const page = find('albums-page')!
+    ;(page.props.onMousemove as (event: object) => void)({
+      currentTarget: page,
+      clientX: 600,
+      clientY: 20,
+    })
+    await settle()
+    const tools = find('page-search-tools')!
+    const bar = find('library-search-bar')!
+    const trigger = find('page-parameter-trigger')!
+    expect(trigger.parent).toBe(tools)
+    expect(bar.contains(trigger)).toBe(false)
+    ;(trigger.props.onClick as (event: object) => void)({ currentTarget: trigger })
+    expect(parameters!.open.value).toBe(true)
+    ;(page.props.onMouseleave as () => void)()
+    await settle()
+    parameters!.close()
+    await settle()
+    expect(doc.activeElement).toBe(trigger)
+    expect(find('page-parameter-trigger')).toBe(trigger)
+    expect(find('library-search-input')?.value).toBe('')
+  })
 })

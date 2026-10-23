@@ -12,6 +12,8 @@ import { useSongFontWeights } from '@renderer/features/appearance/composables/us
 import { useSongFontSizes } from '@renderer/features/appearance/composables/useSongFontSizes'
 import { useSongCoverInfoLayout } from '@renderer/features/appearance/composables/useSongCoverInfoLayout'
 import { usePageParameterSource } from '@renderer/features/appearance/composables/usePageParameters'
+import { usePageSearchTools } from '@renderer/features/appearance/composables/usePageSearchTools'
+import PageParameterTrigger from '@renderer/app/layout/PageParameterTrigger.vue'
 import SongRow from '../components/SongRow.vue'
 import FlatTrackColumnHeader from '../components/FlatTrackColumnHeader.vue'
 import FlatTrackColumnMenu from '../components/FlatTrackColumnMenu.vue'
@@ -50,6 +52,12 @@ import type { LibraryFlatColumnId, LibraryFlatColumnWidths } from '../utils/libr
 import '../styles/flatTrackGrid.css'
 
 const { t } = useI18n()
+const {
+  hasParameters: hasPageParameters,
+  keepVisible: keepSearchToolsVisible,
+  onFocusIn: onSearchToolsFocusIn,
+  onFocusOut: onSearchToolsFocusOut,
+} = usePageSearchTools('songs')
 
 const playback = usePlayback()
 const route = useRoute()
@@ -526,7 +534,8 @@ const {
   invalidate: invalidateLibrarySearchSession,
 } = useLibrarySearchSession({
   isDisposed: () => isPageUnmounted || hasLeftInstanceRoute,
-  isLibrarySurface: () => isSearchEnabled.value,
+  isLibrarySurface: () => isSearchEnabled.value && !isLoading.value && tracks.value.length > 0,
+  hasPageParameters: () => hasPageParameters.value,
   isInteractiveTarget,
   scrollToTrackIndex,
 })
@@ -821,43 +830,24 @@ onBeforeUnmount(() => {
         {{ t('library.status.retry') }}
       </button>
     </div>
-    <LibraryStatusState v-if="isLoading" kind="loading" />
-
-    <LibraryStatusState
-      v-else-if="initialLoadError && !pageIdentity"
-      kind="error"
-      :error-message="initialLoadError"
-      @retry="retryInitialLoad"
-    />
-
-    <LibraryStatusState
-      v-else-if="tracks.length === 0"
-      kind="empty"
-      :is-playlist="playlistId !== null"
-      :is-smart-playlist="smartPlaylistId !== null"
-      :is-recent-added="isRecentAdded"
-      @open-settings="openSettings"
-    />
-
     <div
-      v-else
-      class="library-list-shell flex min-h-0 flex-1 flex-col overflow-hidden"
-      :style="{ visibility: isPositioningForegroundViewport ? 'hidden' : undefined }"
-      :class="{ 'library-list-shell--play-count': showPlayCount }"
-      @keydown="onListShellKeyDown"
+      v-if="isSearchEnabled"
+      ref="searchZoneRef"
+      class="library-search-zone"
+      :class="{ 'library-search-zone--flat-row': !isCoverView }"
     >
-      <div
-        v-if="isSearchEnabled"
-        ref="searchZoneRef"
-        class="library-search-zone"
-        :class="{ 'library-search-zone--flat-row': !isCoverView }"
-      >
-        <Transition name="search-overlay" :duration="160">
-          <div v-if="shouldRenderSearchBar" class="library-search-overlay">
+      <Transition name="search-overlay" :duration="160">
+        <div v-if="shouldRenderSearchBar || keepSearchToolsVisible" class="library-search-overlay">
+          <div
+            ref="searchRootRef"
+            class="page-search-tools"
+            :class="{ 'page-search-tools--parameters': hasPageParameters }"
+            @focusin="onSearchToolsFocusIn"
+            @focusout="onSearchToolsFocusOut"
+          >
             <div
-              ref="searchRootRef"
               class="library-search-bar"
-              @pointerdown="onSearchBarPointerDown"
+              @pointerdown="!isLoading && tracks.length > 0 && onSearchBarPointerDown()"
               @focusout="onSearchBarFocusOut"
             >
               <span class="i-lucide-search text-sm text-[var(--auralis-text-faint)]"></span>
@@ -866,6 +856,7 @@ onBeforeUnmount(() => {
                 v-model="searchQuery"
                 type="text"
                 class="library-search-input"
+                :disabled="isLoading || tracks.length === 0"
                 :placeholder="t('library.search.placeholder')"
                 :aria-label="t('library.search.ariaLabel')"
                 spellcheck="false"
@@ -898,10 +889,37 @@ onBeforeUnmount(() => {
                 </template>
               </span>
             </div>
+            <PageParameterTrigger v-if="hasPageParameters" />
           </div>
-        </Transition>
-      </div>
+        </div>
+      </Transition>
+    </div>
 
+    <LibraryStatusState v-if="isLoading" kind="loading" />
+
+    <LibraryStatusState
+      v-else-if="initialLoadError && !pageIdentity"
+      kind="error"
+      :error-message="initialLoadError"
+      @retry="retryInitialLoad"
+    />
+
+    <LibraryStatusState
+      v-else-if="tracks.length === 0"
+      kind="empty"
+      :is-playlist="playlistId !== null"
+      :is-smart-playlist="smartPlaylistId !== null"
+      :is-recent-added="isRecentAdded"
+      @open-settings="openSettings"
+    />
+
+    <div
+      v-else
+      class="library-list-shell flex min-h-0 flex-1 flex-col overflow-hidden"
+      :style="{ visibility: isPositioningForegroundViewport ? 'hidden' : undefined }"
+      :class="{ 'library-list-shell--play-count': showPlayCount }"
+      @keydown="onListShellKeyDown"
+    >
       <div
         ref="scrollRef"
         tabindex="-1"

@@ -550,9 +550,18 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
           key, bubbles: true, cancelable: true,
         }))
         const page = document.querySelector('.library-page')
-        const trigger = document.querySelector('[data-page-parameters-trigger]')
+        const zone = page?.querySelector('.library-search-zone')
+        if (zone) {
+          const rect = zone.getBoundingClientRect()
+          page.dispatchEvent(new MouseEvent('mousemove', {
+            bubbles: true, clientX: rect.left + rect.width / 2, clientY: rect.top + 20,
+          }))
+        }
+        await waitFor('search tools parameter entry', () =>
+          Boolean(page?.querySelector('.page-search-tools [data-page-parameters-trigger]')))
+        const trigger = page.querySelector('.page-search-tools [data-page-parameters-trigger]')
         const panel = document.getElementById('page-parameter-panel')
-        if (!page || !trigger || !panel || trigger.getAttribute('aria-disabled') === 'true') {
+        if (!page || !trigger || !panel || trigger.disabled) {
           throw new Error('Song page parameters entry is unavailable')
         }
         const beforeHash = window.location.hash
@@ -747,7 +756,7 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
         const toolbar = document.querySelector('.sidebar-tools-grid')
         const tools = [...document.querySelectorAll('.sidebar-footer button')]
         const settings = document.querySelector('.sidebar-footer [data-settings-trigger]')
-        const parameters = toolbar?.querySelector('[data-page-parameters-trigger]')
+        const themeToggle = toolbar?.querySelector('[data-theme-toggle]')
         const groupedTools = toolbar ? [...toolbar.querySelectorAll('button.sidebar-tool-button')] : []
         const refresh = tools.find((el) => el.hasAttribute('aria-busy') &&
           ['刷新曲库', '正在刷新曲库', 'Refresh library', 'Refreshing library'].includes(el.getAttribute('aria-label')))
@@ -756,7 +765,8 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
         const valid = Array.isArray(roots) && Array.isArray(tracks) && tools.length === 4 &&
           groupedTools.length === (rail ? 3 : 2) && Boolean(refresh) && Boolean(filters) &&
           toolbar.contains(refresh) === rail &&
-          Boolean(settings) && !toolbar.contains(settings) && Boolean(parameters) &&
+          Boolean(settings) && !toolbar.contains(settings) && Boolean(themeToggle) &&
+          !document.querySelector('.sidebar-footer [data-page-parameters-trigger]') &&
           tools.every((el) => {
             const rect = el.getBoundingClientRect()
             return rect.width > 0 && rect.height > 0 && rect.left >= 0 &&
@@ -764,7 +774,7 @@ async function runChecks(mainWindow: BrowserWindow): Promise<SmokeResult> {
           })
         return { valid, rail, toolCount: tools.length, groupedCount: groupedTools.length,
           refresh: Boolean(refresh), filters: Boolean(filters), settings: Boolean(settings),
-          parameters: Boolean(parameters) }
+          themeToggle: Boolean(themeToggle) }
       })()`)
       if (!probe.valid)
         throw new Error(`Library IPC or sidebar tools are unavailable: ${JSON.stringify(probe)}`)

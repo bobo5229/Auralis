@@ -14,6 +14,7 @@ import { normalizeSearchText } from '../utils/normalizeSearchText'
 export function useLibrarySearchSession(options: {
   isDisposed: () => boolean
   isLibrarySurface: () => boolean
+  hasPageParameters?: () => boolean
   isInteractiveTarget: (target: EventTarget | null) => boolean
   scrollToTrackIndex: (index: number, isRequestCurrent?: () => boolean) => Promise<void>
 }): {
@@ -180,6 +181,7 @@ export function useLibrarySearchSession(options: {
       event.clientY,
       zone.getBoundingClientRect(),
       bar && !isSearchHoverDismissed ? bar.getBoundingClientRect() : null,
+      options.hasPageParameters?.(),
     )
     if (!hovered) isSearchHoverDismissed = false
     isSearchZoneHovered.value = hovered && !isSearchHoverDismissed
@@ -203,7 +205,8 @@ export function useLibrarySearchSession(options: {
 
   function onSearchBarFocusOut(event: FocusEvent): void {
     const target = event.relatedTarget
-    if (target && target instanceof Node && searchRootRef.value?.contains(target)) return
+    const bar = (event.currentTarget as HTMLElement | null) ?? searchRootRef.value
+    if (target && target instanceof Node && bar?.contains(target)) return
     isSearchFocused.value = false
   }
 

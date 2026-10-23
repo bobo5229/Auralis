@@ -255,6 +255,7 @@ defineExpose({ reset: onReset })
                   :model-value="coverInfo.preference.value.alignment"
                   :options="alignmentOptions"
                   :disabled="inactive"
+                  :show-value-title="false"
                   @update:model-value="
                     (value) => {
                       clearResetStatus()

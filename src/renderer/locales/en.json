@@ -122,8 +122,8 @@
       "settings": "Preferences",
       "refreshAction": "Refresh library",
       "refreshBusy": "Refreshing library",
-      "pageParameters": "Page parameters",
-      "pageParametersUnavailable": "No parameters available for this page"
+      "switchToLightTheme": "Switch to light theme",
+      "switchToDarkTheme": "Switch to dark theme"
     },
     "flavor": {
       "simulation": {
@@ -1064,6 +1064,7 @@
     "create": "Create playlist"
   },
   "pageParameters": {
+    "open": "Page parameters",
     "coverInfo": {
       "title": "Album info layout",
       "artworkGap": "Artwork gap",

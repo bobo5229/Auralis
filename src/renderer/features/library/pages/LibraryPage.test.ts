@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { h, nextTick, reactive, type Component } from 'vue'
+import { h, nextTick, reactive, ref, type Component } from 'vue'
+import {
+  createPageParameters,
+  providePageParameters,
+  type PageParameters,
+} from '@renderer/features/appearance/composables/usePageParameters'
 import type { TrackListItem } from '@shared/types/libraryScan'
 import {
   ShellTestElement,
@@ -124,7 +129,9 @@ vi.mock('../components/MetadataEditDialog.vue', () => ({
     },
   },
 }))
-vi.mock('../components/FlatTrackColumnHeader.vue', () => ({ default: { render: () => null } }))
+vi.mock('../components/FlatTrackColumnHeader.vue', () => ({
+  default: { methods: { getResizeHandles: () => [] }, render: () => null },
+}))
 vi.mock('../components/FlatTrackColumnMenu.vue', () => ({ default: { render: () => null } }))
 vi.mock('vue', async (original) => {
   const actual = await original<typeof import('vue')>()
@@ -177,9 +184,13 @@ function find(selector: string) {
 function row(id: number) {
   return find(`[data-track-id="${id}"]`)
 }
-function fire(element: ShellTestElement, name: string, event: object = {}) {
-  const handler = element.props[name] as ((event: object) => void) | undefined
+function fire(element: ShellTestElement, name: string, event: unknown = {}) {
+  const handler = element.props[name] as ((event: unknown) => void) | undefined
   handler?.(event)
+}
+function bubbleFocus(element: ShellTestElement) {
+  for (let node: ShellTestElement | null = element; node; node = node.parent)
+    fire(node, 'onFocusin', { currentTarget: node })
 }
 function key(element: ShellTestElement, value: string) {
   const event = {
@@ -198,14 +209,24 @@ function key(element: ShellTestElement, value: string) {
 function context(element: ShellTestElement) {
   fire(element, 'onContextmenu', { preventDefault: vi.fn(), clientX: 30, clientY: 30 })
 }
-async function mount() {
+async function mount(withParameters = false) {
   const container = new ShellTestElement('main')
   doc.body.append(container)
-  const app = renderer.createApp(LibraryPage as Component)
+  let parameters: PageParameters | undefined
+  const app = renderer.createApp({
+    setup() {
+      if (withParameters) {
+        parameters = createPageParameters(ref(fixture.route.name), ref(false))
+        providePageParameters(parameters)
+      }
+      return () => h(LibraryPage as Component)
+    },
+  })
   app.directive('tooltip', {})
   app.mount(container)
   unmount = () => app.unmount()
   await settle()
+  return parameters
 }
 beforeEach(() => {
   fixture.tracks = [track(1), track(2), track(3)]
@@ -227,6 +248,7 @@ beforeEach(() => {
   }
   vi.stubGlobal('requestAnimationFrame', requestFrame)
   vi.stubGlobal('HTMLElement', ShellTestElement)
+  vi.stubGlobal('Node', ShellTestElement)
   vi.stubGlobal('document', doc)
   vi.stubGlobal(
     'window',
@@ -258,6 +280,7 @@ beforeEach(() => {
   ) {
     doc.activeElement = this
     fire(this, 'onFocus')
+    bubbleFocus(this)
   })
   Object.defineProperties(ShellTestElement.prototype, {
     clientHeight: { configurable: true, get: () => 600 },
@@ -351,5 +374,61 @@ describe('LibraryPage focus wiring', () => {
       { kind: 'library' },
       expect.objectContaining({ scrollTop: 125 }),
     )
+  })
+})
+
+describe('LibraryPage page parameter entry', () => {
+  it('keeps search and the external button together, preserves the query and returns focus', async () => {
+    const parameters = (await mount(true))!
+    fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
+    await settle()
+    const tools = find('.page-search-tools')
+    const bar = find('.library-search-bar')
+    const input = find('.library-search-input')
+    const trigger = find('[data-page-parameters-trigger]')
+    expect(trigger.parent).toBe(tools)
+    expect(bar.parent).toBe(tools)
+    expect(bar.contains(trigger)).toBe(false)
+    Reflect.set(input, 'value', 'al')
+    fire(input, 'onUpdate:modelValue', 'al')
+    await settle()
+    const focus = vi.spyOn(input, 'focus')
+    fire(trigger, 'onClick', { currentTarget: trigger })
+    await settle()
+    expect(parameters.open.value).toBe(true)
+    expect(focus).not.toHaveBeenCalled()
+    fire(find('.library-page'), 'onMouseleave')
+    parameters.close()
+    await settle()
+    expect(doc.activeElement).toBe(trigger)
+    expect(find('[data-page-parameters-trigger]')).toBe(trigger)
+    expect(Reflect.get(input, 'value')).toBe('al')
+  })
+  it('keeps the parameter entry available for an empty library while search is disabled', async () => {
+    fixture.tracks = []
+    const parameters = (await mount(true))!
+    fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
+    await settle()
+    expect(find('.library-search-input').props.disabled).toBe(true)
+    const trigger = find('[data-page-parameters-trigger]')
+    expect(trigger.props.disabled).toBe(false)
+    fire(trigger, 'onClick', { currentTarget: trigger })
+    expect(parameters.open.value).toBe(true)
+  })
+  it('retains an empty search toolbar through panel closure and releases it after focus leaves', async () => {
+    const parameters = (await mount(true))!
+    fire(find('.library-page'), 'onMousemove', { clientX: 280, clientY: 20 })
+    await settle()
+    const trigger = find('[data-page-parameters-trigger]')
+    fire(trigger, 'onClick', { currentTarget: trigger })
+    fire(find('.library-page'), 'onMouseleave')
+    await settle()
+    parameters.close()
+    await settle()
+    expect(doc.activeElement).toBe(trigger)
+    const tools = find('.page-search-tools')
+    fire(tools, 'onFocusout', { currentTarget: tools, relatedTarget: row(1) })
+    await settle()
+    expect(doc.body.querySelector('.page-search-tools')).toBeNull()
   })
 })

@@ -474,6 +474,10 @@
   text-align: right;
 }
 
+.page-parameter-panel .settings-range-control output {
+  font-size: 11px;
+}
+
 .settings-surface .database-path {
   overflow: hidden;
   max-width: 480px;

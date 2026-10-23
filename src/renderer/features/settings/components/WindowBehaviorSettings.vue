@@ -85,6 +85,7 @@ onMounted(() => {
       :model-value="state.behavior"
       :options="options"
       :disabled="!ready || busy"
+      :show-value-title="false"
       @update:model-value="select($event as WindowCloseBehavior)"
     />
   </div>

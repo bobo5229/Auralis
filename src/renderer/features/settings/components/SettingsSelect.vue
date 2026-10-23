@@ -8,15 +8,19 @@ export interface SettingsSelectOption {
   disabled?: boolean
 }
 
-const props = defineProps<{
-  id: string
-  labelledby: string
-  describedby?: string
-  modelValue: string
-  options: readonly SettingsSelectOption[]
-  disabled?: boolean
-  teleportTo?: string | HTMLElement
-}>()
+const props = withDefaults(
+  defineProps<{
+    id: string
+    labelledby: string
+    describedby?: string
+    modelValue: string
+    options: readonly SettingsSelectOption[]
+    disabled?: boolean
+    showValueTitle?: boolean
+    teleportTo?: string | HTMLElement
+  }>(),
+  { showValueTitle: true },
+)
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const trigger = ref<HTMLButtonElement | null>(null)
 const menu = ref<HTMLDivElement | null>(null)
@@ -221,7 +225,7 @@ watch(
       :id="`${id}-value`"
       class="settings-select-value"
       :lang="options[selectedIndex]?.lang"
-      :title="options[selectedIndex]?.label"
+      :title="showValueTitle ? options[selectedIndex]?.label : undefined"
       >{{ options[selectedIndex]?.label }}</span
     >
     <span

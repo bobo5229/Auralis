@@ -157,6 +157,65 @@ describe('resolvePlaybackTransition & resolvePlaybackAdvance', () => {
     expect(api.getRandomTrack).not.toHaveBeenCalled()
   })
 
+  it('consumes surviving shuffle tracks without drawing again or mutating the round', async () => {
+    const pool = [track(1), track(2), track(3)]
+    const cycle = { seed: 42, remaining: [99, 3, 2] }
+    const random = vi.fn(() => 0)
+    const api = source()
+    const result = await resolvePlaybackAdvance(
+      state('shuffle', { shuffleTrackPool: pool, shuffleCycle: cycle }),
+      api,
+      'gapless-prefetch',
+      random,
+    )
+    expect(result).toMatchObject({
+      kind: 'play',
+      plan: { track: { id: 3 }, nextShuffleCycle: { seed: 42, remaining: [2] } },
+    })
+    if (result.kind === 'play') expect(result.plan.queue).toBe(pool)
+    expect(cycle).toEqual({ seed: 42, remaining: [99, 3, 2] })
+    expect(random).not.toHaveBeenCalled()
+    expect(api.getRandomTrack).not.toHaveBeenCalled()
+  })
+
+  it('starts a scoped shuffle round with every other track exactly once', async () => {
+    const pool = [track(1), track(2), track(3)]
+    const random = vi.fn(() => 0)
+    const result = await resolvePlaybackAdvance(
+      state('shuffle', { shuffleTrackPool: pool, shuffleCycle: null }),
+      source(),
+      'manual-next',
+      random,
+    )
+    expect(result.kind).toBe('play')
+    if (result.kind !== 'play') return
+    expect([result.plan.track.id, ...result.plan.nextShuffleCycle!.remaining].sort()).toEqual([
+      2, 3,
+    ])
+    expect(result.plan.nextShuffleCycle!.seed).toBe(1)
+    expect(random).toHaveBeenCalledTimes(1)
+  })
+
+  it('refills a shuffle round without immediately repeating the current track', async () => {
+    const pool = [track(1), track(2), track(3)]
+    const cycle = { seed: 0, remaining: [] }
+    const random = vi.fn(() => 0.9)
+    const result = await resolvePlaybackAdvance(
+      state('shuffle', { shuffleTrackPool: pool, shuffleCycle: cycle }),
+      source(),
+      'natural-ended',
+      random,
+    )
+    expect(result.kind).toBe('play')
+    if (result.kind !== 'play') return
+    expect(result.plan.track.id).not.toBe(1)
+    expect([result.plan.track.id, ...result.plan.nextShuffleCycle!.remaining].sort()).toEqual([
+      1, 2, 3,
+    ])
+    expect(cycle).toEqual({ seed: 0, remaining: [] })
+    expect(random).toHaveBeenCalledTimes(1)
+  })
+
   it.each([
     { mode: 'shuffle' as const, shuffleCycle: undefined },
     { mode: 'shuffle' as const, shuffleCycle: null },

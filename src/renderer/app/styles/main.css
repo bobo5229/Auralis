@@ -2928,12 +2928,13 @@ input[type='range'].volume-overlay-slider {
   pointer-events: none;
 }
 
-.search-overlay-enter-from .library-search-bar,
-.search-overlay-leave-to .library-search-bar {
+.search-overlay-enter-from .page-search-tools,
+.search-overlay-leave-to .page-search-tools {
   opacity: 0;
 }
 
-.library-search-bar {
+.page-search-tools {
+  --page-search-tools-width: 360px;
   position: absolute;
   z-index: 1;
   top: 8px;
@@ -2942,16 +2943,61 @@ input[type='range'].volume-overlay-slider {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: 360px;
-  max-width: min(360px, calc(100% - 48px));
+  width: var(--page-search-tools-width);
+  max-width: calc(100% - 48px);
+  height: 38px;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.page-search-tools--parameters {
+  --page-search-tools-width: 406px;
+}
+
+.library-search-bar {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
   height: 38px;
   padding: 0 14px;
   border-radius: 999px;
   border: 1px solid var(--auralis-search-border);
   background: var(--auralis-search-bg);
   box-shadow: var(--auralis-search-shadow);
-  pointer-events: auto;
-  -webkit-app-region: no-drag;
+}
+
+.page-parameter-trigger {
+  display: inline-flex;
+  flex: 0 0 38px;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 11px;
+  border: 1px solid var(--auralis-search-border);
+  background: var(--auralis-search-bg);
+  box-shadow: var(--auralis-search-shadow);
+  color: var(--auralis-text-muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.page-parameter-trigger:hover,
+.page-parameter-trigger--active {
+  color: var(--auralis-theme-accent);
+}
+
+.page-parameter-trigger:focus-visible {
+  outline: 2px solid var(--auralis-theme-accent);
+  outline-offset: 2px;
+}
+
+.page-parameter-trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .library-search-input {
@@ -2968,24 +3014,24 @@ input[type='range'].volume-overlay-slider {
   color: var(--auralis-text-faint);
 }
 
-.search-overlay-enter-active .library-search-bar,
-.search-overlay-leave-active .library-search-bar {
+.search-overlay-enter-active .page-search-tools,
+.search-overlay-leave-active .page-search-tools {
   transition:
     opacity 160ms ease,
     transform 160ms ease;
 }
 
-.search-overlay-leave-active .library-search-bar {
+.search-overlay-leave-active .page-search-tools {
   pointer-events: none;
 }
 
-.search-overlay-enter-from .library-search-bar,
-.search-overlay-leave-to .library-search-bar {
+.search-overlay-enter-from .page-search-tools,
+.search-overlay-leave-to .page-search-tools {
   transform: translateX(-50%) translateY(-4px);
 }
 
-.search-overlay-enter-to .library-search-bar,
-.search-overlay-leave-from .library-search-bar {
+.search-overlay-enter-to .page-search-tools,
+.search-overlay-leave-from .page-search-tools {
   transform: translateX(-50%) translateY(0);
 }
 
@@ -3402,15 +3448,15 @@ input[type='range'].volume-overlay-slider {
 
 /* Library 搜索层：减少动态效果时瞬时切换 */
 
-:where([data-reduced-motion='true']) .search-overlay-enter-active .library-search-bar,
-:where([data-reduced-motion='true']) .search-overlay-leave-active .library-search-bar {
+:where([data-reduced-motion='true']) .search-overlay-enter-active .page-search-tools,
+:where([data-reduced-motion='true']) .search-overlay-leave-active .page-search-tools {
   transition-duration: 0ms !important;
 }
 
-:where([data-reduced-motion='true']) .search-overlay-enter-from .library-search-bar,
-:where([data-reduced-motion='true']) .search-overlay-leave-to .library-search-bar,
-:where([data-reduced-motion='true']) .search-overlay-enter-to .library-search-bar,
-:where([data-reduced-motion='true']) .search-overlay-leave-from .library-search-bar {
+:where([data-reduced-motion='true']) .search-overlay-enter-from .page-search-tools,
+:where([data-reduced-motion='true']) .search-overlay-leave-to .page-search-tools,
+:where([data-reduced-motion='true']) .search-overlay-enter-to .page-search-tools,
+:where([data-reduced-motion='true']) .search-overlay-leave-from .page-search-tools {
   transform: translateX(-50%);
 }
 

@@ -210,7 +210,7 @@ onBeforeUnmount(() => {
           :aria-label="t('pageParameters.close')"
           @click="controller.close()"
         >
-          <span class="i-lucide-x" aria-hidden="true" />
+          <span class="i-lucide-chevron-up" aria-hidden="true" />
         </button>
       </header>
       <div ref="content" class="parameter-panel-content">

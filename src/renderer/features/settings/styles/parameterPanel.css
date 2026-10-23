@@ -59,7 +59,7 @@
   padding: 12px 16px 4px;
   border-top: 1px solid color-mix(in srgb, var(--auralis-border-subtle) 40%, transparent);
   color: var(--auralis-text-muted);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .page-parameter-sections {

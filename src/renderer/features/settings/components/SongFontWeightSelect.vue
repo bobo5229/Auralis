@@ -45,6 +45,7 @@ function select(value: string): void {
     :model-value="String(modelValue)"
     :options="options"
     :disabled="disabled"
+    :show-value-title="false"
     @update:model-value="select"
   />
 </template>

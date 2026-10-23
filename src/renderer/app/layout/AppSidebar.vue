@@ -28,7 +28,7 @@ import {
   useSidebarLayout,
 } from '@renderer/features/appearance/composables/useSidebarLayout'
 import { useSettingsDialog } from '@renderer/features/settings/composables/useSettingsDialog'
-import { usePageParameters } from '@renderer/features/appearance/composables/usePageParameters'
+import { useTheme } from '@renderer/composables/useTheme'
 import { preloadSettingsContent } from '@renderer/features/settings/utils/settingsContentLoader'
 import { auralis } from '@renderer/shared/ipc/client'
 import { rendererDiagnostics } from '@renderer/shared/diagnostics/rendererDiagnostics'
@@ -56,16 +56,9 @@ const router = useRouter()
 const playback = usePlayback()
 const { displayMode } = usePlayerDisplayMode()
 const { isSettingsOpen, openSettings } = useSettingsDialog()
-const pageParameters = usePageParameters()
-const canOpenPageParameters = computed(() =>
-  Boolean(pageParameters?.supported.value && pageParameters.context.value),
-)
-const pageParametersLabel = computed(() =>
-  t(
-    canOpenPageParameters.value
-      ? 'sidebar.tool.pageParameters'
-      : 'sidebar.tool.pageParametersUnavailable',
-  ),
+const { isDark, toggleTheme } = useTheme()
+const themeToggleLabel = computed(() =>
+  t(isDark.value ? 'sidebar.tool.switchToLightTheme' : 'sidebar.tool.switchToDarkTheme'),
 )
 const { sidebarFullHeight, sidebarCollapsed, setSidebarCollapsed } = useSidebarLayout()
 /** 收起图标栏仅在全高布局生效；悬浮布局始终展示完整侧栏。 */
@@ -1215,21 +1208,14 @@ onBeforeUnmount(() => {
             <SidebarIcon kind="refresh" :class="{ 'animate-spin': isRefreshing }" />
           </button>
           <button
-            v-tooltip.fast="pageParametersLabel"
+            v-tooltip.fast="themeToggleLabel"
             type="button"
             class="sidebar-tool-button"
-            :class="{ 'sidebar-tool-button-active': pageParameters?.open.value }"
-            :aria-label="pageParametersLabel"
-            :aria-disabled="!canOpenPageParameters"
-            aria-haspopup="dialog"
-            :aria-expanded="pageParameters?.open.value ?? false"
-            aria-controls="page-parameter-panel"
-            data-page-parameters-trigger
-            @click="
-              canOpenPageParameters && pageParameters?.toggle($event.currentTarget as HTMLElement)
-            "
+            :aria-label="themeToggleLabel"
+            data-theme-toggle
+            @click="toggleTheme()"
           >
-            <SidebarIcon kind="parameters" />
+            <SidebarIcon :kind="isDark ? 'sun' : 'moon'" />
           </button>
           <button
             v-tooltip.fast="t('sidebar.tool.facetsPanel')"

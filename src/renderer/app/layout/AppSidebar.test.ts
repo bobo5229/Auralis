@@ -3,6 +3,7 @@ import { createRenderer, h, nextTick, reactive, type Slots } from 'vue'
 import { createFocusTrap, type FocusTrap } from 'focus-trap'
 import type { SidebarPlaylistItem } from '@shared/types/playlist'
 import AppSidebar from './AppSidebar.vue'
+import { useTheme, THEME_STORAGE_KEY } from '@renderer/composables/useTheme'
 import { ShellTestElement as Host, shellTestDocument as doc } from './appShellTestHost'
 import { useSidebarLayout } from '@renderer/features/appearance/composables/useSidebarLayout'
 
@@ -574,4 +575,28 @@ describe('AppSidebar playlist operations', () => {
     expect(doc.body.querySelector('#sidebar-create-menu')).toBeNull()
     expect(find('.sidebar-resize-handle').props['aria-disabled']).toBe(true)
   })
+})
+
+describe('AppSidebar theme shortcut', () => {
+  it.each([false, true])(
+    'toggles the shared theme and persistent setting with a target label (collapsed=%s)',
+    async (collapsed) => {
+      useSidebarLayout().setSidebarCollapsed(collapsed)
+      await useTheme().setTheme('dark')
+      await mount()
+      const trigger = find('[data-theme-toggle]')
+      expect(doc.body.querySelector('[data-page-parameters-trigger]')).toBeNull()
+      expect(trigger.props['aria-label']).toBe('sidebar.tool.switchToLightTheme')
+      dispatch(trigger, 'click')
+      await settle()
+      expect(useTheme().isDark.value).toBe(false)
+      expect(trigger.props['aria-label']).toBe('sidebar.tool.switchToDarkTheme')
+      expect(localStorage.setItem).toHaveBeenLastCalledWith(THEME_STORAGE_KEY, 'light')
+      dispatch(trigger, 'click')
+      await settle()
+      expect(useTheme().isDark.value).toBe(true)
+      expect(trigger.props['aria-label']).toBe('sidebar.tool.switchToLightTheme')
+      expect(localStorage.setItem).toHaveBeenLastCalledWith(THEME_STORAGE_KEY, 'dark')
+    },
+  )
 })
